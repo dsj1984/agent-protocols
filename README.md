@@ -1,22 +1,31 @@
-# Agent Protocols
+# Agent Protocols 🤖
 
-A collection of personas and general instructions for agentic AI workflows.
+A structured framework of personas and global instructions designed to optimize
+agentic AI workflows. This repository provides a shared foundation for LLM-based
+agents to maintain quality, consistency, and professional standards across
+projects.
 
-## Project Structure
+## 📂 Project Structure
 
-- `personas/`: Definitions for different agent personas (Architect, Engineer,
-  Product, SRE).
-- `general/`: Global instructions and core philosophies.
-- `stacks/`: Technology stack specific guidelines.
+- **`personas/`**: Specialized roles for agents (Architect, Engineer, Product,
+  SRE).
+- **`general/`**: Core philosophies and cross-functional instructions.
 
-## Development
+## 🚀 Consumption
 
-### Prerequisites
+The most efficient way to use these protocols is as a Git submodule in your
+target project:
 
-- Node.js (v20 or later)
-- npm
+```bash
+git submodule add -b dist https://github.com/Area-Code-Technologies/agent-protocols.git .agent/protocols
+```
 
-### Installation
+> **Note:** The `dist` branch is automatically synchronized by CI to contain
+> only the relevant markdown files, keeping your project's repository clean.
+
+## 🛠 Development
+
+### Setup
 
 ```bash
 npm install
@@ -24,32 +33,18 @@ npm install
 
 ### Quality Control
 
-This project uses `markdownlint` for style checking and `prettier` for
-formatting.
+We use `markdownlint` and `prettier` to ensure documentation remains clean and
+consistent.
 
-#### Linting
+- **Check Linting:** `npm run lint`
+- **Apply Formatting:** `npm run format`
 
-Check for markdown style issues:
+### Git Workflow
 
-```bash
-npm run lint
-```
+This project utilizes **Husky** and **lint-staged**. Every commit is
+automatically validated and formatted before it is accepted.
 
-#### Formatting
+### CI/CD
 
-Automatically fix formatting issues:
-
-```bash
-npm run format
-```
-
-### Git Hooks
-
-We use `husky` and `lint-staged` to ensure all commits meet our quality
-standards. On every commit, changed markdown files are automatically linted and
-formatted.
-
-## CI/CD
-
-GitHub Actions automatically runs the markdown linter on every push to `main`
-and all pull requests to ensure consistency across the codebase.
+Continuous Integration via GitHub Actions validates every Pull Request and
+handles the deployment of the `dist` branch upon merges to `main`.
