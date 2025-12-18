@@ -1,0 +1,38 @@
+{
+  "name": "agent-protocols",
+  "version": "1.0.0",
+  "description": "",
+  "main": "index.js",
+  "scripts": {
+    "test": "echo \"Error: no test specified\" && exit 1",
+    "lint:md": "markdownlint \"**/*.md\" --ignore node_modules",
+    "format:md": "prettier --write \"**/*.md\"",
+    "lint": "npm run lint:md",
+    "format": "npm run format:md",
+    "prepare": "husky"
+  },
+  "lint-staged": {
+    "*.md": [
+      "markdownlint --fix",
+      "prettier --write"
+    ]
+  },
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/Area-Code-Technologies/agent-protocols.git"
+  },
+  "keywords": [],
+  "author": "",
+  "license": "ISC",
+  "type": "commonjs",
+  "bugs": {
+    "url": "https://github.com/Area-Code-Technologies/agent-protocols/issues"
+  },
+  "homepage": "https://github.com/Area-Code-Technologies/agent-protocols#readme",
+  "devDependencies": {
+    "husky": "^9.1.7",
+    "lint-staged": "^16.2.7",
+    "markdownlint-cli": "^0.47.0",
+    "prettier": "^3.7.4"
+  }
+}
