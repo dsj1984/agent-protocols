@@ -1,0 +1,35 @@
+name: Publish Dist
+on:
+  push:
+    branches: [ main ]
+    paths:
+      - 'personas/**'
+      - 'general/**'
+
+jobs:
+  build:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v3
+        with:
+          fetch-depth: 0
+
+      - name: Deploy to Dist Branch
+        run: |
+          git config --global user.name 'GitHub Action'
+          git config --global user.email 'action@github.com'
+          
+          # Force push only the necessary folders to the dist branch
+          # This uses a "subtree split" to create a synthetic history of just these folders
+          # OR simpler: just checkout dist, copy files over, and push.
+          
+          git checkout dist
+          git checkout main -- personas/ general/ # Bring the folders over
+          
+          # Check if there are changes
+          if [[ -n $(git status -s) ]]; then
+            git commit -am "Auto-update from main"
+            git push origin dist
+          else
+            echo "No changes to deploy"
+          fi
