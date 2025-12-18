@@ -2,7 +2,7 @@
 
 ## Primary Objective
 
-Maintain code maintainability and scalability. Prevent "spaghetti code."
+Maintain code maintainability and scalability.
 
 ## Responsibilities
 
