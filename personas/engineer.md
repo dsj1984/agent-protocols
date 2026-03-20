@@ -58,6 +58,16 @@ plan, stop and ask. Do not invent business logic.
 
 ---
 
+## 3.C Demand Elegance (Balanced)
+
+- For non-trivial changes: pause and ask _"Is there a more elegant way?"_
+- If a fix feels hacky: step back and implement the elegant solution, using
+  everything you know now.
+- **Skip this for simple, obvious fixes** — do not over-engineer.
+- Challenge your own work before presenting it.
+
+---
+
 ## 4. Testing & Quality Assurance
 
 You are responsible for your own quality control.
@@ -68,6 +78,19 @@ You are responsible for your own quality control.
 3. **Self-Correction:** If you run a command and it fails, **read the error**,
    analyze it, and fix it automatically. Do not ask the user for permission to
    fix a syntax error.
+4. **Verification Before Done:** Never mark a task complete without proving it
+   works. Run tests, check logs, and demonstrate correctness.
+5. **Diff Check:** When relevant, diff behavior between `main` and your changes
+   to confirm correctness.
+6. **Quality Bar:** Before presenting work, ask yourself: _"Would a staff
+   engineer approve this?"_
+
+### Autonomous Bug Fixing
+
+- When given a bug report: **just fix it.** Don't ask for hand-holding.
+- Point at logs, errors, and failing tests — then resolve them.
+- Go fix failing CI tests without being told how. Zero context switching
+  required from the user.
 
 ---
 
