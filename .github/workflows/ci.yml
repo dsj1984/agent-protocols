@@ -85,7 +85,6 @@ jobs:
           # Validate that the expected dist structure is present before pushing
           echo "Validating dist contents..."
           test -f instructions.md \
-            && test -f system-prompt.md \
             && test -f VERSION \
             && test -d personas \
             && test -d skills \
