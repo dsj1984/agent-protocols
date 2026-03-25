@@ -29,10 +29,10 @@ consistency, and architectural guardrails.
 │   ├── sprint-playbook-template.md
 │   ├── technical-spec-template.md
 │   └── test-plan_template.md
-└── workflows/               # Reusable single-command audit workflows (organized by type)
-    ├── audits/
-    ├── sdlc/
-    └── testing/
+└── workflows/               # Reusable single-command auto-registered workflows
+    ├── accessibility-audit.md
+    ├── plan-sprint.md
+    └── ...
 ```
 
 ---

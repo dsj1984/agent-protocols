@@ -93,27 +93,20 @@ describe('Workflows — each file must contain ## Constraint', () => {
       assert.fail('Missing .agents/workflows/ directory');
     });
   } else {
-    const categories = fs
-      .readdirSync(workflowsDir, { withFileTypes: true })
-      .filter((d) => d.isDirectory())
-      .map((d) => d.name);
+    const workflows = fs
+      .readdirSync(workflowsDir)
+      .filter((f) => f.endsWith('.md'));
 
-    assert.ok(categories.length > 0, '.agents/workflows/ contains no category directories');
+    assert.ok(workflows.length > 0, '.agents/workflows/ contains no markdown files');
 
-    for (const category of categories) {
-      const workflows = fs
-        .readdirSync(agentsPath('workflows', category))
-        .filter((f) => f.endsWith('.md'));
-
-      for (const workflow of workflows) {
-        it(`${category}/${workflow} contains ## Constraint`, () => {
-          const content = fs.readFileSync(agentsPath('workflows', category, workflow), 'utf8');
-          assert.ok(
-            content.includes('## Constraint'),
-            `${category}/${workflow} is missing the required ## Constraint section`,
-          );
-        });
-      }
+    for (const workflow of workflows) {
+      it(`${workflow} contains ## Constraint`, () => {
+        const content = fs.readFileSync(agentsPath('workflows', workflow), 'utf8');
+        assert.ok(
+          content.includes('## Constraint'),
+          `${workflow} is missing the required ## Constraint section`,
+        );
+      });
     }
   }
 });
