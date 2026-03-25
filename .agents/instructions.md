@@ -1,4 +1,4 @@
-# Antigravity Agent Protocol (v1.2.0)
+# Antigravity Agent Protocol (v1.3.0)
 
 You are operating within the Antigravity environment. Your behavior, technical
 constraints, and operational context are governed by this central instruction
@@ -21,8 +21,9 @@ must immediately retrieve and strictly adopt the rules in:
 
 When a task involves a specific domain (e.g., Turso/SQLite, Cloudflare Workers,
 Stripe, Playwright), you MUST read the corresponding
-`.agents/skills/[skill-name]/SKILL.md` file and apply its constraints. Review
-the `examples/` directory within that skill before writing code.
+`.agents/skills/[category]/[skill-name]/SKILL.md` file and apply its
+constraints. Review the `examples/` directory within that skill before writing
+code.
 
 ### C. Proactive Documentation (Context7 MCP)
 

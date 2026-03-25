@@ -1,4 +1,4 @@
-# Agent Protocols — User Guide (1.2.0)
+# Agent Protocols — User Guide (1.3.0)
 
 This is the `.agents/` bundle distributed to your project via Git submodule. It
 contains everything your AI coding agents need to operate with strict quality,
@@ -15,15 +15,21 @@ consistency, and architectural guardrails.
 │   ├── engineer.md
 │   ├── product.md
 │   └── sre.md
-├── skills/                  # Tech-stack-specific guardrails
-│   └── ...
+├── skills/                  # Tech-stack-specific guardrails (organized by category)
+│   ├── frontend/
+│   ├── backend/
+│   ├── security/
+│   ├── qa/
+│   └── architecture/
 ├── templates/               # Sprint planning markdown templates
 │   ├── prd-template.md
 │   ├── sprint-playbook-template.md
 │   ├── technical-spec-template.md
 │   └── test-plan_template.md
-└── workflows/               # Reusable single-command audit workflows
-    └── ...
+└── workflows/               # Reusable single-command audit workflows (organized by type)
+    ├── audits/
+    ├── sdlc/
+    └── testing/
 ```
 
 ---
@@ -120,21 +126,21 @@ skills/<skill-name>/
 
 ### Available Skills
 
-| Skill                           | Purpose                                               |
-| ------------------------------- | ----------------------------------------------------- |
-| `sqlite-drizzle-expert`         | Enforces SQLite dialect for Drizzle ORM and Turso     |
-| `cloudflare-hono-architect`     | Prevents Node.js module usage in edge Workers         |
-| `cloudflare-queue-manager`      | Ensures idempotent, resilient queue consumer logic    |
-| `zero-trust-security-engineer`  | Enforces Zod validation and Clerk auth on all routes  |
-| `astro-react-island-strategist` | Maintains Astro/React island hydration boundaries     |
-| `expo-react-native-developer`   | Prevents DOM elements in React Native code            |
-| `monorepo-path-strategist`      | Enforces workspace aliases and dependency boundaries  |
-| `resilient-qa-automation`       | Writes flake-free Playwright and Vitest tests         |
-| `stripe-billing-expert`         | Ensures idempotency keys and webhook signature checks |
-| `ui-accessibility-engineer`     | Enforces Tailwind CSS and WCAG 2.1 AA compliance      |
-| `autonomous-coding-standards`   | Enforces structural rules for agent-protocols library |
-| `conventional-commits-enforcer` | Validates commit messages against conventional specs  |
-| `secure-telemetry-logger`       | Standardizes structured logging and PII stripping     |
+| Skill                           | Category       | Purpose                                               |
+| ------------------------------- | -------------- | ----------------------------------------------------- |
+| `sqlite-drizzle-expert`         | `backend`      | Enforces SQLite dialect for Drizzle ORM and Turso     |
+| `cloudflare-hono-architect`     | `backend`      | Prevents Node.js module usage in edge Workers         |
+| `cloudflare-queue-manager`      | `backend`      | Ensures idempotent, resilient queue consumer logic    |
+| `stripe-billing-expert`         | `backend`      | Ensures idempotency keys and webhook signature checks |
+| `astro-react-island-strategist` | `frontend`     | Maintains Astro/React island hydration boundaries     |
+| `expo-react-native-developer`   | `frontend`     | Prevents DOM elements in React Native code            |
+| `ui-accessibility-engineer`     | `frontend`     | Enforces Tailwind CSS and WCAG 2.1 AA compliance      |
+| `zero-trust-security-engineer`  | `security`     | Enforces Zod validation and Clerk auth on all routes  |
+| `secure-telemetry-logger`       | `security`     | Standardizes structured logging and PII stripping     |
+| `resilient-qa-automation`       | `qa`           | Writes flake-free Playwright and Vitest tests         |
+| `monorepo-path-strategist`      | `architecture` | Enforces workspace aliases and dependency boundaries  |
+| `autonomous-coding-standards`   | `architecture` | Enforces structural rules for agent-protocols library |
+| `conventional-commits-enforcer` | `architecture` | Validates commit messages against conventional specs  |
 
 **Usage:** Skills are loaded automatically by agents that support the skill
 discovery pattern, or you can reference them directly in prompts:
@@ -206,19 +212,19 @@ project.
 
 ### Available Workflows
 
-| Workflow File                 | Slash Command               | Output File             | Purpose                                             |
-| ----------------------------- | --------------------------- | ----------------------- | --------------------------------------------------- |
-| `architecture-audit.md`       | `/architecture-audit`       | `architecture-audit.md` | Clean code, over-engineering & coupling review      |
-| `devops-audit.md`             | `/devops-audit`             | `devops-audit.md`       | CI/CD, DX tooling & infrastructure review           |
-| `qa-audit.md`                 | `/qa-audit`                 | `qa-audit.md`           | Test coverage, test plans & mocking strategy review |
-| `seo-audit.md`                | `/seo-audit`                | `seo-audit.md`          | Traditional SEO + Generative Engine Optimization    |
-| `accessibility-audit.md`      | `/accessibility-audit`      | `performance-audit.md`  | Lighthouse performance audit & optimization loop    |
-| `sre-audit.md`                | `/sre-audit`                | `release-audit.md`      | Production release candidate readiness audit        |
-| `run-test-plan.md`            | `/run-test-plan`            | (Updates Test Plan)     | Executes Playwright & SQL tests against a test plan |
-| `generate-prd.md`             | `/generate-prd`             | `prd.md`                | Generates PRD from roadmap items                    |
-| `generate-tech-spec.md`       | `/generate-tech-spec`       | `tech-spec.md`          | Generates Technical Spec from PRD                   |
-| `generate-sprint-playbook.md` | `/generate-sprint-playbook` | `playbook.md`           | Generates Sprint Playbook from PRD + Tech Spec      |
-| `plan-sprint.md`              | `/plan-sprint`              | (Orchestrator)          | Sequentially runs PRD, Tech Spec, and Playbook      |
+| Workflow File                 | Category  | Slash Command               | Output File             | Purpose                                             |
+| ----------------------------- | --------- | --------------------------- | ----------------------- | --------------------------------------------------- |
+| `architecture-audit.md`       | `audits`  | `/architecture-audit`       | `architecture-audit.md` | Clean code, over-engineering & coupling review      |
+| `devops-audit.md`             | `audits`  | `/devops-audit`             | `devops-audit.md`       | CI/CD, DX tooling & infrastructure review           |
+| `qa-audit.md`                 | `audits`  | `/qa-audit`                 | `qa-audit.md`           | Test coverage, test plans & mocking strategy review |
+| `seo-audit.md`                | `audits`  | `/seo-audit`                | `seo-audit.md`          | Traditional SEO + Generative Engine Optimization    |
+| `accessibility-audit.md`      | `audits`  | `/accessibility-audit`      | `performance-audit.md`  | Lighthouse performance audit & optimization loop    |
+| `sre-audit.md`                | `audits`  | `/sre-audit`                | `release-audit.md`      | Production release candidate readiness audit        |
+| `generate-prd.md`             | `sdlc`    | `/generate-prd`             | `prd.md`                | Generates PRD from roadmap items                    |
+| `generate-tech-spec.md`       | `sdlc`    | `/generate-tech-spec`       | `tech-spec.md`          | Generates Technical Spec from PRD                   |
+| `generate-sprint-playbook.md` | `sdlc`    | `/generate-sprint-playbook` | `playbook.md`           | Generates Sprint Playbook from PRD + Tech Spec      |
+| `plan-sprint.md`              | `sdlc`    | `/plan-sprint`              | (Orchestrator)          | Sequentially runs PRD, Tech Spec, and Playbook      |
+| `run-test-plan.md`            | `testing` | `/run-test-plan`            | (Updates Test Plan)     | Executes Playwright & SQL tests against a test plan |
 
 ### Setting Up Slash Commands
 

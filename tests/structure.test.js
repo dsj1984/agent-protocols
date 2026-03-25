@@ -49,20 +49,27 @@ describe('Skills — each directory must contain SKILL.md', () => {
       assert.fail('Missing .agents/skills/ directory');
     });
   } else {
-    const skills = fs
+    const categories = fs
       .readdirSync(skillsDir, { withFileTypes: true })
       .filter((d) => d.isDirectory())
       .map((d) => d.name);
 
-    assert.ok(skills.length > 0, '.agents/skills/ contains no skill directories');
+    assert.ok(categories.length > 0, '.agents/skills/ contains no category directories');
 
-    for (const skill of skills) {
-      it(`${skill}/SKILL.md exists`, () => {
-        assert.ok(
-          fs.existsSync(agentsPath('skills', skill, 'SKILL.md')),
-          `Missing SKILL.md in .agents/skills/${skill}/`,
-        );
-      });
+    for (const category of categories) {
+      const skills = fs
+        .readdirSync(agentsPath('skills', category), { withFileTypes: true })
+        .filter((d) => d.isDirectory())
+        .map((d) => d.name);
+
+      for (const skill of skills) {
+        it(`${category}/${skill}/SKILL.md exists`, () => {
+          assert.ok(
+            fs.existsSync(agentsPath('skills', category, skill, 'SKILL.md')),
+            `Missing SKILL.md in .agents/skills/${category}/${skill}/`,
+          );
+        });
+      }
     }
   }
 });
@@ -78,20 +85,27 @@ describe('Workflows — each file must contain ## Constraint', () => {
       assert.fail('Missing .agents/workflows/ directory');
     });
   } else {
-    const workflows = fs
-      .readdirSync(workflowsDir)
-      .filter((f) => f.endsWith('.md'));
+    const categories = fs
+      .readdirSync(workflowsDir, { withFileTypes: true })
+      .filter((d) => d.isDirectory())
+      .map((d) => d.name);
 
-    assert.ok(workflows.length > 0, '.agents/workflows/ contains no .md files');
+    assert.ok(categories.length > 0, '.agents/workflows/ contains no category directories');
 
-    for (const workflow of workflows) {
-      it(`${workflow} contains ## Constraint`, () => {
-        const content = fs.readFileSync(agentsPath('workflows', workflow), 'utf8');
-        assert.ok(
-          content.includes('## Constraint'),
-          `${workflow} is missing the required ## Constraint section`,
-        );
-      });
+    for (const category of categories) {
+      const workflows = fs
+        .readdirSync(agentsPath('workflows', category))
+        .filter((f) => f.endsWith('.md'));
+
+      for (const workflow of workflows) {
+        it(`${category}/${workflow} contains ## Constraint`, () => {
+          const content = fs.readFileSync(agentsPath('workflows', category, workflow), 'utf8');
+          assert.ok(
+            content.includes('## Constraint'),
+            `${category}/${workflow} is missing the required ## Constraint section`,
+          );
+        });
+      }
     }
   }
 });

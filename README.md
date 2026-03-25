@@ -14,9 +14,9 @@ agent-protocols/
 │   ├── instructions.md      # Consolidated system prompt & core philosophies
 │   ├── README.md            # Consumer-facing user guide
 │   ├── personas/            # Role-specific constraint files
-│   ├── skills/              # Modular tech-stack guardrails
+│   ├── skills/              # Modular tech-stack guardrails (organized by category)
 │   ├── templates/           # Sprint planning markdown templates
-│   └── workflows/           # Reusable single-command audit workflows
+│   └── workflows/           # Reusable single-command SDLC workflows (organized by type)
 ├── .github/workflows/       # CI/CD automation
 │   └── ci.yml               # Linting, testing, and deployment
 ├── package.json             # Tooling: markdownlint, prettier, husky
@@ -38,7 +38,7 @@ git submodule add -b dist https://github.com/dsj1984/agent-protocols.git .agents
 
 This gives them a `.agents/` folder containing the instructions bundle directly:
 `.agents/README.md`, `.agents/instructions.md`, `.agents/personas/`,
-`.agents/skills/`, `.agents/sdlc/`, and more. See
+`.agents/skills/`, `.agents/workflows/`, and more. See
 [`.agents/README.md`](.agents/README.md) for the consumer-facing user guide.
 
 ### Consumer Update Strategies
