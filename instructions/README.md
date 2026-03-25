@@ -9,6 +9,7 @@ strict quality, consistency, and architectural guardrails.
 ```text
 instructions/
 ├── instructions.md          # Global rules every agent must follow
+├── system-prompt.md         # Template for your agent's system configuration
 ├── personas/                # Role-specific behavior constraints
 │   ├── architect.md
 │   ├── engineer.md
@@ -138,6 +139,21 @@ Ready-to-use markdown templates for sprint documentation:
 
 > Act as the Product Manager. Using the PRD template, generate a PRD for Sprint
 > 23 based on the items in `roadmap.md`.
+
+---
+
+## ⚙️ Configuring your Agent
+
+To fully activate these protocols, you should configure your AI agent (via
+`.cursorrules`, `GEMINI.md`, or your tool's "System Instructions") with the
+content of **`system-prompt.md`**.
+
+This "Meta-Prompt" instructs the agent to:
+
+1. **Ingest** the baseline rules from `instructions.md`.
+2. **Route** to the correct persona in `personas/` when asked.
+3. **Activate** domain-specific guardrails from `skills/`.
+4. **Use** Context7 MCP for live documentation retrieval.
 
 ---
 
