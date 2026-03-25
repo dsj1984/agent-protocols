@@ -6,9 +6,18 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 and this project adheres to
 [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [1.1.1] - 2026-03-25
+
+### Core Improvements
+
+- **Workflow Renaming**: Standardized sprint planning workflows from `plan-*` to
+  `generate-*` for clarity.
+- **Git Integration**: Added mandatory git commit steps to all sprint playbook
+  tasks to ensure progress is saved and pre-commit hooks are enforced.
+
 ## [1.1.0] - 2026-03-25
 
-### Improvements
+### Key Improvements
 
 - **Automated Sprint Planning**: Restructured `SDLC` folder into automated
   `/plan-sprint` workflows.

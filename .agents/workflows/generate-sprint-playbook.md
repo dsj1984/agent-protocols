@@ -84,7 +84,7 @@ templates defined in `.agents/templates/sprint-playbook-template.md`.
 Sprint [SPRINT_NUMBER].[TASK_NUMBER]: Act as an [Persona].
 [Detailed task instructions here.]
 
-AGENT INSTRUCTION: Ensure all validation and pre-commit hooks pass. Upon successful completion, open `docs/sprints/sprint-[SPRINT_NUMBER]/playbook.md` and check off `- [x] **[SPRINT_NUMBER].[TASK_NUMBER]**`.
+AGENT INSTRUCTION: Ensure all validation and pre-commit hooks pass successfully. Upon completion, perform a git commit of your changes with the message "type: [SPRINT_NUMBER].[TASK_NUMBER] - [Task Title]". Finally, open `docs/sprints/sprint-[SPRINT_NUMBER]/playbook.md` and check off `- [x] **[SPRINT_NUMBER].[TASK_NUMBER]**`.
 ```
 
 ## Step 5 - Output Artifacts

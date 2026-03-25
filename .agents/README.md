@@ -1,4 +1,4 @@
-# Agent Protocols — User Guide (1.1.0)
+# Agent Protocols — User Guide (1.1.1)
 
 This is the `.agents/` bundle distributed to your project via Git submodule. It
 contains everything your AI coding agents need to operate with strict quality,
@@ -121,19 +121,19 @@ In your "Director's Chair" (PM chat), simply type:
 
 ### What it does (Sequential Automation)
 
-1. **Product Discovery (`/plan-prd`)**:
+1. **Product Discovery (`/generate-prd`)**:
    - Reads `roadmap.md` for the target sprint items.
    - Generates a strict **Product Requirements Document (PRD)** focusing on
      Problem Statements, User Stories, and Acceptance Criteria.
    - Saves to: `docs/sprints/sprint-[##]-prd.md`.
 
-1. **Architecture Review (`/plan-tech-spec`)**:
+1. **Architecture Review (`/generate-tech-spec`)**:
    - Cross-references the PRD with `data-dictionary.md` and `architecture.md`.
    - Drafts an explicit **Technical Specification** mapping out Turso/Drizzle
      schema changes and Hono API routes.
    - Saves to: `docs/sprints/sprint-[##]-tech-spec.md`.
 
-1. **Playbook Generation (`/plan-playbook`)**
+1. **Playbook Generation (`/generate-sprint-playbook`)**
    - Synthesizes the PRD and Tech Spec into an actionable **Sprint Playbook**.
    - Organizes tasks into **Chat Sessions** (Backend Foundation, Web/Mobile UI,
      QA Testing).
