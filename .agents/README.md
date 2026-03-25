@@ -7,7 +7,7 @@ strict quality, consistency, and architectural guardrails.
 ## 📂 What's Inside
 
 ```text
-instructions/
+.agents/
 ├── instructions.md          # Global rules every agent must follow
 ├── system-prompt.md         # Template for your agent's system configuration
 ├── personas/                # Role-specific behavior constraints
@@ -25,13 +25,23 @@ instructions/
 │   ├── monorepo-path-strategist/
 │   ├── resilient-qa-automation/
 │   ├── stripe-billing-expert/
-│   └── ui-accessibility-engineer/
-└── sdlc/                    # Sprint planning workflows and templates
-    ├── planning-workflow.md
-    └── spec-templates/
-        ├── prd-template.md
-        ├── sprint-playbook-template.md
-        └── technical-spec-template.md
+│   ├── ui-accessibility-engineer/
+│   ├── conventional-commits-enforcer/
+│   ├── autonomous-coding-standards/
+│   └── secure-telemetry-logger/
+├── sdlc/                    # Sprint planning workflows and templates
+│   ├── planning-workflow.md
+│   └── spec-templates/
+│       ├── prd-template.md
+│       ├── sprint-playbook-template.md
+│       └── technical-spec-template.md
+└── workflows/               # Reusable single-command audit workflows
+    ├── architecture-audit.md
+    ├── devops-audit.md
+    ├── quality-audit.md
+    ├── seo-audit.md
+    ├── accessibility-audit.md
+    └── sre-audit.md
 ```
 
 ---
@@ -139,6 +149,40 @@ Ready-to-use markdown templates for sprint documentation:
 
 > Act as the Product Manager. Using the PRD template, generate a PRD for Sprint
 > 23 based on the items in `roadmap.md`.
+
+---
+
+## 🔁 Workflows (`workflows/`)
+
+Workflows are reusable, single-command audit prompts designed to be invoked as
+slash commands in your IDE (e.g., `/architecture-audit`). Each workflow is
+self-contained — it defines the agent's role, a read-only scan process, an
+output template, and strict constraints so results are consistent across any
+project.
+
+### Available Workflows
+
+| Workflow File            | Slash Command          | Purpose                                            |
+| ------------------------ | ---------------------- | -------------------------------------------------- |
+| `architecture-audit.md`  | `/architecture-audit`  | Clean code, over-engineering & coupling review     |
+| `devops-audit.md`        | `/devops-audit`        | CI/CD, DX tooling & infrastructure review          |
+| `quality-audit.md`       | `/quality-audit`       | Test coverage, flakiness & mocking strategy review |
+| `seo-audit.md`           | `/seo-audit`           | Traditional SEO + Generative Engine Optimization   |
+| `accessibility-audit.md` | `/accessibility-audit` | Lighthouse performance audit & optimization loop   |
+| `sre-audit.md`           | `/sre-audit`           | Production release candidate readiness audit       |
+
+### Setting Up Slash Commands
+
+Configure your IDE's custom commands (e.g., Cursor's `.cursorrules` slash
+commands or Gemini's custom instructions) to point to these workflow files:
+
+1. Create a slash command (e.g., `/architecture-audit`) in your IDE.
+2. Set the prompt content to the full text of the corresponding workflow file.
+3. Invoke it from anywhere in your project — the workflow is self-contained and
+   requires no project-specific context to run.
+
+> **Note:** The `accessibility-audit` workflow requires setting the
+> `[TARGET_URL]` placeholder to your local dev server URL before running.
 
 ---
 

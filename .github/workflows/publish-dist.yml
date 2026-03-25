@@ -3,7 +3,7 @@ on:
   push:
     branches: [ main ]
     paths:
-      - 'instructions/**'
+      - '.agents/**'
 
 jobs:
   build:
@@ -20,9 +20,9 @@ jobs:
           git config --global user.name 'GitHub Action'
           git config --global user.email 'action@github.com'
 
-          # Capture the contents of instructions/ from main into a temp dir
+          # Capture the contents of .agents/ from main into a temp dir
           mkdir /tmp/instructions-dist
-          cp -r instructions/. /tmp/instructions-dist/
+          cp -r .agents/. /tmp/instructions-dist/
 
           # Switch to dist branch and clear it
           git checkout dist

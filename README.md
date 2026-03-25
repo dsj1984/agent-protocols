@@ -9,7 +9,7 @@ professional standards across projects.
 
 ```text
 agent-protocols/
-├── instructions/            # ← Distributed to consumers via the `dist` branch
+├── .agents/                 # ← Distributed to consumers via the `dist` branch
 │   ├── instructions.md      # Global agent behavior and core philosophies
 │   ├── README.md            # Consumer-facing user guide
 │   ├── personas/            # Role-specific constraint files
@@ -38,7 +38,7 @@ agent-protocols/
 └── README.md                # ← You are here (internal contributor guide)
 ```
 
-> **Key distinction:** Only the `instructions/` directory is distributed to
+> **Key distinction:** Only the `.agents/` directory is distributed to
 > consumers. Everything else (CI configs, tooling, this README) stays internal
 > to this repository.
 
@@ -54,8 +54,7 @@ git submodule add -b dist https://github.com/Area-Code-Technologies/agent-protoc
 This gives them a `.agents/` folder containing the instructions bundle directly:
 `.agents/README.md`, `.agents/instructions.md`, `.agents/personas/`,
 `.agents/skills/`, `.agents/sdlc/`, and more. See
-[`instructions/README.md`](instructions/README.md) for the consumer-facing user
-guide.
+[`.agents/README.md`](.agents/README.md) for the consumer-facing user guide.
 
 ### Consumer Update Strategies
 
@@ -136,7 +135,7 @@ All markdown is validated with `markdownlint` and formatted with `prettier`:
 ### Git Workflow
 
 1. Create a feature branch from `main`.
-2. Make your changes to files inside `instructions/`.
+2. Make your changes to files inside `.agents/`.
 3. Commit — Husky + lint-staged will automatically lint and format staged `.md`
    files before the commit is accepted.
 4. Open a Pull Request against `main`. The `lint.yml` workflow will validate
@@ -144,12 +143,12 @@ All markdown is validated with `markdownlint` and formatted with `prettier`:
 
 ### CI/CD Pipeline
 
-| Workflow           | Trigger                        | Purpose                                    |
-| ------------------ | ------------------------------ | ------------------------------------------ |
-| `lint.yml`         | Push/PR to `main`              | Validates all markdown via `npm run lint`  |
-| `publish-dist.yml` | Push to `main` (instructions/) | Syncs `instructions/` to the `dist` branch |
+| Workflow           | Trigger                   | Purpose                                   |
+| ------------------ | ------------------------- | ----------------------------------------- |
+| `lint.yml`         | Push/PR to `main`         | Validates all markdown via `npm run lint` |
+| `publish-dist.yml` | Push to `main` (.agents/) | Syncs `.agents/` to the `dist` branch     |
 
-When changes to `instructions/**` are merged into `main`, the `publish-dist`
-workflow automatically copies the `instructions/` directory to the `dist`
-branch. Consumers pinned to `dist` will pick up the changes on their next
-submodule update.
+When changes to `.agents/**` are merged into `main`, the `publish-dist` workflow
+automatically copies the `.agents/` directory contents to the `dist` branch.
+Consumers pinned to `dist` will pick up the changes on their next submodule
+update.
