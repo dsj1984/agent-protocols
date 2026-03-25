@@ -4,14 +4,18 @@
   "description": "",
   "main": "index.js",
   "scripts": {
-    "test": "echo \"Error: no test specified\" && exit 1",
-    "lint:md": "markdownlint \"**/*.md\" --ignore node_modules",
-    "format:md": "prettier --write \"**/*.md\"",
+    "test": "node --test",
+    "lint:md": "markdownlint \".agents/**/*.md\" \"*.md\" --ignore node_modules",
+    "format:md": "prettier --write \".agents/**/*.md\" \"*.md\"",
     "lint": "npm run lint:md",
     "format": "npm run format:md",
     "prepare": "husky"
   },
   "lint-staged": {
+    ".agents/**/*.md": [
+      "markdownlint --fix",
+      "prettier --write"
+    ],
     "*.md": [
       "markdownlint --fix",
       "prettier --write"
@@ -24,7 +28,7 @@
   "keywords": [],
   "author": "",
   "license": "ISC",
-  "type": "commonjs",
+  "type": "module",
   "bugs": {
     "url": "https://github.com/Area-Code-Technologies/agent-protocols/issues"
   },
