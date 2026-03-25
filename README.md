@@ -151,3 +151,5 @@ speed, precision, and high-context reasoning:
 - **LLM Engine:** Google AI Ultra
 - **IDE:** Google Antigravity IDE (using Gemini & Claude models)
 - **Voice Interface:** Wispr Flow
+- **Asynchronous Agent:** Google Jules (experimental)
+- **Context Engine:** Context7 (indirectly via MCP)
