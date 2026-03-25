@@ -6,7 +6,7 @@
 
 ---
 
-### [DOMAIN-001] [Feature Name]
+## [DOMAIN-001] [Feature Name]
 
 - **Seed Account:** [Role] (`[exact.email@from-matrix.com]`)
 - **Target Platform:** [Web | Mobile iOS | Mobile Android | Cross-Platform]
