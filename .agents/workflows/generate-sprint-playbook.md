@@ -25,9 +25,9 @@ when executing this command.
 Before generating any tasks, you MUST read the following sources:
 
 1. `roadmap.md`: Identify the specific features slated for the requested sprint.
-1. `docs/sprints/sprint-[SPRINT_NUMBER]-prd.md`: Ensure EVERY Acceptance
+1. `docs/sprints/sprint-[SPRINT_NUMBER]/prd.md`: Ensure EVERY Acceptance
    Criteria has a corresponding implementation step. Do not drop business logic.
-1. `docs/sprints/sprint-[SPRINT_NUMBER]-tech-spec.md`, `data-dictionary.md`, and
+1. `docs/sprints/sprint-[SPRINT_NUMBER]/tech-spec.md`, `data-dictionary.md`, and
    `architecture.md`: Ensure all generated APIs, UI components, DB schemas, and
    Infrastructure configurations align perfectly with the defined architecture.
    Explicitly list file paths in the tasks.

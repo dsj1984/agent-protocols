@@ -37,7 +37,7 @@ Include the following:
 
 ## Step 3 - Output Artifacts
 
-Save the generated PRD output to `docs/sprints/sprint-[SPRINT_NUMBER]-prd.md`.
+Save the generated PRD output to `docs/sprints/sprint-[SPRINT_NUMBER]/prd.md`.
 
 ## Constraint
 

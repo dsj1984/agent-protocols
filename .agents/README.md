@@ -28,6 +28,30 @@ consistency, and architectural guardrails.
 
 ---
 
+## 📂 Project Documentation Structure (`docs/`)
+
+To ensure consistency across parallel agent execution, all projects using these
+protocols MUST adhere to the following `docs/` folder structure:
+
+```text
+docs/
+├── architecture.md          # Core system design and tech stack
+├── data-dictionary.md       # Database schema and Zod validation rules
+├── roadmap.md               # High-level sprint goals and feature list
+├── sprints/                 # Sprint-specific planning artifacts
+│   └── sprint-[##]/
+│       ├── prd.md           # Product Requirements (User Stories, ACs)
+│       ├── tech-spec.md     # Technical Specification (implementation plan)
+│       └── playbook.md      # Actionable tasks for AI agents
+└── test-plans/              # Domain-specific QA test plans
+```
+
+> [!IMPORTANT] Always verify the existence of these files before starting a new
+> chat session. Use the `/plan-sprint` command to auto-generate the sprint
+> folder and its contents.
+
+---
+
 ## 📄 Templates (`templates/`)
 
 Standardized markdown blueprints used by agents during the planning and testing
@@ -143,13 +167,13 @@ In your "Director's Chair" (PM chat), simply type:
    - Reads `roadmap.md` for the target sprint items.
    - Generates a strict **Product Requirements Document (PRD)** focusing on
      Problem Statements, User Stories, and Acceptance Criteria.
-   - Saves to: `docs/sprints/sprint-[##]-prd.md`.
+   - Saves to: `docs/sprints/sprint-[##]/prd.md`.
 
 1. **Architecture Review (`/generate-tech-spec`)**:
    - Cross-references the PRD with `data-dictionary.md` and `architecture.md`.
    - Drafts an explicit **Technical Specification** mapping out Turso/Drizzle
      schema changes and Hono API routes.
-   - Saves to: `docs/sprints/sprint-[##]-tech-spec.md`.
+   - Saves to: `docs/sprints/sprint-[##]/tech-spec.md`.
 
 1. **Playbook Generation (`/generate-sprint-playbook`)**
    - Synthesizes the PRD and Tech Spec into an actionable **Sprint Playbook**.

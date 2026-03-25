@@ -59,7 +59,7 @@ Before permitting any code generation, you must enforce this workflow:
 - **Context:** A brief summary of what files will be touched.
 - **Pseudo-code:** High-level logic flow.
 
-### Level 2: Complex Feature (Output to `docs/plans/`)
+### Level 2: Complex Feature (Output to `docs/sprints/sprint-[##]/tech-spec.md` or `docs/architecture.md`)
 
 Create a markdown file containing:
 

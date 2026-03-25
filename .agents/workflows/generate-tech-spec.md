@@ -20,7 +20,7 @@ when executing this command.
 
 Read and analyze the following files:
 
-1. `docs/sprints/sprint-[SPRINT_NUMBER]-prd.md`
+1. `docs/sprints/sprint-[SPRINT_NUMBER]/prd.md`
 1. `data-dictionary.md`
 1. `architecture.md`
 
@@ -42,7 +42,7 @@ Generate an explicit technical specification outlining:
 ## Step 3 - Output Artifacts
 
 Save the generated specification to
-`docs/sprints/sprint-[SPRINT_NUMBER]-tech-spec.md`.
+`docs/sprints/sprint-[SPRINT_NUMBER]/tech-spec.md`.
 
 ## Constraint
 

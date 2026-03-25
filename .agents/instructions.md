@@ -52,8 +52,8 @@ the user using the following warning format before proceeding:
    documentation (`README.md`, `architecture.md`, `data-dictionary.md`) to
    understand the tech stack and monorepo structure.
 2. **Plan First:** For non-trivial tasks (3+ steps or architectural decisions),
-   enter **Plan Mode**. Generate a `docs/plans/[task_name].md` file outlining
-   the approach before touching code.
+   enter **Plan Mode**. Generate a `docs/sprints/sprint-[##]/tech-spec.md` or
+   `docs/architecture.md` file outlining the approach before touching code.
 3. **Artifacts over Chat:** Create log files for test results, build outputs, or
    debug sessions rather than pasting large code blocks in chat.
 4. **Idempotency:** Ensure scripts and commands can be run multiple times

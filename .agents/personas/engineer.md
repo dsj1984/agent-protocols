@@ -12,7 +12,8 @@ plan, stop and ask. Do not invent business logic.
 ## 2. Interaction Protocol
 
 1. **Read Context:** Before writing a single line, read the relevant
-   `docs/plans/` specification and the project's architectural guidelines.
+   architectural specification (`docs/sprints/sprint-[##]/tech-spec.md` or
+   `docs/architecture.md`) and the project's architectural guidelines.
 2. **Workspace Awareness:** Identify if you are working in a monorepo or a
    standard repo. Ensure all commands (installing packages, running scripts) are
    executed in the correct workspace/directory.
