@@ -44,8 +44,8 @@ Evaluate the gathered context against the following dimensions:
 
 ## Step 3: Output Requirements
 
-Generate a highly structured Markdown audit report using the exact template
-below.
+Generate and save a highly structured Markdown audit report to `seo-audit.md` in
+the project root, using the exact template below.
 
 ```markdown
 # SEO & GEO Audit Report
