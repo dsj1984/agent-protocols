@@ -1,20 +1,13 @@
-# Cloudflare Hono Architect
+# Cloudflare Worker & Hono Architect
 
-**Description:** Enforces idiomatic Hono patterns for Cloudflare Workers APIs.
+**Description:** Prevents Node.js module hallucinations in edge environments.
 
-**Instruction:** You are building or modifying a REST API using the Hono
-framework deployed on Cloudflare Workers. You MUST follow these architectural
-rules:
+**Instruction:** The API is built with Hono and deployed to Cloudflare Workers
+(V8 Isolates).
 
-- ALWAYS use Hono's `app.route()` to compose modular sub-routers; never define
-  all routes in a single file.
-- Use Hono's built-in `validator` middleware with `zod` for all request
-  validation at the route level.
-- NEVER use Node.js-specific APIs (`fs`, `path`, `process`, etc.). Target the
-  Web Platform API surface only.
-- Access secrets and environment bindings exclusively via the `c.env` context
-  object; never use global variables.
-- Return structured JSON error responses using
-  `c.json({ error: string, code: string }, statusCode)` consistently.
-- Use `hono/bearer-auth` or a custom middleware for all authenticated routes;
-  never inline auth logic in handlers.
+- YOU MUST NOT use standard Node.js built-ins (e.g., `fs`, `path`,
+  `child_process`).
+- If cryptography is needed, use the standard Web Crypto API, not Node's
+  `crypto`.
+- Access all environment variables, R2 buckets, and Queues strictly through the
+  Hono Context bindings (`c.env`).
