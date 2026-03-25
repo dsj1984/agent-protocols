@@ -1,3 +1,7 @@
+---
+description: Run an SEO and Generative Engine Optimization audit
+---
+
 # SEO & Generative Engine Optimization Audit
 
 ## Role

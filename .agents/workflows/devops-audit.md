@@ -1,3 +1,7 @@
+---
+description: Run a DevOps infrastructure audit
+---
+
 # DevOps Infrastructure Audit
 
 ## Role

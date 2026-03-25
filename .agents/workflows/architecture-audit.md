@@ -1,3 +1,7 @@
+---
+description: Run an architecture and clean code audit
+---
+
 # Architecture & Clean Code Audit
 
 ## Role

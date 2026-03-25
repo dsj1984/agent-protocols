@@ -1,3 +1,7 @@
+---
+description: Run a production release candidate SRE audit
+---
+
 # Production Release Candidate Audit
 
 ## Role

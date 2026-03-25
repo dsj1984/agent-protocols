@@ -1,3 +1,7 @@
+---
+description: Run a Lighthouse performance and accessibility audit
+---
+
 # Lighthouse Performance Audit & Optimization Loop
 
 ## Role
