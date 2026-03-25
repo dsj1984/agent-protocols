@@ -97,15 +97,6 @@ jobs:
           delete-branch: true
 ```
 
-## 💻 Personal Development Stack
-
-The development of these protocols leverages an agent-first stack optimized for
-speed, precision, and high-context reasoning:
-
-- **LLM Engine:** Google AI Ultra
-- **IDE:** Google Antigravity IDE (using Gemini & Claude models)
-- **Voice Interface:** Wispr Flow
-
 ## 🛠 Development
 
 ### Prerequisites
@@ -151,3 +142,12 @@ When changes to `.agents/**` are merged into `main`, the `ci` workflow
 automatically copies the `.agents/` directory contents to the `dist` branch if
 the build passes. Consumers pinned to `dist` will pick up the changes on their
 next submodule update.
+
+## 💻 My Personal Agentic Development Stack
+
+The development of these protocols leverages an agent-first stack optimized for
+speed, precision, and high-context reasoning:
+
+- **LLM Engine:** Google AI Ultra
+- **IDE:** Google Antigravity IDE (using Gemini & Claude models)
+- **Voice Interface:** Wispr Flow
