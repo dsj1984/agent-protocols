@@ -7,9 +7,11 @@ projects.
 
 ## 📂 Project Structure
 
-- **`personas/`**: Specialized roles for agents (Architect, Engineer, Product,
-  SRE).
-- **`general/`**: Core philosophies and cross-functional instructions.
+- **`instructions/personas/`**: Specialized roles for agents (Architect,
+  Engineer, Product, SRE).
+- **`instructions/instructions.md`**: Core philosophies and cross-functional
+  instructions.
+- **`sdlc/`**: Software development lifecycle workflows and documentation.
 
 ## 🚀 Consumption
 
@@ -17,7 +19,7 @@ The most efficient way to use these protocols is as a Git submodule in your
 target project:
 
 ```bash
-git submodule add -b dist https://github.com/Area-Code-Technologies/agent-protocols.git .agent/protocols
+git submodule add -b dist https://github.com/Area-Code-Technologies/agent-protocols.git .agent
 ```
 
 > **Note:** The `dist` branch is automatically synchronized by CI to contain
@@ -33,8 +35,8 @@ changes periodically. Choose the approach that fits your workflow:
 From the root of your consuming project:
 
 ```bash
-git submodule update --remote .agent/protocols
-git add .agent/protocols
+git submodule update --remote .agent
+git add .agent
 git commit -m "chore: update agent-protocols to latest"
 ```
 
@@ -46,7 +48,7 @@ refreshed every time dependencies are installed:
 ```jsonc
 {
   "scripts": {
-    "postinstall": "git submodule update --init --remote .agent/protocols",
+    "postinstall": "git submodule update --init --remote .agent",
   },
 }
 ```
@@ -76,7 +78,7 @@ jobs:
           submodules: true
 
       - name: Pull latest protocols
-        run: git submodule update --remote .agent/protocols
+        run: git submodule update --remote .agent
 
       - name: Create PR if changed
         uses: peter-evans/create-pull-request@v6

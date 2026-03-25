@@ -3,8 +3,7 @@ on:
   push:
     branches: [ main ]
     paths:
-      - 'personas/**'
-      - 'general/**'
+      - 'instructions/**'
 
 jobs:
   build:
@@ -26,7 +25,7 @@ jobs:
           # OR simpler: just checkout dist, copy files over, and push.
           
           git checkout dist
-          git checkout main -- personas/ general/ # Bring the folders over
+          git checkout main -- instructions/ # Bring the folders over
           
           # Check if there are changes
           if [[ -n $(git status -s) ]]; then
