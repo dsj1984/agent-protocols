@@ -146,7 +146,7 @@ Ready-to-use markdown templates for sprint documentation:
 1. **Add the submodule** to your project (one-time setup):
 
    ```bash
-   git submodule add -b dist https://github.com/Area-Code-Technologies/agent-protocols.git .agent
+   git submodule add -b dist https://github.com/Area-Code-Technologies/agent-protocols.git .agents
    ```
 
 2. **Configure your AI tool** to load `instructions/instructions.md` on every
@@ -164,5 +164,5 @@ Ready-to-use markdown templates for sprint documentation:
 6. **Stay updated** — periodically pull the latest:
 
    ```bash
-   git submodule update --remote .agent
+   git submodule update --remote .agents
    ```
