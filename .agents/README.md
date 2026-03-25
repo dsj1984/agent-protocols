@@ -1,4 +1,4 @@
-# Agent Protocols — User Guide (1.1.1)
+# Agent Protocols — User Guide (1.1.2)
 
 This is the `.agents/` bundle distributed to your project via Git submodule. It
 contains everything your AI coding agents need to operate with strict quality,
@@ -20,10 +20,25 @@ consistency, and architectural guardrails.
 ├── templates/               # Sprint planning markdown templates
 │   ├── prd-template.md
 │   ├── sprint-playbook-template.md
-│   └── technical-spec-template.md
+│   ├── technical-spec-template.md
+│   └── test-plan_template.md
 └── workflows/               # Reusable single-command audit workflows
     └── ...
 ```
+
+---
+
+## 📄 Templates (`templates/`)
+
+Standardized markdown blueprints used by agents during the planning and testing
+phases.
+
+| File                          | Purpose                                               |
+| ----------------------------- | ----------------------------------------------------- |
+| `prd-template.md`             | Product Requirements template with User Stories       |
+| `technical-spec-template.md`  | Technical Specification template for schemas and APIs |
+| `sprint-playbook-template.md` | Sprint Playbook template with Chat Session structure  |
+| `test-plan_template.md`       | Dual-Purpose Test Plan for human/AI agent execution   |
 
 ---
 
@@ -93,6 +108,9 @@ skills/<skill-name>/
 | `resilient-qa-automation`       | Writes flake-free Playwright and Vitest tests         |
 | `stripe-billing-expert`         | Ensures idempotency keys and webhook signature checks |
 | `ui-accessibility-engineer`     | Enforces Tailwind CSS and WCAG 2.1 AA compliance      |
+| `autonomous-coding-standards`   | Enforces structural rules for agent-protocols library |
+| `conventional-commits-enforcer` | Validates commit messages against conventional specs  |
+| `secure-telemetry-logger`       | Standardizes structured logging and PII stripping     |
 
 **Usage:** Skills are loaded automatically by agents that support the skill
 discovery pattern, or you can reference them directly in prompts:
@@ -164,14 +182,19 @@ project.
 
 ### Available Workflows
 
-| Workflow File            | Slash Command          | Output File             | Purpose                                            |
-| ------------------------ | ---------------------- | ----------------------- | -------------------------------------------------- |
-| `architecture-audit.md`  | `/architecture-audit`  | `architecture-audit.md` | Clean code, over-engineering & coupling review     |
-| `devops-audit.md`        | `/devops-audit`        | `devops-audit.md`       | CI/CD, DX tooling & infrastructure review          |
-| `quality-audit.md`       | `/quality-audit`       | `quality-audit.md`      | Test coverage, flakiness & mocking strategy review |
-| `seo-audit.md`           | `/seo-audit`           | `seo-audit.md`          | Traditional SEO + Generative Engine Optimization   |
-| `accessibility-audit.md` | `/accessibility-audit` | `performance-audit.md`  | Lighthouse performance audit & optimization loop   |
-| `sre-audit.md`           | `/sre-audit`           | `release-audit.md`      | Production release candidate readiness audit       |
+| Workflow File                 | Slash Command               | Output File             | Purpose                                             |
+| ----------------------------- | --------------------------- | ----------------------- | --------------------------------------------------- |
+| `architecture-audit.md`       | `/architecture-audit`       | `architecture-audit.md` | Clean code, over-engineering & coupling review      |
+| `devops-audit.md`             | `/devops-audit`             | `devops-audit.md`       | CI/CD, DX tooling & infrastructure review           |
+| `quality-audit.md`            | `/quality-audit`            | `quality-audit.md`      | Test coverage, flakiness & mocking strategy review  |
+| `seo-audit.md`                | `/seo-audit`                | `seo-audit.md`          | Traditional SEO + Generative Engine Optimization    |
+| `accessibility-audit.md`      | `/accessibility-audit`      | `performance-audit.md`  | Lighthouse performance audit & optimization loop    |
+| `sre-audit.md`                | `/sre-audit`                | `release-audit.md`      | Production release candidate readiness audit        |
+| `run-test-plan.md`            | `/run-test-plan`            | (Updates Test Plan)     | Executes Playwright & SQL tests against a test plan |
+| `generate-prd.md`             | `/generate-prd`             | `prd.md`                | Generates PRD from roadmap items                    |
+| `generate-tech-spec.md`       | `/generate-tech-spec`       | `tech-spec.md`          | Generates Technical Spec from PRD                   |
+| `generate-sprint-playbook.md` | `/generate-sprint-playbook` | `playbook.md`           | Generates Sprint Playbook from PRD + Tech Spec      |
+| `plan-sprint.md`              | `/plan-sprint`              | (Orchestrator)          | Sequentially runs PRD, Tech Spec, and Playbook      |
 
 ### Setting Up Slash Commands
 

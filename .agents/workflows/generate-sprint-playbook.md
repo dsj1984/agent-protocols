@@ -39,7 +39,7 @@ organizing tasks strictly into Chat Sessions:
 
 - (A) Chat Session 1 (Backend Foundation - Sequential)
 - (B) Chat Sessions 2 and 3 (Frontend Web & Mobile - Concurrent)
-- (C) Chat Session 4 (QA and Test Plans - Concurrent)
+- (C) Chat Session 4 (QA Test Plan Generation and Execution - Concurrent)
 - (D) Chat Session 5 (Retro & Documentation - Sequential)
 
 TASK SCOPING RULE: Keep individual tasks highly focused. A single task should
@@ -61,7 +61,9 @@ Personas:
 - ENGINEER: Implementation with strict TypeScript, Zod.
 - PRODUCT: Define ACs, UI/UX flows.
 - SRE: Testing, Playwright/Vitest, Infrastructure.
-- QA ENGINEER: Manual test plans (TEST-ID template).
+- QA ENGINEER: Create test plans using `.agents/templates/test-plan_template.md`
+  and execute them using the `/run-test-plan` workflow to dynamically update
+  their execution status.
 
 ## Step 4 - Strict Output Formatting
 

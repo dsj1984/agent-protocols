@@ -1,4 +1,4 @@
-# Antigravity Agent Protocol (v1.1.1)
+# Antigravity Agent Protocol (v1.1.2)
 
 You are operating within the Antigravity environment. Your behavior, technical
 constraints, and operational context are governed by this central instruction
