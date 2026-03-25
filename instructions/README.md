@@ -1,123 +1,168 @@
-# 🤖 AI-Driven Software Development Life Cycle (SDLC) Protocol
+# Agent Protocols — User Guide
 
-This document outlines the standard operating procedure for building and scaling
-the Athlete Portal using AI agents. It defines the boundary between human-led
-product management and AI-led code execution, ensuring strict architectural
-compliance, scope management, and predictable velocity.
+This is the `instructions/` bundle distributed to your project via Git
+submodule. It contains everything your AI coding agents need to operate with
+strict quality, consistency, and architectural guardrails.
 
-## 📁 Repository Context Files (The "Ground Truth")
+## 📂 What's Inside
 
-AI agents possess massive general knowledge but zero project-specific memory. To
-prevent hallucinations and enforce architectural constraints, every agent
-session must be anchored by our core context files.
-
-- **`README.md`**: The master system overview. It defines the Turborepo
-  workspace structure (apps/web, apps/mobile, packages/shared) and local
-  development commands. Agents read this to understand where code belongs.
-- **`architecture.md`**: The structural guardrails. It dictates the tech stack
-  (Astro, Expo, Hono, Cloudflare, Turso) and design patterns (e.g., Omni-Search,
-  unified routing). It prevents agents from introducing unauthorized libraries
-  or patterns.
-- **`data-dictionary.md`**: The database source of truth. It explicitly defines
-  the Drizzle ORM schemas, relationships, and nullability constraints. Agents
-  must never infer database structures; they must read this file.
-- **`roadmap.md`**: The master product matrix. It tracks implemented features ✅
-  and future epics ⏳, organized by Product Domain and Sprint Index. It is our
-  primary defense against scope creep.
-
----
-
-## 🛠️ Phase 1: Product Strategy & Planning (The PM Loop)
-
-Before any code is written, the human Product Owner collaborates with a
-high-reasoning AI acting as the Product Manager/Architect to translate ideas
-into actionable blueprints.
-
-### 1. Scope Definition & Roadmap Grooming
-
-- **Action:** The human proposes a feature or UX improvement.
-- **Validation:** The AI PM cross-references the request against `roadmap.md`.
-- **Outcome:** If the feature is a massive leap (e.g., "Add public/private event
-  ticketing"), the AI flags it as scope creep, generates a prompt to add it to a
-  "Future Epic" in the roadmap, and refocuses the session. If approved, the
-  feature is assigned to the current Sprint.
-
-### 2. The Product Requirements Document (PRD)
-
-Once a Sprint is locked, the AI PM generates a strict markdown PRD.
-
-- **Inputs:** `roadmap.md`, `architecture.md`.
-- **Outputs:** Problem Statement, User Stories, Acceptance Criteria, and
-  Mobile-First UX Flows.
-
-### 3. The Technical Specification
-
-The AI Architect translates the PRD into a rigid technical contract.
-
-- **Inputs:** PRD, `data-dictionary.md`.
-- **Outputs:** Exact Drizzle schema changes (tables, columns, indexes) and Hono
-  API route definitions (methods, payloads, return types).
-
-### 4. The Sprint Playbook
-
-The AI Architect generates a sequential execution plan designed for multi-agent
-concurrency.
-
-- **Structure:** Tasks are grouped into Chat Sessions (e.g., Session 1: Backend
-  Foundation, Session 2: Web UI, Session 3: Mobile UI).
-- **Formatting:** Each task is output as an isolated, copy-pasteable prompt
-  wrapper defining the Agent Persona, Mode, Model, and specific instructions.
+```text
+instructions/
+├── instructions.md          # Global rules every agent must follow
+├── personas/                # Role-specific behavior constraints
+│   ├── architect.md
+│   ├── engineer.md
+│   ├── product.md
+│   └── sre.md
+├── skills/                  # Tech-stack-specific guardrails
+│   ├── sqlite-drizzle-expert/
+│   ├── cloudflare-hono-architect/
+│   ├── cloudflare-queue-manager/
+│   ├── zero-trust-security-engineer/
+│   ├── astro-react-island-strategist/
+│   ├── expo-react-native-developer/
+│   ├── monorepo-path-strategist/
+│   ├── resilient-qa-automation/
+│   ├── stripe-billing-expert/
+│   └── ui-accessibility-engineer/
+└── sdlc/                    # Sprint planning workflows and templates
+    ├── planning-workflow.md
+    └── spec-templates/
+        ├── prd-template.md
+        ├── sprint-playbook-template.md
+        └── technical-spec-template.md
+```
 
 ---
 
-## 🚀 Phase 2: Agent Execution (The Dev Loop)
+## 📖 Global Instructions (`instructions.md`)
 
-With the Sprint Playbook generated, the human transitions from Product Owner to
-Orchestrator, feeding prompts to specialized dev agents.
+The foundational rules all agents must follow regardless of persona or task.
+Covers:
 
-### 1. Sequential Backend Foundation (Chat Session 1)
+- **Context First** — Agents must read project docs before proposing solutions.
+- **Plan First** — Non-trivial tasks require a written plan before
+  implementation.
+- **Execution Discipline** — Re-plan on failure; include verification steps.
+- **Quality Assurance** — Write tests, enforce accessibility, respect linters.
+- **Persona Adherence** — When adopting a role, follow the persona's constraint
+  file strictly.
 
-- **Rule:** The database and API must be built first, sequentially, in a single
-  chat session.
-- **Execution:** The human pastes the schema and API tasks into the IDE chat.
-  The agent (acting as the Backend Engineer) writes the Drizzle migrations and
-  Hono controllers.
-- **Goal:** Establish the strict data contract and resolve any type errors
-  before the frontends attempt to consume the data.
-
-### 2. Concurrent Frontend Execution (Chat Sessions 2+)
-
-- **Rule:** Once the backend is locked and committed, frontend work can happen
-  in parallel.
-- **Execution:** The human opens separate, independent chat windows.
-  - _Chat A:_ Feeds the Web UI playbook tasks for the Astro/React workspace
-    (`@repo/web`).
-  - _Chat B:_ Feeds the Mobile UI playbook tasks for the Expo workspace
-    (`@repo/mobile`).
-- **Advantage:** Prevents the LLM's context window from getting confused between
-  web DOM elements and native mobile components.
-
-### 3. Verification & QA
-
-- **Rule:** Agents do not blindly commit.
-- **Execution:** The human enforces pre-commit hooks. The playbook includes
-  commands for the AI SRE persona to write Playwright E2E tests, verifying that
-  the full-stack loop (UI -> API -> DB) functions as designed.
+Configure your AI tool to load this file on every interaction.
 
 ---
 
-## 🧠 Agent Persona Protocols
+## 🎭 Personas (`personas/`)
 
-When feeding playbook tasks to the AI, we strictly enforce personas to constrain
-the AI's behavior and optimize its output:
+Personas constrain agent behavior to a specific role. When you tell your agent
+to "Act as an Architect," it should load the corresponding file and follow its
+rules strictly.
 
-- **The Architect (Claude Opus / Gemini Pro):** Focuses on system design,
-  database schemas, and API contracts. Writes specifications, not implementation
-  code. Defends system integrity and zero-trust security.
-- **The Engineer (Claude Sonnet / Gemini Flash):** The builder. Writes strict
-  TypeScript, enforces Zod validation, and prioritizes pure functions and early
-  returns.
-- **The Product Manager:** Focuses on UX flows, accessibility (WCAG 2.1 AA), and
-  strict adherence to the roadmap.
-- **The SRE:** Focuses on testability (Vitest/Playwright), edge-caching
-  strategies, and pipeline stability.
+| File           | Role        | Focus                                                 |
+| -------------- | ----------- | ----------------------------------------------------- |
+| `architect.md` | Architect   | System design, schemas, API contracts, security       |
+| `engineer.md`  | Engineer    | Implementation, TypeScript, Zod validation, testing   |
+| `product.md`   | Product Mgr | UX flows, accessibility, acceptance criteria, roadmap |
+| `sre.md`       | SRE         | Testing, CI/CD, caching, performance, infrastructure  |
+
+**Usage:** Reference the persona in your agent prompt:
+
+> Act as an Architect. Review the proposed schema changes against
+> `data-dictionary.md` and ensure they follow the constraints defined in your
+> persona.
+
+---
+
+## 🧩 Skills (`skills/`)
+
+Skills are modular, tech-stack-specific guardrails that prevent common AI
+mistakes. Each skill directory follows a standard structure:
+
+```text
+skills/<skill-name>/
+├── SKILL.md        # Required — The core instruction file
+├── scripts/        # Optional — Helper scripts and utilities
+├── examples/       # Optional — Reference implementations
+└── resources/      # Optional — Templates, assets, additional docs
+```
+
+### Available Skills
+
+| Skill                           | Purpose                                               |
+| ------------------------------- | ----------------------------------------------------- |
+| `sqlite-drizzle-expert`         | Enforces SQLite dialect for Drizzle ORM and Turso     |
+| `cloudflare-hono-architect`     | Prevents Node.js module usage in edge Workers         |
+| `cloudflare-queue-manager`      | Ensures idempotent, resilient queue consumer logic    |
+| `zero-trust-security-engineer`  | Enforces Zod validation and Clerk auth on all routes  |
+| `astro-react-island-strategist` | Maintains Astro/React island hydration boundaries     |
+| `expo-react-native-developer`   | Prevents DOM elements in React Native code            |
+| `monorepo-path-strategist`      | Enforces workspace aliases and dependency boundaries  |
+| `resilient-qa-automation`       | Writes flake-free Playwright and Vitest tests         |
+| `stripe-billing-expert`         | Ensures idempotency keys and webhook signature checks |
+| `ui-accessibility-engineer`     | Enforces Tailwind CSS and WCAG 2.1 AA compliance      |
+
+**Usage:** Skills are loaded automatically by agents that support the skill
+discovery pattern, or you can reference them directly in prompts:
+
+> Load the `sqlite-drizzle-expert` skill. I need to add a new table to the
+> database.
+
+---
+
+## 🔄 SDLC Workflows (`sdlc/`)
+
+The SDLC module defines a structured, multi-phase workflow for AI-driven
+software development using Dual-Track Agile.
+
+### Planning Workflow (`planning-workflow.md`)
+
+A step-by-step guide for sprint planning with AI agents:
+
+1. **Scope Selection** — Human picks features from the roadmap.
+2. **PRD Generation** — AI Product Manager writes requirements.
+3. **Architecture Review** — AI Architect maps PRD to schemas and APIs.
+4. **Playbook Generation** — AI generates a sequenced sprint execution plan with
+   persona assignments, model routing, and task scoping rules.
+
+### Spec Templates (`spec-templates/`)
+
+Ready-to-use markdown templates for sprint documentation:
+
+| Template                      | Purpose                                          |
+| ----------------------------- | ------------------------------------------------ |
+| `prd-template.md`             | Product Requirements Document structure          |
+| `technical-spec-template.md`  | Technical specification with schema and API defs |
+| `sprint-playbook-template.md` | Sprint execution plan with task checkboxes       |
+
+**Usage:** Feed these templates into your planning sessions:
+
+> Act as the Product Manager. Using the PRD template, generate a PRD for Sprint
+> 23 based on the items in `roadmap.md`.
+
+---
+
+## ⚡ Quick Start
+
+1. **Add the submodule** to your project (one-time setup):
+
+   ```bash
+   git submodule add -b dist https://github.com/Area-Code-Technologies/agent-protocols.git .agent
+   ```
+
+2. **Configure your AI tool** to load `instructions/instructions.md` on every
+   session.
+
+3. **Use personas** by telling the agent to "Act as \[Role\]" — it will look for
+   the matching file in `instructions/personas/`.
+
+4. **Activate skills** by referencing them by name or letting your agent
+   auto-discover `SKILL.md` files in `instructions/skills/`.
+
+5. **Run sprint planning** using the workflow in
+   `instructions/sdlc/planning-workflow.md` with the spec templates.
+
+6. **Stay updated** — periodically pull the latest:
+
+   ```bash
+   git submodule update --remote .agent
+   ```
