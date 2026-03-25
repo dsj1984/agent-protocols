@@ -52,3 +52,7 @@ Run the `/plan-playbook` workflow for the `[SPRINT_NUMBER]`.
 Upon successful completion of all three workflows, notify the user that the
 planning artifacts and the final playbook for Sprint `[SPRINT_NUMBER]` are ready
 for execution.
+
+## Constraint
+
+Adhere strictly to the templates and instructions provided.

@@ -21,7 +21,6 @@ function agentsPath(...parts) {
 describe('Core .agents/ files', () => {
   const required = [
     'instructions.md',
-    'system-prompt.md',
     'README.md',
     'personas/engineer.md',
     'personas/architect.md',

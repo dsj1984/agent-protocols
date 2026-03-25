@@ -43,3 +43,7 @@ Generate an explicit technical specification outlining:
 
 Save the generated specification to
 `docs/sprints/sprint-[SPRINT_NUMBER]-tech-spec.md`.
+
+## Constraint
+
+Adhere strictly to the templates and instructions provided.

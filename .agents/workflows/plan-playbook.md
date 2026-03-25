@@ -91,3 +91,7 @@ AGENT INSTRUCTION: Ensure all validation and pre-commit hooks pass. Upon success
 
 Save the generated playbook into
 `docs/sprints/sprint-[SPRINT_NUMBER]/playbook.md`.
+
+## Constraint
+
+Adhere strictly to the templates and instructions provided.
