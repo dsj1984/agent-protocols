@@ -12,26 +12,12 @@ agent-protocols/
 ├── .agents/                 # ← Distributed to consumers via the `dist` branch
 │   ├── VERSION              # Current version of the protocols
 │   ├── instructions.md      # Global agent behavior and core philosophies
+│   ├── system-prompt.md     # Template for agent system configuration
 │   ├── README.md            # Consumer-facing user guide
 │   ├── personas/            # Role-specific constraint files
-│   │   ├── architect.md
-│   │   ├── engineer.md
-│   │   ├── product.md
-│   │   └── sre.md
 │   ├── skills/              # Modular tech-stack guardrails
-│   │   ├── sqlite-drizzle-expert/
-│   │   ├── cloudflare-hono-architect/
-│   │   ├── cloudflare-queue-manager/
-│   │   ├── zero-trust-security-engineer/
-│   │   ├── astro-react-island-strategist/
-│   │   ├── expo-react-native-developer/
-│   │   ├── monorepo-path-strategist/
-│   │   ├── resilient-qa-automation/
-│   │   ├── stripe-billing-expert/
-│   │   └── ui-accessibility-engineer/
-│   └── sdlc/                # Sprint planning workflows and templates
-│       ├── planning-workflow.md
-│       └── spec-templates/
+│   ├── sdlc/                # Sprint planning workflows and templates
+│   └── workflows/           # Reusable single-command audit workflows
 ├── .github/workflows/       # CI/CD automation
 │   ├── lint.yml             # PR markdown linting
 │   └── publish-dist.yml     # Deploys instructions/ to the dist branch
