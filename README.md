@@ -5,20 +5,50 @@ SDLC workflows designed to optimize agentic AI coding assistants. It serves as a
 centralized, shared foundation to help LLM-based agents maintain code quality,
 architectural consistency, and professional standards across all your projects.
 
-## 🚀 How to Use This Project
+## 🚀 How to Use & Update
 
-This repository distributes its core protocols via the `dist` branch. Consumers
-can add this framework to their own projects as a Git submodule.
+This framework is distributed via the `dist` branch and is meant to be added as
+a Git submodule in your project's `.agents/` directory.
 
-1. **Add the submodule** to your project's `.agents` directory:
+### 1. Initial Setup
 
-   ```bash
-   git submodule add -b dist https://github.com/dsj1984/agent-protocols.git .agents
-   ```
+Add the submodule to your project:
 
-2. **Read the Full Guide**: For complete instructions on configuring your AI
-   tools, using personas/skills, and detailed update strategies, refer to the
-   consumer-facing user guide: 👉 [**`.agents/README.md`**](.agents/README.md)
+```bash
+git submodule add -b dist https://github.com/dsj1984/agent-protocols.git .agents
+```
+
+### 2. Update Strategies
+
+Regularly update the protocols to pick up the latest personas and skills.
+
+#### A. Manual Update (Bash)
+
+```bash
+git submodule update --remote --merge .agents && git add .agents && git commit -m "chore: update agent-protocols"
+```
+
+#### B. Manual Update (PowerShell)
+
+```powershell
+git submodule update --remote --merge .agents; git add .agents; git commit -m "chore: update agent-protocols"
+```
+
+#### C. Automated Update (`package.json`)
+
+Add the following script to your `package.json` for one-command updates:
+
+```json
+"scripts": {
+  "update:agents": "git submodule update --remote --merge .agents && git add .agents && git commit -m \"chore: update agent-protocols\""
+}
+```
+
+Now you can run: `npm run update:agents`.
+
+1. **Read the Full Guide**: For detailed configuring, using personas/skills, and
+   more, refer to the detailed protocol guide: 👉
+   [**`.agents/README.md`**](.agents/README.md)
 
 ## 📂 Repository Structure
 

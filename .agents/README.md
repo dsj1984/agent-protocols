@@ -1,4 +1,4 @@
-# Agent Protocols — User Guide (1.4.1)
+# Agent Protocols — User Guide (1.5.0)
 
 This is the `.agents/` bundle distributed to your project via Git submodule. It
 contains everything your AI coding agents need to operate with strict quality,
@@ -259,31 +259,22 @@ This file acts as the **System Core**, instructing the agent to:
 
 ---
 
-## ⚡ Quick Start
+## ⚡ Activation & Usage
 
-1. **Add the submodule** to your project (one-time setup):
+Once the submodule is added to your project, follow these steps to activate the
+protocols:
 
-   ```bash
-   git submodule add -b dist https://github.com/dsj1984/agent-protocols.git .agents
-   ```
-
-2. **Configure your AI tool** to load the full content of
+1. **Configure your AI tool** to load the full content of
    `.agents/instructions.md` as the **System Prompt**.
-
-3. **Use personas** by telling the agent to "Act as [Role]" — it will look for
+2. **Use personas** by telling the agent to "Act as [Role]" — it will look for
    the matching file in `.agents/personas/`.
-
-4. **Activate skills** by referencing them by name or letting your agent
+3. **Activate skills** by referencing them by name or letting your agent
    auto-discover `SKILL.md` files in `.agents/skills/`.
-
-5. **Run sprint planning** using the automated workflow
+4. **Run sprint planning** using the automated workflow
    `/plan-sprint [SPRINT_NUMBER]`.
 
-6. **Stay updated** — periodically pull the latest and commit:
-
-   ```bash
-   git submodule update --remote .agents && git commit -m "chore: update agent-protocols to latest" .agents
-   ```
+> [!TIP] Refer to the root **`README.md`** of this repository for detailed
+> update strategies via Bash, PowerShell, or `package.json` scripts.
 
 ---
 

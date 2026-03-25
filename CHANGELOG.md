@@ -17,6 +17,9 @@ and this project adheres to
   - Added `FINAL SPRINT AUDIT` to the retro workflow to verify completion
     against PRDs.
   - Updated `generate-sprint-playbook` to explicitly list task dependencies.
+- **Update Documentation**: Restored comprehensive submodule update strategies
+  (Bash, PowerShell, and `package.json`) to the root `README.md` and
+  de-duplicated the `.agents/README.md` user guide.
 
 ## [1.4.1] - 2026-03-25
 
