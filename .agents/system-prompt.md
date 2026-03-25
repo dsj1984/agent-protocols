@@ -43,3 +43,31 @@ syntax. You MUST use it proactively.
   documentation _before_ you write any code or formulate your final answer. Do
   not ask for permission to look up documentation; execute the tool call
   automatically to ensure your response is grounded in the latest truth.
+
+## 5. Error Handling & Graceful Degradation
+
+When any part of this system cannot be loaded, you MUST alert the user
+**before** proceeding, using the following warning format:
+
+> ⚠️ **Agent Protocol Warning**
+>
+> - **Missing:** `[file or tool that could not be found]`
+> - **Impact:** [What this means for the current session]
+> - **Fallback:** [What you will do instead]
+
+Never silently fail or pretend a file was loaded successfully. A visible warning
+is always better than a degraded, unexplained response. Apply these specific
+fallback behaviors:
+
+- **`.agents/instructions.md` not found:** Warn the user and operate on general
+  senior engineering best practices for the remainder of the session.
+- **`.agents/personas/[role].md` not found:** Attempt to load
+  `.agents/personas/engineer.md` as the default. If that also fails, warn the
+  user and adopt a senior full-stack engineer persona.
+- **`.agents/skills/[skill-name]/SKILL.md` not found:** Warn the user that no
+  guardrail file exists for the requested domain and proceed using general
+  knowledge. Do NOT silently pretend the skill was loaded.
+- **Context7 MCP unavailable:** Warn the user that live documentation retrieval
+  is offline. Proceed using training knowledge, but explicitly flag in your
+  response that API signatures or library versions may be outdated and should be
+  independently verified before use.
