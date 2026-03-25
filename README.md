@@ -149,7 +149,8 @@ The development of these protocols leverages an agent-first stack optimized for
 speed, precision, and high-context reasoning:
 
 - **LLM Engine:** Google AI Ultra
-- **IDE:** Google Antigravity IDE (using Gemini & Claude models)
-- **Voice Interface:** Wispr Flow
+- **Planning Assistant:** Gemini Deep Think
+- **Agentic IDE:** Google Antigravity IDE (using Gemini & Claude models)
 - **Asynchronous Agent:** Google Jules (experimental)
 - **Context Engine:** Context7 (indirectly via MCP)
+- **Voice Interface:** Wispr Flow

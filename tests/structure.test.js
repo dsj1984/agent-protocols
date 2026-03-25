@@ -20,6 +20,7 @@ function agentsPath(...parts) {
 // ---------------------------------------------------------------------------
 describe('Core .agents/ files', () => {
   const required = [
+    'config.json',
     'instructions.md',
     'README.md',
     'personas/engineer.md',
@@ -36,6 +37,13 @@ describe('Core .agents/ files', () => {
       );
     });
   }
+
+  it('rules/ directory exists', () => {
+    assert.ok(
+      fs.existsSync(agentsPath('rules')),
+      'Missing .agents/rules/ directory',
+    );
+  });
 });
 
 // ---------------------------------------------------------------------------

@@ -1,4 +1,4 @@
-# Agent Protocols — User Guide (1.3.0)
+# Agent Protocols — User Guide (1.4.0)
 
 This is the `.agents/` bundle distributed to your project via Git submodule. It
 contains everything your AI coding agents need to operate with strict quality,
@@ -9,12 +9,15 @@ consistency, and architectural guardrails.
 ```text
 .agents/
 ├── VERSION                  # Current version of the protocols
+├── config.json              # Standardized agent configurations
 ├── instructions.md          # MANDATORY: The consolidated system prompt
 ├── personas/                # Role-specific behavior constraints
 │   ├── architect.md
 │   ├── engineer.md
 │   ├── product.md
 │   └── sre.md
+├── rules/                   # Modular domain-agnostic global rules
+│   └── coding-style.md
 ├── skills/                  # Tech-stack-specific guardrails (organized by category)
 │   ├── frontend/
 │   ├── backend/
@@ -281,3 +284,14 @@ This file acts as the **System Core**, instructing the agent to:
    ```bash
    git submodule update --remote .agents && git commit -m "chore: update agent-protocols to latest" .agents
    ```
+
+---
+
+## 🔒 Local Overrides
+
+Developers can override protocol behavior for their specific machine without
+polluting the shared `.agents/` repository.
+
+- Create `.agents/instructions.local.md` to add personal rules (e.g., "Always
+  use yarn", "My local db is on port 5433").
+- These `*.local.*` files are automatically `gitignored`.

@@ -6,6 +6,25 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 and this project adheres to
 [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [1.4.0] - 2026-03-25
+
+### Core Improvements
+
+- **Modular Global Rules**: Introduced the `.agents/rules/` directory containing foundational, domain-agnostic standards:
+  - `git-conventions.md`: Conventional Commits and branch naming.
+  - `api-conventions.md`: JSON formatting, error shapes, and status codes.
+  - `testing-standards.md`: Arrange-Act-Assert patterns and naming.
+  - `database-standards.md`: Naming conventions and soft-deletion policies.
+  - `security-baseline.md`: Zod validation and PII protection.
+  - `ui-copywriting.md`: Sentence case and empathetic tone guidelines.
+- **Local Overrides**: Added support for `.agents/instructions.local.md` and `config.local.json` to allow personal developer preferences.
+- **Structured Config**: Introduced `.agents/config.json` for programmatic agent guardrails.
+
+### Documentation
+
+- **User Guide Updates**: Documented the new rules and localization features in `.agents/README.md`.
+- **System core**: Updated `instructions.md` to bootstrap the new rules and config system.
+
 ## [1.3.0] - 2026-03-25
 
 ### Core Improvements

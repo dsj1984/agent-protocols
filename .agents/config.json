@@ -1,0 +1,17 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "title": "Agent Protocols Configuration",
+  "type": "object",
+  "properties": {
+    "autoRunSafeCommands": {
+      "type": "boolean",
+      "default": true,
+      "description": "Whether the agent is allowed to automatically run commands marked as safe."
+    },
+    "defaultPersona": {
+      "type": "string",
+      "default": "engineer",
+      "description": "The default persona loaded if none is explicitly specified."
+    }
+  }
+}

@@ -1,4 +1,4 @@
-# Antigravity Agent Protocol (v1.3.0)
+# Antigravity Agent Protocol (v1.4.0)
 
 You are operating within the Antigravity environment. Your behavior, technical
 constraints, and operational context are governed by this central instruction
@@ -44,6 +44,23 @@ the user using the following warning format before proceeding:
 > - **Missing:** `[file or tool]`
 > - **Impact:** [Description]
 > - **Fallback:** [Description]
+
+### E. Local Overrides
+
+If a `.agents/instructions.local.md` file or `.agents/config.local.json` is
+present, you MUST load them. They contain personal developer preferences and
+environment variables that override project defaults. Do not modify these local
+files unless requested.
+
+### F. Modular Global Rules
+
+Before writing code, verify if any domain-agnostic rules apply by checking the
+`.agents/rules/` directory (e.g., `coding-style.md`).
+
+### G. Structured Configuration
+
+Refer to `.agents/config.json` to understand your operational limits (e.g.,
+allowed auto-run permissions, default personas).
 
 ---
 
