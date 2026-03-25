@@ -18,8 +18,7 @@ agent-protocols/
 │   ├── templates/           # Sprint planning markdown templates
 │   └── workflows/           # Reusable single-command audit workflows
 ├── .github/workflows/       # CI/CD automation
-│   ├── lint.yml             # PR markdown linting
-│   └── publish-dist.yml     # Deploys instructions/ to the dist branch
+│   └── ci.yml               # Linting, testing, and deployment
 ├── package.json             # Tooling: markdownlint, prettier, husky
 └── README.md                # ← You are here (internal contributor guide)
 ```
@@ -135,12 +134,11 @@ All markdown is validated with `markdownlint` and formatted with `prettier`:
 
 ### CI/CD Pipeline
 
-| Workflow           | Trigger                   | Purpose                                   |
-| ------------------ | ------------------------- | ----------------------------------------- |
-| `lint.yml`         | Push/PR to `main`         | Validates all markdown via `npm run lint` |
-| `publish-dist.yml` | Push to `main` (.agents/) | Syncs `.agents/` to the `dist` branch     |
+| Workflow | Trigger           | Purpose                                                          |
+| -------- | ----------------- | ---------------------------------------------------------------- |
+| `ci.yml` | Push/PR to `main` | Validates markdown, runs security scans, and syncs `dist` branch |
 
-When changes to `.agents/**` are merged into `main`, the `publish-dist` workflow
-automatically copies the `.agents/` directory contents to the `dist` branch.
-Consumers pinned to `dist` will pick up the changes on their next submodule
-update.
+When changes to `.agents/**` are merged into `main`, the `ci` workflow
+automatically copies the `.agents/` directory contents to the `dist` branch if
+the build passes. Consumers pinned to `dist` will pick up the changes on their
+next submodule update.

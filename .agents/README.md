@@ -270,8 +270,8 @@ This file acts as the **System Core**, instructing the agent to:
 5. **Run sprint planning** using the automated workflow
    `/plan-sprint [SPRINT_NUMBER]`.
 
-6. **Stay updated** — periodically pull the latest:
+6. **Stay updated** — periodically pull the latest and commit:
 
    ```bash
-   git submodule update --remote .agents
+   git submodule update --remote .agents && git commit -m "chore: update agent-protocols to latest" .agents
    ```
