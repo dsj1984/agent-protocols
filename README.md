@@ -60,8 +60,16 @@ This gives them a `.agents/` folder containing the instructions bundle directly:
 
 #### Manual (One-Liner)
 
+**Bash/Zsh:**
+
 ```bash
 git submodule update --remote .agents && git commit -m "chore: update agent-protocols to latest" .agents
+```
+
+**PowerShell:**
+
+```powershell
+git submodule update --remote .agents; if ($?) { git commit -m "chore: update agent-protocols to latest" .agents }
 ```
 
 #### Automatic on `npm install` (Recommended)
