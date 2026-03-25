@@ -6,9 +6,20 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 and this project adheres to
 [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [1.1.0] - 2026-03-25
+
+### Improvements
+
+- **Automated Sprint Planning**: Restructured `SDLC` folder into automated
+  `/plan-sprint` workflows.
+- **Consolidated Instructions**: Merged `system-prompt.md` into
+  `instructions.md` for a single system core.
+- **Streamlined Structure**: Flattened `.agents/` directory by moving templates
+  to root.
+
 ## [1.0.0] - 2026-03-25
 
-### Added
+### Initial Release
 
 - **Initial Stable Release**: Standardized Agent Protocols for LLM-based coding
   assistants.

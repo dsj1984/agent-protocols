@@ -1,4 +1,4 @@
-# Agent Protocols — User Guide (1.0.0)
+# Agent Protocols — User Guide (1.1.0)
 
 This is the `.agents/` bundle distributed to your project via Git submodule. It
 contains everything your AI coding agents need to operate with strict quality,
@@ -9,58 +9,39 @@ consistency, and architectural guardrails.
 ```text
 .agents/
 ├── VERSION                  # Current version of the protocols
-├── instructions.md          # Global rules every agent must follow
-├── system-prompt.md         # Template for your agent's system configuration
+├── instructions.md          # MANDATORY: The consolidated system prompt
 ├── personas/                # Role-specific behavior constraints
 │   ├── architect.md
 │   ├── engineer.md
 │   ├── product.md
 │   └── sre.md
 ├── skills/                  # Tech-stack-specific guardrails
-│   ├── sqlite-drizzle-expert/
-│   ├── cloudflare-hono-architect/
-│   ├── cloudflare-queue-manager/
-│   ├── zero-trust-security-engineer/
-│   ├── astro-react-island-strategist/
-│   ├── expo-react-native-developer/
-│   ├── monorepo-path-strategist/
-│   ├── resilient-qa-automation/
-│   ├── stripe-billing-expert/
-│   ├── ui-accessibility-engineer/
-│   ├── conventional-commits-enforcer/
-│   ├── autonomous-coding-standards/
-│   └── secure-telemetry-logger/
-├── sdlc/                    # Sprint planning workflows and templates
-│   ├── planning-workflow.md
-│   └── spec-templates/
-│       ├── prd-template.md
-│       ├── sprint-playbook-template.md
-│       └── technical-spec-template.md
+│   └── ...
+├── templates/               # Sprint planning markdown templates
+│   ├── prd-template.md
+│   ├── sprint-playbook-template.md
+│   └── technical-spec-template.md
 └── workflows/               # Reusable single-command audit workflows
-    ├── architecture-audit.md
-    ├── devops-audit.md
-    ├── quality-audit.md
-    ├── seo-audit.md
-    ├── accessibility-audit.md
-    └── sre-audit.md
+    └── ...
 ```
 
 ---
 
 ## 📖 Global Instructions (`instructions.md`)
 
-The foundational rules all agents must follow regardless of persona or task.
-Covers:
+**CRITICAL:** This file is your agent's **System Prompt**. It contains the
+foundational rules all agents must follow, including:
 
-- **Context First** — Agents must read project docs before proposing solutions.
-- **Plan First** — Non-trivial tasks require a written plan before
-  implementation.
-- **Execution Discipline** — Re-plan on failure; include verification steps.
-- **Quality Assurance** — Write tests, enforce accessibility, respect linters.
-- **Persona Adherence** — When adopting a role, follow the persona's constraint
-  file strictly.
+- **Persona Routing** — Auto-loading role-specific constraints.
+- **Skill Activation** — Auto-discovering domain guardrails.
+- **Documentation (Context7)** — Mandatory live doc retrieval.
+- **Context First** — Reading project docs before proposing solutions.
+- **Plan First** — Writing plan files before implementation.
+- **Quality Assurance** — Tests, accessibility, and strict formatting.
 
-Configure your AI tool to load this file on every interaction.
+> [!IMPORTANT] You MUST configure your AI tool (e.g., `.cursorrules`, Custom
+> Instructions, or System Prompt settings) to load the full content of
+> `instructions.md` as its primary system core.
 
 ---
 
@@ -121,35 +102,55 @@ discovery pattern, or you can reference them directly in prompts:
 
 ---
 
-## 🔄 SDLC Workflows (`sdlc/`)
+## 🔄 Automated SDLC Workflow - `/plan-sprint`
 
-The SDLC module defines a structured, multi-phase workflow for AI-driven
-software development using Dual-Track Agile.
+We use **Dual-Track Agile** to plan the _next_ sprint while the current one is
+being built, ensuring a continuous flow of high-quality, architecturally sound
+features.
 
-### Planning Workflow (`planning-workflow.md`)
+Instead of manual copy-pasting, we use a single slash command to trigger the
+entire planning pipeline.
 
-A step-by-step guide for sprint planning with AI agents:
+### How to use it
 
-1. **Scope Selection** — Human picks features from the roadmap.
-2. **PRD Generation** — AI Product Manager writes requirements.
-3. **Architecture Review** — AI Architect maps PRD to schemas and APIs.
-4. **Playbook Generation** — AI generates a sequenced sprint execution plan with
-   persona assignments, model routing, and task scoping rules.
+In your "Director's Chair" (PM chat), simply type:
 
-### Spec Templates (`spec-templates/`)
+```text
+/plan-sprint [SPRINT_NUMBER]
+```
 
-Ready-to-use markdown templates for sprint documentation:
+### What it does (Sequential Automation)
 
-| Template                      | Purpose                                          |
-| ----------------------------- | ------------------------------------------------ |
-| `prd-template.md`             | Product Requirements Document structure          |
-| `technical-spec-template.md`  | Technical specification with schema and API defs |
-| `sprint-playbook-template.md` | Sprint execution plan with task checkboxes       |
+1. **Product Discovery (`/plan-prd`)**:
+   - Reads `roadmap.md` for the target sprint items.
+   - Generates a strict **Product Requirements Document (PRD)** focusing on
+     Problem Statements, User Stories, and Acceptance Criteria.
+   - Saves to: `docs/sprints/sprint-[##]-prd.md`.
 
-**Usage:** Feed these templates into your planning sessions:
+1. **Architecture Review (`/plan-tech-spec`)**:
+   - Cross-references the PRD with `data-dictionary.md` and `architecture.md`.
+   - Drafts an explicit **Technical Specification** mapping out Turso/Drizzle
+     schema changes and Hono API routes.
+   - Saves to: `docs/sprints/sprint-[##]-tech-spec.md`.
 
-> Act as the Product Manager. Using the PRD template, generate a PRD for Sprint
-> 23 based on the items in `roadmap.md`.
+1. **Playbook Generation (`/plan-playbook`)**
+   - Synthesizes the PRD and Tech Spec into an actionable **Sprint Playbook**.
+   - Organizes tasks into **Chat Sessions** (Backend Foundation, Web/Mobile UI,
+     QA Testing).
+   - Assigns specific Models (Claude Opus, Sonnet, Gemini High/Flash) and Modes
+     (Planning/Fast) to each task.
+   - Saves to: `docs/sprints/sprint-[##]/playbook.md`.
+
+### 🛠️ Execution & Guardrails
+
+- **Parallel Execution**: Once the Playbook is generated, developers can work on
+  Frontend and QA tasks concurrently after the Backend Foundation (Chat
+  Session 1) locks the API contracts.
+- **Auto-Tracking**: Every task in the playbook includes instructions for the
+  agent to check off its own progress `- [x]` in the `playbook.md` once
+  complete.
+- **Templates**: All generated documents adhere to the professional templates in
+  `.agents/templates/`.
 
 ---
 
@@ -189,16 +190,16 @@ commands or Gemini's custom instructions) to point to these workflow files:
 
 ## ⚙️ Configuring your Agent
 
-To fully activate these protocols, you should configure your AI agent (via
-`.cursorrules`, `GEMINI.md`, or your tool's "System Instructions") with the
-content of **`system-prompt.md`**.
+To fully activate these protocols, you MUST configure your AI agent (via
+`.cursorrules`, custom instruction settings, or system prompt blocks) with the
+content of **`instructions.md`**.
 
-This "Meta-Prompt" instructs the agent to:
+This file acts as the **System Core**, instructing the agent to:
 
-1. **Ingest** the baseline rules from `instructions.md`.
-2. **Route** to the correct persona in `personas/` when asked.
-3. **Activate** domain-specific guardrails from `skills/`.
-4. **Use** Context7 MCP for live documentation retrieval.
+1. **Ingest** the baseline rules.
+2. **Route** to personas in `personas/`.
+3. **Activate** guardrails from `skills/`.
+4. **Use** Context7 MCP for live documentation.
 
 ---
 
@@ -210,8 +211,8 @@ This "Meta-Prompt" instructs the agent to:
    git submodule add -b dist https://github.com/dsj1984/agent-protocols.git .agents
    ```
 
-2. **Configure your AI tool** to load `.agents/instructions.md` on every
-   session.
+2. **Configure your AI tool** to load the full content of
+   `.agents/instructions.md` as the **System Prompt**.
 
 3. **Use personas** by telling the agent to "Act as [Role]" — it will look for
    the matching file in `.agents/personas/`.
@@ -219,8 +220,8 @@ This "Meta-Prompt" instructs the agent to:
 4. **Activate skills** by referencing them by name or letting your agent
    auto-discover `SKILL.md` files in `.agents/skills/`.
 
-5. **Run sprint planning** using the workflow in
-   `.agents/sdlc/planning-workflow.md` with the spec templates.
+5. **Run sprint planning** using the automated workflow
+   `/plan-sprint [SPRINT_NUMBER]`.
 
 6. **Stay updated** — periodically pull the latest:
 

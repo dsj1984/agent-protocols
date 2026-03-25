@@ -11,12 +11,11 @@ professional standards across projects.
 agent-protocols/
 ├── .agents/                 # ← Distributed to consumers via the `dist` branch
 │   ├── VERSION              # Current version of the protocols
-│   ├── instructions.md      # Global agent behavior and core philosophies
-│   ├── system-prompt.md     # Template for agent system configuration
+│   ├── instructions.md      # Consolidated system prompt & core philosophies
 │   ├── README.md            # Consumer-facing user guide
 │   ├── personas/            # Role-specific constraint files
 │   ├── skills/              # Modular tech-stack guardrails
-│   ├── sdlc/                # Sprint planning workflows and templates
+│   ├── templates/           # Sprint planning markdown templates
 │   └── workflows/           # Reusable single-command audit workflows
 ├── .github/workflows/       # CI/CD automation
 │   ├── lint.yml             # PR markdown linting
