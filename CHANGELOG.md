@@ -6,6 +6,13 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 and this project adheres to
 [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [1.2.0] - 2026-03-25
+
+### Documentation
+
+- **Personal Stack**: Added details on the agent-first personal development
+  stack (Google AI Ultra, Antigravity IDE, Wispr Flow) in the root `README.md`.
+
 ## [1.1.1] - 2026-03-25
 
 ### Core Improvements

@@ -97,6 +97,15 @@ jobs:
           delete-branch: true
 ```
 
+## 💻 Personal Development Stack
+
+The development of these protocols leverages an agent-first stack optimized for
+speed, precision, and high-context reasoning:
+
+- **LLM Engine:** Google AI Ultra
+- **IDE:** Google Antigravity IDE (using Gemini & Claude models)
+- **Voice Interface:** Wispr Flow
+
 ## 🛠 Development
 
 ### Prerequisites
