@@ -210,7 +210,7 @@ project.
 | ----------------------------- | --------------------------- | ----------------------- | --------------------------------------------------- |
 | `architecture-audit.md`       | `/architecture-audit`       | `architecture-audit.md` | Clean code, over-engineering & coupling review      |
 | `devops-audit.md`             | `/devops-audit`             | `devops-audit.md`       | CI/CD, DX tooling & infrastructure review           |
-| `quality-audit.md`            | `/quality-audit`            | `quality-audit.md`      | Test coverage, flakiness & mocking strategy review  |
+| `qa-audit.md`                 | `/qa-audit`                 | `qa-audit.md`           | Test coverage, test plans & mocking strategy review |
 | `seo-audit.md`                | `/seo-audit`                | `seo-audit.md`          | Traditional SEO + Generative Engine Optimization    |
 | `accessibility-audit.md`      | `/accessibility-audit`      | `performance-audit.md`  | Lighthouse performance audit & optimization loop    |
 | `sre-audit.md`                | `/sre-audit`                | `release-audit.md`      | Production release candidate readiness audit        |

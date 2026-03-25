@@ -14,7 +14,9 @@ You are performing a comprehensive, read-only audit of this repository's testing
 infrastructure, test coverage, and overall quality assurance practices. Your
 goal is to identify testing gaps, flaky tests, inefficient mocking strategies,
 and opportunities to improve test execution speed and reliability without making
-any immediate changes.
+any immediate changes. Additionally, you must evaluate the `docs/test-plans`
+folder against the `docs/roadmap.md` and the current codebase to ensure all test
+documentation is complete, consistent, and accurate.
 
 ## Step 1: Context Gathering (Read-Only Scan)
 
@@ -25,6 +27,9 @@ files. Pay special attention to:
   `playwright.config.ts`, `cypress.json`).
 - Test directories and files (e.g., `__tests__/`, `spec/`, `e2e/`, `*.test.ts`,
   `*.spec.js`).
+- Manual and automated test plans stored and organized in `docs/test-plans/`.
+- Product documentation like `docs/roadmap.md` to map out expected features
+  versus documented/implemented tests.
 - Mocking and stubbing setups (e.g., `__mocks__/`, `setupTests.js`, MSW
   handlers).
 - CI/CD workflow files to understand how and when tests are executed.
@@ -47,11 +52,16 @@ Evaluate the gathered context against the following test quality dimensions:
 5. **Performance & Execution:** Find bottlenecks in the test suite, such as
    unnecessary serial execution, heavy setup running too frequently, or
    opportunities for parallelization.
+6. **Test Plan Alignment:** Cross-reference the features outlined in
+   `docs/roadmap.md` to ensure they have corresponding and complete test plans
+   within `docs/test-plans/`. Verify that the test plans accurately reflect the
+   exact implementation found in the codebase and highlight any inconsistencies,
+   gaps, or outdated assertions.
 
 ## Step 3: Output Requirements
 
-Generate and save a highly structured Markdown audit report to
-`quality-audit.md` in the project root, using the exact template below.
+Generate and save a highly structured Markdown audit report to `qa-audit.md` in
+the project root, using the exact template below.
 
 ```markdown
 # Testing & Quality Assurance Audit
@@ -68,6 +78,7 @@ primary vulnerabilities, coverage gaps, and areas causing developer friction.]
 | Unit Testing        | [Healthy / Needs Work / Missing] | [Brief reason] |
 | Integration Testing | [Healthy / Needs Work / Missing] | [Brief reason] |
 | E2E Testing         | [Healthy / Needs Work / Missing] | [Brief reason] |
+| Test Plans          | [Healthy / Needs Work / Missing] | [Brief reason] |
 
 ## Detailed Findings
 
@@ -75,7 +86,7 @@ primary vulnerabilities, coverage gaps, and areas causing developer friction.]
 
 ### [Short Title of the Issue]
 
-- **Category:** [Flakiness | Coverage | Performance | Mocking]
+- **Category:** [Flakiness | Coverage | Performance | Mocking | Test Plans]
 - **Impact:** [High | Medium | Low]
 - **Current State:** [How the tests are currently written and why it's
   problematic]
