@@ -1,8 +1,8 @@
 # Agent Protocols — User Guide
 
-This is the `instructions/` bundle distributed to your project via Git
-submodule. It contains everything your AI coding agents need to operate with
-strict quality, consistency, and architectural guardrails.
+This is the `.agents/` bundle distributed to your project via Git submodule. It
+contains everything your AI coding agents need to operate with strict quality,
+consistency, and architectural guardrails.
 
 ## 📂 What's Inside
 
@@ -162,14 +162,14 @@ project.
 
 ### Available Workflows
 
-| Workflow File            | Slash Command          | Purpose                                            |
-| ------------------------ | ---------------------- | -------------------------------------------------- |
-| `architecture-audit.md`  | `/architecture-audit`  | Clean code, over-engineering & coupling review     |
-| `devops-audit.md`        | `/devops-audit`        | CI/CD, DX tooling & infrastructure review          |
-| `quality-audit.md`       | `/quality-audit`       | Test coverage, flakiness & mocking strategy review |
-| `seo-audit.md`           | `/seo-audit`           | Traditional SEO + Generative Engine Optimization   |
-| `accessibility-audit.md` | `/accessibility-audit` | Lighthouse performance audit & optimization loop   |
-| `sre-audit.md`           | `/sre-audit`           | Production release candidate readiness audit       |
+| Workflow File            | Slash Command          | Output File             | Purpose                                            |
+| ------------------------ | ---------------------- | ----------------------- | -------------------------------------------------- |
+| `architecture-audit.md`  | `/architecture-audit`  | `architecture-audit.md` | Clean code, over-engineering & coupling review     |
+| `devops-audit.md`        | `/devops-audit`        | `devops-audit.md`       | CI/CD, DX tooling & infrastructure review          |
+| `quality-audit.md`       | `/quality-audit`       | `quality-audit.md`      | Test coverage, flakiness & mocking strategy review |
+| `seo-audit.md`           | `/seo-audit`           | `seo-audit.md`          | Traditional SEO + Generative Engine Optimization   |
+| `accessibility-audit.md` | `/accessibility-audit` | `performance-audit.md`  | Lighthouse performance audit & optimization loop   |
+| `sre-audit.md`           | `/sre-audit`           | `release-audit.md`      | Production release candidate readiness audit       |
 
 ### Setting Up Slash Commands
 
@@ -209,17 +209,17 @@ This "Meta-Prompt" instructs the agent to:
    git submodule add -b dist https://github.com/Area-Code-Technologies/agent-protocols.git .agents
    ```
 
-2. **Configure your AI tool** to load `instructions/instructions.md` on every
+2. **Configure your AI tool** to load `.agents/instructions.md` on every
    session.
 
-3. **Use personas** by telling the agent to "Act as \[Role\]" — it will look for
-   the matching file in `instructions/personas/`.
+3. **Use personas** by telling the agent to "Act as [Role]" — it will look for
+   the matching file in `.agents/personas/`.
 
 4. **Activate skills** by referencing them by name or letting your agent
-   auto-discover `SKILL.md` files in `instructions/skills/`.
+   auto-discover `SKILL.md` files in `.agents/skills/`.
 
 5. **Run sprint planning** using the workflow in
-   `instructions/sdlc/planning-workflow.md` with the spec templates.
+   `.agents/sdlc/planning-workflow.md` with the spec templates.
 
 6. **Stay updated** — periodically pull the latest:
 
