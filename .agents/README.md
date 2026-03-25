@@ -206,7 +206,7 @@ This "Meta-Prompt" instructs the agent to:
 1. **Add the submodule** to your project (one-time setup):
 
    ```bash
-   git submodule add -b dist https://github.com/Area-Code-Technologies/agent-protocols.git .agents
+   git submodule add -b dist https://github.com/dsj1984/agent-protocols.git .agents
    ```
 
 2. **Configure your AI tool** to load `.agents/instructions.md` on every

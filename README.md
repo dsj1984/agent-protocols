@@ -48,7 +48,7 @@ Consumers add the **`dist` branch** as a Git submodule into their project's
 `.agent` directory:
 
 ```bash
-git submodule add -b dist https://github.com/Area-Code-Technologies/agent-protocols.git .agents
+git submodule add -b dist https://github.com/dsj1984/agent-protocols.git .agents
 ```
 
 This gives them a `.agents/` folder containing the instructions bundle directly:

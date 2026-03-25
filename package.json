@@ -23,16 +23,16 @@
   },
   "repository": {
     "type": "git",
-    "url": "git+https://github.com/Area-Code-Technologies/agent-protocols.git"
+    "url": "git+https://github.com/dsj1984/agent-protocols.git"
   },
   "keywords": [],
   "author": "",
   "license": "ISC",
   "type": "module",
   "bugs": {
-    "url": "https://github.com/Area-Code-Technologies/agent-protocols/issues"
+    "url": "https://github.com/dsj1984/agent-protocols/issues"
   },
-  "homepage": "https://github.com/Area-Code-Technologies/agent-protocols#readme",
+  "homepage": "https://github.com/dsj1984/agent-protocols#readme",
   "devDependencies": {
     "husky": "^9.1.7",
     "lint-staged": "^16.2.7",
