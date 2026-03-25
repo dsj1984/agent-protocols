@@ -58,12 +58,10 @@ This gives them a `.agents/` folder containing the instructions bundle directly:
 
 ### Consumer Update Strategies
 
-#### Manual
+#### Manual (One-Liner)
 
 ```bash
-git submodule update --remote .agents
-git add .agents
-git commit -m "chore: update agent-protocols to latest"
+git submodule update --remote .agents && git commit -m "chore: update agent-protocols to latest" .agents
 ```
 
 #### Automatic on `npm install` (Recommended)
