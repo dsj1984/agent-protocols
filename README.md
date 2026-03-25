@@ -1,110 +1,56 @@
 # Agent Protocols 🤖
 
-A structured framework of instructions, personas, skills, and SDLC workflows
-designed to optimize agentic AI coding assistants. This repository provides a
-shared foundation for LLM-based agents to maintain quality, consistency, and
-professional standards across projects.
+Agent Protocols is a structured framework of instructions, personas, skills, and
+SDLC workflows designed to optimize agentic AI coding assistants. It serves as a
+centralized, shared foundation to help LLM-based agents maintain code quality,
+architectural consistency, and professional standards across all your projects.
 
-## 📂 Repository Layout
+## 🚀 How to Use This Project
+
+This repository distributes its core protocols via the `dist` branch. Consumers
+can add this framework to their own projects as a Git submodule.
+
+1. **Add the submodule** to your project's `.agents` directory:
+
+   ```bash
+   git submodule add -b dist https://github.com/dsj1984/agent-protocols.git .agents
+   ```
+
+2. **Read the Full Guide**: For complete instructions on configuring your AI
+   tools, using personas/skills, and detailed update strategies, refer to the
+   consumer-facing user guide: 👉 [**`.agents/README.md`**](.agents/README.md)
+
+## 📂 Repository Structure
+
+The core of this repository lives entirely within the `.agents/` directory,
+which is what gets distributed to consumers.
 
 ```text
 agent-protocols/
 ├── .agents/                 # ← Distributed to consumers via the `dist` branch
-│   ├── VERSION              # Current version of the protocols
-│   ├── instructions.md      # Consolidated system prompt & core philosophies
-│   ├── README.md            # Consumer-facing user guide
-│   ├── personas/            # Role-specific constraint files
-│   ├── skills/              # Modular tech-stack guardrails (organized by category)
-│   ├── templates/           # Sprint planning markdown templates
-│   └── workflows/           # Reusable single-command SDLC workflows (organized by type)
-├── .github/workflows/       # CI/CD automation
-│   └── ci.yml               # Linting, testing, and deployment
+│   ├── instructions.md      # Core system prompt & rules
+│   ├── personas/            # Role-specific behavior constraints
+│   ├── skills/              # Tech-stack-specific guardrails
+│   ├── templates/           # Markdown templates
+│   ├── workflows/           # SDLC automation slash commands
+│   └── README.md            # Detailed consumer user guide
+├── .github/                 # CI/CD automation for this repository
 ├── package.json             # Tooling: markdownlint, prettier, husky
-└── README.md                # ← You are here (internal contributor guide)
+└── README.md                # ← You are here
 ```
 
-> **Key distinction:** Only the `.agents/` directory is distributed to
-> consumers. Everything else (CI configs, tooling, this README) stays internal
-> to this repository.
+> **Key distinction:** Only the `.agents/` directory is distributed to consumers
+> via the `dist` branch. The rest of the repository contains internal tooling
+> and CI/CD pipelines for developing the protocols.
 
-## 🚀 How Consumers Use This
+## 🛠 Internal Development
 
-Consumers add the **`dist` branch** as a Git submodule into their project's
-`.agent` directory:
+If you are contributing to or modifying this repository:
 
-```bash
-git submodule add -b dist https://github.com/dsj1984/agent-protocols.git .agents
-```
-
-This gives them a `.agents/` folder containing the instructions bundle directly:
-`.agents/README.md`, `.agents/instructions.md`, `.agents/personas/`,
-`.agents/skills/`, `.agents/workflows/`, and more. See
-[`.agents/README.md`](.agents/README.md) for the consumer-facing user guide.
-
-### Consumer Update Strategies
-
-#### Manual (One-Liner)
-
-**Bash/Zsh:**
-
-```bash
-git submodule update --remote .agents && git commit -m "chore: update agent-protocols to latest" .agents
-```
-
-**PowerShell:**
-
-```powershell
-git submodule update --remote .agents; if ($?) { git commit -m "chore: update agent-protocols to latest" .agents }
-```
-
-#### Automatic on `npm install` (Recommended)
-
-```jsonc
-{
-  "scripts": {
-    "postinstall": "git submodule update --init --remote .agents",
-  },
-}
-```
-
-#### CI-Based (Scheduled PR)
-
-```yaml
-# .github/workflows/update-protocols.yml
-name: Update Agent Protocols
-on:
-  schedule:
-    - cron: '0 9 * * 1' # Every Monday at 9am UTC
-  workflow_dispatch:
-
-jobs:
-  update:
-    runs-on: ubuntu-latest
-    steps:
-      - uses: actions/checkout@v4
-        with:
-          submodules: true
-
-      - name: Pull latest protocols
-        run: git submodule update --remote .agents
-
-      - name: Create PR if changed
-        uses: peter-evans/create-pull-request@v6
-        with:
-          commit-message: 'chore: update agent-protocols submodule'
-          title: 'chore: update agent-protocols to latest'
-          branch: chore/update-agent-protocols
-          delete-branch: true
-```
-
-## 🛠 Development
-
-### Prerequisites
+### Prerequisites & Setup
 
 - Node.js 20+
 - npm
-
-### Setup
 
 ```bash
 npm install
@@ -129,8 +75,8 @@ All markdown is validated with `markdownlint` and formatted with `prettier`:
 2. Make your changes to files inside `.agents/`.
 3. Commit — Husky + lint-staged will automatically lint and format staged `.md`
    files before the commit is accepted.
-4. Open a Pull Request against `main`. The `lint.yml` workflow will validate
-   your changes.
+4. Open a Pull Request against `main`. The `ci.yml` workflow will validate your
+   changes.
 
 ### CI/CD Pipeline
 

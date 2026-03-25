@@ -84,9 +84,13 @@ templates defined in `.agents/templates/sprint-playbook-template.md`.
 
 ```text
 Sprint [SPRINT_NUMBER].[TASK_NUMBER]: Act as an [Persona].
-[Detailed task instructions here.]
+[Detailed task instructions here. MUST explicitly list prerequisite task numbers if any.]
 
-AGENT INSTRUCTION: Ensure all validation and pre-commit hooks pass successfully. Upon completion, perform a git commit of your changes with the message "type: [SPRINT_NUMBER].[TASK_NUMBER] - [Task Title]". Finally, open `docs/sprints/sprint-[SPRINT_NUMBER]/playbook.md` and check off `- [x] **[SPRINT_NUMBER].[TASK_NUMBER]**`.
+AGENT INSTRUCTION:
+1. PREREQUISITE CHECK: Open `docs/sprints/sprint-[SPRINT_NUMBER]/playbook.md` and verify that all prerequisite steps for this task are marked as complete (`[x]`). If any are incomplete, STOP execution immediately and alert the user. (For the final Retro task, perform a Final Sprint Audit to ensure ALL preceding tasks are completed and the codebase matches the PRD).
+2. Ensure all validation and pre-commit hooks pass successfully.
+3. Upon completion, perform a git commit of your changes with the message "type: [SPRINT_NUMBER].[TASK_NUMBER] - [Task Title]".
+4. Finally, open `docs/sprints/sprint-[SPRINT_NUMBER]/playbook.md` and check off `- [x] **[SPRINT_NUMBER].[TASK_NUMBER]**`.
 ```
 
 ## Step 5 - Output Artifacts
