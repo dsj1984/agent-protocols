@@ -1,4 +1,4 @@
-# Agent Protocols — User Guide
+# Agent Protocols — User Guide (1.0.0)
 
 This is the `.agents/` bundle distributed to your project via Git submodule. It
 contains everything your AI coding agents need to operate with strict quality,
@@ -8,6 +8,7 @@ consistency, and architectural guardrails.
 
 ```text
 .agents/
+├── VERSION                  # Current version of the protocols
 ├── instructions.md          # Global rules every agent must follow
 ├── system-prompt.md         # Template for your agent's system configuration
 ├── personas/                # Role-specific behavior constraints

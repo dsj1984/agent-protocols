@@ -10,6 +10,7 @@ professional standards across projects.
 ```text
 agent-protocols/
 ├── .agents/                 # ← Distributed to consumers via the `dist` branch
+│   ├── VERSION              # Current version of the protocols
 │   ├── instructions.md      # Global agent behavior and core philosophies
 │   ├── README.md            # Consumer-facing user guide
 │   ├── personas/            # Role-specific constraint files

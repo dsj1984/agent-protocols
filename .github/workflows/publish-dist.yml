@@ -40,6 +40,7 @@ jobs:
           echo "Validating dist contents..."
           test -f instructions.md \
             && test -f system-prompt.md \
+            && test -f VERSION \
             && test -d personas \
             && test -d skills \
             && test -d workflows \

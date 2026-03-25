@@ -1,4 +1,4 @@
-# General Instructions
+# General Instructions (1.0.0)
 
 ## Core Philosophy
 
