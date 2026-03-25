@@ -27,6 +27,7 @@ jobs:
           filters: |
             agents:
               - '.agents/**'
+              - '.github/workflows/ci.yml'
 
       - name: Secret Scanning (TruffleHog)
         uses: trufflesecurity/trufflehog@main
