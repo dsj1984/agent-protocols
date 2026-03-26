@@ -38,7 +38,7 @@ Structure the sprint to support parallel agent execution in the IDE by
 organizing tasks strictly into the following "Fan-Out" Chat Sessions.
 
 **Task Numbering Rule:** You MUST use the format
-`[SPRINT_NUMBER].[CHAT_NUMBER].[STEP_NUMBER]` (e.g., 25.1.1, 25.1.2, 25.2.1).
+`[SPRINT_NUMBER].[CHAT_NUMBER].[STEP_NUMBER]` (e.g., 1.1.1, 1.1.2, 1.2.1).
 
 - (A) Chat Session 1 (Backend Foundation). _Sequential._ Builds DB schemas and
   API routes first to lock the data contracts. (Tasks: X.1.1, X.1.2...)
@@ -87,14 +87,14 @@ Generate the markdown playbook for the Sprint.
    summarizing the `AGENT EXECUTION PROTOCOL`. You must copy the text from the
    template below EXACTLY word-for-word for every single task.
 
-**Document Structure:** Use the following Chat Session Headers exactly as
-written: `### 💬 ⚙️ Chat Session 1: Backend Foundation (Sequential)`
-`### 💬 ⚡ Chat Session 2: Web UI (Concurrent)`
-`### 💬 📱 Chat Session 3: Mobile UI (Concurrent)`
-`### 💬 🧪 Chat Session 4: QA & E2E Testing (Sequential)`
-`### 💬 🔄 Chat Session 5: Retro & Documentation (Sequential)`
+**Document Structure:**
 
-Include this exact Mermaid diagram beneath the Sprint Summary:
+1. **Title:** `# Sprint [NUMBER] Playbook: [Sprint Name]`
+1. **Summary:** Create a `## Sprint Summary` section. Write a concise 2-3
+   sentence overview of the sprint's core objectives, technical scope, and
+   business value based on your analysis of the PRD.
+1. **Execution Flow:** Create a `## Fan-Out Execution Flow` section and include
+   this exact Mermaid diagram beneath it:
 
 ```mermaid
 graph TD
@@ -104,6 +104,13 @@ graph TD
     C --> D
     D --> E[Chat 5: Retro & Documentation]
 ```
+
+1. **Chat Sessions:** Use the following Chat Session Headers exactly as written:
+   `### 💬 ⚙️ Chat Session 1: Backend Foundation (Sequential)`
+   `### 💬 ⚡ Chat Session 2: Web UI (Concurrent)`
+   `### 💬 📱 Chat Session 3: Mobile UI (Concurrent)`
+   `### 💬 🧪 Chat Session 4: QA & E2E Testing (Sequential)`
+   `### 💬 🔄 Chat Session 5: Retro & Documentation (Sequential)`
 
 **TASK TEMPLATE:** Every task MUST exactly match this semantic structure:
 
