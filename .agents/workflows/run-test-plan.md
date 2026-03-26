@@ -1,6 +1,7 @@
 ---
 description:
-  Execute test cases defined in a markdown test plan and update it with results
+  Execute test cases defined in a markdown test plan and output results to a
+  copy
 ---
 
 # Run Test Plan Workflow
@@ -12,7 +13,8 @@ Lead QA Automation Execution Engine
 ## Context & Objective
 
 Your objective is to methodically execute the test cases defined in the provided
-markdown test plan and update the file inline with the results.
+markdown test plan. You must make a copy of the test plan file, append
+`-RESULTS` to its filename, and update that new copy inline with the results.
 
 **Target File:** `[TARGET_FILE_PATH]` — The user must provide the target file
 path when executing this command.
@@ -39,9 +41,11 @@ For each pending test case, you must verify the Visual (UI) and System
 
 ## Step 3: Stateful Markdown Updating
 
-Based on the execution results, you must modify the original Target File
-directly using your file editing tools. DO NOT output the updated file in the
-chat; write directly to the file system.
+Based on the execution results, you must first make a copy of the Target File,
+appending `-RESULTS` to the filename (e.g., if target is `01-test.md`, copy to
+`01-test-RESULTS.md`). You must then modify this _new_ `-RESULTS` file directly
+using your file editing tools. DO NOT output the updated file in the chat; write
+directly to the file system. DO NOT modify the original Target File.
 
 - **If a step or assertion PASSES:** Change the markdown checkbox from `- [ ]`
   to `- [x]`.
@@ -59,6 +63,17 @@ chat; write directly to the file system.
    run.
 3. Treat the markdown file as the absolute source of truth. Do not invent new
    test steps; execute exactly what is written.
+
+## Step 5: Version Control & Cleanliness
+
+You may create temporary files and the `*-RESULTS.md` file during execution.
+However, **DO NOT commit, check in, or stage any changes to the repository.**
+
+- **No Repository Mutations:** The test results and temporary scripts should
+  exist only in the local file system for the user to review.
+- **Original File Integrity:** Do not modify the original test plan file.
+- **Cleanup:** You should still delete any temporary Playwright scripts
+  (`temp-test-runner.spec.ts`) after the run is complete.
 
 ## Constraint
 

@@ -1,4 +1,4 @@
-# Agent Protocols — User Guide (1.5.0)
+# Agent Protocols — User Guide
 
 This is the `.agents/` bundle distributed to your project via Git submodule. It
 contains everything your AI coding agents need to operate with strict quality,

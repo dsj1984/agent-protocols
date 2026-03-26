@@ -6,6 +6,18 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 and this project adheres to
 [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [1.9.0] - 2026-03-25
+
+### Workflow Enhancements
+
+- **Hardened Test Execution**: Updated `run-test-plan` workflow to prevent
+  repository mutations:
+  - Mandated the creation of a local `*-RESULTS.md` copy for all test results
+    instead of inline updates to original files.
+  - Explicitly prohibited automatic commits, staging, or check-ins of test
+    results or temporary scripts.
+  - Enforced strict local-only persistence for artifact review.
+
 ## [1.8.0] - 2026-03-25
 
 ### Workflow Enhancements
