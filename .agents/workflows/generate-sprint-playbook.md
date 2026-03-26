@@ -32,15 +32,22 @@ Before generating any tasks, you MUST read the following sources:
    Infrastructure configurations align perfectly with the defined architecture.
    Explicitly list file paths in the tasks.
 
-## Step 2 - Agent Chat Session Model Alignment
+## Step 2 - Agent Chat Session Model Alignment (Fan-Out Architecture)
 
 Structure the sprint to support parallel agent execution in the IDE by
-organizing tasks strictly into Chat Sessions:
+organizing tasks strictly into the following "Fan-Out" Chat Sessions.
 
-- (A) Chat Session 1 (Backend Foundation - Sequential)
-- (B) Chat Sessions 2 and 3 (Frontend Web & Mobile - Concurrent)
-- (C) Chat Session 4 (QA Test Plan Generation and Execution - Concurrent)
-- (D) Chat Session 5 (Retro & Documentation - Sequential)
+**Task Numbering Rule:** You MUST use the format
+`[SPRINT_NUMBER].[CHAT_NUMBER].[STEP_NUMBER]` (e.g., 1.1.1, 1.1.2, 1.2.1).
+
+- (A) Chat Session 1 (Backend Foundation). _Sequential._ Builds DB schemas and
+  API routes first to lock the data contracts. (Tasks: X.1.1, X.1.2...)
+- (B) Chat Session 2 (Web UI) & Chat Session 3 (Mobile UI). _Concurrent._ These
+  sessions fan-out and run in parallel ONLY after Chat Session 1 is complete.
+  (Tasks: X.2.1 and X.3.1)
+- (C) Chat Session 4 (QA & E2E Testing). _Sequential in a FRESH chat._ (Tasks:
+  X.4.1)
+- (D) Chat Session 5 (Retro & Documentation). _Sequential._ (Tasks: X.5.1)
 
 TASK SCOPING RULE: Keep individual tasks highly focused. A single task should
 instruct the agent to modify no more than 2 to 3 files.
@@ -49,48 +56,59 @@ instruct the agent to modify no more than 2 to 3 files.
 
 Models:
 
-- CLAUDE OPUS 4.6 (Planning mode): High-complexity tasks (schema, architecture)
+- CLAUDE OPUS 4.6 (Planning mode): High-complexity tasks (schema, architecture,
+  QA execution)
 - CLAUDE SONNET 4.6 (Planning mode): Complex business logic
 - GEMINI 3.1 HIGH (Planning mode): Standard APIs, data fetching, components
-- GEMINI 3 FLASH (Fast mode): Styling, simple layouts
-- GPT-OSS 120B MEDIUM (Planning mode): Basic data formatting fallback.
+- GEMINI 3 FLASH (Fast mode): Retro, documentation, simple styling
 
-Personas:
+Personas & Active Skills: _You MUST dynamically assign all applicable skills to
+every task based on the context of the work. Select the appropriate skills from
+the `.agents/skills/` (or equivalent) directory. Do not leave the skills field
+blank._
 
-- ARCHITECT: Specifications, schemas.
-- ENGINEER: Implementation with strict TypeScript, Zod.
-- PRODUCT: Define ACs, UI/UX flows.
-- SRE: Testing, Playwright/Vitest, Infrastructure.
-- QA ENGINEER: Create test plans using `.agents/templates/test-plan_template.md`
-  and execute them using the `/run-test-plan` workflow to dynamically update
-  their execution status.
+- ARCHITECT: Specifications, schemas, APIs.
+- ENGINEER: Implementation (Web, Mobile).
+- PRODUCT: Retro and Roadmap alignment.
+- QA AUTOMATION ENGINEER: Test execution.
 
 ## Step 4 - Strict Output Formatting
 
 Generate the markdown playbook for the Sprint.
 
-**STRICT RULE:** You MUST follow the structure, Mermaid diagrams, and task
-templates defined in `.agents/templates/sprint-playbook-template.md`.
+**STRICT RULE:** You MUST follow the structure and task templates defined below.
+Do not use overly verbose boilerplate.
 
 1. The ENTIRE output must be wrapped in a single set of FOUR backticks.
 1. Use CHAT SESSION HEADERS:
-   `### 💬 ⚙️ Chat Session 1: Backend Foundation (Sequential)` etc.
-1. Use the MERMAID diagram from the template.
-1. TASK TEMPLATE: Every task MUST match the template in the spec-template:
+   `### 💬 ⚙️ Chat Session 1: Backend Foundation (Sequential)`
+   `### 💬 ⚡ Chat Session 2: Web UI (Concurrent)`
+   `### 💬 📱 Chat Session 3: Mobile UI (Concurrent)`
+1. Include a Mermaid diagram summarizing the Fan-Out Chat Sessions.
+1. TASK TEMPLATE: Every task MUST exactly match this semantic structure:
 
-- [ ] **[SPRINT_NUMBER].[TASK_NUMBER] [Task Title]**
+- [ ] **[SPRINT_NUMBER].[CHAT_NUMBER].[STEP_NUMBER] [Task Title]**
 
 **Mode:** [Planning/Fast] **Model:** [Model Name]
 
 ```text
-Sprint [SPRINT_NUMBER].[TASK_NUMBER]: Act as an [Persona].
-[Detailed task instructions here. MUST explicitly list prerequisite task numbers if any.]
+Sprint [SPRINT_NUMBER].[CHAT_NUMBER].[STEP_NUMBER]: Act as an [Persona].
 
-AGENT INSTRUCTION:
-1. PREREQUISITE CHECK: Open `docs/sprints/sprint-[SPRINT_NUMBER]/playbook.md` and verify that all prerequisite steps for this task are marked as complete (`[x]`). If any are incomplete, STOP execution immediately and alert the user. (For the final Retro task, perform a Final Sprint Audit to ensure ALL preceding tasks are completed and the codebase matches the PRD).
-2. Ensure all validation and pre-commit hooks pass successfully.
-3. Upon completion, perform a git commit of your changes with the message "type: [SPRINT_NUMBER].[TASK_NUMBER] - [Task Title]".
-4. Finally, open `docs/sprints/sprint-[SPRINT_NUMBER]/playbook.md` and check off `- [x] **[SPRINT_NUMBER].[TASK_NUMBER]**`.
+**Active Skills:** `[comma-separated list of all applicable skills]`
+
+[Detailed task instructions here. MUST explicitly list file paths.]
+[If this is the QA task, you MUST instruct the agent to use the `/run-test-plan` workflow against the specific `docs/test-plans/*.md` files relevant to this sprint. DO NOT tell the agent to write new Playwright tests from scratch.]
+
+AGENT EXECUTION PROTOCOL:
+1. Prerequisite Dependency Check:
+   - Understand your Task ID format: `[SPRINT].[CHAT].[STEP]`.
+   - You depend on ALL tasks from previous Chat Sessions (any task where `CHAT` is less than yours).
+   - You depend on ALL earlier tasks in your current Chat Session (any task where `CHAT` equals yours, but `STEP` is less than yours).
+   - You DO NOT depend on tasks in other concurrent Chat Sessions (e.g., Chat 2 does not wait for Chat 3).
+   - Open `playbook.md` and verify your specific dependencies are marked `[x]`. If not, STOP and alert the user.
+2. Hook Check: Ensure all validation and pre-commit hooks pass.
+3. Commit: `[type]([scope]): [lowercase conventional commit message]`
+4. State Update: Check off `- [x] **[SPRINT_NUMBER].[CHAT_NUMBER].[STEP_NUMBER]**` in this playbook file.
 ```
 
 ## Step 5 - Output Artifacts
@@ -100,4 +118,5 @@ Save the generated playbook into
 
 ## Constraint
 
-Adhere strictly to the templates and instructions provided.
+Adhere strictly to the templates and instructions provided. Never invent tests;
+always execute existing test plan markdowns for the QA steps.

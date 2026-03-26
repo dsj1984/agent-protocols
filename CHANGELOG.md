@@ -6,6 +6,21 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 and this project adheres to
 [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [1.6.0] - 2026-03-25
+
+### Workflow Enhancements
+
+- **Fan-Out Architecture**: Overhauled `generate-sprint-playbook` with a robust
+  multi-agent orchestration model:
+  - Introduced explicit Chat Session modeling (Backend, UI, QA, Retro) for
+    parallelized agent execution and data contract locking.
+  - Added strict Model Routing and Persona Assignment rules to optimize for
+    specialized task execution.
+  - Implemented a mandatory `Agent Execution Protocol` within task templates to
+    enforce dependency checking, state updates, and hook-based validation.
+  - Standardized QA tasks to leverage existing test plans via `/run-test-plan`
+    instead of ad-hoc test generation.
+
 ## [1.5.0] - 2026-03-25
 
 ### Core Improvements
