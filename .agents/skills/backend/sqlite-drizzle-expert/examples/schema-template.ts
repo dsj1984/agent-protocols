@@ -11,7 +11,9 @@ export const users = sqliteTable('users', {
 
 export const posts = sqliteTable('posts', {
   id: text('id').primaryKey(),
-  authorId: text('author_id').notNull().references(() => users.id, { onDelete: 'cascade' }),
+  authorId: text('author_id')
+    .notNull()
+    .references(() => users.id, { onDelete: 'cascade' }),
   content: text('content').notNull(),
 });
 
