@@ -45,26 +45,30 @@ Analyze the repository with a focus on:
 
 ## Step 3: Output Requirements
 
-Generate and save a report to `clean-code-audit.md` in the project root.
+Generate and save a highly structured Markdown audit report to
+`clean-code-audit.md` in the project root, using the exact template below.
 
 ```markdown
 # Clean Code Audit Report
 
-## Maintainability Index
+## Executive Summary
 
-[High/Medium/Low] - [Brief Justification]
+[Brief overview of the codebase's maintainability index (High/Medium/Low) and
+primary themes.]
 
-## Top 5 Code Smells
+## Detailed Findings
 
-1. **[Smell Name]**: [Location] - [Description and impact] ...
+[For every gap identified, use the following strict structure:]
 
-## Refactoring Roadmap
+### [Short Title of the Issue]
 
-### [Refactor Target]
-
-- **Current State:** [Problematic code snippet or description]
-- **Proposed State:** [Description of the cleaner implementation]
-- **Effort/Impact:** [Scale of 1-5]
+- **Dimension:** [e.g., SOLID Principles | DRY | KISS]
+- **Impact:** [High | Medium | Low]
+- **Current State:** [Problematic code snippet, file, or pattern description]
+- **Recommendation & Rationale:** [The specific refactor strategy and how it
+  improves long-term velocity]
+- **Agent Prompt:**
+  `[A copy-pasteable, highly specific prompt to execute this refactor independently]`
 
 ## Technical Debt Backlog
 

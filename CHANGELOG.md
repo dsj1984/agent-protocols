@@ -6,6 +6,23 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 and this project adheres to
 [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [1.11.0] - 2026-03-26
+
+### Refinements & Standardization
+
+- **Audit Workflow Harmonization**: Synchronized 7 new audit workflows with the
+  standardized `devops-audit` and `qa-audit` structure. All audits now include
+  mandatory Dimension/Category, Impact, Current State, Recommendation, and
+  copy-pasteable **Agent Prompts** for safe remediation.
+- **Improved Read-Only Guardrails**: Reinforced the non-mutating nature of audit
+  workflows to ensure purely diagnostic behavior.
+
+### Fixes
+
+- **ESLint Compliance**: Resolved `no-console` warnings in the `athlete-portal`
+  scripts (specifically `self-healing-agent.ts`) that were blocking Husky
+  pre-commit hooks.
+
 ## [1.10.0] - 2026-03-26
 
 ### Workflow Enhancements

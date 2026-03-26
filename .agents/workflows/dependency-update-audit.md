@@ -30,7 +30,8 @@ system stability.
 
 ## Step 3: Output Requirements
 
-Generate and save a report to `dependency-audit.md` in the project root.
+Generate and save a highly structured Markdown audit report to
+`dependency-audit.md` in the project root, using the exact template below.
 
 ```markdown
 # Dependency Audit Report
@@ -39,22 +40,21 @@ Generate and save a report to `dependency-audit.md` in the project root.
 
 - **Outdated Packages:** [Count]
 - **Vulnerabilities:** [Critical: #, High: #, Mod: #]
-- **Deprecated Packages:** [List]
 
-## Proposed Upgrade Path
+## Detailed Findings
 
-### Category: Security Fixes (High Priority)
+[For every security fix or major update identified, use the following strict
+structure:]
 
-- `[package]`: [Current] -> [Target]. _Rationale: Fixes CVE-XXX._
+### [Package Name Update]
 
-### Category: Minor/Patch Updates (Low Risk)
-
-- [List of packages safe to `npm update`.]
-
-### Category: Major Version Upgrades (High Risk)
-
-- `[package]`: [Current] -> [Target]. _Breaking Changes: [Summary of changes
-  needed]._
+- **Dimension:** [Security Fix | Major Upgrade | Removal]
+- **Impact:** [High | Medium | Low]
+- **Current State:** [Current vs Target version and reason for update]
+- **Recommendation & Rationale:** [How to perform the update and potential
+  breaking changes to watch for]
+- **Agent Prompt:**
+  `[A copy-pasteable, highly specific prompt to execute this update independently (e.g., npm install package@version)]`
 
 ## Recommended Removals/Replacements
 

@@ -41,26 +41,31 @@ Scan frontend components for:
 
 ## Step 3: Output Requirements
 
-Generate and save a report to `ux-ui-audit.md` in the project root.
+Generate and save a highly structured Markdown audit report to `ux-ui-audit.md`
+in the project root, using the exact template below.
 
 ```markdown
-# UX/UI Audit Report
+# UX/UI & Design System Audit report
 
-## Design System Health
+## Executive Summary
 
-[Score 1-10] - [Brief summary of adherence to tokens and components.]
+[Overview of design system health (Score 1-10) and adherence to
+tokens/components.]
 
-## Visual Inconsistencies
+## Detailed Findings
 
-- **[Issue Name]**: [Location] - [Description, e.g., "Using #ff0000 instead of
-  var(--color-error)".]
+[For every inconsistency or UX improvement identified, use the following strict
+structure:]
 
-## UX Improvements
+### [Short Title of the Issue]
 
-### [Target Feature/Page]
-
-- **Observation:** [What is confusing or broken for the user?]
-- **Recommendation:** [Specific UI change to improve the experience.]
+- **Dimension:** [e.g., Visual Consistency | UX Best Practices | Accessibility]
+- **Impact:** [High | Medium | Low]
+- **Current State:** [What is currently implemented and why it is sub-optimal]
+- **Recommendation & Rationale:** [The specific UI/UX change and how it improves
+  premium feel or usability]
+- **Agent Prompt:**
+  `[A copy-pasteable, highly specific prompt to execute this UI change independently]`
 
 ## Micro-animation Opportunities
 

@@ -44,7 +44,8 @@ Evaluate the codebase against these privacy pillars:
 
 ## Step 3: Output Requirements
 
-Generate and save a report to `privacy-audit.md` in the project root.
+Generate and save a highly structured Markdown audit report to
+`privacy-audit.md` in the project root, using the exact template below.
 
 ```markdown
 # Privacy & PII Audit Report
@@ -53,25 +54,25 @@ Generate and save a report to `privacy-audit.md` in the project root.
 
 [Overview of the privacy posture and critical risks identified.]
 
-## Critical Findings (Immediate Action Required)
-
-- [List findings that represent immediate data leaks or compliance violations.]
-
-## General Findings & Improvements
-
-### [Issue Title]
-
-- **Type:** [Leaky Log | Insecure Storage | Data Over-collection]
-- **Location:** [File/Line/Module]
-- **Description:** [What is the risk?]
-- **Recommendation:** [How to remediate, e.g., "Use a mask function for logs",
-  "Move to HttpOnly cookies".]
-
 ## Privacy Scorecard
 
 - **Data Encryption:** [Pass/Fail/Partial]
 - **Logging Safety:** [Pass/Fail/Partial]
 - **Minimization:** [Pass/Fail/Partial]
+
+## Detailed Findings
+
+[For every gap identified, use the following strict structure:]
+
+### [Short Title of the Issue]
+
+- **Type:** [Leaky Log | Insecure Storage | Data Over-collection]
+- **Impact:** [Critical | High | Medium | Low]
+- **Current State:** [The specific file/line/module and why it is problematic]
+- **Recommendation & Rationale:** [How to remediate and why it's necessary for
+  compliance]
+- **Agent Prompt:**
+  `[A copy-pasteable, highly specific prompt to execute this remediation independently]`
 ```
 
 ## Constraint

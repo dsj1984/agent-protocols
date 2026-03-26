@@ -41,26 +41,32 @@ Investigate the following areas:
 
 ## Step 3: Output Requirements
 
-Generate and save a report to `performance-audit.md` in the project root.
+Generate and save a highly structured Markdown audit report to
+`performance-audit.md` in the project root, using the exact template below.
 
 ```markdown
 # Performance Audit Report
 
-## Performance Summary
+## Executive Summary
 
-[Current status vs target benchmarks.]
+[Overview of performance summary vs target benchmarks.]
 
-## Top Performance Bottlenecks
+## Detailed Findings
 
-### [Bottleneck Name]
+[For every bottleneck identified, use the following strict structure:]
 
-- **Impact:** [High/Medium/Low]
-- **Domain:** [Frontend | Backend | Database | Network]
-- **Analysis:** [Detailed explanation of why this is a bottleneck.]
-- **Recommendation:** [Specific optimization tactic, e.g., "Implement Redis
-  caching," "Virtualize list component".]
+### [Short Title of the Bottleneck]
 
-## Optimization Low-Hanging Fruit
+- **Dimension:** [e.g., Latency | Throughput | Efficiency]
+- **Impact:** [High | Medium | Low]
+- **Current State:** [Technical explanation of where and why the bottleneck
+  occurs]
+- **Recommendation & Rationale:** [Specific optimization tactic and expected
+  performance gain]
+- **Agent Prompt:**
+  `[A copy-pasteable, highly specific prompt to execute this optimization independently]`
+
+## Low-Hanging Fruit
 
 - [List 3 quick changes that provide immediate performance gains.]
 ```

@@ -41,24 +41,31 @@ Scan the codebase for:
 
 ## Step 3: Output Requirements
 
-Generate and save a report to `security-audit.md` in the project root.
+Generate and save a highly structured Markdown audit report to
+`security-audit.md` in the project root, using the exact template below.
 
 ```markdown
 # Security Audit Report
 
-## Risk Profile
+## Executive Summary
 
-[Critical/High/Medium/Low]
+[Overview of the risk profile (Critical/High/Medium/Low) and overarching
+security posture.]
 
-## Vulnerability Registry
+## Detailed Findings
 
-### [Vulnerability Name]
+[For every vulnerability identified, use the following strict structure:]
 
+### [Short Title of the Vulnerability]
+
+- **Dimension:** [e.g., Injection | Broken Access Control]
 - **Severity:** [Critical | High | Medium | Low]
 - **CWE ID:** [e.g., CWE-89 for SQL Injection]
-- **Location:** [File/Line]
-- **Description:** [Technical explanation of the flaw]
-- **Remediation:** [Step-by-step fix instructions]
+- **Current State:** [Technical explanation of the flaw and its location]
+- **Recommendation & Rationale:** [Step-by-step fix and defensive hardening
+  strategy]
+- **Agent Prompt:**
+  `[A copy-pasteable, highly specific prompt to execute this remediation independently]`
 
 ## Defensive Recommendations
 
