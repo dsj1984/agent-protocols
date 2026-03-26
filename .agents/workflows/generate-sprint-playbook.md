@@ -38,7 +38,7 @@ Structure the sprint to support parallel agent execution in the IDE by
 organizing tasks strictly into the following "Fan-Out" Chat Sessions.
 
 **Task Numbering Rule:** You MUST use the format
-`[SPRINT_NUMBER].[CHAT_NUMBER].[STEP_NUMBER]` (e.g., 1.1.1, 1.1.2, 1.2.1).
+`[SPRINT_NUMBER].[CHAT_NUMBER].[STEP_NUMBER]` (e.g., 25.1.1, 25.1.2, 25.2.1).
 
 - (A) Chat Session 1 (Backend Foundation). _Sequential._ Builds DB schemas and
   API routes first to lock the data contracts. (Tasks: X.1.1, X.1.2...)
@@ -78,18 +78,34 @@ blank._
 
 Generate the markdown playbook for the Sprint.
 
-**STRICT RULE:** You MUST follow the structure and task templates defined below.
-Do not use overly verbose boilerplate.
+**CRITICAL FORMATTING RULES:**
 
-1. The ENTIRE output must be wrapped in a single set of FOUR backticks.
-1. Use CHAT SESSION HEADERS:
-   `### 💬 ⚙️ Chat Session 1: Backend Foundation (Sequential)`
-   `### 💬 ⚡ Chat Session 2: Web UI (Concurrent)`
-   `### 💬 📱 Chat Session 3: Mobile UI (Concurrent)`
-   `### 💬 🧪 Chat Session 4: QA & E2E Testing (Sequential)`
-   `### 💬 🔄 Chat Session 5: Retro & Documentation (Sequential)`
-1. Include a Mermaid diagram summarizing the Fan-Out Chat Sessions.
-1. TASK TEMPLATE: Every task MUST exactly match this semantic structure:
+1. NO OUTER WRAPPER: You must output raw Markdown. Do NOT wrap your entire
+   response in an outer set of backticks (e.g., do not start the file with
+   ```markdown). Start directly with the `# Sprint [NUMBER] Playbook` header.
+2. THE NO-SUMMARIZATION RULE: You are strictly forbidden from modifying or
+   summarizing the `AGENT EXECUTION PROTOCOL`. You must copy the text from the
+   template below EXACTLY word-for-word for every single task.
+
+**Document Structure:** Use the following Chat Session Headers exactly as
+written: `### 💬 ⚙️ Chat Session 1: Backend Foundation (Sequential)`
+`### 💬 ⚡ Chat Session 2: Web UI (Concurrent)`
+`### 💬 📱 Chat Session 3: Mobile UI (Concurrent)`
+`### 💬 🧪 Chat Session 4: QA & E2E Testing (Sequential)`
+`### 💬 🔄 Chat Session 5: Retro & Documentation (Sequential)`
+
+Include this exact Mermaid diagram beneath the Sprint Summary:
+
+```mermaid
+graph TD
+    A[Chat 1: Backend Foundation] --> B[Chat 2: Web UI]
+    A --> C[Chat 3: Mobile UI]
+    B --> D[Chat 4: QA & E2E Testing]
+    C --> D
+    D --> E[Chat 5: Retro & Documentation]
+```
+
+**TASK TEMPLATE:** Every task MUST exactly match this semantic structure:
 
 - [ ] **[SPRINT_NUMBER].[CHAT_NUMBER].[STEP_NUMBER] [Task Title]**
 
@@ -102,7 +118,7 @@ Sprint [SPRINT_NUMBER].[CHAT_NUMBER].[STEP_NUMBER]: Act as an [Persona].
 
 [Detailed task instructions here. MUST explicitly list file paths.]
 
-[CRITICAL FOR QA TASKS: Chat Session 4 MUST include a specific task to write/update the Manual Test Plan Documentation in `docs/test-plans/*.md` for new sprint features. Instruct the agent to use the Dual-Purpose standard (semantic locators and SQL assertions). Following the documentation task, include a separate execution task using the `/run-test-plan` workflow against those updated files. DO NOT tell the agent to write new Playwright tests from scratch.]
+[CRITICAL FOR QA TASKS: Chat Session 4 MUST include a specific task to write/update the Manual Test Plan Documentation in `docs/test-plans/*.md` for new sprint features using the Dual-Purpose standard. Following the documentation task, include a separate execution task using the `/run-test-plan` workflow against those updated files. DO NOT invent Playwright tests from scratch.]
 
 AGENT EXECUTION PROTOCOL:
 1. Prerequisite Dependency Check:
@@ -123,5 +139,5 @@ Save the generated playbook into
 
 ## Constraint
 
-Adhere strictly to the templates and instructions provided. Never invent tests;
-always generate/update test plan markdowns and execute them.
+Adhere strictly to the templates and instructions provided. Do not summarize the
+protocol. Do NOT use an outer markdown code block wrapper for the file.
