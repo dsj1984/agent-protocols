@@ -6,6 +6,21 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 and this project adheres to
 [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [1.7.0] - 2026-03-25
+
+### Workflow Enhancements
+
+- **Integrated QA Lifecycle**: Hardened `generate-sprint-playbook` by coupling
+  test plan generation with execution:
+  - Mandated a dedicated Chat Session (Session 4) for updating
+    `docs/test-plans/*.md` with new features before running them.
+  - Expanded the **QA Automation Engineer** persona to include manual test plan
+    authoring and documentation tasks.
+  - Defined explicit **Dual-Purpose Testing** standards (semantic locators and
+    SQL assertions) for robust validation.
+  - Refined model routing to prefer **Claude Sonnet 4.6 (Planning)** for
+    producing high-quality QA documentation.
+
 ## [1.6.0] - 2026-03-25
 
 ### Workflow Enhancements

@@ -45,8 +45,9 @@ organizing tasks strictly into the following "Fan-Out" Chat Sessions.
 - (B) Chat Session 2 (Web UI) & Chat Session 3 (Mobile UI). _Concurrent._ These
   sessions fan-out and run in parallel ONLY after Chat Session 1 is complete.
   (Tasks: X.2.1 and X.3.1)
-- (C) Chat Session 4 (QA & E2E Testing). _Sequential in a FRESH chat._ (Tasks:
-  X.4.1)
+- (C) Chat Session 4 (QA Test Plan Generation & Execution). _Sequential in a
+  FRESH chat._ Must include tasks to update `docs/test-plans/*.md` files with
+  new features BEFORE executing them. (Tasks: X.4.1, X.4.2)
 - (D) Chat Session 5 (Retro & Documentation). _Sequential._ (Tasks: X.5.1)
 
 TASK SCOPING RULE: Keep individual tasks highly focused. A single task should
@@ -58,7 +59,7 @@ Models:
 
 - CLAUDE OPUS 4.6 (Planning mode): High-complexity tasks (schema, architecture,
   QA execution)
-- CLAUDE SONNET 4.6 (Planning mode): Complex business logic
+- CLAUDE SONNET 4.6 (Planning mode): Complex business logic, QA Documentation
 - GEMINI 3.1 HIGH (Planning mode): Standard APIs, data fetching, components
 - GEMINI 3 FLASH (Fast mode): Retro, documentation, simple styling
 
@@ -70,7 +71,8 @@ blank._
 - ARCHITECT: Specifications, schemas, APIs.
 - ENGINEER: Implementation (Web, Mobile).
 - PRODUCT: Retro and Roadmap alignment.
-- QA AUTOMATION ENGINEER: Test execution.
+- QA AUTOMATION ENGINEER: Test plan generation (writing to
+  `docs/test-plans/*.md`) and automated test execution.
 
 ## Step 4 - Strict Output Formatting
 
@@ -84,6 +86,8 @@ Do not use overly verbose boilerplate.
    `### 💬 ⚙️ Chat Session 1: Backend Foundation (Sequential)`
    `### 💬 ⚡ Chat Session 2: Web UI (Concurrent)`
    `### 💬 📱 Chat Session 3: Mobile UI (Concurrent)`
+   `### 💬 🧪 Chat Session 4: QA & E2E Testing (Sequential)`
+   `### 💬 🔄 Chat Session 5: Retro & Documentation (Sequential)`
 1. Include a Mermaid diagram summarizing the Fan-Out Chat Sessions.
 1. TASK TEMPLATE: Every task MUST exactly match this semantic structure:
 
@@ -97,7 +101,8 @@ Sprint [SPRINT_NUMBER].[CHAT_NUMBER].[STEP_NUMBER]: Act as an [Persona].
 **Active Skills:** `[comma-separated list of all applicable skills]`
 
 [Detailed task instructions here. MUST explicitly list file paths.]
-[If this is the QA task, you MUST instruct the agent to use the `/run-test-plan` workflow against the specific `docs/test-plans/*.md` files relevant to this sprint. DO NOT tell the agent to write new Playwright tests from scratch.]
+
+[CRITICAL FOR QA TASKS: Chat Session 4 MUST include a specific task to write/update the Manual Test Plan Documentation in `docs/test-plans/*.md` for new sprint features. Instruct the agent to use the Dual-Purpose standard (semantic locators and SQL assertions). Following the documentation task, include a separate execution task using the `/run-test-plan` workflow against those updated files. DO NOT tell the agent to write new Playwright tests from scratch.]
 
 AGENT EXECUTION PROTOCOL:
 1. Prerequisite Dependency Check:
@@ -119,4 +124,4 @@ Save the generated playbook into
 ## Constraint
 
 Adhere strictly to the templates and instructions provided. Never invent tests;
-always execute existing test plan markdowns for the QA steps.
+always generate/update test plan markdowns and execute them.
