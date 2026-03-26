@@ -6,6 +6,32 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 and this project adheres to
 [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [1.10.0] - 2026-03-26
+
+### Workflow Enhancements
+
+- **Audit & Automation Expansion**: Introduced 7 new comprehensive workflows:
+  - `privacy-audit`: Data privacy and PII compliance checking.
+  - `clean-code-audit`: Maintainability and technical debt analysis.
+  - `security-audit`: Vulnerability scanning and OWASP alignment.
+  - `performance-audit`: Deep architectural and stack-wide bottleneck analysis.
+  - `generate-release-notes`: Automated synthesis of git commits into
+    user-facing changelogs.
+  - `dependency-update-audit`: Security and bloat auditing for modern package
+    managers.
+  - `ux-ui-audit`: Design system consistency and UX best-practice reviews.
+
+### Domain Skills
+
+- **Ecosystem Expansion**: Added 14 new foundational skills to the
+  `.agents/skills/` directory:
+  - **Frontend**: `astro`, `tailwind-v4`, `google-analytics-v4`.
+  - **Backend**: `cloudflare-workers`, `turso-sqlite`, `clerk-auth`,
+    `stripe-payments`, `highlevel-crm`.
+  - **QA**: `vitest`, `playwright`, `accessibility-audit`.
+  - **Architecture**: `subagent-orchestration`, `structured-output-zod`,
+    `markdown`.
+
 ## [1.9.0] - 2026-03-25
 
 ### Workflow Enhancements
