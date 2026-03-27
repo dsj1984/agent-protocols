@@ -6,6 +6,18 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 and this project adheres to
 [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [1.12.0] - 2026-03-26
+
+### Protocol Hardening
+
+- **Improved Sprint Playbook Generation**:
+  - Moved the `AGENT EXECUTION PROTOCOL` to the top of task blocks for improved
+    agent visibility and adherence.
+  - Introduced a mandatory **Sample Data Maintenance** step for Chat Session 4
+    (QA) to ensure dev data (seeds, mocks) stays in sync.
+  - Strengthened protocol language to strictly enforce prerequisites and state
+    updates.
+
 ## [1.11.0] - 2026-03-26
 
 ### Refinements & Standardization

@@ -26,13 +26,15 @@ lock the data contracts and prevent schema conflicts._
 
 ```text
 Sprint [SPRINT_NUMBER].1: Act as an ARCHITECT.
-[Insert detailed instructions here. Define exact table names, columns, relationships, and constraints. Tell the agent which files to modify.]
 
-AGENT INSTRUCTION:
-1. PREREQUISITE CHECK: Open `docs/sprints/sprint-[SPRINT_NUMBER]/playbook.md` and verify that all prerequisite steps for this task are marked as complete (`[x]`). If any are incomplete, STOP execution immediately and alert the user.
-2. Ensure all validation and pre-commit hooks pass successfully.
-3. Upon completion, perform a git commit of your changes with the message "feat: [SPRINT_NUMBER].1 - [Task Title]".
-4. Finally, open the file `docs/sprints/sprint-[SPRINT_NUMBER]/playbook.md`, find the line starting with `- [ ] **[SPRINT_NUMBER].1**`, and mark it as complete by changing `- [ ]` to `- [x]`.
+**AGENT EXECUTION PROTOCOL (STRICT ADHERENCE REQUIRED):**
+1. **Prerequisite Check**: Open `playbook.md` and verify all tasks with lower `STEP` numbers in this chat OR from previous chats are marked `[x]`. If not, **STOP** and alert the user.
+2. **Execution**: Perform the task instructions below.
+3. **Validation**: Ensure all validation and pre-commit hooks pass (`npm run lint`, etc.).
+4. **Commit**: `feat: [SPRINT_NUMBER].1 - [Task Title]`
+5. **Completion**: Mark this task as complete (`- [x]`) in `playbook.md` BEFORE ending the session.
+
+[Insert detailed instructions here. Define exact table names, columns, relationships, and constraints. Tell the agent which files to modify.]
 ```
 
 - [ ] **[SPRINT_NUMBER].2 [Task Title - e.g., Core API Controllers]**
@@ -41,13 +43,15 @@ AGENT INSTRUCTION:
 
 ```text
 Sprint [SPRINT_NUMBER].2: Act as an ENGINEER.
-[Insert detailed instructions here. Define required Zod schemas, API route methods, expected payloads, and authorization middleware.]
 
-AGENT INSTRUCTION:
-1. PREREQUISITE CHECK: Open `docs/sprints/sprint-[SPRINT_NUMBER]/playbook.md` and verify that all prerequisite steps for this task are marked as complete (`[x]`). If any are incomplete, STOP execution immediately and alert the user.
-2. Ensure all validation and pre-commit hooks pass successfully.
-3. Upon completion, perform a git commit of your changes with the message "feat: [SPRINT_NUMBER].2 - [Task Title]".
-4. Finally, open the file `docs/sprints/sprint-[SPRINT_NUMBER]/playbook.md`, find the line starting with `- [ ] **[SPRINT_NUMBER].2**`, and mark it as complete by changing `- [ ]` to `- [x]`.
+**AGENT EXECUTION PROTOCOL (STRICT ADHERENCE REQUIRED):**
+1. **Prerequisite Check**: Open `playbook.md` and verify all tasks with lower `STEP` numbers in this chat OR from previous chats are marked `[x]`. If not, **STOP** and alert the user.
+2. **Execution**: Perform the task instructions below.
+3. **Validation**: Ensure all validation and pre-commit hooks pass (`npm run lint`, etc.).
+4. **Commit**: `feat: [SPRINT_NUMBER].2 - [Task Title]`
+5. **Completion**: Mark this task as complete (`- [x]`) in `playbook.md` BEFORE ending the session.
+
+[Insert detailed instructions here. Define required Zod schemas, API route methods, expected payloads, and authorization middleware.]
 ```
 
 ### 💬 ⚡ Chat Session 2: Web UI (Concurrent)
@@ -61,13 +65,15 @@ within `@repo/web`._
 
 ```text
 Sprint [SPRINT_NUMBER].3.1: Act as an ENGINEER.
-[Insert detailed instructions here. Specify Astro pages, React client components, Tailwind styling requirements, and the specific API endpoints to consume.]
 
-AGENT INSTRUCTION:
-1. PREREQUISITE CHECK: Open `docs/sprints/sprint-[SPRINT_NUMBER]/playbook.md` and verify that all prerequisite steps for this task are marked as complete (`[x]`). If any are incomplete, STOP execution immediately and alert the user.
-2. Ensure all validation and pre-commit hooks pass successfully.
-3. Upon completion, perform a git commit of your changes with the message "feat: [SPRINT_NUMBER].3.1 - [Task Title]".
-4. Finally, open the file `docs/sprints/sprint-[SPRINT_NUMBER]/playbook.md`, find the line starting with `- [ ] **[SPRINT_NUMBER].3.1**`, and mark it as complete by changing `- [ ]` to `- [x]`.
+**AGENT EXECUTION PROTOCOL (STRICT ADHERENCE REQUIRED):**
+1. **Prerequisite Check**: Open `playbook.md` and verify all tasks with lower `STEP` numbers in this chat OR from previous chats are marked `[x]`. If not, **STOP** and alert the user.
+2. **Execution**: Perform the task instructions below.
+3. **Validation**: Ensure all validation and pre-commit hooks pass (`npm run lint`, etc.).
+4. **Commit**: `feat: [SPRINT_NUMBER].3.1 - [Task Title]`
+5. **Completion**: Mark this task as complete (`- [x]`) in `playbook.md` BEFORE ending the session.
+
+[Insert detailed instructions here. Specify Astro pages, React client components, Tailwind styling requirements, and the specific API endpoints to consume.]
 ```
 
 ### 💬 📱 Chat Session 3: Mobile UI (Concurrent)
@@ -81,13 +87,15 @@ within `@repo/mobile`._
 
 ```text
 Sprint [SPRINT_NUMBER].4.1: Act as an ENGINEER.
-[Insert detailed instructions here. Specify Expo Router screens, React Native components, mobile-first styling constraints, and API integrations.]
 
-AGENT INSTRUCTION:
-1. PREREQUISITE CHECK: Open `docs/sprints/sprint-[SPRINT_NUMBER]/playbook.md` and verify that all prerequisite steps for this task are marked as complete (`[x]`). If any are incomplete, STOP execution immediately and alert the user.
-2. Ensure all validation and pre-commit hooks pass successfully.
-3. Upon completion, perform a git commit of your changes with the message "feat: [SPRINT_NUMBER].4.1 - [Task Title]".
-4. Finally, open the file `docs/sprints/sprint-[SPRINT_NUMBER]/playbook.md`, find the line starting with `- [ ] **[SPRINT_NUMBER].4.1**`, and mark it as complete by changing `- [ ]` to `- [x]`.
+**AGENT EXECUTION PROTOCOL (STRICT ADHERENCE REQUIRED):**
+1. **Prerequisite Check**: Open `playbook.md` and verify all tasks with lower `STEP` numbers in this chat OR from previous chats are marked `[x]`. If not, **STOP** and alert the user.
+2. **Execution**: Perform the task instructions below.
+3. **Validation**: Ensure all validation and pre-commit hooks pass (`npm run lint`, etc.).
+4. **Commit**: `feat: [SPRINT_NUMBER].4.1 - [Task Title]`
+5. **Completion**: Mark this task as complete (`- [x]`) in `playbook.md` BEFORE ending the session.
+
+[Insert detailed instructions here. Specify Expo Router screens, React Native components, mobile-first styling constraints, and API integrations.]
 ```
 
 ### 💬 🧪 Chat Session 4: QA & E2E Testing (Concurrent)
@@ -100,13 +108,15 @@ _Execution Rule: Open a NEW chat window after code complete._
 
 ```text
 Sprint [SPRINT_NUMBER].5.1: Act as an SRE.
-[Insert detailed instructions here. Specify the user flows to test, edge cases to cover, and which `apps/web/e2e/*.spec.ts` files to create or modify.]
 
-AGENT INSTRUCTION:
-1. PREREQUISITE CHECK: Open `docs/sprints/sprint-[SPRINT_NUMBER]/playbook.md` and verify that all prerequisite steps for this task are marked as complete (`[x]`). If any are incomplete, STOP execution immediately and alert the user.
-2. Ensure all validation and pre-commit hooks pass successfully.
-3. Upon completion, perform a git commit of your changes with the message "test: [SPRINT_NUMBER].5.1 - [Task Title]".
-4. Finally, open the file `docs/sprints/sprint-[SPRINT_NUMBER]/playbook.md`, find the line starting with `- [ ] **[SPRINT_NUMBER].5.1**`, and mark it as complete by changing `- [ ]` to `- [x]`.
+**AGENT EXECUTION PROTOCOL (STRICT ADHERENCE REQUIRED):**
+1. **Prerequisite Check**: Open `playbook.md` and verify all tasks with lower `STEP` numbers in this chat OR from previous chats are marked `[x]`. If not, **STOP** and alert the user.
+2. **Execution**: Perform the task instructions below.
+3. **Validation**: Ensure all validation and pre-commit hooks pass (`npm run lint`, etc.).
+4. **Commit**: `test: [SPRINT_NUMBER].5.1 - [Task Title]`
+5. **Completion**: Mark this task as complete (`- [x]`) in `playbook.md` BEFORE ending the session.
+
+[Insert detailed instructions here. Specify the user flows to test, edge cases to cover, and which `apps/web/e2e/*.spec.ts` files to create or modify. CRITICAL: Include a specific step to maintain/update fake/sample test data (seed files, mock API responses, storybook stories) to reflect sprint changes.]
 ```
 
 ### 💬 🔄 Chat Session 5: Retro & Documentation (Sequential)
@@ -120,11 +130,13 @@ merged._
 
 ```text
 Sprint [SPRINT_NUMBER].6: Act as a PRODUCT MANAGER.
-[Insert detailed instructions here. Instruct the agent to update `roadmap.md` to ✅ Implemented, update `architecture.md` if any core patterns changed, and finalize the sprint.]
 
-AGENT INSTRUCTION:
-1. FINAL SPRINT AUDIT: Open `docs/sprints/sprint-[SPRINT_NUMBER]/playbook.md` and confirm all preceding tasks (every task strictly before this final retro task) are marked as complete (`[x]`). Then perform a brief codebase audit to verify the implementation matches the PRD. If anything is incomplete or missing, STOP execution immediately and alert the user.
-2. Ensure all validation and pre-commit hooks pass successfully.
-3. Upon completion, perform a git commit of your changes with the message "docs: [SPRINT_NUMBER].6 - [Task Title]".
-4. Finally, open the file `docs/sprints/sprint-[SPRINT_NUMBER]/playbook.md`, find the line starting with `- [ ] **[SPRINT_NUMBER].6**`, and mark it as complete by changing `- [ ]` to `- [x]`.
+**AGENT EXECUTION PROTOCOL (STRICT ADHERENCE REQUIRED):**
+1. **Prerequisite Check**: Open `playbook.md` and verify all tasks with lower `STEP` numbers in this chat OR from previous chats are marked `[x]`. If not, **STOP** and alert the user.
+2. **Execution**: Perform the task instructions below.
+3. **Validation**: Ensure all validation and pre-commit hooks pass (`npm run lint`, etc.).
+4. **Commit**: `docs: [SPRINT_NUMBER].6 - [Task Title]`
+5. **Completion**: Mark this task as complete (`- [x]`) in `playbook.md` BEFORE ending the session.
+
+[Insert detailed instructions here. Instruct the agent to update `roadmap.md` to ✅ Implemented, update `architecture.md` if any core patterns changed, and finalize the sprint.]
 ```

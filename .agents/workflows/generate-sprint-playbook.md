@@ -46,8 +46,11 @@ organizing tasks strictly into the following "Fan-Out" Chat Sessions.
   sessions fan-out and run in parallel ONLY after Chat Session 1 is complete.
   (Tasks: X.2.1 and X.3.1)
 - (C) Chat Session 4 (QA Test Plan Generation & Execution). _Sequential in a
-  FRESH chat._ Must include tasks to update `docs/test-plans/*.md` files with
-  new features BEFORE executing them. (Tasks: X.4.1, X.4.2)
+  FRESH chat._ Must include tasks to:
+  1. Maintain/update fake/sample test data (seed files, mock API responses,
+     storybook stories) to reflect sprint changes.
+  2. Update `docs/test-plans/*.md` files with new features BEFORE executing
+     them. (Tasks: X.4.1, X.4.2)
 - (D) Chat Session 5 (Retro & Documentation). _Sequential._ (Tasks: X.5.1)
 
 TASK SCOPING RULE: Keep individual tasks highly focused. A single task should
@@ -121,22 +124,18 @@ graph TD
 ```text
 Sprint [SPRINT_NUMBER].[CHAT_NUMBER].[STEP_NUMBER]: Act as an [Persona].
 
+**AGENT EXECUTION PROTOCOL (STRICT ADHERENCE REQUIRED):**
+1. **Prerequisite Check**: Open `playbook.md` and verify all tasks with lower `STEP` numbers in this chat OR from previous chats are marked `[x]`. If not, **STOP** and alert the user.
+2. **Execution**: Perform the task instructions below.
+3. **Validation**: Ensure all validation and pre-commit hooks pass (`npm run lint`, etc.).
+4. **Commit**: `[type]([scope]): [lowercase conventional commit message]`
+5. **Completion**: Mark this task as complete (`- [x]`) in `playbook.md` BEFORE ending the session.
+
 **Active Skills:** `[comma-separated list of all applicable skills]`
 
 [Detailed task instructions here. MUST explicitly list file paths.]
 
-[CRITICAL FOR QA TASKS: Chat Session 4 MUST include a specific task to write/update the Manual Test Plan Documentation in `docs/test-plans/*.md` for new sprint features using the Dual-Purpose standard. Following the documentation task, include a separate execution task using the `/run-test-plan` workflow against those updated files. DO NOT invent Playwright tests from scratch.]
-
-AGENT EXECUTION PROTOCOL:
-1. Prerequisite Dependency Check:
-   - Understand your Task ID format: `[SPRINT].[CHAT].[STEP]`.
-   - You depend on ALL tasks from previous Chat Sessions (any task where `CHAT` is less than yours).
-   - You depend on ALL earlier tasks in your current Chat Session (any task where `CHAT` equals yours, but `STEP` is less than yours).
-   - You DO NOT depend on tasks in other concurrent Chat Sessions (e.g., Chat 2 does not wait for Chat 3).
-   - Open `playbook.md` and verify your specific dependencies are marked `[x]`. If not, STOP and alert the user.
-2. Hook Check: Ensure all validation and pre-commit hooks pass.
-3. Commit: `[type]([scope]): [lowercase conventional commit message]`
-4. State Update: Check off `- [x] **[SPRINT_NUMBER].[CHAT_NUMBER].[STEP_NUMBER]**` in this playbook file.
+[CRITICAL FOR QA TASKS: Chat Session 4 MUST include a specific task to maintain/update fake/sample test data (seed files, mocks, etc.) and update the Manual Test Plan Documentation in `docs/test-plans/*.md` for new sprint features using the Dual-Purpose standard. Following the documentation task, include a separate execution task using the `/run-test-plan` workflow against those updated files. DO NOT invent Playwright tests from scratch.]
 ```
 
 ## Step 5 - Output Artifacts
