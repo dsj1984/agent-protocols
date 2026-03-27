@@ -49,7 +49,8 @@ Evaluate the gathered context against the following clean code dimensions:
 ## Step 3: Output Requirements
 
 Generate and save a highly structured Markdown audit report to
-`architecture-audit.md` in the project root, using the exact template below.
+`architecture-audit-results.md` in the project root, using the exact template
+below.
 
 ```markdown
 # Architecture & Clean Code Review

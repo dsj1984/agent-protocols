@@ -23,7 +23,8 @@ dev server (e.g., `http://localhost:3000`) before starting.
 
 1. Run a Lighthouse audit on `[TARGET_URL]` in Desktop mode. Fix any
    environmental issues that prevent Lighthouse from running.
-2. Create and save a file named `performance-audit.md` in the project root.
+2. Create and save a file named `accessibility-audit-results.md` in the project
+   root.
 3. Log the initial "Before" scores in a table:
 
 | Metric         | Before Score |
@@ -36,7 +37,7 @@ dev server (e.g., `http://localhost:3000`) before starting.
 ## Step 2: Issue Identification
 
 Identify the **top 3 opportunities** with the highest potential impact on the
-score. List them in `performance-audit.md` before touching any code.
+score. List them in `accessibility-audit-results.md` before touching any code.
 
 ## Step 3: Optimization Loop
 
@@ -48,13 +49,13 @@ Execute the following cycle **for each of the 3 issues**:
 3. **Verify:** Re-run Lighthouse immediately after the fix.
 4. **Decision:**
    - ✅ **Score improves or target metric decreases** → Keep the change and log
-     the "After" result in `performance-audit.md`.
+     the "After" result in `accessibility-audit-results.md`.
    - ❌ **Score is unchanged or worsens** → **Revert the change immediately**
      and log the failure in the report.
 
 ## Step 4: Final Artifact
 
-Update `performance-audit.md` with a final summary table:
+Update `accessibility-audit-results.md` with a final summary table:
 
 | Metric         | Before Score | After Score | Delta |
 | -------------- | ------------ | ----------- | ----- |

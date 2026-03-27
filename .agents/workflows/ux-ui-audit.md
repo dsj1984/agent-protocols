@@ -41,8 +41,8 @@ Scan frontend components for:
 
 ## Step 3: Output Requirements
 
-Generate and save a highly structured Markdown audit report to `ux-ui-audit.md`
-in the project root, using the exact template below.
+Generate and save a highly structured Markdown audit report to
+`ux-ui-audit-results.md` in the project root, using the exact template below.
 
 ```markdown
 # UX/UI & Design System Audit report

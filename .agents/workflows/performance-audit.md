@@ -42,7 +42,8 @@ Investigate the following areas:
 ## Step 3: Output Requirements
 
 Generate and save a highly structured Markdown audit report to
-`performance-audit.md` in the project root, using the exact template below.
+`performance-audit-results.md` in the project root, using the exact template
+below.
 
 ```markdown
 # Performance Audit Report

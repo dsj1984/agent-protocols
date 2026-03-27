@@ -215,19 +215,25 @@ project.
 
 ### Available Workflows
 
-| Workflow File                 | Category  | Slash Command               | Output File             | Purpose                                             |
-| ----------------------------- | --------- | --------------------------- | ----------------------- | --------------------------------------------------- |
-| `architecture-audit.md`       | `audits`  | `/architecture-audit`       | `architecture-audit.md` | Clean code, over-engineering & coupling review      |
-| `devops-audit.md`             | `audits`  | `/devops-audit`             | `devops-audit.md`       | CI/CD, DX tooling & infrastructure review           |
-| `qa-audit.md`                 | `audits`  | `/qa-audit`                 | `qa-audit.md`           | Test coverage, test plans & mocking strategy review |
-| `seo-audit.md`                | `audits`  | `/seo-audit`                | `seo-audit.md`          | Traditional SEO + Generative Engine Optimization    |
-| `accessibility-audit.md`      | `audits`  | `/accessibility-audit`      | `performance-audit.md`  | Lighthouse performance audit & optimization loop    |
-| `sre-audit.md`                | `audits`  | `/sre-audit`                | `release-audit.md`      | Production release candidate readiness audit        |
-| `generate-prd.md`             | `sdlc`    | `/generate-prd`             | `prd.md`                | Generates PRD from roadmap items                    |
-| `generate-tech-spec.md`       | `sdlc`    | `/generate-tech-spec`       | `tech-spec.md`          | Generates Technical Spec from PRD                   |
-| `generate-sprint-playbook.md` | `sdlc`    | `/generate-sprint-playbook` | `playbook.md`           | Generates Sprint Playbook from PRD + Tech Spec      |
-| `plan-sprint.md`              | `sdlc`    | `/plan-sprint`              | (Orchestrator)          | Sequentially runs PRD, Tech Spec, and Playbook      |
-| `run-test-plan.md`            | `testing` | `/run-test-plan`            | (Updates Test Plan)     | Executes Playwright & SQL tests against a test plan |
+| Workflow File                 | Category  | Slash Command               | Output File                          | Purpose                                             |
+| ----------------------------- | --------- | --------------------------- | ------------------------------------ | --------------------------------------------------- |
+| `architecture-audit.md`       | `audits`  | `/architecture-audit`       | `architecture-audit-results.md`      | Clean code, over-engineering & coupling review      |
+| `clean-code-audit.md`         | `audits`  | `/clean-code-audit`         | `clean-code-audit-results.md`        | Maintainability and technical debt analysis         |
+| `devops-audit.md`             | `audits`  | `/devops-audit`             | `devops-audit-results.md`            | CI/CD, DX tooling & infrastructure review           |
+| `qa-audit.md`                 | `audits`  | `/qa-audit`                 | `qa-audit-results.md`                | Test coverage, test plans & mocking strategy review |
+| `seo-audit.md`                | `audits`  | `/seo-audit`                | `seo-audit-results.md`               | Traditional SEO + Generative Engine Optimization    |
+| `accessibility-audit.md`      | `audits`  | `/accessibility-audit`      | `accessibility-audit-results.md`     | Lighthouse performance and accessibility audit      |
+| `sre-audit.md`                | `audits`  | `/sre-audit`                | `sre-audit-results.md`               | Production release candidate readiness audit        |
+| `security-audit.md`           | `audits`  | `/security-audit`           | `security-audit-results.md`          | Vulnerability scanning and OWASP alignment          |
+| `performance-audit.md`        | `audits`  | `/performance-audit`        | `performance-audit-results.md`       | Deep architectural and stack-wide bottleneck review |
+| `privacy-audit.md`            | `audits`  | `/privacy-audit`            | `privacy-audit-results.md`           | PII data handling and privacy compliance audit      |
+| `dependency-update-audit.md`  | `audits`  | `/dependency-update-audit`  | `dependency-update-audit-results.md` | Security and bloat auditing for dependencies        |
+| `ux-ui-audit.md`              | `audits`  | `/ux-ui-audit`              | `ux-ui-audit-results.md`             | Design system consistency and UX reviews            |
+| `generate-prd.md`             | `sdlc`    | `/generate-prd`             | `prd.md`                             | Generates PRD from roadmap items                    |
+| `generate-tech-spec.md`       | `sdlc`    | `/generate-tech-spec`       | `tech-spec.md`                       | Generates Technical Spec from PRD                   |
+| `generate-sprint-playbook.md` | `sdlc`    | `/generate-sprint-playbook` | `playbook.md`                        | Generates Sprint Playbook from PRD + Tech Spec      |
+| `plan-sprint.md`              | `sdlc`    | `/plan-sprint`              | (Orchestrator)                       | Sequentially runs PRD, Tech Spec, and Playbook      |
+| `run-test-plan.md`            | `testing` | `/run-test-plan`            | (Updates Test Plan)                  | Executes Playwright & SQL tests against a test plan |
 
 ### Setting Up Slash Commands
 
