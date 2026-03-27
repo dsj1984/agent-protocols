@@ -53,6 +53,7 @@ docs/
 │       ├── tech-spec.md     # Technical Specification (implementation plan)
 │       └── playbook.md      # Actionable tasks for AI agents
 └── test-plans/              # Domain-specific QA test plans
+    └── sprint-test-plans/   # Sprint-specific test plans
 ```
 
 > [!IMPORTANT] Always verify the existence of these files before starting a new
