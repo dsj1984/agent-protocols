@@ -28,7 +28,7 @@ lock the data contracts and prevent schema conflicts._
 Sprint [SPRINT_NUMBER].1: Act as an ARCHITECT.
 
 **AGENT EXECUTION PROTOCOL (STRICT ADHERENCE REQUIRED):**
-1. **Prerequisite Check**: Open `playbook.md` and verify all tasks with lower `STEP` numbers in this chat OR from previous chats are marked `[x]`. If not, **STOP** and alert the user.
+1. **Prerequisite Check**: Open `playbook.md` and verify all tasks with lower `STEP` numbers in this chat AND all tasks in [MANDATORY_PREVIOUS_CHATS] are marked `[x]`. (Note: Refer to the Fan-Out Flow diagram for dependencies). If not, **STOP** and alert the user.
 2. **Execution**: Perform the task instructions below.
 3. **Validation**: Ensure all validation and pre-commit hooks pass (`npm run lint`, etc.).
 4. **Commit**: `feat: [SPRINT_NUMBER].1 - [Task Title]`
@@ -45,7 +45,7 @@ Sprint [SPRINT_NUMBER].1: Act as an ARCHITECT.
 Sprint [SPRINT_NUMBER].2: Act as an ENGINEER.
 
 **AGENT EXECUTION PROTOCOL (STRICT ADHERENCE REQUIRED):**
-1. **Prerequisite Check**: Open `playbook.md` and verify all tasks with lower `STEP` numbers in this chat OR from previous chats are marked `[x]`. If not, **STOP** and alert the user.
+1. **Prerequisite Check**: Open `playbook.md` and verify all tasks with lower `STEP` numbers in this chat AND all tasks in [MANDATORY_PREVIOUS_CHATS] are marked `[x]`. (Note: Refer to the Fan-Out Flow diagram for dependencies). If not, **STOP** and alert the user.
 2. **Execution**: Perform the task instructions below.
 3. **Validation**: Ensure all validation and pre-commit hooks pass (`npm run lint`, etc.).
 4. **Commit**: `feat: [SPRINT_NUMBER].2 - [Task Title]`
@@ -67,7 +67,7 @@ within `@repo/web`._
 Sprint [SPRINT_NUMBER].3.1: Act as an ENGINEER.
 
 **AGENT EXECUTION PROTOCOL (STRICT ADHERENCE REQUIRED):**
-1. **Prerequisite Check**: Open `playbook.md` and verify all tasks with lower `STEP` numbers in this chat OR from previous chats are marked `[x]`. If not, **STOP** and alert the user.
+1. **Prerequisite Check**: Open `playbook.md` and verify all tasks with lower `STEP` numbers in this chat AND all tasks in [MANDATORY_PREVIOUS_CHATS] are marked `[x]`. (Note: Refer to the Fan-Out Flow diagram for dependencies). If not, **STOP** and alert the user.
 2. **Execution**: Perform the task instructions below.
 3. **Validation**: Ensure all validation and pre-commit hooks pass (`npm run lint`, etc.).
 4. **Commit**: `feat: [SPRINT_NUMBER].3.1 - [Task Title]`
@@ -89,7 +89,7 @@ within `@repo/mobile`._
 Sprint [SPRINT_NUMBER].4.1: Act as an ENGINEER.
 
 **AGENT EXECUTION PROTOCOL (STRICT ADHERENCE REQUIRED):**
-1. **Prerequisite Check**: Open `playbook.md` and verify all tasks with lower `STEP` numbers in this chat OR from previous chats are marked `[x]`. If not, **STOP** and alert the user.
+1. **Prerequisite Check**: Open `playbook.md` and verify all tasks with lower `STEP` numbers in this chat AND all tasks in [MANDATORY_PREVIOUS_CHATS] are marked `[x]`. (Note: Refer to the Fan-Out Flow diagram for dependencies). If not, **STOP** and alert the user.
 2. **Execution**: Perform the task instructions below.
 3. **Validation**: Ensure all validation and pre-commit hooks pass (`npm run lint`, etc.).
 4. **Commit**: `feat: [SPRINT_NUMBER].4.1 - [Task Title]`
@@ -110,7 +110,7 @@ _Execution Rule: Open a NEW chat window after code complete._
 Sprint [SPRINT_NUMBER].5.1: Act as an SRE.
 
 **AGENT EXECUTION PROTOCOL (STRICT ADHERENCE REQUIRED):**
-1. **Prerequisite Check**: Open `playbook.md` and verify all tasks with lower `STEP` numbers in this chat OR from previous chats are marked `[x]`. If not, **STOP** and alert the user.
+1. **Prerequisite Check**: Open `playbook.md` and verify all tasks with lower `STEP` numbers in this chat AND all tasks in [MANDATORY_PREVIOUS_CHATS] are marked `[x]`. (Note: Refer to the Fan-Out Flow diagram for dependencies). If not, **STOP** and alert the user.
 2. **Execution**: Perform the task instructions below.
 3. **Validation**: Ensure all validation and pre-commit hooks pass (`npm run lint`, etc.).
 4. **Commit**: `test: [SPRINT_NUMBER].5.1 - [Task Title]`
@@ -132,7 +132,7 @@ merged._
 Sprint [SPRINT_NUMBER].6: Act as a PRODUCT MANAGER.
 
 **AGENT EXECUTION PROTOCOL (STRICT ADHERENCE REQUIRED):**
-1. **Prerequisite Check**: Open `playbook.md` and verify all tasks with lower `STEP` numbers in this chat OR from previous chats are marked `[x]`. If not, **STOP** and alert the user.
+1. **Prerequisite Check**: Open `playbook.md` and verify all tasks with lower `STEP` numbers in this chat AND all tasks in [MANDATORY_PREVIOUS_CHATS] are marked `[x]`. (Note: Refer to the Fan-Out Flow diagram for dependencies). If not, **STOP** and alert the user.
 2. **Execution**: Perform the task instructions below.
 3. **Validation**: Ensure all validation and pre-commit hooks pass (`npm run lint`, etc.).
 4. **Commit**: `docs: [SPRINT_NUMBER].6 - [Task Title]`

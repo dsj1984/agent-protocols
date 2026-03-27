@@ -41,17 +41,17 @@ organizing tasks strictly into the following "Fan-Out" Chat Sessions.
 `[SPRINT_NUMBER].[CHAT_NUMBER].[STEP_NUMBER]` (e.g., 1.1.1, 1.1.2, 1.2.1).
 
 - (A) Chat Session 1 (Backend Foundation). _Sequential._ Builds DB schemas and
-  API routes first to lock the data contracts. (Tasks: X.1.1, X.1.2...)
+  API routes first to lock the data contracts. (Tasks: X.1.1, X.1.2...)  
+  _Depends on: None._
 - (B) Chat Session 2 (Web UI) & Chat Session 3 (Mobile UI). _Concurrent._ These
   sessions fan-out and run in parallel ONLY after Chat Session 1 is complete.
-  (Tasks: X.2.1 and X.3.1)
+  (Tasks: X.2.1 and X.3.1)  
+  _Depends on: Chat Session 1._
 - (C) Chat Session 4 (QA Test Plan Generation & Execution). _Sequential in a
-  FRESH chat._ Must include tasks to:
-  1. Maintain/update fake/sample test data (seed files, mock API responses,
-     storybook stories) to reflect sprint changes.
-  2. Update `docs/test-plans/*.md` files with new features BEFORE executing
-     them. (Tasks: X.4.1, X.4.2)
-- (D) Chat Session 5 (Retro & Documentation). _Sequential._ (Tasks: X.5.1)
+  FRESH chat._ (Tasks: X.4.1, X.4.2)  
+  _Depends on: Chat Session 2 AND Chat Session 3._
+- (D) Chat Session 5 (Retro & Documentation). _Sequential._ (Tasks: X.5.1)  
+  _Depends on: Chat Session 4._
 
 TASK SCOPING RULE: Keep individual tasks highly focused. A single task should
 instruct the agent to modify no more than 2 to 3 files.
@@ -125,7 +125,7 @@ graph TD
 Sprint [SPRINT_NUMBER].[CHAT_NUMBER].[STEP_NUMBER]: Act as an [Persona].
 
 **AGENT EXECUTION PROTOCOL (STRICT ADHERENCE REQUIRED):**
-1. **Prerequisite Check**: Open `playbook.md` and verify all tasks with lower `STEP` numbers in this chat OR from previous chats are marked `[x]`. If not, **STOP** and alert the user.
+1. **Prerequisite Check**: Open `playbook.md` and verify all tasks with lower `STEP` numbers in this chat AND all tasks in [MANDATORY_PREVIOUS_CHATS] are marked `[x]`. (Note: This chat Session is [CHAT_NUMBER]; refer to the Fan-Out Flow diagram for dependencies). If not, **STOP** and alert the user.
 2. **Execution**: Perform the task instructions below.
 3. **Validation**: Ensure all validation and pre-commit hooks pass (`npm run lint`, etc.).
 4. **Commit**: `[type]([scope]): [lowercase conventional commit message]`

@@ -6,6 +6,18 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 and this project adheres to
 [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [1.13.0] - 2026-03-27
+
+### Protocol Refinements
+
+- **Concurrent Sprint Prerequisite Logic**:
+  - Overhauled the `generate-sprint-playbook` workflow to correctly handle
+    Fan-Out (concurrent) chat sessions.
+  - Replaced the ambiguous "previous chats" check with explicit mandatory
+    dependency lists in task templates.
+  - Updated the `AGENT EXECUTION PROTOCOL` to eliminate out-of-order execution
+    blocks in parallel development tracks (e.g., Web vs. Mobile).
+
 ## [1.12.0] - 2026-03-26
 
 ### Protocol Hardening
