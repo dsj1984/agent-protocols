@@ -5,7 +5,14 @@ SDLC workflows designed to optimize agentic AI coding assistants. It serves as a
 centralized, shared foundation to help LLM-based agents maintain code quality,
 architectural consistency, and professional standards across all your projects.
 
-## 🚀 How to Use & Update
+## Table of Contents
+
+- [How to Use and Update](#how-to-use-and-update)
+- [Repository Structure](#repository-structure)
+- [Contributions](#contributions)
+- [Personal Agentic Dev Stack](#personal-agentic-dev-stack)
+
+## How to Use and Update
 
 This framework is distributed via the `dist` branch and is meant to be added as
 a Git submodule in your project's `.agents/` directory.
@@ -50,7 +57,7 @@ Now you can run: `npm run update:agents`.
    more, refer to the detailed protocol guide: 👉
    [**`.agents/README.md`**](.agents/README.md)
 
-## 📂 Repository Structure
+## Repository Structure
 
 The core of this repository lives entirely within the `.agents/` directory,
 which is what gets distributed to consumers.
@@ -73,7 +80,7 @@ agent-protocols/
 > via the `dist` branch. The rest of the repository contains internal tooling
 > and CI/CD pipelines for developing the protocols.
 
-## 🛠 Internal Development
+## Contributions
 
 If you are contributing to or modifying this repository:
 
@@ -119,7 +126,7 @@ automatically copies the `.agents/` directory contents to the `dist` branch if
 the build passes. Consumers pinned to `dist` will pick up the changes on their
 next submodule update.
 
-## 💻 My Personal Agentic Development Stack
+## Personal Agentic Dev Stack
 
 The development of these protocols leverages an agent-first stack optimized for
 speed, precision, and high-context reasoning:
