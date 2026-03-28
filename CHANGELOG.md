@@ -6,6 +6,19 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 and this project adheres to
 [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [1.13.3] - 2026-03-28
+
+### Workflow Enhancements
+
+- **Standardized Sprint Retrospectives**:
+  - Introduced `.agents/templates/sprint-retro-template.md` to ensure
+    consistent, metric-driven retrospectives.
+  - Updated the `generate-sprint-playbook` workflow (via
+    `sprint-playbook-template.md`) to explicitly mandate retro generation using
+    the new template.
+  - Standardized retro sections for Scorecard, Architectural Debt, and Action
+    Items.
+
 ## [1.13.2] - 2026-03-27
 
 ### Workflow Enhancements

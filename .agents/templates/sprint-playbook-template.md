@@ -138,5 +138,11 @@ Sprint [SPRINT_NUMBER].6: Act as a PRODUCT MANAGER.
 4. **Commit**: `docs: [SPRINT_NUMBER].6 - [Task Title]`
 5. **Completion**: Mark this task as complete (`- [x]`) in `playbook.md` BEFORE ending the session.
 
-[Insert detailed instructions here. Instruct the agent to update `roadmap.md` to ✅ Implemented, update `architecture.md` if any core patterns changed, and finalize the sprint.]
+[Insert detailed instructions here. Instruct the agent to:
+1. Generate a `docs/sprints/sprint-[SPRINT_NUMBER]/retro.md` file using the `.agents/templates/sprint-retro-template.md` template.
+2. Analyze the sprint execution logs, test results, and commits to accurately fill in the Sprint Scorecard, What Went Well, What Could Be Improved, and Architectural Debt sections.
+3. Formulate Action Items for the next sprint.
+4. Update `roadmap.md` to ✅ Implemented for completed items.
+5. Update `architecture.md` if any core patterns changed.
+6. Finalize the sprint documentation.]
 ```
