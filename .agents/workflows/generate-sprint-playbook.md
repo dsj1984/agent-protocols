@@ -75,7 +75,7 @@ blank._
 - ENGINEER: Implementation (Web, Mobile).
 - PRODUCT: Retro and Roadmap alignment.
 - QA AUTOMATION ENGINEER: Test plan generation (writing to
-  `test-plans/sprint-test-plans/sprint-[SPRINT_NUMBER]-test-plan.md`) and
+  `docs/test-plans/sprint-test-plans/sprint-[SPRINT_NUMBER]-test-plan.md`) and
   automated test execution.
 
 ## Step 4 - Strict Output Formatting
@@ -136,7 +136,7 @@ Sprint [SPRINT_NUMBER].[CHAT_NUMBER].[STEP_NUMBER]: Act as an [Persona].
 
 [Detailed task instructions here. MUST explicitly list file paths.]
 
-[CRITICAL FOR QA TASKS: Chat Session 4 MUST include a specific task to maintain/update fake/sample test data (seed files, mocks, etc.) and update the Manual Test Plan Documentation in `test-plans/sprint-test-plans/sprint-[SPRINT_NUMBER]-test-plan.md` for new sprint features using the Dual-Purpose standard. Following the documentation task, include a separate execution task using the `/run-test-plan` workflow against those updated files. DO NOT invent Playwright tests from scratch.]
+[CRITICAL FOR QA TASKS: Chat Session 4 MUST include a specific task to maintain/update fake/sample test data (seed files, mocks, etc.) and update the Manual Test Plan Documentation in `docs/test-plans/sprint-test-plans/sprint-[SPRINT_NUMBER]-test-plan.md` for new sprint features using the Dual-Purpose standard. Following the documentation task, include a separate execution task using the `/run-test-plan` workflow against those updated files. DO NOT invent Playwright tests from scratch.]
 ```
 
 ## Step 5 - Output Artifacts
