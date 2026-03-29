@@ -11,6 +11,7 @@ consistency, and architectural guardrails.
 ├── VERSION                  # Current version of the protocols
 ├── config.json              # Standardized agent configurations
 ├── instructions.md          # MANDATORY: The consolidated system prompt
+├── models.json              # Model selection and guidance for agentic workflows
 ├── personas/                # Role-specific behavior constraints
 │   ├── architect.md
 │   ├── engineer.md
@@ -100,18 +101,57 @@ Personas constrain agent behavior to a specific role. When you tell your agent
 to "Act as an Architect," it should load the corresponding file and follow its
 rules strictly.
 
-| File           | Role        | Focus                                                 |
-| -------------- | ----------- | ----------------------------------------------------- |
-| `architect.md` | Architect   | System design, schemas, API contracts, security       |
-| `engineer.md`  | Engineer    | Implementation, TypeScript, Zod validation, testing   |
-| `product.md`   | Product Mgr | UX flows, accessibility, acceptance criteria, roadmap |
-| `sre.md`       | SRE         | Testing, CI/CD, caching, performance, infrastructure  |
+| File                   | Role            | Focus                                                      |
+| ---------------------- | --------------- | ---------------------------------------------------------- |
+| File                   | Role            | Focus                                                      |
+| ---------------------- | --------------  | -------------------------------------------------------    |
+| `architect.md`         | Architect       | System design, tech specs, API contracts, security         |
+| `engineer.md`          | Engineer (Gen)  | Implementation, backend, shared libs, logic                |
+| `engineer-web.md`      | Web Engineer    | Frontend UI, Astro/React, browser performance, WCAG        |
+| `engineer-mobile.md`   | Mobile Engineer | Expo/React Native, native modules, mobile UX               |
+| `product.md`           | Product Mgr     | PRDs, user stories, MVP scoping, roadmap, retros           |
+| `ux-designer.md`       | UX Designer     | Journey maps, component states, visual hierarchy           |
+| `qa-engineer.md`       | QA Engineer     | Test plans, E2E/Unit automation, test data management      |
+| `devops-engineer.md`   | DevOps Engineer | CI/CD pipelines, IaC, build tooling, DX                    |
+| `sre.md`               | SRE             | Reliability, observability, performance, incident response |
+| `security-engineer.md` | Security Eng    | Audits, threat modeling, auth/authz, data privacy          |
+| `technical-writer.md`  | Tech Writer     | Documentation, changelogs, Mermaid diagrams                |
+| `project-manager.md`   | Project Mgr     | Sprint decomposition, playbook generation, orchestration   |
 
 **Usage:** Reference the persona in your agent prompt:
 
 > Act as an Architect. Review the proposed schema changes against
 > `data-dictionary.md` and ensure they follow the constraints defined in your
 > persona.
+
+---
+
+## 🤖 Model Selection & Guidance (`models.json`)
+
+To optimize for cost, speed, and intelligence, agents should be assigned to
+tasks based on the tiers defined in `models.json`. This ensures that expensive
+"Thinking" models are reserved for complex architecture, while fast "Flash"
+models handle repetitive updates.
+
+### Model Categories
+
+| Tier            | Focus                                               | Recommended Models                      |
+| --------------- | --------------------------------------------------- | --------------------------------------- |
+| **Architects**  | System design, complex bugs, multi-step planning    | Claude Opus 4.6, Gemini 3.1 Pro (High)  |
+| **Workhorses**  | Feature execution, API integrations, unit tests     | Claude Sonnet 4.6, Gemini 3.1 Pro (Low) |
+| **Sprinters**   | Rapid iteration, syntax fixes, boilerplate, linting | Gemini 3 Flash                          |
+| **Specialists** | Privacy-restricted or local/custom environments     | GPT-OSS 120B                            |
+
+### ⛓️ Chaining Guidance (Agentic Workflows)
+
+For maximum efficiency, follow the **Planner-Executor-Reviewer** pattern:
+
+1. **Planner (Architect):** Use a high-reasoning model (e.g., Claude Opus) to
+   design the technical spec and execution plan.
+2. **Executor (Workhorse):** Use a balanced model (e.g., Claude Sonnet) to
+   implement the code changes based on the plan.
+3. **Reviewer/Fixer (Sprinter):** Use a fast model (e.g., Gemini 3 Flash) to
+   quickly iterate on compiler errors or perform linting sweeps.
 
 ---
 

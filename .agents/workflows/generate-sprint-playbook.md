@@ -7,7 +7,7 @@ description:
 
 ## Role
 
-Technical Project Manager and Agile Scrum Master
+Adopt the `project-manager` persona from `.agents/personas/`.
 
 ## Context & Objective
 
