@@ -6,6 +6,18 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 and this project adheres to
 [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [1.13.4] - 2026-03-29
+
+### Workflow Enhancements
+
+- **Enhanced Model Selection Guidance**:
+  - Overhauled the `generate-sprint-playbook` workflow with detailed model
+    personas (Architects, Workhorses, Sprinters, Specialists).
+  - Introduced explicit **Planner-Executor-Reviewer** chaining logic to optimize
+    agentic performance across Claude 4.6 and Gemini 3.1 models.
+  - Added specific guidance for utilizing **Opus (Thinking)** as an escalation
+    model and **Flash** for the "inner loop" of development.
+
 ## [1.13.3] - 2026-03-28
 
 ### Workflow Enhancements

@@ -58,13 +58,63 @@ instruct the agent to modify no more than 2 to 3 files.
 
 ## Step 3 - Model Routing and Persona Assignment
 
-Models:
+### Model Selection Guidance
 
-- CLAUDE OPUS 4.6 (Planning mode): High-complexity tasks (schema, architecture,
-  QA execution)
-- CLAUDE SONNET 4.6 (Planning mode): Complex business logic, QA Documentation
-- GEMINI 3.1 HIGH (Planning mode): Standard APIs, data fetching, components
-- GEMINI 3 FLASH (Fast mode): Retro, documentation, simple styling
+**The Architects (Planning & Complex Problem Solving)** _These models are your
+"Lead Engineers." Use them when the agent needs to design systems, resolve
+complex bugs, or map out a multi-step execution plan._
+
+- **Claude Opus 4.6 (Thinking):** Use this as your ultimate escalation model. If
+  your agent is stuck in a loop, failing to resolve a bug after multiple
+  attempts, or needs to design a complex, multi-file system architecture from
+  scratch, Opus with "Thinking" will give you the deepest reasoning and highest
+  success rate. It is slow and expensive, so reserve it for when the agent must
+  get the logic right the first time.
+- **Gemini 3.1 Pro (High):** Use this for heavy-lifting tasks that require
+  massive context windows and deep synthesis. If your agent needs to ingest an
+  entire large repository, understand the interactions between distant
+  microservices, or execute a massive, sweeping refactor, the "High" effort
+  setting ensures it thoroughly analyzes the codebase before writing.
+
+**The Workhorses (Feature Execution)** _These models are your "Mid-Level
+Developers." They offer the best balance of intelligence and speed for
+day-to-day autonomous tasks._
+
+- **Claude Sonnet 4.6 (Thinking):** This is arguably the best default model for
+  your primary coding agent. Because it has "Thinking" enabled, it can reliably
+  break down a Jira ticket or feature request, plan the necessary file changes,
+  and execute them without the latency and cost of Opus. Use it for standard
+  feature implementations and API integrations.
+- **Gemini 3.1 Pro (Low):** Use this when you need top-tier coding knowledge
+  (rare languages, complex frameworks) but the task itself is straightforward
+  and doesn't require deep, multi-step reasoning. Setting it to "Low" effort
+  reduces latency, making it great for writing complex unit tests or translating
+  code from one language to another where the logic is already defined.
+
+**The Sprinters (Rapid Iteration & Tool Use)** _These models are your "Junior
+Devs" or "Linters." They are built for speed and volume._
+
+- **Gemini 3 Flash:** Use this for the "inner loop" of your agentic workflow.
+  Flash is perfect for highly repetitive, low-reasoning tasks: generating
+  boilerplate code, fixing simple syntax errors caught by the compiler,
+  formatting data, or acting as a fast "critic" agent that briefly reviews the
+  output of other models before it gets committed.
+
+**The Specialists (Privacy & Local/Custom Needs)** _Large open-weight models for
+restricted environments._
+
+- **GPT-OSS 120B (Medium):** This represents a large open-weight model. Use this
+  if your agent is handling highly sensitive, proprietary data that you are
+  restricted from sending to commercial APIs. A 120B model is highly capable for
+  standard coding tasks, and the "Medium" setting provides a good balance of
+  compute efficiency if you are running it on limited internal infrastructure.
+
+**How to chain them together:** A highly efficient agentic workflow usually uses
+a Planner-Executor-Reviewer pattern. For example, you might use **Claude Opus
+4.6 (Thinking)** to read the prompt and write the architectural plan, pass that
+plan to **Claude Sonnet 4.6 (Thinking)** or **Gemini 3.1 Pro (Low)** to actually
+write the files, and use **Gemini 3 Flash** to rapidly fix any compilation
+errors the agent encounters along the way.
 
 Personas & Active Skills: _You MUST dynamically assign all applicable skills to
 every task based on the context of the work. Select the appropriate skills from
