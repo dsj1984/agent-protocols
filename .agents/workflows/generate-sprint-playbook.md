@@ -22,15 +22,9 @@ when executing this command.
 
 ## Step 1 - Mandatory Knowledge Retrieval
 
-Before generating any tasks, you MUST read the following sources:
-
-1. `roadmap.md`: Identify the specific features slated for the requested sprint.
-1. `docs/sprints/sprint-[SPRINT_NUMBER]/prd.md`: Ensure EVERY Acceptance
-   Criteria has a corresponding implementation step. Do not drop business logic.
-1. `docs/sprints/sprint-[SPRINT_NUMBER]/tech-spec.md`, `data-dictionary.md`, and
-   `architecture.md`: Ensure all generated APIs, UI components, DB schemas, and
-   Infrastructure configurations align perfectly with the defined architecture.
-   Explicitly list file paths in the tasks.
+Execute the `gather-sprint-context` workflow for `[SPRINT_NUMBER]` to retrieve
+the roadmap, PRD, technical specifications, and architecture required to
+generate your tasks.
 
 ## Step 2 - Agent Chat Session Model Alignment (Fan-Out Architecture)
 
@@ -60,73 +54,21 @@ instruct the agent to modify no more than 2 to 3 files.
 
 ### Model Selection Guidance
 
-**The Architects (Planning & Complex Problem Solving)** _These models are your
-"Lead Engineers." Use them when the agent needs to design systems, resolve
-complex bugs, or map out a multi-step execution plan._
+_You MUST dynamically assign the appropriate model for each task based on its
+complexity, intelligence requirements, and speed constraints._ Read the strict
+model selection rules and chaining configurations defined in the
+`.agents/models.json` configuration file to determine which models should be
+assigned to specific Personas and steps.
 
-- **Claude Opus 4.6 (Thinking):** Use this as your ultimate escalation model. If
-  your agent is stuck in a loop, failing to resolve a bug after multiple
-  attempts, or needs to design a complex, multi-file system architecture from
-  scratch, Opus with "Thinking" will give you the deepest reasoning and highest
-  success rate. It is slow and expensive, so reserve it for when the agent must
-  get the logic right the first time.
-- **Gemini 3.1 Pro (High):** Use this for heavy-lifting tasks that require
-  massive context windows and deep synthesis. If your agent needs to ingest an
-  entire large repository, understand the interactions between distant
-  microservices, or execute a massive, sweeping refactor, the "High" effort
-  setting ensures it thoroughly analyzes the codebase before writing.
+Personas & Active Skills: \_You MUST dynamically assign an appropriate persona
+and applicable skills to every task based on the context of the work.
 
-**The Workhorses (Feature Execution)** _These models are your "Mid-Level
-Developers." They offer the best balance of intelligence and speed for
-day-to-day autonomous tasks._
-
-- **Claude Sonnet 4.6 (Thinking):** This is arguably the best default model for
-  your primary coding agent. Because it has "Thinking" enabled, it can reliably
-  break down a Jira ticket or feature request, plan the necessary file changes,
-  and execute them without the latency and cost of Opus. Use it for standard
-  feature implementations and API integrations.
-- **Gemini 3.1 Pro (Low):** Use this when you need top-tier coding knowledge
-  (rare languages, complex frameworks) but the task itself is straightforward
-  and doesn't require deep, multi-step reasoning. Setting it to "Low" effort
-  reduces latency, making it great for writing complex unit tests or translating
-  code from one language to another where the logic is already defined.
-
-**The Sprinters (Rapid Iteration & Tool Use)** _These models are your "Junior
-Devs" or "Linters." They are built for speed and volume._
-
-- **Gemini 3 Flash:** Use this for the "inner loop" of your agentic workflow.
-  Flash is perfect for highly repetitive, low-reasoning tasks: generating
-  boilerplate code, fixing simple syntax errors caught by the compiler,
-  formatting data, or acting as a fast "critic" agent that briefly reviews the
-  output of other models before it gets committed.
-
-**The Specialists (Privacy & Local/Custom Needs)** _Large open-weight models for
-restricted environments._
-
-- **GPT-OSS 120B (Medium):** This represents a large open-weight model. Use this
-  if your agent is handling highly sensitive, proprietary data that you are
-  restricted from sending to commercial APIs. A 120B model is highly capable for
-  standard coding tasks, and the "Medium" setting provides a good balance of
-  compute efficiency if you are running it on limited internal infrastructure.
-
-**How to chain them together:** A highly efficient agentic workflow usually uses
-a Planner-Executor-Reviewer pattern. For example, you might use **Claude Opus
-4.6 (Thinking)** to read the prompt and write the architectural plan, pass that
-plan to **Claude Sonnet 4.6 (Thinking)** or **Gemini 3.1 Pro (Low)** to actually
-write the files, and use **Gemini 3 Flash** to rapidly fix any compilation
-errors the agent encounters along the way.
-
-Personas & Active Skills: _You MUST dynamically assign all applicable skills to
-every task based on the context of the work. Select the appropriate skills from
-the `.agents/skills/` (or equivalent) directory. Do not leave the skills field
-blank._
-
-- ARCHITECT: Specifications, schemas, APIs.
-- ENGINEER: Implementation (Web, Mobile).
-- PRODUCT: Retro and Roadmap alignment.
-- QA AUTOMATION ENGINEER: Test plan generation (writing to
-  `docs/test-plans/sprint-test-plans/sprint-[SPRINT_NUMBER]-test-plan.md`) and
-  automated test execution.
+1. **Personas**: Dynamically select the exact Persona from the
+   `.agents/personas/` directory that best fits the task (e.g., if it's a
+   backend task, choose the appropriate backend persona file). **Do not invent
+   or hardcode personas.**
+2. **Skills**: Select the appropriate skills from the `.agents/skills/`
+   directory. Do not leave the skills field blank.\_
 
 ## Step 4 - Strict Output Formatting
 
@@ -173,21 +115,20 @@ graph TD
 **Mode:** [Planning/Fast] **Model:** [Model Name]
 
 ```text
-Sprint [SPRINT_NUMBER].[CHAT_NUMBER].[STEP_NUMBER]: Act as an [Persona].
+Sprint [SPRINT_NUMBER].[CHAT_NUMBER].[STEP_NUMBER]: Adopt the `[PERSONA]` persona from `.agents/personas/`.
 
 **AGENT EXECUTION PROTOCOL (STRICT ADHERENCE REQUIRED):**
-1. **Prerequisite Check**: Open `playbook.md` and verify all tasks with lower `STEP` numbers in this chat AND all tasks in [MANDATORY_PREVIOUS_CHATS] are marked `[x]`. (Note: This chat Session is [CHAT_NUMBER]; refer to the Fan-Out Flow diagram for dependencies). If not, **STOP** and alert the user.
+1. **Prerequisite Check**: Execute the `verify-sprint-prerequisites` workflow for sprint step `[SPRINT_NUMBER].[CHAT_NUMBER].[STEP_NUMBER]` and verify dependencies in `playbook.md`. If it fails, **STOP** and alert the user.
 2. **Execution**: Perform the task instructions below.
-3. **Validation**: Ensure all validation and pre-commit hooks pass (`npm run lint`, etc.).
-4. **Commit**: `[type]([scope]): [lowercase conventional commit message]`
-5. **Completion**: Mark this task as complete (`- [x]`) in `playbook.md` BEFORE ending the session.
-6. **Notification**: If the variable `AGENT_NOTIFICATION_WEBHOOK` is defined in the `AGENTS.md` file, make a webhook call to that URL with a message indicating that sprint step `[SPRINT_NUMBER].[CHAT_NUMBER].[STEP_NUMBER]` was completed. If the variable is not set, fail gracefully without error.
+3. **Finalization**: Execute the `finalize-sprint-task` workflow explicitly for sprint step `[SPRINT_NUMBER].[CHAT_NUMBER].[STEP_NUMBER]`.
 
 **Active Skills:** `[comma-separated list of all applicable skills]`
 
 [Detailed task instructions here. MUST explicitly list file paths.]
 
-[CRITICAL FOR QA TASKS: Chat Session 4 MUST include a specific task to maintain/update fake/sample test data (seed files, mocks, etc.) and update the Manual Test Plan Documentation in `docs/test-plans/sprint-test-plans/sprint-[SPRINT_NUMBER]-test-plan.md` for new sprint features using the Dual-Purpose standard. Following the documentation task, include a separate execution task using the `/run-test-plan` workflow against those updated files. DO NOT invent Playwright tests from scratch.]
+[CRITICAL FOR QA TASKS: For Chat Session 4, do NOT write custom task instructions for generating or executing tests. Instead, instruct the agent to execute the `plan-qa-testing` workflow for `[SPRINT_NUMBER]`.]
+
+[CRITICAL FOR RETRO TASKS: For Chat Session 5, do NOT write custom task instructions for generating retro documents. Instead, instruct the agent to execute the `sprint-retro` workflow for `[SPRINT_NUMBER]`.]
 ```
 
 ## Step 5 - Output Artifacts
