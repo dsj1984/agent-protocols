@@ -6,6 +6,50 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 and this project adheres to
 [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [2.0.0] - 2026-03-29
+
+### Major Architectural Overhaul
+
+- **Persona Expansion (12-Role Architecture)**:
+  - Expanded from 4 to 12 specialized personas to eliminate role conflation:
+    `architect`, `engineer`, `engineer-web`, `engineer-mobile`, `product`,
+    `ux-designer`, `qa-engineer`, `devops-engineer`, `sre`, `security-engineer`,
+    `technical-writer`, and `project-manager`.
+  - **Automatic Referral Protocol**: Standardized **Scope Boundaries** across
+    all personas, enabling agents to automatically detect out-of-scope tasks and
+    switch to the appropriate persona without user intervention.
+
+- **Structured Configuration Centralization**:
+  - Created a dedicated `.agents/config/` directory to house all JSON
+    configuration files.
+  - **Model Selection (`config/models.json`)**: Extracted model tiers and
+    chaining logic for better maintainability.
+  - **Tech Stack (`config/tech-stack.json`)**: Extracted all project-specific
+    technology references (ORM, DB, API, UI, etc.) to ensure protocol
+    portability across different tech stacks.
+  - **Agent Config (`config/config.json`)**: Centralized operational limits and
+    auto-run permissions.
+
+- **Expanded Sprint Lifecycle**:
+  - Introduced mandatory **Sprint Code Review** (Chat Session 5) and **Sprint
+    Retrospective** (Chat Session 6) into the core workflow.
+  - Added 6 new internal sprint workflows: `gather-sprint-context`,
+    `verify-sprint-prerequisites`, `finalize-sprint-task`, `plan-qa-testing`,
+    `sprint-code-review`, and `sprint-retro`.
+
+- **Generic & Portable Templates**:
+  - Refactored `technical-spec-template.md` and `prd-template.md` to be
+    tech-agnostic, dynamically pulling project details from
+    `config/tech-stack.json`.
+  - Standardized `Output Artifacts` sections across all personas for consistent
+    artifact ownership.
+
+### Documentation
+
+- **README Overhaul**: Updated `.agents/README.md` and root `README.md` to
+  reflect the new 12-persona structure, categorized workflows table, and
+  centralized config folder.
+
 ## [1.13.5] - 2026-03-29
 
 ### Workflow Enhancements
