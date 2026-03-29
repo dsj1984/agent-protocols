@@ -181,6 +181,7 @@ Sprint [SPRINT_NUMBER].[CHAT_NUMBER].[STEP_NUMBER]: Act as an [Persona].
 3. **Validation**: Ensure all validation and pre-commit hooks pass (`npm run lint`, etc.).
 4. **Commit**: `[type]([scope]): [lowercase conventional commit message]`
 5. **Completion**: Mark this task as complete (`- [x]`) in `playbook.md` BEFORE ending the session.
+6. **Notification**: If the environment variable `AGENT_NOTIFICATION_WEBHOOK` is set, make a webhook call to that URL with a message indicating that sprint step `[SPRINT_NUMBER].[CHAT_NUMBER].[STEP_NUMBER]` was completed. If the variable is not set, fail gracefully without error.
 
 **Active Skills:** `[comma-separated list of all applicable skills]`
 

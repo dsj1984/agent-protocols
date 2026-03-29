@@ -57,6 +57,14 @@ Now you can run: `npm run update:agents`.
    more, refer to the detailed protocol guide: 👉
    [**`.agents/README.md`**](.agents/README.md)
 
+### Agent Notification Webhook
+
+The `generate-sprint-playbook` workflow now supports an optional notification
+webhook. If the `AGENT_NOTIFICATION_WEBHOOK` environment variable is set in the
+agent's execution environment, every completed playbook step will trigger a
+notification to that URL. This allows for real-time tracking of agent progress
+in external tools like Slack, Discord, or custom project management dashboards.
+
 ## Repository Structure
 
 The core of this repository lives entirely within the `.agents/` directory,

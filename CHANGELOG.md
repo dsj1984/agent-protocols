@@ -6,6 +6,18 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 and this project adheres to
 [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [1.13.5] - 2026-03-29
+
+### Workflow Enhancements
+
+- **Agent Notification Webhook**:
+  - Updated the `generate-sprint-playbook` workflow to include a mandatory
+    notification step in the `AGENT EXECUTION PROTOCOL`.
+  - Agents will now attempt to call a webhook URL defined in the
+    `AGENT_NOTIFICATION_WEBHOOK` environment variable upon completing a sprint
+    step.
+  - Implemented graceful failure logic if the environment variable is not set.
+
 ## [1.13.4] - 2026-03-29
 
 ### Workflow Enhancements
