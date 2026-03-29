@@ -60,8 +60,8 @@ Now you can run: `npm run update:agents`.
 ### Agent Notification Webhook
 
 The `generate-sprint-playbook` workflow now supports an optional notification
-webhook. If the `AGENT_NOTIFICATION_WEBHOOK` environment variable is set in the
-agent's execution environment, every completed playbook step will trigger a
+webhook. If the `AGENT_NOTIFICATION_WEBHOOK` variable is set in the `AGENTS.md`
+file at the project root, every completed playbook step will trigger a
 notification to that URL. This allows for real-time tracking of agent progress
 in external tools like Slack, Discord, or custom project management dashboards.
 

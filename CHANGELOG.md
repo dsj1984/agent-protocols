@@ -13,10 +13,10 @@ and this project adheres to
 - **Agent Notification Webhook**:
   - Updated the `generate-sprint-playbook` workflow to include a mandatory
     notification step in the `AGENT EXECUTION PROTOCOL`.
-  - Agents will now attempt to call a webhook URL defined in the
-    `AGENT_NOTIFICATION_WEBHOOK` environment variable upon completing a sprint
-    step.
-  - Implemented graceful failure logic if the environment variable is not set.
+  - Agents will now attempt to call a webhook URL defined as
+    `AGENT_NOTIFICATION_WEBHOOK` in the `AGENTS.md` file upon completing a
+    sprint step.
+  - Implemented graceful failure logic if the variable is not set.
 
 ## [1.13.4] - 2026-03-29
 
