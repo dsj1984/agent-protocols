@@ -90,7 +90,7 @@ Sprint [SPRINT_NUMBER].3.1: Adopt the `[PERSONA]` persona from `.agents/personas
 [Insert detailed instructions here. Specify Expo Router screens, React Native components, mobile-first styling constraints, and API integrations.]
 ```
 
-### 💬 🧪 Chat Session 4: QA & E2E Testing (Concurrent)
+### 💬 🧪 Chat Session 4: QA & E2E Testing (Sequential)
 
 _Execution Rule: Open a NEW chat window after code complete._
 

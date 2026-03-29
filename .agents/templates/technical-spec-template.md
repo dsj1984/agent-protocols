@@ -1,12 +1,14 @@
 # Technical Specification: Sprint [SPRINT_NUMBER] - [SPRINT_NAME]
 
-**Context:** This document outlines the explicit database schema migrations
-(Turso/libSQL via Drizzle ORM) and API route implementations (Cloudflare Workers
-via Hono) required to fulfill the Sprint [SPRINT_NUMBER] PRD.
+**Context:** This document outlines the explicit database schema migrations and
+API route implementations required to fulfill the Sprint [SPRINT_NUMBER] PRD.
+Read `.agents/tech-stack.json` to determine the project's ORM, API framework,
+authentication middleware, validation library, and workspace paths. Align all
+changes with `architecture.md`.
 
 ---
 
-## 1. Database Schema Changes (`packages/shared/src/db/schema.ts`)
+## 1. Database Schema Changes
 
 ### A. New Tables
 
@@ -16,7 +18,7 @@ via Hono) required to fulfill the Sprint [SPRINT_NUMBER] PRD.
 
 - `id`: `text` (Primary Key, UUID)
 - `[column_name]`: `[type]` (Constraints: e.g., Foreign Key, Default, Nullable)
-- `created_at`: `text` (Default `sql\`CURRENT_TIMESTAMP\``)
+- `created_at`: `text` (Default: current timestamp)
 
 _Indexes:_ `[index_name]` on `([columns])` for [reason].
 
@@ -32,15 +34,16 @@ _Indexes:_ `[index_name]` on `([columns])` for [reason].
 
 ---
 
-## 2. Backend API Routes (`apps/api/src/routes/`)
+## 2. Backend API Routes
 
-_All routes must be protected by the existing Clerk authentication middleware
-and validate payloads using Zod schemas defined in `@repo/shared`._
+_All routes must be protected by the project's established authentication
+middleware and validate payloads using the project's configured schema
+validation library._
 
 ### A. [Domain Name] Routes (`/v1/[domain]`)
 
 - **`[HTTP_METHOD] /v1/[endpoint]`**
-  - **Body/Query:** `{ [expected_payload] }` (Validated via Zod)
+  - **Body/Query:** `{ [expected_payload] }` (Validated via schema)
   - **Logic:** [Step-by-step explanation of the backend logic. E.g., "Verify
     user role -> Insert row into X -> Trigger notification -> Return 201"].
   - **Response:** `[HTTP Status Code]` + `{ [JSON_structure] }`
@@ -56,9 +59,9 @@ to support the new features, preventing regression bugs.)_
 
 ### A. [System Name, e.g., Feed Aggregation or Omni-Search]
 
-- **Logic Update:** [Explain how existing SQL/Drizzle queries need to be
-  modified. E.g., "Must inject a WHERE clause to filter out 'connections_only'
-  posts for unauthorized users."]
+- **Logic Update:** [Explain how existing ORM queries need to be modified. E.g.,
+  "Must inject a WHERE clause to filter out 'connections_only' posts for
+  unauthorized users."]
 - **Security Guardrails:** [Explicitly state any RBAC or privacy checks that
   must be enforced].
 
@@ -66,9 +69,10 @@ to support the new features, preventing regression bugs.)_
 
 ## 4. Execution Guardrails
 
-1. Ensure all new Zod schemas are exported from
-   `@repo/shared/src/schemas/index.ts`.
-2. Run `pnpm --filter @repo/shared db:generate` to verify schema changes before
-   pushing to Turso.
-3. Ensure all Hono endpoints return standardized JSON payloads matching the
-   platform's error-handling signature.
+1. Ensure all new validation schemas are exported from the project's shared
+   schema package.
+2. Run the project's schema generation/migration command to verify schema
+   changes before pushing to the database.
+3. Ensure all API endpoints return standardized JSON payloads matching the
+   platform's error-handling signature as defined in
+   `.agents/rules/api-conventions.md`.

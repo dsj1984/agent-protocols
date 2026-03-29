@@ -27,7 +27,7 @@ where it lives in the app.]
 - **[Criteria 3]:** [Detail any specific security, role-based access, or privacy
   constraints.]
 
-### Mobile-First UX Flow
+### Expected User Flow
 
 1. [Step 1: Where does the user start? E.g., "User taps the 'Connect' button on
    the Profile Screen."]

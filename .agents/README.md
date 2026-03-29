@@ -12,13 +12,28 @@ consistency, and architectural guardrails.
 ├── config.json              # Standardized agent configurations
 ├── instructions.md          # MANDATORY: The consolidated system prompt
 ├── models.json              # Model selection and guidance for agentic workflows
-├── personas/                # Role-specific behavior constraints
+├── tech-stack.json          # Project-specific technology choices and paths
+├── personas/                # Role-specific behavior constraints (12 personas)
 │   ├── architect.md
+│   ├── devops-engineer.md
 │   ├── engineer.md
+│   ├── engineer-mobile.md
+│   ├── engineer-web.md
 │   ├── product.md
-│   └── sre.md
+│   ├── project-manager.md
+│   ├── qa-engineer.md
+│   ├── security-engineer.md
+│   ├── sre.md
+│   ├── technical-writer.md
+│   └── ux-designer.md
 ├── rules/                   # Modular domain-agnostic global rules
-│   └── coding-style.md
+│   ├── api-conventions.md
+│   ├── coding-style.md
+│   ├── database-standards.md
+│   ├── git-conventions.md
+│   ├── security-baseline.md
+│   ├── testing-standards.md
+│   └── ui-copywriting.md
 ├── skills/                  # Tech-stack-specific guardrails (organized by category)
 │   ├── frontend/
 │   ├── backend/
@@ -28,6 +43,7 @@ consistency, and architectural guardrails.
 ├── templates/               # Sprint planning markdown templates
 │   ├── prd-template.md
 │   ├── sprint-playbook-template.md
+│   ├── sprint-retro-template.md
 │   ├── technical-spec-template.md
 │   └── test-plan_template.md
 └── workflows/               # Reusable single-command auto-registered workflows
@@ -46,7 +62,7 @@ protocols MUST adhere to the following `docs/` folder structure:
 ```text
 docs/
 ├── architecture.md          # Core system design and tech stack
-├── data-dictionary.md       # Database schema and Zod validation rules
+├── data-dictionary.md       # Database schema and validation rules
 ├── roadmap.md               # High-level sprint goals and feature list
 ├── sprints/                 # Sprint-specific planning artifacts
 │   └── sprint-[##]/
@@ -103,8 +119,6 @@ rules strictly.
 
 | File                   | Role            | Focus                                                      |
 | ---------------------- | --------------- | ---------------------------------------------------------- |
-| File                   | Role            | Focus                                                      |
-| ---------------------- | --------------  | -------------------------------------------------------    |
 | `architect.md`         | Architect       | System design, tech specs, API contracts, security         |
 | `engineer.md`          | Engineer (Gen)  | Implementation, backend, shared libs, logic                |
 | `engineer-web.md`      | Web Engineer    | Frontend UI, Astro/React, browser performance, WCAG        |
@@ -260,25 +274,32 @@ project.
 
 ### Available Workflows
 
-| Workflow File                 | Category  | Slash Command               | Output File                          | Purpose                                             |
-| ----------------------------- | --------- | --------------------------- | ------------------------------------ | --------------------------------------------------- |
-| `architecture-audit.md`       | `audits`  | `/architecture-audit`       | `architecture-audit-results.md`      | Clean code, over-engineering & coupling review      |
-| `clean-code-audit.md`         | `audits`  | `/clean-code-audit`         | `clean-code-audit-results.md`        | Maintainability and technical debt analysis         |
-| `devops-audit.md`             | `audits`  | `/devops-audit`             | `devops-audit-results.md`            | CI/CD, DX tooling & infrastructure review           |
-| `qa-audit.md`                 | `audits`  | `/qa-audit`                 | `qa-audit-results.md`                | Test coverage, test plans & mocking strategy review |
-| `seo-audit.md`                | `audits`  | `/seo-audit`                | `seo-audit-results.md`               | Traditional SEO + Generative Engine Optimization    |
-| `accessibility-audit.md`      | `audits`  | `/accessibility-audit`      | `accessibility-audit-results.md`     | Lighthouse performance and accessibility audit      |
-| `sre-audit.md`                | `audits`  | `/sre-audit`                | `sre-audit-results.md`               | Production release candidate readiness audit        |
-| `security-audit.md`           | `audits`  | `/security-audit`           | `security-audit-results.md`          | Vulnerability scanning and OWASP alignment          |
-| `performance-audit.md`        | `audits`  | `/performance-audit`        | `performance-audit-results.md`       | Deep architectural and stack-wide bottleneck review |
-| `privacy-audit.md`            | `audits`  | `/privacy-audit`            | `privacy-audit-results.md`           | PII data handling and privacy compliance audit      |
-| `dependency-update-audit.md`  | `audits`  | `/dependency-update-audit`  | `dependency-update-audit-results.md` | Security and bloat auditing for dependencies        |
-| `ux-ui-audit.md`              | `audits`  | `/ux-ui-audit`              | `ux-ui-audit-results.md`             | Design system consistency and UX reviews            |
-| `generate-prd.md`             | `sdlc`    | `/generate-prd`             | `prd.md`                             | Generates PRD from roadmap items                    |
-| `generate-tech-spec.md`       | `sdlc`    | `/generate-tech-spec`       | `tech-spec.md`                       | Generates Technical Spec from PRD                   |
-| `generate-sprint-playbook.md` | `sdlc`    | `/generate-sprint-playbook` | `playbook.md`                        | Generates Sprint Playbook from PRD + Tech Spec      |
-| `plan-sprint.md`              | `sdlc`    | `/plan-sprint`              | (Orchestrator)                       | Sequentially runs PRD, Tech Spec, and Playbook      |
-| `run-test-plan.md`            | `testing` | `/run-test-plan`            | (Updates Test Plan)                  | Executes Playwright & SQL tests against a test plan |
+| Workflow File                    | Category  | Slash Command                  | Output File                          | Purpose                                              |
+| -------------------------------- | --------- | ------------------------------ | ------------------------------------ | ---------------------------------------------------- |
+| `architecture-audit.md`          | `audits`  | `/architecture-audit`          | `architecture-audit-results.md`      | Clean code, over-engineering & coupling review       |
+| `clean-code-audit.md`            | `audits`  | `/clean-code-audit`            | `clean-code-audit-results.md`        | Maintainability and technical debt analysis          |
+| `devops-audit.md`                | `audits`  | `/devops-audit`                | `devops-audit-results.md`            | CI/CD, DX tooling & infrastructure review            |
+| `qa-audit.md`                    | `audits`  | `/qa-audit`                    | `qa-audit-results.md`                | Test coverage, test plans & mocking strategy review  |
+| `seo-audit.md`                   | `audits`  | `/seo-audit`                   | `seo-audit-results.md`               | Traditional SEO + Generative Engine Optimization     |
+| `accessibility-audit.md`         | `audits`  | `/accessibility-audit`         | `accessibility-audit-results.md`     | Lighthouse performance and accessibility audit       |
+| `sre-audit.md`                   | `audits`  | `/sre-audit`                   | `sre-audit-results.md`               | Production release candidate readiness audit         |
+| `security-audit.md`              | `audits`  | `/security-audit`              | `security-audit-results.md`          | Vulnerability scanning and OWASP alignment           |
+| `performance-audit.md`           | `audits`  | `/performance-audit`           | `performance-audit-results.md`       | Deep architectural and stack-wide bottleneck review  |
+| `privacy-audit.md`               | `audits`  | `/privacy-audit`               | `privacy-audit-results.md`           | PII data handling and privacy compliance audit       |
+| `dependency-update-audit.md`     | `audits`  | `/dependency-update-audit`     | `dependency-update-audit-results.md` | Security and bloat auditing for dependencies         |
+| `ux-ui-audit.md`                 | `audits`  | `/ux-ui-audit`                 | `ux-ui-audit-results.md`             | Design system consistency and UX reviews             |
+| `generate-prd.md`                | `sdlc`    | `/generate-prd`                | `prd.md`                             | Generates PRD from roadmap items                     |
+| `generate-tech-spec.md`          | `sdlc`    | `/generate-tech-spec`          | `tech-spec.md`                       | Generates Technical Spec from PRD                    |
+| `generate-sprint-playbook.md`    | `sdlc`    | `/generate-sprint-playbook`    | `playbook.md`                        | Generates Sprint Playbook from PRD + Tech Spec       |
+| `generate-release-notes.md`      | `sdlc`    | `/generate-release-notes`      | `release-notes.md`                   | Generates user-facing release notes from changelog   |
+| `plan-sprint.md`                 | `sdlc`    | `/plan-sprint`                 | (Orchestrator)                       | Sequentially runs PRD, Tech Spec, and Playbook       |
+| `run-test-plan.md`               | `testing` | `/run-test-plan`               | (Updates Test Plan)                  | Executes Playwright & SQL tests against a test plan  |
+| `gather-sprint-context.md`       | `sprint`  | `/gather-sprint-context`       | (Context retrieval)                  | Centralized research/knowledge retrieval for sprints |
+| `verify-sprint-prerequisites.md` | `sprint`  | `/verify-sprint-prerequisites` | (Pre-flight check)                   | Validates task dependencies before execution         |
+| `finalize-sprint-task.md`        | `sprint`  | `/finalize-sprint-task`        | (Commit & notify)                    | Standardized validation, commit, and notification    |
+| `plan-qa-testing.md`             | `sprint`  | `/plan-qa-testing`             | (Test plan generation)               | QA test data maintenance and test plan updates       |
+| `sprint-code-review.md`          | `sprint`  | `/sprint-code-review`          | (Chat output)                        | Comprehensive code review of all sprint changes      |
+| `sprint-retro.md`                | `sprint`  | `/sprint-retro`                | `retro.md`                           | Sprint retrospective and roadmap alignment           |
 
 ### Setting Up Slash Commands
 

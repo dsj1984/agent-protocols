@@ -60,7 +60,11 @@ Before writing code, verify if any domain-agnostic rules apply by checking the
 ### G. Structured Configuration
 
 Refer to `.agents/config.json` to understand your operational limits (e.g.,
-allowed auto-run permissions, default personas).
+allowed auto-run permissions, default personas). Refer to `.agents/models.json`
+for model selection guidance when self-assigning models to tasks. Refer to
+`.agents/tech-stack.json` for the project's specific technology choices
+(database, ORM, API framework, auth provider, validation library, workspace
+paths).
 
 ---
 
