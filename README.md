@@ -73,9 +73,11 @@ which is what gets distributed to consumers.
 ```text
 agent-protocols/
 ├── .agents/                 # ← Distributed to consumers via the `dist` branch
-│   ├── config.json          # Standardized agent configurations
+│   ├── config/              # Standardized agent configurations
+│   │   ├── config.json
+│   │   ├── models.json
+│   │   └── tech-stack.json
 │   ├── instructions.md      # Core system prompt & rules
-│   ├── models.json          # Model selection guidance for agentic workflows
 │   ├── personas/            # Role-specific behavior constraints (12 personas)
 │   ├── rules/               # Modular domain-agnostic global rules
 │   ├── skills/              # Tech-stack-specific guardrails

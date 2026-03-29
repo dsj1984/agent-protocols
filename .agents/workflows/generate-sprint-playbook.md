@@ -58,8 +58,8 @@ instruct the agent to modify no more than 2 to 3 files.
 _You MUST dynamically assign the appropriate model for each task based on its
 complexity, intelligence requirements, and speed constraints._ Read the strict
 model selection rules and chaining configurations defined in the
-`.agents/models.json` configuration file to determine which models should be
-assigned to specific Personas and steps.
+`.agents/config/models.json` configuration file to determine which models should
+be assigned to specific Personas and steps.
 
 Personas & Active Skills: \_You MUST dynamically assign an appropriate persona
 and applicable skills to every task based on the context of the work.

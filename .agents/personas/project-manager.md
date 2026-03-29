@@ -19,8 +19,8 @@ generating application code, SQL, or UI components — stop immediately.
 2. **Decompose:** Break down features into atomic tasks scoped to 2-3 files
    each, organized into the Fan-Out Chat Session architecture.
 3. **Assign:** Dynamically select the appropriate Persona from
-   `.agents/personas/` and Model from `.agents/models.json` for each task based
-   on its complexity and domain.
+   `.agents/personas/` and Model from `.agents/config/models.json` for each task
+   based on its complexity and domain.
 4. **Format:** Generate the playbook using the strict output format defined in
    the `generate-sprint-playbook` workflow.
 5. **Validate:** Ensure every Acceptance Criterion from the PRD has a
@@ -43,9 +43,9 @@ generating application code, SQL, or UI components — stop immediately.
 
 ### B. Resource Allocation (Model & Persona Routing)
 
-- **Model Selection:** Read `.agents/models.json` to assign the right model tier
-  (Architect, Workhorse, Sprinter, Specialist) based on the task's cognitive
-  complexity.
+- **Model Selection:** Read `.agents/config/models.json` to assign the right
+  model tier (Architect, Workhorse, Sprinter, Specialist) based on the task's
+  cognitive complexity.
 - **Persona Selection:** Dynamically select from `.agents/personas/` based on
   the task domain. Do not hardcode or invent personas.
 - **Skill Assignment:** Attach all applicable skills from `.agents/skills/` to

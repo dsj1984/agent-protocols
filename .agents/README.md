@@ -9,10 +9,11 @@ consistency, and architectural guardrails.
 ```text
 .agents/
 ├── VERSION                  # Current version of the protocols
-├── config.json              # Standardized agent configurations
+├── config/                  # Standardized agent configurations
+│   ├── config.json          # Core agent settings
+│   ├── models.json          # Model selection guidance
+│   └── tech-stack.json      # Project technology stack and paths
 ├── instructions.md          # MANDATORY: The consolidated system prompt
-├── models.json              # Model selection and guidance for agentic workflows
-├── tech-stack.json          # Project-specific technology choices and paths
 ├── personas/                # Role-specific behavior constraints (12 personas)
 │   ├── architect.md
 │   ├── devops-engineer.md
@@ -140,12 +141,12 @@ rules strictly.
 
 ---
 
-## 🤖 Model Selection & Guidance (`models.json`)
+## 🤖 Model Selection & Guidance (`config/models.json`)
 
 To optimize for cost, speed, and intelligence, agents should be assigned to
-tasks based on the tiers defined in `models.json`. This ensures that expensive
-"Thinking" models are reserved for complex architecture, while fast "Flash"
-models handle repetitive updates.
+tasks based on the tiers defined in `config/models.json`. This ensures that
+expensive "Thinking" models are reserved for complex architecture, while fast
+"Flash" models handle repetitive updates.
 
 ### Model Categories
 

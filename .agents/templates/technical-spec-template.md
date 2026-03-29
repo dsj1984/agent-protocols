@@ -2,9 +2,9 @@
 
 **Context:** This document outlines the explicit database schema migrations and
 API route implementations required to fulfill the Sprint [SPRINT_NUMBER] PRD.
-Read `.agents/tech-stack.json` to determine the project's ORM, API framework,
-authentication middleware, validation library, and workspace paths. Align all
-changes with `architecture.md`.
+Read `.agents/config/tech-stack.json` to determine the project's ORM, API
+framework, authentication middleware, validation library, and workspace paths.
+Align all changes with `architecture.md`.
 
 ---
 

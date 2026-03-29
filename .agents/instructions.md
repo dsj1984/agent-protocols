@@ -47,8 +47,8 @@ the user using the following warning format before proceeding:
 
 ### E. Local Overrides
 
-If a `.agents/instructions.local.md` file or `.agents/config.local.json` is
-present, you MUST load them. They contain personal developer preferences and
+If a `.agents/instructions.local.md` file or `.agents/config/config.local.json`
+is present, you MUST load them. They contain personal developer preferences and
 environment variables that override project defaults. Do not modify these local
 files unless requested.
 
@@ -59,12 +59,12 @@ Before writing code, verify if any domain-agnostic rules apply by checking the
 
 ### G. Structured Configuration
 
-Refer to `.agents/config.json` to understand your operational limits (e.g.,
-allowed auto-run permissions, default personas). Refer to `.agents/models.json`
-for model selection guidance when self-assigning models to tasks. Refer to
-`.agents/tech-stack.json` for the project's specific technology choices
-(database, ORM, API framework, auth provider, validation library, workspace
-paths).
+Refer to `.agents/config/config.json` to understand your operational limits
+(e.g., allowed auto-run permissions, default personas). Refer to
+`.agents/config/models.json` for model selection guidance when self-assigning
+models to tasks. Refer to `.agents/config/tech-stack.json` for the project's
+specific technology choices (database, ORM, API framework, auth provider,
+validation library, workspace paths).
 
 ---
 
