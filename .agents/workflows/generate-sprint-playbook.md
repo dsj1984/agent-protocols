@@ -44,7 +44,8 @@ organizing tasks strictly into the following "Fan-Out" Chat Sessions.
 - (C) Chat Session 4 (QA Test Plan Generation & Execution). _Sequential in a
   FRESH chat._ (Tasks: X.4.1, X.4.2)  
   _Depends on: Chat Session 2 AND Chat Session 3._
-- (D) Chat Session 5 (Retro & Documentation). _Sequential._ (Tasks: X.5.1)  
+- (D) Chat Session 5 (Code Review & Retro). _Sequential._ (Tasks: X.5.1,
+  X.5.2)  
   _Depends on: Chat Session 4._
 
 TASK SCOPING RULE: Keep individual tasks highly focused. A single task should
@@ -98,7 +99,7 @@ graph TD
     A --> C[Chat 3: Mobile UI]
     B --> D[Chat 4: QA & E2E Testing]
     C --> D
-    D --> E[Chat 5: Retro & Documentation]
+    D --> E[Chat 5: Code Review & Retro]
 ```
 
 1. **Chat Sessions:** Use the following Chat Session Headers exactly as written:
@@ -106,7 +107,7 @@ graph TD
    `### 💬 ⚡ Chat Session 2: Web UI (Concurrent)`
    `### 💬 📱 Chat Session 3: Mobile UI (Concurrent)`
    `### 💬 🧪 Chat Session 4: QA & E2E Testing (Sequential)`
-   `### 💬 🔄 Chat Session 5: Retro & Documentation (Sequential)`
+   `### 💬 🔄 Chat Session 5: Code Review & Retro (Sequential)`
 
 **TASK TEMPLATE:** Every task MUST exactly match this semantic structure:
 
@@ -128,7 +129,7 @@ Sprint [SPRINT_NUMBER].[CHAT_NUMBER].[STEP_NUMBER]: Adopt the `[PERSONA]` person
 
 [CRITICAL FOR QA TASKS: For Chat Session 4, do NOT write custom task instructions for generating or executing tests. Instead, instruct the agent to execute the `plan-qa-testing` workflow for `[SPRINT_NUMBER]`.]
 
-[CRITICAL FOR RETRO TASKS: For Chat Session 5, do NOT write custom task instructions for generating retro documents. Instead, instruct the agent to execute the `sprint-retro` workflow for `[SPRINT_NUMBER]`.]
+[CRITICAL FOR RETRO TASKS: For Chat Session 5, task X.5.1 should instruct the agent to execute the `sprint-code-review` workflow for `[SPRINT_NUMBER]`. Task X.5.2 should explicitly instruct the agent to execute the `sprint-retro` workflow for `[SPRINT_NUMBER]`.]
 ```
 
 ## Step 5 - Output Artifacts

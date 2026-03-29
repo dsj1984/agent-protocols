@@ -12,7 +12,7 @@ graph TD
     B --> D{Code Complete}
     C --> D
     D --> E[💬 🧪 Chat Session 4: QA & E2E Testing]
-    E --> F[💬 🔄 Chat Session 5: Retro & Documentation]
+    E --> F[💬 🔄 Chat Session 5: Code Review & Retro]
 ```
 
 ### 💬 ⚙️ Chat Session 1: Backend Foundation (Sequential)
@@ -109,14 +109,14 @@ Sprint [SPRINT_NUMBER].4.1: Adopt the `[PERSONA]` persona from `.agents/personas
 [For Chat Session 4, do NOT write custom task instructions for generating or executing tests. Instead, instruct the agent to execute the `plan-qa-testing` workflow for `[SPRINT_NUMBER]`.]
 ```
 
-### 💬 🔄 Chat Session 5: Retro & Documentation (Sequential)
+### 💬 🔄 Chat Session 5: Code Review & Retro (Sequential)
 
 _Execution Rule: Run this in the primary PM planning chat once all PRs are
 merged._
 
-- [ ] **[SPRINT_NUMBER].5.1 Sprint Retro & Roadmap Alignment**
+- [ ] **[SPRINT_NUMBER].5.1 Comprehensive Code Review**
 
-**Mode:** Fast **Model:** GEMINI 3 FLASH
+**Mode:** Planning **Model:** GEMINI 3.1 HIGH
 
 ```text
 Sprint [SPRINT_NUMBER].5.1: Adopt the `[PERSONA]` persona from `.agents/personas/`.
@@ -125,6 +125,21 @@ Sprint [SPRINT_NUMBER].5.1: Adopt the `[PERSONA]` persona from `.agents/personas
 1. **Prerequisite Check**: Execute the `verify-sprint-prerequisites` workflow for sprint step `[SPRINT_NUMBER].5.1` and verify dependencies in `playbook.md`. If it fails, **STOP** and alert the user.
 2. **Execution**: Perform the task instructions below.
 3. **Finalization**: Execute the `finalize-sprint-task` workflow explicitly for sprint step `[SPRINT_NUMBER].5.1`.
+
+[Instruct the agent to execute the `sprint-code-review` workflow for `[SPRINT_NUMBER]`.]
+```
+
+- [ ] **[SPRINT_NUMBER].5.2 Sprint Retro & Roadmap Alignment**
+
+**Mode:** Fast **Model:** GEMINI 3 FLASH
+
+```text
+Sprint [SPRINT_NUMBER].5.2: Adopt the `[PERSONA]` persona from `.agents/personas/`.
+
+**AGENT EXECUTION PROTOCOL (STRICT ADHERENCE REQUIRED):**
+1. **Prerequisite Check**: Execute the `verify-sprint-prerequisites` workflow for sprint step `[SPRINT_NUMBER].5.2` and verify dependencies in `playbook.md`. If it fails, **STOP** and alert the user.
+2. **Execution**: Perform the task instructions below.
+3. **Finalization**: Execute the `finalize-sprint-task` workflow explicitly for sprint step `[SPRINT_NUMBER].5.2`.
 
 [Instruct the agent to execute the `sprint-retro` workflow for `[SPRINT_NUMBER]`.]
 ```
