@@ -87,7 +87,7 @@ jobs:
           echo "Validating dist contents..."
           test -f instructions.md \
             && test -f VERSION \
-            && test -f config.json \
+            && test -f config/config.json \
             && test -d personas \
             && test -d rules \
             && test -d skills \
