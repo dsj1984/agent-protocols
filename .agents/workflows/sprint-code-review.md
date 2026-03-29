@@ -51,3 +51,9 @@ Output your consolidated findings directly to the user in the chat:
    - The concrete recommended fix
 3. If no issues are found, explicitly output: "Audit Complete. All sprint
    implementations meet the architectural and product specifications."
+
+## Constraint
+
+This is a read-only audit. Do NOT implement any fixes during the review session
+unless explicitly instructed by the user. Group findings strictly to ensure
+scannability.

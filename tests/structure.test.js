@@ -20,7 +20,7 @@ function agentsPath(...parts) {
 // ---------------------------------------------------------------------------
 describe('Core .agents/ files', () => {
   const required = [
-    'config.json',
+    'config/config.json',
     'instructions.md',
     'README.md',
     'personas/engineer.md',

@@ -22,3 +22,8 @@ Chat Session 5), you must execute the following steps:
    schemas, or dependencies were introduced or changed during this sprint.
 6. **Finalize**: Ensure the sprint documentation is fully finalized and
    formatted correctly.
+
+## Constraint
+
+Do NOT mark items as implemented in the roadmap unless they have successfully
+passed all QA test cases and the code review audit for the current sprint.

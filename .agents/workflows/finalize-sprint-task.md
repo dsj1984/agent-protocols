@@ -19,3 +19,9 @@ precisely:
    the `AGENTS.md` file, make a webhook call to that URL with a message
    indicating that sprint step `[TASK_ID]` was completed. If the variable is not
    set, fail gracefully without error.
+
+## Constraint
+
+Do NOT skip any of the steps above. You MUST ensure validation passes and the
+task is marked as complete in the playbook before considering the set of work
+finished.

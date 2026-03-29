@@ -22,3 +22,8 @@ and technical architecture of the target sprint before proceeding.
 
 Once these files are read, summarize the core objectives internally (do not
 output them to the user unless requested) and proceed with your core task.
+
+## Constraint
+
+You MUST read the PRD and Technical Spec in their entirety before generating any
+code. Never rely on the playbook's task summary alone for business logic.

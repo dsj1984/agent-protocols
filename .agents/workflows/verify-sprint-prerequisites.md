@@ -24,3 +24,9 @@ Before an agent begins performing file modifications for a sprint task in the
    incomplete (`[ ]`), you must **STOP IMMEDIATELY**. Do not attempt to code.
    Alert the user that the prerequisite check failed and state exactly which
    task is blocking execution.
+
+## Constraint
+
+Do NOT attempt to bypass these checks. Out-of-order execution leads to merge
+conflicts and regression bugs. If a predecessor is blocked, inform the user
+immediately.

@@ -23,3 +23,9 @@ Dual-Purpose standard:
    are updated, initiate the `/run-test-plan` workflow against the updated
    files. **DO NOT invent Playwright tests from scratch**—rely on the workflow's
    native execution loop.
+
+## Constraint
+
+Always ensure that your test data (seeds/mocks) is kept up-to-date and reflects
+the current database schema. Never commit tests that have not been validated
+against the actual implementation.
