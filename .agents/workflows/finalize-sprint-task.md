@@ -13,9 +13,11 @@ precisely:
    (`npm run lint`, etc.). Fix any resulting errors.
 2. **Commit**: Stage your changes and commit using standard conventional
    commits: `[type]([scope]): [lowercase conventional commit message]`
-3. **Completion**: Mark this task as complete (`- [x]`) in `playbook.md` BEFORE
-   ending the session.
-4. **Notification**: If the variable `AGENT_NOTIFICATION_WEBHOOK` is defined in
+3. **Completion**: Mark this task as complete (`- [x]`) in `playbook.md`.
+4. **Visualize Progress**: If ALL tasks in the current Chat Session are
+   complete, locate the Mermaid diagram at the top of `playbook.md` and apply
+   the `complete` class to the corresponding node (e.g., `class C1 complete`).
+5. **Notification**: If the variable `AGENT_NOTIFICATION_WEBHOOK` is defined in
    the `AGENTS.md` file, make a webhook call to that URL with a message
    indicating that sprint step `[TASK_ID]` was completed. If the variable is not
    set, fail gracefully without error.

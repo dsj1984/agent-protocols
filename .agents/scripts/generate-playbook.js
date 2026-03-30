@@ -426,6 +426,8 @@ export function generateMermaid(chatSessions, chatDeps) {
     }
   }
 
+  // Define styles
+  lines.push('    classDef complete fill:#16a34a,stroke:#059669,color:#ffffff');
   lines.push('```');
   return lines.join('\n');
 }
