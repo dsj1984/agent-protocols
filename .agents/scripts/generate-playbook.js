@@ -440,6 +440,13 @@ export function generateMermaid(chatSessions, chatDeps) {
     }
   }
 
+  // Define Legend
+  lines.push('    subgraph Legend');
+  lines.push('        L1[Not Started]:::not_started');
+  lines.push('        L2[Pushed]:::in_progress');
+  lines.push('        L3[Complete]:::complete');
+  lines.push('    end');
+
   // Define styles
   lines.push('    %% Style Definitions %%');
   lines.push('    classDef not_started fill:#f3f4f6,stroke:#d1d5db,color:#374151');
