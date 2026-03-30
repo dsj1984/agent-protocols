@@ -440,15 +440,20 @@ export function generateMermaid(chatSessions, chatDeps) {
     }
   }
 
-  // Define Legend (Compact single node)
-  lines.push('    Legend["⬜ Not Started &nbsp;&nbsp; 🟦 In Progress &nbsp;&nbsp; 🟩 Complete"]:::LegendNode');
+  // Define Legend (Horizontal subgraph row)
+  lines.push('    subgraph Legend [" "]');
+  lines.push('        direction LR');
+  lines.push('        L1["⬜ Not Started"]:::LegendNode');
+  lines.push('        L2["🟦 In Progress"]:::LegendNode');
+  lines.push('        L3["🟩 Complete"]:::LegendNode');
+  lines.push('    end');
 
   // Define styles
   lines.push('    %% Style Definitions %%');
   lines.push('    classDef not_started fill:#d1d5db,stroke:#9ca3af,color:#1f2937');
   lines.push('    classDef in_progress fill:#3b82f6,stroke:#2563eb,color:#ffffff');
   lines.push('    classDef complete fill:#16a34a,stroke:#059669,color:#ffffff');
-  lines.push('    classDef LegendNode fill:transparent,stroke:transparent,font-size:10px');
+  lines.push('    classDef LegendNode fill:transparent,stroke:transparent,font-size:12px');
   lines.push('```');
   return lines.join('\n');
 }
