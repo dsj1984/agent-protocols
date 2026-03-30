@@ -442,10 +442,7 @@ export function generateMermaid(chatSessions, chatDeps) {
 
   // Define Legend
   lines.push('    subgraph Legend');
-  lines.push('        direction LR');
-  lines.push('        L1[Not Started]:::not_started');
-  lines.push('        L2[Pushed]:::in_progress');
-  lines.push('        L3[Complete]:::complete');
+  lines.push('        L1[Not Started]:::not_started --- L2[Pushed]:::in_progress --- L3[Complete]:::complete');
   lines.push('    end');
 
   // Define styles
