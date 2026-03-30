@@ -440,8 +440,8 @@ export function generateMermaid(chatSessions, chatDeps) {
     }
   }
 
-  // Define Legend (Compact single node)
-  lines.push('    Legend["⬜ Not Started  🟦 In Progress  🟩 Complete"]:::LegendNode');
+  // Define Legend (Compact single node with line breaks)
+  lines.push('    Legend["⬜ Not Started  <br />🟦 In Progress  <br />🟩 Complete"]:::LegendNode');
 
   // Define styles
   lines.push('    %% Style Definitions %%');
