@@ -1,145 +1,100 @@
-# Sprint [SPRINT_NUMBER] Playbook: [SPRINT_NAME]
+# Sprint Playbook Template Reference
 
+> **NOTE:** This file is a **reference document** showing the expected output
+> format of the `scripts/generate-playbook.js` scaffold script. You do NOT need
+> to copy or fill in this template manually. The script generates the playbook
+> deterministically from a `task-manifest.json` file.
+>
+> For instructions on how to generate a playbook, see the
+> `generate-sprint-playbook` workflow.
+
+---
+
+## Expected Output Structure
+
+The script produces a `playbook.md` with the following structure:
+
+### 1. Title
+
+```markdown
+# Sprint [N] Playbook: [Sprint Name]
+```
+
+### 2. Sprint Summary
+
+```markdown
 ## Sprint Summary
 
-[Provide a 2-3 sentence summary of the sprint's goals, the primary features
-being delivered, and the overarching product value.]
+[2-3 sentence summary from the manifest's `summary` field.]
+```
+
+### 3. Fan-Out Execution Flow
+
+A dynamically generated Mermaid diagram showing the actual Chat Session
+dependency graph. This is NOT hardcoded — it reflects the real task
+dependencies.
+
+````markdown
+## Fan-Out Execution Flow
 
 ```mermaid
 graph TD
-    A[💬 ⚙️ Chat Session 1: Backend Foundation] -->|Locks API & Schema| B(💬 ⚡ Chat Session 2: Web UI)
-    A -->|Locks API & Schema| C(💬 📱 Chat Session 3: Mobile UI)
-    B --> D{Code Complete}
-    C --> D
-    D --> E[💬 🧪 Chat Session 4: QA & E2E Testing]
-    E --> F[💬 🔄 Chat Session 5: Code Review & Retro]
+    C1["💬 ⚙️ Chat Session 1: Backend Foundation"] --> C2["💬 ⚡ Chat Session 2: Web UI"]
+    C1 --> C3["💬 📱 Chat Session 3: Mobile UI"]
+    C2 --> C4["💬 🧪 Chat Session 4: QA & E2E Testing"]
+    C3 --> C4
+    C4 --> C5["💬 🔍 Chat Session 5: Code Review"]
+    C5 --> C6["💬 🔄 Chat Session 6: Sprint Retro & Roadmap Alignment"]
 ```
+````
 
+### 4. Chat Sessions
+
+Each Chat Session is rendered with a header, execution rule, and tasks:
+
+````markdown
 ### 💬 ⚙️ Chat Session 1: Backend Foundation (Sequential)
 
-_Execution Rule: These tasks must be run sequentially in a single chat window to
-lock the data contracts and prevent schema conflicts._
+_Execution Rule: These tasks must be run sequentially in a single chat window._
 
-- [ ] **[SPRINT_NUMBER].1.1 [Task Title - e.g., Database Schema Migrations]**
+- [ ] **99.1.1 Database Schema Migrations**
 
-**Mode:** Planning **Model:** CLAUDE OPUS 4.6
-
-```text
-Sprint [SPRINT_NUMBER].1.1: Adopt the `[PERSONA]` persona from `.agents/personas/`.
-
-**AGENT EXECUTION PROTOCOL (STRICT ADHERENCE REQUIRED):**
-1. **Prerequisite Check**: Execute the `verify-sprint-prerequisites` workflow for sprint step `[SPRINT_NUMBER].1.1` and verify dependencies in `playbook.md`. If it fails, **STOP** and alert the user.
-2. **Execution**: Perform the task instructions below.
-3. **Finalization**: Execute the `finalize-sprint-task` workflow explicitly for sprint step `[SPRINT_NUMBER].1.1`.
-
-[Insert detailed instructions here. Define exact table names, columns, relationships, and constraints. Tell the agent which files to modify.]
-```
-
-- [ ] **[SPRINT_NUMBER].1.2 [Task Title - e.g., Core API Controllers]**
-
-**Mode:** Planning **Model:** CLAUDE SONNET 4.6
+**Mode:** Planning **Model:** Claude Opus 4.6 (Thinking)
 
 ```text
-Sprint [SPRINT_NUMBER].1.2: Adopt the `[PERSONA]` persona from `.agents/personas/`.
+Sprint 99.1.1: Adopt the `engineer` persona from `.agents/personas/`.
 
 **AGENT EXECUTION PROTOCOL (STRICT ADHERENCE REQUIRED):**
-1. **Prerequisite Check**: Execute the `verify-sprint-prerequisites` workflow for sprint step `[SPRINT_NUMBER].1.2` and verify dependencies in `playbook.md`. If it fails, **STOP** and alert the user.
+1. **Prerequisite Check**: Execute the `verify-sprint-prerequisites` workflow for sprint step `99.1.1` and verify dependencies in `playbook.md`. If it fails, **STOP** and alert the user.
 2. **Execution**: Perform the task instructions below.
-3. **Finalization**: Execute the `finalize-sprint-task` workflow explicitly for sprint step `[SPRINT_NUMBER].1.2`.
+3. **Finalization**: Execute the `finalize-sprint-task` workflow explicitly for sprint step `99.1.1`.
 
-[Insert detailed instructions here. Define required Zod schemas, API route methods, expected payloads, and authorization middleware.]
+**Active Skills:** `database/turso, backend/sqlite-drizzle-expert`
+
+[Detailed task instructions with explicit file paths.]
 ```
+````
 
-### 💬 ⚡ Chat Session 2: Web UI (Concurrent)
+---
 
-_Execution Rule: Open a NEW chat window. This session operates exclusively
-within `@repo/web`._
+## Chat Session Grouping Rules (Implemented by the Script)
 
-- [ ] **[SPRINT_NUMBER].2.1 [Task Title - e.g., Feature UI Components]**
+The script automatically groups tasks into Chat Sessions using these rules:
 
-**Mode:** Planning **Model:** GEMINI 3.1 HIGH
+1. **Dependency Layers:** Tasks are assigned a "layer" based on their depth in
+   the dependency graph. Root tasks (no dependencies) are layer 0.
+2. **Scope Grouping:** Tasks at the same layer sharing a `scope` (e.g.,
+   `@repo/web`) are grouped into one sequential Chat Session.
+3. **Concurrent Execution:** Tasks at the same layer with different scopes (or
+   no scope) become separate concurrent Chat Sessions.
+4. **Bookend Tasks:** Tasks with `isQA`, `isCodeReview`, or `isRetro` flags are
+   always placed in their own dedicated Chat Sessions at the end, in that order.
 
-```text
-Sprint [SPRINT_NUMBER].2.1: Adopt the `[PERSONA]` persona from `.agents/personas/`.
+## Example Scenarios
 
-**AGENT EXECUTION PROTOCOL (STRICT ADHERENCE REQUIRED):**
-1. **Prerequisite Check**: Execute the `verify-sprint-prerequisites` workflow for sprint step `[SPRINT_NUMBER].2.1` and verify dependencies in `playbook.md`. If it fails, **STOP** and alert the user.
-2. **Execution**: Perform the task instructions below.
-3. **Finalization**: Execute the `finalize-sprint-task` workflow explicitly for sprint step `[SPRINT_NUMBER].2.1`.
-
-[Insert detailed instructions here. Specify Astro pages, React client components, Tailwind styling requirements, and the specific API endpoints to consume.]
-```
-
-### 💬 📱 Chat Session 3: Mobile UI (Concurrent)
-
-_Execution Rule: Open a NEW chat window. This session operates exclusively
-within `@repo/mobile`._
-
-- [ ] **[SPRINT_NUMBER].3.1 [Task Title - e.g., Native Feature Screens]**
-
-**Mode:** Planning **Model:** GEMINI 3.1 HIGH
-
-```text
-Sprint [SPRINT_NUMBER].3.1: Adopt the `[PERSONA]` persona from `.agents/personas/`.
-
-**AGENT EXECUTION PROTOCOL (STRICT ADHERENCE REQUIRED):**
-1. **Prerequisite Check**: Execute the `verify-sprint-prerequisites` workflow for sprint step `[SPRINT_NUMBER].3.1` and verify dependencies in `playbook.md`. If it fails, **STOP** and alert the user.
-2. **Execution**: Perform the task instructions below.
-3. **Finalization**: Execute the `finalize-sprint-task` workflow explicitly for sprint step `[SPRINT_NUMBER].3.1`.
-
-[Insert detailed instructions here. Specify Expo Router screens, React Native components, mobile-first styling constraints, and API integrations.]
-```
-
-### 💬 🧪 Chat Session 4: QA & E2E Testing (Sequential)
-
-_Execution Rule: Open a NEW chat window after code complete._
-
-- [ ] **[SPRINT_NUMBER].4.1 [Task Title - e.g., Playwright E2E Flows]**
-
-**Mode:** Planning **Model:** CLAUDE OPUS 4.6
-
-```text
-Sprint [SPRINT_NUMBER].4.1: Adopt the `[PERSONA]` persona from `.agents/personas/`.
-
-**AGENT EXECUTION PROTOCOL (STRICT ADHERENCE REQUIRED):**
-1. **Prerequisite Check**: Execute the `verify-sprint-prerequisites` workflow for sprint step `[SPRINT_NUMBER].4.1` and verify dependencies in `playbook.md`. If it fails, **STOP** and alert the user.
-2. **Execution**: Perform the task instructions below.
-3. **Finalization**: Execute the `finalize-sprint-task` workflow explicitly for sprint step `[SPRINT_NUMBER].4.1`.
-
-[For Chat Session 4, do NOT write custom task instructions for generating or executing tests. Instead, instruct the agent to execute the `plan-qa-testing` workflow for `[SPRINT_NUMBER]`.]
-```
-
-### 💬 🔄 Chat Session 5: Code Review & Retro (Sequential)
-
-_Execution Rule: Run this in the primary PM planning chat once all PRs are
-merged._
-
-- [ ] **[SPRINT_NUMBER].5.1 Comprehensive Code Review**
-
-**Mode:** Planning **Model:** GEMINI 3.1 HIGH
-
-```text
-Sprint [SPRINT_NUMBER].5.1: Adopt the `[PERSONA]` persona from `.agents/personas/`.
-
-**AGENT EXECUTION PROTOCOL (STRICT ADHERENCE REQUIRED):**
-1. **Prerequisite Check**: Execute the `verify-sprint-prerequisites` workflow for sprint step `[SPRINT_NUMBER].5.1` and verify dependencies in `playbook.md`. If it fails, **STOP** and alert the user.
-2. **Execution**: Perform the task instructions below.
-3. **Finalization**: Execute the `finalize-sprint-task` workflow explicitly for sprint step `[SPRINT_NUMBER].5.1`.
-
-[Instruct the agent to execute the `sprint-code-review` workflow for `[SPRINT_NUMBER]`.]
-```
-
-- [ ] **[SPRINT_NUMBER].5.2 Sprint Retro & Roadmap Alignment**
-
-**Mode:** Fast **Model:** GEMINI 3 FLASH
-
-```text
-Sprint [SPRINT_NUMBER].5.2: Adopt the `[PERSONA]` persona from `.agents/personas/`.
-
-**AGENT EXECUTION PROTOCOL (STRICT ADHERENCE REQUIRED):**
-1. **Prerequisite Check**: Execute the `verify-sprint-prerequisites` workflow for sprint step `[SPRINT_NUMBER].5.2` and verify dependencies in `playbook.md`. If it fails, **STOP** and alert the user.
-2. **Execution**: Perform the task instructions below.
-3. **Finalization**: Execute the `finalize-sprint-task` workflow explicitly for sprint step `[SPRINT_NUMBER].5.2`.
-
-[Instruct the agent to execute the `sprint-retro` workflow for `[SPRINT_NUMBER]`.]
-```
+| Sprint Type                 | Result                                                  |
+| --------------------------- | ------------------------------------------------------- |
+| Full-stack feature          | Backend → Web + Mobile (concurrent) → QA → Retro        |
+| 10 independent bug fixes    | 10 concurrent sessions → QA → Retro                     |
+| 5 web bugs + 5 mobile tests | 5 web (concurrent) + 5 mobile (concurrent) → QA → Retro |
+| Pure backend pipeline       | Sequential chain → QA → Retro                           |

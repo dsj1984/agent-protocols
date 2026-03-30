@@ -35,6 +35,10 @@ consistency, and architectural guardrails.
 │   ├── security-baseline.md
 │   ├── testing-standards.md
 │   └── ui-copywriting.md
+├── schemas/                 # JSON Schemas for structured agent output
+│   └── task-manifest.schema.json
+├── scripts/                 # Deterministic scaffolding and utility scripts
+│   └── generate-playbook.js
 ├── skills/                  # Tech-stack-specific guardrails (organized by category)
 │   ├── frontend/
 │   ├── backend/
@@ -69,7 +73,8 @@ docs/
 │   └── sprint-[##]/
 │       ├── prd.md           # Product Requirements (User Stories, ACs)
 │       ├── tech-spec.md     # Technical Specification (implementation plan)
-│       └── playbook.md      # Actionable tasks for AI agents
+│       ├── task-manifest.json # Generated structured dependency graph
+│       └── playbook.md      # Actionable tasks for AI agents rendered from manifest
 └── test-plans/              # Domain-specific QA test plans
     └── sprint-test-plans/   # Sprint-specific test plans
 ```
@@ -241,16 +246,20 @@ In your "Director's Chair" (PM chat), simply type:
    - Saves to: `docs/sprints/sprint-[##]/tech-spec.md`.
 
 1. **Playbook Generation (`/generate-sprint-playbook`)**
-   - Synthesizes the PRD and Tech Spec into an actionable **Sprint Playbook**.
-   - Organizes tasks into **Chat Sessions** (Backend Foundation, Web/Mobile UI,
-     QA Testing).
+   - Synthesizes the PRD and Tech Spec into a structured `task-manifest.json`
+     file.
+   - Executes `node .agents/scripts/generate-playbook.js [SPRINT]` to
+     deterministically render the **Sprint Playbook**.
+   - Automatically sorts the topological dependency graph and groups tasks into
+     concurrent or sequential **Chat Sessions**.
    - Assigns specific Models (Claude Opus, Sonnet, Gemini High/Flash) and Modes
      (Planning/Fast) to each task.
    - **Agent Notification Webhook**: Embeds a notification step into the agent
      execution protocol. If `AGENT_NOTIFICATION_WEBHOOK` is defined in the
      `AGENTS.md` file at the project root, agents will notify the webhook upon
      completing a playbook step.
-   - Saves to: `docs/sprints/sprint-[##]/playbook.md`.
+   - Saves artifacts to: `docs/sprints/sprint-[##]/task-manifest.json` and
+     `docs/sprints/sprint-[##]/playbook.md`.
 
 ### 🛠️ Execution & Guardrails
 

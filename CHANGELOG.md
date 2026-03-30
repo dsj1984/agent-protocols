@@ -6,6 +6,30 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 and this project adheres to
 [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [2.1.0] - 2026-03-30
+
+### Added
+
+- **Script-Assisted Playbook Generation**:
+  - Introduced `.agents/scripts/generate-playbook.js`, a deterministic Node.js
+    script to generate sprint playbooks from a structured JSON manifest.
+  - Introduced `.agents/schemas/task-manifest.schema.json` to define the
+    contract for playbook generation.
+  - Updated `generate-sprint-playbook` workflow to use the new two-phase
+    generation pipeline (JSON manifest output -> script execution).
+  - Added automated topological sorting for task dependencies and intelligent
+    chat session grouping by workspace scope.
+  - Added comprehensive unit tests for the playbook generation logic.
+
+### Changed
+
+- **Submodule Distribution Alignment**: Moved the playbook generation script
+  into the `.agents/` directory to ensure it is correctly distributed to
+  consumer projects via git submodules.
+- **Workflow Improvements**: Updated `generate-sprint-playbook` and
+  `sprint-playbook-template` to support the new generation model and provide
+  better execution rule guidance.
+
 ## [2.0.0] - 2026-03-29
 
 ### Major Architectural Overhaul

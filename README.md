@@ -80,6 +80,8 @@ agent-protocols/
 │   ├── instructions.md      # Core system prompt & rules
 │   ├── personas/            # Role-specific behavior constraints (12 personas)
 │   ├── rules/               # Modular domain-agnostic global rules
+│   ├── schemas/             # JSON schemas for structured format boundaries
+│   ├── scripts/             # Deterministic logic scripts (playbook gen, etc)
 │   ├── skills/              # Tech-stack-specific guardrails
 │   ├── templates/           # Markdown templates
 │   ├── workflows/           # SDLC automation slash commands

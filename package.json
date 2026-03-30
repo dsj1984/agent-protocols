@@ -1,12 +1,13 @@
 {
   "name": "agent-protocols",
-  "version": "2.0.0",
+  "version": "2.1.0",
   "description": "",
   "main": "index.js",
   "scripts": {
     "test": "node --test",
     "lint:md": "markdownlint \".agents/**/*.md\" \"*.md\" --ignore node_modules",
     "format:md": "prettier --write \".agents/**/*.md\" \"*.md\"",
+    "playbook:generate": "node .agents/scripts/generate-playbook.js",
     "lint": "npm run lint:md",
     "format": "npm run format:md",
     "prepare": "husky"

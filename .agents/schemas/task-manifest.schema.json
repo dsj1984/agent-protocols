@@ -1,0 +1,108 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "title": "Sprint Task Manifest",
+  "description": "Defines the tasks, dependencies, and metadata for a sprint. Used by the generate-playbook script to produce a deterministic playbook.md.",
+  "type": "object",
+  "required": ["sprintNumber", "sprintName", "summary", "tasks"],
+  "additionalProperties": false,
+  "properties": {
+    "sprintNumber": {
+      "type": "integer",
+      "minimum": 1,
+      "description": "The sprint number (e.g., 36)."
+    },
+    "sprintName": {
+      "type": "string",
+      "minLength": 1,
+      "description": "Human-readable sprint name (e.g., 'Event Discovery & Social Features')."
+    },
+    "summary": {
+      "type": "string",
+      "minLength": 1,
+      "description": "A 2-3 sentence summary of the sprint's goals, features, and business value."
+    },
+    "tasks": {
+      "type": "array",
+      "minItems": 1,
+      "description": "A flat array of all tasks in the sprint. The script uses dependsOn to compute the execution graph.",
+      "items": {
+        "type": "object",
+        "required": [
+          "id",
+          "title",
+          "dependsOn",
+          "persona",
+          "skills",
+          "model",
+          "mode",
+          "instructions"
+        ],
+        "additionalProperties": false,
+        "properties": {
+          "id": {
+            "type": "string",
+            "pattern": "^[a-z0-9]+(-[a-z0-9]+)*$",
+            "description": "A short, unique kebab-case slug (e.g., 'db-migrations', 'bugfix-login-redirect')."
+          },
+          "title": {
+            "type": "string",
+            "minLength": 1,
+            "description": "Human-readable task title (e.g., 'Database Schema Migrations')."
+          },
+          "dependsOn": {
+            "type": "array",
+            "items": {
+              "type": "string"
+            },
+            "description": "Array of task id strings this task depends on. Empty array means no dependencies (eligible for concurrent execution)."
+          },
+          "persona": {
+            "type": "string",
+            "minLength": 1,
+            "description": "The persona filename without extension (e.g., 'engineer', 'architect')."
+          },
+          "skills": {
+            "type": "array",
+            "items": {
+              "type": "string"
+            },
+            "description": "Array of skill paths relative to .agents/skills/ (e.g., 'platform/cloudflare-workers')."
+          },
+          "model": {
+            "type": "string",
+            "minLength": 1,
+            "description": "The model name string from models.json (e.g., 'Claude Opus 4.6 (Thinking)')."
+          },
+          "mode": {
+            "type": "string",
+            "enum": ["Planning", "Fast"],
+            "description": "The agent execution mode."
+          },
+          "instructions": {
+            "type": "string",
+            "description": "Detailed, multi-line task instructions. Ignored if isQA, isCodeReview, or isRetro is true."
+          },
+          "scope": {
+            "type": "string",
+            "description": "Optional workspace scope hint (e.g., '@repo/api', '@repo/web'). Tasks sharing a scope at the same concurrency layer are grouped into one Chat Session."
+          },
+          "isQA": {
+            "type": "boolean",
+            "default": false,
+            "description": "If true, the script injects the plan-qa-testing workflow delegation instead of custom instructions."
+          },
+          "isCodeReview": {
+            "type": "boolean",
+            "default": false,
+            "description": "If true, the script injects the sprint-code-review workflow delegation."
+          },
+          "isRetro": {
+            "type": "boolean",
+            "default": false,
+            "description": "If true, the script injects the sprint-retro workflow delegation."
+          }
+        }
+      }
+    }
+  }
+}
