@@ -32,9 +32,10 @@ precisely:
    state tracking commit upstream: `git push`. (If it fails due to concurrent
    edits from other agents, run `git pull --rebase` and try pushing again).
 7. **Notification**: If the variable `AGENT_NOTIFICATION_WEBHOOK` is defined in
-   the `AGENTS.md` file, make a webhook call to that URL with a message
-   indicating that sprint step `[TASK_ID]` was pushed to its feature branch. If
-   the variable is not set, fail gracefully without error.
+   the `AGENTS.md` file, make a webhook call to that URL. **You must send a JSON
+   payload with a `message` parameter**. Example:
+   `curl -X POST -H "Content-Type: application/json" -d '{"message": "Sprint step [TASK_ID] was pushed to its feature branch."}' $AGENT_NOTIFICATION_WEBHOOK`
+   If the variable is not set, fail gracefully without error.
 
 ## Constraint
 
