@@ -1,0 +1,150 @@
+# Software Development Life Cycle (SDLC) Workflow
+
+Our SDLC is designed for an AI-native engineering environment, heavily leveraging **Dual-Track Agile**. This ensures we are continuously planning the _next_ sprint while the _current_ one is being built, minimizing idle time and maximizing architectural coherence.
+
+At the core of this methodology is a highly automated pipeline combining human product vision, deterministic scaffolding scripts, and parallel AI agent orchestration.
+
+---
+
+## 🗺️ The End-to-End SDLC Process
+
+The following diagram illustrates the complete flow from high-level roadmap definition down to code review and sprint retrospective.
+
+```mermaid
+    graph LR
+    classDef manual fill:#f9d0c4,stroke:#333,stroke-width:2px,color:#000;
+    classDef agentic fill:#c4f9d0,stroke:#333,stroke-width:2px,color:#000;
+    classDef artifact fill:#ececec,stroke:#333,stroke-width:1px,stroke-dasharray: 5 5,color:#000;
+    classDef LegendNode fill:transparent,stroke:transparent,font-size:12px;
+
+    %% Legend
+    Legend["🟥 Human-led task (👤)<br/>🟩 Agentic Execution (🤖)<br/>⬜ Artifact (📄)"]:::LegendNode
+
+    %% Phase 1: Product Strategy
+    subgraph Phase1 ["Phase 1: Product Strategy"]
+        direction TB
+        B["👤 Update roadmap.md<br/>• Define Sprints<br/>• Define Future Horizons"]:::manual
+        D["👤 Execute /plan-sprint"]:::manual
+        B --> D
+    end
+
+    %% Phase 2: Automated Planning
+    subgraph Phase2 ["Phase 2: Sprint Planning"]
+        direction TB
+        F["🤖 /generate-prd"]:::agentic
+        G["🤖 /generate-tech-spec"]:::agentic
+        H["🤖 /generate-sprint-playbook"]:::agentic
+        
+        F --> G
+        G --> H
+        
+        F -.-> F_Art["📄 prd.md"]:::artifact
+        G -.-> G_Art["📄 tech-spec.md"]:::artifact
+        H -.-> H_Art["📄 playbook.md<br/>📄 task-manifest.json"]:::artifact
+    end
+
+    %% Phase 3: Execution & Closure
+    subgraph Phase3 ["Phase 3: Sprint Execution"]
+        direction TB
+        I["👤 Load playbook.md"]:::manual
+        J["🤖 Agentic Execution<br/>(Sequential & Parallel Sessions)"]:::agentic
+        O["🤖 /sprint-code-review"]:::agentic
+        P["🤖 /sprint-retro"]:::agentic
+        
+        I --> J
+        J --> O
+        O --> P
+        
+        P -.-> Q["📄 architecture.md<br/>📄 data-dictionary.md<br/>📄 roadmap.md"]:::artifact
+        P -.-> R["📄 sprint-[##]/retro.md<br/>📄 sprint-[##]/test-plan.md"]:::artifact
+    end
+
+    style Phase1 fill:#fffce5,stroke:#d4d4d4,padding:0px
+    style Phase2 fill:#f0f7ff,stroke:#d4d4d4,padding:0px
+    style Phase3 fill:#f0fff4,stroke:#d4d4d4,padding:0px
+
+    D --> F
+    H_Art --> I
+```
+
+---
+
+## 🚦 Phase 1: Product Strategy (Manual w/ AI Assistance)
+
+Before any AI planning can begin, the "North Star" must be defined.
+The PM (assisted by an AI thinking partner) manually manages operations inside the `docs/roadmap.md` file.
+
+- **Roadmap Management**: Features are categorized into future horizons (Now, Next, Later).
+- **Sprint Definition**: Upcoming features are locked into a numbered sprint layout.
+- **Goal Alignment**: Acceptance criteria boundaries are defined so downstream workflows understand the "definition of done."
+- **Initiation**: The human operator initiates the `/plan-sprint [SPRINT_NUMBER]` command in their "Director's Chair" (PM chat interface).
+
+---
+
+## ⚡ Phase 2: Sprint Planning (Agentic)
+
+Once the human executes the plan command, the agentic pipeline takes over. It performs a deterministic crawl of your project documentation to build a structured execution plan.
+
+### Sequential Generation Steps
+1. **Product Discovery (`/generate-prd`)**:
+   - Reads `roadmap.md` for the target sprint items.
+   - Generates a strict **Product Requirements Document (PRD)** focusing on Problem Statements, User Stories, and Acceptance Criteria.
+   - Saves to: `docs/sprints/sprint-[##]/prd.md`.
+
+2. **Architecture Review (`/generate-tech-spec`)**:
+   - Cross-references the PRD with `data-dictionary.md` and `architecture.md`.
+   - Drafts an explicit **Technical Specification** mapping out Turso/Drizzle schema changes and Hono API routes.
+   - Saves to: `docs/sprints/sprint-[##]/tech-spec.md`.
+
+3. **Playbook Generation (`/generate-sprint-playbook`)**:
+   - Synthesizes the PRD and Tech Spec into a structured `task-manifest.json` file.
+   - Executes `.agents/scripts/generate-playbook.js` to render the **Sprint Playbook**.
+   - Saves artifacts to: `docs/sprints/sprint-[##]/task-manifest.json` and `docs/sprints/sprint-[##]/playbook.md`.
+
+---
+
+## 🏗️ Phase 3: Sprint Execution (Manual + Agentic)
+
+Once the `playbook.md` is generated, the transition from "Planning" to "Execution" begins.
+
+### 🔑 The Hand-Off (Manual)
+The developer or operator must manually "load" the generated playbook into their AI Development Agent Manager (e.g., Google Antigravity or Claude Code). This ensures a human is in the loop before code modifications begin.
+
+### 🤖 Agentic Execution Strategy
+The agent framework parses the playbook and manages the complex orchestration of tasks:
+- **Sequential Foundation**: Initial sessions lock database schemas, migrations, and API routes to provide a stable foundation.
+- **Concurrent Execution**: Once the core is locked, parallel sessions handle Frontend development, QA automation, and non-blocking documentation.
+- **Auto-Tracking**: Agents update the playbook state (`- [x]`) in real-time as tasks are completed, providing a live dashboard of sprint progress.
+
+### 🏁 Closing the Loop (Agentic)
+Every sprint concludes with two mandatory workflows to enforce codebase health and prepare the documentation for the next cycle:
+
+1. **`/sprint-code-review`**: Scans all sprint diffs for security vulnerabilities, unnecessary coupling, and architectural drift.
+2. **`/sprint-retro`**: Synthesizes challenges and wins, makes permanent updates to global project documents, and creates the final sprint records.
+
+**Artifact Lifecycle:**
+- **Updated**: `docs/architecture.md`, `docs/data-dictionary.md`, `docs/roadmap.md`.
+- **Created**: `docs/sprints/sprint-[##]/retro.md`, `docs/sprints/sprint-[##]/test-plan.md`.
+
+---
+
+## 📂 Project Documentation Structure (`docs/`)
+
+To ensure this entire machine operates smoothly, all projects using these protocols MUST adhere to the following `docs/` folder structure:
+
+```text
+docs/
+├── architecture.md          # Core system design and tech stack
+├── data-dictionary.md       # Database schema and validation rules
+├── roadmap.md               # High-level sprint goals and feature list
+├── sprints/                 # Sprint-specific planning artifacts
+│   └── sprint-[##]/
+│       ├── prd.md           # Product Requirements (User Stories, ACs)
+│       ├── tech-spec.md     # Technical Specification (implementation plan)
+│       ├── task-manifest.json # Generated structured dependency graph
+│       ├── playbook.md      # Actionable tasks for AI agents rendered from manifest
+│       ├── test-plan.md     # Sprint-specific test execution record
+│       └── retro.md         # Final reflections and updates
+└── test-plans/              # Domain-specific QA test plans
+    └── sprint-test-plans/   # Sprint-specific test plans
+```
