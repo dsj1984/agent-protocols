@@ -53,7 +53,7 @@
             "items": {
               "type": "string"
             },
-            "description": "Array of task id strings this task depends on. Empty array means no dependencies (eligible for concurrent execution)."
+            "description": "Array of task id strings this task depends on. Include ONLY direct, immediate dependencies. Do NOT include transitive dependencies (e.g. if C depends on B, and B depends on A, C's dependsOn should only include B). Empty array means no dependencies (eligible for concurrent execution)."
           },
           "persona": {
             "type": "string",

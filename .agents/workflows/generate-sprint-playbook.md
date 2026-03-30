@@ -39,6 +39,9 @@ Your output MUST conform to the JSON schema defined in
 
 ### Dependency Rules
 
+- **Direct dependencies ONLY**: Include ONLY direct, immediate prerequisites. Do
+  NOT include transitive dependencies (e.g., if Task C depends on Task B, and
+  Task B depends on Task A, Task C's `dependsOn` should ONLY include Task B).
 - If task B requires the database schema created by task A, task B's `dependsOn`
   includes task A's `id`.
 - If tasks are independent bug fixes or unrelated work items, `dependsOn` is
