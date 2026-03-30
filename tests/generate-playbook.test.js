@@ -235,7 +235,8 @@ describe('groupIntoChatSessions', () => {
   it('bookend tasks are always placed at the end in separate sessions', () => {
     const tasks = [
       makeTask({ id: 'work', dependsOn: [] }),
-      makeTask({ id: 'qa', dependsOn: ['work'], isQA: true, title: 'QA Testing' }),
+      makeTask({ id: 'integ', dependsOn: ['work'], isIntegration: true, title: 'Integration' }),
+      makeTask({ id: 'qa', dependsOn: ['integ'], isQA: true, title: 'QA Testing' }),
       makeTask({ id: 'review', dependsOn: ['qa'], isCodeReview: true, title: 'Code Review' }),
       makeTask({ id: 'retro', dependsOn: ['review'], isRetro: true, title: 'Retro' }),
     ];
@@ -243,11 +244,13 @@ describe('groupIntoChatSessions', () => {
     const layers = assignLayers(adjacency);
     const sessions = groupIntoChatSessions(tasks, layers, adjacency);
 
-    // Work task → 1 session, then QA, then Code Review, then Retro = 4 sessions
-    assert.equal(sessions.length, 4);
+    // Work task → 1 session, then Integ, then QA, then Code Review, then Retro = 5 sessions
+    assert.equal(sessions.length, 5);
     assert.ok(sessions[sessions.length - 1].label.includes('Retro'));
     assert.ok(sessions[sessions.length - 1].mode === 'PMBookend');
     assert.ok(sessions[sessions.length - 2].label.includes('Code Review'));
+    assert.ok(sessions[sessions.length - 3].label.includes('QA'));
+    assert.ok(sessions[sessions.length - 4].label.includes('Integration'));
     assert.ok(sessions[sessions.length - 2].mode === 'PMBookend');
     assert.ok(sessions[sessions.length - 3].label.includes('QA'));
     assert.ok(sessions[sessions.length - 3].mode === 'SequentialBookend');

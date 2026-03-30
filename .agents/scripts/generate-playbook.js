@@ -246,7 +246,7 @@ export function groupIntoChatSessions(tasks, layers, adjacency) {
   const regularTasks = [];
 
   for (const task of tasks) {
-    if (task.isQA || task.isCodeReview || task.isRetro) {
+    if (task.isIntegration || task.isQA || task.isCodeReview || task.isRetro) {
       bookendTasks.push(task);
     } else {
       regularTasks.push(task);
@@ -317,6 +317,19 @@ export function groupIntoChatSessions(tasks, layers, adjacency) {
         });
       }
     }
+  }
+
+  // Append Integration before QA
+  const integrationTasks = bookendTasks.filter((t) => t.isIntegration);
+  if (integrationTasks.length > 0) {
+    chatSessions.push({
+      chatNumber: chatNumber++,
+      label: 'Sprint Integration & Sync',
+      icon: '🔗',
+      mode: 'SequentialBookend',
+      layer: Infinity,
+      tasks: integrationTasks,
+    });
   }
 
   // Append QA
@@ -437,6 +450,9 @@ export function generateMermaid(chatSessions, chatDeps) {
 // ---------------------------------------------------------------------------
 
 function renderTaskInstructions(task, sprintNumber) {
+  if (task.isIntegration) {
+    return `Execute the \`sprint-integration\` workflow for \`${sprintNumber}\`.`;
+  }
   if (task.isQA) {
     return `Execute the \`plan-qa-testing\` workflow for \`${sprintNumber}\`.`;
   }

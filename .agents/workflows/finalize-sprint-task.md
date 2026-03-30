@@ -11,19 +11,34 @@ precisely:
 
 1. **Validation**: Ensure all validation and pre-commit hooks pass
    (`npm run lint`, etc.). Fix any resulting errors.
-2. **Commit**: Stage your changes and commit using standard conventional
-   commits: `[type]([scope]): [lowercase conventional commit message]`
-3. **Completion**: Mark this task as complete (`- [x]`) in `playbook.md`.
-4. **Visualize Progress**: If ALL tasks in the current Chat Session are
-   complete, locate the Mermaid diagram at the top of `playbook.md` and apply
-   the `complete` class to the corresponding node (e.g., `class C1 complete`).
-5. **Notification**: If the variable `AGENT_NOTIFICATION_WEBHOOK` is defined in
+2. **Branch & Commit**: Create a new isolated branch for your task:
+   `git checkout -b sprint-[SPRINT_NUMBER]/[TASK_ID]`. Stage your changes and
+   commit using standard conventional commits:
+   `[type]([scope]): [lowercase conventional commit message]`.
+3. **Push Feature Branch**: Push your code upstream: `git push -u origin HEAD`.
+4. **State Sync**: Switch back to the primary sprint tracking branch (e.g.,
+   `main` or `sprint-[NUM]`). Execute `git pull --rebase` to fetch any state
+   updates from sibling agents.
+5. **Update Playbook (3-State Track)**:
+   - Open `.agents/docs/sprints/sprint-[NUM]/playbook.md` (or the equivalent
+     Playbook Path).
+   - Locate your task and change its status from Pending `- [ ]` to Pushed/Ready
+     `- [/]`.
+   - In the Mermaid diagram, locate your Chat Session. If it doesn't already
+     have a status class, append the `in_progress` class (e.g.,
+     `class C4 in_progress`).
+6. **Commit State**: Commit ONLY the playbook update:
+   `git commit -am "chore(sprint): update task status to pushed"`. Push this
+   state tracking commit upstream: `git push`. (If it fails due to concurrent
+   edits from other agents, run `git pull --rebase` and try pushing again).
+7. **Notification**: If the variable `AGENT_NOTIFICATION_WEBHOOK` is defined in
    the `AGENTS.md` file, make a webhook call to that URL with a message
-   indicating that sprint step `[TASK_ID]` was completed. If the variable is not
-   set, fail gracefully without error.
+   indicating that sprint step `[TASK_ID]` was pushed to its feature branch. If
+   the variable is not set, fail gracefully without error.
 
 ## Constraint
 
-Do NOT skip any of the steps above. You MUST ensure validation passes and the
-task is marked as complete in the playbook before considering the set of work
-finished.
+Do NOT skip any of the steps above. You MUST ensure validation passes, your code
+feature branch is pushed, AND the separate state tracking branch is updated with
+`- [/]`. Do NOT merge your feature branch code directly into `main` (the
+Integration hook will handle code merging).

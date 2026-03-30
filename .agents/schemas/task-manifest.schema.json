@@ -85,6 +85,11 @@
             "type": "string",
             "description": "Optional workspace scope hint (e.g., '@repo/api', '@repo/web'). Tasks sharing a scope at the same concurrency layer are grouped into one Chat Session."
           },
+          "isIntegration": {
+            "type": "boolean",
+            "default": false,
+            "description": "If true, the script injects the sprint-integration workflow delegation, acting as a merge step for feature branches before QA."
+          },
           "isQA": {
             "type": "boolean",
             "default": false,
