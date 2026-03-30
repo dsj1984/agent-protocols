@@ -441,11 +441,11 @@ export function generateMermaid(chatSessions, chatDeps) {
   }
 
   // Define Legend (Compact single node)
-  lines.push('    Legend["⬜ Not Started  🟦 Pushed  🟩 Complete"]:::LegendNode');
+  lines.push('    Legend["⬜ Not Started  🟦 In Progress  🟩 Complete"]:::LegendNode');
 
   // Define styles
   lines.push('    %% Style Definitions %%');
-  lines.push('    classDef not_started fill:#f3f4f6,stroke:#d1d5db,color:#374151');
+  lines.push('    classDef not_started fill:#d1d5db,stroke:#9ca3af,color:#1f2937');
   lines.push('    classDef in_progress fill:#3b82f6,stroke:#2563eb,color:#ffffff');
   lines.push('    classDef complete fill:#16a34a,stroke:#059669,color:#ffffff');
   lines.push('    classDef LegendNode fill:transparent,stroke:transparent,font-size:10px');
