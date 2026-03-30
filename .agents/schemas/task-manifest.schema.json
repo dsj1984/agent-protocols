@@ -80,7 +80,7 @@
           },
           "instructions": {
             "type": "string",
-            "description": "Detailed, multi-line task instructions. Ignored if isQA, isCodeReview, or isRetro is true."
+            "description": "Detailed, multi-line task instructions. MUST use '\\n- ' for bulleted formatting and line breaks to ensure readability. Ignored if isQA, isCodeReview, or isRetro is true."
           },
           "scope": {
             "type": "string",

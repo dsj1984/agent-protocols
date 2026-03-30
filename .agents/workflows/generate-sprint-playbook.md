@@ -65,8 +65,10 @@ Your output MUST conform to the JSON schema defined in
 - **`mode`**: `"Planning"` for complex tasks, `"Fast"` for simple/boilerplate
   tasks.
 - **`instructions`**: Detailed, multi-line task instructions. MUST explicitly
-  list file paths to modify. Keep tasks focused (2-3 files max). This field is
-  ignored for bookend tasks (`isQA`, `isCodeReview`, `isRetro`).
+  list file paths to modify. Keep tasks focused (2-3 files max). MUST use `\n-`
+  plus a space for markdown bullet points to format the text into readable
+  chunks instead of a single block. This field is ignored for bookend tasks
+  (`isQA`, `isCodeReview`, `isRetro`).
 - **`scope`**: Optional workspace scope (e.g., `@repo/api`, `@repo/web`,
   `@repo/mobile`). Tasks sharing a scope at the same layer are grouped into one
   Chat Session.

@@ -29,6 +29,9 @@ where it lives in the app.]
 
 ### Expected User Flow
 
+(If this is purely a technical operations or backend architecture task without
+user interface updates, explicitly write "(N/A - Technical Operations Chore)")
+
 1. [Step 1: Where does the user start? E.g., "User taps the 'Connect' button on
    the Profile Screen."]
 2. [Step 2: What UI changes occur optimistically? E.g., "Button state changes to

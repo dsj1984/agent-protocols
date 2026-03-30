@@ -42,6 +42,9 @@ validation library._
 
 ### A. [Domain Name] Routes (`/v1/[domain]`)
 
+(If no new API logic is required, briefly summarize the unit tests or
+restructuring needed, or write "None required.")
+
 - **`[HTTP_METHOD] /v1/[endpoint]`**
   - **Body/Query:** `{ [expected_payload] }` (Validated via schema)
   - **Logic:** [Step-by-step explanation of the backend logic. E.g., "Verify
