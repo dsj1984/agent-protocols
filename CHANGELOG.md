@@ -6,6 +6,26 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 and this project adheres to
 [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [2.1.1] - 2026-03-30
+
+### Added
+
+- **Graceful "Technical Chore" Fallbacks**:
+  - Updated `prd-template.md` and `technical-spec-template.md` to officially
+    support `(N/A - Technical Operations Chore)` or `None required` for purely
+    technical/backend sprints. This prevents LLM hallucinations in non-UI tasks.
+
+### Changed
+
+- **Strict Playbook Formatting**:
+  - Updated `task-manifest.schema.json` to mandate `\n-` markdown list
+    formatting for task instructions.
+  - Updated `generate-sprint-playbook` workflow to enforce bulleted instruction
+    scoping for better agent readability.
+- **Robust Path Handling**:
+  - Fixed `generate-playbook.js` to preserve leading zeros in sprint numbers
+    (e.g., `037`) when resolving directory paths.
+
 ## [2.1.0] - 2026-03-30
 
 ### Added
