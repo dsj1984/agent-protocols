@@ -440,13 +440,8 @@ export function generateMermaid(chatSessions, chatDeps) {
     }
   }
 
-  // Define Legend (Horizontal subgraph row)
-  lines.push('    subgraph Legend [" "]');
-  lines.push('        direction LR');
-  lines.push('        L1["⬜ Not Started"]:::LegendNode');
-  lines.push('        L2["🟦 In Progress"]:::LegendNode');
-  lines.push('        L3["🟩 Complete"]:::LegendNode');
-  lines.push('    end');
+  // Define Legend (Compact single node)
+  lines.push('    Legend["⬜ Not Started  🟦 In Progress  🟩 Complete"]:::LegendNode');
 
   // Define styles
   lines.push('    %% Style Definitions %%');
