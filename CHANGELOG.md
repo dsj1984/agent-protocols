@@ -6,6 +6,36 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 and this project adheres to
 [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [2.2.0] - 2026-03-30
+
+### Added
+
+- **Explicit Dependency Injection**:
+  - The playbook generation script now deterministically tracks dependent task
+    numbers and injects them precisely into the `AGENT EXECUTION PROTOCOL`.
+  - Added a self-referencing `Playbook Path` header to the top of every
+    generated playbook for easier agent discovery.
+- **Dynamic Prerequisite Logic**:
+  - Tasks with no dependencies now automatically omit the "Prerequisite Check"
+    step to streamline execution prompts.
+- **Expanded Bookend Tracking**:
+  - Split the "Code Review & Retro" session into two dedicated Chat Sessions:
+    `Code Review` (Sequential) and `Sprint Retrospective` (PM-led, always last).
+
+### Changed
+
+- **Workflow Simplification**:
+  - Moved detailed dependency verification logic into the
+    `verify-sprint-prerequisites` workflow, reducing prompt bloat in the
+    playbook.
+  - Added repository `scope` annotations to Sequential sessions (not just
+    Concurrent ones) to ensure clear boundary enforcement.
+  - Manifest schema now allows omitting `instructions` for bookend tasks (QA,
+    Review, Retro) since they use auto-injected workflow commands.
+- **Topological Sorting Improvements**:
+  - Dependencies are now sorted numerically in task prompts for better
+    scannability.
+
 ## [2.1.1] - 2026-03-30
 
 ### Added

@@ -34,8 +34,7 @@
           "persona",
           "skills",
           "model",
-          "mode",
-          "instructions"
+          "mode"
         ],
         "additionalProperties": false,
         "properties": {
@@ -80,7 +79,7 @@
           },
           "instructions": {
             "type": "string",
-            "description": "Detailed, multi-line task instructions. MUST use '\\n- ' for bulleted formatting and line breaks to ensure readability. Ignored if isQA, isCodeReview, or isRetro is true."
+            "description": "Detailed, multi-line task instructions. MUST use '\\n- ' for bulleted formatting and line breaks to ensure readability. Optional for bookend tasks (isQA, isCodeReview, isRetro) — the script auto-injects workflow delegation commands and ignores any value provided here."
           },
           "scope": {
             "type": "string",

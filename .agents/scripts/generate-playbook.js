@@ -32,11 +32,6 @@ const PROJECT_ROOT = path.resolve(__dirname, '../..');
 
 const CHAT_ICONS = ['⚙️', '⚡', '📱', '🔧', '🗄️', '🌐', '📦', '🔌', '🛡️', '🎨'];
 
-const AGENT_EXECUTION_PROTOCOL = `**AGENT EXECUTION PROTOCOL (STRICT ADHERENCE REQUIRED):**
-1. **Prerequisite Check**: Execute the \`verify-sprint-prerequisites\` workflow for sprint step \`__TASK_NUMBER__\` and verify dependencies in \`playbook.md\`. If it fails, **STOP** and alert the user.
-2. **Execution**: Perform the task instructions below.
-3. **Finalization**: Execute the \`finalize-sprint-task\` workflow explicitly for sprint step \`__TASK_NUMBER__\`.`;
-
 // ---------------------------------------------------------------------------
 // Validation
 // ---------------------------------------------------------------------------
@@ -79,7 +74,9 @@ export function validateManifest(manifest) {
     if (!Array.isArray(task.skills)) errors.push(`Task "${task.id}": skills must be an array.`);
     if (!task.model) errors.push(`Task "${task.id}": missing model.`);
     if (!['Planning', 'Fast'].includes(task.mode)) errors.push(`Task "${task.id}": mode must be "Planning" or "Fast".`);
-    if (typeof task.instructions !== 'string') errors.push(`Task "${task.id}": instructions must be a string.`);
+    if (typeof task.instructions !== 'string' && !task.isQA && !task.isCodeReview && !task.isRetro) {
+      errors.push(`Task "${task.id}": instructions must be a string.`);
+    }
   }
 
   // Validate dependsOn references
@@ -335,23 +332,29 @@ export function groupIntoChatSessions(tasks, layers, adjacency) {
     });
   }
 
-  // Append Code Review and Retro together
-  const reviewAndRetroTasks = bookendTasks.filter((t) => t.isCodeReview || t.isRetro);
-  if (reviewAndRetroTasks.length > 0) {
-    // Ensure code review comes before retro
-    reviewAndRetroTasks.sort((a, b) => {
-      if (a.isCodeReview && !b.isCodeReview) return -1;
-      if (!a.isCodeReview && b.isCodeReview) return 1;
-      return 0;
-    });
-
+  // Append Code Review as its own session
+  const reviewTasks = bookendTasks.filter((t) => t.isCodeReview);
+  if (reviewTasks.length > 0) {
     chatSessions.push({
       chatNumber: chatNumber++,
-      label: 'Code Review & Retro',
+      label: 'Code Review',
+      icon: '🔍',
+      mode: 'PMBookend',
+      layer: Infinity,
+      tasks: reviewTasks,
+    });
+  }
+
+  // Append Retro as the absolute last session
+  const retroTasks = bookendTasks.filter((t) => t.isRetro);
+  if (retroTasks.length > 0) {
+    chatSessions.push({
+      chatNumber: chatNumber++,
+      label: 'Sprint Retrospective',
       icon: '🔄',
       mode: 'PMBookend',
       layer: Infinity,
-      tasks: reviewAndRetroTasks,
+      tasks: retroTasks,
     });
   }
 
@@ -444,12 +447,27 @@ function renderTaskInstructions(task, sprintNumber) {
   return task.instructions;
 }
 
-function renderTask(task, sprintNumber, chatNumber, stepNumber) {
+function renderTask(task, sprintNumber, chatNumber, stepNumber, taskIdToNumber) {
   const taskNumber = `${sprintNumber}.${chatNumber}.${stepNumber}`;
   const skills = task.skills.length > 0 ? task.skills.join(', ') : 'N/A';
   const instructions = renderTaskInstructions(task, sprintNumber);
 
-  const protocol = AGENT_EXECUTION_PROTOCOL.replaceAll('__TASK_NUMBER__', taskNumber);
+  let protocol = `**AGENT EXECUTION PROTOCOL (STRICT ADHERENCE REQUIRED):**\n`;
+  if (task.dependsOn && task.dependsOn.length > 0) {
+    // Sort dependencies numerically for readability
+    const depsList = task.dependsOn
+      .map(id => taskIdToNumber.get(id))
+      .sort()
+      .map(num => `\`${num}\``)
+      .join(', ');
+    protocol += `1. **Prerequisite Check**: Execute the \`verify-sprint-prerequisites\` workflow for sprint step \`${taskNumber}\`.\n`;
+    protocol += `   - **Dependencies**: ${depsList}\n`;
+    protocol += `2. **Execution**: Perform the task instructions below.\n`;
+    protocol += `3. **Finalization**: Execute the \`finalize-sprint-task\` workflow explicitly for sprint step \`${taskNumber}\`.`;
+  } else {
+    protocol += `1. **Execution**: Perform the task instructions below.\n`;
+    protocol += `2. **Finalization**: Execute the \`finalize-sprint-task\` workflow explicitly for sprint step \`${taskNumber}\`.`;
+  }
 
   return `- [ ] **${taskNumber} ${task.title}**
 
@@ -466,16 +484,18 @@ ${instructions}
 \`\`\``;
 }
 
-function renderChatSession(session, sprintNumber) {
+function renderChatSession(session, sprintNumber, taskIdToNumber) {
   const lines = [];
 
   const modeDisplay = (session.mode === 'PMBookend' || session.mode === 'SequentialBookend') ? 'Sequential' : session.mode;
   lines.push(`### 💬 ${session.icon} Chat Session ${session.chatNumber}: ${session.label} (${modeDisplay})`);
   lines.push('');
 
+  // Compute scope annotation for any session type
+  const uniqueScopes = [...new Set(session.tasks.map((t) => t.scope).filter(Boolean))];
+  const scopeNote = uniqueScopes.length === 1 ? ` This session operates exclusively within \`${uniqueScopes[0]}\`.` : '';
+
   if (session.mode === 'Concurrent') {
-    const uniqueScopes = [...new Set(session.tasks.map((t) => t.scope).filter(Boolean))];
-    const scopeNote = uniqueScopes.length === 1 ? ` This session operates exclusively within \`${uniqueScopes[0]}\`.` : '';
     lines.push(
       `_Execution Rule: Open a NEW chat window. This session runs concurrently with other sessions at the same level.${scopeNote}_`,
     );
@@ -489,14 +509,14 @@ function renderChatSession(session, sprintNumber) {
     );
   } else {
     lines.push(
-      `_Execution Rule: These tasks must be run sequentially in a single chat window._`,
+      `_Execution Rule: These tasks must be run sequentially in a single chat window.${scopeNote}_`,
     );
   }
   lines.push('');
 
   for (let i = 0; i < session.tasks.length; i++) {
     const task = session.tasks[i];
-    lines.push(renderTask(task, sprintNumber, session.chatNumber, i + 1));
+    lines.push(renderTask(task, sprintNumber, session.chatNumber, i + 1, taskIdToNumber));
     lines.push('');
   }
 
@@ -507,8 +527,13 @@ export function renderPlaybook(manifest, chatSessions, chatDeps) {
   const lines = [];
   const sn = manifest.sprintNumber;
 
+  // Pad sprint number for directory path
+  const paddedSprint = String(sn).padStart(3, '0');
+
   // Title
   lines.push(`# Sprint ${sn} Playbook: ${manifest.sprintName}`);
+  lines.push('');
+  lines.push(`> **Playbook Path**: \`docs/sprints/sprint-${paddedSprint}/playbook.md\``);
   lines.push('');
 
   // Summary
@@ -523,9 +548,18 @@ export function renderPlaybook(manifest, chatSessions, chatDeps) {
   lines.push(generateMermaid(chatSessions, chatDeps));
   lines.push('');
 
+  // Pre-compute reverse mapping for explicit dependency injection
+  const taskIdToNumber = new Map();
+  for (const session of chatSessions) {
+    for (let i = 0; i < session.tasks.length; i++) {
+      const task = session.tasks[i];
+      taskIdToNumber.set(task.id, `${sn}.${session.chatNumber}.${i + 1}`);
+    }
+  }
+
   // Chat Sessions
   for (const session of chatSessions) {
-    lines.push(renderChatSession(session, sn));
+    lines.push(renderChatSession(session, sn, taskIdToNumber));
   }
 
   return lines.join('\n');

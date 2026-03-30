@@ -67,13 +67,18 @@ Your output MUST conform to the JSON schema defined in
 - **`instructions`**: Detailed, multi-line task instructions. MUST explicitly
   list file paths to modify. Keep tasks focused (2-3 files max). MUST use `\n-`
   plus a space for markdown bullet points to format the text into readable
-  chunks instead of a single block. This field is ignored for bookend tasks
-  (`isQA`, `isCodeReview`, `isRetro`).
+  chunks instead of a single block. **Omit this field entirely for bookend
+  tasks** — the script auto-injects the appropriate workflow delegation command.
 - **`scope`**: Optional workspace scope (e.g., `@repo/api`, `@repo/web`,
-  `@repo/mobile`). Tasks sharing a scope at the same layer are grouped into one
-  Chat Session.
+  `@repo/mobile`, `root`). Tasks sharing a scope at the same layer are grouped
+  into one Chat Session. The scope is displayed in the playbook execution rule
+  to help agents stay within their assigned workspace boundaries.
 - **`isQA`**, **`isCodeReview`**, **`isRetro`**: Boolean flags for bookend
-  tasks. The script auto-injects the appropriate workflow delegation.
+  tasks. Each bookend becomes its own dedicated Chat Session at the end of the
+  pipeline — QA first, then Code Review, then Retro (always last). The script
+  auto-injects the appropriate workflow delegation (`plan-qa-testing`,
+  `sprint-code-review`, or `sprint-retro`). You do NOT need to provide
+  `instructions` for these tasks.
 
 ### Output Location
 

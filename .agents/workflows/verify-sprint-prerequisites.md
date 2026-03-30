@@ -11,19 +11,20 @@ Before an agent begins performing file modifications for a sprint task in the
 
 1. **Locate the Playbook**: Open the sprint playbook (e.g.,
    `docs/sprints/sprint-[SPRINT_NUMBER]/playbook.md`).
-2. **Check Intra-Chat Predecessors**: Identify your assigned task step number
-   (e.g., `1.1.3`). Within the same Chat Session (e.g., Chat Session `1`),
-   verify that all preceding tasks (e.g., `1.1.1` and `1.1.2`) are marked
-   complete with an `[x]`.
-3. **Check Cross-Chat Dependencies**: Review the `Fan-Out Flow` diagram and
-   dependency notes specified at the top of the playbook. If your Chat Session
-   depends on the completion of another Chat Session (for instance, Chat 2
-   depends on the completion of Chat 1), verify that _all_ tasks in that
-   foundational Chat Session are marked complete with an `[x]`.
-4. **Halt on Failure**: If ANY required predecessor or dependent task is
-   incomplete (`[ ]`), you must **STOP IMMEDIATELY**. Do not attempt to code.
-   Alert the user that the prerequisite check failed and state exactly which
-   task is blocking execution.
+2. **Check Dependencies**: Look at your assigned task instructions. There is an
+   explicit list of pre-requisite task numbers under the `Dependencies` block in
+   the AGENT EXECUTION PROTOCOL.
+3. **Verify Dependencies**: You MUST verify that every task ID listed in the
+   `Dependencies` block has a marked `[x]` in the `playbook.md`. If any
+   dependendent task is marked `[ ]` (incomplete), you MUST **STOP IMMEDIATELY**
+   and alert the user.
+4. **Check Intra-Chat Predecessors**: Within the same sequential Chat Session
+   (e.g., Chat Session `1`), verify that every numerically preceding task (e.g.,
+   if you are `1.1.2`, check `1.1.1`) is also marked complete with an `[x]`.
+5. **Halt on Failure**: If ANY required predecessor or dependent task is
+   incomplete (`[ ]`) or missing, you must **STOP IMMEDIATELY**. Do not attempt
+   to code. Alert the user that the prerequisite check failed and state exactly
+   which specific task number is blocking your execution.
 
 ## Constraint
 

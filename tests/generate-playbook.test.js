@@ -232,22 +232,25 @@ describe('groupIntoChatSessions', () => {
     assert.equal(concurrentSessions.length, 2);
   });
 
-  it('bookend tasks are always placed at the end', () => {
+  it('bookend tasks are always placed at the end in separate sessions', () => {
     const tasks = [
       makeTask({ id: 'work', dependsOn: [] }),
       makeTask({ id: 'qa', dependsOn: ['work'], isQA: true, title: 'QA Testing' }),
-      makeTask({ id: 'retro', dependsOn: ['qa'], isRetro: true, title: 'Retro' }),
+      makeTask({ id: 'review', dependsOn: ['qa'], isCodeReview: true, title: 'Code Review' }),
+      makeTask({ id: 'retro', dependsOn: ['review'], isRetro: true, title: 'Retro' }),
     ];
     const { adjacency } = buildGraph(tasks);
     const layers = assignLayers(adjacency);
     const sessions = groupIntoChatSessions(tasks, layers, adjacency);
 
-    // Work task → 1 session, then QA bookend session, then Review/Retro combined session
-    assert.equal(sessions.length, 3);
+    // Work task → 1 session, then QA, then Code Review, then Retro = 4 sessions
+    assert.equal(sessions.length, 4);
     assert.ok(sessions[sessions.length - 1].label.includes('Retro'));
     assert.ok(sessions[sessions.length - 1].mode === 'PMBookend');
-    assert.ok(sessions[sessions.length - 2].label.includes('QA'));
-    assert.ok(sessions[sessions.length - 2].mode === 'SequentialBookend');
+    assert.ok(sessions[sessions.length - 2].label.includes('Code Review'));
+    assert.ok(sessions[sessions.length - 2].mode === 'PMBookend');
+    assert.ok(sessions[sessions.length - 3].label.includes('QA'));
+    assert.ok(sessions[sessions.length - 3].mode === 'SequentialBookend');
   });
 
   it('scoped tasks at the same layer are grouped', () => {
@@ -329,8 +332,15 @@ describe('renderPlaybook', () => {
           instructions: '',
         }),
         makeTask({
-          id: 'retro',
+          id: 'review',
           dependsOn: ['qa'],
+          isCodeReview: true,
+          title: 'Code Review',
+          instructions: '',
+        }),
+        makeTask({
+          id: 'retro',
+          dependsOn: ['review'],
           isRetro: true,
           title: 'Retro',
           instructions: '',
@@ -348,14 +358,19 @@ describe('renderPlaybook', () => {
     assert.ok(md.includes('## Sprint Summary'));
     assert.ok(md.includes('## Fan-Out Execution Flow'));
     assert.ok(md.includes('```mermaid'));
+    assert.ok(md.includes('Playbook Path'));
     assert.ok(md.includes('AGENT EXECUTION PROTOCOL'));
     assert.ok(md.includes('plan-qa-testing'));
+    assert.ok(md.includes('sprint-code-review'));
     assert.ok(md.includes('sprint-retro'));
   });
 
-  it('injects the execution protocol verbatim with correct task numbers', () => {
+  it('injects the execution protocol including prerequisite check when task has dependencies', () => {
     const manifest = makeManifest({
-      tasks: [makeTask({ id: 'a', title: 'Only Task' })],
+      tasks: [
+        makeTask({ id: 'a', title: 'First Task' }),
+        makeTask({ id: 'b', title: 'Second Task', dependsOn: ['a'] })
+      ],
     });
     const { adjacency } = buildGraph(manifest.tasks);
     const layers = assignLayers(adjacency);
@@ -363,9 +378,26 @@ describe('renderPlaybook', () => {
     const chatDeps = computeChatDependencies(sessions, adjacency);
     const md = renderPlaybook(manifest, sessions, chatDeps);
 
-    // Task number should be 99.1.1
-    assert.ok(md.includes('99.1.1'));
+    // Task number should be 99.1.2 because it relies on the first task in the same layer?
+    // Wait, first task is layer 0. Second is layer 1. 
+    // They share same scope. So they are consecutive essentially in playbooks.
+    // The rendered text for task 'b' should contain the verify check.
     assert.ok(md.includes('verify-sprint-prerequisites'));
+    assert.ok(md.includes('Dependencies**: `99.1.1`'));
+    assert.ok(md.includes('finalize-sprint-task'));
+  });
+
+  it('omits prerequisite check when a task has no dependencies', () => {
+    const manifest = makeManifest({
+      tasks: [makeTask({ id: 'a', title: 'Only Task', dependsOn: [] })],
+    });
+    const { adjacency } = buildGraph(manifest.tasks);
+    const layers = assignLayers(adjacency);
+    const sessions = groupIntoChatSessions(manifest.tasks, layers, adjacency);
+    const chatDeps = computeChatDependencies(sessions, adjacency);
+    const md = renderPlaybook(manifest, sessions, chatDeps);
+
+    assert.ok(!md.includes('verify-sprint-prerequisites'));
     assert.ok(md.includes('finalize-sprint-task'));
   });
 });
@@ -391,8 +423,8 @@ describe('generateFromManifest (end-to-end)', () => {
     const { markdown, chatSessions } = generateFromManifest(manifest);
 
     assert.ok(markdown.length > 0);
-    // Should have: db(1), api(2), web(3), mobile(4), QA(5), review(6), retro(7)
-    assert.ok(chatSessions.length >= 5, `Expected >=5 sessions, got ${chatSessions.length}`);
+    // Should have: db(1), api(2), web(3), mobile(4), QA(5), Code Review(6), retro(7)
+    assert.equal(chatSessions.length, 7, `Expected 7 sessions, got ${chatSessions.length}`);
   });
 
   it('produces a playbook for a 10-bug bash', () => {
