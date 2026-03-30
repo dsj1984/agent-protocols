@@ -73,6 +73,7 @@ which is what gets distributed to consumers.
 ```text
 agent-protocols/
 ├── .agents/                 # ← Distributed to consumers via the `dist` branch
+│   ├── VERSION              # Current version of the protocols
 │   ├── config/              # Standardized agent configurations
 │   │   ├── config.json
 │   │   ├── models.json
@@ -129,6 +130,20 @@ All markdown is validated with `markdownlint` and formatted with `prettier`:
    files before the commit is accepted.
 4. Open a Pull Request against `main`. The `ci.yml` workflow will validate your
    changes.
+
+### Release Process
+
+When preparing a new release of the protocols:
+
+1.  **Bump Version**: Update the version number in `package.json`.
+2.  **Sync VERSION File**: Update the `.agents/VERSION` file to match. This file
+    is distributed to consumers to help them identify their current protocol
+    version.
+3.  **Update Changelog**: Add a new entry to `CHANGELOG.md` under the new
+    version header.
+4.  **Commit**: Commit the changes to `main`.
+5.  **Publish**: The `ci.yml` workflow will automatically sync the `.agents/`
+    directory to the `dist` branch upon merge.
 
 ### CI/CD Pipeline
 
