@@ -418,7 +418,7 @@ export function generateMermaid(chatSessions, chatDeps) {
   // Define nodes
   for (const session of chatSessions) {
     const nodeId = `C${session.chatNumber}`;
-    const nodeLabel = `💬 ${session.icon} Chat Session ${session.chatNumber}: ${session.label}`;
+    const nodeLabel = `${session.icon} Chat Session ${session.chatNumber}: ${session.label}`;
     lines.push(`    ${nodeId}["${nodeLabel}"]`);
   }
 
@@ -506,7 +506,7 @@ function renderChatSession(session, sprintNumber, taskIdToNumber) {
   const lines = [];
 
   const modeDisplay = (session.mode === 'PMBookend' || session.mode === 'SequentialBookend') ? 'Sequential' : session.mode;
-  lines.push(`### 💬 ${session.icon} Chat Session ${session.chatNumber}: ${session.label} (${modeDisplay})`);
+  lines.push(`### ${session.icon} Chat Session ${session.chatNumber}: ${session.label} (${modeDisplay})`);
   lines.push('');
 
   // Compute scope annotation for any session type
