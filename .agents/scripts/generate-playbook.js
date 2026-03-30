@@ -420,6 +420,7 @@ export function generateMermaid(chatSessions, chatDeps) {
     const nodeId = `C${session.chatNumber}`;
     const nodeLabel = `${session.icon} Chat Session ${session.chatNumber}: ${session.label}`;
     lines.push(`    ${nodeId}["${nodeLabel}"]`);
+    lines.push(`    class ${nodeId} not_started`);
   }
 
   // Define edges
@@ -441,7 +442,7 @@ export function generateMermaid(chatSessions, chatDeps) {
 
   // Define styles
   lines.push('    %% Style Definitions %%');
-  lines.push('    style default fill:#f3f4f6,stroke:#d1d5db,color:#374151');
+  lines.push('    classDef not_started fill:#f3f4f6,stroke:#d1d5db,color:#374151');
   lines.push('    classDef in_progress fill:#3b82f6,stroke:#2563eb,color:#ffffff');
   lines.push('    classDef complete fill:#16a34a,stroke:#059669,color:#ffffff');
   lines.push('```');
