@@ -61,6 +61,7 @@ To fully activate these protocols, you MUST configure your AI agent (via
 content of **`instructions.md`**.
 
 This file acts as the **System Core**, instructing the agent to:
+
 1. **Ingest** the baseline rules.
 2. **Route** to personas in `personas/`.
 3. **Activate** guardrails from `skills/`.
@@ -69,7 +70,9 @@ This file acts as the **System Core**, instructing the agent to:
 ### ⚡ Activation & Usage
 
 Once the submodule is added to your project, follow these steps:
-1. **Configure your AI tool** to load `.agents/instructions.md` as the **System Prompt**.
+
+1. **Configure your AI tool** to load `.agents/instructions.md` as the **System
+   Prompt**.
 2. **Use personas** by telling the agent to "Act as [Role]" — it will look for
    the matching file in `.agents/personas/`.
 3. **Activate skills** by referencing them by name or letting your agent
@@ -79,8 +82,9 @@ Once the submodule is added to your project, follow these steps:
 ### 🔒 Local Overrides
 
 Developers can override protocol behavior for their specific machine by creating
-`.agents/instructions.local.md` (for rules) or `.agents/config/config.local.json`
-(for config). These files are automatically `gitignored`.
+`.agents/instructions.local.md` (for rules) or
+`.agents/config/config.local.json` (for config). These files are automatically
+`gitignored`.
 
 ---
 
@@ -109,15 +113,15 @@ Personas constrain agent behavior to a specific role.
 
 Modular, domain-agnostic global rules that define behavioral standards.
 
-| File                    | Domain           | Purpose                                               |
-| ----------------------- | ---------------- | ----------------------------------------------------- |
-| `api-conventions.md`    | API              | RESTful standards, status codes, and JSON patterns    |
-| `coding-style.md`       | Generic          | Clean code standards and file structure conventions   |
-| `database-standards.md` | Database         | Migration safety, naming, and indexing strategies     |
-| `git-conventions.md`    | Version Control  | Branching strategy and PR quality standards           |
-| `security-baseline.md`  | Security         | OWASP basics, credential safety, and encryption rules |
-| `testing-standards.md`  | Quality          | Coverage thresholds and unit testing philosophy       |
-| `ui-copywriting.md`     | UX               | Content tone, error messaging, and labeling standards |
+| File                    | Domain          | Purpose                                               |
+| ----------------------- | --------------- | ----------------------------------------------------- |
+| `api-conventions.md`    | API             | RESTful standards, status codes, and JSON patterns    |
+| `coding-style.md`       | Generic         | Clean code standards and file structure conventions   |
+| `database-standards.md` | Database        | Migration safety, naming, and indexing strategies     |
+| `git-conventions.md`    | Version Control | Branching strategy and PR quality standards           |
+| `security-baseline.md`  | Security        | OWASP basics, credential safety, and encryption rules |
+| `testing-standards.md`  | Quality         | Coverage thresholds and unit testing philosophy       |
+| `ui-copywriting.md`     | UX              | Content tone, error messaging, and labeling standards |
 
 ---
 
@@ -163,8 +167,10 @@ Workflows are reusable, single-command audit prompts designed to be invoked as
 slash commands in your IDE (e.g., `/architecture-audit`).
 
 ### 🔄 Automated SDLC Workflow
-We use a deterministic planning pipeline for sprint generation. 
-See **[SDLC.md](./SDLC.md)** for detailed instructions on the `/plan-sprint` command.
+
+We use a deterministic planning pipeline for sprint generation. See
+**[SDLC.md](./SDLC.md)** for detailed instructions on the `/plan-sprint`
+command.
 
 ### Available Workflows
 
@@ -216,10 +222,10 @@ Standardized markdown blueprints used during planning and testing.
 
 Supporting files that define the agent's environment and workspace standards.
 
-| Path                           | Type      | Purpose                                               |
-| ------------------------------ | --------- | ----------------------------------------------------- |
-| `config/config.json`           | Config    | Core agent settings and defaults                      |
-| `config/models.json`           | Config    | Model selection guidance (Tiered Architecture)        |
-| `config/tech-stack.json`       | Config    | Project-specific stack and path mapping               |
-| `schemas/task-manifest.json`   | Schema    | JSON Schema for validating sprint task graphs         |
-| `scripts/generate-playbook.js` | Script    | Deterministic logic for rendering sprint playbooks    |
+| Path                           | Type   | Purpose                                            |
+| ------------------------------ | ------ | -------------------------------------------------- |
+| `config/config.json`           | Config | Core agent settings and defaults                   |
+| `config/models.json`           | Config | Model selection guidance (Tiered Architecture)     |
+| `config/tech-stack.json`       | Config | Project-specific stack and path mapping            |
+| `schemas/task-manifest.json`   | Schema | JSON Schema for validating sprint task graphs      |
+| `scripts/generate-playbook.js` | Script | Deterministic logic for rendering sprint playbooks |

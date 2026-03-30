@@ -27,7 +27,8 @@ files. Pay special attention to:
   `playwright.config.ts`, `cypress.json`).
 - Test directories and files (e.g., `__tests__/`, `spec/`, `e2e/`, `*.test.ts`,
   `*.spec.js`).
-- Manual and automated test plans stored and organized in `docs/sprints/sprint-[##]/`.
+- Manual and automated test plans stored and organized in
+  `docs/sprints/sprint-[##]/`.
 - Product documentation like `docs/roadmap.md` to map out expected features
   versus documented/implemented tests.
 - Mocking and stubbing setups (e.g., `__mocks__/`, `setupTests.js`, MSW
@@ -54,9 +55,9 @@ Evaluate the gathered context against the following test quality dimensions:
    opportunities for parallelization.
 6. **Test Plan Alignment:** Cross-reference the features outlined in
    `docs/roadmap.md` to ensure they have corresponding and complete test plans
-   within `docs/sprints/sprint-[##]/test-plan.md`. Verify that the test plans accurately reflect the
-   exact implementation found in the codebase and highlight any inconsistencies,
-   gaps, or outdated assertions.
+   within `docs/sprints/sprint-[##]/test-plan.md`. Verify that the test plans
+   accurately reflect the exact implementation found in the codebase and
+   highlight any inconsistencies, gaps, or outdated assertions.
 
 ## Step 3: Output Requirements
 

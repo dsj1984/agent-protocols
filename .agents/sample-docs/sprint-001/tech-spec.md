@@ -1,6 +1,8 @@
 # Technical Specification: Sprint 001 - Realtime Notifications
 
-**Context:** This document outlines the explicit architectural decisions, infrastructure provisioning, and frontend changes required to fulfill the realtime notification PRD.
+**Context:** This document outlines the explicit architectural decisions,
+infrastructure provisioning, and frontend changes required to fulfill the
+realtime notification PRD.
 
 ---
 
@@ -30,7 +32,8 @@ CREATE TABLE notification_preferences (
 
 ## 2. Backend API Routes
 
-- `GET /api/v1/notifications` — Retrieve historically unread notifications for a user, paginated.
+- `GET /api/v1/notifications` — Retrieve historically unread notifications for a
+  user, paginated.
 - `PUT /api/v1/notifications/:id/read` — Mark a notification as read.
 - `GET /api/v1/notifications/preferences` — Get user preferences.
 - `PUT /api/v1/notifications/preferences` — Update user preferences.
@@ -42,15 +45,23 @@ We will implement standard WebSockets for realtime updates.
 ### A. Connection Handling
 
 - **Endpoint:** `wss://api.example.com/events`
-- **Auth:** Client passes JWT as a query parameter or sends an `auth` event immediately upon connection. Unauthenticated connections are dropped after 5 seconds.
+- **Auth:** Client passes JWT as a query parameter or sends an `auth` event
+  immediately upon connection. Unauthenticated connections are dropped after 5
+  seconds.
 
 ### B. Scalability
 
-- Redis Pub/Sub will be used as a backplane to sync messages across multiple WebSocket server instances.
-- When an API event triggers a notification, it publishes to a Redis channel `user:notify:<user_id>`, which the WebSocket servers listen to.
+- Redis Pub/Sub will be used as a backplane to sync messages across multiple
+  WebSocket server instances.
+- When an API event triggers a notification, it publishes to a Redis channel
+  `user:notify:<user_id>`, which the WebSocket servers listen to.
 
 ## 4. Execution Guardrails
 
-1. **No direct database polling:** Polling is inefficient. All new events must pass through the Pub/Sub system for immediate delivery.
-2. **Exponential backoff logic:** Clients must not simultaneously reconnect upon server restart (thundering herd). Implement jittered backoff logic on the frontend client.
-3. **Data retention:** A background job must be scheduled to clean up read notifications older than 30 days to keep the `notifications` table lean.
+1. **No direct database polling:** Polling is inefficient. All new events must
+   pass through the Pub/Sub system for immediate delivery.
+2. **Exponential backoff logic:** Clients must not simultaneously reconnect upon
+   server restart (thundering herd). Implement jittered backoff logic on the
+   frontend client.
+3. **Data retention:** A background job must be scheduled to clean up read
+   notifications older than 30 days to keep the `notifications` table lean.

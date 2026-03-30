@@ -4,7 +4,8 @@
 
 ## Sprint Summary
 
-Introduce realtime notifications via WebSockets across web and mobile platforms to replace manual dashboard refreshing.
+Introduce realtime notifications via WebSockets across web and mobile platforms
+to replace manual dashboard refreshing.
 
 ## Fan-Out Execution Flow
 

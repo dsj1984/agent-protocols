@@ -22,12 +22,13 @@ and this project adheres to
   - Overhauled the core SDLC Mermaid diagram in `SDLC.md` to a Left-to-Right
     (`LR`) layout to better represent chronological phase transitions.
 - **Sprint Test Plan Relocation**:
-  - Migrated sprint-specific test plans from `docs/test-plans/sprint-test-plans/`
-    to a more contextual `docs/sprints/sprint-[##]/test-plan.md` location.
+  - Migrated sprint-specific test plans from
+    `docs/test-plans/sprint-test-plans/` to a more contextual
+    `docs/sprints/sprint-[##]/test-plan.md` location.
   - Updated the `qa-engineer` persona and `plan-qa-testing`/`qa-audit` workflows
-     to adhere to the new directory structure.
+    to adhere to the new directory structure.
 - **Documentation Hardening**:
-  - Standardized all internal documentation with relative links, replacing 
+  - Standardized all internal documentation with relative links, replacing
     absolute file system paths.
   - Updated `README.md` and `SDLC.md` to provide clearer onboarding guidance
     referencing the new "Golden Samples."
