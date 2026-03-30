@@ -589,7 +589,7 @@ function main() {
     process.exit(1);
   }
 
-  const sprintDir = path.join(PROJECT_ROOT, 'docs', 'sprints', `sprint-${sprintNumber}`);
+  const sprintDir = path.join(PROJECT_ROOT, 'docs', 'sprints', `sprint-${sprintArg}`);
   const manifestPath = path.join(sprintDir, 'task-manifest.json');
 
   if (!fs.existsSync(manifestPath)) {
