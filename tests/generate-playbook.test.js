@@ -363,6 +363,7 @@ describe('renderPlaybook', () => {
     assert.ok(md.includes('```mermaid'));
     assert.ok(md.includes('Playbook Path'));
     assert.ok(md.includes('AGENT EXECUTION PROTOCOL'));
+    assert.ok(md.includes('Mark Executing'));
     assert.ok(md.includes('plan-qa-testing'));
     assert.ok(md.includes('sprint-code-review'));
     assert.ok(md.includes('sprint-retro'));
@@ -387,6 +388,7 @@ describe('renderPlaybook', () => {
     // The rendered text for task 'b' should contain the verify check.
     assert.ok(md.includes('verify-sprint-prerequisites'));
     assert.ok(md.includes('Dependencies**: `99.1.1`'));
+    assert.ok(md.includes('Mark Executing'));
     assert.ok(md.includes('finalize-sprint-task'));
   });
 

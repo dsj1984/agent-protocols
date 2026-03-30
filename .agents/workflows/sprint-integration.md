@@ -24,12 +24,12 @@ sprint branch. It must be run BEFORE QA Testing begins.
    - Open `.agents/docs/sprints/sprint-[SPRINT_NUMBER]/playbook.md` (or the
      equivalent Playbook Path).
    - For every task branch that was successfully merged, locate its status check
-     and change it from Pushed/Ready (`- [/]`) to Complete (`- [x]`).
+     and change it from Committed (`- [/]`) to Complete (`- [x]`).
 5. **Visualize Progress**:
    - For every Chat Session in the Playbook where **all** component tasks have
      now been checked off (`- [x]`), locate the Mermaid diagram at the top.
-   - Update the status class from `in_progress` to `complete`. (e.g., Change
-     `class C4 in_progress` to `class C4 complete`).
+   - Update the status class from `committed` to `complete`. (e.g., Change
+     `class C4 committed` to `class C4 complete`).
 6. **Commit State**: Commit the updated `playbook.md` and the merge commits with
    the message:
    `chore(sprint): integrate feature branches and sync playbook state`. Push the

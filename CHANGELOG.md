@@ -6,6 +6,41 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 and this project adheres to
 [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [2.5.0] - 2026-03-30
+
+### Added
+
+- **4-State Playbook Status Model**:
+  - Expanded sprint playbook tracking from 3 states to 4 states to capture the
+    full agent task lifecycle:
+    - ⬜ **Not Started** (`- [ ]`, `not_started`) — Task hasn't begun.
+    - 🟨 **Executing** (`- [~]`, `executing`) — Agent is actively working.
+    - 🟦 **Committed** (`- [/]`, `committed`) — Feature branch pushed, awaiting
+      integration.
+    - 🟩 **Complete** (`- [x]`, `complete`) — Merged/integrated and verified.
+  - Introduced amber Mermaid `classDef executing` styling for the new state.
+  - Added **Mark Executing** as the first step in every Agent Execution Protocol
+    block, injected by `generate-playbook.js`.
+
+### Changed
+
+- **Breaking: Status Contract Migration**:
+  - Renamed Mermaid class `in_progress` to `committed` across all playbook
+    artifacts.
+  - The `- [/]` marker now means "Committed" (branch pushed) instead of the
+    previous "In Progress" interpretation.
+  - Updated Mermaid legend to display all 4 states.
+- **Workflow Updates**:
+  - `finalize-sprint-task`: Now transitions Executing → Committed (4-State
+    Track). Added a state progression reference table.
+  - `sprint-integration`: Updated to transition Committed → Complete, replacing
+    the old `in_progress` → `complete` references.
+  - `verify-sprint-prerequisites`: Added explicit state reference table
+    clarifying that only `[x]` (Complete) satisfies dependencies.
+- **Sample Playbook**:
+  - Updated golden sample to showcase all 4 states (C1=complete, C2=committed,
+    C3=executing, C4-C7=not_started).
+
 ## [2.4.0] - 2026-03-30
 
 ### Added

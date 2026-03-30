@@ -441,12 +441,13 @@ export function generateMermaid(chatSessions, chatDeps) {
   }
 
   // Define Legend (Compact single node with line breaks)
-  lines.push('    Legend["⬜ Not Started  <br />🟦 In Progress  <br />🟩 Complete"]:::LegendNode');
+  lines.push('    Legend["⬜ Not Started  <br />🟨 Executing  <br />🟦 Committed  <br />🟩 Complete"]:::LegendNode');
 
   // Define styles
   lines.push('    %% Style Definitions %%');
   lines.push('    classDef not_started fill:#d1d5db,stroke:#9ca3af,color:#1f2937');
-  lines.push('    classDef in_progress fill:#3b82f6,stroke:#2563eb,color:#ffffff');
+  lines.push('    classDef executing fill:#f59e0b,stroke:#d97706,color:#1f2937');
+  lines.push('    classDef committed fill:#3b82f6,stroke:#2563eb,color:#ffffff');
   lines.push('    classDef complete fill:#16a34a,stroke:#059669,color:#ffffff');
   lines.push('    classDef LegendNode fill:transparent,stroke:transparent,font-size:12px');
   lines.push('```');
@@ -486,13 +487,15 @@ function renderTask(task, sprintNumber, chatNumber, stepNumber, taskIdToNumber) 
       .sort()
       .map(num => `\`${num}\``)
       .join(', ');
-    protocol += `1. **Prerequisite Check**: Execute the \`verify-sprint-prerequisites\` workflow for sprint step \`${taskNumber}\`.\n`;
+    protocol += `1. **Mark Executing**: Update the playbook — change your task checkbox to \`- [~]\` and set the Mermaid class to \`executing\`. Commit and push the state change.\n`;
+    protocol += `2. **Prerequisite Check**: Execute the \`verify-sprint-prerequisites\` workflow for sprint step \`${taskNumber}\`.\n`;
     protocol += `   - **Dependencies**: ${depsList}\n`;
+    protocol += `3. **Execution**: Perform the task instructions below.\n`;
+    protocol += `4. **Finalization**: Execute the \`finalize-sprint-task\` workflow explicitly for sprint step \`${taskNumber}\`.`;
+  } else {
+    protocol += `1. **Mark Executing**: Update the playbook — change your task checkbox to \`- [~]\` and set the Mermaid class to \`executing\`. Commit and push the state change.\n`;
     protocol += `2. **Execution**: Perform the task instructions below.\n`;
     protocol += `3. **Finalization**: Execute the \`finalize-sprint-task\` workflow explicitly for sprint step \`${taskNumber}\`.`;
-  } else {
-    protocol += `1. **Execution**: Perform the task instructions below.\n`;
-    protocol += `2. **Finalization**: Execute the \`finalize-sprint-task\` workflow explicitly for sprint step \`${taskNumber}\`.`;
   }
 
   return `- [ ] **${taskNumber} ${task.title}**

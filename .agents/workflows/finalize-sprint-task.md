@@ -19,16 +19,16 @@ precisely:
 4. **State Sync**: Switch back to the primary sprint tracking branch (e.g.,
    `main` or `sprint-[NUM]`). Execute `git pull --rebase` to fetch any state
    updates from sibling agents.
-5. **Update Playbook (3-State Track)**:
+5. **Update Playbook (4-State Track)**:
    - Open `.agents/docs/sprints/sprint-[NUM]/playbook.md` (or the equivalent
      Playbook Path).
-   - Locate your task and change its status from Pending `- [ ]` to Pushed/Ready
+   - Locate your task and change its status from Executing `- [~]` to Committed
      `- [/]`.
-   - In the Mermaid diagram, locate your Chat Session. If it doesn't already
-     have a status class, append the `in_progress` class **inside the mermaid
-     block** (e.g., add a line `s C4 in_progress` before the closing ` ``` `).
+   - In the Mermaid diagram, locate your Chat Session and update the class from
+     `executing` to `committed` **inside the mermaid block** (e.g., change
+     `class C4 executing` to `class C4 committed`).
 6. **Commit State**: Commit ONLY the playbook update:
-   `git commit -am "chore(sprint): update task status to pushed"`. Push this
+   `git commit -am "chore(sprint): update task status to committed"`. Push this
    state tracking commit upstream: `git push`. (If it fails due to concurrent
    edits from other agents, run `git pull --rebase` and try pushing again).
 7. **Notification**: If the variable `AGENT_NOTIFICATION_WEBHOOK` is defined in
@@ -36,6 +36,14 @@ precisely:
    payload with a `message` parameter**. Example:
    `curl -X POST -H "Content-Type: application/json" -d '{"message": "Sprint step [TASK_ID] was pushed to its feature branch."}' $AGENT_NOTIFICATION_WEBHOOK`
    If the variable is not set, fail gracefully without error.
+
+## State Progression Reference
+
+| Transition              | Checkbox      | Mermaid Class               | Triggered By                      |
+| ----------------------- | ------------- | --------------------------- | --------------------------------- |
+| Not Started → Executing | `[ ]` → `[~]` | `not_started` → `executing` | Agent Execution Protocol (Step 1) |
+| Executing → Committed   | `[~]` → `[/]` | `executing` → `committed`   | This workflow (Step 5)            |
+| Committed → Complete    | `[/]` → `[x]` | `committed` → `complete`    | `sprint-integration` workflow     |
 
 ## Constraint
 
