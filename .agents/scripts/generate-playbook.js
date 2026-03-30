@@ -442,7 +442,9 @@ export function generateMermaid(chatSessions, chatDeps) {
 
   // Define Legend
   lines.push('    subgraph Legend');
-  lines.push('        L1[Not Started]:::legend_not_started --- L2[Pushed]:::legend_in_progress --- L3[Complete]:::legend_complete');
+  lines.push('        L1["⬜ Not Started"]:::LegendNode');
+  lines.push('        L2["🟦 Pushed"]:::LegendNode');
+  lines.push('        L3["🟩 Complete"]:::LegendNode');
   lines.push('    end');
 
   // Define styles
@@ -450,9 +452,7 @@ export function generateMermaid(chatSessions, chatDeps) {
   lines.push('    classDef not_started fill:#f3f4f6,stroke:#d1d5db,color:#374151');
   lines.push('    classDef in_progress fill:#3b82f6,stroke:#2563eb,color:#ffffff');
   lines.push('    classDef complete fill:#16a34a,stroke:#059669,color:#ffffff');
-  lines.push('    classDef legend_not_started fill:#f3f4f6,stroke:#d1d5db,color:#374151,font-size:10px');
-  lines.push('    classDef legend_in_progress fill:#3b82f6,stroke:#2563eb,color:#ffffff,font-size:10px');
-  lines.push('    classDef legend_complete fill:#16a34a,stroke:#059669,color:#ffffff,font-size:10px');
+  lines.push('    classDef LegendNode fill:transparent,stroke:transparent,font-size:10px');
   lines.push('```');
   return lines.join('\n');
 }
