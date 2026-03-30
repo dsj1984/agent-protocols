@@ -15,25 +15,31 @@ Before an agent begins performing file modifications for a sprint task in the
    explicit list of pre-requisite task numbers under the `Dependencies` block in
    the AGENT EXECUTION PROTOCOL.
 3. **Verify Dependencies**: You MUST verify that every task ID listed in the
-   `Dependencies` block has a marked `[x]` (Complete) in the `playbook.md`. If
-   any dependent task is marked `[ ]` (Not Started), `[~]` (Executing), or `[/]`
-   (Committed), you MUST **STOP IMMEDIATELY** and alert the user.
+   `Dependencies` block has a marked `[/]` (Committed) OR `[x]` (Complete) in
+   the `playbook.md`. If any dependent task is marked `[ ]` (Not Started) or
+   `[~]` (Executing), you MUST **STOP IMMEDIATELY** and alert the user.
 4. **Check Intra-Chat Predecessors**: Within the same sequential Chat Session
    (e.g., Chat Session `1`), verify that every numerically preceding task (e.g.,
-   if you are `1.1.2`, check `1.1.1`) is also marked complete with an `[x]`.
-5. **Halt on Failure**: If ANY required predecessor or dependent task is not
-   complete (`[x]`), you must **STOP IMMEDIATELY**. Do not attempt to code.
+   if you are `1.1.2`, check `1.1.1`) is also marked `[/]` (Committed) or `[x]`
+   (Complete).
+5. **Halt on Failure**: If ANY required predecessor or dependent task is Still
+   marked `[ ]` or `[~]`, you must **STOP IMMEDIATELY**. Do not attempt to code.
    Alert the user that the prerequisite check failed and state exactly which
    specific task number is blocking your execution.
+6. **Code Retrieval for Unmerged Dependencies**: If a dependency is marked `[/]`
+   (Committed), it means its code has been pushed to a feature branch but NOT
+   YET merged into `main`. If your current task requires that code to build
+   upon, you MUST fetch and check out or merge that feature branch into your
+   working branch before proceeding.
 
 ## State Reference
 
-| Marker | State       | Blocks Execution?            |
-| ------ | ----------- | ---------------------------- |
-| `[ ]`  | Not Started | ✅ Yes                       |
-| `[~]`  | Executing   | ✅ Yes                       |
-| `[/]`  | Committed   | ✅ Yes                       |
-| `[x]`  | Complete    | ❌ No — dependency satisfied |
+| Marker | State       | Blocks Execution?                          |
+| ------ | ----------- | ------------------------------------------ |
+| `[ ]`  | Not Started | ✅ Yes                                     |
+| `[~]`  | Executing   | ✅ Yes                                     |
+| `[/]`  | Committed   | ❌ No — code is pushed to a feature branch |
+| `[x]`  | Complete    | ❌ No — code is integrated into main       |
 
 ## Constraint
 
