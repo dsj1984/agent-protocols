@@ -29,7 +29,7 @@ scenario from a known bug. If the spec is ambiguous, stop and ask.
 
 - **Dual-Purpose Standard:** Every test plan must serve both as automated test
   input AND as a human-readable manual test guide. Write test plans to
-  `docs/test-plans/sprint-test-plans/sprint-[##]-test-plan.md`.
+  `docs/sprints/sprint-[##]/test-plan.md`.
 - **Coverage Mapping:** Explicitly map each test case to an Acceptance Criterion
   from the PRD. Flag any AC that lacks a corresponding test.
 - **Edge Cases:** Go beyond the happy path. Test boundary conditions, empty
@@ -63,7 +63,7 @@ scenario from a known bug. If the spec is ambiguous, stop and ask.
 
 ## 4. Output Artifacts
 
-- **Test Plan:** `docs/test-plans/sprint-test-plans/sprint-[##]-test-plan.md`
+- **Test Plan:** `docs/sprints/sprint-[##]/test-plan.md`
 - **Test Results:** Summary of pass/fail outcomes appended to or referenced from
   the test plan.
 - **Regression Report:** List of newly failing tests with root cause analysis.

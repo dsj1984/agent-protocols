@@ -14,8 +14,8 @@ You are performing a comprehensive, read-only audit of this repository's testing
 infrastructure, test coverage, and overall quality assurance practices. Your
 goal is to identify testing gaps, flaky tests, inefficient mocking strategies,
 and opportunities to improve test execution speed and reliability without making
-any immediate changes. Additionally, you must evaluate the `docs/test-plans`
-folder against the `docs/roadmap.md` and the current codebase to ensure all test
+any immediate changes. Additionally, you must evaluate the sprint test plans
+against the `docs/roadmap.md` and the current codebase to ensure all test
 documentation is complete, consistent, and accurate.
 
 ## Step 1: Context Gathering (Read-Only Scan)
@@ -27,7 +27,7 @@ files. Pay special attention to:
   `playwright.config.ts`, `cypress.json`).
 - Test directories and files (e.g., `__tests__/`, `spec/`, `e2e/`, `*.test.ts`,
   `*.spec.js`).
-- Manual and automated test plans stored and organized in `docs/test-plans/`.
+- Manual and automated test plans stored and organized in `docs/sprints/sprint-[##]/`.
 - Product documentation like `docs/roadmap.md` to map out expected features
   versus documented/implemented tests.
 - Mocking and stubbing setups (e.g., `__mocks__/`, `setupTests.js`, MSW
@@ -54,7 +54,7 @@ Evaluate the gathered context against the following test quality dimensions:
    opportunities for parallelization.
 6. **Test Plan Alignment:** Cross-reference the features outlined in
    `docs/roadmap.md` to ensure they have corresponding and complete test plans
-   within `docs/test-plans/`. Verify that the test plans accurately reflect the
+   within `docs/sprints/sprint-[##]/test-plan.md`. Verify that the test plans accurately reflect the
    exact implementation found in the codebase and highlight any inconsistencies,
    gaps, or outdated assertions.
 

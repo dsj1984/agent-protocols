@@ -150,5 +150,4 @@ docs/
 │       ├── test-plan.md     # Sprint-specific test execution record
 │       └── retro.md         # Final reflections and updates
 └── test-plans/              # Domain-specific QA test plans
-    └── sprint-test-plans/   # Sprint-specific test plans
 ```
