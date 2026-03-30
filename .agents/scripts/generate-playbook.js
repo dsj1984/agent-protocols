@@ -441,7 +441,7 @@ export function generateMermaid(chatSessions, chatDeps) {
   }
 
   // Define Legend (Compact single node)
-  lines.push('    Legend["⬜ Not Started  🟦 In Progress  🟩 Complete"]:::LegendNode');
+  lines.push('    Legend["⬜ Not Started &nbsp;&nbsp; 🟦 In Progress &nbsp;&nbsp; 🟩 Complete"]:::LegendNode');
 
   // Define styles
   lines.push('    %% Style Definitions %%');
