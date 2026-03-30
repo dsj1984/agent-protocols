@@ -25,8 +25,8 @@ precisely:
    - Locate your task and change its status from Pending `- [ ]` to Pushed/Ready
      `- [/]`.
    - In the Mermaid diagram, locate your Chat Session. If it doesn't already
-     have a status class, append the `in_progress` class (e.g.,
-     `class C4 in_progress`).
+     have a status class, append the `in_progress` class **inside the mermaid
+     block** (e.g., add a line `s C4 in_progress` before the closing ` ``` `).
 6. **Commit State**: Commit ONLY the playbook update:
    `git commit -am "chore(sprint): update task status to pushed"`. Push this
    state tracking commit upstream: `git push`. (If it fails due to concurrent

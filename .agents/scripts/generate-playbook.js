@@ -440,6 +440,7 @@ export function generateMermaid(chatSessions, chatDeps) {
   }
 
   // Define styles
+  lines.push('    classDef in_progress fill:#3b82f6,stroke:#2563eb,color:#ffffff');
   lines.push('    classDef complete fill:#16a34a,stroke:#059669,color:#ffffff');
   lines.push('```');
   return lines.join('\n');
