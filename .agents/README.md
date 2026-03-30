@@ -27,6 +27,7 @@ consistency, and architectural guardrails.
 ├── instructions.md          # MANDATORY: The consolidated system prompt
 ├── personas/                # Role-specific behavior constraints
 ├── rules/                   # Modular domain-agnostic global rules
+├── sample-docs/             # Reference samples for PRDs, specs, and roadmaps
 ├── schemas/                 # JSON Schemas for structured agent output
 ├── scripts/                 # Deterministic scaffolding and utility scripts
 ├── skills/                  # Tech-stack-specific guardrails

@@ -4,6 +4,8 @@ Our SDLC is designed for an AI-native engineering environment, heavily leveragin
 
 At the core of this methodology is a highly automated pipeline combining human product vision, deterministic scaffolding scripts, and parallel AI agent orchestration.
 
+For a complete example of the expected artifacts and formatting, see the [Reference Samples](./sample-docs) directory.
+
 ---
 
 ## 🗺️ The End-to-End SDLC Process
@@ -130,7 +132,9 @@ Every sprint concludes with two mandatory workflows to enforce codebase health a
 
 ## 📂 Project Documentation Structure (`docs/`)
 
-To ensure this entire machine operates smoothly, all projects using these protocols MUST adhere to the following `docs/` folder structure:
+To ensure this entire machine operates smoothly, all projects using these protocols MUST adhere to the following `docs/` folder structure. 
+
+For a complete "Golden Sample" of this exact folder and artifact structure, including a reference roadmap, architecture, and a pre-planned sprint, see the [./sample-docs](./sample-docs) directory.
 
 ```text
 docs/
