@@ -6,6 +6,22 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 and this project adheres to
 [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [2.3.0] - 2026-03-30
+
+### Added
+
+- **Feature Branching & 3-State Tracking**:
+  - Implemented a zero-conflict Git orchestration model using isolated feature
+    branches for concurrent Chat Sessions.
+  - Introduced **3-State Playbook Tracking**: Tasks now transition from Pending
+    (`- [ ]`) to Pushed/Ready (`- [/]`) and finally to Complete (`- [x]`).
+  - Added **Real-time Progress Visualization**: Automated blue (`in_progress`)
+    and green (`complete`) highlighting for Mermaid diagram nodes in the
+    playbook.
+- **Sprint Integration Workflow**:
+  - Added a new automated `isIntegration` bookend task that merges feature
+    branches and performs bulk playbook state synchronization before QA.
+
 ## [2.2.1] - 2026-03-30
 
 ### Added
