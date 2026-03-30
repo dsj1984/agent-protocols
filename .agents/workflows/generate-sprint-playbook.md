@@ -78,7 +78,12 @@ Your output MUST conform to the JSON schema defined in
   pipeline — QA first, then Code Review, then Retro (always last). The script
   auto-injects the appropriate workflow delegation (`plan-qa-testing`,
   `sprint-code-review`, or `sprint-retro`). You do NOT need to provide
-  `instructions` for these tasks.
+  `instructions` for these tasks. Use the following persona and skill
+  recommendations for bookend tasks:
+  - **QA** (`isQA`): persona `qa-engineer`, skills from `qa/` category.
+  - **Code Review** (`isCodeReview`): persona `architect`, skills
+    `architecture/autonomous-coding-standards`.
+  - **Retro** (`isRetro`): persona `product`, skills `architecture/markdown`.
 
 ### Output Location
 
