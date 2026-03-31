@@ -72,6 +72,11 @@
             "minLength": 1,
             "description": "The model name string from models.json (e.g., 'Claude Opus 4.6 (Thinking)')."
           },
+          "secondaryModel": {
+            "type": "string",
+            "minLength": 1,
+            "description": "The fallback model name string from models.json (e.g., 'Gemini 3.1 Pro (High)'). Used if the user faces token limits."
+          },
           "mode": {
             "type": "string",
             "enum": ["Planning", "Fast"],

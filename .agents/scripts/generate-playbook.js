@@ -550,9 +550,11 @@ function renderTask(task, sprintNumber, chatNumber, stepNumber, taskIdToNumber) 
     protocol += `3. **Finalization**: Execute the \`finalize-sprint-task\` workflow explicitly for sprint step \`${taskNumber}\`.`;
   }
 
+  const secondaryModel = task.secondaryModel ? ` **Model (Second Choice):** ${task.secondaryModel}` : '';
+
   return `- [ ] **${taskNumber} ${task.title}**
 
-**Mode:** ${task.mode} **Model:** ${task.model}
+**Mode:** ${task.mode} **Model (First Choice):** ${task.model}${secondaryModel}
 
 \`\`\`text
 Sprint ${taskNumber}: Adopt the \`${task.persona}\` persona from \`.agents/personas/\`.

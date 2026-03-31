@@ -6,6 +6,19 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 and this project adheres to
 [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [2.8.1] - 2026-03-31
+
+### Added
+
+- **Secondary Model Support**: The `task-manifest.json` schema and
+  `generate-playbook.js` script now support an optional `secondaryModel` field
+  for every task. This provides users with a clear fallback option in the
+  generated playbook when facing token limits or usage caps.
+
+### Changed
+
+- **Version Bump**: Incremented project version to `2.8.1`.
+
 ## [2.8.0] - 2026-03-30
 
 ### Added
