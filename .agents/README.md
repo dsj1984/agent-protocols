@@ -128,16 +128,18 @@ Modular, domain-agnostic global rules that define behavioral standards.
 
 ## <a id="skills"></a>🧩 Skills (`skills/`)
 
-Skills are modular, tech-stack-specific guardrails organize by category:
+Skills are modular, tech-stack-specific guardrails organized by category
+(architecture, backend, devops, frontend, qa, security):
 
 | Skill                           | Category       | Purpose                                               |
 | ------------------------------- | -------------- | ----------------------------------------------------- |
 | `autonomous-coding-standards`   | `architecture` | Enforces structural rules for agent-protocols library |
-| `conventional-commits-enforcer` | `architecture` | Validates commit messages against conventional specs  |
+| `autonomous-coding-standards`   | `architecture` | Enforces structural rules for agent-protocols library |
 | `markdown`                      | `architecture` | Enforces markdown styling and best practices          |
 | `monorepo-path-strategist`      | `architecture` | Enforces workspace aliases and dependency boundaries  |
 | `structured-output-zod`         | `architecture` | Enforces structured API responses using Zod           |
 | `subagent-orchestration`        | `architecture` | Defines subagent task delegation strategies           |
+| `git-flow-specialist`           | `devops`       | Zero-tolerance branch safety and emergency recovery   |
 | `clerk-auth`                    | `backend`      | Security standard for Clerk authentication            |
 | `cloudflare-hono-architect`     | `backend`      | Prevents Node.js module usage in edge Workers         |
 | `cloudflare-queue-manager`      | `backend`      | Ensures idempotent, resilient queue consumer logic    |

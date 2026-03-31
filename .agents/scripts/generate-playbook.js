@@ -58,7 +58,7 @@ function selectIcon(session) {
   if (allText.match(/mobile|native|ios|android/)) return CHAT_ICONS.mobile;
   if (allText.match(/test|vitest|playwright/)) return CHAT_ICONS.testing;
   if (allText.match(/doc|markdown|roadmap/)) return CHAT_ICONS.documentation;
-  if (allText.match(/infra|security|ops|config|workflow|auth/)) return CHAT_ICONS.security;
+  if (allText.match(/infra|security|ops|config|workflow|auth|git|flow/)) return CHAT_ICONS.security;
 
   return CHAT_ICONS.default;
 }
@@ -125,13 +125,14 @@ export function validateManifest(manifest) {
     if (task.isIntegration) {
       if (task.persona !== 'engineer') errors.push(`Task "${task.id}": isIntegration requires 'engineer' persona.`);
       if (!task.skills.includes('architecture/monorepo-path-strategist')) errors.push(`Task "${task.id}": isIntegration requires 'architecture/monorepo-path-strategist' skill.`);
+      if (!task.skills.includes('devops/git-flow-specialist')) errors.push(`Task "${task.id}": isIntegration requires 'devops/git-flow-specialist' skill.`);
     }
     if (task.isQA) {
       if (task.persona !== 'qa-engineer') errors.push(`Task "${task.id}": isQA requires 'qa-engineer' persona.`);
     }
     if (task.isCodeReview) {
       if (task.persona !== 'architect') errors.push(`Task "${task.id}": isCodeReview requires 'architect' persona.`);
-      if (!task.skills.includes('architecture/autonomous-coding-standards')) errors.push(`Task "${task.id}": isCodeReview requires 'architecture/autonomous-coding-standards' skill.`);
+      if (!task.skills.includes('devops/git-flow-specialist')) errors.push(`Task "${task.id}": isCodeReview requires 'devops/git-flow-specialist' skill.`);
     }
     if (task.isRetro) {
       if (task.persona !== 'product') errors.push(`Task "${task.id}": isRetro requires 'product' persona.`);
@@ -530,8 +531,10 @@ function renderTask(task, sprintNumber, chatNumber, stepNumber, taskIdToNumber) 
   const taskNumber = `${sprintNumber}.${chatNumber}.${stepNumber}`;
   const skills = task.skills.length > 0 ? task.skills.join(', ') : 'N/A';
   const instructions = renderTaskInstructions(task, sprintNumber);
+  const paddedSn = String(sprintNumber).padStart(3, '0');
 
   let protocol = `**AGENT EXECUTION PROTOCOL (STRICT ADHERENCE REQUIRED):**\n`;
+  protocol += `1. **Environment Reset**: Ensure you are on the sprint base branch: \`git checkout sprint-${paddedSn} ; git pull\`. Verify with \`git branch --show-current\`. If the result is \`main\` or \`master\`, **STOP** and alert the user.\n`;
   if (task.dependsOn && task.dependsOn.length > 0) {
     // Sort dependencies numerically for readability
     const depsList = task.dependsOn
@@ -539,15 +542,15 @@ function renderTask(task, sprintNumber, chatNumber, stepNumber, taskIdToNumber) 
       .sort()
       .map(num => `\`${num}\``)
       .join(', ');
-    protocol += `1. **Mark Executing**: Update the playbook — change your task checkbox to \`- [~]\` and set the Mermaid class for node \`C${chatNumber}\` to \`executing\` (if not already). Commit and push the state change.\n`;
-    protocol += `2. **Prerequisite Check**: Execute the \`verify-sprint-prerequisites\` workflow for sprint step \`${taskNumber}\`.\n`;
+    protocol += `2. **Mark Executing**: Update the playbook — change your task checkbox to \`- [~]\` and set the Mermaid class for node \`C${chatNumber}\` to \`executing\` (if not already). Commit and push the state change.\n`;
+    protocol += `3. **Prerequisite Check**: Execute the \`verify-sprint-prerequisites\` workflow for sprint step \`${taskNumber}\`.\n`;
     protocol += `   - **Dependencies**: ${depsList}\n`;
+    protocol += `4. **Execution**: Perform the task instructions below.\n`;
+    protocol += `5. **Finalization**: Execute the \`finalize-sprint-task\` workflow explicitly for sprint step \`${taskNumber}\`.`;
+  } else {
+    protocol += `2. **Mark Executing**: Update the playbook — change your task checkbox to \`- [~]\` and set the Mermaid class for node \`C${chatNumber}\` to \`executing\` (if not already). Commit and push the state change.\n`;
     protocol += `3. **Execution**: Perform the task instructions below.\n`;
     protocol += `4. **Finalization**: Execute the \`finalize-sprint-task\` workflow explicitly for sprint step \`${taskNumber}\`.`;
-  } else {
-    protocol += `1. **Mark Executing**: Update the playbook — change your task checkbox to \`- [~]\` and set the Mermaid class for node \`C${chatNumber}\` to \`executing\` (if not already). Commit and push the state change.\n`;
-    protocol += `2. **Execution**: Perform the task instructions below.\n`;
-    protocol += `3. **Finalization**: Execute the \`finalize-sprint-task\` workflow explicitly for sprint step \`${taskNumber}\`.`;
   }
 
   const secondaryModel = task.secondaryModel ? ` **Model (Second Choice):** ${task.secondaryModel}` : '';

@@ -6,18 +6,35 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 and this project adheres to
 [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
-## [2.8.1] - 2026-03-31
+## [2.9.0] - 2026-03-31
 
 ### Added
 
-- **Secondary Model Support**: The `task-manifest.json` schema and
-  `generate-playbook.js` script now support an optional `secondaryModel` field
-  for every task. This provides users with a clear fallback option in the
-  generated playbook when facing token limits or usage caps.
+- **`devops/git-flow-specialist` Skill**: A comprehensive repository health
+  skill that centralizes branch safety, base alignment, and conventional commit
+  rules. Includes **Emergency Recovery Protocols** for accidental commits to
+  main, unresolved merge markers, and diverged branches.
 
 ### Changed
 
-- **Version Bump**: Incremented project version to `2.8.1`.
+- **Hardened Sprint Generation Pipeline**:
+  - Updated `generate-playbook.js` to inject a mandatory **Environment Reset**
+    step at the start of every task, forcing base branch alignment (Fix 1).
+  - Injected `devops/git-flow-specialist` as a mandatory requirement for all
+    Integration and Code Review tasks (Fix 4).
+- **Workflow Guardrails**:
+  - `finalize-sprint-task`: Added a **Branch Guard** to prevent accidental
+    pushes to `main` (Fix 2) and explicit base branching (Fix 5).
+  - `sprint-integration`: Added a mandatory **Conflict Marker Scan** with
+    zero-tolerance for residual `<<<<<<<` markers (Fix 3).
+  - `verify-sprint-prerequisites`: Added **Branch Validation** to ensure agents
+    are on the correct sprint base (Fix 6).
+- **Skill Retirement**: Retired and removed the
+  `architecture/conventional-commits-enforcer` skill (consolidated into
+  `git-flow-specialist`).
+- **Version Bump**: Incremented project version to `2.9.0`.
+
+## [2.8.1] - 2026-03-31
 
 ## [2.8.0] - 2026-03-30
 

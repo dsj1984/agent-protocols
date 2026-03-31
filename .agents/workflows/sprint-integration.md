@@ -23,20 +23,25 @@ This workflow consolidates all concurrent feature development into
    - **Major conflicts** (20+ conflicting lines OR structural changes to shared
      files like schemas, configs, or routing): **STOP** and alert the user with
      the exact conflicting files and branches before proceeding.
-4. **Playbook Sync (State Transition to Complete)**:
+4. **Conflict Marker Scan**: After all merges complete, run:
+   `git grep -rn '<<<<<<<\|=======\|>>>>>>>' -- '*.md' '*.ts' '*.js' '*.json'`
+   If ANY conflict markers are found in tracked files, the merge is INCOMPLETE.
+   Resolve them manually, stage the fixes with `git add`, and amend the merge
+   commit before proceeding. Do NOT continue with unresolved markers.
+5. **Playbook Sync (State Transition to Complete)**:
    - Open `docs/sprints/sprint-[SPRINT_NUMBER]/playbook.md`.
    - For every task branch that was successfully merged, locate its status check
      and change it from Committed (`- [/]`) to Complete (`- [x]`).
-5. **Visualize Progress**:
+6. **Visualize Progress**:
    - For every Chat Session in the Playbook where **all** component tasks have
      now been checked off (`- [x]`), locate the Mermaid diagram at the top.
    - Update the status class from `committed` to `complete`. (e.g., Change
      `class C4 committed` to `class C4 complete`).
-6. **Commit State**: Commit the updated `playbook.md` and the merge commits with
+7. **Commit State**: Commit the updated `playbook.md` and the merge commits with
    the message:
    `chore(sprint): integrate feature branches and sync playbook state`. Push to
    origin: `git push origin sprint-[SPRINT_NUMBER]`.
-7. **Branch Cleanup**: For each successfully merged feature branch, delete the
+8. **Branch Cleanup**: For each successfully merged feature branch, delete the
    remote ref: `git push origin --delete sprint-[SPRINT_NUMBER]/[TASK_ID]`.
 
 ## Constraint
