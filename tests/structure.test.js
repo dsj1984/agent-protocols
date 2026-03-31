@@ -59,16 +59,16 @@ describe('Skills — each directory must contain SKILL.md', () => {
   } else {
     const categories = fs
       .readdirSync(skillsDir, { withFileTypes: true })
-      .filter((d) => d.isDirectory())
-      .map((d) => d.name);
+      .filter((dirent) => dirent.isDirectory())
+      .map((dirent) => dirent.name);
 
     assert.ok(categories.length > 0, '.agents/skills/ contains no category directories');
 
     for (const category of categories) {
       const skills = fs
         .readdirSync(agentsPath('skills', category), { withFileTypes: true })
-        .filter((d) => d.isDirectory())
-        .map((d) => d.name);
+        .filter((dirent) => dirent.isDirectory())
+        .map((dirent) => dirent.name);
 
       for (const skill of skills) {
         it(`${category}/${skill}/SKILL.md exists`, () => {
@@ -95,7 +95,7 @@ describe('Workflows — each file must contain ## Constraint', () => {
   } else {
     const workflows = fs
       .readdirSync(workflowsDir)
-      .filter((f) => f.endsWith('.md'));
+      .filter((filename) => filename.endsWith('.md'));
 
     assert.ok(workflows.length > 0, '.agents/workflows/ contains no markdown files');
 

@@ -40,6 +40,55 @@ function makeManifest(overrides = {}) {
   };
 }
 
+function makeBookendTasks(dependsOnIds) {
+  return [
+    makeTask({
+      id: 'integ',
+      dependsOn: dependsOnIds,
+      isIntegration: true,
+      title: 'Integration',
+      persona: 'engineer',
+      skills: ['architecture/monorepo-path-strategist', 'devops/git-flow-specialist'],
+      instructions: '',
+    }),
+    makeTask({
+      id: 'qa',
+      dependsOn: ['integ'],
+      isQA: true,
+      title: 'QA',
+      persona: 'qa-engineer',
+      instructions: '',
+    }),
+    makeTask({
+      id: 'review',
+      dependsOn: ['qa'],
+      isCodeReview: true,
+      title: 'Code Review',
+      persona: 'architect',
+      skills: ['devops/git-flow-specialist'],
+      instructions: '',
+    }),
+    makeTask({
+      id: 'retro',
+      dependsOn: ['review'],
+      isRetro: true,
+      title: 'Retro',
+      persona: 'product',
+      skills: ['architecture/markdown'],
+      instructions: '',
+    }),
+    makeTask({
+      id: 'close',
+      dependsOn: ['retro'],
+      isCloseSprint: true,
+      title: 'Close Sprint',
+      persona: 'devops-engineer',
+      skills: ['devops/git-flow-specialist'],
+      instructions: '',
+    }),
+  ];
+}
+
 // ---------------------------------------------------------------------------
 // Validation
 // ---------------------------------------------------------------------------
@@ -235,11 +284,7 @@ describe('groupIntoChatSessions', () => {
   it('bookend tasks are always placed at the end in separate sessions', () => {
     const tasks = [
       makeTask({ id: 'work', dependsOn: [] }),
-      makeTask({ id: 'integ', dependsOn: ['work'], isIntegration: true, title: 'Integration', persona: 'engineer', skills: ['architecture/monorepo-path-strategist', 'devops/git-flow-specialist'] }),
-      makeTask({ id: 'qa', dependsOn: ['integ'], isQA: true, title: 'QA Testing', persona: 'qa-engineer' }),
-      makeTask({ id: 'review', dependsOn: ['qa'], isCodeReview: true, title: 'Code Review', persona: 'architect', skills: ['devops/git-flow-specialist'] }),
-      makeTask({ id: 'retro', dependsOn: ['review'], isRetro: true, title: 'Retro', persona: 'product', skills: ['architecture/markdown'] }),
-      makeTask({ id: 'close', dependsOn: ['retro'], isCloseSprint: true, title: 'Close Sprint', persona: 'devops-engineer', skills: ['devops/git-flow-specialist'] }),
+      ...makeBookendTasks(['work']),
     ];
     const { adjacency } = buildGraph(tasks);
     const layers = assignLayers(adjacency);
@@ -328,41 +373,7 @@ describe('renderPlaybook', () => {
         makeTask({ id: 'db', dependsOn: [], scope: '@repo/api', title: 'DB Migrations' }),
         makeTask({ id: 'api', dependsOn: ['db'], scope: '@repo/api', title: 'API Routes' }),
         makeTask({ id: 'web', dependsOn: ['api'], scope: '@repo/web', title: 'Web UI' }),
-        makeTask({
-          id: 'qa',
-          dependsOn: ['web'],
-          isQA: true,
-          title: 'QA',
-          persona: 'qa-engineer',
-          instructions: '',
-        }),
-        makeTask({
-          id: 'review',
-          dependsOn: ['qa'],
-          isCodeReview: true,
-          title: 'Code Review',
-          persona: 'architect',
-          skills: ['devops/git-flow-specialist'],
-          instructions: '',
-        }),
-        makeTask({
-          id: 'retro',
-          dependsOn: ['review'],
-          isRetro: true,
-          title: 'Retro',
-          persona: 'product',
-          skills: ['architecture/markdown'],
-          instructions: '',
-        }),
-        makeTask({
-          id: 'close',
-          dependsOn: ['retro'],
-          isCloseSprint: true,
-          title: 'Close Sprint',
-          persona: 'devops-engineer',
-          skills: ['devops/git-flow-specialist'],
-          instructions: '',
-        }),
+        ...makeBookendTasks(['web']),
       ],
     });
 
@@ -435,18 +446,15 @@ describe('generateFromManifest (end-to-end)', () => {
         makeTask({ id: 'api', dependsOn: ['db'], scope: '@repo/api', title: 'API Routes' }),
         makeTask({ id: 'web', dependsOn: ['api'], scope: '@repo/web', title: 'Web UI' }),
         makeTask({ id: 'mobile', dependsOn: ['api'], scope: '@repo/mobile', title: 'Mobile UI' }),
-        makeTask({ id: 'qa', dependsOn: ['web', 'mobile'], isQA: true, title: 'QA', persona: 'qa-engineer', instructions: '' }),
-        makeTask({ id: 'review', dependsOn: ['qa'], isCodeReview: true, title: 'Code Review', persona: 'architect', skills: ['devops/git-flow-specialist'], instructions: '' }),
-        makeTask({ id: 'retro', dependsOn: ['review'], isRetro: true, title: 'Retro', persona: 'product', skills: ['architecture/markdown'], instructions: '' }),
-        makeTask({ id: 'close', dependsOn: ['retro'], isCloseSprint: true, title: 'Close Sprint', persona: 'devops-engineer', skills: ['devops/git-flow-specialist'], instructions: '' }),
+        ...makeBookendTasks(['web', 'mobile']),
       ],
     });
 
     const { markdown, chatSessions } = generateFromManifest(manifest);
 
     assert.ok(markdown.length > 0);
-    // Should have: db(1), api(2), web(3), mobile(4), QA(5), Code Review(6), retro(7), close(8)
-    assert.equal(chatSessions.length, 8, `Expected 8 sessions, got ${chatSessions.length}`);
+    // Should have: db(1), api(2), web(3), mobile(4), Integ(5), QA(6), Review(7), Retro(8), Close(9) = 9
+    assert.equal(chatSessions.length, 9, `Expected 9 sessions, got ${chatSessions.length}`);
   });
 
   it('produces a playbook for a 10-bug bash', () => {
@@ -460,35 +468,16 @@ describe('generateFromManifest (end-to-end)', () => {
         }),
       );
     }
-    // Add QA and retro bookends
-    tasks.push(
-      makeTask({
-        id: 'qa',
-        title: 'QA',
-        dependsOn: tasks.map((t) => t.id),
-        isQA: true,
-        persona: 'qa-engineer',
-        instructions: '',
-      }),
-    );
-    tasks.push(
-      makeTask({
-        id: 'retro',
-        title: 'Retro',
-        dependsOn: ['qa'],
-        isRetro: true,
-        persona: 'product',
-        skills: ['architecture/markdown'],
-        instructions: '',
-      }),
-    );
+    // Add full bookend sequence
+    tasks.push(...makeBookendTasks(tasks.map((t) => t.id)));
 
     const manifest = makeManifest({ tasks });
     const { markdown, chatSessions } = generateFromManifest(manifest);
 
     assert.ok(markdown.length > 0);
-    // 10 concurrent bug sessions + QA + retro = 12
-    assert.equal(chatSessions.length, 12);
+    // tasks array replaces [makeTask()] entirely.
+    // 10 concurrent bugs + 5 bookends = 15
+    assert.equal(chatSessions.length, 15);
 
     // First 10 should be concurrent
     for (let i = 0; i < 10; i++) {

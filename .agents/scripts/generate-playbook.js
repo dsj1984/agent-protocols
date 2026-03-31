@@ -332,11 +332,12 @@ export function transitiveReduction(adjacency) {
  *   3. Regular tasks at the same layer with different scopes become separate
  *      concurrent Chat Sessions.
  */
-export function groupIntoChatSessions(tasks, layers, adjacency) {
-  // Separate bookend tasks from regular tasks
+/**
+ * Separates bookend tasks from regular development tasks.
+ */
+function segregateTasks(tasks) {
   const bookendTasks = [];
   const regularTasks = [];
-
   for (const task of tasks) {
     if (task.isIntegration || task.isQA || task.isCodeReview || task.isRetro || task.isCloseSprint) {
       bookendTasks.push(task);
@@ -344,8 +345,16 @@ export function groupIntoChatSessions(tasks, layers, adjacency) {
       regularTasks.push(task);
     }
   }
+  return { bookendTasks, regularTasks };
+}
 
-  // Group regular tasks by layer, then by scope within each layer
+/**
+ * Groups regular tasks by layer and scope into Chat Sessions.
+ */
+function groupRegularTasks(regularTasks, layers, chatNumberStart) {
+  const chatSessions = [];
+  let chatNumber = chatNumberStart;
+
   const layerGroups = new Map();
   for (const task of regularTasks) {
     const layer = layers.get(task.id);
@@ -354,13 +363,9 @@ export function groupIntoChatSessions(tasks, layers, adjacency) {
   }
 
   const sortedLayers = [...layerGroups.keys()].sort((a, b) => a - b);
-  const chatSessions = [];
-  let chatNumber = 1;
 
   for (const layer of sortedLayers) {
     const tasksInLayer = layerGroups.get(layer);
-
-    // Sub-group by scope
     const scopeGroups = new Map();
     for (const task of tasksInLayer) {
       const scope = task.scope || '__unscoped__';
@@ -371,16 +376,12 @@ export function groupIntoChatSessions(tasks, layers, adjacency) {
     const scopeKeys = [...scopeGroups.keys()].sort();
     const isLayerConcurrent = scopeKeys.length > 1 || (tasksInLayer.length > 1 && !tasksInLayer[0].scope);
 
-    // For unscoped tasks at the same layer, each becomes its own chat session
-    // IF there are multiple. If there's only one unscoped group, it's sequential.
     if (scopeKeys.length === 1 && scopeKeys[0] === '__unscoped__' && tasksInLayer.length > 1) {
-      // Multiple unscoped tasks at same layer → each gets its own concurrent session
       for (const task of tasksInLayer) {
-        const icon = selectIcon({ tasks: [task] });
         chatSessions.push({
           chatNumber: chatNumber++,
           label: task.title,
-          icon,
+          icon: selectIcon({ tasks: [task] }),
           mode: 'Concurrent',
           layer,
           tasks: [task],
@@ -389,40 +390,75 @@ export function groupIntoChatSessions(tasks, layers, adjacency) {
     } else {
       for (const scope of scopeKeys) {
         const scopeTasks = scopeGroups.get(scope);
-        const label =
-          scope !== '__unscoped__'
-            ? scopeTasks.length === 1
-              ? scopeTasks[0].title
-              : `${scope} Tasks`
-            : scopeTasks[0].title;
-
-        const icon = selectIcon({ tasks: scopeTasks });
-        const mode = isLayerConcurrent ? 'Concurrent' : 'Sequential';
+        const label = scope !== '__unscoped__'
+          ? scopeTasks.length === 1 ? scopeTasks[0].title : `${scope} Tasks`
+          : scopeTasks[0].title;
 
         chatSessions.push({
           chatNumber: chatNumber++,
           label,
-          icon,
-          mode,
+          icon: selectIcon({ tasks: scopeTasks }),
+          mode: isLayerConcurrent ? 'Concurrent' : 'Sequential',
           layer,
           tasks: scopeTasks,
         });
       }
     }
   }
+  return chatSessions;
+}
 
-  // Pre-calculate the regular workflow leaves to act as integration prerequisites
+/**
+ * Appends deterministic bookend sessions (Integration, QA, Review, Retro, Close).
+ */
+function appendBookendSessions(chatSessions, bookendTasks, regularTasks, chatNumberStart) {
+  let chatNumber = chatNumberStart;
+  const bookendStages = [
+    { key: 'isIntegration', label: 'Sprint Integration & Sync', mode: 'SequentialBookend' },
+    { key: 'isQA', label: 'QA & E2E Testing', mode: 'SequentialBookend' },
+    { key: 'isCodeReview', label: 'Code Review', mode: 'PMBookend' },
+    { key: 'isRetro', label: 'Sprint Retrospective', mode: 'PMBookend' },
+    { key: 'isCloseSprint', label: 'Close Sprint', mode: 'PMBookend' },
+  ];
+
   const hasOutgoing = new Set();
   for (const task of regularTasks) {
     for (const dep of task.dependsOn) hasOutgoing.add(dep);
   }
-  const regularLeaves = regularTasks.filter((t) => !hasOutgoing.has(t.id)).map((t) => t.id);
+  let currentDeps = regularTasks.filter((t) => !hasOutgoing.has(t.id)).map((t) => t.id);
+
+  for (const stage of bookendStages) {
+    const stageTasks = bookendTasks.filter((t) => t[stage.key]);
+    if (stageTasks.length > 0) {
+      stageTasks[0].dependsOn = currentDeps;
+      for (let i = 1; i < stageTasks.length; i++) {
+        stageTasks[i].dependsOn = [stageTasks[i - 1].id];
+      }
+
+      chatSessions.push({
+        chatNumber: chatNumber++,
+        label: stage.label,
+        icon: selectIcon({ tasks: stageTasks }),
+        mode: stage.mode,
+        layer: Infinity,
+        tasks: stageTasks,
+      });
+      currentDeps = [stageTasks[stageTasks.length - 1].id];
+    }
+  }
+}
+
+/**
+ * Groups tasks into Chat Sessions based on layer and scope.
+ */
+export function groupIntoChatSessions(tasks, layers, adjacency) {
+  const { bookendTasks, regularTasks } = segregateTasks(tasks);
+  const chatSessions = groupRegularTasks(regularTasks, layers, 1);
 
   // Eliminate redundant prerequisites for tasks inside the same sequential session
   for (const session of chatSessions) {
     if ((session.mode === 'Sequential' || session.mode === 'SequentialBookend' || session.mode === 'PMBookend') && session.tasks.length > 1) {
       for (let i = 1; i < session.tasks.length; i++) {
-        // Ensure the task explicitly depends on the one before it in the list
         const currentTask = session.tasks[i];
         const prevTask = session.tasks[i - 1];
         if (!currentTask.dependsOn) currentTask.dependsOn = [];
@@ -433,43 +469,7 @@ export function groupIntoChatSessions(tasks, layers, adjacency) {
     }
   }
 
-  // Automate Bookend Pipeline logic explicitly
-  const bookendStages = [
-    { key: 'isIntegration', label: 'Sprint Integration & Sync', icon: '🔗', mode: 'SequentialBookend' },
-    { key: 'isQA', label: 'QA & E2E Testing', icon: '🧪', mode: 'SequentialBookend' },
-    { key: 'isCodeReview', label: 'Code Review', icon: '🔍', mode: 'PMBookend' },
-    { key: 'isRetro', label: 'Sprint Retrospective', icon: '🔄', mode: 'PMBookend' },
-    { key: 'isCloseSprint', label: 'Close Sprint', icon: '🏁', mode: 'PMBookend' },
-  ];
-
-  let currentDeps = regularLeaves;
-
-  for (const stage of bookendStages) {
-    const stageTasks = bookendTasks.filter((t) => t[stage.key]);
-    if (stageTasks.length > 0) {
-      // The first task in this stage depends on the outputs of the previous stage
-      stageTasks[0].dependsOn = currentDeps;
-      
-      // For subsequent tasks in the same stage, they run sequentially
-      for (let i = 1; i < stageTasks.length; i++) {
-        stageTasks[i].dependsOn = [stageTasks[i - 1].id];
-      }
-
-      const icon = selectIcon({ tasks: stageTasks });
-      chatSessions.push({
-        chatNumber: chatNumber++,
-        label: stage.label,
-        icon,
-        mode: stage.mode,
-        layer: Infinity,
-        tasks: stageTasks,
-      });
-
-      // The output of this stage is the last task inside it
-      currentDeps = [stageTasks[stageTasks.length - 1].id];
-    }
-  }
-
+  appendBookendSessions(chatSessions, bookendTasks, regularTasks, chatSessions.length + 1);
   return chatSessions;
 }
 
