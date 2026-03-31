@@ -6,6 +6,40 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 and this project adheres to
 [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [2.7.0] - 2026-03-30
+
+### Added
+
+- **Sprint Retro Action Item Capture**:
+  - Mandated the capture of action items identified in retrospectives into the
+    `roadmap.md` file to ensure they are tracked.
+  - Updated the `sprint-retro` workflow step 4 to include sub-tasks for marking
+    completed items and capturing new ones.
+
+### Changed
+
+- **Persona Alignment**: Updated the **Product Manager** persona to explicitly
+  own the roadmapping of retro action items.
+- **Documentation**: Synchronized `SDLC.md` and `README.md` to reflect the full
+  end-to-end retrospective process.
+- **Version Bump**: Incremented project version to `2.7.0`.
+
+## [2.6.0] - 2026-03-30
+
+### Added
+
+- **Per-Sprint Branch Protocol**:
+  - Implemented a standardized branching model where all sprint tasks occur on
+    `sprint-N/chat-session-X` branches.
+  - Updated `verify-sprint-prerequisites` and `sprint-integration` to support
+    the new branch hierarchy.
+
+### Changed
+
+- **SDLC Hardening**: Refined integration and finalization workflows to enforce
+  branch naming consistency and dependency across branches.
+- **Version Bump**: Incremented project version to `2.6.0`.
+
 ## [2.5.1] - 2026-03-30
 
 ### Added

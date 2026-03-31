@@ -16,8 +16,11 @@ Chat Session 5), you must execute the following steps:
    Could Be Improved, and Architectural Debt sections in the retro document.
 3. **Formulate Action Items**: Create clear, actionable items for the next
    sprint based on the retro analysis.
-4. **Update Roadmap**: Open `roadmap.md` and mark newly completed items as
-   `✅ Implemented`.
+4. **Update Roadmap**: Open `roadmap.md` and perform the following:
+   - Mark newly completed items as `✅ Implemented`.
+   - Capture any newly identified **Action Items** from this retro into the
+     roadmap's "Upcoming Sprints" or "Horizon" sections to ensure they are
+     tracked.
 5. **Update Architecture**: Update `architecture.md` if any core patterns,
    schemas, or dependencies were introduced or changed during this sprint.
 6. **Finalize**: Ensure the sprint documentation is fully finalized and

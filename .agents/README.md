@@ -175,33 +175,33 @@ command.
 
 ### Available Workflows
 
-| Workflow File                    | Category  | Slash Command                  | Purpose                                              |
-| -------------------------------- | --------- | ------------------------------ | ---------------------------------------------------- |
-| `accessibility-audit.md`         | `audits`  | `/accessibility-audit`         | Lighthouse performance and accessibility audit       |
-| `architecture-audit.md`          | `audits`  | `/architecture-audit`          | Clean code, over-engineering & coupling review       |
-| `clean-code-audit.md`            | `audits`  | `/clean-code-audit`            | Maintainability and technical debt analysis          |
-| `dependency-update-audit.md`     | `audits`  | `/dependency-update-audit`     | Security and bloat auditing for dependencies         |
-| `devops-audit.md`                | `audits`  | `/devops-audit`                | CI/CD, DX tooling & infrastructure review            |
-| `performance-audit.md`           | `audits`  | `/performance-audit`           | Stack-wide bottleneck and architecture review        |
-| `privacy-audit.md`               | `audits`  | `/privacy-audit`               | PII data handling and privacy compliance audit       |
-| `qa-audit.md`                    | `audits`  | `/qa-audit`                    | Test coverage, test plans & mocking strategy review  |
-| `security-audit.md`              | `audits`  | `/security-audit`              | Vulnerability scanning and OWASP alignment           |
-| `seo-audit.md`                   | `audits`  | `/seo-audit`                   | Traditional SEO + Generative Engine Optimization     |
-| `sre-audit.md`                   | `audits`  | `/sre-audit`                   | Production release candidate readiness audit         |
-| `ux-ui-audit.md`                 | `audits`  | `/ux-ui-audit`                 | Design system consistency and UX reviews             |
-| `generate-prd.md`                | `sdlc`    | `/generate-prd`                | Generates PRD from roadmap items                     |
-| `generate-tech-spec.md`          | `sdlc`    | `/generate-tech-spec`          | Generates Technical Spec from PRD                    |
-| `generate-sprint-playbook.md`    | `sdlc`    | `/generate-sprint-playbook`    | Generates Sprint Playbook from PRD + Tech Spec       |
-| `generate-release-notes.md`      | `sdlc`    | `/generate-release-notes`      | Generates user-facing release notes from changelog   |
-| `plan-sprint.md`                 | `sdlc`    | `/plan-sprint`                 | Sequentially runs PRD, Tech Spec, and Playbook       |
-| `run-test-plan.md`               | `testing` | `/run-test-plan`               | Executes Playwright & SQL tests against a test plan  |
-| `gather-sprint-context.md`       | `sprint`  | `/gather-sprint-context`       | Centralized research/knowledge retrieval for sprints |
-| `verify-sprint-prerequisites.md` | `sprint`  | `/verify-sprint-prerequisites` | Validates task dependencies before execution         |
-| `finalize-sprint-task.md`        | `sprint`  | `/finalize-sprint-task`        | Standardized validation, commit, and notification    |
-| `plan-qa-testing.md`             | `sprint`  | `/plan-qa-testing`             | QA test data maintenance and test plan updates       |
-| `sprint-code-review.md`          | `sprint`  | `/sprint-code-review`          | Comprehensive code review of all sprint changes      |
-| `sprint-integration.md`          | `sprint`  | `/sprint-integration`          | Merge and stabilization workflow                     |
-| `sprint-retro.md`                | `sprint`  | `/sprint-retro`                | Sprint retrospective and roadmap alignment           |
+| Workflow File                    | Category  | Slash Command                  | Purpose                                                          |
+| -------------------------------- | --------- | ------------------------------ | ---------------------------------------------------------------- |
+| `accessibility-audit.md`         | `audits`  | `/accessibility-audit`         | Lighthouse performance and accessibility audit                   |
+| `architecture-audit.md`          | `audits`  | `/architecture-audit`          | Clean code, over-engineering & coupling review                   |
+| `clean-code-audit.md`            | `audits`  | `/clean-code-audit`            | Maintainability and technical debt analysis                      |
+| `dependency-update-audit.md`     | `audits`  | `/dependency-update-audit`     | Security and bloat auditing for dependencies                     |
+| `devops-audit.md`                | `audits`  | `/devops-audit`                | CI/CD, DX tooling & infrastructure review                        |
+| `performance-audit.md`           | `audits`  | `/performance-audit`           | Stack-wide bottleneck and architecture review                    |
+| `privacy-audit.md`               | `audits`  | `/privacy-audit`               | PII data handling and privacy compliance audit                   |
+| `qa-audit.md`                    | `audits`  | `/qa-audit`                    | Test coverage, test plans & mocking strategy review              |
+| `security-audit.md`              | `audits`  | `/security-audit`              | Vulnerability scanning and OWASP alignment                       |
+| `seo-audit.md`                   | `audits`  | `/seo-audit`                   | Traditional SEO + Generative Engine Optimization                 |
+| `sre-audit.md`                   | `audits`  | `/sre-audit`                   | Production release candidate readiness audit                     |
+| `ux-ui-audit.md`                 | `audits`  | `/ux-ui-audit`                 | Design system consistency and UX reviews                         |
+| `generate-prd.md`                | `sdlc`    | `/generate-prd`                | Generates PRD from roadmap items                                 |
+| `generate-tech-spec.md`          | `sdlc`    | `/generate-tech-spec`          | Generates Technical Spec from PRD                                |
+| `generate-sprint-playbook.md`    | `sdlc`    | `/generate-sprint-playbook`    | Generates Sprint Playbook from PRD + Tech Spec                   |
+| `generate-release-notes.md`      | `sdlc`    | `/generate-release-notes`      | Generates user-facing release notes from changelog               |
+| `plan-sprint.md`                 | `sdlc`    | `/plan-sprint`                 | Sequentially runs PRD, Tech Spec, and Playbook                   |
+| `run-test-plan.md`               | `testing` | `/run-test-plan`               | Executes Playwright & SQL tests against a test plan              |
+| `gather-sprint-context.md`       | `sprint`  | `/gather-sprint-context`       | Centralized research/knowledge retrieval for sprints             |
+| `verify-sprint-prerequisites.md` | `sprint`  | `/verify-sprint-prerequisites` | Validates task dependencies before execution                     |
+| `finalize-sprint-task.md`        | `sprint`  | `/finalize-sprint-task`        | Standardized validation, commit, and notification                |
+| `plan-qa-testing.md`             | `sprint`  | `/plan-qa-testing`             | QA test data maintenance and test plan updates                   |
+| `sprint-code-review.md`          | `sprint`  | `/sprint-code-review`          | Comprehensive code review of all sprint changes                  |
+| `sprint-integration.md`          | `sprint`  | `/sprint-integration`          | Merge and stabilization workflow                                 |
+| `sprint-retro.md`                | `sprint`  | `/sprint-retro`                | Sprint retrospective, action item capture, and roadmap alignment |
 
 ---
 

@@ -46,8 +46,8 @@ For any feature larger than a bug fix, generate a
 - **Feature Prioritization:** Groom the backlog and ensure the most valuable
   items are tackled next.
 - **Roadmap Alignment:** After each sprint, update `roadmap.md` to mark
-  completed items as `✅ Implemented` and ensure upcoming sprints reflect
-  shifting priorities.
+  completed items as `✅ Implemented`, capture new **Action Items** into the
+  upcoming sprints/horizon, and ensure priorities are correctly aligned.
 - **Documentation Finalization:** Ensure `architecture.md` and other living
   documents are updated if core patterns changed during the sprint in
   collaboration with the Technical Writer.

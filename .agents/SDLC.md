@@ -171,8 +171,9 @@ executed in this strict order:
    the now-integrated codebase.
 3. **`/sprint-code-review`**: Scans all sprint diffs for security
    vulnerabilities, unnecessary coupling, and architectural drift.
-4. **`/sprint-retro`**: Synthesizes challenges and wins, makes permanent updates
-   to global project documents, and creates the final sprint records.
+4. **`/sprint-retro`**: Synthesizes challenges and wins, captures new **Action
+   Items** into the roadmap, makes permanent updates to global project
+   documents, and creates the final sprint records.
 
 **Artifact Lifecycle:**
 
