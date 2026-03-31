@@ -39,12 +39,13 @@ dependencies.
 
 ```mermaid
 graph TD
-    C1["💬 ⚙️ Chat Session 1: Backend Foundation"] --> C2["💬 ⚡ Chat Session 2: Web UI"]
-    C1 --> C3["💬 📱 Chat Session 3: Mobile UI"]
-    C2 --> C4["💬 🧪 Chat Session 4: QA & E2E Testing"]
+    C1["🗄️ Chat Session 1: Backend Foundation"] --> C2["🌐 Chat Session 2: Web UI"]
+    C1 --> C3["📱 Chat Session 3: Mobile UI"]
+    C2 --> C4["🧪 Chat Session 4: QA & E2E Testing"]
     C3 --> C4
-    C4 --> C5["💬 🔍 Chat Session 5: Code Review"]
-    C5 --> C6["💬 🔄 Chat Session 6: Sprint Retro & Roadmap Alignment"]
+    C4 --> C5["🛡️ Chat Session 5: Code Review"]
+    C5 --> C6["📝 Chat Session 6: Sprint Retro & Roadmap Alignment"]
+    Legend["⬜ Not Started  <br />🟨 Executing  <br />🟦 Committed  <br />🟩 Complete <br />---<br /> 🗄️ DB | 🌐 Web | 📱 Mobile | 🧪 Test <br />📝 Docs | 🛡️ Ops | ⚙️ Gen"]:::LegendNode
 ```
 ````
 
@@ -53,7 +54,7 @@ graph TD
 Each Chat Session is rendered with a header, execution rule, and tasks:
 
 ````markdown
-### 💬 ⚙️ Chat Session 1: Backend Foundation (Sequential)
+### 🗄️ Chat Session 1: Backend Foundation (Sequential)
 
 _Execution Rule: These tasks must be run sequentially in a single chat window._
 
@@ -65,9 +66,10 @@ _Execution Rule: These tasks must be run sequentially in a single chat window._
 Sprint 99.1.1: Adopt the `engineer` persona from `.agents/personas/`.
 
 **AGENT EXECUTION PROTOCOL (STRICT ADHERENCE REQUIRED):**
-1. **Prerequisite Check**: Execute the `verify-sprint-prerequisites` workflow for sprint step `99.1.1` and verify dependencies in `playbook.md`. If it fails, **STOP** and alert the user.
-2. **Execution**: Perform the task instructions below.
-3. **Finalization**: Execute the `finalize-sprint-task` workflow explicitly for sprint step `99.1.1`.
+1. **Mark Executing**: Update the playbook — change your task checkbox to `- [~]` and set the Mermaid class for node `C1` to `executing` (if not already). Commit and push the state change.
+2. **Prerequisite Check**: Execute the `verify-sprint-prerequisites` workflow for sprint step `99.1.1` and verify dependencies in `playbook.md`. If it fails, **STOP** and alert the user.
+3. **Execution**: Perform the task instructions below.
+4. **Finalization**: Execute the `finalize-sprint-task` workflow explicitly for sprint step `99.1.1`.
 
 **Active Skills:** `database/turso, backend/sqlite-drizzle-expert`
 

@@ -30,7 +30,38 @@ const PROJECT_ROOT = path.resolve(__dirname, '../..');
 // Constants
 // ---------------------------------------------------------------------------
 
-const CHAT_ICONS = ['⚙️', '⚡', '📱', '🔧', '🗄️', '🌐', '📦', '🔌', '🛡️', '🎨'];
+const CHAT_ICONS = {
+  database: '🗄️',
+  web: '🌐',
+  mobile: '📱',
+  testing: '🧪',
+  documentation: '📝',
+  security: '🛡️',
+  default: '⚙️'
+};
+
+function selectIcon(session) {
+  const tasks = session.tasks;
+  const isQA = tasks.some(t => t.isQA);
+  const isRetro = tasks.some(t => t.isRetro);
+  const isIntegration = tasks.some(t => t.isIntegration);
+  const isCodeReview = tasks.some(t => t.isCodeReview);
+
+  if (isQA) return CHAT_ICONS.testing;
+  if (isRetro) return CHAT_ICONS.documentation;
+  if (isIntegration || isCodeReview) return CHAT_ICONS.security;
+
+  const allText = tasks.map(t => (t.title + ' ' + (t.scope || '') + ' ' + (t.instructions || '')).toLowerCase()).join(' ');
+
+  if (allText.match(/db|sql|database|schema|turso|drizzle|sqlite/)) return CHAT_ICONS.database;
+  if (allText.match(/web|frontend|astro|react|html|css/)) return CHAT_ICONS.web;
+  if (allText.match(/mobile|native|ios|android/)) return CHAT_ICONS.mobile;
+  if (allText.match(/test|vitest|playwright/)) return CHAT_ICONS.testing;
+  if (allText.match(/doc|markdown|roadmap/)) return CHAT_ICONS.documentation;
+  if (allText.match(/infra|security|ops|config|workflow|auth/)) return CHAT_ICONS.security;
+
+  return CHAT_ICONS.default;
+}
 
 // ---------------------------------------------------------------------------
 // Validation
@@ -86,6 +117,25 @@ export function validateManifest(manifest) {
       if (!ids.has(dep)) {
         errors.push(`Task "${task.id}" depends on unknown task "${dep}".`);
       }
+    }
+  }
+
+  // Validate bookend persona and rules
+  for (const task of manifest.tasks) {
+    if (task.isIntegration) {
+      if (task.persona !== 'engineer') errors.push(`Task "${task.id}": isIntegration requires 'engineer' persona.`);
+      if (!task.skills.includes('architecture/monorepo-path-strategist')) errors.push(`Task "${task.id}": isIntegration requires 'architecture/monorepo-path-strategist' skill.`);
+    }
+    if (task.isQA) {
+      if (task.persona !== 'qa-engineer') errors.push(`Task "${task.id}": isQA requires 'qa-engineer' persona.`);
+    }
+    if (task.isCodeReview) {
+      if (task.persona !== 'architect') errors.push(`Task "${task.id}": isCodeReview requires 'architect' persona.`);
+      if (!task.skills.includes('architecture/autonomous-coding-standards')) errors.push(`Task "${task.id}": isCodeReview requires 'architecture/autonomous-coding-standards' skill.`);
+    }
+    if (task.isRetro) {
+      if (task.persona !== 'product') errors.push(`Task "${task.id}": isRetro requires 'product' persona.`);
+      if (!task.skills.includes('architecture/markdown')) errors.push(`Task "${task.id}": isRetro requires 'architecture/markdown' skill.`);
     }
   }
 
@@ -284,7 +334,7 @@ export function groupIntoChatSessions(tasks, layers, adjacency) {
     if (scopeKeys.length === 1 && scopeKeys[0] === '__unscoped__' && tasksInLayer.length > 1) {
       // Multiple unscoped tasks at same layer → each gets its own concurrent session
       for (const task of tasksInLayer) {
-        const icon = CHAT_ICONS[(chatNumber - 1) % CHAT_ICONS.length];
+        const icon = selectIcon({ tasks: [task] });
         chatSessions.push({
           chatNumber: chatNumber++,
           label: task.title,
@@ -304,7 +354,7 @@ export function groupIntoChatSessions(tasks, layers, adjacency) {
               : `${scope} Tasks`
             : scopeTasks[0].title;
 
-        const icon = CHAT_ICONS[(chatNumber - 1) % CHAT_ICONS.length];
+        const icon = selectIcon({ tasks: scopeTasks });
         const mode = isLayerConcurrent ? 'Concurrent' : 'Sequential';
 
         chatSessions.push({
@@ -319,56 +369,56 @@ export function groupIntoChatSessions(tasks, layers, adjacency) {
     }
   }
 
-  // Append Integration before QA
-  const integrationTasks = bookendTasks.filter((t) => t.isIntegration);
-  if (integrationTasks.length > 0) {
-    chatSessions.push({
-      chatNumber: chatNumber++,
-      label: 'Sprint Integration & Sync',
-      icon: '🔗',
-      mode: 'SequentialBookend',
-      layer: Infinity,
-      tasks: integrationTasks,
-    });
+  // Pre-calculate the regular workflow leaves to act as integration prerequisites
+  const hasOutgoing = new Set();
+  for (const task of regularTasks) {
+    for (const dep of task.dependsOn) hasOutgoing.add(dep);
+  }
+  const regularLeaves = regularTasks.filter((t) => !hasOutgoing.has(t.id)).map((t) => t.id);
+
+  // Eliminate redundant prerequisites for tasks inside the same sequential session
+  for (const session of chatSessions) {
+    if (session.mode === 'Sequential' && session.tasks.length > 1) {
+      for (let i = 1; i < session.tasks.length; i++) {
+        session.tasks[i].dependsOn = [session.tasks[i - 1].id];
+      }
+    }
   }
 
-  // Append QA
-  const qaTasks = bookendTasks.filter((t) => t.isQA);
-  if (qaTasks.length > 0) {
-    chatSessions.push({
-      chatNumber: chatNumber++,
-      label: 'QA & E2E Testing',
-      icon: '🧪',
-      mode: 'SequentialBookend',
-      layer: Infinity,
-      tasks: qaTasks,
-    });
-  }
+  // Automate Bookend Pipeline logic explicitly
+  const bookendStages = [
+    { key: 'isIntegration', label: 'Sprint Integration & Sync', icon: '🔗', mode: 'SequentialBookend' },
+    { key: 'isQA', label: 'QA & E2E Testing', icon: '🧪', mode: 'SequentialBookend' },
+    { key: 'isCodeReview', label: 'Code Review', icon: '🔍', mode: 'PMBookend' },
+    { key: 'isRetro', label: 'Sprint Retrospective', icon: '🔄', mode: 'PMBookend' },
+  ];
 
-  // Append Code Review as its own session
-  const reviewTasks = bookendTasks.filter((t) => t.isCodeReview);
-  if (reviewTasks.length > 0) {
-    chatSessions.push({
-      chatNumber: chatNumber++,
-      label: 'Code Review',
-      icon: '🔍',
-      mode: 'PMBookend',
-      layer: Infinity,
-      tasks: reviewTasks,
-    });
-  }
+  let currentDeps = regularLeaves;
 
-  // Append Retro as the absolute last session
-  const retroTasks = bookendTasks.filter((t) => t.isRetro);
-  if (retroTasks.length > 0) {
-    chatSessions.push({
-      chatNumber: chatNumber++,
-      label: 'Sprint Retrospective',
-      icon: '🔄',
-      mode: 'PMBookend',
-      layer: Infinity,
-      tasks: retroTasks,
-    });
+  for (const stage of bookendStages) {
+    const stageTasks = bookendTasks.filter((t) => t[stage.key]);
+    if (stageTasks.length > 0) {
+      // The first task in this stage depends on the outputs of the previous stage
+      stageTasks[0].dependsOn = currentDeps;
+      
+      // For subsequent tasks in the same stage, they run sequentially
+      for (let i = 1; i < stageTasks.length; i++) {
+        stageTasks[i].dependsOn = [stageTasks[i - 1].id];
+      }
+
+      const icon = selectIcon({ tasks: stageTasks });
+      chatSessions.push({
+        chatNumber: chatNumber++,
+        label: stage.label,
+        icon,
+        mode: stage.mode,
+        layer: Infinity,
+        tasks: stageTasks,
+      });
+
+      // The output of this stage is the last task inside it
+      currentDeps = [stageTasks[stageTasks.length - 1].id];
+    }
   }
 
   return chatSessions;
@@ -441,7 +491,9 @@ export function generateMermaid(chatSessions, chatDeps) {
   }
 
   // Define Legend (Compact single node with line breaks)
-  lines.push('    Legend["⬜ Not Started  <br />🟨 Executing  <br />🟦 Committed  <br />🟩 Complete"]:::LegendNode');
+  const statusLegend = '⬜ Not Started  <br />🟨 Executing  <br />🟦 Committed  <br />🟩 Complete';
+  const iconLegend = '🗄️ DB | 🌐 Web | 📱 Mobile | 🧪 Test <br />📝 Docs | 🛡️ Ops | ⚙️ Gen';
+  lines.push(`    Legend["${statusLegend} <br />---<br /> ${iconLegend}"]:::LegendNode`);
 
   // Define styles
   lines.push('    %% Style Definitions %%');
@@ -487,13 +539,13 @@ function renderTask(task, sprintNumber, chatNumber, stepNumber, taskIdToNumber) 
       .sort()
       .map(num => `\`${num}\``)
       .join(', ');
-    protocol += `1. **Mark Executing**: Update the playbook — change your task checkbox to \`- [~]\` and set the Mermaid class to \`executing\`. Commit and push the state change.\n`;
+    protocol += `1. **Mark Executing**: Update the playbook — change your task checkbox to \`- [~]\` and set the Mermaid class for node \`C${chatNumber}\` to \`executing\` (if not already). Commit and push the state change.\n`;
     protocol += `2. **Prerequisite Check**: Execute the \`verify-sprint-prerequisites\` workflow for sprint step \`${taskNumber}\`.\n`;
     protocol += `   - **Dependencies**: ${depsList}\n`;
     protocol += `3. **Execution**: Perform the task instructions below.\n`;
     protocol += `4. **Finalization**: Execute the \`finalize-sprint-task\` workflow explicitly for sprint step \`${taskNumber}\`.`;
   } else {
-    protocol += `1. **Mark Executing**: Update the playbook — change your task checkbox to \`- [~]\` and set the Mermaid class to \`executing\`. Commit and push the state change.\n`;
+    protocol += `1. **Mark Executing**: Update the playbook — change your task checkbox to \`- [~]\` and set the Mermaid class for node \`C${chatNumber}\` to \`executing\` (if not already). Commit and push the state change.\n`;
     protocol += `2. **Execution**: Perform the task instructions below.\n`;
     protocol += `3. **Finalization**: Execute the \`finalize-sprint-task\` workflow explicitly for sprint step \`${taskNumber}\`.`;
   }

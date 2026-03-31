@@ -118,6 +118,21 @@ The script will:
    Protocol.
 6. Write the output to `docs/sprints/sprint-[SPRINT_NUMBER]/playbook.md`.
 
+### Chat Session Icons
+
+Chat sessions are assigned icons based on their content and scope:
+
+- **🗄️ Database**: Tasks involving Turso, SQLite, Drizzle, SQL, or Database
+  schemas.
+- **🌐 Web**: Tasks involving Frontend, Astro, React, or Web scopes.
+- **📱 Mobile**: Tasks involving Mobile native, iOS, or Android scopes.
+- **🧪 Testing**: Tasks tagged with `isQA` or involving Vitest / Playwright.
+- **📝 Documentation**: Tasks tagged with `isRetro` or involving Markdown /
+  Docs.
+- **🛡️ Config/Security/Ops**: Tasks tagged with `isIntegration`, `isCodeReview`,
+  or involving infra/workflow setup.
+- **⚙️ General**: Default fallback for other tasks.
+
 ## Step 4 - Validation
 
 After the script completes:

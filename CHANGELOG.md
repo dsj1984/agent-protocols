@@ -6,6 +6,31 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 and this project adheres to
 [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [2.8.0] - 2026-03-30
+
+### Added
+
+- **Dynamic Mermaid Legend**: The sprint playbook execution flow diagram now
+  includes a categorical legend for chat session icons (🗄️ DB, 🌐 Web, 📱
+  Mobile, 🧪 Test, 📝 Docs, 🛡️ Ops, ⚙️ Gen).
+- **Mandatory Bookend Validation**: Implemented strict persona and skill
+  assertions in `generate-playbook.js` for Integration, QA, Code Review, and
+  Retro tasks.
+
+### Changed
+
+- **Redefined Chat Icons**: Simplified the chat session icon set to 6 meaningful
+  categories with automatic keyword-based selection logic.
+- **Improved Dependency Logic**:
+  - Reduced redundant prerequisites for sequential tasks within the same Chat
+    Session (Linearized `1 -> 2 -> 3` logic).
+  - Automated bookend pipeline wiring (Integration → QA → Code Review → Retro)
+    in the Mermaid DAG.
+- **Hardened Execution Protocol**: Added node-specific Mermaid class
+  instructions (e.g., `set the Mermaid class for node C1`) with idempotency
+  hints `(if not already)` to prevent state-tracking ambiguity.
+- **Version Bump**: Incremented project version to `2.8.0`.
+
 ## [2.7.0] - 2026-03-30
 
 ### Added
