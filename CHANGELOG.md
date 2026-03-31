@@ -15,6 +15,9 @@ and this project adheres to
     step into the `close-sprint` workflow. The terminal sprint agent will now
     automatically pull the latest protocols from the pinned `dist` branch,
     ensuring consistency and cleaning up phantom Git changes.
+  - **Playbook Finalization**: Added a terminal step to `close-sprint` to ensure
+    the closure task itself is marked as Complete in the playbook and Mermaid
+    diagram, providing a 100% finished artifact.
 - **Version Bump**: Incremented project version to `2.9.4`.
 
 ## [2.9.3] - 2026-03-31

@@ -53,19 +53,32 @@ cleans up the sprint branch, and optionally tags a release.
    git push origin main
    ```
 
-8. **Stale Branch Audit**: Run `git branch -r` and identify any remaining
+8. **Final Playbook Sync**: Mark the final sprint closure task as complete to
+   ensure the playbook is 100% current before the branch is purged:
+   - Open `.agents/docs/sprints/sprint-[SPRINT_NUMBER]/playbook.md`.
+   - Locate the `close-sprint` task (typically in the final Chat Session) and
+     change its status from Not Started `[ ]` (or Executing `[~]`) to Complete
+     `[x]`.
+   - In the Mermaid diagram, update the final Chat Session class from
+     `executing` to `complete`.
+   - Commit the playbook update:
+     `git commit -am "chore(sprint): finalize terminal playbook status"`.
+   - Push to main: `git push origin main`.
+
+9. **Stale Branch Audit**: Run `git branch -r` and identify any remaining
    `sprint-[SPRINT_NUMBER]/*` OR `sprint-[SPRINT_NUMBER]-*` branches on origin.
    Delete ALL remaining sprint task branches:
    `git push origin --delete [BRANCH_NAME]`.
    - **Note**: This catch-all audit ensures even legacy dash-named branches are
      purged before the sprint is closed.
-9. **Notification**: If the variable `AGENT_NOTIFICATION_WEBHOOK` is defined in
-   the `AGENTS.md` file, send a JSON notification using the cross-platform
-   syntax:
-   `curl -s -X POST -H "Content-Type: application/json" -d "{\"message\": \"Sprint [SPRINT_NUMBER] has been merged to main and the sprint branch has been cleaned up.\"}" $AGENT_NOTIFICATION_WEBHOOK`
-   - If the command fails, log the failure in `WEBHOOK_FAILURE.md` in the sprint
-     directory.
-   - If the variable is not set, skip gracefully.
+10. **Notification**: If the variable `AGENT_NOTIFICATION_WEBHOOK` is defined in
+    the `AGENTS.md` file, send a JSON notification using the cross-platform
+    syntax:
+    `curl -s -X POST -H "Content-Type: application/json" -d "{\"message\": \"Sprint [SPRINT_NUMBER] has been merged to main and the sprint branch has been cleaned up.\"}" $AGENT_NOTIFICATION_WEBHOOK`
+
+- If the command fails, log the failure in `WEBHOOK_FAILURE.md` in the sprint
+  directory.
+- If the variable is not set, skip gracefully.
 
 ## Constraint
 
