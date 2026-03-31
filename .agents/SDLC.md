@@ -61,12 +61,14 @@ definition down to code review and sprint retrospective.
         L["🤖 /plan-qa-testing"]:::agentic
         O["🤖 /sprint-code-review"]:::agentic
         P["🤖 /sprint-retro"]:::agentic
+        Q2["🤖 /close-sprint"]:::agentic
 
         I --> J
         J --> K
         K --> L
         L --> O
         O --> P
+        P --> Q2
 
         L -.-> L_Art["📄 sprint-[##]/test-plan.md"]:::artifact
         P -.-> Q["📄 architecture.md<br/>📄 data-dictionary.md<br/>📄 roadmap.md"]:::artifact
@@ -175,6 +177,9 @@ executed in this strict order:
 4. **`/sprint-retro`**: Synthesizes challenges and wins, captures new **Action
    Items** into the roadmap, makes permanent updates to global project
    documents, and creates the final sprint records.
+5. **`/close-sprint`**: The terminal step — asserts all playbook tasks are
+   `[x]`, merges `sprint-N` into `main` via `--no-ff`, cleans up the sprint
+   branch (local + remote), and verifies no stale branches remain.
 
 **Artifact Lifecycle:**
 

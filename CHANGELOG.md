@@ -14,6 +14,9 @@ and this project adheres to
   skill that centralizes branch safety, base alignment, and conventional commit
   rules. Includes **Emergency Recovery Protocols** for accidental commits to
   main, unresolved merge markers, and diverged branches.
+- **`/close-sprint` Workflow**: A new terminal bookend step that promotes the
+  sprint branch to `main`, enforces a completeness gate (all tasks must be
+  `[x]`), cleans up sprint branches, and runs a final conflict marker scan.
 
 ### Changed
 
@@ -22,6 +25,9 @@ and this project adheres to
     step at the start of every task, forcing base branch alignment (Fix 1).
   - Injected `devops/git-flow-specialist` as a mandatory requirement for all
     Integration and Code Review tasks (Fix 4).
+  - Added `isCloseSprint` bookend stage to the generation script and task
+    manifest schema, ensuring the close-sprint workflow is automatically wired
+    as the final step in every sprint playbook.
 - **Workflow Guardrails**:
   - `finalize-sprint-task`: Added a **Branch Guard** to prevent accidental
     pushes to `main` (Fix 2) and explicit base branching (Fix 5).

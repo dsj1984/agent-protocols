@@ -109,6 +109,11 @@
             "type": "boolean",
             "default": false,
             "description": "If true, the script injects the sprint-retro workflow delegation."
+          },
+          "isCloseSprint": {
+            "type": "boolean",
+            "default": false,
+            "description": "If true, the script injects the close-sprint workflow delegation as the terminal bookend step that merges to main."
           }
         }
       }

@@ -239,21 +239,22 @@ describe('groupIntoChatSessions', () => {
       makeTask({ id: 'qa', dependsOn: ['integ'], isQA: true, title: 'QA Testing', persona: 'qa-engineer' }),
       makeTask({ id: 'review', dependsOn: ['qa'], isCodeReview: true, title: 'Code Review', persona: 'architect', skills: ['devops/git-flow-specialist'] }),
       makeTask({ id: 'retro', dependsOn: ['review'], isRetro: true, title: 'Retro', persona: 'product', skills: ['architecture/markdown'] }),
+      makeTask({ id: 'close', dependsOn: ['retro'], isCloseSprint: true, title: 'Close Sprint', persona: 'devops-engineer', skills: ['devops/git-flow-specialist'] }),
     ];
     const { adjacency } = buildGraph(tasks);
     const layers = assignLayers(adjacency);
     const sessions = groupIntoChatSessions(tasks, layers, adjacency);
 
-    // Work task → 1 session, then Integ, then QA, then Code Review, then Retro = 5 sessions
-    assert.equal(sessions.length, 5);
-    assert.ok(sessions[sessions.length - 1].label.includes('Retro'));
+    // Work task → 1 session, then Integ, then QA, then Code Review, then Retro, then Close = 6 sessions
+    assert.equal(sessions.length, 6);
+    assert.ok(sessions[sessions.length - 1].label.includes('Close'));
     assert.ok(sessions[sessions.length - 1].mode === 'PMBookend');
-    assert.ok(sessions[sessions.length - 2].label.includes('Code Review'));
-    assert.ok(sessions[sessions.length - 3].label.includes('QA'));
-    assert.ok(sessions[sessions.length - 4].label.includes('Integration'));
+    assert.ok(sessions[sessions.length - 2].label.includes('Retro'));
     assert.ok(sessions[sessions.length - 2].mode === 'PMBookend');
-    assert.ok(sessions[sessions.length - 3].label.includes('QA'));
-    assert.ok(sessions[sessions.length - 3].mode === 'SequentialBookend');
+    assert.ok(sessions[sessions.length - 3].label.includes('Code Review'));
+    assert.ok(sessions[sessions.length - 4].label.includes('QA'));
+    assert.ok(sessions[sessions.length - 5].label.includes('Integration'));
+    assert.ok(sessions[sessions.length - 4].mode === 'SequentialBookend');
   });
 
   it('scoped tasks at the same layer are grouped', () => {
@@ -353,6 +354,15 @@ describe('renderPlaybook', () => {
           skills: ['architecture/markdown'],
           instructions: '',
         }),
+        makeTask({
+          id: 'close',
+          dependsOn: ['retro'],
+          isCloseSprint: true,
+          title: 'Close Sprint',
+          persona: 'devops-engineer',
+          skills: ['devops/git-flow-specialist'],
+          instructions: '',
+        }),
       ],
     });
 
@@ -372,6 +382,7 @@ describe('renderPlaybook', () => {
     assert.ok(md.includes('plan-qa-testing'));
     assert.ok(md.includes('sprint-code-review'));
     assert.ok(md.includes('sprint-retro'));
+    assert.ok(md.includes('close-sprint'));
   });
 
   it('injects the execution protocol including prerequisite check when task has dependencies', () => {
@@ -427,14 +438,15 @@ describe('generateFromManifest (end-to-end)', () => {
         makeTask({ id: 'qa', dependsOn: ['web', 'mobile'], isQA: true, title: 'QA', persona: 'qa-engineer', instructions: '' }),
         makeTask({ id: 'review', dependsOn: ['qa'], isCodeReview: true, title: 'Code Review', persona: 'architect', skills: ['devops/git-flow-specialist'], instructions: '' }),
         makeTask({ id: 'retro', dependsOn: ['review'], isRetro: true, title: 'Retro', persona: 'product', skills: ['architecture/markdown'], instructions: '' }),
+        makeTask({ id: 'close', dependsOn: ['retro'], isCloseSprint: true, title: 'Close Sprint', persona: 'devops-engineer', skills: ['devops/git-flow-specialist'], instructions: '' }),
       ],
     });
 
     const { markdown, chatSessions } = generateFromManifest(manifest);
 
     assert.ok(markdown.length > 0);
-    // Should have: db(1), api(2), web(3), mobile(4), QA(5), Code Review(6), retro(7)
-    assert.equal(chatSessions.length, 7, `Expected 7 sessions, got ${chatSessions.length}`);
+    // Should have: db(1), api(2), web(3), mobile(4), QA(5), Code Review(6), retro(7), close(8)
+    assert.equal(chatSessions.length, 8, `Expected 8 sessions, got ${chatSessions.length}`);
   });
 
   it('produces a playbook for a 10-bug bash', () => {

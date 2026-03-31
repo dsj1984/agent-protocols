@@ -105,7 +105,7 @@ export function validateManifest(manifest) {
     if (!Array.isArray(task.skills)) errors.push(`Task "${task.id}": skills must be an array.`);
     if (!task.model) errors.push(`Task "${task.id}": missing model.`);
     if (!['Planning', 'Fast'].includes(task.mode)) errors.push(`Task "${task.id}": mode must be "Planning" or "Fast".`);
-    if (typeof task.instructions !== 'string' && !task.isIntegration && !task.isQA && !task.isCodeReview && !task.isRetro) {
+    if (typeof task.instructions !== 'string' && !task.isIntegration && !task.isQA && !task.isCodeReview && !task.isRetro && !task.isCloseSprint) {
       errors.push(`Task "${task.id}": instructions must be a string.`);
     }
   }
@@ -137,6 +137,10 @@ export function validateManifest(manifest) {
     if (task.isRetro) {
       if (task.persona !== 'product') errors.push(`Task "${task.id}": isRetro requires 'product' persona.`);
       if (!task.skills.includes('architecture/markdown')) errors.push(`Task "${task.id}": isRetro requires 'architecture/markdown' skill.`);
+    }
+    if (task.isCloseSprint) {
+      if (task.persona !== 'devops-engineer') errors.push(`Task "${task.id}": isCloseSprint requires 'devops-engineer' persona.`);
+      if (!task.skills.includes('devops/git-flow-specialist')) errors.push(`Task "${task.id}": isCloseSprint requires 'devops/git-flow-specialist' skill.`);
     }
   }
 
@@ -297,7 +301,7 @@ export function groupIntoChatSessions(tasks, layers, adjacency) {
   const regularTasks = [];
 
   for (const task of tasks) {
-    if (task.isIntegration || task.isQA || task.isCodeReview || task.isRetro) {
+    if (task.isIntegration || task.isQA || task.isCodeReview || task.isRetro || task.isCloseSprint) {
       bookendTasks.push(task);
     } else {
       regularTasks.push(task);
@@ -392,6 +396,7 @@ export function groupIntoChatSessions(tasks, layers, adjacency) {
     { key: 'isQA', label: 'QA & E2E Testing', icon: '🧪', mode: 'SequentialBookend' },
     { key: 'isCodeReview', label: 'Code Review', icon: '🔍', mode: 'PMBookend' },
     { key: 'isRetro', label: 'Sprint Retrospective', icon: '🔄', mode: 'PMBookend' },
+    { key: 'isCloseSprint', label: 'Close Sprint', icon: '🏁', mode: 'PMBookend' },
   ];
 
   let currentDeps = regularLeaves;
@@ -523,6 +528,9 @@ function renderTaskInstructions(task, sprintNumber) {
   }
   if (task.isRetro) {
     return `Execute the \`sprint-retro\` workflow for \`${sprintNumber}\`.`;
+  }
+  if (task.isCloseSprint) {
+    return `Execute the \`close-sprint\` workflow for \`${sprintNumber}\`.`;
   }
   return task.instructions;
 }

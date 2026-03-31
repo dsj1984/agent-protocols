@@ -203,6 +203,7 @@ command.
 | `plan-qa-testing.md`             | `sprint`  | `/plan-qa-testing`             | QA test data maintenance and test plan updates                   |
 | `sprint-code-review.md`          | `sprint`  | `/sprint-code-review`          | Comprehensive code review of all sprint changes                  |
 | `sprint-integration.md`          | `sprint`  | `/sprint-integration`          | Merge and stabilization workflow                                 |
+| `close-sprint.md`                | `sprint`  | `/close-sprint`                | Final merge to main, branch cleanup, and release tagging         |
 | `sprint-retro.md`                | `sprint`  | `/sprint-retro`                | Sprint retrospective, action item capture, and roadmap alignment |
 
 ---
