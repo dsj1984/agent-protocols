@@ -68,7 +68,20 @@ validation library, workspace paths).
 
 ---
 
-## 2. Core Philosophy
+## 2. Shell & Terminal Protocol (Windows Compatibility)
+
+When operating on a Windows environment (PowerShell), agents MUST use `;` as a
+statement separator for command chaining instead of `&&`, as common PowerShell
+versions (like 5.1) do not support the latter and will throw a parser error.
+
+- **Example:** `git add . ; git commit -m "..."`
+
+This ensures that any project using these protocols stays compatible across
+environments without needing manual command corrections.
+
+---
+
+## 3. Core Philosophy
 
 1. **Context First:** Before proposing any solution, read the repository's core
    documentation (`README.md`, `architecture.md`, `data-dictionary.md`) to
@@ -85,7 +98,7 @@ validation library, workspace paths).
 
 ---
 
-## 3. Execution & Quality Discipline
+## 4. Execution & Quality Discipline
 
 - **Re-Plan on Failure:** If a strategy fails, **STOP** and re-plan immediately.
   Do not repeat a broken approach.

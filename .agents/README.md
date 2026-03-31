@@ -48,6 +48,7 @@ Activation, and mandatory Documentation retrieval.
 - **Documentation (Context7)** — Mandatory live doc retrieval.
 - **Context First** — Reading project docs before proposing solutions.
 - **Plan First** — Writing plan files before implementation.
+- **Windows Compatibility** — Ensuring shell command portability via `;`.
 - **Quality Assurance** — Tests, accessibility, and strict formatting.
 
 > [!IMPORTANT] You MUST configure your AI tool (e.g., `.cursorrules`, Custom

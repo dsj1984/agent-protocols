@@ -6,6 +6,23 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 and this project adheres to
 [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [2.5.1] - 2026-03-30
+
+### Added
+
+- **Shell & Terminal Protocol (Windows Compatibility)**:
+  - Introduced a mandatory protocol for Windows (PowerShell) environments to use
+    `;` as a statement separator instead of `&&`.
+  - Updated `instructions.md` with Section 2: "Shell & Terminal Protocol
+    (Windows Compatibility)".
+  - Provided clear examples for command chaining (e.g.,
+    `git add . ; git commit -m "..."`).
+
+### Changed
+
+- **Version Bump**: Incremented project version to `2.5.1` across
+  `package.json`, `.agents/VERSION`, and documentation.
+
 ## [2.5.0] - 2026-03-30
 
 ### Added
