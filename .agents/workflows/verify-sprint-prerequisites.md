@@ -27,10 +27,15 @@ Before an agent begins performing file modifications for a sprint task in the
    Alert the user that the prerequisite check failed and state exactly which
    specific task number is blocking your execution.
 6. **Code Retrieval for Unmerged Dependencies**: If a dependency is marked `[/]`
-   (Committed), it means its code has been pushed to a feature branch but NOT
-   YET merged into `main`. If your current task requires that code to build
-   upon, you MUST fetch and check out or merge that feature branch into your
-   working branch before proceeding.
+   (Committed), its code lives on branch
+   `sprint-[SPRINT_NUMBER]/[DEPENDENCY_TASK_ID]` but is NOT YET merged into
+   `sprint-[SPRINT_NUMBER]`. If your current task requires that code to build
+   upon, you MUST:
+   - `git fetch origin sprint-[SPRINT_NUMBER]/[DEPENDENCY_TASK_ID]`
+   - `git merge origin/sprint-[SPRINT_NUMBER]/[DEPENDENCY_TASK_ID]` into your
+     current working branch.
+   - If the merge fails due to conflicts, **STOP** and alert the user with the
+     exact conflicting files before proceeding.
 
 ## State Reference
 

@@ -70,14 +70,34 @@
       "instructions": "Integrate Firebase Cloud Messaging (FCM) to deliver notifications to iOS and Android devices."
     },
     {
+      "id": "sprint-integration",
+      "title": "Sprint 1 Integration",
+      "dependsOn": ["frontend-bell-ui", "websocket-client", "mobile-push-notifications"],
+      "persona": "engineer",
+      "skills": ["architecture/monorepo-path-strategist"],
+      "model": "Claude Sonnet 4.6 (Thinking)",
+      "mode": "Planning",
+      "isIntegration": true
+    },
+    {
       "id": "qa-testing",
       "title": "Sprint 1 QA Validation",
-      "dependsOn": ["frontend-bell-ui", "websocket-client", "mobile-push-notifications"],
+      "dependsOn": ["sprint-integration"],
       "persona": "qa-engineer",
       "skills": ["playwright", "testing"],
       "model": "Claude Sonnet 4.6 (Thinking)",
       "mode": "Planning",
       "isQA": true
+    },
+    {
+      "id": "sprint-retro",
+      "title": "Sprint 1 Retrospective",
+      "dependsOn": ["qa-testing"],
+      "persona": "product",
+      "skills": ["architecture/markdown"],
+      "model": "Claude Sonnet 4.6 (Thinking)",
+      "mode": "Planning",
+      "isRetro": true
     }
   ]
 }

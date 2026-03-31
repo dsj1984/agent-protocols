@@ -57,11 +57,15 @@ definition down to code review and sprint retrospective.
         direction TB
         I["👤 Load playbook.md"]:::manual
         J["🤖 Agentic Execution<br/>(Sequential & Parallel Sessions)"]:::agentic
+        K["🤖 /sprint-integration"]:::agentic
+        L["🤖 /plan-qa-testing"]:::agentic
         O["🤖 /sprint-code-review"]:::agentic
         P["🤖 /sprint-retro"]:::agentic
 
         I --> J
-        J --> O
+        J --> K
+        K --> L
+        L --> O
         O --> P
 
         P -.-> Q["📄 architecture.md<br/>📄 data-dictionary.md<br/>📄 roadmap.md"]:::artifact
@@ -155,12 +159,19 @@ tasks:
 
 ### 🏁 Closing the Loop (Agentic)
 
-Every sprint concludes with two mandatory workflows to enforce codebase health
-and prepare the documentation for the next cycle:
+Every sprint concludes with a mandatory bookend pipeline that enforces codebase
+health and prepares the documentation for the next cycle. The bookend tasks are
+executed in this strict order:
 
-1. **`/sprint-code-review`**: Scans all sprint diffs for security
+1. **`/sprint-integration`**: Discovers all `sprint-N/*` feature branches,
+   merges them sequentially into `sprint-N` via `--no-ff`, transitions the
+   playbook from Committed to Complete, and cleans up remote branches.
+2. **`/plan-qa-testing`**: Maintains test data and seeds, updates the sprint
+   test plan documentation, and executes the `/run-test-plan` workflow against
+   the now-integrated codebase.
+3. **`/sprint-code-review`**: Scans all sprint diffs for security
    vulnerabilities, unnecessary coupling, and architectural drift.
-2. **`/sprint-retro`**: Synthesizes challenges and wins, makes permanent updates
+4. **`/sprint-retro`**: Synthesizes challenges and wins, makes permanent updates
    to global project documents, and creates the final sprint records.
 
 **Artifact Lifecycle:**

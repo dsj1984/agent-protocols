@@ -5,24 +5,26 @@ description:
 
 # Sprint Integration
 
-This workflow consolidates all concurrent feature development into the main
-sprint branch. It must be run BEFORE QA Testing begins.
+This workflow consolidates all concurrent feature development into
+`sprint-[SPRINT_NUMBER]`. It must be run BEFORE QA Testing begins.
 
 ## Execution Steps
 
-1. **Environment Reset**: Ensure you are on the primary sprint tracking branch
-   (e.g., `main` or your designated environment branch). Pull the latest changes
-   from the remote tracking branch.
+1. **Environment Reset**: Ensure you are on `sprint-[SPRINT_NUMBER]`. Pull the
+   latest changes: `git checkout sprint-[SPRINT_NUMBER] ; git pull`.
 2. **Branch Discovery**: Identify all remote branches associated with this
    sprint's tasks (e.g., branches matching `sprint-[SPRINT_NUMBER]/*`).
 3. **Sequential Merging**:
-   - Merge each identified feature branch into the main sprint tracking branch.
+   - Merge each identified feature branch into `sprint-[SPRINT_NUMBER]`.
    - Use standard `git merge --no-ff`.
-   - Resolve any minor conflicts (strict scoping should prevent large code
-     overlaps).
+   - **Minor conflicts** (fewer than 20 conflicting lines across fewer than 3
+     files, e.g., import ordering or adjacent line edits): resolve
+     automatically.
+   - **Major conflicts** (20+ conflicting lines OR structural changes to shared
+     files like schemas, configs, or routing): **STOP** and alert the user with
+     the exact conflicting files and branches before proceeding.
 4. **Playbook Sync (State Transition to Complete)**:
-   - Open `.agents/docs/sprints/sprint-[SPRINT_NUMBER]/playbook.md` (or the
-     equivalent Playbook Path).
+   - Open `docs/sprints/sprint-[SPRINT_NUMBER]/playbook.md`.
    - For every task branch that was successfully merged, locate its status check
      and change it from Committed (`- [/]`) to Complete (`- [x]`).
 5. **Visualize Progress**:
@@ -32,8 +34,10 @@ sprint branch. It must be run BEFORE QA Testing begins.
      `class C4 committed` to `class C4 complete`).
 6. **Commit State**: Commit the updated `playbook.md` and the merge commits with
    the message:
-   `chore(sprint): integrate feature branches and sync playbook state`. Push the
-   final integrated branch to origin.
+   `chore(sprint): integrate feature branches and sync playbook state`. Push to
+   origin: `git push origin sprint-[SPRINT_NUMBER]`.
+7. **Branch Cleanup**: For each successfully merged feature branch, delete the
+   remote ref: `git push origin --delete sprint-[SPRINT_NUMBER]/[TASK_ID]`.
 
 ## Constraint
 

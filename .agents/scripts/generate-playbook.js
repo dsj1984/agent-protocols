@@ -74,7 +74,7 @@ export function validateManifest(manifest) {
     if (!Array.isArray(task.skills)) errors.push(`Task "${task.id}": skills must be an array.`);
     if (!task.model) errors.push(`Task "${task.id}": missing model.`);
     if (!['Planning', 'Fast'].includes(task.mode)) errors.push(`Task "${task.id}": mode must be "Planning" or "Fast".`);
-    if (typeof task.instructions !== 'string' && !task.isQA && !task.isCodeReview && !task.isRetro) {
+    if (typeof task.instructions !== 'string' && !task.isIntegration && !task.isQA && !task.isCodeReview && !task.isRetro) {
       errors.push(`Task "${task.id}": instructions must be a string.`);
     }
   }

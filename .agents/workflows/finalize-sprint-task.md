@@ -16,9 +16,8 @@ precisely:
    commit using standard conventional commits:
    `[type]([scope]): [lowercase conventional commit message]`.
 3. **Push Feature Branch**: Push your code upstream: `git push -u origin HEAD`.
-4. **State Sync**: Switch back to the primary sprint tracking branch (e.g.,
-   `main` or `sprint-[NUM]`). Execute `git pull --rebase` to fetch any state
-   updates from sibling agents.
+4. **State Sync**: Switch back to `sprint-[NUM]`. Execute `git pull --rebase` to
+   fetch any state updates from sibling agents.
 5. **Update Playbook (4-State Track)**:
    - Open `.agents/docs/sprints/sprint-[NUM]/playbook.md` (or the equivalent
      Playbook Path).
@@ -48,6 +47,6 @@ precisely:
 ## Constraint
 
 Do NOT skip any of the steps above. You MUST ensure validation passes, your code
-feature branch is pushed, AND the separate state tracking branch is updated with
-`- [/]`. Do NOT merge your feature branch code directly into `main` (the
-Integration hook will handle code merging).
+feature branch is pushed, AND the playbook on `sprint-[NUM]` is updated with
+`- [/]`. Do NOT merge your feature branch code directly into `sprint-[NUM]` —
+the `sprint-integration` workflow handles all code merging.

@@ -48,10 +48,13 @@ Your output MUST conform to the JSON schema defined in
   `[]` for all of them (they will become concurrent Chat Sessions).
 - Tasks sharing a workspace scope (e.g., `@repo/web`) at the same dependency
   layer will be grouped into one sequential Chat Session by the script.
-- Always include at least one QA task (with `isQA: true`) and one Retro task
-  (with `isRetro: true`) as the final bookends of your dependency chain.
+- Always include at least one Integration task (with `isIntegration: true`), one
+  QA task (with `isQA: true`), and one Retro task (with `isRetro: true`) as the
+  mandatory bookends of your dependency chain.
 - Optionally include a Code Review task (with `isCodeReview: true`) between QA
   and Retro.
+- The script enforces a strict bookend pipeline in this order: **Integration →
+  QA → Code Review → Retro**.
 
 ### Task Field Guidance
 
@@ -76,17 +79,22 @@ Your output MUST conform to the JSON schema defined in
   `@repo/mobile`, `root`). Tasks sharing a scope at the same layer are grouped
   into one Chat Session. The scope is displayed in the playbook execution rule
   to help agents stay within their assigned workspace boundaries.
-- **`isQA`**, **`isCodeReview`**, **`isRetro`**: Boolean flags for bookend
-  tasks. Each bookend becomes its own dedicated Chat Session at the end of the
-  pipeline — QA first, then Code Review, then Retro (always last). The script
-  auto-injects the appropriate workflow delegation (`plan-qa-testing`,
-  `sprint-code-review`, or `sprint-retro`). You do NOT need to provide
-  `instructions` for these tasks. Use the following persona and skill
-  recommendations for bookend tasks:
-  - **QA** (`isQA`): persona `qa-engineer`, skills from `qa/` category.
-  - **Code Review** (`isCodeReview`): persona `architect`, skills
+- **`isIntegration`**, **`isQA`**, **`isCodeReview`**, **`isRetro`**: Boolean
+  flags for bookend tasks. Each bookend becomes its own dedicated Chat Session
+  appended at the end of the pipeline in this fixed order: **Integration → QA →
+  Code Review → Retro**. The script auto-injects the appropriate workflow
+  delegation command and ignores any `instructions` value provided. Use the
+  following persona and skill recommendations for bookend tasks:
+  - **Integration** (`isIntegration`): triggers the `sprint-integration`
+    workflow, which consolidates all feature branches before QA begins. Use
+    persona `engineer`, skill `architecture/monorepo-path-strategist`.
+  - **QA** (`isQA`): triggers the `plan-qa-testing` workflow. Use persona
+    `qa-engineer`, skills from the `qa/` category.
+  - **Code Review** (`isCodeReview`): triggers the `sprint-code-review`
+    workflow. Use persona `architect`, skill
     `architecture/autonomous-coding-standards`.
-  - **Retro** (`isRetro`): persona `product`, skills `architecture/markdown`.
+  - **Retro** (`isRetro`): triggers the `sprint-retro` workflow. Use persona
+    `product`, skill `architecture/markdown`.
 
 ### Output Location
 
