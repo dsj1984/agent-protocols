@@ -6,6 +6,27 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 and this project adheres to
 [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [2.11.0] - 2026-03-31
+
+### Changed
+
+- **Playbook Generator Optimizations**:
+  - **Transitive Dependency Reduction**: Overhauled `generate-playbook.js` with
+    a Floyd-Warshall transitive reduction algorithm. The Mermaid graph and
+    task-level `Prerequisite Check` blocks now automatically strip redundant
+    edges, significantly reducing visual clutter and agent prompt bloat.
+  - **Hardened Standard Sprint IDs**: Enforced strict **3-digit zero-padding**
+    (e.g., `040.1.1`) for all task identifiers to ensure deterministic
+    alphanumeric sorting across the sprint lifecycle.
+  - **Unique Model Fallbacks**: Implemented a mandatory uniqueness constraint
+    for task models. If a manifest provides a single model, the generator now
+    automatically assigns a diverse second-choice model from a different family
+    (e.g., Claude -> Gemini) to prevent rate-limit deadlocks.
+  - **Domain Emoji Accuracy**: Fixed session-to-icon mapping logic to correctly
+    align `@repo/api`, `@repo/mobile`, and `@repo/web` workspaces with their
+    respective legend tokens.
+- **Version Bump**: Incremented project version to `2.11.0`.
+
 ## [2.10.0] - 2026-03-31
 
 ### Added

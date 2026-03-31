@@ -57,8 +57,8 @@ function selectIcon(session) {
   // Prioritize Ops/Security/Infra to avoid monorepo "Web" mention false-positives
   if (allText.match(/\b(infra|security|ops|config|workflow|auth|git|flow)\b/)) return CHAT_ICONS.security;
   if (allText.match(/\b(db|sql|database|schema|turso|drizzle|sqlite)\b/)) return CHAT_ICONS.database;
+  if (allText.match(/\b(mobile|native|ios|android)\b/)) return CHAT_ICONS.mobile; // Mobile prioritized over web if both mentioned
   if (allText.match(/\b(web|frontend|astro|react|html|css)\b/)) return CHAT_ICONS.web;
-  if (allText.match(/\b(mobile|native|ios|android)\b/)) return CHAT_ICONS.mobile;
   if (allText.match(/\b(test|vitest|playwright)\b/)) return CHAT_ICONS.testing;
   if (allText.match(/\b(doc|markdown|roadmap)\b/)) return CHAT_ICONS.documentation;
 
@@ -271,6 +271,41 @@ export function assignLayers(adjacency) {
   return layers;
 }
 
+/**
+ * Performs transitive reduction on a DAG.
+ * Removes edges (u, v) if there exists a path from u to v of length > 1.
+ */
+export function transitiveReduction(adjacency) {
+  const reduced = new Map();
+  const nodes = [...adjacency.keys()];
+  
+  // Initialize reduced graph with original edges
+  for (const node of nodes) {
+    reduced.set(node, new Set(adjacency.get(node) || []));
+  }
+
+  // Floyd-Warshall style transitive reduction
+  for (const k of nodes) {
+    for (const i of nodes) {
+      if (reduced.get(i).has(k)) {
+        for (const j of nodes) {
+          if (reduced.get(k).has(j)) {
+            // Path i -> k -> j exists, so direct edge i -> j is redundant
+            reduced.get(i).delete(j);
+          }
+        }
+      }
+    }
+  }
+
+  // Convert back to Array format
+  const result = new Map();
+  for (const [node, deps] of reduced.entries()) {
+    result.set(node, [...deps]);
+  }
+  return result;
+}
+
 // ---------------------------------------------------------------------------
 // Chat Session Grouping
 // ---------------------------------------------------------------------------
@@ -469,7 +504,8 @@ export function computeChatDependencies(chatSessions, adjacency) {
     chatDeps.set(session.chatNumber, [...deps].sort((a, b) => a - b));
   }
 
-  return chatDeps;
+  // Apply transitive reduction to chat-level dependencies
+  return transitiveReduction(chatDeps);
 }
 
 // ---------------------------------------------------------------------------
@@ -555,6 +591,7 @@ function renderTask(task, sprintNumber, chatNumber, stepNumber, taskIdToNumber) 
     // Sort dependencies numerically for readability
     const depsList = task.dependsOn
       .map(id => taskIdToNumber.get(id))
+      .filter(Boolean) // Safety check for reduced tasks
       .sort()
       .map(num => `\`${num}\``)
       .join(', ');
@@ -569,7 +606,11 @@ function renderTask(task, sprintNumber, chatNumber, stepNumber, taskIdToNumber) 
     protocol += `4. **Finalization**: Execute the \`finalize-sprint-task\` workflow explicitly for sprint step \`${taskNumber}\`.`;
   }
 
-  const secondChoice = task.secondaryModel || (task.mode === 'Planning' ? 'Gemini 3.1 Pro (Low)' : 'Gemini 3 Flash');
+  let secondChoice = task.secondaryModel || (task.mode === 'Planning' ? 'Gemini 3.1 Pro (Low)' : 'Gemini 3 Flash');
+  if (secondChoice === task.model) {
+    // Enforce uniqueness if default falls back to the same as first choice
+    secondChoice = task.model.includes('Claude') ? 'Gemini 3.1 Pro (Low)' : 'Claude Sonnet 4.6 (Thinking)';
+  }
 
   return `- [ ] **${taskNumber} ${task.title}**
 
@@ -701,7 +742,13 @@ export function generateFromManifest(manifest, options = {}) {
   // 5. Group into Chat Sessions
   const chatSessions = groupIntoChatSessions(manifest.tasks, layers, adjacency);
 
-  // 6. Compute cross-chat dependencies
+  // 6. Apply transitive reduction to individual tasks before rendering instructions
+  const reducedAdjacency = transitiveReduction(adjacency);
+  for (const task of manifest.tasks) {
+    task.dependsOn = reducedAdjacency.get(task.id) || [];
+  }
+
+  // 7. Compute cross-chat dependencies
   const chatDeps = computeChatDependencies(chatSessions, adjacency);
 
   // 7. Render
