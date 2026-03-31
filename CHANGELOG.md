@@ -6,6 +6,27 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 and this project adheres to
 [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [2.9.1] - 2026-03-31
+
+### Changed
+
+- **Harden Playbook Generation Logic**:
+  - **Categorization Improvements**: Patched `selectIcon` to explicitly support
+    `isCloseSprint` (Ops icon) and prioritized DevOps/Infra keyword matching to
+    prevent monorepo "Web" mention false-positives.
+  - **Regex Security**: Implemented word-boundary (`\b`) matching for all domain
+    keywords to prevent accidental substring hits (e.g., "props" triggering
+    "ops").
+  - **Dual Model Enforcement**: Every task now guarantees both a **First
+    Choice** and **Second Choice** model, with intelligent, mode-aware fallbacks
+    (Planning -> Pro Low, Fast -> Flash) if the manifest provides only one.
+  - **Visual Refinement**: Updated task headers to use a pipe (`|`) delimiter
+    for cleaner separation between Mode, First Choice, and Second Choice models.
+  - **Sequential Dependency Logic**: Fixed a bug where tasks in a sequential
+    group (e.g., `39.1.2`) were missing their predecessor (`39.1.1`) as a
+    mandatory prerequisite in the `AGENT EXECUTION PROTOCOL`.
+- **Version Bump**: Incremented project version to `2.9.1`.
+
 ## [2.9.0] - 2026-03-31
 
 ### Added

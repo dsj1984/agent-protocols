@@ -46,19 +46,21 @@ function selectIcon(session) {
   const isRetro = tasks.some(t => t.isRetro);
   const isIntegration = tasks.some(t => t.isIntegration);
   const isCodeReview = tasks.some(t => t.isCodeReview);
+  const isCloseSprint = tasks.some(t => t.isCloseSprint);
 
   if (isQA) return CHAT_ICONS.testing;
   if (isRetro) return CHAT_ICONS.documentation;
-  if (isIntegration || isCodeReview) return CHAT_ICONS.security;
+  if (isIntegration || isCodeReview || isCloseSprint) return CHAT_ICONS.security;
 
   const allText = tasks.map(t => (t.title + ' ' + (t.scope || '') + ' ' + (t.instructions || '')).toLowerCase()).join(' ');
 
-  if (allText.match(/db|sql|database|schema|turso|drizzle|sqlite/)) return CHAT_ICONS.database;
-  if (allText.match(/web|frontend|astro|react|html|css/)) return CHAT_ICONS.web;
-  if (allText.match(/mobile|native|ios|android/)) return CHAT_ICONS.mobile;
-  if (allText.match(/test|vitest|playwright/)) return CHAT_ICONS.testing;
-  if (allText.match(/doc|markdown|roadmap/)) return CHAT_ICONS.documentation;
-  if (allText.match(/infra|security|ops|config|workflow|auth|git|flow/)) return CHAT_ICONS.security;
+  // Prioritize Ops/Security/Infra to avoid monorepo "Web" mention false-positives
+  if (allText.match(/\b(infra|security|ops|config|workflow|auth|git|flow)\b/)) return CHAT_ICONS.security;
+  if (allText.match(/\b(db|sql|database|schema|turso|drizzle|sqlite)\b/)) return CHAT_ICONS.database;
+  if (allText.match(/\b(web|frontend|astro|react|html|css)\b/)) return CHAT_ICONS.web;
+  if (allText.match(/\b(mobile|native|ios|android)\b/)) return CHAT_ICONS.mobile;
+  if (allText.match(/\b(test|vitest|playwright)\b/)) return CHAT_ICONS.testing;
+  if (allText.match(/\b(doc|markdown|roadmap)\b/)) return CHAT_ICONS.documentation;
 
   return CHAT_ICONS.default;
 }
@@ -383,9 +385,15 @@ export function groupIntoChatSessions(tasks, layers, adjacency) {
 
   // Eliminate redundant prerequisites for tasks inside the same sequential session
   for (const session of chatSessions) {
-    if (session.mode === 'Sequential' && session.tasks.length > 1) {
+    if ((session.mode === 'Sequential' || session.mode === 'SequentialBookend' || session.mode === 'PMBookend') && session.tasks.length > 1) {
       for (let i = 1; i < session.tasks.length; i++) {
-        session.tasks[i].dependsOn = [session.tasks[i - 1].id];
+        // Ensure the task explicitly depends on the one before it in the list
+        const currentTask = session.tasks[i];
+        const prevTask = session.tasks[i - 1];
+        if (!currentTask.dependsOn) currentTask.dependsOn = [];
+        if (!currentTask.dependsOn.includes(prevTask.id)) {
+          currentTask.dependsOn.push(prevTask.id);
+        }
       }
     }
   }
@@ -561,11 +569,11 @@ function renderTask(task, sprintNumber, chatNumber, stepNumber, taskIdToNumber) 
     protocol += `4. **Finalization**: Execute the \`finalize-sprint-task\` workflow explicitly for sprint step \`${taskNumber}\`.`;
   }
 
-  const secondaryModel = task.secondaryModel ? ` **Model (Second Choice):** ${task.secondaryModel}` : '';
+  const secondChoice = task.secondaryModel || (task.mode === 'Planning' ? 'Gemini 3.1 Pro (Low)' : 'Gemini 3 Flash');
 
   return `- [ ] **${taskNumber} ${task.title}**
 
-**Mode:** ${task.mode} **Model (First Choice):** ${task.model}${secondaryModel}
+**Mode:** ${task.mode} | **Model (First Choice):** ${task.model} | **Model (Second Choice):** ${secondChoice}
 
 \`\`\`text
 Sprint ${taskNumber}: Adopt the \`${task.persona}\` persona from \`.agents/personas/\`.
