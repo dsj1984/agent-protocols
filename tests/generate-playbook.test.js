@@ -235,9 +235,9 @@ describe('groupIntoChatSessions', () => {
   it('bookend tasks are always placed at the end in separate sessions', () => {
     const tasks = [
       makeTask({ id: 'work', dependsOn: [] }),
-      makeTask({ id: 'integ', dependsOn: ['work'], isIntegration: true, title: 'Integration', persona: 'engineer', skills: ['architecture/monorepo-path-strategist'] }),
+      makeTask({ id: 'integ', dependsOn: ['work'], isIntegration: true, title: 'Integration', persona: 'engineer', skills: ['architecture/monorepo-path-strategist', 'devops/git-flow-specialist'] }),
       makeTask({ id: 'qa', dependsOn: ['integ'], isQA: true, title: 'QA Testing', persona: 'qa-engineer' }),
-      makeTask({ id: 'review', dependsOn: ['qa'], isCodeReview: true, title: 'Code Review', persona: 'architect', skills: ['architecture/autonomous-coding-standards'] }),
+      makeTask({ id: 'review', dependsOn: ['qa'], isCodeReview: true, title: 'Code Review', persona: 'architect', skills: ['devops/git-flow-specialist'] }),
       makeTask({ id: 'retro', dependsOn: ['review'], isRetro: true, title: 'Retro', persona: 'product', skills: ['architecture/markdown'] }),
     ];
     const { adjacency } = buildGraph(tasks);
@@ -341,7 +341,7 @@ describe('renderPlaybook', () => {
           isCodeReview: true,
           title: 'Code Review',
           persona: 'architect',
-          skills: ['architecture/autonomous-coding-standards'],
+          skills: ['devops/git-flow-specialist'],
           instructions: '',
         }),
         makeTask({
@@ -425,7 +425,7 @@ describe('generateFromManifest (end-to-end)', () => {
         makeTask({ id: 'web', dependsOn: ['api'], scope: '@repo/web', title: 'Web UI' }),
         makeTask({ id: 'mobile', dependsOn: ['api'], scope: '@repo/mobile', title: 'Mobile UI' }),
         makeTask({ id: 'qa', dependsOn: ['web', 'mobile'], isQA: true, title: 'QA', persona: 'qa-engineer', instructions: '' }),
-        makeTask({ id: 'review', dependsOn: ['qa'], isCodeReview: true, title: 'Code Review', persona: 'architect', skills: ['architecture/autonomous-coding-standards'], instructions: '' }),
+        makeTask({ id: 'review', dependsOn: ['qa'], isCodeReview: true, title: 'Code Review', persona: 'architect', skills: ['devops/git-flow-specialist'], instructions: '' }),
         makeTask({ id: 'retro', dependsOn: ['review'], isRetro: true, title: 'Retro', persona: 'product', skills: ['architecture/markdown'], instructions: '' }),
       ],
     });

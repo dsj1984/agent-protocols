@@ -29,6 +29,8 @@ and this project adheres to
     zero-tolerance for residual `<<<<<<<` markers (Fix 3).
   - `verify-sprint-prerequisites`: Added **Branch Validation** to ensure agents
     are on the correct sprint base (Fix 6).
+  - **Pre-Commit Hardening**: Integrated mandatory `npm test` execution into the
+    Husky pre-commit hook to match GitHub CI standards and prevent regressions.
 - **Skill Retirement**: Retired and removed the
   `architecture/conventional-commits-enforcer` skill (consolidated into
   `git-flow-specialist`).
