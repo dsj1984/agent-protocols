@@ -16,10 +16,12 @@ precisely:
 2. **Validation**: Ensure all validation and pre-commit hooks pass
    (`npm run lint`, etc.). Fix any resulting errors.
 3. **Branch & Commit**: Create a new isolated branch for your task FROM the
-   sprint base:
+   sprint base using the **STRICT** naming convention:
    `git checkout sprint-[SPRINT_NUMBER] ; git checkout -b sprint-[SPRINT_NUMBER]/[TASK_ID]`.
-   Stage your changes and commit using standard conventional commits:
-   `[type]([scope]): [lowercase conventional commit message]`.
+   - **Note**: Use a FORWARD SLASH (`/`) between the sprint and task ID. Do NOT
+     use underscores or dashes as a primary separator. Stage your changes and
+     commit using standard conventional commits:
+     `[type]([scope]): [lowercase conventional commit message]`.
 4. **Push Feature Branch**: Push your code upstream: `git push -u origin HEAD`.
 5. **State Sync**: Switch back to `sprint-[NUM]`. Execute `git pull --rebase` to
    fetch any state updates from sibling agents.

@@ -48,9 +48,11 @@ Output your consolidated findings directly to the user in the chat:
    - File Path
    - The specific problematic lines of code
    - A detailed explanation of _why_ it failed the review
-   - The concrete recommended fix
-3. If no issues are found, explicitly output: "Audit Complete. All sprint
-   implementations meet the architectural and product specifications."
+   - The concrete recommended fix Step 4 - Finalize
+
+Execute the `/finalize-sprint-task` workflow for your task ID (e.g., `39.7.1`)
+to ensure your review findings (if any were committed) are pushed and the
+playbook status is synced.
 
 ## Constraint
 

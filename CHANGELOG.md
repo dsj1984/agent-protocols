@@ -6,6 +6,25 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 and this project adheres to
 [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [2.9.3] - 2026-03-31
+
+### Changed
+
+- **Hardened Git & Branch Protocols**:
+  - **Naming Enforcement**: Standardized the `sprint-[NUM]/[TASK_ID]` branch
+    naming convention in `finalize-sprint-task` with explicit instructions to
+    use forward slashes, preventing glob discovery failures.
+  - **Self-Cleaning Integration**: Added a mandatory "Self-Cleanup" step to the
+    `sprint-integration` workflow to ensure the integration task's own feature
+    branch is purged after completion.
+  - **End-to-End Orchestration**: Linked the `plan-qa-testing`,
+    `sprint-code-review`, and `sprint-retro` workflows to `finalize-sprint-task`
+    to ensure bookend tasks correctly push branches and track status.
+  - **Catch-All Branch Audit**: Updated `close-sprint` to perform an aggressive
+    remote branch scan that catches and deletes branches using non-standard
+    naming conventions (e.g., dash-separated instead of slash-separated).
+- **Version Bump**: Incremented project version to `2.9.3`.
+
 ## [2.9.2] - 2026-03-31
 
 ### Changed

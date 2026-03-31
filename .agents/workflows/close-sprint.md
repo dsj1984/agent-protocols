@@ -42,9 +42,12 @@ cleans up the sprint branch, and optionally tags a release.
    git push origin --delete sprint-[SPRINT_NUMBER]
    ```
 
-7. **Stale Branch Audit**: Run `git branch -r` and verify no
-   `sprint-[SPRINT_NUMBER]/*` branches remain on origin. If any are found,
-   delete them with `git push origin --delete [BRANCH_NAME]`.
+7. **Stale Branch Audit**: Run `git branch -r` and identify any remaining
+   `sprint-[SPRINT_NUMBER]/*` OR `sprint-[SPRINT_NUMBER]-*` branches on origin.
+   Delete ALL remaining sprint task branches:
+   `git push origin --delete [BRANCH_NAME]`.
+   - **Note**: This catch-all audit ensures even legacy dash-named branches are
+     purged before the sprint is closed.
 8. **Notification**: If the variable `AGENT_NOTIFICATION_WEBHOOK` is defined in
    the `AGENTS.md` file, send a JSON notification using the cross-platform
    syntax:

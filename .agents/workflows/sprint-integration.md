@@ -43,13 +43,17 @@ This workflow consolidates all concurrent feature development into
    origin: `git push origin sprint-[SPRINT_NUMBER]`.
 8. **Branch Cleanup**: For each successfully merged feature branch, delete the
    remote ref: `git push origin --delete sprint-[SPRINT_NUMBER]/[TASK_ID]`.
-9. **Notification**: If the variable `AGENT_NOTIFICATION_WEBHOOK` is defined in
-   the `AGENTS.md` file, send a JSON notification using the cross-platform
-   syntax:
-   `curl -s -X POST -H "Content-Type: application/json" -d "{\"message\": \"Sprint [SPRINT_NUMBER] feature branches have been integrated into the sprint base branch.\"}" $AGENT_NOTIFICATION_WEBHOOK`
-   - If the command fails, log the failure in `WEBHOOK_FAILURE.md` in the sprint
-     directory.
-   - If the variable is not set, skip gracefully.
+9. **Self-Cleanup**: Delete your OWN local and remote task branch for this
+   integration session:
+   `git branch -D sprint-[SPRINT_NUMBER]/[TASK_ID] ; git push origin --delete sprint-[SPRINT_NUMBER]/[TASK_ID]`.
+10. **Notification**: If the variable `AGENT_NOTIFICATION_WEBHOOK` is defined in
+    the `AGENTS.md` file, send a JSON notification using the cross-platform
+    syntax:
+    `curl -s -X POST -H "Content-Type: application/json" -d "{\"message\": \"Sprint [SPRINT_NUMBER] feature branches have been integrated into the sprint base branch.\"}" $AGENT_NOTIFICATION_WEBHOOK`
+
+- If the command fails, log the failure in `WEBHOOK_FAILURE.md` in the sprint
+  directory.
+- If the variable is not set, skip gracefully.
 
 ## Constraint
 
