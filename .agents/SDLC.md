@@ -68,8 +68,9 @@ definition down to code review and sprint retrospective.
         L --> O
         O --> P
 
+        L -.-> L_Art["📄 sprint-[##]/test-plan.md"]:::artifact
         P -.-> Q["📄 architecture.md<br/>📄 data-dictionary.md<br/>📄 roadmap.md"]:::artifact
-        P -.-> R["📄 sprint-[##]/retro.md<br/>📄 sprint-[##]/test-plan.md"]:::artifact
+        P -.-> R["📄 sprint-[##]/retro.md"]:::artifact
     end
 
     style Phase1 fill:#fffce5,stroke:#d4d4d4,padding:0px
@@ -166,9 +167,9 @@ executed in this strict order:
 1. **`/sprint-integration`**: Discovers all `sprint-N/*` feature branches,
    merges them sequentially into `sprint-N` via `--no-ff`, transitions the
    playbook from Committed to Complete, and cleans up remote branches.
-2. **`/plan-qa-testing`**: Maintains test data and seeds, updates the sprint
-   test plan documentation, and executes the `/run-test-plan` workflow against
-   the now-integrated codebase.
+2. **`/plan-qa-testing`**: Maintains test data and seeds, generates and updates
+   the sprint test plan documentation, and executes the `/run-test-plan`
+   workflow against the now-integrated codebase.
 3. **`/sprint-code-review`**: Scans all sprint diffs for security
    vulnerabilities, unnecessary coupling, and architectural drift.
 4. **`/sprint-retro`**: Synthesizes challenges and wins, captures new **Action
