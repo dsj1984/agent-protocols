@@ -37,9 +37,15 @@ precisely:
    edits from other agents, run `git pull --rebase` and try pushing again).
 8. **Notification**: If the variable `AGENT_NOTIFICATION_WEBHOOK` is defined in
    the `AGENTS.md` file, make a webhook call to that URL. **You must send a JSON
-   payload with a `message` parameter**. Example:
-   `curl -X POST -H "Content-Type: application/json" -d '{"message": "Sprint step [TASK_ID] was pushed to its feature branch."}' $AGENT_NOTIFICATION_WEBHOOK`
-   If the variable is not set, fail gracefully without error.
+   payload with a `message` parameter**.
+   - **Protocol**: Use the following cross-platform `curl` syntax to ensure
+     compatibility with both Bash and PowerShell:
+     `curl -s -X POST -H "Content-Type: application/json" -d "{\"message\": \"Sprint step [TASK_ID] was pushed to its feature branch.\"}" $AGENT_NOTIFICATION_WEBHOOK`
+   - **Failure Logging**: If the `curl` command fails (exit code != 0), you MUST
+     log a short `WEBHOOK_FAILURE.md` file in the sprint directory with the
+     timestamp and task ID before proceeding. Do NOT stop the workflow, but
+     ensure the failure is documented for audit.
+   - If the variable is not set, fail gracefully without error.
 
 ## State Progression Reference
 

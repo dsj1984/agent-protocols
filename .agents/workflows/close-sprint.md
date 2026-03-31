@@ -46,15 +46,12 @@ cleans up the sprint branch, and optionally tags a release.
    `sprint-[SPRINT_NUMBER]/*` branches remain on origin. If any are found,
    delete them with `git push origin --delete [BRANCH_NAME]`.
 8. **Notification**: If the variable `AGENT_NOTIFICATION_WEBHOOK` is defined in
-   the `AGENTS.md` file, send a JSON payload:
-
-   ```text
-   curl -X POST -H "Content-Type: application/json" \
-     -d '{"message": "Sprint [SPRINT_NUMBER] has been merged to main and the sprint branch has been cleaned up."}' \
-     $AGENT_NOTIFICATION_WEBHOOK
-   ```
-
-   If the variable is not set, skip gracefully.
+   the `AGENTS.md` file, send a JSON notification using the cross-platform
+   syntax:
+   `curl -s -X POST -H "Content-Type: application/json" -d "{\"message\": \"Sprint [SPRINT_NUMBER] has been merged to main and the sprint branch has been cleaned up.\"}" $AGENT_NOTIFICATION_WEBHOOK`
+   - If the command fails, log the failure in `WEBHOOK_FAILURE.md` in the sprint
+     directory.
+   - If the variable is not set, skip gracefully.
 
 ## Constraint
 

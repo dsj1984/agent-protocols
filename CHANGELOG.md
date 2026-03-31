@@ -6,6 +6,22 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 and this project adheres to
 [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [2.9.2] - 2026-03-31
+
+### Changed
+
+- **Hardened Webhook Notifications**:
+  - **Cross-Platform Compatibility**: Standardized the `curl` payload syntax in
+    `finalize-sprint-task`, `sprint-integration`, and `close-sprint` workflows
+    to ensure reliable execution across Bash and PowerShell/CMD.
+  - **Increased Visibility**: Injected mandatory notification steps into the
+    `sprint-integration` and `close-sprint` workflows to track major sprint
+    milestones.
+  - **Failure Auditing**: Requirement for agents to log `WEBHOOK_FAILURE.md` in
+    the event of network/configuration errors, preventing silent notification
+    drops.
+- **Version Bump**: Incremented project version to `2.9.2`.
+
 ## [2.9.1] - 2026-03-31
 
 ### Changed
