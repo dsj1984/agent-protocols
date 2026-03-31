@@ -544,10 +544,10 @@ function renderTaskInstructions(task, sprintNumber) {
 }
 
 function renderTask(task, sprintNumber, chatNumber, stepNumber, taskIdToNumber) {
-  const taskNumber = `${sprintNumber}.${chatNumber}.${stepNumber}`;
+  const paddedSn = String(sprintNumber).padStart(3, '0');
+  const taskNumber = `${paddedSn}.${chatNumber}.${stepNumber}`;
   const skills = task.skills.length > 0 ? task.skills.join(', ') : 'N/A';
   const instructions = renderTaskInstructions(task, sprintNumber);
-  const paddedSn = String(sprintNumber).padStart(3, '0');
 
   let protocol = `**AGENT EXECUTION PROTOCOL (STRICT ADHERENCE REQUIRED):**\n`;
   protocol += `1. **Environment Reset**: Ensure you are on the sprint base branch: \`git checkout sprint-${paddedSn} ; git pull\`. Verify with \`git branch --show-current\`. If the result is \`main\` or \`master\`, **STOP** and alert the user.\n`;
@@ -588,6 +588,7 @@ ${instructions}
 
 function renderChatSession(session, sprintNumber, taskIdToNumber) {
   const lines = [];
+  const paddedSn = String(sprintNumber).padStart(3, '0');
 
   const modeDisplay = (session.mode === 'PMBookend' || session.mode === 'SequentialBookend') ? 'Sequential' : session.mode;
   lines.push(`### ${session.icon} Chat Session ${session.chatNumber}: ${session.label} (${modeDisplay})`);
@@ -628,12 +629,10 @@ function renderChatSession(session, sprintNumber, taskIdToNumber) {
 export function renderPlaybook(manifest, chatSessions, chatDeps) {
   const lines = [];
   const sn = manifest.sprintNumber;
-
-  // Pad sprint number for directory path
   const paddedSprint = String(sn).padStart(3, '0');
 
   // Title
-  lines.push(`# Sprint ${sn} Playbook: ${manifest.sprintName}`);
+  lines.push(`# Sprint ${paddedSprint} Playbook: ${manifest.sprintName}`);
   lines.push('');
   lines.push(`> **Playbook Path**: \`docs/sprints/sprint-${paddedSprint}/playbook.md\``);
   lines.push('');
@@ -655,7 +654,7 @@ export function renderPlaybook(manifest, chatSessions, chatDeps) {
   for (const session of chatSessions) {
     for (let i = 0; i < session.tasks.length; i++) {
       const task = session.tasks[i];
-      taskIdToNumber.set(task.id, `${sn}.${session.chatNumber}.${i + 1}`);
+      taskIdToNumber.set(task.id, `${paddedSprint}.${session.chatNumber}.${i + 1}`);
     }
   }
 
@@ -706,7 +705,7 @@ export function generateFromManifest(manifest, options = {}) {
   const chatDeps = computeChatDependencies(chatSessions, adjacency);
 
   // 7. Render
-  const markdown = renderPlaybook(manifest, chatSessions, chatDeps);
+  const { markdown } = { markdown: renderPlaybook(manifest, chatSessions, chatDeps) }; // Simplified internal return for consistency with structure below
 
   return { markdown, chatSessions, chatDeps };
 }
@@ -725,7 +724,20 @@ function main() {
     process.exit(1);
   }
 
-  const sprintDir = path.join(PROJECT_ROOT, 'docs', 'sprints', `sprint-${sprintArg}`);
+  // Normalize to 3 digits for robust directory resolution
+  const paddedSprint = String(sprintNumber).padStart(3, '0');
+  
+  // Try finding it with 3 digits first (new standard)
+  let sprintDir = path.join(PROJECT_ROOT, 'docs', 'sprints', `sprint-${paddedSprint}`);
+  
+  // Robustness: Fallback to the original unpadded arg if it exists and the padded one doesn't
+  if (!fs.existsSync(sprintDir)) {
+    const unpaddedDir = path.join(PROJECT_ROOT, 'docs', 'sprints', `sprint-${sprintArg}`);
+    if (fs.existsSync(unpaddedDir)) {
+      sprintDir = unpaddedDir;
+    }
+  }
+
   const manifestPath = path.join(sprintDir, 'task-manifest.json');
 
   if (!fs.existsSync(manifestPath)) {
@@ -751,7 +763,6 @@ function main() {
 
   console.log(`✅ Playbook generated: ${outputPath}`);
 }
-
 // Run main only when executed directly
 const isMain = process.argv[1] && path.resolve(process.argv[1]) === path.resolve(fileURLToPath(import.meta.url));
 if (isMain) {

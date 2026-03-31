@@ -16,8 +16,14 @@ number. This single orchestrator workflow handles the sequential execution of
 the PRD, Tech Spec, and Playbook generation workflows to fully automate the
 sprint planning pipeline.
 
-**Target Sprint:** `[SPRINT_NUMBER]` — The user must provide the sprint number
-when executing this command.
+## Step 0 - Sprint Setup
+
+Run the `/sprint-setup` workflow for the `[SPRINT_NUMBER]`.
+
+1. Read `.agents/workflows/sprint-setup.md` to understand your instructions.
+2. Execute the steps described in `sprint-setup.md`.
+3. Verify that the branch `sprint-[SPRINT_NUMBER]` (padded to 3 digits) has been
+   created and pushed to origin.
 
 ## Step 1 - Product Requirements Document Generation
 

@@ -372,7 +372,7 @@ describe('renderPlaybook', () => {
     const chatDeps = computeChatDependencies(sessions, adjacency);
     const md = renderPlaybook(manifest, sessions, chatDeps);
 
-    assert.ok(md.includes('# Sprint 99 Playbook: Test Sprint'));
+    assert.ok(md.includes('# Sprint 099 Playbook: Test Sprint'));
     assert.ok(md.includes('## Sprint Summary'));
     assert.ok(md.includes('## Fan-Out Execution Flow'));
     assert.ok(md.includes('```mermaid'));
@@ -398,12 +398,12 @@ describe('renderPlaybook', () => {
     const chatDeps = computeChatDependencies(sessions, adjacency);
     const md = renderPlaybook(manifest, sessions, chatDeps);
 
-    // Task number should be 99.1.2 because it relies on the first task in the same layer?
+    // Task number should be 099.1.2 because it relies on the first task in the same layer?
     // Wait, first task is layer 0. Second is layer 1. 
     // They share same scope. So they are consecutive essentially in playbooks.
     // The rendered text for task 'b' should contain the verify check.
     assert.ok(md.includes('verify-sprint-prerequisites'));
-    assert.ok(md.includes('Dependencies**: `99.1.1`'));
+    assert.ok(md.includes('Dependencies**: `099.1.1`'));
     assert.ok(md.includes('Mark Executing'));
     assert.ok(md.includes('finalize-sprint-task'));
   });

@@ -6,6 +6,26 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 and this project adheres to
 [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [2.10.0] - 2026-03-31
+
+### Added
+
+- **`sprint-setup` Workflow**: Introduced a new automated workflow to handle
+  sprint branch creation and directory initialization, resolving race conditions
+  during sprint kickoff.
+- **Master Planning Orchestration**: Integrated `sprint-setup` as the first
+  mandatory step (Step 0) in the `plan-sprint` orchestrator.
+
+### Changed
+
+- **Standardized Sprint Numbering**:
+  - Overhauled `generate-playbook.js` to enforce **3-digit padding** (e.g.,
+    `sprint-040`) for all directory paths, task IDs, and branch checkouts.
+  - Implemented **Robust Directory Resolution** in the generation script to
+    gracefully handle both padded and unpadded directory inputs with automatic
+    fallback.
+- **Version Bump**: Incremented project version to `2.10.0`.
+
 ## [2.9.4] - 2026-03-31
 
 ### Changed
