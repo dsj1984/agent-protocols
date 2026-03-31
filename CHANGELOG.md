@@ -6,6 +6,17 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 and this project adheres to
 [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [2.9.4] - 2026-03-31
+
+### Changed
+
+- **Automated Protocol Maintenance**:
+  - **Submodule Refresh**: Integrated a mandatory `.agents` submodule refresh
+    step into the `close-sprint` workflow. The terminal sprint agent will now
+    automatically pull the latest protocols from the pinned `dist` branch,
+    ensuring consistency and cleaning up phantom Git changes.
+- **Version Bump**: Incremented project version to `2.9.4`.
+
 ## [2.9.3] - 2026-03-31
 
 ### Changed

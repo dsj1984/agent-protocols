@@ -42,13 +42,24 @@ cleans up the sprint branch, and optionally tags a release.
    git push origin --delete sprint-[SPRINT_NUMBER]
    ```
 
-7. **Stale Branch Audit**: Run `git branch -r` and identify any remaining
+7. **Protocol Refresh**: Reset and refresh the `.agents` submodule to the latest
+   version from its pinned branch (`dist`) to ensure the next sprint starts with
+   pristine protocols:
+
+   ```text
+   git submodule update --remote --merge .agents
+   git add .agents
+   git commit -m "chore(sprint): refresh .agents protocol submodule to latest"
+   git push origin main
+   ```
+
+8. **Stale Branch Audit**: Run `git branch -r` and identify any remaining
    `sprint-[SPRINT_NUMBER]/*` OR `sprint-[SPRINT_NUMBER]-*` branches on origin.
    Delete ALL remaining sprint task branches:
    `git push origin --delete [BRANCH_NAME]`.
    - **Note**: This catch-all audit ensures even legacy dash-named branches are
      purged before the sprint is closed.
-8. **Notification**: If the variable `AGENT_NOTIFICATION_WEBHOOK` is defined in
+9. **Notification**: If the variable `AGENT_NOTIFICATION_WEBHOOK` is defined in
    the `AGENTS.md` file, send a JSON notification using the cross-platform
    syntax:
    `curl -s -X POST -H "Content-Type: application/json" -d "{\"message\": \"Sprint [SPRINT_NUMBER] has been merged to main and the sprint branch has been cleaned up.\"}" $AGENT_NOTIFICATION_WEBHOOK`
