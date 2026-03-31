@@ -148,6 +148,10 @@ tasks:
   Frontend development, QA automation, and non-blocking documentation.
 - **Auto-Tracking**: Agents update the playbook state (`- [x]`) in real-time as
   tasks are completed, providing a live dashboard of sprint progress.
+- **Task Completion Notifications**: When a task is pushed to a feature branch,
+  agents broadcast a status update as a JSON payload to the
+  `AGENT_NOTIFICATION_WEBHOOK` (if defined in `AGENTS.md`) to ensure real-time
+  synchronization across the swarm.
 
 ### 🏁 Closing the Loop (Agentic)
 
