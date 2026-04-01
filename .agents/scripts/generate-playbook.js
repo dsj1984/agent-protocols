@@ -645,15 +645,15 @@ function renderChatSession(session, sprintNumber, taskIdToNumber) {
     );
   } else if (session.mode === 'PMBookend') {
     lines.push(
-      `_Execution Rule: Continue sequentially in the current chat window once all PRs are merged._`,
+      `_Execution Rule: Run this in the primary PM planning chat once all PRs are merged._`,
     );
   } else if (session.mode === 'SequentialBookend') {
     lines.push(
-      `_Execution Rule: Continue sequentially in the current chat window after code complete._`,
+      `_Execution Rule: Open a NEW chat window after code complete._`,
     );
   } else {
     lines.push(
-      `_Execution Rule: Continue sequentially in the current chat window.${scopeNote}_`,
+      `_Execution Rule: These tasks must be run sequentially in a single chat window.${scopeNote}_`,
     );
   }
   lines.push('');
