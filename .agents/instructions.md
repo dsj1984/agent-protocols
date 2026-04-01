@@ -185,3 +185,13 @@ using `--no-ff` or squashed if appropriate, as governed by the
 `sprint-integration` workflow.
 
 ---
+
+## 6. Workspace & File Hygiene (Temporary Files)
+
+To keep the repository clean and avoid polluting the Git history:
+
+- **Root Temp Directory**: All temporary files, scratch scripts, or intermediate
+  outputs MUST be stored in the `/temp/` directory located at the workspace
+  root.
+- **Git Exclusion**: The `/temp/` directory is excluded from Git by default. Do
+  NOT commit any files stored within it.

@@ -6,3 +6,5 @@ dist
 # Agent Local Overrides
 .agents/*.local.md
 .agents/*local.json
+
+temp/

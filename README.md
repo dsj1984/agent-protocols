@@ -64,6 +64,9 @@ ensure high-quality sprint execution:
   limiting the number of logical steps/bullet points in a task's instructions.
   This ensures agents stay within a manageable cognitive context. Configurable
   via `maxInstructionSteps` (default: 5) in `.agents/config/config.json`.
+- **Workspace & File Hygiene**: Mandates that all temporary files and scratch
+  scripts MUST be stored in the `/temp/` directory at the project root. This
+  directory is Git-ignored by default to prevent repository pollution.
 
 1. **Read the Full Guide**: For detailed configuring, using personas/skills, and
    more, refer to the detailed protocol guide: 👉

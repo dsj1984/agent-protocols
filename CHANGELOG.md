@@ -6,6 +6,17 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 and this project adheres to
 [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [2.17.1] - 2026-04-01
+
+### Added
+
+- **Workspace & File Hygiene Protocol**:
+  - Introduced a mandatory global instruction in `instructions.md` to store all
+    temporary files, scratch scripts, and intermediate outputs in a root
+    `/temp/` directory.
+  - Automatically excluded the `/temp/` directory from Git to prevent repository
+    pollution and history bloat.
+
 ## [2.17.0] - 2026-04-01
 
 ### Added

@@ -169,6 +169,9 @@ tasks:
   agent "thrashing," agents are mandated to halt and re-plan if they hit a
   threshold of consecutive errors or research steps without making progress. See
   `.agents/instructions.md` for specific thresholds.
+- **Workspace & File Hygiene**: To keep the repository clean, agents are
+  required to store all temporary artifacts and scratch scripts in the root
+  `/temp/` directory, which is excluded from Git.
 
 ### 🏁 Closing the Loop (Agentic)
 
