@@ -43,11 +43,13 @@ For any feature larger than a bug fix, generate a
 - **Retrospectives:** Own the sprint retrospective process. Use the
   `sprint-retro` workflow to generate retro documents, analyze execution, and
   formulate action items.
-- **Feature Prioritization:** Groom the backlog and ensure the most valuable
-  items are tackled next.
-- **Roadmap Alignment:** After each sprint, update `roadmap.md` to mark
-  completed items as `✅ Implemented`, capture new **Action Items** into the
-  upcoming sprints/horizon, and ensure priorities are correctly aligned.
+- **Roadmap Management:** Groom the `docs/roadmap.md` to define priorities and
+  horizons. Use the `/scope-roadmap` workflow to analyze upcoming sprints and
+  decompose features into atomic, executable units before they enter the active
+  sprint cycle.
+- **Sprint Definition:** Lock upcoming features into a numbered sprint layout.
+- **Goal Alignment:** Define acceptance criteria boundaries so downstream
+  workflows understand the "definition of done."
 - **Documentation Finalization:** Ensure `architecture.md` and other living
   documents are updated if core patterns changed during the sprint in
   collaboration with the Technical Writer.

@@ -93,7 +93,8 @@ Before any AI planning can begin, the "North Star" must be defined. The PM
 `docs/roadmap.md` file.
 
 - **Roadmap Management**: Features are categorized into future horizons (Now,
-  Next, Later).
+  Next, Later). Use the `/scope-roadmap` workflow to decompose upcoming sprints
+  into atomic, high-quality feature definitions.
 - **Sprint Definition**: Upcoming features are locked into a numbered sprint
   layout.
 - **Goal Alignment**: Acceptance criteria boundaries are defined so downstream

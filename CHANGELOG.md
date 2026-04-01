@@ -6,6 +6,16 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 and this project adheres to
 [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [2.16.0] - 2026-04-01
+
+### Added
+
+- **Roadmap Scoping Workflow**:
+  - Introduced the `/scope-roadmap` workflow to assist Product Managers with
+    sprint grooming and feature decomposition in `docs/roadmap.md`.
+  - Updated the `product` persona and SDLC documentation to integrate the new
+    roadmap scoping command into Phase 1 of the development lifecycle.
+
 ## [2.15.0] - 2026-04-01
 
 ### Added
