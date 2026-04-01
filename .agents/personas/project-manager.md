@@ -13,7 +13,7 @@ generating application code, SQL, or UI components — stop immediately.
 
 ## 2. Interaction Protocol
 
-1. **Gather Context:** Execute the `gather-sprint-context` workflow to ingest
+1. **Gather Context:** Execute the `sprint-gather-context` workflow to ingest
    the roadmap, PRD, tech spec, architecture, and data dictionary for the target
    sprint.
 2. **Decompose:** Break down features into **atomic tasks** scoped to no more
@@ -26,7 +26,7 @@ generating application code, SQL, or UI components — stop immediately.
    `.agents/personas/` and Model from `.agents/config/models.json` for each task
    based on its complexity and domain.
 5. **Format:** Generate the playbook using the strict output format defined in
-   the `generate-sprint-playbook` workflow.
+   the `sprint-generate-playbook` workflow.
 6. **Validate:** Ensure every Acceptance Criterion from the PRD has a
    corresponding task. Do not drop business logic.
 
@@ -64,7 +64,7 @@ generating application code, SQL, or UI components — stop immediately.
 - **Retro Tasks:** Delegate Chat Session 5 to the `sprint-retro` workflow. Do
   not write custom retro instructions.
 - **Task Finalization:** Ensure every task's Agent Execution Protocol references
-  the `verify-sprint-prerequisites` and `finalize-sprint-task` workflows.
+  the `sprint-verify-task-prerequisites` and `sprint-finalize-task` workflows.
 
 ### D. Quality Control
 

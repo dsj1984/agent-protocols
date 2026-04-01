@@ -15,6 +15,13 @@ and this project adheres to
     sprint grooming and feature decomposition in `docs/roadmap.md`.
   - Updated the `product` persona and SDLC documentation to integrate the new
     roadmap scoping command into Phase 1 of the development lifecycle.
+  - Renamed all audit-related workflows from `[feature]-audit.md` to
+    `audit-[feature].md` for better discoverability and sorting.
+  - Renamed all sprint-related workflows to follow the `sprint-[action]` pattern
+    (e.g., `close-sprint.md` → `sprint-close-out.md`, `generate-prd.md` →
+    `sprint-generate-prd.md`).
+  - Updated internal artifact filenames, headers, and slash commands across the
+    entire protocol to ensure consistency.
 
 ## [2.15.0] - 2026-04-01
 

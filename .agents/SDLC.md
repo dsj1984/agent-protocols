@@ -40,9 +40,9 @@ definition down to code review and sprint retrospective.
     %% Phase 2: Automated Planning
     subgraph Phase2 ["Phase 2: Sprint Planning"]
         direction TB
-        F["🤖 /generate-prd"]:::agentic
-        G["🤖 /generate-tech-spec"]:::agentic
-        H["🤖 /generate-sprint-playbook"]:::agentic
+        F["🤖 /sprint-generate-prd"]:::agentic
+        G["🤖 /sprint-generate-tech-spec"]:::agentic
+        H["🤖 /sprint-generate-playbook"]:::agentic
 
         F --> G
         G --> H
@@ -61,7 +61,7 @@ definition down to code review and sprint retrospective.
         L["🤖 /plan-qa-testing"]:::agentic
         O["🤖 /sprint-code-review"]:::agentic
         P["🤖 /sprint-retro"]:::agentic
-        Q2["🤖 /close-sprint"]:::agentic
+        Q2["🤖 /sprint-close-out"]:::agentic
 
         I --> J
         J --> K
@@ -113,19 +113,19 @@ structured execution plan.
 
 ### Sequential Generation Steps
 
-1. **Product Discovery (`/generate-prd`)**:
+1. **Product Discovery (`/sprint-generate-prd`)**:
    - Reads `roadmap.md` for the target sprint items.
    - Generates a strict **Product Requirements Document (PRD)** focusing on
      Problem Statements, User Stories, and Acceptance Criteria.
    - Saves to: `docs/sprints/sprint-[##]/prd.md`.
 
-2. **Architecture Review (`/generate-tech-spec`)**:
+2. **Architecture Review (`/sprint-generate-tech-spec`)**:
    - Cross-references the PRD with `data-dictionary.md` and `architecture.md`.
    - Drafts an explicit **Technical Specification** mapping out Turso/Drizzle
      schema changes and Hono API routes.
    - Saves to: `docs/sprints/sprint-[##]/tech-spec.md`.
 
-3. **Playbook Generation (`/generate-sprint-playbook`)**:
+3. **Playbook Generation (`/sprint-generate-playbook`)**:
    - Synthesizes the PRD and Tech Spec into a structured `task-manifest.json`
      file.
    - Executes `.agents/scripts/generate-playbook.js` to render the **Sprint
@@ -187,7 +187,7 @@ executed in this strict order:
 4. **`/sprint-retro`**: Synthesizes challenges and wins, captures new **Action
    Items** into the roadmap, makes permanent updates to global project
    documents, and creates the final sprint records.
-5. **`/close-sprint`**: The terminal step — asserts all playbook tasks are
+5. **`/sprint-close-out`**: The terminal step — asserts all playbook tasks are
    `[x]`, merges `sprint-N` into `main` via `--no-ff`, cleans up the sprint
    branch (local + remote), and verifies no stale branches remain.
 

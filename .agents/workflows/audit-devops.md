@@ -48,7 +48,7 @@ Evaluate the gathered context against the following dimensions:
 ## Step 3: Output Requirements
 
 Generate and save a highly structured Markdown audit report to
-`devops-audit-results.md` in the project root, using the exact template below.
+`audit-devops-results.md` in the project root, using the exact template below.
 
 ```markdown
 # DevOps Infrastructure Audit Report

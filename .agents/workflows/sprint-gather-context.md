@@ -4,7 +4,7 @@ description:
   a Sprint.
 ---
 
-# Gather Sprint Context
+# Sprint Gather Context
 
 When instructed to gather sprint context, you must sequentially read the
 following files to ensure you fully grasp the objectives, features, algorithms,

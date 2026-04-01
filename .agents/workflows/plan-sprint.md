@@ -27,31 +27,32 @@ Run the `/sprint-setup` workflow for the `[SPRINT_NUMBER]`.
 
 ## Step 1 - Product Requirements Document Generation
 
-Run the `/generate-prd` workflow for the `[SPRINT_NUMBER]`.
+Run the `/sprint-generate-prd` workflow for the `[SPRINT_NUMBER]`.
 
-1. Read `.agents/workflows/generate-prd.md` to understand your instructions.
-1. Execute the steps described in `generate-prd.md` as if you were running the
-   command yourself.
+1. Read `.agents/workflows/sprint-generate-prd.md` to understand your
+   instructions.
+1. Execute the steps described in `sprint-generate-prd.md` as if you were
+   running the command yourself.
 1. Verify that `docs/sprints/sprint-[SPRINT_NUMBER]/prd.md` has been
    successfully created.
 
 ## Step 2 - Architecture Review & Tech Spec Generation
 
-Run the `/generate-tech-spec` workflow for the `[SPRINT_NUMBER]`.
+Run the `/sprint-generate-tech-spec` workflow for the `[SPRINT_NUMBER]`.
 
-1. Read `.agents/workflows/generate-tech-spec.md` to understand your
+1. Read `.agents/workflows/sprint-generate-tech-spec.md` to understand your
    instructions.
-1. Execute the steps described in `generate-tech-spec.md`.
+1. Execute the steps described in `sprint-generate-tech-spec.md`.
 1. Verify that `docs/sprints/sprint-[SPRINT_NUMBER]/tech-spec.md` has been
    successfully created.
 
 ## Step 3 - Playbook Generation
 
-Run the `/generate-sprint-playbook` workflow for the `[SPRINT_NUMBER]`.
+Run the `/sprint-generate-playbook` workflow for the `[SPRINT_NUMBER]`.
 
-1. Read `.agents/workflows/generate-sprint-playbook.md` to understand your
+1. Read `.agents/workflows/sprint-generate-playbook.md` to understand your
    instructions.
-1. Execute the steps described in `generate-sprint-playbook.md`.
+1. Execute the steps described in `sprint-generate-playbook.md`.
 1. Verify that `docs/sprints/sprint-[SPRINT_NUMBER]/playbook.md` has been
    successfully created.
 

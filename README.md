@@ -71,7 +71,7 @@ ensure high-quality sprint execution:
 
 ### Agent Notification Webhook
 
-The `generate-sprint-playbook` workflow now supports an optional notification
+The `sprint-generate-playbook` workflow now supports an optional notification
 webhook. If the `AGENT_NOTIFICATION_WEBHOOK` variable is set in the `AGENTS.md`
 file at the project root, every completed playbook step will trigger a
 notification to that URL. This allows for real-time tracking of agent progress

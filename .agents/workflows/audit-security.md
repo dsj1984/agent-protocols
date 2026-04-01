@@ -42,7 +42,7 @@ Scan the codebase for:
 ## Step 3: Output Requirements
 
 Generate and save a highly structured Markdown audit report to
-`security-audit-results.md` in the project root, using the exact template below.
+`audit-security-results.md` in the project root, using the exact template below.
 
 ```markdown
 # Security Audit Report

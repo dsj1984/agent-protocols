@@ -22,7 +22,7 @@ Dual-Purpose standard:
    are updated, initiate the `/run-test-plan` workflow against the updated
    files. **DO NOT invent Playwright tests from scratch**—rely on the workflow's
    native execution loop.
-5. **Finalize**: Use the `/finalize-sprint-task` workflow for your task ID
+5. **Finalize**: Use the `/sprint-finalize-task` workflow for your task ID
    (e.g., `39.4.1`) to push your test maintenance branch and update the
    playbook.
 

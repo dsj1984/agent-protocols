@@ -2,7 +2,7 @@
 description: Create the sprint branch and initialize the sprint directory
 ---
 
-# Sprint Setup Workflow
+# Sprint Setup
 
 ## Context
 

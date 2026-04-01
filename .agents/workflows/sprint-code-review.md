@@ -19,7 +19,7 @@ coding standards before the sprint is formally closed.
 
 ## Step 1 - Mandatory Context Retrieval
 
-Execute the `gather-sprint-context` workflow for `[SPRINT_NUMBER]` to retrieve
+Execute the `sprint-gather-context` workflow for `[SPRINT_NUMBER]` to retrieve
 the architectural guidelines, PRD, Technical Spec, and Playbook.
 
 ## Step 2 - Code Analysis
@@ -50,7 +50,7 @@ Output your consolidated findings directly to the user in the chat:
    - A detailed explanation of _why_ it failed the review
    - The concrete recommended fix Step 4 - Finalize
 
-Execute the `/finalize-sprint-task` workflow for your task ID (e.g., `39.7.1`)
+Execute the `/sprint-finalize-task` workflow for your task ID (e.g., `39.7.1`)
 to ensure your review findings (if any were committed) are pushed and the
 playbook status is synced.
 

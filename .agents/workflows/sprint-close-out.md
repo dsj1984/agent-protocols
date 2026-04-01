@@ -3,7 +3,7 @@ description:
   Final sprint closure — merge sprint branch to main, clean up, and tag release.
 ---
 
-# Close Sprint
+# Sprint Close Out
 
 This workflow is the **terminal step** of the sprint lifecycle. It promotes the
 fully integrated and reviewed `sprint-[SPRINT_NUMBER]` branch into `main`,

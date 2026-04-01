@@ -2,7 +2,7 @@
 description: Generate a Technical Specification from a PRD
 ---
 
-# Architecture Review Workflow
+# Sprint Generate Tech Spec
 
 ## Role
 

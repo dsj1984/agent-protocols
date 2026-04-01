@@ -24,7 +24,7 @@ Chat Session 5), you must execute the following steps:
    in the `agent-protocols` repository.
 5. **Update Architecture**: Update `architecture.md` if any core patterns,
    schemas, or dependencies were introduced or changed during this sprint.
-6. **Finalize**: Use the `/finalize-sprint-task` workflow for your task ID
+6. **Finalize**: Use the `/sprint-finalize-task` workflow for your task ID
    (e.g., `39.8.1`) to ensure the retro documentation and roadmap updates are
    pushed and the playbook status is tracked.
 

@@ -2,7 +2,7 @@
 description: Generate a Product Requirements Document (PRD) for a Sprint
 ---
 
-# PRD Generation Workflow
+# Sprint Generate PRD
 
 ## Role
 

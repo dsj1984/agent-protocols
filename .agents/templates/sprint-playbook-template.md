@@ -6,7 +6,7 @@
 > deterministically from a `task-manifest.json` file.
 >
 > For instructions on how to generate a playbook, see the
-> `generate-sprint-playbook` workflow.
+> `sprint-generate-playbook` workflow.
 
 ---
 
@@ -68,9 +68,9 @@ Sprint 99.1.1: Adopt the `engineer` persona from `.agents/personas/`.
 
 **AGENT EXECUTION PROTOCOL (STRICT ADHERENCE REQUIRED):**
 1. **Mark Executing**: Update the playbook — change your task checkbox to `- [~]` and set the Mermaid class for node `C1` to `executing` (if not already). Commit and push the state change.
-2. **Prerequisite Check**: Execute the `verify-sprint-prerequisites` workflow for sprint step `99.1.1` and verify dependencies in `playbook.md`. If it fails, **STOP** and alert the user.
+2. **Prerequisite Check**: Execute the `sprint-verify-task-prerequisites` workflow for sprint step `99.1.1` and verify dependencies in `playbook.md`. If it fails, **STOP** and alert the user.
 3. **Execution**: Perform the task instructions below.
-4. **Finalization**: Execute the `finalize-sprint-task` workflow explicitly for sprint step `99.1.1`.
+4. **Finalization**: Execute the `sprint-finalize-task` workflow explicitly for sprint step `99.1.1`.
 
 **Active Skills:** `database/turso, backend/sqlite-drizzle-expert`
 

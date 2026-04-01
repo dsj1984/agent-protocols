@@ -4,7 +4,7 @@ description:
   starting a new sprint task.
 ---
 
-# Verify Sprint Prerequisites
+# Sprint Verify Task Prerequisites
 
 Before an agent begins performing file modifications for a sprint task in the
 `playbook.md`, it MUST execute the following pre-flight checks:

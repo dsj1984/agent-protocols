@@ -3,7 +3,7 @@ description:
   Generate an actionable sprint playbook from PRD and architecture plans
 ---
 
-# Playbook Generation Workflow
+# Sprint Generate Playbook
 
 ## Role
 
@@ -23,7 +23,7 @@ when executing this command.
 
 ## Step 1 - Mandatory Knowledge Retrieval
 
-Execute the `gather-sprint-context` workflow for `[SPRINT_NUMBER]` to retrieve
+Execute the `sprint-gather-context` workflow for `[SPRINT_NUMBER]` to retrieve
 the roadmap, PRD, technical specifications, and architecture required to
 generate your tasks.
 

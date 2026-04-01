@@ -418,7 +418,7 @@ function appendBookendSessions(chatSessions, bookendTasks, regularTasks, chatNum
     { key: 'isQA', label: 'QA & E2E Testing', mode: 'SequentialBookend' },
     { key: 'isCodeReview', label: 'Code Review', mode: 'PMBookend' },
     { key: 'isRetro', label: 'Sprint Retrospective', mode: 'PMBookend' },
-    { key: 'isCloseSprint', label: 'Close Sprint', mode: 'PMBookend' },
+    { key: 'isCloseSprint', label: 'Sprint Close Out', mode: 'PMBookend' },
   ];
 
   const hasOutgoing = new Set();
@@ -574,7 +574,7 @@ function renderTaskInstructions(task, sprintNumber) {
     return `Execute the \`sprint-retro\` workflow for \`${sprintNumber}\`.`;
   }
   if (task.isCloseSprint) {
-    return `Execute the \`close-sprint\` workflow for \`${sprintNumber}\`.`;
+    return `Execute the \`sprint-close-out\` workflow for \`${sprintNumber}\`.`;
   }
   return task.instructions;
 }
@@ -596,14 +596,14 @@ function renderTask(task, sprintNumber, chatNumber, stepNumber, taskIdToNumber) 
       .map(num => `\`${num}\``)
       .join(', ');
     protocol += `2. **Mark Executing**: Update the playbook — change your task checkbox to \`- [~]\` and set the Mermaid class for node \`C${chatNumber}\` to \`executing\` (if not already). Commit and push the state change.\n`;
-    protocol += `3. **Prerequisite Check**: Execute the \`verify-sprint-prerequisites\` workflow for sprint step \`${taskNumber}\`.\n`;
+    protocol += `3. **Prerequisite Check**: Execute the \`sprint-verify-task-prerequisites\` workflow for sprint step \`${taskNumber}\`.\n`;
     protocol += `   - **Dependencies**: ${depsList}\n`;
     protocol += `4. **Execution**: Perform the task instructions below.\n`;
-    protocol += `5. **Finalization**: Execute the \`finalize-sprint-task\` workflow explicitly for sprint step \`${taskNumber}\`.`;
+    protocol += `5. **Finalization**: Execute the \`sprint-finalize-task\` workflow explicitly for sprint step \`${taskNumber}\`.`;
   } else {
     protocol += `2. **Mark Executing**: Update the playbook — change your task checkbox to \`- [~]\` and set the Mermaid class for node \`C${chatNumber}\` to \`executing\` (if not already). Commit and push the state change.\n`;
     protocol += `3. **Execution**: Perform the task instructions below.\n`;
-    protocol += `4. **Finalization**: Execute the \`finalize-sprint-task\` workflow explicitly for sprint step \`${taskNumber}\`.`;
+    protocol += `4. **Finalization**: Execute the \`sprint-finalize-task\` workflow explicitly for sprint step \`${taskNumber}\`.`;
   }
 
   let secondChoice = task.secondaryModel || (task.mode === 'Planning' ? 'Gemini 3.1 Pro (Low)' : 'Gemini 3 Flash');

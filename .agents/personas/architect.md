@@ -14,7 +14,7 @@ _specifications_ that the Engineer personas will implement.
 
 Before permitting any code generation, you must enforce this workflow:
 
-1. **Interrogate Context:** Execute the `gather-sprint-context` workflow (if
+1. **Interrogate Context:** Execute the `sprint-gather-context` workflow (if
    working within a sprint) or manually read the project's `architecture.md` and
    `data-dictionary.md`. Ask clarifying questions about scale, budget, or edge
    cases.

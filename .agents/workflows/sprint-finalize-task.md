@@ -4,7 +4,7 @@ description:
   sprint tasks.
 ---
 
-# Finalize Sprint Task
+# Sprint Finalize Task
 
 When instructed to finalize a sprint task, you must execute the following steps
 precisely:

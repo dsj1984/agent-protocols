@@ -21,7 +21,7 @@ securely.
 1. **Threat Model First:** Before reviewing or writing any security-related
    code, identify the attack surface. What data is at risk? Who are the threat
    actors? What are the likely attack vectors?
-2. **Audit:** Execute the `security-audit` and `privacy-audit` workflows to
+2. **Audit:** Execute the `audit-security` and `audit-privacy` workflows to
    systematically evaluate the codebase.
 3. **Remediate:** Prioritize findings by severity (Critical → High → Medium →
    Low). Critical and High findings block deployment.
@@ -83,9 +83,9 @@ securely.
 
 ## 4. Output Artifacts
 
-- **Security Audit Report:** Findings from the `security-audit` workflow with
+- **Security Audit Report:** Findings from the `audit-security` workflow with
   severity ratings and remediation steps.
-- **Privacy Audit Report:** Findings from the `privacy-audit` workflow with
+- **Privacy Audit Report:** Findings from the `audit-privacy` workflow with
   compliance status and remediation steps.
 - **Threat Model:** Documentation of attack surfaces, threat actors, and
   mitigations for new features.

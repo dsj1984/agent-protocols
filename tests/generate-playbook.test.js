@@ -393,7 +393,7 @@ describe('renderPlaybook', () => {
     assert.ok(md.includes('plan-qa-testing'));
     assert.ok(md.includes('sprint-code-review'));
     assert.ok(md.includes('sprint-retro'));
-    assert.ok(md.includes('close-sprint'));
+    assert.ok(md.includes('sprint-close-out'));
   });
 
   it('injects the execution protocol including prerequisite check when task has dependencies', () => {
@@ -413,10 +413,10 @@ describe('renderPlaybook', () => {
     // Wait, first task is layer 0. Second is layer 1. 
     // They share same scope. So they are consecutive essentially in playbooks.
     // The rendered text for task 'b' should contain the verify check.
-    assert.ok(md.includes('verify-sprint-prerequisites'));
+    assert.ok(md.includes('sprint-verify-task-prerequisites'));
     assert.ok(md.includes('Dependencies**: `099.1.1`'));
     assert.ok(md.includes('Mark Executing'));
-    assert.ok(md.includes('finalize-sprint-task'));
+    assert.ok(md.includes('sprint-finalize-task'));
   });
 
   it('omits prerequisite check when a task has no dependencies', () => {
@@ -429,8 +429,8 @@ describe('renderPlaybook', () => {
     const chatDeps = computeChatDependencies(sessions, adjacency);
     const md = renderPlaybook(manifest, sessions, chatDeps);
 
-    assert.ok(!md.includes('verify-sprint-prerequisites'));
-    assert.ok(md.includes('finalize-sprint-task'));
+    assert.ok(!md.includes('sprint-verify-task-prerequisites'));
+    assert.ok(md.includes('sprint-finalize-task'));
   });
 });
 
