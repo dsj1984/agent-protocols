@@ -289,17 +289,16 @@ describe('groupIntoChatSessions', () => {
     const { adjacency } = buildGraph(tasks);
     const layers = assignLayers(adjacency);
     const sessions = groupIntoChatSessions(tasks, layers, adjacency);
-
-    // Work task → 1 session, then Integ, then QA, then Code Review, then Retro, then Close = 6 sessions
-    assert.equal(sessions.length, 6);
-    assert.ok(sessions[sessions.length - 1].label.includes('Close'));
+    // Work task → 1 session, Merge & Verify (Integ, QA) → 1 session, Sprint Admin (Review, Retro, Close) → 1 session = 3 sessions
+    assert.equal(sessions.length, 3);
+    assert.ok(sessions[sessions.length - 1].label.includes('Sprint Administration'));
     assert.ok(sessions[sessions.length - 1].mode === 'PMBookend');
-    assert.ok(sessions[sessions.length - 2].label.includes('Retro'));
-    assert.ok(sessions[sessions.length - 2].mode === 'PMBookend');
-    assert.ok(sessions[sessions.length - 3].label.includes('Code Review'));
-    assert.ok(sessions[sessions.length - 4].label.includes('QA'));
-    assert.ok(sessions[sessions.length - 5].label.includes('Integration'));
-    assert.ok(sessions[sessions.length - 4].mode === 'SequentialBookend');
+    assert.ok(sessions[sessions.length - 2].label.includes('Merge & Verify'));
+    assert.ok(sessions[sessions.length - 2].mode === 'SequentialBookend');
+    // Session 2 tasks should be Integration (041.2.1) and QA (041.2.2)
+    assert.equal(sessions[1].tasks.length, 2);
+    // Session 3 tasks should be Review, Retro, Close
+    assert.equal(sessions[2].tasks.length, 3);
   });
 
   it('scoped tasks at the same layer are grouped', () => {
@@ -453,8 +452,8 @@ describe('generateFromManifest (end-to-end)', () => {
     const { markdown, chatSessions } = generateFromManifest(manifest);
 
     assert.ok(markdown.length > 0);
-    // Should have: db(1), api(2), web(3), mobile(4), Integ(5), QA(6), Review(7), Retro(8), Close(9) = 9
-    assert.equal(chatSessions.length, 9, `Expected 9 sessions, got ${chatSessions.length}`);
+    // Should have: db(1), api(2), web(3), mobile(4), Merge & Verify(5), Sprint Administration(6) = 6
+    assert.equal(chatSessions.length, 6, `Expected 6 sessions, got ${chatSessions.length}`);
   });
 
   it('produces a playbook for a 10-bug bash', () => {
@@ -476,8 +475,8 @@ describe('generateFromManifest (end-to-end)', () => {
 
     assert.ok(markdown.length > 0);
     // tasks array replaces [makeTask()] entirely.
-    // 10 concurrent bugs + 5 bookends = 15
-    assert.equal(chatSessions.length, 15);
+    // 10 concurrent bugs + 2 bookend phases = 12
+    assert.equal(chatSessions.length, 12);
 
     // First 10 should be concurrent
     for (let i = 0; i < 10; i++) {

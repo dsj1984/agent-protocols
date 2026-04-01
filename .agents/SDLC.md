@@ -176,9 +176,11 @@ tasks:
 ### 🏁 Closing the Loop (Agentic)
 
 Every sprint concludes with a mandatory bookend pipeline that enforces codebase
-health and prepares the documentation for the next cycle. To preserve execution context, these tasks are consolidated into two Chat Sessions:
+health and prepares the documentation for the next cycle. To preserve execution
+context, these tasks are consolidated into two Chat Sessions:
 
 #### 1. Merge & Verify Phase
+
 1. **`/sprint-integration`**: Discovers all `sprint-N/*` feature branches,
    merges them sequentially into `sprint-N` via `--no-ff`, transitions the
    playbook from Committed to Complete, and cleans up remote branches.
@@ -187,12 +189,13 @@ health and prepares the documentation for the next cycle. To preserve execution 
    workflow against the now-integrated codebase.
 
 #### 2. Sprint Administration Phase
-3. **`/sprint-code-review`**: Scans all sprint diffs for security
+
+1. **`/sprint-code-review`**: Scans all sprint diffs for security
    vulnerabilities, unnecessary coupling, and architectural drift.
-4. **`/sprint-retro`**: Synthesizes challenges and wins, captures new **Action
+2. **`/sprint-retro`**: Synthesizes challenges and wins, captures new **Action
    Items** into the roadmap, makes permanent updates to global project
    documents, and creates the final sprint records.
-5. **`/sprint-close-out`**: The terminal step — asserts all playbook tasks are
+3. **`/sprint-close-out`**: The terminal step — asserts all playbook tasks are
    `[x]`, merges `sprint-N` into `main` via `--no-ff`, cleans up the sprint
    branch (local + remote), and verifies no stale branches remain.
 
