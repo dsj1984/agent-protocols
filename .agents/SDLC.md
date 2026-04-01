@@ -176,15 +176,17 @@ tasks:
 ### 🏁 Closing the Loop (Agentic)
 
 Every sprint concludes with a mandatory bookend pipeline that enforces codebase
-health and prepares the documentation for the next cycle. The bookend tasks are
-executed in this strict order:
+health and prepares the documentation for the next cycle. To preserve execution context, these tasks are consolidated into two Chat Sessions:
 
+#### 1. Merge & Verify Phase
 1. **`/sprint-integration`**: Discovers all `sprint-N/*` feature branches,
    merges them sequentially into `sprint-N` via `--no-ff`, transitions the
    playbook from Committed to Complete, and cleans up remote branches.
 2. **`/plan-qa-testing`**: Maintains test data and seeds, generates and updates
    the sprint test plan documentation, and executes the `/run-test-plan`
    workflow against the now-integrated codebase.
+
+#### 2. Sprint Administration Phase
 3. **`/sprint-code-review`**: Scans all sprint diffs for security
    vulnerabilities, unnecessary coupling, and architectural drift.
 4. **`/sprint-retro`**: Synthesizes challenges and wins, captures new **Action

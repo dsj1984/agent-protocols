@@ -41,11 +41,9 @@ dependencies.
 graph TD
     C1["🗄️ Chat Session 1: Backend Foundation"] --> C2["🌐 Chat Session 2: Web UI"]
     C1 --> C3["📱 Chat Session 3: Mobile UI"]
-    C2 --> C4["🧪 Chat Session 4: QA & E2E Testing"]
+    C2 --> C4["🧪 Chat Session 4: Merge & Verify Phase"]
     C3 --> C4
-    C4 --> C5["🛡️ Chat Session 5: Code Review"]
-    C5 --> C6["📝 Chat Session 6: Sprint Retro & Roadmap Alignment"]
-    C6 --> C7["🛡️ Chat Session 7: Sprint Close Out"]
+    C4 --> C5["🛡️ Chat Session 5: Sprint Administration Phase"]
     Legend["⬜ Not Started  <br />🟨 Executing  <br />🟦 Committed  <br />🟩 Complete <br />---<br /> 🗄️ DB | 🌐 Web | 📱 Mobile | 🧪 Test <br />📝 Docs | 🛡️ Ops | ⚙️ Gen"]:::LegendNode
 ```
 ````
@@ -91,15 +89,13 @@ The script automatically groups tasks into Chat Sessions using these rules:
    `@repo/web`) are grouped into one sequential Chat Session.
 3. **Concurrent Execution:** Tasks at the same layer with different scopes (or
    no scope) become separate concurrent Chat Sessions.
-4. **Bookend Tasks:** Tasks with `isQA`, `isCodeReview`, `isRetro`, or
-   `isCloseSprint` flags are always placed in their own dedicated Chat Sessions
-   at the end, in that order.
+4. **Bookend Tasks:** Bookend flags (`isIntegration`, `isQA`, `isCodeReview`, `isRetro`, `isCloseSprint`) are grouped into two consolidated chat sessions at the end of the pipeline: **Merge & Verify Phase** (Integration/QA), and **Sprint Administration Phase** (Code Review/Retro/Close).
 
 ## Example Scenarios
 
-| Sprint Type                 | Result                                                                 |
-| --------------------------- | ---------------------------------------------------------------------- |
-| Full-stack feature          | Backend → Web + Mobile (concurrent) → QA → Retro → Close Sprint        |
-| 10 independent bug fixes    | 10 concurrent sessions → QA → Retro → Close Sprint                     |
-| 5 web bugs + 5 mobile tests | 5 web (concurrent) + 5 mobile (concurrent) → QA → Retro → Close Sprint |
-| Pure backend pipeline       | Sequential chain → QA → Retro → Close Sprint                           |
+| Sprint Type                 | Result                                                                          |
+| --------------------------- | ------------------------------------------------------------------------------- |
+| Full-stack feature          | Backend → Web + Mobile (concurrent) → Merge & Verify → Sprint Administration    |
+| 10 independent bug fixes    | 10 concurrent sessions → Merge & Verify → Sprint Administration                 |
+| 5 web bugs + 5 mobile tests | 5 web (concurrent) + 5 mobile (concurrent) → Merge & Verify → Sprint Admin      |
+| Pure backend pipeline       | Sequential chain → Merge & Verify → Sprint Administration                       |

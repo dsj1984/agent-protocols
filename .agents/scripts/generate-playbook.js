@@ -413,12 +413,18 @@ function groupRegularTasks(regularTasks, layers, chatNumberStart) {
  */
 function appendBookendSessions(chatSessions, bookendTasks, regularTasks, chatNumberStart) {
   let chatNumber = chatNumberStart;
-  const bookendStages = [
-    { key: 'isIntegration', label: 'Sprint Integration & Sync', mode: 'SequentialBookend' },
-    { key: 'isQA', label: 'QA & E2E Testing', mode: 'SequentialBookend' },
-    { key: 'isCodeReview', label: 'Code Review', mode: 'PMBookend' },
-    { key: 'isRetro', label: 'Sprint Retrospective', mode: 'PMBookend' },
-    { key: 'isCloseSprint', label: 'Sprint Close Out', mode: 'PMBookend' },
+  
+  const bookendGroups = [
+    {
+      label: 'Merge & Verify',
+      mode: 'SequentialBookend',
+      keys: ['isIntegration', 'isQA']
+    },
+    {
+      label: 'Sprint Administration',
+      mode: 'PMBookend',
+      keys: ['isCodeReview', 'isRetro', 'isCloseSprint']
+    }
   ];
 
   const hasOutgoing = new Set();
@@ -427,23 +433,29 @@ function appendBookendSessions(chatSessions, bookendTasks, regularTasks, chatNum
   }
   let currentDeps = regularTasks.filter((t) => !hasOutgoing.has(t.id)).map((t) => t.id);
 
-  for (const stage of bookendStages) {
-    const stageTasks = bookendTasks.filter((t) => t[stage.key]);
-    if (stageTasks.length > 0) {
-      stageTasks[0].dependsOn = currentDeps;
-      for (let i = 1; i < stageTasks.length; i++) {
-        stageTasks[i].dependsOn = [stageTasks[i - 1].id];
+  for (const group of bookendGroups) {
+    const groupTasks = [];
+    
+    // Collect tasks in the exact strict order defined by keys
+    for (const key of group.keys) {
+      groupTasks.push(...bookendTasks.filter((t) => t[key]));
+    }
+
+    if (groupTasks.length > 0) {
+      groupTasks[0].dependsOn = currentDeps;
+      for (let i = 1; i < groupTasks.length; i++) {
+        groupTasks[i].dependsOn = [groupTasks[i - 1].id];
       }
 
       chatSessions.push({
         chatNumber: chatNumber++,
-        label: stage.label,
-        icon: selectIcon({ tasks: stageTasks }),
-        mode: stage.mode,
+        label: group.label,
+        icon: selectIcon({ tasks: groupTasks }),
+        mode: group.mode,
         layer: Infinity,
-        tasks: stageTasks,
+        tasks: groupTasks,
       });
-      currentDeps = [stageTasks[stageTasks.length - 1].id];
+      currentDeps = [groupTasks[groupTasks.length - 1].id];
     }
   }
 }
