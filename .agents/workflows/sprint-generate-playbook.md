@@ -49,12 +49,13 @@ Your output MUST conform to the JSON schema defined in
 - Tasks sharing a workspace scope (e.g., `@repo/web`) at the same dependency
   layer will be grouped into one sequential Chat Session by the script.
 - Always include at least one Integration task (with `isIntegration: true`), one
-  QA task (with `isQA: true`), and one Retro task (with `isRetro: true`) as the
-  mandatory bookends of your dependency chain.
+  QA task (with `isQA: true`), one Retro task (with `isRetro: true`), and one
+  Close Sprint task (with `isCloseSprint: true`) as the mandatory bookends of
+  your dependency chain.
 - Optionally include a Code Review task (with `isCodeReview: true`) between QA
   and Retro.
 - The script enforces a strict bookend pipeline in this order: **Integration →
-  QA → Code Review → Retro**.
+  QA → Code Review → Retro → Close Sprint**.
 
 ### Task Field Guidance
 
@@ -85,12 +86,13 @@ Your output MUST conform to the JSON schema defined in
   `@repo/mobile`, `root`). Tasks sharing a scope at the same layer are grouped
   into one Chat Session. The scope is displayed in the playbook execution rule
   to help agents stay within their assigned workspace boundaries.
-- **`isIntegration`**, **`isQA`**, **`isCodeReview`**, **`isRetro`**: Boolean
-  flags for bookend tasks. Each bookend becomes its own dedicated Chat Session
-  appended at the end of the pipeline in this fixed order: **Integration → QA →
-  Code Review → Retro**. The script auto-injects the appropriate workflow
-  delegation command and ignores any `instructions` value provided. Use the
-  following persona and skill recommendations for bookend tasks:
+- **`isIntegration`**, **`isQA`**, **`isCodeReview`**, **`isRetro`**,
+  **`isCloseSprint`**: Boolean flags for bookend tasks. Each bookend becomes its
+  own dedicated Chat Session appended at the end of the pipeline in this fixed
+  order: **Integration → QA → Code Review → Retro → Close Sprint**. The script
+  auto-injects the appropriate workflow delegation command and ignores any
+  `instructions` value provided. Use the following persona and skill
+  recommendations for bookend tasks:
   - **Integration** (`isIntegration`): triggers the `sprint-integration`
     workflow, which consolidates all feature branches before QA begins. Use
     persona `engineer`, skill `architecture/monorepo-path-strategist`.
@@ -101,6 +103,8 @@ Your output MUST conform to the JSON schema defined in
     `architecture/autonomous-coding-standards`.
   - **Retro** (`isRetro`): triggers the `sprint-retro` workflow. Use persona
     `product`, skill `architecture/markdown`.
+  - **Close Sprint** (`isCloseSprint`): triggers the `sprint-close-out`
+    workflow. Use persona `devops-engineer`, skill `devops/git-flow-specialist`.
 
 ### Output Location
 

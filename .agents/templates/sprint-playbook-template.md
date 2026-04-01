@@ -45,6 +45,7 @@ graph TD
     C3 --> C4
     C4 --> C5["🛡️ Chat Session 5: Code Review"]
     C5 --> C6["📝 Chat Session 6: Sprint Retro & Roadmap Alignment"]
+    C6 --> C7["🛡️ Chat Session 7: Sprint Close Out"]
     Legend["⬜ Not Started  <br />🟨 Executing  <br />🟦 Committed  <br />🟩 Complete <br />---<br /> 🗄️ DB | 🌐 Web | 📱 Mobile | 🧪 Test <br />📝 Docs | 🛡️ Ops | ⚙️ Gen"]:::LegendNode
 ```
 ````
@@ -90,14 +91,15 @@ The script automatically groups tasks into Chat Sessions using these rules:
    `@repo/web`) are grouped into one sequential Chat Session.
 3. **Concurrent Execution:** Tasks at the same layer with different scopes (or
    no scope) become separate concurrent Chat Sessions.
-4. **Bookend Tasks:** Tasks with `isQA`, `isCodeReview`, or `isRetro` flags are
-   always placed in their own dedicated Chat Sessions at the end, in that order.
+4. **Bookend Tasks:** Tasks with `isQA`, `isCodeReview`, `isRetro`, or
+   `isCloseSprint` flags are always placed in their own dedicated Chat Sessions
+   at the end, in that order.
 
 ## Example Scenarios
 
-| Sprint Type                 | Result                                                  |
-| --------------------------- | ------------------------------------------------------- |
-| Full-stack feature          | Backend → Web + Mobile (concurrent) → QA → Retro        |
-| 10 independent bug fixes    | 10 concurrent sessions → QA → Retro                     |
-| 5 web bugs + 5 mobile tests | 5 web (concurrent) + 5 mobile (concurrent) → QA → Retro |
-| Pure backend pipeline       | Sequential chain → QA → Retro                           |
+| Sprint Type                 | Result                                                                 |
+| --------------------------- | ---------------------------------------------------------------------- |
+| Full-stack feature          | Backend → Web + Mobile (concurrent) → QA → Retro → Close Sprint        |
+| 10 independent bug fixes    | 10 concurrent sessions → QA → Retro → Close Sprint                     |
+| 5 web bugs + 5 mobile tests | 5 web (concurrent) + 5 mobile (concurrent) → QA → Retro → Close Sprint |
+| Pure backend pipeline       | Sequential chain → QA → Retro → Close Sprint                           |

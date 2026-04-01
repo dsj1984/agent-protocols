@@ -57,9 +57,9 @@ function selectIcon(session) {
   // Prioritize Ops/Security/Infra to avoid monorepo "Web" mention false-positives
   if (allText.match(/\b(infra|security|ops|config|workflow|auth|git|flow)\b/)) return CHAT_ICONS.security;
   if (allText.match(/\b(db|sql|database|schema|turso|drizzle|sqlite)\b/)) return CHAT_ICONS.database;
+  if (allText.match(/\b(test|vitest|playwright|qa|e2e)\b/)) return CHAT_ICONS.testing;
   if (allText.match(/\b(mobile|native|ios|android)\b/)) return CHAT_ICONS.mobile; // Mobile prioritized over web if both mentioned
   if (allText.match(/\b(web|frontend|astro|react|html|css)\b/)) return CHAT_ICONS.web;
-  if (allText.match(/\b(test|vitest|playwright)\b/)) return CHAT_ICONS.testing;
   if (allText.match(/\b(doc|markdown|roadmap)\b/)) return CHAT_ICONS.documentation;
 
   return CHAT_ICONS.default;
@@ -606,10 +606,10 @@ function renderTask(task, sprintNumber, chatNumber, stepNumber, taskIdToNumber) 
     protocol += `4. **Finalization**: Execute the \`sprint-finalize-task\` workflow explicitly for sprint step \`${taskNumber}\`.`;
   }
 
-  let secondChoice = task.secondaryModel || (task.mode === 'Planning' ? 'Gemini 3.1 Pro (Low)' : 'Gemini 3 Flash');
+  let secondChoice = task.secondaryModel || (task.mode === 'Planning' ? 'Gemini 3.1 Pro (High)' : 'Gemini 3 Flash');
   if (secondChoice === task.model) {
     // Enforce uniqueness if default falls back to the same as first choice
-    secondChoice = task.model.includes('Claude') ? 'Gemini 3.1 Pro (Low)' : 'Claude Sonnet 4.6 (Thinking)';
+    secondChoice = task.model.includes('Claude') ? 'Gemini 3.1 Pro (High)' : 'Claude Sonnet 4.6 (Thinking)';
   }
 
   return `- [ ] **${taskNumber} ${task.title}**
