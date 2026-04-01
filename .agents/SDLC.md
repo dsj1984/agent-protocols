@@ -71,6 +71,7 @@ definition down to code review and sprint retrospective.
         P --> Q2
 
         L -.-> L_Art["📄 sprint-[##]/test-plan.md"]:::artifact
+        J -.-> J_Log["📄 sprint-[##]/agent-friction-log.json"]:::artifact
         P -.-> Q["📄 architecture.md<br/>📄 data-dictionary.md<br/>📄 roadmap.md"]:::artifact
         P -.-> R["📄 sprint-[##]/retro.md"]:::artifact
     end
@@ -159,6 +160,10 @@ tasks:
   agents broadcast a status update as a JSON payload to the
   `AGENT_NOTIFICATION_WEBHOOK` (if defined in `AGENTS.md`) to ensure real-time
   synchronization across the swarm.
+- **Observability & Feedback Loop**: Agents append telemetry to
+  `agent-friction-log.json` whenever they encounter operational difficulties
+  (tool errors, ambiguities). This serves as a continuous feedback mechanism to
+  identify and resolve gaps in the project's `agent-protocols`.
 
 ### 🏁 Closing the Loop (Agentic)
 
@@ -210,6 +215,7 @@ docs/
 │       ├── tech-spec.md     # Technical Specification (implementation plan)
 │       ├── task-manifest.json # Generated structured dependency graph
 │       ├── playbook.md      # Actionable tasks for AI agents rendered from manifest
+│       ├── agent-friction-log.json # Structured telemetry feedback loop
 │       ├── test-plan.md     # Sprint-specific test execution record
 │       └── retro.md         # Final reflections and updates
 └── test-plans/              # Domain-specific QA test plans

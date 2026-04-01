@@ -6,6 +6,23 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 and this project adheres to
 [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [2.12.0] - 2026-03-31
+
+### Added
+
+- **Agent Friction Telemetry**:
+  - Introduced a mandatory **Agent Friction Logging** protocol to capture
+    consecutive tool validation errors, command execution failures, and prompt
+    ambiguities in a per-sprint `agent-friction-log.json` file.
+  - Updated the `sprint-setup` workflow to automatically initialize an empty
+    JSONL telemetry file during sprint directory creation.
+  - Structured logs (Timestamp, Tool, Error, Context) enable systemic auditing
+    of agentic "struggle points" to inform protocol and tool refinements.
+
+### Changed
+
+- **Version Bump**: Incremented project version to `2.12.0`.
+
 ## [2.11.0] - 2026-03-31
 
 ### Changed

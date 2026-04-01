@@ -37,7 +37,10 @@ for subsequent planning and execution.
 
 1.  Create the sprint directory if it doesn't exist:
     - `mkdir docs/sprints/sprint-[PADDED_NUM]`
-2.  Verify the directory exists.
+2.  Initialize the agent observability log (JSON Lines format) if it doesn't
+    exist:
+    - `echo "" > docs/sprints/sprint-[PADDED_NUM]/agent-friction-log.json`
+3.  Verify the directory exists.
 
 ## Step 5 - Finalization
 

@@ -66,6 +66,20 @@ models to tasks. Refer to `.agents/config/tech-stack.json` for the project's
 specific technology choices (database, ORM, API framework, auth provider,
 validation library, workspace paths).
 
+### H. Observability & Agent Friction Logging
+
+You MUST log telemetry about any operational difficulty you encounter into the
+current sprint's log file (e.g.,
+`docs/sprints/sprint-[##]/agent-friction-log.json`) using JSON Lines (JSONL)
+format. Append a structured entry if you experience:
+
+- Consecutive tool validation errors
+- Unrecoverable command or script execution failures
+- Ambiguity requiring an explicit self-correction or user clarification
+
+The JSON line must include:
+`{"timestamp": "ISO8601", "tool": "ToolName", "error": "Brief error snippet", "context": "Next steps or resolution"}`.
+
 ---
 
 ## 2. Shell & Terminal Protocol (Windows Compatibility)
