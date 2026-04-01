@@ -2,7 +2,7 @@
 description: analyze and decompose upcoming sprints in roadmap.md
 ---
 
-# `scope-roadmap` Workflow
+# Sprint Roadmap Review
 
 Use this workflow to groom the `docs/roadmap.md` file, identifying sprints that
 are over-scoped or features that are too vague/monolithic for efficient

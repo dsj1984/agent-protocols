@@ -10,9 +10,10 @@ and this project adheres to
 
 ### Added
 
-- **Roadmap Scoping Workflow**:
-  - Introduced the `/scope-roadmap` workflow to assist Product Managers with
-    sprint grooming and feature decomposition in `docs/roadmap.md`.
+- **Roadmap Review Workflow**:
+  - Introduced the `/sprint-roadmap-review` workflow (formerly `scope-roadmap`)
+    to assist Product Managers with sprint grooming and feature decomposition in
+    `docs/roadmap.md`.
   - Updated the `product` persona and SDLC documentation to integrate the new
     roadmap scoping command into Phase 1 of the development lifecycle.
   - Renamed all audit-related workflows from `[feature]-audit.md` to

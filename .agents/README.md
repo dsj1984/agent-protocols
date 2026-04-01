@@ -207,6 +207,7 @@ command.
 | `audit-seo.md`                        | `audits`  | `/audit-seo`                        | Traditional SEO + Generative Engine Optimization                 |
 | `audit-sre.md`                        | `audits`  | `/audit-sre`                        | Production release candidate readiness audit                     |
 | `audit-ux-ui.md`                      | `audits`  | `/audit-ux-ui`                      | Design system consistency and UX reviews                         |
+| `sprint-roadmap-review.md`            | `sdlc`    | `/sprint-roadmap-review`            | analyze and decompose upcoming sprints in roadmap.md             |
 | `sprint-generate-prd.md`              | `sdlc`    | `/sprint-generate-prd`              | Generates PRD from roadmap items                                 |
 | `sprint-generate-tech-spec.md`        | `sdlc`    | `/sprint-generate-tech-spec`        | Generates Technical Spec from PRD                                |
 | `sprint-generate-playbook.md`         | `sdlc`    | `/sprint-generate-playbook`         | Generates Sprint Playbook from PRD + Tech Spec                   |

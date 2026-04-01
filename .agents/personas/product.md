@@ -44,9 +44,9 @@ For any feature larger than a bug fix, generate a
   `sprint-retro` workflow to generate retro documents, analyze execution, and
   formulate action items.
 - **Roadmap Management:** Groom the `docs/roadmap.md` to define priorities and
-  horizons. Use the `/scope-roadmap` workflow to analyze upcoming sprints and
-  decompose features into atomic, executable units before they enter the active
-  sprint cycle.
+  horizons. Use the `/sprint-roadmap-review` workflow to analyze upcoming
+  sprints and decompose features into atomic, executable units before they enter
+  the active sprint cycle.
 - **Sprint Definition:** Lock upcoming features into a numbered sprint layout.
 - **Goal Alignment:** Define acceptance criteria boundaries so downstream
   workflows understand the "definition of done."
