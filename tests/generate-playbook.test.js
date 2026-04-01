@@ -81,7 +81,7 @@ function makeBookendTasks(dependsOnIds) {
       id: 'close',
       dependsOn: ['retro'],
       isCloseSprint: true,
-      title: 'Close Sprint',
+      title: 'Sprint Close Out',
       persona: 'devops-engineer',
       skills: ['devops/git-flow-specialist'],
       instructions: '',
