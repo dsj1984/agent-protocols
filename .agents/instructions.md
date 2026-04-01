@@ -124,3 +124,51 @@ environments without needing manual command corrections.
   - Adhere strictly to project linters and formatters.
   - No commented-out code snippets in final deliverables.
 - **Verification:** Include explicit verification steps in every plan.
+
+---
+
+## 5. Git & Sprint Protocol (Strict Standards)
+
+To maintain a clean and readable repository history, you MUST follow these
+strict conventions for all sprint-related Git operations:
+
+### A. Task Branch Naming
+
+All task work MUST occur on an isolated feature branch created from the current
+sprint branch (sprint-[XXX]).
+
+- **Format**: `task/sprint-[XXX]/[ID]`
+- **Example**: `task/sprint-040/40.2.1`
+- **Constraint**: Do NOT use dashes or underscores between the sprint number and
+  task ID unless they are part of the ID itself. Always prefix with `task/`.
+
+### B. Status Tracking & Commit Standards
+
+Administrative commits (e.g., updating task status in the playbook) MUST use a
+deterministic format to allow for easy filtering and squashing.
+
+- **Standard Template**: `chore(sprint): update task [ID] status to [STATUS]`
+- **Valid Statuses**: `executing`, `committed`, `complete`
+- **Constraint**: Never combine status updates for multiple tasks into a single
+  commit unless specifically instructed. Do not omit the task ID or the word
+  "task".
+
+### C. Tracking File Decoupling
+
+To avoid merge conflicts on shared tracking files:
+
+1.  When updating a task status, you MUST check if a `task-state/` directory
+    exists in the sprint folder.
+2.  If it exists, write your status update to a dedicated file:
+    `docs/sprints/sprint-[XXX]/task-state/[ID].json` instead of editing the main
+    `playbook.md file directly.
+3.  The `sprint-integration` workflow will periodically consolidate these state
+    files into the master playbook.
+
+### D. History Hygiene
+
+Prioritize a clean `sprint-[XXX]` branch. Feature branches should be merged
+using `--no-ff` or squashed if appropriate, as governed by the
+`sprint-integration` workflow.
+
+---

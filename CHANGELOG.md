@@ -6,6 +6,32 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 and this project adheres to
 [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [2.13.0] - 2026-04-01
+
+### Added
+
+- **Master Planning Alignment Audit**:
+  - Introduced a mandatory **Alignment & Consistency Audit** (Step 4) in the
+    `plan-sprint` orchestrator.
+  - The `architect` persona now performs cross-artifact reviews of the PRD, Tech
+    Spec, and Playbook to ensure logical unity, strict 3-digit padding
+    adherence, and mandatory bookend protocol compliance.
+
+### Changed
+
+- **Hardened Git & Sprint Protocols**:
+  - **Strict Branch Naming**: Mandated the `task/sprint-[XXX]/[ID]` branch
+    naming convention in global `instructions.md` and `finalize-sprint-task` to
+    eliminate graph visual clutter.
+  - **Standardized Status Commits**: Enforced the
+    `chore(sprint): update task [ID] status to [STATUS]` commit template for all
+    lifecycle events.
+  - **Decoupled State Tracking**: Implemented a "decoupled" status tracking
+    mechanism. Agents now write lifecycle updates to individual
+    `task-state/[ID].json` files to prevent merge conflicts and history
+    pollution on the primary sprint branch.
+- **Version Bump**: Incremented project version to `2.13.0`.
+
 ## [2.12.0] - 2026-03-31
 
 ### Added

@@ -17,26 +17,24 @@ precisely:
    (`npm run lint`, etc.). Fix any resulting errors.
 3. **Branch & Commit**: Create a new isolated branch for your task FROM the
    sprint base using the **STRICT** naming convention:
-   `git checkout sprint-[SPRINT_NUMBER] ; git checkout -b sprint-[SPRINT_NUMBER]/[TASK_ID]`.
-   - **Note**: Use a FORWARD SLASH (`/`) between the sprint and task ID. Do NOT
-     use underscores or dashes as a primary separator. Stage your changes and
-     commit using standard conventional commits:
-     `[type]([scope]): [lowercase conventional commit message]`.
+   `git checkout sprint-[SPRINT_NUMBER] ; git checkout -b task/sprint-[SPRINT_NUMBER]/[TASK_ID]`.
+   - **Note**: Use the `task/` prefix and a FORWARD SLASH (`/`) as the primary
+     separators. Stage your changes and commit using standard conventional
+     commits: `[type]([scope]): [lowercase conventional commit message]`.
 4. **Push Feature Branch**: Push your code upstream: `git push -u origin HEAD`.
 5. **State Sync**: Switch back to `sprint-[NUM]`. Execute `git pull --rebase` to
    fetch any state updates from sibling agents.
-6. **Update Playbook (4-State Track)**:
-   - Open `.agents/docs/sprints/sprint-[NUM]/playbook.md` (or the equivalent
-     Playbook Path).
-   - Locate your task and change its status from Executing `- [~]` to Committed
-     `- [/]`.
-   - In the Mermaid diagram, locate your Chat Session and update the class from
-     `executing` to `committed` **inside the mermaid block** (e.g., change
-     `class C4 executing` to `class C4 committed`).
-7. **Commit State**: Commit ONLY the playbook update:
-   `git commit -am "chore(sprint): update task status to committed"`. Push this
-   state tracking commit upstream: `git push`. (If it fails due to concurrent
-   edits from other agents, run `git pull --rebase` and try pushing again).
+6. **Update Playbook (Decoupled State)**:
+   - Check if directory `docs/sprints/sprint-[NUM]/task-state/` exists.
+   - If YES: Create/Update `docs/sprints/sprint-[NUM]/task-state/[TASK_ID].json`
+     with `{"status": "committed", "timestamp": "ISO8601"}`.
+   - If NO: Open `docs/sprints/sprint-[NUM]/playbook.md`, locate your task and
+     change its status from `[~]` to `[/]`, and update the Mermaid diagram class
+     from `executing` to `committed`.
+7. **Commit State**: Commit ONLY the state update:
+   `git add . ; git commit -m "chore(sprint): update task [TASK_ID] status to committed"`.
+   Push this tracking commit upstream: `git push`. (If it fails, pull --rebase
+   and push again).
 8. **Notification**: If the variable `AGENT_NOTIFICATION_WEBHOOK` is defined in
    the `AGENTS.md` file, make a webhook call to that URL. **You must send a JSON
    payload with a `message` parameter**.

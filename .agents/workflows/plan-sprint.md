@@ -55,11 +55,30 @@ Run the `/generate-sprint-playbook` workflow for the `[SPRINT_NUMBER]`.
 1. Verify that `docs/sprints/sprint-[SPRINT_NUMBER]/playbook.md` has been
    successfully created.
 
-## Step 4 - Final Verification
+## Step 4 - Alignment & Consistency Audit
 
-Upon successful completion of all three workflows, notify the user that the
-planning artifacts and the final playbook for Sprint `[SPRINT_NUMBER]` are ready
-for execution.
+1.  Adopt the `architect` persona.
+2.  Perform a cross-artifact review of the generated `prd.md`, `tech-spec.md`,
+    and `playbook.md`.
+3.  **Verify Consistency**:
+    - Ensure all features in the PRD are mapped to technical designs in the Tech
+      Spec.
+    - Ensure all technical designs have corresponding tasks in the Playbook.
+    - Check that sprint numbers, dates, and versioning across all files are
+      identical and strictly follow the three-digit padding standard (e.g.,
+      `040`).
+4.  **Verify Protocol Adherence**:
+    - Confirm the Playbook tasks follow the mandatory bookend order (Integration
+      → QA → Code Review → Retro).
+    - Confirm all tasks have associated personas, models, and skills.
+5.  If any inconsistencies are found, fix the source manifest or document and
+    regenerate as needed before proceeding.
+
+## Step 5 - Notification
+
+Upon successful completion of all planning and audit steps, notify the user that
+the planning artifacts and the final playbook for Sprint `[SPRINT_NUMBER]` are
+audited and ready for execution.
 
 ## Constraint
 
