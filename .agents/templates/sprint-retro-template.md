@@ -60,6 +60,18 @@ debt]
 
 ---
 
+## Protocol Automation & Optimization Recommendations
+
+Based on the `agent-friction-log.json`, the following tasks were identified as
+repetitive or candidates for new workflows/skills to be implemented in the
+`agent-protocols` repository:
+
+| #   | Candidate Area | Repetition context  | Proposed Automation              |
+| --- | -------------- | ------------------- | -------------------------------- |
+| 1   | [e.g., Auth]   | [e.g., 5-step flow] | [e.g., New /setup-auth workflow] |
+
+---
+
 ## Action Items for Sprint [NEXT_SPRINT_NUMBER]
 
 | #   | Action             | Owner       | Priority          |

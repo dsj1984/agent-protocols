@@ -68,17 +68,19 @@ validation library, workspace paths).
 
 ### H. Observability & Agent Friction Logging
 
-You MUST log telemetry about any operational difficulty you encounter into the
-current sprint's log file (e.g.,
+You MUST log telemetry about any operational difficulty or automation
+opportunity you encounter into the current sprint's log file (e.g.,
 `docs/sprints/sprint-[##]/agent-friction-log.json`) using JSON Lines (JSONL)
 format. Append a structured entry if you experience:
 
-- Consecutive tool validation errors
-- Unrecoverable command or script execution failures
-- Ambiguity requiring an explicit self-correction or user clarification
+- **Friction Point**: Consecutive tool validation errors, unrecoverable command
+  or script execution failures, or ambiguity requiring explicit self-correction.
+- **Automation Candidate**: Repetitive sequences of 3+ commands,
+  boilerplate-heavy file creations, or manual processes that could be simplified
+  by a dedicated workflow or skill.
 
 The JSON line must include:
-`{"timestamp": "ISO8601", "tool": "ToolName", "error": "Brief error snippet", "context": "Next steps or resolution"}`.
+`{"timestamp": "ISO8601", "type": "FrictionPoint" | "AutomationCandidate", "tool": "ToolName", "error": "Brief error snippet (if any)", "context": "Next steps, recommendation, or automation suggestion"}`.
 
 ---
 

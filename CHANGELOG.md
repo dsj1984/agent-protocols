@@ -6,6 +6,24 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 and this project adheres to
 [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [2.14.0] - 2026-04-01
+
+### Added
+
+- **Repetitive Task Capture & Automation Recommendations**:
+  - Introduced the `AutomationCandidate` telemetry type in
+    `agent-friction-log.json` to identify boilerplate and repetitive agent
+    tasks.
+  - Updated the **Sprint Retrospective** template and workflow to systematically
+    analyze execution logs for automation opportunities.
+  - Provided a dedicated **Protocol Automation & Optimization Recommendations**
+    section in the retro report to surface protocol improvements without
+    polluting the project roadmap.
+
+### Changed
+
+- **Version Bump**: Incremented project version to `2.14.0`.
+
 ## [2.13.0] - 2026-04-01
 
 ### Added
