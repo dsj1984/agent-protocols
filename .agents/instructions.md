@@ -79,8 +79,18 @@ format. Append a structured entry if you experience:
   boilerplate-heavy file creations, or manual processes that could be simplified
   by a dedicated workflow or skill.
 
-The JSON line must include:
-`{"timestamp": "ISO8601", "type": "FrictionPoint" | "AutomationCandidate", "tool": "ToolName", "error": "Brief error snippet (if any)", "context": "Next steps, recommendation, or automation suggestion"}`.
+### I. Anti-Thrashing Protocol
+
+You MUST proactively identify when you are "thrashing" or stuck in an infinite
+loop. If you satisfy either of the following conditions, you MUST immediately
+stop, summarize the blockers, and present a **Re-Plan** or yield to the user:
+
+- **Error Threshold**: You execute **3 consecutive tools that return errors**.
+- **Stagnation Threshold**: You perform **5 consecutive steps of research or
+  analysis without modifying a file** (excluding setup/scaffolding tasks).
+
+This protocol ensures the conversation remains focused and avoids consuming
+unnecessary tokens on failing strategies.
 
 ---
 

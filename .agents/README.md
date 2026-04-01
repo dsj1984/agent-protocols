@@ -89,6 +89,22 @@ Developers can override protocol behavior for their specific machine by creating
 
 ---
 
+### 🛡️ Efficiency & Guardrails
+
+To prevent agents from getting stuck in analysis loops or performing excessively
+long tasks, the following guardrails are enforced:
+
+- **Anti-Thrashing Protocol**: Mandates that an agent MUST halt, summarize its
+  blockers, and present a **Re-Plan** if it hits 3 consecutive tool errors OR
+  performs 5 steps of analysis without modifying a file.
+- **Complexity Ceilings (Instruction Density)**: Limits the number of logical
+  steps/bullet points in a task's instructions to ensure agents remain within a
+  stable cognitive context.
+  - **Configurability**: Controlled by `maxInstructionSteps` in
+    `.agents/config/config.json` (Default: 5).
+
+---
+
 ## <a id="personas"></a>🎭 Personas (`personas/`)
 
 Personas constrain agent behavior to a specific role.

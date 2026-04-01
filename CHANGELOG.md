@@ -6,6 +6,23 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 and this project adheres to
 [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [2.15.0] - 2026-04-01
+
+### Added
+
+- **Configurable Efficiency Guardrails**:
+  - Introduced **Instruction Density** as the core complexity metric, replacing
+    file counts. Configurable via `maxInstructionSteps` in
+    `.agents/config/config.json` (default: 5 logical steps).
+  - Updated the **Anti-Thrashing Protocol** with clear error and research
+    thresholds to prevent agent stagnation.
+  - Added a dedicated **🛡️ Efficiency & Guardrails** section to all project
+    READMEs and SDLC documentation to improve protocol transparency.
+
+### Changed
+
+- **Version Bump**: Incremented project version to `2.15.0`.
+
 ## [2.14.0] - 2026-04-01
 
 ### Added

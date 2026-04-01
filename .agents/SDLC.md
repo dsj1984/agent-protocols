@@ -164,6 +164,10 @@ tasks:
   `agent-friction-log.json` whenever they encounter operational difficulties
   (tool errors, ambiguities). This serves as a continuous feedback mechanism to
   identify and resolve gaps in the project's `agent-protocols`.
+- **Execution Guardrails (Anti-Thrashing)**: To prevent long-running tasks or
+  agent "thrashing," agents are mandated to halt and re-plan if they hit a
+  threshold of consecutive errors or research steps without making progress. See
+  `.agents/instructions.md` for specific thresholds.
 
 ### 🏁 Closing the Loop (Agentic)
 

@@ -53,6 +53,18 @@ Add the following script to your `package.json` for one-command updates:
 
 Now you can run: `npm run update:agents`.
 
+### 🛡️ Efficiency & Guardrails
+
+The framework includes built-in guardrails to prevent agent stagnation and
+ensure high-quality sprint execution:
+
+- **Anti-Thrashing Protocol**: Mandates agents to halt and re-plan after hitting
+  specific thresholds for tool errors or analysis steps without progress.
+- **Complexity Ceilings (Instruction Density)**: Enforces task atomicity by
+  limiting the number of logical steps/bullet points in a task's instructions.
+  This ensures agents stay within a manageable cognitive context. Configurable
+  via `maxInstructionSteps` (default: 5) in `.agents/config/config.json`.
+
 1. **Read the Full Guide**: For detailed configuring, using personas/skills, and
    more, refer to the detailed protocol guide: 👉
    [**`.agents/README.md`**](.agents/README.md)

@@ -42,8 +42,10 @@ Before permitting any code generation, you must enforce this workflow:
   immediately.
 - **Hard-Coding:** Strictly forbid magic strings or hard-coded secrets. Enforce
   environment variables.
-- **Complexity Limits:** Flag functions that are doing too much. Suggest
-  breaking them down.
+- **Complexity Limits:** Flag functions that are doing too much. During
+  planning, ensure no single task's instructions contain more logical steps than
+  defined in `.agents/config/config.json:maxInstructionSteps` (default: 5
+  steps).
 
 ### C. Security & Performance
 

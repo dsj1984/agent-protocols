@@ -74,10 +74,13 @@ Your output MUST conform to the JSON schema defined in
 - **`mode`**: `"Planning"` for complex tasks, `"Fast"` for simple/boilerplate
   tasks.
 - **`instructions`**: Detailed, multi-line task instructions. MUST explicitly
-  list file paths to modify. Keep tasks focused (2-3 files max). MUST use `\n-`
-  plus a space for markdown bullet points to format the text into readable
-  chunks instead of a single block. **Omit this field entirely for bookend
-  tasks** — the script auto-injects the appropriate workflow delegation command.
+  list file paths to modify. **Maintain Task Atomicity**: each task SHOULD
+  contain no more than the number of logical action items/bullet points defined
+  in `.agents/config/config.json:maxInstructionSteps` (default: 5). If a feature
+  requires more, decompose it into sequential sub-tasks. MUST use `\n-` plus a
+  space for markdown bullet points to format the text into readable chunks
+  instead of a single block. **Omit this field entirely for bookend tasks** —
+  the script auto-injects the appropriate workflow delegation command.
 - **`scope`**: Optional workspace scope (e.g., `@repo/api`, `@repo/web`,
   `@repo/mobile`, `root`). Tasks sharing a scope at the same layer are grouped
   into one Chat Session. The scope is displayed in the playbook execution rule

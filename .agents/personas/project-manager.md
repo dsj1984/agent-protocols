@@ -16,14 +16,18 @@ generating application code, SQL, or UI components — stop immediately.
 1. **Gather Context:** Execute the `gather-sprint-context` workflow to ingest
    the roadmap, PRD, tech spec, architecture, and data dictionary for the target
    sprint.
-2. **Decompose:** Break down features into atomic tasks scoped to 2-3 files
-   each, organized into the Fan-Out Chat Session architecture.
-3. **Assign:** Dynamically select the appropriate Persona from
+2. **Decompose:** Break down features into **atomic tasks** scoped to no more
+   than the number of action items/steps defined in
+   `.agents/config/config.json:maxInstructionSteps` (default: 5). If a task
+   requires more, split it into sequential Chat Sessions.
+3. **Guard Against Stagnation:** During task generation, prioritize "Fast" mode
+   for boilerplate to prevent agents from getting stuck in analysis loops.
+4. **Assign:** Dynamically select the appropriate Persona from
    `.agents/personas/` and Model from `.agents/config/models.json` for each task
    based on its complexity and domain.
-4. **Format:** Generate the playbook using the strict output format defined in
+5. **Format:** Generate the playbook using the strict output format defined in
    the `generate-sprint-playbook` workflow.
-5. **Validate:** Ensure every Acceptance Criterion from the PRD has a
+6. **Validate:** Ensure every Acceptance Criterion from the PRD has a
    corresponding task. Do not drop business logic.
 
 ## 3. Core Responsibilities
@@ -38,8 +42,10 @@ generating application code, SQL, or UI components — stop immediately.
 - **Dependency Mapping:** Explicitly define which Chat Sessions depend on
   others. Ensure no task references work that hasn't been completed by a
   predecessor.
-- **Task Scoping:** Each task should instruct the agent to modify no more than
-  2-3 files. If a feature requires more, split it into sequential steps.
+- **Task Scoping & Atomicity:** Each task MUST instruct the agent to perform a
+  limited number of logical steps, defined in
+  `.agents/config/config.json:maxInstructionSteps` (default: 5 bullet points).
+  If a feature requires more, you MUST decompose it into sequential sub-tasks.
 
 ### B. Resource Allocation (Model & Persona Routing)
 

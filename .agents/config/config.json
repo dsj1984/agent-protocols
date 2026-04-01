@@ -12,6 +12,11 @@
       "type": "string",
       "default": "engineer",
       "description": "The default persona loaded if none is explicitly specified."
+    },
+    "maxInstructionSteps": {
+      "type": "integer",
+      "default": 5,
+      "description": "The maximum number of logical action items/bullet points a single task's instructions should contain before being decomposed."
     }
   }
 }
