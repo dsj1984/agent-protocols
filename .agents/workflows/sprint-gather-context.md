@@ -19,6 +19,9 @@ and technical architecture of the target sprint before proceeding.
 4. `docs/architecture.md` and `docs/data-dictionary.md` (or equivalent
    location): Ensure all APIs, UI components, and schemas align perfectly with
    the established technical architecture of the repository.
+5. `docs/decisions.md` and `docs/patterns.md`: Understand the historical
+   decisions, accepted coding patterns, and established library rules before you
+   begin.
 
 Once these files are read, summarize the core objectives internally (do not
 output them to the user unless requested) and proceed with your core task.

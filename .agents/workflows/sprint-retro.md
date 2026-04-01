@@ -22,8 +22,10 @@ Chat Session 5), you must execute the following steps:
    `✅ Implemented`. Note: Do NOT add new protocol-related action items to the
    roadmap; these should remain in the retro document for later implementation
    in the `agent-protocols` repository.
-5. **Update Architecture**: Update `architecture.md` if any core patterns,
-   schemas, or dependencies were introduced or changed during this sprint.
+5. **Update Architecture & Patterns**: Update `architecture.md` if any core
+   schemas or dependencies were introduced. Update `docs/patterns.md` and
+   `docs/decisions.md` to document new technical rulings, accepted library
+   patterns, or key architectural decisions made during this sprint.
 6. **Finalize**: Use the `/sprint-finalize-task` workflow for your task ID
    (e.g., `39.8.1`) to ensure the retro documentation and roadmap updates are
    pushed and the playbook status is tracked.

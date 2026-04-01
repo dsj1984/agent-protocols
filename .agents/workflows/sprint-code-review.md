@@ -36,7 +36,7 @@ For all modified code, execute a strict review against these four pillars:
 3. **Performance & Technical Debt:** Identify expensive queries, unoptimized
    React renders, or god-functions.
 4. **Anti-patterns:** Does the codebase diverge from the project's established
-   conventions?
+   conventions or the accepted patterns documented in `docs/patterns.md`?
 
 ## Step 3 - Issue Reporting
 

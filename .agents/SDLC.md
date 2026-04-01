@@ -213,6 +213,8 @@ including a reference roadmap, architecture, and a pre-planned sprint, see the
 docs/
 ├── architecture.md          # Core system design and tech stack
 ├── data-dictionary.md       # Database schema and validation rules
+├── decisions.md             # Architecture Decision Records (ADRs) and "why" contexts
+├── patterns.md              # Established coding patterns and library rules
 ├── roadmap.md               # High-level sprint goals and feature list
 ├── sprints/                 # Sprint-specific planning artifacts
 │   └── sprint-[##]/

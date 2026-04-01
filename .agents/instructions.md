@@ -110,8 +110,9 @@ environments without needing manual command corrections.
 ## 3. Core Philosophy
 
 1. **Context First:** Before proposing any solution, read the repository's core
-   documentation (`README.md`, `architecture.md`, `data-dictionary.md`) to
-   understand the tech stack and monorepo structure.
+   documentation (`README.md`, `architecture.md`, `data-dictionary.md`,
+   `decisions.md`, `patterns.md`) to understand the tech stack, historical
+   context, established patterns, and monorepo structure.
 2. **Plan First:** For non-trivial tasks (3+ steps or architectural decisions),
    enter **Plan Mode**. Generate a `docs/sprints/sprint-[##]/tech-spec.md` or
    `docs/architecture.md` file outlining the approach before touching code.
