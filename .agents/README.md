@@ -221,7 +221,7 @@ command.
 | `audit-devops.md`                     | `audits`  | `/audit-devops`                     | CI/CD, DX tooling & infrastructure review                        |
 | `audit-performance.md`                | `audits`  | `/audit-performance`                | Stack-wide bottleneck and architecture review                    |
 | `audit-privacy.md`                    | `audits`  | `/audit-privacy`                    | PII data handling and privacy compliance audit                   |
-| `audit-qa.md`                         | `audits`  | `/audit-qa`                         | Test coverage, test plans & mocking strategy review              |
+| `audit-quality.md`                    | `audits`  | `/audit-quality`                    | Test coverage, test plans & mocking strategy review              |
 | `audit-security.md`                   | `audits`  | `/audit-security`                   | Vulnerability scanning and OWASP alignment                       |
 | `audit-seo.md`                        | `audits`  | `/audit-seo`                        | Traditional SEO + Generative Engine Optimization                 |
 | `audit-sre.md`                        | `audits`  | `/audit-sre`                        | Production release candidate readiness audit                     |

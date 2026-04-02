@@ -74,7 +74,7 @@ Evaluate the gathered context against the following test quality dimensions:
 ## Step 3: Output Requirements
 
 Generate and save a highly structured Markdown audit report to
-`audit-qa-results.md` in the project root, using the exact template below.
+`audit-quality-results.md` in the project root, using the exact template below.
 
 ```markdown
 # Testing & Quality Assurance Audit

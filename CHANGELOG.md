@@ -50,6 +50,12 @@ and this project adheres to
   - Auto-generates `docs/telemetry/observer-report.md` tracking long-term
     efficiency bottlenecks and framework tool failures.
 
+- **Unified Quality Auditing**:
+  - Renamed `audit-qa` workflow to `audit-quality` to better reflect its
+    comprehensive scope (Infrastructure, Coverage, Fragility, and Strategy).
+  - Updated all internal documentation, personas, and file links to the new
+    `/audit-quality` standard.
+
 ## [2.24.0] - 2026-04-02
 
 ### Added
@@ -250,9 +256,9 @@ and this project adheres to
     `playbook.md` editing to eliminate race conditions during concurrent
     execution.
 - **Clarified Testing Responsibilities**:
-  - Updated `sprint-testing.md` and `audit-qa.md` to explicitly demarcate that
-    Software Engineers (SWEs) are responsible for unit and integration testing
-    during development, while the QA persona focuses exclusively on E2E
+  - Updated `sprint-testing.md` and `audit-quality.md` to explicitly demarcate
+    that Software Engineers (SWEs) are responsible for unit and integration
+    testing during development, while the QA persona focuses exclusively on E2E
     automation and documentation during integration.
 - **Hardened Final Sprint Integration**:
   - Added a mandatory **Final Integration Audit** (Step 3) to the
