@@ -186,6 +186,12 @@ tasks:
   which serves as a cryptographic-like evidence of green state. The
   `/sprint-integration` workflow acts as a strict gatekeeper, only merging
   branches that possess a valid test receipt.
+- **Advanced Concurrency Protocols**: To handle structural merge conflicts that
+  inevitably arise from parallel execution, agents use a hybrid approach. During
+  planning, `focusAreas` in the manifest soft-lock large architectural changes
+  into sequential steps. During execution, agents perform a mandatory **Runtime
+  Rebase Wait-Loop** where they pull and resolve structural conflicts against
+  the base branch locally _before_ running their shift-left validation tests.
 - **Workspace & File Hygiene**: To keep the repository clean, agents are
   required to store all temporary artifacts and scratch scripts in the root
   `/temp/` directory, which is excluded from Git.

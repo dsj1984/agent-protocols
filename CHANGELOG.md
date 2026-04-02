@@ -6,6 +6,23 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 and this project adheres to
 [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [2.21.0] - 2026-04-02
+
+### Added
+
+- **Advanced Concurrency & Merge Conflict Protocols**:
+  - Introduced a hybrid concurrency model (Option C) to eliminate complex
+    structural merge conflicts during execution.
+  - **Schema Update**: Added `focusAreas` property to
+    `task-manifest.schema.json` to allow static prediction of high-risk file
+    overlaps during the planning phase.
+  - **Runtime Rebase Wait-Loop**: Refactored the `sprint-finalize-task` workflow
+    to force agents to run `git pull --rebase origin sprint-[NUM]` and manually
+    resolve structural conflicts against the remote base branch _before_ running
+    validation tests and pushing their feature branch.
+  - **SDLC Documentation**: Updated `SDLC.md` to formally outline the new
+    Advanced Concurrency Protocols.
+
 ## [2.20.0] - 2026-04-02
 
 ### Added

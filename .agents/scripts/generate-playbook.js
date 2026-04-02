@@ -633,11 +633,9 @@ function renderTask(task, sprintNumber, chatNumber, stepNumber, taskIdToNumber) 
     secondChoice = task.model.includes('Claude') ? 'Gemini 3.1 Pro (High)' : 'Claude Sonnet 4.6 (Thinking)';
   }
 
-  return `- [ ] **${taskNumber} ${task.title}**
+  return `[ ] **${taskNumber} ${task.title}**
 
 **Mode:** ${task.mode} | **Model (First Choice):** ${task.model} | **Model (Second Choice):** ${secondChoice}
-
-* Agent Prompt:
 
 \`\`\`text
 Sprint ${taskNumber}: Adopt the \`${task.persona}\` persona from \`.agents/personas/\`.

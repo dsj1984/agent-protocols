@@ -9,12 +9,6 @@ and future architectural evolution for the Agent Protocols framework.
   troubleshooting scripts and telemetry collectors.
 - **Persona Specialization**: Refining role-specific behavior constraints for
   emerging frameworks (e.g., Astro 5, Tailwind 4).
-- **"Shift-Left" Agentic Testing**: Merging unverified AI-generated code into a
-  shared `sprint-N` branch is an anti-pattern that assumes a "happy path".
-  Introduce a mandatory validation step where testing agents are forced to run
-  isolated tests on their feature branch before merging. The
-  `/sprint-integration` workflow will serve as a gatekeeper that only accepts
-  green PRs.
 - **Automated Rollback & Blast-Radius Containment**: Currently, the close-out
   process assumes zero cascading build failures upon merge. Introduce an
   explicit `/sprint-rollback` workflow that autonomously instructs the agent to

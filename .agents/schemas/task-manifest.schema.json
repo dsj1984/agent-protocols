@@ -82,6 +82,13 @@
             "enum": ["Planning", "Fast"],
             "description": "The agent execution mode."
           },
+          "focusAreas": {
+            "type": "array",
+            "items": {
+              "type": "string"
+            },
+            "description": "Soft declarations of architectural boundaries or core files this task intends to modify (e.g. ['schema.ts', 'Auth Context']). Used during planning to prevent severe structural conflicts by forcing dependency edges."
+          },
           "instructions": {
             "type": "string",
             "description": "Detailed, multi-line task instructions. MUST use '\\n- ' for bulleted formatting and line breaks to ensure readability. Optional for bookend tasks (isQA, isCodeReview, isRetro) — the script auto-injects workflow delegation commands and ignores any value provided here."

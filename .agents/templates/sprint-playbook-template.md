@@ -57,7 +57,7 @@ Each Chat Session is rendered with a header, execution rule, and tasks:
 
 _Execution Rule: These tasks must be run sequentially in a single chat window._
 
-- [ ] **99.1.1 Database Schema Migrations**
+[ ] **99.1.1 Database Schema Migrations**
 
 **Mode:** Planning **Model (First Choice):** Claude Opus 4.6 (Thinking) **Model
 (Second Choice):** Gemini 3.1 Pro (High)
