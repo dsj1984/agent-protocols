@@ -403,43 +403,17 @@ function groupRegularTasks(regularTasks, layers, chatNumberStart) {
 
   for (const layer of sortedLayers) {
     const tasksInLayer = layerGroups.get(layer);
-    const scopeGroups = new Map();
+    const isLayerConcurrent = tasksInLayer.length > 1;
+
     for (const task of tasksInLayer) {
-      const scope = task.scope || '__unscoped__';
-      if (!scopeGroups.has(scope)) scopeGroups.set(scope, []);
-      scopeGroups.get(scope).push(task);
-    }
-
-    const scopeKeys = [...scopeGroups.keys()].sort();
-    const isLayerConcurrent = scopeKeys.length > 1 || (tasksInLayer.length > 1 && !tasksInLayer[0].scope);
-
-    if (scopeKeys.length === 1 && scopeKeys[0] === '__unscoped__' && tasksInLayer.length > 1) {
-      for (const task of tasksInLayer) {
-        chatSessions.push({
-          chatNumber: chatNumber++,
-          label: task.title,
-          icon: selectIcon({ tasks: [task] }),
-          mode: 'Concurrent',
-          layer,
-          tasks: [task],
-        });
-      }
-    } else {
-      for (const scope of scopeKeys) {
-        const scopeTasks = scopeGroups.get(scope);
-        const label = scope !== '__unscoped__'
-          ? scopeTasks.length === 1 ? scopeTasks[0].title : `${scope} Tasks`
-          : scopeTasks[0].title;
-
-        chatSessions.push({
-          chatNumber: chatNumber++,
-          label,
-          icon: selectIcon({ tasks: scopeTasks }),
-          mode: isLayerConcurrent ? 'Concurrent' : 'Sequential',
-          layer,
-          tasks: scopeTasks,
-        });
-      }
+      chatSessions.push({
+        chatNumber: chatNumber++,
+        label: task.title,
+        icon: selectIcon({ tasks: [task] }),
+        mode: isLayerConcurrent ? 'Concurrent' : 'Sequential',
+        layer,
+        tasks: [task],
+      });
     }
   }
   return chatSessions;

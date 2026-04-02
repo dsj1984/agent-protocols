@@ -6,6 +6,18 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 and this project adheres to
 [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [2.18.2] - 2026-04-02
+
+### Fixed
+
+- **Parallel Task Generation**:
+  - Overhauled `groupRegularTasks` in `generate-playbook.js` to correctly emit
+    independent, parallelizable tasks as distinct Chat Sessions.
+  - Removed logic that inadvertently grouped same-layer tasks into single
+    sequential windows based on shared scope (e.g., `root`), which was falsely
+    representing parallel work as sequential in the Mermaid graph and execution
+    prompts.
+
 ## [2.18.1] - 2026-04-02
 
 ### Added

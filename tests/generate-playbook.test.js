@@ -301,7 +301,7 @@ describe('groupIntoChatSessions', () => {
     assert.equal(sessions[2].tasks.length, 3);
   });
 
-  it('scoped tasks at the same layer are grouped', () => {
+  it('scoped tasks at the same layer are separated into concurrent sessions', () => {
     const tasks = [
       makeTask({ id: 'web-a', dependsOn: [], scope: '@repo/web', title: 'Web Task A' }),
       makeTask({ id: 'web-b', dependsOn: [], scope: '@repo/web', title: 'Web Task B' }),
@@ -310,9 +310,12 @@ describe('groupIntoChatSessions', () => {
     const layers = assignLayers(adjacency);
     const sessions = groupIntoChatSessions(tasks, layers, adjacency);
 
-    // Two tasks, same scope, same layer → 1 session with 2 steps
-    assert.equal(sessions.length, 1);
-    assert.equal(sessions[0].tasks.length, 2);
+    // Two tasks, same scope, same layer → 2 concurrent sessions (1 task each)
+    assert.equal(sessions.length, 2);
+    assert.equal(sessions[0].tasks.length, 1);
+    assert.equal(sessions[1].tasks.length, 1);
+    assert.equal(sessions[0].mode, 'Concurrent');
+    assert.equal(sessions[1].mode, 'Concurrent');
   });
 });
 
