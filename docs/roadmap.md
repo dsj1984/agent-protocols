@@ -95,15 +95,8 @@ the baseline structure, rules, and fundamental execution pipeline.
 
 ## Upcoming: Version 3.x (Refinement & Standardization)
 
-Focuses on prompt efficiency, diagnostic rigidness via MCP, and hardening
-existing risk gates.
-
-### MCP Standardization
-
-**Concept:** Refactor internal agent scripts and diagnostic interceptors
-(`context-indexer.js`, `diagnose-friction.js`) into standardized local MCP
-servers, providing a rigid, native interface for LLMs and Agentic IDEs without
-relying on brittle Bash execution.
+Focuses on prompt efficiency, diagnostic telemetry, and hardening existing risk
+gates.
 
 ### Ephemeral Local Web Dashboard
 
@@ -144,6 +137,14 @@ verified PRs.
 **Concept:** Containerize the CLI as a standard headless CI actions runner for
 asynchronous background event processing (e.g., autonomous patch generation on
 CI failure).
+
+### MCP Standardization
+
+**Concept:** Refactor internal agent scripts and diagnostic interceptors
+(`context-indexer.js`, `diagnose-friction.js`) into standardized local MCP
+servers, providing a rigid, native interface for LLMs and Agentic IDEs without
+relying on brittle Bash execution. Deferred to v4.0 to prioritize dashboard
+visualization and framework stability.
 
 ### Inter-Agent Negotiation
 
