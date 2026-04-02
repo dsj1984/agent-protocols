@@ -31,7 +31,18 @@ cleans up the sprint branch, and optionally tags a release.
      statuses.
 2. **Environment Reset**: Ensure your local environment is clean:
    `git checkout sprint-[SPRINT_NUMBER] ; git pull`.
-3. **Merge to Base Branch**: Switch to the base branch (defined as "baseBranch"
+3. **Final Integration Audit**: Before promoting to `[BASE_BRANCH]`, you MUST
+   confirm that ALL feature branches have been consolidated.
+   - Run `git branch -r` and look for any remaining
+     `origin/task/sprint-[SPRINT_NUMBER]/*` branches.
+   - For each branch found, check if it contains unmerged commits:
+     `git log sprint-[SPRINT_NUMBER]..origin/task/sprint-[SPRINT_NUMBER]/[TASK_ID]`.
+   - If ANY unmerged commits exist: **STOP**. You must run the
+     `sprint-integration` workflow one last time to consolidate these changes
+     before closing the sprint.
+   - If the branches exist but have 0 unmerged commits, they are safe to ignore
+     (they will be purged in the Cleanup step).
+4. **Merge to Base Branch**: Switch to the base branch (defined as "baseBranch"
    in .agents/config/config.json) and perform the merge:
 
    ```text
@@ -40,19 +51,19 @@ cleans up the sprint branch, and optionally tags a release.
    git merge --no-ff sprint-[SPRINT_NUMBER] -m "chore(release): merge sprint-[SPRINT_NUMBER] into [BASE_BRANCH]"
    ```
 
-4. **Conflict Marker Scan**: Run the standard post-merge scan:
+5. **Conflict Marker Scan**: Run the standard post-merge scan:
    `git grep -rn '<<<<<<<\|=======\|>>>>>>>' -- '*.md' '*.ts' '*.js' '*.json'`
    If ANY markers are found, resolve them, stage fixes with `git add`, and amend
    the merge commit before proceeding.
-5. **Push Main**: Push the updated main branch: `git push origin main`.
-6. **Sprint Branch Cleanup**: Delete the sprint branch locally and remotely:
+6. **Push Main**: Push the updated main branch: `git push origin main`.
+7. **Sprint Branch Cleanup**: Delete the sprint branch locally and remotely:
 
    ```text
    git branch -d sprint-[SPRINT_NUMBER]
    git push origin --delete sprint-[SPRINT_NUMBER]
    ```
 
-7. **Protocol Refresh**: Reset and refresh the `.agents` submodule to the latest
+8. **Protocol Refresh**: Reset and refresh the `.agents` submodule to the latest
    version from its pinned branch (`dist`) to ensure the next sprint starts with
    pristine protocols:
 
@@ -63,7 +74,7 @@ cleans up the sprint branch, and optionally tags a release.
    git push origin [BASE_BRANCH]
    ```
 
-8. **Final Playbook Sync**: Mark the final sprint closure task as complete to
+9. **Final Playbook Sync**: Mark the final sprint closure task as complete to
    ensure the playbook is 100% current before the branch is purged:
    - Open `[SPRINT_ROOT]/playbook.md`.
    - Locate the `close-sprint` task (typically in the final Chat Session) and
@@ -75,13 +86,13 @@ cleans up the sprint branch, and optionally tags a release.
      `git commit -am "chore(sprint): finalize terminal playbook status"`.
    - Push to the base branch: `git push origin [BASE_BRANCH]`.
 
-9. **Stale Branch Audit**: Run `git branch -r` and identify any remaining
-   `task/sprint-[SPRINT_NUMBER]/*` OR `sprint-[SPRINT_NUMBER]-*` branches on
-   origin. Delete ALL remaining sprint task branches:
-   `git push origin --delete [BRANCH_NAME]`.
-   - **Note**: This catch-all audit ensures even legacy dash-named branches are
-     purged before the sprint is closed.
-10. **Notification**: Resolve `[WEBHOOK_URL]` from the `webhookUrl` field in
+10. **Stale Branch Audit**: Run `git branch -r` and identify any remaining
+    `task/sprint-[SPRINT_NUMBER]/*` OR `sprint-[SPRINT_NUMBER]-*` branches on
+    origin. Delete ALL remaining sprint task branches:
+    `git push origin --delete [BRANCH_NAME]`.
+    - **Note**: This catch-all audit ensures even legacy dash-named branches are
+      purged before the sprint is closed.
+11. **Notification**: Resolve `[WEBHOOK_URL]` from the `webhookUrl` field in
     `.agents/config/config.json`. If `webhookUrl` is not empty, send a
     notification using the cross-platform Node script:
     `node .agents/scripts/notify.js "[WEBHOOK_URL]" "Sprint [SPRINT_NUMBER] has been merged to [BASE_BRANCH] and the sprint branch has been cleaned up."`

@@ -43,6 +43,13 @@ and this project adheres to
     Software Engineers (SWEs) are responsible for unit and integration testing
     during development, while the QA persona focuses exclusively on E2E
     automation and documentation during integration.
+- **Hardened Final Sprint Integration**:
+  - Added a mandatory **Final Integration Audit** (Step 3) to the
+    `sprint-close-out` workflow. This step enforces a check for unmerged task
+    branches and prevents sprint closure if remediation work is detected.
+  - Updated the `sprint-integration` workflow to explicitly recommend rerunning
+    the integration process whenever new feature or remediation branches are
+    created after the initial integration.
 
 ## [2.17.3] - 2026-04-02
 

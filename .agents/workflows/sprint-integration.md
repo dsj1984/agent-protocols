@@ -6,7 +6,9 @@ description:
 # Sprint Integration
 
 This workflow consolidates all concurrent feature development into
-`sprint-[SPRINT_NUMBER]`. It must be run BEFORE QA Testing begins.
+`sprint-[SPRINT_NUMBER]`. It must be run BEFORE QA Testing begins, and SHOULD be
+rerun if any remediation tasks (QA fixes, Code Review updates) create new
+feature branches.
 
 ## Step 0 - Path Resolution
 
