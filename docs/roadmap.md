@@ -3,109 +3,93 @@
 This document outlines the strategic priorities, upcoming feature developments,
 and future architectural evolution for the Agent Protocols framework.
 
-## Planned (Next)
+## Guiding Principles
 
-[Currently empty. Prioritize items from Future Horizon.]
+- **Framework Flexibility**: Avoid overengineering that creates rigid or
+  restrictive protocols. The framework must remain lightweight enough to take
+  advantage of native model and tool improvements (e.g., larger context windows,
+  improved reasoning, new system capabilities).
+- **Self-Contained Architecture**: Minimize or eliminate external dependencies.
+  Core functionality should reside within the protocol itself to maximize
+  portability and security.
+
+## Implemented: Version 3.0.0 (2026-04-02)
+
+Version 3.0.0 focused on internal hardening, cost visibility, and safer
+evolutionary loops.
+
+- ✅ **Dynamic Context Boundaries (Local RAG)**: Implemented zero-dependency
+  TF-IDF engine (`context-indexer.js`) for semantic retrieval and semantic
+  context gathering.
+- ✅ **FinOps & Token Budgeting**: Implemented `maxTokenBudget` and
+  `budgetWarningThreshold` with soft-warning and hard-stop protocols. Enriched
+  models.json with cost-tiering recommendations.
+- ✅ **Self-Healing Protocols (Retro-Augmentation)**: Updated `/sprint-retro`
+  and Architect persona to generate agent-ready optimization snippets from
+  friction logs.
+- ✅ **Granular Human-In-The-Loop (HITL) Gates**: Implemented `riskGates`
+  keyword scanning during planning to flag high-risk tasks for mandatory human
+  approval.
+- ✅ **Global Telemetry Reporting (Observer MVP)**: Implemented
+  `aggregate-telemetry.js` to generate structured macroscopic reports on
+  efficiency and tool failures.
+
+## Implemented: Version 2.x (Continuous Evolution)
+
+Version 2.x established the core Agentic SDLC, focusing heavily on concurrency,
+stability, and testing.
+
+- ✅ **Hybrid Integration & Blast-Radius Containment**: Introduced ephemeral
+  integration candidates and `/sprint-hotfix` workflows to ensure the shared
+  sprint branch never enters a broken state.
+- ✅ **Advanced Concurrency Protocols**: Implemented `focusAreas` for static
+  prediction of high-risk file overlaps and a **Runtime Rebase Wait-Loop** to
+  eliminate complex structural conflicts.
+- ✅ **Shift-Left Agentic Testing**: Mandated pre-merge testing on feature
+  branches, creating cryptographic-like "test receipts" required to pass
+  integration gates.
+- ✅ **Decoupled Task State Tracking**: Migrated from Git-tracked playbook
+  checkmarks to decoupled JSON state files (`task-state/`) to prevent race
+  conditions during parallel agent execution.
+- ✅ **Passive Telemetry & Diagnostic Tools**: Shipped `diagnose-friction.js` to
+  intercept failing commands, log context to `agent-friction-log.json`, and
+  provide auto-remediation suggestions to prevent thashing.
+- ✅ **Framework Handshakes**: Hardened personas (Astro 5, Tailwind v4) to
+  explicitly require ruleset ingestion before code execution.
+
+## Implemented: Version 1.x (Foundations)
+
+Version 1.x represented the initial release of the Agent Protocols, establishing
+the baseline structure, rules, and fundamental execution pipeline.
+
+- ✅ **Core Architecture**: Standardized the overarching framework including
+  Global Instructions, Persona constraints, and domain-specific Skills.
+- ✅ **Automated Sprint Planning Pipeline**: Introduced deterministic generation
+  of PRDs, Technical Specs, and Playbooks via slash commands (`/plan-sprint`).
+- ✅ **Fan-Out Orchestration**: Overhauled the playbook generator to support
+  multi-agent parallel execution models via distinct Chat Sessions.
+- ✅ **Modular Global Rules**: Split base logic into a `rules/` directory
+  containing domain-agnostic standards for Git, APIs, databases, and UI
+  copywriting.
+- ✅ **Submodule Distribution**: Established the `dist` branch mechanism for
+  consumer consumption.
 
 ## Future Horizon
 
-### Dynamic Context Boundaries (RAG vs. Static Reading)
+### Ephemeral Local Web Dashboard
 
-**Current State**: Agents rely on Context7 MCP to mandate live documentation
-retrieval, loading flat markdown files like `architecture.md` and
-`data-dictionary.md`.
-
-**Improvement**: As the monorepo scales, loading monolithic markdown files will
-blow out context windows, increase API costs, and degrade model reasoning (the
-"lost-in-the-middle" phenomenon). Future iterations should transition to a
-Retrieval-Augmented Generation (RAG) or semantic vector search. Agents should
-query an index to retrieve only the specific schemas and ADRs relevant to their
-immediate micro-task.
-
-### FinOps & Token Budgeting
-
-**Current State**: Guardrails rely on `frictionThresholds` and
-`maxInstructionSteps` in `.agents/config/config.json` to prevent thrashing.
-
-**Improvement**: Parallel AI agents can quietly burn through massive API budgets
-if they get stuck in subtle loops that don't trigger the exact error thresholds.
-Future versions of `config.json` should expand to include a `maxTokenBudget` per
-task or sprint. Agents should halt execution and trigger a human override if
-they exceed their allocated financial budget, providing a hard economic ceiling
-on automated development cycles.
-
-### Self-Healing Protocols (Auto-Skill Generation)
-
-**Concept**: Currently, `agent-friction-log.json` captures telemetry, and the
-retro captures action items, but a human ultimately synthesizes this into
-protocol rules.
-
-**Future Capability**: Elevate the swarm to self-correct. Create a step in the
-`/sprint-retro` workflow where the Architect persona analyzes the friction log
-and automatically drafts PRs to update the `.agents/skills/` files. For
-instance, if agents repeatedly failed on an Astro hydration issue, the system
-autonomously writes a new `.agents/skills/astro-hydration-guardrails.md` rule to
-permanently immunize the swarm against that mistake in future sprints.
-
-### Granular Human-In-The-Loop (HITL) Gates
-
-**Concept**: The current hand-off from Planning to Execution relies on a single
-manual step by the PM/Operator.
-
-**Future Capability**: Introduce a programmatic risk-scoring system during the
-`/sprint-generate-tech-spec` phase. If a task involves high-risk actions—such as
-destructive database migrations, modifying payment gateways, or IAM privilege
-changes—the task in the manifest will be flagged with
-`"requires_approval": true`. The executing agent will draft the code, pause
-execution, ping the configured `webhookUrl` (e.g., Slack/Discord), and await an
-explicit human ChatOps approval before committing.
-
-### Multimodal (Vision) UI Auditing
-
-**Concept**: The `ux-designer` and `engineer-web` personas currently evaluate
-UIs via text-based code analysis and accessibility scanners, missing structural
-visual hierarchy issues.
-
-**Future Capability**: Integrate Vision-Language Models (VLMs) into the QA
-phase. A specialized VLM agent will take automated screenshots of the local
-frontend development server and visually compare the rendered DOM against layout
-requirements, design tokens, or visual contrast rules to explicitly flag
-misaligned padding, layout drift, or responsive design breakpoints.
+**Concept:** Transition the Telemetry Observer from Markdown reports to an
+interactive local web dashboard for richer data visualization and real-time
+budget tracking.
 
 ### Event-Driven Headless CI/CD Execution
 
-**Concept**: Workflows currently rely heavily on IDE-based slash commands (e.g.,
-`/sprint-code-review`, `/sprint-integration`), keeping the orchestrator tied to
-a local editor.
-
-**Future Capability**: Transition to asynchronous, headless orchestration. Hook
-the AI protocols directly into standard CI/CD pipelines (e.g., GitHub Actions).
-If a test fails in the cloud or a Dependabot PR is opened, an agent autonomously
-spins up, reads the CI logs, pushes a patch, and resolves the build in the
-background.
+**Concept:** Containerize the CLI as a standard headless CI actions runner for
+asynchronous background event processing (e.g., autonomous patch generation on
+CI failure).
 
 ### Inter-Agent Negotiation
 
-**Concept**: Agents currently execute sequentially or in isolated parallel bands
-based strictly on the static Playbook and Tech Spec.
-
-**Future Capability**: Enable dynamic cross-persona negotiation. If a Frontend
-Agent realizes an API response is missing a required field, it shouldn't fail or
-hallucinate a workaround. It should initiate an autonomous sub-session to
-"debate" the issue directly with the Backend Agent, updating the API contract
-and the `tech-spec.md` dynamically before resuming execution.
-
-### Global Telemetry Dashboard & Aggregation (Observer)
-
-**Concept**: Transform distributed, local `agent-friction-log.json` files into
-systemic architectural intelligence.
-
-**Future Capability**: Implement `node .agents/scripts/aggregate-telemetry.js`.
-
-- **Ephemeral Approach**: Aggregated data lives in `/temp/` to avoid Git bloat;
-  the UI dashboard reads from this on-the-fly.
-- **Sprint Range Support**: The script must include optional `--from` and `--to`
-  flags to filter the telemetry analysis to specific sprint windows.
-- **Goal**: Identify macroscopic failure patterns (e.g., "Astro hydration
-  hydration errors represent 40% of all CLI failures") to inform future skill
-  updates.
+**Concept:** Enable dynamic cross-persona negotiation to resolve contract gaps
+in real-time. Deferred to v4.0 to prioritize state-manager stability in the
+interim.

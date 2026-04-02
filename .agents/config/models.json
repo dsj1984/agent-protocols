@@ -49,5 +49,22 @@
       ]
     }
   ],
-  "chaining_guidance": "A highly efficient agentic workflow usually uses a Planner-Executor-Reviewer pattern. For example, you might use **Claude Opus 4.6 (Thinking)** to read the prompt and write the architectural plan, pass that plan to **Claude Sonnet 4.6 (Thinking)** or **Gemini 3.1 Pro (Low)** to actually write the files, and use **Gemini 3 Flash** to rapidly fix any compilation errors the agent encounters along the way."
+  "chaining_guidance": "A highly efficient agentic workflow usually uses a Planner-Executor-Reviewer pattern. For example, you might use **Claude Opus 4.6 (Thinking)** to read the prompt and write the architectural plan, pass that plan to **Claude Sonnet 4.6 (Thinking)** or **Gemini 3.1 Pro (Low)** to actually write the files, and use **Gemini 3 Flash** to rapidly fix any compilation errors the agent encounters along the way.",
+  "finops_recommendations": {
+    "budget_optimization": "To maximize your `maxTokenBudget`, adhere to the following tier-based allocation:",
+    "tiers": [
+      {
+        "strategy": "Boilerplate & Fixes",
+        "recommendation": "Use **The Sprinters** (Gemini 3 Flash). This category accounts for 60-80% of total agent steps but should consume less than 10% of the budget."
+      },
+      {
+        "strategy": "Standard Features",
+        "recommendation": "Use **The Workhorses** (Sonnet 4.6 or Gemini 3.1 Pro Low). These are the balanced models for core building."
+      },
+      {
+        "strategy": "Architectural Design",
+        "recommendation": "Use **The Architects** (Opus 4.6). Reserve these for the 5-10% of tasks that define the system boundary to ensure zero-regret engineering."
+      }
+    ]
+  }
 }

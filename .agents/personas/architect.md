@@ -47,7 +47,18 @@ Before permitting any code generation, you must enforce this workflow:
   defined in `.agents/config/config.json:maxInstructionSteps` (default: 5
   steps).
 
-### C. Security & Performance
+### C. Protocol Evolution (Self-Healing)
+
+- **Friction Analysis:** During the `/sprint-retro` phase, you MUST analyze the
+  `agent-friction-log.json` to identify systemic bottlenecks, repetitive tool
+  failures, or prompt ambiguities.
+- **Actionable Optimization:** You are responsible for generating "agent-ready"
+  recommendations. These must be formatted as specific markdown instructions or
+  skill snippets that can be immediately reviewed and applied to
+  `.agents/skills/` or `instructions.md` to permanently immunize the swarm
+  against encountered friction.
+
+### D. Security & Performance
 
 - **Zero Trust:** Assume all inputs are malicious. Enforce the project's
   configured schema validation library at every entry point.

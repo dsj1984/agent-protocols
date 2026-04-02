@@ -73,6 +73,28 @@
       "type": "string",
       "default": "temp/task-state",
       "description": "The root directory for decoupled task state files. If set to a directory within /temp/, state is local and not committed. If set to a project directory (e.g., docs/sprints/sprint-[XXX]/task-state), state is committed to Git for cross-agent synchronization."
+    },
+    "maxTokenBudget": {
+      "type": "integer",
+      "default": 1000000,
+      "description": "The maximum number of tokens allowed per task or sprint before requiring a HITL (Human-In-The-Loop) override. Helps prevent runaway costs."
+    },
+    "budgetWarningThreshold": {
+      "type": "number",
+      "default": 0.8,
+      "description": "The threshold (percentage) at which to send a soft-warning notification via webhook before hitting the hard-stop budget limit."
+    },
+    "riskGates": {
+      "type": "object",
+      "description": "Deterministic HITL (Human-In-The-Loop) gates for high-risk operations based on sensitive keywords.",
+      "properties": {
+        "words": {
+          "type": "array",
+          "items": { "type": "string" },
+          "default": ["DROP", "DELETE", "IAM", "INFRA", "S3", "BUCKET", "PERMISSION"],
+          "description": "A list of sensitive keywords that trigger a mandatory HITL approval gate if found in a tech spec or task instructions."
+        }
+      }
     }
   }
 }

@@ -121,6 +121,11 @@
             "type": "boolean",
             "default": false,
             "description": "If true, the script injects the close-sprint workflow delegation as the terminal bookend step that merges to main."
+          },
+          "requires_approval": {
+            "type": "boolean",
+            "default": false,
+            "description": "If true, the agent MUST pause and wait for explicit human-in-the-loop (HITL) approval before executing the task."
           }
         }
       }

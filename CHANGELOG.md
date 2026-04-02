@@ -6,6 +6,50 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 and this project adheres to
 [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [3.0.0] - 2026-04-02
+
+### Added
+
+- **Local RAG & Semantic Context Retrieval**:
+  - Implemented `.agents/scripts/context-indexer.js`, a zero-dependency TF-IDF
+    engine for local documentation indexing and semantic search.
+  - Updated `.agents/workflows/sprint-gather-context.md` to prioritize semantic
+    retrieval over monolithic file reading.
+  - Refined `instructions.md` to mandate Local RAG for efficient context
+    gathering, mitigating context window bloat.
+  - Added repository-wide Guiding Principles to `docs/roadmap.md` focusing on
+    flexibility and self-contained architecture.
+
+- **FinOps & Economic Guardrails**:
+  - Added `maxTokenBudget` and `budgetWarningThreshold` properties to
+    `.agents/config/config.json`.
+  - Updated `instructions.md` (Section 2) with mandatory token tracking,
+    soft-warning (80%), and hard-stop (100%) protocols to prevent budget
+    overruns.
+  - Enriched `models.json` with `finops_recommendations` to guide agents toward
+    cost-effective API tiering.
+
+- **HITL Risk Gates for Safe Execution**:
+  - Added `riskGates` configuration to `.agents/config/config.json` with default
+    trigger keywords (`DROP`, `DELETE`, `IAM`, etc.).
+  - Updated the Task Manifest schema with a `requires_approval` property.
+  - Automated Tech Spec phase to flag destructive workflows natively in the
+    playbook, halting the execution sequence until explicitly human-approved.
+  - Solidified the safety guidelines in the core `instructions.md`.
+
+- **Telemetry-Driven Retro Recommendations (Self-Healing)**:
+  - Enhanced `.agents/workflows/sprint-retro.md` and the `architect` persona to
+    mandate macro-analysis of `agent-friction-log.json`.
+  - Modified `.agents/templates/sprint-retro-template.md` to format Protocol
+    Optimization Recommendations as "agent-ready" markdown snippets, creating an
+    evolving library immune loop.
+
+- **Macroscopic Telemetry Observer**:
+  - Created `.agents/scripts/aggregate-telemetry.js`, a script that parses
+    structured telemetry across an entire sprint range.
+  - Auto-generates `docs/telemetry/observer-report.md` tracking long-term
+    efficiency bottlenecks and framework tool failures.
+
 ## [2.24.0] - 2026-04-02
 
 ### Added

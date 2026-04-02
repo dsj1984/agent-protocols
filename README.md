@@ -72,6 +72,20 @@ ensure high-quality sprint execution:
 - **Workspace & File Hygiene**: Mandates that all temporary files and scratch
   scripts MUST be stored in the `/temp/` directory at the project root. This
   directory is Git-ignored by default to prevent repository pollution.
+- **Local RAG Semantic Retrieval**: Zero-dependency local vector store
+  implementation for high-context retrieval in large repositories. Prevents
+  "lost-in-the-middle" issues and token bloat.
+- **FinOps & Economic Guardrails**: Tracks agent token consumption against
+  configurable sprint budgets. Enforces soft-warnings at thresholds and
+  hard-stops to prevent unexpected expenses.
+- **HITL Risk Gates**: Deterministic safety checks that force Human-In-The-Loop
+  approval when an agent plans destructive or highly sensitive operations (e.g.,
+  `DROP`, `DELETE`).
+- **Macroscopic Telemetry Observer**: A zero-dependency aggregation script that
+  reads friction logs across sprints to visually chart tool failures, efficiency
+  trends, and productivity bottlenecks.
+- **Guiding Principles**: Prioritizes flexibility over rigid protocols, ensuring
+  agents can leverage native model improvements.
 
 1. **Read the Full Guide**: For detailed configuring, using personas/skills, and
    more, refer to the detailed protocol guide: 👉

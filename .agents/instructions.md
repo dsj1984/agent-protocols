@@ -100,9 +100,53 @@ stop, summarize the blockers, and present a **Re-Plan** or yield to the user:
 This protocol ensures the conversation remains focused and avoids consuming
 unnecessary tokens on failing strategies.
 
+### J. HITL Risk Gates (Safe Execution)
+
+Before executing any task, you MUST check the `playbook.md` or
+`task-manifest.json` for the `requires_approval` flag.
+
+- **Trigger**: If `requires_approval: true` is set, you are strictly forbidden
+  from executing the implementation steps until you receive explicit human
+  confirmation.
+- **Intervention**: You MUST pause, summarize the high-risk operations detected
+  (based on `riskGates.words` in `config.json`), and wait for a user response
+  stating "Approved" or "Proceed".
+- **Safety Violation**: Proceeding without approval for a flagged task is a
+  critical protocol violation.
+
 ---
 
-## 2. Shell & Terminal Protocol (Windows Compatibility)
+## 2. FinOps & Token Budgeting (Economic Guardrails)
+
+To prevent runaway API costs, you MUST strictly adhere to the following FinOps
+protocol:
+
+### A. Token Tracking & Budgeting
+
+- **Check Budget**: Before starting a task, resolve `maxTokenBudget` from
+  `.agents/config/config.json`.
+- **Active Monitoring**: You MUST track your token usage (input + output)
+  provided by the LLM response metadata after every tool call.
+- **Soft-Warning (80%)**: When usage reaches the threshold defined by
+  `budgetWarningThreshold` (default 0.8), you MUST notify the user via a
+  terminal message and trigger the configured `webhookUrl`.
+- **Hard-Stop (100%)**: If you reach `maxTokenBudget`, you MUST **STOP**
+  immediately. You are forbidden from continuing until a human operator grants
+  an explicit override via a status update or CLI flag.
+
+### B. Cost-Aware Model Selection
+
+- During the planning phase (`/plan-sprint`), the **Project Manager** and
+  **Architect** personas MUST consider the economic impact of their task
+  assignments.
+- Refer to `.agents/config/models.json` for cost-tiering. Prefer **The
+  Sprinters** (e.g., Gemini 3 Flash) for low-reasoning/boilerplate tasks to
+  conserve budget for **The Architects** (e.g., Claude Opus) on complex
+  architectural work.
+
+---
+
+## 3. Shell & Terminal Protocol (Windows Compatibility)
 
 When operating on a Windows environment (PowerShell), agents MUST use `;` as a
 statement separator for command chaining instead of `&&`, as common PowerShell
@@ -115,12 +159,15 @@ environments without needing manual command corrections.
 
 ---
 
-## 3. Core Philosophy
+## 4. Core Philosophy
 
-1. **Context First:** Before proposing any solution, read the repository's core
-   documentation (`README.md`, `architecture.md`, `data-dictionary.md`,
-   `decisions.md`, `patterns.md`) to understand the tech stack, historical
-   context, established patterns, and monorepo structure.
+1. **Context First:** Before proposing any solution, understand the repository's
+   tech stack, historical context, and structure. For large projects, prioritize
+   **Local RAG Semantic Retrieval** over directly reading large markdown files.
+   Run `node .agents/scripts/context-indexer.js search "<your query>"` to
+   semantically query `architecture.md`, `data-dictionary.md`, `decisions.md`,
+   and `patterns.md` to prevent context window bloat and isolate specific
+   schemas.
 2. **Plan First:** For non-trivial tasks (3+ steps or architectural decisions),
    enter **Plan Mode**. Generate a `docs/sprints/sprint-[##]/tech-spec.md` or
    `docs/architecture.md` file outlining the approach before touching code.
@@ -133,7 +180,7 @@ environments without needing manual command corrections.
 
 ---
 
-## 4. Execution & Quality Discipline
+## 5. Execution & Quality Discipline
 
 - **Re-Plan on Failure:** If a strategy fails, **STOP** and re-plan immediately.
   Do not repeat a broken approach.
@@ -148,7 +195,7 @@ environments without needing manual command corrections.
 
 ---
 
-## 5. Git & Sprint Protocol (Strict Standards)
+## 6. Git & Sprint Protocol (Strict Standards)
 
 To maintain a clean and readable repository history, you MUST follow these
 strict conventions for all sprint-related Git operations:
@@ -200,7 +247,7 @@ using `--no-ff` or squashed if appropriate, as governed by the
 
 ---
 
-## 6. Workspace & File Hygiene (Temporary Files)
+## 7. Workspace & File Hygiene (Temporary Files)
 
 To keep the repository clean and avoid polluting the Git history:
 

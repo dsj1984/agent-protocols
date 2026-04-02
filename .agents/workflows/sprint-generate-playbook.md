@@ -112,6 +112,10 @@ Your output MUST conform to the JSON schema defined in
     `product`, skill `architecture/markdown`.
   - **Close Sprint** (`isCloseSprint`): triggers the `sprint-close-out`
     workflow. Use persona `devops-engineer`, skill `devops/git-flow-specialist`.
+- **`requires_approval`**: Boolean. If the Technical Specification flags a task
+  as high-risk during the **HITL Risk Assessment** (matching `riskGates.words`
+  in `config.json`), you MUST set this to `true`. This will instruct the
+  execution script to pause and await explicit human confirmation.
 
 ### Output Location
 

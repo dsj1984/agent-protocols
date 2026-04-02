@@ -45,6 +45,12 @@ Generate an explicit technical specification outlining:
 1. Backend API Routes (Hono endpoints with Zod validation)
 1. Core System Query Refactors & Security
 1. Execution Guardrails
+1. **HITL Risk Assessment**: You MUST scan your proposed changes against the
+   `riskGates.words` defined in `.agents/config/config.json`. If your technical
+   plan involves any operations matching these keywords (e.g., destructive
+   database changes, sensitive IAM/Infra modifications), you MUST explicitly
+   flag this in the Tech Spec and instruct the Project Manager to set
+   `"requires_approval": true` for that task in the manifest.
 
 ## Step 3 - Output Artifacts
 

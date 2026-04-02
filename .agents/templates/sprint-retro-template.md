@@ -60,15 +60,30 @@ debt]
 
 ---
 
-## Protocol Automation & Optimization Recommendations
+## Protocol Optimization Recommendations (Self-Healing)
 
 Based on the `agent-friction-log.json`, the following tasks were identified as
 repetitive or candidates for new workflows/skills to be implemented in the
-`agent-protocols` repository:
+`agent-protocols` repository. These recommendations are formatted to be
+"Agent-Ready" for immediate review and implementation in upcoming sprints.
 
-| #   | Candidate Area | Repetition context  | Proposed Automation              |
-| --- | -------------- | ------------------- | -------------------------------- |
-| 1   | [e.g., Auth]   | [e.g., 5-step flow] | [e.g., New /setup-auth workflow] |
+### 🔌 Proposed Skill Snippet (or Rule)
+
+> **Target:** [e.g., .agents/skills/turso-recovery.md] **Action:**
+> [Update/Create] **Snippet:**
+>
+> ```markdown
+> # Rule: [Rule Name]
+>
+> If the agent encounters [Specific Friction Point], it MUST [Specific
+> Remediation Action] instead of [Repetitive Fail Strategy].
+> ```
+
+### 🔁 Workflow Recommendation
+
+| #   | Candidate Area | Repetition Context  | Proposed Automation (Slash Command) |
+| --- | -------------- | ------------------- | ----------------------------------- |
+| 1   | [e.g., Auth]   | [e.g., 5-step flow] | [e.g., New /setup-auth workflow]    |
 
 ---
 

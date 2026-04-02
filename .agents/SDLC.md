@@ -14,6 +14,17 @@ For a complete example of the expected artifacts and formatting, see the
 
 ---
 
+## 💡 Core Guiding Principles
+
+- **Flexibility over Rigidity**: Our protocols avoid overengineering. We
+  maintain a lightweight framework that empowers models to leverage their native
+  capabilities rather than being constrained by overly brittle rules.
+- **Zero-Dependency Core**: All core agent logic (like Context Retrieval) is
+  implemented with local, zero-SaaS/API dependencies to prioritize speed and
+  security.
+
+---
+
 ## 🗺️ The End-to-End SDLC Process
 
 The following diagram illustrates the complete flow from high-level roadmap
@@ -116,6 +127,11 @@ structured execution plan.
 
 ### Sequential Generation Steps
 
+0. **Context Indexing (`node .agents/scripts/context-indexer.js index`)**:
+   - Scans the repository documentation and builds a local semantic index.
+   - Enables efficient, high-context retrieval for sub-agents without blowing
+     out token limits.
+
 1. **Product Discovery (`/sprint-generate-prd`)**:
    - Reads `roadmap.md` for the target sprint items.
    - Generates a strict **Product Requirements Document (PRD)** focusing on
@@ -183,6 +199,16 @@ tasks:
   threshold of consecutive errors or research steps without making progress.
   These thresholds are configurable via `frictionThresholds` in
   `.agents/config/config.json`.
+- **FinOps & Economic Guardrails**: Agents track token usage against a
+  configurable sprint target (`maxTokenBudget`). Execution automatically
+  triggers subjective soft-warnings via webhooks at threshold levels and
+  hard-stops if the budget is breached, fostering intelligent agentic cost
+  management.
+- **HITL Risk Gates**: The framework statically analyzes planned tasks during
+  the tech-spec phase for destructive or sensitive operations (e.g. `DROP`,
+  `DELETE`, `IAM`). Flagged tasks automatically halt the execution automation
+  loop natively and require explicit Human-In-The-Loop approval before
+  proceeding.
 - **Friction Logging Thresholds**: The sensitivity for logging repetitive
   sequences or automation candidates is also configurable in the same config
   file via `frictionThresholds.repetitiveCommandCount`.

@@ -15,22 +15,22 @@ description:
 
 ## Step 1 - Context Retrieval
 
-When instructed to gather sprint context, you must sequentially read the
-following files to ensure you fully grasp the objectives, features, algorithms,
-and technical architecture of the target sprint before proceeding.
+When instructed to gather sprint context, you MUST balance full comprehension
+with context-window limits by prioritizing semantic retrieval (Local RAG) over
+reading large monolithic markdown files.
 
-1. `roadmap.md`: Identify the specific features slated for the requested sprint.
-2. `[SPRINT_ROOT]/prd.md`: Read the Product Requirements Document. Pay special
-   attention to the Acceptance Criteria to guarantee no business logic is
-   overlooked.
-3. `[SPRINT_ROOT]/tech-spec.md`: Review the technical implementation
-   specifications, database models, and API definitions.
-4. `docs/architecture.md` and `docs/data-dictionary.md` (or equivalent
-   location): Ensure all APIs, UI components, and schemas align perfectly with
-   the established technical architecture of the repository.
-5. `docs/decisions.md` and `docs/patterns.md`: Understand the historical
-   decisions, accepted coding patterns, and established library rules before you
-   begin.
+1. **Initialize the Context Index**: Ensure the context vector index is
+   up-to-date by running `node .agents/scripts/context-indexer.js index`
+2. `roadmap.md`: Read this file to identify the specific features slated for the
+   requested sprint.
+3. `[SPRINT_ROOT]/prd.md` & `[SPRINT_ROOT]/tech-spec.md`: Read these fully as
+   they contain the specific task logic for your immediate sprint.
+4. **Semantic Retrieval for Core Context**: Do NOT read full global architecture
+   files (`docs/architecture.md`, `docs/data-dictionary.md`,
+   `docs/decisions.md`, `docs/patterns.md`) unless they are extremely small.
+   Instead, query specifically for the schemas, patterns, and technologies
+   mentioned in the tech-spec using:
+   `node .agents/scripts/context-indexer.js search "your specific query here"`
 
 Once these files are read, summarize the core objectives internally (do not
 output them to the user unless requested) and proceed with your core task.

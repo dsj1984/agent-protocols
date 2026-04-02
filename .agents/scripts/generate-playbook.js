@@ -635,7 +635,7 @@ function renderTask(task, sprintNumber, chatNumber, stepNumber, taskIdToNumber) 
 
   return `[ ] **${taskNumber} ${task.title}**
 
-**Mode:** ${task.mode} | **Model (First Choice):** ${task.model} | **Model (Second Choice):** ${secondChoice}
+**Mode:** ${task.mode} | **Model (First Choice):** ${task.model} | **Model (Second Choice):** ${secondChoice}${task.requires_approval ? ' | ⚠️ **REQUIRES HUMAN APPROVAL**' : ''}
 
 \`\`\`text
 Sprint ${taskNumber}: Adopt the \`${task.persona}\` persona from \`.agents/personas/\`.

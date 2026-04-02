@@ -108,6 +108,20 @@ long tasks, the following guardrails are enforced:
   persistent errors to `agent-friction-log.json`.
   - **Configurability**: Repetitive command threshold is controlled by
     `frictionThresholds.repetitiveCommandCount` (Default: 3).
+- **Local RAG Semantic Retrieval**: Mandates the use of a zero-dependency local
+  vector store for high-context retrieval, preventing context window bloat in
+  large mono-repos.
+  - **Usage**: `node .agents/scripts/context-indexer.js search "<query>"`
+- **FinOps & Economic Guardrails**: Tracks agent token consumption against
+  configurable sprint budgets (`maxTokenBudget` in `config.json`). Enforces
+  soft-warnings at thresholds and hard-stops to prevent unexpected expenses.
+- **HITL Risk Gates**: Deterministic safety checks that force Human-In-The-Loop
+  approval when an agent plans destructive or highly sensitive operations (e.g.,
+  `DROP`, `DELETE`).
+- **Macroscopic Telemetry Observer**: A zero-dependency aggregation script that
+  reads friction logs across sprints to visually chart tool failures, efficiency
+  trends, and productivity bottlenecks.
+  - **Usage**: `node .agents/scripts/aggregate-telemetry.js --from 1 --to 10`
 
 ---
 
