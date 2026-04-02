@@ -97,11 +97,13 @@ function getGoldenExamples() {
   }
 }
 
-export function renderPlaybook(manifest, chatSessions, chatDeps) {
-  const sprintNum = String(manifest.sprintNumber).padStart(3, '0');
+export function renderPlaybook(manifest, chatSessions, chatDeps, options = {}) {
+  const padding = options.sprintNumberPadding || 3;
+  const docsRoot = options.sprintDocsRoot || 'docs/sprints';
+  const sprintNum = String(manifest.sprintNumber).padStart(padding, '0');
   
   let md = `# Sprint ${sprintNum} Playbook: ${manifest.sprintName}\n\n`;
-  md += `> **Playbook Path:** docs/sprints/sprint-${sprintNum}/playbook.md\n>\n`;
+  md += `> **Playbook Path:** ${docsRoot}/sprint-${sprintNum}/playbook.md\n>\n`;
   md += `> **Objective:** ${manifest.summary}\n>\n`;
   if (manifest.mode) {
     md += `> **Mode:** ${manifest.mode} (LLM Strategy)\n\n`;
@@ -117,7 +119,7 @@ export function renderPlaybook(manifest, chatSessions, chatDeps) {
   md += `\n\n`;
 
   // Pre-compute reverse mapping for explicit dependency injection
-  const paddedSprint = String(manifest.sprintNumber).padStart(3, '0');
+  const paddedSprint = String(manifest.sprintNumber).padStart(padding, '0');
   const taskIdToNumber = new Map();
   for (const session of chatSessions) {
     for (let i = 0; i < session.tasks.length; i++) {
@@ -181,8 +183,7 @@ export function renderPlaybook(manifest, chatSessions, chatDeps) {
 
     md += `**Close-out:**\n`;
     md += `Once all task instructions are fully verified and committed, run the finalization workflow to track state:\n`;
-    md += `\`/[.agents/workflows/sprint-finalize-task.md]\`\n`;
-    md += `- Ensure you update the playbook task to \`[/]\` while executing.\n\n`;
+    md += `\`/[.agents/workflows/sprint-finalize-task.md]\`\n\n`;
 
     md += `=== VOLATILE TASK CONTEXT ===\n`;
     md += `**Persona**: ${session.tasks[0].persona}\n`;
@@ -197,14 +198,16 @@ export function renderPlaybook(manifest, chatSessions, chatDeps) {
 
     if (deps.length > 0 || session.tasks.some((t) => t.dependsOn && t.dependsOn.length > 0)) {
       md += `**Pre-flight Task Validation (Run this first):**\n`;
-      md += `\`node .agents/scripts/verify-prereqs.js docs/sprints/sprint-${sprintNum}/playbook.md ${sprintNum}.${session.chatNumber}.${session.tasks[0].id}\`\n\n`;
+      const firstFullId = taskIdToNumber.get(session.tasks[0].id);
+      md += `\`node .agents/scripts/verify-prereqs.js ${docsRoot}/sprint-${sprintNum}/playbook.md ${firstFullId}\`\n\n`;
     }
 
     md += `**Instructions:**\n`;
     for (const task of session.tasks) {
+      const fullTaskId = taskIdToNumber.get(task.id);
       md += `1. **Task ${task.id}:** ${renderTaskInstructions(task, sprintNum)}\n`;
       md += `   - **Branching**: \`git checkout -b task/sprint-${sprintNum}/${task.id}\`\n`;
-      md += `   - **Mark Executing**: Update the playbook task to \`[/]\` during execution.\n`;
+      md += `   - **Mark Executing**: \`node .agents/scripts/update-task-state.js ${fullTaskId} executing\`\n`;
     }
 
     md += getGoldenExamples();

@@ -44,6 +44,8 @@ const defaultModels = config?.properties?.defaultModels?.default || {
   planningFallback: 'Gemini 3.1 Pro (Low)',
   fastFallback: 'Gemini 3 Flash'
 };
+const sprintDocsRoot = config?.properties?.sprintDocsRoot?.default || 'docs/sprints';
+const sprintNumberPadding = config?.properties?.sprintNumberPadding?.default || 3;
 
 // ---------------------------------------------------------------------------
 // Constants
@@ -347,6 +349,10 @@ export function groupIntoChatSessions(tasks, layers, adjacency) {
 
 export function generateFromManifest(manifest, options = {}) {
   const { agentsDir } = options;
+  
+  // Inject configuration defaults if not provided in options
+  if (!options.sprintDocsRoot) options.sprintDocsRoot = sprintDocsRoot;
+  if (!options.sprintNumberPadding) options.sprintNumberPadding = sprintNumberPadding;
 
   // 0. Auto-enrich manifest with boilerplate required fields
   enrichManifest(manifest);
@@ -389,7 +395,7 @@ export function generateFromManifest(manifest, options = {}) {
   const chatDeps = computeChatDependencies(chatSessions, adjacency);
 
   // 8. Render
-  const markdown = renderPlaybook(manifest, chatSessions, chatDeps);
+  const markdown = renderPlaybook(manifest, chatSessions, chatDeps, options);
 
   return { markdown, chatSessions, chatDeps };
 }
@@ -408,15 +414,15 @@ function main() {
     process.exit(1);
   }
 
-  // Normalize to 3 digits for robust directory resolution
-  const paddedSprint = String(sprintNumber).padStart(3, '0');
+  // Normalize for robust directory resolution
+  const paddedSprint = String(sprintNumber).padStart(sprintNumberPadding, '0');
   
-  // Try finding it with 3 digits first (new standard)
-  let sprintDir = path.join(PROJECT_ROOT, 'docs', 'sprints', `sprint-${paddedSprint}`);
+  // Try finding it with padded digits first (new standard)
+  let sprintDir = path.join(PROJECT_ROOT, sprintDocsRoot, `sprint-${paddedSprint}`);
   
   // Robustness: Fallback to the original unpadded arg if it exists and the padded one doesn't
   if (!fs.existsSync(sprintDir)) {
-    const unpaddedDir = path.join(PROJECT_ROOT, 'docs', 'sprints', `sprint-${sprintArg}`);
+    const unpaddedDir = path.join(PROJECT_ROOT, sprintDocsRoot, `sprint-${sprintArg}`);
     if (fs.existsSync(unpaddedDir)) {
       sprintDir = unpaddedDir;
     }

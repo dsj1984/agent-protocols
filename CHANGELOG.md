@@ -10,6 +10,20 @@ and this project adheres to
 
 ### Added
 
+- **Decoupled Task State Management**:
+  - Introduced `.agents/scripts/update-task-state.js` utility for standardized
+    JSON-based task state tracking.
+  - Refactored the `AGENT EXECUTION PROTOCOL` to include a mandatory **Mark
+    Executing** step using the new utility.
+  - Formally aligned the playbook with the **v2.18.3+ simplified protocol**,
+    removing all instructions for manual checkbox editing (`- [ ]` -> `- [/]`).
+
+- **Config-Driven Playbook Generation**:
+  - Refactored `generate-playbook.js` and `Renderer.js` to eliminate hardcoded
+    `docs/sprints` paths and `3`-digit padding.
+  - The generation pipeline now dynamically respects `sprintDocsRoot` and
+    `sprintNumberPadding` defined in `config.json`.
+
 - **Intelligent Model Fallbacks**:
   - Restored the dual-model enforcement protocol in `generate-playbook.js`.
   - Every task now guarantees both a **First Choice** and **Second Choice**
@@ -37,6 +51,13 @@ and this project adheres to
   - This ensures recommendations are clearly visible for human consumption and
     manual model selection while keeping the automated prompt block focused on
     execution logic.
+
+### Fixed
+
+- **Task ID Resolution Bug**: Fixed a logic error where the pre-flight
+  verification script was being generated with incorrect internal manifest IDs
+  (e.g., `043.1.a`) instead of the required numeric identifiers (e.g.,
+  `043.1.1`).
 
 ## [3.1.0] - 2026-04-02
 
