@@ -95,7 +95,9 @@
       "properties": {
         "heuristics": {
           "type": "array",
-          "items": { "type": "string" },
+          "items": {
+            "type": "string"
+          },
           "default": [
             "Destructive database mutations or unrecoverable state changes.",
             "Structural anomalies or modifications to shared infrastructure (IAM, global security layers).",
@@ -109,11 +111,43 @@
       "type": "object",
       "description": "Mapping for bookend tasks to automatically define their required persona and skills.",
       "default": {
-        "isIntegration": { "persona": "engineer", "skills": ["architecture/monorepo-path-strategist", "devops/git-flow-specialist"] },
-        "isQA": { "persona": "qa-engineer", "skills": [] },
-        "isCodeReview": { "persona": "architect", "skills": ["devops/git-flow-specialist"] },
-        "isRetro": { "persona": "product", "skills": ["architecture/markdown"] },
-        "isCloseSprint": { "persona": "devops-engineer", "skills": ["devops/git-flow-specialist"] }
+        "isIntegration": {
+          "persona": "engineer",
+          "skills": [
+            "architecture/monorepo-path-strategist",
+            "devops/git-flow-specialist"
+          ]
+        },
+        "isQA": {
+          "persona": "qa-engineer",
+          "skills": []
+        },
+        "isCodeReview": {
+          "persona": "architect",
+          "skills": [
+            "devops/git-flow-specialist"
+          ]
+        },
+        "isRetro": {
+          "persona": "product",
+          "skills": [
+            "architecture/markdown"
+          ]
+        },
+        "isCloseSprint": {
+          "persona": "devops-engineer",
+          "skills": [
+            "devops/git-flow-specialist"
+          ]
+        }
+      }
+    },
+    "defaultModels": {
+      "type": "object",
+      "description": "Default fallback models for agent task execution when not specified in the manifest.",
+      "default": {
+        "planningFallback": "Gemini 3.1 Pro (High)",
+        "fastFallback": "Gemini 3 Flash"
       }
     }
   }

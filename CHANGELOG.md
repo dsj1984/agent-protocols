@@ -6,6 +6,38 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 and this project adheres to
 [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [3.1.1] - 2026-04-02
+
+### Added
+
+- **Intelligent Model Fallbacks**:
+  - Restored the dual-model enforcement protocol in `generate-playbook.js`.
+  - Every task now guarantees both a **First Choice** and **Second Choice**
+    model.
+  - Implemented configurable fallbacks (Planning -> Pro Low, Fast -> Flash)
+    defined in `.agents/config/config.json`.
+
+- **Enhanced Task Branching Logic**:
+  - Updated `Renderer.js` to inject explicit `git checkout -b` commands for
+    every task directly into the agent instructions.
+  - Standardized the feature branch naming convention:
+    `task/sprint-[NUM]/[TASK_ID]`.
+
+- **Conditional Pre-flight Verification**:
+  - Refactored the `AGENT EXECUTION PROTOCOL` to conditionally omit the
+    pre-flight dependency check for tasks with zero dependencies.
+  - This streamlines execution for independent tasks while maintaining strict
+    verification for chained work.
+
+### Changed
+
+- **Human-Centric Model Recommendations**:
+  - Refactored the playbook layout to move `Mode` and `Model` identifiers above
+    the `Agent Prompt` block.
+  - This ensures recommendations are clearly visible for human consumption and
+    manual model selection while keeping the automated prompt block focused on
+    execution logic.
+
 ## [3.1.0] - 2026-04-02
 
 ### Added

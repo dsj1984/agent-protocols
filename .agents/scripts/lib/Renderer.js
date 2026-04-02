@@ -103,7 +103,9 @@ export function renderPlaybook(manifest, chatSessions, chatDeps) {
   let md = `# Sprint ${sprintNum} Playbook: ${manifest.sprintName}\n\n`;
   md += `> **Playbook Path:** docs/sprints/sprint-${sprintNum}/playbook.md\n>\n`;
   md += `> **Objective:** ${manifest.summary}\n>\n`;
-  md += `> **Mode:** ${manifest.mode} (LLM Strategy)\n\n`;
+  if (manifest.mode) {
+    md += `> **Mode:** ${manifest.mode} (LLM Strategy)\n\n`;
+  }
 
   // Summary
   md += `## Sprint Summary\n\n`;
@@ -143,6 +145,9 @@ export function renderPlaybook(manifest, chatSessions, chatDeps) {
     md += `#### Tasks\n\n`;
     for (const task of session.tasks) {
       md += `- [ ] **${taskIdToNumber.get(task.id)}** ${task.title}\n`;
+      
+      md += `  - **Mode**: ${task.mode} | **Model (First Choice)**: ${task.model} | **Model (Second Choice)**: ${task.secondaryModel}\n`;
+
       if (task.scope) {
         md += `  - **Scope**: \`${task.scope}\`\n`;
       }
@@ -163,9 +168,16 @@ export function renderPlaybook(manifest, chatSessions, chatDeps) {
     md += `\`\`\`markdown\n`;
     md += `=== SYSTEM PROTOCOL & CAPABILITIES ===\n`;
     md += `**AGENT EXECUTION PROTOCOL:**\n`;
-    md += `Before beginning work, you MUST run the pre-flight verification script to ensure all dependencies are committed.\n`;
-    md += `Execute \`/[.agents/workflows/sprint-verify-task-prerequisites.md]\` or run the manual verification script for your specific task.\n`;
-    md += `If the script fails, STOP immediately and ask the user to complete the blocking tasks.\n\n`;
+    
+    if (deps.length > 0 || session.tasks.some((t) => t.dependsOn && t.dependsOn.length > 0)) {
+      md += `Before beginning work, you MUST run the pre-flight verification script to ensure all dependencies are committed.\n`;
+      md += `Execute \`/[.agents/workflows/sprint-verify-task-prerequisites.md]\` or run the manual verification script for your specific task.\n`;
+      md += `If the script fails, STOP immediately and ask the user to complete the blocking tasks.\n\n`;
+    }
+
+    md += `**Branching:**\n`;
+    md += `All task work MUST occur on an isolated feature branch created from the current sprint branch.\n`;
+    md += `You will be provided with the exact branch name in your volatile instructions.\n\n`;
 
     md += `**Close-out:**\n`;
     md += `Once all task instructions are fully verified and committed, run the finalization workflow to track state:\n`;
@@ -191,6 +203,7 @@ export function renderPlaybook(manifest, chatSessions, chatDeps) {
     md += `**Instructions:**\n`;
     for (const task of session.tasks) {
       md += `1. **Task ${task.id}:** ${renderTaskInstructions(task, sprintNum)}\n`;
+      md += `   - **Branching**: \`git checkout -b task/sprint-${sprintNum}/${task.id}\`\n`;
       md += `   - **Mark Executing**: Update the playbook task to \`[/]\` during execution.\n`;
     }
 

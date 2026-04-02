@@ -40,6 +40,10 @@ try {
   process.exit(1);
 }
 const bookendRequirements = config?.properties?.bookendRequirements?.default || {};
+const defaultModels = config?.properties?.defaultModels?.default || {
+  planningFallback: 'Gemini 3.1 Pro (Low)',
+  fastFallback: 'Gemini 3 Flash'
+};
 
 // ---------------------------------------------------------------------------
 // Constants
@@ -173,6 +177,11 @@ export function enrichManifest(manifest) {
           if (!task.skills.includes(skill)) task.skills.push(skill);
         }
       }
+    }
+
+    // Intelligent Model Fallbacks
+    if (!task.secondaryModel) {
+      task.secondaryModel = task.mode === 'Planning' ? defaultModels.planningFallback : defaultModels.fastFallback;
     }
   }
 }
