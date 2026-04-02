@@ -6,6 +6,17 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 and this project adheres to
 [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [2.18.1] - 2026-04-02
+
+### Added
+
+- **Automated Manifest Enrichment**:
+  - Introduced `enrichManifest` function to `generate-playbook.js` to
+    automatically inject required personas and skills for bookend tasks.
+  - Reduces boilerplate in `task-manifest.json` and prevents validation errors
+    for missing mandatory fields in Integration, QA, Code Review, Retro, and
+    Close Sprint tasks.
+
 ## [2.18.0] - 2026-04-02
 
 ### Changed

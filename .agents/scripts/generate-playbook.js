@@ -150,6 +150,43 @@ export function validateManifest(manifest) {
 }
 
 // ---------------------------------------------------------------------------
+// Manifest Enrichment
+// ---------------------------------------------------------------------------
+
+/**
+ * Automatically injects required personas and skills for bookend tasks
+ * to reduce boilerplate and prevent validation errors.
+ */
+export function enrichManifest(manifest) {
+  if (!Array.isArray(manifest.tasks)) return;
+
+  for (const task of manifest.tasks) {
+    if (!Array.isArray(task.skills)) task.skills = [];
+
+    if (task.isIntegration) {
+      if (!task.persona) task.persona = 'engineer';
+      if (!task.skills.includes('architecture/monorepo-path-strategist')) task.skills.push('architecture/monorepo-path-strategist');
+      if (!task.skills.includes('devops/git-flow-specialist')) task.skills.push('devops/git-flow-specialist');
+    }
+    if (task.isQA) {
+      if (!task.persona) task.persona = 'qa-engineer';
+    }
+    if (task.isCodeReview) {
+      if (!task.persona) task.persona = 'architect';
+      if (!task.skills.includes('devops/git-flow-specialist')) task.skills.push('devops/git-flow-specialist');
+    }
+    if (task.isRetro) {
+      if (!task.persona) task.persona = 'product';
+      if (!task.skills.includes('architecture/markdown')) task.skills.push('architecture/markdown');
+    }
+    if (task.isCloseSprint) {
+      if (!task.persona) task.persona = 'devops-engineer';
+      if (!task.skills.includes('devops/git-flow-specialist')) task.skills.push('devops/git-flow-specialist');
+    }
+  }
+}
+
+// ---------------------------------------------------------------------------
 // Persona & Skill Validation (Warnings)
 // ---------------------------------------------------------------------------
 
@@ -727,6 +764,9 @@ export function renderPlaybook(manifest, chatSessions, chatDeps) {
 
 export function generateFromManifest(manifest, options = {}) {
   const { agentsDir } = options;
+
+  // 0. Auto-enrich manifest with boilerplate required fields
+  enrichManifest(manifest);
 
   // 1. Validate
   const errors = validateManifest(manifest);
