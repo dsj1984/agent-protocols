@@ -17,6 +17,8 @@ precisely:
     `sprintNumberPadding` setting in the same config.
 3.  Resolve `[TASK_STATE_ROOT]` from the `taskStateRoot` field in
     `.agents/config/config.json` (default: `temp/task-state`).
+4.  Resolve `[BASE_BRANCH]` from the `baseBranch` field in
+    `.agents/config/config.json` (default: `main`).
 
 ## Step 1 - Branch Guard
 
@@ -55,24 +57,36 @@ precisely:
      `{ "status": "passed", "timestamp": "[ISO_TIMESTAMP]", "task": "[TASK_ID]" }`.
    - **Note**: This decoupled approach prevents git merge conflicts when
      multiple agents are finalizing tasks simultaneously.
-9. **Commit State**:
-   - **If `[TASK_STATE_ROOT]` is within `/temp/`**: Skip Git operations for the
-     state file (it is local-only).
-   - **If `[TASK_STATE_ROOT]` is NOT in a Git-ignored directory**: Stage and
-     commit the state files:
-     `git add [TASK_STATE_ROOT]/[TASK_ID].json [TASK_STATE_ROOT]/[TASK_ID]-test-receipt.json ; git commit -m "chore(task): mark [TASK_ID] as committed with test receipt"`.
-     Push this tracking commit upstream: `git push`. (If it fails, pull --rebase
-     and push again).
-10. **Notification**: Resolve `[WEBHOOK_URL]` from the `webhookUrl` field in
-    `.agents/config/config.json`. If `webhookUrl` is not empty, send a
-    notification using the cross-platform Node script:
-    - **Protocol**:
-      `node .agents/scripts/notify.js "[WEBHOOK_URL]" "Sprint step [TASK_ID] was pushed to its feature branch."`
-    - **Failure Logging**: If the notification script fails, log the failure in
-      `agent-friction-log.json` (JSONL format) in the `[SPRINT_ROOT]` directory
-      with fields for `timestamp`, `type` (friction_point), `tool` (notify.js),
-      and `error`.
-    - If `webhookUrl` is empty, skip gracefully.
+
+9. **Golden-Path Harvesting**: If this task was completed without tool friction,
+   harvest the implementation diff as a few-shot example for future agents:
+   `node .agents/scripts/harvest-golden-path.js --task [TASK_ID] --sprint [SPRINT_ROOT] --base [BASE_BRANCH]`
+   - **Note**: This script will automatically abort if the task logged errors to
+     `agent-friction-log.json`.
+
+10. **Commit State**:
+
+- **If `[TASK_STATE_ROOT]` is within `/temp/`**: Skip Git operations for the
+  state file (it is local-only).
+- **If `[TASK_STATE_ROOT]` is NOT in a Git-ignored directory**: Stage and commit
+  the state files:
+  `git add [TASK_STATE_ROOT]/[TASK_ID].json [TASK_STATE_ROOT]/[TASK_ID]-test-receipt.json ; git commit -m "chore(task): mark [TASK_ID] as committed with test receipt"`.
+  Push this tracking commit upstream: `git push`. (If it fails, pull --rebase
+  and push again).
+
+1. **Notification**: Resolve `[WEBHOOK_URL]` from the `webhookUrl` field in
+   `.agents/config/config.json`. If `webhookUrl` is not empty, send a
+   notification using the cross-platform Node script:
+   - **Protocol**:
+     `node .agents/scripts/notify.js "[WEBHOOK_URL]" "Sprint step [TASK_ID] was pushed to its feature branch."`
+   - **Failure Logging**: If the notification script fails, log the failure in
+     `agent-friction-log.json` (JSONL format) in the `[SPRINT_ROOT]` directory
+     with fields for `timestamp`, `type` (friction_point), `tool` (notify.js),
+     and `error`.
+   - If `webhookUrl` is empty, skip gracefully.
+
+2. **Finalize**: Stage and commit any newly harvested golden examples along with
+   your state updates (Step 10).
 
 ## State Progression Reference
 

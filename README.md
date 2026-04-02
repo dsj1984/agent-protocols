@@ -88,6 +88,11 @@ ensure high-quality sprint execution:
   failed `/sprint-integration` candidate check into a `/sprint-hotfix` loop.
   Agents remediate build/test failures and re-attempt integration autonomously
   up to a configurable `maxIntegrationRetries` threshold (default: 2).
+- **Dynamic Golden-Path Harvesting (Agentic RLHF)**: Automatically harvests
+  zero-friction implementation diffs and instruction pairings into a local
+  `.agents/golden-examples/` repository. These "Golden Paths" are dynamically
+  injected as few-shot prompts in future tasks to autonomously reinforce the
+  project's highest-quality coding standards.
 - **Macroscopic Telemetry Observer**: A zero-dependency aggregation script that
   reads friction logs across sprints to visually chart tool failures, efficiency
   trends, and productivity bottlenecks.

@@ -6,11 +6,14 @@ import { spawnSync } from 'node:child_process';
 // Usage: node diagnose-friction.js [--sprint <path>] --cmd <command...>
 const args = process.argv.slice(2);
 let sprintRoot = '.';
+let taskId = 'unknown';
 let cmdArgs = [];
 
 for (let i = 0; i < args.length; i++) {
   if (args[i] === '--sprint') {
     sprintRoot = args[++i] || '.';
+  } else if (args[i] === '--task') {
+    taskId = args[++i] || 'unknown';
   } else if (args[i] === '--cmd') {
     cmdArgs = args.slice(i + 1);
     break;
@@ -45,6 +48,7 @@ if (result.status !== 0) {
   const logEntry = {
     timestamp: new Date().toISOString(),
     type: "friction_point",
+    task: taskId,
     tool: cmdArgs[0],
     command: commandStr,
     exitCode: result.status,

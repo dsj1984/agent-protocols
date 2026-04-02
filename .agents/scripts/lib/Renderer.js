@@ -2,6 +2,8 @@
  * Renderer.js
  * Extracted rendering logic for Mermaid diagrams and Playbook Markdown format.
  */
+import fs from 'node:fs';
+import path from 'node:path';
 
 // ---------------------------------------------------------------------------
 // Mermaid Diagram Generation
@@ -70,6 +72,29 @@ export function renderTaskInstructions(task, sprintNumber) {
     return `Execute the \`sprint-close-out\` workflow for \`${sprintNumber}\`.`;
   }
   return task.instructions;
+}
+
+function getGoldenExamples() {
+  const goldenDir = path.join(process.cwd(), '.agents', 'golden-examples');
+  if (!fs.existsSync(goldenDir)) return "";
+  
+  try {
+    const files = fs.readdirSync(goldenDir).filter(f => f.endsWith('.md'));
+    if (files.length === 0) return "";
+    
+    // Select last 2 for recent few-shot reinforcement
+    const selection = files.slice(-2);
+    let block = `\n=== GOLDEN EXAMPLES (FEW-SHOT) ===\n`;
+    block += `Refer to these historical examples of zero-friction task completions to align your style and patterns with the project standards.\n\n`;
+    
+    for (const file of selection) {
+      const content = fs.readFileSync(path.join(goldenDir, file), 'utf8');
+      block += `---\n${content}\n`;
+    }
+    return block;
+  } catch {
+    return "";
+  }
 }
 
 export function renderPlaybook(manifest, chatSessions, chatDeps) {
@@ -168,6 +193,8 @@ export function renderPlaybook(manifest, chatSessions, chatDeps) {
       md += `1. **Task ${task.id}:** ${renderTaskInstructions(task, sprintNum)}\n`;
       md += `   - **Mark Executing**: Update the playbook task to \`[/]\` during execution.\n`;
     }
+
+    md += getGoldenExamples();
 
     md += `\`\`\`\n\n`;
   }

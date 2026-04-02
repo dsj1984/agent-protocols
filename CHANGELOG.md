@@ -42,6 +42,18 @@ and this project adheres to
     retry threshold is reached, minimizing human-in-the-loop dependencies for
     integration failures.
 
+- **Dynamic Golden-Path Harvesting (Agentic RLHF)**:
+  - Created `harvest-golden-path.js` script to automatically extract
+    Zero-Friction implementation diffs and instruction pairings into a local
+    `.agents/golden-examples/` repository.
+  - Updated `diagnose-friction.js` to support `--task` tagging, enabling precise
+    association of friction points with specific task IDs.
+  - Integrated harvesting into the `/sprint-finalize-task` workflow as a
+    standard completion step.
+  - Modified `Renderer.js` to dynamically inject harvested golden paths as
+    few-shot prompts into new playbooks, facilitating autonomous project
+    alignment and reinforcement learning.
+
 ## [3.0.0] - 2026-04-02
 
 ### Added

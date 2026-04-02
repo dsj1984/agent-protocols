@@ -34,6 +34,9 @@ evolutionary loops.
   failed `/sprint-integration` candidate check into a `/sprint-hotfix` loop,
   resolving build/test failures autonomously up to a configurable
   `maxIntegrationRetries` threshold (default: 2).
+- ✅ **Dynamic Golden-Path Harvesting (Agentic RLHF)**: Implemented automated
+  harvesting of zero-friction instruction-to-diff mappings into
+  `.agents/golden-examples/` for dynamic few-shot prompt reinforcement.
 - ✅ **Self-Healing Protocols (Retro-Augmentation)**: Updated `/sprint-retro`
   and Architect persona to generate agent-ready optimization snippets from
   friction logs.
@@ -101,12 +104,6 @@ relying on brittle Bash execution.
 **Concept:** Upgrade static keyword `riskGates` to a low-latency LLM semantic
 classifier that detects structural anomalies or logic that deviates from the
 localized intent of the PRD.
-
-### Dynamic Golden-Path Harvesting (Agentic RLHF)
-
-**Concept:** Automatically harvest code diffs and prompts from tasks that
-complete with zero friction logs. Compile these into a localized
-`golden-examples` repository to be used as few-shot injections for future tasks.
 
 ### Adversarial Red-Teaming Tribunals
 

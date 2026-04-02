@@ -212,6 +212,13 @@ tasks:
 - **Friction Logging Thresholds**: The sensitivity for logging repetitive
   sequences or automation candidates is also configurable in the same config
   file via `frictionThresholds.repetitiveCommandCount`.
+- **Dynamic Golden-Path Harvesting (Agentic RLHF)**: To reinforce
+  architecture-compliant patterns, the `/sprint-finalize-task` workflow
+  automatically harvests instruction-to-diff mappings from "zero-friction" task
+  completions. These records are stored in `.agents/golden-examples/` and
+  injected as few-shot examples into future playbooks, enabling the agent swarm
+  to autonomously converge on the repository's established "Golden Path"
+  standards.
 - **Shift-Left Agentic Testing**: To prevent the "happy path" anti-pattern,
   agents are mandated to run isolated tests on their feature branch before
   finalizing a task. A successful run generates a `[TASK_ID]-test-receipt.json`
