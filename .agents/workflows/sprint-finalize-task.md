@@ -58,7 +58,9 @@ precisely:
    - **Protocol**:
      `node .agents/scripts/notify.js "[WEBHOOK_URL]" "Sprint step [TASK_ID] was pushed to its feature branch."`
    - **Failure Logging**: If the notification script fails, log the failure in
-     `WEBHOOK_FAILURE.md` in the `[SPRINT_ROOT]` directory.
+     `agent-friction-log.json` (JSONL format) in the `[SPRINT_ROOT]` directory
+     with fields for `timestamp`, `type` (friction_point), `tool` (notify.js),
+     and `error`.
    - If `webhookUrl` is empty, skip gracefully.
 
 ## State Progression Reference

@@ -6,6 +6,19 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 and this project adheres to
 [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [2.19.0] - 2026-04-02
+
+### Changed
+
+- **Unified Webhook Failure Logging**:
+  - Deprecated the legacy `WEBHOOK_FAILURE.md` file requirement.
+  - Updated `sprint-finalize-task`, `sprint-integration`, and `sprint-close-out`
+    workflows to mandate logging notification failures directly to the
+    structured `agent-friction-log.json` file (JSONL format).
+  - This change aligns webhook telemetry with the project's broader
+    "agent-friction" observability protocol, improving error traceability and
+    reducing per-sprint documentation clutter.
+
 ## [2.18.3] - 2026-04-02
 
 ### Added

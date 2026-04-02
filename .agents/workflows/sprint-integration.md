@@ -60,8 +60,9 @@ feature branches.
     notification using the cross-platform Node script:
     `node .agents/scripts/notify.js "[WEBHOOK_URL]" "Sprint [SPRINT_NUMBER] feature branches have been integrated into the sprint base branch."`
 
-- If the command fails, log the failure in `WEBHOOK_FAILURE.md` in the
-  `[SPRINT_ROOT]` directory.
+- If the command fails, log the failure in `agent-friction-log.json` (JSONL
+  format) in the `[SPRINT_ROOT]` directory with fields for `timestamp`, `type`
+  (friction_point), `tool` (notify.js), and `error`.
 - If the `webhookUrl` is empty, skip gracefully.
 
 ## Constraint
