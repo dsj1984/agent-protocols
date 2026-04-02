@@ -1,5 +1,5 @@
-const fs = require('fs');
-const path = require('path');
+import fs from 'node:fs';
+import path from 'node:path';
 
 const playbookPath = process.argv[2];
 const targetTask = process.argv[3];
@@ -19,7 +19,7 @@ const content = fs.readFileSync(playbookPath, 'utf8');
 
 // Parse task statuses from playbook (only [x] is considered COMPLETE here)
 const taskStatus = new Map();
-const taskRegex = /^- \[([ xX])\] \*\*([\d\.]+)\s/gm;
+const taskRegex = /^- \[([ xX])\] \*\*([\d\.]+)\*\*\s/gm;
 let match;
 while ((match = taskRegex.exec(content)) !== null) {
   const statusMark = match[1];
@@ -38,14 +38,14 @@ if (!taskStatus.has(targetTask)) {
 
 // Find explicit dependencies for targetTask
 const escapedTask = targetTask.replace(/\./g, '\\.');
-const taskBlockRegex = new RegExp(`- \\[[ xX]\\] \\*\\*${escapedTask}[\\s\\S]*?(?=- \\[[ xX]\\] \\*\\*\\d|\\Z)`, 'g');
+const taskBlockRegex = new RegExp(`- \\[[ xX]\\] \\*\\*${escapedTask}\\*\\*[\\s\\S]*?(?=- \\[[ xX]\\] \\*\\*\\d|$)`, 'g');
 const taskBlockMatch = taskBlockRegex.exec(content);
 
 const dependencies = new Set();
 
 if (taskBlockMatch) {
   const block = taskBlockMatch[0];
-  const depsRegex = /- \*\*Dependencies\*\*: (.*)/;
+  const depsRegex = /\s*- \*\*Dependencies\*\*: (.*)/;
   const depsMatch = depsRegex.exec(block);
   if (depsMatch) {
     const depsString = depsMatch[1];

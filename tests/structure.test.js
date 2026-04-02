@@ -19,17 +19,13 @@ function agentsPath(...parts) {
 // Core file existence
 // ---------------------------------------------------------------------------
 describe('Core .agents/ files', () => {
-  const required = [
+  const coreRequired = [
     'config/config.json',
     'instructions.md',
     'README.md',
-    'personas/engineer.md',
-    'personas/architect.md',
-    'personas/product.md',
-    'personas/sre.md',
   ];
 
-  for (const file of required) {
+  for (const file of coreRequired) {
     it(`${file} exists`, () => {
       assert.ok(
         fs.existsSync(agentsPath(file)),
@@ -44,6 +40,29 @@ describe('Core .agents/ files', () => {
       'Missing .agents/rules/ directory',
     );
   });
+
+  const personasDir = agentsPath('personas');
+  if (fs.existsSync(personasDir)) {
+    const personas = fs
+      .readdirSync(personasDir)
+      .filter((file) => file.endsWith('.md'));
+
+    assert.ok(personas.length > 0, '.agents/personas/ contains no markdown files');
+
+    for (const personaFile of personas) {
+      it(`Persona ${personaFile} has structural integrity (# Role:)`, () => {
+        const content = fs.readFileSync(agentsPath('personas', personaFile), 'utf8');
+        assert.ok(
+          content.includes('# Role:'),
+          `Persona ${personaFile} is missing the required '# Role:' header`,
+        );
+      });
+    }
+  } else {
+    it('personas/ directory exists', () => {
+      assert.fail('Missing .agents/personas/ directory');
+    });
+  }
 });
 
 // ---------------------------------------------------------------------------
