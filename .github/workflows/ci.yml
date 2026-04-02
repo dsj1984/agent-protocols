@@ -34,7 +34,7 @@ jobs:
               - '.github/workflows/ci.yml'
 
       - name: Secret Scanning (TruffleHog)
-        uses: trufflesecurity/trufflehog@a4fa9840428efcd02613ce3861fb138e9da5629c # v3.88.11
+        uses: trufflesecurity/trufflehog@6bd2d14f7a4bc1e569fa3550efa7ec632a4fa67b # v3.94.2
         with:
           extra_args: --debug --only-verified
 
