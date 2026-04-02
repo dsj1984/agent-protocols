@@ -21,6 +21,9 @@ evolutionary loops.
 - ✅ **Context Caching Prompt Architecture**: Restructured playbook execution
   prompts to rigidly separate static framework rules from volatile task state,
   maximizing native LLM API token caching efficiency.
+- ✅ **Automated Context Pruning ("Gardener")**: Implemented a background
+  archiving workflow to curate stale architectural decisions and patterns into
+  `docs/archive/`, maintaining a pristine Local RAG signal-to-noise ratio.
 - ✅ **Dynamic Context Boundaries (Local RAG)**: Implemented zero-dependency
   TF-IDF engine (`context-indexer.js`) for semantic retrieval and semantic
   context gathering.
@@ -88,12 +91,6 @@ existing risk gates.
 (`context-indexer.js`, `diagnose-friction.js`) into standardized local MCP
 servers, providing a rigid, native interface for LLMs and Agentic IDEs without
 relying on brittle Bash execution.
-
-### Automated Context Pruning
-
-**Concept:** Implement a background "gardener" workflow to identify and archive
-stale architectural decisions, ensuring the Local RAG index maintains a pristine
-signal-to-noise ratio.
 
 ### Semantic Risk & Blast-Radius Gates
 
