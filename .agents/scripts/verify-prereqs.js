@@ -1,10 +1,12 @@
 const fs = require('fs');
+const path = require('path');
 
 const playbookPath = process.argv[2];
 const targetTask = process.argv[3];
+const taskStateRoot = process.argv[4] || 'temp/task-state';
 
 if (!playbookPath || !targetTask) {
-  console.error('Usage: node verify-prereqs.js <playbook-path> <task-number>');
+  console.error('Usage: node verify-prereqs.js <playbook-path> <task-number> [task-state-root]');
   process.exit(1);
 }
 
@@ -15,17 +17,16 @@ if (!fs.existsSync(playbookPath)) {
 
 const content = fs.readFileSync(playbookPath, 'utf8');
 
-// Parse task statuses
+// Parse task statuses from playbook (only [x] is considered COMPLETE here)
 const taskStatus = new Map();
-// Matches lines like: - [ ] **040.1.2 Task Title**  or - [/] **040.1.2**
-const taskRegex = /^- \[([ xX~\/])\] \*\*([\d\.]+)\s/gm;
+const taskRegex = /^- \[([ xX])\] \*\*([\d\.]+)\s/gm;
 let match;
 while ((match = taskRegex.exec(content)) !== null) {
   const statusMark = match[1];
   const taskId = match[2];
   let status = 'INCOMPLETE';
-  if (statusMark === '/' || statusMark.toLowerCase() === 'x') {
-    status = 'COMPLETED'; // "/" is committed, "x" is complete
+  if (statusMark.toLowerCase() === 'x') {
+    status = 'COMPLETED'; // "x" is complete in the playbook
   }
   taskStatus.set(taskId, status);
 }
@@ -36,9 +37,8 @@ if (!taskStatus.has(targetTask)) {
 }
 
 // Find explicit dependencies for targetTask
-// 1. Isolate the block of text for this specific task
 const escapedTask = targetTask.replace(/\./g, '\\.');
-const taskBlockRegex = new RegExp(`- \\[[ xX~/\\]\\] \\*\\*${escapedTask}[\\s\\S]*?(?=- \\[[ xX~/\\]\\] \\*\\*\\d|\\Z)`, 'g');
+const taskBlockRegex = new RegExp(`- \\[[ xX]\\] \\*\\*${escapedTask}[\\s\\S]*?(?=- \\[[ xX]\\] \\*\\*\\d|\\Z)`, 'g');
 const taskBlockMatch = taskBlockRegex.exec(content);
 
 const dependencies = new Set();
@@ -49,13 +49,12 @@ if (taskBlockMatch) {
   const depsMatch = depsRegex.exec(block);
   if (depsMatch) {
     const depsString = depsMatch[1];
-    // extract `040.1.1`, `040.1.2`
     const depIds = [...depsString.matchAll(/`([\d\.]+)`/g)].map((m) => m[1]);
     depIds.forEach((dep) => dependencies.add(dep));
   }
 }
 
-// Also find intra-chat predecessors (numerically preceding steps in the same chat)
+// Intra-chat predecessors (numerically preceding steps in the same chat)
 const parts = targetTask.split('.');
 if (parts.length === 3) {
   const sprintNum = parts[0];
@@ -67,15 +66,36 @@ if (parts.length === 3) {
   }
 }
 
+function getDecoupledStatus(taskId) {
+  const stateFile = path.resolve(process.cwd(), taskStateRoot, `${taskId}.json`);
+  if (!fs.existsSync(stateFile)) return 'INCOMPLETE';
+  try {
+    const stateData = JSON.parse(fs.readFileSync(stateFile, 'utf8'));
+    if (stateData.status === 'committed') return 'COMPLETED'; // committed counts as satisfied for prereqs
+    return 'INCOMPLETE';
+  } catch (err) {
+    return 'INCOMPLETE';
+  }
+}
+
 // Evaluate dependencies
 let hasFailedDeps = false;
 for (const dep of dependencies) {
-  const status = taskStatus.get(dep);
+  let status = taskStatus.get(dep);
+  
   if (!status) {
     console.error(`❌ ERROR: Dependency ${dep} is missing from the playbook.`);
     hasFailedDeps = true;
-  } else if (status === 'INCOMPLETE') {
-    console.error(`❌ ERROR: Prerequisite task ${dep} is not complete (marked as [ ] or [~]).`);
+    continue;
+  }
+  
+  // If not complete in playbook, check decoupled state
+  if (status === 'INCOMPLETE') {
+    status = getDecoupledStatus(dep);
+  }
+
+  if (status === 'INCOMPLETE') {
+    console.error(`❌ ERROR: Prerequisite task ${dep} is not complete or committed.`);
     hasFailedDeps = true;
   } else {
     console.log(`✅ Prerequisite ${dep} is satisfied.`);
@@ -89,3 +109,4 @@ if (hasFailedDeps) {
   console.log(`\n✅ VERIFICATION PASSED: All prerequisites for task ${targetTask} are satisfied.`);
   process.exit(0);
 }
+

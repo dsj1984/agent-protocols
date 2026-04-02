@@ -175,12 +175,18 @@ deterministic format to allow for easy filtering and squashing.
 
 To avoid merge conflicts on shared tracking files:
 
-1.  When updating a task status, you MUST check if a `task-state/` directory
-    exists in the sprint folder.
-2.  If it exists, write your status update to a dedicated file:
-    `docs/sprints/sprint-[XXX]/task-state/[ID].json` instead of editing the main
-    `playbook.md file directly.
-3.  The `sprint-integration` workflow will periodically consolidate these state
+1.  When updating a task status, resolve `[TASK_STATE_ROOT]` from the
+    `taskStateRoot` field in `.agents/config/config.json` (default:
+    `temp/task-state`).
+2.  If it exists or is being created, write your status update to a dedicated
+    file: `[TASK_STATE_ROOT]/[ID].json` instead of editing the main
+    `playbook.md` file directly.
+3.  **Note on Git Tracking**: If `[TASK_STATE_ROOT]` is configured within
+    `/temp/`, it is local-only and will NOT be committed to Git. If it is
+    defined within a project directory (e.g.,
+    `docs/sprints/sprint-[XXX]/task-state`), it MUST be committed to Git for
+    cross-agent synchronization.
+4.  The `sprint-integration` workflow will periodically consolidate these state
     files into the master playbook.
 
 ### D. History Hygiene

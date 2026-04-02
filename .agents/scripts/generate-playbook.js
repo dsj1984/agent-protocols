@@ -564,15 +564,13 @@ export function generateMermaid(chatSessions, chatDeps) {
   }
 
   // Define Legend (Compact single node with line breaks)
-  const statusLegend = '⬜ Not Started  <br />🟨 Executing  <br />🟦 Committed  <br />🟩 Complete';
+  const statusLegend = '⬜ Not Started  <br />🟩 Complete';
   const iconLegend = '🗄️ DB | 🌐 Web | 📱 Mobile | 🧪 Test <br />📝 Docs | 🛡️ Ops | ⚙️ Gen';
   lines.push(`    Legend["${statusLegend} <br />---<br /> ${iconLegend}"]:::LegendNode`);
 
   // Define styles
   lines.push('    %% Style Definitions %%');
   lines.push('    classDef not_started fill:#d1d5db,stroke:#9ca3af,color:#1f2937');
-  lines.push('    classDef executing fill:#f59e0b,stroke:#d97706,color:#1f2937');
-  lines.push('    classDef committed fill:#3b82f6,stroke:#2563eb,color:#ffffff');
   lines.push('    classDef complete fill:#16a34a,stroke:#059669,color:#ffffff');
   lines.push('    classDef LegendNode fill:transparent,stroke:transparent,font-size:12px');
   lines.push('```');
@@ -618,13 +616,13 @@ function renderTask(task, sprintNumber, chatNumber, stepNumber, taskIdToNumber) 
       .sort()
       .map(num => `\`${num}\``)
       .join(', ');
-    protocol += `2. **Mark Executing**: Update the playbook — change your task checkbox to \`- [~]\` and set the Mermaid class for node \`C${chatNumber}\` to \`executing\` (if not already). Commit and push the state change.\n`;
+    protocol += `2. **Mark Executing**: Create/update the state file at \`[TASK_STATE_ROOT]/${task.id}.json\` with \`{"status": "executing", "timestamp": "..."}\` (decoupled state).\n`;
     protocol += `3. **Prerequisite Check**: Execute the \`sprint-verify-task-prerequisites\` workflow for sprint step \`${taskNumber}\`.\n`;
     protocol += `   - **Dependencies**: ${depsList}\n`;
     protocol += `4. **Execution**: Perform the task instructions below.\n`;
     protocol += `5. **Finalization**: Execute the \`sprint-finalize-task\` workflow explicitly for sprint step \`${taskNumber}\`.`;
   } else {
-    protocol += `2. **Mark Executing**: Update the playbook — change your task checkbox to \`- [~]\` and set the Mermaid class for node \`C${chatNumber}\` to \`executing\` (if not already). Commit and push the state change.\n`;
+    protocol += `2. **Mark Executing**: Create/update the state file at \`[TASK_STATE_ROOT]/${task.id}.json\` with \`{"status": "executing", "timestamp": "..."}\` (decoupled state).\n`;
     protocol += `3. **Execution**: Perform the task instructions below.\n`;
     protocol += `4. **Finalization**: Execute the \`sprint-finalize-task\` workflow explicitly for sprint step \`${taskNumber}\`.`;
   }

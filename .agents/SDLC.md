@@ -155,10 +155,11 @@ tasks:
   and API routes to provide a stable foundation.
 - **Concurrent Execution**: Once the core is locked, parallel sessions handle
   Frontend development, QA automation, and non-blocking documentation.
-- **Decoupled Task Tracking**: Agents push state updates to
-  `task-state/[TASK_ID].json` as tasks are completed. The `/sprint-integration`
-  workflow subsequently updates the master `playbook.md` with (`[x]`) upon
-  successful merge, preventing Git race conditions during concurrent execution.
+- **Decoupled Task Tracking**: Agents push state updates to the `taskStateRoot`
+  directory defined in `.agents/config/config.json` (defaults to
+  `temp/task-state/`) as tasks are completed. The `/sprint-integration` workflow
+  subsequently updates the master `playbook.md` with (`[x]`) upon successful
+  merge, preventing Git race conditions during concurrent execution.
 - **Task Completion Notifications**: When a task is pushed to a feature branch,
   agents broadcast a status update as a JSON payload to the `webhookUrl` (if
   defined in `.agents/config/config.json`) to ensure real-time synchronization

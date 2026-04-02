@@ -15,6 +15,8 @@ precisely:
     `sprintDocsRoot` prefix, both defined in `.agents/config/config.json`.
 2.  `[PADDED_NUM]` is the `[SPRINT_NUMBER]` padded according to the
     `sprintNumberPadding` setting in the same config.
+3.  Resolve `[TASK_STATE_ROOT]` from the `taskStateRoot` field in
+    `.agents/config/config.json` (default: `temp/task-state`).
 
 ## Step 1 - Branch Guard
 
@@ -36,16 +38,20 @@ precisely:
 5. **State Sync**: Switch back to `sprint-[NUM]`. Execute `git pull --rebase` to
    fetch any state updates from sibling agents.
 6. **Update Task State (Decoupled)**:
-   - Ensure the state directory exists: `mkdir -p [SPRINT_ROOT]/task-state/`.
-   - Create or update the JSON state file at
-     `[SPRINT_ROOT]/task-state/[TASK_ID].json` with the current state:
+   - Ensure the state directory exists: `mkdir -p [TASK_STATE_ROOT]`.
+   - Create or update the JSON state file at `[TASK_STATE_ROOT]/[TASK_ID].json`
+     with the current state:
      `{ "status": "committed", "timestamp": "[ISO_TIMESTAMP]" }`.
    - **Note**: This decoupled approach prevents git merge conflicts when
      multiple agents are finalizing tasks simultaneously.
-7. **Commit State**: Stage and commit the state file:
-   `git add [SPRINT_ROOT]/task-state/[TASK_ID].json ; git commit -m "chore(task): mark [TASK_ID] as committed (decoupled state)"`.
-   Push this tracking commit upstream: `git push`. (If it fails, pull --rebase
-   and push again).
+7. **Commit State**:
+   - **If `[TASK_STATE_ROOT]` is within `/temp/`**: Skip Git operations for the
+     state file (it is local-only).
+   - **If `[TASK_STATE_ROOT]` is NOT in a Git-ignored directory**: Stage and
+     commit the state file:
+     `git add [TASK_STATE_ROOT]/[TASK_ID].json ; git commit -m "chore(task): mark [TASK_ID] as committed (decoupled state)"`.
+     Push this tracking commit upstream: `git push`. (If it fails, pull --rebase
+     and push again).
 8. **Notification**: Resolve `[WEBHOOK_URL]` from the `webhookUrl` field in
    `.agents/config/config.json`. If `webhookUrl` is not empty, send a
    notification using the cross-platform Node script:
@@ -57,11 +63,11 @@ precisely:
 
 ## State Progression Reference
 
-| Transition              | Checkbox      | Mermaid Class               | Triggered By                      |
-| ----------------------- | ------------- | --------------------------- | --------------------------------- |
-| Not Started → Executing | `[ ]` → `[~]` | `not_started` → `executing` | Agent Execution Protocol (Step 2) |
-| Executing → Committed   | `[~]` → `[/]` | `executing` → `committed`   | This workflow (Step 6)            |
-| Committed → Complete    | `[/]` → `[x]` | `committed` → `complete`    | `sprint-integration` workflow     |
+| Transition                   | Location           | Triggered By                      |
+| ---------------------------- | ------------------ | --------------------------------- |
+| Not Started → Executing      | State JSON         | Agent Execution Protocol (Step 2) |
+| Executing → Committed        | State JSON         | This workflow (Step 6)            |
+| Committed → Complete (`[x]`) | Playbook / Mermaid | `sprint-integration` workflow     |
 
 ## Constraint
 

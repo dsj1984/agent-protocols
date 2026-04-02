@@ -40,12 +40,12 @@ feature branches.
 5. **Playbook Sync (State Transition to Complete)**:
    - Open `[SPRINT_ROOT]/playbook.md`.
    - For every task branch that was successfully merged, locate its status check
-     and change it from Committed (`- [/]`) to Complete (`- [x]`).
+     and change it from Not Started (`- [ ]`) to Complete (`- [x]`).
 6. **Visualize Progress**:
    - For every Chat Session in the Playbook where **all** component tasks have
      now been checked off (`- [x]`), locate the Mermaid diagram at the top.
-   - Update the status class from `committed` to `complete`. (e.g., Change
-     `class C4 committed` to `class C4 complete`).
+   - Update the status class from `not_started` to `complete`. (e.g., Change
+     `class C4 not_started` to `class C4 complete`).
 7. **Commit State**: Commit the updated `playbook.md` and the merge commits with
    the message:
    `chore(sprint): integrate feature branches and sync playbook state`. Push to

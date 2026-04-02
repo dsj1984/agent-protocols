@@ -12,6 +12,8 @@ description:
     `sprintDocsRoot` prefix, both defined in `.agents/config/config.json`.
 2.  `[PADDED_NUM]` is the `[SPRINT_NUMBER]` padded according to the
     `sprintNumberPadding` setting in the same config.
+3.  Resolve `[TASK_STATE_ROOT]` from the `taskStateRoot` field in
+    `.agents/config/config.json` (default: `temp/task-state`).
 
 ## Step 1 - Pre-flight Checks
 
@@ -27,14 +29,15 @@ Before an agent begins performing file modifications for a sprint task in the
    `sprint-[SPRINT_NUMBER]` with
    `git checkout sprint-[SPRINT_NUMBER] ; git pull` before continuing.
 3. **Execute Verification Script**: Run the deterministic Node.js script to
-   verify that all prerequisite tasks are satisfied (marked as `[/]` or `[x]`):
-   `node .agents/scripts/verify-prereqs.js [SPRINT_ROOT]/playbook.md [TASK_ID]`
+   verify that all prerequisite tasks are satisfied (marked as `[x]` in playbook
+   or `committed` in decoupled state):
+   `node .agents/scripts/verify-prereqs.js [SPRINT_ROOT]/playbook.md [TASK_ID] [TASK_STATE_ROOT]`
    - If the script exits with `0` (Success), proceed to Step 4.
    - If the script exits with `1` (Failure), **STOP IMMEDIATELY**. Do not
      attempt to write code or bypass the block. Alert the user that the
      prerequisite check failed.
-4. **Code Retrieval for Unmerged Dependencies**: If a dependency is marked `[/]`
-   (Committed), its code lives on branch
+4. **Code Retrieval for Unmerged Dependencies**: If a dependency is marked
+   `committed` in its decoupled state file, its code lives on branch
    `task/sprint-[SPRINT_NUMBER]/[DEPENDENCY_TASK_ID]` but is NOT YET merged into
    `sprint-[SPRINT_NUMBER]`. If your current task requires that code to build
    upon, you MUST:
@@ -46,12 +49,12 @@ Before an agent begins performing file modifications for a sprint task in the
 
 ## State Reference
 
-| Marker | State       | Blocks Execution?                          |
-| ------ | ----------- | ------------------------------------------ |
-| `[ ]`  | Not Started | ✅ Yes                                     |
-| `[~]`  | Executing   | ✅ Yes                                     |
-| `[/]`  | Committed   | ❌ No — code is pushed to a feature branch |
-| `[x]`  | Complete    | ❌ No — code is integrated into main       |
+| Marker / Location      | State       | Blocks Execution?                          |
+| ---------------------- | ----------- | ------------------------------------------ |
+| `[ ]` (Playbook)       | Not Started | ✅ Yes                                     |
+| State JSON `executing` | Executing   | ✅ Yes                                     |
+| State JSON `committed` | Committed   | ❌ No — code is pushed to a feature branch |
+| `[x]` (Playbook)       | Complete    | ❌ No — code is integrated into main       |
 
 ## Constraint
 

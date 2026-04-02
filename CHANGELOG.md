@@ -6,6 +6,36 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 and this project adheres to
 [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [2.18.3] - 2026-04-02
+
+### Added
+
+- **Configurable Task State Root**:
+  - Introduced `taskStateRoot` in `.agents/config/config.json` to allow custom
+    paths for decoupled task state files.
+  - Set the default path to `temp/task-state/` (in the project root) to keep the
+    repository clean and avoid polluting Git history with transient state.
+  - Updated `instructions.md`, `SDLC.md`, and the `sprint-finalize-task`
+    workflow to dynamically resolve the task state path.
+  - Implemented conditional Git tracking: state files in `/temp/` are
+    local-only, while those in project directories (e.g., `docs/sprints/`)
+    continue to be committed for cross-agent synchronization.
+
+### Changed
+
+- **Simplified Playbook State Tracking**:
+  - Removed intermediate `[- [~]]` (Executing) and `[- [/]]` (Committed)
+    statuses from the sprint playbook entirely.
+  - The playbook now only tracks `[- [ ]]` (Not Started) and `[- [x]]`
+    (Complete).
+  - All intermediate states are now exclusively managed by decoupled JSON state
+    files located in `taskStateRoot`.
+  - Refactored `verify-prereqs.js` to parse both the playbook `[x]` markers and
+    the decoupled `committed` state files when evaluating dependencies, ensuring
+    concurrent feature branches don't prematurely block execution.
+  - Simplified the visually generated Mermaid DAG, condensing it to only
+    `⬜ Not Started` and `🟩 Complete` nodes.
+
 ## [2.18.2] - 2026-04-02
 
 ### Fixed

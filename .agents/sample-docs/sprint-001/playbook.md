@@ -15,9 +15,9 @@ graph TD
     C1["🗄️ Chat Session 1: Database Schema Modifications"]
     class C1 complete
     C2["🔌 Chat Session 2: WebSocket Infrastructure Setup"]
-    class C2 committed
+    class C2 not_started
     C3["🌐 Chat Session 3: REST API Endpoints"]
-    class C3 executing
+    class C3 not_started
     C4["🔔 Chat Session 4: Notification Bell UI React Component"]
     class C4 not_started
     C5["📡 Chat Session 5: WebSocket Client Connection Logic"]
@@ -38,12 +38,10 @@ graph TD
     C6 --> C7
 
    %% Legend %%
-    Legend["⬜ Not Started  <br />🟨 Executing  <br />🟦 Committed  <br />🟩 Complete"]:::LegendNode
+    Legend["⬜ Not Started  <br />🟩 Complete"]:::LegendNode
 
     %% Style Definitions %%
     classDef not_started fill:#d1d5db,stroke:#9ca3af,color:#1f2937
-    classDef executing fill:#f59e0b,stroke:#d97706,color:#1f2937
-    classDef committed fill:#3b82f6,stroke:#2563eb,color:#ffffff
     classDef complete fill:#16a34a,stroke:#059669,color:#ffffff
     classDef LegendNode fill:transparent,stroke:transparent,font-size:12px
 ```
@@ -58,7 +56,7 @@ graph TD
 Sprint 1.1.1: Adopt the `backend-engineer` persona from `.agents/personas/`.
 
 **AGENT EXECUTION PROTOCOL (STRICT ADHERENCE REQUIRED):**
-1. **Mark Executing**: Update the playbook — change your task checkbox to `- [~]` and set the Mermaid class to `executing`. Commit and push the state change.
+1. **Mark Executing**: Create/update the state file at `[TASK_STATE_ROOT]/1.1.1.json` with `{"status": "executing", "timestamp": "..."}` (decoupled state).
 2. **Execution**: Perform the task instructions below.
 3. **Finalization**: Execute the `finalize-sprint-task` workflow explicitly for sprint step `1.1.1`.
 
@@ -67,7 +65,7 @@ Create migrations for the new `notifications` and `notification_preferences` tab
 
 ### 💬 🔌 Chat Session 2: WebSocket Infrastructure Setup
 
-- [/] **1.2.1 WebSocket Infrastructure Setup**
+- [ ] **1.2.1 WebSocket Infrastructure Setup**
 
 **Mode:** Planning **Model:** Claude Sonnet 4.6 (Thinking)
 
@@ -75,7 +73,7 @@ Create migrations for the new `notifications` and `notification_preferences` tab
 Sprint 1.2.1: Adopt the `backend-engineer` persona from `.agents/personas/`.
 
 **AGENT EXECUTION PROTOCOL (STRICT ADHERENCE REQUIRED):**
-1. **Mark Executing**: Update the playbook — change your task checkbox to `- [~]` and set the Mermaid class to `executing`. Commit and push the state change.
+1. **Mark Executing**: Create/update the state file at `[TASK_STATE_ROOT]/1.2.1.json` with `{"status": "executing", "timestamp": "..."}` (decoupled state).
 2. **Execution**: Perform the task instructions below.
 3. **Finalization**: Execute the `finalize-sprint-task` workflow explicitly for sprint step `1.2.1`.
 
@@ -84,7 +82,7 @@ Implement the `wss://api.example.com/events` endpoint. Handle JWT authentication
 
 ### 💬 🌐 Chat Session 3: REST API Endpoints
 
-- [~] **1.3.1 REST API Endpoints**
+- [ ] **1.3.1 REST API Endpoints**
 
 **Mode:** Planning **Model:** Gemini 3.1 Pro (High)
 
@@ -92,7 +90,7 @@ Implement the `wss://api.example.com/events` endpoint. Handle JWT authentication
 Sprint 1.3.1: Adopt the `backend-engineer` persona from `.agents/personas/`.
 
 **AGENT EXECUTION PROTOCOL (STRICT ADHERENCE REQUIRED):**
-1. **Mark Executing**: Update the playbook — change your task checkbox to `- [~]` and set the Mermaid class to `executing`. Commit and push the state change.
+1. **Mark Executing**: Create/update the state file at `[TASK_STATE_ROOT]/1.3.1.json` with `{"status": "executing", "timestamp": "..."}` (decoupled state).
 2. **Execution**: Perform the task instructions below.
 
 Implement endpoints to fetch history, mark notifications as read, and update user preferences.
@@ -108,7 +106,7 @@ Implement endpoints to fetch history, mark notifications as read, and update use
 Sprint 1.4.1: Adopt the `frontend-engineer` persona from `.agents/personas/`.
 
 **AGENT EXECUTION PROTOCOL (STRICT ADHERENCE REQUIRED):**
-1. **Mark Executing**: Update the playbook — change your task checkbox to `- [~]` and set the Mermaid class to `executing`. Commit and push the state change.
+1. **Mark Executing**: Create/update the state file at `[TASK_STATE_ROOT]/1.4.1.json` with `{"status": "executing", "timestamp": "..."}` (decoupled state).
 2. **Execution**: Perform the task instructions below.
 
 Create a `NotificationBell` component with an unread badge. Integrate it into the main navigation layout.
@@ -124,7 +122,7 @@ Create a `NotificationBell` component with an unread badge. Integrate it into th
 Sprint 1.5.1: Adopt the `frontend-engineer` persona from `.agents/personas/`.
 
 **AGENT EXECUTION PROTOCOL (STRICT ADHERENCE REQUIRED):**
-1. **Mark Executing**: Update the playbook — change your task checkbox to `- [~]` and set the Mermaid class to `executing`. Commit and push the state change.
+1. **Mark Executing**: Create/update the state file at `[TASK_STATE_ROOT]/1.5.1.json` with `{"status": "executing", "timestamp": "..."}` (decoupled state).
 2. **Execution**: Perform the task instructions below.
 
 Implement a global hook to manage the WebSocket connection. Implement exponential backoff on disconnect. Listen for incoming `notification` events and update the global state.
@@ -140,7 +138,7 @@ Implement a global hook to manage the WebSocket connection. Implement exponentia
 Sprint 1.6.1: Adopt the `mobile-engineer` persona from `.agents/personas/`.
 
 **AGENT EXECUTION PROTOCOL (STRICT ADHERENCE REQUIRED):**
-1. **Mark Executing**: Update the playbook — change your task checkbox to `- [~]` and set the Mermaid class to `executing`. Commit and push the state change.
+1. **Mark Executing**: Create/update the state file at `[TASK_STATE_ROOT]/1.6.1.json` with `{"status": "executing", "timestamp": "..."}` (decoupled state).
 2. **Execution**: Perform the task instructions below.
 
 Integrate Firebase Cloud Messaging (FCM) to deliver notifications to iOS and Android devices.
@@ -156,7 +154,7 @@ Integrate Firebase Cloud Messaging (FCM) to deliver notifications to iOS and And
 Sprint 1.7.1: Adopt the `qa-engineer` persona from `.agents/personas/`.
 
 **AGENT EXECUTION PROTOCOL (STRICT ADHERENCE REQUIRED):**
-1. **Mark Executing**: Update the playbook — change your task checkbox to `- [~]` and set the Mermaid class to `executing`. Commit and push the state change.
+1. **Mark Executing**: Create/update the state file at `[TASK_STATE_ROOT]/1.7.1.json` with `{"status": "executing", "timestamp": "..."}` (decoupled state).
 2. **Execution**: Perform the task instructions below.
 
 Execute the `sprint-testing` workflow for `1`.

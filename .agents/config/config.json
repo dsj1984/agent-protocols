@@ -63,6 +63,11 @@
       "type": "string",
       "default": "",
       "description": "The URL for sending sprint notifications via webhook (if configured)."
+    },
+    "taskStateRoot": {
+      "type": "string",
+      "default": "temp/task-state",
+      "description": "The root directory for decoupled task state files. If set to a directory within /temp/, state is local and not committed. If set to a project directory (e.g., docs/sprints/sprint-[XXX]/task-state), state is committed to Git for cross-agent synchronization."
     }
   }
 }

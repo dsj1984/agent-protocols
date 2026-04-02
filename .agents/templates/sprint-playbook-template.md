@@ -66,7 +66,7 @@ _Execution Rule: These tasks must be run sequentially in a single chat window._
 Sprint 99.1.1: Adopt the `engineer` persona from `.agents/personas/`.
 
 **AGENT EXECUTION PROTOCOL (STRICT ADHERENCE REQUIRED):**
-1. **Mark Executing**: Update the playbook — change your task checkbox to `- [~]` and set the Mermaid class for node `C1` to `executing` (if not already). Commit and push the state change.
+1. **Mark Executing**: Create/update the state file at `[TASK_STATE_ROOT]/{taskId}.json` with `{"status": "executing", "timestamp": "..."}` (decoupled state).
 2. **Prerequisite Check**: Execute the `sprint-verify-task-prerequisites` workflow for sprint step `99.1.1` and verify dependencies in `playbook.md`. If it fails, **STOP** and alert the user.
 3. **Execution**: Perform the task instructions below.
 4. **Finalization**: Execute the `sprint-finalize-task` workflow explicitly for sprint step `99.1.1`.
