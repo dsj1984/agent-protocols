@@ -6,6 +6,39 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 and this project adheres to
 [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [2.20.0] - 2026-04-02
+
+### Added
+
+- **"Shift-Left" Agentic Testing Protocol**:
+  - Introduced a mandatory validation step where agents must run isolated tests
+    on their feature branch before finalizing a task.
+  - Implemented **Option B (Agentic Test Receipt)**: Agents execute the
+    configured `testCommand` and generate a `[TASK_ID]-test-receipt.json` in the
+    decoupled state folder as evidence of a green state.
+  - Updated the `sprint-integration` workflow to act as a strict gatekeeper,
+    blocking the merge of any branch that lacks a valid "passed" test receipt.
+  - This protocol eliminates the "happy path" anti-pattern by ensuring only
+    verified code enters the shared sprint branch, matching CI-like standards in
+    a local-first environment.
+
+### Changed
+
+- **Modernized Validation Commands**:
+  - Updated `validationCommand` and `testCommand` in
+    `.agents/config/config.json` to leverage **pnpm turbo** for faster, cached
+    execution.
+  - Default `validationCommand`: `pnpm turbo run lint`.
+  - Default `testCommand`: `pnpm turbo run test`.
+- **Workflow Hardening**:
+  - Updated `sprint-finalize-task` to enforce the new testing requirement and
+    receipt generation.
+  - Updated `sprint-integration` to verify receipt existence and status before
+    commencing merges.
+- **SDLC Documentation**:
+  - Formally documented the Shift-Left testing requirements and the
+    "cryptographic-like" evidence of the test receipt in `SDLC.md`.
+
 ## [2.19.0] - 2026-04-02
 
 ### Changed

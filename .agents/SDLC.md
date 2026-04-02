@@ -180,6 +180,12 @@ tasks:
 - **Friction Logging Thresholds**: The sensitivity for logging repetitive
   sequences or automation candidates is also configurable in the same config
   file via `frictionThresholds.repetitiveCommandCount`.
+- **Shift-Left Agentic Testing**: To prevent the "happy path" anti-pattern,
+  agents are mandated to run isolated tests on their feature branch before
+  finalizing a task. A successful run generates a `[TASK_ID]-test-receipt.json`
+  which serves as a cryptographic-like evidence of green state. The
+  `/sprint-integration` workflow acts as a strict gatekeeper, only merging
+  branches that possess a valid test receipt.
 - **Workspace & File Hygiene**: To keep the repository clean, agents are
   required to store all temporary artifacts and scratch scripts in the root
   `/temp/` directory, which is excluded from Git.

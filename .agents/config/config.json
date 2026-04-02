@@ -56,8 +56,13 @@
     },
     "validationCommand": {
       "type": "string",
-      "default": "npm run lint",
-      "description": "The command used to validate code changes before committing (e.g., 'npm run lint')."
+      "default": "pnpm turbo run lint",
+      "description": "The command used to validate code changes before committing (e.g., 'pnpm turbo run lint')."
+    },
+    "testCommand": {
+      "type": "string",
+      "default": "pnpm turbo run test",
+      "description": "The command used to execute isolated tests before finalizing a task (e.g., 'pnpm turbo run test')."
     },
     "webhookUrl": {
       "type": "string",

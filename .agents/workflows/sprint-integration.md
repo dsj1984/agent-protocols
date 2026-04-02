@@ -16,6 +16,8 @@ feature branches.
     `sprintDocsRoot` prefix, both defined in `.agents/config/config.json`.
 2.  `[PADDED_NUM]` is the `[SPRINT_NUMBER]` padded according to the
     `sprintNumberPadding` setting in the same config.
+3.  Resolve `[TASK_STATE_ROOT]` from the `taskStateRoot` field in
+    `.agents/config/config.json` (default: `temp/task-state`).
 
 ## Execution Steps
 
@@ -23,8 +25,14 @@ feature branches.
    latest changes: `git checkout sprint-[SPRINT_NUMBER] ; git pull`.
 2. **Branch Discovery**: Identify all remote branches associated with this
    sprint's tasks (e.g., branches matching `task/sprint-[SPRINT_NUMBER]/*`).
-3. **Sequential Merging**:
-   - Merge each identified feature branch into `sprint-[SPRINT_NUMBER]`.
+3. **Shift-Left Validation**: For each identified feature branch:
+   - Extract the `[TASK_ID]` from the branch name.
+   - Verify the existence of `[TASK_STATE_ROOT]/[TASK_ID]-test-receipt.json`.
+   - If the receipt is **MISSING** or the status is not **"passed"**: **STOP**
+     and log a friction point. This branch is NOT eligible for integration until
+     isolated tests pass.
+4. **Sequential Merging**:
+   - Merge each VALIDATED feature branch into `sprint-[SPRINT_NUMBER]`.
    - Use standard `git merge --no-ff`.
    - **Minor conflicts** (fewer than 20 conflicting lines across fewer than 3
      files, e.g., import ordering or adjacent line edits): resolve
@@ -32,30 +40,30 @@ feature branches.
    - **Major conflicts** (20+ conflicting lines OR structural changes to shared
      files like schemas, configs, or routing): **STOP** and alert the user with
      the exact conflicting files and branches before proceeding.
-4. **Conflict Marker Scan**: After all merges complete, run the cross-platform
+5. **Conflict Marker Scan**: After all merges complete, run the cross-platform
    script: `node .agents/scripts/detect-merges.js` If the script exits with an
    error (markers found), the merge is INCOMPLETE. Resolve them manually, stage
    the fixes with `git add`, and amend the merge commit before proceeding. Do
    NOT continue with unresolved markers.
-5. **Playbook Sync (State Transition to Complete)**:
+6. **Playbook Sync (State Transition to Complete)**:
    - Open `[SPRINT_ROOT]/playbook.md`.
    - For every task branch that was successfully merged, locate its status check
      and change it from Not Started (`- [ ]`) to Complete (`- [x]`).
-6. **Visualize Progress**:
+7. **Visualize Progress**:
    - For every Chat Session in the Playbook where **all** component tasks have
      now been checked off (`- [x]`), locate the Mermaid diagram at the top.
    - Update the status class from `not_started` to `complete`. (e.g., Change
      `class C4 not_started` to `class C4 complete`).
-7. **Commit State**: Commit the updated `playbook.md` and the merge commits with
+8. **Commit State**: Commit the updated `playbook.md` and the merge commits with
    the message:
    `chore(sprint): integrate feature branches and sync playbook state`. Push to
    origin: `git push origin sprint-[SPRINT_NUMBER]`.
-8. **Branch Cleanup**: For each successfully merged feature branch, delete the
+9. **Branch Cleanup**: For each successfully merged feature branch, delete the
    remote ref: `git push origin --delete task/sprint-[SPRINT_NUMBER]/[TASK_ID]`.
-9. **Self-Cleanup**: Delete your OWN local and remote task branch for this
-   integration session:
-   `git branch -D task/sprint-[SPRINT_NUMBER]/[TASK_ID] ; git push origin --delete task/sprint-[SPRINT_NUMBER]/[TASK_ID]`.
-10. **Notification**: Resolve `[WEBHOOK_URL]` from the `webhookUrl` field in
+10. **Self-Cleanup**: Delete your OWN local and remote task branch for this
+    integration session:
+    `git branch -D task/sprint-[SPRINT_NUMBER]/[TASK_ID] ; git push origin --delete task/sprint-[SPRINT_NUMBER]/[TASK_ID]`.
+11. **Notification**: Resolve `[WEBHOOK_URL]` from the `webhookUrl` field in
     `.agents/config/config.json`. If `webhookUrl` is not empty, send a
     notification using the cross-platform Node script:
     `node .agents/scripts/notify.js "[WEBHOOK_URL]" "Sprint [SPRINT_NUMBER] feature branches have been integrated into the sprint base branch."`
