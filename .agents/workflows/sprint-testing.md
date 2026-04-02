@@ -4,7 +4,7 @@ description:
   before test execution.
 ---
 
-# Plan QA Testing
+# Sprint Testing
 
 When assigned complex QA tasks during a sprint (specifically in Chat Session 4),
 execute these steps to prepare the test environment in accordance with the

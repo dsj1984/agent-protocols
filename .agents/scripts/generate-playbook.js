@@ -577,7 +577,7 @@ function renderTaskInstructions(task, sprintNumber) {
     return `Execute the \`sprint-integration\` workflow for \`${sprintNumber}\`.`;
   }
   if (task.isQA) {
-    return `Execute the \`plan-qa-testing\` workflow for \`${sprintNumber}\`.`;
+    return `Execute the \`sprint-testing\` workflow for \`${sprintNumber}\`.`;
   }
   if (task.isCodeReview) {
     return `Execute the \`sprint-code-review\` workflow for \`${sprintNumber}\`.`;

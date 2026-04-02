@@ -58,7 +58,7 @@ definition down to code review and sprint retrospective.
         I["👤 Load playbook.md"]:::manual
         J["🤖 Agentic Execution<br/>(Sequential & Parallel Sessions)"]:::agentic
         K["🤖 /sprint-integration"]:::agentic
-        L["🤖 /plan-qa-testing"]:::agentic
+        L["🤖 /sprint-testing"]:::agentic
         O["🤖 /sprint-code-review"]:::agentic
         P["🤖 /sprint-retro"]:::agentic
         Q2["🤖 /sprint-close-out"]:::agentic
@@ -184,7 +184,7 @@ context, these tasks are consolidated into two Chat Sessions:
 1. **`/sprint-integration`**: Discovers all `sprint-N/*` feature branches,
    merges them sequentially into `sprint-N` via `--no-ff`, transitions the
    playbook from Committed to Complete, and cleans up remote branches.
-2. **`/plan-qa-testing`**: Maintains test data and seeds, generates and updates
+2. **`/sprint-testing`**: Maintains test data and seeds, generates and updates
    the sprint test plan documentation, and executes the `/run-test-plan`
    workflow against the now-integrated codebase.
 

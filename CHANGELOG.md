@@ -6,6 +6,19 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 and this project adheres to
 [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [2.17.2] - 2026-04-01
+
+### Changed
+
+- **Standardized QA Workflow Naming**:
+  - Renamed the `plan-qa-testing` workflow to `sprint-testing` across all
+    protocols, documentation, and tooling.
+  - Aligned the QA phase with the `sprint-[action]` naming convention used by
+    other core workflows.
+  - Updated the `project-manager` and `qa-engineer` personas, SDLC
+    documentation, and the playbook generation script to utilize the new
+    workflow command.
+
 ## [2.17.1] - 2026-04-01
 
 ### Added
@@ -194,7 +207,7 @@ and this project adheres to
   - **Self-Cleaning Integration**: Added a mandatory "Self-Cleanup" step to the
     `sprint-integration` workflow to ensure the integration task's own feature
     branch is purged after completion.
-  - **End-to-End Orchestration**: Linked the `plan-qa-testing`,
+  - **End-to-End Orchestration**: Linked the `sprint-testing`,
     `sprint-code-review`, and `sprint-retro` workflows to `finalize-sprint-task`
     to ensure bookend tasks correctly push branches and track status.
   - **Catch-All Branch Audit**: Updated `close-sprint` to perform an aggressive
@@ -407,7 +420,7 @@ and this project adheres to
   - Migrated sprint-specific test plans from
     `docs/test-plans/sprint-test-plans/` to a more contextual
     `docs/sprints/sprint-[##]/test-plan.md` location.
-  - Updated the `qa-engineer` persona and `plan-qa-testing`/`qa-audit` workflows
+  - Updated the `qa-engineer` persona and `sprint-testing`/`qa-audit` workflows
     to adhere to the new directory structure.
 - **Documentation Hardening**:
   - Standardized all internal documentation with relative links, replacing
@@ -571,7 +584,7 @@ and this project adheres to
   - Introduced mandatory **Sprint Code Review** (Chat Session 5) and **Sprint
     Retrospective** (Chat Session 6) into the core workflow.
   - Added 6 new internal sprint workflows: `gather-sprint-context`,
-    `verify-sprint-prerequisites`, `finalize-sprint-task`, `plan-qa-testing`,
+    `verify-sprint-prerequisites`, `finalize-sprint-task`, `sprint-testing`,
     `sprint-code-review`, and `sprint-retro`.
 
 - **Generic & Portable Templates**:

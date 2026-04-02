@@ -389,7 +389,7 @@ describe('renderPlaybook', () => {
     assert.ok(md.includes('Playbook Path'));
     assert.ok(md.includes('AGENT EXECUTION PROTOCOL'));
     assert.ok(md.includes('Mark Executing'));
-    assert.ok(md.includes('plan-qa-testing'));
+    assert.ok(md.includes('sprint-testing'));
     assert.ok(md.includes('sprint-code-review'));
     assert.ok(md.includes('sprint-retro'));
     assert.ok(md.includes('sprint-close-out'));

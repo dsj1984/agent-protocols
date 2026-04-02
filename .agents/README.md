@@ -217,7 +217,7 @@ command.
 | `sprint-gather-context.md`            | `sprint`  | `/sprint-gather-context`            | Centralized research/knowledge retrieval for sprints             |
 | `sprint-verify-task-prerequisites.md` | `sprint`  | `/sprint-verify-task-prerequisites` | Validates task dependencies before execution                     |
 | `sprint-finalize-task.md`             | `sprint`  | `/sprint-finalize-task`             | Standardized validation, commit, and notification                |
-| `plan-qa-testing.md`                  | `sprint`  | `/plan-qa-testing`                  | QA test data maintenance and test plan updates                   |
+| `sprint-testing.md`                   | `testing` | `/sprint-testing`                   | QA test data maintenance and test plan updates                   |
 | `sprint-code-review.md`               | `sprint`  | `/sprint-code-review`               | Comprehensive code review of all sprint changes                  |
 | `sprint-integration.md`               | `sprint`  | `/sprint-integration`               | Merge and stabilization workflow                                 |
 | `sprint-close-out.md`                 | `sprint`  | `/sprint-close-out`                 | Final merge to main, branch cleanup, and release tagging         |

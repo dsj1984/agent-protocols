@@ -96,7 +96,7 @@ Your output MUST conform to the JSON schema defined in
   - **Integration** (`isIntegration`): triggers the `sprint-integration`
     workflow, which consolidates all feature branches before QA begins. Use
     persona `engineer`, skill `architecture/monorepo-path-strategist`.
-  - **QA** (`isQA`): triggers the `plan-qa-testing` workflow. Use persona
+  - **QA** (`isQA`): triggers the `sprint-testing` workflow. Use persona
     `qa-engineer`, skills from the `qa/` category.
   - **Code Review** (`isCodeReview`): triggers the `sprint-code-review`
     workflow. Use persona `architect`, skill

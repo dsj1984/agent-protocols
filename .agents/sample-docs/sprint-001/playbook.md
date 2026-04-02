@@ -159,5 +159,5 @@ Sprint 1.7.1: Adopt the `qa-engineer` persona from `.agents/personas/`.
 1. **Mark Executing**: Update the playbook — change your task checkbox to `- [~]` and set the Mermaid class to `executing`. Commit and push the state change.
 2. **Execution**: Perform the task instructions below.
 
-Execute the `plan-qa-testing` workflow for `1`.
+Execute the `sprint-testing` workflow for `1`.
 ```

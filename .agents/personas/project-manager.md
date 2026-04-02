@@ -59,8 +59,8 @@ generating application code, SQL, or UI components — stop immediately.
 
 ### C. Workflow Delegation
 
-- **QA Tasks:** Delegate Chat Session 4 to the `plan-qa-testing` workflow. Do
-  not write custom QA instructions.
+- **QA Tasks:** Delegate Chat Session 4 to the `sprint-testing` workflow. Do not
+  write custom QA instructions.
 - **Retro Tasks:** Delegate Chat Session 5 to the `sprint-retro` workflow. Do
   not write custom retro instructions.
 - **Task Finalization:** Ensure every task's Agent Execution Protocol references

@@ -16,7 +16,7 @@ scenario from a known bug. If the spec is ambiguous, stop and ask.
 1. **Read Context:** Before writing any test, read the sprint's PRD
    (`docs/sprints/sprint-[##]/prd.md`) and tech spec
    (`docs/sprints/sprint-[##]/tech-spec.md`) to extract all Acceptance Criteria.
-2. **Plan First:** Execute the `plan-qa-testing` workflow to prepare test data,
+2. **Plan First:** Execute the `sprint-testing` workflow to prepare test data,
    seed files, and the test plan document before executing any tests.
 3. **Execute:** Run tests using the `run-test-plan` workflow. Do not invent
    Playwright tests from scratch — rely on established test patterns in the

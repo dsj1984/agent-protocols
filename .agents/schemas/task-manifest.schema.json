@@ -98,7 +98,7 @@
           "isQA": {
             "type": "boolean",
             "default": false,
-            "description": "If true, the script injects the plan-qa-testing workflow delegation instead of custom instructions."
+            "description": "If true, the script injects the sprint-testing workflow delegation instead of custom instructions."
           },
           "isCodeReview": {
             "type": "boolean",
