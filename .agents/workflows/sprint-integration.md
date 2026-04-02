@@ -31,15 +31,40 @@ feature branches.
    - If the receipt is **MISSING** or the status is not **"passed"**: **STOP**
      and log a friction point. This branch is NOT eligible for integration until
      isolated tests pass.
-4. **Sequential Merging**:
-   - Merge each VALIDATED feature branch into `sprint-[SPRINT_NUMBER]`.
-   - Use standard `git merge --no-ff`.
-   - **Minor conflicts** (fewer than 20 conflicting lines across fewer than 3
-     files, e.g., import ordering or adjacent line edits): resolve
-     automatically.
-   - **Major conflicts** (20+ conflicting lines OR structural changes to shared
-     files like schemas, configs, or routing): **STOP** and alert the user with
-     the exact conflicting files and branches before proceeding.
+4. **Ephemeral Candidate Verification**: For each VALIDATED feature branch
+   identified in Step 2, perform the following verification loop:
+   - Check out a temporary candidate branch from the sprint base:
+     `git checkout -b integration-candidate-[TASK_ID] sprint-[SPRINT_NUMBER]`.
+   - Merge the feature branch:
+     `git merge --no-ff task/sprint-[SPRINT_NUMBER]/[TASK_ID]`.
+   - **Merge Conflict Resolution**:
+     - **Minor conflicts** (fewer than 20 conflicting lines across fewer than 3
+       files, e.g., import ordering or adjacent line edits): resolve
+       automatically.
+     - **Major conflicts** (20+ conflicting lines OR structural changes to
+       shared files like schemas, configs, or routing): **STOP** and alert the
+       user with the exact conflicting files and branches before proceeding.
+   - **Verification**: Execute the verification suite:
+     `npm run lint ; npm run test`. (Note: Resolve exact commands from
+     `validationCommand` and `testCommand` in `.agents/config/config.json`).
+   - **Blast-Radius Check**:
+     - **IF SUCCESS (Build Green)**:
+       - Switch back to the base: `git checkout sprint-[SPRINT_NUMBER]`.
+       - Consolidate the candidate:
+         `git merge --no-ff integration-candidate-[TASK_ID]`.
+       - Delete candidate: `git branch -D integration-candidate-[TASK_ID]`.
+     - **IF FAILURE (Build Broken)**:
+       - Switch back to the base: `git checkout sprint-[SPRINT_NUMBER]`.
+       - Delete candidate. The shared sprint branch is now "Clean" and
+         unaffected by the failure.
+       - Log a critical friction entry to
+         `[SPRINT_ROOT]/agent-friction-log.json` stating:
+         `"[TASK_ID] failed post-merge integration check. Blast-radius contained. Rework triggered via /sprint-hotfix."`
+       - **KICK BACK**: You must now checkout the original feature branch
+         `task/sprint-[SPRINT_NUMBER]/[TASK_ID]` and run the `/sprint-hotfix`
+         workflow to remediate the regression. This task is NOT eligible for
+         `[x]` (Complete) status yet.
+
 5. **Conflict Marker Scan**: After all merges complete, run the cross-platform
    script: `node .agents/scripts/detect-merges.js` If the script exits with an
    error (markers found), the merge is INCOMPLETE. Resolve them manually, stage

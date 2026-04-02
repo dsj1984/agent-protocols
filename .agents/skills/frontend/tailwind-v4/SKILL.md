@@ -5,12 +5,13 @@ Tailwind CSS specification.
 
 ## 1. Core Principles
 
-- **CSS-First Configuration:** Use CSS variables for theme customization rather
-  than the `tailwind.config.ts` file where possible.
-- **Modern Syntax:** Leverage the new `@theme` directive and fluid design
-  utilities.
+- **CSS-First Configuration:** Use CSS variables for theme customization within
+  the `@theme` block. **NEVER** use `tailwind.config.ts` or `tailwind.config.js`
+  in v4 projects.
+- **Modern Syntax:** Leverage the new `@theme` directive, fluid design
+  utilities, and lightning-fast compilation.
 - **Token Consistency:** Strictly adhere to the design system's spacing, color,
-  and typography tokens.
+  and typography tokens defined in the CSS variables.
 
 ## 2. Technical Standards
 
@@ -20,8 +21,9 @@ Tailwind CSS specification.
   `xl:`).
 - **Interactive States:** Explicitly define `hover:`, `focus-visible:`, and
   `active:` states for all interactive elements to ensure a premium feel.
-- **Arbitrary Values:** Avoid arbitrary values (`p-[13px]`) unless absolutely
-  necessary for unique design elements; use standard spacing steps instead.
+- **Arbitrary Values:** **STRICTLY PROHIBITED** (`p-[13px]`) unless explicitly
+  required by a one-off legacy asset. Always map unique values to a temporary
+  CSS variable in the `@theme` block instead.
 
 ## 3. Best Practices
 

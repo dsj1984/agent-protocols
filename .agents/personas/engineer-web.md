@@ -19,11 +19,15 @@ logic or UX decisions.
 2. **Workspace Scope:** You operate exclusively within `@repo/web`. All commands
    (installing packages, running dev servers, running tests) must be scoped to
    this workspace. Verify with the workspace root configuration.
-3. **Implementation:** Build in small, logical chunks — one component or page at
+3. **Framework Handshake:** If `astro` or `tailwindcss` are detected in
+   `package.json`, you MUST read the corresponding
+   `.agents/skills/frontend/.../SKILL.md` before proceeding to ensure compliance
+   with version-specific constraints (e.g., Astro 5, Tailwind 4).
+4. **Implementation:** Build in small, logical chunks — one component or page at
    a time (atomic steps).
-4. **Verification:** Visually verify your work in the browser and run any
+5. **Verification:** Visually verify your work in the browser and run any
    applicable unit or component tests.
-5. **Cleanup:** Remove debug logs and comments that only explain _what_ code
+6. **Cleanup:** Remove debug logs and comments that only explain _what_ code
    does (keep comments that explain _why_).
 
 ## 3. Web-Specific Standards

@@ -58,6 +58,7 @@ definition down to code review and sprint retrospective.
         I["👤 Load playbook.md"]:::manual
         J["🤖 Agentic Execution<br/>(Sequential & Parallel Sessions)"]:::agentic
         K["🤖 /sprint-integration"]:::agentic
+        K_Fix["🤖 /sprint-hotfix"]:::agentic
         L["🤖 /sprint-testing"]:::agentic
         O["🤖 /sprint-code-review"]:::agentic
         P["🤖 /sprint-retro"]:::agentic
@@ -65,7 +66,9 @@ definition down to code review and sprint retrospective.
 
         I --> J
         J --> K
-        K --> L
+        K -- "Fail" --> K_Fix
+        K_Fix --> K
+        K -- "Pass" --> L
         L --> O
         O --> P
         P --> Q2
@@ -186,6 +189,13 @@ tasks:
   which serves as a cryptographic-like evidence of green state. The
   `/sprint-integration` workflow acts as a strict gatekeeper, only merging
   branches that possess a valid test receipt.
+- **Hybrid Integration & Blast-Radius Containment**: Implements "Option 3" of
+  the concurrency protocols. Instead of merging directly into the shared sprint
+  branch, the `/sprint-integration` workflow performs merges on ephemeral
+  candidate branches. If a merge introduces a regression (detected via broken
+  build or tests on the candidate branch), the candidate branch is purged,
+  protecting the sprint base from cascading failures. Rework is then performed
+  in isolation on the original feature branch via `/sprint-hotfix`.
 - **Advanced Concurrency Protocols**: To handle structural merge conflicts that
   inevitably arise from parallel execution, agents use a hybrid approach. During
   planning, `focusAreas` in the manifest soft-lock large architectural changes
@@ -204,10 +214,15 @@ context, these tasks are consolidated into two Chat Sessions:
 
 #### 1. Merge & Verify Phase
 
-1. **`/sprint-integration`**: Discovers all `sprint-N/*` feature branches,
-   merges them sequentially into `sprint-N` via `--no-ff`, transitions the
-   playbook tasks directly from Not Started (`[ ]`) to Complete (`[x]`), and
-   cleans up remote branches.
+1. **`/sprint-integration`**: Discovers all `task/sprint-N/*` feature branches
+   and performs **Hybrid Integration Candidate** verification. Each branch is
+   merged into an ephemeral `integration-candidate-[ID]` branch and verified
+   against the full project test suite.
+   - **Success**: The candidate is merged into the sprint base, the task is
+     marked Complete (`[x]`), and the feature branch is deleted.
+   - **Failure**: The candidate is purged (Blast-Radius Contained), and the
+     failure is logged. The feature is kicked back for remediation via
+     **`/sprint-hotfix`** on the original branch.
 2. **`/sprint-testing`**: Maintains test data and seeds, generates and updates
    the sprint test plan documentation, and executes the `/run-test-plan`
    workflow against the now-integrated codebase.

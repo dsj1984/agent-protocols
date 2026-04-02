@@ -7,8 +7,11 @@ using Astro.
 
 - **Static First:** Default to SSG (Static Site Generation). Use SSR only when
   dynamic user data or real-time interaction is required.
-- **Island Architecture:** Use standard HTML for most of the page. Only load JS
-  for interactive "islands" like a search bar, cart, or interactive chart.
+- **Island Architecture:** Use standard HTML for most of the page.
+- **Server Islands (Astro 5):** Use the `server:defer` directive for components
+  that depend on personalized or dynamic data.
+- **Astro Actions:** Use built-in Actions for all data mutations and form
+  submissions to ensure type-safety.
 - **Zero JS by Default:** Ensure components use `.astro` syntax and do not ship
   any JavaScript to the client unless explicitly requested via `client:*`
   directives.
@@ -19,8 +22,9 @@ using Astro.
   - Logic (JS/TS) in the component script (top `---` fence).
   - Markup in the HTML template.
   - Scoped CSS in the `<style>` block.
-- **Content Collections:** Always use `getCollection` with Zod schema validation
-  for markdown and JSON content.
+- **Content Layer API:** Always use the new Content Layer for data sourcing.
+  Manage collections via `src/content/config.ts` with Zod schema validation for
+  all metadata.
 - **Hydration Directives:** Use the most restrictive directive possible:
   - `client:load` for immediate interactivity.
   - `client:visible` for elements below the fold.

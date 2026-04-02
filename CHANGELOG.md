@@ -6,6 +6,42 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 and this project adheres to
 [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [2.23.0] - 2026-04-02
+
+### Added
+
+- **Persona Specialization & Framework Handshake**:
+  - Introduced the mandatory **Framework Handshake** protocol in
+    `engineer-web.md`, forcing agents to read framework-specific skills before
+    execution.
+  - **Astro 5 (Iron) Modernization**: Updated `astro/SKILL.md` to enforce Server
+    Islands (`server:defer`), Astro Actions for data mutations, and the new
+    Content Layer API.
+  - **Tailwind CSS v4 (CSS-First)**: Hardened the `tailwind-v4/SKILL.md` and
+    `ux-designer.md` persona to enforce a strict CSS-only configuration using
+    the `@theme` directive, banning legacy `tailwind.config.ts/js` files and
+    arbitrary utility values.
+  - **Task State Tracking**: Created localized task and walkthrough artifacts
+    for traceable implementation.
+
+## [2.22.0] - 2026-04-02
+
+### Added
+
+- **Hybrid Integration & Blast-Radius Containment (Option 3)**:
+  - Introduced the "Integration Candidate" protocol to ensure the shared
+    `sprint-[NUM]` branch never enters a broken state.
+  - **Ephemeral Verification**: Merges are now performed on temporary
+    `integration-candidate-[TASK_ID]` branches first.
+  - **Fail-Safe Rollback**: If tests fail on the candidate branch, the branch is
+    purged, and the failure is logged to `agent-friction-log.json` without
+    polluting the sprint base.
+  - **`sprint-hotfix` Workflow**: Created a dedicated workflow for rapid
+    remediation of broken features directly on their original branch, unblocking
+    other parallel integrations.
+  - **SDLC Documentation**: Updated `SDLC.md` and the `roadmap.md` to reflect
+    the completion and adoption of the hybrid containment model.
+
 ## [2.21.0] - 2026-04-02
 
 ### Added

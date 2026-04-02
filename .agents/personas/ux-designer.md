@@ -45,6 +45,9 @@ action is destructive.
   for all interactive elements to pass to frontend engineers.
 - **Consistency:** Enforce adherence to existing design tokens (spacing,
   typography, colors). Prevent the introduction of ad-hoc UI patterns.
+- **Tailwind v4 Guardrail:** Adhere to CSS-first styling. Do not propose
+  configuration changes to legacy `tailwind.config.js` or `tailwind.config.ts`.
+  Focus on the `@theme` directive.
 
 ### C. Accessibility (UX Definition)
 

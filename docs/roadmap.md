@@ -7,20 +7,6 @@ and future architectural evolution for the Agent Protocols framework.
 
 - **Enhanced Diagnostic Tools**: Further development of automated
   troubleshooting scripts and telemetry collectors.
-- **Persona Specialization**: Refining role-specific behavior constraints for
-  emerging frameworks (e.g., Astro 5, Tailwind 4).
-- **Automated Rollback & Blast-Radius Containment**: Currently, the close-out
-  process assumes zero cascading build failures upon merge. Introduce an
-  explicit `/sprint-rollback` workflow that autonomously instructs the agent to
-  cleanly undo an integration merge, capture the failure state into the
-  `agent-friction-log.json`, and isolate the breaking changes back into the
-  feature branch.
-- **Advanced Concurrency & Merge Conflict Protocols**: While task statuses are
-  now decoupled, autonomous agents simultaneously mutating the same codebase
-  will still inevitably cause Git locks or complex structural conflicts (e.g.,
-  shared UI components). Future releases will implement a file-locking mechanism
-  inside `task-manifest.json` (`"locked_files": [...]`) or formally introduce a
-  dedicated "Librarian Agent" responsible solely for sequencing commits.
 
 ## Future Horizon
 
