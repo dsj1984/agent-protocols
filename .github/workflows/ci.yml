@@ -6,6 +6,10 @@ on:
   pull_request:
     branches: [main]
 
+concurrency:
+  group: ${{ github.workflow }}-${{ github.ref }}
+  cancel-in-progress: true
+
 jobs:
   build:
     name: Build and Test
@@ -30,7 +34,7 @@ jobs:
               - '.github/workflows/ci.yml'
 
       - name: Secret Scanning (TruffleHog)
-        uses: trufflesecurity/trufflehog@main
+        uses: trufflesecurity/trufflehog@a4fa9840428efcd02613ce3861fb138e9da5629c # v3.88.11
         with:
           extra_args: --debug --only-verified
 
