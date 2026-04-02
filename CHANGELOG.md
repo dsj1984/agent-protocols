@@ -6,6 +6,21 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 and this project adheres to
 [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [3.1.0] - 2026-04-02
+
+### Added
+
+- **Context Caching Prompt Architecture**:
+  - Restructured the `playbook.md` generation logic in `Renderer.js` to strictly
+    separate static framework rules from volatile task state.
+  - Implemented a two-layer prompt architecture with an immutable
+    `=== SYSTEM PROTOCOL & CAPABILITIES ===` header at the start of every agent
+    prompt block.
+  - This optimization maximizes character-for-character prefix matching,
+    enabling 100% native LLM API token caching for protocol-level instructions.
+  - Promoted task-specific "Pre-flight Task Validation" to a clearly labeled
+    volatile section to maintain both discoverability and cache consistency.
+
 ## [3.0.0] - 2026-04-02
 
 ### Added

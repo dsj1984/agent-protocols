@@ -136,34 +136,39 @@ export function renderPlaybook(manifest, chatSessions, chatDeps) {
     // Code Block for the Agent
     md += `#### Agent Prompt\n\n`;
     md += `\`\`\`markdown\n`;
-    md += `You are an agent acting as the **${session.tasks[0].persona}** persona.\n`;
-    
+    md += `=== SYSTEM PROTOCOL & CAPABILITIES ===\n`;
+    md += `**AGENT EXECUTION PROTOCOL:**\n`;
+    md += `Before beginning work, you MUST run the pre-flight verification script to ensure all dependencies are committed.\n`;
+    md += `Execute \`/[.agents/workflows/sprint-verify-task-prerequisites.md]\` or run the manual verification script for your specific task.\n`;
+    md += `If the script fails, STOP immediately and ask the user to complete the blocking tasks.\n\n`;
+
+    md += `**Close-out:**\n`;
+    md += `Once all task instructions are fully verified and committed, run the finalization workflow to track state:\n`;
+    md += `\`/[.agents/workflows/sprint-finalize-task.md]\`\n`;
+    md += `- Ensure you update the playbook task to \`[/]\` while executing.\n\n`;
+
+    md += `=== VOLATILE TASK CONTEXT ===\n`;
+    md += `**Persona**: ${session.tasks[0].persona}\n`;
+
     // Aggregate distinct skills
     const allSkills = new Set();
-    session.tasks.forEach(t => t.skills.forEach(s => allSkills.add(s)));
+    session.tasks.forEach((t) => t.skills.forEach((s) => allSkills.add(s)));
     if (allSkills.size > 0) {
-      md += `You have the following skills loaded: ${[...allSkills].map(s => `\`${s}\``).join(', ')}.\n`;
+      md += `**Loaded Skills**: ${[...allSkills].map((s) => `\`${s}\``).join(', ')}\n`;
     }
-    md += `\n`;
+    md += `**Sprint / Session**: Sprint ${sprintNum} | Chat Session ${session.chatNumber}\n\n`;
 
-    if (deps.length > 0 || session.tasks.some(t => t.dependsOn && t.dependsOn.length > 0)) {
-       md += `**AGENT EXECUTION PROTOCOL:**\n`;
-       md += `Before beginning work, you MUST run the pre-flight verification script to ensure all dependencies are committed.\n`;
-       md += `Execute \`/[.agents/workflows/sprint-verify-task-prerequisites.md]\` or optionally run:\n`;
-       md += `\`node .agents/scripts/verify-prereqs.js docs/sprints/sprint-${sprintNum}/playbook.md ${sprintNum}.${session.chatNumber}.${session.tasks[0].id}\`\n`;
-       md += `If the script fails, STOP immediately and ask the user to complete the blocking tasks.\n\n`;
+    if (deps.length > 0 || session.tasks.some((t) => t.dependsOn && t.dependsOn.length > 0)) {
+      md += `**Pre-flight Task Validation (Run this first):**\n`;
+      md += `\`node .agents/scripts/verify-prereqs.js docs/sprints/sprint-${sprintNum}/playbook.md ${sprintNum}.${session.chatNumber}.${session.tasks[0].id}\`\n\n`;
     }
 
     md += `**Instructions:**\n`;
     for (const task of session.tasks) {
       md += `1. **Task ${task.id}:** ${renderTaskInstructions(task, sprintNum)}\n`;
-      md += `   - **Mark Executing**: Update the playbook task to \`[/]\`\n`;
+      md += `   - **Mark Executing**: Update the playbook task to \`[/]\` during execution.\n`;
     }
-    
-    md += `\n**Close-out:**\n`;
-    md += `Once all instructions above are fully verified and committed, run the finalization workflow to track state:\n`;
-    md += `\`/[.agents/workflows/sprint-finalize-task.md]\`\n`;
-    
+
     md += `\`\`\`\n\n`;
   }
 

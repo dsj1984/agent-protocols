@@ -427,7 +427,7 @@ describe('renderPlaybook', () => {
     assert.ok(md.includes('sprint-finalize-task'));
   });
 
-  it('omits prerequisite check when a task has no dependencies', () => {
+  it('includes prerequisite workflow in static header but omits manual command when no dependencies exist', () => {
     const manifest = makeManifest({
       tasks: [makeTask({ id: 'a', title: 'Only Task', dependsOn: [] })],
     });
@@ -437,7 +437,10 @@ describe('renderPlaybook', () => {
     const chatDeps = computeChatDependencies(sessions, adjacency);
     const md = renderPlaybook(manifest, sessions, chatDeps);
 
-    assert.ok(!md.includes('sprint-verify-task-prerequisites'));
+    // The workflow is now part of the static header for cache consistency
+    assert.ok(md.includes('sprint-verify-task-prerequisites'));
+    // But the manual command with specific task IDs is omitted
+    assert.ok(!md.includes('node .agents/scripts/verify-prereqs.js'));
     assert.ok(md.includes('sprint-finalize-task'));
   });
 });

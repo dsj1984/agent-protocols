@@ -13,11 +13,14 @@ and future architectural evolution for the Agent Protocols framework.
   Core functionality should reside within the protocol itself to maximize
   portability and security.
 
-## Implemented: Version 3.0.0 (2026-04-02)
+## Implemented: Version 3.x (Optimization & Refinement)
 
-Version 3.0.0 focused on internal hardening, cost visibility, and safer
+Version 3.x focused on internal hardening, prompt optimization, and safer
 evolutionary loops.
 
+- ✅ **Context Caching Prompt Architecture**: Restructured playbook execution
+  prompts to rigidly separate static framework rules from volatile task state,
+  maximizing native LLM API token caching efficiency.
 - ✅ **Dynamic Context Boundaries (Local RAG)**: Implemented zero-dependency
   TF-IDF engine (`context-indexer.js`) for semantic retrieval and semantic
   context gathering.
@@ -74,13 +77,81 @@ the baseline structure, rules, and fundamental execution pipeline.
 - ✅ **Submodule Distribution**: Established the `dist` branch mechanism for
   consumer consumption.
 
-## Future Horizon
+## Upcoming: Version 3.x (Refinement & Standardization)
+
+Focuses on prompt efficiency, diagnostic rigidness via MCP, and hardening
+existing risk gates.
+
+### MCP Standardization
+
+**Concept:** Refactor internal agent scripts and diagnostic interceptors
+(`context-indexer.js`, `diagnose-friction.js`) into standardized local MCP
+servers, providing a rigid, native interface for LLMs and Agentic IDEs without
+relying on brittle Bash execution.
+
+### Automated Context Pruning
+
+**Concept:** Implement a background "gardener" workflow to identify and archive
+stale architectural decisions, ensuring the Local RAG index maintains a pristine
+signal-to-noise ratio.
+
+### Semantic Risk & Blast-Radius Gates
+
+**Concept:** Upgrade static keyword `riskGates` to a low-latency LLM semantic
+classifier that detects structural anomalies or logic that deviates from the
+localized intent of the PRD.
+
+### Zero-Touch Remediation Loop
+
+**Concept:** Automate `/sprint-hotfix` so that failed integration candidate
+traces are fed directly back to the executing agent for an automatic retry loop
+before halting.
+
+### Dynamic Golden-Path Harvesting (Agentic RLHF)
+
+**Concept:** Automatically harvest code diffs and prompts from tasks that
+complete with zero friction logs. Compile these into a localized
+`golden-examples` repository to be used as few-shot injections for future tasks.
+
+### Adversarial Red-Teaming Tribunals
+
+**Concept:** Upgrade `/sprint-integration` to instantiate parallel security
+agents that actively write fuzzing scripts and mutation tests to cross-examine
+and attempt to break code before base promotion.
 
 ### Ephemeral Local Web Dashboard
 
 **Concept:** Transition the Telemetry Observer from Markdown reports to an
 interactive local web dashboard for richer data visualization and real-time
 budget tracking.
+
+## Future Horizon: Version 4+ (Advanced Autonomy)
+
+Focuses on self-healing protocols, multimodal verification, and autonomous
+ecosystem maintenance.
+
+### Multimodal Visual Verification
+
+**Concept:** Integrate vision-model capabilities into the `sprint-testing`
+workflow to natively verify UI/UX regressions against Figma mockups and baseline
+screenshots.
+
+### Autonomous Protocol Evolution
+
+**Concept:** Enable agents to autonomously draft PRDs and implementation plans
+against `.agents/rules/` and `.agents/skills/` based on historical friction
+logs, creating a self-healing protocol immune system.
+
+### Cryptographic Provenance
+
+**Concept:** Digitally sign agent-generated `test-receipts` to establish a
+verifiable chain of custody for compliance and enterprise security auditing.
+
+### Autonomous Ecosystem Upgrades
+
+**Concept:** Deploy background "Micro-Sprints" that autonomously patch
+dependencies, resolve technical debt, run shift-left test receipts, and issue
+verified PRs.
 
 ### Event-Driven Headless CI/CD Execution
 
