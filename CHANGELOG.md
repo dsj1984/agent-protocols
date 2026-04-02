@@ -64,6 +64,12 @@ and this project adheres to
   - Refined documentation (SDLC, README) to reflect the transition from brittle
     deterministic checks to contextual AI-driven risk mitigation.
 
+- **Adversarial Red-Teaming (Tribunal)**:
+  - Introduced the on-demand `/run-red-team` workflow for cross-examining and
+    hardening code via dynamic fuzzing and mutation tests.
+  - Assigned the `security-engineer` persona to provide adversarial scrutiny on
+    branches or directories before functional QA.
+
 ## [3.0.0] - 2026-04-02
 
 ### Added

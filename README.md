@@ -93,6 +93,10 @@ ensure high-quality sprint execution:
   `.agents/golden-examples/` repository. These "Golden Paths" are dynamically
   injected as few-shot prompts in future tasks to autonomously reinforce the
   project's highest-quality coding standards.
+- **Adversarial Red-Teaming (Tribunal)**: An on-demand `/run-red-team` workflow
+  that calls the `security-engineer` to cross-examine a specific branch or
+  directory, using dynamic fuzzing and mutation tests to break code before
+  promotion.
 - **Macroscopic Telemetry Observer**: A zero-dependency aggregation script that
   reads friction logs across sprints to visually chart tool failures, efficiency
   trends, and productivity bottlenecks.

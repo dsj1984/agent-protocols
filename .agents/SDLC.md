@@ -277,7 +277,11 @@ context, these tasks are consolidated into two Chat Sessions:
    documents, and creates the final sprint records. It also triggers
    **`/run-context-pruning`** to archive stale decisions and ensure the Local
    RAG index reflects only the most current technical architecture.
-3. **`/sprint-close-out`**: The terminal step — asserts all playbook tasks are
+3. **`/run-red-team`**: An adversarial pre-release hardening workflow. The
+   `security-engineer` persona is called on-demand to cross-examine a specific
+   target scope (branch or directory), writing and executing local fuzz scripts
+   to seek and exploit structural vulnerabilities before functional QA.
+4. **`/sprint-close-out`**: The terminal step — asserts all playbook tasks are
    `[x]`, merges `sprint-N` into `main` via `--no-ff`, cleans up the sprint
    branch (local + remote), and verifies no stale branches remain.
 
