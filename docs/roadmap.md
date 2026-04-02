@@ -18,6 +18,10 @@ and future architectural evolution for the Agent Protocols framework.
 Version 3.x focused on internal hardening, prompt optimization, and safer
 evolutionary loops.
 
+- ✅ **Exploratory Testing Integration**: Enhanced the `sprint-testing` workflow
+  with a mandatory exploratory step and configurable command
+  (`exploratoryTestCommand`) to identify and remediate edge cases before final
+  integration.
 - ✅ **Context Caching Prompt Architecture**: Restructured playbook execution
   prompts to rigidly separate static framework rules from volatile task state,
   maximizing native LLM API token caching efficiency.

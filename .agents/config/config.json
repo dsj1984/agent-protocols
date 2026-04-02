@@ -69,6 +69,11 @@
       "default": "pnpm turbo run test",
       "description": "The command used to execute isolated tests before finalizing a task (e.g., 'pnpm turbo run test')."
     },
+    "exploratoryTestCommand": {
+      "type": "string",
+      "default": "pnpm test:exploratory",
+      "description": "The command used to run exploratory testing (e.g., 'pnpm test:exploratory')."
+    },
     "webhookUrl": {
       "type": "string",
       "default": "",

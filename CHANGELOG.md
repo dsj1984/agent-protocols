@@ -6,6 +6,20 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 and this project adheres to
 [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [3.2.0] - 2026-04-02
+
+### Added
+
+- **Exploratory Testing Integration**:
+  - Enhanced the `/sprint-testing` workflow with a mandatory **Exploratory
+    Testing** step (Step 5) to identify edge cases and regressions outside the
+    formal test plan.
+  - Mandated a remediation loop where agents must address and verify any issues
+    found during exploratory testing before finalizing the task.
+  - Introduced the `exploratoryTestCommand` configuration property in
+    `config.json` (default: `pnpm test:exploratory`) to ensure the testing suite
+    is fully configurable.
+
 ## [3.1.3] - 2026-04-02
 
 ### Fixed

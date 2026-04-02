@@ -12,6 +12,8 @@ description:
     `sprintDocsRoot` prefix, both defined in `.agents/config/config.json`.
 2.  `[PADDED_NUM]` is the `[SPRINT_NUMBER]` padded according to the
     `sprintNumberPadding` setting in the same config.
+3.  Resolve `[EXPLORATORY_TEST_COMMAND]` from the `exploratoryTestCommand` field
+    in `.agents/config/config.json` (default: `pnpm test:exploratory`).
 
 ## Step 1 - Preparation
 
@@ -37,7 +39,13 @@ with the Dual-Purpose standard:
    are updated, initiate the `/run-test-plan` workflow against the updated
    files. **DO NOT invent Playwright tests from scratch**—rely on the workflow's
    native execution loop.
-5. **Finalize**: Use the `/sprint-finalize-task` workflow for your task ID
+5. **Exploratory Testing**: Run the command defined as
+   `[EXPLORATORY_TEST_COMMAND]` (default: `pnpm test:exploratory`). This step
+   focuses on unscripted testing to identify edge cases and unexpected behaviors
+   that may not be covered by the formal test plan. If any issues or regressions
+   are discovered, you **must** address them, commit the fixes, and re-run the
+   exploratory tests before finalizing.
+6. **Finalize**: Use the `/sprint-finalize-task` workflow for your task ID
    (e.g., `39.4.1`) to push your test maintenance branch and update the
    playbook.
 
