@@ -23,7 +23,7 @@ for (let i = 0; i < args.length; i++) {
   if (args[i] === '--to') toSprint = parseInt(args[++i], 10);
 }
 
-const PROJECT_ROOT = path.resolve(__dirname, '../..');
+const PROJECT_ROOT = process.cwd();
 const SPRINTS_ROOT = path.join(PROJECT_ROOT, 'docs', 'sprints');
 const REPORT_OUTPUT = path.join(PROJECT_ROOT, 'docs', 'telemetry', 'observer-report.md');
 
