@@ -78,9 +78,9 @@ ensure high-quality sprint execution:
 - **FinOps & Economic Guardrails**: Tracks agent token consumption against
   configurable sprint budgets. Enforces soft-warnings at thresholds and
   hard-stops to prevent unexpected expenses.
-- **HITL Risk Gates**: Deterministic safety checks that force Human-In-The-Loop
-  approval when an agent plans destructive or highly sensitive operations (e.g.,
-  `DROP`, `DELETE`).
+- **HITL Risk Gates**: Semantic security checks that force Human-In-The-Loop
+  approval when an architect detects high-risk operations (e.g., destructive
+  mutations, structural anomalies) during the technical specification phase.
 - **Automated Context Pruning ("Gardener")**: Identifies and archives stale ADRs
   and coding patterns into a `docs/archive/` directory during the sprint retro.
   This keeps the Local RAG index focused on the most current architecture.

@@ -54,6 +54,16 @@ and this project adheres to
     few-shot prompts into new playbooks, facilitating autonomous project
     alignment and reinforcement learning.
 
+- **Semantic Risk & Blast-Radius Gates**:
+  - Upgraded static keyword `riskGates.words` in `config.json` to a semantic
+    `riskGates.heuristics` framework.
+  - Updated `sprint-generate-tech-spec.md` to instruct the AI Architect to act
+    as a semantic classifier for blast-radius analysis.
+  - Updated `sprint-generate-playbook.md` to enforce Human-In-The-Loop (HITL)
+    approval for tasks flagged by semantic security assessments.
+  - Refined documentation (SDLC, README) to reflect the transition from brittle
+    deterministic checks to contextual AI-driven risk mitigation.
+
 ## [3.0.0] - 2026-04-02
 
 ### Added

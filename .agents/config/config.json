@@ -91,13 +91,17 @@
     },
     "riskGates": {
       "type": "object",
-      "description": "Deterministic HITL (Human-In-The-Loop) gates for high-risk operations based on sensitive keywords.",
+      "description": "Semantic HITL (Human-In-The-Loop) gates for high-risk operations based on LLM-driven blast-radius analysis.",
       "properties": {
-        "words": {
+        "heuristics": {
           "type": "array",
           "items": { "type": "string" },
-          "default": ["DROP", "DELETE", "IAM", "INFRA", "S3", "BUCKET", "PERMISSION"],
-          "description": "A list of sensitive keywords that trigger a mandatory HITL approval gate if found in a tech spec or task instructions."
+          "default": [
+            "Destructive database mutations or unrecoverable state changes.",
+            "Structural anomalies or modifications to shared infrastructure (IAM, global security layers).",
+            "Functional logic that deviates from the localized intent of the PRD."
+          ],
+          "description": "A list of semantic criteria that the Architect uses to flag a technical plan for mandatory HITL approval."
         }
       }
     },

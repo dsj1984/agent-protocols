@@ -204,11 +204,12 @@ tasks:
   triggers subjective soft-warnings via webhooks at threshold levels and
   hard-stops if the budget is breached, fostering intelligent agentic cost
   management.
-- **HITL Risk Gates**: The framework statically analyzes planned tasks during
-  the tech-spec phase for destructive or sensitive operations (e.g. `DROP`,
-  `DELETE`, `IAM`). Flagged tasks automatically halt the execution automation
-  loop natively and require explicit Human-In-The-Loop approval before
-  proceeding.
+- **HITL Risk Gates**: High-latency security checks driven by LLM-based semantic
+  classification. During the technical specification phase, architects evaluate
+  proposed changes against a set of semantic heuristics (e.g., unrecoverable
+  mutations, structural anomalies). Tasks flagged by this assessment
+  automatically stall the execution loop and require explicit Human-In-The-Loop
+  approval before proceeding.
 - **Friction Logging Thresholds**: The sensitivity for logging repetitive
   sequences or automation candidates is also configurable in the same config
   file via `frictionThresholds.repetitiveCommandCount`.

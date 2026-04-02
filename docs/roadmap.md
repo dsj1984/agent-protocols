@@ -37,6 +37,9 @@ evolutionary loops.
 - ✅ **Dynamic Golden-Path Harvesting (Agentic RLHF)**: Implemented automated
   harvesting of zero-friction instruction-to-diff mappings into
   `.agents/golden-examples/` for dynamic few-shot prompt reinforcement.
+- ✅ **Semantic Risk & Blast-Radius Gates**: Upgraded static `riskGates.words`
+  to a `riskGates.heuristics` framework, enabling AI-driven semantic
+  classification of destructive operations and architectural anomalies.
 - ✅ **Self-Healing Protocols (Retro-Augmentation)**: Updated `/sprint-retro`
   and Architect persona to generate agent-ready optimization snippets from
   friction logs.
@@ -98,12 +101,6 @@ existing risk gates.
 (`context-indexer.js`, `diagnose-friction.js`) into standardized local MCP
 servers, providing a rigid, native interface for LLMs and Agentic IDEs without
 relying on brittle Bash execution.
-
-### Semantic Risk & Blast-Radius Gates
-
-**Concept:** Upgrade static keyword `riskGates` to a low-latency LLM semantic
-classifier that detects structural anomalies or logic that deviates from the
-localized intent of the PRD.
 
 ### Adversarial Red-Teaming Tribunals
 
