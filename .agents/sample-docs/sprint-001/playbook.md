@@ -48,7 +48,7 @@ graph TD
 
 ### 💬 🗄️ Chat Session 1: Database Schema Modifications (Concurrent)
 
-- [x] **1.1.1 Database Schema Modifications**
+[x] **1.1.1 Database Schema Modifications**
 
 **Mode:** Planning **Model:** Claude Sonnet 4.6 (Thinking)
 
@@ -65,7 +65,7 @@ Create migrations for the new `notifications` and `notification_preferences` tab
 
 ### 💬 🔌 Chat Session 2: WebSocket Infrastructure Setup
 
-- [ ] **1.2.1 WebSocket Infrastructure Setup**
+[ ] **1.2.1 WebSocket Infrastructure Setup**
 
 **Mode:** Planning **Model:** Claude Sonnet 4.6 (Thinking)
 
@@ -82,7 +82,7 @@ Implement the `wss://api.example.com/events` endpoint. Handle JWT authentication
 
 ### 💬 🌐 Chat Session 3: REST API Endpoints
 
-- [ ] **1.3.1 REST API Endpoints**
+[ ] **1.3.1 REST API Endpoints**
 
 **Mode:** Planning **Model:** Gemini 3.1 Pro (High)
 
@@ -98,7 +98,7 @@ Implement endpoints to fetch history, mark notifications as read, and update use
 
 ### 💬 🔔 Chat Session 4: Notification Bell UI React Component
 
-- [ ] **1.4.1 Notification Bell UI React Component**
+[ ] **1.4.1 Notification Bell UI React Component**
 
 **Mode:** Fast **Model:** Claude Sonnet 4.6 (Thinking)
 
@@ -114,7 +114,7 @@ Create a `NotificationBell` component with an unread badge. Integrate it into th
 
 ### 💬 📡 Chat Session 5: WebSocket Client Connection Logic
 
-- [ ] **1.5.1 WebSocket Client Connection Logic**
+[ ] **1.5.1 WebSocket Client Connection Logic**
 
 **Mode:** Planning **Model:** Claude Sonnet 4.6 (Thinking)
 
@@ -130,7 +130,7 @@ Implement a global hook to manage the WebSocket connection. Implement exponentia
 
 ### 💬 📱 Chat Session 6: Mobile Push Notification Setup
 
-- [ ] **1.6.1 Mobile Push Notification Setup**
+[ ] **1.6.1 Mobile Push Notification Setup**
 
 **Mode:** Planning **Model:** Claude Sonnet 4.6 (Thinking)
 
@@ -146,7 +146,7 @@ Integrate Firebase Cloud Messaging (FCM) to deliver notifications to iOS and And
 
 ### 💬 🧪 Chat Session 7: Sprint 1 QA Validation
 
-- [ ] **1.7.1 Sprint 1 QA Validation**
+[ ] **1.7.1 Sprint 1 QA Validation**
 
 **Mode:** Planning **Model:** Claude Sonnet 4.6 (Thinking)
 
