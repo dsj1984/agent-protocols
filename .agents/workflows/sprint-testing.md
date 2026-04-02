@@ -15,9 +15,15 @@ description:
 
 ## Step 1 - Preparation
 
-When assigned complex QA tasks during a sprint (specifically in Chat Session 4),
-execute these steps to prepare the test environment in accordance with the
-Dual-Purpose standard:
+**Role Clarification**: Software Engineers (SWEs) are explicitly responsible for
+writing and passing unit and integration tests alongside their feature code
+during the development phases. The `qa-engineer` persona assumes responsibility
+during this dedicated testing phase to focus exclusively on End-to-End (E2E)
+test automation, test plan documentation, and global test data maintenance.
+
+When assigned complex QA tasks during a sprint (specifically in the Merge &
+Verify phase), execute these steps to prepare the test environment in accordance
+with the Dual-Purpose standard:
 
 1. **Test Data Maintenance**: Maintain and update all fake/sample test data,
    database seed files, and endpoint mocks required for the newest sprint

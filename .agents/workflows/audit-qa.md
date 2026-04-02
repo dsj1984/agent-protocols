@@ -18,6 +18,12 @@ any immediate changes. Additionally, you must evaluate the sprint test plans
 against the `docs/roadmap.md` and the current codebase to ensure all test
 documentation is complete, consistent, and accurate.
 
+**Note on Testing Responsibilities**: When evaluating test maturity, note the
+established standard: Software Engineers (SWEs) must provide comprehensive unit
+and integration test coverage alongside their feature implementations. The QA
+Engineering function focuses on End-to-End (E2E) testing, complex system
+integrations, and test environment stability.
+
 ## Step 0 - Path Resolution
 
 1.  Resolve `[SPRINT_ROOT]` as the directory `sprint-[PADDED_NUM]` within the

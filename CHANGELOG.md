@@ -38,6 +38,11 @@ and this project adheres to
     `task-state/[TASK_ID].json` files for status tracking, removing manual
     `playbook.md` editing to eliminate race conditions during concurrent
     execution.
+- **Clarified Testing Responsibilities**:
+  - Updated `sprint-testing.md` and `audit-qa.md` to explicitly demarcate that
+    Software Engineers (SWEs) are responsible for unit and integration testing
+    during development, while the QA persona focuses exclusively on E2E
+    automation and documentation during integration.
 
 ## [2.17.3] - 2026-04-02
 
