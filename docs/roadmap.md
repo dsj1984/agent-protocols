@@ -3,16 +3,6 @@
 This document outlines the strategic priorities, upcoming feature developments,
 and future architectural evolution for the Agent Protocols framework.
 
-## Completed
-
-- **Enhanced Diagnostic Tools**: Completed in 2.24.0 with deterministic
-  diagnostic interceptors (`diagnose-friction.js`) and passive system-level
-  telemetry collection.
-- **Persona Specialization**: Refining role-specific behavior constraints for
-  emerging frameworks (e.g., Astro 5, Tailwind 4) in version 2.23.0.
-- **Automated Rollback & Blast-Radius Containment**: Implemented as the
-  **"Hybrid Integration Candidate" (Option 3)** in version 2.22.0.
-
 ## Planned (Next)
 
 [Currently empty. Prioritize items from Future Horizon.]
@@ -104,3 +94,18 @@ Agent realizes an API response is missing a required field, it shouldn't fail or
 hallucinate a workaround. It should initiate an autonomous sub-session to
 "debate" the issue directly with the Backend Agent, updating the API contract
 and the `tech-spec.md` dynamically before resuming execution.
+
+### Global Telemetry Dashboard & Aggregation (Observer)
+
+**Concept**: Transform distributed, local `agent-friction-log.json` files into
+systemic architectural intelligence.
+
+**Future Capability**: Implement `node .agents/scripts/aggregate-telemetry.js`.
+
+- **Ephemeral Approach**: Aggregated data lives in `/temp/` to avoid Git bloat;
+  the UI dashboard reads from this on-the-fly.
+- **Sprint Range Support**: The script must include optional `--from` and `--to`
+  flags to filter the telemetry analysis to specific sprint windows.
+- **Goal**: Identify macroscopic failure patterns (e.g., "Astro hydration
+  hydration errors represent 40% of all CLI failures") to inform future skill
+  updates.
