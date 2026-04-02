@@ -6,6 +6,17 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 and this project adheres to
 [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [3.1.3] - 2026-04-02
+
+### Fixed
+
+- **Decoupled Playbook Prompts**: Fixed a regression where consolidated
+  phase-based Chat Sessions (e.g., "Merge & Verify") were erroneously rendering
+  multiple distinct tasks inside a single `#### Agent Prompt` block.
+- Refactored `Renderer.js` to iterate over session tasks and generate distinct
+  LLM instruction blocks (`#### Agent Prompt: [Title]`) for each task within a
+  consolidated session, ensuring clear, distinct execution bounds.
+
 ## [3.1.2] - 2026-04-02
 
 ### Fixed

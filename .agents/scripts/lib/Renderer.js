@@ -165,54 +165,55 @@ export function renderPlaybook(manifest, chatSessions, chatDeps, options = {}) {
     }
     md += `\n`;
 
-    // Code Block for the Agent
-    md += `#### Agent Prompt\n\n`;
-    md += `\`\`\`markdown\n`;
-    md += `=== SYSTEM PROTOCOL & CAPABILITIES ===\n`;
-    md += `**AGENT EXECUTION PROTOCOL:**\n`;
-    
-    if (deps.length > 0 || session.tasks.some((t) => t.dependsOn && t.dependsOn.length > 0)) {
-      md += `Before beginning work, you MUST run the pre-flight verification script to ensure all dependencies are committed.\n`;
-      md += `Execute \`/[.agents/workflows/sprint-verify-task-prerequisites.md]\` or run the manual verification script for your specific task.\n`;
-      md += `If the script fails, STOP immediately and ask the user to complete the blocking tasks.\n\n`;
-    }
-
-    md += `**Branching:**\n`;
-    md += `All task work MUST occur on an isolated feature branch created from the current sprint branch.\n`;
-    md += `You will be provided with the exact branch name in your volatile instructions.\n\n`;
-
-    md += `**Close-out:**\n`;
-    md += `Once all task instructions are fully verified and committed, run the finalization workflow to track state:\n`;
-    md += `\`/[.agents/workflows/sprint-finalize-task.md]\`\n\n`;
-
-    md += `=== VOLATILE TASK CONTEXT ===\n`;
-    md += `**Persona**: ${session.tasks[0].persona}\n`;
-
-    // Aggregate distinct skills
-    const allSkills = new Set();
-    session.tasks.forEach((t) => t.skills.forEach((s) => allSkills.add(s)));
-    if (allSkills.size > 0) {
-      md += `**Loaded Skills**: ${[...allSkills].map((s) => `\`${s}\``).join(', ')}\n`;
-    }
-    md += `**Sprint / Session**: Sprint ${sprintNum} | Chat Session ${session.chatNumber}\n\n`;
-
-    if (deps.length > 0 || session.tasks.some((t) => t.dependsOn && t.dependsOn.length > 0)) {
-      md += `**Pre-flight Task Validation (Run this first):**\n`;
-      const firstFullId = taskIdToNumber.get(session.tasks[0].id);
-      md += `\`node .agents/scripts/verify-prereqs.js ${docsRoot}/sprint-${sprintNum}/playbook.md ${firstFullId}\`\n\n`;
-    }
-
-    md += `**Instructions:**\n`;
+    // Code Blocks for individual tasks
     for (const task of session.tasks) {
       const fullTaskId = taskIdToNumber.get(task.id);
+      
+      md += `#### Agent Prompt: ${task.title}\n\n`;
+      md += `\`\`\`markdown\n`;
+      md += `=== SYSTEM PROTOCOL & CAPABILITIES ===\n`;
+      md += `**AGENT EXECUTION PROTOCOL:**\n`;
+      
+      const taskDeps = task.dependsOn && task.dependsOn.length > 0;
+      const chatHasDeps = deps.length > 0;
+      
+      if (chatHasDeps || taskDeps) {
+        md += `Before beginning work, you MUST run the pre-flight verification script to ensure all dependencies are committed.\n`;
+        md += `Execute \`/[.agents/workflows/sprint-verify-task-prerequisites.md]\` or run the manual verification script for your specific task.\n`;
+        md += `If the script fails, STOP immediately and ask the user to complete the blocking tasks.\n\n`;
+      }
+
+      md += `**Branching:**\n`;
+      md += `All task work MUST occur on an isolated feature branch created from the current sprint branch.\n`;
+      md += `You will be provided with the exact branch name in your volatile instructions.\n\n`;
+
+      md += `**Close-out:**\n`;
+      md += `Once all task instructions are fully verified and committed, run the finalization workflow to track state:\n`;
+      md += `\`/[.agents/workflows/sprint-finalize-task.md]\`\n\n`;
+
+      md += `=== VOLATILE TASK CONTEXT ===\n`;
+      md += `**Persona**: ${task.persona}\n`;
+
+      const skillList = task.skills || [];
+      if (skillList.length > 0) {
+        md += `**Loaded Skills**: ${skillList.map((s) => `\`${s}\``).join(', ')}\n`;
+      }
+      md += `**Sprint / Session**: Sprint ${sprintNum} | Chat Session ${session.chatNumber}\n\n`;
+
+      if (chatHasDeps || taskDeps) {
+        md += `**Pre-flight Task Validation (Run this first):**\n`;
+        md += `\`node .agents/scripts/verify-prereqs.js ${docsRoot}/sprint-${sprintNum}/playbook.md ${fullTaskId}\`\n\n`;
+      }
+
+      md += `**Instructions:**\n`;
       md += `1. **Task ${task.id}:** ${renderTaskInstructions(task, sprintNum)}\n`;
       md += `   - **Branching**: \`git checkout -b task/sprint-${sprintNum}/${task.id}\`\n`;
       md += `   - **Mark Executing**: \`node .agents/scripts/update-task-state.js ${fullTaskId} executing\`\n`;
+
+      md += getGoldenExamples();
+
+      md += `\`\`\`\n\n`;
     }
-
-    md += getGoldenExamples();
-
-    md += `\`\`\`\n\n`;
   }
 
   return md;
