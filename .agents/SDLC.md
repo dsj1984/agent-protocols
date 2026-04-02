@@ -262,7 +262,9 @@ context, these tasks are consolidated into two Chat Sessions:
    vulnerabilities, unnecessary coupling, and architectural drift.
 2. **`/sprint-retro`**: Synthesizes challenges and wins, captures new **Action
    Items** into the roadmap, makes permanent updates to global project
-   documents, and creates the final sprint records.
+   documents, and creates the final sprint records. It also triggers
+   **`/run-context-pruning`** to archive stale decisions and ensure the Local
+   RAG index reflects only the most current technical architecture.
 3. **`/sprint-close-out`**: The terminal step — asserts all playbook tasks are
    `[x]`, merges `sprint-N` into `main` via `--no-ff`, cleans up the sprint
    branch (local + remote), and verifies no stale branches remain.
@@ -291,6 +293,7 @@ docs/
 ├── data-dictionary.md       # Database schema and validation rules
 ├── decisions.md             # Architecture Decision Records (ADRs) and "why" contexts
 ├── patterns.md              # Established coding patterns and library rules
+├── archive/                 # Pruned documentation (stale decisions/patterns)
 ├── roadmap.md               # High-level sprint goals and feature list
 ├── sprints/                 # Sprint-specific planning artifacts
 │   └── sprint-[##]/

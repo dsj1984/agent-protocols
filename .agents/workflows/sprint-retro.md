@@ -37,9 +37,12 @@ Chat Session 5), you must execute the following steps:
    schemas or dependencies were introduced. Update `docs/patterns.md` and
    `docs/decisions.md` to document new technical rulings, accepted library
    patterns, or key architectural decisions made during this sprint.
-7. **Finalize**: Use the `/sprint-finalize-task` workflow for your task ID
-   (e.g., `39.8.1`) to ensure the retro documentation and roadmap updates are
-   pushed and the playbook status is tracked.
+7. **Context Pruning**: Execute the Gardener workflow to archive stale decisions
+   and optimize the Local RAG index for the next sprint:
+   `/[.agents/workflows/run-context-pruning.md]`
+8. **Finalize**: Use the `/sprint-finalize-task` workflow for your task ID
+   (e.g., `39.8.1`) to ensure the retro documentation, roadmap updates, and
+   context pruning artifacts are pushed and the playbook status is tracked.
 
 ## Constraint
 

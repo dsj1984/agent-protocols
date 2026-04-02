@@ -21,6 +21,16 @@ and this project adheres to
   - Promoted task-specific "Pre-flight Task Validation" to a clearly labeled
     volatile section to maintain both discoverability and cache consistency.
 
+- **Automated Context Pruning ("Gardener")**:
+  - Implemented `run-context-pruning.md` workflow for systematic archiving of
+    stale architectural decisions and patterns.
+  - Updated `context-indexer.js` to explicitly ignore the `docs/archive/`
+    directory, preventing stale context from polluting Local RAG.
+  - Integrated the Gardener workflow into `sprint-retro.md` as a mandatory
+    close-out step.
+  - Updated SDLC and README to reflect the new documentation lifecycle and the
+    `docs/archive/` directory standard.
+
 ## [3.0.0] - 2026-04-02
 
 ### Added

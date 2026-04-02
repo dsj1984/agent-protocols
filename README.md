@@ -81,6 +81,9 @@ ensure high-quality sprint execution:
 - **HITL Risk Gates**: Deterministic safety checks that force Human-In-The-Loop
   approval when an agent plans destructive or highly sensitive operations (e.g.,
   `DROP`, `DELETE`).
+- **Automated Context Pruning ("Gardener")**: Identifies and archives stale ADRs
+  and coding patterns into a `docs/archive/` directory during the sprint retro.
+  This keeps the Local RAG index focused on the most current architecture.
 - **Macroscopic Telemetry Observer**: A zero-dependency aggregation script that
   reads friction logs across sprints to visually chart tool failures, efficiency
   trends, and productivity bottlenecks.

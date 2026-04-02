@@ -29,7 +29,7 @@ function walkDir(dir) {
     
     const list = fs.readdirSync(dir);
     list.forEach(file => {
-        if (file === 'node_modules' || file === 'temp' || file === '.git' || file === '.agents') return;
+        if (file === 'node_modules' || file === 'temp' || file === '.git' || file === '.agents' || file === 'archive') return;
         const fullPath = path.join(dir, file);
         const stat = fs.statSync(fullPath);
         if (stat && stat.isDirectory()) {
