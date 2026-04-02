@@ -31,6 +31,13 @@ and this project adheres to
     marker detection across all files, replacing `git grep`.
   - Updated `sprint-integration`, `sprint-close-out`, and `sprint-finalize-task`
     to execute these local Node.js scripts.
+  - Created `.agents/scripts/verify-prereqs.js` to deterministically evaluate
+    task dependencies and chat predecessors by parsing the `playbook.md`.
+- **Decoupled Task State Management**:
+  - Refactored `sprint-finalize-task.md` to exclusively use
+    `task-state/[TASK_ID].json` files for status tracking, removing manual
+    `playbook.md` editing to eliminate race conditions during concurrent
+    execution.
 
 ## [2.17.3] - 2026-04-02
 

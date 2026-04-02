@@ -35,15 +35,15 @@ precisely:
 4. **Push Feature Branch**: Push your code upstream: `git push -u origin HEAD`.
 5. **State Sync**: Switch back to `sprint-[NUM]`. Execute `git pull --rebase` to
    fetch any state updates from sibling agents.
-6. **Update Playbook (Decoupled State)**:
-   - Check if directory `[SPRINT_ROOT]/task-state/` exists.
-   - If YES: Create/Update `[SPRINT_ROOT]/task-state/[TASK_ID].json` with
-     `{"status": "committed", "timestamp": "ISO8601"}`.
-   - If NO: Open `[SPRINT_ROOT]/playbook.md`, locate your task and change its
-     status from `[~]` to `[/]`, and update the Mermaid diagram class from
-     `executing` to `committed`.
-7. **Commit State**: Commit ONLY the state update:
-   `git add . ; git commit -m "chore(sprint): update task [TASK_ID] status to committed"`.
+6. **Update Task State (Decoupled)**:
+   - Ensure the state directory exists: `mkdir -p [SPRINT_ROOT]/task-state/`.
+   - Create or update the JSON state file at
+     `[SPRINT_ROOT]/task-state/[TASK_ID].json` with the current state:
+     `{ "status": "committed", "timestamp": "[ISO_TIMESTAMP]" }`.
+   - **Note**: This decoupled approach prevents git merge conflicts when
+     multiple agents are finalizing tasks simultaneously.
+7. **Commit State**: Stage and commit the state file:
+   `git add [SPRINT_ROOT]/task-state/[TASK_ID].json ; git commit -m "chore(task): mark [TASK_ID] as committed (decoupled state)"`.
    Push this tracking commit upstream: `git push`. (If it fails, pull --rebase
    and push again).
 8. **Notification**: Resolve `[WEBHOOK_URL]` from the `webhookUrl` field in
@@ -66,6 +66,6 @@ precisely:
 ## Constraint
 
 Do NOT skip any of the steps above. You MUST ensure validation passes, your code
-feature branch is pushed, AND the playbook on `sprint-[NUM]` is updated with
-`- [/]`. Do NOT merge your feature branch code directly into `sprint-[NUM]` —
-the `sprint-integration` workflow handles all code merging.
+feature branch is pushed, AND the decoupled task state file is committed on the
+sprint base branch. Do NOT merge your feature branch code directly into the
+sprint base branch — the `sprint-integration` workflow handles all code merging.
