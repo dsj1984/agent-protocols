@@ -6,6 +6,21 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 and this project adheres to
 [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [2.24.0] - 2026-04-02
+
+### Added
+
+- **Enhanced Diagnostic Tools & Passive Telemetry**:
+  - Implemented `.agents/scripts/diagnose-friction.js`, replacing the "honor
+    system" for logging tool failures. This script wraps failing commands, logs
+    execution details (stdout/stderr) natively to `agent-friction-log.json`, and
+    outputs structured remediation steps back to the agent to prevent thrashing.
+  - Updated `instructions.md` to formally mandate the use of the new diagnostic
+    interceptor for unrecoverable errors.
+  - Refined `SDLC.md` to articulate the expanded Observability loop using this
+    automated telemetry approach.
+  - Shifted the corresponding roadmap item from **Planned** to **Completed**.
+
 ## [2.23.0] - 2026-04-02
 
 ### Added

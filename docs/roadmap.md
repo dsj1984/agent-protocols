@@ -3,10 +3,19 @@
 This document outlines the strategic priorities, upcoming feature developments,
 and future architectural evolution for the Agent Protocols framework.
 
+## Completed
+
+- **Enhanced Diagnostic Tools**: Completed in 2.24.0 with deterministic
+  diagnostic interceptors (`diagnose-friction.js`) and passive system-level
+  telemetry collection.
+- **Persona Specialization**: Refining role-specific behavior constraints for
+  emerging frameworks (e.g., Astro 5, Tailwind 4) in version 2.23.0.
+- **Automated Rollback & Blast-Radius Containment**: Implemented as the
+  **"Hybrid Integration Candidate" (Option 3)** in version 2.22.0.
+
 ## Planned (Next)
 
-- **Enhanced Diagnostic Tools**: Further development of automated
-  troubleshooting scripts and telemetry collectors.
+[Currently empty. Prioritize items from Future Horizon.]
 
 ## Future Horizon
 
