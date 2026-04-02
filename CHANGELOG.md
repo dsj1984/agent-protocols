@@ -6,6 +6,18 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 and this project adheres to
 [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [2.17.3] - 2026-04-02
+
+### Added
+
+- **Configurable Friction Thresholds**:
+  - Extracted hardcoded agent-friction and anti-thrashing thresholds into
+    `.agents/config/config.json` under `frictionThresholds`.
+  - Thresholds for consecutive errors, stagnation steps, and repetitive command
+    detection are now fully configurable.
+  - Updated `instructions.md`, `SDLC.md`, and project READMEs to reference the
+    dynamic configuration values.
+
 ## [2.17.2] - 2026-04-01
 
 ### Changed

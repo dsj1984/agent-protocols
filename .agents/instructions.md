@@ -75,9 +75,10 @@ format. Append a structured entry if you experience:
 
 - **Friction Point**: Consecutive tool validation errors, unrecoverable command
   or script execution failures, or ambiguity requiring explicit self-correction.
-- **Automation Candidate**: Repetitive sequences of 3+ commands,
-  boilerplate-heavy file creations, or manual processes that could be simplified
-  by a dedicated workflow or skill.
+- **Automation Candidate**: Repetitive sequences of commands (check
+  `frictionThresholds.repetitiveCommandCount` in `.agents/config/config.json`,
+  default 3+), boilerplate-heavy file creations, or manual processes that could
+  be simplified by a dedicated workflow or skill.
 
 ### I. Anti-Thrashing Protocol
 
@@ -85,9 +86,13 @@ You MUST proactively identify when you are "thrashing" or stuck in an infinite
 loop. If you satisfy either of the following conditions, you MUST immediately
 stop, summarize the blockers, and present a **Re-Plan** or yield to the user:
 
-- **Error Threshold**: You execute **3 consecutive tools that return errors**.
-- **Stagnation Threshold**: You perform **5 consecutive steps of research or
-  analysis without modifying a file** (excluding setup/scaffolding tasks).
+- **Error Threshold**: You execute multiple consecutive tools that return errors
+  (check `frictionThresholds.consecutiveErrorCount` in
+  `.agents/config/config.json`, default 3).
+- **Stagnation Threshold**: You perform consecutive steps of research or
+  analysis without modifying a file (check
+  `frictionThresholds.stagnationStepCount` in `.agents/config/config.json`,
+  default 5), excluding setup/scaffolding tasks.
 
 This protocol ensures the conversation remains focused and avoids consuming
 unnecessary tokens on failing strategies.

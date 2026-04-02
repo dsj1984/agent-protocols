@@ -17,6 +17,27 @@
       "type": "integer",
       "default": 5,
       "description": "The maximum number of logical action items/bullet points a single task's instructions should contain before being decomposed."
+    },
+    "frictionThresholds": {
+      "type": "object",
+      "description": "Configurable thresholds for when to log to the agent-friction-log or halt execution.",
+      "properties": {
+        "repetitiveCommandCount": {
+          "type": "integer",
+          "default": 3,
+          "description": "Number of repetitive sequences of commands that flag an automation candidate."
+        },
+        "consecutiveErrorCount": {
+          "type": "integer",
+          "default": 3,
+          "description": "Number of consecutive tool errors that triggers the Anti-Thrashing protocol."
+        },
+        "stagnationStepCount": {
+          "type": "integer",
+          "default": 5,
+          "description": "Number of consecutive steps of research/analysis without modifying a file that triggers the Anti-Thrashing protocol."
+        }
+      }
     }
   }
 }

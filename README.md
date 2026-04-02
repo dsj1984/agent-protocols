@@ -59,11 +59,16 @@ The framework includes built-in guardrails to prevent agent stagnation and
 ensure high-quality sprint execution:
 
 - **Anti-Thrashing Protocol**: Mandates agents to halt and re-plan after hitting
-  specific thresholds for tool errors or analysis steps without progress.
+  configurable thresholds for tool errors or analysis steps without progress.
+  Controlled via `frictionThresholds` in `.agents/config/config.json`.
 - **Complexity Ceilings (Instruction Density)**: Enforces task atomicity by
   limiting the number of logical steps/bullet points in a task's instructions.
   This ensures agents stay within a manageable cognitive context. Configurable
   via `maxInstructionSteps` (default: 5) in `.agents/config/config.json`.
+- **Agent Friction Telemetry**: Agents are mandated to log operational struggles
+  (repetitive tasks, errors) into a structured `agent-friction-log.json` file.
+  Tolerance thresholds for logging are configurable via
+  `frictionThresholds.repetitiveCommandCount`.
 - **Workspace & File Hygiene**: Mandates that all temporary files and scratch
   scripts MUST be stored in the `/temp/` directory at the project root. This
   directory is Git-ignored by default to prevent repository pollution.

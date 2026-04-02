@@ -95,13 +95,19 @@ To prevent agents from getting stuck in analysis loops or performing excessively
 long tasks, the following guardrails are enforced:
 
 - **Anti-Thrashing Protocol**: Mandates that an agent MUST halt, summarize its
-  blockers, and present a **Re-Plan** if it hits 3 consecutive tool errors OR
-  performs 5 steps of analysis without modifying a file.
+  blockers, and present a **Re-Plan** if it hits consecutive tool errors OR
+  performs consecutive steps of analysis without modifying a file.
+  - **Configurability**: Controlled by `frictionThresholds` in
+    `.agents/config/config.json` (Defaults: errors=3, stagnation=5).
 - **Complexity Ceilings (Instruction Density)**: Limits the number of logical
   steps/bullet points in a task's instructions to ensure agents remain within a
   stable cognitive context.
   - **Configurability**: Controlled by `maxInstructionSteps` in
     `.agents/config/config.json` (Default: 5).
+- **Agent Friction Telemetry**: Mandates logging of repetitive tasks or
+  persistent errors to `agent-friction-log.json`.
+  - **Configurability**: Repetitive command threshold is controlled by
+    `frictionThresholds.repetitiveCommandCount` (Default: 3).
 
 ---
 

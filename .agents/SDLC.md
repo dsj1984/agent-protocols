@@ -167,8 +167,12 @@ tasks:
   identify and resolve gaps in the project's `agent-protocols`.
 - **Execution Guardrails (Anti-Thrashing)**: To prevent long-running tasks or
   agent "thrashing," agents are mandated to halt and re-plan if they hit a
-  threshold of consecutive errors or research steps without making progress. See
-  `.agents/instructions.md` for specific thresholds.
+  threshold of consecutive errors or research steps without making progress.
+  These thresholds are configurable via `frictionThresholds` in
+  `.agents/config/config.json`.
+- **Friction Logging Thresholds**: The sensitivity for logging repetitive
+  sequences or automation candidates is also configurable in the same config
+  file via `frictionThresholds.repetitiveCommandCount`.
 - **Workspace & File Hygiene**: To keep the repository clean, agents are
   required to store all temporary artifacts and scratch scripts in the root
   `/temp/` directory, which is excluded from Git.
