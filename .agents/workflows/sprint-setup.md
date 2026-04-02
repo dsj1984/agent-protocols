@@ -44,7 +44,8 @@ for subsequent planning and execution.
     `docs/sprints`).
 2.  Create the sprint directory if it doesn't exist: `mkdir [SPRINT_ROOT]`.
 3.  Initialize the agent observability log (JSON Lines format) if it doesn't
-    exist: `echo "" > [SPRINT_ROOT]/agent-friction-log.json`.
+    exist:
+    `node -e "import('fs').then(fs => fs.writeFileSync('[SPRINT_ROOT]/agent-friction-log.json', ''))"`.
 4.  Verify the directory exists.
 
 ## Step 5 - Finalization

@@ -6,6 +6,20 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 and this project adheres to
 [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [3.1.2] - 2026-04-02
+
+### Fixed
+
+- **ESM Notification Script**: Converted `.agents/scripts/notify.js` to a native
+  ES module to resolve `ReferenceError: require is not defined`.
+- **Structured Friction Logging**:
+  - Replaced brittle shell-based `echo` appending with a robust Node.js utility:
+    `.agents/scripts/log-friction.js`.
+  - This ensures valid JSONL formatting and eliminates stray characters or
+    newlines that caused JSON parsing failures in previous versions.
+  - Updated `sprint-setup`, `sprint-finalize-task`, `sprint-integration`, and
+    `sprint-close-out` workflows to use the new logging script.
+
 ## [3.1.1] - 2026-04-02
 
 ### Added

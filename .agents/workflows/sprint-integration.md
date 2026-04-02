@@ -59,9 +59,8 @@ feature branches.
        - Switch back to the base: `git checkout sprint-[SPRINT_NUMBER]`.
        - Delete candidate. The shared sprint branch is now "Clean" and
          unaffected by the failure.
-       - Log a critical friction entry to
-         `[SPRINT_ROOT]/agent-friction-log.json` stating:
-         `"[TASK_ID] failed post-merge integration check. Blast-radius contained. Rework triggered via /sprint-hotfix."`
+       - Log a critical friction entry using the provided script:
+         `node .agents/scripts/log-friction.js "[SPRINT_ROOT]/agent-friction-log.json" "friction_point" "sprint-integration" "[TASK_ID] failed post-merge integration check. Blast-radius contained. Rework triggered via /sprint-hotfix."`
        - **REMEDIATE (Zero-Touch Loop)**: DO NOT STOP EXECUTION. You must now
          immediately checkout the original feature branch
          `task/sprint-[SPRINT_NUMBER]/[TASK_ID]` and transition into the
@@ -97,9 +96,8 @@ feature branches.
     notification using the cross-platform Node script:
     `node .agents/scripts/notify.js "[WEBHOOK_URL]" "Sprint [SPRINT_NUMBER] feature branches have been integrated into the sprint base branch."`
 
-- If the command fails, log the failure in `agent-friction-log.json` (JSONL
-  format) in the `[SPRINT_ROOT]` directory with fields for `timestamp`, `type`
-  (friction_point), `tool` (notify.js), and `error`.
+- If the command fails, log the failure using the provided script:
+  `node .agents/scripts/log-friction.js "[SPRINT_ROOT]/agent-friction-log.json" "friction_point" "notify.js" "[ERROR_MESSAGE]"`
 - If the `webhookUrl` is empty, skip gracefully.
 
 ## Constraint

@@ -79,10 +79,9 @@ precisely:
    notification using the cross-platform Node script:
    - **Protocol**:
      `node .agents/scripts/notify.js "[WEBHOOK_URL]" "Sprint step [TASK_ID] was pushed to its feature branch."`
-   - **Failure Logging**: If the notification script fails, log the failure in
-     `agent-friction-log.json` (JSONL format) in the `[SPRINT_ROOT]` directory
-     with fields for `timestamp`, `type` (friction_point), `tool` (notify.js),
-     and `error`.
+   - **Failure Logging**: If the notification script fails, log the failure
+     using the provided script:
+     `node .agents/scripts/log-friction.js "[SPRINT_ROOT]/agent-friction-log.json" "friction_point" "notify.js" "[ERROR_MESSAGE]"`
    - If `webhookUrl` is empty, skip gracefully.
 
 2. **Finalize**: Stage and commit any newly harvested golden examples along with
