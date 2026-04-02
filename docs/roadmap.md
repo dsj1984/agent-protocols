@@ -34,3 +34,15 @@ blow out context windows, increase API costs, and degrade model reasoning (the
 Retrieval-Augmented Generation (RAG) or semantic vector search. Agents should
 query an index to retrieve only the specific schemas and ADRs relevant to their
 immediate micro-task.
+
+### FinOps & Token Budgeting
+
+**Current State**: Guardrails rely on `frictionThresholds` and
+`maxInstructionSteps` in `.agents/config/config.json` to prevent thrashing.
+
+**Improvement**: Parallel AI agents can quietly burn through massive API budgets
+if they get stuck in subtle loops that don't trigger the exact error thresholds.
+Future versions of `config.json` should expand to include a `maxTokenBudget` per
+task or sprint. Agents should halt execution and trigger a human override if
+they exceed their allocated financial budget, providing a hard economic ceiling
+on automated development cycles.
