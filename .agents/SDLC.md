@@ -155,11 +155,15 @@ tasks:
   and API routes to provide a stable foundation.
 - **Concurrent Execution**: Once the core is locked, parallel sessions handle
   Frontend development, QA automation, and non-blocking documentation.
-- **Decoupled Task Tracking**: Agents push state updates to the `taskStateRoot`
-  directory defined in `.agents/config/config.json` (defaults to
-  `temp/task-state/`) as tasks are completed. The `/sprint-integration` workflow
-  subsequently updates the master `playbook.md` with (`[x]`) upon successful
-  merge, preventing Git race conditions during concurrent execution.
+- **Decoupled Task Tracking**: Agents push state updates (`executing`,
+  `committed`) to the `taskStateRoot` directory defined in
+  `.agents/config/config.json` (defaults to `temp/task-state/`) as tasks skip
+  manual `playbook.md` updates. The playbook itself only tracks starting intent
+  (`[ ]`) and final integrated resolution (`[x]`). This decoupling prevents Git
+  race conditions and history bloat during concurrent execution.
+- **Verification Logic**: Task prerequisites are evaluated by the
+  `verify-prereqs.js` script, which checks both the playbook's `[x]` markers and
+  the individual decoupled state files for `committed` status.
 - **Task Completion Notifications**: When a task is pushed to a feature branch,
   agents broadcast a status update as a JSON payload to the `webhookUrl` (if
   defined in `.agents/config/config.json`) to ensure real-time synchronization
@@ -190,7 +194,8 @@ context, these tasks are consolidated into two Chat Sessions:
 
 1. **`/sprint-integration`**: Discovers all `sprint-N/*` feature branches,
    merges them sequentially into `sprint-N` via `--no-ff`, transitions the
-   playbook from Committed to Complete, and cleans up remote branches.
+   playbook tasks directly from Not Started (`[ ]`) to Complete (`[x]`), and
+   cleans up remote branches.
 2. **`/sprint-testing`**: Maintains test data and seeds, generates and updates
    the sprint test plan documentation, and executes the `/run-test-plan`
    workflow against the now-integrated codebase.
