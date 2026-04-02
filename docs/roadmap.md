@@ -3,16 +3,6 @@
 This document outlines the strategic priorities, upcoming feature developments,
 and future architectural evolution for the Agent Protocols framework.
 
-## Currently Active (v2.18.0)
-
-- **Centralized Configuration**: Extracted all hardcoded paths and branch
-  namespaces into `.agents/config/config.json`.
-- **Cross-Platform Scripting**: Replaced OS-dependent shell commands with
-  deterministic Node.js scripts for notifications, conflict detection, and
-  prerequisite verification.
-- **Decoupled Task State**: Transitioned to `task-state/[TASK_ID].json` files
-  for thread-safe concurrent execution.
-
 ## Planned (Next)
 
 - **Enhanced Diagnostic Tools**: Further development of automated
