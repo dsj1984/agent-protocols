@@ -21,6 +21,13 @@ directly.
 **Target Sprint:** `[SPRINT_NUMBER]` — The user should provide the sprint number
 when executing this command.
 
+## Step 0 - Path Resolution
+
+1.  Resolve `[SPRINT_ROOT]` as the directory `sprint-[PADDED_NUM]` within the
+    `sprintDocsRoot` prefix, both defined in `.agents/config/config.json`.
+2.  `[PADDED_NUM]` is the `[SPRINT_NUMBER]` padded according to the
+    `sprintNumberPadding` setting in the same config.
+
 ## Step 1 - Mandatory Knowledge Retrieval
 
 Execute the `sprint-gather-context` workflow for `[SPRINT_NUMBER]` to retrieve
@@ -108,7 +115,7 @@ Your output MUST conform to the JSON schema defined in
 
 ### Output Location
 
-Save the manifest to: `docs/sprints/sprint-[SPRINT_NUMBER]/task-manifest.json`
+Save the manifest to: `[SPRINT_ROOT]/task-manifest.json`
 
 ## Step 3 - Script Execution
 
@@ -126,7 +133,7 @@ The script will:
 4. Generate a dynamic Mermaid execution flow diagram.
 5. Render the playbook with perfect numbering and the verbatim Agent Execution
    Protocol.
-6. Write the output to `docs/sprints/sprint-[SPRINT_NUMBER]/playbook.md`.
+6. Write the output to `[SPRINT_ROOT]/playbook.md`.
 
 ### Chat Session Icons
 

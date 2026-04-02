@@ -38,6 +38,31 @@
           "description": "Number of consecutive steps of research/analysis without modifying a file that triggers the Anti-Thrashing protocol."
         }
       }
+    },
+    "baseBranch": {
+      "type": "string",
+      "default": "main",
+      "description": "The primary production/base branch, as defined in .agents/config/config.json."
+    },
+    "sprintDocsRoot": {
+      "type": "string",
+      "default": "docs/sprints",
+      "description": "The root directory for sprint-specific documentation."
+    },
+    "sprintNumberPadding": {
+      "type": "integer",
+      "default": 3,
+      "description": "Number of digits to use for padding sprint numbers (e.g., 3 digits for '040')."
+    },
+    "validationCommand": {
+      "type": "string",
+      "default": "npm run lint",
+      "description": "The command used to validate code changes before committing (e.g., 'npm run lint')."
+    },
+    "webhookUrl": {
+      "type": "string",
+      "default": "",
+      "description": "The URL for sending sprint notifications via webhook (if configured)."
     }
   }
 }

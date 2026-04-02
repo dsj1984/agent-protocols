@@ -5,12 +5,20 @@ description:
 
 # Sprint Retro & Roadmap Alignment
 
+## Step 0 - Path Resolution
+
+1.  Resolve `[SPRINT_ROOT]` as the directory `sprint-[PADDED_NUM]` within the
+    `sprintDocsRoot` prefix, both defined in `.agents/config/config.json`.
+2.  `[PADDED_NUM]` is the `[SPRINT_NUMBER]` padded according to the
+    `sprintNumberPadding` setting in the same config.
+
+## Step 1 - Retrospective Execution
+
 When instructed to perform a sprint retro and align the roadmap (typically in
 Chat Session 5), you must execute the following steps:
 
-1. **Generate Retro Document**: Generate a
-   `docs/sprints/sprint-[SPRINT_NUMBER]/retro.md` file using the
-   `.agents/templates/sprint-retro-template.md` template.
+1. **Generate Retro Document**: Generate a `[SPRINT_ROOT]/retro.md` file using
+   the `.agents/templates/sprint-retro-template.md` template.
 2. **Analyze the Sprint**: Analyze the sprint execution logs, test results,
    commits, and the `agent-friction-log.json` to accurately fill in the Sprint
    Scorecard, What Went Well, What Could Be Improved, Architectural Debt, and

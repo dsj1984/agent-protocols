@@ -628,6 +628,8 @@ function renderTask(task, sprintNumber, chatNumber, stepNumber, taskIdToNumber) 
 
 **Mode:** ${task.mode} | **Model (First Choice):** ${task.model} | **Model (Second Choice):** ${secondChoice}
 
+* Agent Prompt:
+
 \`\`\`text
 Sprint ${taskNumber}: Adopt the \`${task.persona}\` persona from \`.agents/personas/\`.
 

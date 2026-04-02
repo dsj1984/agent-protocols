@@ -18,6 +18,13 @@ any immediate changes. Additionally, you must evaluate the sprint test plans
 against the `docs/roadmap.md` and the current codebase to ensure all test
 documentation is complete, consistent, and accurate.
 
+## Step 0 - Path Resolution
+
+1.  Resolve `[SPRINT_ROOT]` as the directory `sprint-[PADDED_NUM]` within the
+    `sprintDocsRoot` prefix, both defined in `.agents/config/config.json`.
+2.  `[PADDED_NUM]` is the `[SPRINT_NUMBER]` padded according to the
+    `sprintNumberPadding` setting in the same config.
+
 ## Step 1: Context Gathering (Read-Only Scan)
 
 Before generating the report, silently scan the workspace for testing-related
@@ -27,8 +34,7 @@ files. Pay special attention to:
   `playwright.config.ts`, `cypress.json`).
 - Test directories and files (e.g., `__tests__/`, `spec/`, `e2e/`, `*.test.ts`,
   `*.spec.js`).
-- Manual and automated test plans stored and organized in
-  `docs/sprints/sprint-[##]/`.
+- Manual and automated test plans stored and organized in `[SPRINT_ROOT]/`.
 - Product documentation like `docs/roadmap.md` to map out expected features
   versus documented/implemented tests.
 - Mocking and stubbing setups (e.g., `__mocks__/`, `setupTests.js`, MSW
@@ -55,9 +61,9 @@ Evaluate the gathered context against the following test quality dimensions:
    opportunities for parallelization.
 6. **Test Plan Alignment:** Cross-reference the features outlined in
    `docs/roadmap.md` to ensure they have corresponding and complete test plans
-   within `docs/sprints/sprint-[##]/test-plan.md`. Verify that the test plans
-   accurately reflect the exact implementation found in the codebase and
-   highlight any inconsistencies, gaps, or outdated assertions.
+   within `[SPRINT_ROOT]/test-plan.md`. Verify that the test plans accurately
+   reflect the exact implementation found in the codebase and highlight any
+   inconsistencies, gaps, or outdated assertions.
 
 ## Step 3: Output Requirements
 

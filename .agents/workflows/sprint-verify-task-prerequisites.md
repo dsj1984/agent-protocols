@@ -6,14 +6,24 @@ description:
 
 # Sprint Verify Task Prerequisites
 
+## Step 0 - Path Resolution
+
+1.  Resolve `[SPRINT_ROOT]` as the directory `sprint-[PADDED_NUM]` within the
+    `sprintDocsRoot` prefix, both defined in `.agents/config/config.json`.
+2.  `[PADDED_NUM]` is the `[SPRINT_NUMBER]` padded according to the
+    `sprintNumberPadding` setting in the same config.
+
+## Step 1 - Pre-flight Checks
+
 Before an agent begins performing file modifications for a sprint task in the
 `playbook.md`, it MUST execute the following pre-flight checks:
 
-1. **Locate the Playbook**: Open the sprint playbook (e.g.,
-   `docs/sprints/sprint-[SPRINT_NUMBER]/playbook.md`).
+1. **Locate the Playbook**: Open the sprint playbook (located at
+   `[SPRINT_ROOT]/playbook.md`).
 2. **Branch Validation**: Run `git branch --show-current`. The result MUST be
-   `sprint-[SPRINT_NUMBER]`. If you are on `main`, `master`, a feature branch
-   (e.g., `sprint-[NUM]/[TASK_ID]`), or a detached HEAD, **STOP** and switch to
+   `sprint-[SPRINT_NUMBER]`. If you are on the base branch (refer to
+   "baseBranch" in .agents/config/config.json), a feature branch (e.g.,
+   `sprint-[NUM]/[TASK_ID]`), or a detached HEAD, **STOP** and switch to
    `sprint-[SPRINT_NUMBER]` with
    `git checkout sprint-[SPRINT_NUMBER] ; git pull` before continuing.
 3. **Check Dependencies**: Look at your assigned task instructions. There is an

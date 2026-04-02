@@ -8,12 +8,19 @@ description:
 This workflow consolidates all concurrent feature development into
 `sprint-[SPRINT_NUMBER]`. It must be run BEFORE QA Testing begins.
 
+## Step 0 - Path Resolution
+
+1.  Resolve `[SPRINT_ROOT]` as the directory `sprint-[PADDED_NUM]` within the
+    `sprintDocsRoot` prefix, both defined in `.agents/config/config.json`.
+2.  `[PADDED_NUM]` is the `[SPRINT_NUMBER]` padded according to the
+    `sprintNumberPadding` setting in the same config.
+
 ## Execution Steps
 
 1. **Environment Reset**: Ensure you are on `sprint-[SPRINT_NUMBER]`. Pull the
    latest changes: `git checkout sprint-[SPRINT_NUMBER] ; git pull`.
 2. **Branch Discovery**: Identify all remote branches associated with this
-   sprint's tasks (e.g., branches matching `sprint-[SPRINT_NUMBER]/*`).
+   sprint's tasks (e.g., branches matching `task/sprint-[SPRINT_NUMBER]/*`).
 3. **Sequential Merging**:
    - Merge each identified feature branch into `sprint-[SPRINT_NUMBER]`.
    - Use standard `git merge --no-ff`.
@@ -23,13 +30,13 @@ This workflow consolidates all concurrent feature development into
    - **Major conflicts** (20+ conflicting lines OR structural changes to shared
      files like schemas, configs, or routing): **STOP** and alert the user with
      the exact conflicting files and branches before proceeding.
-4. **Conflict Marker Scan**: After all merges complete, run:
-   `git grep -rn '<<<<<<<\|=======\|>>>>>>>' -- '*.md' '*.ts' '*.js' '*.json'`
-   If ANY conflict markers are found in tracked files, the merge is INCOMPLETE.
-   Resolve them manually, stage the fixes with `git add`, and amend the merge
-   commit before proceeding. Do NOT continue with unresolved markers.
+4. **Conflict Marker Scan**: After all merges complete, run the cross-platform
+   script: `node .agents/scripts/detect-merges.js` If the script exits with an
+   error (markers found), the merge is INCOMPLETE. Resolve them manually, stage
+   the fixes with `git add`, and amend the merge commit before proceeding. Do
+   NOT continue with unresolved markers.
 5. **Playbook Sync (State Transition to Complete)**:
-   - Open `docs/sprints/sprint-[SPRINT_NUMBER]/playbook.md`.
+   - Open `[SPRINT_ROOT]/playbook.md`.
    - For every task branch that was successfully merged, locate its status check
      and change it from Committed (`- [/]`) to Complete (`- [x]`).
 6. **Visualize Progress**:
@@ -42,18 +49,18 @@ This workflow consolidates all concurrent feature development into
    `chore(sprint): integrate feature branches and sync playbook state`. Push to
    origin: `git push origin sprint-[SPRINT_NUMBER]`.
 8. **Branch Cleanup**: For each successfully merged feature branch, delete the
-   remote ref: `git push origin --delete sprint-[SPRINT_NUMBER]/[TASK_ID]`.
+   remote ref: `git push origin --delete task/sprint-[SPRINT_NUMBER]/[TASK_ID]`.
 9. **Self-Cleanup**: Delete your OWN local and remote task branch for this
    integration session:
-   `git branch -D sprint-[SPRINT_NUMBER]/[TASK_ID] ; git push origin --delete sprint-[SPRINT_NUMBER]/[TASK_ID]`.
-10. **Notification**: If the variable `AGENT_NOTIFICATION_WEBHOOK` is defined in
-    the `AGENTS.md` file, send a JSON notification using the cross-platform
-    syntax:
-    `curl -s -X POST -H "Content-Type: application/json" -d "{\"message\": \"Sprint [SPRINT_NUMBER] feature branches have been integrated into the sprint base branch.\"}" $AGENT_NOTIFICATION_WEBHOOK`
+   `git branch -D task/sprint-[SPRINT_NUMBER]/[TASK_ID] ; git push origin --delete task/sprint-[SPRINT_NUMBER]/[TASK_ID]`.
+10. **Notification**: Resolve `[WEBHOOK_URL]` from the `webhookUrl` field in
+    `.agents/config/config.json`. If `webhookUrl` is not empty, send a
+    notification using the cross-platform Node script:
+    `node .agents/scripts/notify.js "[WEBHOOK_URL]" "Sprint [SPRINT_NUMBER] feature branches have been integrated into the sprint base branch."`
 
-- If the command fails, log the failure in `WEBHOOK_FAILURE.md` in the sprint
-  directory.
-- If the variable is not set, skip gracefully.
+- If the command fails, log the failure in `WEBHOOK_FAILURE.md` in the
+  `[SPRINT_ROOT]` directory.
+- If the `webhookUrl` is empty, skip gracefully.
 
 ## Constraint
 

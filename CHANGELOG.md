@@ -6,6 +6,32 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 and this project adheres to
 [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [2.18.0] - 2026-04-02
+
+### Changed
+
+- **Extracted Base Branch Configuration**:
+  - Centralized the primary development branch (default: `main`) into
+    `.agents/config/config.json`.
+  - Extracted the sprint documentation root (`sprintDocsRoot`: `docs/sprints`),
+    sprint number padding (`sprintNumberPadding`: 3), validation command
+    (`validationCommand`: `npm run lint`), and notification webhook
+    (`webhookUrl`) into the configuration.
+  - Updated all core workflows (sprint planning, setup, execution, and closure)
+    to dynamically resolve paths using these configuration variables.
+- **Improved Branch Naming Consistency**:
+  - Updated `sprint-integration` and `sprint-close-out` workflows to expect and
+    manage branches with the `task/` prefix (e.g.,
+    `task/sprint-[SPRINT_NUMBER]/[TASK_ID]`), aligning with the established
+    conventions in `instructions.md`.
+- **Introduced Cross-Platform Execution Scripts**:
+  - Created `.agents/scripts/notify.js` to handle webhook JSON payloads
+    programmatically, replacing OS-dependent `curl` commands.
+  - Created `.agents/scripts/detect-merges.js` to ensure reliable conflict
+    marker detection across all files, replacing `git grep`.
+  - Updated `sprint-integration`, `sprint-close-out`, and `sprint-finalize-task`
+    to execute these local Node.js scripts.
+
 ## [2.17.3] - 2026-04-02
 
 ### Added

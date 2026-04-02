@@ -14,11 +14,16 @@ Automate the gathering and formatting of recent changes into a structured
 release note document. This workflow bridges the gap between raw commits and
 user-facing value.
 
+## Step 0 - Path Resolution
+
+1.  Resolve `[SPRINT_DOCS_ROOT]` as the `sprintDocsRoot` prefix defined in
+    `.agents/config/config.json`.
+
 ## Step 1: Data Aggregation
 
 1. Check the project `VERSION` file for the current version.
 2. Scan recent git history (since the last version tag) or the current
-   `docs/sprints/` folder.
+   `[SPRINT_DOCS_ROOT]` folder.
 3. Identify key features, bug fixes, and breaking changes.
 4. Reference the `CHANGELOG.md` to see the existing format.
 

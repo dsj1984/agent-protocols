@@ -6,16 +6,25 @@ description:
 
 # Sprint Gather Context
 
+## Step 0 - Path Resolution
+
+1.  Resolve `[SPRINT_ROOT]` as the directory `sprint-[PADDED_NUM]` within the
+    `sprintDocsRoot` prefix, both defined in `.agents/config/config.json`.
+2.  `[PADDED_NUM]` is the `[SPRINT_NUMBER]` padded according to the
+    `sprintNumberPadding` setting in the same config.
+
+## Step 1 - Context Retrieval
+
 When instructed to gather sprint context, you must sequentially read the
 following files to ensure you fully grasp the objectives, features, algorithms,
 and technical architecture of the target sprint before proceeding.
 
 1. `roadmap.md`: Identify the specific features slated for the requested sprint.
-2. `docs/sprints/sprint-[SPRINT_NUMBER]/prd.md`: Read the Product Requirements
-   Document. Pay special attention to the Acceptance Criteria to guarantee no
-   business logic is overlooked.
-3. `docs/sprints/sprint-[SPRINT_NUMBER]/tech-spec.md`: Review the technical
-   implementation specifications, database models, and API definitions.
+2. `[SPRINT_ROOT]/prd.md`: Read the Product Requirements Document. Pay special
+   attention to the Acceptance Criteria to guarantee no business logic is
+   overlooked.
+3. `[SPRINT_ROOT]/tech-spec.md`: Review the technical implementation
+   specifications, database models, and API definitions.
 4. `docs/architecture.md` and `docs/data-dictionary.md` (or equivalent
    location): Ensure all APIs, UI components, and schemas align perfectly with
    the established technical architecture of the repository.

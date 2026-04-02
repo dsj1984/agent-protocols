@@ -16,6 +16,13 @@ number. This single orchestrator workflow handles the sequential execution of
 the PRD, Tech Spec, and Playbook generation workflows to fully automate the
 sprint planning pipeline.
 
+## Step 0 - Path Resolution
+
+1.  Resolve `[SPRINT_ROOT]` as the directory `sprint-[PADDED_NUM]` within the
+    `sprintDocsRoot` prefix, both defined in `.agents/config/config.json`.
+2.  `[PADDED_NUM]` is the `[SPRINT_NUMBER]` padded according to the
+    `sprintNumberPadding` setting in the same config.
+
 ## Step 1 - Roadmap Review
 
 Run the `/sprint-roadmap-review` workflow for the `[SPRINT_NUMBER]`.
@@ -45,8 +52,7 @@ Run the `/sprint-generate-prd` workflow for the `[SPRINT_NUMBER]`.
    instructions.
 1. Execute the steps described in `sprint-generate-prd.md` as if you were
    running the command yourself.
-1. Verify that `docs/sprints/sprint-[SPRINT_NUMBER]/prd.md` has been
-   successfully created.
+1. Verify that `[SPRINT_ROOT]/prd.md` has been successfully created.
 
 ## Step 4 - Architecture Review & Tech Spec Generation
 
@@ -55,8 +61,7 @@ Run the `/sprint-generate-tech-spec` workflow for the `[SPRINT_NUMBER]`.
 1. Read `.agents/workflows/sprint-generate-tech-spec.md` to understand your
    instructions.
 1. Execute the steps described in `sprint-generate-tech-spec.md`.
-1. Verify that `docs/sprints/sprint-[SPRINT_NUMBER]/tech-spec.md` has been
-   successfully created.
+1. Verify that `[SPRINT_ROOT]/tech-spec.md` has been successfully created.
 
 ## Step 5 - Playbook Generation
 
@@ -65,8 +70,7 @@ Run the `/sprint-generate-playbook` workflow for the `[SPRINT_NUMBER]`.
 1. Read `.agents/workflows/sprint-generate-playbook.md` to understand your
    instructions.
 1. Execute the steps described in `sprint-generate-playbook.md`.
-1. Verify that `docs/sprints/sprint-[SPRINT_NUMBER]/playbook.md` has been
-   successfully created.
+1. Verify that `[SPRINT_ROOT]/playbook.md` has been successfully created.
 
 ## Step 6 - Alignment & Consistency Audit
 
@@ -78,8 +82,8 @@ Run the `/sprint-generate-playbook` workflow for the `[SPRINT_NUMBER]`.
       Spec.
     - Ensure all technical designs have corresponding tasks in the Playbook.
     - Check that sprint numbers, dates, and versioning across all files are
-      identical and strictly follow the three-digit padding standard (e.g.,
-      `040`).
+      identical and strictly follow the padding standard (e.g.,
+      `sprintNumberPadding` in config) for the sprint version (e.g., `040`).
 4.  **Verify Protocol Adherence**:
     - Confirm the Playbook tasks follow the mandatory bookend order (Integration
       → QA → Code Review → Retro).

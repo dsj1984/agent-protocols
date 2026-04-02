@@ -14,13 +14,17 @@ for subsequent planning and execution.
 
 ## Step 1 - Normalize Sprint Number
 
-1.  Pad the `[SPRINT_NUMBER]` to three digits (e.g., `40` becomes `040`).
+1.  Resolve `[PADDED_NUM]` by padding the `[SPRINT_NUMBER]` based on the
+    `sprintNumberPadding` field in `.agents/config/config.json` (e.g., if
+    padding is `3`, `40` becomes `040`).
 2.  Use this padded version for all subsequent steps.
 
 ## Step 2 - Environment Reset
 
-1.  Checkout the `main` branch: `git checkout main`.
-2.  Pull the latest changes from origin: `git pull origin main`.
+1.  Resolve `[BASE_BRANCH]` from the `baseBranch` field in
+    `.agents/config/config.json` (default: `main`).
+2.  Checkout the base branch: `git checkout [BASE_BRANCH]`.
+3.  Pull the latest changes from origin: `git pull origin [BASE_BRANCH]`.
 
 ## Step 3 - Sprint Branch Creation
 
@@ -35,12 +39,13 @@ for subsequent planning and execution.
 
 ## Step 4 - Directory Initialization
 
-1.  Create the sprint directory if it doesn't exist:
-    - `mkdir docs/sprints/sprint-[PADDED_NUM]`
-2.  Initialize the agent observability log (JSON Lines format) if it doesn't
-    exist:
-    - `echo "" > docs/sprints/sprint-[PADDED_NUM]/agent-friction-log.json`
-3.  Verify the directory exists.
+1.  Resolve `[SPRINT_ROOT]` as the directory `sprint-[PADDED_NUM]` within the
+    `sprintDocsRoot` defined in `.agents/config/config.json` (default:
+    `docs/sprints`).
+2.  Create the sprint directory if it doesn't exist: `mkdir [SPRINT_ROOT]`.
+3.  Initialize the agent observability log (JSON Lines format) if it doesn't
+    exist: `echo "" > [SPRINT_ROOT]/agent-friction-log.json`.
+4.  Verify the directory exists.
 
 ## Step 5 - Finalization
 

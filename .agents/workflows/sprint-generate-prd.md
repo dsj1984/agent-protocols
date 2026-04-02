@@ -16,6 +16,13 @@ engineers know exactly what "done" looks like for the specified sprint.
 **Target Sprint:** `[SPRINT_NUMBER]` — The user should provide the sprint number
 when executing this command.
 
+## Step 0 - Path Resolution
+
+1.  Resolve `[SPRINT_ROOT]` as the directory `sprint-[PADDED_NUM]` within the
+    `sprintDocsRoot` prefix, both defined in `.agents/config/config.json`.
+2.  `[PADDED_NUM]` is the `[SPRINT_NUMBER]` padded according to the
+    `sprintNumberPadding` setting in the same config.
+
 ## Step 1 - Read the Roadmap
 
 Read the `roadmap.md` file in the project. Focus only on the items slated for
@@ -37,7 +44,7 @@ Include the following:
 
 ## Step 3 - Output Artifacts
 
-Save the generated PRD output to `docs/sprints/sprint-[SPRINT_NUMBER]/prd.md`.
+Save the generated PRD output to `[SPRINT_ROOT]/prd.md`.
 
 ## Constraint
 

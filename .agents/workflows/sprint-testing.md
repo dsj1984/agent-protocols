@@ -6,6 +6,15 @@ description:
 
 # Sprint Testing
 
+## Step 0 - Path Resolution
+
+1.  Resolve `[SPRINT_ROOT]` as the directory `sprint-[PADDED_NUM]` within the
+    `sprintDocsRoot` prefix, both defined in `.agents/config/config.json`.
+2.  `[PADDED_NUM]` is the `[SPRINT_NUMBER]` padded according to the
+    `sprintNumberPadding` setting in the same config.
+
+## Step 1 - Preparation
+
 When assigned complex QA tasks during a sprint (specifically in Chat Session 4),
 execute these steps to prepare the test environment in accordance with the
 Dual-Purpose standard:
@@ -14,8 +23,8 @@ Dual-Purpose standard:
    database seed files, and endpoint mocks required for the newest sprint
    features. Ensure existing tests remain pristine.
 2. **Test Plan Documentation**: Update the Manual Test Plan Documentation
-   specifically in `docs/sprints/sprint-[SPRINT_NUMBER]/test-plan.md` to reflect
-   the new test cases associated with this sprint.
+   specifically in `[SPRINT_ROOT]/test-plan.md` to reflect the new test cases
+   associated with this sprint.
 3. **Validation**: Validate that the test data aligns flawlessly with the
    `data-dictionary.md` and `tech-spec.md`.
 4. **Execution Handoff**: Once the documentation is completed and the seed files
