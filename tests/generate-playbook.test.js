@@ -2,15 +2,21 @@ import { describe, it } from 'node:test';
 import assert from 'node:assert/strict';
 import {
   validateManifest,
+  groupIntoChatSessions,
+  generateFromManifest,
+} from '../.agents/scripts/generate-playbook.js';
+
+import {
   buildGraph,
   detectCycle,
   assignLayers,
-  groupIntoChatSessions,
   computeChatDependencies,
+} from '../.agents/scripts/lib/Graph.js';
+
+import {
   generateMermaid,
   renderPlaybook,
-  generateFromManifest,
-} from '../.agents/scripts/generate-playbook.js';
+} from '../.agents/scripts/lib/Renderer.js';
 
 // ---------------------------------------------------------------------------
 // Helpers: Manifest Factories

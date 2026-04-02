@@ -22,9 +22,24 @@ import fs from 'node:fs';
 import path from 'node:path';
 import { fileURLToPath } from 'node:url';
 
+// Library imports for decoupled logic
+import { buildGraph, detectCycle, assignLayers, transitiveReduction, computeChatDependencies } from './lib/Graph.js';
+import { renderPlaybook } from './lib/Renderer.js';
+
 const __dirname = path.dirname(fileURLToPath(import.meta.url));
 const AGENTS_DIR = path.resolve(__dirname, '..');
 const PROJECT_ROOT = path.resolve(__dirname, '../..');
+
+// Load Config
+const configPath = path.join(AGENTS_DIR, 'config', 'config.json');
+let config;
+try {
+  config = JSON.parse(fs.readFileSync(configPath, 'utf8'));
+} catch (e) {
+  console.error('Failed to parse config.json:', e);
+  process.exit(1);
+}
+const bookendRequirements = config?.properties?.bookendRequirements?.default || {};
 
 // ---------------------------------------------------------------------------
 // Constants
@@ -122,27 +137,15 @@ export function validateManifest(manifest) {
     }
   }
 
-  // Validate bookend persona and rules
+  // Validate bookend persona and rules dynamically from config
   for (const task of manifest.tasks) {
-    if (task.isIntegration) {
-      if (task.persona !== 'engineer') errors.push(`Task "${task.id}": isIntegration requires 'engineer' persona.`);
-      if (!task.skills.includes('architecture/monorepo-path-strategist')) errors.push(`Task "${task.id}": isIntegration requires 'architecture/monorepo-path-strategist' skill.`);
-      if (!task.skills.includes('devops/git-flow-specialist')) errors.push(`Task "${task.id}": isIntegration requires 'devops/git-flow-specialist' skill.`);
-    }
-    if (task.isQA) {
-      if (task.persona !== 'qa-engineer') errors.push(`Task "${task.id}": isQA requires 'qa-engineer' persona.`);
-    }
-    if (task.isCodeReview) {
-      if (task.persona !== 'architect') errors.push(`Task "${task.id}": isCodeReview requires 'architect' persona.`);
-      if (!task.skills.includes('devops/git-flow-specialist')) errors.push(`Task "${task.id}": isCodeReview requires 'devops/git-flow-specialist' skill.`);
-    }
-    if (task.isRetro) {
-      if (task.persona !== 'product') errors.push(`Task "${task.id}": isRetro requires 'product' persona.`);
-      if (!task.skills.includes('architecture/markdown')) errors.push(`Task "${task.id}": isRetro requires 'architecture/markdown' skill.`);
-    }
-    if (task.isCloseSprint) {
-      if (task.persona !== 'devops-engineer') errors.push(`Task "${task.id}": isCloseSprint requires 'devops-engineer' persona.`);
-      if (!task.skills.includes('devops/git-flow-specialist')) errors.push(`Task "${task.id}": isCloseSprint requires 'devops/git-flow-specialist' skill.`);
+    for (const [key, req] of Object.entries(bookendRequirements)) {
+      if (task[key]) {
+        if (task.persona !== req.persona) errors.push(`Task "${task.id}": ${key} requires '${req.persona}' persona.`);
+        for (const skill of req.skills) {
+          if (!task.skills.includes(skill)) errors.push(`Task "${task.id}": ${key} requires '${skill}' skill.`);
+        }
+      }
     }
   }
 
@@ -163,25 +166,13 @@ export function enrichManifest(manifest) {
   for (const task of manifest.tasks) {
     if (!Array.isArray(task.skills)) task.skills = [];
 
-    if (task.isIntegration) {
-      if (!task.persona) task.persona = 'engineer';
-      if (!task.skills.includes('architecture/monorepo-path-strategist')) task.skills.push('architecture/monorepo-path-strategist');
-      if (!task.skills.includes('devops/git-flow-specialist')) task.skills.push('devops/git-flow-specialist');
-    }
-    if (task.isQA) {
-      if (!task.persona) task.persona = 'qa-engineer';
-    }
-    if (task.isCodeReview) {
-      if (!task.persona) task.persona = 'architect';
-      if (!task.skills.includes('devops/git-flow-specialist')) task.skills.push('devops/git-flow-specialist');
-    }
-    if (task.isRetro) {
-      if (!task.persona) task.persona = 'product';
-      if (!task.skills.includes('architecture/markdown')) task.skills.push('architecture/markdown');
-    }
-    if (task.isCloseSprint) {
-      if (!task.persona) task.persona = 'devops-engineer';
-      if (!task.skills.includes('devops/git-flow-specialist')) task.skills.push('devops/git-flow-specialist');
+    for (const [key, req] of Object.entries(bookendRequirements)) {
+      if (task[key]) {
+        if (!task.persona) task.persona = req.persona;
+        for (const skill of req.skills) {
+          if (!task.skills.includes(skill)) task.skills.push(skill);
+        }
+      }
     }
   }
 }
@@ -211,164 +202,9 @@ export function validateAssets(manifest, agentsDir) {
 }
 
 // ---------------------------------------------------------------------------
-// DAG: Cycle Detection & Topological Sort
-// ---------------------------------------------------------------------------
-
-/**
- * Builds an adjacency list from the manifest tasks.
- * Returns { adjacency: Map<id, id[]>, taskMap: Map<id, task> }
- */
-export function buildGraph(tasks) {
-  const adjacency = new Map();
-  const taskMap = new Map();
-
-  for (const task of tasks) {
-    adjacency.set(task.id, [...task.dependsOn]);
-    taskMap.set(task.id, task);
-  }
-
-  return { adjacency, taskMap };
-}
-
-/**
- * Detects cycles using DFS. Returns the first cycle found as an array of ids,
- * or null if the graph is acyclic.
- */
-export function detectCycle(adjacency) {
-  const WHITE = 0, GRAY = 1, BLACK = 2;
-  const color = new Map();
-  const parent = new Map();
-
-  for (const id of adjacency.keys()) {
-    color.set(id, WHITE);
-  }
-
-  for (const id of adjacency.keys()) {
-    if (color.get(id) === WHITE) {
-      const cycle = dfsVisit(id, adjacency, color, parent);
-      if (cycle) return cycle;
-    }
-  }
-
-  return null;
-}
-
-function dfsVisit(u, adjacency, color, parent) {
-  color.set(u, 1); // GRAY
-
-  for (const v of adjacency.get(u) || []) {
-    if (color.get(v) === 1) {
-      // Back edge → cycle. Reconstruct.
-      const cycle = [v, u];
-      let cur = u;
-      while (parent.has(cur) && parent.get(cur) !== v) {
-        cur = parent.get(cur);
-        cycle.push(cur);
-      }
-      return cycle.reverse();
-    }
-    if (color.get(v) === 0) {
-      parent.set(v, u);
-      const cycle = dfsVisit(v, adjacency, color, parent);
-      if (cycle) return cycle;
-    }
-  }
-
-  color.set(u, 2); // BLACK
-  return null;
-}
-
-/**
- * Assigns each task a layer (depth from root). Root tasks (no dependencies)
- * are layer 0. Returns Map<id, layer>.
- */
-export function assignLayers(adjacency) {
-  const layers = new Map();
-  const memo = new Map();
-
-  function getLayer(id) {
-    if (memo.has(id)) return memo.get(id);
-
-    const deps = adjacency.get(id) || [];
-    if (deps.length === 0) {
-      memo.set(id, 0);
-      return 0;
-    }
-
-    const maxDepLayer = Math.max(...deps.map(getLayer));
-    const layer = maxDepLayer + 1;
-    memo.set(id, layer);
-    return layer;
-  }
-
-  for (const id of adjacency.keys()) {
-    layers.set(id, getLayer(id));
-  }
-
-  return layers;
-}
-
-/**
- * Performs transitive reduction on a DAG.
- * Removes edges (u, v) if there exists a path from u to v of length > 1.
- */
-export function transitiveReduction(adjacency) {
-  const reduced = new Map();
-  const nodes = [...adjacency.keys()];
-  
-  // Initialize reduced graph with original edges
-  for (const node of nodes) {
-    reduced.set(node, new Set(adjacency.get(node) || []));
-  }
-
-  // Floyd-Warshall style transitive reduction
-  for (const k of nodes) {
-    for (const i of nodes) {
-      if (reduced.get(i).has(k)) {
-        for (const j of nodes) {
-          if (reduced.get(k).has(j)) {
-            // Path i -> k -> j exists, so direct edge i -> j is redundant
-            reduced.get(i).delete(j);
-          }
-        }
-      }
-    }
-  }
-
-  // Convert back to Array format
-  const result = new Map();
-  for (const [node, deps] of reduced.entries()) {
-    result.set(node, [...deps]);
-  }
-  return result;
-}
-
-// ---------------------------------------------------------------------------
 // Chat Session Grouping
 // ---------------------------------------------------------------------------
 
-/**
- * @typedef {Object} ChatSession
- * @property {number} chatNumber  - 1-indexed chat session number
- * @property {string} label       - Human-readable label for the chat session
- * @property {string} icon        - Emoji icon
- * @property {string} mode        - 'Sequential' or 'Concurrent'
- * @property {number} layer       - The concurrency layer this session belongs to
- * @property {string[]} dependsOnChats - Chat session labels this depends on
- * @property {Object[]} tasks     - Ordered tasks within this session
- */
-
-/**
- * Groups tasks into Chat Sessions based on layer and scope.
- *
- * Rules:
- *   1. Bookend tasks (isQA, isCodeReview, isRetro) are always placed in their
- *      own dedicated Chat Sessions at the end, in a deterministic order.
- *   2. Regular tasks at the same layer sharing a scope are grouped into one
- *      sequential Chat Session.
- *   3. Regular tasks at the same layer with different scopes become separate
- *      concurrent Chat Sessions.
- */
 /**
  * Separates bookend tasks from regular development tasks.
  */
@@ -497,238 +333,6 @@ export function groupIntoChatSessions(tasks, layers, adjacency) {
 }
 
 // ---------------------------------------------------------------------------
-// Chat Session Dependency Resolution
-// ---------------------------------------------------------------------------
-
-/**
- * Computes which Chat Sessions each Chat Session depends on.
- * Returns a Map<chatNumber, chatNumber[]>.
- */
-export function computeChatDependencies(chatSessions, adjacency) {
-  // Build a reverse lookup: taskId → chatNumber
-  const taskToChat = new Map();
-  for (const session of chatSessions) {
-    for (const task of session.tasks) {
-      taskToChat.set(task.id, session.chatNumber);
-    }
-  }
-
-  const chatDeps = new Map();
-  for (const session of chatSessions) {
-    const deps = new Set();
-    for (const task of session.tasks) {
-      for (const depId of task.dependsOn) {
-        const depChat = taskToChat.get(depId);
-        if (depChat !== undefined && depChat !== session.chatNumber) {
-          deps.add(depChat);
-        }
-      }
-    }
-    chatDeps.set(session.chatNumber, [...deps].sort((a, b) => a - b));
-  }
-
-  // Apply transitive reduction to chat-level dependencies
-  return transitiveReduction(chatDeps);
-}
-
-// ---------------------------------------------------------------------------
-// Mermaid Diagram Generation
-// ---------------------------------------------------------------------------
-
-export function generateMermaid(chatSessions, chatDeps) {
-  const lines = ['```mermaid', 'graph TD'];
-
-  // Define nodes
-  for (const session of chatSessions) {
-    const nodeId = `C${session.chatNumber}`;
-    const nodeLabel = `${session.icon} Chat Session ${session.chatNumber}: ${session.label}`;
-    lines.push(`    ${nodeId}["${nodeLabel}"]`);
-    lines.push(`    class ${nodeId} not_started`);
-  }
-
-  // Define edges
-  const edgesEmitted = new Set();
-  for (const session of chatSessions) {
-    const deps = chatDeps.get(session.chatNumber) || [];
-    if (deps.length === 0 && session.chatNumber !== 1) {
-      // No explicit deps but not the root — check if any prior layer exists
-      // This is handled organically by the deps resolution, so skip.
-    }
-    for (const depChat of deps) {
-      const edgeKey = `C${depChat}->C${session.chatNumber}`;
-      if (!edgesEmitted.has(edgeKey)) {
-        lines.push(`    C${depChat} --> C${session.chatNumber}`);
-        edgesEmitted.add(edgeKey);
-      }
-    }
-  }
-
-  // Define Legend (Compact single node with line breaks)
-  const statusLegend = '⬜ Not Started  <br />🟩 Complete';
-  const iconLegend = '🗄️ DB | 🌐 Web | 📱 Mobile | 🧪 Test <br />📝 Docs | 🛡️ Ops | ⚙️ Gen';
-  lines.push(`    Legend["${statusLegend} <br />---<br /> ${iconLegend}"]:::LegendNode`);
-
-  // Define styles
-  lines.push('    %% Style Definitions %%');
-  lines.push('    classDef not_started fill:#d1d5db,stroke:#9ca3af,color:#1f2937');
-  lines.push('    classDef complete fill:#16a34a,stroke:#059669,color:#ffffff');
-  lines.push('    classDef LegendNode fill:transparent,stroke:transparent,font-size:12px');
-  lines.push('```');
-  return lines.join('\n');
-}
-
-// ---------------------------------------------------------------------------
-// Markdown Rendering
-// ---------------------------------------------------------------------------
-
-function renderTaskInstructions(task, sprintNumber) {
-  if (task.isIntegration) {
-    return `Execute the \`sprint-integration\` workflow for \`${sprintNumber}\`.`;
-  }
-  if (task.isQA) {
-    return `Execute the \`sprint-testing\` workflow for \`${sprintNumber}\`.`;
-  }
-  if (task.isCodeReview) {
-    return `Execute the \`sprint-code-review\` workflow for \`${sprintNumber}\`.`;
-  }
-  if (task.isRetro) {
-    return `Execute the \`sprint-retro\` workflow for \`${sprintNumber}\`.`;
-  }
-  if (task.isCloseSprint) {
-    return `Execute the \`sprint-close-out\` workflow for \`${sprintNumber}\`.`;
-  }
-  return task.instructions;
-}
-
-function renderTask(task, sprintNumber, chatNumber, stepNumber, taskIdToNumber) {
-  const paddedSn = String(sprintNumber).padStart(3, '0');
-  const taskNumber = `${paddedSn}.${chatNumber}.${stepNumber}`;
-  const skills = task.skills.length > 0 ? task.skills.join(', ') : 'N/A';
-  const instructions = renderTaskInstructions(task, sprintNumber);
-
-  let protocol = `**AGENT EXECUTION PROTOCOL (STRICT ADHERENCE REQUIRED):**\n`;
-  protocol += `1. **Environment Reset**: Ensure you are on the sprint base branch: \`git checkout sprint-${paddedSn} ; git pull\`. Verify with \`git branch --show-current\`. If the result is \`main\` or \`master\`, **STOP** and alert the user.\n`;
-  if (task.dependsOn && task.dependsOn.length > 0) {
-    // Sort dependencies numerically for readability
-    const depsList = task.dependsOn
-      .map(id => taskIdToNumber.get(id))
-      .filter(Boolean) // Safety check for reduced tasks
-      .sort()
-      .map(num => `\`${num}\``)
-      .join(', ');
-    protocol += `2. **Mark Executing**: Create/update the state file at \`[TASK_STATE_ROOT]/${task.id}.json\` with \`{"status": "executing", "timestamp": "..."}\` (decoupled state).\n`;
-    protocol += `3. **Prerequisite Check**: Execute the \`sprint-verify-task-prerequisites\` workflow for sprint step \`${taskNumber}\`.\n`;
-    protocol += `   - **Dependencies**: ${depsList}\n`;
-    protocol += `4. **Execution**: Perform the task instructions below.\n`;
-    protocol += `5. **Finalization**: Execute the \`sprint-finalize-task\` workflow explicitly for sprint step \`${taskNumber}\`.`;
-  } else {
-    protocol += `2. **Mark Executing**: Create/update the state file at \`[TASK_STATE_ROOT]/${task.id}.json\` with \`{"status": "executing", "timestamp": "..."}\` (decoupled state).\n`;
-    protocol += `3. **Execution**: Perform the task instructions below.\n`;
-    protocol += `4. **Finalization**: Execute the \`sprint-finalize-task\` workflow explicitly for sprint step \`${taskNumber}\`.`;
-  }
-
-  let secondChoice = task.secondaryModel || (task.mode === 'Planning' ? 'Gemini 3.1 Pro (High)' : 'Gemini 3 Flash');
-  if (secondChoice === task.model) {
-    // Enforce uniqueness if default falls back to the same as first choice
-    secondChoice = task.model.includes('Claude') ? 'Gemini 3.1 Pro (High)' : 'Claude Sonnet 4.6 (Thinking)';
-  }
-
-  return `[ ] **${taskNumber} ${task.title}**
-
-**Mode:** ${task.mode} | **Model (First Choice):** ${task.model} | **Model (Second Choice):** ${secondChoice}${task.requires_approval ? ' | ⚠️ **REQUIRES HUMAN APPROVAL**' : ''}
-
-\`\`\`text
-Sprint ${taskNumber}: Adopt the \`${task.persona}\` persona from \`.agents/personas/\`.
-
-${protocol}
-
-**Active Skills:** \`${skills}\`
-
-${instructions}
-\`\`\``;
-}
-
-function renderChatSession(session, sprintNumber, taskIdToNumber) {
-  const lines = [];
-  const paddedSn = String(sprintNumber).padStart(3, '0');
-
-  const modeDisplay = (session.mode === 'PMBookend' || session.mode === 'SequentialBookend') ? 'Sequential' : session.mode;
-  lines.push(`### ${session.icon} Chat Session ${session.chatNumber}: ${session.label} (${modeDisplay})`);
-  lines.push('');
-
-  // Compute scope annotation for any session type
-  const uniqueScopes = [...new Set(session.tasks.map((t) => t.scope).filter(Boolean))];
-  const scopeNote = uniqueScopes.length === 1 ? ` This session operates exclusively within \`${uniqueScopes[0]}\`.` : '';
-
-  if (session.mode === 'Concurrent') {
-    lines.push(
-      `_Execution Rule: Open a NEW chat window. This session runs concurrently with other sessions at the same level.${scopeNote}_`,
-    );
-  } else if (session.mode === 'PMBookend') {
-    lines.push(
-      `_Execution Rule: Run this in the primary PM planning chat once all PRs are merged._`,
-    );
-  } else if (session.mode === 'SequentialBookend') {
-    lines.push(
-      `_Execution Rule: Open a NEW chat window after code complete._`,
-    );
-  } else {
-    lines.push(
-      `_Execution Rule: These tasks must be run sequentially in a single chat window.${scopeNote}_`,
-    );
-  }
-  lines.push('');
-
-  for (let i = 0; i < session.tasks.length; i++) {
-    const task = session.tasks[i];
-    lines.push(renderTask(task, sprintNumber, session.chatNumber, i + 1, taskIdToNumber));
-    lines.push('');
-  }
-
-  return lines.join('\n');
-}
-
-export function renderPlaybook(manifest, chatSessions, chatDeps) {
-  const lines = [];
-  const sn = manifest.sprintNumber;
-  const paddedSprint = String(sn).padStart(3, '0');
-
-  // Title
-  lines.push(`# Sprint ${paddedSprint} Playbook: ${manifest.sprintName}`);
-  lines.push('');
-  lines.push(`> **Playbook Path**: \`docs/sprints/sprint-${paddedSprint}/playbook.md\``);
-  lines.push('');
-
-  // Summary
-  lines.push('## Sprint Summary');
-  lines.push('');
-  lines.push(manifest.summary);
-  lines.push('');
-
-  // Execution Flow
-  lines.push('## Fan-Out Execution Flow');
-  lines.push('');
-  lines.push(generateMermaid(chatSessions, chatDeps));
-  lines.push('');
-
-  // Pre-compute reverse mapping for explicit dependency injection
-  const taskIdToNumber = new Map();
-  for (const session of chatSessions) {
-    for (let i = 0; i < session.tasks.length; i++) {
-      const task = session.tasks[i];
-      taskIdToNumber.set(task.id, `${paddedSprint}.${session.chatNumber}.${i + 1}`);
-    }
-  }
-
-  // Chat Sessions
-  for (const session of chatSessions) {
-    lines.push(renderChatSession(session, sn, taskIdToNumber));
-  }
-
-  return lines.join('\n');
-}
-
-// ---------------------------------------------------------------------------
 // Main Entry Point
 // ---------------------------------------------------------------------------
 
@@ -775,8 +379,8 @@ export function generateFromManifest(manifest, options = {}) {
   // 7. Compute cross-chat dependencies
   const chatDeps = computeChatDependencies(chatSessions, adjacency);
 
-  // 7. Render
-  const { markdown } = { markdown: renderPlaybook(manifest, chatSessions, chatDeps) }; // Simplified internal return for consistency with structure below
+  // 8. Render
+  const markdown = renderPlaybook(manifest, chatSessions, chatDeps);
 
   return { markdown, chatSessions, chatDeps };
 }
@@ -834,6 +438,7 @@ function main() {
 
   console.log(`✅ Playbook generated: ${outputPath}`);
 }
+
 // Run main only when executed directly
 const isMain = process.argv[1] && path.resolve(process.argv[1]) === path.resolve(fileURLToPath(import.meta.url));
 if (isMain) {

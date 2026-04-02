@@ -95,6 +95,17 @@
           "description": "A list of sensitive keywords that trigger a mandatory HITL approval gate if found in a tech spec or task instructions."
         }
       }
+    },
+    "bookendRequirements": {
+      "type": "object",
+      "description": "Mapping for bookend tasks to automatically define their required persona and skills.",
+      "default": {
+        "isIntegration": { "persona": "engineer", "skills": ["architecture/monorepo-path-strategist", "devops/git-flow-specialist"] },
+        "isQA": { "persona": "qa-engineer", "skills": [] },
+        "isCodeReview": { "persona": "architect", "skills": ["devops/git-flow-specialist"] },
+        "isRetro": { "persona": "product", "skills": ["architecture/markdown"] },
+        "isCloseSprint": { "persona": "devops-engineer", "skills": ["devops/git-flow-specialist"] }
+      }
     }
   }
 }
