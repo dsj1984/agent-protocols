@@ -5,6 +5,7 @@ import {
   groupIntoChatSessions,
   generateFromManifest,
 } from '../.agents/scripts/generate-playbook.js';
+import fs from 'node:fs';
 
 import {
   buildGraph,
@@ -442,6 +443,65 @@ describe('renderPlaybook', () => {
     // But the manual command with specific task IDs is omitted
     assert.ok(!md.includes('node .agents/scripts/verify-prereqs.js'));
     assert.ok(md.includes('sprint-finalize-task'));
+  });
+
+  it('injects golden examples when present in the golden-examples directory', (t) => {
+    // Mock fs functions to simulate golden examples being present
+    t.mock.method(fs, 'existsSync', (pathStr) => {
+      if (pathStr.includes('golden-examples')) return true;
+      // Pass through other calls
+      try {
+        fs.accessSync(pathStr);
+        return true;
+      } catch {
+        return false;
+      }
+    });
+
+    t.mock.method(fs, 'readdirSync', (pathStr) => {
+      if (pathStr.includes('golden-examples')) return ['test-task-1.md', 'test-task-2.md'];
+      return fs.readdirSync(pathStr); // pass through if needed (might fail without options)
+    });
+
+    t.mock.method(fs, 'readFileSync', (pathStr, encoding) => {
+      if (pathStr.includes('test-task-1.md')) return 'Golden Example 1 Content';
+      if (pathStr.includes('test-task-2.md')) return 'Golden Example 2 Content';
+      return 'Mocked readFileSync fallback';
+    });
+
+    const manifest = makeManifest({
+      tasks: [makeTask({ id: 'a', title: 'Only Task', dependsOn: [] })],
+    });
+    const { adjacency } = buildGraph(manifest.tasks);
+    const layers = assignLayers(adjacency);
+    const sessions = groupIntoChatSessions(manifest.tasks, layers, adjacency);
+    const chatDeps = computeChatDependencies(sessions, adjacency);
+    
+    const md = renderPlaybook(manifest, sessions, chatDeps);
+
+    assert.ok(md.includes('=== GOLDEN EXAMPLES (FEW-SHOT) ==='));
+    assert.ok(md.includes('Golden Example 1 Content'));
+    assert.ok(md.includes('Golden Example 2 Content'));
+  });
+
+  it('omits golden examples block when the golden-examples directory is empty or missing', (t) => {
+    // Mock fs.existsSync to simulate missing directory
+    t.mock.method(fs, 'existsSync', (pathStr) => {
+      if (pathStr.includes('golden-examples')) return false;
+      try { fs.accessSync(pathStr); return true; } catch { return false; }
+    });
+
+    const manifest = makeManifest({
+      tasks: [makeTask({ id: 'a', title: 'Only Task', dependsOn: [] })],
+    });
+    const { adjacency } = buildGraph(manifest.tasks);
+    const layers = assignLayers(adjacency);
+    const sessions = groupIntoChatSessions(manifest.tasks, layers, adjacency);
+    const chatDeps = computeChatDependencies(sessions, adjacency);
+    
+    const md = renderPlaybook(manifest, sessions, chatDeps);
+
+    assert.ok(!md.includes('=== GOLDEN EXAMPLES (FEW-SHOT) ==='));
   });
 });
 
