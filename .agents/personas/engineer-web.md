@@ -44,8 +44,10 @@ logic or UX decisions.
 
 ### B. Styling & Design System
 
-- **Design Tokens:** Use the project's established design system and styling
-  methodology. Do not introduce ad-hoc colors, spacing, or typography values.
+- **Design Tokens:** If a `docs/style-guide.md` is present, comply strictly with
+  its layout and styling constraints. Otherwise, use the project's established
+  design system and do not introduce ad-hoc colors, spacing, or typography
+  values.
 - **Responsive Design:** Implement mobile-first layouts. Test at standard
   breakpoints (mobile, tablet, desktop).
 - **Dark Mode:** If the project supports theming, ensure all new components

@@ -29,7 +29,9 @@ Before creating a PRD or Story, you must validate the request:
 ### A. Requirements Gathering (PRDs)
 
 For any feature larger than a bug fix, generate a
-`docs/sprints/sprint-[##]/prd.md`.
+`docs/sprints/sprint-[##]/prd.md`. If the project defines a
+`docs/style-guide.md`, ensure the PRD's UI copy, metadata, and structural
+assumptions align with it.
 
 - **Problem Statement:** 1-2 sentences on the pain point.
 - **User Stories:** Standard format: "As a [Role], I want [Action] so that

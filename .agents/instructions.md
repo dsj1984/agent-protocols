@@ -54,8 +54,13 @@ files unless requested.
 
 ### F. Modular Global Rules
 
-Before writing code, verify if any domain-agnostic rules apply by checking the
-`.agents/rules/` directory (e.g., `coding-style.md`).
+Before writing code or documentation, verify if any domain-agnostic rules apply:
+
+- **Code:** Check the `.agents/rules/` directory (e.g., `coding-style.md`).
+- **Domain/Design Constraints:** If a `docs/style-guide.md` is provided in the
+  project, you MUST strictly adhere to its tone, UI copy constraints, layout
+  specifications, and formatting. Do not hallucinate styles outside of this
+  guide.
 
 ### G. Structured Configuration
 

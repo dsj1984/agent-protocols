@@ -10,6 +10,18 @@ and this project adheres to
 
 ### Added
 
+- **Optional Style-Guide Support**:
+  - Introduced support for a `docs/style-guide.md` file to house
+    project-specific writing standards, aesthetic constraints, and UI
+    copywriting rules.
+  - Updated all core personas (`technical-writer`, `ux-designer`, `product`,
+    `engineer-web`, `engineer-mobile`) and the `Markdown Mastery` skill to
+    conditionally defer to the style guide if present.
+  - Added a high-fidelity "Golden Sample" style guide to
+    `.agents/sample-docs/style-guide.md` based on the KinetixID design system.
+  - MARKED `docs/style-guide.md` as an optional artifact in the SDLC
+    documentation and global instructions.
+
 - **Context Caching Prompt Architecture**:
   - Restructured the `playbook.md` generation logic in `Renderer.js` to strictly
     separate static framework rules from volatile task state.

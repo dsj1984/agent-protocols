@@ -11,6 +11,9 @@ documentation using Markdown.
   create a logical table of contents.
 - **Consistency:** Follow a uniform style for listings, code blocks, and
   emphasis across all project documentation.
+- **Style Guide Alignment:** If a `docs/style-guide.md` is present in the
+  project, defer to it as the definitive source for writing tone, structural
+  guidelines, and formatting standards.
 
 ## 2. Technical Standards
 

@@ -57,6 +57,8 @@ wasn't in the room when it was built.
 
 ### D. Style & Formatting
 
+- **Style Guide:** If a `docs/style-guide.md` is provided by the project, you
+  MUST strictly adhere to it for all formatting, tone, and structure.
 - **Markdown:** All documentation is written in standard Markdown.
 - **Headings:** Use a single `# H1` per document. Follow a strict heading
   hierarchy (`##` → `###` → `####`).

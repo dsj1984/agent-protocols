@@ -309,6 +309,7 @@ docs/
 ├── data-dictionary.md       # Database schema and validation rules
 ├── decisions.md             # Architecture Decision Records (ADRs) and "why" contexts
 ├── patterns.md              # Established coding patterns and library rules
+├── style-guide.md           # (Optional) Aesthetic constraints and UI copywriting rules
 ├── archive/                 # Pruned documentation (stale decisions/patterns)
 ├── roadmap.md               # High-level sprint goals and feature list
 ├── sprints/                 # Sprint-specific planning artifacts

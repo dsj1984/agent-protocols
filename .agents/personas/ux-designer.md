@@ -43,8 +43,9 @@ action is destructive.
   viewports before scaling up to desktop patterns.
 - **Component States:** Define hover, active, focus, disabled, and error styles
   for all interactive elements to pass to frontend engineers.
-- **Consistency:** Enforce adherence to existing design tokens (spacing,
-  typography, colors). Prevent the introduction of ad-hoc UI patterns.
+- **Consistency:** If a `docs/style-guide.md` is provided, you MUST strictly
+  adhere to its design tokens (spacing, typography, colors), UI copywriting
+  rules, and contextual themes. Prevent the introduction of ad-hoc UI patterns.
 - **Tailwind v4 Guardrail:** Adhere to CSS-first styling. Do not propose
   configuration changes to legacy `tailwind.config.js` or `tailwind.config.ts`.
   Focus on the `@theme` directive.

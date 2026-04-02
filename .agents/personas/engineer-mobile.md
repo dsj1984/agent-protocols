@@ -52,8 +52,10 @@ logic or UX decisions.
 
 ### C. Styling & Design System
 
-- **Design Tokens:** Use the project's established design system and styling
-  methodology. Do not introduce ad-hoc colors, spacing, or typography values.
+- **Design Tokens:** If a `docs/style-guide.md` is present, comply strictly with
+  its layout and styling constraints. Otherwise, use the project's established
+  design system and do not introduce ad-hoc colors, spacing, or typography
+  values.
 - **Responsive Layouts:** Support varying screen sizes. Test on small (iPhone
   SE) and large (iPad / tablet) form factors where applicable.
 - **Dark Mode:** If the project supports theming, ensure all new components
