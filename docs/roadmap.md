@@ -30,6 +30,10 @@ evolutionary loops.
 - ✅ **FinOps & Token Budgeting**: Implemented `maxTokenBudget` and
   `budgetWarningThreshold` with soft-warning and hard-stop protocols. Enriched
   models.json with cost-tiering recommendations.
+- ✅ **Zero-Touch Remediation Loop**: Automatically transitions agents from a
+  failed `/sprint-integration` candidate check into a `/sprint-hotfix` loop,
+  resolving build/test failures autonomously up to a configurable
+  `maxIntegrationRetries` threshold (default: 2).
 - ✅ **Self-Healing Protocols (Retro-Augmentation)**: Updated `/sprint-retro`
   and Architect persona to generate agent-ready optimization snippets from
   friction logs.
@@ -97,12 +101,6 @@ relying on brittle Bash execution.
 **Concept:** Upgrade static keyword `riskGates` to a low-latency LLM semantic
 classifier that detects structural anomalies or logic that deviates from the
 localized intent of the PRD.
-
-### Zero-Touch Remediation Loop
-
-**Concept:** Automate `/sprint-hotfix` so that failed integration candidate
-traces are fed directly back to the executing agent for an automatic retry loop
-before halting.
 
 ### Dynamic Golden-Path Harvesting (Agentic RLHF)
 

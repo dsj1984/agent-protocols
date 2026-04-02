@@ -84,6 +84,10 @@ ensure high-quality sprint execution:
 - **Automated Context Pruning ("Gardener")**: Identifies and archives stale ADRs
   and coding patterns into a `docs/archive/` directory during the sprint retro.
   This keeps the Local RAG index focused on the most current architecture.
+- **Zero-Touch Remediation Loop**: Automatically transitions agents from a
+  failed `/sprint-integration` candidate check into a `/sprint-hotfix` loop.
+  Agents remediate build/test failures and re-attempt integration autonomously
+  up to a configurable `maxIntegrationRetries` threshold (default: 2).
 - **Macroscopic Telemetry Observer**: A zero-dependency aggregation script that
   reads friction logs across sprints to visually chart tool failures, efficiency
   trends, and productivity bottlenecks.

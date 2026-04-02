@@ -44,9 +44,11 @@ feature branches.
      - **Major conflicts** (20+ conflicting lines OR structural changes to
        shared files like schemas, configs, or routing): **STOP** and alert the
        user with the exact conflicting files and branches before proceeding.
-   - **Verification**: Execute the verification suite:
-     `npm run lint ; npm run test`. (Note: Resolve exact commands from
-     `validationCommand` and `testCommand` in `.agents/config/config.json`).
+   - **Verification**: Execute the verification suite with diagnostic
+     interception:
+     `node .agents/scripts/diagnose-friction.js --sprint [SPRINT_ROOT] --cmd "npm run lint ; npm run test"`.
+     (Note: Resolve exact commands from `validationCommand` and `testCommand` in
+     `.agents/config/config.json`).
    - **Blast-Radius Check**:
      - **IF SUCCESS (Build Green)**:
        - Switch back to the base: `git checkout sprint-[SPRINT_NUMBER]`.
@@ -60,10 +62,12 @@ feature branches.
        - Log a critical friction entry to
          `[SPRINT_ROOT]/agent-friction-log.json` stating:
          `"[TASK_ID] failed post-merge integration check. Blast-radius contained. Rework triggered via /sprint-hotfix."`
-       - **KICK BACK**: You must now checkout the original feature branch
-         `task/sprint-[SPRINT_NUMBER]/[TASK_ID]` and run the `/sprint-hotfix`
-         workflow to remediate the regression. This task is NOT eligible for
-         `[x]` (Complete) status yet.
+       - **REMEDIATE (Zero-Touch Loop)**: DO NOT STOP EXECUTION. You must now
+         immediately checkout the original feature branch
+         `task/sprint-[SPRINT_NUMBER]/[TASK_ID]` and transition into the
+         `/[.agents/workflows/sprint-hotfix.md]` workflow. Use the diagnostic
+         traces you just generated to automatically remediate the regression.
+         This task is NOT eligible for `[x]` (Complete) status yet.
 
 5. **Conflict Marker Scan**: After all merges complete, run the cross-platform
    script: `node .agents/scripts/detect-merges.js` If the script exits with an

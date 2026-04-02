@@ -31,6 +31,17 @@ and this project adheres to
   - Updated SDLC and README to reflect the new documentation lifecycle and the
     `docs/archive/` directory standard.
 
+- **Zero-Touch Remediation Loop**:
+  - Automates the transition from a failed `/sprint-integration` candidate check
+    into an immediate `/sprint-hotfix` loop.
+  - Introduced `maxIntegrationRetries` to `.agents/config/config.json`
+    (default: 2) to control the automated remediation depth.
+  - Integrated diagnostic capturing via `diagnose-friction.js` directly into the
+    integration verification step.
+  - Mandated recursive integration attempts within `sprint-hotfix.md` until the
+    retry threshold is reached, minimizing human-in-the-loop dependencies for
+    integration failures.
+
 ## [3.0.0] - 2026-04-02
 
 ### Added

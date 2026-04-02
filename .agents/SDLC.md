@@ -78,7 +78,7 @@ definition down to code review and sprint retrospective.
         I --> J
         J --> K
         K -- "Fail" --> K_Fix
-        K_Fix --> K
+        K_Fix -- "Retry" --> K
         K -- "Pass" --> L
         L --> O
         O --> P
@@ -221,10 +221,14 @@ tasks:
 - **Hybrid Integration & Blast-Radius Containment**: Implements "Option 3" of
   the concurrency protocols. Instead of merging directly into the shared sprint
   branch, the `/sprint-integration` workflow performs merges on ephemeral
-  candidate branches. If a merge introduces a regression (detected via broken
-  build or tests on the candidate branch), the candidate branch is purged,
-  protecting the sprint base from cascading failures. Rework is then performed
-  in isolation on the original feature branch via `/sprint-hotfix`.
+  candidate branches.
+- **Zero-Touch Remediation Loop**: If an integration candidate fails, the system
+  automatically triggers a **Zero-Touch Remediation Loop**. The agent
+  immediately transitions into the `/sprint-hotfix` workflow, uses diagnostic
+  information captured by the framework to resolve the regression on the feature
+  branch, and recursively re-attempts integration until success or until hitting
+  the `maxIntegrationRetries` threshold. This minimizes human intervention
+  during the blast-radius containment process.
 - **Advanced Concurrency Protocols**: To handle structural merge conflicts that
   inevitably arise from parallel execution, agents use a hybrid approach. During
   planning, `focusAreas` in the manifest soft-lock large architectural changes

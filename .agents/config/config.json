@@ -36,6 +36,11 @@
           "type": "integer",
           "default": 5,
           "description": "Number of consecutive steps of research/analysis without modifying a file that triggers the Anti-Thrashing protocol."
+        },
+        "maxIntegrationRetries": {
+          "type": "integer",
+          "default": 2,
+          "description": "The maximum number of times an agent should attempt a Zero-Touch Remediation Loop (hotfix + re-integrate) before halting for manual intervention."
         }
       }
     },

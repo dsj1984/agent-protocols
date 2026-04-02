@@ -19,6 +19,10 @@ branch to ensure the shared sprint branch remains clean and unblocked.
     `sprintNumberPadding` setting in the same config.
 3.  Identify the `[TASK_ID]` of the failed task.
 4.  Resolve the feature branch: `task/sprint-[SPRINT_NUMBER]/[TASK_ID]`.
+5.  Resolve `[MAX_RETRY]` from `frictionThresholds.maxIntegrationRetries` in
+    `.agents/config/config.json`.
+6.  Track your current attempt: If this is the first hotfix for this branch, you
+    are at Retry 1.
 
 ## Execution Steps
 
@@ -42,9 +46,12 @@ branch to ensure the shared sprint branch remains clean and unblocked.
    - Run the `sprint-finalize-task` workflow to update the state JSON,
      regenerate the green test receipt, and push the branch to origin.
 6. **Re-Integration**:
-   - Once the feature branch is pushed and the test receipt is "passed", rerun
-     the `/sprint-integration` workflow to attempt merging into the shared
-     sprint branch again.
+   - IF your current Retry count is less than or equal to `[MAX_RETRY]`: Rerun
+     the `/[.agents/workflows/sprint-integration.md]` workflow to attempt
+     merging into the shared sprint branch again.
+   - IF your current Retry count exceeds `[MAX_RETRY]`: **STOP IMMEDIATELY**.
+     You have hit the Anti-Thrashing threshold for this integration candidate.
+     Escalate to the user with a summary of your remediation attempts.
 
 ## Constraint
 
