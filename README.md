@@ -80,10 +80,10 @@ ensure high-quality sprint execution:
 ### Agent Notification Webhook
 
 The `sprint-generate-playbook` workflow now supports an optional notification
-webhook. If the `AGENT_NOTIFICATION_WEBHOOK` variable is set in the `AGENTS.md`
-file at the project root, every completed playbook step will trigger a
-notification to that URL. This allows for real-time tracking of agent progress
-in external tools like Slack, Discord, or custom project management dashboards.
+webhook. If the `webhookUrl` variable is set in the `.agents/config/config.json`
+file, every completed playbook step will trigger a notification to that URL.
+This allows for real-time tracking of agent progress in external tools like
+Slack, Discord, or custom project management dashboards.
 
 ## Repository Structure
 

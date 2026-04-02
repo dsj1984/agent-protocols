@@ -89,13 +89,16 @@ The script automatically groups tasks into Chat Sessions using these rules:
    `@repo/web`) are grouped into one sequential Chat Session.
 3. **Concurrent Execution:** Tasks at the same layer with different scopes (or
    no scope) become separate concurrent Chat Sessions.
-4. **Bookend Tasks:** Bookend flags (`isIntegration`, `isQA`, `isCodeReview`, `isRetro`, `isCloseSprint`) are grouped into two consolidated chat sessions at the end of the pipeline: **Merge & Verify Phase** (Integration/QA), and **Sprint Administration Phase** (Code Review/Retro/Close).
+4. **Bookend Tasks:** Bookend flags (`isIntegration`, `isQA`, `isCodeReview`,
+   `isRetro`, `isCloseSprint`) are grouped into two consolidated chat sessions
+   at the end of the pipeline: **Merge & Verify Phase** (Integration/QA), and
+   **Sprint Administration Phase** (Code Review/Retro/Close).
 
 ## Example Scenarios
 
-| Sprint Type                 | Result                                                                          |
-| --------------------------- | ------------------------------------------------------------------------------- |
-| Full-stack feature          | Backend → Web + Mobile (concurrent) → Merge & Verify → Sprint Administration    |
-| 10 independent bug fixes    | 10 concurrent sessions → Merge & Verify → Sprint Administration                 |
-| 5 web bugs + 5 mobile tests | 5 web (concurrent) + 5 mobile (concurrent) → Merge & Verify → Sprint Admin      |
-| Pure backend pipeline       | Sequential chain → Merge & Verify → Sprint Administration                       |
+| Sprint Type                 | Result                                                                       |
+| --------------------------- | ---------------------------------------------------------------------------- |
+| Full-stack feature          | Backend → Web + Mobile (concurrent) → Merge & Verify → Sprint Administration |
+| 10 independent bug fixes    | 10 concurrent sessions → Merge & Verify → Sprint Administration              |
+| 5 web bugs + 5 mobile tests | 5 web (concurrent) + 5 mobile (concurrent) → Merge & Verify → Sprint Admin   |
+| Pure backend pipeline       | Sequential chain → Merge & Verify → Sprint Administration                    |
