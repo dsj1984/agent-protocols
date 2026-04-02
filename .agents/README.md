@@ -156,7 +156,6 @@ Skills are modular, tech-stack-specific guardrails organized by category
 | Skill                           | Category       | Purpose                                               |
 | ------------------------------- | -------------- | ----------------------------------------------------- |
 | `autonomous-coding-standards`   | `architecture` | Enforces structural rules for agent-protocols library |
-| `autonomous-coding-standards`   | `architecture` | Enforces structural rules for agent-protocols library |
 | `markdown`                      | `architecture` | Enforces markdown styling and best practices          |
 | `monorepo-path-strategist`      | `architecture` | Enforces workspace aliases and dependency boundaries  |
 | `structured-output-zod`         | `architecture` | Enforces structured API responses using Zod           |
