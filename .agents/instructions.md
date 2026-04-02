@@ -69,13 +69,16 @@ validation library, workspace paths).
 ### H. Observability & Agent Friction Logging
 
 You MUST log telemetry about any operational difficulty or automation
-opportunity you encounter into the current sprint's log file (e.g.,
-`docs/sprints/sprint-[##]/agent-friction-log.json`) using JSON Lines (JSONL)
-format. Append a structured entry if you experience:
+opportunity you encounter. Instead of manually editing the sprint log, you MUST
+use the deterministic diagnostic script when encountering errors:
 
-- **Friction Point**: Consecutive tool validation errors, unrecoverable command
-  or script execution failures, or ambiguity requiring explicit self-correction.
-- **Automation Candidate**: Repetitive sequences of commands (check
+- **Command**:
+  `node .agents/scripts/diagnose-friction.js --sprint [SPRINT_DIR] --cmd [FAILED_COMMAND]`
+- **Friction Point**: Execute this script after consecutive tool validation
+  errors, unrecoverable command failures, or ambiguity requiring explicit
+  self-correction. The script will automatically log the telemetry and provide
+  you with structured remediation steps.
+- **Automation Candidate**: Manually log repetitive sequences of commands (check
   `frictionThresholds.repetitiveCommandCount` in `.agents/config/config.json`,
   default 3+), boilerplate-heavy file creations, or manual processes that could
   be simplified by a dedicated workflow or skill.

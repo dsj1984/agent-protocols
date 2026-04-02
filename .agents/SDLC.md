@@ -171,10 +171,13 @@ tasks:
   agents broadcast a status update as a JSON payload to the `webhookUrl` (if
   defined in `.agents/config/config.json`) to ensure real-time synchronization
   across the swarm.
-- **Observability & Feedback Loop**: Agents append telemetry to
-  `agent-friction-log.json` whenever they encounter operational difficulties
-  (tool errors, ambiguities). This serves as a continuous feedback mechanism to
-  identify and resolve gaps in the project's `agent-protocols`.
+- **Observability & Feedback Loop**: Agents use
+  `.agents/scripts/diagnose-friction.js` whenever they encounter operational
+  difficulties (tool errors, ambiguities). This script acts as both a passive
+  telemetry logger (appending to `agent-friction-log.json`) and an active
+  diagnostic tool (providing structured remediation help). This serves as a
+  continuous feedback mechanism to identify and resolve gaps in the project's
+  `agent-protocols`.
 - **Execution Guardrails (Anti-Thrashing)**: To prevent long-running tasks or
   agent "thrashing," agents are mandated to halt and re-plan if they hit a
   threshold of consecutive errors or research steps without making progress.
