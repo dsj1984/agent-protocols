@@ -44,6 +44,14 @@
         }
       }
     },
+    "defaultModels": {
+      "type": "object",
+      "description": "Default models to fall back onto if not explicitly defined in generation.",
+      "default": {
+        "planningFallback": "Claude Sonnet 4.6 (Think) OR Gemini 3.1 Pro (High)",
+        "fastFallback": "Gemini 3 Flash"
+      }
+    },
     "baseBranch": {
       "type": "string",
       "default": "main",
@@ -120,7 +128,9 @@
             "When updating database schemas, explicitly instruct agents to generate & export associated validation schemas (e.g., Zod) if downstream API tasks will consume them.",
             "When assigning a `scope` to a task, strictly constrain it to legit package.json workspace names (e.g., `@repo/web`) or use the literal string `root` for global sweeps to prevent `pnpm --filter` crashes.",
             "Monorepo Type Safety sweeps must dictate running `pnpm turbo run typecheck` to verify strict typing passes with zero warnings on critical data paths.",
-            "For UI standardization tasks, strictly anchor instructions to design system documentation rather than subjective qualitative terms (e.g., 'standardize buttons') to prevent CSS frame hallucinations."
+            "For UI standardization tasks, strictly anchor instructions to design system documentation. NEVER use subjective or abstract aesthetic terms (e.g., 'premium aesthetic', 'clean modern feel') to prevent CSS frame hallucinations.",
+            "Any task performing cross-codebase text replacements (including UI standardizations or hex-code sweeps) MUST require executing the compiler immediately (e.g. `pnpm turbo run typecheck`) to verify syntax boundaries were not broken.",
+            "Monorepo-wide sweeping tasks (e.g., AST replacements, global type safety refactors, design system audits) MUST NOT be executed in parallel if they target overlapping file extensions. Ensure they are explicitly serialized (one depends on the other) to prevent catastrophic git merge conflicts."
           ],
           "description": "A list of semantic criteria that the Architect uses to flag a technical plan for mandatory HITL approval."
         }
