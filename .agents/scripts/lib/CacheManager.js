@@ -2,41 +2,27 @@ import fs from 'node:fs';
 import path from 'node:path';
 import crypto from 'node:crypto';
 import { fileURLToPath } from 'node:url';
+import { resolveConfig } from './config-resolver.js';
 
 const __dirname = path.dirname(fileURLToPath(import.meta.url));
 const PROJECT_ROOT = path.resolve(__dirname, '../..');
 
-// Default config path
-const CONFIG_PATH = path.join(PROJECT_ROOT, '.agents/config/config.json');
-
 export class CacheManager {
   constructor() {
-    // 1. Load configuration from global config.json
-    let globalConfig = {};
-    if (fs.existsSync(CONFIG_PATH)) {
-      try {
-        globalConfig = JSON.parse(fs.readFileSync(CONFIG_PATH, 'utf8'));
-      } catch (e) {
-        console.warn(`[CacheManager] Failed to load config: ${e.message}`);
-      }
-    }
-
-    const settings = globalConfig?.properties?.apcCacheSettings?.default || {
+    const { settings } = resolveConfig();
+    const apc = settings.apcCacheSettings ?? {
       strictHashing: true,
       ttlDays: 30,
       enableSpeculativeExecution: true,
       cacheDir: 'temp/apc-cache'
     };
-
-    this.config = settings;
-    
-    // 2. Resolve final cache directory
+    this.config = apc;
     this.cacheDir = path.resolve(PROJECT_ROOT, this.config.cacheDir);
-    
     if (!fs.existsSync(this.cacheDir)) {
       fs.mkdirSync(this.cacheDir, { recursive: true });
     }
   }
+
 
   /**
    * Computes a deterministic semantic fingerpint given a task's intent and scope.

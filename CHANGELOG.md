@@ -12,8 +12,15 @@ and this project adheres to
 
 - **Cryptographic Provenance**: Integrated automated ED25519 PKI digital
   signatures into the agent receipt pipeline. By enabling
-  `requireCryptographicProvenance` in `config.json`, the framework establishes a
-  Zero-Trust immutable chain of custody for playbook integration gates.
+  `requireCryptographicProvenance` in `.agentrc.json`, the framework establishes
+  a Zero-Trust immutable chain of custody for playbook integration gates.
+- **Universal Protocol Standardization**: Consolidated all previously fragmented
+  agent configuration (`config.json`, `models.json`, `tech-stack.json`) into a
+  single `.agentrc.json` at the project root. The canonical default is shipped
+  as `.agents/default-agentrc.json` for consumers to copy and customise. All
+  orchestration scripts now use the shared `lib/config-resolver.js` utility,
+  which resolves `.agentrc.json` first, falls back to the legacy path with a
+  deprecation warning, then applies built-in defaults as a final safety net.
 - **Perception-Action Event Stream Protocol**: Implemented the core architecture
   for decoupling agent reasoning from environment execution. Playbooks now
   strictly enforce discrete, atomic environmental interactions via a localized

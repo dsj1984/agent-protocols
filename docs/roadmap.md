@@ -32,6 +32,10 @@ and future architectural evolution for the Agent Protocols framework.
 - ✅ **Cryptographic Provenance:** Digitally signed agent-generated test
   receipts via asymmetric PKI to establish an immutable chain of custody prior
   to deployment.
+- ✅ **Universal Protocol Standardization:** Merged all agent configuration into
+  a unified `.agentrc.json` standard at the project root. Distributed via
+  `.agents/default-agentrc.json`. All orchestration scripts resolve config with
+  graceful backwards-compatible legacy fallback.
 
 ## Implemented: Version 3.x (Optimization & Refinement)
 
@@ -121,18 +125,6 @@ the baseline structure, rules, and fundamental execution pipeline.
 
 Version 4 transitions the framework from sequential scripting to robust, highly
 scalable, and secure engineering pipelines.
-
-### 1. Interface Extensibility and Dynamic Tool Discovery
-
-- **MCP Standardization:** Refactor internal agent scripts and diagnostic
-  interceptors into standardized local Model Context Protocol (MCP) servers,
-  moving away from brittle Bash execution to dynamic tool discovery.
-- **Deep Skill Ecosystem Integration:** Implement a repository structure and
-  installer interface to load role-based skill bundles (e.g., "Production
-  Hardening", "SaaS MVP") directly into agent environments.
-- **Universal Protocol Standardization:** Adopt an open standard for defining
-  constraints via a unified agent configuration file at the repository root to
-  ensure cross-platform interoperability.
 
 ### 2. Observability and Real-Time Telemetry
 

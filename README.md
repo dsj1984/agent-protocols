@@ -51,7 +51,25 @@ Add the following script to your `package.json` for one-command updates:
 }
 ```
 
-Now you can run: `npm run update:agents`.
+### 3. Configure Your Project
+
+After adding the submodule, copy the bundled default configuration into your
+project root and rename it:
+
+```bash
+cp .agents/default-agentrc.json .agentrc.json
+```
+
+Then open `.agentrc.json` and set your project-specific values (e.g.,
+`techStack.project.name`, `agentSettings.testCommand`,
+`agentSettings.baseBranch`).
+
+> **How it works:** All agent scripts resolve configuration in this order:
+>
+> 1. `.agentrc.json` at your **project root** ← your customised file
+> 2. `.agents/config/config.json` ← legacy fallback (deprecated, will emit a
+>    warning)
+> 3. Built-in defaults (zero-config)
 
 ### 🛡️ Efficiency & Guardrails
 
@@ -134,10 +152,11 @@ which is what gets distributed to consumers.
 agent-protocols/
 ├── .agents/                 # ← Distributed to consumers via the `dist` branch
 │   ├── VERSION              # Current version of the protocols
-│   ├── config/              # Standardized agent configurations
+│   ├── config/              # Legacy config (deprecated — use .agentrc.json instead)
 │   │   ├── config.json
 │   │   ├── models.json
 │   │   └── tech-stack.json
+│   ├── default-agentrc.json # ← Copy this to your project root as .agentrc.json
 │   ├── instructions.md      # Core system prompt & rules
 │   ├── personas/            # Role-specific behavior constraints (12 personas)
 │   ├── rules/               # Modular domain-agnostic global rules

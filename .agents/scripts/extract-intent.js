@@ -2,6 +2,7 @@ import fs from 'node:fs';
 import path from 'node:path';
 import { fileURLToPath } from 'node:url';
 import { instance as CacheManager } from './lib/CacheManager.js';
+import { resolveConfig } from './lib/config-resolver.js';
 
 const __dirname = path.dirname(fileURLToPath(import.meta.url));
 const PROJECT_ROOT = path.resolve(__dirname, '../..');
@@ -15,17 +16,10 @@ if (!sprintArg || !taskId) {
   process.exit(1);
 }
 
-// 1. Resolve Config
-const configPath = path.join(PROJECT_ROOT, '.agents/config/config.json');
-let sprintDocsRoot = 'docs/sprints';
-let sprintNumberPadding = 3;
-if (fs.existsSync(configPath)) {
-  try {
-    const config = JSON.parse(fs.readFileSync(configPath, 'utf8'));
-    if (config?.properties?.sprintDocsRoot?.default) sprintDocsRoot = config.properties.sprintDocsRoot.default;
-    if (config?.properties?.sprintNumberPadding?.default) sprintNumberPadding = config.properties.sprintNumberPadding.default;
-  } catch (e) {}
-}
+// 1. Resolve Config via unified resolver
+const { settings: agentConfig } = resolveConfig();
+let sprintDocsRoot = agentConfig.sprintDocsRoot ?? 'docs/sprints';
+let sprintNumberPadding = agentConfig.sprintNumberPadding ?? 3;
 
 const paddedSprint = String(sprintArg).padStart(sprintNumberPadding, '0');
 let sprintDir = path.join(PROJECT_ROOT, sprintDocsRoot, `sprint-${paddedSprint}`);

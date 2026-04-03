@@ -1,0 +1,74 @@
+/**
+ * Unified Configuration Resolver (v4.0.0 — Universal Protocol Standardization)
+ *
+ * Resolution order:
+ *   1. <project-root>/.agentrc.json             (new unified standard)
+ *   2. <project-root>/.agents/config/config.json (legacy fallback — deprecated)
+ *
+ * The returned object is always a flat agentSettings hash, identical to the
+ * old config.json `properties` shape, so every existing consumer script
+ * continues to work without changes.
+ */
+
+import fs from 'node:fs';
+import path from 'node:path';
+import { fileURLToPath } from 'node:url';
+
+const __dirname = path.dirname(fileURLToPath(import.meta.url));
+// scripts/lib/ → scripts/ → .agents/ → project root
+const PROJECT_ROOT = path.resolve(__dirname, '../../..');
+
+/**
+ * Extract the flat agentSettings bag from whichever config format is present.
+ * @returns {{ settings: object, source: string }}
+ */
+export function resolveConfig() {
+  // 1. Preferred: unified .agentrc.json at repo root
+  const agentrcPath = path.join(PROJECT_ROOT, '.agentrc.json');
+  if (fs.existsSync(agentrcPath)) {
+    try {
+      const raw = JSON.parse(fs.readFileSync(agentrcPath, 'utf8'));
+      const settings = raw.agentSettings ?? {};
+      return { settings, source: agentrcPath };
+    } catch {
+      console.warn('[config] Failed to parse .agentrc.json — falling back to legacy config.');
+    }
+  }
+
+  // 2. Legacy fallback: .agents/config/config.json
+  const legacyPath = path.join(PROJECT_ROOT, '.agents/config/config.json');
+  if (fs.existsSync(legacyPath)) {
+    console.warn(
+      '[config] DEPRECATION WARNING: .agents/config/config.json is deprecated.\n' +
+      '         Copy .agents/default-agentrc.json to your project root as .agentrc.json\n' +
+      '         and customise it to adopt the v4 Universal Protocol Standard.'
+    );
+    try {
+      const raw = JSON.parse(fs.readFileSync(legacyPath, 'utf8'));
+      // Legacy file uses JSON-Schema-style `properties[key].default` — flatten it.
+      const settings = {};
+      for (const [key, val] of Object.entries(raw.properties ?? {})) {
+        settings[key] = val.default ?? val;
+      }
+      return { settings, source: legacyPath };
+    } catch {
+      console.warn('[config] Failed to parse legacy config.json — using built-in defaults.');
+    }
+  }
+
+  // 3. Hard-coded defaults (zero-config experience)
+  return {
+    settings: {
+      taskStateRoot: 'temp/task-state',
+      goldenExamplesRoot: 'temp/golden-examples',
+      baseBranch: 'main',
+      sprintDocsRoot: 'docs/sprints',
+      sprintNumberPadding: 3,
+      maxTokenBudget: 1000000,
+      budgetWarningThreshold: 0.8,
+      apcCacheSettings: { strictHashing: true, ttlDays: 30, enableSpeculativeExecution: true, cacheDir: 'temp/apc-cache' },
+      securityOptions: { requireCryptographicProvenance: false },
+    },
+    source: 'built-in defaults',
+  };
+}

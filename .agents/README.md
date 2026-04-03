@@ -24,7 +24,8 @@ consistency, and architectural guardrails.
 .agents/
 ├── VERSION                  # Current version of the protocols
 ├── SDLC.md                  # Detailed guide for the /plan-sprint workflow
-├── config/                  # Standardized agent configurations
+├── default-agentrc.json     # ← Copy to project root as .agentrc.json and customise
+├── config/                  # Legacy fragmented config (deprecated)
 ├── instructions.md          # MANDATORY: The consolidated system prompt
 ├── personas/                # Role-specific behavior constraints
 ├── rules/                   # Modular domain-agnostic global rules
@@ -68,6 +69,35 @@ This file acts as the **System Core**, instructing the agent to:
 2. **Route** to personas in `personas/`.
 3. **Activate** guardrails from `skills/`.
 4. **Use** Context7 MCP for live documentation.
+
+### 🗂️ Project Configuration (`.agentrc.json`)
+
+The agent scripts resolve settings from a unified **`.agentrc.json`** file at
+your **project root**. This file is the v4 Universal Protocol Standard and
+consolidates all model, stack, and behaviour settings into one place.
+
+**Setup — run once per project:**
+
+```bash
+# From your project root (where .agents/ submodule lives)
+cp .agents/default-agentrc.json .agentrc.json
+```
+
+Then open `.agentrc.json` and customise:
+
+| Section                       | What to change                     |
+| ----------------------------- | ---------------------------------- |
+| `agentSettings.testCommand`   | Your project's test command        |
+| `agentSettings.baseBranch`    | `main`, `master`, etc.             |
+| `agentSettings.taskStateRoot` | Where task state files are written |
+| `techStack.project.name`      | Your project name                  |
+| `techStack.workspaces.*`      | Your monorepo package aliases      |
+
+> **Resolution order (scripts fall back gracefully):**
+>
+> 1. `.agentrc.json` at project root ← your file
+> 2. `.agents/config/config.json` ← legacy (deprecated — emits a warning)
+> 3. Built-in defaults (zero-config fallback)
 
 ### ⚡ Activation & Usage
 

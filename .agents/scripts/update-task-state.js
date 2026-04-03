@@ -3,6 +3,7 @@ import path from 'node:path';
 import { fileURLToPath } from 'node:url';
 import { execSync } from 'node:child_process';
 import crypto from 'node:crypto';
+import { resolveConfig } from './lib/config-resolver.js';
 
 /**
  * Standard utility to update the decoupled JSON state for an agent task.
@@ -11,7 +12,6 @@ import crypto from 'node:crypto';
 
 const __dirname = path.dirname(fileURLToPath(import.meta.url));
 const PROJECT_ROOT = path.resolve(__dirname, '../..');
-const configPath = path.join(PROJECT_ROOT, '.agents/config/config.json');
 
 const taskId = process.argv[2];
 const status = process.argv[3];
@@ -21,18 +21,9 @@ if (!taskId || !status) {
   process.exit(1);
 }
 
-// 1. Resolve taskStateRoot from config.json
-let taskStateRoot = 'temp/task-state';
-if (fs.existsSync(configPath)) {
-  try {
-    const config = JSON.parse(fs.readFileSync(configPath, 'utf8'));
-    if (config?.properties?.taskStateRoot?.default) {
-      taskStateRoot = config.properties.taskStateRoot.default;
-    }
-  } catch (err) {
-    console.warn(`Could not parse config.json, using default: ${taskStateRoot}`);
-  }
-}
+// 1. Resolve taskStateRoot via unified config resolver
+const { settings: agentConfig } = resolveConfig();
+let taskStateRoot = agentConfig.taskStateRoot ?? 'temp/task-state';
 
 // 2. Ensure state directory exists
 const stateDir = path.resolve(process.cwd(), taskStateRoot);

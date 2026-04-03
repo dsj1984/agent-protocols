@@ -1,6 +1,7 @@
 import fs from 'node:fs';
 import path from 'node:path';
 import crypto from 'node:crypto';
+import { resolveConfig } from './lib/config-resolver.js';
 
 const playbookPath = process.argv[2];
 const targetTask = process.argv[3];
@@ -9,26 +10,10 @@ if (!playbookPath || !targetTask) {
   process.exit(1);
 }
 
-let taskStateRoot = process.argv[4];
-let requireCryptographicProvenance = false;
-if (!taskStateRoot) {
-  taskStateRoot = 'temp/task-state';
-  const configPath = path.resolve(process.cwd(), '.agents/config/config.json');
-  if (fs.existsSync(configPath)) {
-    try {
-      const config = JSON.parse(fs.readFileSync(configPath, 'utf8'));
-      if (config?.properties?.taskStateRoot?.default) {
-        taskStateRoot = config.properties.taskStateRoot.default;
-      }
-      if (config?.securityOptions?.default?.requireCryptographicProvenance) {
-        requireCryptographicProvenance = config.securityOptions.default.requireCryptographicProvenance;
-      }
-    } catch (err) {
-      console.warn(`Could not parse config.json, using default: ${taskStateRoot}`);
-    }
-  }
-}
-
+// 1. Resolve taskStateRoot + security options via unified config resolver
+const { settings: agentConfig } = resolveConfig();
+let taskStateRoot = process.argv[4] ?? agentConfig.taskStateRoot ?? 'temp/task-state';
+let requireCryptographicProvenance = agentConfig.securityOptions?.requireCryptographicProvenance ?? false;
 
 if (!fs.existsSync(playbookPath)) {
   console.error(`Playbook not found: ${playbookPath}`);
