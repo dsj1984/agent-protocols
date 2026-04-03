@@ -4,6 +4,8 @@ description:
   starting a new sprint task.
 ---
 
+<!-- // turbo-all -->
+
 # Sprint Verify Task Prerequisites
 
 ## Step 0 - Path Resolution

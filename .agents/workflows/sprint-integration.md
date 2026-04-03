@@ -3,12 +3,29 @@ description:
   Automated consolidation of sprint feature branches and Playbook updates.
 ---
 
+<!-- // turbo-all -->
+
 # Sprint Integration
 
 This workflow consolidates all concurrent feature development into
 `sprint-[SPRINT_NUMBER]`. It must be run BEFORE QA Testing begins, and SHOULD be
 rerun if any remediation tasks (QA fixes, Code Review updates) create new
 feature branches.
+
+## Progress Protocol
+
+Before executing each numbered step, emit a visible progress banner to the
+terminal:
+
+`echo "▶ [Sprint Integration] Step N/10: <STEP_NAME> (Branch: <BRANCH_NAME> if applicable)"`
+
+When entering the per-branch verification loop (Step 4), emit a sub-banner for
+each branch:
+
+`echo "  ↳ [Candidate N/TOTAL] Verifying: task/sprint-[NUM]/[TASK_ID]"`
+
+This ensures the human operator always has a clear signal of current progress,
+even when commands are auto-running.
 
 ## Step 0 - Path Resolution
 
@@ -32,41 +49,32 @@ feature branches.
      and log a friction point. This branch is NOT eligible for integration until
      isolated tests pass.
 4. **Ephemeral Candidate Verification**: For each VALIDATED feature branch
-   identified in Step 2, perform the following verification loop:
-   - Check out a temporary candidate branch from the sprint base:
-     `git checkout -b integration-candidate-[TASK_ID] sprint-[SPRINT_NUMBER]`.
-   - Merge the feature branch:
-     `git merge --no-ff task/sprint-[SPRINT_NUMBER]/[TASK_ID]`.
-   - **Merge Conflict Resolution**:
+   identified in Step 2, run the batch integration script:
+   `node .agents/scripts/sprint-integrate.js --sprint [SPRINT_NUMBER] --task [TASK_ID]`
+   - This script performs the full candidate verification loop in a single
+     process: creates the ephemeral candidate branch, merges, runs validation +
+     tests, and either consolidates (on success) or rolls back (on failure).
+   - **Merge Conflict Resolution** (handled inside the script):
      - **Minor conflicts** (fewer than 20 conflicting lines across fewer than 3
-       files, e.g., import ordering or adjacent line edits): resolve
+       files, e.g., import ordering or adjacent line edits): the script resolves
        automatically.
      - **Major conflicts** (20+ conflicting lines OR structural changes to
-       shared files like schemas, configs, or routing): **STOP** and alert the
-       user with the exact conflicting files and branches before proceeding.
-   - **Verification**: Execute the verification suite with diagnostic
-     interception:
-     `node .agents/scripts/diagnose-friction.js --sprint [SPRINT_ROOT] --cmd "npm run lint ; npm run test"`.
-     (Note: Resolve exact commands from `validationCommand` and `testCommand` in
-     `.agents/config/config.json`).
-   - **Blast-Radius Check**:
-     - **IF SUCCESS (Build Green)**:
-       - Switch back to the base: `git checkout sprint-[SPRINT_NUMBER]`.
-       - Consolidate the candidate:
-         `git merge --no-ff integration-candidate-[TASK_ID]`.
-       - Delete candidate: `git branch -D integration-candidate-[TASK_ID]`.
-     - **IF FAILURE (Build Broken)**:
-       - Switch back to the base: `git checkout sprint-[SPRINT_NUMBER]`.
-       - Delete candidate. The shared sprint branch is now "Clean" and
-         unaffected by the failure.
-       - Log a critical friction entry using the provided script:
-         `node .agents/scripts/log-friction.js "[SPRINT_ROOT]/agent-friction-log.json" "friction_point" "sprint-integration" "[TASK_ID] failed post-merge integration check. Blast-radius contained. Rework triggered via /sprint-hotfix."`
+       shared files like schemas, configs, or routing): the script exits with
+       code `2`. You MUST **STOP** and alert the user with the exact conflicting
+       files and branches before proceeding.
+   - **Blast-Radius Check** (exit codes from the script):
+     - **Exit 0 (Build Green)**: The candidate was successfully merged into the
+       sprint base and the candidate branch was cleaned up. Proceed to the next
+       branch.
+     - **Exit 1 (Build Broken)**: The candidate was purged (blast-radius
+       contained) and friction was logged automatically.
        - **REMEDIATE (Zero-Touch Loop)**: DO NOT STOP EXECUTION. You must now
          immediately checkout the original feature branch
          `task/sprint-[SPRINT_NUMBER]/[TASK_ID]` and transition into the
          `/[.agents/workflows/sprint-hotfix.md]` workflow. Use the diagnostic
          traces you just generated to automatically remediate the regression.
          This task is NOT eligible for `[x]` (Complete) status yet.
+     - **Exit 2 (Major Conflict)**: STOP and alert the user.
 
 5. **Conflict Marker Scan**: After all merges complete, run the cross-platform
    script: `node .agents/scripts/detect-merges.js` If the script exits with an
@@ -103,3 +111,8 @@ Do NOT skip any steps. The Mermaid diagram and task checkboxes MUST accurately
 reflect the merged branches before you consider this workflow complete. This is
 the only authorized step for marking tasks as `- [x]` or applying the `complete`
 class during parallel execution phases.
+
+**Timeout**: If a single branch's candidate verification (Step 4) has not
+completed within 5 minutes of wall-clock time, treat it as a failure and proceed
+to the blast-radius containment path (exit code 1). Log the timeout via
+`node .agents/scripts/log-friction.js "[SPRINT_ROOT]/agent-friction-log.json" "friction_point" "sprint-integration" "[TASK_ID] candidate verification timed out after 5 minutes."`
