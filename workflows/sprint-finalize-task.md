@@ -4,6 +4,8 @@ description:
   sprint tasks.
 ---
 
+<!-- // turbo-all -->
+
 # Sprint Finalize Task
 
 When instructed to finalize a sprint task, you must execute the following steps
