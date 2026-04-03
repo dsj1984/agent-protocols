@@ -111,7 +111,12 @@
           "default": [
             "Destructive database mutations or unrecoverable state changes.",
             "Structural anomalies or modifications to shared infrastructure (IAM, global security layers).",
-            "Functional logic that deviates from the localized intent of the PRD."
+            "Functional logic that deviates from the localized intent of the PRD.",
+            "Any UX, layout, or backend edge caching implementations MUST require programmatic tests (e.g., Playwright, Vitest) in their instructions, as agents lack visual DOM contexts locally.",
+            "Global Search & Replace (AST/SED) refactors must enforce an immediate post-replace verification gate (e.g., `pnpm turbo run typecheck` or `build`) before closing out.",
+            "Database ORM instructions must dictate applying changes to the local schema (e.g., `db:push` alongside `db:generate`) to ensure downstream API agents operate on a valid test database.",
+            "Tests implementing PRNG/Stochastic seed structures must explicitly log their initialization vectors to `stdout` to guarantee CI reproducibility.",
+            "When updating theming architectures to use downstream tokens, strictly instruct agents to avoid reverting to hardcoded inline hex values."
           ],
           "description": "A list of semantic criteria that the Architect uses to flag a technical plan for mandatory HITL approval."
         }

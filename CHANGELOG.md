@@ -6,6 +6,32 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 and this project adheres to
 [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [3.3.8] - 2026-04-03
+
+### Fixed
+
+- **Multi-Dependency Branching Collision**: Updated `Renderer.js` to
+  intelligently chain `git merge` commands during task initialization when
+  multiple fan-in dependencies are present, ensuring all required context is
+  available.
+- **Graceful "Clean Tree" Commits**: Refactored the universal
+  `AGENT EXECUTION PROTOCOL` to make commits conditional on staged changes
+  (`git diff --staged --quiet || git commit`), preventing exit code crashes in
+  headless terminals on zero-diff tasks.
+- **Semantic Commit Enforcement**: Replaced hardcoded `feat:` prefixes with a
+  dynamic instruction for agents to generate context-aware Conventional Commit
+  messages based on their actual diffs.
+- **Code Review Push Stability**: Standardized the manual fix prompt to push to
+  `HEAD` instead of hardcoded sprint branches, resolving detached state
+  conflicts.
+
+### Added
+
+- **Architectural Risk Gate Heuristics**: Expanded the global `config.json` risk
+  gates with mandatory systemic guardrails enforcing programmatic tests
+  (Playwright/Vitest), type-check verification after AST refactors, and
+  synchronous DB schema pushes.
+
 ## [3.3.7] - 2026-04-03
 
 ### Added

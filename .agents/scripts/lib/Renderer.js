@@ -188,7 +188,7 @@ export function renderPlaybook(manifest, chatSessions, chatDeps, options = {}) {
       md += `If this task depends on previous tasks, ensure you have merged or checked out their respective feature branches before beginning work.\n\n`;
 
       md += `**Close-out:**\n`;
-      md += `1. Commit your changes: \`git add . && git commit -m "feat: completed task ${task.id}"\`\n`;
+      md += `1. Commit your changes: \`git add . && (git diff --staged --quiet || git commit -m "<generate a conventional commit message based on your diff>")\`\n`;
       md += `2. Push your branch: \`git push -u origin HEAD\`\n`;
       md += `3. Read and strictly follow the steps defined in \`.agents/workflows/sprint-finalize-task.md\` to track state.\n`;
       md += `4. If you encounter an unresolvable error, execute: \`node .agents/scripts/update-task-state.js ${fullTaskId} blocked\` and alert the user.\n\n`;
@@ -227,10 +227,17 @@ export function renderPlaybook(manifest, chatSessions, chatDeps, options = {}) {
           branchInstruction = `git checkout sprint-${sprintNum}`;
       } else if (taskDeps) {
           // Chain branching from the first explicit dependency
-          const firstDepNumber = taskIdToNumber.get(task.dependsOn[0]);
           const firstDepId = task.dependsOn[0];
           
           branchInstruction = `git checkout task/sprint-${sprintNum}/${firstDepId} && git checkout -b task/sprint-${sprintNum}/${task.id}`;
+
+          // If there are multiple dependencies, merge them into the new working branch
+          if (task.dependsOn.length > 1) {
+              for (let i = 1; i < task.dependsOn.length; i++) {
+                  const depId = task.dependsOn[i];
+                  branchInstruction += ` && git merge task/sprint-${sprintNum}/${depId} -m "chore: merge dependency ${depId}"`;
+              }
+          }
       }
 
       md += `   - **Branching**: \`${branchInstruction}\`\n`;
@@ -245,8 +252,8 @@ export function renderPlaybook(manifest, chatSessions, chatDeps, options = {}) {
         md += `**Loaded Skills**: \`devops/git-flow-specialist\`\n`;
         md += `\n=== INSTRUCTIONS ===\n`;
         md += `I have completed the manual implementation of architectural fixes from the Code Review. Please execute the final synchronization to align the repository:\n\n`;
-        md += `1. **Commit Review Fixes**: Stage and commit any uncommitted architectural fixes: \`git add . && git commit -m "fix(review): implement architectural code review feedback"\`\n`;
-        md += `2. **Push Default Base**: Push your fixes natively to the integration branch: \`git push origin sprint-${sprintNum}\`\n`;
+        md += `1. **Commit Review Fixes**: Stage and commit any uncommitted architectural fixes: \`git add . && (git diff --staged --quiet || git commit -m "fix(review): implement architectural code review feedback")\`\n`;
+        md += `2. **Push Default Base**: Push your fixes natively to the integration branch: \`git push origin HEAD\`\n`;
         md += `3. **Update State**: Mark the code review task as passed to generate the test receipt: \`node .agents/scripts/update-task-state.js ${fullTaskId} passed\`\n`;
         md += `\`\`\`\n`;
       }
