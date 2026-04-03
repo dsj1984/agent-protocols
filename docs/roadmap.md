@@ -134,6 +134,15 @@ scalable, and secure engineering pipelines.
 
 ## Future Horizon: Version 5+
 
+### Interface Extensibility and Dynamic Tool Discovery
+
+- **MCP Standardization:** Refactor internal agent scripts and diagnostic
+  interceptors into standardized local Model Context Protocol (MCP) servers,
+  moving away from brittle Bash execution to dynamic tool discovery.
+- **Deep Skill Ecosystem Integration:** Implement a repository structure and
+  installer interface to load role-based skill bundles (e.g., "Production
+  Hardening", "SaaS MVP") directly into agent environments.
+
 ### Autonomous Quality Assurance and Continuous Refactoring
 
 - **Event-Driven Headless CI/CD:** Containerize the execution interface to
