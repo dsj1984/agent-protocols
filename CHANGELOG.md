@@ -6,6 +6,26 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 and this project adheres to
 [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [3.4.0] - 2026-04-03
+
+### Fixed
+
+- **Parallel Fan-Out Merge Collision Detection**: Integrated a transitive
+  closure reachability matrix into the core graph engine (`Graph.js`) which
+  proactively identifies when concurrent tasks share focusArea patterns without
+  explicit sequencing, throwing a fatal validation error to prevent git merge
+  conflicts.
+- **Literal Bash Instruction Decoupling (Final)**: Completely decoupled
+  non-executable cognitive variables from bash backticks in `Renderer.js`,
+  preventing hyper-literal agents from corrupting commit messages with
+  placeholder templates.
+
+### Added
+
+- **Protocol Lineage Tracking**: Embedded an automatic version indicator at the
+  top of all generated Playbook files to streamline traceability and protocol
+  debugging across multiple sprint versions.
+
 ## [3.3.9] - 2026-04-03
 
 ### Fixed
