@@ -23,7 +23,7 @@ import path from 'node:path';
 import { fileURLToPath } from 'node:url';
 
 // Library imports for decoupled logic
-import { buildGraph, detectCycle, assignLayers, transitiveReduction, computeChatDependencies } from './lib/Graph.js';
+import { buildGraph, detectCycle, assignLayers, transitiveReduction, computeChatDependencies, computeReachability } from './lib/Graph.js';
 import { renderPlaybook } from './lib/Renderer.js';
 
 const __dirname = path.dirname(fileURLToPath(import.meta.url));
@@ -360,6 +360,14 @@ export function generateFromManifest(manifest, options = {}) {
   if (!options.sprintDocsRoot) options.sprintDocsRoot = sprintDocsRoot;
   if (!options.sprintNumberPadding) options.sprintNumberPadding = sprintNumberPadding;
   if (!options.goldenExamplesRoot) options.goldenExamplesRoot = goldenExamplesRoot;
+  if (!options.protocolVersion) {
+    const versionPath = path.join(__dirname, '..', 'VERSION');
+    try {
+      options.protocolVersion = fs.readFileSync(versionPath, 'utf8').trim();
+    } catch (e) {
+      options.protocolVersion = 'Unknown';
+    }
+  }
 
   // 0. Auto-enrich manifest with boilerplate required fields
   enrichManifest(manifest);
@@ -380,10 +388,37 @@ export function generateFromManifest(manifest, options = {}) {
   }
 
   // 3. Build graph & check for cycles
-  const { adjacency } = buildGraph(manifest.tasks);
+  const { adjacency, taskMap } = buildGraph(manifest.tasks);
   const cycle = detectCycle(adjacency);
   if (cycle) {
     throw new Error(`Dependency cycle detected: ${cycle.join(' → ')}`);
+  }
+
+  // 3.5 Validate Focus Area Concurrent Overlaps
+  const reachable = computeReachability(adjacency);
+  const overlapErrors = [];
+  const nodes = [...adjacency.keys()];
+  for (let i = 0; i < nodes.length; i++) {
+    for (let j = i + 1; j < nodes.length; j++) {
+      const taskA = taskMap.get(nodes[i]);
+      const taskB = taskMap.get(nodes[j]);
+      
+      const areasA = Array.isArray(taskA.focusAreas) ? taskA.focusAreas : [];
+      const areasB = Array.isArray(taskB.focusAreas) ? taskB.focusAreas : [];
+      
+      const overlap = areasA.find(a => areasB.includes(a));
+      if (overlap) {
+         const aReachesB = reachable.get(taskA.id)?.has(taskB.id);
+         const bReachesA = reachable.get(taskB.id)?.has(taskA.id);
+         
+         if (!aReachesB && !bReachesA) {
+            overlapErrors.push(`Tasks "${taskA.id}" and "${taskB.id}" share focusArea "${overlap}" but have no sequential dependency. Add a dependsOn edge to prevent merge conflicts.`);
+         } // Note: This check only guarantees sequential checkout
+      }
+    }
+  }
+  if (overlapErrors.length > 0) {
+    throw new Error(`Manifest validation failed:\n${overlapErrors.map(e => `  - ${e}`).join('\n')}`);
   }
 
   // 4. Assign layers

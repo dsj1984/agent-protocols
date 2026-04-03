@@ -163,3 +163,30 @@ export function computeChatDependencies(chatSessions, adjacency) {
   // Apply transitive reduction to chat-level dependencies
   return transitiveReduction(chatDeps);
 }
+
+/**
+ * Computes the transitive closure (reachability matrix) for the DAG.
+ * Returns a Map<id, Set<id>> where each key maps to a set of all tasks it can reach.
+ */
+export function computeReachability(adjacency) {
+  const reachable = new Map();
+  const nodes = [...adjacency.keys()];
+  
+  for (const node of nodes) {
+    reachable.set(node, new Set(adjacency.get(node) || []));
+  }
+
+  for (const k of nodes) {
+    for (const i of nodes) {
+      if (reachable.get(i).has(k)) {
+        for (const j of nodes) {
+          if (reachable.get(k).has(j)) {
+            reachable.get(i).add(j);
+          }
+        }
+      }
+    }
+  }
+
+  return reachable;
+}

@@ -105,6 +105,9 @@ export function renderPlaybook(manifest, chatSessions, chatDeps, options = {}) {
   
   let md = `# Sprint ${sprintNum} Playbook: ${manifest.sprintName}\n\n`;
   md += `> **Playbook Path:** ${docsRoot}/sprint-${sprintNum}/playbook.md\n>\n`;
+  if (options.protocolVersion) {
+    md += `> **Protocol Version:** v${options.protocolVersion}\n>\n`;
+  }
   md += `> **Objective:** ${manifest.summary}\n>\n`;
   if (manifest.mode) {
     md += `> **Mode:** ${manifest.mode} (LLM Strategy)\n\n`;
@@ -188,7 +191,7 @@ export function renderPlaybook(manifest, chatSessions, chatDeps, options = {}) {
       md += `If this task depends on previous tasks, ensure you have merged or checked out their respective feature branches before beginning work.\n\n`;
 
       md += `**Close-out:**\n`;
-      md += `1. Commit your changes: Evaluate your diff and execute \`git add . && (git diff --staged --quiet || git commit -m "type(scope): your descriptive message")\`\n`;
+      md += `1. Commit your changes: Stage your files and execute a conventional commit (e.g., git commit -m "feat(ui): update colors"). If the working tree is clean, skip this step.\n`;
       md += `2. Push your branch: \`git push -u origin HEAD\`\n`;
       md += `3. Read and strictly follow the steps defined in \`.agents/workflows/sprint-finalize-task.md\` to track state.\n`;
       md += `4. If you encounter an unresolvable error, execute: \`node .agents/scripts/update-task-state.js ${fullTaskId} blocked\` and alert the user.\n\n`;
