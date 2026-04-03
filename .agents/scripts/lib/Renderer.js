@@ -156,7 +156,7 @@ export function renderPlaybook(manifest, chatSessions, chatDeps, options = {}) {
       
       // Task Metadata
       md += `  - **Mode**: ${task.mode}\n`;
-      md += `  - **Model**: ${task.model} OR ${task.secondaryModel}\n`;
+      md += `  - **Model**: ${task.model}${task.secondaryModel && !task.model.includes(task.secondaryModel) ? ` OR ${task.secondaryModel}` : ''}\n`;
 
       if (task.scope) {
         md += `  - **Scope**: \`${task.scope}\`\n`;
@@ -192,7 +192,7 @@ export function renderPlaybook(manifest, chatSessions, chatDeps, options = {}) {
       md += `If this task depends on previous tasks, ensure you have fetched the latest remote state (\`git fetch origin\`) and merged or checked out their respective feature branches before beginning work.\n\n`;
 
       md += `**Close-out:**\n`;
-      md += `1. Commit your changes: \`git add . && (git diff --staged --quiet || git commit -m "<dynamically generate your conventional commit here>")\`\n`;
+      md += `1. Commit your changes: Analyze your diff, then run this command with your generated message: \`git add . && (git diff --staged --quiet || git commit -m "<INSERT_MESSAGE>")\`\n`;
       md += `2. Push your branch: \`git push -u origin HEAD\`\n`;
       md += `3. Read and strictly follow the steps defined in \`.agents/workflows/sprint-finalize-task.md\` to track state.\n`;
       md += `4. If you encounter an unresolvable error, execute: \`node .agents/scripts/update-task-state.js ${fullTaskId} blocked\` and alert the user.\n\n`;

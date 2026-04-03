@@ -189,9 +189,17 @@ export function enrichManifest(manifest) {
       task.secondaryModel = task.mode === 'Planning' ? defaultModels.planningFallback : defaultModels.fastFallback;
     }
     
-    // Prevent duplicate model fallbacks
-    if (task.secondaryModel === task.model) {
+    // Prevent duplicate model fallbacks (check substring containment, not just equality)
+    if (task.secondaryModel && task.model && task.model.includes(task.secondaryModel)) {
+      task.secondaryModel = null;
+    } else if (task.secondaryModel === task.model) {
       task.secondaryModel = task.model === defaultModels.planningFallback ? defaultModels.fastFallback : defaultModels.planningFallback;
+    }
+
+    // Strip HITL from non-bookend development tasks — human reviews at integration
+    const isBookend = task.isIntegration || task.isQA || task.isCodeReview || task.isRetro || task.isCloseSprint;
+    if (!isBookend && task.requires_approval) {
+      delete task.requires_approval;
     }
 
     // Auto-expand scope if instructions reference multiple workspaces

@@ -6,6 +6,31 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 and this project adheres to
 [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [3.4.4] - 2026-04-03
+
+### Fixed
+
+- **Close-out Literal Variable Trap**: Separated the cognitive instruction
+  ("Analyze your diff, then run this command with your generated message") from
+  the executable bash pattern, preventing agents from literally committing
+  placeholder strings into git history.
+- **Model Duplication Bug**: Fixed the fallback dedup check to use `.includes()`
+  substring matching instead of strict `===` equality, eliminating triple-model
+  strings like
+  `Claude Sonnet 4.6 (Think) OR Gemini 3.1 Pro (High) OR Gemini 3.1 Pro (High)`.
+- **HITL Over-Flagging**: Engine now strips `requires_approval` from non-bookend
+  development tasks during enrichment, reserving HITL stops exclusively for
+  Integration, Code Review, and Close-Sprint phases.
+
+### Added
+
+- **Cache/Eviction Test Heuristic**: Tasks modifying caching or memory
+  management logic must include explicit test-writing instructions.
+- **Soft-Verb Replacement Heuristic**: Instructions using "validate that" /
+  "ensure that" must be replaced with explicit CLI execution commands.
+- **Astro Build Verification Heuristic**: `.astro`/`.tsx` text replacements must
+  mandate both `typecheck` AND `build` to catch structural HTML errors.
+
 ## [3.4.3] - 2026-04-03
 
 ### Fixed
