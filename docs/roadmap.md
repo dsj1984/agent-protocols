@@ -25,6 +25,10 @@ and future architectural evolution for the Agent Protocols framework.
 - ✅ **Perception-Action Event Stream:** Decouple core logic from the
   environment by shifting to an event-stream abstraction where agents read the
   history of events and produce the next atomic action.
+- ✅ **Isolated Multi-Agent Parallelization**: Eliminated Git lock race
+  conditions during concurrent executions via native \`git worktree\` isolation.
+- ✅ **Strict Workflow Patterns**: Integrated \`Evaluator-Optimizer\` and
+  \`Prompt Chaining\` pattern enforcement into the core orchestration loop.
 
 ## Implemented: Version 3.x (Optimization & Refinement)
 
@@ -110,7 +114,7 @@ the baseline structure, rules, and fundamental execution pipeline.
 - ✅ **Submodule Distribution**: Established the `dist` branch mechanism for
   consumer consumption.
 
-## Version 4.0: Enterprise-Grade Autonomy & Scalability
+## Version 4.x: Enterprise-Grade Autonomy & Scalability
 
 Version 4 transitions the framework from sequential scripting to robust, highly
 scalable, and secure engineering pipelines.
@@ -127,16 +131,7 @@ scalable, and secure engineering pipelines.
   constraints via a unified agent configuration file at the repository root to
   ensure cross-platform interoperability.
 
-### 2. Architectural Orchestration and Multi-Agent Collaboration
-
-- **Isolated Multi-Agent Parallelization:** Enforce the use of isolated working
-  directories for parallel feature branch execution to prevent source control
-  race conditions.
-- **Strict Workflow Patterns:** Enforce execution architectures such as Prompt
-  Chaining, Semantic Routing, and Evaluator-Optimizer loops to manage complexity
-  and drift.
-
-### 3. Autonomous Quality Assurance and Continuous Refactoring
+### 2. Autonomous Quality Assurance and Continuous Refactoring
 
 - **Event-Driven Headless CI/CD:** Containerize the execution interface to
   function as an actions runner, allowing agents to asynchronously resolve
@@ -151,7 +146,7 @@ scalable, and secure engineering pipelines.
   continuously scan for redundant patterns and automatically generate
   Architecture Decision Records (ADRs) upon feature merges.
 
-### 4. Enterprise-Grade Security and Adversarial Resilience
+### 3. Enterprise-Grade Security and Adversarial Resilience
 
 - **Secure Sandboxing:** Instantiate all task sessions within ephemeral,
   containerized Linux environments to explicitly isolate system resources from
@@ -167,7 +162,7 @@ scalable, and secure engineering pipelines.
   establish an immutable, verifiable chain of custody proving code passed all
   security protocols prior to deployment.
 
-### 5. Observability and Real-Time Telemetry
+### 4. Observability and Real-Time Telemetry
 
 - **Ephemeral Local Web Dashboard:** Transition the Telemetry Observer from
   Markdown reports to an interactive local web dashboard for richer data

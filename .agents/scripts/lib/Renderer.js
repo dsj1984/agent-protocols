@@ -212,9 +212,12 @@ export function renderPlaybook(manifest, chatSessions, chatDeps, options = {}) {
       md += `**Pre-flight Task Validation (Run this first):**\n`;
       md += `\`node .agents/scripts/verify-prereqs.js ${docsRoot}/sprint-${sprintNum}/playbook.md ${fullTaskId} ${options.taskStateRoot || 'temp/task-state'}\`\n\n`;
 
+      const targetBranch = task.isIntegration || task.isQA || task.isCodeReview || task.isRetro || task.isCloseSprint ? `sprint-${sprintNum}` : `task/sprint-${sprintNum}/${task.id}`;
+      const taskPattern = task.pattern || 'default';
+
       md += `**Perception-Action Event Stream Protocol:**\n`;
       md += `All environmental interactions MUST be streamed. Start the loop via:\n`;
-      md += `\`node .agents/scripts/run-agent-loop.js ${fullTaskId}\`\n`;
+      md += `\`node .agents/scripts/run-agent-loop.js ${fullTaskId} --branch ${targetBranch} --pattern ${taskPattern}\`\n`;
       md += `Feed Atomic Action JSON payloads into its stdin. Reference \`.agents/schemas/atomic-action-schema.json\` for the format. Do not use random bash execution.\n\n`;
 
       md += `**Instructions:**\n`;
@@ -225,29 +228,6 @@ export function renderPlaybook(manifest, chatSessions, chatDeps, options = {}) {
         md += line.trim().startsWith('-') ? `   ${line.trim()}\n` : `   - ${line.trim()}\n`;
       }
 
-      // Explicit Chained Branching Commands
-      let branchInstruction = `git fetch origin && git checkout sprint-${sprintNum} && git checkout -b task/sprint-${sprintNum}/${task.id}`;
-      
-      const isBookend = task.isIntegration || task.isQA || task.isCodeReview || task.isRetro || task.isCloseSprint;
-
-      if (isBookend) {
-          branchInstruction = `git fetch origin && git checkout sprint-${sprintNum}`;
-      } else if (taskDeps) {
-          // Chain branching from the first explicit dependency
-          const firstDepId = task.dependsOn[0];
-          
-          branchInstruction = `git fetch origin && git checkout -b task/sprint-${sprintNum}/${task.id} origin/task/sprint-${sprintNum}/${firstDepId}`;
-
-          // If there are multiple dependencies, merge them into the new working branch
-          if (task.dependsOn.length > 1) {
-              for (let i = 1; i < task.dependsOn.length; i++) {
-                  const depId = task.dependsOn[i];
-                  branchInstruction += ` && git merge origin/task/sprint-${sprintNum}/${depId} -m "chore: merge dependency ${depId}"`;
-              }
-          }
-      }
-
-      md += `   - **Branching**: \`${branchInstruction}\`\n`;
       md += `   - **Mark Executing**: \`node .agents/scripts/update-task-state.js ${fullTaskId} executing\`\n`;
 
       if (task.isCodeReview) {
