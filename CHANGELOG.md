@@ -6,7 +6,22 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 and this project adheres to
 [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
-## [3.3.2] - 2026-04-02
+## [3.3.5] - 2026-04-03
+
+### Fixed
+- **Markdown Code Block Collisions**: Upgraded the outer agent prompt wrapper in `Renderer.js` to use 4 backticks (```` ````markdown ````). This prevents Golden Example triple-backticks from prematurely closing the prompt and corrupting the playbook's structure.
+
+## [3.3.4] - 2026-04-03
+
+### Added
+- **Manual Fix Finalization Prompt**: Updated `Renderer.js` to automatically inject a specialized **DevOps/Git-Flow** cleanup prompt into Code Review tasks. This ensures manual architectural fixes are correctly committed and merged back into the sprint base branch before QA begins.
+
+## [3.3.3] - 2026-04-03
+
+### Changed
+- **Nomenclature Realignment**: Updated all visual and textual references in the playbook and integration workflows to use `Pending Integration` and `Integrated` instead of the ambiguous "Not Started" vs "Complete".
+
+## [3.3.2] - 2026-04-03
 
 ### Changed
 
