@@ -186,6 +186,11 @@ export function enrichManifest(manifest) {
     if (!task.secondaryModel) {
       task.secondaryModel = task.mode === 'Planning' ? defaultModels.planningFallback : defaultModels.fastFallback;
     }
+    
+    // Prevent duplicate model fallbacks
+    if (task.secondaryModel === task.model) {
+      task.secondaryModel = task.model === defaultModels.planningFallback ? defaultModels.fastFallback : defaultModels.planningFallback;
+    }
   }
 }
 

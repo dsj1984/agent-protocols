@@ -6,6 +6,25 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 and this project adheres to
 [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [3.3.9] - 2026-04-03
+
+### Fixed
+
+- **Bash Command Literal Execution**: Refactored `Renderer.js` prompt logic to
+  explicitly decouple cognitive instructions from bash command strings,
+  preventing agents from hyper-literally executing the text `<generate...>`
+  instead of an actual message.
+- **Model Fallback Determinism**: Overhauled `generate-playbook.js` manifest
+  enrichment to automatically invert default fallback assignments when the
+  primary model matches the fallback family, ensuring 100% diversity in the
+  retry loop.
+
+### Added
+
+- **Zod Schema Bridge Heuristic**: Added a systemic guardrail to `config.json`
+  enforcing the generation and export of validation schemas (Zod) during
+  database migration tasks to proactively stabilize downstream API consumption.
+
 ## [3.3.8] - 2026-04-03
 
 ### Fixed
