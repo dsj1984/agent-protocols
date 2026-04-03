@@ -188,7 +188,7 @@ export function renderPlaybook(manifest, chatSessions, chatDeps, options = {}) {
 
       md += `**Branching:**\n`;
       md += `All task work MUST occur on the branch specified in your instructions.\n`;
-      md += `If this task depends on previous tasks, ensure you have merged or checked out their respective feature branches before beginning work.\n\n`;
+      md += `If this task depends on previous tasks, ensure you have fetched the latest remote state (\`git fetch origin\`) and merged or checked out their respective feature branches before beginning work.\n\n`;
 
       md += `**Close-out:**\n`;
       md += `1. Commit your changes: Stage your files and execute a conventional commit (e.g., git commit -m "feat(ui): update colors"). If the working tree is clean, skip this step.\n`;
