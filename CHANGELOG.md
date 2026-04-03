@@ -13,16 +13,21 @@ and this project adheres to
 - **Refactored Playbook Generation**:
   - Replaced abstract `/[.agents/workflows/... ]` commands with explicit natural
     language instructions to prevent LLMs from hallucinating bash commands.
-  - Added explicit instructions for agents to push their integrated branches in
-    the close-out workflow.
+  - Added explicit instructions for agents to push their integrated branches
+    using `git push -u origin HEAD`.
   - Modified task instructions presentation so bulleted lists format correctly
     under the task header line.
+  - Reordered bookend pipeline: **Code Review** now strictly precedes **QA
+    Audit** to ensure tests run on architecturally approved code.
 
 ### Fixed
 
 - **Execution & Branching Bugs**:
-  - Ensured tasks dynamically inherit explicit branch checkout instructions
-    (especially integration/QA tasks that should not branch off blindly).
+  - Implemented **chained branching commands** for dependent tasks: agents now
+    explicitly checkout their prerequisite branch before creating their own
+    feature branch.
+  - Enforced **universal pre-flight validation**: EVERY task (including roots)
+    now executes `verify-prereqs.js` for environment and state consistency.
   - Fixed implicit dependency flaws where task steps without explicit
     `dependsOn` declarations were bypassing pre-flight `verify-prereqs`
     execution instructions inside the agent context.

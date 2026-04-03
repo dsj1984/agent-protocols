@@ -302,10 +302,10 @@ describe('groupIntoChatSessions', () => {
     assert.ok(sessions[sessions.length - 1].mode === 'PMBookend');
     assert.ok(sessions[sessions.length - 2].label.includes('Merge & Verify'));
     assert.ok(sessions[sessions.length - 2].mode === 'SequentialBookend');
-    // Session 2 tasks should be Integration (041.2.1) and QA (041.2.2)
-    assert.equal(sessions[1].tasks.length, 2);
-    // Session 3 tasks should be Review, Retro, Close
-    assert.equal(sessions[2].tasks.length, 3);
+    // Session 2 tasks should be Integration, Review, and QA
+    assert.equal(sessions[1].tasks.length, 3);
+    // Session 3 tasks should be Retro, Close
+    assert.equal(sessions[2].tasks.length, 2);
   });
 
   it('scoped tasks at the same layer are separated into concurrent sessions', () => {
@@ -428,7 +428,7 @@ describe('renderPlaybook', () => {
     assert.ok(md.includes('sprint-finalize-task'));
   });
 
-  it('omits the prerequisite workflow in the static header and manual command when no dependencies exist', () => {
+  it('includes the prerequisite workflow globally even when no dependencies exist (universal pre-flight)', () => {
     const manifest = makeManifest({
       tasks: [makeTask({ id: 'a', title: 'Only Task', dependsOn: [] })],
     });
@@ -438,9 +438,9 @@ describe('renderPlaybook', () => {
     const chatDeps = computeChatDependencies(sessions, adjacency);
     const md = renderPlaybook(manifest, sessions, chatDeps);
 
-    // The entire pre-flight verification block is correctly omitted
-    assert.ok(!md.includes('sprint-verify-task-prerequisites'));
-    assert.ok(!md.includes('node .agents/scripts/verify-prereqs.js'));
+    // Now universal as of v3.3.1
+    assert.ok(md.includes('sprint-verify-task-prerequisites'));
+    assert.ok(md.includes('node .agents/scripts/verify-prereqs.js'));
     assert.ok(md.includes('sprint-finalize-task'));
   });
 

@@ -176,20 +176,18 @@ export function renderPlaybook(manifest, chatSessions, chatDeps, options = {}) {
       const taskDeps = task.dependsOn && task.dependsOn.length > 0;
       const chatHasDeps = deps.length > 0;
       const hasImplicitDeps = taskIndex > 0;
-      const requiresValidation = chatHasDeps || taskDeps || hasImplicitDeps;
       
-      if (requiresValidation) {
-        md += `Before beginning work, you MUST run the pre-flight verification script to ensure all dependencies are committed.\n`;
-        md += `Read and strictly follow the steps defined in \`.agents/workflows/sprint-verify-task-prerequisites.md\` or run the manual verification script for your specific task.\n`;
-        md += `If the script fails, STOP immediately and ask the user to complete the blocking tasks.\n\n`;
-      }
+      // Enforce universal pre-flight validation (v3.3.1)
+      md += `Before beginning work, you MUST run the pre-flight verification script to ensure all dependencies are committed.\n`;
+      md += `Read and strictly follow the steps defined in \`.agents/workflows/sprint-verify-task-prerequisites.md\` or run the manual verification script for your specific task.\n`;
+      md += `If the script fails, STOP immediately and ask the user to complete the blocking tasks.\n\n`;
 
       md += `**Branching:**\n`;
       md += `All task work MUST occur on the branch specified in your instructions.\n`;
       md += `If this task depends on previous tasks, ensure you have merged or checked out their respective feature branches before beginning work.\n\n`;
 
       md += `**Close-out:**\n`;
-      md += `1. Push your branch: \`git push -u origin <branch-name>\`\n`;
+      md += `1. Push your branch: \`git push -u origin HEAD\`\n`;
       md += `2. Read and strictly follow the steps defined in \`.agents/workflows/sprint-finalize-task.md\` to track state.\n`;
       md += `3. If you encounter an unresolvable error, execute: \`node .agents/scripts/update-task-state.js ${fullTaskId} blocked\` and alert the user.\n\n`;
 
@@ -206,10 +204,9 @@ export function renderPlaybook(manifest, chatSessions, chatDeps, options = {}) {
         md += `> **🚨 HITL REQUIRED:** STOP and explicitly ask the user for approval via chat before proceeding with execution or commits.\n\n`;
       }
 
-      if (requiresValidation) {
-        md += `**Pre-flight Task Validation (Run this first):**\n`;
-        md += `\`node .agents/scripts/verify-prereqs.js ${docsRoot}/sprint-${sprintNum}/playbook.md ${fullTaskId}\`\n\n`;
-      }
+      // Enforce universal task-specific validation line
+      md += `**Pre-flight Task Validation (Run this first):**\n`;
+      md += `\`node .agents/scripts/verify-prereqs.js ${docsRoot}/sprint-${sprintNum}/playbook.md ${fullTaskId}\`\n\n`;
 
       md += `**Instructions:**\n`;
       md += `1. **Task ${task.id}:**\n`;
@@ -219,11 +216,17 @@ export function renderPlaybook(manifest, chatSessions, chatDeps, options = {}) {
         md += line.trim().startsWith('-') ? `   ${line.trim()}\n` : `   - ${line.trim()}\n`;
       }
 
+      // Explicit Chained Branching Commands
       let branchInstruction = `git checkout -b task/sprint-${sprintNum}/${task.id}`;
       if (task.isIntegration) {
           branchInstruction = `git checkout -b task/sprint-${sprintNum}/integration`;
       } else if (task.isQA || task.isCodeReview) {
           branchInstruction = `git checkout task/sprint-${sprintNum}/integration`;
+      } else if (taskDeps) {
+          // Chain branching from the first explicit dependency
+          const firstDepNumber = taskIdToNumber.get(task.dependsOn[0]);
+          const firstDepId = task.dependsOn[0];
+          branchInstruction = `git checkout task/sprint-${sprintNum}/${firstDepId} && git checkout -b task/sprint-${sprintNum}/${task.id}`;
       }
 
       md += `   - **Branching**: \`${branchInstruction}\`\n`;

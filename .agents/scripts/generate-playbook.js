@@ -276,12 +276,12 @@ function appendBookendSessions(chatSessions, bookendTasks, regularTasks, chatNum
     {
       label: 'Merge & Verify',
       mode: 'SequentialBookend',
-      keys: ['isIntegration', 'isQA']
+      keys: ['isIntegration', 'isCodeReview', 'isQA']
     },
     {
       label: 'Sprint Administration',
       mode: 'PMBookend',
-      keys: ['isCodeReview', 'isRetro', 'isCloseSprint']
+      keys: ['isRetro', 'isCloseSprint']
     }
   ];
 
