@@ -29,6 +29,9 @@ and future architectural evolution for the Agent Protocols framework.
   conditions during concurrent executions via native \`git worktree\` isolation.
 - ✅ **Strict Workflow Patterns**: Integrated \`Evaluator-Optimizer\` and
   \`Prompt Chaining\` pattern enforcement into the core orchestration loop.
+- ✅ **Cryptographic Provenance:** Digitally signed agent-generated test
+  receipts via asymmetric PKI to establish an immutable chain of custody prior
+  to deployment.
 
 ## Implemented: Version 3.x (Optimization & Refinement)
 
@@ -131,13 +134,7 @@ scalable, and secure engineering pipelines.
   constraints via a unified agent configuration file at the repository root to
   ensure cross-platform interoperability.
 
-### 2. Enterprise-Grade Security and Adversarial Resilience
-
-- **Cryptographic Provenance:** Digitally sign agent-generated test receipts to
-  establish an immutable, verifiable chain of custody proving code passed all
-  security protocols prior to deployment.
-
-### 3. Observability and Real-Time Telemetry
+### 2. Observability and Real-Time Telemetry
 
 - **Ephemeral Local Web Dashboard:** Transition the Telemetry Observer from
   Markdown reports to an interactive local web dashboard for richer data

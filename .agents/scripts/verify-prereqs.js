@@ -1,5 +1,6 @@
 import fs from 'node:fs';
 import path from 'node:path';
+import crypto from 'node:crypto';
 
 const playbookPath = process.argv[2];
 const targetTask = process.argv[3];
@@ -8,8 +9,8 @@ if (!playbookPath || !targetTask) {
   process.exit(1);
 }
 
-// 1. Resolve taskStateRoot from config.json if not provided as argument
 let taskStateRoot = process.argv[4];
+let requireCryptographicProvenance = false;
 if (!taskStateRoot) {
   taskStateRoot = 'temp/task-state';
   const configPath = path.resolve(process.cwd(), '.agents/config/config.json');
@@ -19,11 +20,15 @@ if (!taskStateRoot) {
       if (config?.properties?.taskStateRoot?.default) {
         taskStateRoot = config.properties.taskStateRoot.default;
       }
+      if (config?.securityOptions?.default?.requireCryptographicProvenance) {
+        requireCryptographicProvenance = config.securityOptions.default.requireCryptographicProvenance;
+      }
     } catch (err) {
       console.warn(`Could not parse config.json, using default: ${taskStateRoot}`);
     }
   }
 }
+
 
 if (!fs.existsSync(playbookPath)) {
   console.error(`Playbook not found: ${playbookPath}`);
@@ -77,11 +82,38 @@ if (parts.length === 3) {
 }
 
 function getDecoupledStatus(taskId) {
-  const stateFile = path.resolve(process.cwd(), taskStateRoot, `${taskId}.json`);
-  if (!fs.existsSync(stateFile)) return 'INCOMPLETE';
+  const stateFile = path.resolve(process.cwd(), taskStateRoot, `${taskId}-test-receipt.json`);
+  const committedStateFile = path.resolve(process.cwd(), taskStateRoot, `${taskId}.json`);
+  
+  let targetFile = null;
+  if (fs.existsSync(stateFile)) targetFile = stateFile;
+  else if (fs.existsSync(committedStateFile)) targetFile = committedStateFile;
+  else return 'INCOMPLETE';
+
   try {
-    const stateData = JSON.parse(fs.readFileSync(stateFile, 'utf8'));
-    if (stateData.status === 'committed' || stateData.status === 'passed') return 'COMPLETED'; // both count as satisfied
+    const stateData = JSON.parse(fs.readFileSync(targetFile, 'utf8'));
+    
+    // Check Cryptographic Provenance if present
+    if (stateData.signature && stateData.payload) {
+       const pubKeyPath = path.resolve(process.cwd(), '.agents/keys/public.pem');
+       if (fs.existsSync(pubKeyPath)) {
+          const pubKey = fs.readFileSync(pubKeyPath, 'utf8');
+          const payloadStr = JSON.stringify(stateData.payload);
+          
+          if (!crypto.verify(null, Buffer.from(payloadStr), pubKey, Buffer.from(stateData.signature, 'base64'))) {
+             console.error(`❌ CRITICAL SECURITY ERROR: Invalid Cryptographic Provenance signature for ${taskId}!`);
+             return 'INCOMPLETE';
+          }
+       }
+       if (stateData.payload.status === 'passed') return 'COMPLETED';
+    }
+
+    if (requireCryptographicProvenance && !stateData.signature) {
+       console.error(`❌ CRITICAL SECURITY ERROR: Cryptographic Provenance is required but missing for ${taskId}!`);
+       return 'INCOMPLETE';
+    }
+
+    if (stateData.status === 'committed' || stateData.status === 'passed') return 'COMPLETED'; 
     return 'INCOMPLETE';
   } catch (err) {
     return 'INCOMPLETE';

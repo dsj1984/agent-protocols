@@ -2,6 +2,7 @@ import fs from 'node:fs';
 import path from 'node:path';
 import { fileURLToPath } from 'node:url';
 import { execSync } from 'node:child_process';
+import crypto from 'node:crypto';
 
 /**
  * Standard utility to update the decoupled JSON state for an agent task.
@@ -59,8 +60,19 @@ try {
       timestamp: new Date().toISOString(),
       task: taskId
     };
-    fs.writeFileSync(receiptPath, JSON.stringify(receiptObject, null, 2));
-    console.log(`✅ Test receipt generated at ${receiptPath}`);
+
+    let finalPayload = receiptObject;
+    const keyPath = path.join(PROJECT_ROOT, '.agents/keys/private.pem');
+
+    if (fs.existsSync(keyPath)) {
+      const privateKey = fs.readFileSync(keyPath, 'utf8');
+      const payloadStr = JSON.stringify(receiptObject);
+      const signature = crypto.sign(null, Buffer.from(payloadStr), privateKey).toString('base64');
+      finalPayload = { payload: receiptObject, signature };
+    }
+
+    fs.writeFileSync(receiptPath, JSON.stringify(finalPayload, null, 2));
+    console.log(`✅ Test receipt generated at ${receiptPath}${finalPayload.signature ? ' (Cryptographically Signed)' : ''}`);
     
     // [APC Hook] Asynchronously extract and cache intent memory for future runs
     // Resolve sprint number from task-state directory context or default to latest

@@ -181,6 +181,20 @@
         "cacheDir": "temp/apc-cache"
       }
     },
+    "securityOptions": {
+      "type": "object",
+      "description": "Enterprise-grade security controls for agent framework validation.",
+      "properties": {
+        "requireCryptographicProvenance": {
+          "type": "boolean",
+          "default": false,
+          "description": "If true, the integration verification script will reject any task completion receipt that is not digitally signed."
+        }
+      },
+      "default": {
+        "requireCryptographicProvenance": false
+      }
+    },
     "bookendRequirements": {
       "type": "object",
       "description": "Mapping for bookend tasks to automatically define their required persona and skills.",

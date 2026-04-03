@@ -95,6 +95,16 @@ Developers can override protocol behavior for their specific machine by creating
 To prevent agents from getting stuck in analysis loops or performing excessively
 long tasks, the following guardrails are enforced:
 
+- **Isolated Multi-Agent Parallelization**: Natively intercepts sprint workflows
+  to wrap executed agents within `git worktree` isolated sub-directories,
+  automatically blocking concurrent branch collisions.
+- **Strict Workflow Patterns**: Injects CLI routing layers via `--pattern` on
+  the `run-agent-loop.js` orchestrator to natively support Evaluator-Optimizer
+  and Prompt Chaining behavior topologies.
+- **Cryptographic Provenance**: (Configurable) Digitally signs agent-generated
+  test receipts using asymmetric Ed25519 PKI. The framework establishes a true
+  zero-trust chain of custody that will block playbook progression if receipts
+  are altered or generated incorrectly.
 - **Anti-Thrashing Protocol**: Mandates that an agent MUST halt, summarize its
   blockers, and present a **Re-Plan** if it hits consecutive tool errors OR
   performs consecutive steps of analysis without modifying a file.

@@ -10,6 +10,10 @@ and this project adheres to
 
 ### Added
 
+- **Cryptographic Provenance**: Integrated automated ED25519 PKI digital
+  signatures into the agent receipt pipeline. By enabling
+  `requireCryptographicProvenance` in `config.json`, the framework establishes a
+  Zero-Trust immutable chain of custody for playbook integration gates.
 - **Perception-Action Event Stream Protocol**: Implemented the core architecture
   for decoupling agent reasoning from environment execution. Playbooks now
   strictly enforce discrete, atomic environmental interactions via a localized

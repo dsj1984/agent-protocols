@@ -58,6 +58,16 @@ Now you can run: `npm run update:agents`.
 The framework includes built-in guardrails to prevent agent stagnation and
 ensure high-quality sprint execution:
 
+- **Isolated Multi-Agent Parallelization**: Natively intercepts sprint workflows
+  to wrap executed agents within `git worktree` isolated sub-directories,
+  automatically blocking concurrent branch collisions.
+- **Strict Workflow Patterns**: Injects CLI routing layers via `--pattern` on
+  the `run-agent-loop.js` orchestrator to natively support Evaluator-Optimizer
+  and Prompt Chaining behavior topologies.
+- **Cryptographic Provenance**: (Configurable) Digitally signs agent-generated
+  test receipts using asymmetric Ed25519 PKI. The framework establishes a true
+  zero-trust chain of custody that will block playbook progression if receipts
+  are altered or generated incorrectly.
 - **Anti-Thrashing Protocol**: Mandates agents to halt and re-plan after hitting
   configurable thresholds for tool errors or analysis steps without progress.
   Controlled via `frictionThresholds` in `.agents/config/config.json`.
