@@ -19,6 +19,8 @@ and this project adheres to
     under the task header line.
   - Reordered bookend pipeline: **Code Review** now strictly precedes **QA
     Audit** to ensure tests run on architecturally approved code.
+  - Enforced deterministic ordering by recalculating graph adjacency after
+    grouping, ensuring the markdown execution plan matches the logical flow.
 
 ### Fixed
 
@@ -26,6 +28,10 @@ and this project adheres to
   - Implemented **chained branching commands** for dependent tasks: agents now
     explicitly checkout their prerequisite branch before creating their own
     feature branch.
+  - Added **intelligent pathspec mapping**: dependencies on integration, QA, or
+    Code Review tasks now correctly resolve to the `integration` branch.
+  - Optimized administrative workflows: **Sprint Close Out** now reuses the
+    retro branch to minimize redundant git tree clutter.
   - Enforced **universal pre-flight validation**: EVERY task (including roots)
     now executes `verify-prereqs.js` for environment and state consistency.
   - Fixed implicit dependency flaws where task steps without explicit

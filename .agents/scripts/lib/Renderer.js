@@ -222,11 +222,22 @@ export function renderPlaybook(manifest, chatSessions, chatDeps, options = {}) {
           branchInstruction = `git checkout -b task/sprint-${sprintNum}/integration`;
       } else if (task.isQA || task.isCodeReview) {
           branchInstruction = `git checkout task/sprint-${sprintNum}/integration`;
+      } else if (task.isCloseSprint) {
+          const firstDepNumber = taskIdToNumber.get(task.dependsOn[0]);
+          const firstDepId = task.dependsOn[0];
+          branchInstruction = `git checkout task/sprint-${sprintNum}/${firstDepId}`;
       } else if (taskDeps) {
           // Chain branching from the first explicit dependency
           const firstDepNumber = taskIdToNumber.get(task.dependsOn[0]);
           const firstDepId = task.dependsOn[0];
-          branchInstruction = `git checkout task/sprint-${sprintNum}/${firstDepId} && git checkout -b task/sprint-${sprintNum}/${task.id}`;
+          
+          // Map bookend dependencies to the 'integration' branch name
+          const depTask = manifest.tasks.find(t => t.id === firstDepId);
+          const depBranch = (depTask?.isIntegration || depTask?.isQA || depTask?.isCodeReview) 
+            ? 'integration' 
+            : firstDepId;
+            
+          branchInstruction = `git checkout task/sprint-${sprintNum}/${depBranch} && git checkout -b task/sprint-${sprintNum}/${task.id}`;
       }
 
       md += `   - **Branching**: \`${branchInstruction}\`\n`;

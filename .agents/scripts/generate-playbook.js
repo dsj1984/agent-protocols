@@ -382,17 +382,20 @@ export function generateFromManifest(manifest, options = {}) {
   // 4. Assign layers
   const layers = assignLayers(adjacency);
 
-  // 5. Group into Chat Sessions
+  // 5. Group into Chat Sessions (which internally overrides happens-before relations for bookends)
   const chatSessions = groupIntoChatSessions(manifest.tasks, layers, adjacency);
 
-  // 6. Apply transitive reduction to individual tasks before rendering instructions
-  const reducedAdjacency = transitiveReduction(adjacency);
+  // 6. Re-build graph to capture mutated relations from grouping before reduction
+  const { adjacency: groupedAdjacency } = buildGraph(manifest.tasks);
+
+  // 7. Apply transitive reduction to individual tasks before rendering instructions
+  const reducedAdjacency = transitiveReduction(groupedAdjacency);
   for (const task of manifest.tasks) {
     task.dependsOn = reducedAdjacency.get(task.id) || [];
   }
 
-  // 7. Compute cross-chat dependencies
-  const chatDeps = computeChatDependencies(chatSessions, adjacency);
+  // 8. Compute cross-chat dependencies
+  const chatDeps = computeChatDependencies(chatSessions, groupedAdjacency);
 
   // 8. Render
   const markdown = renderPlaybook(manifest, chatSessions, chatDeps, options);
