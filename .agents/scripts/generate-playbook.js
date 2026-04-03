@@ -206,7 +206,7 @@ export function enrichManifest(manifest) {
     if (task.scope && task.scope !== 'root' && typeof task.instructions === 'string') {
       const instructionText = task.instructions.toLowerCase();
       const crossPackageIndicators = ['monorepo', 'across the', 'platform-wide', 'all packages'];
-      const packageMentions = ['expo', 'mobile', 'native', 'api', 'web', 'astro', 'shared'];
+      const packageMentions = ['expo', 'mobile', 'native', 'api', 'web', 'astro', 'shared', 'e2e', 'playwright', 'test'];
       const mentionedPackages = packageMentions.filter(p => instructionText.includes(p));
       const hasCrossPackageLanguage = crossPackageIndicators.some(ind => instructionText.includes(ind));
 
@@ -480,7 +480,15 @@ export function generateFromManifest(manifest, options = {}) {
   // 8. Compute cross-chat dependencies
   const chatDeps = computeChatDependencies(chatSessions, groupedAdjacency);
 
-  // 8. Render
+  // 9. Warn if mandatory bookend tasks are missing
+  const bookendTypes = ['isIntegration', 'isCodeReview', 'isQA', 'isRetro', 'isCloseSprint'];
+  for (const type of bookendTypes) {
+    if (!manifest.tasks.some(t => t[type])) {
+      console.warn(`⚠️  Manifest is missing a mandatory bookend task: ${type}. The playbook may be incomplete.`);
+    }
+  }
+
+  // 10. Render
   const markdown = renderPlaybook(manifest, chatSessions, chatDeps, options);
 
   return { markdown, chatSessions, chatDeps };

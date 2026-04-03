@@ -233,13 +233,13 @@ export function renderPlaybook(manifest, chatSessions, chatDeps, options = {}) {
           // Chain branching from the first explicit dependency
           const firstDepId = task.dependsOn[0];
           
-          branchInstruction = `git fetch origin && git checkout task/sprint-${sprintNum}/${firstDepId} && git checkout -b task/sprint-${sprintNum}/${task.id}`;
+          branchInstruction = `git fetch origin && git checkout -b task/sprint-${sprintNum}/${task.id} origin/task/sprint-${sprintNum}/${firstDepId}`;
 
           // If there are multiple dependencies, merge them into the new working branch
           if (task.dependsOn.length > 1) {
               for (let i = 1; i < task.dependsOn.length; i++) {
                   const depId = task.dependsOn[i];
-                  branchInstruction += ` && git merge task/sprint-${sprintNum}/${depId} -m "chore: merge dependency ${depId}"`;
+                  branchInstruction += ` && git merge origin/task/sprint-${sprintNum}/${depId} -m "chore: merge dependency ${depId}"`;
               }
           }
       }

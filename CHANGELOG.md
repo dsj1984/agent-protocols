@@ -6,6 +6,24 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 and this project adheres to
 [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [3.4.5] - 2026-04-03
+
+### Fixed
+
+- **Remote-Tracking Merge Refs**: Fixed dependency-chaining branching in
+  `Renderer.js` to use `origin/task/sprint-N/...` remote-tracking refs instead
+  of local branch names, preventing `not something we can merge` crashes in
+  ephemeral environments.
+- **Scope Auto-Expansion for E2E**: Added `e2e`, `playwright`, and `test` to the
+  cross-package detection keywords, ensuring E2E-scoped tasks auto-expand to
+  `root` when their instructions reference testing workspaces.
+
+### Added
+
+- **Bookend Completeness Warning**: Post-generation validation now emits
+  warnings if any mandatory bookend task type (Integration, Code Review, QA,
+  Retro, Close-Sprint) is missing from the manifest.
+
 ## [3.4.4] - 2026-04-03
 
 ### Fixed
