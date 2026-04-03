@@ -1,0 +1,219 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "title": "Agent Protocols — Unified Root Configuration",
+  "version": "4.0.0",
+  "agentSettings": {
+    "autoRunSafeCommands": true,
+    "defaultPersona": "engineer",
+    "maxInstructionSteps": 5,
+    "baseBranch": "main",
+    "sprintDocsRoot": "docs/sprints",
+    "sprintNumberPadding": 3,
+    "taskStateRoot": "temp/task-state",
+    "goldenExamplesRoot": "temp/golden-examples",
+    "maxTokenBudget": 1000000,
+    "budgetWarningThreshold": 0.8,
+    "webhookUrl": "",
+    "validationCommand": "pnpm turbo run lint",
+    "testCommand": "pnpm turbo run test",
+    "exploratoryTestCommand": "pnpm test:exploratory",
+    "typecheckCommand": "pnpm turbo run typecheck",
+    "buildCommand": "pnpm turbo run build",
+    "frictionThresholds": {
+      "repetitiveCommandCount": 3,
+      "consecutiveErrorCount": 3,
+      "stagnationStepCount": 5,
+      "maxIntegrationRetries": 2
+    },
+    "defaultModels": {
+      "planningFallback": "Claude Sonnet 4.6 (Think) OR Gemini 3.1 Pro (High)",
+      "fastFallback": "Gemini 3 Flash"
+    },
+    "apcCacheSettings": {
+      "strictHashing": true,
+      "ttlDays": 30,
+      "enableSpeculativeExecution": true,
+      "cacheDir": "temp/apc-cache"
+    },
+    "securityOptions": {
+      "requireCryptographicProvenance": false
+    },
+    "bookendRequirements": {
+      "isIntegration": {
+        "persona": "engineer",
+        "skills": [
+          "architecture/monorepo-path-strategist",
+          "devops/git-flow-specialist"
+        ]
+      },
+      "isQA": {
+        "persona": "qa-engineer",
+        "skills": [],
+        "model": "Claude Sonnet 4.6 (Think) OR Gemini 3.1 Pro (High)"
+      },
+      "isCodeReview": {
+        "persona": "architect",
+        "skills": [
+          "devops/git-flow-specialist"
+        ],
+        "model": "Claude Sonnet 4.6 (Think) OR Gemini 3.1 Pro (High)"
+      },
+      "isRetro": {
+        "persona": "product",
+        "skills": [
+          "architecture/markdown"
+        ],
+        "model": "Claude Sonnet 4.6 (Think) OR Gemini 3.1 Pro (High)"
+      },
+      "isCloseSprint": {
+        "persona": "devops-engineer",
+        "skills": [
+          "devops/git-flow-specialist"
+        ]
+      },
+      "riskGates": {
+        "heuristics": [
+          "Destructive database mutations or unrecoverable state changes.",
+          "Structural anomalies or modifications to shared infrastructure (IAM, global security layers).",
+          "Functional logic that deviates from the localized intent of the PRD.",
+          "Any UX, layout, or backend edge caching implementations MUST require programmatic tests (e.g., Playwright, Vitest) in their instructions, as agents lack visual DOM contexts locally.",
+          "Global Search & Replace (AST/SED) refactors must enforce an immediate post-replace verification gate (e.g., the configured `typecheckCommand` or `buildCommand`) before closing out.",
+          "Database ORM instructions must dictate applying changes to the local schema (e.g., `db:push` alongside `db:generate`) to ensure downstream API agents operate on a valid test database.",
+          "Tests implementing PRNG/Stochastic seed structures must explicitly log their initialization vectors to `stdout` to guarantee CI reproducibility.",
+          "When updating theming architectures to use downstream tokens, strictly instruct agents to avoid reverting to hardcoded inline hex values.",
+          "When updating database schemas, explicitly instruct agents to generate & export associated validation schemas (e.g., Zod) if downstream API tasks will consume them.",
+          "When assigning a `scope` to a task, strictly constrain it to legit package.json workspace names (e.g., `@repo/web`) or use the literal string `root` for global sweeps to prevent `pnpm --filter` crashes.",
+          "Monorepo Type Safety sweeps must dictate running the configured `typecheckCommand` to verify strict typing passes with zero warnings on critical data paths.",
+          "For UI standardization tasks, strictly anchor instructions to design system documentation. NEVER use subjective or abstract aesthetic terms (e.g., 'premium aesthetic', 'clean modern feel') to prevent CSS frame hallucinations.",
+          "Any task performing cross-codebase text replacements (including UI standardizations or hex-code sweeps) MUST require executing the configured `typecheckCommand` immediately to verify syntax boundaries were not broken.",
+          "Monorepo-wide sweeping tasks (e.g., AST replacements, global type safety refactors, design system audits) MUST NOT be executed in parallel if they target overlapping file extensions. Ensure they are explicitly serialized (one depends on the other) to prevent catastrophic git merge conflicts.",
+          "Tasks modifying caching, eviction, or memory management logic MUST include explicit instructions to write programmatic tests (e.g., Vitest assertions) that verify the eviction policy triggers correctly under boundary conditions.",
+          "Instructions using soft verification verbs (e.g., 'validate that', 'ensure that', 'verify that') for deterministic reproducibility or correctness MUST be replaced with explicit CLI execution commands (e.g., 'Execute the test suite via CLI twice using the same seed').",
+          "Tasks performing cross-codebase text replacements in `.astro` or `.tsx` template files MUST mandate both the configured `typecheckCommand` AND `buildCommand` to catch structural HTML/JSX errors that the TypeScript compiler alone cannot detect."
+        ]
+      }
+    }
+  },
+  "models": {
+    "categories": [
+      {
+        "name": "The Architects (Planning & Complex Problem Solving)",
+        "description": "These models are your \"Lead Engineers.\" Use them when the agent needs to design systems, resolve complex bugs, or map out a multi-step execution plan.",
+        "models": [
+          {
+            "name": "Claude Opus 4.6 (Thinking)",
+            "guidance": "Use this as your ultimate escalation model. If your agent is stuck in a loop, failing to resolve a bug after multiple attempts, or needs to design a complex, multi-file system architecture from scratch, Opus with \"Thinking\" will give you the deepest reasoning and highest success rate. It is slow and expensive, so reserve it for when the agent must get the logic right the first time."
+          },
+          {
+            "name": "Gemini 3.1 Pro (High)",
+            "guidance": "Use this for heavy-lifting tasks that require massive context windows and deep synthesis. If your agent needs to ingest an entire large repository, understand the interactions between distant microservices, or execute a massive, sweeping refactor, the \"High\" effort setting ensures it thoroughly analyzes the codebase before writing."
+          }
+        ]
+      },
+      {
+        "name": "The Workhorses (Feature Execution)",
+        "description": "These models are your \"Mid-Level Developers.\" They offer the best balance of intelligence and speed for day-to-day autonomous tasks.",
+        "models": [
+          {
+            "name": "Claude Sonnet 4.6 (Thinking)",
+            "guidance": "This is arguably the best default model for your primary coding agent. Because it has \"Thinking\" enabled, it can reliably break down a Jira ticket or feature request, plan the necessary file changes, and execute them without the latency and cost of Opus. Use it for standard feature implementations and API integrations."
+          },
+          {
+            "name": "Gemini 3.1 Pro (Low)",
+            "guidance": "Use this when you need top-tier coding knowledge (rare languages, complex frameworks) but the task itself is straightforward and doesn't require deep, multi-step reasoning. Setting it to \"Low\" effort reduces latency, making it great for writing complex unit tests or translating code from one language to another where the logic is already defined."
+          }
+        ]
+      },
+      {
+        "name": "The Sprinters (Rapid Iteration & Tool Use)",
+        "description": "These models are your \"Junior Devs\" or \"Linters.\" They are built for speed and volume.",
+        "models": [
+          {
+            "name": "Gemini 3 Flash",
+            "guidance": "Use this for the \"inner loop\" of your agentic workflow. Flash is perfect for highly repetitive, low-reasoning tasks: generating boilerplate code, fixing simple syntax errors caught by the compiler, formatting data, or acting as a fast \"critic\" agent that briefly reviews the output of other models before it gets committed."
+          }
+        ]
+      },
+      {
+        "name": "The Specialists (Privacy & Local/Custom Needs)",
+        "description": "Large open-weight models for restricted environments.",
+        "models": [
+          {
+            "name": "GPT-OSS 120B (Medium)",
+            "guidance": "This represents a large open-weight model. Use this if your agent is handling highly sensitive, proprietary data that you are restricted from sending to commercial APIs. A 120B model is highly capable for standard coding tasks, and the \"Medium\" setting provides a good balance of compute efficiency if you are running it on limited internal infrastructure."
+          }
+        ]
+      }
+    ],
+    "chaining_guidance": "A highly efficient agentic workflow usually uses a Planner-Executor-Reviewer pattern. For example, you might use **Claude Opus 4.6 (Thinking)** to read the prompt and write the architectural plan, pass that plan to **Claude Sonnet 4.6 (Thinking)** or **Gemini 3.1 Pro (Low)** to actually write the files, and use **Gemini 3 Flash** to rapidly fix any compilation errors the agent encounters along the way.",
+    "finops_recommendations": {
+      "budget_optimization": "To maximize your `maxTokenBudget`, adhere to the following tier-based allocation:",
+      "tiers": [
+        {
+          "strategy": "Boilerplate & Fixes",
+          "recommendation": "Use **The Sprinters** (Gemini 3 Flash). This category accounts for 60-80% of total agent steps but should consume less than 10% of the budget."
+        },
+        {
+          "strategy": "Standard Features",
+          "recommendation": "Use **The Workhorses** (Sonnet 4.6 or Gemini 3.1 Pro Low). These are the balanced models for core building."
+        },
+        {
+          "strategy": "Architectural Design",
+          "recommendation": "Use **The Architects** (Opus 4.6). Reserve these for the 5-10% of tasks that define the system boundary to ensure zero-regret engineering."
+        }
+      ]
+    }
+  },
+  "techStack": {
+    "project": {
+      "name": "[PROJECT_NAME]",
+      "packageManager": "pnpm",
+      "monorepoTool": "Turborepo"
+    },
+    "workspaces": {
+      "web": "@repo/web",
+      "mobile": "@repo/mobile",
+      "api": "@repo/api",
+      "shared": "@repo/shared"
+    },
+    "database": {
+      "provider": "Turso",
+      "dialect": "SQLite (libSQL)",
+      "orm": "Drizzle ORM",
+      "schemaPath": "packages/shared/src/db/schema.ts",
+      "migrationCommand": "pnpm --filter @repo/shared db:generate"
+    },
+    "api": {
+      "framework": "Hono",
+      "runtime": "Cloudflare Workers",
+      "routesPath": "apps/api/src/routes/",
+      "validationLibrary": "Zod",
+      "schemasPath": "packages/shared/src/schemas/index.ts"
+    },
+    "auth": {
+      "provider": "Clerk",
+      "middleware": "Clerk authentication middleware"
+    },
+    "frontend": {
+      "web": {
+        "framework": "Astro",
+        "uiLibrary": "React (Islands)",
+        "styling": "Tailwind CSS"
+      },
+      "mobile": {
+        "framework": "Expo",
+        "uiLibrary": "React Native",
+        "router": "Expo Router"
+      }
+    },
+    "testing": {
+      "unitFramework": "Vitest",
+      "e2eFramework": "Playwright",
+      "testFilePattern": "*.test.ts"
+    },
+    "deployment": {
+      "platform": "Cloudflare",
+      "ci": "GitHub Actions"
+    }
+  }
+}

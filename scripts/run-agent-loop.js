@@ -1,0 +1,49 @@
+#!/usr/bin/env node
+
+/**
+ * run-agent-loop.js
+ *
+ * CLI entry point for the Perception-Action Event Stream.
+ * All orchestration logic lives in lib/AgentLoopRunner.js —
+ * this file only parses CLI arguments and starts the runner.
+ *
+ * Usage:
+ *   node .agents/scripts/run-agent-loop.js <task-id> [--branch <branch>] [--pattern <pattern>]
+ */
+
+import path from 'node:path';
+import { fileURLToPath } from 'node:url';
+import { AgentLoopRunner } from './lib/AgentLoopRunner.js';
+import { Logger } from './lib/Logger.js';
+
+const __dirname = path.dirname(fileURLToPath(import.meta.url));
+const PROJECT_ROOT = path.resolve(__dirname, '../..');
+
+// ---------------------------------------------------------------------------
+// Parse CLI arguments
+// ---------------------------------------------------------------------------
+
+let taskId = null;
+let pattern = 'default';
+let branch = null;
+
+for (let i = 2; i < process.argv.length; i++) {
+  if (process.argv[i] === '--pattern') {
+    pattern = process.argv[++i];
+  } else if (process.argv[i] === '--branch') {
+    branch = process.argv[++i];
+  } else if (!taskId) {
+    taskId = process.argv[i];
+  }
+}
+
+if (!taskId) {
+  Logger.fatal('Usage: node run-agent-loop.js <task-id> [--branch <branch_name>] [--pattern <pattern_name>]');
+}
+
+// ---------------------------------------------------------------------------
+// Bootstrap the runner
+// ---------------------------------------------------------------------------
+
+const runner = new AgentLoopRunner({ taskId, projectRoot: PROJECT_ROOT, branch, pattern });
+runner.start(process.stdin);
