@@ -245,11 +245,18 @@ export function renderPlaybook(manifest, chatSessions, chatDeps, options = {}) {
       md += `   - **Mark Executing**: \`node .agents/scripts/update-task-state.js ${fullTaskId} executing\`\n`;
 
       if (task.isCodeReview) {
-        md += `\n**Manual Fix Finalization:**\n`;
-        md += `If you made manual fixes during this review, you MUST run this cleanup prompt to synchronize them with the base branch before proceeding to QA:\n`;
-        md += `\`\`\`bash\n`;
-        md += `git add . && git commit -m "fix(review): implement architectural code review feedback"\n`;
-        md += `git checkout sprint-${sprintNum} && git merge task/sprint-${sprintNum}/integration && git push origin sprint-${sprintNum}\n`;
+        md += `\n**Manual Fix Finalization (AGENT PROMPT):**\n`;
+        md += `If manual fixes were implemented during this review, YOU MUST run this realignment prompt to synchronize them before proceeding to QA:\n`;
+        md += `\`\`\`markdown\n`;
+        md += `=== VOLATILE TASK CONTEXT ===\n`;
+        md += `**Persona**: devops-engineer\n`;
+        md += `**Loaded Skills**: \`devops/git-flow-specialist\`\n`;
+        md += `\n=== INSTRUCTIONS ===\n`;
+        md += `I have completed the manual implementation of architectural fixes from the Code Review. Please execute the final synchronization to align the repository:\n\n`;
+        md += `1. **Commit Review Fixes**: Stage and commit any uncommitted architectural fixes: \`git add . && git commit -m "fix(review): implement architectural code review feedback\"\`\n`;
+        md += `2. **Realign with Sprint Base**: Switch to the base branch and merge your fixes: \`git checkout sprint-${sprintNum} && git merge task/sprint-${sprintNum}/integration && git push origin sprint-${sprintNum}\`\n`;
+        md += `3. **Prune Feature Branch**: Delete the local feature branch to keep the graph clean: \`git branch -d task/sprint-${sprintNum}/integration\`\n`;
+        md += `4. **Update State**: Mark the code review task as passed to generate the test receipt: \`node .agents/scripts/update-task-state.js ${fullTaskId} passed\`\n`;
         md += `\`\`\`\n`;
       }
 
