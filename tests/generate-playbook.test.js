@@ -6,6 +6,7 @@ import {
   generateFromManifest,
 } from '../.agents/scripts/generate-playbook.js';
 import fs from 'node:fs';
+import { vol } from 'memfs';
 
 import {
   buildGraph,
@@ -445,27 +446,28 @@ describe('renderPlaybook', () => {
   });
 
   it('injects golden examples when present in the golden-examples directory', (t) => {
-    // Mock fs functions to simulate golden examples being present
+    // Implement memfs mocking
+    vol.reset();
+    vol.fromJSON({
+      'test-task-1.md': 'Golden Example 1 Content',
+      'test-task-2.md': 'Golden Example 2 Content'
+    }, '/golden-examples');
+
     t.mock.method(fs, 'existsSync', (pathStr) => {
-      if (pathStr.includes('golden-examples')) return true;
-      // Pass through other calls
-      try {
-        fs.accessSync(pathStr);
-        return true;
-      } catch {
-        return false;
-      }
+      if (String(pathStr).includes('golden-examples')) return true;
+      try { fs.accessSync(pathStr); return true; } catch { return false; }
     });
 
     t.mock.method(fs, 'readdirSync', (pathStr) => {
-      if (pathStr.includes('golden-examples')) return ['test-task-1.md', 'test-task-2.md'];
-      return fs.readdirSync(pathStr); // pass through if needed (might fail without options)
+      if (String(pathStr).includes('golden-examples')) return ['test-task-1.md', 'test-task-2.md'];
+      return fs.readdirSync(pathStr);
     });
 
     t.mock.method(fs, 'readFileSync', (pathStr, encoding) => {
-      if (pathStr.includes('test-task-1.md')) return 'Golden Example 1 Content';
-      if (pathStr.includes('test-task-2.md')) return 'Golden Example 2 Content';
-      return 'Mocked readFileSync fallback';
+      const p = String(pathStr);
+      if (p.includes('test-task-1.md')) return vol.readFileSync('/golden-examples/test-task-1.md', 'utf8');
+      if (p.includes('test-task-2.md')) return vol.readFileSync('/golden-examples/test-task-2.md', 'utf8');
+      return fs.readFileSync(pathStr, encoding);
     });
 
     const manifest = makeManifest({
