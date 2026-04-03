@@ -394,38 +394,56 @@ export function generateFromManifest(manifest, options = {}) {
     throw new Error(`Dependency cycle detected: ${cycle.join(' → ')}`);
   }
 
-  // 3.5 Validate Focus Area Concurrent Overlaps
-  const reachable = computeReachability(adjacency);
-  const overlapErrors = [];
-  const nodes = [...adjacency.keys()];
-  for (let i = 0; i < nodes.length; i++) {
-    for (let j = i + 1; j < nodes.length; j++) {
-      const taskA = taskMap.get(nodes[i]);
-      const taskB = taskMap.get(nodes[j]);
+  // 3.5 Auto-Serialize Concurrent Overlaps and Global Sweeps
+  let reachable = computeReachability(adjacency);
+  let graphMutated = false;
+  
+  for (let i = 0; i < manifest.tasks.length; i++) {
+    for (let j = i + 1; j < manifest.tasks.length; j++) {
+      const taskA = manifest.tasks[i];
+      const taskB = manifest.tasks[j];
       
       const areasA = Array.isArray(taskA.focusAreas) ? taskA.focusAreas : [];
       const areasB = Array.isArray(taskB.focusAreas) ? taskB.focusAreas : [];
       
+      const isGlobalA = taskA.scope === 'root' || areasA.includes('*');
+      const isGlobalB = taskB.scope === 'root' || areasB.includes('*');
+      
       const overlap = areasA.find(a => areasB.includes(a));
-      if (overlap) {
+      
+      if (overlap || (isGlobalA && isGlobalB)) {
          const aReachesB = reachable.get(taskA.id)?.has(taskB.id);
          const bReachesA = reachable.get(taskB.id)?.has(taskA.id);
          
          if (!aReachesB && !bReachesA) {
-            overlapErrors.push(`Tasks "${taskA.id}" and "${taskB.id}" share focusArea "${overlap}" but have no sequential dependency. Add a dependsOn edge to prevent merge conflicts.`);
-         } // Note: This check only guarantees sequential checkout
+            // Auto-serialize parallel tasks
+            if (!taskB.dependsOn) taskB.dependsOn = [];
+            taskB.dependsOn.push(taskA.id);
+            graphMutated = true;
+            
+            // Recompute incrementally
+            const tempGraph = buildGraph(manifest.tasks);
+            reachable = computeReachability(tempGraph.adjacency);
+         }
       }
     }
   }
-  if (overlapErrors.length > 0) {
-    throw new Error(`Manifest validation failed:\n${overlapErrors.map(e => `  - ${e}`).join('\n')}`);
+
+  let finalAdjacency = adjacency;
+  if (graphMutated) {
+    const updatedGraph = buildGraph(manifest.tasks);
+    finalAdjacency = updatedGraph.adjacency;
+    const cycle2 = detectCycle(finalAdjacency);
+    if (cycle2) {
+      throw new Error(`Dependency cycle detected after auto-serialization: ${cycle2.join(' → ')}`);
+    }
   }
 
   // 4. Assign layers
-  const layers = assignLayers(adjacency);
+  const layers = assignLayers(finalAdjacency);
 
   // 5. Group into Chat Sessions (which internally overrides happens-before relations for bookends)
-  const chatSessions = groupIntoChatSessions(manifest.tasks, layers, adjacency);
+  const chatSessions = groupIntoChatSessions(manifest.tasks, layers, finalAdjacency);
 
   // 6. Re-build graph to capture mutated relations from grouping before reduction
   const { adjacency: groupedAdjacency } = buildGraph(manifest.tasks);
