@@ -71,10 +71,6 @@ export function renderTaskInstructions(task, sprintNumber) {
   if (task.isCloseSprint) {
     return `Execute the \`sprint-close-out\` workflow for \`${sprintNumber}\`.`;
   }
-  
-  if (task.instructions && typeof task.instructions === 'string') {
-    return task.instructions.replace(/- \*\*Branching\*\*: git checkout/g, '- **Branching**: git fetch origin && git checkout');
-  }
 
   return task.instructions;
 }
@@ -196,7 +192,7 @@ export function renderPlaybook(manifest, chatSessions, chatDeps, options = {}) {
       md += `If this task depends on previous tasks, ensure you have fetched the latest remote state (\`git fetch origin\`) and merged or checked out their respective feature branches before beginning work.\n\n`;
 
       md += `**Close-out:**\n`;
-      md += `1. Commit your changes: Stage your files and execute a dynamically generated conventional commit describing your specific changes. (Do not copy-paste generic examples). If the working tree is clean, skip this step.\n`;
+      md += `1. Commit your changes: \`git add . && (git diff --staged --quiet || git commit -m "<dynamically generate your conventional commit here>")\`\n`;
       md += `2. Push your branch: \`git push -u origin HEAD\`\n`;
       md += `3. Read and strictly follow the steps defined in \`.agents/workflows/sprint-finalize-task.md\` to track state.\n`;
       md += `4. If you encounter an unresolvable error, execute: \`node .agents/scripts/update-task-state.js ${fullTaskId} blocked\` and alert the user.\n\n`;
@@ -227,17 +223,17 @@ export function renderPlaybook(manifest, chatSessions, chatDeps, options = {}) {
       }
 
       // Explicit Chained Branching Commands
-      let branchInstruction = `git checkout sprint-${sprintNum} && git checkout -b task/sprint-${sprintNum}/${task.id}`;
+      let branchInstruction = `git fetch origin && git checkout sprint-${sprintNum} && git checkout -b task/sprint-${sprintNum}/${task.id}`;
       
       const isBookend = task.isIntegration || task.isQA || task.isCodeReview || task.isRetro || task.isCloseSprint;
 
       if (isBookend) {
-          branchInstruction = `git checkout sprint-${sprintNum}`;
+          branchInstruction = `git fetch origin && git checkout sprint-${sprintNum}`;
       } else if (taskDeps) {
           // Chain branching from the first explicit dependency
           const firstDepId = task.dependsOn[0];
           
-          branchInstruction = `git checkout task/sprint-${sprintNum}/${firstDepId} && git checkout -b task/sprint-${sprintNum}/${task.id}`;
+          branchInstruction = `git fetch origin && git checkout task/sprint-${sprintNum}/${firstDepId} && git checkout -b task/sprint-${sprintNum}/${task.id}`;
 
           // If there are multiple dependencies, merge them into the new working branch
           if (task.dependsOn.length > 1) {

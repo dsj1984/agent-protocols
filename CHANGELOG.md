@@ -6,6 +6,30 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 and this project adheres to
 [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [3.4.3] - 2026-04-03
+
+### Fixed
+
+- **Auto-Serialization Guard Widened**: Changed the overlap detection from `&&`
+  (both global) to `||` (either global) in `generate-playbook.js`, ensuring any
+  `scope: root` task forces serialization with all parallel tasks to prevent
+  merge conflicts.
+- **Scope Auto-Expansion**: Added cross-package instruction analysis in
+  `enrichManifest` that auto-expands task scope to `root` when instructions
+  reference 2+ workspace indicators (e.g., "Astro" + "Expo"), preventing agent
+  sandbox crashes.
+- **Close-out Clean Tree Crash**: Replaced prose-only commit instructions in
+  `Renderer.js` with a crash-safe bash pattern
+  (`git diff --staged --quiet || git commit`) that returns `exit 0` on clean
+  working trees.
+- **Branching Fetch Injection**: Moved `git fetch origin` from a regex on the
+  task instructions field (which agents don't copy) into the actual
+  `branchInstruction` builder (which agents do copy) across all three code paths
+  (default, bookend, dependency-chaining).
+- **Bookend Model Elevation**: Added `model` overrides to `isQA`,
+  `isCodeReview`, and `isRetro` bookend requirements in `config.json`, and wired
+  `enrichManifest` to apply them to the primary model field.
+
 ## [3.4.2] - 2026-04-03
 
 ### Fixed

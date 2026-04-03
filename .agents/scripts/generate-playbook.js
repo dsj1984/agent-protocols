@@ -176,6 +176,8 @@ export function enrichManifest(manifest) {
     for (const [key, req] of Object.entries(bookendRequirements)) {
       if (task[key]) {
         if (!task.persona) task.persona = req.persona;
+        // Elevate primary model for analysis-heavy bookend tasks
+        if (req.model) task.model = req.model;
         for (const skill of req.skills) {
           if (!task.skills.includes(skill)) task.skills.push(skill);
         }
@@ -190,6 +192,19 @@ export function enrichManifest(manifest) {
     // Prevent duplicate model fallbacks
     if (task.secondaryModel === task.model) {
       task.secondaryModel = task.model === defaultModels.planningFallback ? defaultModels.fastFallback : defaultModels.planningFallback;
+    }
+
+    // Auto-expand scope if instructions reference multiple workspaces
+    if (task.scope && task.scope !== 'root' && typeof task.instructions === 'string') {
+      const instructionText = task.instructions.toLowerCase();
+      const crossPackageIndicators = ['monorepo', 'across the', 'platform-wide', 'all packages'];
+      const packageMentions = ['expo', 'mobile', 'native', 'api', 'web', 'astro', 'shared'];
+      const mentionedPackages = packageMentions.filter(p => instructionText.includes(p));
+      const hasCrossPackageLanguage = crossPackageIndicators.some(ind => instructionText.includes(ind));
+
+      if (mentionedPackages.length >= 2 || hasCrossPackageLanguage) {
+        task.scope = 'root';
+      }
     }
   }
 }
@@ -411,7 +426,7 @@ export function generateFromManifest(manifest, options = {}) {
       
       const overlap = areasA.find(a => areasB.includes(a));
       
-      if (overlap || (isGlobalA && isGlobalB)) {
+      if (overlap || isGlobalA || isGlobalB) {
          const aReachesB = reachable.get(taskA.id)?.has(taskB.id);
          const bReachesA = reachable.get(taskB.id)?.has(taskA.id);
          

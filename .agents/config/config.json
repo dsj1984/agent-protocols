@@ -149,19 +149,22 @@
         },
         "isQA": {
           "persona": "qa-engineer",
-          "skills": []
+          "skills": [],
+          "model": "Claude Sonnet 4.6 (Think) OR Gemini 3.1 Pro (High)"
         },
         "isCodeReview": {
           "persona": "architect",
           "skills": [
             "devops/git-flow-specialist"
-          ]
+          ],
+          "model": "Claude Sonnet 4.6 (Think) OR Gemini 3.1 Pro (High)"
         },
         "isRetro": {
           "persona": "product",
           "skills": [
             "architecture/markdown"
-          ]
+          ],
+          "model": "Claude Sonnet 4.6 (Think) OR Gemini 3.1 Pro (High)"
         },
         "isCloseSprint": {
           "persona": "devops-engineer",
