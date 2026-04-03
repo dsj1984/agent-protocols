@@ -6,6 +6,26 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 and this project adheres to
 [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [3.2.1] - 2026-04-02
+
+### Changed
+
+- **Refactored Playbook Task Layout**:
+  - Grouped task metadata, dependencies, and agent prompts into a single,
+    unified, sequential block per task for better readability and execution
+    clarity.
+  - Removed top-level `#### Tasks` and `#### Agent Prompt` headings to streamline
+    the execution plan.
+  - Unified the checkbox format to `[ ] **{taskId}** {taskTitle}` without leading
+    markdown dashes.
+
+### Fixed
+
+- **Resilient Prerequisite Verification**:
+  - Updated `verify-prereqs.js` regex logic to support both legacy (`- [ ]`) and
+    new (`[ ]`) checkbox formats, ensuring backward compatibility for concurrent
+    sprints.
+
 ## [3.2.0] - 2026-04-02
 
 ### Added

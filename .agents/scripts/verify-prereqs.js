@@ -19,7 +19,7 @@ const content = fs.readFileSync(playbookPath, 'utf8');
 
 // Parse task statuses from playbook (only [x] is considered COMPLETE here)
 const taskStatus = new Map();
-const taskRegex = /^- \[([ xX])\] \*\*([\d\.]+)\*\*\s/gm;
+const taskRegex = /^\s*(?:-\s*)?\[([ xX])\] \*\*([\d\.]+)\*\*/gm;
 let match;
 while ((match = taskRegex.exec(content)) !== null) {
   const statusMark = match[1];
@@ -38,7 +38,7 @@ if (!taskStatus.has(targetTask)) {
 
 // Find explicit dependencies for targetTask
 const escapedTask = targetTask.replace(/\./g, '\\.');
-const taskBlockRegex = new RegExp(`- \\[[ xX]\\] \\*\\*${escapedTask}\\*\\*[\\s\\S]*?(?=- \\[[ xX]\\] \\*\\*\\d|$)`, 'g');
+const taskBlockRegex = new RegExp(`^\\s*(?:-\\s*)?\\[[ xX]\\] \\*\\*${escapedTask}\\*\\*[\\s\\S]*?(?=^\\s*(?:-\\s*)?\\[[ xX]\\] \\*\\*\\d|$)`, 'gm');
 const taskBlockMatch = taskBlockRegex.exec(content);
 
 const dependencies = new Set();

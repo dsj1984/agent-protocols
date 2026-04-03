@@ -132,8 +132,6 @@ export function renderPlaybook(manifest, chatSessions, chatDeps, options = {}) {
   md += `## 📋 Execution Plan\n\n`;
 
   for (const session of chatSessions) {
-    const sessionLabel = `${session.chatNumber}`; // simplifying
-    
     // Playbook header needs Playbook Path to be perfectly backward compatible
     md += `### ${session.icon} Chat Session ${session.chatNumber}: ${session.label}\n\n`;
 
@@ -143,12 +141,16 @@ export function renderPlaybook(manifest, chatSessions, chatDeps, options = {}) {
       md += `> **⚠️ PREREQUISITE:** Do not start this session until **Chat(s) ${deps.join(', ')}** are fully marked as Complete.\n\n`;
     }
 
-    // Emit tasks
-    md += `#### Tasks\n\n`;
+    // Emit unified task blocks
     for (const task of session.tasks) {
-      md += `- [ ] **${taskIdToNumber.get(task.id)}** ${task.title}\n`;
+      const fullTaskId = taskIdToNumber.get(task.id);
       
-      md += `  - **Mode**: ${task.mode} | **Model (First Choice)**: ${task.model} | **Model (Second Choice)**: ${task.secondaryModel}\n`;
+      // Task Header & Checklist (No leading dash)
+      md += `[ ] **${fullTaskId}** ${task.title}\n`;
+      
+      // Task Metadata
+      md += `  - **Mode**: ${task.mode}\n`;
+      md += `  - **Model**: ${task.model} OR ${task.secondaryModel}\n`;
 
       if (task.scope) {
         md += `  - **Scope**: \`${task.scope}\`\n`;
@@ -159,17 +161,13 @@ export function renderPlaybook(manifest, chatSessions, chatDeps, options = {}) {
         md += `  - **HITL Check**: ⚠️ Requires explicit user approval before execution.\n`;
       }
 
-      if (task.dependsOn && task.dependsOn.length > 0) {
-        md += `  - **Dependencies**: ${task.dependsOn.map(id => `\`${taskIdToNumber.get(id)}\``).join(', ')}\n`;
-      }
-    }
-    md += `\n`;
+      // Dependencies (Show "None" if empty)
+      const depList = task.dependsOn && task.dependsOn.length > 0
+        ? task.dependsOn.map(id => `\`${taskIdToNumber.get(id)}\``).join(', ')
+        : 'None';
+      md += `  - **Dependencies**: ${depList}\n\n`;
 
-    // Code Blocks for individual tasks
-    for (const task of session.tasks) {
-      const fullTaskId = taskIdToNumber.get(task.id);
-      
-      md += `#### Agent Prompt: ${task.title}\n\n`;
+      // Agent Prompt
       md += `\`\`\`markdown\n`;
       md += `=== SYSTEM PROTOCOL & CAPABILITIES ===\n`;
       md += `**AGENT EXECUTION PROTOCOL:**\n`;
