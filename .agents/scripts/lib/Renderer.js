@@ -192,10 +192,8 @@ export function renderPlaybook(manifest, chatSessions, chatDeps, options = {}) {
       md += `If this task depends on previous tasks, ensure you have fetched the latest remote state (\`git fetch origin\`) and merged or checked out their respective feature branches before beginning work.\n\n`;
 
       md += `**Close-out:**\n`;
-      md += `1. Commit your changes: Analyze your diff, then run this command with your generated message: \`git add . && (git diff --staged --quiet || git commit -m "<INSERT_MESSAGE>")\`\n`;
-      md += `2. Push your branch: \`git push -u origin HEAD\`\n`;
-      md += `3. Read and strictly follow the steps defined in \`.agents/workflows/sprint-finalize-task.md\` to track state.\n`;
-      md += `4. If you encounter an unresolvable error, execute: \`node .agents/scripts/update-task-state.js ${fullTaskId} blocked\` and alert the user.\n\n`;
+      md += `1. **Complete & Finalize**: All code must be committed and pushed via the standard workflow. Read and strictly follow the steps defined in \`.agents/workflows/sprint-finalize-task.md\` to track state and notify the team.\n`;
+      md += `2. **Error Recovery**: If you encounter an unresolvable error, execute: \`node .agents/scripts/update-task-state.js ${fullTaskId} blocked\` and alert the user immediately.\n\n`;
 
       md += `=== VOLATILE TASK CONTEXT ===\n\n`;
       md += `**Persona**: ${task.persona}\n`;
@@ -212,7 +210,7 @@ export function renderPlaybook(manifest, chatSessions, chatDeps, options = {}) {
 
       // Enforce universal task-specific validation line
       md += `**Pre-flight Task Validation (Run this first):**\n`;
-      md += `\`node .agents/scripts/verify-prereqs.js ${docsRoot}/sprint-${sprintNum}/playbook.md ${fullTaskId}\`\n\n`;
+      md += `\`node .agents/scripts/verify-prereqs.js ${docsRoot}/sprint-${sprintNum}/playbook.md ${fullTaskId} ${options.taskStateRoot || 'temp/task-state'}\`\n\n`;
 
       md += `**Instructions:**\n`;
       md += `1. **Task ${task.id}:**\n`;

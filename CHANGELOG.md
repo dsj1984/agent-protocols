@@ -24,6 +24,20 @@ and this project adheres to
   the configured `typecheckCommand` and `buildCommand` keys, making the protocol
   portable across monorepos using different package managers or task runners.
 
+### Fixed
+
+- **Task State Stagnation**: Simplified agent "Close-out" instructions in
+  `Renderer.js` to eliminate redundant inline Git steps that were causing agents
+  to skip the mandatory `sprint-finalize-task` workflow and its state update
+  (`committed`).
+- **Hardened Prerequisite Verification**:
+  - Updated `Renderer.js` to explicitly pass the `taskStateRoot` argument to the
+    `verify-prereqs.js` pre-flight command.
+  - Upgraded `verify-prereqs.js` with internal configuration resolution to
+    correctly identify the decoupled task state directory even when CLI
+    arguments are omitted, matching the robustness of the primary status update
+    utility.
+
 ## [3.4.6] - 2026-04-03
 
 ### Changed

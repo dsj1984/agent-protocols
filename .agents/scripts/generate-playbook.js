@@ -47,6 +47,7 @@ const defaultModels = config?.properties?.defaultModels?.default || {
 const sprintDocsRoot = config?.properties?.sprintDocsRoot?.default || 'docs/sprints';
 const sprintNumberPadding = config?.properties?.sprintNumberPadding?.default || 3;
 const goldenExamplesRoot = config?.properties?.goldenExamplesRoot?.default || 'temp/golden-examples';
+const taskStateRoot = config?.properties?.taskStateRoot?.default || 'temp/task-state';
 
 // ---------------------------------------------------------------------------
 // Constants
@@ -383,6 +384,7 @@ export function generateFromManifest(manifest, options = {}) {
   if (!options.sprintDocsRoot) options.sprintDocsRoot = sprintDocsRoot;
   if (!options.sprintNumberPadding) options.sprintNumberPadding = sprintNumberPadding;
   if (!options.goldenExamplesRoot) options.goldenExamplesRoot = goldenExamplesRoot;
+  if (!options.taskStateRoot) options.taskStateRoot = taskStateRoot;
   if (!options.protocolVersion) {
     const versionPath = path.join(__dirname, '..', 'VERSION');
     try {

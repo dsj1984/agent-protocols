@@ -3,11 +3,26 @@ import path from 'node:path';
 
 const playbookPath = process.argv[2];
 const targetTask = process.argv[3];
-const taskStateRoot = process.argv[4] || 'temp/task-state';
-
 if (!playbookPath || !targetTask) {
   console.error('Usage: node verify-prereqs.js <playbook-path> <task-number> [task-state-root]');
   process.exit(1);
+}
+
+// 1. Resolve taskStateRoot from config.json if not provided as argument
+let taskStateRoot = process.argv[4];
+if (!taskStateRoot) {
+  taskStateRoot = 'temp/task-state';
+  const configPath = path.resolve(process.cwd(), '.agents/config/config.json');
+  if (fs.existsSync(configPath)) {
+    try {
+      const config = JSON.parse(fs.readFileSync(configPath, 'utf8'));
+      if (config?.properties?.taskStateRoot?.default) {
+        taskStateRoot = config.properties.taskStateRoot.default;
+      }
+    } catch (err) {
+      console.warn(`Could not parse config.json, using default: ${taskStateRoot}`);
+    }
+  }
 }
 
 if (!fs.existsSync(playbookPath)) {
