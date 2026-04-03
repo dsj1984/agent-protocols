@@ -1,6 +1,7 @@
 import fs from 'node:fs';
 import path from 'node:path';
-import { spawnSync } from 'node:child_process';
+import { spawnSync } from 'node:child_process';import { Logger } from "./lib/Logger.js";
+
 
 // Parse arguments
 // Usage: node diagnose-friction.js [--sprint <path>] --cmd <command...>
@@ -21,8 +22,8 @@ for (let i = 0; i < args.length; i++) {
 }
 
 if (cmdArgs.length === 0) {
-  console.error("Usage: node diagnose-friction.js [--sprint <path>] --cmd <command with args...>");
-  process.exit(1);
+  Logger.fatal("Usage: node diagnose-friction.js [--sprint <path>] --cmd <command with args...>");
+  
 }
 
 const commandStr = cmdArgs.join(' ');

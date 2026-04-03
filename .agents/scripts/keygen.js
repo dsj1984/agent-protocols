@@ -1,7 +1,8 @@
 import fs from 'node:fs';
 import path from 'node:path';
 import { fileURLToPath } from 'node:url';
-import crypto from 'node:crypto';
+import crypto from 'node:crypto';import { Logger } from "./lib/Logger.js";
+
 
 const __dirname = path.dirname(fileURLToPath(import.meta.url));
 const PROJECT_ROOT = path.resolve(__dirname, '../..');
@@ -29,6 +30,6 @@ try {
   console.log(`✅ Success: Private key written securely to ${privPath}`);
   console.log(`⚠️  WARNING: Do not commit private.pem to version control.`);
 } catch (err) {
-  console.error(`❌ Failed to generate key pair: ${err.message}`);
-  process.exit(1);
+  Logger.fatal(`❌ Failed to generate key pair: ${err.message}`);
+  
 }

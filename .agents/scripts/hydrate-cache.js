@@ -3,7 +3,8 @@ import path from 'node:path';
 import { fileURLToPath } from 'node:url';
 import { instance as CacheManager } from './lib/CacheManager.js';
 import { execSync } from 'node:child_process';
-import { resolveConfig } from './lib/config-resolver.js';
+import { resolveConfig } from './lib/config-resolver.js';import { Logger } from "./lib/Logger.js";
+
 
 const __dirname = path.dirname(fileURLToPath(import.meta.url));
 const PROJECT_ROOT = path.resolve(__dirname, '../..');
@@ -13,8 +14,8 @@ const sprintArg = process.argv[2];
 const taskId = process.argv[3];
 
 if (!sprintArg || !taskId) {
-  console.error('Usage: node hydrate-cache.js <sprint-number> <task-id>');
-  process.exit(1);
+  Logger.fatal('Usage: node hydrate-cache.js <sprint-number> <task-id>');
+  
 }
 
 // Resolve sprint docs root via unified config resolver
@@ -38,24 +39,24 @@ if (sprintArg === '000' || isNaN(parseInt(sprintArg, 10))) {
 
 const manifestPath = path.join(sprintDir, 'task-manifest.json');
 if (!fs.existsSync(manifestPath)) {
-  console.error(`Manifest not found: ${manifestPath}`);
-  process.exit(1);
+  Logger.fatal(`Manifest not found: ${manifestPath}`);
+  
 }
 
 const manifest = JSON.parse(fs.readFileSync(manifestPath, 'utf8'));
 const task = manifest.tasks.find(t => t.id === taskId);
 
 if (!task) {
-  console.error(`Task ${taskId} not found in manifest.`);
-  process.exit(1);
+  Logger.fatal(`Task ${taskId} not found in manifest.`);
+  
 }
 
 // 1. Resolve Cache Match
 const cacheMatch = CacheManager.hasMatch(task.instructions, task.focusAreas, task.scope);
 
 if (!cacheMatch) {
-    console.error(`❌ Cache miss for task ${taskId}. Cannot hydrate.`);
-    process.exit(1);
+    Logger.fatal(`❌ Cache miss for task ${taskId}. Cannot hydrate.`);
+    
 }
 
 console.log(`✅ Speculative Execution Hydrating Map [${cacheMatch.hash}] ...`);

@@ -11,7 +11,8 @@
 
 import fs from 'node:fs';
 import path from 'node:path';
-import { fileURLToPath } from 'node:url';
+import { fileURLToPath } from 'node:url';import { Logger } from "./lib/Logger.js";
+
 
 const __dirname = path.dirname(fileURLToPath(import.meta.url));
 const args = process.argv.slice(2);
@@ -55,8 +56,8 @@ function generateReport() {
   };
 
   if (!fs.existsSync(SPRINTS_ROOT)) {
-    console.error(`Sprints directory not found: ${SPRINTS_ROOT}`);
-    process.exit(1);
+    Logger.fatal(`Sprints directory not found: ${SPRINTS_ROOT}`);
+    
   }
 
   const sprintDirs = fs.readdirSync(SPRINTS_ROOT)

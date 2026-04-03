@@ -159,7 +159,8 @@ export function validateManifest(manifest) {
 // Manifest Enrichment
 // ---------------------------------------------------------------------------
 
-import { instance as CacheManager } from './lib/CacheManager.js';
+import { instance as CacheManager } from './lib/CacheManager.js';import { Logger } from "./lib/Logger.js";
+
 
 /**
  * Automatically injects required personas and skills for bookend tasks
@@ -511,14 +512,14 @@ function main() {
   const sprintArg = process.argv[2];
 
   if (!sprintArg) {
-    console.error('Usage: node scripts/generate-playbook.js <sprint-number>');
-    process.exit(1);
+    Logger.fatal('Usage: node scripts/generate-playbook.js <sprint-number>');
+    
   }
 
   const sprintNumber = parseInt(sprintArg, 10);
   if (isNaN(sprintNumber) || sprintNumber < 1) {
-    console.error(`Invalid sprint number: "${sprintArg}". Must be a positive integer.`);
-    process.exit(1);
+    Logger.fatal(`Invalid sprint number: "${sprintArg}". Must be a positive integer.`);
+    
   }
 
   // Normalize for robust directory resolution
@@ -539,8 +540,8 @@ function main() {
 
   if (!fs.existsSync(manifestPath)) {
     console.error(`Manifest not found: ${manifestPath}`);
-    console.error(`Create the task-manifest.json first, then run this script.`);
-    process.exit(1);
+    Logger.fatal(`Create the task-manifest.json first, then run this script.`);
+    
   }
 
   const raw = fs.readFileSync(manifestPath, 'utf8');
@@ -548,8 +549,8 @@ function main() {
   try {
     manifest = JSON.parse(raw);
   } catch (e) {
-    console.error(`Failed to parse ${manifestPath}: ${e.message}`);
-    process.exit(1);
+    Logger.fatal(`Failed to parse ${manifestPath}: ${e.message}`);
+    
   }
 
   const { markdown } = generateFromManifest(manifest, { agentsDir: AGENTS_DIR });

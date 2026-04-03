@@ -2,7 +2,8 @@ import fs from 'node:fs';
 import path from 'node:path';
 import { fileURLToPath } from 'node:url';
 import { execSync } from 'node:child_process';
-import readline from 'node:readline';
+import readline from 'node:readline';import { Logger } from "./lib/Logger.js";
+
 
 const __dirname = path.dirname(fileURLToPath(import.meta.url));
 const PROJECT_ROOT = path.resolve(__dirname, '../..');
@@ -22,8 +23,8 @@ for (let i = 2; i < process.argv.length; i++) {
 }
 
 if (!taskId) {
-  console.error('Usage: node run-agent-loop.js <task-id> [--branch <branch_name>] [--pattern <pattern_name>]');
-  process.exit(1);
+  Logger.fatal('Usage: node run-agent-loop.js <task-id> [--branch <branch_name>] [--pattern <pattern_name>]');
+  
 }
 
 let WORKING_DIR = PROJECT_ROOT;

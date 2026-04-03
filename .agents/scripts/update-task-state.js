@@ -3,7 +3,8 @@ import path from 'node:path';
 import { fileURLToPath } from 'node:url';
 import { execSync } from 'node:child_process';
 import crypto from 'node:crypto';
-import { resolveConfig } from './lib/config-resolver.js';
+import { resolveConfig } from './lib/config-resolver.js';import { Logger } from "./lib/Logger.js";
+
 
 /**
  * Standard utility to update the decoupled JSON state for an agent task.
@@ -17,8 +18,8 @@ const taskId = process.argv[2];
 const status = process.argv[3];
 
 if (!taskId || !status) {
-  console.error('Usage: node update-task-state.js <task-id> <status>');
-  process.exit(1);
+  Logger.fatal('Usage: node update-task-state.js <task-id> <status>');
+  
 }
 
 // 1. Resolve taskStateRoot via unified config resolver
@@ -80,6 +81,6 @@ try {
     }
   }
 } catch (err) {
-  console.error(`❌ Failed to update state for task ${taskId}:`, err.message);
-  process.exit(1);
+  Logger.fatal(`❌ Failed to update state for task ${taskId}:`, err.message);
+  
 }

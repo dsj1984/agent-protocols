@@ -1,13 +1,14 @@
 import fs from 'node:fs';
 import path from 'node:path';
 import crypto from 'node:crypto';
-import { resolveConfig } from './lib/config-resolver.js';
+import { resolveConfig } from './lib/config-resolver.js';import { Logger } from "./lib/Logger.js";
+
 
 const playbookPath = process.argv[2];
 const targetTask = process.argv[3];
 if (!playbookPath || !targetTask) {
-  console.error('Usage: node verify-prereqs.js <playbook-path> <task-number> [task-state-root]');
-  process.exit(1);
+  Logger.fatal('Usage: node verify-prereqs.js <playbook-path> <task-number> [task-state-root]');
+  
 }
 
 // 1. Resolve taskStateRoot + security options via unified config resolver
@@ -16,8 +17,8 @@ let taskStateRoot = process.argv[4] ?? agentConfig.taskStateRoot ?? 'temp/task-s
 let requireCryptographicProvenance = agentConfig.securityOptions?.requireCryptographicProvenance ?? false;
 
 if (!fs.existsSync(playbookPath)) {
-  console.error(`Playbook not found: ${playbookPath}`);
-  process.exit(1);
+  Logger.fatal(`Playbook not found: ${playbookPath}`);
+  
 }
 
 const content = fs.readFileSync(playbookPath, 'utf8');
@@ -33,8 +34,8 @@ while ((match = headerRegex.exec(content)) !== null) {
 }
 
 if (!taskStatus.has(targetTask)) {
-  console.error(`Task ${targetTask} not found in the playbook.`);
-  process.exit(1);
+  Logger.fatal(`Task ${targetTask} not found in the playbook.`);
+  
 }
 
 // Find the block of text specifically for targetTask
@@ -130,8 +131,8 @@ for (const dep of dependencies) {
 }
 
 if (hasFailedDeps) {
-  console.error(`\n❌ VERIFICATION FAILED: Task ${targetTask} is blocked by incomplete prerequisites.`);
-  process.exit(1);
+  Logger.fatal(`\n❌ VERIFICATION FAILED: Task ${targetTask} is blocked by incomplete prerequisites.`);
+  
 } else {
   console.log(`\n✅ VERIFICATION PASSED: All prerequisites for task ${targetTask} are satisfied.`);
   process.exit(0);

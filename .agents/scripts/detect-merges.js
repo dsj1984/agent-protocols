@@ -1,3 +1,4 @@
+import { Logger } from "./lib/Logger.js";
 const { execSync } = require('child_process');
 const fs = require('fs');
 const path = require('path');
@@ -33,13 +34,13 @@ try {
   }
 
   if (foundConflicts) {
-    console.error('\nERROR: Merge conflicts detected. Please resolve them before proceeding.');
-    process.exit(1);
+    Logger.fatal('\nERROR: Merge conflicts detected. Please resolve them before proceeding.');
+    
   } else {
     console.log('No conflict markers found in tracked files.');
     process.exit(0);
   }
 } catch (err) {
-  console.error('Error detecting merges:', err.message);
-  process.exit(1);
+  Logger.fatal('Error detecting merges:', err.message);
+  
 }

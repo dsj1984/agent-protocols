@@ -1,6 +1,7 @@
 import http from 'http';
 import https from 'https';
-import { URL } from 'url';
+import { URL } from 'url';import { Logger } from "./lib/Logger.js";
+
 
 const webhookUrl = process.argv[2];
 const message = process.argv[3];
@@ -11,8 +12,8 @@ if (!webhookUrl || webhookUrl === '[WEBHOOK_URL]' || webhookUrl.trim() === '') {
 }
 
 if (!message) {
-  console.error('ERROR: No message provided for the webhook.');
-  process.exit(1);
+  Logger.fatal('ERROR: No message provided for the webhook.');
+  
 }
 
 const payload = JSON.stringify({ message });
@@ -42,21 +43,21 @@ try {
           process.exit(0);
         } else {
           console.error(`Webhook failed. Status: ${res.statusCode} ${res.statusMessage}`);
-          console.error(`Response: ${responseBody}`);
-          process.exit(1);
+          Logger.fatal(`Response: ${responseBody}`);
+          
         }
       });
     }
   );
 
   req.on('error', (err) => {
-    console.error(`Webhook request failed: ${err.message}`);
-    process.exit(1);
+    Logger.fatal(`Webhook request failed: ${err.message}`);
+    
   });
 
   req.write(payload);
   req.end();
 } catch (err) {
-  console.error(`Invalid webhook URL or network error: ${err.message}`);
-  process.exit(1);
+  Logger.fatal(`Invalid webhook URL or network error: ${err.message}`);
+  
 }

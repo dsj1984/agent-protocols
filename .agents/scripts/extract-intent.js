@@ -2,7 +2,8 @@ import fs from 'node:fs';
 import path from 'node:path';
 import { fileURLToPath } from 'node:url';
 import { instance as CacheManager } from './lib/CacheManager.js';
-import { resolveConfig } from './lib/config-resolver.js';
+import { resolveConfig } from './lib/config-resolver.js';import { Logger } from "./lib/Logger.js";
+
 
 const __dirname = path.dirname(fileURLToPath(import.meta.url));
 const PROJECT_ROOT = path.resolve(__dirname, '../..');
@@ -12,8 +13,8 @@ const sprintArg = process.argv[2];
 const taskId = process.argv[3];
 
 if (!sprintArg || !taskId) {
-  console.error('Usage: node extract-intent.js <sprint-number> <task-id>');
-  process.exit(1);
+  Logger.fatal('Usage: node extract-intent.js <sprint-number> <task-id>');
+  
 }
 
 // 1. Resolve Config via unified resolver
@@ -38,16 +39,16 @@ if (sprintArg === '000') {
 
 const manifestPath = path.join(sprintDir, 'task-manifest.json');
 if (!fs.existsSync(manifestPath)) {
-  console.error(`Manifest not found: ${manifestPath}`);
-  process.exit(1);
+  Logger.fatal(`Manifest not found: ${manifestPath}`);
+  
 }
 
 const manifest = JSON.parse(fs.readFileSync(manifestPath, 'utf8'));
 const task = manifest.tasks.find(t => t.id === taskId);
 
 if (!task) {
-  console.error(`Task ${taskId} not found in manifest.`);
-  process.exit(1);
+  Logger.fatal(`Task ${taskId} not found in manifest.`);
+  
 }
 
 // 2. Extract Intent and Parameterize diff

@@ -1,4 +1,5 @@
-import fs from 'fs';
+import fs from 'fs';import { Logger } from "./lib/Logger.js";
+
 
 const args = process.argv.slice(2);
 const logFile = args[0];
@@ -23,6 +24,6 @@ const entry = {
 try {
   fs.appendFileSync(logFile, JSON.stringify(entry) + '\n');
 } catch (err) {
-  console.error(`Failed to write friction log to ${logFile}: ${err.message}`);
-  process.exit(1);
+  Logger.fatal(`Failed to write friction log to ${logFile}: ${err.message}`);
+  
 }

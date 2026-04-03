@@ -1,5 +1,6 @@
 import fs from 'fs';
-import path from 'path';
+import path from 'path';import { Logger } from "./lib/Logger.js";
+
 
 // Implements a lightweight, zero-dependency TF-IDF indexer for Local RAG
 const tempDir = path.join(process.cwd(), 'temp');
@@ -160,8 +161,8 @@ if (command === 'index') {
     buildIndex();
 } else if (command === 'search') {
     if (args.length === 0) {
-        console.error("Please provide a search query. Example: node context-indexer.js search \"user authentication flow\"");
-        process.exit(1);
+        Logger.fatal("Please provide a search query. Example: node context-indexer.js search \"user authentication flow\"");
+        
     }
     searchIndex(args.join(' '));
 } else {

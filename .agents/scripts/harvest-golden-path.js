@@ -2,7 +2,8 @@ import fs from 'node:fs';
 import path from 'node:path';
 import { execSync } from 'node:child_process';
 
-import { resolveConfig } from './lib/config-resolver.js';
+import { resolveConfig } from './lib/config-resolver.js';import { Logger } from "./lib/Logger.js";
+
 
 /**
  * Automates the harvesting of "Golden Architecture Paths". 
@@ -26,8 +27,8 @@ for (let i = 0; i < args.length; i++) {
 }
 
 if (!taskId || !sprintRoot) {
-  console.error("Usage: node .agents/scripts/harvest-golden-path.js --task <id> --sprint <path> [--base <branch>]");
-  process.exit(1);
+  Logger.fatal("Usage: node .agents/scripts/harvest-golden-path.js --task <id> --sprint <path> [--base <branch>]");
+  
 }
 
 const frictionLogPath = path.join(sprintRoot, 'agent-friction-log.json');
