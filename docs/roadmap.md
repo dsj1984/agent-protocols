@@ -131,7 +131,21 @@ scalable, and secure engineering pipelines.
   constraints via a unified agent configuration file at the repository root to
   ensure cross-platform interoperability.
 
-### 2. Autonomous Quality Assurance and Continuous Refactoring
+### 2. Enterprise-Grade Security and Adversarial Resilience
+
+- **Cryptographic Provenance:** Digitally sign agent-generated test receipts to
+  establish an immutable, verifiable chain of custody proving code passed all
+  security protocols prior to deployment.
+
+### 3. Observability and Real-Time Telemetry
+
+- **Ephemeral Local Web Dashboard:** Transition the Telemetry Observer from
+  Markdown reports to an interactive local web dashboard for richer data
+  visualization and real-time budget tracking.
+
+## Future Horizon: Version 5+
+
+### Autonomous Quality Assurance and Continuous Refactoring
 
 - **Event-Driven Headless CI/CD:** Containerize the execution interface to
   function as an actions runner, allowing agents to asynchronously resolve
@@ -145,34 +159,10 @@ scalable, and secure engineering pipelines.
 - **Living Documentation (Metadata Agents):** Utilize background agents to
   continuously scan for redundant patterns and automatically generate
   Architecture Decision Records (ADRs) upon feature merges.
-
-### 3. Enterprise-Grade Security and Adversarial Resilience
-
-- **Secure Sandboxing:** Instantiate all task sessions within ephemeral,
-  containerized Linux environments to explicitly isolate system resources from
-  the host environment.
 - **Autonomous Red vs. Blue Teaming:** Deploy an adversarial security protocol
   during the pre-release hardening phase, pitting an Autonomous Red Team
   (attempting exploits) against an Autonomous Blue Team (building real-time
   containment).
-- **Shadow Mode & Layered Guardrails:** Deploy new autonomous capabilities in a
-  human-validated "shadow mode" while enforcing programmatic escalation policies
-  that halt execution upon hitting confidence threshold failures.
-- **Cryptographic Provenance:** Digitally sign agent-generated test receipts to
-  establish an immutable, verifiable chain of custody proving code passed all
-  security protocols prior to deployment.
-
-### 4. Observability and Real-Time Telemetry
-
-- **Ephemeral Local Web Dashboard:** Transition the Telemetry Observer from
-  Markdown reports to an interactive local web dashboard for richer data
-  visualization and real-time budget tracking.
-
-## Future Horizon: Version 5+ (Advanced Autonomy)
-
-Focuses on the ultimate expression of agentic software development: systems that
-naturally evaluate external aesthetics and heal their own operational
-parameters.
 
 ### Multimodal Visual Verification
 
