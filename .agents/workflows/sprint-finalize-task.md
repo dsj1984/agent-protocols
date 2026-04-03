@@ -27,10 +27,15 @@ precisely:
    `git branch --show-current`. If the result is the base branch, **STOP
    IMMEDIATELY** and alert the user. All sprint work MUST happen on
    `sprint-[NUM]` or a `sprint-[NUM]/[TASK_ID]` feature branch.
-2. **Branch & Commit**: If not already on your feature branch, create it now:
-   `git checkout sprint-[SPRINT_NUMBER] ; git checkout -b task/sprint-[SPRINT_NUMBER]/[TASK_ID]`.
+2. **Branch & Commit**:
+   - **If completing a Bookend Task** (Integration, QA, Code Review, Retro): DO
+     NOT create or checkout a feature branch. Remain on
+     `sprint-[SPRINT_NUMBER]`.
+   - **If completing a Feature Task**: If not already on your feature branch,
+     create it now: \`git checkout sprint-[SPRINT_NUMBER] ; git checkout -b
+     task/sprint-[SPRINT_NUMBER]/[TASK_ID]\`.
    - **Note**: Stage your changes and commit using standard conventional
-     commits: `[type]([scope]): [lowercase conventional commit message]`.
+     commits: \`[type]([scope]): [lowercase conventional commit message]\`.
 3. **Runtime Rebase Wait-Loop**: Ensure your feature branch is perfectly
    up-to-date with the rest of the sprint and structurally sound.
    - Run `git pull --rebase origin sprint-[SPRINT_NUMBER]`.
@@ -43,8 +48,9 @@ precisely:
    `.agents/config/config.json` (default: `pnpm turbo run test`).
    - If tests fail: Stop immediately, fix the tests, and commit the fixes.
    - If tests pass: Proceed.
-6. **Push Feature Branch**: Push your code upstream:
-   `git push --force-with-lease -u origin HEAD`.
+6. **Push Branch**: Push your code upstream:
+   `git push --force-with-lease -u origin HEAD`. _(Note: For Bookend tasks, this
+   will push directly to the sprint base branch)._
 7. **State Sync**: Switch back to `sprint-[NUM]`. Execute `git pull --rebase` to
    fetch any state updates from sibling agents.
 8. **Update Task State (Decoupled)**:
@@ -95,6 +101,9 @@ precisely:
 ## Constraint
 
 Do NOT skip any of the steps above. You MUST ensure validation passes, your code
-feature branch is pushed, AND the decoupled task state file is committed on the
-sprint base branch. Do NOT merge your feature branch code directly into the
+branch is pushed, AND the decoupled task state file is committed.
+
+**For Feature Tasks:** Do NOT merge your feature branch code directly into the
 sprint base branch — the `sprint-integration` workflow handles all code merging.
+**For Bookend Tasks:** You will push directly to the sprint base branch since
+development is frozen and integration is already complete.

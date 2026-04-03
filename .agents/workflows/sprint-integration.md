@@ -88,10 +88,7 @@ feature branches.
    origin: `git push origin sprint-[SPRINT_NUMBER]`.
 9. **Branch Cleanup**: For each successfully merged feature branch, delete the
    remote ref: `git push origin --delete task/sprint-[SPRINT_NUMBER]/[TASK_ID]`.
-10. **Self-Cleanup**: Delete your OWN local and remote task branch for this
-    integration session:
-    `git branch -D task/sprint-[SPRINT_NUMBER]/[TASK_ID] ; git push origin --delete task/sprint-[SPRINT_NUMBER]/[TASK_ID]`.
-11. **Notification**: Resolve `[WEBHOOK_URL]` from the `webhookUrl` field in
+10. **Notification**: Resolve `[WEBHOOK_URL]` from the `webhookUrl` field in
     `.agents/config/config.json`. If `webhookUrl` is not empty, send a
     notification using the cross-platform Node script:
     `node .agents/scripts/notify.js "[WEBHOOK_URL]" "Sprint [SPRINT_NUMBER] feature branches have been integrated into the sprint base branch."`

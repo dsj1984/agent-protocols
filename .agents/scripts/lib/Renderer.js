@@ -219,26 +219,17 @@ export function renderPlaybook(manifest, chatSessions, chatDeps, options = {}) {
 
       // Explicit Chained Branching Commands
       let branchInstruction = `git checkout sprint-${sprintNum} && git checkout -b task/sprint-${sprintNum}/${task.id}`;
-      if (task.isIntegration) {
-          branchInstruction = `git checkout sprint-${sprintNum} && git checkout -b task/sprint-${sprintNum}/integration`;
-      } else if (task.isQA || task.isCodeReview) {
-          branchInstruction = `git checkout task/sprint-${sprintNum}/integration`;
-      } else if (task.isCloseSprint) {
-          const firstDepNumber = taskIdToNumber.get(task.dependsOn[0]);
-          const firstDepId = task.dependsOn[0];
-          branchInstruction = `git checkout task/sprint-${sprintNum}/${firstDepId}`;
+      
+      const isBookend = task.isIntegration || task.isQA || task.isCodeReview || task.isRetro || task.isCloseSprint;
+
+      if (isBookend) {
+          branchInstruction = `git checkout sprint-${sprintNum}`;
       } else if (taskDeps) {
           // Chain branching from the first explicit dependency
           const firstDepNumber = taskIdToNumber.get(task.dependsOn[0]);
           const firstDepId = task.dependsOn[0];
           
-          // Map bookend dependencies to the 'integration' branch name
-          const depTask = manifest.tasks.find(t => t.id === firstDepId);
-          const depBranch = (depTask?.isIntegration || depTask?.isQA || depTask?.isCodeReview) 
-            ? 'integration' 
-            : firstDepId;
-            
-          branchInstruction = `git checkout task/sprint-${sprintNum}/${depBranch} && git checkout -b task/sprint-${sprintNum}/${task.id}`;
+          branchInstruction = `git checkout task/sprint-${sprintNum}/${firstDepId} && git checkout -b task/sprint-${sprintNum}/${task.id}`;
       }
 
       md += `   - **Branching**: \`${branchInstruction}\`\n`;
@@ -253,10 +244,9 @@ export function renderPlaybook(manifest, chatSessions, chatDeps, options = {}) {
         md += `**Loaded Skills**: \`devops/git-flow-specialist\`\n`;
         md += `\n=== INSTRUCTIONS ===\n`;
         md += `I have completed the manual implementation of architectural fixes from the Code Review. Please execute the final synchronization to align the repository:\n\n`;
-        md += `1. **Commit Review Fixes**: Stage and commit any uncommitted architectural fixes: \`git add . && git commit -m "fix(review): implement architectural code review feedback\"\`\n`;
-        md += `2. **Realign with Sprint Base**: Switch to the base branch and merge your fixes: \`git checkout sprint-${sprintNum} && git merge task/sprint-${sprintNum}/integration && git push origin sprint-${sprintNum}\`\n`;
-        md += `3. **Prune Feature Branch**: Delete the local feature branch to keep the graph clean: \`git branch -d task/sprint-${sprintNum}/integration\`\n`;
-        md += `4. **Update State**: Mark the code review task as passed to generate the test receipt: \`node .agents/scripts/update-task-state.js ${fullTaskId} passed\`\n`;
+        md += `1. **Commit Review Fixes**: Stage and commit any uncommitted architectural fixes: \`git add . && git commit -m "fix(review): implement architectural code review feedback"\`\n`;
+        md += `2. **Push Default Base**: Push your fixes natively to the integration branch: \`git push origin sprint-${sprintNum}\`\n`;
+        md += `3. **Update State**: Mark the code review task as passed to generate the test receipt: \`node .agents/scripts/update-task-state.js ${fullTaskId} passed\`\n`;
         md += `\`\`\`\n`;
       }
 
