@@ -175,7 +175,7 @@ export function renderPlaybook(manifest, chatSessions, chatDeps, options = {}) {
 
       // Agent Prompt
       md += `\`\`\`\`markdown\n`;
-      md += `=== SYSTEM PROTOCOL & CAPABILITIES ===\n`;
+      md += `=== SYSTEM PROTOCOL & CAPABILITIES ===\n\n`;
       md += `**AGENT EXECUTION PROTOCOL:**\n`;
       
       const taskDeps = task.dependsOn && task.dependsOn.length > 0;
@@ -197,7 +197,7 @@ export function renderPlaybook(manifest, chatSessions, chatDeps, options = {}) {
       md += `3. Read and strictly follow the steps defined in \`.agents/workflows/sprint-finalize-task.md\` to track state.\n`;
       md += `4. If you encounter an unresolvable error, execute: \`node .agents/scripts/update-task-state.js ${fullTaskId} blocked\` and alert the user.\n\n`;
 
-      md += `=== VOLATILE TASK CONTEXT ===\n`;
+      md += `=== VOLATILE TASK CONTEXT ===\n\n`;
       md += `**Persona**: ${task.persona}\n`;
 
       const skillList = task.skills || [];
@@ -251,10 +251,10 @@ export function renderPlaybook(manifest, chatSessions, chatDeps, options = {}) {
         md += `\n**Manual Fix Finalization (AGENT PROMPT):**\n`;
         md += `If manual fixes were implemented during this review, YOU MUST run this realignment prompt to synchronize them before proceeding to QA:\n`;
         md += `\`\`\`markdown\n`;
-        md += `=== VOLATILE TASK CONTEXT ===\n`;
+        md += `=== VOLATILE TASK CONTEXT ===\n\n`;
         md += `**Persona**: devops-engineer\n`;
         md += `**Loaded Skills**: \`devops/git-flow-specialist\`\n`;
-        md += `\n=== INSTRUCTIONS ===\n`;
+        md += `\n=== INSTRUCTIONS ===\n\n`;
         md += `I have completed the manual implementation of architectural fixes from the Code Review. Please execute the final synchronization to align the repository:\n\n`;
         md += `1. **Commit Review Fixes**: Stage and commit any uncommitted architectural fixes: \`git add . && (git diff --staged --quiet || git commit -m "fix(review): implement architectural code review feedback")\`\n`;
         md += `2. **Push Default Base**: Push your fixes natively to the integration branch: \`git push origin HEAD\`\n`;

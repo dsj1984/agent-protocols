@@ -6,6 +6,15 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 and this project adheres to
 [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [3.4.6] - 2026-04-03
+
+### Changed
+
+- **UI Prompt Layout**: Added double newlines after `=== SECTION ===` headers in
+  the agent prompt and architectural review prompt. This fixes a rendering issue
+  where headers and content were collapsed into a single line in some markdown
+  readers, significantly improving legibility.
+
 ## [3.4.5] - 2026-04-03
 
 ### Fixed
