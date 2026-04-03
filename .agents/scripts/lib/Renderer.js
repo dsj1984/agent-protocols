@@ -17,7 +17,7 @@ export function generateMermaid(chatSessions, chatDeps) {
     const nodeId = `C${session.chatNumber}`;
     const nodeLabel = `${session.icon} Chat Session ${session.chatNumber}: ${session.label}`;
     lines.push(`    ${nodeId}["${nodeLabel}"]`);
-    lines.push(`    class ${nodeId} not_started`);
+    lines.push(`    class ${nodeId} pending`);
   }
 
   // Define edges
@@ -38,14 +38,14 @@ export function generateMermaid(chatSessions, chatDeps) {
   }
 
   // Define Legend (Compact single node with line breaks)
-  const statusLegend = '⬜ Not Started  <br />🟩 Complete';
+  const statusLegend = '⬜ Pending Integration  <br />🟩 Integrated (Merged)';
   const iconLegend = '🗄️ DB | 🌐 Web | 📱 Mobile | 🧪 Test <br />📝 Docs | 🛡️ Ops | ⚙️ Gen';
   lines.push(`    Legend["${statusLegend} <br />---<br /> ${iconLegend}"]:::LegendNode`);
 
   // Define styles
   lines.push('    %% Style Definitions %%');
-  lines.push('    classDef not_started fill:#d1d5db,stroke:#9ca3af,color:#1f2937');
-  lines.push('    classDef complete fill:#16a34a,stroke:#059669,color:#ffffff');
+  lines.push('    classDef pending fill:#d1d5db,stroke:#9ca3af,color:#1f2937');
+  lines.push('    classDef integrated fill:#16a34a,stroke:#059669,color:#ffffff');
   lines.push('    classDef LegendNode fill:transparent,stroke:transparent,font-size:12px');
   lines.push('```');
   return lines.join('\n');
@@ -138,7 +138,7 @@ export function renderPlaybook(manifest, chatSessions, chatDeps, options = {}) {
     // Emit chat-level dependencies
     const deps = chatDeps.get(session.chatNumber) || [];
     if (deps.length > 0) {
-      md += `> **⚠️ PREREQUISITE:** Do not start this session until **Chat(s) ${deps.join(', ')}** are fully marked as Complete.\n\n`;
+      md += `> **⚠️ PREREQUISITE:** Do not start this session until the tasks in **Chat(s) ${deps.join(', ')}** are finished (this is verified automatically by your pre-flight script).\n\n`;
     }
 
     // Emit unified task blocks
