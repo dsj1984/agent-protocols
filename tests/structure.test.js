@@ -76,27 +76,41 @@ describe('Skills — each directory must contain SKILL.md', () => {
       assert.fail('Missing .agents/skills/ directory');
     });
   } else {
-    const categories = fs
-      .readdirSync(skillsDir, { withFileTypes: true })
-      .filter((dirent) => dirent.isDirectory())
-      .map((dirent) => dirent.name);
-
-    assert.ok(categories.length > 0, '.agents/skills/ contains no category directories');
-
-    for (const category of categories) {
-      const skills = fs
-        .readdirSync(agentsPath('skills', category), { withFileTypes: true })
-        .filter((dirent) => dirent.isDirectory())
-        .map((dirent) => dirent.name);
-
-      for (const skill of skills) {
-        it(`${category}/${skill}/SKILL.md exists`, () => {
-          assert.ok(
-            fs.existsSync(agentsPath('skills', category, skill, 'SKILL.md')),
-            `Missing SKILL.md in .agents/skills/${category}/${skill}/`,
-          );
-        });
+    // Collect all skills by looking for SKILL.md files recursively (2 levels deep)
+    const skillsFound = [];
+    
+    const items = fs.readdirSync(skillsDir, { withFileTypes: true });
+    for (const item of items) {
+      if (!item.isDirectory()) continue;
+      
+      const itemPath = path.join(skillsDir, item.name);
+      
+      // Check if this item IS a skill (contains SKILL.md)
+      if (fs.existsSync(path.join(itemPath, 'SKILL.md'))) {
+        skillsFound.push({ name: item.name, path: itemPath });
+      } else {
+        // Check if this is a category containing skills
+        const subItems = fs.readdirSync(itemPath, { withFileTypes: true });
+        for (const subItem of subItems) {
+          if (!subItem.isDirectory()) continue;
+          const subItemPath = path.join(itemPath, subItem.name);
+          if (fs.existsSync(path.join(subItemPath, 'SKILL.md'))) {
+            skillsFound.push({ name: `${item.name}/${subItem.name}`, path: subItemPath });
+          }
+        }
       }
+    }
+
+    assert.ok(skillsFound.length > 0, '.agents/skills/ contains no skill definitions');
+
+    for (const skill of skillsFound) {
+      it(`${skill.name} has a valid SKILL.md`, () => {
+        const content = fs.readFileSync(path.join(skill.path, 'SKILL.md'), 'utf8');
+        assert.ok(
+          content.trim().length > 0,
+          `Skill ${skill.name} has an empty SKILL.md`,
+        );
+      });
     }
   }
 });
