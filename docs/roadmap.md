@@ -121,18 +121,13 @@ the baseline structure, rules, and fundamental execution pipeline.
 - ✅ **Submodule Distribution**: Established the `dist` branch mechanism for
   consumer consumption.
 
-## Version 4.x: Enterprise-Grade Autonomy & Scalability
+## Future Horizon: Version 5+
 
-Version 4 transitions the framework from sequential scripting to robust, highly
-scalable, and secure engineering pipelines.
-
-### 2. Observability and Real-Time Telemetry
+### Observability and Real-Time Telemetry
 
 - **Ephemeral Local Web Dashboard:** Transition the Telemetry Observer from
   Markdown reports to an interactive local web dashboard for richer data
   visualization and real-time budget tracking.
-
-## Future Horizon: Version 5+
 
 ### Interface Extensibility and Dynamic Tool Discovery
 

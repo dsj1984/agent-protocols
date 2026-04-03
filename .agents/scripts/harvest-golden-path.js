@@ -2,6 +2,8 @@ import fs from 'node:fs';
 import path from 'node:path';
 import { execSync } from 'node:child_process';
 
+import { resolveConfig } from './lib/config-resolver.js';
+
 /**
  * Automates the harvesting of "Golden Architecture Paths". 
  * Extracts prompts and diffs from tasks that completed with zero friction log entries.
@@ -12,7 +14,10 @@ import { execSync } from 'node:child_process';
 const args = process.argv.slice(2);
 let taskId = '';
 let sprintRoot = '';
-let baseBranch = 'main';
+
+// Load settings via unified configuration resolver
+const { settings: agentConfig } = resolveConfig();
+let baseBranch = agentConfig.baseBranch ?? 'main';
 
 for (let i = 0; i < args.length; i++) {
   if (args[i] === '--task') taskId = args[++i];
@@ -26,16 +31,7 @@ if (!taskId || !sprintRoot) {
 }
 
 const frictionLogPath = path.join(sprintRoot, 'agent-friction-log.json');
-let goldenExamplesRoot = 'temp/golden-examples';
-try {
-  const configPath = path.join(process.cwd(), '.agents', 'config', 'config.json');
-  if (fs.existsSync(configPath)) {
-    const config = JSON.parse(fs.readFileSync(configPath, 'utf8'));
-    if (config?.properties?.goldenExamplesRoot?.default) {
-      goldenExamplesRoot = config.properties.goldenExamplesRoot.default;
-    }
-  }
-} catch (e) {}
+let goldenExamplesRoot = agentConfig.goldenExamplesRoot ?? 'temp/golden-examples';
 
 const goldenDir = path.join(process.cwd(), goldenExamplesRoot);
 

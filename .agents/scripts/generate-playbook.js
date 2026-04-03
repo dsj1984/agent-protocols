@@ -26,28 +26,23 @@ import { fileURLToPath } from 'node:url';
 import { buildGraph, detectCycle, assignLayers, transitiveReduction, computeChatDependencies, computeReachability } from './lib/Graph.js';
 import { renderPlaybook } from './lib/Renderer.js';
 
+import { resolveConfig } from './lib/config-resolver.js';
+
 const __dirname = path.dirname(fileURLToPath(import.meta.url));
-const AGENTS_DIR = path.resolve(__dirname, '..');
 const PROJECT_ROOT = path.resolve(__dirname, '../..');
 
-// Load Config
-const configPath = path.join(AGENTS_DIR, 'config', 'config.json');
-let config;
-try {
-  config = JSON.parse(fs.readFileSync(configPath, 'utf8'));
-} catch (e) {
-  console.error('Failed to parse config.json:', e);
-  process.exit(1);
-}
-const bookendRequirements = config?.properties?.bookendRequirements?.default || {};
-const defaultModels = config?.properties?.defaultModels?.default || {
-  planningFallback: 'Gemini 3.1 Pro (Low)',
+// Load settings via unified configuration resolver
+const { settings: agentConfig } = resolveConfig();
+
+const bookendRequirements = agentConfig.bookendRequirements ?? {};
+const defaultModels = agentConfig.defaultModels ?? {
+  planningFallback: 'Claude Sonnet 4.6 (Think) OR Gemini 3.1 Pro (High)',
   fastFallback: 'Gemini 3 Flash'
 };
-const sprintDocsRoot = config?.properties?.sprintDocsRoot?.default || 'docs/sprints';
-const sprintNumberPadding = config?.properties?.sprintNumberPadding?.default || 3;
-const goldenExamplesRoot = config?.properties?.goldenExamplesRoot?.default || 'temp/golden-examples';
-const taskStateRoot = config?.properties?.taskStateRoot?.default || 'temp/task-state';
+const sprintDocsRoot = agentConfig.sprintDocsRoot ?? 'docs/sprints';
+const sprintNumberPadding = agentConfig.sprintNumberPadding ?? 3;
+const goldenExamplesRoot = agentConfig.goldenExamplesRoot ?? 'temp/golden-examples';
+const taskStateRoot = agentConfig.taskStateRoot ?? 'temp/task-state';
 
 // ---------------------------------------------------------------------------
 // Constants
