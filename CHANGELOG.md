@@ -18,6 +18,13 @@ and this project adheres to
   (`.agents/schemas/atomic-action-schema.json`) defining the structured API
   boundaries for agent environment interactions (ReadFile, WriteFile,
   ExecuteSafeCommand, ConcludeTask).
+- **Isolated Multi-Agent Parallelization**: Eliminated Git lock race conditions
+  during concurrent executions. The `run-agent-loop.js` orchestrator now
+  natively intercepts branch instructions and creates isolated task execution
+  environments using `git worktree` under `temp/workspaces/<task-id>`.
+- **Strict Workflow Patterns**: Integrated `--pattern` parameterization into the
+  Event Stream loop to enforce specialized AI architectures (e.g., Evaluator-
+  Optimizer, Prompt Chaining) decoupled from monolithic playbook generation.
 - **Event Stream Orchestrator**: Shipped `.agents/scripts/run-agent-loop.js`, a
   secure JSON-based REPL that manages the perception-action cycle and maintains
   an append-only JSONL audit trail in `temp/event-streams/`.
