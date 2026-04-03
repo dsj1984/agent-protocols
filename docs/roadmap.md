@@ -97,61 +97,98 @@ the baseline structure, rules, and fundamental execution pipeline.
 - ✅ **Submodule Distribution**: Established the `dist` branch mechanism for
   consumer consumption.
 
-## Upcoming: Version 3.x (Refinement & Standardization)
+## Version 4.0: Enterprise-Grade Autonomy & Scalability
 
-Focuses on prompt efficiency, diagnostic telemetry, and hardening existing risk
-gates.
+Version 4 transitions the framework from sequential scripting to robust, highly
+scalable, and secure engineering pipelines.
 
-### Ephemeral Local Web Dashboard
+### 1. Performance Optimization and Cognitive Efficiency
 
-**Concept:** Transition the Telemetry Observer from Markdown reports to an
-interactive local web dashboard for richer data visualization and real-time
-budget tracking.
+- **Agentic Plan Caching (APC):** Implement a novel test-time memory
+  architecture to extract structured intent from successful executions,
+  bypassing expensive generative dependencies for semantically similar tasks.
+- **Speculative Execution & Cache-Aware Scheduling:** Establish a global prompt
+  cache that maps the inputs of deterministic operations to their previously
+  computed outputs, eliminating structural redundancies across workflows.
 
-## Future Horizon: Version 4+ (Advanced Autonomy)
+### 2. Interface Extensibility and Dynamic Tool Discovery
 
-Focuses on self-healing protocols, multimodal verification, and autonomous
-ecosystem maintenance.
+- **MCP Standardization:** Refactor internal agent scripts and diagnostic
+  interceptors into standardized local Model Context Protocol (MCP) servers,
+  moving away from brittle Bash execution to dynamic tool discovery.
+- **Deep Skill Ecosystem Integration:** Implement a repository structure and
+  installer interface to load role-based skill bundles (e.g., "Production
+  Hardening", "SaaS MVP") directly into agent environments.
+- **Universal Protocol Standardization:** Adopt an open standard for defining
+  constraints via a unified agent configuration file at the repository root to
+  ensure cross-platform interoperability.
+
+### 3. Architectural Orchestration and Multi-Agent Collaboration
+
+- **Perception-Action Event Stream:** Decouple core logic from the environment
+  by shifting to an event-stream abstraction where agents read the history of
+  events and produce the next atomic action.
+- **Isolated Multi-Agent Parallelization:** Enforce the use of isolated working
+  directories for parallel feature branch execution to prevent source control
+  race conditions.
+- **Strict Workflow Patterns:** Enforce execution architectures such as Prompt
+  Chaining, Semantic Routing, and Evaluator-Optimizer loops to manage complexity
+  and drift.
+
+### 4. Autonomous Quality Assurance and Continuous Refactoring
+
+- **Event-Driven Headless CI/CD:** Containerize the execution interface to
+  function as an actions runner, allowing agents to asynchronously resolve
+  broken pipelines and issue verified pull requests without human initiation.
+- **Autonomous Micro-Sprints:** Deploy specialized refactoring agents that parse
+  Abstract Syntax Trees (ASTs) in the background to detect code smells and
+  systematically reduce technical debt.
+- **Automated Maintainability Scoring:** Integrate static code analysis tools
+  via an MCP Server to provide real-time maintainability and security feedback
+  directly into the agent's context window.
+- **Living Documentation (Metadata Agents):** Utilize background agents to
+  continuously scan for redundant patterns and automatically generate
+  Architecture Decision Records (ADRs) upon feature merges.
+
+### 5. Enterprise-Grade Security and Adversarial Resilience
+
+- **Secure Sandboxing:** Instantiate all task sessions within ephemeral,
+  containerized Linux environments to explicitly isolate system resources from
+  the host environment.
+- **Autonomous Red vs. Blue Teaming:** Deploy an adversarial security protocol
+  during the pre-release hardening phase, pitting an Autonomous Red Team
+  (attempting exploits) against an Autonomous Blue Team (building real-time
+  containment).
+- **Shadow Mode & Layered Guardrails:** Deploy new autonomous capabilities in a
+  human-validated "shadow mode" while enforcing programmatic escalation policies
+  that halt execution upon hitting confidence threshold failures.
+- **Cryptographic Provenance:** Digitally sign agent-generated test receipts to
+  establish an immutable, verifiable chain of custody proving code passed all
+  security protocols prior to deployment.
+
+### 6. Observability and Real-Time Telemetry
+
+- **Ephemeral Local Web Dashboard:** Transition the Telemetry Observer from
+  Markdown reports to an interactive local web dashboard for richer data
+  visualization and real-time budget tracking.
+
+## Future Horizon: Version 5+ (Advanced Autonomy)
+
+Focuses on the ultimate expression of agentic software development: systems that
+naturally evaluate external aesthetics and heal their own operational
+parameters.
 
 ### Multimodal Visual Verification
 
-**Concept:** Integrate vision-model capabilities into the `sprint-testing`
-workflow to natively verify UI/UX regressions against Figma mockups and baseline
-screenshots.
+**Concept:** Introduce native multimodal testing into the QA workflows. Equip
+agents with advanced vision models to computationally compare application
+rendering states and CSS outputs against baseline mockups, successfully catching
+visual regressions that text-only DOM parsing misses.
 
 ### Autonomous Protocol Evolution
 
-**Concept:** Enable agents to autonomously draft PRDs and implementation plans
-against `.agents/rules/` and `.agents/skills/` based on historical friction
-logs, creating a self-healing protocol immune system.
-
-### Cryptographic Provenance
-
-**Concept:** Digitally sign agent-generated `test-receipts` to establish a
-verifiable chain of custody for compliance and enterprise security auditing.
-
-### Autonomous Ecosystem Upgrades
-
-**Concept:** Deploy background "Micro-Sprints" that autonomously patch
-dependencies, resolve technical debt, run shift-left test receipts, and issue
-verified PRs.
-
-### Event-Driven Headless CI/CD Execution
-
-**Concept:** Containerize the CLI as a standard headless CI actions runner for
-asynchronous background event processing (e.g., autonomous patch generation on
-CI failure).
-
-### MCP Standardization
-
-**Concept:** Refactor internal agent scripts and diagnostic interceptors
-(`context-indexer.js`, `diagnose-friction.js`) into standardized local MCP
-servers, providing a rigid, native interface for LLMs and Agentic IDEs without
-relying on brittle Bash execution. Deferred to v4.0 to prioritize dashboard
-visualization and framework stability.
-
-### Inter-Agent Negotiation
-
-**Concept:** Enable dynamic cross-persona negotiation to resolve contract gaps
-in real-time. Deferred to v4.0 to prioritize state-manager stability in the
-interim.
+**Concept:** Implement a self-healing protocol immune system. Through continuous
+analysis of execution friction logs, the overarching orchestration system will
+autonomously draft and apply adjustments to its own prompt specifications,
+routing logic, and skill libraries, operating via a continuous reinforcement
+learning loop.
