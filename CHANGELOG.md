@@ -10,6 +10,17 @@ and this project adheres to
 
 ### Added
 
+- **Perception-Action Event Stream Protocol**: Implemented the core architecture
+  for decoupling agent reasoning from environment execution. Playbooks now
+  strictly enforce discrete, atomic environmental interactions via a localized
+  event ledger.
+- **Atomic Action Schema**: Introduced a formal JSON schema
+  (`.agents/schemas/atomic-action-schema.json`) defining the structured API
+  boundaries for agent environment interactions (ReadFile, WriteFile,
+  ExecuteSafeCommand, ConcludeTask).
+- **Event Stream Orchestrator**: Shipped `.agents/scripts/run-agent-loop.js`, a
+  secure JSON-based REPL that manages the perception-action cycle and maintains
+  an append-only JSONL audit trail in `temp/event-streams/`.
 - **Agentic Plan Caching (APC)**: Implemented a novel test-time memory
   architecture to extract structured intent from successful executions.
   Standardized intent extraction now stores semantic logic in `temp/apc-cache/`
