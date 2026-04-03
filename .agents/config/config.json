@@ -82,6 +82,16 @@
       "default": "pnpm test:exploratory",
       "description": "The command used to run exploratory testing (e.g., 'pnpm test:exploratory')."
     },
+    "typecheckCommand": {
+      "type": "string",
+      "default": "pnpm turbo run typecheck",
+      "description": "The command used to run the TypeScript compiler for type-checking across the monorepo."
+    },
+    "buildCommand": {
+      "type": "string",
+      "default": "pnpm turbo run build",
+      "description": "The command used to run a full production build to catch structural template errors that typecheck alone cannot detect."
+    },
     "webhookUrl": {
       "type": "string",
       "default": "",
@@ -121,19 +131,19 @@
             "Structural anomalies or modifications to shared infrastructure (IAM, global security layers).",
             "Functional logic that deviates from the localized intent of the PRD.",
             "Any UX, layout, or backend edge caching implementations MUST require programmatic tests (e.g., Playwright, Vitest) in their instructions, as agents lack visual DOM contexts locally.",
-            "Global Search & Replace (AST/SED) refactors must enforce an immediate post-replace verification gate (e.g., `pnpm turbo run typecheck` or `build`) before closing out.",
+            "Global Search & Replace (AST/SED) refactors must enforce an immediate post-replace verification gate (e.g., the configured `typecheckCommand` or `buildCommand`) before closing out.",
             "Database ORM instructions must dictate applying changes to the local schema (e.g., `db:push` alongside `db:generate`) to ensure downstream API agents operate on a valid test database.",
             "Tests implementing PRNG/Stochastic seed structures must explicitly log their initialization vectors to `stdout` to guarantee CI reproducibility.",
             "When updating theming architectures to use downstream tokens, strictly instruct agents to avoid reverting to hardcoded inline hex values.",
             "When updating database schemas, explicitly instruct agents to generate & export associated validation schemas (e.g., Zod) if downstream API tasks will consume them.",
             "When assigning a `scope` to a task, strictly constrain it to legit package.json workspace names (e.g., `@repo/web`) or use the literal string `root` for global sweeps to prevent `pnpm --filter` crashes.",
-            "Monorepo Type Safety sweeps must dictate running `pnpm turbo run typecheck` to verify strict typing passes with zero warnings on critical data paths.",
+            "Monorepo Type Safety sweeps must dictate running the configured `typecheckCommand` to verify strict typing passes with zero warnings on critical data paths.",
             "For UI standardization tasks, strictly anchor instructions to design system documentation. NEVER use subjective or abstract aesthetic terms (e.g., 'premium aesthetic', 'clean modern feel') to prevent CSS frame hallucinations.",
-            "Any task performing cross-codebase text replacements (including UI standardizations or hex-code sweeps) MUST require executing the compiler immediately (e.g. `pnpm turbo run typecheck`) to verify syntax boundaries were not broken.",
+            "Any task performing cross-codebase text replacements (including UI standardizations or hex-code sweeps) MUST require executing the configured `typecheckCommand` immediately to verify syntax boundaries were not broken.",
             "Monorepo-wide sweeping tasks (e.g., AST replacements, global type safety refactors, design system audits) MUST NOT be executed in parallel if they target overlapping file extensions. Ensure they are explicitly serialized (one depends on the other) to prevent catastrophic git merge conflicts.",
             "Tasks modifying caching, eviction, or memory management logic MUST include explicit instructions to write programmatic tests (e.g., Vitest assertions) that verify the eviction policy triggers correctly under boundary conditions.",
             "Instructions using soft verification verbs (e.g., 'validate that', 'ensure that', 'verify that') for deterministic reproducibility or correctness MUST be replaced with explicit CLI execution commands (e.g., 'Execute the test suite via CLI twice using the same seed').",
-            "Tasks performing cross-codebase text replacements in `.astro` or `.tsx` template files MUST mandate both `pnpm turbo run typecheck` AND `pnpm turbo run build` to catch structural HTML/JSX errors that the TypeScript compiler alone cannot detect."
+            "Tasks performing cross-codebase text replacements in `.astro` or `.tsx` template files MUST mandate both the configured `typecheckCommand` AND `buildCommand` to catch structural HTML/JSX errors that the TypeScript compiler alone cannot detect."
           ],
           "description": "A list of semantic criteria that the Architect uses to flag a technical plan for mandatory HITL approval."
         }

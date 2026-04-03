@@ -6,6 +6,24 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 and this project adheres to
 [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [3.5.0] - 2026-04-03
+
+### Added
+
+- **`typecheckCommand` config key**: Configurable TypeScript compiler command
+  (default: `pnpm turbo run typecheck`). Previously hardcoded across four
+  heuristic rules.
+- **`buildCommand` config key**: Configurable production build command (default:
+  `pnpm turbo run build`). Previously hardcoded in the `.astro`/`.tsx`
+  verification heuristic.
+
+### Changed
+
+- **Heuristics decoupled from commands**: All four heuristic rules that
+  referenced `pnpm turbo run typecheck` or `pnpm turbo run build` now reference
+  the configured `typecheckCommand` and `buildCommand` keys, making the protocol
+  portable across monorepos using different package managers or task runners.
+
 ## [3.4.6] - 2026-04-03
 
 ### Changed
