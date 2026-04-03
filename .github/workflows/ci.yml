@@ -11,35 +11,29 @@ concurrency:
   cancel-in-progress: true
 
 jobs:
-  build:
-    name: Build and Test
+  security:
+    name: Security Scan
     runs-on: ubuntu-latest
-    permissions:
-      contents: read
-    outputs:
-      agents_changed: ${{ steps.filter.outputs.agents }}
     steps:
       - name: Checkout Code
-        uses: actions/checkout@v4
+        uses: actions/checkout@34e114876b0b11c390a56381ad16ebd13914f8d5 # v4.3.1
         with:
           fetch-depth: 0
-
-      - name: Check for Agent Changes
-        id: filter
-        uses: dorny/paths-filter@v3
-        with:
-          filters: |
-            agents:
-              - '.agents/**'
-              - '.github/workflows/ci.yml'
 
       - name: Secret Scanning (TruffleHog)
         uses: trufflesecurity/trufflehog@6bd2d14f7a4bc1e569fa3550efa7ec632a4fa67b # v3.94.2
         with:
           extra_args: --debug --only-verified
 
+  lint:
+    name: Lint & Format
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout Code
+        uses: actions/checkout@34e114876b0b11c390a56381ad16ebd13914f8d5 # v4.3.1
+
       - name: Setup Node.js
-        uses: actions/setup-node@v4
+        uses: actions/setup-node@49933ea5288caeca8642d1e84afbd3f7d6820020 # v4.4.0
         with:
           node-version: '20'
           cache: 'npm'
@@ -50,19 +44,56 @@ jobs:
       - name: Lint Markdown
         run: npm run lint
 
+      - name: Check Formatting
+        run: npm run format:check
+
+  test:
+    name: Run Tests
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout Code
+        uses: actions/checkout@34e114876b0b11c390a56381ad16ebd13914f8d5 # v4.3.1
+
+      - name: Setup Node.js
+        uses: actions/setup-node@49933ea5288caeca8642d1e84afbd3f7d6820020 # v4.4.0
+        with:
+          node-version: '20'
+          cache: 'npm'
+
+      - name: Install Dependencies
+        run: npm ci
+
       - name: Run Tests
         run: npm test
 
+  check-changes:
+    name: Check for Changes
+    runs-on: ubuntu-latest
+    outputs:
+      agents_changed: ${{ steps.filter.outputs.agents }}
+    steps:
+      - name: Checkout Code
+        uses: actions/checkout@34e114876b0b11c390a56381ad16ebd13914f8d5 # v4.3.1
+
+      - name: Check for Agent Changes
+        id: filter
+        uses: dorny/paths-filter@de90cc6fb38fc0963ad72b210f1f284cd68cea36 # v3
+        with:
+          filters: |
+            agents:
+              - '.agents/**'
+              - '.github/workflows/ci.yml'
+
   publish:
     name: Publish Dist
-    needs: build
+    needs: [security, lint, test, check-changes]
     # Only run on pushes to main that affect the .agents folder
-    if: github.event_name == 'push' && github.ref == 'refs/heads/main' && needs.build.outputs.agents_changed == 'true'
+    if: github.event_name == 'push' && github.ref == 'refs/heads/main' && needs.check-changes.outputs.agents_changed == 'true'
     runs-on: ubuntu-latest
     permissions:
       contents: write
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@34e114876b0b11c390a56381ad16ebd13914f8d5 # v4.3.1
         with:
           fetch-depth: 0
 

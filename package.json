@@ -10,17 +10,8 @@
     "playbook:generate": "node .agents/scripts/generate-playbook.js",
     "lint": "npm run lint:md",
     "format": "npm run format:md",
+    "format:check": "prettier --check \".agents/**/*.md\" \"*.md\"",
     "prepare": "husky"
-  },
-  "lint-staged": {
-    ".agents/**/*.md": [
-      "markdownlint --fix",
-      "prettier --write"
-    ],
-    "*.md": [
-      "markdownlint --fix",
-      "prettier --write"
-    ]
   },
   "repository": {
     "type": "git",

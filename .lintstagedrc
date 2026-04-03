@@ -1,0 +1,10 @@
+{
+  ".agents/**/*.md": [
+    "markdownlint --fix",
+    "prettier --write"
+  ],
+  "*.md": [
+    "markdownlint --fix",
+    "prettier --write"
+  ]
+}
