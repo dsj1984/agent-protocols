@@ -187,9 +187,10 @@ export function renderPlaybook(manifest, chatSessions, chatDeps, options = {}) {
       md += `If this task depends on previous tasks, ensure you have merged or checked out their respective feature branches before beginning work.\n\n`;
 
       md += `**Close-out:**\n`;
-      md += `1. Push your branch: \`git push -u origin HEAD\`\n`;
-      md += `2. Read and strictly follow the steps defined in \`.agents/workflows/sprint-finalize-task.md\` to track state.\n`;
-      md += `3. If you encounter an unresolvable error, execute: \`node .agents/scripts/update-task-state.js ${fullTaskId} blocked\` and alert the user.\n\n`;
+      md += `1. Commit your changes: \`git add . && git commit -m "feat: completed task ${task.id}"\`\n`;
+      md += `2. Push your branch: \`git push -u origin HEAD\`\n`;
+      md += `3. Read and strictly follow the steps defined in \`.agents/workflows/sprint-finalize-task.md\` to track state.\n`;
+      md += `4. If you encounter an unresolvable error, execute: \`node .agents/scripts/update-task-state.js ${fullTaskId} blocked\` and alert the user.\n\n`;
 
       md += `=== VOLATILE TASK CONTEXT ===\n`;
       md += `**Persona**: ${task.persona}\n`;
@@ -217,9 +218,9 @@ export function renderPlaybook(manifest, chatSessions, chatDeps, options = {}) {
       }
 
       // Explicit Chained Branching Commands
-      let branchInstruction = `git checkout -b task/sprint-${sprintNum}/${task.id}`;
+      let branchInstruction = `git checkout sprint-${sprintNum} && git checkout -b task/sprint-${sprintNum}/${task.id}`;
       if (task.isIntegration) {
-          branchInstruction = `git checkout -b task/sprint-${sprintNum}/integration`;
+          branchInstruction = `git checkout sprint-${sprintNum} && git checkout -b task/sprint-${sprintNum}/integration`;
       } else if (task.isQA || task.isCodeReview) {
           branchInstruction = `git checkout task/sprint-${sprintNum}/integration`;
       } else if (task.isCloseSprint) {

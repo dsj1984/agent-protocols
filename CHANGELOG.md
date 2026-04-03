@@ -6,6 +6,17 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 and this project adheres to
 [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [3.3.1] - 2026-04-02
+
+### Fixed
+
+- **Ghost Branching & Uncommitted Changes**:
+  - Updated `Renderer.js` to explicitly mandate a `git add . && git commit` step
+    in the `AGENT EXECUTION PROTOCOL` before pushing.
+  - Hardened root task branching: agents now explicitly reset to the sprint base
+    branch (`git checkout sprint-[NUM]`) before creating new feature branches,
+    preventing uncommitted changes from being dragged across parallel roots.
+
 ## [3.3.0] - 2026-04-02
 
 ### Changed
