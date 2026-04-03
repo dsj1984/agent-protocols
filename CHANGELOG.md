@@ -37,6 +37,11 @@ and this project adheres to
     correctly identify the decoupled task state directory even when CLI
     arguments are omitted, matching the robustness of the primary status update
     utility.
+- **Model Fallback Dead Code**: Fixed a logic ordering bug in `enrichManifest`
+  where the `.includes()` substring dedup check always fired before the exact
+  equality cross-assignment branch, causing the secondary model to be silently
+  nullified instead of cross-assigned from the opposite tier. Tasks now
+  consistently display both a First Choice and Second Choice model.
 
 ## [3.4.6] - 2026-04-03
 

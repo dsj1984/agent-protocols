@@ -190,11 +190,16 @@ export function enrichManifest(manifest) {
       task.secondaryModel = task.mode === 'Planning' ? defaultModels.planningFallback : defaultModels.fastFallback;
     }
     
-    // Prevent duplicate model fallbacks (check substring containment, not just equality)
-    if (task.secondaryModel && task.model && task.model.includes(task.secondaryModel)) {
-      task.secondaryModel = null;
-    } else if (task.secondaryModel === task.model) {
-      task.secondaryModel = task.model === defaultModels.planningFallback ? defaultModels.fastFallback : defaultModels.planningFallback;
+    // Prevent duplicate model fallbacks
+    // Priority: exact match → cross-assign from opposite tier; substring match → suppress (already embedded)
+    if (task.secondaryModel && task.model) {
+      if (task.secondaryModel === task.model) {
+        // Exact match: cross-assign from the opposite tier to guarantee diversity
+        task.secondaryModel = task.model === defaultModels.planningFallback ? defaultModels.fastFallback : defaultModels.planningFallback;
+      } else if (task.model.includes(task.secondaryModel)) {
+        // Substring match: primary already contains both choices (e.g., compound "X OR Y" bookend string)
+        task.secondaryModel = null;
+      }
     }
 
     // Strip HITL from non-bookend development tasks — human reviews at integration
