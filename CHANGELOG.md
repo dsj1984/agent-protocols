@@ -6,6 +6,23 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 and this project adheres to
 [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [3.4.2] - 2026-04-03
+
+### Fixed
+
+- **Structural Global Sweep Serialization**: Hardened the `generate-playbook.js`
+  engine to mathematically detect and auto-serialize parallel monorepo-wide
+  sweep tasks (e.g. `scope: root`), eliminating merge conflict vectors without
+  manual AI intervention or brittle prompt heuristics.
+- **Literal Execution Protocol Hardening**: Removed all literal string examples
+  (e.g., git commit messages) in the `Renderer.js` Close-out protocols to
+  prevent autonomous agents from hyper-literally copying placeholder values into
+  production Git histories.
+- **Compute Allocation Elevation**: Exposed and upgraded the default planning
+  model to High/Thinking tiers (e.g., Claude Sonnet 3.6 OR Gemini 3.1 Pro) in
+  `config.json` to ensure sufficient reasoning capacity for complex monorepo AST
+  operations.
+
 ## [3.4.1] - 2026-04-03
 
 ### Fixed
