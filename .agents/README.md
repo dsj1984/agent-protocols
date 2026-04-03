@@ -275,19 +275,25 @@ Supporting files that define the agent's environment and workspace standards.
 
 ## <a id="git-performance-optimization"></a>🏎️ Git Performance Optimization
 
-To ensure maximum execution speed for agents and developers on Windows, the following Git optimizations are recommended.
+To ensure maximum execution speed for agents and developers on Windows, the
+following Git optimizations are recommended.
 
 ### 🌎 Global Machine Settings (Run Once)
+
 These settings fix filesystem overhead and manifest-crawling delays globally.
+
 ```bash
 git config --global core.fsmonitor true
 git config --global feature.manyFiles true
 ```
 
 ### 📂 Per-Repository Maintenance (Run in each project)
+
 Enable background maintenance to keep the index and commit-graph optimized.
+
 ```bash
 git maintenance start
 ```
-*Note: Run this inside the root directory of your project (e.g., both the framework and product repositories).*
 
+_Note: Run this inside the root directory of your project (e.g., both the
+framework and product repositories)._
