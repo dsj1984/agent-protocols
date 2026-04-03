@@ -142,6 +142,7 @@ export function renderPlaybook(manifest, chatSessions, chatDeps, options = {}) {
     }
 
     // Emit unified task blocks
+    let taskIndex = 0;
     for (const task of session.tasks) {
       const fullTaskId = taskIdToNumber.get(task.id);
       
@@ -174,20 +175,23 @@ export function renderPlaybook(manifest, chatSessions, chatDeps, options = {}) {
       
       const taskDeps = task.dependsOn && task.dependsOn.length > 0;
       const chatHasDeps = deps.length > 0;
+      const hasImplicitDeps = taskIndex > 0;
+      const requiresValidation = chatHasDeps || taskDeps || hasImplicitDeps;
       
-      if (chatHasDeps || taskDeps) {
+      if (requiresValidation) {
         md += `Before beginning work, you MUST run the pre-flight verification script to ensure all dependencies are committed.\n`;
-        md += `Execute \`/[.agents/workflows/sprint-verify-task-prerequisites.md]\` or run the manual verification script for your specific task.\n`;
+        md += `Read and strictly follow the steps defined in \`.agents/workflows/sprint-verify-task-prerequisites.md\` or run the manual verification script for your specific task.\n`;
         md += `If the script fails, STOP immediately and ask the user to complete the blocking tasks.\n\n`;
       }
 
       md += `**Branching:**\n`;
-      md += `All task work MUST occur on an isolated feature branch created from the current sprint branch.\n`;
-      md += `You will be provided with the exact branch name in your volatile instructions.\n\n`;
+      md += `All task work MUST occur on the branch specified in your instructions.\n`;
+      md += `If this task depends on previous tasks, ensure you have merged or checked out their respective feature branches before beginning work.\n\n`;
 
       md += `**Close-out:**\n`;
-      md += `Once all task instructions are fully verified and committed, run the finalization workflow to track state:\n`;
-      md += `\`/[.agents/workflows/sprint-finalize-task.md]\`\n\n`;
+      md += `1. Push your branch: \`git push -u origin <branch-name>\`\n`;
+      md += `2. Read and strictly follow the steps defined in \`.agents/workflows/sprint-finalize-task.md\` to track state.\n`;
+      md += `3. If you encounter an unresolvable error, execute: \`node .agents/scripts/update-task-state.js ${fullTaskId} blocked\` and alert the user.\n\n`;
 
       md += `=== VOLATILE TASK CONTEXT ===\n`;
       md += `**Persona**: ${task.persona}\n`;
@@ -198,19 +202,37 @@ export function renderPlaybook(manifest, chatSessions, chatDeps, options = {}) {
       }
       md += `**Sprint / Session**: Sprint ${sprintNum} | Chat Session ${session.chatNumber}\n\n`;
 
-      if (chatHasDeps || taskDeps) {
+      if (requiresApproval) {
+        md += `> **🚨 HITL REQUIRED:** STOP and explicitly ask the user for approval via chat before proceeding with execution or commits.\n\n`;
+      }
+
+      if (requiresValidation) {
         md += `**Pre-flight Task Validation (Run this first):**\n`;
         md += `\`node .agents/scripts/verify-prereqs.js ${docsRoot}/sprint-${sprintNum}/playbook.md ${fullTaskId}\`\n\n`;
       }
 
       md += `**Instructions:**\n`;
-      md += `1. **Task ${task.id}:** ${renderTaskInstructions(task, sprintNum)}\n`;
-      md += `   - **Branching**: \`git checkout -b task/sprint-${sprintNum}/${task.id}\`\n`;
+      md += `1. **Task ${task.id}:**\n`;
+      const instLines = renderTaskInstructions(task, sprintNum).split('\n');
+      for (const line of instLines) {
+        if (!line.trim()) continue;
+        md += line.trim().startsWith('-') ? `   ${line.trim()}\n` : `   - ${line.trim()}\n`;
+      }
+
+      let branchInstruction = `git checkout -b task/sprint-${sprintNum}/${task.id}`;
+      if (task.isIntegration) {
+          branchInstruction = `git checkout -b task/sprint-${sprintNum}/integration`;
+      } else if (task.isQA || task.isCodeReview) {
+          branchInstruction = `git checkout task/sprint-${sprintNum}/integration`;
+      }
+
+      md += `   - **Branching**: \`${branchInstruction}\`\n`;
       md += `   - **Mark Executing**: \`node .agents/scripts/update-task-state.js ${fullTaskId} executing\`\n`;
 
       md += getGoldenExamples();
 
       md += `\`\`\`\n\n`;
+      taskIndex++;
     }
   }
 

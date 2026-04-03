@@ -6,6 +6,29 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 and this project adheres to
 [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [3.3.0] - 2026-04-02
+
+### Changed
+
+- **Refactored Playbook Generation**:
+  - Replaced abstract `/[.agents/workflows/... ]` commands with explicit natural
+    language instructions to prevent LLMs from hallucinating bash commands.
+  - Added explicit instructions for agents to push their integrated branches in
+    the close-out workflow.
+  - Modified task instructions presentation so bulleted lists format correctly
+    under the task header line.
+
+### Fixed
+
+- **Execution & Branching Bugs**:
+  - Ensured tasks dynamically inherit explicit branch checkout instructions
+    (especially integration/QA tasks that should not branch off blindly).
+  - Fixed implicit dependency flaws where task steps without explicit
+    `dependsOn` declarations were bypassing pre-flight `verify-prereqs`
+    execution instructions inside the agent context.
+  - Enforced structured `🚨 HITL REQUIRED` stopping points dynamically within
+    the volatile task context instead of just as metadata.
+
 ## [3.2.1] - 2026-04-02
 
 ### Changed
@@ -14,10 +37,10 @@ and this project adheres to
   - Grouped task metadata, dependencies, and agent prompts into a single,
     unified, sequential block per task for better readability and execution
     clarity.
-  - Removed top-level `#### Tasks` and `#### Agent Prompt` headings to streamline
-    the execution plan.
-  - Unified the checkbox format to `[ ] **{taskId}** {taskTitle}` without leading
-    markdown dashes.
+  - Removed top-level `#### Tasks` and `#### Agent Prompt` headings to
+    streamline the execution plan.
+  - Unified the checkbox format to `[ ] **{taskId}** {taskTitle}` without
+    leading markdown dashes.
 
 ### Fixed
 
