@@ -149,6 +149,38 @@
         }
       }
     },
+    "apcCacheSettings": {
+      "type": "object",
+      "description": "Settings for Agentic Plan Caching (APC) and Speculative Execution.",
+      "properties": {
+        "strictHashing": {
+          "type": "boolean",
+          "default": true,
+          "description": "If true, strict identity hashing is used for intent extraction."
+        },
+        "ttlDays": {
+          "type": "integer",
+          "default": 30,
+          "description": "Number of days before a cache entry is considered stale."
+        },
+        "enableSpeculativeExecution": {
+          "type": "boolean",
+          "default": true,
+          "description": "Whether to allow tasks to be tagged as SpeculativeCache during playbook generation."
+        },
+        "cacheDir": {
+          "type": "string",
+          "default": "temp/apc-cache",
+          "description": "The directory where APC cache entries are stored."
+        }
+      },
+      "default": {
+        "strictHashing": true,
+        "ttlDays": 30,
+        "enableSpeculativeExecution": true,
+        "cacheDir": "temp/apc-cache"
+      }
+    },
     "bookendRequirements": {
       "type": "object",
       "description": "Mapping for bookend tasks to automatically define their required persona and skills.",
@@ -185,14 +217,6 @@
             "devops/git-flow-specialist"
           ]
         }
-      }
-    },
-    "defaultModels": {
-      "type": "object",
-      "description": "Default fallback models for agent task execution when not specified in the manifest.",
-      "default": {
-        "planningFallback": "Gemini 3.1 Pro (High)",
-        "fastFallback": "Gemini 3 Flash"
       }
     }
   }

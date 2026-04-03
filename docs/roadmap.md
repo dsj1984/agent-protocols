@@ -13,6 +13,16 @@ and future architectural evolution for the Agent Protocols framework.
   Core functionality should reside within the protocol itself to maximize
   portability and security.
 
+## Implemented: Version 4.x (Autonomous Efficiency & Scalability)
+
+- ✅ **Agentic Plan Caching (APC):** Implement a novel test-time memory
+  architecture to extract structured intent from successful executions,
+  bypassing expensive generative dependencies for semantically similar tasks.
+- ✅ **Speculative Execution & Cache-Aware Scheduling:** Establish a global
+  prompt cache that maps the inputs of deterministic operations to their
+  previously computed outputs, eliminating structural redundancies across
+  workflows.
+
 ## Implemented: Version 3.x (Optimization & Refinement)
 
 Version 3.x focused on internal hardening, prompt optimization, and safer
@@ -102,16 +112,7 @@ the baseline structure, rules, and fundamental execution pipeline.
 Version 4 transitions the framework from sequential scripting to robust, highly
 scalable, and secure engineering pipelines.
 
-### 1. Performance Optimization and Cognitive Efficiency
-
-- **Agentic Plan Caching (APC):** Implement a novel test-time memory
-  architecture to extract structured intent from successful executions,
-  bypassing expensive generative dependencies for semantically similar tasks.
-- **Speculative Execution & Cache-Aware Scheduling:** Establish a global prompt
-  cache that maps the inputs of deterministic operations to their previously
-  computed outputs, eliminating structural redundancies across workflows.
-
-### 2. Interface Extensibility and Dynamic Tool Discovery
+### 1. Interface Extensibility and Dynamic Tool Discovery
 
 - **MCP Standardization:** Refactor internal agent scripts and diagnostic
   interceptors into standardized local Model Context Protocol (MCP) servers,
@@ -123,7 +124,7 @@ scalable, and secure engineering pipelines.
   constraints via a unified agent configuration file at the repository root to
   ensure cross-platform interoperability.
 
-### 3. Architectural Orchestration and Multi-Agent Collaboration
+### 2. Architectural Orchestration and Multi-Agent Collaboration
 
 - **Perception-Action Event Stream:** Decouple core logic from the environment
   by shifting to an event-stream abstraction where agents read the history of
@@ -135,7 +136,7 @@ scalable, and secure engineering pipelines.
   Chaining, Semantic Routing, and Evaluator-Optimizer loops to manage complexity
   and drift.
 
-### 4. Autonomous Quality Assurance and Continuous Refactoring
+### 3. Autonomous Quality Assurance and Continuous Refactoring
 
 - **Event-Driven Headless CI/CD:** Containerize the execution interface to
   function as an actions runner, allowing agents to asynchronously resolve
@@ -150,7 +151,7 @@ scalable, and secure engineering pipelines.
   continuously scan for redundant patterns and automatically generate
   Architecture Decision Records (ADRs) upon feature merges.
 
-### 5. Enterprise-Grade Security and Adversarial Resilience
+### 4. Enterprise-Grade Security and Adversarial Resilience
 
 - **Secure Sandboxing:** Instantiate all task sessions within ephemeral,
   containerized Linux environments to explicitly isolate system resources from
@@ -166,7 +167,7 @@ scalable, and secure engineering pipelines.
   establish an immutable, verifiable chain of custody proving code passed all
   security protocols prior to deployment.
 
-### 6. Observability and Real-Time Telemetry
+### 5. Observability and Real-Time Telemetry
 
 - **Ephemeral Local Web Dashboard:** Transition the Telemetry Observer from
   Markdown reports to an interactive local web dashboard for richer data

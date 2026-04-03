@@ -6,6 +6,26 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 and this project adheres to
 [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [4.0.0] - 2026-04-03
+
+### Added
+
+- **Agentic Plan Caching (APC)**: Implemented a novel test-time memory
+  architecture to extract structured intent from successful executions.
+  Standardized intent extraction now stores semantic logic in `temp/apc-cache/`
+  to bypass redundant generative dependencies for identical tasks.
+- **Speculative Execution & Cache-Aware Scheduling**: Integrated the
+  `CacheManager` into the `generate-playbook.js` engine. The engine now
+  mathematically identifies tasks that match previously cached intent and
+  automatically tags them as `SpeculativeCache` for autonomous hydration.
+- **Speculative Execution Hydration System**: Created `hydrate-cache.js` to
+  natively apply cached diff parameterizations, allowing the framework to skip
+  generative LLM cycles and bypass expensive planning for repetitive structural
+  work.
+- **Global APC Configuration**: Centralized cache settings, including TTL,
+  hashing strictness, and execution toggles, into the global `config.json`
+  schema under `apcCacheSettings`.
+
 ## [3.5.0] - 2026-04-03
 
 ### Added

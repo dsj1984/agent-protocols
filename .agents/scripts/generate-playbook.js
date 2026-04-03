@@ -129,8 +129,8 @@ export function validateManifest(manifest) {
     if (!task.persona) errors.push(`Task "${task.id}": missing persona.`);
     if (!Array.isArray(task.skills)) errors.push(`Task "${task.id}": skills must be an array.`);
     if (!task.model) errors.push(`Task "${task.id}": missing model.`);
-    if (!['Planning', 'Fast'].includes(task.mode)) errors.push(`Task "${task.id}": mode must be "Planning" or "Fast".`);
-    if (typeof task.instructions !== 'string' && !task.isIntegration && !task.isQA && !task.isCodeReview && !task.isRetro && !task.isCloseSprint) {
+    if (!['Planning', 'Fast', 'SpeculativeCache'].includes(task.mode)) errors.push(`Task "${task.id}": mode must be "Planning", "Fast", or "SpeculativeCache".`);
+    if (typeof task.instructions !== 'string' && !task.isIntegration && !task.isQA && !task.isCodeReview && !task.isRetro && !task.isCloseSprint && task.mode !== 'SpeculativeCache') {
       errors.push(`Task "${task.id}": instructions must be a string.`);
     }
   }
@@ -163,6 +163,8 @@ export function validateManifest(manifest) {
 // ---------------------------------------------------------------------------
 // Manifest Enrichment
 // ---------------------------------------------------------------------------
+
+import { instance as CacheManager } from './lib/CacheManager.js';
 
 /**
  * Automatically injects required personas and skills for bookend tasks
@@ -218,6 +220,15 @@ export function enrichManifest(manifest) {
 
       if (mentionedPackages.length >= 2 || hasCrossPackageLanguage) {
         task.scope = 'root';
+      }
+    }
+
+    // APC Speculative Execution Hook
+    if (!isBookend && task.instructions && CacheManager.config.enableSpeculativeExecution) {
+      if (CacheManager.hasMatch(task.instructions, task.focusAreas, task.scope)) {
+        task.mode = 'SpeculativeCache';
+        task.description = `[APC] Hydrated via Semantic Cache Memory`;
+        console.log(`[APC] Marking task ${task.id} as SpeculativeCache.`);
       }
     }
   }
