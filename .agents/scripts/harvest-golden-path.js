@@ -26,7 +26,18 @@ if (!taskId || !sprintRoot) {
 }
 
 const frictionLogPath = path.join(sprintRoot, 'agent-friction-log.json');
-const goldenDir = path.join(process.cwd(), '.agents', 'golden-examples');
+let goldenExamplesRoot = 'temp/golden-examples';
+try {
+  const configPath = path.join(process.cwd(), '.agents', 'config', 'config.json');
+  if (fs.existsSync(configPath)) {
+    const config = JSON.parse(fs.readFileSync(configPath, 'utf8'));
+    if (config?.properties?.goldenExamplesRoot?.default) {
+      goldenExamplesRoot = config.properties.goldenExamplesRoot.default;
+    }
+  }
+} catch (e) {}
+
+const goldenDir = path.join(process.cwd(), goldenExamplesRoot);
 
 // 1. Check for friction associated with this task ID
 if (fs.existsSync(frictionLogPath)) {
@@ -86,7 +97,7 @@ ${diff.trim()}
   const outPath = path.join(goldenDir, `${taskId}.md`);
   fs.writeFileSync(outPath, goldenOutput);
   console.log(`✅ [Golden-Path Harvesting] Successfully harvested zero-friction execution for Task ${taskId}!`);
-  console.log(`Saved to: .agents/golden-examples/${taskId}.md`);
+  console.log(`Saved to: ${goldenExamplesRoot}/${taskId}.md`);
 } catch (err) {
   console.error(`⚠️ [Golden-Path Harvesting] Failed to extract diff or write example: ${err.message}`);
 }

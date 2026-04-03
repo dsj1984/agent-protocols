@@ -74,8 +74,9 @@ export function renderTaskInstructions(task, sprintNumber) {
   return task.instructions;
 }
 
-function getGoldenExamples() {
-  const goldenDir = path.join(process.cwd(), '.agents', 'golden-examples');
+function getGoldenExamples(options = {}) {
+  const root = options.goldenExamplesRoot || 'temp/golden-examples';
+  const goldenDir = path.join(process.cwd(), root);
   if (!fs.existsSync(goldenDir)) return "";
   
   try {
@@ -250,7 +251,7 @@ export function renderPlaybook(manifest, chatSessions, chatDeps, options = {}) {
         md += `\`\`\`\n`;
       }
 
-      md += getGoldenExamples();
+      md += getGoldenExamples(options);
 
       md += `\`\`\`\`\n\n`;
       taskIndex++;

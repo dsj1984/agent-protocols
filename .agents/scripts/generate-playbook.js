@@ -46,6 +46,7 @@ const defaultModels = config?.properties?.defaultModels?.default || {
 };
 const sprintDocsRoot = config?.properties?.sprintDocsRoot?.default || 'docs/sprints';
 const sprintNumberPadding = config?.properties?.sprintNumberPadding?.default || 3;
+const goldenExamplesRoot = config?.properties?.goldenExamplesRoot?.default || 'temp/golden-examples';
 
 // ---------------------------------------------------------------------------
 // Constants
@@ -353,6 +354,7 @@ export function generateFromManifest(manifest, options = {}) {
   // Inject configuration defaults if not provided in options
   if (!options.sprintDocsRoot) options.sprintDocsRoot = sprintDocsRoot;
   if (!options.sprintNumberPadding) options.sprintNumberPadding = sprintNumberPadding;
+  if (!options.goldenExamplesRoot) options.goldenExamplesRoot = goldenExamplesRoot;
 
   // 0. Auto-enrich manifest with boilerplate required fields
   enrichManifest(manifest);

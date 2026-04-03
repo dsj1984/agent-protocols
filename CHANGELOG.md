@@ -6,6 +6,18 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 and this project adheres to
 [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [3.3.7] - 2026-04-03
+
+### Added
+
+- **Configurable Golden Example Storage**: Introduced `goldenExamplesRoot` in
+  `config.json` to allow custom paths for harvested golden paths (defaulting to
+  `temp/golden-examples`).
+- **Dynamic Playbook Reinforcement**: Updated `Renderer.js` and
+  `harvest-golden-path.js` to dynamically resolve the golden example store using
+  the new configuration property, enabling project-specific few-shot prompt
+  reinforcement.
+
 ## [3.3.6] - 2026-04-03
 
 ### Changed

@@ -84,6 +84,11 @@
       "default": "temp/task-state",
       "description": "The root directory for decoupled task state files. If set to a directory within /temp/, state is local and not committed. If set to a project directory (e.g., docs/sprints/sprint-[XXX]/task-state), state is committed to Git for cross-agent synchronization."
     },
+    "goldenExamplesRoot": {
+      "type": "string",
+      "default": "temp/golden-examples",
+      "description": "The directory where harvested golden examples are stored."
+    },
     "maxTokenBudget": {
       "type": "integer",
       "default": 1000000,
