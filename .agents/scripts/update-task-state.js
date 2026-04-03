@@ -44,6 +44,19 @@ const stateObject = {
 try {
   fs.writeFileSync(stateFilePath, JSON.stringify(stateObject, null, 2));
   console.log(`✅ Task ${taskId} marked as ${status} in ${stateFilePath}`);
+  
+  // Conditionally generate test receipt if requested or if status is 'passed'
+  // Support both normal states and test receipts from the same script
+  if (status === 'passed') {
+    const receiptPath = path.join(stateDir, `${taskId}-test-receipt.json`);
+    const receiptObject = {
+      status: 'passed',
+      timestamp: new Date().toISOString(),
+      task: taskId
+    };
+    fs.writeFileSync(receiptPath, JSON.stringify(receiptObject, null, 2));
+    console.log(`✅ Test receipt generated at ${receiptPath}`);
+  }
 } catch (err) {
   console.error(`❌ Failed to update state for task ${taskId}:`, err.message);
   process.exit(1);

@@ -66,7 +66,7 @@ function getDecoupledStatus(taskId) {
   if (!fs.existsSync(stateFile)) return 'INCOMPLETE';
   try {
     const stateData = JSON.parse(fs.readFileSync(stateFile, 'utf8'));
-    if (stateData.status === 'committed') return 'COMPLETED'; // committed counts as satisfied for prereqs
+    if (stateData.status === 'committed' || stateData.status === 'passed') return 'COMPLETED'; // both count as satisfied
     return 'INCOMPLETE';
   } catch (err) {
     return 'INCOMPLETE';

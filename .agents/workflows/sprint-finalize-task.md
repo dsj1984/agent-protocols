@@ -48,13 +48,10 @@ precisely:
 7. **State Sync**: Switch back to `sprint-[NUM]`. Execute `git pull --rebase` to
    fetch any state updates from sibling agents.
 8. **Update Task State (Decoupled)**:
-   - Ensure the state directory exists: `mkdir -p [TASK_STATE_ROOT]`.
-   - Create or update the JSON state file at `[TASK_STATE_ROOT]/[TASK_ID].json`
-     with the current state:
-     `{ "status": "committed", "timestamp": "[ISO_TIMESTAMP]" }`.
-   - **Test Receipt**: Create a JSON test receipt at
-     `[TASK_STATE_ROOT]/[TASK_ID]-test-receipt.json` confirming the green state:
-     `{ "status": "passed", "timestamp": "[ISO_TIMESTAMP]", "task": "[TASK_ID]" }`.
+   - Run the state update script to mark the task as committed:
+     `node .agents/scripts/update-task-state.js [TASK_ID] committed`
+   - **Test Receipt**: Run the state update script again to generate the test
+     receipt: `node .agents/scripts/update-task-state.js [TASK_ID] passed`
    - **Note**: This decoupled approach prevents git merge conflicts when
      multiple agents are finalizing tasks simultaneously.
 

@@ -6,6 +6,22 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 and this project adheres to
 [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [3.3.2] - 2026-04-02
+
+### Changed
+
+- **Cross-Platform State Tracking**:
+  - Replaced manual `mkdir -p` and `echo` JSON commands in
+    `sprint-finalize-task.md` with invocations of the `update-task-state.js`
+    Node script to ensure cross-platform compatibility (preventing execution
+    spinning/hanging on Windows PowerShell).
+  - Updated `update-task-state.js` to automatically generate the
+    `[TASK_ID]-test-receipt.json` artifact when instructed with the `passed`
+    state.
+  - Updated `verify-prereqs.js` to recognize decoupled `passed` states as
+    logically equivalent to `committed`, ensuring dependent tasks seamlessly
+    unblock.
+
 ## [3.3.1] - 2026-04-02
 
 ### Fixed
