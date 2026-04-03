@@ -244,6 +244,15 @@ export function renderPlaybook(manifest, chatSessions, chatDeps, options = {}) {
       md += `   - **Branching**: \`${branchInstruction}\`\n`;
       md += `   - **Mark Executing**: \`node .agents/scripts/update-task-state.js ${fullTaskId} executing\`\n`;
 
+      if (task.isCodeReview) {
+        md += `\n**Manual Fix Finalization:**\n`;
+        md += `If you made manual fixes during this review, you MUST run this cleanup prompt to synchronize them with the base branch before proceeding to QA:\n`;
+        md += `\`\`\`bash\n`;
+        md += `git add . && git commit -m "fix(review): implement architectural code review feedback"\n`;
+        md += `git checkout sprint-${sprintNum} && git merge task/sprint-${sprintNum}/integration && git push origin sprint-${sprintNum}\n`;
+        md += `\`\`\`\n`;
+      }
+
       md += getGoldenExamples();
 
       md += `\`\`\`\n\n`;
