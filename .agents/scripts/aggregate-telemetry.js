@@ -11,8 +11,9 @@
 
 import fs from 'node:fs';
 import path from 'node:path';
-import { fileURLToPath } from 'node:url';import { Logger } from "./lib/Logger.js";
-
+import { fileURLToPath } from 'node:url';
+import { Logger } from './lib/Logger.js';
+import { ensureDirSync } from './lib/fs-utils.js';
 
 const __dirname = path.dirname(fileURLToPath(import.meta.url));
 const args = process.argv.slice(2);
@@ -137,7 +138,7 @@ function generateReport() {
 
   // Ensure telemetry dir exists
   const reportDir = path.dirname(REPORT_OUTPUT);
-  if (!fs.existsSync(reportDir)) fs.mkdirSync(reportDir, { recursive: true });
+  ensureDirSync(reportDir);
 
   fs.writeFileSync(REPORT_OUTPUT, md, 'utf8');
   console.log(`✅ Telemetry report generated: ${REPORT_OUTPUT}`);

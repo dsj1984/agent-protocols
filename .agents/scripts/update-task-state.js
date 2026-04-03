@@ -1,7 +1,7 @@
 import fs from 'node:fs';
 import path from 'node:path';
 import { fileURLToPath } from 'node:url';
-import { execSync } from 'node:child_process';
+import { execFileSync } from 'node:child_process';
 import crypto from 'node:crypto';
 import { resolveConfig } from './lib/config-resolver.js';import { Logger } from "./lib/Logger.js";
 
@@ -57,6 +57,7 @@ try {
     const keyPath = path.join(PROJECT_ROOT, '.agents/keys/private.pem');
 
     if (fs.existsSync(keyPath)) {
+      try { fs.chmodSync(keyPath, 0o600); } catch(e) {} // Explicitly enforce isolate permissions
       const privateKey = fs.readFileSync(keyPath, 'utf8');
       const payloadStr = JSON.stringify(receiptObject);
       const signature = crypto.sign(null, Buffer.from(payloadStr), privateKey).toString('base64');
@@ -74,7 +75,7 @@ try {
        // The extraction logic defaults to the latest sprint if argument isn't an exact match.
        const apcScriptPath = path.join(__dirname, 'extract-intent.js');
        if (fs.existsSync(apcScriptPath)) {
-         execSync(`node ${apcScriptPath} 000 ${taskId}`, { stdio: 'inherit' });
+         execFileSync('node', [apcScriptPath, '000', taskId], { stdio: 'inherit' });
        }
     } catch (apcErr) {
        console.warn(`⚠️ [APC] Intent extraction failed for ${taskId}:`, apcErr.message);

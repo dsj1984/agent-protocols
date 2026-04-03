@@ -29,6 +29,15 @@ export function resolveConfig() {
     try {
       const raw = JSON.parse(fs.readFileSync(agentrcPath, 'utf8'));
       const settings = raw.agentSettings ?? {};
+
+      // Schema Boundary validation: Block injection metacharacters
+      const schemaValidKeys = ['taskStateRoot', 'goldenExamplesRoot', 'baseBranch', 'sprintDocsRoot', 'validationCommand', 'testCommand', 'buildCommand'];
+      for (const key of schemaValidKeys) {
+        if (typeof settings[key] === 'string' && /([;&|`]|\$\()/.test(settings[key])) {
+          throw new Error(`[Security] Malicious configuration value detected in .agentrc.json under ${key}. Shell meta-characters are forbidden.`);
+        }
+      }
+
       return { settings, source: agentrcPath };
     } catch {
       console.warn('[config] Failed to parse .agentrc.json — falling back to legacy config.');

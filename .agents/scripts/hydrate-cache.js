@@ -2,7 +2,7 @@ import fs from 'node:fs';
 import path from 'node:path';
 import { fileURLToPath } from 'node:url';
 import { instance as CacheManager } from './lib/CacheManager.js';
-import { execSync } from 'node:child_process';
+import { execFileSync } from 'node:child_process';
 import { resolveConfig } from './lib/config-resolver.js';import { Logger } from "./lib/Logger.js";
 
 
@@ -82,7 +82,7 @@ if (cacheMatch.payload && cacheMatch.payload.parameterizedDiff) {
 
 // 3. Mark the task as Complete natively so the integration wait-loop succeeds.
 try {
-  execSync(`node ${path.join(__dirname, 'update-task-state.js')} ${taskId} passed`, { stdio: 'inherit' });
+  execFileSync('node', [path.join(__dirname, 'update-task-state.js'), taskId, 'passed'], { stdio: 'inherit' });
 } catch (e) {
   console.error('Failed to update task state:', e);
 }

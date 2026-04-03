@@ -2,6 +2,8 @@ import fs from 'node:fs';
 import path from 'node:path';
 import { fileURLToPath } from 'node:url';
 import crypto from 'node:crypto';import { Logger } from "./lib/Logger.js";
+import { ensureDirSync } from './lib/fs-utils.js';
+
 
 
 const __dirname = path.dirname(fileURLToPath(import.meta.url));
@@ -9,9 +11,8 @@ const PROJECT_ROOT = path.resolve(__dirname, '../..');
 
 const KEYS_DIR = path.join(PROJECT_ROOT, '.agents', 'keys');
 
-if (!fs.existsSync(KEYS_DIR)) {
-  fs.mkdirSync(KEYS_DIR, { recursive: true });
-}
+ensureDirSync(KEYS_DIR);
+
 
 console.log('[System] Generating autonomous Ed25519 Asymmetric Key Pair...');
 try {

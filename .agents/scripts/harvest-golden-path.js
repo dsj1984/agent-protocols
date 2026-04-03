@@ -1,8 +1,10 @@
 import fs from 'node:fs';
 import path from 'node:path';
-import { execSync } from 'node:child_process';
+import { execFileSync } from 'node:child_process';
 
 import { resolveConfig } from './lib/config-resolver.js';import { Logger } from "./lib/Logger.js";
+import { ensureDirSync } from './lib/fs-utils.js';
+
 
 
 /**
@@ -55,7 +57,7 @@ if (fs.existsSync(frictionLogPath)) {
 
 // 2. Extract the codebase diff for this task branch vs the sprint base
 try {
-  const diff = execSync(`git diff ${baseBranch}...HEAD`, { encoding: 'utf8' });
+  const diff = execFileSync('git', ['diff', `${baseBranch}...HEAD`], { encoding: 'utf8' });
   if (!diff.trim()) {
     console.log(`[Golden-Path Harvesting] Task ${taskId} resulted in no code changes. Skipping harvest.`);
     process.exit(0);
@@ -75,7 +77,7 @@ try {
   }
 
   // 4. Persistence of the Golden Example
-  if (!fs.existsSync(goldenDir)) fs.mkdirSync(goldenDir, { recursive: true });
+  ensureDirSync(goldenDir);
   
   const goldenOutput = `---
 task: "${taskId}"

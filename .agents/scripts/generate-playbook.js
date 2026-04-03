@@ -25,7 +25,8 @@ import { fileURLToPath } from 'node:url';
 // Library imports for decoupled logic
 import { buildGraph, detectCycle, assignLayers, transitiveReduction, computeChatDependencies, computeReachability } from './lib/Graph.js';
 import { renderPlaybook } from './lib/Renderer.js';
-
+import { PlaybookOrchestrator } from './lib/PlaybookOrchestrator.js';
+import { ensureDirSync } from './lib/fs-utils.js';
 import { resolveConfig } from './lib/config-resolver.js';
 
 const __dirname = path.dirname(fileURLToPath(import.meta.url));
@@ -159,8 +160,8 @@ export function validateManifest(manifest) {
 // Manifest Enrichment
 // ---------------------------------------------------------------------------
 
-import { instance as CacheManager } from './lib/CacheManager.js';import { Logger } from "./lib/Logger.js";
-
+import { instance as CacheManager } from './lib/CacheManager.js';
+import { Logger } from './lib/Logger.js';
 
 /**
  * Automatically injects required personas and skills for bookend tasks
@@ -508,58 +509,51 @@ export function generateFromManifest(manifest, options = {}) {
   return { markdown, chatSessions, chatDeps };
 }
 
+function buildOrchestrator(options = {}) {
+  return new PlaybookOrchestrator({
+    validateManifest,
+    enrichManifest,
+    validateAssets,
+    groupIntoChatSessions,
+    options,
+  });
+}
+
 function main() {
   const sprintArg = process.argv[2];
 
   if (!sprintArg) {
     Logger.fatal('Usage: node scripts/generate-playbook.js <sprint-number>');
-    
   }
 
   const sprintNumber = parseInt(sprintArg, 10);
   if (isNaN(sprintNumber) || sprintNumber < 1) {
     Logger.fatal(`Invalid sprint number: "${sprintArg}". Must be a positive integer.`);
-    
   }
 
   // Normalize for robust directory resolution
   const paddedSprint = String(sprintNumber).padStart(sprintNumberPadding, '0');
-  
-  // Try finding it with padded digits first (new standard)
   let sprintDir = path.join(PROJECT_ROOT, sprintDocsRoot, `sprint-${paddedSprint}`);
-  
+
   // Robustness: Fallback to the original unpadded arg if it exists and the padded one doesn't
   if (!fs.existsSync(sprintDir)) {
     const unpaddedDir = path.join(PROJECT_ROOT, sprintDocsRoot, `sprint-${sprintArg}`);
-    if (fs.existsSync(unpaddedDir)) {
-      sprintDir = unpaddedDir;
-    }
+    if (fs.existsSync(unpaddedDir)) sprintDir = unpaddedDir;
   }
 
+  const AGENTS_DIR = path.join(__dirname, '..');
   const manifestPath = path.join(sprintDir, 'task-manifest.json');
-
-  if (!fs.existsSync(manifestPath)) {
-    console.error(`Manifest not found: ${manifestPath}`);
-    Logger.fatal(`Create the task-manifest.json first, then run this script.`);
-    
-  }
-
-  const raw = fs.readFileSync(manifestPath, 'utf8');
-  let manifest;
-  try {
-    manifest = JSON.parse(raw);
-  } catch (e) {
-    Logger.fatal(`Failed to parse ${manifestPath}: ${e.message}`);
-    
-  }
-
-  const { markdown } = generateFromManifest(manifest, { agentsDir: AGENTS_DIR });
-
   const outputPath = path.join(sprintDir, 'playbook.md');
-  fs.mkdirSync(sprintDir, { recursive: true });
-  fs.writeFileSync(outputPath, markdown, 'utf8');
 
-  console.log(`✅ Playbook generated: ${outputPath}`);
+  const orchestrator = buildOrchestrator({
+    agentsDir: AGENTS_DIR,
+    sprintDocsRoot,
+    sprintNumberPadding,
+    goldenExamplesRoot,
+    taskStateRoot,
+  });
+
+  orchestrator.runFromFile(manifestPath, outputPath);
 }
 
 // Run main only when executed directly

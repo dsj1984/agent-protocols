@@ -77,6 +77,11 @@ function getDecoupledStatus(taskId) {
   else return 'INCOMPLETE';
 
   try {
+    const stat = fs.statSync(targetFile);
+    if (stat.size > 1024 * 1024) { 
+      console.error(`❌ CRITICAL SECURITY ERROR: Payload for ${taskId} exceeds 1MB max limit. Aborting parse to prevent memory exhaustion.`);
+      process.exit(1); 
+    }
     const stateData = JSON.parse(fs.readFileSync(targetFile, 'utf8'));
     
     // Check Cryptographic Provenance if present

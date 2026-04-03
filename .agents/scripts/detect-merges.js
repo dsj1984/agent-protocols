@@ -1,11 +1,11 @@
 import { Logger } from "./lib/Logger.js";
-const { execSync } = require('child_process');
+const { execFileSync } = require('child_process');
 const fs = require('fs');
 const path = require('path');
 
 try {
   // Get all tracked files using git ls-files
-  const filesOutput = execSync('git ls-files').toString();
+  const filesOutput = execFileSync('git', ['ls-files']).toString();
   const files = filesOutput.split('\n').filter(Boolean);
   let foundConflicts = false;
 

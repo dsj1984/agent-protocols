@@ -1,5 +1,7 @@
 import fs from 'fs';
 import path from 'path';import { Logger } from "./lib/Logger.js";
+import { ensureDirSync } from './lib/fs-utils.js';
+
 
 
 // Implements a lightweight, zero-dependency TF-IDF indexer for Local RAG
@@ -49,7 +51,7 @@ function buildIndex() {
         return;
     }
     
-    if (!fs.existsSync(tempDir)) fs.mkdirSync(tempDir, { recursive: true });
+    ensureDirSync(tempDir);
 
     // Include docs/ but also the project root's specific architecture files if they are there
     let files = walkDir(DOCS_DIR);
