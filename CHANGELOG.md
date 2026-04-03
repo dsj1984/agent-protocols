@@ -6,6 +6,26 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 and this project adheres to
 [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [3.4.1] - 2026-04-03
+
+### Fixed
+
+- **Universal Remote State Sync**: Refactored the internal `Renderer.js`
+  branching protocol to mandate an explicit `git fetch origin` before any
+  checkout or merge, ensuring ephemeral runners never crash due to stale local
+  branch lists.
+- **Architectural Scope Validation**: Implemented a core heuristic in
+  `config.json` that restricts Planner-defined task scopes to valid monorepo
+  workspace names (e.g. `@repo/web`) or the literal string `root`, preventing
+  `pnpm --filter` tool crashes.
+- **Ambiguous UI Constraint Guardrail**: Added systemic planner heuristics that
+  force the grounding of UI standardization tasks against the official design
+  system documentation, eliminating subjective hallucination vectors for
+  autonomous styling agents.
+- **Monorepo-Wide Verification**: Codified a mandatory
+  `pnpm turbo run typecheck` requirement for all cross-cutting type-safety
+  refactors to ensure architectural boundaries remain unbroken.
+
 ## [3.4.0] - 2026-04-03
 
 ### Fixed
