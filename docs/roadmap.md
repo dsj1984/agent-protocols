@@ -22,6 +22,9 @@ and future architectural evolution for the Agent Protocols framework.
   prompt cache that maps the inputs of deterministic operations to their
   previously computed outputs, eliminating structural redundancies across
   workflows.
+- ✅ **Perception-Action Event Stream:** Decouple core logic from the
+  environment by shifting to an event-stream abstraction where agents read the
+  history of events and produce the next atomic action.
 
 ## Implemented: Version 3.x (Optimization & Refinement)
 
@@ -126,9 +129,6 @@ scalable, and secure engineering pipelines.
 
 ### 2. Architectural Orchestration and Multi-Agent Collaboration
 
-- **Perception-Action Event Stream:** Decouple core logic from the environment
-  by shifting to an event-stream abstraction where agents read the history of
-  events and produce the next atomic action.
 - **Isolated Multi-Agent Parallelization:** Enforce the use of isolated working
   directories for parallel feature branch execution to prevent source control
   race conditions.

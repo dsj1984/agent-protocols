@@ -212,6 +212,11 @@ export function renderPlaybook(manifest, chatSessions, chatDeps, options = {}) {
       md += `**Pre-flight Task Validation (Run this first):**\n`;
       md += `\`node .agents/scripts/verify-prereqs.js ${docsRoot}/sprint-${sprintNum}/playbook.md ${fullTaskId} ${options.taskStateRoot || 'temp/task-state'}\`\n\n`;
 
+      md += `**Perception-Action Event Stream Protocol:**\n`;
+      md += `All environmental interactions MUST be streamed. Start the loop via:\n`;
+      md += `\`node .agents/scripts/run-agent-loop.js ${fullTaskId}\`\n`;
+      md += `Feed Atomic Action JSON payloads into its stdin. Reference \`.agents/schemas/atomic-action-schema.json\` for the format. Do not use random bash execution.\n\n`;
+
       md += `**Instructions:**\n`;
       md += `1. **Task ${task.id}:**\n`;
       const instLines = renderTaskInstructions(task, sprintNum).split('\n');
