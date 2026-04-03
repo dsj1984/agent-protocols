@@ -169,7 +169,7 @@ export function renderPlaybook(manifest, chatSessions, chatDeps, options = {}) {
       md += `  - **Dependencies**: ${depList}\n\n`;
 
       // Agent Prompt
-      md += `\`\`\`markdown\n`;
+      md += `\`\`\`\`markdown\n`;
       md += `=== SYSTEM PROTOCOL & CAPABILITIES ===\n`;
       md += `**AGENT EXECUTION PROTOCOL:**\n`;
       
@@ -262,7 +262,7 @@ export function renderPlaybook(manifest, chatSessions, chatDeps, options = {}) {
 
       md += getGoldenExamples();
 
-      md += `\`\`\`\n\n`;
+      md += `\`\`\`\`\n\n`;
       taskIndex++;
     }
   }
