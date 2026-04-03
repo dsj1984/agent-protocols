@@ -16,15 +16,15 @@ describe('Verify Task Prerequisites (Integration)', () => {
         fs.mkdirSync(TEST_DIR, { recursive: true });
         fs.mkdirSync(path.join(TEST_DIR, 'task-state'), { recursive: true });
         
-        // Create a mock playbook.md
+        // Create a mock playbook.md (NEW format)
         const playbookContent = `# Sprint 001 Playbook
 
-## Tasks
-- [x] **001.1.1** Task A
-  - Status: COMPLETED
-- [ ] **001.1.2** Task B
+## Execution Plan
+[x] **001.1.1** Task A
+  - **Dependencies**: None
+[ ] **001.1.2** Task B
   - **Dependencies**: \`001.1.1\`
-- [ ] **001.2.1** Task C
+[ ] **001.2.1** Task C
   - **Dependencies**: \`001.1.2\`
 `;
         fs.writeFileSync(path.join(TEST_DIR, 'playbook.md'), playbookContent);
@@ -99,5 +99,24 @@ describe('Verify Task Prerequisites (Integration)', () => {
         // 001.1.2 implicitly depends on 001.1.1 in the same chat
         assert.equal(result.status, 0);
         assert.ok(result.stdout.includes('Prerequisite 001.1.1 is satisfied.'));
+    });
+
+    it('supports legacy dash format', () => {
+        const legacyContent = `# Legacy Playbook
+## Tasks
+- [x] **002.1.1** Legacy Task A
+- [ ] **002.1.2** Legacy Task B
+  - **Dependencies**: \`002.1.1\`
+`;
+        fs.writeFileSync(path.join(TEST_DIR, 'legacy-playbook.md'), legacyContent);
+
+        const result = spawnSync('node', [SCRIPT_PATH, 'legacy-playbook.md', '002.1.2', 'task-state'], {
+            cwd: TEST_DIR,
+            env: { ...process.env },
+            encoding: 'utf-8'
+        });
+
+        assert.equal(result.status, 0, `Expected SUCCESS for legacy format but got FAIL. Output: ${result.stderr}`);
+        assert.ok(result.stdout.includes('Prerequisite 002.1.1 is satisfied.'));
     });
 });

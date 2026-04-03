@@ -17,18 +17,14 @@ if (!fs.existsSync(playbookPath)) {
 
 const content = fs.readFileSync(playbookPath, 'utf8');
 
-// Parse task statuses from playbook (only [x] is considered COMPLETE here)
+// Parse task headers and their positions
 const taskStatus = new Map();
-const taskRegex = /^\s*(?:-\s*)?\[([ xX])\] \*\*([\d\.]+)\*\*/gm;
+const taskHeaders = [];
+const headerRegex = /^\s*(?:-\s*)?\[([ xX])\] \*\*([\d\.]+)\*\*/gm;
 let match;
-while ((match = taskRegex.exec(content)) !== null) {
-  const statusMark = match[1];
-  const taskId = match[2];
-  let status = 'INCOMPLETE';
-  if (statusMark.toLowerCase() === 'x') {
-    status = 'COMPLETED'; // "x" is complete in the playbook
-  }
-  taskStatus.set(taskId, status);
+while ((match = headerRegex.exec(content)) !== null) {
+  taskStatus.set(match[2], match[1].toLowerCase() === 'x' ? 'COMPLETED' : 'INCOMPLETE');
+  taskHeaders.push({ id: match[2], index: match.index });
 }
 
 if (!taskStatus.has(targetTask)) {
@@ -36,22 +32,21 @@ if (!taskStatus.has(targetTask)) {
   process.exit(1);
 }
 
-// Find explicit dependencies for targetTask
-const escapedTask = targetTask.replace(/\./g, '\\.');
-const taskBlockRegex = new RegExp(`^\\s*(?:-\\s*)?\\[[ xX]\\] \\*\\*${escapedTask}\\*\\*[\\s\\S]*?(?=^\\s*(?:-\\s*)?\\[[ xX]\\] \\*\\*\\d|$)`, 'gm');
-const taskBlockMatch = taskBlockRegex.exec(content);
+// Find the block of text specifically for targetTask
+const targetHeaderIdx = taskHeaders.findIndex(h => h.id === targetTask);
+const blockStart = taskHeaders[targetHeaderIdx].index;
+const blockEnd = (targetHeaderIdx + 1 < taskHeaders.length) 
+  ? taskHeaders[targetHeaderIdx + 1].index 
+  : content.length;
+const block = content.substring(blockStart, blockEnd);
 
 const dependencies = new Set();
-
-if (taskBlockMatch) {
-  const block = taskBlockMatch[0];
-  const depsRegex = /\s*- \*\*Dependencies\*\*: (.*)/;
-  const depsMatch = depsRegex.exec(block);
-  if (depsMatch) {
-    const depsString = depsMatch[1];
-    const depIds = [...depsString.matchAll(/`([\d\.]+)`/g)].map((m) => m[1]);
-    depIds.forEach((dep) => dependencies.add(dep));
-  }
+const depsRegex = /\s*- \*\*Dependencies\*\*: (.*)/;
+const depsMatch = depsRegex.exec(block);
+if (depsMatch) {
+  const depsString = depsMatch[1];
+  const depIds = [...depsString.matchAll(/`([\d\.]+)`/g)].map((m) => m[1]);
+  depIds.forEach((dep) => dependencies.add(dep));
 }
 
 // Intra-chat predecessors (numerically preceding steps in the same chat)
