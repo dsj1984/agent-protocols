@@ -25,32 +25,74 @@
 
 ---
 
-## GitHub Project Setup (Pre-Work)
+## Project Bootstrap (Automated)
 
-Before any code is written, set up the GitHub infrastructure that v5 will
-target. This is a one-time manual setup that creates the "other side" of the
-integration.
+Before Phase 1 code can be validated, the target ticketing platform must be
+initialized with the required project board, labels, milestones, and epic
+issues. This setup is **fully automated** via a bootstrap script that runs
+through the `ITicketingProvider` interface — the same abstraction all v5 code
+uses. This means:
 
-- [ ] Create a **GitHub Project (V2)** on `dsj1984/agent-protocols` named "Agent
-      Protocols — Sprint Board".
-- [ ] Add custom fields to the project:
+1. **Consumers get a one-command onboarding experience** (`/bootstrap-project`)
+   instead of a manual checklist.
+2. The bootstrap script doubles as the **first integration test** of the
+   provider's write APIs.
+3. The setup is **idempotent** — running it again skips resources that already
+   exist.
+
+### What the Bootstrap Creates
+
+**Project Board:**
+
+- A Project (V2) named "[Repo Name] — Sprint Board" with custom fields:
   - `Sprint` (Iteration) — maps to sprint numbers.
   - `Execution` (Single Select) — values: `sequential`, `concurrent`.
   - `Focus Area` (Single Select) — values: `core`, `scripts`, `docs`, `ci`,
     `tests`.
-- [ ] Define label taxonomy on the repository:
-  - State labels: `agent::ready`, `agent::executing`, `agent::review`,
-    `agent::done`.
-  - Dependency labels: `status::blocked`.
-  - Risk labels: `risk::high`, `risk::medium`.
-  - Persona labels: `persona::fullstack`, `persona::architect`, `persona::qa`.
-  - Context labels: `context::prd`, `context::tech-spec`.
-  - Execution labels: `execution::sequential`, `execution::concurrent`.
-  - Focus labels: `focus::core`, `focus::scripts`, `focus::docs`, `focus::ci`,
-    `focus::tests`.
-- [ ] Create a **Milestone** for `v5.0.0`.
-- [ ] Create an **Epic issue** for each phase (Phase 1–4) and assign them to the
-      `v5.0.0` milestone.
+
+**Label Taxonomy** (created via REST API / MCP):
+
+| Category    | Labels                                                                      | Color                  |
+| ----------- | --------------------------------------------------------------------------- | ---------------------- |
+| Agent State | `agent::ready`, `agent::executing`, `agent::review`, `agent::done`          | `#0E8A16` (green)      |
+| Status      | `status::blocked`                                                           | `#D93F0B` (red)        |
+| Risk        | `risk::high`, `risk::medium`                                                | `#FBCA04` (yellow)     |
+| Persona     | `persona::fullstack`, `persona::architect`, `persona::qa`                   | `#C5DEF5` (blue)       |
+| Context     | `context::prd`, `context::tech-spec`                                        | `#D4C5F9` (purple)     |
+| Execution   | `execution::sequential`, `execution::concurrent`                            | `#F9D0C4` (peach)      |
+| Focus       | `focus::core`, `focus::scripts`, `focus::docs`, `focus::ci`, `focus::tests` | `#BFD4F2` (light blue) |
+
+**Milestones & Epics:**
+
+- A milestone for the target version (e.g., `v5.0.0`).
+- One epic issue per implementation phase, assigned to the milestone.
+
+### API Surface
+
+The bootstrap extends `ITicketingProvider` with optional setup methods:
+
+- `createProject(name, fields)` — Create a project board with custom fields.
+  Uses the GraphQL API for GitHub Projects V2 (`gh api graphql` / Octokit
+  GraphQL). Falls back to a no-op with a warning for providers that don't
+  support programmatic project creation.
+- `createLabel(name, color, description)` — Create a repository label. Uses the
+  REST API (fully supported by GitHub, GitLab, Jira, Linear).
+- `createMilestone(title, description)` — Create a milestone/iteration.
+- `createEpicIssue(title, body, milestone)` — Create a parent issue.
+
+Providers that don't support a specific primitive (e.g., Jira projects are
+created via admin UI) log a warning and return a skip result, allowing the
+bootstrap to complete partially.
+
+### Workflow
+
+```text
+/bootstrap-project [--provider github] [--milestone v5.0.0]
+```
+
+Reads `orchestration.providerConfig` from `.agentrc.json`, instantiates the
+correct provider, and runs the idempotent setup sequence. On completion, prints
+a summary of created vs. skipped resources.
 
 ---
 
@@ -66,17 +108,21 @@ integration.
 
 **Scope:** Define the interfaces and build the GitHub provider.
 
-| Task                                                                           | Type   | File(s)                                            | Depends On  |
-| ------------------------------------------------------------------------------ | ------ | -------------------------------------------------- | ----------- |
-| Define `ITicketingProvider` interface                                          | NEW    | `.agents/scripts/lib/ITicketingProvider.js`        | —           |
-| Define `IExecutionAdapter` interface                                           | NEW    | `.agents/scripts/lib/IExecutionAdapter.js`         | —           |
-| Add `orchestration` schema to `.agentrc.json`                                  | MODIFY | `.agents/default-agentrc.json`, `.agents/schemas/` | —           |
-| Update `config-resolver.js` to parse `orchestration` block                     | MODIFY | `.agents/scripts/lib/config-resolver.js`           | Schema      |
-| Build `providers/github.js` — `getTicket()`, `listSprintTickets()` (read-only) | NEW    | `.agents/scripts/providers/github.js`              | Interface   |
-| Build `providers/github.js` — `getTicketDependencies()`                        | NEW    | (same file)                                        | `getTicket` |
-| Build `providers/github.js` — `getParentContext()`                             | NEW    | (same file)                                        | `getTicket` |
-| Unit tests for GitHub provider (read methods)                                  | NEW    | `tests/providers-github.test.js`                   | Provider    |
-| Unit tests for interface contracts                                             | NEW    | `tests/ticketing-provider.test.js`                 | Interface   |
+| Task                                                                                                                                          | Type   | File(s)                                            | Depends On  |
+| --------------------------------------------------------------------------------------------------------------------------------------------- | ------ | -------------------------------------------------- | ----------- |
+| Define `ITicketingProvider` interface (including optional `createProject`, `createLabel`, `createMilestone`, `createEpicIssue` setup methods) | NEW    | `.agents/scripts/lib/ITicketingProvider.js`        | —           |
+| Define `IExecutionAdapter` interface                                                                                                          | NEW    | `.agents/scripts/lib/IExecutionAdapter.js`         | —           |
+| Add `orchestration` schema to `.agentrc.json`                                                                                                 | MODIFY | `.agents/default-agentrc.json`, `.agents/schemas/` | —           |
+| Update `config-resolver.js` to parse `orchestration` block                                                                                    | MODIFY | `.agents/scripts/lib/config-resolver.js`           | Schema      |
+| Build `providers/github.js` — `getTicket()`, `listSprintTickets()` (read-only)                                                                | NEW    | `.agents/scripts/providers/github.js`              | Interface   |
+| Build `providers/github.js` — `getTicketDependencies()`                                                                                       | NEW    | (same file)                                        | `getTicket` |
+| Build `providers/github.js` — `getParentContext()`                                                                                            | NEW    | (same file)                                        | `getTicket` |
+| Build `providers/github.js` — `createProject()`, `createLabel()`, `createMilestone()`, `createEpicIssue()` (setup methods)                    | NEW    | (same file)                                        | Interface   |
+| Build `bootstrap-project.js` — idempotent setup script that creates project board, labels, milestone, and epic issues via provider            | NEW    | `.agents/scripts/bootstrap-project.js`             | Provider    |
+| Add `/bootstrap-project` workflow                                                                                                             | NEW    | `.agents/workflows/bootstrap-project.md`           | Script      |
+| Unit tests for GitHub provider (read methods)                                                                                                 | NEW    | `tests/providers-github.test.js`                   | Provider    |
+| Unit tests for interface contracts                                                                                                            | NEW    | `tests/ticketing-provider.test.js`                 | Interface   |
+| Unit tests for bootstrap (mocked provider)                                                                                                    | NEW    | `tests/bootstrap-project.test.js`                  | Bootstrap   |
 
 ### Sprint 1B: Shadow Mode Script
 
@@ -296,6 +342,7 @@ entirely through GitHub tickets, with zero local playbook artifacts.
 | `.agents/scripts/lib/ITicketingProvider.js` | 1     | Abstract interface            |
 | `.agents/scripts/lib/IExecutionAdapter.js`  | 1     | Abstract interface            |
 | `.agents/scripts/providers/github.js`       | 1     | Reference provider            |
+| `.agents/scripts/bootstrap-project.js`      | 1     | Automated project setup       |
 | `.agents/scripts/playbook-to-tickets.js`    | 1     | Shadow mode bridge            |
 | `.agents/scripts/validate-shadow.js`        | 1     | Shadow fidelity check         |
 | `.agents/scripts/context-hydrator.js`       | 2     | Virtual playbook assembly     |
@@ -304,9 +351,11 @@ entirely through GitHub tickets, with zero local playbook artifacts.
 | `.agents/scripts/update-ticket-state.js`    | 3     | Ticketing state writer        |
 | `.agents/scripts/plan-to-tickets.js`        | 4     | Direct ticket planning        |
 | `.agents/workflows/shadow-sync.md`          | 1     | Shadow validation workflow    |
+| `.agents/workflows/bootstrap-project.md`    | 1     | Automated project setup       |
 | `.agents/workflows/start-sprint.md`         | 2     | Ticketing-native sprint start |
 | `tests/providers-github.test.js`            | 1     | Provider unit tests           |
 | `tests/ticketing-provider.test.js`          | 1     | Interface contract tests      |
+| `tests/bootstrap-project.test.js`           | 1     | Bootstrap unit tests          |
 | `tests/shadow-sync.integration.js`          | 1     | Integration test              |
 | `tests/context-hydrator.test.js`            | 2     | Hydrator unit tests           |
 | `tests/ticket-cache.test.js`                | 2     | Cache unit tests              |
