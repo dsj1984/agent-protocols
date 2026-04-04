@@ -14,6 +14,8 @@ and this project adheres to
   `.agents/config/` files (`config.json`, `models.json`, `tech-stack.json`)
   across `instructions.md`, `SDLC.md`, `README.md`, personas, templates, and
   workflows. All documentation now consistently references `.agentrc.json`.
+- **Notification Enhancement**: prepended specific task/sprint IDs to webhook
+  notifications across all sprint workflows for improved channel visibility.
 - **Legacy Fallback Removal**: Removed the deprecated
   `.agents/config/config.json` fallback path from `config-resolver.js`.
   Resolution is now `.agentrc.json` → built-in defaults.
