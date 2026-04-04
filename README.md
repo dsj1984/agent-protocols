@@ -90,10 +90,13 @@ ensure high-quality sprint execution:
 - **Anti-Thrashing Protocol**: Mandates agents to halt and re-plan after hitting
   configurable thresholds for tool errors or analysis steps without progress.
   Controlled via `frictionThresholds` in `.agentrc.json`.
-- **Complexity Ceilings (Instruction Density)**: Enforces task atomicity by
-  limiting the number of logical steps/bullet points in a task's instructions.
-  This ensures agents stay within a manageable cognitive context. Configurable
-  via `maxInstructionSteps` (default: 5) in `.agentrc.json`.
+- **Complexity-Aware Task Decomposition**: Enforces task atomicity by scoring
+  tasks based on instruction length, estimated file count, scope breadth, and
+  bullet-point density. Tasks exceeding the `maxComplexityScore` threshold
+  (default: 8) are automatically split into sub-tasks (if `substeps` are
+  provided) or flagged with a warning to ensure agents self-decompose into
+  manageable sub-steps. Configurable via `complexity` settings in
+  `.agentrc.json`.
 - **Agent Friction Telemetry**: Agents are mandated to log operational struggles
   (repetitive tasks, errors) into a structured `agent-friction-log.json` file.
   Tolerance thresholds for logging are configurable via
