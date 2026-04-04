@@ -6,6 +6,33 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 and this project adheres to
 [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [4.1.0] - 2026-04-04
+
+### Added
+
+- **Coverage Verification Phase**: Integrated a mandatory "Step 2.5" into the
+  `sprint-generate-playbook.md` workflow to cross-check Tech Spec coverage and
+  scope completeness before manifest finalization.
+- **Model Registry Validation**: Added automated warnings during playbook
+  generation for unrecognized model strings, validating against the
+  `.agentrc.json` registry.
+
+### Changed
+
+- **Feature Track Isolation**: Hardened dependency rules to prevent artificial
+  cross-feature serialization that destroys parallelism.
+- **Mandatory Context Sync**: Every non-bookend agent prompt now mandates
+  reading the PRD and Tech Spec before execution to prevent hallucination of
+  architecture/schema details.
+- **Strict Execution Ordering**: Reordered task instructions to ensure
+  `Mark Executing` is the first action performed by the agent.
+- **Explicit Branch Merges**: Renderer now injects concrete
+  `git merge origin/<branch>` commands for all task dependencies, eliminating
+  branching ambiguity.
+- **Human-Operator Clarification**: Clearly labeled the
+  `Manual Fix Finalization` block as a human-operator task in `Renderer.js` to
+  prevent agent execution confusion.
+
 ## [4.0.0] - 2026-04-03
 
 ### Added

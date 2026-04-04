@@ -1,5 +1,5 @@
 /**
- * Unified Configuration Resolver (v4.0.0 — Universal Protocol Standardization)
+ * Unified Configuration Resolver (v4.1.0 — Universal Protocol Standardization)
  *
  * Resolution order:
  *   1. <project-root>/.agentrc.json             (new unified standard)

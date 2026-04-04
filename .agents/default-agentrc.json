@@ -1,7 +1,7 @@
 {
   "$schema": "https://json-schema.org/draft/2020-12/schema",
   "title": "Agent Protocols — Unified Root Configuration",
-  "version": "4.0.0",
+  "version": "4.1.0",
   "agentSettings": {
     "autoRunSafeCommands": true,
     "defaultPersona": "engineer",
