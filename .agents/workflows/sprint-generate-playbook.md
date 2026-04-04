@@ -7,7 +7,7 @@ description:
 
 ## Role
 
-Adopt the `project-manager` persona from `.agents/personas/`.
+Adopt the `project-manager` persona from `[PERSONAS_ROOT]/`.
 
 ## Context & Objective
 
@@ -24,7 +24,7 @@ when executing this command.
 ## Step 0 - Path Resolution
 
 1.  Resolve `[SPRINT_ROOT]` as the directory `sprint-[PADDED_NUM]` within the
-    `sprintDocsRoot` prefix, both defined in `.agents/config/config.json`.
+    `sprintDocsRoot` prefix, both defined in `.agentrc.json`.
 2.  `[PADDED_NUM]` is the `[SPRINT_NUMBER]` padded according to the
     `sprintNumberPadding` setting in the same config.
 
@@ -42,7 +42,7 @@ with explicit dependencies. Output a `task-manifest.json` file.
 ### Manifest Schema
 
 Your output MUST conform to the JSON schema defined in
-`.agents/schemas/task-manifest.schema.json`. Read this file before proceeding.
+`[SCHEMAS_ROOT]/task-manifest.schema.json`. Read this file before proceeding.
 
 ### Dependency Rules
 
@@ -70,7 +70,7 @@ Your output MUST conform to the JSON schema defined in
   `bugfix-login-redirect`, `web-event-cards`).
 - **`title`**: Human-readable title (e.g., "Database Schema Migrations").
 - **`dependsOn`**: Array of task `id` strings. Empty array = no dependencies.
-- **`persona`**: Select the exact persona filename from `.agents/personas/` that
+- **`persona`**: Select the exact persona filename from `[PERSONAS_ROOT]/` that
   best fits the task. **Do not invent personas.**
 - **`skills`**: Select applicable skills from `.agents/skills/`. Use the path
   relative to `.agents/skills/` (e.g., `database/turso`). Do not leave empty.
@@ -84,11 +84,11 @@ Your output MUST conform to the JSON schema defined in
 - **`instructions`**: Detailed, multi-line task instructions. MUST explicitly
   list file paths to modify. **Maintain Task Atomicity**: each task SHOULD
   contain no more than the number of logical action items/bullet points defined
-  in `.agents/config/config.json:maxInstructionSteps` (default: 5). If a feature
-  requires more, decompose it into sequential sub-tasks. MUST use `\n-` plus a
-  space for markdown bullet points to format the text into readable chunks
-  instead of a single block. **Omit this field entirely for bookend tasks** —
-  the script auto-injects the appropriate workflow delegation command.
+  in `.agentrc.json:maxInstructionSteps` (default: 5). If a feature requires
+  more, decompose it into sequential sub-tasks. MUST use `\n-` plus a space for
+  markdown bullet points to format the text into readable chunks instead of a
+  single block. **Omit this field entirely for bookend tasks** — the script
+  auto-injects the appropriate workflow delegation command.
 - **`scope`**: Optional workspace scope (e.g., `@repo/api`, `@repo/web`,
   `@repo/mobile`, `root`). Tasks sharing a scope at the same layer are grouped
   into one Chat Session. The scope is displayed in the playbook execution rule
@@ -126,7 +126,7 @@ Save the manifest to: `[SPRINT_ROOT]/task-manifest.json`
 Run the scaffold script to generate the formatted playbook:
 
 ```bash
-node .agents/scripts/generate-playbook.js [SPRINT_NUMBER]
+node [SCRIPTS_ROOT]/generate-playbook.js [SPRINT_NUMBER]
 ```
 
 The script will:

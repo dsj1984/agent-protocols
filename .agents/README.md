@@ -96,7 +96,7 @@ Then open `.agentrc.json` and customise:
 > **Resolution order (scripts fall back gracefully):**
 >
 > 1. `.agentrc.json` at project root ← your file
-> 2. `.agents/config/config.json` ← legacy (deprecated — emits a warning)
+> 2. `.agentrc.json` ← legacy (deprecated — emits a warning)
 > 3. Built-in defaults (zero-config fallback)
 
 ### ⚡ Activation & Usage
@@ -106,7 +106,7 @@ Once the submodule is added to your project, follow these steps:
 1. **Configure your AI tool** to load `.agents/instructions.md` as the **System
    Prompt**.
 2. **Use personas** by telling the agent to "Act as [Role]" — it will look for
-   the matching file in `.agents/personas/`.
+   the matching file in `[PERSONAS_ROOT]/`.
 3. **Activate skills** by referencing them by name or letting your agent
    auto-discover `SKILL.md` files in `.agents/skills/`.
 4. **Run sprint planning** using the automated workflow `/plan-sprint [SPRINT]`.
@@ -138,13 +138,13 @@ long tasks, the following guardrails are enforced:
 - **Anti-Thrashing Protocol**: Mandates that an agent MUST halt, summarize its
   blockers, and present a **Re-Plan** if it hits consecutive tool errors OR
   performs consecutive steps of analysis without modifying a file.
-  - **Configurability**: Controlled by `frictionThresholds` in
-    `.agents/config/config.json` (Defaults: errors=3, stagnation=5).
+  - **Configurability**: Controlled by `frictionThresholds` in `.agentrc.json`
+    (Defaults: errors=3, stagnation=5).
 - **Complexity Ceilings (Instruction Density)**: Limits the number of logical
   steps/bullet points in a task's instructions to ensure agents remain within a
   stable cognitive context.
-  - **Configurability**: Controlled by `maxInstructionSteps` in
-    `.agents/config/config.json` (Default: 5).
+  - **Configurability**: Controlled by `maxInstructionSteps` in `.agentrc.json`
+    (Default: 5).
 - **Agent Friction Telemetry**: Mandates logging of repetitive tasks or
   persistent errors to `agent-friction-log.json`.
   - **Configurability**: Repetitive command threshold is controlled by
@@ -152,7 +152,7 @@ long tasks, the following guardrails are enforced:
 - **Local RAG Semantic Retrieval**: Mandates the use of a zero-dependency local
   vector store for high-context retrieval, preventing context window bloat in
   large mono-repos.
-  - **Usage**: `node .agents/scripts/context-indexer.js search "<query>"`
+  - **Usage**: `node [SCRIPTS_ROOT]/context-indexer.js search "<query>"`
 - **FinOps & Economic Guardrails**: Tracks agent token consumption against
   configurable sprint budgets (`maxTokenBudget` in `config.json`). Enforces
   soft-warnings at thresholds and hard-stops to prevent unexpected expenses.
@@ -162,7 +162,7 @@ long tasks, the following guardrails are enforced:
 - **Macroscopic Telemetry Observer**: A zero-dependency aggregation script that
   reads friction logs across sprints to visually chart tool failures, efficiency
   trends, and productivity bottlenecks.
-  - **Usage**: `node .agents/scripts/aggregate-telemetry.js --from 1 --to 10`
+  - **Usage**: `node [SCRIPTS_ROOT]/aggregate-telemetry.js --from 1 --to 10`
 
 ---
 

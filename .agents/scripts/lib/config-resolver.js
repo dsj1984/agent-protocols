@@ -31,7 +31,7 @@ export function resolveConfig() {
       const settings = raw.agentSettings ?? {};
 
       // Schema Boundary validation: Block injection metacharacters
-      const schemaValidKeys = ['taskStateRoot', 'goldenExamplesRoot', 'baseBranch', 'sprintDocsRoot', 'validationCommand', 'testCommand', 'buildCommand'];
+      const schemaValidKeys = ['taskStateRoot', 'goldenExamplesRoot', 'baseBranch', 'sprintDocsRoot', 'validationCommand', 'testCommand', 'buildCommand', 'agentRoot', 'scriptsRoot', 'workflowsRoot', 'personasRoot', 'keysRoot', 'schemasRoot', 'docsRoot', 'tempRoot', 'eventStreamsRoot', 'workspacesRoot'];
       for (const key of schemaValidKeys) {
         if (typeof settings[key] === 'string' && /([;&|`]|\$\()/.test(settings[key])) {
           throw new Error(`[Security] Malicious configuration value detected in .agentrc.json under ${key}. Shell meta-characters are forbidden.`);
@@ -68,6 +68,16 @@ export function resolveConfig() {
   // 3. Hard-coded defaults (zero-config experience)
   return {
     settings: {
+      agentRoot: '.agents',
+      scriptsRoot: '.agents/scripts',
+      workflowsRoot: '.agents/workflows',
+      personasRoot: '.agents/personas',
+      keysRoot: '.agents/keys',
+      schemasRoot: '.agents/schemas',
+      docsRoot: 'docs',
+      tempRoot: 'temp',
+      workspacesRoot: 'temp/workspaces',
+      eventStreamsRoot: 'temp/event-streams',
       taskStateRoot: 'temp/task-state',
       goldenExamplesRoot: 'temp/golden-examples',
       baseBranch: 'main',

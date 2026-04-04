@@ -15,11 +15,11 @@ cleans up the sprint branch, and optionally tags a release.
 ## Step 0 - Path Resolution
 
 1.  Resolve `[SPRINT_ROOT]` as the directory `sprint-[PADDED_NUM]` within the
-    `sprintDocsRoot` prefix, both defined in `.agents/config/config.json`.
+    `sprintDocsRoot` prefix, both defined in `.agentrc.json`.
 2.  `[PADDED_NUM]` is the `[SPRINT_NUMBER]` padded according to the
     `sprintNumberPadding` setting in the same config.
-3.  Resolve `[BASE_BRANCH]` from the `baseBranch` field in
-    `.agents/config/config.json` (default: `main`).
+3.  Resolve `[BASE_BRANCH]` from the `baseBranch` field in `.agentrc.json`
+    (default: `main`).
 
 ## Execution Steps
 
@@ -43,7 +43,7 @@ cleans up the sprint branch, and optionally tags a release.
    - If the branches exist but have 0 unmerged commits, they are safe to ignore
      (they will be purged in the Cleanup step).
 4. **Merge to Base Branch**: Switch to the base branch (defined as "baseBranch"
-   in .agents/config/config.json) and perform the merge:
+   in .agentrc.json) and perform the merge:
 
    ```text
    git checkout [BASE_BRANCH]
@@ -93,12 +93,12 @@ cleans up the sprint branch, and optionally tags a release.
     - **Note**: This catch-all audit ensures even legacy dash-named branches are
       purged before the sprint is closed.
 11. **Notification**: Resolve `[WEBHOOK_URL]` from the `webhookUrl` field in
-    `.agents/config/config.json`. If `webhookUrl` is not empty, send a
-    notification using the cross-platform Node script:
-    `node .agents/scripts/notify.js "[WEBHOOK_URL]" "Sprint [SPRINT_NUMBER] has been merged to [BASE_BRANCH] and the sprint branch has been cleaned up."`
+    `.agentrc.json`. If `webhookUrl` is not empty, send a notification using the
+    cross-platform Node script:
+    `node [SCRIPTS_ROOT]/notify.js "[WEBHOOK_URL]" "Sprint [SPRINT_NUMBER] has been merged to [BASE_BRANCH] and the sprint branch has been cleaned up."`
 
 - If the command fails, log the failure using the provided script:
-  `node .agents/scripts/log-friction.js "[SPRINT_ROOT]/agent-friction-log.json" "friction_point" "notify.js" "[ERROR_MESSAGE]"`
+  `node [SCRIPTS_ROOT]/log-friction.js "[SPRINT_ROOT]/agent-friction-log.json" "friction_point" "notify.js" "[ERROR_MESSAGE]"`
 - If the `webhookUrl` is empty, skip gracefully.
 
 ## Constraint

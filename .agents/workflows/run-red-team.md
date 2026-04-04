@@ -8,7 +8,7 @@ description:
 
 ## Role
 
-Adopt the `security-engineer` persona from `.agents/personas/`.
+Adopt the `security-engineer` persona from `[PERSONAS_ROOT]/`.
 
 ## Context & Objective
 
@@ -43,8 +43,8 @@ payloads) explicitly designed to break the code. Focus on:
 
 ## Step 3 - Tribunal Execution
 
-Execute your scripts in the terminal: `npm test [TARGET_SCOPE]` (or your custom
-fuzz script).
+Execute your scripts in the terminal: `[TEST_COMMAND] [TARGET_SCOPE]` (resolved
+from `testCommand` in `.agentrc.json`, or your custom fuzz script).
 
 ## Step 4 - Resolution & Reporting
 

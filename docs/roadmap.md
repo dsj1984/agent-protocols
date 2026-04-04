@@ -57,7 +57,7 @@ evolutionary loops.
   context gathering.
 - ✅ **FinOps & Token Budgeting**: Implemented `maxTokenBudget` and
   `budgetWarningThreshold` with soft-warning and hard-stop protocols. Enriched
-  models.json with cost-tiering recommendations.
+  .agentrc.json with cost-tiering recommendations.
 - ✅ **Zero-Touch Remediation Loop**: Automatically transitions agents from a
   failed `/sprint-integration` candidate check into a `/sprint-hotfix` loop,
   resolving build/test failures autonomously up to a configurable

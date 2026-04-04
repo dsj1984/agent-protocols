@@ -17,7 +17,7 @@ user-facing value.
 ## Step 0 - Path Resolution
 
 1.  Resolve `[SPRINT_DOCS_ROOT]` as the `sprintDocsRoot` prefix defined in
-    `.agents/config/config.json`.
+    `.agentrc.json`.
 
 ## Step 1: Data Aggregation
 

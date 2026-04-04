@@ -15,14 +15,14 @@ for subsequent planning and execution.
 ## Step 1 - Normalize Sprint Number
 
 1.  Resolve `[PADDED_NUM]` by padding the `[SPRINT_NUMBER]` based on the
-    `sprintNumberPadding` field in `.agents/config/config.json` (e.g., if
-    padding is `3`, `40` becomes `040`).
+    `sprintNumberPadding` field in `.agentrc.json` (e.g., if padding is `3`,
+    `40` becomes `040`).
 2.  Use this padded version for all subsequent steps.
 
 ## Step 2 - Repository Hygiene & Environment Reset
 
-1.  Resolve `[BASE_BRANCH]` from the `baseBranch` field in
-    `.agents/config/config.json` (default: `main`).
+1.  Resolve `[BASE_BRANCH]` from the `baseBranch` field in `.agentrc.json`
+    (default: `main`).
 2.  Perform repository maintenance:
     - Run `git fetch origin --prune` to clean up deleted remote branches.
     - Run `git gc --auto` to optimize local repository size and performance.
@@ -46,8 +46,7 @@ for subsequent planning and execution.
 ## Step 4 - Directory Initialization
 
 1.  Resolve `[SPRINT_ROOT]` as the directory `sprint-[PADDED_NUM]` within the
-    `sprintDocsRoot` defined in `.agents/config/config.json` (default:
-    `docs/sprints`).
+    `sprintDocsRoot` defined in `.agentrc.json` (default: `docs/sprints`).
 2.  Create the sprint directory if it doesn't exist: `mkdir [SPRINT_ROOT]`.
 3.  Initialize the agent observability log (JSON Lines format) if it doesn't
     exist:

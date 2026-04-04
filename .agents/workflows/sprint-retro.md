@@ -8,7 +8,7 @@ description:
 ## Step 0 - Path Resolution
 
 1.  Resolve `[SPRINT_ROOT]` as the directory `sprint-[PADDED_NUM]` within the
-    `sprintDocsRoot` prefix, both defined in `.agents/config/config.json`.
+    `sprintDocsRoot` prefix, both defined in `.agentrc.json`.
 2.  `[PADDED_NUM]` is the `[SPRINT_NUMBER]` padded according to the
     `sprintNumberPadding` setting in the same config.
 
@@ -34,12 +34,12 @@ Chat Session 5), you must execute the following steps:
    roadmap; these should remain in the retro document for later implementation
    in the `agent-protocols` repository.
 6. **Update Architecture & Patterns**: Update `architecture.md` if any core
-   schemas or dependencies were introduced. Update `docs/patterns.md` and
-   `docs/decisions.md` to document new technical rulings, accepted library
-   patterns, or key architectural decisions made during this sprint.
+   schemas or dependencies were introduced. Update `[DOCS_ROOT]/patterns.md` and
+   `[DOCS_ROOT]/decisions.md` to document new technical rulings, accepted
+   library patterns, or key architectural decisions made during this sprint.
 7. **Context Pruning**: Execute the Gardener workflow to archive stale decisions
    and optimize the Local RAG index for the next sprint:
-   `/[.agents/workflows/run-context-pruning.md]`
+   `/[[WORKFLOWS_ROOT]/run-context-pruning.md]`
 8. **Finalize**: Use the `/sprint-finalize-task` workflow for your task ID
    (e.g., `39.8.1`) to ensure the retro documentation, roadmap updates, and
    context pruning artifacts are pushed and the playbook status is tracked.

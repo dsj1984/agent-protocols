@@ -30,11 +30,11 @@ even when commands are auto-running.
 ## Step 0 - Path Resolution
 
 1.  Resolve `[SPRINT_ROOT]` as the directory `sprint-[PADDED_NUM]` within the
-    `sprintDocsRoot` prefix, both defined in `.agents/config/config.json`.
+    `sprintDocsRoot` prefix, both defined in `.agentrc.json`.
 2.  `[PADDED_NUM]` is the `[SPRINT_NUMBER]` padded according to the
     `sprintNumberPadding` setting in the same config.
 3.  Resolve `[TASK_STATE_ROOT]` from the `taskStateRoot` field in
-    `.agents/config/config.json` (default: `temp/task-state`).
+    `.agentrc.json` (default: `temp/task-state`).
 
 ## Execution Steps
 
@@ -50,7 +50,7 @@ even when commands are auto-running.
      isolated tests pass.
 4. **Ephemeral Candidate Verification**: For each VALIDATED feature branch
    identified in Step 2, run the batch integration script:
-   `node .agents/scripts/sprint-integrate.js --sprint [SPRINT_NUMBER] --task [TASK_ID]`
+   `node [SCRIPTS_ROOT]/sprint-integrate.js --sprint [SPRINT_NUMBER] --task [TASK_ID]`
    - This script performs the full candidate verification loop in a single
      process: creates the ephemeral candidate branch, merges, runs validation +
      tests, and either consolidates (on success) or rolls back (on failure).
@@ -71,13 +71,13 @@ even when commands are auto-running.
        - **REMEDIATE (Zero-Touch Loop)**: DO NOT STOP EXECUTION. You must now
          immediately checkout the original feature branch
          `task/sprint-[SPRINT_NUMBER]/[TASK_ID]` and transition into the
-         `/[.agents/workflows/sprint-hotfix.md]` workflow. Use the diagnostic
+         `/[[WORKFLOWS_ROOT]/sprint-hotfix.md]` workflow. Use the diagnostic
          traces you just generated to automatically remediate the regression.
          This task is NOT eligible for `[x]` (Complete) status yet.
      - **Exit 2 (Major Conflict)**: STOP and alert the user.
 
 5. **Conflict Marker Scan**: After all merges complete, run the cross-platform
-   script: `node .agents/scripts/detect-merges.js` If the script exits with an
+   script: `node [SCRIPTS_ROOT]/detect-merges.js` If the script exits with an
    error (markers found), the merge is INCOMPLETE. Resolve them manually, stage
    the fixes with `git add`, and amend the merge commit before proceeding. Do
    NOT continue with unresolved markers.
@@ -97,12 +97,12 @@ even when commands are auto-running.
 9. **Branch Cleanup**: For each successfully merged feature branch, delete the
    remote ref: `git push origin --delete task/sprint-[SPRINT_NUMBER]/[TASK_ID]`.
 10. **Notification**: Resolve `[WEBHOOK_URL]` from the `webhookUrl` field in
-    `.agents/config/config.json`. If `webhookUrl` is not empty, send a
-    notification using the cross-platform Node script:
-    `node .agents/scripts/notify.js "[WEBHOOK_URL]" "Sprint [SPRINT_NUMBER] feature branches have been integrated into the sprint base branch."`
+    `.agentrc.json`. If `webhookUrl` is not empty, send a notification using the
+    cross-platform Node script:
+    `node [SCRIPTS_ROOT]/notify.js "[WEBHOOK_URL]" "Sprint [SPRINT_NUMBER] feature branches have been integrated into the sprint base branch."`
 
 - If the command fails, log the failure using the provided script:
-  `node .agents/scripts/log-friction.js "[SPRINT_ROOT]/agent-friction-log.json" "friction_point" "notify.js" "[ERROR_MESSAGE]"`
+  `node [SCRIPTS_ROOT]/log-friction.js "[SPRINT_ROOT]/agent-friction-log.json" "friction_point" "notify.js" "[ERROR_MESSAGE]"`
 - If the `webhookUrl` is empty, skip gracefully.
 
 ## Constraint
@@ -115,4 +115,4 @@ class during parallel execution phases.
 **Timeout**: If a single branch's candidate verification (Step 4) has not
 completed within 5 minutes of wall-clock time, treat it as a failure and proceed
 to the blast-radius containment path (exit code 1). Log the timeout via
-`node .agents/scripts/log-friction.js "[SPRINT_ROOT]/agent-friction-log.json" "friction_point" "sprint-integration" "[TASK_ID] candidate verification timed out after 5 minutes."`
+`node [SCRIPTS_ROOT]/log-friction.js "[SPRINT_ROOT]/agent-friction-log.json" "friction_point" "sprint-integration" "[TASK_ID] candidate verification timed out after 5 minutes."`

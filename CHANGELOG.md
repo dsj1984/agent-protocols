@@ -15,7 +15,7 @@ and this project adheres to
   `requireCryptographicProvenance` in `.agentrc.json`, the framework establishes
   a Zero-Trust immutable chain of custody for playbook integration gates.
 - **Universal Protocol Standardization**: Consolidated all previously fragmented
-  agent configuration (`config.json`, `models.json`, `tech-stack.json`) into a
+  agent configuration (`.agentrc.json`, `.agentrc.json`, `.agentrc.json`) into a
   single `.agentrc.json` at the project root. The canonical default is shipped
   as `.agents/default-agentrc.json` for consumers to copy and customise. All
   orchestration scripts now use the shared `lib/config-resolver.js` utility,
@@ -52,7 +52,7 @@ and this project adheres to
   generative LLM cycles and bypass expensive planning for repetitive structural
   work.
 - **Global APC Configuration**: Centralized cache settings, including TTL,
-  hashing strictness, and execution toggles, into the global `config.json`
+  hashing strictness, and execution toggles, into the global `.agentrc.json`
   schema under `apcCacheSettings`.
 
 ## [3.5.0] - 2026-04-03
@@ -165,8 +165,8 @@ and this project adheres to
   `branchInstruction` builder (which agents do copy) across all three code paths
   (default, bookend, dependency-chaining).
 - **Bookend Model Elevation**: Added `model` overrides to `isQA`,
-  `isCodeReview`, and `isRetro` bookend requirements in `config.json`, and wired
-  `enrichManifest` to apply them to the primary model field.
+  `isCodeReview`, and `isRetro` bookend requirements in `.agentrc.json`, and
+  wired `enrichManifest` to apply them to the primary model field.
 
 ## [3.4.2] - 2026-04-03
 
@@ -182,8 +182,8 @@ and this project adheres to
   production Git histories.
 - **Compute Allocation Elevation**: Exposed and upgraded the default planning
   model to High/Thinking tiers (e.g., Claude Sonnet 3.6 OR Gemini 3.1 Pro) in
-  `config.json` to ensure sufficient reasoning capacity for complex monorepo AST
-  operations.
+  `.agentrc.json` to ensure sufficient reasoning capacity for complex monorepo
+  AST operations.
 
 ## [3.4.1] - 2026-04-03
 
@@ -194,7 +194,7 @@ and this project adheres to
   checkout or merge, ensuring ephemeral runners never crash due to stale local
   branch lists.
 - **Architectural Scope Validation**: Implemented a core heuristic in
-  `config.json` that restricts Planner-defined task scopes to valid monorepo
+  `.agentrc.json` that restricts Planner-defined task scopes to valid monorepo
   workspace names (e.g. `@repo/web`) or the literal string `root`, preventing
   `pnpm --filter` tool crashes.
 - **Ambiguous UI Constraint Guardrail**: Added systemic planner heuristics that
@@ -240,7 +240,7 @@ and this project adheres to
 
 ### Added
 
-- **Zod Schema Bridge Heuristic**: Added a systemic guardrail to `config.json`
+- **Zod Schema Bridge Heuristic**: Added a systemic guardrail to `.agentrc.json`
   enforcing the generation and export of validation schemas (Zod) during
   database migration tasks to proactively stabilize downstream API consumption.
 
@@ -265,8 +265,8 @@ and this project adheres to
 
 ### Added
 
-- **Architectural Risk Gate Heuristics**: Expanded the global `config.json` risk
-  gates with mandatory systemic guardrails enforcing programmatic tests
+- **Architectural Risk Gate Heuristics**: Expanded the global `.agentrc.json`
+  risk gates with mandatory systemic guardrails enforcing programmatic tests
   (Playwright/Vitest), type-check verification after AST refactors, and
   synchronous DB schema pushes.
 
@@ -275,8 +275,8 @@ and this project adheres to
 ### Added
 
 - **Configurable Golden Example Storage**: Introduced `goldenExamplesRoot` in
-  `config.json` to allow custom paths for harvested golden paths (defaulting to
-  `temp/golden-examples`).
+  `.agentrc.json` to allow custom paths for harvested golden paths (defaulting
+  to `temp/golden-examples`).
 - **Dynamic Playbook Reinforcement**: Updated `Renderer.js` and
   `harvest-golden-path.js` to dynamically resolve the golden example store using
   the new configuration property, enabling project-specific few-shot prompt
@@ -412,8 +412,8 @@ and this project adheres to
   - Mandated a remediation loop where agents must address and verify any issues
     found during exploratory testing before finalizing the task.
   - Introduced the `exploratoryTestCommand` configuration property in
-    `config.json` (default: `pnpm test:exploratory`) to ensure the testing suite
-    is fully configurable.
+    `.agentrc.json` (default: `pnpm test:exploratory`) to ensure the testing
+    suite is fully configurable.
 
 ## [3.1.3] - 2026-04-02
 
@@ -456,14 +456,14 @@ and this project adheres to
   - Refactored `generate-playbook.js` and `Renderer.js` to eliminate hardcoded
     `docs/sprints` paths and `3`-digit padding.
   - The generation pipeline now dynamically respects `sprintDocsRoot` and
-    `sprintNumberPadding` defined in `config.json`.
+    `sprintNumberPadding` defined in `.agentrc.json`.
 
 - **Intelligent Model Fallbacks**:
   - Restored the dual-model enforcement protocol in `generate-playbook.js`.
   - Every task now guarantees both a **First Choice** and **Second Choice**
     model.
   - Implemented configurable fallbacks (Planning -> Pro Low, Fast -> Flash)
-    defined in `.agents/config/config.json`.
+    defined in `.agentrc.json`.
 
 - **Enhanced Task Branching Logic**:
   - Updated `Renderer.js` to inject explicit `git checkout -b` commands for
@@ -533,8 +533,8 @@ and this project adheres to
 - **Zero-Touch Remediation Loop**:
   - Automates the transition from a failed `/sprint-integration` candidate check
     into an immediate `/sprint-hotfix` loop.
-  - Introduced `maxIntegrationRetries` to `.agents/config/config.json`
-    (default: 2) to control the automated remediation depth.
+  - Introduced `maxIntegrationRetries` to `.agentrc.json` (default: 2) to
+    control the automated remediation depth.
   - Integrated diagnostic capturing via `diagnose-friction.js` directly into the
     integration verification step.
   - Mandated recursive integration attempts within `sprint-hotfix.md` until the
@@ -554,7 +554,7 @@ and this project adheres to
     alignment and reinforcement learning.
 
 - **Semantic Risk & Blast-Radius Gates**:
-  - Upgraded static keyword `riskGates.words` in `config.json` to a semantic
+  - Upgraded static keyword `riskGates.words` in `.agentrc.json` to a semantic
     `riskGates.heuristics` framework.
   - Updated `sprint-generate-tech-spec.md` to instruct the AI Architect to act
     as a semantic classifier for blast-radius analysis.
@@ -585,16 +585,16 @@ and this project adheres to
 
 - **FinOps & Economic Guardrails**:
   - Added `maxTokenBudget` and `budgetWarningThreshold` properties to
-    `.agents/config/config.json`.
+    `.agentrc.json`.
   - Updated `instructions.md` (Section 2) with mandatory token tracking,
     soft-warning (80%), and hard-stop (100%) protocols to prevent budget
     overruns.
-  - Enriched `models.json` with `finops_recommendations` to guide agents toward
-    cost-effective API tiering.
+  - Enriched `.agentrc.json` with `finops_recommendations` to guide agents
+    toward cost-effective API tiering.
 
 - **HITL Risk Gates for Safe Execution**:
-  - Added `riskGates` configuration to `.agents/config/config.json` with default
-    trigger keywords (`DROP`, `DELETE`, `IAM`, etc.).
+  - Added `riskGates` configuration to `.agentrc.json` with default trigger
+    keywords (`DROP`, `DELETE`, `IAM`, etc.).
   - Updated the Task Manifest schema with a `requires_approval` property.
   - Automated Tech Spec phase to flag destructive workflows natively in the
     playbook, halting the execution sequence until explicitly human-approved.
@@ -706,9 +706,8 @@ and this project adheres to
 ### Changed
 
 - **Modernized Validation Commands**:
-  - Updated `validationCommand` and `testCommand` in
-    `.agents/config/config.json` to leverage **pnpm turbo** for faster, cached
-    execution.
+  - Updated `validationCommand` and `testCommand` in `.agentrc.json` to leverage
+    **pnpm turbo** for faster, cached execution.
   - Default `validationCommand`: `pnpm turbo run lint`.
   - Default `testCommand`: `pnpm turbo run test`.
 - **Workflow Hardening**:
@@ -738,8 +737,8 @@ and this project adheres to
 ### Added
 
 - **Configurable Task State Root**:
-  - Introduced `taskStateRoot` in `.agents/config/config.json` to allow custom
-    paths for decoupled task state files.
+  - Introduced `taskStateRoot` in `.agentrc.json` to allow custom paths for
+    decoupled task state files.
   - Set the default path to `temp/task-state/` (in the project root) to keep the
     repository clean and avoid polluting Git history with transient state.
   - Updated `instructions.md`, `SDLC.md`, and the `sprint-finalize-task`
@@ -792,7 +791,7 @@ and this project adheres to
 
 - **Extracted Base Branch Configuration**:
   - Centralized the primary development branch (default: `main`) into
-    `.agents/config/config.json`.
+    `.agentrc.json`.
   - Extracted the sprint documentation root (`sprintDocsRoot`: `docs/sprints`),
     sprint number padding (`sprintNumberPadding`: 3), validation command
     (`validationCommand`: `npm run lint`), and notification webhook
@@ -837,7 +836,7 @@ and this project adheres to
 
 - **Configurable Friction Thresholds**:
   - Extracted hardcoded agent-friction and anti-thrashing thresholds into
-    `.agents/config/config.json` under `frictionThresholds`.
+    `.agentrc.json` under `frictionThresholds`.
   - Thresholds for consecutive errors, stagnation steps, and repetitive command
     detection are now fully configurable.
   - Updated `instructions.md`, `SDLC.md`, and project READMEs to reference the
@@ -906,8 +905,8 @@ and this project adheres to
 
 - **Configurable Efficiency Guardrails**:
   - Introduced **Instruction Density** as the core complexity metric, replacing
-    file counts. Configurable via `maxInstructionSteps` in
-    `.agents/config/config.json` (default: 5 logical steps).
+    file counts. Configurable via `maxInstructionSteps` in `.agentrc.json`
+    (default: 5 logical steps).
   - Updated the **Anti-Thrashing Protocol** with clear error and research
     thresholds to prevent agent stagnation.
   - Added a dedicated **🛡️ Efficiency & Guardrails** section to all project
@@ -1409,12 +1408,12 @@ and this project adheres to
 - **Structured Configuration Centralization**:
   - Created a dedicated `.agents/config/` directory to house all JSON
     configuration files.
-  - **Model Selection (`config/models.json`)**: Extracted model tiers and
-    chaining logic for better maintainability.
-  - **Tech Stack (`config/tech-stack.json`)**: Extracted all project-specific
-    technology references (ORM, DB, API, UI, etc.) to ensure protocol
-    portability across different tech stacks.
-  - **Agent Config (`config/config.json`)**: Centralized operational limits and
+  - **Model Selection (`.agentrc.json`)**: Extracted model tiers and chaining
+    logic for better maintainability.
+  - **Tech Stack (`.agentrc.json`)**: Extracted all project-specific technology
+    references (ORM, DB, API, UI, etc.) to ensure protocol portability across
+    different tech stacks.
+  - **Agent Config (`.agentrc.json`)**: Centralized operational limits and
     auto-run permissions.
 
 - **Expanded Sprint Lifecycle**:
@@ -1426,8 +1425,7 @@ and this project adheres to
 
 - **Generic & Portable Templates**:
   - Refactored `technical-spec-template.md` and `prd-template.md` to be
-    tech-agnostic, dynamically pulling project details from
-    `config/tech-stack.json`.
+    tech-agnostic, dynamically pulling project details from `.agentrc.json`.
   - Standardized `Output Artifacts` sections across all personas for consistent
     artifact ownership.
 
@@ -1645,7 +1643,7 @@ and this project adheres to
   commands which was inadvertently broken by subdirectory categorization in
   v1.3.0.
 - **CI/CD Validation**: Hardened the `dist` branch publication process to
-  strictly validate the presence of the new `rules/` and `config.json` files.
+  strictly validate the presence of the new `rules/` and `.agentrc.json` files.
 
 ## [1.4.0] - 2026-03-25
 
@@ -1661,8 +1659,8 @@ and this project adheres to
   - `ui-copywriting.md`: Sentence case and empathetic tone guidelines.
 - **Local Overrides**: Added support for `.agents/instructions.local.md` and
   `config.local.json` to allow personal developer preferences.
-- **Structured Config**: Introduced `.agents/config.json` for programmatic agent
-  guardrails.
+- **Structured Config**: Introduced `.agents/.agentrc.json` for programmatic
+  agent guardrails.
 
 ### Documentation
 

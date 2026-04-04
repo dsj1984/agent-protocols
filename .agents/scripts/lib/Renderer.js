@@ -102,6 +102,9 @@ function getGoldenExamples(options = {}) {
 export function renderPlaybook(manifest, chatSessions, chatDeps, options = {}) {
   const padding = options.sprintNumberPadding || 3;
   const docsRoot = options.sprintDocsRoot || 'docs/sprints';
+  const scriptsRoot = options.scriptsRoot || '.agents/scripts';
+  const workflowsRoot = options.workflowsRoot || '.agents/workflows';
+  const schemasRoot = options.schemasRoot || '.agents/schemas';
   const sprintNum = String(manifest.sprintNumber).padStart(padding, '0');
   
   let md = `# Sprint ${sprintNum} Playbook: ${manifest.sprintName}\n\n`;
@@ -184,7 +187,7 @@ export function renderPlaybook(manifest, chatSessions, chatDeps, options = {}) {
       
       // Enforce universal pre-flight validation (v3.3.1)
       md += `Before beginning work, you MUST run the pre-flight verification script to ensure all dependencies are committed.\n`;
-      md += `Read and strictly follow the steps defined in \`.agents/workflows/sprint-verify-task-prerequisites.md\` or run the manual verification script for your specific task.\n`;
+      md += `Read and strictly follow the steps defined in \`${workflowsRoot}/sprint-verify-task-prerequisites.md\` or run the manual verification script for your specific task.\n`;
       md += `If the script fails, STOP immediately and ask the user to complete the blocking tasks.\n\n`;
 
       md += `**Branching:**\n`;
@@ -192,8 +195,8 @@ export function renderPlaybook(manifest, chatSessions, chatDeps, options = {}) {
       md += `If this task depends on previous tasks, ensure you have fetched the latest remote state (\`git fetch origin\`) and merged or checked out their respective feature branches before beginning work.\n\n`;
 
       md += `**Close-out:**\n`;
-      md += `1. **Complete & Finalize**: All code must be committed and pushed via the standard workflow. Read and strictly follow the steps defined in \`.agents/workflows/sprint-finalize-task.md\` to track state and notify the team.\n`;
-      md += `2. **Error Recovery**: If you encounter an unresolvable error, execute: \`node .agents/scripts/update-task-state.js ${fullTaskId} blocked\` and alert the user immediately.\n\n`;
+      md += `1. **Complete & Finalize**: All code must be committed and pushed via the standard workflow. Read and strictly follow the steps defined in \`${workflowsRoot}/sprint-finalize-task.md\` to track state and notify the team.\n`;
+      md += `2. **Error Recovery**: If you encounter an unresolvable error, execute: \`node ${scriptsRoot}/update-task-state.js ${fullTaskId} blocked\` and alert the user immediately.\n\n`;
 
       md += `=== VOLATILE TASK CONTEXT ===\n\n`;
       md += `**Persona**: ${task.persona}\n`;
@@ -210,15 +213,15 @@ export function renderPlaybook(manifest, chatSessions, chatDeps, options = {}) {
 
       // Enforce universal task-specific validation line
       md += `**Pre-flight Task Validation (Run this first):**\n`;
-      md += `\`node .agents/scripts/verify-prereqs.js ${docsRoot}/sprint-${sprintNum}/playbook.md ${fullTaskId} ${options.taskStateRoot || 'temp/task-state'}\`\n\n`;
+      md += `\`node ${scriptsRoot}/verify-prereqs.js ${docsRoot}/sprint-${sprintNum}/playbook.md ${fullTaskId} ${options.taskStateRoot || 'temp/task-state'}\`\n\n`;
 
       const targetBranch = task.isIntegration || task.isQA || task.isCodeReview || task.isRetro || task.isCloseSprint ? `sprint-${sprintNum}` : `task/sprint-${sprintNum}/${task.id}`;
       const taskPattern = task.pattern || 'default';
 
       md += `**Perception-Action Event Stream Protocol:**\n`;
       md += `All environmental interactions MUST be streamed. Start the loop via:\n`;
-      md += `\`node .agents/scripts/run-agent-loop.js ${fullTaskId} --branch ${targetBranch} --pattern ${taskPattern}\`\n`;
-      md += `Feed Atomic Action JSON payloads into its stdin. Reference \`.agents/schemas/atomic-action-schema.json\` for the format. Do not use random bash execution.\n\n`;
+      md += `\`node ${scriptsRoot}/run-agent-loop.js ${fullTaskId} --branch ${targetBranch} --pattern ${taskPattern}\`\n`;
+      md += `Feed Atomic Action JSON payloads into its stdin. Reference \`${schemasRoot}/atomic-action-schema.json\` for the format. Do not use random bash execution.\n\n`;
 
       md += `**Instructions:**\n`;
       md += `1. **Task ${task.id}:**\n`;
@@ -228,7 +231,7 @@ export function renderPlaybook(manifest, chatSessions, chatDeps, options = {}) {
         md += line.trim().startsWith('-') ? `   ${line.trim()}\n` : `   - ${line.trim()}\n`;
       }
 
-      md += `   - **Mark Executing**: \`node .agents/scripts/update-task-state.js ${fullTaskId} executing\`\n`;
+      md += `   - **Mark Executing**: \`node ${scriptsRoot}/update-task-state.js ${fullTaskId} executing\`\n`;
 
       if (task.isCodeReview) {
         md += `\n**Manual Fix Finalization (AGENT PROMPT):**\n`;
@@ -241,7 +244,7 @@ export function renderPlaybook(manifest, chatSessions, chatDeps, options = {}) {
         md += `I have completed the manual implementation of architectural fixes from the Code Review. Please execute the final synchronization to align the repository:\n\n`;
         md += `1. **Commit Review Fixes**: Stage and commit any uncommitted architectural fixes: \`git add . && (git diff --staged --quiet || git commit -m "fix(review): implement architectural code review feedback")\`\n`;
         md += `2. **Push Default Base**: Push your fixes natively to the integration branch: \`git push origin HEAD\`\n`;
-        md += `3. **Update State**: Mark the code review task as passed to generate the test receipt: \`node .agents/scripts/update-task-state.js ${fullTaskId} passed\`\n`;
+        md += `3. **Update State**: Mark the code review task as passed to generate the test receipt: \`node ${scriptsRoot}/update-task-state.js ${fullTaskId} passed\`\n`;
         md += `\`\`\`\n`;
       }
 

@@ -25,6 +25,8 @@ if (!taskId || !status) {
 // 1. Resolve taskStateRoot via unified config resolver
 const { settings: agentConfig } = resolveConfig();
 let taskStateRoot = agentConfig.taskStateRoot ?? 'temp/task-state';
+let keysRoot = agentConfig.keysRoot ?? '.agents/keys';
+let scriptsRoot = agentConfig.scriptsRoot ?? '.agents/scripts';
 
 // 2. Ensure state directory exists
 const stateDir = path.resolve(process.cwd(), taskStateRoot);
@@ -54,7 +56,7 @@ try {
     };
 
     let finalPayload = receiptObject;
-    const keyPath = path.join(PROJECT_ROOT, '.agents/keys/private.pem');
+    const keyPath = path.join(PROJECT_ROOT, keysRoot, 'private.pem');
 
     if (fs.existsSync(keyPath)) {
       try { fs.chmodSync(keyPath, 0o600); } catch(e) {} // Explicitly enforce isolate permissions
@@ -73,7 +75,7 @@ try {
        console.log(`[APC] Initiating Speculative Intent Extraction for ${taskId}...`);
        // We pass a mock sprint 'latest' since update-task-state usually doesn't have the sprint arg natively.
        // The extraction logic defaults to the latest sprint if argument isn't an exact match.
-       const apcScriptPath = path.join(__dirname, 'extract-intent.js');
+       const apcScriptPath = path.join(PROJECT_ROOT, scriptsRoot, 'extract-intent.js');
        if (fs.existsSync(apcScriptPath)) {
          execFileSync('node', [apcScriptPath, '000', taskId], { stdio: 'inherit' });
        }

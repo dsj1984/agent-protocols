@@ -19,7 +19,7 @@ when executing this command.
 ## Step 0 - Path Resolution
 
 1.  Resolve `[SPRINT_ROOT]` as the directory `sprint-[PADDED_NUM]` within the
-    `sprintDocsRoot` prefix, both defined in `.agents/config/config.json`.
+    `sprintDocsRoot` prefix, both defined in `.agentrc.json`.
 2.  `[PADDED_NUM]` is the `[SPRINT_NUMBER]` padded according to the
     `sprintNumberPadding` setting in the same config.
 
@@ -47,11 +47,10 @@ Generate an explicit technical specification outlining:
 1. Execution Guardrails
 1. **HITL Risk Assessment**: You MUST act as a **Semantic Classifier**. Evaluate
    your proposed technical plan against the `riskGates.heuristics` defined in
-   `.agents/config/config.json`. If your plan involves any destructive
-   mutations, structural anomalies, or logic that deviates significantly from
-   the localized PRD intent, you MUST explicitly flag this and instruct the
-   Project Manager to set `"requires_approval": true` for that task in the
-   manifest.
+   `.agentrc.json`. If your plan involves any destructive mutations, structural
+   anomalies, or logic that deviates significantly from the localized PRD
+   intent, you MUST explicitly flag this and instruct the Project Manager to set
+   `"requires_approval": true` for that task in the manifest.
 
 ## Step 3 - Output Artifacts
 

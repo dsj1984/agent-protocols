@@ -7,7 +7,7 @@ description:
 
 ## Role
 
-Adopt the `architect` or `security-engineer` persona from `.agents/personas/`.
+Adopt the `architect` or `security-engineer` persona from `[PERSONAS_ROOT]/`.
 
 ## Context & Objective
 
@@ -36,7 +36,7 @@ For all modified code, execute a strict review against these four pillars:
 3. **Performance & Technical Debt:** Identify expensive queries, unoptimized
    React renders, or god-functions.
 4. **Anti-patterns:** Does the codebase diverge from the project's established
-   conventions or the accepted patterns documented in `docs/patterns.md`?
+   conventions or the accepted patterns documented in `[DOCS_ROOT]/patterns.md`?
 
 ## Step 3 - Issue Reporting
 

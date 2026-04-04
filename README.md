@@ -67,8 +67,7 @@ Then open `.agentrc.json` and set your project-specific values (e.g.,
 > **How it works:** All agent scripts resolve configuration in this order:
 >
 > 1. `.agentrc.json` at your **project root** ← your customised file
-> 2. `.agents/config/config.json` ← legacy fallback (deprecated, will emit a
->    warning)
+> 2. `.agentrc.json` ← legacy fallback (deprecated, will emit a warning)
 > 3. Built-in defaults (zero-config)
 
 ### 🛡️ Efficiency & Guardrails
@@ -88,11 +87,11 @@ ensure high-quality sprint execution:
   are altered or generated incorrectly.
 - **Anti-Thrashing Protocol**: Mandates agents to halt and re-plan after hitting
   configurable thresholds for tool errors or analysis steps without progress.
-  Controlled via `frictionThresholds` in `.agents/config/config.json`.
+  Controlled via `frictionThresholds` in `.agentrc.json`.
 - **Complexity Ceilings (Instruction Density)**: Enforces task atomicity by
   limiting the number of logical steps/bullet points in a task's instructions.
   This ensures agents stay within a manageable cognitive context. Configurable
-  via `maxInstructionSteps` (default: 5) in `.agents/config/config.json`.
+  via `maxInstructionSteps` (default: 5) in `.agentrc.json`.
 - **Agent Friction Telemetry**: Agents are mandated to log operational struggles
   (repetitive tasks, errors) into a structured `agent-friction-log.json` file.
   Tolerance thresholds for logging are configurable via
@@ -110,8 +109,9 @@ ensure high-quality sprint execution:
   approval when an architect detects high-risk operations (e.g., destructive
   mutations, structural anomalies) during the technical specification phase.
 - **Automated Context Pruning ("Gardener")**: Identifies and archives stale ADRs
-  and coding patterns into a `docs/archive/` directory during the sprint retro.
-  This keeps the Local RAG index focused on the most current architecture.
+  and coding patterns into a `[DOCS_ROOT]/archive/` directory during the sprint
+  retro. This keeps the Local RAG index focused on the most current
+  architecture.
 - **Zero-Touch Remediation Loop**: Automatically transitions agents from a
   failed `/sprint-integration` candidate check into a `/sprint-hotfix` loop.
   Agents remediate build/test failures and re-attempt integration autonomously
@@ -138,10 +138,10 @@ ensure high-quality sprint execution:
 ### Agent Notification Webhook
 
 The `sprint-generate-playbook` workflow now supports an optional notification
-webhook. If the `webhookUrl` variable is set in the `.agents/config/config.json`
-file, every completed playbook step will trigger a notification to that URL.
-This allows for real-time tracking of agent progress in external tools like
-Slack, Discord, or custom project management dashboards.
+webhook. If the `webhookUrl` variable is set in the `.agentrc.json` file, every
+completed playbook step will trigger a notification to that URL. This allows for
+real-time tracking of agent progress in external tools like Slack, Discord, or
+custom project management dashboards.
 
 ## Repository Structure
 
@@ -153,9 +153,6 @@ agent-protocols/
 ├── .agents/                 # ← Distributed to consumers via the `dist` branch
 │   ├── VERSION              # Current version of the protocols
 │   ├── config/              # Legacy config (deprecated — use .agentrc.json instead)
-│   │   ├── config.json
-│   │   ├── models.json
-│   │   └── tech-stack.json
 │   ├── default-agentrc.json # ← Copy this to your project root as .agentrc.json
 │   ├── instructions.md      # Core system prompt & rules
 │   ├── personas/            # Role-specific behavior constraints (12 personas)

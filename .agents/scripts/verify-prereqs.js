@@ -14,6 +14,7 @@ if (!playbookPath || !targetTask) {
 // 1. Resolve taskStateRoot + security options via unified config resolver
 const { settings: agentConfig } = resolveConfig();
 let taskStateRoot = process.argv[4] ?? agentConfig.taskStateRoot ?? 'temp/task-state';
+let keysRoot = agentConfig.keysRoot ?? '.agents/keys';
 let requireCryptographicProvenance = agentConfig.securityOptions?.requireCryptographicProvenance ?? false;
 
 if (!fs.existsSync(playbookPath)) {
@@ -86,7 +87,7 @@ function getDecoupledStatus(taskId) {
     
     // Check Cryptographic Provenance if present
     if (stateData.signature && stateData.payload) {
-       const pubKeyPath = path.resolve(process.cwd(), '.agents/keys/public.pem');
+       const pubKeyPath = path.resolve(process.cwd(), keysRoot, 'public.pem');
        if (fs.existsSync(pubKeyPath)) {
           const pubKey = fs.readFileSync(pubKeyPath, 'utf8');
           const payloadStr = JSON.stringify(stateData.payload);
