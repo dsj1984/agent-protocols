@@ -153,11 +153,16 @@ protocol:
 
 ## 3. Shell & Terminal Protocol (Windows Compatibility)
 
-When operating on a Windows environment (PowerShell), agents MUST use `;` as a
-statement separator for command chaining instead of `&&`, as common PowerShell
-versions (like 5.1) do not support the latter and will throw a parser error.
+When operating on a Windows environment (PowerShell), agents MUST NOT use `&&`
+as a statement separator, as common PowerShell versions (like 5.1) do not
+support it and will throw a parser error.
 
-- **Example:** `git add . ; git commit -m "..."`
+- **Standard Separator**: Use `;` if the next command should run regardless of
+  the first.
+- **Success Chaining (Logical AND)**: Use `; if ($?) { ... }` to ensure the
+  second command only runs if the first succeeded.
+
+- **Example**: `git add . ; if ($?) { git commit -m "..." }`
 
 This ensures that any project using these protocols stays compatible across
 environments without needing manual command corrections.
