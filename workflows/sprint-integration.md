@@ -43,7 +43,9 @@ even when commands are auto-running.
 2. **Branch Discovery**: Identify all remote branches associated with this
    sprint's tasks (e.g., branches matching `task/sprint-[SPRINT_NUMBER]/*`).
 3. **Shift-Left Validation**: For each identified feature branch:
-   - Extract the `[TASK_ID]` from the branch name.
+   - Cross-reference the branch name against `[SPRINT_ROOT]/playbook.md` to
+     resolve the **dotted numeric `[TASK_ID]`** (e.g., `045.2.1`). Do NOT use
+     the branch slug (e.g., `directories-db-migrations`) as the task ID.
    - Verify the existence of `[TASK_STATE_ROOT]/[TASK_ID]-test-receipt.json`.
    - If the receipt is **MISSING** or the status is not **"passed"**: **STOP**
      and log a friction point. This branch is NOT eligible for integration until

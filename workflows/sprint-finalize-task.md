@@ -21,6 +21,9 @@ precisely:
     `.agentrc.json` (default: `temp/task-state`).
 4.  Resolve `[BASE_BRANCH]` from the `baseBranch` field in `.agentrc.json`
     (default: `main`).
+5.  `[TASK_ID]` is the **dotted numeric playbook ID** (e.g., `045.2.1`) from the
+    playbook header, NOT the manifest slug or branch suffix. You can find it in
+    the bold task number next to the checkbox in `playbook.md`.
 
 ## Step 1 - Branch Guard
 
