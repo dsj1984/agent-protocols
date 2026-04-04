@@ -6,6 +6,25 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 and this project adheres to
 [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [4.1.2] - 2026-04-04
+
+### Fixed
+
+- **Legacy Config Cleanup**: Replaced 30+ stale references to deprecated
+  `.agents/config/` files (`config.json`, `models.json`, `tech-stack.json`)
+  across `instructions.md`, `SDLC.md`, `README.md`, personas, templates, and
+  workflows. All documentation now consistently references `.agentrc.json`.
+- **Legacy Fallback Removal**: Removed the deprecated
+  `.agents/config/config.json` fallback path from `config-resolver.js`.
+  Resolution is now `.agentrc.json` → built-in defaults.
+- **SDLC Diagram Correction**: Fixed Mermaid diagram in `SDLC.md` to show the
+  correct bookend order (Integration → Code Review → QA) and updated the
+  "Closing the Loop" section to match.
+- **Read Context Grounding**: Improved the generator's `Read Context`
+  instruction with explicit sprint-relative file paths (`prd.md`,
+  `tech-spec.md`) and a direct reference to `.agentrc.json`'s `techStack`
+  section.
+
 ## [4.1.1] - 2026-04-04
 
 ### Fixed
@@ -26,17 +45,6 @@ and this project adheres to
 - **Config Standardization**: Renamed `webhookUrl` to `notificationWebhookUrl`
   in `.agentrc.json` and all associated workflows to explicitly define its
   purpose for status notifications.
-- **Legacy Config Cleanup**: Replaced 30+ stale references to deprecated
-  `.agents/config/` files (`config.json`, `models.json`, `tech-stack.json`)
-  across `instructions.md`, `SDLC.md`, `README.md`, personas, templates, and
-  workflows. All documentation now consistently references `.agentrc.json`.
-- **SDLC Diagram Correction**: Fixed Mermaid diagram in `SDLC.md` to show the
-  correct bookend order (Integration → Code Review → QA) and updated the
-  "Closing the Loop" section to match.
-- **Read Context Grounding**: Improved the generator's `Read Context`
-  instruction with explicit sprint-relative file paths (`prd.md`,
-  `tech-spec.md`) and a direct reference to `.agentrc.json`'s `techStack`
-  section.
 
 ## [4.1.0] - 2026-04-04
 
