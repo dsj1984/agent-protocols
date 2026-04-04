@@ -19,6 +19,10 @@
     "taskStateRoot": "temp/task-state",
     "goldenExamplesRoot": ".agents/golden-examples",
     "maxGoldenExampleLines": 200,
+    "contextSyncFiles": [
+      ".agents/config/tech-stack.json",
+      "docs/architecture.md"
+    ],
     "eventStreamsRoot": "temp/event-streams",
     "workspacesRoot": "temp/workspaces",
     "maxTokenBudget": 1000000,

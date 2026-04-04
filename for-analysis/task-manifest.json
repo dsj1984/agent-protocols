@@ -1,0 +1,134 @@
+{
+  "sprintNumber": 45,
+  "sprintName": "Notification Customization & Global Discovery",
+  "summary": "Implement granular notification preferences via a new users table attribute and expose it in the UI. Develop high-fidelity omni-directory lookup portals for Athletes, Clubs, and Teams.",
+  "tasks": [
+    {
+      "id": "db-migrations-notifications",
+      "title": "Notifications DB Migrations",
+      "dependsOn": [],
+      "persona": "engineer",
+      "skills": ["backend/sqlite-drizzle-expert", "backend/turso-sqlite"],
+      "model": "Claude Opus 4.6 (Thinking)",
+      "secondaryModel": "Gemini 3.1 Pro (High)",
+      "mode": "Planning",
+      "scope": "@repo/shared",
+      "instructions": "Locate `packages/shared/src/db/schema.ts`.\n- Add the `notification_preferences` column as a lightweight JSON field to the `users` table with the default values specified in the Tech Spec.\n- Generate the Drizzle migrations by running `pnpm --filter @repo/shared db:generate` to verify schema generation works.\n- Update any globally shared Zod types."
+    },
+    {
+      "id": "api-notifications",
+      "title": "Notification Preference API Routes",
+      "dependsOn": ["db-migrations-notifications"],
+      "persona": "engineer",
+      "skills": ["backend/cloudflare-hono-architect"],
+      "model": "Claude Opus 4.6 (Thinking)",
+      "secondaryModel": "Gemini 3.1 Pro (High)",
+      "mode": "Planning",
+      "scope": "@repo/api",
+      "instructions": "In `apps/api/src/routes/v1/users.ts` (or equivalently within the users API namespace):\n- Implement `GET /v1/users/me/notifications` to fetch the `notification_preferences` object.\n- Implement `PATCH /v1/users/me/notifications` to update preferences, validating with Zod schemas.\n- Enforce the guardrail that `security` email channels cannot be disabled."
+    },
+    {
+      "id": "refactor-dispatcher",
+      "title": "Notification Dispatcher Refactoring",
+      "dependsOn": ["api-notifications"],
+      "persona": "engineer",
+      "skills": ["backend/cloudflare-hono-architect", "backend/cloudflare-workers"],
+      "model": "Claude Opus 4.6 (Thinking)",
+      "secondaryModel": "Gemini 3.1 Pro (High)",
+      "mode": "Planning",
+      "scope": "@repo/api",
+      "instructions": "Refactor core notification dispatchers (e.g. `sendPushNotification`, `sendEmail`).\n- Have the dispatchers parse or retrieve `users.notification_preferences` conditionally to suppress dispatch if opted out.\n- Override opt-outs unconditionally for security-critical actions (e.g., password resets) as mandated."
+    },
+    {
+      "id": "web-notifications-ui",
+      "title": "Web Notification Preferences Center",
+      "dependsOn": ["api-notifications"],
+      "persona": "engineer-web",
+      "skills": ["frontend/astro", "frontend/tailwind-v4", "frontend/astro-react-island-strategist"],
+      "model": "Claude Opus 4.6 (Thinking)",
+      "secondaryModel": "Gemini 3.1 Pro (High)",
+      "mode": "Planning",
+      "scope": "@repo/web",
+      "instructions": "In `apps/web/src/pages/settings/notifications.astro` (or the React component it renders):\n- Create a responsive grid layout of toggle switches for each class of preference (Events, Social, Security, Marketing).\n- Hydrate state via `GET /v1/users/me/notifications` and dispatch saves via `PATCH`.\n- Support subtle animations per Tailwind v4 guidelines."
+    },
+    {
+      "id": "api-directories",
+      "title": "Omni-Directory API Ports",
+      "dependsOn": [],
+      "persona": "engineer",
+      "skills": ["backend/cloudflare-hono-architect", "backend/sqlite-drizzle-expert"],
+      "model": "Claude Opus 4.6 (Thinking)",
+      "secondaryModel": "Gemini 3.1 Pro (High)",
+      "mode": "Planning",
+      "scope": "@repo/api",
+      "instructions": "In `apps/api/src/routes/v1/directory.ts`:\n- Update `GET /v1/directory/athletes` combining GPA and graduation year facets via `academic_profiles` and enfore data privacy rules via RBAC.\n- Implement `GET /v1/directory/clubs` supporting regional geographic filtering and indicating WaaS badging.\n- Implement `GET /v1/directory/teams` faceted globally by sport, gender, age."
+    },
+    {
+      "id": "web-directories-ui",
+      "title": "Web Omni-Directory Pages",
+      "dependsOn": ["api-directories"],
+      "persona": "engineer-web",
+      "skills": ["frontend/astro", "frontend/tailwind-v4", "frontend/astro-react-island-strategist"],
+      "model": "Claude Opus 4.6 (Thinking)",
+      "secondaryModel": "Gemini 3.1 Pro (High)",
+      "mode": "Planning",
+      "scope": "@repo/web",
+      "instructions": "Create or update Astro faceted search pages under `apps/web/src/pages/directory/`.\n- Bind dynamic React islands for filter sidebars matching the new Query Parameter schema from `@repo/shared/schemas`.\n- Update data table and display visualizations representing attributes properly."
+    },
+    {
+      "id": "integration",
+      "title": "Sprint Integration",
+      "dependsOn": ["web-notifications-ui", "refactor-dispatcher", "web-directories-ui"],
+      "persona": "engineer",
+      "skills": ["architecture/monorepo-path-strategist", "devops/git-flow-specialist"],
+      "model": "Claude Opus 4.6 (Thinking)",
+      "secondaryModel": "Gemini 3.1 Pro (High)",
+      "mode": "Fast",
+      "isIntegration": true
+    },
+    {
+      "id": "qa",
+      "title": "Sprint QA & Testing",
+      "dependsOn": ["integration"],
+      "persona": "qa-engineer",
+      "skills": ["qa/resilient-qa-automation"],
+      "model": "Claude Opus 4.6 (Thinking)",
+      "secondaryModel": "Gemini 3.1 Pro (High)",
+      "mode": "Planning",
+      "isQA": true
+    },
+    {
+      "id": "code-review",
+      "title": "Sprint Code Review",
+      "dependsOn": ["qa"],
+      "persona": "architect",
+      "skills": ["architecture/autonomous-coding-standards", "devops/git-flow-specialist"],
+      "model": "Claude Opus 4.6 (Thinking)",
+      "secondaryModel": "Gemini 3.1 Pro (High)",
+      "mode": "Planning",
+      "isCodeReview": true
+    },
+    {
+      "id": "retro",
+      "title": "Sprint Retrospective",
+      "dependsOn": ["code-review"],
+      "persona": "product",
+      "skills": ["architecture/markdown"],
+      "model": "Claude Opus 4.6 (Thinking)",
+      "secondaryModel": "Gemini 3.1 Pro (High)",
+      "mode": "Fast",
+      "isRetro": true
+    },
+    {
+      "id": "close-sprint",
+      "title": "Sprint Close & Merge",
+      "dependsOn": ["retro"],
+      "persona": "devops-engineer",
+      "skills": ["devops/git-flow-specialist"],
+      "model": "Claude Opus 4.6 (Thinking)",
+      "secondaryModel": "Gemini 3.1 Pro (High)",
+      "mode": "Fast",
+      "isCloseSprint": true
+    }
+  ]
+}

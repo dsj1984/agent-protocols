@@ -215,10 +215,16 @@ export function renderPlaybook(manifest, chatSessions, chatDeps, options = {}) {
 
       // Fix #2: Inject mandatory Context Sync for all non-bookend tasks
       if (!isBookendTask) {
-        md += `**Context Sync (Mandatory — run before writing any code):**\n`;
-        md += `Read the PRD and Tech Spec to understand exact schema fields, UI categories, filter parameters, and privacy rules. Do not hallucinate values defined in these documents:\n`;
+        md += `**Context Sync (Mandatory — read before writing any code):**\n`;
+        md += `Read the following documents to understand exact schema fields, UI categories, filter parameters, privacy rules, and project architecture. Do not hallucinate values defined in these documents:\n`;
         md += `- \`${docsRoot}/sprint-${sprintNum}/prd.md\`\n`;
-        md += `- \`${docsRoot}/sprint-${sprintNum}/tech-spec.md\`\n\n`;
+        md += `- \`${docsRoot}/sprint-${sprintNum}/tech-spec.md\`\n`;
+        // Append configurable project-level context files
+        const extraContextFiles = options.contextSyncFiles || [];
+        for (const cf of extraContextFiles) {
+          md += `- \`${cf}\`\n`;
+        }
+        md += `\n`;
       }
 
       md += `**Perception-Action Event Stream Protocol:**\n`;
@@ -230,6 +236,10 @@ export function renderPlaybook(manifest, chatSessions, chatDeps, options = {}) {
       md += `1. **Task ${task.id}:**\n`;
       // Fix #4a: Mark Executing FIRST so state is tracked before code is written
       md += `   - **Mark Executing**: \`node ${scriptsRoot}/update-task-state.js ${fullTaskId} executing\`\n`;
+      // Fix #3b: Inject explicit file-reading instruction for non-bookend tasks
+      if (!isBookendTask) {
+        md += `   - **Read Context**: Execute your file-reading tool to ingest the PRD, Tech Spec, and all context files listed in the Context Sync section above before writing any code.\n`;
+      }
       const instLines = renderTaskInstructions(task, sprintNum).split('\n');
       for (const line of instLines) {
         if (!line.trim()) continue;
