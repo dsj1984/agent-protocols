@@ -44,6 +44,7 @@ const sprintDocsRoot = agentConfig.sprintDocsRoot ?? 'docs/sprints';
 const sprintNumberPadding = agentConfig.sprintNumberPadding ?? 3;
 const goldenExamplesRoot = agentConfig.goldenExamplesRoot ?? 'temp/golden-examples';
 const taskStateRoot = agentConfig.taskStateRoot ?? 'temp/task-state';
+const maxGoldenExampleLines = agentConfig.maxGoldenExampleLines ?? 200;
 
 // ---------------------------------------------------------------------------
 // Constants
@@ -186,18 +187,35 @@ export function enrichManifest(manifest) {
 
     // Intelligent Model Fallbacks
     if (!task.secondaryModel) {
-      task.secondaryModel = task.mode === 'Planning' ? defaultModels.planningFallback : defaultModels.fastFallback;
+      const fallback = task.mode === 'Planning' ? defaultModels.planningFallback : defaultModels.fastFallback;
+      task.secondaryModel = fallback;
     }
-    
-    // Prevent duplicate model fallbacks
-    // Priority: exact match → cross-assign from opposite tier; substring match → suppress (already embedded)
+
+    // Ensure exactly 2 models from different families.
+    // The fallback may be a compound "X OR Y" string — split and pick the best alternative.
     if (task.secondaryModel && task.model) {
+      const primaryFamily = task.model.split(/\s/)[0]; // e.g. "Claude", "Gemini"
+      const candidates = task.secondaryModel.split(/\s+OR\s+/).map(m => m.trim()).filter(Boolean);
+
+      if (candidates.length > 1) {
+        // Pick the candidate from a different family than the primary
+        const crossFamily = candidates.find(c => !c.startsWith(primaryFamily));
+        task.secondaryModel = crossFamily || candidates[candidates.length - 1];
+      }
+
+      // Final dedup: if secondary still matches primary exactly, cross-assign from the other tier
       if (task.secondaryModel === task.model) {
-        // Exact match: cross-assign from the opposite tier to guarantee diversity
-        task.secondaryModel = task.model === defaultModels.planningFallback ? defaultModels.fastFallback : defaultModels.planningFallback;
-      } else if (task.model.includes(task.secondaryModel)) {
-        // Substring match: primary already contains both choices (e.g., compound "X OR Y" bookend string)
-        task.secondaryModel = null;
+        task.secondaryModel = task.model === defaultModels.fastFallback
+          ? (defaultModels.planningFallback.split(/\s+OR\s+/)[0] || defaultModels.planningFallback)
+          : defaultModels.fastFallback;
+      }
+
+      // If secondary is a substring of primary (same family, different suffix), pick from other tier
+      if (task.model.includes(task.secondaryModel) || task.secondaryModel.includes(task.model)) {
+        const altFallback = task.mode === 'Planning' ? defaultModels.fastFallback : defaultModels.planningFallback;
+        const altCandidates = altFallback.split(/\s+OR\s+/).map(m => m.trim());
+        const altCross = altCandidates.find(c => !c.startsWith(primaryFamily));
+        task.secondaryModel = altCross || altCandidates[0];
       }
     }
 
@@ -398,6 +416,7 @@ export function generateFromManifest(manifest, options = {}) {
   if (!options.sprintNumberPadding) options.sprintNumberPadding = sprintNumberPadding;
   if (!options.goldenExamplesRoot) options.goldenExamplesRoot = goldenExamplesRoot;
   if (!options.taskStateRoot) options.taskStateRoot = taskStateRoot;
+  if (!options.maxGoldenExampleLines) options.maxGoldenExampleLines = maxGoldenExampleLines;
   if (!options.protocolVersion) {
     const versionPath = path.join(__dirname, '..', 'VERSION');
     try {
@@ -551,6 +570,7 @@ function main() {
     sprintNumberPadding,
     goldenExamplesRoot,
     taskStateRoot,
+    maxGoldenExampleLines,
   });
 
   orchestrator.runFromFile(manifestPath, outputPath);

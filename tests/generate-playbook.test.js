@@ -445,12 +445,11 @@ describe('renderPlaybook', () => {
     assert.ok(md.includes('sprint-finalize-task'));
   });
 
-  it('injects golden examples when present in the golden-examples directory', (t) => {
+  it('does not inject golden examples into the playbook anymore (moved to instructions.md)', (t) => {
     // Implement memfs mocking
     vol.reset();
     vol.fromJSON({
-      'test-task-1.md': 'Golden Example 1 Content',
-      'test-task-2.md': 'Golden Example 2 Content'
+      'test-task-1.md': 'Golden Example 1 Content'
     }, '/golden-examples');
 
     t.mock.method(fs, 'existsSync', (pathStr) => {
@@ -458,18 +457,6 @@ describe('renderPlaybook', () => {
       try { fs.accessSync(pathStr); return true; } catch { return false; }
     });
 
-    t.mock.method(fs, 'readdirSync', (pathStr) => {
-      if (String(pathStr).includes('golden-examples')) return ['test-task-1.md', 'test-task-2.md'];
-      return fs.readdirSync(pathStr);
-    });
-
-    t.mock.method(fs, 'readFileSync', (pathStr, encoding) => {
-      const p = String(pathStr);
-      if (p.includes('test-task-1.md')) return vol.readFileSync('/golden-examples/test-task-1.md', 'utf8');
-      if (p.includes('test-task-2.md')) return vol.readFileSync('/golden-examples/test-task-2.md', 'utf8');
-      return fs.readFileSync(pathStr, encoding);
-    });
-
     const manifest = makeManifest({
       tasks: [makeTask({ id: 'a', title: 'Only Task', dependsOn: [] })],
     });
@@ -480,30 +467,11 @@ describe('renderPlaybook', () => {
     
     const md = renderPlaybook(manifest, sessions, chatDeps);
 
-    assert.ok(md.includes('=== GOLDEN EXAMPLES (FEW-SHOT) ==='));
-    assert.ok(md.includes('Golden Example 1 Content'));
-    assert.ok(md.includes('Golden Example 2 Content'));
+    assert.ok(!md.includes('## 🎯 Golden Examples'), 'Golden examples should be absent from playbook');
+    assert.ok(!md.includes('Golden Example 1 Content'), 'Content should be absent from playbook');
   });
 
-  it('omits golden examples block when the golden-examples directory is empty or missing', (t) => {
-    // Mock fs.existsSync to simulate missing directory
-    t.mock.method(fs, 'existsSync', (pathStr) => {
-      if (pathStr.includes('golden-examples')) return false;
-      try { fs.accessSync(pathStr); return true; } catch { return false; }
-    });
 
-    const manifest = makeManifest({
-      tasks: [makeTask({ id: 'a', title: 'Only Task', dependsOn: [] })],
-    });
-    const { adjacency } = buildGraph(manifest.tasks);
-    const layers = assignLayers(adjacency);
-    const sessions = groupIntoChatSessions(manifest.tasks, layers, adjacency);
-    const chatDeps = computeChatDependencies(sessions, adjacency);
-    
-    const md = renderPlaybook(manifest, sessions, chatDeps);
-
-    assert.ok(!md.includes('=== GOLDEN EXAMPLES (FEW-SHOT) ==='));
-  });
 });
 
 // ---------------------------------------------------------------------------
