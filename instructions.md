@@ -261,3 +261,11 @@ To keep the repository clean and avoid polluting the Git history:
   root.
 - **Git Exclusion**: The `/temp/` directory is excluded from Git by default. Do
   NOT commit any files stored within it.
+
+## 8. Golden Examples (Few-Shot Reference)
+
+Refer to this section to align your implementation patterns with historical
+successes.
+
+<!-- GOLDEN_EXAMPLES_START -->
+<!-- GOLDEN_EXAMPLES_END -->

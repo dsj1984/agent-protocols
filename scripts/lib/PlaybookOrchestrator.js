@@ -70,7 +70,7 @@ export class PlaybookOrchestrator {
   validate(manifest) {
     // Inject protocol version if not already set
     if (!this.options.protocolVersion) {
-      const versionPath = path.resolve(this.options.agentsDir || '', '..', 'VERSION');
+      const versionPath = path.resolve(this.options.agentsDir || '', 'VERSION');
       try {
         this.options.protocolVersion = fs.readFileSync(versionPath, 'utf8').trim();
       } catch {

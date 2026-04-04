@@ -75,29 +75,7 @@ export function renderTaskInstructions(task, sprintNumber) {
   return task.instructions;
 }
 
-function getGoldenExamples(options = {}) {
-  const root = options.goldenExamplesRoot || 'temp/golden-examples';
-  const goldenDir = path.join(process.cwd(), root);
-  if (!fs.existsSync(goldenDir)) return "";
-  
-  try {
-    const files = fs.readdirSync(goldenDir).filter(f => f.endsWith('.md'));
-    if (files.length === 0) return "";
-    
-    // Select last 2 for recent few-shot reinforcement
-    const selection = files.slice(-2);
-    let block = `\n=== GOLDEN EXAMPLES (FEW-SHOT) ===\n`;
-    block += `Refer to these historical examples of zero-friction task completions to align your style and patterns with the project standards.\n\n`;
-    
-    for (const file of selection) {
-      const content = fs.readFileSync(path.join(goldenDir, file), 'utf8');
-      block += `---\n${content}\n`;
-    }
-    return block;
-  } catch {
-    return "";
-  }
-}
+
 
 export function renderPlaybook(manifest, chatSessions, chatDeps, options = {}) {
   const padding = options.sprintNumberPadding || 3;
@@ -126,6 +104,8 @@ export function renderPlaybook(manifest, chatSessions, chatDeps, options = {}) {
   md += generateMermaid(chatSessions, chatDeps);
   md += `\n\n`;
 
+
+
   // Pre-compute reverse mapping for explicit dependency injection
   const paddedSprint = String(manifest.sprintNumber).padStart(padding, '0');
   const taskIdToNumber = new Map();
@@ -138,6 +118,7 @@ export function renderPlaybook(manifest, chatSessions, chatDeps, options = {}) {
 
   // Grouped Chat Sessions
   md += `## 📋 Execution Plan\n\n`;
+
 
   for (const session of chatSessions) {
     // Playbook header needs Playbook Path to be perfectly backward compatible
@@ -159,7 +140,7 @@ export function renderPlaybook(manifest, chatSessions, chatDeps, options = {}) {
       
       // Task Metadata
       md += `  - **Mode**: ${task.mode}\n`;
-      md += `  - **Model**: ${task.model}${task.secondaryModel && !task.model.includes(task.secondaryModel) ? ` OR ${task.secondaryModel}` : ''}\n`;
+      md += `  - **Model**: ${task.model}${task.secondaryModel ? ` || ${task.secondaryModel}` : ''}\n`;
 
       if (task.scope) {
         md += `  - **Scope**: \`${task.scope}\`\n`;
@@ -248,7 +229,7 @@ export function renderPlaybook(manifest, chatSessions, chatDeps, options = {}) {
         md += `\`\`\`\n`;
       }
 
-      md += getGoldenExamples(options);
+
 
       md += `\`\`\`\`\n\n`;
       taskIndex++;
