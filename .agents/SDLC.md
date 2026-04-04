@@ -184,9 +184,9 @@ tasks:
   `verify-prereqs.js` script, which checks both the playbook's `[x]` markers and
   the individual decoupled state files for `committed` status.
 - **Task Completion Notifications**: When a task is pushed to a feature branch,
-  agents broadcast a status update as a JSON payload to the `webhookUrl` (if
-  defined in `.agents/config/config.json`) to ensure real-time synchronization
-  across the swarm.
+  agents broadcast a status update as a JSON payload to the
+  `notificationWebhookUrl` (if defined in `.agents/config/config.json`) to
+  ensure real-time synchronization across the swarm.
 - **Observability & Feedback Loop**: Agents use
   `.agents/scripts/diagnose-friction.js` whenever they encounter operational
   difficulties (tool errors, ambiguities). This script acts as both a passive

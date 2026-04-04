@@ -23,6 +23,9 @@ and this project adheres to
   fixes before formal QA testing cycles begin.
 - **Auto-Serializer Guard**: Fixed over-aggressive serialization logic to
   prevent feature tracking collisions based on bare scope matches.
+- **Config Standardization**: Renamed `webhookUrl` to `notificationWebhookUrl`
+  in `.agentrc.json` and all associated workflows to explicitly define its
+  purpose for status notifications.
 
 ## [4.1.0] - 2026-04-04
 

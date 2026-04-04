@@ -1,12 +1,12 @@
 import http from 'http';
 import https from 'https';
-import { URL } from 'url';import { Logger } from "./lib/Logger.js";
+import { URL } from 'url';import { Logger } from "./lib/Logger.js";
 
 
-const webhookUrl = process.argv[2];
+const notificationWebhookUrl = process.argv[2];
 const message = process.argv[3];
 
-if (!webhookUrl || webhookUrl === '[WEBHOOK_URL]' || webhookUrl.trim() === '') {
+if (!notificationWebhookUrl || notificationWebhookUrl === '[WEBHOOK_URL]' || notificationWebhookUrl.trim() === '') {
   console.log('No webhook URL provided or URL is disabled. Skipping gracefully.');
   process.exit(0);
 }
@@ -19,11 +19,11 @@ if (!message) {
 const payload = JSON.stringify({ message });
 
 try {
-  const parsedUrl = new URL(webhookUrl);
+  const parsedUrl = new URL(notificationWebhookUrl);
   const reqModule = parsedUrl.protocol === 'https:' ? https : http;
 
   const req = reqModule.request(
-    webhookUrl,
+    notificationWebhookUrl,
     {
       method: 'POST',
       headers: {
