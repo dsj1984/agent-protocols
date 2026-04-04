@@ -19,12 +19,18 @@ for subsequent planning and execution.
     padding is `3`, `40` becomes `040`).
 2.  Use this padded version for all subsequent steps.
 
-## Step 2 - Environment Reset
+## Step 2 - Repository Hygiene & Environment Reset
 
 1.  Resolve `[BASE_BRANCH]` from the `baseBranch` field in
     `.agents/config/config.json` (default: `main`).
-2.  Checkout the base branch: `git checkout [BASE_BRANCH]`.
-3.  Pull the latest changes from origin: `git pull origin [BASE_BRANCH]`.
+2.  Perform repository maintenance:
+    - Run `git fetch origin --prune` to clean up deleted remote branches.
+    - Run `git gc --auto` to optimize local repository size and performance.
+3.  Ensure the working directory is clean (e.g., using `git status`). If there
+    are uncommitted changes, **STOP** and alert the user to stash or commit them
+    before initializing a sprint.
+4.  Checkout the base branch: `git checkout [BASE_BRANCH]`.
+5.  Pull the latest changes from origin: `git pull origin [BASE_BRANCH]`.
 
 ## Step 3 - Sprint Branch Creation
 
