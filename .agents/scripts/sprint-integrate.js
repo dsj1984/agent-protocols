@@ -57,6 +57,8 @@ const sprintRoot = path.join(sprintDocsRoot, `sprint-${paddedNum}`);
 const validationCmd = settings.validationCommand ?? 'npm run lint';
 const testCmd = settings.testCommand ?? 'npm run test';
 const scriptsRoot = settings.scriptsRoot ?? '.agents/scripts';
+const executionTimeoutMs = settings.executionTimeoutMs ?? 300000;
+const executionMaxBuffer = settings.executionMaxBuffer ?? 10485760;
 
 // ---------------------------------------------------------------------------
 // Helpers
@@ -202,6 +204,8 @@ const verifyResult = spawnSync(
     shell: true,
     encoding: 'utf-8',
     cwd: PROJECT_ROOT,
+    timeout: executionTimeoutMs,
+    maxBuffer: executionMaxBuffer,
   }
 );
 

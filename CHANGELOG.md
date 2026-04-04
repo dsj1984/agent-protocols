@@ -6,6 +6,44 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 and this project adheres to
 [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [4.3.0] - 2026-04-04
+
+### Fixed
+
+- **Critical: Agent Hang Prevention in Integration Pipeline**: Added
+  configurable `timeout` and `maxBuffer` to the `spawnSync` call in
+  `sprint-integrate.js` (verification suite) and `diagnose-friction.js` (inner
+  command wrapper). Both now respect `executionTimeoutMs` and
+  `executionMaxBuffer` from `.agentrc.json`, eliminating the primary cause of
+  indefinite agent stalls during `lint`/`typecheck` runs.
+- **Critical: Cascading Pipeline Stall in `hydrate-cache.js`**: Added timeout to
+  the `execFileSync` subprocess call that invokes `update-task-state.js`,
+  preventing cascading stalls in the APC hydration pipeline.
+- **Non-Blocking APC Extraction**: Converted the synchronous `execFileSync` call
+  to `extract-intent.js` in `update-task-state.js` to an async fire-and-forget
+  `spawn` (detached, unref'd). APC intent extraction is a best-effort
+  optimization that no longer blocks the critical path of task state updates.
+
+### Changed
+
+- **Config Resolver Caching**: `resolveConfig()` now caches results at module
+  level, eliminating 3-4 redundant file reads and JSON parses per execution run.
+  A `bustCache` option is available for scripts that need to force re-read.
+- **Lazy CacheManager Singleton**: The `CacheManager` singleton is now
+  instantiated lazily on first access instead of eagerly at import time,
+  avoiding unnecessary I/O for scripts that never use the cache.
+- **Optimized Directory Walk**: `context-indexer.js` now uses
+  `fs.readdirSync(dir, { withFileTypes: true })` instead of separate
+  `fs.statSync()` calls per entry, halving syscall count during index builds.
+- **Pre-compiled Regex Patterns**: Icon selection regex patterns in
+  `generate-playbook.js` are now compiled once at module level instead of on
+  every `selectIcon()` invocation.
+- **Pre-computed Sort Keys**: `harvest-golden-path.js` now pre-computes `mtime`
+  values into a Map before sorting, eliminating redundant `statSync` calls
+  inside the sort comparator.
+- **Model Name Loader**: `loadValidModelNames()` now includes explanatory
+  comments about OS-level filesystem caching for its config file read.
+
 ## [4.2.0] - 2026-04-04
 
 ### Added

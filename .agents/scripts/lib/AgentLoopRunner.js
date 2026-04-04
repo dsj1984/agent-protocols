@@ -13,7 +13,7 @@
 import fs from 'node:fs';
 import path from 'node:path';
 import readline from 'node:readline';
-import { execFileSync } from 'node:child_process';
+import { execFileSync, execSync } from 'node:child_process';
 import { ensureDirSync } from './fs-utils.js';
 
 export class AgentLoopRunner {
@@ -25,8 +25,10 @@ export class AgentLoopRunner {
    * @param {string}  [opts.pattern]    - Execution pattern label (default: 'default').
    * @param {string}  [opts.streamDir]  - Directory for JSONL ledger files.
    * @param {string}  [opts.workspacesDir] - Directory for temporary worktrees.
+   * @param {number}  [opts.executionTimeoutMs] - Command timeout in ms.
+   * @param {number}  [opts.executionMaxBuffer] - Command max buffer in bytes.
    */
-  constructor({ taskId, projectRoot, branch = null, pattern = 'default', streamDir, workspacesDir }) {
+  constructor({ taskId, projectRoot, branch = null, pattern = 'default', streamDir, workspacesDir, executionTimeoutMs, executionMaxBuffer }) {
     this.taskId = taskId;
     this.projectRoot = projectRoot;
     this.branch = branch;
@@ -35,6 +37,8 @@ export class AgentLoopRunner {
     this.workspacesDir = workspacesDir || path.join(projectRoot, 'temp/workspaces');
     this.workingDir = projectRoot;
     this.ledgerPath = path.join(this.streamDir, `${taskId}.jsonl`);
+    this.executionTimeoutMs = executionTimeoutMs || 300000;
+    this.executionMaxBuffer = executionMaxBuffer || 10485760;
   }
 
   // -------------------------------------------------------------------------
@@ -128,8 +132,15 @@ export class AgentLoopRunner {
       }
 
       case 'ExecuteSafeCommand': {
-        const [cmd, ...args] = action.command.split(' ');
-        const result = execFileSync(cmd, args, { cwd: this.workingDir, stdio: 'pipe' }).toString();
+        // Use execSync so that full command strings are properly parsed by the shell
+        // (handling spaces, quotes, etc). We also add a timeout to prevent an agent
+        // from hanging the REPL indefinitely, and expand the output buffer for large builds.
+        const result = execSync(action.command, {
+          cwd: this.workingDir,
+          stdio: 'pipe',
+          timeout: this.executionTimeoutMs,
+          maxBuffer: this.executionMaxBuffer
+        }).toString();
         return { type: 'EnvironmentObservation', result };
       }
 

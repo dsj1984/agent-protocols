@@ -1,6 +1,8 @@
 import fs from 'node:fs';
 import path from 'node:path';
-import { spawnSync } from 'node:child_process';import { Logger } from "./lib/Logger.js";
+import { spawnSync } from 'node:child_process';
+import { Logger } from './lib/Logger.js';
+import { resolveConfig } from './lib/config-resolver.js';
 
 
 // Parse arguments
@@ -26,13 +28,19 @@ if (cmdArgs.length === 0) {
   
 }
 
+const { settings } = resolveConfig();
+const executionTimeoutMs = settings.executionTimeoutMs ?? 300000;
+const executionMaxBuffer = settings.executionMaxBuffer ?? 10485760;
+
 const commandStr = cmdArgs.join(' ');
 console.log(`[Diagnostic Interceptor] Executing: ${commandStr}`);
 
 const result = spawnSync(cmdArgs[0], cmdArgs.slice(1), {
   stdio: 'pipe',
   shell: true,
-  encoding: 'utf-8'
+  encoding: 'utf-8',
+  timeout: executionTimeoutMs,
+  maxBuffer: executionMaxBuffer,
 });
 
 // Output whatever happened so the agent can still see it

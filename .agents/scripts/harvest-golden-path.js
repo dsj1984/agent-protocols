@@ -48,12 +48,14 @@ function updateInstructions(goldenDir, agentConfig) {
 
   try {
     const files = fs.readdirSync(goldenDir)
-      .filter(f => f.endsWith('.md'))
-      .sort((a, b) => {
-        const statsA = fs.statSync(path.join(goldenDir, a));
-        const statsB = fs.statSync(path.join(goldenDir, b));
-        return statsB.mtime - statsA.mtime; // Descending mtime
-      });
+      .filter(f => f.endsWith('.md'));
+
+    // Pre-compute mtime to avoid redundant statSync calls inside sort comparator
+    const mtimeMap = new Map();
+    for (const f of files) {
+      mtimeMap.set(f, fs.statSync(path.join(goldenDir, f)).mtime);
+    }
+    files.sort((a, b) => mtimeMap.get(b) - mtimeMap.get(a));
 
     if (files.length === 0) return;
 

@@ -70,4 +70,11 @@ export class CacheManager {
   }
 }
 
-export const instance = new CacheManager();
+let _instance;
+export function getInstance() {
+  if (!_instance) _instance = new CacheManager();
+  return _instance;
+}
+
+// Backward-compatible default export (lazy via getter)
+export const instance = { get config() { return getInstance().config; }, computeHash: (...a) => getInstance().computeHash(...a), getCache: (...a) => getInstance().getCache(...a), setCache: (...a) => getInstance().setCache(...a), hasMatch: (...a) => getInstance().hasMatch(...a) };

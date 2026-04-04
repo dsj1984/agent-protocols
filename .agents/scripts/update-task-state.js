@@ -1,7 +1,7 @@
 import fs from 'node:fs';
 import path from 'node:path';
 import { fileURLToPath } from 'node:url';
-import { execFileSync } from 'node:child_process';
+import { spawn } from 'node:child_process';
 import crypto from 'node:crypto';
 import { resolveConfig } from './lib/config-resolver.js';import { Logger } from "./lib/Logger.js";
 
@@ -89,7 +89,11 @@ try {
        // The extraction logic defaults to the latest sprint if argument isn't an exact match.
        const apcScriptPath = path.join(PROJECT_ROOT, scriptsRoot, 'extract-intent.js');
        if (fs.existsSync(apcScriptPath)) {
-         execFileSync('node', [apcScriptPath, '000', taskId], { stdio: 'inherit' });
+         const child = spawn('node', [apcScriptPath, '000', taskId], {
+           stdio: 'ignore',
+           detached: true,
+         });
+         child.unref();
        }
     } catch (apcErr) {
        console.warn(`⚠️ [APC] Intent extraction failed for ${taskId}:`, apcErr.message);
