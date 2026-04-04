@@ -45,7 +45,6 @@ const sprintNumberPadding = agentConfig.sprintNumberPadding ?? 3;
 const goldenExamplesRoot = agentConfig.goldenExamplesRoot ?? 'temp/golden-examples';
 const taskStateRoot = agentConfig.taskStateRoot ?? 'temp/task-state';
 const maxGoldenExampleLines = agentConfig.maxGoldenExampleLines ?? 200;
-const contextSyncFiles = agentConfig.contextSyncFiles ?? [];
 
 // ---------------------------------------------------------------------------
 // Constants
@@ -394,7 +393,7 @@ function appendBookendSessions(chatSessions, bookendTasks, regularTasks, chatNum
     {
       label: 'Merge & Verify',
       mode: 'SequentialBookend',
-      keys: ['isIntegration', 'isQA', 'isCodeReview']
+      keys: ['isIntegration', 'isCodeReview', 'isQA']
     },
     {
       label: 'Sprint Administration',
@@ -474,7 +473,6 @@ export function generateFromManifest(manifest, options = {}) {
   if (!options.goldenExamplesRoot) options.goldenExamplesRoot = goldenExamplesRoot;
   if (!options.taskStateRoot) options.taskStateRoot = taskStateRoot;
   if (!options.maxGoldenExampleLines) options.maxGoldenExampleLines = maxGoldenExampleLines;
-  if (!options.contextSyncFiles) options.contextSyncFiles = contextSyncFiles;
   if (!options.protocolVersion) {
     const versionPath = path.join(__dirname, '..', 'VERSION');
     try {

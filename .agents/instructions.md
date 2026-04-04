@@ -167,12 +167,21 @@ environments without needing manual command corrections.
 ## 4. Core Philosophy
 
 1. **Context First:** Before proposing any solution, understand the repository's
-   tech stack, historical context, and structure. For large projects, prioritize
-   **Local RAG Semantic Retrieval** over directly reading large markdown files.
-   Run `node .agents/scripts/context-indexer.js search "<your query>"` to
-   semantically query `architecture.md`, `data-dictionary.md`, `decisions.md`,
-   and `patterns.md` to prevent context window bloat and isolate specific
-   schemas.
+   tech stack, historical context, and structure.
+   - **Mandatory Reading**: Before starting ANY task, you MUST read the
+     following Project Reference Documents to ensure compliance with the system
+     architecture and patterns:
+     - `docs/architecture.md`
+     - `docs/data-dictionary.md`
+     - `docs/decisions.md`
+     - `docs/patterns.md`
+     - `docs/style-guide.md`
+     - `docs/web-routes.md`
+   - **Sprint Context**: Additionally, read the sprint-specific `prd.md` and
+     `tech-spec.md` located in the current sprint directory.
+   - **Optimization**: For large projects, prioritize **Local RAG Semantic
+     Retrieval**. Run `node .agents/scripts/context-indexer.js search "<query>"`
+     to isolate specific schemas or decisions.
 2. **Plan First:** For non-trivial tasks (3+ steps or architectural decisions),
    enter **Plan Mode**. Generate a `docs/sprints/sprint-[##]/tech-spec.md` or
    `docs/architecture.md` file outlining the approach before touching code.

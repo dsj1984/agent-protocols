@@ -6,6 +6,24 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 and this project adheres to
 [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [4.1.1] - 2026-04-04
+
+### Fixed
+
+- **Playbook Pipeline Hardening**: Resolved "split-brain" dependency graph
+  issues where parallel feature tracks were artificially serialized.
+- **Global Context Synchronization**: Migrated the Project Reference Document
+  list to `instructions.md`, establishing a global protocol for architectural
+  grounding without redundant injections in every playbook task.
+- **Instruction Injection**: Mandatory `Read Context` instruction step now
+  auto-injected for non-bookend tasks to ensure grounding in PRD/Tech Specs and
+  global project reference docs.
+- **Bookend Sequence**: Established the bookend session order to **Integration →
+  Code Review → QA** facilitating architectural alignment and pattern-level
+  fixes before formal QA testing cycles begin.
+- **Auto-Serializer Guard**: Fixed over-aggressive serialization logic to
+  prevent feature tracking collisions based on bare scope matches.
+
 ## [4.1.0] - 2026-04-04
 
 ### Added
@@ -42,12 +60,12 @@ and this project adheres to
   `requireCryptographicProvenance` in `.agentrc.json`, the framework establishes
   a Zero-Trust immutable chain of custody for playbook integration gates.
 - **Universal Protocol Standardization**: Consolidated all previously fragmented
-  agent configuration (`.agentrc.json`, `.agentrc.json`, `.agentrc.json`) into a
-  single `.agentrc.json` at the project root. The canonical default is shipped
-  as `.agents/default-agentrc.json` for consumers to copy and customise. All
-  orchestration scripts now use the shared `lib/config-resolver.js` utility,
-  which resolves `.agentrc.json` first, falls back to the legacy path with a
-  deprecation warning, then applies built-in defaults as a final safety net.
+  agent configuration into a single `.agentrc.json` at the project root. The
+  canonical default is shipped as `.agents/default-agentrc.json` for consumers
+  to copy and customise. All orchestration scripts now use the shared
+  `lib/config-resolver.js` utility, which resolves `.agentrc.json` first, falls
+  back to the legacy path with a deprecation warning, then applies built-in
+  defaults as a final safety net.
 - **Perception-Action Event Stream Protocol**: Implemented the core architecture
   for decoupling agent reasoning from environment execution. Playbooks now
   strictly enforce discrete, atomic environmental interactions via a localized
