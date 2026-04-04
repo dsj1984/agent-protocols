@@ -2,12 +2,11 @@
  * Unified Configuration Resolver (Universal Protocol Standardization)
  *
  * Resolution order:
- *   1. <project-root>/.agentrc.json             (new unified standard)
- *   2. <project-root>/.agents/config/config.json (legacy fallback — deprecated)
+ *   1. <project-root>/.agentrc.json  (unified standard)
+ *   2. Built-in defaults             (zero-config fallback)
  *
- * The returned object is always a flat agentSettings hash, identical to the
- * old config.json `properties` shape, so every existing consumer script
- * continues to work without changes.
+ * The returned object is always a flat agentSettings hash so every consumer
+ * script works without changes.
  */
 
 import fs from 'node:fs';
@@ -44,28 +43,7 @@ export function resolveConfig() {
     }
   }
 
-  // 2. Legacy fallback: .agents/config/config.json
-  const legacyPath = path.join(PROJECT_ROOT, '.agents/config/config.json');
-  if (fs.existsSync(legacyPath)) {
-    console.warn(
-      '[config] DEPRECATION WARNING: .agents/config/config.json is deprecated.\n' +
-      '         Copy .agents/default-agentrc.json to your project root as .agentrc.json\n' +
-      '         and customise it to adopt the v4 Universal Protocol Standard.'
-    );
-    try {
-      const raw = JSON.parse(fs.readFileSync(legacyPath, 'utf8'));
-      // Legacy file uses JSON-Schema-style `properties[key].default` — flatten it.
-      const settings = {};
-      for (const [key, val] of Object.entries(raw.properties ?? {})) {
-        settings[key] = val.default ?? val;
-      }
-      return { settings, source: legacyPath };
-    } catch {
-      console.warn('[config] Failed to parse legacy config.json — using built-in defaults.');
-    }
-  }
-
-  // 3. Hard-coded defaults (zero-config experience)
+  // 2. Hard-coded defaults (zero-config experience)
   return {
     settings: {
       agentRoot: '.agents',

@@ -152,7 +152,6 @@ which is what gets distributed to consumers.
 agent-protocols/
 ├── .agents/                 # ← Distributed to consumers via the `dist` branch
 │   ├── VERSION              # Current version of the protocols
-│   ├── config/              # Legacy config (deprecated — use .agentrc.json instead)
 │   ├── default-agentrc.json # ← Copy this to your project root as .agentrc.json
 │   ├── instructions.md      # Core system prompt & rules
 │   ├── personas/            # Role-specific behavior constraints (12 personas)

@@ -229,7 +229,7 @@ export function renderPlaybook(manifest, chatSessions, chatDeps, options = {}) {
       md += `   - **Mark Executing**: \`node ${scriptsRoot}/update-task-state.js ${fullTaskId} executing\`\n`;
       // Fix #3b: Inject explicit file-reading instruction for non-bookend tasks
       if (!isBookendTask) {
-        md += `   - **Read Context**: Before implementing, fetch and ingest the sprint's \`prd.md\` and \`tech-spec.md\`, and all Project Reference Documents listed in your global protocol (\`instructions.md\`). Do not hallucinate values.\n`;
+        md += `   - **Read Context**: Before implementing, fetch and ingest \`${docsRoot}/sprint-${sprintNum}/prd.md\`, \`${docsRoot}/sprint-${sprintNum}/tech-spec.md\`, the \`techStack\` section of \`.agentrc.json\`, and all Project Reference Documents listed in your global protocol (\`instructions.md\`). Do not hallucinate values.\n`;
       }
       const instLines = renderTaskInstructions(task, sprintNum).split('\n');
       for (const line of instLines) {

@@ -47,10 +47,10 @@ the user using the following warning format before proceeding:
 
 ### E. Local Overrides
 
-If a `.agents/instructions.local.md` file or `.agents/config/config.local.json`
-is present, you MUST load them. They contain personal developer preferences and
-environment variables that override project defaults. Do not modify these local
-files unless requested.
+If a `.agents/instructions.local.md` file or `.agentrc.local.json` is present,
+you MUST load them. They contain personal developer preferences and environment
+variables that override project defaults. Do not modify these local files unless
+requested.
 
 ### F. Modular Global Rules
 
@@ -64,10 +64,10 @@ Before writing code or documentation, verify if any domain-agnostic rules apply:
 
 ### G. Structured Configuration
 
-Refer to `.agents/config/config.json` to understand your operational limits
-(e.g., allowed auto-run permissions, default personas). Refer to
-`.agents/config/models.json` for model selection guidance when self-assigning
-models to tasks. Refer to `.agents/config/tech-stack.json` for the project's
+Refer to `.agentrc.json` to understand your operational limits (e.g., allowed
+auto-run permissions, default personas). Refer to the `models` section of
+`.agentrc.json` for model selection guidance when self-assigning models to
+tasks. Refer to the `techStack` section of `.agentrc.json` for the project's
 specific technology choices (database, ORM, API framework, auth provider,
 validation library, workspace paths).
 
@@ -84,9 +84,9 @@ use the deterministic diagnostic script when encountering errors:
   self-correction. The script will automatically log the telemetry and provide
   you with structured remediation steps.
 - **Automation Candidate**: Manually log repetitive sequences of commands (check
-  `frictionThresholds.repetitiveCommandCount` in `.agents/config/config.json`,
-  default 3+), boilerplate-heavy file creations, or manual processes that could
-  be simplified by a dedicated workflow or skill.
+  `frictionThresholds.repetitiveCommandCount` in `.agentrc.json`, default 3+),
+  boilerplate-heavy file creations, or manual processes that could be simplified
+  by a dedicated workflow or skill.
 
 ### I. Anti-Thrashing Protocol
 
@@ -95,12 +95,12 @@ loop. If you satisfy either of the following conditions, you MUST immediately
 stop, summarize the blockers, and present a **Re-Plan** or yield to the user:
 
 - **Error Threshold**: You execute multiple consecutive tools that return errors
-  (check `frictionThresholds.consecutiveErrorCount` in
-  `.agents/config/config.json`, default 3).
+  (check `frictionThresholds.consecutiveErrorCount` in `.agentrc.json`, default
+  3).
 - **Stagnation Threshold**: You perform consecutive steps of research or
   analysis without modifying a file (check
-  `frictionThresholds.stagnationStepCount` in `.agents/config/config.json`,
-  default 5), excluding setup/scaffolding tasks.
+  `frictionThresholds.stagnationStepCount` in `.agentrc.json`, default 5),
+  excluding setup/scaffolding tasks.
 
 This protocol ensures the conversation remains focused and avoids consuming
 unnecessary tokens on failing strategies.
@@ -114,7 +114,7 @@ Before executing any task, you MUST check the `playbook.md` or
   from executing the implementation steps until you receive explicit human
   confirmation.
 - **Intervention**: You MUST pause, summarize the high-risk operations detected
-  (based on `riskGates.words` in `config.json`), and wait for a user response
+  (based on `riskGates` in `.agentrc.json`), and wait for a user response
   stating "Approved" or "Proceed".
 - **Safety Violation**: Proceeding without approval for a flagged task is a
   critical protocol violation.
@@ -129,7 +129,7 @@ protocol:
 ### A. Token Tracking & Budgeting
 
 - **Check Budget**: Before starting a task, resolve `maxTokenBudget` from
-  `.agents/config/config.json`.
+  `.agentrc.json`.
 - **Active Monitoring**: You MUST track your token usage (input + output)
   provided by the LLM response metadata after every tool call.
 - **Soft-Warning (80%)**: When usage reaches the threshold defined by
@@ -144,9 +144,9 @@ protocol:
 - During the planning phase (`/plan-sprint`), the **Project Manager** and
   **Architect** personas MUST consider the economic impact of their task
   assignments.
-- Refer to `.agents/config/models.json` for cost-tiering. Prefer **The
-  Sprinters** (e.g., Gemini 3 Flash) for low-reasoning/boilerplate tasks to
-  conserve budget for **The Architects** (e.g., Claude Opus) on complex
+- Refer to the `models` section of `.agentrc.json` for cost-tiering. Prefer
+  **The Sprinters** (e.g., Gemini 3 Flash) for low-reasoning/boilerplate tasks
+  to conserve budget for **The Architects** (e.g., Claude Opus) on complex
   architectural work.
 
 ---
@@ -240,8 +240,7 @@ deterministic format to allow for easy filtering and squashing.
 To avoid merge conflicts on shared tracking files:
 
 1.  When updating a task status, resolve `[TASK_STATE_ROOT]` from the
-    `taskStateRoot` field in `.agents/config/config.json` (default:
-    `temp/task-state`).
+    `taskStateRoot` field in `.agentrc.json` (default: `temp/task-state`).
 2.  If it exists or is being created, write your status update to a dedicated
     file: `[TASK_STATE_ROOT]/[ID].json` instead of editing the main
     `playbook.md` file directly.

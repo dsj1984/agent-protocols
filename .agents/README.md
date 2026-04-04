@@ -25,7 +25,6 @@ consistency, and architectural guardrails.
 ├── VERSION                  # Current version of the protocols
 ├── SDLC.md                  # Detailed guide for the /plan-sprint workflow
 ├── default-agentrc.json     # ← Copy to project root as .agentrc.json and customise
-├── config/                  # Legacy fragmented config (deprecated)
 ├── instructions.md          # MANDATORY: The consolidated system prompt
 ├── personas/                # Role-specific behavior constraints
 ├── rules/                   # Modular domain-agnostic global rules
@@ -96,8 +95,7 @@ Then open `.agentrc.json` and customise:
 > **Resolution order (scripts fall back gracefully):**
 >
 > 1. `.agentrc.json` at project root ← your file
-> 2. `.agentrc.json` ← legacy (deprecated — emits a warning)
-> 3. Built-in defaults (zero-config fallback)
+> 2. Built-in defaults (zero-config fallback)
 
 ### ⚡ Activation & Usage
 
@@ -114,9 +112,8 @@ Once the submodule is added to your project, follow these steps:
 ### 🔒 Local Overrides
 
 Developers can override protocol behavior for their specific machine by creating
-`.agents/instructions.local.md` (for rules) or
-`.agents/config/config.local.json` (for config). These files are automatically
-`gitignored`.
+`.agents/instructions.local.md` (for rules) or `.agentrc.local.json` (for
+config). These files are automatically `gitignored`.
 
 ---
 
@@ -154,7 +151,7 @@ long tasks, the following guardrails are enforced:
   large mono-repos.
   - **Usage**: `node [SCRIPTS_ROOT]/context-indexer.js search "<query>"`
 - **FinOps & Economic Guardrails**: Tracks agent token consumption against
-  configurable sprint budgets (`maxTokenBudget` in `config.json`). Enforces
+  configurable sprint budgets (`maxTokenBudget` in `.agentrc.json`). Enforces
   soft-warnings at thresholds and hard-stops to prevent unexpected expenses.
 - **HITL Risk Gates**: Deterministic safety checks that force Human-In-The-Loop
   approval when an agent plans destructive or highly sensitive operations (e.g.,
@@ -304,13 +301,11 @@ Standardized markdown blueprints used during planning and testing.
 
 Supporting files that define the agent's environment and workspace standards.
 
-| Path                           | Type   | Purpose                                            |
-| ------------------------------ | ------ | -------------------------------------------------- |
-| `config/config.json`           | Config | Core agent settings and defaults                   |
-| `config/models.json`           | Config | Model selection guidance (Tiered Architecture)     |
-| `config/tech-stack.json`       | Config | Project-specific stack and path mapping            |
-| `schemas/task-manifest.json`   | Schema | JSON Schema for validating sprint task graphs      |
-| `scripts/generate-playbook.js` | Script | Deterministic logic for rendering sprint playbooks |
+| Path                           | Type   | Purpose                                                    |
+| ------------------------------ | ------ | ---------------------------------------------------------- |
+| `default-agentrc.json`         | Config | Default settings — copy to project root as `.agentrc.json` |
+| `schemas/task-manifest.json`   | Schema | JSON Schema for validating sprint task graphs              |
+| `scripts/generate-playbook.js` | Script | Deterministic logic for rendering sprint playbooks         |
 
 ---
 

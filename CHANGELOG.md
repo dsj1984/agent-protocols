@@ -26,6 +26,17 @@ and this project adheres to
 - **Config Standardization**: Renamed `webhookUrl` to `notificationWebhookUrl`
   in `.agentrc.json` and all associated workflows to explicitly define its
   purpose for status notifications.
+- **Legacy Config Cleanup**: Replaced 30+ stale references to deprecated
+  `.agents/config/` files (`config.json`, `models.json`, `tech-stack.json`)
+  across `instructions.md`, `SDLC.md`, `README.md`, personas, templates, and
+  workflows. All documentation now consistently references `.agentrc.json`.
+- **SDLC Diagram Correction**: Fixed Mermaid diagram in `SDLC.md` to show the
+  correct bookend order (Integration → Code Review → QA) and updated the
+  "Closing the Loop" section to match.
+- **Read Context Grounding**: Improved the generator's `Read Context`
+  instruction with explicit sprint-relative file paths (`prd.md`,
+  `tech-spec.md`) and a direct reference to `.agentrc.json`'s `techStack`
+  section.
 
 ## [4.1.0] - 2026-04-04
 

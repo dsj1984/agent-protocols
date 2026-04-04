@@ -79,9 +79,9 @@ definition down to code review and sprint retrospective.
         J --> K
         K -- "Fail" --> K_Fix
         K_Fix -- "Retry" --> K
-        K -- "Pass" --> L
-        L --> O
-        O --> P
+        K -- "Pass" --> O
+        O --> L
+        L --> P
         P --> Q2
 
         L -.-> L_Art["📄 sprint-[##]/test-plan.md"]:::artifact
@@ -175,18 +175,18 @@ tasks:
 - **Concurrent Execution**: Once the core is locked, parallel sessions handle
   Frontend development, QA automation, and non-blocking documentation.
 - **Decoupled Task Tracking**: Agents push state updates (`executing`,
-  `committed`) to the `taskStateRoot` directory defined in
-  `.agents/config/config.json` (defaults to `temp/task-state/`) as tasks skip
-  manual `playbook.md` updates. The playbook itself only tracks starting intent
-  (`[ ]`) and final integrated resolution (`[x]`). This decoupling prevents Git
-  race conditions and history bloat during concurrent execution.
+  `committed`) to the `taskStateRoot` directory defined in `.agentrc.json`
+  (defaults to `temp/task-state/`) as tasks skip manual `playbook.md` updates.
+  The playbook itself only tracks starting intent (`[ ]`) and final integrated
+  resolution (`[x]`). This decoupling prevents Git race conditions and history
+  bloat during concurrent execution.
 - **Verification Logic**: Task prerequisites are evaluated by the
   `verify-prereqs.js` script, which checks both the playbook's `[x]` markers and
   the individual decoupled state files for `committed` status.
 - **Task Completion Notifications**: When a task is pushed to a feature branch,
   agents broadcast a status update as a JSON payload to the
-  `notificationWebhookUrl` (if defined in `.agents/config/config.json`) to
-  ensure real-time synchronization across the swarm.
+  `notificationWebhookUrl` (if defined in `.agentrc.json`) to ensure real-time
+  synchronization across the swarm.
 - **Observability & Feedback Loop**: Agents use
   `.agents/scripts/diagnose-friction.js` whenever they encounter operational
   difficulties (tool errors, ambiguities). This script acts as both a passive
@@ -197,8 +197,7 @@ tasks:
 - **Execution Guardrails (Anti-Thrashing)**: To prevent long-running tasks or
   agent "thrashing," agents are mandated to halt and re-plan if they hit a
   threshold of consecutive errors or research steps without making progress.
-  These thresholds are configurable via `frictionThresholds` in
-  `.agents/config/config.json`.
+  These thresholds are configurable via `frictionThresholds` in `.agentrc.json`.
 - **FinOps & Economic Guardrails**: Agents track token usage against a
   configurable sprint target (`maxTokenBudget`). Execution automatically
   triggers subjective soft-warnings via webhooks at threshold levels and
@@ -264,24 +263,24 @@ context, these tasks are consolidated into two Chat Sessions:
    - **Failure**: The candidate is purged (Blast-Radius Contained), and the
      failure is logged. The feature is kicked back for remediation via
      **`/sprint-hotfix`** on the original branch.
-2. **`/sprint-testing`**: Maintains test data and seeds, generates and updates
+2. **`/sprint-code-review`**: Scans all sprint diffs for security
+   vulnerabilities, unnecessary coupling, and architectural drift.
+3. **`/sprint-testing`**: Maintains test data and seeds, generates and updates
    the sprint test plan documentation, and executes the `/run-test-plan`
    workflow against the now-integrated codebase.
 
 #### 2. Sprint Administration Phase
 
-1. **`/sprint-code-review`**: Scans all sprint diffs for security
-   vulnerabilities, unnecessary coupling, and architectural drift.
-2. **`/sprint-retro`**: Synthesizes challenges and wins, captures new **Action
+1. **`/sprint-retro`**: Synthesizes challenges and wins, captures new **Action
    Items** into the roadmap, makes permanent updates to global project
    documents, and creates the final sprint records. It also triggers
    **`/run-context-pruning`** to archive stale decisions and ensure the Local
    RAG index reflects only the most current technical architecture.
-3. **`/run-red-team`**: An adversarial pre-release hardening workflow. The
+2. **`/run-red-team`**: An adversarial pre-release hardening workflow. The
    `security-engineer` persona is called on-demand to cross-examine a specific
    target scope (branch or directory), writing and executing local fuzz scripts
    to seek and exploit structural vulnerabilities before functional QA.
-4. **`/sprint-close-out`**: The terminal step — asserts all playbook tasks are
+3. **`/sprint-close-out`**: The terminal step — asserts all playbook tasks are
    `[x]`, merges `sprint-N` into `main` via `--no-ff`, cleans up the sprint
    branch (local + remote), and verifies no stale branches remain.
 
