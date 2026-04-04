@@ -16,6 +16,11 @@ and this project adheres to
   workflows. All documentation now consistently references `.agentrc.json`.
 - **Notification Enhancement**: prepended specific task/sprint IDs to webhook
   notifications across all sprint workflows for improved channel visibility.
+- **Task State ID Validation**: Added format guard to `update-task-state.js`
+  rejecting non-numeric slugs (e.g., `directories-db-migrations`). Only dotted
+  playbook IDs (e.g., `045.2.1`) are now accepted. Disambiguated `[TASK_ID]`
+  token definition in `sprint-finalize-task.md` and fixed the dangerously
+  ambiguous "extract from branch name" instruction in `sprint-integration.md`.
 - **Legacy Fallback Removal**: Removed the deprecated
   `.agents/config/config.json` fallback path from `config-resolver.js`.
   Resolution is now `.agentrc.json` → built-in defaults.

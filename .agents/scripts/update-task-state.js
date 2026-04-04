@@ -22,6 +22,18 @@ if (!taskId || !status) {
   
 }
 
+// Validate task ID format: must be a dotted numeric playbook ID (e.g., "045.2.1")
+// Reject manifest slugs (e.g., "directories-db-migrations") that agents may
+// accidentally extract from branch names instead of from the playbook.
+const TASK_ID_PATTERN = /^\d+\.\d+\.\d+$/;
+if (!TASK_ID_PATTERN.test(taskId)) {
+  Logger.fatal(
+    `Invalid task ID format: "${taskId}". ` +
+    `Expected a dotted numeric playbook ID (e.g., "045.2.1"), ` +
+    `not a manifest slug. Check your playbook for the correct ID.`
+  );
+}
+
 // 1. Resolve taskStateRoot via unified config resolver
 const { settings: agentConfig } = resolveConfig();
 let taskStateRoot = agentConfig.taskStateRoot ?? 'temp/task-state';
