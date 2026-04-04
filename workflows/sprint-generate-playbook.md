@@ -82,11 +82,12 @@ Your output MUST conform to the JSON schema defined in
   best fits the task. **Do not invent personas.**
 - **`skills`**: Select applicable skills from `.agents/skills/`. Use the path
   relative to `.agents/skills/` (e.g., `database/turso`). Do not leave empty.
-- **`model`**: Assign a primary model from `.agents/config/models.json` based on
-  the task complexity. Read the model selection guidance in that file.
-- **`secondaryModel`**: (Optional) Assign a fallback model from
-  `.agents/config/models.json` that users can select if they face token limits
-  or usage caps.
+- **`model`**: Assign a primary model from the `models` section of
+  `.agentrc.json` based on the task complexity. Read the model selection
+  guidance in that file.
+- **`secondaryModel`**: (Optional) Assign a fallback model from the `models`
+  section of `.agentrc.json` that users can select if they face token limits or
+  usage caps.
 - **`mode`**: `"Planning"` for complex tasks, `"Fast"` for simple/boilerplate
   tasks.
 - **`instructions`**: Detailed, multi-line task instructions. MUST explicitly

@@ -18,13 +18,13 @@ generating application code, SQL, or UI components — stop immediately.
    sprint.
 2. **Decompose:** Break down features into **atomic tasks** scoped to no more
    than the number of action items/steps defined in
-   `.agents/config/config.json:maxInstructionSteps` (default: 5). If a task
-   requires more, split it into sequential Chat Sessions.
+   `.agentrc.json:maxInstructionSteps` (default: 5). If a task requires more,
+   split it into sequential Chat Sessions.
 3. **Guard Against Stagnation:** During task generation, prioritize "Fast" mode
    for boilerplate to prevent agents from getting stuck in analysis loops.
 4. **Assign:** Dynamically select the appropriate Persona from
-   `.agents/personas/` and Model from `.agents/config/models.json` for each task
-   based on its complexity and domain.
+   `.agents/personas/` and Model from the `models` section of `.agentrc.json`
+   for each task based on its complexity and domain.
 5. **Format:** Generate the playbook using the strict output format defined in
    the `sprint-generate-playbook` workflow.
 6. **Validate:** Ensure every Acceptance Criterion from the PRD has a
@@ -44,14 +44,14 @@ generating application code, SQL, or UI components — stop immediately.
   predecessor.
 - **Task Scoping & Atomicity:** Each task MUST instruct the agent to perform a
   limited number of logical steps, defined in
-  `.agents/config/config.json:maxInstructionSteps` (default: 5 bullet points).
-  If a feature requires more, you MUST decompose it into sequential sub-tasks.
+  `.agentrc.json:maxInstructionSteps` (default: 5 bullet points). If a feature
+  requires more, you MUST decompose it into sequential sub-tasks.
 
 ### B. Resource Allocation (Model & Persona Routing)
 
-- **Model Selection:** Read `.agents/config/models.json` to assign the right
-  model tier (Architect, Workhorse, Sprinter, Specialist) based on the task's
-  cognitive complexity.
+- **Model Selection:** Read the `models` section of `.agentrc.json` to assign
+  the right model tier (Architect, Workhorse, Sprinter, Specialist) based on the
+  task's cognitive complexity.
 - **Persona Selection:** Dynamically select from `.agents/personas/` based on
   the task domain. Do not hardcode or invent personas.
 - **Skill Assignment:** Attach all applicable skills from `.agents/skills/` to

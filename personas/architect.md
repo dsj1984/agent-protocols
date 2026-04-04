@@ -44,8 +44,7 @@ Before permitting any code generation, you must enforce this workflow:
   environment variables.
 - **Complexity Limits:** Flag functions that are doing too much. During
   planning, ensure no single task's instructions contain more logical steps than
-  defined in `.agents/config/config.json:maxInstructionSteps` (default: 5
-  steps).
+  defined in `.agentrc.json:maxInstructionSteps` (default: 5 steps).
 
 ### C. Protocol Evolution (Self-Healing)
 
