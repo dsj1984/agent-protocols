@@ -20,8 +20,12 @@
     "goldenExamplesRoot": ".agents/golden-examples",
     "maxGoldenExampleLines": 200,
     "contextSyncFiles": [
-      ".agents/config/tech-stack.json",
-      "docs/architecture.md"
+      "docs/architecture.md",
+      "docs/data-dictionary.md",
+      "docs/decisions.md",
+      "docs/patterns.md",
+      "docs/style-guide.md",
+      "docs/web-routes.md"
     ],
     "eventStreamsRoot": "temp/event-streams",
     "workspacesRoot": "temp/workspaces",
