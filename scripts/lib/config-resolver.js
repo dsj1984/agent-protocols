@@ -31,7 +31,7 @@ export function resolveConfig() {
       const settings = raw.agentSettings ?? {};
 
       // Schema Boundary validation: Block injection metacharacters
-      const schemaValidKeys = ['taskStateRoot', 'goldenExamplesRoot', 'baseBranch', 'sprintDocsRoot', 'validationCommand', 'testCommand', 'buildCommand', 'agentRoot', 'scriptsRoot', 'workflowsRoot', 'personasRoot', 'keysRoot', 'schemasRoot', 'docsRoot', 'tempRoot', 'eventStreamsRoot', 'workspacesRoot'];
+      const schemaValidKeys = ['taskStateRoot', 'notificationWebhookUrl', 'goldenExamplesRoot', 'baseBranch', 'sprintDocsRoot', 'validationCommand', 'testCommand', 'buildCommand', 'agentRoot', 'scriptsRoot', 'workflowsRoot', 'personasRoot', 'keysRoot', 'schemasRoot', 'docsRoot', 'tempRoot', 'eventStreamsRoot', 'workspacesRoot'];
       for (const key of schemaValidKeys) {
         if (typeof settings[key] === 'string' && /([;&|`]|\$\()/.test(settings[key])) {
           throw new Error(`[Security] Malicious configuration value detected in .agentrc.json under ${key}. Shell meta-characters are forbidden.`);
@@ -86,6 +86,7 @@ export function resolveConfig() {
       sprintNumberPadding: 3,
       maxTokenBudget: 1000000,
       budgetWarningThreshold: 0.8,
+      notificationWebhookUrl: '',
       apcCacheSettings: { strictHashing: true, ttlDays: 30, enableSpeculativeExecution: true, cacheDir: 'temp/apc-cache' },
       securityOptions: { requireCryptographicProvenance: false },
     },

@@ -79,15 +79,15 @@ precisely:
   Push this tracking commit upstream: `git push`. (If it fails, pull --rebase
   and push again).
 
-1. **Notification**: Resolve `[WEBHOOK_URL]` from the `webhookUrl` field in
-   `.agentrc.json`. If `webhookUrl` is not empty, send a notification using the
-   cross-platform Node script:
+1. **Notification**: Resolve `[WEBHOOK_URL]` from the `notificationWebhookUrl`
+   field in `.agentrc.json`. If `notificationWebhookUrl` is not empty, send a
+   notification using the cross-platform Node script:
    - **Protocol**:
      `node [SCRIPTS_ROOT]/notify.js "[WEBHOOK_URL]" "Sprint step [TASK_ID] was pushed to its feature branch."`
    - **Failure Logging**: If the notification script fails, log the failure
      using the provided script:
      `node [SCRIPTS_ROOT]/log-friction.js "[SPRINT_ROOT]/agent-friction-log.json" "friction_point" "notify.js" "[ERROR_MESSAGE]"`
-   - If `webhookUrl` is empty, skip gracefully.
+   - If `notificationWebhookUrl` is empty, skip gracefully.
 
 2. **Finalize**: Stage and commit any newly harvested golden examples along with
    your state updates (Step 10).

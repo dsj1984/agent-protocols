@@ -23,7 +23,7 @@
     "workspacesRoot": "temp/workspaces",
     "maxTokenBudget": 1000000,
     "budgetWarningThreshold": 0.8,
-    "webhookUrl": "",
+    "notificationWebhookUrl": "",
     "validationCommand": "pnpm run lint",
     "testCommand": "pnpm run test",
     "exploratoryTestCommand": "pnpm run test:exploratory",
