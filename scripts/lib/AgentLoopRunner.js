@@ -24,13 +24,15 @@ export class AgentLoopRunner {
    * @param {string}  [opts.branch]     - Git branch to check out via worktree.
    * @param {string}  [opts.pattern]    - Execution pattern label (default: 'default').
    * @param {string}  [opts.streamDir]  - Directory for JSONL ledger files.
+   * @param {string}  [opts.workspacesDir] - Directory for temporary worktrees.
    */
-  constructor({ taskId, projectRoot, branch = null, pattern = 'default', streamDir }) {
+  constructor({ taskId, projectRoot, branch = null, pattern = 'default', streamDir, workspacesDir }) {
     this.taskId = taskId;
     this.projectRoot = projectRoot;
     this.branch = branch;
     this.pattern = pattern;
     this.streamDir = streamDir || path.join(projectRoot, 'temp/event-streams');
+    this.workspacesDir = workspacesDir || path.join(projectRoot, 'temp/workspaces');
     this.workingDir = projectRoot;
     this.ledgerPath = path.join(this.streamDir, `${taskId}.jsonl`);
   }
@@ -47,7 +49,7 @@ export class AgentLoopRunner {
     ensureDirSync(this.streamDir);
 
     if (this.branch) {
-      const workspacesDir = path.join(this.projectRoot, 'temp/workspaces');
+      const workspacesDir = this.workspacesDir;
       ensureDirSync(workspacesDir);
 
       const worktreePath = path.join(workspacesDir, this.taskId);

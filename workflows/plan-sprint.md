@@ -19,7 +19,7 @@ sprint planning pipeline.
 ## Step 0 - Path Resolution
 
 1.  Resolve `[SPRINT_ROOT]` as the directory `sprint-[PADDED_NUM]` within the
-    `sprintDocsRoot` prefix, both defined in `.agents/config/config.json`.
+    `sprintDocsRoot` prefix, both defined in `.agentrc.json`.
 2.  `[PADDED_NUM]` is the `[SPRINT_NUMBER]` padded according to the
     `sprintNumberPadding` setting in the same config.
 
@@ -27,19 +27,19 @@ sprint planning pipeline.
 
 Run the `/sprint-roadmap-review` workflow for the `[SPRINT_NUMBER]`.
 
-1. Read `.agents/workflows/sprint-roadmap-review.md` to understand your
+1. Read `[WORKFLOWS_ROOT]/sprint-roadmap-review.md` to understand your
    instructions.
 2. Execute the steps described in `sprint-roadmap-review.md`.
 3. **User Alert**: If you suggest any changes to the scope (splitting sprints,
    decomposing features, or moving items), you MUST **STOP** and alert the user.
    Do NOT proceed to the next step until the user has approved the updated
-   `docs/roadmap.md`.
+   `[DOCS_ROOT]/roadmap.md`.
 
 ## Step 2 - Sprint Setup
 
 Run the `/sprint-setup` workflow for the `[SPRINT_NUMBER]`.
 
-1. Read `.agents/workflows/sprint-setup.md` to understand your instructions.
+1. Read `[WORKFLOWS_ROOT]/sprint-setup.md` to understand your instructions.
 2. Execute the steps described in `sprint-setup.md`.
 3. Verify that the branch `sprint-[SPRINT_NUMBER]` (padded to 3 digits) has been
    created and pushed to origin.
@@ -48,7 +48,7 @@ Run the `/sprint-setup` workflow for the `[SPRINT_NUMBER]`.
 
 Run the `/sprint-generate-prd` workflow for the `[SPRINT_NUMBER]`.
 
-1. Read `.agents/workflows/sprint-generate-prd.md` to understand your
+1. Read `[WORKFLOWS_ROOT]/sprint-generate-prd.md` to understand your
    instructions.
 1. Execute the steps described in `sprint-generate-prd.md` as if you were
    running the command yourself.
@@ -58,7 +58,7 @@ Run the `/sprint-generate-prd` workflow for the `[SPRINT_NUMBER]`.
 
 Run the `/sprint-generate-tech-spec` workflow for the `[SPRINT_NUMBER]`.
 
-1. Read `.agents/workflows/sprint-generate-tech-spec.md` to understand your
+1. Read `[WORKFLOWS_ROOT]/sprint-generate-tech-spec.md` to understand your
    instructions.
 1. Execute the steps described in `sprint-generate-tech-spec.md`.
 1. Verify that `[SPRINT_ROOT]/tech-spec.md` has been successfully created.
@@ -67,7 +67,7 @@ Run the `/sprint-generate-tech-spec` workflow for the `[SPRINT_NUMBER]`.
 
 Run the `/sprint-generate-playbook` workflow for the `[SPRINT_NUMBER]`.
 
-1. Read `.agents/workflows/sprint-generate-playbook.md` to understand your
+1. Read `[WORKFLOWS_ROOT]/sprint-generate-playbook.md` to understand your
    instructions.
 1. Execute the steps described in `sprint-generate-playbook.md`.
 1. Verify that `[SPRINT_ROOT]/playbook.md` has been successfully created.

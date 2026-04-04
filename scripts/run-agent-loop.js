@@ -15,6 +15,7 @@ import path from 'node:path';
 import { fileURLToPath } from 'node:url';
 import { AgentLoopRunner } from './lib/AgentLoopRunner.js';
 import { Logger } from './lib/Logger.js';
+import { resolveConfig } from './lib/config-resolver.js';
 
 const __dirname = path.dirname(fileURLToPath(import.meta.url));
 const PROJECT_ROOT = path.resolve(__dirname, '../..');
@@ -45,5 +46,9 @@ if (!taskId) {
 // Bootstrap the runner
 // ---------------------------------------------------------------------------
 
-const runner = new AgentLoopRunner({ taskId, projectRoot: PROJECT_ROOT, branch, pattern });
+const { settings } = resolveConfig();
+const streamDir = path.join(PROJECT_ROOT, settings.eventStreamsRoot || 'temp/event-streams');
+const workspacesDir = path.join(PROJECT_ROOT, settings.workspacesRoot || 'temp/workspaces');
+
+const runner = new AgentLoopRunner({ taskId, projectRoot: PROJECT_ROOT, branch, pattern, streamDir, workspacesDir });
 runner.start(process.stdin);

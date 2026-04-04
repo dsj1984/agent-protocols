@@ -4,13 +4,13 @@ description: analyze and decompose upcoming sprints in roadmap.md
 
 # Sprint Roadmap Review
 
-Use this workflow to groom the `docs/roadmap.md` file, identifying sprints that
-are over-scoped or features that are too vague/monolithic for efficient
-execution.
+Use this workflow to groom the `[DOCS_ROOT]/roadmap.md` file, identifying
+sprints that are over-scoped or features that are too vague/monolithic for
+efficient execution.
 
 ## 🛠️ Step-by-Step Execution
 
-1.  **Read the Roadmap**: Ingest the current `docs/roadmap.md`.
+1.  **Read the Roadmap**: Ingest the current `[DOCS_ROOT]/roadmap.md`.
 2.  **Filter Active Sprints**: Identify sprints in the "Current & Upcoming"
     section that are NOT marked as `Completed`.
 3.  **Analyze Complexity**: Evaluate each identified sprint based on these
@@ -29,7 +29,7 @@ execution.
 5.  **Alignment Check**: Ensure that upcoming sprints contain the foundational
     work (e.g., Auth, Schema) required by later sprints.
 6.  **Update Strategy**: Present the proposed decomposition to the user for
-    approval. Upon approval, update the `docs/roadmap.md`.
+    approval. Upon approval, update the `[DOCS_ROOT]/roadmap.md`.
 
 ---
 

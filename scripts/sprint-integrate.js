@@ -56,6 +56,7 @@ const sprintDocsRoot = settings.sprintDocsRoot ?? 'docs/sprints';
 const sprintRoot = path.join(sprintDocsRoot, `sprint-${paddedNum}`);
 const validationCmd = settings.validationCommand ?? 'npm run lint';
 const testCmd = settings.testCommand ?? 'npm run test';
+const scriptsRoot = settings.scriptsRoot ?? '.agents/scripts';
 
 // ---------------------------------------------------------------------------
 // Helpers
@@ -192,7 +193,7 @@ if (merge.status !== 0) {
 // 4. Run verification suite
 progress('VERIFY', `Running validation: ${validationCmd} ; ${testCmd}`);
 
-const diagScript = path.join('.agents', 'scripts', 'diagnose-friction.js');
+const diagScript = path.join(PROJECT_ROOT, scriptsRoot, 'diagnose-friction.js');
 const verifyResult = spawnSync(
   'node',
   [diagScript, '--sprint', sprintRoot, '--task', taskId, '--cmd', ...validationCmd.split(' '), ';', ...testCmd.split(' ')],

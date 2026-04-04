@@ -15,7 +15,7 @@ infrastructure, test coverage, and overall quality assurance practices. Your
 goal is to identify testing gaps, flaky tests, inefficient mocking strategies,
 and opportunities to improve test execution speed and reliability without making
 any immediate changes. Additionally, you must evaluate the sprint test plans
-against the `docs/roadmap.md` and the current codebase to ensure all test
+against the `[DOCS_ROOT]/roadmap.md` and the current codebase to ensure all test
 documentation is complete, consistent, and accurate.
 
 **Note on Testing Responsibilities**: When evaluating test maturity, note the
@@ -27,7 +27,7 @@ integrations, and test environment stability.
 ## Step 0 - Path Resolution
 
 1.  Resolve `[SPRINT_ROOT]` as the directory `sprint-[PADDED_NUM]` within the
-    `sprintDocsRoot` prefix, both defined in `.agents/config/config.json`.
+    `sprintDocsRoot` prefix, both defined in `.agentrc.json`.
 2.  `[PADDED_NUM]` is the `[SPRINT_NUMBER]` padded according to the
     `sprintNumberPadding` setting in the same config.
 
@@ -41,8 +41,8 @@ files. Pay special attention to:
 - Test directories and files (e.g., `__tests__/`, `spec/`, `e2e/`, `*.test.ts`,
   `*.spec.js`).
 - Manual and automated test plans stored and organized in `[SPRINT_ROOT]/`.
-- Product documentation like `docs/roadmap.md` to map out expected features
-  versus documented/implemented tests.
+- Product documentation like `[DOCS_ROOT]/roadmap.md` to map out expected
+  features versus documented/implemented tests.
 - Mocking and stubbing setups (e.g., `__mocks__/`, `setupTests.js`, MSW
   handlers).
 - CI/CD workflow files to understand how and when tests are executed.
@@ -66,10 +66,10 @@ Evaluate the gathered context against the following test quality dimensions:
    unnecessary serial execution, heavy setup running too frequently, or
    opportunities for parallelization.
 6. **Test Plan Alignment:** Cross-reference the features outlined in
-   `docs/roadmap.md` to ensure they have corresponding and complete test plans
-   within `[SPRINT_ROOT]/test-plan.md`. Verify that the test plans accurately
-   reflect the exact implementation found in the codebase and highlight any
-   inconsistencies, gaps, or outdated assertions.
+   `[DOCS_ROOT]/roadmap.md` to ensure they have corresponding and complete test
+   plans within `[SPRINT_ROOT]/test-plan.md`. Verify that the test plans
+   accurately reflect the exact implementation found in the codebase and
+   highlight any inconsistencies, gaps, or outdated assertions.
 
 ## Step 3: Output Requirements
 

@@ -11,11 +11,11 @@ description:
 ## Step 0 - Path Resolution
 
 1.  Resolve `[SPRINT_ROOT]` as the directory `sprint-[PADDED_NUM]` within the
-    `sprintDocsRoot` prefix, both defined in `.agents/config/config.json`.
+    `sprintDocsRoot` prefix, both defined in `.agentrc.json`.
 2.  `[PADDED_NUM]` is the `[SPRINT_NUMBER]` padded according to the
     `sprintNumberPadding` setting in the same config.
 3.  Resolve `[TASK_STATE_ROOT]` from the `taskStateRoot` field in
-    `.agents/config/config.json` (default: `temp/task-state`).
+    `.agentrc.json` (default: `temp/task-state`).
 
 ## Step 1 - Pre-flight Checks
 
@@ -26,14 +26,14 @@ Before an agent begins performing file modifications for a sprint task in the
    `[SPRINT_ROOT]/playbook.md`).
 2. **Branch Validation**: Run `git branch --show-current`. The result MUST be
    `sprint-[SPRINT_NUMBER]`. If you are on the base branch (refer to
-   "baseBranch" in .agents/config/config.json), a feature branch (e.g.,
+   "baseBranch" in .agentrc.json), a feature branch (e.g.,
    `task/sprint-[NUM]/[TASK_ID]`), or a detached HEAD, **STOP** and switch to
    `sprint-[SPRINT_NUMBER]` with
    `git checkout sprint-[SPRINT_NUMBER] ; git pull` before continuing.
 3. **Execute Verification Script**: Run the deterministic Node.js script to
    verify that all prerequisite tasks are satisfied (marked as `[x]` in playbook
    or `committed` in decoupled state):
-   `node .agents/scripts/verify-prereqs.js [SPRINT_ROOT]/playbook.md [TASK_ID] [TASK_STATE_ROOT]`
+   `node [SCRIPTS_ROOT]/verify-prereqs.js [SPRINT_ROOT]/playbook.md [TASK_ID] [TASK_STATE_ROOT]`
    - If the script exits with `0` (Success), proceed to Step 4.
    - If the script exits with `1` (Failure), **STOP IMMEDIATELY**. Do not
      attempt to write code or bypass the block. Alert the user that the

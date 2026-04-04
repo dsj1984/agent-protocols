@@ -19,7 +19,7 @@ when executing this command.
 ## Step 0 - Path Resolution
 
 1.  Resolve `[SPRINT_ROOT]` as the directory `sprint-[PADDED_NUM]` within the
-    `sprintDocsRoot` prefix, both defined in `.agents/config/config.json`.
+    `sprintDocsRoot` prefix, both defined in `.agentrc.json`.
 2.  `[PADDED_NUM]` is the `[SPRINT_NUMBER]` padded according to the
     `sprintNumberPadding` setting in the same config.
 

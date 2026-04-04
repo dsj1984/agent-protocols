@@ -9,11 +9,11 @@ description:
 ## Step 0 - Path Resolution
 
 1.  Resolve `[SPRINT_ROOT]` as the directory `sprint-[PADDED_NUM]` within the
-    `sprintDocsRoot` prefix, both defined in `.agents/config/config.json`.
+    `sprintDocsRoot` prefix, both defined in `.agentrc.json`.
 2.  `[PADDED_NUM]` is the `[SPRINT_NUMBER]` padded according to the
     `sprintNumberPadding` setting in the same config.
 3.  Resolve `[EXPLORATORY_TEST_COMMAND]` from the `exploratoryTestCommand` field
-    in `.agents/config/config.json` (default: `pnpm test:exploratory`).
+    in `.agentrc.json`.
 
 ## Step 1 - Preparation
 
@@ -40,11 +40,11 @@ with the Dual-Purpose standard:
    files. **DO NOT invent Playwright tests from scratch**—rely on the workflow's
    native execution loop.
 5. **Exploratory Testing**: Run the command defined as
-   `[EXPLORATORY_TEST_COMMAND]` (default: `pnpm test:exploratory`). This step
-   focuses on unscripted testing to identify edge cases and unexpected behaviors
-   that may not be covered by the formal test plan. If any issues or regressions
-   are discovered, you **must** address them, commit the fixes, and re-run the
-   exploratory tests before finalizing.
+   `[EXPLORATORY_TEST_COMMAND]`. This step focuses on unscripted testing to
+   identify edge cases and unexpected behaviors that may not be covered by the
+   formal test plan. If any issues or regressions are discovered, you **must**
+   address them, commit the fixes, and re-run the exploratory tests before
+   finalizing.
 6. **Finalize**: Use the `/sprint-finalize-task` workflow for your task ID
    (e.g., `39.4.1`) to push your test maintenance branch and update the
    playbook.
