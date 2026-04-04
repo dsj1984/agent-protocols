@@ -1,4 +1,4 @@
-name: CI
+name: CI / CD
 
 on:
   push:
@@ -63,7 +63,7 @@ jobs:
               - '.github/workflows/ci.yml'
 
   publish:
-    name: Publish Dist
+    name: Publish to Dist
     needs: [validate, check-changes]
     # Only run on pushes to main that affect the .agents folder
     if: github.event_name == 'push' && github.ref == 'refs/heads/main' && needs.check-changes.outputs.agents_changed == 'true'
@@ -99,6 +99,7 @@ jobs:
           # Validate that the expected dist structure is present before pushing
           echo "Validating dist contents..."
           test -f instructions.md \
+            && test -f system-prompt.md \
             && test -f VERSION \
             && test -f default-agentrc.json \
             && test -d personas \
