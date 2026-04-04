@@ -97,6 +97,36 @@
             "type": "string",
             "description": "Optional workspace scope hint (e.g., '@repo/api', '@repo/web'). Tasks sharing a scope at the same concurrency layer are grouped into one Chat Session."
           },
+          "estimatedFiles": {
+            "type": "integer",
+            "minimum": 1,
+            "description": "Approximate number of files this task will create or modify. Used by the complexity estimator to determine if the task should be auto-split into sub-steps for more reliable agent execution."
+          },
+          "substeps": {
+            "type": "array",
+            "items": {
+              "type": "object",
+              "required": ["title", "instructions"],
+              "additionalProperties": false,
+              "properties": {
+                "title": {
+                  "type": "string",
+                  "minLength": 1,
+                  "description": "Sub-step title (appended to parent title)."
+                },
+                "instructions": {
+                  "type": "string",
+                  "minLength": 1,
+                  "description": "Scoped instructions for this sub-step."
+                },
+                "scope": {
+                  "type": "string",
+                  "description": "Optional scope override for this sub-step."
+                }
+              }
+            },
+            "description": "Optional pre-decomposed sub-steps. If provided and the task's complexity score exceeds the threshold, the task is automatically split into sequentially-chained sub-tasks for safer execution."
+          },
           "isIntegration": {
             "type": "boolean",
             "default": false,

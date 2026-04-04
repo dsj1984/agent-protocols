@@ -137,6 +137,11 @@ export function renderPlaybook(manifest, chatSessions, chatDeps, options = {}) {
       
       // Task Header & Checklist (No leading dash)
       md += `[ ] **${fullTaskId}** ${task.title}\n`;
+
+      // Auto-split indicator
+      if (task._splitFrom) {
+        md += `  - **🔀 Auto-split**: Part ${task._splitIndex}/${task._splitTotal} from \`${task._splitFrom}\`\n`;
+      }
       
       // Task Metadata
       md += `  - **Mode**: ${task.mode}\n`;
@@ -209,7 +214,8 @@ export function renderPlaybook(manifest, chatSessions, chatDeps, options = {}) {
       md += `**Pre-flight Task Validation (Run this first):**\n`;
       md += `\`node ${scriptsRoot}/verify-prereqs.js ${docsRoot}/sprint-${sprintNum}/playbook.md ${fullTaskId} ${options.taskStateRoot || 'temp/task-state'}\`\n\n`;
 
-      const targetBranch = task.isIntegration || task.isQA || task.isCodeReview || task.isRetro || task.isCloseSprint ? `sprint-${sprintNum}` : `task/sprint-${sprintNum}/${task.id}`;
+      const branchTaskId = task._parentBranchId || task.id;
+      const targetBranch = task.isIntegration || task.isQA || task.isCodeReview || task.isRetro || task.isCloseSprint ? `sprint-${sprintNum}` : `task/sprint-${sprintNum}/${branchTaskId}`;
       const taskPattern = task.pattern || 'default';
       const isBookendTask = task.isIntegration || task.isQA || task.isCodeReview || task.isRetro || task.isCloseSprint;
 
@@ -232,6 +238,17 @@ export function renderPlaybook(manifest, chatSessions, chatDeps, options = {}) {
         md += `   - **Read Context**: Before implementing, fetch and ingest \`${docsRoot}/sprint-${sprintNum}/prd.md\`, \`${docsRoot}/sprint-${sprintNum}/tech-spec.md\`, the \`techStack\` section of \`.agentrc.json\`, and all Project Reference Documents listed in your global protocol (\`instructions.md\`). Do not hallucinate values.\n`;
       }
       const instLines = renderTaskInstructions(task, sprintNum).split('\n');
+
+      // Complexity warning for tasks that scored high but could not be auto-split
+      if (task._complexityWarning) {
+        md += `\n> **⚠️ COMPLEXITY WARNING (Score: ${task._complexityScore})**\n`;
+        md += `> This task has been flagged as high-complexity. You MUST self-decompose\n`;
+        md += `> into atomic sub-steps before writing any code. Each sub-step should\n`;
+        md += `> modify no more than 5 files. Commit and push after each logical sub-step,\n`;
+        md += `> not at the end. If you find yourself editing more than 5 files without\n`;
+        md += `> committing, STOP and break the work into a smaller unit.\n\n`;
+      }
+
       for (const line of instLines) {
         if (!line.trim()) continue;
         md += line.trim().startsWith('-') ? `   ${line.trim()}\n` : `   - ${line.trim()}\n`;

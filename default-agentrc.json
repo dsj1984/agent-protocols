@@ -45,6 +45,15 @@
       "enableSpeculativeExecution": true,
       "cacheDir": "temp/apc-cache"
     },
+    "complexity": {
+      "maxComplexityScore": 8,
+      "instructionLengthBreakpoints": [800, 1600, 2400],
+      "estimatedFilesBreakpoints": [5, 10, 20],
+      "focusAreasBreakpoints": [3, 6],
+      "enableAutoSplit": true,
+      "enableComplexityWarnings": true,
+      "maxSubstepsPerTask": 5
+    },
     "securityOptions": {
       "requireCryptographicProvenance": false
     },
