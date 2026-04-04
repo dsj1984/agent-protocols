@@ -68,6 +68,8 @@
     "securityOptions": {
       "requireCryptographicProvenance": false
     },
+    "executionTimeoutMs": 300000,
+    "executionMaxBuffer": 10485760,
     "bookendRequirements": {
       "isIntegration": {
         "persona": "engineer",

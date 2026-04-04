@@ -22,6 +22,7 @@ if (!sprintArg || !taskId) {
 const { settings: agentConfig } = resolveConfig();
 let sprintDocsRoot = agentConfig.sprintDocsRoot ?? 'docs/sprints';
 let sprintNumberPadding = agentConfig.sprintNumberPadding ?? 3;
+const executionTimeoutMs = agentConfig.executionTimeoutMs ?? 300000;
 
 const paddedSprint = String(sprintArg).padStart(sprintNumberPadding, '0');
 let sprintDir = path.join(PROJECT_ROOT, sprintDocsRoot, `sprint-${paddedSprint}`);
@@ -82,7 +83,7 @@ if (cacheMatch.payload && cacheMatch.payload.parameterizedDiff) {
 
 // 3. Mark the task as Complete natively so the integration wait-loop succeeds.
 try {
-  execFileSync('node', [path.join(__dirname, 'update-task-state.js'), taskId, 'passed'], { stdio: 'inherit' });
+  execFileSync('node', [path.join(__dirname, 'update-task-state.js'), taskId, 'passed'], { stdio: 'inherit', timeout: executionTimeoutMs });
 } catch (e) {
   console.error('Failed to update task state:', e);
 }

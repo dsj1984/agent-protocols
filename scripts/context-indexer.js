@@ -1,5 +1,6 @@
 import fs from 'fs';
-import path from 'path';import { Logger } from "./lib/Logger.js";
+import path from 'path';
+import { Logger } from './lib/Logger.js';
 import { ensureDirSync } from './lib/fs-utils.js';
 
 
@@ -29,18 +30,17 @@ function chunkText(text, filePath) {
 function walkDir(dir) {
     let results = [];
     if (!fs.existsSync(dir)) return results;
-    
-    const list = fs.readdirSync(dir);
-    list.forEach(file => {
-        if (file === 'node_modules' || file === 'temp' || file === '.git' || file === '.agents' || file === 'archive') return;
-        const fullPath = path.join(dir, file);
-        const stat = fs.statSync(fullPath);
-        if (stat && stat.isDirectory()) {
+
+    const entries = fs.readdirSync(dir, { withFileTypes: true });
+    for (const entry of entries) {
+        if (entry.name === 'node_modules' || entry.name === 'temp' || entry.name === '.git' || entry.name === '.agents' || entry.name === 'archive') continue;
+        const fullPath = path.join(dir, entry.name);
+        if (entry.isDirectory()) {
             results = results.concat(walkDir(fullPath));
-        } else if (file.endsWith('.md')) {
+        } else if (entry.name.endsWith('.md')) {
             results.push(fullPath);
         }
-    });
+    }
     return results;
 }
 
@@ -50,12 +50,12 @@ function buildIndex() {
         console.error("Docs directory not found. Please run this script from the workspace root.");
         return;
     }
-    
+
     ensureDirSync(tempDir);
 
     // Include docs/ but also the project root's specific architecture files if they are there
     let files = walkDir(DOCS_DIR);
-    
+
     // Explicitly add root md files like README.md if present
     ['README.md', 'CHANGELOG.md'].forEach(rootFile => {
         const rootPath = path.join(process.cwd(), rootFile);
@@ -85,7 +85,7 @@ function buildIndex() {
             tf[t] = (tf[t] || 0) + 1;
             totalTerms++;
         });
-        
+
         for (let t in tf) tf[t] = tf[t] / totalTerms;
 
         const uniqueTokens = new Set(tokens);
@@ -118,10 +118,10 @@ function searchIndex(query, topK = 5) {
         console.error("❌ No context index found. Please run `node .agents/scripts/context-indexer.js index` first.");
         return;
     }
-    
+
     const index = JSON.parse(fs.readFileSync(INDEX_PATH, 'utf-8'));
     const queryTokens = tokenize(query);
-    
+
     const queryTf = {};
     queryTokens.forEach(t => queryTf[t] = (queryTf[t] || 0) + 1);
 
@@ -164,7 +164,7 @@ if (command === 'index') {
 } else if (command === 'search') {
     if (args.length === 0) {
         Logger.fatal("Please provide a search query. Example: node context-indexer.js search \"user authentication flow\"");
-        
+
     }
     searchIndex(args.join(' '));
 } else {

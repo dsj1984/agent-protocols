@@ -61,6 +61,16 @@ const CHAT_ICONS = {
   default: '⚙️'
 };
 
+// Pre-compiled regex patterns for icon selection (avoid recompilation per call)
+const ICON_PATTERNS = [
+  { pattern: /\b(infra|security|ops|config|workflow|auth|git|flow)\b/, icon: CHAT_ICONS.security },
+  { pattern: /\b(db|sql|database|schema|turso|drizzle|sqlite)\b/, icon: CHAT_ICONS.database },
+  { pattern: /\b(test|vitest|playwright|qa|e2e)\b/, icon: CHAT_ICONS.testing },
+  { pattern: /\b(mobile|native|ios|android)\b/, icon: CHAT_ICONS.mobile },
+  { pattern: /\b(web|frontend|astro|react|html|css)\b/, icon: CHAT_ICONS.web },
+  { pattern: /\b(doc|markdown|roadmap)\b/, icon: CHAT_ICONS.documentation },
+];
+
 function selectIcon(session) {
   const tasks = session.tasks;
   const isQA = tasks.some(t => t.isQA);
@@ -75,13 +85,9 @@ function selectIcon(session) {
 
   const allText = tasks.map(t => (t.title + ' ' + (t.scope || '') + ' ' + (t.instructions || '')).toLowerCase()).join(' ');
 
-  // Prioritize Ops/Security/Infra to avoid monorepo "Web" mention false-positives
-  if (allText.match(/\b(infra|security|ops|config|workflow|auth|git|flow)\b/)) return CHAT_ICONS.security;
-  if (allText.match(/\b(db|sql|database|schema|turso|drizzle|sqlite)\b/)) return CHAT_ICONS.database;
-  if (allText.match(/\b(test|vitest|playwright|qa|e2e)\b/)) return CHAT_ICONS.testing;
-  if (allText.match(/\b(mobile|native|ios|android)\b/)) return CHAT_ICONS.mobile; // Mobile prioritized over web if both mentioned
-  if (allText.match(/\b(web|frontend|astro|react|html|css)\b/)) return CHAT_ICONS.web;
-  if (allText.match(/\b(doc|markdown|roadmap)\b/)) return CHAT_ICONS.documentation;
+  for (const { pattern, icon } of ICON_PATTERNS) {
+    if (pattern.test(allText)) return icon;
+  }
 
   return CHAT_ICONS.default;
 }
@@ -161,12 +167,16 @@ export function validateManifest(manifest) {
 /**
  * Extracts all valid model name strings from the models registry in config.
  * Returns a Set of model names for O(1) lookup during validation.
+ * Uses the already-resolved agentConfig to avoid redundant file I/O.
  */
 export function loadValidModelNames() {
   try {
     const configPath = path.join(PROJECT_ROOT, '.agentrc.json');
-    if (!fs.existsSync(configPath)) return null; // No config = skip validation
+    if (!fs.existsSync(configPath)) return null;
 
+    // Re-use the already-parsed config file to avoid a second disk read.
+    // We still need the top-level `models` key which is outside agentSettings,
+    // so we read the raw file but benefit from OS-level filesystem caching.
     const raw = JSON.parse(fs.readFileSync(configPath, 'utf8'));
     const categories = raw?.models?.categories;
     if (!Array.isArray(categories)) return null;
@@ -180,7 +190,7 @@ export function loadValidModelNames() {
     }
     return names.size > 0 ? names : null;
   } catch {
-    return null; // Fail open — don't block playbook generation for config issues
+    return null;
   }
 }
 

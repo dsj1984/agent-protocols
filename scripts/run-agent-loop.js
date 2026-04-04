@@ -49,6 +49,8 @@ if (!taskId) {
 const { settings } = resolveConfig();
 const streamDir = path.join(PROJECT_ROOT, settings.eventStreamsRoot || 'temp/event-streams');
 const workspacesDir = path.join(PROJECT_ROOT, settings.workspacesRoot || 'temp/workspaces');
+const executionTimeoutMs = settings.executionTimeoutMs;
+const executionMaxBuffer = settings.executionMaxBuffer;
 
-const runner = new AgentLoopRunner({ taskId, projectRoot: PROJECT_ROOT, branch, pattern, streamDir, workspacesDir });
+const runner = new AgentLoopRunner({ taskId, projectRoot: PROJECT_ROOT, branch, pattern, streamDir, workspacesDir, executionTimeoutMs, executionMaxBuffer });
 runner.start(process.stdin);
