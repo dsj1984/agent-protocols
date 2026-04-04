@@ -17,7 +17,7 @@
     "sprintNumberPadding": 3,
     "tempRoot": "temp",
     "taskStateRoot": "temp/task-state",
-    "goldenExamplesRoot": ".agents/golden-examples",
+    "goldenExamplesRoot": "temp/golden-examples",
     "maxGoldenExampleLines": 200,
     "eventStreamsRoot": "temp/event-streams",
     "workspacesRoot": "temp/workspaces",
