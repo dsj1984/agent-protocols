@@ -29,7 +29,7 @@ git submodule add -b dist https://github.com/dsj1984/agent-protocols.git .agents
 
 Regularly update the protocols to pick up the latest personas and skills.
 
-#### A. Manual Update (Bash)
+#### A. Manual Update (Bash / Zsh)
 
 ```bash
 git submodule update --remote --merge .agents && git add .agents && git commit -m "chore: update agent-protocols"
@@ -38,12 +38,14 @@ git submodule update --remote --merge .agents && git add .agents && git commit -
 #### B. Manual Update (PowerShell)
 
 ```powershell
-git submodule update --remote --merge .agents; git add .agents; git commit -m "chore: update agent-protocols"
+git submodule update --remote --merge .agents ; if ($?) { git add .agents ; if ($?) { git commit -m "chore: update agent-protocols" } }
 ```
 
 #### C. Automated Update (`package.json`)
 
-Add the following script to your `package.json` for one-command updates:
+Add the following script to your `package.json` for one-command updates. Note:
+usage of `&&` in `package.json` scripts may fail in some Windows environments;
+consider using a cross-platform runner like `npm-run-all2`.
 
 ```json
 "scripts": {
