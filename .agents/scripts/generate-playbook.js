@@ -27,6 +27,7 @@ import { buildGraph, detectCycle, assignLayers, transitiveReduction, computeChat
 import { renderPlaybook } from './lib/Renderer.js';
 import { PlaybookOrchestrator } from './lib/PlaybookOrchestrator.js';
 import { ensureDirSync } from './lib/fs-utils.js';
+import { analyzeAndSplit, loadComplexityConfig } from './lib/ComplexityEstimator.js';
 import { resolveConfig } from './lib/config-resolver.js';
 
 const __dirname = path.dirname(fileURLToPath(import.meta.url));
@@ -484,6 +485,16 @@ export function generateFromManifest(manifest, options = {}) {
 
   // 0. Auto-enrich manifest with boilerplate required fields
   enrichManifest(manifest);
+
+  // 0.5 Complexity analysis & auto-split
+  const complexityConfig = loadComplexityConfig();
+  const { splits, warnings: complexityWarnings } = analyzeAndSplit(manifest, complexityConfig);
+  for (const msg of splits) {
+    console.log(`🔀 ${msg}`);
+  }
+  for (const msg of complexityWarnings) {
+    console.warn(`⚠️  ${msg}`);
+  }
 
   // 1. Validate
   const errors = validateManifest(manifest);

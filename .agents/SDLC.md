@@ -149,6 +149,14 @@ structured execution plan.
      file.
    - Executes `.agents/scripts/generate-playbook.js` to render the **Sprint
      Playbook**.
+   - **Complexity-Aware Decomposition**: The generation pipeline automatically
+     scores each task for complexity based on instruction length, estimated file
+     count, scope breadth, and cross-package indicators. Tasks exceeding the
+     configured `maxComplexityScore` threshold are either auto-split into
+     sequentially-chained sub-tasks (when `substeps` are provided) or flagged
+     with an inline `⚠️ COMPLEXITY WARNING` to instruct agents to
+     self-decompose. Use `estimatedFiles` and `substeps` in the manifest to help
+     the estimator make informed splitting decisions.
    - Saves artifacts to: `docs/sprints/sprint-[##]/task-manifest.json` and
      `docs/sprints/sprint-[##]/playbook.md`.
 

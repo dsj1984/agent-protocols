@@ -19,6 +19,7 @@ import { buildGraph, detectCycle, assignLayers, transitiveReduction, computeChat
 import { renderPlaybook } from './Renderer.js';
 import { ensureDirSync } from './fs-utils.js';
 import { Logger } from './Logger.js';
+import { analyzeAndSplit, loadComplexityConfig } from './ComplexityEstimator.js';
 
 export class PlaybookOrchestrator {
   /**
@@ -79,6 +80,16 @@ export class PlaybookOrchestrator {
     }
 
     this.enrichManifest(manifest);
+
+    // Complexity analysis & auto-split
+    const complexityConfig = loadComplexityConfig();
+    const { splits, warnings: complexityWarnings } = analyzeAndSplit(manifest, complexityConfig);
+    for (const msg of splits) {
+      console.log(`\u{1F500} ${msg}`);
+    }
+    for (const msg of complexityWarnings) {
+      console.warn(`\u26A0\uFE0F  ${msg}`);
+    }
 
     const errors = this.validateManifest(manifest);
     if (errors.length > 0) {

@@ -282,3 +282,45 @@ successes.
 
 <!-- GOLDEN_EXAMPLES_START -->
 <!-- GOLDEN_EXAMPLES_END -->
+
+---
+
+## 9. Complexity-Aware Execution
+
+The playbook generation pipeline automatically scores each task for complexity
+based on instruction length, estimated file count, scope breadth, and other
+signals. Tasks exceeding the configured `maxComplexityScore` threshold are
+either auto-split into sub-tasks or flagged with a complexity warning.
+
+### A. When You See `⚠️ COMPLEXITY WARNING`
+
+If your prompt contains a complexity warning, you MUST self-decompose before
+writing any code:
+
+1. **Plan first.** Read the full instructions, then write a numbered list of
+   atomic sub-steps in a `<!-- DECOMPOSITION -->` comment block.
+2. **5-file rule.** Each sub-step should modify no more than 5 files. If a
+   planned sub-step would touch more, break it further.
+3. **Commit incrementally.** After each logical sub-step completes successfully,
+   stage, commit, and push before moving to the next. Do NOT accumulate all
+   changes for a single commit at the end.
+4. **Fail fast.** If any sub-step fails validation (lint, typecheck, test), STOP
+   and report the failure. Do not proceed to the next sub-step.
+
+### B. Auto-Split Tasks (`🔀`)
+
+Tasks marked with `🔀 Auto-split` have already been decomposed by the pipeline.
+Each sub-task has its own branch, dependencies, and commit cycle. Execute them
+exactly as rendered — do not attempt to combine or skip sub-tasks.
+
+### C. Planning-Time Guidance
+
+When creating a `task-manifest.json`, use these fields to help the complexity
+estimator:
+
+- **`estimatedFiles`**: Set to the approximate number of files the task will
+  create or modify. Tasks with > 10 files are strong candidates for splitting.
+- **`substeps`**: Pre-decompose complex tasks into explicit sub-steps. Each
+  substep gets a `title` and `instructions`. The pipeline will auto-split the
+  task into sequentially-chained sub-tasks if the complexity score exceeds the
+  threshold.

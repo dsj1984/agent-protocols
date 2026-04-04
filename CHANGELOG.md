@@ -6,6 +6,53 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 and this project adheres to
 [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [4.2.0] - 2026-04-04
+
+### Added
+
+- **Complexity-Aware Task Decomposition**: Introduced a new
+  `ComplexityEstimator` module (`.agents/scripts/lib/ComplexityEstimator.js`)
+  that scores task complexity based on instruction length, estimated file count,
+  scope breadth, focus area count, cross-package language indicators, and
+  bullet-point density. Tasks exceeding the configurable `maxComplexityScore`
+  threshold (default: 8) are automatically split into sequentially-chained
+  sub-tasks when explicit `substeps` are provided in the manifest, or flagged
+  with an inline `⚠️ COMPLEXITY WARNING` to instruct agents to self-decompose.
+- **Manifest Schema Extensions**: Added two optional properties to the task
+  manifest schema (`task-manifest.schema.json`):
+  - `estimatedFiles` (integer): Approximate file count hint for the complexity
+    estimator.
+  - `substeps` (array): Pre-decomposed sub-steps enabling automatic task
+    splitting with correct dependency chaining.
+- **Complexity Configuration**: Added configurable `complexity` settings block
+  to `.agentrc.json` with tunable thresholds: `maxComplexityScore`,
+  `instructionLengthBreakpoints`, `estimatedFilesBreakpoints`,
+  `focusAreasBreakpoints`, `enableAutoSplit`, `enableComplexityWarnings`, and
+  `maxSubstepsPerTask`.
+- **Complexity-Aware Execution Protocol (§9)**: Added a new section to
+  `instructions.md` mandating agents self-decompose when encountering complexity
+  warnings, enforcing a 5-file-per-substep rule and incremental commit
+  discipline.
+- **Renderer Enhancements**: Auto-split tasks display `🔀 Auto-split` badges
+  with part numbering and parent task origin. High-complexity unsplittable tasks
+  receive prominent `⚠️ COMPLEXITY WARNING` blocks in the rendered playbook.
+- **Shared Branch Strategy**: Sub-tasks from auto-split share the parent task's
+  branch (`task/sprint-XXX/{parentId}`) and follow the natural
+  `sprint.chat.step` numbering (e.g. `045.1.1`, `045.1.2`, `045.1.3`).
+- **Test Coverage**: Added `tests/complexity-estimator.test.js` with 27 tests
+  covering scoring heuristics, task splitting, dependency rewiring, config
+  toggles, and edge cases.
+
+### Changed
+
+- **Pipeline Integration**: The complexity analysis phase runs between
+  `enrichManifest` and `validateManifest` in both `generate-playbook.js` and
+  `PlaybookOrchestrator.js`, ensuring sub-task IDs are present before schema
+  validation.
+- **SDLC Documentation**: Updated the Sprint Planning section in `SDLC.md` with
+  guidance on using `estimatedFiles` and `substeps` for complexity-aware
+  planning.
+
 ## [4.1.3] - 2026-04-04
 
 ### Fixed
