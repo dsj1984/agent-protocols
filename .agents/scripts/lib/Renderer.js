@@ -173,7 +173,20 @@ export function renderPlaybook(manifest, chatSessions, chatDeps, options = {}) {
 
       md += `**Branching:**\n`;
       md += `All task work MUST occur on the branch specified in your instructions.\n`;
-      md += `If this task depends on previous tasks, ensure you have fetched the latest remote state (\`git fetch origin\`) and merged or checked out their respective feature branches before beginning work.\n\n`;
+      md += `If this task depends on previous tasks, ensure you have fetched the latest remote state (\`git fetch origin\`) and merged or checked out their respective feature branches before beginning work.\n`;
+
+      // Fix #4b: Render explicit git merge commands for dependent tasks
+      if (task.dependsOn && task.dependsOn.length > 0) {
+        const isBookend = task.isIntegration || task.isQA || task.isCodeReview || task.isRetro || task.isCloseSprint;
+        if (!isBookend) {
+          md += `**Required Merges (run after checkout):**\n`;
+          for (const depId of task.dependsOn) {
+            const depBranch = `task/sprint-${sprintNum}/${depId}`;
+            md += `- \`git merge origin/${depBranch}\`\n`;
+          }
+        }
+      }
+      md += `\n`;
 
       md += `**Close-out:**\n`;
       md += `1. **Complete & Finalize**: All code must be committed and pushed via the standard workflow. Read and strictly follow the steps defined in \`${workflowsRoot}/sprint-finalize-task.md\` to track state and notify the team.\n`;
@@ -198,6 +211,15 @@ export function renderPlaybook(manifest, chatSessions, chatDeps, options = {}) {
 
       const targetBranch = task.isIntegration || task.isQA || task.isCodeReview || task.isRetro || task.isCloseSprint ? `sprint-${sprintNum}` : `task/sprint-${sprintNum}/${task.id}`;
       const taskPattern = task.pattern || 'default';
+      const isBookendTask = task.isIntegration || task.isQA || task.isCodeReview || task.isRetro || task.isCloseSprint;
+
+      // Fix #2: Inject mandatory Context Sync for all non-bookend tasks
+      if (!isBookendTask) {
+        md += `**Context Sync (Mandatory — run before writing any code):**\n`;
+        md += `Read the PRD and Tech Spec to understand exact schema fields, UI categories, filter parameters, and privacy rules. Do not hallucinate values defined in these documents:\n`;
+        md += `- \`${docsRoot}/sprint-${sprintNum}/prd.md\`\n`;
+        md += `- \`${docsRoot}/sprint-${sprintNum}/tech-spec.md\`\n\n`;
+      }
 
       md += `**Perception-Action Event Stream Protocol:**\n`;
       md += `All environmental interactions MUST be streamed. Start the loop via:\n`;
@@ -206,26 +228,25 @@ export function renderPlaybook(manifest, chatSessions, chatDeps, options = {}) {
 
       md += `**Instructions:**\n`;
       md += `1. **Task ${task.id}:**\n`;
+      // Fix #4a: Mark Executing FIRST so state is tracked before code is written
+      md += `   - **Mark Executing**: \`node ${scriptsRoot}/update-task-state.js ${fullTaskId} executing\`\n`;
       const instLines = renderTaskInstructions(task, sprintNum).split('\n');
       for (const line of instLines) {
         if (!line.trim()) continue;
         md += line.trim().startsWith('-') ? `   ${line.trim()}\n` : `   - ${line.trim()}\n`;
       }
 
-      md += `   - **Mark Executing**: \`node ${scriptsRoot}/update-task-state.js ${fullTaskId} executing\`\n`;
-
+      // Fix #4c: Clarify Manual Fix Finalization is for the HUMAN OPERATOR
       if (task.isCodeReview) {
-        md += `\n**Manual Fix Finalization (AGENT PROMPT):**\n`;
-        md += `If manual fixes were implemented during this review, YOU MUST run this realignment prompt to synchronize them before proceeding to QA:\n`;
-        md += `\`\`\`markdown\n`;
-        md += `=== VOLATILE TASK CONTEXT ===\n\n`;
-        md += `**Persona**: devops-engineer\n`;
-        md += `**Loaded Skills**: \`devops/git-flow-specialist\`\n`;
-        md += `\n=== INSTRUCTIONS ===\n\n`;
-        md += `I have completed the manual implementation of architectural fixes from the Code Review. Please execute the final synchronization to align the repository:\n\n`;
-        md += `1. **Commit Review Fixes**: Stage and commit any uncommitted architectural fixes: \`git add . && (git diff --staged --quiet || git commit -m "fix(review): implement architectural code review feedback")\`\n`;
-        md += `2. **Push Default Base**: Push your fixes natively to the integration branch: \`git push origin HEAD\`\n`;
-        md += `3. **Update State**: Mark the code review task as passed to generate the test receipt: \`node ${scriptsRoot}/update-task-state.js ${fullTaskId} passed\`\n`;
+        md += `\n**Manual Fix Finalization (FOR HUMAN OPERATOR — run in a separate terminal):**\n`;
+        md += `If manual fixes were implemented during this review, the human operator MUST run the following commands in a separate terminal to synchronize before proceeding to QA:\n`;
+        md += `\`\`\`bash\n`;
+        md += `# 1. Commit Review Fixes\n`;
+        md += `git add . && (git diff --staged --quiet || git commit -m "fix(review): implement architectural code review feedback")\n`;
+        md += `# 2. Push to integration branch\n`;
+        md += `git push origin HEAD\n`;
+        md += `# 3. Mark code review as passed\n`;
+        md += `node ${scriptsRoot}/update-task-state.js ${fullTaskId} passed\n`;
         md += `\`\`\`\n`;
       }
 

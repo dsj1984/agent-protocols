@@ -157,6 +157,62 @@ export function validateManifest(manifest) {
   return errors;
 }
 
+/**
+ * Extracts all valid model name strings from the models registry in config.
+ * Returns a Set of model names for O(1) lookup during validation.
+ */
+export function loadValidModelNames() {
+  try {
+    const configPath = path.join(PROJECT_ROOT, '.agentrc.json');
+    if (!fs.existsSync(configPath)) return null; // No config = skip validation
+
+    const raw = JSON.parse(fs.readFileSync(configPath, 'utf8'));
+    const categories = raw?.models?.categories;
+    if (!Array.isArray(categories)) return null;
+
+    const names = new Set();
+    for (const cat of categories) {
+      if (!Array.isArray(cat.models)) continue;
+      for (const m of cat.models) {
+        if (m.name) names.add(m.name);
+      }
+    }
+    return names.size > 0 ? names : null;
+  } catch {
+    return null; // Fail open — don't block playbook generation for config issues
+  }
+}
+
+/**
+ * Validates that task model strings match entries in models.json/agentrc.json.
+ * Returns an array of warning strings (non-fatal).
+ */
+export function validateModelNames(manifest) {
+  const warnings = [];
+  const validModels = loadValidModelNames();
+  if (!validModels) return warnings; // No registry available — skip
+
+  for (const task of manifest.tasks) {
+    if (task.model && !validModels.has(task.model)) {
+      // Check if it's a compound "X OR Y" string (from fallback defaults)
+      const candidates = task.model.split(/\s+OR\s+/).map(m => m.trim());
+      const allValid = candidates.every(c => validModels.has(c));
+      if (!allValid) {
+        warnings.push(`Task "${task.id}": model "${task.model}" not found in models registry. Valid: [${[...validModels].join(', ')}]`);
+      }
+    }
+    if (task.secondaryModel && !validModels.has(task.secondaryModel)) {
+      const candidates = task.secondaryModel.split(/\s+OR\s+/).map(m => m.trim());
+      const allValid = candidates.every(c => validModels.has(c));
+      if (!allValid) {
+        warnings.push(`Task "${task.id}": secondaryModel "${task.secondaryModel}" not found in models registry. Valid: [${[...validModels].join(', ')}]`);
+      }
+    }
+  }
+
+  return warnings;
+}
+
 // ---------------------------------------------------------------------------
 // Manifest Enrichment
 // ---------------------------------------------------------------------------
@@ -442,6 +498,12 @@ export function generateFromManifest(manifest, options = {}) {
     for (const w of warnings) {
       console.warn(`⚠️  ${w}`);
     }
+  }
+
+  // 2.5 Model name validation (non-fatal warnings)
+  const modelWarnings = validateModelNames(manifest);
+  for (const w of modelWarnings) {
+    console.warn(`⚠️  ${w}`);
   }
 
   // 3. Build graph & check for cycles
