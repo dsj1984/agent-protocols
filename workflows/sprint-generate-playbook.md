@@ -53,6 +53,14 @@ Your output MUST conform to the JSON schema defined in
   includes task A's `id`.
 - If tasks are independent bug fixes or unrelated work items, `dependsOn` is
   `[]` for all of them (they will become concurrent Chat Sessions).
+- **Feature Track Isolation**: When a sprint contains multiple independent
+  features (e.g., Notifications AND Directories), each feature's tasks form an
+  independent dependency chain ("track"). Tasks from Feature Track A MUST NOT
+  depend on tasks from Feature Track B unless they genuinely share a database
+  table, API route, or shared package import. Cross-feature serialization
+  destroys parallelism and is a **critical planning error**. Validate by asking:
+  _"Would this task fail to compile or run if the other feature didn't exist?"_
+  If the answer is no, they must NOT be linked.
 - Tasks sharing a workspace scope (e.g., `@repo/web`) at the same dependency
   layer will be grouped into one sequential Chat Session by the script.
 - Always include at least one Integration task (with `isIntegration: true`), one
@@ -120,6 +128,27 @@ Your output MUST conform to the JSON schema defined in
 ### Output Location
 
 Save the manifest to: `[SPRINT_ROOT]/task-manifest.json`
+
+## Step 2.5 - Coverage Verification
+
+Before saving the manifest, perform a coverage check against the Tech Spec to
+prevent task drift:
+
+1. **Section-by-Section Audit**: Re-read the Tech Spec section-by-section. For
+   each major section (e.g., "Database Schema", "API Routes", "Dispatcher
+   Refactors", "Shared Schemas"), confirm there is at least one task in your
+   manifest that covers it. If a section has no corresponding task, either
+   create a new task or add a comment in the manifest explaining why it is
+   deferred.
+2. **Scope Verification**: For each task, verify the `scope` field includes ALL
+   packages the task will need to import from or modify. Cross-reference the
+   Tech Spec's explicit file path mentions — if a task references schemas in
+   `@repo/shared` but its scope is `@repo/api`, expand the scope to include
+   both.
+3. **Dependency Completeness**: For each frontend task (Web/Mobile), verify its
+   `dependsOn` includes the API task that provides its data source. A UI task
+   that calls an API endpoint MUST depend on the task that creates that
+   endpoint.
 
 ## Step 3 - Script Execution
 
