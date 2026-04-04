@@ -191,15 +191,16 @@ Personas constrain agent behavior to a specific role.
 
 Modular, domain-agnostic global rules that define behavioral standards.
 
-| File                    | Domain          | Purpose                                               |
-| ----------------------- | --------------- | ----------------------------------------------------- |
-| `api-conventions.md`    | API             | RESTful standards, status codes, and JSON patterns    |
-| `coding-style.md`       | Generic         | Clean code standards and file structure conventions   |
-| `database-standards.md` | Database        | Migration safety, naming, and indexing strategies     |
-| `git-conventions.md`    | Version Control | Branching strategy and PR quality standards           |
-| `security-baseline.md`  | Security        | OWASP basics, credential safety, and encryption rules |
-| `testing-standards.md`  | Quality         | Coverage thresholds and unit testing philosophy       |
-| `ui-copywriting.md`     | UX              | Content tone, error messaging, and labeling standards |
+| File                                 | Domain          | Purpose                                                |
+| ------------------------------------ | --------------- | ------------------------------------------------------ |
+| `api-conventions.md`                 | API             | RESTful standards, status codes, and JSON patterns     |
+| `coding-style.md`                    | Generic         | Clean code standards and file structure conventions    |
+| `database-standards.md`              | Database        | Migration safety, naming, and indexing strategies      |
+| `git-conventions.md`                 | Version Control | Branching strategy and PR quality standards            |
+| `security-baseline.md`               | Security        | OWASP basics, credential safety, and encryption rules  |
+| `testing-standards.md`               | Quality         | Coverage thresholds and unit testing philosophy        |
+| `ui-copywriting.md`                  | UX              | Content tone, error messaging, and labeling standards  |
+| `search-and-execution-heuristics.md` | Shell & Search  | Optimized command usage and pipeline safety heuristics |
 
 ---
 
