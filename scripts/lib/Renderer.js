@@ -213,13 +213,10 @@ export function renderPlaybook(manifest, chatSessions, chatDeps, options = {}) {
       const taskPattern = task.pattern || 'default';
       const isBookendTask = task.isIntegration || task.isQA || task.isCodeReview || task.isRetro || task.isCloseSprint;
 
-      // Fix #2: Inject mandatory Context Sync for all non-bookend tasks
-      if (!isBookendTask) {
-        md += `**Context Sync (Mandatory — run before writing any code):**\n`;
-        md += `Read the PRD and Tech Spec to understand exact schema fields, UI categories, filter parameters, and privacy rules. Do not hallucinate values defined in these documents:\n`;
-        md += `- \`${docsRoot}/sprint-${sprintNum}/prd.md\`\n`;
-        md += `- \`${docsRoot}/sprint-${sprintNum}/tech-spec.md\`\n\n`;
-      }
+      // Fix #2: Context Sync is now governed by global instructions.md to avoid
+      // repetition in the playbook. The agent will still have an actionable
+      // instruction step below to ensure grounding.
+      md += `\n`;
 
       md += `**Perception-Action Event Stream Protocol:**\n`;
       md += `All environmental interactions MUST be streamed. Start the loop via:\n`;
@@ -230,6 +227,10 @@ export function renderPlaybook(manifest, chatSessions, chatDeps, options = {}) {
       md += `1. **Task ${task.id}:**\n`;
       // Fix #4a: Mark Executing FIRST so state is tracked before code is written
       md += `   - **Mark Executing**: \`node ${scriptsRoot}/update-task-state.js ${fullTaskId} executing\`\n`;
+      // Fix #3b: Inject explicit file-reading instruction for non-bookend tasks
+      if (!isBookendTask) {
+        md += `   - **Read Context**: Before implementing, fetch and ingest the sprint's \`prd.md\` and \`tech-spec.md\`, and all Project Reference Documents listed in your global protocol (\`instructions.md\`). Do not hallucinate values.\n`;
+      }
       const instLines = renderTaskInstructions(task, sprintNum).split('\n');
       for (const line of instLines) {
         if (!line.trim()) continue;

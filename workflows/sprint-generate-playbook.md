@@ -141,10 +141,16 @@ prevent task drift:
    create a new task or add a comment in the manifest explaining why it is
    deferred.
 2. **Scope Verification**: For each task, verify the `scope` field includes ALL
-   packages the task will need to import from or modify. Cross-reference the
-   Tech Spec's explicit file path mentions — if a task references schemas in
-   `@repo/shared` but its scope is `@repo/api`, expand the scope to include
-   both.
+   packages the task will need to import from or modify. Apply these checks:
+   - Cross-reference the Tech Spec's explicit file path mentions — if a task
+     references schemas in `@repo/shared` but its scope is `@repo/api`, expand
+     the scope to `@repo/api, @repo/shared`.
+   - **Shared Schema Heuristic**: If the Tech Spec's "Execution Guardrails"
+     section mandates exporting validation schemas from a shared package (e.g.,
+     `@repo/shared/schemas`), every API task that defines those schemas MUST
+     include the shared package in its scope. Example: a task implementing
+     `PATCH /v1/users/me/notifications` with Zod validation must have scope
+     `@repo/api, @repo/shared` — not just `@repo/api`.
 3. **Dependency Completeness**: For each frontend task (Web/Mobile), verify its
    `dependsOn` includes the API task that provides its data source. A UI task
    that calls an API endpoint MUST depend on the task that creates that

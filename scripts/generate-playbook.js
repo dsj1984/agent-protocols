@@ -514,6 +514,9 @@ export function generateFromManifest(manifest, options = {}) {
   }
 
   // 3.5 Auto-Serialize Concurrent Overlaps and Global Sweeps
+  // IMPORTANT: Only serialize when tasks have explicit focusAreas that overlap.
+  // Bare scope matches (e.g., both "@repo/api") must NOT trigger serialization
+  // because independent feature tracks often share a scope without file conflicts.
   let reachable = computeReachability(adjacency);
   let graphMutated = false;
   
@@ -525,10 +528,16 @@ export function generateFromManifest(manifest, options = {}) {
       const areasA = Array.isArray(taskA.focusAreas) ? taskA.focusAreas : [];
       const areasB = Array.isArray(taskB.focusAreas) ? taskB.focusAreas : [];
       
-      const isGlobalA = taskA.scope === 'root' || areasA.includes('*');
-      const isGlobalB = taskB.scope === 'root' || areasB.includes('*');
+      // Skip if neither task declares focusAreas — scope-only matches are
+      // not sufficient evidence of file-level conflict.
+      if (areasA.length === 0 && areasB.length === 0) continue;
+
+      const isGlobalA = areasA.includes('*');
+      const isGlobalB = areasB.includes('*');
       
-      const overlap = areasA.find(a => areasB.includes(a));
+      const overlap = areasA.length > 0 && areasB.length > 0
+        ? areasA.find(a => areasB.includes(a))
+        : undefined;
       
       if (overlap || isGlobalA || isGlobalB) {
          const aReachesB = reachable.get(taskA.id)?.has(taskB.id);
