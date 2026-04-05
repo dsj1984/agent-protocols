@@ -41,7 +41,7 @@ describe('Aggregate Telemetry Observer', () => {
     it('aggregates data across multiple sprints', () => {
         const result = spawnSync('node', [SCRIPT_PATH, '--from', '1', '--to', '2'], {
             cwd: TEST_DIR,
-            env: { ...process.env },
+            env: { ...process.env, AGENT_PROJECT_ROOT: TEST_DIR },
             encoding: 'utf-8'
         });
 
@@ -58,7 +58,7 @@ describe('Aggregate Telemetry Observer', () => {
     it('handles range filtering correctly', () => {
         const result = spawnSync('node', [SCRIPT_PATH, '--from', '2', '--to', '2'], {
             cwd: TEST_DIR,
-            env: { ...process.env },
+            env: { ...process.env, AGENT_PROJECT_ROOT: TEST_DIR },
             encoding: 'utf-8'
         });
 
@@ -77,11 +77,12 @@ describe('Aggregate Telemetry Observer', () => {
 
         const result = spawnSync('node', [SCRIPT_PATH], {
             cwd: TEST_DIR,
-            env: { ...process.env },
+            env: { ...process.env, AGENT_PROJECT_ROOT: TEST_DIR },
             encoding: 'utf-8'
         });
 
         assert.notEqual(result.status, 0);
         assert.ok(result.stderr?.includes('Sprints directory not found'), `Expected error message not found in stderr: ${result.stderr}`);
     });
+
 });

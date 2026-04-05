@@ -23,9 +23,7 @@ import path from 'node:path';
 import { fileURLToPath } from 'node:url';
 
 // Library imports for decoupled logic
-import { buildGraph, assignLayers, transitiveReduction, computeChatDependencies } from './lib/Graph.js';
 import { PlaybookOrchestrator } from './lib/PlaybookOrchestrator.js';
-import { analyzeAndSplit, loadComplexityConfig } from './lib/ComplexityEstimator.js';
 import { resolveConfig, PROJECT_ROOT } from './lib/config-resolver.js';
 import { isBookendTask } from './lib/task-utils.js';
 

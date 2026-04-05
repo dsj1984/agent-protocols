@@ -6,6 +6,39 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 and this project adheres to
 [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [4.7.0] - 2026-04-05
+
+### Changed
+
+- **Code-review pass on v4.6.1 remediations** — post-merge review against all 10
+  `audit-clean-code-results` findings. Three follow-up issues were surfaced and
+  closed:
+  1. **`verify-prereqs.js` — corrupted import line (Finding #8, final close)**:
+     The previous edit left a CRLF-mangled line that concatenated two import
+     statements on a single line
+     (`import { resolveConfig } … \rimport { Logger }…`). Also removed trailing
+     empty statements that followed `Logger.fatal()` calls (dead code after a
+     non-returning call). File is now fully LF-normalised with clean, separate
+     imports.
+
+  2. **`aggregate-telemetry.js` — hardcoded paths and padding (Finding #10)**:
+     `process.cwd()` replaced with the canonical `PROJECT_ROOT` from
+     `config-resolver.js`. `'docs', 'sprints'` path segments replaced with
+     `agentConfig.sprintDocsRoot`. `padStart(3, '0')` replaced with
+     `agentConfig.sprintNumberPadding`. An `AGENT_PROJECT_ROOT` environment
+     variable override is exposed so integration tests can point the script at a
+     fixture directory without altering the real project root.
+
+  3. **`generate-playbook.js` — dead imports after delegation refactor**:
+     `buildGraph`, `assignLayers`, `transitiveReduction`,
+     `computeChatDependencies` (all now internal to `PlaybookOrchestrator`) and
+     `analyzeAndSplit`, `loadComplexityConfig` (delegated to
+     `ComplexityEstimator` inside the orchestrator) were still imported at the
+     top of the CLI entry point but never referenced. Removed.
+
+- **`audit-clean-code-results.md` deleted** — all findings closed; the report is
+  superseded by this changelog entry.
+
 ## [4.6.1] - 2026-04-05
 
 ### Changed
