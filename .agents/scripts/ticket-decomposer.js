@@ -40,11 +40,12 @@ You MUST respond ONLY with a valid JSON array of objects. No prose, no markdown 
     "title": "Short descriptive title",
     "body": "Detailed description using standard markdown (ACs, steps, etc.)",
     "labels": ["type::...", "persona::..."],
-    "depends_on": "slug_of_parent_or_dependency" (optional)
+    "parent_slug": "slug_of_parent_ticket" (leave empty for features to nest under epic),
+    "depends_on": ["slug_of_blocking_dependency"] (optional array of slugs that block execution)
   }
 ]
 
-CRITICAL: Dependencies should follow the hierarchy (Story depends on Feature, Task depends on Story). You can also add horizontal dependencies (Task B depends on Task A) if technically required.`;
+CRITICAL: Dependencies should follow execution blockers. For hierarchical grouping, strongly strictly use 'parent_slug' (Story parent MUST be a Feature, Task parent MUST be a Story). Features should have no 'parent_slug' (they attach to Epic).`;
 
 export async function decomposeEpic(epicId, provider, llm, config = {}) {
   console.log(`[Decomposer] Fetching Epic #${epicId} and its planning artifacts...`);
@@ -102,30 +103,34 @@ Please decompose the above into a complete ticket backlog. Respond with the JSON
 
   // Validate hierarchy
   for (const story of stories) {
-    if (!story.depends_on) throw new Error(`Cross-Validation Failed: Story "${story.title}" must depend on a Feature.`);
-    const parent = ticketBySlug.get(story.depends_on);
+    if (!story.parent_slug) throw new Error(`Cross-Validation Failed: Story "${story.title}" must have a parent_slug.`);
+    const parent = ticketBySlug.get(story.parent_slug);
     if (!parent || parent.type !== 'feature') throw new Error(`Cross-Validation Failed: Story "${story.title}" parent must be a Feature.`);
   }
 
   for (const task of tasks) {
-    if (!task.depends_on) continue; // Horizontal dependencies are also allowed, but if linked, must resolve to another valid ticket
-    const parent = ticketBySlug.get(task.depends_on);
-    if (!parent || !['story', 'task'].includes(parent.type)) {
-       throw new Error(`Cross-Validation Failed: Task "${task.title}" parent must be a Story or another Task.`);
+    if (!task.parent_slug) throw new Error(`Cross-Validation Failed: Task "${task.title}" must have a parent_slug.`);
+    const parent = ticketBySlug.get(task.parent_slug);
+    if (!parent || parent.type !== 'story') {
+       throw new Error(`Cross-Validation Failed: Task "${task.title}" parent must be a Story.`);
     }
   }
 
-  // Acyclic check (naive, ensures no parent leads back to itself)
+  // Acyclic check for dependencies
   for (const ticket of tickets) {
-    let current = ticket;
     const visited = new Set();
-    while (current && current.depends_on) {
-      if (visited.has(current.slug)) {
-        throw new Error(`Cross-Validation Failed: Circular dependency detected involving "${current.slug}".`);
-      }
-      visited.add(current.slug);
-      current = ticketBySlug.get(current.depends_on);
-    }
+    const dfs = (currentSlug) => {
+       if (visited.has(currentSlug)) throw new Error(`Cross-Validation Failed: Circular dependency detected involving "${currentSlug}".`);
+       visited.add(currentSlug);
+       const current = ticketBySlug.get(currentSlug);
+       if (current && current.depends_on) {
+          for (const dep of current.depends_on) {
+             dfs(dep);
+          }
+       }
+       visited.delete(currentSlug);
+    };
+    dfs(ticket.slug);
   }
 
   console.log(`[Decomposer] Identified ${tickets.length} tickets. Starting creation...`);
@@ -141,10 +146,11 @@ Please decompose the above into a complete ticket backlog. Respond with the JSON
     console.log(`[Decomposer] [${t.type.toUpperCase()}] Creating "${t.title}"...`);
     
     // Resolve dependency ID
-    const dependsOnId = t.depends_on ? slugMap.get(t.depends_on) : null;
-    const dependencies = dependsOnId ? [dependsOnId] : [];
+    const parentId = t.parent_slug && slugMap.has(t.parent_slug) ? slugMap.get(t.parent_slug) : epicId;
+    const dependencies = (t.depends_on || []).map(dep => slugMap.get(dep)).filter(Boolean);
 
-    const created = await provider.createTicket(epicId, {
+    const created = await provider.createTicket(parentId, {
+      epicId: epicId,
       title: t.title,
       body: t.body,
       labels: t.labels || [],

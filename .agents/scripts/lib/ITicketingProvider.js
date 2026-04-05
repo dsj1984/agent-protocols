@@ -85,10 +85,11 @@ export class ITicketingProvider {
   // ---------------------------------------------------------------------------
 
   /**
-   * Create a child ticket under an Epic.
+   * Create a child ticket within an Epic's structural hierarchy.
    *
-   * @param {number} epicId - GitHub Issue number of the parent Epic.
+   * @param {number} parentId - GitHub Issue number of the immediate structural parent (e.g. Epic, Feature, or Story).
    * @param {{
+   *   epicId: number,
    *   title: string,
    *   body: string,
    *   labels: string[],
@@ -96,7 +97,7 @@ export class ITicketingProvider {
    * }} ticketData - The ticket content and metadata.
    * @returns {Promise<{ id: number, url: string }>}
    */
-  async createTicket(epicId, ticketData) {
+  async createTicket(parentId, ticketData) {
     throw new Error('Not implemented: createTicket');
   }
 

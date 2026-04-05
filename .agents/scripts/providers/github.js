@@ -309,19 +309,24 @@ export class GitHubProvider extends ITicketingProvider {
   // Write Operations
   // ---------------------------------------------------------------------------
 
-  async createTicket(epicId, ticketData) {
-    const body = [
+  async createTicket(parentId, ticketData) {
+    const epicId = ticketData.epicId || parentId;
+    const bodyParts = [
       ticketData.body || '',
       '',
       `---`,
-      `parent: #${epicId}`,
+      `parent: #${parentId}`,
     ];
+    
+    if (epicId !== parentId) {
+      bodyParts.push(`Epic: #${epicId}`);
+    }
 
     // Add dependency references
     if (ticketData.dependencies?.length) {
-      body.push('');
+      bodyParts.push('');
       for (const dep of ticketData.dependencies) {
-        body.push(`blocked by #${dep}`);
+        bodyParts.push(`blocked by #${dep}`);
       }
     }
 
@@ -331,7 +336,7 @@ export class GitHubProvider extends ITicketingProvider {
         method: 'POST',
         body: {
           title: ticketData.title,
-          body: body.join('\n'),
+          body: bodyParts.join('\n'),
           labels: ticketData.labels ?? [],
         },
       },
@@ -339,7 +344,7 @@ export class GitHubProvider extends ITicketingProvider {
 
     // Natively link as sub-issue
     try {
-      await this.addSubIssue(epicId, issue.id);
+      await this.addSubIssue(parentId, issue.id);
     } catch {
       // Sub-issues might not be enabled or permission issues — fallback to text-only link (already in body)
     }
