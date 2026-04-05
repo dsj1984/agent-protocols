@@ -455,6 +455,29 @@ Supporting files that define the agent's environment and workspace standards.
 
 ---
 
+---
+
+### 🧠 LLM Usage: Planning vs. Execution
+
+v5.0.0 separates the **Planning Pipeline** (Phase 2) from the **Execution Engine** (Phase 3) to ensure maximum speed, deterministic hierarchy, and portability.
+
+#### 1. Planning Pipeline (Autonomous Scaffolding)
+- **Role**: High-speed generation of PRDs, Technical Specs, and the 4-tier ticket hierarchy (Epic → Feature → Story → Task) directly into GitHub.
+- **Runtime**: Deterministic Node.js scripts (`epic-planner.js`, `ticket-decomposer.js`).
+- **LLM Context**: Uses the `llm` block in `.agentrc.json` and environmental API keys (e.g., `GEMINI_API_KEY`, `ANTHROPIC_API_KEY`).
+- **Why?**: Decoupling ticket generation from the chat window ensures consistency, allows for massive parallel decomposition, and makes the planning process portable across CI/CD or CLI environments.
+
+#### 2. Execution Engine (Agentic IDE)
+- **Role**: Performing the actual coding, refactoring, and verification tasks identified in the backlog.
+- **Runtime**: The **Agentic IDE** (Antigravity).
+- **LLM Context**: Uses the IDE's native AI models and session context. 
+- **Workflow**: The IDE "picks up" a task from GitHub, executes the changes, and uses the `/sprint-finalize-task` workflow to update the status and notify the manager.
+
+> [!NOTE]
+> The LLM API key provided in `.env` is **only** for the Phase 2 Planning scripts. It does NOT interfere with or replace the model selection in your agentic IDE.
+
+---
+
 ## <a id="git-performance-optimization"></a>🏎️ Git Performance Optimization
 
 To ensure maximum execution speed for agents and developers on Windows, the

@@ -203,8 +203,14 @@ structured execution plan.
 
 ## 🏗️ Phase 3: Sprint Execution (Manual + Agentic)
 
-Once the `playbook.md` is generated, the transition from "Planning" to
-"Execution" begins.
+Once the `playbook.md` is generated (or tickets populated in GitHub v5), the transition from "Planning" to "Execution" begins.
+
+### 🧠 LLM Orchestration Roles
+
+To maximize speed and deterministic consistency, the framework employs a bifurcated LLM strategy:
+
+- **Planning Pipeline (Phase 2)**: Uses the **Environmental API Key** (e.g., `GEMINI_API_KEY`) defined in your `.env` file. These are high-speed, autonomous scripts that generate the PRD, Tech Spec, and GitHub Tickets. This decoupling ensures massive parallelization and consistency.
+- **Execution Engine (Phase 3)**: Uses the **Agentic IDE's Native Model** (Antigravity). Once the tickets are in GitHub, the IDE "picks up" the task. There is no need for the ide's execution context to share the same API key as your planning pipeline.
 
 ### 🔑 The Hand-Off (Manual)
 
