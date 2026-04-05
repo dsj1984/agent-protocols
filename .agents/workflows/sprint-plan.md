@@ -32,7 +32,7 @@ backlog of Features, Stories, and Tasks.
 1.  **Generate Artifacts**: Run the Epic Planner script.
 
     ```powershell
-    node .agents/scripts/epic-planner.js [Epic_ID]
+    node .agents/scripts/epic-planner.js --epic [Epic_ID]
     ```
 
 2.  **Verification**:
@@ -48,7 +48,7 @@ backlog of Features, Stories, and Tasks.
     Decomposer.
 
     ```powershell
-    node .agents/scripts/ticket-decomposer.js [Epic_ID]
+    node .agents/scripts/ticket-decomposer.js --epic [Epic_ID]
     ```
 
 2.  **Cross-Validation**:

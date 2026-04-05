@@ -101,6 +101,17 @@ export class ITicketingProvider {
   }
 
   /**
+   * Link an existing issue as a sub-issue of a parent.
+   *
+   * @param {number} parentId - GitHub Issue number of the parent.
+   * @param {number} childId - GitHub Issue number of the sub-issue.
+   * @returns {Promise<void>}
+   */
+  async addSubIssue(parentId, childId) {
+    throw new Error('Not implemented: addSubIssue');
+  }
+
+  /**
    * Mutate labels, body (tasklist checkboxes), and assignees on a ticket.
    *
    * @param {number} ticketId - GitHub Issue number.

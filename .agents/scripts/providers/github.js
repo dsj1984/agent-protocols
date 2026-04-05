@@ -230,6 +230,8 @@ export class GitHubProvider extends ITicketingProvider {
 
     return {
       id: issue.number,
+      internalId: issue.id,
+      nodeId: issue.node_id,
       title: issue.title,
       body: issue.body ?? '',
       labels,
@@ -266,6 +268,8 @@ export class GitHubProvider extends ITicketingProvider {
       })
       .map((issue) => ({
         id: issue.number,
+        internalId: issue.id,
+        nodeId: issue.node_id,
         title: issue.title,
         labels: (issue.labels ?? []).map((l) =>
           typeof l === 'string' ? l : l.name,
@@ -281,6 +285,8 @@ export class GitHubProvider extends ITicketingProvider {
 
     return {
       id: issue.number,
+      internalId: issue.id,
+      nodeId: issue.node_id,
       title: issue.title,
       body: issue.body ?? '',
       labels: (issue.labels ?? []).map((l) =>
@@ -331,10 +337,94 @@ export class GitHubProvider extends ITicketingProvider {
       },
     );
 
+    // Natively link as sub-issue
+    try {
+      await this.addSubIssue(epicId, issue.id);
+    } catch {
+      // Sub-issues might not be enabled or permission issues — fallback to text-only link (already in body)
+    }
+
+    // Add to project if configured
+    try {
+      if (this.projectNumber) {
+        await this._addItemToProject(issue.node_id);
+      }
+    } catch (err) {
+      console.warn(`[GitHubProvider] Failed to add Issue #${issue.number} to project: ${err.message}`);
+    }
+
     return {
       id: issue.number,
+      internalId: issue.id,
       url: issue.html_url,
     };
+  }
+
+  async addSubIssue(parentNumber, childInternalId) {
+    return this._rest(
+      `/repos/${this.owner}/${this.repo}/issues/${parentNumber}/sub_issues`,
+      { method: 'POST', body: { sub_issue_id: childInternalId } },
+    );
+  }
+
+  /**
+   * Internal helper to add an item (Issue/PR) to a Project V2 board.
+   * @param {string} contentNodeId - GraphQL node ID of the issue/PR.
+   * @private
+   */
+  async _addItemToProject(contentNodeId) {
+    const projectId = await this._getProjectId();
+    if (!projectId) return;
+
+    await this._graphql(
+      `
+      mutation($projectId: ID!, $contentId: ID!) {
+        addProjectV2ItemById(input: { projectId: $projectId, contentId: $contentId }) {
+          item { id }
+        }
+      }`,
+      { projectId, contentId: contentNodeId },
+    );
+  }
+
+  /**
+   * Resolve the global GraphQL node ID for the configured project number.
+   * Caches the result to avoid redundant lookups.
+   * @private
+   */
+  async _getProjectId() {
+    if (this._projectId) return this._projectId;
+    if (!this.projectNumber) return null;
+
+    // Try user first
+    try {
+      const userData = await this._graphql(
+        `query($owner: String!, $number: Int!) {
+          user(login: $owner) {
+            projectV2(number: $number) { id }
+          }
+        }`,
+        { owner: this.owner, number: this.projectNumber },
+      );
+      this._projectId = userData.user?.projectV2?.id;
+    } catch {
+      // Fallback to organization check
+      try {
+        const orgData = await this._graphql(
+          `query($owner: String!, $number: Int!) {
+            organization(login: $owner) {
+              projectV2(number: $number) { id }
+            }
+          }`,
+          { owner: this.owner, number: this.projectNumber },
+        );
+        this._projectId = orgData.organization?.projectV2?.id;
+      } catch {
+        // Neither worked — project not found or permission issue
+      }
+    }
+
+    return this._projectId;
   }
 
   async updateTicket(ticketId, mutations) {
@@ -415,6 +505,15 @@ export class GitHubProvider extends ITicketingProvider {
         },
       },
     );
+
+    // Add to project if configured
+    try {
+      if (this.projectNumber) {
+        await this._addItemToProject(pr.node_id);
+      }
+    } catch (err) {
+      console.warn(`[GitHubProvider] Failed to add PR #${pr.number} to project: ${err.message}`);
+    }
 
     return {
       number: pr.number,

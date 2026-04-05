@@ -209,12 +209,12 @@ via the provider factory, and runs the idempotent setup sequence.
 **Scope:** Run `/bootstrap-agent-protocols` against `dsj1984/agent-protocols` to
 create the labels and custom fields that all subsequent phases will target.
 
-| Task                                                                       | Type   | File(s)             | Depends On | Status |
-| -------------------------------------------------------------------------- | ------ | ------------------- | ---------- | ------ |
-| Configure `.agentrc.json` with `orchestration` block pointing to this repo | MODIFY | `.agentrc.json`     | Sprint 1A  | [x]    |
-| Run `/bootstrap-agent-protocols --provider github`                         | MANUAL | Antigravity session | Sprint 1C  | [x]*   |
-| Verify all labels created with correct colors                              | MANUAL | GitHub UI / API     | —          | [x]    |
-| Verify project board fields (if projectNumber configured)                  | MANUAL | GitHub UI           | —          | [x]    |
+| Task                                                                        | Type   | File(s)             | Depends On | Status |
+| --------------------------------------------------------------------------- | ------ | ------------------- | ---------- | ------ |
+| Configure `.agentrc.json` with `orchestration` block pointing to this repo  | MODIFY | `.agentrc.json`     | Sprint 1A  | [x]    |
+| Run `/bootstrap-agent-protocols --provider github`                          | MANUAL | Antigravity session | Sprint 1C  | [x]\*  |
+| Verify all labels created with correct colors                               | MANUAL | GitHub UI / API     | —          | [x]    |
+| Verify project board fields (if projectNumber configured)                   | MANUAL | GitHub UI           | —          | [x]    |
 | **(\*) Initial run hit auth issues; re-run with GITHUB_TOKEN to finalize.** |        |                     |            |        |
 
 ### Phase 1 Exit Criteria
@@ -222,8 +222,10 @@ create the labels and custom fields that all subsequent phases will target.
 - [x] `ITicketingProvider` interface defined with full method signatures.
 - [x] `providers/github.js` implements all read, write, and setup methods.
 - [x] Provider factory resolves `orchestration.provider` to the correct class.
-- [x] `bootstrap-agent-protocols.js` is idempotent and creates all required labels.
-- [x] This repo's own GitHub labels are created via the bootstrap script (Agent-authenticated).
+- [x] `bootstrap-agent-protocols.js` is idempotent and creates all required
+      labels.
+- [x] This repo's own GitHub labels are created via the bootstrap script
+      (Agent-authenticated).
 - [x] All existing `npm test` and `npm run lint` checks pass (263/263).
 - [ ] Tagged as `v5.0.0-alpha.1`. (Pending final commit)
 
@@ -449,7 +451,7 @@ end-to-end.
 
 ### Phase 2 Exit Criteria
 
-- [ ] `epic-planner.js` generates PRD + Tech Spec as linked GitHub Issues.
+- [x] `epic-planner.js` generates PRD + Tech Spec as linked GitHub Issues.
 - [ ] `ticket-decomposer.js` creates the full Feature → Story → Task hierarchy
       with dependencies, labels, prompts, and tasklists.
 - [ ] `/sprint-plan [Epic ID]` orchestrates the full pipeline end-to-end.
