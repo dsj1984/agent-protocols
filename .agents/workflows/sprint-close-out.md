@@ -106,7 +106,7 @@ cleans up the sprint branch, and optionally tags a release.
 12. **Notification**: Resolve `[WEBHOOK_URL]` from the `notificationWebhookUrl`
     field in `.agentrc.json`. If `notificationWebhookUrl` is not empty, send a
     notification using the cross-platform Node script:
-    `node [SCRIPTS_ROOT]/notify.js "[WEBHOOK_URL]" "Sprint [SPRINT_NUMBER]: Merged to [BASE_BRANCH] and branch cleaned up."`
+    `node [SCRIPTS_ROOT]/notify.js "Sprint [SPRINT_NUMBER]: Merged to [BASE_BRANCH] and branch cleaned up." --action`
 
 - If the command fails, log the failure using the provided script:
   `node [SCRIPTS_ROOT]/log-friction.js "[SPRINT_ROOT]/agent-friction-log.json" "friction_point" "notify.js" "[ERROR_MESSAGE]"`

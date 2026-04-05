@@ -29,18 +29,25 @@ export async function notify(ticketId, payload, opts = {}) {
   const { type, message, actionRequired } = payload;
   const operator = orchestration.github.operatorHandle || '@operator';
 
-  console.log(`[Notify] Sending ${type.toUpperCase()} to Issue #${ticketId}...`);
+  const numericId = parseInt(ticketId, 10);
+  const skipGitHub = isNaN(numericId) || numericId <= 0;
 
-  // 1. Mentions for Info/Notification
-  let commentBody = message;
-  if (type === 'notification' || (type === 'action' && orchestration.notifications?.mentionOperator)) {
-    commentBody = `${operator} ${message}`;
+  if (!skipGitHub) {
+    console.log(`[Notify] Sending ${type.toUpperCase()} to Issue #${numericId}...`);
+
+    // 1. Mentions for Info/Notification
+    let commentBody = message;
+    if (type === 'notification' || (type === 'action' && orchestration.notifications?.mentionOperator)) {
+      commentBody = `${operator} ${message}`;
+    }
+
+    await provider.postComment(numericId, {
+      body: commentBody,
+      type: type === 'action' ? 'notification' : type
+    });
+  } else {
+    console.log(`[Notify] Sending ${type.toUpperCase()}... (Skipping GitHub comment)`);
   }
-
-  await provider.postComment(ticketId, {
-    body: commentBody,
-    type: type === 'action' ? 'notification' : type
-  });
 
   // 2. Webhook for Actions (HITL)
   if (type === 'action' || actionRequired) {
@@ -67,14 +74,36 @@ export async function notify(ticketId, payload, opts = {}) {
 
 async function main() {
   const args = process.argv.slice(2);
-  if (args.length < 2) {
-    console.error('Usage: node notify.js <TicketId> <Message> [--action]');
+  if (args.length < 1) {
+    console.error('Usage: node notify.js [TicketId] <Message> [--action]');
     process.exit(1);
   }
 
-  const ticketId = parseInt(args[0], 10);
-  const message = args[1];
-  const isAction = args.includes('--action');
+  let ticketId = 0;
+  let message = '';
+  let isAction = args.includes('--action');
+
+  // Detect if first arg is a ticket ID or a message (or a legacy URL)
+  const firstArg = args[0];
+  const isNumeric = /^\d+$/.test(firstArg);
+
+  if (isNumeric) {
+    ticketId = parseInt(firstArg, 10);
+    message = args[1] || '';
+  } else {
+    // If first arg is a URL or a string, treat it as the "skip-id" mode
+    // (Legacy calls pass a URL here, we skip it and find the message)
+    if (firstArg.startsWith('http')) {
+      message = args[1] || '';
+    } else {
+      message = firstArg;
+    }
+  }
+
+  if (!message) {
+    console.error('[Notify] Error: Message is required.');
+    process.exit(1);
+  }
 
   await notify(ticketId, {
     type: isAction ? 'action' : 'notification',

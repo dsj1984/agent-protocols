@@ -88,7 +88,7 @@ precisely:
    field in `.agentrc.json`. If `notificationWebhookUrl` is not empty, send a
    notification using the cross-platform Node script:
    - **Protocol**:
-     `node [SCRIPTS_ROOT]/notify.js "[WEBHOOK_URL]" "[TASK_ID]: Sprint step pushed to its feature branch."`
+     `node [SCRIPTS_ROOT]/notify.js "[TASK_ID]: Sprint step pushed to its feature branch."`
    - **Failure Logging**: If the notification script fails, log the failure
      using the provided script:
      `node [SCRIPTS_ROOT]/log-friction.js "[SPRINT_ROOT]/agent-friction-log.json" "friction_point" "notify.js" "[ERROR_MESSAGE]"`

@@ -72,7 +72,7 @@ backlog of Features, Stories, and Tasks.
       the notification script:
 
     ```powershell
-    node .agents/scripts/notify.js [Epic_ID] "Planning complete, review tickets. Backlog decomposition complete. Sprint is ready for /sprint-execute."
+    node .agents/scripts/notify.js [Epic_ID] "Planning complete, review tickets. Backlog decomposition complete. Sprint is ready for /sprint-execute." --action
     ```
 
 2.  **Final Summary**: Provide the user with a summary of the generated tickets
