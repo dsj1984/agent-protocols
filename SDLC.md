@@ -54,9 +54,13 @@ definition down to code review and sprint retrospective.
         F["🤖 /sprint-generate-prd"]:::agentic
         G["🤖 /sprint-generate-tech-spec"]:::agentic
         H["🤖 /sprint-generate-playbook"]:::agentic
+        H2["🤖 Consistency Audit & Commit"]:::agentic
+        H3["🤖 /sprint-setup"]:::agentic
 
         F --> G
         G --> H
+        H --> H2
+        H2 --> H3
 
         F -.-> F_Art["📄 prd.md"]:::artifact
         G -.-> G_Art["📄 tech-spec.md"]:::artifact
@@ -127,24 +131,32 @@ structured execution plan.
 
 ### Sequential Generation Steps
 
-0. **Context Indexing (`node .agents/scripts/context-indexer.js index`)**:
+0. **Environment Reset & Purge**:
+   - The `/plan-sprint` workflow performs a mandatory environment reset by
+     checking out the base branch (default: `main`) and pulling the latest
+     origin state.
+   - **Clean-Slate Protocol**: To prevent contextual bleed or "hallucination
+     overlap," any existing planning documents for the target sprint number are
+     purged (`rm -rf`) before the new generation cycle begins.
+
+1. **Context Indexing (`node .agents/scripts/context-indexer.js index`)**:
    - Scans the repository documentation and builds a local semantic index.
    - Enables efficient, high-context retrieval for sub-agents without blowing
      out token limits.
 
-1. **Product Discovery (`/sprint-generate-prd`)**:
+2. **Product Discovery (`/sprint-generate-prd`)**:
    - Reads `roadmap.md` for the target sprint items.
    - Generates a strict **Product Requirements Document (PRD)** focusing on
      Problem Statements, User Stories, and Acceptance Criteria.
    - Saves to: `docs/sprints/sprint-[##]/prd.md`.
 
-2. **Architecture Review (`/sprint-generate-tech-spec`)**:
+3. **Architecture Review (`/sprint-generate-tech-spec`)**:
    - Cross-references the PRD with `data-dictionary.md` and `architecture.md`.
    - Drafts an explicit **Technical Specification** mapping out Turso/Drizzle
      schema changes and Hono API routes.
    - Saves to: `docs/sprints/sprint-[##]/tech-spec.md`.
 
-3. **Playbook Generation (`/sprint-generate-playbook`)**:
+4. **Playbook Generation (`/sprint-generate-playbook`)**:
    - Synthesizes the PRD and Tech Spec into a structured `task-manifest.json`
      file.
    - Executes `.agents/scripts/generate-playbook.js` to render the **Sprint
@@ -164,6 +176,19 @@ structured execution plan.
      are version-aligned, preventing configuration drift across the sprint.
    - Saves artifacts to: `docs/sprints/sprint-[##]/task-manifest.json` and
      `docs/sprints/sprint-[##]/playbook.md`.
+
+5. **Consistency Audit & Commit to Main**:
+   - The `/plan-sprint` orchestrator performs a final cross-artifact review to
+     ensure all three documents are logically consistent and pinned to the same
+     `agent-protocols` version.
+   - **Main-First Commitment**: Audited artifacts are staged, committed, and
+     pushed directly to the base branch (`main`) _before_ the sprint branch is
+     created. This secures the planning lineage in the primary project history.
+
+6. **Sprint Setup (`/sprint-setup`)**:
+   - The terminal step of planning creates the `sprint-[###]` branch from the
+     now-updated `main`. The sprint branch thus inherits a clean, audited, and
+     version-controlled foundation for execution.
 
 ---
 
