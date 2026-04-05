@@ -6,6 +6,45 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 and this project adheres to
 [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [4.5.0] - 2026-04-04
+
+### Changed
+
+- **DFS-Based Graph Algorithms (`Graph.js`)**: Replaced the O(N³) Floyd-Warshall
+  implementations in `computeReachability` and `transitiveReduction` with
+  O(V·(V+E)) DFS-based algorithms.
+  - `computeReachability` now uses a memoized post-order DFS where each node's
+    reachable set is computed once and cached, avoiding the triple-nested loop.
+  - `transitiveReduction` now performs a per-edge DFS reachability probe, only
+    removing an edge `u→v` when `v` is confirmed reachable via an alternate
+    path. Includes an early-return guard for nodes with ≤ 1 dependency.
+- **Bulk-Accumulate DAG Serialization (`PlaybookOrchestrator.js`)**: Eliminated
+  the O(N⁵) thrashing in the auto-serialization loop.
+  - Focus-area arrays are now pre-converted to `Set` instances for O(1)
+    intersection via `Set.prototype.has`, replacing the O(N²)
+    `Array.find + Array.includes` pattern.
+  - New dependency edges discovered during the O(N²) pair scan are now
+    bulk-accumulated into a `pendingEdges` array. `buildGraph` and
+    `computeReachability` are called exactly **once** after the loop completes,
+    reducing graph-rebuild overhead from O(N⁴) to a single post-pass.
+- **Async Command Dispatch (`AgentLoopRunner.js`)**: Replaced the blocking
+  `execSync` call in `ExecuteSafeCommand` with `util.promisify(exec)` to prevent
+  the Node.js event loop from stalling during long-running commands.
+  - `dispatch()` is now `async`.
+  - The `readline` `line` handler wraps its body in an `async` IIFE to `await`
+    dispatch results without blocking subsequent line processing.
+  - `git worktree` calls in `initWorkspace` and `ConcludeTask` remain
+    synchronous (bounded, short-lived operations).
+- **Complexity Estimator O(N) Lookup (`ComplexityEstimator.js`)**: Replaced the
+  `manifest.tasks.find()` O(N) scan inside the `enableAutoSplit: false` warning
+  loop with a pre-built `Map<id, task>` index for O(1) lookups per entry.
+
+### Tests
+
+- Updated `tests/e2e/run-agent-loop-e2e.test.js` to use an `async` test callback
+  with a `flushAsync()` macro-task drain helper, ensuring the async readline
+  dispatch IIFEs fully settle before assertions run.
+
 ## [4.4.0] - 2026-04-04
 
 ### Added

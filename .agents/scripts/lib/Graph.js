@@ -99,38 +99,48 @@ export function assignLayers(adjacency) {
 }
 
 /**
- * Performs transitive reduction on a DAG.
- * Removes edges (u, v) if there exists a path from u to v of length > 1.
+ * Performs transitive reduction on a DAG using DFS.
+ * Removes edge (u→v) if v is reachable from u via an alternate path of length > 1.
+ * Complexity: O(V·(V+E)) — significantly faster than Floyd-Warshall for sparse graphs.
  */
 export function transitiveReduction(adjacency) {
-  const reduced = new Map();
-  const nodes = [...adjacency.keys()];
-  
-  // Initialize reduced graph with original edges
-  for (const node of nodes) {
-    reduced.set(node, new Set(adjacency.get(node) || []));
+  const result = new Map();
+
+  for (const [node, deps] of adjacency.entries()) {
+    // Early-return: nodes with zero or one dependency cannot have redundant edges
+    if (deps.length <= 1) {
+      result.set(node, [...deps]);
+      continue;
+    }
+
+    const kept = [];
+    for (const dep of deps) {
+      // Check if dep is reachable from node via any neighbour other than dep itself
+      const isRedundant = deps.some((other) => {
+        if (other === dep) return false;
+        return _dfsReaches(other, dep, adjacency, new Set([node]));
+      });
+      if (!isRedundant) kept.push(dep);
+    }
+    result.set(node, kept);
   }
 
-  // Floyd-Warshall style transitive reduction
-  for (const k of nodes) {
-    for (const i of nodes) {
-      if (reduced.get(i).has(k)) {
-        for (const j of nodes) {
-          if (reduced.get(k).has(j)) {
-            // Path i -> k -> j exists, so direct edge i -> j is redundant
-            reduced.get(i).delete(j);
-          }
-        }
-      }
+  return result;
+}
+
+/**
+ * DFS helper: returns true if `target` is reachable from `start`,
+ * skipping nodes in the `visited` set to avoid revisiting.
+ */
+function _dfsReaches(start, target, adjacency, visited) {
+  if (start === target) return true;
+  visited.add(start);
+  for (const neighbour of adjacency.get(start) || []) {
+    if (!visited.has(neighbour)) {
+      if (_dfsReaches(neighbour, target, adjacency, visited)) return true;
     }
   }
-
-  // Convert back to Array format
-  const result = new Map();
-  for (const [node, deps] of reduced.entries()) {
-    result.set(node, [...deps]);
-  }
-  return result;
+  return false;
 }
 
 /**
@@ -169,24 +179,27 @@ export function computeChatDependencies(chatSessions, adjacency) {
  * Returns a Map<id, Set<id>> where each key maps to a set of all tasks it can reach.
  */
 export function computeReachability(adjacency) {
-  const reachable = new Map();
-  const nodes = [...adjacency.keys()];
-  
-  for (const node of nodes) {
-    reachable.set(node, new Set(adjacency.get(node) || []));
-  }
+  // Memoized DFS: each node's reachable set is computed once and cached.
+  // Complexity: O(V·(V+E)) — avoids the O(N³) Floyd-Warshall triple loop.
+  const memo = new Map();
 
-  for (const k of nodes) {
-    for (const i of nodes) {
-      if (reachable.get(i).has(k)) {
-        for (const j of nodes) {
-          if (reachable.get(k).has(j)) {
-            reachable.get(i).add(j);
-          }
-        }
+  function reach(id) {
+    if (memo.has(id)) return memo.get(id);
+    // Seed with a placeholder to handle cycles defensively
+    const set = new Set();
+    memo.set(id, set);
+    for (const neighbour of adjacency.get(id) || []) {
+      set.add(neighbour);
+      for (const transitive of reach(neighbour)) {
+        set.add(transitive);
       }
     }
+    return set;
   }
 
+  const reachable = new Map();
+  for (const id of adjacency.keys()) {
+    reachable.set(id, reach(id));
+  }
   return reachable;
 }

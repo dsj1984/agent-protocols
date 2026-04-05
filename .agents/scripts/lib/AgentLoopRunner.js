@@ -13,7 +13,10 @@
 import fs from 'node:fs';
 import path from 'node:path';
 import readline from 'node:readline';
-import { execFileSync, execSync } from 'node:child_process';
+import { execFileSync, exec } from 'node:child_process';
+import { promisify } from 'node:util';
+
+const execAsync = promisify(exec);
 import { ensureDirSync } from './fs-utils.js';
 
 export class AgentLoopRunner {
@@ -114,7 +117,7 @@ export class AgentLoopRunner {
    * @param {object} action - Parsed action payload from stdin.
    * @returns {{ type: string, result?: string, message?: string }}
    */
-  dispatch(action) {
+  async dispatch(action) {
     switch (action.action) {
       case 'ReadFile': {
         const targetPath = path.join(this.workingDir, action.path);
@@ -132,16 +135,15 @@ export class AgentLoopRunner {
       }
 
       case 'ExecuteSafeCommand': {
-        // Use execSync so that full command strings are properly parsed by the shell
-        // (handling spaces, quotes, etc). We also add a timeout to prevent an agent
-        // from hanging the REPL indefinitely, and expand the output buffer for large builds.
-        const result = execSync(action.command, {
+        // Use async exec so the Node event loop remains unblocked during long-running
+        // commands. This is critical for the v5 REST-service context where synchronous
+        // execution would stall all in-flight HTTP routes and heartbeat connections.
+        const { stdout } = await execAsync(action.command, {
           cwd: this.workingDir,
-          stdio: 'pipe',
           timeout: this.executionTimeoutMs,
-          maxBuffer: this.executionMaxBuffer
-        }).toString();
-        return { type: 'EnvironmentObservation', result };
+          maxBuffer: this.executionMaxBuffer,
+        });
+        return { type: 'EnvironmentObservation', result: stdout };
       }
 
       case 'ConcludeTask': {
@@ -187,34 +189,38 @@ export class AgentLoopRunner {
     const rl = readline.createInterface({ input, output: process.stdout, terminal: false });
 
     rl.on('line', (line) => {
-      if (!line.trim()) return;
+      // Wrap in async IIFE so we can await the async dispatch() without blocking
+      // the readline interface or preventing subsequent lines from being queued.
+      (async () => {
+        if (!line.trim()) return;
 
-      let action;
-      try {
-        action = JSON.parse(line);
-      } catch (e) {
-        console.error(JSON.stringify({ error: 'Invalid JSON format', detail: e.message }));
-        return;
-      }
-
-      if (!action.action || !action.reasoning) {
-        console.error(JSON.stringify({ error: "Missing required fields 'action' or 'reasoning'" }));
-        return;
-      }
-
-      this.appendEvent({ type: 'AgentAction', data: action });
-
-      try {
-        const observation = this.dispatch(action);
-        if (observation) {
-          this.appendEvent(observation);
-          console.log(JSON.stringify(observation));
+        let action;
+        try {
+          action = JSON.parse(line);
+        } catch (e) {
+          console.error(JSON.stringify({ error: 'Invalid JSON format', detail: e.message }));
+          return;
         }
-      } catch (err) {
-        const errorObservation = { type: 'EnvironmentError', message: err.message };
-        this.appendEvent(errorObservation);
-        console.log(JSON.stringify(errorObservation));
-      }
+
+        if (!action.action || !action.reasoning) {
+          console.error(JSON.stringify({ error: "Missing required fields 'action' or 'reasoning'" }));
+          return;
+        }
+
+        this.appendEvent({ type: 'AgentAction', data: action });
+
+        try {
+          const observation = await this.dispatch(action);
+          if (observation) {
+            this.appendEvent(observation);
+            console.log(JSON.stringify(observation));
+          }
+        } catch (err) {
+          const errorObservation = { type: 'EnvironmentError', message: err.message };
+          this.appendEvent(errorObservation);
+          console.log(JSON.stringify(errorObservation));
+        }
+      })();
     });
   }
 }

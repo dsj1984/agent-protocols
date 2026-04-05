@@ -6,6 +6,11 @@ import { setupFsMock } from '../lib/fs-mock.js';
 import { AgentLoopRunner } from '../../.agents/scripts/lib/AgentLoopRunner.js';
 import fs from 'node:fs';
 
+/** Flush the microtask + one macrotask tick so async readline IIFEs can settle. */
+function flushAsync() {
+  return new Promise((resolve) => setImmediate(resolve));
+}
+
 describe('run-agent-loop E2E (memfs)', () => {
   let originalExit;
   let originalConsoleLog;
@@ -14,7 +19,7 @@ describe('run-agent-loop E2E (memfs)', () => {
   beforeEach((t) => {
     vol.reset();
     logs = [];
-    
+
     // Mock process.exit to prevent the test runner from dying
     originalExit = process.exit;
     process.exit = (code) => {
@@ -34,7 +39,7 @@ describe('run-agent-loop E2E (memfs)', () => {
     console.log = originalConsoleLog;
   });
 
-  it('runs dispatcher via stdin and records full transaction ledger', (t) => {
+  it('runs dispatcher via stdin and records full transaction ledger', async () => {
     // Scaffold initial state
     vol.fromJSON({
       'playbook.md': '# Sprint 001\n',
@@ -52,32 +57,35 @@ describe('run-agent-loop E2E (memfs)', () => {
 
     // Start runner (it will sit idle listening to mockStdin)
     runner.start(mockStdin);
-    
+
     // Dispatch ReadFile
-    mockStdin.write(JSON.stringify({ 
-      action: 'ReadFile', 
-      reasoning: 'Reading playbook', 
-      path: 'playbook.md' 
+    mockStdin.write(JSON.stringify({
+      action: 'ReadFile',
+      reasoning: 'Reading playbook',
+      path: 'playbook.md'
     }) + '\n');
-    
+
     // Dispatch WriteFile
-    mockStdin.write(JSON.stringify({ 
-      action: 'WriteFile', 
-      reasoning: 'Creating test artifact', 
+    mockStdin.write(JSON.stringify({
+      action: 'WriteFile',
+      reasoning: 'Creating test artifact',
       path: 'artifact.txt',
       content: 'Hello E2E'
     }) + '\n');
 
     // Dispatch ConcludeTask
-    mockStdin.write(JSON.stringify({ 
-      action: 'ConcludeTask', 
+    mockStdin.write(JSON.stringify({
+      action: 'ConcludeTask',
       reasoning: 'Finished',
-      status: 'done' 
+      status: 'done'
     }) + '\n');
+
+    // Allow async dispatch IIFEs to drain before asserting
+    await flushAsync();
 
     // Validate memory FS state updates properly
     assert.equal(vol.readFileSync('/mock-repo/artifact.txt', 'utf8'), 'Hello E2E');
-    
+
     // The ledger file has been written
     const ledgerOutput = vol.readFileSync('/mock-repo/temp/event-streams/e2e-task-1.jsonl', 'utf8');
     assert.ok(ledgerOutput.includes('"type":"System"'));
