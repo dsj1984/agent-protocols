@@ -54,7 +54,7 @@ const featureBranch = `task/${sprintBranch}/${taskId}`;
 const candidateBranch = `integration-candidate-${taskId}`;
 const sprintDocsRoot = settings.sprintDocsRoot ?? 'docs/sprints';
 const sprintRoot = path.join(sprintDocsRoot, `sprint-${paddedNum}`);
-const validationCmd = settings.validationCommand ?? 'npm run lint';
+const typecheckCmd = settings.typecheckCommand ?? 'npm run typecheck';
 const testCmd = settings.testCommand ?? 'npm run test';
 const scriptsRoot = settings.scriptsRoot ?? '.agents/scripts';
 const executionTimeoutMs = settings.executionTimeoutMs ?? 300000;
@@ -193,12 +193,15 @@ if (merge.status !== 0) {
 }
 
 // 4. Run verification suite
-progress('VERIFY', `Running validation: ${validationCmd} ; ${testCmd}`);
+const lintBaselineScript = path.join(PROJECT_ROOT, scriptsRoot, 'lint-baseline.js');
+const lintCheckCmdArr = ['node', lintBaselineScript, 'check'];
+const verifyCmdLine = `node lint-baseline.js check ; ${typecheckCmd} ; ${testCmd}`;
+progress('VERIFY', `Running validation: ${verifyCmdLine}`);
 
 const diagScript = path.join(PROJECT_ROOT, scriptsRoot, 'diagnose-friction.js');
 const verifyResult = spawnSync(
   'node',
-  [diagScript, '--sprint', sprintRoot, '--task', taskId, '--cmd', ...validationCmd.split(' '), ';', ...testCmd.split(' ')],
+  [diagScript, '--sprint', sprintRoot, '--task', taskId, '--cmd', ...lintCheckCmdArr, ';', ...typecheckCmd.split(' '), ';', ...testCmd.split(' ')],
   {
     stdio: 'inherit',
     shell: true,
