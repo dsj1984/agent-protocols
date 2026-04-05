@@ -15,11 +15,12 @@
 import fs from 'node:fs';
 import path from 'node:path';
 
-import { buildGraph, detectCycle, assignLayers, transitiveReduction, computeChatDependencies, computeReachability } from './Graph.js';
+import { buildGraph, detectCycle, assignLayers, transitiveReduction, computeChatDependencies, autoSerializeOverlaps } from './Graph.js';
 import { renderPlaybook } from './Renderer.js';
 import { ensureDirSync } from './fs-utils.js';
 import { Logger } from './Logger.js';
 import { analyzeAndSplit, loadComplexityConfig } from './ComplexityEstimator.js';
+import { isBookendTask } from './task-utils.js';
 
 export class PlaybookOrchestrator {
   /**
@@ -129,64 +130,8 @@ export class PlaybookOrchestrator {
       throw new Error(`Dependency cycle detected: ${cycle.join(' → ')}`);
     }
 
-    // Auto-serialize concurrent overlapping focus areas
-    // Phase A: scan all pairs and collect new edges — O(N²), no graph rebuilds inside.
-    // Convert each task's focusAreas to a Set for O(1) intersection checks.
-    const focusSets = new Map(
-      manifest.tasks.map((t) => [
-        t.id,
-        new Set(Array.isArray(t.focusAreas) ? t.focusAreas : []),
-      ])
-    );
-
-    let reachable = computeReachability(adjacency);
-    const pendingEdges = []; // [ [fromId, toId], ... ]
-
-    for (let i = 0; i < manifest.tasks.length; i++) {
-      for (let j = i + 1; j < manifest.tasks.length; j++) {
-        const taskA = manifest.tasks[i];
-        const taskB = manifest.tasks[j];
-
-        const setA = focusSets.get(taskA.id);
-        const setB = focusSets.get(taskB.id);
-
-        const isGlobalA = taskA.scope === 'root' || setA.has('*');
-        const isGlobalB = taskB.scope === 'root' || setB.has('*');
-        const overlap = isGlobalA || isGlobalB || [...setA].some((a) => setB.has(a));
-
-        if (overlap) {
-          const aReachesB = reachable.get(taskA.id)?.has(taskB.id);
-          const bReachesA = reachable.get(taskB.id)?.has(taskA.id);
-
-          if (!aReachesB && !bReachesA) {
-            pendingEdges.push([taskA.id, taskB.id]);
-          }
-        }
-      }
-    }
-
-    // Phase B: apply all collected edges in a single pass & rebuild once.
-    let graphMutated = pendingEdges.length > 0;
-    if (graphMutated) {
-      for (const [fromId, toId] of pendingEdges) {
-        const taskB = manifest.tasks.find((t) => t.id === toId);
-        if (taskB) {
-          if (!taskB.dependsOn) taskB.dependsOn = [];
-          if (!taskB.dependsOn.includes(fromId)) taskB.dependsOn.push(fromId);
-        }
-      }
-    }
-
-    // Re-build after mutation and check for induced cycles
-    let finalAdjacency = adjacency;
-    if (graphMutated) {
-      const updatedGraph = buildGraph(manifest.tasks);
-      finalAdjacency = updatedGraph.adjacency;
-      const cycle2 = detectCycle(finalAdjacency);
-      if (cycle2) {
-        throw new Error(`Dependency cycle detected after auto-serialization: ${cycle2.join(' → ')}`);
-      }
-    }
+    // Auto-serialize concurrent overlapping focus areas (canonical implementation in Graph.js)
+    const { finalAdjacency } = autoSerializeOverlaps(manifest, adjacency);
 
 
     // Layer assignment → session grouping
@@ -206,7 +151,7 @@ export class PlaybookOrchestrator {
     // Warn for any missing bookend types
     const bookendTypes = ['isIntegration', 'isCodeReview', 'isQA', 'isRetro', 'isCloseSprint'];
     for (const type of bookendTypes) {
-      if (!manifest.tasks.some(t => t[type])) {
+      if (!manifest.tasks.some((t) => t[type])) {
         console.warn(`⚠️  Manifest is missing a mandatory bookend task: ${type}. The playbook may be incomplete.`);
       }
     }

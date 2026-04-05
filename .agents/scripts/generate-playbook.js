@@ -23,15 +23,13 @@ import path from 'node:path';
 import { fileURLToPath } from 'node:url';
 
 // Library imports for decoupled logic
-import { buildGraph, detectCycle, assignLayers, transitiveReduction, computeChatDependencies, computeReachability } from './lib/Graph.js';
-import { renderPlaybook } from './lib/Renderer.js';
+import { buildGraph, assignLayers, transitiveReduction, computeChatDependencies } from './lib/Graph.js';
 import { PlaybookOrchestrator } from './lib/PlaybookOrchestrator.js';
-import { ensureDirSync } from './lib/fs-utils.js';
 import { analyzeAndSplit, loadComplexityConfig } from './lib/ComplexityEstimator.js';
-import { resolveConfig } from './lib/config-resolver.js';
+import { resolveConfig, PROJECT_ROOT } from './lib/config-resolver.js';
+import { isBookendTask } from './lib/task-utils.js';
 
 const __dirname = path.dirname(fileURLToPath(import.meta.url));
-const PROJECT_ROOT = path.resolve(__dirname, '../..');
 
 // Load settings via unified configuration resolver
 const { settings: agentConfig } = resolveConfig();
@@ -171,13 +169,11 @@ export function validateManifest(manifest) {
  */
 export function loadValidModelNames() {
   try {
-    const configPath = path.join(PROJECT_ROOT, '.agentrc.json');
-    if (!fs.existsSync(configPath)) return null;
-
-    // Re-use the already-parsed config file to avoid a second disk read.
-    // We still need the top-level `models` key which is outside agentSettings,
-    // so we read the raw file but benefit from OS-level filesystem caching.
-    const raw = JSON.parse(fs.readFileSync(configPath, 'utf8'));
+    // Use the cached resolveConfig() result — the 'raw' field contains the full
+    // parsed .agentrc.json, including the top-level models registry. This
+    // eliminates the second disk read that the previous implementation performed.
+    const { raw } = resolveConfig();
+    if (!raw) return null;
     const categories = raw?.models?.categories;
     if (!Array.isArray(categories)) return null;
 
@@ -287,8 +283,7 @@ export function enrichManifest(manifest) {
     }
 
     // Strip HITL from non-bookend development tasks — human reviews at integration
-    const isBookend = task.isIntegration || task.isQA || task.isCodeReview || task.isRetro || task.isCloseSprint;
-    if (!isBookend && task.requires_approval) {
+    if (!isBookendTask(task) && task.requires_approval) {
       delete task.requires_approval;
     }
 
@@ -306,8 +301,8 @@ export function enrichManifest(manifest) {
     }
 
     // APC Speculative Execution Hook
-    if (!isBookend && task.instructions && CacheManager.config.enableSpeculativeExecution) {
-      if (CacheManager.hasMatch(task.instructions, task.focusAreas, task.scope)) {
+    if (!isBookendTask(task) && task.instructions && CacheManager().config.enableSpeculativeExecution) {
+      if (CacheManager().hasMatch(task.instructions, task.focusAreas, task.scope)) {
         task.mode = 'SpeculativeCache';
         task.description = `[APC] Hydrated via Semantic Cache Memory`;
         console.log(`[APC] Marking task ${task.id} as SpeculativeCache.`);
@@ -351,7 +346,7 @@ function segregateTasks(tasks) {
   const bookendTasks = [];
   const regularTasks = [];
   for (const task of tasks) {
-    if (task.isIntegration || task.isQA || task.isCodeReview || task.isRetro || task.isCloseSprint) {
+    if (isBookendTask(task)) {
       bookendTasks.push(task);
     } else {
       regularTasks.push(task);
@@ -475,149 +470,25 @@ export function groupIntoChatSessions(tasks, layers, adjacency) {
 // Main Entry Point
 // ---------------------------------------------------------------------------
 
+/**
+ * Runs all playbook-generation phases for an already-parsed manifest object.
+ * Delegates entirely to PlaybookOrchestrator.run() — this function is retained
+ * as a stable public API for tests and external callers.
+ *
+ * @param {object} manifest - Parsed sprint manifest.
+ * @param {object} [options] - Optional rendering options (paths, padding, etc.).
+ * @returns {{ markdown: string, chatSessions: Array, chatDeps: Map }}
+ */
 export function generateFromManifest(manifest, options = {}) {
-  const { agentsDir } = options;
-  
-  // Inject configuration defaults if not provided in options
-  if (!options.sprintDocsRoot) options.sprintDocsRoot = sprintDocsRoot;
-  if (!options.sprintNumberPadding) options.sprintNumberPadding = sprintNumberPadding;
-  if (!options.goldenExamplesRoot) options.goldenExamplesRoot = goldenExamplesRoot;
-  if (!options.taskStateRoot) options.taskStateRoot = taskStateRoot;
-  if (!options.maxGoldenExampleLines) options.maxGoldenExampleLines = maxGoldenExampleLines;
-  if (!options.protocolVersion) {
-    const versionPath = path.join(__dirname, '..', 'VERSION');
-    try {
-      options.protocolVersion = fs.readFileSync(versionPath, 'utf8').trim();
-    } catch (e) {
-      options.protocolVersion = 'Unknown';
-    }
-  }
-
-  // 0. Auto-enrich manifest with boilerplate required fields
-  enrichManifest(manifest);
-
-  // 0.5 Complexity analysis & auto-split
-  const complexityConfig = loadComplexityConfig();
-  const { splits, warnings: complexityWarnings } = analyzeAndSplit(manifest, complexityConfig);
-  for (const msg of splits) {
-    console.log(`🔀 ${msg}`);
-  }
-  for (const msg of complexityWarnings) {
-    console.warn(`⚠️  ${msg}`);
-  }
-
-  // 1. Validate
-  const errors = validateManifest(manifest);
-  if (errors.length > 0) {
-    const msg = `Task manifest validation failed:\n${errors.map((e) => `  - ${e}`).join('\n')}`;
-    throw new Error(msg);
-  }
-
-  // 2. Asset warnings
-  if (agentsDir) {
-    const warnings = validateAssets(manifest, agentsDir);
-    for (const w of warnings) {
-      console.warn(`⚠️  ${w}`);
-    }
-  }
-
-  // 2.5 Model name validation (non-fatal warnings)
-  const modelWarnings = validateModelNames(manifest);
-  for (const w of modelWarnings) {
-    console.warn(`⚠️  ${w}`);
-  }
-
-  // 3. Build graph & check for cycles
-  const { adjacency, taskMap } = buildGraph(manifest.tasks);
-  const cycle = detectCycle(adjacency);
-  if (cycle) {
-    throw new Error(`Dependency cycle detected: ${cycle.join(' → ')}`);
-  }
-
-  // 3.5 Auto-Serialize Concurrent Overlaps and Global Sweeps
-  // IMPORTANT: Only serialize when tasks have explicit focusAreas that overlap.
-  // Bare scope matches (e.g., both "@repo/api") must NOT trigger serialization
-  // because independent feature tracks often share a scope without file conflicts.
-  let reachable = computeReachability(adjacency);
-  let graphMutated = false;
-  
-  for (let i = 0; i < manifest.tasks.length; i++) {
-    for (let j = i + 1; j < manifest.tasks.length; j++) {
-      const taskA = manifest.tasks[i];
-      const taskB = manifest.tasks[j];
-      
-      const areasA = Array.isArray(taskA.focusAreas) ? taskA.focusAreas : [];
-      const areasB = Array.isArray(taskB.focusAreas) ? taskB.focusAreas : [];
-      
-      // Skip if neither task declares focusAreas — scope-only matches are
-      // not sufficient evidence of file-level conflict.
-      if (areasA.length === 0 && areasB.length === 0) continue;
-
-      const isGlobalA = areasA.includes('*');
-      const isGlobalB = areasB.includes('*');
-      
-      const overlap = areasA.length > 0 && areasB.length > 0
-        ? areasA.find(a => areasB.includes(a))
-        : undefined;
-      
-      if (overlap || isGlobalA || isGlobalB) {
-         const aReachesB = reachable.get(taskA.id)?.has(taskB.id);
-         const bReachesA = reachable.get(taskB.id)?.has(taskA.id);
-         
-         if (!aReachesB && !bReachesA) {
-            // Auto-serialize parallel tasks
-            if (!taskB.dependsOn) taskB.dependsOn = [];
-            taskB.dependsOn.push(taskA.id);
-            graphMutated = true;
-            
-            // Recompute incrementally
-            const tempGraph = buildGraph(manifest.tasks);
-            reachable = computeReachability(tempGraph.adjacency);
-         }
-      }
-    }
-  }
-
-  let finalAdjacency = adjacency;
-  if (graphMutated) {
-    const updatedGraph = buildGraph(manifest.tasks);
-    finalAdjacency = updatedGraph.adjacency;
-    const cycle2 = detectCycle(finalAdjacency);
-    if (cycle2) {
-      throw new Error(`Dependency cycle detected after auto-serialization: ${cycle2.join(' → ')}`);
-    }
-  }
-
-  // 4. Assign layers
-  const layers = assignLayers(finalAdjacency);
-
-  // 5. Group into Chat Sessions (which internally overrides happens-before relations for bookends)
-  const chatSessions = groupIntoChatSessions(manifest.tasks, layers, finalAdjacency);
-
-  // 6. Re-build graph to capture mutated relations from grouping before reduction
-  const { adjacency: groupedAdjacency } = buildGraph(manifest.tasks);
-
-  // 7. Apply transitive reduction to individual tasks before rendering instructions
-  const reducedAdjacency = transitiveReduction(groupedAdjacency);
-  for (const task of manifest.tasks) {
-    task.dependsOn = reducedAdjacency.get(task.id) || [];
-  }
-
-  // 8. Compute cross-chat dependencies
-  const chatDeps = computeChatDependencies(chatSessions, groupedAdjacency);
-
-  // 9. Warn if mandatory bookend tasks are missing
-  const bookendTypes = ['isIntegration', 'isCodeReview', 'isQA', 'isRetro', 'isCloseSprint'];
-  for (const type of bookendTypes) {
-    if (!manifest.tasks.some(t => t[type])) {
-      console.warn(`⚠️  Manifest is missing a mandatory bookend task: ${type}. The playbook may be incomplete.`);
-    }
-  }
-
-  // 10. Render
-  const markdown = renderPlaybook(manifest, chatSessions, chatDeps, options);
-
-  return { markdown, chatSessions, chatDeps };
+  const opts = {
+    sprintDocsRoot,
+    sprintNumberPadding,
+    goldenExamplesRoot,
+    taskStateRoot,
+    maxGoldenExampleLines,
+    ...options,
+  };
+  return buildOrchestrator(opts).run(manifest);
 }
 
 function buildOrchestrator(options = {}) {

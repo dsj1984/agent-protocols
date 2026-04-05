@@ -24,13 +24,13 @@
     "maxTokenBudget": 1000000,
     "budgetWarningThreshold": 0.8,
     "notificationWebhookUrl": "",
-    "validationCommand": "run-s lint typecheck",
-    "lintBaselineCommand": "pnpm exec eslint . --format json",
+    "validationCommand": "npm run lint",
+    "lintBaselineCommand": "npm run lint",
     "lintBaselinePath": "temp/lint-baseline.json",
-    "testCommand": "pnpm run test",
-    "exploratoryTestCommand": "pnpm run test:exploratory",
-    "typecheckCommand": "pnpm run typecheck",
-    "buildCommand": "pnpm run build",
+    "testCommand": "npm test",
+    "exploratoryTestCommand": "npm test",
+    "typecheckCommand": "",
+    "buildCommand": "",
     "frictionThresholds": {
       "repetitiveCommandCount": 3,
       "consecutiveErrorCount": 3,
@@ -206,53 +206,17 @@
   },
   "techStack": {
     "project": {
-      "name": "[PROJECT_NAME]",
-      "packageManager": "pnpm",
-      "monorepoTool": "Turborepo"
-    },
-    "workspaces": {
-      "web": "@repo/web",
-      "mobile": "@repo/mobile",
-      "api": "@repo/api",
-      "shared": "@repo/shared"
-    },
-    "database": {
-      "provider": "Turso",
-      "dialect": "SQLite (libSQL)",
-      "orm": "Drizzle ORM",
-      "schemaPath": "packages/shared/src/db/schema.ts",
-      "migrationCommand": "pnpm --filter @repo/shared run-s db:generate db:push"
-    },
-    "api": {
-      "framework": "Hono",
-      "runtime": "Cloudflare Workers",
-      "routesPath": "apps/api/src/routes/",
-      "validationLibrary": "Zod",
-      "schemasPath": "packages/shared/src/schemas/index.ts"
-    },
-    "auth": {
-      "provider": "Clerk",
-      "middleware": "Clerk authentication middleware"
-    },
-    "frontend": {
-      "web": {
-        "framework": "Astro",
-        "uiLibrary": "React (Islands)",
-        "styling": "Tailwind CSS"
-      },
-      "mobile": {
-        "framework": "Expo",
-        "uiLibrary": "React Native",
-        "router": "Expo Router"
-      }
+      "name": "agent-protocols",
+      "packageManager": "npm",
+      "monorepoTool": ""
     },
     "testing": {
-      "unitFramework": "Vitest",
-      "e2eFramework": "Playwright",
-      "testFilePattern": "*.test.ts"
+      "unitFramework": "Node.js Native Test Runner",
+      "e2eFramework": "",
+      "testFilePattern": "tests/**/*.test.js"
     },
     "deployment": {
-      "platform": "Cloudflare",
+      "platform": "GitHub Releases",
       "ci": "GitHub Actions"
     }
   }

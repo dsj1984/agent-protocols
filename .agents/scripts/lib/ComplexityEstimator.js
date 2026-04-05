@@ -22,6 +22,7 @@
  */
 
 import { resolveConfig } from './config-resolver.js';
+import { isBookendTask } from './task-utils.js';
 
 // ---------------------------------------------------------------------------
 // Default configuration (overridden by agentrc.json)
@@ -97,13 +98,7 @@ export function scoreTask(task, config = DEFAULT_COMPLEXITY_CONFIG) {
   let total = 0;
 
   // Skip bookend tasks — they delegate to workflows and don't need splitting
-  const isBookend =
-    task.isIntegration ||
-    task.isQA ||
-    task.isCodeReview ||
-    task.isRetro ||
-    task.isCloseSprint;
-  if (isBookend) {
+  if (isBookendTask(task)) {
     return { total: 0, breakdown: { bookend: 'skipped' } };
   }
 
@@ -365,13 +360,23 @@ export function analyzeAndSplit(manifest, userConfig = {}) {
 /**
  * Loads complexity config from the project's .agentrc.json, falling back
  * to defaults.
+ *
+ * Error policy: ENOENT (missing config file) is silently ignored and defaults
+ * are returned. Any other error (e.g. JSON parse failure, permission error) is
+ * re-thrown so the caller sees the real problem.
+ *
  * @returns {object} The merged complexity configuration.
  */
 export function loadComplexityConfig() {
   try {
     const { settings } = resolveConfig();
     return { ...DEFAULT_COMPLEXITY_CONFIG, ...(settings.complexity || {}) };
-  } catch {
-    return { ...DEFAULT_COMPLEXITY_CONFIG };
+  } catch (err) {
+    // ENOENT means the config file doesn't exist — safe to use defaults.
+    // Any other error (JSON parse failure, etc.) should propagate.
+    if (err.code === 'ENOENT') {
+      return { ...DEFAULT_COMPLEXITY_CONFIG };
+    }
+    throw err;
   }
 }

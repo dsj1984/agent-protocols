@@ -1,8 +1,10 @@
 /**
  * Graph.js
  * Extracted mathematical DAG logic for topological sorting, cycle detection,
- * and transitive reduction.
+ * transitive reduction, and auto-serialization of concurrent task overlaps.
  */
+
+import { isBookendTask } from './task-utils.js';
 
 /**
  * Builds an adjacency list from the manifest tasks.
@@ -202,4 +204,86 @@ export function computeReachability(adjacency) {
     reachable.set(id, reach(id));
   }
   return reachable;
+}
+
+/**
+ * Auto-serializes concurrent tasks whose focusAreas overlap (or whose scope is
+ * 'root' / includes '*'), preventing file-level conflicts at runtime.
+ *
+ * This is the canonical, optimised implementation (bulk-accumulate pattern):
+ *   Phase A — O(N²) scan; collects all new edges without rebuilding the graph.
+ *   Phase B — applies all edges in one pass, rebuilds once, re-checks for cycles.
+ *
+ * Both generate-playbook.js (generateFromManifest) and PlaybookOrchestrator
+ * delegate here so the algorithm is defined exactly once.
+ *
+ * Bookend tasks are excluded: they do not perform file edits and serialising
+ * them would produce incorrect dependency orderings.
+ *
+ * @param {object} manifest   — The sprint manifest (tasks array is mutated in place).
+ * @param {Map}    adjacency  — The initial adjacency list (from buildGraph).
+ * @returns {{ finalAdjacency: Map, graphMutated: boolean }}
+ */
+export function autoSerializeOverlaps(manifest, adjacency) {
+  // Pre-compute focus-area Sets for O(1) intersection checks
+  const focusSets = new Map(
+    manifest.tasks.map((t) => [
+      t.id,
+      new Set(Array.isArray(t.focusAreas) ? t.focusAreas : []),
+    ]),
+  );
+
+  let reachable = computeReachability(adjacency);
+  const pendingEdges = []; // [ [fromId, toId], ... ]
+
+  for (let i = 0; i < manifest.tasks.length; i++) {
+    for (let j = i + 1; j < manifest.tasks.length; j++) {
+      const taskA = manifest.tasks[i];
+      const taskB = manifest.tasks[j];
+
+      // Bookend tasks manage lifecycle, not files — skip them
+      if (isBookendTask(taskA) || isBookendTask(taskB)) continue;
+
+      // Skip if neither task declares focusAreas — scope-only matches are not
+      // sufficient evidence of file-level conflict
+      const setA = focusSets.get(taskA.id);
+      const setB = focusSets.get(taskB.id);
+      if (setA.size === 0 && setB.size === 0) continue;
+
+      const isGlobalA = taskA.scope === 'root' || setA.has('*');
+      const isGlobalB = taskB.scope === 'root' || setB.has('*');
+      const overlap = isGlobalA || isGlobalB || [...setA].some((a) => setB.has(a));
+
+      if (overlap) {
+        const aReachesB = reachable.get(taskA.id)?.has(taskB.id);
+        const bReachesA = reachable.get(taskB.id)?.has(taskA.id);
+
+        if (!aReachesB && !bReachesA) {
+          pendingEdges.push([taskA.id, taskB.id]);
+        }
+      }
+    }
+  }
+
+  // Phase B: apply all collected edges in a single pass & rebuild once
+  const graphMutated = pendingEdges.length > 0;
+  if (graphMutated) {
+    for (const [fromId, toId] of pendingEdges) {
+      const taskB = manifest.tasks.find((t) => t.id === toId);
+      if (taskB) {
+        if (!taskB.dependsOn) taskB.dependsOn = [];
+        if (!taskB.dependsOn.includes(fromId)) taskB.dependsOn.push(fromId);
+      }
+    }
+
+    const updatedGraph = buildGraph(manifest.tasks);
+    const finalAdjacency = updatedGraph.adjacency;
+    const cycle = detectCycle(finalAdjacency);
+    if (cycle) {
+      throw new Error(`Dependency cycle detected after auto-serialization: ${cycle.join(' → ')}`);
+    }
+    return { finalAdjacency, graphMutated };
+  }
+
+  return { finalAdjacency: adjacency, graphMutated: false };
 }

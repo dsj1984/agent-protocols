@@ -6,6 +6,78 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 and this project adheres to
 [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [4.6.1] - 2026-04-05
+
+### Changed
+
+- **Refactored — `generate-playbook.js` god function**: `generateFromManifest()`
+  is now a thin 8-line wrapper that delegates entirely to
+  `PlaybookOrchestrator.run()`. The 143-line duplicated pipeline body has been
+  removed. Tests continue to exercise the production code path through this
+  delegation.
+
+- **Canonical auto-serialization in `Graph.js`**: Extracted the focusArea
+  overlap detection algorithm into a new exported function
+  `autoSerializeOverlaps(manifest, adjacency)`. Both `generateFromManifest` and
+  `PlaybookOrchestrator.build()` now delegate to this single optimized
+  implementation (bulk-accumulate pattern, single graph rebuild). The previous
+  O(N⁵) loop inside `generateFromManifest` has been eliminated.
+
+- **Centralized bookend detection via `task-utils.js`**: Created a new module
+  `.agents/scripts/lib/task-utils.js` exporting `isBookendTask(task)`. Replaced
+  7+ verbatim instances of the compound boolean
+  `task.isIntegration || task.isQA || task.isCodeReview || task.isRetro || task.isCloseSprint`
+  across `generate-playbook.js`, `PlaybookOrchestrator.js`, `Renderer.js`, and
+  `ComplexityEstimator.js`.
+
+- **Extended `config-resolver.js`**: `resolveConfig()` now returns a `raw` field
+  containing the full parsed `.agentrc.json` object (not just `agentSettings`).
+  Exported `PROJECT_ROOT` as a shared constant. Error handling now distinguishes
+  `ENOENT` (safe fallback to defaults) from JSON parse failures (now thrown
+  immediately as fatal errors, not silently swallowed).
+
+- **Eliminated redundant file I/O in `loadValidModelNames`**: Now uses
+  `resolveConfig().raw.models.categories` — removing the second
+  `fs.readFileSync` that re-parsed `.agentrc.json` on every call.
+
+- **`CacheManager.js` proxy replaced**: Removed the hand-rolled proxy object
+  with manual method forwarders. `instance` is now a clean `re-export` of
+  `getInstance`, callable as `instance()`. Updated all consumer call sites in
+  `generate-playbook.js`.
+
+- **`ComplexityEstimator.js` error hardening**: `loadComplexityConfig()` now
+  only silences `ENOENT` errors; all other errors (JSON parse failures,
+  permission errors) are re-thrown. Replaced inline bookend boolean with
+  `isBookendTask()`.
+
+- **`Renderer.js` decomposed**: `renderPlaybook()` has been split into two
+  independently testable sub-functions exported from the module:
+  - `renderHeader(manifest, options)` — title block + blockquote metadata +
+    sprint summary section.
+  - `renderTaskBlock(task, session, taskIdToNumber, chatDeps, taskIndex, options)`
+    — full per-task block including metadata, agent prompt fence, branching,
+    close-out, and optional manual-fix block. Replaced all inline bookend
+    booleans with `isBookendTask()`.
+
+### Added
+
+- **`lib/task-utils.js`**: New shared module with `isBookendTask(task)`
+  predicate.
+- **`tests/lib/task-utils.test.js`**: 10 unit tests covering all bookend flag
+  variants, multi-flag scenarios, and truthy/falsy coercion.
+- **`tests/lib/config-resolver.test.js`**: 5 tests verifying `PROJECT_ROOT` is
+  absolute, caching is consistent, `raw` is populated, and malformed JSON
+  throws.
+- **`tests/lib/renderer.test.js`**: 16 unit tests for the extracted
+  `renderHeader()` and `renderTaskBlock()` sub-functions, covering all rendering
+  branches in isolation.
+
+### Fixed
+
+- **Lint**: Fixed three `markdownlint` violations in
+  `audit-clean-code-results.md` (MD036 emphasis-as-heading, MD031 fence blank
+  lines).
+
 ## [4.6.0] - 2026-04-04
 
 ### Added
