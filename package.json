@@ -26,6 +26,8 @@
   },
   "homepage": "https://github.com/dsj1984/agent-protocols#readme",
   "devDependencies": {
+    "ajv": "^8.18.0",
+    "ajv-formats": "^3.0.1",
     "husky": "^9.1.7",
     "lint-staged": "^16.2.7",
     "markdownlint-cli": "^0.47.0",

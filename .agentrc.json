@@ -219,5 +219,18 @@
       "platform": "GitHub Releases",
       "ci": "GitHub Actions"
     }
+  },
+  "orchestration": {
+    "provider": "github",
+    "github": {
+      "owner": "dsj1984",
+      "repo": "agent-protocols",
+      "projectNumber": 1,
+      "operatorHandle": "@dsj1984"
+    },
+    "notifications": {
+      "mentionOperator": true,
+      "webhookUrl": ""
+    }
   }
 }
