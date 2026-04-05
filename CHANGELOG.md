@@ -6,6 +6,26 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 and this project adheres to
 [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [4.7.2] - 2026-04-05
+
+### Added
+
+- **Main-First Sprint Planning**: Restructured the `/plan-sprint` workflow to
+  generate and commit planning artifacts (PRD, Tech Spec, Playbook) to the base
+  branch (`main`) _before_ the sprint branch is created. This ensures the sprint
+  branch inherits a fully-audited, committed set of planning documents.
+- **Clean-Slate Planning**: Added a strict "Purge Prior Artifacts" step to the
+  planning workflow that deletes any existing sprint documents for the target
+  sprint number before generation. This prevents prior context or failed
+  planning runs from influencing new artifact generation.
+
+### Changed
+
+- **Robust Directory Setup**: Updated `sprint-setup.md` to use `mkdir -p` when
+  initializing sprint directories, ensuring compatibility with the new
+  "Main-First" planning flow where directories are created during the document
+  generation phase.
+
 ## [4.7.1] - 2026-04-05
 
 ### Fixed

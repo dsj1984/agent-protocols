@@ -35,14 +35,16 @@ Run the `/sprint-roadmap-review` workflow for the `[SPRINT_NUMBER]`.
    Do NOT proceed to the next step until the user has approved the updated
    `[DOCS_ROOT]/roadmap.md`.
 
-## Step 2 - Sprint Setup
+## Step 2 - Environment Preparation
 
-Run the `/sprint-setup` workflow for the `[SPRINT_NUMBER]`.
-
-1. Read `[WORKFLOWS_ROOT]/sprint-setup.md` to understand your instructions.
-2. Execute the steps described in `sprint-setup.md`.
-3. Verify that the branch `sprint-[SPRINT_NUMBER]` (padded to 3 digits) has been
-   created and pushed to origin.
+1.  Checkout the base branch (default: `main`) defined in `.agentrc.json`.
+2.  Pull the latest changes from origin.
+3.  Ensure the working directory is clean. If there are uncommitted changes,
+    **STOP** and alert the user.
+4.  **Purge Prior Artifacts**: If `[SPRINT_ROOT]` already exists, delete it
+    entirely (`rm -rf [SPRINT_ROOT]`) to guarantee a clean slate. Planning MUST
+    NOT be influenced by documents from a prior run.
+5.  Recreate the directory: `mkdir -p [SPRINT_ROOT]`.
 
 ## Step 3 - Product Requirements Document Generation
 
@@ -50,9 +52,8 @@ Run the `/sprint-generate-prd` workflow for the `[SPRINT_NUMBER]`.
 
 1. Read `[WORKFLOWS_ROOT]/sprint-generate-prd.md` to understand your
    instructions.
-1. Execute the steps described in `sprint-generate-prd.md` as if you were
-   running the command yourself.
-1. Verify that `[SPRINT_ROOT]/prd.md` has been successfully created.
+2. Execute the steps described in `sprint-generate-prd.md`.
+3. Verify that `[SPRINT_ROOT]/prd.md` has been successfully created.
 
 ## Step 4 - Architecture Review & Tech Spec Generation
 
@@ -95,11 +96,27 @@ Run the `/sprint-generate-playbook` workflow for the `[SPRINT_NUMBER]`.
 5.  If any inconsistencies are found, fix the source manifest or document and
     regenerate as needed before proceeding.
 
-## Step 7 - Notification
+## Step 7 - Commit & Push Planning Artifacts
+
+1.  Stage the generated artifacts: `git add [SPRINT_ROOT]`.
+2.  Commit the changes:
+    `git commit -m "docs: planning artifacts for sprint [SPRINT_NUMBER]"`.
+3.  Push to origin: `git push origin [BASE_BRANCH]`.
+
+## Step 8 - Sprint Setup
+
+Run the `/sprint-setup` workflow for the `[SPRINT_NUMBER]`.
+
+1.  Read `[WORKFLOWS_ROOT]/sprint-setup.md` to understand your instructions.
+2.  Execute the steps described in `sprint-setup.md`.
+3.  Verify that the branch `sprint-[PADDED_NUM]` has been created and pushed to
+    origin.
+
+## Step 9 - Notification
 
 Upon successful completion of all planning and audit steps, notify the user that
-the planning artifacts and the final playbook for Sprint `[SPRINT_NUMBER]` are
-audited and ready for execution.
+the planning artifacts for Sprint `[SPRINT_NUMBER]` are committed to `main` and
+the sprint branch is ready for execution.
 
 ## Constraint
 

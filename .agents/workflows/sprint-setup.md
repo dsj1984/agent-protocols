@@ -50,7 +50,7 @@ for subsequent planning and execution.
 
 1.  Resolve `[SPRINT_ROOT]` as the directory `sprint-[PADDED_NUM]` within the
     `sprintDocsRoot` defined in `.agentrc.json` (default: `docs/sprints`).
-2.  Create the sprint directory if it doesn't exist: `mkdir [SPRINT_ROOT]`.
+2.  Create the sprint directory if it doesn't exist: `mkdir -p [SPRINT_ROOT]`.
 3.  Initialize the agent observability log (JSON Lines format) if it doesn't
     exist:
     `node -e "import('fs').then(fs => fs.writeFileSync('[SPRINT_ROOT]/agent-friction-log.json', ''))"`.
