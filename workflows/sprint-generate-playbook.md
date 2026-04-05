@@ -138,16 +138,18 @@ Your output MUST conform to the JSON schema defined in
   recommendations for bookend tasks:
   - **Integration** (`isIntegration`): triggers the `sprint-integration`
     workflow, which consolidates all feature branches before QA begins. Use
-    persona `engineer`, skill `architecture/monorepo-path-strategist`.
+    persona `engineer`, skill `stack/architecture/monorepo-path-strategist`.
   - **QA** (`isQA`): triggers the `sprint-testing` workflow. Use persona
-    `qa-engineer`, skills from the `qa/` category.
+    `qa-engineer`, skills from the `stack/qa/` and
+    `core/test-driven-development` skills.
   - **Code Review** (`isCodeReview`): triggers the `sprint-code-review`
-    workflow. Use persona `architect`, skill
-    `architecture/autonomous-coding-standards`.
+    workflow. Use persona `architect`, skills `core/code-review-and-quality`,
+    `core/security-and-hardening`.
   - **Retro** (`isRetro`): triggers the `sprint-retro` workflow. Use persona
-    `product`, skill `architecture/markdown`.
+    `product`, skill `core/documentation-and-adrs`.
   - **Close Sprint** (`isCloseSprint`): triggers the `sprint-close-out`
-    workflow. Use persona `devops-engineer`, skill `devops/git-flow-specialist`.
+    workflow. Use persona `devops-engineer`, skill
+    `core/git-workflow-and-versioning`.
 - **`requires_approval`**: Boolean. If the Tech Spec flags a task as high-risk
   during the **HITL Risk Assessment** (semantically matching
   `riskGates.heuristics` in `config.json`), you MUST set this to `true`. This

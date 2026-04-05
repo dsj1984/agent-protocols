@@ -31,7 +31,7 @@ consistency, and architectural guardrails.
 ├── sample-docs/             # Reference samples for PRDs, specs, and roadmaps
 ├── schemas/                 # JSON Schemas for structured agent output
 ├── scripts/                 # Deterministic scaffolding and utility scripts
-├── skills/                  # Tech-stack-specific guardrails
+├── skills/                  # Two-tier skill library (core/ + stack/)
 ├── templates/               # Sprint planning markdown templates
 └── workflows/               # Reusable single-command workflows
 ```
@@ -106,7 +106,8 @@ Once the submodule is added to your project, follow these steps:
 2. **Use personas** by telling the agent to "Act as [Role]" — it will look for
    the matching file in `[PERSONAS_ROOT]/`.
 3. **Activate skills** by referencing them by name or letting your agent
-   auto-discover `SKILL.md` files in `.agents/skills/`.
+   auto-discover `SKILL.md` files in `.agents/skills/core/` (universal process
+   skills) or `.agents/skills/stack/` (tech-stack-specific guardrails).
 4. **Run sprint planning** using the automated workflow `/plan-sprint [SPRINT]`.
 
 ### 🔒 Local Overrides
@@ -208,17 +209,47 @@ Modular, domain-agnostic global rules that define behavioral standards.
 
 ## <a id="skills"></a>🧩 Skills (`skills/`)
 
-Skills are modular, tech-stack-specific guardrails organized by category
-(architecture, backend, devops, frontend, qa, security):
+The skill library uses a **two-tier architecture** to separate universal process
+protocols from technology-specific guardrails.
+
+### 🔵 Core Skills (`skills/core/`)
+
+Universal, process-driven skills that apply across any project. Always check for
+a relevant core skill before writing code. Covers the full SDLC:
+
+| Skill                           | Phase    | Purpose                                                  |
+| ------------------------------- | -------- | -------------------------------------------------------- |
+| `idea-refinement`               | Define   | Structured divergent/convergent thinking for vague ideas |
+| `spec-driven-development`       | Define   | Requirements and acceptance criteria before code         |
+| `planning-and-task-breakdown`   | Plan     | Decompose features into small, verifiable tasks          |
+| `context-engineering`           | Build    | Load the right context at the right time                 |
+| `incremental-implementation`    | Build    | Thin vertical slices, verified before expanding          |
+| `api-and-interface-design`      | Build    | Stable interfaces with clear contracts                   |
+| `frontend-ui-engineering`       | Build    | Production-quality UI with accessibility                 |
+| `code-simplification`           | Build    | Resist over-engineering; prefer the boring solution      |
+| `test-driven-development`       | Verify   | Failing test first, then make it pass                    |
+| `browser-testing-with-devtools` | Verify   | Chrome DevTools MCP for runtime verification             |
+| `debugging-and-error-recovery`  | Verify   | Reproduce → localize → fix → guard                       |
+| `code-review-and-quality`       | Review   | Five-axis review with quality gates                      |
+| `security-and-hardening`        | Review   | OWASP prevention, input validation, least privilege      |
+| `performance-optimization`      | Review   | Measure first, optimize only what matters                |
+| `git-workflow-and-versioning`   | Ship     | Atomic commits, clean history, conventional commits      |
+| `ci-cd-and-automation`          | Ship     | Automated quality gates on every change                  |
+| `documentation-and-adrs`        | Ship     | Document the why, not just the what                      |
+| `shipping-and-launch`           | Ship     | Pre-launch checklist, monitoring, rollback plan          |
+| `deprecation-and-migration`     | Maintain | Safe removal of legacy code and upgrade patterns         |
+| `using-agent-skills`            | Meta     | Skill discovery and sequencing guide                     |
+
+### 🟠 Stack Skills (`skills/stack/`)
+
+Tech-stack-specific guardrails for concrete libraries and services. Apply these
+when the project uses that specific technology:
 
 | Skill                           | Category       | Purpose                                               |
 | ------------------------------- | -------------- | ----------------------------------------------------- |
-| `autonomous-coding-standards`   | `architecture` | Enforces structural rules for agent-protocols library |
-| `markdown`                      | `architecture` | Enforces markdown styling and best practices          |
 | `monorepo-path-strategist`      | `architecture` | Enforces workspace aliases and dependency boundaries  |
 | `structured-output-zod`         | `architecture` | Enforces structured API responses using Zod           |
 | `subagent-orchestration`        | `architecture` | Defines subagent task delegation strategies           |
-| `git-flow-specialist`           | `devops`       | Zero-tolerance branch safety and emergency recovery   |
 | `clerk-auth`                    | `backend`      | Security standard for Clerk authentication            |
 | `cloudflare-hono-architect`     | `backend`      | Prevents Node.js module usage in edge Workers         |
 | `cloudflare-queue-manager`      | `backend`      | Ensures idempotent, resilient queue consumer logic    |
@@ -233,15 +264,10 @@ Skills are modular, tech-stack-specific guardrails organized by category
 | `expo-react-native-developer`   | `frontend`     | Prevents DOM elements in React Native code            |
 | `google-analytics-v4`           | `frontend`     | Secure event logging for GA4                          |
 | `tailwind-v4`                   | `frontend`     | Ensures strict Tailwind v4 class usage                |
-| `ui-accessibility-engineer`     | `frontend`     | Enforces Tailwind CSS and WCAG 2.1 AA compliance      |
 | `audit-accessibility`           | `qa`           | WCAG automated scanning compliance                    |
 | `playwright`                    | `qa`           | Rules for writing robust Playwright E2E tests         |
-| `resilient-qa-automation`       | `qa`           | Writes flake-free Playwright and Vitest tests         |
 | `vitest`                        | `qa`           | Unit test automation with Vitest                      |
 | `secure-telemetry-logger`       | `security`     | Standardizes structured logging and PII stripping     |
-| `zero-trust-security-engineer`  | `security`     | Enforces Zod validation and Clerk auth on all routes  |
-
----
 
 ## <a id="workflows"></a>🔁 Workflows (`workflows/`)
 

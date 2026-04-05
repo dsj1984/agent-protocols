@@ -75,6 +75,6 @@ below.
 ## Constraint
 
 This is a **read-only** audit. Note: This workflow differs from
-`accessibility-audit.md` (which uses Lighthouse and implements fixes) by
+`audit-accessibility.md` (which uses Lighthouse and implements fixes) by
 focusing on deep architectural and logic bottlenecks across the whole stack
 without applying changes.
