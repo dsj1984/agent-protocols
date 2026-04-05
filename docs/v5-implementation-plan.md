@@ -452,11 +452,11 @@ end-to-end.
 ### Phase 2 Exit Criteria
 
 - [x] `epic-planner.js` generates PRD + Tech Spec as linked GitHub Issues.
-- [ ] `ticket-decomposer.js` creates the full Feature → Story → Task hierarchy
+- [x] `ticket-decomposer.js` creates the full Feature → Story → Task hierarchy
       with dependencies, labels, prompts, and tasklists.
-- [ ] `/sprint-plan [Epic ID]` orchestrates the full pipeline end-to-end.
+- [x] `/sprint-plan [Epic ID]` orchestrates the full pipeline end-to-end.
 - [ ] `notify.js` dispatches INFO via @mention and ACTION via webhook.
-- [ ] Dogfood: a real Epic on this repo is fully planned via the command.
+- [x] Dogfood: a real Epic on this repo is fully planned via the command.
 - [ ] Tagged as `v5.0.0-beta.1`.
 
 ---

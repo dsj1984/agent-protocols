@@ -8,6 +8,7 @@ dist
 .agents/*.local.md
 .agents/*local.json
 
+tmp/
 temp/
 
 # Cryptographic Keys - NEVER commit private keys

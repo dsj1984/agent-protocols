@@ -171,17 +171,21 @@ export class GitHubProvider extends ITicketingProvider {
    * Make a GraphQL API request to GitHub.
    * @param {string} query - GraphQL query/mutation string.
    * @param {object} [variables={}]
+   * @param {{ headers?: object }} [opts={}]
    * @returns {Promise<object>} The `data` portion of the response.
    */
-  async _graphql(query, variables = {}) {
+  async _graphql(query, variables = {}, opts = {}) {
+    const headers = {
+      Accept: 'application/json',
+      Authorization: `Bearer ${this.token}`,
+      'Content-Type': 'application/json',
+      'User-Agent': 'node.js',
+      ...opts.headers,
+    };
+
     const res = await fetch(GITHUB_GRAPHQL, {
       method: 'POST',
-      headers: {
-        Accept: 'application/json',
-        Authorization: `Bearer ${this.token}`,
-        'Content-Type': 'application/json',
-        'User-Agent': 'node.js',
-      },
+      headers,
       body: JSON.stringify({ query, variables }),
     });
 
@@ -361,15 +365,37 @@ export class GitHubProvider extends ITicketingProvider {
     return {
       id: issue.number,
       internalId: issue.id,
+      nodeId: issue.node_id,
       url: issue.html_url,
     };
   }
 
-  async addSubIssue(parentNumber, childInternalId) {
-    return this._rest(
-      `/repos/${this.owner}/${this.repo}/issues/${parentNumber}/sub_issues`,
-      { method: 'POST', body: { sub_issue_id: childInternalId } },
+  async addSubIssue(parentNumber, childNodeId, opts = { replaceParent: false }) {
+    const parentTicket = await this.getTicket(parentNumber);
+    
+    return this._graphql(
+      `
+      mutation($parentId: ID!, $subIssueId: ID!, $replaceParent: Boolean) {
+        addSubIssue(input: { issueId: $parentId, subIssueId: $subIssueId, replaceParent: $replaceParent }) {
+          issue { number }
+          subIssue { number }
+        }
+      }`,
+      {
+        parentId: parentTicket.nodeId,
+        subIssueId: childNodeId,
+        replaceParent: opts.replaceParent
+      },
+      {
+        headers: {
+          'GraphQL-Features': 'sub_issues'
+        }
+      }
     );
+  }
+
+  async removeSubIssue(parentNumber, subIssueNumber) {
+    console.warn(`[GitHubProvider] removeSubIssue called for #${subIssueNumber}. Recommended to use addSubIssue with replaceParent: true instead.`);
   }
 
   /**

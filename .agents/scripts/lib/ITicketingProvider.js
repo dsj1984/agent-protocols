@@ -105,11 +105,22 @@ export class ITicketingProvider {
    * Link an existing issue as a sub-issue of a parent.
    *
    * @param {number} parentId - GitHub Issue number of the parent.
-   * @param {number} childId - GitHub Issue number of the sub-issue.
+   * @param {number} childId - GitHub internal database ID of the sub-issue.
    * @returns {Promise<void>}
    */
   async addSubIssue(parentId, childId) {
     throw new Error('Not implemented: addSubIssue');
+  }
+
+  /**
+   * Remove a sub-issue link from a parent.
+   *
+   * @param {number} parentId - GitHub Issue number of the parent.
+   * @param {number} childId - GitHub internal database ID of the sub-issue.
+   * @returns {Promise<void>}
+   */
+  async removeSubIssue(parentId, childId) {
+    throw new Error('Not implemented: removeSubIssue');
   }
 
   /**
