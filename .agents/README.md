@@ -8,6 +8,7 @@ consistency, and architectural guardrails.
 
 - [What's Inside](#whats-inside)
 - [Global Instructions](#global-instructions)
+- [v5 Epic-Centric Orchestration](#v5-orchestration)
 - [Personas](#personas)
 - [Rules](#rules)
 - [Skills](#skills)
@@ -31,6 +32,8 @@ consistency, and architectural guardrails.
 ├── sample-docs/             # Reference samples for PRDs, specs, and roadmaps
 ├── schemas/                 # JSON Schemas for structured agent output
 ├── scripts/                 # Deterministic scaffolding and utility scripts
+│   ├── lib/                 # Core libraries (config, interfaces, factory)
+│   └── providers/           # v5 ticketing provider implementations
 ├── skills/                  # Two-tier skill library (core/ + stack/)
 ├── templates/               # Sprint planning markdown templates
 └── workflows/               # Reusable single-command workflows
@@ -351,6 +354,60 @@ Standardized markdown blueprints used during planning and testing.
 | `sprint-retro-template.md`    | Sprint Retrospective template for post-sprint review  |
 | `technical-spec-template.md`  | Technical Specification template for schemas and APIs |
 | `test-plan_template.md`       | Dual-Purpose Test Plan for human/AI agent execution   |
+
+---
+
+## <a id="v5-orchestration"></a>🎯 v5 Epic-Centric Orchestration
+
+> [!NOTE]
+> v5.0.0 introduces **Epic-Centric GitHub Orchestration** — a clean-break
+> architecture that replaces the local-file sprint pipeline with native GitHub
+> Issues, Labels, and Projects V2.
+
+### Provider Architecture
+
+All external ticketing operations are mediated through the
+`ITicketingProvider` abstract interface. The framework ships with a **GitHub
+provider** that uses raw `fetch()` (Node 20+) — no `@octokit/*` dependencies.
+
+| Layer                | File                                  | Purpose                                        |
+| -------------------- | ------------------------------------- | ---------------------------------------------- |
+| Abstract Interface   | `scripts/lib/ITicketingProvider.js`   | 10-method contract for all ticketing providers  |
+| Provider Factory     | `scripts/lib/provider-factory.js`     | Resolves `orchestration.provider` → class       |
+| GitHub Implementation | `scripts/providers/github.js`        | REST + GraphQL implementation for GitHub        |
+| Config Validation    | `scripts/lib/config-resolver.js`      | ajv schema validation + shell injection checks  |
+
+### Orchestration Configuration
+
+Add the following block to your `.agentrc.json`:
+
+```json
+{
+  "orchestration": {
+    "provider": "github",
+    "github": {
+      "owner": "your-org",
+      "repo": "your-repo",
+      "projectNumber": null,
+      "operatorHandle": "@your-username"
+    },
+    "notifications": {
+      "mentionOperator": true,
+      "webhookUrl": ""
+    }
+  }
+}
+```
+
+| Field                    | Required | Description                                                |
+| ------------------------ | -------- | ---------------------------------------------------------- |
+| `provider`               | Yes      | Provider name (`"github"` is the only shipped provider)    |
+| `github.owner`           | Yes      | GitHub repository owner (user or org)                      |
+| `github.repo`            | Yes      | GitHub repository name                                     |
+| `github.projectNumber`   | No       | GitHub Projects V2 number (for custom fields)              |
+| `github.operatorHandle`  | No       | GitHub @mention handle for notifications                   |
+| `notifications.mentionOperator` | No | Whether to @mention the operator in comments          |
+| `notifications.webhookUrl`      | No | Webhook URL for external notification delivery        |
 
 ---
 

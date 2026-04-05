@@ -151,6 +151,8 @@ describe('v5 Infrastructure files', () => {
   const v5Files = [
     'scripts/lib/ITicketingProvider.js',
     'scripts/lib/config-resolver.js',
+    'scripts/lib/provider-factory.js',
+    'scripts/providers/github.js',
   ];
 
   for (const file of v5Files) {
