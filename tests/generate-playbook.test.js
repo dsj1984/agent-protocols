@@ -7,6 +7,7 @@ import {
 } from '../.agents/scripts/generate-playbook.js';
 import fs from 'node:fs';
 import { vol } from 'memfs';
+import { setupFsMock } from './lib/fs-mock.js';
 
 import {
   buildGraph,
@@ -366,9 +367,7 @@ describe('generateMermaid', () => {
     const chatDeps = computeChatDependencies(sessions, adjacency);
     const mermaid = generateMermaid(sessions, chatDeps);
 
-    assert.ok(mermaid.includes('```mermaid'));
-    assert.ok(mermaid.includes('graph TD'));
-    assert.ok(mermaid.includes('-->'));
+    assert.match(mermaid, /```mermaid[\s\S]*?graph TD[\s\S]*?-->/);
   });
 });
 
@@ -393,17 +392,17 @@ describe('renderPlaybook', () => {
     const chatDeps = computeChatDependencies(sessions, adjacency);
     const md = renderPlaybook(manifest, sessions, chatDeps);
 
-    assert.ok(md.includes('# Sprint 099 Playbook: Test Sprint'));
-    assert.ok(md.includes('## Sprint Summary'));
-    assert.ok(md.includes('## Fan-Out Execution Flow'));
-    assert.ok(md.includes('```mermaid'));
-    assert.ok(md.includes('Playbook Path'));
-    assert.ok(md.includes('AGENT EXECUTION PROTOCOL'));
-    assert.ok(md.includes('Mark Executing'));
-    assert.ok(md.includes('sprint-testing'));
-    assert.ok(md.includes('sprint-code-review'));
-    assert.ok(md.includes('sprint-retro'));
-    assert.ok(md.includes('sprint-close-out'));
+    assert.match(md, /# Sprint 099 Playbook: Test Sprint/);
+    assert.match(md, /## Sprint Summary/);
+    assert.match(md, /## Fan-Out Execution Flow/);
+    assert.match(md, /```mermaid[\s\S]*?graph TD[\s\S]*?-->/);
+    assert.match(md, /Playbook Path/);
+    assert.match(md, /AGENT EXECUTION PROTOCOL/);
+    assert.match(md, /Mark Executing/);
+    assert.match(md, /sprint-testing/);
+    assert.match(md, /sprint-code-review/);
+    assert.match(md, /sprint-retro/);
+    assert.match(md, /sprint-close-out/);
   });
 
   it('injects the execution protocol including prerequisite check when task has dependencies', () => {
@@ -423,10 +422,10 @@ describe('renderPlaybook', () => {
     // Wait, first task is layer 0. Second is layer 1. 
     // They share same scope. So they are consecutive essentially in playbooks.
     // The rendered text for task 'b' should contain the verify check.
-    assert.ok(md.includes('sprint-verify-task-prerequisites'));
-    assert.ok(md.includes('Dependencies**: `099.1.1`'));
-    assert.ok(md.includes('Mark Executing'));
-    assert.ok(md.includes('sprint-finalize-task'));
+    assert.match(md, /sprint-verify-task-prerequisites/);
+    assert.match(md, /Dependencies\*\*:\s*`099\.1\.1`/);
+    assert.match(md, /Mark Executing/);
+    assert.match(md, /sprint-finalize-task/);
   });
 
   it('includes the prerequisite workflow globally even when no dependencies exist (universal pre-flight)', () => {
@@ -440,9 +439,9 @@ describe('renderPlaybook', () => {
     const md = renderPlaybook(manifest, sessions, chatDeps);
 
     // Now universal as of v3.3.1
-    assert.ok(md.includes('sprint-verify-task-prerequisites'));
-    assert.ok(md.includes('node .agents/scripts/verify-prereqs.js'));
-    assert.ok(md.includes('sprint-finalize-task'));
+    assert.match(md, /sprint-verify-task-prerequisites/);
+    assert.match(md, /node \.agents\/scripts\/verify-prereqs\.js/);
+    assert.match(md, /sprint-finalize-task/);
   });
 
   it('does not inject golden examples into the playbook anymore (moved to instructions.md)', (t) => {
@@ -452,10 +451,7 @@ describe('renderPlaybook', () => {
       'test-task-1.md': 'Golden Example 1 Content'
     }, '/golden-examples');
 
-    t.mock.method(fs, 'existsSync', (pathStr) => {
-      if (String(pathStr).includes('golden-examples')) return true;
-      try { fs.accessSync(pathStr); return true; } catch { return false; }
-    });
+    setupFsMock(t, vol);
 
     const manifest = makeManifest({
       tasks: [makeTask({ id: 'a', title: 'Only Task', dependsOn: [] })],
