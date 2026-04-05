@@ -15,38 +15,60 @@ import { fileURLToPath } from 'node:url';
 
 const __dirname = path.dirname(fileURLToPath(import.meta.url));
 // scripts/lib/ → scripts/ → .agents/ → project root
-const PROJECT_ROOT = path.resolve(__dirname, '../../..');
+export const PROJECT_ROOT = path.resolve(__dirname, '../../..');
 
 let _cachedConfig = null;
 
 /**
  * Extract the flat agentSettings bag from whichever config format is present.
  * Results are cached at module level to avoid redundant file I/O.
+ *
+ * Error policy:
+ *   - File missing (ENOENT) → fall through to built-in defaults (zero-config).
+ *   - File present but malformed JSON → throw immediately (config corruption is
+ *     a fatal error, not a silent fallback scenario).
+ *
  * @param {{ bustCache?: boolean }} [opts] - Pass { bustCache: true } to force re-read.
- * @returns {{ settings: object, source: string }}
+ * @returns {{ settings: object, raw: object|null, source: string }}
  */
 export function resolveConfig(opts) {
   if (_cachedConfig && !opts?.bustCache) return _cachedConfig;
+
   // 1. Preferred: unified .agentrc.json at repo root
   const agentrcPath = path.join(PROJECT_ROOT, '.agentrc.json');
   if (fs.existsSync(agentrcPath)) {
+    let raw;
     try {
-      const raw = JSON.parse(fs.readFileSync(agentrcPath, 'utf8'));
-      const settings = raw.agentSettings ?? {};
-
-      // Schema Boundary validation: Block injection metacharacters
-      const schemaValidKeys = ['taskStateRoot', 'notificationWebhookUrl', 'goldenExamplesRoot', 'baseBranch', 'sprintDocsRoot', 'validationCommand', 'testCommand', 'buildCommand', 'agentRoot', 'scriptsRoot', 'workflowsRoot', 'personasRoot', 'keysRoot', 'schemasRoot', 'docsRoot', 'tempRoot', 'eventStreamsRoot', 'workspacesRoot', 'executionTimeoutMs', 'executionMaxBuffer'];
-      for (const key of schemaValidKeys) {
-        if (typeof settings[key] === 'string' && /([;&|`]|\$\()/.test(settings[key])) {
-          throw new Error(`[Security] Malicious configuration value detected in .agentrc.json under ${key}. Shell meta-characters are forbidden.`);
-        }
-      }
-
-      _cachedConfig = { settings, source: agentrcPath };
-      return _cachedConfig;
-    } catch {
-      console.warn('[config] Failed to parse .agentrc.json — falling back to legacy config.');
+      raw = JSON.parse(fs.readFileSync(agentrcPath, 'utf8'));
+    } catch (parseErr) {
+      // File exists but is not valid JSON — this is always a fatal config error.
+      throw new Error(
+        `[config] Failed to parse .agentrc.json: ${parseErr.message}. ` +
+        `Fix the JSON syntax before proceeding.`,
+      );
     }
+
+    const settings = raw.agentSettings ?? {};
+
+    // Schema Boundary validation: Block injection metacharacters
+    const schemaValidKeys = [
+      'taskStateRoot', 'notificationWebhookUrl', 'goldenExamplesRoot', 'baseBranch',
+      'sprintDocsRoot', 'validationCommand', 'testCommand', 'buildCommand', 'agentRoot',
+      'scriptsRoot', 'workflowsRoot', 'personasRoot', 'keysRoot', 'schemasRoot',
+      'docsRoot', 'tempRoot', 'eventStreamsRoot', 'workspacesRoot',
+      'executionTimeoutMs', 'executionMaxBuffer',
+    ];
+    for (const key of schemaValidKeys) {
+      if (typeof settings[key] === 'string' && /([;&|`]|\$\()/.test(settings[key])) {
+        throw new Error(
+          `[Security] Malicious configuration value detected in .agentrc.json under ${key}. ` +
+          `Shell meta-characters are forbidden.`,
+        );
+      }
+    }
+
+    _cachedConfig = { settings, raw, source: agentrcPath };
+    return _cachedConfig;
   }
 
   // 2. Hard-coded defaults (zero-config experience)
@@ -76,6 +98,7 @@ export function resolveConfig(opts) {
       executionTimeoutMs: 300000, // 5 minutes
       executionMaxBuffer: 10485760, // 10MB
     },
+    raw: null,
     source: 'built-in defaults',
   };
   return _cachedConfig;
