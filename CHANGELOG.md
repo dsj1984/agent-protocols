@@ -21,6 +21,13 @@ and this project adheres to
     health improves.
   - Added new configuration keys `lintBaselineCommand` and `lintBaselinePath` to
     `.agentrc.json`.
+- **Ephemeral State Cleanup Protocol**: Updated the `sprint-close-out.md`
+  workflow to strictly enforce the purging of local temporary state at the end
+  of the sprint lifecycle.
+  - Added localized removal steps for `temp/workspaces` and `temp/task-state` to
+    prevent project bloat and ensure isolation between sequential sprints.
+  - Hardened Step 0 of the close-out workflow with explicit path resolution for
+    `WORKSPACES_ROOT` and `TASK_STATE_ROOT`.
 
 ## [4.5.0] - 2026-04-04
 

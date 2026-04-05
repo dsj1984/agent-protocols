@@ -20,6 +20,10 @@ cleans up the sprint branch, and optionally tags a release.
     `sprintNumberPadding` setting in the same config.
 3.  Resolve `[BASE_BRANCH]` from the `baseBranch` field in `.agentrc.json`
     (default: `main`).
+4.  Resolve `[WORKSPACES_ROOT]` from the `workspacesRoot` field in
+    `.agentrc.json` (default: `temp/workspaces`).
+5.  Resolve `[TASK_STATE_ROOT]` from the `taskStateRoot` field in
+    `.agentrc.json` (default: `temp/task-state`).
 
 ## Execution Steps
 
@@ -92,7 +96,14 @@ cleans up the sprint branch, and optionally tags a release.
     `git push origin --delete [BRANCH_NAME]`.
     - **Note**: This catch-all audit ensures even legacy dash-named branches are
       purged before the sprint is closed.
-11. **Notification**: Resolve `[WEBHOOK_URL]` from the `notificationWebhookUrl`
+
+11. **Local State Cleanup**: The sprint is merged and ephemeral state is no
+    longer needed. Purge the local temporary directories used during this sprint
+    (these are git-ignored). Note that depending on the OS, the command varies,
+    but a node inline script is cross-platform:
+    `node -e "const fs=require('fs'); fs.rmSync('[WORKSPACES_ROOT]', {recursive:true, force:true}); fs.rmSync('[TASK_STATE_ROOT]', {recursive:true, force:true});"`
+
+12. **Notification**: Resolve `[WEBHOOK_URL]` from the `notificationWebhookUrl`
     field in `.agentrc.json`. If `notificationWebhookUrl` is not empty, send a
     notification using the cross-platform Node script:
     `node [SCRIPTS_ROOT]/notify.js "[WEBHOOK_URL]" "Sprint [SPRINT_NUMBER]: Merged to [BASE_BRANCH] and branch cleaned up."`
