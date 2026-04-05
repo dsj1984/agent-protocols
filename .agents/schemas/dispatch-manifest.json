@@ -1,0 +1,169 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "dispatch-manifest",
+  "title": "Dispatch Manifest",
+  "description": "Output of dispatcher.js — describes the full execution plan for one Epic. Written to temp/dispatch-manifest-<epicId>.json.",
+  "type": "object",
+  "required": [
+    "schemaVersion",
+    "generatedAt",
+    "epicId",
+    "epicTitle",
+    "executor",
+    "dryRun",
+    "summary",
+    "waves",
+    "dispatched",
+    "heldForApproval"
+  ],
+  "properties": {
+    "schemaVersion": {
+      "type": "string",
+      "description": "Schema version for forward-compatibility checks.",
+      "examples": ["1.0.0"]
+    },
+    "generatedAt": {
+      "type": "string",
+      "format": "date-time",
+      "description": "ISO-8601 timestamp when this manifest was produced."
+    },
+    "epicId": {
+      "type": "integer",
+      "minimum": 1,
+      "description": "GitHub Issue number of the Epic."
+    },
+    "epicTitle": {
+      "type": "string",
+      "description": "Title of the Epic issue."
+    },
+    "executor": {
+      "type": "string",
+      "description": "The IExecutionAdapter executorId used for this dispatch cycle.",
+      "examples": ["manual", "subprocess", "mcp"]
+    },
+    "dryRun": {
+      "type": "boolean",
+      "description": "If true, no branches were created and no tasks were dispatched."
+    },
+    "protocolVersionMismatch": {
+      "type": "boolean",
+      "description": "True if any task's generation-time protocol version differs from the current runtime version."
+    },
+    "summary": {
+      "type": "object",
+      "required": ["totalTasks", "doneTasks", "progressPercent", "totalWaves", "dispatched", "heldForApproval"],
+      "properties": {
+        "totalTasks": {
+          "type": "integer",
+          "minimum": 0
+        },
+        "doneTasks": {
+          "type": "integer",
+          "minimum": 0
+        },
+        "progressPercent": {
+          "type": "integer",
+          "minimum": 0,
+          "maximum": 100
+        },
+        "totalWaves": {
+          "type": "integer",
+          "minimum": 0
+        },
+        "dispatched": {
+          "type": "integer",
+          "minimum": 0,
+          "description": "Number of tasks dispatched in this invocation."
+        },
+        "heldForApproval": {
+          "type": "integer",
+          "minimum": 0,
+          "description": "Number of tasks held due to risk::high label."
+        }
+      },
+      "additionalProperties": false
+    },
+    "waves": {
+      "type": "array",
+      "description": "Ordered list of execution waves computed from the task DAG.",
+      "items": {
+        "type": "object",
+        "required": ["waveIndex", "tasks"],
+        "properties": {
+          "waveIndex": {
+            "type": "integer",
+            "minimum": 0
+          },
+          "tasks": {
+            "type": "array",
+            "items": {
+              "type": "object",
+              "required": ["taskId", "title", "status", "branch", "persona", "model", "mode", "skills", "focusAreas", "isRiskHigh", "dependsOn"],
+              "properties": {
+                "taskId": { "type": "integer", "minimum": 1 },
+                "title": { "type": "string" },
+                "status": {
+                  "type": "string",
+                  "enum": ["agent::ready", "agent::executing", "agent::review", "agent::done", "status::blocked"]
+                },
+                "branch": { "type": "string" },
+                "persona": { "type": "string" },
+                "model": { "type": "string" },
+                "mode": {
+                  "type": "string",
+                  "enum": ["fast", "planning", ""]
+                },
+                "skills": {
+                  "type": "array",
+                  "items": { "type": "string" }
+                },
+                "focusAreas": {
+                  "type": "array",
+                  "items": { "type": "string" }
+                },
+                "isRiskHigh": { "type": "boolean" },
+                "dependsOn": {
+                  "type": "array",
+                  "items": { "type": "integer" }
+                }
+              },
+              "additionalProperties": false
+            }
+          }
+        },
+        "additionalProperties": false
+      }
+    },
+    "dispatched": {
+      "type": "array",
+      "description": "Tasks dispatched during this invocation.",
+      "items": {
+        "type": "object",
+        "required": ["taskId", "dispatchId", "status"],
+        "properties": {
+          "taskId": { "type": "integer", "minimum": 1 },
+          "dispatchId": { "type": "string" },
+          "status": {
+            "type": "string",
+            "enum": ["dispatched", "queued"]
+          }
+        },
+        "additionalProperties": false
+      }
+    },
+    "heldForApproval": {
+      "type": "array",
+      "description": "Tasks held due to risk::high label — require operator approval.",
+      "items": {
+        "type": "object",
+        "required": ["taskId", "reason"],
+        "properties": {
+          "taskId": { "type": "integer", "minimum": 1 },
+          "reason": { "type": "string" }
+        },
+        "additionalProperties": false
+      }
+    }
+  },
+  "additionalProperties": false
+}

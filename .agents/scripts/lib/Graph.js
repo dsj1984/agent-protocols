@@ -207,6 +207,95 @@ export function computeReachability(adjacency) {
 }
 
 /**
+ * Performs a topological sort on the DAG using Kahn's algorithm.
+ * Returns tasks ordered such that all dependencies precede their dependents.
+ * Deterministic: ties are broken by task ID (ascending) for stable output.
+ *
+ * @param {Map<number, number[]>} adjacency - Dependency map (id → blockedBy[]).
+ * @param {Map<number, object>} taskMap - Full task objects keyed by id.
+ * @returns {object[]} Tasks in topological order.
+ * @throws {Error} If a cycle is detected (should be caught before calling this).
+ */
+export function topologicalSort(adjacency, taskMap) {
+  // Compute in-degree for each node
+  const inDegree = new Map();
+  for (const id of adjacency.keys()) {
+    inDegree.set(id, 0);
+  }
+  for (const deps of adjacency.values()) {
+    for (const dep of deps) {
+      inDegree.set(dep, (inDegree.get(dep) ?? 0) + 1);
+    }
+  }
+
+  // Seed queue with zero-in-degree nodes, sorted by id for determinism
+  const queue = [...inDegree.entries()]
+    .filter(([, deg]) => deg === 0)
+    .map(([id]) => id)
+    .sort((a, b) => a - b);
+
+  const sorted = [];
+
+  while (queue.length > 0) {
+    // Take smallest ID for determinism
+    queue.sort((a, b) => a - b);
+    const id = queue.shift();
+    sorted.push(taskMap.get(id));
+
+    // For each node that depends on this one (reverse-traverse adjacency)
+    for (const [nodeId, deps] of adjacency.entries()) {
+      if (deps.includes(id)) {
+        const newDeg = (inDegree.get(nodeId) ?? 0) - 1;
+        inDegree.set(nodeId, newDeg);
+        if (newDeg === 0) queue.push(nodeId);
+      }
+    }
+  }
+
+  if (sorted.length !== adjacency.size) {
+    throw new Error(
+      '[Graph] topologicalSort detected a cycle. Run detectCycle() first.',
+    );
+  }
+
+  return sorted;
+}
+
+/**
+ * Groups tasks into sequential execution waves.
+ *
+ * A wave contains all tasks whose dependencies are fully satisfied by
+ * previously completed waves. Tasks within the same wave can run concurrently
+ * (subject to focus-area serialization in the Dispatcher).
+ *
+ * Uses `assignLayers` to compute depth, then groups by layer value.
+ * The returned array is sorted by wave index (wave 0 = roots).
+ *
+ * @param {Map<number, number[]>} adjacency - Dependency map (id → blockedBy[]).
+ * @param {Map<number, object>} taskMap - Full task objects keyed by id.
+ * @returns {object[][]} Array of waves, each wave is an array of task objects.
+ */
+export function computeWaves(adjacency, taskMap) {
+  const layers = assignLayers(adjacency);
+  const waveMap = new Map(); // layer → task[]
+
+  for (const [id, layer] of layers.entries()) {
+    if (!waveMap.has(layer)) waveMap.set(layer, []);
+    waveMap.get(layer).push(taskMap.get(id));
+  }
+
+  // Sort waves by layer, sort tasks within each wave by id for determinism
+  const maxLayer = Math.max(...waveMap.keys());
+  const waves = [];
+  for (let i = 0; i <= maxLayer; i++) {
+    const waveTasks = (waveMap.get(i) ?? []).sort((a, b) => a.id - b.id);
+    if (waveTasks.length > 0) waves.push(waveTasks);
+  }
+
+  return waves;
+}
+
+/**
  * Auto-serializes concurrent tasks whose focusAreas overlap (or whose scope is
  * 'root' / includes '*'), preventing file-level conflicts at runtime.
  *

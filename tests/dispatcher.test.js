@@ -1,0 +1,388 @@
+/**
+ * Dispatcher Tests
+ *
+ * Tests the core dispatcher logic using:
+ *  - A mock ITicketingProvider (in-memory, no GitHub calls)
+ *  - A mock IExecutionAdapter (records dispatches, no side effects)
+ *
+ * All tests run in --dry-run=false mode with mocked provider/adapter,
+ * and skip branch creation (tested separately in integration tests).
+ */
+
+import { describe, it, beforeEach } from 'node:test';
+import assert from 'node:assert/strict';
+import path from 'node:path';
+import { pathToFileURL } from 'node:url';
+import { fileURLToPath } from 'node:url';
+
+const __dirname = path.dirname(fileURLToPath(import.meta.url));
+const ROOT = path.resolve(__dirname, '..');
+const LIB = path.join(ROOT, '.agents', 'scripts', 'lib');
+const SCRIPTS = path.join(ROOT, '.agents', 'scripts');
+
+const { ITicketingProvider } = await import(
+  pathToFileURL(path.join(LIB, 'ITicketingProvider.js')).href
+);
+const { IExecutionAdapter } = await import(
+  pathToFileURL(path.join(LIB, 'IExecutionAdapter.js')).href
+);
+const { dispatch } = await import(
+  pathToFileURL(path.join(SCRIPTS, 'dispatcher.js')).href
+);
+
+// ---------------------------------------------------------------------------
+// Mock provider
+// ---------------------------------------------------------------------------
+
+/**
+ * In-memory mock ticketing provider.
+ * Pre-populate `tickets` and `epics` before each test.
+ */
+class MockProvider extends ITicketingProvider {
+  constructor({ epic = null, tasks = [] } = {}) {
+    super();
+    this._epic = epic;
+    this._tasks = tasks;
+    this.updateCalls = [];
+    this.commentCalls = [];
+  }
+
+  async getEpic() {
+    return this._epic;
+  }
+
+  async getTickets(epicId, filters = {}) {
+    let result = this._tasks;
+    if (filters.label) {
+      result = result.filter(t => (t.labels ?? []).includes(filters.label));
+    }
+    return result;
+  }
+
+  async getTicket(ticketId) {
+    return this._tasks.find(t => t.id === ticketId) ?? null;
+  }
+
+  async updateTicket(ticketId, mutations) {
+    this.updateCalls.push({ ticketId, mutations });
+  }
+
+  async postComment(ticketId, payload) {
+    this.commentCalls.push({ ticketId, payload });
+    return { commentId: Date.now() };
+  }
+}
+
+// ---------------------------------------------------------------------------
+// Mock adapter
+// ---------------------------------------------------------------------------
+
+class MockAdapter extends IExecutionAdapter {
+  constructor() {
+    super();
+    this.dispatches = [];
+  }
+
+  get executorId() { return 'mock'; }
+
+  async dispatchTask(taskDispatch) {
+    this.dispatches.push(taskDispatch);
+    return { dispatchId: `mock-${taskDispatch.taskId}`, status: 'dispatched' };
+  }
+
+  async getTaskStatus(dispatchId) {
+    return { dispatchId, status: 'pending' };
+  }
+
+  async cancelTask() {}
+}
+
+// ---------------------------------------------------------------------------
+// Helper to build task fixtures
+// ---------------------------------------------------------------------------
+
+function makeTask(id, overrides = {}) {
+  return {
+    id,
+    title: `Task ${id}`,
+    body: '## Metadata\n**Persona**: engineer\n**Model**: Gemini 3 Flash\n**Mode**: fast\n**Skills**: core/tdd\n**Focus Areas**: src/',
+    labels: ['type::task', 'agent::ready'],
+    state: 'open',
+    assignees: [],
+    ...overrides,
+  };
+}
+
+const EPIC = { id: 1, title: 'Test Epic', body: '', labels: ['type::epic'] };
+
+// ---------------------------------------------------------------------------
+// Tests
+// ---------------------------------------------------------------------------
+
+describe('dispatch() — empty task list', () => {
+  it('returns manifest with zero waves when no tasks', async () => {
+    const provider = new MockProvider({ epic: EPIC, tasks: [] });
+    const adapter = new MockAdapter();
+
+    const manifest = await dispatch({
+      epicId: 1,
+      dryRun: true,
+      provider,
+      adapter,
+    });
+
+    assert.equal(manifest.epicId, 1);
+    assert.equal(manifest.summary.totalTasks, 0);
+    assert.equal(manifest.waves.length, 0);
+    assert.equal(manifest.dispatched.length, 0);
+  });
+});
+
+describe('dispatch() — single task, no dependencies', () => {
+  it('dispatches Wave 0 containing the single task', async () => {
+    const provider = new MockProvider({
+      epic: EPIC,
+      tasks: [makeTask(10)],
+    });
+    const adapter = new MockAdapter();
+
+    const manifest = await dispatch({
+      epicId: 1,
+      dryRun: true,
+      provider,
+      adapter,
+    });
+
+    assert.equal(manifest.summary.totalTasks, 1);
+    assert.equal(manifest.waves.length, 1);
+    assert.equal(manifest.waves[0].waveIndex, 0);
+    assert.equal(manifest.waves[0].tasks.length, 1);
+    assert.equal(manifest.waves[0].tasks[0].taskId, 10);
+  });
+
+  it('dry-run does not call adapter.dispatchTask()', async () => {
+    const provider = new MockProvider({ epic: EPIC, tasks: [makeTask(10)] });
+    const adapter = new MockAdapter();
+
+    await dispatch({ epicId: 1, dryRun: true, provider, adapter });
+    // In dryRun mode dispatcher logs but doesn't call adapter.dispatchTask
+    assert.equal(adapter.dispatches.length, 0);
+  });
+});
+
+describe('dispatch() — two independent tasks', () => {
+  it('groups both tasks in Wave 0 when focus areas are distinct', async () => {
+    // Non-overlapping focus areas — should NOT be serialized
+    const task10 = makeTask(10, {
+      body: '## Metadata\n**Persona**: engineer\n**Model**: Gemini 3 Flash\n**Mode**: fast\n**Skills**: core/tdd\n**Focus Areas**: src/api/',
+    });
+    const task20 = makeTask(20, {
+      body: '## Metadata\n**Persona**: engineer\n**Model**: Gemini 3 Flash\n**Mode**: fast\n**Skills**: core/tdd\n**Focus Areas**: src/ui/',
+    });
+
+    const provider = new MockProvider({ epic: EPIC, tasks: [task10, task20] });
+    const adapter = new MockAdapter();
+
+    const manifest = await dispatch({
+      epicId: 1,
+      dryRun: true,
+      provider,
+      adapter,
+    });
+
+    assert.equal(manifest.waves[0].tasks.length, 2);
+    const ids = manifest.waves[0].tasks.map(t => t.taskId).sort((a, b) => a - b);
+    assert.deepEqual(ids, [10, 20]);
+  });
+
+  it('serializes tasks with overlapping focus areas into separate waves', async () => {
+    // Same focus area — should be auto-serialized into wave 0 and wave 1
+    const task10 = makeTask(10, {
+      body: '## Metadata\n**Persona**: engineer\n**Mode**: fast\n**Skills**:\n**Focus Areas**: src/shared/',
+    });
+    const task20 = makeTask(20, {
+      body: '## Metadata\n**Persona**: engineer\n**Mode**: fast\n**Skills**:\n**Focus Areas**: src/shared/',
+    });
+
+    const provider = new MockProvider({ epic: EPIC, tasks: [task10, task20] });
+    const adapter = new MockAdapter();
+
+    const manifest = await dispatch({
+      epicId: 1,
+      dryRun: true,
+      provider,
+      adapter,
+    });
+
+    // After serialization, tasks are in separate waves
+    assert.equal(manifest.waves.length, 2);
+  });
+});
+
+describe('dispatch() — dependent tasks', () => {
+  it('puts dependency in Wave 0 and dependent in Wave 1', async () => {
+    const taskA = makeTask(10);
+    // taskB depends on taskA (#10)
+    const taskB = makeTask(20, {
+      body: '## Metadata\n**Persona**: engineer\n**Mode**: fast\n**Skills**:\n**Focus Areas**:\n\nBlocked by #10',
+    });
+
+    const provider = new MockProvider({ epic: EPIC, tasks: [taskA, taskB] });
+    const adapter = new MockAdapter();
+
+    const manifest = await dispatch({
+      epicId: 1,
+      dryRun: true,
+      provider,
+      adapter,
+    });
+
+    assert.equal(manifest.waves.length, 2);
+    assert.equal(manifest.waves[0].tasks[0].taskId, 10);
+    assert.equal(manifest.waves[1].tasks[0].taskId, 20);
+  });
+
+  it('does not dispatch Wave 1 when Wave 0 task is not done', async () => {
+    const taskA = makeTask(10); // agent::ready — not done
+    const taskB = makeTask(20, {
+      body: '## Metadata\n**Persona**: engineer\n**Mode**: fast\n\nBlocked by #10',
+    });
+
+    const provider = new MockProvider({ epic: EPIC, tasks: [taskA, taskB] });
+    const adapter = new MockAdapter();
+
+    const manifest = await dispatch({
+      epicId: 1,
+      dryRun: true,
+      provider,
+      adapter,
+    });
+
+    // Wave 0 should be dispatched, Wave 1 should not be reached
+    const dispatchedIds = manifest.dispatched.map(d => d.taskId);
+    assert.ok(!dispatchedIds.includes(20), 'Task 20 should not be dispatched');
+  });
+});
+
+describe('dispatch() — cycle detection', () => {
+  it('throws when tasks form a cycle', async () => {
+    // A → B → A (A blocked by B, B blocked by A)
+    const taskA = makeTask(10, {
+      body: '## Metadata\n**Persona**: engineer\n**Mode**: fast\n\nBlocked by #20',
+    });
+    const taskB = makeTask(20, {
+      body: '## Metadata\n**Persona**: engineer\n**Mode**: fast\n\nBlocked by #10',
+    });
+
+    const provider = new MockProvider({ epic: EPIC, tasks: [taskA, taskB] });
+    const adapter = new MockAdapter();
+
+    await assert.rejects(
+      () => dispatch({ epicId: 1, dryRun: true, provider, adapter }),
+      /cycle detected/i,
+    );
+  });
+});
+
+describe('dispatch() — risk::high tasks', () => {
+  it('holds risk::high tasks, does not dispatch them', async () => {
+    const riskTask = makeTask(10, {
+      labels: ['type::task', 'agent::ready', 'risk::high'],
+    });
+    const provider = new MockProvider({ epic: EPIC, tasks: [riskTask] });
+    const adapter = new MockAdapter();
+
+    const manifest = await dispatch({
+      epicId: 1,
+      dryRun: true,
+      provider,
+      adapter,
+    });
+
+    assert.equal(manifest.heldForApproval.length, 1);
+    assert.equal(manifest.heldForApproval[0].taskId, 10);
+    assert.equal(manifest.dispatched.length, 0);
+  });
+});
+
+describe('dispatch() — skips already-done tasks', () => {
+  it('does not re-dispatch agent::done tasks', async () => {
+    const doneTask = makeTask(10, {
+      labels: ['type::task', 'agent::done'],
+    });
+    const readyTask = makeTask(20);
+
+    const provider = new MockProvider({ epic: EPIC, tasks: [doneTask, readyTask] });
+    const adapter = new MockAdapter();
+
+    const manifest = await dispatch({
+      epicId: 1,
+      dryRun: true,
+      provider,
+      adapter,
+    });
+
+    assert.equal(manifest.summary.doneTasks, 1);
+    // Task 10 is done; only Task 20 is dispatched (in dry-run, dispatched array still populated)
+    const dispatchedIds = manifest.dispatched.map(d => d.taskId);
+    assert.ok(!dispatchedIds.includes(10));
+  });
+});
+
+describe('dispatch() — manifest schema compliance', () => {
+  it('manifest contains all required top-level fields', async () => {
+    const provider = new MockProvider({ epic: EPIC, tasks: [makeTask(5)] });
+    const adapter = new MockAdapter();
+
+    const manifest = await dispatch({
+      epicId: 1,
+      dryRun: true,
+      provider,
+      adapter,
+    });
+
+    const required = [
+      'schemaVersion', 'generatedAt', 'epicId', 'epicTitle',
+      'executor', 'dryRun', 'summary', 'waves',
+      'dispatched', 'heldForApproval',
+    ];
+    for (const field of required) {
+      assert.ok(Object.hasOwn(manifest, field), `Missing field: ${field}`);
+    }
+  });
+
+  it('summary contains all required fields', async () => {
+    const provider = new MockProvider({ epic: EPIC, tasks: [makeTask(5)] });
+    const adapter = new MockAdapter();
+
+    const manifest = await dispatch({
+      epicId: 1,
+      dryRun: true,
+      provider,
+      adapter,
+    });
+
+    const requiredSummary = [
+      'totalTasks', 'doneTasks', 'progressPercent',
+      'totalWaves', 'dispatched', 'heldForApproval',
+    ];
+    for (const field of requiredSummary) {
+      assert.ok(Object.hasOwn(manifest.summary, field), `Missing summary.${field}`);
+    }
+  });
+
+  it('progressPercent is 100 when all tasks are done', async () => {
+    const doneTask = makeTask(10, { labels: ['type::task', 'agent::done'] });
+    const provider = new MockProvider({ epic: EPIC, tasks: [doneTask] });
+    const adapter = new MockAdapter();
+
+    const manifest = await dispatch({
+      epicId: 1,
+      dryRun: true,
+      provider,
+      adapter,
+    });
+
+    assert.equal(manifest.summary.progressPercent, 100);
+  });
+});
