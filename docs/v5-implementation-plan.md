@@ -626,11 +626,120 @@ adapters, the resolved model is **binding**.
 | `SubprocessAdapter`      | `"subprocess"`   | `child_process.fork(AgentLoopRunner)`      | Future                      |
 | `MCPAdapter`             | `"mcp"`          | MCP tool dispatch                          | Future (pending MCP spec)   |
 
+### Agent Execution Protocol Template
+
+In v4, the `Renderer.js` embedded a rich Agent Execution Protocol (pre-flight
+verification, branching instructions, close-out procedure, error recovery, HITL
+gates) directly into the playbook markdown for each task. In v5, this protocol
+is split between **ticket metadata** and a **universal protocol template**
+using the **Hybrid** approach:
+
+**Ticket Body** carries task-specific data:
+
+- Instructions (implementation steps)
+- Verification criteria (acceptance checklist)
+- Metadata section: persona, model, mode, skills, focus area, blocked-by refs
+- Protocol version used during generation
+
+**`agent-protocol.md` Template** carries universal execution rules:
+
+- Pre-flight verification (check all blocked-by tickets are resolved)
+- Branching convention (with `{{BRANCH_NAME}}` placeholder)
+- Close-out protocol (finalize via `/sprint-finalize-task`)
+- Error recovery (apply `status::blocked`, alert operator)
+- HITL gate rules (stop for `risk::high` labels)
+- Protocol version stamp for the execution session
+
+**Context Hydrator** assembles the full prompt at dispatch time:
+
+1. Read `agent-protocol.md`, substitute `{{BRANCH_NAME}}`, `{{TASK_ID}}`,
+   `{{EPIC_BRANCH}}` with runtime values from the Dispatcher
+2. Read the persona file from `.agents/personas/{{PERSONA}}.md`
+3. Read each skill file from `.agents/skills/{{SKILL}}/SKILL.md`
+4. Traverse ticket hierarchy for context (Task → Story → Feature → Epic → PRD +
+   Tech Spec)
+5. Read the Task body (instructions + verification criteria)
+6. Assemble all sections into a single hydrated prompt string
+7. Pass to `adapter.dispatchTask({ ..., prompt })`
+
+> **Design Note — Metadata in Prompt Text:** Persona and skill directives are
+> NOT stored only as GitHub labels — they are included in the **hydrated prompt
+> text** so the agent can load and follow them. Labels provide machine-readable
+> indexing; the prompt provides the actual behavioral instructions.
+
+**Protocol Version Tracking:**
+
+Each ticket records the protocol version at two lifecycle points:
+
+- **Generation-time:** The `ticket-decomposer.js` stamps `protocol-version::
+  X.Y.Z` (from `.agents/VERSION`) in the ticket metadata when creating the
+  Task during `/sprint-plan`.
+- **Execution-time:** The Context Hydrator stamps the current runtime protocol
+  version into the hydrated prompt. If there is a version mismatch between
+  generation and execution, a warning is emitted in the Dispatch Manifest.
+
+This enables post-hoc auditing of which protocol version governed each task's
+planning and execution.
+
+### Bookend Lifecycle Phases
+
+In v4, bookend tasks (Integration, QA, Code Review, Retro, Close Sprint) were
+discrete tasks in the playbook with deterministic ordering. In v5, **bookends
+are lifecycle phases** orchestrated by `/sprint-execute` — they are NOT
+individual GitHub tickets.
+
+After all Task waves complete (all Tasks under the Epic reach `agent::done`),
+`/sprint-execute` automatically transitions into the bookend lifecycle:
+
+```text
+All Tasks agent::done
+  │
+  ├─→ Phase: Integration
+  │     Run sprint-integration workflow (merge PRs, resolve conflicts)
+  │     Uses persona/skills from bookendRequirements.isIntegration
+  │
+  ├─→ Phase: QA
+  │     Run sprint-testing workflow (validation suite)
+  │     Uses persona/skills from bookendRequirements.isQA
+  │
+  ├─→ Phase: Code Review (optional)
+  │     Run sprint-code-review workflow (architectural audit)
+  │     Uses persona/skills from bookendRequirements.isCodeReview
+  │
+  ├─→ Phase: Retrospective
+  │     Run sprint-retro workflow (data from ticket graph)
+  │     Uses persona/skills from bookendRequirements.isRetro
+  │
+  └─→ Phase: Close-Out
+        Run sprint-close-out workflow (close Epic, tag release)
+        Uses persona/skills from bookendRequirements.isCloseSprint
+```
+
+The `bookendRequirements` config block in `.agentrc.json` provides the persona,
+skills, and model for each lifecycle phase — the same data that v4 stored per
+bookend task in the manifest.
+
+### Branch Creation Strategy
+
+In v4, `sprint-setup.md` created the sprint branch before planning and each
+task's feature branch was created during execution. In v5, **the Dispatcher
+creates all branches at dispatch time:**
+
+1. **Epic base branch:** Created by `/sprint-execute` on first invocation if it
+   doesn't already exist: `epic/[Epic_ID]` (branched from `main`).
+2. **Task feature branches:** Created by the Dispatcher when dispatching each
+   wave: `task/epic-[Epic_ID]/[Task_Number]` (branched from the Epic base).
+3. **Lint baseline capture:** The Dispatcher captures the lint baseline on the
+   Epic base branch before dispatching the first wave.
+
+The `sprint-setup.md` workflow is **deprecated** in v5 — its responsibilities
+are absorbed by the Dispatcher.
+
 ### Sprint 3A: Execution Adapter Interface & Dispatcher
 
 **Scope:** Define the execution adapter abstraction, build the HITL reference
 implementation, and build the dispatcher that fetches Tasks, builds the
-dependency DAG, and determines execution order.
+dependency DAG, creates branches, and determines execution order.
 
 | Task                                                                          | Type   | File(s)                                    | Depends On               |
 | ----------------------------------------------------------------------------- | ------ | ------------------------------------------ | ------------------------ |
@@ -642,24 +751,34 @@ dependency DAG, and determines execution order.
 | DAG scheduling logic — concurrent vs. sequential wave dispatch                | MODIFY | `.agents/scripts/dispatcher.js`            | Graph                    |
 | Focus area conflict detection — auto-serialize overlapping `focus::` labels   | MODIFY | (same file)                                | Graph                    |
 | HITL gate — hold `risk::high` Tasks; fire webhook for approval                | MODIFY | (same file)                                | Notify                   |
+| Branch creation — Epic base branch + task feature branches at dispatch time   | MODIFY | (same file)                                | Provider                 |
+| Lint baseline capture on Epic base branch before first wave                   | MODIFY | (same file)                                | `lint-baseline.js`       |
 | Dispatch Manifest schema                                                      | NEW    | `.agents/schemas/dispatch-manifest.json`   | —                        |
 | Unit tests for interface + adapter + dispatcher                               | NEW    | `tests/execution-adapter.test.js`, `tests/dispatcher.test.js` | All above |
 
 ### Sprint 3B: Context Hydration Engine
 
 **Scope:** Build the hydrator that assembles a "virtual context" from the GitHub
-work breakdown hierarchy before execution.
+work breakdown hierarchy before execution. The hydrator produces a fully
+self-contained prompt string that includes the agent execution protocol,
+persona directives, skill instructions, hierarchy context, and task
+instructions.
 
-| Task                                                                                   | Type   | File(s)                               | Depends On           |
-| -------------------------------------------------------------------------------------- | ------ | ------------------------------------- | -------------------- |
-| Build `context-hydrator.js` — implements the 5-step hydration sequence from roadmap §C | NEW    | `.agents/scripts/context-hydrator.js` | Phase 1              |
-| Token budget integration — respect `maxTokenBudget` and truncate low-priority context  | MODIFY | (same file)                           | `config-resolver.js` |
-| Unit tests for hydrator (mocked provider)                                              | NEW    | `tests/context-hydrator.test.js`      | Hydrator             |
+| Task                                                                                        | Type   | File(s)                                      | Depends On           |
+| ------------------------------------------------------------------------------------------- | ------ | -------------------------------------------- | -------------------- |
+| Create `agent-protocol.md` template with placeholder substitution points                    | NEW    | `.agents/templates/agent-protocol.md`        | —                    |
+| Build `context-hydrator.js` — implements the 7-step hydration sequence (see above)           | NEW    | `.agents/scripts/context-hydrator.js`        | Phase 1, Template    |
+| Protocol template rendering — substitute `{{BRANCH_NAME}}`, `{{TASK_ID}}`, version stamps   | MODIFY | (same file)                                  | Template             |
+| Persona injection — read `.agents/personas/{{PERSONA}}.md` into prompt text                  | MODIFY | (same file)                                  | Config               |
+| Skill injection — read each `.agents/skills/{{SKILL}}/SKILL.md` into prompt text             | MODIFY | (same file)                                  | Config               |
+| Protocol version mismatch detection — warn if generation ≠ execution version                 | MODIFY | (same file)                                  | Version stamp        |
+| Token budget integration — respect `maxTokenBudget` and truncate low-priority context        | MODIFY | (same file)                                  | `config-resolver.js` |
+| Unit tests for hydrator (mocked provider)                                                    | NEW    | `tests/context-hydrator.test.js`             | Hydrator             |
 
 ### Sprint 3C: State Sync & Ticket Mutations
 
 **Scope:** Build the state writer that syncs agent progress to GitHub in
-real-time.
+real-time, including bottom-up parent completion cascading.
 
 | Task                                                                                     | Type   | File(s)                                  | Depends On |
 | ---------------------------------------------------------------------------------------- | ------ | ---------------------------------------- | ---------- |
@@ -668,18 +787,47 @@ real-time.
 | Tasklist checkbox mutations: `- [ ]` → `- [x]` in ticket body                            | MODIFY | (same file)                              | Provider   |
 | Structured progress comments via `postComment()`                                         | MODIFY | (same file)                              | Provider   |
 | Friction log posting — post `agent-friction-log.json` payloads as ticket comments        | MODIFY | (same file)                              | Provider   |
-| Unit tests for state writer                                                              | NEW    | `tests/update-ticket-state.test.js`      | Writer     |
+| Parent auto-completion cascade (see below)                                               | MODIFY | (same file)                              | Provider   |
+| Unit tests for state writer (including cascade tests)                                    | NEW    | `tests/update-ticket-state.test.js`      | Writer     |
+
+**Parent Auto-Completion Cascade:**
+
+When a Task reaches `agent::done`, the state writer automatically checks whether
+all sibling tickets under the same parent are also done, and cascades completion
+up the hierarchy:
+
+```text
+Task reaches agent::done
+  │
+  ├─→ Check: all sibling Tasks under the same Story also agent::done?
+  │     → Yes: transition Story to agent::done, post summary comment
+  │
+  ├─→ Check: all Stories under the same Feature also agent::done?
+  │     → Yes: transition Feature to agent::done, post summary comment
+  │
+  └─→ Check: all Features under the same Epic also agent::done?
+        → Yes: transition Epic to agent::done
+        → Post summary comment on Epic
+        → Fire webhook (INFO: epic-complete)
+```
+
+This recursive cascade uses `provider.getSubTickets(parentId)` (already in
+`ITicketingProvider`) and label-based status checks on each sibling. Each
+parent transition includes a summary comment listing the completed children.
 
 ### Sprint 3D: `/sprint-execute` Workflow
 
 **Scope:** Wire everything into the `/sprint-execute [Epic ID]` orchestrator,
 operating in two modes: Epic-level (outputs Dispatch Manifest) and Task-level
-(executes a single Task).
+(executes a single Task). After all Task waves complete, the workflow
+automatically transitions into bookend lifecycle phases (Integration → QA →
+Code Review → Retro → Close-Out) without requiring separate tickets.
 
 | Task                                                                              | Type   | File(s)                                     | Depends On   |
 | --------------------------------------------------------------------------------- | ------ | ------------------------------------------- | ------------ |
 | Build `/sprint-execute` workflow — Epic-level Dispatch Manifest mode              | NEW    | `.agents/workflows/sprint-execute.md`       | Sprints 3A-C |
 | Build `/sprint-execute` workflow — Task-level single-task execution mode          | MODIFY | (same file)                                 | Sprints 3A-C |
+| Bookend lifecycle phase orchestration — auto-run post all Tasks `agent::done`     | MODIFY | (same file)                                 | Sprints 3A-C |
 | Epic completion detection — all tickets `agent::done` → notify operator           | NEW    | `.agents/scripts/dispatcher.js`             | Notify       |
 | Integration with existing `/sprint-finalize-task` — call `update-ticket-state.js` | MODIFY | `.agents/workflows/sprint-finalize-task.md` | State writer |
 
@@ -729,8 +877,23 @@ Step 5 — Wave Completion & Re-evaluation
     Re-evaluate the dependency DAG.
     Compute the next wave (return to Step 1).
     If all Tasks under the Epic reach agent::done:
-      Post summary comment on the Epic issue.
-      Fire webhook (INFO: epic-complete).
+      Transition to Step 6 (Bookend Lifecycle).
+
+Step 6 — Bookend Lifecycle Phases
+  Execute bookend phases sequentially (not as tickets):
+    a. Integration — run sprint-integration workflow
+       (persona/skills/model from bookendRequirements.isIntegration)
+    b. QA — run sprint-testing workflow
+       (persona/skills/model from bookendRequirements.isQA)
+    c. Code Review (optional) — run sprint-code-review workflow
+       (persona/skills/model from bookendRequirements.isCodeReview)
+    d. Retrospective — run sprint-retro workflow
+       (persona/skills/model from bookendRequirements.isRetro)
+    e. Close-Out — run sprint-close-out workflow
+       (persona/skills/model from bookendRequirements.isCloseSprint)
+  On final completion:
+    Post summary comment on the Epic issue.
+    Fire webhook (INFO: epic-complete).
 ```
 
 **`/sprint-execute #[Task ID]` Workflow (Task-Level — Single Execution):**
@@ -763,37 +926,51 @@ Step 3 — Finalize
 
 **Scope:** Replace existing v4 workflows with ticketing-native equivalents.
 Since v5 is a clean break, these are full rewrites rather than incremental
-updates.
+updates. The core `sprint-integrate.js` candidate verification logic is
+retained (ephemeral branch merge, validation, rollback) — only the playbook
+state sync (checkbox/Mermaid updates) is replaced with ticket label transitions
+via `update-ticket-state.js`.
 
-| Task                                                                                  | Type   | File(s)                                     | Depends On   |
-| ------------------------------------------------------------------------------------- | ------ | ------------------------------------------- | ------------ |
-| Rewrite `/sprint-finalize-task` to call `update-ticket-state.js`                      | MODIFY | `.agents/workflows/sprint-finalize-task.md` | State writer |
-| Rewrite `/sprint-integration` to use ticket labels and `provider.createPullRequest()` | MODIFY | `.agents/workflows/sprint-integration.md`   | Provider     |
-| Rewrite `/sprint-hotfix` to apply `status::blocked` and fire webhook                  | MODIFY | `.agents/workflows/sprint-hotfix.md`        | Provider     |
-| Rewrite `/sprint-retro` to read data from the ticket graph                            | MODIFY | `.agents/workflows/sprint-retro.md`         | Provider     |
-| Rewrite `/sprint-close-out` to close the Epic issue via provider                      | MODIFY | `.agents/workflows/sprint-close-out.md`     | Provider     |
-| Rewrite `verify-prereqs.js` to check ticket state exclusively                         | MODIFY | `.agents/scripts/verify-prereqs.js`         | Provider     |
-| Rewrite `diagnose-friction.js` to post friction logs as ticket comments               | MODIFY | `.agents/scripts/diagnose-friction.js`      | Provider     |
+| Task                                                                                     | Type   | File(s)                                     | Depends On   |
+| ---------------------------------------------------------------------------------------- | ------ | ------------------------------------------- | ------------ |
+| Rewrite `/sprint-finalize-task` to call `update-ticket-state.js`                         | MODIFY | `.agents/workflows/sprint-finalize-task.md` | State writer |
+| Rewrite `/sprint-integration` — retain candidate verification, swap state sync to labels | MODIFY | `.agents/workflows/sprint-integration.md`   | Provider     |
+| Refactor `sprint-integrate.js` — replace playbook sync with `update-ticket-state.js`     | MODIFY | `.agents/scripts/sprint-integrate.js`       | State writer |
+| Rewrite `/sprint-hotfix` to apply `status::blocked` and fire webhook                     | MODIFY | `.agents/workflows/sprint-hotfix.md`        | Provider     |
+| Rewrite `/sprint-retro` to read data from the ticket graph                               | MODIFY | `.agents/workflows/sprint-retro.md`         | Provider     |
+| Rewrite `/sprint-close-out` to close the Epic issue via provider                         | MODIFY | `.agents/workflows/sprint-close-out.md`     | Provider     |
+| Rewrite `verify-prereqs.js` to check ticket state exclusively                            | MODIFY | `.agents/scripts/verify-prereqs.js`         | Provider     |
+| Rewrite `diagnose-friction.js` to post friction logs as ticket comments                  | MODIFY | `.agents/scripts/diagnose-friction.js`      | Provider     |
 
 ### Sprint 3F: Cleanup & Documentation
 
-**Scope:** Remove deprecated scripts, deprecate `docs/sprints/`, update all
-documentation, and ship the final release.
+**Scope:** Remove deprecated scripts and workflows, deprecate `docs/sprints/`,
+update all documentation, and ship the final release. This includes removing
+the v4 event stream protocol, golden path harvesting system, speculative cache,
+playbook generation pipeline, and local sprint setup workflow.
 
-| Task                                                               | Type   | File(s)                                         | Depends On |
-| ------------------------------------------------------------------ | ------ | ----------------------------------------------- | ---------- |
-| Remove `generate-playbook.js`                                      | DELETE | `.agents/scripts/generate-playbook.js`          | Sprint 3E  |
-| Remove `update-task-state.js`                                      | DELETE | `.agents/scripts/update-task-state.js`          | Sprint 3E  |
-| Remove `playbook-to-tickets.js`                                    | DELETE | `.agents/scripts/playbook-to-tickets.js`        | Sprint 3E  |
-| Deprecate `docs/sprints/` directory (add DEPRECATED.md notice)     | NEW    | `docs/sprints/DEPRECATED.md`                    | All        |
-| Rewrite `SDLC.md` — full v5 architecture                           | MODIFY | `.agents/SDLC.md`                               | All        |
-| Rewrite `README.md` — document v5 architecture and provider config | MODIFY | `README.md`, `.agents/README.md`                | All        |
-| Rewrite `instructions.md` — ticketing-native execution rules       | MODIFY | `.agents/instructions.md`                       | All        |
-| Update `default-agentrc.json` — document `orchestration` block     | MODIFY | `.agents/default-agentrc.json`                  | All        |
-| Remove `/sprint-generate-playbook` workflow                        | DELETE | `.agents/workflows/sprint-generate-playbook.md` | All        |
-| Bump `VERSION` to `5.0.0`                                          | MODIFY | `.agents/VERSION`                               | All        |
-| Update `CHANGELOG.md` with v5.0.0 release notes                    | MODIFY | `CHANGELOG.md`                                  | All        |
-| Final `npm test` / `npm run lint` validation                       | CHECK  | —                                               | All        |
+| Task                                                                    | Type   | File(s)                                         | Depends On |
+| ----------------------------------------------------------------------- | ------ | ----------------------------------------------- | ---------- |
+| Remove `generate-playbook.js` + `PlaybookOrchestrator.js` + `Renderer.js` | DELETE | `.agents/scripts/generate-playbook.js`, `lib/PlaybookOrchestrator.js`, `lib/Renderer.js` | Sprint 3E |
+| Remove `update-task-state.js`                                           | DELETE | `.agents/scripts/update-task-state.js`          | Sprint 3E  |
+| Remove `playbook-to-tickets.js`                                         | DELETE | `.agents/scripts/playbook-to-tickets.js`        | Sprint 3E  |
+| Remove `run-agent-loop.js` + `AgentLoopRunner.js` (event stream)        | DELETE | `.agents/scripts/run-agent-loop.js`, `lib/AgentLoopRunner.js` | Sprint 3E |
+| Remove `atomic-action-schema.json` (event stream schema)                | DELETE | `.agents/schemas/atomic-action-schema.json`     | Sprint 3E  |
+| Remove `task-manifest.schema.json` (replaced by dispatch-manifest)      | DELETE | `.agents/schemas/task-manifest.schema.json`     | Sprint 3E  |
+| Remove `harvest-golden-path.js` + `CacheManager.js` (golden path)       | DELETE | `.agents/scripts/harvest-golden-path.js`, `lib/CacheManager.js` | Sprint 3E |
+| Remove `ComplexityEstimator.js` (replaced by LLM prompt constraints)    | DELETE | `.agents/scripts/lib/ComplexityEstimator.js`    | Sprint 3E  |
+| Remove `/sprint-generate-playbook` workflow                             | DELETE | `.agents/workflows/sprint-generate-playbook.md` | Sprint 3E  |
+| Remove `/sprint-setup` workflow (absorbed by Dispatcher)                | DELETE | `.agents/workflows/sprint-setup.md`             | Sprint 3E  |
+| Remove `/sprint-gather-context` workflow (replaced by Context Hydrator) | DELETE | `.agents/workflows/sprint-gather-context.md`    | Sprint 3B  |
+| Remove `sprint-playbook-template.md` (v4 template)                      | DELETE | `.agents/templates/sprint-playbook-template.md` | Sprint 3E  |
+| Deprecate `docs/sprints/` directory (add DEPRECATED.md notice)          | NEW    | `docs/sprints/DEPRECATED.md`                    | All        |
+| Rewrite `SDLC.md` — full v5 architecture                                | MODIFY | `.agents/SDLC.md`                               | All        |
+| Rewrite `README.md` — document v5 architecture and provider config      | MODIFY | `README.md`, `.agents/README.md`                | All        |
+| Rewrite `instructions.md` — ticketing-native execution rules            | MODIFY | `.agents/instructions.md`                       | All        |
+| Update `default-agentrc.json` — document `orchestration` block          | MODIFY | `.agents/default-agentrc.json`                  | All        |
+| Bump `VERSION` to `5.0.0`                                               | MODIFY | `.agents/VERSION`                               | All        |
+| Update `CHANGELOG.md` with v5.0.0 release notes                         | MODIFY | `CHANGELOG.md`                                  | All        |
+| Final `npm test` / `npm run lint` validation                             | CHECK  | —                                               | All        |
 
 ### Sprint 3G: Dogfood — End-to-End Epic Lifecycle
 
@@ -817,19 +994,33 @@ documentation, and ship the final release.
 - [ ] `IExecutionAdapter` interface defined with all method signatures.
 - [ ] `ManualDispatchAdapter` ships as the HITL reference implementation.
 - [ ] Adapter factory resolves `orchestration.executor` to the correct class.
+- [ ] `agent-protocol.md` template created with placeholder substitution.
+- [ ] Protocol version stamped at both generation and execution time.
+- [ ] Context Hydrator assembles full prompt: protocol + persona text + skill
+      text + hierarchy context + task instructions.
 - [ ] `/sprint-execute [Epic ID]` generates a Dispatch Manifest via the adapter.
 - [ ] `/sprint-execute #[Task ID]` autonomously executes a single Task.
+- [ ] Dispatcher creates Epic base branch + task feature branches at dispatch.
 - [ ] Dispatcher correctly resolves sequential/concurrent ordering from the Task
       DAG, including focus-area conflict auto-serialization.
-- [ ] Context Hydrator assembles virtual context from Task → Story → Feature →
-      Epic → PRD + Tech Spec.
 - [ ] Model selection cascade resolves correctly (ticket → bookend → default).
 - [ ] State sync updates Task labels and tasklists in real-time.
+- [ ] Parent auto-completion cascade works: Task → Story → Feature → Epic.
+- [ ] Bookend lifecycle phases execute automatically after all Tasks complete.
 - [ ] INFO notifications fire via @mention (task-complete, feature-complete,
       epic-complete).
 - [ ] ACTION notifications fire via webhook (review-needed, approval-required,
       blocked, wave-ready).
-- [ ] All deprecated scripts are removed (not archived).
+- [ ] `sprint-integrate.js` candidate verification retained with ticket-native
+      state sync.
+- [ ] All deprecated scripts removed: `generate-playbook.js`,
+      `PlaybookOrchestrator.js`, `Renderer.js`, `run-agent-loop.js`,
+      `AgentLoopRunner.js`, `harvest-golden-path.js`, `CacheManager.js`,
+      `ComplexityEstimator.js`, `update-task-state.js`, `playbook-to-tickets.js`.
+- [ ] All deprecated schemas removed: `task-manifest.schema.json`,
+      `atomic-action-schema.json`.
+- [ ] All deprecated workflows removed: `sprint-generate-playbook.md`,
+      `sprint-setup.md`, `sprint-gather-context.md`.
 - [ ] `docs/sprints/` is deprecated with a notice.
 - [ ] All documentation reflects the v5 architecture.
 - [ ] End-to-end Epic lifecycle completes with zero local artifacts.
@@ -855,9 +1046,10 @@ documentation, and ship the final release.
 | `.agents/scripts/lib/adapter-factory.js`         | 3     | Adapter resolution               |
 | `.agents/scripts/adapters/manual.js`             | 3     | HITL reference adapter           |
 | `.agents/scripts/context-hydrator.js`            | 3     | Virtual context assembly         |
-| `.agents/scripts/dispatcher.js`                  | 3     | DAG scheduler                    |
-| `.agents/scripts/update-ticket-state.js`         | 3     | Ticketing state writer           |
+| `.agents/scripts/dispatcher.js`                  | 3     | DAG scheduler + branch creation  |
+| `.agents/scripts/update-ticket-state.js`         | 3     | Ticketing state writer + cascade |
 | `.agents/schemas/dispatch-manifest.json`         | 3     | Dispatch manifest schema         |
+| `.agents/templates/agent-protocol.md`            | 3     | Universal execution protocol     |
 | `.agents/templates/feature-body.md`              | 2     | Feature issue template           |
 | `.agents/templates/story-body.md`                | 2     | Story issue template             |
 | `.agents/templates/task-body.md`                 | 2     | Task issue template              |
@@ -884,6 +1076,7 @@ documentation, and ship the final release.
 | `.agents/scripts/lib/config-resolver.js`    | 1     | Parse `orchestration` block     |
 | `tests/structure.test.js`                   | 1     | Validate new locations          |
 | `.agents/scripts/lib/Graph.js`              | 3     | Add topological sort + waves    |
+| `.agents/scripts/sprint-integrate.js`       | 3     | Swap playbook sync for labels   |
 | `.agents/scripts/verify-prereqs.js`         | 3     | Ticket-native state checks      |
 | `.agents/scripts/diagnose-friction.js`      | 3     | Post to tickets                 |
 | `.agents/workflows/sprint-finalize-task.md` | 3     | Use ticket state                |
@@ -900,9 +1093,21 @@ documentation, and ship the final release.
 
 ### Deleted Files (Phase 3)
 
-| File                                            | Reason                      |
-| ----------------------------------------------- | --------------------------- |
-| `.agents/scripts/generate-playbook.js`          | Replaced by ticket-native   |
-| `.agents/scripts/update-task-state.js`          | Replaced by ticket-state.js |
-| `.agents/scripts/playbook-to-tickets.js`        | No longer needed            |
-| `.agents/workflows/sprint-generate-playbook.md` | No longer needed            |
+| File                                              | Reason                                    |
+| ------------------------------------------------- | ----------------------------------------- |
+| `.agents/scripts/generate-playbook.js`            | Replaced by ticket-native pipeline        |
+| `.agents/scripts/lib/PlaybookOrchestrator.js`     | Part of playbook pipeline                 |
+| `.agents/scripts/lib/Renderer.js`                 | Part of playbook pipeline                 |
+| `.agents/scripts/update-task-state.js`            | Replaced by `update-ticket-state.js`      |
+| `.agents/scripts/playbook-to-tickets.js`          | No longer needed                          |
+| `.agents/scripts/run-agent-loop.js`               | Event stream deprecated                   |
+| `.agents/scripts/lib/AgentLoopRunner.js`          | Event stream deprecated                   |
+| `.agents/scripts/harvest-golden-path.js`          | Deferred to post-v5 roadmap               |
+| `.agents/scripts/lib/CacheManager.js`             | Deferred to post-v5 roadmap               |
+| `.agents/scripts/lib/ComplexityEstimator.js`      | Replaced by LLM prompt constraints        |
+| `.agents/schemas/task-manifest.schema.json`       | Replaced by `dispatch-manifest.json`      |
+| `.agents/schemas/atomic-action-schema.json`       | Event stream deprecated                   |
+| `.agents/workflows/sprint-generate-playbook.md`   | Replaced by ticket-native pipeline        |
+| `.agents/workflows/sprint-setup.md`               | Absorbed by Dispatcher branch creation    |
+| `.agents/workflows/sprint-gather-context.md`      | Replaced by Context Hydrator              |
+| `.agents/templates/sprint-playbook-template.md`   | Part of playbook pipeline                 |

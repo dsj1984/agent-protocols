@@ -190,10 +190,12 @@ implementation is selected via the `orchestration.provider` field in
 - `ensureProjectFields(fieldDefs[])` — Idempotent custom field creation on the
   Project board (used by bootstrap).
 
-> **Design Note:** There is no `IExecutionAdapter` interface. The agentic IDE is
-> the runtime environment, not a swappable component — the agent already has
-> native access to Git, the filesystem, and the shell. Abstracting IDE
-> operations behind an interface adds complexity without practical value.
+> **Design Note:** The execution environment is abstracted behind an
+> `IExecutionAdapter` interface (see `v5-implementation-plan.md` Phase 3),
+> enabling the same Dispatcher to drive manual IDE sessions (HITL), headless
+> subprocess workers, or cloud-hosted agent runtimes. The v5.0.0 reference
+> implementation is the `ManualDispatchAdapter` — future adapters for
+> Antigravity CLI, Claude Code, Codex, and MCP dispatch are planned.
 
 **Reference Implementation:**
 
@@ -514,3 +516,16 @@ replaced, not incrementally migrated.
   the orchestration system autonomously drafts PRs to adjust its own prompt
   specifications, routing logic, and skill libraries—operating via a continuous
   reinforcement learning loop with the ticketing platform as the audit trail.
+
+### Post-v5 Backlog (Under Consideration)
+
+- **Golden Path Harvesting (Agentic RLHF):** The v4 `harvest-golden-path.js`
+  and `CacheManager.js` speculative cache systems are removed in v5.0.0 as part
+  of the clean-break migration. Re-evaluate whether harvesting successful
+  task diffs as few-shot prompt examples provides measurable improvement in
+  agent performance. If validated, re-implement as a post-finalization hook in
+  `/sprint-finalize-task` using the PR diff from the ticketing provider.
+- **Complexity Estimator as Validation Pass:** The v4
+  `ComplexityEstimator.js` is removed in v5.0.0. If dogfooding reveals that the
+  LLM-based decomposer produces over-complex Tasks, re-introduce complexity
+  scoring as a validation pass inside `ticket-decomposer.js`.
