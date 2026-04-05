@@ -359,23 +359,22 @@ Standardized markdown blueprints used during planning and testing.
 
 ## <a id="v5-orchestration"></a>🎯 v5 Epic-Centric Orchestration
 
-> [!NOTE]
-> v5.0.0 introduces **Epic-Centric GitHub Orchestration** — a clean-break
-> architecture that replaces the local-file sprint pipeline with native GitHub
-> Issues, Labels, and Projects V2.
+> [!NOTE] v5.0.0 introduces **Epic-Centric GitHub Orchestration** — a
+> clean-break architecture that replaces the local-file sprint pipeline with
+> native GitHub Issues, Labels, and Projects V2.
 
 ### Provider Architecture
 
-All external ticketing operations are mediated through the
-`ITicketingProvider` abstract interface. The framework ships with a **GitHub
-provider** that uses raw `fetch()` (Node 20+) — no `@octokit/*` dependencies.
+All external ticketing operations are mediated through the `ITicketingProvider`
+abstract interface. The framework ships with a **GitHub provider** that uses raw
+`fetch()` (Node 20+) — no `@octokit/*` dependencies.
 
-| Layer                | File                                  | Purpose                                        |
-| -------------------- | ------------------------------------- | ---------------------------------------------- |
-| Abstract Interface   | `scripts/lib/ITicketingProvider.js`   | 10-method contract for all ticketing providers  |
-| Provider Factory     | `scripts/lib/provider-factory.js`     | Resolves `orchestration.provider` → class       |
-| GitHub Implementation | `scripts/providers/github.js`        | REST + GraphQL implementation for GitHub        |
-| Config Validation    | `scripts/lib/config-resolver.js`      | ajv schema validation + shell injection checks  |
+| Layer                 | File                                | Purpose                                        |
+| --------------------- | ----------------------------------- | ---------------------------------------------- |
+| Abstract Interface    | `scripts/lib/ITicketingProvider.js` | 10-method contract for all ticketing providers |
+| Provider Factory      | `scripts/lib/provider-factory.js`   | Resolves `orchestration.provider` → class      |
+| GitHub Implementation | `scripts/providers/github.js`       | REST + GraphQL implementation for GitHub       |
+| Config Validation     | `scripts/lib/config-resolver.js`    | ajv schema validation + shell injection checks |
 
 ### Orchestration Configuration
 
@@ -399,31 +398,33 @@ Add the following block to your `.agentrc.json`:
 }
 ```
 
-| Field                    | Required | Description                                                |
-| ------------------------ | -------- | ---------------------------------------------------------- |
-| `provider`               | Yes      | Provider name (`"github"` is the only shipped provider)    |
-| `github.owner`           | Yes      | GitHub repository owner (user or org)                      |
-| `github.repo`            | Yes      | GitHub repository name                                     |
-| `github.projectNumber`   | No       | GitHub Projects V2 number (for custom fields)              |
-| `github.operatorHandle`  | No       | GitHub @mention handle for notifications                   |
-| `notifications.mentionOperator` | No | Whether to @mention the operator in comments          |
-| `notifications.webhookUrl`      | No | Webhook URL for external notification delivery        |
+| Field                           | Required | Description                                             |
+| ------------------------------- | -------- | ------------------------------------------------------- |
+| `provider`                      | Yes      | Provider name (`"github"` is the only shipped provider) |
+| `github.owner`                  | Yes      | GitHub repository owner (user or org)                   |
+| `github.repo`                   | Yes      | GitHub repository name                                  |
+| `github.projectNumber`          | No       | GitHub Projects V2 number (for custom fields)           |
+| `github.operatorHandle`         | No       | GitHub @mention handle for notifications                |
+| `notifications.mentionOperator` | No       | Whether to @mention the operator in comments            |
+| `notifications.webhookUrl`      | No       | Webhook URL for external notification delivery          |
 
 ### <a id="authentication"></a>🔐 v5 Authentication Hierarchy
 
 The `GitHubProvider` resolves credentials in the following priority order.
 
-| Tier | Method | Primary Environment |
-|---|---|---|
-| **1. Primary** | **GitHub MCP Server** | This Agent (Antigravity) |
+| Tier            | Method                       | Primary Environment                  |
+| --------------- | ---------------------------- | ------------------------------------ |
+| **1. Primary**  | **GitHub MCP Server**        | This Agent (Antigravity)             |
 | **2. Fallback** | `GITHUB_TOKEN` or `GH_TOKEN` | CI/CD / Background Scripts / IDELOOs |
-| **3. Fallback** | `gh auth token` (Local CLI) | Manual Developer Workflow |
+| **3. Fallback** | `gh auth token` (Local CLI)  | Manual Developer Workflow            |
 
 #### Required Token Permissions
 
-If you are using a Personal Access Token (PAT) as a fallback for background scripts (like the bootstrap), ensure it has the following minimum scopes:
+If you are using a Personal Access Token (PAT) as a fallback for background
+scripts (like the bootstrap), ensure it has the following minimum scopes:
 
 **Fine-grained Personal Access Tokens (Recommended)**
+
 - **Account Permissions** (Required for Projects V2):
   - `GitHub Projects (V2)`: Read & Write
 - **Repository Permissions**:
@@ -432,13 +433,17 @@ If you are using a Personal Access Token (PAT) as a fallback for background scri
   - `Pull requests`: Read & Write (for automated PR creation)
 
 **Classic Personal Access Tokens**
+
 - `repo` (Full control)
 - `project` (Full control)
 
 #### How to Configure
 
-1. **For the Agent (Antigravity)**: Ensuring the `github-mcp-server` is active in the session is sufficient.
-2. **For the Scripts**: Framework background scripts (like `bootstrap-agent-protocols.js`) cannot call MCP tools. You **MUST** provide one of the fallback tokens in your environment (e.g., via a `.env` file).
+1. **For the Agent (Antigravity)**: Ensuring the `github-mcp-server` is active
+   in the session is sufficient.
+2. **For the Scripts**: Framework background scripts (like
+   `bootstrap-agent-protocols.js`) cannot call MCP tools. You **MUST** provide
+   one of the fallback tokens in your environment (e.g., via a `.env` file).
 3. **For Local Use**: Run `gh auth login` to prepare the GitHub CLI fallback.
 
 ---
@@ -459,22 +464,35 @@ Supporting files that define the agent's environment and workspace standards.
 
 ### 🧠 LLM Usage: Planning vs. Execution
 
-v5.0.0 separates the **Planning Pipeline** (Phase 2) from the **Execution Engine** (Phase 3) to ensure maximum speed, deterministic hierarchy, and portability.
+v5.0.0 separates the **Planning Pipeline** (Phase 2) from the **Execution
+Engine** (Phase 3) to ensure maximum speed, deterministic hierarchy, and
+portability.
 
 #### 1. Planning Pipeline (Autonomous Scaffolding)
-- **Role**: High-speed generation of PRDs, Technical Specs, and the 4-tier ticket hierarchy (Epic → Feature → Story → Task) directly into GitHub.
-- **Runtime**: Deterministic Node.js scripts (`epic-planner.js`, `ticket-decomposer.js`).
-- **LLM Context**: Uses the `llm` block in `.agentrc.json` and environmental API keys (e.g., `GEMINI_API_KEY`, `ANTHROPIC_API_KEY`).
-- **Why?**: Decoupling ticket generation from the chat window ensures consistency, allows for massive parallel decomposition, and makes the planning process portable across CI/CD or CLI environments.
+
+- **Role**: High-speed generation of PRDs, Technical Specs, and the 4-tier
+  ticket hierarchy (Epic → Feature → Story → Task) directly into GitHub.
+- **Runtime**: Deterministic Node.js scripts (`epic-planner.js`,
+  `ticket-decomposer.js`).
+- **LLM Context**: Uses the `llm` block in `.agentrc.json` and environmental API
+  keys (e.g., `GEMINI_API_KEY`, `ANTHROPIC_API_KEY`).
+- **Why?**: Decoupling ticket generation from the chat window ensures
+  consistency, allows for massive parallel decomposition, and makes the planning
+  process portable across CI/CD or CLI environments.
 
 #### 2. Execution Engine (Agentic IDE)
-- **Role**: Performing the actual coding, refactoring, and verification tasks identified in the backlog.
-- **Runtime**: The **Agentic IDE** (Antigravity).
-- **LLM Context**: Uses the IDE's native AI models and session context. 
-- **Workflow**: The IDE "picks up" a task from GitHub, executes the changes, and uses the `/sprint-finalize-task` workflow to update the status and notify the manager.
 
-> [!NOTE]
-> The LLM API key provided in `.env` is **only** for the Phase 2 Planning scripts. It does NOT interfere with or replace the model selection in your agentic IDE.
+- **Role**: Performing the actual coding, refactoring, and verification tasks
+  identified in the backlog.
+- **Runtime**: The **Agentic IDE** (Antigravity).
+- **LLM Context**: Uses the IDE's native AI models and session context.
+- **Workflow**: The IDE "picks up" a task from GitHub, executes the changes, and
+  uses the `/sprint-finalize-task` workflow to update the status and notify the
+  manager.
+
+> [!NOTE] The LLM API key provided in `.env` is **only** for the Phase 2
+> Planning scripts. It does NOT interfere with or replace the model selection in
+> your agentic IDE.
 
 ---
 

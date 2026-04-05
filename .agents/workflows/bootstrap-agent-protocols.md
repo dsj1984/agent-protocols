@@ -40,15 +40,15 @@ custom fields.
 
 ### Labels
 
-| Category    | Labels                                                   | Color   |
-| ----------- | -------------------------------------------------------- | ------- |
-| Type        | `type::epic`, `type::feature`, `type::story`, `type::task` | Purple  |
-| Agent State | `agent::ready`, `agent::executing`, `agent::review`, `agent::done` | Green |
-| Status      | `status::blocked`                                        | Red     |
-| Risk        | `risk::high`, `risk::medium`                             | Yellow  |
-| Persona     | `persona::fullstack`, `persona::architect`, `persona::qa` | Blue   |
-| Context     | `context::prd`, `context::tech-spec`                     | Purple  |
-| Execution   | `execution::sequential`, `execution::concurrent`         | Peach   |
+| Category    | Labels                                                                      | Color      |
+| ----------- | --------------------------------------------------------------------------- | ---------- |
+| Type        | `type::epic`, `type::feature`, `type::story`, `type::task`                  | Purple     |
+| Agent State | `agent::ready`, `agent::executing`, `agent::review`, `agent::done`          | Green      |
+| Status      | `status::blocked`                                                           | Red        |
+| Risk        | `risk::high`, `risk::medium`                                                | Yellow     |
+| Persona     | `persona::fullstack`, `persona::architect`, `persona::qa`                   | Blue       |
+| Context     | `context::prd`, `context::tech-spec`                                        | Purple     |
+| Execution   | `execution::sequential`, `execution::concurrent`                            | Peach      |
 | Focus       | `focus::core`, `focus::scripts`, `focus::docs`, `focus::ci`, `focus::tests` | Light Blue |
 
 ### Project Board Fields (if `projectNumber` is configured)
