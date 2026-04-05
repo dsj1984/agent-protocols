@@ -6,6 +6,48 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 and this project adheres to
 [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [4.7.1] - 2026-04-05
+
+### Fixed
+
+- **Critical: Command Injection via Shell Interpolation
+  (`sprint-integrate.js`)**: Replaced the single `spawnSync` call that chained
+  lint, typecheck, and test commands via `;` separators with `shell: true` —
+  which was both a command-injection vector and a fragile cross-platform pattern
+  — with three sequential, shell-free `spawnSync` calls routed through
+  `diagnose-friction.js`. Each verification step now has granular error
+  reporting, per-step timing, and early-exit on first failure.
+- **Critical: Dirty-State Cleanup (`sprint-integrate.js`)**: `cleanup()` now
+  calls `git merge --abort` before attempting checkout, preventing the repo from
+  being left in a broken merge state when cleanup is invoked during an active
+  conflict resolution.
+- **CLI Argument Parsing (`sprint-integrate.js`)**: `--sprint` and `--task` now
+  validate that the following argument exists and is not another flag,
+  preventing out-of-bounds access and silent misassignment (e.g.,
+  `--sprint --task` no longer assigns `"--task"` as the sprint number).
+- **Feature Branch Existence Check (`sprint-integrate.js`)**: Added
+  `git rev-parse --verify` before the merge attempt. Previously, a nonexistent
+  feature branch (typo, deleted) would fall through to the conflict analysis
+  path and produce cryptic, misleading errors.
+- **Consolidation Checkout Guard (`sprint-integrate.js`)**: The `git checkout`
+  before the final consolidation merge now checks its return code and exits
+  cleanly instead of silently merging into the wrong branch.
+- **Binary-Safe Conflict Analysis (`sprint-integrate.js`)**: Replaced manual
+  `fs.readFileSync` + regex conflict marker counting with `git diff --check`,
+  which is binary-safe and avoids loading large files into memory.
+- **Auto-Resolution Audit Trail (`sprint-integrate.js`)**: Minor conflict
+  auto-resolution now logs the discarded sprint-base content via `VerboseLogger`
+  before accepting `--theirs`, making silent data loss auditable.
+- **Path Anchoring (`sprint-integrate.js`)**: The `--sprint` path passed to
+  `diagnose-friction.js` is now anchored to `PROJECT_ROOT`, fixing a CWD
+  mismatch where friction logs could be written to the wrong directory.
+
+### Changed
+
+- **Dead Code Removal (`sprint-integrate.js`)**: Removed unused `execFileSync`
+  import and the no-op `maxBuffer` option (which has no effect with
+  `stdio: 'inherit'`).
+
 ## [4.7.0] - 2026-04-05
 
 ### Changed
