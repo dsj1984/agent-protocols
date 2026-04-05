@@ -46,9 +46,11 @@ precisely:
    - Run `git pull --rebase origin sprint-[SPRINT_NUMBER]`.
    - If there are conflicts, you **MUST** resolve them now locally. Stage the
      resolutions and run `git rebase --continue`.
-4. **Validation**: Ensure all validation and pre-commit hooks pass. Run
-   `[VALIDATION_COMMAND]` (resolved from `validationCommand` in
-   `.agentrc.json`). Fix and commit any resulting errors.
+4. **Validation**: Ensure all validation passes without degrading lint health.
+   - Run the baseline checker: `node [SCRIPTS_ROOT]/lint-baseline.js check`
+   - Run type-checking: `[TYPECHECK_COMMAND]` (resolved from `typecheckCommand`
+     in `.agentrc.json`).
+   - Fix and commit any resulting errors or new lint warnings.
 5. **Shift-Left Testing**: Run `[TEST_COMMAND]` (resolved from `testCommand` in
    `.agentrc.json`).
    - If tests fail: Stop immediately, fix the tests, and commit the fixes.

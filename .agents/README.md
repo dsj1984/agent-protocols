@@ -92,6 +92,25 @@ Then open `.agentrc.json` and customise:
 | `techStack.project.name`      | Your project name                  |
 | `techStack.workspaces.*`      | Your monorepo package aliases      |
 
+#### 🛡️ Validation & Lint Baseline Commands
+
+The framework uses three distinct commands for quality checks, which you should
+configure in `.agentrc.json`:
+
+1. **`validationCommand`**: The broad, comprehensive validation suite (e.g.,
+   `run-s lint typecheck`). This is historically the general-purpose "check
+   everything" command for developers.
+2. **`typecheckCommand`**: The strict type-checking command (e.g.,
+   `tsc --noEmit`). The framework explicitly uses this after refactors or AST
+   replacements to guarantee typing boundaries aren't broken, independently of
+   subjective linting rules.
+3. **`lintBaselineCommand`**: Used exclusively by the **Lint Baseline
+   Ratcheting** engine during sprint workflows. This must output structured JSON
+   (e.g., `eslint . --format json` or `biome check --output json`) so the system
+   can programmatically count warnings. This enforces zero-deterioration:
+   integrations will fail if new warnings are added, automatically ratcheting
+   down the baseline when the codebase improves.
+
 > **Resolution order (scripts fall back gracefully):**
 >
 > 1. `.agentrc.json` at project root ← your file

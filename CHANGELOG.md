@@ -6,6 +6,22 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 and this project adheres to
 [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [4.6.0] - 2026-04-04
+
+### Added
+
+- **Lint Baseline Ratcheting Mechanism**: Integrated a
+  `.agents/scripts/lint-baseline.js` checker into the sprint workflows to
+  prevent pre-existing ESLint warnings from blocking sprint integrations.
+  - `sprint-setup.md` captures an initial baseline (`capture` mode).
+  - `sprint-finalize-task.md` and `sprint-integrate.js` verification phases run
+    against the baseline (`check` mode).
+  - The script enforces zero-deterioration: integrations fail if new warnings
+    are introduced, and dynamically ratchets the baseline down when the codebase
+    health improves.
+  - Added new configuration keys `lintBaselineCommand` and `lintBaselinePath` to
+    `.agentrc.json`.
+
 ## [4.5.0] - 2026-04-04
 
 ### Added

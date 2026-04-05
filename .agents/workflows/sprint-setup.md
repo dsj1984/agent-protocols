@@ -42,6 +42,9 @@ for subsequent planning and execution.
 3.  If the branch **does exist**:
     - Checkout the existing branch: `git checkout sprint-[PADDED_NUM]`.
     - Sync with origin: `git pull origin sprint-[PADDED_NUM]`.
+4.  Capture the sprint's initial lint baseline to prevent integration
+    regressions:
+    - `node [SCRIPTS_ROOT]/lint-baseline.js capture`
 
 ## Step 4 - Directory Initialization
 
