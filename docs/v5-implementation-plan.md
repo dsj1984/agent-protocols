@@ -455,7 +455,7 @@ end-to-end.
 - [x] `ticket-decomposer.js` creates the full Feature → Story → Task hierarchy
       with dependencies, labels, prompts, and tasklists.
 - [x] `/sprint-plan [Epic ID]` orchestrates the full pipeline end-to-end.
-- [ ] `notify.js` dispatches INFO via @mention and ACTION via webhook.
+- [x] `notify.js` dispatches INFO via @mention and ACTION via webhook.
 - [x] Dogfood: a real Epic on this repo is fully planned via the command.
 - [ ] Tagged as `v5.0.0-beta.1`.
 
@@ -465,23 +465,185 @@ end-to-end.
 
 > **Goal:** Build the `/sprint-execute [Epic ID]` workflow. The agent
 > autonomously executes all Tasks under an Epic, syncing state to GitHub in
-> real-time and sending webhook notifications when HITL action is needed.
+> real-time and sending webhook notifications when HITL action is needed. The
+> execution environment is abstracted behind an `IExecutionAdapter` interface,
+> enabling the same Dispatcher to drive manual IDE sessions, headless subprocess
+> workers, or cloud-hosted agent runtimes.
 >
 > **Tag:** `v5.0.0-rc.1` → `v5.0.0`
 
-### Sprint 3A: Dispatcher & DAG Scheduling
+### Execution Adapter Abstraction
 
-**Scope:** Build the dispatcher that fetches Tasks, builds the dependency DAG,
-and determines execution order.
+The execution environment is a **swappable component**, just like the ticketing
+system. A new `IExecutionAdapter` interface sits alongside `ITicketingProvider`
+as a first-class abstraction, enabling support for Antigravity, Claude Code,
+Codex, or any future agentic IDE without code changes.
 
-| Task                                                                          | Type   | File(s)                         | Depends On               |
-| ----------------------------------------------------------------------------- | ------ | ------------------------------- | ------------------------ |
-| Build `dispatcher.js` — fetch Tasks, build DAG, topological sort              | NEW    | `.agents/scripts/dispatcher.js` | Provider, `lib/Graph.js` |
-| Extend `lib/Graph.js` with topological sort if not present                    | MODIFY | `.agents/scripts/lib/Graph.js`  | —                        |
-| DAG scheduling logic — concurrent vs. sequential dispatch                     | MODIFY | `.agents/scripts/dispatcher.js` | Graph                    |
-| Focus area conflict detection — prevent concurrent dispatch of same `focus::` | MODIFY | (same file)                     | Graph                    |
-| HITL gate — hold `risk::high` Tasks; fire webhook for approval                | MODIFY | (same file)                     | Notify                   |
-| Unit tests for dispatcher DAG scheduling                                      | NEW    | `tests/dispatcher.test.js`      | Dispatcher               |
+**Interface Definition (`IExecutionAdapter`):**
+
+```js
+class IExecutionAdapter {
+  /**
+   * Returns the capabilities of this execution environment.
+   * The Dispatcher uses this to validate model/mode selections.
+   *
+   * @returns {{
+   *   name: string,                    // e.g. "antigravity", "claude-code"
+   *   supportsParallelism: boolean,    // Can run multiple tasks concurrently?
+   *   supportedModels: string[],       // Models available in this environment
+   *   supportedModes: string[],        // e.g. ["planning", "fast"]
+   *   maxConcurrency: number | null,   // Hard limit, or null for unlimited
+   *   requiresOperator: boolean        // Does a human need to act on dispatch?
+   * }}
+   */
+  async getCapabilities() {}
+
+  /**
+   * Dispatch a task for execution. What this means depends on the adapter:
+   *   - ManualDispatchAdapter: adds to the manifest, prints operator instructions
+   *   - SubprocessAdapter: spawns a child process with AgentLoopRunner
+   *   - CLIAdapter: invokes `antigravity --new-chat` or `claude-code open`
+   *
+   * @param {object} taskConfig
+   * @param {number} taskConfig.taskId       - GitHub Issue number
+   * @param {string} taskConfig.title        - Human-readable task title
+   * @param {string} taskConfig.branch       - Git branch to create
+   * @param {string} taskConfig.model        - Recommended model name
+   * @param {string} taskConfig.mode         - "planning" | "fast"
+   * @param {string} taskConfig.persona      - Persona to adopt
+   * @param {string[]} taskConfig.skills     - Skills to activate
+   * @param {string} taskConfig.prompt       - Hydrated agent prompt
+   * @param {object} taskConfig.metadata     - Full ticket metadata
+   *
+   * @returns {{ dispatched: boolean, handle: string | null, message: string }}
+   */
+  async dispatchTask(taskConfig) {}
+
+  /**
+   * Check the execution status of a previously dispatched task.
+   * For adapters that delegate to external systems (IDE, human), this
+   * typically polls the ticketing provider for label state changes.
+   *
+   * @param {string} handle - The handle returned by dispatchTask()
+   * @returns {{ status: "pending"|"executing"|"completed"|"failed"|"cancelled",
+   *             exitReason?: string }}
+   */
+  async getTaskStatus(handle) {}
+
+  /**
+   * Request cancellation of a running task. Best-effort — not all adapters
+   * can force-stop an executing agent.
+   *
+   * @param {string} handle
+   * @returns {{ cancelled: boolean, message: string }}
+   */
+  async cancelTask(handle) {}
+
+  /**
+   * Called once after all tasks in a wave have been dispatched.
+   * Adapters use this for batch-level operations:
+   *   - ManualDispatchAdapter: prints the manifest table, fires webhook
+   *   - CLIAdapter: might open a monitoring dashboard
+   *
+   * @param {object[]} dispatchedTasks - Array of taskConfigs that were dispatched
+   * @returns {void}
+   */
+  async onWaveDispatched(dispatchedTasks) {}
+}
+```
+
+> **Design Note:** The `IExecutionAdapter` separates **what to run**
+> (Dispatcher's responsibility) from **how to run it** (adapter's
+> responsibility). The adapter receives a fully hydrated prompt from the Context
+> Hydrator — it dispatches, it does not execute. Execution happens in the target
+> environment.
+
+**Reference Implementation — `ManualDispatchAdapter`:**
+
+The HITL adapter for v5.0.0. The Dispatcher generates a structured **Dispatch
+Manifest** — a table of Tasks ready for execution, each annotated with the
+recommended model, mode, branch name, and command. The operator opens one IDE
+chat per Task, selects the recommended model, and runs
+`/sprint-execute #[Task ID]`. Webhook notifications fire at each wave
+transition so the operator knows when to return for the next batch.
+
+**Configuration (`orchestration` block):**
+
+```json
+{
+  "orchestration": {
+    "provider": "github",
+    "executor": "manual",
+    "github": { "..." },
+    "execution": {
+      "maxConcurrentTasks": 4,
+      "modelSelection": "cascade",
+      "focusAreaConflicts": "hard-block",
+      "waveAdvancement": "webhook-and-wait"
+    },
+    "notifications": { "..." }
+  }
+}
+```
+
+| Field                | Values                                   | Description                                             |
+| -------------------- | ---------------------------------------- | ------------------------------------------------------- |
+| `executor`           | `"manual"`, `"subprocess"`, `"cli"`      | Selects the `IExecutionAdapter` implementation          |
+| `maxConcurrentTasks` | number                                   | Hard limit on wave size enforced by Dispatcher          |
+| `modelSelection`     | `"cascade"`, `"global-only"`, `"ticket"` | Which tiers of the model cascade to use                 |
+| `focusAreaConflicts` | `"hard-block"`, `"warn"`                 | Dispatcher behavior for overlapping `focus::` labels    |
+| `waveAdvancement`    | `"webhook-and-wait"`, `"auto-compute"`   | What happens when a wave completes                      |
+
+**Model Selection Cascade:**
+
+Model recommendations follow a three-tier override cascade. For the
+`ManualDispatchAdapter`, the resolved model is a **recommendation** — the
+operator has final say when opening the IDE session. For future autonomous
+adapters, the resolved model is **binding**.
+
+```text
+┌─────────────────────────────────────┐
+│ 1. Task-Level (ticket body)         │  ← highest priority
+│    **Model:** Claude Opus 4.6       │
+├─────────────────────────────────────┤
+│ 2. Type-Level (bookendRequirements) │  ← role-based defaults
+│    isQA → Sonnet 4.6 (Thinking)    │
+│    isCodeReview → Sonnet 4.6       │
+├─────────────────────────────────────┤
+│ 3. Global Default (defaultModels)   │  ← floor
+│    planningFallback / fastFallback  │
+└─────────────────────────────────────┘
+```
+
+**Future Adapter Roadmap:**
+
+| Adapter                  | `executor` value | How It Dispatches                          | Status                      |
+| ------------------------ | ---------------- | ------------------------------------------ | --------------------------- |
+| `ManualDispatchAdapter`  | `"manual"`       | Prints manifest, fires webhook             | **v5.0.0**                  |
+| `AntigravityCLIAdapter`  | `"antigravity"`  | `antigravity --new-chat` CLI               | Future (pending CLI support) |
+| `ClaudeCodeAdapter`      | `"claude-code"`  | `claude-code` CLI session                  | Future                      |
+| `CodexAdapter`           | `"codex"`        | OpenAI Codex API                           | Future                      |
+| `SubprocessAdapter`      | `"subprocess"`   | `child_process.fork(AgentLoopRunner)`      | Future                      |
+| `MCPAdapter`             | `"mcp"`          | MCP tool dispatch                          | Future (pending MCP spec)   |
+
+### Sprint 3A: Execution Adapter Interface & Dispatcher
+
+**Scope:** Define the execution adapter abstraction, build the HITL reference
+implementation, and build the dispatcher that fetches Tasks, builds the
+dependency DAG, and determines execution order.
+
+| Task                                                                          | Type   | File(s)                                    | Depends On               |
+| ----------------------------------------------------------------------------- | ------ | ------------------------------------------ | ------------------------ |
+| Define `IExecutionAdapter` interface with all method signatures               | NEW    | `.agents/scripts/lib/IExecutionAdapter.js` | —                        |
+| Build adapter factory — resolves `orchestration.executor` to class            | NEW    | `.agents/scripts/lib/adapter-factory.js`   | Interface                |
+| Build `ManualDispatchAdapter` — HITL reference implementation                 | NEW    | `.agents/scripts/adapters/manual.js`       | Interface                |
+| Build `dispatcher.js` — fetch Tasks, build DAG, topological sort              | NEW    | `.agents/scripts/dispatcher.js`            | Provider, `lib/Graph.js` |
+| Extend `lib/Graph.js` with topological sort + wave grouping                   | MODIFY | `.agents/scripts/lib/Graph.js`             | —                        |
+| DAG scheduling logic — concurrent vs. sequential wave dispatch                | MODIFY | `.agents/scripts/dispatcher.js`            | Graph                    |
+| Focus area conflict detection — auto-serialize overlapping `focus::` labels   | MODIFY | (same file)                                | Graph                    |
+| HITL gate — hold `risk::high` Tasks; fire webhook for approval                | MODIFY | (same file)                                | Notify                   |
+| Dispatch Manifest schema                                                      | NEW    | `.agents/schemas/dispatch-manifest.json`   | —                        |
+| Unit tests for interface + adapter + dispatcher                               | NEW    | `tests/execution-adapter.test.js`, `tests/dispatcher.test.js` | All above |
 
 ### Sprint 3B: Context Hydration Engine
 
@@ -510,15 +672,18 @@ real-time.
 
 ### Sprint 3D: `/sprint-execute` Workflow
 
-**Scope:** Wire everything into the `/sprint-execute [Epic ID]` orchestrator.
+**Scope:** Wire everything into the `/sprint-execute [Epic ID]` orchestrator,
+operating in two modes: Epic-level (outputs Dispatch Manifest) and Task-level
+(executes a single Task).
 
 | Task                                                                              | Type   | File(s)                                     | Depends On   |
 | --------------------------------------------------------------------------------- | ------ | ------------------------------------------- | ------------ |
-| Build `/sprint-execute` workflow — the main execution entry point                 | NEW    | `.agents/workflows/sprint-execute.md`       | Sprints 3A-C |
+| Build `/sprint-execute` workflow — Epic-level Dispatch Manifest mode              | NEW    | `.agents/workflows/sprint-execute.md`       | Sprints 3A-C |
+| Build `/sprint-execute` workflow — Task-level single-task execution mode          | MODIFY | (same file)                                 | Sprints 3A-C |
 | Epic completion detection — all tickets `agent::done` → notify operator           | NEW    | `.agents/scripts/dispatcher.js`             | Notify       |
 | Integration with existing `/sprint-finalize-task` — call `update-ticket-state.js` | MODIFY | `.agents/workflows/sprint-finalize-task.md` | State writer |
 
-**`/sprint-execute [Epic ID]` Workflow:**
+**`/sprint-execute [Epic ID]` Workflow (Epic-Level — Dispatch Manifest):**
 
 ```text
 /sprint-execute [Epic ID]
@@ -526,6 +691,7 @@ real-time.
 Step 0 — Resolve Configuration
   Read orchestration config from .agentrc.json.
   Instantiate provider via provider factory.
+  Instantiate adapter via adapter factory (orchestration.executor).
 
 Step 1 — Fetch & Schedule
   Call provider.getTickets(epicId, { label: 'type::task' }).
@@ -533,41 +699,64 @@ Step 1 — Fetch & Schedule
   For each Task, call provider.getTicketDependencies(ticketId).
   Build the dependency DAG via dispatcher.js.
   Perform topological sort.
-  Identify immediately dispatchable Tasks (no unresolved deps).
+  Identify the current dispatch wave (no unresolved deps).
+  Apply maxConcurrentTasks limit — split large waves into sub-waves.
+  Auto-serialize tasks sharing a focus:: label (hard-block mode).
 
 Step 2 — HITL Gate
   For each dispatchable Task with risk::high label:
     Fire webhook with approval-required payload (ACTION).
     Hold Task until human approves (via label change or comment).
 
-Step 3 — Execute Dispatchable Tasks
-  For each Task ready for execution:
-    a. Hydrate context via context-hydrator.js (traverse
-       Task → Story → Feature → Epic → PRD + Tech Spec).
-    b. Create feature branch: task/epic-[ID]/[task-number].
-    c. Update Task label: agent::ready → agent::executing.
-    d. Execute the agent prompt from the Task body.
-    e. As subtasks complete, check off tasklist items via
-       update-ticket-state.js.
-    f. Run shift-left validation (configured testCommand + lintCommand).
-    g. On success: create PR via provider.createPullRequest(),
-       transition to agent::review.
-       Fire @mention (INFO: task-complete).
-       If PR requires human review: fire webhook (ACTION: review-needed).
-    h. On failure: post friction log, apply status::blocked,
-       fire webhook (ACTION: blocked).
+Step 3 — Model Resolution
+  For each dispatchable Task, resolve the model via the 3-tier cascade:
+    1. Task body metadata (**Model:** field) — highest priority
+    2. bookendRequirements match (isQA, isCodeReview, etc.)
+    3. defaultModels.planningFallback / fastFallback — floor
 
-Step 4 — DAG Re-evaluation
-  When a Task reaches agent::review or agent::done:
+Step 4 — Dispatch Wave
+  For each Task in the wave:
+    a. Hydrate context via context-hydrator.js.
+    b. Call adapter.dispatchTask({ taskId, title, branch, model,
+       mode, persona, skills, prompt, metadata }).
+  Call adapter.onWaveDispatched(dispatchedTasks).
+  For ManualDispatchAdapter: prints the Dispatch Manifest table,
+    writes wave-N.json, fires webhook (ACTION: wave-ready).
+
+Step 5 — Wave Completion & Re-evaluation
+  When the operator re-runs /sprint-execute [Epic ID]:
+    Poll adapter.getTaskStatus() for all dispatched tasks.
     Re-evaluate the dependency DAG.
-    Dispatch any newly-unblocked Tasks (return to Step 2).
-    If all Tasks under a Story are done, post @mention (INFO:
-      feature-complete) on the parent Story and Feature.
+    Compute the next wave (return to Step 1).
+    If all Tasks under the Epic reach agent::done:
+      Post summary comment on the Epic issue.
+      Fire webhook (INFO: epic-complete).
+```
 
-Step 5 — Epic Completion
-  When all Tasks under the Epic reach agent::done:
-    Post summary comment on the Epic issue.
-    @mention the operator (INFO) + fire webhook (INFO: epic-complete).
+**`/sprint-execute #[Task ID]` Workflow (Task-Level — Single Execution):**
+
+```text
+/sprint-execute #[Task ID]
+
+Step 0 — Context Gathering
+  Fetch the ticket. Verify all blocked-by issues are resolved.
+  Trace the hierarchy: Task → Story → Feature → Epic → PRD + Tech Spec.
+
+Step 1 — Branch & Implement
+  Create feature branch: task/epic-[ID]/[task-number].
+  Update Task label: agent::ready → agent::executing.
+  Execute the agent prompt from the Task body.
+  As subtasks complete, check off tasklist items via update-ticket-state.js.
+
+Step 2 — Validate
+  Run shift-left validation (configured testCommand + lintCommand).
+
+Step 3 — Finalize
+  On success: create PR via provider.createPullRequest(),
+    transition to agent::review.
+    Fire @mention (INFO: task-complete).
+  On failure: post friction log, apply status::blocked,
+    fire webhook (ACTION: blocked).
 ```
 
 ### Sprint 3E: Workflow Replacement
@@ -614,7 +803,8 @@ documentation, and ship the final release.
 | ---------------------------------------------------------------------------- | ------ | ------------------- | ---------- |
 | Create an Epic issue for a real v5 deliverable                               | MANUAL | GitHub UI           | —          |
 | Run `/sprint-plan [Epic ID]` — tickets created on GitHub                     | MANUAL | Antigravity session | Sprint 2C  |
-| Run `/sprint-execute [Epic ID]` — dispatcher fetches, hydrates, and executes | MANUAL | Antigravity session | Sprint 3D  |
+| Run `/sprint-execute [Epic ID]` — Dispatch Manifest generated                | MANUAL | Antigravity session | Sprint 3D  |
+| Open parallel IDE sessions per Dispatch Manifest                             | MANUAL | Multiple IDE chats  | Manifest   |
 | Verify state sync — ticket labels transition correctly in GitHub             | MANUAL | GitHub UI           | —          |
 | Verify notifications — @mention for INFO, webhook for ACTION events          | MANUAL | GitHub UI / webhook | —          |
 | Run `/sprint-integration` — PRs created and linked to Tasks                  | MANUAL | Antigravity session | Sprint 3E  |
@@ -624,16 +814,21 @@ documentation, and ship the final release.
 
 ### Phase 3 Exit Criteria
 
-- [ ] `/sprint-execute [Epic ID]` autonomously executes all Tasks under an Epic.
+- [ ] `IExecutionAdapter` interface defined with all method signatures.
+- [ ] `ManualDispatchAdapter` ships as the HITL reference implementation.
+- [ ] Adapter factory resolves `orchestration.executor` to the correct class.
+- [ ] `/sprint-execute [Epic ID]` generates a Dispatch Manifest via the adapter.
+- [ ] `/sprint-execute #[Task ID]` autonomously executes a single Task.
 - [ ] Dispatcher correctly resolves sequential/concurrent ordering from the Task
-      DAG.
+      DAG, including focus-area conflict auto-serialization.
 - [ ] Context Hydrator assembles virtual context from Task → Story → Feature →
       Epic → PRD + Tech Spec.
+- [ ] Model selection cascade resolves correctly (ticket → bookend → default).
 - [ ] State sync updates Task labels and tasklists in real-time.
 - [ ] INFO notifications fire via @mention (task-complete, feature-complete,
       epic-complete).
 - [ ] ACTION notifications fire via webhook (review-needed, approval-required,
-      blocked).
+      blocked, wave-ready).
 - [ ] All deprecated scripts are removed (not archived).
 - [ ] `docs/sprints/` is deprecated with a notice.
 - [ ] All documentation reflects the v5 architecture.
@@ -656,9 +851,13 @@ documentation, and ship the final release.
 | `.agents/scripts/epic-planner.js`                | 2     | PRD + Tech Spec generation       |
 | `.agents/scripts/ticket-decomposer.js`           | 2     | Work breakdown decomposition     |
 | `.agents/scripts/notify.js`                      | 2     | Dual-channel notification engine |
+| `.agents/scripts/lib/IExecutionAdapter.js`       | 3     | Execution adapter interface      |
+| `.agents/scripts/lib/adapter-factory.js`         | 3     | Adapter resolution               |
+| `.agents/scripts/adapters/manual.js`             | 3     | HITL reference adapter           |
 | `.agents/scripts/context-hydrator.js`            | 3     | Virtual context assembly         |
 | `.agents/scripts/dispatcher.js`                  | 3     | DAG scheduler                    |
 | `.agents/scripts/update-ticket-state.js`         | 3     | Ticketing state writer           |
+| `.agents/schemas/dispatch-manifest.json`         | 3     | Dispatch manifest schema         |
 | `.agents/templates/feature-body.md`              | 2     | Feature issue template           |
 | `.agents/templates/story-body.md`                | 2     | Story issue template             |
 | `.agents/templates/task-body.md`                 | 2     | Task issue template              |
@@ -672,6 +871,7 @@ documentation, and ship the final release.
 | `tests/epic-planner.test.js`                     | 2     | Planner unit tests               |
 | `tests/ticket-decomposer.test.js`                | 2     | Decomposer unit tests            |
 | `tests/notify.test.js`                           | 2     | Notification unit tests          |
+| `tests/execution-adapter.test.js`                | 3     | Adapter interface tests          |
 | `tests/context-hydrator.test.js`                 | 3     | Hydrator unit tests              |
 | `tests/dispatcher.test.js`                       | 3     | Dispatcher unit tests            |
 | `tests/update-ticket-state.test.js`              | 3     | State writer unit tests          |
@@ -680,10 +880,10 @@ documentation, and ship the final release.
 
 | File                                        | Phase | Change                          |
 | ------------------------------------------- | ----- | ------------------------------- |
-| `.agents/default-agentrc.json`              | 1     | Add `orchestration` schema      |
+| `.agents/default-agentrc.json`              | 1, 3  | Add `orchestration` + `executor`|
 | `.agents/scripts/lib/config-resolver.js`    | 1     | Parse `orchestration` block     |
 | `tests/structure.test.js`                   | 1     | Validate new locations          |
-| `.agents/scripts/lib/Graph.js`              | 3     | Add topological sort            |
+| `.agents/scripts/lib/Graph.js`              | 3     | Add topological sort + waves    |
 | `.agents/scripts/verify-prereqs.js`         | 3     | Ticket-native state checks      |
 | `.agents/scripts/diagnose-friction.js`      | 3     | Post to tickets                 |
 | `.agents/workflows/sprint-finalize-task.md` | 3     | Use ticket state                |
