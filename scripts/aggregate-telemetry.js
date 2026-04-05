@@ -1,10 +1,10 @@
 /**
  * aggregate-telemetry.js
- * 
+ *
  * Macroscopic telemetry aggregation tool for Agent Protocols.
  * Parses agent-friction-log.json files across a range of sprints and generates
  * a structured Markdown report highlighting trends and bottlenecks.
- * 
+ *
  * Usage:
  *   node .agents/scripts/aggregate-telemetry.js --from 40 --to 42
  */
@@ -14,6 +14,7 @@ import path from 'node:path';
 import { fileURLToPath } from 'node:url';
 import { Logger } from './lib/Logger.js';
 import { ensureDirSync } from './lib/fs-utils.js';
+import { resolveConfig, PROJECT_ROOT } from './lib/config-resolver.js';
 
 const __dirname = path.dirname(fileURLToPath(import.meta.url));
 const args = process.argv.slice(2);
@@ -25,12 +26,20 @@ for (let i = 0; i < args.length; i++) {
   if (args[i] === '--to') toSprint = parseInt(args[++i], 10);
 }
 
-const PROJECT_ROOT = process.cwd();
-const SPRINTS_ROOT = path.join(PROJECT_ROOT, 'docs', 'sprints');
-const REPORT_OUTPUT = path.join(PROJECT_ROOT, 'docs', 'telemetry', 'observer-report.md');
+// Use resolved config instead of hardcoded paths / padding values (Finding #10).
+// AGENT_PROJECT_ROOT env var allows integration tests to point the script at a
+// fixture directory without touching the real project root.
+const { settings: agentConfig } = resolveConfig();
+const effectiveRoot = process.env.AGENT_PROJECT_ROOT || PROJECT_ROOT;
+const sprintDocsRoot = agentConfig.sprintDocsRoot ?? 'docs/sprints';
+const sprintNumberPadding = agentConfig.sprintNumberPadding ?? 3;
+const docsRoot = agentConfig.docsRoot ?? 'docs';
+
+const SPRINTS_ROOT = path.join(effectiveRoot, sprintDocsRoot);
+const REPORT_OUTPUT = path.join(effectiveRoot, docsRoot, 'telemetry', 'observer-report.md');
 
 function getPaddedSprint(n) {
-  return String(n).padStart(3, '0');
+  return String(n).padStart(sprintNumberPadding, '0');
 }
 
 function parseFrictionLog(filePath) {
@@ -39,7 +48,7 @@ function parseFrictionLog(filePath) {
   return content.split('\n')
     .filter(line => line.trim())
     .map(line => {
-      try { return JSON.parse(line); } 
+      try { return JSON.parse(line); }
       catch (e) { return null; }
     })
     .filter(Boolean);
@@ -47,7 +56,7 @@ function parseFrictionLog(filePath) {
 
 function generateReport() {
   console.log(`[Telemetry Observer] Aggregating sprints ${fromSprint} to ${toSprint}...`);
-  
+
   const stats = {
     totalSprints: 0,
     totalFrictionPoints: 0,
@@ -58,7 +67,6 @@ function generateReport() {
 
   if (!fs.existsSync(SPRINTS_ROOT)) {
     Logger.fatal(`Sprints directory not found: ${SPRINTS_ROOT}`);
-    
   }
 
   const sprintDirs = fs.readdirSync(SPRINTS_ROOT)
@@ -74,7 +82,7 @@ function generateReport() {
 
     const frictionEntries = parseFrictionLog(logPath);
     stats.totalFrictionPoints += frictionEntries.length;
-    
+
     frictionEntries.forEach(entry => {
       if (entry.type === 'friction_point' || entry.type === 'tool_failure') {
         const tool = entry.tool || 'unknown';
@@ -95,7 +103,7 @@ function generateReport() {
   // Render Markdown
   let md = `# Telemetry Observer Report\n\n`;
   md += `> **Range:** Sprint ${fromSprint} to ${toSprint} | **Generated:** ${new Date().toISOString()}\n\n`;
-  
+
   md += `## 📊 Executive Summary\n\n`;
   md += `| Metric | Value |\n`;
   md += `| :--- | :--- |\n`;
