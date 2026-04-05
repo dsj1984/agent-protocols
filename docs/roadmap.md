@@ -456,6 +456,11 @@ replaced, not incrementally migrated.
 - Remove deprecated scripts (`generate-playbook.js`, `update-task-state.js`,
   `playbook-to-tickets.js`).
 - Deprecate `docs/sprints/` directory structure.
+- Build automated roadmap generation (`generate-roadmap.js`) — produces a
+  read-only `docs/roadmap.md` from GitHub Issues (Epics + Features) with
+  `roadmap-exclude` black-label filtering and hash-based skip for efficiency.
+  Ships a GitHub Actions workflow template with hybrid CI distribution
+  (manual copy or `--install-workflows` bootstrap flag).
 - Update documentation (SDLC.md, README.md, instructions.md).
 - **Exit Criteria:** End-to-end `/sprint-plan` → `/sprint-execute` → integration
   → retro → close completes with zero local playbook artifacts. Tagged as

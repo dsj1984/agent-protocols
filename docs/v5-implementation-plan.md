@@ -942,12 +942,13 @@ via `update-ticket-state.js`.
 | Rewrite `verify-prereqs.js` to check ticket state exclusively                            | MODIFY | `.agents/scripts/verify-prereqs.js`         | Provider     |
 | Rewrite `diagnose-friction.js` to post friction logs as ticket comments                  | MODIFY | `.agents/scripts/diagnose-friction.js`      | Provider     |
 
-### Sprint 3F: Cleanup & Documentation
+### Sprint 3F: Cleanup, Documentation & Automated Roadmap
 
 **Scope:** Remove deprecated scripts and workflows, deprecate `docs/sprints/`,
-update all documentation, and ship the final release. This includes removing
-the v4 event stream protocol, golden path harvesting system, speculative cache,
-playbook generation pipeline, and local sprint setup workflow.
+update all documentation, build the automated roadmap generation pipeline, and
+ship the final release. This includes removing the v4 event stream protocol,
+golden path harvesting system, speculative cache, playbook generation pipeline,
+and local sprint setup workflow.
 
 | Task                                                                    | Type   | File(s)                                         | Depends On |
 | ----------------------------------------------------------------------- | ------ | ----------------------------------------------- | ---------- |
@@ -964,6 +965,14 @@ playbook generation pipeline, and local sprint setup workflow.
 | Remove `/sprint-gather-context` workflow (replaced by Context Hydrator) | DELETE | `.agents/workflows/sprint-gather-context.md`    | Sprint 3B  |
 | Remove `sprint-playbook-template.md` (v4 template)                      | DELETE | `.agents/templates/sprint-playbook-template.md` | Sprint 3E  |
 | Deprecate `docs/sprints/` directory (add DEPRECATED.md notice)          | NEW    | `docs/sprints/DEPRECATED.md`                    | All        |
+| Build `generate-roadmap.js` — GitHub Issue → markdown roadmap generator | NEW    | `.agents/scripts/generate-roadmap.js`           | Phase 1    |
+| Create `update-roadmap.yml` workflow template for consumer CI           | NEW    | `.agents/templates/update-roadmap.yml`          | Generator  |
+| Add `--install-workflows` flag to `bootstrap-agent-protocols.js`        | MODIFY | `.agents/scripts/bootstrap-agent-protocols.js`  | Template   |
+| Add `roadmap-exclude` to `LABEL_TAXONOMY` in bootstrap script           | MODIFY | `.agents/scripts/bootstrap-agent-protocols.js`  | —          |
+| Add `agentSettings.roadmap` config block to `default-agentrc.json`      | MODIFY | `.agents/default-agentrc.json`                  | Generator  |
+| Add agent immutability rule for generated `roadmap.md`                  | MODIFY | `.agents/instructions.md`                       | —          |
+| Document Automated Roadmap in `.agents/README.md` (setup + usage)       | MODIFY | `.agents/README.md`                             | All        |
+| Unit tests for `generate-roadmap.js` (mock provider)                    | NEW    | `tests/generate-roadmap.test.js`                | Generator  |
 | Rewrite `SDLC.md` — full v5 architecture                                | MODIFY | `.agents/SDLC.md`                               | All        |
 | Rewrite `README.md` — document v5 architecture and provider config      | MODIFY | `README.md`, `.agents/README.md`                | All        |
 | Rewrite `instructions.md` — ticketing-native execution rules            | MODIFY | `.agents/instructions.md`                       | All        |
@@ -971,6 +980,169 @@ playbook generation pipeline, and local sprint setup workflow.
 | Bump `VERSION` to `5.0.0`                                               | MODIFY | `.agents/VERSION`                               | All        |
 | Update `CHANGELOG.md` with v5.0.0 release notes                         | MODIFY | `CHANGELOG.md`                                  | All        |
 | Final `npm test` / `npm run lint` validation                             | CHECK  | —                                               | All        |
+
+#### Automated Roadmap Architecture
+
+GitHub Issues are the Single Source of Truth (SSOT) for project work. The
+`roadmap.md` file in consumer projects is a **read-only, auto-generated
+artifact** that reflects the real-time state of Epics and Features. Neither
+humans nor AI agents should manually edit it.
+
+> **Note — Agent-Protocols Repo:** The `docs/roadmap.md` in this repository
+> remains manually authored until all v5 features are shipped. This feature is
+> for consuming projects adopting the v5 architecture.
+
+**Issue Hierarchy in Roadmap:**
+
+Work is organized in a parent-child relationship. Only Epics and Features are
+included in the generated roadmap (Stories and Tasks are execution-level detail
+that would add noise).
+
+```text
+Epic (type::epic)
+├── Feature (type::feature)  → rendered as checklist item
+├── Feature (type::feature)
+└── Feature (type::feature)
+```
+
+**Filtering Strategy — Black-Label Exclusion:**
+
+The generation script uses a `roadmap-exclude` label to separate public-facing
+features from internal engineering work:
+
+- **Default:** All Epics and Features are included.
+- If an **Epic** has `roadmap-exclude`, it and all child Features are omitted.
+- If a **Feature** has `roadmap-exclude`, only that Feature is omitted.
+- Closed Epics are included with a `✅` prefix (unless excluded by label).
+
+**`generate-roadmap.js` Script:**
+
+Lives in `.agents/scripts/` — ships with the submodule.
+
+```text
+Inputs:
+  - Orchestration config from .agentrc.json (owner, repo)
+  - ITicketingProvider (reuses existing v5 infrastructure)
+  - Output path (configurable: default docs/roadmap.md)
+
+Algorithm:
+  1. Fetch all issues with label type::epic
+  2. Filter out Epics bearing roadmap-exclude label
+  3. For each surviving Epic, fetch child issues with type::feature
+  4. Filter out Features bearing roadmap-exclude
+  5. Generate markdown:
+     - Header: <!-- AUTO-GENERATED — DO NOT EDIT --> banner
+     - Timestamp + link to GitHub Issues
+     - Per-Epic section: title, first-paragraph excerpt (≤300 chars),
+       link to GitHub issue, status (open/closed prefix)
+     - Per-Feature checklist: - [ ] or - [x], title, link to issue
+  6. Ordering: open Epics first, then closed; by issue number within groups
+  7. Write to output path
+
+CLI:
+  node .agents/scripts/generate-roadmap.js           # Generate and write
+  node .agents/scripts/generate-roadmap.js --check    # Diff only (CI mode)
+  node .agents/scripts/generate-roadmap.js --stdout   # Print without writing
+```
+
+**Configuration (`.agentrc.json`):**
+
+```json
+{
+  "agentSettings": {
+    "roadmap": {
+      "enabled": true,
+      "outputPath": "docs/roadmap.md",
+      "includeClosedEpics": true,
+      "excludeLabel": "roadmap-exclude",
+      "maxDescriptionLength": 300
+    }
+  }
+}
+```
+
+**Efficiency — Avoiding Costly Full Re-renders:**
+
+The GitHub Actions workflow (see below) triggers on every `issues` event. To
+avoid expensive full regenerations when nothing has changed:
+
+1. **Conditional event filtering:** The workflow template uses GitHub Action's
+   `if:` conditional to skip runs when the changed issue does not have a
+   `type::epic` or `type::feature` label. This eliminates the majority of
+   noise from Task/Story events.
+2. **Content hash comparison:** `generate-roadmap.js` reads the existing
+   `roadmap.md`, generates the new content in memory, and compares a SHA-256
+   hash. If the hashes match → exit 0, skip the commit step. This makes the
+   GH Action idempotent and effectively free when the roadmap content hasn't
+   actually changed.
+3. **Git no-op detection:** The workflow's commit step uses
+   `git diff --cached --quiet` to skip the commit+push when the file is
+   unchanged, as a secondary guard.
+
+**CI Distribution — Hybrid Approach:**
+
+The `.github/workflows/` directory cannot be distributed via the `.agents/`
+submodule. The solution uses a dual-path approach:
+
+- **Primary (Manual):** The workflow template ships in
+  `.agents/templates/update-roadmap.yml`. The README documents the copy step:
+  `cp .agents/templates/update-roadmap.yml .github/workflows/`.
+- **Convenience (Bootstrap):** `bootstrap-agent-protocols.js` gains an
+  `--install-workflows` flag that copies all templates from
+  `.agents/templates/*.yml` to `.github/workflows/`, creating the directory if
+  needed. Idempotent — skips files that already exist.
+
+**Workflow Template (`.agents/templates/update-roadmap.yml`):**
+
+```yaml
+name: Update Roadmap
+on:
+  issues:
+    types: [opened, edited, closed, reopened, labeled, unlabeled, deleted]
+  workflow_dispatch:  # Manual trigger
+
+concurrency:
+  group: update-roadmap
+  cancel-in-progress: true
+
+jobs:
+  generate:
+    runs-on: ubuntu-latest
+    # Skip if the issue doesn't have a roadmap-relevant label
+    if: >
+      github.event_name == 'workflow_dispatch' ||
+      contains(toJSON(github.event.issue.labels.*.name), 'type::epic') ||
+      contains(toJSON(github.event.issue.labels.*.name), 'type::feature')
+    permissions:
+      contents: write
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '20'
+          cache: 'npm'
+      - run: npm ci
+      - run: node .agents/scripts/generate-roadmap.js
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+      - name: Commit roadmap
+        run: |
+          git config user.name 'github-actions[bot]'
+          git config user.email '41898282+github-actions[bot]@users.noreply.github.com'
+          git add docs/roadmap.md
+          git diff --cached --quiet || git commit -m "docs: auto-update roadmap [skip ci]"
+          git push
+```
+
+**Agent Immutability Rule:**
+
+Added to `instructions.md` under System Guardrails:
+
+> If a `docs/roadmap.md` (or configured `agentSettings.roadmap.outputPath`)
+> file exists and contains the header `<!-- AUTO-GENERATED — DO NOT EDIT -->`,
+> you MUST NOT edit, write to, or commit changes to that file. To update the
+> roadmap, update the corresponding GitHub Issue status or labels. The
+> automation pipeline will regenerate the file automatically.
 
 ### Sprint 3G: Dogfood — End-to-End Epic Lifecycle
 
@@ -1022,6 +1194,12 @@ playbook generation pipeline, and local sprint setup workflow.
 - [ ] All deprecated workflows removed: `sprint-generate-playbook.md`,
       `sprint-setup.md`, `sprint-gather-context.md`.
 - [ ] `docs/sprints/` is deprecated with a notice.
+- [ ] `generate-roadmap.js` produces correct markdown from GitHub Issues.
+- [ ] `roadmap-exclude` label in the bootstrap taxonomy.
+- [ ] `update-roadmap.yml` workflow template ships in `.agents/templates/`.
+- [ ] `bootstrap-agent-protocols.js` supports `--install-workflows` flag.
+- [ ] Agent immutability rule for `<!-- AUTO-GENERATED -->` files documented.
+- [ ] Roadmap generation uses hash-based skip to avoid unnecessary commits.
 - [ ] All documentation reflects the v5 architecture.
 - [ ] End-to-end Epic lifecycle completes with zero local artifacts.
 - [ ] `VERSION` reads `5.0.0`.
@@ -1048,8 +1226,10 @@ playbook generation pipeline, and local sprint setup workflow.
 | `.agents/scripts/context-hydrator.js`            | 3     | Virtual context assembly         |
 | `.agents/scripts/dispatcher.js`                  | 3     | DAG scheduler + branch creation  |
 | `.agents/scripts/update-ticket-state.js`         | 3     | Ticketing state writer + cascade |
+| `.agents/scripts/generate-roadmap.js`            | 3     | GitHub Issue → roadmap generator |
 | `.agents/schemas/dispatch-manifest.json`         | 3     | Dispatch manifest schema         |
 | `.agents/templates/agent-protocol.md`            | 3     | Universal execution protocol     |
+| `.agents/templates/update-roadmap.yml`           | 3     | GH Actions workflow template     |
 | `.agents/templates/feature-body.md`              | 2     | Feature issue template           |
 | `.agents/templates/story-body.md`                | 2     | Story issue template             |
 | `.agents/templates/task-body.md`                 | 2     | Task issue template              |
@@ -1067,6 +1247,7 @@ playbook generation pipeline, and local sprint setup workflow.
 | `tests/context-hydrator.test.js`                 | 3     | Hydrator unit tests              |
 | `tests/dispatcher.test.js`                       | 3     | Dispatcher unit tests            |
 | `tests/update-ticket-state.test.js`              | 3     | State writer unit tests          |
+| `tests/generate-roadmap.test.js`                 | 3     | Roadmap generator unit tests     |
 
 ### Modified Files
 

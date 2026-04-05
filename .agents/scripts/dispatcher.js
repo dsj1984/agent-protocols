@@ -39,6 +39,7 @@ import {
   computeWaves,
   autoSerializeOverlaps,
 } from './lib/Graph.js';
+import { hydrateContext } from './context-hydrator.js';
 
 const __filename = fileURLToPath(import.meta.url);
 
@@ -355,12 +356,14 @@ export async function dispatch(options) {
         continue;
       }
 
+      const hydratedPrompt = await hydrateContext(task, provider, epicBranch, taskBranch, epicId);
+
       const taskDispatch = {
         taskId: task.id,
         epicId,
         branch: taskBranch,
         epicBranch,
-        prompt: task.body,
+        prompt: hydratedPrompt,
         persona: task.persona,
         model: resolvedModel,
         mode: task.mode,
