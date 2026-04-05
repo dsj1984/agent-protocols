@@ -81,6 +81,12 @@ export class PlaybookOrchestrator {
 
     this.enrichManifest(manifest);
 
+    // Verify manifest version matches system version
+    if (manifest.protocolVersion && this.options.protocolVersion !== 'Unknown' && manifest.protocolVersion !== this.options.protocolVersion) {
+      console.warn(`\u26A0\uFE0F  Protocol version mismatch: Manifest uses v${manifest.protocolVersion}, but the system is running v${this.options.protocolVersion}.`);
+      console.warn(`   Ensure all artifacts (PRD, Tech Spec) were generated with the correct version.`);
+    }
+
     // Complexity analysis & auto-split
     const complexityConfig = loadComplexityConfig();
     const { splits, warnings: complexityWarnings } = analyzeAndSplit(manifest, complexityConfig);
@@ -124,32 +130,49 @@ export class PlaybookOrchestrator {
     }
 
     // Auto-serialize concurrent overlapping focus areas
+    // Phase A: scan all pairs and collect new edges — O(N²), no graph rebuilds inside.
+    // Convert each task's focusAreas to a Set for O(1) intersection checks.
+    const focusSets = new Map(
+      manifest.tasks.map((t) => [
+        t.id,
+        new Set(Array.isArray(t.focusAreas) ? t.focusAreas : []),
+      ])
+    );
+
     let reachable = computeReachability(adjacency);
-    let graphMutated = false;
+    const pendingEdges = []; // [ [fromId, toId], ... ]
 
     for (let i = 0; i < manifest.tasks.length; i++) {
       for (let j = i + 1; j < manifest.tasks.length; j++) {
         const taskA = manifest.tasks[i];
         const taskB = manifest.tasks[j];
 
-        const areasA = Array.isArray(taskA.focusAreas) ? taskA.focusAreas : [];
-        const areasB = Array.isArray(taskB.focusAreas) ? taskB.focusAreas : [];
+        const setA = focusSets.get(taskA.id);
+        const setB = focusSets.get(taskB.id);
 
-        const isGlobalA = taskA.scope === 'root' || areasA.includes('*');
-        const isGlobalB = taskB.scope === 'root' || areasB.includes('*');
-        const overlap = areasA.find(a => areasB.includes(a));
+        const isGlobalA = taskA.scope === 'root' || setA.has('*');
+        const isGlobalB = taskB.scope === 'root' || setB.has('*');
+        const overlap = isGlobalA || isGlobalB || [...setA].some((a) => setB.has(a));
 
-        if (overlap || isGlobalA || isGlobalB) {
+        if (overlap) {
           const aReachesB = reachable.get(taskA.id)?.has(taskB.id);
           const bReachesA = reachable.get(taskB.id)?.has(taskA.id);
 
           if (!aReachesB && !bReachesA) {
-            if (!taskB.dependsOn) taskB.dependsOn = [];
-            taskB.dependsOn.push(taskA.id);
-            graphMutated = true;
-            const tempGraph = buildGraph(manifest.tasks);
-            reachable = computeReachability(tempGraph.adjacency);
+            pendingEdges.push([taskA.id, taskB.id]);
           }
+        }
+      }
+    }
+
+    // Phase B: apply all collected edges in a single pass & rebuild once.
+    let graphMutated = pendingEdges.length > 0;
+    if (graphMutated) {
+      for (const [fromId, toId] of pendingEdges) {
+        const taskB = manifest.tasks.find((t) => t.id === toId);
+        if (taskB) {
+          if (!taskB.dependsOn) taskB.dependsOn = [];
+          if (!taskB.dependsOn.includes(fromId)) taskB.dependsOn.push(fromId);
         }
       }
     }
@@ -164,6 +187,7 @@ export class PlaybookOrchestrator {
         throw new Error(`Dependency cycle detected after auto-serialization: ${cycle2.join(' → ')}`);
       }
     }
+
 
     // Layer assignment → session grouping
     const layers = assignLayers(finalAdjacency);

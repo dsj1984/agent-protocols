@@ -61,6 +61,33 @@ Your output MUST conform to the JSON schema defined in
   destroys parallelism and is a **critical planning error**. Validate by asking:
   _"Would this task fail to compile or run if the other feature didn't exist?"_
   If the answer is no, they must NOT be linked.
+- **Intra-Feature Fan-Out (Diamond Pattern)**: When a feature has a shared
+  backend (DB schema, API routes) consumed by multiple independent consumers
+  (Web UI, Mobile UI, CLI), each consumer MUST depend on the shared backend task
+  — NOT on each other. This enables parallel execution of frontend work.
+
+  ✅ Correct (diamond — Web and Mobile run in parallel):
+
+  ```text
+  db → api ─┬→ web-ui    (dependsOn: ["api"])
+            └→ mobile-ui (dependsOn: ["api"])
+  ```
+
+  ❌ Wrong (linear chain — Mobile blocked on Web for no reason):
+
+  ```text
+  db → api → web-ui → mobile-ui (dependsOn: ["web-ui"] — unnecessary!)
+  ```
+
+  **Validation heuristic**: For each task pair at the same dependency depth,
+  ask: _"Does Task B read files written by Task A, or call APIs created by Task
+  A?"_ If the answer is no, they must NOT be linked — they should both point to
+  their shared ancestor instead.
+
+- **`sprintName`**: Human-readable sprint name.
+- **`protocolVersion`**: Read the version from `.agents/VERSION` and include it
+  as a string ("X.Y.Z").
+- **`summary`**: A 2-3 sentence summary of the sprint's goals.
 - Tasks sharing a workspace scope (e.g., `@repo/web`) at the same dependency
   layer will be grouped into one sequential Chat Session by the script.
 - Always include at least one Integration task (with `isIntegration: true`), one
@@ -126,6 +153,20 @@ Your output MUST conform to the JSON schema defined in
   `riskGates.heuristics` in `config.json`), you MUST set this to `true`. This
   will instruct the execution script to pause for human confirmation.
 
+### Dependency Anti-Patterns
+
+Avoid these common dependency mistakes that destroy parallelism:
+
+1. **Linear Chain Bias**: Writing tasks in document order and making each task
+   depend on the previous one. The correct approach is to analyze true data
+   dependencies, not document order.
+2. **Consumer-to-Consumer Chaining**: Making `mobile-ui` depend on `web-ui` when
+   both simply consume the same API. Each should independently depend on the API
+   task.
+3. **Scope Confusion**: Two tasks sharing a scope (`@repo/api`) does not mean
+   they must be serialized. Only serialize if they genuinely modify the same
+   files or one produces an artifact the other consumes.
+
 ### Output Location
 
 Save the manifest to: `[SPRINT_ROOT]/task-manifest.json`
@@ -156,6 +197,16 @@ prevent task drift:
    `dependsOn` includes the API task that provides its data source. A UI task
    that calls an API endpoint MUST depend on the task that creates that
    endpoint.
+4. **Parallelism Verification**: Review the dependency graph for unnecessary
+   serialization:
+   - For each pair of frontend tasks (Web/Mobile) or same-layer tasks, verify
+     they do NOT depend on each other unless one genuinely consumes the other's
+     output.
+   - Confirm that consumers of the same API task each point directly to that API
+     task, not to each other.
+   - Count the number of concurrent "tracks" in your graph. If all tasks are
+     sequential when the Tech Spec described independent frontend work, this is
+     a **critical planning error** — restructure the dependencies.
 
 ## Step 3 - Script Execution
 

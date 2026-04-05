@@ -304,10 +304,11 @@ export function analyzeAndSplit(manifest, userConfig = {}) {
 
   // Phase 2: Identify tasks to split
   if (!config.enableAutoSplit) {
-    // Just add warnings, no splitting
+    // Build a fast id→task index so warning injection is O(1) per entry.
+    const taskById = new Map(manifest.tasks.map((t) => [t.id, t]));
     for (const [id, { total }] of scores) {
       if (total >= config.maxComplexityScore) {
-        const task = manifest.tasks.find((t) => t.id === id);
+        const task = taskById.get(id);
         if (task && config.enableComplexityWarnings) {
           task._complexityWarning = true;
           task._complexityScore = total;

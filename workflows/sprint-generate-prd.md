@@ -39,6 +39,8 @@ on the roadmap items.
 Include the following:
 
 - Problem Statement (2-3 paragraphs explaining friction vs roadmap goals)
+- **Protocol Version**: Read the version from `.agents/VERSION` and include it
+  in the header as **Protocol Version: X.Y.Z**.
 - Feature definitions with User Stories and Acceptance Criteria
 - Mobile-First UX flows (step-by-step)
 

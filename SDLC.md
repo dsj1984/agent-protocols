@@ -157,6 +157,11 @@ structured execution plan.
      with an inline `⚠️ COMPLEXITY WARNING` to instruct agents to
      self-decompose. Use `estimatedFiles` and `substeps` in the manifest to help
      the estimator make informed splitting decisions.
+   - **Zero-Drift Version Alignment**: The generation pipeline automatically
+     pins the PRD, Technical Spec, Task Manifest, and Playbook to the current
+     `agent-protocols` version in `.agents/VERSION`. The `/plan-sprint`
+     orchestrator performs a final audit to ensure all four planning artifacts
+     are version-aligned, preventing configuration drift across the sprint.
    - Saves artifacts to: `docs/sprints/sprint-[##]/task-manifest.json` and
      `docs/sprints/sprint-[##]/playbook.md`.
 

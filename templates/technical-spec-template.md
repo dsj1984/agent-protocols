@@ -1,5 +1,7 @@
 # Technical Specification: Sprint [SPRINT_NUMBER] - [SPRINT_NAME]
 
+**Protocol Version:** [AGENT_PROTOCOLS_VERSION]
+
 **Context:** This document outlines the explicit database schema migrations and
 API route implementations required to fulfill the Sprint [SPRINT_NUMBER] PRD.
 Read the `techStack` section of `.agentrc.json` to determine the project's ORM,

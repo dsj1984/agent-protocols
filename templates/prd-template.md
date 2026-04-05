@@ -1,5 +1,7 @@
 # PRD: Sprint [SPRINT_NUMBER] - [SPRINT_NAME]
 
+**Protocol Version:** [AGENT_PROTOCOLS_VERSION]
+
 ## 1. Problem Statement
 
 [Provide a concise 2-3 paragraph explanation of the current friction or missing
