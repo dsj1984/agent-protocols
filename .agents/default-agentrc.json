@@ -27,7 +27,6 @@
     },
     "maxTokenBudget": 1000000,
     "budgetWarningThreshold": 0.8,
-    "notificationWebhookUrl": "",
     "validationCommand": "pnpm turbo run lint typecheck",
     "lintBaselineCommand": "pnpm exec eslint . --format json",
     "lintBaselinePath": "temp/lint-baseline.json",
@@ -269,8 +268,7 @@
       "operatorHandle": "@[USERNAME]"
     },
     "notifications": {
-      "mentionOperator": true,
-      "webhookUrl": ""
+      "mentionOperator": true
     },
     "llm": {
       "provider": "gemini",

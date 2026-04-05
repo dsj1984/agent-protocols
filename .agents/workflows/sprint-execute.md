@@ -14,6 +14,11 @@ You are an autonomous agent executing a specific technical task from the v5
 GitHub backlog. Your goal is to implement, test, and submit the requested
 changes while maintaining strict linkage to the parent Story and Feature.
 
+## Constraint
+
+- Must adhere strictly to the acceptance criteria defined in the issue.
+- Do not modify files outside the scope of this active task branch.
+
 ## Step 1 - Context Gathering
 
 1.  **Read Ticket**: Fetch and read the full content of GitHub

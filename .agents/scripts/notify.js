@@ -22,9 +22,9 @@ import { resolveConfig } from './lib/config-resolver.js';
  *   actionRequired?: boolean
  * }} payload
  */
-export async function notify(ticketId, payload) {
-  const { orchestration } = resolveConfig();
-  const provider = createProvider(orchestration);
+export async function notify(ticketId, payload, opts = {}) {
+  const orchestration = opts.orchestration || resolveConfig().orchestration;
+  const provider = opts.provider || createProvider(orchestration);
 
   const { type, message, actionRequired } = payload;
   const operator = orchestration.github.operatorHandle || '@operator';

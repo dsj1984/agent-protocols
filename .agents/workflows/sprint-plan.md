@@ -16,6 +16,11 @@ You are the master orchestrator for the v5 Epic-Centric ticketing pipeline. Your
 goal is to transform a high-level Epic into a fully decomposed, ready-to-execute
 backlog of Features, Stories, and Tasks.
 
+## Constraint
+
+- Do not modify existing issues without explicit permission.
+- Wait for user validation before migrating to Phase 2.
+
 ## Prerequisites
 
 1.  **GitHub Epic**: An existing GitHub Issue with the `type/epic` label.
@@ -46,18 +51,28 @@ backlog of Features, Stories, and Tasks.
     node .agents/scripts/ticket-decomposer.js [Epic_ID]
     ```
 
-2.  **Audit**:
+2.  **Cross-Validation**:
+    - **Verify**: every PRD feature -> Feature issue -> at least one Story -> at
+      least one Task.
+    - **Verify**: dependency DAG across Tasks is acyclic (no circular deps).
+    - **Verify**: risk::high Tasks are flagged correctly.
+    - **Action**: Fix any gaps by creating additional issues or updating
+      existing ones manually.
+
+3.  **Audit**:
     - Check the Epic's comment thread to ensure the backlog summary was posted.
     - Verify that at least one `type/feature`, `type/story`, and `type/task`
       issue was created.
-    - Check for `risk::high` labels on the generated tasks.
 
 ## Phase 3: Notification & Handoff
 
-1.  **Notify**: Use the notification script to announce completion.
+1.  **Notify Operator (INFO)**:
+    - Post a summary comment on the Epic issue with work breakdown stats.
+    - @mention the operator (informational — no webhook for planning) by running
+      the notification script:
 
     ```powershell
-    node .agents/scripts/notify.js [Epic_ID] "Backlog decomposition complete. Sprint is ready for /sprint-execute."
+    node .agents/scripts/notify.js [Epic_ID] "Planning complete, review tickets. Backlog decomposition complete. Sprint is ready for /sprint-execute."
     ```
 
 2.  **Final Summary**: Provide the user with a summary of the generated tickets

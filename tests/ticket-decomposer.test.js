@@ -128,10 +128,10 @@ describe('ticket-decomposer orchestration', () => {
   });
 
   it('handles LLM markdown wrapping in JSON response', async () => {
-    mockLlm.generateText = async () => '```json\n[{"slug":"f1","type":"feature","title":"Wrapped Feature","body":"Body","labels":[]}]\n```';
+    mockLlm.generateText = async () => '```json\n[{"slug":"f1","type":"feature","title":"Wrapped Feature","body":"Body","labels":[]},{"slug":"s1","type":"story","title":"Wrapped Story","body":"Body","depends_on":"f1","labels":[]},{"slug":"t1","type":"task","title":"Wrapped Task","body":"Body","depends_on":"s1","labels":[]}]\n```';
     
     await decomposeEpic(1, mockProvider, mockLlm);
-    assert.equal(mockProvider.createdTickets.length, 1);
+    assert.equal(mockProvider.createdTickets.length, 3);
     assert.equal(mockProvider.createdTickets[0].ticketData.title, 'Wrapped Feature');
   });
 });

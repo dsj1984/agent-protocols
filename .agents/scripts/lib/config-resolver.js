@@ -175,8 +175,16 @@ export function resolveConfig(opts) {
       }
     }
 
-    // v5: Extract the orchestration block (null if not configured)
     const orchestration = raw.orchestration ?? null;
+
+    // Prioritize environment variable for the webhook URL
+    const envWebhookUrl = process.env.NOTIFICATION_WEBHOOK_URL;
+    if (envWebhookUrl) {
+      settings.notificationWebhookUrl = envWebhookUrl;
+      if (orchestration && orchestration.notifications) {
+        orchestration.notifications.webhookUrl = envWebhookUrl;
+      }
+    }
 
     _cachedConfig = { settings, orchestration, raw, source: agentrcPath };
     return _cachedConfig;

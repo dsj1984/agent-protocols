@@ -23,7 +23,6 @@
     "workspacesRoot": "temp/workspaces",
     "maxTokenBudget": 1000000,
     "budgetWarningThreshold": 0.8,
-    "notificationWebhookUrl": "",
     "validationCommand": "npm run lint",
     "lintBaselineCommand": "npm run lint",
     "lintBaselinePath": "temp/lint-baseline.json",
@@ -229,8 +228,7 @@
       "operatorHandle": "@dsj1984"
     },
     "notifications": {
-      "mentionOperator": true,
-      "webhookUrl": ""
+      "mentionOperator": true
     },
     "llm": {
       "provider": "gemini",

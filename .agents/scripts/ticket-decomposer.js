@@ -90,6 +90,44 @@ Please decompose the above into a complete ticket backlog. Respond with the JSON
     throw new Error('LLM output was not valid JSON.');
   }
 
+  console.log(`[Decomposer] Running cross-validation on ${tickets.length} decomposed tickets...`);
+  const ticketBySlug = new Map(tickets.map(t => [t.slug, t]));
+  const features = tickets.filter(t => t.type === 'feature');
+  const stories = tickets.filter(t => t.type === 'story');
+  const tasks = tickets.filter(t => t.type === 'task');
+
+  if (features.length === 0) throw new Error('Cross-Validation Failed: Backlog must contain at least one Feature.');
+  if (stories.length === 0) throw new Error('Cross-Validation Failed: Backlog must contain at least one Story.');
+  if (tasks.length === 0) throw new Error('Cross-Validation Failed: Backlog must contain at least one Task.');
+
+  // Validate hierarchy
+  for (const story of stories) {
+    if (!story.depends_on) throw new Error(`Cross-Validation Failed: Story "${story.title}" must depend on a Feature.`);
+    const parent = ticketBySlug.get(story.depends_on);
+    if (!parent || parent.type !== 'feature') throw new Error(`Cross-Validation Failed: Story "${story.title}" parent must be a Feature.`);
+  }
+
+  for (const task of tasks) {
+    if (!task.depends_on) continue; // Horizontal dependencies are also allowed, but if linked, must resolve to another valid ticket
+    const parent = ticketBySlug.get(task.depends_on);
+    if (!parent || !['story', 'task'].includes(parent.type)) {
+       throw new Error(`Cross-Validation Failed: Task "${task.title}" parent must be a Story or another Task.`);
+    }
+  }
+
+  // Acyclic check (naive, ensures no parent leads back to itself)
+  for (const ticket of tickets) {
+    let current = ticket;
+    const visited = new Set();
+    while (current && current.depends_on) {
+      if (visited.has(current.slug)) {
+        throw new Error(`Cross-Validation Failed: Circular dependency detected involving "${current.slug}".`);
+      }
+      visited.add(current.slug);
+      current = ticketBySlug.get(current.depends_on);
+    }
+  }
+
   console.log(`[Decomposer] Identified ${tickets.length} tickets. Starting creation...`);
 
   // Map of slug -> created ID for dependency resolution
