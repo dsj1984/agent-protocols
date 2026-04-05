@@ -180,6 +180,13 @@ long tasks, the following guardrails are enforced:
   reads friction logs across sprints to visually chart tool failures, efficiency
   trends, and productivity bottlenecks.
   - **Usage**: `node [SCRIPTS_ROOT]/aggregate-telemetry.js --from 1 --to 10`
+- **Verbose Interaction Logging**: Opt-in structured JSONL logging of all
+  agentic interactions and responses throughout a sprint, designed for post-hoc
+  analysis (model evaluation, cost attribution, prompt debugging).
+  - **Enable**: Set `agentSettings.verboseLogging.enabled` to `true` in
+    `.agentrc.json`.
+  - **Output**: Logs are written to the `verboseLogging.logDir` directory
+    (default: `temp/verbose-logs`), one JSONL file per sprint.
 - **Cross-Artifact Version Lineage**: Enforces deterministic consistency across
   the planning pipeline by embedding the current `agent-protocols` version into
   the PRD, Technical Spec, Task Manifest, and Playbook. The orchestrator

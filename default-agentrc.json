@@ -21,6 +21,10 @@
     "maxGoldenExampleLines": 200,
     "eventStreamsRoot": "temp/event-streams",
     "workspacesRoot": "temp/workspaces",
+    "verboseLogging": {
+      "enabled": false,
+      "logDir": "temp/verbose-logs"
+    },
     "maxTokenBudget": 1000000,
     "budgetWarningThreshold": 0.8,
     "notificationWebhookUrl": "",

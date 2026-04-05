@@ -4,6 +4,7 @@ import { fileURLToPath } from 'node:url';
 import { execFileSync, spawnSync } from 'node:child_process';
 import { resolveConfig } from './lib/config-resolver.js';
 import { Logger } from './lib/Logger.js';
+import { VerboseLogger } from './lib/VerboseLogger.js';
 
 /**
  * sprint-integrate.js — Batch Integration Candidate Verification
@@ -59,6 +60,19 @@ const testCmd = settings.testCommand ?? 'npm run test';
 const scriptsRoot = settings.scriptsRoot ?? '.agents/scripts';
 const executionTimeoutMs = settings.executionTimeoutMs ?? 300000;
 const executionMaxBuffer = settings.executionMaxBuffer ?? 10485760;
+
+// Initialize verbose logging for the integration session
+const vlog = VerboseLogger.init(settings, PROJECT_ROOT, {
+  sprint: paddedNum,
+  taskId,
+  source: 'sprint-integrate',
+});
+
+vlog.info('integration', `Starting candidate verification for ${featureBranch}`, {
+  sprintBranch,
+  featureBranch,
+  candidateBranch,
+});
 
 // ---------------------------------------------------------------------------
 // Helpers
@@ -163,6 +177,11 @@ if (merge.status !== 0) {
   // Merge conflict — analyze severity
   const conflicts = analyzeConflicts();
   progress('CONFLICT', `${conflicts.files} file(s), ~${conflicts.lines} conflict markers`);
+  vlog.warn('integration', `Merge conflict detected`, {
+    files: conflicts.files,
+    lines: conflicts.lines,
+    fileList: conflicts.fileList,
+  });
 
   if (conflicts.files >= 3 || conflicts.lines >= 20) {
     // Major conflict — exit 2, requires human
@@ -215,6 +234,7 @@ const verifyResult = spawnSync(
 if (verifyResult.status !== 0) {
   // Build broken — blast-radius containment
   progress('FAIL', `Verification failed for ${taskId}. Blast-radius contained.`);
+  vlog.error('integration', `Post-merge verification failed`, { taskId, exitCode: verifyResult.status });
   logFriction(`${taskId} failed post-merge integration check. Blast-radius contained. Rework triggered via /sprint-hotfix.`);
   cleanup();
   process.exit(1);
@@ -232,4 +252,8 @@ if (consolidate.status !== 0) {
 git('branch', '-D', candidateBranch);
 
 progress('DONE', `✅ ${taskId} successfully integrated into ${sprintBranch}`);
+vlog.info('integration', `Task successfully integrated`, {
+  taskId,
+  sprintBranch,
+});
 process.exit(0);
