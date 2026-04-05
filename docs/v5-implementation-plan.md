@@ -815,7 +815,7 @@ This recursive cascade uses `provider.getSubTickets(parentId)` (already in
 `ITicketingProvider`) and label-based status checks on each sibling. Each
 parent transition includes a summary comment listing the completed children.
 
-### Sprint 3D: `/sprint-execute` Workflow
+### Sprint 3D: `/sprint-execute` Workflow [COMPLETED]
 
 **Scope:** Wire everything into the `/sprint-execute [Epic ID]` orchestrator,
 operating in two modes: Epic-level (outputs Dispatch Manifest) and Task-level
@@ -823,13 +823,13 @@ operating in two modes: Epic-level (outputs Dispatch Manifest) and Task-level
 automatically transitions into bookend lifecycle phases (Integration → QA →
 Code Review → Retro → Close-Out) without requiring separate tickets.
 
-| Task                                                                              | Type   | File(s)                                     | Depends On   |
+| Task                                                                              | Status | File(s)                                     | Depends On   |
 | --------------------------------------------------------------------------------- | ------ | ------------------------------------------- | ------------ |
-| Build `/sprint-execute` workflow — Epic-level Dispatch Manifest mode              | NEW    | `.agents/workflows/sprint-execute.md`       | Sprints 3A-C |
-| Build `/sprint-execute` workflow — Task-level single-task execution mode          | MODIFY | (same file)                                 | Sprints 3A-C |
-| Bookend lifecycle phase orchestration — auto-run post all Tasks `agent::done`     | MODIFY | (same file)                                 | Sprints 3A-C |
-| Epic completion detection — all tickets `agent::done` → notify operator           | NEW    | `.agents/scripts/dispatcher.js`             | Notify       |
-| Integration with existing `/sprint-finalize-task` — call `update-ticket-state.js` | MODIFY | `.agents/workflows/sprint-finalize-task.md` | State writer |
+| Build `/sprint-execute` workflow — Epic-level Dispatch Manifest mode              | DONE   | `.agents/workflows/sprint-execute.md`       | Sprints 3A-C |
+| Build `/sprint-execute` workflow — Task-level single-task execution mode          | DONE   | (same file)                                 | Sprints 3A-C |
+| Bookend lifecycle phase orchestration — auto-run post all Tasks `agent::done`     | DONE   | (same file)                                 | Sprints 3A-C |
+| Epic completion detection — all tickets `agent::done` → notify operator           | DONE   | `.agents/scripts/dispatcher.js`             | Notify       |
+| Integration with existing `/sprint-finalize-task` — call `update-ticket-state.js` | DONE   | `.agents/workflows/sprint-finalize-task.md` | State writer |
 
 **`/sprint-execute [Epic ID]` Workflow (Epic-Level — Dispatch Manifest):**
 

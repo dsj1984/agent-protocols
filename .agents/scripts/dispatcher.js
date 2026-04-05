@@ -1,6 +1,6 @@
 #!/usr/bin/env node
 /**
- * dispatcher.js — Sprint 3A Execution Dispatcher
+ * dispatcher.js — Sprint 3A/3D Execution Dispatcher
  *
  * The Dispatcher is the central orchestration engine for the v5 Epic-centric
  * execution model. Given an Epic ID, it:
@@ -407,7 +407,74 @@ export async function dispatch(options) {
     adapter,
   });
 
+  // ── Step 8: Epic completion detection ────────────────────────────────────
+  await detectEpicCompletion({ epicId, epic, tasks, manifest, provider, settings, dryRun });
+
   return manifest;
+}
+
+/**
+ * Detect whether all Tasks in the Epic have reached agent::done.
+ * If so, post a summary comment on the Epic issue and fire the
+ * epic-complete webhook via notify.js (INFO level — no operator action required).
+ *
+ * @param {object} params
+ */
+async function detectEpicCompletion({ epicId, epic, tasks, manifest, provider, settings, dryRun }) {
+  if (tasks.length === 0) return;
+
+  const allDone = tasks.every(t => t.status === AGENT_DONE_LABEL);
+  if (!allDone) return;
+
+  console.log(`[Dispatcher] 🎉 All Tasks under Epic #${epicId} are agent::done. Starting Bookend Lifecycle.`);
+
+  if (dryRun) {
+    console.log('[Dispatcher] [DRY-RUN] Would post epic-complete comment and fire webhook.');
+    return;
+  }
+
+  // Build a summary of completed tasks
+  const taskLines = tasks
+    .map(t => `- ✅ #${t.id}: ${t.title}`)
+    .join('\n');
+
+  const summaryComment = [
+    `## 🎉 Epic #${epicId} Complete`,
+    '',
+    `All **${tasks.length}** tasks have been implemented and reviewed.`,
+    '',
+    '### Completed Tasks',
+    taskLines,
+    '',
+    '### Next Steps',
+    'The Bookend Lifecycle phases (Integration → QA → Code Review → Retro → Close-Out) ',
+    'will now execute sequentially per `agentSettings.bookendRequirements`.',
+    '',
+    `> Progress: ${manifest.summary.progressPercent}% · Generated: ${manifest.generatedAt}`,
+  ].join('\n');
+
+  try {
+    await provider.postComment(epicId, {
+      body: summaryComment,
+      type: 'notification',
+    });
+    console.log(`[Dispatcher] Posted epic-complete summary comment on Epic #${epicId}.`);
+  } catch (err) {
+    console.warn(`[Dispatcher] Failed to post epic-complete comment: ${err.message}`);
+  }
+
+  // Fire the epic-complete webhook (INFO — no action required)
+  const webhookUrl = settings.notificationWebhookUrl;
+  if (webhookUrl) {
+    try {
+      execSync(
+        `node .agents/scripts/notify.js "Epic #${epicId} complete. All tasks done. Bookend Lifecycle starting."`,
+        { cwd: PROJECT_ROOT, encoding: 'utf8', stdio: 'inherit' },
+      );
+    } catch (err) {
+      console.warn(`[Dispatcher] Webhook notification failed (non-fatal): ${err.message}`);
+    }
+  }
 }
 
 /**
