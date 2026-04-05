@@ -1,7 +1,7 @@
 import fs from 'node:fs';
 import path from 'node:path';
 import { fileURLToPath } from 'node:url';
-import { execFileSync, spawnSync } from 'node:child_process';
+import { spawnSync } from 'node:child_process';
 import { resolveConfig } from './lib/config-resolver.js';
 import { Logger } from './lib/Logger.js';
 import { VerboseLogger } from './lib/VerboseLogger.js';
@@ -34,9 +34,17 @@ let taskId = null;
 
 for (let i = 2; i < process.argv.length; i++) {
   if (process.argv[i] === '--sprint') {
-    sprintNum = process.argv[++i];
+    const next = process.argv[++i];
+    if (!next || next.startsWith('--')) {
+      Logger.fatal('--sprint requires a value.');
+    }
+    sprintNum = next;
   } else if (process.argv[i] === '--task') {
-    taskId = process.argv[++i];
+    const next = process.argv[++i];
+    if (!next || next.startsWith('--')) {
+      Logger.fatal('--task requires a value.');
+    }
+    taskId = next;
   }
 }
 
@@ -59,7 +67,6 @@ const typecheckCmd = settings.typecheckCommand ?? 'npm run typecheck';
 const testCmd = settings.testCommand ?? 'npm run test';
 const scriptsRoot = settings.scriptsRoot ?? '.agents/scripts';
 const executionTimeoutMs = settings.executionTimeoutMs ?? 300000;
-const executionMaxBuffer = settings.executionMaxBuffer ?? 10485760;
 
 // Initialize verbose logging for the integration session
 const vlog = VerboseLogger.init(settings, PROJECT_ROOT, {
@@ -116,27 +123,24 @@ function logFriction(message) {
 
 /** Safely clean up the candidate branch and return to sprint base. */
 function cleanup() {
+  git('merge', '--abort');  // No-op if no merge in progress
   git('checkout', sprintBranch);
   git('branch', '-D', candidateBranch);
 }
 
-/** Count conflict markers in git diff output */
+/** Count conflict markers using git's built-in check (binary-safe). */
 function analyzeConflicts() {
   // Check for unmerged paths
   const unmerged = git('diff', '--name-only', '--diff-filter=U');
   if (!unmerged.stdout) return { files: 0, lines: 0, fileList: [] };
 
   const conflictFiles = unmerged.stdout.split('\n').filter(Boolean);
-  let totalLines = 0;
 
-  for (const file of conflictFiles) {
-    const filePath = path.join(PROJECT_ROOT, file);
-    if (fs.existsSync(filePath)) {
-      const content = fs.readFileSync(filePath, 'utf-8');
-      const markers = content.match(/^<{7}/gm);
-      totalLines += markers ? markers.length : 0;
-    }
-  }
+  // Use git diff --check to count conflict markers without reading files directly.
+  // This is binary-safe and avoids loading large files into memory.
+  const check = git('diff', '--check');
+  const markerMatches = check.stdout.match(/leftover conflict marker/g);
+  const totalLines = markerMatches ? markerMatches.length : 0;
 
   return { files: conflictFiles.length, lines: totalLines, fileList: conflictFiles };
 }
@@ -169,7 +173,12 @@ if (createCandidate.status !== 0) {
   }
 }
 
-// 3. Merge feature branch into candidate
+// 3. Verify feature branch exists, then merge into candidate
+const refCheck = git('rev-parse', '--verify', featureBranch);
+if (refCheck.status !== 0) {
+  Logger.fatal(`Feature branch "${featureBranch}" does not exist. Verify the task ID.`);
+}
+
 progress('MERGE', `Merging ${featureBranch} into candidate`);
 const merge = git('merge', '--no-ff', featureBranch);
 
@@ -198,6 +207,14 @@ if (merge.status !== 0) {
   progress('AUTO-RESOLVE', `Attempting auto-resolution of minor conflicts`);
   // Accept theirs for minor conflicts (feature branch has the intended changes)
   for (const file of conflicts.fileList) {
+    // Log what the sprint-base version contained so discarded changes are auditable
+    const ourVersion = git('show', `:2:${file}`);
+    if (ourVersion.stdout) {
+      vlog.warn('integration', `Auto-resolving "${file}" to theirs — discarding base version`, {
+        file,
+        discardedPreview: ourVersion.stdout.substring(0, 500),
+      });
+    }
     git('checkout', '--theirs', file);
     git('add', file);
   }
@@ -211,38 +228,56 @@ if (merge.status !== 0) {
   progress('AUTO-RESOLVE', `Minor conflicts resolved successfully`);
 }
 
-// 4. Run verification suite
+// 4. Run verification suite — three sequential steps, no shell interpolation
 const lintBaselineScript = path.join(PROJECT_ROOT, scriptsRoot, 'lint-baseline.js');
-const lintCheckCmdArr = ['node', lintBaselineScript, 'check'];
-const verifyCmdLine = `node lint-baseline.js check ; ${typecheckCmd} ; ${testCmd}`;
-progress('VERIFY', `Running validation: ${verifyCmdLine}`);
-
 const diagScript = path.join(PROJECT_ROOT, scriptsRoot, 'diagnose-friction.js');
-const verifyResult = spawnSync(
-  'node',
-  [diagScript, '--sprint', sprintRoot, '--task', taskId, '--cmd', ...lintCheckCmdArr, ';', ...typecheckCmd.split(' '), ';', ...testCmd.split(' ')],
-  {
-    stdio: 'inherit',
-    shell: true,
-    encoding: 'utf-8',
-    cwd: PROJECT_ROOT,
-    timeout: executionTimeoutMs,
-    maxBuffer: executionMaxBuffer,
-  }
-);
+const anchoredSprintRoot = path.join(PROJECT_ROOT, sprintRoot);
 
-if (verifyResult.status !== 0) {
-  // Build broken — blast-radius containment
-  progress('FAIL', `Verification failed for ${taskId}. Blast-radius contained.`);
-  vlog.error('integration', `Post-merge verification failed`, { taskId, exitCode: verifyResult.status });
-  logFriction(`${taskId} failed post-merge integration check. Blast-radius contained. Rework triggered via /sprint-hotfix.`);
-  cleanup();
-  process.exit(1);
+const verifySteps = [
+  { label: 'lint-baseline', args: ['node', lintBaselineScript, 'check'] },
+  { label: 'typecheck',     args: typecheckCmd.split(' ') },
+  { label: 'test',          args: testCmd.split(' ') },
+];
+
+for (const step of verifySteps) {
+  progress('VERIFY', `Running ${step.label}: ${step.args.join(' ')}`);
+
+  // Route through diagnose-friction for telemetry capture
+  const result = spawnSync(
+    'node',
+    [diagScript, '--sprint', anchoredSprintRoot, '--task', taskId, '--cmd', ...step.args],
+    {
+      stdio: 'inherit',
+      encoding: 'utf-8',
+      cwd: PROJECT_ROOT,
+      timeout: executionTimeoutMs,
+    }
+  );
+
+  if (result.status !== 0) {
+    progress('FAIL', `${step.label} failed for ${taskId}. Blast-radius contained.`);
+    vlog.error('integration', `Post-merge verification failed at ${step.label}`, {
+      taskId,
+      step: step.label,
+      exitCode: result.status,
+    });
+    logFriction(
+      `${taskId} failed post-merge integration check at ${step.label}. ` +
+      `Blast-radius contained. Rework triggered via /sprint-hotfix.`,
+    );
+    cleanup();
+    process.exit(1);
+  }
 }
 
 // 5. Build Green — consolidate candidate into sprint base
 progress('CONSOLIDATE', `Merging ${candidateBranch} into ${sprintBranch}`);
-git('checkout', sprintBranch);
+const coResult = git('checkout', sprintBranch);
+if (coResult.status !== 0) {
+  logFriction(`Failed to checkout ${sprintBranch} for consolidation: ${coResult.stderr}`);
+  cleanup();
+  process.exit(1);
+}
 const consolidate = git('merge', '--no-ff', candidateBranch);
 if (consolidate.status !== 0) {
   logFriction(`Failed to consolidate ${candidateBranch}: ${consolidate.stderr}`);
