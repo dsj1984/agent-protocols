@@ -14,11 +14,12 @@ For a complete example of the expected artifacts and formatting, see the
 
 > [!IMPORTANT]
 > **v5.0.0 Migration:** The v5 release introduces **Epic-Centric GitHub
-> Orchestration**, which replaces the local-file pipeline (`playbook.md`,
-> `temp/task-state/`, `docs/sprints/`) with native GitHub Issues, Labels, and
-> Projects V2. All orchestration is mediated through the `ITicketingProvider`
-> interface. See [README.md — v5 Orchestration](./README.md#v5-orchestration)
-> for configuration and architecture details.
+> Orchestration**, which replaces the local-file pipeline (`playbook.md`). 
+> **Authentication follows a 3-tier hierarchy:** 
+> 1.  **GitHub MCP Server** (Primary for Agents)
+> 2.  **`GITHUB_TOKEN`** (Scripting Fallback)
+> 3.  **Local `gh auth`** (Manual Fallback). 
+> See [README.md — v5 Auth](./README.md#authentication) for details.
 
 ---
 

@@ -25,31 +25,48 @@ const GITHUB_GRAPHQL = 'https://api.github.com/graphql';
 
 /**
  * Resolve the GitHub token from environment or CLI.
+ *
+ * Hierarchy:
+ *   1. Explicit GITHUB_TOKEN or GH_TOKEN env var (CI/CD / Manual)
+ *   2. `gh auth token` CLI (Local development)
+ *
+ * NOTE: When running via an AI Agent (Antigravity), the GitHub MCP Server
+ * should be used primarily by the agent itself. This Resolve function is
+ * for the background Node.js scripts that cannot natively call MCP tools.
+ *
  * @returns {string} The GitHub personal access token.
  * @throws {Error} If no token can be resolved.
  */
 function resolveToken() {
-  // 1. Environment variable (standard in CI/CD and most IDEs)
-  if (process.env.GITHUB_TOKEN) {
-    return process.env.GITHUB_TOKEN;
-  }
+  // 1. Environment variables
+  const token = process.env.GITHUB_TOKEN || process.env.GH_TOKEN;
+  if (token) return token;
 
   // 2. GitHub CLI fallback
   try {
-    const token = execSync('gh auth token', {
+    const ghToken = execSync('gh auth token', {
       encoding: 'utf8',
       timeout: 5000,
       stdio: ['pipe', 'pipe', 'pipe'],
     }).trim();
-    if (token) return token;
+    if (ghToken) return ghToken;
   } catch {
-    // gh CLI not installed or not authenticated — fall through
+    // gh CLI not installed or not authenticated
   }
 
-  throw new Error(
-    '[GitHubProvider] No GitHub token found. Set GITHUB_TOKEN environment variable ' +
-    'or authenticate via `gh auth login`.',
-  );
+  // 3. Robust Error Reporting
+  const errorMsg = [
+    '[GitHubProvider] Authentication Failed: No GitHub token found.',
+    '',
+    'To resolve this, choose one of the following:',
+    '  A. (CI/CD) Set the GITHUB_TOKEN or GH_TOKEN environment variable.',
+    '  B. (Local) Run `gh auth login` to authenticate the GitHub CLI.',
+    '  C. (Agent) Ensure the GitHub MCP Server is configured and active for the current session.',
+    '',
+    'See .agents/README.md#authentication for details.',
+  ].join('\n');
+
+  throw new Error(errorMsg);
 }
 
 /**

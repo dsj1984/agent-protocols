@@ -409,6 +409,25 @@ Add the following block to your `.agentrc.json`:
 | `notifications.mentionOperator` | No | Whether to @mention the operator in comments          |
 | `notifications.webhookUrl`      | No | Webhook URL for external notification delivery        |
 
+### <a id="authentication"></a>🔐 v5 Authentication Hierarchy
+
+The `GitHubProvider` resolves credentials in the following priority order.
+
+| Tier | Method | Primary Environment |
+|---|---|---|
+| **1. Primary** | **GitHub MCP Server** | This Agent (Antigravity) |
+| **2. Fallback** | `GITHUB_TOKEN` or `GH_TOKEN` | CI/CD / Scripts / IDEs |
+| **3. Fallback** | `gh auth token` (Local CLI) | Manual Developer Workflow |
+
+#### How to Configure
+
+1. **For the Agent (Antigravity)**: Ensuring the `github-mcp-server` is active 
+   is sufficient. The agent will prefer calling its native set of tools.
+2. **For the Scripts**: The framework's background scripts (like 
+   `generate-playbook.js`) cannot call MCP tools directly. You MUST provide
+   one of the fallback methods for background tasks.
+3. **For Local Use**: Run `gh auth login` to prepare the GitHub CLI.
+
 ---
 
 ## <a id="tooling-configuration"></a>🛠️ Tooling & Configuration
