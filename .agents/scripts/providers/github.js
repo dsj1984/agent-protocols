@@ -282,6 +282,29 @@ export class GitHubProvider extends ITicketingProvider {
       }));
   }
 
+  async getSubTickets(parentId) {
+    const parent = await this.getTicket(parentId);
+    const body = parent.body || '';
+    
+    // Match checklist items linking to issues: "- [ ] #123" or "- [x] #123"
+    const re = /-\s*\[[ xX]\]\s+#(\d+)/g;
+    const childIds = [];
+    let match;
+    while ((match = re.exec(body)) !== null) {
+      childIds.push(parseInt(match[1], 10));
+    }
+    
+    // Removing duplicates if any
+    const uniqueChildIds = [...new Set(childIds)];
+    
+    // Fetch all child tickets
+    const subTickets = await Promise.all(
+      uniqueChildIds.map(id => this.getTicket(id).catch(() => null))
+    );
+    
+    return subTickets.filter(Boolean);
+  }
+
   async getTicket(ticketId) {
     const issue = await this._rest(
       `/repos/${this.owner}/${this.repo}/issues/${ticketId}`,

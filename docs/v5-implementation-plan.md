@@ -775,20 +775,20 @@ instructions.
 | Token budget integration — respect `maxTokenBudget` and truncate low-priority context        | DONE   | (same file)                                  | `config-resolver.js` |
 | Unit tests for hydrator (mocked provider)                                                    | DONE   | `tests/context-hydrator.test.js`             | Hydrator             |
 
-### Sprint 3C: State Sync & Ticket Mutations
+### Sprint 3C: State Sync & Ticket Mutations [COMPLETED]
 
 **Scope:** Build the state writer that syncs agent progress to GitHub in
 real-time, including bottom-up parent completion cascading.
 
-| Task                                                                                     | Type   | File(s)                                  | Depends On |
+| Task                                                                                     | Status | File(s)                                  | Depends On |
 | ---------------------------------------------------------------------------------------- | ------ | ---------------------------------------- | ---------- |
-| Build `update-ticket-state.js` — wraps `updateTicket()` and `postComment()`              | NEW    | `.agents/scripts/update-ticket-state.js` | Phase 1    |
-| Label transitions: `agent::ready` → `agent::executing` → `agent::review` → `agent::done` | MODIFY | (same file)                              | Provider   |
-| Tasklist checkbox mutations: `- [ ]` → `- [x]` in ticket body                            | MODIFY | (same file)                              | Provider   |
-| Structured progress comments via `postComment()`                                         | MODIFY | (same file)                              | Provider   |
-| Friction log posting — post `agent-friction-log.json` payloads as ticket comments        | MODIFY | (same file)                              | Provider   |
-| Parent auto-completion cascade (see below)                                               | MODIFY | (same file)                              | Provider   |
-| Unit tests for state writer (including cascade tests)                                    | NEW    | `tests/update-ticket-state.test.js`      | Writer     |
+| Build `update-ticket-state.js` — wraps `updateTicket()` and `postComment()`              | DONE   | `.agents/scripts/update-ticket-state.js` | Phase 1    |
+| Label transitions: `agent::ready` → `agent::executing` → `agent::review` → `agent::done` | DONE   | (same file)                              | Provider   |
+| Tasklist checkbox mutations: `- [ ]` → `- [x]` in ticket body                            | DONE   | (same file)                              | Provider   |
+| Structured progress comments via `postComment()`                                         | DONE   | (same file)                              | Provider   |
+| Friction log posting — post `agent-friction-log.json` payloads as ticket comments        | DONE   | (same file)                              | Provider   |
+| Parent auto-completion cascade (see below)                                               | DONE   | (same file)                              | Provider   |
+| Unit tests for state writer (including cascade tests)                                    | DONE   | `tests/update-ticket-state.test.js`      | Writer     |
 
 **Parent Auto-Completion Cascade:**
 

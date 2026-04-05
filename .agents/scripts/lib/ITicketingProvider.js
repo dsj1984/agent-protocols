@@ -50,6 +50,21 @@ export class ITicketingProvider {
   }
 
   /**
+   * Fetch all immediate sub-tickets of a given parent ticket.
+   *
+   * @param {number} parentId - GitHub Issue number of the parent.
+   * @returns {Promise<Array<{
+   *   id: number,
+   *   title: string,
+   *   labels: string[],
+   *   state: string
+   * }>>}
+   */
+  async getSubTickets(parentId) {
+    throw new Error('Not implemented: getSubTickets');
+  }
+
+  /**
    * Retrieve a single ticket with full metadata.
    *
    * @param {number} ticketId - GitHub Issue number.

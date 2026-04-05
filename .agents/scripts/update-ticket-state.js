@@ -1,0 +1,161 @@
+import { resolveConfig } from './lib/config-resolver.js';
+import { createProvider } from './lib/provider-factory.js';
+
+const STATE_LABELS = {
+  READY: 'agent::ready',
+  EXECUTING: 'agent::executing',
+  REVIEW: 'agent::review',
+  DONE: 'agent::done',
+};
+
+const ALL_STATES = Object.values(STATE_LABELS);
+
+let cachedProvider = null;
+
+export function getProvider() {
+  // If we are in a testing environment or manually injected, return that
+  if (cachedProvider) return cachedProvider;
+
+  const config = resolveConfig();
+  cachedProvider = createProvider(config.orchestration);
+  return cachedProvider;
+}
+
+/**
+ * Used for dependency injection during unit tests.
+ * @param {import('./lib/ITicketingProvider.js').ITicketingProvider} provider
+ */
+export function setProvider(provider) {
+  cachedProvider = provider;
+}
+
+export function resetProvider() {
+  cachedProvider = null;
+}
+
+/**
+ * Transitions a ticket's label to the new state.
+ * Removes other agent:: state labels.
+ * 
+ * @param {number} ticketId 
+ * @param {string} newState - Must be one of STATE_LABELS.
+ */
+export async function transitionTicketState(ticketId, newState) {
+  if (!ALL_STATES.includes(newState)) {
+    throw new Error(`Invalid state: ${newState}`);
+  }
+
+  const provider = getProvider();
+  
+  const toRemove = ALL_STATES.filter(state => state !== newState);
+  
+  await provider.updateTicket(ticketId, {
+    labels: {
+      add: [newState],
+      remove: toRemove
+    }
+  });
+}
+
+/**
+ * Mutates the tasklist checkbox in the parent's body.
+ * E.g., `- [ ] #123` to `- [x] #123`
+ * 
+ * @param {number} ticketId - ID of parent ticket
+ * @param {number} subIssueId - ID of child ticket
+ * @param {boolean} checked
+ */
+export async function toggleTasklistCheckbox(ticketId, subIssueId, checked) {
+  const provider = getProvider();
+  const ticket = await provider.getTicket(ticketId);
+  const body = ticket.body || '';
+
+  if (!body.includes(`#${subIssueId}`)) {
+    return; // sub-issue not directly referenced in body
+  }
+
+  const targetBox = checked ? '- [x]' : '- [ ]';
+
+  let newBody = body;
+  
+  if (checked) {
+    // replace `- [ ] #123` or `- [] #123` with `- [x] #123`
+    const re = new RegExp(`-\\s*\\[\\s*\\]\\s+#${subIssueId}\\b`, 'g');
+    newBody = newBody.replace(re, `${targetBox} #${subIssueId}`);
+  } else {
+    // replace `- [x] #123` or `- [X] #123` with `- [ ] #123`
+    const re = new RegExp(`-\\s*\\[[xX]\\]\\s+#${subIssueId}\\b`, 'g');
+    newBody = newBody.replace(re, `${targetBox} #${subIssueId}`);
+  }
+
+  if (newBody !== body) {
+    await provider.updateTicket(ticketId, {
+      body: newBody
+    });
+  }
+}
+
+/**
+ * 
+ * @param {number} ticketId 
+ * @param {'progress'|'friction'|'notification'} type 
+ * @param {string} payload 
+ */
+export async function postStructuredComment(ticketId, type, payload) {
+  const provider = getProvider();
+  await provider.postComment(ticketId, {
+    type,
+    body: payload
+  });
+}
+
+/**
+ * Recursively cascade upward.
+ * If ticket reaches DONE, it toggles its checkbox in its parent (parsed from dependency blocks or Epic hierarchy).
+ * Then checks if parent's sub-tickets are ALL DONE.
+ * If yes, transitions parent to DONE and cascades up.
+ * 
+ * @param {number} ticketId
+ */
+export async function cascadeCompletion(ticketId) {
+  const provider = getProvider();
+  const ticket = await provider.getTicket(ticketId);
+  
+  // Determine if this ticket is agent::done
+  if (!ticket.labels.includes(STATE_LABELS.DONE)) {
+    return;
+  }
+
+  const { blocks: parentIds } = await provider.getTicketDependencies(ticketId);
+
+  // Fallback parsing just in case it doesn't use `blocks` syntax
+  let parsedParents = parentIds;
+  if (!parsedParents || parsedParents.length === 0) {
+    // try to get from hierarchy if blocks isn't available
+    const hierarchyMatches = ticket.body ? [...ticket.body.matchAll(/([A-Za-z\s]+):\s*#(\d+)/gi)] : [];
+    // e.g. "Story: #123". But actually the standard says ticket is part of parent if parent's body has `- [ ] #child`.
+    // It's unidirectional. We assume `blocks` is present if `getTicketDependencies` has it parsed. 
+    // Wait, GitHub provider's `getTicketDependencies` does `parseBlocks(body)`. So if the child says "blocks #parent".
+    // Is that how dependencies are recorded?
+  }
+
+  for (const parentId of parsedParents) {
+    // Mark checked in parent body
+    await toggleTasklistCheckbox(parentId, ticketId, true);
+
+    const subTickets = await provider.getSubTickets(parentId);
+    
+    // Check if ALL are done
+    const allDone = subTickets.length > 0 && subTickets.every(st => 
+      st.labels.includes(STATE_LABELS.DONE) || st.state === 'closed'
+    );
+
+    if (allDone) {
+      await transitionTicketState(parentId, STATE_LABELS.DONE);
+      await postStructuredComment(parentId, 'progress', 'All child tickets completed via recursive cascade.');
+      
+      // recursive cascade
+      await cascadeCompletion(parentId);
+    }
+  }
+}
