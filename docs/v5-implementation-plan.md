@@ -756,7 +756,7 @@ dependency DAG, creates branches, and determines execution order.
 | Dispatch Manifest schema                                                      | NEW    | `.agents/schemas/dispatch-manifest.json`   | —                        |
 | Unit tests for interface + adapter + dispatcher                               | NEW    | `tests/execution-adapter.test.js`, `tests/dispatcher.test.js` | All above |
 
-### Sprint 3B: Context Hydration Engine
+### Sprint 3B: Context Hydration Engine [COMPLETED]
 
 **Scope:** Build the hydrator that assembles a "virtual context" from the GitHub
 work breakdown hierarchy before execution. The hydrator produces a fully
@@ -764,16 +764,16 @@ self-contained prompt string that includes the agent execution protocol,
 persona directives, skill instructions, hierarchy context, and task
 instructions.
 
-| Task                                                                                        | Type   | File(s)                                      | Depends On           |
+| Task                                                                                        | Status | File(s)                                      | Depends On           |
 | ------------------------------------------------------------------------------------------- | ------ | -------------------------------------------- | -------------------- |
-| Create `agent-protocol.md` template with placeholder substitution points                    | NEW    | `.agents/templates/agent-protocol.md`        | —                    |
-| Build `context-hydrator.js` — implements the 7-step hydration sequence (see above)           | NEW    | `.agents/scripts/context-hydrator.js`        | Phase 1, Template    |
-| Protocol template rendering — substitute `{{BRANCH_NAME}}`, `{{TASK_ID}}`, version stamps   | MODIFY | (same file)                                  | Template             |
-| Persona injection — read `.agents/personas/{{PERSONA}}.md` into prompt text                  | MODIFY | (same file)                                  | Config               |
-| Skill injection — read each `.agents/skills/{{SKILL}}/SKILL.md` into prompt text             | MODIFY | (same file)                                  | Config               |
-| Protocol version mismatch detection — warn if generation ≠ execution version                 | MODIFY | (same file)                                  | Version stamp        |
-| Token budget integration — respect `maxTokenBudget` and truncate low-priority context        | MODIFY | (same file)                                  | `config-resolver.js` |
-| Unit tests for hydrator (mocked provider)                                                    | NEW    | `tests/context-hydrator.test.js`             | Hydrator             |
+| Create `agent-protocol.md` template with placeholder substitution points                    | DONE   | `.agents/templates/agent-protocol.md`        | —                    |
+| Build `context-hydrator.js` — implements the 7-step hydration sequence (see above)           | DONE   | `.agents/scripts/context-hydrator.js`        | Phase 1, Template    |
+| Protocol template rendering — substitute `{{BRANCH_NAME}}`, `{{TASK_ID}}`, version stamps   | DONE   | (same file)                                  | Template             |
+| Persona injection — read `.agents/personas/{{PERSONA}}.md` into prompt text                  | DONE   | (same file)                                  | Config               |
+| Skill injection — read each `.agents/skills/{{SKILL}}/SKILL.md` into prompt text             | DONE   | (same file)                                  | Config               |
+| Protocol version mismatch detection — warn if generation ≠ execution version                 | DONE   | (same file)                                  | Version stamp        |
+| Token budget integration — respect `maxTokenBudget` and truncate low-priority context        | DONE   | (same file)                                  | `config-resolver.js` |
+| Unit tests for hydrator (mocked provider)                                                    | DONE   | `tests/context-hydrator.test.js`             | Hydrator             |
 
 ### Sprint 3C: State Sync & Ticket Mutations
 
