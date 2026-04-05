@@ -6,6 +6,64 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 and this project adheres to
 [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [4.5.0] - 2026-04-04
+
+### Added
+
+- **Two-Tier Skill Library Architecture**: Restructured `.agents/skills/` into a
+  `core/` + `stack/` two-tier system to separate universal process protocols
+  from tech-stack-specific knowledge:
+  - **`core/`** (20 skills): Universal, process-driven skills adopted from the
+    `potential-skills` library. Covers the full SDLC:
+    `api-and-interface-design`, `browser-testing-with-devtools`,
+    `ci-cd-and-automation`, `code-review-and-quality`, `code-simplification`,
+    `context-engineering`, `debugging-and-error-recovery`,
+    `deprecation-and-migration`, `documentation-and-adrs`,
+    `frontend-ui-engineering`, `git-workflow-and-versioning`, `idea-refinement`,
+    `incremental-implementation`, `performance-optimization`,
+    `planning-and-task-breakdown`, `security-and-hardening`,
+    `shipping-and-launch`, `spec-driven-development`, `test-driven-development`,
+    and `using-agent-skills`.
+  - **`stack/`** (14 skills): Tech-stack-specific skills retained from the
+    previous library and reorganized under `stack/architecture/`,
+    `stack/backend/`, `stack/frontend/`, `stack/qa/`, and `stack/security/`.
+- **Anti-Laziness Coding Rules**: Merged the `autonomous-coding-standards` skill
+  rules directly into `instructions.md` §5 Quality Standards, making them
+  universal system-level constraints rather than an opt-in skill.
+
+### Changed
+
+- **Skill Activation Protocol (§1.B)**: Updated `instructions.md` to document
+  the two-tier skill system with path conventions and selection guidance.
+- **`using-agent-skills` Meta-Skill**: Updated skill discovery tree to reference
+  renamed `idea-refinement` skill.
+- **Playbook Bookend Task Skills**: Updated `sprint-generate-playbook.md`
+  bookend recommendations to reference new `core/` and `stack/` paths.
+- **`architect.md` Protocol Evolution**: Updated skill path references to
+  `core/` and `stack/` tiers.
+- **`engineer-web.md`**: Updated `stack/frontend/` skill path reference.
+
+### Removed
+
+- **Superseded Process Skills** (deleted, now covered by `core/`):
+  - `architecture/autonomous-coding-standards` → merged into `instructions.md`
+  - `architecture/markdown` → superseded by `core/documentation-and-adrs`
+  - `conventional-commits-enforcer` → superseded by
+    `core/git-workflow-and-versioning`
+  - `devops/git-flow-specialist` → superseded by
+    `core/git-workflow-and-versioning`
+  - `qa/resilient-qa-automation` → superseded by `core/test-driven-development`
+  - `security/zero-trust-security-engineer` → superseded by
+    `core/security-and-hardening`
+- **Root-Level Duplicate Skills** (11 deleted, canonical versions retained in
+  `stack/`): `astro-react-island-strategist`, `cloudflare-hono-architect`,
+  `cloudflare-queue-manager`, `expo-react-native-developer`,
+  `monorepo-path-strategist`, `resilient-qa-automation`,
+  `secure-telemetry-logger`, `sqlite-drizzle-expert`, `stripe-billing-expert`,
+  `ui-accessibility-engineer`, `zero-trust-security-engineer`.
+- **`idea-refine` Skill**: Renamed to `idea-refinement` for grammatical
+  consistency with the rest of the skill library.
+
 ## [4.4.0] - 2026-04-04
 
 ### Added

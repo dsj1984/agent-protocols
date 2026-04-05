@@ -27,7 +27,7 @@ agent-protocols/
 │   ├── instructions.md       # ★ Primary system prompt — load this first
 │   ├── personas/             # 12 role-specific behavior constraints
 │   ├── rules/                # 8 domain-agnostic coding/ops rules
-│   ├── skills/               # 19 tech-stack-specific guardrails
+│   ├── skills/               # Two-tier skill library (core/ + stack/)
 │   ├── workflows/            # 37 SDLC & audit slash-command workflows
 │   ├── scripts/              # Deterministic JS tooling (playbook gen, etc.)
 │   ├── schemas/              # JSON Schemas for structured output validation
@@ -61,7 +61,9 @@ agent-protocols/
    `.agents/personas/`. Default is `engineer.md`.
 
 4. **Activate skills as needed:** Read the relevant `SKILL.md` from
-   `.agents/skills/[category]/[name]/` before writing domain-specific code.
+   `.agents/skills/core/[name]/` (universal process skills) or
+   `.agents/skills/stack/[category]/[name]/` (tech-stack-specific) before
+   writing domain-specific code.
 
 ---
 

@@ -19,11 +19,21 @@ must immediately retrieve and strictly adopt the rules in:
 
 ### B. Skill Activation
 
-When a task involves a specific domain (e.g., Turso/SQLite, Cloudflare Workers,
-Stripe, Playwright), you MUST read the corresponding
-`.agents/skills/[category]/[skill-name]/SKILL.md` file and apply its
-constraints. Review the `examples/` directory within that skill before writing
-code.
+The skill library uses a **two-tier architecture**:
+
+- **`core/`** — Universal, process-driven skills that apply across any project
+  (e.g., `core/debugging-and-error-recovery`, `core/test-driven-development`,
+  `core/security-and-hardening`). Always check for a relevant core skill first.
+- **`stack/`** — Tech-stack-specific skills for concrete libraries, services,
+  and tools (e.g., `stack/backend/cloudflare-hono-architect`,
+  `stack/frontend/tailwind-v4`, `stack/qa/playwright`). Apply these when the
+  project uses that specific technology.
+
+When a task involves a specific domain or technology, you MUST read the
+corresponding `.agents/skills/[tier]/[category]/[skill-name]/SKILL.md` file and
+apply its constraints. Review the `examples/` directory within that skill before
+writing code. When uncertain which to apply, read `core/using-agent-skills` for
+guidance on skill selection and sequencing.
 
 ### C. Proactive Documentation (Context7 MCP)
 
@@ -210,6 +220,14 @@ environments without needing manual command corrections.
   - UI components must pass accessibility scans (WCAG 2.1 AA).
   - Adhere strictly to project linters and formatters.
   - No commented-out code snippets in final deliverables.
+  - **Anti-Laziness:** NEVER use placeholder comments like
+    `// ... existing code ...`, `/* rest of file */`, or
+    `// implementation here`. You MUST output the ENTIRE file or the ENTIRE
+    complete function so it can be safely written to disk.
+  - Remove unused imports and dead code before finalizing a file.
+  - NEVER use `any` or `@ts-ignore` in TypeScript. If a type is complex, define
+    the interface properly.
+  - Always leave a blank newline at the end of every file.
 - **Verification:** Include explicit verification steps in every plan.
 
 ---
