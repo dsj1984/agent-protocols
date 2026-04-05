@@ -1,63 +1,90 @@
-import http from 'http';
-import https from 'https';
-import { URL } from 'url';import { Logger } from "./lib/Logger.js";
+#!/usr/bin/env node
+/**
+ * notify.js
+ *
+ * Dual-channel notification engine for v5 Orchestration.
+ * 1. INFO: @mention the operator handle on a GitHub issue.
+ * 2. ACTION: Fire a webhook for HITL (Human-In-The-Loop) events.
+ */
 
+import path from 'node:path';
+import { fileURLToPath } from 'node:url';
+import { createProvider } from './lib/provider-factory.js';
+import { resolveConfig } from './lib/config-resolver.js';
 
-const notificationWebhookUrl = process.argv[2];
-const message = process.argv[3];
+/**
+ * Dispatch a notification.
+ * 
+ * @param {number} ticketId - GitHub Issue number to post the notification on.
+ * @param {{
+ *   type: 'progress'|'friction'|'notification'|'action',
+ *   message: string,
+ *   actionRequired?: boolean
+ * }} payload
+ */
+export async function notify(ticketId, payload) {
+  const { orchestration } = resolveConfig();
+  const provider = createProvider(orchestration);
 
-if (!notificationWebhookUrl || notificationWebhookUrl === '[WEBHOOK_URL]' || notificationWebhookUrl.trim() === '') {
-  console.log('No webhook URL provided or URL is disabled. Skipping gracefully.');
-  process.exit(0);
-}
+  const { type, message, actionRequired } = payload;
+  const operator = orchestration.github.operatorHandle || '@operator';
 
-if (!message) {
-  Logger.fatal('ERROR: No message provided for the webhook.');
-  
-}
+  console.log(`[Notify] Sending ${type.toUpperCase()} to Issue #${ticketId}...`);
 
-const payload = JSON.stringify({ message });
+  // 1. Mentions for Info/Notification
+  let commentBody = message;
+  if (type === 'notification' || (type === 'action' && orchestration.notifications?.mentionOperator)) {
+    commentBody = `${operator} ${message}`;
+  }
 
-try {
-  const parsedUrl = new URL(notificationWebhookUrl);
-  const reqModule = parsedUrl.protocol === 'https:' ? https : http;
-
-  const req = reqModule.request(
-    notificationWebhookUrl,
-    {
-      method: 'POST',
-      headers: {
-        'Content-Type': 'application/json',
-        'Content-Length': Buffer.byteLength(payload),
-      },
-    },
-    (res) => {
-      let responseBody = '';
-      res.on('data', (chunk) => {
-        responseBody += chunk;
-      });
-
-      res.on('end', () => {
-        if (res.statusCode >= 200 && res.statusCode < 300) {
-          console.log(`Webhook sent successfully. Status: ${res.statusCode}`);
-          process.exit(0);
-        } else {
-          console.error(`Webhook failed. Status: ${res.statusCode} ${res.statusMessage}`);
-          Logger.fatal(`Response: ${responseBody}`);
-          
-        }
-      });
-    }
-  );
-
-  req.on('error', (err) => {
-    Logger.fatal(`Webhook request failed: ${err.message}`);
-    
+  await provider.postComment(ticketId, {
+    body: commentBody,
+    type: type === 'action' ? 'notification' : type
   });
 
-  req.write(payload);
-  req.end();
-} catch (err) {
-  Logger.fatal(`Invalid webhook URL or network error: ${err.message}`);
-  
+  // 2. Webhook for Actions (HITL)
+  if (type === 'action' || actionRequired) {
+    const webhookUrl = orchestration.notifications?.webhookUrl;
+    if (webhookUrl) {
+      console.log(`[Notify] Firing Action Webhook to ${webhookUrl}...`);
+      try {
+        await fetch(webhookUrl, {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({
+            ticketId,
+            event: 'HITL_ACTION_REQUIRED',
+            message: message.replace(operator, '').trim(),
+            timestamp: new Date().toISOString()
+          })
+        });
+      } catch (err) {
+        console.warn(`[Notify] Failed to send webhook: ${err.message}`);
+      }
+    }
+  }
+}
+
+async function main() {
+  const args = process.argv.slice(2);
+  if (args.length < 2) {
+    console.error('Usage: node notify.js <TicketId> <Message> [--action]');
+    process.exit(1);
+  }
+
+  const ticketId = parseInt(args[0], 10);
+  const message = args[1];
+  const isAction = args.includes('--action');
+
+  await notify(ticketId, {
+    type: isAction ? 'action' : 'notification',
+    message
+  });
+}
+
+if (fileURLToPath(import.meta.url) === path.resolve(process.argv[1])) {
+  main().catch(err => {
+    console.error('[Notify] Fatal error:', err);
+    process.exit(1);
+  });
 }

@@ -32,9 +32,10 @@ async function testGemini() {
   console.log('[Test] Initialising LLMClient with Gemini...');
   const client = new LLMClient({
     orchestration: {
-      llm: { provider: 'gemini', model: 'gemini-2.5-pro' }
+      llm: { provider: 'gemini', model: 'gemini-1.5-pro' }
     }
   });
+  console.log(`[Test] Using Model: ${client.model}`);
 
   try {
     console.log('[Test] Sending ping to Gemini API...');

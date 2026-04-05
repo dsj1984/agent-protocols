@@ -271,6 +271,10 @@
     "notifications": {
       "mentionOperator": true,
       "webhookUrl": ""
+    },
+    "llm": {
+      "provider": "gemini",
+      "model": "gemini-2.5-pro"
     }
   }
 }
