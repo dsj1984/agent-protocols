@@ -416,17 +416,30 @@ The `GitHubProvider` resolves credentials in the following priority order.
 | Tier | Method | Primary Environment |
 |---|---|---|
 | **1. Primary** | **GitHub MCP Server** | This Agent (Antigravity) |
-| **2. Fallback** | `GITHUB_TOKEN` or `GH_TOKEN` | CI/CD / Scripts / IDEs |
+| **2. Fallback** | `GITHUB_TOKEN` or `GH_TOKEN` | CI/CD / Background Scripts / IDELOOs |
 | **3. Fallback** | `gh auth token` (Local CLI) | Manual Developer Workflow |
+
+#### Required Token Permissions
+
+If you are using a Personal Access Token (PAT) as a fallback for background scripts (like the bootstrap), ensure it has the following minimum scopes:
+
+**Fine-grained Personal Access Tokens (Recommended)**
+- **Account Permissions** (Required for Projects V2):
+  - `GitHub Projects (V2)`: Read & Write
+- **Repository Permissions**:
+  - `Issues`: Read & Write (for labels, comments, and milestones)
+  - `Metadata`: Read-only (required for all API access)
+  - `Pull requests`: Read & Write (for automated PR creation)
+
+**Classic Personal Access Tokens**
+- `repo` (Full control)
+- `project` (Full control)
 
 #### How to Configure
 
-1. **For the Agent (Antigravity)**: Ensuring the `github-mcp-server` is active 
-   is sufficient. The agent will prefer calling its native set of tools.
-2. **For the Scripts**: The framework's background scripts (like 
-   `generate-playbook.js`) cannot call MCP tools directly. You MUST provide
-   one of the fallback methods for background tasks.
-3. **For Local Use**: Run `gh auth login` to prepare the GitHub CLI.
+1. **For the Agent (Antigravity)**: Ensuring the `github-mcp-server` is active in the session is sufficient.
+2. **For the Scripts**: Framework background scripts (like `bootstrap-agent-protocols.js`) cannot call MCP tools. You **MUST** provide one of the fallback tokens in your environment (e.g., via a `.env` file).
+3. **For Local Use**: Run `gh auth login` to prepare the GitHub CLI fallback.
 
 ---
 

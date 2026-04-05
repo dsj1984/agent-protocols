@@ -59,9 +59,8 @@ function resolveToken() {
     '[GitHubProvider] Authentication Failed: No GitHub token found.',
     '',
     'To resolve this, choose one of the following:',
-    '  A. (CI/CD) Set the GITHUB_TOKEN or GH_TOKEN environment variable.',
+    '  A. (CI/CD / Agent Script) Set the GITHUB_TOKEN or GH_TOKEN environment variable.',
     '  B. (Local) Run `gh auth login` to authenticate the GitHub CLI.',
-    '  C. (Agent) Ensure the GitHub MCP Server is configured and active for the current session.',
     '',
     'See .agents/README.md#authentication for details.',
   ].join('\n');
@@ -144,6 +143,7 @@ export class GitHubProvider extends ITicketingProvider {
       Accept: 'application/vnd.github+json',
       Authorization: `Bearer ${this.token}`,
       'X-GitHub-Api-Version': '2022-11-28',
+      'User-Agent': 'node.js',
     };
 
     const fetchOpts = { method, headers };
@@ -180,6 +180,7 @@ export class GitHubProvider extends ITicketingProvider {
         Accept: 'application/json',
         Authorization: `Bearer ${this.token}`,
         'Content-Type': 'application/json',
+        'User-Agent': 'node.js',
       },
       body: JSON.stringify({ query, variables }),
     });
@@ -538,7 +539,7 @@ export class GitHubProvider extends ITicketingProvider {
         `, {
           projectId: project.id,
           name: def.name,
-          options: (def.options ?? []).map((o) => ({ name: o, color: 'GRAY' })),
+          options: (def.options ?? []).map((o) => ({ name: o, color: 'GRAY', description: '' })),
         });
       }
 
