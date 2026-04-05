@@ -57,7 +57,18 @@ export function resolveConfig(opts) {
       'scriptsRoot', 'workflowsRoot', 'personasRoot', 'keysRoot', 'schemasRoot',
       'docsRoot', 'tempRoot', 'eventStreamsRoot', 'workspacesRoot',
       'executionTimeoutMs', 'executionMaxBuffer',
+      'lintBaselineCommand', 'lintBaselinePath', 'exploratoryTestCommand', 'typecheckCommand',
     ];
+    // Also validate keys nested inside verboseLogging
+    if (settings.verboseLogging && typeof settings.verboseLogging.logDir === 'string') {
+      if (/([;&|`]|\$\()/.test(settings.verboseLogging.logDir)) {
+        throw new Error(
+          `[Security] Malicious configuration value detected in .agentrc.json under verboseLogging.logDir. ` +
+          `Shell meta-characters are forbidden.`,
+        );
+      }
+    }
+
     for (const key of schemaValidKeys) {
       if (typeof settings[key] === 'string' && /([;&|`]|\$\()/.test(settings[key])) {
         throw new Error(
@@ -93,6 +104,7 @@ export function resolveConfig(opts) {
       maxTokenBudget: 1000000,
       budgetWarningThreshold: 0.8,
       notificationWebhookUrl: '',
+      verboseLogging: { enabled: false, logDir: 'temp/verbose-logs' },
       apcCacheSettings: { strictHashing: true, ttlDays: 30, enableSpeculativeExecution: true, cacheDir: 'temp/apc-cache' },
       securityOptions: { requireCryptographicProvenance: false },
       executionTimeoutMs: 300000, // 5 minutes

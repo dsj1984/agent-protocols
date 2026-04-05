@@ -39,6 +39,25 @@ and this project adheres to
 - **`audit-clean-code-results.md` deleted** — all findings closed; the report is
   superseded by this changelog entry.
 
+### Added
+
+- **Verbose Interaction Logging**: Introduced an opt-in `verboseLogging`
+  configuration in `.agentrc.json` that records all agentic interactions and
+  responses as structured JSONL files for post-hoc analysis (model evaluation,
+  cost attribution, prompt engineering, debugging).
+  - New `VerboseLogger` class (`.agents/scripts/lib/VerboseLogger.js`) with
+    singleton factory, graceful no-op degradation when disabled, and per-sprint
+    JSONL file output.
+  - Configuration: `agentSettings.verboseLogging.enabled` (default: `false`) and
+    `agentSettings.verboseLogging.logDir` (default: `temp/verbose-logs`).
+  - Integrated into `AgentLoopRunner.js` (action dispatches, observations,
+    errors), `sprint-integrate.js` (merge, conflict, verify, consolidate
+    phases), and `run-agent-loop.js` (CLI entry point initialization).
+  - Updated `config-resolver.js` with zero-config defaults and schema boundary
+    validation for `verboseLogging.logDir`.
+  - Updated `instructions.md` §1.H with documentation for the verbose logging
+    feature.
+
 ## [4.6.1] - 2026-04-05
 
 ### Changed

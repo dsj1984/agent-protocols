@@ -83,6 +83,8 @@ validation library, workspace paths).
 
 ### H. Observability & Agent Friction Logging
 
+#### Friction Telemetry
+
 You MUST log telemetry about any operational difficulty or automation
 opportunity you encounter. Instead of manually editing the sprint log, you MUST
 use the deterministic diagnostic script when encountering errors:
@@ -97,6 +99,25 @@ use the deterministic diagnostic script when encountering errors:
   `frictionThresholds.repetitiveCommandCount` in `.agentrc.json`, default 3+),
   boilerplate-heavy file creations, or manual processes that could be simplified
   by a dedicated workflow or skill.
+
+#### Verbose Interaction Logging
+
+When `agentSettings.verboseLogging.enabled` is `true` in `.agentrc.json`, the
+framework records **all agentic interactions and responses** as structured JSONL
+files for post-hoc analysis (model evaluation, cost attribution, prompt
+engineering, debugging).
+
+- **Output Directory**: Resolved from `verboseLogging.logDir` (default:
+  `temp/verbose-logs`). Each sprint produces a dedicated file
+  (`sprint-[NUM].jsonl`).
+- **What Is Logged**: Agent action dispatches, environment observations, errors,
+  workflow phase transitions, integration events, and configuration resolution.
+- **Schema**: Each line is a JSON object with `timestamp`, `level`, `category`,
+  `source`, `sprint`, `taskId`, `message`, and an optional `data` payload.
+- **Performance**: Verbose logging is designed to never crash the host process.
+  If a write fails, it degrades silently to stderr.
+- **Privacy**: The logs are stored in the configured `tempRoot` by default and
+  are excluded from Git. Do NOT commit them unless explicitly instructed.
 
 ### I. Anti-Thrashing Protocol
 

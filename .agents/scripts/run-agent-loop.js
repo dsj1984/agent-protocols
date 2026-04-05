@@ -15,6 +15,7 @@ import path from 'node:path';
 import { fileURLToPath } from 'node:url';
 import { AgentLoopRunner } from './lib/AgentLoopRunner.js';
 import { Logger } from './lib/Logger.js';
+import { VerboseLogger } from './lib/VerboseLogger.js';
 import { resolveConfig } from './lib/config-resolver.js';
 
 const __dirname = path.dirname(fileURLToPath(import.meta.url));
@@ -52,5 +53,11 @@ const workspacesDir = path.join(PROJECT_ROOT, settings.workspacesRoot || 'temp/w
 const executionTimeoutMs = settings.executionTimeoutMs;
 const executionMaxBuffer = settings.executionMaxBuffer;
 
-const runner = new AgentLoopRunner({ taskId, projectRoot: PROJECT_ROOT, branch, pattern, streamDir, workspacesDir, executionTimeoutMs, executionMaxBuffer });
+// Initialize verbose logging singleton (no-ops if disabled in config)
+const verboseLogger = VerboseLogger.init(settings, PROJECT_ROOT, {
+  taskId,
+  source: 'run-agent-loop',
+});
+
+const runner = new AgentLoopRunner({ taskId, projectRoot: PROJECT_ROOT, branch, pattern, streamDir, workspacesDir, executionTimeoutMs, executionMaxBuffer, verboseLogger });
 runner.start(process.stdin);

@@ -18,6 +18,7 @@ import { promisify } from 'node:util';
 
 const execAsync = promisify(exec);
 import { ensureDirSync } from './fs-utils.js';
+import { VerboseLogger } from './VerboseLogger.js';
 
 export class AgentLoopRunner {
   /**
@@ -30,8 +31,9 @@ export class AgentLoopRunner {
    * @param {string}  [opts.workspacesDir] - Directory for temporary worktrees.
    * @param {number}  [opts.executionTimeoutMs] - Command timeout in ms.
    * @param {number}  [opts.executionMaxBuffer] - Command max buffer in bytes.
+   * @param {VerboseLogger} [opts.verboseLogger] - Optional verbose logger instance.
    */
-  constructor({ taskId, projectRoot, branch = null, pattern = 'default', streamDir, workspacesDir, executionTimeoutMs, executionMaxBuffer }) {
+  constructor({ taskId, projectRoot, branch = null, pattern = 'default', streamDir, workspacesDir, executionTimeoutMs, executionMaxBuffer, verboseLogger }) {
     this.taskId = taskId;
     this.projectRoot = projectRoot;
     this.branch = branch;
@@ -42,6 +44,7 @@ export class AgentLoopRunner {
     this.ledgerPath = path.join(this.streamDir, `${taskId}.jsonl`);
     this.executionTimeoutMs = executionTimeoutMs || 300000;
     this.executionMaxBuffer = executionMaxBuffer || 10485760;
+    this.vlog = verboseLogger || VerboseLogger.getInstance();
   }
 
   // -------------------------------------------------------------------------
@@ -208,16 +211,32 @@ export class AgentLoopRunner {
         }
 
         this.appendEvent({ type: 'AgentAction', data: action });
+        this.vlog.debug('agent-loop', `Action dispatched: ${action.action}`, {
+          taskId: this.taskId,
+          action: action.action,
+          reasoning: action.reasoning,
+        });
 
         try {
           const observation = await this.dispatch(action);
           if (observation) {
             this.appendEvent(observation);
+            this.vlog.info('agent-loop', `Observation: ${observation.type}`, {
+              taskId: this.taskId,
+              type: observation.type,
+              resultPreview: typeof observation.result === 'string'
+                ? observation.result.substring(0, 500)
+                : undefined,
+            });
             console.log(JSON.stringify(observation));
           }
         } catch (err) {
           const errorObservation = { type: 'EnvironmentError', message: err.message };
           this.appendEvent(errorObservation);
+          this.vlog.error('agent-loop', `Dispatch error: ${err.message}`, {
+            taskId: this.taskId,
+            action: action.action,
+          });
           console.log(JSON.stringify(errorObservation));
         }
       })();

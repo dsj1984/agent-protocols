@@ -133,6 +133,13 @@ ensure high-quality sprint execution:
 - **Macroscopic Telemetry Observer**: A zero-dependency aggregation script that
   reads friction logs across sprints to visually chart tool failures, efficiency
   trends, and productivity bottlenecks.
+- **Verbose Interaction Logging**: Opt-in structured JSONL logging of all
+  agentic interactions and responses throughout a sprint, designed for post-hoc
+  analysis (model evaluation, cost attribution, prompt debugging).
+  - **Enable**: Set `agentSettings.verboseLogging.enabled` to `true` in
+    `.agentrc.json`.
+  - **Output**: Logs are written to the `verboseLogging.logDir` directory
+    (default: `temp/verbose-logs`), one JSONL file per sprint.
 - **Cross-Artifact Version Lineage**: Enforces deterministic consistency across
   the planning pipeline by embedding the current `agent-protocols` version into
   the PRD, Technical Spec, Task Manifest, and Playbook. The orchestrator
