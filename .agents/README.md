@@ -160,6 +160,11 @@ long tasks, the following guardrails are enforced:
   reads friction logs across sprints to visually chart tool failures, efficiency
   trends, and productivity bottlenecks.
   - **Usage**: `node [SCRIPTS_ROOT]/aggregate-telemetry.js --from 1 --to 10`
+- **Cross-Artifact Version Lineage**: Enforces deterministic consistency across
+  the planning pipeline by embedding the current `agent-protocols` version into
+  the PRD, Technical Spec, Task Manifest, and Playbook. The orchestrator
+  automatically verifies version alignment during generation to prevent
+  configuration drift.
 
 ---
 

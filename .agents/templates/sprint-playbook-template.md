@@ -18,6 +18,8 @@ The script produces a `playbook.md` with the following structure:
 
 ```markdown
 # Sprint [N] Playbook: [Sprint Name]
+
+**Protocol Version:** [AGENT_PROTOCOLS_VERSION]
 ```
 
 ### 2. Sprint Summary

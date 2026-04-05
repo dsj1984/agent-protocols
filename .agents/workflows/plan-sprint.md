@@ -84,6 +84,10 @@ Run the `/sprint-generate-playbook` workflow for the `[SPRINT_NUMBER]`.
     - Check that sprint numbers, dates, and versioning across all files are
       identical and strictly follow the padding standard (e.g.,
       `sprintNumberPadding` in config) for the sprint version (e.g., `040`).
+    - **Verify Protocol Version**: Confirm that `agent-protocols` version in
+      `prd.md`, `tech-spec.md`, `task-manifest.json`, and `playbook.md` matches
+      the current version in `.agents/VERSION`. If there is a mismatch, you MUST
+      alert the user and regenerate the affected artifacts.
 4.  **Verify Protocol Adherence**:
     - Confirm the Playbook tasks follow the mandatory bookend order (Integration
       → QA → Code Review → Retro).

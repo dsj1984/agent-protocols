@@ -42,6 +42,8 @@ Hono/Cloudflare architecture.
 Generate an explicit technical specification outlining:
 
 1. Database Schema Changes (New tables or modifications in Drizzle)
+1. **Protocol Version**: Read the version from `.agents/VERSION` and include it
+   in the header as **Protocol Version: X.Y.Z**.
 1. Backend API Routes (Hono endpoints with Zod validation)
 1. Core System Query Refactors & Security
 1. Execution Guardrails

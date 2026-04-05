@@ -133,6 +133,11 @@ ensure high-quality sprint execution:
 - **Macroscopic Telemetry Observer**: A zero-dependency aggregation script that
   reads friction logs across sprints to visually chart tool failures, efficiency
   trends, and productivity bottlenecks.
+- **Cross-Artifact Version Lineage**: Enforces deterministic consistency across
+  the planning pipeline by embedding the current `agent-protocols` version into
+  the PRD, Technical Spec, Task Manifest, and Playbook. The orchestrator
+  automatically verifies version alignment during generation to prevent
+  configuration drift.
 - **Guiding Principles**: Prioritizes flexibility over rigid protocols, ensuring
   agents can leverage native model improvements.
 

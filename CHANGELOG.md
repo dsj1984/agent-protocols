@@ -6,6 +6,34 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 and this project adheres to
 [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [4.4.0] - 2026-04-04
+
+### Added
+
+- **Cross-Artifact Version Lineage**: Implemented systemic protocol version
+  tracking to ensure deterministic consistency across the planning pipeline.
+  - Added `protocolVersion` to `task-manifest.schema.json`.
+  - Added `Protocol Version` fields to `prd-template.md`,
+    `technical-spec-template.md`, and `sprint-playbook-template.md`.
+  - Updated `PlaybookOrchestrator.js` to automatically verify that the
+    manifest's version matches the system's current version in
+    `.agents/VERSION`, emitting a warning on mismatch.
+- **Mandatory Alignment Audit**: Integrated a protocol version verification step
+  into the `plan-sprint.md` master workflow, requiring agents to explicitly
+  confirm version consistency across all planning artifacts (PRD, Tech Spec,
+  Manifest, Playbook).
+
+### Changed
+
+- **Workflow Governance**: Updated `sprint-generate-prd.md`,
+  `sprint-generate-tech-spec.md`, and `sprint-generate-playbook.md` to mandate
+  the injection of the current protocol version from `.agents/VERSION` into all
+  generated artifacts.
+- **Parallelism Guardrails**: Hardened the `sprint-generate-playbook.md`
+  workflow with explicit "Diamond Fan-out" pattern guidance and a list of
+  dependency anti-patterns (Linear Chain Bias, Shared Focus Serialization) to
+  prevent unnecessary task serialization.
+
 ## [4.3.0] - 2026-04-04
 
 ### Fixed

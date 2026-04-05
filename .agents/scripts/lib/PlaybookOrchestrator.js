@@ -81,6 +81,12 @@ export class PlaybookOrchestrator {
 
     this.enrichManifest(manifest);
 
+    // Verify manifest version matches system version
+    if (manifest.protocolVersion && this.options.protocolVersion !== 'Unknown' && manifest.protocolVersion !== this.options.protocolVersion) {
+      console.warn(`\u26A0\uFE0F  Protocol version mismatch: Manifest uses v${manifest.protocolVersion}, but the system is running v${this.options.protocolVersion}.`);
+      console.warn(`   Ensure all artifacts (PRD, Tech Spec) were generated with the correct version.`);
+    }
+
     // Complexity analysis & auto-split
     const complexityConfig = loadComplexityConfig();
     const { splits, warnings: complexityWarnings } = analyzeAndSplit(manifest, complexityConfig);
