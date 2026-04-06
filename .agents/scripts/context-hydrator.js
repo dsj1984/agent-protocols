@@ -96,8 +96,24 @@ export async function hydrateContext(task, provider, epicBranch, taskBranch, epi
     skillsContext = '## Activated Skills\n\n';
     for (const skill of task.skills) {
       try {
-        const sPath = path.join(PROJECT_ROOT, '.agents/skills', skill, 'SKILL.md');
-        if (fs.existsSync(sPath)) {
+        // M-4: Search two-tier layout (core/, stack/) with flat fallback.
+        const candidates = [
+          path.join(PROJECT_ROOT, '.agents/skills/core', skill, 'SKILL.md'),
+          path.join(PROJECT_ROOT, '.agents/skills/stack', skill, 'SKILL.md'),
+          path.join(PROJECT_ROOT, '.agents/skills', skill, 'SKILL.md'),
+        ];
+        // Also check stack subcategories (e.g., stack/javascript/eslint/)
+        const stackBase = path.join(PROJECT_ROOT, '.agents/skills/stack');
+        if (fs.existsSync(stackBase)) {
+          try {
+            for (const category of fs.readdirSync(stackBase)) {
+              candidates.push(path.join(stackBase, category, skill, 'SKILL.md'));
+            }
+          } catch { /* ignore read errors */ }
+        }
+
+        const sPath = candidates.find(p => fs.existsSync(p));
+        if (sPath) {
           skillsContext += `### Skill: ${skill}\n` + fs.readFileSync(sPath, 'utf8') + '\n\n';
         }
       } catch (err) {

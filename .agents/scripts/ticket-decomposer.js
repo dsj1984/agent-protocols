@@ -79,7 +79,19 @@ ${techSpec.body}
 Please decompose the above into a complete ticket backlog. Respond with the JSON array only.`;
 
   console.log(`[Decomposer] Calling LLM for decomposition (this may take a minute)...`);
-  const response = await llm.generateText(systemPrompt, userPrompt);
+  let response;
+  try {
+    response = await llm.generateText(systemPrompt, userPrompt);
+  } catch (err) {
+    if (err.message.includes('maxInputTokens')) {
+      throw new Error(
+        `[Decomposer] Input too large for LLM context window. ` +
+        `Consider splitting the Epic into smaller features or reducing PRD/Tech Spec detail. ` +
+        `Original error: ${err.message}`,
+      );
+    }
+    throw err;
+  }
   
   let tickets;
   try {

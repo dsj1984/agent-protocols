@@ -232,7 +232,9 @@
     },
     "llm": {
       "provider": "gemini",
-      "model": "gemini-2.5-pro"
+      "model": "gemini-2.5-pro",
+      "maxInputTokens": 64000,
+      "maxOutputTokens": 8192
     }
   }
 }

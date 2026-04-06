@@ -228,6 +228,19 @@ export function topologicalSort(adjacency, taskMap) {
     }
   }
 
+  // M-2: Pre-compute reverse adjacency for O(V+E) instead of O(V²·E).
+  const reverseAdj = new Map();
+  for (const id of adjacency.keys()) {
+    reverseAdj.set(id, []);
+  }
+  for (const [nodeId, deps] of adjacency.entries()) {
+    for (const dep of deps) {
+      if (reverseAdj.has(dep)) {
+        reverseAdj.get(dep).push(nodeId);
+      }
+    }
+  }
+
   // Seed queue with zero-in-degree nodes, sorted by id for determinism
   const queue = [...inDegree.entries()]
     .filter(([, deg]) => deg === 0)
@@ -242,13 +255,11 @@ export function topologicalSort(adjacency, taskMap) {
     const id = queue.shift();
     sorted.push(taskMap.get(id));
 
-    // For each node that depends on this one (reverse-traverse adjacency)
-    for (const [nodeId, deps] of adjacency.entries()) {
-      if (deps.includes(id)) {
-        const newDeg = (inDegree.get(nodeId) ?? 0) - 1;
-        inDegree.set(nodeId, newDeg);
-        if (newDeg === 0) queue.push(nodeId);
-      }
+    // Decrement in-degree for dependents using pre-computed reverse map
+    for (const dependent of (reverseAdj.get(id) ?? [])) {
+      const newDeg = (inDegree.get(dependent) ?? 0) - 1;
+      inDegree.set(dependent, newDeg);
+      if (newDeg === 0) queue.push(dependent);
     }
   }
 

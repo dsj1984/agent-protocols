@@ -19,6 +19,7 @@
 
 import { execSync } from 'node:child_process';
 import { ITicketingProvider } from '../lib/ITicketingProvider.js';
+import { parseBlockedBy, parseBlocks } from '../lib/dependency-parser.js';
 
 const GITHUB_API = 'https://api.github.com';
 const GITHUB_GRAPHQL = 'https://api.github.com/graphql';
@@ -68,40 +69,7 @@ function resolveToken() {
   throw new Error(errorMsg);
 }
 
-/**
- * Parse `blocked by #NNN` patterns from issue body text.
- * Supports: "blocked by #123", "depends on #456", "Blocked by #789"
- *
- * @param {string} body - Issue body text.
- * @returns {number[]} Array of issue numbers this ticket is blocked by.
- */
-function parseBlockedBy(body) {
-  if (!body) return [];
-  const re = /(?:blocked by|depends on)\s+#(\d+)/gi;
-  const results = [];
-  let match;
-  while ((match = re.exec(body)) !== null) {
-    results.push(parseInt(match[1], 10));
-  }
-  return results;
-}
-
-/**
- * Parse `blocks #NNN` patterns from issue body text.
- *
- * @param {string} body - Issue body text.
- * @returns {number[]} Array of issue numbers this ticket blocks.
- */
-function parseBlocks(body) {
-  if (!body) return [];
-  const re = /blocks\s+#(\d+)/gi;
-  const results = [];
-  let match;
-  while ((match = re.exec(body)) !== null) {
-    results.push(parseInt(match[1], 10));
-  }
-  return results;
-}
+// parseBlockedBy and parseBlocks are now imported from lib/dependency-parser.js (M-1).
 
 export class GitHubProvider extends ITicketingProvider {
   /**
@@ -125,9 +93,37 @@ export class GitHubProvider extends ITicketingProvider {
     return this._token;
   }
 
-  // ---------------------------------------------------------------------------
-  // Internal HTTP helpers
-  // ---------------------------------------------------------------------------
+  /**
+   * Fetch with exponential backoff retry for transient failures (H-3).
+   * Retries on: 429 (rate limit), 5xx (server errors), network errors.
+   *
+   * @param {string} url
+   * @param {RequestInit} fetchOpts
+   * @param {number} [maxRetries=3]
+   * @returns {Promise<Response>}
+   */
+  async _fetchWithRetry(url, fetchOpts, maxRetries = 3) {
+    for (let attempt = 0; attempt <= maxRetries; attempt++) {
+      try {
+        const res = await fetch(url, fetchOpts);
+        if (res.ok || res.status === 204 || attempt === maxRetries) return res;
+        // Retry on rate-limit or server errors
+        if (res.status === 429 || res.status >= 500) {
+          const retryAfter = parseInt(res.headers.get('retry-after') || '0', 10);
+          const delay = retryAfter > 0 ? retryAfter * 1000 : (2 ** attempt) * 1000;
+          console.warn(`[GitHubProvider] ${res.status} on attempt ${attempt + 1}/${maxRetries + 1}, retrying in ${delay}ms...`);
+          await new Promise(r => setTimeout(r, delay));
+          continue;
+        }
+        return res; // 4xx (non-429) — don't retry
+      } catch (err) {
+        if (attempt === maxRetries) throw err;
+        const delay = (2 ** attempt) * 1000;
+        console.warn(`[GitHubProvider] Network error on attempt ${attempt + 1}/${maxRetries + 1}, retrying in ${delay}ms: ${err.message}`);
+        await new Promise(r => setTimeout(r, delay));
+      }
+    }
+  }
 
   /**
    * Make a REST API request to GitHub.
@@ -152,7 +148,7 @@ export class GitHubProvider extends ITicketingProvider {
       fetchOpts.body = JSON.stringify(opts.body);
     }
 
-    const res = await fetch(url, fetchOpts);
+    const res = await this._fetchWithRetry(url, fetchOpts);
 
     if (!res.ok) {
       const errorBody = await res.text().catch(() => '');
@@ -183,7 +179,7 @@ export class GitHubProvider extends ITicketingProvider {
       ...opts.headers,
     };
 
-    const res = await fetch(GITHUB_GRAPHQL, {
+    const res = await this._fetchWithRetry(GITHUB_GRAPHQL, {
       method: 'POST',
       headers,
       body: JSON.stringify({ query, variables }),
@@ -582,11 +578,10 @@ export class GitHubProvider extends ITicketingProvider {
     return { commentId: comment.id };
   }
 
-  async createPullRequest(branchName, ticketId) {
+  async createPullRequest(branchName, ticketId, baseBranch = 'main') {
     // Fetch the ticket to get its title for the PR
     const ticket = await this.getTicket(ticketId);
 
-    // Determine base branch from config (default to 'main')
     const pr = await this._rest(
       `/repos/${this.owner}/${this.repo}/pulls`,
       {
@@ -595,7 +590,7 @@ export class GitHubProvider extends ITicketingProvider {
           title: ticket.title,
           body: `Closes #${ticketId}`,
           head: branchName,
-          base: 'main',
+          base: baseBranch,
         },
       },
     );

@@ -128,15 +128,11 @@ export async function cascadeCompletion(ticketId) {
 
   const { blocks: parentIds } = await provider.getTicketDependencies(ticketId);
 
-  // Fallback parsing just in case it doesn't use `blocks` syntax
+  // Fallback: parse `parent: #NNN` from the body when `blocks` syntax isn't used (C-5).
   let parsedParents = parentIds;
   if (!parsedParents || parsedParents.length === 0) {
-    // try to get from hierarchy if blocks isn't available
-    const hierarchyMatches = ticket.body ? [...ticket.body.matchAll(/([A-Za-z\s]+):\s*#(\d+)/gi)] : [];
-    // e.g. "Story: #123". But actually the standard says ticket is part of parent if parent's body has `- [ ] #child`.
-    // It's unidirectional. We assume `blocks` is present if `getTicketDependencies` has it parsed. 
-    // Wait, GitHub provider's `getTicketDependencies` does `parseBlocks(body)`. So if the child says "blocks #parent".
-    // Is that how dependencies are recorded?
+    const parentMatch = ticket.body ? [...ticket.body.matchAll(/parent:\s*#(\d+)/gi)] : [];
+    parsedParents = parentMatch.map(m => parseInt(m[1], 10));
   }
 
   for (const parentId of parsedParents) {

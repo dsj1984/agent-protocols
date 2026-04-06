@@ -21,52 +21,33 @@
 import { createProvider } from './lib/provider-factory.js';
 import { resolveConfig } from './lib/config-resolver.js';
 import { Logger } from './lib/Logger.js';
+import { parseBlockedBy } from './lib/dependency-parser.js';
 
 // ---------------------------------------------------------------------------
 // CLI argument parsing
 // ---------------------------------------------------------------------------
 
-const args = process.argv.slice(2);
-
-let taskId = null;
-let epicId = null;
-
-for (let i = 0; i < args.length; i++) {
-  if (args[i] === '--task') {
-    taskId = args[++i];
-  } else if (args[i] === '--epic') {
-    epicId = args[++i];
-  }
-}
-
-if (!taskId) {
-  Logger.fatal('Usage: node verify-prereqs.js --task <TASK_ID> [--epic <EPIC_ID>]');
-}
-
-// ---------------------------------------------------------------------------
-// Main verification logic
-// ---------------------------------------------------------------------------
-
-const { orchestration } = resolveConfig();
-const provider = createProvider(orchestration);
-
-const AGENT_DONE_LABEL = 'agent::done';
-
-/**
- * Parse `blocked by #NNN` references from a ticket body.
- * Handles variations: "blocked by #123", "Blocked By #123", etc.
- *
- * @param {string} body
- * @returns {number[]}
- */
-function parseBlockedBy(body) {
-  if (!body) return [];
-  return [...body.matchAll(/blocked\s+by\s+#(\d+)/gi)].map(
-    m => parseInt(m[1], 10),
-  );
-}
-
 async function main() {
+  const args = process.argv.slice(2);
+
+  let taskId = null;
+  let epicId = null;
+
+  for (let i = 0; i < args.length; i++) {
+    if (args[i] === '--task') {
+      taskId = args[++i];
+    } else if (args[i] === '--epic') {
+      epicId = args[++i];
+    }
+  }
+
+  if (!taskId) {
+    Logger.fatal('Usage: node verify-prereqs.js --task <TASK_ID> [--epic <EPIC_ID>]');
+  }
+
+  const { orchestration } = resolveConfig();
+  const provider = createProvider(orchestration);
+  const AGENT_DONE_LABEL = 'agent::done';
   console.log(`[verify-prereqs] Checking prerequisites for Task #${taskId}...`);
 
   // Fetch the target task ticket

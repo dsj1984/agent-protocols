@@ -9,6 +9,7 @@
 
 import path from 'node:path';
 import { fileURLToPath } from 'node:url';
+import { createHmac } from 'node:crypto';
 import { createProvider } from './lib/provider-factory.js';
 import { resolveConfig } from './lib/config-resolver.js';
 
@@ -55,16 +56,32 @@ export async function notify(ticketId, payload, opts = {}) {
     if (webhookUrl) {
       console.log(`[Notify] Firing Action Webhook to ${webhookUrl}...`);
       try {
-        await fetch(webhookUrl, {
-          method: 'POST',
-          headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify({
-            ticketId,
-            event: 'HITL_ACTION_REQUIRED',
-            message: message.replace(operator, '').trim(),
-            timestamp: new Date().toISOString()
-          })
+        const payloadBody = JSON.stringify({
+          ticketId,
+          event: 'HITL_ACTION_REQUIRED',
+          message: message.replace(operator, '').trim(),
+          timestamp: new Date().toISOString()
         });
+        const headers = { 'Content-Type': 'application/json' };
+
+        // H-4: Optional HMAC-SHA256 signing for webhook authenticity.
+        const webhookSecret = process.env.WEBHOOK_SECRET;
+        if (webhookSecret) {
+          const signature = createHmac('sha256', webhookSecret)
+            .update(payloadBody)
+            .digest('hex');
+          headers['X-Signature-256'] = `sha256=${signature}`;
+        }
+
+        const res = await fetch(webhookUrl, {
+          method: 'POST',
+          headers,
+          body: payloadBody,
+        });
+        // M-10: Check response status instead of silently swallowing errors.
+        if (!res.ok) {
+          console.warn(`[Notify] Webhook returned ${res.status}: ${await res.text().catch(() => '')}`);
+        }
       } catch (err) {
         console.warn(`[Notify] Failed to send webhook: ${err.message}`);
       }

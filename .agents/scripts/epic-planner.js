@@ -52,26 +52,34 @@ export async function planEpic(epicId, provider, llm, settings = {}) {
     throw new Error(`Epic #${epicId} not found.`);
   }
 
-  // Prevent duplicate execution
-  if (epic.linkedIssues && (epic.linkedIssues.prd || epic.linkedIssues.techSpec)) {
-    console.warn(`[Epic Planner] Epic #${epicId} already has linked planning artifacts (PRD / Tech Spec). Aborting to prevent duplicates.`);
+  // M-8: Resumable planning — if PRD exists but Tech Spec doesn't, resume from PRD.
+  if (epic.linkedIssues?.prd && epic.linkedIssues?.techSpec) {
+    console.warn(`[Epic Planner] Epic #${epicId} already has both PRD and Tech Spec. Aborting to prevent duplicates.`);
     return;
   }
+  const existingPrdId = epic.linkedIssues?.prd ?? null;
 
-  console.log(`[Epic Planner] Epic "${epic.title}" loaded. Generating PRD...`);
-  const prdUserPrompt = `Epic Title: ${epic.title}\n\nEpic Description:\n${epic.body}\n\nPlease generate the PRD based on the above epic.`;
-  const prdContent = await llm.generateText(PRD_SYSTEM_PROMPT, prdUserPrompt);
+  let prdId;
+  if (existingPrdId) {
+    console.log(`[Epic Planner] Reusing existing PRD #${existingPrdId}. Skipping PRD generation.`);
+    prdId = existingPrdId;
+  } else {
+    console.log(`[Epic Planner] Epic "${epic.title}" loaded. Generating PRD...`);
+    const prdUserPrompt = `Epic Title: ${epic.title}\n\nEpic Description:\n${epic.body}\n\nPlease generate the PRD based on the above epic.`;
+    const prdContent = await llm.generateText(PRD_SYSTEM_PROMPT, prdUserPrompt);
 
-  console.log(`[Epic Planner] PRD generated. Creating PRD issue...`);
-  const prdTicket = await provider.createTicket(epicId, {
-    title: `[PRD] ${epic.title}`,
-    body: prdContent,
-    labels: ['context::prd'],
-    dependencies: [], // epic is added automatically as parent
-  });
-  console.log(`[Epic Planner] Created PRD Issue #${prdTicket.id} (${prdTicket.url})`);
+    console.log(`[Epic Planner] PRD generated. Creating PRD issue...`);
+    const prdTicket = await provider.createTicket(epicId, {
+      title: `[PRD] ${epic.title}`,
+      body: prdContent,
+      labels: ['context::prd'],
+      dependencies: [],
+    });
+    console.log(`[Epic Planner] Created PRD Issue #${prdTicket.id} (${prdTicket.url})`);
+    prdId = prdTicket.id;
+  }
 
-  console.log(`[Epic Planner] Generating Tech Spec linking to PRD #${prdTicket.id}...`);
+  console.log(`[Epic Planner] Generating Tech Spec linking to PRD #${prdId}...`);
 
   let docsContext = '';
   if (settings.docsRoot && fs.existsSync(settings.docsRoot)) {
@@ -92,7 +100,16 @@ export async function planEpic(epicId, provider, llm, settings = {}) {
     }
   }
 
-  let tsUserPrompt = `Epic Title: ${epic.title}\n\nPRD Description:\n${prdContent}`;
+  // If we reused an existing PRD, fetch its content for the Tech Spec prompt.
+  let prdText;
+  if (existingPrdId) {
+    const existingPrd = await provider.getTicket(existingPrdId);
+    prdText = existingPrd.body;
+  } else {
+    prdText = prdContent;
+  }
+
+  let tsUserPrompt = `Epic Title: ${epic.title}\n\nPRD Description:\n${prdText}`;
   if (docsContext) {
     tsUserPrompt += `\n\nProject Documentation Context:\n${docsContext}`;
     tsUserPrompt += `\n\nPlease generate the Tech Spec based on the above PRD and Project Documentation.`;
@@ -107,7 +124,7 @@ export async function planEpic(epicId, provider, llm, settings = {}) {
     title: `[Tech Spec] ${epic.title}`,
     body: techSpecContent,
     labels: ['context::tech-spec'],
-    dependencies: [prdTicket.id],
+    dependencies: [prdId],
   });
   console.log(`[Epic Planner] Created Tech Spec Issue #${techSpecTicket.id} (${techSpecTicket.url})`);
 

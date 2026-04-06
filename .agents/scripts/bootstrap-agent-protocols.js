@@ -16,6 +16,7 @@
 
 import fs from 'node:fs';
 import path from 'node:path';
+import { fileURLToPath } from 'node:url';
 import { createProvider } from './lib/provider-factory.js';
 
 const PROJECT_ROOT = process.cwd();
@@ -221,9 +222,10 @@ async function main() {
 }
 
 // Run as CLI when invoked directly
+// M-6: Standardized direct-run detection pattern.
 const isDirectRun =
   process.argv[1] &&
-  import.meta.url.endsWith(process.argv[1].replace(/\\/g, '/'));
+  fileURLToPath(import.meta.url) === path.resolve(process.argv[1]);
 
 if (isDirectRun) {
   main();

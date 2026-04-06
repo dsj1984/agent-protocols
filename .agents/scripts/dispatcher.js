@@ -40,6 +40,7 @@ import {
   autoSerializeOverlaps,
 } from './lib/Graph.js';
 import { hydrateContext } from './context-hydrator.js';
+import { parseBlockedBy, isSafeBranchComponent } from './lib/dependency-parser.js';
 
 const __filename = fileURLToPath(import.meta.url);
 
@@ -80,6 +81,13 @@ function git(cmd) {
  * @param {string} baseBranch
  */
 function ensureBranch(branchName, baseBranch) {
+  // Validate branch name components to prevent shell injection (C-3).
+  if (!isSafeBranchComponent(branchName) || !isSafeBranchComponent(baseBranch)) {
+    throw new Error(
+      `[Dispatcher] Unsafe branch name detected: "${branchName}" or "${baseBranch}". ` +
+      'Branch names must contain only alphanumeric characters, hyphens, underscores, dots, and slashes.',
+    );
+  }
   try {
     git(`rev-parse --verify ${branchName}`);
     console.log(`[Dispatcher] Branch already exists: ${branchName}`);
@@ -118,23 +126,7 @@ function captureLintBaseline(epicBranch, settings) {
   }
 }
 
-// ---------------------------------------------------------------------------
-// Ticket parsing helpers
-// ---------------------------------------------------------------------------
-
-/**
- * Parse `blocked by #NNN` references from a ticket body.
- * Handles variations: "blocked by #123", "Blocked By #123", etc.
- *
- * @param {string} body
- * @returns {number[]}
- */
-function parseBlockedBy(body) {
-  if (!body) return [];
-  return [...body.matchAll(/blocked\s+by\s+#(\d+)/gi)].map(
-    m => parseInt(m[1], 10)
-  );
-}
+// parseBlockedBy is now imported from lib/dependency-parser.js (M-1).
 
 /**
  * Parse task metadata from the `## Metadata` section of a ticket body.

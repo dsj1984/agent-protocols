@@ -18,6 +18,8 @@ export class LLMClient {
 
     this.provider = llmConfig.provider || this._detectProvider();
     this.model = llmConfig.model || this._defaultModel(this.provider);
+    this.maxInputTokens = llmConfig.maxInputTokens || 64000;
+    this.maxOutputTokens = llmConfig.maxOutputTokens || 8192;
   }
 
   _detectProvider() {
@@ -35,6 +37,13 @@ export class LLMClient {
   }
 
   async generateText(systemPrompt, userPrompt) {
+    const inputLength = systemPrompt.length + userPrompt.length;
+    // rough heuristic: 1 token ~= 4 chars
+    const estimatedTokens = Math.ceil(inputLength / 4);
+    if (estimatedTokens > this.maxInputTokens) {
+      throw new Error(`[LLMClient] Estimated input tokens (${estimatedTokens}) exceeds configured maxInputTokens (${this.maxInputTokens}). Remove excessive context or increase the threshold.`);
+    }
+
     switch (this.provider) {
       case 'gemini':
         return this._callGemini(systemPrompt, userPrompt);
@@ -51,15 +60,19 @@ export class LLMClient {
     const key = process.env.GEMINI_API_KEY;
     if (!key) throw new Error('GEMINI_API_KEY missing');
 
-    const url = `https://generativelanguage.googleapis.com/v1beta/models/${this.model}:generateContent?key=${key}`;
+    const url = `https://generativelanguage.googleapis.com/v1beta/models/${this.model}:generateContent`;
     const payload = {
       systemInstruction: { parts: [{ text: systemPrompt }] },
-      contents: [{ role: 'user', parts: [{ text: userPrompt }] }]
+      contents: [{ role: 'user', parts: [{ text: userPrompt }] }],
+      generationConfig: { maxOutputTokens: this.maxOutputTokens }
     };
 
     const res = await fetch(url, {
       method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
+      headers: {
+        'Content-Type': 'application/json',
+        'x-goog-api-key': key,
+      },
       body: JSON.stringify(payload)
     });
 
@@ -81,7 +94,7 @@ export class LLMClient {
       model: this.model,
       system: systemPrompt,
       messages: [{ role: 'user', content: userPrompt }],
-      max_tokens: 8192
+      max_tokens: this.maxOutputTokens
     };
 
     const res = await fetch(url, {
@@ -114,7 +127,7 @@ export class LLMClient {
         { role: 'system', content: systemPrompt },
         { role: 'user', content: userPrompt }
       ],
-      max_tokens: 8192
+      max_tokens: this.maxOutputTokens
     };
 
     const res = await fetch(url, {

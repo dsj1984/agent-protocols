@@ -82,6 +82,10 @@ const ORCHESTRATION_SCHEMA = {
       },
       additionalProperties: false,
     },
+    executor: {
+      type: 'string',
+      description: 'The execution adapter to use (e.g., "manual", "subprocess").',
+    },
     notifications: {
       type: 'object',
       properties: {

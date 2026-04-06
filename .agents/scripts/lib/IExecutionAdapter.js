@@ -73,7 +73,7 @@ export class IExecutionAdapter {
    * @returns {Promise<void>}
    */
   async cancelTask(dispatchId) {
-    throw new Error('Not implemented: cancelTask');
+    // Default no-op — adapters that support cancellation should override.
   }
 
   /**
