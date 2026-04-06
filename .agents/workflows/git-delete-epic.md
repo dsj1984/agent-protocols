@@ -8,7 +8,8 @@ description: >-
 
 This workflow provides a **safe, manual cleanup** mechanism for when an Epic
 dispatch or lifecycle needs to be completely reset. It deletes both the local
-and remote branches associated with the Epic and its children.
+and remote branches associated with the Epic and its children, then permanently
+removes the GitHub issues using the `delete-epic.js` script.
 
 > **When to run**: When an Epic needs to be scrapped or reset to the
 > pre-dispatch state after a failed orchestration attempt.
@@ -19,15 +20,15 @@ and remote branches associated with the Epic and its children.
 ## Step 1 — Confirmation
 
 Confirm with the operator that they want to proceed. This is a DESTRUCTIVE
-action for git branches and optionally GitHub issues.
+action for git branches and GitHub issues.
 
-> [!WARNING] This will permanently delete branches and (if requested) GitHub
-> issues. Ensure all valuable code is backed up or committed elsewhere.
+> [!WARNING] This will permanently delete branches and GitHub issues. Ensure all
+> valuable code is backed up or committed elsewhere.
 
 ## Step 2 — Resolve Configuration
 
 1. Resolve `[EPIC_ID]` — the GitHub Issue number of the Epic to delete.
-2. Resolve `[EPIC_BRANCH]` — `epic/[EPIC_ID]`.
+1. Resolve `[EPIC_BRANCH]` — `epic/[EPIC_ID]`.
 
 ## Step 3 — Checkout Stable Branch
 
@@ -78,23 +79,28 @@ git branch -r --list "origin/task/epic-[EPIC_ID]/*" "origin/feature/epic-[EPIC_I
 }
 ```
 
-## Step 8 — Ticket Pruning (Optional)
+## Step 8 — Delete GitHub Issues (Dry Run)
 
-If the user also requested deleting the GitHub issues themselves:
+Run the delete-epic script in dry-run mode first to audit which issues will be
+removed.
 
 ```powershell
-# Delete the Epic issue
-gh issue delete [EPIC_ID] --confirm
+node .agents/scripts/delete-epic.js [EPIC_ID] --dry-run
+```
 
-# Delete children (Finding them via the 'epic: #[EPIC_ID]' reference in body)
-gh issue list --search "body:'epic: #[EPIC_ID]'" --json number --jq '.[].number' | ForEach-Object {
-    gh issue delete $_ --confirm
-}
+Review the output with the operator for final approval.
+
+## Step 9 — Delete GitHub Issues (Live)
+
+Once the operator approves the dry-run output, execute the live deletion.
+
+```powershell
+node .agents/scripts/delete-epic.js [EPIC_ID]
 ```
 
 ## Constraint
 
 Do **not** run this workflow if there is any work on the branches that has not
-been merged but needs to be saved. Always perform Step 4 (Listing) and Step 5
-(Approval) before executing deletions. This workflow is intended as a "nuclear
-option" for failed dispatches.
+been merged but needs to be saved. Always perform Step 4 (Branch Listing),
+Step 5 (Approval), and Step 8 (Dry Run) before executing destructive actions.
+This workflow is intended as a "nuclear option" for failed dispatches.
