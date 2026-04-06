@@ -1,27 +1,26 @@
 # Software Development Life Cycle (SDLC) Workflow
 
-Our SDLC is designed for an AI-native engineering environment, leveraging **v5
-Epic-Centric GitHub Orchestration**. This model replaces the legacy local
-playbook pipeline with a ticketing-native approach where GitHub Issues and
-Project Board fields serve as the Single Source of Truth (SSOT).
+Version 5 uses **Epic-Centric GitHub Orchestration** — a ticketing-native
+approach where GitHub Issues, Labels, and Projects V2 serve as the Single Source
+of Truth. No local playbooks, no sprint directories, no JSON state files.
 
 ---
 
-## 💡 Core Guiding Principles
+## Core Principles
 
-- **Ticketing as SSOT**: No local state files (like `playbook.md`). All project
-  logic, work breakdown, and task status lives in GitHub.
-- **Provider Abstraction**: While v5 ships with a reference GitHub provider, the
-  logic is abstracted behind `ITicketingProvider` for future portability.
-- **Agentic Autonomy**: Planning and execution are decoupled. Agents "pick up"
-  tasks from the backlog, implementation happens on isolated feature branches,
-  and state syncs back to GitHub in real-time.
+- **GitHub as SSOT**: All project logic, work breakdown, and task status lives
+  in GitHub Issues. No local state files.
+- **Provider Abstraction**: Orchestration flows through `ITicketingProvider`,
+  an abstract interface with a shipped GitHub implementation.
+- **Agentic Autonomy**: Planning and execution are decoupled. Agents pick up
+  tasks from the backlog, implement on isolated branches, and sync state back
+  to GitHub in real-time.
 - **Human-in-the-Loop (HITL)**: Humans define the vision (Epics), trigger
-  planning, and approve high-risk tasks.
+  planning, and approve high-risk tasks. Everything else is autonomous.
 
 ---
 
-## 🗺️ The End-to-End SDLC Process
+## End-to-End Process
 
 ```mermaid
 graph LR
@@ -29,37 +28,33 @@ graph LR
     classDef agentic fill:#c4f9d0,stroke:#333,stroke-width:2px,color:#000;
     classDef artifact fill:#ececec,stroke:#333,stroke-width:1px,stroke-dasharray: 5 5,color:#000;
 
-    %% Phase 1: Initiation
     subgraph Phase1 ["Phase 1: Initiation"]
         direction TB
-        A["👤 Create GitHub Epic<br/>(Write Goal & Scope)"]:::manual
+        A["👤 Create GitHub Epic"]:::manual
         B["👤 Run /sprint-plan"]:::manual
         A --> B
     end
 
-    %% Phase 2: Autonomous Planning
     subgraph Phase2 ["Phase 2: Planning"]
         direction TB
-        C["🤖 Epic Planner<br/>(Generate PRD & Tech Spec)"]:::agentic
-        D["🤖 Ticket Decomposer<br/>(Epic ➔ Feature ➔ Story ➔ Task)"]:::agentic
+        C["🤖 Epic Planner"]:::agentic
+        D["🤖 Ticket Decomposer"]:::agentic
         C --> D
         D -.-> D_Art["📄 GitHub Issue Hierarchy"]:::artifact
     end
 
-    %% Phase 3: Execution
     subgraph Phase3 ["Phase 3: Execution"]
         direction TB
-        E["🤖 /sprint-execute [Epic ID]<br/>(Dispatch Manifest)"]:::manual
-        F["🤖 /sprint-execute [Task ID]<br/>(Context Hydration & Implementation)"]:::agentic
+        E["🤖 /sprint-execute Epic"]:::manual
+        F["🤖 /sprint-execute Task"]:::agentic
         E --> F
         F -.-> F_Art["📄 Feature Branch PRs"]:::artifact
     end
 
-    %% Phase 4: Integration & Closure
     subgraph Phase4 ["Phase 4: Closure"]
         direction TB
-        G["🤖 /sprint-integration<br/>(Merge & Stabilize)"]:::agentic
-        H["🤖 Bookend Lifecycle<br/>(QA ➔ Retro ➔ Close Epic)"]:::agentic
+        G["🤖 /sprint-integration"]:::agentic
+        H["🤖 QA → Retro → Close Epic"]:::agentic
         G --> H
     end
 
@@ -70,69 +65,145 @@ graph LR
 
 ---
 
-## ⚡ Phase 1: Initiation (Manual)
+## Phase 1: Initiation (Human)
 
-The human product lead defines the "North Star" by creating a GitHub Issue
-labeled with `type::epic`.
+The product lead defines the objective by creating a GitHub Issue labeled
+`type::epic`.
 
-- **Goal**: Clear, plain-English description of the objective.
-- **Scope**: (Optional) High-level bullet points.
-- **Initiation**: The human runs `/sprint-plan [EPIC_ID]` in the agentic IDE.
-
----
-
-## 🚀 Phase 2: Planning (Agentic)
-
-The framework fetches the Epic and autonomously builds the work breakdown.
-
-1.  **Epic Planner (`epic-planner.js`)**:
-    - Synthesizes the Epic body + project documentation.
-    - Generates a **PRD** (`context::prd`) and **Tech Spec**
-      (`context::tech-spec`) as linked GitHub Issues.
-2.  **Ticket Decomposer (`ticket-decomposer.js`)**:
-    - Recursively decomposes the specs into a 4-tier hierarchy:
-      `Epic ➔ Feature ➔ Story ➔ Task`.
-    - **Wiring**: Each ticket is linked using GitHub's `blocked by #NNN` and
-      tasklist syntax.
-    - **Metadata**: Each Task is stamped with persona, model recommendations,
-      estimated files, and agent prompts.
-3.  **Roadmap Update**: The automated roadmap generator (`generate-roadmap.js`)
-    detects the new Epic/Features and updates `docs/roadmap.md`.
+1. **Write the Epic**: Clear, plain-English description of the goal and scope.
+1. **Trigger planning**: Run `/sprint-plan [EPIC_ID]` in the agentic IDE.
 
 ---
 
-## 🏗️ Phase 3: Execution (Agentic)
+## Phase 2: Planning (Autonomous)
+
+The framework reads the Epic and autonomously builds the entire work breakdown.
+
+1. **Epic Planner** (`epic-planner.js`):
+   - Synthesizes the Epic body with project documentation.
+   - Generates a **PRD** (`context::prd`) and **Tech Spec**
+     (`context::tech-spec`) as linked GitHub Issues.
+
+1. **Ticket Decomposer** (`ticket-decomposer.js`):
+   - Recursively decomposes specs into a 4-tier hierarchy:
+
+     ```text
+     Epic (type::epic)
+     ├── PRD (context::prd)
+     ├── Tech Spec (context::tech-spec)
+     ├── Feature (type::feature)
+     │   ├── Story (type::story)
+     │   │   ├── Task (type::task)     ← atomic agent work unit
+     │   │   │   ├── - [ ] subtask 1
+     │   │   │   └── - [ ] subtask 2
+     │   │   └── Task (type::task)
+     │   └── Story (type::story)
+     └── Feature (type::feature)
+     ```
+
+   - **Wiring**: Each ticket is linked using `blocked by #NNN` syntax and
+     GitHub's native sub-issues API.
+   - **Metadata**: Each Task is stamped with persona, model recommendations,
+     estimated files, and agent prompts.
+
+1. **Roadmap Update**: `generate-roadmap.js` detects the new Epic/Features
+   and updates `docs/roadmap.md`.
+
+---
+
+## Phase 3: Execution (Agentic)
 
 Execution is driven by the **Dispatcher** and **Context Hydrator**.
 
-1.  **Dispatch Manifest**: `/sprint-execute [EPIC_ID]` builds the dependency DAG
-    across all Tasks and identifies the current "wave" of executable work. It
-    outputs a manifest table in the IDE.
-2.  **Context Hydration**: When an agent runs `/sprint-execute #[TASK_ID]`, the
-    **Context Hydrator** assembles a self-contained prompt string:
-    - `agent-protocol.md` (Universal rules)
-    - Persona & Skill directives
-    - Hierarchy context (Story ➔ Feature ➔ Epic)
-    - Task-specific instructions
-3.  **State Sync**: Agents update their state in real-time on GitHub:
-    - **Labels**: `agent::ready` ➔ `agent::executing` ➔ `agent::review` ➔
-      `agent::done`.
-    - **Tasklists**: Check off atomic subtasks in the ticket body.
-    - **Telemetry**: Friction logs are posted as comments on the Task issue.
+### Dispatch
+
+`/sprint-execute [EPIC_ID]` builds the dependency DAG across all Tasks and
+identifies the current "wave" of executable work. It outputs a dispatch manifest
+table in the IDE.
+
+### Context Hydration
+
+When an agent runs `/sprint-execute #[TASK_ID]`, the Context Hydrator assembles
+a self-contained prompt:
+
+1. `agent-protocol.md` (universal rules)
+1. Persona and skill directives (from Task labels)
+1. Hierarchy context (Story → Feature → Epic → PRD → Tech Spec)
+1. Task-specific instructions and subtask checklist
+
+### State Sync
+
+Agents update their state in real-time on GitHub:
+
+- **Labels**: `agent::ready` → `agent::executing` → `agent::review` →
+  `agent::done`
+- **Tasklists**: Check off subtasks in the ticket body (`- [ ]` → `- [x]`)
+- **Friction**: Friction logs are posted as structured comments on the Task
+
+### Dependency Unblocking
+
+When a Task reaches `agent::done`, the Dispatcher re-evaluates the DAG and
+dispatches any newly-unblocked Tasks. This continues until all waves complete.
+
+### HITL Gates
+
+Tasks labeled `risk::high` are held for explicit human approval before dispatch.
+The notification engine fires an `approval-required` event via webhook.
 
 ---
 
-## 🏁 Phase 4: Integration & Closure (Agentic)
+## Phase 4: Integration & Closure (Agentic)
 
-Once Task waves are complete, the bookend lifecycle begins.
+Once Task waves complete, the bookend lifecycle begins.
 
-1.  **Integration**: `/sprint-integration` merges PRs into the Epic base branch,
-    running a stabilization suite on ephemeral candidate branches.
-2.  **Completion Cascade**: When a Task is integrated, status cascades up:
-    `Task Done ➔ Story Done ➔ Feature Done ➔ Epic Done`.
-3.  **Lifecycle Phases**:
-    - **QA**: Runs `/sprint-testing` on the integrated Epic branch.
-    - **Retro**: Runs `/sprint-retro` to summarize wins/friction from the ticket
-      graph.
-    - **Close-Out**: `/sprint-close-out` merges the Epic to `main`, tags the
-      release, and closes the Epic issue.
+1. **Integration**: `/sprint-integration` merges Task PRs into the Epic base
+   branch, running a stabilization suite on ephemeral candidate branches.
+
+1. **Completion Cascade**: When a Task is integrated, status cascades upward:
+
+   ```text
+   Task Done → Story Done → Feature Done → Epic Done
+   ```
+
+1. **Lifecycle phases**:
+   - **Code Review**: `/sprint-code-review` for comprehensive review
+   - **Retro**: `/sprint-retro` summarizes wins and friction from the ticket
+     graph
+   - **Close-Out**: `/sprint-close-out` merges the Epic branch to `main`, tags
+     the release, and closes the Epic issue
+
+---
+
+## Notification System
+
+Notifications are dispatched through two channels:
+
+1. **GitHub @mention** — Informational updates posted on the relevant ticket.
+1. **Webhook** — Action-required events pushed to external services (Pushover,
+   Slack, Discord).
+
+| Event               | Type       | Channel            | Operator Action         |
+| ------------------- | ---------- | ------------------ | ----------------------- |
+| `task-complete`     | **INFO**   | @mention           | Review when convenient  |
+| `feature-complete`  | **INFO**   | @mention           | Informational only      |
+| `epic-complete`     | **INFO**   | @mention + webhook | Final review            |
+| `review-needed`     | **ACTION** | @mention + webhook | Review and approve PR   |
+| `approval-required` | **ACTION** | webhook            | Approve to unblock      |
+| `blocked`           | **ACTION** | webhook            | Investigate and unblock |
+
+---
+
+## Quick Reference
+
+| Command                          | Purpose                                          |
+| -------------------------------- | ------------------------------------------------ |
+| `/sprint-plan [EPIC_ID]`         | Generate PRD, Tech Spec, and full task hierarchy |
+| `/sprint-execute [EPIC_ID]`      | Dispatch manifest and launch task waves          |
+| `/sprint-execute [TASK_ID]`      | Hydrate context and implement a single task      |
+| `/sprint-finalize-task`          | Validate, commit, and update task state          |
+| `/sprint-integration`            | Merge task branches into Epic base branch        |
+| `/sprint-code-review`            | Comprehensive code review                        |
+| `/sprint-retro`                  | Retrospective from ticket graph                  |
+| `/sprint-close-out`              | Merge to main, tag release, close Epic           |
+| `/bootstrap-agent-protocols`     | Initialize repo labels and project fields        |
+| `/git-delete-epic [EPIC_ID]`     | Hard reset: delete Epic branches and issues      |

@@ -20,8 +20,8 @@ import { createProvider } from './lib/provider-factory.js';
 async function main() {
   console.log('Generating roadmap.md artifact...');
 
-  const config = await resolveConfig();
-  const provider = createProvider(config.techStack.ticketing, config.agentSettings);
+  const { orchestration } = resolveConfig();
+  const provider = createProvider(orchestration);
 
   // 1. Fetch all Epics (Open and Closed)
   const allEpics = await provider.getEpics({ state: 'all' });

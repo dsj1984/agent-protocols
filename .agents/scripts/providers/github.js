@@ -206,6 +206,25 @@ export class GitHubProvider extends ITicketingProvider {
     return json.data;
   }
 
+  /**
+   * Paginate through all pages of a REST endpoint.
+   * @param {string} endpoint - Path relative to GITHUB_API (including query params).
+   * @returns {Promise<object[]>} All items across all pages.
+   */
+  async _restPaginated(endpoint) {
+    const allItems = [];
+    const separator = endpoint.includes('?') ? '&' : '?';
+    let page = 1;
+    while (true) {
+      const batch = await this._rest(`${endpoint}${separator}page=${page}&per_page=100`);
+      if (!Array.isArray(batch)) break;
+      allItems.push(...batch);
+      if (batch.length < 100) break;
+      page++;
+    }
+    return allItems;
+  }
+
   // ---------------------------------------------------------------------------
   // Read Operations
   // ---------------------------------------------------------------------------
@@ -214,10 +233,9 @@ export class GitHubProvider extends ITicketingProvider {
     const params = new URLSearchParams({
       state: filters.state ?? 'all',
       labels: 'type::epic',
-      per_page: '100',
     });
 
-    const issues = await this._rest(
+    const issues = await this._restPaginated(
       `/repos/${this.owner}/${this.repo}/issues?${params}`,
     );
 
@@ -267,37 +285,36 @@ export class GitHubProvider extends ITicketingProvider {
   }
 
   async getTickets(epicId, filters = {}) {
-    // List all issues that mention the epic in their body
-    // We use search to find issues that reference the epic
+    // Paginate through all issues to avoid silent data loss (C-1).
     const params = new URLSearchParams({
       state: filters.state ?? 'all',
-      per_page: '100',
     });
     if (filters.label) {
       params.set('labels', filters.label);
     }
 
-    const issues = await this._rest(
+    const issues = await this._restPaginated(
       `/repos/${this.owner}/${this.repo}/issues?${params}`,
+    );
+
+    // Use word-boundary regex to prevent #1 matching #10, #100, etc. (C-2).
+    const epicRefRe = new RegExp(
+      `(?:Epic:\\s*#${epicId}|parent:\\s*#${epicId})(?:\\s|$|[,.)\\]])`,
     );
 
     // Filter to only issues that reference the epic
     return issues
       .filter((issue) => {
         if (issue.pull_request) return false; // Skip PRs
-        // Check if the issue body contains a reference to the epic
         const body = issue.body ?? '';
-        return (
-          body.includes(`#${epicId}`) ||
-          body.includes(`Epic: #${epicId}`) ||
-          body.includes(`parent: #${epicId}`)
-        );
+        return epicRefRe.test(body);
       })
       .map((issue) => ({
         id: issue.number,
         internalId: issue.id,
         nodeId: issue.node_id,
         title: issue.title,
+        body: issue.body ?? '',
         labels: (issue.labels ?? []).map((l) =>
           typeof l === 'string' ? l : l.name,
         ),
@@ -604,9 +621,9 @@ export class GitHubProvider extends ITicketingProvider {
   // ---------------------------------------------------------------------------
 
   async ensureLabels(labelDefs) {
-    // Fetch all existing labels
-    const existing = await this._rest(
-      `/repos/${this.owner}/${this.repo}/labels?per_page=100`,
+    // Paginate to fetch all existing labels (H-6).
+    const existing = await this._restPaginated(
+      `/repos/${this.owner}/${this.repo}/labels`,
     );
     const existingNames = new Set(existing.map((l) => l.name));
 
