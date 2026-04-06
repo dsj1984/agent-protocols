@@ -922,7 +922,7 @@ Step 3 — Finalize
     fire webhook (ACTION: blocked).
 ```
 
-### Sprint 3E: Workflow Replacement
+### Sprint 3E: Workflow Replacement [COMPLETED]
 
 **Scope:** Replace existing v4 workflows with ticketing-native equivalents.
 Since v5 is a clean break, these are full rewrites rather than incremental
@@ -931,16 +931,16 @@ retained (ephemeral branch merge, validation, rollback) — only the playbook
 state sync (checkbox/Mermaid updates) is replaced with ticket label transitions
 via `update-ticket-state.js`.
 
-| Task                                                                                     | Type   | File(s)                                     | Depends On   |
+| Task                                                                                     | Status | File(s)                                     | Depends On   |
 | ---------------------------------------------------------------------------------------- | ------ | ------------------------------------------- | ------------ |
-| Rewrite `/sprint-finalize-task` to call `update-ticket-state.js`                         | MODIFY | `.agents/workflows/sprint-finalize-task.md` | State writer |
-| Rewrite `/sprint-integration` — retain candidate verification, swap state sync to labels | MODIFY | `.agents/workflows/sprint-integration.md`   | Provider     |
-| Refactor `sprint-integrate.js` — replace playbook sync with `update-ticket-state.js`     | MODIFY | `.agents/scripts/sprint-integrate.js`       | State writer |
-| Rewrite `/sprint-hotfix` to apply `status::blocked` and fire webhook                     | MODIFY | `.agents/workflows/sprint-hotfix.md`        | Provider     |
-| Rewrite `/sprint-retro` to read data from the ticket graph                               | MODIFY | `.agents/workflows/sprint-retro.md`         | Provider     |
-| Rewrite `/sprint-close-out` to close the Epic issue via provider                         | MODIFY | `.agents/workflows/sprint-close-out.md`     | Provider     |
-| Rewrite `verify-prereqs.js` to check ticket state exclusively                            | MODIFY | `.agents/scripts/verify-prereqs.js`         | Provider     |
-| Rewrite `diagnose-friction.js` to post friction logs as ticket comments                  | MODIFY | `.agents/scripts/diagnose-friction.js`      | Provider     |
+| Rewrite `/sprint-finalize-task` to call `update-ticket-state.js`                         | DONE   | `.agents/workflows/sprint-finalize-task.md` | State writer |
+| Rewrite `/sprint-integration` — retain candidate verification, swap state sync to labels | DONE   | `.agents/workflows/sprint-integration.md`   | Provider     |
+| Refactor `sprint-integrate.js` — replace playbook sync with `update-ticket-state.js`     | DONE   | `.agents/scripts/sprint-integrate.js`       | State writer |
+| Rewrite `/sprint-hotfix` to apply `status::blocked` and fire webhook                     | DONE   | `.agents/workflows/sprint-hotfix.md`        | Provider     |
+| Rewrite `/sprint-retro` to read data from the ticket graph                               | DONE   | `.agents/workflows/sprint-retro.md`         | Provider     |
+| Rewrite `/sprint-close-out` to close the Epic issue via provider                         | DONE   | `.agents/workflows/sprint-close-out.md`     | Provider     |
+| Rewrite `verify-prereqs.js` to check ticket state exclusively                            | DONE   | `.agents/scripts/verify-prereqs.js`         | Provider     |
+| Rewrite `diagnose-friction.js` to post friction logs as ticket comments                  | DONE   | `.agents/scripts/diagnose-friction.js`      | Provider     |
 
 ### Sprint 3F: Cleanup, Documentation & Automated Roadmap
 

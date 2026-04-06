@@ -1,22 +1,36 @@
-import fs from 'node:fs';
-import path from 'node:path';
+/**
+ * diagnose-friction.js — v5 Diagnostic Interceptor & Ticket Comment Logger
+ *
+ * Wraps a shell command with telemetry capture. On failure:
+ *   1. Prints static diagnostic suggestions to stdout.
+ *   2. Posts a structured `friction` comment to the Task ticket via
+ *      update-ticket-state.js (if --task is provided).
+ *
+ * In v5, GitHub is the SSOT — no local friction log files are written.
+ * All friction events are persisted to the ticket graph.
+ *
+ * Usage:
+ *   node diagnose-friction.js [--task <TASK_ID>] --cmd <command with args...>
+ *
+ * @see docs/v5-implementation-plan.md Sprint 3E
+ */
+
 import { spawnSync } from 'node:child_process';
-import { Logger } from './lib/Logger.js';
 import { resolveConfig } from './lib/config-resolver.js';
+import { postStructuredComment } from './update-ticket-state.js';
+import { Logger } from './lib/Logger.js';
 
-
+// ---------------------------------------------------------------------------
 // Parse arguments
-// Usage: node diagnose-friction.js [--sprint <path>] --cmd <command...>
+// ---------------------------------------------------------------------------
+
 const args = process.argv.slice(2);
-let sprintRoot = '.';
-let taskId = 'unknown';
+let taskId = null;
 let cmdArgs = [];
 
 for (let i = 0; i < args.length; i++) {
-  if (args[i] === '--sprint') {
-    sprintRoot = args[++i] || '.';
-  } else if (args[i] === '--task') {
-    taskId = args[++i] || 'unknown';
+  if (args[i] === '--task') {
+    taskId = args[++i] || null;
   } else if (args[i] === '--cmd') {
     cmdArgs = args.slice(i + 1);
     break;
@@ -24,13 +38,20 @@ for (let i = 0; i < args.length; i++) {
 }
 
 if (cmdArgs.length === 0) {
-  Logger.fatal("Usage: node diagnose-friction.js [--sprint <path>] --cmd <command with args...>");
-  
+  Logger.fatal('Usage: node diagnose-friction.js [--task <TASK_ID>] --cmd <command with args...>');
 }
+
+// ---------------------------------------------------------------------------
+// Configuration
+// ---------------------------------------------------------------------------
 
 const { settings } = resolveConfig();
 const executionTimeoutMs = settings.executionTimeoutMs ?? 300000;
 const executionMaxBuffer = settings.executionMaxBuffer ?? 10485760;
+
+// ---------------------------------------------------------------------------
+// Execute the wrapped command
+// ---------------------------------------------------------------------------
 
 const commandStr = cmdArgs.join(' ');
 console.log(`[Diagnostic Interceptor] Executing: ${commandStr}`);
@@ -43,51 +64,50 @@ const result = spawnSync(cmdArgs[0], cmdArgs.slice(1), {
   maxBuffer: executionMaxBuffer,
 });
 
-// Output whatever happened so the agent can still see it
+// Mirror output so the agent can see it
 if (result.stdout) process.stdout.write(result.stdout);
 if (result.stderr) process.stderr.write(result.stderr);
 
 if (result.status !== 0) {
-  console.log('\n--- 🛑 DIAGNOSTIC ANALYSIS Triggered ---');
-  console.log('Command failed. Logging friction to telemetry...');
-  
-  const logPath = path.join(sprintRoot, 'agent-friction-log.json');
-  const errorOutput = (result.stderr || result.stdout || 'Unknown exit code ' + result.status).trim();
-  
-  const logEntry = {
-    timestamp: new Date().toISOString(),
-    type: "friction_point",
-    task: taskId,
-    tool: cmdArgs[0],
-    command: commandStr,
-    exitCode: result.status,
-    errorPreview: errorOutput.substring(0, 500) // Keep the log size manageable
-  };
+  const errorOutput = (result.stderr || result.stdout || `Unknown exit code ${result.status}`).trim();
+  const errorPreview = errorOutput.substring(0, 500);
 
-  try {
-    fs.appendFileSync(logPath, JSON.stringify(logEntry) + '\n');
-    console.log(`✅ Friction logged to ${logPath}`);
-  } catch (err) {
-    console.error(`⚠️ Failed to write to telemetry log: ${err.message}`);
+  console.log('\n--- 🛑 DIAGNOSTIC ANALYSIS Triggered ---');
+  console.log('Command failed. Logging friction to GitHub ticket...');
+
+  // Post a structured friction comment to the Task ticket (v5 SSOT)
+  if (taskId) {
+    try {
+      await postStructuredComment(
+        parseInt(taskId, 10),
+        'friction',
+        `Command failed: \`${commandStr}\`\n\nExit code: ${result.status}\n\n\`\`\`\n${errorPreview}\n\`\`\``,
+      );
+      console.log(`✅ Friction posted to Task #${taskId} on GitHub.`);
+    } catch (err) {
+      console.error(`⚠️ Failed to post friction comment to Task #${taskId}: ${err.message}`);
+      // Non-fatal — the exit code is the primary signal
+    }
+  } else {
+    console.log('ℹ️ No --task provided; skipping GitHub friction comment.');
   }
 
-  // Very basic static analysis suggestions
+  // Static auto-remediation suggestions
   console.log('\n💡 [Auto-Remediation Suggestions]:');
   if (errorOutput.includes('EADDRINUSE') || errorOutput.includes('address already in use')) {
-    console.log(' - Port mapping collision detected. Try finding the zombie process and killing it (e.g. `npx kill-port`).');
+    console.log(' - Port collision detected. Try: `npx kill-port <PORT>`.');
   } else if (errorOutput.includes('Cannot find module') || errorOutput.includes('TS2307')) {
-    console.log(' - Missing dependency or bad import path. Ensure you are executing from the correct workspace root and have run npm/pnpm install.');
+    console.log(' - Missing dependency or bad import path. Ensure you are in the correct workspace root and have run `npm install`.');
   } else if (errorOutput.includes('SyntaxError')) {
-    console.log(' - Syntax/parsing error. Check your recently modified files for missing brackets, quotes, or invalid AST structures.');
+    console.log(' - Syntax/parsing error. Check recently modified files for missing brackets, quotes, or invalid structures.');
   } else if (errorOutput.includes('Astro') || errorOutput.includes('astro')) {
-    console.log(' - Framework error: Refer to `.agents/skills/frontend/astro/SKILL.md` for Astro 5 rules.');
+    console.log(' - Framework error: Refer to `.agents/skills/stack/frontend/astro/SKILL.md` for Astro rules.');
   } else {
-    console.log(' - Generic failure. Please review the stderr above, refine your approach, or refer to `.agents/instructions.md` before thrashing the CLI.');
+    console.log(' - Generic failure. Review stderr above, refine your approach, or check `.agents/instructions.md`.');
   }
   console.log('----------------------------------------\n');
-  
+
   process.exit(result.status);
 } else {
-  // Graceful exit
   process.exit(0);
 }

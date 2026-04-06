@@ -1,26 +1,26 @@
-import fs from 'node:fs';
 import path from 'node:path';
 import { fileURLToPath } from 'node:url';
 import { spawnSync } from 'node:child_process';
 import { resolveConfig } from './lib/config-resolver.js';
 import { Logger } from './lib/Logger.js';
 import { VerboseLogger } from './lib/VerboseLogger.js';
+import { postStructuredComment } from './update-ticket-state.js';
 
 /**
- * sprint-integrate.js — Batch Integration Candidate Verification
+ * sprint-integrate.js — Epic Integration Candidate Verification
  *
- * Consolidates the entire per-branch integration loop (Steps 4a-4e of
- * sprint-integration.md) into a single deterministic script. This eliminates
- * the ~8 separate CLI commands per branch that previously required individual
- * agent tool-call approvals.
+ * Consolidates the entire per-task integration loop (Steps 4a-4e of
+ * sprint-integration.md) into a single deterministic script.
  *
  * Exit codes:
- *   0 — Build Green: candidate merged into sprint base successfully.
+ *   0 — Build Green: candidate merged into Epic base successfully.
  *   1 — Build Broken: blast-radius contained, friction logged.
  *   2 — Major Conflict: requires human intervention.
  *
  * Usage:
- *   node .agents/scripts/sprint-integrate.js --sprint <NUM> --task <TASK_ID>
+ *   node .agents/scripts/sprint-integrate.js --epic <EPIC_ID> --task <TASK_ID>
+ *
+ * @see docs/v5-implementation-plan.md Sprint 3E
  */
 
 const __dirname = path.dirname(fileURLToPath(import.meta.url));
@@ -29,16 +29,16 @@ const PROJECT_ROOT = path.resolve(__dirname, '../..');
 // ---------------------------------------------------------------------------
 // Parse CLI arguments
 // ---------------------------------------------------------------------------
-let sprintNum = null;
+let epicId = null;
 let taskId = null;
 
 for (let i = 2; i < process.argv.length; i++) {
-  if (process.argv[i] === '--sprint') {
+  if (process.argv[i] === '--epic') {
     const next = process.argv[++i];
     if (!next || next.startsWith('--')) {
-      Logger.fatal('--sprint requires a value.');
+      Logger.fatal('--epic requires a value.');
     }
-    sprintNum = next;
+    epicId = next;
   } else if (process.argv[i] === '--task') {
     const next = process.argv[++i];
     if (!next || next.startsWith('--')) {
@@ -48,21 +48,17 @@ for (let i = 2; i < process.argv.length; i++) {
   }
 }
 
-if (!sprintNum || !taskId) {
-  Logger.fatal('Usage: node sprint-integrate.js --sprint <SPRINT_NUMBER> --task <TASK_ID>');
+if (!epicId || !taskId) {
+  Logger.fatal('Usage: node sprint-integrate.js --epic <EPIC_ID> --task <TASK_ID>');
 }
 
 // ---------------------------------------------------------------------------
 // Resolve configuration
 // ---------------------------------------------------------------------------
 const { settings } = resolveConfig();
-const padding = settings.sprintNumberPadding ?? 3;
-const paddedNum = String(sprintNum).padStart(padding, '0');
-const sprintBranch = `sprint-${paddedNum}`;
-const featureBranch = `task/${sprintBranch}/${taskId}`;
-const candidateBranch = `integration-candidate-${taskId}`;
-const sprintDocsRoot = settings.sprintDocsRoot ?? 'docs/sprints';
-const sprintRoot = path.join(sprintDocsRoot, `sprint-${paddedNum}`);
+const epicBranch = `epic/${epicId}`;
+const featureBranch = `task/epic-${epicId}/${taskId}`;
+const candidateBranch = `integration-candidate-epic-${epicId}-${taskId}`;
 const typecheckCmd = settings.typecheckCommand ?? 'npm run typecheck';
 const testCmd = settings.testCommand ?? 'npm run test';
 const scriptsRoot = settings.scriptsRoot ?? '.agents/scripts';
@@ -70,13 +66,13 @@ const executionTimeoutMs = settings.executionTimeoutMs ?? 300000;
 
 // Initialize verbose logging for the integration session
 const vlog = VerboseLogger.init(settings, PROJECT_ROOT, {
-  sprint: paddedNum,
+  epicId,
   taskId,
   source: 'sprint-integrate',
 });
 
 vlog.info('integration', `Starting candidate verification for ${featureBranch}`, {
-  sprintBranch,
+  epicBranch,
   featureBranch,
   candidateBranch,
 });
@@ -101,30 +97,27 @@ function git(...args) {
 
 /** Log progress to stdout so the agent and operator can track state. */
 function progress(phase, message) {
-  console.log(`▶ [sprint-integrate] [${taskId}] ${phase}: ${message}`);
+  console.log(`▶ [sprint-integrate] [epic-${epicId}/#${taskId}] ${phase}: ${message}`);
 }
 
-/** Log friction to the sprint's agent-friction-log.json */
-function logFriction(message) {
-  const logPath = path.join(PROJECT_ROOT, sprintRoot, 'agent-friction-log.json');
-  const entry = {
-    timestamp: new Date().toISOString(),
-    type: 'friction_point',
-    tool: 'sprint-integrate.js',
-    task: taskId,
-    error: message,
-  };
+/**
+ * Log friction — posts a structured comment to the Task ticket AND logs
+ * to console. In v5, GitHub is the SSOT; no local log file is written.
+ */
+async function logFriction(message) {
+  console.error(`⚠️ [sprint-integrate] Friction for Task #${taskId}: ${message}`);
   try {
-    fs.appendFileSync(logPath, JSON.stringify(entry) + '\n');
+    await postStructuredComment(parseInt(taskId, 10), 'friction', message);
   } catch (err) {
-    console.error(`⚠️ Failed to write friction log: ${err.message}`);
+    // Non-fatal: integration failure is the primary signal
+    console.error(`⚠️ Failed to post friction comment: ${err.message}`);
   }
 }
 
-/** Safely clean up the candidate branch and return to sprint base. */
+/** Safely clean up the candidate branch and return to Epic base. */
 function cleanup() {
   git('merge', '--abort');  // No-op if no merge in progress
-  git('checkout', sprintBranch);
+  git('checkout', epicBranch);
   git('branch', '-D', candidateBranch);
 }
 
@@ -151,23 +144,23 @@ function analyzeConflicts() {
 
 progress('INIT', `Starting candidate verification for ${featureBranch}`);
 
-// 1. Ensure we start from the sprint base
+// 1. Ensure we start from the Epic base branch
 const currentBranch = git('branch', '--show-current');
-if (currentBranch.stdout !== sprintBranch) {
-  progress('CHECKOUT', `Switching to ${sprintBranch}`);
-  const checkout = git('checkout', sprintBranch);
+if (currentBranch.stdout !== epicBranch) {
+  progress('CHECKOUT', `Switching to ${epicBranch}`);
+  const checkout = git('checkout', epicBranch);
   if (checkout.status !== 0) {
-    Logger.fatal(`Failed to checkout ${sprintBranch}: ${checkout.stderr}`);
+    Logger.fatal(`Failed to checkout ${epicBranch}: ${checkout.stderr}`);
   }
 }
 
-// 2. Create ephemeral candidate branch
-progress('CANDIDATE', `Creating ${candidateBranch} from ${sprintBranch}`);
-const createCandidate = git('checkout', '-b', candidateBranch, sprintBranch);
+// 2. Create ephemeral candidate branch from Epic base
+progress('CANDIDATE', `Creating ${candidateBranch} from ${epicBranch}`);
+const createCandidate = git('checkout', '-b', candidateBranch, epicBranch);
 if (createCandidate.status !== 0) {
   // If branch already exists, clean it up and try again
   git('branch', '-D', candidateBranch);
-  const retry = git('checkout', '-b', candidateBranch, sprintBranch);
+  const retry = git('checkout', '-b', candidateBranch, epicBranch);
   if (retry.status !== 0) {
     Logger.fatal(`Failed to create candidate branch: ${retry.stderr}`);
   }
@@ -196,14 +189,14 @@ if (merge.status !== 0) {
     // Major conflict — exit 2, requires human
     console.error(`\n🚨 MAJOR CONFLICT: ${conflicts.files} file(s) with ${conflicts.lines}+ conflicting lines.`);
     console.error(`   Files: ${conflicts.fileList.join(', ')}`);
-    console.error(`   Branches: ${sprintBranch} ← ${featureBranch}`);
-    logFriction(`Major merge conflict: ${conflicts.files} files, ${conflicts.lines} lines. Files: ${conflicts.fileList.join(', ')}`);
+    console.error(`   Branches: ${epicBranch} ← ${featureBranch}`);
+    await logFriction(`Major merge conflict: ${conflicts.files} files, ${conflicts.lines} lines. Files: ${conflicts.fileList.join(', ')}`);
     git('merge', '--abort');
     cleanup();
     process.exit(2);
   }
 
-  // Minor conflict — attempt auto-resolution
+  // Minor conflict — attempt auto-resolution (accept theirs for minor conflicts)
   progress('AUTO-RESOLVE', `Attempting auto-resolution of minor conflicts`);
   // Accept theirs for minor conflicts (feature branch has the intended changes)
   for (const file of conflicts.fileList) {
@@ -220,7 +213,7 @@ if (merge.status !== 0) {
   }
   const commitResolve = git('commit', '--no-edit');
   if (commitResolve.status !== 0) {
-    logFriction(`Auto-resolution failed for ${taskId}: ${commitResolve.stderr}`);
+    await logFriction(`Auto-resolution failed for Task #${taskId}: ${commitResolve.stderr}`);
     git('merge', '--abort');
     cleanup();
     process.exit(1);
@@ -231,7 +224,6 @@ if (merge.status !== 0) {
 // 4. Run verification suite — three sequential steps, no shell interpolation
 const lintBaselineScript = path.join(PROJECT_ROOT, scriptsRoot, 'lint-baseline.js');
 const diagScript = path.join(PROJECT_ROOT, scriptsRoot, 'diagnose-friction.js');
-const anchoredSprintRoot = path.join(PROJECT_ROOT, sprintRoot);
 
 const verifySteps = [
   { label: 'lint-baseline', args: ['node', lintBaselineScript, 'check'] },
@@ -242,10 +234,10 @@ const verifySteps = [
 for (const step of verifySteps) {
   progress('VERIFY', `Running ${step.label}: ${step.args.join(' ')}`);
 
-  // Route through diagnose-friction for telemetry capture
+  // Route through diagnose-friction for telemetry; pass epicId as task context
   const result = spawnSync(
     'node',
-    [diagScript, '--sprint', anchoredSprintRoot, '--task', taskId, '--cmd', ...step.args],
+    [diagScript, '--task', taskId, '--cmd', ...step.args],
     {
       stdio: 'inherit',
       encoding: 'utf-8',
@@ -255,14 +247,15 @@ for (const step of verifySteps) {
   );
 
   if (result.status !== 0) {
-    progress('FAIL', `${step.label} failed for ${taskId}. Blast-radius contained.`);
+    progress('FAIL', `${step.label} failed for Task #${taskId}. Blast-radius contained.`);
     vlog.error('integration', `Post-merge verification failed at ${step.label}`, {
       taskId,
+      epicId,
       step: step.label,
       exitCode: result.status,
     });
-    logFriction(
-      `${taskId} failed post-merge integration check at ${step.label}. ` +
+    await logFriction(
+      `Task #${taskId} failed post-merge integration check at "${step.label}". ` +
       `Blast-radius contained. Rework triggered via /sprint-hotfix.`,
     );
     cleanup();
@@ -270,25 +263,38 @@ for (const step of verifySteps) {
   }
 }
 
-// 5. Build Green — consolidate candidate into sprint base
-progress('CONSOLIDATE', `Merging ${candidateBranch} into ${sprintBranch}`);
-const coResult = git('checkout', sprintBranch);
+// 5. Build Green — consolidate candidate into Epic base
+progress('CONSOLIDATE', `Merging ${candidateBranch} into ${epicBranch}`);
+const coResult = git('checkout', epicBranch);
 if (coResult.status !== 0) {
-  logFriction(`Failed to checkout ${sprintBranch} for consolidation: ${coResult.stderr}`);
+  await logFriction(`Failed to checkout ${epicBranch} for consolidation: ${coResult.stderr}`);
   cleanup();
   process.exit(1);
 }
 const consolidate = git('merge', '--no-ff', candidateBranch);
 if (consolidate.status !== 0) {
-  logFriction(`Failed to consolidate ${candidateBranch}: ${consolidate.stderr}`);
+  await logFriction(`Failed to consolidate ${candidateBranch}: ${consolidate.stderr}`);
   cleanup();
   process.exit(1);
 }
 git('branch', '-D', candidateBranch);
 
-progress('DONE', `✅ ${taskId} successfully integrated into ${sprintBranch}`);
+progress('DONE', `✅ Task #${taskId} successfully integrated into ${epicBranch}`);
 vlog.info('integration', `Task successfully integrated`, {
   taskId,
-  sprintBranch,
+  epicId,
+  epicBranch,
 });
+
+// Post a structured progress comment on the Task ticket (non-fatal)
+try {
+  await postStructuredComment(
+    parseInt(taskId, 10),
+    'progress',
+    `Branch \`${featureBranch}\` integrated into \`${epicBranch}\` successfully.`,
+  );
+} catch (err) {
+  console.warn(`[sprint-integrate] Failed to post integration comment: ${err.message}`);
+}
+
 process.exit(0);
