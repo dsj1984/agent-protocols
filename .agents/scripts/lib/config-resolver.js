@@ -151,7 +151,7 @@ export function resolveConfig(opts) {
     const schemaValidKeys = [
       'taskStateRoot', 'notificationWebhookUrl', 'goldenExamplesRoot', 'baseBranch',
       'sprintDocsRoot', 'validationCommand', 'testCommand', 'buildCommand', 'agentRoot',
-      'scriptsRoot', 'workflowsRoot', 'personasRoot', 'keysRoot', 'schemasRoot',
+      'scriptsRoot', 'workflowsRoot', 'personasRoot', 'schemasRoot',
       'docsRoot', 'tempRoot', 'eventStreamsRoot', 'workspacesRoot',
       'executionTimeoutMs', 'executionMaxBuffer',
       'lintBaselineCommand', 'lintBaselinePath', 'exploratoryTestCommand', 'typecheckCommand',
@@ -197,7 +197,6 @@ export function resolveConfig(opts) {
       scriptsRoot: '.agents/scripts',
       workflowsRoot: '.agents/workflows',
       personasRoot: '.agents/personas',
-      keysRoot: '.agents/keys',
       schemasRoot: '.agents/schemas',
       docsRoot: 'docs',
       tempRoot: 'temp',
@@ -214,7 +213,6 @@ export function resolveConfig(opts) {
       notificationWebhookUrl: '',
       verboseLogging: { enabled: false, logDir: 'temp/verbose-logs' },
       apcCacheSettings: { strictHashing: true, ttlDays: 30, enableSpeculativeExecution: true, cacheDir: 'temp/apc-cache' },
-      securityOptions: { requireCryptographicProvenance: false },
       executionTimeoutMs: 300000, // 5 minutes
       executionMaxBuffer: 10485760, // 10MB
     },
