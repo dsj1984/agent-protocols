@@ -264,6 +264,54 @@ async function reconcileClosedTasks(tasks, provider, dryRun) {
 }
 
 /**
+ * Reconcile the status of the parent Epic.
+ * If all child tasks are closed and agent::done, close the Epic and mark it agent::done.
+ *
+ * @param {import('./lib/ITicketingProvider.js').ITicketingProvider} provider
+ * @param {number} epicId
+ * @param {object} epic - Epic ticket object
+ * @param {object[]} tasks - Normalised task list
+ * @param {boolean} dryRun
+ */
+async function reconcileEpicStatus(provider, epicId, epic, tasks, dryRun) {
+  const total = tasks.length;
+  const done = tasks.filter((t) => t.status === AGENT_DONE_LABEL).length;
+
+  if (total > 0 && done === total) {
+    if (epic.state !== 'closed' || !epic.labels.includes(AGENT_DONE_LABEL)) {
+      console.log(
+        `[Dispatcher] All children of Epic #${epicId} are done. Closing Epic...`,
+      );
+
+      if (dryRun) {
+        console.log(
+          `[Dispatcher] [DRY-RUN] Would sync Epic #${epicId} to agent::done and close it.`,
+        );
+        return;
+      }
+
+      try {
+        await provider.updateTicket(epicId, {
+          labels: {
+            add: [AGENT_DONE_LABEL],
+            remove: ['agent::ready', 'agent::executing', 'agent::review'],
+          },
+          state: 'closed',
+          state_reason: 'completed',
+        });
+        console.log(
+          `[Dispatcher] ✅ Epic #${epicId} is now agent::done and closed.`,
+        );
+      } catch (err) {
+        console.warn(
+          `[Dispatcher] Failed to close Epic #${epicId}: ${err.message}`,
+        );
+      }
+    }
+  }
+}
+
+/**
  * Main dispatcher function. Orchestrates one dispatch cycle for an Epic.
  *
  * @param {{
@@ -299,6 +347,9 @@ export async function dispatch(options) {
 
   // ── Step 1b: Reconcile stale labels on merged tasks ──────────────────────
   await reconcileClosedTasks(tasks, provider, dryRun);
+
+  // ── Step 1c: Auto-close parent epic if all children are done ─────────────
+  await reconcileEpicStatus(provider, epicId, epic, tasks, dryRun);
 
   if (tasks.length === 0) {
     console.log('[Dispatcher] No tasks found. Nothing to dispatch.');
