@@ -5,10 +5,10 @@
  * using a mock ITicketingProvider.
  */
 
-import { describe, it } from 'node:test';
 import assert from 'node:assert/strict';
 import path from 'node:path';
-import { pathToFileURL, fileURLToPath } from 'node:url';
+import { describe, it } from 'node:test';
+import { fileURLToPath, pathToFileURL } from 'node:url';
 
 const __dirname = path.dirname(fileURLToPath(import.meta.url));
 const ROOT = path.resolve(__dirname, '..');
@@ -106,24 +106,41 @@ describe('Bootstrap — LABEL_TAXONOMY', () => {
   it('every label has name, color (hex), and description', () => {
     for (const label of LABEL_TAXONOMY) {
       assert.ok(label.name, `Label missing name`);
-      assert.match(label.color, /^#[0-9A-Fa-f]{6}$/, `${label.name} has invalid color`);
-      assert.ok(typeof label.description === 'string', `${label.name} missing description`);
+      assert.match(
+        label.color,
+        /^#[0-9A-Fa-f]{6}$/,
+        `${label.name} has invalid color`,
+      );
+      assert.ok(
+        typeof label.description === 'string',
+        `${label.name} missing description`,
+      );
     }
   });
 
   it('uses correct colors per category', () => {
-    const typeLabels = LABEL_TAXONOMY.filter((l) => l.name.startsWith('type::'));
+    const typeLabels = LABEL_TAXONOMY.filter((l) =>
+      l.name.startsWith('type::'),
+    );
     for (const l of typeLabels) {
       assert.equal(l.color, '#7057FF', `${l.name} should be purple`);
     }
 
-    const agentLabels = LABEL_TAXONOMY.filter((l) => l.name.startsWith('agent::'));
+    const agentLabels = LABEL_TAXONOMY.filter((l) =>
+      l.name.startsWith('agent::'),
+    );
     for (const l of agentLabels) {
       assert.equal(l.color, '#0E8A16', `${l.name} should be green`);
     }
 
-    const blockedLabel = LABEL_TAXONOMY.find((l) => l.name === 'status::blocked');
-    assert.equal(blockedLabel.color, '#D93F0B', 'status::blocked should be red');
+    const blockedLabel = LABEL_TAXONOMY.find(
+      (l) => l.name === 'status::blocked',
+    );
+    assert.equal(
+      blockedLabel.color,
+      '#D93F0B',
+      'status::blocked should be red',
+    );
   });
 });
 

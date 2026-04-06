@@ -31,7 +31,11 @@ function analyzeConflicts(cwd) {
   const check = gitSpawn(cwd, 'diff', '--check');
   const markerMatches = check.stdout.match(/leftover conflict marker/g);
 
-  return { files: fileList.length, lines: markerMatches ? markerMatches.length : 0, fileList };
+  return {
+    files: fileList.length,
+    lines: markerMatches ? markerMatches.length : 0,
+    fileList,
+  };
 }
 
 /**
@@ -49,7 +53,9 @@ export function createCandidateBranch(cwd, epicBranch, candidateBranch) {
     gitSpawn(cwd, 'branch', '-D', candidateBranch);
     result = gitSpawn(cwd, 'checkout', '-b', candidateBranch, epicBranch);
     if (result.status !== 0) {
-      throw new Error(`Failed to create candidate branch "${candidateBranch}": ${result.stderr}`);
+      throw new Error(
+        `Failed to create candidate branch "${candidateBranch}": ${result.stderr}`,
+      );
     }
   }
 }
@@ -78,7 +84,10 @@ export function mergeFeatureBranch(cwd, featureBranch, vlog) {
     fileList: conflicts.fileList,
   });
 
-  if (conflicts.files >= MAJOR_CONFLICT_FILES || conflicts.lines >= MAJOR_CONFLICT_LINES) {
+  if (
+    conflicts.files >= MAJOR_CONFLICT_FILES ||
+    conflicts.lines >= MAJOR_CONFLICT_LINES
+  ) {
     gitSpawn(cwd, 'merge', '--abort');
     return { merged: false, major: true, conflicts };
   }
@@ -87,10 +96,15 @@ export function mergeFeatureBranch(cwd, featureBranch, vlog) {
   for (const file of conflicts.fileList) {
     const ourVersion = gitSpawn(cwd, 'show', `:2:${file}`);
     if (ourVersion.stdout) {
-      vlog('warn', 'integration', `Auto-resolving "${file}" to theirs — discarding base version`, {
-        file,
-        discardedPreview: ourVersion.stdout.substring(0, 500),
-      });
+      vlog(
+        'warn',
+        'integration',
+        `Auto-resolving "${file}" to theirs — discarding base version`,
+        {
+          file,
+          discardedPreview: ourVersion.stdout.substring(0, 500),
+        },
+      );
     }
     gitSpawn(cwd, 'checkout', '--theirs', file);
     gitSpawn(cwd, 'add', file);
@@ -113,7 +127,7 @@ export function mergeFeatureBranch(cwd, featureBranch, vlog) {
  * @param {string} candidateBranch - Ephemeral branch to delete.
  */
 export function cleanupCandidateBranch(cwd, epicBranch, candidateBranch) {
-  gitSpawn(cwd, 'merge', '--abort');   // no-op if no merge in progress
+  gitSpawn(cwd, 'merge', '--abort'); // no-op if no merge in progress
   gitSpawn(cwd, 'checkout', epicBranch);
   gitSpawn(cwd, 'branch', '-D', candidateBranch);
 }
@@ -129,12 +143,16 @@ export function cleanupCandidateBranch(cwd, epicBranch, candidateBranch) {
 export function consolidateCandidate(cwd, epicBranch, candidateBranch) {
   const co = gitSpawn(cwd, 'checkout', epicBranch);
   if (co.status !== 0) {
-    throw new Error(`Failed to checkout "${epicBranch}" for consolidation: ${co.stderr}`);
+    throw new Error(
+      `Failed to checkout "${epicBranch}" for consolidation: ${co.stderr}`,
+    );
   }
 
   const merge = gitSpawn(cwd, 'merge', '--no-ff', candidateBranch);
   if (merge.status !== 0) {
-    throw new Error(`Failed to consolidate "${candidateBranch}" into "${epicBranch}": ${merge.stderr}`);
+    throw new Error(
+      `Failed to consolidate "${candidateBranch}" into "${epicBranch}": ${merge.stderr}`,
+    );
   }
 
   gitSpawn(cwd, 'branch', '-D', candidateBranch);

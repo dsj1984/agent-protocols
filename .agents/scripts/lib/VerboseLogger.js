@@ -36,7 +36,13 @@ export class VerboseLogger {
    * @param {string}  [opts.taskId]   - Current task identifier (e.g. "045.2.1").
    * @param {string}  [opts.source]   - Default source label for this logger instance.
    */
-  constructor({ enabled = false, logDir, sprint = '', taskId = '', source = 'system' }) {
+  constructor({
+    enabled = false,
+    logDir,
+    sprint = '',
+    taskId = '',
+    source = 'system',
+  }) {
     this.enabled = enabled;
     this.logDir = logDir;
     this.sprint = sprint;
@@ -86,7 +92,11 @@ export class VerboseLogger {
     }
 
     try {
-      fs.appendFileSync(this._logFilePath, JSON.stringify(entry) + '\n', 'utf8');
+      fs.appendFileSync(
+        this._logFilePath,
+        `${JSON.stringify(entry)}\n`,
+        'utf8',
+      );
     } catch (err) {
       // Verbose logging must never crash the host process — degrade silently.
       console.error(`[VerboseLogger] Failed to write log: ${err.message}`);

@@ -13,7 +13,8 @@ export class LLMClient {
     // 1. Check local config override
     // 2. Check global .agentrc.json orchestration block
     // 3. Fallback to API key presence
-    const orchestration = config.orchestration ?? resolveConfig().orchestration ?? {};
+    const orchestration =
+      config.orchestration ?? resolveConfig().orchestration ?? {};
     const llmConfig = orchestration.llm ?? {};
 
     this.provider = llmConfig.provider || this._detectProvider();
@@ -26,7 +27,9 @@ export class LLMClient {
     if (process.env.GEMINI_API_KEY) return 'gemini';
     if (process.env.ANTHROPIC_API_KEY) return 'anthropic';
     if (process.env.OPENAI_API_KEY) return 'openai';
-    throw new Error('[LLMClient] No API key found in environment for Gemini, Anthropic, or OpenAI.');
+    throw new Error(
+      '[LLMClient] No API key found in environment for Gemini, Anthropic, or OpenAI.',
+    );
   }
 
   _defaultModel(provider) {
@@ -41,7 +44,9 @@ export class LLMClient {
     // rough heuristic: 1 token ~= 4 chars
     const estimatedTokens = Math.ceil(inputLength / 4);
     if (estimatedTokens > this.maxInputTokens) {
-      throw new Error(`[LLMClient] Estimated input tokens (${estimatedTokens}) exceeds configured maxInputTokens (${this.maxInputTokens}). Remove excessive context or increase the threshold.`);
+      throw new Error(
+        `[LLMClient] Estimated input tokens (${estimatedTokens}) exceeds configured maxInputTokens (${this.maxInputTokens}). Remove excessive context or increase the threshold.`,
+      );
     }
 
     switch (this.provider) {
@@ -64,7 +69,7 @@ export class LLMClient {
     const payload = {
       systemInstruction: { parts: [{ text: systemPrompt }] },
       contents: [{ role: 'user', parts: [{ text: userPrompt }] }],
-      generationConfig: { maxOutputTokens: this.maxOutputTokens }
+      generationConfig: { maxOutputTokens: this.maxOutputTokens },
     };
 
     const res = await fetch(url, {
@@ -73,7 +78,7 @@ export class LLMClient {
         'Content-Type': 'application/json',
         'x-goog-api-key': key,
       },
-      body: JSON.stringify(payload)
+      body: JSON.stringify(payload),
     });
 
     if (!res.ok) {
@@ -94,7 +99,7 @@ export class LLMClient {
       model: this.model,
       system: systemPrompt,
       messages: [{ role: 'user', content: userPrompt }],
-      max_tokens: this.maxOutputTokens
+      max_tokens: this.maxOutputTokens,
     };
 
     const res = await fetch(url, {
@@ -102,9 +107,9 @@ export class LLMClient {
       headers: {
         'x-api-key': key,
         'anthropic-version': '2023-06-01',
-        'content-type': 'application/json'
+        'content-type': 'application/json',
       },
-      body: JSON.stringify(payload)
+      body: JSON.stringify(payload),
     });
 
     if (!res.ok) {
@@ -125,18 +130,18 @@ export class LLMClient {
       model: this.model,
       messages: [
         { role: 'system', content: systemPrompt },
-        { role: 'user', content: userPrompt }
+        { role: 'user', content: userPrompt },
       ],
-      max_tokens: this.maxOutputTokens
+      max_tokens: this.maxOutputTokens,
     };
 
     const res = await fetch(url, {
       method: 'POST',
       headers: {
-        'Authorization': `Bearer ${key}`,
-        'Content-Type': 'application/json'
+        Authorization: `Bearer ${key}`,
+        'Content-Type': 'application/json',
       },
-      body: JSON.stringify(payload)
+      body: JSON.stringify(payload),
     });
 
     if (!res.ok) {

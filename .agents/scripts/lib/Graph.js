@@ -27,7 +27,9 @@ export function buildGraph(tasks) {
  * or null if the graph is acyclic.
  */
 export function detectCycle(adjacency) {
-  const WHITE = 0, GRAY = 1, BLACK = 2;
+  const WHITE = 0,
+    _GRAY = 1,
+    _BLACK = 2;
   const color = new Map();
   const parent = new Map();
 
@@ -149,7 +151,7 @@ function _dfsReaches(start, target, adjacency, visited) {
  * Computes which Chat Sessions each Chat Session depends on.
  * Returns a Map<chatNumber, chatNumber[]>.
  */
-export function computeChatDependencies(chatSessions, adjacency) {
+export function computeChatDependencies(chatSessions, _adjacency) {
   // Build a reverse lookup: taskId → chatNumber
   const taskToChat = new Map();
   for (const session of chatSessions) {
@@ -169,7 +171,10 @@ export function computeChatDependencies(chatSessions, adjacency) {
         }
       }
     }
-    chatDeps.set(session.chatNumber, [...deps].sort((a, b) => a - b));
+    chatDeps.set(
+      session.chatNumber,
+      [...deps].sort((a, b) => a - b),
+    );
   }
 
   // Apply transitive reduction to chat-level dependencies
@@ -256,7 +261,7 @@ export function topologicalSort(adjacency, taskMap) {
     sorted.push(taskMap.get(id));
 
     // Decrement in-degree for dependents using pre-computed reverse map
-    for (const dependent of (reverseAdj.get(id) ?? [])) {
+    for (const dependent of reverseAdj.get(id) ?? []) {
       const newDeg = (inDegree.get(dependent) ?? 0) - 1;
       inDegree.set(dependent, newDeg);
       if (newDeg === 0) queue.push(dependent);
@@ -333,7 +338,7 @@ export function autoSerializeOverlaps(manifest, adjacency) {
     ]),
   );
 
-  let reachable = computeReachability(adjacency);
+  const reachable = computeReachability(adjacency);
   const pendingEdges = []; // [ [fromId, toId], ... ]
 
   for (let i = 0; i < manifest.tasks.length; i++) {
@@ -352,7 +357,8 @@ export function autoSerializeOverlaps(manifest, adjacency) {
 
       const isGlobalA = taskA.scope === 'root' || setA.has('*');
       const isGlobalB = taskB.scope === 'root' || setB.has('*');
-      const overlap = isGlobalA || isGlobalB || [...setA].some((a) => setB.has(a));
+      const overlap =
+        isGlobalA || isGlobalB || [...setA].some((a) => setB.has(a));
 
       if (overlap) {
         const aReachesB = reachable.get(taskA.id)?.has(taskB.id);
@@ -380,7 +386,9 @@ export function autoSerializeOverlaps(manifest, adjacency) {
     const finalAdjacency = updatedGraph.adjacency;
     const cycle = detectCycle(finalAdjacency);
     if (cycle) {
-      throw new Error(`Dependency cycle detected after auto-serialization: ${cycle.join(' → ')}`);
+      throw new Error(
+        `Dependency cycle detected after auto-serialization: ${cycle.join(' → ')}`,
+      );
     }
     return { finalAdjacency, graphMutated };
   }

@@ -19,7 +19,7 @@ export class ITicketingProvider {
 
   /**
    * Fetch all Epic tickets in the repository.
-   * 
+   *
    * @param {{ state?: 'open'|'closed'|'all' }} [filters={}]
    * @returns {Promise<Array<{
    *   id: number,
@@ -28,7 +28,7 @@ export class ITicketingProvider {
    *   state: 'open'|'closed'
    * }>>}
    */
-  async getEpics(filters = {}) {
+  async getEpics(_filters = {}) {
     throw new Error('Not implemented: getEpics');
   }
 
@@ -44,7 +44,7 @@ export class ITicketingProvider {
    *   linkedIssues: { prd: number|null, techSpec: number|null }
    * }>}
    */
-  async getEpic(epicId) {
+  async getEpic(_epicId) {
     throw new Error('Not implemented: getEpic');
   }
   /**
@@ -59,10 +59,9 @@ export class ITicketingProvider {
    *   state: string
    * }>>}
    */
-  async getTickets(epicId, filters = {}) {
+  async getTickets(_epicId, _filters = {}) {
     throw new Error('Not implemented: getTickets');
   }
-
 
   /**
    * Fetch all immediate sub-tickets of a given parent ticket.
@@ -75,7 +74,7 @@ export class ITicketingProvider {
    *   state: string
    * }>>}
    */
-  async getSubTickets(parentId) {
+  async getSubTickets(_parentId) {
     throw new Error('Not implemented: getSubTickets');
   }
 
@@ -92,7 +91,7 @@ export class ITicketingProvider {
    *   state: string
    * }>}
    */
-  async getTicket(ticketId) {
+  async getTicket(_ticketId) {
     throw new Error('Not implemented: getTicket');
   }
 
@@ -106,7 +105,7 @@ export class ITicketingProvider {
    *   blockedBy: number[]
    * }>}
    */
-  async getTicketDependencies(ticketId) {
+  async getTicketDependencies(_ticketId) {
     throw new Error('Not implemented: getTicketDependencies');
   }
 
@@ -127,7 +126,7 @@ export class ITicketingProvider {
    * }} ticketData - The ticket content and metadata.
    * @returns {Promise<{ id: number, url: string }>}
    */
-  async createTicket(parentId, ticketData) {
+  async createTicket(_parentId, _ticketData) {
     throw new Error('Not implemented: createTicket');
   }
 
@@ -138,7 +137,7 @@ export class ITicketingProvider {
    * @param {number} childId - GitHub internal database ID of the sub-issue.
    * @returns {Promise<void>}
    */
-  async addSubIssue(parentId, childId) {
+  async addSubIssue(_parentId, _childId) {
     throw new Error('Not implemented: addSubIssue');
   }
 
@@ -149,7 +148,7 @@ export class ITicketingProvider {
    * @param {number} childId - GitHub internal database ID of the sub-issue.
    * @returns {Promise<void>}
    */
-  async removeSubIssue(parentId, childId) {
+  async removeSubIssue(_parentId, _childId) {
     throw new Error('Not implemented: removeSubIssue');
   }
 
@@ -164,7 +163,7 @@ export class ITicketingProvider {
    * }} mutations - The mutations to apply.
    * @returns {Promise<void>}
    */
-  async updateTicket(ticketId, mutations) {
+  async updateTicket(_ticketId, _mutations) {
     throw new Error('Not implemented: updateTicket');
   }
 
@@ -178,7 +177,7 @@ export class ITicketingProvider {
    * }} payload - The comment content and classification.
    * @returns {Promise<{ commentId: number }>}
    */
-  async postComment(ticketId, payload) {
+  async postComment(_ticketId, _payload) {
     throw new Error('Not implemented: postComment');
   }
 
@@ -189,7 +188,7 @@ export class ITicketingProvider {
    * @param {number} ticketId - GitHub Issue number to link.
    * @returns {Promise<{ number: number, url: string, htmlUrl: string }>}
    */
-  async createPullRequest(branchName, ticketId) {
+  async createPullRequest(_branchName, _ticketId) {
     throw new Error('Not implemented: createPullRequest');
   }
 
@@ -203,7 +202,7 @@ export class ITicketingProvider {
    * @param {Array<{ name: string, color: string, description: string }>} labelDefs
    * @returns {Promise<{ created: string[], skipped: string[] }>}
    */
-  async ensureLabels(labelDefs) {
+  async ensureLabels(_labelDefs) {
     throw new Error('Not implemented: ensureLabels');
   }
 
@@ -218,7 +217,7 @@ export class ITicketingProvider {
    * }>} fieldDefs
    * @returns {Promise<{ created: string[], skipped: string[] }>}
    */
-  async ensureProjectFields(fieldDefs) {
+  async ensureProjectFields(_fieldDefs) {
     throw new Error('Not implemented: ensureProjectFields');
   }
 }

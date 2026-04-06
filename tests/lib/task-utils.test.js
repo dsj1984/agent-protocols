@@ -1,5 +1,5 @@
-import { describe, it } from 'node:test';
 import assert from 'node:assert/strict';
+import { describe, it } from 'node:test';
 import { isBookendTask } from '../../.agents/scripts/lib/task-utils.js';
 
 describe('isBookendTask', () => {
@@ -44,7 +44,10 @@ describe('isBookendTask', () => {
   it('returns true when multiple bookend flags are set (data integrity guard)', () => {
     // This should not normally occur in production manifests, but the predicate
     // must still return true if any flag is set.
-    assert.equal(isBookendTask({ id: 'multi', isIntegration: true, isQA: true }), true);
+    assert.equal(
+      isBookendTask({ id: 'multi', isIntegration: true, isQA: true }),
+      true,
+    );
   });
 
   it('coerces truthy non-boolean to true', () => {

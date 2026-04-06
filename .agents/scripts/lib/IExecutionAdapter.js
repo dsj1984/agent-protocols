@@ -47,7 +47,7 @@ export class IExecutionAdapter {
    * }} taskDispatch - The fully hydrated task dispatch payload.
    * @returns {Promise<{ dispatchId: string, status: 'dispatched'|'queued' }>}
    */
-  async dispatchTask(taskDispatch) {
+  async dispatchTask(_taskDispatch) {
     throw new Error('Not implemented: dispatchTask');
   }
 
@@ -61,7 +61,7 @@ export class IExecutionAdapter {
    *   message?: string
    * }>}
    */
-  async getTaskStatus(dispatchId) {
+  async getTaskStatus(_dispatchId) {
     throw new Error('Not implemented: getTaskStatus');
   }
 
@@ -72,7 +72,7 @@ export class IExecutionAdapter {
    * @param {string} dispatchId - The dispatch ID to cancel.
    * @returns {Promise<void>}
    */
-  async cancelTask(dispatchId) {
+  async cancelTask(_dispatchId) {
     // Default no-op — adapters that support cancellation should override.
   }
 

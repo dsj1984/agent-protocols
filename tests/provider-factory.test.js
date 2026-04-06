@@ -5,11 +5,10 @@
  * to a concrete ITicketingProvider class.
  */
 
-import { describe, it } from 'node:test';
 import assert from 'node:assert/strict';
 import path from 'node:path';
-import { pathToFileURL } from 'node:url';
-import { fileURLToPath } from 'node:url';
+import { describe, it } from 'node:test';
+import { fileURLToPath, pathToFileURL } from 'node:url';
 
 const __dirname = path.dirname(fileURLToPath(import.meta.url));
 const ROOT = path.resolve(__dirname, '..');
@@ -45,11 +44,17 @@ describe('createProvider — factory resolution', () => {
   });
 
   it('throws when orchestration is null', () => {
-    assert.throws(() => createProvider(null), /orchestration is not configured/);
+    assert.throws(
+      () => createProvider(null),
+      /orchestration is not configured/,
+    );
   });
 
   it('throws when orchestration is undefined', () => {
-    assert.throws(() => createProvider(undefined), /orchestration is not configured/);
+    assert.throws(
+      () => createProvider(undefined),
+      /orchestration is not configured/,
+    );
   });
 
   it('throws when provider is missing', () => {

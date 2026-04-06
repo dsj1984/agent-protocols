@@ -1,4 +1,5 @@
 #!/usr/bin/env node
+
 /**
  * dispatcher.js — Sprint 3A/3D Execution Dispatcher
  *
@@ -26,24 +27,28 @@
  * @see .agents/schemas/dispatch-manifest.json
  */
 
-import path from 'node:path';
-import fs from 'node:fs';
-import { fileURLToPath } from 'node:url';
 import { execFileSync } from 'node:child_process';
+import fs from 'node:fs';
+import path from 'node:path';
+import { fileURLToPath } from 'node:url';
 import { parseArgs } from 'node:util';
-import { resolveConfig, PROJECT_ROOT } from './lib/config-resolver.js';
-import { createProvider } from './lib/provider-factory.js';
-import { createAdapter } from './lib/adapter-factory.js';
-import {
-  buildGraph,
-  detectCycle,
-  computeWaves,
-  autoSerializeOverlaps,
-} from './lib/Graph.js';
 import { hydrateContext } from './context-hydrator.js';
-import { parseBlockedBy, isSafeBranchComponent, parseTaskMetadata } from './lib/dependency-parser.js';
-import { notify } from './notify.js';
+import { createAdapter } from './lib/adapter-factory.js';
+import { PROJECT_ROOT, resolveConfig } from './lib/config-resolver.js';
+import {
+  isSafeBranchComponent,
+  parseBlockedBy,
+  parseTaskMetadata,
+} from './lib/dependency-parser.js';
+import {
+  autoSerializeOverlaps,
+  buildGraph,
+  computeWaves,
+  detectCycle,
+} from './lib/Graph.js';
 import { gitSync } from './lib/git-utils.js';
+import { createProvider } from './lib/provider-factory.js';
+import { notify } from './notify.js';
 
 const __filename = fileURLToPath(import.meta.url);
 
@@ -83,10 +88,13 @@ function git(args) {
  */
 function ensureBranch(branchName, baseBranch) {
   // Validate branch name components to prevent shell injection (C-3).
-  if (!isSafeBranchComponent(branchName) || !isSafeBranchComponent(baseBranch)) {
+  if (
+    !isSafeBranchComponent(branchName) ||
+    !isSafeBranchComponent(baseBranch)
+  ) {
     throw new Error(
       `[Dispatcher] Unsafe branch name detected: "${branchName}" or "${baseBranch}". ` +
-      'Branch names must contain only alphanumeric characters, hyphens, underscores, dots, and slashes.',
+        'Branch names must contain only alphanumeric characters, hyphens, underscores, dots, and slashes.',
     );
   }
   try {
@@ -95,7 +103,9 @@ function ensureBranch(branchName, baseBranch) {
   } catch {
     git(['checkout', '-b', branchName, baseBranch]);
     git(['checkout', baseBranch]);
-    console.log(`[Dispatcher] Created branch: ${branchName} from ${baseBranch}`);
+    console.log(
+      `[Dispatcher] Created branch: ${branchName} from ${baseBranch}`,
+    );
   }
 }
 
@@ -107,7 +117,8 @@ function ensureBranch(branchName, baseBranch) {
  * @param {object} settings
  */
 function captureLintBaseline(epicBranch, settings) {
-  const lintBaselinePath = settings.lintBaselinePath ?? 'temp/lint-baseline.json';
+  const lintBaselinePath =
+    settings.lintBaselinePath ?? 'temp/lint-baseline.json';
   const absPath = path.resolve(PROJECT_ROOT, lintBaselinePath);
 
   if (fs.existsSync(absPath)) {
@@ -117,17 +128,22 @@ function captureLintBaseline(epicBranch, settings) {
 
   console.log(`[Dispatcher] Capturing lint baseline on ${epicBranch}...`);
   try {
-    execFileSync('node', [path.join(PROJECT_ROOT, '.agents/scripts/lint-baseline.js'), 'capture'], {
-      cwd: PROJECT_ROOT,
-      encoding: 'utf8',
-      stdio: 'inherit',
-      shell: false,
-    });
+    execFileSync(
+      'node',
+      [path.join(PROJECT_ROOT, '.agents/scripts/lint-baseline.js'), 'capture'],
+      {
+        cwd: PROJECT_ROOT,
+        encoding: 'utf8',
+        stdio: 'inherit',
+        shell: false,
+      },
+    );
   } catch (err) {
-    console.warn(`[Dispatcher] Lint baseline capture failed (non-fatal): ${err.message}`);
+    console.warn(
+      `[Dispatcher] Lint baseline capture failed (non-fatal): ${err.message}`,
+    );
   }
 }
-
 
 // ---------------------------------------------------------------------------
 // Model resolution helper
@@ -143,10 +159,7 @@ function captureLintBaseline(epicBranch, settings) {
  */
 function resolveModel(ticketModel, settings) {
   if (ticketModel) return ticketModel;
-  return (
-    settings.defaultModels?.fastFallback ||
-    'Gemini 3 Flash'
-  );
+  return settings.defaultModels?.fastFallback || 'Gemini 3 Flash';
 }
 
 // ---------------------------------------------------------------------------
@@ -163,11 +176,12 @@ function resolveModel(ticketModel, settings) {
 async function fetchTasks(provider, epicId) {
   const tickets = await provider.getTickets(epicId, { label: TYPE_TASK_LABEL });
 
-  return tickets.map(t => {
+  return tickets.map((t) => {
     const metadata = parseTaskMetadata(t.body ?? '');
     const blockedBy = parseBlockedBy(t.body ?? '');
     const labels = t.labels ?? [];
-    const status = labels.find(l => l.startsWith('agent::')) ?? 'agent::ready';
+    const status =
+      labels.find((l) => l.startsWith('agent::')) ?? 'agent::ready';
     const isRiskHigh = labels.includes(RISK_HIGH_LABEL);
 
     return {
@@ -200,9 +214,11 @@ export async function dispatch(options) {
 
   const { settings, orchestration } = resolveConfig();
   const provider = options.provider ?? createProvider(orchestration);
-  const adapter = options.adapter ?? createAdapter(orchestration, {
-    executor: executorOverride,
-  });
+  const adapter =
+    options.adapter ??
+    createAdapter(orchestration, {
+      executor: executorOverride,
+    });
 
   const baseBranch = settings.baseBranch ?? 'main';
   const epicBranch = `epic/${epicId}`;
@@ -217,7 +233,16 @@ export async function dispatch(options) {
 
   if (tasks.length === 0) {
     console.log('[Dispatcher] No tasks found. Nothing to dispatch.');
-    return buildManifest({ epicId, epic, tasks: [], waves: [], dispatched: [], heldForApproval: [], dryRun, adapter });
+    return buildManifest({
+      epicId,
+      epic,
+      tasks: [],
+      waves: [],
+      dispatched: [],
+      heldForApproval: [],
+      dryRun,
+      adapter,
+    });
   }
 
   // ── Step 2: Build dependency DAG ────────────────────────────────────────
@@ -227,15 +252,20 @@ export async function dispatch(options) {
   if (cycle) {
     throw new Error(
       `[Dispatcher] Dependency cycle detected: ${cycle.join(' → ')}. ` +
-      'Fix the ticket dependencies before re-running.',
+        'Fix the ticket dependencies before re-running.',
     );
   }
 
   // ── Step 3: Auto-serialize focus-area overlaps ───────────────────────────
   const pseudoManifest = { tasks };
-  const { finalAdjacency, graphMutated } = autoSerializeOverlaps(pseudoManifest, adjacency);
+  const { finalAdjacency, graphMutated } = autoSerializeOverlaps(
+    pseudoManifest,
+    adjacency,
+  );
   if (graphMutated) {
-    console.log('[Dispatcher] Focus-area conflicts detected; serialized overlapping tasks.');
+    console.log(
+      '[Dispatcher] Focus-area conflicts detected; serialized overlapping tasks.',
+    );
   }
 
   // ── Step 4: Compute execution waves ─────────────────────────────────────
@@ -264,7 +294,8 @@ export async function dispatch(options) {
 
   for (const wave of allWaves) {
     const eligible = wave.filter(
-      t => t.status !== AGENT_DONE_LABEL && t.status !== AGENT_EXECUTING_LABEL,
+      (t) =>
+        t.status !== AGENT_DONE_LABEL && t.status !== AGENT_EXECUTING_LABEL,
     );
 
     if (eligible.length === 0) {
@@ -273,8 +304,8 @@ export async function dispatch(options) {
     }
 
     // Check that all dependencies of this wave are done
-    const waveDepsComplete = eligible.every(task =>
-      task.dependsOn.every(depId => {
+    const waveDepsComplete = eligible.every((task) =>
+      task.dependsOn.every((depId) => {
         const dep = taskMap.get(depId);
         return dep?.status === AGENT_DONE_LABEL;
       }),
@@ -292,8 +323,13 @@ export async function dispatch(options) {
 
       // Hold risk::high tasks for HITL approval
       if (task.isRiskHigh) {
-        console.log(`[Dispatcher] ⚠️  Task #${task.id} flagged risk::high — held for approval.`);
-        heldForApproval.push({ taskId: task.id, reason: 'risk::high label requires operator approval.' });
+        console.log(
+          `[Dispatcher] ⚠️  Task #${task.id} flagged risk::high — held for approval.`,
+        );
+        heldForApproval.push({
+          taskId: task.id,
+          reason: 'risk::high label requires operator approval.',
+        });
 
         if (!dryRun) {
           await provider.postComment(task.id, {
@@ -304,7 +340,13 @@ export async function dispatch(options) {
         continue;
       }
 
-      const hydratedPrompt = await hydrateContext(task, provider, epicBranch, taskBranch, epicId);
+      const hydratedPrompt = await hydrateContext(
+        task,
+        provider,
+        epicBranch,
+        taskBranch,
+        epicId,
+      );
 
       const taskDispatch = {
         taskId: task.id,
@@ -325,8 +367,14 @@ export async function dispatch(options) {
       };
 
       if (dryRun) {
-        console.log(`[Dispatcher] [DRY-RUN] Would dispatch Task #${task.id}: ${task.title}`);
-        dispatched.push({ taskId: task.id, dispatchId: `dry-run-${task.id}`, status: 'dispatched' });
+        console.log(
+          `[Dispatcher] [DRY-RUN] Would dispatch Task #${task.id}: ${task.title}`,
+        );
+        dispatched.push({
+          taskId: task.id,
+          dispatchId: `dry-run-${task.id}`,
+          status: 'dispatched',
+        });
       } else {
         // Transition ticket to agent::executing
         await provider.updateTicket(task.id, {
@@ -335,7 +383,9 @@ export async function dispatch(options) {
 
         const result = await adapter.dispatchTask(taskDispatch);
         dispatched.push({ taskId: task.id, ...result });
-        console.log(`[Dispatcher] ✅ Dispatched Task #${task.id} — dispatchId: ${result.dispatchId}`);
+        console.log(
+          `[Dispatcher] ✅ Dispatched Task #${task.id} — dispatchId: ${result.dispatchId}`,
+        );
       }
     }
 
@@ -356,7 +406,15 @@ export async function dispatch(options) {
   });
 
   // ── Step 8: Epic completion detection ────────────────────────────────────
-  await detectEpicCompletion({ epicId, epic, tasks, manifest, provider, settings, dryRun });
+  await detectEpicCompletion({
+    epicId,
+    epic,
+    tasks,
+    manifest,
+    provider,
+    settings,
+    dryRun,
+  });
 
   return manifest;
 }
@@ -368,23 +426,33 @@ export async function dispatch(options) {
  *
  * @param {object} params
  */
-async function detectEpicCompletion({ epicId, epic, tasks, manifest, provider, settings, dryRun }) {
+async function detectEpicCompletion({
+  epicId,
+  epic: _epic,
+  tasks,
+  manifest,
+  provider,
+  settings,
+  dryRun,
+}) {
   if (tasks.length === 0) return;
 
-  const allDone = tasks.every(t => t.status === AGENT_DONE_LABEL);
+  const allDone = tasks.every((t) => t.status === AGENT_DONE_LABEL);
   if (!allDone) return;
 
-  console.log(`[Dispatcher] 🎉 All Tasks under Epic #${epicId} are agent::done. Starting Bookend Lifecycle.`);
+  console.log(
+    `[Dispatcher] 🎉 All Tasks under Epic #${epicId} are agent::done. Starting Bookend Lifecycle.`,
+  );
 
   if (dryRun) {
-    console.log('[Dispatcher] [DRY-RUN] Would post epic-complete comment and fire webhook.');
+    console.log(
+      '[Dispatcher] [DRY-RUN] Would post epic-complete comment and fire webhook.',
+    );
     return;
   }
 
   // Build a summary of completed tasks
-  const taskLines = tasks
-    .map(t => `- ✅ #${t.id}: ${t.title}`)
-    .join('\n');
+  const taskLines = tasks.map((t) => `- ✅ #${t.id}: ${t.title}`).join('\n');
 
   const summaryComment = [
     `## 🎉 Epic #${epicId} Complete`,
@@ -406,20 +474,35 @@ async function detectEpicCompletion({ epicId, epic, tasks, manifest, provider, s
       body: summaryComment,
       type: 'notification',
     });
-    console.log(`[Dispatcher] Posted epic-complete summary comment on Epic #${epicId}.`);
+    console.log(
+      `[Dispatcher] Posted epic-complete summary comment on Epic #${epicId}.`,
+    );
   } catch (err) {
-    console.warn(`[Dispatcher] Failed to post epic-complete comment: ${err.message}`);
+    console.warn(
+      `[Dispatcher] Failed to post epic-complete comment: ${err.message}`,
+    );
   }
 
   // Fire the epic-complete webhook (INFO — no action required)
   if (settings.notificationWebhookUrl) {
     try {
-      await notify(epicId, {
-        type: 'notification',
-        message: `Epic #${epicId} complete. All tasks done. Bookend Lifecycle starting.`,
-      }, { orchestration: { github: { operatorHandle: '' }, notifications: { webhookUrl: settings.notificationWebhookUrl } } });
+      await notify(
+        epicId,
+        {
+          type: 'notification',
+          message: `Epic #${epicId} complete. All tasks done. Bookend Lifecycle starting.`,
+        },
+        {
+          orchestration: {
+            github: { operatorHandle: '' },
+            notifications: { webhookUrl: settings.notificationWebhookUrl },
+          },
+        },
+      );
     } catch (err) {
-      console.warn(`[Dispatcher] Webhook notification failed (non-fatal): ${err.message}`);
+      console.warn(
+        `[Dispatcher] Webhook notification failed (non-fatal): ${err.message}`,
+      );
     }
   }
 }
@@ -430,12 +513,20 @@ async function detectEpicCompletion({ epicId, epic, tasks, manifest, provider, s
  * @param {object} params
  * @returns {object}
  */
-function buildManifest({ epicId, epic, tasks, waves, dispatched, heldForApproval, dryRun, adapter }) {
+function buildManifest({
+  epicId,
+  epic,
+  tasks,
+  waves,
+  dispatched,
+  heldForApproval,
+  dryRun,
+  adapter,
+}) {
   const totalTasks = tasks.length;
-  const doneTasks = tasks.filter(t => t.status === AGENT_DONE_LABEL).length;
-  const progress = totalTasks > 0
-    ? Math.round((doneTasks / totalTasks) * 100)
-    : 0;
+  const doneTasks = tasks.filter((t) => t.status === AGENT_DONE_LABEL).length;
+  const progress =
+    totalTasks > 0 ? Math.round((doneTasks / totalTasks) * 100) : 0;
 
   return {
     schemaVersion: '1.0.0',
@@ -454,7 +545,7 @@ function buildManifest({ epicId, epic, tasks, waves, dispatched, heldForApproval
     },
     waves: waves.map((wave, i) => ({
       waveIndex: i,
-      tasks: wave.map(t => ({
+      tasks: wave.map((t) => ({
         taskId: t.id,
         title: t.title,
         status: t.status,
@@ -480,38 +571,52 @@ function buildManifest({ epicId, epic, tasks, waves, dispatched, heldForApproval
 async function main() {
   const { values } = parseArgs({
     options: {
-      epic:      { type: 'string' },
+      epic: { type: 'string' },
       'dry-run': { type: 'boolean', default: false },
-      executor:  { type: 'string' },
+      executor: { type: 'string' },
     },
     strict: false,
   });
 
   const epicId = parseInt(values.epic ?? '', 10);
-  if (!values.epic || isNaN(epicId) || epicId <= 0) {
-    console.error('Usage: node dispatcher.js --epic <epicId> [--dry-run] [--executor <name>]');
+  if (!values.epic || Number.isNaN(epicId) || epicId <= 0) {
+    console.error(
+      'Usage: node dispatcher.js --epic <epicId> [--dry-run] [--executor <name>]',
+    );
     process.exit(1);
   }
 
   const dryRun = values['dry-run'] ?? false;
   const executorOverride = values.executor;
 
-  console.log(`[Dispatcher] Starting dispatch for Epic #${epicId}${dryRun ? ' (DRY-RUN)' : ''}...`);
+  console.log(
+    `[Dispatcher] Starting dispatch for Epic #${epicId}${dryRun ? ' (DRY-RUN)' : ''}...`,
+  );
 
   const manifest = await dispatch({ epicId, dryRun, executorOverride });
 
   const manifestDir = path.join(PROJECT_ROOT, 'temp');
-  if (!fs.existsSync(manifestDir)) fs.mkdirSync(manifestDir, { recursive: true });
-  const manifestPath = path.join(manifestDir, `dispatch-manifest-${epicId}.json`);
+  if (!fs.existsSync(manifestDir))
+    fs.mkdirSync(manifestDir, { recursive: true });
+  const manifestPath = path.join(
+    manifestDir,
+    `dispatch-manifest-${epicId}.json`,
+  );
   fs.writeFileSync(manifestPath, JSON.stringify(manifest, null, 2), 'utf8');
 
-  console.log(`\n[Dispatcher] ✅ Dispatch manifest written to: temp/dispatch-manifest-${epicId}.json`);
-  console.log(`[Dispatcher] Progress: ${manifest.summary.doneTasks}/${manifest.summary.totalTasks} tasks done (${manifest.summary.progressPercent}%)`);
-  console.log(`[Dispatcher] Dispatched: ${manifest.summary.dispatched}, Held: ${manifest.summary.heldForApproval}`);
+  console.log(
+    `\n[Dispatcher] ✅ Dispatch manifest written to: temp/dispatch-manifest-${epicId}.json`,
+  );
+  console.log(
+    `[Dispatcher] Progress: ${manifest.summary.doneTasks}/${manifest.summary.totalTasks} tasks done (${manifest.summary.progressPercent}%)`,
+  );
+  console.log(
+    `[Dispatcher] Dispatched: ${manifest.summary.dispatched}, Held: ${manifest.summary.heldForApproval}`,
+  );
 }
 
 if (fileURLToPath(import.meta.url) === path.resolve(process.argv[1])) {
-  main().catch(err => {
+  main().catch((err) => {
     console.error('[Dispatcher] Fatal error:', err.message);
     if (process.env.DEBUG) console.error(err.stack);
     process.exit(1);

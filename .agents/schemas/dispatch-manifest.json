@@ -51,7 +51,14 @@
     },
     "summary": {
       "type": "object",
-      "required": ["totalTasks", "doneTasks", "progressPercent", "totalWaves", "dispatched", "heldForApproval"],
+      "required": [
+        "totalTasks",
+        "doneTasks",
+        "progressPercent",
+        "totalWaves",
+        "dispatched",
+        "heldForApproval"
+      ],
       "properties": {
         "totalTasks": {
           "type": "integer",
@@ -98,13 +105,31 @@
             "type": "array",
             "items": {
               "type": "object",
-              "required": ["taskId", "title", "status", "branch", "persona", "model", "mode", "skills", "focusAreas", "isRiskHigh", "dependsOn"],
+              "required": [
+                "taskId",
+                "title",
+                "status",
+                "branch",
+                "persona",
+                "model",
+                "mode",
+                "skills",
+                "focusAreas",
+                "isRiskHigh",
+                "dependsOn"
+              ],
               "properties": {
                 "taskId": { "type": "integer", "minimum": 1 },
                 "title": { "type": "string" },
                 "status": {
                   "type": "string",
-                  "enum": ["agent::ready", "agent::executing", "agent::review", "agent::done", "status::blocked"]
+                  "enum": [
+                    "agent::ready",
+                    "agent::executing",
+                    "agent::review",
+                    "agent::done",
+                    "status::blocked"
+                  ]
                 },
                 "branch": { "type": "string" },
                 "persona": { "type": "string" },

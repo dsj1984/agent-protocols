@@ -16,8 +16,8 @@
  * @see docs/v5-implementation-plan.md Sprint 3A — ManualDispatchAdapter
  */
 
-import { IExecutionAdapter } from '../lib/IExecutionAdapter.js';
 import { randomUUID } from 'node:crypto';
+import { IExecutionAdapter } from '../lib/IExecutionAdapter.js';
 
 /** @typedef {'pending'|'executing'|'done'|'failed'|'blocked'} DispatchStatus */
 
@@ -73,16 +73,13 @@ export class ManualDispatchAdapter extends IExecutionAdapter {
       focusAreas,
     } = taskDispatch;
 
-    const skillList = (skills ?? []).length > 0
-      ? skills.join(', ')
-      : '(none)';
-    const focusList = (focusAreas ?? []).length > 0
-      ? focusAreas.join(', ')
-      : '(none)';
+    const skillList = (skills ?? []).length > 0 ? skills.join(', ') : '(none)';
+    const focusList =
+      (focusAreas ?? []).length > 0 ? focusAreas.join(', ') : '(none)';
 
     const separator = '─'.repeat(72);
 
-    console.log('\n' + separator);
+    console.log(`\n${separator}`);
     console.log(`🚀  DISPATCH — Task #${taskId}  (Epic #${epicId})`);
     console.log(separator);
     console.log(`  Dispatch ID  : ${dispatchId}`);
@@ -96,10 +93,10 @@ export class ManualDispatchAdapter extends IExecutionAdapter {
     console.log(separator);
     console.log('\nPROMPT:\n');
     console.log(prompt);
-    console.log('\n' + separator);
+    console.log(`\n${separator}`);
     console.log(`📋  When complete, update Task #${taskId} to agent::done.`);
     console.log(`    Then re-run: /sprint-execute ${epicId}`);
-    console.log(separator + '\n');
+    console.log(`${separator}\n`);
 
     this._registry.set(dispatchId, {
       taskId,

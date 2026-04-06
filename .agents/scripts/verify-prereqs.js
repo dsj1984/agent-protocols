@@ -18,10 +18,10 @@
  * @see docs/v5-implementation-plan.md Sprint 3E
  */
 
-import { createProvider } from './lib/provider-factory.js';
 import { resolveConfig } from './lib/config-resolver.js';
-import { Logger } from './lib/Logger.js';
 import { parseBlockedBy } from './lib/dependency-parser.js';
+import { Logger } from './lib/Logger.js';
+import { createProvider } from './lib/provider-factory.js';
 
 // ---------------------------------------------------------------------------
 // CLI argument parsing
@@ -31,18 +31,20 @@ async function main() {
   const args = process.argv.slice(2);
 
   let taskId = null;
-  let epicId = null;
+  let _epicId = null;
 
   for (let i = 0; i < args.length; i++) {
     if (args[i] === '--task') {
       taskId = args[++i];
     } else if (args[i] === '--epic') {
-      epicId = args[++i];
+      _epicId = args[++i];
     }
   }
 
   if (!taskId) {
-    Logger.fatal('Usage: node verify-prereqs.js --task <TASK_ID> [--epic <EPIC_ID>]');
+    Logger.fatal(
+      'Usage: node verify-prereqs.js --task <TASK_ID> [--epic <EPIC_ID>]',
+    );
   }
 
   const { orchestration } = resolveConfig();
@@ -62,11 +64,15 @@ async function main() {
   const blockedBy = parseBlockedBy(task.body ?? '');
 
   if (blockedBy.length === 0) {
-    console.log(`[verify-prereqs] ✅ Task #${taskId} has no dependencies. Ready to dispatch.`);
+    console.log(
+      `[verify-prereqs] ✅ Task #${taskId} has no dependencies. Ready to dispatch.`,
+    );
     process.exit(0);
   }
 
-  console.log(`[verify-prereqs] Found ${blockedBy.length} dependency/dependencies: ${blockedBy.map(id => `#${id}`).join(', ')}`);
+  console.log(
+    `[verify-prereqs] Found ${blockedBy.length} dependency/dependencies: ${blockedBy.map((id) => `#${id}`).join(', ')}`,
+  );
 
   let hasFailedDeps = false;
 
@@ -75,7 +81,9 @@ async function main() {
     try {
       dep = await provider.getTicket(depId);
     } catch (err) {
-      console.error(`[verify-prereqs] ❌ ERROR: Could not fetch dependency #${depId}: ${err.message}`);
+      console.error(
+        `[verify-prereqs] ❌ ERROR: Could not fetch dependency #${depId}: ${err.message}`,
+      );
       hasFailedDeps = true;
       continue;
     }
@@ -83,12 +91,16 @@ async function main() {
     const isDone = (dep.labels ?? []).includes(AGENT_DONE_LABEL);
 
     if (isDone) {
-      console.log(`[verify-prereqs] ✅ Prerequisite #${depId} (${dep.title}) is agent::done.`);
+      console.log(
+        `[verify-prereqs] ✅ Prerequisite #${depId} (${dep.title}) is agent::done.`,
+      );
     } else {
-      const currentState = (dep.labels ?? []).find(l => l.startsWith('agent::')) ?? 'no agent:: label';
+      const currentState =
+        (dep.labels ?? []).find((l) => l.startsWith('agent::')) ??
+        'no agent:: label';
       console.error(
         `[verify-prereqs] ❌ ERROR: Prerequisite #${depId} (${dep.title}) is NOT done. ` +
-        `Current state: ${currentState}`,
+          `Current state: ${currentState}`,
       );
       hasFailedDeps = true;
     }
@@ -97,7 +109,7 @@ async function main() {
   if (hasFailedDeps) {
     Logger.fatal(
       `\n❌ VERIFICATION FAILED: Task #${taskId} is blocked by incomplete prerequisites.\n` +
-      'Resolve the above dependencies before dispatching this task.',
+        'Resolve the above dependencies before dispatching this task.',
     );
   } else {
     console.log(
@@ -107,6 +119,6 @@ async function main() {
   }
 }
 
-main().catch(err => {
+main().catch((err) => {
   Logger.fatal(`verify-prereqs: Unexpected error — ${err.message}`);
 });

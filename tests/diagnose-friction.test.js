@@ -9,15 +9,20 @@
  * code passthrough — without making real GitHub API calls.
  */
 
-import { describe, it } from 'node:test';
-import { spawnSync } from 'node:child_process';
 import assert from 'node:assert/strict';
+import { spawnSync } from 'node:child_process';
 import path from 'node:path';
+import { describe, it } from 'node:test';
 import { fileURLToPath } from 'node:url';
 
 const __dirname = path.dirname(fileURLToPath(import.meta.url));
 const ROOT = path.resolve(__dirname, '..');
-const SCRIPT_PATH = path.join(ROOT, '.agents', 'scripts', 'diagnose-friction.js');
+const SCRIPT_PATH = path.join(
+  ROOT,
+  '.agents',
+  'scripts',
+  'diagnose-friction.js',
+);
 
 describe('diagnose-friction.js — v5 (CLI contract)', () => {
   it('exits with code 1 when --cmd is missing', () => {
@@ -45,7 +50,11 @@ describe('diagnose-friction.js — v5 (CLI contract)', () => {
         env: { ...process.env, GITHUB_TOKEN: 'fake-token-for-test' },
       },
     );
-    assert.equal(result.status, 0, 'Should exit 0 when the wrapped command succeeds');
+    assert.equal(
+      result.status,
+      0,
+      'Should exit 0 when the wrapped command succeeds',
+    );
   });
 
   it('passes through non-zero exit code of a failing wrapped command', () => {
@@ -62,7 +71,11 @@ describe('diagnose-friction.js — v5 (CLI contract)', () => {
     // Non-zero exit is the key invariant. Platform-specific OS signal codes
     // may vary on Windows when using shell:true, so we assert non-zero rather
     // than an exact code.
-    assert.notEqual(result.status, 0, 'Should not exit 0 when the wrapped command fails');
+    assert.notEqual(
+      result.status,
+      0,
+      'Should not exit 0 when the wrapped command fails',
+    );
   });
 
   it('prints diagnostic suggestions on failure', () => {

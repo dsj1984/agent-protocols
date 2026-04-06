@@ -7,17 +7,16 @@
  *  - adapter-factory resolution
  */
 
-import { describe, it } from 'node:test';
 import assert from 'node:assert/strict';
 import path from 'node:path';
-import { pathToFileURL } from 'node:url';
-import { fileURLToPath } from 'node:url';
+import { describe, it } from 'node:test';
+import { fileURLToPath, pathToFileURL } from 'node:url';
 
 const __dirname = path.dirname(fileURLToPath(import.meta.url));
 const ROOT = path.resolve(__dirname, '..');
 const LIB = path.join(ROOT, '.agents', 'scripts', 'lib');
 const ADAPTERS = path.join(ROOT, '.agents', 'scripts', 'adapters');
-const SCRIPTS = path.join(ROOT, '.agents', 'scripts');
+const _SCRIPTS = path.join(ROOT, '.agents', 'scripts');
 
 const { IExecutionAdapter } = await import(
   pathToFileURL(path.join(LIB, 'IExecutionAdapter.js')).href
@@ -37,15 +36,24 @@ describe('IExecutionAdapter — abstract contract', () => {
   const adapter = new IExecutionAdapter();
 
   it('throws Not implemented on executorId getter', () => {
-    assert.throws(() => adapter.executorId, /Not implemented: executorId getter/);
+    assert.throws(
+      () => adapter.executorId,
+      /Not implemented: executorId getter/,
+    );
   });
 
   it('throws Not implemented on dispatchTask()', async () => {
-    await assert.rejects(() => adapter.dispatchTask({}), /Not implemented: dispatchTask/);
+    await assert.rejects(
+      () => adapter.dispatchTask({}),
+      /Not implemented: dispatchTask/,
+    );
   });
 
   it('throws Not implemented on getTaskStatus()', async () => {
-    await assert.rejects(() => adapter.getTaskStatus('id'), /Not implemented: getTaskStatus/);
+    await assert.rejects(
+      () => adapter.getTaskStatus('id'),
+      /Not implemented: getTaskStatus/,
+    );
   });
 
   it('cancelTask() is a silent no-op by default', async () => {
@@ -54,7 +62,10 @@ describe('IExecutionAdapter — abstract contract', () => {
   });
 
   it('describe() throws (executorId not implemented)', () => {
-    assert.throws(() => adapter.describe(), /Not implemented: executorId getter/);
+    assert.throws(
+      () => adapter.describe(),
+      /Not implemented: executorId getter/,
+    );
   });
 });
 
@@ -97,7 +108,11 @@ describe('ManualDispatchAdapter — HITL reference', () => {
       mode: 'fast',
       skills: ['core/tdd'],
       focusAreas: ['src/'],
-      metadata: { title: 'Task 42', protocolVersion: '5.0.0', dispatchedAt: new Date().toISOString() },
+      metadata: {
+        title: 'Task 42',
+        protocolVersion: '5.0.0',
+        dispatchedAt: new Date().toISOString(),
+      },
     });
 
     assert.equal(typeof result.dispatchId, 'string');
@@ -130,7 +145,10 @@ describe('ManualDispatchAdapter — HITL reference', () => {
     const adapter = new ManualDispatchAdapter(orchestration);
     const result = await adapter.getTaskStatus('unknown-id');
     assert.equal(result.status, 'failed');
-    assert.ok(result.message?.includes('unknown-id') || result.message?.includes('Unknown'));
+    assert.ok(
+      result.message?.includes('unknown-id') ||
+        result.message?.includes('Unknown'),
+    );
   });
 
   it('cancelTask() marks dispatch as failed in registry', async () => {

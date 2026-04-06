@@ -37,18 +37,15 @@ const ADAPTERS = {
  */
 export function createAdapter(orchestration, opts = {}) {
   // Resolution order: opts override → config → default
-  const executorName =
-    opts.executor ||
-    orchestration?.executor ||
-    'manual';
+  const executorName = opts.executor || orchestration?.executor || 'manual';
 
   const AdapterClass = ADAPTERS[executorName];
   if (!AdapterClass) {
     const supported = Object.keys(ADAPTERS).join(', ');
     throw new Error(
       `[AdapterFactory] Unsupported executor "${executorName}". ` +
-      `Supported: ${supported}. ` +
-      `Add it to .agents/scripts/lib/adapter-factory.js to enable.`,
+        `Supported: ${supported}. ` +
+        `Add it to .agents/scripts/lib/adapter-factory.js to enable.`,
     );
   }
 

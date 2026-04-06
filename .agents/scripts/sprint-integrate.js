@@ -2,17 +2,20 @@ import path from 'node:path';
 import { fileURLToPath } from 'node:url';
 import { parseArgs } from 'node:util';
 import { resolveConfig } from './lib/config-resolver.js';
+import {
+  cleanupCandidateBranch,
+  consolidateCandidate,
+  createCandidateBranch,
+  mergeFeatureBranch,
+} from './lib/git-merge-orchestrator.js';
+import { gitSpawn } from './lib/git-utils.js';
+import {
+  runVerificationSuite,
+  VerificationError,
+} from './lib/integration-verifier.js';
 import { Logger } from './lib/Logger.js';
 import { VerboseLogger } from './lib/VerboseLogger.js';
 import { postStructuredComment } from './update-ticket-state.js';
-import { gitSpawn } from './lib/git-utils.js';
-import {
-  createCandidateBranch,
-  mergeFeatureBranch,
-  cleanupCandidateBranch,
-  consolidateCandidate,
-} from './lib/git-merge-orchestrator.js';
-import { runVerificationSuite, VerificationError } from './lib/integration-verifier.js';
 
 /**
  * sprint-integrate.js — Epic Integration Candidate Verification
@@ -54,7 +57,9 @@ const epicId = values.epic;
 const taskId = values.task;
 
 if (!epicId || !taskId) {
-  Logger.fatal('Usage: node sprint-integrate.js --epic <EPIC_ID> --task <TASK_ID>');
+  Logger.fatal(
+    'Usage: node sprint-integrate.js --epic <EPIC_ID> --task <TASK_ID>',
+  );
 }
 
 // ---------------------------------------------------------------------------
@@ -62,13 +67,13 @@ if (!epicId || !taskId) {
 // ---------------------------------------------------------------------------
 
 const { settings } = resolveConfig();
-const epicBranch      = `epic/${epicId}`;
-const featureBranch   = `task/epic-${epicId}/${taskId}`;
+const epicBranch = `epic/${epicId}`;
+const featureBranch = `task/epic-${epicId}/${taskId}`;
 const candidateBranch = `integration-candidate-epic-${epicId}-${taskId}`;
-const typecheckCmd    = settings.typecheckCommand ?? 'npm run typecheck';
-const testCmd         = settings.testCommand      ?? 'npm run test';
-const scriptsRoot     = settings.scriptsRoot      ?? '.agents/scripts';
-const timeoutMs       = settings.executionTimeoutMs ?? 300_000;
+const typecheckCmd = settings.typecheckCommand ?? 'npm run typecheck';
+const testCmd = settings.testCommand ?? 'npm run test';
+const scriptsRoot = settings.scriptsRoot ?? '.agents/scripts';
+const timeoutMs = settings.executionTimeoutMs ?? 300_000;
 
 // Initialize verbose logging for the integration session.
 const vlog = VerboseLogger.init(settings, PROJECT_ROOT, {
@@ -77,11 +82,15 @@ const vlog = VerboseLogger.init(settings, PROJECT_ROOT, {
   source: 'sprint-integrate',
 });
 
-vlog.info('integration', `Starting candidate verification for ${featureBranch}`, {
-  epicBranch,
-  featureBranch,
-  candidateBranch,
-});
+vlog.info(
+  'integration',
+  `Starting candidate verification for ${featureBranch}`,
+  {
+    epicBranch,
+    featureBranch,
+    candidateBranch,
+  },
+);
 
 // ---------------------------------------------------------------------------
 // Helpers
@@ -89,7 +98,9 @@ vlog.info('integration', `Starting candidate verification for ${featureBranch}`,
 
 /** Log progress to stdout so the agent and operator can track state. */
 function progress(phase, message) {
-  console.log(`▶ [sprint-integrate] [epic-${epicId}/#${taskId}] ${phase}: ${message}`);
+  console.log(
+    `▶ [sprint-integrate] [epic-${epicId}/#${taskId}] ${phase}: ${message}`,
+  );
 }
 
 /**
@@ -99,7 +110,9 @@ function progress(phase, message) {
  * @param {string} message
  */
 async function logFriction(message) {
-  console.error(`⚠️ [sprint-integrate] Friction for Task #${taskId}: ${message}`);
+  console.error(
+    `⚠️ [sprint-integrate] Friction for Task #${taskId}: ${message}`,
+  );
   try {
     await postStructuredComment(parseInt(taskId, 10), 'friction', message);
   } catch (err) {
@@ -132,7 +145,9 @@ if (currentBranch.stdout !== epicBranch) {
 // 2. Verify feature branch exists before attempting merge.
 const refCheck = gitSpawn(PROJECT_ROOT, 'rev-parse', '--verify', featureBranch);
 if (refCheck.status !== 0) {
-  Logger.fatal(`Feature branch "${featureBranch}" does not exist. Verify the task ID.`);
+  Logger.fatal(
+    `Feature branch "${featureBranch}" does not exist. Verify the task ID.`,
+  );
 }
 
 // 3. Create ephemeral candidate branch from Epic base.
@@ -149,7 +164,9 @@ let mergeResult;
 try {
   mergeResult = mergeFeatureBranch(PROJECT_ROOT, featureBranch, vlogShim);
 } catch (err) {
-  await logFriction(`Auto-resolution failed for Task #${taskId}: ${err.message}`);
+  await logFriction(
+    `Auto-resolution failed for Task #${taskId}: ${err.message}`,
+  );
   cleanupCandidateBranch(PROJECT_ROOT, epicBranch, candidateBranch);
   process.exit(1);
 }
@@ -157,12 +174,14 @@ try {
 if (!mergeResult.merged) {
   // Major conflict — requires human intervention.
   const { conflicts } = mergeResult;
-  console.error(`\n🚨 MAJOR CONFLICT: ${conflicts.files} file(s) with ${conflicts.lines}+ conflicting lines.`);
+  console.error(
+    `\n🚨 MAJOR CONFLICT: ${conflicts.files} file(s) with ${conflicts.lines}+ conflicting lines.`,
+  );
   console.error(`   Files: ${conflicts.fileList.join(', ')}`);
   console.error(`   Branches: ${epicBranch} ← ${featureBranch}`);
   await logFriction(
     `Major merge conflict: ${conflicts.files} files, ${conflicts.lines} lines. ` +
-    `Files: ${conflicts.fileList.join(', ')}`,
+      `Files: ${conflicts.fileList.join(', ')}`,
   );
   cleanupCandidateBranch(PROJECT_ROOT, epicBranch, candidateBranch);
   process.exit(2);
@@ -185,16 +204,23 @@ try {
   });
 } catch (err) {
   if (err instanceof VerificationError) {
-    progress('FAIL', `${err.stepLabel} failed for Task #${taskId}. Blast-radius contained.`);
-    vlog.error('integration', `Post-merge verification failed at ${err.stepLabel}`, {
-      taskId,
-      epicId,
-      step: err.stepLabel,
-      exitCode: err.exitCode,
-    });
+    progress(
+      'FAIL',
+      `${err.stepLabel} failed for Task #${taskId}. Blast-radius contained.`,
+    );
+    vlog.error(
+      'integration',
+      `Post-merge verification failed at ${err.stepLabel}`,
+      {
+        taskId,
+        epicId,
+        step: err.stepLabel,
+        exitCode: err.exitCode,
+      },
+    );
     await logFriction(
       `Task #${taskId} failed post-merge integration check at "${err.stepLabel}". ` +
-      `Blast-radius contained. Rework triggered via /sprint-hotfix.`,
+        `Blast-radius contained. Rework triggered via /sprint-hotfix.`,
     );
     cleanupCandidateBranch(PROJECT_ROOT, epicBranch, candidateBranch);
     process.exit(1);
@@ -212,8 +238,15 @@ try {
   process.exit(1);
 }
 
-progress('DONE', `✅ Task #${taskId} successfully integrated into ${epicBranch}`);
-vlog.info('integration', `Task successfully integrated`, { taskId, epicId, epicBranch });
+progress(
+  'DONE',
+  `✅ Task #${taskId} successfully integrated into ${epicBranch}`,
+);
+vlog.info('integration', `Task successfully integrated`, {
+  taskId,
+  epicId,
+  epicBranch,
+});
 
 // Post a structured progress comment on the Task ticket (non-fatal).
 try {
@@ -223,7 +256,9 @@ try {
     `Branch \`${featureBranch}\` integrated into \`${epicBranch}\` successfully.`,
   );
 } catch (err) {
-  console.warn(`[sprint-integrate] Failed to post integration comment: ${err.message}`);
+  console.warn(
+    `[sprint-integrate] Failed to post integration comment: ${err.message}`,
+  );
 }
 
 process.exit(0);

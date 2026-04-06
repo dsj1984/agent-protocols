@@ -6,18 +6,17 @@
  * and dependency parsing.
  */
 
-import { describe, it, beforeEach, afterEach, mock } from 'node:test';
 import assert from 'node:assert/strict';
 import path from 'node:path';
-import { pathToFileURL, fileURLToPath } from 'node:url';
+import { afterEach, beforeEach, describe, it, } from 'node:test';
+import { fileURLToPath, pathToFileURL } from 'node:url';
 
 const __dirname = path.dirname(fileURLToPath(import.meta.url));
 const ROOT = path.resolve(__dirname, '..');
 
 const { GitHubProvider } = await import(
-  pathToFileURL(
-    path.join(ROOT, '.agents', 'scripts', 'providers', 'github.js'),
-  ).href
+  pathToFileURL(path.join(ROOT, '.agents', 'scripts', 'providers', 'github.js'))
+    .href
 );
 const { ITicketingProvider } = await import(
   pathToFileURL(
@@ -333,9 +332,7 @@ describe('GitHubProvider — updateTicket()', () => {
   });
 
   it('patches body and assignees', async () => {
-    const mockFetch = makeMockFetch([
-      { status: 200, json: {} },
-    ]);
+    const mockFetch = makeMockFetch([{ status: 200, json: {} }]);
     globalThis.fetch = mockFetch;
 
     const provider = createTestProvider();
@@ -388,9 +385,7 @@ describe('GitHubProvider — postComment()', () => {
   });
 
   it('prepends type badge to comment body', async () => {
-    const mockFetch = makeMockFetch([
-      { status: 201, json: { id: 100 } },
-    ]);
+    const mockFetch = makeMockFetch([{ status: 201, json: { id: 100 } }]);
     globalThis.fetch = mockFetch;
 
     const provider = createTestProvider();

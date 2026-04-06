@@ -1,7 +1,7 @@
+import { spawnSync } from 'node:child_process';
 import fs from 'node:fs';
 import path from 'node:path';
 import { fileURLToPath } from 'node:url';
-import { spawnSync } from 'node:child_process';
 import { resolveConfig } from './lib/config-resolver.js';
 import { Logger } from './lib/Logger.js';
 
@@ -26,9 +26,9 @@ function runLintCommand() {
     encoding: 'utf-8',
     timeout: executionTimeoutMs,
     maxBuffer: executionMaxBuffer,
-    shell: true
+    shell: true,
   });
-  
+
   try {
     const jsonStr = result.stdout.trim();
     // Parse the JSON array. Find start and end to avoid extraneous shell output
@@ -36,7 +36,10 @@ function runLintCommand() {
     const endIndex = jsonStr.lastIndexOf(']');
     if (startIndex === -1 || endIndex === -1) {
       if (jsonStr === '') return { errorCount: 0, warningCount: 0 };
-      throw new Error("Could not find JSON array in output. Output: " + jsonStr.substring(0, 100));
+      throw new Error(
+        'Could not find JSON array in output. Output: ' +
+          jsonStr.substring(0, 100),
+      );
     }
     const cleanJson = jsonStr.substring(startIndex, endIndex + 1);
     const output = JSON.parse(cleanJson);
@@ -48,7 +51,9 @@ function runLintCommand() {
     }
     return { errorCount: totalErrors, warningCount: totalWarnings };
   } catch (err) {
-    Logger.fatal(`Lint baseline parse error: ${err.message}\nCommand: ${cmdConfig}`);
+    Logger.fatal(
+      `Lint baseline parse error: ${err.message}\nCommand: ${cmdConfig}`,
+    );
   }
 }
 
@@ -58,7 +63,9 @@ if (mode === 'capture') {
   const dir = path.dirname(baselinePath);
   if (!fs.existsSync(dir)) fs.mkdirSync(dir, { recursive: true });
   fs.writeFileSync(baselinePath, JSON.stringify(totals, null, 2), 'utf8');
-  console.log(`✅ Baseline captured: ${totals.errorCount} errors, ${totals.warningCount} warnings.`);
+  console.log(
+    `✅ Baseline captured: ${totals.errorCount} errors, ${totals.warningCount} warnings.`,
+  );
   console.log(`   Saved to: ${baselinePathRel}`);
   process.exit(0);
 }
@@ -66,28 +73,44 @@ if (mode === 'capture') {
 if (mode === 'check') {
   console.log(`▶ [lint-baseline] Checking lint against baseline...`);
   const current = runLintCommand();
-  
+
   let baseline = { errorCount: 0, warningCount: 0 };
   if (fs.existsSync(baselinePath)) {
     baseline = JSON.parse(fs.readFileSync(baselinePath, 'utf8'));
   } else {
-    console.warn(`⚠️ No baseline found at ${baselinePathRel}. Assuming 0 baseline.`);
+    console.warn(
+      `⚠️ No baseline found at ${baselinePathRel}. Assuming 0 baseline.`,
+    );
   }
 
-  console.log(`   Baseline: ${baseline.errorCount} errors, ${baseline.warningCount} warnings`);
-  console.log(`   Current:  ${current.errorCount} errors, ${current.warningCount} warnings`);
+  console.log(
+    `   Baseline: ${baseline.errorCount} errors, ${baseline.warningCount} warnings`,
+  );
+  console.log(
+    `   Current:  ${current.errorCount} errors, ${current.warningCount} warnings`,
+  );
 
-  if (current.errorCount > baseline.errorCount || current.warningCount > baseline.warningCount) {
+  if (
+    current.errorCount > baseline.errorCount ||
+    current.warningCount > baseline.warningCount
+  ) {
     console.error(`\n🚨 LINT DEGRADATION DETECTED!`);
-    console.error(`You have introduced new lint issues compared to the baseline.`);
+    console.error(
+      `You have introduced new lint issues compared to the baseline.`,
+    );
     console.error(`Please fix them before continuing.`);
     process.exit(1);
   }
 
   // Ratchet (shrink baseline) if better
-  if (current.errorCount < baseline.errorCount || current.warningCount < baseline.warningCount) {
-     fs.writeFileSync(baselinePath, JSON.stringify(current, null, 2), 'utf8');
-     console.log(`🎉 Lint health improved! Ratcheted baseline down to current levels.`);
+  if (
+    current.errorCount < baseline.errorCount ||
+    current.warningCount < baseline.warningCount
+  ) {
+    fs.writeFileSync(baselinePath, JSON.stringify(current, null, 2), 'utf8');
+    console.log(
+      `🎉 Lint health improved! Ratcheted baseline down to current levels.`,
+    );
   }
 
   console.log(`✅ Lint check passed.`);

@@ -4,7 +4,7 @@ import fsPromises from 'node:fs/promises';
 /**
  * Global filesystem stubbing utility for full memfs sandbox isolation.
  * Safely redirects node:fs and node:fs/promises methods to memfs.
- * 
+ *
  * @param {import('node:test').TestContext} t - The node:test test context
  * @param {import('memfs').IFs} memfsVol - The memfs volume to use
  */
@@ -25,7 +25,7 @@ export function setupFsMock(t, memfsVol) {
   t.mock.method(fs, 'mkdirSync', (pathStr, options) => {
     return memfsVol.mkdirSync(pathStr, options);
   });
-  
+
   t.mock.method(fs, 'accessSync', (pathStr, mode) => {
     return memfsVol.accessSync(pathStr, mode);
   });

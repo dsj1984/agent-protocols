@@ -17,8 +17,8 @@
 
 import { spawnSync } from 'node:child_process';
 import { resolveConfig } from './lib/config-resolver.js';
-import { postStructuredComment } from './update-ticket-state.js';
 import { Logger } from './lib/Logger.js';
+import { postStructuredComment } from './update-ticket-state.js';
 
 // ---------------------------------------------------------------------------
 // Parse arguments
@@ -38,7 +38,9 @@ for (let i = 0; i < args.length; i++) {
 }
 
 if (cmdArgs.length === 0) {
-  Logger.fatal('Usage: node diagnose-friction.js [--task <TASK_ID>] --cmd <command with args...>');
+  Logger.fatal(
+    'Usage: node diagnose-friction.js [--task <TASK_ID>] --cmd <command with args...>',
+  );
 }
 
 // ---------------------------------------------------------------------------
@@ -69,7 +71,11 @@ if (result.stdout) process.stdout.write(result.stdout);
 if (result.stderr) process.stderr.write(result.stderr);
 
 if (result.status !== 0) {
-  const errorOutput = (result.stderr || result.stdout || `Unknown exit code ${result.status}`).trim();
+  const errorOutput = (
+    result.stderr ||
+    result.stdout ||
+    `Unknown exit code ${result.status}`
+  ).trim();
   const errorPreview = errorOutput.substring(0, 500);
 
   console.log('\n--- 🛑 DIAGNOSTIC ANALYSIS Triggered ---');
@@ -85,7 +91,9 @@ if (result.status !== 0) {
       );
       console.log(`✅ Friction posted to Task #${taskId} on GitHub.`);
     } catch (err) {
-      console.error(`⚠️ Failed to post friction comment to Task #${taskId}: ${err.message}`);
+      console.error(
+        `⚠️ Failed to post friction comment to Task #${taskId}: ${err.message}`,
+      );
       // Non-fatal — the exit code is the primary signal
     }
   } else {
@@ -94,16 +102,30 @@ if (result.status !== 0) {
 
   // Static auto-remediation suggestions
   console.log('\n💡 [Auto-Remediation Suggestions]:');
-  if (errorOutput.includes('EADDRINUSE') || errorOutput.includes('address already in use')) {
+  if (
+    errorOutput.includes('EADDRINUSE') ||
+    errorOutput.includes('address already in use')
+  ) {
     console.log(' - Port collision detected. Try: `npx kill-port <PORT>`.');
-  } else if (errorOutput.includes('Cannot find module') || errorOutput.includes('TS2307')) {
-    console.log(' - Missing dependency or bad import path. Ensure you are in the correct workspace root and have run `npm install`.');
+  } else if (
+    errorOutput.includes('Cannot find module') ||
+    errorOutput.includes('TS2307')
+  ) {
+    console.log(
+      ' - Missing dependency or bad import path. Ensure you are in the correct workspace root and have run `npm install`.',
+    );
   } else if (errorOutput.includes('SyntaxError')) {
-    console.log(' - Syntax/parsing error. Check recently modified files for missing brackets, quotes, or invalid structures.');
+    console.log(
+      ' - Syntax/parsing error. Check recently modified files for missing brackets, quotes, or invalid structures.',
+    );
   } else if (errorOutput.includes('Astro') || errorOutput.includes('astro')) {
-    console.log(' - Framework error: Refer to `.agents/skills/stack/frontend/astro/SKILL.md` for Astro rules.');
+    console.log(
+      ' - Framework error: Refer to `.agents/skills/stack/frontend/astro/SKILL.md` for Astro rules.',
+    );
   } else {
-    console.log(' - Generic failure. Review stderr above, refine your approach, or check `.agents/instructions.md`.');
+    console.log(
+      ' - Generic failure. Review stderr above, refine your approach, or check `.agents/instructions.md`.',
+    );
   }
   console.log('----------------------------------------\n');
 

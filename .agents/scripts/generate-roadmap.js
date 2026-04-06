@@ -14,7 +14,7 @@
 
 import fs from 'node:fs';
 import path from 'node:path';
-import { resolveConfig, PROJECT_ROOT } from './lib/config-resolver.js';
+import { PROJECT_ROOT, resolveConfig } from './lib/config-resolver.js';
 import { createProvider } from './lib/provider-factory.js';
 
 async function main() {
@@ -33,8 +33,8 @@ async function main() {
     return b.id - a.id;
   });
 
-  const openEpics = sortedEpics.filter(e => e.state === 'open');
-  const closedEpics = sortedEpics.filter(e => e.state === 'closed');
+  const openEpics = sortedEpics.filter((e) => e.state === 'open');
+  const closedEpics = sortedEpics.filter((e) => e.state === 'closed');
 
   // 2. Build Markdown
   const lines = [
@@ -63,12 +63,16 @@ async function main() {
         }
       }),
     );
-    const progressByEpicId = new Map(progressResults.map(r => [r.id, r.subTickets]));
+    const progressByEpicId = new Map(
+      progressResults.map((r) => [r.id, r.subTickets]),
+    );
 
     for (const epic of openEpics) {
       lines.push(`- [ ] **#${epic.id}** — ${epic.title}`);
       const subTickets = progressByEpicId.get(epic.id) ?? [];
-      const done = subTickets.filter(t => t.labels.includes('agent::done')).length;
+      const done = subTickets.filter((t) =>
+        t.labels.includes('agent::done'),
+      ).length;
       const total = subTickets.length;
       if (total > 0) {
         const percent = Math.round((done / total) * 100);
@@ -89,7 +93,9 @@ async function main() {
 
   lines.push('---');
   lines.push('');
-  lines.push('Manage this roadmap by interacting with the Epic issues on GitHub.');
+  lines.push(
+    'Manage this roadmap by interacting with the Epic issues on GitHub.',
+  );
 
   const content = lines.join('\n');
 
@@ -100,7 +106,7 @@ async function main() {
   console.log(`Successfully generated roadmap.md at ${outputPath}`);
 }
 
-main().catch(err => {
+main().catch((err) => {
   console.error('Failed to generate roadmap:', err);
   process.exit(1);
 });

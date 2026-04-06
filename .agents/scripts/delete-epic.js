@@ -219,9 +219,12 @@ async function collectTree(owner, repo, issueNumber, visited = new Set()) {
 async function main() {
   const args = process.argv.slice(2);
   const dryRun = args.includes('--dry-run');
-  const epicNumber = parseInt(args.find((a) => !a.startsWith('--')), 10);
+  const epicNumber = parseInt(
+    args.find((a) => !a.startsWith('--')),
+    10,
+  );
 
-  if (!epicNumber || isNaN(epicNumber)) {
+  if (!epicNumber || Number.isNaN(epicNumber)) {
     console.error('Usage: node delete-epic.js <epic_number> [--dry-run]');
     process.exit(1);
   }

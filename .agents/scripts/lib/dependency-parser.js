@@ -16,12 +16,7 @@
 export function parseBlockedBy(body) {
   if (!body) return [];
   const re = /(?:blocked\s+by|depends\s+on)\s+#(\d+)/gi;
-  const results = [];
-  let match;
-  while ((match = re.exec(body)) !== null) {
-    results.push(parseInt(match[1], 10));
-  }
-  return results;
+  return [...body.matchAll(re)].map((m) => parseInt(m[1], 10));
 }
 
 /**
@@ -33,12 +28,7 @@ export function parseBlockedBy(body) {
 export function parseBlocks(body) {
   if (!body) return [];
   const re = /blocks\s+#(\d+)/gi;
-  const results = [];
-  let match;
-  while ((match = re.exec(body)) !== null) {
-    results.push(parseInt(match[1], 10));
-  }
-  return results;
+  return [...body.matchAll(re)].map((m) => parseInt(m[1], 10));
 }
 
 /**
@@ -87,7 +77,10 @@ export function parseTaskMetadata(body) {
   function extractList(key) {
     const raw = extractField(key);
     if (!raw) return [];
-    return raw.split(',').map(s => s.trim()).filter(Boolean);
+    return raw
+      .split(',')
+      .map((s) => s.trim())
+      .filter(Boolean);
   }
 
   return {
@@ -96,6 +89,7 @@ export function parseTaskMetadata(body) {
     mode: extractField('Mode') || defaults.mode,
     skills: extractList('Skills'),
     focusAreas: extractList('Focus Areas'),
-    protocolVersion: extractField('Protocol Version') || defaults.protocolVersion,
+    protocolVersion:
+      extractField('Protocol Version') || defaults.protocolVersion,
   };
 }

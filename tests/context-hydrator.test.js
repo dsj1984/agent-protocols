@@ -1,9 +1,7 @@
-import { describe, it } from 'node:test';
 import assert from 'node:assert/strict';
 import path from 'node:path';
-import { pathToFileURL } from 'node:url';
-import { fileURLToPath } from 'node:url';
-import fs from 'node:fs';
+import { describe, it } from 'node:test';
+import { fileURLToPath, pathToFileURL } from 'node:url';
 
 const __dirname = path.dirname(fileURLToPath(import.meta.url));
 const ROOT = path.resolve(__dirname, '..');
@@ -32,21 +30,36 @@ describe('Context Hydrator', () => {
       body: '> Epic: #1 | Feature: #2\n\nFix the bug',
       protocolVersion: '5.0.0', // Assuming current version
       persona: 'engineer',
-      skills: []
+      skills: [],
     };
-    
-    // We expect it to be resilient if personas/skills/templates aren't fully present 
+
+    // We expect it to be resilient if personas/skills/templates aren't fully present
     // unless running inside the exact monorepo.
     const provider = new MockProvider();
-    
-    const prompt = await hydrateContext(task, provider, 'epic/1', 'task/epic-1/99', 1);
-    
+
+    const prompt = await hydrateContext(
+      task,
+      provider,
+      'epic/1',
+      'task/epic-1/99',
+      1,
+    );
+
     assert.ok(prompt.includes('Fix the bug'), 'Prompt contains task body');
-    assert.ok(prompt.includes('task/epic-1/99'), 'Prompt substituted branch name');
+    assert.ok(
+      prompt.includes('task/epic-1/99'),
+      'Prompt substituted branch name',
+    );
     assert.ok(prompt.includes('epic/1'), 'Prompt substituted epic branch name');
-    assert.ok(prompt.includes('Epic: Epic (#1)'), 'Prompt contains fetched epic');
+    assert.ok(
+      prompt.includes('Epic: Epic (#1)'),
+      'Prompt contains fetched epic',
+    );
     assert.ok(prompt.includes('Epic Body'), 'Prompt contains epic body');
-    assert.ok(prompt.includes('Feature: Feature (#2)'), 'Prompt contains fetched feature');
+    assert.ok(
+      prompt.includes('Feature: Feature (#2)'),
+      'Prompt contains fetched feature',
+    );
   });
 
   it('handles token budget truncation', async () => {
@@ -55,9 +68,9 @@ describe('Context Hydrator', () => {
       title: 'Fix issue',
       body: 'a'.repeat(5000), // very long body
     };
-    
+
     const provider = new MockProvider();
-    
+
     // The hydrate context currently fetches settings from config-resolver.
     // If the mock project has maxTokenBudget set to something small, it will truncate.
     // Let's just verify it doesn't crash.

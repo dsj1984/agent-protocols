@@ -9,8 +9,8 @@
  * is captured uniformly.
  */
 
-import path from 'node:path';
 import { spawnSync } from 'node:child_process';
+import path from 'node:path';
 
 /**
  * Run all post-merge verification steps in sequence.
@@ -41,8 +41,8 @@ export function runVerificationSuite({
 
   const steps = [
     { label: 'lint-baseline', args: ['node', lintBaselineScript, 'check'] },
-    { label: 'typecheck',     args: typecheckCmd.split(' ') },
-    { label: 'test',          args: testCmd.split(' ') },
+    { label: 'typecheck', args: typecheckCmd.split(' ') },
+    { label: 'test', args: testCmd.split(' ') },
   ];
 
   for (const step of steps) {
@@ -75,7 +75,9 @@ export class VerificationError extends Error {
    * @param {number} exitCode  - Exit code from the subprocess.
    */
   constructor(stepLabel, exitCode) {
-    super(`Verification step "${stepLabel}" failed with exit code ${exitCode}.`);
+    super(
+      `Verification step "${stepLabel}" failed with exit code ${exitCode}.`,
+    );
     this.name = 'VerificationError';
     this.stepLabel = stepLabel;
     this.exitCode = exitCode;

@@ -1,7 +1,7 @@
-import { describe, it } from 'node:test';
 import assert from 'node:assert/strict';
 import fs from 'node:fs';
 import path from 'node:path';
+import { describe, it } from 'node:test';
 import { fileURLToPath, pathToFileURL } from 'node:url';
 
 const __dirname = path.dirname(fileURLToPath(import.meta.url));
@@ -19,11 +19,7 @@ function agentsPath(...parts) {
 // Core file existence
 // ---------------------------------------------------------------------------
 describe('Core .agents/ files', () => {
-  const coreRequired = [
-    'default-agentrc.json',
-    'instructions.md',
-    'README.md',
-  ];
+  const coreRequired = ['default-agentrc.json', 'instructions.md', 'README.md'];
 
   for (const file of coreRequired) {
     it(`${file} exists`, () => {
@@ -47,11 +43,17 @@ describe('Core .agents/ files', () => {
       .readdirSync(personasDir)
       .filter((file) => file.endsWith('.md'));
 
-    assert.ok(personas.length > 0, '.agents/personas/ contains no markdown files');
+    assert.ok(
+      personas.length > 0,
+      '.agents/personas/ contains no markdown files',
+    );
 
     for (const personaFile of personas) {
       it(`Persona ${personaFile} has structural integrity (# Role:)`, () => {
-        const content = fs.readFileSync(agentsPath('personas', personaFile), 'utf8');
+        const content = fs.readFileSync(
+          agentsPath('personas', personaFile),
+          'utf8',
+        );
         assert.ok(
           content.includes('# Role:'),
           `Persona ${personaFile} is missing the required '# Role:' header`,
@@ -78,13 +80,13 @@ describe('Skills — each directory must contain SKILL.md', () => {
   } else {
     // Collect all skills by looking for SKILL.md files recursively (2 levels deep)
     const skillsFound = [];
-    
+
     const items = fs.readdirSync(skillsDir, { withFileTypes: true });
     for (const item of items) {
       if (!item.isDirectory()) continue;
-      
+
       const itemPath = path.join(skillsDir, item.name);
-      
+
       // Check if this item IS a skill (contains SKILL.md)
       if (fs.existsSync(path.join(itemPath, 'SKILL.md'))) {
         skillsFound.push({ name: item.name, path: itemPath });
@@ -95,17 +97,26 @@ describe('Skills — each directory must contain SKILL.md', () => {
           if (!subItem.isDirectory()) continue;
           const subItemPath = path.join(itemPath, subItem.name);
           if (fs.existsSync(path.join(subItemPath, 'SKILL.md'))) {
-            skillsFound.push({ name: `${item.name}/${subItem.name}`, path: subItemPath });
+            skillsFound.push({
+              name: `${item.name}/${subItem.name}`,
+              path: subItemPath,
+            });
           }
         }
       }
     }
 
-    assert.ok(skillsFound.length > 0, '.agents/skills/ contains no skill definitions');
+    assert.ok(
+      skillsFound.length > 0,
+      '.agents/skills/ contains no skill definitions',
+    );
 
     for (const skill of skillsFound) {
       it(`${skill.name} has a valid SKILL.md`, () => {
-        const content = fs.readFileSync(path.join(skill.path, 'SKILL.md'), 'utf8');
+        const content = fs.readFileSync(
+          path.join(skill.path, 'SKILL.md'),
+          'utf8',
+        );
         assert.ok(
           content.trim().length > 0,
           `Skill ${skill.name} has an empty SKILL.md`,
@@ -130,11 +141,17 @@ describe('Workflows — each file must contain ## Constraint', () => {
       .readdirSync(workflowsDir)
       .filter((filename) => filename.endsWith('.md'));
 
-    assert.ok(workflows.length > 0, '.agents/workflows/ contains no markdown files');
+    assert.ok(
+      workflows.length > 0,
+      '.agents/workflows/ contains no markdown files',
+    );
 
     for (const workflow of workflows) {
       it(`${workflow} contains ## Constraint`, () => {
-        const content = fs.readFileSync(agentsPath('workflows', workflow), 'utf8');
+        const content = fs.readFileSync(
+          agentsPath('workflows', workflow),
+          'utf8',
+        );
         assert.ok(
           content.includes('## Constraint'),
           `${workflow} is missing the required ## Constraint section`,
@@ -167,14 +184,20 @@ describe('v5 Infrastructure files', () => {
 
   it('ITicketingProvider exports a class', async () => {
     const mod = await import(
-      pathToFileURL(path.join(AGENTS, 'scripts', 'lib', 'ITicketingProvider.js')).href
+      pathToFileURL(
+        path.join(AGENTS, 'scripts', 'lib', 'ITicketingProvider.js'),
+      ).href
     );
-    assert.ok(typeof mod.ITicketingProvider === 'function', 'ITicketingProvider must be a class');
+    assert.ok(
+      typeof mod.ITicketingProvider === 'function',
+      'ITicketingProvider must be a class',
+    );
   });
 
   it('config-resolver exports validateOrchestrationConfig', async () => {
     const mod = await import(
-      pathToFileURL(path.join(AGENTS, 'scripts', 'lib', 'config-resolver.js')).href
+      pathToFileURL(path.join(AGENTS, 'scripts', 'lib', 'config-resolver.js'))
+        .href
     );
     assert.ok(
       typeof mod.validateOrchestrationConfig === 'function',

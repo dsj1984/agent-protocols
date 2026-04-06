@@ -23,15 +23,13 @@ export function createProvider(orchestration, opts = {}) {
   if (!orchestration) {
     throw new Error(
       '[ProviderFactory] orchestration is not configured in .agentrc.json. ' +
-      'Add an "orchestration" block with a "provider" field.',
+        'Add an "orchestration" block with a "provider" field.',
     );
   }
 
   const providerName = orchestration.provider;
   if (!providerName) {
-    throw new Error(
-      '[ProviderFactory] orchestration.provider is required.',
-    );
+    throw new Error('[ProviderFactory] orchestration.provider is required.');
   }
 
   const ProviderClass = PROVIDERS[providerName];
@@ -39,7 +37,7 @@ export function createProvider(orchestration, opts = {}) {
     const supported = Object.keys(PROVIDERS).join(', ');
     throw new Error(
       `[ProviderFactory] Unsupported provider "${providerName}". ` +
-      `Supported: ${supported}.`,
+        `Supported: ${supported}.`,
     );
   }
 
@@ -48,7 +46,7 @@ export function createProvider(orchestration, opts = {}) {
   if (!providerConfig) {
     throw new Error(
       `[ProviderFactory] orchestration.${providerName} config block is required ` +
-      `when provider is "${providerName}".`,
+        `when provider is "${providerName}".`,
     );
   }
 

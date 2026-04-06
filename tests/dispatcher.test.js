@@ -9,11 +9,10 @@
  * and skip branch creation (tested separately in integration tests).
  */
 
-import { describe, it, beforeEach } from 'node:test';
 import assert from 'node:assert/strict';
 import path from 'node:path';
-import { pathToFileURL } from 'node:url';
-import { fileURLToPath } from 'node:url';
+import { describe, it } from 'node:test';
+import { fileURLToPath, pathToFileURL } from 'node:url';
 
 const __dirname = path.dirname(fileURLToPath(import.meta.url));
 const ROOT = path.resolve(__dirname, '..');
@@ -51,16 +50,16 @@ class MockProvider extends ITicketingProvider {
     return this._epic;
   }
 
-  async getTickets(epicId, filters = {}) {
+  async getTickets(_epicId, filters = {}) {
     let result = this._tasks;
     if (filters.label) {
-      result = result.filter(t => (t.labels ?? []).includes(filters.label));
+      result = result.filter((t) => (t.labels ?? []).includes(filters.label));
     }
     return result;
   }
 
   async getTicket(ticketId) {
-    return this._tasks.find(t => t.id === ticketId) ?? null;
+    return this._tasks.find((t) => t.id === ticketId) ?? null;
   }
 
   async updateTicket(ticketId, mutations) {
@@ -83,7 +82,9 @@ class MockAdapter extends IExecutionAdapter {
     this.dispatches = [];
   }
 
-  get executorId() { return 'mock'; }
+  get executorId() {
+    return 'mock';
+  }
 
   async dispatchTask(taskDispatch) {
     this.dispatches.push(taskDispatch);
@@ -191,7 +192,9 @@ describe('dispatch() — two independent tasks', () => {
     });
 
     assert.equal(manifest.waves[0].tasks.length, 2);
-    const ids = manifest.waves[0].tasks.map(t => t.taskId).sort((a, b) => a - b);
+    const ids = manifest.waves[0].tasks
+      .map((t) => t.taskId)
+      .sort((a, b) => a - b);
     assert.deepEqual(ids, [10, 20]);
   });
 
@@ -259,7 +262,7 @@ describe('dispatch() — dependent tasks', () => {
     });
 
     // Wave 0 should be dispatched, Wave 1 should not be reached
-    const dispatchedIds = manifest.dispatched.map(d => d.taskId);
+    const dispatchedIds = manifest.dispatched.map((d) => d.taskId);
     assert.ok(!dispatchedIds.includes(20), 'Task 20 should not be dispatched');
   });
 });
@@ -312,7 +315,10 @@ describe('dispatch() — skips already-done tasks', () => {
     });
     const readyTask = makeTask(20);
 
-    const provider = new MockProvider({ epic: EPIC, tasks: [doneTask, readyTask] });
+    const provider = new MockProvider({
+      epic: EPIC,
+      tasks: [doneTask, readyTask],
+    });
     const adapter = new MockAdapter();
 
     const manifest = await dispatch({
@@ -324,7 +330,7 @@ describe('dispatch() — skips already-done tasks', () => {
 
     assert.equal(manifest.summary.doneTasks, 1);
     // Task 10 is done; only Task 20 is dispatched (in dry-run, dispatched array still populated)
-    const dispatchedIds = manifest.dispatched.map(d => d.taskId);
+    const dispatchedIds = manifest.dispatched.map((d) => d.taskId);
     assert.ok(!dispatchedIds.includes(10));
   });
 });
@@ -342,9 +348,16 @@ describe('dispatch() — manifest schema compliance', () => {
     });
 
     const required = [
-      'schemaVersion', 'generatedAt', 'epicId', 'epicTitle',
-      'executor', 'dryRun', 'summary', 'waves',
-      'dispatched', 'heldForApproval',
+      'schemaVersion',
+      'generatedAt',
+      'epicId',
+      'epicTitle',
+      'executor',
+      'dryRun',
+      'summary',
+      'waves',
+      'dispatched',
+      'heldForApproval',
     ];
     for (const field of required) {
       assert.ok(Object.hasOwn(manifest, field), `Missing field: ${field}`);
@@ -363,11 +376,18 @@ describe('dispatch() — manifest schema compliance', () => {
     });
 
     const requiredSummary = [
-      'totalTasks', 'doneTasks', 'progressPercent',
-      'totalWaves', 'dispatched', 'heldForApproval',
+      'totalTasks',
+      'doneTasks',
+      'progressPercent',
+      'totalWaves',
+      'dispatched',
+      'heldForApproval',
     ];
     for (const field of requiredSummary) {
-      assert.ok(Object.hasOwn(manifest.summary, field), `Missing summary.${field}`);
+      assert.ok(
+        Object.hasOwn(manifest.summary, field),
+        `Missing summary.${field}`,
+      );
     }
   });
 

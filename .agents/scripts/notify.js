@@ -1,4 +1,5 @@
 #!/usr/bin/env node
+
 /**
  * notify.js
  *
@@ -7,15 +8,15 @@
  * 2. ACTION: Fire a webhook for HITL (Human-In-The-Loop) events.
  */
 
+import { createHmac } from 'node:crypto';
 import path from 'node:path';
 import { fileURLToPath } from 'node:url';
-import { createHmac } from 'node:crypto';
-import { createProvider } from './lib/provider-factory.js';
 import { resolveConfig } from './lib/config-resolver.js';
+import { createProvider } from './lib/provider-factory.js';
 
 /**
  * Dispatch a notification.
- * 
+ *
  * @param {number} ticketId - GitHub Issue number to post the notification on.
  * @param {{
  *   type: 'progress'|'friction'|'notification'|'action',
@@ -31,23 +32,30 @@ export async function notify(ticketId, payload, opts = {}) {
   const operator = orchestration.github.operatorHandle || '@operator';
 
   const numericId = parseInt(ticketId, 10);
-  const skipGitHub = isNaN(numericId) || numericId <= 0;
+  const skipGitHub = Number.isNaN(numericId) || numericId <= 0;
 
   if (!skipGitHub) {
-    console.log(`[Notify] Sending ${type.toUpperCase()} to Issue #${numericId}...`);
+    console.log(
+      `[Notify] Sending ${type.toUpperCase()} to Issue #${numericId}...`,
+    );
 
     // 1. Mentions for Info/Notification
     let commentBody = message;
-    if (type === 'notification' || (type === 'action' && orchestration.notifications?.mentionOperator)) {
+    if (
+      type === 'notification' ||
+      (type === 'action' && orchestration.notifications?.mentionOperator)
+    ) {
       commentBody = `${operator} ${message}`;
     }
 
     await provider.postComment(numericId, {
       body: commentBody,
-      type: type === 'action' ? 'notification' : type
+      type: type === 'action' ? 'notification' : type,
     });
   } else {
-    console.log(`[Notify] Sending ${type.toUpperCase()}... (Skipping GitHub comment)`);
+    console.log(
+      `[Notify] Sending ${type.toUpperCase()}... (Skipping GitHub comment)`,
+    );
   }
 
   // 2. Webhook for Actions (HITL)
@@ -60,7 +68,7 @@ export async function notify(ticketId, payload, opts = {}) {
           ticketId,
           event: 'HITL_ACTION_REQUIRED',
           message: message.replace(operator, '').trim(),
-          timestamp: new Date().toISOString()
+          timestamp: new Date().toISOString(),
         });
         const headers = { 'Content-Type': 'application/json' };
 
@@ -80,7 +88,9 @@ export async function notify(ticketId, payload, opts = {}) {
         });
         // M-10: Check response status instead of silently swallowing errors.
         if (!res.ok) {
-          console.warn(`[Notify] Webhook returned ${res.status}: ${await res.text().catch(() => '')}`);
+          console.warn(
+            `[Notify] Webhook returned ${res.status}: ${await res.text().catch(() => '')}`,
+          );
         }
       } catch (err) {
         console.warn(`[Notify] Failed to send webhook: ${err.message}`);
@@ -98,7 +108,7 @@ async function main() {
 
   let ticketId = 0;
   let message = '';
-  let isAction = args.includes('--action');
+  const isAction = args.includes('--action');
 
   // Detect if first arg is a ticket ID or a message (or a legacy URL)
   const firstArg = args[0];
@@ -124,12 +134,12 @@ async function main() {
 
   await notify(ticketId, {
     type: isAction ? 'action' : 'notification',
-    message
+    message,
   });
 }
 
 if (fileURLToPath(import.meta.url) === path.resolve(process.argv[1])) {
-  main().catch(err => {
+  main().catch((err) => {
     console.error('[Notify] Fatal error:', err);
     process.exit(1);
   });

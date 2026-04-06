@@ -1,14 +1,14 @@
-export class Logger {
-  static info(message) {
+export const Logger = {
+  info(message) {
     console.log(`[Orchestrator] ℹ️ ${message}`);
-  }
+  },
 
-  static warn(message) {
+  warn(message) {
     console.warn(`[Orchestrator] ⚠️ ${message}`);
-  }
+  },
 
-  static fatal(message) {
+  fatal(message) {
     console.error(`[Orchestrator] ❌ ${message}`);
     process.exit(1);
-  }
-}
+  },
+};

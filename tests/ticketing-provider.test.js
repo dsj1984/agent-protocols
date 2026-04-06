@@ -1,5 +1,5 @@
-import { describe, it } from 'node:test';
 import assert from 'node:assert/strict';
+import { describe, it } from 'node:test';
 import { ITicketingProvider } from '../.agents/scripts/lib/ITicketingProvider.js';
 
 // ---------------------------------------------------------------------------
@@ -51,9 +51,16 @@ describe('ITicketingProvider — interface contract', () => {
 
   it('has exactly 10 interface methods', () => {
     const expectedMethods = [
-      'getEpic', 'getTickets', 'getTicket', 'getTicketDependencies',
-      'createTicket', 'updateTicket', 'postComment', 'createPullRequest',
-      'ensureLabels', 'ensureProjectFields',
+      'getEpic',
+      'getTickets',
+      'getTicket',
+      'getTicketDependencies',
+      'createTicket',
+      'updateTicket',
+      'postComment',
+      'createPullRequest',
+      'ensureLabels',
+      'ensureProjectFields',
     ];
 
     for (const method of expectedMethods) {

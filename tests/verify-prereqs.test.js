@@ -10,10 +10,10 @@
  * making real API calls.
  */
 
-import { describe, it } from 'node:test';
 import assert from 'node:assert/strict';
 import { spawnSync } from 'node:child_process';
 import path from 'node:path';
+import { describe, it } from 'node:test';
 import { fileURLToPath } from 'node:url';
 
 const __dirname = path.dirname(fileURLToPath(import.meta.url));
@@ -36,16 +36,20 @@ describe('Verify Task Prerequisites — v5 (CLI contract)', () => {
   it('accepts --task and --epic flags without crashing on flag parse', () => {
     // Pass an obviously invalid task ID so it fails at the provider call,
     // not at the argument parsing stage. We verify the usage error is NOT shown.
-    const result = spawnSync('node', [SCRIPT_PATH, '--task', '99999', '--epic', '1'], {
-      cwd: ROOT,
-      env: {
-        ...process.env,
-        // Suppress real API calls by pointing to a non-existent token
-        GITHUB_TOKEN: 'fake-token-for-test',
+    const result = spawnSync(
+      'node',
+      [SCRIPT_PATH, '--task', '99999', '--epic', '1'],
+      {
+        cwd: ROOT,
+        env: {
+          ...process.env,
+          // Suppress real API calls by pointing to a non-existent token
+          GITHUB_TOKEN: 'fake-token-for-test',
+        },
+        encoding: 'utf-8',
+        timeout: 5000,
       },
-      encoding: 'utf-8',
-      timeout: 5000,
-    });
+    );
     // Should NOT print usage error — it should fail at provider level (API call)
     const combined = (result.stdout ?? '') + (result.stderr ?? '');
     assert.ok(

@@ -36,8 +36,8 @@ export function resetProvider() {
 /**
  * Transitions a ticket's label to the new state.
  * Removes other agent:: state labels.
- * 
- * @param {number} ticketId 
+ *
+ * @param {number} ticketId
  * @param {string} newState - Must be one of STATE_LABELS.
  */
 export async function transitionTicketState(ticketId, newState) {
@@ -46,21 +46,21 @@ export async function transitionTicketState(ticketId, newState) {
   }
 
   const provider = getProvider();
-  
-  const toRemove = ALL_STATES.filter(state => state !== newState);
-  
+
+  const toRemove = ALL_STATES.filter((state) => state !== newState);
+
   await provider.updateTicket(ticketId, {
     labels: {
       add: [newState],
-      remove: toRemove
-    }
+      remove: toRemove,
+    },
   });
 }
 
 /**
  * Mutates the tasklist checkbox in the parent's body.
  * E.g., `- [ ] #123` to `- [x] #123`
- * 
+ *
  * @param {number} ticketId - ID of parent ticket
  * @param {number} subIssueId - ID of child ticket
  * @param {boolean} checked
@@ -77,7 +77,7 @@ export async function toggleTasklistCheckbox(ticketId, subIssueId, checked) {
   const targetBox = checked ? '- [x]' : '- [ ]';
 
   let newBody = body;
-  
+
   if (checked) {
     // replace `- [ ] #123` or `- [] #123` with `- [x] #123`
     const re = new RegExp(`-\\s*\\[\\s*\\]\\s+#${subIssueId}\\b`, 'g');
@@ -90,22 +90,22 @@ export async function toggleTasklistCheckbox(ticketId, subIssueId, checked) {
 
   if (newBody !== body) {
     await provider.updateTicket(ticketId, {
-      body: newBody
+      body: newBody,
     });
   }
 }
 
 /**
- * 
- * @param {number} ticketId 
- * @param {'progress'|'friction'|'notification'} type 
- * @param {string} payload 
+ *
+ * @param {number} ticketId
+ * @param {'progress'|'friction'|'notification'} type
+ * @param {string} payload
  */
 export async function postStructuredComment(ticketId, type, payload) {
   const provider = getProvider();
   await provider.postComment(ticketId, {
     type,
-    body: payload
+    body: payload,
   });
 }
 
@@ -114,13 +114,13 @@ export async function postStructuredComment(ticketId, type, payload) {
  * If ticket reaches DONE, it toggles its checkbox in its parent (parsed from dependency blocks or Epic hierarchy).
  * Then checks if parent's sub-tickets are ALL DONE.
  * If yes, transitions parent to DONE and cascades up.
- * 
+ *
  * @param {number} ticketId
  */
 export async function cascadeCompletion(ticketId) {
   const provider = getProvider();
   const ticket = await provider.getTicket(ticketId);
-  
+
   // Determine if this ticket is agent::done
   if (!ticket.labels.includes(STATE_LABELS.DONE)) {
     return;
@@ -131,8 +131,10 @@ export async function cascadeCompletion(ticketId) {
   // Fallback: parse `parent: #NNN` from the body when `blocks` syntax isn't used (C-5).
   let parsedParents = parentIds;
   if (!parsedParents || parsedParents.length === 0) {
-    const parentMatch = ticket.body ? [...ticket.body.matchAll(/parent:\s*#(\d+)/gi)] : [];
-    parsedParents = parentMatch.map(m => parseInt(m[1], 10));
+    const parentMatch = ticket.body
+      ? [...ticket.body.matchAll(/parent:\s*#(\d+)/gi)]
+      : [];
+    parsedParents = parentMatch.map((m) => parseInt(m[1], 10));
   }
 
   for (const parentId of parsedParents) {
@@ -140,16 +142,22 @@ export async function cascadeCompletion(ticketId) {
     await toggleTasklistCheckbox(parentId, ticketId, true);
 
     const subTickets = await provider.getSubTickets(parentId);
-    
+
     // Check if ALL are done
-    const allDone = subTickets.length > 0 && subTickets.every(st => 
-      st.labels.includes(STATE_LABELS.DONE) || st.state === 'closed'
-    );
+    const allDone =
+      subTickets.length > 0 &&
+      subTickets.every(
+        (st) => st.labels.includes(STATE_LABELS.DONE) || st.state === 'closed',
+      );
 
     if (allDone) {
       await transitionTicketState(parentId, STATE_LABELS.DONE);
-      await postStructuredComment(parentId, 'progress', 'All child tickets completed via recursive cascade.');
-      
+      await postStructuredComment(
+        parentId,
+        'progress',
+        'All child tickets completed via recursive cascade.',
+      );
+
       // recursive cascade
       await cascadeCompletion(parentId);
     }

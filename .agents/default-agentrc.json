@@ -68,10 +68,7 @@
       },
       "isRetro": {
         "persona": "product",
-        "skills": [
-          "core/documentation-and-adrs",
-          "core/idea-refinement"
-        ],
+        "skills": ["core/documentation-and-adrs", "core/idea-refinement"],
         "model": "Claude Sonnet 4.6 (Think) OR Gemini 3.1 Pro (High)"
       }
     },

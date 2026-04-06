@@ -4,7 +4,9 @@ import { PROJECT_ROOT, resolveConfig } from './lib/config-resolver.js';
 
 function getVersion() {
   try {
-    return fs.readFileSync(path.join(PROJECT_ROOT, '.agents', 'VERSION'), 'utf8').trim();
+    return fs
+      .readFileSync(path.join(PROJECT_ROOT, '.agents', 'VERSION'), 'utf8')
+      .trim();
   } catch {
     return 'unknown';
   }
@@ -13,7 +15,7 @@ function getVersion() {
 /**
  * Parses the hierarchy from a Task body.
  * Looks for: `> Epic: #1 | Feature: #2 | Story: #3 PRD: #4 | Tech Spec: #5`
- * @param {string} body 
+ * @param {string} body
  * @returns {Record<string, number>}
  */
 function parseHierarchy(body) {
@@ -37,7 +39,10 @@ function truncateToTokenBudget(text, tokenBudget) {
   if (!tokenBudget) return text;
   const maxChars = tokenBudget * 4;
   if (text.length > maxChars) {
-    return text.substring(0, maxChars) + '\n\n...[Context truncated due to token limits]...';
+    return (
+      text.substring(0, maxChars) +
+      '\n\n...[Context truncated due to token limits]...'
+    );
   }
   return text;
 }
@@ -52,7 +57,13 @@ function truncateToTokenBudget(text, tokenBudget) {
  * @param {number} epicId
  * @returns {Promise<string>} The hydrated prompt
  */
-export async function hydrateContext(task, provider, epicBranch, taskBranch, epicId) {
+export async function hydrateContext(
+  task,
+  provider,
+  epicBranch,
+  taskBranch,
+  epicId,
+) {
   const { settings } = resolveConfig();
   const currentVersion = getVersion();
   let warnings = '';
@@ -60,13 +71,18 @@ export async function hydrateContext(task, provider, epicBranch, taskBranch, epi
   // 1. Version Mismatch Check
   if (task.protocolVersion && task.protocolVersion !== currentVersion) {
     warnings += `⚠️ WARNING: Protocol version mismatch. Task was planned with v${task.protocolVersion}, but is executing with v${currentVersion}.\n\n`;
-    console.warn(`[Hydrator] Protocol version mismatch on Task #${task.id}: planned with v${task.protocolVersion}, executing with v${currentVersion}`);
+    console.warn(
+      `[Hydrator] Protocol version mismatch on Task #${task.id}: planned with v${task.protocolVersion}, executing with v${currentVersion}`,
+    );
   }
 
   // 2. Load Agent Protocol
   let protocolTpl = '';
   try {
-    const pTemplatePath = path.join(PROJECT_ROOT, '.agents/templates/agent-protocol.md');
+    const pTemplatePath = path.join(
+      PROJECT_ROOT,
+      '.agents/templates/agent-protocol.md',
+    );
     protocolTpl = fs.readFileSync(pTemplatePath, 'utf8');
     protocolTpl = protocolTpl
       .replace(/\{\{PROTOCOL_VERSION\}\}/g, currentVersion)
@@ -81,12 +97,19 @@ export async function hydrateContext(task, provider, epicBranch, taskBranch, epi
   let personaContext = '';
   if (task.persona) {
     try {
-      const pPath = path.join(PROJECT_ROOT, '.agents/personas', `${task.persona}.md`);
+      const pPath = path.join(
+        PROJECT_ROOT,
+        '.agents/personas',
+        `${task.persona}.md`,
+      );
       if (fs.existsSync(pPath)) {
-        personaContext = `## Persona: ${task.persona}\n\n` + fs.readFileSync(pPath, 'utf8');
+        personaContext =
+          `## Persona: ${task.persona}\n\n${fs.readFileSync(pPath, 'utf8')}`;
       }
     } catch (err) {
-      console.warn(`[Hydrator] Failed to load persona ${task.persona}: ${err.message}`);
+      console.warn(
+        `[Hydrator] Failed to load persona ${task.persona}: ${err.message}`,
+      );
     }
   }
 
@@ -107,17 +130,24 @@ export async function hydrateContext(task, provider, epicBranch, taskBranch, epi
         if (fs.existsSync(stackBase)) {
           try {
             for (const category of fs.readdirSync(stackBase)) {
-              candidates.push(path.join(stackBase, category, skill, 'SKILL.md'));
+              candidates.push(
+                path.join(stackBase, category, skill, 'SKILL.md'),
+              );
             }
-          } catch { /* ignore read errors */ }
+          } catch {
+            /* ignore read errors */
+          }
         }
 
-        const sPath = candidates.find(p => fs.existsSync(p));
+        const sPath = candidates.find((p) => fs.existsSync(p));
         if (sPath) {
-          skillsContext += `### Skill: ${skill}\n` + fs.readFileSync(sPath, 'utf8') + '\n\n';
+          skillsContext +=
+            `### Skill: ${skill}\n${fs.readFileSync(sPath, 'utf8')}\n\n`;
         }
       } catch (err) {
-        console.warn(`[Hydrator] Failed to load skill ${skill}: ${err.message}`);
+        console.warn(
+          `[Hydrator] Failed to load skill ${skill}: ${err.message}`,
+        );
       }
     }
   }
@@ -133,15 +163,16 @@ export async function hydrateContext(task, provider, epicBranch, taskBranch, epi
     { key: 'PRD', id: hierarchyKeys.prd },
     { key: 'Tech Spec', id: hierarchyKeys.techspec },
     { key: 'Feature', id: hierarchyKeys.feature },
-    { key: 'Story', id: hierarchyKeys.story }
+    { key: 'Story', id: hierarchyKeys.story },
   ];
 
   for (const item of idsToFetch) {
     if (item.id) {
       fetchPromises.push(
-        provider.getTicket(item.id)
-          .then(t => `### ${item.key}: ${t.title} (#${t.id})\n\n${t.body}\n`)
-          .catch(() => '') // ignore failures
+        provider
+          .getTicket(item.id)
+          .then((t) => `### ${item.key}: ${t.title} (#${t.id})\n\n${t.body}\n`)
+          .catch(() => ''), // ignore failures
       );
     }
   }
@@ -156,10 +187,12 @@ export async function hydrateContext(task, provider, epicBranch, taskBranch, epi
     personaContext,
     skillsContext,
     hierarchyContext,
-    `## Task Instructions (Issue #${task.id}: ${task.title})\n\n${task.body}`
+    `## Task Instructions (Issue #${task.id}: ${task.title})\n\n${task.body}`,
   ].filter(Boolean);
 
-  const fullPrompt = fullPromptParts.join('\n\n========================================================================\n\n');
+  const fullPrompt = fullPromptParts.join(
+    '\n\n========================================================================\n\n',
+  );
 
   // 7. Token Budget
   const budget = settings?.maxTokenBudget;

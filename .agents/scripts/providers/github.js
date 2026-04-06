@@ -18,8 +18,8 @@
  */
 
 import { execSync } from 'node:child_process';
-import { ITicketingProvider } from '../lib/ITicketingProvider.js';
 import { parseBlockedBy, parseBlocks } from '../lib/dependency-parser.js';
+import { ITicketingProvider } from '../lib/ITicketingProvider.js';
 
 const GITHUB_API = 'https://api.github.com';
 const GITHUB_GRAPHQL = 'https://api.github.com/graphql';
@@ -109,18 +109,26 @@ export class GitHubProvider extends ITicketingProvider {
         if (res.ok || res.status === 204 || attempt === maxRetries) return res;
         // Retry on rate-limit or server errors
         if (res.status === 429 || res.status >= 500) {
-          const retryAfter = parseInt(res.headers.get('retry-after') || '0', 10);
-          const delay = retryAfter > 0 ? retryAfter * 1000 : (2 ** attempt) * 1000;
-          console.warn(`[GitHubProvider] ${res.status} on attempt ${attempt + 1}/${maxRetries + 1}, retrying in ${delay}ms...`);
-          await new Promise(r => setTimeout(r, delay));
+          const retryAfter = parseInt(
+            res.headers.get('retry-after') || '0',
+            10,
+          );
+          const delay =
+            retryAfter > 0 ? retryAfter * 1000 : 2 ** attempt * 1000;
+          console.warn(
+            `[GitHubProvider] ${res.status} on attempt ${attempt + 1}/${maxRetries + 1}, retrying in ${delay}ms...`,
+          );
+          await new Promise((r) => setTimeout(r, delay));
           continue;
         }
         return res; // 4xx (non-429) — don't retry
       } catch (err) {
         if (attempt === maxRetries) throw err;
-        const delay = (2 ** attempt) * 1000;
-        console.warn(`[GitHubProvider] Network error on attempt ${attempt + 1}/${maxRetries + 1}, retrying in ${delay}ms: ${err.message}`);
-        await new Promise(r => setTimeout(r, delay));
+        const delay = 2 ** attempt * 1000;
+        console.warn(
+          `[GitHubProvider] Network error on attempt ${attempt + 1}/${maxRetries + 1}, retrying in ${delay}ms: ${err.message}`,
+        );
+        await new Promise((r) => setTimeout(r, delay));
       }
     }
   }
@@ -212,7 +220,9 @@ export class GitHubProvider extends ITicketingProvider {
     const separator = endpoint.includes('?') ? '&' : '?';
     let page = 1;
     while (true) {
-      const batch = await this._rest(`${endpoint}${separator}page=${page}&per_page=100`);
+      const batch = await this._rest(
+        `${endpoint}${separator}page=${page}&per_page=100`,
+      );
       if (!Array.isArray(batch)) break;
       allItems.push(...batch);
       if (batch.length < 100) break;
@@ -321,23 +331,19 @@ export class GitHubProvider extends ITicketingProvider {
   async getSubTickets(parentId) {
     const parent = await this.getTicket(parentId);
     const body = parent.body || '';
-    
+
     // Match checklist items linking to issues: "- [ ] #123" or "- [x] #123"
     const re = /-\s*\[[ xX]\]\s+#(\d+)/g;
-    const childIds = [];
-    let match;
-    while ((match = re.exec(body)) !== null) {
-      childIds.push(parseInt(match[1], 10));
-    }
-    
+    const childIds = [...body.matchAll(re)].map((m) => parseInt(m[1], 10));
+
     // Removing duplicates if any
     const uniqueChildIds = [...new Set(childIds)];
-    
+
     // Fetch all child tickets
     const subTickets = await Promise.all(
-      uniqueChildIds.map(id => this.getTicket(id).catch(() => null))
+      uniqueChildIds.map((id) => this.getTicket(id).catch(() => null)),
     );
-    
+
     return subTickets.filter(Boolean);
   }
 
@@ -380,7 +386,7 @@ export class GitHubProvider extends ITicketingProvider {
       `---`,
       `parent: #${parentId}`,
     ];
-    
+
     if (epicId !== parentId) {
       bodyParts.push(`Epic: #${epicId}`);
     }
@@ -393,17 +399,14 @@ export class GitHubProvider extends ITicketingProvider {
       }
     }
 
-    const issue = await this._rest(
-      `/repos/${this.owner}/${this.repo}/issues`,
-      {
-        method: 'POST',
-        body: {
-          title: ticketData.title,
-          body: bodyParts.join('\n'),
-          labels: ticketData.labels ?? [],
-        },
+    const issue = await this._rest(`/repos/${this.owner}/${this.repo}/issues`, {
+      method: 'POST',
+      body: {
+        title: ticketData.title,
+        body: bodyParts.join('\n'),
+        labels: ticketData.labels ?? [],
       },
-    );
+    });
 
     // Natively link as sub-issue
     try {
@@ -418,7 +421,9 @@ export class GitHubProvider extends ITicketingProvider {
         await this._addItemToProject(issue.node_id);
       }
     } catch (err) {
-      console.warn(`[GitHubProvider] Failed to add Issue #${issue.number} to project: ${err.message}`);
+      console.warn(
+        `[GitHubProvider] Failed to add Issue #${issue.number} to project: ${err.message}`,
+      );
     }
 
     return {
@@ -429,9 +434,13 @@ export class GitHubProvider extends ITicketingProvider {
     };
   }
 
-  async addSubIssue(parentNumber, childNodeId, opts = { replaceParent: false }) {
+  async addSubIssue(
+    parentNumber,
+    childNodeId,
+    opts = { replaceParent: false },
+  ) {
     const parentTicket = await this.getTicket(parentNumber);
-    
+
     return this._graphql(
       `
       mutation($parentId: ID!, $subIssueId: ID!, $replaceParent: Boolean) {
@@ -443,18 +452,20 @@ export class GitHubProvider extends ITicketingProvider {
       {
         parentId: parentTicket.nodeId,
         subIssueId: childNodeId,
-        replaceParent: opts.replaceParent
+        replaceParent: opts.replaceParent,
       },
       {
         headers: {
-          'GraphQL-Features': 'sub_issues'
-        }
-      }
+          'GraphQL-Features': 'sub_issues',
+        },
+      },
     );
   }
 
-  async removeSubIssue(parentNumber, subIssueNumber) {
-    console.warn(`[GitHubProvider] removeSubIssue called for #${subIssueNumber}. Recommended to use addSubIssue with replaceParent: true instead.`);
+  async removeSubIssue(_parentNumber, subIssueNumber) {
+    console.warn(
+      `[GitHubProvider] removeSubIssue called for #${subIssueNumber}. Recommended to use addSubIssue with replaceParent: true instead.`,
+    );
   }
 
   /**
@@ -553,10 +564,10 @@ export class GitHubProvider extends ITicketingProvider {
 
     // Only call PATCH if we have non-label mutations
     if (Object.keys(patch).length > 0) {
-      await this._rest(
-        `/repos/${this.owner}/${this.repo}/issues/${ticketId}`,
-        { method: 'PATCH', body: patch },
-      );
+      await this._rest(`/repos/${this.owner}/${this.repo}/issues/${ticketId}`, {
+        method: 'PATCH',
+        body: patch,
+      });
     }
   }
 
@@ -582,18 +593,15 @@ export class GitHubProvider extends ITicketingProvider {
     // Fetch the ticket to get its title for the PR
     const ticket = await this.getTicket(ticketId);
 
-    const pr = await this._rest(
-      `/repos/${this.owner}/${this.repo}/pulls`,
-      {
-        method: 'POST',
-        body: {
-          title: ticket.title,
-          body: `Closes #${ticketId}`,
-          head: branchName,
-          base: baseBranch,
-        },
+    const pr = await this._rest(`/repos/${this.owner}/${this.repo}/pulls`, {
+      method: 'POST',
+      body: {
+        title: ticket.title,
+        body: `Closes #${ticketId}`,
+        head: branchName,
+        base: baseBranch,
       },
-    );
+    });
 
     // Add to project if configured
     try {
@@ -601,7 +609,9 @@ export class GitHubProvider extends ITicketingProvider {
         await this._addItemToProject(pr.node_id);
       }
     } catch (err) {
-      console.warn(`[GitHubProvider] Failed to add PR #${pr.number} to project: ${err.message}`);
+      console.warn(
+        `[GitHubProvider] Failed to add PR #${pr.number} to project: ${err.message}`,
+      );
     }
 
     return {
@@ -631,17 +641,14 @@ export class GitHubProvider extends ITicketingProvider {
         continue;
       }
 
-      await this._rest(
-        `/repos/${this.owner}/${this.repo}/labels`,
-        {
-          method: 'POST',
-          body: {
-            name: def.name,
-            color: def.color.replace('#', ''),
-            description: def.description || '',
-          },
+      await this._rest(`/repos/${this.owner}/${this.repo}/labels`, {
+        method: 'POST',
+        body: {
+          name: def.name,
+          color: def.color.replace('#', ''),
+          description: def.description || '',
         },
-      );
+      });
       created.push(def.name);
     }
 
@@ -654,7 +661,8 @@ export class GitHubProvider extends ITicketingProvider {
     }
 
     // First, resolve the project node ID via GraphQL
-    const projectData = await this._graphql(`
+    const projectData = await this._graphql(
+      `
       query($owner: String!, $number: Int!) {
         user(login: $owner) {
           projectV2(number: $number) {
@@ -669,12 +677,15 @@ export class GitHubProvider extends ITicketingProvider {
           }
         }
       }
-    `, { owner: this.owner, number: this.projectNumber });
+    `,
+      { owner: this.owner, number: this.projectNumber },
+    );
 
     // Try organization if user lookup fails
     let project = projectData.user?.projectV2;
     if (!project) {
-      const orgData = await this._graphql(`
+      const orgData = await this._graphql(
+        `
         query($owner: String!, $number: Int!) {
           organization(login: $owner) {
             projectV2(number: $number) {
@@ -689,7 +700,9 @@ export class GitHubProvider extends ITicketingProvider {
             }
           }
         }
-      `, { owner: this.owner, number: this.projectNumber });
+      `,
+        { owner: this.owner, number: this.projectNumber },
+      );
       project = orgData.organization?.projectV2;
     }
 
@@ -713,7 +726,8 @@ export class GitHubProvider extends ITicketingProvider {
       }
 
       if (def.type === 'single_select') {
-        await this._graphql(`
+        await this._graphql(
+          `
           mutation($projectId: ID!, $name: String!, $options: [ProjectV2SingleSelectFieldOptionInput!]!) {
             createProjectV2Field(input: {
               projectId: $projectId
@@ -724,11 +738,17 @@ export class GitHubProvider extends ITicketingProvider {
               projectV2Field { ... on ProjectV2SingleSelectField { name } }
             }
           }
-        `, {
-          projectId: project.id,
-          name: def.name,
-          options: (def.options ?? []).map((o) => ({ name: o, color: 'GRAY', description: '' })),
-        });
+        `,
+          {
+            projectId: project.id,
+            name: def.name,
+            options: (def.options ?? []).map((o) => ({
+              name: o,
+              color: 'GRAY',
+              description: '',
+            })),
+          },
+        );
       }
 
       // Note: Iteration fields require different GraphQL mutations

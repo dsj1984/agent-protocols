@@ -1,5 +1,5 @@
-import fs from 'fs';import { Logger } from "./lib/Logger.js";
-
+import fs from 'node:fs';
+import { Logger } from './lib/Logger.js';
 
 const args = process.argv.slice(2);
 const logFile = args[0];
@@ -9,7 +9,7 @@ const errorMessage = args[3];
 
 if (!logFile || !type || !tool || !errorMessage) {
   console.error(
-    'Usage: node log-friction.js <path-to-json> <type> <tool> <error-message>'
+    'Usage: node log-friction.js <path-to-json> <type> <tool> <error-message>',
   );
   process.exit(1);
 }
@@ -22,8 +22,7 @@ const entry = {
 };
 
 try {
-  fs.appendFileSync(logFile, JSON.stringify(entry) + '\n');
+  fs.appendFileSync(logFile, `${JSON.stringify(entry)}\n`);
 } catch (err) {
   Logger.fatal(`Failed to write friction log to ${logFile}: ${err.message}`);
-  
 }

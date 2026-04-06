@@ -1,4 +1,5 @@
 #!/usr/bin/env node
+
 /**
  * epic-planner.js
  *
@@ -7,13 +8,13 @@
  * and Tech Spec, and posts them as linked GitHub issues under the Epic.
  */
 
-import { parseArgs } from 'node:util';
 import fs from 'node:fs';
 import path from 'node:path';
 import { fileURLToPath } from 'node:url';
-import { createProvider } from './lib/provider-factory.js';
-import { LLMClient } from './lib/llm-client.js';
+import { parseArgs } from 'node:util';
 import { resolveConfig } from './lib/config-resolver.js';
+import { LLMClient } from './lib/llm-client.js';
+import { createProvider } from './lib/provider-factory.js';
 
 const PRD_SYSTEM_PROMPT = `You are an expert Technical Product Manager.
 Your job is to convert a high-level Epic description into a structured Product Requirements Document (PRD).
@@ -54,7 +55,9 @@ export async function planEpic(epicId, provider, llm, settings = {}) {
 
   // M-8: Resumable planning — if PRD exists but Tech Spec doesn't, resume from PRD.
   if (epic.linkedIssues?.prd && epic.linkedIssues?.techSpec) {
-    console.warn(`[Epic Planner] Epic #${epicId} already has both PRD and Tech Spec. Aborting to prevent duplicates.`);
+    console.warn(
+      `[Epic Planner] Epic #${epicId} already has both PRD and Tech Spec. Aborting to prevent duplicates.`,
+    );
     return;
   }
   const existingPrdId = epic.linkedIssues?.prd ?? null;
@@ -62,13 +65,17 @@ export async function planEpic(epicId, provider, llm, settings = {}) {
   let prdId;
   let prdContent;
   if (existingPrdId) {
-    console.log(`[Epic Planner] Reusing existing PRD #${existingPrdId}. Skipping PRD generation.`);
+    console.log(
+      `[Epic Planner] Reusing existing PRD #${existingPrdId}. Skipping PRD generation.`,
+    );
     prdId = existingPrdId;
     // Fetch existing PRD content for Tech Spec prompt
     const existingPrd = await provider.getTicket(existingPrdId);
     prdContent = existingPrd.body;
   } else {
-    console.log(`[Epic Planner] Epic "${epic.title}" loaded. Generating PRD...`);
+    console.log(
+      `[Epic Planner] Epic "${epic.title}" loaded. Generating PRD...`,
+    );
     const prdUserPrompt = `Epic Title: ${epic.title}\n\nEpic Description:\n${epic.body}\n\nPlease generate the PRD based on the above epic.`;
     prdContent = await llm.generateText(PRD_SYSTEM_PROMPT, prdUserPrompt);
 
@@ -79,27 +86,44 @@ export async function planEpic(epicId, provider, llm, settings = {}) {
       labels: ['context::prd'],
       dependencies: [],
     });
-    console.log(`[Epic Planner] Created PRD Issue #${prdTicket.id} (${prdTicket.url})`);
+    console.log(
+      `[Epic Planner] Created PRD Issue #${prdTicket.id} (${prdTicket.url})`,
+    );
     prdId = prdTicket.id;
   }
 
-  console.log(`[Epic Planner] Generating Tech Spec linking to PRD #${prdId}...`);
+  console.log(
+    `[Epic Planner] Generating Tech Spec linking to PRD #${prdId}...`,
+  );
 
   let docsContext = '';
   if (settings.docsRoot && fs.existsSync(settings.docsRoot)) {
-    console.log(`[Epic Planner] Scraping project docs from ${settings.docsRoot}...`);
+    console.log(
+      `[Epic Planner] Scraping project docs from ${settings.docsRoot}...`,
+    );
     try {
       // If an explicit allowlist is configured, use only those files.
       // Otherwise fall back to top-level (non-recursive) .md files to avoid
       // unbounded context inflation from nested artifacts.
       let targetFiles;
-      if (Array.isArray(settings.docsContextFiles) && settings.docsContextFiles.length > 0) {
-        targetFiles = settings.docsContextFiles.map(f => ({ name: f, full: path.join(settings.docsRoot, f) }));
+      if (
+        Array.isArray(settings.docsContextFiles) &&
+        settings.docsContextFiles.length > 0
+      ) {
+        targetFiles = settings.docsContextFiles.map((f) => ({
+          name: f,
+          full: path.join(settings.docsRoot, f),
+        }));
       } else {
-        const entries = fs.readdirSync(settings.docsRoot, { withFileTypes: true });
+        const entries = fs.readdirSync(settings.docsRoot, {
+          withFileTypes: true,
+        });
         targetFiles = entries
-          .filter(e => e.isFile() && e.name.endsWith('.md'))
-          .map(e => ({ name: e.name, full: path.join(settings.docsRoot, e.name) }));
+          .filter((e) => e.isFile() && e.name.endsWith('.md'))
+          .map((e) => ({
+            name: e.name,
+            full: path.join(settings.docsRoot, e.name),
+          }));
       }
 
       for (const { name, full } of targetFiles) {
@@ -109,7 +133,9 @@ export async function planEpic(epicId, provider, llm, settings = {}) {
         }
       }
     } catch (err) {
-      console.warn(`[Epic Planner] Warning: Failed to read docsRoot: ${err.message}`);
+      console.warn(
+        `[Epic Planner] Warning: Failed to read docsRoot: ${err.message}`,
+      );
     }
   }
 
@@ -121,19 +147,28 @@ export async function planEpic(epicId, provider, llm, settings = {}) {
     tsUserPrompt += `\n\nPlease generate the Tech Spec based on the above PRD.`;
   }
 
-  const techSpecContent = await llm.generateText(TECH_SPEC_SYSTEM_PROMPT, tsUserPrompt);
+  const techSpecContent = await llm.generateText(
+    TECH_SPEC_SYSTEM_PROMPT,
+    tsUserPrompt,
+  );
 
-  console.log(`[Epic Planner] Tech Spec generated. Creating Tech Spec issue...`);
+  console.log(
+    `[Epic Planner] Tech Spec generated. Creating Tech Spec issue...`,
+  );
   const techSpecTicket = await provider.createTicket(epicId, {
     title: `[Tech Spec] ${epic.title}`,
     body: techSpecContent,
     labels: ['context::tech-spec'],
     dependencies: [prdId],
   });
-  console.log(`[Epic Planner] Created Tech Spec Issue #${techSpecTicket.id} (${techSpecTicket.url})`);
+  console.log(
+    `[Epic Planner] Created Tech Spec Issue #${techSpecTicket.id} (${techSpecTicket.url})`,
+  );
 
-  console.log(`[Epic Planner] Updating Epic #${epicId} with linked documents...`);
-  
+  console.log(
+    `[Epic Planner] Updating Epic #${epicId} with linked documents...`,
+  );
+
   // Format exactly so getEpic regex /PRD:\s*#\d+/i still catches it efficiently.
   const appendBody = `\n\n## Planning Artifacts\n- [ ] PRD: #${prdId}\n- [ ] Tech Spec: #${techSpecTicket.id}\n`;
   const newBody = epic.body + appendBody;
@@ -159,7 +194,7 @@ async function main() {
   }
 
   const epicId = parseInt(values.epic, 10);
-  if (isNaN(epicId)) {
+  if (Number.isNaN(epicId)) {
     console.error('Error: Epic ID must be a number.');
     process.exit(1);
   }
