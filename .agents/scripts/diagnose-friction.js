@@ -60,7 +60,6 @@ console.log(`[Diagnostic Interceptor] Executing: ${commandStr}`);
 
 const result = spawnSync(cmdArgs[0], cmdArgs.slice(1), {
   stdio: 'pipe',
-  shell: true,
   encoding: 'utf-8',
   timeout: executionTimeoutMs,
   maxBuffer: executionMaxBuffer,
