@@ -45,7 +45,13 @@ CRITICAL REQUIREMENTS:
 - Do not use top-level <h1> (# ) tags. Start with ## Technical Overview.
 - Format architectural decisions clearly with bullet points.`;
 
-export async function planEpic(epicId, provider, llm, settings = {}) {
+export async function planEpic(
+  epicId,
+  provider,
+  llm,
+  settings = {},
+  { force = false } = {},
+) {
   console.log(`[Epic Planner] Fetching Epic #${epicId}...`);
   const epic = await provider.getEpic(epicId);
 
@@ -53,14 +59,51 @@ export async function planEpic(epicId, provider, llm, settings = {}) {
     throw new Error(`Epic #${epicId} not found.`);
   }
 
+  // ── Force re-plan: close old artifacts and strip body references ──────
+  if (force && (epic.linkedIssues?.prd || epic.linkedIssues?.techSpec)) {
+    console.log(
+      '[Epic Planner] --force: Closing old planning artifacts...',
+    );
+    for (const oldId of [
+      epic.linkedIssues.prd,
+      epic.linkedIssues.techSpec,
+    ]) {
+      if (oldId) {
+        await provider.updateTicket(oldId, {
+          state: 'closed',
+          state_reason: 'not_planned',
+        });
+        console.log(`[Epic Planner]   Closed old artifact #${oldId}`);
+      }
+    }
+
+    // Strip the ## Planning Artifacts section from the Epic body so we
+    // can append a fresh one after regeneration.
+    const stripped = epic.body.replace(
+      /\n*## Planning Artifacts[\s\S]*$/,
+      '',
+    );
+    if (stripped !== epic.body) {
+      await provider.updateTicket(epicId, { body: stripped });
+      epic.body = stripped;
+      console.log(
+        '[Epic Planner]   Stripped old Planning Artifacts section from Epic body.',
+      );
+    }
+  }
+
   // M-8: Resumable planning — if PRD exists but Tech Spec doesn't, resume from PRD.
-  if (epic.linkedIssues?.prd && epic.linkedIssues?.techSpec) {
+  if (
+    !force &&
+    epic.linkedIssues?.prd &&
+    epic.linkedIssues?.techSpec
+  ) {
     console.warn(
-      `[Epic Planner] Epic #${epicId} already has both PRD and Tech Spec. Aborting to prevent duplicates.`,
+      `[Epic Planner] Epic #${epicId} already has both PRD and Tech Spec. Aborting to prevent duplicates. Use --force to re-plan.`,
     );
     return;
   }
-  const existingPrdId = epic.linkedIssues?.prd ?? null;
+  const existingPrdId = force ? null : (epic.linkedIssues?.prd ?? null);
 
   let prdId;
   let prdContent;
@@ -185,11 +228,14 @@ async function main() {
   const { values } = parseArgs({
     options: {
       epic: { type: 'string' },
+      force: { type: 'boolean', default: false },
     },
   });
 
   if (!values.epic) {
-    console.error('Usage: node epic-planner.js --epic <EpicId>');
+    console.error(
+      'Usage: node epic-planner.js --epic <EpicId> [--force]',
+    );
     process.exit(1);
   }
 
@@ -203,7 +249,9 @@ async function main() {
   const provider = createProvider(orchestration);
   const llm = new LLMClient({ orchestration });
 
-  await planEpic(epicId, provider, llm, settings);
+  await planEpic(epicId, provider, llm, settings, {
+    force: values.force,
+  });
 }
 
 // Only execute main if run directly

@@ -243,7 +243,7 @@ repository maintenance.
 | --------------------------------- | ----------------------------------- | ----------------------------------------------- |
 | `bootstrap-agent-protocols.md`   | `/bootstrap-agent-protocols`        | Initialize repo labels and project fields       |
 | `git-commit-all.md`              | `/git-commit-all`                   | Stage and commit all changes                    |
-| `git-delete-epic.md`             | `/git-delete-epic`                  | Hard reset: delete Epic branches and issues     |
+| `delete-epic.md`                 | `/delete-epic`                      | Hard reset: delete Epic branches and issues     |
 | `run-red-team.md`                | `/run-red-team`                     | Adversarial security testing                    |
 
 ---

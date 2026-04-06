@@ -49,7 +49,13 @@ You MUST respond ONLY with a valid JSON array of objects. No prose, no markdown 
 CRITICAL: Dependencies should follow execution blockers. For hierarchical grouping, strongly strictly use 'parent_slug' (Story parent MUST be a Feature, Task parent MUST be a Story). Features should have no 'parent_slug' (they attach to Epic).
 WARNING: You MUST conserve your output limit. Do NOT generate more than 20 tickets in total. Combine atomic tasks into larger, cohesive tasks. Do NOT cut off the JSON array prematurely!`;
 
-export async function decomposeEpic(epicId, provider, llm, config = {}) {
+export async function decomposeEpic(
+  epicId,
+  provider,
+  llm,
+  config = {},
+  { force = false } = {},
+) {
   console.log(
     `[Decomposer] Fetching Epic #${epicId} and its planning artifacts...`,
   );
@@ -58,6 +64,30 @@ export async function decomposeEpic(epicId, provider, llm, config = {}) {
   if (!epic?.linkedIssues?.prd || !epic.linkedIssues.techSpec) {
     throw new Error(
       `[Decomposer] Epic #${epicId} is missing linked PRD or Tech Spec. Run the Epic Planner first.`,
+    );
+  }
+
+  // ── Force re-decompose: close existing child tickets ──────────────────
+  if (force) {
+    console.log(
+      '[Decomposer] --force: Closing existing child tickets...',
+    );
+    const existing = await provider.getTickets(epicId);
+    const childTypes = ['type::feature', 'type::story', 'type::task'];
+    const children = existing.filter((t) =>
+      t.labels.some((l) => childTypes.includes(l)),
+    );
+    for (const child of children) {
+      if (child.state !== 'closed') {
+        await provider.updateTicket(child.id, {
+          state: 'closed',
+          state_reason: 'not_planned',
+        });
+        console.log(`[Decomposer]   Closed #${child.id}: ${child.title}`);
+      }
+    }
+    console.log(
+      `[Decomposer]   Closed ${children.length} old ticket(s).`,
     );
   }
 
@@ -226,11 +256,14 @@ async function main() {
   const { values } = parseArgs({
     options: {
       epic: { type: 'string' },
+      force: { type: 'boolean', default: false },
     },
   });
 
   if (!values.epic) {
-    console.error('Usage: node ticket-decomposer.js --epic <EpicId>');
+    console.error(
+      'Usage: node ticket-decomposer.js --epic <EpicId> [--force]',
+    );
     process.exit(1);
   }
 
@@ -239,7 +272,9 @@ async function main() {
   const provider = createProvider(config.orchestration);
   const llm = new LLMClient({ orchestration: config.orchestration });
 
-  await decomposeEpic(epicId, provider, llm, config);
+  await decomposeEpic(epicId, provider, llm, config, {
+    force: values.force,
+  });
 }
 
 if (fileURLToPath(import.meta.url) === path.resolve(process.argv[1])) {
