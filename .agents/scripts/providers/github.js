@@ -210,6 +210,29 @@ export class GitHubProvider extends ITicketingProvider {
   // Read Operations
   // ---------------------------------------------------------------------------
 
+  async getEpics(filters = {}) {
+    const params = new URLSearchParams({
+      state: filters.state ?? 'all',
+      labels: 'type::epic',
+      per_page: '100',
+    });
+
+    const issues = await this._rest(
+      `/repos/${this.owner}/${this.repo}/issues?${params}`,
+    );
+
+    return issues
+      .filter((issue) => !issue.pull_request)
+      .map((issue) => ({
+        id: issue.number,
+        title: issue.title,
+        labels: (issue.labels ?? []).map((l) =>
+          typeof l === 'string' ? l : l.name,
+        ),
+        state: issue.state,
+      }));
+  }
+
   async getEpic(epicId) {
     const issue = await this._rest(
       `/repos/${this.owner}/${this.repo}/issues/${epicId}`,

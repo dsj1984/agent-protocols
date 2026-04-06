@@ -18,6 +18,21 @@ export class ITicketingProvider {
   // ---------------------------------------------------------------------------
 
   /**
+   * Fetch all Epic tickets in the repository.
+   * 
+   * @param {{ state?: 'open'|'closed'|'all' }} [filters={}]
+   * @returns {Promise<Array<{
+   *   id: number,
+   *   title: string,
+   *   labels: string[],
+   *   state: 'open'|'closed'
+   * }>>}
+   */
+  async getEpics(filters = {}) {
+    throw new Error('Not implemented: getEpics');
+  }
+
+  /**
    * Fetch the Epic issue with body and linked context issues (PRD, Tech Spec).
    *
    * @param {number} epicId - GitHub Issue number of the Epic.
@@ -32,7 +47,6 @@ export class ITicketingProvider {
   async getEpic(epicId) {
     throw new Error('Not implemented: getEpic');
   }
-
   /**
    * Fetch all child tickets for an Epic, optionally filtered by labels or state.
    *
@@ -48,6 +62,7 @@ export class ITicketingProvider {
   async getTickets(epicId, filters = {}) {
     throw new Error('Not implemented: getTickets');
   }
+
 
   /**
    * Fetch all immediate sub-tickets of a given parent ticket.

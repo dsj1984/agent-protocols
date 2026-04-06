@@ -13,14 +13,11 @@
     "keysRoot": ".agents/keys",
     "schemasRoot": ".agents/schemas",
     "docsRoot": "docs",
-    "sprintDocsRoot": "docs/sprints",
-    "sprintNumberPadding": 3,
     "tempRoot": "temp",
-    "taskStateRoot": "temp/task-state",
-    "goldenExamplesRoot": "temp/golden-examples",
-    "maxGoldenExampleLines": 200,
-    "eventStreamsRoot": "temp/event-streams",
-    "workspacesRoot": "temp/workspaces",
+    "roadmap": {
+      "autoGenerate": true,
+      "excludeLabels": ["roadmap-exclude"]
+    },
     "verboseLogging": {
       "enabled": false,
       "logDir": "temp/verbose-logs"

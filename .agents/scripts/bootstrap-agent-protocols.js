@@ -14,7 +14,11 @@
  * @see docs/v5-implementation-plan.md Sprint 1C
  */
 
+import fs from 'node:fs';
+import path from 'node:path';
 import { createProvider } from './lib/provider-factory.js';
+
+const PROJECT_ROOT = process.cwd();
 
 // ---------------------------------------------------------------------------
 // Label Taxonomy
@@ -60,7 +64,11 @@ export const LABEL_TAXONOMY = [
   { name: 'focus::docs', color: '#BFD4F2', description: 'Documentation changes' },
   { name: 'focus::ci', color: '#BFD4F2', description: 'CI/CD pipeline changes' },
   { name: 'focus::tests', color: '#BFD4F2', description: 'Test suite changes' },
+
+  // Visibility
+  { name: 'roadmap-exclude', color: '#000000', description: 'Exclude from automated roadmap' },
 ];
+
 
 // ---------------------------------------------------------------------------
 // Project Board Field Definitions
@@ -142,6 +150,24 @@ export async function runBootstrap(orchestration, opts = {}) {
     log('[bootstrap] No projectNumber configured — skipping project fields.');
   }
 
+  // Step 4: Install GitHub Workflows (if requested)
+  if (opts.installWorkflows) {
+    const workflowSource = path.join(PROJECT_ROOT, '.agents', 'templates', 'update-roadmap.yml');
+    const workflowDestDir = path.join(PROJECT_ROOT, '.github', 'workflows');
+    const workflowDest = path.join(workflowDestDir, 'update-roadmap.yml');
+
+    log(`[bootstrap] Installing GitHub Workflows to ${workflowDest}...`);
+    try {
+      if (!fs.existsSync(workflowDestDir)) {
+        fs.mkdirSync(workflowDestDir, { recursive: true });
+      }
+      fs.copyFileSync(workflowSource, workflowDest);
+      log('[bootstrap]   Workflow installed: update-roadmap.yml');
+    } catch (err) {
+      log(`[bootstrap]   WARNING: Failed to install workflow: ${err.message}`);
+    }
+  }
+
   log('[bootstrap] Done.');
 
   return { labels, fields };
@@ -178,8 +204,10 @@ async function main() {
     process.exit(1);
   }
 
+  const installWorkflows = process.argv.includes('--install-workflows');
+
   try {
-    const result = await runBootstrap(config.orchestration);
+    const result = await runBootstrap(config.orchestration, { installWorkflows });
 
     console.log('\n=== Bootstrap Summary ===');
     console.log(`Labels created: ${result.labels.created.length}`);

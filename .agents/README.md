@@ -1,42 +1,21 @@
-# Agent Protocols — User Guide
-
-This is the `.agents/` bundle distributed to your project via Git submodule. It
-contains everything your AI coding agents need to operate with strict quality,
-consistency, and architectural guardrails.
-
-## 📋 Table of Contents
-
-- [What's Inside](#whats-inside)
-- [Global Instructions](#global-instructions)
-- [v5 Epic-Centric Orchestration](#v5-orchestration)
-- [Personas](#personas)
-- [Rules](#rules)
-- [Skills](#skills)
-- [Workflows](#workflows)
-- [Templates](#templates)
-- [Tooling & Configuration](#tooling-configuration)
-- [Git Performance Optimization](#git-performance-optimization)
-
----
-
 ## <a id="whats-inside"></a>📂 What's Inside
 
 ```text
 .agents/
 ├── VERSION                  # Current version of the protocols
-├── SDLC.md                  # Detailed guide for the /plan-sprint workflow
-├── default-agentrc.json     # ← Copy to project root as .agentrc.json and customise
+├── SDLC.md                  # Comprehensive Guide for the v5 workflow
+├── default-agentrc.json     # ← Copy to project root as .agentrc.json
 ├── instructions.md          # MANDATORY: The consolidated system prompt
 ├── personas/                # Role-specific behavior constraints
 ├── rules/                   # Modular domain-agnostic global rules
 ├── sample-docs/             # Reference samples for PRDs, specs, and roadmaps
 ├── schemas/                 # JSON Schemas for structured agent output
-├── scripts/                 # Deterministic scaffolding and utility scripts
+├── scripts/                 # Orchestration, state sync, and utility scripts
 │   ├── lib/                 # Core libraries (config, interfaces, factory)
-│   └── providers/           # v5 ticketing provider implementations
+│   └── providers/           # Ticketing provider implementations
 ├── skills/                  # Two-tier skill library (core/ + stack/)
-├── templates/               # Sprint planning markdown templates
-└── workflows/               # Reusable single-command workflows
+├── templates/               # Planning (PRD, Tech Spec) and CI templates
+└── workflows/               # Reusable single-command slash commands
 ```
 
 ---
@@ -452,11 +431,13 @@ scripts (like the bootstrap), ensure it has the following minimum scopes:
 
 Supporting files that define the agent's environment and workspace standards.
 
-| Path                           | Type   | Purpose                                                    |
-| ------------------------------ | ------ | ---------------------------------------------------------- |
-| `default-agentrc.json`         | Config | Default settings — copy to project root as `.agentrc.json` |
-| `schemas/task-manifest.json`   | Schema | JSON Schema for validating sprint task graphs              |
-| `scripts/generate-playbook.js` | Script | Deterministic logic for rendering sprint playbooks         |
+| Path                                    | Type   | Purpose                                                    |
+| --------------------------------------- | ------ | ---------------------------------------------------------- |
+| `default-agentrc.json`                  | Config | Default settings — copy to project root as `.agentrc.json` |
+| `schemas/dispatch-manifest.json`        | Schema | JSON Schema for validating v5 dispatch waves               |
+| `scripts/bootstrap-agent-protocols.js`  | Script | Automated setup of labels and project fields               |
+| `scripts/dispatcher.js`                 | Script | Central DAG scheduler and task dispatcher                  |
+| `scripts/generate-roadmap.js`           | Script | Logic for auto-rendering docs/roadmap.md                   |
 
 ---
 

@@ -952,22 +952,23 @@ and local sprint setup workflow.
 
 | Task                                                                    | Type   | File(s)                                         | Depends On |
 | ----------------------------------------------------------------------- | ------ | ----------------------------------------------- | ---------- |
-| Remove `generate-playbook.js` + `PlaybookOrchestrator.js` + `Renderer.js` | DELETE | `.agents/scripts/generate-playbook.js`, `lib/PlaybookOrchestrator.js`, `lib/Renderer.js` | Sprint 3E |
-| Remove `update-task-state.js`                                           | DELETE | `.agents/scripts/update-task-state.js`          | Sprint 3E  |
-| Remove `playbook-to-tickets.js`                                         | DELETE | `.agents/scripts/playbook-to-tickets.js`        | Sprint 3E  |
-| Remove `run-agent-loop.js` + `AgentLoopRunner.js` (event stream)        | DELETE | `.agents/scripts/run-agent-loop.js`, `lib/AgentLoopRunner.js` | Sprint 3E |
-| Remove `atomic-action-schema.json` (event stream schema)                | DELETE | `.agents/schemas/atomic-action-schema.json`     | Sprint 3E  |
-| Remove `task-manifest.schema.json` (replaced by dispatch-manifest)      | DELETE | `.agents/schemas/task-manifest.schema.json`     | Sprint 3E  |
-| Remove `harvest-golden-path.js` + `CacheManager.js` (golden path)       | DELETE | `.agents/scripts/harvest-golden-path.js`, `lib/CacheManager.js` | Sprint 3E |
-| Remove `ComplexityEstimator.js` (replaced by LLM prompt constraints)    | DELETE | `.agents/scripts/lib/ComplexityEstimator.js`    | Sprint 3E  |
-| Remove `/sprint-generate-playbook` workflow                             | DELETE | `.agents/workflows/sprint-generate-playbook.md` | Sprint 3E  |
-| Remove `/sprint-setup` workflow (absorbed by Dispatcher)                | DELETE | `.agents/workflows/sprint-setup.md`             | Sprint 3E  |
-| Remove `/sprint-gather-context` workflow (replaced by Context Hydrator) | DELETE | `.agents/workflows/sprint-gather-context.md`    | Sprint 3B  |
-| Remove `sprint-playbook-template.md` (v4 template)                      | DELETE | `.agents/templates/sprint-playbook-template.md` | Sprint 3E  |
-| Deprecate `docs/sprints/` directory (add DEPRECATED.md notice)          | NEW    | `docs/sprints/DEPRECATED.md`                    | All        |
-| Build `generate-roadmap.js` — GitHub Issue → markdown roadmap generator | NEW    | `.agents/scripts/generate-roadmap.js`           | Phase 1    |
-| Create `update-roadmap.yml` workflow template for consumer CI           | NEW    | `.agents/templates/update-roadmap.yml`          | Generator  |
-| Add `--install-workflows` flag to `bootstrap-agent-protocols.js`        | MODIFY | `.agents/scripts/bootstrap-agent-protocols.js`  | Template   |
+| Remove `generate-playbook.js` + `PlaybookOrchestrator.js` + `Renderer.js` | DELETE | DONE                                            | Sprint 3E |
+| Remove `update-task-state.js`                                           | DELETE | DONE                                            | Sprint 3E  |
+| Remove `playbook-to-tickets.js`                                         | DELETE | DONE                                            | Sprint 3E  |
+| Remove `run-agent-loop.js` + `AgentLoopRunner.js` (event stream)        | DELETE | DONE                                            | Sprint 3E |
+| Remove `atomic-action-schema.json` (event stream schema)                | DELETE | DONE                                            | Sprint 3E  |
+| Remove `task-manifest.schema.json` (replaced by dispatch-manifest)      | DELETE | DONE                                            | Sprint 3E  |
+| Remove `harvest-golden-path.js` + `CacheManager.js` (golden path)       | DELETE | DONE                                            | Sprint 3E |
+| Remove `ComplexityEstimator.js` (replaced by LLM prompt constraints)    | DELETE | DONE                                            | Sprint 3E  |
+| Remove `/sprint-generate-playbook` workflow                             | DELETE | DONE                                            | Sprint 3E  |
+| Remove `/sprint-setup` workflow (absorbed by Dispatcher)                | DELETE | DONE                                            | Sprint 3E  |
+| Remove `/sprint-gather-context` workflow (replaced by Context Hydrator) | DELETE | DONE                                            | Sprint 3B  |
+| Remove `sprint-playbook-template.md` (v4 template)                      | DELETE | DONE                                            | Sprint 3E  |
+| Remove `docs/sprints/` directory (deprecated in v5)                     | DELETE | DONE                                            | All        |
+| Build `generate-roadmap.js` — GitHub Issue → markdown roadmap generator | NEW    | DONE                                            | Phase 1    |
+| Create `update-roadmap.yml` workflow template for consumer CI           | NEW    | DONE                                            | Generator  |
+| Add `--install-workflows` flag to `bootstrap-agent-protocols.js`        | MODIFY | DONE                                            | Template   |
+
 | Add `roadmap-exclude` to `LABEL_TAXONOMY` in bootstrap script           | MODIFY | `.agents/scripts/bootstrap-agent-protocols.js`  | —          |
 | Add `agentSettings.roadmap` config block to `default-agentrc.json`      | MODIFY | `.agents/default-agentrc.json`                  | Generator  |
 | Add agent immutability rule for generated `roadmap.md`                  | MODIFY | `.agents/instructions.md`                       | —          |

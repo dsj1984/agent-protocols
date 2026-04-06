@@ -86,15 +86,15 @@ validation library, workspace paths).
 #### Friction Telemetry
 
 You MUST log telemetry about any operational difficulty or automation
-opportunity you encounter. Instead of manually editing the sprint log, you MUST
-use the deterministic diagnostic script when encountering errors:
+opportunity you encounter. Instead of local files, you MUST post friction 
+details directly to the relevant GitHub Task ticket:
 
 - **Command**:
-  `node .agents/scripts/diagnose-friction.js --sprint [SPRINT_DIR] --cmd [FAILED_COMMAND]`
+  `node .agents/scripts/diagnose-friction.js --epic [EPIC_ID] --task [TASK_ID] --cmd [FAILED_COMMAND]`
 - **Friction Point**: Execute this script after consecutive tool validation
   errors, unrecoverable command failures, or ambiguity requiring explicit
-  self-correction. The script will automatically log the telemetry and provide
-  you with structured remediation steps.
+  self-correction. The script will post a structured `friction` comment to the
+  ticket and provide remediation steps.
 - **Automation Candidate**: Manually log repetitive sequences of commands (check
   `frictionThresholds.repetitiveCommandCount` in `.agentrc.json`, default 3+),
   boilerplate-heavy file creations, or manual processes that could be simplified
@@ -138,10 +138,9 @@ unnecessary tokens on failing strategies.
 
 ### J. HITL Risk Gates (Safe Execution)
 
-Before executing any task, you MUST check the `playbook.md` or
-`task-manifest.json` for the `requires_approval` flag.
+Before executing any task, you MUST check the ticket labels for `risk::high`.
 
-- **Trigger**: If `requires_approval: true` is set, you are strictly forbidden
+- **Trigger**: If a task is labelled `risk::high`, you are strictly forbidden
   from executing the implementation steps until you receive explicit human
   confirmation.
 - **Intervention**: You MUST pause, summarize the high-risk operations detected
@@ -213,14 +212,15 @@ environments without needing manual command corrections.
      - `docs/patterns.md`
      - `docs/style-guide.md`
      - `docs/web-routes.md`
-   - **Sprint Context**: Additionally, read the sprint-specific `prd.md` and
-     `tech-spec.md` located in the current sprint directory.
+   - **Epic Context**: Additionally, read the context tickets (PRD, Tech Spec)
+     linked in the current Epic's body and the task-specific instructions.
    - **Optimization**: For large projects, prioritize **Local RAG Semantic
      Retrieval**. Run `node .agents/scripts/context-indexer.js search "<query>"`
      to isolate specific schemas or decisions.
 2. **Plan First:** For non-trivial tasks (3+ steps or architectural decisions),
-   enter **Plan Mode**. Generate a `docs/sprints/sprint-[##]/tech-spec.md` or
-   `docs/architecture.md` file outlining the approach before touching code.
+   enter **Plan Mode**. Update the Tech Spec issue or create a new Technical
+   Specification document in the `docs/` root (if not already handled by a ticket) 
+   before touching code.
 3. **Artifacts over Chat:** Create log files for test results, build outputs, or
    debug sessions rather than pasting large code blocks in chat.
 4. **Idempotency:** Ensure scripts and commands can be run multiple times
@@ -261,46 +261,24 @@ strict conventions for all sprint-related Git operations:
 ### A. Task Branch Naming
 
 All task work MUST occur on an isolated feature branch created from the current
-sprint branch (sprint-[XXX]).
+Epic base branch (`epic/[EPIC_ID]`).
 
-- **Format**: `task/sprint-[XXX]/[ID]`
-- **Example**: `task/sprint-040/40.2.1`
-- **Constraint**: Do NOT use dashes or underscores between the sprint number and
-  task ID unless they are part of the ID itself. Always prefix with `task/`.
+- **Format**: `task/[EPIC_ID]/[TASK_ID]`
+- **Example**: `task/45/45.2.1`
+- **Constraint**: Always prefix with `task/`.
 
 ### B. Status Tracking & Commit Standards
 
-Administrative commits (e.g., updating task status in the playbook) MUST use a
-deterministic format to allow for easy filtering and squashing.
+Administrative state mutations in the v5 model are performed via GitHub labels.
+Do NOT manually update issue descriptions or status fields unless prompted.
 
-- **Standard Template**: `chore(sprint): update task [ID] status to [STATUS]`
-- **Valid Statuses**: `executing`, `committed`, `complete`
-- **Constraint**: Never combine status updates for multiple tasks into a single
-  commit unless specifically instructed. Do not omit the task ID or the word
-  "task".
+- **Sync Tool**: `node .agents/scripts/update-ticket-state.js --ticket [ID] --status [STATUS]`
+- **Status Labels**: `agent::ready`, `agent::executing`, `agent::review`, `agent::done`
 
-### C. Tracking File Decoupling
+### C. History Hygiene
 
-To avoid merge conflicts on shared tracking files:
-
-1.  When updating a task status, resolve `[TASK_STATE_ROOT]` from the
-    `taskStateRoot` field in `.agentrc.json` (default: `temp/task-state`).
-2.  If it exists or is being created, write your status update to a dedicated
-    file: `[TASK_STATE_ROOT]/[ID].json` instead of editing the main
-    `playbook.md` file directly.
-3.  **Note on Git Tracking**: If `[TASK_STATE_ROOT]` is configured within
-    `/temp/`, it is local-only and will NOT be committed to Git. If it is
-    defined within a project directory (e.g.,
-    `docs/sprints/sprint-[XXX]/task-state`), it MUST be committed to Git for
-    cross-agent synchronization.
-4.  The `sprint-integration` workflow will periodically consolidate these state
-    files into the master playbook.
-
-### D. History Hygiene
-
-Prioritize a clean `sprint-[XXX]` branch. Feature branches should be merged
-using `--no-ff` or squashed if appropriate, as governed by the
-`sprint-integration` workflow.
+Prioritize a clean `epic/[EPIC_ID]` branch. Feature branches should be merged
+using the `/sprint-integration` workflow to maintain a consistent merge history.
 
 ---
 
@@ -324,42 +302,26 @@ successes.
 
 ---
 
-## 9. Complexity-Aware Execution
+## 9. Automated Roadmap Protocol
 
-The playbook generation pipeline automatically scores each task for complexity
-based on instruction length, estimated file count, scope breadth, and other
-signals. Tasks exceeding the configured `maxComplexityScore` threshold are
-either auto-split into sub-tasks or flagged with a complexity warning.
+The `roadmap.md` file in the repository root is a strictly **read-only, auto-generated artifact**.
+
+- **Single Source of Truth**: GitHub Issues (Epics/Features) are the SSOT.
+- **Immutability**: Neither humans nor AI agents should ever manually edit `roadmap.md`.
+- **Updates**: Any changes to the roadmap MUST be made by updating the 
+  corresponding GitHub Issues. The file is regenerated automatically via CI.
+
+## 10. Complexity-Aware Execution
+
+The dispatcher automatically calculates the execution plan for an Epic.
 
 ### A. When You See `⚠️ COMPLEXITY WARNING`
 
-If your prompt contains a complexity warning, you MUST self-decompose before
-writing any code:
+If your task contains a complexity warning or exceeds localized scope:
 
 1. **Plan first.** Read the full instructions, then write a numbered list of
    atomic sub-steps in a `<!-- DECOMPOSITION -->` comment block.
-2. **5-file rule.** Each sub-step should modify no more than 5 files. If a
-   planned sub-step would touch more, break it further.
-3. **Commit incrementally.** After each logical sub-step completes successfully,
-   stage, commit, and push before moving to the next. Do NOT accumulate all
-   changes for a single commit at the end.
-4. **Fail fast.** If any sub-step fails validation (lint, typecheck, test), STOP
-   and report the failure. Do not proceed to the next sub-step.
-
-### B. Auto-Split Tasks (`🔀`)
-
-Tasks marked with `🔀 Auto-split` have already been decomposed by the pipeline.
-Each sub-task has its own branch, dependencies, and commit cycle. Execute them
-exactly as rendered — do not attempt to combine or skip sub-tasks.
-
-### C. Planning-Time Guidance
-
-When creating a `task-manifest.json`, use these fields to help the complexity
-estimator:
-
-- **`estimatedFiles`**: Set to the approximate number of files the task will
-  create or modify. Tasks with > 10 files are strong candidates for splitting.
-- **`substeps`**: Pre-decompose complex tasks into explicit sub-steps. Each
-  substep gets a `title` and `instructions`. The pipeline will auto-split the
-  task into sequentially-chained sub-tasks if the complexity score exceeds the
-  threshold.
+2. **5-file rule.** Each sub-step should modify no more than 5 files.
+3. **Commit incrementally.** stage, commit, and push after each logical sub-step 
+   completes successfully.
+4. **Fail fast.** If any sub-step fails validation, STOP and report the failure.
