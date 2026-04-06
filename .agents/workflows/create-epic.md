@@ -18,14 +18,16 @@ Based on the high-level goal provided by the user, draft the following items:
    - **Background & Context**: Why we are doing this.
    - **Core Objective**: The primary outcome.
    - **Scope / High-Level Requirements**: What needs to be done.
-   
-*(The agent should draft this internally leveraging its language model capabilities, no need to ask the user unless the goal is completely ambiguous).*
+
+*(The agent should draft this internally leveraging its language model
+capabilities, no need to ask the user unless the goal is completely ambiguous).*
 
 ## Step 2 — Create the Epic Issue
 
 Use the ticketing provider or GitHub MCP tool to create the issue in the target repository.
 
 The issue **MUST** include:
+
 - The formulated Title and Body.
 - The label: `type::epic`.
 
@@ -49,10 +51,13 @@ console.log(`Epic Created: #${epic.id}`);
 
 ## Step 3 — Report Back
 
-Inform the operator that the Epic has been successfully created, providing the following:
+Inform the operator that the Epic has been successfully created, providing the
+following:
+
 - The Epic ID (e.g., `#123`).
 - The Epic Title.
-- A link to the Epic, or a prompt to the operator to proceed with `/sprint-plan [Epic ID]`.
+- A link to the Epic, or a prompt to the operator to proceed with
+  `/sprint-plan [Epic ID]`.
 
 ## Constraint
 

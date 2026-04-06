@@ -9,7 +9,7 @@ description: >-
 This workflow provides a mechanism to permanently remove **GitHub issues** (Epic, PRD, Tech Spec, Features, Stories, Tasks) associated with an orchestration attempt.
 
 > [!CAUTION] This action is irreversible on GitHub.
-
+>
 > **When to run**: When an Epic needs to be fully wiped from the ticketing system.
 >
 > **Persona**: `devops-engineer` · **Skills**: `core/git-workflow-and-versioning`
