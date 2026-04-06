@@ -100,7 +100,7 @@ describe('Bootstrap — LABEL_TAXONOMY', () => {
   });
 
   it('has exactly 24 label definitions', () => {
-    assert.equal(LABEL_TAXONOMY.length, 23);
+    assert.equal(LABEL_TAXONOMY.length, 24);
   });
 
   it('every label has name, color (hex), and description', () => {

@@ -86,7 +86,7 @@ validation library, workspace paths).
 #### Friction Telemetry
 
 You MUST log telemetry about any operational difficulty or automation
-opportunity you encounter. Instead of local files, you MUST post friction 
+opportunity you encounter. Instead of local files, you MUST post friction
 details directly to the relevant GitHub Task ticket:
 
 - **Command**:
@@ -219,8 +219,8 @@ environments without needing manual command corrections.
      to isolate specific schemas or decisions.
 2. **Plan First:** For non-trivial tasks (3+ steps or architectural decisions),
    enter **Plan Mode**. Update the Tech Spec issue or create a new Technical
-   Specification document in the `docs/` root (if not already handled by a ticket) 
-   before touching code.
+   Specification document in the `docs/` root (if not already handled by a
+   ticket) before touching code.
 3. **Artifacts over Chat:** Create log files for test results, build outputs, or
    debug sessions rather than pasting large code blocks in chat.
 4. **Idempotency:** Ensure scripts and commands can be run multiple times
@@ -272,8 +272,10 @@ Epic base branch (`epic/[EPIC_ID]`).
 Administrative state mutations in the v5 model are performed via GitHub labels.
 Do NOT manually update issue descriptions or status fields unless prompted.
 
-- **Sync Tool**: `node .agents/scripts/update-ticket-state.js --ticket [ID] --status [STATUS]`
-- **Status Labels**: `agent::ready`, `agent::executing`, `agent::review`, `agent::done`
+- **Sync Tool**:
+  `node .agents/scripts/update-ticket-state.js --ticket [ID] --status [STATUS]`
+- **Status Labels**: `agent::ready`, `agent::executing`, `agent::review`,
+  `agent::done`
 
 ### C. History Hygiene
 
@@ -304,11 +306,13 @@ successes.
 
 ## 9. Automated Roadmap Protocol
 
-The `roadmap.md` file in the repository root is a strictly **read-only, auto-generated artifact**.
+The `roadmap.md` file in the repository root is a strictly **read-only,
+auto-generated artifact**.
 
 - **Single Source of Truth**: GitHub Issues (Epics/Features) are the SSOT.
-- **Immutability**: Neither humans nor AI agents should ever manually edit `roadmap.md`.
-- **Updates**: Any changes to the roadmap MUST be made by updating the 
+- **Immutability**: Neither humans nor AI agents should ever manually edit
+  `roadmap.md`.
+- **Updates**: Any changes to the roadmap MUST be made by updating the
   corresponding GitHub Issues. The file is regenerated automatically via CI.
 
 ## 10. Complexity-Aware Execution
@@ -322,6 +326,6 @@ If your task contains a complexity warning or exceeds localized scope:
 1. **Plan first.** Read the full instructions, then write a numbered list of
    atomic sub-steps in a `<!-- DECOMPOSITION -->` comment block.
 2. **5-file rule.** Each sub-step should modify no more than 5 files.
-3. **Commit incrementally.** stage, commit, and push after each logical sub-step 
+3. **Commit incrementally.** stage, commit, and push after each logical sub-step
    completes successfully.
 4. **Fail fast.** If any sub-step fails validation, STOP and report the failure.

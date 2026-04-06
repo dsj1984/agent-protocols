@@ -1,7 +1,7 @@
 ---
 description: >-
-  Final Epic closure — merge the Epic base branch to main, close the Epic
-  issue via GitHub provider, clean up branches, and tag a release.
+  Final Epic closure — merge the Epic base branch to main, close the Epic issue
+  via GitHub provider, clean up branches, and tag a release.
 ---
 
 # Sprint Close Out
@@ -13,13 +13,15 @@ Epic GitHub issue, cleans up all sprint branches, and optionally tags a release.
 > **When to run**: After the Retrospective is finalized and all Bookend phases
 > (Integration, QA, Code Review, Retro) are complete.
 >
-> **Persona**: `devops-engineer` · **Skills**: `core/git-workflow-and-versioning`
+> **Persona**: `devops-engineer` · **Skills**:
+> `core/git-workflow-and-versioning`
 
 ## Step 0 — Resolve Configuration
 
 1. Resolve `[EPIC_ID]` — the GitHub Issue number of the Epic to close.
 2. Resolve `[EPIC_BRANCH]` — `epic/<epicId>`.
-3. Resolve `[BASE_BRANCH]` from `baseBranch` in `.agentrc.json` (default: `main`).
+3. Resolve `[BASE_BRANCH]` from `baseBranch` in `.agentrc.json` (default:
+   `main`).
 4. Resolve `[SCRIPTS_ROOT]` from `scriptsRoot` in `.agentrc.json`.
 
 ## Step 1 — Completeness Gate (Ticket State Check)
@@ -115,8 +117,8 @@ For any remaining Task feature branches:
 git push origin --delete task/epic-[EPIC_ID]/[TASK_ID]
 ```
 
-Run `git branch -r` to confirm no `task/epic-[EPIC_ID]/*` or
-`epic/[EPIC_ID]` branches remain on origin.
+Run `git branch -r` to confirm no `task/epic-[EPIC_ID]/*` or `epic/[EPIC_ID]`
+branches remain on origin.
 
 ## Step 9 — Local Temp Cleanup
 
@@ -150,6 +152,6 @@ If `notificationWebhookUrl` is empty, skip gracefully.
 
 Do **not** execute this workflow unless ALL Bookend phases (Integration, QA,
 Code Review, Retro) have been completed and the Completeness Gate (Step 1)
-passes. Do **not** close the Epic via the GitHub UI — always use the provider
-so the closure is auditable in the v5 state sync log. This is the only
-authorized step for merging Epic branches to `main`.
+passes. Do **not** close the Epic via the GitHub UI — always use the provider so
+the closure is auditable in the v5 state sync log. This is the only authorized
+step for merging Epic branches to `main`.

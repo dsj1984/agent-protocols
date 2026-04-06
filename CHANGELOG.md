@@ -9,24 +9,44 @@ and this project adheres to
 ## [5.0.0] - 2026-04-06
 
 ### Added
-- **v5 Epic-Centric Architecture**: Complete framework transition to a ticketing-native, GitHub-centric orchestration model.
-- **Ticketing SSOT**: GitHub Issues, Labels, and Project V2 fields now serve as the Single Source of Truth, replacing local `playbook.md` and `docs/sprints/`.
-- **ITicketingProvider**: Abstracted provider interface with a reference GitHub implementation for provider portability.
-- **Autonomous Planning**: New `/sprint-plan` workflow that generates PRDs, Tech Specs, and a 4-tier task hierarchy (Epic ➔ Feature ➔ Story ➔ Task) directly on GitHub.
-- **DAG Dispatcher**: New `dispatcher.js` that builds a dependency graph from GitHub ticket relationships (`blocked by #NNN`) and dispatches work in parallel "waves".
-- **Context Hydrator**: Automated context assembly tool that generates a self-contained "Agent Handbook" for each task session, pulling data from the GitHub hierarchy.
-- **GitHub Roadmap CI**: Automated GitHub Action and script (`generate-roadmap.js`) to sync `docs/roadmap.md` from live GitHub ticket state.
-- **V5 Bootstrap**: Enhanced `bootstrap-agent-protocols.js` with new v5 label taxonomy, project board fields, and workflow installation.
+
+- **v5 Epic-Centric Architecture**: Complete framework transition to a
+  ticketing-native, GitHub-centric orchestration model.
+- **Ticketing SSOT**: GitHub Issues, Labels, and Project V2 fields now serve as
+  the Single Source of Truth, replacing local `playbook.md` and `docs/sprints/`.
+- **ITicketingProvider**: Abstracted provider interface with a reference GitHub
+  implementation for provider portability.
+- **Autonomous Planning**: New `/sprint-plan` workflow that generates PRDs, Tech
+  Specs, and a 4-tier task hierarchy (Epic ➔ Feature ➔ Story ➔ Task) directly on
+  GitHub.
+- **DAG Dispatcher**: New `dispatcher.js` that builds a dependency graph from
+  GitHub ticket relationships (`blocked by #NNN`) and dispatches work in
+  parallel "waves".
+- **Context Hydrator**: Automated context assembly tool that generates a
+  self-contained "Agent Handbook" for each task session, pulling data from the
+  GitHub hierarchy.
+- **GitHub Roadmap CI**: Automated GitHub Action and script
+  (`generate-roadmap.js`) to sync `docs/roadmap.md` from live GitHub ticket
+  state.
+- **V5 Bootstrap**: Enhanced `bootstrap-agent-protocols.js` with new v5 label
+  taxonomy, project board fields, and workflow installation.
 
 ### Removed
-- Legacy v4 playbook-based planning workflows (`plan-sprint.md`, `sprint-generate-playbook.js`, etc.).
-- Legacy environment-variable based state tracking in favor of GitHub label state (`agent::ready`, `agent::executing`, etc.).
+
+- Legacy v4 playbook-based planning workflows (`plan-sprint.md`,
+  `sprint-generate-playbook.js`, etc.).
+- Legacy environment-variable based state tracking in favor of GitHub label
+  state (`agent::ready`, `agent::executing`, etc.).
 - Deprecated `docs/sprints/` directory requirement.
 
 ### Changed
-- **Instructions.md**: Full rewrite of system instructions to reflect the Epic-centric, ticketing-native paradigm.
-- **SDLC.md**: Complete overhaul of the SDLC documentation to support v5 workflows.
-- **README.md**: Updated root and consumer documentation to prioritize v5 features and setup.
+
+- **Instructions.md**: Full rewrite of system instructions to reflect the
+  Epic-centric, ticketing-native paradigm.
+- **SDLC.md**: Complete overhaul of the SDLC documentation to support v5
+  workflows.
+- **README.md**: Updated root and consumer documentation to prioritize v5
+  features and setup.
 
 ## [4.7.2] - 2026-04-05
 

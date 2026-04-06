@@ -8,8 +8,8 @@ description: >-
 
 This workflow generates a sprint retrospective by reading execution data
 directly from the GitHub ticket graph. It is a **Bookend Lifecycle** phase,
-executed automatically by `/sprint-execute` after Code Review completes, or
-run manually by the operator.
+executed automatically by `/sprint-execute` after Code Review completes, or run
+manually by the operator.
 
 > **Persona**: `product` · **Model**: `planningFallback` from `.agentrc.json`
 > **Skills**: `core/documentation-and-adrs`, `core/idea-refinement`
@@ -39,14 +39,13 @@ Read execution telemetry directly from GitHub — **not** from local files:
 
 ## Step 2 — Generate Retrospective Document
 
-Generate a `retro-epic-[EPIC_ID].md` file in the `[BASE_BRANCH]` docs root
-using the following structure:
+Generate a `retro-epic-[EPIC_ID].md` file in the `[BASE_BRANCH]` docs root using
+the following structure:
 
 ```markdown
 # Retrospective — Epic #[EPIC_ID]: [Epic Title]
 
-**Date**: [ISO date]
-**Protocol Version**: [from .agents/VERSION]
+**Date**: [ISO date] **Protocol Version**: [from .agents/VERSION]
 
 ## Sprint Scorecard
 
@@ -82,16 +81,16 @@ using the following structure:
 
 ## Step 3 — Update Roadmap (If Applicable)
 
-If the Epic had a corresponding entry in `roadmap.md` (synced automatically
-from GitHub issues), the roadmap is read-only and will update itself via the
+If the Epic had a corresponding entry in `roadmap.md` (synced automatically from
+GitHub issues), the roadmap is read-only and will update itself via the
 automated GitHub sync workflow. Do **not** manually edit `roadmap.md`.
 
 If the project does not yet have automated roadmap sync, identify the Epic's
 roadmap entry and mark it as `✅ Implemented` in the local `roadmap.md`.
 
 > **Note:** Do NOT add new protocol-related action items to the roadmap; these
-> belong in the retro document for later implementation in the
-> `agent-protocols` repository.
+> belong in the retro document for later implementation in the `agent-protocols`
+> repository.
 
 ## Step 4 — Update Architecture & Patterns Documentation
 
@@ -119,7 +118,7 @@ Post a structured comment on the Epic ticket linking to the retro document:
 
 ## Constraint
 
-Do **not** mark items as implemented in `roadmap.md` unless they have passed
-all QA test cases and the Code Review audit for this Epic. Do **not** read from
-local playbook files — GitHub is the Single Source of Truth in v5. All
-execution data must be sourced from the ticket graph.
+Do **not** mark items as implemented in `roadmap.md` unless they have passed all
+QA test cases and the Code Review audit for this Epic. Do **not** read from
+local playbook files — GitHub is the Single Source of Truth in v5. All execution
+data must be sourced from the ticket graph.

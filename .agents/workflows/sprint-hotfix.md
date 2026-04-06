@@ -1,7 +1,7 @@
 ---
 description: >-
-  Rapid remediation of regressions on a Task feature branch after a failed
-  Epic integration candidate check.
+  Rapid remediation of regressions on a Task feature branch after a failed Epic
+  integration candidate check.
 ---
 
 # Sprint Hotfix
@@ -25,8 +25,8 @@ branch to keep the Epic base branch clean.
 
 ## Step 1 — Apply Blocked Status
 
-Before starting remediation, apply `status::blocked` to the Task ticket and
-post a friction comment to surface the failure to the operator:
+Before starting remediation, apply `status::blocked` to the Task ticket and post
+a friction comment to surface the failure to the operator:
 
 ```javascript
 // transitionTicketState([TASK_ID], 'status::blocked')
@@ -63,8 +63,8 @@ git rebase --continue
 
 ## Step 4 — Remediation
 
-Implement the necessary fixes. Keep changes tightly scoped to the root cause.
-Do **not** add unrelated features or refactors at this step.
+Implement the necessary fixes. Keep changes tightly scoped to the root cause. Do
+**not** add unrelated features or refactors at this step.
 
 Run isolated validation for the specific failure area after each fix.
 
@@ -114,6 +114,6 @@ Remove the `status::blocked` label and post a recovery comment:
 ## Constraint
 
 Do **not** attempt to fix regressions directly on `[EPIC_BRANCH]`. Always
-maintain isolation on the Task feature branch to protect the blast-radius of
-the shared Epic integration branch. Do **not** skip the Blocked Status steps —
-the operator must always have visibility into failures via the ticket graph.
+maintain isolation on the Task feature branch to protect the blast-radius of the
+shared Epic integration branch. Do **not** skip the Blocked Status steps — the
+operator must always have visibility into failures via the ticket graph.

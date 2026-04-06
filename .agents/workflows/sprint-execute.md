@@ -10,9 +10,9 @@ description: >-
 
 This workflow operates in two modes determined by the argument provided:
 
-- **`/sprint-execute [Epic ID]`** — Epic-level orchestration. Fetches all
-  Tasks under the Epic, schedules them into dependency-ordered waves, and
-  dispatches the next eligible wave. Re-run after each wave to advance progress.
+- **`/sprint-execute [Epic ID]`** — Epic-level orchestration. Fetches all Tasks
+  under the Epic, schedules them into dependency-ordered waves, and dispatches
+  the next eligible wave. Re-run after each wave to advance progress.
   Automatically enters the **Bookend Lifecycle** once all Tasks reach
   `agent::done`.
 
@@ -98,13 +98,13 @@ automatically enters the Bookend Lifecycle. The following phases run
 sequentially — each uses the persona, skills, and model from
 `agentSettings.bookendRequirements`:
 
-| Phase        | Workflow                | Config Key        |
-| ------------ | ----------------------- | ----------------- |
-| Integration  | `/sprint-integration`   | `isIntegration`   |
-| QA           | `/sprint-testing`       | `isQA`            |
-| Code Review  | `/sprint-code-review`   | `isCodeReview`    |
-| Retrospective | `/sprint-retro`        | `isRetro`         |
-| Close-Out    | `/sprint-close-out`     | `isCloseSprint`   |
+| Phase         | Workflow              | Config Key      |
+| ------------- | --------------------- | --------------- |
+| Integration   | `/sprint-integration` | `isIntegration` |
+| QA            | `/sprint-testing`     | `isQA`          |
+| Code Review   | `/sprint-code-review` | `isCodeReview`  |
+| Retrospective | `/sprint-retro`       | `isRetro`       |
+| Close-Out     | `/sprint-close-out`   | `isCloseSprint` |
 
 On final close-out:
 
@@ -122,16 +122,15 @@ On final close-out:
    If any referenced issue is still **open**, **STOP** and report the blocker to
    the operator.
 3. **Hierarchy trace**: Read the `## Metadata` section to identify the parent
-   Story, Feature, Epic, PRD, and Tech Spec issue numbers. Fetch each and
-   review scope, constraints, and acceptance criteria before writing a single
-   line of code.
+   Story, Feature, Epic, PRD, and Tech Spec issue numbers. Fetch each and review
+   scope, constraints, and acceptance criteria before writing a single line of
+   code.
 
 ### Step 1 — Branch Setup
 
 1. Determine the Epic base branch: `epic/<epicId>` (parsed from the Task's
    Metadata `Epic:` field).
-2. Create (or check out) the Task feature branch:
-   `task/epic-<epicId>/<taskId>`.
+2. Create (or check out) the Task feature branch: `task/epic-<epicId>/<taskId>`.
 
    ```powershell
    git checkout epic/<epicId>
@@ -150,9 +149,10 @@ On final close-out:
 ### Step 2 — Implementation
 
 1. Read the full `## Instructions` section of the Task ticket.
-2. Implement all described changes, strictly within the scope of the Task branch.
-3. Do **not** modify files linked to other active Task branches (check
-   `focus::` labels for overlap hints).
+2. Implement all described changes, strictly within the scope of the Task
+   branch.
+3. Do **not** modify files linked to other active Task branches (check `focus::`
+   labels for overlap hints).
 
 ### Step 3 — Validate
 

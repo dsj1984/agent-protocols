@@ -14,9 +14,10 @@ with native GitHub orchestration.
 - **DAG-Based Dispatching**: `/sprint-execute` builds a dependency graph of all
   tasks under an Epic and dispatches them in optimized waves.
 - **Context Hydration**: Agents receive a fully hydrated virtual context
-  assembled from the GitHub hierarchy, persona directives, and skill instructions.
-- **Automated Roadmap**: `docs/roadmap.md` is a read-only artifact auto-generated
-  from your live GitHub Epics and Features.
+  assembled from the GitHub hierarchy, persona directives, and skill
+  instructions.
+- **Automated Roadmap**: `docs/roadmap.md` is a read-only artifact
+  auto-generated from your live GitHub Epics and Features.
 
 ## Get Started in 3 Steps
 
@@ -34,7 +35,8 @@ node .agents/scripts/bootstrap-agent-protocols.js --install-workflows
 
 ### 2. Configure Orchestration
 
-Copy `.agents/default-agentrc.json` to `.agentrc.json` and set your repo details:
+Copy `.agents/default-agentrc.json` to `.agentrc.json` and set your repo
+details:
 
 ```json
 {

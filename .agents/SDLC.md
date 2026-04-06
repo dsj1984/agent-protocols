@@ -1,7 +1,7 @@
 # Software Development Life Cycle (SDLC) Workflow
 
-Our SDLC is designed for an AI-native engineering environment, leveraging
-**v5 Epic-Centric GitHub Orchestration**. This model replaces the legacy local
+Our SDLC is designed for an AI-native engineering environment, leveraging **v5
+Epic-Centric GitHub Orchestration**. This model replaces the legacy local
 playbook pipeline with a ticketing-native approach where GitHub Issues and
 Project Board fields serve as the Single Source of Truth (SSOT).
 
@@ -87,8 +87,8 @@ The framework fetches the Epic and autonomously builds the work breakdown.
 
 1.  **Epic Planner (`epic-planner.js`)**:
     - Synthesizes the Epic body + project documentation.
-    - Generates a **PRD** (`context::prd`) and **Tech Spec** (`context::tech-spec`)
-      as linked GitHub Issues.
+    - Generates a **PRD** (`context::prd`) and **Tech Spec**
+      (`context::tech-spec`) as linked GitHub Issues.
 2.  **Ticket Decomposer (`ticket-decomposer.js`)**:
     - Recursively decomposes the specs into a 4-tier hierarchy:
       `Epic ➔ Feature ➔ Story ➔ Task`.
@@ -115,7 +115,8 @@ Execution is driven by the **Dispatcher** and **Context Hydrator**.
     - Hierarchy context (Story ➔ Feature ➔ Epic)
     - Task-specific instructions
 3.  **State Sync**: Agents update their state in real-time on GitHub:
-    - **Labels**: `agent::ready` ➔ `agent::executing` ➔ `agent::review` ➔ `agent::done`.
+    - **Labels**: `agent::ready` ➔ `agent::executing` ➔ `agent::review` ➔
+      `agent::done`.
     - **Tasklists**: Check off atomic subtasks in the ticket body.
     - **Telemetry**: Friction logs are posted as comments on the Task issue.
 
@@ -131,6 +132,7 @@ Once Task waves are complete, the bookend lifecycle begins.
     `Task Done ➔ Story Done ➔ Feature Done ➔ Epic Done`.
 3.  **Lifecycle Phases**:
     - **QA**: Runs `/sprint-testing` on the integrated Epic branch.
-    - **Retro**: Runs `/sprint-retro` to summarize wins/friction from the ticket graph.
+    - **Retro**: Runs `/sprint-retro` to summarize wins/friction from the ticket
+      graph.
     - **Close-Out**: `/sprint-close-out` merges the Epic to `main`, tags the
       release, and closes the Epic issue.

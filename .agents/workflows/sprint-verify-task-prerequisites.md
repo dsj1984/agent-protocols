@@ -20,12 +20,12 @@ references in the Task ticket body.
 
 ## Step 1 — Pre-flight Checks
 
-Before an agent begins performing file modifications for a Task ticket, it MUST 
+Before an agent begins performing file modifications for a Task ticket, it MUST
 execute the following pre-flight checks:
 
 1. **Resolve Ticket ID**: identify the `[TASK_ID]` of the current task.
 2. **Branch Validation**: Run `git branch --show-current`. The result MUST be
-   `task/[EPIC_ID]/[TASK_ID]`. 
+   `task/[EPIC_ID]/[TASK_ID]`.
 3. **Execute Verification Script**: Run the deterministic Node.js script to
    verify that all prerequisite tasks are satisfied (labelled `agent::done`):
 
@@ -39,8 +39,8 @@ execute the following pre-flight checks:
      prerequisite check failed.
 
 4. **Code Retrieval for Unmerged Dependencies**: If your task requires code from
-   a predecessor that has been merged into the Epic base branch (`epic/[EPIC_ID]`), 
-   ensure you have pulled the latest:
+   a predecessor that has been merged into the Epic base branch
+   (`epic/[EPIC_ID]`), ensure you have pulled the latest:
 
    ```powershell
    git fetch origin epic/[EPIC_ID]
@@ -51,12 +51,12 @@ execute the following pre-flight checks:
 
 ## State Reference
 
-| Label           | State       | Blocks Execution? |
-| --------------- | ----------- | ----------------- |
-| `agent::ready`  | Ready       | ✅ Yes             |
-| `agent::executing` | Executing | ✅ Yes             |
-| `agent::review` | Reviewing   | ✅ Yes             |
-| `agent::done`   | Complete    | ❌ No              |
+| Label              | State     | Blocks Execution? |
+| ------------------ | --------- | ----------------- |
+| `agent::ready`     | Ready     | ✅ Yes            |
+| `agent::executing` | Executing | ✅ Yes            |
+| `agent::review`    | Reviewing | ✅ Yes            |
+| `agent::done`      | Complete  | ❌ No             |
 
 ## Constraint
 

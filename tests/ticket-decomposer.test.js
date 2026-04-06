@@ -59,7 +59,7 @@ describe('ticket-decomposer orchestration', () => {
             title: 'Story One',
             body: 'Body of Story One',
             labels: ['type::story', 'persona::fullstack'],
-            depends_on: 'f1'
+            parent_slug: 'f1'
           },
           {
             slug: 't1',
@@ -67,7 +67,7 @@ describe('ticket-decomposer orchestration', () => {
             title: 'Task One',
             body: 'Body of Task One',
             labels: ['type::task', 'persona::engineer'],
-            depends_on: 's1'
+            parent_slug: 's1'
           }
         ]);
       }
@@ -118,17 +118,17 @@ describe('ticket-decomposer orchestration', () => {
     const s1 = mockProvider.createdTickets[1];
     assert.equal(s1.ticketData.title, 'Story One');
     assert.deepEqual(s1.ticketData.labels, ['type::story', 'persona::fullstack']);
-    assert.deepEqual(s1.ticketData.dependencies, [200], 'Story should depend on its parent Feature (200)');
+    assert.deepEqual(s1.ticketData.dependencies, [], 'Story should have no dependencies');
 
     // Task Ticket validation
     const t1 = mockProvider.createdTickets[2];
     assert.equal(t1.ticketData.title, 'Task One');
     assert.deepEqual(t1.ticketData.labels, ['type::task', 'persona::engineer']);
-    assert.deepEqual(t1.ticketData.dependencies, [201], 'Task should depend on its parent Story (201)');
+    assert.deepEqual(t1.ticketData.dependencies, [], 'Task should have no dependencies');
   });
 
   it('handles LLM markdown wrapping in JSON response', async () => {
-    mockLlm.generateText = async () => '```json\n[{"slug":"f1","type":"feature","title":"Wrapped Feature","body":"Body","labels":[]},{"slug":"s1","type":"story","title":"Wrapped Story","body":"Body","depends_on":"f1","labels":[]},{"slug":"t1","type":"task","title":"Wrapped Task","body":"Body","depends_on":"s1","labels":[]}]\n```';
+    mockLlm.generateText = async () => '```json\n[{"slug":"f1","type":"feature","title":"Wrapped Feature","body":"Body","labels":[]},{"slug":"s1","type":"story","title":"Wrapped Story","body":"Body","parent_slug":"f1","labels":[]},{"slug":"t1","type":"task","title":"Wrapped Task","body":"Body","parent_slug":"s1","labels":[]}]\n```';
     
     await decomposeEpic(1, mockProvider, mockLlm);
     assert.equal(mockProvider.createdTickets.length, 3);

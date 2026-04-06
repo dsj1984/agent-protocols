@@ -14,7 +14,9 @@ You are performing a comprehensive, read-only audit of this repository's testing
 infrastructure, test coverage, and overall quality assurance practices. Your
 goal is to identify testing gaps, flaky tests, inefficient mocking strategies,
 and opportunities to improve test execution speed and reliability without making
-any immediate changes. Additionally, you must evaluate the implemented tests against the `roadmap.md` and the current codebase to ensure all quality requirements are met and correctly documented.
+any immediate changes. Additionally, you must evaluate the implemented tests
+against the `roadmap.md` and the current codebase to ensure all quality
+requirements are met and correctly documented.
 
 **Note on Testing Responsibilities**: When evaluating test maturity, note the
 established standard: Software Engineers (SWEs) must provide comprehensive unit
@@ -24,7 +26,8 @@ integrations, and test environment stability.
 
 ## Step 0 - Project Context
 
-1.  Read `roadmap.md` to identify the current milestone and target features for the active Epic.
+1.  Read `roadmap.md` to identify the current milestone and target features for
+    the active Epic.
 2.  Identify the target codebase paths for the audit.
 
 ## Step 1: Context Gathering (Read-Only Scan)
@@ -36,7 +39,8 @@ files. Pay special attention to:
   `playwright.config.ts`, `cypress.json`).
 - Test directories and files (e.g., `__tests__/`, `spec/`, `e2e/`, `*.test.ts`,
   `*.spec.js`).
-- Product documentation like `roadmap.md` to map out expected features versus implemented tests.
+- Product documentation like `roadmap.md` to map out expected features versus
+  implemented tests.
 - Mocking and stubbing setups (e.g., `__mocks__/`, `setupTests.js`, MSW
   handlers).
 - CI/CD workflow files to understand how and when tests are executed.

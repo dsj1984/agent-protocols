@@ -1,4 +1,4 @@
-## <a id="whats-inside"></a>📂 What's Inside
+# <a id="whats-inside"></a>📂 Agent Protocols
 
 ```text
 .agents/
@@ -402,7 +402,7 @@ The `GitHubProvider` resolves credentials in the following priority order.
 If you are using a Personal Access Token (PAT) as a fallback for background
 scripts (like the bootstrap), ensure it has the following minimum scopes:
 
-**Fine-grained Personal Access Tokens (Recommended)**
+##### Fine-grained Personal Access Tokens (Recommended)
 
 - **Account Permissions** (Required for Projects V2):
   - `GitHub Projects (V2)`: Read & Write
@@ -411,7 +411,7 @@ scripts (like the bootstrap), ensure it has the following minimum scopes:
   - `Metadata`: Read-only (required for all API access)
   - `Pull requests`: Read & Write (for automated PR creation)
 
-**Classic Personal Access Tokens**
+##### Classic Personal Access Tokens
 
 - `repo` (Full control)
 - `project` (Full control)
@@ -431,13 +431,13 @@ scripts (like the bootstrap), ensure it has the following minimum scopes:
 
 Supporting files that define the agent's environment and workspace standards.
 
-| Path                                    | Type   | Purpose                                                    |
-| --------------------------------------- | ------ | ---------------------------------------------------------- |
-| `default-agentrc.json`                  | Config | Default settings — copy to project root as `.agentrc.json` |
-| `schemas/dispatch-manifest.json`        | Schema | JSON Schema for validating v5 dispatch waves               |
-| `scripts/bootstrap-agent-protocols.js`  | Script | Automated setup of labels and project fields               |
-| `scripts/dispatcher.js`                 | Script | Central DAG scheduler and task dispatcher                  |
-| `scripts/generate-roadmap.js`           | Script | Logic for auto-rendering docs/roadmap.md                   |
+| Path                                   | Type   | Purpose                                                    |
+| -------------------------------------- | ------ | ---------------------------------------------------------- |
+| `default-agentrc.json`                 | Config | Default settings — copy to project root as `.agentrc.json` |
+| `schemas/dispatch-manifest.json`       | Schema | JSON Schema for validating v5 dispatch waves               |
+| `scripts/bootstrap-agent-protocols.js` | Script | Automated setup of labels and project fields               |
+| `scripts/dispatcher.js`                | Script | Central DAG scheduler and task dispatcher                  |
+| `scripts/generate-roadmap.js`          | Script | Logic for auto-rendering docs/roadmap.md                   |
 
 ---
 

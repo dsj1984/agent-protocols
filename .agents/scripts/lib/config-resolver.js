@@ -149,10 +149,10 @@ export function resolveConfig(opts) {
 
     // Schema Boundary validation: Block injection metacharacters
     const schemaValidKeys = [
-      'taskStateRoot', 'notificationWebhookUrl', 'goldenExamplesRoot', 'baseBranch',
-      'sprintDocsRoot', 'validationCommand', 'testCommand', 'buildCommand', 'agentRoot',
+      'notificationWebhookUrl', 'baseBranch',
+      'validationCommand', 'testCommand', 'buildCommand', 'agentRoot',
       'scriptsRoot', 'workflowsRoot', 'personasRoot', 'schemasRoot',
-      'docsRoot', 'tempRoot', 'eventStreamsRoot', 'workspacesRoot',
+      'docsRoot', 'tempRoot',
       'executionTimeoutMs', 'executionMaxBuffer',
       'lintBaselineCommand', 'lintBaselinePath', 'exploratoryTestCommand', 'typecheckCommand',
     ];
@@ -200,19 +200,9 @@ export function resolveConfig(opts) {
       schemasRoot: '.agents/schemas',
       docsRoot: 'docs',
       tempRoot: 'temp',
-      workspacesRoot: 'temp/workspaces',
-      eventStreamsRoot: 'temp/event-streams',
-      taskStateRoot: 'temp/task-state',
-      goldenExamplesRoot: '.agents/golden-examples',
-      maxGoldenExampleLines: 200,
       baseBranch: 'main',
-      sprintDocsRoot: 'docs/sprints',
-      sprintNumberPadding: 3,
-      maxTokenBudget: 1000000,
-      budgetWarningThreshold: 0.8,
       notificationWebhookUrl: '',
       verboseLogging: { enabled: false, logDir: 'temp/verbose-logs' },
-      apcCacheSettings: { strictHashing: true, ttlDays: 30, enableSpeculativeExecution: true, cacheDir: 'temp/apc-cache' },
       executionTimeoutMs: 300000, // 5 minutes
       executionMaxBuffer: 10485760, // 10MB
     },

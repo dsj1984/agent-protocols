@@ -89,9 +89,9 @@ Use the GitHub MCP tool or the provider to create PR programmatically.
 
 ## Step 5 — State Sync (v5)
 
-Use the `update-ticket-state.js` state writer to sync progress to GitHub.
-These are programmatic calls within the agent loop (or via temporary inline
-Node scripts):
+Use the `update-ticket-state.js` state writer to sync progress to GitHub. These
+are programmatic calls within the agent loop (or via temporary inline Node
+scripts):
 
 1. **Post a progress comment** on the Task ticket with the PR link:
 
@@ -113,9 +113,9 @@ Node scripts):
 
    Resolve `[STORY_ID]` from the Task body `## Metadata` → `Story: #<N>`.
 
-> **Note:** After merge, `cascadeCompletion([TASK_ID])` should be triggered
-> to propagate `agent::done` up through the Story → Feature → Epic hierarchy.
-> This is typically called by the `/sprint-integration` bookend workflow.
+> **Note:** After merge, `cascadeCompletion([TASK_ID])` should be triggered to
+> propagate `agent::done` up through the Story → Feature → Epic hierarchy. This
+> is typically called by the `/sprint-integration` bookend workflow.
 
 ## Step 6 — Notification
 
@@ -149,17 +149,17 @@ If the Task has a `risk::high` label:
 
 ## State Progression Reference
 
-| Transition                         | Mechanism                               | Triggered By           |
-| ---------------------------------- | --------------------------------------- | ---------------------- |
-| `agent::ready` → `agent::executing` | `transitionTicketState`                | `/sprint-execute` Step 1 |
-| `agent::executing` → `agent::review` | `transitionTicketState` (Step 5 above) | This workflow          |
-| `agent::review` → `agent::done`    | `cascadeCompletion` (after PR merge)   | `/sprint-integration`  |
-| Parent auto-completion cascade     | `cascadeCompletion` (recursive)        | `/sprint-integration`  |
+| Transition                           | Mechanism                              | Triggered By             |
+| ------------------------------------ | -------------------------------------- | ------------------------ |
+| `agent::ready` → `agent::executing`  | `transitionTicketState`                | `/sprint-execute` Step 1 |
+| `agent::executing` → `agent::review` | `transitionTicketState` (Step 5 above) | This workflow            |
+| `agent::review` → `agent::done`      | `cascadeCompletion` (after PR merge)   | `/sprint-integration`    |
+| Parent auto-completion cascade       | `cascadeCompletion` (recursive)        | `/sprint-integration`    |
 
 ## Constraint
 
 - Do **not** merge the Task branch directly into `main`. The
   `/sprint-integration` bookend workflow handles all merges.
 - Do **not** skip the state sync steps. GitHub is the Single Source of Truth.
-- Do **not** call the legacy `update-task-state.js` script — it is deprecated
-  in v5 and will be removed in Sprint 3F.
+- Do **not** call the legacy `update-task-state.js` script — it is deprecated in
+  v5 and will be removed in Sprint 3F.

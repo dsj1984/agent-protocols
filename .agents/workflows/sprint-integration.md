@@ -1,15 +1,15 @@
 ---
 description: >-
-  Automated consolidation of Epic Task branches into the Epic base branch,
-  with v5 GitHub-native state sync via update-ticket-state.js.
+  Automated consolidation of Epic Task branches into the Epic base branch, with
+  v5 GitHub-native state sync via update-ticket-state.js.
 ---
 
 # Sprint Integration
 
-This workflow consolidates all Task feature branches for an Epic into the
-Epic base branch (`epic/<epicId>`). It **must** run before any Bookend
-Lifecycle phases (QA, Code Review, Retro, Close-Out) begin. Re-run it if
-any hotfix creates a new commit on a Task branch after initial integration.
+This workflow consolidates all Task feature branches for an Epic into the Epic
+base branch (`epic/<epicId>`). It **must** run before any Bookend Lifecycle
+phases (QA, Code Review, Retro, Close-Out) begin. Re-run it if any hotfix
+creates a new commit on a Task branch after initial integration.
 
 > **When to run**: Called automatically by `/sprint-execute` once all Tasks
 > reach `agent::done`, or manually by the operator.
@@ -18,7 +18,8 @@ any hotfix creates a new commit on a Task branch after initial integration.
 
 1. Resolve `[EPIC_ID]` — the GitHub Issue number of the Epic being integrated.
 2. Resolve `[EPIC_BRANCH]` — `epic/<epicId>`.
-3. Resolve `[BASE_BRANCH]` from `baseBranch` in `.agentrc.json` (default: `main`).
+3. Resolve `[BASE_BRANCH]` from `baseBranch` in `.agentrc.json` (default:
+   `main`).
 4. Resolve `[SCRIPTS_ROOT]` from `scriptsRoot` in `.agentrc.json`.
 5. Resolve `[MAX_RETRY]` from `frictionThresholds.maxIntegrationRetries` in
    `.agentrc.json` (default: 2).
@@ -54,6 +55,7 @@ For each Task branch discovered, verify the corresponding GitHub ticket is
 ```
 
 A Task branch is only eligible if:
+
 - Its ticket is labeled `agent::done`.
 - Its PR (if any) has been merged or is approved.
 
@@ -93,13 +95,13 @@ After all merges, scan for unresolved conflict markers:
 node [SCRIPTS_ROOT]/detect-merges.js
 ```
 
-If markers are found: resolve them manually, stage with `git add`, and amend
-the merge commit before proceeding.
+If markers are found: resolve them manually, stage with `git add`, and amend the
+merge commit before proceeding.
 
 ## Step 6 — State Sync (v5)
 
-For every Task branch that was successfully merged, sync state to GitHub
-using the `update-ticket-state.js` state writer:
+For every Task branch that was successfully merged, sync state to GitHub using
+the `update-ticket-state.js` state writer:
 
 ```javascript
 // transitionTicketState(taskId, 'agent::done')   // if not already done
