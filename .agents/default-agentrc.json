@@ -17,6 +17,7 @@
       "autoGenerate": true,
       "excludeLabels": ["roadmap-exclude"]
     },
+    "roadmapPath": "docs/ROADMAP.md",
     "verboseLogging": {
       "enabled": false,
       "logDir": "temp/verbose-logs"

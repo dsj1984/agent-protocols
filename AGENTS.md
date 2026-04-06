@@ -37,9 +37,9 @@ agent-protocols/
 │   └── README.md             # Detailed consumer user guide
 ├── .agentrc.json             # Root config for this repo (dogfooding)
 ├── docs/                     # Roadmap and implementation plans
+│   ├── ROADMAP.md            # Auto-generated project roadmap
 ├── tests/                    # Framework tests
 ├── package.json              # Tooling: markdownlint, prettier, husky
-└── CHANGELOG.md              # Release history
 ```
 
 > **Key distinction:** Only `.agents/` is distributed to consumers. Everything
@@ -102,7 +102,7 @@ npm test              # Run framework tests (node --test)
 
 1. Bump version in `package.json`.
 2. Update `.agents/VERSION` to match.
-3. Add entry to `CHANGELOG.md`.
+3. Add entry to `docs/CHANGELOG.md`.
 4. Commit and merge to `main` — CI publishes to `dist`.
 
 ---
@@ -115,5 +115,5 @@ npm test              # Run framework tests (node --test)
 | [`.agents/README.md`](.agents/README.md)             | Consumer user guide                 |
 | [`.agents/SDLC.md`](.agents/SDLC.md)                 | Sprint planning pipeline guide      |
 | [`.agentrc.json`](.agentrc.json)                     | Runtime configuration               |
-| [`CHANGELOG.md`](CHANGELOG.md)                       | Release history                     |
-| [`docs/roadmap.md`](docs/roadmap.md)                 | Feature roadmap                     |
+| [`docs/CHANGELOG.md`](docs/CHANGELOG.md)           | Release history                     |
+| [`docs/ROADMAP.md`](docs/ROADMAP.md)               | Feature roadmap (Auto-generated)    |

@@ -189,6 +189,7 @@ export function resolveConfig(opts) {
       'lintBaselinePath',
       'exploratoryTestCommand',
       'typecheckCommand',
+      'roadmapPath',
     ];
     // Also validate keys nested inside verboseLogging
     if (
@@ -243,6 +244,7 @@ export function resolveConfig(opts) {
       baseBranch: 'main',
       notificationWebhookUrl: '',
       verboseLogging: { enabled: false, logDir: 'temp/verbose-logs' },
+      roadmapPath: 'docs/ROADMAP.md',
       executionTimeoutMs: 300000, // 5 minutes
       executionMaxBuffer: 10485760, // 10MB
     },

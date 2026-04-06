@@ -109,9 +109,9 @@ agent-protocols/
 │   ├── schemas/              # JSON Schemas for validation
 │   └── templates/            # Context hydration templates
 ├── docs/                     # Roadmap and legacy changelog archive
+│   ├── ROADMAP.md            # Auto-generated project roadmap
 ├── tests/                    # Unit and integration tests
 ├── package.json              # Tooling: markdownlint, prettier, husky
-└── CHANGELOG.md              # Release history (v5.0.0+)
 ```
 
 ## Development
@@ -128,8 +128,9 @@ npm test              # Run framework tests
 | --------------------------------------- | ------------------------------ |
 | [Consumer Guide](.agents/README.md)     | Setup, configuration, and APIs |
 | [SDLC Workflow](.agents/SDLC.md)       | End-to-end sprint lifecycle    |
-| [Changelog](CHANGELOG.md)               | Release history (v5.0.0+)     |
-| [Legacy Changelog](docs/CHANGELOG-v4.md) | v1.0.0 – v4.7.2 history     |
+| [Changelog](docs/CHANGELOG.md)               | Release history (v5.0.0+)     |
+| [Legacy Changelog](docs/archive/CHANGELOG-v4.md) | v1.0.0 – v4.7.2 history     |
+| [Roadmap](docs/ROADMAP.md)                       | Auto-generated from Issues    |
 
 ## License
 

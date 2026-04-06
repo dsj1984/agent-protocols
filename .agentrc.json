@@ -13,6 +13,7 @@
     "schemasRoot": ".agents/schemas",
     "docsRoot": "docs",
     "tempRoot": "temp",
+    "roadmapPath": "docs/ROADMAP.md",
     "validationCommand": "npm run lint",
     "lintBaselineCommand": "npm run lint",
     "lintBaselinePath": "temp/lint-baseline.json",

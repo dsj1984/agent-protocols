@@ -2,7 +2,7 @@
 /**
  * generate-roadmap.js — v5 Roadmap Artifact Generator
  *
- * This script is responsible for generating the `roadmap.md` file in the
+ * This script is responsible for generating the `ROADMAP.md` file in the
  * repository root. It serves as a read-only, auto-generated artifact that
  * mirrors the state of GitHub Issues (the Single Source of Truth).
  *
@@ -18,9 +18,12 @@ import { PROJECT_ROOT, resolveConfig } from './lib/config-resolver.js';
 import { createProvider } from './lib/provider-factory.js';
 
 async function main() {
-  console.log('Generating roadmap.md artifact...');
+  const { settings, orchestration } = resolveConfig();
+  const roadmapPath = settings.roadmapPath || 'docs/ROADMAP.md';
+  const fileName = path.basename(roadmapPath);
 
-  const { orchestration } = resolveConfig();
+  console.log(`Generating ${fileName} artifact...`);
+
   const provider = createProvider(orchestration);
 
   // 1. Fetch all Epics (Open and Closed)
@@ -99,11 +102,11 @@ async function main() {
 
   const content = lines.join('\n');
 
-  // 3. Write to root
-  const outputPath = path.join(PROJECT_ROOT, 'roadmap.md');
+  // 3. Write to config path
+  const outputPath = path.resolve(PROJECT_ROOT, roadmapPath);
   fs.writeFileSync(outputPath, content, 'utf8');
 
-  console.log(`Successfully generated roadmap.md at ${outputPath}`);
+  console.log(`Successfully generated ${fileName} at ${outputPath}`);
 }
 
 main().catch((err) => {
