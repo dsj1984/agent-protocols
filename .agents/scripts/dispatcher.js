@@ -180,8 +180,15 @@ async function fetchTasks(provider, epicId) {
     const metadata = parseTaskMetadata(t.body ?? '');
     const blockedBy = parseBlockedBy(t.body ?? '');
     const labels = t.labels ?? [];
+
+    // A closed GitHub issue means the PR was merged — treat as agent::done
+    // regardless of label state. The reconcileClosedTasks step (called right
+    // after this) will sync the labels and state on GitHub to match.
     const status =
-      labels.find((l) => l.startsWith('agent::')) ?? 'agent::ready';
+      t.state === 'closed'
+        ? AGENT_DONE_LABEL
+        : (labels.find((l) => l.startsWith('agent::')) ?? 'agent::ready');
+
     const isRiskHigh = labels.includes(RISK_HIGH_LABEL);
 
     return {
@@ -195,6 +202,65 @@ async function fetchTasks(provider, epicId) {
       ...metadata,
     };
   });
+}
+
+/**
+ * Reconcile any closed GitHub issues that still carry stale agent:: labels.
+ *
+ * When an operator manually merges a PR, GitHub closes the referenced issue
+ * but does NOT update the agent:: label. This function detects that mismatch
+ * and syncs GitHub to the correct state:
+ *   - Removes all other agent:: labels
+ *   - Adds agent::done
+ *   - Marks the issue state as closed / completed (idempotent)
+ *
+ * Safe to call in dry-run mode — skips writes when dryRun=true.
+ *
+ * @param {object[]} tasks - Normalised task list from fetchTasks.
+ * @param {import('./lib/ITicketingProvider.js').ITicketingProvider} provider
+ * @param {boolean} dryRun
+ */
+async function reconcileClosedTasks(tasks, provider, dryRun) {
+  const ALL_AGENT_STATES = [
+    'agent::ready',
+    'agent::executing',
+    'agent::review',
+    'agent::done',
+  ];
+
+  for (const task of tasks) {
+    // Only act on tasks that the closed-issue heuristic marked as done
+    // but whose labels haven't been updated yet.
+    if (task.status !== AGENT_DONE_LABEL) continue;
+    if (task.labels.includes(AGENT_DONE_LABEL)) continue; // already in sync
+
+    console.log(
+      `[Dispatcher] Reconciling closed issue #${task.id} "${task.title}" → agent::done`,
+    );
+
+    if (dryRun) {
+      console.log(
+        `[Dispatcher] [DRY-RUN] Would sync labels and close issue #${task.id}`,
+      );
+      continue;
+    }
+
+    try {
+      await provider.updateTicket(task.id, {
+        labels: {
+          add: [AGENT_DONE_LABEL],
+          remove: ALL_AGENT_STATES.filter((s) => s !== AGENT_DONE_LABEL),
+        },
+        state: 'closed',
+        state_reason: 'completed',
+      });
+      console.log(`[Dispatcher] ✅ Synced #${task.id} to agent::done`);
+    } catch (err) {
+      console.warn(
+        `[Dispatcher] Failed to reconcile #${task.id}: ${err.message}`,
+      );
+    }
+  }
 }
 
 /**
@@ -230,6 +296,9 @@ export async function dispatch(options) {
   console.log(`[Dispatcher] Fetching Tasks under Epic #${epicId}...`);
   const tasks = await fetchTasks(provider, epicId);
   console.log(`[Dispatcher] Found ${tasks.length} task(s).`);
+
+  // ── Step 1b: Reconcile stale labels on merged tasks ──────────────────────
+  await reconcileClosedTasks(tasks, provider, dryRun);
 
   if (tasks.length === 0) {
     console.log('[Dispatcher] No tasks found. Nothing to dispatch.');
