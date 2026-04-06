@@ -272,17 +272,14 @@ export async function dispatch(options) {
   const allWaves = computeWaves(finalAdjacency, taskMap);
   console.log(`[Dispatcher] Computed ${allWaves.length} execution wave(s).`);
 
-  // ── Step 5: Branch creation (skip in dry-run) ────────────────────────────
+  // ── Step 5: Epic branch creation (skip in dry-run) ─────────────────────────
+  // Task branches are created just-in-time during dispatch (Step 6), so that
+  // only branches for tasks that are actually dispatched in this run exist locally.
   if (!dryRun) {
     console.log(`[Dispatcher] Ensuring Epic base branch: ${epicBranch}`);
     ensureBranch(epicBranch, baseBranch);
 
     captureLintBaseline(epicBranch, settings);
-
-    for (const task of tasks) {
-      const taskBranch = `task/epic-${epicId}/${task.id}`;
-      ensureBranch(taskBranch, epicBranch);
-    }
   } else {
     console.log('[Dispatcher] Dry-run mode: skipping branch creation.');
   }
@@ -376,6 +373,9 @@ export async function dispatch(options) {
           status: 'dispatched',
         });
       } else {
+        // Create the task branch just-in-time, immediately before dispatch.
+        ensureBranch(taskBranch, epicBranch);
+
         // Transition ticket to agent::executing
         await provider.updateTicket(task.id, {
           labels: { add: [AGENT_EXECUTING_LABEL], remove: [AGENT_READY_LABEL] },
