@@ -30,7 +30,7 @@
     "ajv-formats": "^3.0.1",
     "husky": "^9.1.7",
     "lint-staged": "^16.2.7",
-    "markdownlint-cli": "^0.47.0",
+    "markdownlint-cli": "^0.48.0",
     "memfs": "^4.57.1",
     "prettier": "^3.7.4"
   }
