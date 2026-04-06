@@ -410,7 +410,7 @@ export class GitHubProvider extends ITicketingProvider {
 
     // Natively link as sub-issue
     try {
-      await this.addSubIssue(parentId, issue.id);
+      await this.addSubIssue(parentId, issue.node_id);
     } catch {
       // Sub-issues might not be enabled or permission issues — fallback to text-only link (already in body)
     }
