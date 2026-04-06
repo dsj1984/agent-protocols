@@ -49,7 +49,6 @@ You MUST respond ONLY with a valid JSON array of objects. No prose, no markdown 
 CRITICAL: Dependencies should follow execution blockers. For hierarchical grouping, strongly strictly use 'parent_slug' (Story parent MUST be a Feature, Task parent MUST be a Story). Features should have no 'parent_slug' (they attach to Epic).
 WARNING: You MUST conserve your output limit. Do NOT generate more than 20 tickets in total. Combine atomic tasks into larger, cohesive tasks. Do NOT cut off the JSON array prematurely!`;
 
-
 export async function decomposeEpic(epicId, provider, llm, config = {}) {
   console.log(
     `[Decomposer] Fetching Epic #${epicId} and its planning artifacts...`,
