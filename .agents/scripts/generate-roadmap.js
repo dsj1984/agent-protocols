@@ -51,20 +51,28 @@ async function main() {
   if (openEpics.length > 0) {
     lines.push('## 🚀 Active Epics');
     lines.push('');
+
+    // Resolve progress for all open epics concurrently (avoids N+1 sequential API calls).
+    const progressResults = await Promise.all(
+      openEpics.map(async (epic) => {
+        try {
+          const subTickets = await provider.getTickets(epic.id);
+          return { id: epic.id, subTickets };
+        } catch {
+          return { id: epic.id, subTickets: [] };
+        }
+      }),
+    );
+    const progressByEpicId = new Map(progressResults.map(r => [r.id, r.subTickets]));
+
     for (const epic of openEpics) {
       lines.push(`- [ ] **#${epic.id}** — ${epic.title}`);
-      
-      // Optionally fetch sub-tickets for more detail
-      try {
-        const subTickets = await provider.getTickets(epic.id);
-        const done = subTickets.filter(t => t.labels.includes('agent::done')).length;
-        const total = subTickets.length;
-        if (total > 0) {
-          const percent = Math.round((done / total) * 100);
-          lines.push(`  - Progress: ${percent}% (${done}/${total} tasks)`);
-        }
-      } catch (err) {
-        // Fallback for epics without child tickets or API issues
+      const subTickets = progressByEpicId.get(epic.id) ?? [];
+      const done = subTickets.filter(t => t.labels.includes('agent::done')).length;
+      const total = subTickets.length;
+      if (total > 0) {
+        const percent = Math.round((done / total) * 100);
+        lines.push(`  - Progress: ${percent}% (${done}/${total} tasks)`);
       }
     }
     lines.push('');

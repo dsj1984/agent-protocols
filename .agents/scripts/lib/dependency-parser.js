@@ -1,11 +1,9 @@
 /**
- * dependency-parser.js — Shared Dependency Parsing Utilities
+ * dependency-parser.js — Shared Dependency & Metadata Parsing Utilities
  *
- * Canonical implementation of dependency-related regex parsing.
- * Eliminates duplicated implementations across dispatcher.js,
- * verify-prereqs.js, and providers/github.js.
- *
- * @see docs/v5-implementation-plan.md §Dependencies
+ * Canonical implementation of dependency-related regex parsing and
+ * ticket metadata extraction. Eliminates duplicated implementations
+ * across dispatcher.js, verify-prereqs.js, and providers/github.js.
  */
 
 /**
@@ -54,4 +52,50 @@ export function isSafeBranchComponent(value) {
   // Allow: alphanumeric, hyphens, underscores, dots, forward slashes
   // Reject: everything else (shell metacharacters, spaces, etc.)
   return /^[a-zA-Z0-9._\-/]+$/.test(value);
+}
+
+/**
+ * Parse task execution metadata from the `## Metadata` section of a ticket body.
+ * Returns a plain object with `persona`, `model`, `mode`, `skills`, `focusAreas`,
+ * and `protocolVersion`.
+ *
+ * @param {string} body - Issue body text.
+ * @returns {{ persona: string, model: string, mode: string, skills: string[], focusAreas: string[], protocolVersion: string }}
+ */
+export function parseTaskMetadata(body) {
+  const defaults = {
+    persona: 'engineer',
+    model: '',
+    mode: 'fast',
+    skills: [],
+    focusAreas: [],
+    protocolVersion: '',
+  };
+
+  if (!body) return defaults;
+
+  const metaMatch = body.match(/##\s*Metadata\s*([\s\S]*?)(?=\n##|$)/i);
+  if (!metaMatch) return defaults;
+
+  const block = metaMatch[1];
+
+  function extractField(key) {
+    const m = block.match(new RegExp(`\\*\\*${key}\\*\\*\\s*:?\\s*(.+)`, 'i'));
+    return m ? m[1].trim() : null;
+  }
+
+  function extractList(key) {
+    const raw = extractField(key);
+    if (!raw) return [];
+    return raw.split(',').map(s => s.trim()).filter(Boolean);
+  }
+
+  return {
+    persona: extractField('Persona') || defaults.persona,
+    model: extractField('Model') || defaults.model,
+    mode: extractField('Mode') || defaults.mode,
+    skills: extractList('Skills'),
+    focusAreas: extractList('Focus Areas'),
+    protocolVersion: extractField('Protocol Version') || defaults.protocolVersion,
+  };
 }

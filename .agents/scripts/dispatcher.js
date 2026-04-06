@@ -40,7 +40,8 @@ import {
   autoSerializeOverlaps,
 } from './lib/Graph.js';
 import { hydrateContext } from './context-hydrator.js';
-import { parseBlockedBy, isSafeBranchComponent } from './lib/dependency-parser.js';
+import { parseBlockedBy, isSafeBranchComponent, parseTaskMetadata } from './lib/dependency-parser.js';
+import { notify } from './notify.js';
 
 const __filename = fileURLToPath(import.meta.url);
 
@@ -126,52 +127,6 @@ function captureLintBaseline(epicBranch, settings) {
   }
 }
 
-// parseBlockedBy is now imported from lib/dependency-parser.js (M-1).
-
-/**
- * Parse task metadata from the `## Metadata` section of a ticket body.
- * Returns a plain object with `persona`, `model`, `mode`, `skills`, `focusAreas`.
- *
- * @param {string} body
- * @returns {{ persona: string, model: string, mode: string, skills: string[], focusAreas: string[], protocolVersion: string }}
- */
-function parseTaskMetadata(body) {
-  const defaults = {
-    persona: 'engineer',
-    model: '',
-    mode: 'fast',
-    skills: [],
-    focusAreas: [],
-    protocolVersion: '',
-  };
-
-  if (!body) return defaults;
-
-  const metaMatch = body.match(/##\s*Metadata\s*([\s\S]*?)(?=\n##|$)/i);
-  if (!metaMatch) return defaults;
-
-  const block = metaMatch[1];
-
-  function extractField(key) {
-    const m = block.match(new RegExp(`\\*\\*${key}\\*\\*\\s*:?\\s*(.+)`, 'i'));
-    return m ? m[1].trim() : null;
-  }
-
-  function extractList(key) {
-    const raw = extractField(key);
-    if (!raw) return [];
-    return raw.split(',').map(s => s.trim()).filter(Boolean);
-  }
-
-  return {
-    persona: extractField('Persona') || defaults.persona,
-    model: extractField('Model') || defaults.model,
-    mode: extractField('Mode') || defaults.mode,
-    skills: extractList('Skills'),
-    focusAreas: extractList('Focus Areas'),
-    protocolVersion: extractField('Protocol Version') || defaults.protocolVersion,
-  };
-}
 
 // ---------------------------------------------------------------------------
 // Model resolution helper
@@ -456,13 +411,12 @@ async function detectEpicCompletion({ epicId, epic, tasks, manifest, provider, s
   }
 
   // Fire the epic-complete webhook (INFO — no action required)
-  const webhookUrl = settings.notificationWebhookUrl;
-  if (webhookUrl) {
+  if (settings.notificationWebhookUrl) {
     try {
-      execSync(
-        `node .agents/scripts/notify.js "Epic #${epicId} complete. All tasks done. Bookend Lifecycle starting."`,
-        { cwd: PROJECT_ROOT, encoding: 'utf8', stdio: 'inherit' },
-      );
+      await notify(epicId, {
+        type: 'notification',
+        message: `Epic #${epicId} complete. All tasks done. Bookend Lifecycle starting.`,
+      }, { orchestration: { github: { operatorHandle: '' }, notifications: { webhookUrl: settings.notificationWebhookUrl } } });
     } catch (err) {
       console.warn(`[Dispatcher] Webhook notification failed (non-fatal): ${err.message}`);
     }

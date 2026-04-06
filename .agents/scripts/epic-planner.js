@@ -89,14 +89,23 @@ export async function planEpic(epicId, provider, llm, settings = {}) {
   if (settings.docsRoot && fs.existsSync(settings.docsRoot)) {
     console.log(`[Epic Planner] Scraping project docs from ${settings.docsRoot}...`);
     try {
-      const files = fs.readdirSync(settings.docsRoot, { recursive: true });
-      const mdFiles = files.filter(f => typeof f === 'string' && f.endsWith('.md'));
-      
-      for (const file of mdFiles) {
-        const filePath = path.join(settings.docsRoot, file);
-        if (fs.statSync(filePath).isFile()) {
-           const content = fs.readFileSync(filePath, 'utf-8');
-           docsContext += `\n\n--- Document: ${file} ---\n${content}`;
+      // If an explicit allowlist is configured, use only those files.
+      // Otherwise fall back to top-level (non-recursive) .md files to avoid
+      // unbounded context inflation from nested artifacts.
+      let targetFiles;
+      if (Array.isArray(settings.docsContextFiles) && settings.docsContextFiles.length > 0) {
+        targetFiles = settings.docsContextFiles.map(f => ({ name: f, full: path.join(settings.docsRoot, f) }));
+      } else {
+        const entries = fs.readdirSync(settings.docsRoot, { withFileTypes: true });
+        targetFiles = entries
+          .filter(e => e.isFile() && e.name.endsWith('.md'))
+          .map(e => ({ name: e.name, full: path.join(settings.docsRoot, e.name) }));
+      }
+
+      for (const { name, full } of targetFiles) {
+        if (fs.existsSync(full) && fs.statSync(full).isFile()) {
+          const content = fs.readFileSync(full, 'utf-8');
+          docsContext += `\n\n--- Document: ${name} ---\n${content}`;
         }
       }
     } catch (err) {
