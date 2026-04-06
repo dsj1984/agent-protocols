@@ -49,3 +49,52 @@ export function gitSpawn(cwd, ...args) {
     stderr: (result.stderr ?? '').trim(),
   };
 }
+
+/**
+ * Resolves the canonical branch name for an Epic.
+ * v5 Standard: epic/[EPIC_ID]
+ * @param {string|number} epicId
+ * @returns {string}
+ */
+export function getEpicBranch(epicId) {
+  return `epic/${epicId}`;
+}
+
+/**
+ * Resolves the canonical branch name for a Story.
+ * v5 Standard: story/epic-[EPIC_ID]/[STORY_SLUG]
+ * @param {string|number} epicId
+ * @param {string} storySlug
+ * @returns {string}
+ */
+export function getStoryBranch(epicId, storySlug) {
+  // Sanitize slug (alphanumeric, -, _) to ensure valid git branch
+  const cleanSlug = storySlug
+    .toLowerCase()
+    .replace(/[^a-z0-9_-]/g, '-')
+    .replace(/-+/g, '-') // collapse multiple hyphens
+    .replace(/^-|-$/g, ''); // trim hyphens at ends
+  return `story/epic-${epicId}/${cleanSlug}`;
+}
+
+/**
+ * Resolves the canonical branch name for a Task.
+ * v5 Standard (Legacy): task/epic-[EPIC_ID]/[TASK_ID]
+ * @param {string|number} epicId
+ * @param {string|number} taskId
+ * @returns {string}
+ */
+export function getTaskBranch(epicId, taskId) {
+  return `task/epic-${epicId}/${taskId}`;
+}
+
+/**
+ * Resolves the ephemeral candidate branch name for integration verification.
+ * v5 Standard: integration-candidate-epic-[EPIC_ID]-[TASK_ID]
+ * @param {string|number} epicId
+ * @param {string|number} taskId
+ * @returns {string}
+ */
+export function getIntegrationCandidateBranch(epicId, taskId) {
+  return `integration-candidate-epic-${epicId}-${taskId}`;
+}
