@@ -29,7 +29,8 @@
 import path from 'node:path';
 import fs from 'node:fs';
 import { fileURLToPath } from 'node:url';
-import { execSync } from 'node:child_process';
+import { execFileSync } from 'node:child_process';
+import { parseArgs } from 'node:util';
 import { resolveConfig, PROJECT_ROOT } from './lib/config-resolver.js';
 import { createProvider } from './lib/provider-factory.js';
 import { createAdapter } from './lib/adapter-factory.js';
@@ -42,6 +43,7 @@ import {
 import { hydrateContext } from './context-hydrator.js';
 import { parseBlockedBy, isSafeBranchComponent, parseTaskMetadata } from './lib/dependency-parser.js';
 import { notify } from './notify.js';
+import { gitSync } from './lib/git-utils.js';
 
 const __filename = fileURLToPath(import.meta.url);
 
@@ -64,15 +66,13 @@ const TYPE_TASK_LABEL = 'type::task';
 
 /**
  * Run a git command, returning stdout. Throws on non-zero exit.
- * @param {string} cmd
+ * Delegates to the shared gitSync utility (lib/git-utils.js).
+ *
+ * @param {string[]} args
  * @returns {string}
  */
-function git(cmd) {
-  return execSync(`git ${cmd}`, {
-    cwd: PROJECT_ROOT,
-    encoding: 'utf8',
-    stdio: ['pipe', 'pipe', 'pipe'],
-  }).trim();
+function git(args) {
+  return gitSync(PROJECT_ROOT, ...args);
 }
 
 /**
@@ -90,11 +90,11 @@ function ensureBranch(branchName, baseBranch) {
     );
   }
   try {
-    git(`rev-parse --verify ${branchName}`);
+    git(['rev-parse', '--verify', branchName]);
     console.log(`[Dispatcher] Branch already exists: ${branchName}`);
   } catch {
-    git(`checkout -b ${branchName} ${baseBranch}`);
-    git(`checkout ${baseBranch}`);
+    git(['checkout', '-b', branchName, baseBranch]);
+    git(['checkout', baseBranch]);
     console.log(`[Dispatcher] Created branch: ${branchName} from ${baseBranch}`);
   }
 }
@@ -117,10 +117,11 @@ function captureLintBaseline(epicBranch, settings) {
 
   console.log(`[Dispatcher] Capturing lint baseline on ${epicBranch}...`);
   try {
-    execSync(`node .agents/scripts/lint-baseline.js capture`, {
+    execFileSync('node', [path.join(PROJECT_ROOT, '.agents/scripts/lint-baseline.js'), 'capture'], {
       cwd: PROJECT_ROOT,
       encoding: 'utf8',
       stdio: 'inherit',
+      shell: false,
     });
   } catch (err) {
     console.warn(`[Dispatcher] Lint baseline capture failed (non-fatal): ${err.message}`);
@@ -477,31 +478,28 @@ function buildManifest({ epicId, epic, tasks, waves, dispatched, heldForApproval
 // ---------------------------------------------------------------------------
 
 async function main() {
-  const args = process.argv.slice(2);
+  const { values } = parseArgs({
+    options: {
+      epic:      { type: 'string' },
+      'dry-run': { type: 'boolean', default: false },
+      executor:  { type: 'string' },
+    },
+    strict: false,
+  });
 
-  // Parse flags
-  const epicIdx = args.indexOf('--epic');
-  if (epicIdx === -1 || !args[epicIdx + 1]) {
+  const epicId = parseInt(values.epic ?? '', 10);
+  if (!values.epic || isNaN(epicId) || epicId <= 0) {
     console.error('Usage: node dispatcher.js --epic <epicId> [--dry-run] [--executor <name>]');
     process.exit(1);
   }
 
-  const epicId = parseInt(args[epicIdx + 1], 10);
-  if (isNaN(epicId) || epicId <= 0) {
-    console.error('[Dispatcher] --epic must be a positive integer.');
-    process.exit(1);
-  }
-
-  const dryRun = args.includes('--dry-run');
-
-  const execIdx = args.indexOf('--executor');
-  const executorOverride = execIdx !== -1 ? args[execIdx + 1] : undefined;
+  const dryRun = values['dry-run'] ?? false;
+  const executorOverride = values.executor;
 
   console.log(`[Dispatcher] Starting dispatch for Epic #${epicId}${dryRun ? ' (DRY-RUN)' : ''}...`);
 
   const manifest = await dispatch({ epicId, dryRun, executorOverride });
 
-  // Write manifest to output
   const manifestDir = path.join(PROJECT_ROOT, 'temp');
   if (!fs.existsSync(manifestDir)) fs.mkdirSync(manifestDir, { recursive: true });
   const manifestPath = path.join(manifestDir, `dispatch-manifest-${epicId}.json`);

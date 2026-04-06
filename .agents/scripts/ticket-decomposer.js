@@ -14,6 +14,7 @@ import { fileURLToPath } from 'node:url';
 import { createProvider } from './lib/provider-factory.js';
 import { LLMClient } from './lib/llm-client.js';
 import { resolveConfig } from './lib/config-resolver.js';
+import { detectCycle } from './lib/Graph.js';
 
 const DECOMPOSER_SYSTEM_PROMPT = `You are an expert Senior Project Manager and Orchestrator.
 Your job is to take a Product Requirements Document (PRD) and a Technical Specification and decompose them into a highly-granular 3-level ticket hierarchy for an AI Agent to execute.
@@ -128,21 +129,14 @@ Please decompose the above into a complete ticket backlog. Respond with the JSON
     }
   }
 
-  // Acyclic check for dependencies
-  for (const ticket of tickets) {
-    const visited = new Set();
-    const dfs = (currentSlug) => {
-       if (visited.has(currentSlug)) throw new Error(`Cross-Validation Failed: Circular dependency detected involving "${currentSlug}".`);
-       visited.add(currentSlug);
-       const current = ticketBySlug.get(currentSlug);
-       if (current && current.depends_on) {
-          for (const dep of current.depends_on) {
-             dfs(dep);
-          }
-       }
-       visited.delete(currentSlug);
-    };
-    dfs(ticket.slug);
+  // Acyclic dependency check — delegate to the shared Graph.js implementation
+  // rather than re-implementing DFS from scratch.
+  const slugAdjacency = new Map(
+    tickets.map(t => [t.slug, t.depends_on ?? []])
+  );
+  const cycle = detectCycle(slugAdjacency);
+  if (cycle) {
+    throw new Error(`Cross-Validation Failed: Circular dependency detected: ${cycle.join(' → ')}.`);
   }
 
   console.log(`[Decomposer] Identified ${tickets.length} tickets. Starting creation...`);
