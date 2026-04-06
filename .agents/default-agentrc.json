@@ -10,7 +10,6 @@
     "scriptsRoot": ".agents/scripts",
     "workflowsRoot": ".agents/workflows",
     "personasRoot": ".agents/personas",
-    "keysRoot": ".agents/keys",
     "schemasRoot": ".agents/schemas",
     "docsRoot": "docs",
     "tempRoot": "temp",
@@ -66,9 +65,6 @@
       "enableAutoSplit": true,
       "enableComplexityWarnings": true,
       "maxSubstepsPerTask": 5
-    },
-    "securityOptions": {
-      "requireCryptographicProvenance": false
     },
     "executionTimeoutMs": 300000,
     "executionMaxBuffer": 10485760,

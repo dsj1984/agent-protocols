@@ -10,8 +10,3 @@ dist
 
 tmp/
 temp/
-
-# Cryptographic Keys - NEVER commit private keys
-.agents/keys/private.pem
-*.key
-**/private.pem
