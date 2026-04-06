@@ -14,9 +14,9 @@ You are performing a comprehensive, read-only audit of this repository's testing
 infrastructure, test coverage, and overall quality assurance practices. Your
 goal is to identify testing gaps, flaky tests, inefficient mocking strategies,
 and opportunities to improve test execution speed and reliability without making
-any immediate changes. Additionally, you must evaluate the sprint test plans
-against the `[DOCS_ROOT]/roadmap.md` and the current codebase to ensure all test
-documentation is complete, consistent, and accurate.
+any immediate changes. Additionally, you must evaluate the implemented tests
+against the `roadmap.md` and the current codebase to ensure all quality
+requirements are met and correctly documented.
 
 **Note on Testing Responsibilities**: When evaluating test maturity, note the
 established standard: Software Engineers (SWEs) must provide comprehensive unit
@@ -24,12 +24,11 @@ and integration test coverage alongside their feature implementations. The QA
 Engineering function focuses on End-to-End (E2E) testing, complex system
 integrations, and test environment stability.
 
-## Step 0 - Path Resolution
+## Step 0 - Project Context
 
-1.  Resolve `[SPRINT_ROOT]` as the directory `sprint-[PADDED_NUM]` within the
-    `sprintDocsRoot` prefix, both defined in `.agentrc.json`.
-2.  `[PADDED_NUM]` is the `[SPRINT_NUMBER]` padded according to the
-    `sprintNumberPadding` setting in the same config.
+1.  Read `roadmap.md` to identify the current milestone and target features for
+    the active Epic.
+2.  Identify the target codebase paths for the audit.
 
 ## Step 1: Context Gathering (Read-Only Scan)
 
@@ -40,9 +39,8 @@ files. Pay special attention to:
   `playwright.config.ts`, `cypress.json`).
 - Test directories and files (e.g., `__tests__/`, `spec/`, `e2e/`, `*.test.ts`,
   `*.spec.js`).
-- Manual and automated test plans stored and organized in `[SPRINT_ROOT]/`.
-- Product documentation like `[DOCS_ROOT]/roadmap.md` to map out expected
-  features versus documented/implemented tests.
+- Product documentation like `roadmap.md` to map out expected features versus
+  implemented tests.
 - Mocking and stubbing setups (e.g., `__mocks__/`, `setupTests.js`, MSW
   handlers).
 - CI/CD workflow files to understand how and when tests are executed.
@@ -65,11 +63,10 @@ Evaluate the gathered context against the following test quality dimensions:
 5. **Performance & Execution:** Find bottlenecks in the test suite, such as
    unnecessary serial execution, heavy setup running too frequently, or
    opportunities for parallelization.
-6. **Test Plan Alignment:** Cross-reference the features outlined in
-   `[DOCS_ROOT]/roadmap.md` to ensure they have corresponding and complete test
-   plans within `[SPRINT_ROOT]/test-plan.md`. Verify that the test plans
-   accurately reflect the exact implementation found in the codebase and
-   highlight any inconsistencies, gaps, or outdated assertions.
+6. **Requirement Alignment:** Cross-reference the features outlined in
+   `roadmap.md` to ensure they have corresponding and complete test coverage.
+   Verify that the implementation found in the codebase correctly matches the
+   architectural requirements and highlight any inconsistencies or gaps.
 
 ## Step 3: Output Requirements
 

@@ -2,7 +2,7 @@ import { describe, it } from 'node:test';
 import assert from 'node:assert/strict';
 import fs from 'node:fs';
 import path from 'node:path';
-import { fileURLToPath } from 'node:url';
+import { fileURLToPath, pathToFileURL } from 'node:url';
 
 const __dirname = path.dirname(fileURLToPath(import.meta.url));
 const ROOT = path.resolve(__dirname, '..');
@@ -142,4 +142,43 @@ describe('Workflows — each file must contain ## Constraint', () => {
       });
     }
   }
+});
+
+// ---------------------------------------------------------------------------
+// v5 Infrastructure — ticketing provider and config
+// ---------------------------------------------------------------------------
+describe('v5 Infrastructure files', () => {
+  const v5Files = [
+    'scripts/lib/ITicketingProvider.js',
+    'scripts/lib/config-resolver.js',
+    'scripts/lib/provider-factory.js',
+    'scripts/providers/github.js',
+    'scripts/bootstrap-agent-protocols.js',
+  ];
+
+  for (const file of v5Files) {
+    it(`${file} exists`, () => {
+      assert.ok(
+        fs.existsSync(agentsPath(file)),
+        `Missing v5 file: .agents/${file}`,
+      );
+    });
+  }
+
+  it('ITicketingProvider exports a class', async () => {
+    const mod = await import(
+      pathToFileURL(path.join(AGENTS, 'scripts', 'lib', 'ITicketingProvider.js')).href
+    );
+    assert.ok(typeof mod.ITicketingProvider === 'function', 'ITicketingProvider must be a class');
+  });
+
+  it('config-resolver exports validateOrchestrationConfig', async () => {
+    const mod = await import(
+      pathToFileURL(path.join(AGENTS, 'scripts', 'lib', 'config-resolver.js')).href
+    );
+    assert.ok(
+      typeof mod.validateOrchestrationConfig === 'function',
+      'config-resolver must export validateOrchestrationConfig',
+    );
+  });
 });

@@ -10,24 +10,18 @@
     "scriptsRoot": ".agents/scripts",
     "workflowsRoot": ".agents/workflows",
     "personasRoot": ".agents/personas",
-    "keysRoot": ".agents/keys",
     "schemasRoot": ".agents/schemas",
     "docsRoot": "docs",
-    "sprintDocsRoot": "docs/sprints",
-    "sprintNumberPadding": 3,
     "tempRoot": "temp",
-    "taskStateRoot": "temp/task-state",
-    "goldenExamplesRoot": "temp/golden-examples",
-    "maxGoldenExampleLines": 200,
-    "eventStreamsRoot": "temp/event-streams",
-    "workspacesRoot": "temp/workspaces",
+    "roadmap": {
+      "autoGenerate": true,
+      "excludeLabels": ["roadmap-exclude"]
+    },
     "verboseLogging": {
       "enabled": false,
       "logDir": "temp/verbose-logs"
     },
     "maxTokenBudget": 1000000,
-    "budgetWarningThreshold": 0.8,
-    "notificationWebhookUrl": "",
     "validationCommand": "pnpm turbo run lint typecheck",
     "lintBaselineCommand": "pnpm exec eslint . --format json",
     "lintBaselinePath": "temp/lint-baseline.json",
@@ -44,35 +38,6 @@
     "defaultModels": {
       "planningFallback": "Claude Sonnet 4.6 (Think) OR Gemini 3.1 Pro (High)",
       "fastFallback": "Gemini 3 Flash"
-    },
-    "apcCacheSettings": {
-      "strictHashing": true,
-      "ttlDays": 30,
-      "enableSpeculativeExecution": true,
-      "cacheDir": "temp/apc-cache"
-    },
-    "complexity": {
-      "maxComplexityScore": 8,
-      "instructionLengthBreakpoints": [
-        800,
-        1600,
-        2400
-      ],
-      "estimatedFilesBreakpoints": [
-        5,
-        10,
-        20
-      ],
-      "focusAreasBreakpoints": [
-        3,
-        6
-      ],
-      "enableAutoSplit": true,
-      "enableComplexityWarnings": true,
-      "maxSubstepsPerTask": 5
-    },
-    "securityOptions": {
-      "requireCryptographicProvenance": false
     },
     "executionTimeoutMs": 300000,
     "executionMaxBuffer": 10485760,
@@ -108,12 +73,6 @@
           "core/idea-refinement"
         ],
         "model": "Claude Sonnet 4.6 (Think) OR Gemini 3.1 Pro (High)"
-      },
-      "isCloseSprint": {
-        "persona": "devops-engineer",
-        "skills": [
-          "core/git-workflow-and-versioning"
-        ]
       }
     },
     "riskGates": {
@@ -258,6 +217,24 @@
     "deployment": {
       "platform": "Cloudflare",
       "ci": "GitHub Actions"
+    }
+  },
+  "orchestration": {
+    "provider": "github",
+    "github": {
+      "owner": "[OWNER]",
+      "repo": "[REPO]",
+      "projectNumber": null,
+      "operatorHandle": "@[USERNAME]"
+    },
+    "notifications": {
+      "mentionOperator": true
+    },
+    "llm": {
+      "provider": "gemini",
+      "model": "gemini-2.5-pro",
+      "maxInputTokens": 64000,
+      "maxOutputTokens": 8192
     }
   }
 }

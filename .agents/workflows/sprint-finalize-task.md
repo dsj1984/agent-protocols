@@ -1,116 +1,165 @@
 ---
-description:
+description: >-
   Standard validation, commit, completion, and notification workflow for agent
-  sprint tasks.
+  sprint tasks. Integrates with update-ticket-state.js for v5 GitHub-native
+  state management.
 ---
-
-<!-- // turbo-all -->
 
 # Sprint Finalize Task
 
-When instructed to finalize a sprint task, you must execute the following steps
-precisely:
+When instructed to finalize a sprint task, execute the following steps
+precisely. This workflow integrates with the **v5 State Sync Engine** —
+`update-ticket-state.js` — to synchronize progress directly to GitHub.
 
-## Step 0 - Path Resolution
+## Step 0 — Resolve Configuration
 
-1.  Resolve `[SPRINT_ROOT]` as the directory `sprint-[PADDED_NUM]` within the
-    `sprintDocsRoot` prefix, both defined in `.agentrc.json`.
-2.  `[PADDED_NUM]` is the `[SPRINT_NUMBER]` padded according to the
-    `sprintNumberPadding` setting in the same config.
-3.  Resolve `[TASK_STATE_ROOT]` from the `taskStateRoot` field in
-    `.agentrc.json` (default: `temp/task-state`).
-4.  Resolve `[BASE_BRANCH]` from the `baseBranch` field in `.agentrc.json`
-    (default: `main`).
-5.  `[TASK_ID]` is the **dotted numeric playbook ID** (e.g., `045.2.1`) from the
-    playbook header, NOT the manifest slug or branch suffix. You can find it in
-    the bold task number next to the checkbox in `playbook.md`.
+1. Resolve `[TASK_ID]` — the GitHub Issue number of the Task being finalized.
+2. Resolve `[EPIC_ID]` — from the Task body `## Metadata` → `Epic: #<N>`.
+3. Resolve `[TASK_BRANCH]` — `task/epic-<epicId>/<taskId>`.
+4. Resolve `[EPIC_BRANCH]` — `epic/<epicId>`.
+5. Resolve `[BASE_BRANCH]` from `baseBranch` in `.agentrc.json` (default:
+   `main`).
+6. Resolve `[SCRIPTS_ROOT]` from `scriptsRoot` in `.agentrc.json` (default:
+   `.agents/scripts`).
 
-## Step 1 - Branch Guard
+## Step 1 — Branch Guard
 
-1. **Branch Guard**: Before ANY git operations, verify you are NOT on the base
-   branch (defined as "baseBranch" in .agentrc.json). Run
-   `git branch --show-current`. If the result is the base branch, **STOP
-   IMMEDIATELY** and alert the user. All sprint work MUST happen on
-   `sprint-[NUM]` or a `sprint-[NUM]/[TASK_ID]` feature branch.
-2. **Branch & Commit**:
-   - **If completing a Bookend Task** (Integration, QA, Code Review, Retro): DO
-     NOT create or checkout a feature branch. Remain on
-     `sprint-[SPRINT_NUMBER]`.
-   - **If completing a Feature Task**: If not already on your feature branch,
-     create it now: \`git checkout sprint-[SPRINT_NUMBER] ; git checkout -b
-     task/sprint-[SPRINT_NUMBER]/[TASK_ID]\`.
-   - **Note**: Stage your changes and commit using standard conventional
-     commits: \`[type]([scope]): [lowercase conventional commit message]\`.
-3. **Runtime Rebase Wait-Loop**: Ensure your feature branch is perfectly
-   up-to-date with the rest of the sprint and structurally sound.
-   - Run `git pull --rebase origin sprint-[SPRINT_NUMBER]`.
-   - If there are conflicts, you **MUST** resolve them now locally. Stage the
-     resolutions and run `git rebase --continue`.
-4. **Validation**: Ensure all validation passes without degrading lint health.
-   - Run the baseline checker: `node [SCRIPTS_ROOT]/lint-baseline.js check`
-   - Run type-checking: `[TYPECHECK_COMMAND]` (resolved from `typecheckCommand`
-     in `.agentrc.json`).
-   - Fix and commit any resulting errors or new lint warnings.
-5. **Shift-Left Testing**: Run `[TEST_COMMAND]` (resolved from `testCommand` in
-   `.agentrc.json`).
-   - If tests fail: Stop immediately, fix the tests, and commit the fixes.
-   - If tests pass: Proceed.
-6. **Push Branch**: Push your code upstream:
-   `git push --force-with-lease -u origin HEAD`. _(Note: For Bookend tasks, this
-   will push directly to the sprint base branch)._
-7. **State Sync**: Switch back to `sprint-[NUM]`. Execute `git pull --rebase` to
-   fetch any state updates from sibling agents.
-8. **Update Task State (Decoupled)**:
-   - Run the state update script to mark the task as committed:
-     `node [SCRIPTS_ROOT]/update-task-state.js [TASK_ID] committed`
-   - **Test Receipt**: Run the state update script again to generate the test
-     receipt: `node [SCRIPTS_ROOT]/update-task-state.js [TASK_ID] passed`
-   - **Note**: This decoupled approach prevents git merge conflicts when
-     multiple agents are finalizing tasks simultaneously.
+1. **Branch Guard**: Before ANY git operations, verify you are on the correct
+   Task feature branch.
 
-9. **Golden-Path Harvesting**: If this task was completed without tool friction,
-   harvest the implementation diff as a few-shot example for future agents:
-   `node [SCRIPTS_ROOT]/harvest-golden-path.js --task [TASK_ID] --sprint [SPRINT_ROOT] --base [BASE_BRANCH]`
-   - **Note**: This script will automatically abort if the task logged errors to
-     `agent-friction-log.json`.
+   ```powershell
+   git branch --show-current
+   ```
 
-10. **Commit State**:
+   If the result is `main`, `[EPIC_BRANCH]`, or any other non-Task branch,
+   **STOP IMMEDIATELY** and alert the operator. All Task implementation work
+   MUST occur on `[TASK_BRANCH]`.
 
-- **If `[TASK_STATE_ROOT]` is within `/temp/`**: Skip Git operations for the
-  state file (it is local-only).
-- **If `[TASK_STATE_ROOT]` is NOT in a Git-ignored directory**: Stage and commit
-  the state files:
-  `git add [TASK_STATE_ROOT]/[TASK_ID].json [TASK_STATE_ROOT]/[TASK_ID]-test-receipt.json ; git commit -m "chore(task): mark [TASK_ID] as committed with test receipt"`.
-  Push this tracking commit upstream: `git push`. (If it fails, pull --rebase
-  and push again).
+2. **Sync**: Pull the latest from the Epic base branch via rebase:
 
-1. **Notification**: Resolve `[WEBHOOK_URL]` from the `notificationWebhookUrl`
-   field in `.agentrc.json`. If `notificationWebhookUrl` is not empty, send a
-   notification using the cross-platform Node script:
-   - **Protocol**:
-     `node [SCRIPTS_ROOT]/notify.js "[WEBHOOK_URL]" "[TASK_ID]: Sprint step pushed to its feature branch."`
-   - **Failure Logging**: If the notification script fails, log the failure
-     using the provided script:
-     `node [SCRIPTS_ROOT]/log-friction.js "[SPRINT_ROOT]/agent-friction-log.json" "friction_point" "notify.js" "[ERROR_MESSAGE]"`
-   - If `notificationWebhookUrl` is empty, skip gracefully.
+   ```powershell
+   git pull --rebase origin [EPIC_BRANCH]
+   ```
 
-2. **Finalize**: Stage and commit any newly harvested golden examples along with
-   your state updates (Step 10).
+   If there are conflicts, resolve them, stage, and run `git rebase --continue`.
+
+## Step 2 — Validate
+
+1. **Lint check**: Ensure no new lint issues have been introduced.
+
+   ```powershell
+   npm run lint
+   ```
+
+2. **Tests**: Run the full test suite.
+
+   ```powershell
+   npm test
+   ```
+
+   If either command fails: fix the issues and commit the fixes before
+   continuing.
+
+## Step 3 — Commit & Push
+
+1. Stage and commit all changes:
+
+   ```powershell
+   git add .
+   git commit --no-verify -m "feat(<scope>): <task title> (resolves #[TASK_ID])"
+   ```
+
+2. Push the feature branch upstream:
+
+   ```powershell
+   git push --force-with-lease -u origin [TASK_BRANCH]
+   ```
+
+## Step 4 — Create Pull Request
+
+Create a Pull Request against `[EPIC_BRANCH]` (the Epic base branch, **not**
+`main`):
+
+- **Title**: `feat: <Task title>`
+- **Body** must include: `Closes #[TASK_ID]`
+- **Reviewer**: Set to `operatorHandle` from `orchestration.github` in
+  `.agentrc.json`
+
+Use the GitHub MCP tool or the provider to create PR programmatically.
+
+## Step 5 — State Sync (v5)
+
+Use the `update-ticket-state.js` state writer to sync progress to GitHub. These
+are programmatic calls within the agent loop (or via temporary inline Node
+scripts):
+
+1. **Post a progress comment** on the Task ticket with the PR link:
+
+   ```javascript
+   // postStructuredComment([TASK_ID], 'progress', 'PR created: <PR_URL>. Implementation complete, awaiting review.')
+   ```
+
+2. **Transition the Task label** to `agent::review`:
+
+   ```javascript
+   // transitionTicketState([TASK_ID], 'agent::review')
+   ```
+
+3. **Toggle the tasklist checkbox** in the parent Story body:
+
+   ```javascript
+   // toggleTasklistCheckbox([STORY_ID], [TASK_ID], true)
+   ```
+
+   Resolve `[STORY_ID]` from the Task body `## Metadata` → `Story: #<N>`.
+
+> **Note:** After merge, `cascadeCompletion([TASK_ID])` should be triggered to
+> propagate `agent::done` up through the Story → Feature → Epic hierarchy. This
+> is typically called by the `/sprint-integration` bookend workflow.
+
+## Step 6 — Notification
+
+If `notificationWebhookUrl` is configured in `.agentrc.json`, fire a
+notification:
+
+```powershell
+node [SCRIPTS_ROOT]/notify.js "[TASK_ID]: Task implementation complete. PR open for review."
+```
+
+If the notification fails, log it:
+
+```powershell
+node [SCRIPTS_ROOT]/log-friction.js "agent-friction-log.json" "friction_point" "notify.js" "[ERROR_MESSAGE]"
+```
+
+If `notificationWebhookUrl` is empty, skip gracefully.
+
+## Step 7 — For Risk::High Tasks
+
+If the Task has a `risk::high` label:
+
+- **Do not** proceed to cascade. Remain at `agent::review`.
+- The operator must manually approve the PR before the state writer's
+  `cascadeCompletion` is triggered.
+- Post a HITL gate comment on the ticket:
+
+  ```javascript
+  // postStructuredComment([TASK_ID], 'notification', '⚠️ HITL Gate: This task is risk::high. Awaiting operator approval before cascade.')
+  ```
 
 ## State Progression Reference
 
-| Transition                   | Location           | Triggered By                      |
-| ---------------------------- | ------------------ | --------------------------------- |
-| Not Started → Executing      | State JSON         | Agent Execution Protocol (Step 2) |
-| Executing → Committed        | State JSON         | This workflow (Step 7)            |
-| Committed → Complete (`[x]`) | Playbook / Mermaid | `sprint-integration` workflow     |
+| Transition                           | Mechanism                              | Triggered By             |
+| ------------------------------------ | -------------------------------------- | ------------------------ |
+| `agent::ready` → `agent::executing`  | `transitionTicketState`                | `/sprint-execute` Step 1 |
+| `agent::executing` → `agent::review` | `transitionTicketState` (Step 5 above) | This workflow            |
+| `agent::review` → `agent::done`      | `cascadeCompletion` (after PR merge)   | `/sprint-integration`    |
+| Parent auto-completion cascade       | `cascadeCompletion` (recursive)        | `/sprint-integration`    |
 
 ## Constraint
 
-Do NOT skip any of the steps above. You MUST ensure validation passes, your code
-branch is pushed, AND the decoupled task state file is committed.
-
-**For Feature Tasks:** Do NOT merge your feature branch code directly into the
-sprint base branch — the `sprint-integration` workflow handles all code merging.
-**For Bookend Tasks:** You will push directly to the sprint base branch since
-development is frozen and integration is already complete.
+- Do **not** merge the Task branch directly into `main`. The
+  `/sprint-integration` bookend workflow handles all merges.
+- Do **not** skip the state sync steps. GitHub is the Single Source of Truth.
+- Do **not** call the legacy `update-task-state.js` script — it is deprecated in
+  v5 and will be removed in Sprint 3F.

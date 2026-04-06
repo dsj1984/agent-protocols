@@ -1,9 +1,8 @@
 {
-  ".agents/**/*.md": [
-    "markdownlint --fix",
-    "prettier --write"
+  "**/*.js": [
+    "biome check --write"
   ],
-  "*.md": [
+  "{.agents/**/,}*.md": [
     "markdownlint --fix",
     "prettier --write"
   ]

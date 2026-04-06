@@ -1,261 +1,136 @@
 # Agent Protocols 🤖
 
-Agent Protocols is a structured framework of instructions, personas, skills, and
-SDLC workflows designed to optimize agentic AI coding assistants. It serves as a
-centralized, shared foundation to help LLM-based agents maintain code quality,
-architectural consistency, and professional standards across all your projects.
+A structured framework of instructions, personas, skills, and SDLC workflows
+that govern AI coding assistants. Version 5 is a **ground-up rewrite** built on
+**Epic-Centric GitHub Orchestration** — all planning, execution, and state
+management lives natively in GitHub Issues, Labels, and Projects V2.
 
-## Table of Contents
+## Architecture Overview
 
-- [How to Use and Update](#how-to-use-and-update)
-- [Repository Structure](#repository-structure)
-- [Contributions](#contributions)
-- [Personal Agentic Dev Stack](#personal-agentic-dev-stack)
+```mermaid
+graph LR
+    subgraph Human ["👤 Human"]
+        A["Create Epic Issue"]
+        B["Trigger /sprint-plan"]
+    end
 
-## How to Use and Update
+    subgraph Planning ["🤖 Autonomous Planning"]
+        C["PRD & Tech Spec Generation"]
+        D["4-Tier Ticket Decomposition"]
+    end
 
-This framework is distributed via the `dist` branch and is meant to be added as
-a Git submodule in your project's `.agents/` directory.
+    subgraph Execution ["🤖 Agentic Execution"]
+        E["DAG-Based Task Dispatch"]
+        F["Context Hydration & Implementation"]
+    end
 
-### 1. Initial Setup
+    subgraph Closure ["🤖 Integration & Closure"]
+        G["Branch Integration & Stabilization"]
+        H["Completion Cascade & Release"]
+    end
 
-Add the submodule to your project:
-
-```bash
-git submodule add -b dist https://github.com/dsj1984/agent-protocols.git .agents
+    A --> B --> C --> D --> E --> F --> G --> H
 ```
 
-### 2. Update Strategies
+- **GitHub as SSOT**: Issues, Labels, and Projects V2 are the single source of
+  truth. No local playbooks or sprint files.
+- **Provider Abstraction**: All ticketing operations flow through
+  `ITicketingProvider`, an abstract interface with a shipped GitHub
+  implementation using native `fetch()` (Node 20+).
+- **Two-Command UX**: `/sprint-plan` generates PRDs, Tech Specs, and a full
+  4-tier task hierarchy. `/sprint-execute` dispatches work in dependency-ordered
+  waves.
+- **Self-Contained**: Zero external SDK dependencies for core orchestration. No
+  `@octokit/*`, no Axios — just raw HTTP and GraphQL.
 
-Regularly update the protocols to pick up the latest personas and skills.
+## Get Started
 
-#### A. Manual Update (Bash / Zsh)
-
-```bash
-git submodule update --remote --merge .agents && git add .agents && git commit -m "chore: update agent-protocols"
-```
-
-#### B. Manual Update (PowerShell)
+### 1. Install & Bootstrap
 
 ```powershell
-git submodule update --remote --merge .agents ; if ($?) { git add .agents ; if ($?) { git commit -m "chore: update agent-protocols" } }
+# Add submodule (uses the dist branch)
+git submodule add -b dist https://github.com/dsj1984/agent-protocols.git .agents
+
+# Run idempotent bootstrap (creates labels, project fields)
+node .agents/scripts/bootstrap-agent-protocols.js --install-workflows
 ```
 
-#### C. Automated Update (`package.json`)
+### 2. Configure
 
-Add the following script to your `package.json` for one-command updates. Note:
-usage of `&&` in `package.json` scripts may fail in some Windows environments;
-consider using a cross-platform runner like `npm-run-all2`.
+Copy `.agents/default-agentrc.json` to your project root as `.agentrc.json` and
+set your repository details:
 
 ```json
-"scripts": {
-  "update:agents": "git submodule update --remote --merge .agents && git add .agents && git commit -m \"chore: update agent-protocols\""
+{
+  "orchestration": {
+    "provider": "github",
+    "github": {
+      "owner": "your-org",
+      "repo": "your-repo",
+      "operatorHandle": "@your-username"
+    }
+  }
 }
 ```
 
-### 3. Configure Your Project
+Set `GITHUB_TOKEN` in your environment (or a `.env` file at the project root)
+for background script authentication.
 
-After adding the submodule, copy the bundled default configuration into your
-project root and rename it:
+### 3. Plan Your First Epic
 
-```bash
-cp .agents/default-agentrc.json .agentrc.json
+Create a GitHub Issue with the `type::epic` label, then run:
+
+```text
+/sprint-plan [EPIC_NUMBER]
 ```
 
-Then open `.agentrc.json` and set your project-specific values (e.g.,
-`techStack.project.name`, `agentSettings.testCommand`,
-`agentSettings.baseBranch`).
+See [SDLC.md](.agents/SDLC.md) for the full end-to-end workflow.
 
-> **How it works:** All agent scripts resolve configuration in this order:
->
-> 1. `.agentrc.json` at your **project root** ← your customised file
-> 2. `.agentrc.json` ← legacy fallback (deprecated, will emit a warning)
-> 3. Built-in defaults (zero-config)
-
-### 🛡️ Efficiency & Guardrails
-
-The framework includes built-in guardrails to prevent agent stagnation and
-ensure high-quality sprint execution:
-
-- **Isolated Multi-Agent Parallelization**: Natively intercepts sprint workflows
-  to wrap executed agents within `git worktree` isolated sub-directories,
-  automatically blocking concurrent branch collisions.
-- **Strict Workflow Patterns**: Injects CLI routing layers via `--pattern` on
-  the `run-agent-loop.js` orchestrator to natively support Evaluator-Optimizer
-  and Prompt Chaining behavior topologies.
-- **Cryptographic Provenance**: (Configurable) Digitally signs agent-generated
-  test receipts using asymmetric Ed25519 PKI. The framework establishes a true
-  zero-trust chain of custody that will block playbook progression if receipts
-  are altered or generated incorrectly.
-- **Anti-Thrashing Protocol**: Mandates agents to halt and re-plan after hitting
-  configurable thresholds for tool errors or analysis steps without progress.
-  Controlled via `frictionThresholds` in `.agentrc.json`.
-- **Complexity-Aware Task Decomposition**: Enforces task atomicity by scoring
-  tasks based on instruction length, estimated file count, scope breadth, and
-  bullet-point density. Tasks exceeding the `maxComplexityScore` threshold
-  (default: 8) are automatically split into sub-tasks (if `substeps` are
-  provided) or flagged with a warning to ensure agents self-decompose into
-  manageable sub-steps. Configurable via `complexity` settings in
-  `.agentrc.json`.
-- **Agent Friction Telemetry**: Agents are mandated to log operational struggles
-  (repetitive tasks, errors) into a structured `agent-friction-log.json` file.
-  Tolerance thresholds for logging are configurable via
-  `frictionThresholds.repetitiveCommandCount`.
-- **Workspace & File Hygiene**: Mandates that all temporary files and scratch
-  scripts MUST be stored in the `/temp/` directory at the project root. This
-  directory is Git-ignored by default to prevent repository pollution.
-- **Local RAG Semantic Retrieval**: Zero-dependency local vector store
-  implementation for high-context retrieval in large repositories. Prevents
-  "lost-in-the-middle" issues and token bloat.
-- **FinOps & Economic Guardrails**: Tracks agent token consumption against
-  configurable sprint budgets. Enforces soft-warnings at thresholds and
-  hard-stops to prevent unexpected expenses.
-- **HITL Risk Gates**: Semantic security checks that force Human-In-The-Loop
-  approval when an architect detects high-risk operations (e.g., destructive
-  mutations, structural anomalies) during the technical specification phase.
-- **Automated Context Pruning ("Gardener")**: Identifies and archives stale ADRs
-  and coding patterns into a `[DOCS_ROOT]/archive/` directory during the sprint
-  retro. This keeps the Local RAG index focused on the most current
-  architecture.
-- **Zero-Touch Remediation Loop**: Automatically transitions agents from a
-  failed `/sprint-integration` candidate check into a `/sprint-hotfix` loop.
-  Agents remediate build/test failures and re-attempt integration autonomously
-  up to a configurable `maxIntegrationRetries` threshold (default: 2).
-- **Dynamic Golden-Path Harvesting (Agentic RLHF)**: Automatically harvests
-  zero-friction implementation diffs and instruction pairings into a local
-  `.agents/golden-examples/` repository. These "Golden Paths" are dynamically
-  injected as few-shot prompts in future tasks to autonomously reinforce the
-  project's highest-quality coding standards.
-- **Adversarial Red-Teaming (Tribunal)**: An on-demand `/run-red-team` workflow
-  that calls the `security-engineer` to cross-examine a specific branch or
-  directory, using dynamic fuzzing and mutation tests to break code before
-  promotion.
-- **Macroscopic Telemetry Observer**: A zero-dependency aggregation script that
-  reads friction logs across sprints to visually chart tool failures, efficiency
-  trends, and productivity bottlenecks.
-- **Verbose Interaction Logging**: Opt-in structured JSONL logging of all
-  agentic interactions and responses throughout a sprint, designed for post-hoc
-  analysis (model evaluation, cost attribution, prompt debugging).
-  - **Enable**: Set `agentSettings.verboseLogging.enabled` to `true` in
-    `.agentrc.json`.
-  - **Output**: Logs are written to the `verboseLogging.logDir` directory
-    (default: `temp/verbose-logs`), one JSONL file per sprint.
-- **Cross-Artifact Version Lineage**: Enforces deterministic consistency across
-  the planning pipeline by embedding the current `agent-protocols` version into
-  the PRD, Technical Spec, Task Manifest, and Playbook. The orchestrator
-  automatically verifies version alignment during generation to prevent
-  configuration drift.
-- **Guiding Principles**: Prioritizes flexibility over rigid protocols, ensuring
-  agents can leverage native model improvements.
-
-1. **Read the Full Guide**: For detailed configuring, using personas/skills, and
-   more, refer to the detailed protocol guide: 👉
-   [**`.agents/README.md`**](.agents/README.md)
-
-### Agent Notification Webhook
-
-The `sprint-generate-playbook` workflow now supports an optional notification
-webhook. If the `webhookUrl` variable is set in the `.agentrc.json` file, every
-completed playbook step will trigger a notification to that URL. This allows for
-real-time tracking of agent progress in external tools like Slack, Discord, or
-custom project management dashboards.
+---
 
 ## Repository Structure
 
-The core of this repository lives entirely within the `.agents/` directory,
-which is what gets distributed to consumers.
-
 ```text
 agent-protocols/
-├── .agents/                 # ← Distributed to consumers via the `dist` branch
-│   ├── VERSION              # Current version of the protocols
-│   ├── default-agentrc.json # ← Copy this to your project root as .agentrc.json
-│   ├── instructions.md      # Core system prompt & rules
-│   ├── personas/            # Role-specific behavior constraints (12 personas)
-│   ├── rules/               # Modular domain-agnostic global rules
-│   ├── schemas/             # JSON schemas for structured format boundaries
-│   ├── scripts/             # Deterministic logic scripts (playbook gen, etc)
-│   ├── skills/              # Tech-stack-specific guardrails
-│   ├── templates/           # Markdown templates
-│   ├── workflows/           # SDLC automation slash commands
-│   └── README.md            # Detailed consumer user guide
-├── .github/                 # CI/CD automation for this repository
-├── package.json             # Tooling: markdownlint, prettier, husky
-└── README.md                # ← You are here
+├── .agents/                  # Distributed bundle (the "product")
+│   ├── VERSION               # Current version (5.0.0)
+│   ├── instructions.md       # Primary system prompt
+│   ├── SDLC.md               # End-to-end workflow guide
+│   ├── README.md             # Detailed consumer reference
+│   ├── personas/             # Role-specific behavior (12 personas)
+│   ├── rules/                # Domain-agnostic coding standards (8 rules)
+│   ├── skills/               # Two-tier skill library
+│   │   ├── core/             # Universal process skills (20 skills)
+│   │   └── stack/            # Tech-stack-specific guardrails (19 skills)
+│   ├── workflows/            # Slash-command automation (25 workflows)
+│   ├── scripts/              # Orchestration engine
+│   │   ├── lib/              # Core libraries (config, interfaces, factory)
+│   │   └── providers/        # Ticketing provider implementations
+│   ├── schemas/              # JSON Schemas for validation
+│   └── templates/            # Context hydration templates
+├── docs/                     # Roadmap and legacy changelog archive
+├── tests/                    # Unit and integration tests
+├── package.json              # Tooling: markdownlint, prettier, husky
+└── CHANGELOG.md              # Release history (v5.0.0+)
 ```
 
-> **Key distinction:** Only the `.agents/` directory is distributed to consumers
-> via the `dist` branch. The rest of the repository contains internal tooling
-> and CI/CD pipelines for developing the protocols.
+## Development
 
-## Contributions
-
-If you are contributing to or modifying this repository:
-
-### Prerequisites & Setup
-
-- Node.js 20+
-- npm
-
-```bash
-npm install
+```powershell
+npm run lint           # Check all markdown for lint errors
+npm run format         # Auto-format all markdown files
+npm test              # Run framework tests
 ```
 
-This also installs **Husky** Git hooks via the `prepare` script, which
-configures **lint-staged** to auto-format and lint markdown files on every
-commit.
+## Documentation
 
-### Quality Control
+| Document                                | Purpose                        |
+| --------------------------------------- | ------------------------------ |
+| [Consumer Guide](.agents/README.md)     | Setup, configuration, and APIs |
+| [SDLC Workflow](.agents/SDLC.md)       | End-to-end sprint lifecycle    |
+| [Changelog](CHANGELOG.md)               | Release history (v5.0.0+)     |
+| [Legacy Changelog](docs/CHANGELOG-v4.md) | v1.0.0 – v4.7.2 history     |
 
-All markdown is validated with `markdownlint` and formatted with `prettier`:
+## License
 
-| Command          | Description                        |
-| ---------------- | ---------------------------------- |
-| `npm run lint`   | Check all markdown for lint errors |
-| `npm run format` | Auto-format all markdown files     |
-
-### Git Workflow
-
-1. Create a feature branch from `main`.
-2. Make your changes to files inside `.agents/`.
-3. Commit — Husky + lint-staged will automatically lint and format staged `.md`
-   files before the commit is accepted.
-4. Open a Pull Request against `main`. The `ci.yml` workflow will validate your
-   changes.
-
-### Release Process
-
-When preparing a new release of the protocols:
-
-1.  **Bump Version**: Update the version number in `package.json`.
-2.  **Sync VERSION File**: Update the `.agents/VERSION` file to match. This file
-    is distributed to consumers to help them identify their current protocol
-    version.
-3.  **Update Changelog**: Add a new entry to `CHANGELOG.md` under the new
-    version header.
-4.  **Commit**: Commit the changes to `main`.
-5.  **Publish**: The `ci.yml` workflow will automatically sync the `.agents/`
-    directory to the `dist` branch upon merge.
-
-### CI/CD Pipeline
-
-| Workflow | Trigger           | Purpose                                                          |
-| -------- | ----------------- | ---------------------------------------------------------------- |
-| `ci.yml` | Push/PR to `main` | Validates markdown, runs security scans, and syncs `dist` branch |
-
-When changes to `.agents/**` are merged into `main`, the `ci` workflow
-automatically copies the `.agents/` directory contents to the `dist` branch if
-the build passes. Consumers pinned to `dist` will pick up the changes on their
-next submodule update.
-
-## Personal Agentic Dev Stack
-
-The development of these protocols leverages an agent-first stack optimized for
-speed, precision, and high-context reasoning:
-
-- **LLM Engine:** Google AI Ultra
-- **Planning Assistant:** Gemini Deep Think
-- **Agentic IDE:** Google Antigravity IDE (using Gemini & Claude models)
-- **Asynchronous Agent:** Google Jules (experimental)
-- **Context Engine:** Context7 (indirectly via MCP)
-- **Voice Interface:** Wispr Flow
+ISC

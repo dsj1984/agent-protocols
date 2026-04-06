@@ -1,16 +1,15 @@
 {
   "name": "agent-protocols",
-  "version": "4.7.2",
+  "version": "5.0.0",
   "description": "",
   "main": "index.js",
   "scripts": {
     "test": "node --test",
     "lint:md": "markdownlint \".agents/**/*.md\" \"*.md\" --ignore node_modules",
     "format:md": "prettier --write \".agents/**/*.md\" \"*.md\"",
-    "playbook:generate": "node .agents/scripts/generate-playbook.js",
-    "lint": "npm run lint:md",
-    "format": "npm run format:md",
-    "format:check": "prettier --check \".agents/**/*.md\" \"*.md\"",
+    "lint": "biome lint . && markdownlint \".agents/**/*.md\" \"*.md\" --ignore node_modules",
+    "format": "biome format --write .",
+    "format:check": "biome format .",
     "prepare": "husky"
   },
   "repository": {
@@ -26,6 +25,9 @@
   },
   "homepage": "https://github.com/dsj1984/agent-protocols#readme",
   "devDependencies": {
+    "@biomejs/biome": "^2.4.10",
+    "ajv": "^8.18.0",
+    "ajv-formats": "^3.0.1",
     "husky": "^9.1.7",
     "lint-staged": "^16.2.7",
     "markdownlint-cli": "^0.47.0",
