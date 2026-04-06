@@ -54,10 +54,7 @@ export async function decomposeEpic(epicId, provider, llm, config = {}) {
   );
   const epic = await provider.getEpic(epicId);
 
-  if (
-    !epic?.linkedIssues?.prd ||
-    !epic.linkedIssues.techSpec
-  ) {
+  if (!epic?.linkedIssues?.prd || !epic.linkedIssues.techSpec) {
     throw new Error(
       `[Decomposer] Epic #${epicId} is missing linked PRD or Tech Spec. Run the Epic Planner first.`,
     );

@@ -103,8 +103,7 @@ export async function hydrateContext(
         `${task.persona}.md`,
       );
       if (fs.existsSync(pPath)) {
-        personaContext =
-          `## Persona: ${task.persona}\n\n${fs.readFileSync(pPath, 'utf8')}`;
+        personaContext = `## Persona: ${task.persona}\n\n${fs.readFileSync(pPath, 'utf8')}`;
       }
     } catch (err) {
       console.warn(
@@ -141,8 +140,7 @@ export async function hydrateContext(
 
         const sPath = candidates.find((p) => fs.existsSync(p));
         if (sPath) {
-          skillsContext +=
-            `### Skill: ${skill}\n${fs.readFileSync(sPath, 'utf8')}\n\n`;
+          skillsContext += `### Skill: ${skill}\n${fs.readFileSync(sPath, 'utf8')}\n\n`;
         }
       } catch (err) {
         console.warn(

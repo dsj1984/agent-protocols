@@ -8,7 +8,7 @@
 
 import assert from 'node:assert/strict';
 import path from 'node:path';
-import { afterEach, beforeEach, describe, it, } from 'node:test';
+import { afterEach, beforeEach, describe, it } from 'node:test';
 import { fileURLToPath, pathToFileURL } from 'node:url';
 
 const __dirname = path.dirname(fileURLToPath(import.meta.url));
