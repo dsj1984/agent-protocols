@@ -264,28 +264,162 @@ async function reconcileClosedTasks(tasks, provider, dryRun) {
 }
 
 /**
- * Reconcile the status of the parent Epic.
- * If all child tasks are closed and agent::done, close the Epic and mark it agent::done.
+ * Parse the direct parent ID from a ticket body.
+ * Looks for the convention written by createTicket: "parent: #N"
+ *
+ * @param {string} body
+ * @returns {number|null}
+ */
+function parseParentId(body) {
+  const match = (body ?? '').match(/^parent:\s*#(\d+)/m);
+  return match ? parseInt(match[1], 10) : null;
+}
+
+/**
+ * Reconcile the full ticket hierarchy bottom-up.
+ *
+ * GitHub native sub-issues track Epic→Feature→Story→Task. After tasks are
+ * merged and reconciled to agent::done, this function propagates completion
+ * upward:
+ *   - Story  closes when ALL its Tasks  are closed/agent::done
+ *   - Feature closes when ALL its Stories are closed/agent::done
+ *   - Epic   closes when ALL its Features are closed/agent::done
+ *
+ * Uses the `parent: #N` body convention (written by createTicket) to map
+ * children to parents. Falls back to the Epic itself for any ticket whose
+ * parent cannot be resolved.
+ *
+ * Safe to call in dry-run mode — logs intended actions without writing.
  *
  * @param {import('./lib/ITicketingProvider.js').ITicketingProvider} provider
  * @param {number} epicId
- * @param {object} epic - Epic ticket object
- * @param {object[]} tasks - Normalised task list
+ * @param {object} epic  - Epic ticket (from getEpic)
+ * @param {object[]} tasks - Normalised task objects (from fetchTasks)
  * @param {boolean} dryRun
  */
-async function reconcileEpicStatus(provider, epicId, epic, tasks, dryRun) {
-  const total = tasks.length;
-  const done = tasks.filter((t) => t.status === AGENT_DONE_LABEL).length;
+async function reconcileHierarchy(provider, epicId, epic, tasks, dryRun) {
+  // Fetch every non-task ticket under the epic (features + stories)
+  // getTickets returns ALL tickets referencing the epic in their body.
+  const allTickets = await provider.getTickets(epicId);
 
-  if (total > 0 && done === total) {
-    if (epic.state !== 'closed' || !epic.labels.includes(AGENT_DONE_LABEL)) {
+  // Build a lookup: ticketId → raw ticket
+  const ticketMap = new Map(allTickets.map((t) => [t.id, t]));
+
+  // Add the normalised task objects (already fetched) so we have the full set.
+  // Tasks carry status resolved from closed-state heuristic; use that.
+  const taskById = new Map(tasks.map((t) => [t.id, t]));
+
+  // Build parent → [childIds] map from body references.
+  const childrenOf = new Map();
+  for (const ticket of allTickets) {
+    const parentId = parseParentId(ticket.body);
+    if (parentId != null) {
+      if (!childrenOf.has(parentId)) childrenOf.set(parentId, []);
+      childrenOf.get(parentId).push(ticket.id);
+    }
+  }
+
+  /**
+   * Returns true if a ticket is considered fully done:
+   * - Its GitHub state is 'closed', OR
+   * - It carries the agent::done label.
+   */
+  function isDone(ticketId) {
+    // Tasks: use the reconciled status from fetchTasks
+    if (taskById.has(ticketId)) {
+      return taskById.get(ticketId).status === AGENT_DONE_LABEL;
+    }
+    // Features / Stories: use raw GitHub state + label
+    const t = ticketMap.get(ticketId);
+    if (!t) return false;
+    return t.state === 'closed' || (t.labels ?? []).includes(AGENT_DONE_LABEL);
+  }
+
+  /**
+   * Close a non-task parent ticket if all its children are done.
+   * Does nothing if the ticket is already closed.
+   *
+   * @param {number} id  - Issue number of the parent to evaluate
+   * @param {string} typeName - Human label for log messages (e.g. 'Story')
+   */
+  async function maybeClose(id, typeName) {
+    const ticket = ticketMap.get(id);
+    // Skip if already closed
+    if (!ticket || ticket.state === 'closed') return;
+
+    const children = childrenOf.get(id) ?? [];
+    if (children.length === 0) return; // no children tracked — skip
+
+    const allDone = children.every((cid) => isDone(cid));
+    if (!allDone) return;
+
+    console.log(
+      `[Dispatcher] All children of ${typeName} #${id} "${ticket.title}" are done. Closing...`,
+    );
+
+    if (dryRun) {
+      console.log(
+        `[Dispatcher] [DRY-RUN] Would close ${typeName} #${id} and set agent::done.`,
+      );
+      // Mark as done in our local map so parent-level checks work in dry-run
+      ticket.state = 'closed';
+      return;
+    }
+
+    try {
+      await provider.updateTicket(id, {
+        labels: {
+          add: [AGENT_DONE_LABEL],
+          remove: ['agent::ready', 'agent::executing', 'agent::review'],
+        },
+        state: 'closed',
+        state_reason: 'completed',
+      });
+      ticket.state = 'closed'; // update local cache so parent checks see it
+      console.log(
+        `[Dispatcher] ✅ ${typeName} #${id} closed and marked agent::done.`,
+      );
+    } catch (err) {
+      console.warn(
+        `[Dispatcher] Failed to close ${typeName} #${id}: ${err.message}`,
+      );
+    }
+  }
+
+  // ── Process bottom-up: Stories → Features → Epic ──────────────────────────
+
+  // Collect IDs by type
+  const storyIds = allTickets
+    .filter((t) => (t.labels ?? []).includes('type::story'))
+    .map((t) => t.id);
+  const featureIds = allTickets
+    .filter((t) => (t.labels ?? []).includes('type::feature'))
+    .map((t) => t.id);
+
+  // 1. Close completed Stories
+  for (const id of storyIds) {
+    await maybeClose(id, 'Story');
+  }
+
+  // 2. Close completed Features
+  for (const id of featureIds) {
+    await maybeClose(id, 'Feature');
+  }
+
+  // 3. Close Epic if all Features (or top-level children) are done
+  const epicChildren = childrenOf.get(epicId) ?? [];
+  if (epicChildren.length > 0 && epicChildren.every((cid) => isDone(cid))) {
+    if (
+      epic.state !== 'closed' ||
+      !(epic.labels ?? []).includes(AGENT_DONE_LABEL)
+    ) {
       console.log(
         `[Dispatcher] All children of Epic #${epicId} are done. Closing Epic...`,
       );
 
       if (dryRun) {
         console.log(
-          `[Dispatcher] [DRY-RUN] Would sync Epic #${epicId} to agent::done and close it.`,
+          `[Dispatcher] [DRY-RUN] Would close Epic #${epicId} and set agent::done.`,
         );
         return;
       }
@@ -300,7 +434,7 @@ async function reconcileEpicStatus(provider, epicId, epic, tasks, dryRun) {
           state_reason: 'completed',
         });
         console.log(
-          `[Dispatcher] ✅ Epic #${epicId} is now agent::done and closed.`,
+          `[Dispatcher] ✅ Epic #${epicId} closed and marked agent::done.`,
         );
       } catch (err) {
         console.warn(
@@ -348,8 +482,8 @@ export async function dispatch(options) {
   // ── Step 1b: Reconcile stale labels on merged tasks ──────────────────────
   await reconcileClosedTasks(tasks, provider, dryRun);
 
-  // ── Step 1c: Auto-close parent epic if all children are done ─────────────
-  await reconcileEpicStatus(provider, epicId, epic, tasks, dryRun);
+  // ── Step 1c: Propagate completion up the full hierarchy (Story→Feature→Epic) ─
+  await reconcileHierarchy(provider, epicId, epic, tasks, dryRun);
 
   if (tasks.length === 0) {
     console.log('[Dispatcher] No tasks found. Nothing to dispatch.');
