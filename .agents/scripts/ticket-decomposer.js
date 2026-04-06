@@ -39,14 +39,16 @@ You MUST respond ONLY with a valid JSON array of objects. No prose, no markdown 
     "slug": "unique_string_id",
     "type": "feature" | "story" | "task",
     "title": "Short descriptive title",
-    "body": "Detailed description using standard markdown (ACs, steps, etc.)",
+    "body": "Brief, concise description. Keep it under 2 sentences to save output tokens.",
     "labels": ["type::...", "persona::..."],
     "parent_slug": "slug_of_parent_ticket" (leave empty for features to nest under epic),
     "depends_on": ["slug_of_blocking_dependency"] (optional array of slugs that block execution)
   }
 ]
 
-CRITICAL: Dependencies should follow execution blockers. For hierarchical grouping, strongly strictly use 'parent_slug' (Story parent MUST be a Feature, Task parent MUST be a Story). Features should have no 'parent_slug' (they attach to Epic).`;
+CRITICAL: Dependencies should follow execution blockers. For hierarchical grouping, strongly strictly use 'parent_slug' (Story parent MUST be a Feature, Task parent MUST be a Story). Features should have no 'parent_slug' (they attach to Epic).
+WARNING: You MUST conserve your output limit. Do NOT generate more than 20 tickets in total. Combine atomic tasks into larger, cohesive tasks. Do NOT cut off the JSON array prematurely!`;
+
 
 export async function decomposeEpic(epicId, provider, llm, config = {}) {
   console.log(
@@ -112,9 +114,10 @@ Please decompose the above into a complete ticket backlog. Respond with the JSON
       .trim();
     tickets = JSON.parse(cleanJson);
   } catch (_err) {
+    const { writeFileSync } = await import('node:fs');
+    writeFileSync('temp/llm-output.txt', response, 'utf8');
     console.error(
-      '[Decomposer] Failed to parse LLM response as JSON. Raw response:\n',
-      response,
+      '[Decomposer] Failed to parse LLM response as JSON. Raw response dumped to temp/llm-output.txt',
     );
     throw new Error('LLM output was not valid JSON.');
   }
