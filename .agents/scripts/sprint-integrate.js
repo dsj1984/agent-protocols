@@ -8,7 +8,12 @@ import {
   createCandidateBranch,
   mergeFeatureBranch,
 } from './lib/git-merge-orchestrator.js';
-import { gitSpawn } from './lib/git-utils.js';
+import {
+  gitSpawn,
+  getEpicBranch,
+  getTaskBranch,
+  getIntegrationCandidateBranch,
+} from './lib/git-utils.js';
 import {
   runVerificationSuite,
   VerificationError,
@@ -67,9 +72,9 @@ if (!epicId || !taskId) {
 // ---------------------------------------------------------------------------
 
 const { settings } = resolveConfig();
-const epicBranch = `epic/${epicId}`;
-const featureBranch = `task/epic-${epicId}/${taskId}`;
-const candidateBranch = `integration-candidate-epic-${epicId}-${taskId}`;
+const epicBranch = getEpicBranch(epicId);
+const featureBranch = getTaskBranch(epicId, taskId);
+const candidateBranch = getIntegrationCandidateBranch(epicId, taskId);
 const typecheckCmd = settings.typecheckCommand ?? 'npm run typecheck';
 const testCmd = settings.testCommand ?? 'npm run test';
 const scriptsRoot = settings.scriptsRoot ?? '.agents/scripts';

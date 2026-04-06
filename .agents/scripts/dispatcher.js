@@ -46,7 +46,7 @@ import {
   computeWaves,
   detectCycle,
 } from './lib/Graph.js';
-import { gitSync } from './lib/git-utils.js';
+import { gitSync, getEpicBranch, getTaskBranch } from './lib/git-utils.js';
 import { createProvider } from './lib/provider-factory.js';
 import { notify } from './notify.js';
 
@@ -221,7 +221,7 @@ export async function dispatch(options) {
     });
 
   const baseBranch = settings.baseBranch ?? 'main';
-  const epicBranch = `epic/${epicId}`;
+  const epicBranch = getEpicBranch(epicId);
 
   // ── Step 1: Fetch Epic and all Tasks ────────────────────────────────────
   console.log(`\n[Dispatcher] Fetching Epic #${epicId}...`);
@@ -315,7 +315,7 @@ export async function dispatch(options) {
 
     // Dispatch this wave
     for (const task of eligible) {
-      const taskBranch = `task/epic-${epicId}/${task.id}`;
+      const taskBranch = getTaskBranch(epicId, task.id);
       const resolvedModel = resolveModel(task.model, settings);
 
       // Hold risk::high tasks for HITL approval
@@ -549,7 +549,7 @@ function buildManifest({
         taskId: t.id,
         title: t.title,
         status: t.status,
-        branch: `task/epic-${epicId}/${t.id}`,
+        branch: getTaskBranch(epicId, t.id),
         persona: t.persona,
         model: t.model,
         mode: t.mode,
