@@ -12,6 +12,12 @@
     "personasRoot": ".agents/personas",
     "schemasRoot": ".agents/schemas",
     "docsRoot": "docs",
+    "docsContextFiles": [
+      "architecture.md",
+      "data-dictionary.md",
+      "decisions.md",
+      "patterns.md"
+    ],
     "tempRoot": "temp",
     "roadmapPath": "docs/ROADMAP.md",
     "validationCommand": "npm run lint",
