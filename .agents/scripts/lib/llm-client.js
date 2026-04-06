@@ -39,6 +39,23 @@ export class LLMClient {
     return 'default-model';
   }
 
+  /**
+   * Decode HTML entities that LLMs (especially Gemini) sometimes inject into
+   * markdown output. Without this, mermaid diagrams and code blocks break on
+   * GitHub because `&gt;` is not recognised as `>`.
+   * @param {string} text
+   * @returns {string}
+   */
+  _decodeHtmlEntities(text) {
+    if (!text) return text;
+    return text
+      .replace(/&amp;/g, '&')
+      .replace(/&lt;/g, '<')
+      .replace(/&gt;/g, '>')
+      .replace(/&quot;/g, '"')
+      .replace(/&#0*39;/g, "'");
+  }
+
   async generateText(systemPrompt, userPrompt) {
     const inputLength = systemPrompt.length + userPrompt.length;
     // rough heuristic: 1 token ~= 4 chars
@@ -49,16 +66,22 @@ export class LLMClient {
       );
     }
 
+    let result;
     switch (this.provider) {
       case 'gemini':
-        return this._callGemini(systemPrompt, userPrompt);
+        result = await this._callGemini(systemPrompt, userPrompt);
+        break;
       case 'anthropic':
-        return this._callAnthropic(systemPrompt, userPrompt);
+        result = await this._callAnthropic(systemPrompt, userPrompt);
+        break;
       case 'openai':
-        return this._callOpenAI(systemPrompt, userPrompt);
+        result = await this._callOpenAI(systemPrompt, userPrompt);
+        break;
       default:
         throw new Error(`[LLMClient] Unsupported provider: ${this.provider}`);
     }
+
+    return this._decodeHtmlEntities(result);
   }
 
   async _callGemini(systemPrompt, userPrompt) {
