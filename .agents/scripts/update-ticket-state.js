@@ -49,11 +49,17 @@ export async function transitionTicketState(ticketId, newState) {
 
   const toRemove = ALL_STATES.filter((state) => state !== newState);
 
+  // Closing/reopening mirrors the label state so GitHub shows the correct
+  // issue state without requiring a separate manual close step.
+  const isDone = newState === STATE_LABELS.DONE;
+
   await provider.updateTicket(ticketId, {
     labels: {
       add: [newState],
       remove: toRemove,
     },
+    state: isDone ? 'closed' : 'open',
+    state_reason: isDone ? 'completed' : null,
   });
 }
 

@@ -97,9 +97,31 @@ test('update-ticket-state.js', async (t) => {
       'agent::executing',
       'agent::done',
     ]);
+    // Non-done states should reopen the issue
+    assert.strictEqual(mock.updates[0].mutations.state, 'open');
+    assert.strictEqual(mock.updates[0].mutations.state_reason, null);
     assert.ok(mock.tickets[2].labels.includes('agent::review'));
     assert.ok(!mock.tickets[2].labels.includes('agent::executing'));
   });
+
+  await t.test(
+    'transitionTicketState closes issue when transitioning to agent::done',
+    async () => {
+      await transitionTicketState(2, 'agent::done');
+      const mutation = mock.updates[0].mutations;
+      assert.deepEqual(mutation.labels.add, ['agent::done']);
+      assert.strictEqual(
+        mutation.state,
+        'closed',
+        'Issue should be closed on agent::done',
+      );
+      assert.strictEqual(
+        mutation.state_reason,
+        'completed',
+        'state_reason should be "completed"',
+      );
+    },
+  );
 
   await t.test('toggleTasklistCheckbox logic', async () => {
     await toggleTasklistCheckbox(1, 2, true);

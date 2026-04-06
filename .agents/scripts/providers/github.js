@@ -537,6 +537,12 @@ export class GitHubProvider extends ITicketingProvider {
     if (mutations.assignees) {
       patch.assignees = mutations.assignees;
     }
+    if (mutations.state !== undefined) {
+      patch.state = mutations.state;
+    }
+    if (mutations.state_reason !== undefined) {
+      patch.state_reason = mutations.state_reason;
+    }
 
     // Handle label mutations — requires separate API calls
     if (mutations.labels) {
