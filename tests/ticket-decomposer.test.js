@@ -152,6 +152,7 @@ describe('ticket-decomposer orchestration', () => {
     assert.deepEqual(s1.ticketData.labels, [
       'type::story',
       'persona::fullstack',
+      'complexity::fast',
     ]);
     assert.deepEqual(
       s1.ticketData.dependencies,
