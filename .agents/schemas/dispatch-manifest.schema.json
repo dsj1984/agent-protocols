@@ -1,0 +1,65 @@
+{
+  "$schema": "http://json-schema.org/draft-07/schema#",
+  "$id": "dispatch-manifest",
+  "title": "Dispatch Manifest",
+  "description": "A list of stories to be executed, with tasks grouped under each story.",
+  "type": "array",
+  "items": {
+    "$ref": "#/definitions/StoryDispatch"
+  },
+  "definitions": {
+    "StoryDispatch": {
+      "type": "object",
+      "required": ["storyId", "storySlug", "branchName", "model_tier", "tasks"],
+      "properties": {
+        "storyId": {
+          "type": "integer",
+          "description": "The unique numeric ID of the story ticket."
+        },
+        "storySlug": {
+          "type": "string",
+          "description": "The human-readable slug of the story."
+        },
+        "branchName": {
+          "type": "string",
+          "pattern": "^story/epic-[0-9]+/[a-zA-Z0-9-]+$",
+          "description": "The single Git branch for all tasks in this story."
+        },
+        "model_tier": {
+          "type": "string",
+          "enum": ["high", "fast"],
+          "description": "The LLM tier selected for the entire story's execution session."
+        },
+        "tasks": {
+          "type": "array",
+          "description": "An ordered list of tasks to be executed sequentially for this story.",
+          "items": {
+            "$ref": "#/definitions/Task"
+          }
+        }
+      }
+    },
+    "Task": {
+      "type": "object",
+      "required": ["taskId", "taskSlug", "parentSlug"],
+      "properties": {
+        "taskId": {
+          "type": "integer"
+        },
+        "taskSlug": {
+          "type": "string"
+        },
+        "parentSlug": {
+          "type": "string",
+          "description": "The slug of the parent story."
+        },
+        "dependencies": {
+          "type": "array",
+          "items": {
+            "type": "integer"
+          }
+        }
+      }
+    }
+  }
+}
