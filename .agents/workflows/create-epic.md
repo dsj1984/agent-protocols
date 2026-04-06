@@ -53,3 +53,12 @@ Inform the operator that the Epic has been successfully created, providing the f
 - The Epic ID (e.g., `#123`).
 - The Epic Title.
 - A link to the Epic, or a prompt to the operator to proceed with `/sprint-plan [Epic ID]`.
+
+## Constraint
+
+- Do not create duplicate Epics. If the user provides a goal that closely matches
+  an existing open Epic, inform them and ask for confirmation before creating.
+- The Epic body must be self-contained — it should provide enough context for the
+  `/sprint-plan` pipeline to generate a meaningful PRD without additional input.
+- If the high-level goal is complex or ambiguous, review the draft with the user
+  before programmatic creation.

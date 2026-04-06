@@ -69,9 +69,7 @@ export async function decomposeEpic(
 
   // ── Force re-decompose: close existing child tickets ──────────────────
   if (force) {
-    console.log(
-      '[Decomposer] --force: Closing existing child tickets...',
-    );
+    console.log('[Decomposer] --force: Closing existing child tickets...');
     const existing = await provider.getTickets(epicId);
     const childTypes = ['type::feature', 'type::story', 'type::task'];
     const children = existing.filter((t) =>
@@ -86,9 +84,7 @@ export async function decomposeEpic(
         console.log(`[Decomposer]   Closed #${child.id}: ${child.title}`);
       }
     }
-    console.log(
-      `[Decomposer]   Closed ${children.length} old ticket(s).`,
-    );
+    console.log(`[Decomposer]   Closed ${children.length} old ticket(s).`);
   }
 
   // Fetch PRD and Tech Spec bodies
@@ -261,9 +257,7 @@ async function main() {
   });
 
   if (!values.epic) {
-    console.error(
-      'Usage: node ticket-decomposer.js --epic <EpicId> [--force]',
-    );
+    console.error('Usage: node ticket-decomposer.js --epic <EpicId> [--force]');
     process.exit(1);
   }
 

@@ -61,13 +61,8 @@ export async function planEpic(
 
   // ── Force re-plan: close old artifacts and strip body references ──────
   if (force && (epic.linkedIssues?.prd || epic.linkedIssues?.techSpec)) {
-    console.log(
-      '[Epic Planner] --force: Closing old planning artifacts...',
-    );
-    for (const oldId of [
-      epic.linkedIssues.prd,
-      epic.linkedIssues.techSpec,
-    ]) {
+    console.log('[Epic Planner] --force: Closing old planning artifacts...');
+    for (const oldId of [epic.linkedIssues.prd, epic.linkedIssues.techSpec]) {
       if (oldId) {
         await provider.updateTicket(oldId, {
           state: 'closed',
@@ -79,10 +74,7 @@ export async function planEpic(
 
     // Strip the ## Planning Artifacts section from the Epic body so we
     // can append a fresh one after regeneration.
-    const stripped = epic.body.replace(
-      /\n*## Planning Artifacts[\s\S]*$/,
-      '',
-    );
+    const stripped = epic.body.replace(/\n*## Planning Artifacts[\s\S]*$/, '');
     if (stripped !== epic.body) {
       await provider.updateTicket(epicId, { body: stripped });
       epic.body = stripped;
@@ -93,11 +85,7 @@ export async function planEpic(
   }
 
   // M-8: Resumable planning — if PRD exists but Tech Spec doesn't, resume from PRD.
-  if (
-    !force &&
-    epic.linkedIssues?.prd &&
-    epic.linkedIssues?.techSpec
-  ) {
+  if (!force && epic.linkedIssues?.prd && epic.linkedIssues?.techSpec) {
     console.warn(
       `[Epic Planner] Epic #${epicId} already has both PRD and Tech Spec. Aborting to prevent duplicates. Use --force to re-plan.`,
     );
@@ -233,9 +221,7 @@ async function main() {
   });
 
   if (!values.epic) {
-    console.error(
-      'Usage: node epic-planner.js --epic <EpicId> [--force]',
-    );
+    console.error('Usage: node epic-planner.js --epic <EpicId> [--force]');
     process.exit(1);
   }
 

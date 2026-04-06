@@ -440,7 +440,8 @@ UX/UI. Each audit activates the corresponding persona and skill set.
 | Workflow                     | Description                                     |
 | ---------------------------- | ----------------------------------------------- |
 | `/git-commit-all`            | Stage and commit all changes                    |
-| `/delete-epic`               | Hard reset: delete all Epic branches and issues |
+| `/delete-epic-branches`     | Hard reset: delete all Epic branches            |
+| `/delete-epic-tickets`      | Hard reset: delete all Epic issues              |
 | `/bootstrap-agent-protocols` | Initialize repo with v5 label taxonomy          |
 
 ### Security

@@ -206,4 +206,5 @@ Notifications are dispatched through two channels:
 | `/sprint-retro`                  | Retrospective from ticket graph                  |
 | `/sprint-close-out`              | Merge to main, tag release, close Epic           |
 | `/bootstrap-agent-protocols`     | Initialize repo labels and project fields        |
-| `/delete-epic [EPIC_ID]`         | Hard reset: delete Epic branches and issues      |
+| `/delete-epic-branches [EPIC_ID]` | Hard reset: delete Epic branches                |
+| `/delete-epic-tickets [EPIC_ID]`  | Hard reset: delete Epic issues                  |
