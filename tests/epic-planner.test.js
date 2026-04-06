@@ -57,17 +57,41 @@ describe('epic-planner orchestration', () => {
     );
   });
 
-  it('aborts early if epic already has linked issues', async () => {
-    // Override getEpic to return linked issues
+  it('aborts early if epic already has BOTH linked issues', async () => {
+    // M-8: Only abort if BOTH PRD and Tech Spec exist
     mockProvider.getEpic = async () => ({
-      title: 'Linked Epic',
-      linkedIssues: { prd: 42, techSpec: null }
+      id: 1,
+      title: 'Fully Linked Epic',
+      body: '',
+      linkedIssues: { prd: 42, techSpec: 43 }
     });
 
     await planEpic(1, mockProvider, mockLlm);
 
-    assert.equal(mockProvider.createdTickets.length, 0, 'No tickets should be created if already linked.');
+    assert.equal(mockProvider.createdTickets.length, 0, 'No tickets should be created if both already linked.');
     assert.equal(mockLlm.promptsReceived.length, 0, 'No LLM calls should happen.');
+  });
+
+  it('resumes from existing PRD when only Tech Spec is missing', async () => {
+    // M-8: Resume from existing PRD
+    mockProvider.getEpic = async () => ({
+      id: 1,
+      title: 'Partial Epic',
+      body: '',
+      linkedIssues: { prd: 42, techSpec: null }
+    });
+    mockProvider.getTicket = async (id) => ({
+      id,
+      body: '## Overview\nExisting PRD content from ticket #42.',
+    });
+
+    await planEpic(1, mockProvider, mockLlm);
+
+    // Only Tech Spec should be created (PRD reused)
+    assert.equal(mockProvider.createdTickets.length, 1, 'Should create only the Tech Spec.');
+    assert.equal(mockProvider.createdTickets[0].ticketData.title, '[Tech Spec] Partial Epic');
+    // LLM called only once (Tech Spec generation)
+    assert.equal(mockLlm.promptsReceived.length, 1, 'Should call LLM once for Tech Spec only.');
   });
 
   it('runs the full planning pipeline correctly', async () => {

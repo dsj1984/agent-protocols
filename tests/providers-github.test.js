@@ -40,6 +40,7 @@ function makeMockFetch(responses) {
     return {
       ok: response.status >= 200 && response.status < 300,
       status: response.status,
+      headers: { get: () => null },
       json: async () => response.json,
       text: async () => JSON.stringify(response.json ?? ''),
     };
@@ -556,8 +557,9 @@ describe('GitHubProvider — error handling', () => {
   });
 
   it('includes endpoint in REST error messages', async () => {
+    // Use 422 (not retried by _fetchWithRetry) to ensure deterministic failure.
     globalThis.fetch = makeMockFetch([
-      { status: 500, json: { message: 'server error' } },
+      { status: 422, json: { message: 'validation failed' } },
     ]);
 
     const provider = createTestProvider();

@@ -33,6 +33,14 @@ export class ManualDispatchAdapter extends IExecutionAdapter {
 
     /**
      * In-memory dispatch registry: dispatchId → dispatch record.
+     *
+     * NOTE (M-9): This registry is **ephemeral** — it does not persist across
+     * process restarts. This is intentional for the Manual adapter: the
+     * Dispatcher re-evaluates ticket labels (the durable state) on each
+     * re-invocation, so the registry serves only as an intra-process
+     * convenience for `getTaskStatus()`. Future automated adapters that need
+     * durable dispatch tracking should persist this externally.
+     *
      * @type {Map<string, { taskId: number, status: DispatchStatus, dispatchedAt: string, taskDispatch: object }>}
      */
     this._registry = new Map();

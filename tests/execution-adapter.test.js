@@ -48,8 +48,9 @@ describe('IExecutionAdapter — abstract contract', () => {
     await assert.rejects(() => adapter.getTaskStatus('id'), /Not implemented: getTaskStatus/);
   });
 
-  it('throws Not implemented on cancelTask()', async () => {
-    await assert.rejects(() => adapter.cancelTask('id'), /Not implemented: cancelTask/);
+  it('cancelTask() is a silent no-op by default', async () => {
+    // M-5: cancelTask() should not throw — it's a no-op for adapters that don't support cancellation.
+    await adapter.cancelTask('id'); // should not throw
   });
 
   it('describe() throws (executorId not implemented)', () => {

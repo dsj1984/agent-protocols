@@ -60,13 +60,17 @@ export async function planEpic(epicId, provider, llm, settings = {}) {
   const existingPrdId = epic.linkedIssues?.prd ?? null;
 
   let prdId;
+  let prdContent;
   if (existingPrdId) {
     console.log(`[Epic Planner] Reusing existing PRD #${existingPrdId}. Skipping PRD generation.`);
     prdId = existingPrdId;
+    // Fetch existing PRD content for Tech Spec prompt
+    const existingPrd = await provider.getTicket(existingPrdId);
+    prdContent = existingPrd.body;
   } else {
     console.log(`[Epic Planner] Epic "${epic.title}" loaded. Generating PRD...`);
     const prdUserPrompt = `Epic Title: ${epic.title}\n\nEpic Description:\n${epic.body}\n\nPlease generate the PRD based on the above epic.`;
-    const prdContent = await llm.generateText(PRD_SYSTEM_PROMPT, prdUserPrompt);
+    prdContent = await llm.generateText(PRD_SYSTEM_PROMPT, prdUserPrompt);
 
     console.log(`[Epic Planner] PRD generated. Creating PRD issue...`);
     const prdTicket = await provider.createTicket(epicId, {
@@ -100,16 +104,7 @@ export async function planEpic(epicId, provider, llm, settings = {}) {
     }
   }
 
-  // If we reused an existing PRD, fetch its content for the Tech Spec prompt.
-  let prdText;
-  if (existingPrdId) {
-    const existingPrd = await provider.getTicket(existingPrdId);
-    prdText = existingPrd.body;
-  } else {
-    prdText = prdContent;
-  }
-
-  let tsUserPrompt = `Epic Title: ${epic.title}\n\nPRD Description:\n${prdText}`;
+  let tsUserPrompt = `Epic Title: ${epic.title}\n\nPRD Description:\n${prdContent}`;
   if (docsContext) {
     tsUserPrompt += `\n\nProject Documentation Context:\n${docsContext}`;
     tsUserPrompt += `\n\nPlease generate the Tech Spec based on the above PRD and Project Documentation.`;
@@ -131,7 +126,7 @@ export async function planEpic(epicId, provider, llm, settings = {}) {
   console.log(`[Epic Planner] Updating Epic #${epicId} with linked documents...`);
   
   // Format exactly so getEpic regex /PRD:\s*#\d+/i still catches it efficiently.
-  const appendBody = `\n\n## Planning Artifacts\n- [ ] PRD: #${prdTicket.id}\n- [ ] Tech Spec: #${techSpecTicket.id}\n`;
+  const appendBody = `\n\n## Planning Artifacts\n- [ ] PRD: #${prdId}\n- [ ] Tech Spec: #${techSpecTicket.id}\n`;
   const newBody = epic.body + appendBody;
 
   await provider.updateTicket(epicId, {

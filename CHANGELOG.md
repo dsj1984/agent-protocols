@@ -3,7 +3,9 @@
 All notable changes to this project will be documented in this file.
 
 ## [5.0.0] - 2026-04-05
+
 ### 🚀 Major Rewrite
+
 Version 5.0.0 represents a complete, ground-up rewrite of the platform. There is **no backward compatibility** with v4.x.x or earlier.
 
 * **Architecture:** Transitioned to a **GitHub-native Epic Orchestration** model. Re-architected the work structure into a four-tier hierarchy: **Epic → Feature → Story → Task**. Introduced a provider-agnostic **ITicketingProvider** abstraction with a high-performance **Native GitHub Integration** (leveraging GraphQL for Sub-Issues and Projects V2).
