@@ -332,16 +332,39 @@ export class GitHubProvider extends ITicketingProvider {
     const parent = await this.getTicket(parentId);
     const body = parent.body || '';
 
-    // Match checklist items linking to issues: "- [ ] #123" or "- [x] #123"
-    const re = /-\s*\[[ xX]\]\s+#(\d+)/g;
-    const childIds = [...body.matchAll(re)].map((m) => parseInt(m[1], 10));
+    // Primary: Native GitHub Sub-Issues (v5 source of truth)
+    let nativeChildIds = [];
+    try {
+      const data = await this._graphql(
+        `query($id: ID!) {
+          node(id: $id) {
+            ... on Issue {
+              subIssues(first: 50) {
+                nodes { number }
+              }
+            }
+          }
+        }`,
+        { id: parent.nodeId },
+        { headers: { 'GraphQL-Features': 'sub_issues' } },
+      );
+      nativeChildIds = (data.node?.subIssues?.nodes || []).map((n) => n.number);
+    } catch (_err) {
+      // GraphQL feature might not be enabled or permission error — proceed with checkboxes only
+    }
 
-    // Removing duplicates if any
-    const uniqueChildIds = [...new Set(childIds)];
+    // Secondary: Match checklist items linking to issues: "- [ ] #123" or "- [x] #123"
+    const re = /-\s*\[[ xX]\]\s+#(\d+)/g;
+    const checklistChildIds = [...body.matchAll(re)].map((m) =>
+      parseInt(m[1], 10),
+    );
+
+    // Merge and remove duplicates
+    const allChildIds = [...new Set([...nativeChildIds, ...checklistChildIds])];
 
     // Fetch all child tickets
     const subTickets = await Promise.all(
-      uniqueChildIds.map((id) => this.getTicket(id).catch(() => null)),
+      allChildIds.map((id) => this.getTicket(id).catch(() => null)),
     );
 
     return subTickets.filter(Boolean);
