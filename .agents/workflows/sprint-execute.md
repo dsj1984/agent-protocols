@@ -128,13 +128,14 @@ On final close-out:
 
 ### Step 1 — Branch Setup
 
-1. Determine the Epic base branch: `epic/<epicId>` (parsed from the Task's
-   Metadata `Epic:` field).
-2. Create (or check out) the Task feature branch: `task/epic-<epicId>/<taskId>`.
+1. Identify the target branch from the **Hydrated Prompt** or **Dispatch Manifest** (`branchName`).
+   - Standard: `story/epic-<epicId>/<story-slug>`
+   - Legacy: `task/epic-<epicId>/<taskId>`
+2. Fetch and checkout the branch:
 
    ```powershell
-   git checkout epic/<epicId>
-   git checkout -b task/epic-<epicId>/<taskId>
+   git fetch origin
+   git checkout <branchName> || git checkout -b <branchName> origin/epic/<epicId>
    ```
 
 3. Transition the task label via the state writer:
@@ -149,10 +150,8 @@ On final close-out:
 ### Step 2 — Implementation
 
 1. Read the full `## Instructions` section of the Task ticket.
-2. Implement all described changes, strictly within the scope of the Task
-   branch.
-3. Do **not** modify files linked to other active Task branches (check `focus::`
-   labels for overlap hints).
+2. Implement all described changes strictly within the scope of the assigned branch.
+3. If multiple tasks share the same `story/` branch, perform your work atomically and commit frequently to avoid conflicts with parallel agents (if any).
 
 ### Step 3 — Validate
 
@@ -176,19 +175,25 @@ If tests or lint fail:
    ```powershell
    git add .
    git commit --no-verify -m "feat(<scope>): <task title> (resolves #<taskId>)"
-   git push --force-with-lease -u origin HEAD
+   git push --force-with-lease origin HEAD
    ```
 
-2. Create a PR against the Epic base branch (`epic/<epicId>`) — **not** `main`:
+2. Check if a Pull Request already exists for this branch:
 
-   The PR description **must** include: `Closes #<taskId>`.
+   ```powershell
+   gh pr list --head <branchName> --json url,number
+   ```
 
-3. Post a progress comment summarising the work:
+3. **If no PR exists**: Create one against the Epic base branch (`epic/<epicId>`) — **not** `main`. The PR description **must** include: `Closes #<taskId>`.
+
+4. **If a PR already exists**: Ensure the Task ID is added to the PR description (e.g., `Resolves #<taskId>`) if not already present, so the link is maintained.
+
+5. Post a progress comment summarising the work:
 
    ```powershell
    node -e "
      import { postStructuredComment } from './.agents/scripts/update-ticket-state.js';
-     postStructuredComment(<taskId>, 'progress', 'PR created: <PR_URL>. Awaiting review.');
+     postStructuredComment(<taskId>, 'progress', 'Work committed to shared branch <branchName>. PR: <PR_URL>');
    "
    ```
 

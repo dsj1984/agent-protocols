@@ -51,6 +51,7 @@ import {
   getEpicBranch,
   getStoryBranch,
   getTaskBranch,
+  resolveBranchForTask,
 } from './lib/git-utils.js';
 import { createProvider } from './lib/provider-factory.js';
 import { notify } from './notify.js';

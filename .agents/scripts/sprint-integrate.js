@@ -12,7 +12,9 @@ import {
   gitSpawn,
   getEpicBranch,
   getTaskBranch,
+  getStoryBranch,
   getIntegrationCandidateBranch,
+  resolveBranchForTask,
 } from './lib/git-utils.js';
 import {
   runVerificationSuite,
@@ -20,7 +22,7 @@ import {
 } from './lib/integration-verifier.js';
 import { Logger } from './lib/Logger.js';
 import { VerboseLogger } from './lib/VerboseLogger.js';
-import { postStructuredComment } from './update-ticket-state.js';
+import { postStructuredComment, getProvider } from './update-ticket-state.js';
 
 /**
  * sprint-integrate.js — Epic Integration Candidate Verification
@@ -72,8 +74,14 @@ if (!epicId || !taskId) {
 // ---------------------------------------------------------------------------
 
 const { settings } = resolveConfig();
+const provider = getProvider();
+
 const epicBranch = getEpicBranch(epicId);
-const featureBranch = getTaskBranch(epicId, taskId);
+const featureBranch = await resolveBranchForTask(
+  epicId,
+  parseInt(taskId, 10),
+  provider,
+);
 const candidateBranch = getIntegrationCandidateBranch(epicId, taskId);
 const typecheckCmd = settings.typecheckCommand ?? 'npm run typecheck';
 const testCmd = settings.testCommand ?? 'npm run test';
