@@ -173,7 +173,7 @@ test('runVerificationSuite — throws VerificationError with correct stepLabel o
       scriptsRoot: '.agents/scripts',
       taskId: '0',
       typecheckCmd: '',
-      testCmd: 'node --eval "process.exit(42)"', // deterministic failure
+      testCmd: 'node __nonexistent_script_guaranteed_to_fail__.js', // deterministic failure
       timeoutMs: 10_000,
       onProgress: () => {},
     });
