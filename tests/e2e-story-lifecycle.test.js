@@ -1,9 +1,9 @@
 import assert from 'node:assert/strict';
-import test from 'node:test';
 import path from 'node:path';
+import test from 'node:test';
 import { fileURLToPath, pathToFileURL } from 'node:url';
-import { ITicketingProvider } from '../.agents/scripts/lib/ITicketingProvider.js';
 import { IExecutionAdapter } from '../.agents/scripts/lib/IExecutionAdapter.js';
+import { ITicketingProvider } from '../.agents/scripts/lib/ITicketingProvider.js';
 
 const __dirname = path.dirname(fileURLToPath(import.meta.url));
 const ROOT = path.resolve(__dirname, '..');
@@ -12,14 +12,10 @@ const SCRIPTS = path.join(ROOT, '.agents', 'scripts');
 const { dispatch } = await import(
   pathToFileURL(path.join(SCRIPTS, 'dispatcher.js')).href
 );
-const {
-  cascadeCompletion,
-  setProvider,
-  resetProvider,
-  transitionTicketState,
-} = await import(
-  pathToFileURL(path.join(SCRIPTS, 'update-ticket-state.js')).href
-);
+const { cascadeCompletion, setProvider, resetProvider, transitionTicketState } =
+  await import(
+    pathToFileURL(path.join(SCRIPTS, 'update-ticket-state.js')).href
+  );
 
 // ---------------------------------------------------------------------------
 // Mock Provider and Adapter
@@ -82,10 +78,10 @@ class MockProvider extends ITicketingProvider {
 
   async getTicketDependencies(ticketId) {
     const ticket = await this.getTicket(ticketId);
-    
+
     // Naively parse "blocked by #NNN"
     const blocksMatch = ticket.body.matchAll(/blocked by #(\d+)/gi);
-    const blockedBy = [...blocksMatch].map(m => parseInt(m[1], 10));
+    const blockedBy = [...blocksMatch].map((m) => parseInt(m[1], 10));
 
     // Naively parse "parent: #NNN" to define what this block blocks (going up)
     const blocks = [];
@@ -99,7 +95,7 @@ class MockProvider extends ITicketingProvider {
 
   async getSubTickets(parentId) {
     // Return tickets whose parent is parentId
-    const children = this._tasks.filter(t => {
+    const children = this._tasks.filter((t) => {
       const pMatch = t.body.match(/parent:\s*#(\d+)/i);
       return pMatch && parseInt(pMatch[1], 10) === parentId;
     });
@@ -154,7 +150,7 @@ function makeTask(id, overrides = {}) {
 // E2E Test Suite
 // ---------------------------------------------------------------------------
 
-test('e2e-story-lifecycle — validates full flow from dispatch to story completion cascade', async (t) => {
+test('e2e-story-lifecycle — validates full flow from dispatch to story completion cascade', async (_t) => {
   // 1. Setup Hierarchy: Epic (10) -> Feature (20) -> Story (30) -> Tasks (31, 32)
   const feature20 = makeTask(20, {
     title: 'Feature Level',
@@ -185,7 +181,7 @@ test('e2e-story-lifecycle — validates full flow from dispatch to story complet
     epic: EPIC,
     tasks: [EPIC, feature20, story30, task31, task32],
   });
-  
+
   // Set global provider for state-sync functions
   setProvider(provider);
   const adapter = new MockAdapter();
@@ -249,12 +245,18 @@ test('e2e-story-lifecycle — validates full flow from dispatch to story complet
 
   // Assert Story 30 is now DONE because all its children (31, 32) are done
   const s30Final = await provider.getTicket(30);
-  assert.ok(s30Final.labels.includes('agent::done'), 'Story should be marked done');
+  assert.ok(
+    s30Final.labels.includes('agent::done'),
+    'Story should be marked done',
+  );
   assert.equal(s30Final.state, 'closed', 'Story should be closed');
 
   // Assert Feature 20 is now DONE because its only child (30) is done
   const f20Final = await provider.getTicket(20);
-  assert.ok(f20Final.labels.includes('agent::done'), 'Feature should be marked done');
+  assert.ok(
+    f20Final.labels.includes('agent::done'),
+    'Feature should be marked done',
+  );
   assert.equal(f20Final.state, 'closed', 'Feature should be closed');
 
   // Cleanup

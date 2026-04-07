@@ -20,23 +20,20 @@
 import assert from 'node:assert/strict';
 import { spawnSync } from 'node:child_process';
 import path from 'node:path';
-import { fileURLToPath } from 'node:url';
 import test from 'node:test';
-
-import {
-  VerificationError,
-  runVerificationSuite,
-} from '../.agents/scripts/lib/integration-verifier.js';
-
+import { fileURLToPath } from 'node:url';
 import {
   getEpicBranch,
+  getIntegrationCandidateBranch,
   getStoryBranch,
   getTaskBranch,
-  getIntegrationCandidateBranch,
   resolveBranchForTask,
 } from '../.agents/scripts/lib/git-utils.js';
-
 import { ITicketingProvider } from '../.agents/scripts/lib/ITicketingProvider.js';
+import {
+  runVerificationSuite,
+  VerificationError,
+} from '../.agents/scripts/lib/integration-verifier.js';
 
 const __dirname = path.dirname(fileURLToPath(import.meta.url));
 const PROJECT_ROOT = path.resolve(__dirname, '..');
@@ -62,7 +59,7 @@ class MockBranchProvider extends ITicketingProvider {
 // 1. VerificationError
 // ---------------------------------------------------------------------------
 
-test('VerificationError — shape', (t) => {
+test('VerificationError — shape', (_t) => {
   const err = new VerificationError('lint-baseline', 2);
 
   assert.strictEqual(err.name, 'VerificationError');
@@ -75,7 +72,7 @@ test('VerificationError — shape', (t) => {
   assert.ok(err instanceof Error, 'should be an Error subclass');
 });
 
-test('VerificationError — instanceof check', (t) => {
+test('VerificationError — instanceof check', (_t) => {
   const err = new VerificationError('typecheck', 1);
   assert.ok(err instanceof VerificationError);
   assert.ok(err instanceof Error);
@@ -85,7 +82,7 @@ test('VerificationError — instanceof check', (t) => {
 // 2. runVerificationSuite — empty-command filtering
 // ---------------------------------------------------------------------------
 
-test('runVerificationSuite — skips steps with empty typecheckCmd and testCmd', (t) => {
+test('runVerificationSuite — skips steps with empty typecheckCmd and testCmd', (_t) => {
   const progress = [];
 
   // Both typecheck and test are empty → only lint-baseline step should run.
@@ -109,7 +106,7 @@ test('runVerificationSuite — skips steps with empty typecheckCmd and testCmd',
       typecheckCmd: '', // empty → should be skipped
       testCmd: '', // empty → should be skipped
       timeoutMs: 30_000,
-      onProgress: (phase, msg) => {
+      onProgress: (_phase, msg) => {
         progress.push(msg);
         stepsRun++;
       },
@@ -133,7 +130,7 @@ test('runVerificationSuite — skips steps with empty typecheckCmd and testCmd',
   }
 });
 
-test('runVerificationSuite — includes test step when testCmd is provided', (t) => {
+test('runVerificationSuite — includes test step when testCmd is provided', (_t) => {
   const progress = [];
   let caughtErr = null;
 
@@ -145,7 +142,7 @@ test('runVerificationSuite — includes test step when testCmd is provided', (t)
       typecheckCmd: '', // skip
       testCmd: 'npm test', // should be included
       timeoutMs: 30_000,
-      onProgress: (phase, msg) => progress.push(msg),
+      onProgress: (_phase, msg) => progress.push(msg),
     });
   } catch (err) {
     caughtErr = err;
@@ -153,7 +150,11 @@ test('runVerificationSuite — includes test step when testCmd is provided', (t)
 
   // Regardless of pass/fail there should be exactly 2 progress entries:
   // lint-baseline + test.
-  assert.strictEqual(progress.length, 2, 'Should have lint-baseline + test steps');
+  assert.strictEqual(
+    progress.length,
+    2,
+    'Should have lint-baseline + test steps',
+  );
   assert.ok(progress.some((m) => m.includes('lint-baseline')));
   assert.ok(progress.some((m) => m.includes('npm test')));
 
@@ -162,7 +163,7 @@ test('runVerificationSuite — includes test step when testCmd is provided', (t)
   }
 });
 
-test('runVerificationSuite — throws VerificationError with correct stepLabel on failure', (t) => {
+test('runVerificationSuite — throws VerificationError with correct stepLabel on failure', (_t) => {
   // Use a command that is guaranteed to fail to trigger the error path.
   let thrown = null;
 
@@ -194,31 +195,31 @@ test('runVerificationSuite — throws VerificationError with correct stepLabel o
 // 3. git-utils.js — branch naming
 // ---------------------------------------------------------------------------
 
-test('git-utils — getEpicBranch()', (t) => {
+test('git-utils — getEpicBranch()', (_t) => {
   assert.strictEqual(getEpicBranch(98), 'epic/98');
   assert.strictEqual(getEpicBranch('42'), 'epic/42');
 });
 
-test('git-utils — getTaskBranch()', (t) => {
+test('git-utils — getTaskBranch()', (_t) => {
   assert.strictEqual(getTaskBranch(98, 117), 'task/epic-98/117');
   assert.strictEqual(getTaskBranch('7', '33'), 'task/epic-7/33');
 });
 
-test('git-utils — getIntegrationCandidateBranch()', (t) => {
+test('git-utils — getIntegrationCandidateBranch()', (_t) => {
   assert.strictEqual(
     getIntegrationCandidateBranch(98, 111),
     'integration-candidate-epic-98-111',
   );
 });
 
-test('git-utils — getStoryBranch() basic', (t) => {
+test('git-utils — getStoryBranch() basic', (_t) => {
   assert.strictEqual(
     getStoryBranch(98, 'My Story Title'),
     'story/epic-98/my-story-title',
   );
 });
 
-test('git-utils — getStoryBranch() slug sanitization', (t) => {
+test('git-utils — getStoryBranch() slug sanitization', (_t) => {
   // Special chars → hyphens, collapsed, trimmed
   assert.strictEqual(
     getStoryBranch(98, 'Update Test Suites for Story-Level Architecture'),
@@ -242,7 +243,7 @@ test('git-utils — getStoryBranch() slug sanitization', (t) => {
 // 4. resolveBranchForTask — hierarchy resolution
 // ---------------------------------------------------------------------------
 
-test('resolveBranchForTask — uses story branch when parent is type::story', async (t) => {
+test('resolveBranchForTask — uses story branch when parent is type::story', async (_t) => {
   const provider = new MockBranchProvider({
     117: {
       id: 117,
@@ -266,7 +267,7 @@ test('resolveBranchForTask — uses story branch when parent is type::story', as
   );
 });
 
-test('resolveBranchForTask — falls back to task branch when parent is not a story', async (t) => {
+test('resolveBranchForTask — falls back to task branch when parent is not a story', async (_t) => {
   const provider = new MockBranchProvider({
     200: {
       id: 200,
@@ -290,7 +291,7 @@ test('resolveBranchForTask — falls back to task branch when parent is not a st
   );
 });
 
-test('resolveBranchForTask — falls back to task branch when no parent field', async (t) => {
+test('resolveBranchForTask — falls back to task branch when no parent field', async (_t) => {
   const provider = new MockBranchProvider({
     300: {
       id: 300,
@@ -304,7 +305,7 @@ test('resolveBranchForTask — falls back to task branch when no parent field', 
   assert.strictEqual(branch, 'task/epic-98/300');
 });
 
-test('resolveBranchForTask — falls back gracefully when parent fetch fails', async (t) => {
+test('resolveBranchForTask — falls back gracefully when parent fetch fails', async (_t) => {
   // Parent ticket 999 does not exist → provider throws → graceful fallback.
   const provider = new MockBranchProvider({
     400: {
@@ -328,22 +329,20 @@ test('resolveBranchForTask — falls back gracefully when parent fetch fails', a
 // 5. sprint-integrate.js — CLI contract
 // ---------------------------------------------------------------------------
 
-test('sprint-integrate — exits with code 1 when --task is missing', (t) => {
-  const result = spawnSync(
-    'node',
-    ['.agents/scripts/sprint-integrate.js'],
-    { cwd: PROJECT_ROOT, encoding: 'utf-8', timeout: 10_000, shell: true },
-  );
+test('sprint-integrate — exits with code 1 when --task is missing', (_t) => {
+  const result = spawnSync('node', ['.agents/scripts/sprint-integrate.js'], {
+    cwd: PROJECT_ROOT,
+    encoding: 'utf-8',
+    timeout: 10_000,
+    shell: true,
+  });
   // Logger.fatal calls process.exit(1)
   assert.strictEqual(result.status, 1, 'Should exit 1 when --task is missing');
   const output = result.stdout + result.stderr;
-  assert.ok(
-    output.includes('--task'),
-    'Usage message should mention --task',
-  );
+  assert.ok(output.includes('--task'), 'Usage message should mention --task');
 });
 
-test('sprint-integrate — --epic flag is accepted without error on arg parse', (t) => {
+test('sprint-integrate — --epic flag is accepted without error on arg parse', (_t) => {
   // When --task is supplied, the arg-parse guard must NOT fire.
   // We use a non-existent task ID so the script exits quickly with an error
   // about the task — demonstrating it got past the "missing --task" guard.
