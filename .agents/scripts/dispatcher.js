@@ -221,6 +221,12 @@ function renderManifestMarkdown(manifest) {
   lines.push('');
   lines.push(`> **${epicTitle}**`);
   lines.push('');
+  // Compute story-level wave count (distinct earliestWave values)
+  const storyWaveSet = new Set(
+    (storyManifest ?? []).map((s) => s.earliestWave).filter((w) => w !== -1),
+  );
+  const storyWaveCount = storyWaveSet.size || 1;
+
   lines.push('| Field | Value |');
   lines.push('| :--- | :--- |');
   lines.push(`| Generated | ${generatedAt} |`);
@@ -228,7 +234,10 @@ function renderManifestMarkdown(manifest) {
   lines.push(
     `| Progress | **${summary.doneTasks}/${summary.totalTasks}** tasks (${summary.progressPercent}%) |`,
   );
-  lines.push(`| Waves | ${summary.totalWaves} |`);
+  lines.push(`| Stories | ${(storyManifest ?? []).length} |`);
+  lines.push(
+    `| Story Waves | ${storyWaveCount} _(${summary.totalWaves} task-level waves)_ |`,
+  );
   lines.push(`| Dispatched | ${summary.dispatched} |`);
   lines.push(`| Held for Approval | ${summary.heldForApproval} |`);
   lines.push('');
