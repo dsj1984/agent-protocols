@@ -245,7 +245,7 @@ repository maintenance.
 | `bootstrap-agent-protocols.md` | `/bootstrap-agent-protocols` | Initialize repo labels and project fields |
 | `git-commit-all.md`            | `/git-commit-all`            | Stage and commit all changes              |
 | `delete-epic-branches.md`      | `/delete-epic-branches`      | Hard reset: delete Epic branches          |
-| `delete-epic-tickets.md`       | `/delete-epic-tickets`       | Hard reset: delete Epic issues            |
+| `delete-epic-tickets.md`       | `/delete-epic-tickets`       | Hard reset: clear Epic child issues       |
 | `run-red-team.md`              | `/run-red-team`              | Adversarial security testing              |
 
 ---
@@ -276,7 +276,7 @@ interface. The framework ships with a **GitHub provider** using raw `fetch()`
 | `context-hydrator.js`          | Assembles self-contained agent prompts from ticket graph                     |
 | `sprint-integrate.js`          | Merges shared Story branches into Epic base branch                           |
 | `update-ticket-state.js`       | Label-based state machine with completion cascade                            |
-| `delete-epic.js`               | Recursive issue deletion via GraphQL                                         |
+| `delete-epic.js`               | Recursive issue deletion/clearing via GraphQL                                |
 | `notify.js`                    | Operator notification (mentions + webhooks)                                  |
 | `verify-prereqs.js`            | Validates task dependencies before execution                                 |
 | `lint-baseline.js`             | Lint baseline ratchet — prevents new warnings                                |

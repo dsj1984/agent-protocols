@@ -219,25 +219,37 @@ async function collectTree(owner, repo, issueNumber, visited = new Set()) {
 async function main() {
   const args = process.argv.slice(2);
   const dryRun = args.includes('--dry-run');
+  const excludeRoot = args.includes('--exclude-root');
   const epicNumber = parseInt(
     args.find((a) => !a.startsWith('--')),
     10,
   );
 
   if (!epicNumber || Number.isNaN(epicNumber)) {
-    console.error('Usage: node delete-epic.js <epic_number> [--dry-run]');
+    console.error(
+      'Usage: node delete-epic.js <epic_number> [--dry-run] [--exclude-root]',
+    );
     process.exit(1);
   }
 
   const { owner, repo } = resolveRepo();
   console.log(`\nTarget: ${owner}/${repo} Epic #${epicNumber}`);
-  console.log(`Mode:   ${dryRun ? 'DRY RUN (no deletions)' : 'LIVE'}\n`);
+  console.log(`Mode:   ${dryRun ? 'DRY RUN (no deletions)' : 'LIVE'}`);
+  if (excludeRoot) {
+    console.log('Option: --exclude-root (Keeping the Epic issue itself)\n');
+  } else {
+    console.log('\n');
+  }
 
   // 1. Collect the full issue tree
   console.log('Collecting issue tree...');
   let tree;
   try {
     tree = await collectTree(owner, repo, epicNumber);
+    if (excludeRoot) {
+      // The root issue (epicNumber) is always the LAST element in the depth-first result
+      tree = tree.filter((issue) => issue.number !== epicNumber);
+    }
   } catch (err) {
     console.error(`Failed to collect issue tree: ${err.message}`);
     process.exit(1);

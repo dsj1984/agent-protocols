@@ -1,16 +1,16 @@
 ---
 description: >-
-  Delete all GitHub issues (Epic and its hierarchy) specifically using the
-  recursive delete-epic.js engine.
+  Clear out an Epic by deleting all child issues (Features, Stories, Tasks) but
+  NOT the Epic itself, using the delete-epic.js engine.
 ---
 
-# Delete Epic Tickets Workflow
+# Clear Epic Tickets Workflow
 
-This workflow provides a mechanism to permanently remove **GitHub issues** (Epic, PRD, Tech Spec, Features, Stories, Tasks) associated with an orchestration attempt.
+This workflow provides a mechanism to permanently remove **all child issues** (PRD, Tech Spec, Features, Stories, Tasks) associated with an Epic, while **keeping the Epic issue itself** (effectively "clearing it out" for re-planning).
 
 > [!CAUTION] This action is irreversible on GitHub.
 >
-> **When to run**: When an Epic needs to be fully wiped from the ticketing system.
+> **When to run**: When an Epic needs to be reset/cleared of its children without deleting the root Epic ticket.
 >
 > **Persona**: `devops-engineer` · **Skills**: `core/git-workflow-and-versioning`
 
@@ -27,7 +27,7 @@ Confirm with the operator that they want to delete the GitHub issues.
 Run the delete-epic script in dry-run mode to audit which issues will be removed.
 
 ```powershell
-node .agents/scripts/delete-epic.js [EPIC_ID] --dry-run
+node .agents/scripts/delete-epic.js [EPIC_ID] --exclude-root --dry-run
 ```
 
 Review the output with the operator for final approval.
@@ -37,7 +37,7 @@ Review the output with the operator for final approval.
 Once approved, execute the live deletion.
 
 ```powershell
-node .agents/scripts/delete-epic.js [EPIC_ID]
+node .agents/scripts/delete-epic.js [EPIC_ID] --exclude-root
 ```
 
 ## Constraint
