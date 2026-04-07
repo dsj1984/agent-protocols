@@ -15,7 +15,9 @@ precisely. This workflow integrates with the **v5 State Sync Engine** —
 
 1. Resolve `[TASK_ID]` — the GitHub Issue number of the Task being finalized.
 2. Resolve `[EPIC_ID]` — from the Task body `## Metadata` → `Epic: #<N>`.
-3. Resolve `[IMPLEMENTATION_BRANCH]` — the branch name identified from the **Hydrated Prompt** or **Dispatch Manifest** (`story/epic-...` or `task/epic-...`).
+3. Resolve `[IMPLEMENTATION_BRANCH]` — the branch name identified from the
+   **Hydrated Prompt** or **Dispatch Manifest** (`story/epic-...` or
+   `task/epic-...`).
 4. Resolve `[EPIC_BRANCH]` — `epic/<epicId>`.
 5. Resolve `[BASE_BRANCH]` from `baseBranch` in `.agentrc.json` (default:
    `main`).
@@ -24,14 +26,15 @@ precisely. This workflow integrates with the **v5 State Sync Engine** —
 
 ## Step 1 — Branch Guard
 
-1. **Branch Guard**: Before ANY git operations, verify you are on the correct implementation branch.
+1. **Branch Guard**: Before ANY git operations, verify you are on the correct
+   implementation branch.
 
    ```powershell
    git branch --show-current
    ```
 
-   If the result is `main`, `[EPIC_BRANCH]`, or any other non-implementation branch,
-   **STOP IMMEDIATELY** and alert the operator. All implementation work
+   If the result is `main`, `[EPIC_BRANCH]`, or any other non-implementation
+   branch, **STOP IMMEDIATELY** and alert the operator. All implementation work
    MUST occur on `[IMPLEMENTATION_BRANCH]`.
 
 2. **Sync**: Pull the latest changes from the branch to avoid conflicts:
@@ -83,14 +86,19 @@ gh pr list --head [IMPLEMENTATION_BRANCH] --json url,number
 ```
 
 ### Option A: No PR Exists
-Create a Pull Request against `[EPIC_BRANCH]` (the Epic base branch, **not** `main`):
+
+Create a Pull Request against `[EPIC_BRANCH]` (the Epic base branch, **not**
+`main`):
 
 - **Title**: `feat: <Task or Story title>`
 - **Body** must include: `Closes #[TASK_ID]`
-- **Reviewer**: Set to `operatorHandle` from `orchestration.github` in `.agentrc.json`
+- **Reviewer**: Set to `operatorHandle` from `orchestration.github` in
+  `.agentrc.json`
 
 ### Option B: PR Already Exists
-Ensure the Task ID is linked to the PR by adding `Resolves #[TASK_ID]` to the PR description (if not already present). Use the GitHub CLI to update the body:
+
+Ensure the Task ID is linked to the PR by adding `Resolves #[TASK_ID]` to the PR
+description (if not already present). Use the GitHub CLI to update the body:
 
 ```powershell
 gh pr edit <PR_NUMBER> --body "$(gh pr view <PR_NUMBER> --json body -q .body)`nResolves #[TASK_ID]"
