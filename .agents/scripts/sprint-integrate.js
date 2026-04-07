@@ -50,7 +50,10 @@ function parseParentId(body) {
  *   2 — Major Conflict: requires human intervention.
  *
  * Usage:
- *   node .agents/scripts/sprint-integrate.js --epic <EPIC_ID> --task <TASK_ID>
+ *   node .agents/scripts/sprint-integrate.js --task <TASK_ID> [--epic <EPIC_ID>]
+ *
+ * If --epic is omitted the script resolves the Epic ID automatically from
+ * the "epic: #N" field written into the task ticket body.
  *
  * @see docs/v5-implementation-plan.md Sprint 3E
  */
@@ -70,12 +73,12 @@ const { values } = parseArgs({
   strict: false,
 });
 
-const epicId = values.epic;
+let epicId = values.epic ?? null;
 const taskId = values.task;
 
-if (!epicId || !taskId) {
+if (!taskId) {
   Logger.fatal(
-    'Usage: node sprint-integrate.js --epic <EPIC_ID> --task <TASK_ID>',
+    'Usage: node sprint-integrate.js --task <TASK_ID> [--epic <EPIC_ID>]',
   );
 }
 
@@ -85,6 +88,22 @@ if (!epicId || !taskId) {
 
 const { settings } = resolveConfig();
 const provider = getProvider();
+
+// Auto-resolve Epic ID from the task ticket body if not provided via CLI.
+if (!epicId) {
+  const taskTicket = await provider.getTicket(parseInt(taskId, 10));
+  const epicMatch = (taskTicket.body ?? '').match(/^epic:\s*#(\d+)/m);
+  if (!epicMatch) {
+    Logger.fatal(
+      `Cannot determine Epic ID for Task #${taskId}. ` +
+        `Either pass --epic <ID> or ensure the task body contains an "epic: #N" field.`,
+    );
+  }
+  epicId = epicMatch[1];
+  console.log(
+    `[sprint-integrate] Resolved Epic #${epicId} from Task #${taskId} body.`,
+  );
+}
 
 const epicBranch = getEpicBranch(epicId);
 const featureBranch = await resolveBranchForTask(

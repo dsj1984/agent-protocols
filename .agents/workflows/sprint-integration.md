@@ -61,8 +61,12 @@ For each eligible Story, run the integration script for one of its Tasks. The
 script automatically resolves the shared Story branch:
 
 ```powershell
-node [SCRIPTS_ROOT]/sprint-integrate.js --epic [EPIC_ID] --task [TASK_ID]
+node [SCRIPTS_ROOT]/sprint-integrate.js --task [TASK_ID]
 ```
+
+> **Note**: `--epic` is optional. When omitted the script resolves the Epic ID
+> automatically from the `epic: #N` field written into the task ticket body by
+> `createTicket`. Pass `--epic` explicitly only if you need to override this.
 
 The script performs the full candidate verification loop: creates an ephemeral
 candidate branch, merges the Story branch (which includes all completed tasks
