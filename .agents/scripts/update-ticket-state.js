@@ -1,4 +1,3 @@
-import path from 'node:path';
 import { parseArgs } from 'node:util';
 import { resolveConfig } from './lib/config-resolver.js';
 import { createProvider } from './lib/provider-factory.js';
@@ -189,7 +188,7 @@ if (
   const taskId = parseInt(values.task, 10);
   const state = values.state;
 
-  if (isNaN(taskId) || !state) {
+  if (Number.isNaN(taskId) || !state) {
     console.error(
       'Usage: node update-ticket-state.js --task <id> --state <agent::...>',
     );

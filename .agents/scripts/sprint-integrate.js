@@ -11,8 +11,6 @@ import {
 import {
   getEpicBranch,
   getIntegrationCandidateBranch,
-  getStoryBranch,
-  getTaskBranch,
   gitSpawn,
   resolveBranchForTask,
 } from './lib/git-utils.js';

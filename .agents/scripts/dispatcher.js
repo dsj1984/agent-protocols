@@ -51,7 +51,6 @@ import {
   getStoryBranch,
   getTaskBranch,
   gitSync,
-  resolveBranchForTask,
 } from './lib/git-utils.js';
 import { createProvider } from './lib/provider-factory.js';
 import { notify } from './notify.js';
@@ -201,7 +200,7 @@ function resolveModelTier(storyLabels) {
  *   tasks: object[],
  * }>}
  */
-function groupTasksByStory(tasks, allTickets, epicId) {
+function groupTasksByStory(tasks, allTickets, _epicId) {
   // Build a lookup of raw tickets by ID
   const ticketById = new Map(allTickets.map((t) => [t.id, t]));
 
