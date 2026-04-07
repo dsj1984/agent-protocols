@@ -38,8 +38,8 @@ graph LR
   `ITicketingProvider`, an abstract interface with a shipped GitHub
   implementation using native `fetch()` (Node 20+).
 - **Two-Command UX**: `/sprint-plan` generates PRDs, Tech Specs, and a full
-  4-tier task hierarchy. `/sprint-execute` dispatches work in dependency-ordered
-  waves.
+  4-tier task hierarchy. `/sprint-execute` dispatches work in Story-grouped
+  waves, using shared context branches to minimize integration friction.
 - **Self-Contained**: Zero external SDK dependencies for core orchestration. No
   `@octokit/*`, no Axios — just raw HTTP and GraphQL.
 
@@ -124,13 +124,13 @@ npm test              # Run framework tests
 
 ## Documentation
 
-| Document                                | Purpose                        |
-| --------------------------------------- | ------------------------------ |
-| [Consumer Guide](.agents/README.md)     | Setup, configuration, and APIs |
-| [SDLC Workflow](.agents/SDLC.md)       | End-to-end sprint lifecycle    |
-| [Changelog](docs/CHANGELOG.md)               | Release history (v5.0.0+)     |
-| [Legacy Changelog](docs/archive/CHANGELOG-v4.md) | v1.0.0 – v4.7.2 history     |
-| [Roadmap](docs/ROADMAP.md)                       | Auto-generated from Issues    |
+| Document                                         | Purpose                        |
+| ------------------------------------------------ | ------------------------------ |
+| [Consumer Guide](.agents/README.md)              | Setup, configuration, and APIs |
+| [SDLC Workflow](.agents/SDLC.md)                 | End-to-end sprint lifecycle    |
+| [Changelog](docs/CHANGELOG.md)                   | Release history (v5.0.0+)      |
+| [Legacy Changelog](docs/archive/CHANGELOG-v4.md) | v1.0.0 – v4.7.2 history        |
+| [Roadmap](docs/ROADMAP.md)                       | Auto-generated from Issues     |
 
 ## License
 

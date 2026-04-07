@@ -10,11 +10,11 @@ of Truth. No local playbooks, no sprint directories, no JSON state files.
 
 - **GitHub as SSOT**: All project logic, work breakdown, and task status lives
   in GitHub Issues. No local state files.
-- **Provider Abstraction**: Orchestration flows through `ITicketingProvider`,
-  an abstract interface with a shipped GitHub implementation.
+- **Provider Abstraction**: Orchestration flows through `ITicketingProvider`, an
+  abstract interface with a shipped GitHub implementation.
 - **Agentic Autonomy**: Planning and execution are decoupled. Agents pick up
-  tasks from the backlog, implement on isolated branches, and sync state back
-  to GitHub in real-time.
+  tasks from the backlog, implement on isolated branches, and sync state back to
+  GitHub in real-time.
 - **Human-in-the-Loop (HITL)**: Humans define the vision (Epics), trigger
   planning, and approve high-risk tasks. Everything else is autonomous.
 
@@ -106,14 +106,26 @@ The framework reads the Epic and autonomously builds the entire work breakdown.
    - **Metadata**: Each Task is stamped with persona, model recommendations,
      estimated files, and agent prompts.
 
-1. **Roadmap Update**: `generate-roadmap.js` detects the new Epic/Features
-   and updates `docs/roadmap.md`.
+1. **Roadmap Update**: `generate-roadmap.js` detects the new Epic/Features and
+   updates `docs/roadmap.md`.
 
 ---
 
 ## Phase 3: Execution (Agentic)
 
-Execution is driven by the **Dispatcher** and **Context Hydrator**.
+Execution is driven by the **Dispatcher** and **Context Hydrator**, optimized
+for **Story-level grouping** to minimize integration friction.
+
+### Story-Centric Branching
+
+Unlike legacy models where every Task lives on its own branch, Version 5 uses
+**shared Story branches**:
+
+- **Format**: `story/epic-[EPIC_ID]/[STORY_SLUG]`
+- **Goal**: Minimize merge conflicts and consolidation waves by grouping related
+  tasks on the same context slice.
+- **Model Tiering**: Stories labeled `complexity::high` automatically upgrade
+  all child tasks to `model_tier: high`. Standard stories use `fast` prompts.
 
 ### Dispatch
 
@@ -129,6 +141,7 @@ a self-contained prompt:
 1. `agent-protocol.md` (universal rules)
 1. Persona and skill directives (from Task labels)
 1. Hierarchy context (Story → Feature → Epic → PRD → Tech Spec)
+1. **Story Branch Context**: Automatic checkouts to the shared story branch.
 1. Task-specific instructions and subtask checklist
 
 ### State Sync
@@ -156,13 +169,15 @@ The notification engine fires an `approval-required` event via webhook.
 
 Once Task waves complete, the bookend lifecycle begins.
 
-1. **Integration**: `/sprint-integration` merges Task PRs into the Epic base
-   branch, running a stabilization suite on ephemeral candidate branches.
+1. **Integration**: `/sprint-integration` identifies integrated feature sets by
+   resolving Task → Story hierarchy. It merges shared Story branches into the
+   Epic base branch.
 
-1. **Completion Cascade**: When a Task is integrated, status cascades upward:
+1. **Completion Cascade**: When the last Task in a group is reached, status
+   cascades upward via `update-ticket-state.js`:
 
    ```text
-   Task Done → Story Done → Feature Done → Epic Done
+   Task Integrated → Story Done → Feature Done → Epic Done
    ```
 
 1. **Lifecycle phases**:
@@ -195,16 +210,16 @@ Notifications are dispatched through two channels:
 
 ## Quick Reference
 
-| Command                          | Purpose                                          |
-| -------------------------------- | ------------------------------------------------ |
-| `/sprint-plan [EPIC_ID]`         | Generate PRD, Tech Spec, and full task hierarchy |
-| `/sprint-execute [EPIC_ID]`      | Dispatch manifest and launch task waves          |
-| `/sprint-execute [TASK_ID]`      | Hydrate context and implement a single task      |
-| `/sprint-finalize-task`          | Validate, commit, and update task state          |
-| `/sprint-integration`            | Merge task branches into Epic base branch        |
-| `/sprint-code-review`            | Comprehensive code review                        |
-| `/sprint-retro`                  | Retrospective from ticket graph                  |
-| `/sprint-close-out`              | Merge to main, tag release, close Epic           |
-| `/bootstrap-agent-protocols`     | Initialize repo labels and project fields        |
-| `/delete-epic-branches [EPIC_ID]` | Hard reset: delete Epic branches                |
-| `/delete-epic-tickets [EPIC_ID]`  | Hard reset: delete Epic issues                  |
+| Command                           | Purpose                                          |
+| --------------------------------- | ------------------------------------------------ |
+| `/sprint-plan [EPIC_ID]`          | Generate PRD, Tech Spec, and full task hierarchy |
+| `/sprint-execute [EPIC_ID]`       | Dispatch manifest and launch task waves          |
+| `/sprint-execute [TASK_ID]`       | Hydrate context and implement a single task      |
+| `/sprint-finalize-task`           | Validate, commit, and update task state          |
+| `/sprint-integration`             | Merge task branches into Epic base branch        |
+| `/sprint-code-review`             | Comprehensive code review                        |
+| `/sprint-retro`                   | Retrospective from ticket graph                  |
+| `/sprint-close-out`               | Merge to main, tag release, close Epic           |
+| `/bootstrap-agent-protocols`      | Initialize repo labels and project fields        |
+| `/delete-epic-branches [EPIC_ID]` | Hard reset: delete Epic branches                 |
+| `/delete-epic-tickets [EPIC_ID]`  | Hard reset: delete Epic issues                   |

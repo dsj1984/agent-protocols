@@ -1,3 +1,5 @@
+import path from 'node:path';
+import { parseArgs } from 'node:util';
 import { resolveConfig } from './lib/config-resolver.js';
 import { createProvider } from './lib/provider-factory.js';
 
@@ -168,4 +170,48 @@ export async function cascadeCompletion(ticketId) {
       await cascadeCompletion(parentId);
     }
   }
+}
+
+// ── CLI Main Block ────────────────────────────────────────────────────────
+// If run directly via node .agents/scripts/update-ticket-state.js
+if (
+  process.argv[1]?.endsWith('update-ticket-state.js') ||
+  process.env.DEBUG_MAIN // For local debugging
+) {
+  const { values } = parseArgs({
+    args: process.argv.slice(2),
+    options: {
+      task: { type: 'string' },
+      state: { type: 'string' },
+    },
+  });
+
+  const taskId = parseInt(values.task, 10);
+  const state = values.state;
+
+  if (isNaN(taskId) || !state) {
+    console.error(
+      'Usage: node update-ticket-state.js --task <id> --state <agent::...>',
+    );
+    process.exit(1);
+  }
+
+  (async () => {
+    try {
+      console.log(
+        `[State-Sync] Transitioning ticket #${taskId} to ${state}...`,
+      );
+      await transitionTicketState(taskId, state);
+
+      if (state === STATE_LABELS.DONE) {
+        console.log(`[State-Sync] Cascading completion from #${taskId}...`);
+        await cascadeCompletion(taskId);
+      }
+
+      console.log('[State-Sync] ✅ Success');
+    } catch (err) {
+      console.error(`[State-Sync] ❌ Failed: ${err.message}`);
+      process.exit(1);
+    }
+  })();
 }

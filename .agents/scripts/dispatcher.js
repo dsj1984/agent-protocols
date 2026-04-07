@@ -47,10 +47,10 @@ import {
   detectCycle,
 } from './lib/Graph.js';
 import {
-  gitSync,
   getEpicBranch,
   getStoryBranch,
   getTaskBranch,
+  gitSync,
   resolveBranchForTask,
 } from './lib/git-utils.js';
 import { createProvider } from './lib/provider-factory.js';
@@ -643,18 +643,7 @@ export async function dispatch(options) {
 
     // Dispatch this wave
     for (const task of eligible) {
-      // Determine story branch — tasks execute on their parent story's branch.
-      const taskParentId = parseParentId(task.body);
-      const parentTicket =
-        taskParentId != null ? allTicketsById.get(taskParentId) : null;
-      const isParentStory =
-        parentTicket && (parentTicket.labels ?? []).includes('type::story');
-      const storySlugForBranch = isParentStory
-        ? parentTicket.title
-        : `task-${task.id}`;
-      const taskBranch = isParentStory
-        ? getStoryBranch(epicId, storySlugForBranch)
-        : getTaskBranch(epicId, task.id);
+      const taskBranch = getResolvedBranch(task, allTicketsById, epicId);
       const resolvedModel = resolveModel(task.model, settings);
 
       // Hold risk::high tasks for HITL approval
@@ -893,6 +882,26 @@ function buildStoryManifest(tasks, allTickets, epicId) {
 }
 
 /**
+ * Resolves the branch name for a task, checking if it belongs to a parent story.
+ *
+ * @param {object} task
+ * @param {Map<number, object>} allTicketsById
+ * @param {number} epicId
+ * @returns {string}
+ */
+function getResolvedBranch(task, allTicketsById, epicId) {
+  const parentMatch = task.body?.match(/parent:\s*#(\d+)/i);
+  if (parentMatch) {
+    const parentId = parseInt(parentMatch[1], 10);
+    const parentTicket = allTicketsById.get(parentId);
+    if (parentTicket && (parentTicket.labels ?? []).includes('type::story')) {
+      return getStoryBranch(epicId, parentTicket.title);
+    }
+  }
+  return getTaskBranch(epicId, task.id);
+}
+
+/**
  * Build a Dispatch Manifest object conforming to dispatch-manifest.json schema.
  *
  * @param {object} params
@@ -913,6 +922,7 @@ function buildManifest({
   const doneTasks = tasks.filter((t) => t.status === AGENT_DONE_LABEL).length;
   const progress =
     totalTasks > 0 ? Math.round((doneTasks / totalTasks) * 100) : 0;
+  const allTicketsById = new Map((allTickets ?? []).map((t) => [t.id, t]));
 
   return {
     schemaVersion: '1.0.0',
@@ -935,7 +945,7 @@ function buildManifest({
         taskId: t.id,
         title: t.title,
         status: t.status,
-        branch: getTaskBranch(epicId, t.id),
+        branch: getResolvedBranch(t, allTicketsById ?? new Map(), epicId),
         persona: t.persona,
         model: t.model,
         mode: t.mode,
