@@ -32,8 +32,9 @@ framework via the `.agents/` Git submodule.
 
 ## System Prompt (`instructions.md`)
 
-**This file is the agent's system prompt.** Configure your AI tool (`.cursorrules`,
-Custom Instructions, or system prompt settings) to load its full content.
+**This file is the agent's system prompt.** Configure your AI tool
+(`.cursorrules`, Custom Instructions, or system prompt settings) to load its
+full content.
 
 The system prompt instructs agents to:
 
@@ -43,9 +44,8 @@ The system prompt instructs agents to:
 1. **Retrieve** live documentation via Context7 MCP.
 1. **Enforce** Windows shell compatibility (`;` not `&&`).
 
-> [!IMPORTANT]
-> You MUST configure your AI tool to load `instructions.md` as its primary
-> system prompt. Without this, none of the protocols are active.
+> [!IMPORTANT] You MUST configure your AI tool to load `instructions.md` as its
+> primary system prompt. Without this, none of the protocols are active.
 
 ---
 
@@ -62,16 +62,16 @@ cp .agents/default-agentrc.json .agentrc.json
 
 ### Key Settings
 
-| Setting                          | Purpose                                         |
-| -------------------------------- | ----------------------------------------------- |
-| `agentSettings.baseBranch`       | Your default branch (`main`, `master`, etc.)    |
-| `agentSettings.testCommand`      | Your project's test runner                      |
-| `agentSettings.validationCommand`| Comprehensive validation suite                  |
+| Setting                             | Purpose                                          |
+| ----------------------------------- | ------------------------------------------------ |
+| `agentSettings.baseBranch`          | Your default branch (`main`, `master`, etc.)     |
+| `agentSettings.testCommand`         | Your project's test runner                       |
+| `agentSettings.validationCommand`   | Comprehensive validation suite                   |
 | `agentSettings.lintBaselineCommand` | Structured linter output for baseline ratcheting |
-| `orchestration.provider`         | Ticketing provider (`"github"`)                 |
-| `orchestration.github.owner`     | GitHub repository owner                         |
-| `orchestration.github.repo`      | GitHub repository name                          |
-| `techStack.project.name`         | Your project name                               |
+| `orchestration.provider`            | Ticketing provider (`"github"`)                  |
+| `orchestration.github.owner`        | GitHub repository owner                          |
+| `orchestration.github.repo`         | GitHub repository name                           |
+| `techStack.project.name`            | Your project name                                |
 
 ### Validation Commands
 
@@ -101,7 +101,8 @@ Override protocol behavior per-machine with `.agents/instructions.local.md`
    matching file from `personas/`.
 1. **Activate skills** by name or let the agent auto-discover `SKILL.md` files
    in `skills/core/` and `skills/stack/`.
-1. **Run workflows** using slash commands (e.g., `/sprint-plan`, `/audit-security`).
+1. **Run workflows** using slash commands (e.g., `/sprint-plan`,
+   `/audit-security`).
 
 ---
 
@@ -136,7 +137,7 @@ Modular, domain-agnostic standards loaded by the system prompt.
 | `coding-style.md`                    | Generic         | Clean code standards and file structure conventions    |
 | `database-standards.md`              | Database        | Migration safety, naming, and indexing strategies      |
 | `git-conventions.md`                 | Version Control | Branching strategy and PR quality standards            |
-| `security-baseline.md`              | Security        | OWASP basics, credential safety, and encryption rules  |
+| `security-baseline.md`               | Security        | OWASP basics, credential safety, and encryption rules  |
 | `testing-standards.md`               | Quality         | Coverage thresholds and unit testing philosophy        |
 | `ui-copywriting.md`                  | UX              | Content tone, error messaging, and labeling standards  |
 | `search-and-execution-heuristics.md` | Shell & Search  | Optimized command usage and pipeline safety heuristics |
@@ -208,44 +209,44 @@ repository maintenance.
 
 ### Audit Workflows
 
-| Workflow                   | Slash Command              | Purpose                                      |
-| -------------------------- | -------------------------- | -------------------------------------------- |
-| `audit-accessibility.md`  | `/audit-accessibility`     | Lighthouse accessibility audit               |
-| `audit-architecture.md`   | `/audit-architecture`      | Architecture and coupling review             |
-| `audit-clean-code.md`     | `/audit-clean-code`        | Maintainability and technical debt analysis  |
-| `audit-dependency-update.md` | `/audit-dependency-update` | Dependency security and bloat audit       |
-| `audit-devops.md`         | `/audit-devops`            | CI/CD and infrastructure review              |
-| `audit-performance.md`    | `/audit-performance`       | Bottleneck and performance audit             |
-| `audit-privacy.md`        | `/audit-privacy`           | PII and privacy compliance audit             |
-| `audit-quality.md`        | `/audit-quality`           | Test coverage and quality review             |
-| `audit-security.md`       | `/audit-security`          | Vulnerability and OWASP alignment            |
-| `audit-seo.md`            | `/audit-seo`               | SEO and Generative Engine Optimization       |
-| `audit-sre.md`            | `/audit-sre`               | Production release readiness audit           |
-| `audit-ux-ui.md`          | `/audit-ux-ui`             | Design system consistency review             |
+| Workflow                     | Slash Command              | Purpose                                     |
+| ---------------------------- | -------------------------- | ------------------------------------------- |
+| `audit-accessibility.md`     | `/audit-accessibility`     | Lighthouse accessibility audit              |
+| `audit-architecture.md`      | `/audit-architecture`      | Architecture and coupling review            |
+| `audit-clean-code.md`        | `/audit-clean-code`        | Maintainability and technical debt analysis |
+| `audit-dependency-update.md` | `/audit-dependency-update` | Dependency security and bloat audit         |
+| `audit-devops.md`            | `/audit-devops`            | CI/CD and infrastructure review             |
+| `audit-performance.md`       | `/audit-performance`       | Bottleneck and performance audit            |
+| `audit-privacy.md`           | `/audit-privacy`           | PII and privacy compliance audit            |
+| `audit-quality.md`           | `/audit-quality`           | Test coverage and quality review            |
+| `audit-security.md`          | `/audit-security`          | Vulnerability and OWASP alignment           |
+| `audit-seo.md`               | `/audit-seo`               | SEO and Generative Engine Optimization      |
+| `audit-sre.md`               | `/audit-sre`               | Production release readiness audit          |
+| `audit-ux-ui.md`             | `/audit-ux-ui`             | Design system consistency review            |
 
 ### Sprint Workflows
 
-| Workflow                          | Slash Command                       | Purpose                                         |
-| --------------------------------- | ----------------------------------- | ----------------------------------------------- |
-| `sprint-plan.md`                  | `/sprint-plan`                      | Autonomous PRD, Tech Spec, and task generation  |
-| `sprint-execute.md`               | `/sprint-execute`                   | DAG dispatch (Epic) or task implementation      |
-| `sprint-verify-task-prerequisites.md` | `/sprint-verify-task-prerequisites` | Validate dependencies before execution      |
-| `sprint-finalize-task.md`         | `/sprint-finalize-task`             | Validation, commit, and state sync              |
-| `sprint-code-review.md`          | `/sprint-code-review`               | Comprehensive code review                       |
-| `sprint-integration.md`          | `/sprint-integration`               | Merge and stabilization                         |
-| `sprint-hotfix.md`               | `/sprint-hotfix`                    | Rapid remediation on feature branches           |
-| `sprint-retro.md`                | `/sprint-retro`                     | Retrospective from ticket graph                 |
-| `sprint-close-out.md`            | `/sprint-close-out`                 | Final merge, tag release, close Epic            |
+| Workflow                              | Slash Command                       | Purpose                                        |
+| ------------------------------------- | ----------------------------------- | ---------------------------------------------- |
+| `sprint-plan.md`                      | `/sprint-plan`                      | Autonomous PRD, Tech Spec, and task generation |
+| `sprint-execute.md`                   | `/sprint-execute`                   | DAG dispatch (Epic) or task implementation     |
+| `sprint-verify-task-prerequisites.md` | `/sprint-verify-task-prerequisites` | Validate dependencies before execution         |
+| `sprint-finalize-task.md`             | `/sprint-finalize-task`             | Validation, commit, and state sync             |
+| `sprint-code-review.md`               | `/sprint-code-review`               | Comprehensive code review                      |
+| `sprint-integration.md`               | `/sprint-integration`               | Merge and stabilization                        |
+| `sprint-hotfix.md`                    | `/sprint-hotfix`                    | Rapid remediation on feature branches          |
+| `sprint-retro.md`                     | `/sprint-retro`                     | Retrospective from ticket graph                |
+| `sprint-close-out.md`                 | `/sprint-close-out`                 | Final merge, tag release, close Epic           |
 
 ### Utility Workflows
 
-| Workflow                          | Slash Command                       | Purpose                                         |
-| --------------------------------- | ----------------------------------- | ----------------------------------------------- |
-| `bootstrap-agent-protocols.md`   | `/bootstrap-agent-protocols`        | Initialize repo labels and project fields       |
-| `git-commit-all.md`              | `/git-commit-all`                   | Stage and commit all changes                    |
-| `delete-epic-branches.md`         | `/delete-epic-branches`            | Hard reset: delete Epic branches                |
-| `delete-epic-tickets.md`          | `/delete-epic-tickets`             | Hard reset: delete Epic issues                  |
-| `run-red-team.md`                | `/run-red-team`                     | Adversarial security testing                    |
+| Workflow                       | Slash Command                | Purpose                                   |
+| ------------------------------ | ---------------------------- | ----------------------------------------- |
+| `bootstrap-agent-protocols.md` | `/bootstrap-agent-protocols` | Initialize repo labels and project fields |
+| `git-commit-all.md`            | `/git-commit-all`            | Stage and commit all changes              |
+| `delete-epic-branches.md`      | `/delete-epic-branches`      | Hard reset: delete Epic branches          |
+| `delete-epic-tickets.md`       | `/delete-epic-tickets`       | Hard reset: delete Epic issues            |
+| `run-red-team.md`              | `/run-red-team`              | Adversarial security testing              |
 
 ---
 
@@ -266,23 +267,23 @@ interface. The framework ships with a **GitHub provider** using raw `fetch()`
 
 ### Scripts Reference
 
-| Script                          | Purpose                                                   |
-| ------------------------------- | --------------------------------------------------------- |
-| `bootstrap-agent-protocols.js`  | Idempotent setup of GitHub labels and project fields      |
-| `epic-planner.js`               | Autonomous PRD and Tech Spec generation                   |
-| `ticket-decomposer.js`          | Recursive 4-tier hierarchy decomposition                  |
-| `dispatcher.js`                 | DAG scheduler — builds dependency graph, dispatches waves |
-| `context-hydrator.js`           | Assembles self-contained agent prompts from ticket graph  |
-| `sprint-integrate.js`           | Merges task branches into Epic base branch                |
-| `update-ticket-state.js`        | Label-based state machine with completion cascade         |
-| `delete-epic.js`                | Recursive issue deletion via GraphQL                      |
-| `notify.js`                     | Operator notification (mentions + webhooks)               |
-| `verify-prereqs.js`             | Validates task dependencies before execution              |
-| `lint-baseline.js`              | Lint baseline ratchet — prevents new warnings             |
-| `generate-roadmap.js`           | Auto-renders `docs/roadmap.md` from live Epics            |
-| `diagnose-friction.js`          | Analyzes friction logs for patterns                       |
-| `detect-merges.js`              | Detects and reports merge conflicts                       |
-| `git-commit-if-changed.js`      | Conditional commit utility                                |
+| Script                         | Purpose                                                                      |
+| ------------------------------ | ---------------------------------------------------------------------------- |
+| `bootstrap-agent-protocols.js` | Idempotent setup of GitHub labels and project fields                         |
+| `epic-planner.js`              | Autonomous PRD and Tech Spec generation                                      |
+| `ticket-decomposer.js`         | Recursive 4-tier hierarchy decomposition                                     |
+| `dispatcher.js`                | DAG scheduler — groups tasks by Story, dispatches waves with shared branches |
+| `context-hydrator.js`          | Assembles self-contained agent prompts from ticket graph                     |
+| `sprint-integrate.js`          | Merges shared Story branches into Epic base branch                           |
+| `update-ticket-state.js`       | Label-based state machine with completion cascade                            |
+| `delete-epic.js`               | Recursive issue deletion via GraphQL                                         |
+| `notify.js`                    | Operator notification (mentions + webhooks)                                  |
+| `verify-prereqs.js`            | Validates task dependencies before execution                                 |
+| `lint-baseline.js`             | Lint baseline ratchet — prevents new warnings                                |
+| `generate-roadmap.js`          | Auto-renders `docs/roadmap.md` from live Epics                               |
+| `diagnose-friction.js`         | Analyzes friction logs for patterns                                          |
+| `detect-merges.js`             | Detects and reports merge conflicts                                          |
+| `git-commit-if-changed.js`     | Conditional commit utility                                                   |
 
 ### Orchestration Configuration
 
@@ -322,11 +323,11 @@ Add the following block to your `.agentrc.json`:
 
 The `GitHubProvider` resolves credentials in this priority order:
 
-| Priority | Method                       | Environment                 |
-| -------- | ---------------------------- | --------------------------- |
-| 1        | GitHub MCP Server            | Agentic IDE (Antigravity)   |
-| 2        | `GITHUB_TOKEN` or `GH_TOKEN` | CI/CD, background scripts   |
-| 3        | `gh auth token` (CLI)        | Local developer workflow    |
+| Priority | Method                       | Environment               |
+| -------- | ---------------------------- | ------------------------- |
+| 1        | GitHub MCP Server            | Agentic IDE (Antigravity) |
+| 2        | `GITHUB_TOKEN` or `GH_TOKEN` | CI/CD, background scripts |
+| 3        | `gh auth token` (CLI)        | Local developer workflow  |
 
 ### Required Token Permissions
 
@@ -342,8 +343,8 @@ The `GitHubProvider` resolves credentials in this priority order:
 ### Configuration
 
 1. **Agentic IDE**: Ensure the `github-mcp-server` is active in the session.
-1. **Background scripts**: Set `GITHUB_TOKEN` in your environment or `.env`
-   file at the project root.
+1. **Background scripts**: Set `GITHUB_TOKEN` in your environment or `.env` file
+   at the project root.
 1. **Local CLI**: Run `gh auth login`.
 
 ---

@@ -63,6 +63,7 @@ const result = spawnSync(cmdArgs[0], cmdArgs.slice(1), {
   encoding: 'utf-8',
   timeout: executionTimeoutMs,
   maxBuffer: executionMaxBuffer,
+  shell: true,
 });
 
 // Mirror output so the agent can see it

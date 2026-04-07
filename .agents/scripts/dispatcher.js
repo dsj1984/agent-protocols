@@ -46,7 +46,12 @@ import {
   computeWaves,
   detectCycle,
 } from './lib/Graph.js';
-import { gitSync } from './lib/git-utils.js';
+import {
+  getEpicBranch,
+  getStoryBranch,
+  getTaskBranch,
+  gitSync,
+} from './lib/git-utils.js';
 import { createProvider } from './lib/provider-factory.js';
 import { notify } from './notify.js';
 
@@ -163,6 +168,68 @@ function resolveModel(ticketModel, settings) {
 }
 
 // ---------------------------------------------------------------------------
+// Story-level grouping helpers
+// ---------------------------------------------------------------------------
+
+/**
+ * Determine model tier for a story based on its complexity:: label.
+ * Falls back to 'fast' if no complexity label is present.
+ *
+ * @param {string[]} storyLabels - Labels from the story ticket.
+ * @returns {'high' | 'fast'}
+ */
+function resolveModelTier(storyLabels) {
+  if ((storyLabels ?? []).includes('complexity::high')) return 'high';
+  return 'fast';
+}
+
+/**
+ * Group a flat task list by their parent Story.
+ *
+ * Reads the `parent: #N` body convention written by createTicket.
+ * Tasks whose parent cannot be resolved (no body match, or parent is not
+ * a Story) are grouped under a synthetic '__ungrouped__' story.
+ *
+ * @param {object[]} tasks          - Normalised tasks from fetchTasks.
+ * @param {object[]} allTickets     - All raw tickets under the epic (inc. stories).
+ * @param {number}   epicId
+ * @returns {Map<number|'__ungrouped__', {
+ *   storyId: number|'__ungrouped__',
+ *   storyTitle: string,
+ *   storyLabels: string[],
+ *   tasks: object[],
+ * }>}
+ */
+function groupTasksByStory(tasks, allTickets, _epicId) {
+  // Build a lookup of raw tickets by ID
+  const ticketById = new Map(allTickets.map((t) => [t.id, t]));
+
+  const groups = new Map();
+
+  for (const task of tasks) {
+    const parentId = parseParentId(task.body);
+    const parentTicket = parentId != null ? ticketById.get(parentId) : null;
+    const isStory =
+      parentTicket && (parentTicket.labels ?? []).includes('type::story');
+
+    const key = isStory ? parentId : '__ungrouped__';
+
+    if (!groups.has(key)) {
+      groups.set(key, {
+        storyId: key,
+        storyTitle: isStory ? parentTicket.title : '(Ungrouped Tasks)',
+        storyLabels: isStory ? (parentTicket.labels ?? []) : [],
+        tasks: [],
+      });
+    }
+
+    groups.get(key).tasks.push(task);
+  }
+
+  return groups;
+}
+
+// ---------------------------------------------------------------------------
 // Core dispatcher logic
 // ---------------------------------------------------------------------------
 
@@ -180,8 +247,15 @@ async function fetchTasks(provider, epicId) {
     const metadata = parseTaskMetadata(t.body ?? '');
     const blockedBy = parseBlockedBy(t.body ?? '');
     const labels = t.labels ?? [];
+
+    // A closed GitHub issue means the PR was merged — treat as agent::done
+    // regardless of label state. The reconcileClosedTasks step (called right
+    // after this) will sync the labels and state on GitHub to match.
     const status =
-      labels.find((l) => l.startsWith('agent::')) ?? 'agent::ready';
+      t.state === 'closed'
+        ? AGENT_DONE_LABEL
+        : (labels.find((l) => l.startsWith('agent::')) ?? 'agent::ready');
+
     const isRiskHigh = labels.includes(RISK_HIGH_LABEL);
 
     return {
@@ -195,6 +269,247 @@ async function fetchTasks(provider, epicId) {
       ...metadata,
     };
   });
+}
+
+/**
+ * Reconcile any closed GitHub issues that still carry stale agent:: labels.
+ *
+ * When an operator manually merges a PR, GitHub closes the referenced issue
+ * but does NOT update the agent:: label. This function detects that mismatch
+ * and syncs GitHub to the correct state:
+ *   - Removes all other agent:: labels
+ *   - Adds agent::done
+ *   - Marks the issue state as closed / completed (idempotent)
+ *
+ * Safe to call in dry-run mode — skips writes when dryRun=true.
+ *
+ * @param {object[]} tasks - Normalised task list from fetchTasks.
+ * @param {import('./lib/ITicketingProvider.js').ITicketingProvider} provider
+ * @param {boolean} dryRun
+ */
+async function reconcileClosedTasks(tasks, provider, dryRun) {
+  const ALL_AGENT_STATES = [
+    'agent::ready',
+    'agent::executing',
+    'agent::review',
+    'agent::done',
+  ];
+
+  for (const task of tasks) {
+    // Only act on tasks that the closed-issue heuristic marked as done
+    // but whose labels haven't been updated yet.
+    if (task.status !== AGENT_DONE_LABEL) continue;
+    if (task.labels.includes(AGENT_DONE_LABEL)) continue; // already in sync
+
+    console.log(
+      `[Dispatcher] Reconciling closed issue #${task.id} "${task.title}" → agent::done`,
+    );
+
+    if (dryRun) {
+      console.log(
+        `[Dispatcher] [DRY-RUN] Would sync labels and close issue #${task.id}`,
+      );
+      continue;
+    }
+
+    try {
+      await provider.updateTicket(task.id, {
+        labels: {
+          add: [AGENT_DONE_LABEL],
+          remove: ALL_AGENT_STATES.filter((s) => s !== AGENT_DONE_LABEL),
+        },
+        state: 'closed',
+        state_reason: 'completed',
+      });
+      console.log(`[Dispatcher] ✅ Synced #${task.id} to agent::done`);
+    } catch (err) {
+      console.warn(
+        `[Dispatcher] Failed to reconcile #${task.id}: ${err.message}`,
+      );
+    }
+  }
+}
+
+/**
+ * Parse the direct parent ID from a ticket body.
+ * Looks for the convention written by createTicket: "parent: #N"
+ *
+ * @param {string} body
+ * @returns {number|null}
+ */
+function parseParentId(body) {
+  const match = (body ?? '').match(/^parent:\s*#(\d+)/m);
+  return match ? parseInt(match[1], 10) : null;
+}
+
+/**
+ * Reconcile the full ticket hierarchy bottom-up.
+ *
+ * GitHub native sub-issues track Epic→Feature→Story→Task. After tasks are
+ * merged and reconciled to agent::done, this function propagates completion
+ * upward:
+ *   - Story  closes when ALL its Tasks  are closed/agent::done
+ *   - Feature closes when ALL its Stories are closed/agent::done
+ *   - Epic   closes when ALL its Features are closed/agent::done
+ *
+ * Uses the `parent: #N` body convention (written by createTicket) to map
+ * children to parents. Falls back to the Epic itself for any ticket whose
+ * parent cannot be resolved.
+ *
+ * Safe to call in dry-run mode — logs intended actions without writing.
+ *
+ * @param {import('./lib/ITicketingProvider.js').ITicketingProvider} provider
+ * @param {number} epicId
+ * @param {object} epic  - Epic ticket (from getEpic)
+ * @param {object[]} tasks - Normalised task objects (from fetchTasks)
+ * @param {boolean} dryRun
+ */
+async function reconcileHierarchy(provider, epicId, epic, tasks, dryRun) {
+  // Fetch every non-task ticket under the epic (features + stories)
+  // getTickets returns ALL tickets referencing the epic in their body.
+  const allTickets = await provider.getTickets(epicId);
+
+  // Build a lookup: ticketId → raw ticket
+  const ticketMap = new Map(allTickets.map((t) => [t.id, t]));
+
+  // Add the normalised task objects (already fetched) so we have the full set.
+  // Tasks carry status resolved from closed-state heuristic; use that.
+  const taskById = new Map(tasks.map((t) => [t.id, t]));
+
+  // Build parent → [childIds] map from body references.
+  const childrenOf = new Map();
+  for (const ticket of allTickets) {
+    const parentId = parseParentId(ticket.body);
+    if (parentId != null) {
+      if (!childrenOf.has(parentId)) childrenOf.set(parentId, []);
+      childrenOf.get(parentId).push(ticket.id);
+    }
+  }
+
+  /**
+   * Returns true if a ticket is considered fully done:
+   * - Its GitHub state is 'closed', OR
+   * - It carries the agent::done label.
+   */
+  function isDone(ticketId) {
+    // Tasks: use the reconciled status from fetchTasks
+    if (taskById.has(ticketId)) {
+      return taskById.get(ticketId).status === AGENT_DONE_LABEL;
+    }
+    // Features / Stories: use raw GitHub state + label
+    const t = ticketMap.get(ticketId);
+    if (!t) return false;
+    return t.state === 'closed' || (t.labels ?? []).includes(AGENT_DONE_LABEL);
+  }
+
+  /**
+   * Close a non-task parent ticket if all its children are done.
+   * Does nothing if the ticket is already closed.
+   *
+   * @param {number} id  - Issue number of the parent to evaluate
+   * @param {string} typeName - Human label for log messages (e.g. 'Story')
+   */
+  async function maybeClose(id, typeName) {
+    const ticket = ticketMap.get(id);
+    // Skip if already closed
+    if (!ticket || ticket.state === 'closed') return;
+
+    const children = childrenOf.get(id) ?? [];
+    if (children.length === 0) return; // no children tracked — skip
+
+    const allDone = children.every((cid) => isDone(cid));
+    if (!allDone) return;
+
+    console.log(
+      `[Dispatcher] All children of ${typeName} #${id} "${ticket.title}" are done. Closing...`,
+    );
+
+    if (dryRun) {
+      console.log(
+        `[Dispatcher] [DRY-RUN] Would close ${typeName} #${id} and set agent::done.`,
+      );
+      // Mark as done in our local map so parent-level checks work in dry-run
+      ticket.state = 'closed';
+      return;
+    }
+
+    try {
+      await provider.updateTicket(id, {
+        labels: {
+          add: [AGENT_DONE_LABEL],
+          remove: ['agent::ready', 'agent::executing', 'agent::review'],
+        },
+        state: 'closed',
+        state_reason: 'completed',
+      });
+      ticket.state = 'closed'; // update local cache so parent checks see it
+      console.log(
+        `[Dispatcher] ✅ ${typeName} #${id} closed and marked agent::done.`,
+      );
+    } catch (err) {
+      console.warn(
+        `[Dispatcher] Failed to close ${typeName} #${id}: ${err.message}`,
+      );
+    }
+  }
+
+  // ── Process bottom-up: Stories → Features → Epic ──────────────────────────
+
+  // Collect IDs by type
+  const storyIds = allTickets
+    .filter((t) => (t.labels ?? []).includes('type::story'))
+    .map((t) => t.id);
+  const featureIds = allTickets
+    .filter((t) => (t.labels ?? []).includes('type::feature'))
+    .map((t) => t.id);
+
+  // 1. Close completed Stories
+  for (const id of storyIds) {
+    await maybeClose(id, 'Story');
+  }
+
+  // 2. Close completed Features
+  for (const id of featureIds) {
+    await maybeClose(id, 'Feature');
+  }
+
+  // 3. Close Epic if all Features (or top-level children) are done
+  const epicChildren = childrenOf.get(epicId) ?? [];
+  if (epicChildren.length > 0 && epicChildren.every((cid) => isDone(cid))) {
+    if (
+      epic.state !== 'closed' ||
+      !(epic.labels ?? []).includes(AGENT_DONE_LABEL)
+    ) {
+      console.log(
+        `[Dispatcher] All children of Epic #${epicId} are done. Closing Epic...`,
+      );
+
+      if (dryRun) {
+        console.log(
+          `[Dispatcher] [DRY-RUN] Would close Epic #${epicId} and set agent::done.`,
+        );
+        return;
+      }
+
+      try {
+        await provider.updateTicket(epicId, {
+          labels: {
+            add: [AGENT_DONE_LABEL],
+            remove: ['agent::ready', 'agent::executing', 'agent::review'],
+          },
+          state: 'closed',
+          state_reason: 'completed',
+        });
+        console.log(
+          `[Dispatcher] ✅ Epic #${epicId} closed and marked agent::done.`,
+        );
+      } catch (err) {
+        console.warn(
+          `[Dispatcher] Failed to close Epic #${epicId}: ${err.message}`,
+        );
+      }
+    }
+  }
 }
 
 /**
@@ -221,7 +536,7 @@ export async function dispatch(options) {
     });
 
   const baseBranch = settings.baseBranch ?? 'main';
-  const epicBranch = `epic/${epicId}`;
+  const epicBranch = getEpicBranch(epicId);
 
   // ── Step 1: Fetch Epic and all Tasks ────────────────────────────────────
   console.log(`\n[Dispatcher] Fetching Epic #${epicId}...`);
@@ -231,12 +546,19 @@ export async function dispatch(options) {
   const tasks = await fetchTasks(provider, epicId);
   console.log(`[Dispatcher] Found ${tasks.length} task(s).`);
 
+  // ── Step 1b: Reconcile stale labels on merged tasks ──────────────────────
+  await reconcileClosedTasks(tasks, provider, dryRun);
+
+  // ── Step 1c: Propagate completion up the full hierarchy (Story→Feature→Epic) ─
+  await reconcileHierarchy(provider, epicId, epic, tasks, dryRun);
+
   if (tasks.length === 0) {
     console.log('[Dispatcher] No tasks found. Nothing to dispatch.');
     return buildManifest({
       epicId,
       epic,
       tasks: [],
+      allTickets: [],
       waves: [],
       dispatched: [],
       heldForApproval: [],
@@ -289,6 +611,11 @@ export async function dispatch(options) {
   const dispatched = [];
   const heldForApproval = [];
 
+  // Fetch all tickets once so story labels are available in the wave loop
+  // without issuing a separate HTTP request per dispatched task.
+  const allTickets = await provider.getTickets(epicId);
+  const allTicketsById = new Map(allTickets.map((t) => [t.id, t]));
+
   for (const wave of allWaves) {
     const eligible = wave.filter(
       (t) =>
@@ -315,7 +642,7 @@ export async function dispatch(options) {
 
     // Dispatch this wave
     for (const task of eligible) {
-      const taskBranch = `task/epic-${epicId}/${task.id}`;
+      const taskBranch = getResolvedBranch(task, allTicketsById, epicId);
       const resolvedModel = resolveModel(task.model, settings);
 
       // Hold risk::high tasks for HITL approval
@@ -398,6 +725,7 @@ export async function dispatch(options) {
     epicId,
     epic,
     tasks,
+    allTickets,
     waves: allWaves,
     dispatched,
     heldForApproval,
@@ -508,6 +836,71 @@ async function detectEpicCompletion({
 }
 
 /**
+ * Build the story-centric manifest array that conforms to dispatch-manifest.schema.json.
+ *
+ * @param {object[]} tasks      - Normalised task list from fetchTasks.
+ * @param {object[]} allTickets - All raw tickets under the epic.
+ * @param {number}   epicId
+ * @returns {object[]} Array of StoryDispatch objects.
+ */
+function buildStoryManifest(tasks, allTickets, epicId) {
+  const groups = groupTasksByStory(tasks, allTickets, epicId);
+
+  return [...groups.values()].map((group) => {
+    const modelTier = resolveModelTier(group.storyLabels);
+    const slug =
+      group.storyId === '__ungrouped__'
+        ? 'ungrouped'
+        : group.storyTitle
+            .toLowerCase()
+            .replace(/[^a-z0-9_-]/g, '-')
+            .replace(/-+/g, '-')
+            .replace(/^-|-$/g, '');
+    const branchName =
+      group.storyId === '__ungrouped__'
+        ? getTaskBranch(epicId, 'ungrouped') // fallback
+        : getStoryBranch(epicId, group.storyTitle);
+
+    return {
+      storyId: group.storyId,
+      storySlug: slug,
+      branchName,
+      model_tier: modelTier,
+      tasks: group.tasks.map((t) => ({
+        taskId: t.id,
+        taskSlug: t.title
+          .toLowerCase()
+          .replace(/[^a-z0-9_-]/g, '-')
+          .replace(/-+/g, '-')
+          .replace(/^-|-$/g, ''),
+        parentSlug: slug,
+        dependencies: t.dependsOn ?? [],
+      })),
+    };
+  });
+}
+
+/**
+ * Resolves the branch name for a task, checking if it belongs to a parent story.
+ *
+ * @param {object} task
+ * @param {Map<number, object>} allTicketsById
+ * @param {number} epicId
+ * @returns {string}
+ */
+function getResolvedBranch(task, allTicketsById, epicId) {
+  const parentMatch = task.body?.match(/parent:\s*#(\d+)/i);
+  if (parentMatch) {
+    const parentId = parseInt(parentMatch[1], 10);
+    const parentTicket = allTicketsById.get(parentId);
+    if (parentTicket && (parentTicket.labels ?? []).includes('type::story')) {
+      return getStoryBranch(epicId, parentTicket.title);
+    }
+  }
+  return getTaskBranch(epicId, task.id);
+}
+
+/**
  * Build a Dispatch Manifest object conforming to dispatch-manifest.json schema.
  *
  * @param {object} params
@@ -517,6 +910,7 @@ function buildManifest({
   epicId,
   epic,
   tasks,
+  allTickets,
   waves,
   dispatched,
   heldForApproval,
@@ -527,6 +921,7 @@ function buildManifest({
   const doneTasks = tasks.filter((t) => t.status === AGENT_DONE_LABEL).length;
   const progress =
     totalTasks > 0 ? Math.round((doneTasks / totalTasks) * 100) : 0;
+  const allTicketsById = new Map((allTickets ?? []).map((t) => [t.id, t]));
 
   return {
     schemaVersion: '1.0.0',
@@ -549,7 +944,7 @@ function buildManifest({
         taskId: t.id,
         title: t.title,
         status: t.status,
-        branch: `task/epic-${epicId}/${t.id}`,
+        branch: getResolvedBranch(t, allTicketsById ?? new Map(), epicId),
         persona: t.persona,
         model: t.model,
         mode: t.mode,
@@ -559,6 +954,9 @@ function buildManifest({
         dependsOn: t.dependsOn,
       })),
     })),
+    // Story-centric manifest conforming to dispatch-manifest.schema.json
+    // Groups tasks under their parent story with story branch and model_tier.
+    storyManifest: buildStoryManifest(tasks, allTickets ?? [], epicId),
     dispatched,
     heldForApproval,
   };

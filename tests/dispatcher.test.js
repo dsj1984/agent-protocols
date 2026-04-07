@@ -406,3 +406,97 @@ describe('dispatch() — manifest schema compliance', () => {
     assert.equal(manifest.summary.progressPercent, 100);
   });
 });
+describe('dispatch() — story-level orchestration', () => {
+  it('groups tasks by story and uses shared story branches', async () => {
+    const story100 = makeTask(100, {
+      title: 'Story Slug',
+      labels: ['type::story'],
+    });
+    const task1 = makeTask(1, {
+      body: '## Metadata\nparent: #100',
+    });
+    const task2 = makeTask(2, {
+      body: '## Metadata\nparent: #100',
+    });
+
+    const provider = new MockProvider({
+      epic: EPIC,
+      tasks: [story100, task1, task2],
+    });
+    const adapter = new MockAdapter();
+
+    const manifest = await dispatch({
+      epicId: 1,
+      dryRun: true,
+      provider,
+      adapter,
+    });
+
+    // Both tasks should share the story branch naming
+    const wave0 = manifest.waves[0];
+    const t1 = wave0.tasks.find((t) => t.taskId === 1);
+    const t2 = wave0.tasks.find((t) => t.taskId === 2);
+
+    assert.equal(t1.branch, 'story/epic-1/story-slug');
+    assert.equal(t2.branch, 'story/epic-1/story-slug');
+
+    // storyManifest should contain the story
+    assert.equal(manifest.storyManifest.length, 1);
+    assert.equal(manifest.storyManifest[0].storyId, 100);
+    assert.equal(
+      manifest.storyManifest[0].branchName,
+      'story/epic-1/story-slug',
+    );
+    assert.equal(manifest.storyManifest[0].tasks.length, 2);
+  });
+
+  it('resolves model_tier: high when story has complexity::high label', async () => {
+    const story100 = makeTask(100, {
+      title: 'High Complexity Story',
+      labels: ['type::story', 'complexity::high'],
+    });
+    const taskInner = makeTask(1, {
+      body: '## Metadata\nparent: #100',
+    });
+
+    const provider = new MockProvider({
+      epic: EPIC,
+      tasks: [story100, taskInner],
+    });
+    const adapter = new MockAdapter();
+
+    const manifest = await dispatch({
+      epicId: 1,
+      dryRun: true,
+      provider,
+      adapter,
+    });
+
+    assert.equal(manifest.storyManifest[0].model_tier, 'high');
+  });
+
+  it('defaults model_tier: fast when no complexity label is present', async () => {
+    const story100 = makeTask(100, {
+      title: 'Simple Story',
+      labels: ['type::story'],
+    });
+    const taskInner = makeTask(1, {
+      body: '## Metadata\nparent: #100',
+    });
+
+    const provider = new MockProvider({
+      epic: EPIC,
+      tasks: [story100, taskInner],
+    });
+    const adapter = new MockAdapter();
+
+    const manifest = await dispatch({
+      epicId: 1,
+      dryRun: true,
+      provider,
+      adapter,
+    });
+
+    assert.equal(manifest.storyManifest[0].model_tier, 'fast');
+  });
+});

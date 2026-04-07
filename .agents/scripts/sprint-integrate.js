@@ -8,14 +8,29 @@ import {
   createCandidateBranch,
   mergeFeatureBranch,
 } from './lib/git-merge-orchestrator.js';
-import { gitSpawn } from './lib/git-utils.js';
+import {
+  getEpicBranch,
+  getIntegrationCandidateBranch,
+  gitSpawn,
+  resolveBranchForTask,
+} from './lib/git-utils.js';
 import {
   runVerificationSuite,
   VerificationError,
 } from './lib/integration-verifier.js';
 import { Logger } from './lib/Logger.js';
 import { VerboseLogger } from './lib/VerboseLogger.js';
-import { postStructuredComment } from './update-ticket-state.js';
+import { getProvider, postStructuredComment } from './update-ticket-state.js';
+
+/**
+ * Extracts parent ID from ticket body using the `parent: #N` convention.
+ * @param {string} body
+ * @returns {number|null}
+ */
+function parseParentId(body) {
+  const match = (body ?? '').match(/^parent:\s*#(\d+)/m);
+  return match ? parseInt(match[1], 10) : null;
+}
 
 /**
  * sprint-integrate.js — Epic Integration Candidate Verification
@@ -33,7 +48,10 @@ import { postStructuredComment } from './update-ticket-state.js';
  *   2 — Major Conflict: requires human intervention.
  *
  * Usage:
- *   node .agents/scripts/sprint-integrate.js --epic <EPIC_ID> --task <TASK_ID>
+ *   node .agents/scripts/sprint-integrate.js --task <TASK_ID> [--epic <EPIC_ID>]
+ *
+ * If --epic is omitted the script resolves the Epic ID automatically from
+ * the "epic: #N" field written into the task ticket body.
  *
  * @see docs/v5-implementation-plan.md Sprint 3E
  */
@@ -53,12 +71,12 @@ const { values } = parseArgs({
   strict: false,
 });
 
-const epicId = values.epic;
+let epicId = values.epic ?? null;
 const taskId = values.task;
 
-if (!epicId || !taskId) {
+if (!taskId) {
   Logger.fatal(
-    'Usage: node sprint-integrate.js --epic <EPIC_ID> --task <TASK_ID>',
+    'Usage: node sprint-integrate.js --task <TASK_ID> [--epic <EPIC_ID>]',
   );
 }
 
@@ -67,9 +85,31 @@ if (!epicId || !taskId) {
 // ---------------------------------------------------------------------------
 
 const { settings } = resolveConfig();
-const epicBranch = `epic/${epicId}`;
-const featureBranch = `task/epic-${epicId}/${taskId}`;
-const candidateBranch = `integration-candidate-epic-${epicId}-${taskId}`;
+const provider = getProvider();
+
+// Auto-resolve Epic ID from the task ticket body if not provided via CLI.
+if (!epicId) {
+  const taskTicket = await provider.getTicket(parseInt(taskId, 10));
+  const epicMatch = (taskTicket.body ?? '').match(/^epic:\s*#(\d+)/m);
+  if (!epicMatch) {
+    Logger.fatal(
+      `Cannot determine Epic ID for Task #${taskId}. ` +
+        `Either pass --epic <ID> or ensure the task body contains an "epic: #N" field.`,
+    );
+  }
+  epicId = epicMatch[1];
+  console.log(
+    `[sprint-integrate] Resolved Epic #${epicId} from Task #${taskId} body.`,
+  );
+}
+
+const epicBranch = getEpicBranch(epicId);
+const featureBranch = await resolveBranchForTask(
+  epicId,
+  parseInt(taskId, 10),
+  provider,
+);
+const candidateBranch = getIntegrationCandidateBranch(epicId, taskId);
 const typecheckCmd = settings.typecheckCommand ?? 'npm run typecheck';
 const testCmd = settings.testCommand ?? 'npm run test';
 const scriptsRoot = settings.scriptsRoot ?? '.agents/scripts';
@@ -248,7 +288,23 @@ vlog.info('integration', `Task successfully integrated`, {
   epicBranch,
 });
 
-// Post a structured progress comment on the Task ticket (non-fatal).
+// 7. PR Creation (Story-Level tracking)
+try {
+  const ticket = await provider.getTicket(parseInt(taskId, 10));
+  const parentId = parseParentId(ticket.body);
+  if (parentId) {
+    progress('PR', `Ensuring PR exists for Story #${parentId}...`);
+    // ITicketingProvider.createPullRequest is idempotent in our GitHub implementation
+    // (it should check for existing PRs or handle the error gracefully).
+    const pr = await provider.createPullRequest(featureBranch, parentId);
+    progress('PR', `Story PR: ${pr.htmlUrl}`);
+  }
+} catch (err) {
+  // Non-fatal: PR might already exist or the provider might not support it.
+  console.warn(`[sprint-integrate] PR check/creation skipped: ${err.message}`);
+}
+
+// 8. Progress Comment
 try {
   await postStructuredComment(
     parseInt(taskId, 10),

@@ -58,7 +58,7 @@ describe('ticket-decomposer orchestration', () => {
             type: 'story',
             title: 'Story One',
             body: 'Body of Story One',
-            labels: ['type::story', 'persona::fullstack'],
+            labels: ['type::story', 'persona::fullstack', 'complexity::fast'],
             parent_slug: 'f1',
           },
           {
@@ -152,6 +152,7 @@ describe('ticket-decomposer orchestration', () => {
     assert.deepEqual(s1.ticketData.labels, [
       'type::story',
       'persona::fullstack',
+      'complexity::fast',
     ]);
     assert.deepEqual(
       s1.ticketData.dependencies,
@@ -172,7 +173,7 @@ describe('ticket-decomposer orchestration', () => {
 
   it('handles LLM markdown wrapping in JSON response', async () => {
     mockLlm.generateText = async () =>
-      '```json\n[{"slug":"f1","type":"feature","title":"Wrapped Feature","body":"Body","labels":[]},{"slug":"s1","type":"story","title":"Wrapped Story","body":"Body","parent_slug":"f1","labels":[]},{"slug":"t1","type":"task","title":"Wrapped Task","body":"Body","parent_slug":"s1","labels":[]}]\n```';
+      '```json\n[{"slug":"f1","type":"feature","title":"Wrapped Feature","body":"Body","labels":[]},{"slug":"s1","type":"story","title":"Wrapped Story","body":"Body","parent_slug":"f1","labels":["complexity::high"]},{"slug":"t1","type":"task","title":"Wrapped Task","body":"Body","parent_slug":"s1","labels":[]}]\n```';
 
     await decomposeEpic(1, mockProvider, mockLlm);
     assert.equal(mockProvider.createdTickets.length, 3);

@@ -23,12 +23,15 @@ Your job is to take a Product Requirements Document (PRD) and a Technical Specif
 1. **Features**: Large functional milestones (e.g., "Authentication Provider Integration").
 2. **Stories**: Specific user-facing or architectural user stories (e.g., "Implement JWT Token Exchange"). 
    - MUST be nested under a Feature.
+   - **Story-Level Execution**: Each Story will be executed on a single branch. Group tasks that share a logical context or implementation boundary into the same Story.
+   - **Complexity Assessment**: Every Story MUST be assessed for complexity. Use \`complexity::high\` for logic-heavy, architectural, or risky changes requiring high-tier reasoning models. Use \`complexity::fast\` for simple CRUD, documentation, or straightforward procedural work.
 3. **Tasks**: Atomic, verifiable technical steps (e.g., "Add 'vendor_id' to users schema").
    - MUST be nested under a Story.
 
 ### LABEL CONVENTIONS:
 - Every ticket must have a \`type::[feature|story|task]\` label.
 - Every ticket must have a \`persona::[engineer|architect|qa-engineer|engineer-web|etc]\` label indicating WHO should execute it.
+- Every **Story** MUST have a \`complexity::[high|fast]\` label.
 
 ### OUTPUT FORMAT:
 You MUST respond ONLY with a valid JSON array of objects. No prose, no markdown blocks.
@@ -40,14 +43,14 @@ You MUST respond ONLY with a valid JSON array of objects. No prose, no markdown 
     "type": "feature" | "story" | "task",
     "title": "Short descriptive title",
     "body": "Brief, concise description. Keep it under 2 sentences to save output tokens.",
-    "labels": ["type::...", "persona::..."],
+    "labels": ["type::...", "persona::...", "complexity::..."],
     "parent_slug": "slug_of_parent_ticket" (leave empty for features to nest under epic),
     "depends_on": ["slug_of_blocking_dependency"] (optional array of slugs that block execution)
   }
 ]
 
 CRITICAL: Dependencies should follow execution blockers. For hierarchical grouping, strongly strictly use 'parent_slug' (Story parent MUST be a Feature, Task parent MUST be a Story). Features should have no 'parent_slug' (they attach to Epic).
-WARNING: You MUST conserve your output limit. Do NOT generate more than 20 tickets in total. Combine atomic tasks into larger, cohesive tasks. Do NOT cut off the JSON array prematurely!`;
+WARNING: You MUST conserve your output limit. Do NOT generate more than 25 tickets in total. Combine atomic tasks into larger, cohesive tasks. Do NOT cut off the JSON array prematurely!`;
 
 export async function decomposeEpic(
   epicId,
@@ -179,6 +182,16 @@ Please decompose the above into a complete ticket backlog. Respond with the JSON
       throw new Error(
         `Cross-Validation Failed: Story "${story.title}" parent must be a Feature.`,
       );
+
+    // Complexity validation (New in Story-Level Branching)
+    const hasComplexity = (story.labels || []).some((l) =>
+      l.startsWith('complexity::'),
+    );
+    if (!hasComplexity) {
+      throw new Error(
+        `Cross-Validation Failed: Story "${story.title}" is missing a complexity label (complexity::high|fast).`,
+      );
+    }
   }
 
   for (const task of tasks) {

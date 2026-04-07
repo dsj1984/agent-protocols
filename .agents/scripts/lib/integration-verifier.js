@@ -41,9 +41,12 @@ export function runVerificationSuite({
 
   const steps = [
     { label: 'lint-baseline', args: ['node', lintBaselineScript, 'check'] },
-    { label: 'typecheck', args: typecheckCmd.split(' ') },
-    { label: 'test', args: testCmd.split(' ') },
-  ];
+    {
+      label: 'typecheck',
+      args: typecheckCmd?.trim() ? typecheckCmd.split(' ') : [],
+    },
+    { label: 'test', args: testCmd?.trim() ? testCmd.split(' ') : [] },
+  ].filter((s) => s.args.length > 0);
 
   for (const step of steps) {
     onProgress('VERIFY', `Running ${step.label}: ${step.args.join(' ')}`);
