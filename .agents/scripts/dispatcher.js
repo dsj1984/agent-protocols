@@ -46,7 +46,12 @@ import {
   computeWaves,
   detectCycle,
 } from './lib/Graph.js';
-import { gitSync, getEpicBranch, getTaskBranch } from './lib/git-utils.js';
+import {
+  gitSync,
+  getEpicBranch,
+  getStoryBranch,
+  getTaskBranch,
+} from './lib/git-utils.js';
 import { createProvider } from './lib/provider-factory.js';
 import { notify } from './notify.js';
 
@@ -160,6 +165,68 @@ function captureLintBaseline(epicBranch, settings) {
 function resolveModel(ticketModel, settings) {
   if (ticketModel) return ticketModel;
   return settings.defaultModels?.fastFallback || 'Gemini 3 Flash';
+}
+
+// ---------------------------------------------------------------------------
+// Story-level grouping helpers
+// ---------------------------------------------------------------------------
+
+/**
+ * Determine model tier for a story based on its complexity:: label.
+ * Falls back to 'fast' if no complexity label is present.
+ *
+ * @param {string[]} storyLabels - Labels from the story ticket.
+ * @returns {'high' | 'fast'}
+ */
+function resolveModelTier(storyLabels) {
+  if ((storyLabels ?? []).includes('complexity::high')) return 'high';
+  return 'fast';
+}
+
+/**
+ * Group a flat task list by their parent Story.
+ *
+ * Reads the `parent: #N` body convention written by createTicket.
+ * Tasks whose parent cannot be resolved (no body match, or parent is not
+ * a Story) are grouped under a synthetic '__ungrouped__' story.
+ *
+ * @param {object[]} tasks          - Normalised tasks from fetchTasks.
+ * @param {object[]} allTickets     - All raw tickets under the epic (inc. stories).
+ * @param {number}   epicId
+ * @returns {Map<number|'__ungrouped__', {
+ *   storyId: number|'__ungrouped__',
+ *   storyTitle: string,
+ *   storyLabels: string[],
+ *   tasks: object[],
+ * }>}
+ */
+function groupTasksByStory(tasks, allTickets, epicId) {
+  // Build a lookup of raw tickets by ID
+  const ticketById = new Map(allTickets.map((t) => [t.id, t]));
+
+  const groups = new Map();
+
+  for (const task of tasks) {
+    const parentId = parseParentId(task.body);
+    const parentTicket = parentId != null ? ticketById.get(parentId) : null;
+    const isStory =
+      parentTicket && (parentTicket.labels ?? []).includes('type::story');
+
+    const key = isStory ? parentId : '__ungrouped__';
+
+    if (!groups.has(key)) {
+      groups.set(key, {
+        storyId: key,
+        storyTitle: isStory ? parentTicket.title : '(Ungrouped Tasks)',
+        storyLabels: isStory ? (parentTicket.labels ?? []) : [],
+        tasks: [],
+      });
+    }
+
+    groups.get(key).tasks.push(task);
+  }
+
+  return groups;
 }
 
 // ---------------------------------------------------------------------------
@@ -491,6 +558,7 @@ export async function dispatch(options) {
       epicId,
       epic,
       tasks: [],
+      allTickets: [],
       waves: [],
       dispatched: [],
       heldForApproval: [],
@@ -543,6 +611,11 @@ export async function dispatch(options) {
   const dispatched = [];
   const heldForApproval = [];
 
+  // Fetch all tickets once so story labels are available in the wave loop
+  // without issuing a separate HTTP request per dispatched task.
+  const allTickets = await provider.getTickets(epicId);
+  const allTicketsById = new Map(allTickets.map((t) => [t.id, t]));
+
   for (const wave of allWaves) {
     const eligible = wave.filter(
       (t) =>
@@ -569,7 +642,18 @@ export async function dispatch(options) {
 
     // Dispatch this wave
     for (const task of eligible) {
-      const taskBranch = getTaskBranch(epicId, task.id);
+      // Determine story branch — tasks execute on their parent story's branch.
+      const taskParentId = parseParentId(task.body);
+      const parentTicket =
+        taskParentId != null ? allTicketsById.get(taskParentId) : null;
+      const isParentStory =
+        parentTicket && (parentTicket.labels ?? []).includes('type::story');
+      const storySlugForBranch = isParentStory
+        ? parentTicket.title
+        : `task-${task.id}`;
+      const taskBranch = isParentStory
+        ? getStoryBranch(epicId, storySlugForBranch)
+        : getTaskBranch(epicId, task.id);
       const resolvedModel = resolveModel(task.model, settings);
 
       // Hold risk::high tasks for HITL approval
@@ -652,6 +736,7 @@ export async function dispatch(options) {
     epicId,
     epic,
     tasks,
+    allTickets,
     waves: allWaves,
     dispatched,
     heldForApproval,
@@ -762,6 +847,51 @@ async function detectEpicCompletion({
 }
 
 /**
+ * Build the story-centric manifest array that conforms to dispatch-manifest.schema.json.
+ *
+ * @param {object[]} tasks      - Normalised task list from fetchTasks.
+ * @param {object[]} allTickets - All raw tickets under the epic.
+ * @param {number}   epicId
+ * @returns {object[]} Array of StoryDispatch objects.
+ */
+function buildStoryManifest(tasks, allTickets, epicId) {
+  const groups = groupTasksByStory(tasks, allTickets, epicId);
+
+  return [...groups.values()].map((group) => {
+    const modelTier = resolveModelTier(group.storyLabels);
+    const slug =
+      group.storyId === '__ungrouped__'
+        ? 'ungrouped'
+        : group.storyTitle
+            .toLowerCase()
+            .replace(/[^a-z0-9_-]/g, '-')
+            .replace(/-+/g, '-')
+            .replace(/^-|-$/g, '');
+    const branchName =
+      group.storyId === '__ungrouped__'
+        ? getTaskBranch(epicId, 'ungrouped') // fallback
+        : getStoryBranch(epicId, group.storyTitle);
+
+    return {
+      storyId: group.storyId,
+      storySlug: slug,
+      branchName,
+      model_tier: modelTier,
+      tasks: group.tasks.map((t) => ({
+        taskId: t.id,
+        taskSlug: t.title
+          .toLowerCase()
+          .replace(/[^a-z0-9_-]/g, '-')
+          .replace(/-+/g, '-')
+          .replace(/^-|-$/g, ''),
+        parentSlug: slug,
+        dependencies: t.dependsOn ?? [],
+      })),
+    };
+  });
+}
+
+/**
  * Build a Dispatch Manifest object conforming to dispatch-manifest.json schema.
  *
  * @param {object} params
@@ -771,6 +901,7 @@ function buildManifest({
   epicId,
   epic,
   tasks,
+  allTickets,
   waves,
   dispatched,
   heldForApproval,
@@ -813,6 +944,9 @@ function buildManifest({
         dependsOn: t.dependsOn,
       })),
     })),
+    // Story-centric manifest conforming to dispatch-manifest.schema.json
+    // Groups tasks under their parent story with story branch and model_tier.
+    storyManifest: buildStoryManifest(tasks, allTickets ?? [], epicId),
     dispatched,
     heldForApproval,
   };
