@@ -1,7 +1,7 @@
 ---
 description: >-
   Execute a sprint in two modes: Epic-level (output Dispatch Manifest and launch
-  task waves) or Task-level (implement and finalize a single Task ticket).
+  story waves) or Story-level (implement all Tasks within a single Story).
 ---
 
 # /sprint-execute
@@ -11,14 +11,14 @@ description: >-
 This workflow operates in two modes determined by the argument provided:
 
 - **`/sprint-execute [Epic ID]`** — Epic-level orchestration. Fetches all Tasks
-  under the Epic, schedules them into dependency-ordered waves, and dispatches
-  the next eligible wave. Re-run after each wave to advance progress.
-  Automatically enters the **Bookend Lifecycle** once all Tasks reach
-  `agent::done`.
+  under the Epic, schedules them into dependency-ordered waves, groups them by
+  parent Story, and outputs a **Story Dispatch Table** with model
+  recommendations. Re-run after each wave to advance progress. Automatically
+  enters the **Bookend Lifecycle** once all Tasks reach `agent::done`.
 
-- **`/sprint-execute #[Task ID]`** — Task-level execution. Implements a single
-  Task ticket end-to-end on its feature branch, validates, creates a PR, and
-  transitions the ticket to `agent::review`.
+- **`/sprint-execute #[Story ID]`** — Story-level execution. Checks out the
+  Story branch, implements ALL child Tasks sequentially in a single session,
+  validates, creates a unified PR, and transitions tickets to `agent::review`.
 
 ---
 
@@ -34,8 +34,8 @@ This workflow operates in two modes determined by the argument provided:
    node .agents/scripts/dispatcher.js --epic <epicId> --dry-run
    ```
 
-   Review the printed Dispatch Manifest to confirm the wave plan before live
-   dispatch.
+   Review the printed **Story Dispatch Table** to confirm the wave plan and
+   recommended models before live dispatch.
 
 3. To run a live wave dispatch:
 
@@ -44,6 +44,9 @@ This workflow operates in two modes determined by the argument provided:
    ```
 
 4. The manifest JSON is written to `temp/dispatch-manifest-<epicId>.json`.
+   The **Story Dispatch Table** printed to stdout shows each Story's model
+   tier, recommended model, and branch — use this to select the correct model
+   when starting Story-level execution.
 
 ### Step 1 — Fetch & Schedule
 
@@ -113,49 +116,65 @@ On final close-out:
 
 ---
 
-## Mode B: Task-Level Execution (`/sprint-execute #[Task ID]`)
+## Mode B: Story-Level Execution (`/sprint-execute #[Story ID]`)
 
 ### Step 0 — Context Gathering
 
-1. Fetch Issue `#[Task ID]` in full (title, body, labels, assignees).
-2. **Blocker check**: Parse `Blocked By` entries from the `## Metadata` section.
+1. Fetch Issue `#[Story ID]` in full (title, body, labels, assignees).
+2. **Model Selection**: Check the Story Dispatch Table (from Mode A output) for
+   this Story's `recommendedModel`. Select that model before starting the
+   session.
+3. **Blocker check**: Parse `Blocked By` entries from the `## Metadata` section.
    If any referenced issue is still **open**, **STOP** and report the blocker to
    the operator.
-3. **Hierarchy trace**: Read the `## Metadata` section to identify the parent
-   Story, Feature, Epic, PRD, and Tech Spec issue numbers. Fetch each and review
-   scope, constraints, and acceptance criteria before writing a single line of
-   code.
+4. **Hierarchy trace**: Read the `## Metadata` section to identify the parent
+   Feature, Epic, PRD, and Tech Spec issue numbers. Fetch each and review scope,
+   constraints, and acceptance criteria before writing a single line of code.
+5. **Task enumeration**: Fetch all child Tasks of this Story (tickets with
+   `parent: #[Story ID]` in their body). These will be implemented sequentially
+   in dependency order.
 
 ### Step 1 — Branch Setup
 
-1. Identify the target branch from the **Hydrated Prompt** or **Dispatch Manifest** (`branchName`).
-   - Standard: `story/epic-<epicId>/<story-slug>`
-   - Legacy: `task/epic-<epicId>/<taskId>`
+1. Identify the Story branch from the **Story Dispatch Table** or compute it:
+   - Format: `story/epic-<epicId>/<story-slug>`
 2. Fetch and checkout the branch:
 
    ```powershell
    git fetch origin
-   git checkout <branchName> || git checkout -b <branchName> origin/epic/<epicId>
+   git checkout <storyBranch> || git checkout -b <storyBranch> origin/epic/<epicId>
    ```
 
-3. Transition the task label via the state writer:
+3. Transition ALL child Task labels via the state writer:
 
    ```powershell
    node .agents/scripts/update-ticket-state.js transitionTicketState <taskId> agent::executing
    ```
 
-   > **Note:** The state writer module exports named functions; call it
-   > programmatically from within the agent loop or via a thin CLI wrapper.
+### Step 2 — Implementation (Sequential Task Loop)
 
-### Step 2 — Implementation
+For **each child Task** in dependency order:
 
 1. Read the full `## Instructions` section of the Task ticket.
-2. Implement all described changes strictly within the scope of the assigned branch.
-3. If multiple tasks share the same `story/` branch, perform your work atomically and commit frequently to avoid conflicts with parallel agents (if any).
+2. Implement all described changes strictly within the scope of the Story branch.
+3. Commit after completing each Task with a message referencing the Task ID:
+
+   ```powershell
+   git add .
+   git commit --no-verify -m "feat(<scope>): <task title> (resolves #<taskId>)"
+   ```
+
+4. Transition the completed Task to `agent::done`:
+
+   ```powershell
+   node .agents/scripts/update-ticket-state.js transitionTicketState <taskId> agent::done
+   ```
+
+5. Proceed to the next Task in the Story.
 
 ### Step 3 — Validate
 
-Run shift-left validation per the agentrc config:
+After all Tasks are implemented, run shift-left validation:
 
 ```powershell
 npm run lint
@@ -170,61 +189,57 @@ If tests or lint fail:
 
 ### Step 4 — Commit & PR
 
-1. Commit with a conventional message linked to the issue:
+1. Push the Story branch:
 
    ```powershell
-   git add .
-   git commit --no-verify -m "feat(<scope>): <task title> (resolves #<taskId>)"
    git push --force-with-lease origin HEAD
    ```
 
 2. Check if a Pull Request already exists for this branch:
 
    ```powershell
-   gh pr list --head <branchName> --json url,number
+   gh pr list --head <storyBranch> --json url,number
    ```
 
-3. **If no PR exists**: Create one against the Epic base branch (`epic/<epicId>`) — **not** `main`. The PR description **must** include: `Closes #<taskId>`.
+3. **If no PR exists**: Create one against the Epic base branch
+   (`epic/<epicId>`) — **not** `main`. The PR description **must** include
+   `Closes #<taskId>` for EVERY child Task implemented.
 
-4. **If a PR already exists**: Ensure the Task ID is added to the PR description (e.g., `Resolves #<taskId>`) if not already present, so the link is maintained.
+4. **If a PR already exists**: Ensure all Task IDs are listed in the PR
+   description.
 
 5. Post a progress comment summarising the work:
 
    ```powershell
    node -e "
      import { postStructuredComment } from './.agents/scripts/update-ticket-state.js';
-     postStructuredComment(<taskId>, 'progress', 'Work committed to shared branch <branchName>. PR: <PR_URL>');
+     postStructuredComment(<storyId>, 'progress', 'All tasks committed to branch <storyBranch>. PR: <PR_URL>');
    "
    ```
 
 ### Step 5 — Finalize State
 
-1. Transition the Task to `agent::review`:
+1. Transition the Story to `agent::review`:
 
    ```powershell
-   # Via the state writer (programmatic call)
-   # transitionTicketState(<taskId>, 'agent::review')
+   # transitionTicketState(<storyId>, 'agent::review')
    ```
 
-2. Toggle the tasklist checkbox in the parent Story:
-
-   ```powershell
-   # toggleTasklistCheckbox(<storyId>, <taskId>, true)
-   ```
-
-3. **If `risk::high`**: Hold at `agent::review`; await human merge approval
+2. **If `risk::high`**: Hold at `agent::review`; await human merge approval
    before the cascade runs.
 
-4. **On merge**: The `cascadeCompletion(<taskId>)` function in
+3. **On merge**: The `cascadeCompletion()` function in
    `update-ticket-state.js` automatically propagates `agent::done` up the
-   hierarchy (Task → Story → Feature → Epic).
+   hierarchy (Tasks → Story → Feature → Epic).
 
 ---
 
 ## Constraint
 
-- **Never** push Task branch work directly to `main` or the Epic base branch.
-- **Never** merge across Task branches — the `/sprint-integration` bookend
+- **Never** push Story branch work directly to `main` or the Epic base branch.
+- **Never** merge across Story branches — the `/sprint-integration` bookend
   handles all merges.
 - **Always** validate before creating a PR. A PR with failing tests is a
   blocker.
+- **Always** select the model recommended by the Story Dispatch Table for the
+  session.

@@ -84,7 +84,7 @@ export class LLMClient {
     return this._decodeHtmlEntities(result);
   }
 
-  async _callGemini(systemPrompt, userPrompt) {
+  async _callGemini(systemPrompt, userPrompt, maxRetries = 3) {
     const key = process.env.GEMINI_API_KEY;
     if (!key) throw new Error('GEMINI_API_KEY missing');
 
@@ -95,22 +95,36 @@ export class LLMClient {
       generationConfig: { maxOutputTokens: this.maxOutputTokens },
     };
 
-    const res = await fetch(url, {
-      method: 'POST',
-      headers: {
-        'Content-Type': 'application/json',
-        'x-goog-api-key': key,
-      },
-      body: JSON.stringify(payload),
-    });
+    for (let attempt = 0; attempt <= maxRetries; attempt++) {
+      const res = await fetch(url, {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+          'x-goog-api-key': key,
+        },
+        body: JSON.stringify(payload),
+      });
 
-    if (!res.ok) {
+      if (res.ok) {
+        const data = await res.json();
+        return data.candidates?.[0]?.content?.parts?.[0]?.text ?? '';
+      }
+
+      // Retry on 429 (Rate Limit) or 5xx (Server Error)
+      if (res.status === 429 || res.status >= 500) {
+        if (attempt === maxRetries) {
+          const err = await res.text();
+          throw new Error(`[Gemini API Error] ${res.status} (after ${maxRetries} retries): ${err}`);
+        }
+        const delay = Math.pow(2, attempt) * 1000 + Math.random() * 1000;
+        console.warn(`[LLMClient] Gemini returned ${res.status} on attempt ${attempt + 1}/${maxRetries + 1}. Retrying in ${Math.round(delay)}ms...`);
+        await new Promise(r => setTimeout(r, delay));
+        continue;
+      }
+
       const err = await res.text();
       throw new Error(`[Gemini API Error] ${res.status}: ${err}`);
     }
-
-    const data = await res.json();
-    return data.candidates?.[0]?.content?.parts?.[0]?.text ?? '';
   }
 
   async _callAnthropic(systemPrompt, userPrompt) {

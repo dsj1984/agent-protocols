@@ -184,6 +184,54 @@ function resolveModelTier(storyLabels) {
 }
 
 /**
+ * Map a model_tier string to a concrete model name from agentSettings.
+ * Uses the first entry if the config value contains " OR ".
+ *
+ * @param {'high' | 'fast'} tier
+ * @param {object} settings - agentSettings from config.
+ * @returns {string}
+ */
+function resolveRecommendedModel(tier, settings) {
+  const models = settings.defaultModels ?? {};
+  const raw =
+    tier === 'high'
+      ? (models.planningFallback || 'Gemini 3.1 Pro (High)')
+      : (models.fastFallback || 'Gemini 3 Flash');
+  // Pick the first option if config contains " OR "
+  return raw.split(' OR ')[0].trim();
+}
+
+/**
+ * Print a human-readable Story Dispatch Table to stdout.
+ * Shows story ID, title, model tier, recommended model, and branch.
+ *
+ * @param {object[]} storyManifest - Array of StoryDispatch objects.
+ */
+function printStoryDispatchTable(storyManifest) {
+  if (!storyManifest || storyManifest.length === 0) return;
+
+  console.log('\n┌──────────────────────────────────────────────────────────────────────────────────────────────────────────────┐');
+  console.log('│                                    📋 STORY DISPATCH TABLE                                                │');
+  console.log('├─────────┬──────────────────────────────────────┬────────────┬──────────────────────────────┬──────────────┤');
+  console.log('│ Story   │ Title                                │ Model Tier │ Recommended Model            │ Tasks        │');
+  console.log('├─────────┼──────────────────────────────────────┼────────────┼──────────────────────────────┼──────────────┤');
+
+  for (const story of storyManifest) {
+    const id = story.storyId === '__ungrouped__' ? '(none)' : `#${story.storyId}`;
+    const title = (story.storySlug ?? '').substring(0, 36).padEnd(36);
+    const tier = (story.model_tier ?? '').padEnd(10);
+    const model = (story.recommendedModel ?? '').substring(0, 28).padEnd(28);
+    const taskCount = `${story.tasks.length} task(s)`.padEnd(12);
+    console.log(`│ ${id.padEnd(7)} │ ${title} │ ${tier} │ ${model} │ ${taskCount} │`);
+  }
+
+  console.log('└─────────┴──────────────────────────────────────┴────────────┴──────────────────────────────┴──────────────┘');
+  console.log('');
+  console.log('  💡 Use /sprint-execute #[Story ID] to execute a Story. Select the model shown above.');
+  console.log('');
+}
+
+/**
  * Group a flat task list by their parent Story.
  *
  * Reads the `parent: #N` body convention written by createTicket.
@@ -564,6 +612,7 @@ export async function dispatch(options) {
       heldForApproval: [],
       dryRun,
       adapter,
+      settings,
     });
   }
 
@@ -731,6 +780,7 @@ export async function dispatch(options) {
     heldForApproval,
     dryRun,
     adapter,
+    settings,
   });
 
   // ── Step 8: Epic completion detection ────────────────────────────────────
@@ -843,11 +893,12 @@ async function detectEpicCompletion({
  * @param {number}   epicId
  * @returns {object[]} Array of StoryDispatch objects.
  */
-function buildStoryManifest(tasks, allTickets, epicId) {
+function buildStoryManifest(tasks, allTickets, epicId, settings) {
   const groups = groupTasksByStory(tasks, allTickets, epicId);
 
   return [...groups.values()].map((group) => {
     const modelTier = resolveModelTier(group.storyLabels);
+    const recommendedModel = resolveRecommendedModel(modelTier, settings);
     const slug =
       group.storyId === '__ungrouped__'
         ? 'ungrouped'
@@ -866,6 +917,7 @@ function buildStoryManifest(tasks, allTickets, epicId) {
       storySlug: slug,
       branchName,
       model_tier: modelTier,
+      recommendedModel,
       tasks: group.tasks.map((t) => ({
         taskId: t.id,
         taskSlug: t.title
@@ -916,6 +968,7 @@ function buildManifest({
   heldForApproval,
   dryRun,
   adapter,
+  settings,
 }) {
   const totalTasks = tasks.length;
   const doneTasks = tasks.filter((t) => t.status === AGENT_DONE_LABEL).length;
@@ -955,8 +1008,9 @@ function buildManifest({
       })),
     })),
     // Story-centric manifest conforming to dispatch-manifest.schema.json
-    // Groups tasks under their parent story with story branch and model_tier.
-    storyManifest: buildStoryManifest(tasks, allTickets ?? [], epicId),
+    // Groups tasks under their parent story with story branch, model_tier,
+    // and recommendedModel resolved from agentSettings.defaultModels.
+    storyManifest: buildStoryManifest(tasks, allTickets ?? [], epicId, settings),
     dispatched,
     heldForApproval,
   };
@@ -1011,6 +1065,9 @@ async function main() {
   console.log(
     `[Dispatcher] Dispatched: ${manifest.summary.dispatched}, Held: ${manifest.summary.heldForApproval}`,
   );
+
+  // Print story-centric dispatch table for operator guidance
+  printStoryDispatchTable(manifest.storyManifest);
 }
 
 if (fileURLToPath(import.meta.url) === path.resolve(process.argv[1])) {

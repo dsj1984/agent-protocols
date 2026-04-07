@@ -33,6 +33,14 @@ describe('epic-planner orchestration', () => {
       async updateTicket(id, mutations) {
         this.updatedTickets.push({ id, mutations });
       },
+
+      async getTickets(_epicId, _opts) {
+        return []; // No existing tickets by default
+      },
+
+      async postComment(_id, _comment) {
+        // No-op for tests
+      },
     };
 
     mockLlm = {
