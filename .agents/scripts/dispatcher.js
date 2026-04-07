@@ -43,6 +43,7 @@ import {
 import {
   autoSerializeOverlaps,
   buildGraph,
+  computeStoryWaves,
   computeWaves,
   detectCycle,
 } from './lib/Graph.js';
@@ -1053,26 +1054,27 @@ async function detectEpicCompletion({
 
 /**
  * Build the story-centric manifest array that conforms to dispatch-manifest.schema.json.
+ * Computes story-level execution waves by analyzing cross-story task dependencies
+ * using Graph.computeStoryWaves().
  *
  * @param {object[]} tasks      - Normalised task list.
  * @param {object[]} allTickets - All raw tickets under the epic.
  * @param {number}   epicId
  * @param {object}   settings   - Agent configuration.
- * @param {Map<number, number>} taskToWave - Map of task ID to wave index.
  * @returns {object[]} Array of StoryDispatch objects.
  */
-function buildStoryManifest(tasks, allTickets, epicId, settings, taskToWave) {
+function buildStoryManifest(tasks, allTickets, epicId, settings) {
   const groups = groupTasksByStory(tasks, allTickets, epicId);
+
+  // Compute story-level waves from cross-story task dependencies
+  const storyWaves = computeStoryWaves(groups);
 
   return [...groups.values()].map((group) => {
     const modelTier = resolveModelTier(group.storyLabels);
     const recommendedModel = resolveRecommendedModel(modelTier, settings);
 
-    // Earliest wave any task in this story belongs to.
-    const storyWaves = group.tasks
-      .map((t) => taskToWave.get(t.id))
-      .filter((w) => w !== undefined);
-    const earliestWave = storyWaves.length > 0 ? Math.min(...storyWaves) : -1;
+    // Story wave from the story-level DAG
+    const earliestWave = storyWaves.get(group.storyId) ?? -1;
     const slug =
       group.storyId === '__ungrouped__'
         ? 'ungrouped'
@@ -1186,21 +1188,12 @@ function buildManifest({
     // Story-centric manifest conforming to dispatch-manifest.schema.json
     // Groups tasks under their parent story with story branch, model_tier,
     // and recommendedModel resolved from agentSettings.defaultModels.
-    storyManifest: (() => {
-      const taskToWave = new Map();
-      for (const [i, wave] of waves.entries()) {
-        for (const t of wave) {
-          taskToWave.set(t.id, i);
-        }
-      }
-      return buildStoryManifest(
-        tasks,
-        allTickets ?? [],
-        epicId,
-        settings,
-        taskToWave,
-      );
-    })(),
+    storyManifest: buildStoryManifest(
+      tasks,
+      allTickets ?? [],
+      epicId,
+      settings,
+    ),
     dispatched,
     heldForApproval,
   };

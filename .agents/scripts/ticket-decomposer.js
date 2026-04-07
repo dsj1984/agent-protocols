@@ -55,6 +55,7 @@ You MUST respond ONLY with a valid JSON array of objects. No prose, no markdown 
 ]
 
 CRITICAL: Dependencies should follow execution blockers. For hierarchical grouping, strongly strictly use 'parent_slug' (Story parent MUST be a Feature, Task parent MUST be a Story). Features should have no 'parent_slug' (they attach to Epic).
+IMPORTANT DEPENDENCY RULE: A Task's \`depends_on\` MUST only reference other Tasks within the SAME Story (same parent_slug). Cross-story task dependencies are FORBIDDEN. If two Stories have a logical ordering requirement, add the dependency at the STORY level (one Story depends_on the other Story's slug), NOT between their child Tasks.
 WARNING: You MUST conserve your output limit. Do NOT generate more than 25 tickets in total. Combine atomic tasks into larger, cohesive tasks. Do NOT cut off the JSON array prematurely!`;
 
 export async function decomposeEpic(
@@ -208,6 +209,63 @@ Please decompose the above into a complete ticket backlog. Respond with the JSON
     if (!parent || parent.type !== 'story') {
       throw new Error(
         `Cross-Validation Failed: Task "${task.title}" parent must be a Story.`,
+      );
+    }
+  }
+
+  // ── Cross-story task dependency validation ─────────────────────────────
+  // Tasks must only depend on other tasks within the same story.
+  // If a cross-story task dep is found, auto-lift it to a story-level dep.
+  const crossStoryLifted = [];
+  for (const task of tasks) {
+    if (!task.depends_on || task.depends_on.length === 0) continue;
+    const taskStory = task.parent_slug;
+
+    const keptDeps = [];
+    for (const depSlug of task.depends_on) {
+      const depTicket = ticketBySlug.get(depSlug);
+      if (!depTicket) {
+        keptDeps.push(depSlug); // unknown slug, keep and let cycle check handle
+        continue;
+      }
+
+      // Only check task→task cross-story deps
+      if (depTicket.type !== 'task') {
+        keptDeps.push(depSlug);
+        continue;
+      }
+
+      const depStory = depTicket.parent_slug;
+      if (depStory !== taskStory) {
+        // Cross-story task dep found — lift to story-level
+        const myStory = ticketBySlug.get(taskStory);
+        if (myStory) {
+          if (!myStory.depends_on) myStory.depends_on = [];
+          if (!myStory.depends_on.includes(depStory)) {
+            myStory.depends_on.push(depStory);
+            crossStoryLifted.push({
+              task: task.slug,
+              dep: depSlug,
+              fromStory: taskStory,
+              toStory: depStory,
+            });
+          }
+        }
+        // Remove the cross-story task dep (don't keep it)
+      } else {
+        keptDeps.push(depSlug);
+      }
+    }
+    task.depends_on = keptDeps;
+  }
+
+  if (crossStoryLifted.length > 0) {
+    console.warn(
+      `[Decomposer] ⚠️  Lifted ${crossStoryLifted.length} cross-story task dep(s) to story-level:`,
+    );
+    for (const lift of crossStoryLifted) {
+      console.warn(
+        `  Task "${lift.task}" → dep "${lift.dep}" lifted to Story "${lift.fromStory}" → Story "${lift.toStory}"`,
       );
     }
   }

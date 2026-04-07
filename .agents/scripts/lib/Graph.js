@@ -395,3 +395,57 @@ export function autoSerializeOverlaps(manifest, adjacency) {
 
   return { finalAdjacency: adjacency, graphMutated: false };
 }
+
+/**
+ * Compute story-level execution waves from cross-story task dependencies.
+ *
+ * Builds a story adjacency graph by inspecting each task's dependencies:
+ * if task T in Story A depends on task T' in Story B, then Story A depends
+ * on Story B. After building the story graph, runs `assignLayers` to produce
+ * wave indices for each story.
+ *
+ * @param {Map<number, {storyId: number|string, tasks: object[]}>} storyGroups
+ *   Map of storyId → { storyId, tasks: [{ id, dependsOn }] }
+ * @returns {Map<number|string, number>} Map of storyId → wave index.
+ */
+export function computeStoryWaves(storyGroups) {
+  // Build a reverse lookup: taskId → storyId
+  const taskToStory = new Map();
+  for (const [storyId, group] of storyGroups.entries()) {
+    for (const task of group.tasks) {
+      taskToStory.set(task.id, storyId);
+    }
+  }
+
+  // Build story-level adjacency: storyA depends on storyB if any task in
+  // storyA has a dependency on a task in storyB.
+  const storyAdjacency = new Map();
+  for (const storyId of storyGroups.keys()) {
+    storyAdjacency.set(storyId, []);
+  }
+
+  for (const [storyId, group] of storyGroups.entries()) {
+    const depStories = new Set();
+    for (const task of group.tasks) {
+      for (const depId of task.dependsOn ?? []) {
+        const depStory = taskToStory.get(depId);
+        if (depStory !== undefined && depStory !== storyId) {
+          depStories.add(depStory);
+        }
+      }
+    }
+    storyAdjacency.set(storyId, [...depStories]);
+  }
+
+  // Detect cycles in story-level graph
+  const cycle = detectCycle(storyAdjacency);
+  if (cycle) {
+    throw new Error(
+      `[Graph] Story-level dependency cycle detected: ${cycle.join(' → ')}. ` +
+        'This usually means cross-story task dependencies form a circular chain.',
+    );
+  }
+
+  // Assign layers (waves) to stories
+  return assignLayers(storyAdjacency);
+}
