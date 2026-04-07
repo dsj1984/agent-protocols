@@ -61,17 +61,25 @@ export async function planEpic(
 
   // ── Idempotency: Discover dangling artifacts not yet in body ─────────────
   const relatedTickets = await provider.getTickets(epicId);
-  const existingPrds = relatedTickets.filter(t => t.labels.includes('context::prd') && t.state === 'open');
-  const existingSpecs = relatedTickets.filter(t => t.labels.includes('context::tech-spec') && t.state === 'open');
+  const existingPrds = relatedTickets.filter(
+    (t) => t.labels.includes('context::prd') && t.state === 'open',
+  );
+  const existingSpecs = relatedTickets.filter(
+    (t) => t.labels.includes('context::tech-spec') && t.state === 'open',
+  );
 
   // Heal linkedIssues if empty but tickets exist
   if (!epic.linkedIssues.prd && existingPrds.length > 0) {
     epic.linkedIssues.prd = existingPrds[0].id;
-    console.log(`[Epic Planner] Healed dangling PRD reference: #${epic.linkedIssues.prd}`);
+    console.log(
+      `[Epic Planner] Healed dangling PRD reference: #${epic.linkedIssues.prd}`,
+    );
   }
   if (!epic.linkedIssues.techSpec && existingSpecs.length > 0) {
     epic.linkedIssues.techSpec = existingSpecs[0].id;
-    console.log(`[Epic Planner] Healed dangling Tech Spec reference: #${epic.linkedIssues.techSpec}`);
+    console.log(
+      `[Epic Planner] Healed dangling Tech Spec reference: #${epic.linkedIssues.techSpec}`,
+    );
   }
 
   // Cleanup duplicates (redundant open PRDs/Specs)
@@ -81,8 +89,12 @@ export async function planEpic(
   ];
 
   for (const t of redundant) {
-    const successorId = t.labels.includes('context::prd') ? epic.linkedIssues.prd : epic.linkedIssues.techSpec;
-    console.log(`[Epic Planner] Closing redundant duplicate artifact #${t.id} (superseded by #${successorId})...`);
+    const successorId = t.labels.includes('context::prd')
+      ? epic.linkedIssues.prd
+      : epic.linkedIssues.techSpec;
+    console.log(
+      `[Epic Planner] Closing redundant duplicate artifact #${t.id} (superseded by #${successorId})...`,
+    );
     try {
       await provider.postComment(t.id, {
         type: 'notification',
@@ -93,11 +105,18 @@ Closing this issue to maintain a single source of truth for Epic #${epicId}.`,
     } catch (_err) {
       // Ignore comment failures
     }
-    await provider.updateTicket(t.id, { state: 'closed', state_reason: 'not_planned' });
+    await provider.updateTicket(t.id, {
+      state: 'closed',
+      state_reason: 'not_planned',
+    });
   }
 
   // Persist healed references to the body if needed
-  if (epic.linkedIssues.prd && epic.linkedIssues.techSpec && !epic.body.includes('## Planning Artifacts')) {
+  if (
+    epic.linkedIssues.prd &&
+    epic.linkedIssues.techSpec &&
+    !epic.body.includes('## Planning Artifacts')
+  ) {
     console.log(`[Epic Planner] Persisting healed references to Epic body...`);
     const appendBody = `\n\n## Planning Artifacts\n- [ ] PRD: #${epic.linkedIssues.prd}\n- [ ] Tech Spec: #${epic.linkedIssues.techSpec}\n`;
     await provider.updateTicket(epicId, { body: epic.body + appendBody });

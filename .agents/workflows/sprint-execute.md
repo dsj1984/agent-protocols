@@ -10,43 +10,43 @@ description: >-
 
 This workflow operates in two modes determined by the argument provided:
 
-- **`/sprint-execute [Epic ID]`** — Epic-level orchestration. Fetches all Tasks
-  under the Epic, schedules them into dependency-ordered waves, groups them by
-  parent Story, and outputs a **Story Dispatch Table** with model
-  recommendations. Re-run after each wave to advance progress. Automatically
-  enters the **Bookend Lifecycle** once all Tasks reach `agent::done`.
+- **`/sprint-execute [Epic ID]`** — **Refresh Dashboard / Epic Dispatch**. This
+  is an **optional** status and dispatch tool. Use it to:
+  - View the up-to-date **Story Dispatch Table** and execution waves.
+  - Release/dispatch manual tasks or those requiring HITL approval.
+  - Check overall Epic progress (calculates total % complete across stories).
+  - **NOTE**: The Dispatch Table should have already been generated during
+    `/sprint-plan`. Use this command only to refresh the plan or for live
+    dispatch.
 
-- **`/sprint-execute #[Story ID]`** — Story-level execution. Checks out the
-  Story branch, implements ALL child Tasks sequentially in a single session,
-  validates, creates a unified PR, and transitions tickets to `agent::review`.
+- **`/sprint-execute #[Story ID]`** — **Story Execution (Primary)**. The core
+  workflow for implementing work. It checks out the Story branch, implements ALL
+  child Tasks sequentially, validates, and creates a unified PR.
 
 ---
 
-## Mode A: Epic-Level Dispatch (`/sprint-execute [Epic ID]`)
+## Mode A: Refresh & Epic Dispatch (`/sprint-execute [Epic ID]`)
 
-### Step 0 — Resolve Configuration
+### Step 0 — Purpose
 
-1. Read `.agentrc.json` and resolve `orchestration`, `agentSettings`, and
-   `bookendRequirements`.
-2. Instantiate the ticketing provider via:
+Use this mode when you need an overview of the Epic or need to handle **live
+dispatch** actions that cannot be automated at the Story level (e.g., releasing
+`risk::high` tasks).
+
+1. **Dry-Run Mode (Status Dashboard)**: Invoke this to see an up-to-date **Story
+   Dispatch Table**. This is the natural "Status" check for the Epic.
 
    ```powershell
    node .agents/scripts/dispatcher.js --epic <epicId> --dry-run
    ```
 
-   Review the printed **Story Dispatch Table** to confirm the wave plan and
-   recommended models before live dispatch.
-
-3. To run a live wave dispatch:
+2. **Live-Dispatch Mode (HITL Release)**: Invoke this without flags to
+   transition tickets from `agent::ready` to `agent::executing` (primarily for
+   manual/legacy workflows or HITL release).
 
    ```powershell
    node .agents/scripts/dispatcher.js --epic <epicId>
    ```
-
-4. The manifest JSON is written to `temp/dispatch-manifest-<epicId>.json`.
-   The **Story Dispatch Table** printed to stdout shows each Story's model
-   tier, recommended model, and branch — use this to select the correct model
-   when starting Story-level execution.
 
 ### Step 1 — Fetch & Schedule
 
@@ -121,9 +121,9 @@ On final close-out:
 ### Step 0 — Context Gathering
 
 1. Fetch Issue `#[Story ID]` in full (title, body, labels, assignees).
-2. **Model Selection**: Check the Story Dispatch Table (from Mode A output) for
-   this Story's `recommendedModel`. Select that model before starting the
-   session.
+2. **Model Selection**: Check the **Story Dispatch Table** (printed at the end
+   of `/sprint-plan` or `/sprint-execute [Epic ID]`) for this Story's
+   `recommendedModel`. Select that model for your current session.
 3. **Blocker check**: Parse `Blocked By` entries from the `## Metadata` section.
    If any referenced issue is still **open**, **STOP** and report the blocker to
    the operator.
@@ -156,7 +156,8 @@ On final close-out:
 For **each child Task** in dependency order:
 
 1. Read the full `## Instructions` section of the Task ticket.
-2. Implement all described changes strictly within the scope of the Story branch.
+2. Implement all described changes strictly within the scope of the Story
+   branch.
 3. Commit after completing each Task with a message referencing the Task ID:
 
    ```powershell
@@ -228,9 +229,9 @@ If tests or lint fail:
 2. **If `risk::high`**: Hold at `agent::review`; await human merge approval
    before the cascade runs.
 
-3. **On merge**: The `cascadeCompletion()` function in
-   `update-ticket-state.js` automatically propagates `agent::done` up the
-   hierarchy (Tasks → Story → Feature → Epic).
+3. **On merge**: The `cascadeCompletion()` function in `update-ticket-state.js`
+   automatically propagates `agent::done` up the hierarchy (Tasks → Story →
+   Feature → Epic).
 
 ---
 

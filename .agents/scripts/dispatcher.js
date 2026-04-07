@@ -195,8 +195,8 @@ function resolveRecommendedModel(tier, settings) {
   const models = settings.defaultModels ?? {};
   const raw =
     tier === 'high'
-      ? (models.planningFallback || 'Gemini 3.1 Pro (High)')
-      : (models.fastFallback || 'Gemini 3 Flash');
+      ? models.planningFallback || 'Gemini 3.1 Pro (High)'
+      : models.fastFallback || 'Gemini 3 Flash';
   // Pick the first option if config contains " OR "
   return raw.split(' OR ')[0].trim();
 }
@@ -210,24 +210,45 @@ function resolveRecommendedModel(tier, settings) {
 function printStoryDispatchTable(storyManifest) {
   if (!storyManifest || storyManifest.length === 0) return;
 
-  console.log('\n┌──────────────────────────────────────────────────────────────────────────────────────────────────────────────┐');
-  console.log('│                                    📋 STORY DISPATCH TABLE                                                │');
-  console.log('├─────────┬──────────────────────────────────────┬────────────┬──────────────────────────────┬──────────────┤');
-  console.log('│ Story   │ Title                                │ Model Tier │ Recommended Model            │ Tasks        │');
-  console.log('├─────────┼──────────────────────────────────────┼────────────┼──────────────────────────────┼──────────────┤');
+  console.log(
+    '\n┌──────────────────────────────────────────────────────────────────────────────────────────────────────────────────────┐',
+  );
+  console.log(
+    '│                                            📋 STORY DISPATCH TABLE                                                   │',
+  );
+  console.log(
+    '├─────────┬──────────────────────────────────────┬──────┬────────────┬──────────────────────────────┬──────────────┤',
+  );
+  console.log(
+    '│ Story   │ Title                                │ Wave │ Model Tier │ Recommended Model            │ Tasks        │',
+  );
+  console.log(
+    '├─────────┼──────────────────────────────────────┼──────┼────────────┼──────────────────────────────┼──────────────┤',
+  );
 
   for (const story of storyManifest) {
-    const id = story.storyId === '__ungrouped__' ? '(none)' : `#${story.storyId}`;
+    const id =
+      story.storyId === '__ungrouped__' ? '(none)' : `#${story.storyId}`;
     const title = (story.storySlug ?? '').substring(0, 36).padEnd(36);
+    const wave = (
+      story.earliestWave === -1 ? '-' : String(story.earliestWave)
+    ).padEnd(4);
     const tier = (story.model_tier ?? '').padEnd(10);
     const model = (story.recommendedModel ?? '').substring(0, 28).padEnd(28);
     const taskCount = `${story.tasks.length} task(s)`.padEnd(12);
-    console.log(`│ ${id.padEnd(7)} │ ${title} │ ${tier} │ ${model} │ ${taskCount} │`);
+    console.log(
+      `│ ${id.padEnd(7)} │ ${title} │ ${wave} │ ${tier} │ ${model} │ ${taskCount} │`,
+    );
   }
 
-  console.log('└─────────┴──────────────────────────────────────┴────────────┴──────────────────────────────┴──────────────┘');
+  console.log(
+    '└─────────┴──────────────────────────────────────┴──────┴────────────┴──────────────────────────────┴──────────────┘',
+  );
   console.log('');
-  console.log('  💡 Use /sprint-execute #[Story ID] to execute a Story. Select the model shown above.');
+  console.log('  💡 Stories in the same [Wave] can be executed in parallel.');
+  console.log(
+    '  💡 Use /sprint-execute #[Story ID] to execute a Story. Select the model shown above.',
+  );
   console.log('');
 }
 
@@ -888,17 +909,25 @@ async function detectEpicCompletion({
 /**
  * Build the story-centric manifest array that conforms to dispatch-manifest.schema.json.
  *
- * @param {object[]} tasks      - Normalised task list from fetchTasks.
+ * @param {object[]} tasks      - Normalised task list.
  * @param {object[]} allTickets - All raw tickets under the epic.
  * @param {number}   epicId
+ * @param {object}   settings   - Agent configuration.
+ * @param {Map<number, number>} taskToWave - Map of task ID to wave index.
  * @returns {object[]} Array of StoryDispatch objects.
  */
-function buildStoryManifest(tasks, allTickets, epicId, settings) {
+function buildStoryManifest(tasks, allTickets, epicId, settings, taskToWave) {
   const groups = groupTasksByStory(tasks, allTickets, epicId);
 
   return [...groups.values()].map((group) => {
     const modelTier = resolveModelTier(group.storyLabels);
     const recommendedModel = resolveRecommendedModel(modelTier, settings);
+
+    // Earliest wave any task in this story belongs to.
+    const storyWaves = group.tasks
+      .map((t) => taskToWave.get(t.id))
+      .filter((w) => w !== undefined);
+    const earliestWave = storyWaves.length > 0 ? Math.min(...storyWaves) : -1;
     const slug =
       group.storyId === '__ungrouped__'
         ? 'ungrouped'
@@ -918,6 +947,7 @@ function buildStoryManifest(tasks, allTickets, epicId, settings) {
       branchName,
       model_tier: modelTier,
       recommendedModel,
+      earliestWave,
       tasks: group.tasks.map((t) => ({
         taskId: t.id,
         taskSlug: t.title
@@ -1007,10 +1037,25 @@ function buildManifest({
         dependsOn: t.dependsOn,
       })),
     })),
+
     // Story-centric manifest conforming to dispatch-manifest.schema.json
     // Groups tasks under their parent story with story branch, model_tier,
     // and recommendedModel resolved from agentSettings.defaultModels.
-    storyManifest: buildStoryManifest(tasks, allTickets ?? [], epicId, settings),
+    storyManifest: (() => {
+      const taskToWave = new Map();
+      for (const [i, wave] of waves.entries()) {
+        for (const t of wave) {
+          taskToWave.set(t.id, i);
+        }
+      }
+      return buildStoryManifest(
+        tasks,
+        allTickets ?? [],
+        epicId,
+        settings,
+        taskToWave,
+      );
+    })(),
     dispatched,
     heldForApproval,
   };

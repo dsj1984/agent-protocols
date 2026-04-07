@@ -6,13 +6,18 @@ description: >-
 
 # Clear Epic Tickets Workflow
 
-This workflow provides a mechanism to permanently remove **all child issues** (PRD, Tech Spec, Features, Stories, Tasks) associated with an Epic, while **keeping the Epic issue itself** (effectively "clearing it out" for re-planning).
+This workflow provides a mechanism to permanently remove **all child issues**
+(PRD, Tech Spec, Features, Stories, Tasks) associated with an Epic, while
+**keeping the Epic issue itself** (effectively "clearing it out" for
+re-planning).
 
 > [!CAUTION] This action is irreversible on GitHub.
 >
-> **When to run**: When an Epic needs to be reset/cleared of its children without deleting the root Epic ticket.
+> **When to run**: When an Epic needs to be reset/cleared of its children
+> without deleting the root Epic ticket.
 >
-> **Persona**: `devops-engineer` · **Skills**: `core/git-workflow-and-versioning`
+> **Persona**: `devops-engineer` · **Skills**:
+> `core/git-workflow-and-versioning`
 
 ## Step 1 — Confirmation
 
@@ -24,7 +29,8 @@ Confirm with the operator that they want to delete the GitHub issues.
 
 ## Step 3 — Delete GitHub Issues (Dry Run)
 
-Run the delete-epic script in dry-run mode to audit which issues will be removed.
+Run the delete-epic script in dry-run mode to audit which issues will be
+removed.
 
 ```powershell
 node .agents/scripts/delete-epic.js [EPIC_ID] --exclude-root --dry-run

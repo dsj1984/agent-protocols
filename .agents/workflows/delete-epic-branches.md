@@ -6,17 +6,22 @@ description: >-
 
 # Delete Epic Branches Workflow
 
-This workflow provides a manual cleanup mechanism specifically for **Git branches** when an Epic needs to be reset. It deletes both local and origin branches for the Epic and its full hierarchy.
+This workflow provides a manual cleanup mechanism specifically for **Git
+branches** when an Epic needs to be reset. It deletes both local and origin
+branches for the Epic and its full hierarchy.
 
-> **When to run**: When an Epic needs to be scrapped or reset, but you want to handle branch deletion independently of issue deletion.
+> **When to run**: When an Epic needs to be scrapped or reset, but you want to
+> handle branch deletion independently of issue deletion.
 >
-> **Persona**: `devops-engineer` · **Skills**: `core/git-workflow-and-versioning`
+> **Persona**: `devops-engineer` · **Skills**:
+> `core/git-workflow-and-versioning`
 
 ## Step 1 — Confirmation
 
 Confirm with the operator that they want to delete branches.
 
-> [!WARNING] This will permanently delete branches. Ensure all valuable code is backed up or committed elsewhere.
+> [!WARNING] This will permanently delete branches. Ensure all valuable code is
+> backed up or committed elsewhere.
 
 ## Step 2 — Resolve Configuration
 
@@ -45,7 +50,8 @@ git branch -r --list "origin/epic/[EPIC_ID]" "origin/task/epic-[EPIC_ID]/*" "ori
 
 ## Step 5 — Final Operator Approval
 
-Verify the output of Step 4. Ask: "Are you sure you want to delete these branches?"
+Verify the output of Step 4. Ask: "Are you sure you want to delete these
+branches?"
 
 ## Step 6 — Delete Local Branches
 
@@ -72,4 +78,5 @@ git branch -r --list "origin/task/epic-[EPIC_ID]/*" "origin/feature/epic-[EPIC_I
 
 ## Constraint
 
-Do **not** run this workflow if there is unmerged work that needs saving. Always perform Step 4 (Audit) and Step 5 (Approval) before deletion.
+Do **not** run this workflow if there is unmerged work that needs saving. Always
+perform Step 4 (Audit) and Step 5 (Approval) before deletion.

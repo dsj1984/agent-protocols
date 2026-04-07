@@ -115,5 +115,5 @@ npm test              # Run framework tests (node --test)
 | [`.agents/README.md`](.agents/README.md)             | Consumer user guide                 |
 | [`.agents/SDLC.md`](.agents/SDLC.md)                 | Sprint planning pipeline guide      |
 | [`.agentrc.json`](.agentrc.json)                     | Runtime configuration               |
-| [`docs/CHANGELOG.md`](docs/CHANGELOG.md)           | Release history                     |
-| [`docs/ROADMAP.md`](docs/ROADMAP.md)               | Feature roadmap (Auto-generated)    |
+| [`docs/CHANGELOG.md`](docs/CHANGELOG.md)             | Release history                     |
+| [`docs/ROADMAP.md`](docs/ROADMAP.md)                 | Feature roadmap (Auto-generated)    |

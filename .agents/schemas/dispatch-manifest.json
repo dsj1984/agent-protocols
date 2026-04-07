@@ -195,7 +195,15 @@
       "description": "Story-centric grouping of tasks. Each entry represents a Story with its branch, model tier, recommended model, and child tasks. This is the primary execution unit — operators dispatch at the Story level.",
       "items": {
         "type": "object",
-        "required": ["storyId", "storySlug", "branchName", "model_tier", "recommendedModel", "tasks"],
+        "required": [
+          "storyId",
+          "storySlug",
+          "branchName",
+          "model_tier",
+          "recommendedModel",
+          "earliestWave",
+          "tasks"
+        ],
         "properties": {
           "storyId": {
             "oneOf": [
@@ -221,6 +229,10 @@
             "type": "string",
             "description": "Concrete model name resolved from agentSettings.defaultModels based on model_tier.",
             "examples": ["Gemini 3.1 Pro (High)", "Gemini 3 Flash"]
+          },
+          "earliestWave": {
+            "type": "integer",
+            "description": "The earliest wave index any task in this story appears in. Stories in the same wave can run in parallel."
           },
           "tasks": {
             "type": "array",

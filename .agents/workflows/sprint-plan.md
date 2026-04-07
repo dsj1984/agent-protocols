@@ -29,10 +29,11 @@ backlog of Features, Stories, and Tasks.
 
 ## Phase 0: Re-Plan Detection
 
-Before generating any artifacts, check whether the Epic has already been planned.
+Before generating any artifacts, check whether the Epic has already been
+planned.
 
-1. **Fetch Epic**: Read the Epic issue body and check for a `## Planning
-   Artifacts` section containing PRD and Tech Spec references.
+1. **Fetch Epic**: Read the Epic issue body and check for a
+   `## Planning Artifacts` section containing PRD and Tech Spec references.
 2. **If already planned**: Inform the user that this Epic already has planning
    artifacts. Ask:
 
@@ -63,9 +64,9 @@ Before generating any artifacts, check whether the Epic has already been planned
 2. **Verification**:
    - Verify that the PRD and Technical Specification have been posted as
      comments on the Epic issue.
-   - **STOP**: Ask the USER to review the generated PRD and Tech Spec on
-     GitHub. Do NOT proceed to decomposition until the user confirms the plan
-     is accurate.
+   - **STOP**: Ask the USER to review the generated PRD and Tech Spec on GitHub.
+     Do NOT proceed to decomposition until the user confirms the plan is
+     accurate.
 
 ## Phase 2: Work Breakdown Decomposition
 
@@ -85,8 +86,8 @@ Before generating any artifacts, check whether the Epic has already been planned
      least one Task.
    - **Verify**: dependency DAG across Tasks is acyclic (no circular deps).
    - **Verify**: risk::high Tasks are flagged correctly.
-   - **Action**: Fix any gaps by creating additional issues or updating
-     existing ones manually.
+   - **Action**: Fix any gaps by creating additional issues or updating existing
+     ones manually.
 
 3. **Audit**:
    - Check the Epic's comment thread to ensure the backlog summary was posted.
@@ -104,9 +105,24 @@ Before generating any artifacts, check whether the Epic has already been planned
    node .agents/scripts/notify.js [Epic_ID] "Planning complete, review tickets. Backlog decomposition complete. Sprint is ready for /sprint-execute." --action
    ```
 
-2. **Final Summary**: Provide the user with a summary of the generated tickets
-   (IDs and Titles) and highlight any high-risk tasks that will require HITL
-   gating during execution.
+## Phase 4: Execution Roadmap (Story Dispatch)
+
+1.  **Generate Roadmap**: Automatically invoke the dispatcher in dry-run mode to
+    calculate execution waves and model recommendations:
+
+    ```powershell
+    node .agents/scripts/dispatcher.js --epic [Epic_ID] --dry-run
+    ```
+
+2.  **Verify Output**:
+    - Confirm the **Story Dispatch Table** is printed.
+    - Check for any stories in **Wave 0** — these are ready for immediate
+      execution.
+
+3.  **Handoff**: Provide the user with the recommended next step:
+    > "Planning is complete. Select a story from Wave 0 in the table above and
+    > start execution via `/sprint-execute #[Story ID]` using the recommended
+    > model."
 
 ## Troubleshooting
 

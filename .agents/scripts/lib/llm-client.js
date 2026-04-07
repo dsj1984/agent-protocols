@@ -114,11 +114,15 @@ export class LLMClient {
       if (res.status === 429 || res.status >= 500) {
         if (attempt === maxRetries) {
           const err = await res.text();
-          throw new Error(`[Gemini API Error] ${res.status} (after ${maxRetries} retries): ${err}`);
+          throw new Error(
+            `[Gemini API Error] ${res.status} (after ${maxRetries} retries): ${err}`,
+          );
         }
-        const delay = Math.pow(2, attempt) * 1000 + Math.random() * 1000;
-        console.warn(`[LLMClient] Gemini returned ${res.status} on attempt ${attempt + 1}/${maxRetries + 1}. Retrying in ${Math.round(delay)}ms...`);
-        await new Promise(r => setTimeout(r, delay));
+        const delay = 2 ** attempt * 1000 + Math.random() * 1000;
+        console.warn(
+          `[LLMClient] Gemini returned ${res.status} on attempt ${attempt + 1}/${maxRetries + 1}. Retrying in ${Math.round(delay)}ms...`,
+        );
+        await new Promise((r) => setTimeout(r, delay));
         continue;
       }
 
