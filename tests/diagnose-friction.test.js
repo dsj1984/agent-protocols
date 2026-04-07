@@ -40,9 +40,11 @@ describe('diagnose-friction.js — v5 (CLI contract)', () => {
   });
 
   it('passes through the exit code of the wrapped command on success', () => {
+    // Use `node --version` as the wrapped command — it always exits 0 on every
+    // platform and Node version, with no shell quoting or argument concerns.
     const result = spawnSync(
       'node',
-      [SCRIPT_PATH, '--task', '0', '--cmd', 'node', '-e', 'process.exit(0)'],
+      [SCRIPT_PATH, '--task', '0', '--cmd', 'node', '--version'],
       {
         cwd: ROOT,
         encoding: 'utf-8',
@@ -50,21 +52,26 @@ describe('diagnose-friction.js — v5 (CLI contract)', () => {
         env: { ...process.env, GITHUB_TOKEN: 'fake-token-for-test' },
       },
     );
-    const debugInfo =
-      `\nstdout: ${(result.stdout ?? '').substring(0, 500)}` +
-      `\nstderr: ${(result.stderr ?? '').substring(0, 500)}` +
-      `\nsignal: ${result.signal}`;
     assert.equal(
       result.status,
       0,
-      `Should exit 0 when the wrapped command succeeds${debugInfo}`,
+      'Should exit 0 when the wrapped command succeeds',
     );
   });
 
   it('passes through non-zero exit code of a failing wrapped command', () => {
+    // Use a nonexistent script path — guaranteed to fail (MODULE_NOT_FOUND)
+    // on every platform and Node version without any shell quoting concerns.
     const result = spawnSync(
       'node',
-      [SCRIPT_PATH, '--task', '0', '--cmd', 'node', '-e', 'process.exit(2)'],
+      [
+        SCRIPT_PATH,
+        '--task',
+        '0',
+        '--cmd',
+        'node',
+        '__nonexistent_script_guaranteed_to_fail__.js',
+      ],
       {
         cwd: ROOT,
         encoding: 'utf-8',
@@ -72,9 +79,6 @@ describe('diagnose-friction.js — v5 (CLI contract)', () => {
         env: { ...process.env, GITHUB_TOKEN: 'fake-token-for-test' },
       },
     );
-    // Non-zero exit is the key invariant. Platform-specific OS signal codes
-    // may vary on Windows when using shell:true, so we assert non-zero rather
-    // than an exact code.
     assert.notEqual(
       result.status,
       0,
@@ -83,9 +87,15 @@ describe('diagnose-friction.js — v5 (CLI contract)', () => {
   });
 
   it('prints diagnostic suggestions on failure', () => {
+    // Use a nonexistent script to trigger guaranteed failure output.
     const result = spawnSync(
       'node',
-      [SCRIPT_PATH, '--cmd', 'node', '-e', 'process.exit(1)'],
+      [
+        SCRIPT_PATH,
+        '--cmd',
+        'node',
+        '__nonexistent_script_guaranteed_to_fail__.js',
+      ],
       {
         cwd: ROOT,
         encoding: 'utf-8',
@@ -110,7 +120,12 @@ describe('diagnose-friction.js — v5 (CLI contract)', () => {
     // This test verifies the file is NOT created (the old contract is gone).
     const tmpCheck = spawnSync(
       'node',
-      [SCRIPT_PATH, '--cmd', 'node', '-e', 'process.exit(1)'],
+      [
+        SCRIPT_PATH,
+        '--cmd',
+        'node',
+        '__nonexistent_script_guaranteed_to_fail__.js',
+      ],
       {
         cwd: ROOT,
         encoding: 'utf-8',
