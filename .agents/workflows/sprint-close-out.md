@@ -78,7 +78,33 @@ commit before proceeding.
 git push origin [BASE_BRANCH]
 ```
 
-## Step 6 — Close the Epic via Provider
+## Step 6 — Close Planning Tickets (PRD and Tech Spec)
+
+Before closing the Epic itself, close all planning tickets associated with it.
+These are tickets labeled `context::prd` or `context::tech-spec` that have the
+Epic as their parent.
+
+```powershell
+$env:GITHUB_TOKEN=...
+# Transition each planning ticket to agent::done (which closes it)
+node [SCRIPTS_ROOT]/update-ticket-state.js --task [PRD_TICKET_ID] --state "agent::done"
+node [SCRIPTS_ROOT]/update-ticket-state.js --task [TECH_SPEC_TICKET_ID] --state "agent::done"
+```
+
+To discover planning ticket IDs automatically, query for sub-issues of the Epic
+with the relevant labels:
+
+```javascript
+// const planningTickets = await provider.getSubTickets([EPIC_ID]);
+// const toClose = planningTickets.filter(t =>
+//   t.labels.includes('context::prd') || t.labels.includes('context::tech-spec')
+// );
+// for (const t of toClose) { await transitionTicketState(t.id, STATE_LABELS.DONE); }
+```
+
+If no planning tickets exist, skip gracefully.
+
+## Step 7 — Close the Epic via Provider
 
 Use the ticketing provider to close the Epic issue with a summary comment:
 
@@ -90,7 +116,7 @@ Use the ticketing provider to close the Epic issue with a summary comment:
 
 This closes the GitHub issue, making the Epic read-only in the ticket graph.
 
-## Step 7 — Tag Release (If Applicable)
+## Step 8 — Tag Release (If Applicable)
 
 If the Epic corresponds to a versioned release (check `package.json` version):
 
@@ -102,7 +128,7 @@ git push origin "v[VERSION]"
 Resolve `[VERSION]` from `package.json`. Only tag if the version was bumped
 during the Epic implementation.
 
-## Step 8 — Branch Cleanup
+## Step 9 — Branch Cleanup
 
 Delete the Epic base branch and all remaining Task branches:
 
@@ -120,7 +146,7 @@ git push origin --delete task/epic-[EPIC_ID]/[TASK_ID]
 Run `git branch -r` to confirm no `task/epic-[EPIC_ID]/*` or `epic/[EPIC_ID]`
 branches remain on origin.
 
-## Step 9 — Local Temp Cleanup
+## Step 10 — Local Temp Cleanup
 
 Purge any local ephemeral state generated during this Epic:
 
@@ -134,7 +160,7 @@ node -e "
 "
 ```
 
-## Step 10 — Notification
+## Step 11 — Notification
 
 ```powershell
 node [SCRIPTS_ROOT]/notify.js "Epic #[EPIC_ID] closed. Merged to [BASE_BRANCH] and branches cleaned up." --action
