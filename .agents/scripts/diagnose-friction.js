@@ -58,7 +58,7 @@ const executionMaxBuffer = settings.executionMaxBuffer ?? 10485760;
 const commandStr = cmdArgs.join(' ');
 console.log(`[Diagnostic Interceptor] Executing: ${commandStr}`);
 
-const result = spawnSync(cmdArgs[0], cmdArgs.slice(1), {
+const result = spawnSync(commandStr, {
   stdio: 'pipe',
   encoding: 'utf-8',
   timeout: executionTimeoutMs,
