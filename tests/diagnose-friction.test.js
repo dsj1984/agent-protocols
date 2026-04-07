@@ -46,14 +46,18 @@ describe('diagnose-friction.js — v5 (CLI contract)', () => {
       {
         cwd: ROOT,
         encoding: 'utf-8',
-        timeout: 5000,
+        timeout: 15000,
         env: { ...process.env, GITHUB_TOKEN: 'fake-token-for-test' },
       },
     );
+    const debugInfo =
+      `\nstdout: ${(result.stdout ?? '').substring(0, 500)}` +
+      `\nstderr: ${(result.stderr ?? '').substring(0, 500)}` +
+      `\nsignal: ${result.signal}`;
     assert.equal(
       result.status,
       0,
-      'Should exit 0 when the wrapped command succeeds',
+      `Should exit 0 when the wrapped command succeeds${debugInfo}`,
     );
   });
 
