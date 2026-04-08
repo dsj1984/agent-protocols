@@ -532,6 +532,7 @@ export function buildStoryManifest(tasks, allTickets, epicId, settings) {
           .replace(/-+/g, '-')
           .replace(/^-|-$/g, ''),
         parentSlug: slug,
+        status: t.status,
         dependencies: t.dependsOn ?? [],
       })),
     };
