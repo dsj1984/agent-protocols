@@ -33,5 +33,8 @@
     "markdownlint-cli": "^0.48.0",
     "memfs": "^4.57.1",
     "prettier": "^3.7.4"
+  },
+  "dependencies": {
+    "typhonjs-escomplex": "^0.1.0"
   }
 }
