@@ -146,6 +146,21 @@ export async function cascadeCompletion(provider, ticketId) {
       );
 
     if (allDone) {
+      // EXCLUSION: Do not auto-close Epics, PRDs, or Tech Specs via cascade.
+      // These must be closed via formal sprint-close.
+      const parent = await provider.getTicket(parentId);
+      const isEpic = parent.labels.includes('agent::epic');
+      const isPlanning =
+        parent.labels.includes('context::prd') ||
+        parent.labels.includes('context::tech-spec');
+
+      if (isEpic || isPlanning) {
+        console.log(
+          `[Ticketing] Cascade reached ${isEpic ? 'Epic' : 'Planning'} #${parentId}. Skipping auto-close (reserved for sprint-close).`,
+        );
+        continue;
+      }
+
       await transitionTicketState(provider, parentId, STATE_LABELS.DONE);
       await postStructuredComment(
         provider,
