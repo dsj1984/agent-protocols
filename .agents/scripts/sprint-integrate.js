@@ -22,15 +22,7 @@ import { Logger } from './lib/Logger.js';
 import { VerboseLogger } from './lib/VerboseLogger.js';
 import { getProvider, postStructuredComment } from './update-ticket-state.js';
 
-/**
- * Extracts parent ID from ticket body using the `parent: #N` convention.
- * @param {string} body
- * @returns {number|null}
- */
-function parseParentId(body) {
-  const match = (body ?? '').match(/^parent:\s*#(\d+)/m);
-  return match ? parseInt(match[1], 10) : null;
-}
+import { parseParentId } from './lib/orchestration/dispatcher.js';
 
 /**
  * sprint-integrate.js — Epic Integration Candidate Verification

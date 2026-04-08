@@ -61,6 +61,22 @@ export function getEpicBranch(epicId) {
 }
 
 /**
+ * Sanitize a string into a URL/branch-safe slug.
+ * Lowercases, replaces non-alphanumeric characters with hyphens,
+ * collapses multiple hyphens, and trims leading/trailing hyphens.
+ *
+ * @param {string} text - Raw text to slugify.
+ * @returns {string} Sanitized slug.
+ */
+export function slugify(text) {
+  return text
+    .toLowerCase()
+    .replace(/[^a-z0-9_-]/g, '-')
+    .replace(/-+/g, '-')
+    .replace(/^-|-$/g, '');
+}
+
+/**
  * Resolves the canonical branch name for a Story.
  * v5 Standard: story/epic-[EPIC_ID]/[STORY_SLUG]
  * @param {string|number} epicId
@@ -68,13 +84,7 @@ export function getEpicBranch(epicId) {
  * @returns {string}
  */
 export function getStoryBranch(epicId, storySlug) {
-  // Sanitize slug (alphanumeric, -, _) to ensure valid git branch
-  const cleanSlug = storySlug
-    .toLowerCase()
-    .replace(/[^a-z0-9_-]/g, '-')
-    .replace(/-+/g, '-') // collapse multiple hyphens
-    .replace(/^-|-$/g, ''); // trim hyphens at ends
-  return `story/epic-${epicId}/${cleanSlug}`;
+  return `story/epic-${epicId}/${slugify(storySlug)}`;
 }
 
 /**

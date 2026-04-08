@@ -180,14 +180,14 @@ Once Task waves complete, the bookend lifecycle begins.
    Task Integrated → Story Done → Feature Done
    ```
 
-   **Note**: Epics, PRDs, and Tech Specs are explicitly excluded from the 
+   **Note**: Epics, PRDs, and Tech Specs are explicitly excluded from the
    auto-cascade to ensure final verification occurs during Formal Closure.
 
 1. **Lifecycle phases**:
    - **Code Review**: `/sprint-code-review` for comprehensive review
    - **Retro**: `/sprint-retro` summarizes wins and friction from the ticket
      graph
-   - **Close**: `/sprint-close` merges the Epic branch to `main`, tags 
+   - **Close**: `/sprint-close` merges the Epic branch to `main`, tags
      the release, and closes the Epic issue (including PRD/Tech Spec).
 
 ---

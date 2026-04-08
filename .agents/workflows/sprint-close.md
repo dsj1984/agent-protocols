@@ -59,6 +59,7 @@ Ensure the code is stable and passes all quality gates on the Epic branch before
 merging to `main`.
 
 // turbo
+
 ```powershell
 npm run lint; npm test
 ```
@@ -91,7 +92,7 @@ git push origin [BASE_BRANCH]
 
 ## Step 6 — Close Planning & Strategy Tickets
 
-Formally close the PRD and Tech Spec tickets. Note: These were excluded from 
+Formally close the PRD and Tech Spec tickets. Note: These were excluded from
 auto-closure during execution to ensure they remained visible to the agents.
 
 ```powershell

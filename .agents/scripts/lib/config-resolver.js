@@ -53,9 +53,6 @@ try {
   // Silent fail - environment may be provided via other means
 }
 
-/** @type {string[]} Supported ticketing providers in v5. */
-const _SUPPORTED_PROVIDERS = ['github'];
-
 /** Shell metacharacter pattern for injection detection. */
 const SHELL_INJECTION_RE = /([;&|`]|\$\()/;
 

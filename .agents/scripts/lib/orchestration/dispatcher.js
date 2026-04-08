@@ -345,7 +345,7 @@ export async function reconcileClosedTasks(tasks, provider, dryRun) {
 export async function reconcileHierarchy(
   provider,
   epicId,
-  epic,
+  _epic,
   tasks,
   dryRun,
 ) {
