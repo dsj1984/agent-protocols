@@ -134,24 +134,61 @@ On final close-out:
    `parent: #[Story ID]` in their body). These will be implemented sequentially
    in dependency order.
 
-### Step 1 — Branch Setup
+### Step 1 — Epic Branch Bootstrap (Proactive Guard)
+
+**Before creating or checking out the Story branch**, ensure the Epic base branch
+exists both locally and on the remote. The Epic branch is the parent branch for
+all Story branches in this Epic and must exist before Story branches are created.
+
+```powershell
+# Check if the Epic branch exists on the remote
+git fetch origin
+git ls-remote --heads origin epic/<epicId>
+```
+
+If the command returns **no output** (branch does not exist remotely):
+
+```powershell
+# Create the Epic branch from main (or baseBranch in .agentrc.json)
+git checkout main
+git pull origin main
+git checkout -b epic/<epicId>
+git push --no-verify origin epic/<epicId>
+git checkout main
+```
+
+If the branch already exists remotely, ensure your local copy is up to date:
+
+```powershell
+git fetch origin
+git checkout epic/<epicId>
+git pull --rebase origin epic/<epicId>
+git checkout main
+```
+
+> **Why this matters:** The dispatcher only creates the Epic branch in live
+> (non-dry-run) dispatch mode. If the Epic has only been inspected via
+> `--dry-run`, the Epic branch will not exist. All Story branches must be
+> created from `epic/<epicId>`, not `main`, to ensure proper PR merge topology.
+
+### Step 2 — Story Branch Checkout
 
 1. Identify the Story branch from the **Story Dispatch Table** or compute it:
    - Format: `story/epic-<epicId>/<story-slug>`
-2. Fetch and checkout the branch:
+2. Fetch and checkout the branch (branching from the Epic base branch, **not** `main`):
 
    ```powershell
    git fetch origin
-   git checkout <storyBranch> || git checkout -b <storyBranch> origin/epic/<epicId>
+   git checkout <storyBranch> || git checkout -b <storyBranch> epic/<epicId>
    ```
 
 3. Transition ALL child Task labels via the state writer:
 
    ```powershell
-   node .agents/scripts/update-ticket-state.js transitionTicketState <taskId> agent::executing
+   node .agents/scripts/update-ticket-state.js --task <taskId> --state agent::executing
    ```
 
-### Step 2 — Implementation (Sequential Task Loop)
+### Step 3 — Implementation (Sequential Task Loop)
 
 For **each child Task** in dependency order:
 
@@ -165,15 +202,16 @@ For **each child Task** in dependency order:
    git commit --no-verify -m "feat(<scope>): <task title> (resolves #<taskId>)"
    ```
 
-4. Transition the completed Task to `agent::done`:
+4. Transition the completed Task to `agent::review` (not `agent::done` — that
+   happens after merge via cascade):
 
    ```powershell
-   node .agents/scripts/update-ticket-state.js transitionTicketState <taskId> agent::done
+   node .agents/scripts/update-ticket-state.js --task <taskId> --state agent::review
    ```
 
 5. Proceed to the next Task in the Story.
 
-### Step 3 — Validate
+### Step 4 — Validate
 
 After all Tasks are implemented, run shift-left validation:
 
