@@ -231,12 +231,11 @@ repository maintenance.
 | `sprint-plan.md`                      | `/sprint-plan`                      | Autonomous PRD, Tech Spec, and task generation |
 | `sprint-execute.md`                   | `/sprint-execute`                   | DAG dispatch (Epic) or task implementation     |
 | `sprint-verify-task-prerequisites.md` | `/sprint-verify-task-prerequisites` | Validate dependencies before execution         |
-| `sprint-finalize-task.md`             | `/sprint-finalize-task`             | Validation, commit, and state sync             |
 | `sprint-code-review.md`               | `/sprint-code-review`               | Comprehensive code review                      |
 | `sprint-integration.md`               | `/sprint-integration`               | Merge and stabilization                        |
 | `sprint-hotfix.md`                    | `/sprint-hotfix`                    | Rapid remediation on feature branches          |
 | `sprint-retro.md`                     | `/sprint-retro`                     | Retrospective from ticket graph                |
-| `sprint-close-out.md`                 | `/sprint-close-out`                 | Final merge, tag release, close Epic           |
+| `sprint-close.md`                     | `/sprint-close`                     | Final merge, tag release, close Epic           |
 
 ### Utility Workflows
 

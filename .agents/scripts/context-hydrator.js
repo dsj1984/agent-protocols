@@ -32,7 +32,7 @@ async function main() {
     process.exit(1);
   }
 
-  const { settings, orchestration } = resolveConfig();
+  const { orchestration } = resolveConfig();
   const provider = createProvider(orchestration);
 
   console.log(`[Hydrator] Hydrating context for Task #${taskId} (Epic #${epicId})...`);

@@ -107,7 +107,7 @@ sequentially — each uses the persona, skills, and model from
 | QA            | `/sprint-testing`     | `isQA`          |
 | Code Review   | `/sprint-code-review` | `isCodeReview`  |
 | Retrospective | `/sprint-retro`       | `isRetro`       |
-| Close-Out     | `/sprint-close-out`   | `isCloseSprint` |
+| Close-Out     | `/sprint-close`       | `isCloseSprint` |
 
 On final close-out:
 

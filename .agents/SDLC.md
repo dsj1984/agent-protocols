@@ -184,7 +184,7 @@ Once Task waves complete, the bookend lifecycle begins.
    - **Code Review**: `/sprint-code-review` for comprehensive review
    - **Retro**: `/sprint-retro` summarizes wins and friction from the ticket
      graph
-   - **Close-Out**: `/sprint-close-out` merges the Epic branch to `main`, tags
+   - **Close-Out**: `/sprint-close` merges the Epic branch to `main`, tags
      the release, and closes the Epic issue
 
 ---
@@ -215,11 +215,10 @@ Notifications are dispatched through two channels:
 | `/sprint-plan [EPIC_ID]`          | Generate PRD, Tech Spec, and full task hierarchy |
 | `/sprint-execute [EPIC_ID]`       | Dispatch manifest and launch task waves          |
 | `/sprint-execute [TASK_ID]`       | Hydrate context and implement a single task      |
-| `/sprint-finalize-task`           | Validate, commit, and update task state          |
-| `/sprint-integration`             | Merge task branches into Epic base branch        |
+| `/sprint-integration`             | Merge story branches into Epic base branch       |
 | `/sprint-code-review`             | Comprehensive code review                        |
 | `/sprint-retro`                   | Retrospective from ticket graph                  |
-| `/sprint-close-out`               | Merge to main, tag release, close Epic           |
+| `/sprint-close`                   | Merge to main, tag release, close Epic           |
 | `/bootstrap-agent-protocols`      | Initialize repo labels and project fields        |
 | `/delete-epic-branches [EPIC_ID]` | Hard reset: delete Epic branches                 |
 | `/delete-epic-tickets [EPIC_ID]`  | Hard reset: delete Epic issues                   |

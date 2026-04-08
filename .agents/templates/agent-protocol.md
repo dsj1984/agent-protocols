@@ -33,9 +33,10 @@ If you hit an unrecoverable error during implementation:
 
 When your implementation is complete and verified:
 
-1. Stage and commit your changes to your feature branch (`{{BRANCH_NAME}}`).
-2. Run `/sprint-finalize-task` (if a workflow script exists) or push your branch
-   to GitHub.
-3. Transition the task label to `agent::review` (or `agent::done`).
+1. Stage and commit your changes to the Story branch (`{{BRANCH_NAME}}`).
+2. Run lint and tests: `npm run lint && npm test`.
+3. The Story branch is auto-merged into the Epic branch by `/sprint-execute`
+   after all Tasks are done — do **not** merge manually.
+4. Transition the task label to `agent::review` via `update-ticket-state.js`.
 
 ---
