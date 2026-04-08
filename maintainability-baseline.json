@@ -1,0 +1,8 @@
+{
+  "version": 1,
+  "scores": {
+    ".agents/scripts/lib/config-resolver.js": 95.0,
+    ".agents/scripts/dispatcher.js": 85.0,
+    ".agents/scripts/lib/llm-client.js": 90.0
+  }
+}

@@ -1,0 +1,34 @@
+{
+  "version": 1,
+  "audits": {
+    "audit-clean-code": {
+      "triggers": { "gates": ["gate1", "gate3"], "alwaysRun": true }
+    },
+    "audit-architecture": {
+      "triggers": { "gates": ["gate1", "gate3"], "alwaysRun": true }
+    },
+    "audit-security": {
+      "triggers": {
+        "gates": ["gate1", "gate3"],
+        "keywords": ["security", "auth", "vulnerability", "cve", "password", "encrypt"],
+        "filePatterns": ["**/*.lock", "**/auth/*.js", "**/crypto/*.js"]
+      }
+    },
+    "audit-privacy": {
+      "triggers": {
+        "gates": ["gate1", "gate3"],
+        "keywords": ["privacy", "pii", "gdpr", "cookie", "tracking"],
+        "filePatterns": ["**/user-profile/**/*.js"]
+      }
+    },
+    "audit-dependency-update": {
+      "triggers": { "gates": ["gate2"] }
+    },
+    "audit-devops": {
+      "triggers": { "gates": ["gate2"] }
+    },
+    "audit-sre": {
+      "triggers": { "gates": ["gate4"] }
+    }
+  }
+}
