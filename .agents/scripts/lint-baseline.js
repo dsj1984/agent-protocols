@@ -101,8 +101,7 @@ if (mode === 'check') {
     console.error(
       `You have introduced new lint issues compared to the baseline.`,
     );
-    console.error(`Please fix them before continuing.`);
-    process.exit(1);
+    Logger.fatal();
   }
 
   // Ratchet (shrink baseline) if better

@@ -1,4 +1,5 @@
 import fs from 'node:fs';
+import { Logger } from './lib/Logger.js';
 import path from 'node:path';
 import { fileURLToPath } from 'node:url';
 import { LLMClient } from './lib/llm-client.js';
@@ -25,8 +26,7 @@ async function testGemini() {
   loadEnv();
 
   if (!process.env.GEMINI_API_KEY) {
-    console.error('[Error] GEMINI_API_KEY not found in .env or environment.');
-    process.exit(1);
+    Logger.fatal();
   }
 
   console.log('[Test] Initialising LLMClient with Gemini...');
@@ -54,8 +54,7 @@ async function testGemini() {
     }
   } catch (err) {
     console.error('[Test] ❌ Gemini API connection failed:');
-    console.error(err.message);
-    process.exit(1);
+    Logger.fatal();
   }
 }
 

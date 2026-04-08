@@ -20,6 +20,7 @@ import { resolveConfig } from './lib/config-resolver.js';
 import { detectCycle } from './lib/Graph.js';
 import { LLMClient } from './lib/llm-client.js';
 import { createProvider } from './lib/provider-factory.js';
+import { Logger } from './lib/Logger.js';
 
 const DECOMPOSER_SYSTEM_PROMPT = `You are an expert Senior Project Manager and Orchestrator.
 Your job is to take a Product Requirements Document (PRD) and a Technical Specification and decompose them into a highly-granular 3-level ticket hierarchy for an AI Agent to execute.
@@ -333,8 +334,7 @@ async function main() {
   });
 
   if (!values.epic) {
-    console.error('Usage: node ticket-decomposer.js --epic <EpicId> [--force]');
-    process.exit(1);
+    Logger.fatal('Usage: node ticket-decomposer.js --epic <EpicId> [--force]');
   }
 
   const epicId = parseInt(values.epic, 10);
@@ -349,7 +349,6 @@ async function main() {
 
 if (fileURLToPath(import.meta.url) === path.resolve(process.argv[1])) {
   main().catch((err) => {
-    console.error('[Decomposer] Fatal error:\n', err);
-    process.exit(1);
+    Logger.fatal(`[Decomposer] Fatal error:\n${err.stack || err.message}`);
   });
 }

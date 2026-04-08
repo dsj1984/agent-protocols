@@ -8,10 +8,7 @@ const tool = args[2];
 const errorMessage = args[3];
 
 if (!logFile || !type || !tool || !errorMessage) {
-  console.error(
-    'Usage: node log-friction.js <path-to-json> <type> <tool> <error-message>',
-  );
-  process.exit(1);
+  Logger.fatal();
 }
 
 const entry = {

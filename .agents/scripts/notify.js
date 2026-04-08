@@ -13,6 +13,7 @@ import path from 'node:path';
 import { fileURLToPath } from 'node:url';
 import { resolveConfig } from './lib/config-resolver.js';
 import { createProvider } from './lib/provider-factory.js';
+import { Logger } from './lib/Logger.js';
 
 /**
  * Dispatch a notification.
@@ -102,8 +103,7 @@ export async function notify(ticketId, payload, opts = {}) {
 async function main() {
   const args = process.argv.slice(2);
   if (args.length < 1) {
-    console.error('Usage: node notify.js [TicketId] <Message> [--action]');
-    process.exit(1);
+    Logger.fatal('Usage: node notify.js [TicketId] <Message> [--action]');
   }
 
   let ticketId = 0;
@@ -128,8 +128,7 @@ async function main() {
   }
 
   if (!message) {
-    console.error('[Notify] Error: Message is required.');
-    process.exit(1);
+    Logger.fatal('[Notify] Error: Message is required.');
   }
 
   await notify(ticketId, {
@@ -140,7 +139,6 @@ async function main() {
 
 if (fileURLToPath(import.meta.url) === path.resolve(process.argv[1])) {
   main().catch((err) => {
-    console.error('[Notify] Fatal error:', err);
-    process.exit(1);
+    Logger.fatal(`[Notify] Fatal error: ${err.message}`);
   });
 }

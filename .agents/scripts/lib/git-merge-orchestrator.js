@@ -12,10 +12,7 @@
  */
 
 import { gitSpawn } from './git-utils.js';
-
-/** Thresholds for escalating a conflict to "major" (requires human). */
-const MAJOR_CONFLICT_FILES = 3;
-const MAJOR_CONFLICT_LINES = 20;
+import { resolveConfig } from './config-resolver.js';
 
 /**
  * Analyse conflict severity using git's binary-safe diff --check.
@@ -83,6 +80,10 @@ export function mergeFeatureBranch(cwd, featureBranch, vlog) {
     lines: conflicts.lines,
     fileList: conflicts.fileList,
   });
+
+  const { settings } = resolveConfig();
+  const MAJOR_CONFLICT_FILES = settings.mergeThresholds?.files ?? 3;
+  const MAJOR_CONFLICT_LINES = settings.mergeThresholds?.lines ?? 20;
 
   if (
     conflicts.files >= MAJOR_CONFLICT_FILES ||

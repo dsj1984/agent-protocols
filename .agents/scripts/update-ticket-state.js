@@ -9,6 +9,7 @@
  */
 
 import { parseArgs } from 'node:util';
+import { Logger } from './lib/Logger.js';
 import { resolveConfig } from './lib/config-resolver.js';
 import { createProvider } from './lib/provider-factory.js';
 import {
@@ -80,10 +81,7 @@ if (
   const state = values.state;
 
   if (Number.isNaN(taskId) || !state) {
-    console.error(
-      'Usage: node update-ticket-state.js --task <id> --state <agent::...>',
-    );
-    process.exit(1);
+    Logger.fatal();
   }
 
   (async () => {
@@ -100,8 +98,7 @@ if (
 
       console.log('[State-Sync] ✅ Success');
     } catch (err) {
-      console.error(`[State-Sync] ❌ Failed: ${err.message}`);
-      process.exit(1);
+      Logger.fatal();
     }
   })();
 }

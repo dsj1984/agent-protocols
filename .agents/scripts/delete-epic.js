@@ -19,6 +19,7 @@
  */
 
 import { execSync } from 'node:child_process';
+import { Logger } from './lib/Logger.js';
 
 // ---------------------------------------------------------------------------
 // Configuration
@@ -80,8 +81,7 @@ function resolveRepo() {
     // git not available or not in a repo
   }
 
-  console.error('ERROR: Could not resolve owner/repo from git remote origin.');
-  process.exit(1);
+  Logger.fatal();
 }
 
 // ---------------------------------------------------------------------------
@@ -226,10 +226,7 @@ async function main() {
   );
 
   if (!epicNumber || Number.isNaN(epicNumber)) {
-    console.error(
-      'Usage: node delete-epic.js <epic_number> [--dry-run] [--exclude-root]',
-    );
-    process.exit(1);
+    Logger.fatal();
   }
 
   const { owner, repo } = resolveRepo();
@@ -251,8 +248,7 @@ async function main() {
       tree = tree.filter((issue) => issue.number !== epicNumber);
     }
   } catch (err) {
-    console.error(`Failed to collect issue tree: ${err.message}`);
-    process.exit(1);
+    Logger.fatal();
   }
 
   console.log(`Found ${tree.length} issue(s) to delete:\n`);
@@ -287,6 +283,5 @@ async function main() {
 }
 
 main().catch((err) => {
-  console.error(`Fatal error: ${err.message}`);
-  process.exit(1);
+  Logger.fatal();
 });

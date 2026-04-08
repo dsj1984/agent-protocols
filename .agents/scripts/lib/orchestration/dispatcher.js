@@ -38,6 +38,12 @@ import {
   gitSync,
 } from '../git-utils.js';
 import { createProvider } from '../provider-factory.js';
+import { VerboseLogger } from '../VerboseLogger.js';
+
+const { settings: globalSettings } = resolveConfig();
+const vlog = VerboseLogger.init(globalSettings, PROJECT_ROOT, {
+  source: 'dispatcher',
+});
 import { STATE_LABELS } from './ticketing.js';
 import { notify } from '../../notify.js';
 
@@ -82,12 +88,13 @@ export function ensureBranch(branchName, baseBranch) {
   }
   try {
     git(['rev-parse', '--verify', branchName]);
-    console.log(`[Dispatcher] Branch already exists: ${branchName}`);
+    vlog.info('orchestration', `Branch already exists: ${branchName}`);
   } catch {
     git(['checkout', '-b', branchName, baseBranch]);
     git(['checkout', baseBranch]);
-    console.log(
-      `[Dispatcher] Created branch: ${branchName} from ${baseBranch}`,
+    vlog.info(
+      'orchestration',
+      `Created branch: ${branchName} from ${baseBranch}`,
     );
   }
 }
@@ -104,11 +111,14 @@ export function captureLintBaseline(epicBranch, settings) {
   const absPath = path.resolve(PROJECT_ROOT, lintBaselinePath);
 
   if (fs.existsSync(absPath)) {
-    console.log(`[Dispatcher] Lint baseline already exists, skipping capture.`);
+    vlog.info(
+      'orchestration',
+      `Lint baseline already exists, skipping capture.`,
+    );
     return;
   }
 
-  console.log(`[Dispatcher] Capturing lint baseline on ${epicBranch}...`);
+  vlog.info('orchestration', `Capturing lint baseline on ${epicBranch}...`);
   try {
     execFileSync(
       'node',
@@ -121,8 +131,9 @@ export function captureLintBaseline(epicBranch, settings) {
       },
     );
   } catch (err) {
-    console.warn(
-      `[Dispatcher] Lint baseline capture failed (non-fatal): ${err.message}`,
+    vlog.warn(
+      'orchestration',
+      `Lint baseline capture failed (non-fatal): ${err.message}`,
     );
   }
 }
@@ -293,24 +304,21 @@ export async function fetchTasks(provider, epicId) {
  * @param {boolean} dryRun
  */
 export async function reconcileClosedTasks(tasks, provider, dryRun) {
-  const ALL_AGENT_STATES = [
-    'agent::ready',
-    'agent::executing',
-    'agent::review',
-    'agent::done',
-  ];
+  const ALL_AGENT_STATES = Object.values(STATE_LABELS);
 
   for (const task of tasks) {
     if (task.status !== AGENT_DONE_LABEL) continue;
     if (task.labels.includes(AGENT_DONE_LABEL)) continue;
 
-    console.log(
-      `[Dispatcher] Reconciling closed issue #${task.id} "${task.title}" → agent::done`,
+    vlog.info(
+      'orchestration',
+      `Reconciling closed issue #${task.id} "${task.title}" → agent::done`,
     );
 
     if (dryRun) {
-      console.log(
-        `[Dispatcher] [DRY-RUN] Would sync labels and close issue #${task.id}`,
+      vlog.info(
+        'orchestration',
+        `[DRY-RUN] Would sync labels and close issue #${task.id}`,
       );
       continue;
     }
@@ -324,10 +332,11 @@ export async function reconcileClosedTasks(tasks, provider, dryRun) {
         state: 'closed',
         state_reason: 'completed',
       });
-      console.log(`[Dispatcher] ✅ Synced #${task.id} to agent::done`);
+      vlog.info('orchestration', `✅ Synced #${task.id} to agent::done`);
     } catch (err) {
-      console.warn(
-        `[Dispatcher] Failed to reconcile #${task.id}: ${err.message}`,
+      vlog.warn(
+        'orchestration',
+        `Failed to reconcile #${task.id}: ${err.message}`,
       );
     }
   }
@@ -378,13 +387,15 @@ export async function reconcileHierarchy(
     if (children.length === 0) return;
     if (!children.every((cid) => isDone(cid))) return;
 
-    console.log(
-      `[Dispatcher] All children of ${typeName} #${id} "${ticket.title}" are done. Closing...`,
+    vlog.info(
+      'orchestration',
+      `All children of ${typeName} #${id} "${ticket.title}" are done. Closing...`,
     );
 
     if (dryRun) {
-      console.log(
-        `[Dispatcher] [DRY-RUN] Would close ${typeName} #${id} and set agent::done.`,
+      vlog.info(
+        'orchestration',
+        `[DRY-RUN] Would close ${typeName} #${id} and set agent::done.`,
       );
       ticket.state = 'closed';
       return;
@@ -400,12 +411,14 @@ export async function reconcileHierarchy(
         state_reason: 'completed',
       });
       ticket.state = 'closed';
-      console.log(
-        `[Dispatcher] ✅ ${typeName} #${id} closed and marked agent::done.`,
+      vlog.info(
+        'orchestration',
+        `✅ ${typeName} #${id} closed and marked agent::done.`,
       );
     } catch (err) {
-      console.warn(
-        `[Dispatcher] Failed to close ${typeName} #${id}: ${err.message}`,
+      vlog.warn(
+        'orchestration',
+        `Failed to close ${typeName} #${id}: ${err.message}`,
       );
     }
   }
@@ -593,13 +606,15 @@ export async function detectEpicCompletion({
   const allDone = tasks.every((t) => t.status === AGENT_DONE_LABEL);
   if (!allDone) return;
 
-  console.log(
-    `[Dispatcher] 🎉 All Tasks under Epic #${epicId} are agent::done. Starting Bookend Lifecycle.`,
+  vlog.info(
+    'orchestration',
+    `🎉 All Tasks under Epic #${epicId} are agent::done. Starting Bookend Lifecycle.`,
   );
 
   if (dryRun) {
-    console.log(
-      '[Dispatcher] [DRY-RUN] Would post epic-complete comment and fire webhook.',
+    vlog.info(
+      'orchestration',
+      '[DRY-RUN] Would post epic-complete comment and fire webhook.',
     );
     return;
   }
@@ -625,12 +640,14 @@ export async function detectEpicCompletion({
       body: summaryComment,
       type: 'notification',
     });
-    console.log(
-      `[Dispatcher] Posted epic-complete summary comment on Epic #${epicId}.`,
+    vlog.info(
+      'orchestration',
+      `Posted epic-complete summary comment on Epic #${epicId}.`,
     );
   } catch (err) {
-    console.warn(
-      `[Dispatcher] Failed to post epic-complete comment: ${err.message}`,
+    vlog.warn(
+      'orchestration',
+      `Failed to post epic-complete comment: ${err.message}`,
     );
   }
 
@@ -650,8 +667,9 @@ export async function detectEpicCompletion({
         },
       );
     } catch (err) {
-      console.warn(
-        `[Dispatcher] Webhook notification failed (non-fatal): ${err.message}`,
+      vlog.warn(
+        'orchestration',
+        `Webhook notification failed (non-fatal): ${err.message}`,
       );
     }
   }
@@ -687,12 +705,12 @@ export async function dispatch(options) {
   const epicBranch = getEpicBranch(epicId);
 
   // ── Step 1: Fetch Epic and all Tasks ────────────────────────────────────
-  console.log(`\n[Dispatcher] Fetching Epic #${epicId}...`);
+  vlog.info('orchestration', `\nFetching Epic #${epicId}...`);
   const epic = await provider.getEpic(epicId);
 
-  console.log(`[Dispatcher] Fetching Tasks under Epic #${epicId}...`);
+  vlog.info('orchestration', `Fetching Tasks under Epic #${epicId}...`);
   const tasks = await fetchTasks(provider, epicId);
-  console.log(`[Dispatcher] Found ${tasks.length} task(s).`);
+  vlog.info('orchestration', `Found ${tasks.length} task(s).`);
 
   // ── Step 1b: Reconcile stale labels on merged tasks ──────────────────────
   await reconcileClosedTasks(tasks, provider, dryRun);
@@ -701,7 +719,7 @@ export async function dispatch(options) {
   await reconcileHierarchy(provider, epicId, epic, tasks, dryRun);
 
   if (tasks.length === 0) {
-    console.log('[Dispatcher] No tasks found. Nothing to dispatch.');
+    vlog.info('orchestration', 'No tasks found. Nothing to dispatch.');
     return buildManifest({
       epicId,
       epic,
@@ -734,22 +752,23 @@ export async function dispatch(options) {
     adjacency,
   );
   if (graphMutated) {
-    console.log(
-      '[Dispatcher] Focus-area conflicts detected; serialized overlapping tasks.',
+    vlog.info(
+      'orchestration',
+      'Focus-area conflicts detected; serialized overlapping tasks.',
     );
   }
 
   // ── Step 4: Compute execution waves ─────────────────────────────────────
   const allWaves = computeWaves(finalAdjacency, taskMap);
-  console.log(`[Dispatcher] Computed ${allWaves.length} execution wave(s).`);
+  vlog.info('orchestration', `Computed ${allWaves.length} execution wave(s).`);
 
   // ── Step 5: Epic branch creation (skip in dry-run) ─────────────────────────
   if (!dryRun) {
-    console.log(`[Dispatcher] Ensuring Epic base branch: ${epicBranch}`);
+    vlog.info('orchestration', `Ensuring Epic base branch: ${epicBranch}`);
     ensureBranch(epicBranch, baseBranch);
     captureLintBaseline(epicBranch, settings);
   } else {
-    console.log('[Dispatcher] Dry-run mode: skipping branch creation.');
+    vlog.info('orchestration', 'Dry-run mode: skipping branch creation.');
   }
 
   // ── Step 6: Determine next wave to dispatch ──────────────────────────────
@@ -766,7 +785,7 @@ export async function dispatch(options) {
     );
 
     if (eligible.length === 0) {
-      console.log('[Dispatcher] Wave fully complete, moving to next...');
+      vlog.info('orchestration', 'Wave fully complete, moving to next...');
       continue;
     }
 
@@ -778,7 +797,10 @@ export async function dispatch(options) {
     );
 
     if (!waveDepsComplete) {
-      console.log('[Dispatcher] Wave dependencies not yet complete. Halting.');
+      vlog.info(
+        'orchestration',
+        'Wave dependencies not yet complete. Halting.',
+      );
       break;
     }
 
@@ -787,8 +809,9 @@ export async function dispatch(options) {
       const resolvedModel = resolveModel(task.model, settings);
 
       if (task.isRiskHigh) {
-        console.log(
-          `[Dispatcher] ⚠️  Task #${task.id} flagged risk::high — held for approval.`,
+        vlog.info(
+          'orchestration',
+          `⚠️  Task #${task.id} flagged risk::high — held for approval.`,
         );
         heldForApproval.push({
           taskId: task.id,
@@ -831,8 +854,9 @@ export async function dispatch(options) {
       };
 
       if (dryRun) {
-        console.log(
-          `[Dispatcher] [DRY-RUN] Would dispatch Task #${task.id}: ${task.title}`,
+        vlog.info(
+          'orchestration',
+          `[DRY-RUN] Would dispatch Task #${task.id}: ${task.title}`,
         );
         dispatched.push({
           taskId: task.id,
@@ -848,8 +872,9 @@ export async function dispatch(options) {
 
         const result = await adapter.dispatchTask(taskDispatch);
         dispatched.push({ taskId: task.id, ...result });
-        console.log(
-          `[Dispatcher] ✅ Dispatched Task #${task.id} — dispatchId: ${result.dispatchId}`,
+        vlog.info(
+          'orchestration',
+          `✅ Dispatched Task #${task.id} — dispatchId: ${result.dispatchId}`,
         );
       }
     }

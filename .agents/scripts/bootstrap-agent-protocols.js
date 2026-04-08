@@ -15,6 +15,7 @@
  */
 
 import fs from 'node:fs';
+import { Logger } from './lib/Logger.js';
 import path from 'node:path';
 import { fileURLToPath } from 'node:url';
 import { createProvider } from './lib/provider-factory.js';
@@ -266,10 +267,7 @@ async function main() {
     console.error(
       '[bootstrap] ERROR: No "orchestration" block found in .agentrc.json.',
     );
-    console.error(
-      '[bootstrap] Add an orchestration config. See .agents/default-agentrc.json for the template.',
-    );
-    process.exit(1);
+    Logger.fatal();
   }
 
   const validation = validateOrchestrationConfig(config.orchestration);
@@ -294,8 +292,7 @@ async function main() {
     console.log(`Fields created: ${result.fields.created.length}`);
     console.log(`Fields skipped: ${result.fields.skipped.length}`);
   } catch (err) {
-    console.error(`[bootstrap] FATAL: ${err.message}`);
-    process.exit(1);
+    Logger.fatal();
   }
 }
 

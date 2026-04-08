@@ -18,6 +18,7 @@
  */
 
 import fs from 'node:fs';
+import { Logger } from './lib/Logger.js';
 import path from 'node:path';
 import { fileURLToPath } from 'node:url';
 import { parseArgs } from 'node:util';
@@ -240,10 +241,7 @@ async function main() {
 
   const epicId = parseInt(values.epic ?? '', 10);
   if (!values.epic || Number.isNaN(epicId) || epicId <= 0) {
-    console.error(
-      'Usage: node dispatcher.js --epic <epicId> [--dry-run] [--executor <name>]',
-    );
-    process.exit(1);
+    Logger.fatal();
   }
 
   const dryRun = values['dry-run'] ?? false;
@@ -287,7 +285,6 @@ async function main() {
 if (fileURLToPath(import.meta.url) === path.resolve(process.argv[1])) {
   main().catch((err) => {
     console.error('[Dispatcher] Fatal error:', err.message);
-    if (process.env.DEBUG) console.error(err.stack);
-    process.exit(1);
+    if (process.env.DEBUG) Logger.fatal();
   });
 }

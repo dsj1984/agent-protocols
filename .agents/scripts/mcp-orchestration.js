@@ -29,6 +29,7 @@
  */
 
 import { createInterface } from 'node:readline';
+import { Logger } from './lib/Logger.js';
 
 // ---------------------------------------------------------------------------
 // MCP Protocol Constants

@@ -13,6 +13,7 @@
  */
 
 import fs from 'node:fs';
+import { Logger } from './lib/Logger.js';
 import path from 'node:path';
 import { PROJECT_ROOT, resolveConfig } from './lib/config-resolver.js';
 import { createProvider } from './lib/provider-factory.js';
@@ -110,6 +111,5 @@ async function main() {
 }
 
 main().catch((err) => {
-  console.error('Failed to generate roadmap:', err);
-  process.exit(1);
+  Logger.fatal();
 });

@@ -1,4 +1,5 @@
 import { parseArgs } from 'node:util';
+import { Logger } from './lib/Logger.js';
 import fs from 'node:fs';
 import { fileURLToPath } from 'node:url';
 import path from 'node:path';
@@ -28,10 +29,7 @@ async function main() {
   const epicId = parseInt(values.epic ?? '', 10);
 
   if (!taskId || !epicId) {
-    console.error(
-      'Usage: node context-hydrator.js --task <taskId> --epic <epicId> [--output <file>]',
-    );
-    process.exit(1);
+    Logger.fatal();
   }
 
   const { orchestration } = resolveConfig();
@@ -80,7 +78,6 @@ async function main() {
 
 if (fileURLToPath(import.meta.url) === path.resolve(process.argv[1])) {
   main().catch((err) => {
-    console.error('[Hydrator] Fatal error:', err.message);
-    process.exit(1);
+    Logger.fatal();
   });
 }

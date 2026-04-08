@@ -9,6 +9,7 @@
  */
 
 import fs from 'node:fs';
+import { Logger } from './lib/Logger.js';
 import path from 'node:path';
 import { fileURLToPath } from 'node:url';
 import { parseArgs } from 'node:util';
@@ -296,14 +297,12 @@ async function main() {
   });
 
   if (!values.epic) {
-    console.error('Usage: node epic-planner.js --epic <EpicId> [--force]');
-    process.exit(1);
+    Logger.fatal();
   }
 
   const epicId = parseInt(values.epic, 10);
   if (Number.isNaN(epicId)) {
-    console.error('Error: Epic ID must be a number.');
-    process.exit(1);
+    Logger.fatal();
   }
 
   const { orchestration, settings } = resolveConfig();
@@ -318,7 +317,6 @@ async function main() {
 // Only execute main if run directly
 if (fileURLToPath(import.meta.url) === path.resolve(process.argv[1])) {
   main().catch((err) => {
-    console.error('[Epic Planner] Fatal error:\n', err);
-    process.exit(1);
+    Logger.fatal();
   });
 }
