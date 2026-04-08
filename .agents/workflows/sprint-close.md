@@ -144,6 +144,18 @@ git branch --list "story/epic-[EPIC_ID]/*" | ForEach-Object { git branch -D $_.T
 git fetch --prune
 ```
 
+## Constraint
+
+- **Never** merge to `main` if any child ticket (Task, Story, Feature) is still
+  open — the Completeness Gate in Step 1 is mandatory.
+- **Never** skip the pre-merge validation (lint + test). A broken `main` branch
+  blocks all future Epics.
+- **Always** close PRD and Tech Spec tickets explicitly — they are excluded from
+  auto-closure during execution.
+- **Always** delete all Epic, Task, and Story branches after merge to prevent
+  branch bloat.
+- **Always** tag a release when the Epic corresponds to a versioned milestone.
+
 ## Step 10 — Notification
 
 ```powershell
