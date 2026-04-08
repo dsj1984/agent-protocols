@@ -142,11 +142,13 @@ function renderManifestMarkdown(manifest) {
       lines.push('');
 
       for (const task of story.tasks) {
+        const isDone = task.status === 'agent::done';
+        const checkbox = isDone ? '[x]' : '[ ]';
         const deps =
           task.dependencies && task.dependencies.length > 0
             ? ` _(blocked by: ${task.dependencies.map((d) => `#${d}`).join(', ')})_`
             : '';
-        lines.push(`- [ ] **#${task.taskId}** — ${task.taskSlug}${deps}`);
+        lines.push(`- ${checkbox} **#${task.taskId}** — ${task.taskSlug}${deps}`);
       }
       lines.push('');
     }

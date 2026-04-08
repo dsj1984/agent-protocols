@@ -16,7 +16,7 @@
 import { execFileSync } from 'node:child_process';
 import fs from 'node:fs';
 import path from 'node:path';
-import { hydrateContext } from '../../context-hydrator.js';
+import { hydrateContext } from './context-hydrator.js';
 import { createAdapter } from '../adapter-factory.js';
 import { PROJECT_ROOT, resolveConfig } from '../config-resolver.js';
 import {
@@ -38,15 +38,16 @@ import {
   gitSync,
 } from '../git-utils.js';
 import { createProvider } from '../provider-factory.js';
+import { STATE_LABELS } from './ticketing.js';
 import { notify } from '../../notify.js';
 
 // ---------------------------------------------------------------------------
 // Constants
 // ---------------------------------------------------------------------------
 
-export const AGENT_DONE_LABEL = 'agent::done';
-export const AGENT_EXECUTING_LABEL = 'agent::executing';
-export const AGENT_READY_LABEL = 'agent::ready';
+export const AGENT_DONE_LABEL = STATE_LABELS.DONE;
+export const AGENT_EXECUTING_LABEL = STATE_LABELS.EXECUTING;
+export const AGENT_READY_LABEL = STATE_LABELS.READY;
 export const RISK_HIGH_LABEL = 'risk::high';
 export const TYPE_TASK_LABEL = 'type::task';
 
@@ -531,6 +532,7 @@ export function buildStoryManifest(tasks, allTickets, epicId, settings) {
           .replace(/-+/g, '-')
           .replace(/^-|-$/g, ''),
         parentSlug: slug,
+        status: t.status,
         dependencies: t.dependsOn ?? [],
       })),
     };
