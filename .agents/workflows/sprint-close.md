@@ -121,13 +121,26 @@ git push origin "v[VERSION]"
 
 ## Step 9 — Branch Cleanup
 
-Delete the Epic base branch and all remaining Task/Story branches:
+Delete the Epic base branch and **all** remaining Task and Story branches
+(local and remote):
 
 ```powershell
-git branch -d epic/[EPIC_ID]
+# 1. Delete the Epic base branch (local + remote)
+git branch -D epic/[EPIC_ID]
 git push origin --delete epic/[EPIC_ID]
-# Delete all task branches for this Epic
+
+# 2. Delete all remote task branches for this Epic
 git branch -r --list "origin/task/epic-[EPIC_ID]/*" | ForEach-Object { $b = $_.Trim().Replace("origin/", ""); git push origin --delete $b }
+
+# 3. Delete all remote story branches for this Epic
+git branch -r --list "origin/story/epic-[EPIC_ID]/*" | ForEach-Object { $b = $_.Trim().Replace("origin/", ""); git push origin --delete $b }
+
+# 4. Delete all local task and story branches for this Epic
+git branch --list "task/epic-[EPIC_ID]/*" | ForEach-Object { git branch -D $_.Trim() }
+git branch --list "story/epic-[EPIC_ID]/*" | ForEach-Object { git branch -D $_.Trim() }
+
+# 5. Prune stale remote-tracking references
+git fetch --prune
 ```
 
 ## Step 10 — Notification
