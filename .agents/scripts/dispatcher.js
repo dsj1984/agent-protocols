@@ -278,9 +278,7 @@ function renderManifestMarkdown(manifest) {
 
       lines.push(`### ${waveLabel}${parallelHint}`);
       lines.push('');
-      lines.push(
-        '| Story | Title | Model Tier | Recommended Model | Tasks |',
-      );
+      lines.push('| Story | Title | Model Tier | Recommended Model | Tasks |');
       lines.push('| :--- | :--- | :--- | :--- | :--- |');
 
       for (const s of stories) {
@@ -332,9 +330,7 @@ function renderManifestMarkdown(manifest) {
   lines.push('');
   lines.push('## How to Execute');
   lines.push('');
-  lines.push(
-    '1. Pick a Story from Wave 0 (all dependencies satisfied).',
-  );
+  lines.push('1. Pick a Story from Wave 0 (all dependencies satisfied).');
   lines.push(
     '2. Select the **Recommended Model** shown in the table for your agent session.',
   );
