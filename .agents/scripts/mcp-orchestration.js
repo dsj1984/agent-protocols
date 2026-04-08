@@ -326,8 +326,8 @@ async function handleRequest(req) {
       break;
     }
 
-    case 'initialized': {
-      // Notification — no response needed
+    case 'notifications/initialized': {
+      // Notification — no response needed per MCP spec
       break;
     }
 
@@ -383,8 +383,12 @@ async function handleRequest(req) {
       break;
     }
 
-    // ── Unknown method ──────────────────────────────────────────────────────
+    // ── Unknown method ──────────────────────────────────────────────────
     default: {
+      // MCP notifications (method starts with "notifications/") must be
+      // silently ignored — they carry no `id` and expect no response.
+      if (method?.startsWith('notifications/')) break;
+
       sendError(id ?? null, -32601, `Method not found: ${method}`);
     }
   }
