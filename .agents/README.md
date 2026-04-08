@@ -120,6 +120,62 @@ Override protocol behavior per-machine with `.agents/instructions.local.md`
 
 ---
 
+## MCP Server (Native Tooling)
+
+Version 5 introduces the **Agent Protocols MCP Server**, enabling agents to
+discover and invoke orchestration tools natively (e.g., in Cursor, Claude
+Desktop, or VS Code) without spawning shell subprocesses.
+
+### 1. Configuration
+
+Add the following to your MCP host settings (e.g., `claude_desktop_config.json`):
+
+```json
+{
+  "mcpServers": {
+    "agent-protocols": {
+      "command": "node",
+      "args": ["/absolute/path/to/your/project/.agents/scripts/mcp-orchestration.js"],
+      "env": {
+        "GITHUB_TOKEN": "your_token_here",
+        "GEMINI_API_KEY": "your_token_here",
+        "NOTIFICATION_WEBHOOK_URL": "optional_webhook_url"
+      }
+    }
+  }
+}
+```
+
+> [!IMPORTANT]
+> Always use **absolute paths** for the `args` array to ensure the server starts correctly regardless of where your agent is currently focused.
+
+### 2. Authentication & Secrets
+
+The MCP server resolves secrets in this priority:
+
+1. **Host Environment**: Variables defined in the `env` block of your MCP config.
+2. **Project `.env`**: Automatically loaded from your project root.
+3. **External Tools**: Leverages the `github-mcp-server` if active in the same session.
+
+### 3. Exposed Tools
+
+| Tool                     | Equivalent Command         | Agent Benefit                                      |
+| ------------------------ | -------------------------- | -------------------------------------------------- |
+| `orchestrator_dispatch`  | `node dispatcher.js`       | Returns markdown manifest with progress checkboxes  |
+| `orchestrator_hydrate`   | `node context-hydrator.js` | Returns a self-contained, fully hydrated prompt    |
+| `orchestrator_transition`| `node update-ticket-state.js`| Supports state machine logic and cascade semantics |
+| `orchestrator_verify`    | `node verify-prereqs.js`   | Checks dependency DAG before implementation starts |
+
+### 4. Debugging
+
+If the server is configured but not appearing:
+
+- Check the **stderr** logs in your MCP host.
+- Success message: `[MCP] agent-protocols v5.0.0 server started`
+- Failures: Initialization errors (missing dependencies, path issues) are logged before the server exits with code 1.
+
+---
+
 ## Personas
 
 Personas constrain agent behavior to a specific role.

@@ -76,6 +76,19 @@ set your repository details:
 Set `GITHUB_TOKEN` in your environment (or a `.env` file at the project root)
 for background script authentication.
 
+### 2b. MCP Activation (Optional but Recommended)
+
+For the best agentic experience, add the orchestration server to your IDE or MCP host:
+
+```json
+"agent-protocols": {
+  "command": "node",
+  "args": ["/absolute/path/to/your/project/.agents/scripts/mcp-orchestration.js"]
+}
+```
+
+This enables agents to use native tools like `orchestrator_dispatch` instead of raw shell commands. See [.agents/README.md](.agents/README.md) for full configuration details.
+
 ### 3. Plan Your First Epic
 
 Create a GitHub Issue with the `type::epic` label, then run:

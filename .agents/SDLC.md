@@ -20,47 +20,43 @@ of Truth. No local playbooks, no sprint directories, no JSON state files.
 
 ---
 
-## End-to-End Process
+## End-to-End Process (Core Lifecycle)
+
+The standard Epic lifecycle centers on three primary manual triggers:
+
+1.  **`/sprint-plan`**: Autonomous requirements analysis and work decomposition.
+2.  **`/sprint-execute`**: Story-centric task implementation and DAG-based dispatch.
+3.  **`/sprint-close`**: Final validation, integration, and repository cleanup.
 
 ```mermaid
-graph LR
+graph TD
     classDef manual fill:#f9d0c4,stroke:#333,stroke-width:2px,color:#000;
     classDef agentic fill:#c4f9d0,stroke:#333,stroke-width:2px,color:#000;
     classDef artifact fill:#ececec,stroke:#333,stroke-width:1px,stroke-dasharray: 5 5,color:#000;
 
-    subgraph Phase1 ["Phase 1: Initiation"]
+    subgraph Phase1 ["Phase 1: Planning"]
         direction TB
-        A["👤 Create GitHub Epic"]:::manual
-        B["👤 Run /sprint-plan"]:::manual
+        A["👤 /sprint-plan [EPIC_ID]"]:::manual
+        B["🤖 4-Tier Ticket Decomposition"]:::agentic
         A --> B
     end
 
-    subgraph Phase2 ["Phase 2: Planning"]
+    subgraph Phase2 ["Phase 2: Execution"]
         direction TB
-        C["🤖 Epic Planner"]:::agentic
-        D["🤖 Ticket Decomposer"]:::agentic
+        C["👤 /sprint-execute [EPIC_ID]"]:::manual
+        D["🤖 Task Waves & Manifest Sync"]:::agentic
         C --> D
-        D -.-> D_Art["📄 GitHub Issue Hierarchy"]:::artifact
     end
 
-    subgraph Phase3 ["Phase 3: Execution"]
+    subgraph Phase3 ["Phase 3: Closure"]
         direction TB
-        E["🤖 /sprint-execute Epic"]:::manual
-        F["🤖 /sprint-execute Task"]:::agentic
+        E["👤 /sprint-close [EPIC_ID]"]:::manual
+        F["🤖 Merge to main & Cleanup"]:::agentic
         E --> F
-        F -.-> F_Art["📄 Feature Branch PRs"]:::artifact
-    end
-
-    subgraph Phase4 ["Phase 4: Closure"]
-        direction TB
-        G["🤖 /sprint-integration"]:::agentic
-        H["🤖 QA → Retro → Close Epic"]:::agentic
-        G --> H
     end
 
     B --> C
     D --> E
-    F --> G
 ```
 
 ---
