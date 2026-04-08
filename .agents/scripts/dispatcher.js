@@ -148,7 +148,9 @@ function renderManifestMarkdown(manifest) {
           task.dependencies && task.dependencies.length > 0
             ? ` _(blocked by: ${task.dependencies.map((d) => `#${d}`).join(', ')})_`
             : '';
-        lines.push(`- ${checkbox} **#${task.taskId}** — ${task.taskSlug}${deps}`);
+        lines.push(
+          `- ${checkbox} **#${task.taskId}** — ${task.taskSlug}${deps}`,
+        );
       }
       lines.push('');
     }
