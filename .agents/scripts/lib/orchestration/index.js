@@ -6,11 +6,15 @@
  * on this module rather than reaching into internal module paths.
  *
  * @example
- *   import { dispatch } from './lib/orchestration/index.js';
+ *   import { dispatch, hydrateContext } from './lib/orchestration/index.js';
  */
 
 // Core dispatcher — business logic for orchestrating Epic task waves
 export { dispatch } from './dispatcher.js';
 
 // Context hydration — builds the execution prompt for an agent task
-export { hydrateContext } from '../../context-hydrator.js';
+export {
+  hydrateContext,
+  parseHierarchy,
+  truncateToTokenBudget,
+} from './context-hydrator.js';
