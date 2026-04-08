@@ -130,8 +130,23 @@ Unlike legacy models where every Task lives on its own branch, Version 5 uses
 ### Dispatch
 
 `/sprint-execute [EPIC_ID]` builds the dependency DAG across all Tasks and
-identifies the current "wave" of executable work. It outputs a dispatch manifest
-table in the IDE.
+identifies the current "wave" of executable work. It outputs a **dispatch
+manifest** in the IDE showing each Story's tasks with real-time progress
+checkboxes (`[x]` / `[ ]`).
+
+#### How dispatch works
+
+The orchestration engine is a reusable SDK (`scripts/lib/orchestration/`) with
+two entry points:
+
+| Entry Point             | When to use                                              |
+| ----------------------- | -------------------------------------------------------- |
+| `dispatcher.js` (CLI)   | CI/CD pipelines, background scripts, operator `run_command` |
+| `mcp-orchestration.js`  | Agentic IDE sessions — exposes dispatch as native tools  |
+
+Both entry points call the same SDK functions: `buildDAG`, `computeWave`, and
+`renderManifestMarkdown`. The CLI prints the manifest to stdout; the MCP server
+returns it as a structured tool response.
 
 ### Context Hydration
 
@@ -151,6 +166,8 @@ Agents update their state in real-time on GitHub:
 - **Labels**: `agent::ready` → `agent::executing` → `agent::review` →
   `agent::done`
 - **Tasklists**: Check off subtasks in the ticket body (`- [ ]` → `- [x]`)
+- **Manifest**: The dispatch manifest is updated with task progress checkboxes
+  after each state transition, giving the operator live visibility.
 - **Friction**: Friction logs are posted as structured comments on the Task
 
 ### Dependency Unblocking
@@ -184,8 +201,9 @@ Once Task waves complete, the bookend lifecycle begins.
    - **Code Review**: `/sprint-code-review` for comprehensive review
    - **Retro**: `/sprint-retro` summarizes wins and friction from the ticket
      graph
-   - **Close-Out**: `/sprint-close` merges the Epic branch to `main`, tags
-     the release, and closes the Epic issue
+   - **Close-Out**: `/sprint-close` runs pre-merge validation (lint + test),
+     merges the Epic branch to `main`, tags the release, closes all tickets,
+     and cleans up branches
 
 ---
 

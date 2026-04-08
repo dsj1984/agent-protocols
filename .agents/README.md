@@ -15,17 +15,31 @@ framework via the `.agents/` Git submodule.
 ├── rules/                   # 8 domain-agnostic coding standards
 ├── schemas/                 # JSON Schemas for structured output validation
 ├── scripts/                 # v5 orchestration engine
-│   ├── lib/                 # Core libraries (config, interfaces, factory)
-│   │   ├── ITicketingProvider.js   # Abstract 10-method ticketing contract
-│   │   ├── config-resolver.js      # Unified config + .env loader
-│   │   └── provider-factory.js     # Resolves provider name → class
-│   └── providers/
-│       └── github.js        # GitHub REST + GraphQL implementation
+│   ├── lib/                 # Core libraries
+│   │   ├── orchestration/           # ★ Orchestration SDK (Epic 71+)
+│   │   │   ├── index.js             # Barrel export: all SDK functions
+│   │   │   ├── dispatcher.js        # DAG scheduling, wave computation, manifest rendering
+│   │   │   ├── context-hydrator.js  # Self-contained prompt assembly
+│   │   │   └── ticketing.js         # Ticket state machine + cascade logic
+│   │   ├── ITicketingProvider.js    # Abstract 10-method ticketing contract
+│   │   ├── IExecutionAdapter.js     # Abstract execution adapter interface
+│   │   ├── config-resolver.js       # Unified config + .env loader + AJV validation
+│   │   ├── provider-factory.js      # Resolves provider name → class
+│   │   ├── adapter-factory.js       # Resolves adapter name → class
+│   │   ├── Graph.js                 # DAG implementation for dependency resolution
+│   │   ├── VerboseLogger.js         # Structured step-by-step execution logger
+│   │   ├── git-merge-orchestrator.js  # Branch merge sequencing and conflict handling
+│   │   └── git-utils.js             # Git shell command utilities
+│   ├── providers/
+│   │   └── github.js        # GitHub REST + GraphQL implementation
+│   ├── adapters/            # Execution adapters (e.g., shell, MCP)
+│   ├── mcp-orchestration.js # MCP Server entry point — exposes SDK as tools
+│   └── [cli scripts…]       # Thin CLI wrappers delegating to the SDK
 ├── skills/                  # Two-tier skill library
 │   ├── core/                # Universal process skills (20 skills)
 │   └── stack/               # Tech-stack-specific guardrails (19 skills)
 ├── templates/               # Context hydration and CI templates
-└── workflows/               # 25 slash-command workflows
+└── workflows/               # 36 slash-command workflows
 ```
 
 ---
@@ -257,12 +271,38 @@ All ticketing operations are mediated through the `ITicketingProvider` abstract
 interface. The framework ships with a **GitHub provider** using raw `fetch()`
 (Node 20+) — no external SDK dependencies.
 
+Execution operations (branch creation, script dispatch) are mediated through the
+`IExecutionAdapter` interface, decoupling business logic from the shell.
+
+#### Orchestration SDK (`scripts/lib/orchestration/`)
+
+Epic 71 introduced a typed, reusable SDK that centralizes orchestration logic.
+All CLI scripts and the MCP server are **thin wrappers** that delegate to it:
+
+| Module               | Exports                                               |
+| -------------------- | ----------------------------------------------------- |
+| `index.js`           | Barrel — re-exports all SDK functions                 |
+| `dispatcher.js`      | `buildDAG`, `computeWave`, `renderManifestMarkdown`   |
+| `context-hydrator.js`| `hydrateContext`, `assemblePrompt`                    |
+| `ticketing.js`       | `transitionTicketState`, `cascadeCompletion`          |
+
+#### Entry Points
+
+| Entry Point           | Purpose                                                          |
+| --------------------- | ---------------------------------------------------------------- |
+| `mcp-orchestration.js`| **MCP Server** — exposes SDK functions as native agentic tools   |
+| `dispatcher.js`       | CLI wrapper — `node dispatcher.js --epic N [--dry-run]`          |
+| `context-hydrator.js` | CLI wrapper — `node context-hydrator.js --task N --epic N`       |
+| `update-ticket-state.js`| CLI wrapper — `node update-ticket-state.js --task N --state S` |
+
+#### Provider Layer
+
 | Layer                 | File                                | Purpose                                        |
 | --------------------- | ----------------------------------- | ---------------------------------------------- |
 | Abstract Interface    | `scripts/lib/ITicketingProvider.js` | 10-method contract for all ticketing providers |
 | Provider Factory      | `scripts/lib/provider-factory.js`   | Resolves `orchestration.provider` → class      |
 | GitHub Implementation | `scripts/providers/github.js`       | REST + GraphQL implementation for GitHub       |
-| Config Resolver       | `scripts/lib/config-resolver.js`    | ajv schema validation + .env auto-loader       |
+| Config Resolver       | `scripts/lib/config-resolver.js`    | AJV schema validation + .env auto-loader       |
 
 ### Scripts Reference
 
@@ -271,10 +311,11 @@ interface. The framework ships with a **GitHub provider** using raw `fetch()`
 | `bootstrap-agent-protocols.js` | Idempotent setup of GitHub labels and project fields                         |
 | `epic-planner.js`              | Autonomous PRD and Tech Spec generation                                      |
 | `ticket-decomposer.js`         | Recursive 4-tier hierarchy decomposition                                     |
-| `dispatcher.js`                | DAG scheduler — groups tasks by Story, dispatches waves with shared branches |
-| `context-hydrator.js`          | Assembles self-contained agent prompts from ticket graph                     |
+| `mcp-orchestration.js`         | **MCP Server** — exposes dispatch, hydration, and state tools to agents      |
+| `dispatcher.js`                | CLI wrapper — DAG scheduler; outputs dispatch manifest with progress tracking|
+| `context-hydrator.js`          | CLI wrapper — assembles self-contained agent prompts from ticket graph       |
 | `sprint-integrate.js`          | Merges shared Story branches into Epic base branch                           |
-| `update-ticket-state.js`       | Label-based state machine with completion cascade                            |
+| `update-ticket-state.js`       | CLI wrapper — label-based state machine with `cascadeCompletion`             |
 | `delete-epic.js`               | Recursive issue deletion/clearing via GraphQL                                |
 | `notify.js`                    | Operator notification (mentions + webhooks)                                  |
 | `verify-prereqs.js`            | Validates task dependencies before execution                                 |

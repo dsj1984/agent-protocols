@@ -69,7 +69,31 @@ before proceeding.
 
 ---
 
-## Step 3 — Merge Epic Branch to Main
+## Step 3 — Pre-Merge Validation
+
+Before touching the base branch, confirm the Epic branch is clean on the Epic
+branch itself:
+
+```powershell
+git checkout epic/[EPIC_ID]
+git pull --rebase origin epic/[EPIC_ID]
+```
+
+Then run the full quality gate:
+
+```powershell
+npm run lint
+npm test
+```
+
+If lint or tests fail:
+
+- Fix the issues on the Epic branch, commit, and re-run until clean.
+- Do **not** proceed to the merge until both pass.
+
+---
+
+## Step 4 — Merge Epic Branch to Main
 
 ```powershell
 git checkout [BASE_BRANCH]
@@ -79,7 +103,7 @@ git merge --no-ff epic/[EPIC_ID] -m "chore(release): merge epic/[EPIC_ID] into [
 
 ---
 
-## Step 4 — Conflict Marker Scan
+## Step 5 — Conflict Marker Scan
 
 ```powershell
 node [SCRIPTS_ROOT]/detect-merges.js
@@ -90,7 +114,7 @@ proceeding.
 
 ---
 
-## Step 5 — Push Main
+## Step 6 — Push Main
 
 ```powershell
 git push --no-verify origin [BASE_BRANCH]
@@ -98,7 +122,7 @@ git push --no-verify origin [BASE_BRANCH]
 
 ---
 
-## Step 6 — Close Planning Tickets (PRD and Tech Spec)
+## Step 7 — Close Planning Tickets (PRD and Tech Spec)
 
 Close all planning tickets linked to the Epic (labeled `context::prd` or
 `context::tech-spec`):
@@ -114,7 +138,7 @@ those labels. If no planning tickets exist, skip gracefully.
 
 ---
 
-## Step 7 — Close the Epic
+## Step 8 — Close the Epic
 
 Transition the Epic itself to `agent::done`. The state writer will close the
 GitHub issue and post a structured completion comment:
@@ -126,7 +150,7 @@ node [SCRIPTS_ROOT]/update-ticket-state.js --task [EPIC_ID] --state "agent::done
 
 ---
 
-## Step 8 — Tag Release (If Applicable)
+## Step 9 — Tag Release (If Applicable)
 
 If the Epic corresponds to a versioned release (check `package.json`):
 
@@ -140,7 +164,7 @@ during Epic implementation.
 
 ---
 
-## Step 9 — Branch Cleanup
+## Step 10 — Branch Cleanup
 
 Delete the Epic base branch and all remaining Story branches:
 
@@ -163,7 +187,7 @@ The output should be empty.
 
 ---
 
-## Step 10 — Local Temp Cleanup
+## Step 11 — Local Temp Cleanup
 
 Purge ephemeral state generated during this Epic:
 
@@ -179,7 +203,7 @@ node -e "
 
 ---
 
-## Step 11 — Notification
+## Step 12 — Notification
 
 ```powershell
 node [SCRIPTS_ROOT]/notify.js "Epic #[EPIC_ID] closed. Merged to [BASE_BRANCH] and branches cleaned up." --action
