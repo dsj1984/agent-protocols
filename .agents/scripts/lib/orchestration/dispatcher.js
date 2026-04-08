@@ -472,7 +472,30 @@ export async function reconcileHierarchy(
  */
 export function buildStoryManifest(tasks, allTickets, epicId, settings) {
   const groups = groupTasksByStory(tasks, allTickets, epicId);
-  const storyWaves = computeStoryWaves(groups);
+
+  // Parse explicit story-to-story dependencies from `blocked by` on story
+  // ticket bodies. This captures dependencies declared at the story level
+  // (e.g., Story #130 body contains `blocked by #129`) which the task-level
+  // cross-story analysis would miss.
+  const ticketById = new Map(allTickets.map((t) => [t.id, t]));
+  const explicitStoryDeps = new Map();
+  for (const [storyId, _group] of groups.entries()) {
+    if (storyId === '__ungrouped__') continue;
+    const storyTicket = ticketById.get(storyId);
+    if (!storyTicket) continue;
+    const blockers = parseBlockedBy(storyTicket.body ?? '');
+    if (blockers.length > 0) {
+      // Only include blockers that are actually other stories in this Epic
+      const validBlockers = blockers.filter(
+        (id) => id !== storyId && groups.has(id),
+      );
+      if (validBlockers.length > 0) {
+        explicitStoryDeps.set(storyId, validBlockers);
+      }
+    }
+  }
+
+  const storyWaves = computeStoryWaves(groups, explicitStoryDeps);
 
   return [...groups.values()].map((group) => {
     const modelTier = resolveModelTier(group.storyLabels);

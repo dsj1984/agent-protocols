@@ -397,18 +397,26 @@ export function autoSerializeOverlaps(manifest, adjacency) {
 }
 
 /**
- * Compute story-level execution waves from cross-story task dependencies.
+ * Compute story-level execution waves from cross-story task dependencies
+ * AND explicit story-to-story `blocked by` declarations.
  *
- * Builds a story adjacency graph by inspecting each task's dependencies:
- * if task T in Story A depends on task T' in Story B, then Story A depends
- * on Story B. After building the story graph, runs `assignLayers` to produce
- * wave indices for each story.
+ * Sources of story dependencies:
+ *   1. **Implicit (cross-story tasks)**: Task T in Story A depends on Task T'
+ *      in Story B → Story A depends on Story B.
+ *   2. **Explicit (story body)**: Story A body contains `blocked by #B` →
+ *      Story A depends on Story B.
+ *
+ * After merging both sources, runs `assignLayers` to produce wave indices.
  *
  * @param {Map<number, {storyId: number|string, tasks: object[]}>} storyGroups
  *   Map of storyId → { storyId, tasks: [{ id, dependsOn }] }
+ * @param {Map<number|string, number[]>} [explicitDeps]
+ *   Optional map of storyId → [blockerStoryId, ...] parsed from story ticket
+ *   `blocked by` references. Only includes references to *other stories within
+ *   the same Epic*.
  * @returns {Map<number|string, number>} Map of storyId → wave index.
  */
-export function computeStoryWaves(storyGroups) {
+export function computeStoryWaves(storyGroups, explicitDeps) {
   // Build a reverse lookup: taskId → storyId
   const taskToStory = new Map();
   for (const [storyId, group] of storyGroups.entries()) {
@@ -434,6 +442,18 @@ export function computeStoryWaves(storyGroups) {
         }
       }
     }
+
+    // Merge explicit story-to-story dependencies (from `blocked by` on the
+    // story ticket body itself).
+    if (explicitDeps) {
+      const explicit = explicitDeps.get(storyId) ?? [];
+      for (const depStoryId of explicit) {
+        if (depStoryId !== storyId && storyGroups.has(depStoryId)) {
+          depStories.add(depStoryId);
+        }
+      }
+    }
+
     storyAdjacency.set(storyId, [...depStories]);
   }
 

@@ -188,59 +188,68 @@ If tests or lint fail:
 - If blocked (e.g., upstream dependency missing): post a friction comment and
   apply `status::blocked`.
 
-### Step 4 — Commit & PR
+### Step 5 — Auto-Merge into Epic Branch
 
-1. Push the Story branch:
+After validation passes, merge the Story branch directly into the Epic base
+branch. **No PR is created** — the merge commit serves as the audit trail.
 
-   ```powershell
-   git push --force-with-lease origin HEAD
-   ```
-
-2. Check if a Pull Request already exists for this branch:
+1. Checkout the Epic base branch and pull latest:
 
    ```powershell
-   gh pr list --head <storyBranch> --json url,number
+   git checkout epic/<epicId>
+   git pull --rebase origin epic/<epicId>
    ```
 
-3. **If no PR exists**: Create one against the Epic base branch
-   (`epic/<epicId>`) — **not** `main`. The PR description **must** include
-   `Closes #<taskId>` for EVERY child Task implemented.
-
-4. **If a PR already exists**: Ensure all Task IDs are listed in the PR
-   description.
-
-5. Post a progress comment summarising the work:
+2. Merge the Story branch with `--no-ff` to preserve the merge commit:
 
    ```powershell
-   node -e "
-     import { postStructuredComment } from './.agents/scripts/update-ticket-state.js';
-     postStructuredComment(<storyId>, 'progress', 'All tasks committed to branch <storyBranch>. PR: <PR_URL>');
-   "
+   git merge --no-ff story/epic-<epicId>/<story-slug> -m "feat: <Story title> (resolves #<storyId>)"
    ```
 
-### Step 5 — Finalize State
-
-1. Transition the Story to `agent::review`:
+3. Push the updated Epic branch:
 
    ```powershell
-   # transitionTicketState(<storyId>, 'agent::review')
+   git push --no-verify origin epic/<epicId>
    ```
 
-2. **If `risk::high`**: Hold at `agent::review`; await human merge approval
-   before the cascade runs.
+> **If `risk::high`**: Do **not** auto-merge. Instead, create a PR against
+> `epic/<epicId>` and hold at `agent::review` until the operator approves. Use:
+>
+> ```powershell
+> gh pr create --head <storyBranch> --base epic/<epicId> --title "feat: <Story title>" --body "Closes #<storyId>"
+> ```
 
-3. **On merge**: The `cascadeCompletion()` function in `update-ticket-state.js`
-   automatically propagates `agent::done` up the hierarchy (Tasks → Story →
-   Feature → Epic).
+### Step 6 — Close Tickets (Cascade Completion)
+
+After the merge, immediately transition all child Tasks and the Story to
+`agent::done`. This triggers `cascadeCompletion()` which propagates closure
+up through the hierarchy (Tasks → Story → Feature → Epic).
+
+1. Transition each child Task to `agent::done`:
+
+   ```powershell
+   node .agents/scripts/update-ticket-state.js --task <taskId> --state agent::done
+   ```
+
+2. Transition the Story to `agent::done`:
+
+   ```powershell
+   node .agents/scripts/update-ticket-state.js --task <storyId> --state agent::done
+   ```
+
+> **Why not use GitHub auto-close?** GitHub's `Closes #N` syntax only works
+> when merging into the repository's **default branch** (`main`). Since Story
+> branches merge into `epic/<epicId>` (not `main`), we must close tickets
+> explicitly via the state writer.
 
 ---
 
 ## Constraint
 
-- **Never** push Story branch work directly to `main` or the Epic base branch.
-- **Never** merge across Story branches — the `/sprint-integration` bookend
-  handles all merges.
-- **Always** validate before creating a PR. A PR with failing tests is a
-  blocker.
+- **Never** push Story branch work directly to `main`.
+- **Never** merge across Story branches — each Story is self-contained.
+- **Always** validate (lint + test) before merging into the Epic branch.
 - **Always** select the model recommended by the Story Dispatch Table for the
   session.
+- **Always** run cascadeCompletion after merging — GitHub cannot auto-close
+  tickets on non-default branch merges.
