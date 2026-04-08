@@ -16,7 +16,7 @@
 import { execFileSync } from 'node:child_process';
 import fs from 'node:fs';
 import path from 'node:path';
-import { hydrateContext } from '../../context-hydrator.js';
+import { hydrateContext } from './context-hydrator.js';
 import { createAdapter } from '../adapter-factory.js';
 import { PROJECT_ROOT, resolveConfig } from '../config-resolver.js';
 import {
