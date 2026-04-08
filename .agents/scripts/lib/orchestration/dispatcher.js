@@ -410,52 +410,11 @@ export async function reconcileHierarchy(
     }
   }
 
-  const storyIds = allTickets
-    .filter((t) => (t.labels ?? []).includes('type::story'))
-    .map((t) => t.id);
-  const featureIds = allTickets
-    .filter((t) => (t.labels ?? []).includes('type::feature'))
-    .map((t) => t.id);
-
   for (const id of storyIds) await maybeClose(id, 'Story');
   for (const id of featureIds) await maybeClose(id, 'Feature');
 
-  const epicChildren = childrenOf.get(epicId) ?? [];
-  if (epicChildren.length > 0 && epicChildren.every((cid) => isDone(cid))) {
-    if (
-      epic.state !== 'closed' ||
-      !(epic.labels ?? []).includes(AGENT_DONE_LABEL)
-    ) {
-      console.log(
-        `[Dispatcher] All children of Epic #${epicId} are done. Closing Epic...`,
-      );
-
-      if (dryRun) {
-        console.log(
-          `[Dispatcher] [DRY-RUN] Would close Epic #${epicId} and set agent::done.`,
-        );
-        return;
-      }
-
-      try {
-        await provider.updateTicket(epicId, {
-          labels: {
-            add: [AGENT_DONE_LABEL],
-            remove: ['agent::ready', 'agent::executing', 'agent::review'],
-          },
-          state: 'closed',
-          state_reason: 'completed',
-        });
-        console.log(
-          `[Dispatcher] ✅ Epic #${epicId} closed and marked agent::done.`,
-        );
-      } catch (err) {
-        console.warn(
-          `[Dispatcher] Failed to close Epic #${epicId}: ${err.message}`,
-        );
-      }
-    }
-  }
+  // EXCLUSION: Epic auto-closure removed.
+  // The Epic ticket now stays open until the formal /sprint-close workflow is executed.
 }
 
 // ---------------------------------------------------------------------------

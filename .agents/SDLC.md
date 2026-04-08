@@ -20,43 +20,47 @@ of Truth. No local playbooks, no sprint directories, no JSON state files.
 
 ---
 
-## End-to-End Process (Core Lifecycle)
-
-The standard Epic lifecycle centers on three primary manual triggers:
-
-1.  **`/sprint-plan`**: Autonomous requirements analysis and work decomposition.
-2.  **`/sprint-execute`**: Story-centric task implementation and DAG-based dispatch.
-3.  **`/sprint-close`**: Final validation, integration, and repository cleanup.
+## End-to-End Process
 
 ```mermaid
-graph TD
+graph LR
     classDef manual fill:#f9d0c4,stroke:#333,stroke-width:2px,color:#000;
     classDef agentic fill:#c4f9d0,stroke:#333,stroke-width:2px,color:#000;
     classDef artifact fill:#ececec,stroke:#333,stroke-width:1px,stroke-dasharray: 5 5,color:#000;
 
-    subgraph Phase1 ["Phase 1: Planning"]
+    subgraph Phase1 ["Phase 1: Initiation"]
         direction TB
-        A["👤 /sprint-plan [EPIC_ID]"]:::manual
-        B["🤖 4-Tier Ticket Decomposition"]:::agentic
+        A["👤 Create GitHub Epic"]:::manual
+        B["👤 Run /sprint-plan"]:::manual
         A --> B
     end
 
-    subgraph Phase2 ["Phase 2: Execution"]
+    subgraph Phase2 ["Phase 2: Planning"]
         direction TB
-        C["👤 /sprint-execute [EPIC_ID]"]:::manual
-        D["🤖 Task Waves & Manifest Sync"]:::agentic
+        C["🤖 Epic Planner"]:::agentic
+        D["🤖 Ticket Decomposer"]:::agentic
         C --> D
+        D -.-> D_Art["📄 GitHub Issue Hierarchy"]:::artifact
     end
 
-    subgraph Phase3 ["Phase 3: Closure"]
+    subgraph Phase3 ["Phase 3: Execution"]
         direction TB
-        E["👤 /sprint-close [EPIC_ID]"]:::manual
-        F["🤖 Merge to main & Cleanup"]:::agentic
+        E["🤖 /sprint-execute Epic"]:::manual
+        F["🤖 /sprint-execute Task"]:::agentic
         E --> F
+        F -.-> F_Art["📄 Feature Branch PRs"]:::artifact
+    end
+
+    subgraph Phase4 ["Phase 4: Closure"]
+        direction TB
+        G["🤖 /sprint-integration"]:::agentic
+        H["🤖 QA → Retro → /sprint-close"]:::agentic
+        G --> H
     end
 
     B --> C
     D --> E
+    F --> G
 ```
 
 ---
@@ -126,23 +130,8 @@ Unlike legacy models where every Task lives on its own branch, Version 5 uses
 ### Dispatch
 
 `/sprint-execute [EPIC_ID]` builds the dependency DAG across all Tasks and
-identifies the current "wave" of executable work. It outputs a **dispatch
-manifest** in the IDE showing each Story's tasks with real-time progress
-checkboxes (`[x]` / `[ ]`).
-
-#### How dispatch works
-
-The orchestration engine is a reusable SDK (`scripts/lib/orchestration/`) with
-two entry points:
-
-| Entry Point             | When to use                                              |
-| ----------------------- | -------------------------------------------------------- |
-| `dispatcher.js` (CLI)   | CI/CD pipelines, background scripts, operator `run_command` |
-| `mcp-orchestration.js`  | Agentic IDE sessions — exposes dispatch as native tools  |
-
-Both entry points call the same SDK functions: `buildDAG`, `computeWave`, and
-`renderManifestMarkdown`. The CLI prints the manifest to stdout; the MCP server
-returns it as a structured tool response.
+identifies the current "wave" of executable work. It outputs a dispatch manifest
+table in the IDE.
 
 ### Context Hydration
 
@@ -162,8 +151,6 @@ Agents update their state in real-time on GitHub:
 - **Labels**: `agent::ready` → `agent::executing` → `agent::review` →
   `agent::done`
 - **Tasklists**: Check off subtasks in the ticket body (`- [ ]` → `- [x]`)
-- **Manifest**: The dispatch manifest is updated with task progress checkboxes
-  after each state transition, giving the operator live visibility.
 - **Friction**: Friction logs are posted as structured comments on the Task
 
 ### Dependency Unblocking
@@ -190,16 +177,18 @@ Once Task waves complete, the bookend lifecycle begins.
    cascades upward via `update-ticket-state.js`:
 
    ```text
-   Task Integrated → Story Done → Feature Done → Epic Done
+   Task Integrated → Story Done → Feature Done
    ```
+
+   **Note**: Epics, PRDs, and Tech Specs are explicitly excluded from the 
+   auto-cascade to ensure final verification occurs during Formal Closure.
 
 1. **Lifecycle phases**:
    - **Code Review**: `/sprint-code-review` for comprehensive review
    - **Retro**: `/sprint-retro` summarizes wins and friction from the ticket
      graph
-   - **Close-Out**: `/sprint-close` runs pre-merge validation (lint + test),
-     merges the Epic branch to `main`, tags the release, closes all tickets,
-     and cleans up branches
+   - **Close**: `/sprint-close` merges the Epic branch to `main`, tags 
+     the release, and closes the Epic issue (including PRD/Tech Spec).
 
 ---
 
@@ -229,7 +218,7 @@ Notifications are dispatched through two channels:
 | `/sprint-plan [EPIC_ID]`          | Generate PRD, Tech Spec, and full task hierarchy |
 | `/sprint-execute [EPIC_ID]`       | Dispatch manifest and launch task waves          |
 | `/sprint-execute [TASK_ID]`       | Hydrate context and implement a single task      |
-| `/sprint-integration`             | Merge story branches into Epic base branch       |
+| `/sprint-integration`             | Merge task branches into Epic base branch        |
 | `/sprint-code-review`             | Comprehensive code review                        |
 | `/sprint-retro`                   | Retrospective from ticket graph                  |
 | `/sprint-close`                   | Merge to main, tag release, close Epic           |

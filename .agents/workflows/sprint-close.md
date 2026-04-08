@@ -1,24 +1,20 @@
 ---
 description: >-
-  Final Epic closure — merge the Epic base branch to main, close all tickets,
-  tag a release, clean up branches, and fire the completion notification.
+  Final Epic closure — merge the Epic base branch to main, close the Epic issue
+  via GitHub provider, clean up branches, and tag a release.
 ---
 
-# /sprint-close
+# Sprint Close
 
-This workflow is the **terminal step** of the Epic lifecycle. Run it after all
-Stories have been merged into `epic/<epicId>` and all bookend phases (Code
-Review, Retro) have completed. It promotes the Epic branch into `main`, closes
-all remaining open tickets, optionally tags a release, and cleans up the
-repository.
+This workflow is the **terminal step** of the Epic lifecycle. It promotes the
+fully integrated and reviewed `epic/<epicId>` branch into `main`, closes the
+Epic GitHub issue, cleans up all sprint branches, and optionally tags a release.
 
-> **When to run**: After `/sprint-retro` completes and all bookend phases are
-> done. All Tasks must be `agent::done` before this workflow starts.
+> **When to run**: After the Retrospective is finalized and all Bookend phases
+> (Integration, QA, Code Review, Retro) are complete.
 >
 > **Persona**: `devops-engineer` · **Skills**:
 > `core/git-workflow-and-versioning`
-
----
 
 ## Step 0 — Resolve Configuration
 
@@ -26,205 +22,116 @@ repository.
 2. Resolve `[EPIC_BRANCH]` — `epic/<epicId>`.
 3. Resolve `[BASE_BRANCH]` from `baseBranch` in `.agentrc.json` (default:
    `main`).
-4. Resolve `[SCRIPTS_ROOT]` from `scriptsRoot` in `.agentrc.json` (default:
-   `.agents/scripts`).
+4. Resolve `[SCRIPTS_ROOT]` from `scriptsRoot` in `.agentrc.json`.
 
----
+## Step 1 — Completeness Gate (Hierarchy Check)
 
-## Step 1 — Completeness Gate
+Before executing any git operations, verify ALL child items under the Epic are
+successfully closed:
 
-Before any git operations, verify all Tasks under the Epic are `agent::done`.
-Run the dispatcher in dry-run mode — it will print the completion percentage:
+1. **Tasks**: Must all be `agent::done` and closed.
+2. **Stories**: Must all be closed.
+3. **Features**: Must all be closed.
 
-```powershell
-$env:GITHUB_TOKEN=...
-node [SCRIPTS_ROOT]/dispatcher.js --epic [EPIC_ID] --dry-run
+```javascript
+/*
+const allTickets = await provider.getTickets(epicId);
+const openChildren = allTickets.filter(t => 
+  t.id !== epicId && 
+  t.state === 'open' &&
+  (t.labels.includes('type::task') || t.labels.includes('type::story') || t.labels.includes('type::feature'))
+);
+
+if (openChildren.length > 0) {
+  console.error("The following child tickets are still OPEN:");
+  openChildren.forEach(t => console.error(` - #${t.id}: ${t.title}`));
+  process.exit(1);
+}
+*/
 ```
 
-The output must show **100%** progress. If any Task is incomplete:
+If ANY child ticket is not closed: **STOP IMMEDIATELY.** Alert the operator with
+the exact open IDs.
 
-- **STOP IMMEDIATELY.** Report the incomplete Task IDs and their current labels
-  to the operator.
-- Do **not** proceed until all Tasks are `agent::done`.
+## Step 2 — Pre-Merge Validation
 
----
+Ensure the code is stable and passes all quality gates on the Epic branch before
+merging to `main`.
 
-## Step 2 — Final Integration Audit
-
-Confirm no unmerged Story branches remain on origin:
-
+// turbo
 ```powershell
-git fetch origin
-git branch -r --list "origin/story/epic-[EPIC_ID]/*"
+npm run lint; npm test
 ```
 
-For each branch still listed, check for unmerged commits:
+If the build fails: **STOP**. Fix the regressions on a hotfix branch and merge
+back into the Epic branch before restarting this workflow.
 
-```powershell
-git log epic/[EPIC_ID]..origin/story/epic-[EPIC_ID]/[STORY_SLUG] --oneline
-```
-
-If any branch has unmerged commits: **STOP**. Resolve via `/sprint-integration`
-before proceeding.
-
----
-
-## Step 3 — Pre-Merge Validation
-
-Before touching the base branch, confirm the Epic branch is clean on the Epic
-branch itself:
-
-```powershell
-git checkout epic/[EPIC_ID]
-git pull --rebase origin epic/[EPIC_ID]
-```
-
-Then run the full quality gate:
-
-```powershell
-npm run lint
-npm test
-```
-
-If lint or tests fail:
-
-- Fix the issues on the Epic branch, commit, and re-run until clean.
-- Do **not** proceed to the merge until both pass.
-
----
-
-## Step 4 — Merge Epic Branch to Main
+## Step 3 — Merge Epic Branch to Main
 
 ```powershell
 git checkout [BASE_BRANCH]
 git pull origin [BASE_BRANCH]
-git merge --no-ff epic/[EPIC_ID] -m "chore(release): merge epic/[EPIC_ID] into [BASE_BRANCH] (resolves #[EPIC_ID])"
+git merge --no-ff epic/[EPIC_ID] -m "chore(release): merge epic/[EPIC_ID] into [BASE_BRANCH]"
 ```
 
----
-
-## Step 5 — Conflict Marker Scan
+## Step 4 — Conflict Marker Scan
 
 ```powershell
 node [SCRIPTS_ROOT]/detect-merges.js
 ```
 
-If markers are found: resolve them, `git add`, and amend the merge commit before
-proceeding.
+If markers are found: resolve them, stage with `git add`, and amend the merge
+commit before proceeding.
 
----
-
-## Step 6 — Push Main
+## Step 5 — Push Main
 
 ```powershell
-git push --no-verify origin [BASE_BRANCH]
+git push origin [BASE_BRANCH]
 ```
 
----
+## Step 6 — Close Planning & Strategy Tickets
 
-## Step 7 — Close Planning Tickets (PRD and Tech Spec)
-
-Close all planning tickets linked to the Epic (labeled `context::prd` or
-`context::tech-spec`):
+Formally close the PRD and Tech Spec tickets. Note: These were excluded from 
+auto-closure during execution to ensure they remained visible to the agents.
 
 ```powershell
-$env:GITHUB_TOKEN=...
+# Discovery and closure handled by update-ticket-state.js cascade or manual IDs
 node [SCRIPTS_ROOT]/update-ticket-state.js --task [PRD_TICKET_ID] --state "agent::done"
 node [SCRIPTS_ROOT]/update-ticket-state.js --task [TECH_SPEC_TICKET_ID] --state "agent::done"
 ```
 
-To discover planning ticket IDs automatically, inspect the Epic's sub-issues for
-those labels. If no planning tickets exist, skip gracefully.
+## Step 7 — Final Epic Closure
 
----
+Use the ticketing provider to close the Epic issue with a summary comment:
 
-## Step 8 — Close the Epic
-
-Transition the Epic itself to `agent::done`. The state writer will close the
-GitHub issue and post a structured completion comment:
-
-```powershell
-$env:GITHUB_TOKEN=...
-node [SCRIPTS_ROOT]/update-ticket-state.js --task [EPIC_ID] --state "agent::done"
+```javascript
+// postStructuredComment([EPIC_ID], 'notification',
+//   '🎉 Epic #[EPIC_ID] has been shipped. Branch merged to main. All tasks complete.')
+// await provider.updateTicket([EPIC_ID], { state: 'closed', state_reason: 'completed' })
 ```
 
----
+## Step 8 — Tag Release (If Applicable)
 
-## Step 9 — Tag Release (If Applicable)
-
-If the Epic corresponds to a versioned release (check `package.json`):
+If the Epic corresponds to a versioned release:
 
 ```powershell
 git tag -a "v[VERSION]" -m "Release: Epic #[EPIC_ID] — [Epic Title]"
-git push --no-verify origin "v[VERSION]"
+git push origin "v[VERSION]"
 ```
 
-Resolve `[VERSION]` from `package.json`. Only tag if the version was bumped
-during Epic implementation.
+## Step 9 — Branch Cleanup
 
----
-
-## Step 10 — Branch Cleanup
-
-Delete the Epic base branch and all remaining Story branches:
+Delete the Epic base branch and all remaining Task/Story branches:
 
 ```powershell
-# Delete local Epic branch
 git branch -d epic/[EPIC_ID]
-
-# Delete remote Epic branch
-git push --no-verify origin --delete epic/[EPIC_ID]
+git push origin --delete epic/[EPIC_ID]
+# Delete all task branches for this Epic
+git branch -r --list "origin/task/epic-[EPIC_ID]/*" | ForEach-Object { $b = $_.Trim().Replace("origin/", ""); git push origin --delete $b }
 ```
 
-Fetch and prune to confirm all story branches are gone:
-
-```powershell
-git fetch origin --prune
-git branch -r | Select-String "epic-[EPIC_ID]"
-```
-
-The output should be empty.
-
----
-
-## Step 11 — Local Temp Cleanup
-
-Purge ephemeral state generated during this Epic:
-
-```powershell
-node -e "
-  import { rmSync } from 'node:fs';
-  rmSync('temp/task-state', { recursive: true, force: true });
-  rmSync('temp/workspaces', { recursive: true, force: true });
-  rmSync('temp/event-streams', { recursive: true, force: true });
-  console.log('Temp state purged.');
-"
-```
-
----
-
-## Step 12 — Notification
+## Step 10 — Notification
 
 ```powershell
 node [SCRIPTS_ROOT]/notify.js "Epic #[EPIC_ID] closed. Merged to [BASE_BRANCH] and branches cleaned up." --action
 ```
-
-If the command fails, log friction:
-
-```powershell
-node [SCRIPTS_ROOT]/log-friction.js "agent-friction-log.json" "friction_point" "notify.js" "[ERROR_MESSAGE]"
-```
-
-If `notificationWebhookUrl` is empty, skip gracefully.
-
----
-
-## Constraint
-
-- Do **not** run this workflow unless the Completeness Gate (Step 1) passes at
-  100% and all bookend phases (Code Review, Retro) are complete.
-- Do **not** close the Epic via the GitHub UI — always use the state writer so
-  the closure is auditable in the v5 state sync log.
-- This is the **only** authorized step for merging Epic branches to `main`.
-- Do **not** delete branches before verifying the merge succeeded and `main` is
-  up to date on origin.
