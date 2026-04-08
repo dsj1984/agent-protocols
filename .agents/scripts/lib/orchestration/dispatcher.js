@@ -98,7 +98,8 @@ export function ensureBranch(branchName, baseBranch) {
  * @param {object} settings
  */
 export function captureLintBaseline(epicBranch, settings) {
-  const lintBaselinePath = settings.lintBaselinePath ?? 'temp/lint-baseline.json';
+  const lintBaselinePath =
+    settings.lintBaselinePath ?? 'temp/lint-baseline.json';
   const absPath = path.resolve(PROJECT_ROOT, lintBaselinePath);
 
   if (fs.existsSync(absPath)) {
@@ -340,7 +341,13 @@ export async function reconcileClosedTasks(tasks, provider, dryRun) {
  * @param {object[]} tasks
  * @param {boolean} dryRun
  */
-export async function reconcileHierarchy(provider, epicId, epic, tasks, dryRun) {
+export async function reconcileHierarchy(
+  provider,
+  epicId,
+  epic,
+  tasks,
+  dryRun,
+) {
   const allTickets = await provider.getTickets(epicId);
   const ticketMap = new Map(allTickets.map((t) => [t.id, t]));
   const taskById = new Map(tasks.map((t) => [t.id, t]));

@@ -252,7 +252,8 @@ async function main() {
   const manifest = await dispatch({ epicId, dryRun, executorOverride });
 
   const manifestDir = path.join(PROJECT_ROOT, 'temp');
-  if (!fs.existsSync(manifestDir)) fs.mkdirSync(manifestDir, { recursive: true });
+  if (!fs.existsSync(manifestDir))
+    fs.mkdirSync(manifestDir, { recursive: true });
 
   const manifestPath = path.join(
     manifestDir,
