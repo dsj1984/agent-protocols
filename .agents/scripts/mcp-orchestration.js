@@ -120,14 +120,14 @@ async function registerSDKTools() {
   const { resolveConfig } = await import('./lib/config-resolver.js');
   const { createProvider } = await import('./lib/provider-factory.js');
 
-  function getProvider() {
+  function getProvider(token) {
     const config = resolveConfig();
-    return createProvider(config.orchestration);
+    return createProvider(config.orchestration, { token });
   }
 
-  // ── dispatch ──────────────────────────────────────────────────────────────
+  // ── dispatch_wave ─────────────────────────────────────────────────────────
   registerTool(
-    'dispatch',
+    'dispatch_wave',
     'Dispatch the next ready wave of Tasks for an Epic. Reads the DAG, builds waves, transitions tickets, and returns a Dispatch Manifest. Set dryRun=true for a status view without side-effects.',
     {
       properties: {
@@ -140,19 +140,23 @@ async function registerSDKTools() {
           description:
             'If true, compute and return the manifest without transitioning ticket states.',
         },
+        githubToken: {
+          type: 'string',
+          description: 'Optional GitHub PAT. Overrides environment variables.',
+        },
       },
       required: ['epicId'],
     },
-    async ({ epicId, dryRun = false }) => {
+    async ({ epicId, dryRun = false, githubToken }) => {
       const config = resolveConfig();
-      const provider = getProvider();
+      const provider = getProvider(githubToken);
       return await dispatch({ epicId, dryRun, config, provider });
     },
   );
 
-  // ── hydrateContext ────────────────────────────────────────────────────────
+  // ── hydrate_context ───────────────────────────────────────────────────────
   registerTool(
-    'hydrateContext',
+    'hydrate_context',
     'Build the full execution prompt for a Task by assembling persona, skills, hierarchy context, and the agent protocol template.',
     {
       properties: {
@@ -174,11 +178,15 @@ async function registerSDKTools() {
           type: 'number',
           description: 'The Epic issue number.',
         },
+        githubToken: {
+          type: 'string',
+          description: 'Optional GitHub PAT. Overrides environment variables.',
+        },
       },
-      required: ['task', 'epicBranch', 'taskBranch', 'epicId'],
+      required: ['task', 'epicId'],
     },
-    async ({ task, epicBranch, taskBranch, epicId }) => {
-      const provider = getProvider();
+    async ({ task, epicBranch, taskBranch, epicId, githubToken }) => {
+      const provider = getProvider(githubToken);
       const prompt = await hydrateContext(
         task,
         provider,
@@ -190,9 +198,9 @@ async function registerSDKTools() {
     },
   );
 
-  // ── transitionTicketState ─────────────────────────────────────────────────
+  // ── transition_ticket_state ───────────────────────────────────────────────
   registerTool(
-    'transitionTicketState',
+    'transition_ticket_state',
     'Transition a ticket to a new agent state label (agent::ready, agent::executing, agent::review, agent::done). Automatically closes/reopens the issue to match.',
     {
       properties: {
@@ -210,19 +218,23 @@ async function registerSDKTools() {
           ],
           description: 'Target state label.',
         },
+        githubToken: {
+          type: 'string',
+          description: 'Optional GitHub PAT. Overrides environment variables.',
+        },
       },
       required: ['ticketId', 'newState'],
     },
-    async ({ ticketId, newState }) => {
-      const provider = getProvider();
+    async ({ ticketId, newState, githubToken }) => {
+      const provider = getProvider(githubToken);
       await transitionTicketState(provider, ticketId, newState);
       return { success: true, ticketId, newState };
     },
   );
 
-  // ── cascadeCompletion ─────────────────────────────────────────────────────
+  // ── cascade_completion ────────────────────────────────────────────────────
   registerTool(
-    'cascadeCompletion',
+    'cascade_completion',
     'Recursively propagate ticket completion upward through the hierarchy. If all children of a parent are done, the parent is also marked done and the cascade continues.',
     {
       properties: {
@@ -230,19 +242,23 @@ async function registerSDKTools() {
           type: 'number',
           description: 'The completed ticket to cascade from.',
         },
+        githubToken: {
+          type: 'string',
+          description: 'Optional GitHub PAT. Overrides environment variables.',
+        },
       },
       required: ['ticketId'],
     },
-    async ({ ticketId }) => {
-      const provider = getProvider();
+    async ({ ticketId, githubToken }) => {
+      const provider = getProvider(githubToken);
       await cascadeCompletion(provider, ticketId);
       return { success: true, ticketId };
     },
   );
 
-  // ── postStructuredComment ─────────────────────────────────────────────────
+  // ── post_structured_comment ───────────────────────────────────────────────
   registerTool(
-    'postStructuredComment',
+    'post_structured_comment',
     'Post a structured comment (progress, friction, or notification) on a ticket.',
     {
       properties: {
@@ -259,11 +275,15 @@ async function registerSDKTools() {
           type: 'string',
           description: 'The comment body text.',
         },
+        githubToken: {
+          type: 'string',
+          description: 'Optional GitHub PAT. Overrides environment variables.',
+        },
       },
       required: ['ticketId', 'type', 'payload'],
     },
-    async ({ ticketId, type, payload }) => {
-      const provider = getProvider();
+    async ({ ticketId, type, payload, githubToken }) => {
+      const provider = getProvider(githubToken);
       await postStructuredComment(provider, ticketId, type, payload);
       return { success: true, ticketId };
     },

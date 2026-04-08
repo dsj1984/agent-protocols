@@ -12,7 +12,7 @@
  */
 
 import assert from 'node:assert/strict';
-import { describe, it, before } from 'node:test';
+import { before, describe, it } from 'node:test';
 
 // ---------------------------------------------------------------------------
 // Helpers — capture stdout
@@ -72,14 +72,27 @@ function buildTestServer() {
 
   // Register a stub tool for discovery tests
   registerTool(
-    'dispatch',
+    'dispatch_wave',
     'Dispatch the next ready wave of Tasks for an Epic.',
     {
-      properties: { epicId: { type: 'number' }, dryRun: { type: 'boolean' } },
+      properties: {
+        epicId: { type: 'number' },
+        dryRun: { type: 'boolean' },
+        githubToken: { type: 'string' },
+      },
       required: ['epicId'],
     },
-    async ({ epicId, dryRun = false }) => ({ epicId, dryRun, wave: [] }),
+    async ({ epicId, dryRun = false, githubToken }) => ({
+      epicId,
+      dryRun,
+      githubToken: githubToken ? '***' : null,
+      wave: [],
+    }),
   );
+
+  registerTool('fail_tool', 'A tool that always throws.', {}, async () => {
+    throw new Error('Planned failure');
+  });
 
   async function handleRequest(req) {
     const { id, method, params = {} } = req;
@@ -216,13 +229,15 @@ describe('MCP Server — Handshake & Tool Discovery', () => {
       'should expose at least one tool',
     );
 
-    const dispatch = response.result.tools.find((t) => t.name === 'dispatch');
-    assert.ok(dispatch, 'should expose the dispatch tool');
-    assert.ok(dispatch.description, 'dispatch should have a description');
-    assert.ok(dispatch.inputSchema, 'dispatch should have an inputSchema');
+    const dispatch = response.result.tools.find(
+      (t) => t.name === 'dispatch_wave',
+    );
+    assert.ok(dispatch, 'should expose the dispatch_wave tool');
+    assert.ok(dispatch.description, 'dispatch_wave should have a description');
+    assert.ok(dispatch.inputSchema, 'dispatch_wave should have an inputSchema');
     assert.ok(
-      dispatch.inputSchema.properties?.epicId,
-      'dispatch should require epicId',
+      dispatch.inputSchema.properties?.githubToken,
+      'dispatch_wave should include githubToken param',
     );
   });
 
@@ -261,7 +276,14 @@ describe('MCP Server — Tool Invocation', () => {
       jsonrpc: '2.0',
       id: 10,
       method: 'tools/call',
-      params: { name: 'dispatch', arguments: { epicId: 71, dryRun: true } },
+      params: {
+        name: 'dispatch_wave',
+        arguments: {
+          epicId: 71,
+          dryRun: true,
+          githubToken: 'ghp_secret',
+        },
+      },
     });
     const response = await capture;
 
@@ -275,6 +297,11 @@ describe('MCP Server — Tool Invocation', () => {
     const parsed = JSON.parse(response.result.content[0].text);
     assert.equal(parsed.epicId, 71);
     assert.equal(parsed.dryRun, true);
+    assert.equal(
+      parsed.githubToken,
+      '***',
+      'should use provided token (masked in stub)',
+    );
   });
 
   it('returns -32601 for unknown tool', async () => {
@@ -306,29 +333,16 @@ describe('MCP Server — Tool Invocation', () => {
 
   it('returns isError:true when tool handler throws', async () => {
     const capture = captureNextWrite();
-
-    // Register a tool that always throws
-    server._tools = server._tools ?? new Map();
-
-    // Patch: directly test the error path by calling with a failing tool
-    // We wrap by adding a temporary failing tool to the server
-    const failingServer = buildTestServer();
-    // Access the tools map via closure — we override with a known failing tool
-    const failCapture = captureNextWrite();
-    await failingServer.handleRequest({
+    await server.handleRequest({
       jsonrpc: '2.0',
       id: 13,
       method: 'tools/call',
-      params: { name: 'dispatch', arguments: { epicId: 'not-a-number' } },
+      params: { name: 'fail_tool', arguments: {} },
     });
-    // The stub handler returns the args as-is (no throw for invalid types in stub)
-    const innerResp = await failCapture;
-    assert.ok(
-      innerResp.result?.content,
-      'should return a result even for bad args',
-    );
+    const response = await capture;
 
-    // End: consume the original capture to avoid state leak
-    await Promise.race([capture, new Promise((r) => setTimeout(r, 5))]);
+    assert.equal(response.id, 13);
+    assert.equal(response.result?.isError, true);
+    assert.match(response.result.content[0].text, /Error: Planned failure/);
   });
 });
