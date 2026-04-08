@@ -38,15 +38,16 @@ import {
   gitSync,
 } from '../git-utils.js';
 import { createProvider } from '../provider-factory.js';
+import { STATE_LABELS } from './ticketing.js';
 import { notify } from '../../notify.js';
 
 // ---------------------------------------------------------------------------
 // Constants
 // ---------------------------------------------------------------------------
 
-export const AGENT_DONE_LABEL = 'agent::done';
-export const AGENT_EXECUTING_LABEL = 'agent::executing';
-export const AGENT_READY_LABEL = 'agent::ready';
+export const AGENT_DONE_LABEL = STATE_LABELS.DONE;
+export const AGENT_EXECUTING_LABEL = STATE_LABELS.EXECUTING;
+export const AGENT_READY_LABEL = STATE_LABELS.READY;
 export const RISK_HIGH_LABEL = 'risk::high';
 export const TYPE_TASK_LABEL = 'type::task';
 

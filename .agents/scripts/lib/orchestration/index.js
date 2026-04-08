@@ -18,3 +18,12 @@ export {
   parseHierarchy,
   truncateToTokenBudget,
 } from './context-hydrator.js';
+
+// Ticketing operations — state transitions and hierarchy management
+export {
+  STATE_LABELS,
+  cascadeCompletion,
+  postStructuredComment,
+  toggleTasklistCheckbox,
+  transitionTicketState,
+} from './ticketing.js';
