@@ -16,8 +16,8 @@
 import path from 'node:path';
 import { fileURLToPath } from 'node:url';
 import { parseArgs } from 'node:util';
-import { DECOMPOSER_SYSTEM_PROMPT } from './lib/templates/decomposer-prompts.js';
 import { validateAndNormalizeTickets } from './lib/orchestration/ticket-validator.js';
+import { DECOMPOSER_SYSTEM_PROMPT } from './lib/templates/decomposer-prompts.js';
 
 export async function decomposeEpic(
   epicId,

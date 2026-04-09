@@ -220,4 +220,15 @@ export class ITicketingProvider {
   async ensureProjectFields(_fieldDefs) {
     throw new Error('Not implemented: ensureProjectFields');
   }
+
+  /**
+   * Execute a GraphQL query/mutation against the ticketing backend.
+   * @param {string} _query - GraphQL query/mutation string.
+   * @param {object} [_variables={}]
+   * @param {object} [_opts={}]
+   * @returns {Promise<object>} The `data` portion of the response.
+   */
+  async graphql(_query, _variables = {}, _opts = {}) {
+    throw new Error('Not implemented: graphql');
+  }
 }

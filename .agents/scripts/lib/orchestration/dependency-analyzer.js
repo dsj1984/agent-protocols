@@ -1,10 +1,10 @@
-import { isBookendTask } from '../task-utils.js';
 import {
+  assignLayers,
   buildGraph,
   computeReachability,
   detectCycle,
-  assignLayers,
 } from '../Graph.js';
+import { isBookendTask } from '../task-utils.js';
 
 /**
  * Auto-serializes concurrent tasks whose focusAreas overlap (or whose scope is

@@ -18,108 +18,9 @@
  * The owner/repo is resolved from the git remote origin URL automatically.
  */
 
-import { execSync } from 'node:child_process';
+import { resolveConfig } from './lib/config-resolver.js';
 import { Logger } from './lib/Logger.js';
-
-// ---------------------------------------------------------------------------
-// Configuration
-// ---------------------------------------------------------------------------
-
-const GITHUB_GRAPHQL = 'https://api.github.com/graphql';
-
-/**
- * Resolve GitHub token from environment or gh CLI.
- * @returns {string}
- */
-function resolveToken() {
-  const token = process.env.GITHUB_TOKEN || process.env.GH_TOKEN;
-  if (token) return token;
-
-  try {
-    const ghToken = execSync('gh auth token', {
-      encoding: 'utf8',
-      timeout: 5000,
-      stdio: ['pipe', 'pipe', 'pipe'],
-    }).trim();
-    if (ghToken) return ghToken;
-  } catch {
-    // gh CLI not available or not authenticated
-  }
-
-  console.error(
-    [
-      'ERROR: No GitHub token found.',
-      '',
-      'Set GITHUB_TOKEN or GH_TOKEN environment variable, or run `gh auth login`.',
-      'The token requires `repo` scope for issue deletion.',
-    ].join('\n'),
-  );
-  process.exit(1);
-}
-
-/**
- * Resolve owner/repo from the git remote origin URL.
- * @returns {{ owner: string, repo: string }}
- */
-function resolveRepo() {
-  try {
-    const url = execSync('git remote get-url origin', {
-      encoding: 'utf8',
-      timeout: 5000,
-      stdio: ['pipe', 'pipe', 'pipe'],
-    }).trim();
-
-    // Handles: https://github.com/owner/repo.git, git@github.com:owner/repo.git
-    const match =
-      url.match(/github\.com[:/]([^/]+)\/([^/.]+)/) ||
-      url.match(/github\.com[:/]([^/]+)\/([^/.]+)\.git/);
-
-    if (match) {
-      return { owner: match[1], repo: match[2] };
-    }
-  } catch {
-    // git not available or not in a repo
-  }
-
-  Logger.fatal();
-}
-
-// ---------------------------------------------------------------------------
-// GraphQL Helpers
-// ---------------------------------------------------------------------------
-
-const TOKEN = resolveToken();
-
-/**
- * Execute a GraphQL query/mutation against the GitHub API.
- * @param {string} query
- * @param {object} variables
- * @returns {Promise<object>}
- */
-async function graphql(query, variables = {}) {
-  const res = await fetch(GITHUB_GRAPHQL, {
-    method: 'POST',
-    headers: {
-      Authorization: `Bearer ${TOKEN}`,
-      'Content-Type': 'application/json',
-      'User-Agent': 'delete-epic-script',
-      'GraphQL-Features': 'sub_issues',
-    },
-    body: JSON.stringify({ query, variables }),
-  });
-
-  if (!res.ok) {
-    const body = await res.text().catch(() => '');
-    throw new Error(`GraphQL HTTP ${res.status}: ${body}`);
-  }
-
-  const json = await res.json();
-  if (json.errors?.length) {
-    throw new Error(`GraphQL errors: ${JSON.stringify(json.errors, null, 2)}`);
-  }
-
-  return json.data;
-}
+import { createProvider } from './lib/provider-factory.js';
 
 // ---------------------------------------------------------------------------
 // Core Logic
@@ -127,13 +28,12 @@ async function graphql(query, variables = {}) {
 
 /**
  * Fetch an issue's node ID and sub-issues (recursive children).
- * @param {string} owner
- * @param {string} repo
+ * @param {object} provider
  * @param {number} issueNumber
  * @returns {Promise<{ nodeId: string, title: string, subIssues: number[] }>}
  */
-async function getIssueWithSubIssues(owner, repo, issueNumber) {
-  const data = await graphql(
+async function getIssueWithSubIssues(provider, issueNumber) {
+  const data = await provider.graphql(
     `
     query($owner: String!, $repo: String!, $num: Int!) {
       repository(owner: $owner, name: $repo) {
@@ -148,12 +48,15 @@ async function getIssueWithSubIssues(owner, repo, issueNumber) {
         }
       }
     }`,
-    { owner, repo, num: issueNumber },
+    { owner: provider.owner, repo: provider.repo, num: issueNumber },
+    { headers: { 'GraphQL-Features': 'sub_issues' } },
   );
 
   const issue = data.repository.issue;
   if (!issue) {
-    throw new Error(`Issue #${issueNumber} not found in ${owner}/${repo}.`);
+    throw new Error(
+      `Issue #${issueNumber} not found in ${provider.owner}/${provider.repo}.`,
+    );
   }
 
   return {
@@ -165,10 +68,11 @@ async function getIssueWithSubIssues(owner, repo, issueNumber) {
 
 /**
  * Delete a single issue by its GraphQL node ID.
+ * @param {object} provider
  * @param {string} nodeId
  */
-async function deleteIssue(nodeId) {
-  await graphql(
+async function deleteIssue(provider, nodeId) {
+  await provider.graphql(
     `
     mutation($issueId: ID!) {
       deleteIssue(input: { issueId: $issueId }) {
@@ -183,22 +87,21 @@ async function deleteIssue(nodeId) {
  * Recursively collect all issues in the sub-issue tree (depth-first).
  * Returns them in deletion order (leaves first, root last).
  *
- * @param {string} owner
- * @param {string} repo
+ * @param {object} provider
  * @param {number} issueNumber
  * @param {Set<number>} visited - Cycle guard.
  * @returns {Promise<Array<{ number: number, nodeId: string, title: string }>>}
  */
-async function collectTree(owner, repo, issueNumber, visited = new Set()) {
+async function collectTree(provider, issueNumber, visited = new Set()) {
   if (visited.has(issueNumber)) return [];
   visited.add(issueNumber);
 
-  const issue = await getIssueWithSubIssues(owner, repo, issueNumber);
+  const issue = await getIssueWithSubIssues(provider, issueNumber);
   const results = [];
 
   // Depth-first: process children before parent
   for (const childNumber of issue.subIssues) {
-    const childResults = await collectTree(owner, repo, childNumber, visited);
+    const childResults = await collectTree(provider, childNumber, visited);
     results.push(...childResults);
   }
 
@@ -226,10 +129,14 @@ async function main() {
   );
 
   if (!epicNumber || Number.isNaN(epicNumber)) {
-    Logger.fatal();
+    Logger.fatal('Usage: node delete-epic.js <epicNumber>');
   }
 
-  const { owner, repo } = resolveRepo();
+  const { orchestration } = resolveConfig();
+  const provider = createProvider(orchestration);
+  const owner = provider.owner;
+  const repo = provider.repo;
+
   console.log(`\nTarget: ${owner}/${repo} Epic #${epicNumber}`);
   console.log(`Mode:   ${dryRun ? 'DRY RUN (no deletions)' : 'LIVE'}`);
   if (excludeRoot) {
@@ -242,7 +149,7 @@ async function main() {
   console.log('Collecting issue tree...');
   let tree;
   try {
-    tree = await collectTree(owner, repo, epicNumber);
+    tree = await collectTree(provider, epicNumber);
     if (excludeRoot) {
       // The root issue (epicNumber) is always the LAST element in the depth-first result
       tree = tree.filter((issue) => issue.number !== epicNumber);
@@ -268,7 +175,7 @@ async function main() {
 
   for (const issue of tree) {
     try {
-      await deleteIssue(issue.nodeId);
+      await deleteIssue(provider, issue.nodeId);
       deleted++;
       console.log(`  ✓ Deleted #${issue.number} — ${issue.title}`);
     } catch (err) {
