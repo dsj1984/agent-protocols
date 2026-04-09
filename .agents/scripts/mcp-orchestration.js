@@ -1,7 +1,6 @@
 #!/usr/bin/env node
 
 import fs from 'node:fs';
-import path from 'node:path';
 
 // --- STDOUT GUARD (MUST BE FIRST) ---
 const _realStdoutWrite = process.stdout.write.bind(process.stdout);

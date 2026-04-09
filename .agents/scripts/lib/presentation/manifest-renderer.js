@@ -61,7 +61,7 @@ export function renderManifestMarkdown(manifest) {
 
   // --- Wave Summary Table ---
   // Only Stories participate in execution waves. Features are containers.
-  const allItems = manifest.storyManifest || manifest.stories || (manifest.summary && manifest.summary.stories) || [];
+  const allItems = manifest.storyManifest || manifest.stories || (manifest.summary?.stories) || [];
   const waveEligible = allItems.filter((s) => s.type !== 'feature');
   if (waveEligible && waveEligible.length > 0) {
     const waveStats = new Map();

@@ -1,0 +1,49 @@
+name: Protocol Refinement
+
+on:
+  schedule:
+    - cron: '0 0 * * 1' # Weekly on Monday at midnight
+  workflow_dispatch:
+    inputs:
+      epic_id:
+        description: 'Epic ID to analyze (optional, defaults to last closed epic)'
+        required: false
+        type: string
+
+permissions:
+  # Minimal permissions required for friction-analyzer.js to operate
+  contents: write      # To create refinement branches and commits
+  pull-requests: write # To open Pull Requests with suggested refinements
+  issues: write        # To read friction logs from comments and search epics
+
+jobs:
+  refine:
+    name: Refine Protocols
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout Code
+        uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+
+      - name: Setup Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: '20'
+          cache: 'npm'
+
+      - name: Install Dependencies
+        run: npm ci --ignore-scripts
+
+      - name: Run Friction Analyzer
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          GEMINI_API_KEY: ${{ secrets.GEMINI_API_KEY }}
+          ANTHROPIC_API_KEY: ${{ secrets.ANTHROPIC_API_KEY }}
+          OPENAI_API_KEY: ${{ secrets.OPENAI_API_KEY }}
+        run: |
+          EPIC_ARG=""
+          if [ -n "${{ github.event.inputs.epic_id }}" ]; then
+            EPIC_ARG="--epic ${{ github.event.inputs.epic_id }}"
+          fi
+          node .agents/scripts/friction-analyzer.js $EPIC_ARG

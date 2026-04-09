@@ -76,7 +76,7 @@ async function main() {
             Logger.info(`[FrictionAnalyzer] Requesting LLM suggestion...`);
             const suggestion = await refinementAgent.generateSuggestion(pattern, currentContent);
             
-            if (!suggestion || !suggestion.newContent) {
+            if (!suggestion?.newContent) {
                 Logger.warn(`[FrictionAnalyzer] LLM did not return a valid suggestion.`);
                 continue;
             }
