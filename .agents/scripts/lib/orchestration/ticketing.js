@@ -145,8 +145,8 @@ export async function cascadeCompletion(provider, ticketId) {
 
     const subTickets = await provider.getSubTickets(parentId);
 
-    // Check if ALL are done. 
-    // If a ticket reached this point, it means it's one of the sub-tickets 
+    // Check if ALL are done.
+    // If a ticket reached this point, it means it's one of the sub-tickets
     // that just finished, so subTickets.length will be at least 1.
     const allDone = subTickets.every(
       (st) => st.labels.includes(STATE_LABELS.DONE) || st.state === 'closed',

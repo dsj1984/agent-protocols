@@ -29,7 +29,7 @@ dirs.forEach((dir) => {
           keptCount++;
         }
       }
-      
+
       // If we didn't keep anything, we can remove the dir itself
       if (keptCount === 0) {
         fs.rmSync(dir, { recursive: true, force: true });

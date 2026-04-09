@@ -6,7 +6,9 @@
 
 export function renderManifestMarkdown(manifest) {
   // DEBUG HELPER
-  process.stderr.write(`[MCP] Rendering manifest for Epic #${manifest.epicId || 'unknown'}. Keys: ${Object.keys(manifest).join(', ')}\n`);
+  process.stderr.write(
+    `[MCP] Rendering manifest for Epic #${manifest.epicId || 'unknown'}. Keys: ${Object.keys(manifest).join(', ')}\n`,
+  );
 
   const lines = [];
   const { epicId, epicTitle, summary, storyManifest, dryRun, generatedAt } =
@@ -30,10 +32,15 @@ export function renderManifestMarkdown(manifest) {
   lines.push(
     `| Progress | **${summary.doneTasks}/${summary.totalTasks}** tasks (${summary.progressPercent}%) |`,
   );
-  const storyCount = (storyManifest ?? []).filter(s => s.storyId !== '__ungrouped__' && s.type === 'story').length;
-  const featureCount = (storyManifest ?? []).filter(s => s.type === 'feature').length;
+  const storyCount = (storyManifest ?? []).filter(
+    (s) => s.storyId !== '__ungrouped__' && s.type === 'story',
+  ).length;
+  const featureCount = (storyManifest ?? []).filter(
+    (s) => s.type === 'feature',
+  ).length;
   lines.push(`| Stories | ${storyCount} |`);
-  if (featureCount > 0) lines.push(`| Features (containers) | ${featureCount} |`);
+  if (featureCount > 0)
+    lines.push(`| Features (containers) | ${featureCount} |`);
   lines.push(
     `| Execution Waves | ${storyWaveCount} _(${summary.totalWaves} task-level waves)_ |`,
   );
@@ -50,18 +57,31 @@ export function renderManifestMarkdown(manifest) {
   lines.push(`## ${statusEmoji} Sprint Progress`);
   lines.push('');
   lines.push('```');
-  lines.push(`  ${bar}  ${pct}%  (${summary.doneTasks}/${summary.totalTasks} tasks)`);
+  lines.push(
+    `  ${bar}  ${pct}%  (${summary.doneTasks}/${summary.totalTasks} tasks)`,
+  );
   lines.push('```');
   lines.push('');
   // Compute story-level completion for the hero section
-  const allStoryItems = (storyManifest ?? []).filter(s => s.type === 'story' && s.storyId !== '__ungrouped__');
-  const doneStories = allStoryItems.filter(s => s.tasks.length > 0 && s.tasks.every(t => t.status === 'agent::done')).length;
-  lines.push(`> **Stories:** ${doneStories}/${allStoryItems.length} complete · **Tasks:** ${summary.doneTasks}/${summary.totalTasks} complete`);
+  const allStoryItems = (storyManifest ?? []).filter(
+    (s) => s.type === 'story' && s.storyId !== '__ungrouped__',
+  );
+  const doneStories = allStoryItems.filter(
+    (s) =>
+      s.tasks.length > 0 && s.tasks.every((t) => t.status === 'agent::done'),
+  ).length;
+  lines.push(
+    `> **Stories:** ${doneStories}/${allStoryItems.length} complete · **Tasks:** ${summary.doneTasks}/${summary.totalTasks} complete`,
+  );
   lines.push('');
 
   // --- Wave Summary Table ---
   // Only Stories participate in execution waves. Features are containers.
-  const allItems = manifest.storyManifest || manifest.stories || (manifest.summary?.stories) || [];
+  const allItems =
+    manifest.storyManifest ||
+    manifest.stories ||
+    manifest.summary?.stories ||
+    [];
   const waveEligible = allItems.filter((s) => s.type !== 'feature');
   if (waveEligible && waveEligible.length > 0) {
     const waveStats = new Map();
@@ -87,14 +107,23 @@ export function renderManifestMarkdown(manifest) {
       const stat = waveStats.get(w);
       const isDone = stat.tasks > 0 && stat.done === stat.tasks;
       const waveLabel = w === -1 ? 'Ungrouped' : `Wave ${w}`;
-      const isReady = w === 0 || sortedWaves.filter(sw => sw < w).every(sw => {
-        const swStat = waveStats.get(sw);
-        return swStat.done === swStat.tasks;
-      });
+      const isReady =
+        w === 0 ||
+        sortedWaves
+          .filter((sw) => sw < w)
+          .every((sw) => {
+            const swStat = waveStats.get(sw);
+            return swStat.done === swStat.tasks;
+          });
 
-      const statusLabel = isDone ? '✅ Done' : (isReady ? '🚀 Ready' : '⏳ Blocked');
+      const statusLabel = isDone
+        ? '✅ Done'
+        : isReady
+          ? '🚀 Ready'
+          : '⏳ Blocked';
       // Mini progress bar for the wave
-      const wavePct = stat.tasks > 0 ? Math.round((stat.done / stat.tasks) * 100) : 0;
+      const wavePct =
+        stat.tasks > 0 ? Math.round((stat.done / stat.tasks) * 100) : 0;
       const waveFilled = Math.round(wavePct / 10);
       const waveEmpty = 10 - waveFilled;
       const waveBar = '█'.repeat(waveFilled) + '░'.repeat(waveEmpty);
@@ -135,11 +164,15 @@ export function renderManifestMarkdown(manifest) {
 
       lines.push(`### ${waveLabel}${parallelHint}`);
       lines.push('');
-      lines.push('| | Story | Title | Model Tier | Recommended Model | Tasks |');
+      lines.push(
+        '| | Story | Title | Model Tier | Recommended Model | Tasks |',
+      );
       lines.push('| :--- | :--- | :--- | :--- | :--- | :--- |');
 
       for (const s of stories) {
-        const allDone = s.tasks.length > 0 && s.tasks.every(t => t.status === 'agent::done');
+        const allDone =
+          s.tasks.length > 0 &&
+          s.tasks.every((t) => t.status === 'agent::done');
         const storyCheckbox = allDone ? '✅' : '⬜';
         lines.push(
           `| ${storyCheckbox} | #${s.storyId} | ${s.storySlug} | \`${s.model_tier}\` | **${s.recommendedModel}** | ${s.tasks.length} |`,
@@ -152,7 +185,9 @@ export function renderManifestMarkdown(manifest) {
     if (featureItems.length > 0) {
       lines.push('## Feature Containers');
       lines.push('');
-      lines.push('> Features are organizational groupings and are **not directly executable**.');
+      lines.push(
+        '> Features are organizational groupings and are **not directly executable**.',
+      );
       lines.push('> Execute the Stories within each Feature instead.');
       lines.push('');
       lines.push('| Feature | Title | Child Tasks |');
@@ -171,7 +206,9 @@ export function renderManifestMarkdown(manifest) {
     lines.push('');
 
     for (const story of storyManifest) {
-      const typeLabel = (story.type || 'story').charAt(0).toUpperCase() + (story.type || 'story').slice(1);
+      const typeLabel =
+        (story.type || 'story').charAt(0).toUpperCase() +
+        (story.type || 'story').slice(1);
       const storyLabel =
         story.storyId === '__ungrouped__'
           ? 'Ungrouped Tasks'
@@ -277,10 +314,14 @@ export function renderStoryManifestMarkdown(manifest) {
   lines.push('');
   lines.push('## Execution Steps');
   lines.push('');
-  lines.push('1. `node .agents/scripts/sprint-story-init.js --story <storyId>` (bootstraps branch, transitions tasks)');
+  lines.push(
+    '1. `node .agents/scripts/sprint-story-init.js --story <storyId>` (bootstraps branch, transitions tasks)',
+  );
   lines.push('2. Implement each Task sequentially and commit after each one.');
   lines.push('3. Run `npm run lint` and `npm test` to validate.');
-  lines.push('4. `node .agents/scripts/sprint-story-close.js --story <storyId>` (merges, cleans up, closes tickets)');
+  lines.push(
+    '4. `node .agents/scripts/sprint-story-close.js --story <storyId>` (merges, cleans up, closes tickets)',
+  );
   lines.push('');
 
   return lines.join('\n');
@@ -337,7 +378,9 @@ export function printStoryDispatchTable(storyManifest) {
     console.log('');
     console.log('  📦 Feature Containers (not directly executable):');
     for (const f of features) {
-      console.log(`     #${f.storyId} — ${f.storySlug} (${f.tasks.length} orphaned tasks)`);
+      console.log(
+        `     #${f.storyId} — ${f.storySlug} (${f.tasks.length} orphaned tasks)`,
+      );
     }
   }
   console.log('');

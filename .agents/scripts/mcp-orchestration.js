@@ -13,7 +13,8 @@ process.stdout.write = (chunk, encoding, callback) => {
   return _realStderrWrite(chunk, encoding, callback);
 };
 
-const _redir = (...args) => process.stderr.write(`[MCP REDIR] ${args.join(' ')}\n`);
+const _redir = (...args) =>
+  process.stderr.write(`[MCP REDIR] ${args.join(' ')}\n`);
 console.log = _redir;
 console.info = _redir;
 console.warn = _redir;
@@ -120,8 +121,8 @@ async function registerSDKTools() {
       if (err.message.includes('No GitHub token found')) {
         const mcpError = new Error(
           '[MCP Orchestration] Authentication Failure: No GITHUB_TOKEN environment variable found. ' +
-          'To fix this, ensure the GITHUB_TOKEN is set in the environment where the MCP server is running, ' +
-          'or pass it explicitly via the "githubToken" argument in the tool call.'
+            'To fix this, ensure the GITHUB_TOKEN is set in the environment where the MCP server is running, ' +
+            'or pass it explicitly via the "githubToken" argument in the tool call.',
         );
         throw mcpError;
       }
@@ -203,12 +204,13 @@ async function handleRequest(req) {
 
       try {
         const result = await tool.handler(args);
-        
-        // PERSISTENCE SYNC: Manually write files to temp/ so that the project 
+
+        // PERSISTENCE SYNC: Manually write files to temp/ so that the project
         // state matches what would have happened if run via CLI dispatcher.js.
         if (name === 'dispatch_wave' && result && typeof result === 'object') {
           try {
-            const { renderManifestMarkdown, renderStoryManifestMarkdown } = await import('./lib/presentation/manifest-renderer.js');
+            const { renderManifestMarkdown, renderStoryManifestMarkdown } =
+              await import('./lib/presentation/manifest-renderer.js');
             const fs = await import('node:fs');
             const path = await import('node:path');
             const { PROJECT_ROOT } = await import('./lib/config-resolver.js');
@@ -220,15 +222,33 @@ async function handleRequest(req) {
 
             if (result.type === 'story-execution') {
               const key = result.stories.map((s) => s.storyId).join('-');
-              fs.writeFileSync(path.join(manifestDir, `story-manifest-${key}.json`), JSON.stringify(result, null, 2), 'utf8');
-              fs.writeFileSync(path.join(manifestDir, `story-manifest-${key}.md`), renderStoryManifestMarkdown(result), 'utf8');
+              fs.writeFileSync(
+                path.join(manifestDir, `story-manifest-${key}.json`),
+                JSON.stringify(result, null, 2),
+                'utf8',
+              );
+              fs.writeFileSync(
+                path.join(manifestDir, `story-manifest-${key}.md`),
+                renderStoryManifestMarkdown(result),
+                'utf8',
+              );
             } else if (result.epicId) {
               const epicId = result.epicId;
-              fs.writeFileSync(path.join(manifestDir, `dispatch-manifest-${epicId}.json`), JSON.stringify(result, null, 2), 'utf8');
-              fs.writeFileSync(path.join(manifestDir, `dispatch-manifest-${epicId}.md`), renderManifestMarkdown(result), 'utf8');
+              fs.writeFileSync(
+                path.join(manifestDir, `dispatch-manifest-${epicId}.json`),
+                JSON.stringify(result, null, 2),
+                'utf8',
+              );
+              fs.writeFileSync(
+                path.join(manifestDir, `dispatch-manifest-${epicId}.md`),
+                renderManifestMarkdown(result),
+                'utf8',
+              );
             }
           } catch (persistErr) {
-            process.stderr.write(`[MCP] Failed to persist manifest to temp/: ${persistErr.message}\n`);
+            process.stderr.write(
+              `[MCP] Failed to persist manifest to temp/: ${persistErr.message}\n`,
+            );
           }
         }
 

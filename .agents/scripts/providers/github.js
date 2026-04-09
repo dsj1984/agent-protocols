@@ -431,7 +431,7 @@ export class GitHubProvider extends ITicketingProvider {
 
   async getTicketComments(ticketId) {
     const comments = await this._restPaginated(
-      `/repos/${this.owner}/${this.repo}/issues/${ticketId}/comments`
+      `/repos/${this.owner}/${this.repo}/issues/${ticketId}/comments`,
     );
     return comments || [];
   }

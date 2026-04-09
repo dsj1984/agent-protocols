@@ -30,10 +30,18 @@ import { fileURLToPath } from 'node:url';
 import { parseArgs } from 'node:util';
 import { PROJECT_ROOT, resolveConfig } from './lib/config-resolver.js';
 import { parseBlockedBy } from './lib/dependency-parser.js';
-import { getEpicBranch, getStoryBranch, gitSpawn, gitSync } from './lib/git-utils.js';
+import {
+  getEpicBranch,
+  getStoryBranch,
+  gitSpawn,
+  gitSync,
+} from './lib/git-utils.js';
 import { buildGraph, topologicalSort } from './lib/Graph.js';
 import { Logger } from './lib/Logger.js';
-import { STATE_LABELS, transitionTicketState } from './lib/orchestration/ticketing.js';
+import {
+  STATE_LABELS,
+  transitionTicketState,
+} from './lib/orchestration/ticketing.js';
 import { createProvider } from './lib/provider-factory.js';
 
 // ---------------------------------------------------------------------------
@@ -96,7 +104,10 @@ async function main() {
     );
   }
 
-  progress('CONTEXT', `Epic: #${epicId}, Feature/Parent: #${featureId ?? 'none'}`);
+  progress(
+    'CONTEXT',
+    `Epic: #${epicId}, Feature/Parent: #${featureId ?? 'none'}`,
+  );
 
   // 0c. Fetch Epic and linked planning artifacts
   let prdId = null;
@@ -105,15 +116,23 @@ async function main() {
     const epic = await provider.getEpic(epicId);
     prdId = epic.linkedIssues?.prd ?? null;
     techSpecId = epic.linkedIssues?.techSpec ?? null;
-    progress('CONTEXT', `PRD: #${prdId ?? 'none'}, Tech Spec: #${techSpecId ?? 'none'}`);
+    progress(
+      'CONTEXT',
+      `PRD: #${prdId ?? 'none'}, Tech Spec: #${techSpecId ?? 'none'}`,
+    );
   } catch (err) {
-    console.error(`[sprint-story-init] Warning: Could not fetch Epic #${epicId}: ${err.message}`);
+    console.error(
+      `[sprint-story-init] Warning: Could not fetch Epic #${epicId}: ${err.message}`,
+    );
   }
 
   // 0d. Blocker check
   const blockedBy = parseBlockedBy(body);
   if (blockedBy.length > 0) {
-    progress('BLOCKERS', `Checking ${blockedBy.length} dependency/dependencies...`);
+    progress(
+      'BLOCKERS',
+      `Checking ${blockedBy.length} dependency/dependencies...`,
+    );
     const openBlockers = [];
 
     for (const depId of blockedBy) {
@@ -123,11 +142,20 @@ async function main() {
           dep.labels.includes(STATE_LABELS.DONE) || dep.state === 'closed';
         if (!isDone) {
           const currentState =
-            dep.labels.find((l) => l.startsWith('agent::')) ?? 'no agent:: label';
-          openBlockers.push({ id: depId, title: dep.title, state: currentState });
+            dep.labels.find((l) => l.startsWith('agent::')) ??
+            'no agent:: label';
+          openBlockers.push({
+            id: depId,
+            title: dep.title,
+            state: currentState,
+          });
         }
       } catch (err) {
-        openBlockers.push({ id: depId, title: '(fetch failed)', state: err.message });
+        openBlockers.push({
+          id: depId,
+          title: '(fetch failed)',
+          state: err.message,
+        });
       }
     }
 
@@ -169,11 +197,16 @@ async function main() {
       sortedTasks = topologicalSort(adjacency, taskMap);
     } catch {
       // Cycle detected or sort failure — use original order
-      console.error('[sprint-story-init] Warning: Could not topologically sort tasks. Using original order.');
+      console.error(
+        '[sprint-story-init] Warning: Could not topologically sort tasks. Using original order.',
+      );
     }
   }
 
-  progress('TASKS', `Found ${sortedTasks.length} child Task(s) in dependency order`);
+  progress(
+    'TASKS',
+    `Found ${sortedTasks.length} child Task(s) in dependency order`,
+  );
 
   // -------------------------------------------------------------------------
   // Step 1 — Epic Branch Bootstrap
@@ -186,7 +219,13 @@ async function main() {
     progress('GIT', 'Fetching remote refs...');
     gitSpawn(PROJECT_ROOT, 'fetch', 'origin');
 
-    const lsRemote = gitSpawn(PROJECT_ROOT, 'ls-remote', '--heads', 'origin', epicBranch);
+    const lsRemote = gitSpawn(
+      PROJECT_ROOT,
+      'ls-remote',
+      '--heads',
+      'origin',
+      epicBranch,
+    );
     const epicExistsRemotely = lsRemote.stdout.length > 0;
 
     if (!epicExistsRemotely) {
@@ -202,7 +241,13 @@ async function main() {
       const checkoutResult = gitSpawn(PROJECT_ROOT, 'checkout', epicBranch);
       if (checkoutResult.status !== 0) {
         // Might not exist locally — create tracking branch
-        gitSync(PROJECT_ROOT, 'checkout', '-b', epicBranch, `origin/${epicBranch}`);
+        gitSync(
+          PROJECT_ROOT,
+          'checkout',
+          '-b',
+          epicBranch,
+          `origin/${epicBranch}`,
+        );
       }
       gitSpawn(PROJECT_ROOT, 'pull', '--rebase', 'origin', epicBranch);
     }
@@ -211,7 +256,10 @@ async function main() {
     // Step 2 — Story Branch Checkout
     // -----------------------------------------------------------------------
 
-    progress('GIT', `Checking out Story branch: ${storyBranch} (from ${epicBranch})`);
+    progress(
+      'GIT',
+      `Checking out Story branch: ${storyBranch} (from ${epicBranch})`,
+    );
     gitSync(PROJECT_ROOT, 'checkout', '-B', storyBranch, epicBranch);
 
     // Verify checkout
@@ -227,7 +275,10 @@ async function main() {
     // Batch transition Tasks → agent::executing
     // -----------------------------------------------------------------------
 
-    progress('TICKETS', `Transitioning ${sortedTasks.length} Task(s) to agent::executing...`);
+    progress(
+      'TICKETS',
+      `Transitioning ${sortedTasks.length} Task(s) to agent::executing...`,
+    );
     for (const task of sortedTasks) {
       if (task.labels.includes(STATE_LABELS.EXECUTING)) {
         progress('TICKETS', `  #${task.id} already executing — skipped`);

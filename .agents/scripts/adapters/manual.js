@@ -94,7 +94,9 @@ export class ManualDispatchAdapter extends IExecutionAdapter {
     console.log('\nPROMPT:\n');
     console.log(prompt);
     console.log(`\n${separator}`);
-    console.log(`📋  When complete, close with: node .agents/scripts/sprint-story-close.js --story <storyId>`);
+    console.log(
+      `📋  When complete, close with: node .agents/scripts/sprint-story-close.js --story <storyId>`,
+    );
     console.log(`${separator}\n`);
 
     this._registry.set(dispatchId, {

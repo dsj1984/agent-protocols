@@ -32,7 +32,12 @@ import path from 'node:path';
 import { fileURLToPath } from 'node:url';
 import { parseArgs } from 'node:util';
 import { PROJECT_ROOT, resolveConfig } from './lib/config-resolver.js';
-import { getEpicBranch, getStoryBranch, gitSpawn, gitSync } from './lib/git-utils.js';
+import {
+  getEpicBranch,
+  getStoryBranch,
+  gitSpawn,
+  gitSync,
+} from './lib/git-utils.js';
 import { Logger } from './lib/Logger.js';
 import {
   cascadeCompletion,
@@ -106,18 +111,25 @@ async function main() {
   const isHighRisk = story.labels.includes('risk::high');
 
   if (isHighRisk) {
-    progress('RISK', '⚠️ Story is risk::high — creating PR instead of auto-merge');
+    progress(
+      'RISK',
+      '⚠️ Story is risk::high — creating PR instead of auto-merge',
+    );
     try {
       const pr = await provider.createPullRequest(storyBranch, storyId);
       progress('RISK', `PR created: ${pr.htmlUrl}`);
       console.log(
-        JSON.stringify({
-          storyId,
-          epicId,
-          action: 'pr-created',
-          prUrl: pr.htmlUrl,
-          reason: 'risk::high — manual review required before merge',
-        }, null, 2),
+        JSON.stringify(
+          {
+            storyId,
+            epicId,
+            action: 'pr-created',
+            prUrl: pr.htmlUrl,
+            reason: 'risk::high — manual review required before merge',
+          },
+          null,
+          2,
+        ),
       );
     } catch (err) {
       console.error(`[sprint-story-close] PR creation failed: ${err.message}`);
@@ -151,7 +163,13 @@ async function main() {
   progress('GIT', '✅ Merge successful');
 
   progress('GIT', `Pushing ${epicBranch}...`);
-  const pushResult = gitSpawn(PROJECT_ROOT, 'push', '--no-verify', 'origin', epicBranch);
+  const pushResult = gitSpawn(
+    PROJECT_ROOT,
+    'push',
+    '--no-verify',
+    'origin',
+    epicBranch,
+  );
   if (pushResult.status !== 0) {
     Logger.fatal(`Push failed: ${pushResult.stderr}`);
   }
@@ -191,7 +209,10 @@ async function main() {
   const closedTickets = [];
 
   // Transition each child Task → agent::done
-  progress('TICKETS', `Transitioning ${tasks.length} Task(s) to agent::done...`);
+  progress(
+    'TICKETS',
+    `Transitioning ${tasks.length} Task(s) to agent::done...`,
+  );
   for (const task of tasks) {
     if (task.labels.includes(STATE_LABELS.DONE)) {
       progress('TICKETS', `  #${task.id} already done — skipped`);
@@ -223,7 +244,10 @@ async function main() {
   try {
     cascadedTo = await cascadeCompletion(provider, storyId);
     if (cascadedTo && cascadedTo.length > 0) {
-      progress('TICKETS', `  Cascaded to: ${cascadedTo.map((id) => `#${id}`).join(', ')}`);
+      progress(
+        'TICKETS',
+        `  Cascaded to: ${cascadedTo.map((id) => `#${id}`).join(', ')}`,
+      );
     }
   } catch (err) {
     console.error(`  Cascade failed (non-fatal): ${err.message}`);
@@ -244,7 +268,9 @@ async function main() {
     healthUpdated = true;
     progress('HEALTH', '✅ Health metrics updated');
   } catch (err) {
-    console.error(`[sprint-story-close] Health monitor failed (non-fatal): ${err.message}`);
+    console.error(
+      `[sprint-story-close] Health monitor failed (non-fatal): ${err.message}`,
+    );
   }
 
   // -------------------------------------------------------------------------
@@ -267,7 +293,9 @@ async function main() {
     manifestUpdated = true;
     progress('DASHBOARD', '✅ Dashboard manifest updated (temp/)');
   } catch (err) {
-    console.error(`[sprint-story-close] Dashboard refresh failed (non-fatal): ${err.message}`);
+    console.error(
+      `[sprint-story-close] Dashboard refresh failed (non-fatal): ${err.message}`,
+    );
   }
 
   // -------------------------------------------------------------------------

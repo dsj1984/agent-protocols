@@ -125,7 +125,9 @@ if (result.status !== 0) {
         resolvedSprintId = epicMatch[1];
       }
     } catch (err) {
-      console.error(`⚠️ Failed to dynamically resolve Sprint ID: ${err.message}`);
+      console.error(
+        `⚠️ Failed to dynamically resolve Sprint ID: ${err.message}`,
+      );
     }
   }
 
