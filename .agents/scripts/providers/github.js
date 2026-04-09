@@ -407,6 +407,13 @@ export class GitHubProvider extends ITicketingProvider {
     };
   }
 
+  async getRecentComments(limit = 100) {
+    const comments = await this._rest(
+      `/repos/${this.owner}/${this.repo}/issues/comments?sort=created&direction=desc&per_page=${limit}`
+    );
+    return comments || [];
+  }
+
   // ---------------------------------------------------------------------------
   // Write Operations
   // ---------------------------------------------------------------------------

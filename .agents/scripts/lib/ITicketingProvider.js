@@ -109,6 +109,17 @@ export class ITicketingProvider {
     throw new Error('Not implemented: getTicketDependencies');
   }
 
+  /**
+   * Fetch recent comments across the repository.
+   * Useful for auditing and visualization of agent telemetry.
+   *
+   * @param {number} [limit=100]
+   * @returns {Promise<object[]>}
+   */
+  async getRecentComments(_limit = 100) {
+    throw new Error('Not implemented: getRecentComments');
+  }
+
   // ---------------------------------------------------------------------------
   // Write Operations
   // ---------------------------------------------------------------------------

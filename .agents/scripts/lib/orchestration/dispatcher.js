@@ -539,6 +539,7 @@ export function buildManifest({
   dryRun,
   adapter,
   settings,
+  agentTelemetry = null,
 }) {
   const totalTasks = tasks.length;
   const doneTasks = tasks.filter((t) => t.status === AGENT_DONE_LABEL).length;
@@ -585,6 +586,7 @@ export function buildManifest({
     ),
     dispatched,
     heldForApproval,
+    agentTelemetry,
   };
 }
 
@@ -1010,7 +1012,38 @@ export async function dispatch(options) {
     break;
   }
 
-  // ── Step 7: Build and emit manifest ─────────────────────────────────────
+  // ── Step 7: Telemetry & Diagnostics ─────────────────────────────────────
+  let totalFriction = 0;
+  const recentFriction = [];
+  try {
+    const comments = await provider.getRecentComments(100);
+    const taskIds = new Set(tasks.map((t) => t.id));
+    for (const c of comments) {
+      const issueUrlMatch = c.issue_url?.match(/\/issues\/(\d+)$/);
+      if (issueUrlMatch) {
+        const issueId = parseInt(issueUrlMatch[1], 10);
+        if (taskIds.has(issueId)) {
+          const body = c.body || '';
+          if (body.includes('⚠️ **Friction**')) {
+            totalFriction++;
+            if (recentFriction.length < 5) {
+              const msg = body.replace('⚠️ **Friction**', '').trim();
+              recentFriction.push({
+                taskId: issueId,
+                message: msg.substring(0, 150) + (msg.length > 150 ? '...' : ''),
+              });
+            }
+          }
+        }
+      }
+    }
+  } catch (err) {
+    vlog.error('orchestration', `Failed to fetch tracking telemetry: ${err.message}`);
+  }
+
+  const agentTelemetry = { totalFriction, recentFriction };
+
+  // ── Step 8: Build and emit manifest ─────────────────────────────────────
   const manifest = buildManifest({
     epicId,
     epic,
@@ -1022,6 +1055,7 @@ export async function dispatch(options) {
     dryRun,
     adapter,
     settings,
+    agentTelemetry,
   });
 
   // ── Step 8: Epic completion detection ────────────────────────────────────
