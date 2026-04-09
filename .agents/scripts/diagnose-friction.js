@@ -146,7 +146,7 @@ if (result.status !== 0) {
   // Post a structured friction comment to the Task ticket (v5 SSOT)
   if (taskId) {
     try {
-      const payloadString = '```json\n' + JSON.stringify(frictionEvent, null, 2) + '\n```';
+      const payloadString = `\`\`\`json\n${JSON.stringify(frictionEvent, null, 2)}\n\`\`\``;
       await postStructuredComment(
         parseInt(taskId, 10),
         'friction',

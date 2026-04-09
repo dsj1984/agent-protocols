@@ -32,7 +32,7 @@ export class FrictionService {
         // Structured comments look like: <!-- structured-comment{"type":"friction"} -->\n```json\n{...}\n```
         if (comment.body.includes('<!-- structured-comment{"type":"friction"} -->')) {
           const jsonMatch = comment.body.match(/```json\s*\n([\s\S]+?)\n```/);
-          if (jsonMatch && jsonMatch[1]) {
+          if (jsonMatch?.[1]) {
             try {
               const parsed = JSON.parse(jsonMatch[1]);
               // Add some extra context if missing
