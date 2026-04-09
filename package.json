@@ -4,6 +4,7 @@
   "description": "",
   "main": "index.js",
   "scripts": {
+    "pretest": "node .agents/scripts/clean-temp.js",
     "test": "node --test tests/*.test.js tests/lib/*.test.js",
     "lint:md": "markdownlint \".agents/**/*.md\" \"*.md\" --ignore node_modules",
     "format:md": "prettier --write \".agents/**/*.md\" \"*.md\"",

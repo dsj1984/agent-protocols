@@ -1,5 +1,6 @@
 import assert from 'node:assert';
 import fs from 'node:fs';
+import os from 'node:os';
 import path from 'node:path';
 import { test } from 'node:test';
 import {
@@ -27,8 +28,10 @@ test('calculateForSource - returns 0 for invalid syntax', () => {
   assert.strictEqual(score, 0);
 });
 
+
+
 test('calculateForFile - parses file', () => {
-  const tempPath = path.join(process.cwd(), 'temp', 'temp_m_engine_test.js');
+  const tempPath = path.join(os.tmpdir(), `temp_m_engine_test_${Date.now()}.js`);
   fs.writeFileSync(tempPath, 'const a = 1;');
 
   try {
@@ -36,7 +39,9 @@ test('calculateForFile - parses file', () => {
     assert.ok(typeof score === 'number');
     assert.ok(score > 0 && score <= 171);
   } finally {
-    fs.unlinkSync(tempPath);
+    if (fs.existsSync(tempPath)) {
+      fs.unlinkSync(tempPath);
+    }
   }
 });
 
