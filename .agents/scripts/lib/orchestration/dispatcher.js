@@ -707,9 +707,11 @@ export async function resolveAndDispatch(options) {
     return dispatch({ epicId: ticketId, dryRun, executorOverride, provider });
   }
 
+  const typeLabel = labels.find(l => l.startsWith('type::')) || 'unknown';
   throw new Error(
-    `[Dispatcher] Ticket #${ticketId} is neither an Epic nor a Story ` +
-      `(labels: ${labels.join(', ')}). Cannot dispatch.`,
+    `[Dispatcher] Ticket #${ticketId} has type "${typeLabel.replace('type::', '')}". ` +
+      `Only "epic" or "story" tickets can be dispatched. ` +
+      `Please ensure the ticket is correctly categorized before execution.`
   );
 }
 
