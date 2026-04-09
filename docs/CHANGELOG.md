@@ -15,5 +15,16 @@ Version 5.0.0 represents a complete, ground-up rewrite of the platform. There is
 * **Execution Model (Epic 98):** Deprecated monolithic Epic branches in favor of a **Story-Level Branching and Execution model**. Integrates dynamic execution paths where Tasks directly roll up to their parent Story tickets, streamlining code reviews and improving continuous integration reliability.
 * **Removed:** Completely decommissioned the legacy **local documentation system** (`sample-docs/`), **v4 protocol version enforcement**, and all **legacy telemetry and indexing scripts** (`aggregate-telemetry.js`, `context-indexer.js`). Purged all legacy version-locked planning templates in favor of dynamic, automated workflow orchestration.
 
+## [5.1.0] - 2026-04-09
+
+### ✨ Autonomous Protocol Refinement (Epic 74)
+
+Introduced a self-healing feedback loop that analyzes sprint friction logs to autonomously suggest and track protocol improvements.
+
+* **Friction Analyzer:** Implemented a global ingestion service that parses structured friction logs across all completed tasks, classifying them into actionable categories (Prompt Ambiguity, Tool Limitation, etc.).
+* **Refinement Loop:** Developed the `ProtocolRefinementAgent` to identify recurring friction patterns and generate targeted protocol refinements via GitHub Pull Requests.
+* **Impact Tracker:** Introduced an autonomous impact measurement service that monitors reduced friction rates in sprints following a protocol refinement merge, posting performance reports directly to the original PR.
+* **Health Monitor:** Implemented a real-time performance visualization component that updates a dedicated GitHub "Sprint Health" issue, surfacing MCP tool success rates and active friction events during execution.
+
 ---
 *For historical changes prior to v5.0.0, please refer to the [Legacy Changelog (v1.0.0 - v4.7.2)](docs/CHANGELOG-v4.md).*

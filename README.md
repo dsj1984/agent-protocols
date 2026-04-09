@@ -29,7 +29,14 @@ graph LR
         H["Completion Cascade & Release"]
     end
 
+    subgraph Refinement ["🔄 Autonomous Refinement"]
+        I["Friction Analysis & Pattern Detection"]
+        J["Protocol Suggestion & PR Generation"]
+        K["Impact Tracking & Performance Reports"]
+    end
+
     A --> B --> C --> D --> E --> F --> G --> H
+    H --> I --> J --> K --> I
 ```
 
 - **GitHub as SSOT**: Issues, Labels, and Projects V2 are the single source of
@@ -42,6 +49,11 @@ graph LR
   waves, using shared context branches to minimize integration friction.
 - **Self-Contained**: Zero external SDK dependencies for core orchestration. No
   `@octokit/*`, no Axios — just raw HTTP and GraphQL.
+- **Autonomous Refinement**: A closed feedback loop that analyzes friction logs
+  to suggest protocol improvements, identifies patterns, and tracks the impact of
+  merged refinements on subsequent agent performance.
+- **Real-time Monitoring**: Push-based health monitoring that updates a GitHub
+  "Sprint Health" issue in real-time during execution.
 
 ## Get Started
 
