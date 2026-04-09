@@ -213,30 +213,13 @@ test('git-utils — getIntegrationCandidateBranch()', (_t) => {
 });
 
 test('git-utils — getStoryBranch() basic', (_t) => {
-  assert.strictEqual(
-    getStoryBranch(98, 'My Story Title'),
-    'story/epic-98/my-story-title',
-  );
+  // New format: story-<storyId>, epicId is ignored
+  assert.strictEqual(getStoryBranch(98, 42), 'story-42');
+  assert.strictEqual(getStoryBranch(1, 162), 'story-162');
 });
 
-test('git-utils — getStoryBranch() slug sanitization', (_t) => {
-  // Special chars → hyphens, collapsed, trimmed
-  assert.strictEqual(
-    getStoryBranch(98, 'Update Test Suites for Story-Level Architecture'),
-    'story/epic-98/update-test-suites-for-story-level-architecture',
-  );
-
-  // Leading/trailing special chars
-  assert.strictEqual(
-    getStoryBranch(98, '!!!hello world!!!'),
-    'story/epic-98/hello-world',
-  );
-
-  // Multiple consecutive specials → single hyphen
-  assert.strictEqual(
-    getStoryBranch(98, 'foo   bar--baz'),
-    'story/epic-98/foo-bar-baz',
-  );
+test('git-utils — getStoryBranch() works with string ID', (_t) => {
+  assert.strictEqual(getStoryBranch(98, '108'), 'story-108');
 });
 
 // ---------------------------------------------------------------------------
@@ -262,8 +245,8 @@ test('resolveBranchForTask — uses story branch when parent is type::story', as
   const branch = await resolveBranchForTask(98, 117, provider);
   assert.strictEqual(
     branch,
-    'story/epic-98/update-test-suites-for-story-level-architecture',
-    'Should return story branch derived from parent story title',
+    'story-108',
+    'Should return story branch using parent story ID',
   );
 });
 
