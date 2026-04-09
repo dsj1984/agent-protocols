@@ -1,17 +1,36 @@
 #!/usr/bin/env node
 
-/**
- * .agents/scripts/mcp-orchestration.js — MCP Server Entry Point
- *
- * Exposes the agent-protocols orchestration SDK as a Model Context Protocol
- * (MCP) server. Agents discover and invoke orchestration tools through their
- * native tool-use interface instead of spawning shell subprocesses.
- *
- * ## Protocol
- * JSON-RPC 2.0 over stdio (newline-delimited).
- * Implements MCP spec: https://spec.modelcontextprotocol.io/
- */
-import { sendMcp } from './lib/mcp/stdout-guard.js';
+import fs from 'node:fs';
+import path from 'node:path';
+
+// --- STDOUT GUARD (MUST BE FIRST) ---
+const _realStdoutWrite = process.stdout.write.bind(process.stdout);
+const _realStderrWrite = process.stderr.write.bind(process.stderr);
+const BYPASS = Symbol.for('mcp.stdout.bypass');
+process[BYPASS] = false;
+
+process.stdout.write = (chunk, encoding, callback) => {
+  if (process[BYPASS]) return _realStdoutWrite(chunk, encoding, callback);
+  return _realStderrWrite(chunk, encoding, callback);
+};
+
+const _redir = (...args) => process.stderr.write(`[MCP REDIR] ${args.join(' ')}\n`);
+console.log = _redir;
+console.info = _redir;
+console.warn = _redir;
+console.debug = _redir;
+console.error = _redir;
+
+function sendMcp(msg) {
+  const payload = Buffer.from(`${JSON.stringify(msg)}\n`, 'utf8');
+  process[BYPASS] = true;
+  try {
+    fs.writeSync(1, payload);
+  } finally {
+    process[BYPASS] = false;
+  }
+}
+// ------------------------------------
 import { createInterface } from 'node:readline';
 
 // ---------------------------------------------------------------------------

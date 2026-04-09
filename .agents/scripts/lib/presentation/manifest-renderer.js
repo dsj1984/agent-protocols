@@ -30,7 +30,10 @@ export function renderManifestMarkdown(manifest) {
   lines.push(
     `| Progress | **${summary.doneTasks}/${summary.totalTasks}** tasks (${summary.progressPercent}%) |`,
   );
-  lines.push(`| Stories/Features | ${(storyManifest ?? []).filter(s => s.storyId !== '__ungrouped__').length} |`);
+  const storyCount = (storyManifest ?? []).filter(s => s.storyId !== '__ungrouped__' && s.type === 'story').length;
+  const featureCount = (storyManifest ?? []).filter(s => s.type === 'feature').length;
+  lines.push(`| Stories | ${storyCount} |`);
+  if (featureCount > 0) lines.push(`| Features (containers) | ${featureCount} |`);
   lines.push(
     `| Execution Waves | ${storyWaveCount} _(${summary.totalWaves} task-level waves)_ |`,
   );
@@ -47,12 +50,13 @@ export function renderManifestMarkdown(manifest) {
   lines.push('');
 
   // --- Wave Summary Table ---
-  // Detailed fallback for robustness across different SDK versions/entrypoints
-  const stories = manifest.storyManifest || manifest.stories || (manifest.summary && manifest.summary.stories) || [];
-  if (stories && stories.length > 0) {
+  // Only Stories participate in execution waves. Features are containers.
+  const allItems = manifest.storyManifest || manifest.stories || (manifest.summary && manifest.summary.stories) || [];
+  const waveEligible = allItems.filter((s) => s.type !== 'feature');
+  if (waveEligible && waveEligible.length > 0) {
     const waveStats = new Map();
 
-    for (const s of stories) {
+    for (const s of waveEligible) {
       const w = s.earliestWave ?? -1;
       if (!waveStats.has(w)) {
         waveStats.set(w, { stories: 0, tasks: 0, done: 0 });
@@ -66,17 +70,18 @@ export function renderManifestMarkdown(manifest) {
     const sortedWaves = [...waveStats.keys()].sort((a, b) => a - b);
     lines.push('## Wave Summary');
     lines.push('');
-    lines.push('| Wave | Items | Total Tasks | Done | Status |');
+    lines.push('| Wave | Stories | Total Tasks | Done | Status |');
     lines.push('| :--- | :--- | :--- | :--- | :--- |');
 
     for (const w of sortedWaves) {
       const stat = waveStats.get(w);
       const isDone = stat.tasks > 0 && stat.done === stat.tasks;
+      const waveLabel = w === -1 ? 'Ungrouped' : `Wave ${w}`;
       const isReady = w === 0 || sortedWaves.filter(sw => sw < w).every(sw => {
         const swStat = waveStats.get(sw);
         return swStat.done === swStat.tasks;
       });
-      
+
       const statusLabel = isDone ? '✅ Done' : (isReady ? '🚀 Ready' : '⏳ Blocked');
       lines.push(
         `| ${waveLabel} | ${stat.stories} | ${stat.tasks} | ${stat.done} | ${statusLabel} |`,
@@ -88,10 +93,13 @@ export function renderManifestMarkdown(manifest) {
   lines.push('---');
   lines.push('');
 
-  // --- Story Dispatch Table grouped by wave ---
+  // --- Story Dispatch Table grouped by wave (Features excluded from waves) ---
   if (storyManifest && storyManifest.length > 0) {
+    const waveStories = storyManifest.filter((s) => s.type !== 'feature');
+    const featureItems = storyManifest.filter((s) => s.type === 'feature');
+
     const waveGroups = new Map();
-    for (const story of storyManifest) {
+    for (const story of waveStories) {
       const w = story.earliestWave ?? -1;
       if (!waveGroups.has(w)) waveGroups.set(w, []);
       waveGroups.get(w).push(story);
@@ -107,19 +115,33 @@ export function renderManifestMarkdown(manifest) {
       const waveLabel = waveIdx === -1 ? 'Ungrouped' : `Wave ${waveIdx}`;
       const parallelHint =
         stories.length > 1
-          ? ` — ✅ ${stories.length} items can run in parallel`
+          ? ` — ✅ ${stories.length} stories can run in parallel`
           : '';
 
       lines.push(`### ${waveLabel}${parallelHint}`);
       lines.push('');
-      lines.push('| Ticket | Title | Type | Model Tier | Recommended Model | Tasks |');
-      lines.push('| :--- | :--- | :--- | :--- | :--- | :--- |');
+      lines.push('| Story | Title | Model Tier | Recommended Model | Tasks |');
+      lines.push('| :--- | :--- | :--- | :--- | :--- |');
 
       for (const s of stories) {
-        const typeLabel = (s.type || 'story').charAt(0).toUpperCase() + (s.type || 'story').slice(1);
         lines.push(
-          `| #${s.storyId} | ${s.storySlug} | ${typeLabel} | \`${s.model_tier}\` | **${s.recommendedModel}** | ${s.tasks.length} |`,
+          `| #${s.storyId} | ${s.storySlug} | \`${s.model_tier}\` | **${s.recommendedModel}** | ${s.tasks.length} |`,
         );
+      }
+      lines.push('');
+    }
+
+    // --- Feature Containers (informational, not executable) ---
+    if (featureItems.length > 0) {
+      lines.push('## Feature Containers');
+      lines.push('');
+      lines.push('> Features are organizational groupings and are **not directly executable**.');
+      lines.push('> Execute the Stories within each Feature instead.');
+      lines.push('');
+      lines.push('| Feature | Title | Child Tasks |');
+      lines.push('| :--- | :--- | :--- |');
+      for (const f of featureItems) {
+        lines.push(`| #${f.storyId} | ${f.storySlug} | ${f.tasks.length} |`);
       }
       lines.push('');
     }
@@ -137,15 +159,20 @@ export function renderManifestMarkdown(manifest) {
         story.storyId === '__ungrouped__'
           ? 'Ungrouped Tasks'
           : `${typeLabel} #${story.storyId}: ${story.storySlug}`;
+      const isFeature = story.type === 'feature';
 
       lines.push(`### ${storyLabel}`);
       lines.push('');
       lines.push(`- **Branch:** \`${story.branchName}\``);
       lines.push(`- **Model Tier:** \`${story.model_tier}\``);
       lines.push(`- **Recommended Model:** ${story.recommendedModel}`);
-      lines.push(
-        `- **Wave:** ${story.earliestWave === -1 ? 'N/A' : story.earliestWave}`,
-      );
+      if (isFeature) {
+        lines.push('- **Type:** Feature (container — not directly executable)');
+      } else {
+        lines.push(
+          `- **Wave:** ${story.earliestWave === -1 ? 'N/A' : story.earliestWave}`,
+        );
+      }
       lines.push('');
       lines.push('**Tasks (execution order):**');
       lines.push('');
@@ -247,27 +274,30 @@ export function renderStoryManifestMarkdown(manifest) {
 export function printStoryDispatchTable(storyManifest) {
   if (!storyManifest || storyManifest.length === 0) return;
 
+  // Split into wave-eligible Stories and Feature containers
+  const stories = storyManifest.filter((s) => s.type !== 'feature');
+  const features = storyManifest.filter((s) => s.type === 'feature');
+
   console.log(
-    '\n┌──────────────────────────────────────────────────────────────────────────────────────────────────────────────────────┐',
+    '\n┌───────────────────────────────────────────────────────────────────────────────────────────────────────────┐',
   );
   console.log(
-    '│                                            📋 STORY DISPATCH TABLE                                                   │',
+    '│                                       📋 STORY DISPATCH TABLE                                          │',
   );
   console.log(
-    '├─────────┬──────────────────────────────────────┬─────────┬──────┬────────────┬──────────────────────────────┬──────────────┤',
+    '├─────────┬──────────────────────────────────────┬──────┬────────────┬──────────────────────────────┬──────────────┤',
   );
   console.log(
-    '│ Ticket  │ Title                                │ Type    │ Wave │ Model Tier │ Recommended Model            │ Tasks        │',
+    '│ Story   │ Title                                │ Wave │ Model Tier │ Recommended Model            │ Tasks        │',
   );
   console.log(
-    '├─────────┼──────────────────────────────────────┼─────────┼──────┼────────────┼──────────────────────────────┼──────────────┤',
+    '├─────────┼──────────────────────────────────────┼──────┼────────────┼──────────────────────────────┼──────────────┤',
   );
 
-  for (const story of storyManifest) {
+  for (const story of stories) {
     const id =
       story.storyId === '__ungrouped__' ? '(none)' : `#${story.storyId}`;
     const title = (story.storySlug ?? '').substring(0, 36).padEnd(36);
-    const type = (story.type || 'story').substring(0, 7).padEnd(7);
     const wave = (
       story.earliestWave === -1 ? '-' : String(story.earliestWave)
     ).padEnd(4);
@@ -275,7 +305,7 @@ export function printStoryDispatchTable(storyManifest) {
     const model = (story.recommendedModel ?? '').substring(0, 28).padEnd(28);
     const taskCount = `${story.tasks.length} task(s)`.padEnd(12);
     console.log(
-      `│ ${id.padEnd(7)} │ ${title} │ ${type} │ ${wave} │ ${tier} │ ${model} │ ${taskCount} │`,
+      `│ ${id.padEnd(7)} │ ${title} │ ${wave} │ ${tier} │ ${model} │ ${taskCount} │`,
     );
   }
 
@@ -287,5 +317,13 @@ export function printStoryDispatchTable(storyManifest) {
   console.log(
     '  💡 Use /sprint-execute #[Story ID] to execute a Story. Select the model shown above.',
   );
+
+  if (features.length > 0) {
+    console.log('');
+    console.log('  📦 Feature Containers (not directly executable):');
+    for (const f of features) {
+      console.log(`     #${f.storyId} — ${f.storySlug} (${f.tasks.length} orphaned tasks)`);
+    }
+  }
   console.log('');
 }
