@@ -120,6 +120,16 @@ export class ITicketingProvider {
     throw new Error('Not implemented: getRecentComments');
   }
 
+  /**
+   * Fetch all comments for a specific ticket.
+   *
+   * @param {number} ticketId - GitHub Issue number.
+   * @returns {Promise<object[]>} Array of comment objects.
+   */
+  async getTicketComments(_ticketId) {
+    throw new Error('Not implemented: getTicketComments');
+  }
+
   // ---------------------------------------------------------------------------
   // Write Operations
   // ---------------------------------------------------------------------------
