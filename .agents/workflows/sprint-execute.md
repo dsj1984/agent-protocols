@@ -175,14 +175,26 @@ git checkout main
 
 1. Identify the Story branch from the **Story Dispatch Table** or compute it:
    - Format: `story-<storyId>` (e.g. `story-162`)
-2. Fetch and checkout the branch (branching from the Epic base branch, **not** `main`):
+2. Fetch and checkout the branch (branching from the Epic base branch, **not**
+   `main`). Use `-B` (uppercase) to force-create/reset the branch to the
+   current tip of the Epic branch. This handles stale local branches left
+   behind by prior sessions or interleaved executions:
 
    ```powershell
    git fetch origin
-   git checkout story-<storyId>; if (-not $?) { git checkout -b story-<storyId> epic/<epicId> }
+   git checkout -B story-<storyId> epic/<epicId>
    ```
 
-3. Transition ALL child Task labels via the state writer:
+3. **Verify** the checkout succeeded before proceeding. If the current branch
+   is NOT `story-<storyId>`, **STOP** and report the error:
+
+   ```powershell
+   git branch --show-current
+   # MUST output: story-<storyId>
+   # If it does not, STOP — do NOT commit on the wrong branch.
+   ```
+
+4. Transition ALL child Task labels via the state writer:
 
    ```powershell
    node .agents/scripts/update-ticket-state.js --task <taskId> --state agent::executing
@@ -302,6 +314,10 @@ up through the hierarchy (Tasks → Story → Feature → Epic).
 
 - **Never** push Story branch work directly to `main`.
 - **Never** merge across Story branches — each Story is self-contained.
+- **Always** verify `git branch --show-current` outputs the expected Story
+  branch name before making any commits. If it does not, **STOP**.
+- **Always** use `git checkout -B` (uppercase) when creating Story branches to
+  safely handle stale local branches from prior sessions.
 - **Always** validate (lint + test) before merging into the Epic branch.
 - **Always** select the model recommended by the Story Dispatch Table for the
   session.
