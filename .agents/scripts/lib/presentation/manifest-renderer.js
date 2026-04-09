@@ -236,13 +236,15 @@ export function renderManifestMarkdown(manifest) {
   // --- Execution instructions ---
   lines.push('## How to Execute');
   lines.push('');
-  lines.push('1. Pick a Story from Wave 0 (all dependencies satisfied).');
+  lines.push('1. Pick a Story from the next ready wave (🚀 status above).');
   lines.push(
     '2. Select the **Recommended Model** shown in the table for your agent session.',
   );
   lines.push('3. Run: `/sprint-execute #[Story ID]`');
+  lines.push('');
   lines.push(
-    '4. After completing a wave, re-run `/sprint-execute [Epic ID]` to refresh the dashboard.',
+    '> **Tip:** Story closure (tickets, branches, health) is handled automatically by `sprint-story-close.js`. ' +
+      'Re-run `/sprint-execute [Epic ID]` to regenerate this dashboard and see updated wave readiness.',
   );
   lines.push('');
 
@@ -275,14 +277,10 @@ export function renderStoryManifestMarkdown(manifest) {
   lines.push('');
   lines.push('## Execution Steps');
   lines.push('');
-  lines.push('1. Ensure the Epic branch exists locally and on the remote.');
-  lines.push('2. Checkout the Story branch from the Epic branch (not main):');
-  lines.push('   `git checkout -b <storyBranch> <epicBranch>`');
-  lines.push('3. Transition all child Tasks to `agent::executing`.');
-  lines.push('4. Implement each Task sequentially and commit after each one.');
-  lines.push('5. Run `npm run lint` and `npm test` to validate.');
-  lines.push('6. Merge the Story branch into the Epic branch (`--no-ff`).');
-  lines.push('7. Transition all Tasks and the Story to `agent::done`.');
+  lines.push('1. `node .agents/scripts/sprint-story-init.js --story <storyId>` (bootstraps branch, transitions tasks)');
+  lines.push('2. Implement each Task sequentially and commit after each one.');
+  lines.push('3. Run `npm run lint` and `npm test` to validate.');
+  lines.push('4. `node .agents/scripts/sprint-story-close.js --story <storyId>` (merges, cleans up, closes tickets)');
   lines.push('');
 
   return lines.join('\n');
