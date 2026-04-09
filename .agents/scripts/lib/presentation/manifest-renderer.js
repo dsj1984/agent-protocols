@@ -243,8 +243,8 @@ export function renderManifestMarkdown(manifest) {
   lines.push('3. Run: `/sprint-execute #[Story ID]`');
   lines.push('');
   lines.push(
-    '> **Tip:** Story closure (tickets, branches, health) is handled automatically by `sprint-story-close.js`. ' +
-      'Re-run `/sprint-execute [Epic ID]` to regenerate this dashboard and see updated wave readiness.',
+    '> **Tip:** Story closure and dashboard refresh are handled automatically by `sprint-story-close.js`. ' +
+      'Check the updated `temp/` manifest files after closing a story.',
   );
   lines.push('');
 

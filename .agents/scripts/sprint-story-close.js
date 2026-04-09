@@ -248,6 +248,29 @@ async function main() {
   }
 
   // -------------------------------------------------------------------------
+  // Dashboard Refresh (Regenerate Manifest)
+  // -------------------------------------------------------------------------
+
+  progress('DASHBOARD', 'Regenerating dispatch manifest...');
+  let manifestUpdated = false;
+  try {
+    execFileSync(
+      'node',
+      [
+        path.join(__dirname, 'dispatcher.js'),
+        '--epic',
+        String(epicId),
+        '--dry-run',
+      ],
+      { cwd: PROJECT_ROOT, stdio: 'inherit', encoding: 'utf8' },
+    );
+    manifestUpdated = true;
+    progress('DASHBOARD', '✅ Dashboard manifest updated (temp/)');
+  } catch (err) {
+    console.error(`[sprint-story-close] Dashboard refresh failed (non-fatal): ${err.message}`);
+  }
+
+  // -------------------------------------------------------------------------
   // Output — structured result
   // -------------------------------------------------------------------------
 
@@ -260,6 +283,7 @@ async function main() {
     ticketsClosed: closedTickets,
     cascadedTo: cascadedTo ?? [],
     healthUpdated,
+    manifestUpdated,
   };
 
   console.log('\n--- STORY CLOSE RESULT ---');

@@ -200,6 +200,7 @@ The script:
 - Batch transitions all child Tasks and the Story to `agent::done`.
 - Runs `cascadeCompletion()` to propagate closure up the hierarchy.
 - Runs `health-monitor.js` to update sprint metrics.
+- Runs `dispatcher.js --dry-run` to automatically refresh the dashboard manifest.
 
 **Output**: Structured JSON with `ticketsClosed[]`, `cascadedTo[]`, merge
 status.
