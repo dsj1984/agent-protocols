@@ -7,27 +7,32 @@
  * delegates core logic to `lib/orchestration/dispatcher.js`, then
  * handles file I/O and console output.
  *
- * For the core business logic, see:
- *   .agents/scripts/lib/orchestration/dispatcher.js
- *
  * Usage:
- *   node dispatcher.js --epic <epicId> [--dry-run] [--executor <name>]
+ *   node dispatcher.js <ticketId> [--dry-run] [--executor <name>]
+ *   node dispatcher.js --epic <epicId> [--dry-run]     (legacy, deprecated)
+ *
+ * The script auto-detects whether the ticket is an Epic or Story
+ * and routes to the appropriate execution mode.
  *
  * @see .agents/scripts/lib/orchestration/index.js (SDK barrel)
  * @see .agents/schemas/dispatch-manifest.json
  */
 
 import fs from 'node:fs';
-import { Logger } from './lib/Logger.js';
 import path from 'node:path';
 import { fileURLToPath } from 'node:url';
 import { parseArgs } from 'node:util';
 import { PROJECT_ROOT } from './lib/config-resolver.js';
-import { dispatch } from './lib/orchestration/index.js';
+import { Logger } from './lib/Logger.js';
+import { resolveAndDispatch } from './lib/orchestration/index.js';
 
-// Re-export dispatch so that direct consumers of dispatcher.js
+// Re-export SDK functions so that direct consumers of dispatcher.js
 // (tests, CI scripts) continue to work without modification.
-export { dispatch };
+export {
+  dispatch,
+  executeStory,
+  resolveAndDispatch,
+} from './lib/orchestration/index.js';
 
 const __filename = fileURLToPath(import.meta.url);
 
@@ -36,7 +41,7 @@ const __filename = fileURLToPath(import.meta.url);
 // ---------------------------------------------------------------------------
 
 /**
- * Render a human-readable Markdown document from the dispatch manifest.
+ * Render a human-readable Markdown document from the Epic dispatch manifest.
  *
  * @param {object} manifest - The full dispatch manifest object.
  * @returns {string} Markdown string.
@@ -176,6 +181,51 @@ function renderManifestMarkdown(manifest) {
 }
 
 /**
+ * Render a human-readable Markdown manifest for Story execution.
+ *
+ * @param {object} manifest - The story execution manifest.
+ * @returns {string} Markdown string.
+ */
+function renderStoryManifestMarkdown(manifest) {
+  const lines = [];
+  lines.push(`# 📚 Story Execution Manifest`);
+  lines.push('');
+  lines.push(`> **Generated:** ${manifest.generatedAt}`);
+  lines.push('');
+
+  for (const story of manifest.stories) {
+    lines.push(`## Story #${story.storyId}: ${story.storyTitle}`);
+    lines.push(`- **Epic Branch:** \`${story.epicBranch}\``);
+    lines.push(`- **Story Branch:** \`${story.branchName}\``);
+    lines.push(`- **Model Tier:** \`${story.model_tier}\``);
+    lines.push('');
+    lines.push('**Tasks (execution order):**');
+    for (const task of story.tasks) {
+      const isDone = task.status === 'agent::done';
+      const checkbox = isDone ? '[x]' : '[ ]';
+      lines.push(`- ${checkbox} **#${task.taskId}** — ${task.title}`);
+    }
+    lines.push('');
+  }
+
+  lines.push('---');
+  lines.push('');
+  lines.push('## Execution Steps');
+  lines.push('');
+  lines.push('1. Ensure the Epic branch exists locally and on the remote.');
+  lines.push('2. Checkout the Story branch from the Epic branch (not main):');
+  lines.push('   `git checkout -b <storyBranch> <epicBranch>`');
+  lines.push('3. Transition all child Tasks to `agent::executing`.');
+  lines.push('4. Implement each Task sequentially and commit after each one.');
+  lines.push('5. Run `npm run lint` and `npm test` to validate.');
+  lines.push('6. Merge the Story branch into the Epic branch (`--no-ff`).');
+  lines.push('7. Transition all Tasks and the Story to `agent::done`.');
+  lines.push('');
+
+  return lines.join('\n');
+}
+
+/**
  * Print a human-readable Story Dispatch Table to stdout.
  *
  * @param {object[]} storyManifest
@@ -230,56 +280,88 @@ function printStoryDispatchTable(storyManifest) {
 // ---------------------------------------------------------------------------
 
 async function main() {
-  const { values } = parseArgs({
+  const { values, positionals } = parseArgs({
     options: {
       epic: { type: 'string' },
       'dry-run': { type: 'boolean', default: false },
       executor: { type: 'string' },
     },
+    allowPositionals: true,
     strict: false,
   });
 
-  const epicId = parseInt(values.epic ?? '', 10);
-  if (!values.epic || Number.isNaN(epicId) || epicId <= 0) {
-    Logger.fatal();
+  // Resolve the single ticket ID from positional arg or --epic flag
+  const epicIdFromFlag = parseInt(values.epic ?? '', 10);
+  const fromPositional = parseInt((positionals[0] ?? '').replace(/^#/, ''), 10);
+  const ticketId =
+    !Number.isNaN(fromPositional) && fromPositional > 0
+      ? fromPositional
+      : !Number.isNaN(epicIdFromFlag) && epicIdFromFlag > 0
+        ? epicIdFromFlag
+        : null;
+
+  if (!ticketId) {
+    console.error(
+      '[Dispatcher] Error: No valid Issue ID provided.\n' +
+        'Usage: node dispatcher.js <ticketId> [--dry-run]',
+    );
+    process.exit(1);
   }
 
   const dryRun = values['dry-run'] ?? false;
   const executorOverride = values.executor;
 
-  console.log(
-    `[Dispatcher] Starting dispatch for Epic #${epicId}${dryRun ? ' (DRY-RUN)' : ''}...`,
-  );
+  // Delegate to the SDK's unified resolver
+  const manifest = await resolveAndDispatch({
+    ticketId,
+    dryRun,
+    executorOverride,
+  });
 
-  const manifest = await dispatch({ epicId, dryRun, executorOverride });
-
+  // Write manifest files
   const manifestDir = path.join(PROJECT_ROOT, 'temp');
-  if (!fs.existsSync(manifestDir))
+  if (!fs.existsSync(manifestDir)) {
     fs.mkdirSync(manifestDir, { recursive: true });
+  }
 
-  const manifestPath = path.join(
-    manifestDir,
-    `dispatch-manifest-${epicId}.json`,
-  );
-  fs.writeFileSync(manifestPath, JSON.stringify(manifest, null, 2), 'utf8');
+  if (manifest.type === 'story-execution') {
+    // ── Story Execution output ──
+    const key = manifest.stories.map((s) => s.storyId).join('-');
+    const jsonPath = path.join(manifestDir, `story-manifest-${key}.json`);
+    const mdPath = path.join(manifestDir, `story-manifest-${key}.md`);
 
-  const mdPath = path.join(manifestDir, `dispatch-manifest-${epicId}.md`);
-  fs.writeFileSync(mdPath, renderManifestMarkdown(manifest), 'utf8');
+    fs.writeFileSync(jsonPath, JSON.stringify(manifest, null, 2), 'utf8');
+    fs.writeFileSync(mdPath, renderStoryManifestMarkdown(manifest), 'utf8');
 
-  console.log(
-    `\n[Dispatcher] ✅ Dispatch manifest written to: temp/dispatch-manifest-${epicId}.json`,
-  );
-  console.log(
-    `[Dispatcher] 📄 Markdown manifest written to: temp/dispatch-manifest-${epicId}.md`,
-  );
-  console.log(
-    `[Dispatcher] Progress: ${manifest.summary.doneTasks}/${manifest.summary.totalTasks} tasks done (${manifest.summary.progressPercent}%)`,
-  );
-  console.log(
-    `[Dispatcher] Dispatched: ${manifest.summary.dispatched}, Held: ${manifest.summary.heldForApproval}`,
-  );
+    console.log(
+      `\n[Dispatcher] ✅ Story manifest: temp/story-manifest-${key}.json`,
+    );
+    console.log(`[Dispatcher] 📄 Markdown: temp/story-manifest-${key}.md\n`);
+    console.log(renderStoryManifestMarkdown(manifest));
+  } else {
+    // ── Epic Dispatch output ──
+    const epicId = manifest.epicId;
+    const jsonPath = path.join(manifestDir, `dispatch-manifest-${epicId}.json`);
+    const mdPath = path.join(manifestDir, `dispatch-manifest-${epicId}.md`);
 
-  printStoryDispatchTable(manifest.storyManifest);
+    fs.writeFileSync(jsonPath, JSON.stringify(manifest, null, 2), 'utf8');
+    fs.writeFileSync(mdPath, renderManifestMarkdown(manifest), 'utf8');
+
+    console.log(
+      `\n[Dispatcher] ✅ Manifest: temp/dispatch-manifest-${epicId}.json`,
+    );
+    console.log(
+      `[Dispatcher] 📄 Markdown: temp/dispatch-manifest-${epicId}.md`,
+    );
+    console.log(
+      `[Dispatcher] Progress: ${manifest.summary.doneTasks}/${manifest.summary.totalTasks} tasks done (${manifest.summary.progressPercent}%)`,
+    );
+    console.log(
+      `[Dispatcher] Dispatched: ${manifest.summary.dispatched}, Held: ${manifest.summary.heldForApproval}`,
+    );
+
+    printStoryDispatchTable(manifest.storyManifest);
+  }
 }
 
 if (fileURLToPath(import.meta.url) === path.resolve(process.argv[1])) {

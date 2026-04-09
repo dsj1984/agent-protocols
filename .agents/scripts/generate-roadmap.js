@@ -13,9 +13,9 @@
  */
 
 import fs from 'node:fs';
-import { Logger } from './lib/Logger.js';
 import path from 'node:path';
 import { PROJECT_ROOT, resolveConfig } from './lib/config-resolver.js';
+import { Logger } from './lib/Logger.js';
 import { createProvider } from './lib/provider-factory.js';
 
 async function main() {
@@ -110,6 +110,6 @@ async function main() {
   console.log(`Successfully generated ${fileName} at ${outputPath}`);
 }
 
-main().catch((err) => {
+main().catch((_err) => {
   Logger.fatal();
 });

@@ -11,8 +11,8 @@
  *   - Auto-resolve minor conflicts (accept theirs) with audit logging.
  */
 
-import { gitSpawn } from './git-utils.js';
 import { resolveConfig } from './config-resolver.js';
+import { gitSpawn } from './git-utils.js';
 
 /**
  * Analyse conflict severity using git's binary-safe diff --check.

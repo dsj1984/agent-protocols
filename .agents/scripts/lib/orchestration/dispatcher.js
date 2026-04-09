@@ -16,7 +16,6 @@
 import { execFileSync } from 'node:child_process';
 import fs from 'node:fs';
 import path from 'node:path';
-import { hydrateContext } from './context-hydrator.js';
 import { createAdapter } from '../adapter-factory.js';
 import { PROJECT_ROOT, resolveConfig } from '../config-resolver.js';
 import {
@@ -30,6 +29,7 @@ import {
   computeStoryWaves,
   computeWaves,
   detectCycle,
+  topologicalSort,
 } from '../Graph.js';
 import {
   getEpicBranch,
@@ -39,13 +39,15 @@ import {
 } from '../git-utils.js';
 import { createProvider } from '../provider-factory.js';
 import { VerboseLogger } from '../VerboseLogger.js';
+import { hydrateContext } from './context-hydrator.js';
 
 const { settings: globalSettings } = resolveConfig();
 const vlog = VerboseLogger.init(globalSettings, PROJECT_ROOT, {
   source: 'dispatcher',
 });
-import { STATE_LABELS } from './ticketing.js';
+
 import { notify } from '../../notify.js';
+import { STATE_LABELS } from './ticketing.js';
 
 // ---------------------------------------------------------------------------
 // Constants
@@ -247,7 +249,7 @@ export function getResolvedBranch(task, allTicketsById, epicId) {
     const parentId = parseInt(parentMatch[1], 10);
     const parentTicket = allTicketsById.get(parentId);
     if (parentTicket && (parentTicket.labels ?? []).includes('type::story')) {
-      return getStoryBranch(epicId, parentTicket.title);
+      return getStoryBranch(epicId, parentId);
     }
   }
   return getTaskBranch(epicId, task.id);
@@ -494,7 +496,7 @@ export function buildStoryManifest(tasks, allTickets, epicId, settings) {
     const branchName =
       group.storyId === '__ungrouped__'
         ? getTaskBranch(epicId, 'ungrouped')
-        : getStoryBranch(epicId, group.storyTitle);
+        : getStoryBranch(epicId, group.storyId);
 
     return {
       storyId: group.storyId,
@@ -582,6 +584,129 @@ export function buildManifest({
     dispatched,
     heldForApproval,
   };
+}
+
+// ---------------------------------------------------------------------------
+// Story Execution API (SDK public API)
+// ---------------------------------------------------------------------------
+
+/**
+ * Execute a single Story (Mode B).
+ * Identifies the parent Epic, retrieves sibling tasks, sorts them by DAG,
+ * and generates an execution manifest.
+ *
+ * @param {{
+ *   story: object,
+ *   provider: import('../ITicketingProvider.js').ITicketingProvider,
+ *   dryRun?: boolean
+ * }} options
+ * @returns {Promise<object>} Story Execution Manifest
+ */
+export async function executeStory(options) {
+  const { story, provider, dryRun = false } = options;
+
+  // Find the parent Epic.
+  // Stories reference their Epic via `Epic: #NNN` in the body.
+  const epicMatch = story.body?.match(/^Epic:\s*#(\d+)/im);
+  const epicId = epicMatch ? parseInt(epicMatch[1], 10) : null;
+
+  const manifest = {
+    type: 'story-execution',
+    generatedAt: new Date().toISOString(),
+    dryRun,
+    stories: [],
+  };
+
+  let allTasks = [];
+  if (epicId) {
+    allTasks = await fetchTasks(provider, epicId);
+  }
+
+  // Filter to tasks belonging to THIS story (via parent: #STORY_ID)
+  const storyTasks = allTasks.filter((t) => {
+    const parentMatch = t.body?.match(/parent:\s*#(\d+)/i);
+    return parentMatch && parseInt(parentMatch[1], 10) === story.id;
+  });
+
+  // Sort tasks by DAG
+  const { adjacency, taskMap } = buildGraph(storyTasks);
+
+  let sortedTasks = [];
+  try {
+    const cycle = detectCycle(adjacency);
+    if (cycle) {
+      throw new Error(`Cycle detected: ${cycle.join(' -> ')}`);
+    }
+    sortedTasks = topologicalSort(adjacency, taskMap);
+  } catch (err) {
+    console.error(
+      `[executeStory] DAG sort failed for Story #${story.id}:`,
+      err.message,
+    );
+    sortedTasks = storyTasks; // Fallback to raw list
+  }
+
+  const branchName = epicId
+    ? getStoryBranch(epicId, story.id)
+    : `story-${story.id}`;
+  const epicBranch = epicId ? getEpicBranch(epicId) : null;
+
+  manifest.stories.push({
+    storyId: story.id,
+    storyTitle: story.title,
+    epicId,
+    epicBranch,
+    branchName,
+    model_tier: resolveModelTier(story.labels ?? []),
+    tasks: sortedTasks.map((t) => ({
+      taskId: t.id,
+      title: t.title,
+      status: t.status,
+    })),
+  });
+
+  return manifest;
+}
+
+// ---------------------------------------------------------------------------
+// Unified ticket resolution + dispatch (shared by CLI and MCP)
+// ---------------------------------------------------------------------------
+
+/**
+ * Resolve a single ticket ID, detect its type (Epic or Story), and
+ * delegate to the appropriate execution pipeline.
+ *
+ * This is the single entry point that both the CLI wrapper and the MCP
+ * `dispatch_wave` tool should call, eliminating duplicated routing logic.
+ *
+ * @param {{
+ *   ticketId: number,
+ *   dryRun?: boolean,
+ *   executorOverride?: string,
+ *   provider?: import('../ITicketingProvider.js').ITicketingProvider,
+ * }} options
+ * @returns {Promise<object>} Dispatch or Story Execution manifest
+ */
+export async function resolveAndDispatch(options) {
+  const { ticketId, dryRun = false, executorOverride } = options;
+  const { orchestration } = resolveConfig();
+  const provider = options.provider ?? createProvider(orchestration);
+
+  const ticket = await provider.getTicket(ticketId);
+  const labels = ticket.labels || [];
+
+  if (labels.includes('type::story')) {
+    return executeStory({ story: ticket, provider, dryRun });
+  }
+
+  if (labels.includes('type::epic')) {
+    return dispatch({ epicId: ticketId, dryRun, executorOverride, provider });
+  }
+
+  throw new Error(
+    `[Dispatcher] Ticket #${ticketId} is neither an Epic nor a Story ` +
+      `(labels: ${labels.join(', ')}). Cannot dispatch.`,
+  );
 }
 
 // ---------------------------------------------------------------------------

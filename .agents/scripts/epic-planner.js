@@ -9,11 +9,11 @@
  */
 
 import fs from 'node:fs';
-import { Logger } from './lib/Logger.js';
 import path from 'node:path';
 import { fileURLToPath } from 'node:url';
 import { parseArgs } from 'node:util';
 import { resolveConfig } from './lib/config-resolver.js';
+import { Logger } from './lib/Logger.js';
 import { LLMClient } from './lib/llm-client.js';
 import { createProvider } from './lib/provider-factory.js';
 
@@ -112,8 +112,11 @@ Closing this issue to maintain a single source of truth for Epic #${epicId}.`,
     });
   }
 
-  // Persist healed references to the body if needed
+  // Persist healed references to the body if needed.
+  // Skip this when --force is active: old references are about to be replaced
+  // and persisting them just to strip them is wasteful + risks a race.
   if (
+    !force &&
     epic.linkedIssues.prd &&
     epic.linkedIssues.techSpec &&
     !epic.body.includes('## Planning Artifacts')
@@ -124,11 +127,21 @@ Closing this issue to maintain a single source of truth for Epic #${epicId}.`,
     epic.body += appendBody;
   }
 
-  // ── Force re-plan: close old artifacts and strip body references ──────
-  if (force && (epic.linkedIssues?.prd || epic.linkedIssues?.techSpec)) {
-    console.log('[Epic Planner] --force: Closing old planning artifacts...');
-    for (const oldId of [epic.linkedIssues.prd, epic.linkedIssues.techSpec]) {
-      if (oldId) {
+  // ── Force re-plan: close ALL old planning artifacts and strip body ────
+  if (force) {
+    // Collect all open artifacts to close — both the ones referenced in
+    // linkedIssues AND any orphaned ones found via label scan.  This
+    // prevents stale PRDs/Tech Specs from lingering after re-plans.
+    const idsToClose = new Set(
+      [epic.linkedIssues.prd, epic.linkedIssues.techSpec].filter(Boolean),
+    );
+    for (const t of [...existingPrds, ...existingSpecs]) {
+      idsToClose.add(t.id);
+    }
+
+    if (idsToClose.size > 0) {
+      console.log('[Epic Planner] --force: Closing old planning artifacts...');
+      for (const oldId of idsToClose) {
         try {
           await provider.updateTicket(oldId, {
             state: 'closed',
@@ -139,7 +152,7 @@ Closing this issue to maintain a single source of truth for Epic #${epicId}.`,
           // If the issue was already deleted (410) or not found (404), skip gracefully.
           if (err.message.includes('404') || err.message.includes('410')) {
             console.log(
-              `[Epic Planner]   Old artifact #${oldId} was already removed or is inaccesible. Skipping.`,
+              `[Epic Planner]   Old artifact #${oldId} was already removed or is inaccessible. Skipping.`,
             );
           } else {
             throw err;
@@ -158,6 +171,10 @@ Closing this issue to maintain a single source of truth for Epic #${epicId}.`,
         '[Epic Planner]   Stripped old Planning Artifacts section from Epic body.',
       );
     }
+
+    // Clear linkedIssues so the idempotency guard doesn't short-circuit
+    epic.linkedIssues.prd = null;
+    epic.linkedIssues.techSpec = null;
   }
 
   // M-8: Resumable planning — if PRD exists but Tech Spec doesn't, resume from PRD.
@@ -297,12 +314,12 @@ async function main() {
   });
 
   if (!values.epic) {
-    Logger.fatal();
+    Logger.fatal('Usage: epic-planner.js --epic <ID> [--force]');
   }
 
   const epicId = parseInt(values.epic, 10);
   if (Number.isNaN(epicId)) {
-    Logger.fatal();
+    Logger.fatal(`Invalid epic ID: "${values.epic}" — must be a number.`);
   }
 
   const { orchestration, settings } = resolveConfig();
@@ -317,6 +334,6 @@ async function main() {
 // Only execute main if run directly
 if (fileURLToPath(import.meta.url) === path.resolve(process.argv[1])) {
   main().catch((err) => {
-    Logger.fatal();
+    Logger.fatal(err.message);
   });
 }

@@ -29,7 +29,6 @@
  */
 
 import { createInterface } from 'node:readline';
-import { Logger } from './lib/Logger.js';
 
 // ---------------------------------------------------------------------------
 // MCP Protocol Constants
@@ -111,7 +110,7 @@ function registerTool(name, description, inputSchema, handler) {
  */
 async function registerSDKTools() {
   const {
-    dispatch,
+    resolveAndDispatch,
     hydrateContext,
     transitionTicketState,
     cascadeCompletion,
@@ -129,12 +128,13 @@ async function registerSDKTools() {
   // ── dispatch_wave ─────────────────────────────────────────────────────────
   registerTool(
     'dispatch_wave',
-    'Dispatch the next ready wave of Tasks for an Epic. Reads the DAG, builds waves, transitions tickets, and returns a Dispatch Manifest. Set dryRun=true for a status view without side-effects.',
+    'Dispatch the next ready wave of Tasks for an Epic, OR execute tasks for a Story. Automatically detects ticket type from labels. Set dryRun=true for a status view without side-effects.',
     {
       properties: {
         epicId: {
           type: 'number',
-          description: 'The GitHub issue number of the Epic to dispatch.',
+          description:
+            'The GitHub issue number of the Epic or Story to process.',
         },
         dryRun: {
           type: 'boolean',
@@ -149,9 +149,8 @@ async function registerSDKTools() {
       required: ['epicId'],
     },
     async ({ epicId, dryRun = false, githubToken }) => {
-      const config = resolveConfig();
       const provider = getProvider(githubToken);
-      return await dispatch({ epicId, dryRun, config, provider });
+      return resolveAndDispatch({ ticketId: epicId, dryRun, provider });
     },
   );
 
@@ -287,6 +286,61 @@ async function registerSDKTools() {
       const provider = getProvider(githubToken);
       await postStructuredComment(provider, ticketId, type, payload);
       return { success: true, ticketId };
+    },
+  );
+
+  // ── select_audits ─────────────────────────────────────────────────────────
+  const { selectAudits } = await import('./mcp/select-audits.js');
+  registerTool(
+    'select_audits',
+    'Analyzes ticket content and file changes to determine which audits to run based on audit-rules.json.',
+    {
+      properties: {
+        ticketId: {
+          type: 'number',
+          description: 'The GitHub issue number to evaluate.',
+        },
+        gate: {
+          type: 'string',
+          description:
+            'The current audit gate (e.g. gate1, gate2, gate3, gate4).',
+        },
+        githubToken: {
+          type: 'string',
+          description: 'Optional GitHub PAT. Overrides environment variables.',
+        },
+        baseBranch: {
+          type: 'string',
+          description: 'The base branch to diff against, defaults to "main".',
+        },
+      },
+      required: ['ticketId', 'gate'],
+    },
+    async ({ ticketId, gate, githubToken, baseBranch = 'main' }) => {
+      const provider = getProvider(githubToken);
+      return selectAudits({ ticketId, gate, provider, baseBranch });
+    },
+  );
+
+  // ── run_audit_suite ───────────────────────────────────────────────────────
+  const { runAuditSuite } = await import('./mcp/run-audit-suite.js');
+  registerTool(
+    'run_audit_suite',
+    'Executes a list of audit workflows and aggregates their results into a standard JSON format.',
+    {
+      properties: {
+        auditWorkflows: {
+          type: 'array',
+          items: { type: 'string' },
+          description:
+            'List of audit workflow names to execute (e.g. ["audit-clean-code"]).',
+        },
+      },
+      required: ['auditWorkflows'],
+    },
+    async ({ auditWorkflows }) => {
+      // Execute the audit suite logic
+      return runAuditSuite({ auditWorkflows });
     },
   );
 }

@@ -1,11 +1,11 @@
-import { parseArgs } from 'node:util';
-import { Logger } from './lib/Logger.js';
 import fs from 'node:fs';
-import { fileURLToPath } from 'node:url';
 import path from 'node:path';
+import { fileURLToPath } from 'node:url';
+import { parseArgs } from 'node:util';
 import { resolveConfig } from './lib/config-resolver.js';
-import { createProvider } from './lib/provider-factory.js';
 import { getEpicBranch, getStoryBranch } from './lib/git-utils.js';
+import { Logger } from './lib/Logger.js';
+import { createProvider } from './lib/provider-factory.js';
 
 export {
   hydrateContext,
@@ -57,8 +57,11 @@ async function main() {
     skills,
   };
 
+  // Resolve the story branch by parent story ID (v5: story-<storyId>)
+  const parentMatch = (t.body ?? '').match(/parent:\s*#(\d+)/i);
+  const storyId = parentMatch ? parseInt(parentMatch[1], 10) : taskId;
   const epicBranch = getEpicBranch(epicId);
-  const taskBranch = getStoryBranch(epicId, t.title); // Fallback: try to find parent story title?
+  const taskBranch = getStoryBranch(epicId, storyId);
 
   const prompt = await hydrateContext(
     task,
@@ -77,7 +80,7 @@ async function main() {
 }
 
 if (fileURLToPath(import.meta.url) === path.resolve(process.argv[1])) {
-  main().catch((err) => {
+  main().catch((_err) => {
     Logger.fatal();
   });
 }

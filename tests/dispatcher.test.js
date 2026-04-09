@@ -437,16 +437,13 @@ describe('dispatch() — story-level orchestration', () => {
     const t1 = wave0.tasks.find((t) => t.taskId === 1);
     const t2 = wave0.tasks.find((t) => t.taskId === 2);
 
-    assert.equal(t1.branch, 'story/epic-1/story-slug');
-    assert.equal(t2.branch, 'story/epic-1/story-slug');
+    assert.equal(t1.branch, 'story-100');
+    assert.equal(t2.branch, 'story-100');
 
     // storyManifest should contain the story
     assert.equal(manifest.storyManifest.length, 1);
     assert.equal(manifest.storyManifest[0].storyId, 100);
-    assert.equal(
-      manifest.storyManifest[0].branchName,
-      'story/epic-1/story-slug',
-    );
+    assert.equal(manifest.storyManifest[0].branchName, 'story-100');
     assert.equal(manifest.storyManifest[0].tasks.length, 2);
   });
 

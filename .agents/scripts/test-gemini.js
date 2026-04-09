@@ -1,7 +1,7 @@
 import fs from 'node:fs';
-import { Logger } from './lib/Logger.js';
 import path from 'node:path';
 import { fileURLToPath } from 'node:url';
+import { Logger } from './lib/Logger.js';
 import { LLMClient } from './lib/llm-client.js';
 
 const __dirname = path.dirname(fileURLToPath(import.meta.url));
@@ -52,7 +52,7 @@ async function testGemini() {
         '[Test] ⚠️ Gemini API responded, but not with the expected word.',
       );
     }
-  } catch (err) {
+  } catch (_err) {
     console.error('[Test] ❌ Gemini API connection failed:');
     Logger.fatal();
   }

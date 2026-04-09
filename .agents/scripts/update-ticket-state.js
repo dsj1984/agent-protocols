@@ -9,9 +9,8 @@
  */
 
 import { parseArgs } from 'node:util';
-import { Logger } from './lib/Logger.js';
 import { resolveConfig } from './lib/config-resolver.js';
-import { createProvider } from './lib/provider-factory.js';
+import { Logger } from './lib/Logger.js';
 import {
   STATE_LABELS,
   cascadeCompletion as sdkCascadeCompletion,
@@ -19,6 +18,7 @@ import {
   toggleTasklistCheckbox as sdkToggleTasklistCheckbox,
   transitionTicketState as sdkTransitionTicketState,
 } from './lib/orchestration/ticketing.js';
+import { createProvider } from './lib/provider-factory.js';
 
 export { STATE_LABELS };
 
@@ -97,7 +97,7 @@ if (
       }
 
       console.log('[State-Sync] ✅ Success');
-    } catch (err) {
+    } catch (_err) {
       Logger.fatal();
     }
   })();

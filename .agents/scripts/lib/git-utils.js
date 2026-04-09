@@ -78,13 +78,13 @@ export function slugify(text) {
 
 /**
  * Resolves the canonical branch name for a Story.
- * v5 Standard: story/epic-[EPIC_ID]/[STORY_SLUG]
- * @param {string|number} epicId
- * @param {string} storySlug
+ * v5 Standard: story-[STORY_ID]
+ * @param {string|number} _epicId - Unused; retained for back-compat call sites.
+ * @param {string|number} storyId
  * @returns {string}
  */
-export function getStoryBranch(epicId, storySlug) {
-  return `story/epic-${epicId}/${slugify(storySlug)}`;
+export function getStoryBranch(_epicId, storyId) {
+  return `story-${storyId}`;
 }
 
 /**
@@ -128,7 +128,7 @@ export async function resolveBranchForTask(epicId, taskId, provider) {
     try {
       const parent = await provider.getTicket(parentId);
       if ((parent.labels ?? []).includes('type::story')) {
-        return getStoryBranch(epicId, parent.title);
+        return getStoryBranch(epicId, parentId);
       }
     } catch (err) {
       console.warn(
