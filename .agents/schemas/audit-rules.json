@@ -28,8 +28,17 @@
         "filePatterns": ["**/user-profile/**/*.js"]
       }
     },
-    "audit-dependency-update": {
-      "triggers": { "gates": ["gate2"] }
+    "audit-accessibility": {
+      "triggers": {
+        "gates": ["gate2", "gate3"],
+        "keywords": ["a11y", "accessibility", "wcag", "ui", "frontend", "aria"],
+        "filePatterns": [
+          "**/*.html",
+          "**/*.css",
+          "**/components/**/*.js",
+          "**/frontend/**/*.js"
+        ]
+      }
     },
     "audit-devops": {
       "triggers": { "gates": ["gate2"] }
