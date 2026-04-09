@@ -4,10 +4,10 @@ import path from 'node:path';
 import { fileURLToPath } from 'node:url';
 import { parseArgs } from 'node:util';
 import { resolveConfig } from './lib/config-resolver.js';
-import { createProvider } from './lib/provider-factory.js';
-import { selectAudits } from './mcp/select-audits.js';
-import { runAuditSuite } from './mcp/run-audit-suite.js';
 import { Logger } from './lib/Logger.js';
+import { createProvider } from './lib/provider-factory.js';
+import { runAuditSuite } from './mcp/run-audit-suite.js';
+import { selectAudits } from './mcp/select-audits.js';
 
 function formatAuditReport(results) {
   const { metadata, findings } = results;
@@ -56,6 +56,8 @@ function formatAuditReport(results) {
   if (summary.critical > 0 || summary.high > 0) {
     report +=
       '\n> [!WARNING]\n> High or Critical findings detected. Please address these before proceeding to the next gate.\n';
+    report +=
+      '\n> [!TIP]\n> Reply with `/approve` to dispatch an agent to automatically implement and verify fixes for these findings.\n';
   }
 
   return report;

@@ -1,0 +1,82 @@
+#!/usr/bin/env node
+
+/**
+ * .agents/scripts/handle-approval.js
+ *
+ * Parses /approve commands from issue comments. If an approval is detected,
+ * transitions the target ticket to agent::executing and dispatches an agent
+ * to implement the required fixes.
+ */
+
+import path from 'node:path';
+import { fileURLToPath } from 'node:url';
+import { parseArgs } from 'node:util';
+import { resolveConfig } from './lib/config-resolver.js';
+import { Logger } from './lib/Logger.js';
+import { createProvider } from './lib/provider-factory.js';
+
+export async function handleApproval(ticketId, commentBody) {
+  if (!commentBody?.trim().startsWith('/approve')) {
+    Logger.info(
+      `Comment on #${ticketId} does not start with /approve. Ignoring.`,
+    );
+    return;
+  }
+
+  Logger.info(`Approval command detected for Ticket #${ticketId}.`);
+  const config = resolveConfig();
+  const provider = createProvider(config.orchestration);
+
+  const ticket = await provider.getTicket(ticketId);
+  if (!ticket) {
+    Logger.fatal(`Ticket #${ticketId} not found.`);
+  }
+
+  Logger.info(`Transitioning #${ticketId} to agent::executing...`);
+  const ALL_AGENT_STATES = [
+    'agent::ready',
+    'agent::executing',
+    'agent::review',
+    'agent::done',
+  ];
+
+  await provider.updateTicket(ticketId, {
+    labels: {
+      add: ['agent::executing'],
+      remove: ALL_AGENT_STATES.filter((s) => s !== 'agent::executing'),
+    },
+  });
+
+  Logger.info(`Posting feedback to Ticket #${ticketId}...`);
+  const responseComment = `🚀 **Fixes Approved!**\n\nAn agent has been dispatched to implement the required changes. Once the agent completes its work and transitions the ticket to \`agent::review\`, verification audits will re-run automatically.`;
+  await provider.postComment(ticketId, {
+    body: responseComment,
+    type: 'notification',
+  });
+
+  Logger.info(`Successfully dispatched agent for Ticket #${ticketId}.`);
+}
+
+async function main() {
+  const { values } = parseArgs({
+    options: {
+      ticket: { type: 'string' },
+      comment: { type: 'string' },
+    },
+  });
+
+  if (!values.ticket || !values.comment) {
+    Logger.fatal(
+      'Usage: node handle-approval.js --ticket <ID> --comment "<body text>"',
+    );
+  }
+
+  const ticketId = parseInt(values.ticket, 10);
+  await handleApproval(ticketId, values.comment);
+}
+
+if (fileURLToPath(import.meta.url) === path.resolve(process.argv[1])) {
+  main().catch((err) => {
+    Logger.fatal(`Fatal error: ${err.stack || err.message}`);
+  });
+}

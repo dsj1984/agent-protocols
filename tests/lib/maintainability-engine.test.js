@@ -1,10 +1,10 @@
-import { test } from 'node:test';
 import assert from 'node:assert';
-import fs from 'fs';
-import path from 'path';
+import fs from 'node:fs';
+import path from 'node:path';
+import { test } from 'node:test';
 import {
-  calculateForSource,
   calculateForFile,
+  calculateForSource,
 } from '../../.agents/scripts/lib/maintainability-engine.js';
 
 test('calculateForSource - parses valid code', () => {

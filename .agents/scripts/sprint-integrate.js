@@ -19,10 +19,9 @@ import {
   VerificationError,
 } from './lib/integration-verifier.js';
 import { Logger } from './lib/Logger.js';
+import { parseParentId } from './lib/orchestration/dispatcher.js';
 import { VerboseLogger } from './lib/VerboseLogger.js';
 import { getProvider, postStructuredComment } from './update-ticket-state.js';
-
-import { parseParentId } from './lib/orchestration/dispatcher.js';
 
 /**
  * sprint-integrate.js — Epic Integration Candidate Verification

@@ -18,9 +18,9 @@ import { fileURLToPath } from 'node:url';
 import { parseArgs } from 'node:util';
 import { resolveConfig } from './lib/config-resolver.js';
 import { detectCycle } from './lib/Graph.js';
+import { Logger } from './lib/Logger.js';
 import { LLMClient } from './lib/llm-client.js';
 import { createProvider } from './lib/provider-factory.js';
-import { Logger } from './lib/Logger.js';
 
 const DECOMPOSER_SYSTEM_PROMPT = `You are an expert Senior Project Manager and Orchestrator.
 Your job is to take a Product Requirements Document (PRD) and a Technical Specification and decompose them into a highly-granular 3-level ticket hierarchy for an AI Agent to execute.

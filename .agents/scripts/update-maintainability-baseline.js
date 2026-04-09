@@ -1,7 +1,7 @@
 import {
-  scanDirectory,
   calculateAll,
   saveBaseline,
+  scanDirectory,
 } from './lib/maintainability-utils.js';
 
 /**

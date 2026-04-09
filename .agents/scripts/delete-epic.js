@@ -247,7 +247,7 @@ async function main() {
       // The root issue (epicNumber) is always the LAST element in the depth-first result
       tree = tree.filter((issue) => issue.number !== epicNumber);
     }
-  } catch (err) {
+  } catch (_err) {
     Logger.fatal();
   }
 
@@ -282,6 +282,6 @@ async function main() {
   );
 }
 
-main().catch((err) => {
+main().catch((_err) => {
   Logger.fatal();
 });

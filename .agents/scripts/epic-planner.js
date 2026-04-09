@@ -9,11 +9,11 @@
  */
 
 import fs from 'node:fs';
-import { Logger } from './lib/Logger.js';
 import path from 'node:path';
 import { fileURLToPath } from 'node:url';
 import { parseArgs } from 'node:util';
 import { resolveConfig } from './lib/config-resolver.js';
+import { Logger } from './lib/Logger.js';
 import { LLMClient } from './lib/llm-client.js';
 import { createProvider } from './lib/provider-factory.js';
 
