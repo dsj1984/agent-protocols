@@ -248,7 +248,7 @@ export function getResolvedBranch(task, allTicketsById, epicId) {
     const parentId = parseInt(parentMatch[1], 10);
     const parentTicket = allTicketsById.get(parentId);
     if (parentTicket && (parentTicket.labels ?? []).includes('type::story')) {
-      return getStoryBranch(epicId, parentTicket.title);
+      return getStoryBranch(epicId, parentId);
     }
   }
   return getTaskBranch(epicId, task.id);
@@ -495,7 +495,7 @@ export function buildStoryManifest(tasks, allTickets, epicId, settings) {
     const branchName =
       group.storyId === '__ungrouped__'
         ? getTaskBranch(epicId, 'ungrouped')
-        : getStoryBranch(epicId, group.storyTitle);
+        : getStoryBranch(epicId, group.storyId);
 
     return {
       storyId: group.storyId,
@@ -646,8 +646,8 @@ export async function executeStory(options) {
   }
 
   const branchName = epicId
-    ? getStoryBranch(epicId, story.title)
-    : `story/unknown/${story.id}`;
+    ? getStoryBranch(epicId, story.id)
+    : `story-${story.id}`;
   const epicBranch = epicId ? getEpicBranch(epicId) : null;
 
   manifest.stories.push({

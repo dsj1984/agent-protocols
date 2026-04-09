@@ -57,8 +57,11 @@ async function main() {
     skills,
   };
 
+  // Resolve the story branch by parent story ID (v5: story-<storyId>)
+  const parentMatch = (t.body ?? '').match(/parent:\s*#(\d+)/i);
+  const storyId = parentMatch ? parseInt(parentMatch[1], 10) : taskId;
   const epicBranch = getEpicBranch(epicId);
-  const taskBranch = getStoryBranch(epicId, t.title); // Fallback: try to find parent story title?
+  const taskBranch = getStoryBranch(epicId, storyId);
 
   const prompt = await hydrateContext(
     task,

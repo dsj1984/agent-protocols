@@ -174,12 +174,12 @@ git checkout main
 ### Step 2 — Story Branch Checkout
 
 1. Identify the Story branch from the **Story Dispatch Table** or compute it:
-   - Format: `story/epic-<epicId>/<story-slug>`
+   - Format: `story-<storyId>` (e.g. `story-162`)
 2. Fetch and checkout the branch (branching from the Epic base branch, **not** `main`):
 
    ```powershell
    git fetch origin
-   git checkout <storyBranch> || git checkout -b <storyBranch> epic/<epicId>
+   git checkout story-<storyId>; if (-not $?) { git checkout -b story-<storyId> epic/<epicId> }
    ```
 
 3. Transition ALL child Task labels via the state writer:
@@ -241,7 +241,7 @@ branch. **No PR is created** — the merge commit serves as the audit trail.
 2. Merge the Story branch with `--no-ff` to preserve the merge commit:
 
    ```powershell
-   git merge --no-ff story/epic-<epicId>/<story-slug> -m "feat: <Story title> (resolves #<storyId>)"
+   git merge --no-ff story-<storyId> -m "feat: <Story title> (resolves #<storyId>)"
    ```
 
 3. Push the updated Epic branch:
@@ -254,8 +254,24 @@ branch. **No PR is created** — the merge commit serves as the audit trail.
 > `epic/<epicId>` and hold at `agent::review` until the operator approves. Use:
 >
 > ```powershell
-> gh pr create --head <storyBranch> --base epic/<epicId> --title "feat: <Story title>" --body "Closes #<storyId>"
+> gh pr create --head story-<storyId> --base epic/<epicId> --title "feat: <Story title>" --body "Closes #<storyId>"
 > ```
+
+### Step 5b — Branch Cleanup
+
+After the merge is pushed, delete the Story branch locally and, if it was
+pushed to the remote, remotely too.
+
+```powershell
+# Delete local branch
+git branch -d story-<storyId>
+
+# Delete remote branch only if it was ever pushed
+git push --no-verify origin --delete story-<storyId>
+```
+
+> The remote delete will fail silently if the branch was never pushed — this is
+> expected and safe to ignore.
 
 ### Step 6 — Close Tickets (Cascade Completion)
 
@@ -291,3 +307,5 @@ up through the hierarchy (Tasks → Story → Feature → Epic).
   session.
 - **Always** run cascadeCompletion after merging — GitHub cannot auto-close
   tickets on non-default branch merges.
+- **Always** delete the Story branch (local + remote) after merging into the
+  Epic branch.
