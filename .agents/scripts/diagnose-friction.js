@@ -15,6 +15,7 @@
  * @see docs/v5-implementation-plan.md Sprint 3E
  */
 
+import crypto from 'node:crypto';
 import { spawnSync } from 'node:child_process';
 import { resolveConfig } from './lib/config-resolver.js';
 import { Logger } from './lib/Logger.js';
@@ -83,12 +84,45 @@ if (result.status !== 0) {
   // Post a structured friction comment to the Task ticket (v5 SSOT)
   if (taskId) {
     try {
+      // Determine Friction Category
+      let category = 'Execution Error';
+      if (
+        errorOutput.includes('EADDRINUSE') ||
+        errorOutput.includes('address already in use')
+      ) {
+        category = 'Tool Limitation';
+      } else if (
+        errorOutput.includes('Cannot find module') ||
+        errorOutput.includes('TS2307')
+      ) {
+        category = 'Missing Skill';
+      } else if (errorOutput.includes('SyntaxError')) {
+        category = 'Execution Error';
+      } else if (
+        errorOutput.includes('Astro') || 
+        errorOutput.includes('astro')
+      ) {
+        category = 'Tool Limitation';
+      }
+
+      const frictionEvent = {
+        eventId: crypto.randomUUID(),
+        timestamp: new Date().toISOString(),
+        sprintId: settings.epicId || 'unknown',
+        taskId: parseInt(taskId, 10),
+        category,
+        source: {
+          command: commandStr,
+        },
+        details: errorPreview,
+      };
+
       await postStructuredComment(
         parseInt(taskId, 10),
         'friction',
-        `Command failed: \`${commandStr}\`\n\nExit code: ${result.status}\n\n\`\`\`\n${errorPreview}\n\`\`\``,
+        JSON.stringify(frictionEvent, null, 2),
       );
-      console.log(`✅ Friction posted to Task #${taskId} on GitHub.`);
+      console.error(`✅ Friction posted to Task #${taskId} on GitHub.`);
     } catch (err) {
       console.error(
         `⚠️ Failed to post friction comment to Task #${taskId}: ${err.message}`,
@@ -96,7 +130,7 @@ if (result.status !== 0) {
       // Non-fatal — the exit code is the primary signal
     }
   } else {
-    console.log('ℹ️ No --task provided; skipping GitHub friction comment.');
+    console.error('ℹ️ No --task provided; skipping GitHub friction comment.');
   }
 
   // Static auto-remediation suggestions
