@@ -31,10 +31,10 @@ Epic GitHub issue, cleans up all sprint branches, and optionally tags a release.
    - `release.packageJson` — boolean; if `true` the version in the root
      `package.json` is also bumped. Defaults to `true`.
    - `release.autoVersionBump` — boolean; if `true` (default) the agent
-     automatically determines whether to bump the **minor** or **patch**
-     segment based on the scope of changes in the Epic. If `false`, no
-     automatic version bump is performed (the operator must bump manually
-     or specify the segment at invocation time).
+     automatically determines whether to bump the **minor** or **patch** segment
+     based on the scope of changes in the Epic. If `false`, no automatic version
+     bump is performed (the operator must bump manually or specify the segment
+     at invocation time).
 6. Resolve `[ALL_DOCS]` — the combined array of documentation files to verify:
    - All files listed in `release.docs`.
    - All files listed in `agentSettings.docsContextFiles` (prefixed with the
@@ -97,8 +97,9 @@ git commit -m "docs: update [DOC_PATH] for Epic #[EPIC_ID]"
 ```
 
 > **Guidance for consuming projects:** Add every file your release process
-> requires to `release.docs` or `agentSettings.docsContextFiles` in `.agentrc.json`. Common examples:
-> `README.md`, `docs/CHANGELOG.md`, `MIGRATION.md`, `API.md`.
+> requires to `release.docs` or `agentSettings.docsContextFiles` in
+> `.agentrc.json`. Common examples: `README.md`, `docs/CHANGELOG.md`,
+> `MIGRATION.md`, `API.md`.
 
 ## Step 3 — Version Bump & Tag
 
@@ -106,17 +107,16 @@ If `release.autoVersionBump` is `true` (default) **and** at least one of
 `release.versionFile` or `release.packageJson` is configured, increment the
 project version **before** the merge to `main`.
 
-1. **Read** the current version string from `[RELEASE_CONFIG].versionFile`
-   (if set) or `package.json#version`.
+1. **Read** the current version string from `[RELEASE_CONFIG].versionFile` (if
+   set) or `package.json#version`.
 1. **Determine the bump segment** by inspecting the Epic's completed tickets:
-   - **minor** — if the Epic introduced new user-facing features, new
-     workflows, new CLI commands, new API surfaces, or significant behavioral
-     changes.
+   - **minor** — if the Epic introduced new user-facing features, new workflows,
+     new CLI commands, new API surfaces, or significant behavioral changes.
    - **patch** — if the Epic contained only bug fixes, documentation updates,
      refactors, dependency bumps, or internal tooling changes with no
      user-facing feature additions.
-   - The operator may override this decision at invocation time (e.g.,
-     "use major for this release").
+   - The operator may override this decision at invocation time (e.g., "use
+     major for this release").
 1. **Calculate** the next version by incrementing the chosen segment
    (`major.minor.patch`).
 1. **Write** the new version:
@@ -142,9 +142,9 @@ git commit -m "chore(release): bump version to [NEW_VERSION] for Epic #[EPIC_ID]
 git tag -a "v[NEW_VERSION]" -m "Release v[NEW_VERSION]: Epic #[EPIC_ID] — [Epic Title]"
 ```
 
-> **Note:** The tag is created on the Epic branch before the merge so it
-> travels with the merge commit into `[BASE_BRANCH]`. The tag is pushed in
-> Step 7 alongside `[BASE_BRANCH]`.
+> **Note:** The tag is created on the Epic branch before the merge so it travels
+> with the merge commit into `[BASE_BRANCH]`. The tag is pushed in Step 7
+> alongside `[BASE_BRANCH]`.
 
 ## Step 4 — Pre-Merge Validation
 
@@ -192,13 +192,18 @@ node [SCRIPTS_ROOT]/sprint-close.js --epic [EPIC_ID]
 ```
 
 This automated script performs:
-1. **Discovery**: Finds and closes `context::prd` and `context::tech-spec` tickets for this Epic.
+
+1. **Discovery**: Finds and closes `context::prd` and `context::tech-spec`
+   tickets for this Epic.
 2. **Epic Closure**: Posts a final summary comment and closes the Epic issue.
-3. **Cleanup**: Deletes all local and remote branches associated with this Epic (can be disabled with `--no-cleanup`).
+3. **Cleanup**: Deletes all local and remote branches associated with this Epic
+   (can be disabled with `--no-cleanup`).
 
 ## Step 9 — Verify Closure
 
-Manually verify that the Epic and all context tickets are closed in the GitHub UI. Check the notification structured comment on the Epic for the final shipping announcement.
+Manually verify that the Epic and all context tickets are closed in the GitHub
+UI. Check the notification structured comment on the Epic for the final shipping
+announcement.
 
 ## Step 10 — Verify Tag (If Applicable)
 
@@ -216,7 +221,8 @@ git push origin "v[NEW_VERSION]"
 
 ## Step 11 — Internal State Cleanup
 
-The `sprint-close.js` script in Step 8 handles branch cleanup by default. If you ran it with `--no-cleanup`, or need to perform manual cleanup:
+The `sprint-close.js` script in Step 8 handles branch cleanup by default. If you
+ran it with `--no-cleanup`, or need to perform manual cleanup:
 
 ```powershell
 # 1. Delete all remote task branches for this Epic
@@ -237,15 +243,15 @@ git fetch --prune
 
 - **Never** merge to `main` if any child ticket (Task, Story, Feature) is still
   open — the Completeness Gate in Step 1 is mandatory.
-- **Never** skip the Documentation Freshness Gate (Step 2). Every file in `[ALL_DOCS]`
-  **must** show a diff against `[BASE_BRANCH]`
-  before the merge proceeds. If a file has no changes, update it.
+- **Never** skip the Documentation Freshness Gate (Step 2). Every file in
+  `[ALL_DOCS]` **must** show a diff against `[BASE_BRANCH]` before the merge
+  proceeds. If a file has no changes, update it.
 - **Never** skip the pre-merge validation (lint + test). A broken `main` branch
   blocks all future Epics.
 - **Always** bump the version and create the git tag (Step 3) before merging
   when `release.autoVersionBump` is `true`. Use **minor** for new features,
   **patch** for fixes and refactors.
-- **Always** run `sprint-close.js` (Step 8) to ensure PRD and Tech Spec tickets 
+- **Always** run `sprint-close.js` (Step 8) to ensure PRD and Tech Spec tickets
   are formally closed — they are excluded from auto-closure during execution.
 - **Always** delete all Epic, Task, and Story branches after merge to prevent
   branch bloat.

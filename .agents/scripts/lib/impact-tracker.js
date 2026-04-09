@@ -206,7 +206,7 @@ export class ImpactTracker {
     const diff = postRate - preRate;
     const trend =
       diff < 0 ? '📉 Decreased' : diff > 0 ? '📈 Increased' : '➡️ Unchanged';
-    const pct = preRate > 0 ? ((diff / preRate) * 100).toFixed(1) + '%' : 'N/A';
+    const pct = preRate > 0 ? `${((diff / preRate) * 100).toFixed(1)}%` : 'N/A';
 
     return `<!-- impact-report -->
 ## Impact Analysis Report

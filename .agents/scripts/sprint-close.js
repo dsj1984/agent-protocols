@@ -3,16 +3,16 @@
 /**
  * .agents/scripts/sprint-close.js — Final Epic Lifecycle Closure
  *
- * Automates the terminal steps of an Epic lifecycle (Step 8, 9, and 11 of 
+ * Automates the terminal steps of an Epic lifecycle (Step 8, 9, and 11 of
  * sprint-close.md). This script handles:
- * 
+ *
  *   1. Automatic discovery and closure of Context tickets (PRD, Tech Spec).
  *   2. Formal closure of the Epic issue with a summary comment.
  *   3. Cleanup of local and remote Task/Story branches.
- * 
+ *
  * Usage:
  *   node .agents/scripts/sprint-close.js --epic <EPIC_ID>
- * 
+ *
  * This script does NOT handle the merge to main or version tagging, which
  * remain as high-visibility manual/shell steps in the workflow to ensure
  * operator oversight for production releases.
@@ -28,7 +28,7 @@ import { Logger } from './lib/Logger.js';
 import {
   transitionTicketState,
   postStructuredComment,
-  STATE_LABELS
+  STATE_LABELS,
 } from './lib/orchestration/ticketing.js';
 
 const __filename = fileURLToPath(import.meta.url);
@@ -38,9 +38,9 @@ async function main() {
   const { values } = parseArgs({
     options: {
       epic: { type: 'string' },
-      cleanup: { type: 'boolean', default: true }
+      cleanup: { type: 'boolean', default: true },
     },
-    strict: false
+    strict: false,
   });
 
   const epicId = parseInt(values.epic ?? '', 10);
@@ -60,10 +60,11 @@ async function main() {
   try {
     progress('CONTEXT', 'Searching for PRD and Tech Spec tickets...');
     const subTickets = await provider.getSubTickets(epicId);
-    
-    const contextTickets = subTickets.filter(t => 
-      t.labels.includes('context::prd') || 
-      t.labels.includes('context::tech-spec')
+
+    const contextTickets = subTickets.filter(
+      (t) =>
+        t.labels.includes('context::prd') ||
+        t.labels.includes('context::tech-spec'),
     );
 
     if (contextTickets.length === 0) {
@@ -71,14 +72,19 @@ async function main() {
     } else {
       for (const ticket of contextTickets) {
         if (ticket.state === 'closed') continue;
-        
-        progress('CONTEXT', `Closing ${ticket.labels.find(l => l.startsWith('context::'))} #${ticket.id}...`);
+
+        progress(
+          'CONTEXT',
+          `Closing ${ticket.labels.find((l) => l.startsWith('context::'))} #${ticket.id}...`,
+        );
         await transitionTicketState(provider, ticket.id, STATE_LABELS.DONE);
         progress('CONTEXT', `✅ #${ticket.id} closed.`);
       }
     }
   } catch (err) {
-    console.warn(`⚠️ Warning: Failed to process context tickets: ${err.message}`);
+    console.warn(
+      `⚠️ Warning: Failed to process context tickets: ${err.message}`,
+    );
   }
 
   // -------------------------------------------------------------------------
@@ -86,19 +92,19 @@ async function main() {
   // -------------------------------------------------------------------------
   try {
     progress('EPIC', `Closing Epic #${epicId}...`);
-    
+
     const epic = await provider.getTicket(epicId);
     if (epic.state !== 'closed') {
       await postStructuredComment(
         provider,
         epicId,
         'notification',
-        `🎉 Epic #${epicId} has been successfully shipped. All tasks merged to main and context tickets closed.`
+        `🎉 Epic #${epicId} has been successfully shipped. All tasks merged to main and context tickets closed.`,
       );
-      
+
       await provider.updateTicket(epicId, {
         state: 'closed',
-        state_reason: 'completed'
+        state_reason: 'completed',
       });
       progress('EPIC', `✅ Epic #${epicId} closed.`);
     } else {
@@ -113,7 +119,7 @@ async function main() {
   // -------------------------------------------------------------------------
   if (values.cleanup) {
     progress('CLEANUP', 'Starting branch cleanup...');
-    
+
     // 3.1 Delete Epic branch (local + remote)
     const epicBranch = `epic/${epicId}`;
     progress('CLEANUP', `Deleting ${epicBranch}...`);
@@ -122,13 +128,13 @@ async function main() {
 
     // 3.2 Delete story branches
     progress('CLEANUP', 'Deleting story/task branches...');
-    
+
     // Remote cleanup
     const remoteBranches = gitSpawn(PROJECT_ROOT, 'branch', '-r').stdout ?? '';
     const storyIdPattern = `story/epic-${epicId}/`;
     const taskIdPattern = `task/epic-${epicId}/`;
 
-    remoteBranches.split('\n').forEach(line => {
+    remoteBranches.split('\n').forEach((line) => {
       const b = line.trim().replace('origin/', '');
       if (b.includes(storyIdPattern) || b.includes(taskIdPattern)) {
         progress('CLEANUP', `Deleting remote branch: ${b}`);
@@ -138,7 +144,7 @@ async function main() {
 
     // Local cleanup
     const localBranches = gitSpawn(PROJECT_ROOT, 'branch').stdout ?? '';
-    localBranches.split('\n').forEach(line => {
+    localBranches.split('\n').forEach((line) => {
       const b = line.trim().replace('* ', '');
       if (b.includes(storyIdPattern) || b.includes(taskIdPattern)) {
         progress('CLEANUP', `Deleting local branch: ${b}`);
@@ -158,6 +164,6 @@ function progress(phase, message) {
   console.log(`▶ [sprint-close] [${phase}] ${message}`);
 }
 
-main().catch(err => {
+main().catch((err) => {
   Logger.fatal(`sprint-close: ${err.message}`);
 });
