@@ -35,6 +35,10 @@ Epic GitHub issue, cleans up all sprint branches, and optionally tags a release.
      segment based on the scope of changes in the Epic. If `false`, no
      automatic version bump is performed (the operator must bump manually
      or specify the segment at invocation time).
+6. Resolve `[ALL_DOCS]` — the combined array of documentation files to verify:
+   - All files listed in `release.docs`.
+   - All files listed in `agentSettings.docsContextFiles` (prefixed with the
+     path from `agentSettings.docsRoot`).
 
 ## Step 1 — Completeness Gate (Hierarchy Check)
 
@@ -67,14 +71,14 @@ the exact open IDs.
 
 ## Step 2 — Documentation Freshness Gate
 
-For each file listed in `release.docs`, verify it has been meaningfully updated
+For each file listed in `[ALL_DOCS]`, verify it has been meaningfully updated
 during this Epic's lifecycle. The check is intentionally simple — it confirms
 that the file was **modified** (staged or committed) relative to `[BASE_BRANCH]`
 so that the operator cannot forget to update user-facing documentation before a
 release.
 
 ```powershell
-# For each doc path in [RELEASE_CONFIG].docs:
+# For each doc path in [ALL_DOCS]:
 git diff [BASE_BRANCH]..HEAD --name-only -- [DOC_PATH]
 ```
 
@@ -93,7 +97,7 @@ git commit -m "docs: update [DOC_PATH] for Epic #[EPIC_ID]"
 ```
 
 > **Guidance for consuming projects:** Add every file your release process
-> requires to `release.docs` in `.agentrc.json`. Common examples:
+> requires to `release.docs` or `agentSettings.docsContextFiles` in `.agentrc.json`. Common examples:
 > `README.md`, `docs/CHANGELOG.md`, `MIGRATION.md`, `API.md`.
 
 ## Step 3 — Version Bump & Tag
@@ -242,8 +246,8 @@ git fetch --prune
 
 - **Never** merge to `main` if any child ticket (Task, Story, Feature) is still
   open — the Completeness Gate in Step 1 is mandatory.
-- **Never** skip the Documentation Freshness Gate (Step 2). If `release.docs`
-  is configured, every listed file **must** show a diff against `[BASE_BRANCH]`
+- **Never** skip the Documentation Freshness Gate (Step 2). Every file in `[ALL_DOCS]`
+  **must** show a diff against `[BASE_BRANCH]`
   before the merge proceeds. If a file has no changes, update it.
 - **Never** skip the pre-merge validation (lint + test). A broken `main` branch
   blocks all future Epics.
