@@ -144,9 +144,7 @@ jobs:
   publish:
     name: Publish to Dist
     needs: [validate, check-changes]
-    # DISABLED: Re-enable after v5 testing is complete
-    # Original: if: github.event_name == 'push' && github.ref == 'refs/heads/main' && needs.check-changes.outputs.agents_changed == 'true'
-    if: false
+    if: github.event_name == 'push' && github.ref == 'refs/heads/main' && needs.check-changes.outputs.agents_changed == 'true'
     runs-on: ubuntu-latest
     permissions:
       contents: write
