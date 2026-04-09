@@ -877,6 +877,30 @@ export async function dispatch(options) {
   const tasks = await fetchTasks(provider, epicId);
   vlog.info('orchestration', `Found ${tasks.length} task(s).`);
 
+  // ── Step 1a: Ensure Sprint Health Issue exists ───────────────────────────
+  if (!dryRun) {
+    const allEpicTickets = await provider.getTickets(epicId);
+    const healthIssue = allEpicTickets.find((t) =>
+      (t.labels ?? []).includes('type::health') || t.title.startsWith('📉 Sprint Health:')
+    );
+
+    if (!healthIssue) {
+      vlog.info('orchestration', `Creating Sprint Health issue for Epic #${epicId}...`);
+      try {
+        const { id } = await provider.createTicket(epicId, {
+          epicId,
+          title: `📉 Sprint Health: ${epic.title}`,
+          body: `## Real-time Sprint Health Monitoring\n\nThis issue tracks the execution metrics, progress, and friction logs for this sprint.\n\n---\nparent: #${epicId}\nEpic: #${epicId}`,
+          labels: ['type::health', 'persona::operator'],
+          dependencies: []
+        });
+        vlog.info('orchestration', `✅ Sprint Health issue created: #${id}`);
+      } catch (err) {
+        vlog.warn('orchestration', `Failed to create Sprint Health ticket: ${err.message}`);
+      }
+    }
+  }
+
   // ── Step 1b: Reconcile stale labels on merged tasks ──────────────────────
   await reconcileClosedTasks(tasks, provider, dryRun);
 

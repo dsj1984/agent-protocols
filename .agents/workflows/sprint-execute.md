@@ -221,7 +221,13 @@ For **each child Task** in dependency order:
    node .agents/scripts/update-ticket-state.js --task <taskId> --state agent::review
    ```
 
-5. Proceed to the next Task in the Story.
+5. **Update Sprint Health**:
+
+   ```powershell
+   node .agents/scripts/health-monitor.js --epic <Epic ID>
+   ```
+
+6. Proceed to the next Task in the Story.
 
 ### Step 4 — Validate
 
@@ -236,7 +242,11 @@ If tests or lint fail:
 
 - Fix the issues and commit corrections.
 - If blocked (e.g., upstream dependency missing): post a friction comment and
-  apply `status::blocked`.
+  apply `status::blocked`. Then update sprint health:
+
+  ```powershell
+  node .agents/scripts/health-monitor.js --epic <Epic ID>
+  ```
 
 ### Step 5 — Auto-Merge into Epic Branch
 
@@ -301,6 +311,12 @@ up through the hierarchy (Tasks → Story → Feature → Epic).
 
    ```powershell
    node .agents/scripts/update-ticket-state.js --task <storyId> --state agent::done
+   ```
+
+3. **Update Sprint Health** (Finalizing metrics):
+
+   ```powershell
+   node .agents/scripts/health-monitor.js --epic <Epic ID>
    ```
 
 > **Why not use GitHub auto-close?** GitHub's `Closes #N` syntax only works
