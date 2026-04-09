@@ -49,23 +49,6 @@ successfully closed:
 2. **Stories**: Must all be closed.
 3. **Features**: Must all be closed.
 
-```javascript
-/*
-const allTickets = await provider.getTickets(epicId);
-const openChildren = allTickets.filter(t => 
-  t.id !== epicId && 
-  t.state === 'open' &&
-  (t.labels.includes('type::task') || t.labels.includes('type::story') || t.labels.includes('type::feature'))
-);
-
-if (openChildren.length > 0) {
-  console.error("The following child tickets are still OPEN:");
-  openChildren.forEach(t => console.error(` - #${t.id}: ${t.title}`));
-  process.exit(1);
-}
-*/
-```
-
 If ANY child ticket is not closed: **STOP IMMEDIATELY.** Alert the operator with
 the exact open IDs.
 
@@ -221,23 +204,8 @@ git push origin "v[NEW_VERSION]"
 
 ## Step 11 — Internal State Cleanup
 
-The `sprint-close.js` script in Step 8 handles branch cleanup by default. If you
-ran it with `--no-cleanup`, or need to perform manual cleanup:
-
-```powershell
-# 1. Delete all remote task branches for this Epic
-git branch -r --list "origin/task/epic-[EPIC_ID]/*" | ForEach-Object { $b = $_.Trim().Replace("origin/", ""); git push origin --delete $b }
-
-# 2. Delete all remote story branches for this Epic
-git branch -r --list "origin/story/epic-[EPIC_ID]/*" | ForEach-Object { $b = $_.Trim().Replace("origin/", ""); git push origin --delete $b }
-
-# 3. Delete local task and story branches
-git branch --list "task/epic-[EPIC_ID]/*" | ForEach-Object { git branch -D $_.Trim() }
-git branch --list "story/epic-[EPIC_ID]/*" | ForEach-Object { git branch -D $_.Trim() }
-
-# 4. Prune stale remote-tracking references
-git fetch --prune
-```
+If you ran Step 8 with `--no-cleanup`, or need to perform manual cleanup, run:
+`node [SCRIPTS_ROOT]/sprint-close.js --epic [EPIC_ID]` without the flag to clean up branches.
 
 ## Constraint
 

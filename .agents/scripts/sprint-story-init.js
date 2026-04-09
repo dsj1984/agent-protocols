@@ -30,13 +30,13 @@ import { fileURLToPath } from 'node:url';
 import { parseArgs } from 'node:util';
 import { PROJECT_ROOT, resolveConfig } from './lib/config-resolver.js';
 import { parseBlockedBy } from './lib/dependency-parser.js';
+import { buildGraph, topologicalSort } from './lib/Graph.js';
 import {
   getEpicBranch,
   getStoryBranch,
   gitSpawn,
   gitSync,
 } from './lib/git-utils.js';
-import { buildGraph, topologicalSort } from './lib/Graph.js';
 import { Logger } from './lib/Logger.js';
 import {
   STATE_LABELS,
@@ -337,9 +337,7 @@ async function main() {
 // Helpers
 // ---------------------------------------------------------------------------
 
-function progress(phase, message) {
-  console.error(`▶ [sprint-story-init] [${phase}] ${message}`);
-}
+const progress = Logger.createProgress('sprint-story-init', { stderr: true });
 
 // ---------------------------------------------------------------------------
 // Main guard

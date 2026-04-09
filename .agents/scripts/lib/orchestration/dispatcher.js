@@ -49,6 +49,7 @@ const vlog = VerboseLogger.init(globalSettings, PROJECT_ROOT, {
 });
 
 import { notify } from '../../notify.js';
+import { fetchTelemetry } from './telemetry.js';
 import { STATE_LABELS } from './ticketing.js';
 
 // ---------------------------------------------------------------------------
@@ -1081,39 +1082,7 @@ export async function dispatch(options) {
   }
 
   // ── Step 7: Telemetry & Diagnostics ─────────────────────────────────────
-  let totalFriction = 0;
-  const recentFriction = [];
-  try {
-    const comments = await provider.getRecentComments(100);
-    const taskIds = new Set(tasks.map((t) => t.id));
-    for (const c of comments) {
-      const issueUrlMatch = c.issue_url?.match(/\/issues\/(\d+)$/);
-      if (issueUrlMatch) {
-        const issueId = parseInt(issueUrlMatch[1], 10);
-        if (taskIds.has(issueId)) {
-          const body = c.body || '';
-          if (body.includes('⚠️ **Friction**')) {
-            totalFriction++;
-            if (recentFriction.length < 5) {
-              const msg = body.replace('⚠️ **Friction**', '').trim();
-              recentFriction.push({
-                taskId: issueId,
-                message:
-                  msg.substring(0, 150) + (msg.length > 150 ? '...' : ''),
-              });
-            }
-          }
-        }
-      }
-    }
-  } catch (err) {
-    vlog.error(
-      'orchestration',
-      `Failed to fetch tracking telemetry: ${err.message}`,
-    );
-  }
-
-  const agentTelemetry = { totalFriction, recentFriction };
+  const agentTelemetry = await fetchTelemetry(provider, tasks);
 
   // ── Step 8: Build and emit manifest ─────────────────────────────────────
   const manifest = buildManifest({

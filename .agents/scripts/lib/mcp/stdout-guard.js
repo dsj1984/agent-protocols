@@ -8,6 +8,7 @@
 process.env.MCP_SERVER = 'true';
 
 import fs from 'node:fs';
+
 const _realStdoutWrite = process.stdout.write.bind(process.stdout);
 const _realStderrWrite = process.stderr.write.bind(process.stderr);
 

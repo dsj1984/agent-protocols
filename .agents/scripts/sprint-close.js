@@ -19,20 +19,16 @@
  */
 
 import { parseArgs } from 'node:util';
-import path from 'node:path';
-import { fileURLToPath } from 'node:url';
-import { resolveConfig, PROJECT_ROOT } from './lib/config-resolver.js';
-import { createProvider } from './lib/provider-factory.js';
+
+import { PROJECT_ROOT, resolveConfig } from './lib/config-resolver.js';
 import { gitSpawn } from './lib/git-utils.js';
 import { Logger } from './lib/Logger.js';
 import {
-  transitionTicketState,
   postStructuredComment,
   STATE_LABELS,
+  transitionTicketState,
 } from './lib/orchestration/ticketing.js';
-
-const __filename = fileURLToPath(import.meta.url);
-const __dirname = path.dirname(__filename);
+import { createProvider } from './lib/provider-factory.js';
 
 async function main() {
   const { values } = parseArgs({
@@ -160,9 +156,7 @@ async function main() {
   progress('DONE', `🎉 Formal closure for Epic #${epicId} finished.`);
 }
 
-function progress(phase, message) {
-  console.log(`▶ [sprint-close] [${phase}] ${message}`);
-}
+const progress = Logger.createProgress('sprint-close', { stderr: false });
 
 main().catch((err) => {
   Logger.fatal(`sprint-close: ${err.message}`);

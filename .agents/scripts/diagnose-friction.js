@@ -15,11 +15,12 @@
  * @see docs/v5-implementation-plan.md Sprint 3E
  */
 
-import crypto from 'node:crypto';
 import { spawnSync } from 'node:child_process';
+import crypto from 'node:crypto';
 import { resolveConfig } from './lib/config-resolver.js';
 import { Logger } from './lib/Logger.js';
-import { getProvider, postStructuredComment } from './update-ticket-state.js';
+import { postStructuredComment } from './lib/orchestration/ticketing.js';
+import { createProvider } from './lib/provider-factory.js';
 
 // ---------------------------------------------------------------------------
 // Parse arguments
@@ -116,9 +117,9 @@ if (result.status !== 0) {
 
   // Dynamically resolve Sprint ID
   let resolvedSprintId = process.env.SPRINT_ID || settings.epicId || 'unknown';
+  const provider = createProvider(resolveConfig().orchestration);
   if (resolvedSprintId === 'unknown' && taskId && !process.env.NO_NETWORK) {
     try {
-      const provider = getProvider();
       const ticket = await provider.getTicket(taskId);
       const epicMatch = ticket.body?.match(/(?:Epic|parent):\s*#(\d+)/i);
       if (epicMatch) {
@@ -150,6 +151,7 @@ if (result.status !== 0) {
     try {
       const payloadString = `\`\`\`json\n${JSON.stringify(frictionEvent, null, 2)}\n\`\`\``;
       await postStructuredComment(
+        provider,
         parseInt(taskId, 10),
         'friction',
         payloadString,

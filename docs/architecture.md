@@ -160,10 +160,8 @@ graph TB
         TD["ticket-decomposer.js"]:::script
         DI["dispatcher.js"]:::script
         CH["context-hydrator.js"]:::script
-        SI["sprint-integrate.js"]:::script
         NO["notify.js"]:::script
         UTS["update-ticket-state.js"]:::script
-        VP["verify-prereqs.js"]:::script
         GR["generate-roadmap.js"]:::script
     end
 
@@ -177,7 +175,6 @@ graph TB
         GMO["git-merge-orchestrator.js"]:::lib
         GU["git-utils.js"]:::lib
         VL["VerboseLogger.js"]:::lib
-        IV["integration-verifier.js"]:::lib
     end
 
     subgraph Interfaces ["Abstract Interfaces"]
@@ -191,7 +188,6 @@ graph TB
     end
 
     DI --> CR & PF & AF & GH & DP & CH
-    SI --> CR & PF & GMO & IV & VL
     EP --> CR & PF & LC
     TD --> CR & PF & LC & DP
 
@@ -209,9 +205,7 @@ graph TB
 | `ticket-decomposer.js`   | Recursively decomposes specs into Feature → Story → Task hierarchy                |
 | `dispatcher.js`          | Builds dependency DAG, computes execution waves, dispatches tasks                 |
 | `context-hydrator.js`    | Assembles self-contained prompts (protocol + persona + skills + hierarchy + task) |
-| `sprint-integrate.js`    | Merges task branches into Epic base branch via candidate branches                 |
 | `update-ticket-state.js` | Syncs task status via GitHub labels (`agent::ready` → `agent::done`)              |
-| `verify-prereqs.js`      | Validates dependency satisfaction before task execution                           |
 | `notify.js`              | Dispatches notifications via @mention and webhook channels                        |
 | `generate-roadmap.js`    | Auto-generates `docs/ROADMAP.md` from open Epics                                  |
 | `friction-analyzer.js`   | Aggregates structured friction logs and detects recurring patterns                |
@@ -382,7 +376,6 @@ sequenceDiagram
     participant DI as dispatcher.js
     participant CH as context-hydrator.js
     participant A as Agent (IDE)
-    participant SI as /sprint-integration
     participant GH as GitHub
 
     H->>GH: Create Epic issue
@@ -399,10 +392,6 @@ sequenceDiagram
     CH-->>DI: Self-contained prompt
     DI->>A: Dispatch task (via adapter)
     A->>GH: Update labels (agent::executing → done)
-
-    H->>SI: /sprint-integration
-    SI->>GH: Merge task branches → epic branch
-    SI->>GH: Status cascade (Task → Story → Feature → Epic)
 ```
 
 ---
@@ -453,9 +442,6 @@ The 25 slash-command workflows fall into four categories:
 | ----------------------------------- | --------- | ---------------------------------------------------------- |
 | `/sprint-plan`                      | Planning  | End-to-end PRD → Tech Spec → Task decomposition            |
 | `/sprint-execute`                   | Execution | Dispatch manifest (Epic) or hydrated implementation (Task) |
-| `/sprint-finalize-task`             | Execution | Validate, commit, state sync for a completed task          |
-| `/sprint-verify-task-prerequisites` | Execution | Dependency satisfaction check                              |
-| `/sprint-integration`               | Closure   | Merge task branches via candidate branch pattern           |
 | `/sprint-code-review`               | Closure   | Comprehensive code review                                  |
 | `/sprint-hotfix`                    | Closure   | Rapid remediation of integration failures                  |
 | `/sprint-retro`                     | Closure   | Retrospective from ticket graph data                       |

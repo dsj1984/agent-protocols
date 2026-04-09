@@ -1,14 +1,12 @@
 import assert from 'node:assert/strict';
 import test from 'node:test';
-import { ITicketingProvider } from '../.agents/scripts/lib/ITicketingProvider.js';
+import { ITicketingProvider } from '../../.agents/scripts/lib/ITicketingProvider.js';
 import {
   cascadeCompletion,
   postStructuredComment,
-  resetProvider,
-  setProvider,
   toggleTasklistCheckbox,
   transitionTicketState,
-} from '../.agents/scripts/update-ticket-state.js';
+} from '../../.agents/scripts/lib/orchestration/ticketing.js';
 
 class MockProvider extends ITicketingProvider {
   constructor() {
@@ -77,20 +75,15 @@ class MockProvider extends ITicketingProvider {
   }
 }
 
-test('update-ticket-state.js', async (t) => {
+test('ticketing.js', async (t) => {
   let mock;
 
   t.beforeEach(() => {
     mock = new MockProvider();
-    setProvider(mock);
-  });
-
-  t.afterEach(() => {
-    resetProvider();
   });
 
   await t.test('transitionTicketState logic', async () => {
-    await transitionTicketState(2, 'agent::review');
+    await transitionTicketState(mock, 2, 'agent::review');
     assert.deepEqual(mock.updates[0].mutations.labels.add, ['agent::review']);
     assert.deepEqual(mock.updates[0].mutations.labels.remove, [
       'agent::ready',
@@ -107,7 +100,7 @@ test('update-ticket-state.js', async (t) => {
   await t.test(
     'transitionTicketState closes issue when transitioning to agent::done',
     async () => {
-      await transitionTicketState(2, 'agent::done');
+      await transitionTicketState(mock, 2, 'agent::done');
       const mutation = mock.updates[0].mutations;
       assert.deepEqual(mutation.labels.add, ['agent::done']);
       assert.strictEqual(
@@ -124,15 +117,15 @@ test('update-ticket-state.js', async (t) => {
   );
 
   await t.test('toggleTasklistCheckbox logic', async () => {
-    await toggleTasklistCheckbox(1, 2, true);
+    await toggleTasklistCheckbox(mock, 1, 2, true);
     assert.strictEqual(mock.tickets[1].body, 'Epic body\n- [x] #2');
 
-    await toggleTasklistCheckbox(1, 2, false);
+    await toggleTasklistCheckbox(mock, 1, 2, false);
     assert.strictEqual(mock.tickets[1].body, 'Epic body\n- [ ] #2');
   });
 
   await t.test('postStructuredComment logic', async () => {
-    await postStructuredComment(1, 'progress', 'Did something');
+    await postStructuredComment(mock, 1, 'progress', 'Did something');
     assert.strictEqual(mock.comments[0].payload.body, 'Did something');
     assert.strictEqual(mock.comments[0].payload.type, 'progress');
   });
@@ -144,7 +137,7 @@ test('update-ticket-state.js', async (t) => {
       mock.tickets[3].labels = ['agent::done'];
 
       // Should transition 2 to agent::done and then 1 to agent::done
-      await cascadeCompletion(3);
+      await cascadeCompletion(mock, 3);
 
       // Checks on cascade effects:
       assert.ok(

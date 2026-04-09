@@ -58,6 +58,7 @@ async function main() {
     options: {
       story: { type: 'string' },
       epic: { type: 'string' },
+      'refresh-dashboard': { type: 'boolean', default: false },
     },
     strict: false,
   });
@@ -277,24 +278,30 @@ async function main() {
   // Dashboard Refresh (Regenerate Manifest)
   // -------------------------------------------------------------------------
 
-  progress('DASHBOARD', 'Regenerating dispatch manifest...');
-  let manifestUpdated = false;
-  try {
-    execFileSync(
-      'node',
-      [
-        path.join(__dirname, 'dispatcher.js'),
-        '--epic',
-        String(epicId),
-        '--dry-run',
-      ],
-      { cwd: PROJECT_ROOT, stdio: 'inherit', encoding: 'utf8' },
-    );
-    manifestUpdated = true;
-    progress('DASHBOARD', '✅ Dashboard manifest updated (temp/)');
-  } catch (err) {
-    console.error(
-      `[sprint-story-close] Dashboard refresh failed (non-fatal): ${err.message}`,
+  if (values['refresh-dashboard']) {
+    progress('DASHBOARD', 'Regenerating dispatch manifest...');
+    try {
+      const dirName = path.dirname(fileURLToPath(import.meta.url));
+      execFileSync(
+        'node',
+        [
+          path.join(dirName, 'dispatcher.js'),
+          '--epic',
+          String(epicId),
+          '--dry-run',
+        ],
+        { cwd: PROJECT_ROOT, stdio: 'inherit', encoding: 'utf8' },
+      );
+      progress('DASHBOARD', '✅ Dashboard manifest updated (temp/)');
+    } catch (err) {
+      console.error(
+        `[sprint-story-close] Dashboard refresh failed (non-fatal): ${err.message}`,
+      );
+    }
+  } else {
+    progress(
+      'DASHBOARD',
+      '⏭️ Skipping dashboard refresh (use --refresh-dashboard to run)',
     );
   }
 
@@ -329,9 +336,7 @@ async function main() {
 // Helpers
 // ---------------------------------------------------------------------------
 
-function progress(phase, message) {
-  console.error(`▶ [sprint-story-close] [${phase}] ${message}`);
-}
+const progress = Logger.createProgress('sprint-story-close', { stderr: true });
 
 // ---------------------------------------------------------------------------
 // Main guard

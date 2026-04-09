@@ -1,14 +1,11 @@
 #!/usr/bin/env node
 import { parseArgs } from 'node:util';
-import path from 'node:path';
-import { fileURLToPath } from 'node:url';
 
 import { resolveConfig } from './lib/config-resolver.js';
-import { createProvider } from './lib/provider-factory.js';
 import { fetchTasks } from './lib/orchestration/dispatcher.js';
+import { fetchTelemetry } from './lib/orchestration/telemetry.js';
+import { createProvider } from './lib/provider-factory.js';
 
-const __filename = fileURLToPath(import.meta.url);
-const __dirname = path.dirname(__filename);
 const vlog = {
   info: (...args) => console.log('INFO:', ...args),
   warn: (...args) => console.warn('WARN:', ...args),
@@ -64,31 +61,7 @@ async function main() {
   }
 
   // Attempt to fetch friction logs using recent comments
-  let totalFriction = 0;
-  try {
-    const comments = await provider.getRecentComments(100);
-    // filter comments that contain friction markers or were added to Task IDs
-    const taskIds = new Set(tasks.map((t) => t.id));
-    for (const comment of comments) {
-      if (
-        taskIds.has(
-          comment.issue_url
-            ? parseInt(comment.issue_url.split('/').pop(), 10)
-            : -1,
-        )
-      ) {
-        if (
-          comment.body &&
-          (comment.body.includes('[FRICTION]') ||
-            comment.body.includes('type: friction'))
-        ) {
-          totalFriction++;
-        }
-      }
-    }
-  } catch (err) {
-    vlog.warn(`Could not fetch recent comments: ${err.message}`);
-  }
+  const { totalFriction } = await fetchTelemetry(provider, tasks);
 
   const progressPercent =
     tasks.length > 0 ? Math.round((doneTasks / tasks.length) * 100) : 0;

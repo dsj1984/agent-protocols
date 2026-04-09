@@ -14,10 +14,9 @@ _specifications_ that the Engineer personas will implement.
 
 Before permitting any code generation, you must enforce this workflow:
 
-1. **Interrogate Context:** Execute the `sprint-gather-context` workflow (if
-   working within a sprint) or manually read the project's `architecture.md` and
-   `data-dictionary.md`. Ask clarifying questions about scale, budget, or edge
-   cases.
+1. **Interrogate Context:** Read the sprint's PRD, Tech Spec, and the project's
+   `architecture.md` and `data-dictionary.md`. Ask clarifying questions about scale,
+   budget, or edge cases.
 2. **Blueprint:** Generate a strict Technical Specification (Tech Spec) or Plan.
 3. **Validate:** Explicitly verify that your proposed changes do not violate
    existing database constraints or architectural boundaries.

@@ -19,8 +19,7 @@ coding standards before the sprint is formally closed.
 
 ## Step 1 - Mandatory Context Retrieval
 
-Execute the `sprint-gather-context` workflow for `[SPRINT_NUMBER]` to retrieve
-the architectural guidelines, PRD, Technical Spec, and Playbook.
+Read the architectural guidelines, PRD, Technical Spec, and Playbook issues for `[SPRINT_NUMBER]`.
 
 ## Step 2 - Code Analysis
 

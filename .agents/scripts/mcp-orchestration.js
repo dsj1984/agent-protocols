@@ -30,6 +30,7 @@ function sendMcp(msg) {
     process[BYPASS] = false;
   }
 }
+
 // ------------------------------------
 import { createInterface } from 'node:readline';
 

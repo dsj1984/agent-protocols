@@ -16,12 +16,12 @@
 import path from 'node:path';
 import { fileURLToPath } from 'node:url';
 import { parseArgs } from 'node:util';
-import { validateAndNormalizeTickets } from './lib/orchestration/ticket-validator.js';
-import { DECOMPOSER_SYSTEM_PROMPT } from './lib/templates/decomposer-prompts.js';
-import { Logger } from './lib/Logger.js';
 import { resolveConfig } from './lib/config-resolver.js';
-import { createProvider } from './lib/provider-factory.js';
+import { Logger } from './lib/Logger.js';
 import { LLMClient } from './lib/llm-client.js';
+import { validateAndNormalizeTickets } from './lib/orchestration/ticket-validator.js';
+import { createProvider } from './lib/provider-factory.js';
+import { DECOMPOSER_SYSTEM_PROMPT } from './lib/templates/decomposer-prompts.js';
 
 export async function decomposeEpic(
   epicId,

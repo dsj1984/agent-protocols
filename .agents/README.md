@@ -302,9 +302,7 @@ repository maintenance.
 | ------------------------------------- | ----------------------------------- | ---------------------------------------------- |
 | `sprint-plan.md`                      | `/sprint-plan`                      | Autonomous PRD, Tech Spec, and task generation |
 | `sprint-execute.md`                   | `/sprint-execute`                   | DAG dispatch (Epic) or task implementation     |
-| `sprint-verify-task-prerequisites.md` | `/sprint-verify-task-prerequisites` | Validate dependencies before execution         |
 | `sprint-code-review.md`               | `/sprint-code-review`               | Comprehensive code review                      |
-| `sprint-integration.md`               | `/sprint-integration`               | Merge and stabilization                        |
 | `sprint-hotfix.md`                    | `/sprint-hotfix`                    | Rapid remediation on feature branches          |
 | `sprint-retro.md`                     | `/sprint-retro`                     | Retrospective from ticket graph                |
 | `sprint-close.md`                     | `/sprint-close`                     | Final merge, tag release, close Epic           |
@@ -372,7 +370,9 @@ All CLI scripts and the MCP server are **thin wrappers** that delegate to it:
 | `mcp-orchestration.js`         | **MCP Server** — exposes dispatch, hydration, and state tools to agents      |
 | `dispatcher.js`                | CLI wrapper — DAG scheduler; outputs dispatch manifest with progress tracking|
 | `context-hydrator.js`          | CLI wrapper — assembles self-contained agent prompts from ticket graph       |
-| `sprint-integrate.js`          | Merges shared Story branches into Epic base branch                           |
+| `sprint-story-init.js`         | Initializes story execution, manages branches, and handles dependencies      |
+| `sprint-story-close.js`        | Finalizes story execution, merges branches, and cascades completions         |
+| `sprint-close.js`              | Automates Epic closure, validates documentation freshness, and tags releases |
 | `update-ticket-state.js`       | CLI wrapper — label-based state machine with `cascadeCompletion`             |
 | `delete-epic.js`               | Recursive issue deletion/clearing via GraphQL                                |
 | `notify.js`                    | Operator notification (mentions + webhooks)                                  |

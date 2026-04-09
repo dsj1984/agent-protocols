@@ -2,12 +2,12 @@
 
 import fs from 'node:fs';
 import path from 'node:path';
-import { ProviderFactory } from './lib/provider-factory.js';
-import { Logger } from './lib/Logger.js';
-import { FrictionService } from './lib/friction-service.js';
-import { RefinementAgent } from './lib/refinement-agent.js';
-import { GithubRefinementService } from './lib/github-refinement-service.js';
 import { resolveConfig } from './lib/config-resolver.js';
+import { FrictionService } from './lib/friction-service.js';
+import { GithubRefinementService } from './lib/github-refinement-service.js';
+import { Logger } from './lib/Logger.js';
+import { ProviderFactory } from './lib/provider-factory.js';
+import { RefinementAgent } from './lib/refinement-agent.js';
 
 async function main() {
   Logger.info('[FrictionAnalyzer] Starting Protocol Refinement pipeline...');

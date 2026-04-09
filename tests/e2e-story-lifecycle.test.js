@@ -12,10 +12,9 @@ const SCRIPTS = path.join(ROOT, '.agents', 'scripts');
 const { dispatch } = await import(
   pathToFileURL(path.join(SCRIPTS, 'dispatcher.js')).href
 );
-const { cascadeCompletion, setProvider, resetProvider, transitionTicketState } =
-  await import(
-    pathToFileURL(path.join(SCRIPTS, 'update-ticket-state.js')).href
-  );
+const { cascadeCompletion, transitionTicketState } = await import(
+  pathToFileURL(path.join(SCRIPTS, 'lib', 'orchestration', 'ticketing.js')).href
+);
 
 // ---------------------------------------------------------------------------
 // Mock Provider and Adapter
@@ -183,7 +182,6 @@ test('e2e-story-lifecycle — validates full flow from dispatch to story complet
   });
 
   // Set global provider for state-sync functions
-  setProvider(provider);
   const adapter = new MockAdapter();
 
   // -------------------------------------------------------------------------
@@ -205,8 +203,8 @@ test('e2e-story-lifecycle — validates full flow from dispatch to story complet
   // PHASE 2: Complete Task 31 and Cascade
   // -------------------------------------------------------------------------
   // Pretend agent finishes and transitions Task 31 to done
-  await transitionTicketState(31, 'agent::done');
-  await cascadeCompletion(31);
+  await transitionTicketState(provider, 31, 'agent::done');
+  await cascadeCompletion(provider, 31);
 
   // Assert Task 31 is done
   const t31 = await provider.getTicket(31);
@@ -236,8 +234,8 @@ test('e2e-story-lifecycle — validates full flow from dispatch to story complet
   // -------------------------------------------------------------------------
   // PHASE 4: Complete Task 32 and Cascade
   // -------------------------------------------------------------------------
-  await transitionTicketState(32, 'agent::done');
-  await cascadeCompletion(32);
+  await transitionTicketState(provider, 32, 'agent::done');
+  await cascadeCompletion(provider, 32);
 
   // Assert Task 32 is done
   const t32 = await provider.getTicket(32);
@@ -258,7 +256,4 @@ test('e2e-story-lifecycle — validates full flow from dispatch to story complet
     'Feature should be marked done',
   );
   assert.equal(f20Final.state, 'closed', 'Feature should be closed');
-
-  // Cleanup
-  resetProvider();
 });

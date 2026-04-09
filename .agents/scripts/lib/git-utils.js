@@ -90,6 +90,7 @@ export function getStoryBranch(_epicId, storyId) {
 /**
  * Resolves the canonical branch name for a Task.
  * v5 Standard (Legacy): task/epic-[EPIC_ID]/[TASK_ID]
+ * @deprecated In v5, tasks are implemented on their parent story branch (`story-[STORY_ID]`). This is only used as a fallback for orphan tasks.
  * @param {string|number} epicId
  * @param {string|number} taskId
  * @returns {string}
@@ -101,6 +102,7 @@ export function getTaskBranch(epicId, taskId) {
 /**
  * Resolves the ephemeral candidate branch name for integration verification.
  * v5 Standard: integration-candidate-epic-[EPIC_ID]-[TASK_ID]
+ * @deprecated The integration candidate workflow is obsolete in v5. Story branches are merged directly in `sprint-story-close.js`.
  * @param {string|number} epicId
  * @param {string|number} taskId
  * @returns {string}
