@@ -19,11 +19,11 @@
  */
 
 import fs from 'node:fs';
-import { Logger } from './lib/Logger.js';
 import path from 'node:path';
 import { fileURLToPath } from 'node:url';
 import { parseArgs } from 'node:util';
 import { PROJECT_ROOT } from './lib/config-resolver.js';
+import { Logger } from './lib/Logger.js';
 import { resolveAndDispatch } from './lib/orchestration/index.js';
 
 // Re-export SDK functions so that direct consumers of dispatcher.js

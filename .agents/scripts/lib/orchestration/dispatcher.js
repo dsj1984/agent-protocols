@@ -16,7 +16,6 @@
 import { execFileSync } from 'node:child_process';
 import fs from 'node:fs';
 import path from 'node:path';
-import { hydrateContext } from './context-hydrator.js';
 import { createAdapter } from '../adapter-factory.js';
 import { PROJECT_ROOT, resolveConfig } from '../config-resolver.js';
 import {
@@ -40,13 +39,15 @@ import {
 } from '../git-utils.js';
 import { createProvider } from '../provider-factory.js';
 import { VerboseLogger } from '../VerboseLogger.js';
+import { hydrateContext } from './context-hydrator.js';
 
 const { settings: globalSettings } = resolveConfig();
 const vlog = VerboseLogger.init(globalSettings, PROJECT_ROOT, {
   source: 'dispatcher',
 });
-import { STATE_LABELS } from './ticketing.js';
+
 import { notify } from '../../notify.js';
+import { STATE_LABELS } from './ticketing.js';
 
 // ---------------------------------------------------------------------------
 // Constants

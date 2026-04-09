@@ -9,24 +9,22 @@
  *   import { dispatch, hydrateContext } from './lib/orchestration/index.js';
  */
 
-// Core dispatcher — business logic for orchestrating Epic task waves
-export { dispatch, executeStory, resolveAndDispatch } from './dispatcher.js';
-
+// MCP Tools - Audit execution and selection
+export { runAuditSuite } from '../../mcp/run-audit-suite.js';
+export { selectAudits } from '../../mcp/select-audits.js';
 // Context hydration — builds the execution prompt for an agent task
 export {
   hydrateContext,
   parseHierarchy,
   truncateToTokenBudget,
 } from './context-hydrator.js';
-
+// Core dispatcher — business logic for orchestrating Epic task waves
+export { dispatch, executeStory, resolveAndDispatch } from './dispatcher.js';
 // Ticketing operations — state transitions and hierarchy management
 export {
-  STATE_LABELS,
   cascadeCompletion,
   postStructuredComment,
+  STATE_LABELS,
   toggleTasklistCheckbox,
   transitionTicketState,
 } from './ticketing.js';
-// MCP Tools - Audit execution and selection
-export { runAuditSuite } from '../../mcp/run-audit-suite.js';
-export { selectAudits } from '../../mcp/select-audits.js';

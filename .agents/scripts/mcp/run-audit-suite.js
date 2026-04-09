@@ -1,8 +1,8 @@
 import { exec } from 'node:child_process';
-import { promisify } from 'node:util';
-import path from 'node:path';
 import fs from 'node:fs/promises';
+import path from 'node:path';
 import { fileURLToPath } from 'node:url';
+import { promisify } from 'node:util';
 
 const execAsync = promisify(exec);
 const __dirname = path.dirname(fileURLToPath(import.meta.url));

@@ -12,8 +12,8 @@ import { createHmac } from 'node:crypto';
 import path from 'node:path';
 import { fileURLToPath } from 'node:url';
 import { resolveConfig } from './lib/config-resolver.js';
-import { createProvider } from './lib/provider-factory.js';
 import { Logger } from './lib/Logger.js';
+import { createProvider } from './lib/provider-factory.js';
 
 /**
  * Dispatch a notification.
