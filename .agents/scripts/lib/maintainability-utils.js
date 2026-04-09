@@ -35,7 +35,10 @@ export function saveBaseline(baseline) {
       return acc;
     }, {});
 
-  fs.writeFileSync(BASELINE_FILE, JSON.stringify(sortedBaseline, null, 2));
+  fs.writeFileSync(
+    BASELINE_FILE,
+    `${JSON.stringify(sortedBaseline, null, 2)}\n`,
+  );
 }
 
 /**

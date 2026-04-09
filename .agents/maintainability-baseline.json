@@ -27,7 +27,7 @@
   ".agents/scripts/lib/integration-verifier.js": 105.389,
   ".agents/scripts/lib/llm-client.js": 89.874,
   ".agents/scripts/lib/maintainability-engine.js": 119.181,
-  ".agents/scripts/lib/maintainability-utils.js": 110.971,
+  ".agents/scripts/lib/maintainability-utils.js": 110.941,
   ".agents/scripts/lib/orchestration/context-hydrator.js": 95.124,
   ".agents/scripts/lib/orchestration/dispatcher.js": 91.583,
   ".agents/scripts/lib/orchestration/index.js": 171,
