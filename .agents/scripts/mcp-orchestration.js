@@ -11,36 +11,7 @@
  * JSON-RPC 2.0 over stdio (newline-delimited).
  * Implements MCP spec: https://spec.modelcontextprotocol.io/
  */
-// ── BULLETPROOF STDOUT GUARD (module-level) ──────────────────────────────
-// MCP JSON-RPC uses stdout exclusively. ANY stray bytes corrupt the stream.
-// We intercept process.stdout.write itself at module scope — before any
-// dynamic imports or function calls — to guarantee the guard is active
-// from the very first moment the process starts.
-process.env.MCP_SERVER = 'true';
-process.stdin.setEncoding('utf8');
-
-let _mcpInternalBypass = false;
-const _realStdoutWrite = process.stdout.write.bind(process.stdout);
-const _realStderrWrite = process.stderr.write.bind(process.stderr);
-
-process.stdout.write = (chunk, encoding, callback) => {
-  // If the bypass is active, it's a legitimate MCP message
-  if (_mcpInternalBypass) {
-    return _realStdoutWrite(chunk, encoding, callback);
-  }
-
-  // Otherwise, it's stray output (stray console.log, dependency noise, etc)
-  // We MUST redirect this to stderr to prevent corrupting the MCP stream.
-  // Note: We use _realStderrWrite directly to avoid any potential loops.
-  return _realStderrWrite(chunk, encoding, callback);
-};
-
-// Also redirect console methods (belt-and-suspenders)
-console.log = (...args) => console.error('[MCP REDIR]', ...args);
-console.info = (...args) => console.error('[MCP REDIR]', ...args);
-console.warn = (...args) => console.error('[MCP REDIR]', ...args);
-console.debug = (...args) => console.error('[MCP REDIR]', ...args);
-
+import { sendMcp } from './lib/mcp/stdout-guard.js';
 import { createInterface } from 'node:readline';
 
 // ---------------------------------------------------------------------------
@@ -55,17 +26,8 @@ const SERVER_VERSION = '5.0.0';
 // Stdio Transport
 // ---------------------------------------------------------------------------
 
-/**
- * Send a JSON-RPC response to stdout (newline-delimited).
- * @param {object} msg
- */
 function send(msg) {
-  _mcpInternalBypass = true;
-  try {
-    _realStdoutWrite(`${JSON.stringify(msg)}\n`, 'utf8');
-  } finally {
-    _mcpInternalBypass = false;
-  }
+  sendMcp(msg);
 }
 
 /**
