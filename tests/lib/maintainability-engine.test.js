@@ -28,10 +28,11 @@ test('calculateForSource - returns 0 for invalid syntax', () => {
   assert.strictEqual(score, 0);
 });
 
-
-
 test('calculateForFile - parses file', () => {
-  const tempPath = path.join(os.tmpdir(), `temp_m_engine_test_${Date.now()}.js`);
+  const tempPath = path.join(
+    os.tmpdir(),
+    `temp_m_engine_test_${Date.now()}.js`,
+  );
   fs.writeFileSync(tempPath, 'const a = 1;');
 
   try {
