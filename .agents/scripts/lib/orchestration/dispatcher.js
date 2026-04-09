@@ -24,13 +24,15 @@ import {
   parseTaskMetadata,
 } from '../dependency-parser.js';
 import {
-  autoSerializeOverlaps,
   buildGraph,
-  computeStoryWaves,
   computeWaves,
   detectCycle,
   topologicalSort,
 } from '../Graph.js';
+import {
+  autoSerializeOverlaps,
+  computeStoryWaves,
+} from './dependency-analyzer.js';
 import {
   getEpicBranch,
   getStoryBranch,
