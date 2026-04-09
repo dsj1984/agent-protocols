@@ -50,12 +50,14 @@ describe('ITicketingProvider — interface contract', () => {
     });
   }
 
-  it('has exactly 11 interface methods', () => {
+  it('has exactly 13 interface methods', () => {
     const expectedMethods = [
       'getEpic',
       'getTickets',
       'getTicket',
       'getTicketDependencies',
+      'getRecentComments',
+      'getTicketComments',
       'createTicket',
       'updateTicket',
       'postComment',

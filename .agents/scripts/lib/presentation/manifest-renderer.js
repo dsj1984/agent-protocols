@@ -41,12 +41,22 @@ export function renderManifestMarkdown(manifest) {
   lines.push(`| Held for Approval | ${summary.heldForApproval} |`);
   lines.push('');
 
-  // --- Progress bar ---
-  const filled = Math.round(summary.progressPercent / 5);
+  // --- Hero Progress Bar ---
+  const pct = summary.progressPercent;
+  const filled = Math.round(pct / 5);
   const empty = 20 - filled;
-  lines.push(
-    `**Progress:** ${'█'.repeat(filled)}${'░'.repeat(empty)} ${summary.progressPercent}%`,
-  );
+  const bar = '█'.repeat(filled) + '░'.repeat(empty);
+  const statusEmoji = pct === 100 ? '🎉' : pct >= 50 ? '🔥' : '🏗️';
+  lines.push(`## ${statusEmoji} Sprint Progress`);
+  lines.push('');
+  lines.push('```');
+  lines.push(`  ${bar}  ${pct}%  (${summary.doneTasks}/${summary.totalTasks} tasks)`);
+  lines.push('```');
+  lines.push('');
+  // Compute story-level completion for the hero section
+  const allStoryItems = (storyManifest ?? []).filter(s => s.type === 'story' && s.storyId !== '__ungrouped__');
+  const doneStories = allStoryItems.filter(s => s.tasks.length > 0 && s.tasks.every(t => t.status === 'agent::done')).length;
+  lines.push(`> **Stories:** ${doneStories}/${allStoryItems.length} complete · **Tasks:** ${summary.doneTasks}/${summary.totalTasks} complete`);
   lines.push('');
 
   // --- Wave Summary Table ---
@@ -70,7 +80,7 @@ export function renderManifestMarkdown(manifest) {
     const sortedWaves = [...waveStats.keys()].sort((a, b) => a - b);
     lines.push('## Wave Summary');
     lines.push('');
-    lines.push('| Wave | Stories | Total Tasks | Done | Status |');
+    lines.push('| Wave | Stories | Progress | Tasks | Status |');
     lines.push('| :--- | :--- | :--- | :--- | :--- |');
 
     for (const w of sortedWaves) {
@@ -83,8 +93,13 @@ export function renderManifestMarkdown(manifest) {
       });
 
       const statusLabel = isDone ? '✅ Done' : (isReady ? '🚀 Ready' : '⏳ Blocked');
+      // Mini progress bar for the wave
+      const wavePct = stat.tasks > 0 ? Math.round((stat.done / stat.tasks) * 100) : 0;
+      const waveFilled = Math.round(wavePct / 10);
+      const waveEmpty = 10 - waveFilled;
+      const waveBar = '█'.repeat(waveFilled) + '░'.repeat(waveEmpty);
       lines.push(
-        `| ${waveLabel} | ${stat.stories} | ${stat.tasks} | ${stat.done} | ${statusLabel} |`,
+        `| ${waveLabel} | ${stat.stories} | ${waveBar} ${wavePct}% | ${stat.done}/${stat.tasks} | ${statusLabel} |`,
       );
     }
     lines.push('');
@@ -120,12 +135,14 @@ export function renderManifestMarkdown(manifest) {
 
       lines.push(`### ${waveLabel}${parallelHint}`);
       lines.push('');
-      lines.push('| Story | Title | Model Tier | Recommended Model | Tasks |');
-      lines.push('| :--- | :--- | :--- | :--- | :--- |');
+      lines.push('| | Story | Title | Model Tier | Recommended Model | Tasks |');
+      lines.push('| :--- | :--- | :--- | :--- | :--- | :--- |');
 
       for (const s of stories) {
+        const allDone = s.tasks.length > 0 && s.tasks.every(t => t.status === 'agent::done');
+        const storyCheckbox = allDone ? '✅' : '⬜';
         lines.push(
-          `| #${s.storyId} | ${s.storySlug} | \`${s.model_tier}\` | **${s.recommendedModel}** | ${s.tasks.length} |`,
+          `| ${storyCheckbox} | #${s.storyId} | ${s.storySlug} | \`${s.model_tier}\` | **${s.recommendedModel}** | ${s.tasks.length} |`,
         );
       }
       lines.push('');
