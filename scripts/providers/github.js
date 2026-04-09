@@ -407,6 +407,13 @@ export class GitHubProvider extends ITicketingProvider {
     };
   }
 
+  async getRecentComments(limit = 100) {
+    const comments = await this._rest(
+      `/repos/${this.owner}/${this.repo}/issues/comments?sort=created&direction=desc&per_page=${limit}`,
+    );
+    return comments || [];
+  }
+
   // ---------------------------------------------------------------------------
   // Write Operations
   // ---------------------------------------------------------------------------
@@ -495,9 +502,27 @@ export class GitHubProvider extends ITicketingProvider {
     );
   }
 
-  async removeSubIssue(_parentNumber, subIssueNumber) {
-    console.warn(
-      `[GitHubProvider] removeSubIssue called for #${subIssueNumber}. Recommended to use addSubIssue with replaceParent: true instead.`,
+  async removeSubIssue(parentNumber, subIssueNumber) {
+    const parentTicket = await this.getTicket(parentNumber);
+    const childTicket = await this.getTicket(subIssueNumber);
+
+    return this._graphql(
+      `
+      mutation($parentId: ID!, $subIssueId: ID!) {
+        removeSubIssue(input: { issueId: $parentId, subIssueId: $subIssueId }) {
+          issue { number }
+          subIssue { number }
+        }
+      }`,
+      {
+        parentId: parentTicket.nodeId,
+        subIssueId: childTicket.nodeId,
+      },
+      {
+        headers: {
+          'GraphQL-Features': 'sub_issues',
+        },
+      },
     );
   }
 

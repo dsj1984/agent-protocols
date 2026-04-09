@@ -120,9 +120,31 @@ export function renderManifestMarkdown(manifest) {
     }
   }
 
+  // --- Agent Telemetry ---
+  if (manifest.agentTelemetry) {
+    lines.push('## 📈 Agent Telemetry & Diagnostics');
+    lines.push('');
+    lines.push(
+      `- **Total Friction Events:** ${manifest.agentTelemetry.totalFriction}`,
+    );
+    if (manifest.agentTelemetry.recentFriction.length > 0) {
+      lines.push('- **Active Issues & Friction:**');
+      for (const item of manifest.agentTelemetry.recentFriction) {
+        const safeMessage = item.message
+          .replace(/\s+/g, ' ')
+          .replace(/\n/g, ' ')
+          .trim();
+        lines.push(`  - Task **#${item.taskId}**: ${safeMessage}`);
+      }
+    } else {
+      lines.push('- **Active Issues:** None recorded.');
+    }
+    lines.push('');
+    lines.push('---');
+    lines.push('');
+  }
+
   // --- Execution instructions ---
-  lines.push('---');
-  lines.push('');
   lines.push('## How to Execute');
   lines.push('');
   lines.push('1. Pick a Story from Wave 0 (all dependencies satisfied).');
