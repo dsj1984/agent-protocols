@@ -209,7 +209,7 @@ Audits are selectively invoked by the orchestrator at four specific sprint lifec
 When audits form findings, the orchestrator compiles a structured Markdown report and posts it as a ticket comment via the `ITicketingProvider`.
 
 - **Maintainability Ratchet:** The orchestrator enforces code quality by relying on maintainability checks (`check-maintainability.js`), which fail if the codebase's composite score drops below the established baseline.
-- **Auto-Fixing:** If High or Critical findings are detected, the system halts for human review. A human can reply to the ticket with `/approve` or `/approve-audit-fixes` (processed by `handle-approval.js` via CI webhook).
+- **Auto-Fixing:** If High or Critical findings are detected, the system halts for human review. A human can reply to the ticket with `/approve` or `/approve-audit-fixes` (processed by `handle-approval.js` within the agent session).
 - **Implementation:** Approved fixes automatically transition the ticket to `agent::executing`, dispatching an agent to autonomously implement and verify the required fixes.
 
 ---
