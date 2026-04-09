@@ -16,9 +16,12 @@ import { Logger } from './lib/Logger.js';
 import { createProvider } from './lib/provider-factory.js';
 
 export async function handleApproval(ticketId, commentBody) {
-  if (!commentBody?.trim().startsWith('/approve')) {
+  const isApproveAll = commentBody?.trim().startsWith('/approve');
+  const isApproveAudit = commentBody?.trim().startsWith('/approve-audit-fixes');
+
+  if (!isApproveAll && !isApproveAudit) {
     Logger.info(
-      `Comment on #${ticketId} does not start with /approve. Ignoring.`,
+      `Comment on #${ticketId} does not start with a recognized approval command. Ignoring.`,
     );
     return;
   }

@@ -5,6 +5,8 @@ on:
     branches: [main]
   pull_request:
     branches: [main]
+  issue_comment:
+    types: [created]
   workflow_dispatch:
     inputs:
       ticket_id:
@@ -109,10 +111,35 @@ jobs:
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
         run: |
-          node .agents/scripts/audit-orchestrator.js \
-            --ticket ${{ github.event.inputs.ticket_id }} \
-            --gate ${{ github.event.inputs.gate }} \
-            --base-branch ${{ github.event.inputs.base_branch }}
+          node .agents/scripts/audit-orchestrator.js --ticket "${{ github.event.inputs.ticket_id }}" --gate "${{ github.event.inputs.gate }}" --base-branch "${{ github.event.inputs.base_branch || 'main' }}"
+
+  handle-approval:
+    name: Handle Approval Comment
+    if: |
+      github.event_name == 'issue_comment' &&
+      (startsWith(github.event.comment.body, '/approve') || startsWith(github.event.comment.body, '/approve-audit-fixes')) &&
+      github.event.issue.state == 'open'
+    runs-on: ubuntu-latest
+    permissions:
+      issues: write
+      pull-requests: write
+    steps:
+      - name: Checkout Code
+        uses: actions/checkout@v4
+
+      - name: Setup Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: '20'
+          cache: 'npm'
+
+      - name: Install Dependencies
+        run: npm ci --ignore-scripts
+
+      - name: Handle Approval
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        run: node .agents/scripts/handle-approval.js --ticket "${{ github.event.issue.number }}" --comment "${{ github.event.comment.body }}"
 
   publish:
     name: Publish to Dist
