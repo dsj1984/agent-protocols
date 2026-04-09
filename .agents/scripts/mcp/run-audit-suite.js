@@ -1,130 +1,104 @@
-import fs from 'node:fs/promises';
+import { exec } from 'node:child_process';
+import { promisify } from 'node:util';
 import path from 'node:path';
-import { spawn } from 'node:child_process';
+import fs from 'node:fs/promises';
+import { fileURLToPath } from 'node:url';
 
-/**
- * Executes a list of audit workflows and aggregates their results.
- * @param {object} params
- * @param {string[]} params.auditWorkflows
- * @returns {Promise<object>} The aggregated AuditResults structure.
- */
+const execAsync = promisify(exec);
+const __dirname = path.dirname(fileURLToPath(import.meta.url));
+
 export async function runAuditSuite({ auditWorkflows }) {
-  // 1. Read audit-rules.json to get allowlist
-  const rulesPath = path.join(process.cwd(), '.agents/schemas/audit-rules.json');
-  let rulesData;
-  try {
-    rulesData = JSON.parse(await fs.readFile(rulesPath, 'utf8'));
-  } catch (err) {
-    throw new Error(`Failed to read audit-rules from ${rulesPath}: ${err.message}`);
-  }
+  const rulesPath = path.resolve(__dirname, '../../schemas/audit-rules.json');
+  const rulesContent = await fs.readFile(rulesPath, 'utf8');
+  const rules = JSON.parse(rulesContent);
 
-  const allowedAudits = Object.keys(rulesData.audits || {});
-
-  // Validate inputs against allowlist
-  for (const workflow of auditWorkflows) {
-    if (!allowedAudits.includes(workflow)) {
-      throw new Error(`Invalid audit workflow: ${workflow}. Must be one of: ${allowedAudits.join(', ')}`);
-    }
-  }
-
-  const summary = {
-    auditsRun: [],
-    totalFindings: 0,
-    critical: 0,
-    high: 0,
-    medium: 0,
-    low: 0,
+  const validAudits = rules.workflows.map(w => w.name);
+  const auditResults = {
+    metadata: {
+      timestamp: new Date().toISOString(),
+      auditsRequested: auditWorkflows,
+      auditsRun: [],
+      summary: {
+        critical: 0,
+        high: 0,
+        medium: 0,
+        low: 0
+      }
+    },
+    findings: []
   };
-  const results = [];
 
-  // 2. Iterate and spawn child processes
-  for (const workflow of auditWorkflows) {
-    // Assuming audit scripts are placed in .agents/scripts/audits/
-    const scriptPath = path.join(process.cwd(), '.agents', 'scripts', 'audits', `${workflow}.js`);
+  // Ensure scripts dir exists
+  const scriptsDir = path.resolve(__dirname, '../audits');
 
-    try {
-      await fs.access(scriptPath);
-    } catch {
-      // Script doesn't exist yet, mock or skip. We record it as an error finding to surface it safely.
-      results.push({
-        auditId: workflow,
-        checkId: 'SYSTEM-MISSING-SCRIPT',
-        fixId: 'system-fix',
-        severity: 'Medium',
-        message: `Audit script not found: ${scriptPath}`,
-        location: {},
-        recommendation: 'Implement the audit script as a node.js executable.'
+  for (const auditName of auditWorkflows) {
+    if (!validAudits.includes(auditName)) {
+      auditResults.findings.push({
+        audit: auditName,
+        severity: 'low',
+        message: `Requested audit workflow '${auditName}' is not defined in audit-rules.json.`
       });
       continue;
     }
 
-    summary.auditsRun.push(workflow);
+    const scriptPath = path.join(scriptsDir, `${auditName}.js`);
+    try {
+      await fs.access(scriptPath);
+    } catch {
+      auditResults.findings.push({
+        audit: auditName,
+        severity: 'low',
+        message: `SYSTEM-MISSING-SCRIPT: Audit script '${auditName}.js' not found in audits directory.`
+      });
+      continue;
+    }
 
     try {
-      const { stdout } = await new Promise((resolve, reject) => {
-        let out = '';
-        let err = '';
-        const proc = spawn('node', [scriptPath], { stdio: ['ignore', 'pipe', 'pipe'] });
-        
-        proc.stdout.on('data', (chunk) => { out += chunk.toString(); });
-        proc.stderr.on('data', (chunk) => { err += chunk.toString(); });
-        
-        proc.on('close', (code) => {
-          if (code !== 0 && code !== 1) {
-            return reject(new Error(`Exit code ${code}. Stderr: ${err}`));
+      const { stdout } = await execAsync(`node "${scriptPath}"`);
+      auditResults.metadata.auditsRun.push(auditName);
+      
+      let findings = [];
+      if (stdout.trim()) {
+        try {
+          findings = JSON.parse(stdout);
+          if (!Array.isArray(findings)) {
+            findings = [findings];
           }
-          resolve({ stdout: out });
-        });
-        proc.on('error', reject);
-      });
-
-      // 3. Parse machine readable JSON output from stdout
-      let parsedOutput = [];
-      try {
-        // Assume script outputs a JSON array on stdout
-        parsedOutput = stdout ? JSON.parse(stdout) : [];
-        if (!Array.isArray(parsedOutput)) {
-          // Wrap in array if it returned a single object
-          parsedOutput = [parsedOutput];
+        } catch (e) {
+          auditResults.findings.push({
+            audit: auditName,
+            severity: 'high',
+            message: `Audit script '${auditName}.js' returned invalid JSON: ${e.message}`,
+            rawOutput: stdout.substring(0, 500)
+          });
+          continue;
         }
-      } catch (parseErr) {
-        throw new Error(`Failed to parse script output to JSON: ${parseErr.message}\nRaw Output: ${stdout.substring(0, 200)}`);
       }
 
-      // 4. Normalize and append results
-      for (const finding of parsedOutput) {
-        results.push({
-          auditId: workflow,
-          checkId: finding.checkId || 'UNKNOWN_CHECK',
-          fixId: finding.fixId || `${workflow}-fix-new`,
-          severity: finding.severity || 'Medium',
-          message: finding.message || 'Audit issue detected.',
-          location: finding.location || {},
-          recommendation: finding.recommendation || ''
+      for (const finding of findings) {
+        const severity = finding.severity?.toLowerCase() || 'low';
+        auditResults.findings.push({
+          audit: auditName,
+          ...finding,
+          severity
         });
-
-        // 5. Update summary statistics
-        summary.totalFindings++;
-        const sevPattern = (finding.severity || '').toLowerCase();
-        if (sevPattern === 'critical') summary.critical++;
-        else if (sevPattern === 'high') summary.high++;
-        else if (sevPattern === 'medium') summary.medium++;
-        else if (sevPattern === 'low') summary.low++;
-        else summary.medium++;
+        
+        switch (severity) {
+          case 'critical': auditResults.metadata.summary.critical++; break;
+          case 'high': auditResults.metadata.summary.high++; break;
+          case 'medium': auditResults.metadata.summary.medium++; break;
+          case 'low': auditResults.metadata.summary.low++; break;
+          default: auditResults.metadata.summary.low++; break;
+        }
       }
-
-    } catch (execErr) {
-      results.push({
-        auditId: workflow,
-        checkId: 'SYSTEM-EXEC-FAIL',
-        fixId: 'system-fix',
-        severity: 'High',
-        message: `Execution failed for ${workflow}: ${execErr.message}`,
-        location: {},
-        recommendation: 'Check the audit script implementation and ensure it outputs valid JSON.'
+    } catch (e) {
+      auditResults.findings.push({
+        audit: auditName,
+        severity: 'high',
+        message: `Execution of '${auditName}.js' failed: ${e.message}`
       });
     }
   }
 
-  return { summary, results };
+  return auditResults;
 }
