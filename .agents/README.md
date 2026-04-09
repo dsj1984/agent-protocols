@@ -165,6 +165,8 @@ The MCP server resolves secrets in this priority:
 | `orchestrator_hydrate`   | `node context-hydrator.js` | Returns a self-contained, fully hydrated prompt    |
 | `orchestrator_transition`| `node update-ticket-state.js`| Supports state machine logic and cascade semantics |
 | `orchestrator_verify`    | `node verify-prereqs.js`   | Checks dependency DAG before implementation starts |
+| `select_audits`          | `node audit-orchestrator.js`| Triggers audits based on gate and context rules    |
+| `run_audit_suite`        | *(Native MCP)*             | Executes audit suites and normalizes findings      |
 
 ### 4. Debugging
 
@@ -380,6 +382,8 @@ All CLI scripts and the MCP server are **thin wrappers** that delegate to it:
 | `diagnose-friction.js`         | Analyzes friction logs for patterns                                          |
 | `detect-merges.js`             | Detects and reports merge conflicts                                          |
 | `git-commit-if-changed.js`     | Conditional commit utility                                                   |
+| `audit-orchestrator.js`        | Automated, gate-based static analysis and audit runner                       |
+| `handle-approval.js`           | CI webhook listener for processing `/approve` commands on audit findings     |
 
 ### Orchestration Configuration
 
