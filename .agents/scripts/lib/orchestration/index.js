@@ -27,3 +27,6 @@ export {
   toggleTasklistCheckbox,
   transitionTicketState,
 } from './ticketing.js';
+// MCP Tools - Audit execution and selection
+export { runAuditSuite } from '../../mcp/run-audit-suite.js';
+export { selectAudits } from '../../mcp/select-audits.js';
