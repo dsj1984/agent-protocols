@@ -30,10 +30,6 @@ import {
   topologicalSort,
 } from '../Graph.js';
 import {
-  autoSerializeOverlaps,
-  computeStoryWaves,
-} from './dependency-analyzer.js';
-import {
   getEpicBranch,
   getStoryBranch,
   getTaskBranch,
@@ -42,6 +38,10 @@ import {
 import { createProvider } from '../provider-factory.js';
 import { VerboseLogger } from '../VerboseLogger.js';
 import { hydrateContext } from './context-hydrator.js';
+import {
+  autoSerializeOverlaps,
+  computeStoryWaves,
+} from './dependency-analyzer.js';
 
 const { settings: globalSettings } = resolveConfig();
 const vlog = VerboseLogger.init(globalSettings, PROJECT_ROOT, {

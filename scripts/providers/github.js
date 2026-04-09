@@ -211,6 +211,16 @@ export class GitHubProvider extends ITicketingProvider {
   }
 
   /**
+   * Execute a GraphQL query/mutation against the ticketing backend.
+   * @param {string} query
+   * @param {object} variables
+   * @param {object} opts
+   */
+  async graphql(query, variables = {}, opts = {}) {
+    return this._graphql(query, variables, opts);
+  }
+
+  /**
    * Paginate through all pages of a REST endpoint.
    * @param {string} endpoint - Path relative to GITHUB_API (including query params).
    * @returns {Promise<object[]>} All items across all pages.
