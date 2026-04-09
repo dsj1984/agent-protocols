@@ -1,11 +1,11 @@
-import { parseArgs } from 'node:util';
-import { Logger } from './lib/Logger.js';
 import fs from 'node:fs';
-import { fileURLToPath } from 'node:url';
 import path from 'node:path';
+import { fileURLToPath } from 'node:url';
+import { parseArgs } from 'node:util';
 import { resolveConfig } from './lib/config-resolver.js';
-import { createProvider } from './lib/provider-factory.js';
 import { getEpicBranch, getStoryBranch } from './lib/git-utils.js';
+import { Logger } from './lib/Logger.js';
+import { createProvider } from './lib/provider-factory.js';
 
 export {
   hydrateContext,
@@ -80,7 +80,7 @@ async function main() {
 }
 
 if (fileURLToPath(import.meta.url) === path.resolve(process.argv[1])) {
-  main().catch((err) => {
+  main().catch((_err) => {
     Logger.fatal();
   });
 }

@@ -15,9 +15,9 @@
  */
 
 import fs from 'node:fs';
-import { Logger } from './lib/Logger.js';
 import path from 'node:path';
 import { fileURLToPath } from 'node:url';
+import { Logger } from './lib/Logger.js';
 import { createProvider } from './lib/provider-factory.js';
 
 const PROJECT_ROOT = process.cwd();
@@ -291,7 +291,7 @@ async function main() {
     console.log(`Labels skipped: ${result.labels.skipped.length}`);
     console.log(`Fields created: ${result.fields.created.length}`);
     console.log(`Fields skipped: ${result.fields.skipped.length}`);
-  } catch (err) {
+  } catch (_err) {
     Logger.fatal();
   }
 }

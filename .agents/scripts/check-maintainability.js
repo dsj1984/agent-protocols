@@ -1,7 +1,7 @@
 import {
-  scanDirectory,
   calculateAll,
   getBaseline,
+  scanDirectory,
 } from './lib/maintainability-utils.js';
 
 /**
@@ -24,7 +24,9 @@ async function main() {
   }
 
   const files = [];
-  TARGET_DIRS.forEach((dir) => scanDirectory(dir, files));
+  TARGET_DIRS.forEach((dir) => {
+    scanDirectory(dir, files);
+  });
   const scores = calculateAll(files);
 
   let regressions = 0;
