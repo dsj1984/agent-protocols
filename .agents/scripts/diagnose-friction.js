@@ -57,7 +57,7 @@ const executionMaxBuffer = settings.executionMaxBuffer ?? 10485760;
 // ---------------------------------------------------------------------------
 
 const commandStr = cmdArgs.join(' ');
-console.log(`[Diagnostic Interceptor] Executing: ${commandStr}`);
+console.error(`[Diagnostic Interceptor] Executing: ${commandStr}`);
 
 const result = spawnSync(cmdArgs[0], cmdArgs.slice(1), {
   stdio: 'pipe',
@@ -67,7 +67,10 @@ const result = spawnSync(cmdArgs[0], cmdArgs.slice(1), {
 });
 
 // Mirror output so the agent can see it
-if (result.stdout) process.stdout.write(result.stdout);
+if (result.stdout) {
+  if (process.env.MCP_SERVER) process.stderr.write(result.stdout);
+  else process.stdout.write(result.stdout);
+}
 if (result.stderr) process.stderr.write(result.stderr);
 
 if (result.status !== 0) {
@@ -78,8 +81,8 @@ if (result.status !== 0) {
   ).trim();
   const errorPreview = errorOutput.substring(0, 500);
 
-  console.log('\n--- 🛑 DIAGNOSTIC ANALYSIS Triggered ---');
-  console.log('Command failed. Logging friction to GitHub ticket...');
+  console.error('\n--- 🛑 DIAGNOSTIC ANALYSIS Triggered ---');
+  console.error('Command failed. Logging friction to GitHub ticket...');
 
   // Determine Friction Category and static remediation string
   let category = 'Execution Error';
@@ -149,7 +152,7 @@ if (result.status !== 0) {
         'friction',
         payloadString,
       );
-      console.log(`✅ Friction posted to Task #${taskId} on GitHub.`);
+      console.error(`✅ Friction posted to Task #${taskId} on GitHub.`);
     } catch (err) {
       console.error(
         `⚠️ Failed to post friction comment to Task #${taskId}: ${err.message}`,
@@ -157,13 +160,13 @@ if (result.status !== 0) {
       // Non-fatal — the exit code is the primary signal
     }
   } else {
-    console.log('ℹ️ No --task provided; skipping GitHub friction comment.');
+    console.error('ℹ️ No --task provided; skipping GitHub friction comment.');
   }
 
   // Static auto-remediation suggestions
-  console.log('\n💡 [Auto-Remediation Suggestions]:');
-  console.log(remediation);
-  console.log('----------------------------------------\n');
+  console.error('\n💡 [Auto-Remediation Suggestions]:');
+  console.error(remediation);
+  console.error('----------------------------------------\n');
 
   process.exit(result.status);
 } else {

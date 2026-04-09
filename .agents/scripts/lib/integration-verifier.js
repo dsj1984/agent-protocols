@@ -55,7 +55,7 @@ export function runVerificationSuite({
       'node',
       [diagScript, '--task', taskId, '--cmd', ...step.args],
       {
-        stdio: 'inherit',
+        stdio: process.env.MCP_SERVER ? 'pipe' : 'inherit',
         encoding: 'utf-8',
         cwd,
         timeout: timeoutMs,

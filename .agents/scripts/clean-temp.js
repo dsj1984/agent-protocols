@@ -7,16 +7,37 @@
  */
 
 import fs from 'node:fs';
+import path from 'node:path';
 
 const dirs = ['temp', 'tmp'];
+const keepPatterns = [
+  /^(dispatch|story)-manifest-[\w-]+\.(md|json)$/i,
+  /^lint-baseline\.json$/i,
+];
 
 dirs.forEach((dir) => {
   if (fs.existsSync(dir)) {
-    console.log(`[Clean] Removing ${dir}/...`);
+    console.log(`[Clean] Scanning ${dir}/...`);
     try {
-      fs.rmSync(dir, { recursive: true, force: true });
+      const files = fs.readdirSync(dir);
+      let keptCount = 0;
+      for (const file of files) {
+        const shouldKeep = keepPatterns.some((pattern) => pattern.test(file));
+        if (!shouldKeep) {
+          fs.rmSync(path.join(dir, file), { recursive: true, force: true });
+        } else {
+          keptCount++;
+        }
+      }
+      
+      // If we didn't keep anything, we can remove the dir itself
+      if (keptCount === 0) {
+        fs.rmSync(dir, { recursive: true, force: true });
+      } else {
+        console.log(`[Clean] Kept ${keptCount} manifest file(s) in ${dir}/`);
+      }
     } catch (err) {
-      console.warn(`[Clean] Warning: Could not remove ${dir}: ${err.message}`);
+      console.warn(`[Clean] Warning: Could not process ${dir}: ${err.message}`);
     }
   }
 });
