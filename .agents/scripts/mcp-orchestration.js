@@ -208,50 +208,20 @@ async function handleRequest(req) {
 
         // PERSISTENCE SYNC: Manually write files to temp/ so that the project
         // state matches what would have happened if run via CLI dispatcher.js.
+        // We use the new persistManifest abstraction to do this cleanly.
         if (name === 'dispatch_wave' && result && typeof result === 'object') {
           try {
-            const { renderManifestMarkdown, renderStoryManifestMarkdown } =
-              await import('./lib/presentation/manifest-renderer.js');
-            const fs = await import('node:fs');
-            const path = await import('node:path');
-            const { PROJECT_ROOT } = await import('./lib/config-resolver.js');
-
-            const manifestDir = path.join(PROJECT_ROOT, 'temp');
-            if (!fs.existsSync(manifestDir)) {
-              fs.mkdirSync(manifestDir, { recursive: true });
-            }
-
-            if (result.type === 'story-execution') {
-              const key = result.stories.map((s) => s.storyId).join('-');
-              fs.writeFileSync(
-                path.join(manifestDir, `story-manifest-${key}.json`),
-                JSON.stringify(result, null, 2),
-                'utf8',
-              );
-              fs.writeFileSync(
-                path.join(manifestDir, `story-manifest-${key}.md`),
-                renderStoryManifestMarkdown(result),
-                'utf8',
-              );
-            } else if (result.epicId) {
-              const epicId = result.epicId;
-              fs.writeFileSync(
-                path.join(manifestDir, `dispatch-manifest-${epicId}.json`),
-                JSON.stringify(result, null, 2),
-                'utf8',
-              );
-              fs.writeFileSync(
-                path.join(manifestDir, `dispatch-manifest-${epicId}.md`),
-                renderManifestMarkdown(result),
-                'utf8',
-              );
-            }
+            const { persistManifest } = await import(
+              './lib/presentation/manifest-renderer.js'
+            );
+            persistManifest(result);
           } catch (persistErr) {
             process.stderr.write(
               `[MCP] Failed to persist manifest to temp/: ${persistErr.message}\n`,
             );
           }
         }
+
 
         sendResult(id, {
           content: [

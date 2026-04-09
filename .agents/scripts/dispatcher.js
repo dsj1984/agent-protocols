@@ -40,36 +40,49 @@ const __filename = fileURLToPath(import.meta.url);
 // Presentation helpers (CLI-only — not part of the SDK)
 // ---------------------------------------------------------------------------
 
+import { parseSprintArgs } from './lib/cli-args.js';
 import {
+  persistManifest,
   printStoryDispatchTable,
-  renderManifestMarkdown,
-  renderStoryManifestMarkdown,
 } from './lib/presentation/manifest-renderer.js';
+
+/**
+ * High-level orchestrator that resolves the execution strategy, generates the manifest,
+ * persists the files to temp, and outputs summaries.
+ */
+export async function generateAndSaveManifest(ticketId, dryRun = false, executorOverride = null) {
+  // Delegate to the SDK's unified resolver
+  const manifest = await resolveAndDispatch({
+    ticketId,
+    dryRun,
+    executorOverride,
+  });
+
+  // Write manifest files using the new presentation abstraction
+  persistManifest(manifest);
+
+  if (manifest.type === 'story-execution') {
+    const key = manifest.stories.map((s) => s.storyId).join('-');
+    console.log(`\n[Dispatcher] ✅ Story manifest: temp/story-manifest-${key}.json`);
+    console.log(`[Dispatcher] 📄 Markdown: temp/story-manifest-${key}.md\n`);
+    // Omit console dump for brevity
+  } else {
+    const epicId = manifest.epicId;
+    console.log(`\n[Dispatcher] ✅ Manifest: temp/dispatch-manifest-${epicId}.json`);
+    console.log(`[Dispatcher] 📄 Markdown: temp/dispatch-manifest-${epicId}.md`);
+    console.log(`[Dispatcher] Progress: ${manifest.summary.doneTasks}/${manifest.summary.totalTasks} tasks done (${manifest.summary.progressPercent}%)`);
+    console.log(`[Dispatcher] Dispatched: ${manifest.summary.dispatched}, Held: ${manifest.summary.heldForApproval}`);
+    printStoryDispatchTable(manifest.storyManifest);
+  }
+  return manifest;
+}
 
 // ---------------------------------------------------------------------------
 // CLI entry point
 // ---------------------------------------------------------------------------
 
 async function main() {
-  const { values, positionals } = parseArgs({
-    options: {
-      epic: { type: 'string' },
-      'dry-run': { type: 'boolean', default: false },
-      executor: { type: 'string' },
-    },
-    allowPositionals: true,
-    strict: false,
-  });
-
-  // Resolve the single ticket ID from positional arg or --epic flag
-  const epicIdFromFlag = parseInt(values.epic ?? '', 10);
-  const fromPositional = parseInt((positionals[0] ?? '').replace(/^#/, ''), 10);
-  const ticketId =
-    !Number.isNaN(fromPositional) && fromPositional > 0
-      ? fromPositional
-      : !Number.isNaN(epicIdFromFlag) && epicIdFromFlag > 0
-        ? epicIdFromFlag
-        : null;
+  const { ticketId, dryRun, executor } = parseSprintArgs();
 
   if (!ticketId) {
     console.error(
@@ -79,60 +92,7 @@ async function main() {
     process.exit(1);
   }
 
-  const dryRun = values['dry-run'] ?? false;
-  const executorOverride = values.executor;
-
-  // Delegate to the SDK's unified resolver
-  const manifest = await resolveAndDispatch({
-    ticketId,
-    dryRun,
-    executorOverride,
-  });
-
-  // Write manifest files
-  const manifestDir = path.join(PROJECT_ROOT, 'temp');
-  if (!fs.existsSync(manifestDir)) {
-    fs.mkdirSync(manifestDir, { recursive: true });
-  }
-
-  if (manifest.type === 'story-execution') {
-    // ── Story Execution output ──
-    const key = manifest.stories.map((s) => s.storyId).join('-');
-    const jsonPath = path.join(manifestDir, `story-manifest-${key}.json`);
-    const mdPath = path.join(manifestDir, `story-manifest-${key}.md`);
-
-    fs.writeFileSync(jsonPath, JSON.stringify(manifest, null, 2), 'utf8');
-    fs.writeFileSync(mdPath, renderStoryManifestMarkdown(manifest), 'utf8');
-
-    console.log(
-      `\n[Dispatcher] ✅ Story manifest: temp/story-manifest-${key}.json`,
-    );
-    console.log(`[Dispatcher] 📄 Markdown: temp/story-manifest-${key}.md\n`);
-    console.log(renderStoryManifestMarkdown(manifest));
-  } else {
-    // ── Epic Dispatch output ──
-    const epicId = manifest.epicId;
-    const jsonPath = path.join(manifestDir, `dispatch-manifest-${epicId}.json`);
-    const mdPath = path.join(manifestDir, `dispatch-manifest-${epicId}.md`);
-
-    fs.writeFileSync(jsonPath, JSON.stringify(manifest, null, 2), 'utf8');
-    fs.writeFileSync(mdPath, renderManifestMarkdown(manifest), 'utf8');
-
-    console.log(
-      `\n[Dispatcher] ✅ Manifest: temp/dispatch-manifest-${epicId}.json`,
-    );
-    console.log(
-      `[Dispatcher] 📄 Markdown: temp/dispatch-manifest-${epicId}.md`,
-    );
-    console.log(
-      `[Dispatcher] Progress: ${manifest.summary.doneTasks}/${manifest.summary.totalTasks} tasks done (${manifest.summary.progressPercent}%)`,
-    );
-    console.log(
-      `[Dispatcher] Dispatched: ${manifest.summary.dispatched}, Held: ${manifest.summary.heldForApproval}`,
-    );
-
-    printStoryDispatchTable(manifest.storyManifest);
-  }
+  await generateAndSaveManifest(ticketId, dryRun, executor);
 }
 
 if (fileURLToPath(import.meta.url) === path.resolve(process.argv[1])) {

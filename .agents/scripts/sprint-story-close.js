@@ -27,10 +27,10 @@
  * @see .agents/workflows/sprint-execute.md Mode B
  */
 
-import { execFileSync } from 'node:child_process';
 import path from 'node:path';
 import { fileURLToPath } from 'node:url';
-import { parseArgs } from 'node:util';
+
+import { parseSprintArgs } from './lib/cli-args.js';
 import { PROJECT_ROOT, resolveConfig } from './lib/config-resolver.js';
 import {
   getEpicBranch,
@@ -45,6 +45,79 @@ import {
   transitionTicketState,
 } from './lib/orchestration/ticketing.js';
 import { createProvider } from './lib/provider-factory.js';
+import { updateHealthMetrics } from './health-monitor.js';
+import { generateAndSaveManifest } from './dispatcher.js';
+
+// ---------------------------------------------------------------------------
+// Helpers
+// ---------------------------------------------------------------------------
+
+const progress = Logger.createProgress('sprint-story-close', { stderr: true });
+
+function cleanupBranches(storyBranch) {
+  progress('CLEANUP', `Deleting story branch: ${storyBranch}`);
+
+  const localDelete = gitSpawn(PROJECT_ROOT, 'branch', '-d', storyBranch);
+  if (localDelete.status !== 0) {
+    gitSpawn(PROJECT_ROOT, 'branch', '-D', storyBranch);
+  }
+
+  const remoteDelete = gitSpawn(
+    PROJECT_ROOT,
+    'push',
+    '--no-verify',
+    'origin',
+    '--delete',
+    storyBranch,
+  );
+  if (remoteDelete.status !== 0) {
+    progress('CLEANUP', `Remote branch ${storyBranch} not found — skipped`);
+  } else {
+    progress('CLEANUP', `✅ Remote branch ${storyBranch} deleted`);
+  }
+}
+
+async function ticketClosureCascade(provider, tasks, storyId) {
+  const closedTickets = [];
+
+  progress('TICKETS', `Transitioning ${tasks.length} Task(s) to agent::done...`);
+  for (const task of tasks) {
+    if (task.labels.includes(STATE_LABELS.DONE)) {
+      progress('TICKETS', `  #${task.id} already done — skipped`);
+      closedTickets.push(task.id);
+      continue;
+    }
+    try {
+      await transitionTicketState(provider, task.id, STATE_LABELS.DONE);
+      closedTickets.push(task.id);
+      progress('TICKETS', `  #${task.id} → agent::done ✅`);
+    } catch (err) {
+      console.error(`  #${task.id} → FAILED: ${err.message}`);
+    }
+  }
+
+  progress('TICKETS', `Transitioning Story #${storyId} to agent::done...`);
+  try {
+    await transitionTicketState(provider, storyId, STATE_LABELS.DONE);
+    closedTickets.push(storyId);
+    progress('TICKETS', `  #${storyId} → agent::done ✅`);
+  } catch (err) {
+    console.error(`  Story #${storyId} → FAILED: ${err.message}`);
+  }
+
+  progress('TICKETS', 'Running cascade completion...');
+  let cascadedTo = [];
+  try {
+    cascadedTo = (await cascadeCompletion(provider, storyId)) || [];
+    if (cascadedTo.length > 0) {
+      progress('TICKETS', `  Cascaded to: ${cascadedTo.map((id) => `#${id}`).join(', ')}`);
+    }
+  } catch (err) {
+    console.error(`  Cascade failed (non-fatal): ${err.message}`);
+  }
+
+  return { closedTickets, cascadedTo };
+}
 
 const __filename = fileURLToPath(import.meta.url);
 const __dirname = path.dirname(__filename);
@@ -54,23 +127,13 @@ const __dirname = path.dirname(__filename);
 // ---------------------------------------------------------------------------
 
 async function main() {
-  const { values } = parseArgs({
-    options: {
-      story: { type: 'string' },
-      epic: { type: 'string' },
-      'refresh-dashboard': { type: 'boolean', default: false },
-    },
-    strict: false,
-  });
+  const { storyId, epicId: argEpicId, refreshDashboard } = parseSprintArgs();
 
-  const storyId = parseInt(values.story ?? '', 10);
-  let epicId = values.epic ? parseInt(values.epic, 10) : null;
-
-  if (Number.isNaN(storyId) || storyId <= 0) {
-    Logger.fatal(
-      'Usage: node sprint-story-close.js --story <STORY_ID> [--epic <EPIC_ID>]',
-    );
+  if (!storyId) {
+    Logger.fatal('Usage: node sprint-story-close.js --story <STORY_ID> [--epic <EPIC_ID>]');
   }
+
+  let epicId = argEpicId;
 
   const { orchestration } = resolveConfig();
   const provider = createProvider(orchestration);
@@ -175,84 +238,13 @@ async function main() {
     Logger.fatal(`Push failed: ${pushResult.stderr}`);
   }
 
-  // -------------------------------------------------------------------------
-  // Step 5b — Branch Cleanup
-  // -------------------------------------------------------------------------
-
-  progress('CLEANUP', `Deleting story branch: ${storyBranch}`);
-
-  // Delete local branch
-  const localDelete = gitSpawn(PROJECT_ROOT, 'branch', '-d', storyBranch);
-  if (localDelete.status !== 0) {
-    // Force-delete if the branch isn't fully merged (shouldn't happen after merge)
-    gitSpawn(PROJECT_ROOT, 'branch', '-D', storyBranch);
-  }
-
-  // Delete remote branch (silently ignore if never pushed)
-  const remoteDelete = gitSpawn(
-    PROJECT_ROOT,
-    'push',
-    '--no-verify',
-    'origin',
-    '--delete',
-    storyBranch,
-  );
-  if (remoteDelete.status !== 0) {
-    progress('CLEANUP', `Remote branch ${storyBranch} not found — skipped`);
-  } else {
-    progress('CLEANUP', `✅ Remote branch ${storyBranch} deleted`);
-  }
+  cleanupBranches(storyBranch);
 
   // -------------------------------------------------------------------------
   // Step 6 — Cascade Completion (Ticket Closure)
   // -------------------------------------------------------------------------
 
-  const closedTickets = [];
-
-  // Transition each child Task → agent::done
-  progress(
-    'TICKETS',
-    `Transitioning ${tasks.length} Task(s) to agent::done...`,
-  );
-  for (const task of tasks) {
-    if (task.labels.includes(STATE_LABELS.DONE)) {
-      progress('TICKETS', `  #${task.id} already done — skipped`);
-      closedTickets.push(task.id);
-      continue;
-    }
-    try {
-      await transitionTicketState(provider, task.id, STATE_LABELS.DONE);
-      closedTickets.push(task.id);
-      progress('TICKETS', `  #${task.id} → agent::done ✅`);
-    } catch (err) {
-      console.error(`  #${task.id} → FAILED: ${err.message}`);
-    }
-  }
-
-  // Transition the Story → agent::done (triggers cascade)
-  progress('TICKETS', `Transitioning Story #${storyId} to agent::done...`);
-  try {
-    await transitionTicketState(provider, storyId, STATE_LABELS.DONE);
-    closedTickets.push(storyId);
-    progress('TICKETS', `  #${storyId} → agent::done ✅`);
-  } catch (err) {
-    console.error(`  Story #${storyId} → FAILED: ${err.message}`);
-  }
-
-  // Cascade completion up the hierarchy
-  progress('TICKETS', 'Running cascade completion...');
-  let cascadedTo = [];
-  try {
-    cascadedTo = await cascadeCompletion(provider, storyId);
-    if (cascadedTo && cascadedTo.length > 0) {
-      progress(
-        'TICKETS',
-        `  Cascaded to: ${cascadedTo.map((id) => `#${id}`).join(', ')}`,
-      );
-    }
-  } catch (err) {
-    console.error(`  Cascade failed (non-fatal): ${err.message}`);
-  }
+  const { closedTickets, cascadedTo } = await ticketClosureCascade(provider, tasks, storyId);
 
   // -------------------------------------------------------------------------
   // Health Monitor Update
@@ -261,17 +253,11 @@ async function main() {
   progress('HEALTH', 'Updating sprint health metrics...');
   let healthUpdated = false;
   try {
-    execFileSync(
-      'node',
-      [path.join(__dirname, 'health-monitor.js'), '--epic', String(epicId)],
-      { cwd: PROJECT_ROOT, stdio: 'inherit', encoding: 'utf8' },
-    );
+    await updateHealthMetrics(epicId);
     healthUpdated = true;
     progress('HEALTH', '✅ Health metrics updated');
   } catch (err) {
-    console.error(
-      `[sprint-story-close] Health monitor failed (non-fatal): ${err.message}`,
-    );
+    console.error(`[sprint-story-close] Health monitor failed (non-fatal): ${err.message}`);
   }
 
   // -------------------------------------------------------------------------
@@ -279,26 +265,14 @@ async function main() {
   // -------------------------------------------------------------------------
 
   let manifestUpdated = false;
-  if (values['refresh-dashboard']) {
+  if (refreshDashboard) {
     progress('DASHBOARD', 'Regenerating dispatch manifest...');
     try {
-      const dirName = path.dirname(fileURLToPath(import.meta.url));
-      execFileSync(
-        'node',
-        [
-          path.join(dirName, 'dispatcher.js'),
-          '--epic',
-          String(epicId),
-          '--dry-run',
-        ],
-        { cwd: PROJECT_ROOT, stdio: 'inherit', encoding: 'utf8' },
-      );
+      await generateAndSaveManifest(epicId, true);
       manifestUpdated = true;
       progress('DASHBOARD', '✅ Dashboard manifest updated (temp/)');
     } catch (err) {
-      console.error(
-        `[sprint-story-close] Dashboard refresh failed (non-fatal): ${err.message}`,
-      );
+      console.error(`[sprint-story-close] Dashboard refresh failed (non-fatal): ${err.message}`);
     }
   } else {
     progress(
@@ -334,11 +308,7 @@ async function main() {
   );
 }
 
-// ---------------------------------------------------------------------------
-// Helpers
-// ---------------------------------------------------------------------------
 
-const progress = Logger.createProgress('sprint-story-close', { stderr: true });
 
 // ---------------------------------------------------------------------------
 // Main guard

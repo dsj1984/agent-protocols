@@ -4,6 +4,53 @@
  * Presentation logic for rendering markdown manifests and CLI dispatch tables.
  */
 
+import fs from 'node:fs';
+import path from 'node:path';
+import { fileURLToPath } from 'node:url';
+
+function getProjectRoot() {
+  const __dirname = path.dirname(fileURLToPath(import.meta.url));
+  return path.resolve(__dirname, '../../../..');
+}
+
+export function persistManifest(manifest) {
+  try {
+    const PROJECT_ROOT = getProjectRoot();
+    const manifestDir = path.join(PROJECT_ROOT, 'temp');
+    if (!fs.existsSync(manifestDir)) {
+      fs.mkdirSync(manifestDir, { recursive: true });
+    }
+
+    if (manifest.type === 'story-execution') {
+      const key = manifest.stories.map((s) => s.storyId).join('-');
+      fs.writeFileSync(
+        path.join(manifestDir, `story-manifest-${key}.json`),
+        JSON.stringify(manifest, null, 2),
+        'utf8',
+      );
+      fs.writeFileSync(
+        path.join(manifestDir, `story-manifest-${key}.md`),
+        renderStoryManifestMarkdown(manifest),
+        'utf8',
+      );
+    } else if (manifest.epicId) {
+      const epicId = manifest.epicId;
+      fs.writeFileSync(
+        path.join(manifestDir, `dispatch-manifest-${epicId}.json`),
+        JSON.stringify(manifest, null, 2),
+        'utf8',
+      );
+      fs.writeFileSync(
+        path.join(manifestDir, `dispatch-manifest-${epicId}.md`),
+        renderManifestMarkdown(manifest),
+        'utf8',
+      );
+    }
+  } catch (persistErr) {
+    process.stderr.write(`[MCP/Dispatcher] Failed to persist manifest to temp/: ${persistErr.message}\n`);
+  }
+}
+
 export function renderManifestMarkdown(manifest) {
   // DEBUG HELPER
   process.stderr.write(

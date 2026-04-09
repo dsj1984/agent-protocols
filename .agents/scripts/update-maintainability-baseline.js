@@ -29,7 +29,7 @@ async function main() {
   saveBaseline(scores);
 
   console.log(
-    '[Maintainability] ✅ Baseline updated successfully in .agents/maintainability-baseline.json',
+    '[Maintainability] ✅ Baseline updated successfully in maintainability-baseline.json',
   );
 }
 

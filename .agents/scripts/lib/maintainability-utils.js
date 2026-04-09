@@ -2,7 +2,7 @@ import fs from 'node:fs';
 import path from 'node:path';
 import { calculateForFile } from './maintainability-engine.js';
 
-const BASELINE_FILE = '.agents/maintainability-baseline.json';
+const BASELINE_FILE = 'maintainability-baseline.json';
 
 /**
  * Loads the current maintainability baseline from disk.
