@@ -10,7 +10,7 @@
  */
 
 // Core dispatcher — business logic for orchestrating Epic task waves
-export { dispatch } from './dispatcher.js';
+export { dispatch, executeStory, resolveAndDispatch } from './dispatcher.js';
 
 // Context hydration — builds the execution prompt for an agent task
 export {

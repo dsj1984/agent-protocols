@@ -111,7 +111,7 @@ function registerTool(name, description, inputSchema, handler) {
  */
 async function registerSDKTools() {
   const {
-    dispatch,
+    resolveAndDispatch,
     hydrateContext,
     transitionTicketState,
     cascadeCompletion,
@@ -129,12 +129,12 @@ async function registerSDKTools() {
   // ── dispatch_wave ─────────────────────────────────────────────────────────
   registerTool(
     'dispatch_wave',
-    'Dispatch the next ready wave of Tasks for an Epic. Reads the DAG, builds waves, transitions tickets, and returns a Dispatch Manifest. Set dryRun=true for a status view without side-effects.',
+    'Dispatch the next ready wave of Tasks for an Epic, OR execute tasks for a Story. Automatically detects ticket type from labels. Set dryRun=true for a status view without side-effects.',
     {
       properties: {
         epicId: {
           type: 'number',
-          description: 'The GitHub issue number of the Epic to dispatch.',
+          description: 'The GitHub issue number of the Epic or Story to process.',
         },
         dryRun: {
           type: 'boolean',
@@ -149,9 +149,8 @@ async function registerSDKTools() {
       required: ['epicId'],
     },
     async ({ epicId, dryRun = false, githubToken }) => {
-      const config = resolveConfig();
       const provider = getProvider(githubToken);
-      return await dispatch({ epicId, dryRun, config, provider });
+      return resolveAndDispatch({ ticketId: epicId, dryRun, provider });
     },
   );
 
