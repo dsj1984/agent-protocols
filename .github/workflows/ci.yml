@@ -5,6 +5,24 @@ on:
     branches: [main]
   pull_request:
     branches: [main]
+  workflow_dispatch:
+    inputs:
+      ticket_id:
+        description: 'Ticket ID (Epic or Story number)'
+        required: true
+      gate:
+        description: 'Sprint Lifecycle Gate'
+        required: true
+        type: choice
+        options:
+          - gate1
+          - gate2
+          - gate3
+          - gate4
+      base_branch:
+        description: 'Base branch for comparison'
+        required: false
+        default: 'main'
 
 concurrency:
   group: ${{ github.workflow }}-${{ github.ref }}
@@ -67,6 +85,34 @@ jobs:
             agents:
               - '.agents/**'
               - '.github/workflows/ci.yml'
+
+  audit-orchestration:
+    name: Sprint Audit Orchestration
+    if: github.event_name == 'workflow_dispatch'
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout Code
+        uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+
+      - name: Setup Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: '20'
+          cache: 'npm'
+
+      - name: Install Dependencies
+        run: npm ci --ignore-scripts
+
+      - name: Run Audit Orchestrator
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        run: |
+          node .agents/scripts/audit-orchestrator.js \
+            --ticket ${{ github.event.inputs.ticket_id }} \
+            --gate ${{ github.event.inputs.gate }} \
+            --base-branch ${{ github.event.inputs.base_branch }}
 
   publish:
     name: Publish to Dist
