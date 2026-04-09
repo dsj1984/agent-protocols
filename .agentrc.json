@@ -96,6 +96,13 @@
         "Instructions using soft verification verbs (e.g., 'validate that', 'ensure that', 'verify that') for deterministic reproducibility or correctness MUST be replaced with explicit CLI execution commands (e.g., 'Execute the test suite via CLI twice using the same seed').",
         "Tasks performing cross-codebase text replacements in `.astro` or `.tsx` template files MUST mandate both the configured `typecheckCommand` AND `buildCommand` to catch structural HTML/JSX errors that the TypeScript compiler alone cannot detect."
       ]
+    },
+    "protocolRefinement": {
+      "enabled": true,
+      "analysisThresholds": {
+        "minFrictionEvents": 3
+      },
+      "model": "Claude Opus 4.6 (Thinking)"
     }
   },
   "models": {
