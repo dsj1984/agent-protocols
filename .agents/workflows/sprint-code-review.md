@@ -28,24 +28,20 @@ every sprint must pass a code review before closure.
 5. Read both the PRD and Tech Spec fully to understand the intended scope,
    architectural decisions, and acceptance criteria.
 
-## Step 1 — Identify Changed Files
+## Step 1 — Automated Audit (Pre-Review)
 
-Generate the full diff of the Epic branch against the base branch to determine
-the review surface:
+Run the automated code review script to perform a quick maintainability and lint
+sweep of the changes:
 
 ```powershell
-git diff [BASE_BRANCH]...[EPIC_BRANCH] --stat
-git diff [BASE_BRANCH]...[EPIC_BRANCH] --name-only
+node .agents/scripts/sprint-code-review.js --epic [EPIC_ID]
 ```
 
-Group the changed files by category for structured analysis:
-
-- **Scripts / Logic** — `.js`, `.ts`, `.py`, `.go`, etc.
-- **Configuration** — `.json`, `.yaml`, `.toml`, `.env*`
-- **Documentation** — `.md`, `.txt`
-- **Styles / UI** — `.css`, `.scss`, `.astro`, `.tsx`, `.jsx`
-- **Tests** — files matching `testFilePattern` from `.agentrc.json`
-- **CI/CD** — `.github/`, `Dockerfile`, deployment configs
+This script will:
+- Generate a `git diff` against `main`.
+- Calculate maintainability scores for all new/modified files.
+- Run a focused lint check.
+- Post a structured summary report to the Epic issue.
 
 ## Step 2 — Review Pillars
 
@@ -108,6 +104,18 @@ Verify documentation stays synchronized with code:
 - Updated interfaces have updated documentation.
 - README and CHANGELOG reflect the changes if applicable.
 - Inline comments explain _why_, not _what_.
+
+## Step 3 — Maintainability Ratchet
+
+Verify that no file's maintainability score has decreased below the project
+baseline. If the project uses a maintainability ratchet:
+
+```powershell
+node .agents/scripts/check-maintainability.js
+```
+
+If this check fails, you MUST refactor the offending files to meet or exceed the
+prior baseline before merging.
 
 ## Step 3 — Produce Findings Report
 
