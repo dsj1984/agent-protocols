@@ -192,6 +192,28 @@ Once Task waves complete, the bookend lifecycle begins.
 
 ---
 
+## Static Analysis & Audit Orchestration
+
+Version 5 introduces an automated, gate-based static analysis and audit orchestration pipeline. This replaces manual auditing with an intelligent, MCP-driven system.
+
+### Audit Triggering
+
+Audits are selectively invoked by the orchestrator at four specific sprint lifecycle gates (`gate1` through `gate4`). The `audit-orchestrator.js` evaluates rules defined in `.agents/schemas/audit-rules.json` to determine which audits to run based on:
+
+1. **Gate Configuration:** Which gate is currently being triggered.
+2. **Contextual Keywords:** The Epic or Task body contents (e.g., triggering security audits if "auth" or "encrypt" is found).
+3. **File Patterns:** Which files have changed compared to the base branch (e.g., triggering privacy audits if `user-profile` files were modified).
+
+### Review and Feedback Loop
+
+When audits form findings, the orchestrator compiles a structured Markdown report and posts it as a ticket comment via the `ITicketingProvider`.
+
+- **Maintainability Ratchet:** The orchestrator enforces code quality by relying on maintainability checks (`check-maintainability.js`), which fail if the codebase's composite score drops below the established baseline.
+- **Auto-Fixing:** If High or Critical findings are detected, the system halts for human review. A human can reply to the ticket with `/approve` or `/approve-audit-fixes` (processed by `handle-approval.js` via CI webhook).
+- **Implementation:** Approved fixes automatically transition the ticket to `agent::executing`, dispatching an agent to autonomously implement and verify the required fixes.
+
+---
+
 ## Notification System
 
 Notifications are dispatched through two channels:
