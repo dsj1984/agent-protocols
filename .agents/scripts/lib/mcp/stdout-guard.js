@@ -7,19 +7,25 @@
 
 process.env.MCP_SERVER = 'true';
 
+import fs from 'node:fs';
 const _realStdoutWrite = process.stdout.write.bind(process.stdout);
 const _realStderrWrite = process.stderr.write.bind(process.stderr);
 
-let _bypass = false;
+const BYPASS = Symbol.for('mcp.stdout.bypass');
+process[BYPASS] = false;
 
+/**
+ * Intercept all stdout writes.
+ * Redirect to stderr unless the BYPASS flag is set.
+ */
 process.stdout.write = (chunk, encoding, callback) => {
-  if (_bypass) {
+  if (process[BYPASS]) {
     return _realStdoutWrite(chunk, encoding, callback);
   }
   return _realStderrWrite(chunk, encoding, callback);
 };
 
-// Also redirect console methods
+// Redirect all console methods to stderr
 const _redir = (...args) => console.error('[MCP REDIR]', ...args);
 console.log = _redir;
 console.info = _redir;
@@ -27,20 +33,19 @@ console.warn = _redir;
 console.debug = _redir;
 
 /**
- * Enable the bypass to send legitimate MCP JSON-RPC messages.
- */
-export function setMcpBypass(value) {
-  _bypass = !!value;
-}
-
-/**
- * Send a message to the real stdout.
+ * Send a legitimate MCP JSON-RPC message to stdout.
+ * Uses fs.writeSync to bypass any stream-level buffering or overrides.
  */
 export function sendMcp(msg) {
-  setMcpBypass(true);
+  const payload = Buffer.from(`${JSON.stringify(msg)}\n`, 'utf8');
+  process[BYPASS] = true;
   try {
-    _realStdoutWrite(`${JSON.stringify(msg)}\n`, 'utf8');
+    fs.writeSync(1, payload);
   } finally {
-    setMcpBypass(false);
+    process[BYPASS] = false;
   }
+}
+
+export function activateStdoutGuard() {
+  // Logic is active on module load
 }

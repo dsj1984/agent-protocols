@@ -210,7 +210,7 @@ async function handleRequest(req) {
               fs.writeFileSync(path.join(manifestDir, `dispatch-manifest-${epicId}.md`), renderManifestMarkdown(result), 'utf8');
             }
           } catch (persistErr) {
-            console.error(`[MCP] Failed to persist manifest to temp/: ${persistErr.message}`);
+            process.stderr.write(`[MCP] Failed to persist manifest to temp/: ${persistErr.message}\n`);
           }
         }
 
@@ -219,9 +219,11 @@ async function handleRequest(req) {
             {
               type: 'text',
               text:
-                typeof result === 'string'
-                  ? result
-                  : JSON.stringify(result, null, 2),
+                result != null
+                  ? typeof result === 'string'
+                    ? result
+                    : JSON.stringify(result, null, 2)
+                  : '',
             },
           ],
         });

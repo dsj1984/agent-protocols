@@ -5,6 +5,9 @@
  */
 
 export function renderManifestMarkdown(manifest) {
+  // DEBUG HELPER
+  process.stderr.write(`[MCP] Rendering manifest for Epic #${manifest.epicId || 'unknown'}. Keys: ${Object.keys(manifest).join(', ')}\n`);
+
   const lines = [];
   const { epicId, epicTitle, summary, storyManifest, dryRun, generatedAt } =
     manifest;
@@ -27,9 +30,9 @@ export function renderManifestMarkdown(manifest) {
   lines.push(
     `| Progress | **${summary.doneTasks}/${summary.totalTasks}** tasks (${summary.progressPercent}%) |`,
   );
-  lines.push(`| Stories | ${(storyManifest ?? []).length} |`);
+  lines.push(`| Stories/Features | ${(storyManifest ?? []).filter(s => s.storyId !== '__ungrouped__').length} |`);
   lines.push(
-    `| Story Waves | ${storyWaveCount} _(${summary.totalWaves} task-level waves)_ |`,
+    `| Execution Waves | ${storyWaveCount} _(${summary.totalWaves} task-level waves)_ |`,
   );
   lines.push(`| Dispatched | ${summary.dispatched} |`);
   lines.push(`| Held for Approval | ${summary.heldForApproval} |`);
@@ -42,6 +45,46 @@ export function renderManifestMarkdown(manifest) {
     `**Progress:** ${'█'.repeat(filled)}${'░'.repeat(empty)} ${summary.progressPercent}%`,
   );
   lines.push('');
+
+  // --- Wave Summary Table ---
+  // Detailed fallback for robustness across different SDK versions/entrypoints
+  const stories = manifest.storyManifest || manifest.stories || (manifest.summary && manifest.summary.stories) || [];
+  if (stories && stories.length > 0) {
+    const waveStats = new Map();
+
+    for (const s of stories) {
+      const w = s.earliestWave ?? -1;
+      if (!waveStats.has(w)) {
+        waveStats.set(w, { stories: 0, tasks: 0, done: 0 });
+      }
+      const stat = waveStats.get(w);
+      stat.stories++;
+      stat.tasks += s.tasks.length;
+      stat.done += s.tasks.filter((t) => t.status === 'agent::done').length;
+    }
+
+    const sortedWaves = [...waveStats.keys()].sort((a, b) => a - b);
+    lines.push('## Wave Summary');
+    lines.push('');
+    lines.push('| Wave | Items | Total Tasks | Done | Status |');
+    lines.push('| :--- | :--- | :--- | :--- | :--- |');
+
+    for (const w of sortedWaves) {
+      const stat = waveStats.get(w);
+      const isDone = stat.tasks > 0 && stat.done === stat.tasks;
+      const isReady = w === 0 || sortedWaves.filter(sw => sw < w).every(sw => {
+        const swStat = waveStats.get(sw);
+        return swStat.done === swStat.tasks;
+      });
+      
+      const statusLabel = isDone ? '✅ Done' : (isReady ? '🚀 Ready' : '⏳ Blocked');
+      lines.push(
+        `| ${waveLabel} | ${stat.stories} | ${stat.tasks} | ${stat.done} | ${statusLabel} |`,
+      );
+    }
+    lines.push('');
+  }
+
   lines.push('---');
   lines.push('');
 
@@ -64,17 +107,18 @@ export function renderManifestMarkdown(manifest) {
       const waveLabel = waveIdx === -1 ? 'Ungrouped' : `Wave ${waveIdx}`;
       const parallelHint =
         stories.length > 1
-          ? ` — ✅ ${stories.length} stories can run in parallel`
+          ? ` — ✅ ${stories.length} items can run in parallel`
           : '';
 
       lines.push(`### ${waveLabel}${parallelHint}`);
       lines.push('');
-      lines.push('| Story | Title | Model Tier | Recommended Model | Tasks |');
-      lines.push('| :--- | :--- | :--- | :--- | :--- |');
+      lines.push('| Ticket | Title | Type | Model Tier | Recommended Model | Tasks |');
+      lines.push('| :--- | :--- | :--- | :--- | :--- | :--- |');
 
       for (const s of stories) {
+        const typeLabel = (s.type || 'story').charAt(0).toUpperCase() + (s.type || 'story').slice(1);
         lines.push(
-          `| #${s.storyId} | ${s.storySlug} | \`${s.model_tier}\` | **${s.recommendedModel}** | ${s.tasks.length} |`,
+          `| #${s.storyId} | ${s.storySlug} | ${typeLabel} | \`${s.model_tier}\` | **${s.recommendedModel}** | ${s.tasks.length} |`,
         );
       }
       lines.push('');
@@ -88,10 +132,11 @@ export function renderManifestMarkdown(manifest) {
     lines.push('');
 
     for (const story of storyManifest) {
+      const typeLabel = (story.type || 'story').charAt(0).toUpperCase() + (story.type || 'story').slice(1);
       const storyLabel =
         story.storyId === '__ungrouped__'
           ? 'Ungrouped Tasks'
-          : `Story #${story.storyId}: ${story.storySlug}`;
+          : `${typeLabel} #${story.storyId}: ${story.storySlug}`;
 
       lines.push(`### ${storyLabel}`);
       lines.push('');
@@ -209,19 +254,20 @@ export function printStoryDispatchTable(storyManifest) {
     '│                                            📋 STORY DISPATCH TABLE                                                   │',
   );
   console.log(
-    '├─────────┬──────────────────────────────────────┬──────┬────────────┬──────────────────────────────┬──────────────┤',
+    '├─────────┬──────────────────────────────────────┬─────────┬──────┬────────────┬──────────────────────────────┬──────────────┤',
   );
   console.log(
-    '│ Story   │ Title                                │ Wave │ Model Tier │ Recommended Model            │ Tasks        │',
+    '│ Ticket  │ Title                                │ Type    │ Wave │ Model Tier │ Recommended Model            │ Tasks        │',
   );
   console.log(
-    '├─────────┼──────────────────────────────────────┼──────┼────────────┼──────────────────────────────┼──────────────┤',
+    '├─────────┼──────────────────────────────────────┼─────────┼──────┼────────────┼──────────────────────────────┼──────────────┤',
   );
 
   for (const story of storyManifest) {
     const id =
       story.storyId === '__ungrouped__' ? '(none)' : `#${story.storyId}`;
     const title = (story.storySlug ?? '').substring(0, 36).padEnd(36);
+    const type = (story.type || 'story').substring(0, 7).padEnd(7);
     const wave = (
       story.earliestWave === -1 ? '-' : String(story.earliestWave)
     ).padEnd(4);
@@ -229,7 +275,7 @@ export function printStoryDispatchTable(storyManifest) {
     const model = (story.recommendedModel ?? '').substring(0, 28).padEnd(28);
     const taskCount = `${story.tasks.length} task(s)`.padEnd(12);
     console.log(
-      `│ ${id.padEnd(7)} │ ${title} │ ${wave} │ ${tier} │ ${model} │ ${taskCount} │`,
+      `│ ${id.padEnd(7)} │ ${title} │ ${type} │ ${wave} │ ${tier} │ ${model} │ ${taskCount} │`,
     );
   }
 

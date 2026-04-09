@@ -369,8 +369,23 @@ export class GitHubProvider extends ITicketingProvider {
       parseInt(m[1], 10),
     );
 
+    // Tertiary: Reverse-search for issues pointing to this parent in their body (C-5 fallback)
+    let referencedChildIds = [];
+    try {
+      const issues = await this.getTickets(parentId);
+      referencedChildIds = issues.map((i) => i.id);
+    } catch (_err) {
+      // Ignore errors in tertiary lookup
+    }
+
     // Merge and remove duplicates
-    const allChildIds = [...new Set([...nativeChildIds, ...checklistChildIds])];
+    const allChildIds = [
+      ...new Set([
+        ...nativeChildIds,
+        ...checklistChildIds,
+        ...referencedChildIds,
+      ]),
+    ];
 
     // Fetch all child tickets
     const subTickets = await Promise.all(

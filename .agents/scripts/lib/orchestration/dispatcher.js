@@ -201,7 +201,7 @@ export function parseParentId(body) {
 }
 
 /**
- * Group tasks by their parent Story.
+ * Group tasks by their parent Story or Feature.
  *
  * @param {object[]} tasks
  * @param {object[]} allTickets
@@ -215,15 +215,35 @@ export function groupTasksByStory(tasks, allTickets, _epicId) {
   for (const task of tasks) {
     const parentId = parseParentId(task.body);
     const parentTicket = parentId != null ? ticketById.get(parentId) : null;
-    const isStory =
-      parentTicket && (parentTicket.labels ?? []).includes('type::story');
-    const key = isStory ? parentId : '__ungrouped__';
+    const labels = parentTicket?.labels ?? [];
+
+    // STRICT TYPE CHECKING
+    const isStory = labels.includes('type::story');
+    const isFeature = labels.includes('type::feature');
+
+    // Determine the grouping key and type
+    let key = '__ungrouped__';
+    let type = 'ungrouped';
+    let title = '(Ungrouped Tasks)';
+
+    if (isStory) {
+      key = parentId;
+      type = 'story';
+      title = parentTicket.title;
+    } else if (isFeature) {
+      // NOTE: Tasks SHOULD belong to Stories, which belong to Features.
+      // If a task belongs directly to a Feature, we group it as a Feature.
+      key = parentId;
+      type = 'feature';
+      title = parentTicket.title;
+    }
 
     if (!groups.has(key)) {
       groups.set(key, {
         storyId: key,
-        storyTitle: isStory ? parentTicket.title : '(Ungrouped Tasks)',
-        storyLabels: isStory ? (parentTicket.labels ?? []) : [],
+        storyTitle: title,
+        storyLabels: isStory || isFeature ? labels : [],
+        type,
         tasks: [],
       });
     }
@@ -502,7 +522,9 @@ export function buildStoryManifest(tasks, allTickets, epicId, settings) {
 
     return {
       storyId: group.storyId,
+      storyTitle: group.storyTitle,
       storySlug: slug,
+      type: group.type,
       branchName,
       model_tier: modelTier,
       recommendedModel,
@@ -699,19 +721,31 @@ export async function resolveAndDispatch(options) {
   const ticket = await provider.getTicket(ticketId);
   const labels = ticket.labels || [];
 
-  if (labels.includes('type::story')) {
+  const isStory = labels.includes('type::story');
+  const isEpic = labels.includes('type::epic');
+  const isFeature = labels.includes('type::feature');
+
+  if (isStory) {
     return executeStory({ story: ticket, provider, dryRun });
   }
 
-  if (labels.includes('type::epic')) {
+  if (isEpic) {
     return dispatch({ epicId: ticketId, dryRun, executorOverride, provider });
   }
 
-  const typeLabel = labels.find(l => l.startsWith('type::')) || 'unknown';
+  if (isFeature) {
+    throw new Error(
+      `[Dispatcher] Ticket #${ticketId} is a **Feature**. Features are containers and cannot be executed directly. ` +
+        `Please execute individual Stories within this Feature using \`/sprint-execute #[Story ID]\`, ` +
+        `or dispatch the entire Epic using \`/sprint-execute #${ticket.body?.match(/^parent:\s*#(\d+)/m)?.[1] || 'ID'}\`.`,
+    );
+  }
+
+  const typeLabel = labels.find((l) => l.startsWith('type::')) || 'unknown';
   throw new Error(
     `[Dispatcher] Ticket #${ticketId} has type "${typeLabel.replace('type::', '')}". ` +
       `Only "epic" or "story" tickets can be dispatched. ` +
-      `Please ensure the ticket is correctly categorized before execution.`
+      `Please ensure the ticket is correctly categorized before execution.`,
   );
 }
 
