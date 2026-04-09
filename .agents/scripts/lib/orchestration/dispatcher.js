@@ -1030,7 +1030,8 @@ export async function dispatch(options) {
               const msg = body.replace('⚠️ **Friction**', '').trim();
               recentFriction.push({
                 taskId: issueId,
-                message: msg.substring(0, 150) + (msg.length > 150 ? '...' : ''),
+                message:
+                  msg.substring(0, 150) + (msg.length > 150 ? '...' : ''),
               });
             }
           }
@@ -1038,7 +1039,10 @@ export async function dispatch(options) {
       }
     }
   } catch (err) {
-    vlog.error('orchestration', `Failed to fetch tracking telemetry: ${err.message}`);
+    vlog.error(
+      'orchestration',
+      `Failed to fetch tracking telemetry: ${err.message}`,
+    );
   }
 
   const agentTelemetry = { totalFriction, recentFriction };

@@ -1,6 +1,10 @@
 /**
  * @file planning-state-manager.js
  * Extracted state-healing and artifact idempotency logic for epic planning.
+ *
+ * Invariant: After planning completes, exactly ONE open PRD and ONE open
+ * Tech Spec must exist as sub-issues of the Epic.  All others are closed
+ * (state_reason: 'not_planned') and detached.
  */
 
 export class PlanningStateManager {
@@ -10,57 +14,84 @@ export class PlanningStateManager {
 
   /**
    * Resolves existing planning artifacts and heals links if needed.
-   * Returns the IDs of the PRD and Tech Spec, cleaning up redundant ones.
+   * Cleans up redundant artifacts by closing and detaching them.
    */
   async healAndCleanupArtifacts(epic, force = false) {
     const epicId = epic.id;
     const relatedTickets = await this.provider.getTickets(epicId);
-    const existingPrds = relatedTickets.filter(
-      (t) => t.labels.includes('context::prd') && t.state === 'open',
+
+    // Collect ALL planning artifacts — open AND closed — so stale
+    // sub-issue links get cleaned up regardless of issue state.
+    const allPrds = relatedTickets.filter((t) =>
+      t.labels.includes('context::prd'),
     );
-    const existingSpecs = relatedTickets.filter(
-      (t) => t.labels.includes('context::tech-spec') && t.state === 'open',
+    const allSpecs = relatedTickets.filter((t) =>
+      t.labels.includes('context::tech-spec'),
     );
 
+    // Canonical artifact = first open one; fallback to first overall.
+    const canonicalPrd =
+      allPrds.find((t) => t.state === 'open') ?? allPrds[0] ?? null;
+    const canonicalSpec =
+      allSpecs.find((t) => t.state === 'open') ?? allSpecs[0] ?? null;
+
     // Heal linkedIssues if empty but tickets exist
-    if (!epic.linkedIssues.prd && existingPrds.length > 0) {
-      epic.linkedIssues.prd = existingPrds[0].id;
+    if (!epic.linkedIssues.prd && canonicalPrd?.state === 'open') {
+      epic.linkedIssues.prd = canonicalPrd.id;
       console.log(
         `[Epic Planner] Healed dangling PRD reference: #${epic.linkedIssues.prd}`,
       );
     }
-    if (!epic.linkedIssues.techSpec && existingSpecs.length > 0) {
-      epic.linkedIssues.techSpec = existingSpecs[0].id;
+    if (!epic.linkedIssues.techSpec && canonicalSpec?.state === 'open') {
+      epic.linkedIssues.techSpec = canonicalSpec.id;
       console.log(
         `[Epic Planner] Healed dangling Tech Spec reference: #${epic.linkedIssues.techSpec}`,
       );
     }
 
-    // Cleanup duplicates (redundant open PRDs/Specs)
+    // Identify redundant artifacts: everything that is NOT the canonical one.
+    const canonicalPrdId = epic.linkedIssues.prd ?? canonicalPrd?.id;
+    const canonicalSpecId = epic.linkedIssues.techSpec ?? canonicalSpec?.id;
+
     const redundant = [
-      ...existingPrds.slice(epic.linkedIssues.prd ? 1 : 0),
-      ...existingSpecs.slice(epic.linkedIssues.techSpec ? 1 : 0),
+      ...allPrds.filter((t) => t.id !== canonicalPrdId),
+      ...allSpecs.filter((t) => t.id !== canonicalSpecId),
     ];
 
     for (const t of redundant) {
       const successorId = t.labels.includes('context::prd')
-        ? epic.linkedIssues.prd
-        : epic.linkedIssues.techSpec;
+        ? canonicalPrdId
+        : canonicalSpecId;
       console.log(
-        `[Epic Planner] Closing redundant duplicate artifact #${t.id} (superseded by #${successorId})...`,
+        `[Epic Planner] Cleaning up redundant artifact #${t.id} (superseded by #${successorId})...`,
       );
-      try {
-        await this.provider.postComment(t.id, {
-          type: 'notification',
-          body: `⚠️ **Audit Trace**: This planning artifact was created during an interrupted or failed orchestration run and is now **superseded by #${successorId}**. \n\nClosing this issue to maintain a single source of truth for Epic #${epicId}.`,
+
+      // Close the issue if it's still open
+      if (t.state === 'open') {
+        try {
+          await this.provider.postComment(t.id, {
+            type: 'notification',
+            body: `⚠️ **Audit Trace**: This planning artifact was created during an interrupted or failed orchestration run and is now **superseded by #${successorId}**. \n\nClosing this issue to maintain a single source of truth for Epic #${epicId}.`,
+          });
+        } catch (_err) {
+          // Ignore comment failures
+        }
+        await this.provider.updateTicket(t.id, {
+          state: 'closed',
+          state_reason: 'not_planned',
         });
-      } catch (_err) {
-        // Ignore comment failures
       }
-      await this.provider.updateTicket(t.id, {
-        state: 'closed',
-        state_reason: 'not_planned',
-      });
+
+      // Detach the sub-issue from the Epic to prevent orphaned links
+      try {
+        await this.provider.removeSubIssue(epicId, t.id);
+        console.log(`[Epic Planner]   Detached #${t.id} from Epic #${epicId}.`);
+      } catch (_err) {
+        // Already detached or API doesn't support — safe to ignore
+        console.log(
+          `[Epic Planner]   Could not detach #${t.id} (may already be detached).`,
+        );
+      }
     }
 
     // Persist healed references to the body if needed.
@@ -85,7 +116,7 @@ export class PlanningStateManager {
       const idsToClose = new Set(
         [epic.linkedIssues.prd, epic.linkedIssues.techSpec].filter(Boolean),
       );
-      for (const t of [...existingPrds, ...existingSpecs]) {
+      for (const t of [...allPrds, ...allSpecs]) {
         idsToClose.add(t.id);
       }
 
@@ -108,6 +139,13 @@ export class PlanningStateManager {
             } else {
               throw err;
             }
+          }
+
+          // Also detach from the Epic
+          try {
+            await this.provider.removeSubIssue(epicId, oldId);
+          } catch (_err) {
+            // Safe to ignore
           }
         }
       }
