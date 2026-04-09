@@ -18,6 +18,12 @@
       "decisions.md",
       "patterns.md"
     ],
+    "release": {
+      "docs": ["README.md", "docs/CHANGELOG.md"],
+      "versionFile": ".agents/VERSION",
+      "packageJson": true,
+      "autoVersionBump": true
+    },
     "tempRoot": "temp",
     "roadmapPath": "docs/ROADMAP.md",
     "validationCommand": "npm run lint",

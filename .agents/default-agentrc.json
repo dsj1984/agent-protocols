@@ -18,6 +18,12 @@
       "decisions.md",
       "patterns.md"
     ],
+    "release": {
+      "docs": ["README.md"],
+      "versionFile": null,
+      "packageJson": true,
+      "autoVersionBump": true
+    },
     "tempRoot": "temp",
     "roadmap": {
       "autoGenerate": true,

@@ -23,6 +23,18 @@ Epic GitHub issue, cleans up all sprint branches, and optionally tags a release.
 3. Resolve `[BASE_BRANCH]` from `baseBranch` in `.agentrc.json` (default:
    `main`).
 4. Resolve `[SCRIPTS_ROOT]` from `scriptsRoot` in `.agentrc.json`.
+5. Resolve `[RELEASE_CONFIG]` — the `release` object from `.agentrc.json`:
+   - `release.docs` — array of file paths to verify (e.g.,
+     `["README.md", "docs/CHANGELOG.md"]`). Defaults to `[]`.
+   - `release.versionFile` — path to a plain-text version file (e.g.,
+     `.agents/VERSION`). Defaults to `null`.
+   - `release.packageJson` — boolean; if `true` the version in the root
+     `package.json` is also bumped. Defaults to `true`.
+   - `release.autoVersionBump` — boolean; if `true` (default) the agent
+     automatically determines whether to bump the **minor** or **patch**
+     segment based on the scope of changes in the Epic. If `false`, no
+     automatic version bump is performed (the operator must bump manually
+     or specify the segment at invocation time).
 
 ## Step 1 — Completeness Gate (Hierarchy Check)
 
@@ -53,7 +65,84 @@ if (openChildren.length > 0) {
 If ANY child ticket is not closed: **STOP IMMEDIATELY.** Alert the operator with
 the exact open IDs.
 
-## Step 2 — Pre-Merge Validation
+## Step 2 — Documentation Freshness Gate
+
+For each file listed in `release.docs`, verify it has been meaningfully updated
+during this Epic's lifecycle. The check is intentionally simple — it confirms
+that the file was **modified** (staged or committed) relative to `[BASE_BRANCH]`
+so that the operator cannot forget to update user-facing documentation before a
+release.
+
+```powershell
+# For each doc path in [RELEASE_CONFIG].docs:
+git diff [BASE_BRANCH]..HEAD --name-only -- [DOC_PATH]
+```
+
+For every file that shows **no diff** (i.e., no changes compared to
+`[BASE_BRANCH]`):
+
+1. **Alert the operator** with the exact file path.
+2. Open the file, review the Epic's completed tickets (title + description), and
+   add or update the relevant sections to accurately reflect the changes shipped
+   in this Epic.
+3. Stage the documentation changes:
+
+```powershell
+git add [DOC_PATH]
+git commit -m "docs: update [DOC_PATH] for Epic #[EPIC_ID]"
+```
+
+> **Guidance for consuming projects:** Add every file your release process
+> requires to `release.docs` in `.agentrc.json`. Common examples:
+> `README.md`, `docs/CHANGELOG.md`, `MIGRATION.md`, `API.md`.
+
+## Step 3 — Version Bump & Tag
+
+If `release.autoVersionBump` is `true` (default) **and** at least one of
+`release.versionFile` or `release.packageJson` is configured, increment the
+project version **before** the merge to `main`.
+
+1. **Read** the current version string from `[RELEASE_CONFIG].versionFile`
+   (if set) or `package.json#version`.
+1. **Determine the bump segment** by inspecting the Epic's completed tickets:
+   - **minor** — if the Epic introduced new user-facing features, new
+     workflows, new CLI commands, new API surfaces, or significant behavioral
+     changes.
+   - **patch** — if the Epic contained only bug fixes, documentation updates,
+     refactors, dependency bumps, or internal tooling changes with no
+     user-facing feature additions.
+   - The operator may override this decision at invocation time (e.g.,
+     "use major for this release").
+1. **Calculate** the next version by incrementing the chosen segment
+   (`major.minor.patch`).
+1. **Write** the new version:
+
+```powershell
+# If release.versionFile is set:
+# Write the new version string to that file (overwrite contents).
+
+# If release.packageJson is true (default):
+npm version [BUMP_SEGMENT] --no-git-tag-version
+```
+
+1. **Commit** the version bump:
+
+```powershell
+git add .
+git commit -m "chore(release): bump version to [NEW_VERSION] for Epic #[EPIC_ID]"
+```
+
+1. **Tag** the release:
+
+```powershell
+git tag -a "v[NEW_VERSION]" -m "Release v[NEW_VERSION]: Epic #[EPIC_ID] — [Epic Title]"
+```
+
+> **Note:** The tag is created on the Epic branch before the merge so it
+> travels with the merge commit into `[BASE_BRANCH]`. The tag is pushed in
+> Step 7 alongside `[BASE_BRANCH]`.
+
+## Step 4 — Pre-Merge Validation
 
 Ensure the code is stable and passes all quality gates on the Epic branch before
 merging to `main`.
@@ -67,7 +156,7 @@ npm run lint; npm test
 If the build fails: **STOP**. Fix the regressions on a hotfix branch and merge
 back into the Epic branch before restarting this workflow.
 
-## Step 3 — Merge Epic Branch to Main
+## Step 5 — Merge Epic Branch to Main
 
 ```powershell
 git checkout [BASE_BRANCH]
@@ -75,7 +164,7 @@ git pull origin [BASE_BRANCH]
 git merge --no-ff epic/[EPIC_ID] -m "chore(release): merge epic/[EPIC_ID] into [BASE_BRANCH]"
 ```
 
-## Step 4 — Conflict Marker Scan
+## Step 6 — Conflict Marker Scan
 
 ```powershell
 node [SCRIPTS_ROOT]/detect-merges.js
@@ -84,13 +173,13 @@ node [SCRIPTS_ROOT]/detect-merges.js
 If markers are found: resolve them, stage with `git add`, and amend the merge
 commit before proceeding.
 
-## Step 5 — Push Main
+## Step 7 — Push Main & Tags
 
 ```powershell
-git push origin [BASE_BRANCH]
+git push origin [BASE_BRANCH] --follow-tags
 ```
 
-## Step 6 — Close Planning & Strategy Tickets
+## Step 8 — Close Planning & Strategy Tickets
 
 Formally close the PRD and Tech Spec tickets. Note: These were excluded from
 auto-closure during execution to ensure they remained visible to the agents.
@@ -101,7 +190,7 @@ node [SCRIPTS_ROOT]/update-ticket-state.js --task [PRD_TICKET_ID] --state "agent
 node [SCRIPTS_ROOT]/update-ticket-state.js --task [TECH_SPEC_TICKET_ID] --state "agent::done"
 ```
 
-## Step 7 — Final Epic Closure
+## Step 9 — Final Epic Closure
 
 Use the ticketing provider to close the Epic issue with a summary comment:
 
@@ -111,16 +200,21 @@ Use the ticketing provider to close the Epic issue with a summary comment:
 // await provider.updateTicket([EPIC_ID], { state: 'closed', state_reason: 'completed' })
 ```
 
-## Step 8 — Tag Release (If Applicable)
+## Step 10 — Verify Tag (If Applicable)
 
-If the Epic corresponds to a versioned release:
+If a version bump was performed in Step 3, confirm the tag exists on the remote:
 
 ```powershell
-git tag -a "v[VERSION]" -m "Release: Epic #[EPIC_ID] — [Epic Title]"
-git push origin "v[VERSION]"
+git ls-remote --tags origin "v[NEW_VERSION]"
 ```
 
-## Step 9 — Branch Cleanup
+If the tag is missing (e.g., `--follow-tags` was not used), push it explicitly:
+
+```powershell
+git push origin "v[NEW_VERSION]"
+```
+
+## Step 11 — Branch Cleanup
 
 Delete the Epic base branch and **all** remaining Task and Story branches
 (local and remote):
@@ -148,15 +242,21 @@ git fetch --prune
 
 - **Never** merge to `main` if any child ticket (Task, Story, Feature) is still
   open — the Completeness Gate in Step 1 is mandatory.
+- **Never** skip the Documentation Freshness Gate (Step 2). If `release.docs`
+  is configured, every listed file **must** show a diff against `[BASE_BRANCH]`
+  before the merge proceeds. If a file has no changes, update it.
 - **Never** skip the pre-merge validation (lint + test). A broken `main` branch
   blocks all future Epics.
+- **Always** bump the version and create the git tag (Step 3) before merging
+  when `release.autoVersionBump` is `true`. Use **minor** for new features,
+  **patch** for fixes and refactors.
 - **Always** close PRD and Tech Spec tickets explicitly — they are excluded from
   auto-closure during execution.
 - **Always** delete all Epic, Task, and Story branches after merge to prevent
   branch bloat.
 - **Always** tag a release when the Epic corresponds to a versioned milestone.
 
-## Step 10 — Notification
+## Step 12 — Notification
 
 ```powershell
 node [SCRIPTS_ROOT]/notify.js "Epic #[EPIC_ID] closed. Merged to [BASE_BRANCH] and branches cleaned up." --action
