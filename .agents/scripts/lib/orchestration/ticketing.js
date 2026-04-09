@@ -44,6 +44,13 @@ export async function transitionTicketState(provider, ticketId, newState) {
     state: isDone ? 'closed' : 'open',
     state_reason: isDone ? 'completed' : null,
   });
+
+  // Automatically trigger upward cascade when a ticket is completed.
+  // This ensures parents (Stories, Features) close as soon as their last
+  // child is marked done.
+  if (isDone) {
+    await cascadeCompletion(provider, ticketId);
+  }
 }
 
 /**
@@ -138,24 +145,24 @@ export async function cascadeCompletion(provider, ticketId) {
 
     const subTickets = await provider.getSubTickets(parentId);
 
-    // Check if ALL are done
-    const allDone =
-      subTickets.length > 0 &&
-      subTickets.every(
-        (st) => st.labels.includes(STATE_LABELS.DONE) || st.state === 'closed',
-      );
+    // Check if ALL are done.
+    // If a ticket reached this point, it means it's one of the sub-tickets
+    // that just finished, so subTickets.length will be at least 1.
+    const allDone = subTickets.every(
+      (st) => st.labels.includes(STATE_LABELS.DONE) || st.state === 'closed',
+    );
 
     if (allDone) {
       // EXCLUSION: Do not auto-close Epics, PRDs, or Tech Specs via cascade.
       // These must be closed via formal sprint-close.
       const parent = await provider.getTicket(parentId);
-      const isEpic = parent.labels.includes('agent::epic');
+      const isEpic = parent.labels.includes('type::epic');
       const isPlanning =
         parent.labels.includes('context::prd') ||
         parent.labels.includes('context::tech-spec');
 
       if (isEpic || isPlanning) {
-        console.log(
+        console.warn(
           `[Ticketing] Cascade reached ${isEpic ? 'Epic' : 'Planning'} #${parentId}. Skipping auto-close (reserved for sprint-close).`,
         );
         continue;

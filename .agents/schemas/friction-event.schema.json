@@ -1,0 +1,63 @@
+{
+  "$schema": "http://json-schema.org/draft-07/schema#",
+  "title": "FrictionEvent",
+  "type": "object",
+  "properties": {
+    "eventId": {
+      "type": "string",
+      "format": "uuid"
+    },
+    "timestamp": {
+      "type": "string",
+      "format": "date-time"
+    },
+    "sprintId": {
+      "type": "string"
+    },
+    "taskId": {
+      "type": "integer"
+    },
+    "category": {
+      "type": "string",
+      "enum": [
+        "Prompt Ambiguity",
+        "Missing Skill",
+        "Incorrect Persona",
+        "Tool Limitation",
+        "Execution Error"
+      ]
+    },
+    "source": {
+      "type": "object",
+      "properties": {
+        "tool": {
+          "type": "string"
+        },
+        "command": {
+          "type": "string"
+        }
+      }
+    },
+    "details": {
+      "type": "string",
+      "description": "Specific error message or observation."
+    },
+    "context": {
+      "type": "object",
+      "properties": {
+        "protocolFile": {
+          "type": "string",
+          "description": "Path to relevant protocol file, e.g., '.agents/skills/core/tdd.md'"
+        }
+      }
+    }
+  },
+  "required": [
+    "eventId",
+    "timestamp",
+    "sprintId",
+    "taskId",
+    "category",
+    "details"
+  ]
+}

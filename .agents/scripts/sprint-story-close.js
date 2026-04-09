@@ -1,0 +1,344 @@
+#!/usr/bin/env node
+
+/**
+ * sprint-story-close.js — Story Post-Implementation Closure
+ *
+ * Deterministic script that replaces Steps 5, 5b, and 6 of the sprint-execute
+ * Mode B workflow. Performs all post-implementation orchestration:
+ *
+ *   1. Validates the Story branch exists and is currently checked out.
+ *   2. Checks for risk::high label — creates a PR instead of auto-merging.
+ *   3. Merges the Story branch into epic/<epicId> with --no-ff.
+ *   4. Pushes the Epic branch.
+ *   5. Deletes the Story branch (local + remote).
+ *   6. Batch transitions all child Tasks → agent::done (with cascade).
+ *   7. Transitions the Story → agent::done (with cascade).
+ *   8. Runs health-monitor.js.
+ *
+ * Usage:
+ *   node sprint-story-close.js --story <STORY_ID> [--epic <EPIC_ID>]
+ *
+ * If --epic is omitted, the script resolves it from the Story ticket body.
+ *
+ * Exit codes:
+ *   0 — Story closed and merged successfully.
+ *   1 — Error or risk::high gate (PR created instead of merge).
+ *
+ * @see .agents/workflows/sprint-execute.md Mode B
+ */
+
+import { execFileSync } from 'node:child_process';
+import path from 'node:path';
+import { fileURLToPath } from 'node:url';
+import { parseArgs } from 'node:util';
+import { PROJECT_ROOT, resolveConfig } from './lib/config-resolver.js';
+import {
+  getEpicBranch,
+  getStoryBranch,
+  gitSpawn,
+  gitSync,
+} from './lib/git-utils.js';
+import { Logger } from './lib/Logger.js';
+import {
+  cascadeCompletion,
+  STATE_LABELS,
+  transitionTicketState,
+} from './lib/orchestration/ticketing.js';
+import { createProvider } from './lib/provider-factory.js';
+
+const __filename = fileURLToPath(import.meta.url);
+const __dirname = path.dirname(__filename);
+
+// ---------------------------------------------------------------------------
+// CLI argument parsing
+// ---------------------------------------------------------------------------
+
+async function main() {
+  const { values } = parseArgs({
+    options: {
+      story: { type: 'string' },
+      epic: { type: 'string' },
+    },
+    strict: false,
+  });
+
+  const storyId = parseInt(values.story ?? '', 10);
+  let epicId = values.epic ? parseInt(values.epic, 10) : null;
+
+  if (Number.isNaN(storyId) || storyId <= 0) {
+    Logger.fatal(
+      'Usage: node sprint-story-close.js --story <STORY_ID> [--epic <EPIC_ID>]',
+    );
+  }
+
+  const { orchestration } = resolveConfig();
+  const provider = createProvider(orchestration);
+
+  progress('INIT', `Closing Story #${storyId}...`);
+
+  // -------------------------------------------------------------------------
+  // Resolve Epic ID if not provided
+  // -------------------------------------------------------------------------
+
+  const story = await provider.getTicket(storyId);
+
+  if (!epicId) {
+    const epicMatch = (story.body ?? '').match(/(?:^epic:\s*#(\d+))/im);
+    if (!epicMatch) {
+      Logger.fatal(
+        `Story #${storyId} has no "Epic: #N" reference. Pass --epic <id> explicitly.`,
+      );
+    }
+    epicId = parseInt(epicMatch[1], 10);
+  }
+
+  const epicBranch = getEpicBranch(epicId);
+  const storyBranch = getStoryBranch(epicId, storyId);
+
+  // -------------------------------------------------------------------------
+  // Enumerate child Tasks
+  // -------------------------------------------------------------------------
+
+  const subTickets = await provider.getSubTickets(storyId);
+  const tasks = subTickets.filter((t) => t.labels.includes('type::task'));
+
+  progress('TASKS', `Found ${tasks.length} child Task(s)`);
+
+  // -------------------------------------------------------------------------
+  // Step 5 — Risk check and merge
+  // -------------------------------------------------------------------------
+
+  const isHighRisk = story.labels.includes('risk::high');
+
+  if (isHighRisk) {
+    progress(
+      'RISK',
+      '⚠️ Story is risk::high — creating PR instead of auto-merge',
+    );
+    try {
+      const pr = await provider.createPullRequest(storyBranch, storyId);
+      progress('RISK', `PR created: ${pr.htmlUrl}`);
+      console.log(
+        JSON.stringify(
+          {
+            storyId,
+            epicId,
+            action: 'pr-created',
+            prUrl: pr.htmlUrl,
+            reason: 'risk::high — manual review required before merge',
+          },
+          null,
+          2,
+        ),
+      );
+    } catch (err) {
+      console.error(`[sprint-story-close] PR creation failed: ${err.message}`);
+    }
+    // Push the story branch if not already pushed
+    gitSpawn(PROJECT_ROOT, 'push', '--no-verify', 'origin', storyBranch);
+    process.exit(1);
+  }
+
+  // Normal merge path
+  progress('GIT', `Checking out ${epicBranch}...`);
+  gitSync(PROJECT_ROOT, 'checkout', epicBranch);
+  gitSpawn(PROJECT_ROOT, 'pull', '--rebase', 'origin', epicBranch);
+
+  progress('GIT', `Merging ${storyBranch} into ${epicBranch} (--no-ff)...`);
+  const mergeResult = gitSpawn(
+    PROJECT_ROOT,
+    'merge',
+    '--no-ff',
+    storyBranch,
+    '-m',
+    `feat: ${story.title} (resolves #${storyId})`,
+  );
+
+  if (mergeResult.status !== 0) {
+    Logger.fatal(
+      `Merge failed: ${mergeResult.stderr}\n` +
+        `Resolve conflicts manually, then re-run this script.`,
+    );
+  }
+  progress('GIT', '✅ Merge successful');
+
+  progress('GIT', `Pushing ${epicBranch}...`);
+  const pushResult = gitSpawn(
+    PROJECT_ROOT,
+    'push',
+    '--no-verify',
+    'origin',
+    epicBranch,
+  );
+  if (pushResult.status !== 0) {
+    Logger.fatal(`Push failed: ${pushResult.stderr}`);
+  }
+
+  // -------------------------------------------------------------------------
+  // Step 5b — Branch Cleanup
+  // -------------------------------------------------------------------------
+
+  progress('CLEANUP', `Deleting story branch: ${storyBranch}`);
+
+  // Delete local branch
+  const localDelete = gitSpawn(PROJECT_ROOT, 'branch', '-d', storyBranch);
+  if (localDelete.status !== 0) {
+    // Force-delete if the branch isn't fully merged (shouldn't happen after merge)
+    gitSpawn(PROJECT_ROOT, 'branch', '-D', storyBranch);
+  }
+
+  // Delete remote branch (silently ignore if never pushed)
+  const remoteDelete = gitSpawn(
+    PROJECT_ROOT,
+    'push',
+    '--no-verify',
+    'origin',
+    '--delete',
+    storyBranch,
+  );
+  if (remoteDelete.status !== 0) {
+    progress('CLEANUP', `Remote branch ${storyBranch} not found — skipped`);
+  } else {
+    progress('CLEANUP', `✅ Remote branch ${storyBranch} deleted`);
+  }
+
+  // -------------------------------------------------------------------------
+  // Step 6 — Cascade Completion (Ticket Closure)
+  // -------------------------------------------------------------------------
+
+  const closedTickets = [];
+
+  // Transition each child Task → agent::done
+  progress(
+    'TICKETS',
+    `Transitioning ${tasks.length} Task(s) to agent::done...`,
+  );
+  for (const task of tasks) {
+    if (task.labels.includes(STATE_LABELS.DONE)) {
+      progress('TICKETS', `  #${task.id} already done — skipped`);
+      closedTickets.push(task.id);
+      continue;
+    }
+    try {
+      await transitionTicketState(provider, task.id, STATE_LABELS.DONE);
+      closedTickets.push(task.id);
+      progress('TICKETS', `  #${task.id} → agent::done ✅`);
+    } catch (err) {
+      console.error(`  #${task.id} → FAILED: ${err.message}`);
+    }
+  }
+
+  // Transition the Story → agent::done (triggers cascade)
+  progress('TICKETS', `Transitioning Story #${storyId} to agent::done...`);
+  try {
+    await transitionTicketState(provider, storyId, STATE_LABELS.DONE);
+    closedTickets.push(storyId);
+    progress('TICKETS', `  #${storyId} → agent::done ✅`);
+  } catch (err) {
+    console.error(`  Story #${storyId} → FAILED: ${err.message}`);
+  }
+
+  // Cascade completion up the hierarchy
+  progress('TICKETS', 'Running cascade completion...');
+  let cascadedTo = [];
+  try {
+    cascadedTo = await cascadeCompletion(provider, storyId);
+    if (cascadedTo && cascadedTo.length > 0) {
+      progress(
+        'TICKETS',
+        `  Cascaded to: ${cascadedTo.map((id) => `#${id}`).join(', ')}`,
+      );
+    }
+  } catch (err) {
+    console.error(`  Cascade failed (non-fatal): ${err.message}`);
+  }
+
+  // -------------------------------------------------------------------------
+  // Health Monitor Update
+  // -------------------------------------------------------------------------
+
+  progress('HEALTH', 'Updating sprint health metrics...');
+  let healthUpdated = false;
+  try {
+    execFileSync(
+      'node',
+      [path.join(__dirname, 'health-monitor.js'), '--epic', String(epicId)],
+      { cwd: PROJECT_ROOT, stdio: 'inherit', encoding: 'utf8' },
+    );
+    healthUpdated = true;
+    progress('HEALTH', '✅ Health metrics updated');
+  } catch (err) {
+    console.error(
+      `[sprint-story-close] Health monitor failed (non-fatal): ${err.message}`,
+    );
+  }
+
+  // -------------------------------------------------------------------------
+  // Dashboard Refresh (Regenerate Manifest)
+  // -------------------------------------------------------------------------
+
+  progress('DASHBOARD', 'Regenerating dispatch manifest...');
+  let manifestUpdated = false;
+  try {
+    execFileSync(
+      'node',
+      [
+        path.join(__dirname, 'dispatcher.js'),
+        '--epic',
+        String(epicId),
+        '--dry-run',
+      ],
+      { cwd: PROJECT_ROOT, stdio: 'inherit', encoding: 'utf8' },
+    );
+    manifestUpdated = true;
+    progress('DASHBOARD', '✅ Dashboard manifest updated (temp/)');
+  } catch (err) {
+    console.error(
+      `[sprint-story-close] Dashboard refresh failed (non-fatal): ${err.message}`,
+    );
+  }
+
+  // -------------------------------------------------------------------------
+  // Output — structured result
+  // -------------------------------------------------------------------------
+
+  const result = {
+    storyId,
+    epicId,
+    action: 'merged',
+    merged: true,
+    branchDeleted: true,
+    ticketsClosed: closedTickets,
+    cascadedTo: cascadedTo ?? [],
+    healthUpdated,
+    manifestUpdated,
+  };
+
+  console.log('\n--- STORY CLOSE RESULT ---');
+  console.log(JSON.stringify(result, null, 2));
+  console.log('--- END RESULT ---\n');
+
+  progress(
+    'DONE',
+    `✅ Story #${storyId} merged into ${epicBranch}. ` +
+      `${closedTickets.length} ticket(s) closed.`,
+  );
+}
+
+// ---------------------------------------------------------------------------
+// Helpers
+// ---------------------------------------------------------------------------
+
+function progress(phase, message) {
+  console.error(`▶ [sprint-story-close] [${phase}] ${message}`);
+}
+
+// ---------------------------------------------------------------------------
+// Main guard
+// ---------------------------------------------------------------------------
+
+if (fileURLToPath(import.meta.url) === path.resolve(process.argv[1])) {
+  main().catch((err) => {
+    Logger.fatal(`sprint-story-close: ${err.message}`);
+  });
+}

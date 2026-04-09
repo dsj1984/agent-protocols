@@ -214,10 +214,42 @@ graph TB
 | `verify-prereqs.js`      | Validates dependency satisfaction before task execution                           |
 | `notify.js`              | Dispatches notifications via @mention and webhook channels                        |
 | `generate-roadmap.js`    | Auto-generates `docs/ROADMAP.md` from open Epics                                  |
+| `friction-analyzer.js`   | Aggregates structured friction logs and detects recurring patterns                |
+| `protocol-refiner.js`    | Orchestrates the LLM to write specific rule/skill refinements                     |
+| `impact-tracker.js`      | Measures and reports the performance impact of protocol refinements               |
+| `health-monitor.js`      | Updates real-time sprint status and tool success rates in GitHub                  |
 
 ---
 
-### 3. Provider Abstraction Layer
+### 3. Autonomous Refinement Loop
+
+The refinement loop is a self-healing subsystem that continuously improves the
+protocol based on actual agent performance.
+
+#### Data Flow
+
+```mermaid
+graph TD
+    A["Task Friction Logs"] --> B["Friction Analyzer"]
+    B --> C["Pattern Database"]
+    C --> D["Protocol Refiner Agent"]
+    D --> E["Refinement Pull Request"]
+    E --> F["Human Approval & Merge"]
+    F --> G["Impact Tracker"]
+    G --> H["Performance Report"]
+    H --> B
+```
+
+| Component         | Responsibility                                                                 |
+| ----------------- | ------------------------------------------------------------------------------ |
+| Friction Analyzer | Aggregates structured friction logs from tasks across the entire organization |
+| Pattern Detection | Identifies clusters of related friction events (e.g., specific tool failures)  |
+| Protocol Refiner  | Orchestrates the LLM to write specific rule/skill refinements                |
+| Impact Tracker    | Compares friction rates before and after refinement deployment                 |
+
+---
+
+### 4. Provider Abstraction Layer
 
 All ticketing interactions are mediated through the **`ITicketingProvider`**
 abstract interface, enabling future portability beyond GitHub.

@@ -35,7 +35,7 @@ async function main() {
   const { orchestration } = resolveConfig();
   const provider = createProvider(orchestration);
 
-  console.log(
+  console.error(
     `[Hydrator] Hydrating context for Task #${taskId} (Epic #${epicId})...`,
   );
 
@@ -73,7 +73,9 @@ async function main() {
 
   if (values.output) {
     fs.writeFileSync(values.output, prompt, 'utf8');
-    console.log(`[Hydrator] ✅ Prompt written to: ${values.output}`);
+    console.error(`[Hydrator] ✅ Prompt written to: ${values.output}`);
+  } else if (process.env.MCP_SERVER) {
+    process.stderr.write(prompt);
   } else {
     process.stdout.write(prompt);
   }

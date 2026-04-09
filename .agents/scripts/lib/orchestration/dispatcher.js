@@ -201,7 +201,7 @@ export function parseParentId(body) {
 }
 
 /**
- * Group tasks by their parent Story.
+ * Group tasks by their parent Story or Feature.
  *
  * @param {object[]} tasks
  * @param {object[]} allTickets
@@ -215,15 +215,35 @@ export function groupTasksByStory(tasks, allTickets, _epicId) {
   for (const task of tasks) {
     const parentId = parseParentId(task.body);
     const parentTicket = parentId != null ? ticketById.get(parentId) : null;
-    const isStory =
-      parentTicket && (parentTicket.labels ?? []).includes('type::story');
-    const key = isStory ? parentId : '__ungrouped__';
+    const labels = parentTicket?.labels ?? [];
+
+    // STRICT TYPE CHECKING
+    const isStory = labels.includes('type::story');
+    const isFeature = labels.includes('type::feature');
+
+    // Determine the grouping key and type
+    let key = '__ungrouped__';
+    let type = 'ungrouped';
+    let title = '(Ungrouped Tasks)';
+
+    if (isStory) {
+      key = parentId;
+      type = 'story';
+      title = parentTicket.title;
+    } else if (isFeature) {
+      // NOTE: Tasks SHOULD belong to Stories, which belong to Features.
+      // If a task belongs directly to a Feature, we group it as a Feature.
+      key = parentId;
+      type = 'feature';
+      title = parentTicket.title;
+    }
 
     if (!groups.has(key)) {
       groups.set(key, {
         storyId: key,
-        storyTitle: isStory ? parentTicket.title : '(Ungrouped Tasks)',
-        storyLabels: isStory ? (parentTicket.labels ?? []) : [],
+        storyTitle: title,
+        storyLabels: isStory || isFeature ? labels : [],
+        type,
         tasks: [],
       });
     }
@@ -502,7 +522,9 @@ export function buildStoryManifest(tasks, allTickets, epicId, settings) {
 
     return {
       storyId: group.storyId,
+      storyTitle: group.storyTitle,
       storySlug: slug,
+      type: group.type,
       branchName,
       model_tier: modelTier,
       recommendedModel,
@@ -699,17 +721,31 @@ export async function resolveAndDispatch(options) {
   const ticket = await provider.getTicket(ticketId);
   const labels = ticket.labels || [];
 
-  if (labels.includes('type::story')) {
+  const isStory = labels.includes('type::story');
+  const isEpic = labels.includes('type::epic');
+  const isFeature = labels.includes('type::feature');
+
+  if (isStory) {
     return executeStory({ story: ticket, provider, dryRun });
   }
 
-  if (labels.includes('type::epic')) {
+  if (isEpic) {
     return dispatch({ epicId: ticketId, dryRun, executorOverride, provider });
   }
 
+  if (isFeature) {
+    throw new Error(
+      `[Dispatcher] Ticket #${ticketId} is a **Feature**. Features are containers and cannot be executed directly. ` +
+        `Please execute individual Stories within this Feature using \`/sprint-execute #[Story ID]\`, ` +
+        `or dispatch the entire Epic using \`/sprint-execute #${ticket.body?.match(/^parent:\s*#(\d+)/m)?.[1] || 'ID'}\`.`,
+    );
+  }
+
+  const typeLabel = labels.find((l) => l.startsWith('type::')) || 'unknown';
   throw new Error(
-    `[Dispatcher] Ticket #${ticketId} is neither an Epic nor a Story ` +
-      `(labels: ${labels.join(', ')}). Cannot dispatch.`,
+    `[Dispatcher] Ticket #${ticketId} has type "${typeLabel.replace('type::', '')}". ` +
+      `Only "epic" or "story" tickets can be dispatched. ` +
+      `Please ensure the ticket is correctly categorized before execution.`,
   );
 }
 
@@ -840,6 +876,38 @@ export async function dispatch(options) {
   vlog.info('orchestration', `Fetching Tasks under Epic #${epicId}...`);
   const tasks = await fetchTasks(provider, epicId);
   vlog.info('orchestration', `Found ${tasks.length} task(s).`);
+
+  // ── Step 1a: Ensure Sprint Health Issue exists ───────────────────────────
+  if (!dryRun) {
+    const allEpicTickets = await provider.getTickets(epicId);
+    const healthIssue = allEpicTickets.find(
+      (t) =>
+        (t.labels ?? []).includes('type::health') ||
+        t.title.startsWith('📉 Sprint Health:'),
+    );
+
+    if (!healthIssue) {
+      vlog.info(
+        'orchestration',
+        `Creating Sprint Health issue for Epic #${epicId}...`,
+      );
+      try {
+        const { id } = await provider.createTicket(epicId, {
+          epicId,
+          title: `📉 Sprint Health: ${epic.title}`,
+          body: `## Real-time Sprint Health Monitoring\n\nThis issue tracks the execution metrics, progress, and friction logs for this sprint.\n\n---\nparent: #${epicId}\nEpic: #${epicId}`,
+          labels: ['type::health', 'persona::operator'],
+          dependencies: [],
+        });
+        vlog.info('orchestration', `✅ Sprint Health issue created: #${id}`);
+      } catch (err) {
+        vlog.warn(
+          'orchestration',
+          `Failed to create Sprint Health ticket: ${err.message}`,
+        );
+      }
+    }
+  }
 
   // ── Step 1b: Reconcile stale labels on merged tasks ──────────────────────
   await reconcileClosedTasks(tasks, provider, dryRun);
