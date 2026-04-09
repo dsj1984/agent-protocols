@@ -12,126 +12,17 @@
 
 import fs from 'node:fs';
 import path from 'node:path';
-
 import { fileURLToPath } from 'node:url';
-import Ajv from 'ajv';
-import addFormats from 'ajv-formats';
+
+import { loadEnv } from './env-loader.js';
+import { getOrchestrationValidator, SHELL_INJECTION_RE } from './config-schema.js';
 
 const __dirname = path.dirname(fileURLToPath(import.meta.url));
 // scripts/lib/ → scripts/ → .agents/ → project root
 export const PROJECT_ROOT = path.resolve(__dirname, '../../..');
 
 // Auto-load .env from the project root if it exists
-try {
-  const envPath = path.resolve(PROJECT_ROOT, '.env');
-  if (fs.existsSync(envPath)) {
-    const envContent = fs.readFileSync(envPath, 'utf8');
-    envContent.split('\n').forEach((line) => {
-      const match = line.match(/^\s*([\w.-]+)\s*=\s*(.*)?\s*$/);
-      if (match) {
-        const key = match[1];
-        let value = (match[2] || '').trim();
-        // Remove quotes if present
-        if (
-          value.length > 0 &&
-          value.charAt(0) === '"' &&
-          value.charAt(value.length - 1) === '"'
-        ) {
-          value = value.substring(1, value.length - 1);
-        } else if (
-          value.length > 0 &&
-          value.charAt(0) === "'" &&
-          value.charAt(value.length - 1) === "'"
-        ) {
-          value = value.substring(1, value.length - 1);
-        }
-        process.env[key] = value;
-      }
-    });
-  }
-} catch (_err) {
-  // Silent fail - environment may be provided via other means
-}
-
-/** Shell metacharacter pattern for injection detection. */
-const SHELL_INJECTION_RE = /([;&|`]|\$\()/;
-
-/**
- * Embedded JSON Schema for the `orchestration` configuration block.
- * Kept inline so all config validation lives in a single file.
- *
- * @see docs/roadmap.md §A — Provider Abstraction Layer
- */
-const ORCHESTRATION_SCHEMA = {
-  type: 'object',
-  required: ['provider'],
-  properties: {
-    provider: {
-      type: 'string',
-      enum: ['github'],
-    },
-    github: {
-      type: 'object',
-      required: ['owner', 'repo'],
-      properties: {
-        owner: { type: 'string', minLength: 1 },
-        repo: { type: 'string', minLength: 1 },
-        projectNumber: {
-          type: ['integer', 'null'],
-          minimum: 1,
-        },
-        operatorHandle: {
-          type: 'string',
-          pattern: '^@.+',
-        },
-      },
-      additionalProperties: false,
-    },
-    executor: {
-      type: 'string',
-      description:
-        'The execution adapter to use (e.g., "manual", "subprocess").',
-    },
-    notifications: {
-      type: 'object',
-      properties: {
-        mentionOperator: { type: 'boolean' },
-        webhookUrl: { type: 'string' },
-      },
-      additionalProperties: false,
-    },
-    llm: {
-      type: 'object',
-      properties: {
-        provider: {
-          type: 'string',
-          enum: [
-            'gemini',
-            'anthropic',
-            'openai',
-            'anthropic-vertex',
-            'azure-openai',
-          ],
-        },
-        model: { type: 'string' },
-      },
-      additionalProperties: false,
-    },
-  },
-  additionalProperties: false,
-};
-
-/** Pre-compiled ajv validator (singleton). */
-let _compiledValidator = null;
-
-function getOrchestrationValidator() {
-  if (!_compiledValidator) {
-    const ajv = new Ajv({ allErrors: true });
-    addFormats(ajv);
-    _compiledValidator = ajv.compile(ORCHESTRATION_SCHEMA);
-  }
-  return _compiledValidator;
-}
+loadEnv(PROJECT_ROOT);
 
 let _cachedConfig = null;
 

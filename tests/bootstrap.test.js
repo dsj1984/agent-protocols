@@ -13,9 +13,15 @@ import { fileURLToPath, pathToFileURL } from 'node:url';
 const __dirname = path.dirname(fileURLToPath(import.meta.url));
 const ROOT = path.resolve(__dirname, '..');
 
-const { runBootstrap, LABEL_TAXONOMY, PROJECT_FIELD_DEFS } = await import(
+const { runBootstrap } = await import(
   pathToFileURL(
     path.join(ROOT, '.agents', 'scripts', 'bootstrap-agent-protocols.js'),
+  ).href
+);
+
+const { LABEL_TAXONOMY, PROJECT_FIELD_DEFS } = await import(
+  pathToFileURL(
+    path.join(ROOT, '.agents', 'scripts', 'lib', 'label-taxonomy.js'),
   ).href
 );
 
