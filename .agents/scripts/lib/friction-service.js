@@ -17,11 +17,34 @@ export class FrictionService {
    */
   async ingestFrictionLogs(epicId) {
     Logger.debug(`[FrictionService] Fetching tasks for Epic #${epicId}...`);
-    const tasks = await this.provider.getTickets(epicId, { label: 'type::task' });
-    
-    // We analyze friction only for tasks that actually encountered friction.
-    Logger.debug(`[FrictionService] Found ${tasks.length} tasks in Epic #${epicId}. Fetching comments...`);
+    const tasks = await this.provider.getTickets(epicId, {
+      label: 'type::task',
+    });
 
+    // We analyze friction only for tasks that actually encountered friction.
+    Logger.debug(
+      `[FrictionService] Found ${tasks.length} tasks in Epic #${epicId}. Fetching comments...`,
+    );
+
+    const frictionLogs = await this.parseFrictionLogsForTasks(tasks);
+
+    for (const log of frictionLogs) {
+      if (!log.sprintId) log.sprintId = epicId.toString();
+    }
+
+    Logger.info(
+      `[FrictionService] Ingested ${frictionLogs.length} friction events.`,
+    );
+    return frictionLogs;
+  }
+
+  /**
+   * Parse structured friction logs from a given array of tasks.
+   *
+   * @param {Array<{id: number}>} tasks
+   * @returns {Promise<Array<object>>}
+   */
+  async parseFrictionLogsForTasks(tasks) {
     const frictionLogs = [];
 
     for (const task of tasks) {
@@ -30,24 +53,28 @@ export class FrictionService {
         if (!comment.body) continue;
 
         // Structured comments look like: <!-- structured-comment{"type":"friction"} -->\n```json\n{...}\n```
-        if (comment.body.includes('<!-- structured-comment{"type":"friction"} -->')) {
+        if (
+          comment.body.includes(
+            '<!-- structured-comment{"type":"friction"} -->',
+          )
+        ) {
           const jsonMatch = comment.body.match(/```json\s*\n([\s\S]+?)\n```/);
           if (jsonMatch?.[1]) {
             try {
               const parsed = JSON.parse(jsonMatch[1]);
               // Add some extra context if missing
               if (!parsed.taskId) parsed.taskId = task.id;
-              if (!parsed.sprintId) parsed.sprintId = epicId.toString();
               frictionLogs.push(parsed);
             } catch (err) {
-              Logger.warn(`[FrictionService] Failed to parse friction log on task #${task.id}: ${err.message}`);
+              Logger.warn(
+                `[FrictionService] Failed to parse friction log on task #${task.id}: ${err.message}`,
+              );
             }
           }
         }
       }
     }
 
-    Logger.info(`[FrictionService] Ingested ${frictionLogs.length} friction events.`);
     return frictionLogs;
   }
 
@@ -71,7 +98,7 @@ export class FrictionService {
     for (const log of frictionLogs) {
       const category = log.category || 'Unknown';
       const protocolFile = log.context?.protocolFile || null;
-      
+
       // Use category and protocolFile as the grouping key
       const key = `${category}::${protocolFile || 'global'}`;
 
@@ -82,8 +109,9 @@ export class FrictionService {
           protocolFile,
           eventCount: 0,
           events: [],
-          summary: `Recurring friction pattern in category: ${category}` + 
-                   (protocolFile ? ` related to protocol file: ${protocolFile}` : ''),
+          summary:
+            `Recurring friction pattern in category: ${category}` +
+            (protocolFile ? ` related to protocol file: ${protocolFile}` : ''),
         });
       }
 
@@ -96,8 +124,10 @@ export class FrictionService {
     const patterns = Array.from(patternsMap.values());
     patterns.sort((a, b) => b.eventCount - a.eventCount);
 
-    Logger.info(`[FrictionService] Classified into ${patterns.length} unique friction patterns.`);
-    
+    Logger.info(
+      `[FrictionService] Classified into ${patterns.length} unique friction patterns.`,
+    );
+
     return patterns;
   }
 }
