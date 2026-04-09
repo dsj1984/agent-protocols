@@ -341,3 +341,14 @@ up through the hierarchy (Tasks → Story → Feature → Epic).
   tickets on non-default branch merges.
 - **Always** delete the Story branch (local + remote) after merging into the
   Epic branch.
+- **MCP Fallback**: If the `agent-protocols` MCP tools
+  (`transition_ticket_state`, `cascade_completion`, `post_structured_comment`)
+  fail with connection errors (e.g. `client is closing`, `invalid character`),
+  **fall back immediately** to the equivalent CLI scripts. Do **not** leave
+  tickets in stale states. The CLI equivalents are:
+
+  | MCP Tool                     | CLI Fallback                                                                        |
+  | ---------------------------- | ----------------------------------------------------------------------------------- |
+  | `transition_ticket_state`    | `node .agents/scripts/update-ticket-state.js --task <id> --state <state>`           |
+  | `cascade_completion`         | (auto-triggered by the CLI script when `--state agent::done`)                       |
+  | `post_structured_comment`    | `node .agents/scripts/update-ticket-state.js` (post via provider directly)          |

@@ -55,6 +55,20 @@ the user using the following warning format before proceeding:
 > - **Impact:** [Description]
 > - **Fallback:** [Description]
 
+#### MCP Tool Degradation
+
+If `agent-protocols` MCP tools (`transition_ticket_state`,
+`cascade_completion`, `post_structured_comment`) fail with connection errors
+(e.g. `client is closing`, `invalid character`), you MUST fall back to the
+equivalent CLI scripts immediately. Do **not** leave tickets in stale states:
+
+```powershell
+# transition_ticket_state fallback
+node .agents/scripts/update-ticket-state.js --task <id> --state <state>
+
+# cascade_completion is auto-triggered by the CLI when --state agent::done
+```
+
 ### E. Local Overrides
 
 If a `.agents/instructions.local.md` file or `.agentrc.local.json` is present,
