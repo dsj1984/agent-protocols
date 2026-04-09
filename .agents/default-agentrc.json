@@ -55,13 +55,6 @@
     "executionTimeoutMs": 300000,
     "executionMaxBuffer": 10485760,
     "bookendRequirements": {
-      "isIntegration": {
-        "persona": "engineer",
-        "skills": [
-          "stack/architecture/monorepo-path-strategist",
-          "core/git-workflow-and-versioning"
-        ]
-      },
       "isQA": {
         "persona": "qa-engineer",
         "skills": [

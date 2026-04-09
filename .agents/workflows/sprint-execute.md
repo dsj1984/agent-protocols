@@ -103,11 +103,16 @@ sequentially — each uses the persona, skills, and model from
 
 | Phase         | Workflow              | Config Key      |
 | ------------- | --------------------- | --------------- |
-| Integration   | `/sprint-integration` | `isIntegration` |
 | QA            | `/audit-quality`      | `isQA`          |
 | Code Review   | `/sprint-code-review` | `isCodeReview`  |
 | Retrospective | `/sprint-retro`       | `isRetro`       |
 | Close-Out     | `/sprint-close`       | `isCloseSprint` |
+
+> **Code Review is mandatory.** Every sprint must pass `/sprint-code-review`
+> before proceeding to Close-Out. The review examines the cumulative diff of the
+> Epic branch against `main` and validates all changes against the PRD and Tech
+> Spec. See the [`sprint-code-review` workflow](sprint-code-review.md) for the
+> full review protocol.
 
 On final close-out:
 

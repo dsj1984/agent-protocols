@@ -10,8 +10,9 @@ This workflow is the **terminal step** of the Epic lifecycle. It promotes the
 fully integrated and reviewed `epic/<epicId>` branch into `main`, closes the
 Epic GitHub issue, cleans up all sprint branches, and optionally tags a release.
 
-> **When to run**: After the Retrospective is finalized and all Bookend phases
-> (Integration, QA, Code Review, Retro) are complete.
+> **When to run**: After `/sprint-code-review` and `/sprint-retro` are complete.
+> The Code Review is a **mandatory pre-merge gate** — never run `/sprint-close`
+> without it.
 >
 > **Persona**: `devops-engineer` · **Skills**:
 > `core/git-workflow-and-versioning`

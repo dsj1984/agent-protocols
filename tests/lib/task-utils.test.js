@@ -7,10 +7,6 @@ describe('isBookendTask', () => {
     assert.equal(isBookendTask({ id: 'feat-a', title: 'Feature A' }), false);
   });
 
-  it('returns true for isIntegration', () => {
-    assert.equal(isBookendTask({ id: 'integ', isIntegration: true }), true);
-  });
-
   it('returns true for isQA', () => {
     assert.equal(isBookendTask({ id: 'qa', isQA: true }), true);
   });
@@ -31,7 +27,6 @@ describe('isBookendTask', () => {
     assert.equal(
       isBookendTask({
         id: 'reg',
-        isIntegration: false,
         isQA: false,
         isCodeReview: false,
         isRetro: false,
@@ -45,16 +40,16 @@ describe('isBookendTask', () => {
     // This should not normally occur in production manifests, but the predicate
     // must still return true if any flag is set.
     assert.equal(
-      isBookendTask({ id: 'multi', isIntegration: true, isQA: true }),
+      isBookendTask({ id: 'multi', isCodeReview: true, isQA: true }),
       true,
     );
   });
 
   it('coerces truthy non-boolean to true', () => {
-    assert.equal(isBookendTask({ id: 'x', isIntegration: 1 }), true);
+    assert.equal(isBookendTask({ id: 'x', isQA: 1 }), true);
   });
 
   it('coerces falsy string to false', () => {
-    assert.equal(isBookendTask({ id: 'x', isIntegration: '' }), false);
+    assert.equal(isBookendTask({ id: 'x', isQA: '' }), false);
   });
 });

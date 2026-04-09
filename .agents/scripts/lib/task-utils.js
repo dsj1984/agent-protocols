@@ -11,7 +11,6 @@
  *
  * Bookend tasks are distinguished from regular development tasks by one of the
  * following flags being truthy:
- *   - isIntegration  — merge + verify phase
  *   - isQA           — automated testing phase
  *   - isCodeReview   — architectural review phase
  *   - isRetro        — retrospective phase
@@ -22,10 +21,6 @@
  */
 export function isBookendTask(task) {
   return Boolean(
-    task.isIntegration ||
-      task.isQA ||
-      task.isCodeReview ||
-      task.isRetro ||
-      task.isCloseSprint,
+    task.isQA || task.isCodeReview || task.isRetro || task.isCloseSprint,
   );
 }
