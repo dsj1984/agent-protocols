@@ -97,8 +97,8 @@ if (
       }
 
       console.log('[State-Sync] ✅ Success');
-    } catch (_err) {
-      Logger.fatal();
+    } catch (err) {
+      Logger.fatal(err.message);
     }
   })();
 }

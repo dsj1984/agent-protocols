@@ -118,91 +118,40 @@ On final close-out:
 
 ## Mode B: Story-Level Execution (`/sprint-execute #[Story ID]`)
 
-### Step 0 — Context Gathering
+### Step 0 — Initialize (`sprint-story-init.js`)
 
-1. Fetch Issue `#[Story ID]` in full (title, body, labels, assignees).
-2. **Model Selection**: Check the **Story Dispatch Table** (printed at the end
-   of `/sprint-plan` or `/sprint-execute [Epic ID]`) for this Story's
-   `recommendedModel`. Select that model for your current session.
-3. **Blocker check**: Parse `Blocked By` entries from the `## Metadata` section.
-   If any referenced issue is still **open**, **STOP** and report the blocker to
-   the operator.
-4. **Hierarchy trace**: Read the `## Metadata` section to identify the parent
-   Feature, Epic, PRD, and Tech Spec issue numbers. Fetch each and review scope,
-   constraints, and acceptance criteria before writing a single line of code.
-5. **Task enumeration**: Fetch all child Tasks of this Story (tickets with
-   `parent: #[Story ID]` in their body). These will be implemented sequentially
-   in dependency order.
-
-### Step 1 — Epic Branch Bootstrap (Proactive Guard)
-
-**Before creating or checking out the Story branch**, ensure the Epic base branch
-exists both locally and on the remote. The Epic branch is the parent branch for
-all Story branches in this Epic and must exist before Story branches are created.
+Run the initialization script to set up the Story for implementation. This
+single command replaces the manual context-gathering, blocker-checking, epic
+branch bootstrap, story branch checkout, and task state transitions:
 
 ```powershell
-# Check if the Epic branch exists on the remote
-git fetch origin
-git ls-remote --heads origin epic/<epicId>
+node .agents/scripts/sprint-story-init.js --story <storyId>
 ```
 
-If the command returns **no output** (branch does not exist remotely):
+The script:
 
-```powershell
-# Create the Epic branch from main (or baseBranch in .agentrc.json)
-git checkout main
-git pull origin main
-git checkout -b epic/<epicId>
-git push --no-verify origin epic/<epicId>
-git checkout main
-```
+- Fetches the Story ticket and validates it exists.
+- Checks blockers — **exits non-zero** if any `blocked by` are open.
+- Traces the hierarchy (Feature → Epic → PRD / Tech Spec).
+- Enumerates child Tasks in dependency order.
+- Bootstraps the Epic branch if it doesn't exist remotely.
+- Checks out the Story branch with `-B` from `epic/<epicId>`.
+- Batch transitions all child Tasks to `agent::executing`.
 
-If the branch already exists remotely, ensure your local copy is up to date:
+**Output**: Structured JSON with `tasks[]`, `context`, branch names. Use the
+`tasks` array to know what to implement in Step 1. Use `context.prdId` and
+`context.techSpecId` to fetch and review scope before writing code.
 
-```powershell
-git fetch origin
-git checkout epic/<epicId>
-git pull --rebase origin epic/<epicId>
-git checkout main
-```
+> **Dry-run**: Add `--dry-run` to check status without git or ticket changes.
 
-> **Why this matters:** The dispatcher only creates the Epic branch in live
-> (non-dry-run) dispatch mode. If the Epic has only been inspected via
-> `--dry-run`, the Epic branch will not exist. All Story branches must be
-> created from `epic/<epicId>`, not `main`, to ensure proper PR merge topology.
+<!-- -->
 
-### Step 2 — Story Branch Checkout
+> **Model Selection**: Check the **Story Dispatch Table** for this Story's
+> `recommendedModel`. Select that model for your current session.
 
-1. Identify the Story branch from the **Story Dispatch Table** or compute it:
-   - Format: `story-<storyId>` (e.g. `story-162`)
-2. Fetch and checkout the branch (branching from the Epic base branch, **not**
-   `main`). Use `-B` (uppercase) to force-create/reset the branch to the
-   current tip of the Epic branch. This handles stale local branches left
-   behind by prior sessions or interleaved executions:
+### Step 1 — Implementation (Sequential Task Loop)
 
-   ```powershell
-   git fetch origin
-   git checkout -B story-<storyId> epic/<epicId>
-   ```
-
-3. **Verify** the checkout succeeded before proceeding. If the current branch
-   is NOT `story-<storyId>`, **STOP** and report the error:
-
-   ```powershell
-   git branch --show-current
-   # MUST output: story-<storyId>
-   # If it does not, STOP — do NOT commit on the wrong branch.
-   ```
-
-4. Transition ALL child Task labels via the state writer:
-
-   ```powershell
-   node .agents/scripts/update-ticket-state.js --task <taskId> --state agent::executing
-   ```
-
-### Step 3 — Implementation (Sequential Task Loop)
-
-For **each child Task** in dependency order:
+For **each child Task** in the order returned by `sprint-story-init.js`:
 
 1. Read the full `## Instructions` section of the Task ticket.
 2. Implement all described changes strictly within the scope of the Story
@@ -214,16 +163,9 @@ For **each child Task** in dependency order:
    git commit --no-verify -m "feat(<scope>): <task title> (resolves #<taskId>)"
    ```
 
-4. Transition the completed Task to `agent::review` (not `agent::done` — that
-   happens after merge via cascade):
+4. Proceed to the next Task in the Story.
 
-   ```powershell
-   node .agents/scripts/update-ticket-state.js --task <taskId> --state agent::review
-   ```
-
-5. Proceed to the next Task in the Story.
-
-### Step 4 — Validate
+### Step 2 — Validate
 
 After all Tasks are implemented, run shift-left validation:
 
@@ -238,70 +180,30 @@ If tests or lint fail:
 - If blocked (e.g., upstream dependency missing): post a friction comment and
   apply `status::blocked`.
 
-### Step 5 — Auto-Merge into Epic Branch
+### Step 3 — Close (`sprint-story-close.js`)
 
-After validation passes, merge the Story branch directly into the Epic base
-branch. **No PR is created** — the merge commit serves as the audit trail.
-
-1. Checkout the Epic base branch and pull latest:
-
-   ```powershell
-   git checkout epic/<epicId>
-   git pull --rebase origin epic/<epicId>
-   ```
-
-2. Merge the Story branch with `--no-ff` to preserve the merge commit:
-
-   ```powershell
-   git merge --no-ff story-<storyId> -m "feat: <Story title> (resolves #<storyId>)"
-   ```
-
-3. Push the updated Epic branch:
-
-   ```powershell
-   git push --no-verify origin epic/<epicId>
-   ```
-
-> **If `risk::high`**: Do **not** auto-merge. Instead, create a PR against
-> `epic/<epicId>` and hold at `agent::review` until the operator approves. Use:
->
-> ```powershell
-> gh pr create --head story-<storyId> --base epic/<epicId> --title "feat: <Story title>" --body "Closes #<storyId>"
-> ```
-
-### Step 5b — Branch Cleanup
-
-After the merge is pushed, delete the Story branch locally and, if it was
-pushed to the remote, remotely too.
+Run the closure script to merge, clean up branches, and close all tickets. This
+single command replaces the manual merge, branch deletion, and cascade
+completion:
 
 ```powershell
-# Delete local branch
-git branch -d story-<storyId>
-
-# Delete remote branch only if it was ever pushed
-git push --no-verify origin --delete story-<storyId>
+node .agents/scripts/sprint-story-close.js --story <storyId>
 ```
 
-> The remote delete will fail silently if the branch was never pushed — this is
-> expected and safe to ignore.
+The script:
 
-### Step 6 — Close Tickets (Cascade Completion)
+- Checks for `risk::high` — if set, creates a PR instead of auto-merging and
+  exits with code 1 (manual review required).
+- Merges the Story branch into `epic/<epicId>` with `--no-ff`.
+- Pushes the Epic branch.
+- Deletes the Story branch (local + remote).
+- Batch transitions all child Tasks and the Story to `agent::done`.
+- Runs `cascadeCompletion()` to propagate closure up the hierarchy.
+- Runs `health-monitor.js` to update sprint metrics.
+- Runs `dispatcher.js --dry-run` to automatically refresh the dashboard manifest.
 
-After the merge, immediately transition all child Tasks and the Story to
-`agent::done`. This triggers `cascadeCompletion()` which propagates closure
-up through the hierarchy (Tasks → Story → Feature → Epic).
-
-1. Transition each child Task to `agent::done`:
-
-   ```powershell
-   node .agents/scripts/update-ticket-state.js --task <taskId> --state agent::done
-   ```
-
-2. Transition the Story to `agent::done`:
-
-   ```powershell
-   node .agents/scripts/update-ticket-state.js --task <storyId> --state agent::done
-   ```
+**Output**: Structured JSON with `ticketsClosed[]`, `cascadedTo[]`, merge
+status.
 
 > **Why not use GitHub auto-close?** GitHub's `Closes #N` syntax only works
 > when merging into the repository's **default branch** (`main`). Since Story
@@ -325,3 +227,14 @@ up through the hierarchy (Tasks → Story → Feature → Epic).
   tickets on non-default branch merges.
 - **Always** delete the Story branch (local + remote) after merging into the
   Epic branch.
+- **MCP Fallback**: If the `agent-protocols` MCP tools
+  (`transition_ticket_state`, `cascade_completion`, `post_structured_comment`)
+  fail with connection errors (e.g. `client is closing`, `invalid character`),
+  **fall back immediately** to the equivalent CLI scripts. Do **not** leave
+  tickets in stale states. The CLI equivalents are:
+
+  | MCP Tool                     | CLI Fallback                                                                        |
+  | ---------------------------- | ----------------------------------------------------------------------------------- |
+  | `transition_ticket_state`    | `node .agents/scripts/update-ticket-state.js --task <id> --state <state>`           |
+  | `cascade_completion`         | (auto-triggered by the CLI script when `--state agent::done`)                       |
+  | `post_structured_comment`    | `node .agents/scripts/update-ticket-state.js` (post via provider directly)          |

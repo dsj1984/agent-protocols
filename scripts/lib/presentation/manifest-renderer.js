@@ -5,6 +5,11 @@
  */
 
 export function renderManifestMarkdown(manifest) {
+  // DEBUG HELPER
+  process.stderr.write(
+    `[MCP] Rendering manifest for Epic #${manifest.epicId || 'unknown'}. Keys: ${Object.keys(manifest).join(', ')}\n`,
+  );
+
   const lines = [];
   const { epicId, epicTitle, summary, storyManifest, dryRun, generatedAt } =
     manifest;
@@ -27,28 +32,118 @@ export function renderManifestMarkdown(manifest) {
   lines.push(
     `| Progress | **${summary.doneTasks}/${summary.totalTasks}** tasks (${summary.progressPercent}%) |`,
   );
-  lines.push(`| Stories | ${(storyManifest ?? []).length} |`);
+  const storyCount = (storyManifest ?? []).filter(
+    (s) => s.storyId !== '__ungrouped__' && s.type === 'story',
+  ).length;
+  const featureCount = (storyManifest ?? []).filter(
+    (s) => s.type === 'feature',
+  ).length;
+  lines.push(`| Stories | ${storyCount} |`);
+  if (featureCount > 0)
+    lines.push(`| Features (containers) | ${featureCount} |`);
   lines.push(
-    `| Story Waves | ${storyWaveCount} _(${summary.totalWaves} task-level waves)_ |`,
+    `| Execution Waves | ${storyWaveCount} _(${summary.totalWaves} task-level waves)_ |`,
   );
   lines.push(`| Dispatched | ${summary.dispatched} |`);
   lines.push(`| Held for Approval | ${summary.heldForApproval} |`);
   lines.push('');
 
-  // --- Progress bar ---
-  const filled = Math.round(summary.progressPercent / 5);
+  // --- Hero Progress Bar ---
+  const pct = summary.progressPercent;
+  const filled = Math.round(pct / 5);
   const empty = 20 - filled;
+  const bar = '█'.repeat(filled) + '░'.repeat(empty);
+  const statusEmoji = pct === 100 ? '🎉' : pct >= 50 ? '🔥' : '🏗️';
+  lines.push(`## ${statusEmoji} Sprint Progress`);
+  lines.push('');
+  lines.push('```');
   lines.push(
-    `**Progress:** ${'█'.repeat(filled)}${'░'.repeat(empty)} ${summary.progressPercent}%`,
+    `  ${bar}  ${pct}%  (${summary.doneTasks}/${summary.totalTasks} tasks)`,
+  );
+  lines.push('```');
+  lines.push('');
+  // Compute story-level completion for the hero section
+  const allStoryItems = (storyManifest ?? []).filter(
+    (s) => s.type === 'story' && s.storyId !== '__ungrouped__',
+  );
+  const doneStories = allStoryItems.filter(
+    (s) =>
+      s.tasks.length > 0 && s.tasks.every((t) => t.status === 'agent::done'),
+  ).length;
+  lines.push(
+    `> **Stories:** ${doneStories}/${allStoryItems.length} complete · **Tasks:** ${summary.doneTasks}/${summary.totalTasks} complete`,
   );
   lines.push('');
+
+  // --- Wave Summary Table ---
+  // Only Stories participate in execution waves. Features are containers.
+  const allItems =
+    manifest.storyManifest ||
+    manifest.stories ||
+    manifest.summary?.stories ||
+    [];
+  const waveEligible = allItems.filter((s) => s.type !== 'feature');
+  if (waveEligible && waveEligible.length > 0) {
+    const waveStats = new Map();
+
+    for (const s of waveEligible) {
+      const w = s.earliestWave ?? -1;
+      if (!waveStats.has(w)) {
+        waveStats.set(w, { stories: 0, tasks: 0, done: 0 });
+      }
+      const stat = waveStats.get(w);
+      stat.stories++;
+      stat.tasks += s.tasks.length;
+      stat.done += s.tasks.filter((t) => t.status === 'agent::done').length;
+    }
+
+    const sortedWaves = [...waveStats.keys()].sort((a, b) => a - b);
+    lines.push('## Wave Summary');
+    lines.push('');
+    lines.push('| Wave | Stories | Progress | Tasks | Status |');
+    lines.push('| :--- | :--- | :--- | :--- | :--- |');
+
+    for (const w of sortedWaves) {
+      const stat = waveStats.get(w);
+      const isDone = stat.tasks > 0 && stat.done === stat.tasks;
+      const waveLabel = w === -1 ? 'Ungrouped' : `Wave ${w}`;
+      const isReady =
+        w === 0 ||
+        sortedWaves
+          .filter((sw) => sw < w)
+          .every((sw) => {
+            const swStat = waveStats.get(sw);
+            return swStat.done === swStat.tasks;
+          });
+
+      const statusLabel = isDone
+        ? '✅ Done'
+        : isReady
+          ? '🚀 Ready'
+          : '⏳ Blocked';
+      // Mini progress bar for the wave
+      const wavePct =
+        stat.tasks > 0 ? Math.round((stat.done / stat.tasks) * 100) : 0;
+      const waveFilled = Math.round(wavePct / 10);
+      const waveEmpty = 10 - waveFilled;
+      const waveBar = '█'.repeat(waveFilled) + '░'.repeat(waveEmpty);
+      lines.push(
+        `| ${waveLabel} | ${stat.stories} | ${waveBar} ${wavePct}% | ${stat.done}/${stat.tasks} | ${statusLabel} |`,
+      );
+    }
+    lines.push('');
+  }
+
   lines.push('---');
   lines.push('');
 
-  // --- Story Dispatch Table grouped by wave ---
+  // --- Story Dispatch Table grouped by wave (Features excluded from waves) ---
   if (storyManifest && storyManifest.length > 0) {
+    const waveStories = storyManifest.filter((s) => s.type !== 'feature');
+    const featureItems = storyManifest.filter((s) => s.type === 'feature');
+
     const waveGroups = new Map();
-    for (const story of storyManifest) {
+    for (const story of waveStories) {
       const w = story.earliestWave ?? -1;
       if (!waveGroups.has(w)) waveGroups.set(w, []);
       waveGroups.get(w).push(story);
@@ -69,13 +164,36 @@ export function renderManifestMarkdown(manifest) {
 
       lines.push(`### ${waveLabel}${parallelHint}`);
       lines.push('');
-      lines.push('| Story | Title | Model Tier | Recommended Model | Tasks |');
-      lines.push('| :--- | :--- | :--- | :--- | :--- |');
+      lines.push(
+        '| | Story | Title | Model Tier | Recommended Model | Tasks |',
+      );
+      lines.push('| :--- | :--- | :--- | :--- | :--- | :--- |');
 
       for (const s of stories) {
+        const allDone =
+          s.tasks.length > 0 &&
+          s.tasks.every((t) => t.status === 'agent::done');
+        const storyCheckbox = allDone ? '✅' : '⬜';
         lines.push(
-          `| #${s.storyId} | ${s.storySlug} | \`${s.model_tier}\` | **${s.recommendedModel}** | ${s.tasks.length} |`,
+          `| ${storyCheckbox} | #${s.storyId} | ${s.storySlug} | \`${s.model_tier}\` | **${s.recommendedModel}** | ${s.tasks.length} |`,
         );
+      }
+      lines.push('');
+    }
+
+    // --- Feature Containers (informational, not executable) ---
+    if (featureItems.length > 0) {
+      lines.push('## Feature Containers');
+      lines.push('');
+      lines.push(
+        '> Features are organizational groupings and are **not directly executable**.',
+      );
+      lines.push('> Execute the Stories within each Feature instead.');
+      lines.push('');
+      lines.push('| Feature | Title | Child Tasks |');
+      lines.push('| :--- | :--- | :--- |');
+      for (const f of featureItems) {
+        lines.push(`| #${f.storyId} | ${f.storySlug} | ${f.tasks.length} |`);
       }
       lines.push('');
     }
@@ -88,19 +206,27 @@ export function renderManifestMarkdown(manifest) {
     lines.push('');
 
     for (const story of storyManifest) {
+      const typeLabel =
+        (story.type || 'story').charAt(0).toUpperCase() +
+        (story.type || 'story').slice(1);
       const storyLabel =
         story.storyId === '__ungrouped__'
           ? 'Ungrouped Tasks'
-          : `Story #${story.storyId}: ${story.storySlug}`;
+          : `${typeLabel} #${story.storyId}: ${story.storySlug}`;
+      const isFeature = story.type === 'feature';
 
       lines.push(`### ${storyLabel}`);
       lines.push('');
       lines.push(`- **Branch:** \`${story.branchName}\``);
       lines.push(`- **Model Tier:** \`${story.model_tier}\``);
       lines.push(`- **Recommended Model:** ${story.recommendedModel}`);
-      lines.push(
-        `- **Wave:** ${story.earliestWave === -1 ? 'N/A' : story.earliestWave}`,
-      );
+      if (isFeature) {
+        lines.push('- **Type:** Feature (container — not directly executable)');
+      } else {
+        lines.push(
+          `- **Wave:** ${story.earliestWave === -1 ? 'N/A' : story.earliestWave}`,
+        );
+      }
       lines.push('');
       lines.push('**Tasks (execution order):**');
       lines.push('');
@@ -147,13 +273,15 @@ export function renderManifestMarkdown(manifest) {
   // --- Execution instructions ---
   lines.push('## How to Execute');
   lines.push('');
-  lines.push('1. Pick a Story from Wave 0 (all dependencies satisfied).');
+  lines.push('1. Pick a Story from the next ready wave (🚀 status above).');
   lines.push(
     '2. Select the **Recommended Model** shown in the table for your agent session.',
   );
   lines.push('3. Run: `/sprint-execute #[Story ID]`');
+  lines.push('');
   lines.push(
-    '4. After completing a wave, re-run `/sprint-execute [Epic ID]` to refresh the dashboard.',
+    '> **Tip:** Story closure and dashboard refresh are handled automatically by `sprint-story-close.js`. ' +
+      'Check the updated `temp/` manifest files after closing a story.',
   );
   lines.push('');
 
@@ -186,14 +314,14 @@ export function renderStoryManifestMarkdown(manifest) {
   lines.push('');
   lines.push('## Execution Steps');
   lines.push('');
-  lines.push('1. Ensure the Epic branch exists locally and on the remote.');
-  lines.push('2. Checkout the Story branch from the Epic branch (not main):');
-  lines.push('   `git checkout -b <storyBranch> <epicBranch>`');
-  lines.push('3. Transition all child Tasks to `agent::executing`.');
-  lines.push('4. Implement each Task sequentially and commit after each one.');
-  lines.push('5. Run `npm run lint` and `npm test` to validate.');
-  lines.push('6. Merge the Story branch into the Epic branch (`--no-ff`).');
-  lines.push('7. Transition all Tasks and the Story to `agent::done`.');
+  lines.push(
+    '1. `node .agents/scripts/sprint-story-init.js --story <storyId>` (bootstraps branch, transitions tasks)',
+  );
+  lines.push('2. Implement each Task sequentially and commit after each one.');
+  lines.push('3. Run `npm run lint` and `npm test` to validate.');
+  lines.push(
+    '4. `node .agents/scripts/sprint-story-close.js --story <storyId>` (merges, cleans up, closes tickets)',
+  );
   lines.push('');
 
   return lines.join('\n');
@@ -202,11 +330,15 @@ export function renderStoryManifestMarkdown(manifest) {
 export function printStoryDispatchTable(storyManifest) {
   if (!storyManifest || storyManifest.length === 0) return;
 
+  // Split into wave-eligible Stories and Feature containers
+  const stories = storyManifest.filter((s) => s.type !== 'feature');
+  const features = storyManifest.filter((s) => s.type === 'feature');
+
   console.log(
-    '\n┌──────────────────────────────────────────────────────────────────────────────────────────────────────────────────────┐',
+    '\n┌───────────────────────────────────────────────────────────────────────────────────────────────────────────┐',
   );
   console.log(
-    '│                                            📋 STORY DISPATCH TABLE                                                   │',
+    '│                                       📋 STORY DISPATCH TABLE                                          │',
   );
   console.log(
     '├─────────┬──────────────────────────────────────┬──────┬────────────┬──────────────────────────────┬──────────────┤',
@@ -218,7 +350,7 @@ export function printStoryDispatchTable(storyManifest) {
     '├─────────┼──────────────────────────────────────┼──────┼────────────┼──────────────────────────────┼──────────────┤',
   );
 
-  for (const story of storyManifest) {
+  for (const story of stories) {
     const id =
       story.storyId === '__ungrouped__' ? '(none)' : `#${story.storyId}`;
     const title = (story.storySlug ?? '').substring(0, 36).padEnd(36);
@@ -241,5 +373,15 @@ export function printStoryDispatchTable(storyManifest) {
   console.log(
     '  💡 Use /sprint-execute #[Story ID] to execute a Story. Select the model shown above.',
   );
+
+  if (features.length > 0) {
+    console.log('');
+    console.log('  📦 Feature Containers (not directly executable):');
+    for (const f of features) {
+      console.log(
+        `     #${f.storyId} — ${f.storySlug} (${f.tasks.length} orphaned tasks)`,
+      );
+    }
+  }
   console.log('');
 }
