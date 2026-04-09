@@ -1,50 +1,124 @@
 ---
-description:
-  Perform Sprint Retrospective, update documentation, and align the roadmap.
+description: >-
+  Perform Sprint Retrospective, reading data from the Epic ticket graph and
+  friction logs to generate a structured retrospective document.
 ---
 
 # Sprint Retro & Roadmap Alignment
 
-## Step 0 - Path Resolution
+This workflow generates a sprint retrospective by reading execution data
+directly from the GitHub ticket graph. It is a **Bookend Lifecycle** phase,
+executed automatically by `/sprint-execute` after Code Review completes, or run
+manually by the operator.
 
-1.  Resolve `[SPRINT_ROOT]` as the directory `sprint-[PADDED_NUM]` within the
-    `sprintDocsRoot` prefix, both defined in `.agentrc.json`.
-2.  `[PADDED_NUM]` is the `[SPRINT_NUMBER]` padded according to the
-    `sprintNumberPadding` setting in the same config.
+> **Persona**: `product` · **Model**: `planningFallback` from `.agentrc.json`
+> **Skills**: `core/documentation-and-adrs`, `core/idea-refinement`
 
-## Step 1 - Retrospective Execution
+## Step 0 — Resolve Configuration
 
-When instructed to perform a sprint retro and align the roadmap (typically in
-Chat Session 5), you must execute the following steps:
+1. Resolve `[EPIC_ID]` — the GitHub Issue number of the Epic that was just
+   completed.
+2. Resolve `[SCRIPTS_ROOT]` from `scriptsRoot` in `.agentrc.json`.
+3. Resolve `[BASE_BRANCH]` from `baseBranch` in `.agentrc.json`.
 
-1. **Generate Retro Document**: Generate a `[SPRINT_ROOT]/retro.md` file using
-   the `.agents/templates/sprint-retro-template.md` template.
-2. **Analyze the Sprint**: Analyze the sprint execution logs, test results,
-   commits, and the `agent-friction-log.json` to accurately fill in the Sprint
-   Scorecard, What Went Well, What Could Be Improved, and Architectural Debt.
-3. **Generate Self-Healing Recommendations**: In the **Protocol Optimization
-   Recommendations (Self-Healing)** section, you MUST identify systemic friction
-   points and generate "agent-ready" markdown snippets or skills. These snippets
-   should be specifically designed for immediate human-approved application
-   (e.g., via the PM/Lead) to the `agent-protocols` library.
-4. **Formulate Action Items**: Create clear, actionable items for the next
-   sprint based on the retro analysis.
-5. **Update Roadmap**: Open `roadmap.md` and mark newly completed items as
-   `✅ Implemented`. Note: Do NOT add new protocol-related action items to the
-   roadmap; these should remain in the retro document for later implementation
-   in the `agent-protocols` repository.
-6. **Update Architecture & Patterns**: Update `architecture.md` if any core
-   schemas or dependencies were introduced. Update `[DOCS_ROOT]/patterns.md` and
-   `[DOCS_ROOT]/decisions.md` to document new technical rulings, accepted
-   library patterns, or key architectural decisions made during this sprint.
-7. **Context Pruning**: Execute the Gardener workflow to archive stale decisions
-   and optimize the Local RAG index for the next sprint:
-   `/[[WORKFLOWS_ROOT]/run-context-pruning.md]`
-8. **Finalize**: Use the `/sprint-finalize-task` workflow for your task ID
-   (e.g., `39.8.1`) to ensure the retro documentation, roadmap updates, and
-   context pruning artifacts are pushed and the playbook status is tracked.
+## Step 1 — Gather Retrospective Data from the Ticket Graph
+
+Read execution telemetry directly from GitHub — **not** from local files:
+
+1. **Fetch the Epic and all child tickets** (Features, Stories, Tasks) using
+   `provider.getTickets(epicId)`.
+2. **For each Task ticket**, collect:
+   - Final label state (e.g., `agent::done`, `risk::high`, `status::blocked`).
+   - All comments of type `friction` (posted via `postStructuredComment`).
+   - Time between `agent::executing` and `agent::done` (from label events, if
+     available).
+3. **Collect aggregate friction signals**:
+   - Count of Tasks that required a hotfix (`status::blocked` was applied).
+   - Count of Tasks that hit the HITL gate (`risk::high`).
+   - Count of Tasks that required more than one integration attempt.
+
+## Step 2 — Generate Retrospective Document
+
+Generate a `retro-epic-[EPIC_ID].md` file in the `[BASE_BRANCH]` docs root using
+the following structure:
+
+```markdown
+# Retrospective — Epic #[EPIC_ID]: [Epic Title]
+
+**Date**: [ISO date] **Protocol Version**: [from .agents/VERSION]
+
+## Sprint Scorecard
+
+| Metric                    | Value |
+| ------------------------- | ----- |
+| Total Tasks               |       |
+| Tasks Completed First Try |       |
+| Tasks Requiring Hotfix    |       |
+| HITL Gates Triggered      |       |
+| Friction Events           |       |
+
+## What Went Well
+
+> (Analyse Task ticket labels and comments for smooth execution patterns)
+
+## What Could Be Improved
+
+> (Identify Tasks with friction comments; extract root causes)
+
+## Architectural Debt
+
+> (List any patterns introduced that deviate from established ADRs)
+
+## Protocol Optimization Recommendations (Self-Healing)
+
+> MUST: Identify systemic friction points and propose agent-ready markdown
+> snippets or skill updates for the agent-protocols library.
+
+## Action Items for Next Epic
+
+> Clear, actionable items derived from the retro analysis.
+```
+
+## Step 3 — Update Roadmap (If Applicable)
+
+If the Epic had a corresponding entry in `roadmap.md` (synced automatically from
+GitHub issues), the roadmap is read-only and will update itself via the
+automated GitHub sync workflow. Do **not** manually edit `roadmap.md`.
+
+If the project does not yet have automated roadmap sync, identify the Epic's
+roadmap entry and mark it as `✅ Implemented` in the local `roadmap.md`.
+
+> **Note:** Do NOT add new protocol-related action items to the roadmap; these
+> belong in the retro document for later implementation in the `agent-protocols`
+> repository.
+
+## Step 4 — Update Architecture & Patterns Documentation
+
+- Update `docs/architecture.md` if any core schemas or dependencies were
+  introduced during this Epic.
+- Update `docs/decisions.md` to capture key architectural decisions made during
+  implementation.
+
+## Step 5 — Commit
+
+```powershell
+git add docs/retro-epic-[EPIC_ID].md docs/architecture.md docs/decisions.md
+git commit --no-verify -m "docs(retro): Epic #[EPIC_ID] retrospective and documentation update"
+git push origin [BASE_BRANCH]
+```
+
+## Step 6 — Post Summary to Epic Ticket
+
+Post a structured comment on the Epic ticket linking to the retro document:
+
+```javascript
+// postStructuredComment([EPIC_ID], 'progress',
+//   'Retrospective complete. See docs/retro-epic-[EPIC_ID].md for the full report.')
+```
 
 ## Constraint
 
-Do NOT mark items as implemented in the roadmap unless they have successfully
-passed all QA test cases and the code review audit for the current sprint.
+Do **not** mark items as implemented in `roadmap.md` unless they have passed all
+QA test cases and the Code Review audit for this Epic. Do **not** read from
+local playbook files — GitHub is the Single Source of Truth in v5. All execution
+data must be sourced from the ticket graph.

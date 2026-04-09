@@ -1,120 +1,143 @@
 ---
-description:
-  Automated consolidation of sprint feature branches and Playbook updates.
+description: >-
+  Automated consolidation of Epic Task branches into the Epic base branch, with
+  v5 GitHub-native state sync via update-ticket-state.js.
 ---
-
-<!-- // turbo-all -->
 
 # Sprint Integration
 
-This workflow consolidates all concurrent feature development into
-`sprint-[SPRINT_NUMBER]`. It must be run BEFORE QA Testing begins, and SHOULD be
-rerun if any remediation tasks (QA fixes, Code Review updates) create new
-feature branches.
+This workflow consolidates all Task feature branches for an Epic into the Epic
+base branch (`epic/<epicId>`). It **must** run before any Bookend Lifecycle
+phases (QA, Code Review, Retro, Close-Out) begin. Re-run it if any hotfix
+creates a new commit on a Task branch after initial integration.
 
-## Progress Protocol
+> **When to run**: Called automatically by `/sprint-execute` once all Tasks
+> reach `agent::done`, or manually by the operator.
 
-Before executing each numbered step, emit a visible progress banner to the
-terminal:
+## Step 0 — Resolve Configuration
 
-`echo "▶ [Sprint Integration] Step N/10: <STEP_NAME> (Branch: <BRANCH_NAME> if applicable)"`
+1. Resolve `[EPIC_ID]` — the GitHub Issue number of the Epic being integrated.
+2. Resolve `[EPIC_BRANCH]` — `epic/<epicId>`.
+3. Resolve `[BASE_BRANCH]` from `baseBranch` in `.agentrc.json` (default:
+   `main`).
+4. Resolve `[SCRIPTS_ROOT]` from `scriptsRoot` in `.agentrc.json`.
+5. Resolve `[MAX_RETRY]` from `frictionThresholds.maxIntegrationRetries` in
+   `.agentrc.json` (default: 2).
 
-When entering the per-branch verification loop (Step 4), emit a sub-banner for
-each branch:
+## Step 1 — Environment Reset
 
-`echo "  ↳ [Candidate N/TOTAL] Verifying: task/sprint-[NUM]/[TASK_ID]"`
+Ensure you are on the Epic base branch with the latest state:
 
-This ensures the human operator always has a clear signal of current progress,
-even when commands are auto-running.
+```powershell
+git checkout epic/[EPIC_ID]
+git pull origin epic/[EPIC_ID]
+```
 
-## Step 0 - Path Resolution
+## Step 2 — Branch Discovery
 
-1.  Resolve `[SPRINT_ROOT]` as the directory `sprint-[PADDED_NUM]` within the
-    `sprintDocsRoot` prefix, both defined in `.agentrc.json`.
-2.  `[PADDED_NUM]` is the `[SPRINT_NUMBER]` padded according to the
-    `sprintNumberPadding` setting in the same config.
-3.  Resolve `[TASK_STATE_ROOT]` from the `taskStateRoot` field in
-    `.agentrc.json` (default: `temp/task-state`).
+Identify all Story branches for this Epic. Unlike legacy tasks, stories
+consolidate multiple tasks into a single branch:
 
-## Execution Steps
+```powershell
+git branch -r --list "origin/story/epic-[EPIC_ID]/*"
+```
 
-1. **Environment Reset**: Ensure you are on `sprint-[SPRINT_NUMBER]`. Pull the
-   latest changes: `git checkout sprint-[SPRINT_NUMBER] ; git pull`.
-2. **Branch Discovery**: Identify all remote branches associated with this
-   sprint's tasks (e.g., branches matching `task/sprint-[SPRINT_NUMBER]/*`).
-3. **Shift-Left Validation**: For each identified feature branch:
-   - Cross-reference the branch name against `[SPRINT_ROOT]/playbook.md` to
-     resolve the **dotted numeric `[TASK_ID]`** (e.g., `045.2.1`). Do NOT use
-     the branch slug (e.g., `directories-db-migrations`) as the task ID.
-   - Verify the existence of `[TASK_STATE_ROOT]/[TASK_ID]-test-receipt.json`.
-   - If the receipt is **MISSING** or the status is not **"passed"**: **STOP**
-     and log a friction point. This branch is NOT eligible for integration until
-     isolated tests pass.
-4. **Ephemeral Candidate Verification**: For each VALIDATED feature branch
-   identified in Step 2, run the batch integration script:
-   `node [SCRIPTS_ROOT]/sprint-integrate.js --sprint [SPRINT_NUMBER] --task [TASK_ID]`
-   - This script performs the full candidate verification loop in a single
-     process: creates the ephemeral candidate branch, merges, runs validation +
-     tests, and either consolidates (on success) or rolls back (on failure).
-   - **Merge Conflict Resolution** (handled inside the script):
-     - **Minor conflicts** (fewer than 20 conflicting lines across fewer than 3
-       files, e.g., import ordering or adjacent line edits): the script resolves
-       automatically.
-     - **Major conflicts** (20+ conflicting lines OR structural changes to
-       shared files like schemas, configs, or routing): the script exits with
-       code `2`. You MUST **STOP** and alert the user with the exact conflicting
-       files and branches before proceeding.
-   - **Blast-Radius Check** (exit codes from the script):
-     - **Exit 0 (Build Green)**: The candidate was successfully merged into the
-       sprint base and the candidate branch was cleaned up. Proceed to the next
-       branch.
-     - **Exit 1 (Build Broken)**: The candidate was purged (blast-radius
-       contained) and friction was logged automatically.
-       - **REMEDIATE (Zero-Touch Loop)**: DO NOT STOP EXECUTION. You must now
-         immediately checkout the original feature branch
-         `task/sprint-[SPRINT_NUMBER]/[TASK_ID]` and transition into the
-         `/[[WORKFLOWS_ROOT]/sprint-hotfix.md]` workflow. Use the diagnostic
-         traces you just generated to automatically remediate the regression.
-         This task is NOT eligible for `[x]` (Complete) status yet.
-     - **Exit 2 (Major Conflict)**: STOP and alert the user.
+For each branch found, identify the constituent `[TASK_ID]` labels by querying
+the Story's child tickets on GitHub.
 
-5. **Conflict Marker Scan**: After all merges complete, run the cross-platform
-   script: `node [SCRIPTS_ROOT]/detect-merges.js` If the script exits with an
-   error (markers found), the merge is INCOMPLETE. Resolve them manually, stage
-   the fixes with `git add`, and amend the merge commit before proceeding. Do
-   NOT continue with unresolved markers.
-6. **Playbook Sync (State Transition to Complete)**:
-   - Open `[SPRINT_ROOT]/playbook.md`.
-   - For every task branch that was successfully merged, locate its status check
-     and change it from Not Started (`- [ ]`) to Complete (`- [x]`).
-7. **Visualize Progress**:
-   - For every Chat Session in the Playbook where **all** component tasks have
-     now been checked off (`- [x]`), locate the Mermaid diagram at the top.
-   - Update the status class from `not_started` to `complete`. (e.g., Change
-     `class C4 not_started` to `class C4 complete`).
-8. **Commit State**: Commit the updated `playbook.md` and the merge commits with
-   the message:
-   `chore(sprint): integrate feature branches and sync playbook state`. Push to
-   origin: `git push origin sprint-[SPRINT_NUMBER]`.
-9. **Branch Cleanup**: For each successfully merged feature branch, delete the
-   remote ref: `git push origin --delete task/sprint-[SPRINT_NUMBER]/[TASK_ID]`.
-10. **Notification**: Resolve `[WEBHOOK_URL]` from the `notificationWebhookUrl`
-    field in `.agentrc.json`. If `notificationWebhookUrl` is not empty, send a
-    notification using the cross-platform Node script:
-    `node [SCRIPTS_ROOT]/notify.js "[WEBHOOK_URL]" "Sprint [SPRINT_NUMBER]: Feature branches have been integrated into the sprint base branch."`
+## Step 3 — Prerequisite Gate (Ticket State Check)
 
-- If the command fails, log the failure using the provided script:
-  `node [SCRIPTS_ROOT]/log-friction.js "[SPRINT_ROOT]/agent-friction-log.json" "friction_point" "notify.js" "[ERROR_MESSAGE]"`
-- If the `notificationWebhookUrl` is empty, skip gracefully.
+For each Story branch discovered, verify that at least one of its constituent
+Tasks is `agent::done` before it is eligible for integration.
+
+A Story branch is eligible if:
+
+- Its tasks relevant to this integration wave are labeled `agent::done`.
+- Its PR (if any) is ready for consolidation.
+
+## Step 4 — Ephemeral Candidate Verification
+
+For each eligible Story, run the integration script for one of its Tasks. The
+script automatically resolves the shared Story branch:
+
+```powershell
+node [SCRIPTS_ROOT]/sprint-integrate.js --task [TASK_ID]
+```
+
+> **Note**: `--epic` is optional. When omitted the script resolves the Epic ID
+> automatically from the `epic: #N` field written into the task ticket body by
+> `createTicket`. Pass `--epic` explicitly only if you need to override this.
+
+The script performs the full candidate verification loop: creates an ephemeral
+candidate branch, merges the Story branch (which includes all completed tasks
+within that story), runs validation + tests, and either consolidates (on
+success) or rolls back (on failure).
+
+**Exit codes:**
+
+- **0 — Build Green**: Story branch successfully merged into Epic base.
+- **1 — Build Broken**: Blast-radius contained, friction logged. Immediately
+  transition into `/sprint-hotfix`.
+- **2 — Major Conflict**: **STOP**. Alert the operator.
+
+## Step 5 — Conflict Marker Scan
+
+After all merges, scan for unresolved conflict markers:
+
+```powershell
+node [SCRIPTS_ROOT]/detect-merges.js
+```
+
+## Step 6 — State Sync (v5)
+
+For every Task within the Story branch that was successfully merged, sync state
+to GitHub:
+
+```javascript
+// For each taskId in story:
+// transitionTicketState(taskId, 'agent::done')
+// cascadeCompletion(taskId)
+```
+
+This propagates `agent::done` status up through Story → Feature → Epic
+automatically.
+
+## Step 7 — Commit & Push
+
+Commit the integration state and push:
+
+```powershell
+git commit -am "chore(epic-[EPIC_ID]): integrate story branches"
+git push origin epic/[EPIC_ID]
+```
+
+## Step 8 — Branch Cleanup
+
+Delete the remote Story branches that were successfully integrated:
+
+```powershell
+git push origin --delete story/epic-[EPIC_ID]/[STORY_SLUG]
+```
+
+Repeat for each successfully integrated Task.
+
+## Step 9 — Notification
+
+```powershell
+node [SCRIPTS_ROOT]/notify.js "Epic #[EPIC_ID]: All task branches integrated into epic/[EPIC_ID]. Bookend Lifecycle starting."
+```
+
+If the command fails, log friction:
+
+```powershell
+node [SCRIPTS_ROOT]/log-friction.js "agent-friction-log.json" "friction_point" "notify.js" "[ERROR_MESSAGE]"
+```
+
+If `notificationWebhookUrl` is empty, skip gracefully.
 
 ## Constraint
 
-Do NOT skip any steps. The Mermaid diagram and task checkboxes MUST accurately
-reflect the merged branches before you consider this workflow complete. This is
-the only authorized step for marking tasks as `- [x]` or applying the `complete`
-class during parallel execution phases.
-
-**Timeout**: If a single branch's candidate verification (Step 4) has not
-completed within 5 minutes of wall-clock time, treat it as a failure and proceed
-to the blast-radius containment path (exit code 1). Log the timeout via
-`node [SCRIPTS_ROOT]/log-friction.js "[SPRINT_ROOT]/agent-friction-log.json" "friction_point" "sprint-integration" "[TASK_ID] candidate verification timed out after 5 minutes."`
+Do **not** skip the Prerequisite Gate (Step 3). Do **not** merge Task branches
+that are not `agent::done` — doing so will desync the GitHub ticket graph from
+the real codebase. The state sync (Step 6) is the only authorized mechanism for
+transitioning ticket labels during the integration phase.

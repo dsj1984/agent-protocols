@@ -23,9 +23,9 @@
 export function isBookendTask(task) {
   return Boolean(
     task.isIntegration ||
-    task.isQA ||
-    task.isCodeReview ||
-    task.isRetro ||
-    task.isCloseSprint,
+      task.isQA ||
+      task.isCodeReview ||
+      task.isRetro ||
+      task.isCloseSprint,
   );
 }

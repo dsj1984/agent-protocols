@@ -1,0 +1,261 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "dispatch-manifest",
+  "title": "Dispatch Manifest",
+  "description": "Output of dispatcher.js — describes the full execution plan for one Epic. Written to temp/dispatch-manifest-<epicId>.json.",
+  "type": "object",
+  "required": [
+    "schemaVersion",
+    "generatedAt",
+    "epicId",
+    "epicTitle",
+    "executor",
+    "dryRun",
+    "summary",
+    "waves",
+    "storyManifest",
+    "dispatched",
+    "heldForApproval"
+  ],
+  "properties": {
+    "schemaVersion": {
+      "type": "string",
+      "description": "Schema version for forward-compatibility checks.",
+      "examples": ["1.0.0"]
+    },
+    "generatedAt": {
+      "type": "string",
+      "format": "date-time",
+      "description": "ISO-8601 timestamp when this manifest was produced."
+    },
+    "epicId": {
+      "type": "integer",
+      "minimum": 1,
+      "description": "GitHub Issue number of the Epic."
+    },
+    "epicTitle": {
+      "type": "string",
+      "description": "Title of the Epic issue."
+    },
+    "executor": {
+      "type": "string",
+      "description": "The IExecutionAdapter executorId used for this dispatch cycle.",
+      "examples": ["manual", "subprocess", "mcp"]
+    },
+    "dryRun": {
+      "type": "boolean",
+      "description": "If true, no branches were created and no tasks were dispatched."
+    },
+    "protocolVersionMismatch": {
+      "type": "boolean",
+      "description": "True if any task's generation-time protocol version differs from the current runtime version."
+    },
+    "summary": {
+      "type": "object",
+      "required": [
+        "totalTasks",
+        "doneTasks",
+        "progressPercent",
+        "totalWaves",
+        "dispatched",
+        "heldForApproval"
+      ],
+      "properties": {
+        "totalTasks": {
+          "type": "integer",
+          "minimum": 0
+        },
+        "doneTasks": {
+          "type": "integer",
+          "minimum": 0
+        },
+        "progressPercent": {
+          "type": "integer",
+          "minimum": 0,
+          "maximum": 100
+        },
+        "totalWaves": {
+          "type": "integer",
+          "minimum": 0
+        },
+        "dispatched": {
+          "type": "integer",
+          "minimum": 0,
+          "description": "Number of tasks dispatched in this invocation."
+        },
+        "heldForApproval": {
+          "type": "integer",
+          "minimum": 0,
+          "description": "Number of tasks held due to risk::high label."
+        }
+      },
+      "additionalProperties": false
+    },
+    "waves": {
+      "type": "array",
+      "description": "Ordered list of execution waves computed from the task DAG.",
+      "items": {
+        "type": "object",
+        "required": ["waveIndex", "tasks"],
+        "properties": {
+          "waveIndex": {
+            "type": "integer",
+            "minimum": 0
+          },
+          "tasks": {
+            "type": "array",
+            "items": {
+              "type": "object",
+              "required": [
+                "taskId",
+                "title",
+                "status",
+                "branch",
+                "persona",
+                "model",
+                "mode",
+                "skills",
+                "focusAreas",
+                "isRiskHigh",
+                "dependsOn"
+              ],
+              "properties": {
+                "taskId": { "type": "integer", "minimum": 1 },
+                "title": { "type": "string" },
+                "status": {
+                  "type": "string",
+                  "enum": [
+                    "agent::ready",
+                    "agent::executing",
+                    "agent::review",
+                    "agent::done",
+                    "status::blocked"
+                  ]
+                },
+                "branch": { "type": "string" },
+                "persona": { "type": "string" },
+                "model": { "type": "string" },
+                "mode": {
+                  "type": "string",
+                  "enum": ["fast", "planning", ""]
+                },
+                "skills": {
+                  "type": "array",
+                  "items": { "type": "string" }
+                },
+                "focusAreas": {
+                  "type": "array",
+                  "items": { "type": "string" }
+                },
+                "isRiskHigh": { "type": "boolean" },
+                "dependsOn": {
+                  "type": "array",
+                  "items": { "type": "integer" }
+                }
+              },
+              "additionalProperties": false
+            }
+          }
+        },
+        "additionalProperties": false
+      }
+    },
+    "dispatched": {
+      "type": "array",
+      "description": "Tasks dispatched during this invocation.",
+      "items": {
+        "type": "object",
+        "required": ["taskId", "dispatchId", "status"],
+        "properties": {
+          "taskId": { "type": "integer", "minimum": 1 },
+          "dispatchId": { "type": "string" },
+          "status": {
+            "type": "string",
+            "enum": ["dispatched", "queued"]
+          }
+        },
+        "additionalProperties": false
+      }
+    },
+    "heldForApproval": {
+      "type": "array",
+      "description": "Tasks held due to risk::high label — require operator approval.",
+      "items": {
+        "type": "object",
+        "required": ["taskId", "reason"],
+        "properties": {
+          "taskId": { "type": "integer", "minimum": 1 },
+          "reason": { "type": "string" }
+        },
+        "additionalProperties": false
+      }
+    },
+    "storyManifest": {
+      "type": "array",
+      "description": "Story-centric grouping of tasks. Each entry represents a Story with its branch, model tier, recommended model, and child tasks. This is the primary execution unit — operators dispatch at the Story level.",
+      "items": {
+        "type": "object",
+        "required": [
+          "storyId",
+          "storySlug",
+          "branchName",
+          "model_tier",
+          "recommendedModel",
+          "earliestWave",
+          "tasks"
+        ],
+        "properties": {
+          "storyId": {
+            "oneOf": [
+              { "type": "integer", "minimum": 1 },
+              { "type": "string", "const": "__ungrouped__" }
+            ],
+            "description": "GitHub Issue number of the parent Story, or '__ungrouped__' for orphan tasks."
+          },
+          "storySlug": {
+            "type": "string",
+            "description": "URL-safe slug derived from the Story title."
+          },
+          "branchName": {
+            "type": "string",
+            "description": "Git branch name for this Story (e.g., story/epic-71/isolate-dispatcher-logic)."
+          },
+          "model_tier": {
+            "type": "string",
+            "enum": ["high", "fast"],
+            "description": "Complexity tier derived from the Story's complexity:: label."
+          },
+          "recommendedModel": {
+            "type": "string",
+            "description": "Concrete model name resolved from agentSettings.defaultModels based on model_tier.",
+            "examples": ["Gemini 3.1 Pro (High)", "Gemini 3 Flash"]
+          },
+          "earliestWave": {
+            "type": "integer",
+            "description": "The earliest wave index any task in this story appears in. Stories in the same wave can run in parallel."
+          },
+          "tasks": {
+            "type": "array",
+            "description": "Child tasks belonging to this Story, executed sequentially on the Story branch.",
+            "items": {
+              "type": "object",
+              "required": ["taskId", "taskSlug", "parentSlug", "dependencies"],
+              "properties": {
+                "taskId": { "type": "integer", "minimum": 1 },
+                "taskSlug": { "type": "string" },
+                "parentSlug": { "type": "string" },
+                "dependencies": {
+                  "type": "array",
+                  "items": { "type": "integer" }
+                }
+              },
+              "additionalProperties": false
+            }
+          }
+        },
+        "additionalProperties": false
+      }
+    }
+  },
+  "additionalProperties": false
+}

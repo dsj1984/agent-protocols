@@ -1,201 +1,184 @@
-# Agent Protocols — User Guide
+# Agent Protocols — Consumer Reference
 
-This is the `.agents/` bundle distributed to your project via Git submodule. It
-contains everything your AI coding agents need to operate with strict quality,
-consistency, and architectural guardrails.
+This is the detailed reference guide for teams consuming the Agent Protocols
+framework via the `.agents/` Git submodule.
 
-## 📋 Table of Contents
-
-- [What's Inside](#whats-inside)
-- [Global Instructions](#global-instructions)
-- [Personas](#personas)
-- [Rules](#rules)
-- [Skills](#skills)
-- [Workflows](#workflows)
-- [Templates](#templates)
-- [Tooling & Configuration](#tooling-configuration)
-- [Git Performance Optimization](#git-performance-optimization)
-
----
-
-## <a id="whats-inside"></a>📂 What's Inside
+## Directory Layout
 
 ```text
 .agents/
-├── VERSION                  # Current version of the protocols
-├── SDLC.md                  # Detailed guide for the /plan-sprint workflow
-├── default-agentrc.json     # ← Copy to project root as .agentrc.json and customise
-├── instructions.md          # MANDATORY: The consolidated system prompt
-├── personas/                # Role-specific behavior constraints
-├── rules/                   # Modular domain-agnostic global rules
-├── sample-docs/             # Reference samples for PRDs, specs, and roadmaps
-├── schemas/                 # JSON Schemas for structured agent output
-├── scripts/                 # Deterministic scaffolding and utility scripts
-├── skills/                  # Two-tier skill library (core/ + stack/)
-├── templates/               # Sprint planning markdown templates
-└── workflows/               # Reusable single-command workflows
+├── VERSION                  # Current version (5.0.0)
+├── SDLC.md                  # End-to-end workflow guide
+├── instructions.md          # MANDATORY: Primary system prompt
+├── default-agentrc.json     # Copy to project root as .agentrc.json
+├── personas/                # 12 role-specific behavior constraints
+├── rules/                   # 8 domain-agnostic coding standards
+├── schemas/                 # JSON Schemas for structured output validation
+├── scripts/                 # v5 orchestration engine
+│   ├── lib/                 # Core libraries
+│   │   ├── orchestration/           # ★ Orchestration SDK (Epic 71+)
+│   │   │   ├── index.js             # Barrel export: all SDK functions
+│   │   │   ├── dispatcher.js        # DAG scheduling, wave computation, manifest rendering
+│   │   │   ├── context-hydrator.js  # Self-contained prompt assembly
+│   │   │   └── ticketing.js         # Ticket state machine + cascade logic
+│   │   ├── ITicketingProvider.js    # Abstract 10-method ticketing contract
+│   │   ├── IExecutionAdapter.js     # Abstract execution adapter interface
+│   │   ├── config-resolver.js       # Unified config + .env loader + AJV validation
+│   │   ├── provider-factory.js      # Resolves provider name → class
+│   │   ├── adapter-factory.js       # Resolves adapter name → class
+│   │   ├── Graph.js                 # DAG implementation for dependency resolution
+│   │   ├── VerboseLogger.js         # Structured step-by-step execution logger
+│   │   ├── git-merge-orchestrator.js  # Branch merge sequencing and conflict handling
+│   │   └── git-utils.js             # Git shell command utilities
+│   ├── providers/
+│   │   └── github.js        # GitHub REST + GraphQL implementation
+│   ├── adapters/            # Execution adapters (e.g., shell, MCP)
+│   ├── mcp-orchestration.js # MCP Server entry point — exposes SDK as tools
+│   └── [cli scripts…]       # Thin CLI wrappers delegating to the SDK
+├── skills/                  # Two-tier skill library
+│   ├── core/                # Universal process skills (20 skills)
+│   └── stack/               # Tech-stack-specific guardrails (19 skills)
+├── templates/               # Context hydration and CI templates
+└── workflows/               # 36 slash-command workflows
 ```
 
 ---
 
-## <a id="global-instructions"></a>📖 Global Instructions (`instructions.md`)
+## System Prompt (`instructions.md`)
 
-**CRITICAL:** This file is your agent's **System Prompt**. It contains the
-foundational rules all agents must follow, including Persona Routing, Skill
-Activation, and mandatory Documentation retrieval.
+**This file is the agent's system prompt.** Configure your AI tool
+(`.cursorrules`, Custom Instructions, or system prompt settings) to load its
+full content.
 
-- **Persona Routing** — Auto-loading role-specific constraints.
-- **Skill Activation** — Auto-discovering domain guardrails.
-- **Documentation (Context7)** — Mandatory live doc retrieval.
-- **Context First** — Reading project docs before proposing solutions.
-- **Plan First** — Writing plan files before implementation.
-- **Windows Compatibility** — Ensuring shell command portability via `;`.
-- **Quality Assurance** — Tests, accessibility, and strict formatting.
+The system prompt instructs agents to:
 
-> [!IMPORTANT] You MUST configure your AI tool (e.g., `.cursorrules`, Custom
-> Instructions, or System Prompt settings) to load the full content of
-> `instructions.md` as its primary system core.
+1. **Ingest** the baseline rules from `rules/`.
+1. **Route** to the appropriate persona from `personas/`.
+1. **Activate** domain guardrails from `skills/`.
+1. **Retrieve** live documentation via Context7 MCP.
+1. **Enforce** Windows shell compatibility (`;` not `&&`).
 
-### ⚙️ Configuring your Agent
+> [!IMPORTANT] You MUST configure your AI tool to load `instructions.md` as its
+> primary system prompt. Without this, none of the protocols are active.
 
-To fully activate these protocols, you MUST configure your AI agent (via
-`.cursorrules`, custom instruction settings, or system prompt blocks) with the
-content of **`instructions.md`**.
+---
 
-This file acts as the **System Core**, instructing the agent to:
+## Configuration (`.agentrc.json`)
 
-1. **Ingest** the baseline rules.
-2. **Route** to personas in `personas/`.
-3. **Activate** guardrails from `skills/`.
-4. **Use** Context7 MCP for live documentation.
-
-### 🗂️ Project Configuration (`.agentrc.json`)
-
-The agent scripts resolve settings from a unified **`.agentrc.json`** file at
-your **project root**. This file is the v4 Universal Protocol Standard and
-consolidates all model, stack, and behaviour settings into one place.
+All agent scripts resolve settings from a unified `.agentrc.json` at your
+project root.
 
 **Setup — run once per project:**
 
 ```bash
-# From your project root (where .agents/ submodule lives)
 cp .agents/default-agentrc.json .agentrc.json
 ```
 
-Then open `.agentrc.json` and customise:
+### Key Settings
 
-| Section                       | What to change                     |
-| ----------------------------- | ---------------------------------- |
-| `agentSettings.testCommand`   | Your project's test command        |
-| `agentSettings.baseBranch`    | `main`, `master`, etc.             |
-| `agentSettings.taskStateRoot` | Where task state files are written |
-| `techStack.project.name`      | Your project name                  |
-| `techStack.workspaces.*`      | Your monorepo package aliases      |
+| Setting                             | Purpose                                          |
+| ----------------------------------- | ------------------------------------------------ |
+| `agentSettings.baseBranch`          | Your default branch (`main`, `master`, etc.)     |
+| `agentSettings.testCommand`         | Your project's test runner                       |
+| `agentSettings.validationCommand`   | Comprehensive validation suite                   |
+| `agentSettings.lintBaselineCommand` | Structured linter output for baseline ratcheting |
+| `orchestration.provider`            | Ticketing provider (`"github"`)                  |
+| `orchestration.github.owner`        | GitHub repository owner                          |
+| `orchestration.github.repo`         | GitHub repository name                           |
+| `techStack.project.name`            | Your project name                                |
 
-#### 🛡️ Validation & Lint Baseline Commands
+### Validation Commands
 
-The framework uses three distinct commands for quality checks, which you should
-configure in `.agentrc.json`:
+The framework uses three commands for quality checks:
 
-1. **`validationCommand`**: The broad, comprehensive validation suite (e.g.,
-   `run-s lint typecheck`). This is historically the general-purpose "check
-   everything" command for developers.
-2. **`typecheckCommand`**: The strict type-checking command (e.g.,
-   `tsc --noEmit`). The framework explicitly uses this after refactors or AST
-   replacements to guarantee typing boundaries aren't broken, independently of
-   subjective linting rules.
-3. **`lintBaselineCommand`**: Used exclusively by the **Lint Baseline
-   Ratcheting** engine during sprint workflows. This must output structured JSON
-   (e.g., `eslint . --format json` or `biome check --output json`) so the system
-   can programmatically count warnings. This enforces zero-deterioration:
-   integrations will fail if new warnings are added, automatically ratcheting
-   down the baseline when the codebase improves.
+1. **`validationCommand`** — Comprehensive check (e.g., `run-s lint typecheck`).
+1. **`typecheckCommand`** — Strict type-checking (e.g., `tsc --noEmit`). Run
+   independently after refactors to verify typing boundaries.
+1. **`lintBaselineCommand`** — Structured JSON output for the lint baseline
+   ratchet engine. Integrations fail if new warnings are introduced.
 
-> **Resolution order (scripts fall back gracefully):**
->
-> 1. `.agentrc.json` at project root ← your file
-> 2. Built-in defaults (zero-config fallback)
+> **Resolution order:** `.agentrc.json` at project root → built-in defaults
+> (zero-config fallback).
 
-### ⚡ Activation & Usage
+### Local Overrides
 
-Once the submodule is added to your project, follow these steps:
-
-1. **Configure your AI tool** to load `.agents/instructions.md` as the **System
-   Prompt**.
-2. **Use personas** by telling the agent to "Act as [Role]" — it will look for
-   the matching file in `[PERSONAS_ROOT]/`.
-3. **Activate skills** by referencing them by name or letting your agent
-   auto-discover `SKILL.md` files in `.agents/skills/core/` (universal process
-   skills) or `.agents/skills/stack/` (tech-stack-specific guardrails).
-4. **Run sprint planning** using the automated workflow `/plan-sprint [SPRINT]`.
-
-### 🔒 Local Overrides
-
-Developers can override protocol behavior for their specific machine by creating
-`.agents/instructions.local.md` (for rules) or `.agentrc.local.json` (for
-config). These files are automatically `gitignored`.
+Override protocol behavior per-machine with `.agents/instructions.local.md`
+(rules) or `.agentrc.local.json` (config). These are automatically gitignored.
 
 ---
 
-### 🛡️ Efficiency & Guardrails
+## Activation
 
-To prevent agents from getting stuck in analysis loops or performing excessively
-long tasks, the following guardrails are enforced:
-
-- **Isolated Multi-Agent Parallelization**: Natively intercepts sprint workflows
-  to wrap executed agents within `git worktree` isolated sub-directories,
-  automatically blocking concurrent branch collisions.
-- **Strict Workflow Patterns**: Injects CLI routing layers via `--pattern` on
-  the `run-agent-loop.js` orchestrator to natively support Evaluator-Optimizer
-  and Prompt Chaining behavior topologies.
-- **Cryptographic Provenance**: (Configurable) Digitally signs agent-generated
-  test receipts using asymmetric Ed25519 PKI. The framework establishes a true
-  zero-trust chain of custody that will block playbook progression if receipts
-  are altered or generated incorrectly.
-- **Anti-Thrashing Protocol**: Mandates that an agent MUST halt, summarize its
-  blockers, and present a **Re-Plan** if it hits consecutive tool errors OR
-  performs consecutive steps of analysis without modifying a file.
-  - **Configurability**: Controlled by `frictionThresholds` in `.agentrc.json`
-    (Defaults: errors=3, stagnation=5).
-- **Complexity Ceilings (Instruction Density)**: Limits the number of logical
-  steps/bullet points in a task's instructions to ensure agents remain within a
-  stable cognitive context.
-  - **Configurability**: Controlled by `maxInstructionSteps` in `.agentrc.json`
-    (Default: 5).
-- **Agent Friction Telemetry**: Mandates logging of repetitive tasks or
-  persistent errors to `agent-friction-log.json`.
-  - **Configurability**: Repetitive command threshold is controlled by
-    `frictionThresholds.repetitiveCommandCount` (Default: 3).
-- **Local RAG Semantic Retrieval**: Mandates the use of a zero-dependency local
-  vector store for high-context retrieval, preventing context window bloat in
-  large mono-repos.
-  - **Usage**: `node [SCRIPTS_ROOT]/context-indexer.js search "<query>"`
-- **FinOps & Economic Guardrails**: Tracks agent token consumption against
-  configurable sprint budgets (`maxTokenBudget` in `.agentrc.json`). Enforces
-  soft-warnings at thresholds and hard-stops to prevent unexpected expenses.
-- **HITL Risk Gates**: Deterministic safety checks that force Human-In-The-Loop
-  approval when an agent plans destructive or highly sensitive operations (e.g.,
-  `DROP`, `DELETE`).
-- **Macroscopic Telemetry Observer**: A zero-dependency aggregation script that
-  reads friction logs across sprints to visually chart tool failures, efficiency
-  trends, and productivity bottlenecks.
-  - **Usage**: `node [SCRIPTS_ROOT]/aggregate-telemetry.js --from 1 --to 10`
-- **Verbose Interaction Logging**: Opt-in structured JSONL logging of all
-  agentic interactions and responses throughout a sprint, designed for post-hoc
-  analysis (model evaluation, cost attribution, prompt debugging).
-  - **Enable**: Set `agentSettings.verboseLogging.enabled` to `true` in
-    `.agentrc.json`.
-  - **Output**: Logs are written to the `verboseLogging.logDir` directory
-    (default: `temp/verbose-logs`), one JSONL file per sprint.
-- **Cross-Artifact Version Lineage**: Enforces deterministic consistency across
-  the planning pipeline by embedding the current `agent-protocols` version into
-  the PRD, Technical Spec, Task Manifest, and Playbook. The orchestrator
-  automatically verifies version alignment during generation to prevent
-  configuration drift.
+1. **Configure** your AI tool to load `.agents/instructions.md` as the system
+   prompt.
+1. **Use personas** by telling the agent to "Act as [Role]" — it loads the
+   matching file from `personas/`.
+1. **Activate skills** by name or let the agent auto-discover `SKILL.md` files
+   in `skills/core/` and `skills/stack/`.
+1. **Run workflows** using slash commands (e.g., `/sprint-plan`,
+   `/audit-security`).
 
 ---
 
-## <a id="personas"></a>🎭 Personas (`personas/`)
+## MCP Server (Native Tooling)
+
+Version 5 introduces the **Agent Protocols MCP Server**, enabling agents to
+discover and invoke orchestration tools natively (e.g., in Cursor, Claude
+Desktop, or VS Code) without spawning shell subprocesses.
+
+### 1. Configuration
+
+Add the following to your MCP host settings (e.g., `claude_desktop_config.json`):
+
+```json
+{
+  "mcpServers": {
+    "agent-protocols": {
+      "command": "node",
+      "args": ["/absolute/path/to/your/project/.agents/scripts/mcp-orchestration.js"],
+      "env": {
+        "GITHUB_TOKEN": "your_token_here",
+        "GEMINI_API_KEY": "your_token_here",
+        "NOTIFICATION_WEBHOOK_URL": "optional_webhook_url"
+      }
+    }
+  }
+}
+```
+
+> [!IMPORTANT]
+> Always use **absolute paths** for the `args` array to ensure the server starts correctly regardless of where your agent is currently focused.
+
+### 2. Authentication & Secrets
+
+The MCP server resolves secrets in this priority:
+
+1. **Host Environment**: Variables defined in the `env` block of your MCP config.
+2. **Project `.env`**: Automatically loaded from your project root.
+3. **External Tools**: Leverages the `github-mcp-server` if active in the same session.
+
+### 3. Exposed Tools
+
+| Tool                     | Equivalent Command         | Agent Benefit                                      |
+| ------------------------ | -------------------------- | -------------------------------------------------- |
+| `orchestrator_dispatch`  | `node dispatcher.js`       | Returns markdown manifest with progress checkboxes  |
+| `orchestrator_hydrate`   | `node context-hydrator.js` | Returns a self-contained, fully hydrated prompt    |
+| `orchestrator_transition`| `node update-ticket-state.js`| Supports state machine logic and cascade semantics |
+| `orchestrator_verify`    | `node verify-prereqs.js`   | Checks dependency DAG before implementation starts |
+| `select_audits`          | `node audit-orchestrator.js`| Triggers audits based on gate and context rules    |
+| `run_audit_suite`        | *(Native MCP)*             | Executes audit suites and normalizes findings      |
+
+### 4. Debugging
+
+If the server is configured but not appearing:
+
+- Check the **stderr** logs in your MCP host.
+- Success message: `[MCP] agent-protocols v5.0.0 server started`
+- Failures: Initialization errors (missing dependencies, path issues) are logged before the server exits with code 1.
+
+---
+
+## Personas
 
 Personas constrain agent behavior to a specific role.
 
@@ -216,9 +199,9 @@ Personas constrain agent behavior to a specific role.
 
 ---
 
-## <a id="rules"></a>⚖️ Rules (`rules/`)
+## Rules
 
-Modular, domain-agnostic global rules that define behavioral standards.
+Modular, domain-agnostic standards loaded by the system prompt.
 
 | File                                 | Domain          | Purpose                                                |
 | ------------------------------------ | --------------- | ------------------------------------------------------ |
@@ -233,15 +216,12 @@ Modular, domain-agnostic global rules that define behavioral standards.
 
 ---
 
-## <a id="skills"></a>🧩 Skills (`skills/`)
+## Skills
 
-The skill library uses a **two-tier architecture** to separate universal process
-protocols from technology-specific guardrails.
+The skill library uses a **two-tier architecture**: universal process skills
+(`core/`) and technology-specific guardrails (`stack/`).
 
-### 🔵 Core Skills (`skills/core/`)
-
-Universal, process-driven skills that apply across any project. Always check for
-a relevant core skill before writing code. Covers the full SDLC:
+### Core Skills (`skills/core/`)
 
 | Skill                           | Phase    | Purpose                                                  |
 | ------------------------------- | -------- | -------------------------------------------------------- |
@@ -266,10 +246,7 @@ a relevant core skill before writing code. Covers the full SDLC:
 | `deprecation-and-migration`     | Maintain | Safe removal of legacy code and upgrade patterns         |
 | `using-agent-skills`            | Meta     | Skill discovery and sequencing guide                     |
 
-### 🟠 Stack Skills (`skills/stack/`)
-
-Tech-stack-specific guardrails for concrete libraries and services. Apply these
-when the project uses that specific technology:
+### Stack Skills (`skills/stack/`)
 
 | Skill                           | Category       | Purpose                                               |
 | ------------------------------- | -------------- | ----------------------------------------------------- |
@@ -295,98 +272,220 @@ when the project uses that specific technology:
 | `vitest`                        | `qa`           | Unit test automation with Vitest                      |
 | `secure-telemetry-logger`       | `security`     | Standardizes structured logging and PII stripping     |
 
-## <a id="workflows"></a>🔁 Workflows (`workflows/`)
+---
 
-Workflows are reusable, single-command audit prompts designed to be invoked as
-slash commands in your IDE (e.g., `/architecture-audit`).
+## Workflows
 
-### 🔄 Automated SDLC Workflow
+Workflows are reusable slash commands for audits, sprint operations, and
+repository maintenance.
 
-We use a deterministic planning pipeline for sprint generation. See
-**[SDLC.md](./SDLC.md)** for detailed instructions on the `/plan-sprint`
-command.
+### Audit Workflows
 
-### Available Workflows
+| Workflow                     | Slash Command              | Purpose                                     |
+| ---------------------------- | -------------------------- | ------------------------------------------- |
+| `audit-accessibility.md`     | `/audit-accessibility`     | Lighthouse accessibility audit              |
+| `audit-architecture.md`      | `/audit-architecture`      | Architecture and coupling review            |
+| `audit-clean-code.md`        | `/audit-clean-code`        | Maintainability and technical debt analysis |
+| `audit-dependency-update.md` | `/audit-dependency-update` | Dependency security and bloat audit         |
+| `audit-devops.md`            | `/audit-devops`            | CI/CD and infrastructure review             |
+| `audit-performance.md`       | `/audit-performance`       | Bottleneck and performance audit            |
+| `audit-privacy.md`           | `/audit-privacy`           | PII and privacy compliance audit            |
+| `audit-quality.md`           | `/audit-quality`           | Test coverage and quality review            |
+| `audit-security.md`          | `/audit-security`          | Vulnerability and OWASP alignment           |
+| `audit-seo.md`               | `/audit-seo`               | SEO and Generative Engine Optimization      |
+| `audit-sre.md`               | `/audit-sre`               | Production release readiness audit          |
+| `audit-ux-ui.md`             | `/audit-ux-ui`             | Design system consistency review            |
 
-| Workflow File                         | Category  | Slash Command                       | Purpose                                                          |
-| ------------------------------------- | --------- | ----------------------------------- | ---------------------------------------------------------------- |
-| `audit-accessibility.md`              | `audits`  | `/audit-accessibility`              | Lighthouse performance and accessibility audit                   |
-| `audit-architecture.md`               | `audits`  | `/audit-architecture`               | Clean code, over-engineering & coupling review                   |
-| `audit-clean-code.md`                 | `audits`  | `/audit-clean-code`                 | Maintainability and technical debt analysis                      |
-| `audit-dependency-update.md`          | `audits`  | `/audit-dependency-update`          | Security and bloat auditing for dependencies                     |
-| `audit-devops.md`                     | `audits`  | `/audit-devops`                     | CI/CD, DX tooling & infrastructure review                        |
-| `audit-performance.md`                | `audits`  | `/audit-performance`                | Stack-wide bottleneck and architecture review                    |
-| `audit-privacy.md`                    | `audits`  | `/audit-privacy`                    | PII data handling and privacy compliance audit                   |
-| `audit-quality.md`                    | `audits`  | `/audit-quality`                    | Test coverage, test plans & mocking strategy review              |
-| `audit-security.md`                   | `audits`  | `/audit-security`                   | Vulnerability scanning and OWASP alignment                       |
-| `audit-seo.md`                        | `audits`  | `/audit-seo`                        | Traditional SEO + Generative Engine Optimization                 |
-| `audit-sre.md`                        | `audits`  | `/audit-sre`                        | Production release candidate readiness audit                     |
-| `audit-ux-ui.md`                      | `audits`  | `/audit-ux-ui`                      | Design system consistency and UX reviews                         |
-| `sprint-roadmap-review.md`            | `sdlc`    | `/sprint-roadmap-review`            | analyze and decompose upcoming sprints in roadmap.md             |
-| `sprint-generate-prd.md`              | `sdlc`    | `/sprint-generate-prd`              | Generates PRD from roadmap items                                 |
-| `sprint-generate-tech-spec.md`        | `sdlc`    | `/sprint-generate-tech-spec`        | Generates Technical Spec from PRD                                |
-| `sprint-generate-playbook.md`         | `sdlc`    | `/sprint-generate-playbook`         | Generates Sprint Playbook from PRD + Tech Spec                   |
-| `generate-release-notes.md`           | `sdlc`    | `/generate-release-notes`           | Generates user-facing release notes from changelog               |
-| `plan-sprint.md`                      | `sdlc`    | `/plan-sprint`                      | Sequentially runs PRD, Tech Spec, and Playbook                   |
-| `run-test-plan.md`                    | `testing` | `/run-test-plan`                    | Executes Playwright & SQL tests against a test plan              |
-| `sprint-gather-context.md`            | `sprint`  | `/sprint-gather-context`            | Centralized research/knowledge retrieval for sprints             |
-| `sprint-verify-task-prerequisites.md` | `sprint`  | `/sprint-verify-task-prerequisites` | Validates task dependencies before execution                     |
-| `sprint-finalize-task.md`             | `sprint`  | `/sprint-finalize-task`             | Standardized validation, commit, and notification                |
-| `sprint-testing.md`                   | `testing` | `/sprint-testing`                   | QA test data maintenance and test plan updates                   |
-| `sprint-code-review.md`               | `sprint`  | `/sprint-code-review`               | Comprehensive code review of all sprint changes                  |
-| `sprint-integration.md`               | `sprint`  | `/sprint-integration`               | Merge and stabilization workflow                                 |
-| `sprint-close-out.md`                 | `sprint`  | `/sprint-close-out`                 | Final merge to main, branch cleanup, and release tagging         |
-| `sprint-retro.md`                     | `sprint`  | `/sprint-retro`                     | Sprint retrospective, action item capture, and roadmap alignment |
+### Sprint Workflows
+
+| Workflow                              | Slash Command                       | Purpose                                        |
+| ------------------------------------- | ----------------------------------- | ---------------------------------------------- |
+| `sprint-plan.md`                      | `/sprint-plan`                      | Autonomous PRD, Tech Spec, and task generation |
+| `sprint-execute.md`                   | `/sprint-execute`                   | DAG dispatch (Epic) or task implementation     |
+| `sprint-verify-task-prerequisites.md` | `/sprint-verify-task-prerequisites` | Validate dependencies before execution         |
+| `sprint-code-review.md`               | `/sprint-code-review`               | Comprehensive code review                      |
+| `sprint-integration.md`               | `/sprint-integration`               | Merge and stabilization                        |
+| `sprint-hotfix.md`                    | `/sprint-hotfix`                    | Rapid remediation on feature branches          |
+| `sprint-retro.md`                     | `/sprint-retro`                     | Retrospective from ticket graph                |
+| `sprint-close.md`                     | `/sprint-close`                     | Final merge, tag release, close Epic           |
+
+### Utility Workflows
+
+| Workflow                       | Slash Command                | Purpose                                   |
+| ------------------------------ | ---------------------------- | ----------------------------------------- |
+| `bootstrap-agent-protocols.md` | `/bootstrap-agent-protocols` | Initialize repo labels and project fields |
+| `git-commit-all.md`            | `/git-commit-all`            | Stage and commit all changes              |
+| `delete-epic-branches.md`      | `/delete-epic-branches`      | Hard reset: delete Epic branches          |
+| `delete-epic-tickets.md`       | `/delete-epic-tickets`       | Hard reset: clear Epic child issues       |
+| `run-red-team.md`              | `/run-red-team`              | Adversarial security testing              |
 
 ---
 
-## <a id="templates"></a>📄 Templates (`templates/`)
+## Orchestration Engine
 
-Standardized markdown blueprints used during planning and testing.
+### Provider Architecture
 
-| File                          | Purpose                                               |
-| ----------------------------- | ----------------------------------------------------- |
-| `prd-template.md`             | Product Requirements template with User Stories       |
-| `sprint-playbook-template.md` | Sprint Playbook template with Chat Session structure  |
-| `sprint-retro-template.md`    | Sprint Retrospective template for post-sprint review  |
-| `technical-spec-template.md`  | Technical Specification template for schemas and APIs |
-| `test-plan_template.md`       | Dual-Purpose Test Plan for human/AI agent execution   |
+All ticketing operations are mediated through the `ITicketingProvider` abstract
+interface. The framework ships with a **GitHub provider** using raw `fetch()`
+(Node 20+) — no external SDK dependencies.
+
+Execution operations (branch creation, script dispatch) are mediated through the
+`IExecutionAdapter` interface, decoupling business logic from the shell.
+
+#### Orchestration SDK (`scripts/lib/orchestration/`)
+
+Epic 71 introduced a typed, reusable SDK that centralizes orchestration logic.
+All CLI scripts and the MCP server are **thin wrappers** that delegate to it:
+
+| Module               | Exports                                               |
+| -------------------- | ----------------------------------------------------- |
+| `index.js`           | Barrel — re-exports all SDK functions                 |
+| `dispatcher.js`      | `buildDAG`, `computeWave`, `renderManifestMarkdown`   |
+| `context-hydrator.js`| `hydrateContext`, `assemblePrompt`                    |
+| `ticketing.js`       | `transitionTicketState`, `cascadeCompletion`          |
+
+#### Entry Points
+
+| Entry Point           | Purpose                                                          |
+| --------------------- | ---------------------------------------------------------------- |
+| `mcp-orchestration.js`| **MCP Server** — exposes SDK functions as native agentic tools   |
+| `dispatcher.js`       | CLI wrapper — `node dispatcher.js --epic N [--dry-run]`          |
+| `context-hydrator.js` | CLI wrapper — `node context-hydrator.js --task N --epic N`       |
+| `update-ticket-state.js`| CLI wrapper — `node update-ticket-state.js --task N --state S` |
+
+#### Provider Layer
+
+| Layer                 | File                                | Purpose                                        |
+| --------------------- | ----------------------------------- | ---------------------------------------------- |
+| Abstract Interface    | `scripts/lib/ITicketingProvider.js` | 10-method contract for all ticketing providers |
+| Provider Factory      | `scripts/lib/provider-factory.js`   | Resolves `orchestration.provider` → class      |
+| GitHub Implementation | `scripts/providers/github.js`       | REST + GraphQL implementation for GitHub       |
+| Config Resolver       | `scripts/lib/config-resolver.js`    | AJV schema validation + .env auto-loader       |
+
+### Scripts Reference
+
+| Script                         | Purpose                                                                      |
+| ------------------------------ | ---------------------------------------------------------------------------- |
+| `bootstrap-agent-protocols.js` | Idempotent setup of GitHub labels and project fields                         |
+| `epic-planner.js`              | Autonomous PRD and Tech Spec generation                                      |
+| `ticket-decomposer.js`         | Recursive 4-tier hierarchy decomposition                                     |
+| `mcp-orchestration.js`         | **MCP Server** — exposes dispatch, hydration, and state tools to agents      |
+| `dispatcher.js`                | CLI wrapper — DAG scheduler; outputs dispatch manifest with progress tracking|
+| `context-hydrator.js`          | CLI wrapper — assembles self-contained agent prompts from ticket graph       |
+| `sprint-integrate.js`          | Merges shared Story branches into Epic base branch                           |
+| `update-ticket-state.js`       | CLI wrapper — label-based state machine with `cascadeCompletion`             |
+| `delete-epic.js`               | Recursive issue deletion/clearing via GraphQL                                |
+| `notify.js`                    | Operator notification (mentions + webhooks)                                  |
+| `verify-prereqs.js`            | Validates task dependencies before execution                                 |
+| `lint-baseline.js`             | Lint baseline ratchet — prevents new warnings                                |
+| `generate-roadmap.js`          | Auto-renders `docs/roadmap.md` from live Epics                               |
+| `diagnose-friction.js`         | Analyzes friction logs for patterns                                          |
+| `detect-merges.js`             | Detects and reports merge conflicts                                          |
+| `git-commit-if-changed.js`     | Conditional commit utility                                                   |
+| `audit-orchestrator.js`        | Automated, gate-based static analysis and audit runner                       |
+| `handle-approval.js`           | CI webhook listener for processing `/approve` commands on audit findings     |
+
+### Orchestration Configuration
+
+Add the following block to your `.agentrc.json`:
+
+```json
+{
+  "orchestration": {
+    "provider": "github",
+    "github": {
+      "owner": "your-org",
+      "repo": "your-repo",
+      "projectNumber": null,
+      "operatorHandle": "@your-username"
+    },
+    "notifications": {
+      "mentionOperator": true,
+      "webhookUrl": ""
+    }
+  }
+}
+```
+
+| Field                           | Required | Description                                             |
+| ------------------------------- | -------- | ------------------------------------------------------- |
+| `provider`                      | Yes      | Provider name (`"github"` is the only shipped provider) |
+| `github.owner`                  | Yes      | GitHub repository owner (user or org)                   |
+| `github.repo`                   | Yes      | GitHub repository name                                  |
+| `github.projectNumber`          | No       | GitHub Projects V2 number (for custom fields)           |
+| `github.operatorHandle`         | No       | GitHub @mention handle for notifications                |
+| `notifications.mentionOperator` | No       | Whether to @mention the operator in comments            |
+| `notifications.webhookUrl`      | No       | Webhook URL for external notification delivery          |
 
 ---
 
-## <a id="tooling-configuration"></a>🛠️ Tooling & Configuration
+## Authentication
 
-Supporting files that define the agent's environment and workspace standards.
+The `GitHubProvider` resolves credentials in this priority order:
 
-| Path                           | Type   | Purpose                                                    |
-| ------------------------------ | ------ | ---------------------------------------------------------- |
-| `default-agentrc.json`         | Config | Default settings — copy to project root as `.agentrc.json` |
-| `schemas/task-manifest.json`   | Schema | JSON Schema for validating sprint task graphs              |
-| `scripts/generate-playbook.js` | Script | Deterministic logic for rendering sprint playbooks         |
+| Priority | Method                       | Environment               |
+| -------- | ---------------------------- | ------------------------- |
+| 1        | GitHub MCP Server            | Agentic IDE (Antigravity) |
+| 2        | `GITHUB_TOKEN` or `GH_TOKEN` | CI/CD, background scripts |
+| 3        | `gh auth token` (CLI)        | Local developer workflow  |
+
+### Required Token Permissions
+
+**Fine-grained PATs (recommended):**
+
+- `GitHub Projects (V2)`: Read & Write
+- `Issues`: Read & Write
+- `Metadata`: Read-only
+- `Pull requests`: Read & Write
+
+**Classic PATs:** `repo` + `project` (full control).
+
+### Configuration
+
+1. **Agentic IDE**: Ensure the `github-mcp-server` is active in the session.
+1. **Background scripts**: Set `GITHUB_TOKEN` in your environment or `.env` file
+   at the project root.
+1. **Local CLI**: Run `gh auth login`.
 
 ---
 
-## <a id="git-performance-optimization"></a>🏎️ Git Performance Optimization
+## Guardrails
 
-To ensure maximum execution speed for agents and developers on Windows, the
-following Git optimizations are recommended.
+### Anti-Thrashing Protocol
 
-### 🌎 Global Machine Settings (Run Once)
+Agents MUST halt, summarize blockers, and re-plan if they hit consecutive tool
+errors or perform consecutive analysis steps without modifying a file.
+Controlled by `frictionThresholds` in `.agentrc.json`.
 
-These settings fix filesystem overhead and manifest-crawling delays globally.
+### Lint Baseline Ratcheting
+
+The lint baseline engine enforces zero-deterioration during sprint workflows.
+Integrations fail if new lint warnings are introduced, and the baseline
+automatically tightens when the codebase improves.
+
+### HITL Risk Gates
+
+Deterministic safety checks force Human-In-The-Loop approval when an agent plans
+destructive operations (e.g., `DROP TABLE`, `DELETE`).
+
+### Friction Telemetry
+
+Friction events (repetitive commands, consecutive errors, stagnation) are logged
+as structured comments on the Task issue for post-hoc analysis.
+
+---
+
+## Git Performance (Windows)
+
+### Global Settings (Run Once)
 
 ```bash
 git config --global core.fsmonitor true
 git config --global feature.manyFiles true
 ```
 
-### 📂 Per-Repository Maintenance (Run in each project)
-
-Enable background maintenance to keep the index and commit-graph optimized.
+### Per-Repository Maintenance
 
 ```bash
 git maintenance start
 ```
-
-_Note: Run this inside the root directory of your project (e.g., both the
-framework and product repositories)._

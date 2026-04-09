@@ -29,7 +29,7 @@ wasn't in the room when it was built.
 
 ### A. Sprint Documentation
 
-- **Changelogs:** Maintain `CHANGELOG.md` following Keep a Changelog or the
+- **Changelogs:** Maintain `docs/CHANGELOG.md` following Keep a Changelog or the
   project's established format. Group entries by type (Added, Changed, Fixed,
   Removed).
 - **Release Notes:** Use the `generate-release-notes` workflow to produce
@@ -69,7 +69,7 @@ wasn't in the room when it was built.
 
 ## 4. Output Artifacts
 
-- `CHANGELOG.md` — Maintained per release/sprint.
+- `docs/CHANGELOG.md` — Maintained per release/sprint.
 - `docs/architecture.md` — Living architecture reference.
 - `docs/data-dictionary.md` — Living schema reference.
 - `docs/sprints/sprint-[##]/retro.md` — Sprint retrospective.

@@ -4,8 +4,6 @@
  * transitive reduction, and auto-serialization of concurrent task overlaps.
  */
 
-import { isBookendTask } from './task-utils.js';
-
 /**
  * Builds an adjacency list from the manifest tasks.
  * Returns { adjacency: Map<id, id[]>, taskMap: Map<id, task> }
@@ -27,7 +25,9 @@ export function buildGraph(tasks) {
  * or null if the graph is acyclic.
  */
 export function detectCycle(adjacency) {
-  const WHITE = 0, GRAY = 1, BLACK = 2;
+  const WHITE = 0,
+    _GRAY = 1,
+    _BLACK = 2;
   const color = new Map();
   const parent = new Map();
 
@@ -149,7 +149,7 @@ function _dfsReaches(start, target, adjacency, visited) {
  * Computes which Chat Sessions each Chat Session depends on.
  * Returns a Map<chatNumber, chatNumber[]>.
  */
-export function computeChatDependencies(chatSessions, adjacency) {
+export function computeChatDependencies(chatSessions, _adjacency) {
   // Build a reverse lookup: taskId → chatNumber
   const taskToChat = new Map();
   for (const session of chatSessions) {
@@ -169,7 +169,10 @@ export function computeChatDependencies(chatSessions, adjacency) {
         }
       }
     }
-    chatDeps.set(session.chatNumber, [...deps].sort((a, b) => a - b));
+    chatDeps.set(
+      session.chatNumber,
+      [...deps].sort((a, b) => a - b),
+    );
   }
 
   // Apply transitive reduction to chat-level dependencies
@@ -207,83 +210,101 @@ export function computeReachability(adjacency) {
 }
 
 /**
- * Auto-serializes concurrent tasks whose focusAreas overlap (or whose scope is
- * 'root' / includes '*'), preventing file-level conflicts at runtime.
+ * Performs a topological sort on the DAG using Kahn's algorithm.
+ * Returns tasks ordered such that all dependencies precede their dependents.
+ * Deterministic: ties are broken by task ID (ascending) for stable output.
  *
- * This is the canonical, optimised implementation (bulk-accumulate pattern):
- *   Phase A — O(N²) scan; collects all new edges without rebuilding the graph.
- *   Phase B — applies all edges in one pass, rebuilds once, re-checks for cycles.
- *
- * Both generate-playbook.js (generateFromManifest) and PlaybookOrchestrator
- * delegate here so the algorithm is defined exactly once.
- *
- * Bookend tasks are excluded: they do not perform file edits and serialising
- * them would produce incorrect dependency orderings.
- *
- * @param {object} manifest   — The sprint manifest (tasks array is mutated in place).
- * @param {Map}    adjacency  — The initial adjacency list (from buildGraph).
- * @returns {{ finalAdjacency: Map, graphMutated: boolean }}
+ * @param {Map<number, number[]>} adjacency - Dependency map (id → blockedBy[]).
+ * @param {Map<number, object>} taskMap - Full task objects keyed by id.
+ * @returns {object[]} Tasks in topological order.
+ * @throws {Error} If a cycle is detected (should be caught before calling this).
  */
-export function autoSerializeOverlaps(manifest, adjacency) {
-  // Pre-compute focus-area Sets for O(1) intersection checks
-  const focusSets = new Map(
-    manifest.tasks.map((t) => [
-      t.id,
-      new Set(Array.isArray(t.focusAreas) ? t.focusAreas : []),
-    ]),
-  );
+export function topologicalSort(adjacency, taskMap) {
+  // Compute in-degree for each node
+  const inDegree = new Map();
+  for (const id of adjacency.keys()) {
+    inDegree.set(id, 0);
+  }
+  for (const deps of adjacency.values()) {
+    for (const dep of deps) {
+      inDegree.set(dep, (inDegree.get(dep) ?? 0) + 1);
+    }
+  }
 
-  let reachable = computeReachability(adjacency);
-  const pendingEdges = []; // [ [fromId, toId], ... ]
-
-  for (let i = 0; i < manifest.tasks.length; i++) {
-    for (let j = i + 1; j < manifest.tasks.length; j++) {
-      const taskA = manifest.tasks[i];
-      const taskB = manifest.tasks[j];
-
-      // Bookend tasks manage lifecycle, not files — skip them
-      if (isBookendTask(taskA) || isBookendTask(taskB)) continue;
-
-      // Skip if neither task declares focusAreas — scope-only matches are not
-      // sufficient evidence of file-level conflict
-      const setA = focusSets.get(taskA.id);
-      const setB = focusSets.get(taskB.id);
-      if (setA.size === 0 && setB.size === 0) continue;
-
-      const isGlobalA = taskA.scope === 'root' || setA.has('*');
-      const isGlobalB = taskB.scope === 'root' || setB.has('*');
-      const overlap = isGlobalA || isGlobalB || [...setA].some((a) => setB.has(a));
-
-      if (overlap) {
-        const aReachesB = reachable.get(taskA.id)?.has(taskB.id);
-        const bReachesA = reachable.get(taskB.id)?.has(taskA.id);
-
-        if (!aReachesB && !bReachesA) {
-          pendingEdges.push([taskA.id, taskB.id]);
-        }
+  // M-2: Pre-compute reverse adjacency for O(V+E) instead of O(V²·E).
+  const reverseAdj = new Map();
+  for (const id of adjacency.keys()) {
+    reverseAdj.set(id, []);
+  }
+  for (const [nodeId, deps] of adjacency.entries()) {
+    for (const dep of deps) {
+      if (reverseAdj.has(dep)) {
+        reverseAdj.get(dep).push(nodeId);
       }
     }
   }
 
-  // Phase B: apply all collected edges in a single pass & rebuild once
-  const graphMutated = pendingEdges.length > 0;
-  if (graphMutated) {
-    for (const [fromId, toId] of pendingEdges) {
-      const taskB = manifest.tasks.find((t) => t.id === toId);
-      if (taskB) {
-        if (!taskB.dependsOn) taskB.dependsOn = [];
-        if (!taskB.dependsOn.includes(fromId)) taskB.dependsOn.push(fromId);
-      }
-    }
+  // Seed queue with zero-in-degree nodes, sorted by id for determinism
+  const queue = [...inDegree.entries()]
+    .filter(([, deg]) => deg === 0)
+    .map(([id]) => id)
+    .sort((a, b) => a - b);
 
-    const updatedGraph = buildGraph(manifest.tasks);
-    const finalAdjacency = updatedGraph.adjacency;
-    const cycle = detectCycle(finalAdjacency);
-    if (cycle) {
-      throw new Error(`Dependency cycle detected after auto-serialization: ${cycle.join(' → ')}`);
+  const sorted = [];
+
+  while (queue.length > 0) {
+    // Take smallest ID for determinism
+    queue.sort((a, b) => a - b);
+    const id = queue.shift();
+    sorted.push(taskMap.get(id));
+
+    // Decrement in-degree for dependents using pre-computed reverse map
+    for (const dependent of reverseAdj.get(id) ?? []) {
+      const newDeg = (inDegree.get(dependent) ?? 0) - 1;
+      inDegree.set(dependent, newDeg);
+      if (newDeg === 0) queue.push(dependent);
     }
-    return { finalAdjacency, graphMutated };
   }
 
-  return { finalAdjacency: adjacency, graphMutated: false };
+  if (sorted.length !== adjacency.size) {
+    throw new Error(
+      '[Graph] topologicalSort detected a cycle. Run detectCycle() first.',
+    );
+  }
+
+  return sorted;
+}
+
+/**
+ * Groups tasks into sequential execution waves.
+ *
+ * A wave contains all tasks whose dependencies are fully satisfied by
+ * previously completed waves. Tasks within the same wave can run concurrently
+ * (subject to focus-area serialization in the Dispatcher).
+ *
+ * Uses `assignLayers` to compute depth, then groups by layer value.
+ * The returned array is sorted by wave index (wave 0 = roots).
+ *
+ * @param {Map<number, number[]>} adjacency - Dependency map (id → blockedBy[]).
+ * @param {Map<number, object>} taskMap - Full task objects keyed by id.
+ * @returns {object[][]} Array of waves, each wave is an array of task objects.
+ */
+export function computeWaves(adjacency, taskMap) {
+  const layers = assignLayers(adjacency);
+  const waveMap = new Map(); // layer → task[]
+
+  for (const [id, layer] of layers.entries()) {
+    if (!waveMap.has(layer)) waveMap.set(layer, []);
+    waveMap.get(layer).push(taskMap.get(id));
+  }
+
+  // Sort waves by layer, sort tasks within each wave by id for determinism
+  const maxLayer = Math.max(...waveMap.keys());
+  const waves = [];
+  for (let i = 0; i <= maxLayer; i++) {
+    const waveTasks = (waveMap.get(i) ?? []).sort((a, b) => a.id - b.id);
+    if (waveTasks.length > 0) waves.push(waveTasks);
+  }
+
+  return waves;
 }

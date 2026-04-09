@@ -13,7 +13,9 @@ const diff = spawnSync('git', ['diff', '--staged', '--quiet']);
 if (diff.status === 1) {
   // Changes exist (exit code 1 for --quiet)
   console.log(`Changes detected. Committing with message: "${message}"`);
-  const commit = spawnSync('git', ['commit', '-m', message], { stdio: 'inherit' });
+  const commit = spawnSync('git', ['commit', '-m', message], {
+    stdio: 'inherit',
+  });
   process.exit(commit.status);
 } else if (diff.status === 0) {
   // No changes

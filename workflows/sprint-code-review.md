@@ -50,9 +50,9 @@ Output your consolidated findings directly to the user in the chat:
    - A detailed explanation of _why_ it failed the review
    - The concrete recommended fix Step 4 - Finalize
 
-Execute the `/sprint-finalize-task` workflow for your task ID (e.g., `39.7.1`)
-to ensure your review findings (if any were committed) are pushed and the
-playbook status is synced.
+If any review findings required code fixes, commit them to the Epic branch and
+push. Ticket state is managed by `/sprint-execute` — no separate finalization
+step is needed.
 
 ## Constraint
 

@@ -64,7 +64,7 @@ generating application code, SQL, or UI components — stop immediately.
 - **Retro Tasks:** Delegate Chat Session 5 to the `sprint-retro` workflow. Do
   not write custom retro instructions.
 - **Task Finalization:** Ensure every task's Agent Execution Protocol references
-  the `sprint-verify-task-prerequisites` and `sprint-finalize-task` workflows.
+  the `sprint-verify-task-prerequisites` workflow.
 
 ### D. Quality Control
 
