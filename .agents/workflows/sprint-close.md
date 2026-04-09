@@ -183,26 +183,22 @@ commit before proceeding.
 git push origin [BASE_BRANCH] --follow-tags
 ```
 
-## Step 8 — Close Planning & Strategy Tickets
+## Step 8 — Close Planning, Strategy, and Epic Tickets
 
-Formally close the PRD and Tech Spec tickets. Note: These were excluded from
-auto-closure during execution to ensure they remained visible to the agents.
+Formally close the PRD and Tech Spec tickets, followed by the Epic itself.
 
 ```powershell
-# Discovery and closure handled by update-ticket-state.js cascade or manual IDs
-node [SCRIPTS_ROOT]/update-ticket-state.js --task [PRD_TICKET_ID] --state "agent::done"
-node [SCRIPTS_ROOT]/update-ticket-state.js --task [TECH_SPEC_TICKET_ID] --state "agent::done"
+node [SCRIPTS_ROOT]/sprint-close.js --epic [EPIC_ID]
 ```
 
-## Step 9 — Final Epic Closure
+This automated script performs:
+1. **Discovery**: Finds and closes `context::prd` and `context::tech-spec` tickets for this Epic.
+2. **Epic Closure**: Posts a final summary comment and closes the Epic issue.
+3. **Cleanup**: Deletes all local and remote branches associated with this Epic (can be disabled with `--no-cleanup`).
 
-Use the ticketing provider to close the Epic issue with a summary comment:
+## Step 9 — Verify Closure
 
-```javascript
-// postStructuredComment([EPIC_ID], 'notification',
-//   '🎉 Epic #[EPIC_ID] has been shipped. Branch merged to main. All tasks complete.')
-// await provider.updateTicket([EPIC_ID], { state: 'closed', state_reason: 'completed' })
-```
+Manually verify that the Epic and all context tickets are closed in the GitHub UI. Check the notification structured comment on the Epic for the final shipping announcement.
 
 ## Step 10 — Verify Tag (If Applicable)
 
@@ -218,27 +214,22 @@ If the tag is missing (e.g., `--follow-tags` was not used), push it explicitly:
 git push origin "v[NEW_VERSION]"
 ```
 
-## Step 11 — Branch Cleanup
+## Step 11 — Internal State Cleanup
 
-Delete the Epic base branch and **all** remaining Task and Story branches
-(local and remote):
+The `sprint-close.js` script in Step 8 handles branch cleanup by default. If you ran it with `--no-cleanup`, or need to perform manual cleanup:
 
 ```powershell
-# 1. Delete the Epic base branch (local + remote)
-git branch -D epic/[EPIC_ID]
-git push origin --delete epic/[EPIC_ID]
-
-# 2. Delete all remote task branches for this Epic
+# 1. Delete all remote task branches for this Epic
 git branch -r --list "origin/task/epic-[EPIC_ID]/*" | ForEach-Object { $b = $_.Trim().Replace("origin/", ""); git push origin --delete $b }
 
-# 3. Delete all remote story branches for this Epic
+# 2. Delete all remote story branches for this Epic
 git branch -r --list "origin/story/epic-[EPIC_ID]/*" | ForEach-Object { $b = $_.Trim().Replace("origin/", ""); git push origin --delete $b }
 
-# 4. Delete all local task and story branches for this Epic
+# 3. Delete local task and story branches
 git branch --list "task/epic-[EPIC_ID]/*" | ForEach-Object { git branch -D $_.Trim() }
 git branch --list "story/epic-[EPIC_ID]/*" | ForEach-Object { git branch -D $_.Trim() }
 
-# 5. Prune stale remote-tracking references
+# 4. Prune stale remote-tracking references
 git fetch --prune
 ```
 
@@ -254,8 +245,8 @@ git fetch --prune
 - **Always** bump the version and create the git tag (Step 3) before merging
   when `release.autoVersionBump` is `true`. Use **minor** for new features,
   **patch** for fixes and refactors.
-- **Always** close PRD and Tech Spec tickets explicitly — they are excluded from
-  auto-closure during execution.
+- **Always** run `sprint-close.js` (Step 8) to ensure PRD and Tech Spec tickets 
+  are formally closed — they are excluded from auto-closure during execution.
 - **Always** delete all Epic, Task, and Story branches after merge to prevent
   branch bloat.
 - **Always** tag a release when the Epic corresponds to a versioned milestone.
