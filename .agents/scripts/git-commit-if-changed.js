@@ -14,7 +14,7 @@ if (diff.status === 1) {
   // Changes exist (exit code 1 for --quiet)
   console.log(`Changes detected. Committing with message: "${message}"`);
   const commit = spawnSync('git', ['commit', '-m', message], {
-    stdio: 'inherit',
+    stdio: process.env.MCP_SERVER ? 'pipe' : 'inherit',
   });
   process.exit(commit.status);
 } else if (diff.status === 0) {

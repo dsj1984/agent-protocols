@@ -99,7 +99,9 @@
     },
     "protocolRefinement": {
       "enabled": true,
-      "minFrictionEvents": 3,
+      "analysisThresholds": {
+        "minFrictionEvents": 3
+      },
       "analysisSchedule": "0 0 * * 0",
       "model": "high-reasoning",
       "impactTracking": {

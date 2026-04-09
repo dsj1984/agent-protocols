@@ -19,7 +19,7 @@ import crypto from 'node:crypto';
 import { spawnSync } from 'node:child_process';
 import { resolveConfig } from './lib/config-resolver.js';
 import { Logger } from './lib/Logger.js';
-import { postStructuredComment } from './update-ticket-state.js';
+import { getProvider, postStructuredComment } from './update-ticket-state.js';
 
 // ---------------------------------------------------------------------------
 // Parse arguments
@@ -57,7 +57,7 @@ const executionMaxBuffer = settings.executionMaxBuffer ?? 10485760;
 // ---------------------------------------------------------------------------
 
 const commandStr = cmdArgs.join(' ');
-console.log(`[Diagnostic Interceptor] Executing: ${commandStr}`);
+console.error(`[Diagnostic Interceptor] Executing: ${commandStr}`);
 
 const result = spawnSync(cmdArgs[0], cmdArgs.slice(1), {
   stdio: 'pipe',
@@ -67,7 +67,10 @@ const result = spawnSync(cmdArgs[0], cmdArgs.slice(1), {
 });
 
 // Mirror output so the agent can see it
-if (result.stdout) process.stdout.write(result.stdout);
+if (result.stdout) {
+  if (process.env.MCP_SERVER) process.stderr.write(result.stdout);
+  else process.stdout.write(result.stdout);
+}
 if (result.stderr) process.stderr.write(result.stderr);
 
 if (result.status !== 0) {
@@ -78,49 +81,76 @@ if (result.status !== 0) {
   ).trim();
   const errorPreview = errorOutput.substring(0, 500);
 
-  console.log('\n--- 🛑 DIAGNOSTIC ANALYSIS Triggered ---');
-  console.log('Command failed. Logging friction to GitHub ticket...');
+  console.error('\n--- 🛑 DIAGNOSTIC ANALYSIS Triggered ---');
+  console.error('Command failed. Logging friction to GitHub ticket...');
+
+  // Determine Friction Category and static remediation string
+  let category = 'Execution Error';
+  let remediation = '';
+
+  if (
+    errorOutput.includes('EADDRINUSE') ||
+    errorOutput.includes('address already in use')
+  ) {
+    category = 'Tool Limitation';
+    remediation = ' - Port collision detected. Try: `npx kill-port <PORT>`.';
+  } else if (
+    errorOutput.includes('Cannot find module') ||
+    errorOutput.includes('TS2307')
+  ) {
+    category = 'Missing Skill';
+    remediation =
+      ' - Missing dependency or bad import path. Ensure you are in the correct workspace root and have run `npm install`.';
+  } else if (errorOutput.includes('SyntaxError')) {
+    category = 'Execution Error';
+    remediation =
+      ' - Syntax/parsing error. Check recently modified files for missing brackets, quotes, or invalid structures.';
+  } else if (errorOutput.includes('Astro') || errorOutput.includes('astro')) {
+    category = 'Missing Skill';
+    remediation =
+      ' - Framework error: Refer to `.agents/skills/stack/frontend/astro/SKILL.md` for Astro rules.';
+  } else {
+    remediation =
+      ' - Generic failure. Review stderr above, refine your approach, or check `.agents/instructions.md`.';
+  }
+
+  // Dynamically resolve Sprint ID
+  let resolvedSprintId = process.env.SPRINT_ID || settings.epicId || 'unknown';
+  if (resolvedSprintId === 'unknown' && taskId && !process.env.NO_NETWORK) {
+    try {
+      const provider = getProvider();
+      const ticket = await provider.getTicket(taskId);
+      const epicMatch = ticket.body?.match(/(?:Epic|parent):\s*#(\d+)/i);
+      if (epicMatch) {
+        resolvedSprintId = epicMatch[1];
+      }
+    } catch (err) {
+      console.error(`⚠️ Failed to dynamically resolve Sprint ID: ${err.message}`);
+    }
+  }
+
+  // Construct structured friction event payload
+  const frictionEvent = {
+    eventId: crypto.randomUUID(),
+    timestamp: new Date().toISOString(),
+    sprintId: resolvedSprintId,
+    taskId: taskId ? parseInt(taskId, 10) : null,
+    category,
+    source: {
+      tool: 'diagnose-friction.js',
+      command: commandStr,
+    },
+    details: errorPreview,
+  };
 
   // Post a structured friction comment to the Task ticket (v5 SSOT)
   if (taskId) {
     try {
-      // Determine Friction Category
-      let category = 'Execution Error';
-      if (
-        errorOutput.includes('EADDRINUSE') ||
-        errorOutput.includes('address already in use')
-      ) {
-        category = 'Tool Limitation';
-      } else if (
-        errorOutput.includes('Cannot find module') ||
-        errorOutput.includes('TS2307')
-      ) {
-        category = 'Missing Skill';
-      } else if (errorOutput.includes('SyntaxError')) {
-        category = 'Execution Error';
-      } else if (
-        errorOutput.includes('Astro') || 
-        errorOutput.includes('astro')
-      ) {
-        category = 'Tool Limitation';
-      }
-
-      const frictionEvent = {
-        eventId: crypto.randomUUID(),
-        timestamp: new Date().toISOString(),
-        sprintId: settings.epicId || 'unknown',
-        taskId: parseInt(taskId, 10),
-        category,
-        source: {
-          command: commandStr,
-        },
-        details: errorPreview,
-      };
-
+      const payloadString = '```json\n' + JSON.stringify(frictionEvent, null, 2) + '\n```';
       await postStructuredComment(
         parseInt(taskId, 10),
         'friction',
-        JSON.stringify(frictionEvent, null, 2),
+        payloadString,
       );
       console.error(`✅ Friction posted to Task #${taskId} on GitHub.`);
     } catch (err) {
@@ -134,33 +164,9 @@ if (result.status !== 0) {
   }
 
   // Static auto-remediation suggestions
-  console.log('\n💡 [Auto-Remediation Suggestions]:');
-  if (
-    errorOutput.includes('EADDRINUSE') ||
-    errorOutput.includes('address already in use')
-  ) {
-    console.log(' - Port collision detected. Try: `npx kill-port <PORT>`.');
-  } else if (
-    errorOutput.includes('Cannot find module') ||
-    errorOutput.includes('TS2307')
-  ) {
-    console.log(
-      ' - Missing dependency or bad import path. Ensure you are in the correct workspace root and have run `npm install`.',
-    );
-  } else if (errorOutput.includes('SyntaxError')) {
-    console.log(
-      ' - Syntax/parsing error. Check recently modified files for missing brackets, quotes, or invalid structures.',
-    );
-  } else if (errorOutput.includes('Astro') || errorOutput.includes('astro')) {
-    console.log(
-      ' - Framework error: Refer to `.agents/skills/stack/frontend/astro/SKILL.md` for Astro rules.',
-    );
-  } else {
-    console.log(
-      ' - Generic failure. Review stderr above, refine your approach, or check `.agents/instructions.md`.',
-    );
-  }
-  console.log('----------------------------------------\n');
+  console.error('\n💡 [Auto-Remediation Suggestions]:');
+  console.error(remediation);
+  console.error('----------------------------------------\n');
 
   process.exit(result.status);
 } else {

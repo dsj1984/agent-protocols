@@ -17,23 +17,29 @@
 // dynamic imports or function calls — to guarantee the guard is active
 // from the very first moment the process starts.
 process.env.MCP_SERVER = 'true';
+process.stdin.setEncoding('utf8');
 
+let _mcpInternalBypass = false;
 const _realStdoutWrite = process.stdout.write.bind(process.stdout);
+const _realStderrWrite = process.stderr.write.bind(process.stderr);
+
 process.stdout.write = (chunk, encoding, callback) => {
-  const text = typeof chunk === 'string' ? chunk : chunk.toString();
-  const trimmed = text.trimStart();
-  // Only allow JSON-RPC messages (lines starting with '{') through stdout
-  if (trimmed.startsWith('{')) {
+  // If the bypass is active, it's a legitimate MCP message
+  if (_mcpInternalBypass) {
     return _realStdoutWrite(chunk, encoding, callback);
   }
-  // Redirect everything else to stderr
-  return process.stderr.write(`[STDOUT GUARD] ${text}`, encoding, callback);
+
+  // Otherwise, it's stray output (stray console.log, dependency noise, etc)
+  // We MUST redirect this to stderr to prevent corrupting the MCP stream.
+  // Note: We use _realStderrWrite directly to avoid any potential loops.
+  return _realStderrWrite(chunk, encoding, callback);
 };
 
 // Also redirect console methods (belt-and-suspenders)
 console.log = (...args) => console.error('[MCP REDIR]', ...args);
 console.info = (...args) => console.error('[MCP REDIR]', ...args);
 console.warn = (...args) => console.error('[MCP REDIR]', ...args);
+console.debug = (...args) => console.error('[MCP REDIR]', ...args);
 
 import { createInterface } from 'node:readline';
 
@@ -54,7 +60,12 @@ const SERVER_VERSION = '5.0.0';
  * @param {object} msg
  */
 function send(msg) {
-  process.stdout.write(`${JSON.stringify(msg)}\n`);
+  _mcpInternalBypass = true;
+  try {
+    _realStdoutWrite(`${JSON.stringify(msg)}\n`, 'utf8');
+  } finally {
+    _mcpInternalBypass = false;
+  }
 }
 
 /**
@@ -123,7 +134,19 @@ async function registerSDKTools() {
 
   function getProvider(token) {
     const config = resolveConfig();
-    return createProvider(config.orchestration, { token });
+    try {
+      return createProvider(config.orchestration, { token });
+    } catch (err) {
+      if (err.message.includes('No GitHub token found')) {
+        const mcpError = new Error(
+          '[MCP Orchestration] Authentication Failure: No GITHUB_TOKEN environment variable found. ' +
+          'To fix this, ensure the GITHUB_TOKEN is set in the environment where the MCP server is running, ' +
+          'or pass it explicitly via the "githubToken" argument in the tool call.'
+        );
+        throw mcpError;
+      }
+      throw err;
+    }
   }
 
   const tools = await getToolRegistry(sdk, getProvider);
