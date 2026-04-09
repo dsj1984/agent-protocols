@@ -7,7 +7,14 @@
   "properties": {
     "summary": {
       "type": "object",
-      "required": ["auditsRun", "totalFindings", "critical", "high", "medium", "low"],
+      "required": [
+        "auditsRun",
+        "totalFindings",
+        "critical",
+        "high",
+        "medium",
+        "low"
+      ],
       "properties": {
         "auditsRun": {
           "type": "array",
@@ -24,7 +31,14 @@
       "type": "array",
       "items": {
         "type": "object",
-        "required": ["auditId", "checkId", "severity", "message", "location", "recommendation"],
+        "required": [
+          "auditId",
+          "checkId",
+          "severity",
+          "message",
+          "location",
+          "recommendation"
+        ],
         "properties": {
           "auditId": { "type": "string" },
           "checkId": { "type": "string" },

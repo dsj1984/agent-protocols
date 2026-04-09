@@ -1,5 +1,5 @@
-import fs from "fs";
-import escomplex from "typhonjs-escomplex";
+import fs from 'fs';
+import escomplex from 'typhonjs-escomplex';
 
 /**
  * Calculates the maintainability score of a JavaScript source file or string.
@@ -28,13 +28,12 @@ export function calculateForSource(sourceCode) {
  */
 export function calculateForFile(filePath) {
   try {
-    const sourceCode = fs.readFileSync(filePath, "utf-8");
+    const sourceCode = fs.readFileSync(filePath, 'utf-8');
     return calculateForSource(sourceCode);
   } catch (err) {
-    if (err.code === "ENOENT") {
+    if (err.code === 'ENOENT') {
       throw new Error(`File not found: ${filePath}`);
     }
     throw err;
   }
 }
-

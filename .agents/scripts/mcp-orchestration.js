@@ -332,8 +332,9 @@ async function registerSDKTools() {
         auditWorkflows: {
           type: 'array',
           items: { type: 'string' },
-          description: 'List of audit workflow names to execute (e.g. ["audit-clean-code"]).'
-        }
+          description:
+            'List of audit workflow names to execute (e.g. ["audit-clean-code"]).',
+        },
       },
       required: ['auditWorkflows'],
     },

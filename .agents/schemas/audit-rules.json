@@ -10,7 +10,14 @@
     "audit-security": {
       "triggers": {
         "gates": ["gate1", "gate3"],
-        "keywords": ["security", "auth", "vulnerability", "cve", "password", "encrypt"],
+        "keywords": [
+          "security",
+          "auth",
+          "vulnerability",
+          "cve",
+          "password",
+          "encrypt"
+        ],
         "filePatterns": ["**/*.lock", "**/auth/*.js", "**/crypto/*.js"]
       }
     },

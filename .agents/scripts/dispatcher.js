@@ -28,7 +28,11 @@ import { resolveAndDispatch } from './lib/orchestration/index.js';
 
 // Re-export SDK functions so that direct consumers of dispatcher.js
 // (tests, CI scripts) continue to work without modification.
-export { dispatch, executeStory, resolveAndDispatch } from './lib/orchestration/index.js';
+export {
+  dispatch,
+  executeStory,
+  resolveAndDispatch,
+} from './lib/orchestration/index.js';
 
 const __filename = fileURLToPath(import.meta.url);
 
@@ -208,28 +212,14 @@ function renderStoryManifestMarkdown(manifest) {
   lines.push('');
   lines.push('## Execution Steps');
   lines.push('');
-  lines.push(
-    '1. Ensure the Epic branch exists locally and on the remote.',
-  );
-  lines.push(
-    '2. Checkout the Story branch from the Epic branch (not main):',
-  );
-  lines.push(
-    '   `git checkout -b <storyBranch> <epicBranch>`',
-  );
-  lines.push(
-    '3. Transition all child Tasks to `agent::executing`.',
-  );
-  lines.push(
-    '4. Implement each Task sequentially and commit after each one.',
-  );
+  lines.push('1. Ensure the Epic branch exists locally and on the remote.');
+  lines.push('2. Checkout the Story branch from the Epic branch (not main):');
+  lines.push('   `git checkout -b <storyBranch> <epicBranch>`');
+  lines.push('3. Transition all child Tasks to `agent::executing`.');
+  lines.push('4. Implement each Task sequentially and commit after each one.');
   lines.push('5. Run `npm run lint` and `npm test` to validate.');
-  lines.push(
-    '6. Merge the Story branch into the Epic branch (`--no-ff`).',
-  );
-  lines.push(
-    '7. Transition all Tasks and the Story to `agent::done`.',
-  );
+  lines.push('6. Merge the Story branch into the Epic branch (`--no-ff`).');
+  lines.push('7. Transition all Tasks and the Story to `agent::done`.');
   lines.push('');
 
   return lines.join('\n');
@@ -302,10 +292,7 @@ async function main() {
 
   // Resolve the single ticket ID from positional arg or --epic flag
   const epicIdFromFlag = parseInt(values.epic ?? '', 10);
-  const fromPositional = parseInt(
-    (positionals[0] ?? '').replace(/^#/, ''),
-    10,
-  );
+  const fromPositional = parseInt((positionals[0] ?? '').replace(/^#/, ''), 10);
   const ticketId =
     !Number.isNaN(fromPositional) && fromPositional > 0
       ? fromPositional
@@ -346,7 +333,9 @@ async function main() {
     fs.writeFileSync(jsonPath, JSON.stringify(manifest, null, 2), 'utf8');
     fs.writeFileSync(mdPath, renderStoryManifestMarkdown(manifest), 'utf8');
 
-    console.log(`\n[Dispatcher] ✅ Story manifest: temp/story-manifest-${key}.json`);
+    console.log(
+      `\n[Dispatcher] ✅ Story manifest: temp/story-manifest-${key}.json`,
+    );
     console.log(`[Dispatcher] 📄 Markdown: temp/story-manifest-${key}.md\n`);
     console.log(renderStoryManifestMarkdown(manifest));
   } else {

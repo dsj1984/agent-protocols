@@ -443,10 +443,7 @@ describe('dispatch() — story-level orchestration', () => {
     // storyManifest should contain the story
     assert.equal(manifest.storyManifest.length, 1);
     assert.equal(manifest.storyManifest[0].storyId, 100);
-    assert.equal(
-      manifest.storyManifest[0].branchName,
-      'story-100',
-    );
+    assert.equal(manifest.storyManifest[0].branchName, 'story-100');
     assert.equal(manifest.storyManifest[0].tasks.length, 2);
   });
 

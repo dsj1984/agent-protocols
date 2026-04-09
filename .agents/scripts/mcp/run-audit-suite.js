@@ -12,7 +12,7 @@ export async function runAuditSuite({ auditWorkflows }) {
   const rulesContent = await fs.readFile(rulesPath, 'utf8');
   const rules = JSON.parse(rulesContent);
 
-  const validAudits = rules.workflows.map(w => w.name);
+  const validAudits = rules.workflows.map((w) => w.name);
   const auditResults = {
     metadata: {
       timestamp: new Date().toISOString(),
@@ -22,10 +22,10 @@ export async function runAuditSuite({ auditWorkflows }) {
         critical: 0,
         high: 0,
         medium: 0,
-        low: 0
-      }
+        low: 0,
+      },
     },
-    findings: []
+    findings: [],
   };
 
   // Ensure scripts dir exists
@@ -36,7 +36,7 @@ export async function runAuditSuite({ auditWorkflows }) {
       auditResults.findings.push({
         audit: auditName,
         severity: 'low',
-        message: `Requested audit workflow '${auditName}' is not defined in audit-rules.json.`
+        message: `Requested audit workflow '${auditName}' is not defined in audit-rules.json.`,
       });
       continue;
     }
@@ -48,7 +48,7 @@ export async function runAuditSuite({ auditWorkflows }) {
       auditResults.findings.push({
         audit: auditName,
         severity: 'low',
-        message: `SYSTEM-MISSING-SCRIPT: Audit script '${auditName}.js' not found in audits directory.`
+        message: `SYSTEM-MISSING-SCRIPT: Audit script '${auditName}.js' not found in audits directory.`,
       });
       continue;
     }
@@ -56,7 +56,7 @@ export async function runAuditSuite({ auditWorkflows }) {
     try {
       const { stdout } = await execAsync(`node "${scriptPath}"`);
       auditResults.metadata.auditsRun.push(auditName);
-      
+
       let findings = [];
       if (stdout.trim()) {
         try {
@@ -69,7 +69,7 @@ export async function runAuditSuite({ auditWorkflows }) {
             audit: auditName,
             severity: 'high',
             message: `Audit script '${auditName}.js' returned invalid JSON: ${e.message}`,
-            rawOutput: stdout.substring(0, 500)
+            rawOutput: stdout.substring(0, 500),
           });
           continue;
         }
@@ -80,22 +80,32 @@ export async function runAuditSuite({ auditWorkflows }) {
         auditResults.findings.push({
           audit: auditName,
           ...finding,
-          severity
+          severity,
         });
-        
+
         switch (severity) {
-          case 'critical': auditResults.metadata.summary.critical++; break;
-          case 'high': auditResults.metadata.summary.high++; break;
-          case 'medium': auditResults.metadata.summary.medium++; break;
-          case 'low': auditResults.metadata.summary.low++; break;
-          default: auditResults.metadata.summary.low++; break;
+          case 'critical':
+            auditResults.metadata.summary.critical++;
+            break;
+          case 'high':
+            auditResults.metadata.summary.high++;
+            break;
+          case 'medium':
+            auditResults.metadata.summary.medium++;
+            break;
+          case 'low':
+            auditResults.metadata.summary.low++;
+            break;
+          default:
+            auditResults.metadata.summary.low++;
+            break;
         }
       }
     } catch (e) {
       auditResults.findings.push({
         audit: auditName,
         severity: 'high',
-        message: `Execution of '${auditName}.js' failed: ${e.message}`
+        message: `Execution of '${auditName}.js' failed: ${e.message}`,
       });
     }
   }

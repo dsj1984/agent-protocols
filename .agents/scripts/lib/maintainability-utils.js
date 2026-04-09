@@ -1,8 +1,8 @@
-import fs from "fs";
-import path from "path";
-import { calculateForFile } from "./maintainability-engine.js";
+import fs from 'fs';
+import path from 'path';
+import { calculateForFile } from './maintainability-engine.js';
 
-const BASELINE_FILE = ".agents/maintainability-baseline.json";
+const BASELINE_FILE = '.agents/maintainability-baseline.json';
 
 /**
  * Loads the current maintainability baseline from disk.
@@ -11,9 +11,11 @@ const BASELINE_FILE = ".agents/maintainability-baseline.json";
 export function getBaseline() {
   if (fs.existsSync(BASELINE_FILE)) {
     try {
-      return JSON.parse(fs.readFileSync(BASELINE_FILE, "utf-8"));
+      return JSON.parse(fs.readFileSync(BASELINE_FILE, 'utf-8'));
     } catch (err) {
-      console.warn(`[Maintainability] Failed to parse baseline: ${err.message}`);
+      console.warn(
+        `[Maintainability] Failed to parse baseline: ${err.message}`,
+      );
       return {};
     }
   }
@@ -44,16 +46,21 @@ export function saveBaseline(baseline) {
  */
 export function scanDirectory(dir, fileList = []) {
   if (!fs.existsSync(dir)) return fileList;
-  
+
   const files = fs.readdirSync(dir);
   files.forEach((file) => {
     const filePath = path.join(dir, file);
     if (fs.statSync(filePath).isDirectory()) {
       // Skip common ignored directories
-      if (file !== "node_modules" && file !== ".git" && file !== "dist" && file !== "temp") {
+      if (
+        file !== 'node_modules' &&
+        file !== '.git' &&
+        file !== 'dist' &&
+        file !== 'temp'
+      ) {
         scanDirectory(filePath, fileList);
       }
-    } else if (file.endsWith(".js") || file.endsWith(".mjs")) {
+    } else if (file.endsWith('.js') || file.endsWith('.mjs')) {
       fileList.push(filePath);
     }
   });
@@ -69,7 +76,7 @@ export function calculateAll(paths) {
   const scores = {};
   paths.forEach((p) => {
     // Use relative paths for the baseline to ensure portability
-    const relativePath = path.relative(process.cwd(), p).replace(/\\/g, "/");
+    const relativePath = path.relative(process.cwd(), p).replace(/\\/g, '/');
     try {
       scores[relativePath] = calculateForFile(p);
     } catch (err) {

@@ -606,7 +606,7 @@ export async function executeStory(options) {
 
   // Find the parent Epic.
   // Stories reference their Epic via `Epic: #NNN` in the body.
-  const epicMatch = story.body?.match(/^Epic:\s*#(\d+)/mi);
+  const epicMatch = story.body?.match(/^Epic:\s*#(\d+)/im);
   const epicId = epicMatch ? parseInt(epicMatch[1], 10) : null;
 
   const manifest = {
