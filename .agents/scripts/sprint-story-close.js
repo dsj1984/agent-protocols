@@ -278,6 +278,7 @@ async function main() {
   // Dashboard Refresh (Regenerate Manifest)
   // -------------------------------------------------------------------------
 
+  let manifestUpdated = false;
   if (values['refresh-dashboard']) {
     progress('DASHBOARD', 'Regenerating dispatch manifest...');
     try {
@@ -292,6 +293,7 @@ async function main() {
         ],
         { cwd: PROJECT_ROOT, stdio: 'inherit', encoding: 'utf8' },
       );
+      manifestUpdated = true;
       progress('DASHBOARD', '✅ Dashboard manifest updated (temp/)');
     } catch (err) {
       console.error(
