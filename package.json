@@ -10,6 +10,8 @@
     "lint": "biome lint . && markdownlint \".agents/**/*.md\" \"*.md\" --ignore node_modules",
     "format": "biome format --write .",
     "format:check": "biome format .",
+    "maintainability:check": "node .agents/scripts/check-maintainability.js",
+    "maintainability:update": "node .agents/scripts/update-maintainability-baseline.js",
     "prepare": "husky"
   },
   "repository": {
