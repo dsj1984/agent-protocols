@@ -130,7 +130,7 @@ export function captureLintBaseline(epicBranch, settings) {
       {
         cwd: PROJECT_ROOT,
         encoding: 'utf8',
-        stdio: 'inherit',
+        stdio: process.env.MCP_SERVER ? 'pipe' : 'inherit',
         shell: false,
       },
     );

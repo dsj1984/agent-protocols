@@ -1,4 +1,5 @@
 #!/usr/bin/env node
+
 /**
  * .agents/scripts/mcp-orchestration.js — MCP Server Entry Point
  *
@@ -9,24 +10,30 @@
  * ## Protocol
  * JSON-RPC 2.0 over stdio (newline-delimited).
  * Implements MCP spec: https://spec.modelcontextprotocol.io/
- *
- * ## Backward Compatibility
- * All CLI entry points (dispatcher.js, update-ticket-state.js, etc.) remain
- * fully functional for CI/CD and non-agentic contexts.
- *
- * ## Usage
- * Add to your agent configuration (e.g., MCP host config):
- *   {
- *     "mcpServers": {
- *       "agent-protocols": {
- *         "command": "node",
- *         "args": [".agents/scripts/mcp-orchestration.js"]
- *       }
- *     }
- *   }
- *
- * @see lib/orchestration/index.js — SDK barrel export
  */
+// ── BULLETPROOF STDOUT GUARD (module-level) ──────────────────────────────
+// MCP JSON-RPC uses stdout exclusively. ANY stray bytes corrupt the stream.
+// We intercept process.stdout.write itself at module scope — before any
+// dynamic imports or function calls — to guarantee the guard is active
+// from the very first moment the process starts.
+process.env.MCP_SERVER = 'true';
+
+const _realStdoutWrite = process.stdout.write.bind(process.stdout);
+process.stdout.write = (chunk, encoding, callback) => {
+  const text = typeof chunk === 'string' ? chunk : chunk.toString();
+  const trimmed = text.trimStart();
+  // Only allow JSON-RPC messages (lines starting with '{') through stdout
+  if (trimmed.startsWith('{')) {
+    return _realStdoutWrite(chunk, encoding, callback);
+  }
+  // Redirect everything else to stderr
+  return process.stderr.write(`[STDOUT GUARD] ${text}`, encoding, callback);
+};
+
+// Also redirect console methods (belt-and-suspenders)
+console.log = (...args) => console.error('[MCP REDIR]', ...args);
+console.info = (...args) => console.error('[MCP REDIR]', ...args);
+console.warn = (...args) => console.error('[MCP REDIR]', ...args);
 
 import { createInterface } from 'node:readline';
 
@@ -193,6 +200,35 @@ async function handleRequest(req) {
 
       try {
         const result = await tool.handler(args);
+        
+        // PERSISTENCE SYNC: Manually write files to temp/ so that the project 
+        // state matches what would have happened if run via CLI dispatcher.js.
+        if (name === 'dispatch_wave' && result && typeof result === 'object') {
+          try {
+            const { renderManifestMarkdown, renderStoryManifestMarkdown } = await import('./lib/presentation/manifest-renderer.js');
+            const fs = await import('node:fs');
+            const path = await import('node:path');
+            const { PROJECT_ROOT } = await import('./lib/config-resolver.js');
+
+            const manifestDir = path.join(PROJECT_ROOT, 'temp');
+            if (!fs.existsSync(manifestDir)) {
+              fs.mkdirSync(manifestDir, { recursive: true });
+            }
+
+            if (result.type === 'story-execution') {
+              const key = result.stories.map((s) => s.storyId).join('-');
+              fs.writeFileSync(path.join(manifestDir, `story-manifest-${key}.json`), JSON.stringify(result, null, 2), 'utf8');
+              fs.writeFileSync(path.join(manifestDir, `story-manifest-${key}.md`), renderStoryManifestMarkdown(result), 'utf8');
+            } else if (result.epicId) {
+              const epicId = result.epicId;
+              fs.writeFileSync(path.join(manifestDir, `dispatch-manifest-${epicId}.json`), JSON.stringify(result, null, 2), 'utf8');
+              fs.writeFileSync(path.join(manifestDir, `dispatch-manifest-${epicId}.md`), renderManifestMarkdown(result), 'utf8');
+            }
+          } catch (persistErr) {
+            console.error(`[MCP] Failed to persist manifest to temp/: ${persistErr.message}`);
+          }
+        }
+
         sendResult(id, {
           content: [
             {
@@ -234,6 +270,8 @@ async function handleRequest(req) {
 // ---------------------------------------------------------------------------
 
 async function main() {
+  // stdout guard is already active at module scope (lines 14-35)
+
   // Register all SDK tools before accepting messages
   try {
     await registerSDKTools();
