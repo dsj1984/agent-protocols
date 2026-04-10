@@ -28,20 +28,39 @@ const { ITicketingProvider } = await import(
 // Helpers — mock fetch
 // ---------------------------------------------------------------------------
 
-function makeMockFetch(responses) {
-  let callIndex = 0;
+function createRouteMock(routes) {
   const calls = [];
 
   const mockFn = async (url, opts = {}) => {
     calls.push({ url, opts });
-    const response = responses[callIndex++] ?? { status: 200, json: {} };
+    const method = (opts.method || 'GET').toUpperCase();
+    const bodyStr = opts.body || '';
+    
+    let matchedResponse = null;
+    for (const [routePattern, response] of Object.entries(routes)) {
+      const parts = routePattern.split(' ');
+      const routeMethod = parts.length > 1 ? parts[0] : 'GET';
+      const routePath = parts.length > 1 ? parts[1] : parts[0];
+      const routeBodyMatcher = parts.length > 2 ? parts.slice(2).join(' ') : null;
+      
+      const methodMatches = method === routeMethod.toUpperCase();
+      const pathMatches = url.includes(routePath);
+      const bodyMatches = !routeBodyMatcher || bodyStr.includes(routeBodyMatcher);
+
+      if (methodMatches && pathMatches && bodyMatches) {
+        matchedResponse = response;
+        break;
+      }
+    }
+
+    const finalResponse = matchedResponse ?? { status: 200, json: {} };
 
     return {
-      ok: response.status >= 200 && response.status < 300,
-      status: response.status,
+      ok: finalResponse.status >= 200 && finalResponse.status < 300,
+      status: finalResponse.status,
       headers: { get: () => null },
-      json: async () => response.json,
-      text: async () => JSON.stringify(response.json ?? ''),
+      json: async () => finalResponse.json,
+      text: async () => JSON.stringify(finalResponse.json ?? ''),
     };
   };
 
@@ -98,8 +117,8 @@ describe('GitHubProvider — getEpic()', () => {
   });
 
   it('returns epic with parsed linked issues', async () => {
-    globalThis.fetch = makeMockFetch([
-      {
+    globalThis.fetch = createRouteMock({
+      'GET /issues/10': {
         status: 200,
         json: {
           number: 10,
@@ -108,7 +127,7 @@ describe('GitHubProvider — getEpic()', () => {
           labels: [{ name: 'type::epic' }],
         },
       },
-    ]);
+    });
 
     const provider = createTestProvider();
     const epic = await provider.getEpic(10);
@@ -120,8 +139,8 @@ describe('GitHubProvider — getEpic()', () => {
   });
 
   it('handles missing linked issues', async () => {
-    globalThis.fetch = makeMockFetch([
-      {
+    globalThis.fetch = createRouteMock({
+      'GET /issues/10': {
         status: 200,
         json: {
           number: 10,
@@ -130,7 +149,7 @@ describe('GitHubProvider — getEpic()', () => {
           labels: [],
         },
       },
-    ]);
+    });
 
     const provider = createTestProvider();
     const epic = await provider.getEpic(10);
@@ -138,12 +157,12 @@ describe('GitHubProvider — getEpic()', () => {
   });
 
   it('handles null body', async () => {
-    globalThis.fetch = makeMockFetch([
-      {
+    globalThis.fetch = createRouteMock({
+      'GET /issues/10': {
         status: 200,
         json: { number: 10, title: 'No Body', body: null, labels: [] },
       },
-    ]);
+    });
 
     const provider = createTestProvider();
     const epic = await provider.getEpic(10);
@@ -152,9 +171,9 @@ describe('GitHubProvider — getEpic()', () => {
   });
 
   it('throws on API error', async () => {
-    globalThis.fetch = makeMockFetch([
-      { status: 404, json: { message: 'Not Found' } },
-    ]);
+    globalThis.fetch = createRouteMock({
+      'GET /issues/999': { status: 404, json: { message: 'Not Found' } },
+    });
 
     const provider = createTestProvider();
     await assert.rejects(provider.getEpic(999), /failed \(404\)/);
@@ -175,8 +194,8 @@ describe('GitHubProvider — getTicket()', () => {
   });
 
   it('returns ticket with all metadata', async () => {
-    globalThis.fetch = makeMockFetch([
-      {
+    globalThis.fetch = createRouteMock({
+      'GET /issues/42': {
         status: 200,
         json: {
           number: 42,
@@ -187,7 +206,7 @@ describe('GitHubProvider — getTicket()', () => {
           state: 'open',
         },
       },
-    ]);
+    });
 
     const provider = createTestProvider();
     const ticket = await provider.getTicket(42);
@@ -214,8 +233,8 @@ describe('GitHubProvider — getTicketDependencies()', () => {
   });
 
   it('parses blocked by and blocks patterns', async () => {
-    globalThis.fetch = makeMockFetch([
-      {
+    globalThis.fetch = createRouteMock({
+      'GET /issues/5': {
         status: 200,
         json: {
           number: 5,
@@ -226,7 +245,7 @@ describe('GitHubProvider — getTicketDependencies()', () => {
           state: 'open',
         },
       },
-    ]);
+    });
 
     const provider = createTestProvider();
     const deps = await provider.getTicketDependencies(5);
@@ -236,8 +255,8 @@ describe('GitHubProvider — getTicketDependencies()', () => {
   });
 
   it('returns empty arrays when no dependencies', async () => {
-    globalThis.fetch = makeMockFetch([
-      {
+    globalThis.fetch = createRouteMock({
+      'GET /issues/5': {
         status: 200,
         json: {
           number: 5,
@@ -248,7 +267,7 @@ describe('GitHubProvider — getTicketDependencies()', () => {
           state: 'open',
         },
       },
-    ]);
+    });
 
     const provider = createTestProvider();
     const deps = await provider.getTicketDependencies(5);
@@ -272,15 +291,15 @@ describe('GitHubProvider — createTicket()', () => {
   });
 
   it('creates a ticket linked to the epic', async () => {
-    const mockFetch = makeMockFetch([
-      {
+    const mockFetch = createRouteMock({
+      'POST /issues': {
         status: 201,
         json: {
           number: 20,
           html_url: 'https://github.com/test-owner/test-repo/issues/20',
         },
       },
-    ]);
+    });
     globalThis.fetch = mockFetch;
 
     const provider = createTestProvider();
@@ -299,9 +318,9 @@ describe('GitHubProvider — createTicket()', () => {
   });
 
   it('includes dependency references in the body', async () => {
-    const mockFetch = makeMockFetch([
-      { status: 201, json: { number: 21, html_url: 'http://x' } },
-    ]);
+    const mockFetch = createRouteMock({
+      'POST /issues': { status: 201, json: { number: 21, html_url: 'http://x' } },
+    });
     globalThis.fetch = mockFetch;
 
     const provider = createTestProvider();
@@ -332,7 +351,9 @@ describe('GitHubProvider — updateTicket()', () => {
   });
 
   it('patches body and assignees', async () => {
-    const mockFetch = makeMockFetch([{ status: 200, json: {} }]);
+    const mockFetch = createRouteMock({
+      'PATCH /issues/42': { status: 200, json: {} },
+    });
     globalThis.fetch = mockFetch;
 
     const provider = createTestProvider();
@@ -348,10 +369,10 @@ describe('GitHubProvider — updateTicket()', () => {
   });
 
   it('adds and removes labels via separate API calls', async () => {
-    const mockFetch = makeMockFetch([
-      { status: 200, json: {} }, // add label
-      { status: 204, json: null }, // remove label
-    ]);
+    const mockFetch = createRouteMock({
+      'POST /labels': { status: 200, json: {} },
+      'DELETE /labels/agent::ready': { status: 204, json: null },
+    });
     globalThis.fetch = mockFetch;
 
     const provider = createTestProvider();
@@ -385,7 +406,9 @@ describe('GitHubProvider — postComment()', () => {
   });
 
   it('prepends type badge to comment body', async () => {
-    const mockFetch = makeMockFetch([{ status: 201, json: { id: 100 } }]);
+    const mockFetch = createRouteMock({
+      'POST /comments': { status: 201, json: { id: 100 } },
+    });
     globalThis.fetch = mockFetch;
 
     const provider = createTestProvider();
@@ -415,9 +438,8 @@ describe('GitHubProvider — createPullRequest()', () => {
   });
 
   it('creates PR with Closes reference', async () => {
-    const mockFetch = makeMockFetch([
-      // getTicket call
-      {
+    const mockFetch = createRouteMock({
+      'GET /issues/42': {
         status: 200,
         json: {
           number: 42,
@@ -428,8 +450,7 @@ describe('GitHubProvider — createPullRequest()', () => {
           state: 'open',
         },
       },
-      // createPR call
-      {
+      'POST /pulls': {
         status: 201,
         json: {
           number: 15,
@@ -437,7 +458,7 @@ describe('GitHubProvider — createPullRequest()', () => {
           html_url: 'https://github.com/test-owner/test-repo/pull/15',
         },
       },
-    ]);
+    });
     globalThis.fetch = mockFetch;
 
     const provider = createTestProvider();
@@ -466,18 +487,16 @@ describe('GitHubProvider — ensureLabels()', () => {
   });
 
   it('creates missing labels and skips existing', async () => {
-    const mockFetch = makeMockFetch([
-      // List existing labels
-      {
+    const mockFetch = createRouteMock({
+      'GET /labels': {
         status: 200,
         json: [
           { name: 'type::epic', color: '7057FF' },
           { name: 'bug', color: 'D93F0B' },
         ],
       },
-      // Create type::task
-      { status: 201, json: { name: 'type::task' } },
-    ]);
+      'POST /labels': { status: 201, json: { name: 'type::task' } },
+    });
     globalThis.fetch = mockFetch;
 
     const provider = createTestProvider();
@@ -491,10 +510,10 @@ describe('GitHubProvider — ensureLabels()', () => {
   });
 
   it('strips # from color code when sending to API', async () => {
-    const mockFetch = makeMockFetch([
-      { status: 200, json: [] }, // no existing labels
-      { status: 201, json: { name: 'new-label' } },
-    ]);
+    const mockFetch = createRouteMock({
+      'GET /labels': { status: 200, json: [] },
+      'POST /labels': { status: 201, json: { name: 'new-label' } },
+    });
     globalThis.fetch = mockFetch;
 
     const provider = createTestProvider();
@@ -543,9 +562,9 @@ describe('GitHubProvider — error handling', () => {
   });
 
   it('includes status code in REST error messages', async () => {
-    globalThis.fetch = makeMockFetch([
-      { status: 403, json: { message: 'rate limited' } },
-    ]);
+    globalThis.fetch = createRouteMock({
+      'GET /issues/1': { status: 403, json: { message: 'rate limited' } },
+    });
 
     const provider = createTestProvider();
     await assert.rejects(provider.getTicket(1), /failed \(403\)/);
@@ -553,9 +572,9 @@ describe('GitHubProvider — error handling', () => {
 
   it('includes endpoint in REST error messages', async () => {
     // Use 422 (not retried by _fetchWithRetry) to ensure deterministic failure.
-    globalThis.fetch = makeMockFetch([
-      { status: 422, json: { message: 'validation failed' } },
-    ]);
+    globalThis.fetch = createRouteMock({
+      'GET /issues/1': { status: 422, json: { message: 'validation failed' } },
+    });
 
     const provider = createTestProvider();
     await assert.rejects(

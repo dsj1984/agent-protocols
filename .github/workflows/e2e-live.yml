@@ -1,0 +1,30 @@
+name: E2E Live Integration
+on:
+  schedule:
+    - cron: '0 0 * * *' # Run nightly
+  workflow_dispatch: # Allow manual triggering
+
+jobs:
+  test-live-orchestration:
+    runs-on: ubuntu-latest
+    env:
+      GITHUB_TOKEN: ${{ secrets.GH_SANDBOX_PAT }}
+      # Required to route live operations to the sandbox instead of the main repo
+      TEST_OWNER: "dsj1984"
+      TEST_REPO: "agent-protocols-sandbox"
+      
+    steps:
+      - uses: actions/checkout@v4
+      
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 20
+          
+      - name: Install dependencies
+        run: npm ci
+        
+      - name: E2E Run Live Sandbox Smoke Tests
+        if: env.GITHUB_TOKEN != ''
+        run: |
+          echo "Placeholder for future E2E scripts against sandbox"
+          # npm run test:e2e
