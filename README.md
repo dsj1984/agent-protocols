@@ -31,7 +31,7 @@ graph LR
 
     subgraph Quality ["🔍 Continuous Quality"]
         I["Gate-Based Audit Orchestration"]
-        J["Maintainability Ratchet & Friction Telemetry"]
+        J["85%+ Coverage Ratchet & Mutation Testing"]
     end
 
     A --> B --> C --> D --> E --> F --> G --> H
@@ -149,7 +149,9 @@ agent-protocols/
 ```powershell
 npm run lint           # Check all markdown for lint errors
 npm run format         # Auto-format all markdown files
-npm test              # Run framework tests
+npm test               # Run framework tests
+npm run test:coverage  # Run tests with 85% coverage gate
+npm run mutate         # Run Stryker mutation testing
 ```
 
 ## Documentation

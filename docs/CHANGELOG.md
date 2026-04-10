@@ -2,9 +2,14 @@
 
 All notable changes to this project will be documented in this file.
 
-## [Unreleased]
+## [5.2.0] - 2026-04-10
 
-* **Refinement Loop Reverted:** Removed the `friction-analyzer.js` script and `.github/workflows/refine-protocols.yml` automation. The protocol refinement loop will now be handled manually by operators reviewing friction logs, rather than by autonomous agents creating PRs.
+### 🛡️ Quality Hardening
+
+*   **85%+ Test Coverage Milestone:** Achieved a major quality milestone with **89.57% line coverage** across the core SDK. Implemented a strict **85% CI coverage ratchet** using the native Node.js 22+ test-coverage runner, ensuring all future PRs maintain high quality standards.
+*   **Mutation Testing:** Integrated **Stryker Mutation Testing** using the `tap-runner` plugin. Configured a weekly CI workflow and local `npm run mutate` script to measure test suite effectiveness (mutant kill rate) beyond simple code coverage.
+*   **Coverage Logic Refinement:** Transitioned to deterministic `--test-coverage-exclude` CLI flags, accurately scoping metrics to the core logic library while excluding non-unit-testable CLI entry points.
+*   **Refinement Loop Reverted:** Removed the `friction-analyzer.js` script and `.github/workflows/refine-protocols.yml` automation. The protocol refinement loop will now be handled manually by operators reviewing friction logs, rather than by autonomous agents creating PRs.
 
 ## [5.0.0] - 2026-04-05
 
