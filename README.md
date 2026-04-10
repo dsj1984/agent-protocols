@@ -20,23 +20,22 @@ graph LR
     end
 
     subgraph Execution ["🤖 Agentic Execution"]
-        E["DAG-Based Task Dispatch"]
+        E["DAG-Based Story Dispatch"]
         F["Context Hydration & Implementation"]
     end
 
     subgraph Closure ["🤖 Integration & Closure"]
-        G["Branch Integration & Stabilization"]
+        G["Story Branch Merging & Stabilization"]
         H["Completion Cascade & Release"]
     end
 
-    subgraph Refinement ["🔄 Autonomous Refinement"]
-        I["Friction Analysis & Pattern Detection"]
-        J["Protocol Suggestion & PR Generation"]
-        K["Impact Tracking & Performance Reports"]
+    subgraph Quality ["🔍 Continuous Quality"]
+        I["Gate-Based Audit Orchestration"]
+        J["Maintainability Ratchet & Friction Telemetry"]
     end
 
     A --> B --> C --> D --> E --> F --> G --> H
-    H --> I --> J --> K --> I
+    F --> I --> J
 ```
 
 - **GitHub as SSOT**: Issues, Labels, and Projects V2 are the single source of
@@ -49,11 +48,9 @@ graph LR
   waves, using shared context branches to minimize integration friction.
 - **Self-Contained**: Zero external SDK dependencies for core orchestration. No
   `@octokit/*`, no Axios — just raw HTTP and GraphQL.
-- **Autonomous Refinement**: A closed feedback loop that analyzes friction logs
-  to suggest protocol improvements, identifies patterns, and tracks the impact of
-  merged refinements on subsequent agent performance.
-- **Real-time Monitoring**: Push-based health monitoring that updates a GitHub
-  "Sprint Health" issue in real-time during execution.
+- **Gate-Based Quality**: An automated audit orchestration pipeline selects and
+  runs relevant audits at four sprint lifecycle gates, enforcing a
+  maintainability ratchet that prevents code quality degradation.
 
 ## Get Started
 
@@ -99,7 +96,9 @@ For the best agentic experience, add the orchestration server to your IDE or MCP
 }
 ```
 
-This enables agents to use native tools like `orchestrator_dispatch` instead of raw shell commands. See [.agents/README.md](.agents/README.md) for full configuration details.
+This enables agents to use native tools like `dispatch_wave` instead of raw
+shell commands. See [.agents/README.md](.agents/README.md) for full
+configuration details.
 
 ### 3. Plan Your First Epic
 
@@ -118,7 +117,7 @@ See [SDLC.md](.agents/SDLC.md) for the full end-to-end workflow.
 ```text
 agent-protocols/
 ├── .agents/                  # Distributed bundle (the "product")
-│   ├── VERSION               # Current version (5.0.0)
+│   ├── VERSION               # Current version (5.1.0)
 │   ├── instructions.md       # Primary system prompt
 │   ├── SDLC.md               # End-to-end workflow guide
 │   ├── README.md             # Detailed consumer reference
@@ -126,15 +125,18 @@ agent-protocols/
 │   ├── rules/                # Domain-agnostic coding standards (8 rules)
 │   ├── skills/               # Two-tier skill library
 │   │   ├── core/             # Universal process skills (20 skills)
-│   │   └── stack/            # Tech-stack-specific guardrails (19 skills)
-│   ├── workflows/            # Slash-command automation (25 workflows)
+│   │   └── stack/            # Tech-stack-specific guardrails (22 skills)
+│   ├── workflows/            # Slash-command automation (24 workflows)
 │   ├── scripts/              # Orchestration engine
 │   │   ├── lib/              # Core libraries (config, interfaces, factory)
+│   │   │   ├── orchestration/  # SDK (dispatcher, hydrator, ticketing)
+│   │   │   ├── presentation/   # Manifest rendering
+│   │   │   └── mcp/            # MCP tool registry
+│   │   ├── mcp/              # MCP tool implementations
 │   │   └── providers/        # Ticketing provider implementations
 │   ├── schemas/              # JSON Schemas for validation
 │   └── templates/            # Context hydration templates
-├── docs/                     # Roadmap and legacy changelog archive
-│   ├── ROADMAP.md            # Auto-generated project roadmap
+├── docs/                     # Changelog and legacy archive
 ├── tests/                    # Unit and integration tests
 ├── package.json              # Tooling: markdownlint, prettier, husky
 ```
@@ -155,7 +157,6 @@ npm test              # Run framework tests
 | [SDLC Workflow](.agents/SDLC.md)                 | End-to-end sprint lifecycle    |
 | [Changelog](docs/CHANGELOG.md)                   | Release history (v5.0.0+)      |
 | [Legacy Changelog](docs/archive/CHANGELOG-v4.md) | v1.0.0 – v4.7.2 history        |
-| [Roadmap](docs/ROADMAP.md)                       | Auto-generated from Issues     |
 
 ## License
 

@@ -40,7 +40,7 @@ import { createInterface } from 'node:readline';
 
 const MCP_VERSION = '2024-11-05';
 const SERVER_NAME = 'agent-protocols';
-const SERVER_VERSION = '5.0.0';
+const SERVER_VERSION = '5.1.0';
 
 // ---------------------------------------------------------------------------
 // Stdio Transport

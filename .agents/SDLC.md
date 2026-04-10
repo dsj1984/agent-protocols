@@ -12,8 +12,10 @@ of Truth. No local playbooks, no sprint directories, no JSON state files.
   in GitHub Issues. No local state files.
 - **Provider Abstraction**: Orchestration flows through `ITicketingProvider`, an
   abstract interface with a shipped GitHub implementation.
+- **Story-Level Branching**: All Tasks within a Story execute sequentially on a
+  shared `story/` branch, minimizing branch proliferation and merge conflicts.
 - **Agentic Autonomy**: Planning and execution are decoupled. Agents pick up
-  tasks from the backlog, implement on isolated branches, and sync state back to
+  tasks from the backlog, implement on Story branches, and sync state back to
   GitHub in real-time.
 - **Human-in-the-Loop (HITL)**: Humans define the vision (Epics), trigger
   planning, and approve high-risk tasks. Everything else is autonomous.
@@ -45,16 +47,16 @@ graph LR
 
     subgraph Phase3 ["Phase 3: Execution"]
         direction TB
-        E["🤖 /sprint-execute Epic"]:::manual
-        F["🤖 /sprint-execute Task"]:::agentic
+        E["👤 /sprint-execute Epic"]:::manual
+        F["🤖 /sprint-execute Story"]:::agentic
         E --> F
-        F -.-> F_Art["📄 Feature Branch PRs"]:::artifact
+        F -.-> F_Art["📄 Story Branch Commits"]:::artifact
     end
 
     subgraph Phase4 ["Phase 4: Closure"]
         direction TB
-        G["🤖 /sprint-integration"]:::agentic
-        H["🤖 QA → Retro → /sprint-close"]:::agentic
+        G["🤖 Story Close → Epic Merge"]:::agentic
+        H["🤖 Code Review → Retro → /sprint-close"]:::agentic
         G --> H
     end
 
@@ -107,7 +109,7 @@ The framework reads the Epic and autonomously builds the entire work breakdown.
      estimated files, and agent prompts.
 
 1. **Roadmap Update**: `generate-roadmap.js` detects the new Epic/Features and
-   updates `docs/roadmap.md`.
+   updates `docs/ROADMAP.md`.
 
 ---
 
@@ -129,13 +131,33 @@ Unlike legacy models where every Task lives on its own branch, Version 5 uses
 
 ### Dispatch
 
-`/sprint-execute [EPIC_ID]` builds the dependency DAG across all Tasks and
+`/sprint-execute [EPIC_ID]` builds the dependency DAG across all Stories and
 identifies the current "wave" of executable work. It outputs a dispatch manifest
-table in the IDE.
+with progress bars and completion checkboxes.
+
+### Story Execution Lifecycle
+
+When the operator picks a Story from the manifest, the following automated
+lifecycle executes:
+
+1. **Initialization** (`sprint-story-init.js`):
+   - Verifies all upstream dependencies are satisfied.
+   - Syncs the Epic base branch with `main`.
+   - Creates or checks out the Story branch.
+   - Transitions child Tasks to `agent::executing`.
+
+2. **Task Implementation**: The agent executes each Task sequentially on the
+   shared Story branch, committing after each Task completion.
+
+3. **Closure** (`sprint-story-close.js`):
+   - Runs shift-left validation (lint, format, test).
+   - Merges the Story branch into the Epic base branch.
+   - Transitions Tasks → `agent::done`, cascades to Story → Feature.
+   - Cleans up the merged Story branch.
 
 ### Context Hydration
 
-When an agent runs `/sprint-execute #[TASK_ID]`, the Context Hydrator assembles
+When an agent runs `/sprint-execute #[STORY_ID]`, the Context Hydrator assembles
 a self-contained prompt:
 
 1. `agent-protocol.md` (universal rules)
@@ -167,17 +189,17 @@ The notification engine fires an `approval-required` event via webhook.
 
 ## Phase 4: Integration & Closure (Agentic)
 
-Once Task waves complete, the bookend lifecycle begins.
+Once Story waves complete, the bookend lifecycle begins.
 
-1. **Integration**: `/sprint-integration` identifies integrated feature sets by
-   resolving Task → Story hierarchy. It merges shared Story branches into the
-   Epic base branch.
+1. **Story Branch Merging**: Stories are merged into the Epic base branch
+   automatically during Story closure (`sprint-story-close.js`). This replaces
+   the legacy `/sprint-integration` step.
 
-1. **Completion Cascade**: When the last Task in a group is reached, status
-   cascades upward via `update-ticket-state.js`:
+1. **Completion Cascade**: When the last Task in a Story reaches `agent::done`,
+   status cascades upward:
 
    ```text
-   Task Integrated → Story Done → Feature Done
+   Task Done → Story Done → Feature Done
    ```
 
    **Note**: Epics, PRDs, and Tech Specs are explicitly excluded from the
@@ -187,30 +209,53 @@ Once Task waves complete, the bookend lifecycle begins.
    - **Code Review**: `/sprint-code-review` for comprehensive review
    - **Retro**: `/sprint-retro` summarizes wins and friction from the ticket
      graph
-   - **Close**: `/sprint-close` merges the Epic branch to `main`, tags
-     the release, and closes the Epic issue (including PRD/Tech Spec).
+   - **Close**: `/sprint-close` merges the Epic branch to `main`, validates
+     documentation freshness, bumps the version, tags the release, and closes
+     the Epic issue (including PRD/Tech Spec context tickets).
 
 ---
 
 ## Static Analysis & Audit Orchestration
 
-Version 5 introduces an automated, gate-based static analysis and audit orchestration pipeline. This replaces manual auditing with an intelligent, MCP-driven system.
+Version 5 introduces an automated, gate-based static analysis and audit
+orchestration pipeline. This replaces manual auditing with an intelligent,
+MCP-driven system.
 
 ### Audit Triggering
 
-Audits are selectively invoked by the orchestrator at four specific sprint lifecycle gates (`gate1` through `gate4`). The `audit-orchestrator.js` evaluates rules defined in `.agents/schemas/audit-rules.json` to determine which audits to run based on:
+Audits are selectively invoked by the orchestrator at four specific sprint
+lifecycle gates (`gate1` through `gate4`). The `audit-orchestrator.js` evaluates
+rules defined in `.agents/schemas/audit-rules.json` to determine which audits to
+run based on:
 
 1. **Gate Configuration:** Which gate is currently being triggered.
-2. **Contextual Keywords:** The Epic or Task body contents (e.g., triggering security audits if "auth" or "encrypt" is found).
-3. **File Patterns:** Which files have changed compared to the base branch (e.g., triggering privacy audits if `user-profile` files were modified).
+2. **Contextual Keywords:** The Epic or Task body contents (e.g., triggering
+   security audits if "auth" or "encrypt" is found).
+3. **File Patterns:** Which files have changed compared to the base branch
+   (e.g., triggering privacy audits if `user-profile` files were modified).
+
+### Sprint Lifecycle Gates
+
+| Gate   | When                            | What Runs                                  |
+| ------ | ------------------------------- | ------------------------------------------ |
+| Gate 1 | After Story completion          | Content-triggered audits (clean-code, etc) |
+| Gate 2 | Pre-integration                 | Dependency + DevOps audits                 |
+| Gate 3 | Code review phase               | Full automated audit pass                  |
+| Gate 4 | Sprint close (before Epic→main) | `audit-sre` production readiness gate      |
 
 ### Review and Feedback Loop
 
-When audits form findings, the orchestrator compiles a structured Markdown report and posts it as a ticket comment via the `ITicketingProvider`.
+When audits produce findings, the orchestrator compiles a structured Markdown
+report and posts it as a ticket comment via the `ITicketingProvider`.
 
-- **Maintainability Ratchet:** The orchestrator enforces code quality by relying on maintainability checks (`check-maintainability.js`), which fail if the codebase's composite score drops below the established baseline.
-- **Auto-Fixing:** If High or Critical findings are detected, the system halts for human review. A human can reply to the ticket with `/approve` or `/approve-audit-fixes` (processed by `handle-approval.js` within the agent session).
-- **Implementation:** Approved fixes automatically transition the ticket to `agent::executing`, dispatching an agent to autonomously implement and verify the required fixes.
+- **Maintainability Ratchet:** The orchestrator enforces code quality by relying
+  on maintainability checks (`check-maintainability.js`), which fail if the
+  codebase's composite score drops below the established baseline.
+- **Auto-Fixing:** If High or Critical findings are detected, the system halts
+  for human review. A human can reply to the ticket with `/approve` or
+  `/approve-audit-fixes` (processed by `handle-approval.js`).
+- **Implementation:** Approved fixes automatically transition the ticket to
+  `agent::executing`, dispatching an agent to implement and verify the fixes.
 
 ---
 
@@ -238,12 +283,12 @@ Notifications are dispatched through two channels:
 | Command                           | Purpose                                          |
 | --------------------------------- | ------------------------------------------------ |
 | `/sprint-plan [EPIC_ID]`          | Generate PRD, Tech Spec, and full task hierarchy |
-| `/sprint-execute [EPIC_ID]`       | Dispatch manifest and launch task waves          |
-| `/sprint-execute [TASK_ID]`       | Hydrate context and implement a single task      |
-| `/sprint-integration`             | Merge task branches into Epic base branch        |
+| `/sprint-execute [EPIC_ID]`       | Dispatch manifest and launch Story waves         |
+| `/sprint-execute [STORY_ID]`      | Initialize Story branch and implement all Tasks  |
 | `/sprint-code-review`             | Comprehensive code review                        |
 | `/sprint-retro`                   | Retrospective from ticket graph                  |
 | `/sprint-close`                   | Merge to main, tag release, close Epic           |
+| `/create-epic`                    | Create a well-structured Epic issue              |
 | `/bootstrap-agent-protocols`      | Initialize repo labels and project fields        |
 | `/delete-epic-branches [EPIC_ID]` | Hard reset: delete Epic branches                 |
 | `/delete-epic-tickets [EPIC_ID]`  | Hard reset: delete Epic issues                   |
