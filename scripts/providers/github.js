@@ -610,6 +610,48 @@ export class GitHubProvider extends ITicketingProvider {
   }
 
   /**
+   * Internal helper to fetch Project V2 data, checking both User and Organization.
+   * @param {string} fragment - GraphQL fragment for the projectNode.
+   * @returns {Promise<object|null>}
+   * @private
+   */
+  async _fetchProjectV2(fragment) {
+    if (!this.projectNumber) return null;
+
+    const buildQuery = (type) => `
+      query($owner: String!, $number: Int!) {
+        ${type}(login: $owner) {
+          projectV2(number: $number) { ${fragment} }
+        }
+      }
+    `;
+
+    // Try user first
+    try {
+      const data = await this._graphql(buildQuery('user'), {
+        owner: this.projectOwner,
+        number: this.projectNumber,
+      });
+      if (data?.user?.projectV2) return data.user.projectV2;
+    } catch {
+      /* ignore */
+    }
+
+    // Fallback to organization
+    try {
+      const data = await this._graphql(buildQuery('organization'), {
+        owner: this.projectOwner,
+        number: this.projectNumber,
+      });
+      return data?.organization?.projectV2;
+    } catch {
+      /* ignore */
+    }
+
+    return null;
+  }
+
+  /**
    * Resolve the global GraphQL node ID for the configured project number.
    * Caches the result to avoid redundant lookups.
    * @private
@@ -617,36 +659,8 @@ export class GitHubProvider extends ITicketingProvider {
   /* node:coverage ignore next */
   async _fetchProjectMetadata() {
     if (this._projectId) return this._projectId;
-    if (!this.projectNumber) return null;
-
-    // Try user first
-    try {
-      const userData = await this._graphql(
-        `query($owner: String!, $number: Int!) {
-          user(login: $owner) {
-            projectV2(number: $number) { id }
-          }
-        }`,
-        { owner: this.projectOwner, number: this.projectNumber },
-      );
-      this._projectId = userData.user?.projectV2?.id;
-    } catch {
-      // Fallback to organization check
-      try {
-        const orgData = await this._graphql(
-          `query($owner: String!, $number: Int!) {
-            organization(login: $owner) {
-              projectV2(number: $number) { id }
-            }
-          }`,
-          { owner: this.projectOwner, number: this.projectNumber },
-        );
-        this._projectId = orgData.organization?.projectV2?.id;
-      } catch {
-        // Neither worked — project not found or permission issue
-      }
-    }
-
+    const project = await this._fetchProjectV2('id');
+    if (project) this._projectId = project.id;
     return this._projectId;
   }
 
@@ -789,56 +803,19 @@ export class GitHubProvider extends ITicketingProvider {
 
   /* node:coverage ignore next */
   /* node:coverage ignore next */
-  async ensureProjectFields(_ticketId, _fields) {
-    if (!this.projectNumber) {
-      return { created: [], skipped: [] };
-    }
+  async ensureProjectFields(fieldDefs) {
+    if (!this.projectNumber) return { created: [], skipped: [] };
 
-    // First, resolve the project node ID via GraphQL
-    const projectData = await this._graphql(
-      `
-      query($owner: String!, $number: Int!) {
-        user(login: $owner) {
-          projectV2(number: $number) {
-            id
-            fields(first: 50) {
-              nodes {
-                ... on ProjectV2Field { name }
-                ... on ProjectV2IterationField { name }
-                ... on ProjectV2SingleSelectField { name }
-              }
-            }
-          }
+    const project = await this._fetchProjectV2(`
+      id
+      fields(first: 50) {
+        nodes {
+          ... on ProjectV2Field { name }
+          ... on ProjectV2IterationField { name }
+          ... on ProjectV2SingleSelectField { name }
         }
       }
-    `,
-      { owner: this.projectOwner, number: this.projectNumber },
-    );
-
-    // Try organization if user lookup fails
-    let project = projectData.user?.projectV2;
-    if (!project) {
-      const orgData = await this._graphql(
-        `
-        query($owner: String!, $number: Int!) {
-          organization(login: $owner) {
-            projectV2(number: $number) {
-              id
-              fields(first: 50) {
-                nodes {
-                  ... on ProjectV2Field { name }
-                  ... on ProjectV2IterationField { name }
-                  ... on ProjectV2SingleSelectField { name }
-                }
-              }
-            }
-          }
-        }
-      `,
-        { owner: this.projectOwner, number: this.projectNumber },
-      );
-      project = orgData.organization?.projectV2;
-    }
+    `);
 
     if (!project) {
       throw new Error(
@@ -846,7 +823,7 @@ export class GitHubProvider extends ITicketingProvider {
       );
     }
 
-    const existingFieldNames = new Set(
+    const existingFields = new Set(
       project.fields.nodes.map((f) => f.name).filter(Boolean),
     );
 
@@ -854,25 +831,23 @@ export class GitHubProvider extends ITicketingProvider {
     const skipped = [];
 
     for (const def of fieldDefs) {
-      if (existingFieldNames.has(def.name)) {
+      if (existingFields.has(def.name)) {
         skipped.push(def.name);
+        continue;
+      }
+
+      if (def.type === 'iteration') {
+        skipped.push(def.name); // Not supported via GraphQL
         continue;
       }
 
       if (def.type === 'single_select') {
         await this._graphql(
-          `
-          mutation($projectId: ID!, $name: String!, $options: [ProjectV2SingleSelectFieldOptionInput!]!) {
-            createProjectV2Field(input: {
-              projectId: $projectId
-              dataType: SINGLE_SELECT
-              name: $name
-              singleSelectOptions: $options
-            }) {
+          `mutation($projectId: ID!, $name: String!, $options: [ProjectV2SingleSelectFieldOptionInput!]!) {
+            createProjectV2Field(input: { projectId: $projectId, dataType: SINGLE_SELECT, name: $name, singleSelectOptions: $options }) {
               projectV2Field { ... on ProjectV2SingleSelectField { name } }
             }
-          }
-        `,
+          }`,
           {
             projectId: project.id,
             name: def.name,
@@ -883,15 +858,6 @@ export class GitHubProvider extends ITicketingProvider {
             })),
           },
         );
-      }
-
-      // Note: Iteration fields require different GraphQL mutations
-      // and are more complex. For now we track them as skipped with a note.
-      if (def.type === 'iteration') {
-        // Iteration fields cannot be created via GraphQL API currently.
-        // They must be created manually in the project settings.
-        skipped.push(def.name);
-        continue;
       }
 
       created.push(def.name);
