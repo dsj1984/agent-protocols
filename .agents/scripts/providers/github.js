@@ -264,6 +264,7 @@ export class GitHubProvider extends ITicketingProvider {
           typeof l === 'string' ? l : l.name,
         ),
         state: issue.state,
+        state_reason: issue.state_reason,
       }));
   }
 
