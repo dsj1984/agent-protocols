@@ -21,7 +21,20 @@ test('manifest-renderer: renders simple manifest', () => {
   };
 
   const output = renderManifestMarkdown(manifest);
-  assert.ok(output.includes('Epic'));
-  assert.ok(output.includes('Wave 1'));
-  assert.ok(output.includes('story-10'));
+  
+  // Verify Epic Header
+  assert.ok(output.includes('# 📋 Dispatch Manifest — Epic #1'), 'Missing epic header');
+
+  // Verify Wave Header and Table Structure
+  assert.ok(output.includes('## Wave Summary'), 'Missing waves section');
+  assert.ok(output.includes('| Wave | Stories | Progress | Tasks | Status |'), 'Missing wave summary table header');
+  assert.ok(output.includes('Wave 1'), 'Missing wave row data');
+
+  // Verify Story Execution Plan Header and Table Structure
+  assert.ok(output.includes('## Execution Plan'), 'Missing story execution plan section');
+  assert.ok(output.includes('| | Story | Title | Model Tier | Recommended Model | Tasks |'), 'Missing story execution table header');
+  assert.ok(output.includes('| ⬜ | #10 | story-10 |'), 'Missing story row data');
+
+  // Verify Dry Run mode
+  assert.ok(output.includes('🔍 Dry Run'), 'Missing dry run text');
 });
