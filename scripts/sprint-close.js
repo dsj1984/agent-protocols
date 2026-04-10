@@ -19,20 +19,16 @@
  */
 
 import { parseArgs } from 'node:util';
-import path from 'node:path';
-import { fileURLToPath } from 'node:url';
-import { resolveConfig, PROJECT_ROOT } from './lib/config-resolver.js';
-import { createProvider } from './lib/provider-factory.js';
+
+import { PROJECT_ROOT, resolveConfig } from './lib/config-resolver.js';
 import { gitSpawn } from './lib/git-utils.js';
 import { Logger } from './lib/Logger.js';
 import {
-  transitionTicketState,
   postStructuredComment,
   STATE_LABELS,
+  transitionTicketState,
 } from './lib/orchestration/ticketing.js';
-
-const __filename = fileURLToPath(import.meta.url);
-const __dirname = path.dirname(__filename);
+import { createProvider } from './lib/provider-factory.js';
 
 async function main() {
   const { values } = parseArgs({
@@ -129,14 +125,32 @@ async function main() {
     // 3.2 Delete story branches
     progress('CLEANUP', 'Deleting story/task branches...');
 
-    // Remote cleanup
+    // Remote cleanup — match both v5 (`story-{id}`) and legacy (`story/epic-{epicId}/`) patterns
     const remoteBranches = gitSpawn(PROJECT_ROOT, 'branch', '-r').stdout ?? '';
-    const storyIdPattern = `story/epic-${epicId}/`;
-    const taskIdPattern = `task/epic-${epicId}/`;
+    const storyLegacyPattern = `story/epic-${epicId}/`;
+    const taskLegacyPattern = `task/epic-${epicId}/`;
+
+    // Fetch all tickets linked to this epic to safely match v5 short story branches.
+    const epicTickets = await provider.getTickets(epicId).catch(() => []);
+    const validTicketIds = new Set(epicTickets.map((t) => t.id));
+
+    function matchesEpicBranch(branchName) {
+      if (
+        branchName.includes(storyLegacyPattern) ||
+        branchName.includes(taskLegacyPattern)
+      ) {
+        return true;
+      }
+      const match = branchName.match(/^story-(\d+)$/);
+      if (match && validTicketIds.has(parseInt(match[1], 10))) {
+        return true;
+      }
+      return false;
+    }
 
     remoteBranches.split('\n').forEach((line) => {
       const b = line.trim().replace('origin/', '');
-      if (b.includes(storyIdPattern) || b.includes(taskIdPattern)) {
+      if (matchesEpicBranch(b)) {
         progress('CLEANUP', `Deleting remote branch: ${b}`);
         gitSpawn(PROJECT_ROOT, 'push', 'origin', '--delete', b);
       }
@@ -146,7 +160,7 @@ async function main() {
     const localBranches = gitSpawn(PROJECT_ROOT, 'branch').stdout ?? '';
     localBranches.split('\n').forEach((line) => {
       const b = line.trim().replace('* ', '');
-      if (b.includes(storyIdPattern) || b.includes(taskIdPattern)) {
+      if (matchesEpicBranch(b)) {
         progress('CLEANUP', `Deleting local branch: ${b}`);
         gitSpawn(PROJECT_ROOT, 'branch', '-D', b);
       }
@@ -160,9 +174,7 @@ async function main() {
   progress('DONE', `🎉 Formal closure for Epic #${epicId} finished.`);
 }
 
-function progress(phase, message) {
-  console.log(`▶ [sprint-close] [${phase}] ${message}`);
-}
+const progress = Logger.createProgress('sprint-close', { stderr: false });
 
 main().catch((err) => {
   Logger.fatal(`sprint-close: ${err.message}`);

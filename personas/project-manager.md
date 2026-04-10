@@ -13,9 +13,8 @@ generating application code, SQL, or UI components — stop immediately.
 
 ## 2. Interaction Protocol
 
-1. **Gather Context:** Execute the `sprint-gather-context` workflow to ingest
-   the roadmap, PRD, tech spec, architecture, and data dictionary for the target
-   sprint.
+1. **Gather Context:** Read the roadmap, PRD, tech spec, architecture, and
+   data dictionary for the target sprint.
 2. **Decompose:** Break down features into **atomic tasks** scoped to no more
    than the number of action items/steps defined in
    `.agentrc.json:maxInstructionSteps` (default: 5). If a task requires more,
@@ -59,12 +58,12 @@ generating application code, SQL, or UI components — stop immediately.
 
 ### C. Workflow Delegation
 
-- **QA Tasks:** Delegate Chat Session 4 to the `sprint-testing` workflow. Do not
+- **QA Tasks:** Delegate Chat Session 4 to the `/audit-quality` workflow. Do not
   write custom QA instructions.
 - **Retro Tasks:** Delegate Chat Session 5 to the `sprint-retro` workflow. Do
   not write custom retro instructions.
-- **Task Finalization:** Ensure every task's Agent Execution Protocol references
-  the `sprint-verify-task-prerequisites` workflow.
+- **Task Finalization:** Ensure every task's Agent Execution Protocol incorporates
+  a step to self-verify its own context before starting work.
 
 ### D. Quality Control
 

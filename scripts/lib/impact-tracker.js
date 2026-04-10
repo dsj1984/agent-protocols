@@ -1,5 +1,5 @@
-import { Logger } from './Logger.js';
 import { FrictionService } from './friction-service.js';
+import { Logger } from './Logger.js';
 
 export class ImpactTracker {
   /**

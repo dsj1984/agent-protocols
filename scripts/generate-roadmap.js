@@ -8,8 +8,6 @@
  *
  * Usage:
  *   node generate-roadmap.js
- *
- * @see docs/v5-implementation-plan.md Sprint 3F
  */
 
 import fs from 'node:fs';
@@ -18,98 +16,136 @@ import { PROJECT_ROOT, resolveConfig } from './lib/config-resolver.js';
 import { Logger } from './lib/Logger.js';
 import { createProvider } from './lib/provider-factory.js';
 
+/**
+ * Renders a 10-character text progress bar.
+ * @param {number} percentage - 0 to 100
+ * @returns {string}
+ */
+function renderProgressBar(percentage) {
+  const filledCount = Math.round(percentage / 10);
+  const emptyCount = 10 - filledCount;
+  return `\`${'█'.repeat(filledCount)}${'░'.repeat(emptyCount)}\``;
+}
+
 async function main() {
   const { settings, orchestration } = resolveConfig();
   const roadmapPath = settings.roadmapPath || 'docs/ROADMAP.md';
+  const excludeLabels = settings.roadmap?.excludeLabels || ['roadmap-exclude'];
   const fileName = path.basename(roadmapPath);
 
-  console.log(`Generating ${fileName} artifact...`);
+  console.log(`Syncing ${fileName} from GitHub Epics...`);
 
   const provider = createProvider(orchestration);
 
   // 1. Fetch all Epics (Open and Closed)
   const allEpics = await provider.getEpics({ state: 'all' });
 
-  // Sort: Open first, then by ID descending (newest first)
-  const sortedEpics = allEpics.sort((a, b) => {
-    if (a.state === 'open' && b.state === 'closed') return -1;
-    if (a.state === 'closed' && b.state === 'open') return 1;
-    return b.id - a.id;
+  // Filter out excluded labels
+  const filteredEpics = allEpics.filter((e) => {
+    return !e.labels.some((l) => excludeLabels.includes(l));
   });
 
-  const openEpics = sortedEpics.filter((e) => e.state === 'open');
-  const closedEpics = sortedEpics.filter((e) => e.state === 'closed');
+  // 2. Fetch children for all Epics to determine progress and classification
+  // Using Promise.all for concurrency
+  const epicsWithProgress = await Promise.all(
+    filteredEpics.map(async (epic) => {
+      try {
+        const children = await provider.getTickets(epic.id);
+        const total = children.length;
+        const closed = children.filter(
+          (t) => t.state === 'closed' || t.labels.includes('agent::done'),
+        ).length;
+        const percent = total > 0 ? Math.round((closed / total) * 100) : 0;
 
-  // 2. Build Markdown
+        return {
+          ...epic,
+          totalCount: total,
+          closedCount: closed,
+          percentage: percent,
+        };
+      } catch (err) {
+        console.warn(
+          `[RoadmapSync] Failed to fetch children for Epic #${epic.id}: ${err.message}`,
+        );
+        return {
+          ...epic,
+          totalCount: 0,
+          closedCount: 0,
+          percentage: 0,
+        };
+      }
+    }),
+  );
+
+  // 3. Classify Epics
+  const completed = epicsWithProgress
+    .filter((e) => e.state === 'closed' && e.state_reason !== 'not_planned')
+    .sort((a, b) => a.id - b.id);
+
+  const inProgress = epicsWithProgress
+    .filter((e) => e.state === 'open' && e.closedCount > 0)
+    .sort((a, b) => a.id - b.id);
+
+  const planned = epicsWithProgress
+    .filter((e) => e.state === 'open' && e.closedCount === 0)
+    .sort((a, b) => a.id - b.id);
+
+  // 4. Build Markdown
   const lines = [
     '# Project Roadmap',
     '',
-    '> [!NOTE]',
-    '> This file is a **READ-ONLY**, auto-generated artifact from GitHub Issues.',
-    '> Issues serve as the absolute Single Source of Truth (SSOT).',
-    '',
-    `*Last Updated: ${new Date().toISOString().split('T')[0]}*`,
+    '> **Auto-generated** from GitHub Issues — do not edit manually.',
+    `> Last synced: ${new Date().toISOString()}`,
     '',
   ];
 
-  if (openEpics.length > 0) {
-    lines.push('## 🚀 Active Epics');
-    lines.push('');
+  const renderTable = (title, emoji, epics, statusText) => {
+    if (epics.length === 0) return '';
 
-    // Resolve progress for all open epics concurrently (avoids N+1 sequential API calls).
-    const progressResults = await Promise.all(
-      openEpics.map(async (epic) => {
-        try {
-          const subTickets = await provider.getTickets(epic.id);
-          return { id: epic.id, subTickets };
-        } catch {
-          return { id: epic.id, subTickets: [] };
-        }
-      }),
-    );
-    const progressByEpicId = new Map(
-      progressResults.map((r) => [r.id, r.subTickets]),
-    );
+    const tableLines = [
+      `## ${emoji} ${title}`,
+      '',
+      '| Epic | Status | Progress |',
+      '| ---- | ------ | -------- |',
+    ];
 
-    for (const epic of openEpics) {
-      lines.push(`- [ ] **#${epic.id}** — ${epic.title}`);
-      const subTickets = progressByEpicId.get(epic.id) ?? [];
-      const done = subTickets.filter((t) =>
-        t.labels.includes('agent::done'),
-      ).length;
-      const total = subTickets.length;
-      if (total > 0) {
-        const percent = Math.round((done / total) * 100);
-        lines.push(`  - Progress: ${percent}% (${done}/${total} tasks)`);
-      }
+    for (const epic of epics) {
+      const url = `https://github.com/${orchestration.github.owner}/${orchestration.github.repo}/issues/${epic.id}`;
+      const progressBar = renderProgressBar(epic.percentage);
+      const progressText = `${progressBar} ${epic.percentage}% (${epic.closedCount}/${epic.totalCount})`;
+      tableLines.push(
+        `| [#${epic.id} — ${epic.title}](${url}) | ${emoji} ${statusText} | ${progressText} |`,
+      );
     }
-    lines.push('');
-  }
 
-  if (closedEpics.length > 0) {
-    lines.push('## ✅ Completed Epics');
-    lines.push('');
-    for (const epic of closedEpics) {
-      lines.push(`- [x] **#${epic.id}** — ${epic.title}`);
-    }
-    lines.push('');
-  }
+    tableLines.push('');
+    return tableLines.join('\n');
+  };
 
-  lines.push('---');
-  lines.push('');
-  lines.push(
-    'Manage this roadmap by interacting with the Epic issues on GitHub.',
+  // Sections in order: In Progress, Planned, Completed
+  const inProgressTable = renderTable(
+    'In Progress',
+    '🚧',
+    inProgress,
+    'In Progress',
   );
+  const plannedTable = renderTable('Planned', '📋', planned, 'Planned');
+  const completedTable = renderTable('Completed', '✅', completed, 'Completed');
 
-  const content = lines.join('\n');
+  if (inProgressTable) lines.push(inProgressTable);
+  if (plannedTable) lines.push(plannedTable);
+  if (completedTable) lines.push(completedTable);
 
-  // 3. Write to config path
+  const content = `${lines.join('\n').trim()}\n`;
+
+  // 5. Write to file
   const outputPath = path.resolve(PROJECT_ROOT, roadmapPath);
+  fs.mkdirSync(path.dirname(outputPath), { recursive: true });
   fs.writeFileSync(outputPath, content, 'utf8');
 
-  console.log(`Successfully generated ${fileName} at ${outputPath}`);
+  console.log(`Successfully synced ${fileName} at ${outputPath}`);
 }
 
-main().catch((_err) => {
-  Logger.fatal();
+main().catch((err) => {
+  Logger.fatal(err.message);
 });

@@ -12,57 +12,11 @@ import { parseArgs } from 'node:util';
 import { resolveConfig } from './lib/config-resolver.js';
 import { Logger } from './lib/Logger.js';
 import {
+  cascadeCompletion,
   STATE_LABELS,
-  cascadeCompletion as sdkCascadeCompletion,
-  postStructuredComment as sdkPostStructuredComment,
-  toggleTasklistCheckbox as sdkToggleTasklistCheckbox,
-  transitionTicketState as sdkTransitionTicketState,
+  transitionTicketState,
 } from './lib/orchestration/ticketing.js';
 import { createProvider } from './lib/provider-factory.js';
-
-export { STATE_LABELS };
-
-let cachedProvider = null;
-
-export function getProvider() {
-  if (cachedProvider) return cachedProvider;
-  const config = resolveConfig();
-  cachedProvider = createProvider(config.orchestration);
-  return cachedProvider;
-}
-
-/**
- * Used for dependency injection during unit tests.
- * @param {import('./lib/ITicketingProvider.js').ITicketingProvider} provider
- */
-export function setProvider(provider) {
-  cachedProvider = provider;
-}
-
-export function resetProvider() {
-  cachedProvider = null;
-}
-
-export async function transitionTicketState(ticketId, newState) {
-  return sdkTransitionTicketState(getProvider(), ticketId, newState);
-}
-
-export async function toggleTasklistCheckbox(ticketId, subIssueId, checked) {
-  return sdkToggleTasklistCheckbox(
-    getProvider(),
-    ticketId,
-    subIssueId,
-    checked,
-  );
-}
-
-export async function postStructuredComment(ticketId, type, payload) {
-  return sdkPostStructuredComment(getProvider(), ticketId, type, payload);
-}
-
-export async function cascadeCompletion(ticketId) {
-  return sdkCascadeCompletion(getProvider(), ticketId);
-}
 
 // ── CLI Main Block ────────────────────────────────────────────────────────
 if (
@@ -89,11 +43,13 @@ if (
       console.log(
         `[State-Sync] Transitioning ticket #${taskId} to ${state}...`,
       );
-      await transitionTicketState(taskId, state);
+      const config = resolveConfig();
+      const provider = createProvider(config.orchestration);
+      await transitionTicketState(provider, taskId, state);
 
       if (state === STATE_LABELS.DONE) {
         console.log(`[State-Sync] Cascading completion from #${taskId}...`);
-        await cascadeCompletion(taskId);
+        await cascadeCompletion(provider, taskId);
       }
 
       console.log('[State-Sync] ✅ Success');

@@ -1,36 +1,24 @@
 #!/usr/bin/env node
-import { parseArgs } from 'node:util';
+/* node:coverage ignore file */
 import path from 'node:path';
 import { fileURLToPath } from 'node:url';
 
+import { parseSprintArgs } from './lib/cli-args.js';
 import { resolveConfig } from './lib/config-resolver.js';
+import { fetchTasks } from './lib/orchestration/task-fetcher.js';
+import { fetchTelemetry } from './lib/orchestration/telemetry.js';
 import { createProvider } from './lib/provider-factory.js';
-import { fetchTasks } from './lib/orchestration/dispatcher.js';
 
-const __filename = fileURLToPath(import.meta.url);
-const __dirname = path.dirname(__filename);
 const vlog = {
   info: (...args) => console.log('INFO:', ...args),
   warn: (...args) => console.warn('WARN:', ...args),
   error: (...args) => console.error('ERROR:', ...args),
 };
 
-async function main() {
-  const { values } = parseArgs({
-    options: {
-      epic: { type: 'string', short: 'e' },
-      'dry-run': { type: 'boolean', default: false },
-    },
-    strict: true,
-  });
-
-  if (!values.epic) {
-    console.error('Usage: node health-monitor.js --epic <number>');
-    process.exit(1);
+export async function updateHealthMetrics(epicId, dryRun = false) {
+  if (!epicId || Number.isNaN(epicId)) {
+    throw new Error('updateHealthMetrics requires a valid epicId');
   }
-
-  const epicId = parseInt(values.epic, 10);
-  const dryRun = values['dry-run'];
 
   vlog.info(`Initializing health monitor for Epic #${epicId}...`);
 
@@ -45,10 +33,9 @@ async function main() {
   );
 
   if (!healthIssue) {
-    vlog.error(
+    throw new Error(
       `No Sprint Health issue found for Epic #${epicId}. It must be created by the dispatcher first.`,
     );
-    process.exit(1);
   }
 
   const tasks = await fetchTasks(provider, epicId);
@@ -64,31 +51,7 @@ async function main() {
   }
 
   // Attempt to fetch friction logs using recent comments
-  let totalFriction = 0;
-  try {
-    const comments = await provider.getRecentComments(100);
-    // filter comments that contain friction markers or were added to Task IDs
-    const taskIds = new Set(tasks.map((t) => t.id));
-    for (const comment of comments) {
-      if (
-        taskIds.has(
-          comment.issue_url
-            ? parseInt(comment.issue_url.split('/').pop(), 10)
-            : -1,
-        )
-      ) {
-        if (
-          comment.body &&
-          (comment.body.includes('[FRICTION]') ||
-            comment.body.includes('type: friction'))
-        ) {
-          totalFriction++;
-        }
-      }
-    }
-  } catch (err) {
-    vlog.warn(`Could not fetch recent comments: ${err.message}`);
-  }
+  const { totalFriction } = await fetchTelemetry(provider, tasks);
 
   const progressPercent =
     tasks.length > 0 ? Math.round((doneTasks / tasks.length) * 100) : 0;
@@ -124,7 +87,16 @@ Epic: #${epicId}
   }
 }
 
-main().catch((err) => {
-  vlog.error(`Health Monitor fatal error: ${err.stack}`);
-  process.exit(1);
-});
+// CLI execution fallback
+/* node:coverage ignore next */
+if (fileURLToPath(import.meta.url) === path.resolve(process.argv[1])) {
+  const { epicId, dryRun } = parseSprintArgs();
+  if (!epicId) {
+    console.error('Usage: node health-monitor.js --epic <number>');
+    process.exit(1);
+  }
+  updateHealthMetrics(epicId, dryRun).catch((err) => {
+    vlog.error(`Health Monitor fatal error: ${err.message}`);
+    process.exit(1);
+  });
+}

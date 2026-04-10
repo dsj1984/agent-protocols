@@ -10,8 +10,9 @@ This workflow is the **terminal step** of the Epic lifecycle. It promotes the
 fully integrated and reviewed `epic/<epicId>` branch into `main`, closes the
 Epic GitHub issue, cleans up all sprint branches, and optionally tags a release.
 
-> **When to run**: After the Retrospective is finalized and all Bookend phases
-> (Integration, QA, Code Review, Retro) are complete.
+> **When to run**: After `/sprint-code-review` and `/sprint-retro` are complete.
+> The Code Review is a **mandatory pre-merge gate** — never run `/sprint-close`
+> without it.
 >
 > **Persona**: `devops-engineer` · **Skills**:
 > `core/git-workflow-and-versioning`
@@ -39,6 +40,8 @@ Epic GitHub issue, cleans up all sprint branches, and optionally tags a release.
    - All files listed in `release.docs`.
    - All files listed in `agentSettings.docsContextFiles` (prefixed with the
      path from `agentSettings.docsRoot`).
+7. Resolve `[ROADMAP_PATH]` from `roadmapPath` in `.agentrc.json` (default:
+   `docs/ROADMAP.md`).
 
 ## Step 1 — Completeness Gate (Hierarchy Check)
 
@@ -48,23 +51,6 @@ successfully closed:
 1. **Tasks**: Must all be `agent::done` and closed.
 2. **Stories**: Must all be closed.
 3. **Features**: Must all be closed.
-
-```javascript
-/*
-const allTickets = await provider.getTickets(epicId);
-const openChildren = allTickets.filter(t => 
-  t.id !== epicId && 
-  t.state === 'open' &&
-  (t.labels.includes('type::task') || t.labels.includes('type::story') || t.labels.includes('type::feature'))
-);
-
-if (openChildren.length > 0) {
-  console.error("The following child tickets are still OPEN:");
-  openChildren.forEach(t => console.error(` - #${t.id}: ${t.title}`));
-  process.exit(1);
-}
-*/
-```
 
 If ANY child ticket is not closed: **STOP IMMEDIATELY.** Alert the operator with
 the exact open IDs.
@@ -100,6 +86,25 @@ git commit -m "docs: update [DOC_PATH] for Epic #[EPIC_ID]"
 > requires to `release.docs` or `agentSettings.docsContextFiles` in
 > `.agentrc.json`. Common examples: `README.md`, `docs/CHANGELOG.md`,
 > `MIGRATION.md`, `API.md`.
+
+## Step 2.5 — Roadmap Sync
+
+Synchronize `ROADMAP.md` with the current state of all GitHub Epics. This
+ensures the roadmap reflects the Epic that is about to close as `✅ Completed`,
+along with accurate progress for any other open Epics.
+
+Run the `/roadmap-sync` workflow inline — execute Steps 0 through 3 of that
+workflow, but **skip Step 4 (Commit)**. The roadmap changes will be committed
+as part of the next documentation commit or the merge itself.
+
+```powershell
+node [SCRIPTS_ROOT]/generate-roadmap.js
+git add [ROADMAP_PATH]
+```
+
+> **Config:** The roadmap output path is controlled by `roadmapPath` in
+> `.agentrc.json` (default: `docs/ROADMAP.md`). Epics labeled with any value
+> from `roadmap.excludeLabels` are omitted.
 
 ## Step 3 — Version Bump & Tag
 
@@ -221,23 +226,8 @@ git push origin "v[NEW_VERSION]"
 
 ## Step 11 — Internal State Cleanup
 
-The `sprint-close.js` script in Step 8 handles branch cleanup by default. If you
-ran it with `--no-cleanup`, or need to perform manual cleanup:
-
-```powershell
-# 1. Delete all remote task branches for this Epic
-git branch -r --list "origin/task/epic-[EPIC_ID]/*" | ForEach-Object { $b = $_.Trim().Replace("origin/", ""); git push origin --delete $b }
-
-# 2. Delete all remote story branches for this Epic
-git branch -r --list "origin/story/epic-[EPIC_ID]/*" | ForEach-Object { $b = $_.Trim().Replace("origin/", ""); git push origin --delete $b }
-
-# 3. Delete local task and story branches
-git branch --list "task/epic-[EPIC_ID]/*" | ForEach-Object { git branch -D $_.Trim() }
-git branch --list "story/epic-[EPIC_ID]/*" | ForEach-Object { git branch -D $_.Trim() }
-
-# 4. Prune stale remote-tracking references
-git fetch --prune
-```
+If you ran Step 8 with `--no-cleanup`, or need to perform manual cleanup, run:
+`node [SCRIPTS_ROOT]/sprint-close.js --epic [EPIC_ID]` without the flag to clean up branches.
 
 ## Constraint
 

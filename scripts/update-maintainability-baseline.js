@@ -1,3 +1,4 @@
+import { resolveConfig } from './lib/config-resolver.js';
 import {
   calculateAll,
   saveBaseline,
@@ -10,13 +11,16 @@ import {
  * when adding new files that should be tracked.
  */
 
-const TARGET_DIRS = ['.agents/scripts', 'tests'];
-
 async function main() {
+  const { settings } = resolveConfig();
+  const targetDirs = settings.maintainability?.targetDirs || [
+    '.agents/scripts',
+    'tests',
+  ];
   console.log('[Maintainability] Updating baseline...');
 
   const files = [];
-  TARGET_DIRS.forEach((dir) => {
+  targetDirs.forEach((dir) => {
     console.log(`[Maintainability] Scanning ${dir}...`);
     scanDirectory(dir, files);
   });
@@ -29,7 +33,7 @@ async function main() {
   saveBaseline(scores);
 
   console.log(
-    '[Maintainability] ✅ Baseline updated successfully in .agents/maintainability-baseline.json',
+    '[Maintainability] ✅ Baseline updated successfully in maintainability-baseline.json',
   );
 }
 

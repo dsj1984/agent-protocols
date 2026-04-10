@@ -103,11 +103,16 @@ sequentially — each uses the persona, skills, and model from
 
 | Phase         | Workflow              | Config Key      |
 | ------------- | --------------------- | --------------- |
-| Integration   | `/sprint-integration` | `isIntegration` |
-| QA            | `/sprint-testing`     | `isQA`          |
+| QA            | `/audit-quality`      | `isQA`          |
 | Code Review   | `/sprint-code-review` | `isCodeReview`  |
 | Retrospective | `/sprint-retro`       | `isRetro`       |
 | Close-Out     | `/sprint-close`       | `isCloseSprint` |
+
+> **Code Review is mandatory.** Every sprint must pass `/sprint-code-review`
+> before proceeding to Close-Out. The review examines the cumulative diff of the
+> Epic branch against `main` and validates all changes against the PRD and Tech
+> Spec. See the [`sprint-code-review` workflow](sprint-code-review.md) for the
+> full review protocol.
 
 On final close-out:
 
@@ -227,14 +232,4 @@ status.
   tickets on non-default branch merges.
 - **Always** delete the Story branch (local + remote) after merging into the
   Epic branch.
-- **MCP Fallback**: If the `agent-protocols` MCP tools
-  (`transition_ticket_state`, `cascade_completion`, `post_structured_comment`)
-  fail with connection errors (e.g. `client is closing`, `invalid character`),
-  **fall back immediately** to the equivalent CLI scripts. Do **not** leave
-  tickets in stale states. The CLI equivalents are:
-
-  | MCP Tool                     | CLI Fallback                                                                        |
-  | ---------------------------- | ----------------------------------------------------------------------------------- |
-  | `transition_ticket_state`    | `node .agents/scripts/update-ticket-state.js --task <id> --state <state>`           |
-  | `cascade_completion`         | (auto-triggered by the CLI script when `--state agent::done`)                       |
-  | `post_structured_comment`    | `node .agents/scripts/update-ticket-state.js` (post via provider directly)          |
+- **MCP Fallback**: If `agent-protocols` MCP tools fail due to connection errors, **fall back immediately** to `node .agents/scripts/update-ticket-state.js --task <id> --state <state>` (which also auto-cascades completion when `--state agent::done`). Do not leave tickets in stale states.

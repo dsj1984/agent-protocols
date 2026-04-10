@@ -4,12 +4,58 @@
  * Presentation logic for rendering markdown manifests and CLI dispatch tables.
  */
 
-export function renderManifestMarkdown(manifest) {
-  // DEBUG HELPER
-  process.stderr.write(
-    `[MCP] Rendering manifest for Epic #${manifest.epicId || 'unknown'}. Keys: ${Object.keys(manifest).join(', ')}\n`,
-  );
+import fs from 'node:fs';
+import path from 'node:path';
+import { fileURLToPath } from 'node:url';
+import { resolveConfig } from '../config-resolver.js';
 
+function getProjectRoot() {
+  const __dirname = path.dirname(fileURLToPath(import.meta.url));
+  return path.resolve(__dirname, '../../../..');
+}
+
+export function persistManifest(manifest) {
+  try {
+    const PROJECT_ROOT = getProjectRoot();
+    const manifestDir = path.join(PROJECT_ROOT, 'temp');
+    if (!fs.existsSync(manifestDir)) {
+      fs.mkdirSync(manifestDir, { recursive: true });
+    }
+
+    if (manifest.type === 'story-execution') {
+      const key = manifest.stories.map((s) => s.storyId).join('-');
+      fs.writeFileSync(
+        path.join(manifestDir, `story-manifest-${key}.json`),
+        JSON.stringify(manifest, null, 2),
+        'utf8',
+      );
+      fs.writeFileSync(
+        path.join(manifestDir, `story-manifest-${key}.md`),
+        renderStoryManifestMarkdown(manifest),
+        'utf8',
+      );
+    } else if (manifest.epicId) {
+      const epicId = manifest.epicId;
+      fs.writeFileSync(
+        path.join(manifestDir, `dispatch-manifest-${epicId}.json`),
+        JSON.stringify(manifest, null, 2),
+        'utf8',
+      );
+      fs.writeFileSync(
+        path.join(manifestDir, `dispatch-manifest-${epicId}.md`),
+        renderManifestMarkdown(manifest),
+        'utf8',
+      );
+    }
+  } catch (persistErr) {
+    process.stderr.write(
+      `[MCP/Dispatcher] Failed to persist manifest to temp/: ${persistErr.message}\n`,
+    );
+  }
+}
+
+export /* node:coverage ignore next */
+function renderManifestMarkdown(manifest) {
   const lines = [];
   const { epicId, epicTitle, summary, storyManifest, dryRun, generatedAt } =
     manifest;
@@ -18,6 +64,22 @@ export function renderManifestMarkdown(manifest) {
   lines.push(`# 📋 Dispatch Manifest — Epic #${epicId}`);
   lines.push('');
   lines.push(`> **${epicTitle}**`);
+  lines.push('');
+
+  lines.push('## 🤖 Agent Operating Procedures');
+  lines.push('');
+  lines.push(
+    '> 1. **Identify**: Start with the lowest available wave where `Status` is `🚀 Ready`.',
+  );
+  lines.push(
+    '> 2. **Select**: Pick a Story from the **Execution Plan** that is not yet `✅`.',
+  );
+  lines.push(
+    '> 3. **Execute**: Run `node [SCRIPTS_ROOT]/sprint-execute.js --story [STORY_ID]`.',
+  );
+  lines.push(
+    '> 4. **Repeat**: After the Story completes, re-run `/sprint-execute [EPIC_ID]` to trigger the next wave.',
+  );
   lines.push('');
   // Compute story-level wave count (distinct earliestWave values)
   const storyWaveSet = new Set(
@@ -247,6 +309,7 @@ export function renderManifestMarkdown(manifest) {
   }
 
   // --- Agent Telemetry ---
+  /* node:coverage ignore next */
   if (manifest.agentTelemetry) {
     lines.push('## 📈 Agent Telemetry & Diagnostics');
     lines.push('');
@@ -305,7 +368,11 @@ export function renderStoryManifestMarkdown(manifest) {
     for (const task of story.tasks) {
       const isDone = task.status === 'agent::done';
       const checkbox = isDone ? '[x]' : '[ ]';
-      lines.push(`- ${checkbox} **#${task.taskId}** — ${task.title}`);
+      const deps =
+        task.dependencies && task.dependencies.length > 0
+          ? ` _(blocked by: ${task.dependencies.map((d) => `#${d}`).join(', ')})_`
+          : '';
+      lines.push(`- ${checkbox} **#${task.taskId}** — ${task.title}${deps}`);
     }
     lines.push('');
   }
@@ -314,19 +381,26 @@ export function renderStoryManifestMarkdown(manifest) {
   lines.push('');
   lines.push('## Execution Steps');
   lines.push('');
+  const { settings } = resolveConfig();
+  const initPath = path.join(settings.scriptsRoot, 'sprint-story-init.js');
+  const closePath = path.join(settings.scriptsRoot, 'sprint-story-close.js');
+
   lines.push(
-    '1. `node .agents/scripts/sprint-story-init.js --story <storyId>` (bootstraps branch, transitions tasks)',
+    `1. \`node ${initPath} --story <storyId>\` (bootstraps branch, transitions tasks)`,
   );
   lines.push('2. Implement each Task sequentially and commit after each one.');
-  lines.push('3. Run `npm run lint` and `npm test` to validate.');
   lines.push(
-    '4. `node .agents/scripts/sprint-story-close.js --story <storyId>` (merges, cleans up, closes tickets)',
+    `3. Run \`${settings.validationCommand}\` and \`${settings.testCommand}\` to validate.`,
+  );
+  lines.push(
+    `4. \`node ${closePath} --story <storyId>\` (merges, cleans up, closes tickets)`,
   );
   lines.push('');
 
   return lines.join('\n');
 }
 
+/* node:coverage ignore next */
 export function printStoryDispatchTable(storyManifest) {
   if (!storyManifest || storyManifest.length === 0) return;
 

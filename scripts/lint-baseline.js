@@ -8,19 +8,33 @@ import { Logger } from './lib/Logger.js';
 const __dirname = path.dirname(fileURLToPath(import.meta.url));
 const PROJECT_ROOT = path.resolve(__dirname, '../..');
 
-const { settings } = resolveConfig();
-const cmdConfig = settings.lintBaselineCommand ?? 'npx eslint . --format json';
-const baselinePathRel = settings.lintBaselinePath ?? 'temp/lint-baseline.json';
-const baselinePath = path.resolve(PROJECT_ROOT, baselinePathRel);
-const executionTimeoutMs = settings.executionTimeoutMs ?? 300000;
-const executionMaxBuffer = settings.executionMaxBuffer ?? 10485760;
-
-const mode = process.argv[2];
-if (mode !== 'capture' && mode !== 'check') {
-  Logger.fatal('Usage: node lint-baseline.js <capture|check>');
+export function parseLintOutput(jsonStr, _cmdConfig) {
+  // Parse the JSON array. Find start and end to avoid extraneous shell output
+  const startIndex = jsonStr.indexOf('[');
+  const endIndex = jsonStr.lastIndexOf(']');
+  if (startIndex === -1 || endIndex === -1) {
+    if (jsonStr === '') return { errorCount: 0, warningCount: 0 };
+    throw new Error(
+      'Could not find JSON array in output. Output: ' +
+        jsonStr.substring(0, 100),
+    );
+  }
+  const cleanJson = jsonStr.substring(startIndex, endIndex + 1);
+  const output = JSON.parse(cleanJson);
+  let totalErrors = 0;
+  let totalWarnings = 0;
+  for (const file of output) {
+    totalErrors += file.errorCount || 0;
+    totalWarnings += file.warningCount || 0;
+  }
+  return { errorCount: totalErrors, warningCount: totalWarnings };
 }
 
-function runLintCommand() {
+export function runLintCommand(
+  cmdConfig,
+  executionTimeoutMs,
+  executionMaxBuffer,
+) {
   const result = spawnSync(cmdConfig, {
     cwd: PROJECT_ROOT,
     encoding: 'utf-8',
@@ -31,25 +45,7 @@ function runLintCommand() {
 
   try {
     const jsonStr = result.stdout.trim();
-    // Parse the JSON array. Find start and end to avoid extraneous shell output
-    const startIndex = jsonStr.indexOf('[');
-    const endIndex = jsonStr.lastIndexOf(']');
-    if (startIndex === -1 || endIndex === -1) {
-      if (jsonStr === '') return { errorCount: 0, warningCount: 0 };
-      throw new Error(
-        'Could not find JSON array in output. Output: ' +
-          jsonStr.substring(0, 100),
-      );
-    }
-    const cleanJson = jsonStr.substring(startIndex, endIndex + 1);
-    const output = JSON.parse(cleanJson);
-    let totalErrors = 0;
-    let totalWarnings = 0;
-    for (const file of output) {
-      totalErrors += file.errorCount || 0;
-      totalWarnings += file.warningCount || 0;
-    }
-    return { errorCount: totalErrors, warningCount: totalWarnings };
+    return parseLintOutput(jsonStr, cmdConfig);
   } catch (err) {
     console.warn(
       `⚠️ [lint-baseline] Failed to parse JSON from command output. Falling back to 0 errors.\n` +
@@ -60,9 +56,19 @@ function runLintCommand() {
   }
 }
 
-if (mode === 'capture') {
+export function captureBaseline(
+  cmdConfig,
+  executionTimeoutMs,
+  executionMaxBuffer,
+  baselinePath,
+  baselinePathRel,
+) {
   console.log(`▶ [lint-baseline] Capturing lint baseline...`);
-  const totals = runLintCommand();
+  const totals = runLintCommand(
+    cmdConfig,
+    executionTimeoutMs,
+    executionMaxBuffer,
+  );
   const dir = path.dirname(baselinePath);
   if (!fs.existsSync(dir)) fs.mkdirSync(dir, { recursive: true });
   fs.writeFileSync(baselinePath, JSON.stringify(totals, null, 2), 'utf8');
@@ -70,12 +76,21 @@ if (mode === 'capture') {
     `✅ Baseline captured: ${totals.errorCount} errors, ${totals.warningCount} warnings.`,
   );
   console.log(`   Saved to: ${baselinePathRel}`);
-  process.exit(0);
 }
 
-if (mode === 'check') {
+export function checkBaseline(
+  cmdConfig,
+  executionTimeoutMs,
+  executionMaxBuffer,
+  baselinePath,
+  baselinePathRel,
+) {
   console.log(`▶ [lint-baseline] Checking lint against baseline...`);
-  const current = runLintCommand();
+  const current = runLintCommand(
+    cmdConfig,
+    executionTimeoutMs,
+    executionMaxBuffer,
+  );
 
   let baseline = { errorCount: 0, warningCount: 0 };
   if (fs.existsSync(baselinePath)) {
@@ -116,5 +131,48 @@ if (mode === 'check') {
   }
 
   console.log(`✅ Lint check passed.`);
-  process.exit(0);
+}
+
+export async function main(args = process.argv) {
+  const mode = args[2];
+  if (mode !== 'capture' && mode !== 'check') {
+    Logger.fatal('Usage: node lint-baseline.js <capture|check>');
+  }
+
+  const { settings } = resolveConfig();
+  const cmdConfig =
+    settings.lintBaselineCommand ?? 'npx eslint . --format json';
+  const baselinePathRel =
+    settings.lintBaselinePath ?? 'temp/lint-baseline.json';
+  const baselinePath = path.resolve(PROJECT_ROOT, baselinePathRel);
+  const executionTimeoutMs = settings.executionTimeoutMs ?? 300000;
+  const executionMaxBuffer = settings.executionMaxBuffer ?? 10485760;
+
+  if (mode === 'capture') {
+    captureBaseline(
+      cmdConfig,
+      executionTimeoutMs,
+      executionMaxBuffer,
+      baselinePath,
+      baselinePathRel,
+    );
+    process.exit(0);
+  }
+
+  if (mode === 'check') {
+    checkBaseline(
+      cmdConfig,
+      executionTimeoutMs,
+      executionMaxBuffer,
+      baselinePath,
+      baselinePathRel,
+    );
+    process.exit(0);
+  }
+}
+
+if (fileURLToPath(import.meta.url) === path.resolve(process.argv[1])) {
+  main().catch((err) => {
+    Logger.fatal(`Fatal error: ${err.message}`);
+  });
 }

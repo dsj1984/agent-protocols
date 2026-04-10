@@ -1,45 +1,51 @@
+import { execFileSync } from 'node:child_process';
+import fs from 'node:fs';
 import { Logger } from './lib/Logger.js';
 
-const { execFileSync } = require('node:child_process');
-const fs = require('node:fs');
-const _path = require('node:path');
+export async function main() {
+  try {
+    // Get all tracked files using git ls-files
+    const filesOutput = execFileSync('git', ['ls-files']).toString();
+    const files = filesOutput.split('\n').filter(Boolean);
+    let foundConflicts = false;
 
-try {
-  // Get all tracked files using git ls-files
-  const filesOutput = execFileSync('git', ['ls-files']).toString();
-  const files = filesOutput.split('\n').filter(Boolean);
-  let foundConflicts = false;
+    // Standard git conflict markers
+    const markers = ['<<<<<<< ', '=======', '>>>>>>> '];
 
-  // Standard git conflict markers
-  const markers = ['<<<<<<< ', '=======', '>>>>>>> '];
-
-  for (const file of files) {
-    if (fs.existsSync(file)) {
-      try {
-        const content = fs.readFileSync(file, 'utf8');
-        for (const marker of markers) {
-          if (content.includes(marker)) {
-            console.error(
-              `Conflict marker '${marker.trim()}' found in tracked file: ${file}`,
-            );
-            foundConflicts = true;
-            break; // Move to the next file if one marker is found
+    for (const file of files) {
+      if (fs.existsSync(file)) {
+        try {
+          const content = fs.readFileSync(file, 'utf8');
+          for (const marker of markers) {
+            if (content.includes(marker)) {
+              console.error(
+                `Conflict marker '${marker.trim()}' found in tracked file: ${file}`,
+              );
+              foundConflicts = true;
+              break; // Move to the next file if one marker is found
+            }
           }
+        } catch (_readErr) {
+          // Ignore files that can't be read as utf8 (e.g., binaries)
         }
-      } catch (_readErr) {
-        // Ignore files that can't be read as utf8 (e.g., binaries)
       }
     }
-  }
 
-  if (foundConflicts) {
-    Logger.fatal(
-      '\nERROR: Merge conflicts detected. Please resolve them before proceeding.',
-    );
-  } else {
-    console.log('No conflict markers found in tracked files.');
-    process.exit(0);
+    if (foundConflicts) {
+      Logger.fatal(
+        '\nERROR: Merge conflicts detected. Please resolve them before proceeding.',
+      );
+    } else {
+      console.log('No conflict markers found in tracked files.');
+      process.exit(0);
+    }
+  } catch (err) {
+    Logger.fatal(`Error detecting merges: ${err.message}`);
   }
-} catch (err) {
-  Logger.fatal('Error detecting merges:', err.message);
+}
+
+if (import.meta.url === `file://${process.argv[1]}`) {
+  main().catch((err) => {
+    Logger.fatal(`Fatal error: ${err.message}`);
+  });
 }

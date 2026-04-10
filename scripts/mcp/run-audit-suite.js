@@ -3,16 +3,68 @@ import fs from 'node:fs/promises';
 import path from 'node:path';
 import { fileURLToPath } from 'node:url';
 import { promisify } from 'node:util';
+import { PROJECT_ROOT, resolveConfig } from '../lib/config-resolver.js';
 
 const execAsync = promisify(exec);
 const __dirname = path.dirname(fileURLToPath(import.meta.url));
 
-export async function runAuditSuite({ auditWorkflows }) {
-  const rulesPath = path.resolve(__dirname, '../../schemas/audit-rules.json');
+async function executeAudit(auditName, scriptPath) {
+  try {
+    const { stdout } = await execAsync(`node "${scriptPath}"`);
+    if (!stdout.trim()) {
+      return [];
+    }
+
+    let findings = JSON.parse(stdout);
+    if (!Array.isArray(findings)) {
+      findings = [findings];
+    }
+    return findings;
+  } catch (e) {
+    if (e.name === 'SyntaxError') {
+      return [
+        {
+          audit: auditName,
+          severity: 'high',
+          message: `Audit script '${auditName}.js' returned invalid JSON: ${e.message}`,
+          rawOutput: e.message.substring(0, 500), // simplified
+        },
+      ];
+    }
+    return [
+      {
+        audit: auditName,
+        severity: 'high',
+        message: `Execution of '${auditName}.js' failed: ${e.message}`,
+      },
+    ];
+  }
+}
+
+function normalizeFinding(auditName, finding) {
+  const rawSeverity = finding.severity?.toLowerCase() || 'low';
+  const severity = ['critical', 'high', 'medium', 'low'].includes(rawSeverity)
+    ? rawSeverity
+    : 'low';
+
+  return {
+    audit: auditName,
+    ...finding,
+    severity,
+  };
+}
+
+export async function runAuditSuite({ auditWorkflows, injectedExecute }) {
+  const { settings } = resolveConfig();
+  const rulesPath = path.join(
+    PROJECT_ROOT,
+    settings.schemasRoot,
+    'audit-rules.json',
+  );
   const rulesContent = await fs.readFile(rulesPath, 'utf8');
   const rules = JSON.parse(rulesContent);
 
-  const validAudits = rules.workflows.map((w) => w.name);
+  const validAudits = Object.keys(rules.audits || {});
   const auditResults = {
     metadata: {
       timestamp: new Date().toISOString(),
@@ -28,8 +80,7 @@ export async function runAuditSuite({ auditWorkflows }) {
     findings: [],
   };
 
-  // Ensure scripts dir exists
-  const scriptsDir = path.resolve(__dirname, '../audits');
+  const scriptsDir = path.join(PROJECT_ROOT, settings.scriptsRoot, 'audits');
 
   for (const auditName of auditWorkflows) {
     if (!validAudits.includes(auditName)) {
@@ -53,60 +104,15 @@ export async function runAuditSuite({ auditWorkflows }) {
       continue;
     }
 
-    try {
-      const { stdout } = await execAsync(`node "${scriptPath}"`);
-      auditResults.metadata.auditsRun.push(auditName);
+    auditResults.metadata.auditsRun.push(auditName);
+    const findings = injectedExecute
+      ? await injectedExecute(auditName, scriptPath)
+      : await executeAudit(auditName, scriptPath);
 
-      let findings = [];
-      if (stdout.trim()) {
-        try {
-          findings = JSON.parse(stdout);
-          if (!Array.isArray(findings)) {
-            findings = [findings];
-          }
-        } catch (e) {
-          auditResults.findings.push({
-            audit: auditName,
-            severity: 'high',
-            message: `Audit script '${auditName}.js' returned invalid JSON: ${e.message}`,
-            rawOutput: stdout.substring(0, 500),
-          });
-          continue;
-        }
-      }
-
-      for (const finding of findings) {
-        const severity = finding.severity?.toLowerCase() || 'low';
-        auditResults.findings.push({
-          audit: auditName,
-          ...finding,
-          severity,
-        });
-
-        switch (severity) {
-          case 'critical':
-            auditResults.metadata.summary.critical++;
-            break;
-          case 'high':
-            auditResults.metadata.summary.high++;
-            break;
-          case 'medium':
-            auditResults.metadata.summary.medium++;
-            break;
-          case 'low':
-            auditResults.metadata.summary.low++;
-            break;
-          default:
-            auditResults.metadata.summary.low++;
-            break;
-        }
-      }
-    } catch (e) {
-      auditResults.findings.push({
-        audit: auditName,
-        severity: 'high',
-        message: `Execution of '${auditName}.js' failed: ${e.message}`,
-      });
+    for (const rawFinding of findings) {
+      const normalized = normalizeFinding(auditName, rawFinding);
+      auditResults.findings.push(normalized);
+      auditResults.metadata.summary[normalized.severity]++;
     }
   }
 

@@ -1,6 +1,7 @@
+import crypto from 'node:crypto';
 import fs from 'node:fs';
 import path from 'node:path';
-import crypto from 'node:crypto';
+import { resolveConfig } from './config-resolver.js';
 import { gitSync } from './git-utils.js';
 import { Logger } from './Logger.js';
 
@@ -12,6 +13,10 @@ export class GithubRefinementService {
   constructor(provider, cwd = process.cwd()) {
     this.provider = provider;
     this.cwd = cwd;
+
+    const { settings } = resolveConfig();
+    this.settings = settings;
+    this.baseBranch = settings.baseBranch ?? 'main';
   }
 
   /**
@@ -35,9 +40,15 @@ export class GithubRefinementService {
 
     // Security Check: Ensure the file is within allowed directories
     const allowedDirs = [
-      '.agents/personas/',
-      '.agents/rules/',
-      '.agents/skills/',
+      this.settings.personasRoot.endsWith('/')
+        ? this.settings.personasRoot
+        : `${this.settings.personasRoot}/`,
+      this.settings.rulesRoot.endsWith('/')
+        ? this.settings.rulesRoot
+        : `${this.settings.rulesRoot}/`,
+      this.settings.skillsRoot.endsWith('/')
+        ? this.settings.skillsRoot
+        : `${this.settings.skillsRoot}/`,
     ];
     const unixPath = protocolFile.replace(/\\/g, '/');
     const isAllowed = allowedDirs.some((dir) => unixPath.startsWith(dir));
@@ -65,8 +76,8 @@ export class GithubRefinementService {
 
     Logger.info(`[GithubRefinementService] Creating branch ${branchName}...`);
 
-    // Backup current branch to restore it later if we are running locally instead of in CI
-    let originalBranch = 'main';
+    // Backup current branch to restore it later
+    let originalBranch = this.baseBranch;
     try {
       originalBranch = gitSync(this.cwd, 'branch', '--show-current').trim();
     } catch {
@@ -74,8 +85,8 @@ export class GithubRefinementService {
     }
 
     try {
-      gitSync(this.cwd, 'checkout', 'main');
-      gitSync(this.cwd, 'pull', 'origin', 'main');
+      gitSync(this.cwd, 'checkout', this.baseBranch);
+      gitSync(this.cwd, 'pull', 'origin', this.baseBranch);
 
       try {
         gitSync(this.cwd, 'checkout', '-b', branchName);
@@ -94,7 +105,7 @@ export class GithubRefinementService {
         Logger.warn(
           `[GithubRefinementService] No changes detected for ${protocolFile}. Skipping PR.`,
         );
-        gitSync(this.cwd, 'checkout', originalBranch || 'main');
+        gitSync(this.cwd, 'checkout', originalBranch || this.baseBranch);
         return null;
       }
 
@@ -152,7 +163,7 @@ ${diffStr}
             title: prTitle,
             body: prBody,
             head: branchName,
-            base: 'main',
+            base: this.baseBranch,
           },
         },
       );
@@ -168,7 +179,7 @@ ${diffStr}
       );
 
       // Clean up local
-      gitSync(this.cwd, 'checkout', originalBranch || 'main');
+      gitSync(this.cwd, 'checkout', originalBranch || this.baseBranch);
 
       return {
         number: pr.number,
@@ -178,7 +189,7 @@ ${diffStr}
       Logger.error(`[GithubRefinementService] Failed: ${err.message}`);
       // Attempt to clean up
       try {
-        gitSync(this.cwd, 'checkout', originalBranch || 'main');
+        gitSync(this.cwd, 'checkout', originalBranch || this.baseBranch);
       } catch {}
       throw err;
     }

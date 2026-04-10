@@ -12,126 +12,21 @@
 
 import fs from 'node:fs';
 import path from 'node:path';
-
 import { fileURLToPath } from 'node:url';
-import Ajv from 'ajv';
-import addFormats from 'ajv-formats';
+import {
+  getOrchestrationValidator,
+  getSettingsValidator,
+} from './config-schema.js';
+import { loadEnv } from './env-loader.js';
 
 const __dirname = path.dirname(fileURLToPath(import.meta.url));
 // scripts/lib/ → scripts/ → .agents/ → project root
 export const PROJECT_ROOT = path.resolve(__dirname, '../../..');
 
+const SHELL_INJECTION_RE = /[&|;`<>()$]/;
+
 // Auto-load .env from the project root if it exists
-try {
-  const envPath = path.resolve(PROJECT_ROOT, '.env');
-  if (fs.existsSync(envPath)) {
-    const envContent = fs.readFileSync(envPath, 'utf8');
-    envContent.split('\n').forEach((line) => {
-      const match = line.match(/^\s*([\w.-]+)\s*=\s*(.*)?\s*$/);
-      if (match) {
-        const key = match[1];
-        let value = (match[2] || '').trim();
-        // Remove quotes if present
-        if (
-          value.length > 0 &&
-          value.charAt(0) === '"' &&
-          value.charAt(value.length - 1) === '"'
-        ) {
-          value = value.substring(1, value.length - 1);
-        } else if (
-          value.length > 0 &&
-          value.charAt(0) === "'" &&
-          value.charAt(value.length - 1) === "'"
-        ) {
-          value = value.substring(1, value.length - 1);
-        }
-        process.env[key] = value;
-      }
-    });
-  }
-} catch (_err) {
-  // Silent fail - environment may be provided via other means
-}
-
-/** Shell metacharacter pattern for injection detection. */
-const SHELL_INJECTION_RE = /([;&|`]|\$\()/;
-
-/**
- * Embedded JSON Schema for the `orchestration` configuration block.
- * Kept inline so all config validation lives in a single file.
- *
- * @see docs/roadmap.md §A — Provider Abstraction Layer
- */
-const ORCHESTRATION_SCHEMA = {
-  type: 'object',
-  required: ['provider'],
-  properties: {
-    provider: {
-      type: 'string',
-      enum: ['github'],
-    },
-    github: {
-      type: 'object',
-      required: ['owner', 'repo'],
-      properties: {
-        owner: { type: 'string', minLength: 1 },
-        repo: { type: 'string', minLength: 1 },
-        projectNumber: {
-          type: ['integer', 'null'],
-          minimum: 1,
-        },
-        operatorHandle: {
-          type: 'string',
-          pattern: '^@.+',
-        },
-      },
-      additionalProperties: false,
-    },
-    executor: {
-      type: 'string',
-      description:
-        'The execution adapter to use (e.g., "manual", "subprocess").',
-    },
-    notifications: {
-      type: 'object',
-      properties: {
-        mentionOperator: { type: 'boolean' },
-        webhookUrl: { type: 'string' },
-      },
-      additionalProperties: false,
-    },
-    llm: {
-      type: 'object',
-      properties: {
-        provider: {
-          type: 'string',
-          enum: [
-            'gemini',
-            'anthropic',
-            'openai',
-            'anthropic-vertex',
-            'azure-openai',
-          ],
-        },
-        model: { type: 'string' },
-      },
-      additionalProperties: false,
-    },
-  },
-  additionalProperties: false,
-};
-
-/** Pre-compiled ajv validator (singleton). */
-let _compiledValidator = null;
-
-function getOrchestrationValidator() {
-  if (!_compiledValidator) {
-    const ajv = new Ajv({ allErrors: true });
-    addFormats(ajv);
-    _compiledValidator = ajv.compile(ORCHESTRATION_SCHEMA);
-  }
-  return _compiledValidator;
-}
+loadEnv(PROJECT_ROOT);
 
 let _cachedConfig = null;
 
@@ -166,54 +61,67 @@ export function resolveConfig(opts) {
 
     const settings = raw.agentSettings ?? {};
 
-    // Schema Boundary validation: Block injection metacharacters
-    const schemaValidKeys = [
-      'notificationWebhookUrl',
-      'baseBranch',
-      'validationCommand',
-      'testCommand',
-      'buildCommand',
-      'agentRoot',
-      'scriptsRoot',
-      'workflowsRoot',
-      'personasRoot',
-      'schemasRoot',
-      'docsRoot',
-      'tempRoot',
-      'executionTimeoutMs',
-      'executionMaxBuffer',
-      'lintBaselineCommand',
-      'lintBaselinePath',
-      'exploratoryTestCommand',
-      'typecheckCommand',
-      'roadmapPath',
-    ];
-    // Also validate keys nested inside verboseLogging
-    if (
-      settings.verboseLogging &&
-      typeof settings.verboseLogging.logDir === 'string'
-    ) {
-      if (SHELL_INJECTION_RE.test(settings.verboseLogging.logDir)) {
-        throw new Error(
-          `[Security] Malicious configuration value detected in .agentrc.json under verboseLogging.logDir. ` +
-            `Shell meta-characters are forbidden.`,
-        );
-      }
-    }
-
-    for (const key of schemaValidKeys) {
-      if (
-        typeof settings[key] === 'string' &&
-        SHELL_INJECTION_RE.test(settings[key])
-      ) {
-        throw new Error(
-          `[Security] Malicious configuration value detected in .agentrc.json under ${key}. ` +
-            `Shell meta-characters are forbidden.`,
-        );
-      }
+    const validateSettings = getSettingsValidator();
+    if (!validateSettings(settings)) {
+      const details = validateSettings.errors
+        .map((e) => `${e.instancePath} ${e.message}`)
+        .join(', ');
+      throw new Error(
+        `[Security] Malicious configuration value detected in .agentrc.json. ` +
+          `Shell meta-characters are forbidden. Details: ${details}`,
+      );
     }
 
     const orchestration = raw.orchestration ?? null;
+
+    const defaults = {
+      agentRoot: '.agents',
+      scriptsRoot: '.agents/scripts',
+      workflowsRoot: '.agents/workflows',
+      personasRoot: '.agents/personas',
+      skillsRoot: '.agents/skills',
+      templatesRoot: '.agents/templates',
+      rulesRoot: '.agents/rules',
+      docsContextFiles: [
+        'architecture.md',
+        'data-dictionary.md',
+        'decisions.md',
+        'patterns.md',
+      ],
+      maintainability: { targetDirs: ['.agents/scripts', 'tests'] },
+      roadmapPath: 'docs/ROADMAP.md',
+      executionTimeoutMs: 300000,
+      executionMaxBuffer: 10485760,
+      maxTokenBudget: 80000,
+    };
+
+    // Apply defaults to the loaded config
+    settings.agentRoot = settings.agentRoot ?? defaults.agentRoot;
+    settings.scriptsRoot = settings.scriptsRoot ?? defaults.scriptsRoot;
+    settings.workflowsRoot = settings.workflowsRoot ?? defaults.workflowsRoot;
+    settings.personasRoot = settings.personasRoot ?? defaults.personasRoot;
+    settings.schemasRoot = settings.schemasRoot ?? defaults.schemasRoot;
+    settings.skillsRoot = settings.skillsRoot ?? defaults.skillsRoot;
+    settings.templatesRoot = settings.templatesRoot ?? defaults.templatesRoot;
+    settings.rulesRoot = settings.rulesRoot ?? defaults.rulesRoot;
+    settings.docsRoot = settings.docsRoot ?? defaults.docsRoot;
+    settings.docsContextFiles =
+      settings.docsContextFiles ?? defaults.docsContextFiles;
+    settings.maintainability =
+      settings.maintainability ?? defaults.maintainability;
+    settings.tempRoot = settings.tempRoot ?? defaults.tempRoot;
+    settings.baseBranch = settings.baseBranch ?? defaults.baseBranch;
+    settings.notificationWebhookUrl =
+      settings.notificationWebhookUrl ?? defaults.notificationWebhookUrl;
+    settings.verboseLogging =
+      settings.verboseLogging ?? defaults.verboseLogging;
+    settings.roadmapPath = settings.roadmapPath ?? defaults.roadmapPath;
+    settings.executionTimeoutMs =
+      settings.executionTimeoutMs ?? defaults.executionTimeoutMs;
+    settings.executionMaxBuffer =
+      settings.executionMaxBuffer ?? defaults.executionMaxBuffer;
+    settings.maxTokenBudget =
+      settings.maxTokenBudget ?? defaults.maxTokenBudget;
 
     // Prioritize environment variable for the webhook URL
     const envWebhookUrl = process.env.NOTIFICATION_WEBHOOK_URL;
@@ -236,7 +144,17 @@ export function resolveConfig(opts) {
       workflowsRoot: '.agents/workflows',
       personasRoot: '.agents/personas',
       schemasRoot: '.agents/schemas',
+      skillsRoot: '.agents/skills',
+      templatesRoot: '.agents/templates',
+      rulesRoot: '.agents/rules',
       docsRoot: 'docs',
+      docsContextFiles: [
+        'architecture.md',
+        'data-dictionary.md',
+        'decisions.md',
+        'patterns.md',
+      ],
+      maintainability: { targetDirs: ['.agents/scripts', 'tests'] },
       tempRoot: 'temp',
       baseBranch: 'main',
       notificationWebhookUrl: '',
@@ -244,6 +162,7 @@ export function resolveConfig(opts) {
       roadmapPath: 'docs/ROADMAP.md',
       executionTimeoutMs: 300000, // 5 minutes
       executionMaxBuffer: 10485760, // 10MB
+      maxTokenBudget: 80000, // Default 80k token budget
     },
     orchestration: null,
     raw: null,
