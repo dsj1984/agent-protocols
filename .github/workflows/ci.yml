@@ -157,3 +157,33 @@ jobs:
           else
             echo "No changes to deploy"
           fi
+
+  branch-cleanup:
+    name: Clean Up Merged Sprint Branches
+    runs-on: ubuntu-latest
+    if: github.event_name == 'push' && github.ref == 'refs/heads/main'
+    permissions:
+      contents: write
+    steps:
+      - name: Checkout Code
+        uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+
+      - name: Delete Merged Epic and Story Branches
+        run: |
+          git fetch --prune origin
+
+          DELETED=0
+          for branch in $(git branch -r | grep -E 'origin/(epic|story)/' | sed 's|origin/||'); do
+            # Check if the branch tip is reachable from main (i.e. merged)
+            if git merge-base --is-ancestor "origin/$branch" origin/main 2>/dev/null; then
+              echo "Deleting merged branch: $branch"
+              git push origin --delete "$branch"
+              DELETED=$((DELETED + 1))
+            else
+              echo "Skipping unmerged branch: $branch"
+            fi
+          done
+
+          echo "Cleaned up $DELETED merged sprint branch(es)."
