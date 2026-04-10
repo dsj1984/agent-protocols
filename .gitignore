@@ -10,3 +10,7 @@ dist
 
 tmp/
 temp/
+
+# Mutation testing
+reports/
+.stryker-tmp/
