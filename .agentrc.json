@@ -19,10 +19,7 @@
       "patterns.md"
     ],
     "release": {
-      "docs": [
-        "README.md",
-        "docs/CHANGELOG.md"
-      ],
+      "docs": ["README.md", "docs/CHANGELOG.md"],
       "versionFile": ".agents/VERSION",
       "packageJson": true,
       "autoVersionBump": true
@@ -31,9 +28,7 @@
     "roadmapPath": "docs/ROADMAP.md",
     "roadmap": {
       "autoGenerate": true,
-      "excludeLabels": [
-        "roadmap-exclude"
-      ]
+      "excludeLabels": ["roadmap-exclude"]
     },
     "verboseLogging": {
       "enabled": false,
@@ -79,10 +74,7 @@
       },
       "isRetro": {
         "persona": "product",
-        "skills": [
-          "core/documentation-and-adrs",
-          "core/idea-refinement"
-        ],
+        "skills": ["core/documentation-and-adrs", "core/idea-refinement"],
         "model": "Claude Sonnet 4.6 (Think) OR Gemini 3.1 Pro (High)"
       }
     },
