@@ -3,6 +3,7 @@ import fs from 'node:fs/promises';
 import path from 'node:path';
 import { fileURLToPath } from 'node:url';
 import { promisify } from 'node:util';
+import { PROJECT_ROOT, resolveConfig } from '../lib/config-resolver.js';
 
 const execAsync = promisify(exec);
 const __dirname = path.dirname(fileURLToPath(import.meta.url));
@@ -53,12 +54,17 @@ function normalizeFinding(auditName, finding) {
   };
 }
 
-export async function runAuditSuite({ auditWorkflows }) {
-  const rulesPath = path.resolve(__dirname, '../../schemas/audit-rules.json');
+export async function runAuditSuite({ auditWorkflows, injectedExecute }) {
+  const { settings } = resolveConfig();
+  const rulesPath = path.join(
+    PROJECT_ROOT,
+    settings.schemasRoot,
+    'audit-rules.json',
+  );
   const rulesContent = await fs.readFile(rulesPath, 'utf8');
   const rules = JSON.parse(rulesContent);
 
-  const validAudits = rules.workflows.map((w) => w.name);
+  const validAudits = Object.keys(rules.audits || {});
   const auditResults = {
     metadata: {
       timestamp: new Date().toISOString(),
@@ -74,7 +80,7 @@ export async function runAuditSuite({ auditWorkflows }) {
     findings: [],
   };
 
-  const scriptsDir = path.resolve(__dirname, '../audits');
+  const scriptsDir = path.join(PROJECT_ROOT, settings.scriptsRoot, 'audits');
 
   for (const auditName of auditWorkflows) {
     if (!validAudits.includes(auditName)) {
@@ -99,7 +105,9 @@ export async function runAuditSuite({ auditWorkflows }) {
     }
 
     auditResults.metadata.auditsRun.push(auditName);
-    const findings = await executeAudit(auditName, scriptPath);
+    const findings = injectedExecute
+      ? await injectedExecute(auditName, scriptPath)
+      : await executeAudit(auditName, scriptPath);
 
     for (const rawFinding of findings) {
       const normalized = normalizeFinding(auditName, rawFinding);

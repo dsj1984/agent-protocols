@@ -131,28 +131,22 @@ async function ticketClosureCascade(provider, tasks, storyId) {
 
 async function handleHighRiskGate(provider, storyBranch, storyId, epicId) {
   progress('RISK', '⚠️ Story is risk::high — creating PR instead of auto-merge');
+  let prUrl = null;
   try {
     const pr = await provider.createPullRequest(storyBranch, storyId);
-    progress('RISK', `PR created: ${pr.htmlUrl}`);
-    console.log(
-      JSON.stringify(
-        {
-          storyId,
-          epicId,
-          action: 'pr-created',
-          prUrl: pr.htmlUrl,
-          reason: 'risk::high — manual review required before merge',
-        },
-        null,
-        2,
-      ),
-    );
+    prUrl = pr.htmlUrl ?? pr.url;
+    progress('RISK', `PR created: ${prUrl}`);
   } catch (err) {
     console.error(`[sprint-story-close] PR creation failed: ${err.message}`);
   }
   // Push the story branch if not already pushed
   gitSpawn(PROJECT_ROOT, 'push', '--no-verify', 'origin', storyBranch);
-  process.exit(1);
+  
+  return { 
+    action: 'pr-created', 
+    prUrl, 
+    reason: 'risk::high — manual review required before merge' 
+  };
 }
 
 function finalizeMerge(epicBranch, storyBranch, storyTitle, storyId) {
@@ -194,8 +188,24 @@ function finalizeMerge(epicBranch, storyBranch, storyTitle, storyId) {
   cleanupBranches(storyBranch);
 }
 
-async function main() {
-  const { storyId, epicId: argEpicId, refreshDashboard } = parseSprintArgs();
+/**
+ * Orchestrate the Story initialization.
+ * Exported for testing.
+ */
+export async function runStoryClose({
+  storyId: storyIdParam,
+  epicId: epicIdParam,
+  refreshDashboard: refreshDashboardParam,
+  injectedProvider,
+} = {}) {
+  const { storyId, epicId: argEpicId, refreshDashboard } =
+    storyIdParam !== undefined
+      ? {
+          storyId: storyIdParam,
+          epicId: epicIdParam,
+          refreshDashboard: !!refreshDashboardParam,
+        }
+      : parseSprintArgs();
 
   if (!storyId) {
     Logger.fatal(
@@ -206,7 +216,7 @@ async function main() {
   let epicId = argEpicId;
 
   const { orchestration } = resolveConfig();
-  const provider = createProvider(orchestration);
+  const provider = injectedProvider || createProvider(orchestration);
 
   progress('INIT', `Closing Story #${storyId}...`);
 
@@ -245,7 +255,12 @@ async function main() {
   const isHighRisk = story.labels.includes('risk::high');
 
   if (isHighRisk) {
-    await handleHighRiskGate(provider, storyBranch, storyId, epicId);
+    const riskResult = await handleHighRiskGate(provider, storyBranch, storyId, epicId);
+    const result = { storyId, epicId, ...riskResult };
+    console.log('\n--- STORY CLOSE RESULT ---');
+    console.log(JSON.stringify(result, null, 2));
+    console.log('--- END RESULT ---\n');
+    return { success: false, result };
   } else {
     finalizeMerge(epicBranch, storyBranch, story.title, storyId);
   }
@@ -324,6 +339,8 @@ async function main() {
     `✅ Story #${storyId} merged into ${epicBranch}. ` +
       `${closedTickets.length} ticket(s) closed.`,
   );
+
+  return { success: true, result };
 }
 
 // ---------------------------------------------------------------------------
@@ -331,7 +348,7 @@ async function main() {
 // ---------------------------------------------------------------------------
 
 if (fileURLToPath(import.meta.url) === path.resolve(process.argv[1])) {
-  main().catch((err) => {
+  runStoryClose().catch((err) => {
     Logger.fatal(`sprint-story-close: ${err.message}`);
   });
 }

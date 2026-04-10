@@ -32,10 +32,9 @@ export async function updateHealthMetrics(epicId, dryRun = false) {
   );
 
   if (!healthIssue) {
-    vlog.error(
+    throw new Error(
       `No Sprint Health issue found for Epic #${epicId}. It must be created by the dispatcher first.`,
     );
-    process.exit(1);
   }
 
   const tasks = await fetchTasks(provider, epicId);

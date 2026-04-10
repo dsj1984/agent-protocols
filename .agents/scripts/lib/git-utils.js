@@ -11,6 +11,17 @@
 
 import { execFileSync, spawnSync } from 'node:child_process';
 
+let _execFileSync = execFileSync;
+let _spawnSync = spawnSync;
+
+/**
+ * Override git runners for testing.
+ */
+export function __setGitRunners(exec, spawn) {
+  _execFileSync = exec;
+  _spawnSync = spawn;
+}
+
 /**
  * Run a git command synchronously, returning trimmed stdout.
  * Throws an Error if the command exits with a non-zero code.
@@ -20,7 +31,7 @@ import { execFileSync, spawnSync } from 'node:child_process';
  * @returns {string} Trimmed stdout text.
  */
 export function gitSync(cwd, ...args) {
-  return execFileSync('git', args, {
+  return _execFileSync('git', args, {
     cwd,
     encoding: 'utf8',
     stdio: ['pipe', 'pipe', 'pipe'],
@@ -37,7 +48,7 @@ export function gitSync(cwd, ...args) {
  * @returns {{ status: number, stdout: string, stderr: string }}
  */
 export function gitSpawn(cwd, ...args) {
-  const result = spawnSync('git', args, {
+  const result = _spawnSync('git', args, {
     cwd,
     stdio: 'pipe',
     encoding: 'utf-8',

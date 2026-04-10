@@ -213,8 +213,20 @@ async function transitionTasksToExecuting(provider, tasks) {
 // CLI Execution
 // ---------------------------------------------------------------------------
 
-async function main() {
-  const { storyId, dryRun } = parseSprintArgs();
+/**
+ * Orchestrate the Story initialization.
+ * Exported for testing.
+ */
+export async function runStoryInit({
+  storyId: storyIdParam,
+  dryRun: dryRunParam,
+  injectedProvider,
+  injectedConfig,
+} = {}) {
+  const { storyId, dryRun } =
+    storyIdParam !== undefined
+      ? { storyId: storyIdParam, dryRun: !!dryRunParam }
+      : parseSprintArgs();
 
   if (!storyId) {
     Logger.fatal(
@@ -222,8 +234,8 @@ async function main() {
     );
   }
 
-  const { settings, orchestration } = resolveConfig();
-  const provider = createProvider(orchestration);
+  const { settings, orchestration } = injectedConfig || resolveConfig();
+  const provider = injectedProvider || createProvider(orchestration);
 
   progress('INIT', `Initializing Story #${storyId}...`);
 
@@ -231,7 +243,7 @@ async function main() {
   try {
     storyContext = await resolveStoryContext(provider, storyId);
   } catch (err) {
-    Logger.fatal(err.message);
+    throw new Error(err.message);
   }
 
   const { story, body, epicId, featureId, prdId, techSpecId } = storyContext;
@@ -252,7 +264,7 @@ async function main() {
     for (const b of openBlockers) {
       console.error(`   - #${b.id} "${b.title}" (${b.state})`);
     }
-    process.exit(1);
+    return { success: false, blocked: true, openBlockers };
   }
   if (parseBlockedBy(body).length > 0)
     progress('BLOCKERS', '✅ All blockers resolved');
@@ -280,7 +292,7 @@ async function main() {
     try {
       bootstrapBranch(epicBranch, storyBranch, baseBranch);
     } catch (err) {
-      Logger.fatal(err.message);
+      throw new Error(err.message);
     }
 
     progress(
@@ -324,6 +336,8 @@ async function main() {
       ? '✅ Dry-run complete. No git or ticket changes made.'
       : `✅ Story #${storyId} initialized. ${sortedTasks.length} Task(s) ready for implementation.`,
   );
+
+  return { success: true, result };
 }
 
 // ---------------------------------------------------------------------------
@@ -337,7 +351,7 @@ const progress = Logger.createProgress('sprint-story-init', { stderr: true });
 // ---------------------------------------------------------------------------
 
 if (fileURLToPath(import.meta.url) === path.resolve(process.argv[1])) {
-  main().catch((err) => {
+  runStoryInit().catch((err) => {
     Logger.fatal(`sprint-story-init: ${err.message}`);
   });
 }
