@@ -47,7 +47,11 @@ import {
  * High-level orchestrator that resolves the execution strategy, generates the manifest,
  * persists the files to temp, and outputs summaries.
  */
-export async function generateAndSaveManifest(ticketId, dryRun = false, executorOverride = null) {
+export async function generateAndSaveManifest(
+  ticketId,
+  dryRun = false,
+  executorOverride = null,
+) {
   // Delegate to the SDK's unified resolver
   const manifest = await resolveAndDispatch({
     ticketId,
@@ -60,15 +64,25 @@ export async function generateAndSaveManifest(ticketId, dryRun = false, executor
 
   if (manifest.type === 'story-execution') {
     const key = manifest.stories.map((s) => s.storyId).join('-');
-    console.log(`\n[Dispatcher] ✅ Story manifest: temp/story-manifest-${key}.json`);
+    console.log(
+      `\n[Dispatcher] ✅ Story manifest: temp/story-manifest-${key}.json`,
+    );
     console.log(`[Dispatcher] 📄 Markdown: temp/story-manifest-${key}.md\n`);
     // Omit console dump for brevity
   } else {
     const epicId = manifest.epicId;
-    console.log(`\n[Dispatcher] ✅ Manifest: temp/dispatch-manifest-${epicId}.json`);
-    console.log(`[Dispatcher] 📄 Markdown: temp/dispatch-manifest-${epicId}.md`);
-    console.log(`[Dispatcher] Progress: ${manifest.summary.doneTasks}/${manifest.summary.totalTasks} tasks done (${manifest.summary.progressPercent}%)`);
-    console.log(`[Dispatcher] Dispatched: ${manifest.summary.dispatched}, Held: ${manifest.summary.heldForApproval}`);
+    console.log(
+      `\n[Dispatcher] ✅ Manifest: temp/dispatch-manifest-${epicId}.json`,
+    );
+    console.log(
+      `[Dispatcher] 📄 Markdown: temp/dispatch-manifest-${epicId}.md`,
+    );
+    console.log(
+      `[Dispatcher] Progress: ${manifest.summary.doneTasks}/${manifest.summary.totalTasks} tasks done (${manifest.summary.progressPercent}%)`,
+    );
+    console.log(
+      `[Dispatcher] Dispatched: ${manifest.summary.dispatched}, Held: ${manifest.summary.heldForApproval}`,
+    );
     printStoryDispatchTable(manifest.storyManifest);
   }
   return manifest;

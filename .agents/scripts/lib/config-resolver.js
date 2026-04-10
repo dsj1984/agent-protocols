@@ -15,7 +15,10 @@ import path from 'node:path';
 import { fileURLToPath } from 'node:url';
 
 import { loadEnv } from './env-loader.js';
-import { getOrchestrationValidator, SHELL_INJECTION_RE } from './config-schema.js';
+import {
+  getOrchestrationValidator,
+  SHELL_INJECTION_RE,
+} from './config-schema.js';
 
 const __dirname = path.dirname(fileURLToPath(import.meta.url));
 // scripts/lib/ → scripts/ → .agents/ → project root

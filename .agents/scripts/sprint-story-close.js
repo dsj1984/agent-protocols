@@ -80,7 +80,10 @@ function cleanupBranches(storyBranch) {
 async function ticketClosureCascade(provider, tasks, storyId) {
   const closedTickets = [];
 
-  progress('TICKETS', `Transitioning ${tasks.length} Task(s) to agent::done...`);
+  progress(
+    'TICKETS',
+    `Transitioning ${tasks.length} Task(s) to agent::done...`,
+  );
   for (const task of tasks) {
     if (task.labels.includes(STATE_LABELS.DONE)) {
       progress('TICKETS', `  #${task.id} already done — skipped`);
@@ -110,7 +113,10 @@ async function ticketClosureCascade(provider, tasks, storyId) {
   try {
     cascadedTo = (await cascadeCompletion(provider, storyId)) || [];
     if (cascadedTo.length > 0) {
-      progress('TICKETS', `  Cascaded to: ${cascadedTo.map((id) => `#${id}`).join(', ')}`);
+      progress(
+        'TICKETS',
+        `  Cascaded to: ${cascadedTo.map((id) => `#${id}`).join(', ')}`,
+      );
     }
   } catch (err) {
     console.error(`  Cascade failed (non-fatal): ${err.message}`);
@@ -124,10 +130,7 @@ async function ticketClosureCascade(provider, tasks, storyId) {
 // ---------------------------------------------------------------------------
 
 async function handleHighRiskGate(provider, storyBranch, storyId, epicId) {
-  progress(
-    'RISK',
-    '⚠️ Story is risk::high — creating PR instead of auto-merge',
-  );
+  progress('RISK', '⚠️ Story is risk::high — creating PR instead of auto-merge');
   try {
     const pr = await provider.createPullRequest(storyBranch, storyId);
     progress('RISK', `PR created: ${pr.htmlUrl}`);
@@ -195,7 +198,9 @@ async function main() {
   const { storyId, epicId: argEpicId, refreshDashboard } = parseSprintArgs();
 
   if (!storyId) {
-    Logger.fatal('Usage: node sprint-story-close.js --story <STORY_ID> [--epic <EPIC_ID>]');
+    Logger.fatal(
+      'Usage: node sprint-story-close.js --story <STORY_ID> [--epic <EPIC_ID>]',
+    );
   }
 
   let epicId = argEpicId;
@@ -233,7 +238,6 @@ async function main() {
 
   progress('TASKS', `Found ${tasks.length} child Task(s)`);
 
-
   // -------------------------------------------------------------------------
   // Step 5 — Risk check and merge
   // -------------------------------------------------------------------------
@@ -250,7 +254,11 @@ async function main() {
   // Step 6 — Cascade Completion (Ticket Closure)
   // -------------------------------------------------------------------------
 
-  const { closedTickets, cascadedTo } = await ticketClosureCascade(provider, tasks, storyId);
+  const { closedTickets, cascadedTo } = await ticketClosureCascade(
+    provider,
+    tasks,
+    storyId,
+  );
 
   // -------------------------------------------------------------------------
   // Health Monitor Update
@@ -263,7 +271,9 @@ async function main() {
     healthUpdated = true;
     progress('HEALTH', '✅ Health metrics updated');
   } catch (err) {
-    console.error(`[sprint-story-close] Health monitor failed (non-fatal): ${err.message}`);
+    console.error(
+      `[sprint-story-close] Health monitor failed (non-fatal): ${err.message}`,
+    );
   }
 
   // -------------------------------------------------------------------------
@@ -278,7 +288,9 @@ async function main() {
       manifestUpdated = true;
       progress('DASHBOARD', '✅ Dashboard manifest updated (temp/)');
     } catch (err) {
-      console.error(`[sprint-story-close] Dashboard refresh failed (non-fatal): ${err.message}`);
+      console.error(
+        `[sprint-story-close] Dashboard refresh failed (non-fatal): ${err.message}`,
+      );
     }
   } else {
     progress(

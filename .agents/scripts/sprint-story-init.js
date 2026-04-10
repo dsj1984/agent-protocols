@@ -56,7 +56,9 @@ async function resolveStoryContext(provider, storyId) {
   }
 
   if (!story.labels.includes('type::story')) {
-    throw new Error(`Issue #${storyId} is not a Story (labels: ${story.labels.join(', ')}). Use the dispatcher for Epics.`);
+    throw new Error(
+      `Issue #${storyId} is not a Story (labels: ${story.labels.join(', ')}). Use the dispatcher for Epics.`,
+    );
   }
 
   const body = story.body ?? '';
@@ -67,7 +69,9 @@ async function resolveStoryContext(provider, storyId) {
   const featureId = parentMatch ? parseInt(parentMatch[1], 10) : null;
 
   if (!epicId) {
-    throw new Error(`Story #${storyId} has no "Epic: #N" reference in its body. Cannot resolve hierarchy.`);
+    throw new Error(
+      `Story #${storyId} has no "Epic: #N" reference in its body. Cannot resolve hierarchy.`,
+    );
   }
 
   let prdId = null;
@@ -77,7 +81,9 @@ async function resolveStoryContext(provider, storyId) {
     prdId = epic.linkedIssues?.prd ?? null;
     techSpecId = epic.linkedIssues?.techSpec ?? null;
   } catch (err) {
-    console.error(`[sprint-story-init] Warning: Could not fetch Epic #${epicId}: ${err.message}`);
+    console.error(
+      `[sprint-story-init] Warning: Could not fetch Epic #${epicId}: ${err.message}`,
+    );
   }
 
   return { story, body, epicId, featureId, prdId, techSpecId };
@@ -87,19 +93,28 @@ async function checkBlockers(provider, _storyId, body) {
   const blockedBy = parseBlockedBy(body);
   if (blockedBy.length === 0) return [];
 
-  progress('BLOCKERS', `Checking ${blockedBy.length} dependency/dependencies...`);
+  progress(
+    'BLOCKERS',
+    `Checking ${blockedBy.length} dependency/dependencies...`,
+  );
   const openBlockers = [];
 
   for (const depId of blockedBy) {
     try {
       const dep = await provider.getTicket(depId);
-      const isDone = dep.labels.includes(STATE_LABELS.DONE) || dep.state === 'closed';
+      const isDone =
+        dep.labels.includes(STATE_LABELS.DONE) || dep.state === 'closed';
       if (!isDone) {
-        const currentState = dep.labels.find((l) => l.startsWith('agent::')) ?? 'no agent:: label';
+        const currentState =
+          dep.labels.find((l) => l.startsWith('agent::')) ?? 'no agent:: label';
         openBlockers.push({ id: depId, title: dep.title, state: currentState });
       }
     } catch (err) {
-      openBlockers.push({ id: depId, title: '(fetch failed)', state: err.message });
+      openBlockers.push({
+        id: depId,
+        title: '(fetch failed)',
+        state: err.message,
+      });
     }
   }
   return openBlockers;
@@ -107,7 +122,7 @@ async function checkBlockers(provider, _storyId, body) {
 
 function extractAndSortTasks(tasks) {
   if (tasks.length <= 1) return tasks;
-  
+
   const graphTasks = tasks.map((t) => ({
     ...t,
     dependsOn: parseBlockedBy(t.body ?? '').filter((dep) =>
@@ -118,7 +133,9 @@ function extractAndSortTasks(tasks) {
     const { adjacency, taskMap } = buildGraph(graphTasks);
     return topologicalSort(adjacency, taskMap);
   } catch {
-    console.error('[sprint-story-init] Warning: Could not topologically sort tasks. Using original order.');
+    console.error(
+      '[sprint-story-init] Warning: Could not topologically sort tasks. Using original order.',
+    );
     return tasks;
   }
 }
@@ -127,7 +144,13 @@ function bootstrapBranch(epicBranch, storyBranch, baseBranch) {
   progress('GIT', 'Fetching remote refs...');
   gitSpawn(PROJECT_ROOT, 'fetch', 'origin');
 
-  const lsRemote = gitSpawn(PROJECT_ROOT, 'ls-remote', '--heads', 'origin', epicBranch);
+  const lsRemote = gitSpawn(
+    PROJECT_ROOT,
+    'ls-remote',
+    '--heads',
+    'origin',
+    epicBranch,
+  );
   const epicExistsRemotely = lsRemote.stdout.length > 0;
 
   if (!epicExistsRemotely) {
@@ -140,17 +163,28 @@ function bootstrapBranch(epicBranch, storyBranch, baseBranch) {
     progress('GIT', `Epic branch exists. Syncing: ${epicBranch}`);
     const checkoutResult = gitSpawn(PROJECT_ROOT, 'checkout', epicBranch);
     if (checkoutResult.status !== 0) {
-      gitSync(PROJECT_ROOT, 'checkout', '-b', epicBranch, `origin/${epicBranch}`);
+      gitSync(
+        PROJECT_ROOT,
+        'checkout',
+        '-b',
+        epicBranch,
+        `origin/${epicBranch}`,
+      );
     }
     gitSpawn(PROJECT_ROOT, 'pull', '--rebase', 'origin', epicBranch);
   }
 
-  progress('GIT', `Checking out Story branch: ${storyBranch} (from ${epicBranch})`);
+  progress(
+    'GIT',
+    `Checking out Story branch: ${storyBranch} (from ${epicBranch})`,
+  );
   gitSync(PROJECT_ROOT, 'checkout', '-B', storyBranch, epicBranch);
 
   const currentBranch = gitSpawn(PROJECT_ROOT, 'branch', '--show-current');
   if (currentBranch.stdout !== storyBranch) {
-    throw new Error(`Branch verification failed. Expected: ${storyBranch}, Got: ${currentBranch.stdout}.`);
+    throw new Error(
+      `Branch verification failed. Expected: ${storyBranch}, Got: ${currentBranch.stdout}.`,
+    );
   }
   progress('GIT', `✅ On branch: ${currentBranch.stdout}`);
 }
@@ -182,7 +216,9 @@ async function main() {
   const { storyId, dryRun } = parseSprintArgs();
 
   if (!storyId) {
-    Logger.fatal('Usage: node sprint-story-init.js --story <STORY_ID> [--dry-run]');
+    Logger.fatal(
+      'Usage: node sprint-story-init.js --story <STORY_ID> [--dry-run]',
+    );
   }
 
   const { orchestration } = resolveConfig();
@@ -198,28 +234,42 @@ async function main() {
   }
 
   const { story, body, epicId, featureId, prdId, techSpecId } = storyContext;
-  progress('CONTEXT', `Epic: #${epicId}, Feature/Parent: #${featureId ?? 'none'}`);
-  progress('CONTEXT', `PRD: #${prdId ?? 'none'}, Tech Spec: #${techSpecId ?? 'none'}`);
+  progress(
+    'CONTEXT',
+    `Epic: #${epicId}, Feature/Parent: #${featureId ?? 'none'}`,
+  );
+  progress(
+    'CONTEXT',
+    `PRD: #${prdId ?? 'none'}, Tech Spec: #${techSpecId ?? 'none'}`,
+  );
 
   const openBlockers = await checkBlockers(provider, storyId, body);
   if (openBlockers.length > 0) {
-    console.error(`\n❌ BLOCKED: Story #${storyId} is blocked by ${openBlockers.length} incomplete prerequisite(s):`);
+    console.error(
+      `\n❌ BLOCKED: Story #${storyId} is blocked by ${openBlockers.length} incomplete prerequisite(s):`,
+    );
     for (const b of openBlockers) {
       console.error(`   - #${b.id} "${b.title}" (${b.state})`);
     }
     process.exit(1);
   }
-  if (parseBlockedBy(body).length > 0) progress('BLOCKERS', '✅ All blockers resolved');
+  if (parseBlockedBy(body).length > 0)
+    progress('BLOCKERS', '✅ All blockers resolved');
 
   const subTickets = await provider.getSubTickets(storyId);
   const tasks = subTickets.filter((t) => t.labels.includes('type::task'));
 
   if (tasks.length === 0) {
-    console.error(`[sprint-story-init] Warning: Story #${storyId} has no child Tasks. The agent will need to work from the Story body directly.`);
+    console.error(
+      `[sprint-story-init] Warning: Story #${storyId} has no child Tasks. The agent will need to work from the Story body directly.`,
+    );
   }
 
   const sortedTasks = extractAndSortTasks(tasks);
-  progress('TASKS', `Found ${sortedTasks.length} child Task(s) in dependency order`);
+  progress(
+    'TASKS',
+    `Found ${sortedTasks.length} child Task(s) in dependency order`,
+  );
 
   const epicBranch = getEpicBranch(epicId);
   const storyBranch = getStoryBranch(epicId, storyId);
@@ -232,7 +282,10 @@ async function main() {
       Logger.fatal(err.message);
     }
 
-    progress('TICKETS', `Transitioning ${sortedTasks.length} Task(s) to agent::executing...`);
+    progress(
+      'TICKETS',
+      `Transitioning ${sortedTasks.length} Task(s) to agent::executing...`,
+    );
     await transitionTasksToExecuting(provider, sortedTasks);
   }
 

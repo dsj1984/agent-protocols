@@ -47,7 +47,9 @@ export function persistManifest(manifest) {
       );
     }
   } catch (persistErr) {
-    process.stderr.write(`[MCP/Dispatcher] Failed to persist manifest to temp/: ${persistErr.message}\n`);
+    process.stderr.write(
+      `[MCP/Dispatcher] Failed to persist manifest to temp/: ${persistErr.message}\n`,
+    );
   }
 }
 

@@ -49,7 +49,12 @@ async function main() {
   progress('GIT', `Comparing ${epicBranch} against ${baseBranch}...`);
 
   // 1. Get changed files
-  const diffResult = gitSpawn(PROJECT_ROOT, 'diff', `${baseBranch}...${epicBranch}`, '--name-only');
+  const diffResult = gitSpawn(
+    PROJECT_ROOT,
+    'diff',
+    `${baseBranch}...${epicBranch}`,
+    '--name-only',
+  );
   if (diffResult.status !== 0) {
     Logger.fatal(`Failed to get diff: ${diffResult.stderr}`);
   }
@@ -82,9 +87,11 @@ async function main() {
       results.jsFiles++;
       const score = calculateForFile(absPath);
       results.maintainability.push({ file: relPath, score });
-      
+
       if (score < 65) {
-        results.criticalIssues.push(`🔴 Low Maintainability: \`${relPath}\` (Score: ${score.toFixed(1)})`);
+        results.criticalIssues.push(
+          `🔴 Low Maintainability: \`${relPath}\` (Score: ${score.toFixed(1)})`,
+        );
       }
     }
   }
@@ -92,7 +99,7 @@ async function main() {
   // 2. Perform focused lint
   progress('LINT', 'Running focused lint check...');
   const lintCmd = orchestration.settings?.lintCommand ?? 'npm run lint';
-  // Note: We run the full lint as workspace consistency is key, 
+  // Note: We run the full lint as workspace consistency is key,
   // but a smarter script would filter errors to changed files.
   const lintResult = gitSpawn(PROJECT_ROOT, ...lintCmd.split(' '));
   if (lintResult.status !== 0) {
@@ -101,7 +108,7 @@ async function main() {
 
   // 3. Generate Report
   progress('REPORT', 'Generating findings report...');
-  
+
   const report = [
     `## 🔬 Automated Code Review Results for Epic #${epicId}`,
     '',
@@ -111,22 +118,27 @@ async function main() {
     '### 📊 Maintainability Overview',
     '| File | Score | Status |',
     '| :--- | :--- | :--- |',
-    ...results.maintainability.map(m => {
-      const status = m.score >= 85 ? '🟢 Healthy' : (m.score >= 65 ? '🟡 Warning' : '🔴 Critical');
+    ...results.maintainability.map((m) => {
+      const status =
+        m.score >= 85
+          ? '🟢 Healthy'
+          : m.score >= 65
+            ? '🟡 Warning'
+            : '🔴 Critical';
       return `| \`${m.file}\` | ${m.score.toFixed(2)} | ${status} |`;
     }),
     '',
     '### 🚨 Critical Findings',
-    results.criticalIssues.length > 0 
+    results.criticalIssues.length > 0
       ? results.criticalIssues.join('\n')
       : '✅ No maintainability blockers identified.',
     '',
-    results.lintErrors > 0 
+    results.lintErrors > 0
       ? '❌ **Lint Check Failed**: Workspace lint issues detected. Please fix before merging.'
       : '✅ **Lint Check Passed**: Workspace is clean.',
     '',
     '---',
-    '_This is an automated pre-review. A human or specialist agent should still verify business logic and security constraints._'
+    '_This is an automated pre-review. A human or specialist agent should still verify business logic and security constraints._',
   ].join('\n');
 
   console.log(report);

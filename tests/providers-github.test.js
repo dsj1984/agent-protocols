@@ -35,17 +35,19 @@ function createRouteMock(routes) {
     calls.push({ url, opts });
     const method = (opts.method || 'GET').toUpperCase();
     const bodyStr = opts.body || '';
-    
+
     let matchedResponse = null;
     for (const [routePattern, response] of Object.entries(routes)) {
       const parts = routePattern.split(' ');
       const routeMethod = parts.length > 1 ? parts[0] : 'GET';
       const routePath = parts.length > 1 ? parts[1] : parts[0];
-      const routeBodyMatcher = parts.length > 2 ? parts.slice(2).join(' ') : null;
-      
+      const routeBodyMatcher =
+        parts.length > 2 ? parts.slice(2).join(' ') : null;
+
       const methodMatches = method === routeMethod.toUpperCase();
       const pathMatches = url.includes(routePath);
-      const bodyMatches = !routeBodyMatcher || bodyStr.includes(routeBodyMatcher);
+      const bodyMatches =
+        !routeBodyMatcher || bodyStr.includes(routeBodyMatcher);
 
       if (methodMatches && pathMatches && bodyMatches) {
         matchedResponse = response;
@@ -319,7 +321,10 @@ describe('GitHubProvider — createTicket()', () => {
 
   it('includes dependency references in the body', async () => {
     const mockFetch = createRouteMock({
-      'POST /issues': { status: 201, json: { number: 21, html_url: 'http://x' } },
+      'POST /issues': {
+        status: 201,
+        json: { number: 21, html_url: 'http://x' },
+      },
     });
     globalThis.fetch = mockFetch;
 

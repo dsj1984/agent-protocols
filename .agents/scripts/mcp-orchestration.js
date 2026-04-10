@@ -222,7 +222,6 @@ async function handleRequest(req) {
           }
         }
 
-
         sendResult(id, {
           content: [
             {

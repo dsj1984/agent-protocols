@@ -13,7 +13,7 @@ async function executeAudit(auditName, scriptPath) {
     if (!stdout.trim()) {
       return [];
     }
-    
+
     let findings = JSON.parse(stdout);
     if (!Array.isArray(findings)) {
       findings = [findings];
@@ -21,25 +21,31 @@ async function executeAudit(auditName, scriptPath) {
     return findings;
   } catch (e) {
     if (e.name === 'SyntaxError') {
-      return [{
+      return [
+        {
+          audit: auditName,
+          severity: 'high',
+          message: `Audit script '${auditName}.js' returned invalid JSON: ${e.message}`,
+          rawOutput: e.message.substring(0, 500), // simplified
+        },
+      ];
+    }
+    return [
+      {
         audit: auditName,
         severity: 'high',
-        message: `Audit script '${auditName}.js' returned invalid JSON: ${e.message}`,
-        rawOutput: e.message.substring(0, 500), // simplified
-      }];
-    }
-    return [{
-      audit: auditName,
-      severity: 'high',
-      message: `Execution of '${auditName}.js' failed: ${e.message}`,
-    }];
+        message: `Execution of '${auditName}.js' failed: ${e.message}`,
+      },
+    ];
   }
 }
 
 function normalizeFinding(auditName, finding) {
   const rawSeverity = finding.severity?.toLowerCase() || 'low';
-  const severity = ['critical', 'high', 'medium', 'low'].includes(rawSeverity) ? rawSeverity : 'low';
-  
+  const severity = ['critical', 'high', 'medium', 'low'].includes(rawSeverity)
+    ? rawSeverity
+    : 'low';
+
   return {
     audit: auditName,
     ...finding,
@@ -94,7 +100,7 @@ export async function runAuditSuite({ auditWorkflows }) {
 
     auditResults.metadata.auditsRun.push(auditName);
     const findings = await executeAudit(auditName, scriptPath);
-    
+
     for (const rawFinding of findings) {
       const normalized = normalizeFinding(auditName, rawFinding);
       auditResults.findings.push(normalized);

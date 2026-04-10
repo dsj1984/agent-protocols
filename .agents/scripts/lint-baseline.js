@@ -30,7 +30,11 @@ export function parseLintOutput(jsonStr, _cmdConfig) {
   return { errorCount: totalErrors, warningCount: totalWarnings };
 }
 
-export function runLintCommand(cmdConfig, executionTimeoutMs, executionMaxBuffer) {
+export function runLintCommand(
+  cmdConfig,
+  executionTimeoutMs,
+  executionMaxBuffer,
+) {
   const result = spawnSync(cmdConfig, {
     cwd: PROJECT_ROOT,
     encoding: 'utf-8',
@@ -52,9 +56,19 @@ export function runLintCommand(cmdConfig, executionTimeoutMs, executionMaxBuffer
   }
 }
 
-export function captureBaseline(cmdConfig, executionTimeoutMs, executionMaxBuffer, baselinePath, baselinePathRel) {
+export function captureBaseline(
+  cmdConfig,
+  executionTimeoutMs,
+  executionMaxBuffer,
+  baselinePath,
+  baselinePathRel,
+) {
   console.log(`▶ [lint-baseline] Capturing lint baseline...`);
-  const totals = runLintCommand(cmdConfig, executionTimeoutMs, executionMaxBuffer);
+  const totals = runLintCommand(
+    cmdConfig,
+    executionTimeoutMs,
+    executionMaxBuffer,
+  );
   const dir = path.dirname(baselinePath);
   if (!fs.existsSync(dir)) fs.mkdirSync(dir, { recursive: true });
   fs.writeFileSync(baselinePath, JSON.stringify(totals, null, 2), 'utf8');
@@ -64,9 +78,19 @@ export function captureBaseline(cmdConfig, executionTimeoutMs, executionMaxBuffe
   console.log(`   Saved to: ${baselinePathRel}`);
 }
 
-export function checkBaseline(cmdConfig, executionTimeoutMs, executionMaxBuffer, baselinePath, baselinePathRel) {
+export function checkBaseline(
+  cmdConfig,
+  executionTimeoutMs,
+  executionMaxBuffer,
+  baselinePath,
+  baselinePathRel,
+) {
   console.log(`▶ [lint-baseline] Checking lint against baseline...`);
-  const current = runLintCommand(cmdConfig, executionTimeoutMs, executionMaxBuffer);
+  const current = runLintCommand(
+    cmdConfig,
+    executionTimeoutMs,
+    executionMaxBuffer,
+  );
 
   let baseline = { errorCount: 0, warningCount: 0 };
   if (fs.existsSync(baselinePath)) {
@@ -116,19 +140,33 @@ export async function main(args = process.argv) {
   }
 
   const { settings } = resolveConfig();
-  const cmdConfig = settings.lintBaselineCommand ?? 'npx eslint . --format json';
-  const baselinePathRel = settings.lintBaselinePath ?? 'temp/lint-baseline.json';
+  const cmdConfig =
+    settings.lintBaselineCommand ?? 'npx eslint . --format json';
+  const baselinePathRel =
+    settings.lintBaselinePath ?? 'temp/lint-baseline.json';
   const baselinePath = path.resolve(PROJECT_ROOT, baselinePathRel);
   const executionTimeoutMs = settings.executionTimeoutMs ?? 300000;
   const executionMaxBuffer = settings.executionMaxBuffer ?? 10485760;
 
   if (mode === 'capture') {
-    captureBaseline(cmdConfig, executionTimeoutMs, executionMaxBuffer, baselinePath, baselinePathRel);
+    captureBaseline(
+      cmdConfig,
+      executionTimeoutMs,
+      executionMaxBuffer,
+      baselinePath,
+      baselinePathRel,
+    );
     process.exit(0);
   }
 
   if (mode === 'check') {
-    checkBaseline(cmdConfig, executionTimeoutMs, executionMaxBuffer, baselinePath, baselinePathRel);
+    checkBaseline(
+      cmdConfig,
+      executionTimeoutMs,
+      executionMaxBuffer,
+      baselinePath,
+      baselinePathRel,
+    );
     process.exit(0);
   }
 }

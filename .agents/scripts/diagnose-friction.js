@@ -40,33 +40,43 @@ function parseArguments(args) {
 }
 
 function classifyFrictionCategory(errorOutput) {
-  if (errorOutput.includes('EADDRINUSE') || errorOutput.includes('address already in use')) {
+  if (
+    errorOutput.includes('EADDRINUSE') ||
+    errorOutput.includes('address already in use')
+  ) {
     return {
       category: 'Tool Limitation',
       remediation: ' - Port collision detected. Try: `npx kill-port <PORT>`.',
     };
   }
-  if (errorOutput.includes('Cannot find module') || errorOutput.includes('TS2307')) {
+  if (
+    errorOutput.includes('Cannot find module') ||
+    errorOutput.includes('TS2307')
+  ) {
     return {
       category: 'Missing Skill',
-      remediation: ' - Missing dependency or bad import path. Ensure you are in the correct workspace root and have run `npm install`.',
+      remediation:
+        ' - Missing dependency or bad import path. Ensure you are in the correct workspace root and have run `npm install`.',
     };
   }
   if (errorOutput.includes('SyntaxError')) {
     return {
       category: 'Execution Error',
-      remediation: ' - Syntax/parsing error. Check recently modified files for missing brackets, quotes, or invalid structures.',
+      remediation:
+        ' - Syntax/parsing error. Check recently modified files for missing brackets, quotes, or invalid structures.',
     };
   }
   if (errorOutput.includes('Astro') || errorOutput.includes('astro')) {
     return {
       category: 'Missing Skill',
-      remediation: ' - Framework error: Refer to `.agents/skills/stack/frontend/astro/SKILL.md` for Astro rules.',
+      remediation:
+        ' - Framework error: Refer to `.agents/skills/stack/frontend/astro/SKILL.md` for Astro rules.',
     };
   }
   return {
     category: 'Execution Error',
-    remediation: ' - Generic failure. Review stderr above, refine your approach, or check `.agents/instructions.md`.',
+    remediation:
+      ' - Generic failure. Review stderr above, refine your approach, or check `.agents/instructions.md`.',
   };
 }
 
@@ -80,13 +90,21 @@ async function resolveSprintId(provider, taskId, settings) {
         resolvedSprintId = epicMatch[1];
       }
     } catch (err) {
-      console.error(`⚠️ Failed to dynamically resolve Sprint ID: ${err.message}`);
+      console.error(
+        `⚠️ Failed to dynamically resolve Sprint ID: ${err.message}`,
+      );
     }
   }
   return resolvedSprintId;
 }
 
-function buildFrictionEvent(resolvedSprintId, taskId, category, commandStr, errorPreview) {
+function buildFrictionEvent(
+  resolvedSprintId,
+  taskId,
+  category,
+  commandStr,
+  errorPreview,
+) {
   return {
     eventId: crypto.randomUUID(),
     timestamp: new Date().toISOString(),
@@ -109,7 +127,9 @@ export async function main(args = process.argv.slice(2)) {
   const { taskId, cmdArgs } = parseArguments(args);
 
   if (cmdArgs.length === 0) {
-    Logger.fatal('Usage: node diagnose-friction.js [--task <TASK_ID>] --cmd <command with args...>');
+    Logger.fatal(
+      'Usage: node diagnose-friction.js [--task <TASK_ID>] --cmd <command with args...>',
+    );
   }
 
   const { settings } = resolveConfig();
@@ -133,7 +153,11 @@ export async function main(args = process.argv.slice(2)) {
   if (result.stderr) process.stderr.write(result.stderr);
 
   if (result.status !== 0) {
-    const errorOutput = (result.stderr || result.stdout || `Unknown exit code ${result.status}`).trim();
+    const errorOutput = (
+      result.stderr ||
+      result.stdout ||
+      `Unknown exit code ${result.status}`
+    ).trim();
     const errorPreview = errorOutput.substring(0, 500);
 
     console.error('\n--- 🛑 DIAGNOSTIC ANALYSIS Triggered ---');
@@ -143,16 +167,29 @@ export async function main(args = process.argv.slice(2)) {
 
     const provider = createProvider(resolveConfig().orchestration);
     const resolvedSprintId = await resolveSprintId(provider, taskId, settings);
-    
-    const frictionEvent = buildFrictionEvent(resolvedSprintId, taskId, category, commandStr, errorPreview);
+
+    const frictionEvent = buildFrictionEvent(
+      resolvedSprintId,
+      taskId,
+      category,
+      commandStr,
+      errorPreview,
+    );
 
     if (taskId) {
       try {
         const payloadString = `\`\`\`json\n${JSON.stringify(frictionEvent, null, 2)}\n\`\`\``;
-        await postStructuredComment(provider, parseInt(taskId, 10), 'friction', payloadString);
+        await postStructuredComment(
+          provider,
+          parseInt(taskId, 10),
+          'friction',
+          payloadString,
+        );
         console.error(`✅ Friction posted to Task #${taskId} on GitHub.`);
       } catch (err) {
-        console.error(`⚠️ Failed to post friction comment to Task #${taskId}: ${err.message}`);
+        console.error(
+          `⚠️ Failed to post friction comment to Task #${taskId}: ${err.message}`,
+        );
       }
     } else {
       console.error('ℹ️ No --task provided; skipping GitHub friction comment.');
