@@ -288,6 +288,7 @@ Notifications are dispatched through two channels:
 | `/sprint-code-review`             | Comprehensive code review                        |
 | `/sprint-retro`                   | Retrospective from ticket graph                  |
 | `/sprint-close`                   | Merge to main, tag release, close Epic           |
+| `/roadmap-sync`                   | Sync ROADMAP.md from GitHub Epics status         |
 | `/create-epic`                    | Create a well-structured Epic issue              |
 | `/bootstrap-agent-protocols`      | Initialize repo labels and project fields        |
 | `/delete-epic-branches [EPIC_ID]` | Hard reset: delete Epic branches                 |

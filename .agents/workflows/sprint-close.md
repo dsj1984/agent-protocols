@@ -85,6 +85,24 @@ git commit -m "docs: update [DOC_PATH] for Epic #[EPIC_ID]"
 > `.agentrc.json`. Common examples: `README.md`, `docs/CHANGELOG.md`,
 > `MIGRATION.md`, `API.md`.
 
+## Step 2.5 — Roadmap Sync
+
+Synchronize `ROADMAP.md` with the current state of all GitHub Epics. This
+ensures the roadmap reflects the Epic that is about to close as `✅ Completed`,
+along with accurate progress for any other open Epics.
+
+Run the `/roadmap-sync` workflow inline — execute Steps 0 through 3 of that
+workflow, but **skip Step 4 (Commit)**. The roadmap changes will be committed
+as part of the next documentation commit or the merge itself.
+
+```powershell
+git add [ROADMAP_PATH]
+```
+
+> **Config:** The roadmap output path is controlled by `roadmapPath` in
+> `.agentrc.json` (default: `docs/ROADMAP.md`). Epics labeled with any value
+> from `roadmap.excludeLabels` are omitted.
+
 ## Step 3 — Version Bump & Tag
 
 If `release.autoVersionBump` is `true` (default) **and** at least one of

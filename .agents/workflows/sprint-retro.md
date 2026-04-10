@@ -81,12 +81,9 @@ the following structure:
 
 ## Step 3 — Update Roadmap (If Applicable)
 
-If the Epic had a corresponding entry in `roadmap.md` (synced automatically from
-GitHub issues), the roadmap is read-only and will update itself via the
-automated GitHub sync workflow. Do **not** manually edit `roadmap.md`.
-
-If the project does not yet have automated roadmap sync, identify the Epic's
-roadmap entry and mark it as `✅ Implemented` in the local `roadmap.md`.
+The roadmap is automatically synced from GitHub Epics via the `/roadmap-sync`
+workflow. This runs as part of `/sprint-close` (Step 2.5), so no manual roadmap
+updates are needed during the retrospective.
 
 > **Note:** Do NOT add new protocol-related action items to the roadmap; these
 > belong in the retro document for later implementation in the `agent-protocols`

@@ -1,7 +1,7 @@
 # Agent Protocols 🤖
 
 A structured framework of instructions, personas, skills, and SDLC workflows
-that govern AI coding assistants. Version 5 is a **ground-up rewrite** built on
+that govern AI coding assistants. Version 5.2 is a **ground-up rewrite** built on
 **Epic-Centric GitHub Orchestration** — all planning, execution, and state
 management lives natively in GitHub Issues, Labels, and Projects V2.
 
@@ -51,6 +51,8 @@ graph LR
 - **Gate-Based Quality**: An automated audit orchestration pipeline selects and
   runs relevant audits at four sprint lifecycle gates, enforcing a
   maintainability ratchet that prevents code quality degradation.
+- **Autonomous Roadmaps**: Synchronize `ROADMAP.md` directly from GitHub Epics
+  using the `/roadmap-sync` workflow, featuring visual progress bars.
 
 ## Get Started
 
@@ -108,7 +110,8 @@ Create a GitHub Issue with the `type::epic` label, then run:
 /sprint-plan [EPIC_NUMBER]
 ```
 
-See [SDLC.md](.agents/SDLC.md) for the full end-to-end workflow.
+See [SDLC.md](.agents/SDLC.md) for the full end-to-end workflow and the
+[/roadmap-sync](.agents/workflows/roadmap-sync.md) guide for visualization.
 
 ---
 
@@ -117,7 +120,7 @@ See [SDLC.md](.agents/SDLC.md) for the full end-to-end workflow.
 ```text
 agent-protocols/
 ├── .agents/                  # Distributed bundle (the "product")
-│   ├── VERSION               # Current version (5.1.0)
+│   ├── VERSION               # Current version (5.2.0)
 │   ├── instructions.md       # Primary system prompt
 │   ├── SDLC.md               # End-to-end workflow guide
 │   ├── README.md             # Detailed consumer reference

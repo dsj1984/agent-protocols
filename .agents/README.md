@@ -7,7 +7,7 @@ framework via the `.agents/` Git submodule.
 
 ```text
 .agents/
-├── VERSION                  # Current version (5.1.0)
+├── VERSION                  # Current version (5.2.0)
 ├── SDLC.md                  # End-to-end workflow guide
 ├── instructions.md          # MANDATORY: Primary system prompt
 ├── default-agentrc.json     # Copy to project root as .agentrc.json
@@ -202,7 +202,7 @@ The MCP server resolves secrets in this priority:
 If the server is configured but not appearing:
 
 - Check the **stderr** logs in your MCP host.
-- Success message: `[MCP] agent-protocols v5.1.0 server started`
+- Success message: `[MCP] agent-protocols v5.2.0 server started`
 - Failures: Initialization errors (missing dependencies, path issues) are logged before the server exits with code 1.
 
 ---
@@ -348,6 +348,7 @@ repository maintenance.
 | `bootstrap-agent-protocols.md` | `/bootstrap-agent-protocols` | Initialize repo labels and project fields |
 | `create-epic.md`               | `/create-epic`               | Create a well-structured Epic issue       |
 | `git-commit-all.md`            | `/git-commit-all`            | Stage and commit all changes              |
+| `roadmap-sync.md`             | `/roadmap-sync`              | Sync ROADMAP.md from GitHub Epics         |
 | `delete-epic-branches.md`      | `/delete-epic-branches`      | Hard reset: delete Epic branches          |
 | `delete-epic-tickets.md`       | `/delete-epic-tickets`       | Hard reset: clear Epic child issues       |
 | `run-red-team.md`              | `/run-red-team`              | Adversarial security testing              |
