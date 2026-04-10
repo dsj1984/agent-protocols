@@ -7,7 +7,7 @@ framework via the `.agents/` Git submodule.
 
 ```text
 .agents/
-├── VERSION                  # Current version (5.2.0)
+├── VERSION                  # Current version (5.2.1)
 ├── SDLC.md                  # End-to-end workflow guide
 ├── instructions.md          # MANDATORY: Primary system prompt
 ├── default-agentrc.json     # Copy to project root as .agentrc.json
@@ -207,7 +207,7 @@ The MCP server resolves secrets in this priority:
 If the server is configured but not appearing:
 
 - Check the **stderr** logs in your MCP host.
-- Success message: `[MCP] agent-protocols v5.2.0 server started`
+- Success message: `[MCP] agent-protocols v5.2.1 server started`
 - Failures: Initialization errors (missing dependencies, path issues) are logged before the server exits with code 1.
 
 ---
@@ -448,6 +448,7 @@ Add the following block to your `.agentrc.json`:
       "owner": "your-org",
       "repo": "your-repo",
       "projectNumber": null,
+      "projectOwner": null,
       "operatorHandle": "@your-username"
     },
     "notifications": {
@@ -464,6 +465,7 @@ Add the following block to your `.agentrc.json`:
 | `github.owner`                  | Yes      | GitHub repository owner (user or org)                   |
 | `github.repo`                   | Yes      | GitHub repository name                                  |
 | `github.projectNumber`          | No       | GitHub Projects V2 number (for custom fields)           |
+| `github.projectOwner`           | No       | Owner of the project board (defaults to `github.owner`) |
 | `github.operatorHandle`         | No       | GitHub @mention handle for notifications                |
 | `notifications.mentionOperator` | No       | Whether to @mention the operator in comments            |
 | `notifications.webhookUrl`      | No       | Webhook URL for external notification delivery          |
