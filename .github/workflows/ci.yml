@@ -16,9 +16,6 @@ concurrency:
 jobs:
   validate:
     name: Validate and Test
-    strategy:
-      matrix:
-        node-version: [20, 22]
     runs-on: ubuntu-latest
     permissions:
       contents: read
@@ -31,7 +28,7 @@ jobs:
       - name: Setup Node.js
         uses: actions/setup-node@v4
         with:
-          node-version: ${{ matrix.node-version }}
+          node-version: 22
           cache: 'npm'
 
       - name: Install Dependencies
@@ -60,7 +57,7 @@ jobs:
         uses: actions/upload-artifact@v4
         if: always()
         with:
-          name: test-results-node-${{ matrix.node-version }}
+          name: test-results-node-22
           path: test-output.txt
 
   e2e:
