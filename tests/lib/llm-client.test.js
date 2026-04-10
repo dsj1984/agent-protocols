@@ -35,14 +35,23 @@ test('LLMClient: generateText (Gemini mock)', async () => {
   };
 
   try {
-    const result = await client.generateText('system prompt text', 'user message text');
+    const result = await client.generateText(
+      'system prompt text',
+      'user message text',
+    );
     assert.strictEqual(result, 'Gemini Response');
     assert.ok(requestedUrl.includes('gemini'));
-    assert.strictEqual(requestOptions.headers['Content-Type'], 'application/json');
+    assert.strictEqual(
+      requestOptions.headers['Content-Type'],
+      'application/json',
+    );
     assert.strictEqual(requestOptions.headers['x-goog-api-key'], 'mock-key');
 
     const body = JSON.parse(requestOptions.body);
-    assert.strictEqual(body.systemInstruction.parts[0].text, 'system prompt text');
+    assert.strictEqual(
+      body.systemInstruction.parts[0].text,
+      'system prompt text',
+    );
     assert.strictEqual(body.contents[0].role, 'user');
     assert.strictEqual(body.contents[0].parts[0].text, 'user message text');
     assert.strictEqual(body.generationConfig.maxOutputTokens, 8192);
@@ -114,7 +123,10 @@ test('LLMClient: generateText (Anthropic mock)', async () => {
     assert.strictEqual(result, 'Anthropic Response');
     assert.ok(requestedUrl.includes('anthropic'));
     assert.strictEqual(requestOptions.headers['x-api-key'], 'mock-key');
-    assert.strictEqual(requestOptions.headers['anthropic-version'], '2023-06-01');
+    assert.strictEqual(
+      requestOptions.headers['anthropic-version'],
+      '2023-06-01',
+    );
 
     const body = JSON.parse(requestOptions.body);
     assert.strictEqual(body.model, 'claude-3-7-sonnet-20250219');
@@ -151,7 +163,7 @@ test('LLMClient: generateText (OpenAI mock)', async () => {
     const result = await client.generateText('system prompt', 'user prompt');
     assert.strictEqual(result, 'OpenAI Response');
     assert.ok(requestedUrl.includes('openai'));
-    assert.strictEqual(requestOptions.headers['Authorization'], 'Bearer mock-key');
+    assert.strictEqual(requestOptions.headers.Authorization, 'Bearer mock-key');
 
     const body = JSON.parse(requestOptions.body);
     assert.strictEqual(body.model, 'gpt-4o');
