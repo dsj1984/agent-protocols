@@ -28,6 +28,10 @@ export const ORCHESTRATION_SCHEMA = {
           type: ['integer', 'null'],
           minimum: 1,
         },
+        projectOwner: {
+          type: ['string', 'null'],
+          minLength: 1,
+        },
         operatorHandle: {
           type: 'string',
           pattern: '^@.+',

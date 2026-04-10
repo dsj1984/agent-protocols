@@ -2,6 +2,13 @@
 
 All notable changes to this project will be documented in this file.
 
+## [5.2.1] - 2026-04-10
+
+### 🚀 Orchestration Enhancements
+
+*   **Cross-Owner Project Support:** Introduced the optional `projectOwner` configuration field for GitHub orchestration. This allows repository issues and PRs to be managed on a Project V2 board owned by a different organization or user, decoupling the repository owner from the project board host.
+*   **Default-to-Owner Logic:** Implemented fallback logic in the `GitHubProvider` where `projectOwner` defaults to the repository `owner` if omitted, ensuring full backward compatibility for existing single-owner configurations.
+
 ## [5.2.0] - 2026-04-10
 
 ### 🛡️ Quality Hardening

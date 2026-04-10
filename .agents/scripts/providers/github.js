@@ -82,6 +82,7 @@ export class GitHubProvider extends ITicketingProvider {
     this.owner = config.owner;
     this.repo = config.repo;
     this.projectNumber = config.projectNumber ?? null;
+    this.projectOwner = config.projectOwner ?? config.owner;
     this.operatorHandle = config.operatorHandle ?? null;
     this._token = opts.token ?? null;
   }
@@ -626,7 +627,7 @@ export class GitHubProvider extends ITicketingProvider {
             projectV2(number: $number) { id }
           }
         }`,
-        { owner: this.owner, number: this.projectNumber },
+        { owner: this.projectOwner, number: this.projectNumber },
       );
       this._projectId = userData.user?.projectV2?.id;
     } catch {
@@ -638,7 +639,7 @@ export class GitHubProvider extends ITicketingProvider {
               projectV2(number: $number) { id }
             }
           }`,
-          { owner: this.owner, number: this.projectNumber },
+          { owner: this.projectOwner, number: this.projectNumber },
         );
         this._projectId = orgData.organization?.projectV2?.id;
       } catch {
@@ -811,7 +812,7 @@ export class GitHubProvider extends ITicketingProvider {
         }
       }
     `,
-      { owner: this.owner, number: this.projectNumber },
+      { owner: this.projectOwner, number: this.projectNumber },
     );
 
     // Try organization if user lookup fails
@@ -834,14 +835,14 @@ export class GitHubProvider extends ITicketingProvider {
           }
         }
       `,
-        { owner: this.owner, number: this.projectNumber },
+        { owner: this.projectOwner, number: this.projectNumber },
       );
       project = orgData.organization?.projectV2;
     }
 
     if (!project) {
       throw new Error(
-        `[GitHubProvider] Project #${this.projectNumber} not found for ${this.owner}.`,
+        `[GitHubProvider] Project #${this.projectNumber} not found for ${this.projectOwner}.`,
       );
     }
 

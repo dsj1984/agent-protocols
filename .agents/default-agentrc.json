@@ -240,6 +240,7 @@
       "owner": "[OWNER]",
       "repo": "[REPO]",
       "projectNumber": null,
+      "projectOwner": null,
       "operatorHandle": "@[USERNAME]"
     },
     "notifications": {
