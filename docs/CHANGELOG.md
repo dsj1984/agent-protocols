@@ -2,6 +2,12 @@
 
 All notable changes to this project will be documented in this file.
 
+## [5.2.2] - 2026-04-10
+
+### 🐛 Bug Fixes
+
+*   **GitHub Provider Fix:** Corrected a bug in the `ensureProjectFields` method implementation in the GitHub configuration layer. Fixed the signature to cleanly expect `fieldDefs` (resolving an unused `_ticketId` parameter issue), which fixes a referential error in loops accessing the project fields array during agent-protocol bootstrap execution.
+
 ## [5.2.1] - 2026-04-10
 
 ### 🚀 Orchestration Enhancements

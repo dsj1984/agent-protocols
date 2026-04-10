@@ -789,7 +789,7 @@ export class GitHubProvider extends ITicketingProvider {
 
   /* node:coverage ignore next */
   /* node:coverage ignore next */
-  async ensureProjectFields(_ticketId, _fields) {
+  async ensureProjectFields(fieldDefs) {
     if (!this.projectNumber) {
       return { created: [], skipped: [] };
     }
