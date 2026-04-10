@@ -30,7 +30,8 @@
 
 import path from 'node:path';
 import { fileURLToPath } from 'node:url';
-
+import { generateAndSaveManifest } from './dispatcher.js';
+import { updateHealthMetrics } from './health-monitor.js';
 import { parseSprintArgs } from './lib/cli-args.js';
 import { PROJECT_ROOT, resolveConfig } from './lib/config-resolver.js';
 import {
@@ -46,8 +47,6 @@ import {
   transitionTicketState,
 } from './lib/orchestration/ticketing.js';
 import { createProvider } from './lib/provider-factory.js';
-import { updateHealthMetrics } from './health-monitor.js';
-import { generateAndSaveManifest } from './dispatcher.js';
 
 // ---------------------------------------------------------------------------
 // Helpers
@@ -130,7 +129,7 @@ async function ticketClosureCascade(provider, tasks, storyId) {
 // CLI argument parsing
 // ---------------------------------------------------------------------------
 
-async function handleHighRiskGate(provider, storyBranch, storyId, epicId) {
+async function handleHighRiskGate(provider, storyBranch, storyId, _epicId) {
   progress('RISK', '⚠️ Story is risk::high — creating PR instead of auto-merge');
   let prUrl = null;
   try {

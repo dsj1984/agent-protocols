@@ -1,9 +1,9 @@
-import test from 'node:test';
 import assert from 'node:assert/strict';
-import { runStoryInit } from '../.agents/scripts/sprint-story-init.js';
-import { runStoryClose } from '../.agents/scripts/sprint-story-close.js';
-import { MockProvider } from './fixtures/mock-provider.js';
+import test from 'node:test';
 import { __setGitRunners } from '../.agents/scripts/lib/git-utils.js';
+import { runStoryClose } from '../.agents/scripts/sprint-story-close.js';
+import { runStoryInit } from '../.agents/scripts/sprint-story-init.js';
+import { MockProvider } from './fixtures/mock-provider.js';
 
 const gitHistory = [];
 let currentBranch = 'main';

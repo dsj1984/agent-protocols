@@ -2,8 +2,8 @@
  * lib/orchestration/reconciler.js — Ticket Hierarchy Reconciliation
  */
 
-import { VerboseLogger } from '../VerboseLogger.js';
 import { PROJECT_ROOT, resolveConfig } from '../config-resolver.js';
+import { VerboseLogger } from '../VerboseLogger.js';
 import { parseParentId } from './story-grouper.js';
 import { STATE_LABELS } from './ticketing.js';
 

@@ -603,7 +603,10 @@ describe('GitHubProvider — error handling', () => {
 
   it('supports graphql queries', async () => {
     const fetchMock = createRouteMock({
-      'POST /graphql': { status: 200, json: { data: { viewer: { login: 'tester' } } } },
+      'POST /graphql': {
+        status: 200,
+        json: { data: { viewer: { login: 'tester' } } },
+      },
     });
     global.fetch = fetchMock;
     const provider = createTestProvider();

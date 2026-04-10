@@ -101,7 +101,7 @@ export class MockProvider extends ITicketingProvider {
     this.fieldsEnsured.push(...fields);
   }
 
-  async graphql(query, variables) {
+  async graphql(_query, _variables) {
     // Basic mock for GraphQL if needed
     return {};
   }

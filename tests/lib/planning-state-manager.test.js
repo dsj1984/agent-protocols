@@ -1,5 +1,5 @@
-import { describe, it } from 'node:test';
 import assert from 'node:assert/strict';
+import { describe, it } from 'node:test';
 import { PlanningStateManager } from '../../.agents/scripts/lib/orchestration/planning-state-manager.js';
 import { MockProvider } from '../fixtures/mock-provider.js';
 
@@ -122,7 +122,12 @@ describe('PlanningStateManager', () => {
   it('idempotently appends Planning Artifacts section to body', async () => {
     const provider = new MockProvider({
       tickets: {
-        10: { id: 10, title: 'Epic', body: 'Base body', labels: ['type::epic'] },
+        10: {
+          id: 10,
+          title: 'Epic',
+          body: 'Base body',
+          labels: ['type::epic'],
+        },
       },
     });
 

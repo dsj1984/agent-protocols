@@ -1,5 +1,5 @@
-import { describe, it } from 'node:test';
 import assert from 'node:assert/strict';
+import { describe, it } from 'node:test';
 import { fetchTelemetry } from '../../.agents/scripts/lib/orchestration/telemetry.js';
 import { MockProvider } from '../fixtures/mock-provider.js';
 
@@ -27,7 +27,10 @@ describe('telemetry', () => {
   it('limits recentFriction to 5 entries', async () => {
     const provider = new MockProvider();
     for (let i = 0; i < 10; i++) {
-        provider.comments.push({ id: 200, payload: { body: '[FRICTION] Error ' + i } });
+      provider.comments.push({
+        id: 200,
+        payload: { body: `[FRICTION] Error ${i}` },
+      });
     }
 
     const tasks = [{ id: 200 }];
@@ -39,7 +42,9 @@ describe('telemetry', () => {
 
   it('swallows errors if provider.getRecentComments fails', async () => {
     const provider = {
-      getRecentComments: () => { throw new Error('API Down'); }
+      getRecentComments: () => {
+        throw new Error('API Down');
+      },
     };
 
     const result = await fetchTelemetry(provider, [{ id: 1 }]);
@@ -50,7 +55,9 @@ describe('telemetry', () => {
   it('truncates long friction messages', async () => {
     const provider = new MockProvider();
     const longMsg = 'A'.repeat(200);
-    provider.comments = [{ id: 101, payload: { body: '[FRICTION] ' + longMsg } }];
+    provider.comments = [
+      { id: 101, payload: { body: `[FRICTION] ${longMsg}` } },
+    ];
 
     const tasks = [{ id: 101 }];
     const result = await fetchTelemetry(provider, tasks);

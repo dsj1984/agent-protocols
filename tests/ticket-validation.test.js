@@ -1,5 +1,5 @@
-import test from 'node:test';
 import assert from 'node:assert/strict';
+import test from 'node:test';
 import { validateAndNormalizeTickets } from '../.agents/scripts/lib/orchestration/ticket-validator.js';
 
 test('ticket-validator: basic valid hierarchy', () => {
@@ -126,58 +126,95 @@ test('ticket-validator: detects cycles', () => {
 });
 
 test('ticket-validator: fails on missing Feature', () => {
-    assert.throws(
-        () => validateAndNormalizeTickets([{ slug: 'S1', type: 'story' }]),
-        /must contain at least one Feature/
-    );
+  assert.throws(
+    () => validateAndNormalizeTickets([{ slug: 'S1', type: 'story' }]),
+    /must contain at least one Feature/,
+  );
 });
 
 test('ticket-validator: fails on missing Task', () => {
-    assert.throws(
-        () => validateAndNormalizeTickets([
-            { slug: 'F1', type: 'feature' },
-            { slug: 'S1', type: 'story', parent_slug: 'F1', labels: ['complexity::fast'] }
-        ]),
-        /must contain at least one Task/
-    );
+  assert.throws(
+    () =>
+      validateAndNormalizeTickets([
+        { slug: 'F1', type: 'feature' },
+        {
+          slug: 'S1',
+          type: 'story',
+          parent_slug: 'F1',
+          labels: ['complexity::fast'],
+        },
+      ]),
+    /must contain at least one Task/,
+  );
 });
 
 test('ticket-validator: fails if story parent is not a feature', () => {
-    const tickets = [
-        { slug: 'F1', type: 'feature' },
-        { slug: 'T0', type: 'task' },
-        { slug: 'S1', type: 'story', parent_slug: 'T0', labels: ['complexity::fast'] },
-        { slug: 'T1', type: 'task', parent_slug: 'S1' }
-    ];
-    assert.throws(() => validateAndNormalizeTickets(tickets), /parent must be a Feature/);
+  const tickets = [
+    { slug: 'F1', type: 'feature' },
+    { slug: 'T0', type: 'task' },
+    {
+      slug: 'S1',
+      type: 'story',
+      parent_slug: 'T0',
+      labels: ['complexity::fast'],
+    },
+    { slug: 'T1', type: 'task', parent_slug: 'S1' },
+  ];
+  assert.throws(
+    () => validateAndNormalizeTickets(tickets),
+    /parent must be a Feature/,
+  );
 });
 
 test('ticket-validator: fails if task parent is not a story', () => {
-    const tickets = [
-        { slug: 'F1', type: 'feature' },
-        { slug: 'S1', type: 'story', parent_slug: 'F1', labels: ['complexity::fast'] },
-        { slug: 'T1', type: 'task', parent_slug: 'F1' }
-    ];
-    assert.throws(() => validateAndNormalizeTickets(tickets), /parent must be a Story/);
+  const tickets = [
+    { slug: 'F1', type: 'feature' },
+    {
+      slug: 'S1',
+      type: 'story',
+      parent_slug: 'F1',
+      labels: ['complexity::fast'],
+    },
+    { slug: 'T1', type: 'task', parent_slug: 'F1' },
+  ];
+  assert.throws(
+    () => validateAndNormalizeTickets(tickets),
+    /parent must be a Story/,
+  );
 });
 
 test('ticket-validator: keeps unknown dependency slugs for downstream handling', () => {
-    const tickets = [
-        { slug: 'F1', type: 'feature' },
-        { slug: 'S1', type: 'story', parent_slug: 'F1', labels: ['complexity::fast'] },
-        { slug: 'T1', type: 'task', parent_slug: 'S1', depends_on: ['MISSING'] }
-    ];
-    const result = validateAndNormalizeTickets(tickets);
-    assert.ok(result.find(t => t.slug === 'T1').depends_on.includes('MISSING'));
+  const tickets = [
+    { slug: 'F1', type: 'feature' },
+    {
+      slug: 'S1',
+      type: 'story',
+      parent_slug: 'F1',
+      labels: ['complexity::fast'],
+    },
+    { slug: 'T1', type: 'task', parent_slug: 'S1', depends_on: ['MISSING'] },
+  ];
+  const result = validateAndNormalizeTickets(tickets);
+  assert.ok(result.find((t) => t.slug === 'T1').depends_on.includes('MISSING'));
 });
 
 test('ticket-validator: keeps cross-story deps on non-task tickets', () => {
-    const tickets = [
-        { slug: 'F1', type: 'feature' },
-        { slug: 'S1', type: 'story', parent_slug: 'F1', labels: ['complexity::fast'] },
-        { slug: 'S2', type: 'story', parent_slug: 'F1', labels: ['complexity::fast'] },
-        { slug: 'T1', type: 'task', parent_slug: 'S1', depends_on: ['S2'] }
-    ];
-    const result = validateAndNormalizeTickets(tickets);
-    assert.ok(result.find(t => t.slug === 'T1').depends_on.includes('S2'));
+  const tickets = [
+    { slug: 'F1', type: 'feature' },
+    {
+      slug: 'S1',
+      type: 'story',
+      parent_slug: 'F1',
+      labels: ['complexity::fast'],
+    },
+    {
+      slug: 'S2',
+      type: 'story',
+      parent_slug: 'F1',
+      labels: ['complexity::fast'],
+    },
+    { slug: 'T1', type: 'task', parent_slug: 'S1', depends_on: ['S2'] },
+  ];
+  const result = validateAndNormalizeTickets(tickets);
+  assert.ok(result.find((t) => t.slug === 'T1').depends_on.includes('S2'));
 });

@@ -1,15 +1,15 @@
-import test from 'node:test';
 import assert from 'node:assert/strict';
-import { selectAudits } from '../.agents/scripts/mcp/select-audits.js';
-import { runAuditSuite } from '../.agents/scripts/mcp/run-audit-suite.js';
-import { MockProvider } from './fixtures/mock-provider.js';
-import { __setGitRunners } from '../.agents/scripts/lib/git-utils.js';
 import fs from 'node:fs/promises';
 import path from 'node:path';
+import test from 'node:test';
 import {
   PROJECT_ROOT,
   resolveConfig,
 } from '../.agents/scripts/lib/config-resolver.js';
+import { __setGitRunners } from '../.agents/scripts/lib/git-utils.js';
+import { runAuditSuite } from '../.agents/scripts/mcp/run-audit-suite.js';
+import { selectAudits } from '../.agents/scripts/mcp/select-audits.js';
+import { MockProvider } from './fixtures/mock-provider.js';
 
 test('selectAudits: filters based on keywords and gate', async () => {
   const provider = new MockProvider({

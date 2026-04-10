@@ -1,7 +1,7 @@
-import { test } from 'node:test';
 import assert from 'node:assert';
 import { spawnSync } from 'node:child_process';
 import path from 'node:path';
+import { test } from 'node:test';
 
 const SCRIPT_PATH = path.resolve('.agents/scripts/sprint-story-init.js');
 

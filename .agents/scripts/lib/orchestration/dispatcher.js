@@ -16,6 +16,7 @@
 import { execFileSync } from 'node:child_process';
 import fs from 'node:fs';
 import path from 'node:path';
+import { notify } from '../../notify.js';
 import { createAdapter } from '../adapter-factory.js';
 import { PROJECT_ROOT, resolveConfig } from '../config-resolver.js';
 import { isSafeBranchComponent } from '../dependency-parser.js';
@@ -28,10 +29,8 @@ import { autoSerializeOverlaps } from './dependency-analyzer.js';
 import { buildManifest, getResolvedBranch } from './manifest-builder.js';
 import { resolveModel } from './model-resolver.js';
 import { reconcileClosedTasks, reconcileHierarchy } from './reconciler.js';
-import { parseTasks } from './task-fetcher.js';
 import { executeStory } from './story-executor.js';
-
-import { notify } from '../../notify.js';
+import { parseTasks } from './task-fetcher.js';
 import { fetchTelemetry } from './telemetry.js';
 import { STATE_LABELS } from './ticketing.js';
 

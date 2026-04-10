@@ -137,7 +137,7 @@ describe('notify script', () => {
   it('includes X-Signature-256 header when WEBHOOK_SECRET is provided', async () => {
     const originalSecret = process.env.WEBHOOK_SECRET;
     process.env.WEBHOOK_SECRET = 'shhh-secret';
-    
+
     try {
       await notify(
         128,

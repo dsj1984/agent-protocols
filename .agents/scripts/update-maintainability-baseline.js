@@ -1,9 +1,9 @@
+import { resolveConfig } from './lib/config-resolver.js';
 import {
   calculateAll,
   saveBaseline,
   scanDirectory,
 } from './lib/maintainability-utils.js';
-import { resolveConfig } from './lib/config-resolver.js';
 
 /**
  * Script to update the maintainability baseline file.

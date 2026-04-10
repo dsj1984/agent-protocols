@@ -1,7 +1,7 @@
 import fs from 'node:fs/promises';
 import path from 'node:path';
-import { gitSpawn } from '../lib/git-utils.js';
 import { PROJECT_ROOT, resolveConfig } from '../lib/config-resolver.js';
+import { gitSpawn } from '../lib/git-utils.js';
 
 /**
  * Filter audits based on logic in audit-rules.json

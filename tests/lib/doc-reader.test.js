@@ -1,59 +1,59 @@
-import { describe, it, beforeEach, afterEach } from 'node:test';
 import assert from 'node:assert/strict';
 import fs from 'node:fs';
-import path from 'node:path';
 import os from 'node:os';
+import path from 'node:path';
+import { afterEach, beforeEach, describe, it } from 'node:test';
 import { scrapeProjectDocs } from '../../.agents/scripts/lib/orchestration/doc-reader.js';
 
 describe('doc-reader', () => {
-    let tmpDocsDir;
+  let tmpDocsDir;
 
-    beforeEach(() => {
-        tmpDocsDir = path.join(os.tmpdir(), `agent-protocols-docs-${Date.now()}`);
-        fs.mkdirSync(tmpDocsDir, { recursive: true });
+  beforeEach(() => {
+    tmpDocsDir = path.join(os.tmpdir(), `agent-protocols-docs-${Date.now()}`);
+    fs.mkdirSync(tmpDocsDir, { recursive: true });
+  });
+
+  afterEach(() => {
+    if (fs.existsSync(tmpDocsDir)) {
+      fs.rmSync(tmpDocsDir, { recursive: true, force: true });
+    }
+  });
+
+  it('scrapes all .md files by default', () => {
+    fs.writeFileSync(path.join(tmpDocsDir, 'doc1.md'), 'Content 1');
+    fs.writeFileSync(path.join(tmpDocsDir, 'doc2.md'), 'Content 2');
+    fs.writeFileSync(path.join(tmpDocsDir, 'not-a-doc.txt'), 'Text');
+
+    const result = scrapeProjectDocs({ docsRoot: tmpDocsDir });
+
+    assert.ok(result.includes('--- Document: doc1.md ---'));
+    assert.ok(result.includes('Content 1'));
+    assert.ok(result.includes('--- Document: doc2.md ---'));
+    assert.ok(result.includes('Content 2'));
+    assert.ok(!result.includes('not-a-doc.txt'));
+  });
+
+  it('filters by docsContextFiles if provided', () => {
+    fs.writeFileSync(path.join(tmpDocsDir, 'doc1.md'), 'Content 1');
+    fs.writeFileSync(path.join(tmpDocsDir, 'doc2.md'), 'Content 2');
+
+    const result = scrapeProjectDocs({
+      docsRoot: tmpDocsDir,
+      docsContextFiles: ['doc2.md'],
     });
 
-    afterEach(() => {
-        if (fs.existsSync(tmpDocsDir)) {
-            fs.rmSync(tmpDocsDir, { recursive: true, force: true });
-        }
-    });
+    assert.ok(result.includes('doc2.md'));
+    assert.ok(!result.includes('doc1.md'));
+  });
 
-    it('scrapes all .md files by default', () => {
-        fs.writeFileSync(path.join(tmpDocsDir, 'doc1.md'), 'Content 1');
-        fs.writeFileSync(path.join(tmpDocsDir, 'doc2.md'), 'Content 2');
-        fs.writeFileSync(path.join(tmpDocsDir, 'not-a-doc.txt'), 'Text');
+  it('returns empty string if docsRoot does not exist', () => {
+    const result = scrapeProjectDocs({ docsRoot: '/non/existent/path' });
+    assert.strictEqual(result, '');
+  });
 
-        const result = scrapeProjectDocs({ docsRoot: tmpDocsDir });
-
-        assert.ok(result.includes('--- Document: doc1.md ---'));
-        assert.ok(result.includes('Content 1'));
-        assert.ok(result.includes('--- Document: doc2.md ---'));
-        assert.ok(result.includes('Content 2'));
-        assert.ok(!result.includes('not-a-doc.txt'));
-    });
-
-    it('filters by docsContextFiles if provided', () => {
-        fs.writeFileSync(path.join(tmpDocsDir, 'doc1.md'), 'Content 1');
-        fs.writeFileSync(path.join(tmpDocsDir, 'doc2.md'), 'Content 2');
-
-        const result = scrapeProjectDocs({
-            docsRoot: tmpDocsDir,
-            docsContextFiles: ['doc2.md']
-        });
-
-        assert.ok(result.includes('doc2.md'));
-        assert.ok(!result.includes('doc1.md'));
-    });
-
-    it('returns empty string if docsRoot does not exist', () => {
-        const result = scrapeProjectDocs({ docsRoot: '/non/existent/path' });
-        assert.strictEqual(result, '');
-    });
-
-    it('handles read errors gracefully', () => {
-        const result = scrapeProjectDocs({ docsRoot: tmpDocsDir });
-        // Should not throw even if empty
-        assert.strictEqual(result, '');
-    });
+  it('handles read errors gracefully', () => {
+    const result = scrapeProjectDocs({ docsRoot: tmpDocsDir });
+    // Should not throw even if empty
+    assert.strictEqual(result, '');
+  });
 });

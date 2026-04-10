@@ -1,8 +1,8 @@
-import { describe, it, beforeEach, afterEach } from 'node:test';
 import assert from 'node:assert/strict';
 import fs from 'node:fs';
-import path from 'node:path';
 import os from 'node:os';
+import path from 'node:path';
+import { afterEach, beforeEach, describe, it } from 'node:test';
 import { loadEnv } from '../../.agents/scripts/lib/env-loader.js';
 
 describe('loadEnv', () => {

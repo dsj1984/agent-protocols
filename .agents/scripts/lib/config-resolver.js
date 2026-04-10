@@ -13,12 +13,11 @@
 import fs from 'node:fs';
 import path from 'node:path';
 import { fileURLToPath } from 'node:url';
-
-import { loadEnv } from './env-loader.js';
 import {
   getOrchestrationValidator,
   getSettingsValidator,
 } from './config-schema.js';
+import { loadEnv } from './env-loader.js';
 
 const __dirname = path.dirname(fileURLToPath(import.meta.url));
 // scripts/lib/ → scripts/ → .agents/ → project root

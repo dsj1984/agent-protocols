@@ -18,9 +18,9 @@
 import fs from 'node:fs';
 import path from 'node:path';
 import { fileURLToPath } from 'node:url';
-import { createProvider } from './lib/provider-factory.js';
 import { Logger } from './lib/Logger.js';
 import { LABEL_TAXONOMY, PROJECT_FIELD_DEFS } from './lib/label-taxonomy.js';
+import { createProvider } from './lib/provider-factory.js';
 
 const PROJECT_ROOT = process.cwd();
 

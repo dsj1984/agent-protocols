@@ -1,9 +1,9 @@
 import crypto from 'node:crypto';
 import fs from 'node:fs';
 import path from 'node:path';
+import { resolveConfig } from './config-resolver.js';
 import { gitSync } from './git-utils.js';
 import { Logger } from './Logger.js';
-import { resolveConfig } from './config-resolver.js';
 
 export class GithubRefinementService {
   /**
@@ -42,13 +42,13 @@ export class GithubRefinementService {
     const allowedDirs = [
       this.settings.personasRoot.endsWith('/')
         ? this.settings.personasRoot
-        : this.settings.personasRoot + '/',
+        : `${this.settings.personasRoot}/`,
       this.settings.rulesRoot.endsWith('/')
         ? this.settings.rulesRoot
-        : this.settings.rulesRoot + '/',
+        : `${this.settings.rulesRoot}/`,
       this.settings.skillsRoot.endsWith('/')
         ? this.settings.skillsRoot
-        : this.settings.skillsRoot + '/',
+        : `${this.settings.skillsRoot}/`,
     ];
     const unixPath = protocolFile.replace(/\\/g, '/');
     const isAllowed = allowedDirs.some((dir) => unixPath.startsWith(dir));

@@ -1,5 +1,5 @@
-import { describe, it } from 'node:test';
 import assert from 'node:assert/strict';
+import { describe, it } from 'node:test';
 import { executeStory } from '../../.agents/scripts/lib/orchestration/story-executor.js';
 import { MockProvider } from '../fixtures/mock-provider.js';
 
@@ -31,7 +31,7 @@ describe('executeStory', () => {
       },
     });
     // getTickets with epicId returns tasks with type::task
-    provider.getTickets = async (epicId, opts) => {
+    provider.getTickets = async (_epicId, _opts) => {
       return Object.values(provider.tickets).filter((t) =>
         t.labels.includes('type::task'),
       );

@@ -1,5 +1,5 @@
-import { test } from 'node:test';
 import assert from 'node:assert';
+import { test } from 'node:test';
 import {
   renderManifestMarkdown,
   renderStoryManifestMarkdown,
@@ -323,7 +323,12 @@ test('renderStoryManifestMarkdown', async (t) => {
           storyTitle: 'Test Story',
           branchName: 'story-43',
           tasks: [
-            { taskId: 431, title: 'Subtask 1', status: 'agent::ready', dependencies: [99] }
+            {
+              taskId: 431,
+              title: 'Subtask 1',
+              status: 'agent::ready',
+              dependencies: [99],
+            },
           ],
         },
       ],
@@ -334,9 +339,9 @@ test('renderStoryManifestMarkdown', async (t) => {
   });
 });
 
-import { persistManifest } from '../.agents/scripts/lib/presentation/manifest-renderer.js';
 import fs from 'node:fs';
 import path from 'node:path';
+import { persistManifest } from '../.agents/scripts/lib/presentation/manifest-renderer.js';
 
 test('persistManifest', async (t) => {
   const tempDir = path.join(process.cwd(), 'temp');
@@ -350,13 +355,13 @@ test('persistManifest', async (t) => {
       generatedAt: new Date().toISOString(),
       summary: {},
       storyManifest: [],
-      waves: []
+      waves: [],
     };
-    
+
     persistManifest(manifest);
     assert.ok(fs.existsSync(path.join(tempDir, 'dispatch-manifest-999.json')));
     assert.ok(fs.existsSync(path.join(tempDir, 'dispatch-manifest-999.md')));
-    
+
     fs.rmSync(path.join(tempDir, 'dispatch-manifest-999.json'));
     fs.rmSync(path.join(tempDir, 'dispatch-manifest-999.md'));
   });
@@ -365,9 +370,9 @@ test('persistManifest', async (t) => {
     const manifest = {
       type: 'story-execution',
       stories: [{ storyId: 888 }],
-      generatedAt: new Date().toISOString()
+      generatedAt: new Date().toISOString(),
     };
-    
+
     persistManifest(manifest);
     // Find files starting with story-manifest-888 in any plausible temp dir
     const possibleDirs = [tempDir, path.join(process.cwd(), 'temp')];

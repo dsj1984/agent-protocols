@@ -1,5 +1,5 @@
 import { buildGraph, detectCycle, topologicalSort } from '../Graph.js';
-import { getStoryBranch, getEpicBranch } from '../git-utils.js';
+import { getEpicBranch, getStoryBranch } from '../git-utils.js';
 import { resolveModelTier } from './model-resolver.js';
 import { fetchTasks } from './task-fetcher.js';
 

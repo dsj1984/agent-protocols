@@ -15,15 +15,15 @@
  *   node .agents/scripts/sprint-code-review.js --epic <EPIC_ID>
  */
 
-import { parseArgs } from 'node:util';
 import path from 'node:path';
+import { fileURLToPath } from 'node:url';
+import { parseArgs } from 'node:util';
 import { PROJECT_ROOT, resolveConfig } from './lib/config-resolver.js';
 import { gitSpawn } from './lib/git-utils.js';
 import { Logger } from './lib/Logger.js';
-import { createProvider } from './lib/provider-factory.js';
-import { postStructuredComment } from './lib/orchestration/ticketing.js';
 import { calculateForFile } from './lib/maintainability-engine.js';
-import { fileURLToPath } from 'node:url';
+import { postStructuredComment } from './lib/orchestration/ticketing.js';
+import { createProvider } from './lib/provider-factory.js';
 
 async function main() {
   const { values } = parseArgs({

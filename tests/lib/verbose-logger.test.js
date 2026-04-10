@@ -1,8 +1,8 @@
-import { describe, it, beforeEach, afterEach } from 'node:test';
 import assert from 'node:assert/strict';
 import fs from 'node:fs';
-import path from 'node:path';
 import os from 'node:os';
+import path from 'node:path';
+import { afterEach, beforeEach, describe, it } from 'node:test';
 import { VerboseLogger } from '../../.agents/scripts/lib/VerboseLogger.js';
 
 describe('VerboseLogger', () => {
@@ -60,7 +60,11 @@ describe('VerboseLogger', () => {
   });
 
   it('convenience methods delegate correctly to file system', () => {
-    const logger = new VerboseLogger({ enabled: true, logDir: tmpDir, sprint: 'test' });
+    const logger = new VerboseLogger({
+      enabled: true,
+      logDir: tmpDir,
+      sprint: 'test',
+    });
     const logFile = path.join(tmpDir, 'sprint-test.jsonl');
 
     logger.debug('sys', 'Debug msg');

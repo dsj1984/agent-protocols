@@ -181,7 +181,7 @@ export class GitHubProvider extends ITicketingProvider {
    * @param {{ headers?: object }} [opts={}]
    * @returns {Promise<object>} The `data` portion of the response.
    */
-/* node:coverage ignore next */
+  /* node:coverage ignore next */
   async _graphql(query, variables = {}, opts = {}) {
     const headers = {
       Accept: 'application/json',
@@ -220,7 +220,7 @@ export class GitHubProvider extends ITicketingProvider {
    * @param {object} variables
    * @param {object} opts
    */
-/* node:coverage ignore next */
+  /* node:coverage ignore next */
   async graphql(query, variables = {}, opts = {}) {
     return this._graphql(query, variables, opts);
   }
@@ -230,7 +230,7 @@ export class GitHubProvider extends ITicketingProvider {
    * @param {string} endpoint - Path relative to GITHUB_API (including query params).
    * @returns {Promise<object[]>} All items across all pages.
    */
-/* node:coverage ignore next */
+  /* node:coverage ignore next */
   async _restPaginated(endpoint) {
     const allItems = [];
     const separator = endpoint.includes('?') ? '&' : '?';
@@ -251,7 +251,7 @@ export class GitHubProvider extends ITicketingProvider {
   // Read Operations
   // ---------------------------------------------------------------------------
 
-/* node:coverage ignore next */
+  /* node:coverage ignore next */
   async listIssues(filters = {}) {
     const params = new URLSearchParams({
       state: filters.state ?? 'all',
@@ -275,7 +275,7 @@ export class GitHubProvider extends ITicketingProvider {
       }));
   }
 
-/* node:coverage ignore next */
+  /* node:coverage ignore next */
   async getEpics(filters = {}) {
     const params = new URLSearchParams({
       state: filters.state ?? 'all',
@@ -332,7 +332,7 @@ export class GitHubProvider extends ITicketingProvider {
     };
   }
 
-/* node:coverage ignore next */
+  /* node:coverage ignore next */
   async getTickets(epicId, filters = {}) {
     // Paginate through all issues to avoid silent data loss (C-1).
     const params = new URLSearchParams({
@@ -452,7 +452,7 @@ export class GitHubProvider extends ITicketingProvider {
     };
   }
 
-/* node:coverage ignore next */
+  /* node:coverage ignore next */
   async getTicketDependencies(ticketId) {
     const ticket = await this.getTicket(ticketId);
     return {
@@ -613,7 +613,7 @@ export class GitHubProvider extends ITicketingProvider {
    * Caches the result to avoid redundant lookups.
    * @private
    */
-/* node:coverage ignore next */
+  /* node:coverage ignore next */
   async _fetchProjectMetadata() {
     if (this._projectId) return this._projectId;
     if (!this.projectNumber) return null;
@@ -788,7 +788,7 @@ export class GitHubProvider extends ITicketingProvider {
 
   /* node:coverage ignore next */
   /* node:coverage ignore next */
-  async ensureProjectFields(ticketId, fields) {
+  async ensureProjectFields(_ticketId, _fields) {
     if (!this.projectNumber) {
       return { created: [], skipped: [] };
     }
