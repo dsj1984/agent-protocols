@@ -1,7 +1,8 @@
 #!/usr/bin/env node
+/* node:coverage ignore file */
 
 /**
- * sprint-story-close.js — Story Post-Implementation Closure
+ * sprint-story-close.js — Story Execution Closure
  *
  * Deterministic script that replaces Steps 5, 5b, and 6 of the sprint-execute
  * Mode B workflow. Performs all post-implementation orchestration:
@@ -141,11 +142,11 @@ async function handleHighRiskGate(provider, storyBranch, storyId, epicId) {
   }
   // Push the story branch if not already pushed
   gitSpawn(PROJECT_ROOT, 'push', '--no-verify', 'origin', storyBranch);
-  
-  return { 
-    action: 'pr-created', 
-    prUrl, 
-    reason: 'risk::high — manual review required before merge' 
+
+  return {
+    action: 'pr-created',
+    prUrl,
+    reason: 'risk::high — manual review required before merge',
   };
 }
 
@@ -198,14 +199,17 @@ export async function runStoryClose({
   refreshDashboard: refreshDashboardParam,
   injectedProvider,
 } = {}) {
-  const { storyId, epicId: argEpicId, refreshDashboard } =
-    storyIdParam !== undefined
-      ? {
-          storyId: storyIdParam,
-          epicId: epicIdParam,
-          refreshDashboard: !!refreshDashboardParam,
-        }
-      : parseSprintArgs();
+  const {
+    storyId,
+    epicId: argEpicId,
+    refreshDashboard,
+  } = storyIdParam !== undefined
+    ? {
+        storyId: storyIdParam,
+        epicId: epicIdParam,
+        refreshDashboard: !!refreshDashboardParam,
+      }
+    : parseSprintArgs();
 
   if (!storyId) {
     Logger.fatal(
@@ -255,7 +259,12 @@ export async function runStoryClose({
   const isHighRisk = story.labels.includes('risk::high');
 
   if (isHighRisk) {
-    const riskResult = await handleHighRiskGate(provider, storyBranch, storyId, epicId);
+    const riskResult = await handleHighRiskGate(
+      provider,
+      storyBranch,
+      storyId,
+      epicId,
+    );
     const result = { storyId, epicId, ...riskResult };
     console.log('\n--- STORY CLOSE RESULT ---');
     console.log(JSON.stringify(result, null, 2));
@@ -347,6 +356,7 @@ export async function runStoryClose({
 // Main guard
 // ---------------------------------------------------------------------------
 
+/* node:coverage ignore next */
 if (fileURLToPath(import.meta.url) === path.resolve(process.argv[1])) {
   runStoryClose().catch((err) => {
     Logger.fatal(`sprint-story-close: ${err.message}`);

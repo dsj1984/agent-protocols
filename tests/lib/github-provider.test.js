@@ -1,0 +1,100 @@
+import test from 'node:test';
+import assert from 'node:assert/strict';
+import { GitHubProvider } from '../../.agents/scripts/providers/github.js';
+
+// Mock global fetch
+const originalFetch = global.fetch;
+process.env.GITHUB_TOKEN = 'mock-token';
+
+test('GitHubProvider: getTicket handles simple ticket', async () => {
+    global.fetch = async (url) => ({
+      ok: true,
+      json: async () => {
+        if (url.includes('/issues/')) {
+          return {
+            number: 123,
+            id: 456,
+            node_id: 'node_123',
+            title: 'Test Ticket',
+            body: 'Parent: #1\n**Focus Areas**: lib',
+            labels: [{ name: 'type::task' }],
+            assignees: [],
+            state: 'open'
+          };
+        }
+      }
+    });
+
+    const provider = new GitHubProvider({ owner: 'owner', repo: 'repo' });
+    const ticket = await provider.getTicket(123);
+    assert.equal(ticket.id, 123);
+    assert.equal(ticket.title, 'Test Ticket');
+    assert.ok(ticket.labels.includes('type::task'));
+});
+
+test('GitHubProvider: getEpic parses PRD/TechSpec links', async () => {
+    global.fetch = async () => ({
+      ok: true,
+      json: async () => ({
+        number: 1,
+        id: 111,
+        node_id: 'node_1',
+        title: 'Epic Title',
+        body: 'PRD: #2\nTech Spec: #3',
+        labels: [{ name: 'type::epic' }]
+      })
+    });
+
+    const provider = new GitHubProvider({ owner: 'owner', repo: 'repo' });
+    const epic = await provider.getEpic(1);
+    assert.equal(epic.id, 1);
+    assert.equal(epic.linkedIssues.prd, 2);
+    assert.equal(epic.linkedIssues.techSpec, 3);
+});
+
+test('GitHubProvider: getTickets filters by labels', async () => {
+    global.fetch = async (url) => ({
+      ok: true,
+      json: async () => {
+        if (url.includes('/issues')) {
+          return [
+            { 
+              number: 1, 
+              id: 101,
+              title: 'T1', 
+              body: 'Epic: #10', 
+              labels: [{ name: 'type::task' }],
+              state: 'open'
+            }
+          ];
+        }
+        return [];
+      }
+    });
+
+    const provider = new GitHubProvider({ owner: 'owner', repo: 'repo' });
+    // getTickets(epicId, filters)
+    const tickets = await provider.getTickets(10);
+    assert.equal(tickets.length, 1);
+    assert.equal(tickets[0].id, 1);
+});
+
+test('GitHubProvider: postComment calls GraphQL mutation', async () => {
+    let callCount = 0;
+    global.fetch = async () => {
+        callCount++;
+        return {
+            ok: true,
+            json: async () => ({ id: 'comment-1' })
+        };
+    };
+
+    const provider = new GitHubProvider({ owner: 'owner', repo: 'repo' });
+    const result = await provider.postComment(1, 'Hello');
+    assert.equal(result.commentId, 'comment-1');
+});
+
+// Restore fetch
+test('GitHubProvider: cleanup', () => {
+    global.fetch = originalFetch;
+});

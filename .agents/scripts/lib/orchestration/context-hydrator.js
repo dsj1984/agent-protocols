@@ -169,8 +169,20 @@ export async function hydrateContext(
       try {
         // Two-tier skill layout (core/, stack/) with flat fallback.
         const candidates = [
-          path.join(PROJECT_ROOT, settings.skillsRoot, 'core', skill, 'SKILL.md'),
-          path.join(PROJECT_ROOT, settings.skillsRoot, 'stack', skill, 'SKILL.md'),
+          path.join(
+            PROJECT_ROOT,
+            settings.skillsRoot,
+            'core',
+            skill,
+            'SKILL.md',
+          ),
+          path.join(
+            PROJECT_ROOT,
+            settings.skillsRoot,
+            'stack',
+            skill,
+            'SKILL.md',
+          ),
           path.join(PROJECT_ROOT, settings.skillsRoot, skill, 'SKILL.md'),
         ];
         // Also check stack subcategories (e.g., stack/javascript/eslint/)

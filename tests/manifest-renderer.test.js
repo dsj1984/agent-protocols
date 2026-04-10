@@ -311,4 +311,77 @@ test('renderStoryManifestMarkdown', async (t) => {
     assert.match(output, /Story Execution/);
     assert.match(output, /Story #42/);
   });
+
+  await t.test('renders story manifest with tasks and blockers', () => {
+    const manifest = {
+      type: 'story-execution',
+      epicId: 100,
+      generatedAt: '2026-01-01T00:00:00.000Z',
+      stories: [
+        {
+          storyId: 43,
+          storyTitle: 'Test Story',
+          branchName: 'story-43',
+          tasks: [
+            { taskId: 431, title: 'Subtask 1', status: 'agent::ready', dependencies: [99] }
+          ],
+        },
+      ],
+    };
+    const output = renderStoryManifestMarkdown(manifest);
+    assert.match(output, /Subtask 1/);
+    assert.match(output, /blocked by: #99/);
+  });
+});
+
+import { persistManifest } from '../.agents/scripts/lib/presentation/manifest-renderer.js';
+import fs from 'node:fs';
+import path from 'node:path';
+
+test('persistManifest', async (t) => {
+  const tempDir = path.join(process.cwd(), 'temp');
+  if (!fs.existsSync(tempDir)) fs.mkdirSync(tempDir);
+
+  await t.test('writes epic manifest files', () => {
+    const manifest = {
+      type: 'epic-dispatch',
+      epicId: 999,
+      epicTitle: 'Test',
+      generatedAt: new Date().toISOString(),
+      summary: {},
+      storyManifest: [],
+      waves: []
+    };
+    
+    persistManifest(manifest);
+    assert.ok(fs.existsSync(path.join(tempDir, 'dispatch-manifest-999.json')));
+    assert.ok(fs.existsSync(path.join(tempDir, 'dispatch-manifest-999.md')));
+    
+    fs.rmSync(path.join(tempDir, 'dispatch-manifest-999.json'));
+    fs.rmSync(path.join(tempDir, 'dispatch-manifest-999.md'));
+  });
+
+  await t.test('writes story manifest files', () => {
+    const manifest = {
+      type: 'story-execution',
+      stories: [{ storyId: 888 }],
+      generatedAt: new Date().toISOString()
+    };
+    
+    persistManifest(manifest);
+    // Find files starting with story-manifest-888 in any plausible temp dir
+    const possibleDirs = [tempDir, path.join(process.cwd(), 'temp')];
+    let found = false;
+    for (const d of possibleDirs) {
+      if (fs.existsSync(path.join(d, 'story-manifest-888.json'))) {
+        found = true;
+        fs.rmSync(path.join(d, 'story-manifest-888.json'));
+        if (fs.existsSync(path.join(d, 'story-manifest-888.md'))) {
+          fs.rmSync(path.join(d, 'story-manifest-888.md'));
+        }
+        break;
+      }
+    }
+    assert.ok(found, 'Should have found the persisted story manifest');
+  });
 });

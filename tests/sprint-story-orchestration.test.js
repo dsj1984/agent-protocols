@@ -43,57 +43,91 @@ test.beforeEach(() => {
 
 const mockConfig = {
   settings: { mainBranch: 'main' },
-  orchestration: { provider: 'github' }
+  orchestration: { provider: 'github' },
 };
 
 test('sprint-story-init: successful initialization', async () => {
   const provider = new MockProvider({
     tickets: {
-      100: { id: 100, title: 'Story 100', body: 'Epic: #50\nPRD: #51', labels: ['type::story'] },
+      100: {
+        id: 100,
+        title: 'Story 100',
+        body: 'Epic: #50\nPRD: #51',
+        labels: ['type::story'],
+      },
       50: { id: 50, title: 'Epic 50', labels: ['type::epic'] },
-      101: { id: 101, title: 'Task 1', body: 'parent: #100', labels: ['type::task', 'agent::ready'] },
-      102: { id: 102, title: 'Task 2', body: 'parent: #100\nblocked by #101', labels: ['type::task', 'agent::ready'] }
+      101: {
+        id: 101,
+        title: 'Task 1',
+        body: 'parent: #100',
+        labels: ['type::task', 'agent::ready'],
+      },
+      102: {
+        id: 102,
+        title: 'Task 2',
+        body: 'parent: #100\nblocked by #101',
+        labels: ['type::task', 'agent::ready'],
+      },
     },
     subTickets: {
-      100: [101, 102]
-    }
+      100: [101, 102],
+    },
   });
 
   const { success, result } = await runStoryInit({
     storyId: 100,
     dryRun: false,
     injectedProvider: provider,
-    injectedConfig: mockConfig
+    injectedConfig: mockConfig,
   });
 
   assert.ok(success, 'Should succeed');
   assert.equal(result.tasks.length, 2, 'Should find 2 tasks');
-  assert.equal(result.tasks[0].id, 101, 'Task 1 should be first (dependency order)');
+  assert.equal(
+    result.tasks[0].id,
+    101,
+    'Task 1 should be first (dependency order)',
+  );
   assert.equal(result.tasks[1].id, 102, 'Task 2 should be second');
-  
+
   // Verify ticket updates
-  const task1Updates = provider.updates.filter(u => u.id === 101);
-  assert.ok(task1Updates.some(u => u.mutations.labels.add.includes('agent::executing')), 'Task 1 should be executing');
+  const task1Updates = provider.updates.filter((u) => u.id === 101);
+  assert.ok(
+    task1Updates.some((u) =>
+      u.mutations.labels.add.includes('agent::executing'),
+    ),
+    'Task 1 should be executing',
+  );
 
   // Verify git actions
-  const pullCalls = gitHistory.filter(h => h.args.includes('pull'));
+  const pullCalls = gitHistory.filter((h) => h.args.includes('pull'));
   assert.ok(pullCalls.length > 0, 'Should attempt git pull');
 });
 
 test('sprint-story-init: fails on open blockers', async () => {
   const provider = new MockProvider({
     tickets: {
-      100: { id: 100, title: 'Story 100', body: 'Epic: #50\nblocked by #99', labels: ['type::story'] },
+      100: {
+        id: 100,
+        title: 'Story 100',
+        body: 'Epic: #50\nblocked by #99',
+        labels: ['type::story'],
+      },
       50: { id: 50, title: 'Epic 50', labels: ['type::epic'] },
-      99: { id: 99, title: 'Prereq', labels: ['agent::executing'], state: 'open' }
-    }
+      99: {
+        id: 99,
+        title: 'Prereq',
+        labels: ['agent::executing'],
+        state: 'open',
+      },
+    },
   });
 
   const { success, blocked, openBlockers } = await runStoryInit({
     storyId: 100,
     dryRun: false,
     injectedProvider: provider,
-    injectedConfig: mockConfig
+    injectedConfig: mockConfig,
   });
 
   assert.strictEqual(success, false, 'Should fail');
@@ -105,22 +139,32 @@ test('sprint-story-init: fails on open blockers', async () => {
 test('sprint-story-close: successful merge and closure', async () => {
   const provider = new MockProvider({
     tickets: {
-      100: { id: 100, title: 'Story 100', body: 'Epic: #50', labels: ['type::story', 'agent::executing'] },
-      101: { id: 101, title: 'Task 1', body: 'parent: #100', labels: ['type::task', 'agent::executing'] }
+      100: {
+        id: 100,
+        title: 'Story 100',
+        body: 'Epic: #50',
+        labels: ['type::story', 'agent::executing'],
+      },
+      101: {
+        id: 101,
+        title: 'Task 1',
+        body: 'parent: #100',
+        labels: ['type::task', 'agent::executing'],
+      },
     },
     subTickets: {
-      100: [101]
-    }
+      100: [101],
+    },
   });
 
   const { success, result } = await runStoryClose({
     storyId: 100,
-    injectedProvider: provider
+    injectedProvider: provider,
   });
 
   assert.ok(success, 'Should succeed');
   assert.strictEqual(result.merged, true, 'Should be marked as merged');
-  
+
   // Verify closures
   const story = provider.tickets[100];
   const task = provider.tickets[101];
@@ -131,13 +175,18 @@ test('sprint-story-close: successful merge and closure', async () => {
 test('sprint-story-close: handle risk::high gate', async () => {
   const provider = new MockProvider({
     tickets: {
-      100: { id: 100, title: 'High Risk Story', body: 'Epic: #50', labels: ['type::story', 'risk::high', 'agent::executing'] }
-    }
+      100: {
+        id: 100,
+        title: 'High Risk Story',
+        body: 'Epic: #50',
+        labels: ['type::story', 'risk::high', 'agent::executing'],
+      },
+    },
   });
 
   const { success, result } = await runStoryClose({
     storyId: 100,
-    injectedProvider: provider
+    injectedProvider: provider,
   });
 
   assert.strictEqual(success, false, 'Should fail (manual merge required)');

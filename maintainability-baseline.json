@@ -12,7 +12,6 @@
   ".agents/scripts/diagnose-friction.js": 86.449,
   ".agents/scripts/dispatcher.js": 106.089,
   ".agents/scripts/epic-planner.js": 83.113,
-  ".agents/scripts/friction-analyzer.js": 90.822,
   ".agents/scripts/generate-roadmap.js": 105.604,
   ".agents/scripts/git-commit-if-changed.js": 93.834,
   ".agents/scripts/handle-approval.js": 102.058,

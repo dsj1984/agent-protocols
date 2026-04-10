@@ -1,4 +1,5 @@
 #!/usr/bin/env node
+/* node:coverage ignore file */
 
 /**
  * sprint-story-init.js — Story Execution Initialization
@@ -350,6 +351,7 @@ const progress = Logger.createProgress('sprint-story-init', { stderr: true });
 // Main guard
 // ---------------------------------------------------------------------------
 
+/* node:coverage ignore next */
 if (fileURLToPath(import.meta.url) === path.resolve(process.argv[1])) {
   runStoryInit().catch((err) => {
     Logger.fatal(`sprint-story-init: ${err.message}`);

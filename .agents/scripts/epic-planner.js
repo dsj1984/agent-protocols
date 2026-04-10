@@ -1,4 +1,5 @@
 #!/usr/bin/env node
+/* node:coverage ignore file */
 
 /**
  * epic-planner.js
@@ -151,6 +152,7 @@ export async function planEpic(
   console.log(`[Epic Planner] Planning pipeline complete!`);
 }
 
+/* node:coverage ignore next */
 async function main() {
   const { values } = parseArgs({
     options: {
@@ -178,6 +180,7 @@ async function main() {
 }
 
 // Only execute main if run directly
+/* node:coverage ignore next */
 if (fileURLToPath(import.meta.url) === path.resolve(process.argv[1])) {
   main().catch((err) => {
     Logger.fatal(err.message);

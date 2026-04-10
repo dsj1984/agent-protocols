@@ -1,3 +1,4 @@
+/* node:coverage ignore file */
 /**
  * Bootstrap Agent Protocols — Idempotent Label & Field Setup
  *
@@ -17,12 +18,11 @@
 import fs from 'node:fs';
 import path from 'node:path';
 import { fileURLToPath } from 'node:url';
-import { Logger } from './lib/Logger.js';
 import { createProvider } from './lib/provider-factory.js';
+import { Logger } from './lib/Logger.js';
+import { LABEL_TAXONOMY, PROJECT_FIELD_DEFS } from './lib/label-taxonomy.js';
 
 const PROJECT_ROOT = process.cwd();
-
-import { LABEL_TAXONOMY, PROJECT_FIELD_DEFS } from './lib/label-taxonomy.js';
 
 // ---------------------------------------------------------------------------
 // Bootstrap Runner

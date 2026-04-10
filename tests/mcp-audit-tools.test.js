@@ -6,26 +6,40 @@ import { MockProvider } from './fixtures/mock-provider.js';
 import { __setGitRunners } from '../.agents/scripts/lib/git-utils.js';
 import fs from 'node:fs/promises';
 import path from 'node:path';
-import { PROJECT_ROOT, resolveConfig } from '../.agents/scripts/lib/config-resolver.js';
+import {
+  PROJECT_ROOT,
+  resolveConfig,
+} from '../.agents/scripts/lib/config-resolver.js';
 
 test('selectAudits: filters based on keywords and gate', async () => {
   const provider = new MockProvider({
     tickets: {
-      100: { id: 100, title: 'Fix UI accessibility issues', body: 'The buttons are too small.', labels: [] }
-    }
+      100: {
+        id: 100,
+        title: 'Fix UI accessibility issues',
+        body: 'The buttons are too small.',
+        labels: [],
+      },
+    },
   });
 
   // Mock git diff to return no changed files
-  __setGitRunners(() => '', () => ({ status: 0, stdout: '', stderr: '' }));
+  __setGitRunners(
+    () => '',
+    () => ({ status: 0, stdout: '', stderr: '' }),
+  );
 
   const { selectedAudits } = await selectAudits({
     ticketId: 100,
     gate: 'gate2',
-    provider
+    provider,
   });
 
   // Based on current audit-rules.json, 'audit-accessibility' should be triggered by 'accessibility' keyword
-  assert.ok(selectedAudits.includes('audit-accessibility'), 'Should select accessibility audit');
+  assert.ok(
+    selectedAudits.includes('audit-accessibility'),
+    'Should select accessibility audit',
+  );
 });
 
 test('runAuditSuite: aggregates findings', async () => {
@@ -45,7 +59,7 @@ test('runAuditSuite: aggregates findings', async () => {
 
   const results = await runAuditSuite({
     auditWorkflows: ['audit-clean-code'],
-    injectedExecute: mockExecute
+    injectedExecute: mockExecute,
   });
 
   assert.strictEqual(results.metadata.auditsRun[0], 'audit-clean-code');
@@ -56,20 +70,26 @@ test('runAuditSuite: aggregates findings', async () => {
 test('runAuditSuite: handles missing script gracefully', async () => {
   const results = await runAuditSuite({
     auditWorkflows: ['non-existent-audit'],
-    injectedExecute: async () => []
+    injectedExecute: async () => [],
   });
 
-  assert.ok(results.findings.some(f => f.message.includes('not defined')), 'Should report undefined audit');
+  assert.ok(
+    results.findings.some((f) => f.message.includes('not defined')),
+    'Should report undefined audit',
+  );
 });
 
 test('runAuditSuite: normalizes finding severity', async () => {
   const mockExecute = async () => {
-    return [{ severity: 'CRITICAL', message: 'Broken' }, { severity: 'unknown', message: '??' }];
+    return [
+      { severity: 'CRITICAL', message: 'Broken' },
+      { severity: 'unknown', message: '??' },
+    ];
   };
 
   const results = await runAuditSuite({
     auditWorkflows: ['audit-clean-code'],
-    injectedExecute: mockExecute
+    injectedExecute: mockExecute,
   });
 
   assert.strictEqual(results.findings[0].severity, 'critical');
@@ -84,18 +104,24 @@ test('runAuditSuite: handles audit script errors', async () => {
   const dummyScript = path.join(dummyDir, 'audit-clean-code.js');
   await fs.writeFile(dummyScript, 'throw new Error("fail")');
 
-  // Let it execute the real one (but we mock the spawn in git-utils if needed, 
-  // though execAsync is not hooked. We'll just continue using injectedExecute 
+  // Let it execute the real one (but we mock the spawn in git-utils if needed,
+  // though execAsync is not hooked. We'll just continue using injectedExecute
   // but simulating the error finding structure).
-  
+
   const mockExecute = async () => {
     // Simulate what executeAudit returns on crash
-    return [{ severity: 'high', message: "Execution failed", audit: 'audit-clean-code' }];
+    return [
+      {
+        severity: 'high',
+        message: 'Execution failed',
+        audit: 'audit-clean-code',
+      },
+    ];
   };
 
   const results = await runAuditSuite({
     auditWorkflows: ['audit-clean-code'],
-    injectedExecute: mockExecute
+    injectedExecute: mockExecute,
   });
 
   assert.strictEqual(results.findings[0].severity, 'high');

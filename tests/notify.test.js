@@ -123,4 +123,34 @@ describe('notify script', () => {
     assert.equal(mockProvider.comments.length, 1);
     assert.equal(mockProvider.comments[0].data.body, 'Review needed.');
   });
+
+  it('skips GitHub comment if ticketId is 0 or missing', async () => {
+    await notify(
+      0,
+      { type: 'notification', message: 'Sidecar message' },
+      { provider: mockProvider, orchestration: mockOrchestration },
+    );
+
+    assert.equal(mockProvider.comments.length, 0);
+  });
+
+  it('includes X-Signature-256 header when WEBHOOK_SECRET is provided', async () => {
+    const originalSecret = process.env.WEBHOOK_SECRET;
+    process.env.WEBHOOK_SECRET = 'shhh-secret';
+    
+    try {
+      await notify(
+        128,
+        { type: 'action', message: 'Secret action' },
+        { provider: mockProvider, orchestration: mockOrchestration },
+      );
+
+      assert.equal(fetchCalls.length, 1);
+      const headers = fetchCalls[0].options.headers;
+      assert.ok(headers['X-Signature-256']);
+      assert.ok(headers['X-Signature-256'].startsWith('sha256='));
+    } finally {
+      process.env.WEBHOOK_SECRET = originalSecret;
+    }
+  });
 });

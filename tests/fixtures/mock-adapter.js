@@ -22,7 +22,12 @@ export class MockAdapter extends IExecutionAdapter {
   }
 
   async getTaskStatus(dispatchId) {
-    return this.statusMap.get(dispatchId) || { status: 'failed', message: 'Not found' };
+    return (
+      this.statusMap.get(dispatchId) || {
+        status: 'failed',
+        message: 'Not found',
+      }
+    );
   }
 
   async cancelTask(dispatchId) {

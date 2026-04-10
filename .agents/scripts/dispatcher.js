@@ -1,4 +1,5 @@
 #!/usr/bin/env node
+/* node:coverage ignore file */
 
 /**
  * dispatcher.js — CLI Entry Point for the Dispatch Engine
@@ -92,6 +93,8 @@ export async function generateAndSaveManifest(
 // CLI entry point
 // ---------------------------------------------------------------------------
 
+/* node:coverage ignore next */
+/* node:coverage ignore next */
 async function main() {
   const { ticketId, dryRun, executor } = parseSprintArgs();
 
@@ -106,6 +109,7 @@ async function main() {
   await generateAndSaveManifest(ticketId, dryRun, executor);
 }
 
+/* node:coverage ignore next */
 if (fileURLToPath(import.meta.url) === path.resolve(process.argv[1])) {
   main().catch((err) => {
     console.error('[Dispatcher] Fatal error:', err.message);

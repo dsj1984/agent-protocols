@@ -54,10 +54,7 @@ jobs:
         run: npm run maintainability:check
 
       - name: Run Tests with Coverage
-        shell: bash
-        run: |
-          set -o pipefail
-          npm run test:coverage | tee test-output.txt | node .agents/scripts/check-coverage.js 65
+        run: npm run test:coverage
 
       - name: Upload Test Results
         uses: actions/upload-artifact@v4

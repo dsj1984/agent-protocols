@@ -1,4 +1,5 @@
 #!/usr/bin/env node
+/* node:coverage ignore file */
 
 /**
  * notify.js

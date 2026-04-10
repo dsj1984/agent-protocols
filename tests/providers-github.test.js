@@ -600,4 +600,26 @@ describe('GitHubProvider — error handling', () => {
       /\/repos\/test-owner\/test-repo\/issues\/1/,
     );
   });
+
+  it('supports graphql queries', async () => {
+    const fetchMock = createRouteMock({
+      'POST /graphql': { status: 200, json: { data: { viewer: { login: 'tester' } } } },
+    });
+    global.fetch = fetchMock;
+    const provider = createTestProvider();
+    const result = await provider.graphql('query { viewer { login } }');
+    assert.strictEqual(result.viewer.login, 'tester');
+    assert.strictEqual(fetchMock.calls[0].url.endsWith('/graphql'), true);
+  });
+
+  it('updates body/description in updateTicket', async () => {
+    const fetchMock = createRouteMock({
+      'PATCH /issues/123': { status: 200, json: { id: 123 } },
+    });
+    global.fetch = fetchMock;
+    const provider = createTestProvider();
+    await provider.updateTicket(123, { body: 'New body content' });
+    const call = fetchMock.calls[0];
+    assert.strictEqual(JSON.parse(call.opts.body).body, 'New body content');
+  });
 });

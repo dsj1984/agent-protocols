@@ -45,7 +45,10 @@ export async function reconcileClosedTasks(tasks, provider, dryRun) {
       await provider.updateTicket(task.id, {
         labels: {
           add: [AGENT_DONE_LABEL],
-          remove: ALL_AGENT_STATES.filter((s) => s !== AGENT_DONE_LABEL),
+          remove: [
+            ...ALL_AGENT_STATES.filter((s) => s !== AGENT_DONE_LABEL),
+            'agent::blocked',
+          ],
         },
         state: 'closed',
         state_reason: 'completed',

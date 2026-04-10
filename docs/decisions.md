@@ -2,7 +2,7 @@
 
 ## ADR 001: Autonomous Protocol Refinement Loop
 
-**Status:** Accepted  
+**Status:** Reverted (Moved to manual process)  
 **Date:** 2026-04-09  
 **Epic:** #74
 

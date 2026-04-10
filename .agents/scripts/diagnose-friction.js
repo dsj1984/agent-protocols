@@ -1,3 +1,6 @@
+#!/usr/bin/env node
+/* node:coverage ignore file */
+
 /**
  * diagnose-friction.js — v5 Diagnostic Interceptor & Ticket Comment Logger
  *

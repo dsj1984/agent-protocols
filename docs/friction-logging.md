@@ -1,6 +1,6 @@
 # Friction Logging Protocol
 
-This document defines the structured format and procedures for logging friction events during agentic sprints. Friction logs are the primary data source for the autonomous protocol refinement system.
+This document defines the structured format and procedures for logging friction events during agentic sprints. Friction logs are the primary data source for the manual protocol refinement process.
 
 ## Data Model (FrictionEvent)
 
@@ -33,6 +33,4 @@ Logs must be wrapped in a specific markdown block to be recognized by the aggreg
 }
 ```
 
-## Refinement Loop
 
-The refinement aggregator periodically scans completed sprints, groups friction events by pattern, and proposes protocol improvements via Pull Requests.

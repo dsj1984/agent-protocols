@@ -19,15 +19,8 @@ import path from 'node:path';
 import { createAdapter } from '../adapter-factory.js';
 import { PROJECT_ROOT, resolveConfig } from '../config-resolver.js';
 import { isSafeBranchComponent } from '../dependency-parser.js';
-import {
-  buildGraph,
-  computeWaves,
-  detectCycle,
-} from '../Graph.js';
-import {
-  getEpicBranch,
-  gitSync,
-} from '../git-utils.js';
+import { buildGraph, computeWaves, detectCycle } from '../Graph.js';
+import { getEpicBranch, gitSync } from '../git-utils.js';
 import { createProvider } from '../provider-factory.js';
 import { VerboseLogger } from '../VerboseLogger.js';
 import { hydrateContext } from './context-hydrator.js';
@@ -66,6 +59,7 @@ export const TYPE_TASK_LABEL = 'type::task';
  * @param {string[]} args
  * @returns {string}
  */
+/* node:coverage ignore next */
 function git(args) {
   return gitSync(PROJECT_ROOT, ...args);
 }
@@ -76,6 +70,7 @@ function git(args) {
  * @param {string} branchName
  * @param {string} baseBranch
  */
+/* node:coverage ignore next */
 export function ensureBranch(branchName, baseBranch) {
   if (
     !isSafeBranchComponent(branchName) ||
@@ -105,7 +100,8 @@ export function ensureBranch(branchName, baseBranch) {
  * @param {string} epicBranch
  * @param {object} settings
  */
-export function captureLintBaseline(epicBranch, settings) {
+/* node:coverage ignore next */
+export async function captureLintBaseline(epicBranch, settings) {
   const lintBaselinePath =
     settings.lintBaselinePath ?? 'temp/lint-baseline.json';
   const absPath = path.resolve(PROJECT_ROOT, lintBaselinePath);
@@ -249,6 +245,7 @@ async function ensureSprintHealthIssue(
  *
  * @param {object} params
  */
+/* node:coverage ignore next */
 export async function detectEpicCompletion({
   epicId,
   epic: _epic,

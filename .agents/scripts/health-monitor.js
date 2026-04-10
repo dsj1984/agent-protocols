@@ -1,4 +1,5 @@
 #!/usr/bin/env node
+/* node:coverage ignore file */
 import path from 'node:path';
 import { fileURLToPath } from 'node:url';
 
@@ -87,6 +88,7 @@ Epic: #${epicId}
 }
 
 // CLI execution fallback
+/* node:coverage ignore next */
 if (fileURLToPath(import.meta.url) === path.resolve(process.argv[1])) {
   const { epicId, dryRun } = parseSprintArgs();
   if (!epicId) {

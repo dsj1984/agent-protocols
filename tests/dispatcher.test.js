@@ -496,4 +496,54 @@ describe('dispatch() — story-level orchestration', () => {
 
     assert.equal(manifest.storyManifest[0].model_tier, 'fast');
   });
+
+  it('serializes tasks across different stories if they have overlapping focus areas', async () => {
+    const storyA = makeTask(100, { title: 'Story A', labels: ['type::story'] });
+    const storyB = makeTask(200, { title: 'Story B', labels: ['type::story'] });
+    
+    const taskA = makeTask(1, { 
+      body: '## Metadata\nparent: #100\n**Focus Areas**: shared/lib',
+      labels: ['type::task', 'agent::ready']
+    });
+    const taskB = makeTask(2, { 
+      body: '## Metadata\nparent: #200\n**Focus Areas**: shared/lib',
+      labels: ['type::task', 'agent::ready']
+    });
+
+    const provider = new MockProvider({
+      epic: EPIC,
+      tasks: [storyA, storyB, taskA, taskB],
+    });
+    const adapter = new MockAdapter();
+
+    const manifest = await dispatch({
+      epicId: 1,
+      dryRun: true,
+      provider,
+      adapter,
+    });
+
+    // Should be serialized into 2 waves because of overlapping focus areas
+    assert.ok(manifest.waves.length >= 2, `Expected at least 2 waves, got ${manifest.waves.length}`);
+    const wave0Tasks = manifest.waves[0].tasks.map(t => t.taskId);
+    const wave1Tasks = manifest.waves[1].tasks.map(t => t.taskId);
+    assert.ok(wave0Tasks.includes(1) || wave0Tasks.includes(2));
+    assert.ok(wave1Tasks.includes(1) || wave1Tasks.includes(2));
+  });
+
+  it('handles tasks without any metadata or focus areas gracefully', async () => {
+    const sparseTask = { id: 50, title: 'No Metadata', labels: ['type::task', 'agent::ready'], body: '' };
+    const provider = new MockProvider({ epic: EPIC, tasks: [sparseTask] });
+    const adapter = new MockAdapter();
+
+    const manifest = await dispatch({
+      epicId: 1,
+      dryRun: true,
+      provider,
+      adapter,
+    });
+
+    assert.equal(manifest.waves.length, 1);
+    assert.equal(manifest.waves[0].tasks[0].taskId, 50);
+  });
 });

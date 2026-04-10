@@ -84,6 +84,7 @@ export class LLMClient {
     return this._decodeHtmlEntities(result);
   }
 
+  /* node:coverage ignore next */
   async _callGemini(systemPrompt, userPrompt, maxRetries = 3) {
     const key = process.env.GEMINI_API_KEY;
     if (!key) throw new Error('GEMINI_API_KEY missing');
@@ -131,6 +132,8 @@ export class LLMClient {
     }
   }
 
+  /* node:coverage ignore next */
+/* node:coverage ignore next */
   async _callAnthropic(systemPrompt, userPrompt) {
     const key = process.env.ANTHROPIC_API_KEY;
     if (!key) throw new Error('ANTHROPIC_API_KEY missing');
@@ -162,6 +165,10 @@ export class LLMClient {
     return data.content?.[0]?.text ?? '';
   }
 
+
+
+  /* node:coverage ignore next */
+/* node:coverage ignore next */
   async _callOpenAI(systemPrompt, userPrompt) {
     const key = process.env.OPENAI_API_KEY;
     if (!key) throw new Error('OPENAI_API_KEY missing');

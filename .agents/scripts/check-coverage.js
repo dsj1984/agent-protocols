@@ -41,10 +41,14 @@ rl.on('close', () => {
   }
 
   if (passes) {
-    console.log(`\n✅ Coverage Check Passed: ${actualCoverage}% (Threshold: ${threshold}%)`);
+    console.log(
+      `\n✅ Coverage Check Passed: ${actualCoverage}% (Threshold: ${threshold}%)`,
+    );
     process.exit(0);
   } else {
-    console.error(`\n❌ Coverage Check Failed: ${actualCoverage}% is below threshold of ${threshold}%`);
+    console.error(
+      `\n❌ Coverage Check Failed: ${actualCoverage}% is below threshold of ${threshold}%`,
+    );
     process.exit(1);
   }
 });

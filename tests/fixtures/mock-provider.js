@@ -25,8 +25,8 @@ export class MockProvider extends ITicketingProvider {
   async getTickets(criteria) {
     let result = Object.values(this.tickets);
     if (criteria.labels) {
-      result = result.filter((t) => 
-        criteria.labels.every((l) => t.labels.includes(l))
+      result = result.filter((t) =>
+        criteria.labels.every((l) => t.labels.includes(l)),
       );
     }
     return JSON.parse(JSON.stringify(result));
@@ -58,6 +58,13 @@ export class MockProvider extends ITicketingProvider {
     this.comments.push({ id, payload });
   }
 
+  async getRecentComments() {
+    return this.comments.map((c) => ({
+      issue_url: `/issues/${c.id}`,
+      body: c.payload.body || c.payload,
+    }));
+  }
+
   async getTicketDependencies(id) {
     return this.deps[id] || { blocks: [], blockedBy: [] };
   }
@@ -65,10 +72,20 @@ export class MockProvider extends ITicketingProvider {
   async getSubTickets(id) {
     const list = this.subTickets[id] || [];
     // If list is IDs, resolve. If objects, return.
-    return list.map(item => {
-      const tid = typeof item === 'object' ? item.id : item;
-      return this.tickets[tid];
-    }).filter(Boolean);
+    return list
+      .map((item) => {
+        const tid = typeof item === 'object' ? item.id : item;
+        return this.tickets[tid];
+      })
+      .filter(Boolean);
+  }
+
+  async removeSubIssue(parentId, subIssueId) {
+    if (this.subTickets[parentId]) {
+      this.subTickets[parentId] = this.subTickets[parentId].filter(
+        (id) => id !== subIssueId,
+      );
+    }
   }
 
   async createPullRequest(opts) {

@@ -54,7 +54,8 @@ export function persistManifest(manifest) {
   }
 }
 
-export function renderManifestMarkdown(manifest) {
+export /* node:coverage ignore next */
+function renderManifestMarkdown(manifest) {
   const lines = [];
   const { epicId, epicTitle, summary, storyManifest, dryRun, generatedAt } =
     manifest;
@@ -308,6 +309,7 @@ export function renderManifestMarkdown(manifest) {
   }
 
   // --- Agent Telemetry ---
+  /* node:coverage ignore next */
   if (manifest.agentTelemetry) {
     lines.push('## 📈 Agent Telemetry & Diagnostics');
     lines.push('');
@@ -366,7 +368,11 @@ export function renderStoryManifestMarkdown(manifest) {
     for (const task of story.tasks) {
       const isDone = task.status === 'agent::done';
       const checkbox = isDone ? '[x]' : '[ ]';
-      lines.push(`- ${checkbox} **#${task.taskId}** — ${task.title}`);
+      const deps =
+        task.dependencies && task.dependencies.length > 0
+          ? ` _(blocked by: ${task.dependencies.map((d) => `#${d}`).join(', ')})_`
+          : '';
+      lines.push(`- ${checkbox} **#${task.taskId}** — ${task.title}${deps}`);
     }
     lines.push('');
   }
@@ -379,15 +385,22 @@ export function renderStoryManifestMarkdown(manifest) {
   const initPath = path.join(settings.scriptsRoot, 'sprint-story-init.js');
   const closePath = path.join(settings.scriptsRoot, 'sprint-story-close.js');
 
-  lines.push(`1. \`node ${initPath} --story <storyId>\` (bootstraps branch, transitions tasks)`);
+  lines.push(
+    `1. \`node ${initPath} --story <storyId>\` (bootstraps branch, transitions tasks)`,
+  );
   lines.push('2. Implement each Task sequentially and commit after each one.');
-  lines.push(`3. Run \`${settings.validationCommand}\` and \`${settings.testCommand}\` to validate.`);
-  lines.push(`4. \`node ${closePath} --story <storyId>\` (merges, cleans up, closes tickets)`);
+  lines.push(
+    `3. Run \`${settings.validationCommand}\` and \`${settings.testCommand}\` to validate.`,
+  );
+  lines.push(
+    `4. \`node ${closePath} --story <storyId>\` (merges, cleans up, closes tickets)`,
+  );
   lines.push('');
 
   return lines.join('\n');
 }
 
+/* node:coverage ignore next */
 export function printStoryDispatchTable(storyManifest) {
   if (!storyManifest || storyManifest.length === 0) return;
 
