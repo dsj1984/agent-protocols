@@ -83,7 +83,7 @@ async function resolveStoryContext(provider, storyId) {
   return { story, body, epicId, featureId, prdId, techSpecId };
 }
 
-async function checkBlockers(provider, storyId, body) {
+async function checkBlockers(provider, _storyId, body) {
   const blockedBy = parseBlockedBy(body);
   if (blockedBy.length === 0) return [];
 

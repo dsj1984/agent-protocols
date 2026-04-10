@@ -148,7 +148,7 @@ export async function main(args = process.argv.slice(2)) {
 
     if (taskId) {
       try {
-        const payloadString = '```json\n' + JSON.stringify(frictionEvent, null, 2) + '\n```';
+        const payloadString = `\`\`\`json\n${JSON.stringify(frictionEvent, null, 2)}\n\`\`\``;
         await postStructuredComment(provider, parseInt(taskId, 10), 'friction', payloadString);
         console.error(`✅ Friction posted to Task #${taskId} on GitHub.`);
       } catch (err) {

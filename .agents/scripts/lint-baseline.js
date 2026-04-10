@@ -8,7 +8,7 @@ import { Logger } from './lib/Logger.js';
 const __dirname = path.dirname(fileURLToPath(import.meta.url));
 const PROJECT_ROOT = path.resolve(__dirname, '../..');
 
-export function parseLintOutput(jsonStr, cmdConfig) {
+export function parseLintOutput(jsonStr, _cmdConfig) {
   // Parse the JSON array. Find start and end to avoid extraneous shell output
   const startIndex = jsonStr.indexOf('[');
   const endIndex = jsonStr.lastIndexOf(']');

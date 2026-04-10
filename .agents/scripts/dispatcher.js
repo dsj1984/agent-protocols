@@ -18,11 +18,8 @@
  * @see .agents/schemas/dispatch-manifest.json
  */
 
-import fs from 'node:fs';
 import path from 'node:path';
 import { fileURLToPath } from 'node:url';
-import { parseArgs } from 'node:util';
-import { PROJECT_ROOT } from './lib/config-resolver.js';
 import { Logger } from './lib/Logger.js';
 import { resolveAndDispatch } from './lib/orchestration/index.js';
 

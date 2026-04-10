@@ -119,12 +119,77 @@ async function ticketClosureCascade(provider, tasks, storyId) {
   return { closedTickets, cascadedTo };
 }
 
-const __filename = fileURLToPath(import.meta.url);
-const __dirname = path.dirname(__filename);
-
 // ---------------------------------------------------------------------------
 // CLI argument parsing
 // ---------------------------------------------------------------------------
+
+async function handleHighRiskGate(provider, storyBranch, storyId, epicId) {
+  progress(
+    'RISK',
+    '⚠️ Story is risk::high — creating PR instead of auto-merge',
+  );
+  try {
+    const pr = await provider.createPullRequest(storyBranch, storyId);
+    progress('RISK', `PR created: ${pr.htmlUrl}`);
+    console.log(
+      JSON.stringify(
+        {
+          storyId,
+          epicId,
+          action: 'pr-created',
+          prUrl: pr.htmlUrl,
+          reason: 'risk::high — manual review required before merge',
+        },
+        null,
+        2,
+      ),
+    );
+  } catch (err) {
+    console.error(`[sprint-story-close] PR creation failed: ${err.message}`);
+  }
+  // Push the story branch if not already pushed
+  gitSpawn(PROJECT_ROOT, 'push', '--no-verify', 'origin', storyBranch);
+  process.exit(1);
+}
+
+function finalizeMerge(epicBranch, storyBranch, storyTitle, storyId) {
+  // Normal merge path
+  progress('GIT', `Checking out ${epicBranch}...`);
+  gitSync(PROJECT_ROOT, 'checkout', epicBranch);
+  gitSpawn(PROJECT_ROOT, 'pull', '--rebase', 'origin', epicBranch);
+
+  progress('GIT', `Merging ${storyBranch} into ${epicBranch} (--no-ff)...`);
+  const mergeResult = gitSpawn(
+    PROJECT_ROOT,
+    'merge',
+    '--no-ff',
+    storyBranch,
+    '-m',
+    `feat: ${storyTitle} (resolves #${storyId})`,
+  );
+
+  if (mergeResult.status !== 0) {
+    Logger.fatal(
+      `Merge failed: ${mergeResult.stderr}\n` +
+        `Resolve conflicts manually, then re-run this script.`,
+    );
+  }
+  progress('GIT', '✅ Merge successful');
+
+  progress('GIT', `Pushing ${epicBranch}...`);
+  const pushResult = gitSpawn(
+    PROJECT_ROOT,
+    'push',
+    '--no-verify',
+    'origin',
+    epicBranch,
+  );
+  if (pushResult.status !== 0) {
+    Logger.fatal(`Push failed: ${pushResult.stderr}`);
+  }
+
+  cleanupBranches(storyBranch);
+}
 
 async function main() {
   const { storyId, epicId: argEpicId, refreshDashboard } = parseSprintArgs();
@@ -168,73 +233,6 @@ async function main() {
 
   progress('TASKS', `Found ${tasks.length} child Task(s)`);
 
-async function handleHighRiskGate(provider, storyBranch, storyId, epicId) {
-  progress(
-    'RISK',
-    '⚠️ Story is risk::high — creating PR instead of auto-merge',
-  );
-  try {
-    const pr = await provider.createPullRequest(storyBranch, storyId);
-    progress('RISK', `PR created: \${pr.htmlUrl}`);
-    console.log(
-      JSON.stringify(
-        {
-          storyId,
-          epicId,
-          action: 'pr-created',
-          prUrl: pr.htmlUrl,
-          reason: 'risk::high — manual review required before merge',
-        },
-        null,
-        2,
-      ),
-    );
-  } catch (err) {
-    console.error(`[sprint-story-close] PR creation failed: \${err.message}`);
-  }
-  // Push the story branch if not already pushed
-  gitSpawn(PROJECT_ROOT, 'push', '--no-verify', 'origin', storyBranch);
-  process.exit(1);
-}
-
-function finalizeMerge(epicBranch, storyBranch, storyTitle, storyId) {
-  // Normal merge path
-  progress('GIT', `Checking out \${epicBranch}...`);
-  gitSync(PROJECT_ROOT, 'checkout', epicBranch);
-  gitSpawn(PROJECT_ROOT, 'pull', '--rebase', 'origin', epicBranch);
-
-  progress('GIT', `Merging \${storyBranch} into \${epicBranch} (--no-ff)...`);
-  const mergeResult = gitSpawn(
-    PROJECT_ROOT,
-    'merge',
-    '--no-ff',
-    storyBranch,
-    '-m',
-    `feat: \${storyTitle} (resolves #\${storyId})`,
-  );
-
-  if (mergeResult.status !== 0) {
-    Logger.fatal(
-      `Merge failed: \${mergeResult.stderr}\\n` +
-        `Resolve conflicts manually, then re-run this script.`,
-    );
-  }
-  progress('GIT', '✅ Merge successful');
-
-  progress('GIT', `Pushing \${epicBranch}...`);
-  const pushResult = gitSpawn(
-    PROJECT_ROOT,
-    'push',
-    '--no-verify',
-    'origin',
-    epicBranch,
-  );
-  if (pushResult.status !== 0) {
-    Logger.fatal(`Push failed: \${pushResult.stderr}`);
-  }
-
-  cleanupBranches(storyBranch);
-}
 
   // -------------------------------------------------------------------------
   // Step 5 — Risk check and merge
@@ -315,8 +313,6 @@ function finalizeMerge(epicBranch, storyBranch, storyTitle, storyId) {
       `${closedTickets.length} ticket(s) closed.`,
   );
 }
-
-
 
 // ---------------------------------------------------------------------------
 // Main guard

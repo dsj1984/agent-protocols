@@ -38,6 +38,7 @@ node .agents/scripts/sprint-code-review.js --epic [EPIC_ID]
 ```
 
 This script will:
+
 - Generate a `git diff` against `main`.
 - Calculate maintainability scores for all new/modified files.
 - Run a focused lint check.

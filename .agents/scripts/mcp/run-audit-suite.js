@@ -9,7 +9,7 @@ const __dirname = path.dirname(fileURLToPath(import.meta.url));
 
 async function executeAudit(auditName, scriptPath) {
   try {
-    const { stdout } = await execAsync(`node "\${scriptPath}"`);
+    const { stdout } = await execAsync(`node "${scriptPath}"`);
     if (!stdout.trim()) {
       return [];
     }
@@ -24,14 +24,14 @@ async function executeAudit(auditName, scriptPath) {
       return [{
         audit: auditName,
         severity: 'high',
-        message: `Audit script '\${auditName}.js' returned invalid JSON: \${e.message}`,
+        message: `Audit script '${auditName}.js' returned invalid JSON: ${e.message}`,
         rawOutput: e.message.substring(0, 500), // simplified
       }];
     }
     return [{
       audit: auditName,
       severity: 'high',
-      message: `Execution of '\${auditName}.js' failed: \${e.message}`,
+      message: `Execution of '${auditName}.js' failed: ${e.message}`,
     }];
   }
 }
@@ -75,19 +75,19 @@ export async function runAuditSuite({ auditWorkflows }) {
       auditResults.findings.push({
         audit: auditName,
         severity: 'low',
-        message: `Requested audit workflow '\${auditName}' is not defined in audit-rules.json.`,
+        message: `Requested audit workflow '${auditName}' is not defined in audit-rules.json.`,
       });
       continue;
     }
 
-    const scriptPath = path.join(scriptsDir, `\${auditName}.js`);
+    const scriptPath = path.join(scriptsDir, `${auditName}.js`);
     try {
       await fs.access(scriptPath);
     } catch {
       auditResults.findings.push({
         audit: auditName,
         severity: 'low',
-        message: `SYSTEM-MISSING-SCRIPT: Audit script '\${auditName}.js' not found in audits directory.`,
+        message: `SYSTEM-MISSING-SCRIPT: Audit script '${auditName}.js' not found in audits directory.`,
       });
       continue;
     }

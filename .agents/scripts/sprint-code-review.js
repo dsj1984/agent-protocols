@@ -94,7 +94,7 @@ async function main() {
   const lintCmd = orchestration.settings?.lintCommand ?? 'npm run lint';
   // Note: We run the full lint as workspace consistency is key, 
   // but a smarter script would filter errors to changed files.
-  const lintResult = gitSpawn(PROJECT_ROOT, 'npm', 'run', 'lint');
+  const lintResult = gitSpawn(PROJECT_ROOT, ...lintCmd.split(' '));
   if (lintResult.status !== 0) {
     results.lintErrors = 1; // Mark that it failed
   }

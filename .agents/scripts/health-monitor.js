@@ -1,5 +1,4 @@
 #!/usr/bin/env node
-import { parseArgs } from 'node:util';
 import path from 'node:path';
 import { fileURLToPath } from 'node:url';
 
@@ -86,8 +85,6 @@ Epic: #${epicId}
     });
     vlog.info('✅ Health issue updated successfully.');
   }
-}
-
 }
 
 // CLI execution fallback

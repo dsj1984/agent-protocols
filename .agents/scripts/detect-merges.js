@@ -19,7 +19,7 @@ export async function main() {
           for (const marker of markers) {
             if (content.includes(marker)) {
               console.error(
-                `Conflict marker '${marker.trim()}' found in tracked file: \${file}`,
+                `Conflict marker '${marker.trim()}' found in tracked file: ${file}`,
               );
               foundConflicts = true;
               break; // Move to the next file if one marker is found
@@ -40,12 +40,12 @@ export async function main() {
       process.exit(0);
     }
   } catch (err) {
-    Logger.fatal(`Error detecting merges: \${err.message}`);
+    Logger.fatal(`Error detecting merges: ${err.message}`);
   }
 }
 
-if (import.meta.url === \`file://\${process.argv[1]}\`) {
+if (import.meta.url === `file://${process.argv[1]}`) {
   main().catch((err) => {
-    Logger.fatal(`Fatal error: \${err.message}`);
+    Logger.fatal(`Fatal error: ${err.message}`);
   });
 }
