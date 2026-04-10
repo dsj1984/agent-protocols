@@ -129,7 +129,8 @@ export async function hydrateContext(
   try {
     const pTemplatePath = path.join(
       PROJECT_ROOT,
-      '.agents/templates/agent-protocol.md',
+      settings.templatesRoot,
+      'agent-protocol.md',
     );
     protocolTpl = fs.readFileSync(pTemplatePath, 'utf8');
     protocolTpl = protocolTpl
@@ -147,7 +148,7 @@ export async function hydrateContext(
     try {
       const pPath = path.join(
         PROJECT_ROOT,
-        '.agents/personas',
+        settings.personasRoot,
         `${task.persona}.md`,
       );
       if (fs.existsSync(pPath)) {
@@ -168,12 +169,12 @@ export async function hydrateContext(
       try {
         // Two-tier skill layout (core/, stack/) with flat fallback.
         const candidates = [
-          path.join(PROJECT_ROOT, '.agents/skills/core', skill, 'SKILL.md'),
-          path.join(PROJECT_ROOT, '.agents/skills/stack', skill, 'SKILL.md'),
-          path.join(PROJECT_ROOT, '.agents/skills', skill, 'SKILL.md'),
+          path.join(PROJECT_ROOT, settings.skillsRoot, 'core', skill, 'SKILL.md'),
+          path.join(PROJECT_ROOT, settings.skillsRoot, 'stack', skill, 'SKILL.md'),
+          path.join(PROJECT_ROOT, settings.skillsRoot, skill, 'SKILL.md'),
         ];
         // Also check stack subcategories (e.g., stack/javascript/eslint/)
-        const stackBase = path.join(PROJECT_ROOT, '.agents/skills/stack');
+        const stackBase = path.join(PROJECT_ROOT, settings.skillsRoot, 'stack');
         if (fs.existsSync(stackBase)) {
           try {
             for (const category of fs.readdirSync(stackBase)) {

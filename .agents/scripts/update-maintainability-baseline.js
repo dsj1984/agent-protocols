@@ -3,6 +3,7 @@ import {
   saveBaseline,
   scanDirectory,
 } from './lib/maintainability-utils.js';
+import { resolveConfig } from './lib/config-resolver.js';
 
 /**
  * Script to update the maintainability baseline file.
@@ -10,13 +11,16 @@ import {
  * when adding new files that should be tracked.
  */
 
-const TARGET_DIRS = ['.agents/scripts', 'tests'];
-
 async function main() {
+  const { settings } = resolveConfig();
+  const targetDirs = settings.maintainability?.targetDirs || [
+    '.agents/scripts',
+    'tests',
+  ];
   console.log('[Maintainability] Updating baseline...');
 
   const files = [];
-  TARGET_DIRS.forEach((dir) => {
+  targetDirs.forEach((dir) => {
     console.log(`[Maintainability] Scanning ${dir}...`);
     scanDirectory(dir, files);
   });

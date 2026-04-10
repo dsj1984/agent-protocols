@@ -80,12 +80,16 @@ export function resolveConfig(opts) {
       scriptsRoot: '.agents/scripts',
       workflowsRoot: '.agents/workflows',
       personasRoot: '.agents/personas',
-      schemasRoot: '.agents/schemas',
-      docsRoot: 'docs',
-      tempRoot: 'temp',
-      baseBranch: 'main',
-      notificationWebhookUrl: '',
-      verboseLogging: { enabled: false, logDir: 'temp/verbose-logs' },
+      skillsRoot: '.agents/skills',
+      templatesRoot: '.agents/templates',
+      rulesRoot: '.agents/rules',
+      docsContextFiles: [
+        'architecture.md',
+        'data-dictionary.md',
+        'decisions.md',
+        'patterns.md',
+      ],
+      maintainability: { targetDirs: ['.agents/scripts', 'tests'] },
       roadmapPath: 'docs/ROADMAP.md',
       executionTimeoutMs: 300000,
       executionMaxBuffer: 10485760,
@@ -98,7 +102,14 @@ export function resolveConfig(opts) {
     settings.workflowsRoot = settings.workflowsRoot ?? defaults.workflowsRoot;
     settings.personasRoot = settings.personasRoot ?? defaults.personasRoot;
     settings.schemasRoot = settings.schemasRoot ?? defaults.schemasRoot;
+    settings.skillsRoot = settings.skillsRoot ?? defaults.skillsRoot;
+    settings.templatesRoot = settings.templatesRoot ?? defaults.templatesRoot;
+    settings.rulesRoot = settings.rulesRoot ?? defaults.rulesRoot;
     settings.docsRoot = settings.docsRoot ?? defaults.docsRoot;
+    settings.docsContextFiles =
+      settings.docsContextFiles ?? defaults.docsContextFiles;
+    settings.maintainability =
+      settings.maintainability ?? defaults.maintainability;
     settings.tempRoot = settings.tempRoot ?? defaults.tempRoot;
     settings.baseBranch = settings.baseBranch ?? defaults.baseBranch;
     settings.notificationWebhookUrl =
@@ -134,7 +145,17 @@ export function resolveConfig(opts) {
       workflowsRoot: '.agents/workflows',
       personasRoot: '.agents/personas',
       schemasRoot: '.agents/schemas',
+      skillsRoot: '.agents/skills',
+      templatesRoot: '.agents/templates',
+      rulesRoot: '.agents/rules',
       docsRoot: 'docs',
+      docsContextFiles: [
+        'architecture.md',
+        'data-dictionary.md',
+        'decisions.md',
+        'patterns.md',
+      ],
+      maintainability: { targetDirs: ['.agents/scripts', 'tests'] },
       tempRoot: 'temp',
       baseBranch: 'main',
       notificationWebhookUrl: '',

@@ -1,6 +1,7 @@
 import fs from 'node:fs/promises';
 import path from 'node:path';
 import { gitSpawn } from '../lib/git-utils.js';
+import { PROJECT_ROOT, resolveConfig } from '../lib/config-resolver.js';
 
 /**
  * Filter audits based on logic in audit-rules.json
@@ -16,10 +17,13 @@ export async function selectAudits({
   provider,
   baseBranch = 'main',
 }) {
+  const { settings } = resolveConfig();
+
   // 1. Read audit-rules.json
   const rulesPath = path.join(
-    process.cwd(),
-    '.agents/schemas/audit-rules.json',
+    PROJECT_ROOT,
+    settings.schemasRoot,
+    'audit-rules.json',
   );
   let rulesData;
   try {

@@ -30,6 +30,11 @@
       "autoGenerate": true,
       "excludeLabels": ["roadmap-exclude"]
     },
+    "verboseLogging": {
+      "enabled": false,
+      "logDir": "temp/verbose-logs"
+    },
+    "maxTokenBudget": 80000,
     "validationCommand": "npm run lint",
     "lintBaselineCommand": "npm run lint",
     "lintBaselinePath": "temp/lint-baseline.json",

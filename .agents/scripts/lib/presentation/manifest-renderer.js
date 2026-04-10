@@ -7,6 +7,7 @@
 import fs from 'node:fs';
 import path from 'node:path';
 import { fileURLToPath } from 'node:url';
+import { resolveConfig } from '../config-resolver.js';
 
 function getProjectRoot() {
   const __dirname = path.dirname(fileURLToPath(import.meta.url));
@@ -374,14 +375,14 @@ export function renderStoryManifestMarkdown(manifest) {
   lines.push('');
   lines.push('## Execution Steps');
   lines.push('');
-  lines.push(
-    '1. `node .agents/scripts/sprint-story-init.js --story <storyId>` (bootstraps branch, transitions tasks)',
-  );
+  const { settings } = resolveConfig();
+  const initPath = path.join(settings.scriptsRoot, 'sprint-story-init.js');
+  const closePath = path.join(settings.scriptsRoot, 'sprint-story-close.js');
+
+  lines.push(`1. \`node ${initPath} --story <storyId>\` (bootstraps branch, transitions tasks)`);
   lines.push('2. Implement each Task sequentially and commit after each one.');
-  lines.push('3. Run `npm run lint` and `npm test` to validate.');
-  lines.push(
-    '4. `node .agents/scripts/sprint-story-close.js --story <storyId>` (merges, cleans up, closes tickets)',
-  );
+  lines.push(`3. Run \`${settings.validationCommand}\` and \`${settings.testCommand}\` to validate.`);
+  lines.push(`4. \`node ${closePath} --story <storyId>\` (merges, cleans up, closes tickets)`);
   lines.push('');
 
   return lines.join('\n');

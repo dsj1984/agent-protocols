@@ -40,9 +40,9 @@ async function main() {
     Logger.fatal('Usage: node sprint-code-review.js --epic <EPIC_ID>');
   }
 
-  const { orchestration } = resolveConfig();
+  const { settings, orchestration } = resolveConfig();
   const provider = createProvider(orchestration);
-  const baseBranch = values.base ?? orchestration.git?.baseBranch ?? 'main';
+  const baseBranch = values.base ?? settings.baseBranch ?? 'main';
   const epicBranch = `epic/${epicId}`;
 
   progress('INIT', `Starting automated review for Epic #${epicId}...`);
@@ -98,7 +98,7 @@ async function main() {
 
   // 2. Perform focused lint
   progress('LINT', 'Running focused lint check...');
-  const lintCmd = orchestration.settings?.lintCommand ?? 'npm run lint';
+  const lintCmd = settings.validationCommand ?? 'npm run lint';
   // Note: We run the full lint as workspace consistency is key,
   // but a smarter script would filter errors to changed files.
   const lintResult = gitSpawn(PROJECT_ROOT, ...lintCmd.split(' '));

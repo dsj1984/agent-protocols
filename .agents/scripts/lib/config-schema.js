@@ -90,9 +90,23 @@ export const AGENT_SETTINGS_SCHEMA = {
         logDir: { type: 'string', not: { pattern: '([;&|`]|\\$\\()' } },
       },
     },
+    docsContextFiles: {
+      type: 'array',
+      items: { type: 'string' },
+    },
+    maintainability: {
+      type: 'object',
+      properties: {
+        targetDirs: {
+          type: 'array',
+          items: { type: 'string' },
+        },
+      },
+      additionalProperties: false,
+    },
   },
   patternProperties: {
-    '^(notificationWebhookUrl|baseBranch|validationCommand|testCommand|buildCommand|agentRoot|scriptsRoot|workflowsRoot|personasRoot|schemasRoot|docsRoot|tempRoot|lintBaselineCommand|lintBaselinePath|exploratoryTestCommand|typecheckCommand|roadmapPath)$':
+    '^(notificationWebhookUrl|baseBranch|validationCommand|testCommand|buildCommand|agentRoot|scriptsRoot|workflowsRoot|personasRoot|schemasRoot|skillsRoot|templatesRoot|rulesRoot|docsRoot|tempRoot|lintBaselineCommand|lintBaselinePath|exploratoryTestCommand|typecheckCommand|roadmapPath)$':
       {
         type: 'string',
         not: { pattern: '([;&|`]|\\$\\()' },

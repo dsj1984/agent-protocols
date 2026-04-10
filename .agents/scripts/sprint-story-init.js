@@ -222,7 +222,7 @@ async function main() {
     );
   }
 
-  const { orchestration } = resolveConfig();
+  const { settings, orchestration } = resolveConfig();
   const provider = createProvider(orchestration);
 
   progress('INIT', `Initializing Story #${storyId}...`);
@@ -276,7 +276,7 @@ async function main() {
   const storyBranch = getStoryBranch(epicId, storyId);
 
   if (!dryRun) {
-    const baseBranch = orchestration?.baseBranch ?? 'main';
+    const baseBranch = settings.baseBranch ?? 'main';
     try {
       bootstrapBranch(epicBranch, storyBranch, baseBranch);
     } catch (err) {

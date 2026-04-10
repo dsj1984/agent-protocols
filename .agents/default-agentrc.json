@@ -34,7 +34,7 @@
       "enabled": false,
       "logDir": "temp/verbose-logs"
     },
-    "maxTokenBudget": 1000000,
+    "maxTokenBudget": 80000,
     "validationCommand": "pnpm turbo run lint typecheck",
     "lintBaselineCommand": "pnpm exec eslint . --format json",
     "lintBaselinePath": "temp/lint-baseline.json",
@@ -104,7 +104,12 @@
       "analysisThresholds": {
         "minFrictionEvents": 3
       },
-      "model": "Claude Opus 4.6 (Thinking)"
+      "analysisSchedule": "0 0 * * 0",
+      "model": "high-reasoning",
+      "impactTracking": {
+        "enabled": true,
+        "lookbackSprints": 3
+      }
     }
   },
   "models": {

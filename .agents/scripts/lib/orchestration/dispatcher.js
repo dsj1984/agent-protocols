@@ -122,7 +122,10 @@ export function captureLintBaseline(epicBranch, settings) {
   try {
     execFileSync(
       'node',
-      [path.join(PROJECT_ROOT, '.agents/scripts/lint-baseline.js'), 'capture'],
+      [
+        path.join(PROJECT_ROOT, settings.scriptsRoot, 'lint-baseline.js'),
+        'capture',
+      ],
       {
         cwd: PROJECT_ROOT,
         encoding: 'utf8',
