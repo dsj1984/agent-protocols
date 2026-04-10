@@ -18,7 +18,12 @@ framework via the `.agents/` Git submodule.
 │   ├── lib/                 # Core libraries
 │   │   ├── orchestration/           # ★ Orchestration SDK
 │   │   │   ├── index.js             # Barrel export: all SDK functions
-│   │   │   ├── dispatcher.js        # DAG scheduling, wave computation, manifest rendering
+│   │   │   ├── dispatcher.js        # DAG scheduling and wave computation
+│   │   │   ├── manifest-builder.js  # Dispatch manifest data assembly
+│   │   │   ├── model-resolver.js    # LLM tiering and routing fallback
+│   │   │   ├── reconciler.js        # State reconciliation routines
+│   │   │   ├── story-grouper.js     # Issue grouping by executable Story
+│   │   │   ├── task-fetcher.js      # Upstream API issue retrieval
 │   │   │   ├── context-hydrator.js  # Self-contained prompt assembly
 │   │   │   ├── ticketing.js         # Ticket state machine + cascade logic
 │   │   │   ├── dependency-analyzer.js # Cross-ticket dependency resolution

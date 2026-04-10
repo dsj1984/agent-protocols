@@ -4,7 +4,7 @@ import { fileURLToPath } from 'node:url';
 
 import { parseSprintArgs } from './lib/cli-args.js';
 import { resolveConfig } from './lib/config-resolver.js';
-import { fetchTasks } from './lib/orchestration/dispatcher.js';
+import { fetchTasks } from './lib/orchestration/task-fetcher.js';
 import { fetchTelemetry } from './lib/orchestration/telemetry.js';
 import { createProvider } from './lib/provider-factory.js';
 

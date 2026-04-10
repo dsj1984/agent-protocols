@@ -138,6 +138,7 @@ export function resolveConfig(opts) {
       roadmapPath: 'docs/ROADMAP.md',
       executionTimeoutMs: 300000, // 5 minutes
       executionMaxBuffer: 10485760, // 10MB
+      maxTokenBudget: 80000, // Default 80k token budget
     },
     orchestration: null,
     raw: null,

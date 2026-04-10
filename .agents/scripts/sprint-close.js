@@ -125,14 +125,22 @@ async function main() {
     // 3.2 Delete story branches
     progress('CLEANUP', 'Deleting story/task branches...');
 
-    // Remote cleanup
+    // Remote cleanup — match both v5 (`story-{id}`) and legacy (`story/epic-{epicId}/`) patterns
     const remoteBranches = gitSpawn(PROJECT_ROOT, 'branch', '-r').stdout ?? '';
-    const storyIdPattern = `story/epic-${epicId}/`;
-    const taskIdPattern = `task/epic-${epicId}/`;
+    const storyLegacyPattern = `story/epic-${epicId}/`;
+    const taskLegacyPattern = `task/epic-${epicId}/`;
+
+    function matchesEpicBranch(branchName) {
+      return (
+        branchName.includes(storyLegacyPattern) ||
+        branchName.includes(taskLegacyPattern) ||
+        /^story-\d+$/.test(branchName)
+      );
+    }
 
     remoteBranches.split('\n').forEach((line) => {
       const b = line.trim().replace('origin/', '');
-      if (b.includes(storyIdPattern) || b.includes(taskIdPattern)) {
+      if (matchesEpicBranch(b)) {
         progress('CLEANUP', `Deleting remote branch: ${b}`);
         gitSpawn(PROJECT_ROOT, 'push', 'origin', '--delete', b);
       }
@@ -142,7 +150,7 @@ async function main() {
     const localBranches = gitSpawn(PROJECT_ROOT, 'branch').stdout ?? '';
     localBranches.split('\n').forEach((line) => {
       const b = line.trim().replace('* ', '');
-      if (b.includes(storyIdPattern) || b.includes(taskIdPattern)) {
+      if (matchesEpicBranch(b)) {
         progress('CLEANUP', `Deleting local branch: ${b}`);
         gitSpawn(PROJECT_ROOT, 'branch', '-D', b);
       }

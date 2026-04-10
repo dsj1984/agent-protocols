@@ -28,6 +28,7 @@
 import path from 'node:path';
 import { fileURLToPath } from 'node:url';
 import { parseSprintArgs } from './lib/cli-args.js';
+import { PROJECT_ROOT, resolveConfig } from './lib/config-resolver.js';
 import { parseBlockedBy } from './lib/dependency-parser.js';
 import { buildGraph, topologicalSort } from './lib/Graph.js';
 import {

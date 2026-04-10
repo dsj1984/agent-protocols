@@ -54,11 +54,6 @@ export function persistManifest(manifest) {
 }
 
 export function renderManifestMarkdown(manifest) {
-  // DEBUG HELPER
-  process.stderr.write(
-    `[MCP] Rendering manifest for Epic #${manifest.epicId || 'unknown'}. Keys: ${Object.keys(manifest).join(', ')}\n`,
-  );
-
   const lines = [];
   const { epicId, epicTitle, summary, storyManifest, dryRun, generatedAt } =
     manifest;

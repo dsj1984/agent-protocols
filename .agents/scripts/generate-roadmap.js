@@ -52,7 +52,9 @@ async function main() {
       try {
         const children = await provider.getTickets(epic.id);
         const total = children.length;
-        const closed = children.filter((t) => t.state === 'closed' || t.labels.includes('agent::done')).length;
+        const closed = children.filter(
+          (t) => t.state === 'closed' || t.labels.includes('agent::done'),
+        ).length;
         const percent = total > 0 ? Math.round((closed / total) * 100) : 0;
 
         return {
@@ -62,7 +64,9 @@ async function main() {
           percentage: percent,
         };
       } catch (err) {
-        console.warn(`[RoadmapSync] Failed to fetch children for Epic #${epic.id}: ${err.message}`);
+        console.warn(
+          `[RoadmapSync] Failed to fetch children for Epic #${epic.id}: ${err.message}`,
+        );
         return {
           ...epic,
           totalCount: 0,
@@ -109,7 +113,9 @@ async function main() {
       const url = `https://github.com/${orchestration.github.owner}/${orchestration.github.repo}/issues/${epic.id}`;
       const progressBar = renderProgressBar(epic.percentage);
       const progressText = `${progressBar} ${epic.percentage}% (${epic.closedCount}/${epic.totalCount})`;
-      tableLines.push(`| [#${epic.id} — ${epic.title}](${url}) | ${emoji} ${statusText} | ${progressText} |`);
+      tableLines.push(
+        `| [#${epic.id} — ${epic.title}](${url}) | ${emoji} ${statusText} | ${progressText} |`,
+      );
     }
 
     tableLines.push('');
@@ -117,7 +123,12 @@ async function main() {
   };
 
   // Sections in order: In Progress, Planned, Completed
-  const inProgressTable = renderTable('In Progress', '🚧', inProgress, 'In Progress');
+  const inProgressTable = renderTable(
+    'In Progress',
+    '🚧',
+    inProgress,
+    'In Progress',
+  );
   const plannedTable = renderTable('Planned', '📋', planned, 'Planned');
   const completedTable = renderTable('Completed', '✅', completed, 'Completed');
 

@@ -131,6 +131,8 @@ export class GitHubProvider extends ITicketingProvider {
         await new Promise((r) => setTimeout(r, delay));
       }
     }
+    // Safety: should never normally reach here, but prevents returning undefined
+    throw new Error('[GitHubProvider] Retry loop exhausted without response');
   }
 
   /**
@@ -625,31 +627,33 @@ export class GitHubProvider extends ITicketingProvider {
       patch.state_reason = mutations.state_reason;
     }
 
-    // Handle label mutations — requires separate API calls
     if (mutations.labels) {
-      if (mutations.labels.add?.length) {
-        for (const label of mutations.labels.add) {
-          await this._rest(
-            `/repos/${this.owner}/${this.repo}/issues/${ticketId}/labels`,
-            { method: 'POST', body: { labels: [label] } },
-          );
-        }
+      const { add = [], remove = [] } = mutations.labels;
+
+      // Fast path 1: Only adding labels, no other PATCH elements
+      if (
+        add.length > 0 &&
+        remove.length === 0 &&
+        Object.keys(patch).length === 0
+      ) {
+        await this._rest(
+          `/repos/${this.owner}/${this.repo}/issues/${ticketId}/labels`,
+          { method: 'POST', body: { labels: add } },
+        );
+        return;
       }
-      if (mutations.labels.remove?.length) {
-        for (const label of mutations.labels.remove) {
-          try {
-            await this._rest(
-              `/repos/${this.owner}/${this.repo}/issues/${ticketId}/labels/${encodeURIComponent(label)}`,
-              { method: 'DELETE' },
-            );
-          } catch {
-            // Label may not exist on the issue — ignore
-          }
-        }
-      }
+
+      // If we have to remove labels or apply another patch, do it in one atomic PATCH
+      const ticket = await this.getTicket(ticketId);
+      const currentLabels = new Set(ticket.labels ?? []);
+
+      remove.forEach((l) => currentLabels.delete(l));
+      add.forEach((l) => currentLabels.add(l));
+
+      patch.labels = Array.from(currentLabels);
     }
 
-    // Only call PATCH if we have non-label mutations
+    // Call PATCH if we have any mutations
     if (Object.keys(patch).length > 0) {
       await this._rest(`/repos/${this.owner}/${this.repo}/issues/${ticketId}`, {
         method: 'PATCH',

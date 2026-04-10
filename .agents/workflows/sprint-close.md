@@ -40,6 +40,8 @@ Epic GitHub issue, cleans up all sprint branches, and optionally tags a release.
    - All files listed in `release.docs`.
    - All files listed in `agentSettings.docsContextFiles` (prefixed with the
      path from `agentSettings.docsRoot`).
+7. Resolve `[ROADMAP_PATH]` from `roadmapPath` in `.agentrc.json` (default:
+   `docs/ROADMAP.md`).
 
 ## Step 1 — Completeness Gate (Hierarchy Check)
 
@@ -96,6 +98,7 @@ workflow, but **skip Step 4 (Commit)**. The roadmap changes will be committed
 as part of the next documentation commit or the merge itself.
 
 ```powershell
+node [SCRIPTS_ROOT]/generate-roadmap.js
 git add [ROADMAP_PATH]
 ```
 

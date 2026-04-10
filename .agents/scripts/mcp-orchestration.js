@@ -1,6 +1,8 @@
 #!/usr/bin/env node
 
 import fs from 'node:fs';
+import path from 'node:path';
+import { fileURLToPath } from 'node:url';
 
 // --- STDOUT GUARD (MUST BE FIRST) ---
 const _realStdoutWrite = process.stdout.write.bind(process.stdout);
@@ -40,15 +42,14 @@ import { createInterface } from 'node:readline';
 
 const MCP_VERSION = '2024-11-05';
 const SERVER_NAME = 'agent-protocols';
-const SERVER_VERSION = '5.1.0';
+const __mcp_dirname = path.dirname(fileURLToPath(import.meta.url));
+const SERVER_VERSION = fs
+  .readFileSync(path.join(__mcp_dirname, '../VERSION'), 'utf8')
+  .trim();
 
 // ---------------------------------------------------------------------------
 // Stdio Transport
 // ---------------------------------------------------------------------------
-
-function send(msg) {
-  sendMcp(msg);
-}
 
 /**
  * Send a JSON-RPC 2.0 result response.
@@ -56,7 +57,7 @@ function send(msg) {
  * @param {unknown} result
  */
 function sendResult(id, result) {
-  send({ jsonrpc: '2.0', id, result });
+  sendMcp({ jsonrpc: '2.0', id, result });
 }
 
 /**
@@ -69,7 +70,7 @@ function sendResult(id, result) {
 function sendError(id, code, message, data) {
   const error = { code, message };
   if (data !== undefined) error.data = data;
-  send({ jsonrpc: '2.0', id, error });
+  sendMcp({ jsonrpc: '2.0', id, error });
 }
 
 // ---------------------------------------------------------------------------

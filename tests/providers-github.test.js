@@ -373,10 +373,16 @@ describe('GitHubProvider — updateTicket()', () => {
     assert.deepEqual(sentBody.assignees, ['alice']);
   });
 
-  it('adds and removes labels via separate API calls', async () => {
+  it('batches label additions and removals via GET and PATCH', async () => {
     const mockFetch = createRouteMock({
-      'POST /labels': { status: 200, json: {} },
-      'DELETE /labels/agent::ready': { status: 204, json: null },
+      'GET /issues/42': {
+        status: 200,
+        json: {
+          number: 42,
+          labels: [{ name: 'agent::ready' }, { name: 'bug' }],
+        },
+      },
+      'PATCH /issues/42': { status: 200, json: {} },
     });
     globalThis.fetch = mockFetch;
 
@@ -388,12 +394,19 @@ describe('GitHubProvider — updateTicket()', () => {
       },
     });
 
-    // Should have made 2 calls: add + remove
+    // Should have made 2 calls: GET + PATCH
     assert.equal(mockFetch.calls.length, 2);
-    assert.ok(mockFetch.calls[0].url.includes('/labels'));
-    assert.equal(mockFetch.calls[0].opts.method, 'POST');
-    assert.ok(mockFetch.calls[1].url.includes('/labels/'));
-    assert.equal(mockFetch.calls[1].opts.method, 'DELETE');
+    assert.ok(mockFetch.calls[0].url.includes('/issues/42'));
+    assert.equal(mockFetch.calls[0].opts.method, 'GET');
+
+    assert.ok(mockFetch.calls[1].url.includes('/issues/42'));
+    assert.equal(mockFetch.calls[1].opts.method, 'PATCH');
+
+    const patchBody = JSON.parse(mockFetch.calls[1].opts.body);
+    // Should remove agent::ready and add agent::executing; 'bug' is retained
+    assert.ok(patchBody.labels.includes('bug'));
+    assert.ok(patchBody.labels.includes('agent::executing'));
+    assert.equal(patchBody.labels.includes('agent::ready'), false);
   });
 });
 
