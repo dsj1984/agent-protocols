@@ -80,3 +80,32 @@ export function getOrchestrationValidator() {
   }
   return _compiledValidator;
 }
+
+export const AGENT_SETTINGS_SCHEMA = {
+  type: 'object',
+  properties: {
+    verboseLogging: {
+      type: 'object',
+      properties: {
+        logDir: { type: 'string', not: { pattern: '([;&|`]|\\$\\()' } },
+      },
+    },
+  },
+  patternProperties: {
+    '^(notificationWebhookUrl|baseBranch|validationCommand|testCommand|buildCommand|agentRoot|scriptsRoot|workflowsRoot|personasRoot|schemasRoot|docsRoot|tempRoot|lintBaselineCommand|lintBaselinePath|exploratoryTestCommand|typecheckCommand|roadmapPath)$':
+      {
+        type: 'string',
+        not: { pattern: '([;&|`]|\\$\\()' },
+      },
+  },
+};
+
+let _settingsValidator = null;
+
+export function getSettingsValidator() {
+  if (!_settingsValidator) {
+    const ajv = new Ajv({ allErrors: true });
+    _settingsValidator = ajv.compile(AGENT_SETTINGS_SCHEMA);
+  }
+  return _settingsValidator;
+}

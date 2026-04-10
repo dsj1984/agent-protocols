@@ -130,12 +130,22 @@ async function main() {
     const storyLegacyPattern = `story/epic-${epicId}/`;
     const taskLegacyPattern = `task/epic-${epicId}/`;
 
+    // Fetch all tickets linked to this epic to safely match v5 short story branches.
+    const epicTickets = await provider.getTickets(epicId).catch(() => []);
+    const validTicketIds = new Set(epicTickets.map((t) => t.id));
+
     function matchesEpicBranch(branchName) {
-      return (
+      if (
         branchName.includes(storyLegacyPattern) ||
-        branchName.includes(taskLegacyPattern) ||
-        /^story-\d+$/.test(branchName)
-      );
+        branchName.includes(taskLegacyPattern)
+      ) {
+        return true;
+      }
+      const match = branchName.match(/^story-(\d+)$/);
+      if (match && validTicketIds.has(parseInt(match[1], 10))) {
+        return true;
+      }
+      return false;
     }
 
     remoteBranches.split('\n').forEach((line) => {

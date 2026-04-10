@@ -24,7 +24,7 @@ import { createProvider } from './lib/provider-factory.js';
 function renderProgressBar(percentage) {
   const filledCount = Math.round(percentage / 10);
   const emptyCount = 10 - filledCount;
-  return '`' + '█'.repeat(filledCount) + '░'.repeat(emptyCount) + '`';
+  return `\`${'█'.repeat(filledCount)}${'░'.repeat(emptyCount)}\``;
 }
 
 async function main() {
@@ -136,7 +136,7 @@ async function main() {
   if (plannedTable) lines.push(plannedTable);
   if (completedTable) lines.push(completedTable);
 
-  const content = lines.join('\n').trim() + '\n';
+  const content = `${lines.join('\n').trim()}\n`;
 
   // 5. Write to file
   const outputPath = path.resolve(PROJECT_ROOT, roadmapPath);

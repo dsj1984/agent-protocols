@@ -63,6 +63,22 @@ export function renderManifestMarkdown(manifest) {
   lines.push('');
   lines.push(`> **${epicTitle}**`);
   lines.push('');
+
+  lines.push('## 🤖 Agent Operating Procedures');
+  lines.push('');
+  lines.push(
+    '> 1. **Identify**: Start with the lowest available wave where `Status` is `🚀 Ready`.',
+  );
+  lines.push(
+    '> 2. **Select**: Pick a Story from the **Execution Plan** that is not yet `✅`.',
+  );
+  lines.push(
+    '> 3. **Execute**: Run `node [SCRIPTS_ROOT]/sprint-execute.js --story [STORY_ID]`.',
+  );
+  lines.push(
+    '> 4. **Repeat**: After the Story completes, re-run `/sprint-execute [EPIC_ID]` to trigger the next wave.',
+  );
+  lines.push('');
   // Compute story-level wave count (distinct earliestWave values)
   const storyWaveSet = new Set(
     (storyManifest ?? []).map((s) => s.earliestWave).filter((w) => w !== -1),

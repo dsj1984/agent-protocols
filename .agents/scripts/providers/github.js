@@ -372,13 +372,18 @@ export class GitHubProvider extends ITicketingProvider {
       parseInt(m[1], 10),
     );
 
-    // Tertiary: Reverse-search for issues pointing to this parent in their body (C-5 fallback)
+    // Tertiary: Reverse-search for issues pointing to this parent in their body (C-5 fallback).
+    // Guard: only run for Epic-type parents to avoid full-repo scans on Story/Feature parents,
+    // which would incorrectly pull in sibling tickets and waste API quota.
     let referencedChildIds = [];
-    try {
-      const issues = await this.getTickets(parentId);
-      referencedChildIds = issues.map((i) => i.id);
-    } catch (_err) {
-      // Ignore errors in tertiary lookup
+    const isEpicParent = (parent.labels ?? []).includes('type::epic');
+    if (isEpicParent) {
+      try {
+        const issues = await this.getTickets(parentId);
+        referencedChildIds = issues.map((i) => i.id);
+      } catch (_err) {
+        // Ignore errors in tertiary lookup
+      }
     }
 
     // Merge and remove duplicates
@@ -647,8 +652,8 @@ export class GitHubProvider extends ITicketingProvider {
       const ticket = await this.getTicket(ticketId);
       const currentLabels = new Set(ticket.labels ?? []);
 
-      remove.forEach((l) => currentLabels.delete(l));
-      add.forEach((l) => currentLabels.add(l));
+      for (const l of remove) currentLabels.delete(l);
+      for (const l of add) currentLabels.add(l);
 
       patch.labels = Array.from(currentLabels);
     }

@@ -57,8 +57,8 @@ describe('Context Hydrator', () => {
     );
     assert.ok(prompt.includes('Epic Body'), 'Prompt contains epic body');
     assert.ok(
-      prompt.includes('Feature: Feature (#2)'),
-      'Prompt contains fetched feature',
+      !prompt.includes('Feature: Feature (#2)'),
+      'Prompt skips feature by default (standard context depth)',
     );
   });
 

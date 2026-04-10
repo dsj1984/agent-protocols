@@ -18,32 +18,25 @@ import fs from 'node:fs';
 import path from 'node:path';
 import { createAdapter } from '../adapter-factory.js';
 import { PROJECT_ROOT, resolveConfig } from '../config-resolver.js';
-import {
-  isSafeBranchComponent,
-  parseBlockedBy,
-  parseTaskMetadata,
-} from '../dependency-parser.js';
+import { isSafeBranchComponent } from '../dependency-parser.js';
 import {
   buildGraph,
   computeWaves,
   detectCycle,
-  topologicalSort,
 } from '../Graph.js';
 import {
   getEpicBranch,
-  getStoryBranch,
-  getTaskBranch,
   gitSync,
-  slugify,
 } from '../git-utils.js';
 import { createProvider } from '../provider-factory.js';
 import { VerboseLogger } from '../VerboseLogger.js';
 import { hydrateContext } from './context-hydrator.js';
 import { autoSerializeOverlaps } from './dependency-analyzer.js';
 import { buildManifest, getResolvedBranch } from './manifest-builder.js';
-import { resolveModelTier, resolveModel } from './model-resolver.js';
+import { resolveModel } from './model-resolver.js';
 import { reconcileClosedTasks, reconcileHierarchy } from './reconciler.js';
-import { fetchTasks, parseTasks } from './task-fetcher.js';
+import { parseTasks } from './task-fetcher.js';
+import { executeStory } from './story-executor.js';
 
 import { notify } from '../../notify.js';
 import { fetchTelemetry } from './telemetry.js';
@@ -149,84 +142,6 @@ export function captureLintBaseline(epicBranch, settings) {
 // Story Execution API (SDK public API)
 // ---------------------------------------------------------------------------
 
-/**
- * Execute a single Story (Mode B).
- * Identifies the parent Epic, retrieves sibling tasks, sorts them by DAG,
- * and generates an execution manifest.
- *
- * @param {{
- *   story: object,
- *   provider: import('../ITicketingProvider.js').ITicketingProvider,
- *   dryRun?: boolean
- * }} options
- * @returns {Promise<object>} Story Execution Manifest
- */
-export async function executeStory(options) {
-  const { story, provider, dryRun = false } = options;
-
-  // Find the parent Epic.
-  // Stories reference their Epic via `Epic: #NNN` in the body.
-  const epicMatch = story.body?.match(/^Epic:\s*#(\d+)/im);
-  const epicId = epicMatch ? parseInt(epicMatch[1], 10) : null;
-
-  const manifest = {
-    type: 'story-execution',
-    generatedAt: new Date().toISOString(),
-    dryRun,
-    stories: [],
-  };
-
-  let allTasks = [];
-  if (epicId) {
-    allTasks = await fetchTasks(provider, epicId);
-  }
-
-  // Filter to tasks belonging to THIS story (via parent: #STORY_ID)
-  const storyTasks = allTasks.filter((t) => {
-    const parentMatch = t.body?.match(/parent:\s*#(\d+)/i);
-    return parentMatch && parseInt(parentMatch[1], 10) === story.id;
-  });
-
-  // Sort tasks by DAG
-  const { adjacency, taskMap } = buildGraph(storyTasks);
-
-  let sortedTasks = [];
-  try {
-    const cycle = detectCycle(adjacency);
-    if (cycle) {
-      throw new Error(`Cycle detected: ${cycle.join(' -> ')}`);
-    }
-    sortedTasks = topologicalSort(adjacency, taskMap);
-  } catch (err) {
-    console.error(
-      `[executeStory] DAG sort failed for Story #${story.id}:`,
-      err.message,
-    );
-    sortedTasks = storyTasks; // Fallback to raw list
-  }
-
-  const branchName = epicId
-    ? getStoryBranch(epicId, story.id)
-    : `story-${story.id}`;
-  const epicBranch = epicId ? getEpicBranch(epicId) : null;
-
-  manifest.stories.push({
-    storyId: story.id,
-    storyTitle: story.title,
-    epicId,
-    epicBranch,
-    branchName,
-    model_tier: resolveModelTier(story.labels ?? []),
-    tasks: sortedTasks.map((t) => ({
-      taskId: t.id,
-      title: t.title,
-      status: t.status,
-    })),
-  });
-
-  return manifest;
-}
-
 // ---------------------------------------------------------------------------
 // Unified ticket resolution + dispatch (shared by CLI and MCP)
 // ---------------------------------------------------------------------------
@@ -285,6 +200,46 @@ export async function resolveAndDispatch(options) {
 // ---------------------------------------------------------------------------
 // Epic completion detection
 // ---------------------------------------------------------------------------
+
+/**
+ * Ensure Sprint Health Issue exists
+ */
+async function ensureSprintHealthIssue(
+  epicId,
+  epic,
+  allTickets,
+  provider,
+  dryRun,
+) {
+  if (dryRun) return;
+  const healthIssue = allTickets.find(
+    (t) =>
+      (t.labels ?? []).includes('type::health') ||
+      t.title.startsWith('📉 Sprint Health:'),
+  );
+
+  if (!healthIssue) {
+    vlog.info(
+      'orchestration',
+      `Creating Sprint Health issue for Epic #${epicId}...`,
+    );
+    try {
+      const { id } = await provider.createTicket(epicId, {
+        epicId,
+        title: `📉 Sprint Health: ${epic.title}`,
+        body: `## Real-time Sprint Health Monitoring\n\nThis issue tracks the execution metrics, progress, and friction logs for this sprint.\n\n---\nparent: #${epicId}\nEpic: #${epicId}`,
+        labels: ['type::health', 'persona::operator'],
+        dependencies: [],
+      });
+      vlog.info('orchestration', `✅ Sprint Health issue created: #${id}`);
+    } catch (err) {
+      vlog.warn(
+        'orchestration',
+        `Failed to create Sprint Health ticket: ${err.message}`,
+      );
+    }
+  }
+}
 
 /**
  * Detect Epic completion and fire the bookend lifecycle.
@@ -418,35 +373,7 @@ export async function dispatch(options) {
   vlog.info('orchestration', `Found ${tasks.length} task(s).`);
 
   // ── Step 1a: Ensure Sprint Health Issue exists ───────────────────────────
-  if (!dryRun) {
-    const healthIssue = allTickets.find(
-      (t) =>
-        (t.labels ?? []).includes('type::health') ||
-        t.title.startsWith('📉 Sprint Health:'),
-    );
-
-    if (!healthIssue) {
-      vlog.info(
-        'orchestration',
-        `Creating Sprint Health issue for Epic #${epicId}...`,
-      );
-      try {
-        const { id } = await provider.createTicket(epicId, {
-          epicId,
-          title: `📉 Sprint Health: ${epic.title}`,
-          body: `## Real-time Sprint Health Monitoring\n\nThis issue tracks the execution metrics, progress, and friction logs for this sprint.\n\n---\nparent: #${epicId}\nEpic: #${epicId}`,
-          labels: ['type::health', 'persona::operator'],
-          dependencies: [],
-        });
-        vlog.info('orchestration', `✅ Sprint Health issue created: #${id}`);
-      } catch (err) {
-        vlog.warn(
-          'orchestration',
-          `Failed to create Sprint Health ticket: ${err.message}`,
-        );
-      }
-    }
-  }
+  await ensureSprintHealthIssue(epicId, epic, allTickets, provider, dryRun);
 
   // ── Step 1b: Reconcile stale labels on merged tasks ──────────────────────
   await reconcileClosedTasks(tasks, provider, dryRun);

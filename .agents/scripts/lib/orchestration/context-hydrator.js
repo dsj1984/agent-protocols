@@ -202,13 +202,22 @@ export async function hydrateContext(
   const hierarchyKeys = parseHierarchy(task.body);
   let hierarchyContext = '## Work Breakdown Hierarchy\n\n';
 
-  const idsToFetch = [
-    { key: 'Epic', id: epicId || hierarchyKeys.epic },
-    { key: 'PRD', id: hierarchyKeys.prd },
-    { key: 'Tech Spec', id: hierarchyKeys.techspec },
-    { key: 'Feature', id: hierarchyKeys.feature },
-    { key: 'Story', id: hierarchyKeys.story },
-  ];
+  const depth = settings?.contextDepth ?? 'standard';
+  const idsToFetch = [];
+
+  if (depth === 'full') {
+    idsToFetch.push({ key: 'Epic', id: epicId || hierarchyKeys.epic });
+    idsToFetch.push({ key: 'PRD', id: hierarchyKeys.prd });
+    idsToFetch.push({ key: 'Tech Spec', id: hierarchyKeys.techspec });
+    idsToFetch.push({ key: 'Feature', id: hierarchyKeys.feature });
+    idsToFetch.push({ key: 'Story', id: hierarchyKeys.story });
+  } else if (depth === 'standard') {
+    idsToFetch.push({ key: 'Epic', id: epicId || hierarchyKeys.epic });
+    idsToFetch.push({ key: 'Tech Spec', id: hierarchyKeys.techspec });
+    idsToFetch.push({ key: 'Story', id: hierarchyKeys.story });
+  } else if (depth === 'minimal') {
+    idsToFetch.push({ key: 'Story', id: hierarchyKeys.story });
+  }
 
   const fetchPromises = idsToFetch
     .filter((item) => item.id)

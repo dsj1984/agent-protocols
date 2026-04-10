@@ -72,7 +72,7 @@ export async function reconcileClosedTasks(tasks, provider, dryRun) {
  */
 export async function reconcileHierarchy(
   provider,
-  epicId,
+  _epicId,
   _epic,
   tasks,
   allTickets,

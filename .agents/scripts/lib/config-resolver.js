@@ -17,12 +17,14 @@ import { fileURLToPath } from 'node:url';
 import { loadEnv } from './env-loader.js';
 import {
   getOrchestrationValidator,
-  SHELL_INJECTION_RE,
+  getSettingsValidator,
 } from './config-schema.js';
 
 const __dirname = path.dirname(fileURLToPath(import.meta.url));
 // scripts/lib/ → scripts/ → .agents/ → project root
 export const PROJECT_ROOT = path.resolve(__dirname, '../../..');
+
+const SHELL_INJECTION_RE = /[&|;`<>()$]/;
 
 // Auto-load .env from the project root if it exists
 loadEnv(PROJECT_ROOT);
@@ -60,54 +62,56 @@ export function resolveConfig(opts) {
 
     const settings = raw.agentSettings ?? {};
 
-    // Schema Boundary validation: Block injection metacharacters
-    const schemaValidKeys = [
-      'notificationWebhookUrl',
-      'baseBranch',
-      'validationCommand',
-      'testCommand',
-      'buildCommand',
-      'agentRoot',
-      'scriptsRoot',
-      'workflowsRoot',
-      'personasRoot',
-      'schemasRoot',
-      'docsRoot',
-      'tempRoot',
-      'executionTimeoutMs',
-      'executionMaxBuffer',
-      'lintBaselineCommand',
-      'lintBaselinePath',
-      'exploratoryTestCommand',
-      'typecheckCommand',
-      'roadmapPath',
-    ];
-    // Also validate keys nested inside verboseLogging
-    if (
-      settings.verboseLogging &&
-      typeof settings.verboseLogging.logDir === 'string'
-    ) {
-      if (SHELL_INJECTION_RE.test(settings.verboseLogging.logDir)) {
-        throw new Error(
-          `[Security] Malicious configuration value detected in .agentrc.json under verboseLogging.logDir. ` +
-            `Shell meta-characters are forbidden.`,
-        );
-      }
-    }
-
-    for (const key of schemaValidKeys) {
-      if (
-        typeof settings[key] === 'string' &&
-        SHELL_INJECTION_RE.test(settings[key])
-      ) {
-        throw new Error(
-          `[Security] Malicious configuration value detected in .agentrc.json under ${key}. ` +
-            `Shell meta-characters are forbidden.`,
-        );
-      }
+    const validateSettings = getSettingsValidator();
+    if (!validateSettings(settings)) {
+      const details = validateSettings.errors
+        .map((e) => `${e.instancePath} ${e.message}`)
+        .join(', ');
+      throw new Error(
+        `[Security] Malicious configuration value detected in .agentrc.json. ` +
+          `Shell meta-characters are forbidden. Details: ${details}`,
+      );
     }
 
     const orchestration = raw.orchestration ?? null;
+
+    const defaults = {
+      agentRoot: '.agents',
+      scriptsRoot: '.agents/scripts',
+      workflowsRoot: '.agents/workflows',
+      personasRoot: '.agents/personas',
+      schemasRoot: '.agents/schemas',
+      docsRoot: 'docs',
+      tempRoot: 'temp',
+      baseBranch: 'main',
+      notificationWebhookUrl: '',
+      verboseLogging: { enabled: false, logDir: 'temp/verbose-logs' },
+      roadmapPath: 'docs/ROADMAP.md',
+      executionTimeoutMs: 300000,
+      executionMaxBuffer: 10485760,
+      maxTokenBudget: 80000,
+    };
+
+    // Apply defaults to the loaded config
+    settings.agentRoot = settings.agentRoot ?? defaults.agentRoot;
+    settings.scriptsRoot = settings.scriptsRoot ?? defaults.scriptsRoot;
+    settings.workflowsRoot = settings.workflowsRoot ?? defaults.workflowsRoot;
+    settings.personasRoot = settings.personasRoot ?? defaults.personasRoot;
+    settings.schemasRoot = settings.schemasRoot ?? defaults.schemasRoot;
+    settings.docsRoot = settings.docsRoot ?? defaults.docsRoot;
+    settings.tempRoot = settings.tempRoot ?? defaults.tempRoot;
+    settings.baseBranch = settings.baseBranch ?? defaults.baseBranch;
+    settings.notificationWebhookUrl =
+      settings.notificationWebhookUrl ?? defaults.notificationWebhookUrl;
+    settings.verboseLogging =
+      settings.verboseLogging ?? defaults.verboseLogging;
+    settings.roadmapPath = settings.roadmapPath ?? defaults.roadmapPath;
+    settings.executionTimeoutMs =
+      settings.executionTimeoutMs ?? defaults.executionTimeoutMs;
+    settings.executionMaxBuffer =
+      settings.executionMaxBuffer ?? defaults.executionMaxBuffer;
+    settings.maxTokenBudget =
+      settings.maxTokenBudget ?? defaults.maxTokenBudget;
 
     // Prioritize environment variable for the webhook URL
     const envWebhookUrl = process.env.NOTIFICATION_WEBHOOK_URL;
