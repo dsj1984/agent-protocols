@@ -26,7 +26,7 @@ test('dependency-analyzer: autoSerializeOverlaps no overlap', () => {
   const { adjacency } = buildGraph(tasks);
   const manifest = { tasks };
 
-  const { finalAdjacency, graphMutated } = autoSerializeOverlaps(manifest, adjacency);
+  const { finalAdjacency: _finalAdjacency, graphMutated } = autoSerializeOverlaps(manifest, adjacency);
 
   assert.ok(!graphMutated);
   assert.deepEqual(tasks[1].dependsOn, []);
@@ -40,7 +40,7 @@ test('dependency-analyzer: autoSerializeOverlaps avoids duplicates', () => {
   const { adjacency } = buildGraph(tasks);
   const manifest = { tasks };
 
-  const { finalAdjacency, graphMutated } = autoSerializeOverlaps(manifest, adjacency);
+  const { finalAdjacency: _finalAdjacency, graphMutated } = autoSerializeOverlaps(manifest, adjacency);
 
   assert.ok(!graphMutated);
   assert.deepEqual(tasks[1].dependsOn, [1]);
@@ -55,7 +55,7 @@ test('dependency-analyzer: autoSerializeOverlaps multiple overlaps', () => {
   const { adjacency } = buildGraph(tasks);
   const manifest = { tasks };
 
-  const { finalAdjacency, graphMutated } = autoSerializeOverlaps(manifest, adjacency);
+  const { finalAdjacency: _finalAdjacency, graphMutated } = autoSerializeOverlaps(manifest, adjacency);
 
   assert.ok(graphMutated);
   // 1 and 2 overlap on A -> 2 dependsOn 1
