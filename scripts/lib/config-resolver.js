@@ -201,20 +201,21 @@ export function resolveConfig(opts) {
  * metacharacter injection) that are not expressible in JSON Schema.
  *
  * @param {object|null} orchestration - The raw orchestration config from .agentrc.json.
- * @returns {{ valid: boolean, errors: string[] }}
+ * @throws {Error} If validation fails.
  */
 export function validateOrchestrationConfig(orchestration) {
-  const errors = [];
-
   // null/undefined orchestration is valid — provider simply not configured
   if (orchestration == null) {
-    return { valid: true, errors };
+    return;
   }
 
   if (typeof orchestration !== 'object' || Array.isArray(orchestration)) {
-    errors.push('orchestration must be an object.');
-    return { valid: false, errors };
+    throw new Error(
+      'Invalid orchestration configuration: orchestration must be an object.',
+    );
   }
+
+  const errors = [];
 
   // --- Phase 1: JSON Schema validation via ajv ---
   const validate = getOrchestrationValidator();
@@ -223,7 +224,7 @@ export function validateOrchestrationConfig(orchestration) {
   if (!schemaValid && validate.errors) {
     for (const err of validate.errors) {
       const field = err.instancePath || '(root)';
-      errors.push(`Schema: ${field} ${err.message}`);
+      errors.push(`- ${field} ${err.message}`);
     }
   }
 
@@ -235,12 +236,12 @@ export function validateOrchestrationConfig(orchestration) {
 
     if (typeof gh.owner === 'string' && SHELL_INJECTION_RE.test(gh.owner)) {
       errors.push(
-        '[Security] Shell meta-characters detected in orchestration.github.owner.',
+        '- [Security] Shell meta-characters detected in orchestration.github.owner.',
       );
     }
     if (typeof gh.repo === 'string' && SHELL_INJECTION_RE.test(gh.repo)) {
       errors.push(
-        '[Security] Shell meta-characters detected in orchestration.github.repo.',
+        '- [Security] Shell meta-characters detected in orchestration.github.repo.',
       );
     }
     if (
@@ -248,7 +249,7 @@ export function validateOrchestrationConfig(orchestration) {
       SHELL_INJECTION_RE.test(gh.operatorHandle)
     ) {
       errors.push(
-        '[Security] Shell meta-characters detected in orchestration.github.operatorHandle.',
+        '- [Security] Shell meta-characters detected in orchestration.github.operatorHandle.',
       );
     }
   }
@@ -260,10 +261,14 @@ export function validateOrchestrationConfig(orchestration) {
       SHELL_INJECTION_RE.test(orchestration.notifications.webhookUrl)
     ) {
       errors.push(
-        '[Security] Shell meta-characters detected in orchestration.notifications.webhookUrl.',
+        '- [Security] Shell meta-characters detected in orchestration.notifications.webhookUrl.',
       );
     }
   }
 
-  return { valid: errors.length === 0, errors };
+  if (errors.length > 0) {
+    throw new Error(
+      `Invalid orchestration configuration:\n${errors.join('\n')}`,
+    );
+  }
 }
