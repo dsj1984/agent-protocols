@@ -127,3 +127,73 @@ export function getSettingsValidator() {
   }
   return _settingsValidator;
 }
+
+/**
+ * Embedded JSON Schema for the `autoHeal` configuration block.
+ * Validates the consumer-defined CI self-remediation settings in `.agentrc.json`.
+ *
+ * @see auto_heal_design.md §New .agentrc.json Configuration Section
+ */
+export const AUTO_HEAL_SCHEMA = {
+  type: 'object',
+  properties: {
+    enabled: { type: 'boolean' },
+    adapter: { type: 'string', enum: ['jules', 'github-issue'] },
+    adapters: {
+      type: 'object',
+      properties: {
+        jules: {
+          type: 'object',
+          properties: {
+            apiKeyEnv: { type: 'string' },
+            apiUrl: { type: 'string', format: 'uri' },
+            requirePlanApproval: { type: 'boolean' },
+            maxRetries: { type: 'integer', minimum: 0, maximum: 10 },
+            timeoutMs: { type: 'integer', minimum: 1000 },
+          },
+          additionalProperties: false,
+        },
+        'github-issue': {
+          type: 'object',
+          properties: {
+            labelPrefix: { type: 'string' },
+            assignCopilot: { type: 'boolean' },
+          },
+          additionalProperties: false,
+        },
+      },
+      additionalProperties: false,
+    },
+    stages: {
+      type: 'object',
+      additionalProperties: {
+        type: 'object',
+        required: ['riskTier'],
+        properties: {
+          riskTier: { type: 'string', enum: ['green', 'yellow', 'red'] },
+          autoApprove: { type: 'boolean' },
+          logArtifact: { type: 'string' },
+          allowedModifications: { type: 'array', items: { type: 'string' } },
+          forbiddenModifications: { type: 'array', items: { type: 'string' } },
+        },
+        additionalProperties: false,
+      },
+    },
+    maxLogSizeBytes: { type: 'integer', minimum: 100 },
+    branchFilter: { type: 'array', items: { type: 'string' } },
+    consolidateSession: { type: 'boolean' },
+  },
+  additionalProperties: false,
+};
+
+/** Pre-compiled ajv validator for autoHeal config (singleton). */
+let _autoHealValidator = null;
+
+export function getAutoHealValidator() {
+  if (!_autoHealValidator) {
+    const ajv = new Ajv({ allErrors: true });
+    addFormats(ajv);
+    _autoHealValidator = ajv.compile(AUTO_HEAL_SCHEMA);
+  }
+  return _autoHealValidator;
+}

@@ -1,0 +1,120 @@
+# .agents/templates/ci-auto-heal-job.yml
+#
+# Reference GitHub Actions job for CI auto-heal integration.
+# Copy this snippet into your existing CI workflow file and customize the
+# sections marked with "← CUSTOMIZE".
+#
+# Prerequisites:
+#   - Node.js ≥ 20 installed in your CI environment.
+#   - `.agents/` submodule checked out in your repository.
+#   - `autoHeal` block configured in your `.agentrc.json` (see README.md).
+#   - For the Jules adapter: JULES_API_KEY secret defined in your repository.
+#   - For the GitHub Issue adapter: GITHUB_TOKEN is available by default in
+#     GitHub Actions — no additional secret needed.
+#
+# How it works:
+#   1. The job runs after all other CI stages, regardless of their outcome.
+#   2. It downloads error artifact logs uploaded by the failing stages.
+#   3. It runs auto-heal.js which resolves risk tier and dispatches a healing
+#      session to the configured adapter.
+#   4. The job ALWAYS exits with code 0 — it never fails your pipeline.
+#
+# Risk Tiers (configured in .agentrc.json autoHeal.stages):
+#   🟢 green  — Lint, formatting. Auto-approved fixes (no plan review needed).
+#   🟡 yellow — Type errors, unit tests. Plan approval required before applying.
+#   🔴 red    — E2E, build failures. Full human review strongly recommended.
+
+auto-heal:
+  name: Auto-Heal
+  runs-on: ubuntu-latest
+
+  # ← CUSTOMIZE: adjust `needs` to match the job names in YOUR workflow.
+  needs: [lint, typecheck, test, e2e]
+
+  # Always run on the configured branch(es) when at least one job failed.
+  # ← CUSTOMIZE: update the branch filter to match your protected branches.
+  if: >-
+    always() &&
+    github.ref == 'refs/heads/main' &&
+    contains(needs.*.result, 'failure')
+
+  permissions:
+    contents: write
+    pull-requests: write
+    issues: write
+
+  steps:
+    - name: Checkout repository
+      uses: actions/checkout@v4
+
+    - name: Setup Node.js
+      uses: actions/setup-node@v4
+      with:
+        # ← CUSTOMIZE: use the same Node version as your project.
+        node-version: '22'
+
+    # ── Download error artifacts ─────────────────────────────────────────────
+    # Each stage should upload its error output as a named artifact.
+    # The download path MUST match the directory structure expected by auto-heal:
+    #   auto-heal-errors/<stageName>/<logArtifact>
+    # where <logArtifact> matches `autoHeal.stages.<stageName>.logArtifact` in
+    # your .agentrc.json.
+    #
+    # ← CUSTOMIZE: remove or add blocks for each of your CI stages.
+
+    - name: Download lint errors
+      if: needs.lint.result == 'failure'
+      uses: actions/download-artifact@v4
+      with:
+        # ← CUSTOMIZE: match the artifact name uploaded by your lint job.
+        name: lint-error-log
+        path: auto-heal-errors/lint
+      continue-on-error: true
+
+    - name: Download typecheck errors
+      if: needs.typecheck.result == 'failure'
+      uses: actions/download-artifact@v4
+      with:
+        # ← CUSTOMIZE: match the artifact name uploaded by your typecheck job.
+        name: typecheck-error-log
+        path: auto-heal-errors/typecheck
+      continue-on-error: true
+
+    - name: Download test errors
+      if: needs.test.result == 'failure'
+      uses: actions/download-artifact@v4
+      with:
+        # ← CUSTOMIZE: match the artifact name uploaded by your unit test job.
+        name: test-error-log
+        path: auto-heal-errors/test
+      continue-on-error: true
+
+    - name: Download e2e errors
+      if: needs.e2e.result == 'failure'
+      uses: actions/download-artifact@v4
+      with:
+        # ← CUSTOMIZE: match the artifact name uploaded by your E2E test job.
+        name: e2e-error-log
+        path: auto-heal-errors/e2e
+      continue-on-error: true
+
+    # ── Dispatch auto-heal ───────────────────────────────────────────────────
+
+    - name: Dispatch Auto-Heal
+      run: |
+        node .agents/scripts/auto-heal.js \
+          --stage "lint=${{ needs.lint.result }}" \
+          --stage "typecheck=${{ needs.typecheck.result }}" \
+          --stage "test=${{ needs.test.result }}" \
+          --stage "e2e=${{ needs.e2e.result }}" \
+          --errors-dir auto-heal-errors \
+          --sha "${{ github.sha }}" \
+          --pr "${{ github.event.pull_request.number || '0' }}" \
+          --branch "${{ github.ref_name }}"
+      env:
+        # Jules API adapter secret.
+        # ← CUSTOMIZE: rename if you use a different secret name.
+        JULES_API_KEY: ${{ secrets.JULES_API_KEY }}
+
+        # GitHub Issue adapter token (automatically available in Actions).
+        GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
