@@ -161,7 +161,7 @@ describe('validateOrchestrationConfig — schema violations', () => {
           provider: 'github',
           github: { owner: '', repo: 'my-repo' },
         }),
-      /must NOT be shorter than 1 characters/,
+      /must NOT have fewer than 1 characters/,
     );
   });
 
