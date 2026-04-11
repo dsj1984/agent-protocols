@@ -239,12 +239,25 @@ git log origin/[BASE_BRANCH] -5 --oneline
 
 Verify that the top commit corresponds to the merged PR.
 
-Clean up the local workspace by pruning removed remote branches and deleting the local head branch:
+Explicitly delete the remote head branch. This is **mandatory** and must run
+regardless of whether `--delete-branch` was passed to `gh pr merge` — that
+flag only works when GitHub itself processes the merge; it is silently skipped
+when a PR auto-closes (e.g., due to a duplicate rebase):
+
+```powershell
+# Suppress "remote ref does not exist" — idempotent if already deleted
+git push origin --delete [HEAD_BRANCH]; if ($LASTEXITCODE -ne 0) { Write-Host "Remote branch already deleted or not found — skipping." }
+```
+
+Prune stale remote-tracking refs and delete the local branch:
 
 ```powershell
 git fetch --prune
 git branch -D [HEAD_BRANCH]
 ```
+
+> **Note:** `git branch -D` will error if the local branch does not exist
+> (e.g., it was never checked out). That is expected and can be ignored.
 
 Optionally, run the test suite one final time on the base branch to confirm
 no regressions were introduced by the merge:
@@ -280,8 +293,12 @@ gh pr comment [PR_NUMBER] --body "✅ **Merged by agent** via \`/git-merge-pr\`
 - **Never** bypass required GitHub branch protection checks (required reviewers,
   required status checks). If these are blocking, surface them to the operator
   rather than attempting to force-merge.
-- **Always** delete the head branch after a successful merge (default
-  `--delete-branch`) to prevent branch accumulation.
+- **Always** explicitly delete the remote head branch in Step 7 with
+  `git push origin --delete [HEAD_BRANCH]`. Do **not** rely solely on
+  `gh pr merge --delete-branch` — that flag is silently skipped when a PR
+  auto-closes without a normal merge commit (e.g., duplicate rebase scenarios).
+- **Always** treat a "remote ref not found" error from the delete command as
+  a non-fatal, idempotent success — the branch is already gone.
 - **Always** use `--force-with-lease` (never bare `--force`) when pushing
   rebased branches to avoid overwriting concurrent pushes.
 - **Always** post a Step 8 summary comment for auditability, even if no fixes
