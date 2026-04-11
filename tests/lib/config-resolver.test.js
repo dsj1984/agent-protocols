@@ -32,64 +32,79 @@ describe('config-resolver library tests', () => {
 
     assert.throws(
       () => resolveConfig({ bustCache: true }),
-      /\[config\] Failed to parse .agentrc.json/
+      /\[config\] Failed to parse .agentrc.json/,
     );
   });
 
   it('throws error when agentSettings contain security violations', () => {
     const agentrcPath = path.join(PROJECT_ROOT, '.agentrc.json');
     vol.mkdirSync(PROJECT_ROOT, { recursive: true });
-    vol.writeFileSync(agentrcPath, JSON.stringify({
-      agentSettings: {
-        baseBranch: 'main; rm -rf /'
-      }
-    }));
+    vol.writeFileSync(
+      agentrcPath,
+      JSON.stringify({
+        agentSettings: {
+          baseBranch: 'main; rm -rf /',
+        },
+      }),
+    );
 
     assert.throws(
       () => resolveConfig({ bustCache: true }),
-      /\[Security\] Malicious configuration value detected in .agentrc.json/
+      /\[Security\] Malicious configuration value detected in .agentrc.json/,
     );
   });
 
   it('applies environment variable override for notificationWebhookUrl', () => {
     const agentrcPath = path.join(PROJECT_ROOT, '.agentrc.json');
     vol.mkdirSync(PROJECT_ROOT, { recursive: true });
-    vol.writeFileSync(agentrcPath, JSON.stringify({
-      agentSettings: {
-        notificationWebhookUrl: 'https://original.com'
-      },
-      orchestration: {
-        provider: 'github',
-        github: { owner: 'org', repo: 'repo' },
-        notifications: {
-          webhookUrl: 'https://original.com'
-        }
-      }
-    }));
+    vol.writeFileSync(
+      agentrcPath,
+      JSON.stringify({
+        agentSettings: {
+          notificationWebhookUrl: 'https://original.com',
+        },
+        orchestration: {
+          provider: 'github',
+          github: { owner: 'org', repo: 'repo' },
+          notifications: {
+            webhookUrl: 'https://original.com',
+          },
+        },
+      }),
+    );
 
     const originalEnv = process.env.NOTIFICATION_WEBHOOK_URL;
     process.env.NOTIFICATION_WEBHOOK_URL = 'https://override.com';
 
     try {
       const config = resolveConfig({ bustCache: true });
-      assert.equal(config.settings.notificationWebhookUrl, 'https://override.com');
-      assert.equal(config.orchestration.notifications.webhookUrl, 'https://override.com');
+      assert.equal(
+        config.settings.notificationWebhookUrl,
+        'https://override.com',
+      );
+      assert.equal(
+        config.orchestration.notifications.webhookUrl,
+        'https://override.com',
+      );
     } finally {
       process.env.NOTIFICATION_WEBHOOK_URL = originalEnv;
     }
   });
 
   it('merges defaults with loaded config', () => {
-     const agentrcPath = path.join(PROJECT_ROOT, '.agentrc.json');
-     vol.mkdirSync(PROJECT_ROOT, { recursive: true });
-     vol.writeFileSync(agentrcPath, JSON.stringify({
-       agentSettings: {
-         agentRoot: 'custom-agents'
-       }
-     }));
+    const agentrcPath = path.join(PROJECT_ROOT, '.agentrc.json');
+    vol.mkdirSync(PROJECT_ROOT, { recursive: true });
+    vol.writeFileSync(
+      agentrcPath,
+      JSON.stringify({
+        agentSettings: {
+          agentRoot: 'custom-agents',
+        },
+      }),
+    );
 
-     const config = resolveConfig({ bustCache: true });
-     assert.equal(config.settings.agentRoot, 'custom-agents');
-     assert.equal(config.settings.scriptsRoot, '.agents/scripts'); // default
+    const config = resolveConfig({ bustCache: true });
+    assert.equal(config.settings.agentRoot, 'custom-agents');
+    assert.equal(config.settings.scriptsRoot, '.agents/scripts'); // default
   });
 });
