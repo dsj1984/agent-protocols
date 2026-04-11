@@ -132,12 +132,10 @@ async function main() {
     Logger.fatal();
   }
 
-  const validation = validateOrchestrationConfig(config.orchestration);
-  if (!validation.valid) {
-    console.error('[bootstrap] ERROR: Invalid orchestration config:');
-    for (const err of validation.errors) {
-      console.error(`  - ${err}`);
-    }
+  try {
+    validateOrchestrationConfig(config.orchestration);
+  } catch (err) {
+    console.error(`[bootstrap] ERROR: ${err.message}`);
     process.exit(1);
   }
 
