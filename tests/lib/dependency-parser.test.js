@@ -37,7 +37,7 @@ describe('dependency-parser', () => {
     it('extracts multiple dependencies', () => {
       assert.deepEqual(
         parseBlockedBy('blocked by #1\nBlocked by: #2\ndepends on #3'),
-        [1, 2, 3]
+        [1, 2, 3],
       );
     });
 
