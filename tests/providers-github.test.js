@@ -83,6 +83,84 @@ function createTestProvider(opts = {}) {
 }
 
 // ---------------------------------------------------------------------------
+// listIssues & getEpics
+// ---------------------------------------------------------------------------
+describe('GitHubProvider — listIssues() & getEpics()', () => {
+  let originalFetch;
+
+  beforeEach(() => {
+    originalFetch = globalThis.fetch;
+  });
+  afterEach(() => {
+    globalThis.fetch = originalFetch;
+  });
+
+  const mockIssues = [
+    {
+      number: 101,
+      title: 'Epic 1',
+      labels: [{ name: 'type::epic' }],
+      state: 'open',
+    },
+    {
+      number: 102,
+      title: 'Epic 2',
+      labels: ['type::epic'],
+      state: 'closed',
+      state_reason: 'completed',
+    },
+    {
+      number: 104,
+      title: 'A PR',
+      labels: ['type::epic'],
+      state: 'open',
+      pull_request: {},
+    },
+  ];
+
+  it('listIssues() fetches and filters epics correctly', async () => {
+    const mockFetch = createRouteMock({
+      'GET /issues': {
+        status: 200,
+        json: mockIssues,
+      },
+    });
+    globalThis.fetch = mockFetch;
+
+    const provider = createTestProvider();
+    const epics = await provider.listIssues({ state: 'all' });
+
+    assert.equal(epics.length, 2);
+    assert.equal(epics[0].id, 101);
+    assert.equal(epics[0].title, 'Epic 1');
+    assert.deepEqual(epics[0].labels, ['type::epic']);
+    assert.equal(epics[1].id, 102);
+    assert.equal(epics[1].state, 'closed');
+    assert.equal(epics[1].state_reason, 'completed');
+
+    // Verify params
+    const url = mockFetch.calls[0].url;
+    assert.ok(url.includes('labels=type%3A%3Aepic'));
+    assert.ok(url.includes('state=all'));
+  });
+
+  it('getEpics() returns the same result as listIssues()', async () => {
+    globalThis.fetch = createRouteMock({
+      'GET /issues': {
+        status: 200,
+        json: mockIssues,
+      },
+    });
+
+    const provider = createTestProvider();
+    const epics = await provider.getEpics();
+
+    assert.equal(epics.length, 2);
+    assert.equal(epics[0].id, 101);
+  });
+});
+
+// ---------------------------------------------------------------------------
 // Basic construction
 // ---------------------------------------------------------------------------
 describe('GitHubProvider — construction', () => {

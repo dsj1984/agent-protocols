@@ -106,7 +106,7 @@
   "tests/mcp-orchestration.test.js": 99.169,
   "tests/notify.test.js": 100.411,
   "tests/provider-factory.test.js": 119.906,
-  "tests/providers-github.test.js": 100.659,
+  "tests/providers-github.test.js": 100.02,
   "tests/sprint-story-close.test.js": 126.657,
   "tests/sprint-story-init.test.js": 126.657,
   "tests/sprint-story-orchestration.test.js": 93.979,
