@@ -2,6 +2,26 @@
 
 All notable changes to this project will be documented in this file.
 
+## [5.3.0] - 2026-04-11
+
+### ✨ New Features
+
+*   **CI Auto-Heal Pipeline:** Extracted the autonomous self-remediation engine into the core framework. Included a governance-tiered risk model that resolves "Green/Yellow/Red" tiers based on failed CI stages.
+*   **Auto-Heal CLI:** Added `auto-heal.js`, a best-effort CLI utility that assembles AI prompts from CI logs and dispatches them to specialized adapters without failing the CI pipeline.
+
+### 📦 Library
+
+*   **Risk Resolver:** Implemented pure-function governance logic to determine modification constraints and auto-approval eligibility.
+*   **Prompt Builder:** Created an assembly engine with intelligent log collection, truncation, and context hydration from the GitHub graph.
+*   **Adapters:** Introduced the `IAutoHealAdapter` interface with two initial implementations:
+    *   **JulesAdapter:** Direct integration with the Jules API v1alpha.
+    *   **GitHubIssueAdapter:** Fallback orchestration via labeled GitHub Issues and optional Copilot Workspace assignment.
+
+### ⚙️ Infrastructure
+
+*   **Config Validation:** Updated `config-schema.js` and `config-resolver.js` to support the new `autoHeal` configuration block with full AJV validation.
+*   **Workflows & Templates:** Added the `/ci-auto-heal` slash-command workflow and a reference `ci-auto-heal-job.yml` GitHub Actions template.
+
 ## [5.2.3] - 2026-04-11
 
 ### ✨ New Workflows
