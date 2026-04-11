@@ -69,30 +69,12 @@ export function autoSerializeOverlaps(manifest, adjacency) {
   // Phase B: apply all collected edges in a single pass & rebuild once
   const graphMutated = pendingEdges.length > 0;
   if (graphMutated) {
-    const taskMap = new Map(manifest.tasks.map((t) => [t.id, t]));
-    const depSets = new Map();
-
-    for (const [fromId, toId] of pendingEdges) {
-      const taskB = taskMap.get(toId);
-      if (taskB) {
-        if (!taskB.dependsOn) taskB.dependsOn = [];
-
-        // Use a temporary Set for O(1) duplicate checks during bulk-update
-        if (!depSets.has(toId)) {
-          depSets.set(toId, new Set(taskB.dependsOn));
-        }
-
-        const setB = depSets.get(toId);
-        if (!setB.has(fromId)) {
-          setB.add(fromId);
-          taskB.dependsOn.push(fromId);
-        }
-      }
-    }
+    applyNewDependencies(manifest.tasks, pendingEdges);
 
     const updatedGraph = buildGraph(manifest.tasks);
     const finalAdjacency = updatedGraph.adjacency;
     const cycle = detectCycle(finalAdjacency);
+
     if (cycle) {
       throw new Error(
         `Dependency cycle detected after auto-serialization: ${cycle.join(' → ')}`,
@@ -102,6 +84,35 @@ export function autoSerializeOverlaps(manifest, adjacency) {
   }
 
   return { finalAdjacency: adjacency, graphMutated: false };
+}
+
+/**
+ * Internal helper to apply new edges to the task manifest efficiently.
+ * Uses a Set-based lookup to ensure O(1) duplicate checks during the merge.
+ *
+ * @param {object[]} tasks  — Array of tasks to update.
+ * @param {Array[]}  edges  — List of [fromId, toId] pairs.
+ */
+function applyNewDependencies(tasks, edges) {
+  const taskMap = new Map(tasks.map((t) => [t.id, t]));
+  const depSets = new Map();
+
+  for (const [fromId, toId] of edges) {
+    const task = taskMap.get(toId);
+    if (!task) continue;
+
+    task.dependsOn ??= [];
+
+    if (!depSets.has(toId)) {
+      depSets.set(toId, new Set(task.dependsOn));
+    }
+
+    const set = depSets.get(toId);
+    if (!set.has(fromId)) {
+      set.add(fromId);
+      task.dependsOn.push(fromId);
+    }
+  }
 }
 
 /**
