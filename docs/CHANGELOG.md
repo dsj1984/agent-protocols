@@ -2,6 +2,16 @@
 
 All notable changes to this project will be documented in this file.
 
+## [5.2.3] - 2026-04-11
+
+### ✨ New Workflows
+
+*   **Automated PR Merging:** Added the `/git-merge-pr` workflow for automated analysis, conflict resolution, quality validation (lint/test), and merging of pull requests.
+
+### ♻️ Refactors
+
+*   **GitHub Provider Logic:** Extracted duplicate Epic fetch and mapping logic in `GitHubProvider` into a private helper method `_getEpics`, improving maintainability and ensuring consistency between `listIssues` and `getEpics`.
+
 ## [5.2.2] - 2026-04-10
 
 ### 🐛 Bug Fixes

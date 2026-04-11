@@ -120,7 +120,7 @@ See [SDLC.md](.agents/SDLC.md) for the full end-to-end workflow and the
 ```text
 agent-protocols/
 ├── .agents/                  # Distributed bundle (the "product")
-│   ├── VERSION               # Current version (5.2.0)
+│   ├── VERSION               # Current version (5.2.3)
 │   ├── instructions.md       # Primary system prompt
 │   ├── SDLC.md               # End-to-end workflow guide
 │   ├── README.md             # Detailed consumer reference
