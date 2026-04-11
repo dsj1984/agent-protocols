@@ -45,55 +45,54 @@ describe('resolveConfig — orchestration block', () => {
 // ---------------------------------------------------------------------------
 describe('validateOrchestrationConfig — valid configs', () => {
   it('null orchestration is valid (not configured)', () => {
-    const result = validateOrchestrationConfig(null);
-    assert.ok(result.valid);
-    assert.equal(result.errors.length, 0);
+    assert.doesNotThrow(() => validateOrchestrationConfig(null));
   });
 
   it('undefined orchestration is valid', () => {
-    const result = validateOrchestrationConfig(undefined);
-    assert.ok(result.valid);
-    assert.equal(result.errors.length, 0);
+    assert.doesNotThrow(() => validateOrchestrationConfig(undefined));
   });
 
   it('full valid config passes', () => {
-    const result = validateOrchestrationConfig({
-      provider: 'github',
-      github: {
-        owner: 'dsj1984',
-        repo: 'agent-protocols',
-        projectNumber: 1,
-        operatorHandle: '@dsj1984',
-      },
-      notifications: {
-        mentionOperator: true,
-        webhookUrl: '',
-      },
-    });
-    assert.ok(result.valid, `Unexpected errors: ${result.errors.join(', ')}`);
+    assert.doesNotThrow(() =>
+      validateOrchestrationConfig({
+        provider: 'github',
+        github: {
+          owner: 'dsj1984',
+          repo: 'agent-protocols',
+          projectNumber: 1,
+          operatorHandle: '@dsj1984',
+        },
+        notifications: {
+          mentionOperator: true,
+          webhookUrl: '',
+        },
+      }),
+    );
   });
 
   it('null projectNumber is valid', () => {
-    const result = validateOrchestrationConfig({
-      provider: 'github',
-      github: {
-        owner: 'org',
-        repo: 'my-repo',
-        projectNumber: null,
-      },
-    });
-    assert.ok(result.valid, `Unexpected errors: ${result.errors.join(', ')}`);
+    assert.doesNotThrow(() =>
+      validateOrchestrationConfig({
+        provider: 'github',
+        github: {
+          owner: 'org',
+          repo: 'my-repo',
+          projectNumber: null,
+        },
+      }),
+    );
   });
 
   it('minimal valid config (no notifications, no projectNumber)', () => {
-    const result = validateOrchestrationConfig({
-      provider: 'github',
-      github: {
-        owner: 'org',
-        repo: 'my-repo',
-      },
-    });
-    assert.ok(result.valid, `Unexpected errors: ${result.errors.join(', ')}`);
+    assert.doesNotThrow(() =>
+      validateOrchestrationConfig({
+        provider: 'github',
+        github: {
+          owner: 'org',
+          repo: 'my-repo',
+        },
+      }),
+    );
   });
 });
 
@@ -102,79 +101,102 @@ describe('validateOrchestrationConfig — valid configs', () => {
 // ---------------------------------------------------------------------------
 describe('validateOrchestrationConfig — schema violations', () => {
   it('rejects non-object orchestration', () => {
-    const result = validateOrchestrationConfig('string');
-    assert.ok(!result.valid);
-    assert.ok(result.errors.some((e) => e.includes('must be an object')));
+    assert.throws(
+      () => validateOrchestrationConfig('string'),
+      /must be an object/,
+    );
   });
 
   it('rejects array orchestration', () => {
-    const result = validateOrchestrationConfig([]);
-    assert.ok(!result.valid);
+    assert.throws(() => validateOrchestrationConfig([]), /must be an object/);
   });
 
   it('rejects missing provider', () => {
-    const result = validateOrchestrationConfig({
-      github: { owner: 'org', repo: 'repo' },
-    });
-    assert.ok(!result.valid);
-    assert.ok(result.errors.length > 0);
+    assert.throws(
+      () =>
+        validateOrchestrationConfig({
+          github: { owner: 'org', repo: 'repo' },
+        }),
+      /must have required property 'provider'/,
+    );
   });
 
   it('rejects unsupported provider', () => {
-    const result = validateOrchestrationConfig({
-      provider: 'jira',
-      github: { owner: 'org', repo: 'repo' },
-    });
-    assert.ok(!result.valid);
+    assert.throws(
+      () =>
+        validateOrchestrationConfig({
+          provider: 'jira',
+          github: { owner: 'org', repo: 'repo' },
+        }),
+      /must be equal to one of the allowed values/,
+    );
   });
 
   it('rejects missing owner', () => {
-    const result = validateOrchestrationConfig({
-      provider: 'github',
-      github: { repo: 'my-repo' },
-    });
-    assert.ok(!result.valid);
+    assert.throws(
+      () =>
+        validateOrchestrationConfig({
+          provider: 'github',
+          github: { repo: 'my-repo' },
+        }),
+      /must have required property 'owner'/,
+    );
   });
 
   it('rejects missing repo', () => {
-    const result = validateOrchestrationConfig({
-      provider: 'github',
-      github: { owner: 'org' },
-    });
-    assert.ok(!result.valid);
+    assert.throws(
+      () =>
+        validateOrchestrationConfig({
+          provider: 'github',
+          github: { owner: 'org' },
+        }),
+      /must have required property 'repo'/,
+    );
   });
 
   it('rejects empty owner string', () => {
-    const result = validateOrchestrationConfig({
-      provider: 'github',
-      github: { owner: '', repo: 'my-repo' },
-    });
-    assert.ok(!result.valid);
+    assert.throws(
+      () =>
+        validateOrchestrationConfig({
+          provider: 'github',
+          github: { owner: '', repo: 'my-repo' },
+        }),
+      /must NOT have fewer than 1 characters/,
+    );
   });
 
   it('rejects bad operatorHandle (no @ prefix)', () => {
-    const result = validateOrchestrationConfig({
-      provider: 'github',
-      github: { owner: 'org', repo: 'repo', operatorHandle: 'no-prefix' },
-    });
-    assert.ok(!result.valid);
+    assert.throws(
+      () =>
+        validateOrchestrationConfig({
+          provider: 'github',
+          github: { owner: 'org', repo: 'repo', operatorHandle: 'no-prefix' },
+        }),
+      /must match pattern/,
+    );
   });
 
   it('rejects invalid projectNumber (string)', () => {
-    const result = validateOrchestrationConfig({
-      provider: 'github',
-      github: { owner: 'org', repo: 'repo', projectNumber: 'abc' },
-    });
-    assert.ok(!result.valid);
+    assert.throws(
+      () =>
+        validateOrchestrationConfig({
+          provider: 'github',
+          github: { owner: 'org', repo: 'repo', projectNumber: 'abc' },
+        }),
+      /must be integer,null/,
+    );
   });
 
   it('rejects additional properties', () => {
-    const result = validateOrchestrationConfig({
-      provider: 'github',
-      github: { owner: 'org', repo: 'repo' },
-      unknownField: true,
-    });
-    assert.ok(!result.valid);
+    assert.throws(
+      () =>
+        validateOrchestrationConfig({
+          provider: 'github',
+          github: { owner: 'org', repo: 'repo' },
+          unknownField: true,
+        }),
+      /must NOT have additional properties/,
+    );
   });
 });
 
@@ -183,39 +205,47 @@ describe('validateOrchestrationConfig — schema violations', () => {
 // ---------------------------------------------------------------------------
 describe('validateOrchestrationConfig — shell injection', () => {
   it('rejects shell injection in owner', () => {
-    const result = validateOrchestrationConfig({
-      provider: 'github',
-      github: { owner: 'foo; rm -rf /', repo: 'bar' },
-    });
-    assert.ok(!result.valid);
-    assert.ok(result.errors.some((e) => e.includes('[Security]')));
+    assert.throws(
+      () =>
+        validateOrchestrationConfig({
+          provider: 'github',
+          github: { owner: 'foo; rm -rf /', repo: 'bar' },
+        }),
+      /\[Security\]/,
+    );
   });
 
   it('rejects shell injection in repo', () => {
-    const result = validateOrchestrationConfig({
-      provider: 'github',
-      github: { owner: 'org', repo: 'bar$(evil)' },
-    });
-    assert.ok(!result.valid);
-    assert.ok(result.errors.some((e) => e.includes('[Security]')));
+    assert.throws(
+      () =>
+        validateOrchestrationConfig({
+          provider: 'github',
+          github: { owner: 'org', repo: 'bar$(evil)' },
+        }),
+      /\[Security\]/,
+    );
   });
 
   it('rejects shell injection in operatorHandle', () => {
-    const result = validateOrchestrationConfig({
-      provider: 'github',
-      github: { owner: 'org', repo: 'repo', operatorHandle: '@user|hack' },
-    });
-    assert.ok(!result.valid);
-    assert.ok(result.errors.some((e) => e.includes('[Security]')));
+    assert.throws(
+      () =>
+        validateOrchestrationConfig({
+          provider: 'github',
+          github: { owner: 'org', repo: 'repo', operatorHandle: '@user|hack' },
+        }),
+      /\[Security\]/,
+    );
   });
 
   it('rejects shell injection in webhookUrl', () => {
-    const result = validateOrchestrationConfig({
-      provider: 'github',
-      github: { owner: 'org', repo: 'repo' },
-      notifications: { webhookUrl: 'https://evil.com;curl attacker' },
-    });
-    assert.ok(!result.valid);
-    assert.ok(result.errors.some((e) => e.includes('[Security]')));
+    assert.throws(
+      () =>
+        validateOrchestrationConfig({
+          provider: 'github',
+          github: { owner: 'org', repo: 'repo' },
+          notifications: { webhookUrl: 'https://evil.com;curl attacker' },
+        }),
+      /\[Security\]/,
+    );
   });
 });
