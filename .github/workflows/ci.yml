@@ -87,31 +87,12 @@ jobs:
           echo "Placeholder for future E2E scripts against sandbox"
           # npm run test:e2e
 
-  check-changes:
-    name: Check for Changes
-    runs-on: ubuntu-latest
-    outputs:
-      agents_changed: ${{ steps.filter.outputs.agents }}
-    steps:
-      - name: Checkout Code
-        uses: actions/checkout@v4
-
-      - name: Check for Agent Changes
-        id: filter
-        uses: dorny/paths-filter@v3
-        with:
-          filters: |
-            agents:
-              - '.agents/**'
-              - '.github/workflows/ci.yml'
-
   publish:
     name: Publish to Dist
-    needs: [validate, e2e, check-changes]
+    needs: [validate, e2e]
     if: |
       github.ref == 'refs/heads/main' && 
-      (github.event_name == 'push' || github.event_name == 'workflow_dispatch') && 
-      needs.check-changes.outputs.agents_changed == 'true'
+      (github.event_name == 'push' || github.event_name == 'workflow_dispatch')
     runs-on: ubuntu-latest
     permissions:
       contents: write
@@ -151,7 +132,7 @@ jobs:
             && test -d skills \
             && test -d workflows \
             && echo "Dist structure OK" \
-            || { echo "ERROR: Dist validation failed — missing required files"; exit 1; }
+            || { echo "ERROR: Dist validation failed - missing required files"; exit 1; }
 
           # Commit and push if there are changes
           if [[ -n $(git status -s) ]]; then
