@@ -252,8 +252,13 @@ export class GitHubProvider extends ITicketingProvider {
   // Read Operations
   // ---------------------------------------------------------------------------
 
-  /* node:coverage ignore next */
-  async listIssues(filters = {}) {
+  /**
+   * Internal helper to fetch and map Epics.
+   * @param {{ state?: 'open'|'closed'|'all' }} filters
+   * @returns {Promise<Array>}
+   * @private
+   */
+  async _getEpics(filters = {}) {
     const params = new URLSearchParams({
       state: filters.state ?? 'all',
       labels: 'type::epic',
@@ -277,27 +282,13 @@ export class GitHubProvider extends ITicketingProvider {
   }
 
   /* node:coverage ignore next */
+  async listIssues(filters = {}) {
+    return this._getEpics(filters);
+  }
+
+  /* node:coverage ignore next */
   async getEpics(filters = {}) {
-    const params = new URLSearchParams({
-      state: filters.state ?? 'all',
-      labels: 'type::epic',
-    });
-
-    const issues = await this._restPaginated(
-      `/repos/${this.owner}/${this.repo}/issues?${params}`,
-    );
-
-    return issues
-      .filter((issue) => !issue.pull_request)
-      .map((issue) => ({
-        id: issue.number,
-        title: issue.title,
-        labels: (issue.labels ?? []).map((l) =>
-          typeof l === 'string' ? l : l.name,
-        ),
-        state: issue.state,
-        state_reason: issue.state_reason,
-      }));
+    return this._getEpics(filters);
   }
 
   async getEpic(epicId) {
