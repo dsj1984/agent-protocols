@@ -115,27 +115,35 @@ git rebase origin/[BASE_BRANCH]
 
 ## Step 3 — Lint Gate
 
-Run the project's full linting suite on the head branch:
+Run the project's full linting and formatting suites on the head branch:
 
 // turbo
 
 ```powershell
 npm run lint
+npm run format:check
 ```
 
-- If lint **passes**: proceed to Step 4.
-- If lint **fails**:
+> Both commands must pass. `npm run lint` catches code quality issues;
+> `npm run format:check` catches Biome formatting violations that CI also
+> enforces. Running only one is insufficient.
+
+- If both **pass**: proceed to Step 4.
+- If lint or format **fails**:
   1. Read each error carefully.
-  2. Apply the minimal fix required to satisfy the linter.
-  3. Commit the lint fixes:
+  2. For **format** errors, run `npx biome format --write .` to auto-fix, then
+     re-run `npm run format:check` to confirm.
+  3. For **lint** errors, apply the minimal manual fix required.
+  4. Commit the fixes:
 
      ```powershell
      git add .
-     git commit --no-verify -m "fix(lint): resolve lint errors on [HEAD_BRANCH] for PR #[PR_NUMBER]"
+     git commit --no-verify -m "fix(lint): resolve lint/format errors on [HEAD_BRANCH] for PR #[PR_NUMBER]"
      git push origin [HEAD_BRANCH]
      ```
 
-  4. Re-run `npm run lint` to confirm clean output before continuing.
+  5. Re-run both `npm run lint` and `npm run format:check` to confirm clean
+     output before continuing.
 
 ---
 
