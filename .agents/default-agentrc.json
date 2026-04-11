@@ -252,5 +252,36 @@
       "maxInputTokens": 64000,
       "maxOutputTokens": 8192
     }
+  },
+  "autoHeal": {
+    "enabled": true,
+    "adapter": "jules",
+    "maxLogSizeBytes": 4000,
+    "branchFilter": ["main"],
+    "consolidateSession": true,
+    "adapters": {
+      "jules": {
+        "requirePlanApproval": true,
+        "maxRetries": 3
+      },
+      "github-issue": {
+        "labelPrefix": "auto-heal",
+        "assignCopilot": true
+      }
+    },
+    "stages": {
+      "lint": {
+        "riskTier": "green",
+        "autoApprove": true
+      },
+      "test": {
+        "riskTier": "yellow",
+        "autoApprove": false
+      },
+      "build": {
+        "riskTier": "red",
+        "autoApprove": false
+      }
+    }
   }
 }
