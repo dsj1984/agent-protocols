@@ -69,11 +69,24 @@ export function autoSerializeOverlaps(manifest, adjacency) {
   // Phase B: apply all collected edges in a single pass & rebuild once
   const graphMutated = pendingEdges.length > 0;
   if (graphMutated) {
+    const taskMap = new Map(manifest.tasks.map((t) => [t.id, t]));
+    const depSets = new Map();
+
     for (const [fromId, toId] of pendingEdges) {
-      const taskB = manifest.tasks.find((t) => t.id === toId);
+      const taskB = taskMap.get(toId);
       if (taskB) {
         if (!taskB.dependsOn) taskB.dependsOn = [];
-        if (!taskB.dependsOn.includes(fromId)) taskB.dependsOn.push(fromId);
+
+        // Use a temporary Set for O(1) duplicate checks during bulk-update
+        if (!depSets.has(toId)) {
+          depSets.set(toId, new Set(taskB.dependsOn));
+        }
+
+        const setB = depSets.get(toId);
+        if (!setB.has(fromId)) {
+          setB.add(fromId);
+          taskB.dependsOn.push(fromId);
+        }
       }
     }
 
