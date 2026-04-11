@@ -229,7 +229,7 @@ proceed until they are resolved.
 
 ---
 
-## Step 7 — Post-Merge Verification
+## Step 7 — Post-Merge Verification & Cleanup
 
 Confirm the merge landed correctly on the base branch:
 
@@ -238,6 +238,13 @@ git log origin/[BASE_BRANCH] -5 --oneline
 ```
 
 Verify that the top commit corresponds to the merged PR.
+
+Clean up the local workspace by pruning removed remote branches and deleting the local head branch:
+
+```powershell
+git fetch --prune
+git branch -D [HEAD_BRANCH]
+```
 
 Optionally, run the test suite one final time on the base branch to confirm
 no regressions were introduced by the merge:
