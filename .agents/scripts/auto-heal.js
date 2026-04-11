@@ -215,7 +215,9 @@ async function main() {
 
   // ── 2. Guard: feature disabled ─────────────────────────────────────────────
   if (autoHeal.enabled === false) {
-    console.log('[AutoHeal] ℹ️ Auto-heal is disabled (autoHeal.enabled=false). Exiting.');
+    console.log(
+      '[AutoHeal] ℹ️ Auto-heal is disabled (autoHeal.enabled=false). Exiting.',
+    );
     process.exit(0);
   }
 
@@ -234,13 +236,13 @@ async function main() {
   );
 
   if (failedStages.length === 0) {
-    console.log('[AutoHeal] ✅ No stage failures detected. Auto-heal not needed.');
+    console.log(
+      '[AutoHeal] ✅ No stage failures detected. Auto-heal not needed.',
+    );
     process.exit(0);
   }
 
-  console.log(
-    `[AutoHeal] ⚡ Failures detected in: ${failedStages.join(', ')}`,
-  );
+  console.log(`[AutoHeal] ⚡ Failures detected in: ${failedStages.join(', ')}`);
   console.log(
     `[AutoHeal] Risk tier: ${riskTier.toUpperCase()} | Auto-approve: ${autoApprove}`,
   );
@@ -256,10 +258,9 @@ async function main() {
 
   // ── 6. Build prompt ────────────────────────────────────────────────────────
   const orchestration = config.orchestration ?? null;
-  const repo =
-    orchestration?.github
-      ? `${orchestration.github.owner}/${orchestration.github.repo}`
-      : '(unknown/repo)';
+  const repo = orchestration?.github
+    ? `${orchestration.github.owner}/${orchestration.github.repo}`
+    : '(unknown/repo)';
 
   const prompt = buildAutoHealPrompt({
     repo,
@@ -295,8 +296,7 @@ async function main() {
   console.log(`[AutoHeal] ${adapter.describe()}`);
 
   const requirePlanApproval =
-    autoHeal.adapters?.jules?.requirePlanApproval ??
-    (riskTier !== 'green');
+    autoHeal.adapters?.jules?.requirePlanApproval ?? riskTier !== 'green';
 
   const shortSha = String(sha).slice(0, 7);
   const title = `CI self-heal: ${failedStages.join(', ')} (${shortSha})`;

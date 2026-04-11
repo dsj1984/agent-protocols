@@ -99,7 +99,7 @@ Add a new top-level `autoHeal` section to the config schema:
 
 A Node.js replacement for the current Bash script with proper structure:
 
-```
+```text
 .agents/scripts/
 ├── auto-heal.js              # CLI entry point
 └── lib/
@@ -212,7 +212,10 @@ node .agents/scripts/auto-heal.js \
 ```
 
 ## Step 2 — Monitor Session
+
 ...
+
+```text
 ```
 
 ### 5. Consumer CI Integration (Template)
@@ -341,9 +344,9 @@ This would register in `mcp-orchestration.js` alongside the existing tools. Usef
 
 > [!IMPORTANT]
 > **Adapter extensibility** — Should we design for additional adapters beyond Jules and GitHub Issues? (e.g., Devin API, Codex API, generic webhook). If so, the adapter interface should be formalized like `IExecutionAdapter`.
-
+>
 > [!WARNING]
 > **Jules API stability** — The current API is `v1alpha`. The adapter should be designed so that API changes only require updating `jules-adapter.js`, not consumer configs.
-
+>
 > [!NOTE]
 > **Stage names** — Should the framework ship with a default set of stage names (lint, typecheck, unit, e2e, build) that consumers extend, or should it be fully blank-slate? A default set with override capability feels right — it establishes conventions without being prescriptive.

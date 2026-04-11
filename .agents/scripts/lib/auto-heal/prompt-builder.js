@@ -213,8 +213,7 @@ export function collectErrorLogs(
         result[stageName] = null;
       } else {
         // Unexpected read error — surface it but do not throw.
-        result[stageName] =
-          `[⚠️ Could not read log: ${err.message}]`;
+        result[stageName] = `[⚠️ Could not read log: ${err.message}]`;
       }
     }
   }

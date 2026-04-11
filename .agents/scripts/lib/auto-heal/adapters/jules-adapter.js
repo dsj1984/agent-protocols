@@ -110,8 +110,7 @@ export class JulesAdapter extends IAutoHealAdapter {
     this._config = adapterConfig;
     this._apiKeyEnv = adapterConfig.apiKeyEnv ?? DEFAULT_API_KEY_ENV;
     this._apiUrl = adapterConfig.apiUrl ?? DEFAULT_API_URL;
-    this._requirePlanApproval =
-      adapterConfig.requirePlanApproval ?? true;
+    this._requirePlanApproval = adapterConfig.requirePlanApproval ?? true;
     this._maxRetries = adapterConfig.maxRetries ?? DEFAULT_MAX_RETRIES;
     this._timeoutMs = adapterConfig.timeoutMs ?? DEFAULT_TIMEOUT_MS;
   }
@@ -181,7 +180,10 @@ export class JulesAdapter extends IAutoHealAdapter {
           `[AutoHeal/Jules] ⚠️ Rate limited (HTTP 429). Jules session not dispatched ` +
             `this run — will retry on next CI trigger.`,
         );
-        return { status: 'rate-limited', message: 'Rate limit reached (HTTP 429)' };
+        return {
+          status: 'rate-limited',
+          message: 'Rate limit reached (HTTP 429)',
+        };
       }
 
       if (response.status === 401 || response.status === 403) {
@@ -253,7 +255,8 @@ export class JulesAdapter extends IAutoHealAdapter {
       },
       prompt: payload.prompt,
       automationMode: payload.autoApprove ? 'AUTO' : 'SUPERVISED',
-      requirePlanApproval: payload.requirePlanApproval ?? this._requirePlanApproval,
+      requirePlanApproval:
+        payload.requirePlanApproval ?? this._requirePlanApproval,
       metadata: {
         riskTier: payload.riskTier,
         generatedBy: 'agent-protocols/auto-heal',

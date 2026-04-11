@@ -27,7 +27,7 @@ risk tier.
 gh run download <run-id> --dir ./auto-heal-errors
 ```
 
-3. Note the commit SHA and PR number (or `0` if no PR):
+1. Note the commit SHA and PR number (or `0` if no PR):
 
 ```powershell
 $sha = git rev-parse HEAD

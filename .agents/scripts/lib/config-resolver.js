@@ -147,7 +147,13 @@ export function resolveConfig(opts) {
       }
     }
 
-    _cachedConfig = { settings, orchestration, autoHeal, raw, source: agentrcPath };
+    _cachedConfig = {
+      settings,
+      orchestration,
+      autoHeal,
+      raw,
+      source: agentrcPath,
+    };
     return _cachedConfig;
   }
 
