@@ -7,10 +7,21 @@ import { detectCycle } from '../Graph.js';
  * @returns {object[]} Validated tickets with normalized dependencies.
  */
 export function validateAndNormalizeTickets(tickets) {
-  const ticketBySlug = new Map(tickets.map((t) => [t.slug, t]));
-  const features = tickets.filter((t) => t.type === 'feature');
-  const stories = tickets.filter((t) => t.type === 'story');
-  const tasks = tickets.filter((t) => t.type === 'task');
+  const ticketBySlug = new Map();
+  const features = [];
+  const stories = [];
+  const tasks = [];
+  const slugAdjacency = new Map();
+
+  for (const t of tickets) {
+    if (t.slug) {
+      ticketBySlug.set(t.slug, t);
+    }
+    slugAdjacency.set(t.slug, t.depends_on ?? []);
+    if (t.type === 'feature') features.push(t);
+    else if (t.type === 'story') stories.push(t);
+    else if (t.type === 'task') tasks.push(t);
+  }
 
   if (features.length === 0)
     throw new Error(
@@ -91,6 +102,13 @@ export function validateAndNormalizeTickets(tickets) {
           if (!myStory.depends_on) myStory.depends_on = [];
           if (!myStory.depends_on.includes(depStory)) {
             myStory.depends_on.push(depStory);
+            // Update slugAdjacency
+            const deps = slugAdjacency.get(taskStory) ?? [];
+            if (!deps.includes(depStory)) {
+              deps.push(depStory);
+              slugAdjacency.set(taskStory, deps);
+            }
+
             crossStoryLifted.push({
               task: task.slug,
               dep: depSlug,
@@ -105,6 +123,7 @@ export function validateAndNormalizeTickets(tickets) {
       }
     }
     task.depends_on = keptDeps;
+    slugAdjacency.set(task.slug, keptDeps);
   }
 
   if (crossStoryLifted.length > 0) {
@@ -119,9 +138,6 @@ export function validateAndNormalizeTickets(tickets) {
   }
 
   // Acyclic dependency check
-  const slugAdjacency = new Map(
-    tickets.map((t) => [t.slug, t.depends_on ?? []]),
-  );
   const cycle = detectCycle(slugAdjacency);
   if (cycle) {
     throw new Error(
