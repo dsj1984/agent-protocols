@@ -40,7 +40,7 @@ export async function scrapeProjectDocs(settings) {
             const content = await fs.promises.readFile(full, 'utf-8');
             return { name, content };
           }
-        } catch (e) {
+        } catch (_e) {
           // ignore missing or unreadable files
         }
         return null;
