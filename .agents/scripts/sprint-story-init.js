@@ -194,22 +194,24 @@ function bootstrapBranch(epicBranch, storyBranch, baseBranch) {
 }
 
 async function transitionTasksToExecuting(provider, tasks) {
-  for (const task of tasks) {
-    if (task.labels.includes(STATE_LABELS.EXECUTING)) {
-      progress('TICKETS', `  #${task.id} already executing — skipped`);
-      continue;
-    }
-    if (task.labels.includes(STATE_LABELS.DONE)) {
-      progress('TICKETS', `  #${task.id} already done — skipped`);
-      continue;
-    }
-    try {
-      await transitionTicketState(provider, task.id, STATE_LABELS.EXECUTING);
-      progress('TICKETS', `  #${task.id} → agent::executing ✅`);
-    } catch (err) {
-      console.error(`  #${task.id} → FAILED: ${err.message}`);
-    }
-  }
+  await Promise.all(
+    tasks.map(async (task) => {
+      if (task.labels.includes(STATE_LABELS.EXECUTING)) {
+        progress('TICKETS', `  #${task.id} already executing — skipped`);
+        return;
+      }
+      if (task.labels.includes(STATE_LABELS.DONE)) {
+        progress('TICKETS', `  #${task.id} already done — skipped`);
+        return;
+      }
+      try {
+        await transitionTicketState(provider, task.id, STATE_LABELS.EXECUTING);
+        progress('TICKETS', `  #${task.id} → agent::executing ✅`);
+      } catch (err) {
+        console.error(`  #${task.id} → FAILED: ${err.message}`);
+      }
+    }),
+  );
 }
 
 // ---------------------------------------------------------------------------
