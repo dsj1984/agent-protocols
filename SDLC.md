@@ -291,6 +291,8 @@ Notifications are dispatched through two channels:
 | `/roadmap-sync`                   | Sync ROADMAP.md from GitHub Epics status         |
 | `/create-epic`                    | Create a well-structured Epic issue              |
 | `/bootstrap-agent-protocols`      | Initialize repo labels and project fields        |
-| `/ci-auto-heal`                  | Manual CI self-remediation trigger               |
+| `/git-commit-all`                 | Stage and commit all changes                     |
+| `/git-push`                       | Stage, commit, and push to remote                |
+| `/ci-auto-heal`                   | Manual CI self-remediation trigger               |
 | `/delete-epic-branches [EPIC_ID]` | Hard reset: delete Epic branches                 |
 | `/delete-epic-tickets [EPIC_ID]`  | Hard reset: delete Epic issues                   |

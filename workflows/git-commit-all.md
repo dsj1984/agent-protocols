@@ -20,7 +20,7 @@ This workflow stages and commits all current changes in the repository.
    provided, a generic timestamped message will be used.
 
    ```powershell
-   git commit --no-verify -m "[Message]"
+   git commit -m "[Message]"
    ```
 
 1. **Verify**: Show the last commit to confirm success.
