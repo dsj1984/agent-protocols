@@ -220,27 +220,23 @@ export function computeReachability(adjacency) {
  * @throws {Error} If a cycle is detected (should be caught before calling this).
  */
 export function topologicalSort(adjacency, taskMap) {
-  // Determine how many active dependencies each node has
+  // Pre-compute reverse adjacency and in-degree for O(V+E)
   const inDegree = new Map();
-  for (const [id, deps] of adjacency.entries()) {
-    let activeDeps = 0;
-    for (const dep of deps) {
-      if (adjacency.has(dep)) activeDeps++;
-    }
-    inDegree.set(id, activeDeps);
-  }
-
-  // Pre-compute reverse adjacency for O(V+E): dependent -> dependencies becomes dependency -> dependents
   const reverseAdj = new Map();
+
   for (const id of adjacency.keys()) {
     reverseAdj.set(id, []);
   }
+
   for (const [nodeId, deps] of adjacency.entries()) {
+    let activeDeps = 0;
     for (const dep of deps) {
       if (reverseAdj.has(dep)) {
+        activeDeps++;
         reverseAdj.get(dep).push(nodeId);
       }
     }
+    inDegree.set(nodeId, activeDeps);
   }
 
   // Seed queue with zero-in-degree nodes (tasks with no active dependencies), sorted by id for determinism
