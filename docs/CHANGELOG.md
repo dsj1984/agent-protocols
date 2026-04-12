@@ -2,6 +2,40 @@
 
 All notable changes to this project will be documented in this file.
 
+## [5.4.2] - 2026-04-12
+
+### 🐛 Bug Fixes
+
+- **`sprint-story-close`: Commitlint `subject-case` violation** — The merge commit
+  message in `finalizeMerge()` now lowercases the first character of `storyTitle`
+  before interpolating it into the `feat: <title> (resolves #N)` string. This
+  prevents commit-lint failures caused by GitHub issue titles being sentence-cased
+  (e.g., "Add 'bio' field..." becomes "feat: add 'bio' field...").
+
+- **`sprint-story-close`: Dispatch manifest never updated after story close** — The
+  dashboard refresh was previously gated behind an opt-in `--refresh-dashboard` CLI
+  flag, so the Epic-level dispatch manifest (`temp/dispatch-manifest-<epicId>.md/json`)
+  was never regenerated in practice, leaving progress at 0% after stories completed.
+  Fixed by inverting the default: the manifest now regenerates automatically unless
+  `--skip-dashboard` is explicitly passed. Updated the corresponding `cli-args.js`
+  option and the `workflows/sprint-execute.md` Step 3 documentation to reflect the
+  new opt-out behaviour.
+
+- **`sprint-story-close`: Ephemeral story manifest files not cleaned up** — After a
+  successful story merge and branch deletion, the script now attempts to delete
+  `temp/story-manifest-<storyId>.md` and `temp/story-manifest-<storyId>.json`. These
+  working files are created by the dispatcher when resolving story-level execution
+  plans and should not persist beyond the story's lifetime. Errors during deletion
+  are non-fatal and logged as warnings.
+
+## [5.4.1] - 2026-04-12
+
+### 🛡️ Workflow Hardening
+
+*   **Enforced Quality Gates:** Removed the `--no-verify` flag from the `/git-commit-all` workflow to ensure all pre-commit hooks (linting, formatting, testing) are strictly enforced during automated commits.
+*   **New Git Push Workflow:** Introduced the `/git-push` workflow that stages, commits, and pushes changes while strictly prohibiting hook bypass. This ensures that all code pushed to remote repositories has passed the local quality baseline.
+*   **Protocol Documentation Sync:** Updated `SDLC.md` and `README.md` to include references to the newly implemented Git utility workflows.
+
 ## [5.4.0] - 2026-04-12
 
 ### 🚀 Performance & Scalability (Epic 227)

@@ -205,13 +205,14 @@ The script:
 - Batch transitions all child Tasks and the Story to `agent::done`.
 - Runs `cascadeCompletion()` to propagate closure up the hierarchy.
 - Runs `health-monitor.js` to update sprint metrics.
-- Runs `dispatcher.js --dry-run` to automatically refresh the dashboard manifest.
+- Regenerates the Epic dispatch manifest (`temp/dispatch-manifest-<epicId>.md`
+  and `.json`) by default. Pass `--skip-dashboard` to suppress this step.
 
 **Output**: Structured JSON with `ticketsClosed[]`, `cascadedTo[]`, merge
 status.
 
-> **Why not use GitHub auto-close?** GitHub's `Closes #N` syntax only works
-> when merging into the repository's **default branch** (`main`). Since Story
+> **Why not use GitHub auto-close?** GitHub's `Closes #N` syntax only works when
+> merging into the repository's **default branch** (`main`). Since Story
 > branches merge into `epic/<epicId>` (not `main`), we must close tickets
 > explicitly via the state writer.
 
@@ -232,4 +233,8 @@ status.
   tickets on non-default branch merges.
 - **Always** delete the Story branch (local + remote) after merging into the
   Epic branch.
-- **MCP Fallback**: If `agent-protocols` MCP tools fail due to connection errors, **fall back immediately** to `node .agents/scripts/update-ticket-state.js --task <id> --state <state>` (which also auto-cascades completion when `--state agent::done`). Do not leave tickets in stale states.
+- **MCP Fallback**: If `agent-protocols` MCP tools fail due to connection
+  errors, **fall back immediately** to
+  `node .agents/scripts/update-ticket-state.js --task <id> --state <state>`
+  (which also auto-cascades completion when `--state agent::done`). Do not leave
+  tickets in stale states.

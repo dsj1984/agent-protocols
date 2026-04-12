@@ -169,7 +169,7 @@ function finalizeMerge(epicBranch, storyBranch, storyTitle, storyId) {
     '--no-ff',
     storyBranch,
     '-m',
-    `feat: ${storyTitle} (resolves #${storyId})`,
+    `feat: ${storyTitle.charAt(0).toLowerCase() + storyTitle.slice(1)} (resolves #${storyId})`,
   );
 
   if (mergeResult.status !== 0) {
@@ -202,18 +202,18 @@ function finalizeMerge(epicBranch, storyBranch, storyTitle, storyId) {
 export async function runStoryClose({
   storyId: storyIdParam,
   epicId: epicIdParam,
-  refreshDashboard: refreshDashboardParam,
+  skipDashboard: skipDashboardParam,
   injectedProvider,
 } = {}) {
   const {
     storyId,
     epicId: argEpicId,
-    refreshDashboard,
+    skipDashboard,
   } = storyIdParam !== undefined
     ? {
         storyId: storyIdParam,
         epicId: epicIdParam,
-        refreshDashboard: !!refreshDashboardParam,
+        skipDashboard: !!skipDashboardParam,
       }
     : parseSprintArgs();
 
@@ -311,7 +311,7 @@ export async function runStoryClose({
   // -------------------------------------------------------------------------
 
   let manifestUpdated = false;
-  if (refreshDashboard) {
+  if (!skipDashboard) {
     progress('DASHBOARD', 'Regenerating dispatch manifest...');
     try {
       await generateAndSaveManifest(epicId, true);
@@ -325,7 +325,7 @@ export async function runStoryClose({
   } else {
     progress(
       'DASHBOARD',
-      '⏭️ Skipping dashboard refresh (use --refresh-dashboard to run)',
+      '⏭️ Skipping dashboard refresh (--skip-dashboard flag set)',
     );
   }
 
@@ -354,6 +354,31 @@ export async function runStoryClose({
     `✅ Story #${storyId} merged into ${epicBranch}. ` +
       `${closedTickets.length} ticket(s) closed.`,
   );
+
+  // -------------------------------------------------------------------------
+  // Cleanup — remove ephemeral story manifest temp files (non-fatal)
+  // -------------------------------------------------------------------------
+
+  try {
+    const { unlink } = await import('node:fs/promises');
+    const manifestBase = path.join(
+      PROJECT_ROOT,
+      'temp',
+      `story-manifest-${storyId}`,
+    );
+    for (const ext of ['.md', '.json']) {
+      try {
+        await unlink(`${manifestBase}${ext}`);
+        progress('CLEANUP', `🗑️  Deleted temp/story-manifest-${storyId}${ext}`);
+      } catch {
+        // File may not exist — ignore
+      }
+    }
+  } catch (err) {
+    console.error(
+      `[sprint-story-close] Story manifest cleanup failed (non-fatal): ${err.message}`,
+    );
+  }
 
   return { success: true, result };
 }
