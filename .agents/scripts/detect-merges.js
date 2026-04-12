@@ -10,26 +10,33 @@ export async function main() {
     let foundConflicts = false;
 
     // Standard git conflict markers
-    const markers = ['<<<<<<< ', '=======', '>>>>>>> '];
+    // Adding '\n' before '=======' correctly avoids matching simple line separators
+    const markers = ['<<<<<<< ', '\n=======', '>>>>>>> '];
 
-    for (const file of files) {
-      if (fs.existsSync(file)) {
+    await Promise.all(
+      files.map(async (file) => {
+        // Exclude self and workflow docs that contain valid examples of conflict markers
+        if (
+          file === '.agents/scripts/detect-merges.js' ||
+          file === '.agents/workflows/git-merge-pr.md'
+        )
+          return;
         try {
-          const content = fs.readFileSync(file, 'utf8');
+          const content = await fs.promises.readFile(file, 'utf8');
           for (const marker of markers) {
             if (content.includes(marker)) {
               console.error(
                 `Conflict marker '${marker.trim()}' found in tracked file: ${file}`,
               );
               foundConflicts = true;
-              break; // Move to the next file if one marker is found
+              break;
             }
           }
         } catch (_readErr) {
-          // Ignore files that can't be read as utf8 (e.g., binaries)
+          // Ignore files that can't be read as utf8 (e.g., binaries or missing files)
         }
-      }
-    }
+      }),
+    );
 
     if (foundConflicts) {
       Logger.fatal(
