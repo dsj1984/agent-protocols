@@ -139,45 +139,47 @@ export async function cascadeCompletion(provider, ticketId) {
     parsedParents = parentMatch.map((m) => parseInt(m[1], 10));
   }
 
-  for (const parentId of parsedParents) {
-    // Mark checked in parent body
-    await toggleTasklistCheckbox(provider, parentId, ticketId, true);
+  await Promise.all(
+    parsedParents.map(async (parentId) => {
+      // Mark checked in parent body
+      await toggleTasklistCheckbox(provider, parentId, ticketId, true);
 
-    const subTickets = await provider.getSubTickets(parentId);
+      const subTickets = await provider.getSubTickets(parentId);
 
-    // Check if ALL are done.
-    // If a ticket reached this point, it means it's one of the sub-tickets
-    // that just finished, so subTickets.length will be at least 1.
-    const allDone = subTickets.every(
-      (st) => st.labels.includes(STATE_LABELS.DONE) || st.state === 'closed',
-    );
-
-    if (allDone) {
-      // EXCLUSION: Do not auto-close Epics, PRDs, or Tech Specs via cascade.
-      // These must be closed via formal sprint-close.
-      const parent = await provider.getTicket(parentId);
-      const isEpic = parent.labels.includes('type::epic');
-      const isPlanning =
-        parent.labels.includes('context::prd') ||
-        parent.labels.includes('context::tech-spec');
-
-      if (isEpic || isPlanning) {
-        console.warn(
-          `[Ticketing] Cascade reached ${isEpic ? 'Epic' : 'Planning'} #${parentId}. Skipping auto-close (reserved for sprint-close).`,
-        );
-        continue;
-      }
-
-      await transitionTicketState(provider, parentId, STATE_LABELS.DONE);
-      await postStructuredComment(
-        provider,
-        parentId,
-        'progress',
-        'All child tickets completed via recursive cascade.',
+      // Check if ALL are done.
+      // If a ticket reached this point, it means it's one of the sub-tickets
+      // that just finished, so subTickets.length will be at least 1.
+      const allDone = subTickets.every(
+        (st) => st.labels.includes(STATE_LABELS.DONE) || st.state === 'closed',
       );
 
-      // recursive cascade
-      await cascadeCompletion(provider, parentId);
-    }
-  }
+      if (allDone) {
+        // EXCLUSION: Do not auto-close Epics, PRDs, or Tech Specs via cascade.
+        // These must be closed via formal sprint-close.
+        const parent = await provider.getTicket(parentId);
+        const isEpic = parent.labels.includes('type::epic');
+        const isPlanning =
+          parent.labels.includes('context::prd') ||
+          parent.labels.includes('context::tech-spec');
+
+        if (isEpic || isPlanning) {
+          console.warn(
+            `[Ticketing] Cascade reached ${isEpic ? 'Epic' : 'Planning'} #${parentId}. Skipping auto-close (reserved for sprint-close).`,
+          );
+          return;
+        }
+
+        await transitionTicketState(provider, parentId, STATE_LABELS.DONE);
+        await postStructuredComment(
+          provider,
+          parentId,
+          'progress',
+          'All child tickets completed via recursive cascade.',
+        );
+
+        // recursive cascade
+        await cascadeCompletion(provider, parentId);
+      }
+    }),
+  );
 }
