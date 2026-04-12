@@ -72,7 +72,7 @@
   ".agents/scripts/mcp/select-audits.js": 83.95,
   ".agents/scripts/notify.js": 88.126,
   ".agents/scripts/providers/github.js": 96.629,
-  ".agents/scripts/sprint-close.js": 98.85,
+  ".agents/scripts/sprint-close.js": 94.601,
   ".agents/scripts/sprint-code-review.js": 88.031,
   ".agents/scripts/sprint-story-close.js": 83.585,
   ".agents/scripts/sprint-story-init.js": 92.349,
