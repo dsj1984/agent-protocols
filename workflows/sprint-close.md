@@ -94,8 +94,8 @@ ensures the roadmap reflects the Epic that is about to close as `✅ Completed`,
 along with accurate progress for any other open Epics.
 
 Run the `/roadmap-sync` workflow inline — execute Steps 0 through 3 of that
-workflow, but **skip Step 4 (Commit)**. The roadmap changes will be committed
-as part of the next documentation commit or the merge itself.
+workflow, but **skip Step 4 (Commit)**. The roadmap changes will be committed as
+part of the next documentation commit or the merge itself.
 
 ```powershell
 node [SCRIPTS_ROOT]/generate-roadmap.js
@@ -224,10 +224,29 @@ If the tag is missing (e.g., `--follow-tags` was not used), push it explicitly:
 git push origin "v[NEW_VERSION]"
 ```
 
+## Step 8.5 — Pre-Cleanup Stash Clear
+
+Before deleting any branches, clear all leftover stashes so that a dirty working
+tree does not block the subsequent `git checkout` or branch-deletion commands:
+
+```powershell
+git stash clear
+```
+
+> **Note:** This is a hard clear — it permanently drops all stashed changes. If
+> you have intentional WIP stashes you need to keep, save them elsewhere
+> _before_ running `/sprint-close`.
+
 ## Step 11 — Internal State Cleanup
 
 If you ran Step 8 with `--no-cleanup`, or need to perform manual cleanup, run:
-`node [SCRIPTS_ROOT]/sprint-close.js --epic [EPIC_ID]` without the flag to clean up branches.
+`node [SCRIPTS_ROOT]/sprint-close.js --epic [EPIC_ID]` without the flag to clean
+up branches.
+
+> **Windows/PowerShell Resilience:** Remote branch deletions are individually
+> wrapped in error handling inside `sprint-close.js`. A "branch not found" error
+> on any single remote ref will be logged as a warning but will **not** abort
+> the cleanup pass — all remaining branches are still attempted.
 
 ## Constraint
 
@@ -243,8 +262,11 @@ If you ran Step 8 with `--no-cleanup`, or need to perform manual cleanup, run:
   **patch** for fixes and refactors.
 - **Always** run `sprint-close.js` (Step 8) to ensure PRD and Tech Spec tickets
   are formally closed — they are excluded from auto-closure during execution.
+- **Always** run `git stash clear` (Step 8.5) before any branch cleanup to
+  prevent stale stashes from blocking branch operations.
 - **Always** delete all Epic, Task, and Story branches after merge to prevent
-  branch bloat.
+  branch bloat. Individual remote deletion failures MUST be tolerated — log them
+  as warnings and continue.
 - **Always** tag a release when the Epic corresponds to a versioned milestone.
 
 ## Step 12 — Notification
