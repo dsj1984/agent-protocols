@@ -7,7 +7,7 @@ framework via the `.agents/` Git submodule.
 
 ```text
 .agents/
-├── VERSION                  # Current version (5.2.1)
+├── VERSION                  # Current version (5.4.2)
 ├── SDLC.md                  # End-to-end workflow guide
 ├── instructions.md          # MANDATORY: Primary system prompt
 ├── default-agentrc.json     # Copy to project root as .agentrc.json
@@ -161,14 +161,17 @@ Desktop, or VS Code) without spawning shell subprocesses.
 
 ### 1. Configuration
 
-Add the following to your MCP host settings (e.g., `claude_desktop_config.json`):
+Add the following to your MCP host settings (e.g.,
+`claude_desktop_config.json`):
 
 ```json
 {
   "mcpServers": {
     "agent-protocols": {
       "command": "node",
-      "args": ["/absolute/path/to/your/project/.agents/scripts/mcp-orchestration.js"],
+      "args": [
+        "/absolute/path/to/your/project/.agents/scripts/mcp-orchestration.js"
+      ],
       "env": {
         "GITHUB_TOKEN": "your_token_here",
         "GEMINI_API_KEY": "your_token_here",
@@ -179,36 +182,39 @@ Add the following to your MCP host settings (e.g., `claude_desktop_config.json`)
 }
 ```
 
-> [!IMPORTANT]
-> Always use **absolute paths** for the `args` array to ensure the server starts correctly regardless of where your agent is currently focused.
+> [!IMPORTANT] Always use **absolute paths** for the `args` array to ensure the
+> server starts correctly regardless of where your agent is currently focused.
 
 ### 2. Authentication & Secrets
 
 The MCP server resolves secrets in this priority:
 
-1. **Host Environment**: Variables defined in the `env` block of your MCP config.
+1. **Host Environment**: Variables defined in the `env` block of your MCP
+   config.
 2. **Project `.env`**: Automatically loaded from your project root.
-3. **External Tools**: Leverages the `github-mcp-server` if active in the same session.
+3. **External Tools**: Leverages the `github-mcp-server` if active in the same
+   session.
 
 ### 3. Exposed Tools
 
-| Tool                       | Purpose                                                        |
-| -------------------------- | -------------------------------------------------------------- |
-| `dispatch_wave`            | DAG-based dispatch; returns markdown manifest with progress    |
-| `hydrate_context`          | Assembles a self-contained, fully hydrated execution prompt    |
-| `transition_ticket_state`  | Label-based state machine with close/reopen semantics          |
-| `cascade_completion`       | Recursively propagates completion upward through the hierarchy |
-| `post_structured_comment`  | Posts progress, friction, or notification comments on tickets  |
-| `select_audits`            | Analyzes ticket content to determine which audits to run       |
-| `run_audit_suite`          | Executes audit workflows and normalizes findings               |
+| Tool                      | Purpose                                                        |
+| ------------------------- | -------------------------------------------------------------- |
+| `dispatch_wave`           | DAG-based dispatch; returns markdown manifest with progress    |
+| `hydrate_context`         | Assembles a self-contained, fully hydrated execution prompt    |
+| `transition_ticket_state` | Label-based state machine with close/reopen semantics          |
+| `cascade_completion`      | Recursively propagates completion upward through the hierarchy |
+| `post_structured_comment` | Posts progress, friction, or notification comments on tickets  |
+| `select_audits`           | Analyzes ticket content to determine which audits to run       |
+| `run_audit_suite`         | Executes audit workflows and normalizes findings               |
 
 ### 4. Debugging
 
 If the server is configured but not appearing:
 
 - Check the **stderr** logs in your MCP host.
-- Success message: `[MCP] agent-protocols v5.2.1 server started`
-- Failures: Initialization errors (missing dependencies, path issues) are logged before the server exits with code 1.
+- Success message: `[MCP] agent-protocols v5.4.2 server started`
+- Failures: Initialization errors (missing dependencies, path issues) are logged
+  before the server exits with code 1.
 
 ---
 
@@ -306,10 +312,9 @@ The skill library uses a **two-tier architecture**: universal process skills
 | `vitest`                        | `qa`           | Unit test automation with Vitest                      |
 | `secure-telemetry-logger`       | `security`     | Standardizes structured logging and PII stripping     |
 
-> [!NOTE]
-> The stack skill count (22) includes skill directories with `SKILL.md` files.
-> Some directories may contain additional context files alongside the skill
-> definition.
+> [!NOTE] The stack skill count (22) includes skill directories with `SKILL.md`
+> files. Some directories may contain additional context files alongside the
+> skill definition.
 
 ---
 
@@ -337,14 +342,14 @@ repository maintenance.
 
 ### Sprint Workflows
 
-| Workflow                 | Slash Command            | Purpose                                        |
-| ------------------------ | ------------------------ | ---------------------------------------------- |
-| `sprint-plan.md`         | `/sprint-plan`           | Autonomous PRD, Tech Spec, and task generation |
-| `sprint-execute.md`      | `/sprint-execute`        | DAG dispatch (Epic) or task implementation     |
-| `sprint-code-review.md`  | `/sprint-code-review`    | Comprehensive code review                      |
-| `sprint-hotfix.md`       | `/sprint-hotfix`         | Rapid remediation on feature branches          |
-| `sprint-retro.md`        | `/sprint-retro`          | Retrospective from ticket graph                |
-| `sprint-close.md`        | `/sprint-close`          | Final merge, tag release, close Epic           |
+| Workflow                | Slash Command         | Purpose                                        |
+| ----------------------- | --------------------- | ---------------------------------------------- |
+| `sprint-plan.md`        | `/sprint-plan`        | Autonomous PRD, Tech Spec, and task generation |
+| `sprint-execute.md`     | `/sprint-execute`     | DAG dispatch (Epic) or task implementation     |
+| `sprint-code-review.md` | `/sprint-code-review` | Comprehensive code review                      |
+| `sprint-hotfix.md`      | `/sprint-hotfix`      | Rapid remediation on feature branches          |
+| `sprint-retro.md`       | `/sprint-retro`       | Retrospective from ticket graph                |
+| `sprint-close.md`       | `/sprint-close`       | Final merge, tag release, close Epic           |
 
 ### Utility Workflows
 
@@ -353,7 +358,8 @@ repository maintenance.
 | `bootstrap-agent-protocols.md` | `/bootstrap-agent-protocols` | Initialize repo labels and project fields |
 | `create-epic.md`               | `/create-epic`               | Create a well-structured Epic issue       |
 | `git-commit-all.md`            | `/git-commit-all`            | Stage and commit all changes              |
-| `roadmap-sync.md`             | `/roadmap-sync`              | Sync ROADMAP.md from GitHub Epics         |
+| `git-push.md`                  | `/git-push`                  | Stage, commit, and push to remote         |
+| `roadmap-sync.md`              | `/roadmap-sync`              | Sync ROADMAP.md from GitHub Epics         |
 | `delete-epic-branches.md`      | `/delete-epic-branches`      | Hard reset: delete Epic branches          |
 | `delete-epic-tickets.md`       | `/delete-epic-tickets`       | Hard reset: clear Epic child issues       |
 | `run-red-team.md`              | `/run-red-team`              | Adversarial security testing              |
@@ -376,66 +382,66 @@ Execution operations (branch creation, script dispatch) are mediated through the
 The SDK centralizes orchestration logic. All CLI scripts and the MCP server are
 **thin wrappers** that delegate to it:
 
-| Module                   | Exports                                               |
-| ------------------------ | ----------------------------------------------------- |
-| `index.js`               | Barrel — re-exports all SDK functions                 |
-| `dispatcher.js`          | `buildDAG`, `computeWave`, `resolveAndDispatch`       |
-| `context-hydrator.js`    | `hydrateContext`, `assemblePrompt`                    |
-| `ticketing.js`           | `transitionTicketState`, `cascadeCompletion`          |
-| `dependency-analyzer.js` | Cross-ticket dependency resolution                    |
-| `ticket-validator.js`    | Ticket structure and metadata validation              |
-| `planning-state-manager.js` | Planning phase state tracking                      |
-| `telemetry.js`           | Execution telemetry collection                        |
+| Module                      | Exports                                         |
+| --------------------------- | ----------------------------------------------- |
+| `index.js`                  | Barrel — re-exports all SDK functions           |
+| `dispatcher.js`             | `buildDAG`, `computeWave`, `resolveAndDispatch` |
+| `context-hydrator.js`       | `hydrateContext`, `assemblePrompt`              |
+| `ticketing.js`              | `transitionTicketState`, `cascadeCompletion`    |
+| `dependency-analyzer.js`    | Cross-ticket dependency resolution              |
+| `ticket-validator.js`       | Ticket structure and metadata validation        |
+| `planning-state-manager.js` | Planning phase state tracking                   |
+| `telemetry.js`              | Execution telemetry collection                  |
 
 #### Entry Points
 
-| Entry Point            | Purpose                                                          |
-| ---------------------- | ---------------------------------------------------------------- |
-| `mcp-orchestration.js` | **MCP Server** — exposes SDK functions as native agentic tools   |
-| `dispatcher.js`        | CLI wrapper — `node dispatcher.js --epic N [--dry-run]`          |
-| `context-hydrator.js`  | CLI wrapper — `node context-hydrator.js --task N --epic N`       |
-| `update-ticket-state.js`| CLI wrapper — `node update-ticket-state.js --task N --state S`  |
+| Entry Point              | Purpose                                                        |
+| ------------------------ | -------------------------------------------------------------- |
+| `mcp-orchestration.js`   | **MCP Server** — exposes SDK functions as native agentic tools |
+| `dispatcher.js`          | CLI wrapper — `node dispatcher.js --epic N [--dry-run]`        |
+| `context-hydrator.js`    | CLI wrapper — `node context-hydrator.js --task N --epic N`     |
+| `update-ticket-state.js` | CLI wrapper — `node update-ticket-state.js --task N --state S` |
 
 #### Provider Layer
 
-| Layer                 | File                                | Purpose                                        |
-| --------------------- | ----------------------------------- | ---------------------------------------------- |
-| Abstract Interface    | `scripts/lib/ITicketingProvider.js` | Abstract ticketing contract                    |
-| Provider Factory      | `scripts/lib/provider-factory.js`   | Resolves `orchestration.provider` → class      |
-| GitHub Implementation | `scripts/providers/github.js`       | REST + GraphQL implementation for GitHub       |
-| Config Resolver       | `scripts/lib/config-resolver.js`    | AJV schema validation + .env auto-loader       |
+| Layer                 | File                                | Purpose                                   |
+| --------------------- | ----------------------------------- | ----------------------------------------- |
+| Abstract Interface    | `scripts/lib/ITicketingProvider.js` | Abstract ticketing contract               |
+| Provider Factory      | `scripts/lib/provider-factory.js`   | Resolves `orchestration.provider` → class |
+| GitHub Implementation | `scripts/providers/github.js`       | REST + GraphQL implementation for GitHub  |
+| Config Resolver       | `scripts/lib/config-resolver.js`    | AJV schema validation + .env auto-loader  |
 
 ### Scripts Reference
 
-| Script                             | Purpose                                                                 |
-| ---------------------------------- | ----------------------------------------------------------------------- |
-| `bootstrap-agent-protocols.js`     | Idempotent setup of GitHub labels and project fields                    |
-| `epic-planner.js`                  | Autonomous PRD and Tech Spec generation                                 |
-| `ticket-decomposer.js`            | Recursive 4-tier hierarchy decomposition                                |
-| `mcp-orchestration.js`            | **MCP Server** — exposes dispatch, hydration, and state tools to agents |
-| `dispatcher.js`                    | CLI wrapper — DAG scheduler; outputs dispatch manifest                  |
-| `context-hydrator.js`             | CLI wrapper — assembles self-contained agent prompts                    |
-| `sprint-story-init.js`            | Initializes Story execution: branches, deps, state transitions         |
-| `sprint-story-close.js`           | Finalizes Story: merges to Epic branch, cascades completions            |
-| `sprint-close.js`                  | Epic closure: doc freshness gate, version bump, tag release             |
-| `sprint-code-review.js`           | Automated code review execution                                        |
-| `update-ticket-state.js`          | CLI wrapper — label-based state machine with cascade                    |
-| `delete-epic.js`                   | Recursive issue deletion/clearing via GraphQL                           |
-| `notify.js`                        | Operator notification (mentions + webhooks)                             |
-| `lint-baseline.js`                 | Lint baseline ratchet — prevents new warnings                           |
-| `check-maintainability.js`        | Maintainability score computation and baseline check                    |
-| `update-maintainability-baseline.js` | Updates the maintainability baseline after improvements              |
-| `generate-roadmap.js`             | Auto-renders `docs/ROADMAP.md` from live Epics                          |
-| `diagnose-friction.js`            | Analyzes friction logs for patterns                                     |
-| `friction-analyzer.js`            | Cross-Epic friction aggregation and classification                      |
-| `health-monitor.js`               | Push-based sprint health monitoring                                     |
-| `detect-merges.js`                 | Detects and reports merge conflicts                                     |
-| `git-commit-if-changed.js`        | Conditional commit utility                                              |
-| `audit-orchestrator.js`           | Automated, gate-based static analysis and audit runner                  |
-| `handle-approval.js`              | CI webhook listener for `/approve` commands on audit findings           |
-| `log-friction.js`                  | Friction event logging utility                                          |
-| `clean-temp.js`                    | Temporary file cleanup                                                  |
-| `auto-heal.js`                     | CI self-remediation — resolves risk tier and dispatches healing         |
+| Script                               | Purpose                                                                 |
+| ------------------------------------ | ----------------------------------------------------------------------- |
+| `bootstrap-agent-protocols.js`       | Idempotent setup of GitHub labels and project fields                    |
+| `epic-planner.js`                    | Autonomous PRD and Tech Spec generation                                 |
+| `ticket-decomposer.js`               | Recursive 4-tier hierarchy decomposition                                |
+| `mcp-orchestration.js`               | **MCP Server** — exposes dispatch, hydration, and state tools to agents |
+| `dispatcher.js`                      | CLI wrapper — DAG scheduler; outputs dispatch manifest                  |
+| `context-hydrator.js`                | CLI wrapper — assembles self-contained agent prompts                    |
+| `sprint-story-init.js`               | Initializes Story execution: branches, deps, state transitions          |
+| `sprint-story-close.js`              | Finalizes Story: merges to Epic branch, cascades completions            |
+| `sprint-close.js`                    | Epic closure: doc freshness gate, version bump, tag release             |
+| `sprint-code-review.js`              | Automated code review execution                                         |
+| `update-ticket-state.js`             | CLI wrapper — label-based state machine with cascade                    |
+| `delete-epic.js`                     | Recursive issue deletion/clearing via GraphQL                           |
+| `notify.js`                          | Operator notification (mentions + webhooks)                             |
+| `lint-baseline.js`                   | Lint baseline ratchet — prevents new warnings                           |
+| `check-maintainability.js`           | Maintainability score computation and baseline check                    |
+| `update-maintainability-baseline.js` | Updates the maintainability baseline after improvements                 |
+| `generate-roadmap.js`                | Auto-renders `docs/ROADMAP.md` from live Epics                          |
+| `diagnose-friction.js`               | Analyzes friction logs for patterns                                     |
+| `friction-analyzer.js`               | Cross-Epic friction aggregation and classification                      |
+| `health-monitor.js`                  | Push-based sprint health monitoring                                     |
+| `detect-merges.js`                   | Detects and reports merge conflicts                                     |
+| `git-commit-if-changed.js`           | Conditional commit utility                                              |
+| `audit-orchestrator.js`              | Automated, gate-based static analysis and audit runner                  |
+| `handle-approval.js`                 | CI webhook listener for `/approve` commands on audit findings           |
+| `log-friction.js`                    | Friction event logging utility                                          |
+| `clean-temp.js`                      | Temporary file cleanup                                                  |
+| `auto-heal.js`                       | CI self-remediation — resolves risk tier and dispatches healing         |
 
 ### Orchestration Configuration
 
@@ -537,8 +543,8 @@ as structured comments on the Task issue for post-hoc analysis.
 
 ## Auto-Heal (CI Self-Remediation)
 
-Agent Protocols ships a governance-tiered CI self-remediation engine. When a
-CI stage fails, the `auto-heal.js` script assembles an AI prompt from the error
+Agent Protocols ships a governance-tiered CI self-remediation engine. When a CI
+stage fails, the `auto-heal.js` script assembles an AI prompt from the error
 logs, resolves the appropriate risk tier, and dispatches a healing session to
 either the Jules API or a GitHub Issue — without ever blocking the pipeline.
 
@@ -591,29 +597,29 @@ Add an `autoHeal` block to your `.agentrc.json`:
 }
 ```
 
-| Field                   | Default          | Description                                                 |
-| ----------------------- | ---------------- | ----------------------------------------------------------- |
-| `enabled`               | `true`           | Master on/off switch                                        |
-| `adapter`               | `"jules"`        | Active adapter (`"jules"` or `"github-issue"`)              |
-| `stages`                | `{}`             | Per-stage risk tier, log artifact, and modification scope   |
-| `maxLogSizeBytes`       | `4000`           | Maximum log bytes per stage included in the prompt          |
-| `branchFilter`          | `["main"]`       | Branches that auto-heal is active on (informational)        |
-| `consolidateSession`    | `true`           | Bundle all failed stages into one session/issue             |
+| Field                | Default    | Description                                               |
+| -------------------- | ---------- | --------------------------------------------------------- |
+| `enabled`            | `true`     | Master on/off switch                                      |
+| `adapter`            | `"jules"`  | Active adapter (`"jules"` or `"github-issue"`)            |
+| `stages`             | `{}`       | Per-stage risk tier, log artifact, and modification scope |
+| `maxLogSizeBytes`    | `4000`     | Maximum log bytes per stage included in the prompt        |
+| `branchFilter`       | `["main"]` | Branches that auto-heal is active on (informational)      |
+| `consolidateSession` | `true`     | Bundle all failed stages into one session/issue           |
 
 ### Adapters
 
-| Adapter         | Config Key       | Description                                              |
-| --------------- | ---------------- | -------------------------------------------------------- |
-| `jules`         | `adapters.jules` | Dispatches to the Jules API v1alpha. Requires `JULES_API_KEY`. |
-| `github-issue`  | `adapters['github-issue']` | Creates a labeled GitHub Issue. Requires `GITHUB_TOKEN`. |
+| Adapter        | Config Key                 | Description                                                    |
+| -------------- | -------------------------- | -------------------------------------------------------------- |
+| `jules`        | `adapters.jules`           | Dispatches to the Jules API v1alpha. Requires `JULES_API_KEY`. |
+| `github-issue` | `adapters['github-issue']` | Creates a labeled GitHub Issue. Requires `GITHUB_TOKEN`.       |
 
 ### Risk Tier Reference
 
-| Tier       | Emoji | `autoApprove` | Typical Stages          | Description                                    |
-| ---------- | ----- | ------------- | ----------------------- | ---------------------------------------------- |
-| `green`    | 🟢    | `true`        | lint, formatting        | Low-risk fix; no plan approval needed          |
-| `yellow`   | 🟡    | `false`       | typecheck, unit tests   | Moderate risk; plan approval required          |
-| `red`      | 🔴    | `false`       | e2e, build, migrations  | High risk; full human review recommended       |
+| Tier     | Emoji | `autoApprove` | Typical Stages         | Description                              |
+| -------- | ----- | ------------- | ---------------------- | ---------------------------------------- |
+| `green`  | 🟢    | `true`        | lint, formatting       | Low-risk fix; no plan approval needed    |
+| `yellow` | 🟡    | `false`       | typecheck, unit tests  | Moderate risk; plan approval required    |
+| `red`    | 🔴    | `false`       | e2e, build, migrations | High risk; full human review recommended |
 
 The **highest-risk failed stage** determines the overall tier for the run.
 
