@@ -50,15 +50,21 @@ export async function decomposeEpic(
     const children = existing.filter((t) =>
       t.labels.some((l) => childTypes.includes(l)),
     );
+    const closePromises = [];
     for (const child of children) {
       if (child.state !== 'closed') {
-        await provider.updateTicket(child.id, {
-          state: 'closed',
-          state_reason: 'not_planned',
-        });
-        console.log(`[Decomposer]   Closed #${child.id}: ${child.title}`);
+        const p = provider
+          .updateTicket(child.id, {
+            state: 'closed',
+            state_reason: 'not_planned',
+          })
+          .then(() => {
+            console.log(`[Decomposer]   Closed #${child.id}: ${child.title}`);
+          });
+        closePromises.push(p);
       }
     }
+    await Promise.all(closePromises);
     console.log(`[Decomposer]   Closed ${children.length} old ticket(s).`);
   }
 

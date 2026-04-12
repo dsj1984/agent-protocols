@@ -99,9 +99,8 @@ async function checkBlockers(provider, _storyId, body) {
     'BLOCKERS',
     `Checking ${blockedBy.length} dependency/dependencies...`,
   );
-  const openBlockers = [];
 
-  for (const depId of blockedBy) {
+  const blockerPromises = blockedBy.map(async (depId) => {
     try {
       const dep = await provider.getTicket(depId);
       const isDone =
@@ -109,17 +108,20 @@ async function checkBlockers(provider, _storyId, body) {
       if (!isDone) {
         const currentState =
           dep.labels.find((l) => l.startsWith('agent::')) ?? 'no agent:: label';
-        openBlockers.push({ id: depId, title: dep.title, state: currentState });
+        return { id: depId, title: dep.title, state: currentState };
       }
+      return null;
     } catch (err) {
-      openBlockers.push({
+      return {
         id: depId,
         title: '(fetch failed)',
         state: err.message,
-      });
+      };
     }
-  }
-  return openBlockers;
+  });
+
+  const results = await Promise.all(blockerPromises);
+  return results.filter((b) => b !== null);
 }
 
 function extractAndSortTasks(tasks) {
@@ -192,22 +194,24 @@ function bootstrapBranch(epicBranch, storyBranch, baseBranch) {
 }
 
 async function transitionTasksToExecuting(provider, tasks) {
-  for (const task of tasks) {
-    if (task.labels.includes(STATE_LABELS.EXECUTING)) {
-      progress('TICKETS', `  #${task.id} already executing — skipped`);
-      continue;
-    }
-    if (task.labels.includes(STATE_LABELS.DONE)) {
-      progress('TICKETS', `  #${task.id} already done — skipped`);
-      continue;
-    }
-    try {
-      await transitionTicketState(provider, task.id, STATE_LABELS.EXECUTING);
-      progress('TICKETS', `  #${task.id} → agent::executing ✅`);
-    } catch (err) {
-      console.error(`  #${task.id} → FAILED: ${err.message}`);
-    }
-  }
+  await Promise.all(
+    tasks.map(async (task) => {
+      if (task.labels.includes(STATE_LABELS.EXECUTING)) {
+        progress('TICKETS', `  #${task.id} already executing — skipped`);
+        return;
+      }
+      if (task.labels.includes(STATE_LABELS.DONE)) {
+        progress('TICKETS', `  #${task.id} already done — skipped`);
+        return;
+      }
+      try {
+        await transitionTicketState(provider, task.id, STATE_LABELS.EXECUTING);
+        progress('TICKETS', `  #${task.id} → agent::executing ✅`);
+      } catch (err) {
+        console.error(`  #${task.id} → FAILED: ${err.message}`);
+      }
+    }),
+  );
 }
 
 // ---------------------------------------------------------------------------

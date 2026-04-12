@@ -133,15 +133,19 @@ export class ImpactTracker {
     });
 
     const prs = data.repository?.pullRequests?.nodes || [];
-    return prs
-      .map((pr) => ({
-        number: pr.number,
-        title: pr.title,
-        mergedAt: pr.mergedAt,
-        labels: pr.labels.nodes.map((n) => n.name),
-        comments: pr.comments.nodes.map((n) => n.body),
-      }))
-      .filter((pr) => pr.labels.some((l) => l.startsWith('refinement::')));
+    return prs.reduce((acc, pr) => {
+      const labels = pr.labels.nodes.map((n) => n.name);
+      if (labels.some((l) => l.startsWith('refinement::'))) {
+        acc.push({
+          number: pr.number,
+          title: pr.title,
+          mergedAt: pr.mergedAt,
+          labels,
+          comments: pr.comments.nodes.map((n) => n.body),
+        });
+      }
+      return acc;
+    }, []);
   }
 
   _hasImpactReport(pr) {

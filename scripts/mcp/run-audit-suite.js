@@ -82,37 +82,55 @@ export async function runAuditSuite({ auditWorkflows, injectedExecute }) {
 
   const scriptsDir = path.join(PROJECT_ROOT, settings.scriptsRoot, 'audits');
 
-  for (const auditName of auditWorkflows) {
+  const auditPromises = auditWorkflows.map(async (auditName) => {
     if (!validAudits.includes(auditName)) {
-      auditResults.findings.push({
-        audit: auditName,
-        severity: 'low',
-        message: `Requested audit workflow '${auditName}' is not defined in audit-rules.json.`,
-      });
-      continue;
+      return {
+        error: true,
+        finding: {
+          audit: auditName,
+          severity: 'low',
+          message: `Requested audit workflow '${auditName}' is not defined in audit-rules.json.`,
+        },
+      };
     }
 
     const scriptPath = path.join(scriptsDir, `${auditName}.js`);
     try {
       await fs.access(scriptPath);
     } catch {
-      auditResults.findings.push({
-        audit: auditName,
-        severity: 'low',
-        message: `SYSTEM-MISSING-SCRIPT: Audit script '${auditName}.js' not found in audits directory.`,
-      });
-      continue;
+      return {
+        error: true,
+        finding: {
+          audit: auditName,
+          severity: 'low',
+          message: `SYSTEM-MISSING-SCRIPT: Audit script '${auditName}.js' not found in audits directory.`,
+        },
+      };
     }
 
-    auditResults.metadata.auditsRun.push(auditName);
     const findings = injectedExecute
       ? await injectedExecute(auditName, scriptPath)
       : await executeAudit(auditName, scriptPath);
 
-    for (const rawFinding of findings) {
-      const normalized = normalizeFinding(auditName, rawFinding);
-      auditResults.findings.push(normalized);
-      auditResults.metadata.summary[normalized.severity]++;
+    return {
+      success: true,
+      auditName,
+      findings,
+    };
+  });
+
+  const results = await Promise.all(auditPromises);
+
+  for (const result of results) {
+    if (result.error) {
+      auditResults.findings.push(result.finding);
+    } else if (result.success) {
+      auditResults.metadata.auditsRun.push(result.auditName);
+      for (const rawFinding of result.findings) {
+        const normalized = normalizeFinding(result.auditName, rawFinding);
+        auditResults.findings.push(normalized);
+        auditResults.metadata.summary[normalized.severity]++;
+      }
     }
   }
 

@@ -2,6 +2,7 @@ import { spawnSync } from 'node:child_process';
 import fs from 'node:fs';
 import path from 'node:path';
 import { fileURLToPath } from 'node:url';
+import { parseArgsStringToArgv } from 'string-argv';
 import { resolveConfig } from './lib/config-resolver.js';
 import { Logger } from './lib/Logger.js';
 
@@ -35,12 +36,19 @@ export function runLintCommand(
   executionTimeoutMs,
   executionMaxBuffer,
 ) {
-  const result = spawnSync(cmdConfig, {
+  const parsedArgs = parseArgsStringToArgv(cmdConfig);
+  if (parsedArgs.length === 0) {
+    console.warn(`⚠️ [lint-baseline] Empty command configuration provided.`);
+    return { errorCount: 0, warningCount: 0 };
+  }
+  const cmd = parsedArgs.shift();
+  const cmdArgs = parsedArgs;
+  const result = spawnSync(cmd, cmdArgs, {
     cwd: PROJECT_ROOT,
     encoding: 'utf-8',
     timeout: executionTimeoutMs,
     maxBuffer: executionMaxBuffer,
-    shell: true,
+    shell: false,
   });
 
   try {
