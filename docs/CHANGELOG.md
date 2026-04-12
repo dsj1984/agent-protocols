@@ -2,6 +2,23 @@
 
 All notable changes to this project will be documented in this file.
 
+## [5.4.0] - 2026-04-12
+
+### 🚀 Performance & Scalability (Epic 227)
+
+*   **Parallel Execution Engine:** Optimized deep SDLC operations by transitioning sequential loops to `Promise.all` parallelization. Affected areas include task status transitions (#217), nested ticket closure cascades (#218, #222), and the multi-step audit suite orchestrator (#225).
+*   **Asynchronous I/O Migration:** Refactored project documentation scraping and file traversal logic to use non-blocking `fs.promises` (#219).
+*   **Graph Optimization:** Implementation of high-efficiency topological sort for complex ticket dependency trees, reducing wait-times in large Epics (#220).
+*   **Logical Refinements:** Streamlined parent-child completion cascades (#221) and optimized array processing filters in internal PR refinement helpers using `reduce` (#226).
+
+### ✨ New Workflows
+
+*   **Batch Merge Support:** Enhanced `/git-merge-pr` to accept multiple pull request numbers at once, enabling coordinated atomic deployments of related features.
+
+### 🛡️ Workflow Hardening
+
+*   **Robust Remote Cleanup:** Re-engineered branch deletion in the merge workflow with a two-stage strategy: attempts standard `git push --delete` first, with an automatic fallback to the **GitHub REST API via credential extraction**. This ensures remote branches are successfully pruned even when local Husky pre-push hooks block git-based deletions.
+
 ## [5.3.0] - 2026-04-11
 
 ### ✨ New Features
