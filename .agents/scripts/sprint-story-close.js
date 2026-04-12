@@ -84,18 +84,25 @@ async function ticketClosureCascade(provider, tasks, storyId) {
     'TICKETS',
     `Transitioning ${tasks.length} Task(s) to agent::done...`,
   );
-  for (const task of tasks) {
+  const transitionPromises = tasks.map(async (task) => {
     if (task.labels.includes(STATE_LABELS.DONE)) {
       progress('TICKETS', `  #${task.id} already done — skipped`);
-      closedTickets.push(task.id);
-      continue;
+      return { id: task.id, success: true };
     }
     try {
       await transitionTicketState(provider, task.id, STATE_LABELS.DONE);
-      closedTickets.push(task.id);
       progress('TICKETS', `  #${task.id} → agent::done ✅`);
+      return { id: task.id, success: true };
     } catch (err) {
       console.error(`  #${task.id} → FAILED: ${err.message}`);
+      return { id: task.id, success: false };
+    }
+  });
+
+  const results = await Promise.all(transitionPromises);
+  for (const res of results) {
+    if (res.success) {
+      closedTickets.push(res.id);
     }
   }
 
