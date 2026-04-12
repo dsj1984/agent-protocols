@@ -66,18 +66,16 @@ async function main() {
     if (contextTickets.length === 0) {
       progress('CONTEXT', 'No open PRD/Tech Spec tickets found.');
     } else {
-      await Promise.all(
-        contextTickets.map(async (ticket) => {
-          if (ticket.state === 'closed') return;
+      for (const ticket of contextTickets) {
+        if (ticket.state === 'closed') continue;
 
-          progress(
-            'CONTEXT',
-            `Closing ${ticket.labels.find((l) => l.startsWith('context::'))} #${ticket.id}...`,
-          );
-          await transitionTicketState(provider, ticket.id, STATE_LABELS.DONE);
-          progress('CONTEXT', `✅ #${ticket.id} closed.`);
-        }),
-      );
+        progress(
+          'CONTEXT',
+          `Closing ${ticket.labels.find((l) => l.startsWith('context::'))} #${ticket.id}...`,
+        );
+        await transitionTicketState(provider, ticket.id, STATE_LABELS.DONE);
+        progress('CONTEXT', `✅ #${ticket.id} closed.`);
+      }
     }
   } catch (err) {
     console.warn(
