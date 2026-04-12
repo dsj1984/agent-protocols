@@ -13,7 +13,8 @@ conflicts, and completes the merge into the target base branch.
 > **When to run**: Any time one or more PRs are ready for merge review and you
 > want an automated merge with conflict resolution and quality gates enforced.
 >
-> **Persona**: `devops-engineer` · **Skills**: `core/git-workflow-and-versioning`
+> **Persona**: `devops-engineer` · **Skills**:
+> `core/git-workflow-and-versioning`
 
 ---
 
@@ -21,8 +22,8 @@ conflicts, and completes the merge into the target base branch.
 
 1. Resolve one or more `[PR_NUMBER]` values from the slash-command argument
    (e.g. `/git-merge-pr 42 43 45` → `PR_LIST=[42, 43, 45]`).
-2. **Sequential Loop**: Steps 1 through 8 must be performed **sequentially**
-   for each PR in the `PR_LIST`. Complete the full merge and cleanup for one PR
+2. **Sequential Loop**: Steps 1 through 8 must be performed **sequentially** for
+   each PR in the `PR_LIST`. Complete the full merge and cleanup for one PR
    before starting the next.
 3. For the current `[PR_NUMBER]`, fetch metadata from GitHub:
 
@@ -92,10 +93,10 @@ git rebase origin/[BASE_BRANCH]
 2. For each conflicting file:
    - Open the file and read both the `HEAD` (incoming from base) and the
      `incoming` (from `[HEAD_BRANCH]`) change blocks.
-   - Resolve by applying **both** changes where logically compatible, or
-     by choosing the correct side based on the PR's stated intent.
-   - **Never silently drop code**. If the resolution is ambiguous, alert
-     the operator with a description of the conflict and the two sides before
+   - Resolve by applying **both** changes where logically compatible, or by
+     choosing the correct side based on the PR's stated intent.
+   - **Never silently drop code**. If the resolution is ambiguous, alert the
+     operator with a description of the conflict and the two sides before
      choosing.
 
 3. After resolving all files, stage and continue the rebase:
@@ -166,8 +167,8 @@ npm test
   2. Classify the failure:
      - **Pre-existing failures** (unrelated to this PR's diff): alert the
        operator and ask whether to proceed or block.
-     - **Regression introduced by this PR**: apply the fix, commit, re-push,
-       and re-run the test suite before proceeding.
+     - **Regression introduced by this PR**: apply the fix, commit, re-push, and
+       re-run the test suite before proceeding.
   3. Commit any test fixes:
 
      ```powershell
@@ -243,9 +244,9 @@ git log origin/[BASE_BRANCH] -5 --oneline
 Verify that the top commit corresponds to the merged PR.
 
 Explicitly delete the remote head branch. This is **mandatory** and must run
-regardless of whether `--delete-branch` was passed to `gh pr merge` — that
-flag only works when GitHub itself processes the merge; it is silently skipped
-when a PR auto-closes (e.g., due to a duplicate rebase):
+regardless of whether `--delete-branch` was passed to `gh pr merge` — that flag
+only works when GitHub itself processes the merge; it is silently skipped when a
+PR auto-closes (e.g., due to a duplicate rebase):
 
 ```powershell
 # Suppress "remote ref does not exist" — idempotent if already deleted
@@ -259,11 +260,30 @@ git fetch --prune
 git branch -D [HEAD_BRANCH]
 ```
 
-> **Note:** `git branch -D` will error if the local branch does not exist
-> (e.g., it was never checked out). That is expected and can be ignored.
+> **Note:** `git branch -D` will error if the local branch does not exist (e.g.,
+> it was never checked out). That is expected and can be ignored.
 
-Optionally, run the test suite one final time on the base branch to confirm
-no regressions were introduced by the merge:
+Explicitly close the GitHub PR object. Because this workflow squash-merges
+directly into the base branch (bypassing GitHub's native merge flow), GitHub
+**will not** auto-close the PR — it must be closed explicitly:
+
+```javascript
+// Use the update_pull_request MCP tool:
+mcp_github -
+  mcp -
+  server_update_pull_request({
+    owner,
+    repo,
+    pullNumber: PR_NUMBER,
+    state: 'closed',
+  });
+```
+
+> **Note:** This is a hard requirement — leaving the PR open after merging
+> pollutes the repository's open PR list and causes confusion for reviewers.
+
+Optionally, run the test suite one final time on the base branch to confirm no
+regressions were introduced by the merge:
 
 ```powershell
 npm test
@@ -289,8 +309,8 @@ gh pr comment [PR_NUMBER] --body "✅ **Merged by agent** via \`/git-merge-pr\`
 
 ## Constraint
 
-- **Never** merge a PR that has unresolved lint errors or failing tests.
-  Running a passing quality gate is mandatory before the merge commit.
+- **Never** merge a PR that has unresolved lint errors or failing tests. Running
+  a passing quality gate is mandatory before the merge commit.
 - **Never** silently drop code when resolving merge conflicts. When in doubt,
   ask the operator.
 - **Never** bypass required GitHub branch protection checks (required reviewers,
@@ -300,9 +320,13 @@ gh pr comment [PR_NUMBER] --body "✅ **Merged by agent** via \`/git-merge-pr\`
   `git push origin --delete [HEAD_BRANCH]`. Do **not** rely solely on
   `gh pr merge --delete-branch` — that flag is silently skipped when a PR
   auto-closes without a normal merge commit (e.g., duplicate rebase scenarios).
-- **Always** treat a "remote ref not found" error from the delete command as
-  a non-fatal, idempotent success — the branch is already gone.
+- **Always** treat a "remote ref not found" error from the delete command as a
+  non-fatal, idempotent success — the branch is already gone.
 - **Always** use `--force-with-lease` (never bare `--force`) when pushing
   rebased branches to avoid overwriting concurrent pushes.
+- **Always** explicitly close the GitHub PR via
+  `update_pull_request(state: closed)` in Step 7 after branch cleanup. Because
+  this workflow pushes directly to the base branch, GitHub will **never**
+  auto-close the PR — it must be closed manually every time.
 - **Always** post a Step 8 summary comment for auditability, even if no fixes
   were required.
