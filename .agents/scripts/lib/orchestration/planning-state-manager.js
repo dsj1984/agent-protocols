@@ -58,41 +58,43 @@ export class PlanningStateManager {
       ...allSpecs.filter((t) => t.id !== canonicalSpecId),
     ];
 
-    for (const t of redundant) {
-      const successorId = t.labels.includes('context::prd')
-        ? canonicalPrdId
-        : canonicalSpecId;
-      console.log(
-        `[Epic Planner] Cleaning up redundant artifact #${t.id} (superseded by #${successorId})...`,
-      );
-
-      // Close the issue if it's still open
-      if (t.state === 'open') {
-        try {
-          await this.provider.postComment(t.id, {
-            type: 'notification',
-            body: `⚠️ **Audit Trace**: This planning artifact was created during an interrupted or failed orchestration run and is now **superseded by #${successorId}**. \n\nClosing this issue to maintain a single source of truth for Epic #${epicId}.`,
-          });
-        } catch (_err) {
-          // Ignore comment failures
-        }
-        await this.provider.updateTicket(t.id, {
-          state: 'closed',
-          state_reason: 'not_planned',
-        });
-      }
-
-      // Detach the sub-issue from the Epic to prevent orphaned links
-      try {
-        await this.provider.removeSubIssue(epicId, t.id);
-        console.log(`[Epic Planner]   Detached #${t.id} from Epic #${epicId}.`);
-      } catch (_err) {
-        // Already detached or API doesn't support — safe to ignore
+    await Promise.all(
+      redundant.map(async (t) => {
+        const successorId = t.labels.includes('context::prd')
+          ? canonicalPrdId
+          : canonicalSpecId;
         console.log(
-          `[Epic Planner]   Could not detach #${t.id} (may already be detached).`,
+          `[Epic Planner] Cleaning up redundant artifact #${t.id} (superseded by #${successorId})...`,
         );
-      }
-    }
+
+        // Close the issue if it's still open
+        if (t.state === 'open') {
+          try {
+            await this.provider.postComment(t.id, {
+              type: 'notification',
+              body: `⚠️ **Audit Trace**: This planning artifact was created during an interrupted or failed orchestration run and is now **superseded by #${successorId}**. \n\nClosing this issue to maintain a single source of truth for Epic #${epicId}.`,
+            });
+          } catch (_err) {
+            // Ignore comment failures
+          }
+          await this.provider.updateTicket(t.id, {
+            state: 'closed',
+            state_reason: 'not_planned',
+          });
+        }
+
+        // Detach the sub-issue from the Epic to prevent orphaned links
+        try {
+          await this.provider.removeSubIssue(epicId, t.id);
+          console.log(`[Epic Planner]   Detached #${t.id} from Epic #${epicId}.`);
+        } catch (_err) {
+          // Already detached or API doesn't support — safe to ignore
+          console.log(
+            `[Epic Planner]   Could not detach #${t.id} (may already be detached).`,
+          );
+        }
+      })
+    );
 
     // Persist healed references to the body if needed.
     if (
@@ -124,30 +126,32 @@ export class PlanningStateManager {
         console.log(
           '[Epic Planner] --force: Closing old planning artifacts...',
         );
-        for (const oldId of idsToClose) {
-          try {
-            await this.provider.updateTicket(oldId, {
-              state: 'closed',
-              state_reason: 'not_planned',
-            });
-            console.log(`[Epic Planner]   Closed old artifact #${oldId}`);
-          } catch (err) {
-            if (err.message.includes('404') || err.message.includes('410')) {
-              console.log(
-                `[Epic Planner]   Old artifact #${oldId} was already removed or is inaccessible. Skipping.`,
-              );
-            } else {
-              throw err;
+        await Promise.all(
+          Array.from(idsToClose).map(async (oldId) => {
+            try {
+              await this.provider.updateTicket(oldId, {
+                state: 'closed',
+                state_reason: 'not_planned',
+              });
+              console.log(`[Epic Planner]   Closed old artifact #${oldId}`);
+            } catch (err) {
+              if (err.message.includes('404') || err.message.includes('410')) {
+                console.log(
+                  `[Epic Planner]   Old artifact #${oldId} was already removed or is inaccessible. Skipping.`,
+                );
+              } else {
+                throw err;
+              }
             }
-          }
 
-          // Also detach from the Epic
-          try {
-            await this.provider.removeSubIssue(epicId, oldId);
-          } catch (_err) {
-            // Safe to ignore
-          }
-        }
+            // Also detach from the Epic
+            try {
+              await this.provider.removeSubIssue(epicId, oldId);
+            } catch (_err) {
+              // Safe to ignore
+            }
+          })
+        );
       }
 
       const stripped = epic.body.replace(
