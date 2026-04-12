@@ -4,14 +4,14 @@ description: >-
   number.
 ---
 
-# /git-merge-pr [#PR]
+# /git-merge-pr [#PR_LIST]
 
-This workflow performs a full end-to-end merge of a pull request: it analyzes
-the PR diff, validates that linting and tests pass, resolves any merge
+This workflow performs a full end-to-end merge of one or more pull requests: it
+analyzes each PR diff, validates linting and tests, resolves any merge
 conflicts, and completes the merge into the target base branch.
 
-> **When to run**: Any time a PR is ready for merge review and you want an
-> automated merge with conflict resolution and quality gates enforced.
+> **When to run**: Any time one or more PRs are ready for merge review and you
+> want an automated merge with conflict resolution and quality gates enforced.
 >
 > **Persona**: `devops-engineer` · **Skills**: `core/git-workflow-and-versioning`
 
@@ -19,20 +19,23 @@ conflicts, and completes the merge into the target base branch.
 
 ## Step 0 — Resolve Context
 
-1. Resolve `[PR_NUMBER]` from the slash-command argument (e.g. `/git-merge-pr 42`
-   → `PR_NUMBER=42`).
-2. Fetch PR metadata from GitHub:
+1. Resolve one or more `[PR_NUMBER]` values from the slash-command argument
+   (e.g. `/git-merge-pr 42 43 45` → `PR_LIST=[42, 43, 45]`).
+2. **Sequential Loop**: Steps 1 through 8 must be performed **sequentially**
+   for each PR in the `PR_LIST`. Complete the full merge and cleanup for one PR
+   before starting the next.
+3. For the current `[PR_NUMBER]`, fetch metadata from GitHub:
 
    ```powershell
    gh pr view [PR_NUMBER] --json number,title,headRefName,baseRefName,state,mergeable,mergeStateStatus
    ```
 
-3. From the output, resolve:
+4. From the output, resolve:
    - `[PR_TITLE]` — the PR title.
    - `[HEAD_BRANCH]` — the source branch (`headRefName`).
    - `[BASE_BRANCH]` — the merge target (`baseRefName`).
-   - `[PR_STATE]` — must be `OPEN`. If `CLOSED` or `MERGED`, **STOP** and
-     alert the operator.
+   - `[PR_STATE]` — must be `OPEN`. If `CLOSED` or `MERGED`, **SKIP** this PR
+     and proceed to the next one in the list.
    - `[MERGEABLE]` — initial GitHub mergeability signal (`MERGEABLE`,
      `CONFLICTING`, or `UNKNOWN`).
 

@@ -42,6 +42,7 @@
     "prettier": "^3.7.4"
   },
   "dependencies": {
+    "string-argv": "^0.3.2",
     "typhonjs-escomplex": "^0.1.0"
   }
 }
