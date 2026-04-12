@@ -2,7 +2,7 @@ import { parseArgs } from 'node:util';
 
 /**
  * Standardized CLI argument parser for sprint scripts.
- * Supports options like --epic, --story, --dry-run, --refresh-dashboard.
+ * Supports options like --epic, --story, --dry-run, --skip-dashboard.
  * @param {string[]} args Array of arguments (defaults to process.argv)
  * @returns {object} Parsed and typed argument values
  */
@@ -13,7 +13,7 @@ export function parseSprintArgs(args = process.argv) {
       epic: { type: 'string', short: 'e' },
       story: { type: 'string', short: 's' },
       'dry-run': { type: 'boolean', default: false },
-      'refresh-dashboard': { type: 'boolean', default: false },
+      'skip-dashboard': { type: 'boolean', default: false },
       executor: { type: 'string' },
     },
     allowPositionals: true,
@@ -25,7 +25,7 @@ export function parseSprintArgs(args = process.argv) {
     storyId: null,
     ticketId: null,
     dryRun: values['dry-run'] ?? false,
-    refreshDashboard: values['refresh-dashboard'] ?? false,
+    skipDashboard: values['skip-dashboard'] ?? false,
     executor: values.executor ?? null,
   };
 
