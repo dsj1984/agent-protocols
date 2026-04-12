@@ -15,6 +15,10 @@ All notable changes to this project will be documented in this file.
 
 *   **Batch Merge Support:** Enhanced `/git-merge-pr` to accept multiple pull request numbers at once, enabling coordinated atomic deployments of related features.
 
+### ♻️ Refactors
+
+*   **Audit Suite — Workflow-First Execution:** Eliminated the `.agents/scripts/audits/` script directory entirely. `run-audit-suite.js` now resolves the corresponding `.agents/workflows/<auditName>.md` file for each requested audit and returns its markdown content as a structured result. The calling AI agent executes the workflow as a prompt-driven analysis — no separate Node.js scripts required.
+
 ### 🛡️ Workflow Hardening
 
 *   **Robust Remote Cleanup:** Re-engineered branch deletion in the merge workflow with a two-stage strategy: attempts standard `git push --delete` first, with an automatic fallback to the **GitHub REST API via credential extraction**. This ensures remote branches are successfully pruned even when local Husky pre-push hooks block git-based deletions.
