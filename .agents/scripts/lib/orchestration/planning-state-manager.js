@@ -86,14 +86,16 @@ export class PlanningStateManager {
         // Detach the sub-issue from the Epic to prevent orphaned links
         try {
           await this.provider.removeSubIssue(epicId, t.id);
-          console.log(`[Epic Planner]   Detached #${t.id} from Epic #${epicId}.`);
+          console.log(
+            `[Epic Planner]   Detached #${t.id} from Epic #${epicId}.`,
+          );
         } catch (_err) {
           // Already detached or API doesn't support — safe to ignore
           console.log(
             `[Epic Planner]   Could not detach #${t.id} (may already be detached).`,
           );
         }
-      })
+      }),
     );
 
     // Persist healed references to the body if needed.
@@ -150,7 +152,7 @@ export class PlanningStateManager {
             } catch (_err) {
               // Safe to ignore
             }
-          })
+          }),
         );
       }
 
