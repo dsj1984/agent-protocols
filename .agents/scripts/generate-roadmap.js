@@ -95,7 +95,15 @@ async function main() {
     '# Project Roadmap',
     '',
     '> **Auto-generated** from GitHub Issues — do not edit manually.',
-    `> Last synced: ${new Date().toISOString()}`,
+    `> Last synced: ${new Date().toLocaleString('en-US', {
+      weekday: 'long',
+      year: 'numeric',
+      month: 'long',
+      day: 'numeric',
+      hour: '2-digit',
+      minute: '2-digit',
+      timeZoneName: 'short',
+    })}`,
     '',
   ];
 

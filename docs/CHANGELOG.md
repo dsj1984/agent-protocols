@@ -2,6 +2,12 @@
 
 All notable changes to this project will be documented in this file.
 
+## [5.4.4] - 2026-04-12
+
+### ✨ New Features
+
+- **`roadmap-sync`: Human-Readable Timestamps** — Updated the roadmap generator to use localized, human-readable date strings for the "Last synced" field, improving readability for operators.
+
 ## [5.4.3] - 2026-04-12
 
 ### ✨ New Features
