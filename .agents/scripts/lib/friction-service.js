@@ -52,7 +52,7 @@ export class FrictionService {
       tasks.map(async (task) => {
         const comments = await this.provider.getTicketComments(task.id);
         return { task, comments };
-      })
+      }),
     );
 
     for (const { task, comments } of tasksWithComments) {
