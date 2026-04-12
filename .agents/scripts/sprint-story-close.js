@@ -47,6 +47,7 @@ import {
   transitionTicketState,
 } from './lib/orchestration/ticketing.js';
 import { createProvider } from './lib/provider-factory.js';
+import { notify } from './notify.js';
 
 // ---------------------------------------------------------------------------
 // Helpers
@@ -289,6 +290,30 @@ export async function runStoryClose({
     tasks,
     storyId,
   );
+
+  // -------------------------------------------------------------------------
+  // Notification — story-complete (INFO channel)
+  // -------------------------------------------------------------------------
+
+  progress(
+    'NOTIFY',
+    `Sending story-complete notification for Story #${storyId}...`,
+  );
+  try {
+    await notify(
+      epicId,
+      {
+        type: 'notification',
+        message: `✅ Story #${storyId} — *${story.title}* — has been completed and merged into \`${epicBranch}\`. ${closedTickets.length} ticket(s) closed.`,
+      },
+      { orchestration },
+    );
+    progress('NOTIFY', '✅ Notification sent');
+  } catch (err) {
+    console.error(
+      `[sprint-story-close] Notification failed (non-fatal): ${err.message}`,
+    );
+  }
 
   // -------------------------------------------------------------------------
   // Health Monitor Update

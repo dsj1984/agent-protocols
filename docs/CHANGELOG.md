@@ -2,6 +2,12 @@
 
 All notable changes to this project will be documented in this file.
 
+## [5.4.3] - 2026-04-12
+
+### ✨ New Features
+
+- **`sprint-story-close`: Automated Story Completion Notifications** — Implemented an INFO-level notification system that @mentions the operator on the Epic ticket when a story is successfully merged. This closes the feedback loop and unblocks the operator for immediate wave review as defined in the SDLC.md.
+
 ## [5.4.2] - 2026-04-12
 
 ### 🐛 Bug Fixes
