@@ -10,54 +10,45 @@ import { runAuditSuite } from './mcp/run-audit-suite.js';
 import { selectAudits } from './mcp/select-audits.js';
 
 function formatAuditReport(results) {
-  const { metadata, findings } = results;
+  const { metadata, findings, workflows } = results;
   const { summary, auditsRun } = metadata;
 
   let report = '## 🛡️ Audit Orchestrator Report\n\n';
 
-  if (auditsRun.length === 0) {
+  if (auditsRun.length === 0 && findings.length === 0) {
     report += 'No audits were run during this gate.\n';
     return report;
   }
 
-  report += `**Audits Executed:** ${auditsRun.join(', ')}\n`;
-  report += `**Summary:** 🔴 ${summary.critical} Critical | 🟠 ${summary.high} High | 🟡 ${summary.medium} Medium | ⚪ ${summary.low} Low\n\n`;
-
-  if (findings.length === 0) {
-    report += '✅ **All audits passed with no findings!**\n';
-    return report;
+  if (findings.length > 0) {
+    report += '### ⚠️ Audit Configuration Issues\n\n';
+    report += '| Audit | Severity | Message |\n';
+    report += '|-------|----------|---------|\n';
+    for (const finding of findings) {
+      let icon = '⚪';
+      if (finding.severity === 'critical') icon = '🔴';
+      if (finding.severity === 'high') icon = '🟠';
+      if (finding.severity === 'medium') icon = '🟡';
+      const msg = finding.message
+        ? finding.message.replace(/\n/g, '<br>')
+        : 'No details provided';
+      report += `| ${finding.audit} | ${icon} ${finding.severity.toUpperCase()} | ${msg} |\n`;
+    }
+    report += '\n';
   }
 
-  report += '### Findings\n\n';
-  report += '| Audit | Severity | Message |\n';
-  report += '|-------|----------|---------|\n';
-
-  // Sort findings by severity
-  const severityOrder = { critical: 0, high: 1, medium: 2, low: 3 };
-  findings.sort(
-    (a, b) => severityOrder[a.severity] - severityOrder[b.severity],
-  );
-
-  for (const finding of findings) {
-    // Basic severity icon
-    let icon = '⚪';
-    if (finding.severity === 'critical') icon = '🔴';
-    if (finding.severity === 'high') icon = '🟠';
-    if (finding.severity === 'medium') icon = '🟡';
-
-    // Clean up message so it fits in a table cell (replace newlines)
-    const msg = finding.message
-      ? finding.message.replace(/\n/g, '<br>')
-      : 'No details provided';
-    report += `| ${finding.audit} | ${icon} ${finding.severity.toUpperCase()} | ${msg} |\n`;
-  }
-
-  // If there are critical or high findings, we suggest a review
-  if (summary.critical > 0 || summary.high > 0) {
+  if (workflows.length > 0) {
+    const executedList = auditsRun.join(', ');
+    report += `**Audit Workflows Dispatched:** ${executedList}\n`;
+    report += `**Summary:** 🔴 ${summary.critical} Critical | 🟠 ${summary.high} High | 🟡 ${summary.medium} Medium | ⚪ ${summary.low} Low\n\n`;
     report +=
-      '\n> [!WARNING]\n> High or Critical findings detected. Please address these before proceeding to the next gate.\n';
-    report +=
-      '\n> [!TIP]\n> Reply with `/approve` to dispatch an agent to automatically implement and verify fixes for these findings.\n';
+      '> [!NOTE]\n> The following audit workflows are ready to execute. Run each prompt as a dedicated agent task.\n\n';
+
+    for (const wf of workflows) {
+      report += `---\n\n### Audit: \`${wf.audit}\`\n\n`;
+      report += wf.content;
+      report += '\n\n';
+    }
   }
 
   return report;

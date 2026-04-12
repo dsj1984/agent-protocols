@@ -1,11 +1,5 @@
 import assert from 'node:assert/strict';
-import fs from 'node:fs/promises';
-import path from 'node:path';
 import test from 'node:test';
-import {
-  PROJECT_ROOT,
-  resolveConfig,
-} from '../.agents/scripts/lib/config-resolver.js';
 import { __setGitRunners } from '../.agents/scripts/lib/git-utils.js';
 import { runAuditSuite } from '../.agents/scripts/mcp/run-audit-suite.js';
 import { selectAudits } from '../.agents/scripts/mcp/select-audits.js';
@@ -42,87 +36,67 @@ test('selectAudits: filters based on keywords and gate', async () => {
   );
 });
 
-test('runAuditSuite: aggregates findings', async () => {
-  // Create dummy audit script so fs.access passes
-  const { settings } = resolveConfig();
-  const dummyDir = path.join(PROJECT_ROOT, settings.scriptsRoot, 'audits');
-  await fs.mkdir(dummyDir, { recursive: true });
-  const dummyScript = path.join(dummyDir, 'audit-clean-code.js');
-  await fs.writeFile(dummyScript, '// dummy');
-
-  const mockExecute = async (name) => {
-    if (name === 'audit-clean-code') {
-      return [{ severity: 'high', message: 'Too many comments' }];
+test('runAuditSuite: returns workflow content for a valid audit', async () => {
+  // Inject a mock loader that returns fake content for audit-clean-code
+  const mockLoader = async (auditName, _dir) => {
+    if (auditName === 'audit-clean-code') {
+      return { content: '# Mock Clean Code Audit\n\nAnalyze the repo.' };
     }
-    return [];
+    return null;
   };
 
   const results = await runAuditSuite({
     auditWorkflows: ['audit-clean-code'],
-    injectedExecute: mockExecute,
+    injectedLoadWorkflow: mockLoader,
   });
 
   assert.strictEqual(results.metadata.auditsRun[0], 'audit-clean-code');
-  assert.strictEqual(results.metadata.summary.high, 1);
-  assert.strictEqual(results.findings[0].message, 'Too many comments');
+  assert.strictEqual(results.workflows.length, 1);
+  assert.strictEqual(results.workflows[0].audit, 'audit-clean-code');
+  assert.ok(results.workflows[0].content.includes('Mock Clean Code Audit'));
+  assert.strictEqual(results.findings.length, 0);
 });
 
-test('runAuditSuite: handles missing script gracefully', async () => {
+test('runAuditSuite: handles unknown audit gracefully', async () => {
   const results = await runAuditSuite({
     auditWorkflows: ['non-existent-audit'],
-    injectedExecute: async () => [],
+    injectedLoadWorkflow: async () => null,
   });
 
   assert.ok(
     results.findings.some((f) => f.message.includes('not defined')),
     'Should report undefined audit',
   );
+  assert.strictEqual(results.workflows.length, 0);
 });
 
-test('runAuditSuite: normalizes finding severity', async () => {
-  const mockExecute = async () => {
-    return [
-      { severity: 'CRITICAL', message: 'Broken' },
-      { severity: 'unknown', message: '??' },
-    ];
-  };
+test('runAuditSuite: reports missing workflow file gracefully', async () => {
+  // A valid audit name but the workflow file is missing
+  const mockLoader = async () => null;
 
   const results = await runAuditSuite({
     auditWorkflows: ['audit-clean-code'],
-    injectedExecute: mockExecute,
+    injectedLoadWorkflow: mockLoader,
   });
 
-  assert.strictEqual(results.findings[0].severity, 'critical');
-  assert.strictEqual(results.findings[1].severity, 'low');
-  assert.strictEqual(results.metadata.summary.critical, 1);
+  assert.ok(
+    results.findings.some((f) => f.message.includes('not found')),
+    'Should report missing workflow file',
+  );
+  assert.strictEqual(results.workflows.length, 0);
+  assert.strictEqual(results.metadata.auditsRun.length, 0);
 });
 
-test('runAuditSuite: handles audit script errors', async () => {
-  const { settings } = resolveConfig();
-  const dummyDir = path.join(PROJECT_ROOT, settings.scriptsRoot, 'audits');
-  await fs.mkdir(dummyDir, { recursive: true });
-  const dummyScript = path.join(dummyDir, 'audit-clean-code.js');
-  await fs.writeFile(dummyScript, 'throw new Error("fail")');
-
-  // Let it execute the real one (but we mock the spawn in git-utils if needed,
-  // though execAsync is not hooked. We'll just continue using injectedExecute
-  // but simulating the error finding structure).
-
-  const mockExecute = async () => {
-    // Simulate what executeAudit returns on crash
-    return [
-      {
-        severity: 'high',
-        message: 'Execution failed',
-        audit: 'audit-clean-code',
-      },
-    ];
-  };
-
+test('runAuditSuite: resolves real audit-clean-code.md from disk', async () => {
   const results = await runAuditSuite({
     auditWorkflows: ['audit-clean-code'],
-    injectedExecute: mockExecute,
+    // No injectedLoadWorkflow — use real filesystem
   });
 
-  assert.strictEqual(results.findings[0].severity, 'high');
+  assert.strictEqual(results.metadata.auditsRun[0], 'audit-clean-code');
+  assert.strictEqual(results.workflows.length, 1);
+  assert.ok(
+    results.workflows[0].content.length > 0,
+    'Workflow content should be non-empty',
+  );
 });
