@@ -108,7 +108,7 @@ export async function planEpic(
     `[Epic Planner] Generating Tech Spec linking to PRD #${prdId}...`,
   );
 
-  const docsContext = scrapeProjectDocs(settings);
+  const docsContext = await scrapeProjectDocs(settings);
 
   let tsUserPrompt = `Epic Title: ${epic.title}\n\nPRD Description:\n${prdContent}`;
   if (docsContext) {
