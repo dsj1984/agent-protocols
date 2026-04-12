@@ -69,7 +69,7 @@
   ".agents/scripts/lint-baseline.js": 88.447,
   ".agents/scripts/log-friction.js": 91.527,
   ".agents/scripts/mcp-orchestration.js": 93.48,
-  ".agents/scripts/mcp/run-audit-suite.js": 85.248,
+  ".agents/scripts/mcp/run-audit-suite.js": 86.512,
   ".agents/scripts/mcp/select-audits.js": 83.95,
   ".agents/scripts/notify.js": 88.126,
   ".agents/scripts/providers/github.js": 96.629,
