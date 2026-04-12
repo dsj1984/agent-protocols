@@ -1,6 +1,7 @@
 {
   "**/*.js": [
-    "biome check --write"
+    "biome check --write",
+    "biome format --write"
   ],
   "{.agents/**/,}*.md": [
     "markdownlint --fix",
