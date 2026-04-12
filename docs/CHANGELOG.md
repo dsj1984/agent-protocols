@@ -8,6 +8,22 @@ All notable changes to this project will be documented in this file.
 
 - **`roadmap-sync`: Human-Readable Timestamps** — Updated the roadmap generator to use localized, human-readable date strings for the "Last synced" field, improving readability for operators.
 
+### 🛡️ Workflow Hardening
+
+- **`sprint-close`: Resilient Branch Cleanup** — `sprint-close.js` now runs `git stash clear`
+  before branch deletion to drop any leftover working-tree stashes that could block
+  the cleanup. Each remote branch deletion is individually wrapped in a try/catch so
+  a single failure (e.g., "branch not found" on Windows/PowerShell) no longer aborts
+  the entire cleanup pass. The `sprint-close.md` workflow has been updated with an
+  explicit **Step 8.5 — Pre-Cleanup Stash Clear** and PowerShell-aware error-handling
+  guidance.
+
+- **`update-roadmap.yml`: Robust CI Push** — Automated commits in the roadmap CI
+  workflow now always perform a `git pull --rebase` before pushing to gracefully
+  handle high-velocity race conditions between concurrent AI agent runs and the CI
+  pipeline. _(Implementation already applied in the consuming repo; this entry
+  documents the protocol-level recommendation for all consumers.)_
+
 ## [5.4.3] - 2026-04-12
 
 ### ✨ New Features

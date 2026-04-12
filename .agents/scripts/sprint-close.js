@@ -118,11 +118,39 @@ async function main() {
   if (values.cleanup) {
     progress('CLEANUP', 'Starting branch cleanup...');
 
+    // 3.0 Clear stale stashes — prevents dirty-tree errors during branch switching.
+    progress('CLEANUP', 'Clearing stale git stashes...');
+    const stashResult = gitSpawn(PROJECT_ROOT, 'stash', 'clear');
+    if (stashResult.status !== 0) {
+      console.warn(
+        `⚠️ Warning: git stash clear failed (non-fatal): ${stashResult.stderr}`,
+      );
+    } else {
+      progress('CLEANUP', '✅ Stash cleared.');
+    }
+
     // 3.1 Delete Epic branch (local + remote)
     const epicBranch = `epic/${epicId}`;
     progress('CLEANUP', `Deleting ${epicBranch}...`);
     gitSpawn(PROJECT_ROOT, 'branch', '-D', epicBranch);
-    gitSpawn(PROJECT_ROOT, 'push', 'origin', '--delete', epicBranch);
+    try {
+      const remoteDelResult = gitSpawn(
+        PROJECT_ROOT,
+        'push',
+        'origin',
+        '--delete',
+        epicBranch,
+      );
+      if (remoteDelResult.status !== 0) {
+        console.warn(
+          `⚠️ Warning: Could not delete remote ${epicBranch} (may not exist): ${remoteDelResult.stderr}`,
+        );
+      }
+    } catch (err) {
+      console.warn(
+        `⚠️ Warning: Remote deletion of ${epicBranch} threw: ${err.message}`,
+      );
+    }
 
     // 3.2 Delete story branches
     progress('CLEANUP', 'Deleting story/task branches...');
@@ -154,7 +182,24 @@ async function main() {
       const b = line.trim().replace('origin/', '');
       if (matchesEpicBranch(b)) {
         progress('CLEANUP', `Deleting remote branch: ${b}`);
-        gitSpawn(PROJECT_ROOT, 'push', 'origin', '--delete', b);
+        try {
+          const result = gitSpawn(
+            PROJECT_ROOT,
+            'push',
+            'origin',
+            '--delete',
+            b,
+          );
+          if (result.status !== 0) {
+            console.warn(
+              `⚠️ Warning: Could not delete remote branch ${b} (may not exist): ${result.stderr}`,
+            );
+          }
+        } catch (err) {
+          console.warn(
+            `⚠️ Warning: Remote deletion of ${b} threw: ${err.message}`,
+          );
+        }
       }
     });
 
@@ -164,7 +209,18 @@ async function main() {
       const b = line.trim().replace('* ', '');
       if (matchesEpicBranch(b)) {
         progress('CLEANUP', `Deleting local branch: ${b}`);
-        gitSpawn(PROJECT_ROOT, 'branch', '-D', b);
+        try {
+          const result = gitSpawn(PROJECT_ROOT, 'branch', '-D', b);
+          if (result.status !== 0) {
+            console.warn(
+              `⚠️ Warning: Could not delete local branch ${b}: ${result.stderr}`,
+            );
+          }
+        } catch (err) {
+          console.warn(
+            `⚠️ Warning: Local deletion of ${b} threw: ${err.message}`,
+          );
+        }
       }
     });
 
