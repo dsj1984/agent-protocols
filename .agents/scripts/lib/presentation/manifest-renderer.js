@@ -74,12 +74,11 @@ function renderManifestMarkdown(manifest) {
   lines.push(
     '> 2. **Select**: Pick a Story from the **Execution Plan** that is not yet `✅`.',
   );
+  lines.push('> 3. **Execute**: Run `/sprint-execute [STORY_ID]`.');
   lines.push(
-    '> 3. **Execute**: Run `node [SCRIPTS_ROOT]/sprint-execute.js --story [STORY_ID]`.',
+    '> 4. **Repeat**: Continue iterating on execution until all stories and waves are complete',
   );
-  lines.push(
-    '> 4. **Repeat**: After the Story completes, re-run `/sprint-execute [EPIC_ID]` to trigger the next wave.',
-  );
+  lines.push('> 5. **Close**: Run `/sprint-close`');
   lines.push('');
   // Compute story-level wave count (distinct earliestWave values)
   const storyWaveSet = new Set(

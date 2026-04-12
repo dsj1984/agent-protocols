@@ -82,7 +82,8 @@ test('renderManifestMarkdown', async (t) => {
     const manifest = makeBaseManifest();
     const output = renderManifestMarkdown(manifest);
     assert.match(output, /Agent Operating Procedures/);
-    assert.match(output, /sprint-execute\.js/);
+    assert.match(output, /\/sprint-execute/);
+    assert.match(output, /\/sprint-close/);
   });
 
   await t.test('renders dry-run mode indicator', () => {
