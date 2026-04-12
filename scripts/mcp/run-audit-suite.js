@@ -1,45 +1,6 @@
-import { exec } from 'node:child_process';
 import fs from 'node:fs/promises';
 import path from 'node:path';
-import { fileURLToPath } from 'node:url';
-import { promisify } from 'node:util';
 import { PROJECT_ROOT, resolveConfig } from '../lib/config-resolver.js';
-
-const execAsync = promisify(exec);
-const __dirname = path.dirname(fileURLToPath(import.meta.url));
-
-async function executeAudit(auditName, scriptPath) {
-  try {
-    const { stdout } = await execAsync(`node "${scriptPath}"`);
-    if (!stdout.trim()) {
-      return [];
-    }
-
-    let findings = JSON.parse(stdout);
-    if (!Array.isArray(findings)) {
-      findings = [findings];
-    }
-    return findings;
-  } catch (e) {
-    if (e.name === 'SyntaxError') {
-      return [
-        {
-          audit: auditName,
-          severity: 'high',
-          message: `Audit script '${auditName}.js' returned invalid JSON: ${e.message}`,
-          rawOutput: e.message.substring(0, 500), // simplified
-        },
-      ];
-    }
-    return [
-      {
-        audit: auditName,
-        severity: 'high',
-        message: `Execution of '${auditName}.js' failed: ${e.message}`,
-      },
-    ];
-  }
-}
 
 function normalizeFinding(auditName, finding) {
   const rawSeverity = finding.severity?.toLowerCase() || 'low';
@@ -54,7 +15,35 @@ function normalizeFinding(auditName, finding) {
   };
 }
 
-export async function runAuditSuite({ auditWorkflows, injectedExecute }) {
+/**
+ * Resolve the workflow markdown file for a given audit name.
+ * Returns the file content, or null if not found.
+ */
+async function loadWorkflow(auditName, workflowsDir) {
+  const workflowPath = path.join(workflowsDir, `${auditName}.md`);
+  try {
+    const content = await fs.readFile(workflowPath, 'utf8');
+    return { path: workflowPath, content };
+  } catch {
+    return null;
+  }
+}
+
+/**
+ * Run a suite of named audit workflows.
+ *
+ * For each audit name the suite will:
+ *   1. Validate it is registered in audit-rules.json.
+ *   2. Locate the corresponding `.agents/workflows/<auditName>.md` file.
+ *   3. Return its markdown content as a structured `workflow` result for the
+ *      calling AI agent to execute as a prompt-driven analysis.
+ *
+ * @param {object} opts
+ * @param {string[]} opts.auditWorkflows - List of audit names to run.
+ * @param {Function} [opts.injectedLoadWorkflow] - Optional override for testing.
+ * @returns {Promise<object>} Aggregated audit results.
+ */
+export async function runAuditSuite({ auditWorkflows, injectedLoadWorkflow }) {
   const { settings } = resolveConfig();
   const rulesPath = path.join(
     PROJECT_ROOT,
@@ -78,9 +67,10 @@ export async function runAuditSuite({ auditWorkflows, injectedExecute }) {
       },
     },
     findings: [],
+    workflows: [],
   };
 
-  const scriptsDir = path.join(PROJECT_ROOT, settings.scriptsRoot, 'audits');
+  const workflowsDir = path.join(PROJECT_ROOT, settings.workflowsRoot);
 
   const auditPromises = auditWorkflows.map(async (auditName) => {
     if (!validAudits.includes(auditName)) {
@@ -94,28 +84,24 @@ export async function runAuditSuite({ auditWorkflows, injectedExecute }) {
       };
     }
 
-    const scriptPath = path.join(scriptsDir, `${auditName}.js`);
-    try {
-      await fs.access(scriptPath);
-    } catch {
+    const loader = injectedLoadWorkflow ?? loadWorkflow;
+    const workflow = await loader(auditName, workflowsDir);
+
+    if (!workflow) {
       return {
         error: true,
         finding: {
           audit: auditName,
           severity: 'low',
-          message: `SYSTEM-MISSING-SCRIPT: Audit script '${auditName}.js' not found in audits directory.`,
+          message: `Audit workflow '${auditName}.md' not found in workflows directory.`,
         },
       };
     }
 
-    const findings = injectedExecute
-      ? await injectedExecute(auditName, scriptPath)
-      : await executeAudit(auditName, scriptPath);
-
     return {
       success: true,
       auditName,
-      findings,
+      workflowContent: workflow.content,
     };
   });
 
@@ -126,11 +112,10 @@ export async function runAuditSuite({ auditWorkflows, injectedExecute }) {
       auditResults.findings.push(result.finding);
     } else if (result.success) {
       auditResults.metadata.auditsRun.push(result.auditName);
-      for (const rawFinding of result.findings) {
-        const normalized = normalizeFinding(result.auditName, rawFinding);
-        auditResults.findings.push(normalized);
-        auditResults.metadata.summary[normalized.severity]++;
-      }
+      auditResults.workflows.push({
+        audit: result.auditName,
+        content: result.workflowContent,
+      });
     }
   }
 
