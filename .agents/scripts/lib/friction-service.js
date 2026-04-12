@@ -47,8 +47,15 @@ export class FrictionService {
   async parseFrictionLogsForTasks(tasks) {
     const frictionLogs = [];
 
-    for (const task of tasks) {
-      const comments = await this.provider.getTicketComments(task.id);
+    // Fetch comments concurrently for all tasks to optimize network I/O
+    const tasksWithComments = await Promise.all(
+      tasks.map(async (task) => {
+        const comments = await this.provider.getTicketComments(task.id);
+        return { task, comments };
+      }),
+    );
+
+    for (const { task, comments } of tasksWithComments) {
       for (const comment of comments) {
         if (!comment.body) continue;
 
