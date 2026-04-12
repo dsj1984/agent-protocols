@@ -1,0 +1,2847 @@
+
+> agent-protocols@5.3.0 test
+> node --test tests/*.test.js tests/lib/*.test.js
+
+TAP version 13
+# Subtest: Bootstrap — LABEL_TAXONOMY
+    # Subtest: contains all required type labels
+    ok 1 - contains all required type labels
+      ---
+      duration_ms: 1.282413
+      type: 'test'
+      ...
+    # Subtest: contains all required agent state labels
+    ok 2 - contains all required agent state labels
+      ---
+      duration_ms: 0.262596
+      type: 'test'
+      ...
+    # Subtest: contains status, risk, persona, context, execution, and focus labels
+    ok 3 - contains status, risk, persona, context, execution, and focus labels
+      ---
+      duration_ms: 0.347027
+      type: 'test'
+      ...
+    # Subtest: has exactly 24 label definitions
+    ok 4 - has exactly 24 label definitions
+      ---
+      duration_ms: 0.221211
+      type: 'test'
+      ...
+    # Subtest: every label has name, color (hex), and description
+    ok 5 - every label has name, color (hex), and description
+      ---
+      duration_ms: 0.655148
+      type: 'test'
+      ...
+    # Subtest: uses correct colors per category
+    ok 6 - uses correct colors per category
+      ---
+      duration_ms: 3.936406
+      type: 'test'
+      ...
+    1..6
+ok 1 - Bootstrap — LABEL_TAXONOMY
+  ---
+  duration_ms: 8.217621
+  type: 'suite'
+  ...
+# Subtest: Bootstrap — PROJECT_FIELD_DEFS
+    # Subtest: has exactly 3 field definitions
+    ok 1 - has exactly 3 field definitions
+      ---
+      duration_ms: 0.468134
+      type: 'test'
+      ...
+    # Subtest: defines Sprint as iteration
+    ok 2 - defines Sprint as iteration
+      ---
+      duration_ms: 0.366002
+      type: 'test'
+      ...
+    # Subtest: defines Execution as single_select with correct options
+    ok 3 - defines Execution as single_select with correct options
+      ---
+      duration_ms: 1.237618
+      type: 'test'
+      ...
+    # Subtest: defines Focus Area as single_select with correct options
+    ok 4 - defines Focus Area as single_select with correct options
+      ---
+      duration_ms: 0.389694
+      type: 'test'
+      ...
+    1..4
+ok 2 - Bootstrap — PROJECT_FIELD_DEFS
+  ---
+  duration_ms: 2.872954
+  type: 'suite'
+  ...
+# Subtest: Bootstrap — runBootstrap()
+    # Subtest: creates labels via the provider
+    ok 1 - creates labels via the provider
+      ---
+      duration_ms: 0.345988
+      type: 'test'
+      ...
+    # Subtest: skips project fields when projectNumber is null
+    ok 2 - skips project fields when projectNumber is null
+      ---
+      duration_ms: 0.116743
+      type: 'test'
+      ...
+    1..2
+ok 3 - Bootstrap — runBootstrap()
+  ---
+  duration_ms: 0.581034
+  type: 'suite'
+  ...
+# Subtest: Bootstrap — module exports
+    # Subtest: exports runBootstrap function
+    ok 1 - exports runBootstrap function
+      ---
+      duration_ms: 0.127199
+      type: 'test'
+      ...
+    # Subtest: exports LABEL_TAXONOMY array
+    ok 2 - exports LABEL_TAXONOMY array
+      ---
+      duration_ms: 0.100254
+      type: 'test'
+      ...
+    # Subtest: exports PROJECT_FIELD_DEFS array
+    ok 3 - exports PROJECT_FIELD_DEFS array
+      ---
+      duration_ms: 0.09382
+      type: 'test'
+      ...
+    1..3
+ok 4 - Bootstrap — module exports
+  ---
+  duration_ms: 0.439992
+  type: 'suite'
+  ...
+# Subtest: resolveConfig — orchestration block
+    # Subtest: returns an orchestration property
+    ok 1 - returns an orchestration property
+      ---
+      duration_ms: 55.35517
+      type: 'test'
+      ...
+    # Subtest: orchestration is an object or null
+    ok 2 - orchestration is an object or null
+      ---
+      duration_ms: 0.602655
+      type: 'test'
+      ...
+    # Subtest: reads orchestration from .agentrc.json (this repo)
+    ok 3 - reads orchestration from .agentrc.json (this repo)
+      ---
+      duration_ms: 0.483002
+      type: 'test'
+      ...
+    1..3
+ok 5 - resolveConfig — orchestration block
+  ---
+  duration_ms: 57.654087
+  type: 'suite'
+  ...
+# Subtest: validateOrchestrationConfig — valid configs
+    # Subtest: null orchestration is valid (not configured)
+    ok 1 - null orchestration is valid (not configured)
+      ---
+      duration_ms: 0.55661
+      type: 'test'
+      ...
+    # Subtest: undefined orchestration is valid
+    ok 2 - undefined orchestration is valid
+      ---
+      duration_ms: 0.177933
+      type: 'test'
+      ...
+    # Subtest: full valid config passes
+    ok 3 - full valid config passes
+      ---
+      duration_ms: 30.578184
+      type: 'test'
+      ...
+    # Subtest: null projectNumber is valid
+    ok 4 - null projectNumber is valid
+      ---
+      duration_ms: 0.414758
+      type: 'test'
+      ...
+    # Subtest: minimal valid config (no notifications, no projectNumber)
+    ok 5 - minimal valid config (no notifications, no projectNumber)
+      ---
+      duration_ms: 0.385615
+      type: 'test'
+      ...
+    1..5
+ok 6 - validateOrchestrationConfig — valid configs
+  ---
+  duration_ms: 32.671361
+  type: 'suite'
+  ...
+# Subtest: validateOrchestrationConfig — schema violations
+    # Subtest: rejects non-object orchestration
+    ok 1 - rejects non-object orchestration
+      ---
+      duration_ms: 0.86141
+      type: 'test'
+      ...
+    # Subtest: rejects array orchestration
+    ok 2 - rejects array orchestration
+      ---
+      duration_ms: 0.405963
+      type: 'test'
+      ...
+    # Subtest: rejects missing provider
+    ok 3 - rejects missing provider
+      ---
+      duration_ms: 0.215041
+      type: 'test'
+      ...
+    # Subtest: rejects unsupported provider
+    ok 4 - rejects unsupported provider
+      ---
+      duration_ms: 0.233267
+      type: 'test'
+      ...
+    # Subtest: rejects missing owner
+    ok 5 - rejects missing owner
+      ---
+      duration_ms: 0.171661
+      type: 'test'
+      ...
+    # Subtest: rejects missing repo
+    ok 6 - rejects missing repo
+      ---
+      duration_ms: 0.374634
+      type: 'test'
+      ...
+    # Subtest: rejects empty owner string
+    ok 7 - rejects empty owner string
+      ---
+      duration_ms: 0.187095
+      type: 'test'
+      ...
+    # Subtest: rejects bad operatorHandle (no @ prefix)
+    ok 8 - rejects bad operatorHandle (no @ prefix)
+      ---
+      duration_ms: 0.260227
+      type: 'test'
+      ...
+    # Subtest: rejects invalid projectNumber (string)
+    ok 9 - rejects invalid projectNumber (string)
+      ---
+      duration_ms: 0.181145
+      type: 'test'
+      ...
+    # Subtest: rejects additional properties
+    ok 10 - rejects additional properties
+      ---
+      duration_ms: 0.169339
+      type: 'test'
+      ...
+    1..10
+ok 7 - validateOrchestrationConfig — schema violations
+  ---
+  duration_ms: 3.609204
+  type: 'suite'
+  ...
+# Subtest: validateOrchestrationConfig — shell injection
+    # Subtest: rejects shell injection in owner
+    ok 1 - rejects shell injection in owner
+      ---
+      duration_ms: 0.27182
+      type: 'test'
+      ...
+    # Subtest: rejects shell injection in repo
+    ok 2 - rejects shell injection in repo
+      ---
+      duration_ms: 0.189269
+      type: 'test'
+      ...
+    # Subtest: rejects shell injection in operatorHandle
+    ok 3 - rejects shell injection in operatorHandle
+      ---
+      duration_ms: 0.147405
+      type: 'test'
+      ...
+    # Subtest: rejects shell injection in webhookUrl
+    ok 4 - rejects shell injection in webhookUrl
+      ---
+      duration_ms: 0.224475
+      type: 'test'
+      ...
+    1..4
+ok 8 - validateOrchestrationConfig — shell injection
+  ---
+  duration_ms: 1.030265
+  type: 'suite'
+  ...
+# [Hydrator] Protocol version mismatch on Task \#99: planned with v5.0.0, executing with v5.3.0
+# Subtest: Context Hydrator
+    # Subtest: hydrates prompt from basic task
+    ok 1 - hydrates prompt from basic task
+      ---
+      duration_ms: 56.379174
+      type: 'test'
+      ...
+    # Subtest: handles token budget truncation
+    ok 2 - handles token budget truncation
+      ---
+      duration_ms: 38.342264
+      type: 'test'
+      ...
+    1..2
+ok 9 - Context Hydrator
+  ---
+  duration_ms: 96.36529
+  type: 'suite'
+  ...
+# Subtest: diagnose-friction.js — v5 (CLI contract)
+    # Subtest: exits with code 1 when --cmd is missing
+    ok 1 - exits with code 1 when --cmd is missing
+      ---
+      duration_ms: 114.162857
+      type: 'test'
+      ...
+    # Subtest: passes through the exit code of the wrapped command on success
+    ok 2 - passes through the exit code of the wrapped command on success
+      ---
+      duration_ms: 167.505984
+      type: 'test'
+      ...
+    # Subtest: passes through non-zero exit code of a failing wrapped command
+    ok 3 - passes through non-zero exit code of a failing wrapped command
+      ---
+      duration_ms: 559.50644
+      type: 'test'
+      ...
+    # Subtest: prints diagnostic suggestions on failure
+    ok 4 - prints diagnostic suggestions on failure
+      ---
+      duration_ms: 206.054794
+      type: 'test'
+      ...
+    # Subtest: does not write local friction log files (v5 SSOT is GitHub)
+    ok 5 - does not write local friction log files (v5 SSOT is GitHub)
+      ---
+      duration_ms: 201.952075
+      type: 'test'
+      ...
+    1..5
+ok 10 - diagnose-friction.js — v5 (CLI contract)
+  ---
+  duration_ms: 1251.39475
+  type: 'suite'
+  ...
+# Subtest: dispatch() — empty task list
+    # Subtest: returns manifest with zero waves when no tasks
+    ok 1 - returns manifest with zero waves when no tasks
+      ---
+      duration_ms: 2.819887
+      type: 'test'
+      ...
+    1..1
+ok 11 - dispatch() — empty task list
+  ---
+  duration_ms: 3.938055
+  type: 'suite'
+  ...
+# Subtest: dispatch() — single task, no dependencies
+    # Subtest: dispatches Wave 0 containing the single task
+    ok 1 - dispatches Wave 0 containing the single task
+      ---
+      duration_ms: 4.242323
+      type: 'test'
+      ...
+    # Subtest: dry-run does not call adapter.dispatchTask()
+    ok 2 - dry-run does not call adapter.dispatchTask()
+      ---
+      duration_ms: 1.579867
+      type: 'test'
+      ...
+    1..2
+ok 12 - dispatch() — single task, no dependencies
+  ---
+  duration_ms: 6.197352
+  type: 'suite'
+  ...
+# Subtest: dispatch() — two independent tasks
+    # Subtest: groups both tasks in Wave 0 when focus areas are distinct
+    ok 1 - groups both tasks in Wave 0 when focus areas are distinct
+      ---
+      duration_ms: 2.234609
+      type: 'test'
+      ...
+    # Subtest: serializes tasks with overlapping focus areas into separate waves
+    ok 2 - serializes tasks with overlapping focus areas into separate waves
+      ---
+      duration_ms: 1.317714
+      type: 'test'
+      ...
+    1..2
+ok 13 - dispatch() — two independent tasks
+  ---
+  duration_ms: 3.747293
+  type: 'suite'
+  ...
+# Subtest: dispatch() — dependent tasks
+    # Subtest: puts dependency in Wave 0 and dependent in Wave 1
+    ok 1 - puts dependency in Wave 0 and dependent in Wave 1
+      ---
+      duration_ms: 1.255018
+      type: 'test'
+      ...
+    # Subtest: does not dispatch Wave 1 when Wave 0 task is not done
+    ok 2 - does not dispatch Wave 1 when Wave 0 task is not done
+      ---
+      duration_ms: 1.739723
+      type: 'test'
+      ...
+    1..2
+ok 14 - dispatch() — dependent tasks
+  ---
+  duration_ms: 3.387289
+  type: 'suite'
+  ...
+# Subtest: dispatch() — cycle detection
+    # Subtest: throws when tasks form a cycle
+    ok 1 - throws when tasks form a cycle
+      ---
+      duration_ms: 1.007658
+      type: 'test'
+      ...
+    1..1
+ok 15 - dispatch() — cycle detection
+  ---
+  duration_ms: 1.135824
+  type: 'suite'
+  ...
+# Subtest: dispatch() — risk::high tasks
+    # Subtest: holds risk::high tasks, does not dispatch them
+    ok 1 - holds risk::high tasks, does not dispatch them
+      ---
+      duration_ms: 0.680889
+      type: 'test'
+      ...
+    1..1
+ok 16 - dispatch() — risk::high tasks
+  ---
+  duration_ms: 0.890693
+  type: 'suite'
+  ...
+# Subtest: dispatch() — skips already-done tasks
+    # Subtest: does not re-dispatch agent::done tasks
+    ok 1 - does not re-dispatch agent::done tasks
+      ---
+      duration_ms: 1.36202
+      type: 'test'
+      ...
+    1..1
+ok 17 - dispatch() — skips already-done tasks
+  ---
+  duration_ms: 1.488874
+  type: 'suite'
+  ...
+# Subtest: dispatch() — manifest schema compliance
+    # Subtest: manifest contains all required top-level fields
+    ok 1 - manifest contains all required top-level fields
+      ---
+      duration_ms: 1.089481
+      type: 'test'
+      ...
+    # Subtest: summary contains all required fields
+    ok 2 - summary contains all required fields
+      ---
+      duration_ms: 0.870384
+      type: 'test'
+      ...
+    # Subtest: progressPercent is 100 when all tasks are done
+    ok 3 - progressPercent is 100 when all tasks are done
+      ---
+      duration_ms: 0.399021
+      type: 'test'
+      ...
+    1..3
+ok 18 - dispatch() — manifest schema compliance
+  ---
+  duration_ms: 2.548887
+  type: 'suite'
+  ...
+# Subtest: dispatch() — story-level orchestration
+    # Subtest: groups tasks by story and uses shared story branches
+    ok 1 - groups tasks by story and uses shared story branches
+      ---
+      duration_ms: 1.581478
+      type: 'test'
+      ...
+    # Subtest: resolves model_tier: high when story has complexity::high label
+    ok 2 - resolves model_tier: high when story has complexity::high label
+      ---
+      duration_ms: 0.616954
+      type: 'test'
+      ...
+    # Subtest: defaults model_tier: fast when no complexity label is present
+    ok 3 - defaults model_tier: fast when no complexity label is present
+      ---
+      duration_ms: 0.595885
+      type: 'test'
+      ...
+    # Subtest: serializes tasks across different stories if they have overlapping focus areas
+    ok 4 - serializes tasks across different stories if they have overlapping focus areas
+      ---
+      duration_ms: 0.902854
+      type: 'test'
+      ...
+    # Subtest: handles tasks without any metadata or focus areas gracefully
+    ok 5 - handles tasks without any metadata or focus areas gracefully
+      ---
+      duration_ms: 0.641632
+      type: 'test'
+      ...
+    1..5
+ok 19 - dispatch() — story-level orchestration
+  ---
+  duration_ms: 4.620775
+  type: 'suite'
+  ...
+# [Ticketing] Cascade reached Epic \#10. Skipping auto-close (reserved for sprint-close).
+# [Ticketing] Cascade reached Epic \#10. Skipping auto-close (reserved for sprint-close).
+# [Ticketing] Cascade reached Epic \#10. Skipping auto-close (reserved for sprint-close).
+# [Ticketing] Cascade reached Epic \#10. Skipping auto-close (reserved for sprint-close).
+# [Ticketing] Cascade reached Epic \#10. Skipping auto-close (reserved for sprint-close).
+# [Ticketing] Cascade reached Epic \#10. Skipping auto-close (reserved for sprint-close).
+# [Ticketing] Cascade reached Epic \#10. Skipping auto-close (reserved for sprint-close).
+# [Ticketing] Cascade reached Epic \#10. Skipping auto-close (reserved for sprint-close).
+# Subtest: e2e-story-lifecycle — validates full flow from dispatch to story completion cascade
+ok 20 - e2e-story-lifecycle — validates full flow from dispatch to story completion cascade
+  ---
+  duration_ms: 12.713961
+  type: 'test'
+  ...
+# [Epic Planner] Fetching Epic \#999...
+# [Epic Planner] Fetching Epic \#1...
+# [Epic Planner] Persisting healed references to Epic body...
+# [Epic Planner] Fetching Epic \#1...
+# [Epic Planner] Reusing existing PRD \#42. Skipping PRD generation.
+# [Epic Planner] Generating Tech Spec linking to PRD \#42...
+# [Epic Planner] Tech Spec generated. Creating Tech Spec issue...
+# [Epic Planner] Created Tech Spec Issue \#100 (https://github.com/test/100)
+# [Epic Planner] Updating Epic \#1 with linked documents...
+# [Epic Planner] Epic \#1 updated successfully.
+# [Epic Planner] Planning pipeline complete!
+# [Epic Planner] Epic \#1 already has both PRD and Tech Spec. Aborting to prevent duplicates. Use --force to re-plan.
+# [Epic Planner] Fetching Epic \#1...
+# [Epic Planner] Epic "Implement V5 Core" loaded. Generating PRD...
+# [Epic Planner] PRD generated. Creating PRD issue...
+# [Epic Planner] Created PRD Issue \#100 (https://github.com/test/100)
+# [Epic Planner] Generating Tech Spec linking to PRD \#100...
+# [Epic Planner] Tech Spec generated. Creating Tech Spec issue...
+# [Epic Planner] Created Tech Spec Issue \#101 (https://github.com/test/101)
+# [Epic Planner] Updating Epic \#1 with linked documents...
+# [Epic Planner] Epic \#1 updated successfully.
+# [Epic Planner] Planning pipeline complete!
+# Subtest: epic-planner orchestration
+    # Subtest: aborts early if epic cannot be found
+    ok 1 - aborts early if epic cannot be found
+      ---
+      duration_ms: 3.40434
+      type: 'test'
+      ...
+    # Subtest: aborts early if epic already has BOTH linked issues
+    ok 2 - aborts early if epic already has BOTH linked issues
+      ---
+      duration_ms: 1.135931
+      type: 'test'
+      ...
+    # Subtest: resumes from existing PRD when only Tech Spec is missing
+    ok 3 - resumes from existing PRD when only Tech Spec is missing
+      ---
+      duration_ms: 1.230333
+      type: 'test'
+      ...
+    # Subtest: runs the full planning pipeline correctly
+    ok 4 - runs the full planning pipeline correctly
+      ---
+      duration_ms: 1.424589
+      type: 'test'
+      ...
+    1..4
+ok 21 - epic-planner orchestration
+  ---
+  duration_ms: 9.063426
+  type: 'suite'
+  ...
+# ────────────────────────────────────────────────────────────────────────
+# 🚀  DISPATCH — Task \#42  (Epic \#1)
+# ────────────────────────────────────────────────────────────────────────
+#   Dispatch ID  : 23b273f3-c30a-4875-8a11-9a49fc8e2c28
+#   Branch       : task/epic-1/42
+#   Epic Branch  : epic/1
+#   Persona      : engineer
+#   Model        : Gemini 3 Flash
+#   Mode         : fast
+#   Skills       : core/tdd
+#   Focus Areas  : src/
+# ────────────────────────────────────────────────────────────────────────
+# PROMPT:
+# Implement feature X
+# ────────────────────────────────────────────────────────────────────────
+# 📋  When complete, close with: node .agents/scripts/sprint-story-close.js --story <storyId>
+# ────────────────────────────────────────────────────────────────────────
+# ────────────────────────────────────────────────────────────────────────
+# 🚀  DISPATCH — Task \#99  (Epic \#1)
+# ────────────────────────────────────────────────────────────────────────
+#   Dispatch ID  : dc57d506-5503-4846-8b7a-0f1a00c071ec
+#   Branch       : task/epic-1/99
+#   Epic Branch  : epic/1
+#   Persona      : engineer
+#   Model        :
+#   Mode         : fast
+#   Skills       : (none)
+#   Focus Areas  : (none)
+# ────────────────────────────────────────────────────────────────────────
+# PROMPT:
+# test
+# ────────────────────────────────────────────────────────────────────────
+# 📋  When complete, close with: node .agents/scripts/sprint-story-close.js --story <storyId>
+# ────────────────────────────────────────────────────────────────────────
+# ────────────────────────────────────────────────────────────────────────
+# 🚀  DISPATCH — Task \#7  (Epic \#1)
+# ────────────────────────────────────────────────────────────────────────
+#   Dispatch ID  : 95cf68e0-42ce-4ca9-93a7-db5a78a219a9
+#   Branch       : task/epic-1/7
+#   Epic Branch  : epic/1
+#   Persona      : engineer
+#   Model        :
+#   Mode         : fast
+#   Skills       : (none)
+#   Focus Areas  : (none)
+# ────────────────────────────────────────────────────────────────────────
+# PROMPT:
+# cancel me
+# ────────────────────────────────────────────────────────────────────────
+# 📋  When complete, close with: node .agents/scripts/sprint-story-close.js --story <storyId>
+# ────────────────────────────────────────────────────────────────────────
+# ────────────────────────────────────────────────────────────────────────
+# 🚀  DISPATCH — Task \#5  (Epic \#1)
+# ────────────────────────────────────────────────────────────────────────
+#   Dispatch ID  : 235ad795-c8ef-4e75-b7a0-d176d6737e18
+#   Branch       : task/epic-1/5
+#   Epic Branch  : epic/1
+#   Persona      : engineer
+#   Model        :
+#   Mode         : fast
+#   Skills       : (none)
+#   Focus Areas  : (none)
+# ────────────────────────────────────────────────────────────────────────
+# PROMPT:
+# Go
+# ────────────────────────────────────────────────────────────────────────
+# 📋  When complete, close with: node .agents/scripts/sprint-story-close.js --story <storyId>
+# ────────────────────────────────────────────────────────────────────────
+# Subtest: IExecutionAdapter — abstract contract
+    # Subtest: throws Not implemented on executorId getter
+    ok 1 - throws Not implemented on executorId getter
+      ---
+      duration_ms: 1.548874
+      type: 'test'
+      ...
+    # Subtest: throws Not implemented on dispatchTask()
+    ok 2 - throws Not implemented on dispatchTask()
+      ---
+      duration_ms: 0.460777
+      type: 'test'
+      ...
+    # Subtest: throws Not implemented on getTaskStatus()
+    ok 3 - throws Not implemented on getTaskStatus()
+      ---
+      duration_ms: 0.268693
+      type: 'test'
+      ...
+    # Subtest: cancelTask() is a silent no-op by default
+    ok 4 - cancelTask() is a silent no-op by default
+      ---
+      duration_ms: 0.361997
+      type: 'test'
+      ...
+    # Subtest: describe() throws (executorId not implemented)
+    ok 5 - describe() throws (executorId not implemented)
+      ---
+      duration_ms: 0.224534
+      type: 'test'
+      ...
+    1..5
+ok 22 - IExecutionAdapter — abstract contract
+  ---
+  duration_ms: 6.033225
+  type: 'suite'
+  ...
+# Subtest: ManualDispatchAdapter — HITL reference
+    # Subtest: implements IExecutionAdapter
+    ok 1 - implements IExecutionAdapter
+      ---
+      duration_ms: 0.491913
+      type: 'test'
+      ...
+    # Subtest: executorId returns "manual"
+    ok 2 - executorId returns "manual"
+      ---
+      duration_ms: 0.319057
+      type: 'test'
+      ...
+    # Subtest: describe() returns a string containing "manual"
+    ok 3 - describe() returns a string containing "manual"
+      ---
+      duration_ms: 0.358922
+      type: 'test'
+      ...
+    # Subtest: dispatchTask() returns { dispatchId, status: "dispatched" }
+    ok 4 - dispatchTask() returns { dispatchId, status: "dispatched" }
+      ---
+      duration_ms: 2.534519
+      type: 'test'
+      ...
+    # Subtest: getTaskStatus() returns pending for dispatched task
+    ok 5 - getTaskStatus() returns pending for dispatched task
+      ---
+      duration_ms: 0.675247
+      type: 'test'
+      ...
+    # Subtest: getTaskStatus() returns failed for unknown dispatchId
+    ok 6 - getTaskStatus() returns failed for unknown dispatchId
+      ---
+      duration_ms: 0.187832
+      type: 'test'
+      ...
+    # Subtest: cancelTask() marks dispatch as failed in registry
+    ok 7 - cancelTask() marks dispatch as failed in registry
+      ---
+      duration_ms: 0.458281
+      type: 'test'
+      ...
+    # Subtest: getRegistry() returns a Map copy of dispatched tasks
+    ok 8 - getRegistry() returns a Map copy of dispatched tasks
+      ---
+      duration_ms: 0.395716
+      type: 'test'
+      ...
+    1..8
+ok 23 - ManualDispatchAdapter — HITL reference
+  ---
+  duration_ms: 6.168543
+  type: 'suite'
+  ...
+# Subtest: createAdapter — factory resolution
+    # Subtest: returns ManualDispatchAdapter by default
+    ok 1 - returns ManualDispatchAdapter by default
+      ---
+      duration_ms: 0.325
+      type: 'test'
+      ...
+    # Subtest: returns ManualDispatchAdapter for executor: "manual"
+    ok 2 - returns ManualDispatchAdapter for executor: "manual"
+      ---
+      duration_ms: 0.12774
+      type: 'test'
+      ...
+    # Subtest: opts.executor overrides orchestration.executor
+    ok 3 - opts.executor overrides orchestration.executor
+      ---
+      duration_ms: 0.114678
+      type: 'test'
+      ...
+    # Subtest: throws for unsupported executor
+    ok 4 - throws for unsupported executor
+      ---
+      duration_ms: 0.166326
+      type: 'test'
+      ...
+    # Subtest: includes supported executors in error message
+    ok 5 - includes supported executors in error message
+      ---
+      duration_ms: 0.122485
+      type: 'test'
+      ...
+    # Subtest: null orchestration still resolves default executor
+    ok 6 - null orchestration still resolves default executor
+      ---
+      duration_ms: 0.095883
+      type: 'test'
+      ...
+    1..6
+ok 24 - createAdapter — factory resolution
+  ---
+  duration_ms: 1.203937
+  type: 'suite'
+  ...
+# Subtest: listAdapters()
+    # Subtest: returns an array of registered adapter names
+    ok 1 - returns an array of registered adapter names
+      ---
+      duration_ms: 0.217165
+      type: 'test'
+      ...
+    1..1
+ok 25 - listAdapters()
+  ---
+  duration_ms: 0.311521
+  type: 'suite'
+  ...
+# Subtest: config-resolver library tests
+    # Subtest: uses default config when .agentrc.json is missing
+    ok 1 - uses default config when .agentrc.json is missing
+      ---
+      duration_ms: 3.172465
+      type: 'test'
+      ...
+    # Subtest: throws error when .agentrc.json is malformed JSON
+    ok 2 - throws error when .agentrc.json is malformed JSON
+      ---
+      duration_ms: 3.571136
+      type: 'test'
+      ...
+    # Subtest: throws error when agentSettings contain security violations
+    ok 3 - throws error when agentSettings contain security violations
+      ---
+      duration_ms: 52.772562
+      type: 'test'
+      ...
+    # Subtest: applies environment variable override for notificationWebhookUrl
+    ok 4 - applies environment variable override for notificationWebhookUrl
+      ---
+      duration_ms: 1.622083
+      type: 'test'
+      ...
+    # Subtest: merges defaults with loaded config
+    ok 5 - merges defaults with loaded config
+      ---
+      duration_ms: 1.492628
+      type: 'test'
+      ...
+    1..5
+ok 26 - config-resolver library tests
+  ---
+  duration_ms: 64.348942
+  type: 'suite'
+  ...
+# Subtest: dependency-analyzer: autoSerializeOverlaps basic
+ok 27 - dependency-analyzer: autoSerializeOverlaps basic
+  ---
+  duration_ms: 2.763521
+  type: 'test'
+  ...
+# Subtest: dependency-analyzer: autoSerializeOverlaps no overlap
+ok 28 - dependency-analyzer: autoSerializeOverlaps no overlap
+  ---
+  duration_ms: 1.89238
+  type: 'test'
+  ...
+# Subtest: dependency-analyzer: autoSerializeOverlaps avoids duplicates
+ok 29 - dependency-analyzer: autoSerializeOverlaps avoids duplicates
+  ---
+  duration_ms: 0.308527
+  type: 'test'
+  ...
+# Subtest: dependency-analyzer: autoSerializeOverlaps multiple overlaps
+ok 30 - dependency-analyzer: autoSerializeOverlaps multiple overlaps
+  ---
+  duration_ms: 0.548425
+  type: 'test'
+  ...
+# Subtest: detectEpicCompletion: does nothing if tasks are missing
+ok 31 - detectEpicCompletion: does nothing if tasks are missing
+  ---
+  duration_ms: 1.374481
+  type: 'test'
+  ...
+# Subtest: detectEpicCompletion: posts comment if all tasks are done
+ok 32 - detectEpicCompletion: posts comment if all tasks are done
+  ---
+  duration_ms: 0.922572
+  type: 'test'
+  ...
+# [Epic Planner] Scraping project docs from /tmp/agent-protocols-docs-1775952779986...
+# [Epic Planner] Scraping project docs from /tmp/agent-protocols-docs-1775952779993...
+# [Epic Planner] Scraping project docs from /tmp/agent-protocols-docs-1775952779997...
+# Subtest: doc-reader
+    # Subtest: scrapes all .md files by default
+    ok 1 - scrapes all .md files by default
+      ---
+      duration_ms: 7.463542
+      type: 'test'
+      ...
+    # Subtest: filters by docsContextFiles if provided
+    ok 2 - filters by docsContextFiles if provided
+      ---
+      duration_ms: 1.591589
+      type: 'test'
+      ...
+    # Subtest: returns empty string if docsRoot does not exist
+    ok 3 - returns empty string if docsRoot does not exist
+      ---
+      duration_ms: 1.736219
+      type: 'test'
+      ...
+    # Subtest: handles read errors gracefully
+    ok 4 - handles read errors gracefully
+      ---
+      duration_ms: 1.081961
+      type: 'test'
+      ...
+    1..4
+ok 33 - doc-reader
+  ---
+  duration_ms: 13.384055
+  type: 'suite'
+  ...
+# Subtest: loadEnv
+    # Subtest: loads simple KEY=VALUE pairs
+    ok 1 - loads simple KEY=VALUE pairs
+      ---
+      duration_ms: 4.39262
+      type: 'test'
+      ...
+    # Subtest: strips double quotes from values
+    ok 2 - strips double quotes from values
+      ---
+      duration_ms: 1.244944
+      type: 'test'
+      ...
+    # Subtest: strips single quotes from values
+    ok 3 - strips single quotes from values
+      ---
+      duration_ms: 1.26839
+      type: 'test'
+      ...
+    # Subtest: handles empty values
+    ok 4 - handles empty values
+      ---
+      duration_ms: 1.136188
+      type: 'test'
+      ...
+    # Subtest: ignores blank lines and comments
+    ok 5 - ignores blank lines and comments
+      ---
+      duration_ms: 1.163061
+      type: 'test'
+      ...
+    # Subtest: does nothing when .env is missing
+    ok 6 - does nothing when .env is missing
+      ---
+      duration_ms: 0.646998
+      type: 'test'
+      ...
+    # Subtest: loads multiple keys
+    ok 7 - loads multiple keys
+      ---
+      duration_ms: 0.867116
+      type: 'test'
+      ...
+    1..7
+ok 34 - loadEnv
+  ---
+  duration_ms: 12.407148
+  type: 'suite'
+  ...
+# Subtest: GitHubProvider: getTicket handles simple ticket
+ok 35 - GitHubProvider: getTicket handles simple ticket
+  ---
+  duration_ms: 3.154288
+  type: 'test'
+  ...
+# Subtest: GitHubProvider: getEpic parses PRD/TechSpec links
+ok 36 - GitHubProvider: getEpic parses PRD/TechSpec links
+  ---
+  duration_ms: 0.744729
+  type: 'test'
+  ...
+# Subtest: GitHubProvider: getTickets filters by labels
+ok 37 - GitHubProvider: getTickets filters by labels
+  ---
+  duration_ms: 0.87245
+  type: 'test'
+  ...
+# Subtest: GitHubProvider: postComment calls GraphQL mutation
+ok 38 - GitHubProvider: postComment calls GraphQL mutation
+  ---
+  duration_ms: 0.51613
+  type: 'test'
+  ...
+# Subtest: GitHubProvider: cleanup
+ok 39 - GitHubProvider: cleanup
+  ---
+  duration_ms: 0.226278
+  type: 'test'
+  ...
+# Subtest: Graph: detects cycles
+ok 40 - Graph: detects cycles
+  ---
+  duration_ms: 1.566398
+  type: 'test'
+  ...
+# Subtest: Graph: transitive reduction removes redundant edges
+ok 41 - Graph: transitive reduction removes redundant edges
+  ---
+  duration_ms: 1.280367
+  type: 'test'
+  ...
+# Subtest: Graph: transitive reduction handles nodes with 0 or 1 dep
+ok 42 - Graph: transitive reduction handles nodes with 0 or 1 dep
+  ---
+  duration_ms: 1.483948
+  type: 'test'
+  ...
+# Subtest: Graph: topological sort
+ok 43 - Graph: topological sort
+  ---
+  duration_ms: 0.444748
+  type: 'test'
+  ...
+# Subtest: Graph: topological sort throws on cycle
+ok 44 - Graph: topological sort throws on cycle
+  ---
+  duration_ms: 0.643102
+  type: 'test'
+  ...
+# Subtest: Graph: reachability
+ok 45 - Graph: reachability
+  ---
+  duration_ms: 0.372356
+  type: 'test'
+  ...
+# Subtest: Graph: compute waves
+ok 46 - Graph: compute waves
+  ---
+  duration_ms: 0.433451
+  type: 'test'
+  ...
+# Subtest: Graph: chat dependencies
+ok 47 - Graph: chat dependencies
+  ---
+  duration_ms: 0.438343
+  type: 'test'
+  ...
+# Subtest: Graph: chat dependencies skips same-session tasks
+ok 48 - Graph: chat dependencies skips same-session tasks
+  ---
+  duration_ms: 0.560821
+  type: 'test'
+  ...
+# [LLMClient] Gemini returned 429 on attempt 1/4. Retrying in 1297ms...
+# Subtest: LLMClient: constructor and provider detection
+ok 49 - LLMClient: constructor and provider detection
+  ---
+  duration_ms: 76.449667
+  type: 'test'
+  ...
+# Subtest: LLMClient: _decodeHtmlEntities
+ok 50 - LLMClient: _decodeHtmlEntities
+  ---
+  duration_ms: 0.361894
+  type: 'test'
+  ...
+# Subtest: LLMClient: generateText (Gemini mock)
+ok 51 - LLMClient: generateText (Gemini mock)
+  ---
+  duration_ms: 0.836222
+  type: 'test'
+  ...
+# Subtest: LLMClient: generateText retry logic (Gemini mock)
+ok 52 - LLMClient: generateText retry logic (Gemini mock)
+  ---
+  duration_ms: 1.38783
+  type: 'test'
+  ...
+# Subtest: LLMClient: generateText (Anthropic mock)
+ok 53 - LLMClient: generateText (Anthropic mock)
+  ---
+  duration_ms: 0.634215
+  type: 'test'
+  ...
+# Subtest: LLMClient: generateText (OpenAI mock)
+ok 54 - LLMClient: generateText (OpenAI mock)
+  ---
+  duration_ms: 0.527592
+  type: 'test'
+  ...
+# Subtest: calculateForSource - parses valid code
+ok 55 - calculateForSource - parses valid code
+  ---
+  duration_ms: 21.980902
+  type: 'test'
+  ...
+# Subtest: calculateForSource - returns 0 for invalid syntax
+ok 56 - calculateForSource - returns 0 for invalid syntax
+  ---
+  duration_ms: 1.37498
+  type: 'test'
+  ...
+# Subtest: calculateForFile - parses file
+ok 57 - calculateForFile - parses file
+  ---
+  duration_ms: 2.649538
+  type: 'test'
+  ...
+# Subtest: calculateForFile - throws ENOENT if file missing
+ok 58 - calculateForFile - throws ENOENT if file missing
+  ---
+  duration_ms: 0.601583
+  type: 'test'
+  ...
+# Subtest: manifest-renderer: renders simple manifest
+ok 59 - manifest-renderer: renders simple manifest
+  ---
+  duration_ms: 2.10793
+  type: 'test'
+  ...
+# [Epic Planner] Healed dangling PRD reference: \#11
+# [Epic Planner] Healed dangling Tech Spec reference: \#12
+# [Epic Planner] Persisting healed references to Epic body...
+# [Epic Planner] Cleaning up redundant artifact \#12 (superseded by \#11)...
+# [Epic Planner]   Detached \#12 from Epic \#10.
+# [Epic Planner] --force: Closing old planning artifacts...
+# [Epic Planner]   Closed old artifact \#11
+# [Epic Planner]   Closed old artifact \#12
+# [Epic Planner]   Stripped old Planning Artifacts section from Epic body.
+# [Epic Planner] Persisting healed references to Epic body...
+# Subtest: PlanningStateManager
+    # Subtest: heals dangling artifact references in the Epic object
+    ok 1 - heals dangling artifact references in the Epic object
+      ---
+      duration_ms: 4.38281
+      type: 'test'
+      ...
+    # Subtest: closes redundant artifacts and detaches them
+    ok 2 - closes redundant artifacts and detaches them
+      ---
+      duration_ms: 0.854709
+      type: 'test'
+      ...
+    # Subtest: force re-plan: closes all and strips body
+    ok 3 - force re-plan: closes all and strips body
+      ---
+      duration_ms: 1.101206
+      type: 'test'
+      ...
+    # Subtest: idempotently appends Planning Artifacts section to body
+    ok 4 - idempotently appends Planning Artifacts section to body
+      ---
+      duration_ms: 0.446547
+      type: 'test'
+      ...
+    1..4
+ok 60 - PlanningStateManager
+  ---
+  duration_ms: 8.702335
+  type: 'suite'
+  ...
+# Subtest: reconcileClosedTasks: does nothing if no tasks match
+ok 61 - reconcileClosedTasks: does nothing if no tasks match
+  ---
+  duration_ms: 1.349306
+  type: 'test'
+  ...
+# Subtest: reconcileClosedTasks: updates ticket if status is agent::done but labels are missing
+ok 62 - reconcileClosedTasks: updates ticket if status is agent::done but labels are missing
+  ---
+  duration_ms: 0.617988
+  type: 'test'
+  ...
+# [executeStory] DAG sort failed for Story \#300: Cycle detected: 302 -> 301
+# Subtest: executeStory
+    # Subtest: generates a story execution manifest with sorted tasks
+    ok 1 - generates a story execution manifest with sorted tasks
+      ---
+      duration_ms: 3.529771
+      type: 'test'
+      ...
+    # Subtest: handles story with no parent Epic
+    ok 2 - handles story with no parent Epic
+      ---
+      duration_ms: 0.455385
+      type: 'test'
+      ...
+    # Subtest: falls back gracefully on cyclic task dependencies
+    ok 3 - falls back gracefully on cyclic task dependencies
+      ---
+      duration_ms: 1.372327
+      type: 'test'
+      ...
+    # Subtest: respects dryRun flag
+    ok 4 - respects dryRun flag
+      ---
+      duration_ms: 0.35402
+      type: 'test'
+      ...
+    1..4
+ok 63 - executeStory
+  ---
+  duration_ms: 7.188037
+  type: 'suite'
+  ...
+# Subtest: isBookendTask
+    # Subtest: returns false for a plain development task
+    ok 1 - returns false for a plain development task
+      ---
+      duration_ms: 1.287012
+      type: 'test'
+      ...
+    # Subtest: returns true for isQA
+    ok 2 - returns true for isQA
+      ---
+      duration_ms: 0.215489
+      type: 'test'
+      ...
+    # Subtest: returns true for isCodeReview
+    ok 3 - returns true for isCodeReview
+      ---
+      duration_ms: 1.736371
+      type: 'test'
+      ...
+    # Subtest: returns true for isRetro
+    ok 4 - returns true for isRetro
+      ---
+      duration_ms: 0.202699
+      type: 'test'
+      ...
+    # Subtest: returns true for isCloseSprint
+    ok 5 - returns true for isCloseSprint
+      ---
+      duration_ms: 0.172238
+      type: 'test'
+      ...
+    # Subtest: returns false when all flags are false or absent
+    ok 6 - returns false when all flags are false or absent
+      ---
+      duration_ms: 0.175419
+      type: 'test'
+      ...
+    # Subtest: returns true when multiple bookend flags are set (data integrity guard)
+    ok 7 - returns true when multiple bookend flags are set (data integrity guard)
+      ---
+      duration_ms: 0.295456
+      type: 'test'
+      ...
+    # Subtest: coerces truthy non-boolean to true
+    ok 8 - coerces truthy non-boolean to true
+      ---
+      duration_ms: 0.272348
+      type: 'test'
+      ...
+    # Subtest: coerces falsy string to false
+    ok 9 - coerces falsy string to false
+      ---
+      duration_ms: 0.532243
+      type: 'test'
+      ...
+    1..9
+ok 64 - isBookendTask
+  ---
+  duration_ms: 7.044015
+  type: 'suite'
+  ...
+# Subtest: telemetry
+    # Subtest: detects friction markers in recent comments
+    ok 1 - detects friction markers in recent comments
+      ---
+      duration_ms: 3.25244
+      type: 'test'
+      ...
+    # Subtest: limits recentFriction to 5 entries
+    ok 2 - limits recentFriction to 5 entries
+      ---
+      duration_ms: 0.506371
+      type: 'test'
+      ...
+    # Subtest: swallows errors if provider.getRecentComments fails
+    ok 3 - swallows errors if provider.getRecentComments fails
+      ---
+      duration_ms: 0.258086
+      type: 'test'
+      ...
+    # Subtest: truncates long friction messages
+    ok 4 - truncates long friction messages
+      ---
+      duration_ms: 0.355409
+      type: 'test'
+      ...
+    1..4
+ok 65 - telemetry
+  ---
+  duration_ms: 5.851848
+  type: 'suite'
+  ...
+# Subtest: ticketing.js
+    # Subtest: transitionTicketState logic
+    ok 1 - transitionTicketState logic
+      ---
+      duration_ms: 2.593657
+      type: 'test'
+      ...
+    # Subtest: transitionTicketState closes issue when transitioning to agent::done
+    ok 2 - transitionTicketState closes issue when transitioning to agent::done
+      ---
+      duration_ms: 2.506329
+      type: 'test'
+      ...
+    # Subtest: toggleTasklistCheckbox logic
+    ok 3 - toggleTasklistCheckbox logic
+      ---
+      duration_ms: 0.609859
+      type: 'test'
+      ...
+    # Subtest: postStructuredComment logic
+    ok 4 - postStructuredComment logic
+      ---
+      duration_ms: 0.620629
+      type: 'test'
+      ...
+    # Subtest: cascadeCompletion recursively transitions parents up the tree
+    ok 5 - cascadeCompletion recursively transitions parents up the tree
+      ---
+      duration_ms: 1.474589
+      type: 'test'
+      ...
+    1..5
+ok 66 - ticketing.js
+  ---
+  duration_ms: 10.161741
+  type: 'test'
+  ...
+# Subtest: VerboseLogger
+    # Subtest: initialized with enabled=false does not write files
+    ok 1 - initialized with enabled=false does not write files
+      ---
+      duration_ms: 2.48809
+      type: 'test'
+      ...
+    # Subtest: writes JSONL entries when enabled
+    ok 2 - writes JSONL entries when enabled
+      ---
+      duration_ms: 1.777732
+      type: 'test'
+      ...
+    # Subtest: uses session filename if no sprint is provided
+    ok 3 - uses session filename if no sprint is provided
+      ---
+      duration_ms: 1.364648
+      type: 'test'
+      ...
+    # Subtest: convenience methods delegate correctly to file system
+    ok 4 - convenience methods delegate correctly to file system
+      ---
+      duration_ms: 1.628447
+      type: 'test'
+      ...
+    1..4
+ok 67 - VerboseLogger
+  ---
+  duration_ms: 10.796001
+  type: 'suite'
+  ...
+# [MCP/Dispatcher] Failed to persist manifest to temp/: story.tasks is not iterable
+# Subtest: renderManifestMarkdown
+    # Subtest: renders epic header with correct ID and title
+    ok 1 - renders epic header with correct ID and title
+      ---
+      duration_ms: 1.830146
+      type: 'test'
+      ...
+    # Subtest: includes agent operating procedures
+    ok 2 - includes agent operating procedures
+      ---
+      duration_ms: 0.28038
+      type: 'test'
+      ...
+    # Subtest: renders dry-run mode indicator
+    ok 3 - renders dry-run mode indicator
+      ---
+      duration_ms: 0.373809
+      type: 'test'
+      ...
+    # Subtest: renders live dispatch mode indicator
+    ok 4 - renders live dispatch mode indicator
+      ---
+      duration_ms: 0.232005
+      type: 'test'
+      ...
+    # Subtest: renders 0% progress bar when no tasks done
+    ok 5 - renders 0% progress bar when no tasks done
+      ---
+      duration_ms: 0.35347
+      type: 'test'
+      ...
+    # Subtest: renders 100% progress bar and celebration emoji
+    ok 6 - renders 100% progress bar and celebration emoji
+      ---
+      duration_ms: 0.318374
+      type: 'test'
+      ...
+    # Subtest: renders fire emoji for 50%+ progress
+    ok 7 - renders fire emoji for 50%+ progress
+      ---
+      duration_ms: 0.246795
+      type: 'test'
+      ...
+    # Subtest: renders wave summary table for stories
+    ok 8 - renders wave summary table for stories
+      ---
+      duration_ms: 1.023012
+      type: 'test'
+      ...
+    # Subtest: marks wave as Ready when wave 0
+    ok 9 - marks wave as Ready when wave 0
+      ---
+      duration_ms: 0.596316
+      type: 'test'
+      ...
+    # Subtest: marks wave as Done when all tasks are done
+    ok 10 - marks wave as Done when all tasks are done
+      ---
+      duration_ms: 0.409801
+      type: 'test'
+      ...
+    # Subtest: marks wave as Blocked when prior wave incomplete
+    ok 11 - marks wave as Blocked when prior wave incomplete
+      ---
+      duration_ms: 0.362607
+      type: 'test'
+      ...
+    # Subtest: renders execution plan with story checkboxes
+    ok 12 - renders execution plan with story checkboxes
+      ---
+      duration_ms: 0.257958
+      type: 'test'
+      ...
+    # Subtest: renders completed story with checkmark
+    ok 13 - renders completed story with checkmark
+      ---
+      duration_ms: 0.276433
+      type: 'test'
+      ...
+    # Subtest: excludes features from execution plan waves
+    ok 14 - excludes features from execution plan waves
+      ---
+      duration_ms: 0.357705
+      type: 'test'
+      ...
+    # Subtest: renders feature containers section
+    ok 15 - renders feature containers section
+      ---
+      duration_ms: 0.205605
+      type: 'test'
+      ...
+    # Subtest: does not render Feature Containers section when no features
+    ok 16 - does not render Feature Containers section when no features
+      ---
+      duration_ms: 0.25744
+      type: 'test'
+      ...
+    # Subtest: renders multiple waves in correct order
+    ok 17 - renders multiple waves in correct order
+      ---
+      duration_ms: 0.300021
+      type: 'test'
+      ...
+    # Subtest: returns a string
+    ok 18 - returns a string
+      ---
+      duration_ms: 0.203643
+      type: 'test'
+      ...
+    # Subtest: renders generatedAt timestamp
+    ok 19 - renders generatedAt timestamp
+      ---
+      duration_ms: 0.219897
+      type: 'test'
+      ...
+    1..19
+ok 68 - renderManifestMarkdown
+  ---
+  duration_ms: 12.197459
+  type: 'test'
+  ...
+# Subtest: renderStoryManifestMarkdown
+    # Subtest: exists as an exported function
+    ok 1 - exists as an exported function
+      ---
+      duration_ms: 0.280007
+      type: 'test'
+      ...
+    # Subtest: renders story manifest header
+    ok 2 - renders story manifest header
+      ---
+      duration_ms: 50.482411
+      type: 'test'
+      ...
+    # Subtest: renders story manifest with tasks and blockers
+    ok 3 - renders story manifest with tasks and blockers
+      ---
+      duration_ms: 0.260523
+      type: 'test'
+      ...
+    1..3
+ok 69 - renderStoryManifestMarkdown
+  ---
+  duration_ms: 51.571648
+  type: 'test'
+  ...
+# Subtest: persistManifest
+    # Subtest: writes epic manifest files
+    ok 1 - writes epic manifest files
+      ---
+      duration_ms: 1.879518
+      type: 'test'
+      ...
+    # Subtest: writes story manifest files
+    ok 2 - writes story manifest files
+      ---
+      duration_ms: 1.495165
+      type: 'test'
+      ...
+    1..2
+ok 70 - persistManifest
+  ---
+  duration_ms: 3.782522
+  type: 'test'
+  ...
+# Subtest: selectAudits: filters based on keywords and gate
+ok 71 - selectAudits: filters based on keywords and gate
+  ---
+  duration_ms: 59.489362
+  type: 'test'
+  ...
+# Subtest: runAuditSuite: aggregates findings
+ok 72 - runAuditSuite: aggregates findings
+  ---
+  duration_ms: 6.842593
+  type: 'test'
+  ...
+# Subtest: runAuditSuite: handles missing script gracefully
+ok 73 - runAuditSuite: handles missing script gracefully
+  ---
+  duration_ms: 1.912932
+  type: 'test'
+  ...
+# Subtest: runAuditSuite: normalizes finding severity
+ok 74 - runAuditSuite: normalizes finding severity
+  ---
+  duration_ms: 1.829478
+  type: 'test'
+  ...
+# Subtest: runAuditSuite: handles audit script errors
+ok 75 - runAuditSuite: handles audit script errors
+  ---
+  duration_ms: 3.170072
+  type: 'test'
+  ...
+# {"jsonrpc":"2.0","id":1,"result":{"protocolVersion":"2024-11-05","capabilities":{"tools":{}},"serverInfo":{"name":"agent-protocols","version":"5.0.0"}}}
+# {"jsonrpc":"2.0","id":2,"result":{}}
+# {"jsonrpc":"2.0","id":3,"result":{"tools":[{"name":"dispatch_wave","description":"Dispatch the next ready wave of Tasks for an Epic.","inputSchema":{"type":"object","properties":{"epicId":{"type":"number"},"dryRun":{"type":"boolean"},"githubToken":{"type":"string"}},"required":["epicId"]}},{"name":"fail_tool","description":"A tool that always throws.","inputSchema":{"type":"object"}}]}}
+# {"jsonrpc":"2.0","id":4,"error":{"code":-32601,"message":"Method not found: unknown/method"}}
+# {"jsonrpc":"2.0","id":5,"error":{"code":-32600,"message":"Invalid Request: missing jsonrpc version"}}
+# {"jsonrpc":"2.0","id":10,"result":{"content":[{"type":"text","text":"{\\n  \\"epicId\\": 71,\\n  \\"dryRun\\": true,\\n  \\"githubToken\\": \\"***\\",\\n  \\"wave\\": []\\n}"}]}}
+# {"jsonrpc":"2.0","id":11,"error":{"code":-32601,"message":"Tool not found: nonexistentTool"}}
+# {"jsonrpc":"2.0","id":12,"error":{"code":-32602,"message":"Invalid params: missing tool name"}}
+# {"jsonrpc":"2.0","id":13,"result":{"content":[{"type":"text","text":"Error: Planned failure"}],"isError":true}}
+# Subtest: MCP Server — Handshake & Tool Discovery
+    # Subtest: responds to initialize with protocolVersion and serverInfo
+    ok 1 - responds to initialize with protocolVersion and serverInfo
+      ---
+      duration_ms: 4.875939
+      type: 'test'
+      ...
+    # Subtest: initialized notification produces no response
+    ok 2 - initialized notification produces no response
+      ---
+      duration_ms: 0.330428
+      type: 'test'
+      ...
+    # Subtest: responds to ping with empty result
+    ok 3 - responds to ping with empty result
+      ---
+      duration_ms: 0.510273
+      type: 'test'
+      ...
+    # Subtest: lists available tools via tools/list
+    ok 4 - lists available tools via tools/list
+      ---
+      duration_ms: 0.501709
+      type: 'test'
+      ...
+    # Subtest: handles unknown method with -32601 error
+    ok 5 - handles unknown method with -32601 error
+      ---
+      duration_ms: 0.538537
+      type: 'test'
+      ...
+    # Subtest: returns -32600 for invalid jsonrpc version
+    ok 6 - returns -32600 for invalid jsonrpc version
+      ---
+      duration_ms: 0.64502
+      type: 'test'
+      ...
+    1..6
+ok 76 - MCP Server — Handshake & Tool Discovery
+  ---
+  duration_ms: 9.47278
+  type: 'suite'
+  ...
+# Subtest: MCP Server — Tool Invocation
+    # Subtest: calls a registered tool and returns content array
+    ok 1 - calls a registered tool and returns content array
+      ---
+      duration_ms: 0.872712
+      type: 'test'
+      ...
+    # Subtest: returns -32601 for unknown tool
+    ok 2 - returns -32601 for unknown tool
+      ---
+      duration_ms: 0.792079
+      type: 'test'
+      ...
+    # Subtest: returns -32602 when tool name is missing
+    ok 3 - returns -32602 when tool name is missing
+      ---
+      duration_ms: 0.579617
+      type: 'test'
+      ...
+    # Subtest: returns isError:true when tool handler throws
+    ok 4 - returns isError:true when tool handler throws
+      ---
+      duration_ms: 0.852292
+      type: 'test'
+      ...
+    1..4
+ok 77 - MCP Server — Tool Invocation
+  ---
+  duration_ms: 3.917659
+  type: 'suite'
+  ...
+# [Notify] Sending NOTIFICATION to Issue \#123...
+# [Notify] Sending ACTION to Issue \#124...
+# [Notify] Firing Action Webhook to https://webhook.example.com/action...
+# [Notify] Sending ACTION to Issue \#125...
+# [Notify] Firing Action Webhook to https://webhook.example.com/fail...
+# [Notify] Failed to send webhook: Network error
+# [Notify] Sending ACTION to Issue \#126...
+# [Notify] Sending ACTION to Issue \#127...
+# [Notify] Firing Action Webhook to https://webhook.example.com/action...
+# [Notify] Sending NOTIFICATION... (Skipping GitHub comment)
+# [Notify] Sending ACTION to Issue \#128...
+# [Notify] Firing Action Webhook to https://webhook.example.com/action...
+# Subtest: notify script
+    # Subtest: posts a notification comment with operator mention for info
+    ok 1 - posts a notification comment with operator mention for info
+      ---
+      duration_ms: 2.509421
+      type: 'test'
+      ...
+    # Subtest: fires a webhook for action type
+    ok 2 - fires a webhook for action type
+      ---
+      duration_ms: 1.006324
+      type: 'test'
+      ...
+    # Subtest: tolerates webhook failures silently
+    ok 3 - tolerates webhook failures silently
+      ---
+      duration_ms: 0.763937
+      type: 'test'
+      ...
+    # Subtest: skips webhook if url is not configured
+    ok 4 - skips webhook if url is not configured
+      ---
+      duration_ms: 0.522461
+      type: 'test'
+      ...
+    # Subtest: does not mention operator if mentionOperator is false for action
+    ok 5 - does not mention operator if mentionOperator is false for action
+      ---
+      duration_ms: 1.135391
+      type: 'test'
+      ...
+    # Subtest: skips GitHub comment if ticketId is 0 or missing
+    ok 6 - skips GitHub comment if ticketId is 0 or missing
+      ---
+      duration_ms: 0.514685
+      type: 'test'
+      ...
+    # Subtest: includes X-Signature-256 header when WEBHOOK_SECRET is provided
+    ok 7 - includes X-Signature-256 header when WEBHOOK_SECRET is provided
+      ---
+      duration_ms: 1.152822
+      type: 'test'
+      ...
+    1..7
+ok 78 - notify script
+  ---
+  duration_ms: 9.404402
+  type: 'suite'
+  ...
+# Subtest: createProvider — factory resolution
+    # Subtest: returns a GitHubProvider for provider: "github"
+    ok 1 - returns a GitHubProvider for provider: "github"
+      ---
+      duration_ms: 1.324771
+      type: 'test'
+      ...
+    # Subtest: throws when orchestration is null
+    ok 2 - throws when orchestration is null
+      ---
+      duration_ms: 0.535506
+      type: 'test'
+      ...
+    # Subtest: throws when orchestration is undefined
+    ok 3 - throws when orchestration is undefined
+      ---
+      duration_ms: 0.401822
+      type: 'test'
+      ...
+    # Subtest: throws when provider is missing
+    ok 4 - throws when provider is missing
+      ---
+      duration_ms: 0.232906
+      type: 'test'
+      ...
+    # Subtest: throws for unsupported provider
+    ok 5 - throws for unsupported provider
+      ---
+      duration_ms: 0.211436
+      type: 'test'
+      ...
+    # Subtest: includes supported providers in error message
+    ok 6 - includes supported providers in error message
+      ---
+      duration_ms: 0.314573
+      type: 'test'
+      ...
+    # Subtest: throws when provider-specific config block is missing
+    ok 7 - throws when provider-specific config block is missing
+      ---
+      duration_ms: 0.224426
+      type: 'test'
+      ...
+    1..7
+ok 79 - createProvider — factory resolution
+  ---
+  duration_ms: 4.932596
+  type: 'suite'
+  ...
+# Subtest: GitHubProvider — listIssues() & getEpics()
+    # Subtest: listIssues() fetches and filters epics correctly
+    ok 1 - listIssues() fetches and filters epics correctly
+      ---
+      duration_ms: 4.803553
+      type: 'test'
+      ...
+    # Subtest: getEpics() returns the same result as listIssues()
+    ok 2 - getEpics() returns the same result as listIssues()
+      ---
+      duration_ms: 0.721832
+      type: 'test'
+      ...
+    1..2
+ok 80 - GitHubProvider — listIssues() & getEpics()
+  ---
+  duration_ms: 6.768411
+  type: 'suite'
+  ...
+# Subtest: GitHubProvider — construction
+    # Subtest: extends ITicketingProvider
+    ok 1 - extends ITicketingProvider
+      ---
+      duration_ms: 0.319291
+      type: 'test'
+      ...
+    # Subtest: stores config values
+    ok 2 - stores config values
+      ---
+      duration_ms: 0.285949
+      type: 'test'
+      ...
+    # Subtest: uses provided token
+    ok 3 - uses provided token
+      ---
+      duration_ms: 0.333731
+      type: 'test'
+      ...
+    1..3
+ok 81 - GitHubProvider — construction
+  ---
+  duration_ms: 1.345929
+  type: 'suite'
+  ...
+# Subtest: GitHubProvider — getEpic()
+    # Subtest: returns epic with parsed linked issues
+    ok 1 - returns epic with parsed linked issues
+      ---
+      duration_ms: 1.233576
+      type: 'test'
+      ...
+    # Subtest: handles missing linked issues
+    ok 2 - handles missing linked issues
+      ---
+      duration_ms: 0.656359
+      type: 'test'
+      ...
+    # Subtest: handles null body
+    ok 3 - handles null body
+      ---
+      duration_ms: 0.576562
+      type: 'test'
+      ...
+    # Subtest: throws on API error
+    ok 4 - throws on API error
+      ---
+      duration_ms: 1.022262
+      type: 'test'
+      ...
+    1..4
+ok 82 - GitHubProvider — getEpic()
+  ---
+  duration_ms: 3.946818
+  type: 'suite'
+  ...
+# Subtest: GitHubProvider — getTicket()
+    # Subtest: returns ticket with all metadata
+    ok 1 - returns ticket with all metadata
+      ---
+      duration_ms: 0.790113
+      type: 'test'
+      ...
+    1..1
+ok 83 - GitHubProvider — getTicket()
+  ---
+  duration_ms: 0.885992
+  type: 'suite'
+  ...
+# Subtest: GitHubProvider — getTicketDependencies()
+    # Subtest: parses blocked by and blocks patterns
+    ok 1 - parses blocked by and blocks patterns
+      ---
+      duration_ms: 1.00366
+      type: 'test'
+      ...
+    # Subtest: returns empty arrays when no dependencies
+    ok 2 - returns empty arrays when no dependencies
+      ---
+      duration_ms: 0.587733
+      type: 'test'
+      ...
+    1..2
+ok 84 - GitHubProvider — getTicketDependencies()
+  ---
+  duration_ms: 2.805901
+  type: 'suite'
+  ...
+# Subtest: GitHubProvider — createTicket()
+    # Subtest: creates a ticket linked to the epic
+    ok 1 - creates a ticket linked to the epic
+      ---
+      duration_ms: 0.97356
+      type: 'test'
+      ...
+    # Subtest: includes dependency references in the body
+    ok 2 - includes dependency references in the body
+      ---
+      duration_ms: 0.818405
+      type: 'test'
+      ...
+    1..2
+ok 85 - GitHubProvider — createTicket()
+  ---
+  duration_ms: 1.924621
+  type: 'suite'
+  ...
+# Subtest: GitHubProvider — updateTicket()
+    # Subtest: patches body and assignees
+    ok 1 - patches body and assignees
+      ---
+      duration_ms: 0.719194
+      type: 'test'
+      ...
+    # Subtest: batches label additions and removals via GET and PATCH
+    ok 2 - batches label additions and removals via GET and PATCH
+      ---
+      duration_ms: 0.455136
+      type: 'test'
+      ...
+    1..2
+ok 86 - GitHubProvider — updateTicket()
+  ---
+  duration_ms: 1.294715
+  type: 'suite'
+  ...
+# Subtest: GitHubProvider — postComment()
+    # Subtest: prepends type badge to comment body
+    ok 1 - prepends type badge to comment body
+      ---
+      duration_ms: 0.530297
+      type: 'test'
+      ...
+    1..1
+ok 87 - GitHubProvider — postComment()
+  ---
+  duration_ms: 0.61238
+  type: 'suite'
+  ...
+# Subtest: GitHubProvider — createPullRequest()
+    # Subtest: creates PR with Closes reference
+    ok 1 - creates PR with Closes reference
+      ---
+      duration_ms: 0.598682
+      type: 'test'
+      ...
+    1..1
+ok 88 - GitHubProvider — createPullRequest()
+  ---
+  duration_ms: 0.684416
+  type: 'suite'
+  ...
+# Subtest: GitHubProvider — ensureLabels()
+    # Subtest: creates missing labels and skips existing
+    ok 1 - creates missing labels and skips existing
+      ---
+      duration_ms: 0.590993
+      type: 'test'
+      ...
+    # Subtest: strips \# from color code when sending to API
+    ok 2 - strips \# from color code when sending to API
+      ---
+      duration_ms: 0.407201
+      type: 'test'
+      ...
+    1..2
+ok 89 - GitHubProvider — ensureLabels()
+  ---
+  duration_ms: 1.158957
+  type: 'suite'
+  ...
+# Subtest: GitHubProvider — ensureProjectFields()
+    # Subtest: returns empty results when projectNumber is null
+    ok 1 - returns empty results when projectNumber is null
+      ---
+      duration_ms: 0.537749
+      type: 'test'
+      ...
+    1..1
+ok 90 - GitHubProvider — ensureProjectFields()
+  ---
+  duration_ms: 0.656729
+  type: 'suite'
+  ...
+# Subtest: GitHubProvider — error handling
+    # Subtest: includes status code in REST error messages
+    ok 1 - includes status code in REST error messages
+      ---
+      duration_ms: 0.46157
+      type: 'test'
+      ...
+    # Subtest: includes endpoint in REST error messages
+    ok 2 - includes endpoint in REST error messages
+      ---
+      duration_ms: 0.599877
+      type: 'test'
+      ...
+    # Subtest: supports graphql queries
+    ok 3 - supports graphql queries
+      ---
+      duration_ms: 0.400543
+      type: 'test'
+      ...
+    # Subtest: updates body/description in updateTicket
+    ok 4 - updates body/description in updateTicket
+      ---
+      duration_ms: 0.400956
+      type: 'test'
+      ...
+    1..4
+ok 91 - GitHubProvider — error handling
+  ---
+  duration_ms: 2.063997
+  type: 'suite'
+  ...
+# Subtest: sprint-story-close script
+    # Subtest: fails without --story argument
+    ok 1 - fails without --story argument
+      ---
+      duration_ms: 170.837986
+      type: 'test'
+      ...
+    1..1
+ok 92 - sprint-story-close script
+  ---
+  duration_ms: 172.080041
+  type: 'test'
+  ...
+# Subtest: sprint-story-init script
+    # Subtest: fails without --story argument
+    ok 1 - fails without --story argument
+      ---
+      duration_ms: 106.432781
+      type: 'test'
+      ...
+    1..1
+ok 93 - sprint-story-init script
+  ---
+  duration_ms: 107.876326
+  type: 'test'
+  ...
+# ▶ [sprint-story-init] [INIT] Initializing Story \#100...
+# [sprint-story-init] Warning: Could not fetch Epic \#50: Not implemented: getEpic
+# ▶ [sprint-story-init] [CONTEXT] Epic: \#50, Feature/Parent: \#none
+# ▶ [sprint-story-init] [CONTEXT] PRD: \#none, Tech Spec: \#none
+# ▶ [sprint-story-init] [TASKS] Found 2 child Task(s) in dependency order
+# ▶ [sprint-story-init] [GIT] Fetching remote refs...
+# ▶ [sprint-story-init] [GIT] Creating Epic branch: epic/50 (from main)
+# ▶ [sprint-story-init] [GIT] Checking out Story branch: story-100 (from epic/50)
+# ▶ [sprint-story-init] [GIT] ✅ On branch: story-100
+# ▶ [sprint-story-init] [TICKETS] Transitioning 2 Task(s) to agent::executing...
+# ▶ [sprint-story-init] [TICKETS]   \#101 → agent::executing ✅
+# ▶ [sprint-story-init] [TICKETS]   \#102 → agent::executing ✅
+# ▶ [sprint-story-init] [DONE] ✅ Story \#100 initialized. 2 Task(s) ready for implementation.
+# --- STORY INIT RESULT ---
+# {
+#   "storyId": 100,
+#   "epicId": 50,
+#   "storyBranch": "story-100",
+#   "epicBranch": "epic/50",
+#   "storyTitle": "Story 100",
+#   "tasks": [
+#     {
+#       "id": 101,
+#       "title": "Task 1",
+#       "labels": [
+#         "type::task",
+#         "agent::ready"
+#       ],
+#       "dependencies": []
+#     },
+#     {
+#       "id": 102,
+#       "title": "Task 2",
+#       "labels": [
+#         "type::task",
+#         "agent::ready"
+#       ],
+#       "dependencies": [
+#         101
+#       ]
+#     }
+#   ],
+#   "context": {
+#     "featureId": null,
+#     "prdId": null,
+#     "techSpecId": null
+#   },
+#   "dryRun": false
+# }
+# --- END RESULT ---
+# ▶ [sprint-story-init] [INIT] Initializing Story \#100...
+# [sprint-story-init] Warning: Could not fetch Epic \#50: Not implemented: getEpic
+# ▶ [sprint-story-init] [CONTEXT] Epic: \#50, Feature/Parent: \#none
+# ▶ [sprint-story-init] [CONTEXT] PRD: \#none, Tech Spec: \#none
+# ▶ [sprint-story-init] [BLOCKERS] Checking 1 dependency/dependencies...
+# ❌ BLOCKED: Story \#100 is blocked by 1 incomplete prerequisite(s):
+#    - \#99 "Prereq" (agent::executing)
+# ▶ [sprint-story-close] [INIT] Closing Story \#100...
+# ▶ [sprint-story-close] [TASKS] Found 1 child Task(s)
+# ▶ [sprint-story-close] [GIT] Checking out epic/50...
+# ▶ [sprint-story-close] [GIT] Merging story-100 into epic/50 (--no-ff)...
+# ▶ [sprint-story-close] [GIT] ✅ Merge successful
+# ▶ [sprint-story-close] [GIT] Pushing epic/50...
+# ▶ [sprint-story-close] [CLEANUP] Deleting story branch: story-100
+# ▶ [sprint-story-close] [CLEANUP] ✅ Remote branch story-100 deleted
+# ▶ [sprint-story-close] [TICKETS] Transitioning 1 Task(s) to agent::done...
+# ▶ [sprint-story-close] [TICKETS]   \#101 → agent::done ✅
+# ▶ [sprint-story-close] [TICKETS] Transitioning Story \#100 to agent::done...
+# ▶ [sprint-story-close] [TICKETS]   \#100 → agent::done ✅
+# ▶ [sprint-story-close] [TICKETS] Running cascade completion...
+# ▶ [sprint-story-close] [HEALTH] Updating sprint health metrics...
+# INFO: Initializing health monitor for Epic \#50...
+# [GitHubProvider] Network error on attempt 1/4, retrying in 1000ms: Headers.append: "Bearer TypeError: Cannot read properties of undefined (reading 'options')
+#     at getAvailableArgsOnCmd (/home/jules/.nvm/versions/node/v22.22.1/lib/node_modules/gh/lib/cmd.js:203:33)
+#     at /home/jules/.nvm/versions/node/v22.22.1/lib/node_modules/gh/lib/cmd.js:164:22
+#     at Resolved.Resolved$interpret [as _interpret] (/home/jules/.nvm/versions/node/v22.22.1/lib/node_modules/gh/node_modules/fluture/index.js:663:5)
+#     at drain (/home/jules/.nvm/versions/node/v22.22.1/lib/node_modules/gh/node_modules/fluture/index.js:596:23)
+#     at settle (/home/jules/.nvm/versions/node/v22.22.1/lib/node_modules/gh/node_modules/fluture/index.js:509:17)
+#     at resolved (/home/jules/.nvm/versions/node/v22.22.1/lib/node_modules/gh/node_modules/fluture/index.js:525:7)
+#     at EncaseN3$res (/home/jules/.nvm/versions/node/v22.22.1/lib/node_modules/gh/node_modules/fluture/index.js:1550:11)
+#     at EncaseN$done (/home/jules/.nvm/versions/node/v22.22.1/lib/node_modules/gh/node_modules/fluture/index.js:1553:11)
+#     at FSReqCallback.oncomplete (node:fs:186:23)" is an invalid header value.
+# Subtest: sprint-story-init: successful initialization
+ok 94 - sprint-story-init: successful initialization
+  ---
+  duration_ms: 7.826195
+  type: 'test'
+  ...
+# Subtest: sprint-story-init: fails on open blockers
+ok 95 - sprint-story-init: fails on open blockers
+  ---
+  duration_ms: 2.305255
+  type: 'test'
+  ...
+# [GitHubProvider] Network error on attempt 2/4, retrying in 2000ms: Headers.append: "Bearer TypeError: Cannot read properties of undefined (reading 'options')
+#     at getAvailableArgsOnCmd (/home/jules/.nvm/versions/node/v22.22.1/lib/node_modules/gh/lib/cmd.js:203:33)
+#     at /home/jules/.nvm/versions/node/v22.22.1/lib/node_modules/gh/lib/cmd.js:164:22
+#     at Resolved.Resolved$interpret [as _interpret] (/home/jules/.nvm/versions/node/v22.22.1/lib/node_modules/gh/node_modules/fluture/index.js:663:5)
+#     at drain (/home/jules/.nvm/versions/node/v22.22.1/lib/node_modules/gh/node_modules/fluture/index.js:596:23)
+#     at settle (/home/jules/.nvm/versions/node/v22.22.1/lib/node_modules/gh/node_modules/fluture/index.js:509:17)
+#     at resolved (/home/jules/.nvm/versions/node/v22.22.1/lib/node_modules/gh/node_modules/fluture/index.js:525:7)
+#     at EncaseN3$res (/home/jules/.nvm/versions/node/v22.22.1/lib/node_modules/gh/node_modules/fluture/index.js:1550:11)
+#     at EncaseN$done (/home/jules/.nvm/versions/node/v22.22.1/lib/node_modules/gh/node_modules/fluture/index.js:1553:11)
+#     at FSReqCallback.oncomplete (node:fs:186:23)" is an invalid header value.
+# [GitHubProvider] Network error on attempt 3/4, retrying in 4000ms: Headers.append: "Bearer TypeError: Cannot read properties of undefined (reading 'options')
+#     at getAvailableArgsOnCmd (/home/jules/.nvm/versions/node/v22.22.1/lib/node_modules/gh/lib/cmd.js:203:33)
+#     at /home/jules/.nvm/versions/node/v22.22.1/lib/node_modules/gh/lib/cmd.js:164:22
+#     at Resolved.Resolved$interpret [as _interpret] (/home/jules/.nvm/versions/node/v22.22.1/lib/node_modules/gh/node_modules/fluture/index.js:663:5)
+#     at drain (/home/jules/.nvm/versions/node/v22.22.1/lib/node_modules/gh/node_modules/fluture/index.js:596:23)
+#     at settle (/home/jules/.nvm/versions/node/v22.22.1/lib/node_modules/gh/node_modules/fluture/index.js:509:17)
+#     at resolved (/home/jules/.nvm/versions/node/v22.22.1/lib/node_modules/gh/node_modules/fluture/index.js:525:7)
+#     at EncaseN3$res (/home/jules/.nvm/versions/node/v22.22.1/lib/node_modules/gh/node_modules/fluture/index.js:1550:11)
+#     at EncaseN$done (/home/jules/.nvm/versions/node/v22.22.1/lib/node_modules/gh/node_modules/fluture/index.js:1553:11)
+#     at FSReqCallback.oncomplete (node:fs:186:23)" is an invalid header value.
+# [sprint-story-close] Health monitor failed (non-fatal): Headers.append: "Bearer TypeError: Cannot read properties of undefined (reading 'options')
+#     at getAvailableArgsOnCmd (/home/jules/.nvm/versions/node/v22.22.1/lib/node_modules/gh/lib/cmd.js:203:33)
+#     at /home/jules/.nvm/versions/node/v22.22.1/lib/node_modules/gh/lib/cmd.js:164:22
+#     at Resolved.Resolved$interpret [as _interpret] (/home/jules/.nvm/versions/node/v22.22.1/lib/node_modules/gh/node_modules/fluture/index.js:663:5)
+#     at drain (/home/jules/.nvm/versions/node/v22.22.1/lib/node_modules/gh/node_modules/fluture/index.js:596:23)
+#     at settle (/home/jules/.nvm/versions/node/v22.22.1/lib/node_modules/gh/node_modules/fluture/index.js:509:17)
+#     at resolved (/home/jules/.nvm/versions/node/v22.22.1/lib/node_modules/gh/node_modules/fluture/index.js:525:7)
+#     at EncaseN3$res (/home/jules/.nvm/versions/node/v22.22.1/lib/node_modules/gh/node_modules/fluture/index.js:1550:11)
+#     at EncaseN$done (/home/jules/.nvm/versions/node/v22.22.1/lib/node_modules/gh/node_modules/fluture/index.js:1553:11)
+#     at FSReqCallback.oncomplete (node:fs:186:23)" is an invalid header value.
+# ▶ [sprint-story-close] [DASHBOARD] ⏭️ Skipping dashboard refresh (use --refresh-dashboard to run)
+# ▶ [sprint-story-close] [DONE] ✅ Story \#100 merged into epic/50. 2 ticket(s) closed.
+# --- STORY CLOSE RESULT ---
+# {
+#   "storyId": 100,
+#   "epicId": 50,
+#   "action": "merged",
+#   "merged": true,
+#   "branchDeleted": true,
+#   "ticketsClosed": [
+#     101,
+#     100
+#   ],
+#   "cascadedTo": [],
+#   "healthUpdated": false,
+#   "manifestUpdated": false
+# }
+# --- END RESULT ---
+# ▶ [sprint-story-close] [INIT] Closing Story \#100...
+# ▶ [sprint-story-close] [TASKS] Found 0 child Task(s)
+# ▶ [sprint-story-close] [RISK] ⚠️ Story is risk::high — creating PR instead of auto-merge
+# ▶ [sprint-story-close] [RISK] PR created: https://github.com/pull/123
+# --- STORY CLOSE RESULT ---
+# {
+#   "storyId": 100,
+#   "epicId": 50,
+#   "action": "pr-created",
+#   "prUrl": "https://github.com/pull/123",
+#   "reason": "risk::high — manual review required before merge"
+# }
+# --- END RESULT ---
+# Subtest: sprint-story-close: successful merge and closure
+ok 96 - sprint-story-close: successful merge and closure
+  ---
+  duration_ms: 7625.679546
+  type: 'test'
+  ...
+# Subtest: sprint-story-close: handle risk::high gate
+ok 97 - sprint-story-close: handle risk::high gate
+  ---
+  duration_ms: 1.22088
+  type: 'test'
+  ...
+# Subtest: Core .agents/ files
+    # Subtest: default-agentrc.json exists
+    ok 1 - default-agentrc.json exists
+      ---
+      duration_ms: 1.825563
+      type: 'test'
+      ...
+    # Subtest: instructions.md exists
+    ok 2 - instructions.md exists
+      ---
+      duration_ms: 0.192848
+      type: 'test'
+      ...
+    # Subtest: README.md exists
+    ok 3 - README.md exists
+      ---
+      duration_ms: 0.226202
+      type: 'test'
+      ...
+    # Subtest: rules/ directory exists
+    ok 4 - rules/ directory exists
+      ---
+      duration_ms: 0.309935
+      type: 'test'
+      ...
+    # Subtest: Persona architect.md has structural integrity (\# Role:)
+    ok 5 - Persona architect.md has structural integrity (\# Role:)
+      ---
+      duration_ms: 1.952828
+      type: 'test'
+      ...
+    # Subtest: Persona devops-engineer.md has structural integrity (\# Role:)
+    ok 6 - Persona devops-engineer.md has structural integrity (\# Role:)
+      ---
+      duration_ms: 0.231983
+      type: 'test'
+      ...
+    # Subtest: Persona engineer-mobile.md has structural integrity (\# Role:)
+    ok 7 - Persona engineer-mobile.md has structural integrity (\# Role:)
+      ---
+      duration_ms: 0.229147
+      type: 'test'
+      ...
+    # Subtest: Persona engineer-web.md has structural integrity (\# Role:)
+    ok 8 - Persona engineer-web.md has structural integrity (\# Role:)
+      ---
+      duration_ms: 0.308505
+      type: 'test'
+      ...
+    # Subtest: Persona engineer.md has structural integrity (\# Role:)
+    ok 9 - Persona engineer.md has structural integrity (\# Role:)
+      ---
+      duration_ms: 0.381482
+      type: 'test'
+      ...
+    # Subtest: Persona product.md has structural integrity (\# Role:)
+    ok 10 - Persona product.md has structural integrity (\# Role:)
+      ---
+      duration_ms: 0.506953
+      type: 'test'
+      ...
+    # Subtest: Persona project-manager.md has structural integrity (\# Role:)
+    ok 11 - Persona project-manager.md has structural integrity (\# Role:)
+      ---
+      duration_ms: 0.230395
+      type: 'test'
+      ...
+    # Subtest: Persona qa-engineer.md has structural integrity (\# Role:)
+    ok 12 - Persona qa-engineer.md has structural integrity (\# Role:)
+      ---
+      duration_ms: 0.218747
+      type: 'test'
+      ...
+    # Subtest: Persona security-engineer.md has structural integrity (\# Role:)
+    ok 13 - Persona security-engineer.md has structural integrity (\# Role:)
+      ---
+      duration_ms: 0.209225
+      type: 'test'
+      ...
+    # Subtest: Persona sre.md has structural integrity (\# Role:)
+    ok 14 - Persona sre.md has structural integrity (\# Role:)
+      ---
+      duration_ms: 0.129505
+      type: 'test'
+      ...
+    # Subtest: Persona technical-writer.md has structural integrity (\# Role:)
+    ok 15 - Persona technical-writer.md has structural integrity (\# Role:)
+      ---
+      duration_ms: 0.116623
+      type: 'test'
+      ...
+    # Subtest: Persona ux-designer.md has structural integrity (\# Role:)
+    ok 16 - Persona ux-designer.md has structural integrity (\# Role:)
+      ---
+      duration_ms: 0.100051
+      type: 'test'
+      ...
+    1..16
+ok 98 - Core .agents/ files
+  ---
+  duration_ms: 9.409682
+  type: 'suite'
+  ...
+# Subtest: Skills — each directory must contain SKILL.md
+    # Subtest: core/api-and-interface-design has a valid SKILL.md
+    ok 1 - core/api-and-interface-design has a valid SKILL.md
+      ---
+      duration_ms: 0.408806
+      type: 'test'
+      ...
+    # Subtest: core/browser-testing-with-devtools has a valid SKILL.md
+    ok 2 - core/browser-testing-with-devtools has a valid SKILL.md
+      ---
+      duration_ms: 0.163347
+      type: 'test'
+      ...
+    # Subtest: core/ci-cd-and-automation has a valid SKILL.md
+    ok 3 - core/ci-cd-and-automation has a valid SKILL.md
+      ---
+      duration_ms: 0.154634
+      type: 'test'
+      ...
+    # Subtest: core/code-review-and-quality has a valid SKILL.md
+    ok 4 - core/code-review-and-quality has a valid SKILL.md
+      ---
+      duration_ms: 0.204571
+      type: 'test'
+      ...
+    # Subtest: core/code-simplification has a valid SKILL.md
+    ok 5 - core/code-simplification has a valid SKILL.md
+      ---
+      duration_ms: 0.156373
+      type: 'test'
+      ...
+    # Subtest: core/context-engineering has a valid SKILL.md
+    ok 6 - core/context-engineering has a valid SKILL.md
+      ---
+      duration_ms: 0.145767
+      type: 'test'
+      ...
+    # Subtest: core/debugging-and-error-recovery has a valid SKILL.md
+    ok 7 - core/debugging-and-error-recovery has a valid SKILL.md
+      ---
+      duration_ms: 0.231458
+      type: 'test'
+      ...
+    # Subtest: core/deprecation-and-migration has a valid SKILL.md
+    ok 8 - core/deprecation-and-migration has a valid SKILL.md
+      ---
+      duration_ms: 1.153788
+      type: 'test'
+      ...
+    # Subtest: core/documentation-and-adrs has a valid SKILL.md
+    ok 9 - core/documentation-and-adrs has a valid SKILL.md
+      ---
+      duration_ms: 0.186864
+      type: 'test'
+      ...
+    # Subtest: core/frontend-ui-engineering has a valid SKILL.md
+    ok 10 - core/frontend-ui-engineering has a valid SKILL.md
+      ---
+      duration_ms: 0.149953
+      type: 'test'
+      ...
+    # Subtest: core/git-workflow-and-versioning has a valid SKILL.md
+    ok 11 - core/git-workflow-and-versioning has a valid SKILL.md
+      ---
+      duration_ms: 0.138063
+      type: 'test'
+      ...
+    # Subtest: core/idea-refinement has a valid SKILL.md
+    ok 12 - core/idea-refinement has a valid SKILL.md
+      ---
+      duration_ms: 0.108569
+      type: 'test'
+      ...
+    # Subtest: core/incremental-implementation has a valid SKILL.md
+    ok 13 - core/incremental-implementation has a valid SKILL.md
+      ---
+      duration_ms: 0.118288
+      type: 'test'
+      ...
+    # Subtest: core/performance-optimization has a valid SKILL.md
+    ok 14 - core/performance-optimization has a valid SKILL.md
+      ---
+      duration_ms: 0.118284
+      type: 'test'
+      ...
+    # Subtest: core/planning-and-task-breakdown has a valid SKILL.md
+    ok 15 - core/planning-and-task-breakdown has a valid SKILL.md
+      ---
+      duration_ms: 0.137574
+      type: 'test'
+      ...
+    # Subtest: core/security-and-hardening has a valid SKILL.md
+    ok 16 - core/security-and-hardening has a valid SKILL.md
+      ---
+      duration_ms: 0.132061
+      type: 'test'
+      ...
+    # Subtest: core/shipping-and-launch has a valid SKILL.md
+    ok 17 - core/shipping-and-launch has a valid SKILL.md
+      ---
+      duration_ms: 0.127854
+      type: 'test'
+      ...
+    # Subtest: core/spec-driven-development has a valid SKILL.md
+    ok 18 - core/spec-driven-development has a valid SKILL.md
+      ---
+      duration_ms: 0.112588
+      type: 'test'
+      ...
+    # Subtest: core/test-driven-development has a valid SKILL.md
+    ok 19 - core/test-driven-development has a valid SKILL.md
+      ---
+      duration_ms: 0.211174
+      type: 'test'
+      ...
+    # Subtest: core/using-agent-skills has a valid SKILL.md
+    ok 20 - core/using-agent-skills has a valid SKILL.md
+      ---
+      duration_ms: 0.194325
+      type: 'test'
+      ...
+    1..20
+ok 99 - Skills — each directory must contain SKILL.md
+  ---
+  duration_ms: 5.033036
+  type: 'suite'
+  ...
+# Subtest: Workflows — each file must contain \#\# Constraint
+    # Subtest: audit-accessibility.md contains \#\# Constraint
+    ok 1 - audit-accessibility.md contains \#\# Constraint
+      ---
+      duration_ms: 0.408793
+      type: 'test'
+      ...
+    # Subtest: audit-architecture.md contains \#\# Constraint
+    ok 2 - audit-architecture.md contains \#\# Constraint
+      ---
+      duration_ms: 0.172911
+      type: 'test'
+      ...
+    # Subtest: audit-clean-code.md contains \#\# Constraint
+    ok 3 - audit-clean-code.md contains \#\# Constraint
+      ---
+      duration_ms: 0.16286
+      type: 'test'
+      ...
+    # Subtest: audit-dependency-update.md contains \#\# Constraint
+    ok 4 - audit-dependency-update.md contains \#\# Constraint
+      ---
+      duration_ms: 0.190268
+      type: 'test'
+      ...
+    # Subtest: audit-devops.md contains \#\# Constraint
+    ok 5 - audit-devops.md contains \#\# Constraint
+      ---
+      duration_ms: 0.106869
+      type: 'test'
+      ...
+    # Subtest: audit-performance.md contains \#\# Constraint
+    ok 6 - audit-performance.md contains \#\# Constraint
+      ---
+      duration_ms: 0.090855
+      type: 'test'
+      ...
+    # Subtest: audit-privacy.md contains \#\# Constraint
+    ok 7 - audit-privacy.md contains \#\# Constraint
+      ---
+      duration_ms: 0.166251
+      type: 'test'
+      ...
+    # Subtest: audit-quality.md contains \#\# Constraint
+    ok 8 - audit-quality.md contains \#\# Constraint
+      ---
+      duration_ms: 0.219085
+      type: 'test'
+      ...
+    # Subtest: audit-security.md contains \#\# Constraint
+    ok 9 - audit-security.md contains \#\# Constraint
+      ---
+      duration_ms: 0.16721
+      type: 'test'
+      ...
+    # Subtest: audit-seo.md contains \#\# Constraint
+    ok 10 - audit-seo.md contains \#\# Constraint
+      ---
+      duration_ms: 0.151924
+      type: 'test'
+      ...
+    # Subtest: audit-sre.md contains \#\# Constraint
+    ok 11 - audit-sre.md contains \#\# Constraint
+      ---
+      duration_ms: 0.225715
+      type: 'test'
+      ...
+    # Subtest: audit-ux-ui.md contains \#\# Constraint
+    ok 12 - audit-ux-ui.md contains \#\# Constraint
+      ---
+      duration_ms: 0.127194
+      type: 'test'
+      ...
+    # Subtest: bootstrap-agent-protocols.md contains \#\# Constraint
+    ok 13 - bootstrap-agent-protocols.md contains \#\# Constraint
+      ---
+      duration_ms: 0.115113
+      type: 'test'
+      ...
+    # Subtest: ci-auto-heal.md contains \#\# Constraint
+    ok 14 - ci-auto-heal.md contains \#\# Constraint
+      ---
+      duration_ms: 0.230021
+      type: 'test'
+      ...
+    # Subtest: create-epic.md contains \#\# Constraint
+    ok 15 - create-epic.md contains \#\# Constraint
+      ---
+      duration_ms: 0.200867
+      type: 'test'
+      ...
+    # Subtest: delete-epic-branches.md contains \#\# Constraint
+    ok 16 - delete-epic-branches.md contains \#\# Constraint
+      ---
+      duration_ms: 0.127129
+      type: 'test'
+      ...
+    # Subtest: delete-epic-tickets.md contains \#\# Constraint
+    ok 17 - delete-epic-tickets.md contains \#\# Constraint
+      ---
+      duration_ms: 0.104177
+      type: 'test'
+      ...
+    # Subtest: git-commit-all.md contains \#\# Constraint
+    ok 18 - git-commit-all.md contains \#\# Constraint
+      ---
+      duration_ms: 0.180349
+      type: 'test'
+      ...
+    # Subtest: git-merge-pr.md contains \#\# Constraint
+    ok 19 - git-merge-pr.md contains \#\# Constraint
+      ---
+      duration_ms: 0.278246
+      type: 'test'
+      ...
+    # Subtest: roadmap-sync.md contains \#\# Constraint
+    ok 20 - roadmap-sync.md contains \#\# Constraint
+      ---
+      duration_ms: 0.142765
+      type: 'test'
+      ...
+    # Subtest: run-red-team.md contains \#\# Constraint
+    ok 21 - run-red-team.md contains \#\# Constraint
+      ---
+      duration_ms: 0.110842
+      type: 'test'
+      ...
+    # Subtest: sprint-close.md contains \#\# Constraint
+    ok 22 - sprint-close.md contains \#\# Constraint
+      ---
+      duration_ms: 0.222767
+      type: 'test'
+      ...
+    # Subtest: sprint-code-review.md contains \#\# Constraint
+    ok 23 - sprint-code-review.md contains \#\# Constraint
+      ---
+      duration_ms: 0.254084
+      type: 'test'
+      ...
+    # Subtest: sprint-execute.md contains \#\# Constraint
+    ok 24 - sprint-execute.md contains \#\# Constraint
+      ---
+      duration_ms: 0.183331
+      type: 'test'
+      ...
+    # Subtest: sprint-hotfix.md contains \#\# Constraint
+    ok 25 - sprint-hotfix.md contains \#\# Constraint
+      ---
+      duration_ms: 0.196659
+      type: 'test'
+      ...
+    # Subtest: sprint-plan.md contains \#\# Constraint
+    ok 26 - sprint-plan.md contains \#\# Constraint
+      ---
+      duration_ms: 0.139368
+      type: 'test'
+      ...
+    # Subtest: sprint-retro.md contains \#\# Constraint
+    ok 27 - sprint-retro.md contains \#\# Constraint
+      ---
+      duration_ms: 0.118333
+      type: 'test'
+      ...
+    1..27
+ok 100 - Workflows — each file must contain \#\# Constraint
+  ---
+  duration_ms: 5.680232
+  type: 'suite'
+  ...
+# Subtest: v5 Infrastructure files
+    # Subtest: scripts/lib/ITicketingProvider.js exists
+    ok 1 - scripts/lib/ITicketingProvider.js exists
+      ---
+      duration_ms: 0.338992
+      type: 'test'
+      ...
+    # Subtest: scripts/lib/config-resolver.js exists
+    ok 2 - scripts/lib/config-resolver.js exists
+      ---
+      duration_ms: 0.092702
+      type: 'test'
+      ...
+    # Subtest: scripts/lib/provider-factory.js exists
+    ok 3 - scripts/lib/provider-factory.js exists
+      ---
+      duration_ms: 0.091941
+      type: 'test'
+      ...
+    # Subtest: scripts/providers/github.js exists
+    ok 4 - scripts/providers/github.js exists
+      ---
+      duration_ms: 0.093996
+      type: 'test'
+      ...
+    # Subtest: scripts/bootstrap-agent-protocols.js exists
+    ok 5 - scripts/bootstrap-agent-protocols.js exists
+      ---
+      duration_ms: 0.080295
+      type: 'test'
+      ...
+    # Subtest: ITicketingProvider exports a class
+    ok 6 - ITicketingProvider exports a class
+      ---
+      duration_ms: 1.228116
+      type: 'test'
+      ...
+    # Subtest: config-resolver exports validateOrchestrationConfig
+    ok 7 - config-resolver exports validateOrchestrationConfig
+      ---
+      duration_ms: 48.699803
+      type: 'test'
+      ...
+    1..7
+ok 101 - v5 Infrastructure files
+  ---
+  duration_ms: 51.069743
+  type: 'suite'
+  ...
+# [Decomposer] Fetching Epic \#1 and its planning artifacts...
+# [Decomposer] Fetching Epic \#1 and its planning artifacts...
+# [Decomposer] Fetching PRD \#100 and Tech Spec \#101...
+# [Decomposer] Calling LLM for decomposition (this may take a minute)...
+# [Decomposer] Running cross-validation on 3 decomposed tickets...
+# [Decomposer] Identified 3 tickets. Starting creation...
+# [Decomposer] [FEATURE] Creating "Feature One"...
+# [Decomposer] -> Created Issue \#200
+# [Decomposer] [STORY] Creating "Story One"...
+# [Decomposer] -> Created Issue \#201
+# [Decomposer] [TASK] Creating "Task One"...
+# [Decomposer] -> Created Issue \#202
+# [Decomposer] Backlog for Epic \#1 populated successfully!
+# [Decomposer] Fetching Epic \#1 and its planning artifacts...
+# [Decomposer] Fetching PRD \#100 and Tech Spec \#101...
+# [Decomposer] Calling LLM for decomposition (this may take a minute)...
+# [Decomposer] Running cross-validation on 3 decomposed tickets...
+# [Decomposer] Identified 3 tickets. Starting creation...
+# [Decomposer] [FEATURE] Creating "Wrapped Feature"...
+# [Decomposer] -> Created Issue \#200
+# [Decomposer] [STORY] Creating "Wrapped Story"...
+# [Decomposer] -> Created Issue \#201
+# [Decomposer] [TASK] Creating "Wrapped Task"...
+# [Decomposer] -> Created Issue \#202
+# [Decomposer] Backlog for Epic \#1 populated successfully!
+# Subtest: ticket-decomposer orchestration
+    # Subtest: aborts early if epic is missing linked artifacts
+    ok 1 - aborts early if epic is missing linked artifacts
+      ---
+      duration_ms: 3.181113
+      type: 'test'
+      ...
+    # Subtest: runs the full decomposition pipeline correctly
+    ok 2 - runs the full decomposition pipeline correctly
+      ---
+      duration_ms: 2.774874
+      type: 'test'
+      ...
+    # Subtest: handles LLM markdown wrapping in JSON response
+    ok 3 - handles LLM markdown wrapping in JSON response
+      ---
+      duration_ms: 0.775894
+      type: 'test'
+      ...
+    1..3
+ok 102 - ticket-decomposer orchestration
+  ---
+  duration_ms: 8.444807
+  type: 'suite'
+  ...
+# [Decomposer] ⚠️  Lifted 1 cross-story task dep(s) to story-level:
+#   Task "T2" → dep "T1" lifted to Story "S2" → Story "S1"
+# Subtest: ticket-validator: basic valid hierarchy
+ok 103 - ticket-validator: basic valid hierarchy
+  ---
+  duration_ms: 3.55086
+  type: 'test'
+  ...
+# Subtest: ticket-validator: fails on missing types
+ok 104 - ticket-validator: fails on missing types
+  ---
+  duration_ms: 0.759098
+  type: 'test'
+  ...
+# Subtest: ticket-validator: fails on missing parent
+ok 105 - ticket-validator: fails on missing parent
+  ---
+  duration_ms: 0.232194
+  type: 'test'
+  ...
+# Subtest: ticket-validator: fails on missing complexity
+ok 106 - ticket-validator: fails on missing complexity
+  ---
+  duration_ms: 0.316089
+  type: 'test'
+  ...
+# Subtest: ticket-validator: lifts cross-story dependencies
+ok 107 - ticket-validator: lifts cross-story dependencies
+  ---
+  duration_ms: 1.603187
+  type: 'test'
+  ...
+# Subtest: ticket-validator: detects cycles
+ok 108 - ticket-validator: detects cycles
+  ---
+  duration_ms: 0.332333
+  type: 'test'
+  ...
+# Subtest: ticket-validator: fails on missing Feature
+ok 109 - ticket-validator: fails on missing Feature
+  ---
+  duration_ms: 0.203477
+  type: 'test'
+  ...
+# Subtest: ticket-validator: fails on missing Task
+ok 110 - ticket-validator: fails on missing Task
+  ---
+  duration_ms: 0.269284
+  type: 'test'
+  ...
+# Subtest: ticket-validator: fails if story parent is not a feature
+ok 111 - ticket-validator: fails if story parent is not a feature
+  ---
+  duration_ms: 0.485119
+  type: 'test'
+  ...
+# Subtest: ticket-validator: fails if task parent is not a story
+ok 112 - ticket-validator: fails if task parent is not a story
+  ---
+  duration_ms: 0.639187
+  type: 'test'
+  ...
+# Subtest: ticket-validator: keeps unknown dependency slugs for downstream handling
+ok 113 - ticket-validator: keeps unknown dependency slugs for downstream handling
+  ---
+  duration_ms: 0.319638
+  type: 'test'
+  ...
+# Subtest: ticket-validator: keeps cross-story deps on non-task tickets
+ok 114 - ticket-validator: keeps cross-story deps on non-task tickets
+  ---
+  duration_ms: 0.287064
+  type: 'test'
+  ...
+# Subtest: ITicketingProvider — interface contract
+    # Subtest: getEpic() throws "Not implemented" by default
+    ok 1 - getEpic() throws "Not implemented" by default
+      ---
+      duration_ms: 3.245033
+      type: 'test'
+      ...
+    # Subtest: getTickets() throws "Not implemented" by default
+    ok 2 - getTickets() throws "Not implemented" by default
+      ---
+      duration_ms: 0.338717
+      type: 'test'
+      ...
+    # Subtest: getTicket() throws "Not implemented" by default
+    ok 3 - getTicket() throws "Not implemented" by default
+      ---
+      duration_ms: 0.278335
+      type: 'test'
+      ...
+    # Subtest: getTicketDependencies() throws "Not implemented" by default
+    ok 4 - getTicketDependencies() throws "Not implemented" by default
+      ---
+      duration_ms: 0.372274
+      type: 'test'
+      ...
+    # Subtest: graphql() throws "Not implemented" by default
+    ok 5 - graphql() throws "Not implemented" by default
+      ---
+      duration_ms: 0.283112
+      type: 'test'
+      ...
+    # Subtest: createTicket() throws "Not implemented" by default
+    ok 6 - createTicket() throws "Not implemented" by default
+      ---
+      duration_ms: 0.227443
+      type: 'test'
+      ...
+    # Subtest: updateTicket() throws "Not implemented" by default
+    ok 7 - updateTicket() throws "Not implemented" by default
+      ---
+      duration_ms: 0.27009
+      type: 'test'
+      ...
+    # Subtest: postComment() throws "Not implemented" by default
+    ok 8 - postComment() throws "Not implemented" by default
+      ---
+      duration_ms: 0.337764
+      type: 'test'
+      ...
+    # Subtest: createPullRequest() throws "Not implemented" by default
+    ok 9 - createPullRequest() throws "Not implemented" by default
+      ---
+      duration_ms: 0.603594
+      type: 'test'
+      ...
+    # Subtest: ensureLabels() throws "Not implemented" by default
+    ok 10 - ensureLabels() throws "Not implemented" by default
+      ---
+      duration_ms: 0.64942
+      type: 'test'
+      ...
+    # Subtest: ensureProjectFields() throws "Not implemented" by default
+    ok 11 - ensureProjectFields() throws "Not implemented" by default
+      ---
+      duration_ms: 0.261899
+      type: 'test'
+      ...
+    # Subtest: has exactly 13 interface methods
+    ok 12 - has exactly 13 interface methods
+      ---
+      duration_ms: 0.165612
+      type: 'test'
+      ...
+    1..12
+ok 115 - ITicketingProvider — interface contract
+  ---
+  duration_ms: 9.083624
+  type: 'suite'
+  ...
+# Subtest: ITicketingProvider — subclass behavior
+    # Subtest: overridden method returns a value
+    ok 1 - overridden method returns a value
+      ---
+      duration_ms: 0.355823
+      type: 'test'
+      ...
+    # Subtest: non-overridden methods still throw
+    ok 2 - non-overridden methods still throw
+      ---
+      duration_ms: 0.208258
+      type: 'test'
+      ...
+    # Subtest: instanceof check works on subclass
+    ok 3 - instanceof check works on subclass
+      ---
+      duration_ms: 0.103516
+      type: 'test'
+      ...
+    1..3
+ok 116 - ITicketingProvider — subclass behavior
+  ---
+  duration_ms: 2.50468
+  type: 'suite'
+  ...
+1..116
+# tests 356
+# suites 55
+# pass 356
+# fail 0
+# cancelled 0
+# skipped 0
+# todo 0
+# duration_ms 9848.986592
