@@ -2,7 +2,7 @@ import fs from 'node:fs/promises';
 import path from 'node:path';
 import { PROJECT_ROOT, resolveConfig } from '../lib/config-resolver.js';
 
-function normalizeFinding(auditName, finding) {
+function _normalizeFinding(auditName, finding) {
   const rawSeverity = finding.severity?.toLowerCase() || 'low';
   const severity = ['critical', 'high', 'medium', 'low'].includes(rawSeverity)
     ? rawSeverity
