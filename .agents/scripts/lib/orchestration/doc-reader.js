@@ -5,7 +5,7 @@ import path from 'node:path';
  * Scrapes all eligible project markdown documentation files,
  * returning them concatenated into a single prompt string.
  */
-export function scrapeProjectDocs(settings) {
+export async function scrapeProjectDocs(settings) {
   let docsContext = '';
   if (settings.docsRoot && fs.existsSync(settings.docsRoot)) {
     console.log(
@@ -33,10 +33,23 @@ export function scrapeProjectDocs(settings) {
           }));
       }
 
-      for (const { name, full } of targetFiles) {
-        if (fs.existsSync(full) && fs.statSync(full).isFile()) {
-          const content = fs.readFileSync(full, 'utf-8');
-          docsContext += `\n\n--- Document: ${name} ---\n${content}`;
+      const readPromises = targetFiles.map(async ({ name, full }) => {
+        try {
+          const stat = await fs.promises.stat(full);
+          if (stat.isFile()) {
+            const content = await fs.promises.readFile(full, 'utf-8');
+            return { name, content };
+          }
+        } catch (e) {
+          // ignore missing or unreadable files
+        }
+        return null;
+      });
+
+      const results = await Promise.all(readPromises);
+      for (const result of results) {
+        if (result) {
+          docsContext += `\n\n--- Document: ${result.name} ---\n${result.content}`;
         }
       }
     } catch (err) {
