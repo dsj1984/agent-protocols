@@ -38,7 +38,7 @@
   ".agents/scripts/lib/git-merge-orchestrator.js": 94.26,
   ".agents/scripts/lib/git-utils.js": 120.485,
   ".agents/scripts/lib/github-refinement-service.js": 85.857,
-  ".agents/scripts/lib/impact-tracker.js": 108.735,
+  ".agents/scripts/lib/impact-tracker.js": 107.741,
   ".agents/scripts/lib/integration-verifier.js": 105.208,
   ".agents/scripts/lib/label-taxonomy.js": 67.195,
   ".agents/scripts/lib/llm-client.js": 89.874,
