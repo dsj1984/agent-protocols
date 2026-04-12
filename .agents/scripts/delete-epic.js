@@ -100,8 +100,13 @@ async function collectTree(provider, issueNumber, visited = new Set()) {
   const results = [];
 
   // Depth-first: process children before parent
-  for (const childNumber of issue.subIssues) {
-    const childResults = await collectTree(provider, childNumber, visited);
+  const childResultsArrays = await Promise.all(
+    issue.subIssues.map((childNumber) =>
+      collectTree(provider, childNumber, visited),
+    ),
+  );
+
+  for (const childResults of childResultsArrays) {
     results.push(...childResults);
   }
 
