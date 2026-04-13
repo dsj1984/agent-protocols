@@ -433,14 +433,10 @@ The SDK centralizes orchestration logic. All CLI scripts and the MCP server are
 | `update-maintainability-baseline.js` | Updates the maintainability baseline after improvements                 |
 | `generate-roadmap.js`                | Auto-renders `docs/ROADMAP.md` from live Epics                          |
 | `diagnose-friction.js`               | Analyzes friction logs for patterns                                     |
-| `friction-analyzer.js`               | Cross-Epic friction aggregation and classification                      |
 | `health-monitor.js`                  | Push-based sprint health monitoring                                     |
 | `detect-merges.js`                   | Detects and reports merge conflicts                                     |
-| `git-commit-if-changed.js`           | Conditional commit utility                                              |
 | `audit-orchestrator.js`              | Automated, gate-based static analysis and audit runner                  |
 | `handle-approval.js`                 | CI webhook listener for `/approve` commands on audit findings           |
-| `log-friction.js`                    | Friction event logging utility                                          |
-| `clean-temp.js`                      | Temporary file cleanup                                                  |
 | `auto-heal.js`                       | CI self-remediation — resolves risk tier and dispatches healing         |
 
 ### Orchestration Configuration
