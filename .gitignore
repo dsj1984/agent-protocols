@@ -12,8 +12,8 @@ tmp/
 temp/
 
 # Generated Claude Code commands (source of truth: .agents/workflows/)
-.claude/commands/
+.claude/
 
 # Mutation testing
 reports/
-.stryker-tmp/
+.stryker-tmp/
