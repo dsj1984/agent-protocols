@@ -2,6 +2,12 @@
 
 All notable changes to this project will be documented in this file.
 
+## [5.4.5] - 2026-04-13
+
+### 🐛 Bug Fixes
+
+- **`sprint-story-close`: Webhook on Story-Complete** — Added `actionRequired: true` to the story-complete notification payload so the webhook in `notify.js` fires when a story closes, ensuring operators receive push notifications in addition to GitHub issue comments.
+
 ## [5.4.4] - 2026-04-12
 
 ### ✨ New Features
