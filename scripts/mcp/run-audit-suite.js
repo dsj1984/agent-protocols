@@ -98,10 +98,15 @@ export async function runAuditSuite({ auditWorkflows, injectedLoadWorkflow }) {
       };
     }
 
+    const content = workflow.content.replace(
+      /\{\{auditOutputDir\}\}/g,
+      settings.auditOutputDir ?? 'temp',
+    );
+
     return {
       success: true,
       auditName,
-      workflowContent: workflow.content,
+      workflowContent: content,
     };
   });
 

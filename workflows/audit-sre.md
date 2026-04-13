@@ -74,7 +74,7 @@ criteria:
 ## Step 3: Output Requirements
 
 Generate and save a highly structured Markdown audit report to
-`audit-sre-results.md` in the project root, using the exact template below.
+`{{auditOutputDir}}/audit-sre-results.md`, using the exact template below.
 
 ```markdown
 # Production Release Candidate Audit

@@ -305,6 +305,7 @@ export async function runStoryClose({
       {
         type: 'notification',
         message: `✅ Story #${storyId} — *${story.title}* — has been completed and merged into \`${epicBranch}\`. ${closedTickets.length} ticket(s) closed.`,
+        actionRequired: true,
       },
       { orchestration },
     );

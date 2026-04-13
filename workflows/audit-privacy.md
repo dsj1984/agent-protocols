@@ -45,7 +45,7 @@ Evaluate the codebase against these privacy pillars:
 ## Step 3: Output Requirements
 
 Generate and save a highly structured Markdown audit report to
-`audit-privacy-results.md` in the project root, using the exact template below.
+`{{auditOutputDir}}/audit-privacy-results.md`, using the exact template below.
 
 ```markdown
 # Privacy & PII Audit Report
