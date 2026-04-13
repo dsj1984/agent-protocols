@@ -29,6 +29,10 @@ Analyze the repository with a focus on:
   single-letter variables that obscure intent.
 - **Error Handling:** Check for "silent failures" (empty catch blocks) or
   inconsistent error reporting.
+- **Dead Code:** Locate unused functions, unreferenced exports, orphaned files,
+  stale feature flags, commented-out code blocks, and variables that are
+  assigned but never read. Cross-reference `export` statements against `import`
+  usage across the project to surface modules with zero consumers.
 
 ## Step 2: Evaluation Dimensions
 
@@ -40,7 +44,10 @@ Analyze the repository with a focus on:
    a simple one would suffice?
 4. **Testability:** How easy is it to unit test the current implementation? Are
    side effects isolated?
-5. **Documentation:** Does the code explain "why" through its structure, or does
+5. **Dead Code & Orphaned Modules:** Are there exported symbols with no
+   importers, files unreachable from any entry point, or commented-out blocks
+   that have survived multiple commits? Quantify the LOC impact.
+6. **Documentation:** Does the code explain "why" through its structure, or does
    it require extensive comments?
 
 ## Step 3: Output Requirements
@@ -63,13 +70,19 @@ primary themes.]
 
 ### [Short Title of the Issue]
 
-- **Dimension:** [e.g., SOLID Principles | DRY | KISS]
+- **Dimension:** [e.g., SOLID Principles | DRY | KISS | Dead Code]
 - **Impact:** [High | Medium | Low]
 - **Current State:** [Problematic code snippet, file, or pattern description]
 - **Recommendation & Rationale:** [The specific refactor strategy and how it
   improves long-term velocity]
 - **Agent Prompt:**
   `[A copy-pasteable, highly specific prompt to execute this refactor independently]`
+
+## Dead Code Inventory
+
+| File   | Symbol / Block        | Type                                                               | Estimated LOC |
+| ------ | --------------------- | ------------------------------------------------------------------ | ------------- |
+| [path] | [name or description] | [Unused export · Orphaned file · Commented-out block · Stale flag] | [LOC]         |
 
 ## Technical Debt Backlog
 
