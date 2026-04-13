@@ -25,6 +25,7 @@
       "autoVersionBump": true
     },
     "tempRoot": "temp",
+    "auditOutputDir": "temp",
     "roadmap": {
       "autoGenerate": true,
       "excludeLabels": ["roadmap-exclude"]

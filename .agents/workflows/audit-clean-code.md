@@ -46,7 +46,7 @@ Analyze the repository with a focus on:
 ## Step 3: Output Requirements
 
 Generate and save a highly structured Markdown audit report to
-`audit-clean-code-results.md` in the project root, using the exact template
+`{{auditOutputDir}}/audit-clean-code-results.md`, using the exact template
 below.
 
 ```markdown

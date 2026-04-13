@@ -4,6 +4,10 @@ All notable changes to this project will be documented in this file.
 
 ## [5.4.5] - 2026-04-13
 
+### ✨ New Features
+
+- **`auditOutputDir`: Configurable Audit Report Destination** — Audit workflow result files are now written to a configurable directory instead of the project root. Set `agentSettings.auditOutputDir` in `.agentrc.json` to control the output path (default: `temp`). All 12 audit workflows use a `{{auditOutputDir}}` placeholder that `runAuditSuite` resolves at runtime from the config.
+
 ### 🐛 Bug Fixes
 
 - **`sprint-story-close`: Webhook on Story-Complete** — Added `actionRequired: true` to the story-complete notification payload so the webhook in `notify.js` fires when a story closes, ensuring operators receive push notifications in addition to GitHub issue comments.

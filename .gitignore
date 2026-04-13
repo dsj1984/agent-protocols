@@ -11,6 +11,9 @@ dist
 tmp/
 temp/
 
+# Generated Claude Code commands (source of truth: .agents/workflows/)
+.claude/commands/
+
 # Mutation testing
 reports/
 .stryker-tmp/

@@ -49,7 +49,7 @@ Evaluate the gathered context against the following dimensions:
 ## Step 3: Output Requirements
 
 Generate and save a highly structured Markdown audit report to
-`audit-seo-results.md` in the project root, using the exact template below.
+`{{auditOutputDir}}/audit-seo-results.md`, using the exact template below.
 
 ```markdown
 # SEO & GEO Audit Report

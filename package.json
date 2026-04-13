@@ -15,7 +15,8 @@
     "format:check": "biome format .",
     "maintainability:check": "node .agents/scripts/check-maintainability.js",
     "maintainability:update": "node .agents/scripts/update-maintainability-baseline.js",
-    "prepare": "husky"
+    "sync:commands": "node .agents/scripts/sync-claude-commands.js",
+    "prepare": "husky && npm run sync:commands"
   },
   "repository": {
     "type": "git",

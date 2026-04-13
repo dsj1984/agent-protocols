@@ -104,6 +104,7 @@ export function resolveConfig(opts) {
         'patterns.md',
       ],
       maintainability: { targetDirs: ['.agents/scripts', 'tests'] },
+      auditOutputDir: 'temp',
       roadmapPath: 'docs/ROADMAP.md',
       executionTimeoutMs: 300000,
       executionMaxBuffer: 10485760,
@@ -125,6 +126,8 @@ export function resolveConfig(opts) {
     settings.maintainability =
       settings.maintainability ?? defaults.maintainability;
     settings.tempRoot = settings.tempRoot ?? defaults.tempRoot;
+    settings.auditOutputDir =
+      settings.auditOutputDir ?? defaults.auditOutputDir;
     settings.baseBranch = settings.baseBranch ?? defaults.baseBranch;
     settings.notificationWebhookUrl =
       settings.notificationWebhookUrl ?? defaults.notificationWebhookUrl;

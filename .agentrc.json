@@ -25,6 +25,7 @@
       "autoVersionBump": true
     },
     "tempRoot": "temp",
+    "auditOutputDir": "temp",
     "roadmapPath": "docs/ROADMAP.md",
     "roadmap": {
       "autoGenerate": true,
