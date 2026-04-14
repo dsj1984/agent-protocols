@@ -24,10 +24,8 @@ const __dirname = path.dirname(fileURLToPath(import.meta.url));
 // scripts/lib/ → scripts/ → .agents/ → project root
 export const PROJECT_ROOT = path.resolve(__dirname, '../../..');
 
-// Auto-load .env from the project root if it exists
-loadEnv(PROJECT_ROOT);
-
 let _cachedConfig = null;
+let _envLoaded = false;
 
 /**
  * Extract the flat agentSettings bag from whichever config format is present.
@@ -43,6 +41,13 @@ let _cachedConfig = null;
  */
 export function resolveConfig(opts) {
   if (_cachedConfig && !opts?.bustCache) return _cachedConfig;
+
+  // Lazy .env load: deferred from module scope so importing this module
+  // never mutates process.env as a side effect.
+  if (!_envLoaded) {
+    loadEnv(PROJECT_ROOT);
+    _envLoaded = true;
+  }
 
   // 1. Preferred: unified .agentrc.json at repo root
   const agentrcPath = path.join(PROJECT_ROOT, '.agentrc.json');

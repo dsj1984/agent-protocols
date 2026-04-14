@@ -34,10 +34,26 @@ import { parseTasks } from './task-fetcher.js';
 import { fetchTelemetry } from './telemetry.js';
 import { STATE_LABELS } from './ticketing.js';
 
-const { settings: globalSettings } = resolveConfig();
-const vlog = VerboseLogger.init(globalSettings, PROJECT_ROOT, {
-  source: 'dispatcher',
-});
+// Lazy verbose-logger. Deferring VerboseLogger.init() + resolveConfig() out
+// of module scope means importing this SDK no longer triggers filesystem
+// reads or .env loading. The proxy keeps existing `vlog.info(...)` call
+// sites unchanged; the first access materializes the real logger.
+let _vlog = null;
+const vlog = new Proxy(
+  {},
+  {
+    get(_target, prop) {
+      if (!_vlog) {
+        const { settings } = resolveConfig();
+        _vlog = VerboseLogger.init(settings, PROJECT_ROOT, {
+          source: 'dispatcher',
+        });
+      }
+      const value = _vlog[prop];
+      return typeof value === 'function' ? value.bind(_vlog) : value;
+    },
+  },
+);
 
 // ---------------------------------------------------------------------------
 // Constants

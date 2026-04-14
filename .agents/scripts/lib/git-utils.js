@@ -15,7 +15,17 @@ let _execFileSync = execFileSync;
 let _spawnSync = spawnSync;
 
 /**
- * Override git runners for testing.
+ * Override git runners. Testing-only seam — not part of the stable API.
+ *
+ * Production code must not call this. The double-underscore prefix is the
+ * contract: `__setGitRunners` exists so the test suite can inject mock
+ * child-process runners without requiring a broader DI refactor of every
+ * `gitSync`/`gitSpawn` call site. If more injection points become needed,
+ * replace this seam with a proper `createGitRunner({exec, spawn})` factory
+ * and thread it through the module graph.
+ *
+ * @param {typeof execFileSync} exec  - Mock for `execFileSync`.
+ * @param {typeof spawnSync}    spawn - Mock for `spawnSync`.
  */
 export function __setGitRunners(exec, spawn) {
   _execFileSync = exec;
