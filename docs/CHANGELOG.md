@@ -14,6 +14,32 @@ All notable changes to this project will be documented in this file.
 
 - **Dispatcher Epic-Complete Comment: Explicit Next Actions** — Rewrote the `detectEpicCompletion` summary comment in `dispatcher.js` to list the four bookend slash commands (`/audit-quality`, `/sprint-code-review`, `/sprint-retro`, `/sprint-close`) with their Epic ID pre-filled, and explicitly warns that skipping `/sprint-retro` will trip the new close-time Retrospective Gate. This replaces the previous vague "will now execute sequentially" wording that implied automation the dispatcher does not perform.
 
+### ♻️ Clean-Code Refactor (audit-driven)
+
+The following changes implement the recommendations from the `/audit-clean-code` report. All are behaviour-preserving refactors verified by 408 passing tests (up from 381) and the maintainability baseline.
+
+- **`lib/cli-utils.js`: shared `runAsCli()` entry-point helper.** Replaces 15 duplicated main-guard + error-handling blocks across the CLI scripts. Callers pass `import.meta.url`, a main function, and an options bag (`source`, `exitCode`, `onError`) for scripts with non-standard failure semantics (e.g. `auto-heal` exits 0 on any failure to never block CI).
+
+- **`lib/story-lifecycle.js`: shared Story helpers.** Extracts `resolveStoryHierarchy()`, `fetchChildTasks()`, and `batchTransitionTickets()` used by both `sprint-story-init.js` and `sprint-story-close.js`, removing ~40 LOC of mirrored plumbing. Branch bootstrap, merge, and notification concerns remain CLI-owned — those are genuinely different between the two scripts and do not belong in a shared module.
+
+- **`providers/github-http-client.js`: testable HTTP transport.** Extracts `fetch-with-retry`, REST wrapper, REST pagination, and GraphQL wrapper from the 899-LOC `GitHubProvider` god object. The client accepts an injectable `fetchImpl` and a `tokenProvider` closure so unit tests no longer need to mutate `global.fetch`. The provider composes the client via `this._http`; the four underscored transport methods remain as thin proxies so all existing call sites and tests continue to work unchanged.
+
+- **`GitHubProvider._updateLabels()`: extracted from `updateTicket()`.** Separates the three implicit label-handling paths (add-only fast-path, remove-merge-PATCH, combined PATCH) into one named helper returning `{ skipPatch, mergedLabels? }`. Behaviour preserved exactly.
+
+- **Silent catches in `providers/github.js`: replaced with `console.warn`.** Five catch blocks (sub-issue GraphQL fallback, reverse dependency lookup, sub-issue linking, ProjectV2 user-scope and org-scope lookups) previously swallowed errors for optional features. Each now emits a structured warning so API regressions become visible. Fallback control flow is preserved.
+
+- **`lib/orchestration/dispatcher.js` → `dispatch-engine.js` (SDK rename).** The codebase previously had two files named `dispatcher.js` — a thin CLI wrapper and a 575-LOC SDK engine — same name, different purpose. Renamed the SDK files (`dispatcher.js` → `dispatch-engine.js`, `context-hydrator.js` → `context-hydration-engine.js`) while leaving the CLI entry points untouched. `dispatch()` itself was decomposed into three helpers — `handleRiskHighGate`, `dispatchTaskInWave`, and `dispatchWave` — replacing a 100-line 5-level-nested inline loop.
+
+- **Deferred module-level side effects.** `lib/config-resolver.js` no longer calls `loadEnv()` at module scope; it runs lazily on first `resolveConfig()` call. `lib/orchestration/dispatch-engine.js` no longer resolves config or initialises `VerboseLogger` at module scope; a lazy `vlog` Proxy keeps all existing `vlog.info(...)` call sites unchanged. Importing either module no longer mutates process state.
+
+- **Consolidated `SHELL_INJECTION_RE`.** Previously duplicated across `config-schema.js` and `config-resolver.js` with subtly different patterns. Both regexes now live in `config-schema.js` under distinct names (`SHELL_INJECTION_RE` for schema-validated paths/commands, `SHELL_INJECTION_RE_STRICT` for orchestration runtime values) with documented intent.
+
+- **Removed orphan "Refinement Loop" cluster.** `lib/refinement-agent.js`, `lib/friction-service.js`, and `lib/impact-tracker.js` had zero non-test consumers after verification — they only imported each other. Deleted (~300 LOC removed). Git history preserves them if the feature is revived.
+
+- **Trimmed redundant `node:coverage ignore` directives** from the four HTTP transport proxies in `GitHubProvider` (now trivial delegations) and a duplicated pair on `ensureProjectFields()`. Directives on genuinely environment-dependent paths are retained.
+
+- **New tests (27 added):** `cli-utils` (8), `story-lifecycle` (10), `github-http-client` (6), `_updateLabels` fast/merge/combined paths (3).
+
 ## [5.4.6] - 2026-04-14
 
 ### 🐛 Bug Fixes
