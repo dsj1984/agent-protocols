@@ -16,6 +16,7 @@ import { fileURLToPath } from 'node:url';
 import {
   getOrchestrationValidator,
   getSettingsValidator,
+  SHELL_INJECTION_RE_STRICT as SHELL_INJECTION_RE,
 } from './config-schema.js';
 import { loadEnv } from './env-loader.js';
 
@@ -23,12 +24,8 @@ const __dirname = path.dirname(fileURLToPath(import.meta.url));
 // scripts/lib/ → scripts/ → .agents/ → project root
 export const PROJECT_ROOT = path.resolve(__dirname, '../../..');
 
-const SHELL_INJECTION_RE = /[&|;`<>()$]/;
-
-// Auto-load .env from the project root if it exists
-loadEnv(PROJECT_ROOT);
-
 let _cachedConfig = null;
+let _envLoaded = false;
 
 /**
  * Extract the flat agentSettings bag from whichever config format is present.
@@ -44,6 +41,13 @@ let _cachedConfig = null;
  */
 export function resolveConfig(opts) {
   if (_cachedConfig && !opts?.bustCache) return _cachedConfig;
+
+  // Lazy .env load: deferred from module scope so importing this module
+  // never mutates process.env as a side effect.
+  if (!_envLoaded) {
+    loadEnv(PROJECT_ROOT);
+    _envLoaded = true;
+  }
 
   // 1. Preferred: unified .agentrc.json at repo root
   const agentrcPath = path.join(PROJECT_ROOT, '.agentrc.json');
@@ -106,6 +110,7 @@ export function resolveConfig(opts) {
       maintainability: { targetDirs: ['.agents/scripts', 'tests'] },
       auditOutputDir: 'temp',
       roadmapPath: 'docs/ROADMAP.md',
+      retroPath: 'docs/retros/retro-epic-{epicId}.md',
       executionTimeoutMs: 300000,
       executionMaxBuffer: 10485760,
       maxTokenBudget: 80000,
@@ -134,6 +139,7 @@ export function resolveConfig(opts) {
     settings.verboseLogging =
       settings.verboseLogging ?? defaults.verboseLogging;
     settings.roadmapPath = settings.roadmapPath ?? defaults.roadmapPath;
+    settings.retroPath = settings.retroPath ?? defaults.retroPath;
     settings.executionTimeoutMs =
       settings.executionTimeoutMs ?? defaults.executionTimeoutMs;
     settings.executionMaxBuffer =
@@ -184,6 +190,7 @@ export function resolveConfig(opts) {
       notificationWebhookUrl: '',
       verboseLogging: { enabled: false, logDir: 'temp/verbose-logs' },
       roadmapPath: 'docs/ROADMAP.md',
+      retroPath: 'docs/retros/retro-epic-{epicId}.md',
       executionTimeoutMs: 300000, // 5 minutes
       executionMaxBuffer: 10485760, // 10MB
       maxTokenBudget: 80000, // Default 80k token budget

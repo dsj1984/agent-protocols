@@ -1,5 +1,5 @@
 /**
- * lib/orchestration/dispatcher.js — Core Dispatch Engine (SDK)
+ * lib/orchestration/dispatch-engine.js — Core Dispatch Engine (SDK)
  *
  * Stateless, async orchestration logic extracted from the CLI entry point.
  * This module is the SDK layer — it has no knowledge of CLI arguments,
@@ -24,7 +24,7 @@ import { buildGraph, computeWaves, detectCycle } from '../Graph.js';
 import { getEpicBranch, gitSync } from '../git-utils.js';
 import { createProvider } from '../provider-factory.js';
 import { VerboseLogger } from '../VerboseLogger.js';
-import { hydrateContext } from './context-hydrator.js';
+import { hydrateContext } from './context-hydration-engine.js';
 import { autoSerializeOverlaps } from './dependency-analyzer.js';
 import { buildManifest, getResolvedBranch } from './manifest-builder.js';
 import { resolveModel } from './model-resolver.js';
@@ -34,10 +34,26 @@ import { parseTasks } from './task-fetcher.js';
 import { fetchTelemetry } from './telemetry.js';
 import { STATE_LABELS } from './ticketing.js';
 
-const { settings: globalSettings } = resolveConfig();
-const vlog = VerboseLogger.init(globalSettings, PROJECT_ROOT, {
-  source: 'dispatcher',
-});
+// Lazy verbose-logger. Deferring VerboseLogger.init() + resolveConfig() out
+// of module scope means importing this SDK no longer triggers filesystem
+// reads or .env loading. The proxy keeps existing `vlog.info(...)` call
+// sites unchanged; the first access materializes the real logger.
+let _vlog = null;
+const vlog = new Proxy(
+  {},
+  {
+    get(_target, prop) {
+      if (!_vlog) {
+        const { settings } = resolveConfig();
+        _vlog = VerboseLogger.init(settings, PROJECT_ROOT, {
+          source: 'dispatcher',
+        });
+      }
+      const value = _vlog[prop];
+      return typeof value === 'function' ? value.bind(_vlog) : value;
+    },
+  },
+);
 
 // ---------------------------------------------------------------------------
 // Constants
@@ -280,9 +296,17 @@ export async function detectEpicCompletion({
     '### Completed Tasks',
     taskLines,
     '',
-    '### Next Steps',
-    'The Bookend Lifecycle phases (Integration → QA → Code Review → Retro → Close-Out) ',
-    'will now execute sequentially per `agentSettings.bookendRequirements`.',
+    '### ⚠️ NEXT ACTIONS — Manual Bookend Lifecycle',
+    'The dispatcher does **not** auto-run bookend phases. The operator (or a',
+    'follow-up agent) must invoke each slash command in order:',
+    '',
+    `1. \`/audit-quality ${epicId}\` — QA audit`,
+    `2. \`/sprint-code-review ${epicId}\` — Mandatory code review gate`,
+    `3. \`/sprint-retro ${epicId}\` — Generate retrospective (writes to \`retroPath\`)`,
+    `4. \`/sprint-close ${epicId}\` — Merge, tag, close (gated on retro existence)`,
+    '',
+    'Skipping `/sprint-retro` will cause `/sprint-close` to halt at the',
+    'Retrospective Gate (Step 1.5).',
     '',
     `> Progress: ${manifest.summary.progressPercent}% · Generated: ${manifest.generatedAt}`,
   ].join('\n');
@@ -344,6 +368,163 @@ export async function detectEpicCompletion({
  * }} options
  * @returns {Promise<object>} Dispatch Manifest
  */
+/**
+ * Handle the `risk::high` approval gate for a single task.
+ * Posts a HITL approval comment (skipped in dry-run) and returns the
+ * held-for-approval entry the caller should record.
+ *
+ * @param {object} task
+ * @param {object} provider
+ * @param {boolean} dryRun
+ * @returns {Promise<{ taskId: number, reason: string }>}
+ */
+async function handleRiskHighGate(task, provider, dryRun) {
+  vlog.info(
+    'orchestration',
+    `⚠️  Task #${task.id} flagged risk::high — held for approval.`,
+  );
+  if (!dryRun) {
+    await provider.postComment(task.id, {
+      body: `⚠️ **HITL Gate**: This task is flagged \`risk::high\` and requires operator approval before dispatch.\n\nTo approve, reply with: \`/approve ${task.id}\``,
+      type: 'notification',
+    });
+  }
+  return {
+    taskId: task.id,
+    reason: 'risk::high label requires operator approval.',
+  };
+}
+
+/**
+ * Dispatch a single eligible task within a wave. Builds the task-dispatch
+ * payload (prompt hydration, model resolution, branch resolution), then
+ * either records a dry-run entry or performs the real dispatch (branch
+ * ensure + label transition + adapter call).
+ *
+ * @param {object} task
+ * @param {object} ctx - Dispatch context (provider, adapter, settings, etc.).
+ * @returns {Promise<object>} The `dispatched` entry for the manifest.
+ */
+async function dispatchTaskInWave(task, ctx) {
+  const {
+    provider,
+    adapter,
+    settings,
+    allTicketsById,
+    epicId,
+    epicBranch,
+    dryRun,
+  } = ctx;
+
+  const taskBranch = getResolvedBranch(task, allTicketsById, epicId);
+  const resolvedModel = resolveModel(task.model, settings);
+
+  const hydratedPrompt = await hydrateContext(
+    task,
+    provider,
+    epicBranch,
+    taskBranch,
+    epicId,
+  );
+
+  const taskDispatch = {
+    taskId: task.id,
+    epicId,
+    branch: taskBranch,
+    epicBranch,
+    prompt: hydratedPrompt,
+    persona: task.persona,
+    model: resolvedModel,
+    mode: task.mode,
+    skills: task.skills,
+    focusAreas: task.focusAreas,
+    metadata: {
+      title: task.title,
+      protocolVersion: task.protocolVersion,
+      dispatchedAt: new Date().toISOString(),
+    },
+  };
+
+  if (dryRun) {
+    vlog.info(
+      'orchestration',
+      `[DRY-RUN] Would dispatch Task #${task.id}: ${task.title}`,
+    );
+    return {
+      taskId: task.id,
+      dispatchId: `dry-run-${task.id}`,
+      status: 'dispatched',
+    };
+  }
+
+  ensureBranch(taskBranch, epicBranch);
+  await provider.updateTicket(task.id, {
+    labels: { add: [AGENT_EXECUTING_LABEL], remove: [AGENT_READY_LABEL] },
+  });
+
+  const result = await adapter.dispatchTask(taskDispatch);
+  vlog.info(
+    'orchestration',
+    `✅ Dispatched Task #${task.id} — dispatchId: ${result.dispatchId}`,
+  );
+  return { taskId: task.id, ...result };
+}
+
+/**
+ * Dispatch one wave. Returns `{ dispatched, heldForApproval, shouldHalt }`
+ * where `shouldHalt=true` means the caller should stop iterating waves
+ * (upstream dependencies not yet complete).
+ *
+ * @param {object[]} wave
+ * @param {Map<number, object>} taskMap
+ * @param {object} ctx
+ * @returns {Promise<{ dispatched: object[], heldForApproval: object[], shouldHalt: boolean, empty: boolean }>}
+ */
+async function dispatchWave(wave, taskMap, ctx) {
+  const eligible = wave.filter(
+    (t) => t.status !== AGENT_DONE_LABEL && t.status !== AGENT_EXECUTING_LABEL,
+  );
+
+  if (eligible.length === 0) {
+    vlog.info('orchestration', 'Wave fully complete, moving to next...');
+    return {
+      dispatched: [],
+      heldForApproval: [],
+      shouldHalt: false,
+      empty: true,
+    };
+  }
+
+  const waveDepsComplete = eligible.every((task) =>
+    task.dependsOn.every((depId) => {
+      const dep = taskMap.get(depId);
+      return dep?.status === AGENT_DONE_LABEL;
+    }),
+  );
+  if (!waveDepsComplete) {
+    vlog.info('orchestration', 'Wave dependencies not yet complete. Halting.');
+    return {
+      dispatched: [],
+      heldForApproval: [],
+      shouldHalt: true,
+      empty: false,
+    };
+  }
+
+  const dispatched = [];
+  const heldForApproval = [];
+  for (const task of eligible) {
+    if (task.isRiskHigh) {
+      heldForApproval.push(
+        await handleRiskHighGate(task, ctx.provider, ctx.dryRun),
+      );
+      continue;
+    }
+    dispatched.push(await dispatchTaskInWave(task, ctx));
+  }
+  return { dispatched, heldForApproval, shouldHalt: false, empty: false };
+}
+
 export async function dispatch(options) {
   const { epicId, dryRun = false, executorOverride } = options;
 
@@ -437,107 +618,22 @@ export async function dispatch(options) {
   const dispatched = [];
   const heldForApproval = [];
 
+  const waveCtx = {
+    provider,
+    adapter,
+    settings,
+    allTicketsById,
+    epicId,
+    epicBranch,
+    dryRun,
+  };
+
   for (const wave of allWaves) {
-    const eligible = wave.filter(
-      (t) =>
-        t.status !== AGENT_DONE_LABEL && t.status !== AGENT_EXECUTING_LABEL,
-    );
-
-    if (eligible.length === 0) {
-      vlog.info('orchestration', 'Wave fully complete, moving to next...');
-      continue;
-    }
-
-    const waveDepsComplete = eligible.every((task) =>
-      task.dependsOn.every((depId) => {
-        const dep = taskMap.get(depId);
-        return dep?.status === AGENT_DONE_LABEL;
-      }),
-    );
-
-    if (!waveDepsComplete) {
-      vlog.info(
-        'orchestration',
-        'Wave dependencies not yet complete. Halting.',
-      );
-      break;
-    }
-
-    for (const task of eligible) {
-      const taskBranch = getResolvedBranch(task, allTicketsById, epicId);
-      const resolvedModel = resolveModel(task.model, settings);
-
-      if (task.isRiskHigh) {
-        vlog.info(
-          'orchestration',
-          `⚠️  Task #${task.id} flagged risk::high — held for approval.`,
-        );
-        heldForApproval.push({
-          taskId: task.id,
-          reason: 'risk::high label requires operator approval.',
-        });
-
-        if (!dryRun) {
-          await provider.postComment(task.id, {
-            body: `⚠️ **HITL Gate**: This task is flagged \`risk::high\` and requires operator approval before dispatch.\n\nTo approve, reply with: \`/approve ${task.id}\``,
-            type: 'notification',
-          });
-        }
-        continue;
-      }
-
-      const hydratedPrompt = await hydrateContext(
-        task,
-        provider,
-        epicBranch,
-        taskBranch,
-        epicId,
-      );
-
-      const taskDispatch = {
-        taskId: task.id,
-        epicId,
-        branch: taskBranch,
-        epicBranch,
-        prompt: hydratedPrompt,
-        persona: task.persona,
-        model: resolvedModel,
-        mode: task.mode,
-        skills: task.skills,
-        focusAreas: task.focusAreas,
-        metadata: {
-          title: task.title,
-          protocolVersion: task.protocolVersion,
-          dispatchedAt: new Date().toISOString(),
-        },
-      };
-
-      if (dryRun) {
-        vlog.info(
-          'orchestration',
-          `[DRY-RUN] Would dispatch Task #${task.id}: ${task.title}`,
-        );
-        dispatched.push({
-          taskId: task.id,
-          dispatchId: `dry-run-${task.id}`,
-          status: 'dispatched',
-        });
-      } else {
-        ensureBranch(taskBranch, epicBranch);
-
-        await provider.updateTicket(task.id, {
-          labels: { add: [AGENT_EXECUTING_LABEL], remove: [AGENT_READY_LABEL] },
-        });
-
-        const result = await adapter.dispatchTask(taskDispatch);
-        dispatched.push({ taskId: task.id, ...result });
-        vlog.info(
-          'orchestration',
-          `✅ Dispatched Task #${task.id} — dispatchId: ${result.dispatchId}`,
-        );
-      }
-    }
-
+    const result = await dispatchWave(wave, taskMap, waveCtx);
+    if (result.empty) continue;
+    if (result.shouldHalt) break;
+    dispatched.push(...result.dispatched);
+    heldForApproval.push(...result.heldForApproval);
     // Only dispatch one wave per invocation
     break;
   }

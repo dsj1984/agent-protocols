@@ -42,6 +42,8 @@ Epic GitHub issue, cleans up all sprint branches, and optionally tags a release.
      path from `agentSettings.docsRoot`).
 7. Resolve `[ROADMAP_PATH]` from `roadmapPath` in `.agentrc.json` (default:
    `docs/ROADMAP.md`).
+8. Resolve `[RETRO_PATH]` from `retroPath` in `.agentrc.json` (default:
+   `docs/retros/retro-epic-{epicId}.md`). Replace `{epicId}` with `[EPIC_ID]`.
 
 ## Step 1 — Completeness Gate (Hierarchy Check)
 
@@ -54,6 +56,22 @@ successfully closed:
 
 If ANY child ticket is not closed: **STOP IMMEDIATELY.** Alert the operator with
 the exact open IDs.
+
+## Step 1.5 — Retrospective Gate
+
+Verify the retrospective document for this Epic exists at `[RETRO_PATH]`:
+
+```powershell
+Test-Path [RETRO_PATH]
+```
+
+If the file does **not** exist: **STOP IMMEDIATELY.** The `/sprint-retro` phase
+was skipped. Invoke `/sprint-retro [EPIC_ID]` to produce the retrospective
+before re-running `/sprint-close`.
+
+> **Why this gate exists:** The dispatcher announces the Bookend Lifecycle but
+> does not automatically execute `/sprint-retro`. Without this gate, retros get
+> silently skipped and the Epic closes with no post-mortem record.
 
 ## Step 2 — Documentation Freshness Gate
 

@@ -26,9 +26,8 @@
  * @see .agents/workflows/sprint-execute.md Mode B
  */
 
-import path from 'node:path';
-import { fileURLToPath } from 'node:url';
 import { parseSprintArgs } from './lib/cli-args.js';
+import { runAsCli } from './lib/cli-utils.js';
 import { PROJECT_ROOT, resolveConfig } from './lib/config-resolver.js';
 import { parseBlockedBy } from './lib/dependency-parser.js';
 import { buildGraph, topologicalSort } from './lib/Graph.js';
@@ -39,11 +38,13 @@ import {
   gitSync,
 } from './lib/git-utils.js';
 import { Logger } from './lib/Logger.js';
-import {
-  STATE_LABELS,
-  transitionTicketState,
-} from './lib/orchestration/ticketing.js';
+import { STATE_LABELS } from './lib/orchestration/ticketing.js';
 import { createProvider } from './lib/provider-factory.js';
+import {
+  batchTransitionTickets,
+  fetchChildTasks,
+  resolveStoryHierarchy,
+} from './lib/story-lifecycle.js';
 
 // ---------------------------------------------------------------------------
 // Helper Modules
@@ -64,11 +65,7 @@ async function resolveStoryContext(provider, storyId) {
   }
 
   const body = story.body ?? '';
-  const epicMatch = body.match(/(?:^epic:\s*#(\d+))/im);
-  const parentMatch = body.match(/(?:^parent:\s*#(\d+))/im);
-
-  const epicId = epicMatch ? parseInt(epicMatch[1], 10) : null;
-  const featureId = parentMatch ? parseInt(parentMatch[1], 10) : null;
+  const { epicId, featureId } = resolveStoryHierarchy(body);
 
   if (!epicId) {
     throw new Error(
@@ -193,27 +190,6 @@ function bootstrapBranch(epicBranch, storyBranch, baseBranch) {
   progress('GIT', `✅ On branch: ${currentBranch.stdout}`);
 }
 
-async function transitionTasksToExecuting(provider, tasks) {
-  await Promise.all(
-    tasks.map(async (task) => {
-      if (task.labels.includes(STATE_LABELS.EXECUTING)) {
-        progress('TICKETS', `  #${task.id} already executing — skipped`);
-        return;
-      }
-      if (task.labels.includes(STATE_LABELS.DONE)) {
-        progress('TICKETS', `  #${task.id} already done — skipped`);
-        return;
-      }
-      try {
-        await transitionTicketState(provider, task.id, STATE_LABELS.EXECUTING);
-        progress('TICKETS', `  #${task.id} → agent::executing ✅`);
-      } catch (err) {
-        console.error(`  #${task.id} → FAILED: ${err.message}`);
-      }
-    }),
-  );
-}
-
 // ---------------------------------------------------------------------------
 // CLI Execution
 // ---------------------------------------------------------------------------
@@ -274,8 +250,7 @@ export async function runStoryInit({
   if (parseBlockedBy(body).length > 0)
     progress('BLOCKERS', '✅ All blockers resolved');
 
-  const subTickets = await provider.getSubTickets(storyId);
-  const tasks = subTickets.filter((t) => t.labels.includes('type::task'));
+  const tasks = await fetchChildTasks(provider, storyId);
 
   if (tasks.length === 0) {
     console.error(
@@ -304,7 +279,12 @@ export async function runStoryInit({
       'TICKETS',
       `Transitioning ${sortedTasks.length} Task(s) to agent::executing...`,
     );
-    await transitionTasksToExecuting(provider, sortedTasks);
+    await batchTransitionTickets(
+      provider,
+      sortedTasks,
+      STATE_LABELS.EXECUTING,
+      { progress },
+    );
   }
 
   // -------------------------------------------------------------------------
@@ -355,9 +335,4 @@ const progress = Logger.createProgress('sprint-story-init', { stderr: true });
 // Main guard
 // ---------------------------------------------------------------------------
 
-/* node:coverage ignore next */
-if (fileURLToPath(import.meta.url) === path.resolve(process.argv[1])) {
-  runStoryInit().catch((err) => {
-    Logger.fatal(`sprint-story-init: ${err.message}`);
-  });
-}
+runAsCli(import.meta.url, runStoryInit, { source: 'sprint-story-init' });

@@ -1,5 +1,5 @@
 /**
- * lib/orchestration/context-hydrator.js — Context Hydration Engine (SDK)
+ * lib/orchestration/context-hydration-engine.js — Context Hydration Engine (SDK)
  *
  * Stateless, async logic for assembling the full execution prompt for an
  * agent task. Extracted from the CLI entry point to enable reuse across
@@ -11,7 +11,7 @@
  *
  * Consumers:
  *   - `.agents/scripts/context-hydrator.js`  — CLI thin re-export shim
- *   - `lib/orchestration/dispatcher.js`      — import hydrateContext directly
+ *   - `lib/orchestration/dispatch-engine.js` — import hydrateContext directly
  *   - `.agents/scripts/mcp-server.js`        — MCP tool entry point (future)
  *
  * @see .agents/scripts/lib/ITicketingProvider.js

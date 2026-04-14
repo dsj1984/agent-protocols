@@ -2,9 +2,8 @@
 /* node:coverage ignore file */
 
 import fs from 'node:fs';
-import path from 'node:path';
-import { fileURLToPath } from 'node:url';
 import { parseArgs } from 'node:util';
+import { runAsCli } from './lib/cli-utils.js';
 import { resolveConfig } from './lib/config-resolver.js';
 import { getEpicBranch, getStoryBranch } from './lib/git-utils.js';
 import { Logger } from './lib/Logger.js';
@@ -14,9 +13,9 @@ export {
   hydrateContext,
   parseHierarchy,
   truncateToTokenBudget,
-} from './lib/orchestration/context-hydrator.js';
+} from './lib/orchestration/context-hydration-engine.js';
 
-import { hydrateContext } from './lib/orchestration/context-hydrator.js';
+import { hydrateContext } from './lib/orchestration/context-hydration-engine.js';
 
 async function main() {
   const { values } = parseArgs({
@@ -84,8 +83,4 @@ async function main() {
   }
 }
 
-if (fileURLToPath(import.meta.url) === path.resolve(process.argv[1])) {
-  main().catch((_err) => {
-    Logger.fatal();
-  });
-}
+runAsCli(import.meta.url, main, { source: 'ContextHydrator' });

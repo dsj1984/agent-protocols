@@ -1,8 +1,18 @@
 import Ajv from 'ajv';
 import addFormats from 'ajv-formats';
 
-/** Shell metacharacter pattern for injection detection. */
+/**
+ * Shell metacharacter pattern for injection detection in schema-validated
+ * string fields (paths, commands). Matches `;`, `&`, `|`, backtick, or `$(`.
+ */
 export const SHELL_INJECTION_RE = /([;&|`]|\$\()/;
+
+/**
+ * Stricter shell metacharacter pattern for orchestration runtime values
+ * (owner, repo, operator handle, webhook URL) where no shell metacharacters
+ * are ever legitimate.
+ */
+export const SHELL_INJECTION_RE_STRICT = /[&|;`<>()$]/;
 
 /**
  * Embedded JSON Schema for the `orchestration` configuration block.
@@ -110,7 +120,7 @@ export const AGENT_SETTINGS_SCHEMA = {
     },
   },
   patternProperties: {
-    '^(notificationWebhookUrl|baseBranch|validationCommand|testCommand|buildCommand|agentRoot|scriptsRoot|workflowsRoot|personasRoot|schemasRoot|skillsRoot|templatesRoot|rulesRoot|docsRoot|tempRoot|auditOutputDir|lintBaselineCommand|lintBaselinePath|exploratoryTestCommand|typecheckCommand|roadmapPath)$':
+    '^(notificationWebhookUrl|baseBranch|validationCommand|testCommand|buildCommand|agentRoot|scriptsRoot|workflowsRoot|personasRoot|schemasRoot|skillsRoot|templatesRoot|rulesRoot|docsRoot|tempRoot|auditOutputDir|lintBaselineCommand|lintBaselinePath|exploratoryTestCommand|typecheckCommand|roadmapPath|retroPath)$':
       {
         type: 'string',
         not: { pattern: '([;&|`]|\\$\\()' },

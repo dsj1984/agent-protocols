@@ -31,6 +31,7 @@
       "excludeLabels": ["roadmap-exclude"]
     },
     "roadmapPath": "docs/ROADMAP.md",
+    "retroPath": "docs/retros/retro-epic-{epicId}.md",
     "verboseLogging": {
       "enabled": false,
       "logDir": "temp/verbose-logs"

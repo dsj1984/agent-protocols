@@ -16,8 +16,8 @@
  */
 
 import path from 'node:path';
-import { fileURLToPath } from 'node:url';
 import { parseArgs } from 'node:util';
+import { runAsCli } from './lib/cli-utils.js';
 import { PROJECT_ROOT, resolveConfig } from './lib/config-resolver.js';
 import { gitSpawn } from './lib/git-utils.js';
 import { Logger } from './lib/Logger.js';
@@ -153,8 +153,4 @@ async function main() {
 
 const progress = Logger.createProgress('sprint-review', { stderr: false });
 
-if (fileURLToPath(import.meta.url) === path.resolve(process.argv[1])) {
-  main().catch((err) => {
-    Logger.fatal(`sprint-code-review: ${err.message}`);
-  });
-}
+runAsCli(import.meta.url, main, { source: 'sprint-code-review' });

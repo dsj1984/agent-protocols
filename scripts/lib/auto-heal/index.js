@@ -9,7 +9,7 @@
  * @see auto_heal_design.md
  */
 
-export * from './risk-resolver.js';
-export * from './prompt-builder.js';
-export { IAutoHealAdapter, JulesAdapter } from './adapters/jules-adapter.js';
 export { GitHubIssueAdapter } from './adapters/github-issue-adapter.js';
+export { IAutoHealAdapter, JulesAdapter } from './adapters/jules-adapter.js';
+export * from './prompt-builder.js';
+export * from './risk-resolver.js';

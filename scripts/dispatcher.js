@@ -5,7 +5,7 @@
  * dispatcher.js — CLI Entry Point for the Dispatch Engine
  *
  * Thin wrapper around the orchestration SDK. Parses CLI arguments,
- * delegates core logic to `lib/orchestration/dispatcher.js`, then
+ * delegates core logic to `lib/orchestration/dispatch-engine.js`, then
  * handles file I/O and console output.
  *
  * Usage:
@@ -19,8 +19,7 @@
  * @see .agents/schemas/dispatch-manifest.json
  */
 
-import path from 'node:path';
-import { fileURLToPath } from 'node:url';
+import { runAsCli } from './lib/cli-utils.js';
 import { Logger } from './lib/Logger.js';
 import { resolveAndDispatch } from './lib/orchestration/index.js';
 
@@ -31,8 +30,6 @@ export {
   executeStory,
   resolveAndDispatch,
 } from './lib/orchestration/index.js';
-
-const __filename = fileURLToPath(import.meta.url);
 
 // ---------------------------------------------------------------------------
 // Presentation helpers (CLI-only — not part of the SDK)
@@ -109,10 +106,12 @@ async function main() {
   await generateAndSaveManifest(ticketId, dryRun, executor);
 }
 
-/* node:coverage ignore next */
-if (fileURLToPath(import.meta.url) === path.resolve(process.argv[1])) {
-  main().catch((err) => {
+runAsCli(import.meta.url, main, {
+  source: 'Dispatcher',
+  // Preserve legacy behaviour: report but do not exit; only abort via
+  // Logger.fatal if DEBUG is set (the orchestration tests depend on this).
+  onError: (err) => {
     console.error('[Dispatcher] Fatal error:', err.message);
     if (process.env.DEBUG) Logger.fatal();
-  });
-}
+  },
+});
