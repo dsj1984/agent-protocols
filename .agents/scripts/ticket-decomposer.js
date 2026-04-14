@@ -23,6 +23,36 @@ import { validateAndNormalizeTickets } from './lib/orchestration/ticket-validato
 import { createProvider } from './lib/provider-factory.js';
 import { DECOMPOSER_SYSTEM_PROMPT } from './lib/templates/decomposer-prompts.js';
 
+function resolveParentId(ticket, slugMap, epicId) {
+  if (ticket.type === 'feature') return epicId;
+  if (!ticket.parent_slug) {
+    throw new Error(
+      `[Decomposer] ${ticket.type.toUpperCase()} "${ticket.title}" (${ticket.slug}) has no parent_slug.`,
+    );
+  }
+  if (!slugMap.has(ticket.parent_slug)) {
+    throw new Error(
+      `[Decomposer] ${ticket.type.toUpperCase()} "${ticket.title}" (${ticket.slug}) references parent_slug "${ticket.parent_slug}" which was not created. The parent is missing from the LLM output or the slug is misspelled.`,
+    );
+  }
+  return slugMap.get(ticket.parent_slug);
+}
+
+function resolveDependencies(ticket, slugMap) {
+  const resolved = [];
+  for (const dep of ticket.depends_on || []) {
+    const depId = slugMap.get(dep);
+    if (depId) {
+      resolved.push(depId);
+    } else {
+      console.warn(
+        `[Decomposer] ⚠️  ${ticket.type.toUpperCase()} "${ticket.title}" (${ticket.slug}) depends on unresolved slug "${dep}" — dependency dropped.`,
+      );
+    }
+  }
+  return resolved;
+}
+
 export async function decomposeEpic(
   epicId,
   provider,
@@ -164,39 +194,8 @@ Please decompose the above into a complete ticket backlog. Respond with the JSON
       `[Decomposer] [${t.type.toUpperCase()}] Creating "${t.title}"...`,
     );
 
-    // Resolve parent — only Features attach directly to the Epic. Stories and
-    // Tasks MUST have a parent that was already created earlier in the sorted
-    // loop; if their parent_slug is missing from slugMap, silently falling
-    // back to epicId would orphan the ticket under the Epic, so fail loudly.
-    let parentId;
-    if (t.type === 'feature') {
-      parentId = epicId;
-    } else if (!t.parent_slug) {
-      throw new Error(
-        `[Decomposer] ${t.type.toUpperCase()} "${t.title}" (${t.slug}) has no parent_slug. Stories must attach to a Feature and Tasks must attach to a Story.`,
-      );
-    } else if (!slugMap.has(t.parent_slug)) {
-      throw new Error(
-        `[Decomposer] ${t.type.toUpperCase()} "${t.title}" (${t.slug}) references parent_slug "${t.parent_slug}" which was not created. This usually means the parent ticket is missing from the LLM output or the slug is misspelled.`,
-      );
-    } else {
-      parentId = slugMap.get(t.parent_slug);
-    }
-
-    // Resolve dependencies — slugs that fail to resolve are dropped silently
-    // by the provider, which quietly breaks the DAG. Warn per unresolved slug
-    // so operators see the drift instead of discovering it mid-sprint.
-    const dependencies = [];
-    for (const dep of t.depends_on || []) {
-      const depId = slugMap.get(dep);
-      if (depId) {
-        dependencies.push(depId);
-      } else {
-        console.warn(
-          `[Decomposer] ⚠️  ${t.type.toUpperCase()} "${t.title}" (${t.slug}) depends on unresolved slug "${dep}" — dependency dropped.`,
-        );
-      }
-    }
+    const parentId = resolveParentId(t, slugMap, epicId);
+    const dependencies = resolveDependencies(t, slugMap);
 
     const created = await provider.createTicket(parentId, {
       epicId: epicId,
