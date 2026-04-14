@@ -30,6 +30,11 @@ graph LR
     classDef agentic fill:#c4f9d0,stroke:#333,stroke-width:2px,color:#000;
     classDef artifact fill:#ececec,stroke:#333,stroke-width:1px,stroke-dasharray: 5 5,color:#000;
 
+    subgraph Phase0 ["Phase 0: Bootstrap"]
+        direction TB
+        Z["👤 /bootstrap-agent-protocols"]:::manual
+    end
+
     subgraph Phase1 ["Phase 1: Initiation"]
         direction TB
         A["👤 Create GitHub Epic"]:::manual
@@ -60,10 +65,29 @@ graph LR
         G --> H
     end
 
+    Z --> A
     B --> C
     D --> E
     F --> G
 ```
+
+---
+
+## Phase 0: Bootstrap (One-Time Setup)
+
+Before running any sprint workflows, bootstrap your GitHub repository to create
+the labels and project fields the orchestration engine depends on.
+
+1. **Configure**: Copy `.agents/default-agentrc.json` to `.agentrc.json` at your
+   project root and fill in the `orchestration` block (owner, repo, etc.).
+2. **Authenticate**: Ensure a valid GitHub token is available (see the
+   Authentication section in [README.md](README.md)).
+3. **Run bootstrap**: Execute `/bootstrap-agent-protocols` (or
+   `node .agents/scripts/bootstrap-agent-protocols.js`). This idempotently
+   creates 24 labels and optional GitHub Project V2 fields.
+
+> [!NOTE] Bootstrap only needs to run once per repository. It is safe to re-run
+> — existing labels and fields are skipped.
 
 ---
 
