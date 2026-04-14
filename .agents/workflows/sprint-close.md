@@ -108,6 +108,9 @@ git add [ROADMAP_PATH]
 
 ## Step 3 — Version Bump & Tag
 
+If `release.autoVersionBump` is `false`, **skip this entire step** — do not bump
+any version, do not create a tag. Proceed directly to Step 4.
+
 If `release.autoVersionBump` is `true` (default) **and** at least one of
 `release.versionFile` or `release.packageJson` is configured, increment the
 project version **before** the merge to `main`.

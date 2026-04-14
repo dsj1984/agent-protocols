@@ -2,6 +2,12 @@
 
 All notable changes to this project will be documented in this file.
 
+## [5.4.6] - 2026-04-14
+
+### 🐛 Bug Fixes
+
+- **`sprint-close`: Explicit Skip for `autoVersionBump: false`** — Added an explicit guard at the top of Step 3 (Version Bump & Tag) instructing the agent to skip the entire step when `release.autoVersionBump` is `false`. Previously the conditional only described the `true` path, which could cause agents to attempt a version bump even when the setting was disabled.
+
 ## [5.4.5] - 2026-04-13
 
 ### ✨ New Features
