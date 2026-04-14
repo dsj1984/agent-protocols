@@ -13,9 +13,9 @@ export {
   hydrateContext,
   parseHierarchy,
   truncateToTokenBudget,
-} from './lib/orchestration/context-hydrator.js';
+} from './lib/orchestration/context-hydration-engine.js';
 
-import { hydrateContext } from './lib/orchestration/context-hydrator.js';
+import { hydrateContext } from './lib/orchestration/context-hydration-engine.js';
 
 async function main() {
   const { values } = parseArgs({

@@ -1,6 +1,6 @@
 import assert from 'node:assert/strict';
 import test from 'node:test';
-import { detectEpicCompletion } from '../../.agents/scripts/lib/orchestration/dispatcher.js';
+import { detectEpicCompletion } from '../../.agents/scripts/lib/orchestration/dispatch-engine.js';
 import { MockProvider } from '../fixtures/mock-provider.js';
 
 test('detectEpicCompletion: does nothing if tasks are missing', async () => {

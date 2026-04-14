@@ -1,5 +1,5 @@
 /**
- * lib/orchestration/dispatcher.js — Core Dispatch Engine (SDK)
+ * lib/orchestration/dispatch-engine.js — Core Dispatch Engine (SDK)
  *
  * Stateless, async orchestration logic extracted from the CLI entry point.
  * This module is the SDK layer — it has no knowledge of CLI arguments,
@@ -24,7 +24,7 @@ import { buildGraph, computeWaves, detectCycle } from '../Graph.js';
 import { getEpicBranch, gitSync } from '../git-utils.js';
 import { createProvider } from '../provider-factory.js';
 import { VerboseLogger } from '../VerboseLogger.js';
-import { hydrateContext } from './context-hydrator.js';
+import { hydrateContext } from './context-hydration-engine.js';
 import { autoSerializeOverlaps } from './dependency-analyzer.js';
 import { buildManifest, getResolvedBranch } from './manifest-builder.js';
 import { resolveModel } from './model-resolver.js';

@@ -17,9 +17,9 @@ export {
   hydrateContext,
   parseHierarchy,
   truncateToTokenBudget,
-} from './context-hydrator.js';
+} from './context-hydration-engine.js';
 // Core dispatcher — business logic for orchestrating Epic task waves
-export { dispatch, resolveAndDispatch } from './dispatcher.js';
+export { dispatch, resolveAndDispatch } from './dispatch-engine.js';
 export { executeStory } from './story-executor.js';
 // Ticketing operations — state transitions and hierarchy management
 export {

@@ -5,7 +5,7 @@
  * dispatcher.js — CLI Entry Point for the Dispatch Engine
  *
  * Thin wrapper around the orchestration SDK. Parses CLI arguments,
- * delegates core logic to `lib/orchestration/dispatcher.js`, then
+ * delegates core logic to `lib/orchestration/dispatch-engine.js`, then
  * handles file I/O and console output.
  *
  * Usage:
