@@ -384,8 +384,11 @@ export class GitHubProvider extends ITicketingProvider {
         { headers: { 'GraphQL-Features': 'sub_issues' } },
       );
       nativeChildIds = (data.node?.subIssues?.nodes || []).map((n) => n.number);
-    } catch (_err) {
+    } catch (err) {
       // GraphQL feature might not be enabled or permission error — proceed with checkboxes only
+      console.warn(
+        `[GitHubProvider] sub-issues GraphQL fallback (parent #${parentId}): ${err.message}`,
+      );
     }
 
     // Secondary: Match checklist items linking to issues: "- [ ] #123" or "- [x] #123"
@@ -403,8 +406,11 @@ export class GitHubProvider extends ITicketingProvider {
       try {
         const issues = await this.getTickets(parentId);
         referencedChildIds = issues.map((i) => i.id);
-      } catch (_err) {
-        // Ignore errors in tertiary lookup
+      } catch (err) {
+        // Tertiary reverse-lookup failed; non-fatal — continue with native + checklist sources.
+        console.warn(
+          `[GitHubProvider] reverse dependency lookup (parent #${parentId}): ${err.message}`,
+        );
       }
     }
 
@@ -505,8 +511,11 @@ export class GitHubProvider extends ITicketingProvider {
     // Natively link as sub-issue
     try {
       await this.addSubIssue(parentId, issue.node_id);
-    } catch {
+    } catch (err) {
       // Sub-issues might not be enabled or permission issues — fallback to text-only link (already in body)
+      console.warn(
+        `[GitHubProvider] sub-issue link failed for #${issue.number} → parent #${parentId}: ${err.message}`,
+      );
     }
 
     // Add to project if configured
@@ -624,8 +633,11 @@ export class GitHubProvider extends ITicketingProvider {
         number: this.projectNumber,
       });
       if (data?.user?.projectV2) return data.user.projectV2;
-    } catch {
-      /* ignore */
+    } catch (err) {
+      // User-scoped ProjectV2 lookup failed; try organization scope next.
+      console.warn(
+        `[GitHubProvider] ProjectV2 user lookup failed (owner=${this.projectOwner}): ${err.message}`,
+      );
     }
 
     // Fallback to organization
@@ -635,8 +647,11 @@ export class GitHubProvider extends ITicketingProvider {
         number: this.projectNumber,
       });
       return data?.organization?.projectV2;
-    } catch {
-      /* ignore */
+    } catch (err) {
+      // Org-scoped ProjectV2 lookup failed; caller receives null and degrades to non-project mode.
+      console.warn(
+        `[GitHubProvider] ProjectV2 org lookup failed (owner=${this.projectOwner}): ${err.message}`,
+      );
     }
 
     return null;
