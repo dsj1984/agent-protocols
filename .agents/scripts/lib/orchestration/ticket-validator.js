@@ -15,6 +15,11 @@ export function validateAndNormalizeTickets(tickets) {
 
   for (const t of tickets) {
     if (t.slug) {
+      if (ticketBySlug.has(t.slug)) {
+        throw new Error(
+          `Cross-Validation Failed: Duplicate slug "${t.slug}" — slugs must be unique across the backlog. Colliding titles: "${ticketBySlug.get(t.slug).title}" and "${t.title}".`,
+        );
+      }
       ticketBySlug.set(t.slug, t);
     }
     slugAdjacency.set(t.slug, t.depends_on ?? []);
@@ -70,6 +75,26 @@ export function validateAndNormalizeTickets(tickets) {
         `Cross-Validation Failed: Task "${task.title}" parent must be a Story.`,
       );
     }
+  }
+
+  // Every Story must have at least one child Task. A story with zero tasks is
+  // a truncated/malformed LLM output that cannot be dispatched or executed,
+  // and historically leaked through to GitHub as an empty container issue.
+  const taskCountByStory = new Map();
+  for (const task of tasks) {
+    taskCountByStory.set(
+      task.parent_slug,
+      (taskCountByStory.get(task.parent_slug) ?? 0) + 1,
+    );
+  }
+  const emptyStories = stories.filter(
+    (s) => (taskCountByStory.get(s.slug) ?? 0) === 0,
+  );
+  if (emptyStories.length > 0) {
+    const list = emptyStories.map((s) => `"${s.title}" (${s.slug})`).join(', ');
+    throw new Error(
+      `Cross-Validation Failed: ${emptyStories.length} Story/Stories have no child Tasks: ${list}. Every Story must decompose into at least one Task.`,
+    );
   }
 
   // ── Cross-story task dependency validation ─────────────────────────────

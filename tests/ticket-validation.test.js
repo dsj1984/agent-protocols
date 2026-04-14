@@ -55,6 +55,82 @@ test('ticket-validator: fails on missing complexity', () => {
   );
 });
 
+test('ticket-validator: fails on duplicate slug', () => {
+  const tickets = [
+    { slug: 'F1', type: 'feature', title: 'Feature 1' },
+    {
+      slug: 'S1',
+      type: 'story',
+      title: 'Story 1',
+      parent_slug: 'F1',
+      labels: ['complexity::fast'],
+    },
+    { slug: 'T1', type: 'task', title: 'Task 1', parent_slug: 'S1' },
+    { slug: 'T1', type: 'task', title: 'Task 1 duplicate', parent_slug: 'S1' },
+  ];
+  assert.throws(
+    () => validateAndNormalizeTickets(tickets),
+    /Duplicate slug "T1"/,
+  );
+});
+
+test('ticket-validator: fails when a Story has no child Tasks', () => {
+  const tickets = [
+    { slug: 'F1', type: 'feature', title: 'Feature 1' },
+    {
+      slug: 'S1',
+      type: 'story',
+      title: 'Story with no tasks',
+      parent_slug: 'F1',
+      labels: ['complexity::fast'],
+    },
+    {
+      slug: 'S2',
+      type: 'story',
+      title: 'Story with a task',
+      parent_slug: 'F1',
+      labels: ['complexity::fast'],
+    },
+    { slug: 'T1', type: 'task', title: 'Task 1', parent_slug: 'S2' },
+  ];
+  assert.throws(
+    () => validateAndNormalizeTickets(tickets),
+    /Story.*have no child Tasks/,
+  );
+});
+
+test('ticket-validator: reports all empty stories in one error', () => {
+  const tickets = [
+    { slug: 'F1', type: 'feature', title: 'Feature 1' },
+    {
+      slug: 'S1',
+      type: 'story',
+      title: 'Empty A',
+      parent_slug: 'F1',
+      labels: ['complexity::fast'],
+    },
+    {
+      slug: 'S2',
+      type: 'story',
+      title: 'Empty B',
+      parent_slug: 'F1',
+      labels: ['complexity::fast'],
+    },
+    {
+      slug: 'S3',
+      type: 'story',
+      title: 'Has task',
+      parent_slug: 'F1',
+      labels: ['complexity::fast'],
+    },
+    { slug: 'T1', type: 'task', title: 'Task 1', parent_slug: 'S3' },
+  ];
+  assert.throws(
+    () => validateAndNormalizeTickets(tickets),
+    /2 Story\/Stories.*Empty A.*Empty B/s,
+  );
+});
+
 test('ticket-validator: lifts cross-story dependencies', () => {
   const tickets = [
     { slug: 'F1', type: 'feature', title: 'Feature' },
@@ -117,6 +193,7 @@ test('ticket-validator: detects cycles', () => {
       depends_on: ['S1'],
     },
     { slug: 'T1', type: 'task', title: 'Task 1', parent_slug: 'S1' },
+    { slug: 'T2', type: 'task', title: 'Task 2', parent_slug: 'S2' },
   ];
 
   assert.throws(
@@ -214,6 +291,7 @@ test('ticket-validator: keeps cross-story deps on non-task tickets', () => {
       labels: ['complexity::fast'],
     },
     { slug: 'T1', type: 'task', parent_slug: 'S1', depends_on: ['S2'] },
+    { slug: 'T2', type: 'task', parent_slug: 'S2' },
   ];
   const result = validateAndNormalizeTickets(tickets);
   assert.ok(result.find((t) => t.slug === 'T1').depends_on.includes('S2'));

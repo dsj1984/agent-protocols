@@ -2,6 +2,78 @@
 
 All notable changes to this project will be documented in this file.
 
+## [5.5.3] - 2026-04-14
+
+### 🛡️ Planning Hardening — close every silent task-drop path
+
+Follow-up investigation on the zero-task-Story incident turned up three
+additional places where Tasks could be silently dropped between the LLM
+output and GitHub issue creation. Every one of them has been converted from
+"silently continue" to either "throw" or "warn loudly":
+
+- **Duplicate slug detection (validator).** The validator built a
+  `ticketBySlug` map with `Map.set()`, which silently overwrote earlier
+  tickets when the LLM emitted two tickets with the same `slug`. Since
+  parent lookups then resolve to the wrong ticket, a Task could end up
+  attached to the wrong Story (or lost entirely after sorting). The
+  validator now throws
+  `Cross-Validation Failed: Duplicate slug "X" — slugs must be unique ...`
+  and names both colliding titles.
+- **Unresolved `parent_slug` (decomposer).** `ticket-decomposer.js` used to
+  default to the Epic ID when a Story or Task's `parent_slug` was missing
+  from `slugMap`. That silently orphaned tickets directly under the Epic
+  instead of their intended parent. The decomposer now throws for any
+  Story/Task without a `parent_slug` or whose `parent_slug` points at a
+  ticket that was never created. Features continue to attach directly to
+  the Epic as before.
+- **Unresolved `depends_on` entries (decomposer).** Dependency resolution
+  used `.map(slugMap.get).filter(Boolean)`, which silently discarded any
+  slug that did not resolve — breaking the DAG without diagnostics. The
+  decomposer now emits a warning per unresolved dependency identifying the
+  owning ticket and the missing slug.
+- **LLM truncation heuristic.** The decomposer prompt caps generation at
+  25 tickets. When the LLM bumps against that cap it often emits a
+  syntactically-valid-but-truncated backlog. The decomposer now warns when
+  the response has 25+ tickets so operators can split the Epic or verify
+  every Story still has children before the plan goes to GitHub.
+- **Array-shape guard.** `JSON.parse` now also checks that the result is an
+  array; a non-array LLM response is rejected with a clear error instead
+  of crashing downstream when something tries to iterate it.
+- **Test:** New `fails on duplicate slug` case in
+  `tests/ticket-validation.test.js` locks in the duplicate-slug invariant.
+
+### 🛡️ Planning Hardening — reject Stories with zero child Tasks
+
+Real-world `/sprint-plan` runs occasionally produced Stories that were pushed
+to GitHub with **no child Tasks**, leaving empty container issues that could
+not be dispatched or executed. Root cause: the LLM decomposer could emit a
+Story ticket (typically when its output was truncated or when it lazily
+created a Story shell intending to add tasks later) and the validator only
+enforced hierarchy (`story.parent_slug → feature`,
+`task.parent_slug → story`) without checking per-Story task cardinality.
+
+**Fixes:**
+
+- **`ticket-validator.js`: per-Story task-count invariant.** After hierarchy
+  validation, the validator now builds a
+  `taskCountByStory` map from the Tasks array and throws
+  `Cross-Validation Failed: N Story/Stories have no child Tasks: ...` listing
+  every offending Story by title and slug. This runs before any GitHub
+  issues are created, so the problem is caught at plan time rather than
+  after tickets exist.
+- **`decomposer-prompts.js`: mandatory cardinality clause.** The system
+  prompt now explicitly states that every Story MUST decompose into at
+  least one Task (typically 2–5), and that a Story too small for its own
+  Task must be merged back into a sibling Story instead of emitting an
+  empty container. This reduces the failure rate at the source in addition
+  to the hard post-condition in the validator.
+- **Tests:** Two new cases in `tests/ticket-validation.test.js` lock in the
+  invariant — one asserting the single-empty-Story failure path, one
+  asserting that multiple empty Stories are reported in a single aggregated
+  error. Two existing tests (`detects cycles`, `keeps cross-story deps on
+  non-task tickets`) were updated to give every Story a child Task so they
+  continue to test their intended behavior.
+
 ## [5.5.2] - 2026-04-14
 
 ### 🧹 `.agents/` Consolidation Pass
