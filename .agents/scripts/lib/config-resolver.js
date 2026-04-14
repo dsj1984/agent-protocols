@@ -16,14 +16,13 @@ import { fileURLToPath } from 'node:url';
 import {
   getOrchestrationValidator,
   getSettingsValidator,
+  SHELL_INJECTION_RE_STRICT as SHELL_INJECTION_RE,
 } from './config-schema.js';
 import { loadEnv } from './env-loader.js';
 
 const __dirname = path.dirname(fileURLToPath(import.meta.url));
 // scripts/lib/ → scripts/ → .agents/ → project root
 export const PROJECT_ROOT = path.resolve(__dirname, '../../..');
-
-const SHELL_INJECTION_RE = /[&|;`<>()$]/;
 
 // Auto-load .env from the project root if it exists
 loadEnv(PROJECT_ROOT);
