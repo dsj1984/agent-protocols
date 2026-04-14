@@ -1,0 +1,68 @@
+#!/usr/bin/env node
+
+/* node:coverage ignore file */
+
+/**
+ * assert-branch.js — Pre-commit Branch Guard
+ *
+ * Exits non-zero if the current git branch does not match `--expected`.
+ * Intended to be invoked immediately before `git add`/`git commit` in any
+ * workflow where multiple agents share a working directory. Prevents the
+ * parallel-story contention bug where one agent's `git add` sweeps another
+ * agent's WIP after a concurrent `git checkout`.
+ *
+ * Usage:
+ *   node .agents/scripts/assert-branch.js --expected <branch-name>
+ *
+ * Exit codes:
+ *   0 — Current branch matches expected.
+ *   1 — Mismatch (stderr explains) or invocation error.
+ */
+
+import { PROJECT_ROOT } from './lib/config-resolver.js';
+import { gitSpawn } from './lib/git-utils.js';
+
+export function assertBranch(expected, { cwd = PROJECT_ROOT } = {}) {
+  if (!expected || typeof expected !== 'string') {
+    return { ok: false, reason: 'missing --expected <branch>' };
+  }
+  const result = gitSpawn(cwd, 'branch', '--show-current');
+  if (result.status !== 0) {
+    return {
+      ok: false,
+      reason: `git branch --show-current failed: ${result.stderr}`,
+    };
+  }
+  const actual = result.stdout;
+  if (actual !== expected) {
+    return {
+      ok: false,
+      reason: `branch mismatch — expected "${expected}", on "${actual}". Another agent may have switched the working directory. STOP: do not commit.`,
+      actual,
+      expected,
+    };
+  }
+  return { ok: true, actual, expected };
+}
+
+function parseArgs(argv) {
+  let expected = null;
+  for (let i = 0; i < argv.length; i++) {
+    if (argv[i] === '--expected' && i + 1 < argv.length) {
+      expected = argv[i + 1];
+      i++;
+    }
+  }
+  return { expected };
+}
+
+const isMain = import.meta.url === `file://${process.argv[1]}`;
+if (isMain) {
+  const { expected } = parseArgs(process.argv.slice(2));
+  const result = assertBranch(expected);
+  if (!result.ok) {
+    console.error(`[assert-branch] ${result.reason}`);
+    process.exit(1);
+  }
+  console.log(`[assert-branch] ✅ on ${result.actual}`);
+}

@@ -161,10 +161,24 @@ For **each child Task** in the order returned by `sprint-story-init.js`:
 1. Read the full `## Instructions` section of the Task ticket.
 2. Implement all described changes strictly within the scope of the Story
    branch.
-3. Commit after completing each Task with a message referencing the Task ID:
+3. Commit after completing each Task with a message referencing the Task ID.
+   **Always assert the branch and stage explicitly** — under parallel story
+   execution, another agent may have switched the working directory between your
+   edits and your commit. `git add .` would then sweep their WIP into your
+   commit.
 
    ```powershell
-   git add .
+   # 1. Guard: halt if the working dir was switched by another agent.
+   node .agents/scripts/assert-branch.js --expected story-<storyId>
+
+   # 2. Stage: prefer explicit paths for the files you edited in this Task.
+   #    Fallback: `git add -u` stages tracked edits only (never untracked —
+   #    untracked files in a shared working tree almost always belong to
+   #    another agent). Add new files you created by explicit path only.
+   git add <path/one> <path/two>
+   # or, for tracked edits only:
+   # git add -u
+
    git commit --no-verify -m "feat(<scope>): <task title> (resolves #<taskId>)"
    ```
 

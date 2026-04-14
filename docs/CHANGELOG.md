@@ -2,6 +2,78 @@
 
 All notable changes to this project will be documented in this file.
 
+## [5.5.1] - 2026-04-14
+
+### 🧠 Planning Hardening (parallel-story contention)
+
+- **`computeStoryWaves`: focus-area overlap serialization.** The planner
+  previously grouped stories into waves using only cross-task dependencies
+  and explicit `blocked by` declarations on story tickets. Stories with no
+  dependency edge but overlapping target directories (e.g. five stories all
+  editing `apps/api/src/routes/v1/media/`) would land in the same wave and
+  race at runtime. `computeStoryWaves` now rolls task-level `focusAreas` up
+  to the story, compares pairwise, and adds a deterministic ordering edge
+  (lower storyId → higher storyId) whenever two stories overlap and are not
+  already ordered. Stories with no declared focus areas are left alone to
+  prevent over-serialization. Global-scope stories (any child task with
+  `scope === 'root'` or a `*` focus area) serialize after every other
+  story. A new `__test` seam exposes `rollUpStoryFocus` and
+  `addFocusOverlapEdges` for unit testing. Epic #229 tracks the broader
+  architectural fix (worktree-per-story isolation) for future consideration.
+
+### 🐛 Bug Fixes
+
+- **`sprint-story-init`: tri-state Epic branch bootstrap.** The old
+  `bootstrapBranch` only inspected `ls-remote` for the Epic branch. If
+  `epic/<id>` already existed **locally** (e.g. from a prior partial init or a
+  parallel story that bootstrapped it seconds earlier) but not remotely, the
+  script took the "doesn't exist" path and ran `git checkout -b epic/<id>`,
+  which fails because the local branch already exists. The new logic checks
+  local (`git rev-parse --verify refs/heads/<branch>`) and remote
+  (`ls-remote`) independently and handles all four states correctly. A
+  dirty-working-tree guard (`assertWorkingTreeClean`) now runs before any
+  branch switch, so an in-progress session from another agent is detected and
+  halts the init rather than being silently overwritten. The Story-branch
+  checkout is also non-destructive when the branch already exists (no more
+  unconditional `checkout -B`).
+
+### 🛡️ Workflow Hardening (parallel-story contention)
+
+- **`assert-branch.js`: pre-commit branch guard.** New script
+  (`.agents/scripts/assert-branch.js --expected <branch>`) that verifies
+  `git branch --show-current` matches the expected branch and exits non-zero
+  otherwise. Intended to be invoked immediately before every `git add`/
+  `git commit` in shared-working-tree sprint workflows so a concurrent
+  `git checkout` by another agent cannot result in a commit to the wrong
+  branch.
+
+- **`git add .` → explicit staging** in every sprint-time workflow
+  (`sprint-execute.md`, `sprint-hotfix.md`, `sprint-close.md` version-bump,
+  `sprint-code-review.md` remediation). `git add .` sweeps untracked files
+  sitting in the working directory, which under parallel execution may belong
+  to another agent. Workflows now prescribe explicit paths (or `git add -u`
+  for tracked-edit-only commits) and a prior `assert-branch.js` call. The
+  generic `git-commit-all.md` and `git-push.md` workflows now carry an
+  explicit warning not to be used inside `/sprint-execute #<storyId>`.
+
+- **Root cause traced to a multi-story sprint on 2026-04-14** where five
+  parallel story agents shared one working tree: within seconds the HEAD
+  swapped through `epic/267 → story-329 → story-307 → story-302 → story-304`,
+  and a `git add -A && git commit` intended for `story-329` ran while the
+  working dir was on `story-304`, sweeping a foreign WIP file into the
+  commit. These fixes close the two specific failure modes that made the
+  contention harmful; a larger worktree-per-story change is tracked
+  separately.
+
+### 🧪 Tests
+
+- 10 new tests: `assert-branch` (4 cases), `sprint-story-init` tri-state
+  epic bootstrap (reproduces the #329 crash with `epic/<id>` local-only),
+  dirty-working-tree refusal, and 7 `computeStoryWaves` cases covering
+  focus-overlap serialization, disjoint-areas, missing focus data,
+  global-scope, redundant-edge avoidance, a five-way contention regression
+  test, and `rollUpStoryFocus` rollup. Total: 422 passing (up from 412).
+
 ## [5.5.0] - 2026-04-14
 
 ### ✨ New Features

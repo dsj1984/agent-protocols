@@ -25,11 +25,50 @@ const mockExec = (cmd, args) => {
   if (args.includes('ls-remote')) return 'abc story-100';
   return '';
 };
+// Tracks branches known to exist locally so rev-parse --verify behaves
+// realistically in bootstrap tri-state decisions.
+const knownLocalBranches = new Set(['main']);
+const knownRemoteBranches = new Set();
+
 const mockSpawn = (cmd, args) => {
   gitHistory.push({ cmd, args, type: 'spawn' });
+  // Register new branches from `checkout -b <name>` BEFORE trackBranch runs,
+  // so subsequent rev-parse calls see them.
+  if (args[0] === 'checkout') {
+    const flagIdx = args.findIndex((a) => a === '-b' || a === '-B');
+    if (flagIdx >= 0 && args[flagIdx + 1]) {
+      knownLocalBranches.add(args[flagIdx + 1]);
+    }
+  }
+  if (args[0] === 'push') {
+    const branch = args[args.length - 1];
+    if (branch && !branch.startsWith('-')) knownRemoteBranches.add(branch);
+  }
   trackBranch(args);
   if (args.includes('--show-current')) {
     return { status: 0, stdout: currentBranch, stderr: '' };
+  }
+  if (args[0] === 'rev-parse' && args.includes('--verify')) {
+    const ref = args[args.length - 1];
+    const branch = ref.replace(/^refs\/heads\//, '');
+    return {
+      status: knownLocalBranches.has(branch) ? 0 : 128,
+      stdout: '',
+      stderr: '',
+    };
+  }
+  if (args[0] === 'ls-remote') {
+    const branch = args[args.length - 1];
+    return {
+      status: 0,
+      stdout: knownRemoteBranches.has(branch)
+        ? `abc\trefs/heads/${branch}`
+        : '',
+      stderr: '',
+    };
+  }
+  if (args[0] === 'status' && args.includes('--porcelain')) {
+    return { status: 0, stdout: '', stderr: '' };
   }
   return { status: 0, stdout: '', stderr: '' };
 };
@@ -39,6 +78,9 @@ __setGitRunners(mockExec, mockSpawn);
 test.beforeEach(() => {
   gitHistory.length = 0;
   currentBranch = 'main';
+  knownLocalBranches.clear();
+  knownLocalBranches.add('main');
+  knownRemoteBranches.clear();
 });
 
 const mockConfig = {
@@ -134,6 +176,89 @@ test('sprint-story-init: fails on open blockers', async () => {
   assert.strictEqual(blocked, true, 'Should be flagged as blocked');
   assert.strictEqual(openBlockers.length, 1, 'Should find 1 open blocker');
   assert.strictEqual(openBlockers[0].id, 99);
+});
+
+test('sprint-story-init: epic exists locally only → pushes to remote (no crash)', async () => {
+  // Reproduces the #329 crash: epic/50 exists locally from a prior partial
+  // run but not remotely. Old logic ran `checkout -b epic/50` and failed.
+  knownLocalBranches.add('epic/50');
+
+  const provider = new MockProvider({
+    tickets: {
+      100: {
+        id: 100,
+        title: 'Story 100',
+        body: 'Epic: #50',
+        labels: ['type::story'],
+      },
+      50: { id: 50, title: 'Epic 50', labels: ['type::epic'] },
+    },
+    subTickets: { 100: [] },
+  });
+
+  const { success } = await runStoryInit({
+    storyId: 100,
+    dryRun: false,
+    injectedProvider: provider,
+    injectedConfig: mockConfig,
+  });
+
+  assert.ok(success, 'Should succeed when epic exists locally only');
+  const checkoutCreateCalls = gitHistory.filter(
+    (h) =>
+      h.args[0] === 'checkout' &&
+      (h.args[1] === '-b' || h.args[1] === '-B') &&
+      h.args[2] === 'epic/50',
+  );
+  assert.strictEqual(
+    checkoutCreateCalls.length,
+    0,
+    'Must not attempt `checkout -b epic/50` when branch already exists locally',
+  );
+  const pushCalls = gitHistory.filter(
+    (h) => h.args[0] === 'push' && h.args.includes('epic/50'),
+  );
+  assert.ok(pushCalls.length > 0, 'Should publish the local-only epic branch');
+});
+
+test('sprint-story-init: refuses to switch branches when working tree is dirty', async () => {
+  const provider = new MockProvider({
+    tickets: {
+      100: {
+        id: 100,
+        title: 'Story 100',
+        body: 'Epic: #50',
+        labels: ['type::story'],
+      },
+      50: { id: 50, title: 'Epic 50', labels: ['type::epic'] },
+    },
+    subTickets: { 100: [] },
+  });
+
+  // Temporarily inject a dirty-tree response for `status --porcelain`.
+  __setGitRunners(mockExec, (cmd, args) => {
+    if (args[0] === 'status' && args.includes('--porcelain')) {
+      return {
+        status: 0,
+        stdout: ' M apps/api/src/routes/v1/media/highlights.ts',
+        stderr: '',
+      };
+    }
+    return mockSpawn(cmd, args);
+  });
+
+  await assert.rejects(
+    runStoryInit({
+      storyId: 100,
+      dryRun: false,
+      injectedProvider: provider,
+      injectedConfig: mockConfig,
+    }),
+    /Working tree is dirty/,
+  );
+
+  // Restore
+  __setGitRunners(mockExec, mockSpawn);
 });
 
 test('sprint-story-close: successful merge and closure', async () => {

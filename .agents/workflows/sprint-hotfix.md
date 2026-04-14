@@ -6,12 +6,12 @@ description: >-
 
 # Sprint Hotfix
 
-This workflow fixes regressions or build failures identified during
-story execution or review. It operates exclusively on the original Story
-branch to keep the Epic base branch clean.
+This workflow fixes regressions or build failures identified during story
+execution or review. It operates exclusively on the original Story branch to
+keep the Epic base branch clean.
 
-> **When to run**: When a regression or build failure is found for a
-> specific Story.
+> **When to run**: When a regression or build failure is found for a specific
+> Story.
 
 ## Step 0 — Resolve Context
 
@@ -25,8 +25,8 @@ branch to keep the Epic base branch clean.
 
 ## Step 1 — Apply Blocked Status
 
-Before starting remediation, apply `status::blocked` to the Story ticket and post
-a friction comment to surface the failure to the operator:
+Before starting remediation, apply `status::blocked` to the Story ticket and
+post a friction comment to surface the failure to the operator:
 
 ```javascript
 // transitionTicketState([STORY_ID], 'status::blocked')
@@ -82,7 +82,14 @@ Both must pass with zero errors before proceeding.
 ## Step 6 — Commit & Re-Push
 
 ```powershell
-git add .
+# Guard: halt if the working dir was switched by another agent.
+node .agents/scripts/assert-branch.js --expected story-[STORY_ID]
+
+# Stage explicit paths for the hotfix — never `git add .` on a shared tree.
+git add <path/one> <path/two>
+# or, for tracked edits only:
+# git add -u
+
 git commit --no-verify -m "fix([scope]): hotfix validation failure for #[STORY_ID] ([brief description])"
 git push --force-with-lease origin story/epic-[EPIC_ID]/[STORY_ID]
 ```
@@ -99,8 +106,8 @@ Remove the `status::blocked` label and post a recovery comment:
 
 ## Step 8 — Re-evaluation
 
-- **If retry count ≤ `[MAX_RETRY]`**: Re-run validation to verify
-  the fix is correct.
+- **If retry count ≤ `[MAX_RETRY]`**: Re-run validation to verify the fix is
+  correct.
 - **If retry count > `[MAX_RETRY]`**: **STOP IMMEDIATELY.** You have hit the
   anti-thrashing threshold. Post a final friction comment and escalate to the
   operator with a summary of all remediation attempts and the outstanding
@@ -114,6 +121,6 @@ Remove the `status::blocked` label and post a recovery comment:
 ## Constraint
 
 Do **not** attempt to fix regressions directly on `[EPIC_BRANCH]`. Always
-maintain isolation on the Story branch to protect the blast-radius of the
-shared Epic integration branch. Do **not** skip the Blocked Status steps — the
-operator must always have visibility into failures via the ticket graph.
+maintain isolation on the Story branch to protect the blast-radius of the shared
+Epic integration branch. Do **not** skip the Blocked Status steps — the operator
+must always have visibility into failures via the ticket graph.
