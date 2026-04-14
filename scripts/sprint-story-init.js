@@ -141,45 +141,116 @@ function extractAndSortTasks(tasks) {
   }
 }
 
-function bootstrapBranch(epicBranch, storyBranch, baseBranch) {
-  progress('GIT', 'Fetching remote refs...');
-  gitSpawn(PROJECT_ROOT, 'fetch', 'origin');
+function branchExistsLocally(branch) {
+  return (
+    gitSpawn(
+      PROJECT_ROOT,
+      'rev-parse',
+      '--verify',
+      '--quiet',
+      `refs/heads/${branch}`,
+    ).status === 0
+  );
+}
 
-  const lsRemote = gitSpawn(
+function branchExistsRemotely(branch) {
+  const result = gitSpawn(
     PROJECT_ROOT,
     'ls-remote',
     '--heads',
     'origin',
-    epicBranch,
+    branch,
   );
-  const epicExistsRemotely = lsRemote.stdout.length > 0;
+  return result.status === 0 && result.stdout.length > 0;
+}
 
-  if (!epicExistsRemotely) {
+function assertWorkingTreeClean() {
+  const status = gitSpawn(PROJECT_ROOT, 'status', '--porcelain');
+  if (status.status !== 0) {
+    throw new Error(
+      `Failed to read git status: ${status.stderr || '(no stderr)'}`,
+    );
+  }
+  if (status.stdout.length > 0) {
+    throw new Error(
+      `Working tree is dirty. Refusing to switch branches — uncommitted/untracked files may belong to another agent.\nRun \`git status\` and resolve before retrying.\n--- dirty entries ---\n${status.stdout}`,
+    );
+  }
+}
+
+function ensureEpicBranch(epicBranch, baseBranch) {
+  const local = branchExistsLocally(epicBranch);
+  const remote = branchExistsRemotely(epicBranch);
+
+  if (!local && !remote) {
     progress('GIT', `Creating Epic branch: ${epicBranch} (from ${baseBranch})`);
     gitSync(PROJECT_ROOT, 'checkout', baseBranch);
     gitSpawn(PROJECT_ROOT, 'pull', '--rebase', 'origin', baseBranch);
     gitSync(PROJECT_ROOT, 'checkout', '-b', epicBranch);
-    gitSync(PROJECT_ROOT, 'push', '--no-verify', 'origin', epicBranch);
-  } else {
-    progress('GIT', `Epic branch exists. Syncing: ${epicBranch}`);
-    const checkoutResult = gitSpawn(PROJECT_ROOT, 'checkout', epicBranch);
-    if (checkoutResult.status !== 0) {
+    gitSync(PROJECT_ROOT, 'push', '--no-verify', '-u', 'origin', epicBranch);
+    return;
+  }
+
+  if (local && !remote) {
+    progress(
+      'GIT',
+      `Epic branch exists locally only: ${epicBranch}. Publishing.`,
+    );
+    gitSync(PROJECT_ROOT, 'checkout', epicBranch);
+    gitSync(PROJECT_ROOT, 'push', '--no-verify', '-u', 'origin', epicBranch);
+    return;
+  }
+
+  if (!local && remote) {
+    progress('GIT', `Tracking remote Epic branch: ${epicBranch}`);
+    gitSync(PROJECT_ROOT, 'checkout', '-b', epicBranch, `origin/${epicBranch}`);
+    gitSpawn(PROJECT_ROOT, 'pull', '--rebase', 'origin', epicBranch);
+    return;
+  }
+
+  progress('GIT', `Epic branch exists. Syncing: ${epicBranch}`);
+  gitSync(PROJECT_ROOT, 'checkout', epicBranch);
+  gitSpawn(PROJECT_ROOT, 'pull', '--rebase', 'origin', epicBranch);
+}
+
+function checkoutStoryBranch(storyBranch, epicBranch) {
+  const local = branchExistsLocally(storyBranch);
+  const remote = branchExistsRemotely(storyBranch);
+
+  if (local || remote) {
+    progress(
+      'GIT',
+      `Story branch already exists (local=${local}, remote=${remote}). Checking out non-destructively: ${storyBranch}`,
+    );
+    if (local) {
+      gitSync(PROJECT_ROOT, 'checkout', storyBranch);
+      if (remote) {
+        gitSpawn(PROJECT_ROOT, 'pull', '--rebase', 'origin', storyBranch);
+      }
+    } else {
       gitSync(
         PROJECT_ROOT,
         'checkout',
         '-b',
-        epicBranch,
-        `origin/${epicBranch}`,
+        storyBranch,
+        `origin/${storyBranch}`,
       );
     }
-    gitSpawn(PROJECT_ROOT, 'pull', '--rebase', 'origin', epicBranch);
+    return;
   }
 
-  progress(
-    'GIT',
-    `Checking out Story branch: ${storyBranch} (from ${epicBranch})`,
-  );
-  gitSync(PROJECT_ROOT, 'checkout', '-B', storyBranch, epicBranch);
+  progress('GIT', `Creating Story branch: ${storyBranch} (from ${epicBranch})`);
+  gitSync(PROJECT_ROOT, 'checkout', '-b', storyBranch, epicBranch);
+}
+
+function bootstrapBranch(epicBranch, storyBranch, baseBranch) {
+  progress('GIT', 'Fetching remote refs...');
+  gitSpawn(PROJECT_ROOT, 'fetch', 'origin');
+
+  assertWorkingTreeClean();
+
+  ensureEpicBranch(epicBranch, baseBranch);
+  checkoutStoryBranch(storyBranch, epicBranch);
 
   const currentBranch = gitSpawn(PROJECT_ROOT, 'branch', '--show-current');
   if (currentBranch.stdout !== storyBranch) {

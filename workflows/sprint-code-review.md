@@ -146,7 +146,14 @@ If the operator instructs you to fix any findings:
 2. Commit each logical fix atomically:
 
    ```powershell
-   git add .
+   # Guard: confirm we're on the Epic branch before committing.
+   node .agents/scripts/assert-branch.js --expected [EPIC_BRANCH]
+
+   # Stage explicit paths — never `git add .` on a shared tree.
+   git add <path/one> <path/two>
+   # or, for tracked edits only:
+   # git add -u
+
    git commit --no-verify -m "fix(<scope>): <description> (review finding)"
    ```
 

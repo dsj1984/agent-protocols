@@ -158,7 +158,11 @@ npm version [BUMP_SEGMENT] --no-git-tag-version
 1. **Commit** the version bump:
 
 ```powershell
-git add .
+# Guard: confirm we're on the Epic branch before committing the bump.
+node .agents/scripts/assert-branch.js --expected epic/[EPIC_ID]
+
+# Stage only the version-bump artefacts (never `git add .`).
+git add package.json package-lock.json [release.versionFile]
 git commit -m "chore(release): bump version to [NEW_VERSION] for Epic #[EPIC_ID]"
 ```
 
