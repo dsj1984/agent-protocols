@@ -20,6 +20,10 @@ manually by the operator.
    completed.
 2. Resolve `[SCRIPTS_ROOT]` from `scriptsRoot` in `.agentrc.json`.
 3. Resolve `[BASE_BRANCH]` from `baseBranch` in `.agentrc.json`.
+4. Resolve `[RETRO_PATH]` from `retroPath` in `.agentrc.json` (default:
+   `docs/retros/retro-epic-{epicId}.md`). Replace the `{epicId}` token with
+   `[EPIC_ID]` to produce the final output path. Ensure the parent directory
+   exists before writing (create it if missing).
 
 ## Step 1 — Gather Retrospective Data from the Ticket Graph
 
@@ -39,7 +43,7 @@ Read execution telemetry directly from GitHub — **not** from local files:
 
 ## Step 2 — Generate Retrospective Document
 
-Generate a `retro-epic-[EPIC_ID].md` file in the `[BASE_BRANCH]` docs root using
+Generate the retrospective document at `[RETRO_PATH]` (resolved in Step 0) using
 the following structure:
 
 ```markdown
@@ -99,7 +103,7 @@ updates are needed during the retrospective.
 ## Step 5 — Commit
 
 ```powershell
-git add docs/retro-epic-[EPIC_ID].md docs/architecture.md docs/decisions.md
+git add [RETRO_PATH] docs/architecture.md docs/decisions.md
 git commit --no-verify -m "docs(retro): Epic #[EPIC_ID] retrospective and documentation update"
 git push origin [BASE_BRANCH]
 ```
@@ -110,7 +114,7 @@ Post a structured comment on the Epic ticket linking to the retro document:
 
 ```javascript
 // postStructuredComment([EPIC_ID], 'progress',
-//   'Retrospective complete. See docs/retro-epic-[EPIC_ID].md for the full report.')
+//   `Retrospective complete. See [RETRO_PATH] for the full report.`)
 ```
 
 ## Constraint

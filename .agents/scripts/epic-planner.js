@@ -9,9 +9,8 @@
  * and Tech Spec, and posts them as linked GitHub issues under the Epic.
  */
 
-import path from 'node:path';
-import { fileURLToPath } from 'node:url';
 import { parseArgs } from 'node:util';
+import { runAsCli } from './lib/cli-utils.js';
 import { resolveConfig } from './lib/config-resolver.js';
 import { Logger } from './lib/Logger.js';
 import { LLMClient } from './lib/llm-client.js';
@@ -179,10 +178,4 @@ async function main() {
   });
 }
 
-// Only execute main if run directly
-/* node:coverage ignore next */
-if (fileURLToPath(import.meta.url) === path.resolve(process.argv[1])) {
-  main().catch((err) => {
-    Logger.fatal(err.message);
-  });
-}
+runAsCli(import.meta.url, main, { source: 'EpicPlanner' });

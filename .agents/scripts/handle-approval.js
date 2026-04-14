@@ -8,9 +8,8 @@
  * to implement the required fixes.
  */
 
-import path from 'node:path';
-import { fileURLToPath } from 'node:url';
 import { parseArgs } from 'node:util';
+import { runAsCli } from './lib/cli-utils.js';
 import { resolveConfig } from './lib/config-resolver.js';
 import { Logger } from './lib/Logger.js';
 import { createProvider } from './lib/provider-factory.js';
@@ -78,8 +77,4 @@ async function main() {
   await handleApproval(ticketId, values.comment);
 }
 
-if (fileURLToPath(import.meta.url) === path.resolve(process.argv[1])) {
-  main().catch((err) => {
-    Logger.fatal(`Fatal error: ${err.stack || err.message}`);
-  });
-}
+runAsCli(import.meta.url, main, { source: 'HandleApproval' });

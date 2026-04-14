@@ -105,6 +105,7 @@ export function resolveConfig(opts) {
       maintainability: { targetDirs: ['.agents/scripts', 'tests'] },
       auditOutputDir: 'temp',
       roadmapPath: 'docs/ROADMAP.md',
+      retroPath: 'docs/retros/retro-epic-{epicId}.md',
       executionTimeoutMs: 300000,
       executionMaxBuffer: 10485760,
       maxTokenBudget: 80000,
@@ -133,6 +134,7 @@ export function resolveConfig(opts) {
     settings.verboseLogging =
       settings.verboseLogging ?? defaults.verboseLogging;
     settings.roadmapPath = settings.roadmapPath ?? defaults.roadmapPath;
+    settings.retroPath = settings.retroPath ?? defaults.retroPath;
     settings.executionTimeoutMs =
       settings.executionTimeoutMs ?? defaults.executionTimeoutMs;
     settings.executionMaxBuffer =
@@ -183,6 +185,7 @@ export function resolveConfig(opts) {
       notificationWebhookUrl: '',
       verboseLogging: { enabled: false, logDir: 'temp/verbose-logs' },
       roadmapPath: 'docs/ROADMAP.md',
+      retroPath: 'docs/retros/retro-epic-{epicId}.md',
       executionTimeoutMs: 300000, // 5 minutes
       executionMaxBuffer: 10485760, // 10MB
       maxTokenBudget: 80000, // Default 80k token budget

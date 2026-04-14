@@ -212,11 +212,6 @@ export async function main(args = process.argv.slice(2)) {
 // Call main if run directly
 // ---------------------------------------------------------------------------
 
-import path from 'node:path';
-import { fileURLToPath } from 'node:url';
+import { runAsCli } from './lib/cli-utils.js';
 
-if (fileURLToPath(import.meta.url) === path.resolve(process.argv[1])) {
-  main().catch((err) => {
-    Logger.fatal(`Fatal error: ${err.message}`);
-  });
-}
+runAsCli(import.meta.url, main, { source: 'DiagnoseFriction' });

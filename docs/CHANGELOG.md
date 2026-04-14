@@ -2,6 +2,18 @@
 
 All notable changes to this project will be documented in this file.
 
+## [5.5.0] - 2026-04-14
+
+### ✨ New Features
+
+- **`retroPath`: Configurable Retrospective Output Location** — Added a new `agentSettings.retroPath` config key (default: `docs/retros/retro-epic-{epicId}.md`) that controls where `/sprint-retro` writes its output. The `{epicId}` token is substituted at runtime. Registered in `config-schema.js`, defaulted in `config-resolver.js`, and surfaced in both `.agentrc.json` and `default-agentrc.json`. The `sprint-retro` workflow now resolves `[RETRO_PATH]` in Step 0 and uses it in the document-generation, commit, and Epic-comment steps.
+
+### 🛡️ Workflow Hardening
+
+- **`sprint-close`: Retrospective Gate (Step 1.5)** — Added a mandatory pre-merge check that halts `/sprint-close` when the retrospective document does not exist at `[RETRO_PATH]`. Previously, `/sprint-retro` could be silently skipped because the dispatcher's Bookend Lifecycle only _announced_ the phases without executing them, and nothing downstream verified the retro had run. The new gate forces operators to invoke `/sprint-retro [EPIC_ID]` before the Epic can close.
+
+- **Dispatcher Epic-Complete Comment: Explicit Next Actions** — Rewrote the `detectEpicCompletion` summary comment in `dispatcher.js` to list the four bookend slash commands (`/audit-quality`, `/sprint-code-review`, `/sprint-retro`, `/sprint-close`) with their Epic ID pre-filled, and explicitly warns that skipping `/sprint-retro` will trip the new close-time Retrospective Gate. This replaces the previous vague "will now execute sequentially" wording that implied automation the dispatcher does not perform.
+
 ## [5.4.6] - 2026-04-14
 
 ### 🐛 Bug Fixes

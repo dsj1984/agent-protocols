@@ -3,6 +3,7 @@ import fs from 'node:fs';
 import path from 'node:path';
 import { fileURLToPath } from 'node:url';
 import { parseArgsStringToArgv } from 'string-argv';
+import { runAsCli } from './lib/cli-utils.js';
 import { resolveConfig } from './lib/config-resolver.js';
 import { Logger } from './lib/Logger.js';
 
@@ -179,8 +180,4 @@ export async function main(args = process.argv) {
   }
 }
 
-if (fileURLToPath(import.meta.url) === path.resolve(process.argv[1])) {
-  main().catch((err) => {
-    Logger.fatal(`Fatal error: ${err.message}`);
-  });
-}
+runAsCli(import.meta.url, main, { source: 'LintBaseline' });

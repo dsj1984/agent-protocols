@@ -17,7 +17,7 @@
 
 import fs from 'node:fs';
 import path from 'node:path';
-import { fileURLToPath } from 'node:url';
+import { runAsCli } from './lib/cli-utils.js';
 import { Logger } from './lib/Logger.js';
 import { LABEL_TAXONOMY, PROJECT_FIELD_DEFS } from './lib/label-taxonomy.js';
 import { createProvider } from './lib/provider-factory.js';
@@ -156,12 +156,4 @@ async function main() {
   }
 }
 
-// Run as CLI when invoked directly
-// M-6: Standardized direct-run detection pattern.
-const isDirectRun =
-  process.argv[1] &&
-  fileURLToPath(import.meta.url) === path.resolve(process.argv[1]);
-
-if (isDirectRun) {
-  main();
-}
+runAsCli(import.meta.url, main, { source: 'Bootstrap' });

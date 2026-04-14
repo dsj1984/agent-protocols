@@ -26,9 +26,8 @@
  * @see .agents/workflows/sprint-execute.md Mode B
  */
 
-import path from 'node:path';
-import { fileURLToPath } from 'node:url';
 import { parseSprintArgs } from './lib/cli-args.js';
+import { runAsCli } from './lib/cli-utils.js';
 import { PROJECT_ROOT, resolveConfig } from './lib/config-resolver.js';
 import { parseBlockedBy } from './lib/dependency-parser.js';
 import { buildGraph, topologicalSort } from './lib/Graph.js';
@@ -355,9 +354,4 @@ const progress = Logger.createProgress('sprint-story-init', { stderr: true });
 // Main guard
 // ---------------------------------------------------------------------------
 
-/* node:coverage ignore next */
-if (fileURLToPath(import.meta.url) === path.resolve(process.argv[1])) {
-  runStoryInit().catch((err) => {
-    Logger.fatal(`sprint-story-init: ${err.message}`);
-  });
-}
+runAsCli(import.meta.url, runStoryInit, { source: 'sprint-story-init' });

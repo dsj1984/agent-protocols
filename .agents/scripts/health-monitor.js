@@ -1,9 +1,7 @@
 #!/usr/bin/env node
 /* node:coverage ignore file */
-import path from 'node:path';
-import { fileURLToPath } from 'node:url';
-
 import { parseSprintArgs } from './lib/cli-args.js';
+import { runAsCli } from './lib/cli-utils.js';
 import { resolveConfig } from './lib/config-resolver.js';
 import { fetchTasks } from './lib/orchestration/task-fetcher.js';
 import { fetchTelemetry } from './lib/orchestration/telemetry.js';
@@ -87,16 +85,15 @@ Epic: #${epicId}
   }
 }
 
-// CLI execution fallback
-/* node:coverage ignore next */
-if (fileURLToPath(import.meta.url) === path.resolve(process.argv[1])) {
-  const { epicId, dryRun } = parseSprintArgs();
-  if (!epicId) {
-    console.error('Usage: node health-monitor.js --epic <number>');
-    process.exit(1);
-  }
-  updateHealthMetrics(epicId, dryRun).catch((err) => {
-    vlog.error(`Health Monitor fatal error: ${err.message}`);
-    process.exit(1);
-  });
-}
+runAsCli(
+  import.meta.url,
+  async () => {
+    const { epicId, dryRun } = parseSprintArgs();
+    if (!epicId) {
+      console.error('Usage: node health-monitor.js --epic <number>');
+      process.exit(1);
+    }
+    await updateHealthMetrics(epicId, dryRun);
+  },
+  { source: 'HealthMonitor' },
+);

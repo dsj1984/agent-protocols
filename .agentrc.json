@@ -27,6 +27,7 @@
     "tempRoot": "temp",
     "auditOutputDir": "temp",
     "roadmapPath": "docs/ROADMAP.md",
+    "retroPath": "docs/retros/retro-epic-{epicId}.md",
     "roadmap": {
       "autoGenerate": true,
       "excludeLabels": ["roadmap-exclude"]

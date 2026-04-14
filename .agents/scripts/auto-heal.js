@@ -27,18 +27,16 @@
  */
 
 import path from 'node:path';
-import { fileURLToPath } from 'node:url';
 import { parseArgs } from 'node:util';
-import { resolveConfig } from './lib/config-resolver.js';
 import {
-  GitHubIssueAdapter,
-  JulesAdapter,
   buildAutoHealPrompt,
   collectErrorLogs,
+  GitHubIssueAdapter,
+  JulesAdapter,
   resolveRiskTier,
 } from './lib/auto-heal/index.js';
-
-const __filename = fileURLToPath(import.meta.url);
+import { runAsCli } from './lib/cli-utils.js';
+import { resolveConfig } from './lib/config-resolver.js';
 
 // ── Defaults ──────────────────────────────────────────────────────────────────
 
@@ -337,11 +335,12 @@ async function main() {
   process.exit(0);
 }
 
-/* node:coverage ignore next */
-if (fileURLToPath(import.meta.url) === path.resolve(process.argv[1])) {
-  main().catch((err) => {
-    console.warn(`[AutoHeal] ⚠️ Unhandled error: ${err.message}`);
-    // Exit 0 even on total failure — never block CI.
+runAsCli(import.meta.url, main, {
+  source: 'AutoHeal',
+  // Exit 0 even on total failure — auto-heal is advisory and must never
+  // block or fail the CI pipeline itself.
+  onError: (err) => {
+    console.warn(`[AutoHeal] Unhandled error: ${err.message}`);
     process.exit(0);
-  });
-}
+  },
+});

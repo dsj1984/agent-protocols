@@ -29,10 +29,10 @@
  */
 
 import path from 'node:path';
-import { fileURLToPath } from 'node:url';
 import { generateAndSaveManifest } from './dispatcher.js';
 import { updateHealthMetrics } from './health-monitor.js';
 import { parseSprintArgs } from './lib/cli-args.js';
+import { runAsCli } from './lib/cli-utils.js';
 import { PROJECT_ROOT, resolveConfig } from './lib/config-resolver.js';
 import {
   getEpicBranch,
@@ -413,9 +413,4 @@ export async function runStoryClose({
 // Main guard
 // ---------------------------------------------------------------------------
 
-/* node:coverage ignore next */
-if (fileURLToPath(import.meta.url) === path.resolve(process.argv[1])) {
-  runStoryClose().catch((err) => {
-    Logger.fatal(`sprint-story-close: ${err.message}`);
-  });
-}
+runAsCli(import.meta.url, runStoryClose, { source: 'sprint-story-close' });
