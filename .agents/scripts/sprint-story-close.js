@@ -47,6 +47,11 @@ import {
   transitionTicketState,
 } from './lib/orchestration/ticketing.js';
 import { createProvider } from './lib/provider-factory.js';
+import {
+  batchTransitionTickets,
+  fetchChildTasks,
+  resolveStoryHierarchy,
+} from './lib/story-lifecycle.js';
 import { notify } from './notify.js';
 
 // ---------------------------------------------------------------------------
@@ -79,33 +84,17 @@ function cleanupBranches(storyBranch) {
 }
 
 async function ticketClosureCascade(provider, tasks, storyId) {
-  const closedTickets = [];
-
   progress(
     'TICKETS',
     `Transitioning ${tasks.length} Task(s) to agent::done...`,
   );
-  const transitionPromises = tasks.map(async (task) => {
-    if (task.labels.includes(STATE_LABELS.DONE)) {
-      progress('TICKETS', `  #${task.id} already done — skipped`);
-      return { id: task.id, success: true };
-    }
-    try {
-      await transitionTicketState(provider, task.id, STATE_LABELS.DONE);
-      progress('TICKETS', `  #${task.id} → agent::done ✅`);
-      return { id: task.id, success: true };
-    } catch (err) {
-      console.error(`  #${task.id} → FAILED: ${err.message}`);
-      return { id: task.id, success: false };
-    }
-  });
-
-  const results = await Promise.all(transitionPromises);
-  for (const res of results) {
-    if (res.success) {
-      closedTickets.push(res.id);
-    }
-  }
+  const batch = await batchTransitionTickets(
+    provider,
+    tasks,
+    STATE_LABELS.DONE,
+    { progress },
+  );
+  const closedTickets = [...batch.transitioned, ...batch.skipped];
 
   progress('TICKETS', `Transitioning Story #${storyId} to agent::done...`);
   try {
@@ -238,13 +227,13 @@ export async function runStoryClose({
   const story = await provider.getTicket(storyId);
 
   if (!epicId) {
-    const epicMatch = (story.body ?? '').match(/(?:^epic:\s*#(\d+))/im);
-    if (!epicMatch) {
+    const resolved = resolveStoryHierarchy(story.body);
+    if (!resolved.epicId) {
       Logger.fatal(
         `Story #${storyId} has no "Epic: #N" reference. Pass --epic <id> explicitly.`,
       );
     }
-    epicId = parseInt(epicMatch[1], 10);
+    epicId = resolved.epicId;
   }
 
   const epicBranch = getEpicBranch(epicId);
@@ -254,8 +243,7 @@ export async function runStoryClose({
   // Enumerate child Tasks
   // -------------------------------------------------------------------------
 
-  const subTickets = await provider.getSubTickets(storyId);
-  const tasks = subTickets.filter((t) => t.labels.includes('type::task'));
+  const tasks = await fetchChildTasks(provider, storyId);
 
   progress('TASKS', `Found ${tasks.length} child Task(s)`);
 
