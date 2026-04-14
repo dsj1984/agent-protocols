@@ -14,60 +14,12 @@ framework via the `.agents/` Git submodule.
 ├── personas/                # 12 role-specific behavior constraints
 ├── rules/                   # 8 domain-agnostic coding standards
 ├── schemas/                 # JSON Schemas for structured output validation
-├── scripts/                 # v5 orchestration engine
-│   ├── lib/                 # Core libraries
-│   │   ├── orchestration/           # ★ Orchestration SDK
-│   │   │   ├── index.js             # Barrel export: all SDK functions
-│   │   │   ├── dispatcher.js        # DAG scheduling and wave computation
-│   │   │   ├── manifest-builder.js  # Dispatch manifest data assembly
-│   │   │   ├── model-resolver.js    # LLM tiering and routing fallback
-│   │   │   ├── reconciler.js        # State reconciliation routines
-│   │   │   ├── story-grouper.js     # Issue grouping by executable Story
-│   │   │   ├── task-fetcher.js      # Upstream API issue retrieval
-│   │   │   ├── context-hydrator.js  # Self-contained prompt assembly
-│   │   │   ├── ticketing.js         # Ticket state machine + cascade logic
-│   │   │   ├── dependency-analyzer.js # Cross-ticket dependency resolution
-│   │   │   ├── ticket-validator.js  # Ticket structure validation
-│   │   │   ├── planning-state-manager.js # Planning phase state tracking
-│   │   │   ├── doc-reader.js        # Documentation file reader
-│   │   │   └── telemetry.js         # Execution telemetry collection
-│   │   ├── presentation/           # Manifest rendering layer
-│   │   │   └── manifest-renderer.js # Dispatch manifest markdown generation
-│   │   ├── mcp/                    # MCP tool registry
-│   │   │   └── tool-registry.js    # Tool definitions and handlers
-│   │   ├── ITicketingProvider.js    # Abstract ticketing contract
-│   │   ├── IExecutionAdapter.js     # Abstract execution adapter interface
-│   │   ├── config-resolver.js       # Unified config + .env loader + AJV validation
-│   │   ├── provider-factory.js      # Resolves provider name → class
-│   │   ├── adapter-factory.js       # Resolves adapter name → class
-│   │   ├── Graph.js                 # DAG implementation for dependency resolution
-│   │   ├── VerboseLogger.js         # Structured step-by-step execution logger
-│   │   ├── Logger.js                # Centralized fatal/error logging
-│   │   ├── git-merge-orchestrator.js  # Branch merge sequencing and conflict handling
-│   │   ├── git-utils.js             # Git shell command utilities
-│   │   ├── dependency-parser.js     # Parses `blocked by` syntax from ticket bodies
-│   │   ├── label-taxonomy.js        # v5 label constants and taxonomy definitions
-│   │   ├── friction-service.js      # Friction event detection and logging service
-│   │   ├── maintainability-engine.js  # Per-file maintainability scoring
-│   │   ├── maintainability-utils.js # Maintainability baseline utilities
-│   │   ├── llm-client.js            # LLM API client (Gemini)
-│   │   ├── refinement-agent.js      # Protocol refinement suggestion engine
-│   │   ├── github-refinement-service.js # GitHub PR creation for refinements
-│   │   ├── impact-tracker.js        # Tracks impact of applied refinements
-│   │   ├── integration-verifier.js  # Integration candidate verification
-│   │   ├── config-schema.js         # AJV schema for .agentrc.json validation
-│   │   ├── env-loader.js            # .env file auto-loader
-│   │   ├── cli-args.js              # CLI argument parsing utilities
-│   │   ├── fs-utils.js              # File system utilities
-│   │   └── task-utils.js            # Task normalization helpers
+├── scripts/                 # v5 orchestration engine (CLI wrappers + SDK)
+│   ├── lib/                 # Core libraries, orchestration SDK, providers
 │   ├── mcp/                 # MCP tool implementations
-│   │   ├── select-audits.js # Audit selection logic
-│   │   └── run-audit-suite.js # Audit execution and result normalization
-│   ├── providers/
-│   │   └── github.js        # GitHub REST + GraphQL implementation
-│   ├── adapters/            # Execution adapters (e.g., shell, MCP)
-│   ├── mcp-orchestration.js # MCP Server entry point — exposes SDK as tools
-│   └── [cli scripts…]       # Thin CLI wrappers delegating to the SDK
+│   ├── providers/           # Ticketing provider implementations (GitHub)
+│   ├── adapters/            # Execution adapters (shell, MCP)
+│   └── mcp-orchestration.js # MCP Server entry point
 ├── skills/                  # Two-tier skill library
 │   ├── core/                # Universal process skills (20 skills)
 │   └── stack/               # Tech-stack-specific guardrails (22 skills)
@@ -150,6 +102,66 @@ Override protocol behavior per-machine with `.agents/instructions.local.md`
    in `skills/core/` and `skills/stack/`.
 1. **Run workflows** using slash commands (e.g., `/sprint-plan`,
    `/audit-security`).
+
+---
+
+## Bootstrap (`/bootstrap-agent-protocols`)
+
+Before running any sprint workflows, you must bootstrap your GitHub repository
+so the orchestration engine has the labels, project fields, and metadata it
+expects. The bootstrap script is **idempotent** — safe to run multiple times.
+
+### Prerequisites
+
+1. **`.agentrc.json`** at your project root with a valid `orchestration` block
+   (copy from `.agents/default-agentrc.json` if you haven't already).
+2. **GitHub authentication** — one of:
+   - `GITHUB_TOKEN` or `GH_TOKEN` environment variable (CI / background scripts)
+   - `gh auth login` (local developer workflow)
+   - Active `github-mcp-server` session (agentic IDE)
+3. **Token permissions** — the token must have `Issues: Read & Write` and
+   `Metadata: Read-only`. If using GitHub Projects V2 fields, also
+   `Projects: Read & Write`.
+
+### What It Does
+
+| Step | Action                               | Details                                                                                                                                                                                     |
+| ---- | ------------------------------------ | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| 1    | **Verify API access**                | Sends a canary request to confirm authentication and repository access.                                                                                                                     |
+| 2    | **Create labels**                    | Creates 24 labels across 8 categories (`type::`, `agent::`, `status::`, `risk::`, `persona::`, `context::`, `execution::`, `focus::`, plus `roadmap-exclude`). Existing labels are skipped. |
+| 3    | **Create project fields** (optional) | If `orchestration.github.projectNumber` is set, creates `Execution` and `Focus Area` single-select fields on the GitHub Project V2 board.                                                   |
+| 4    | **Install workflows** (optional)     | With `--install-workflows`, copies CI workflow templates (e.g., `update-roadmap.yml`) into `.github/workflows/`.                                                                            |
+
+### Running It
+
+**Via slash command (recommended):**
+
+```text
+/bootstrap-agent-protocols
+```
+
+**Via CLI:**
+
+```bash
+node .agents/scripts/bootstrap-agent-protocols.js
+node .agents/scripts/bootstrap-agent-protocols.js --install-workflows
+```
+
+### Label Categories
+
+| Category    | Example Labels                                                              | Purpose                          |
+| ----------- | --------------------------------------------------------------------------- | -------------------------------- |
+| Type        | `type::epic`, `type::feature`, `type::story`, `type::task`                  | Issue hierarchy classification   |
+| Agent State | `agent::ready`, `agent::executing`, `agent::review`, `agent::done`          | Tracks agent execution lifecycle |
+| Status      | `status::blocked`                                                           | Signals blocked work items       |
+| Risk        | `risk::high`, `risk::medium`                                                | HITL gate triggers               |
+| Persona     | `persona::fullstack`, `persona::architect`, `persona::qa`                   | Agent role assignment            |
+| Context     | `context::prd`, `context::tech-spec`                                        | Planning document classification |
+| Execution   | `execution::sequential`, `execution::concurrent`                            | Dispatch strategy hints          |
+| Focus       | `focus::core`, `focus::scripts`, `focus::docs`, `focus::ci`, `focus::tests` | Work area classification         |
+
+> [!TIP] After bootstrapping, run `/sprint-plan [EPIC_ID]` to begin the planning
+> phase. See the [SDLC guide](SDLC.md) for the full end-to-end workflow.
 
 ---
 
