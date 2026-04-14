@@ -1,6 +1,6 @@
 {
   ".agents/scripts/adapters/manual.js": 103.991,
-  ".agents/scripts/assert-branch.js": 94.888,
+  ".agents/scripts/assert-branch.js": 94.524,
   ".agents/scripts/audit-orchestrator.js": 84.797,
   ".agents/scripts/auto-heal.js": 79.319,
   ".agents/scripts/bootstrap-agent-protocols.js": 85.666,
@@ -79,6 +79,7 @@
   ".agents/scripts/update-ticket-state.js": 94.271,
   "tests/assert-branch.test.js": 120.245,
   "tests/bootstrap.test.js": 112.541,
+  "tests/check-version-sync.test.js": 96.777,
   "tests/config-orchestration.test.js": 119.837,
   "tests/context-hydrator.test.js": 100.176,
   "tests/diagnose-friction.test.js": 106.038,
