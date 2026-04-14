@@ -94,6 +94,93 @@ test('GitHubProvider: postComment calls GraphQL mutation', async () => {
   assert.equal(result.commentId, 'comment-1');
 });
 
+test('GitHubProvider._updateLabels: add-only fast path uses labels endpoint', async () => {
+  const calls = [];
+  global.fetch = async (url, init) => {
+    calls.push({ url, method: init?.method });
+    return { ok: true, json: async () => ({}) };
+  };
+
+  const provider = new GitHubProvider({ owner: 'o', repo: 'r' });
+  const result = await provider._updateLabels(
+    42,
+    { add: ['agent::executing'] },
+    /* hasOtherPatchFields */ false,
+  );
+
+  assert.equal(result.skipPatch, true);
+  assert.equal(calls.length, 1);
+  assert.ok(calls[0].url.endsWith('/issues/42/labels'));
+  assert.equal(calls[0].method, 'POST');
+});
+
+test('GitHubProvider._updateLabels: removal path merges current labels', async () => {
+  const calls = [];
+  global.fetch = async (url, init) => {
+    calls.push({ url, method: init?.method });
+    if (url.includes('/issues/42') && !url.endsWith('/labels')) {
+      return {
+        ok: true,
+        json: async () => ({
+          number: 42,
+          id: 42,
+          node_id: 'n',
+          title: 't',
+          body: '',
+          labels: [{ name: 'agent::executing' }, { name: 'type::task' }],
+          assignees: [],
+          state: 'open',
+        }),
+      };
+    }
+    return { ok: true, json: async () => ({}) };
+  };
+
+  const provider = new GitHubProvider({ owner: 'o', repo: 'r' });
+  const result = await provider._updateLabels(
+    42,
+    { add: ['agent::done'], remove: ['agent::executing'] },
+    /* hasOtherPatchFields */ false,
+  );
+
+  assert.equal(result.skipPatch, false);
+  assert.ok(result.mergedLabels.includes('agent::done'));
+  assert.ok(result.mergedLabels.includes('type::task'));
+  assert.ok(!result.mergedLabels.includes('agent::executing'));
+});
+
+test('GitHubProvider._updateLabels: combined patch path skips fast endpoint', async () => {
+  const calls = [];
+  global.fetch = async (url) => {
+    calls.push(url);
+    return {
+      ok: true,
+      json: async () => ({
+        number: 42,
+        id: 42,
+        node_id: 'n',
+        title: 't',
+        body: '',
+        labels: [],
+        assignees: [],
+        state: 'open',
+      }),
+    };
+  };
+
+  const provider = new GitHubProvider({ owner: 'o', repo: 'r' });
+  const result = await provider._updateLabels(
+    42,
+    { add: ['x'] },
+    /* hasOtherPatchFields */ true,
+  );
+
+  assert.equal(result.skipPatch, false);
+  assert.ok(result.mergedLabels.includes('x'));
+  // Did NOT call the /labels fast-path endpoint
+  assert.ok(!calls.some((u) => u.endsWith('/issues/42/labels')));
+});
+
 // Restore fetch
 test('GitHubProvider: cleanup', () => {
   global.fetch = originalFetch;

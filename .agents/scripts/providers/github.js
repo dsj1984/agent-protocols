@@ -670,6 +670,47 @@ export class GitHubProvider extends ITicketingProvider {
     return this._projectId;
   }
 
+  /**
+   * Apply label add/remove mutations to an issue.
+   *
+   * When the only mutation is "add labels", uses the additive labels-API
+   * endpoint for atomicity and to avoid a read-before-write. When other
+   * PATCH fields are present, or when removing labels, computes the final
+   * label set and returns it to the caller for inclusion in the PATCH.
+   *
+   * @param {number} ticketId
+   * @param {{ add?: string[], remove?: string[] }} labels
+   * @param {boolean} hasOtherPatchFields Whether the caller will issue a
+   *                                       PATCH for non-label fields.
+   * @returns {Promise<{ skipPatch: boolean, mergedLabels?: string[] }>}
+   *                   skipPatch=true means the labels endpoint handled
+   *                   everything and the caller should not PATCH.
+   * @private
+   */
+  async _updateLabels(ticketId, labels, hasOtherPatchFields) {
+    const { add = [], remove = [] } = labels;
+
+    // Fast path: only adding labels, nothing else to patch. Use the
+    // purpose-built additive endpoint which does not require fetching
+    // the current label set first.
+    if (add.length > 0 && remove.length === 0 && !hasOtherPatchFields) {
+      await this._rest(
+        `/repos/${this.owner}/${this.repo}/issues/${ticketId}/labels`,
+        { method: 'POST', body: { labels: add } },
+      );
+      return { skipPatch: true };
+    }
+
+    // Removals or combined patches require a read-modify-write cycle so the
+    // PATCH includes the full target label set.
+    const ticket = await this.getTicket(ticketId);
+    const currentLabels = new Set(ticket.labels ?? []);
+    for (const l of remove) currentLabels.delete(l);
+    for (const l of add) currentLabels.add(l);
+
+    return { skipPatch: false, mergedLabels: Array.from(currentLabels) };
+  }
+
   /* node:coverage ignore next */
   async updateTicket(ticketId, mutations) {
     const patch = {};
@@ -688,32 +729,16 @@ export class GitHubProvider extends ITicketingProvider {
     }
 
     if (mutations.labels) {
-      const { add = [], remove = [] } = mutations.labels;
-
-      // Fast path 1: Only adding labels, no other PATCH elements
-      if (
-        add.length > 0 &&
-        remove.length === 0 &&
-        Object.keys(patch).length === 0
-      ) {
-        await this._rest(
-          `/repos/${this.owner}/${this.repo}/issues/${ticketId}/labels`,
-          { method: 'POST', body: { labels: add } },
-        );
-        return;
-      }
-
-      // If we have to remove labels or apply another patch, do it in one atomic PATCH
-      const ticket = await this.getTicket(ticketId);
-      const currentLabels = new Set(ticket.labels ?? []);
-
-      for (const l of remove) currentLabels.delete(l);
-      for (const l of add) currentLabels.add(l);
-
-      patch.labels = Array.from(currentLabels);
+      const hasOtherPatchFields = Object.keys(patch).length > 0;
+      const result = await this._updateLabels(
+        ticketId,
+        mutations.labels,
+        hasOtherPatchFields,
+      );
+      if (result.skipPatch) return;
+      patch.labels = result.mergedLabels;
     }
 
-    // Call PATCH if we have any mutations
     if (Object.keys(patch).length > 0) {
       await this._rest(`/repos/${this.owner}/${this.repo}/issues/${ticketId}`, {
         method: 'PATCH',
