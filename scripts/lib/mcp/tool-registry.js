@@ -181,7 +181,7 @@ export async function getToolRegistry(sdk, getProvider) {
     {
       name: 'select_audits',
       description:
-        'Analyzes ticket content and file changes to determine which audits to run based on audit-rules.json.',
+        'Analyzes ticket content and file changes to determine which audits to run based on audit-rules.schema.json.',
       inputSchema: {
         properties: {
           ticketId: {

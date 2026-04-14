@@ -249,8 +249,8 @@ MCP-driven system.
 
 Audits are selectively invoked by the orchestrator at four specific sprint
 lifecycle gates (`gate1` through `gate4`). The `audit-orchestrator.js` evaluates
-rules defined in `.agents/schemas/audit-rules.json` to determine which audits to
-run based on:
+rules defined in `.agents/schemas/audit-rules.schema.json` to determine which
+audits to run based on:
 
 1. **Gate Configuration:** Which gate is currently being triggered.
 2. **Contextual Keywords:** The Epic or Task body contents (e.g., triggering
