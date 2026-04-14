@@ -368,6 +368,163 @@ export async function detectEpicCompletion({
  * }} options
  * @returns {Promise<object>} Dispatch Manifest
  */
+/**
+ * Handle the `risk::high` approval gate for a single task.
+ * Posts a HITL approval comment (skipped in dry-run) and returns the
+ * held-for-approval entry the caller should record.
+ *
+ * @param {object} task
+ * @param {object} provider
+ * @param {boolean} dryRun
+ * @returns {Promise<{ taskId: number, reason: string }>}
+ */
+async function handleRiskHighGate(task, provider, dryRun) {
+  vlog.info(
+    'orchestration',
+    `⚠️  Task #${task.id} flagged risk::high — held for approval.`,
+  );
+  if (!dryRun) {
+    await provider.postComment(task.id, {
+      body: `⚠️ **HITL Gate**: This task is flagged \`risk::high\` and requires operator approval before dispatch.\n\nTo approve, reply with: \`/approve ${task.id}\``,
+      type: 'notification',
+    });
+  }
+  return {
+    taskId: task.id,
+    reason: 'risk::high label requires operator approval.',
+  };
+}
+
+/**
+ * Dispatch a single eligible task within a wave. Builds the task-dispatch
+ * payload (prompt hydration, model resolution, branch resolution), then
+ * either records a dry-run entry or performs the real dispatch (branch
+ * ensure + label transition + adapter call).
+ *
+ * @param {object} task
+ * @param {object} ctx - Dispatch context (provider, adapter, settings, etc.).
+ * @returns {Promise<object>} The `dispatched` entry for the manifest.
+ */
+async function dispatchTaskInWave(task, ctx) {
+  const {
+    provider,
+    adapter,
+    settings,
+    allTicketsById,
+    epicId,
+    epicBranch,
+    dryRun,
+  } = ctx;
+
+  const taskBranch = getResolvedBranch(task, allTicketsById, epicId);
+  const resolvedModel = resolveModel(task.model, settings);
+
+  const hydratedPrompt = await hydrateContext(
+    task,
+    provider,
+    epicBranch,
+    taskBranch,
+    epicId,
+  );
+
+  const taskDispatch = {
+    taskId: task.id,
+    epicId,
+    branch: taskBranch,
+    epicBranch,
+    prompt: hydratedPrompt,
+    persona: task.persona,
+    model: resolvedModel,
+    mode: task.mode,
+    skills: task.skills,
+    focusAreas: task.focusAreas,
+    metadata: {
+      title: task.title,
+      protocolVersion: task.protocolVersion,
+      dispatchedAt: new Date().toISOString(),
+    },
+  };
+
+  if (dryRun) {
+    vlog.info(
+      'orchestration',
+      `[DRY-RUN] Would dispatch Task #${task.id}: ${task.title}`,
+    );
+    return {
+      taskId: task.id,
+      dispatchId: `dry-run-${task.id}`,
+      status: 'dispatched',
+    };
+  }
+
+  ensureBranch(taskBranch, epicBranch);
+  await provider.updateTicket(task.id, {
+    labels: { add: [AGENT_EXECUTING_LABEL], remove: [AGENT_READY_LABEL] },
+  });
+
+  const result = await adapter.dispatchTask(taskDispatch);
+  vlog.info(
+    'orchestration',
+    `✅ Dispatched Task #${task.id} — dispatchId: ${result.dispatchId}`,
+  );
+  return { taskId: task.id, ...result };
+}
+
+/**
+ * Dispatch one wave. Returns `{ dispatched, heldForApproval, shouldHalt }`
+ * where `shouldHalt=true` means the caller should stop iterating waves
+ * (upstream dependencies not yet complete).
+ *
+ * @param {object[]} wave
+ * @param {Map<number, object>} taskMap
+ * @param {object} ctx
+ * @returns {Promise<{ dispatched: object[], heldForApproval: object[], shouldHalt: boolean, empty: boolean }>}
+ */
+async function dispatchWave(wave, taskMap, ctx) {
+  const eligible = wave.filter(
+    (t) => t.status !== AGENT_DONE_LABEL && t.status !== AGENT_EXECUTING_LABEL,
+  );
+
+  if (eligible.length === 0) {
+    vlog.info('orchestration', 'Wave fully complete, moving to next...');
+    return {
+      dispatched: [],
+      heldForApproval: [],
+      shouldHalt: false,
+      empty: true,
+    };
+  }
+
+  const waveDepsComplete = eligible.every((task) =>
+    task.dependsOn.every((depId) => {
+      const dep = taskMap.get(depId);
+      return dep?.status === AGENT_DONE_LABEL;
+    }),
+  );
+  if (!waveDepsComplete) {
+    vlog.info('orchestration', 'Wave dependencies not yet complete. Halting.');
+    return {
+      dispatched: [],
+      heldForApproval: [],
+      shouldHalt: true,
+      empty: false,
+    };
+  }
+
+  const dispatched = [];
+  const heldForApproval = [];
+  for (const task of eligible) {
+    if (task.isRiskHigh) {
+      heldForApproval.push(
+        await handleRiskHighGate(task, ctx.provider, ctx.dryRun),
+      );
+      continue;
+    }
+    dispatched.push(await dispatchTaskInWave(task, ctx));
+  }
+  return { dispatched, heldForApproval, shouldHalt: false, empty: false };
+}
+
 export async function dispatch(options) {
   const { epicId, dryRun = false, executorOverride } = options;
 
@@ -461,107 +618,22 @@ export async function dispatch(options) {
   const dispatched = [];
   const heldForApproval = [];
 
+  const waveCtx = {
+    provider,
+    adapter,
+    settings,
+    allTicketsById,
+    epicId,
+    epicBranch,
+    dryRun,
+  };
+
   for (const wave of allWaves) {
-    const eligible = wave.filter(
-      (t) =>
-        t.status !== AGENT_DONE_LABEL && t.status !== AGENT_EXECUTING_LABEL,
-    );
-
-    if (eligible.length === 0) {
-      vlog.info('orchestration', 'Wave fully complete, moving to next...');
-      continue;
-    }
-
-    const waveDepsComplete = eligible.every((task) =>
-      task.dependsOn.every((depId) => {
-        const dep = taskMap.get(depId);
-        return dep?.status === AGENT_DONE_LABEL;
-      }),
-    );
-
-    if (!waveDepsComplete) {
-      vlog.info(
-        'orchestration',
-        'Wave dependencies not yet complete. Halting.',
-      );
-      break;
-    }
-
-    for (const task of eligible) {
-      const taskBranch = getResolvedBranch(task, allTicketsById, epicId);
-      const resolvedModel = resolveModel(task.model, settings);
-
-      if (task.isRiskHigh) {
-        vlog.info(
-          'orchestration',
-          `⚠️  Task #${task.id} flagged risk::high — held for approval.`,
-        );
-        heldForApproval.push({
-          taskId: task.id,
-          reason: 'risk::high label requires operator approval.',
-        });
-
-        if (!dryRun) {
-          await provider.postComment(task.id, {
-            body: `⚠️ **HITL Gate**: This task is flagged \`risk::high\` and requires operator approval before dispatch.\n\nTo approve, reply with: \`/approve ${task.id}\``,
-            type: 'notification',
-          });
-        }
-        continue;
-      }
-
-      const hydratedPrompt = await hydrateContext(
-        task,
-        provider,
-        epicBranch,
-        taskBranch,
-        epicId,
-      );
-
-      const taskDispatch = {
-        taskId: task.id,
-        epicId,
-        branch: taskBranch,
-        epicBranch,
-        prompt: hydratedPrompt,
-        persona: task.persona,
-        model: resolvedModel,
-        mode: task.mode,
-        skills: task.skills,
-        focusAreas: task.focusAreas,
-        metadata: {
-          title: task.title,
-          protocolVersion: task.protocolVersion,
-          dispatchedAt: new Date().toISOString(),
-        },
-      };
-
-      if (dryRun) {
-        vlog.info(
-          'orchestration',
-          `[DRY-RUN] Would dispatch Task #${task.id}: ${task.title}`,
-        );
-        dispatched.push({
-          taskId: task.id,
-          dispatchId: `dry-run-${task.id}`,
-          status: 'dispatched',
-        });
-      } else {
-        ensureBranch(taskBranch, epicBranch);
-
-        await provider.updateTicket(task.id, {
-          labels: { add: [AGENT_EXECUTING_LABEL], remove: [AGENT_READY_LABEL] },
-        });
-
-        const result = await adapter.dispatchTask(taskDispatch);
-        dispatched.push({ taskId: task.id, ...result });
-        vlog.info(
-          'orchestration',
-          `✅ Dispatched Task #${task.id} — dispatchId: ${result.dispatchId}`,
-        );
-      }
-    }
-
+    const result = await dispatchWave(wave, taskMap, waveCtx);
+    if (result.empty) continue;
+    if (result.shouldHalt) break;
+    dispatched.push(...result.dispatched);
+    heldForApproval.push(...result.heldForApproval);
     // Only dispatch one wave per invocation
     break;
   }
