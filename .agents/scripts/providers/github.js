@@ -106,17 +106,14 @@ export class GitHubProvider extends ITicketingProvider {
     return this._http.rest(endpoint, opts);
   }
 
-  /* node:coverage ignore next */
   async _graphql(query, variables = {}, opts = {}) {
     return this._http.graphql(query, variables, opts);
   }
 
-  /* node:coverage ignore next */
   async graphql(query, variables = {}, opts = {}) {
     return this._http.graphql(query, variables, opts);
   }
 
-  /* node:coverage ignore next */
   async _restPaginated(endpoint) {
     return this._http.restPaginated(endpoint);
   }
@@ -705,7 +702,6 @@ export class GitHubProvider extends ITicketingProvider {
     return { created, skipped };
   }
 
-  /* node:coverage ignore next */
   /* node:coverage ignore next */
   async ensureProjectFields(fieldDefs) {
     if (!this.projectNumber) return { created: [], skipped: [] };
