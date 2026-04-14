@@ -19,6 +19,8 @@
  *   1 — Mismatch (stderr explains) or invocation error.
  */
 
+import { fileURLToPath } from 'node:url';
+
 import { PROJECT_ROOT } from './lib/config-resolver.js';
 import { gitSpawn } from './lib/git-utils.js';
 
@@ -56,7 +58,7 @@ function parseArgs(argv) {
   return { expected };
 }
 
-const isMain = import.meta.url === `file://${process.argv[1]}`;
+const isMain = process.argv[1] === fileURLToPath(import.meta.url);
 if (isMain) {
   const { expected } = parseArgs(process.argv.slice(2));
   const result = assertBranch(expected);
