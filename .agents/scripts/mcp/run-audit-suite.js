@@ -33,7 +33,7 @@ async function loadWorkflow(auditName, workflowsDir) {
  * Run a suite of named audit workflows.
  *
  * For each audit name the suite will:
- *   1. Validate it is registered in audit-rules.json.
+ *   1. Validate it is registered in audit-rules.schema.json.
  *   2. Locate the corresponding `.agents/workflows/<auditName>.md` file.
  *   3. Return its markdown content as a structured `workflow` result for the
  *      calling AI agent to execute as a prompt-driven analysis.
@@ -48,7 +48,7 @@ export async function runAuditSuite({ auditWorkflows, injectedLoadWorkflow }) {
   const rulesPath = path.join(
     PROJECT_ROOT,
     settings.schemasRoot,
-    'audit-rules.json',
+    'audit-rules.schema.json',
   );
   const rulesContent = await fs.readFile(rulesPath, 'utf8');
   const rules = JSON.parse(rulesContent);
@@ -79,7 +79,7 @@ export async function runAuditSuite({ auditWorkflows, injectedLoadWorkflow }) {
         finding: {
           audit: auditName,
           severity: 'low',
-          message: `Requested audit workflow '${auditName}' is not defined in audit-rules.json.`,
+          message: `Requested audit workflow '${auditName}' is not defined in audit-rules.schema.json.`,
         },
       };
     }

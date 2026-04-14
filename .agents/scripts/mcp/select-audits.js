@@ -4,7 +4,7 @@ import { PROJECT_ROOT, resolveConfig } from '../lib/config-resolver.js';
 import { gitSpawn } from '../lib/git-utils.js';
 
 /**
- * Filter audits based on logic in audit-rules.json
+ * Filter audits based on logic in audit-rules.schema.json
  * @param {object} params
  * @param {number} params.ticketId
  * @param {string} params.gate
@@ -19,11 +19,11 @@ export async function selectAudits({
 }) {
   const { settings } = resolveConfig();
 
-  // 1. Read audit-rules.json
+  // 1. Read audit-rules.schema.json
   const rulesPath = path.join(
     PROJECT_ROOT,
     settings.schemasRoot,
-    'audit-rules.json',
+    'audit-rules.schema.json',
   );
   let rulesData;
   try {

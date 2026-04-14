@@ -2,6 +2,32 @@
 
 All notable changes to this project will be documented in this file.
 
+## [5.5.2] - 2026-04-14
+
+### 🧹 `.agents/` Consolidation Pass
+
+- **Schemas:** Removed obsolete `schemas/dispatch-manifest.schema.json`
+  (superseded by `dispatch-manifest.json`; nothing referenced it). Renamed
+  `schemas/audit-rules.json` → `schemas/audit-rules.schema.json` for suffix
+  consistency with the other `*.schema.json` files; all MCP tools, tests, and
+  SDLC docs were updated.
+- **Stack skills:** Pruned ~23 empty `examples/`, `resources/`, `scripts/`
+  stub subdirectories (with their `.gitkeep` markers) from `skills/stack/`.
+  Only subdirectories containing actual companion files remain
+  (`cloudflare-hono-architect/examples/route-template.ts`,
+  `sqlite-drizzle-expert/examples/schema-template.ts`,
+  `stripe-integration/scripts/listen-stripe.sh`).
+- **Skill merges:** Consolidated `stripe-payments` + `stripe-billing-expert`
+  into a single `backend/stripe-integration` skill covering PCI, webhooks,
+  and idempotency in one place. Consolidated `backend/clerk-auth` +
+  `security/secure-telemetry-logger` into `security/backend-security-patterns`,
+  which pairs Clerk auth guidance with PII-safe telemetry rules.
+- **README:** Stack skill table and skill count (20) updated to reflect the
+  merged skills; VERSION pointer refreshed.
+
+Stack skill count: 22 → 20. Net files removed: ~30 (including `.gitkeep`
+markers). No behavior changes to scripts, workflows, or MCP tools.
+
 ## [5.5.1] - 2026-04-14
 
 ### 🧠 Planning Hardening (parallel-story contention)

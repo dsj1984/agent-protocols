@@ -7,7 +7,7 @@ framework via the `.agents/` Git submodule.
 
 ```text
 .agents/
-├── VERSION                  # Current version (5.4.2)
+├── VERSION                  # Current version (5.5.2)
 ├── SDLC.md                  # End-to-end workflow guide
 ├── instructions.md          # MANDATORY: Primary system prompt
 ├── default-agentrc.json     # Copy to project root as .agentrc.json
@@ -22,7 +22,7 @@ framework via the `.agents/` Git submodule.
 │   └── mcp-orchestration.js # MCP Server entry point
 ├── skills/                  # Two-tier skill library
 │   ├── core/                # Universal process skills (20 skills)
-│   └── stack/               # Tech-stack-specific guardrails (22 skills)
+│   └── stack/               # Tech-stack-specific guardrails (20 skills)
 ├── templates/               # Context hydration and CI templates
 └── workflows/               # 24 slash-command workflows
 ```
@@ -224,7 +224,7 @@ The MCP server resolves secrets in this priority:
 If the server is configured but not appearing:
 
 - Check the **stderr** logs in your MCP host.
-- Success message: `[MCP] agent-protocols v5.4.2 server started`
+- Success message: `[MCP] agent-protocols v5.5.2 server started`
 - Failures: Initialization errors (missing dependencies, path issues) are logged
   before the server exits with code 1.
 
@@ -305,14 +305,12 @@ The skill library uses a **two-tier architecture**: universal process skills
 | `monorepo-path-strategist`      | `architecture` | Enforces workspace aliases and dependency boundaries  |
 | `structured-output-zod`         | `architecture` | Enforces structured API responses using Zod           |
 | `subagent-orchestration`        | `architecture` | Defines subagent task delegation strategies           |
-| `clerk-auth`                    | `backend`      | Security standard for Clerk authentication            |
 | `cloudflare-hono-architect`     | `backend`      | Prevents Node.js module usage in edge Workers         |
 | `cloudflare-queue-manager`      | `backend`      | Ensures idempotent, resilient queue consumer logic    |
 | `cloudflare-workers`            | `backend`      | Cloudflare edge compute best practices                |
 | `highlevel-crm`                 | `backend`      | Guidelines for GoHighLevel CRM integration            |
 | `sqlite-drizzle-expert`         | `backend`      | Enforces SQLite dialect for Drizzle ORM and Turso     |
-| `stripe-billing-expert`         | `backend`      | Ensures idempotency keys and webhook signature checks |
-| `stripe-payments`               | `backend`      | Secure processing for Stripe checkout sessions        |
+| `stripe-integration`            | `backend`      | Stripe payments + billing: idempotency, webhooks, PCI |
 | `turso-sqlite`                  | `backend`      | Rules for Turso edge database interactions            |
 | `astro`                         | `frontend`     | Astro hydration, rendering, and routing rules         |
 | `astro-react-island-strategist` | `frontend`     | Maintains Astro/React island hydration boundaries     |
@@ -322,11 +320,11 @@ The skill library uses a **two-tier architecture**: universal process skills
 | `audit-accessibility`           | `qa`           | WCAG automated scanning compliance                    |
 | `playwright`                    | `qa`           | Rules for writing robust Playwright E2E tests         |
 | `vitest`                        | `qa`           | Unit test automation with Vitest                      |
-| `secure-telemetry-logger`       | `security`     | Standardizes structured logging and PII stripping     |
+| `backend-security-patterns`     | `security`     | Clerk auth hardening + PII-safe telemetry/logging     |
 
-> [!NOTE] The stack skill count (22) includes skill directories with `SKILL.md`
-> files. Some directories may contain additional context files alongside the
-> skill definition.
+> [!NOTE] The stack skill count (20) reflects skill directories containing a
+> `SKILL.md` file; a few also include `examples/` or `scripts/` folders with
+> companion context files.
 
 ---
 

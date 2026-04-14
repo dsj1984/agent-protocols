@@ -29,7 +29,7 @@ test('selectAudits: filters based on keywords and gate', async () => {
     provider,
   });
 
-  // Based on current audit-rules.json, 'audit-accessibility' should be triggered by 'accessibility' keyword
+  // Based on current audit-rules.schema.json, 'audit-accessibility' should be triggered by 'accessibility' keyword
   assert.ok(
     selectedAudits.includes('audit-accessibility'),
     'Should select accessibility audit',

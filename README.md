@@ -1,9 +1,9 @@
 # Agent Protocols 🤖
 
 A structured framework of instructions, personas, skills, and SDLC workflows
-that govern AI coding assistants. Version 5.2 is a **ground-up rewrite** built on
-**Epic-Centric GitHub Orchestration** — all planning, execution, and state
-management lives natively in GitHub Issues, Labels, and Projects V2.
+that govern AI coding assistants built on **Epic-Centric GitHub Orchestration**
+— all planning, execution, and state management lives natively in GitHub Issues,
+Labels, and Projects V2.
 
 ## Architecture Overview
 
@@ -89,7 +89,8 @@ for background script authentication.
 
 ### 2b. MCP Activation (Optional but Recommended)
 
-For the best agentic experience, add the orchestration server to your IDE or MCP host:
+For the best agentic experience, add the orchestration server to your IDE or MCP
+host:
 
 ```json
 "agent-protocols": {
@@ -128,7 +129,7 @@ agent-protocols/
 │   ├── rules/                # Domain-agnostic coding standards (8 rules)
 │   ├── skills/               # Two-tier skill library
 │   │   ├── core/             # Universal process skills (20 skills)
-│   │   └── stack/            # Tech-stack-specific guardrails (22 skills)
+│   │   └── stack/            # Tech-stack-specific guardrails (20 skills)
 │   ├── workflows/            # Slash-command automation (24 workflows)
 │   ├── scripts/              # Orchestration engine
 │   │   ├── lib/              # Core libraries (config, interfaces, factory)
