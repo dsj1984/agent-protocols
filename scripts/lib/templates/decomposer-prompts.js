@@ -9,6 +9,7 @@ Your job is to take a Product Requirements Document (PRD) and a Technical Specif
    - **Complexity Assessment**: Every Story MUST be assessed for complexity. Use \`complexity::high\` for logic-heavy, architectural, or risky changes requiring high-tier reasoning models. Use \`complexity::fast\` for simple CRUD, documentation, or straightforward procedural work.
 3. **Tasks**: Atomic, verifiable technical steps (e.g., "Add 'vendor_id' to users schema").
    - MUST be nested under a Story.
+   - **MANDATORY CARDINALITY**: Every Story MUST decompose into at least ONE Task (typically 2–5). A Story with zero child Tasks is INVALID and will be rejected. If a Story feels too small for its own Task, merge it back into a sibling Story instead of emitting an empty Story container.
 
 ### LABEL CONVENTIONS:
 - Every ticket must have a \`type::[feature|story|task]\` label.

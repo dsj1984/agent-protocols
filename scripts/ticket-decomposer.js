@@ -23,6 +23,36 @@ import { validateAndNormalizeTickets } from './lib/orchestration/ticket-validato
 import { createProvider } from './lib/provider-factory.js';
 import { DECOMPOSER_SYSTEM_PROMPT } from './lib/templates/decomposer-prompts.js';
 
+function resolveParentId(ticket, slugMap, epicId) {
+  if (ticket.type === 'feature') return epicId;
+  if (!ticket.parent_slug) {
+    throw new Error(
+      `[Decomposer] ${ticket.type.toUpperCase()} "${ticket.title}" (${ticket.slug}) has no parent_slug.`,
+    );
+  }
+  if (!slugMap.has(ticket.parent_slug)) {
+    throw new Error(
+      `[Decomposer] ${ticket.type.toUpperCase()} "${ticket.title}" (${ticket.slug}) references parent_slug "${ticket.parent_slug}" which was not created. The parent is missing from the LLM output or the slug is misspelled.`,
+    );
+  }
+  return slugMap.get(ticket.parent_slug);
+}
+
+function resolveDependencies(ticket, slugMap) {
+  const resolved = [];
+  for (const dep of ticket.depends_on || []) {
+    const depId = slugMap.get(dep);
+    if (depId) {
+      resolved.push(depId);
+    } else {
+      console.warn(
+        `[Decomposer] ⚠️  ${ticket.type.toUpperCase()} "${ticket.title}" (${ticket.slug}) depends on unresolved slug "${dep}" — dependency dropped.`,
+      );
+    }
+  }
+  return resolved;
+}
+
 export async function decomposeEpic(
   epicId,
   provider,
@@ -127,6 +157,22 @@ Please decompose the above into a complete ticket backlog. Respond with the JSON
     throw new Error('LLM output was not valid JSON.');
   }
 
+  if (!Array.isArray(tickets)) {
+    throw new Error(
+      `[Decomposer] LLM response parsed but is not an array (got ${typeof tickets}). The decomposer prompt requires a top-level JSON array.`,
+    );
+  }
+
+  // Truncation heuristic: the system prompt caps generation at 25 tickets.
+  // If the LLM emits exactly that (or more), it is likely bumping against the
+  // cap and may have silently omitted child tickets. Surface a warning so
+  // partial backlogs do not slip through unnoticed.
+  if (tickets.length >= 25) {
+    console.warn(
+      `[Decomposer] ⚠️  LLM emitted ${tickets.length} tickets (at or above the 25-ticket cap). Output may be truncated; verify every Story still has child Tasks or split the Epic into smaller scopes.`,
+    );
+  }
+
   console.log(
     `[Decomposer] Running cross-validation on ${tickets.length} decomposed tickets...`,
   );
@@ -148,14 +194,8 @@ Please decompose the above into a complete ticket backlog. Respond with the JSON
       `[Decomposer] [${t.type.toUpperCase()}] Creating "${t.title}"...`,
     );
 
-    // Resolve dependency ID
-    const parentId =
-      t.parent_slug && slugMap.has(t.parent_slug)
-        ? slugMap.get(t.parent_slug)
-        : epicId;
-    const dependencies = (t.depends_on || [])
-      .map((dep) => slugMap.get(dep))
-      .filter(Boolean);
+    const parentId = resolveParentId(t, slugMap, epicId);
+    const dependencies = resolveDependencies(t, slugMap);
 
     const created = await provider.createTicket(parentId, {
       epicId: epicId,
