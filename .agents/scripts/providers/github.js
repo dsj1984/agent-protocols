@@ -20,9 +20,7 @@
 import { execSync } from 'node:child_process';
 import { parseBlockedBy, parseBlocks } from '../lib/dependency-parser.js';
 import { ITicketingProvider } from '../lib/ITicketingProvider.js';
-
-const GITHUB_API = 'https://api.github.com';
-const GITHUB_GRAPHQL = 'https://api.github.com/graphql';
+import { GithubHttpClient } from './github-http-client.js';
 
 /**
  * Resolve the GitHub token from environment or CLI.
@@ -84,168 +82,43 @@ export class GitHubProvider extends ITicketingProvider {
     this.projectNumber = config.projectNumber ?? null;
     this.projectOwner = config.projectOwner ?? config.owner;
     this.operatorHandle = config.operatorHandle ?? null;
-    this._token = opts.token ?? null;
+    // Injectable HTTP transport. The tokenProvider closure captures opts.token
+    // so tests can construct with an explicit token without touching env/gh.
+    this._http =
+      opts.http ??
+      new GithubHttpClient({
+        tokenProvider: () => opts.token ?? resolveToken(),
+        fetchImpl: opts.fetchImpl,
+      });
   }
 
   /** Lazily resolve the token on first API call. */
   get token() {
-    if (!this._token) {
-      this._token = resolveToken();
-    }
-    return this._token;
+    return this._http.token;
   }
 
-  /**
-   * Fetch with exponential backoff retry for transient failures (H-3).
-   * Retries on: 429 (rate limit), 5xx (server errors), network errors.
-   *
-   * @param {string} url
-   * @param {RequestInit} fetchOpts
-   * @param {number} [maxRetries=3]
-   * @returns {Promise<Response>}
-   */
-  async _fetchWithRetry(url, fetchOpts, maxRetries = 3) {
-    for (let attempt = 0; attempt <= maxRetries; attempt++) {
-      try {
-        const res = await fetch(url, fetchOpts);
-        if (res.ok || res.status === 204 || attempt === maxRetries) return res;
-        // Retry on rate-limit or server errors
-        if (res.status === 429 || res.status >= 500) {
-          const retryAfter = parseInt(
-            res.headers.get('retry-after') || '0',
-            10,
-          );
-          const delay =
-            retryAfter > 0 ? retryAfter * 1000 : 2 ** attempt * 1000;
-          console.warn(
-            `[GitHubProvider] ${res.status} on attempt ${attempt + 1}/${maxRetries + 1}, retrying in ${delay}ms...`,
-          );
-          await new Promise((r) => setTimeout(r, delay));
-          continue;
-        }
-        return res; // 4xx (non-429) — don't retry
-      } catch (err) {
-        if (attempt === maxRetries) throw err;
-        const delay = 2 ** attempt * 1000;
-        console.warn(
-          `[GitHubProvider] Network error on attempt ${attempt + 1}/${maxRetries + 1}, retrying in ${delay}ms: ${err.message}`,
-        );
-        await new Promise((r) => setTimeout(r, delay));
-      }
-    }
-    // Safety: should never normally reach here, but prevents returning undefined
-    throw new Error('[GitHubProvider] Retry loop exhausted without response');
-  }
+  // ── Transport proxies ─────────────────────────────────────────────────────
+  // The class keeps these underscored method names so existing call sites
+  // throughout the file (and any tests mocking `global.fetch`) continue to
+  // work unchanged. All four delegate to `_http`.
 
-  /**
-   * Make a REST API request to GitHub.
-   * @param {string} endpoint - Path relative to GITHUB_API.
-   * @param {{ method?: string, body?: object }} [opts]
-   * @returns {Promise<object>}
-   */
   async _rest(endpoint, opts = {}) {
-    const url = `${GITHUB_API}${endpoint}`;
-    const method = opts.method ?? 'GET';
-
-    const headers = {
-      Accept: 'application/vnd.github+json',
-      Authorization: `Bearer ${this.token}`,
-      'X-GitHub-Api-Version': '2022-11-28',
-      'User-Agent': 'node.js',
-    };
-
-    const fetchOpts = { method, headers };
-    if (opts.body) {
-      headers['Content-Type'] = 'application/json';
-      fetchOpts.body = JSON.stringify(opts.body);
-    }
-
-    const res = await this._fetchWithRetry(url, fetchOpts);
-
-    if (!res.ok) {
-      const errorBody = await res.text().catch(() => '');
-      throw new Error(
-        `[GitHubProvider] ${method} ${endpoint} failed (${res.status}): ${errorBody}`,
-      );
-    }
-
-    // 204 No Content
-    if (res.status === 204) return null;
-
-    return res.json();
+    return this._http.rest(endpoint, opts);
   }
 
-  /**
-   * Make a GraphQL API request to GitHub.
-   * @param {string} query - GraphQL query/mutation string.
-   * @param {object} [variables={}]
-   * @param {{ headers?: object }} [opts={}]
-   * @returns {Promise<object>} The `data` portion of the response.
-   */
   /* node:coverage ignore next */
   async _graphql(query, variables = {}, opts = {}) {
-    const headers = {
-      Accept: 'application/json',
-      Authorization: `Bearer ${this.token}`,
-      'Content-Type': 'application/json',
-      'User-Agent': 'node.js',
-      ...opts.headers,
-    };
-
-    const res = await this._fetchWithRetry(GITHUB_GRAPHQL, {
-      method: 'POST',
-      headers,
-      body: JSON.stringify({ query, variables }),
-    });
-
-    if (!res.ok) {
-      const errorBody = await res.text().catch(() => '');
-      throw new Error(
-        `[GitHubProvider] GraphQL request failed (${res.status}): ${errorBody}`,
-      );
-    }
-
-    const json = await res.json();
-    if (json.errors?.length) {
-      throw new Error(
-        `[GitHubProvider] GraphQL errors: ${JSON.stringify(json.errors)}`,
-      );
-    }
-
-    return json.data;
+    return this._http.graphql(query, variables, opts);
   }
 
-  /**
-   * Execute a GraphQL query/mutation against the ticketing backend.
-   * @param {string} query
-   * @param {object} variables
-   * @param {object} opts
-   */
   /* node:coverage ignore next */
   async graphql(query, variables = {}, opts = {}) {
-    return this._graphql(query, variables, opts);
+    return this._http.graphql(query, variables, opts);
   }
 
-  /**
-   * Paginate through all pages of a REST endpoint.
-   * @param {string} endpoint - Path relative to GITHUB_API (including query params).
-   * @returns {Promise<object[]>} All items across all pages.
-   */
   /* node:coverage ignore next */
   async _restPaginated(endpoint) {
-    const allItems = [];
-    const separator = endpoint.includes('?') ? '&' : '?';
-    let page = 1;
-    while (true) {
-      const batch = await this._rest(
-        `${endpoint}${separator}page=${page}&per_page=100`,
-      );
-      if (!Array.isArray(batch)) break;
-      allItems.push(...batch);
-      if (batch.length < 100) break;
-      page++;
-    }
-    return allItems;
+    return this._http.restPaginated(endpoint);
   }
 
   // ---------------------------------------------------------------------------
