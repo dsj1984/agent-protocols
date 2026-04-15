@@ -2,9 +2,6 @@
   "$schema": "https://json-schema.org/draft/2020-12/schema",
   "title": "Agent Protocols — Unified Root Configuration",
   "agentSettings": {
-    "autoRunSafeCommands": true,
-    "defaultPersona": "engineer",
-    "maxInstructionSteps": 5,
     "baseBranch": "main",
     "agentRoot": ".agents",
     "scriptsRoot": ".agents/scripts",
@@ -12,33 +9,32 @@
     "personasRoot": ".agents/personas",
     "schemasRoot": ".agents/schemas",
     "docsRoot": "docs",
+    "tempRoot": "temp",
+    "auditOutputDir": "temp",
     "docsContextFiles": [
       "architecture.md",
       "data-dictionary.md",
       "decisions.md",
       "patterns.md"
     ],
+    "roadmap": {
+      "autoGenerate": true,
+      "path": "docs/ROADMAP.md",
+      "excludeLabels": ["roadmap-exclude"]
+    },
     "release": {
       "docs": ["README.md", "docs/CHANGELOG.md"],
       "versionFile": ".agents/VERSION",
       "packageJson": true,
       "autoVersionBump": true
     },
-    "tempRoot": "temp",
-    "auditOutputDir": "temp",
-    "roadmap": {
-      "autoGenerate": true,
-      "excludeLabels": ["roadmap-exclude"]
-    },
-    "roadmapPath": "docs/ROADMAP.md",
     "sprintClose": {
       "runRetro": true
     },
-    "verboseLogging": {
-      "enabled": false,
-      "logDir": "temp/verbose-logs"
-    },
-    "maxTokenBudget": 80000,
+    "maxInstructionSteps": 5,
+    "maxTokenBudget": 200000,
+    "executionTimeoutMs": 300000,
+    "executionMaxBuffer": 10485760,
     "validationCommand": "npm run lint",
     "lintBaselineCommand": "npm run lint",
     "lintBaselinePath": "temp/lint-baseline.json",
@@ -46,14 +42,16 @@
     "exploratoryTestCommand": "npm test",
     "typecheckCommand": "",
     "buildCommand": "",
+    "verboseLogging": {
+      "enabled": false,
+      "logDir": "temp/verbose-logs"
+    },
     "frictionThresholds": {
       "repetitiveCommandCount": 3,
       "consecutiveErrorCount": 3,
       "stagnationStepCount": 5,
       "maxIntegrationRetries": 2
     },
-    "executionTimeoutMs": 300000,
-    "executionMaxBuffer": 10485760,
     "riskGates": {
       "heuristics": [
         "Destructive database mutations or unrecoverable state changes.",
@@ -74,18 +72,6 @@
         "Instructions using soft verification verbs (e.g., 'validate that', 'ensure that', 'verify that') for deterministic reproducibility or correctness MUST be replaced with explicit CLI execution commands (e.g., 'Execute the test suite via CLI twice using the same seed').",
         "Tasks performing cross-codebase text replacements in `.astro` or `.tsx` template files MUST mandate both the configured `typecheckCommand` AND `buildCommand` to catch structural HTML/JSX errors that the TypeScript compiler alone cannot detect."
       ]
-    },
-    "protocolRefinement": {
-      "enabled": true,
-      "analysisThresholds": {
-        "minFrictionEvents": 3
-      },
-      "analysisSchedule": "0 0 * * 0",
-      "model": "high-reasoning",
-      "impactTracking": {
-        "enabled": true,
-        "lookbackSprints": 3
-      }
     }
   },
   "techStack": {

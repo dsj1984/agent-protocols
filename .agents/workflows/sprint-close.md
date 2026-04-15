@@ -40,7 +40,7 @@ Epic GitHub issue, cleans up all sprint branches, and optionally tags a release.
    - All files listed in `release.docs`.
    - All files listed in `agentSettings.docsContextFiles` (prefixed with the
      path from `agentSettings.docsRoot`).
-7. Resolve `[ROADMAP_PATH]` from `roadmapPath` in `.agentrc.json` (default:
+7. Resolve `[ROADMAP_PATH]` from `roadmap.path` in `.agentrc.json` (default:
    `docs/ROADMAP.md`).
 8. Resolve `[RUN_RETRO]` from `agentSettings.sprintClose.runRetro` in
    `.agentrc.json` (default: `true`). When `false`, Step 1.5 is skipped entirely
@@ -129,7 +129,7 @@ node [SCRIPTS_ROOT]/generate-roadmap.js
 git add [ROADMAP_PATH]
 ```
 
-> **Config:** The roadmap output path is controlled by `roadmapPath` in
+> **Config:** The roadmap output path is controlled by `roadmap.path` in
 > `.agentrc.json` (default: `docs/ROADMAP.md`). Epics labeled with any value
 > from `roadmap.excludeLabels` are omitted.
 

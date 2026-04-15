@@ -104,11 +104,14 @@ export function resolveConfig(opts) {
       ],
       maintainability: { targetDirs: ['.agents/scripts', 'tests'] },
       auditOutputDir: 'temp',
-      roadmapPath: 'docs/ROADMAP.md',
-      retroPath: 'docs/retros/retro-epic-{epicId}.md',
+      roadmap: {
+        autoGenerate: true,
+        path: 'docs/ROADMAP.md',
+        excludeLabels: ['roadmap-exclude'],
+      },
       executionTimeoutMs: 300000,
       executionMaxBuffer: 10485760,
-      maxTokenBudget: 80000,
+      maxTokenBudget: 200000,
     };
 
     // Apply defaults to the loaded config
@@ -133,8 +136,7 @@ export function resolveConfig(opts) {
       settings.notificationWebhookUrl ?? defaults.notificationWebhookUrl;
     settings.verboseLogging =
       settings.verboseLogging ?? defaults.verboseLogging;
-    settings.roadmapPath = settings.roadmapPath ?? defaults.roadmapPath;
-    settings.retroPath = settings.retroPath ?? defaults.retroPath;
+    settings.roadmap = { ...defaults.roadmap, ...(settings.roadmap ?? {}) };
     settings.executionTimeoutMs =
       settings.executionTimeoutMs ?? defaults.executionTimeoutMs;
     settings.executionMaxBuffer =
@@ -184,11 +186,14 @@ export function resolveConfig(opts) {
       baseBranch: 'main',
       notificationWebhookUrl: '',
       verboseLogging: { enabled: false, logDir: 'temp/verbose-logs' },
-      roadmapPath: 'docs/ROADMAP.md',
-      retroPath: 'docs/retros/retro-epic-{epicId}.md',
+      roadmap: {
+        autoGenerate: true,
+        path: 'docs/ROADMAP.md',
+        excludeLabels: ['roadmap-exclude'],
+      },
       executionTimeoutMs: 300000, // 5 minutes
       executionMaxBuffer: 10485760, // 10MB
-      maxTokenBudget: 80000, // Default 80k token budget
+      maxTokenBudget: 200000, // 200k tokens — fits modern Claude/GPT windows
     },
     orchestration: null,
     raw: null,

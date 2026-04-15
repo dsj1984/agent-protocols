@@ -277,7 +277,7 @@ export async function detectEpicCompletion({
     '',
     `1. \`/audit-quality ${epicId}\` — QA audit`,
     `2. \`/sprint-code-review ${epicId}\` — Mandatory code review gate`,
-    `3. \`/sprint-retro ${epicId}\` — Generate retrospective (writes to \`retroPath\`)`,
+    `3. \`/sprint-retro ${epicId}\` — Generate retrospective (posted as an Epic comment)`,
     `4. \`/sprint-close ${epicId}\` — Merge, tag, close (gated on retro existence)`,
     '',
     'Skipping `/sprint-retro` will cause `/sprint-close` to halt at the',

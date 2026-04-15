@@ -2,6 +2,53 @@
 
 All notable changes to this project will be documented in this file.
 
+## [5.8.2] - 2026-04-15
+
+### 🧹 `agentSettings` audit & reorganization
+
+Comprehensive audit of `agentSettings` in `.agentrc.json` /
+`.agents/default-agentrc.json`. Removed dead fields, nested logically
+related fields, reordered for readability, and raised the token budget
+default to reflect modern model windows.
+
+**Breaking (config shape):**
+
+- **Renamed:** `agentSettings.roadmapPath` → `agentSettings.roadmap.path`.
+  The nested shape matches `roadmap.autoGenerate` /
+  `roadmap.excludeLabels`. `generate-roadmap.js`, workflow docs
+  (`sprint-close.md`, `roadmap-sync.md`), and schema validation updated
+  accordingly. Downstream consumers of `.agentrc.json` must update their
+  key path.
+- **Removed:** `agentSettings.autoRunSafeCommands` — never read by any
+  code or workflow.
+- **Removed:** `agentSettings.defaultPersona` — never read.
+- **Removed:** `agentSettings.protocolRefinement` block — aspirational
+  scheduling config for a feature that was never implemented.
+- **Removed:** Stale `retroPath` default in `config-resolver.js` — left
+  over from v5.8.0's retro-to-GitHub migration. Also fixed a stale
+  `retroPath` reference in the Epic-complete summary comment emitted by
+  `dispatch-engine.js`.
+
+**Defaults changed:**
+
+- **Bumped:** `maxTokenBudget` default `80000` → `200000`. 80k was
+  already cramped for complex projects hydrating PRD + Tech Spec +
+  architecture docs + task instructions; 200k matches the standard
+  Claude/GPT window and leaves realistic headroom. Users on 1M-context
+  models can raise further; users on cheaper models can lower.
+
+**Reorganized field order** inside `agentSettings` (no behavior change):
+
+1. Identity & roots — `baseBranch`, `*Root`, `tempRoot`,
+   `auditOutputDir`
+2. Docs & roadmap — `docsContextFiles`, `roadmap`
+3. Lifecycle — `release`, `sprintClose`
+4. Runtime caps — `maxInstructionSteps`, `maxTokenBudget`,
+   `executionTimeoutMs`, `executionMaxBuffer`
+5. Commands — `validationCommand`, `lintBaselineCommand`, etc.
+6. Telemetry & safety — `verboseLogging`, `frictionThresholds`,
+   `riskGates`
+
 ## [5.8.1] - 2026-04-15
 
 ### 🧹 Model selection simplified to a binary tier

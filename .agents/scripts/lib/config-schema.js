@@ -126,9 +126,21 @@ export const AGENT_SETTINGS_SCHEMA = {
       },
       additionalProperties: false,
     },
+    roadmap: {
+      type: 'object',
+      properties: {
+        autoGenerate: { type: 'boolean' },
+        path: { type: 'string', not: { pattern: '([;&|`]|\\$\\()' } },
+        excludeLabels: {
+          type: 'array',
+          items: { type: 'string' },
+        },
+      },
+      additionalProperties: false,
+    },
   },
   patternProperties: {
-    '^(notificationWebhookUrl|baseBranch|validationCommand|testCommand|buildCommand|agentRoot|scriptsRoot|workflowsRoot|personasRoot|schemasRoot|skillsRoot|templatesRoot|rulesRoot|docsRoot|tempRoot|auditOutputDir|lintBaselineCommand|lintBaselinePath|exploratoryTestCommand|typecheckCommand|roadmapPath)$':
+    '^(notificationWebhookUrl|baseBranch|validationCommand|testCommand|buildCommand|agentRoot|scriptsRoot|workflowsRoot|personasRoot|schemasRoot|skillsRoot|templatesRoot|rulesRoot|docsRoot|tempRoot|auditOutputDir|lintBaselineCommand|lintBaselinePath|exploratoryTestCommand|typecheckCommand)$':
       {
         type: 'string',
         not: { pattern: '([;&|`]|\\$\\()' },

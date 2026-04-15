@@ -15,14 +15,14 @@ sync is additive — it fills in gaps for new Epics and updates status for
 existing ones.
 
 > **When to run**: Manually at any time, or automatically as part of
-> `/sprint-close` (Step 2.5 — Roadmap Sync). Run it whenever the roadmap
-> drifts from the GitHub ticket graph.
+> `/sprint-close` (Step 2.5 — Roadmap Sync). Run it whenever the roadmap drifts
+> from the GitHub ticket graph.
 >
 > **Persona**: `product` · **Skills**: `core/documentation-and-adrs`
 
 ## Step 0 — Resolve Configuration
 
-1. Resolve `[ROADMAP_PATH]` from `roadmapPath` in `.agentrc.json` (default:
+1. Resolve `[ROADMAP_PATH]` from `roadmap.path` in `.agentrc.json` (default:
    `docs/ROADMAP.md`).
 2. Resolve `[OWNER]` and `[REPO]` from `orchestration.github` in
    `.agentrc.json`.
@@ -55,11 +55,11 @@ Filter out any Epics that carry a label listed in `[EXCLUDE_LABELS]`.
 
 Assign each Epic to one of three categories:
 
-| Category        | Criteria                                                  | Emoji |
-| --------------- | --------------------------------------------------------- | ----- |
-| ✅ Completed    | Issue state is `closed`                                   | ✅    |
-| 🚧 In Progress | Issue state is `open` AND at least one child is `closed`  | 🚧    |
-| 📋 Planned      | Issue state is `open` AND zero children are `closed`      | 📋    |
+| Category       | Criteria                                                 | Emoji |
+| -------------- | -------------------------------------------------------- | ----- |
+| ✅ Completed   | Issue state is `closed`                                  | ✅    |
+| 🚧 In Progress | Issue state is `open` AND at least one child is `closed` | 🚧    |
+| 📋 Planned     | Issue state is `open` AND zero children are `closed`     | 📋    |
 
 Within each category, sort Epics by issue number (ascending = oldest first).
 
@@ -70,25 +70,25 @@ Overwrite `[ROADMAP_PATH]` with the following structure:
 ```markdown
 # Project Roadmap
 
-> **Auto-generated** from GitHub Issues — do not edit manually.
-> Last synced: [ISO 8601 datetime]
+> **Auto-generated** from GitHub Issues — do not edit manually. Last synced:
+> [ISO 8601 datetime]
 
 ## 🚧 In Progress
 
-| Epic | Status | Progress |
-| ---- | ------ | -------- |
+| Epic                                                          | Status         | Progress                |
+| ------------------------------------------------------------- | -------------- | ----------------------- |
 | [#N — Epic Title](https://github.com/[OWNER]/[REPO]/issues/N) | 🚧 In Progress | `██████░░░░` 60% (6/10) |
 
 ## 📋 Planned
 
-| Epic | Status | Progress |
-| ---- | ------ | -------- |
+| Epic                                                          | Status     | Progress              |
+| ------------------------------------------------------------- | ---------- | --------------------- |
 | [#N — Epic Title](https://github.com/[OWNER]/[REPO]/issues/N) | 📋 Planned | `░░░░░░░░░░` 0% (0/5) |
 
 ## ✅ Completed
 
-| Epic | Status | Progress |
-| ---- | ------ | -------- |
+| Epic                                                          | Status       | Progress                  |
+| ------------------------------------------------------------- | ------------ | ------------------------- |
 | [#N — Epic Title](https://github.com/[OWNER]/[REPO]/issues/N) | ✅ Completed | `██████████` 100% (10/10) |
 ```
 
@@ -133,5 +133,5 @@ git commit --no-verify -m "docs(roadmap): sync ROADMAP.md from GitHub Epics"
   appear in the roadmap regardless of their state.
 - **Always include the "Last synced" timestamp** at the top of the generated
   file so stakeholders know when the data was last refreshed.
-- **Idempotent.** Running this workflow multiple times in succession must produce
-  the same output (assuming no GitHub state changes between runs).
+- **Idempotent.** Running this workflow multiple times in succession must
+  produce the same output (assuming no GitHub state changes between runs).
