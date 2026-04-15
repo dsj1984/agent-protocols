@@ -186,7 +186,6 @@ Add the following to your MCP host settings (e.g.,
       ],
       "env": {
         "GITHUB_TOKEN": "your_token_here",
-        "GEMINI_API_KEY": "your_token_here",
         "NOTIFICATION_WEBHOOK_URL": "optional_webhook_url"
       }
     }

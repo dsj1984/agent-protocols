@@ -4,9 +4,17 @@
 /**
  * ticket-decomposer.js
  *
- * Sprint 2B Work Breakdown Decomposition Script
- * Reads the PRD and Tech Spec of an Epic, decomposes them into a 3-level hierarchy
- * (Feature, Story, Task), and populates them into GitHub with proper linking.
+ * Work Breakdown Decomposition Script (v5.6+)
+ *
+ * As of v5.6 the host LLM authors the ticket array directly — this script
+ * no longer calls any external LLM API. It has two modes:
+ *
+ *   1. --emit-context  Prints a JSON envelope (PRD body, Tech Spec body,
+ *                      system prompt, risk heuristics, JSON schema) to stdout.
+ *                      The host LLM consumes this to author the ticket array.
+ *
+ *   2. (default)       Given an author-provided tickets JSON file, validates
+ *                      and creates the Feature/Story/Task issues under the Epic.
  *
  * Execution model: Stories are the primary execution unit. Each Story is executed
  * on a single branch (`story/epic-<epicId>/<slug>`) with all child Tasks
@@ -14,11 +22,11 @@
  * model_tier (high|fast) based on the Story's complexity:: label.
  */
 
+import { readFile } from 'node:fs/promises';
 import { parseArgs } from 'node:util';
 import { runAsCli } from './lib/cli-utils.js';
 import { resolveConfig } from './lib/config-resolver.js';
 import { Logger } from './lib/Logger.js';
-import { LLMClient } from './lib/llm-client.js';
 import { validateAndNormalizeTickets } from './lib/orchestration/ticket-validator.js';
 import { createProvider } from './lib/provider-factory.js';
 import { DECOMPOSER_SYSTEM_PROMPT } from './lib/templates/decomposer-prompts.js';
@@ -32,7 +40,7 @@ function resolveParentId(ticket, slugMap, epicId) {
   }
   if (!slugMap.has(ticket.parent_slug)) {
     throw new Error(
-      `[Decomposer] ${ticket.type.toUpperCase()} "${ticket.title}" (${ticket.slug}) references parent_slug "${ticket.parent_slug}" which was not created. The parent is missing from the LLM output or the slug is misspelled.`,
+      `[Decomposer] ${ticket.type.toUpperCase()} "${ticket.title}" (${ticket.slug}) references parent_slug "${ticket.parent_slug}" which was not created. The parent is missing from the ticket array or the slug is misspelled.`,
     );
   }
   return slugMap.get(ticket.parent_slug);
@@ -53,16 +61,57 @@ function resolveDependencies(ticket, slugMap) {
   return resolved;
 }
 
+export function buildDecomposerSystemPrompt(heuristics = []) {
+  const heuristicsStr =
+    heuristics.length > 0
+      ? `### RISK HEURISTICS (Flag as risk::high if any apply):\n- ${heuristics.join('\n- ')}`
+      : '';
+  return `${DECOMPOSER_SYSTEM_PROMPT}${heuristicsStr ? `\n\n${heuristicsStr}` : ''}`;
+}
+
+/**
+ * Build the authoring context the host LLM needs to produce the ticket JSON.
+ */
+export async function buildDecompositionContext(epicId, provider, config = {}) {
+  const epic = await provider.getEpic(epicId);
+  if (!epic?.linkedIssues?.prd || !epic.linkedIssues.techSpec) {
+    throw new Error(
+      `[Decomposer] Epic #${epicId} is missing linked PRD or Tech Spec. Run the Epic Planner first.`,
+    );
+  }
+
+  const [prd, techSpec] = await Promise.all([
+    provider.getTicket(epic.linkedIssues.prd),
+    provider.getTicket(epic.linkedIssues.techSpec),
+  ]);
+
+  const heuristics = config.agentSettings?.riskGates?.heuristics || [];
+  const systemPrompt = buildDecomposerSystemPrompt(heuristics);
+
+  return {
+    epic: { id: epic.id, title: epic.title },
+    prd: { id: prd.id, body: prd.body },
+    techSpec: { id: techSpec.id, body: techSpec.body },
+    heuristics,
+    systemPrompt,
+    maxTickets: 25,
+  };
+}
+
 export async function decomposeEpic(
   epicId,
   provider,
-  llm,
-  config = {},
+  { tickets },
+  _config = {},
   { force = false } = {},
 ) {
-  console.log(
-    `[Decomposer] Fetching Epic #${epicId} and its planning artifacts...`,
-  );
+  if (!Array.isArray(tickets)) {
+    throw new Error(
+      `[Decomposer] tickets must be an array (got ${typeof tickets}).`,
+    );
+  }
+
+  console.log(`[Decomposer] Fetching Epic #${epicId}...`);
   const epic = await provider.getEpic(epicId);
 
   if (!epic?.linkedIssues?.prd || !epic.linkedIssues.techSpec) {
@@ -97,99 +146,28 @@ export async function decomposeEpic(
     console.log(`[Decomposer]   Closed ${children.length} old ticket(s).`);
   }
 
-  // Fetch PRD and Tech Spec bodies
-  console.log(
-    `[Decomposer] Fetching PRD #${epic.linkedIssues.prd} and Tech Spec #${epic.linkedIssues.techSpec}...`,
-  );
-  const prd = await provider.getTicket(epic.linkedIssues.prd);
-  const techSpec = await provider.getTicket(epic.linkedIssues.techSpec);
-
-  // Extract heuristics for the prompt
-  const heuristics = config.agentSettings?.riskGates?.heuristics || [];
-  const heuristicsStr =
-    heuristics.length > 0
-      ? `### RISK HEURISTICS (Flag as risk::high if any apply):\n- ${heuristics.join('\n- ')}`
-      : '';
-
-  const systemPrompt = `${DECOMPOSER_SYSTEM_PROMPT}\n\n${heuristicsStr}`;
-
-  const userPrompt = `
-Epic: ${epic.title}
-PRD Content:
-${prd.body}
-
-Technical Specification Content:
-${techSpec.body}
-
-Please decompose the above into a complete ticket backlog. Respond with the JSON array only.`;
-
-  console.log(
-    `[Decomposer] Calling LLM for decomposition (this may take a minute)...`,
-  );
-  let response;
-  try {
-    response = await llm.generateText(systemPrompt, userPrompt);
-  } catch (err) {
-    if (err.message.includes('maxInputTokens')) {
-      throw new Error(
-        `[Decomposer] Input too large for LLM context window. ` +
-          `Consider splitting the Epic into smaller features or reducing PRD/Tech Spec detail. ` +
-          `Original error: ${err.message}`,
-      );
-    }
-    throw err;
-  }
-
-  let tickets;
-  try {
-    // LLM sometimes wraps in markdown code blocks even if told not to
-    const cleanJson = response
-      .replace(/```json/g, '')
-      .replace(/```/g, '')
-      .trim();
-    tickets = JSON.parse(cleanJson);
-  } catch (_err) {
-    const { writeFileSync } = await import('node:fs');
-    writeFileSync('temp/llm-output.txt', response, 'utf8');
-    console.error(
-      '[Decomposer] Failed to parse LLM response as JSON. Raw response dumped to temp/llm-output.txt',
-    );
-    throw new Error('LLM output was not valid JSON.');
-  }
-
-  if (!Array.isArray(tickets)) {
-    throw new Error(
-      `[Decomposer] LLM response parsed but is not an array (got ${typeof tickets}). The decomposer prompt requires a top-level JSON array.`,
-    );
-  }
-
-  // Truncation heuristic: the system prompt caps generation at 25 tickets.
-  // If the LLM emits exactly that (or more), it is likely bumping against the
-  // cap and may have silently omitted child tickets. Surface a warning so
-  // partial backlogs do not slip through unnoticed.
   if (tickets.length >= 25) {
     console.warn(
-      `[Decomposer] ⚠️  LLM emitted ${tickets.length} tickets (at or above the 25-ticket cap). Output may be truncated; verify every Story still has child Tasks or split the Epic into smaller scopes.`,
+      `[Decomposer] ⚠️  Received ${tickets.length} tickets (at or above the 25-ticket cap). Verify every Story still has child Tasks or split the Epic into smaller scopes.`,
     );
   }
 
   console.log(
-    `[Decomposer] Running cross-validation on ${tickets.length} decomposed tickets...`,
+    `[Decomposer] Running cross-validation on ${tickets.length} tickets...`,
   );
-  tickets = validateAndNormalizeTickets(tickets);
+  const validated = validateAndNormalizeTickets(tickets);
 
   console.log(
-    `[Decomposer] Identified ${tickets.length} tickets. Starting creation...`,
+    `[Decomposer] Identified ${validated.length} tickets. Starting creation...`,
   );
 
-  // Map of slug -> created ID for dependency resolution
   const slugMap = new Map();
 
-  // Sort tickets by type to ensure parents are created first (Feature -> Story -> Task)
+  // Sort by type so parents are created first (Feature -> Story -> Task)
   const typeOrder = { feature: 0, story: 1, task: 2 };
-  tickets.sort((a, b) => typeOrder[a.type] - typeOrder[b.type]);
+  validated.sort((a, b) => typeOrder[a.type] - typeOrder[b.type]);
 
-  for (const t of tickets) {
+  for (const t of validated) {
     console.log(
       `[Decomposer] [${t.type.toUpperCase()}] Creating "${t.title}"...`,
     );
@@ -214,24 +192,50 @@ Please decompose the above into a complete ticket backlog. Respond with the JSON
   );
 }
 
+/* node:coverage ignore next */
 async function main() {
   const { values } = parseArgs({
     options: {
       epic: { type: 'string' },
       force: { type: 'boolean', default: false },
+      'emit-context': { type: 'boolean', default: false },
+      tickets: { type: 'string' },
     },
   });
 
   if (!values.epic) {
-    Logger.fatal('Usage: node ticket-decomposer.js --epic <EpicId> [--force]');
+    Logger.fatal(
+      'Usage: ticket-decomposer.js --epic <EpicId> (--emit-context | --tickets <file>) [--force]',
+    );
   }
 
   const epicId = parseInt(values.epic, 10);
   const config = resolveConfig();
   const provider = createProvider(config.orchestration);
-  const llm = new LLMClient({ orchestration: config.orchestration });
 
-  await decomposeEpic(epicId, provider, llm, config, {
+  if (values['emit-context']) {
+    const ctx = await buildDecompositionContext(epicId, provider, config);
+    process.stdout.write(`${JSON.stringify(ctx, null, 2)}\n`);
+    return;
+  }
+
+  if (!values.tickets) {
+    Logger.fatal(
+      'Missing --tickets <file>. (Use --emit-context first to gather authoring context.)',
+    );
+  }
+
+  const raw = await readFile(values.tickets, 'utf8');
+  let tickets;
+  try {
+    tickets = JSON.parse(raw);
+  } catch (err) {
+    Logger.fatal(
+      `Failed to parse tickets file "${values.tickets}" as JSON: ${err.message}`,
+    );
+  }
+
+  await decomposeEpic(epicId, provider, { tickets }, config, {
     force: values.force,
   });
 }
