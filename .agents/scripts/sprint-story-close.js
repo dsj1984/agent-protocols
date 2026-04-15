@@ -61,12 +61,12 @@ import { notify } from './notify.js';
 
 const progress = Logger.createProgress('sprint-story-close', { stderr: true });
 
-function cleanupBranches(storyBranch) {
+function cleanupBranches(storyBranch, cwd) {
   progress('CLEANUP', `Deleting story branch: ${storyBranch}`);
 
-  const localDelete = gitSpawn(PROJECT_ROOT, 'branch', '-d', storyBranch);
+  const localDelete = gitSpawn(cwd, 'branch', '-d', storyBranch);
   if (localDelete.status !== 0) {
-    gitSpawn(PROJECT_ROOT, 'branch', '-D', storyBranch);
+    gitSpawn(cwd, 'branch', '-D', storyBranch);
   }
 
   const remoteDelete = gitSpawn(
@@ -127,7 +127,7 @@ async function ticketClosureCascade(provider, tasks, storyId) {
 // CLI argument parsing
 // ---------------------------------------------------------------------------
 
-async function handleHighRiskGate(provider, storyBranch, storyId, _epicId) {
+async function handleHighRiskGate(provider, storyBranch, storyId, _epicId, cwd) {
   progress('RISK', '⚠️ Story is risk::high — creating PR instead of auto-merge');
   let prUrl = null;
   try {
@@ -138,7 +138,7 @@ async function handleHighRiskGate(provider, storyBranch, storyId, _epicId) {
     console.error(`[sprint-story-close] PR creation failed: ${err.message}`);
   }
   // Push the story branch if not already pushed
-  gitSpawn(PROJECT_ROOT, 'push', '--no-verify', 'origin', storyBranch);
+  gitSpawn(cwd, 'push', '--no-verify', 'origin', storyBranch);
 
   return {
     action: 'pr-created',
@@ -147,15 +147,15 @@ async function handleHighRiskGate(provider, storyBranch, storyId, _epicId) {
   };
 }
 
-function finalizeMerge(epicBranch, storyBranch, storyTitle, storyId) {
-  // Normal merge path
+function finalizeMerge(epicBranch, storyBranch, storyTitle, storyId, cwd) {
+  // Normal merge path.
   progress('GIT', `Checking out ${epicBranch}...`);
-  gitSync(PROJECT_ROOT, 'checkout', epicBranch);
-  gitSpawn(PROJECT_ROOT, 'pull', '--rebase', 'origin', epicBranch);
+  gitSync(cwd, 'checkout', epicBranch);
+  gitSpawn(cwd, 'pull', '--rebase', 'origin', epicBranch);
 
   progress('GIT', `Merging ${storyBranch} into ${epicBranch} (--no-ff)...`);
   const mergeResult = gitSpawn(
-    PROJECT_ROOT,
+    cwd,
     'merge',
     '--no-ff',
     storyBranch,
@@ -173,7 +173,7 @@ function finalizeMerge(epicBranch, storyBranch, storyTitle, storyId) {
 
   progress('GIT', `Pushing ${epicBranch}...`);
   const pushResult = gitSpawn(
-    PROJECT_ROOT,
+    cwd,
     'push',
     '--no-verify',
     'origin',
@@ -183,7 +183,7 @@ function finalizeMerge(epicBranch, storyBranch, storyTitle, storyId) {
     Logger.fatal(`Push failed: ${pushResult.stderr}`);
   }
 
-  cleanupBranches(storyBranch);
+  cleanupBranches(storyBranch, cwd);
 }
 
 /**
@@ -194,19 +194,20 @@ export async function runStoryClose({
   storyId: storyIdParam,
   epicId: epicIdParam,
   skipDashboard: skipDashboardParam,
+  cwd: cwdParam,
   injectedProvider,
 } = {}) {
-  const {
-    storyId,
-    epicId: argEpicId,
-    skipDashboard,
-  } = storyIdParam !== undefined
+  const parsed = storyIdParam !== undefined
     ? {
         storyId: storyIdParam,
         epicId: epicIdParam,
         skipDashboard: !!skipDashboardParam,
+        cwd: cwdParam ?? null,
       }
     : parseSprintArgs();
+  const { storyId, epicId: argEpicId, skipDashboard } = parsed;
+  // Worktree-aware cwd resolution: explicit param > --cwd flag > env > PROJECT_ROOT.
+  const cwd = path.resolve(cwdParam ?? parsed.cwd ?? PROJECT_ROOT);
 
   if (!storyId) {
     Logger.fatal(
@@ -260,6 +261,7 @@ export async function runStoryClose({
       storyBranch,
       storyId,
       epicId,
+      cwd,
     );
     const result = { storyId, epicId, ...riskResult };
     console.log('\n--- STORY CLOSE RESULT ---');
@@ -267,7 +269,7 @@ export async function runStoryClose({
     console.log('--- END RESULT ---\n');
     return { success: false, result };
   } else {
-    finalizeMerge(epicBranch, storyBranch, story.title, storyId);
+    finalizeMerge(epicBranch, storyBranch, story.title, storyId, cwd);
 
     // Worktree-per-story isolation: merge succeeded → reap the worktree.
     // Reap is no-op when isolation is disabled or when the worktree was
