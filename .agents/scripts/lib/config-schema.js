@@ -62,6 +62,22 @@ export const ORCHESTRATION_SCHEMA = {
       },
       additionalProperties: false,
     },
+    worktreeIsolation: {
+      type: 'object',
+      properties: {
+        enabled: { type: 'boolean' },
+        root: { type: 'string', minLength: 1 },
+        nodeModulesStrategy: {
+          type: 'string',
+          enum: ['per-worktree', 'symlink', 'pnpm-store'],
+        },
+        reapOnSuccess: { type: 'boolean' },
+        reapOnCancel: { type: 'boolean' },
+        warnOnUncommittedOnReap: { type: 'boolean' },
+        windowsPathLengthWarnThreshold: { type: 'integer', minimum: 1 },
+      },
+      additionalProperties: false,
+    },
   },
   additionalProperties: false,
 };
