@@ -61,7 +61,11 @@ function parseArgs(argv) {
 const isMain = process.argv[1] === fileURLToPath(import.meta.url);
 if (isMain) {
   const { expected } = parseArgs(process.argv.slice(2));
-  const result = assertBranch(expected);
+  // Worktree-aware: hooks invoked inside a per-story worktree must guard the
+  // worktree's HEAD, not the main checkout. AGENT_WORKTREE_ROOT is set by
+  // dispatcher.js when a story runs in an isolated worktree.
+  const cwd = process.env.AGENT_WORKTREE_ROOT || PROJECT_ROOT;
+  const result = assertBranch(expected, { cwd });
   if (!result.ok) {
     console.error(`[assert-branch] ${result.reason}`);
     process.exit(1);

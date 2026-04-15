@@ -24,33 +24,43 @@ const __dirname = path.dirname(fileURLToPath(import.meta.url));
 // scripts/lib/ → scripts/ → .agents/ → project root
 export const PROJECT_ROOT = path.resolve(__dirname, '../../..');
 
-let _cachedConfig = null;
-let _envLoaded = false;
+// Cache keyed by absolute root path so callers passing different cwds
+// (e.g. per-worktree) each get their own resolved config.
+const _cacheByRoot = new Map();
+const _envLoadedRoots = new Set();
 
 /**
  * Extract the flat agentSettings bag from whichever config format is present.
- * Results are cached at module level to avoid redundant file I/O.
+ * Results are cached per resolved root path to avoid redundant file I/O.
  *
  * Error policy:
  *   - File missing (ENOENT) → fall through to built-in defaults (zero-config).
  *   - File present but malformed JSON → throw immediately (config corruption is
  *     a fatal error, not a silent fallback scenario).
  *
- * @param {{ bustCache?: boolean }} [opts] - Pass { bustCache: true } to force re-read.
+ * @param {{ bustCache?: boolean, cwd?: string }} [opts]
+ *   - `cwd`: absolute path to the directory whose `.agentrc.json` should be
+ *     loaded. Defaults to the framework's `PROJECT_ROOT`. Worktree-mode
+ *     callers pass the worktree path so each worktree resolves its own config.
+ *   - `bustCache`: force re-read for the resolved root.
  * @returns {{ settings: object, orchestration: object|null, raw: object|null, source: string }}
  */
 export function resolveConfig(opts) {
-  if (_cachedConfig && !opts?.bustCache) return _cachedConfig;
+  const root = path.resolve(opts?.cwd ?? PROJECT_ROOT);
 
-  // Lazy .env load: deferred from module scope so importing this module
-  // never mutates process.env as a side effect.
-  if (!_envLoaded) {
-    loadEnv(PROJECT_ROOT);
-    _envLoaded = true;
+  if (!opts?.bustCache && _cacheByRoot.has(root)) {
+    return _cacheByRoot.get(root);
   }
 
-  // 1. Preferred: unified .agentrc.json at repo root
-  const agentrcPath = path.join(PROJECT_ROOT, '.agentrc.json');
+  // Lazy .env load: deferred from module scope so importing this module
+  // never mutates process.env as a side effect. Loaded once per root.
+  if (!_envLoadedRoots.has(root)) {
+    loadEnv(root);
+    _envLoadedRoots.add(root);
+  }
+
+  // 1. Preferred: unified .agentrc.json at the resolved root
+  const agentrcPath = path.join(root, '.agentrc.json');
   if (fs.existsSync(agentrcPath)) {
     let raw;
     try {
@@ -156,18 +166,19 @@ export function resolveConfig(opts) {
       }
     }
 
-    _cachedConfig = {
+    const resolved = {
       settings,
       orchestration,
       autoHeal,
       raw,
       source: agentrcPath,
     };
-    return _cachedConfig;
+    _cacheByRoot.set(root, resolved);
+    return resolved;
   }
 
   // 2. Hard-coded defaults (zero-config experience)
-  _cachedConfig = {
+  const resolved = {
     settings: {
       agentRoot: '.agents',
       scriptsRoot: '.agents/scripts',
@@ -200,7 +211,8 @@ export function resolveConfig(opts) {
     raw: null,
     source: 'built-in defaults',
   };
-  return _cachedConfig;
+  _cacheByRoot.set(root, resolved);
+  return resolved;
 }
 
 /**
