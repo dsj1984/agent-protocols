@@ -34,6 +34,7 @@ import { buildGraph, topologicalSort } from './lib/Graph.js';
 import {
   getEpicBranch,
   getStoryBranch,
+  gitFetchWithRetry,
   gitSpawn,
   gitSync,
 } from './lib/git-utils.js';
@@ -243,9 +244,15 @@ function checkoutStoryBranch(storyBranch, epicBranch) {
   gitSync(PROJECT_ROOT, 'checkout', '-b', storyBranch, epicBranch);
 }
 
-function bootstrapBranch(epicBranch, storyBranch, baseBranch) {
+async function bootstrapBranch(epicBranch, storyBranch, baseBranch) {
   progress('GIT', 'Fetching remote refs...');
-  gitSpawn(PROJECT_ROOT, 'fetch', 'origin');
+  const fetchResult = await gitFetchWithRetry(PROJECT_ROOT, 'origin');
+  if (fetchResult.attempts > 1) {
+    progress(
+      'GIT',
+      `Fetch completed after ${fetchResult.attempts} attempt(s) — packed-refs contention.`,
+    );
+  }
 
   assertWorkingTreeClean();
 
@@ -341,7 +348,7 @@ export async function runStoryInit({
   if (!dryRun) {
     const baseBranch = settings.baseBranch ?? 'main';
     try {
-      bootstrapBranch(epicBranch, storyBranch, baseBranch);
+      await bootstrapBranch(epicBranch, storyBranch, baseBranch);
     } catch (err) {
       throw new Error(err.message);
     }
