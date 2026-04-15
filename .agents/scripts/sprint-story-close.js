@@ -52,6 +52,7 @@ import {
   fetchChildTasks,
   resolveStoryHierarchy,
 } from './lib/story-lifecycle.js';
+import { WorktreeManager } from './lib/worktree-manager.js';
 import { notify } from './notify.js';
 
 // ---------------------------------------------------------------------------
@@ -267,6 +268,32 @@ export async function runStoryClose({
     return { success: false, result };
   } else {
     finalizeMerge(epicBranch, storyBranch, story.title, storyId);
+
+    // Worktree-per-story isolation: merge succeeded → reap the worktree.
+    // Reap is no-op when isolation is disabled or when the worktree was
+    // never created (e.g. operator merged from the main checkout).
+    const wtConfig = orchestration?.worktreeIsolation;
+    if (wtConfig?.enabled && (wtConfig.reapOnSuccess ?? true)) {
+      try {
+        const wm = new WorktreeManager({
+          repoRoot: PROJECT_ROOT,
+          config: wtConfig,
+        });
+        const reapResult = await wm.reap(storyId, { epicBranch });
+        if (reapResult.removed) {
+          progress('WORKTREE', `🗑️  Reaped worktree: ${reapResult.path}`);
+        } else if (reapResult.reason && reapResult.reason !== 'not-a-worktree') {
+          progress(
+            'WORKTREE',
+            `⚠️  Worktree not reaped (${reapResult.reason}): ${reapResult.path}`,
+          );
+        }
+      } catch (err) {
+        console.error(
+          `[sprint-story-close] Worktree reap failed (non-fatal): ${err.message}`,
+        );
+      }
+    }
   }
 
   // -------------------------------------------------------------------------
