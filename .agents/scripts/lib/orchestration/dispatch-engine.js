@@ -20,7 +20,10 @@ import { notify } from '../../notify.js';
 import { createAdapter } from '../adapter-factory.js';
 import { PROJECT_ROOT, resolveConfig } from '../config-resolver.js';
 import { buildGraph, computeWaves, detectCycle } from '../Graph.js';
-import { ensureLocalBranch } from '../git-branch-lifecycle.js';
+import {
+  branchExistsLocally,
+  ensureLocalBranch,
+} from '../git-branch-lifecycle.js';
 import { getEpicBranch } from '../git-utils.js';
 import { createProvider } from '../provider-factory.js';
 import { VerboseLogger } from '../VerboseLogger.js';
@@ -407,6 +410,7 @@ async function dispatchTaskInWave(task, ctx) {
   const { provider, adapter, allTicketsById, epicId, epicBranch, dryRun } = ctx;
 
   const taskBranch = getResolvedBranch(task, allTicketsById, epicId);
+  const storyMatch = taskBranch.match(/^story-(\d+)$/);
 
   const hydratedPrompt = await hydrateContext(
     task,
@@ -445,42 +449,36 @@ async function dispatchTaskInWave(task, ctx) {
     };
   }
 
-  // Worktree-per-story isolation: when a manager is present, ensure the
-  // story's worktree exists and pass its absolute path as `cwd`. The agent
-  // (or HITL operator) executes inside that path so concurrent stories
-  // cannot race on the main checkout's HEAD. Only runs in non-dry-run mode.
-  if (ctx.worktreeManager && /^story-\d+$/.test(taskBranch)) {
-    const storyId = parseInt(taskBranch.slice('story-'.length), 10);
-    const ensured = await ctx.worktreeManager.ensure(storyId, taskBranch);
-    taskDispatch.cwd = ensured.path;
+  // JIT-only: story branches and worktrees are created exclusively by
+  // sprint-story-init (invoked via `/sprint-execute #<storyId>`). If the
+  // story hasn't been initialized yet, skip its tasks so the operator can
+  // start that story explicitly — never create it as a side effect of
+  // Epic-level dispatch.
+  if (storyMatch) {
+    const storyId = parseInt(storyMatch[1], 10);
+    const wm = ctx.worktreeManager;
+    const initialized = wm
+      ? fs.existsSync(wm.pathFor(storyId))
+      : branchExistsLocally(taskBranch, PROJECT_ROOT);
 
-    // Windows long-path warnings are a pre-flight heads-up — surface them
-    // on the Epic ticket so the operator can relocate the worktree root
-    // before any build silently truncates a file path.
-    if (ensured.windowsPathWarning) {
-      try {
-        const { path: p, length, threshold } = ensured.windowsPathWarning;
-        await ctx.provider.postComment(ctx.epicId, {
-          body:
-            `⚠️ **Windows long-path warning** — story-${storyId} worktree\n\n` +
-            `- Path: \`${p}\`\n` +
-            `- Estimated deepest path length: **${length}** chars\n` +
-            `- Threshold: ${threshold}\n\n` +
-            `Windows MAX_PATH is 260 without \`core.longpaths=true\`; ` +
-            `even with it set, some tools still truncate. Consider relocating ` +
-            `\`orchestration.worktreeIsolation.root\` to a shorter prefix.`,
-          type: 'notification',
-        });
-      } catch (err) {
-        vlog.warn(
-          'orchestration',
-          `Failed to post long-path warning on Epic #${ctx.epicId}: ${err.message}`,
-        );
-      }
+    if (!initialized) {
+      vlog.info(
+        'orchestration',
+        `⏭️  Skipping Task #${task.id}: Story #${storyId} not initialized. ` +
+          `Run \`/sprint-execute #${storyId}\` to begin this story.`,
+      );
+      return { taskId: task.id, status: 'skipped-not-initialized' };
     }
+
+    if (wm) {
+      taskDispatch.cwd = wm.pathFor(storyId);
+    }
+  } else {
+    // Non-story (task-level) branches remain eligible for JIT creation at
+    // dispatch time — they have no separate init step.
+    ensureBranch(taskBranch, epicBranch);
   }
 
-  ensureBranch(taskBranch, epicBranch);
   await provider.updateTicket(task.id, {
     labels: { add: [AGENT_EXECUTING_LABEL], remove: [AGENT_READY_LABEL] },
   });

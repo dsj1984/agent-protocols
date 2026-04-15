@@ -2,6 +2,35 @@
 
 All notable changes to this project will be documented in this file.
 
+## [5.8.4] - 2026-04-15
+
+### 🧹 Enforce JIT story-branch and worktree creation in dispatch
+
+Epic-level dispatch (`dispatch()` in `dispatch-engine.js`) was eagerly
+creating story branches and per-story worktrees for every story whose
+tasks appeared in the ready wave — even stories the operator hadn't
+invoked `/sprint-execute` on yet. This surfaced as mysterious
+`.worktrees/story-<id>/` directories and `story-<id>` branches for
+stories that were still paper plans.
+
+Story branches and worktrees are now created **exclusively** by
+`sprint-story-init.js` (the script backing `/sprint-execute
+#<storyId>`). `dispatchTaskInWave()` no longer calls
+`worktreeManager.ensure()` or `ensureBranch()` for story-pattern
+branches. Instead, when it encounters a task whose story branch/worktree
+isn't yet initialized, it skips the task with
+`status: 'skipped-not-initialized'` and logs an instruction to run
+`/sprint-execute #<storyId>` to begin that story.
+
+- **Changed:** `.agents/scripts/lib/orchestration/dispatch-engine.js`
+  `dispatchTaskInWave()` — removed eager story worktree/branch creation;
+  added initialization check that skips tasks when their story isn't
+  live yet. Non-story task-level branches still get JIT-created at
+  dispatch time (they have no separate init step).
+- **Removed:** Windows long-path warning comment-post from
+  `dispatch-engine.js`. `sprint-story-init.js` is now the single
+  creation point and already emits this warning.
+
 ## [5.8.3] - 2026-04-15
 
 ### 🧹 Remove no-op "Live Integration Tests" CI job and its dead test
