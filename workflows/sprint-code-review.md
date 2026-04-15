@@ -120,6 +120,12 @@ prior baseline before merging.
 
 ## Step 3 — Produce Findings Report
 
+Findings are **persisted as a `code-review` structured comment on the Epic
+issue** by `sprint-code-review.js` (v5.9.0+). The comment is idempotent —
+re-runs replace the prior one — and its body includes severity-tier counts plus
+the full findings list so downstream workflows (notably `/sprint-retro`) can
+summarise blockers/high findings without re-running the review.
+
 Output a consolidated findings report grouped by severity:
 
 1. **🔴 Critical Blocker** — Must be fixed before merge (security

@@ -112,6 +112,70 @@ export async function postStructuredComment(provider, ticketId, type, payload) {
 }
 
 /**
+ * Build an HTML marker that uniquely identifies a structured comment by
+ * type. The marker is embedded in the comment body so it can be discovered
+ * on read-back via `findStructuredComment`.
+ *
+ * @param {string} type
+ * @returns {string}
+ */
+export function structuredCommentMarker(type) {
+  return `<!-- ap:structured-comment type="${type}" -->`;
+}
+
+/**
+ * Find the most recent structured comment of a given type on a ticket.
+ * Detection is based on the HTML marker produced by
+ * `structuredCommentMarker(type)`.
+ *
+ * @param {import('../ITicketingProvider.js').ITicketingProvider} provider
+ * @param {number} ticketId
+ * @param {string} type
+ * @returns {Promise<object|null>} Raw comment object, or null if none found.
+ */
+export async function findStructuredComment(provider, ticketId, type) {
+  const marker = structuredCommentMarker(type);
+  const comments = (await provider.getTicketComments(ticketId)) ?? [];
+  // Return latest match (comments API sorts ascending by creation; take last).
+  const matches = comments.filter(
+    (c) => typeof c.body === 'string' && c.body.includes(marker),
+  );
+  if (matches.length === 0) return null;
+  return matches[matches.length - 1];
+}
+
+/**
+ * Idempotently post a structured comment identified by an embedded HTML
+ * marker. If an existing comment with the same `type` marker exists it is
+ * deleted first, then the new one is posted. The marker is prepended to
+ * the body automatically.
+ *
+ * @param {import('../ITicketingProvider.js').ITicketingProvider} provider
+ * @param {number} ticketId
+ * @param {string} type - arbitrary structured-comment type (e.g.,
+ *   `dispatch-manifest`, `retro`, `code-review`).
+ * @param {string} body - markdown payload.
+ * @returns {Promise<{ commentId: number }>}
+ */
+export async function upsertStructuredComment(provider, ticketId, type, body) {
+  const marker = structuredCommentMarker(type);
+  const existing = await findStructuredComment(provider, ticketId, type);
+
+  if (existing && typeof provider.deleteComment === 'function') {
+    try {
+      await provider.deleteComment(existing.id);
+    } catch (err) {
+      console.warn(
+        `[Ticketing] Failed to delete prior ${type} comment #${existing.id}: ${err.message}`,
+      );
+    }
+  }
+
+  const annotated = `${marker}\n\n${body}`;
+  return provider.postComment(ticketId, { type, body: annotated });
+}
+
+/**
  * Recursively cascade upward.
  * If ticket reaches DONE, it toggles its checkbox in its parent.
  * Then checks if parent's sub-tickets are ALL DONE.

@@ -109,6 +109,9 @@ For **each child Task** in the order returned by `sprint-story-init.js`:
 
 4. Proceed to the next Task in the Story.
 
+> If a commit runs into a merge conflict during a rebase, follow the canonical
+> procedure in [`_merge-conflict-template.md`](_merge-conflict-template.md).
+
 ---
 
 ## Step 2 — Validate
@@ -145,13 +148,24 @@ In single-tree mode, `--cwd` can be omitted (defaults to `PROJECT_ROOT`).
 The script:
 
 - Checks for `risk::high` — if set, the script prints a HITL prompt to stderr
-  and exits non-zero **without** creating a PR, pushing the branch, or posting
-  any comment. **You (the agent) MUST stop here and ask the operator in chat**
-  which of the three options to take: (1) proceed with auto-merge (operator
-  removes the `risk::high` label, then you re-run this command), (2) merge
-  manually, or (3) reject/rework. Do not take any further action until the
-  operator replies in chat. The gate can be disabled globally via
+  and exits non-zero **without** creating a PR, pushing the branch, merging, or
+  posting any comment. **You (the agent) MUST stop here and present the three
+  options in chat**, then wait for the operator to reply with one of:
+  - `Proceed` or `Proceed Option 1` — **auto-merge.** The agent (not the
+    operator) removes the `risk::high` label programmatically via
+    `node .agents/scripts/update-ticket-state.js --ticket <storyId> --remove-label risk::high`
+    (or the equivalent MCP call), then re-runs `sprint-story-close.js` for this
+    story.
+  - `Proceed Option 2` — **manual merge.** The agent stops. The operator
+    inspects the diff and merges the story branch by hand. The agent takes no
+    further action on this story.
+  - `Proceed Option 3` — **reject / rework.** The agent stops. The operator
+    opens follow-up tickets by hand.
+
+  Do not take any action before the operator replies with one of those four
+  phrases. The gate can be disabled globally via
   `orchestration.hitl.riskHighApproval: false`.
+
 - Merges the Story branch into `epic/<epicId>` with `--no-ff`.
 - Pushes the Epic branch.
 - Deletes the Story branch (local + remote).

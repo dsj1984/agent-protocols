@@ -43,12 +43,20 @@ Read execution telemetry directly from GitHub — **not** from local files:
    - Count of Tasks that required a hotfix (`status::blocked` was applied).
    - Count of Tasks that hit the HITL gate (`risk::high`).
    - Count of Tasks that required more than one integration attempt.
+4. **Fetch the code-review structured comment** (if present) from the Epic —
+   `provider.getTicketComments(epicId)` filtered by the
+   `ap:structured-comment type="code-review"` HTML marker (posted by
+   `sprint-code-review.js`). Summarise any Critical Blocker / High Risk findings
+   in the **Architectural Debt** section of the retro body below. If no comment
+   is present, note "no automated code-review findings".
 
 ## Step 2 — Compose the Retrospective Markdown
 
 Produce the retro body (in memory — do **not** write to disk) with this
-structure. The leading title line is the **retro marker** that `/sprint-close`'s
-Retrospective Gate uses to detect whether a retro has already been posted.
+structure. The body **must end** with an HTML marker comment of the form
+`<!-- retro-complete: <ISO_TIMESTAMP> -->` — that marker is the detection signal
+used by `/sprint-close`'s Retrospective Gate (Step 1.5) when a
+structured-comment lookup is unavailable.
 
 ```markdown
 ## 🪞 Sprint Retrospective — Epic #[EPIC_ID]: [Epic Title]
@@ -85,11 +93,20 @@ _Generated [ISO date] · Protocol Version [from .agents/VERSION]_
 ### Action Items for Next Epic
 
 > Clear, actionable items derived from the retro analysis.
+
+<!-- retro-complete: 2026-04-15T00:00:00Z -->
 ```
 
-The `## 🪞 Sprint Retrospective — Epic #[EPIC_ID]` heading **must** appear
-verbatim at the top — the close-workflow gate greps for this prefix on the
-Epic's comment thread to verify the retro ran.
+Replace the placeholder ISO timestamp with the actual time the retro was
+composed. The marker MUST be present as the final line so downstream gates can
+detect completion even when the structured-comment type metadata is not
+available to the caller.
+
+The `## 🪞 Sprint Retrospective — Epic #[EPIC_ID]` heading should appear at the
+top for human readability, but `/sprint-close`'s Retrospective Gate no longer
+depends on a heading grep — it prefers `provider.getComments(epicId)` filtered
+by `type === "retro"` and falls back to grepping for the `retro-complete:` HTML
+marker added at the end of the body.
 
 ## Step 3 — Post the Retrospective as an Epic Comment
 
@@ -141,8 +158,9 @@ here.
 
 - **Never** write the retro to `docs/retros/` or any other local path as the
   permanent artifact. GitHub Epic comments are the source of truth.
-- **Never** skip the `## 🪞 Sprint Retrospective — Epic #[EPIC_ID]` heading line
-  — `/sprint-close`'s gate depends on it.
+- **Never** omit the closing `<!-- retro-complete: <ISO_TIMESTAMP> -->` marker —
+  `/sprint-close`'s Retrospective Gate falls back to grepping for it when the
+  structured-comment lookup is unavailable.
 - **Always** post the retro as `type: retro` (via `notify.js --type retro` or
   the structured comment API) so downstream tooling can filter it.
 - **Always** re-run the workflow end-to-end if the comment post fails — the temp

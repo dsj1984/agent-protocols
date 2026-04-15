@@ -184,6 +184,12 @@ planned.
    - Check for any stories in **Wave 0** — these are ready for immediate
      execution.
 
+   > **Manifest persistence (v5.9.0):** the dispatcher also posts the manifest
+   > as a `dispatch-manifest` structured comment on the Epic (idempotent —
+   > re-runs replace the prior comment). That comment is the source of truth for
+   > the Wave Completeness Gate in `/sprint-close` Step 0.5 and for any external
+   > wave-tracking tooling.
+
 3. **Handoff**: Provide the user with the recommended next step:
 
    > "Planning is complete. Select a story from Wave 0 in the table above and

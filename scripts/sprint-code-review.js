@@ -22,7 +22,7 @@ import { PROJECT_ROOT, resolveConfig } from './lib/config-resolver.js';
 import { gitSpawn } from './lib/git-utils.js';
 import { Logger } from './lib/Logger.js';
 import { calculateForFile } from './lib/maintainability-engine.js';
-import { postStructuredComment } from './lib/orchestration/ticketing.js';
+import { upsertStructuredComment } from './lib/orchestration/ticketing.js';
 import { createProvider } from './lib/provider-factory.js';
 
 async function main() {
@@ -109,11 +109,28 @@ async function main() {
   // 3. Generate Report
   progress('REPORT', 'Generating findings report...');
 
+  // Severity tier counts — populated from criticalIssues + lint state so
+  // the retro step can parse "blockers/high" directly from the persisted
+  // structured comment.
+  const severity = {
+    critical: results.criticalIssues.length,
+    high: results.lintErrors > 0 ? 1 : 0,
+    medium: 0,
+    suggestion: 0,
+  };
+
   const report = [
     `## 🔬 Automated Code Review Results for Epic #${epicId}`,
     '',
     `**Comparison**: \`${baseBranch}\` ... \`${epicBranch}\``,
     `**Surface Area**: ${changedFiles.length} files changed (${results.jsFiles} JS files)`,
+    '',
+    '### 📦 Severity Tier Counts',
+    '',
+    `- 🔴 Critical Blocker: ${severity.critical}`,
+    `- 🟠 High Risk: ${severity.high}`,
+    `- 🟡 Medium Risk: ${severity.medium}`,
+    `- 🟢 Suggestion: ${severity.suggestion}`,
     '',
     '### 📊 Maintainability Overview',
     '| File | Score | Status |',
@@ -143,10 +160,11 @@ async function main() {
 
   console.log(report);
 
-  // 4. Post to ticket
+  // 4. Post to ticket as a structured `code-review` comment so downstream
+  //    workflows (retro, close) can read blocker/high counts back.
   if (values.post) {
     progress('POST', `Posting review report to Epic #${epicId}...`);
-    await postStructuredComment(provider, epicId, 'notification', report);
+    await upsertStructuredComment(provider, epicId, 'code-review', report);
     progress('DONE', 'Report posted successfully.');
   }
 }

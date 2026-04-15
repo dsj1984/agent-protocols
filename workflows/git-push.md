@@ -2,11 +2,16 @@
 description: Commit all outstanding changes then push to the remote repository.
 ---
 
-# /git-push [Message]
+# /git-push [Message] [--no-push]
 
-This workflow ensures all modified files are committed and then pushes the
-current branch to its remote. It handles pre-commit and pre-push hook failures
-by explicitly fixing the underlying issues.
+This workflow is the single source of truth for "stage + commit [+ push]"
+ergonomics. It accepts an optional `[Message]` and an optional `--no-push` flag.
+
+- **Default mode** — stage all outstanding changes, commit, then push the
+  current branch to its upstream remote.
+- **`--no-push` mode** — stage and commit only. Useful when you want to chain
+  several commits or defer the push. `/git-commit-all` is a compatibility alias
+  that maps to this mode.
 
 ## Steps
 
@@ -23,7 +28,8 @@ by explicitly fixing the underlying issues.
    git commit -m "[Message]"
    ```
 
-3. **Push to Remote**: Push the current branch to the upstream repository.
+3. **Push to Remote** _(skip when `--no-push` is set)_: Push the current branch
+   to the upstream repository.
 
    ```powershell
    git push

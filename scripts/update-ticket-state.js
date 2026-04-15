@@ -27,29 +27,62 @@ if (
     args: process.argv.slice(2),
     options: {
       task: { type: 'string' },
+      ticket: { type: 'string' },
       state: { type: 'string' },
+      'remove-label': { type: 'string' },
     },
+    strict: false,
   });
 
-  const taskId = parseInt(values.task, 10);
+  // `--ticket` is the v5.9.0 alias for `--task` (labels can apply to any
+  // ticket type, not just Tasks). Both continue to work.
+  const idSource = values.ticket ?? values.task;
+  const ticketId = parseInt(idSource, 10);
   const state = values.state;
+  const removeLabel = values['remove-label'];
 
-  if (Number.isNaN(taskId) || !state) {
-    Logger.fatal();
+  if (Number.isNaN(ticketId) || (!state && !removeLabel)) {
+    Logger.fatal(
+      'Usage: node update-ticket-state.js ' +
+        '(--ticket|--task) <id> ' +
+        '[--state <state> | --remove-label <label>]',
+    );
   }
 
   (async () => {
     try {
-      console.log(
-        `[State-Sync] Transitioning ticket #${taskId} to ${state}...`,
-      );
       const config = resolveConfig();
       const provider = createProvider(config.orchestration);
-      await transitionTicketState(provider, taskId, state);
+
+      // Label-only mutation path — no state transition. Used by the
+      // risk::high auto-merge protocol in /sprint-execute.
+      if (removeLabel && !state) {
+        console.log(
+          `[State-Sync] Removing label \`${removeLabel}\` from ticket #${ticketId}...`,
+        );
+        await provider.updateTicket(ticketId, {
+          labels: { remove: [removeLabel] },
+        });
+        console.log('[State-Sync] ✅ Success');
+        return;
+      }
+
+      console.log(
+        `[State-Sync] Transitioning ticket #${ticketId} to ${state}...`,
+      );
+      await transitionTicketState(provider, ticketId, state);
 
       if (state === STATE_LABELS.DONE) {
-        console.log(`[State-Sync] Cascading completion from #${taskId}...`);
-        await cascadeCompletion(provider, taskId);
+        console.log(`[State-Sync] Cascading completion from #${ticketId}...`);
+        await cascadeCompletion(provider, ticketId);
+      }
+
+      // Optional secondary label removal alongside the state transition
+      // (e.g. clear `status::blocked` when transitioning back to ready).
+      if (removeLabel) {
+        await provider.updateTicket(ticketId, {
+          labels: { remove: [removeLabel] },
+        });
       }
 
       console.log('[State-Sync] ✅ Success');

@@ -652,6 +652,17 @@ export class GitHubProvider extends ITicketingProvider {
     }
   }
 
+  /**
+   * Delete a single issue comment by its numeric id.
+   * @param {number} commentId
+   */
+  async deleteComment(commentId) {
+    await this._rest(
+      `/repos/${this.owner}/${this.repo}/issues/comments/${commentId}`,
+      { method: 'DELETE' },
+    );
+  }
+
   async postComment(ticketId, payload) {
     const typeBadges = {
       progress: '🔄 **Progress**',
