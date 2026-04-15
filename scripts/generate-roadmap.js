@@ -29,7 +29,7 @@ function renderProgressBar(percentage) {
 
 async function main() {
   const { settings, orchestration } = resolveConfig();
-  const roadmapPath = settings.roadmapPath || 'docs/ROADMAP.md';
+  const roadmapPath = settings.roadmap?.path || 'docs/ROADMAP.md';
   const excludeLabels = settings.roadmap?.excludeLabels || ['roadmap-exclude'];
   const fileName = path.basename(roadmapPath);
 

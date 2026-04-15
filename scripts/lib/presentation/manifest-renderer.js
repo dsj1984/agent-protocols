@@ -225,10 +225,8 @@ function renderManifestMarkdown(manifest) {
 
       lines.push(`### ${waveLabel}${parallelHint}`);
       lines.push('');
-      lines.push(
-        '| | Story | Title | Model Tier | Recommended Model | Tasks |',
-      );
-      lines.push('| :--- | :--- | :--- | :--- | :--- | :--- |');
+      lines.push('| | Story | Title | Model Tier | Tasks |');
+      lines.push('| :--- | :--- | :--- | :--- | :--- |');
 
       for (const s of stories) {
         const allDone =
@@ -236,7 +234,7 @@ function renderManifestMarkdown(manifest) {
           s.tasks.every((t) => t.status === 'agent::done');
         const storyCheckbox = allDone ? '✅' : '⬜';
         lines.push(
-          `| ${storyCheckbox} | #${s.storyId} | ${s.storySlug} | \`${s.model_tier}\` | **${s.recommendedModel}** | ${s.tasks.length} |`,
+          `| ${storyCheckbox} | #${s.storyId} | ${s.storySlug} | \`${s.model_tier}\` | ${s.tasks.length} |`,
         );
       }
       lines.push('');
@@ -280,7 +278,6 @@ function renderManifestMarkdown(manifest) {
       lines.push('');
       lines.push(`- **Branch:** \`${story.branchName}\``);
       lines.push(`- **Model Tier:** \`${story.model_tier}\``);
-      lines.push(`- **Recommended Model:** ${story.recommendedModel}`);
       if (isFeature) {
         lines.push('- **Type:** Feature (container — not directly executable)');
       } else {
@@ -337,7 +334,7 @@ function renderManifestMarkdown(manifest) {
   lines.push('');
   lines.push('1. Pick a Story from the next ready wave (🚀 status above).');
   lines.push(
-    '2. Select the **Recommended Model** shown in the table for your agent session.',
+    "2. Select a model that matches the Story's **Model Tier** (`high` = deep-reasoning, `low` = fast execution). The concrete model choice is left to the operator/router.",
   );
   lines.push('3. Run: `/sprint-execute #[Story ID]`');
   lines.push('');
@@ -408,19 +405,19 @@ export function printStoryDispatchTable(storyManifest) {
   const features = storyManifest.filter((s) => s.type === 'feature');
 
   console.log(
-    '\n┌───────────────────────────────────────────────────────────────────────────────────────────────────────────┐',
+    '\n┌─────────┬──────────────────────────────────────┬──────┬────────────┬──────────────┐',
   );
   console.log(
-    '│                                       📋 STORY DISPATCH TABLE                                          │',
+    '│                           📋 STORY DISPATCH TABLE                            │',
   );
   console.log(
-    '├─────────┬──────────────────────────────────────┬──────┬────────────┬──────────────────────────────┬──────────────┤',
+    '├─────────┼──────────────────────────────────────┼──────┼────────────┼──────────────┤',
   );
   console.log(
-    '│ Story   │ Title                                │ Wave │ Model Tier │ Recommended Model            │ Tasks        │',
+    '│ Story   │ Title                                │ Wave │ Model Tier │ Tasks        │',
   );
   console.log(
-    '├─────────┼──────────────────────────────────────┼──────┼────────────┼──────────────────────────────┼──────────────┤',
+    '├─────────┼──────────────────────────────────────┼──────┼────────────┼──────────────┤',
   );
 
   for (const story of stories) {
@@ -431,20 +428,19 @@ export function printStoryDispatchTable(storyManifest) {
       story.earliestWave === -1 ? '-' : String(story.earliestWave)
     ).padEnd(4);
     const tier = (story.model_tier ?? '').padEnd(10);
-    const model = (story.recommendedModel ?? '').substring(0, 28).padEnd(28);
     const taskCount = `${story.tasks.length} task(s)`.padEnd(12);
     console.log(
-      `│ ${id.padEnd(7)} │ ${title} │ ${wave} │ ${tier} │ ${model} │ ${taskCount} │`,
+      `│ ${id.padEnd(7)} │ ${title} │ ${wave} │ ${tier} │ ${taskCount} │`,
     );
   }
 
   console.log(
-    '└─────────┴──────────────────────────────────────┴──────┴────────────┴──────────────────────────────┴──────────────┘',
+    '└─────────┴──────────────────────────────────────┴──────┴────────────┴──────────────┘',
   );
   console.log('');
   console.log('  💡 Stories in the same [Wave] can be executed in parallel.');
   console.log(
-    '  💡 Use /sprint-execute #[Story ID] to execute a Story. Select the model shown above.',
+    '  💡 Use /sprint-execute #[Story ID] to execute a Story. Pick a model matching the Model Tier.',
   );
 
   if (features.length > 0) {

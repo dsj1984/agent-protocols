@@ -57,10 +57,10 @@ the user using the following warning format before proceeding:
 
 #### MCP Tool Degradation
 
-If `agent-protocols` MCP tools (`transition_ticket_state`,
-`cascade_completion`, `post_structured_comment`) fail with connection errors
-(e.g. `client is closing`, `invalid character`), you MUST fall back to the
-equivalent CLI scripts immediately. Do **not** leave tickets in stale states:
+If `agent-protocols` MCP tools (`transition_ticket_state`, `cascade_completion`,
+`post_structured_comment`) fail with connection errors (e.g.
+`client is closing`, `invalid character`), you MUST fall back to the equivalent
+CLI scripts immediately. Do **not** leave tickets in stale states:
 
 ```powershell
 # transition_ticket_state fallback
@@ -89,11 +89,15 @@ Before writing code or documentation, verify if any domain-agnostic rules apply:
 ### G. Structured Configuration
 
 Refer to `.agentrc.json` to understand your operational limits (e.g., allowed
-auto-run permissions, default personas). Refer to the `models` section of
-`.agentrc.json` for model selection guidance when self-assigning models to
-tasks. Refer to the `techStack` section of `.agentrc.json` for the project's
-specific technology choices (database, ORM, API framework, auth provider,
-validation library, workspace paths).
+auto-run permissions, default personas). Refer to the `techStack` section of
+`.agentrc.json` for the project's specific technology choices (database, ORM,
+API framework, auth provider, validation library, workspace paths).
+
+Model selection is intentionally **not** in config. The dispatcher emits a
+binary `model_tier` per Story — `high` (deep-reasoning) or `low` (fast
+execution) — derived from the `complexity::high` label. Pick any model that
+matches the tier; concrete model choice is left to the operator or external
+router.
 
 ### H. Observability & Agent Friction Logging
 
@@ -188,10 +192,10 @@ protocol:
 - During the planning phase (`/plan-sprint`), the **Project Manager** and
   **Architect** personas MUST consider the economic impact of their task
   assignments.
-- Refer to the `models` section of `.agentrc.json` for cost-tiering. Prefer
-  **The Sprinters** (e.g., Gemini 3 Flash) for low-reasoning/boilerplate tasks
-  to conserve budget for **The Architects** (e.g., Claude Opus) on complex
-  architectural work.
+- Use the `complexity::high` label sparingly. Only Stories that genuinely
+  require deep reasoning (architectural design, multi-file refactors,
+  non-trivial bugs) should carry it — everything else defaults to the `low`
+  tier. The operator/router maps the tier to a concrete model at dispatch time.
 
 ---
 

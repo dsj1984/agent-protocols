@@ -5,7 +5,7 @@
 import { parseBlockedBy } from '../dependency-parser.js';
 import { getStoryBranch, getTaskBranch, slugify } from '../git-utils.js';
 import { computeStoryWaves } from './dependency-analyzer.js';
-import { resolveModelTier, resolveRecommendedModel } from './model-resolver.js';
+import { resolveModelTier } from './model-resolver.js';
 import { groupTasksByStory } from './story-grouper.js';
 import { STATE_LABELS } from './ticketing.js';
 
@@ -37,10 +37,9 @@ export function getResolvedBranch(task, allTicketsById, epicId) {
  * @param {object[]} tasks
  * @param {object[]} allTickets
  * @param {number}   epicId
- * @param {object}   settings
  * @returns {object[]}
  */
-function buildStoryManifest(tasks, allTickets, epicId, settings) {
+function buildStoryManifest(tasks, allTickets, epicId) {
   const groups = groupTasksByStory(tasks, allTickets, epicId);
 
   // Parse explicit story-to-story dependencies from `blocked by` on story
@@ -69,7 +68,6 @@ function buildStoryManifest(tasks, allTickets, epicId, settings) {
 
   return [...groups.values()].map((group) => {
     const modelTier = resolveModelTier(group.storyLabels);
-    const recommendedModel = resolveRecommendedModel(modelTier, settings);
     const earliestWave = storyWaves.get(group.storyId) ?? -1;
 
     const slug =
@@ -89,7 +87,6 @@ function buildStoryManifest(tasks, allTickets, epicId, settings) {
       type: group.type,
       branchName,
       model_tier: modelTier,
-      recommendedModel,
       earliestWave,
       tasks: group.tasks.map((t) => ({
         taskId: t.id,
@@ -118,7 +115,6 @@ export function buildManifest({
   heldForApproval,
   dryRun,
   adapter,
-  settings,
   agentTelemetry = null,
 }) {
   const totalTasks = tasks.length;
@@ -150,7 +146,6 @@ export function buildManifest({
         status: t.status,
         branch: getResolvedBranch(t, allTicketsById ?? new Map(), epicId),
         persona: t.persona,
-        model: t.model,
         mode: t.mode,
         skills: t.skills,
         focusAreas: t.focusAreas,
@@ -158,12 +153,7 @@ export function buildManifest({
         dependsOn: t.dependsOn,
       })),
     })),
-    storyManifest: buildStoryManifest(
-      tasks,
-      allTickets ?? [],
-      epicId,
-      settings,
-    ),
+    storyManifest: buildStoryManifest(tasks, allTickets ?? [], epicId),
     dispatched,
     heldForApproval,
     agentTelemetry,

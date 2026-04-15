@@ -28,7 +28,6 @@ import { WorktreeManager } from '../worktree-manager.js';
 import { hydrateContext } from './context-hydration-engine.js';
 import { autoSerializeOverlaps } from './dependency-analyzer.js';
 import { buildManifest, getResolvedBranch } from './manifest-builder.js';
-import { resolveModel } from './model-resolver.js';
 import { reconcileClosedTasks, reconcileHierarchy } from './reconciler.js';
 import { executeStory } from './story-executor.js';
 import { parseTasks } from './task-fetcher.js';
@@ -278,7 +277,7 @@ export async function detectEpicCompletion({
     '',
     `1. \`/audit-quality ${epicId}\` — QA audit`,
     `2. \`/sprint-code-review ${epicId}\` — Mandatory code review gate`,
-    `3. \`/sprint-retro ${epicId}\` — Generate retrospective (writes to \`retroPath\`)`,
+    `3. \`/sprint-retro ${epicId}\` — Generate retrospective (posted as an Epic comment)`,
     `4. \`/sprint-close ${epicId}\` — Merge, tag, close (gated on retro existence)`,
     '',
     'Skipping `/sprint-retro` will cause `/sprint-close` to halt at the',
@@ -405,18 +404,9 @@ export function collectOpenStoryIds(tasks, allTicketsById) {
 }
 
 async function dispatchTaskInWave(task, ctx) {
-  const {
-    provider,
-    adapter,
-    settings,
-    allTicketsById,
-    epicId,
-    epicBranch,
-    dryRun,
-  } = ctx;
+  const { provider, adapter, allTicketsById, epicId, epicBranch, dryRun } = ctx;
 
   const taskBranch = getResolvedBranch(task, allTicketsById, epicId);
-  const resolvedModel = resolveModel(task.model, settings);
 
   const hydratedPrompt = await hydrateContext(
     task,
@@ -433,7 +423,6 @@ async function dispatchTaskInWave(task, ctx) {
     epicBranch,
     prompt: hydratedPrompt,
     persona: task.persona,
-    model: resolvedModel,
     mode: task.mode,
     skills: task.skills,
     focusAreas: task.focusAreas,
@@ -730,7 +719,6 @@ async function dispatchNextWave(ctx, fetched, allWaves, taskMap) {
   const waveCtx = {
     provider: ctx.provider,
     adapter: ctx.adapter,
-    settings: ctx.settings,
     allTicketsById: fetched.allTicketsById,
     epicId: ctx.epicId,
     epicBranch: ctx.epicBranch,
@@ -771,7 +759,6 @@ export async function dispatch(options) {
       heldForApproval: [],
       dryRun,
       adapter,
-      settings,
     });
   }
 
@@ -802,7 +789,6 @@ export async function dispatch(options) {
     heldForApproval,
     dryRun,
     adapter,
-    settings,
     agentTelemetry,
   });
 

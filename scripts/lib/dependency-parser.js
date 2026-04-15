@@ -50,7 +50,6 @@ export function isSafeBranchComponent(value) {
  */
 const METADATA_FIELD_KEYS = [
   'Persona',
-  'Model',
   'Mode',
   'Skills',
   'Focus Areas',
@@ -65,16 +64,15 @@ const METADATA_FIELD_RES = new Map(
 
 /**
  * Parse task execution metadata from the `## Metadata` section of a ticket body.
- * Returns a plain object with `persona`, `model`, `mode`, `skills`, `focusAreas`,
+ * Returns a plain object with `persona`, `mode`, `skills`, `focusAreas`,
  * and `protocolVersion`.
  *
  * @param {string} body - Issue body text.
- * @returns {{ persona: string, model: string, mode: string, skills: string[], focusAreas: string[], protocolVersion: string }}
+ * @returns {{ persona: string, mode: string, skills: string[], focusAreas: string[], protocolVersion: string }}
  */
 export function parseTaskMetadata(body) {
   const defaults = {
     persona: 'engineer',
-    model: '',
     mode: 'fast',
     skills: [],
     focusAreas: [],
@@ -105,7 +103,6 @@ export function parseTaskMetadata(body) {
 
   return {
     persona: extractField('Persona') || defaults.persona,
-    model: extractField('Model') || defaults.model,
     mode: extractField('Mode') || defaults.mode,
     skills: extractList('Skills'),
     focusAreas: extractList('Focus Areas'),
