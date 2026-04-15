@@ -414,6 +414,172 @@ test('ensure: no windowsPathWarning when path is short', async () => {
   }
 });
 
+// ---------------------------------------------------------------------------
+// nodeModulesStrategy — per-worktree / symlink / pnpm-store
+// ---------------------------------------------------------------------------
+
+function defaultStrategyGit() {
+  return mockGit({
+    'worktree list': () => ({ status: 0, stdout: '', stderr: '' }),
+    'show-ref': () => ({ status: 1, stdout: '', stderr: '' }),
+    'worktree add': (_cwd, args) => {
+      // Create the worktree directory so _applyNodeModulesStrategy can find it.
+      const wtPath = args[args.length - 1];
+      fs.mkdirSync(wtPath, { recursive: true });
+      return { status: 0, stdout: '', stderr: '' };
+    },
+    config: () => ({ status: 0, stdout: '', stderr: '' }),
+  });
+}
+
+test('nodeModulesStrategy: per-worktree is a no-op (default)', async () => {
+  const tmp = fs.mkdtempSync(path.join(os.tmpdir(), 'wt-strat-'));
+  try {
+    const wm = new WorktreeManager({
+      repoRoot: tmp,
+      config: {},  // default strategy
+      logger: SILENT_LOGGER,
+      git: defaultStrategyGit(),
+      platform: 'linux',
+    });
+    const res = await wm.ensure(100, 'story-100');
+    assert.equal(fs.existsSync(path.join(res.path, 'node_modules')), false);
+  } finally {
+    fs.rmSync(tmp, { recursive: true, force: true });
+  }
+});
+
+test('nodeModulesStrategy: pnpm-store is a no-op (agent runs pnpm install)', async () => {
+  const tmp = fs.mkdtempSync(path.join(os.tmpdir(), 'wt-strat-'));
+  try {
+    const wm = new WorktreeManager({
+      repoRoot: tmp,
+      config: { nodeModulesStrategy: 'pnpm-store' },
+      logger: SILENT_LOGGER,
+      git: defaultStrategyGit(),
+      platform: 'linux',
+    });
+    const res = await wm.ensure(101, 'story-101');
+    assert.equal(fs.existsSync(path.join(res.path, 'node_modules')), false);
+  } finally {
+    fs.rmSync(tmp, { recursive: true, force: true });
+  }
+});
+
+test('nodeModulesStrategy: symlink creates link from primed donor', async () => {
+  const tmp = fs.mkdtempSync(path.join(os.tmpdir(), 'wt-strat-'));
+  try {
+    // Prime a donor worktree-like directory with node_modules.
+    const prime = path.join(tmp, 'prime');
+    fs.mkdirSync(path.join(prime, 'node_modules', 'pkg'), { recursive: true });
+    fs.writeFileSync(path.join(prime, 'node_modules', 'pkg', 'index.js'), '//');
+
+    const wm = new WorktreeManager({
+      repoRoot: tmp,
+      config: {
+        nodeModulesStrategy: 'symlink',
+        primeFromPath: 'prime',
+      },
+      logger: SILENT_LOGGER,
+      git: defaultStrategyGit(),
+      platform: 'linux',
+    });
+
+    const res = await wm.ensure(102, 'story-102');
+    const nm = path.join(res.path, 'node_modules');
+    assert.ok(fs.existsSync(nm), 'symlink should exist');
+    // Symlink target resolves to the primed node_modules.
+    assert.ok(fs.existsSync(path.join(nm, 'pkg', 'index.js')));
+  } finally {
+    fs.rmSync(tmp, { recursive: true, force: true });
+  }
+});
+
+test('nodeModulesStrategy: symlink without primeFromPath throws', async () => {
+  const tmp = fs.mkdtempSync(path.join(os.tmpdir(), 'wt-strat-'));
+  try {
+    const wm = new WorktreeManager({
+      repoRoot: tmp,
+      config: { nodeModulesStrategy: 'symlink' },
+      logger: SILENT_LOGGER,
+      git: defaultStrategyGit(),
+      platform: 'linux',
+    });
+    await assert.rejects(
+      () => wm.ensure(103, 'story-103'),
+      /requires orchestration\.worktreeIsolation\.primeFromPath/,
+    );
+  } finally {
+    fs.rmSync(tmp, { recursive: true, force: true });
+  }
+});
+
+test('nodeModulesStrategy: symlink with missing primed node_modules throws', async () => {
+  const tmp = fs.mkdtempSync(path.join(os.tmpdir(), 'wt-strat-'));
+  try {
+    // primeFromPath exists but has no node_modules dir.
+    fs.mkdirSync(path.join(tmp, 'empty-prime'), { recursive: true });
+    const wm = new WorktreeManager({
+      repoRoot: tmp,
+      config: {
+        nodeModulesStrategy: 'symlink',
+        primeFromPath: 'empty-prime',
+      },
+      logger: SILENT_LOGGER,
+      git: defaultStrategyGit(),
+      platform: 'linux',
+    });
+    await assert.rejects(
+      () => wm.ensure(104, 'story-104'),
+      /no node_modules directory/,
+    );
+  } finally {
+    fs.rmSync(tmp, { recursive: true, force: true });
+  }
+});
+
+test('nodeModulesStrategy: symlink refuses on Windows without explicit opt-in', async () => {
+  const tmp = fs.mkdtempSync(path.join(os.tmpdir(), 'wt-strat-'));
+  try {
+    fs.mkdirSync(path.join(tmp, 'prime', 'node_modules'), { recursive: true });
+    const wm = new WorktreeManager({
+      repoRoot: tmp,
+      config: {
+        nodeModulesStrategy: 'symlink',
+        primeFromPath: 'prime',
+      },
+      logger: SILENT_LOGGER,
+      git: defaultStrategyGit(),
+      platform: 'win32',
+    });
+    await assert.rejects(
+      () => wm.ensure(105, 'story-105'),
+      /refuses on Windows/,
+    );
+  } finally {
+    fs.rmSync(tmp, { recursive: true, force: true });
+  }
+});
+
+test('nodeModulesStrategy: unknown value throws (defense-in-depth vs schema)', async () => {
+  const tmp = fs.mkdtempSync(path.join(os.tmpdir(), 'wt-strat-'));
+  try {
+    const wm = new WorktreeManager({
+      repoRoot: tmp,
+      config: { nodeModulesStrategy: 'bogus' },
+      logger: SILENT_LOGGER,
+      git: defaultStrategyGit(),
+      platform: 'linux',
+    });
+    await assert.rejects(
+      () => wm.ensure(106, 'story-106'),
+      /unknown nodeModulesStrategy 'bogus'/,
+    );
+  } finally {
+    fs.rmSync(tmp, { recursive: true, force: true });
+  }
+});
+
 test('ensure: never warns on non-win32 even with very long paths', async () => {
   const deepRoot = `/${'x'.repeat(300)}`;
   const warns = [];

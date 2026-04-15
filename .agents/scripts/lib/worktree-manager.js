@@ -84,6 +84,7 @@ export class WorktreeManager {
     this.repoRoot = path.resolve(repoRoot);
     this.config = {
       root: '.worktrees',
+      nodeModulesStrategy: 'per-worktree',
       warnOnUncommittedOnReap: true,
       windowsPathLengthWarnThreshold: 240,
       ...config,
@@ -166,12 +167,83 @@ export class WorktreeManager {
       this.git.gitSpawn(wtPath, 'config', '--local', 'core.longpaths', 'true');
     }
 
+    this._applyNodeModulesStrategy(wtPath);
+
     this.logger.info(`worktree.created storyId=${id} path=${wtPath}`);
     return {
       path: wtPath,
       created: true,
       ...(windowsPathWarning ? { windowsPathWarning } : {}),
     };
+  }
+
+  /**
+   * Apply the configured `nodeModulesStrategy` after a fresh worktree is
+   * added. Called only during creation — existing worktrees keep whatever
+   * strategy they started with.
+   *
+   * Strategies:
+   *   - `per-worktree`: no-op. Agents run their own `npm/pnpm install`.
+   *   - `symlink`: create `<wtPath>/node_modules` → `<primeFromPath>/node_modules`.
+   *     Refuses on win32 unless `allowSymlinkOnWindows: true` (symlink
+   *     semantics differ by Windows version / filesystem permissions).
+   *   - `pnpm-store`: no-op here. The strategy contract is that the
+   *     agent/CI will invoke `pnpm install` against the shared store.
+   *
+   * @param {string} wtPath Absolute worktree path.
+   */
+  _applyNodeModulesStrategy(wtPath) {
+    const strategy = this.config.nodeModulesStrategy ?? 'per-worktree';
+
+    switch (strategy) {
+      case 'per-worktree':
+      case 'pnpm-store':
+        return;
+
+      case 'symlink': {
+        const primeFromPath = this.config.primeFromPath;
+        if (!primeFromPath) {
+          throw new Error(
+            "WorktreeManager: nodeModulesStrategy='symlink' requires orchestration.worktreeIsolation.primeFromPath.",
+          );
+        }
+        if (this.platform === 'win32' && !this.config.allowSymlinkOnWindows) {
+          throw new Error(
+            "WorktreeManager: nodeModulesStrategy='symlink' refuses on Windows. " +
+              "Symlink semantics vary by Windows version and may require admin rights. " +
+              'Set orchestration.worktreeIsolation.allowSymlinkOnWindows=true to opt in.',
+          );
+        }
+
+        const resolvedPrime = path.resolve(this.repoRoot, primeFromPath);
+        const primeNodeModules = path.join(resolvedPrime, 'node_modules');
+        if (!fs.existsSync(primeNodeModules)) {
+          throw new Error(
+            `WorktreeManager: primeFromPath '${primeFromPath}' has no node_modules directory. ` +
+              'Prime the donor worktree (run install there) before using the symlink strategy.',
+          );
+        }
+
+        const target = path.join(wtPath, 'node_modules');
+        try {
+          fs.symlinkSync(primeNodeModules, target, 'junction');
+        } catch (err) {
+          throw new Error(
+            `WorktreeManager: failed to symlink node_modules for ${wtPath}: ${err.message}`,
+          );
+        }
+        this.logger.info(
+          `worktree.node_modules strategy=symlink target=${target} source=${primeNodeModules}`,
+        );
+        return;
+      }
+
+      default:
+        throw new Error(
+          `WorktreeManager: unknown nodeModulesStrategy '${strategy}'. ` +
+            'Expected per-worktree | symlink | pnpm-store.',
+        );
+    }
   }
 
   /**
