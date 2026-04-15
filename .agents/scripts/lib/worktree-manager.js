@@ -185,12 +185,13 @@ export class WorktreeManager {
 
   /**
    * Check whether a worktree is safe to remove: clean tree and fully merged
-   * into its Epic base (when one is resolvable).
+   * into its Epic base (when one is supplied).
    *
    * @param {string} wtPath
+   * @param {{ epicBranch?: string|null }} [opts]
    * @returns {Promise<{ safe: boolean, reason?: string }>}
    */
-  async isSafeToRemove(wtPath) {
+  async isSafeToRemove(wtPath, opts = {}) {
     if (!fs.existsSync(wtPath)) {
       return { safe: true, reason: 'path-missing' };
     }
@@ -213,7 +214,7 @@ export class WorktreeManager {
       return { safe: false, reason: 'detached-head' };
     }
 
-    const epicBranch = this._epicBranchFor(branch);
+    const epicBranch = opts.epicBranch ?? null;
     if (epicBranch) {
       const epicExists = this.git.gitSpawn(
         this.repoRoot, 'show-ref', '--verify', '--quiet', `refs/heads/${epicBranch}`,
@@ -234,7 +235,7 @@ export class WorktreeManager {
    * Remove the worktree for a given storyId. Never uses `--force`.
    *
    * @param {number|string} storyId
-   * @param {{ force?: boolean }} [opts]
+   * @param {{ force?: boolean, epicBranch?: string|null }} [opts]
    * @returns {Promise<{ removed: boolean, reason?: string, path: string }>}
    */
   async reap(storyId, opts = {}) {
@@ -247,7 +248,7 @@ export class WorktreeManager {
       return { removed: false, reason: 'not-a-worktree', path: wtPath };
     }
 
-    const safety = await this.isSafeToRemove(wtPath);
+    const safety = await this.isSafeToRemove(wtPath, { epicBranch: opts.epicBranch ?? null });
     if (!safety.safe) {
       if (this.config.warnOnUncommittedOnReap) {
         this.logger.warn(`reap-skipped storyId=${storyId} reason=${safety.reason} path=${wtPath}`);
@@ -270,9 +271,10 @@ export class WorktreeManager {
    * candidates are left in place with a warning.
    *
    * @param {Array<number|string>} openStoryIds
+   * @param {{ epicBranch?: string|null }} [opts]
    * @returns {Promise<{ reaped: Array<{ storyId: number, path: string }>, skipped: Array<{ storyId: number, path: string, reason: string }> }>}
    */
-  async gc(openStoryIds) {
+  async gc(openStoryIds, opts = {}) {
     const open = new Set((openStoryIds ?? []).map((x) => validateStoryId(x)));
     const worktrees = await this.list();
     const reaped = [];
@@ -283,7 +285,7 @@ export class WorktreeManager {
       if (id === null) continue;        // not a managed story worktree
       if (open.has(id)) continue;        // still live
 
-      const result = await this.reap(id);
+      const result = await this.reap(id, { epicBranch: opts.epicBranch ?? null });
       if (result.removed) {
         reaped.push({ storyId: id, path: wt.path });
       } else {
@@ -311,16 +313,6 @@ export class WorktreeManager {
     if (rel.startsWith('..') || path.isAbsolute(rel)) return null;
     const match = rel.match(/^story-(\d+)$/);
     return match ? parseInt(match[1], 10) : null;
-  }
-
-  /** Look up a sibling epic branch from the story branch name (best-effort). */
-  _epicBranchFor(storyBranch) {
-    // We don't know the epicId from the branch name alone. Callers that
-    // want strict merge-base enforcement should pass epicBranch explicitly
-    // via a future overload; for now we return null and skip the check.
-    // Returning null keeps `isSafeToRemove` correct (cleanness still gated).
-    void storyBranch;
-    return null;
   }
 
   _maybeWarnWindowsPath(wtPath) {
