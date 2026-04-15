@@ -24,6 +24,7 @@ import { buildGraph, computeWaves, detectCycle } from '../Graph.js';
 import { getEpicBranch, gitSync } from '../git-utils.js';
 import { createProvider } from '../provider-factory.js';
 import { VerboseLogger } from '../VerboseLogger.js';
+import { WorktreeManager } from '../worktree-manager.js';
 import { hydrateContext } from './context-hydration-engine.js';
 import { autoSerializeOverlaps } from './dependency-analyzer.js';
 import { buildManifest, getResolvedBranch } from './manifest-builder.js';
@@ -405,6 +406,29 @@ async function handleRiskHighGate(task, provider, dryRun) {
  * @param {object} ctx - Dispatch context (provider, adapter, settings, etc.).
  * @returns {Promise<object>} The `dispatched` entry for the manifest.
  */
+/**
+ * Collect story IDs whose tasks are not all done. These are the worktrees
+ * GC must keep alive; everything else is fair game.
+ *
+ * @param {object[]} tasks - Parsed task tickets under the Epic.
+ * @param {Map<number, object>} allTicketsById - Hierarchy lookup.
+ * @returns {number[]}
+ */
+export function collectOpenStoryIds(tasks, allTicketsById) {
+  const open = new Set();
+  for (const task of tasks) {
+    if (task.status === AGENT_DONE_LABEL) continue;
+    const parentMatch = task.body?.match(/parent:\s*#(\d+)/i);
+    if (!parentMatch) continue;
+    const parentId = parseInt(parentMatch[1], 10);
+    const parent = allTicketsById.get(parentId);
+    if (parent && (parent.labels ?? []).includes('type::story')) {
+      open.add(parentId);
+    }
+  }
+  return [...open];
+}
+
 async function dispatchTaskInWave(task, ctx) {
   const {
     provider,
@@ -455,6 +479,16 @@ async function dispatchTaskInWave(task, ctx) {
       dispatchId: `dry-run-${task.id}`,
       status: 'dispatched',
     };
+  }
+
+  // Worktree-per-story isolation: when a manager is present, ensure the
+  // story's worktree exists and pass its absolute path as `cwd`. The agent
+  // (or HITL operator) executes inside that path so concurrent stories
+  // cannot race on the main checkout's HEAD. Only runs in non-dry-run mode.
+  if (ctx.worktreeManager && /^story-\d+$/.test(taskBranch)) {
+    const storyId = parseInt(taskBranch.slice('story-'.length), 10);
+    const ensured = await ctx.worktreeManager.ensure(storyId, taskBranch);
+    taskDispatch.cwd = ensured.path;
   }
 
   ensureBranch(taskBranch, epicBranch);
@@ -533,6 +567,18 @@ export async function dispatch(options) {
   const adapter =
     options.adapter ??
     createAdapter(orchestration, { executor: executorOverride });
+
+  // Worktree-per-story isolation. Construct only when configured AND not
+  // dry-run; dry-run must never touch git worktrees. Tests can inject a
+  // mock via `options.worktreeManager`.
+  const wtConfig = orchestration?.worktreeIsolation;
+  let worktreeManager = options.worktreeManager ?? null;
+  if (!worktreeManager && wtConfig?.enabled && !dryRun) {
+    worktreeManager = new WorktreeManager({
+      repoRoot: PROJECT_ROOT,
+      config: wtConfig,
+    });
+  }
 
   const baseBranch = settings.baseBranch ?? 'main';
   const epicBranch = getEpicBranch(epicId);
@@ -614,6 +660,25 @@ export async function dispatch(options) {
     vlog.info('orchestration', 'Dry-run mode: skipping branch creation.');
   }
 
+  // ── Step 5a: Worktree GC — reap orphaned story worktrees ────────────────
+  // A story worktree is "orphaned" once its story has closed (no live tasks
+  // remaining). gc() refuses to delete dirty trees, so this is safe even
+  // mid-edit. Only runs when isolation is enabled.
+  if (worktreeManager && !dryRun) {
+    try {
+      const openStoryIds = collectOpenStoryIds(tasks, allTicketsById);
+      const gcResult = await worktreeManager.gc(openStoryIds, { epicBranch });
+      if (gcResult.reaped.length > 0) {
+        vlog.info(
+          'orchestration',
+          `Worktree GC reaped ${gcResult.reaped.length} orphan(s).`,
+        );
+      }
+    } catch (err) {
+      vlog.warn('orchestration', `Worktree GC failed (non-fatal): ${err.message}`);
+    }
+  }
+
   // ── Step 6: Determine next wave to dispatch ──────────────────────────────
   const dispatched = [];
   const heldForApproval = [];
@@ -626,6 +691,7 @@ export async function dispatch(options) {
     epicId,
     epicBranch,
     dryRun,
+    worktreeManager,
   };
 
   for (const wave of allWaves) {
