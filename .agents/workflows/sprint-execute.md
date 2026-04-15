@@ -144,8 +144,10 @@ In single-tree mode, `--cwd` can be omitted (defaults to `PROJECT_ROOT`).
 
 The script:
 
-- Checks for `risk::high` — creates a PR instead of auto-merging and exits with
-  code 1 (manual review required) when present.
+- Checks for `risk::high` — posts a HITL comment on the Story and exits with
+  code 1 (operator decision required). The story branch is left untouched: the
+  operator can remove the label and re-run, merge manually, or rework. Disable
+  globally via `orchestration.hitl.riskHighApproval: false`.
 - Merges the Story branch into `epic/<epicId>` with `--no-ff`.
 - Pushes the Epic branch.
 - Deletes the Story branch (local + remote).

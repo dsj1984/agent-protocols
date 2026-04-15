@@ -2,6 +2,30 @@
 
 All notable changes to this project will be documented in this file.
 
+## [5.8.6] - 2026-04-15
+
+### 🧹 Replace `risk::high` story PR creation with pause-and-ask gate
+
+The `risk::high` story-close gate used to branch-push and open a GitHub PR,
+then exit non-zero. That created extra artifacts (a PR, a pushed branch)
+and implied a long-running review workflow. The intent of the gate is
+just "stop and ask the human" — not "spawn a review lane."
+
+`sprint-story-close.js` now posts a HITL comment on the Story describing
+three operator choices — (1) remove the label and re-run for an
+auto-merge, (2) merge manually, or (3) reject and rework — then exits
+non-zero. No PR is created, no branch is pushed, nothing is merged or
+deleted. The story branch is left exactly as the agent finished it.
+
+- **Changed:** `.agents/scripts/sprint-story-close.js` —
+  `handleHighRiskGate()` no longer calls `createPullRequest` or pushes
+  the branch. Posts a structured HITL comment and returns
+  `action: 'paused-for-approval'`.
+- **Changed:** `.agents/workflows/sprint-execute.md` — updated the
+  sprint-close behavior description.
+- **Changed:** `tests/sprint-story-orchestration.test.js` — risk::high
+  test expects `paused-for-approval` instead of `pr-created`.
+
 ## [5.8.5] - 2026-04-15
 
 ### 🧹 Narrow `risk::high` rubric and add HITL opt-out toggle

@@ -314,7 +314,19 @@ test('sprint-story-close: handle risk::high gate', async () => {
     injectedProvider: provider,
   });
 
-  assert.strictEqual(success, false, 'Should fail (manual merge required)');
-  assert.strictEqual(result.action, 'pr-created', 'Should have created a PR');
-  assert.ok(result.prUrl.includes('/pull/123'), 'PR URL should be included');
+  assert.strictEqual(
+    success,
+    false,
+    'Should fail (operator decision required)',
+  );
+  assert.strictEqual(
+    result.action,
+    'paused-for-approval',
+    'Should pause for operator instead of creating a PR',
+  );
+  assert.match(
+    result.reason,
+    /risk::high/,
+    'Reason should cite the risk::high label',
+  );
 });
