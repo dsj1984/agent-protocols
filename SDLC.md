@@ -212,8 +212,20 @@ dispatches any newly-unblocked Tasks. This continues until all waves complete.
 
 ### HITL Gates
 
-Tasks labeled `risk::high` are held for explicit human approval before dispatch.
-The notification engine fires an `approval-required` event via webhook.
+Tasks labeled `risk::high` are held for explicit human approval before dispatch
+and `risk::high` stories create a PR instead of auto-merging. The notification
+engine fires an `approval-required` event via webhook.
+
+Both gates can be disabled by setting `orchestration.hitl.riskHighApproval` to
+`false` in `.agentrc.json`. When disabled, the `risk::high` label remains
+informational (visible on tickets for audit) but no longer halts execution — use
+this when your team trusts the decomposer's judgement and prefers to catch
+high-risk work at code review instead.
+
+`risk::high` is reserved for **destructive, irreversible, or blast-radius**
+work: unrecoverable data mutations, shared security/auth changes, CI/CD gating
+changes, parallel monorepo-wide rewrites, and destructive schema migrations. The
+full rubric lives in `agentSettings.riskGates.heuristics`.
 
 ---
 
