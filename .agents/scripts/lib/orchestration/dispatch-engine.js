@@ -489,6 +489,31 @@ async function dispatchTaskInWave(task, ctx) {
     const storyId = parseInt(taskBranch.slice('story-'.length), 10);
     const ensured = await ctx.worktreeManager.ensure(storyId, taskBranch);
     taskDispatch.cwd = ensured.path;
+
+    // Windows long-path warnings are a pre-flight heads-up — surface them
+    // on the Epic ticket so the operator can relocate the worktree root
+    // before any build silently truncates a file path.
+    if (ensured.windowsPathWarning) {
+      try {
+        const { path: p, length, threshold } = ensured.windowsPathWarning;
+        await ctx.provider.postComment(ctx.epicId, {
+          body:
+            `⚠️ **Windows long-path warning** — story-${storyId} worktree\n\n` +
+            `- Path: \`${p}\`\n` +
+            `- Estimated deepest path length: **${length}** chars\n` +
+            `- Threshold: ${threshold}\n\n` +
+            `Windows MAX_PATH is 260 without \`core.longpaths=true\`; ` +
+            `even with it set, some tools still truncate. Consider relocating ` +
+            `\`orchestration.worktreeIsolation.root\` to a shorter prefix.`,
+          type: 'notification',
+        });
+      } catch (err) {
+        vlog.warn(
+          'orchestration',
+          `Failed to post long-path warning on Epic #${ctx.epicId}: ${err.message}`,
+        );
+      }
+    }
   }
 
   ensureBranch(taskBranch, epicBranch);

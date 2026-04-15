@@ -355,3 +355,86 @@ test('integration: round-trips worktree add and remove on a real repo', async ()
     fs.rmSync(tmp, { recursive: true, force: true });
   }
 });
+
+// ---------------------------------------------------------------------------
+// Windows long-path pre-flight warning
+// ---------------------------------------------------------------------------
+
+test('ensure: returns windowsPathWarning when estimated path exceeds threshold on win32', async () => {
+  // Use a deep repoRoot so wtPath + 80-char allowance crosses the threshold.
+  const deepRoot = `C:\\${'x'.repeat(180)}`;
+  const warns = [];
+  const git = mockGit({
+    'worktree list': () => ({ status: 0, stdout: '', stderr: '' }),
+    'show-ref': () => ({ status: 1, stdout: '', stderr: '' }),
+    'worktree add': () => ({ status: 0, stdout: '', stderr: '' }),
+    config: () => ({ status: 0, stdout: '', stderr: '' }),
+  });
+  const wm = new WorktreeManager({
+    repoRoot: deepRoot,
+    config: { windowsPathLengthWarnThreshold: 240 },
+    logger: { info() {}, warn: (m) => warns.push(m), error() {} },
+    git,
+    platform: 'win32',
+  });
+  // Skip the real mkdirSync — deepRoot does not exist on disk. Stub it.
+  const originalMkdir = fs.mkdirSync;
+  fs.mkdirSync = () => undefined;
+  try {
+    const res = await wm.ensure(42, 'story-42');
+    assert.ok(res.windowsPathWarning, 'warning payload must be present');
+    assert.ok(res.windowsPathWarning.length > 240);
+    assert.equal(res.windowsPathWarning.threshold, 240);
+    assert.ok(warns.some((m) => /windows-long-path/.test(m)));
+  } finally {
+    fs.mkdirSync = originalMkdir;
+  }
+});
+
+test('ensure: no windowsPathWarning when path is short', async () => {
+  const git = mockGit({
+    'worktree list': () => ({ status: 0, stdout: '', stderr: '' }),
+    'show-ref': () => ({ status: 1, stdout: '', stderr: '' }),
+    'worktree add': () => ({ status: 0, stdout: '', stderr: '' }),
+    config: () => ({ status: 0, stdout: '', stderr: '' }),
+  });
+  const wm = new WorktreeManager({
+    repoRoot: 'C:\\repo',
+    logger: SILENT_LOGGER,
+    git,
+    platform: 'win32',
+  });
+  const originalMkdir = fs.mkdirSync;
+  fs.mkdirSync = () => undefined;
+  try {
+    const res = await wm.ensure(42, 'story-42');
+    assert.equal(res.windowsPathWarning, undefined);
+  } finally {
+    fs.mkdirSync = originalMkdir;
+  }
+});
+
+test('ensure: never warns on non-win32 even with very long paths', async () => {
+  const deepRoot = `/${'x'.repeat(300)}`;
+  const warns = [];
+  const git = mockGit({
+    'worktree list': () => ({ status: 0, stdout: '', stderr: '' }),
+    'show-ref': () => ({ status: 1, stdout: '', stderr: '' }),
+    'worktree add': () => ({ status: 0, stdout: '', stderr: '' }),
+  });
+  const wm = new WorktreeManager({
+    repoRoot: deepRoot,
+    logger: { info() {}, warn: (m) => warns.push(m), error() {} },
+    git,
+    platform: 'linux',
+  });
+  const originalMkdir = fs.mkdirSync;
+  fs.mkdirSync = () => undefined;
+  try {
+    const res = await wm.ensure(42, 'story-42');
+    assert.equal(res.windowsPathWarning, undefined);
+    assert.equal(warns.length, 0);
+  } finally {
+    fs.mkdirSync = originalMkdir;
+  }
+});
