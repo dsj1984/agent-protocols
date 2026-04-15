@@ -126,11 +126,12 @@ echo it in its summary.
 
 ### Fallback on network failure
 
-If the comment post fails (network / 4xx / 5xx), dump the retro body to
-`temp/retro-epic-[EPIC_ID].md` so the content is not lost and surface a clear
-error. The operator can re-run `/sprint-retro [EPIC_ID]` after resolving
-connectivity. **Never** leave the file as the permanent artifact — re-run and
-delete the temp file once the comment lands.
+If the comment post fails (network / 4xx / 5xx), **do not** write the retro to
+disk. Surface the error to the operator and abort. The retro body lives only in
+the agent's working memory for the current session — the operator re-runs
+`/sprint-retro [EPIC_ID]` after resolving connectivity so the content is
+regenerated from the ticket graph (the authoritative source) and posted fresh.
+GitHub is the sole retro archive.
 
 ## Step 4 — Update Architecture & Patterns Documentation (Optional)
 
