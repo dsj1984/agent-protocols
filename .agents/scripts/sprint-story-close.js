@@ -386,7 +386,8 @@ export async function runStoryClose({
   // Step 5 — Risk check and merge
   // -------------------------------------------------------------------------
 
-  const isHighRisk = story.labels.includes('risk::high');
+  const riskHighGateEnabled = orchestration?.hitl?.riskHighApproval !== false;
+  const isHighRisk = story.labels.includes('risk::high') && riskHighGateEnabled;
 
   if (isHighRisk) {
     const riskResult = await handleHighRiskGate(

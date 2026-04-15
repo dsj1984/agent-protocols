@@ -536,7 +536,15 @@ cyclomatic complexity, file length, and dependency counts. The
 ### HITL Risk Gates
 
 Deterministic safety checks force Human-In-The-Loop approval when an agent plans
-destructive operations (e.g., `DROP TABLE`, `DELETE`).
+destructive operations (e.g., `DROP TABLE`, `DELETE`). The rubric
+(`agentSettings.riskGates.heuristics`) is intentionally narrow — only
+destructive/irreversible work, shared security/auth, CI/CD gating, parallel
+monorepo-wide rewrites, and destructive schema migrations are `risk::high`.
+Quality and style constraints are not.
+
+Both the task-dispatch gate and the story-merge gate honor
+`orchestration.hitl.riskHighApproval` (default `true`); set it to `false` to
+treat `risk::high` as informational and skip the pause.
 
 ### Friction Telemetry
 

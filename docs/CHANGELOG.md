@@ -2,6 +2,47 @@
 
 All notable changes to this project will be documented in this file.
 
+## [5.8.5] - 2026-04-15
+
+### 🧹 Narrow `risk::high` rubric and add HITL opt-out toggle
+
+The `risk::high` rubric had drifted — 17 heuristics, most of which were
+quality/style/instruction-authoring rules (e.g., "soft verification verbs
+must be replaced with CLI commands", "theming updates must avoid hex
+values"). These aren't *high-risk work*; they're decomposer prompt
+guidance. Flagging them as `risk::high` caused the gate to fire on
+routine stories, matching the stop the user reported.
+
+The rubric is now restricted to 5 genuinely destructive/irreversible
+categories:
+
+1. Destructive or irreversible data mutations.
+2. Shared security / auth infrastructure changes.
+3. CI/CD, deployment, or release-gating changes that could ship
+   unverified code.
+4. Monorepo-wide parallel AST/text replacements on overlapping files.
+5. Schema migrations that rewrite rows or drop columns without
+   backfill/rollback.
+
+Additionally, both HITL gates are now toggleable via
+`orchestration.hitl.riskHighApproval` (default `true`, preserves current
+behavior). When set to `false`, `risk::high` remains informational on
+tickets but neither the task-dispatch gate
+(`dispatch-engine.js:dispatchWave`) nor the story-close gate
+(`sprint-story-close.js`) pauses execution. This lets teams that trust
+the decomposer's judgement catch high-risk work at code review instead.
+
+- **Changed:** `.agentrc.json` and `.agents/default-agentrc.json` —
+  trimmed `agentSettings.riskGates.heuristics` from 17 → 5 items;
+  added `orchestration.hitl.riskHighApproval` (default `true`).
+- **Changed:** `.agents/scripts/lib/orchestration/dispatch-engine.js`
+  `dispatchWave()` — honors `orchestration.hitl.riskHighApproval`.
+- **Changed:** `.agents/scripts/sprint-story-close.js` — honors the
+  same toggle before invoking the story-close risk gate.
+- **Changed:** `.agents/instructions.md`, `.agents/SDLC.md`,
+  `.agents/README.md` — updated HITL guidance to describe the toggle
+  and the narrowed rubric.
+
 ## [5.8.4] - 2026-04-15
 
 ### 🧹 Enforce JIT story-branch and worktree creation in dispatch

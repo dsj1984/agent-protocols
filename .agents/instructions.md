@@ -160,14 +160,23 @@ unnecessary tokens on failing strategies.
 
 Before executing any task, you MUST check the ticket labels for `risk::high`.
 
-- **Trigger**: If a task is labelled `risk::high`, you are strictly forbidden
-  from executing the implementation steps until you receive explicit human
-  confirmation.
+- **Trigger**: If a task is labelled `risk::high` AND
+  `orchestration.hitl.riskHighApproval` is `true` (the default), you are
+  strictly forbidden from executing the implementation steps until you receive
+  explicit human confirmation.
 - **Intervention**: You MUST pause, summarize the high-risk operations detected
-  (based on `riskGates` in `.agentrc.json`), and wait for a user response
-  stating "Approved" or "Proceed".
-- **Safety Violation**: Proceeding without approval for a flagged task is a
-  critical protocol violation.
+  (based on `riskGates.heuristics` in `.agentrc.json`), and wait for a user
+  response stating "Approved" or "Proceed".
+- **Opt-out**: When `orchestration.hitl.riskHighApproval` is `false`, the gate
+  is disabled — `risk::high` tasks dispatch normally and `risk::high` stories
+  merge automatically. The label remains informational for audit/telemetry.
+- **Safety Violation**: Proceeding without approval for a flagged task (while
+  the gate is enabled) is a critical protocol violation.
+- **What counts as high risk**: `risk::high` is reserved for destructive or
+  irreversible work — data mutations without a backup/rollback path, shared
+  security/auth changes, CI/CD gating changes, parallel monorepo-wide rewrites,
+  and schema migrations that rewrite or drop existing data. Quality/style
+  constraints and localized feature work are **not** high risk.
 
 ---
 

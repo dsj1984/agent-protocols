@@ -534,8 +534,10 @@ async function dispatchWave(wave, taskMap, ctx) {
 
   const dispatched = [];
   const heldForApproval = [];
+  const riskHighGateEnabled =
+    ctx.orchestration?.hitl?.riskHighApproval !== false;
   for (const task of eligible) {
-    if (task.isRiskHigh) {
+    if (task.isRiskHigh && riskHighGateEnabled) {
       heldForApproval.push(
         await handleRiskHighGate(task, ctx.provider, ctx.dryRun),
       );
@@ -722,6 +724,7 @@ async function dispatchNextWave(ctx, fetched, allWaves, taskMap) {
     epicBranch: ctx.epicBranch,
     dryRun: ctx.dryRun,
     worktreeManager: ctx.worktreeManager,
+    orchestration: ctx.orchestration,
   };
 
   for (const wave of allWaves) {
