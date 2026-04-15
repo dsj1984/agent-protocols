@@ -89,9 +89,11 @@ Before writing code or documentation, verify if any domain-agnostic rules apply:
 ### G. Structured Configuration
 
 Refer to `.agentrc.json` to understand your operational limits (e.g., allowed
-auto-run permissions, default personas). Refer to the `techStack` section of
-`.agentrc.json` for the project's specific technology choices (database, ORM,
-API framework, auth provider, validation library, workspace paths).
+auto-run permissions, default personas). Refer to the **Tech Stack** section of
+`docs/architecture.md` for the project's specific technology choices (database,
+ORM, API framework, auth provider, validation library, workspace paths).
+Project-specific technology context is intentionally kept out of
+`.agentrc.json`.
 
 Model selection is intentionally **not** in config. The dispatcher emits a
 binary `model_tier` per Story — `high` (deep-reasoning) or `low` (fast

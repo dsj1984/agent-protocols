@@ -78,13 +78,12 @@ merge(D, P):
 
 - **Arrays are opaque values.** Do not attempt to merge array elements; the
   project's array is the authoritative value. This applies to
-  `docsContextFiles`, `release.docs`, `riskGates.heuristics`,
-  `models.categories`, etc. Operators who want new defaults must edit those
-  arrays manually.
+  `docsContextFiles`, `release.docs`, `riskGates.heuristics`, etc. Operators who
+  want new defaults must edit those arrays manually.
 - **Nested objects expand fully** when absent in the project. For example, if
-  `[PROJECT_CONFIG]` omits `techStack.database` entirely and the default
-  includes it, copy the whole `database` subtree in. Conversely, if the default
-  no longer has `techStack.workspaces` and the project does, remove it.
+  `[PROJECT_CONFIG]` omits `verboseLogging` entirely and the default includes
+  it, copy the whole `verboseLogging` subtree in. Conversely, if the default no
+  longer has a nested block and the project does, remove it.
 - **Type mismatches prefer the project value** (operator intent wins) but must
   be recorded in the summary so a human can review.
 - **`$schema` and top-level metadata keys** (`title`) are treated the same as

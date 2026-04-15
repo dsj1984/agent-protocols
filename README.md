@@ -70,7 +70,6 @@ cp .agents/default-agentrc.json .agentrc.json
 | `orchestration.provider`            | Ticketing provider (`"github"`)                  |
 | `orchestration.github.owner`        | GitHub repository owner                          |
 | `orchestration.github.repo`         | GitHub repository name                           |
-| `techStack.project.name`            | Your project name                                |
 
 ### Validation Commands
 
