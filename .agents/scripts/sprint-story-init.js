@@ -293,14 +293,8 @@ export async function runStoryInit({
 
   progress('INIT', `Initializing Story #${storyId}...`);
 
-  let storyContext;
-  try {
-    storyContext = await resolveStoryContext(provider, storyId);
-  } catch (err) {
-    throw new Error(err.message);
-  }
-
-  const { story, body, epicId, featureId, prdId, techSpecId } = storyContext;
+  const { story, body, epicId, featureId, prdId, techSpecId } =
+    await resolveStoryContext(provider, storyId);
   progress(
     'CONTEXT',
     `Epic: #${epicId}, Feature/Parent: #${featureId ?? 'none'}`,
@@ -347,23 +341,19 @@ export async function runStoryInit({
 
   if (!dryRun) {
     const baseBranch = settings.baseBranch ?? 'main';
-    try {
-      if (worktreeEnabled) {
-        const { worktreePath, created } = await bootstrapWorktree({
-          epicBranch,
-          storyBranch,
-          storyId,
-          baseBranch,
-          mainCwd: cwd,
-          wtConfig,
-        });
-        workCwd = worktreePath;
-        worktreeCreated = created;
-      } else {
-        await bootstrapBranch(epicBranch, storyBranch, baseBranch, cwd);
-      }
-    } catch (err) {
-      throw new Error(err.message);
+    if (worktreeEnabled) {
+      const { worktreePath, created } = await bootstrapWorktree({
+        epicBranch,
+        storyBranch,
+        storyId,
+        baseBranch,
+        mainCwd: cwd,
+        wtConfig,
+      });
+      workCwd = worktreePath;
+      worktreeCreated = created;
+    } else {
+      await bootstrapBranch(epicBranch, storyBranch, baseBranch, cwd);
     }
 
     progress(
@@ -378,11 +368,47 @@ export async function runStoryInit({
     );
   }
 
-  // -------------------------------------------------------------------------
-  // Output — structured JSON for the agent to consume
-  // -------------------------------------------------------------------------
+  const result = buildStoryInitResult({
+    storyId,
+    epicId,
+    storyBranch,
+    epicBranch,
+    story,
+    worktreeEnabled,
+    workCwd,
+    worktreeCreated,
+    sortedTasks,
+    featureId,
+    prdId,
+    techSpecId,
+    dryRun,
+  });
 
-  const result = {
+  emitStoryInitResult(result, {
+    storyId,
+    dryRun,
+    taskCount: sortedTasks.length,
+  });
+
+  return { success: true, result };
+}
+
+function buildStoryInitResult({
+  storyId,
+  epicId,
+  storyBranch,
+  epicBranch,
+  story,
+  worktreeEnabled,
+  workCwd,
+  worktreeCreated,
+  sortedTasks,
+  featureId,
+  prdId,
+  techSpecId,
+  dryRun,
+}) {
+  return {
     storyId,
     epicId,
     storyBranch,
@@ -397,14 +423,12 @@ export async function runStoryInit({
       labels: t.labels,
       dependencies: t.dependsOn ?? parseBlockedBy(t.body ?? ''),
     })),
-    context: {
-      featureId,
-      prdId,
-      techSpecId,
-    },
+    context: { featureId, prdId, techSpecId },
     dryRun,
   };
+}
 
+function emitStoryInitResult(result, { storyId, dryRun, taskCount }) {
   console.log('\n--- STORY INIT RESULT ---');
   console.log(JSON.stringify(result, null, 2));
   console.log('--- END RESULT ---\n');
@@ -413,10 +437,8 @@ export async function runStoryInit({
     'DONE',
     dryRun
       ? '✅ Dry-run complete. No git or ticket changes made.'
-      : `✅ Story #${storyId} initialized. ${sortedTasks.length} Task(s) ready for implementation.`,
+      : `✅ Story #${storyId} initialized. ${taskCount} Task(s) ready for implementation.`,
   );
-
-  return { success: true, result };
 }
 
 // ---------------------------------------------------------------------------

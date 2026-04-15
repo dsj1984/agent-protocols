@@ -397,7 +397,7 @@ export function collectOpenStoryIds(tasks, allTicketsById) {
     if (!parentMatch) continue;
     const parentId = parseInt(parentMatch[1], 10);
     const parent = allTicketsById.get(parentId);
-    if (parent && parent.labels.includes('type::story')) {
+    if (parent?.labels.includes('type::story')) {
       open.add(parentId);
     }
   }
