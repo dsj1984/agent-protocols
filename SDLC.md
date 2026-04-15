@@ -321,6 +321,5 @@ Notifications are dispatched through two channels:
 | `/bootstrap-agent-protocols`      | Initialize repo labels and project fields        |
 | `/git-commit-all`                 | Stage and commit all changes                     |
 | `/git-push`                       | Stage, commit, and push to remote                |
-| `/ci-auto-heal`                   | Manual CI self-remediation trigger               |
 | `/delete-epic-branches [EPIC_ID]` | Hard reset: delete Epic branches                 |
 | `/delete-epic-tickets [EPIC_ID]`  | Hard reset: delete Epic issues                   |

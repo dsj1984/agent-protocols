@@ -24,7 +24,7 @@ export function getResolvedBranch(task, allTicketsById, epicId) {
   if (parentMatch) {
     const parentId = parseInt(parentMatch[1], 10);
     const parentTicket = allTicketsById.get(parentId);
-    if (parentTicket && parentTicket.labels.includes('type::story')) {
+    if (parentTicket?.labels.includes('type::story')) {
       return getStoryBranch(epicId, parentId);
     }
   }

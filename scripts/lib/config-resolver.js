@@ -88,21 +88,6 @@ export function resolveConfig(opts) {
 
     const orchestration = raw.orchestration ?? null;
 
-    const autoHealRaw = raw.autoHeal ?? null;
-    // Apply defaults for the autoHeal block when present.
-    const autoHeal = autoHealRaw
-      ? {
-          enabled: true,
-          adapter: 'jules',
-          maxLogSizeBytes: 4000,
-          branchFilter: ['main'],
-          consolidateSession: true,
-          ...autoHealRaw,
-          adapters: autoHealRaw.adapters ?? {},
-          stages: autoHealRaw.stages ?? {},
-        }
-      : null;
-
     const defaults = {
       agentRoot: '.agents',
       scriptsRoot: '.agents/scripts',
@@ -169,7 +154,6 @@ export function resolveConfig(opts) {
     const resolved = {
       settings,
       orchestration,
-      autoHeal,
       raw,
       source: agentrcPath,
     };
@@ -207,7 +191,6 @@ export function resolveConfig(opts) {
       maxTokenBudget: 80000, // Default 80k token budget
     },
     orchestration: null,
-    autoHeal: null,
     raw: null,
     source: 'built-in defaults',
   };
