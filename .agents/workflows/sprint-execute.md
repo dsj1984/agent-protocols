@@ -78,7 +78,9 @@ directory. In worktree-enabled mode this is `.worktrees/story-<id>/`; in
 single-tree mode it is the main checkout.
 
 > **Model Selection**: check the **Story Dispatch Table** from `/sprint-plan`
-> for this Story's `recommendedModel` and select it for your current session.
+> for this Story's **Model Tier** (`high` or `low`). Pick any model whose
+> reasoning strength matches the tier — the concrete choice is left to the
+> operator/router.
 
 ---
 

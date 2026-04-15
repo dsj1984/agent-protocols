@@ -2,6 +2,53 @@
 
 All notable changes to this project will be documented in this file.
 
+## [5.8.1] - 2026-04-15
+
+### 🧹 Model selection simplified to a binary tier
+
+Concrete model selection has been removed from the protocol. Stories now
+carry a binary `model_tier` — `high` (deep-reasoning) or `low` (fast
+execution) — derived solely from the `complexity::high` label. Picking a
+specific model is left to the operator or an external router, which is
+where that decision already belongs: models ship monthly, routers are
+better placed to make runtime trade-offs, and the repo no longer needs to
+track a moving list of model names.
+
+- **Removed:** `agentSettings.defaultModels` (`planningFallback`,
+  `fastFallback`) and `agentSettings.bookendRequirements` blocks from
+  `.agentrc.json` and `.agents/default-agentrc.json`. Both were either
+  dead (bookendRequirements was never read) or redundant with the binary
+  tier signal.
+- **Removed:** `resolveModel()` and `resolveRecommendedModel()` from
+  `model-resolver.js`; the module now exports only `resolveModelTier()`.
+  Returns `'high' | 'low'` (renamed from `'high' | 'fast'`).
+- **Removed:** `Model` field from the `## Metadata` section of task
+  tickets. No production code ever authored this field, so nothing
+  breaks; the parser in `dependency-parser.js` no longer extracts it.
+- **Removed:** `recommendedModel` property from story manifest entries
+  and from the "Story Dispatch Table" (Markdown + CLI). The table now
+  shows only `Model Tier`.
+- **Removed:** `model` property from task dispatch payloads
+  (`IExecutionAdapter.dispatchTask`) and from the manual adapter's
+  dispatch printout.
+- **Renamed:** `model_tier` enum value `'fast'` → `'low'` in the
+  dispatch-manifest schema and throughout the codebase — matches the
+  user-facing "execution mode: high vs low" framing.
+- **Updated:** `.agents/workflows/sprint-retro.md`,
+  `.agents/workflows/sprint-execute.md`, `.agents/SDLC.md`, and the
+  `ticket-decomposer.js` header comment now reference the tier signal
+  instead of specific model fallbacks.
+- **Updated:** Tests (`dispatcher.test.js`, `manifest-renderer.test.js`,
+  `dependency-parser.test.js`, `tests/lib/manifest-renderer.test.js`)
+  refreshed for the new shape.
+- **Removed:** Top-level `models` block (categories / chaining_guidance /
+  finops_recommendations) from `.agentrc.json` and
+  `.agents/default-agentrc.json`. Never read by code, named specific
+  models that already ship monthly, and duplicated the tier guidance the
+  label system now carries. `.agents/instructions.md` updated to describe
+  the `high`/`low` tier signal directly instead of pointing at the deleted
+  block.
+
 ## [5.8.0] - 2026-04-15
 
 ### 🧹 CI Auto-Heal removed

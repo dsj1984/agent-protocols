@@ -150,8 +150,10 @@ Unlike legacy models where every Task lives on its own branch, Version 5 uses
 - **Format**: `story/epic-[EPIC_ID]/[STORY_SLUG]`
 - **Goal**: Minimize merge conflicts and consolidation waves by grouping related
   tasks on the same context slice.
-- **Model Tiering**: Stories labeled `complexity::high` automatically upgrade
-  all child tasks to `model_tier: high`. Standard stories use `fast` prompts.
+- **Model Tiering**: Stories labeled `complexity::high` resolve to
+  `model_tier: high`; all other stories resolve to `model_tier: low`. The tier
+  is a signal to the operator/router; concrete model selection is intentionally
+  left outside the protocol.
 
 ### Dispatch
 

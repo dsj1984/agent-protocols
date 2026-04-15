@@ -67,7 +67,6 @@ export class ManualDispatchAdapter extends IExecutionAdapter {
       epicBranch,
       prompt,
       persona,
-      model,
       mode,
       skills,
       focusAreas,
@@ -87,7 +86,6 @@ export class ManualDispatchAdapter extends IExecutionAdapter {
     console.log(`  Branch       : ${branch}`);
     console.log(`  Epic Branch  : ${epicBranch}`);
     console.log(`  Persona      : ${persona}`);
-    console.log(`  Model        : ${model}`);
     console.log(`  Mode         : ${mode}`);
     console.log(`  Skills       : ${skillList}`);
     console.log(`  Focus Areas  : ${focusList}`);

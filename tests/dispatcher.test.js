@@ -106,7 +106,7 @@ function makeTask(id, overrides = {}) {
   return {
     id,
     title: `Task ${id}`,
-    body: '## Metadata\n**Persona**: engineer\n**Model**: Gemini 3 Flash\n**Mode**: fast\n**Skills**: core/tdd\n**Focus Areas**: src/',
+    body: '## Metadata\n**Persona**: engineer\n**Mode**: fast\n**Skills**: core/tdd\n**Focus Areas**: src/',
     labels: ['type::task', 'agent::ready'],
     state: 'open',
     assignees: [],
@@ -175,10 +175,10 @@ describe('dispatch() — two independent tasks', () => {
   it('groups both tasks in Wave 0 when focus areas are distinct', async () => {
     // Non-overlapping focus areas — should NOT be serialized
     const task10 = makeTask(10, {
-      body: '## Metadata\n**Persona**: engineer\n**Model**: Gemini 3 Flash\n**Mode**: fast\n**Skills**: core/tdd\n**Focus Areas**: src/api/',
+      body: '## Metadata\n**Persona**: engineer\n**Mode**: fast\n**Skills**: core/tdd\n**Focus Areas**: src/api/',
     });
     const task20 = makeTask(20, {
-      body: '## Metadata\n**Persona**: engineer\n**Model**: Gemini 3 Flash\n**Mode**: fast\n**Skills**: core/tdd\n**Focus Areas**: src/ui/',
+      body: '## Metadata\n**Persona**: engineer\n**Mode**: fast\n**Skills**: core/tdd\n**Focus Areas**: src/ui/',
     });
 
     const provider = new MockProvider({ epic: EPIC, tasks: [task10, task20] });
@@ -472,7 +472,7 @@ describe('dispatch() — story-level orchestration', () => {
     assert.equal(manifest.storyManifest[0].model_tier, 'high');
   });
 
-  it('defaults model_tier: fast when no complexity label is present', async () => {
+  it('defaults model_tier: low when no complexity label is present', async () => {
     const story100 = makeTask(100, {
       title: 'Simple Story',
       labels: ['type::story'],
@@ -494,7 +494,7 @@ describe('dispatch() — story-level orchestration', () => {
       adapter,
     });
 
-    assert.equal(manifest.storyManifest[0].model_tier, 'fast');
+    assert.equal(manifest.storyManifest[0].model_tier, 'low');
   });
 
   it('serializes tasks across different stories if they have overlapping focus areas', async () => {

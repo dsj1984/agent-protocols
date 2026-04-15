@@ -39,7 +39,6 @@ export class IExecutionAdapter {
    *   epicBranch: string,
    *   prompt:     string,
    *   persona:    string,
-   *   model:      string,
    *   mode:       string,
    *   skills:     string[],
    *   focusAreas: string[],

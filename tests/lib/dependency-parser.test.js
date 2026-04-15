@@ -99,7 +99,6 @@ describe('dependency-parser', () => {
   describe('parseTaskMetadata', () => {
     const defaultExpected = {
       persona: 'engineer',
-      model: '',
       mode: 'fast',
       skills: [],
       focusAreas: [],
@@ -121,14 +120,12 @@ describe('dependency-parser', () => {
       const body = `
 ## Metadata
 **Persona**: security
-**Model**: gpt-4
 **Mode**: comprehensive
 **Protocol Version**: 1.2.3
       `;
       const expected = {
         ...defaultExpected,
         persona: 'security',
-        model: 'gpt-4',
         mode: 'comprehensive',
         protocolVersion: '1.2.3',
       };
@@ -153,7 +150,6 @@ describe('dependency-parser', () => {
       const body = `
 ## Metadata
 **persona**: QA
-**MODEL**: claude-3
 **MODE**: slow
 **skills**: manual testing
 **focus areas**: UI
@@ -161,7 +157,6 @@ describe('dependency-parser', () => {
       `;
       const expected = {
         persona: 'QA',
-        model: 'claude-3',
         mode: 'slow',
         skills: ['manual testing'],
         focusAreas: ['UI'],
@@ -185,7 +180,7 @@ describe('dependency-parser', () => {
 **Persona**: tester
 
 ## Next Section
-**Model**: should-be-ignored
+**Mode**: should-be-ignored
       `;
       assert.deepEqual(parseTaskMetadata(body), {
         ...defaultExpected,

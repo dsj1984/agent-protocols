@@ -112,7 +112,6 @@
                 "status",
                 "branch",
                 "persona",
-                "model",
                 "mode",
                 "skills",
                 "focusAreas",
@@ -134,7 +133,6 @@
                 },
                 "branch": { "type": "string" },
                 "persona": { "type": "string" },
-                "model": { "type": "string" },
                 "mode": {
                   "type": "string",
                   "enum": ["fast", "planning", ""]
@@ -192,7 +190,7 @@
     },
     "storyManifest": {
       "type": "array",
-      "description": "Story-centric grouping of tasks. Each entry represents a Story with its branch, model tier, recommended model, and child tasks. This is the primary execution unit — operators dispatch at the Story level.",
+      "description": "Story-centric grouping of tasks. Each entry represents a Story with its branch, model tier, and child tasks. This is the primary execution unit — operators dispatch at the Story level.",
       "items": {
         "type": "object",
         "required": [
@@ -200,7 +198,6 @@
           "storySlug",
           "branchName",
           "model_tier",
-          "recommendedModel",
           "earliestWave",
           "tasks"
         ],
@@ -222,13 +219,8 @@
           },
           "model_tier": {
             "type": "string",
-            "enum": ["high", "fast"],
-            "description": "Complexity tier derived from the Story's complexity:: label."
-          },
-          "recommendedModel": {
-            "type": "string",
-            "description": "Concrete model name resolved from agentSettings.defaultModels based on model_tier.",
-            "examples": ["Gemini 3.1 Pro (High)", "Gemini 3 Flash"]
+            "enum": ["high", "low"],
+            "description": "Execution-mode tier derived from the Story's complexity::high label. `high` signals a deep-reasoning model; `low` signals a fast execution model. The concrete model choice is left to the executing agent / external router."
           },
           "earliestWave": {
             "type": "integer",

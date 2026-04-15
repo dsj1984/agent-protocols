@@ -42,9 +42,7 @@ test('manifest-renderer: renders simple manifest', () => {
     'Missing story execution plan section',
   );
   assert.ok(
-    output.includes(
-      '| | Story | Title | Model Tier | Recommended Model | Tasks |',
-    ),
+    output.includes('| | Story | Title | Model Tier | Tasks |'),
     'Missing story execution table header',
   );
   assert.ok(
