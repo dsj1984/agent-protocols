@@ -2,6 +2,53 @@
 
 All notable changes to this project will be documented in this file.
 
+## [5.8.0] - 2026-04-15
+
+### 🧹 `/sprint-execute` simplified to single-mode (Story-only)
+
+`/sprint-execute` no longer accepts Epic IDs. Every invocation runs one
+Story end-to-end: init → (ensure worktree) → implement tasks → validate
+→ merge story→epic → reap worktree. Epic-level planning — waves,
+recommended models, Story Dispatch Table — lives in `/sprint-plan` Phase 4
+(unchanged) and is where the operator picks which stories to launch.
+
+Rationale: the two-mode skill was hard to reason about, and the Epic
+mode's dispatcher was never wired into the actual story execution agents
+in practice. Splitting planning (Epic ID) from execution (Story ID) makes
+the surface area match how operators were already using it.
+
+- **Changed:** `.agents/workflows/sprint-execute.md` rewritten as a
+  single-purpose worker skill. Mode A (Epic-level) removed. Frontmatter
+  description updated to reflect the narrower contract.
+- **Changed:** `.agents/scripts/sprint-story-init.js` now honors
+  `orchestration.worktreeIsolation.enabled`. When enabled it seeds the
+  story branch ref in the main checkout (without moving HEAD) and calls
+  `WorktreeManager.ensure` to produce `.worktrees/story-<id>/`. The
+  returned JSON exposes `workCwd`, `worktreeEnabled`, and
+  `worktreeCreated` so the agent knows where to `cd`.
+- **Changed:** The worker flow instructs the agent to `cd` into
+  `workCwd` before Step 1 and to pass `--cwd <main-repo>` when invoking
+  `sprint-story-close.js`, so the story→epic merge runs in the main repo
+  (branches checked out in a worktree cannot be deleted from within
+  themselves).
+- **Unchanged:** `sprint-story-close.js` already reaped worktrees on
+  successful merge (v5.7.0). The existing reap path is the close hook.
+- **Unchanged:** Single-tree fallback (`worktreeIsolation.enabled:
+  false`) follows the v5.5.1 bootstrap path — same assertions, same
+  guards.
+- **Deprecated (not yet removed):** `dispatcher.js` agent-launch loop,
+  `IExecutionAdapter`, Jules/queue adapter plumbing, and story-wave
+  execution tests are now orphaned by the skill change. They remain in
+  the repo for one release so downstream consumers can migrate; a
+  follow-up will delete them.
+
+### 📝 Config defaults
+
+- `.agentrc.json` and `.agents/default-agentrc.json` now ship with
+  `orchestration.worktreeIsolation.enabled: true` by default, so
+  `/sprint-execute <StoryID>` produces `.worktrees/story-<id>/` out of
+  the box. Set `enabled: false` to opt back into single-tree mode.
+
 ## [5.7.0] - 2026-04-15
 
 ### 🧵 Worktree-per-story isolation (Epic #229)

@@ -33,6 +33,8 @@ import { PROJECT_ROOT, resolveConfig } from './lib/config-resolver.js';
 import { parseBlockedBy } from './lib/dependency-parser.js';
 import { buildGraph, topologicalSort } from './lib/Graph.js';
 import {
+  branchExistsLocally,
+  branchExistsRemotely,
   checkoutStoryBranch,
   ensureEpicBranch,
 } from './lib/git-branch-lifecycle.js';
@@ -50,6 +52,7 @@ import {
   fetchChildTasks,
   resolveStoryHierarchy,
 } from './lib/story-lifecycle.js';
+import { WorktreeManager } from './lib/worktree-manager.js';
 
 // ---------------------------------------------------------------------------
 // Helper Modules
@@ -188,6 +191,74 @@ async function bootstrapBranch(epicBranch, storyBranch, baseBranch, cwd) {
   progress('GIT', `✅ On branch: ${currentBranch.stdout}`);
 }
 
+/**
+ * Worktree-isolated bootstrap. Prepares the epic branch and story branch ref
+ * in the main checkout without moving its HEAD, then spins up the per-story
+ * worktree at `.worktrees/story-<id>/`. Returns the worktree's absolute path.
+ *
+ * @returns {Promise<{ worktreePath: string, created: boolean }>}
+ */
+async function bootstrapWorktree({
+  epicBranch,
+  storyBranch,
+  storyId,
+  baseBranch,
+  mainCwd,
+  wtConfig,
+}) {
+  progress('GIT', 'Fetching remote refs (main checkout)...');
+  const fetchResult = await gitFetchWithRetry(mainCwd, 'origin');
+  if (fetchResult.attempts > 1) {
+    progress(
+      'GIT',
+      `Fetch completed after ${fetchResult.attempts} attempt(s) — packed-refs contention.`,
+    );
+  }
+
+  ensureEpicBranch(epicBranch, baseBranch, mainCwd, { progress });
+
+  // Pre-seed the story branch ref without moving main's HEAD. WorktreeManager
+  // requires the branch to exist before `git worktree add` can check it out.
+  const localHas = branchExistsLocally(storyBranch, mainCwd);
+  const remoteHas = branchExistsRemotely(storyBranch, mainCwd);
+  if (!localHas && remoteHas) {
+    progress('GIT', `Fetching remote story branch: ${storyBranch}`);
+    gitSpawn(mainCwd, 'fetch', 'origin', `${storyBranch}:${storyBranch}`);
+  } else if (!localHas && !remoteHas) {
+    progress(
+      'GIT',
+      `Creating story branch ref: ${storyBranch} from ${epicBranch}`,
+    );
+    gitSpawn(mainCwd, 'branch', storyBranch, epicBranch);
+  }
+
+  const wm = new WorktreeManager({
+    repoRoot: mainCwd,
+    config: wtConfig,
+    logger: {
+      info: (m) => progress('WORKTREE', m),
+      warn: (m) => progress('WORKTREE', `⚠️ ${m}`),
+      error: (m) => Logger.error(`[sprint-story-init] ${m}`),
+    },
+  });
+
+  const ensured = await wm.ensure(storyId, storyBranch);
+  progress(
+    'WORKTREE',
+    `${ensured.created ? '✨ Created' : '♻️  Reusing'} worktree: ${ensured.path}`,
+  );
+
+  if (ensured.windowsPathWarning) {
+    const { path: p, length, threshold } = ensured.windowsPathWarning;
+    progress(
+      'WORKTREE',
+      `⚠️ Windows long-path: ${p} (${length} >= ${threshold}). Consider relocating orchestration.worktreeIsolation.root.`,
+    );
+  }
+
+  return { worktreePath: ensured.path, created: ensured.created };
+}
+
 // ---------------------------------------------------------------------------
 // CLI Execution
 // ---------------------------------------------------------------------------
@@ -269,10 +340,28 @@ export async function runStoryInit({
   const epicBranch = getEpicBranch(epicId);
   const storyBranch = getStoryBranch(epicId, storyId);
 
+  let workCwd = cwd;
+  let worktreeCreated = false;
+  const wtConfig = orchestration?.worktreeIsolation;
+  const worktreeEnabled = !!wtConfig?.enabled;
+
   if (!dryRun) {
     const baseBranch = settings.baseBranch ?? 'main';
     try {
-      await bootstrapBranch(epicBranch, storyBranch, baseBranch, cwd);
+      if (worktreeEnabled) {
+        const { worktreePath, created } = await bootstrapWorktree({
+          epicBranch,
+          storyBranch,
+          storyId,
+          baseBranch,
+          mainCwd: cwd,
+          wtConfig,
+        });
+        workCwd = worktreePath;
+        worktreeCreated = created;
+      } else {
+        await bootstrapBranch(epicBranch, storyBranch, baseBranch, cwd);
+      }
     } catch (err) {
       throw new Error(err.message);
     }
@@ -299,6 +388,9 @@ export async function runStoryInit({
     storyBranch,
     epicBranch,
     storyTitle: story.title,
+    worktreeEnabled,
+    workCwd,
+    worktreeCreated,
     tasks: sortedTasks.map((t) => ({
       id: t.id,
       title: t.title,
