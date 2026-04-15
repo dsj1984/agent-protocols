@@ -187,10 +187,16 @@ ${diffStr}
       };
     } catch (err) {
       Logger.error(`[GithubRefinementService] Failed: ${err.message}`);
-      // Attempt to clean up
+      // Attempt to clean up. If the checkout fails here the original error
+      // is the one that matters; we surface the cleanup failure at debug
+      // level so a curious operator can still find it in verbose logs.
       try {
         gitSync(this.cwd, 'checkout', originalBranch || this.baseBranch);
-      } catch {}
+      } catch (cleanupErr) {
+        Logger.debug(
+          `[GithubRefinementService] Post-failure checkout cleanup also failed: ${cleanupErr.message}`,
+        );
+      }
       throw err;
     }
   }

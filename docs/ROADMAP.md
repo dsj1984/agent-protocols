@@ -1,7 +1,13 @@
 # Project Roadmap
 
 > **Auto-generated** from GitHub Issues — do not edit manually.
-> Last synced: Sunday, April 12, 2026 at 03:59 PM EDT
+> Last synced: Wednesday, April 15, 2026 at 09:12 AM EDT
+
+## 🚧 In Progress
+
+| Epic | Status | Progress |
+| ---- | ------ | -------- |
+| [#229 — Worktree-per-story isolation for parallel sprint execution](https://github.com/dsj1984/agent-protocols/issues/229) | 🚧 In Progress | `█████████░` 93% (28/30) |
 
 ## ✅ Completed
 

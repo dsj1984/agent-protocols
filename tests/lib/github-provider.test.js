@@ -181,6 +181,68 @@ test('GitHubProvider._updateLabels: combined patch path skips fast endpoint', as
   assert.ok(!calls.some((u) => u.endsWith('/issues/42/labels')));
 });
 
+test('GitHubProvider: getTicket memoizes within an instance', async () => {
+  let fetchCount = 0;
+  global.fetch = async (url) => {
+    if (url.includes('/issues/') && !url.includes('/comments')) {
+      fetchCount++;
+    }
+    return {
+      ok: true,
+      json: async () => ({
+        number: 77,
+        id: 770,
+        node_id: 'node_77',
+        title: 'Memo Ticket',
+        body: '',
+        labels: [{ name: 'type::task' }],
+        assignees: [],
+        state: 'open',
+      }),
+    };
+  };
+
+  const provider = new GitHubProvider({ owner: 'owner', repo: 'repo' });
+  await provider.getTicket(77);
+  await provider.getTicket(77);
+  await provider.getTicket(77);
+  assert.equal(fetchCount, 1, 'only one REST round-trip for repeated reads');
+});
+
+test('GitHubProvider: primeTicketCache + invalidateTicket', async () => {
+  let fetchCount = 0;
+  global.fetch = async (url) => {
+    if (url.includes('/issues/') && !url.includes('/comments')) {
+      fetchCount++;
+    }
+    return {
+      ok: true,
+      json: async () => ({
+        number: 88,
+        id: 880,
+        node_id: 'node_88',
+        title: 'Primed',
+        body: '',
+        labels: [],
+        assignees: [],
+        state: 'open',
+      }),
+    };
+  };
+
+  const provider = new GitHubProvider({ owner: 'owner', repo: 'repo' });
+  provider.primeTicketCache([
+    { id: 88, title: 'Primed', body: '', labels: [] },
+  ]);
+
+  await provider.getTicket(88);
+  assert.equal(fetchCount, 0, 'primed entry served from cache');
+
+  provider.invalidateTicket(88);
+  await provider.getTicket(88);
+  assert.equal(fetchCount, 1, 'invalidated entry triggers a re-fetch');
+});
+
 // Restore fetch
 test('GitHubProvider: cleanup', () => {
   global.fetch = originalFetch;

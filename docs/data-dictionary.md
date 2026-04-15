@@ -46,3 +46,46 @@ Internal state used by `HealthMonitor` to update the status issue.
 | `activeTasks` | `number` | Count of tasks in `agent::executing` |
 | `toolSuccessRate` | `number` | Ratio of successful tool calls to total attempts |
 | `topFrictionCategories` | `array` | Most frequent categories in the current sprint |
+
+---
+
+## 4. `orchestration.worktreeIsolation` Config (v5.7.0+)
+
+Config block validated by `config-schema.js`. Controls worktree-per-story
+execution. Absent or `enabled: false` restores v5.5.1 single-tree behavior.
+
+| Field                             | Type              | Description                                                                                                    |
+| --------------------------------- | ----------------- | -------------------------------------------------------------------------------------------------------------- |
+| `enabled`                         | `boolean`         | Master switch. `false` = single-tree fallback.                                                                 |
+| `root`                            | `string`          | Worktree directory relative to repo root. Path-traversal guarded.                                              |
+| `nodeModulesStrategy`             | `enum`            | `"per-worktree"` \| `"symlink"` \| `"pnpm-store"`. Default `"per-worktree"`.                                   |
+| `primeFromPath`                   | `string \| null`  | Required when `nodeModulesStrategy = "symlink"`. Relative path to the primed donor worktree.                   |
+| `allowSymlinkOnWindows`           | `boolean`         | Explicit opt-in for the symlink strategy on win32. Default `false`.                                            |
+| `reapOnSuccess`                   | `boolean`         | Remove the worktree after a successful story merge. Default `true`.                                            |
+| `reapOnCancel`                    | `boolean`         | Remove the worktree when the story is cancelled. Default `true`.                                               |
+| `warnOnUncommittedOnReap`         | `boolean`         | Refuse to delete a dirty worktree and log a warning. Default `true`.                                           |
+| `windowsPathLengthWarnThreshold`  | `integer ≥ 1`     | Pre-flight path-length warning ceiling on win32. Default `240` (headroom under the 260 MAX_PATH).              |
+
+### 4a. `WorktreeRecord` (in-memory)
+
+Ephemeral record held by `WorktreeManager` during a dispatch run.
+
+| Field        | Type     | Description                                        |
+| ------------ | -------- | -------------------------------------------------- |
+| `storyId`    | `number` | GitHub issue number for the story.                 |
+| `branch`     | `string` | `story-<id>` branch name.                          |
+| `path`       | `string` | Absolute path to `.worktrees/story-<id>/`.         |
+| `createdAt`  | `string` | ISO timestamp.                                     |
+| `nmStrategy` | `string` | `nodeModulesStrategy` used for this worktree.      |
+
+### 4b. `GcCandidate` (in-memory)
+
+Shape returned during `WorktreeManager.gc` evaluation.
+
+| Field    | Type      | Description                                                                     |
+| -------- | --------- | ------------------------------------------------------------------------------- |
+| `path`   | `string`  | Absolute worktree path from `git worktree list --porcelain`.                    |
+| `branch` | `string`  | Checked-out branch.                                                             |
+| `clean`  | `boolean` | `true` if `git status --porcelain` is empty.                                    |
+| `merged` | `boolean` | `true` if `git merge-base --is-ancestor branch epicBranch` exits 0.             |
+| `safe`   | `boolean` | `clean && merged`. Gates `git worktree remove`.                                 |

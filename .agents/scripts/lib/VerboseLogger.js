@@ -42,6 +42,8 @@ export class VerboseLogger {
     sprint = '',
     taskId = '',
     source = 'system',
+    flushThreshold = 50,
+    flushIntervalMs = 1000,
   }) {
     this.enabled = enabled;
     this.logDir = logDir;
@@ -50,6 +52,16 @@ export class VerboseLogger {
     this.source = source;
     this._logFilePath = null;
 
+    // Batched writer: entries accumulate in `_buffer` and are flushed when
+    // either `flushThreshold` is reached or `flushIntervalMs` elapses since
+    // the last write. Also flushed on process exit to prevent data loss on
+    // normal termination.
+    this._buffer = [];
+    this._flushThreshold = flushThreshold;
+    this._flushIntervalMs = flushIntervalMs;
+    this._flushTimer = null;
+    this._exitHookInstalled = false;
+
     if (this.enabled && this.logDir) {
       ensureDirSync(this.logDir);
       // One file per sprint if sprint is known, otherwise a shared session log.
@@ -57,6 +69,47 @@ export class VerboseLogger {
         ? `sprint-${this.sprint}.jsonl`
         : `session-${new Date().toISOString().replace(/[:.]/g, '-')}.jsonl`;
       this._logFilePath = path.join(this.logDir, filename);
+      this._installExitHook();
+    }
+  }
+
+  _installExitHook() {
+    if (this._exitHookInstalled || typeof process === 'undefined') return;
+    // Guard against multiple hooks (singleton is typically the only caller,
+    // but tests can construct fresh instances).
+    process.on('exit', () => this.flush());
+    this._exitHookInstalled = true;
+  }
+
+  _scheduleFlush() {
+    if (this._flushTimer || !this._flushIntervalMs) return;
+    this._flushTimer = setTimeout(() => {
+      this._flushTimer = null;
+      this.flush();
+    }, this._flushIntervalMs);
+    // Don't keep the event loop alive just to flush logs.
+    if (typeof this._flushTimer.unref === 'function') {
+      this._flushTimer.unref();
+    }
+  }
+
+  /**
+   * Flush any pending entries to disk. Safe to call multiple times and when
+   * the buffer is empty. Called automatically on the 50-entry threshold,
+   * the 1000 ms interval, and process exit.
+   */
+  flush() {
+    if (!this._logFilePath || this._buffer.length === 0) return;
+    const chunk = this._buffer.join('');
+    this._buffer.length = 0;
+    if (this._flushTimer) {
+      clearTimeout(this._flushTimer);
+      this._flushTimer = null;
+    }
+    try {
+      fs.appendFileSync(this._logFilePath, chunk, 'utf8');
+    } catch (err) {
+      console.error(`[VerboseLogger] Failed to write log: ${err.message}`);
     }
   }
 
@@ -91,15 +144,11 @@ export class VerboseLogger {
       entry.data = data;
     }
 
-    try {
-      fs.appendFileSync(
-        this._logFilePath,
-        `${JSON.stringify(entry)}\n`,
-        'utf8',
-      );
-    } catch (err) {
-      // Verbose logging must never crash the host process — degrade silently.
-      console.error(`[VerboseLogger] Failed to write log: ${err.message}`);
+    this._buffer.push(`${JSON.stringify(entry)}\n`);
+    if (this._buffer.length >= this._flushThreshold) {
+      this.flush();
+    } else {
+      this._scheduleFlush();
     }
   }
 
@@ -203,9 +252,11 @@ export class VerboseLogger {
   }
 
   /**
-   * Resets the singleton (primarily for testing).
+   * Resets the singleton (primarily for testing). Flushes any buffered
+   * entries on the current singleton before clearing it.
    */
   static reset() {
+    if (_singleton) _singleton.flush();
     _singleton = null;
   }
 }

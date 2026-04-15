@@ -655,3 +655,37 @@ git config --global feature.manyFiles true
 ```bash
 git maintenance start
 ```
+
+---
+
+## Error-Handling Convention
+
+All scripts under `.agents/scripts/` follow a single posture for reporting
+failures. Matching the convention keeps operator output predictable and
+avoids the "silent downgrade" bugs called out in the clean-code audit.
+
+| Severity | Emitter                | When to use                                                                                  |
+| -------- | ---------------------- | -------------------------------------------------------------------------------------------- |
+| debug    | `Logger.debug(msg)`    | Verbose trace. Only printed when `AGENT_LOG_LEVEL=debug`. Safe for noisy cleanup paths.      |
+| info     | `Logger.info(msg)`     | Normal progress line; equivalent to `console.log`. Use the `progress` helper in scripts.     |
+| warn     | `Logger.warn(msg)`     | Recoverable issue the operator should notice but does not need to act on immediately.        |
+| error    | `Logger.error(msg)`    | Non-fatal failure: the current phase aborts but the script continues with degraded output.   |
+| throw    | `throw new Error(...)` | Task-level unrecoverable error. Caller decides whether it is fatal.                          |
+| fatal    | `Logger.fatal(msg)`    | Unrecoverable; exits the process with code 1. Use **only** at CLI boundaries, never in libs. |
+
+Rules of thumb:
+
+- Prefer `throw` inside library code (`.agents/scripts/lib/`). Let the CLI
+  entry point decide whether to fatal or continue.
+- `Logger.fatal` exists exactly once per script — at the CLI boundary via
+  `runAsCli`'s error handler. If you are calling it from anywhere else,
+  you are probably hiding a `throw`.
+- Empty `catch {}` is a bug in 99% of cases. Either log at the right level
+  or add a one-line comment explaining why silence is correct (e.g.
+  "deletion is idempotent, file may not exist").
+- `console.error` is reserved for paths that run before `Logger` is
+  available (e.g. pre-config-resolve bootstrap).
+
+See `.agents/scripts/lib/Logger.js` for the implementation. Toggle
+`AGENT_LOG_LEVEL=debug` in your environment to enable `Logger.debug`
+output.

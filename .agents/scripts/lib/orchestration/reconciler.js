@@ -99,7 +99,7 @@ export async function reconcileHierarchy(
     }
     const t = ticketMap.get(ticketId);
     if (!t) return false;
-    return t.state === 'closed' || (t.labels ?? []).includes(AGENT_DONE_LABEL);
+    return t.state === 'closed' || t.labels.includes(AGENT_DONE_LABEL);
   }
 
   async function maybeClose(id, typeName) {
@@ -146,10 +146,10 @@ export async function reconcileHierarchy(
   }
 
   const storyIds = allTickets
-    .filter((t) => (t.labels ?? []).includes('type::story'))
+    .filter((t) => t.labels.includes('type::story'))
     .map((t) => t.id);
   const featureIds = allTickets
-    .filter((t) => (t.labels ?? []).includes('type::feature'))
+    .filter((t) => t.labels.includes('type::feature'))
     .map((t) => t.id);
 
   for (const id of storyIds) await maybeClose(id, 'Story');

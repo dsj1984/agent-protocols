@@ -49,19 +49,29 @@ export function assertBranch(expected, { cwd = PROJECT_ROOT } = {}) {
 
 function parseArgs(argv) {
   let expected = null;
+  let cwd = null;
   for (let i = 0; i < argv.length; i++) {
     if (argv[i] === '--expected' && i + 1 < argv.length) {
       expected = argv[i + 1];
       i++;
+    } else if (argv[i] === '--cwd' && i + 1 < argv.length) {
+      cwd = argv[i + 1];
+      i++;
     }
   }
-  return { expected };
+  return { expected, cwd };
 }
 
 const isMain = process.argv[1] === fileURLToPath(import.meta.url);
 if (isMain) {
-  const { expected } = parseArgs(process.argv.slice(2));
-  const result = assertBranch(expected);
+  const { expected, cwd: flagCwd } = parseArgs(process.argv.slice(2));
+  // Worktree-aware: hooks invoked inside a per-story worktree must guard the
+  // worktree's HEAD, not the main checkout. Resolution precedence:
+  //   --cwd <path>  >  AGENT_WORKTREE_ROOT env  >  PROJECT_ROOT (main checkout)
+  // Flag wins so operators can override even when the env var leaked from a
+  // parent shell.
+  const cwd = flagCwd || process.env.AGENT_WORKTREE_ROOT || PROJECT_ROOT;
+  const result = assertBranch(expected, { cwd });
   if (!result.ok) {
     console.error(`[assert-branch] ${result.reason}`);
     process.exit(1);

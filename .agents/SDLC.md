@@ -187,7 +187,11 @@ a self-contained prompt:
 1. `agent-protocol.md` (universal rules)
 1. Persona and skill directives (from Task labels)
 1. Hierarchy context (Story → Feature → Epic → PRD → Tech Spec)
-1. **Story Branch Context**: Automatic checkouts to the shared story branch.
+1. **Story Branch Context**: Automatic checkouts to the story branch. Under
+   worktree isolation (`orchestration.worktreeIsolation.enabled: true`), each
+   story runs in its own `.worktrees/story-<id>/` so branch swaps, staging, and
+   reflog activity are isolated per-story. See
+   [`workflows/worktree-lifecycle.md`](workflows/worktree-lifecycle.md).
 1. Task-specific instructions and subtask checklist
 
 ### State Sync

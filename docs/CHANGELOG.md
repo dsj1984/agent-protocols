@@ -2,6 +2,130 @@
 
 All notable changes to this project will be documented in this file.
 
+## [5.7.0] - 2026-04-15
+
+### 🧵 Worktree-per-story isolation (Epic #229)
+
+Parallel sprint execution now runs each dispatched story in its own
+`git worktree` at `.worktrees/story-<id>/`. The main checkout stays
+quiet during a parallel sprint — branch swaps, staging operations, and
+reflog activity are isolated per-story. Fixes the 2026-04-14 incident
+where five concurrent agents raced on the main checkout's HEAD and
+cross-contaminated a commit.
+
+- **New:** `.agents/scripts/lib/worktree-manager.js` — single authority
+  over per-story worktrees. Owns `ensure`, `reap`, `list`,
+  `isSafeToRemove`, `gc`. Refuses `--force`. Argv-based git calls with
+  `storyId` / `branch` validation.
+- **New:** `orchestration.worktreeIsolation` config block — `enabled`,
+  `root`, `nodeModulesStrategy`
+  (`per-worktree` | `symlink` | `pnpm-store`), `primeFromPath`,
+  `allowSymlinkOnWindows`, `reapOnSuccess`, `reapOnCancel`,
+  `warnOnUncommittedOnReap`, `windowsPathLengthWarnThreshold`.
+  Validated by ajv; path-traversal guard rejects `root` outside the
+  repo root.
+- **New:** `--cwd` flag and `AGENT_WORKTREE_ROOT` env precedence on
+  `sprint-story-init`, `sprint-story-close`, and `assert-branch`. All
+  git operations route through the resolved cwd so hook scripts inside
+  a worktree guard that worktree's HEAD, not the main checkout's.
+- **New:** `.agents/scripts/lib/git-branch-lifecycle.js` — shared
+  branch state machine (`branchExistsLocally`,
+  `branchExistsRemotely`, `ensureEpicBranch`, `checkoutStoryBranch`,
+  `ensureLocalBranch`). Consumed by both `sprint-story-init` and
+  `dispatch-engine`.
+- **New:** `gitFetchWithRetry` — bounded retry (250/500/1000 ms) on
+  known packed-refs lock-contention signatures only. Unrelated fetch
+  failures surface immediately.
+- **New:** `.agents/workflows/worktree-lifecycle.md` — operator and
+  reviewer reference covering config, lifecycle, node_modules
+  strategies, Windows long-path handling, the single-tree fallback,
+  and escape hatches.
+- **Dispatcher integration:** `dispatch()` constructs a
+  `WorktreeManager` when isolation is enabled and non-dry-run; threads
+  the worktree path as `cwd` through `IExecutionAdapter.dispatchTask`.
+  `ManualDispatchAdapter` prints a `cd "<path>"` instruction when
+  `cwd` is set.
+- **Reap-on-merge + gc-on-start:** `sprint-story-close` reaps the
+  story's worktree after a successful merge; `dispatch()` runs a GC
+  sweep on start, reaping orphaned worktrees whose stories have no
+  remaining live tasks (refuses to delete dirty trees).
+- **Windows notes:** `core.longpaths=true` is set on each new
+  worktree; pre-flight path-length warning posted to the Epic issue
+  when the estimated deepest path exceeds the configured threshold.
+
+### ⚡ Performance
+
+- **Per-instance ticket memoization** on `GitHubProvider.getTicket`
+  with `primeTicketCache` / `invalidateTicket`. Dispatcher and
+  `sprint-story-close` prime the cache from their initial bulk fetches
+  so cascade / transition / reconciler share a single round-trip.
+  `generateAndSaveManifest` accepts an injected provider so dashboard
+  regeneration after a merge costs zero extra REST calls.
+- **Batched VerboseLogger.** Entries buffer until 50 rows / 1000 ms /
+  `process.exit` / explicit `flush()`. `fs.appendFileSync` per line
+  was O(n) syscalls; on NTFS this alone added seconds to busy
+  dispatches.
+- **`isSafeToRemove`** collapsed from `show-ref` + `merge-base` +
+  `rev-parse` to a single `git merge-base --is-ancestor` probe. ~40%
+  fewer git subprocess spawns during GC sweeps.
+- **Context-hydration file cache.** Agent-protocol template, persona
+  files, and skill files are memoized by absolute path for the
+  lifetime of the process (`__resetContextCache()` for tests).
+- **Pre-compiled task-metadata regexes** at module load instead of
+  per-task.
+
+### 🧹 Clean code
+
+- **`dispatch()`** split into step helpers (`resolveDispatchContext`,
+  `fetchEpicContext`, `reconcileEpicState`, `buildDispatchGraph`,
+  `ensureEpicScaffolding`, `runWorktreeGc`, `dispatchNextWave`).
+  Orchestrator shrinks from 184 LOC to ~40 LOC of readable flow.
+- **`runStoryClose`** split into `reapStoryWorktree`,
+  `notifyStoryComplete`, `updateHealth`, `refreshDashboard`,
+  `cleanupTempFiles`. Each phase is individually testable and logs
+  non-fatal failures via `Logger.error` instead of bare
+  `console.error`.
+- **Logger gains `debug()` and `error()`** methods. `debug` is gated
+  behind `AGENT_LOG_LEVEL=debug`. Fixes a pre-existing `Logger.error`
+  call that would have TypeError'd on the refinement-service failure
+  path.
+- **Silent failures fixed.** `sprint-story-init` topological-sort
+  failure now throws with context instead of silently returning an
+  unordered task list. `github-refinement-service` logs cleanup
+  failure at debug level instead of `catch {}`.
+- **Over-defensive `(t.labels ?? [])` guards removed** on
+  provider-sourced tickets — `ITicketingProvider` guarantees
+  `labels: string[]`.
+- **Error-handling convention** documented in `.agents/README.md`.
+- **Dead code:** `buildStoryManifest` is no longer exported (still
+  used internally); `resetContextCache` renamed `__resetContextCache`
+  to match the project's test-seam convention.
+
+### 📚 Docs
+
+- `.agents/workflows/worktree-lifecycle.md` — new operator reference.
+- `.agents/workflows/sprint-execute.md` — cross-ref to the worktree
+  doc.
+- `.agents/SDLC.md` — note about per-story worktrees in the context-
+  hydration section.
+- `.agents/README.md` — new "Error-Handling Convention" section.
+
+### 🧪 Tests
+
+- New `tests/integration/parallel-sprint.test.js` — real-git
+  integration proving AC6 (no WIP cross-contamination across five
+  concurrent stories) and AC7 (main-checkout reflog stays quiet).
+- New `tests/lib/worktree-manager.test.js` — 25 cases covering
+  `ensure`/`reap`/`gc`/`isSafeToRemove` semantics, node_modules
+  strategies, and Windows long-path warnings.
+- New `tests/lib/dispatcher-worktree.test.js` — gc safety
+  (`collectOpenStoryIds`) + `ManualDispatchAdapter` `cwd` output.
+- New `tests/lib/git-fetch-retry.test.js` — bounded retry behavior
+  with scripted spawn mocks and an injected `__setSleep` seam.
+- New batched-writer tests in `tests/lib/verbose-logger.test.js`.
+- New provider memoization tests in
+  `tests/lib/github-provider.test.js`.
+
 ## [5.6.0] - 2026-04-14
 
 ### 🧹 Planning pipeline — host LLM authors PRD / Tech Spec / tickets

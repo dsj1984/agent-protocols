@@ -26,16 +26,21 @@
  * @see .agents/workflows/sprint-execute.md Mode B
  */
 
+import path from 'node:path';
 import { parseSprintArgs } from './lib/cli-args.js';
 import { runAsCli } from './lib/cli-utils.js';
 import { PROJECT_ROOT, resolveConfig } from './lib/config-resolver.js';
 import { parseBlockedBy } from './lib/dependency-parser.js';
+import {
+  checkoutStoryBranch,
+  ensureEpicBranch,
+} from './lib/git-branch-lifecycle.js';
 import { buildGraph, topologicalSort } from './lib/Graph.js';
 import {
   getEpicBranch,
   getStoryBranch,
+  gitFetchWithRetry,
   gitSpawn,
-  gitSync,
 } from './lib/git-utils.js';
 import { Logger } from './lib/Logger.js';
 import { STATE_LABELS } from './lib/orchestration/ticketing.js';
@@ -133,39 +138,20 @@ function extractAndSortTasks(tasks) {
   try {
     const { adjacency, taskMap } = buildGraph(graphTasks);
     return topologicalSort(adjacency, taskMap);
-  } catch {
-    console.error(
-      '[sprint-story-init] Warning: Could not topologically sort tasks. Using original order.',
+  } catch (err) {
+    // Execution order must respect dependencies — downstream agents assume
+    // they can run in the returned sequence. A failed sort is almost always
+    // a cycle or a malformed `blocked by`; surfacing it immediately is
+    // safer than silently returning an unordered list.
+    throw new Error(
+      `[sprint-story-init] Cannot topologically sort child tasks ` +
+        `(likely a dependency cycle or invalid blocked-by reference): ${err.message}`,
     );
-    return tasks;
   }
 }
 
-function branchExistsLocally(branch) {
-  return (
-    gitSpawn(
-      PROJECT_ROOT,
-      'rev-parse',
-      '--verify',
-      '--quiet',
-      `refs/heads/${branch}`,
-    ).status === 0
-  );
-}
-
-function branchExistsRemotely(branch) {
-  const result = gitSpawn(
-    PROJECT_ROOT,
-    'ls-remote',
-    '--heads',
-    'origin',
-    branch,
-  );
-  return result.status === 0 && result.stdout.length > 0;
-}
-
-function assertWorkingTreeClean() {
-  const status = gitSpawn(PROJECT_ROOT, 'status', '--porcelain');
+function assertWorkingTreeClean(cwd) {
+  const status = gitSpawn(cwd, 'status', '--porcelain');
   if (status.status !== 0) {
     throw new Error(
       `Failed to read git status: ${status.stderr || '(no stderr)'}`,
@@ -178,81 +164,22 @@ function assertWorkingTreeClean() {
   }
 }
 
-function ensureEpicBranch(epicBranch, baseBranch) {
-  const local = branchExistsLocally(epicBranch);
-  const remote = branchExistsRemotely(epicBranch);
-
-  if (!local && !remote) {
-    progress('GIT', `Creating Epic branch: ${epicBranch} (from ${baseBranch})`);
-    gitSync(PROJECT_ROOT, 'checkout', baseBranch);
-    gitSpawn(PROJECT_ROOT, 'pull', '--rebase', 'origin', baseBranch);
-    gitSync(PROJECT_ROOT, 'checkout', '-b', epicBranch);
-    gitSync(PROJECT_ROOT, 'push', '--no-verify', '-u', 'origin', epicBranch);
-    return;
-  }
-
-  if (local && !remote) {
-    progress(
-      'GIT',
-      `Epic branch exists locally only: ${epicBranch}. Publishing.`,
-    );
-    gitSync(PROJECT_ROOT, 'checkout', epicBranch);
-    gitSync(PROJECT_ROOT, 'push', '--no-verify', '-u', 'origin', epicBranch);
-    return;
-  }
-
-  if (!local && remote) {
-    progress('GIT', `Tracking remote Epic branch: ${epicBranch}`);
-    gitSync(PROJECT_ROOT, 'checkout', '-b', epicBranch, `origin/${epicBranch}`);
-    gitSpawn(PROJECT_ROOT, 'pull', '--rebase', 'origin', epicBranch);
-    return;
-  }
-
-  progress('GIT', `Epic branch exists. Syncing: ${epicBranch}`);
-  gitSync(PROJECT_ROOT, 'checkout', epicBranch);
-  gitSpawn(PROJECT_ROOT, 'pull', '--rebase', 'origin', epicBranch);
-}
-
-function checkoutStoryBranch(storyBranch, epicBranch) {
-  const local = branchExistsLocally(storyBranch);
-  const remote = branchExistsRemotely(storyBranch);
-
-  if (local || remote) {
-    progress(
-      'GIT',
-      `Story branch already exists (local=${local}, remote=${remote}). Checking out non-destructively: ${storyBranch}`,
-    );
-    if (local) {
-      gitSync(PROJECT_ROOT, 'checkout', storyBranch);
-      if (remote) {
-        gitSpawn(PROJECT_ROOT, 'pull', '--rebase', 'origin', storyBranch);
-      }
-    } else {
-      gitSync(
-        PROJECT_ROOT,
-        'checkout',
-        '-b',
-        storyBranch,
-        `origin/${storyBranch}`,
-      );
-    }
-    return;
-  }
-
-  progress('GIT', `Creating Story branch: ${storyBranch} (from ${epicBranch})`);
-  gitSync(PROJECT_ROOT, 'checkout', '-b', storyBranch, epicBranch);
-}
-
-function bootstrapBranch(epicBranch, storyBranch, baseBranch) {
+async function bootstrapBranch(epicBranch, storyBranch, baseBranch, cwd) {
   progress('GIT', 'Fetching remote refs...');
-  gitSpawn(PROJECT_ROOT, 'fetch', 'origin');
+  const fetchResult = await gitFetchWithRetry(cwd, 'origin');
+  if (fetchResult.attempts > 1) {
+    progress(
+      'GIT',
+      `Fetch completed after ${fetchResult.attempts} attempt(s) — packed-refs contention.`,
+    );
+  }
 
-  assertWorkingTreeClean();
+  assertWorkingTreeClean(cwd);
 
-  ensureEpicBranch(epicBranch, baseBranch);
-  checkoutStoryBranch(storyBranch, epicBranch);
+  ensureEpicBranch(epicBranch, baseBranch, cwd, { progress });
+  checkoutStoryBranch(storyBranch, epicBranch, cwd, { progress });
 
-  const currentBranch = gitSpawn(PROJECT_ROOT, 'branch', '--show-current');
+  const currentBranch = gitSpawn(cwd, 'branch', '--show-current');
   if (currentBranch.stdout !== storyBranch) {
     throw new Error(
       `Branch verification failed. Expected: ${storyBranch}, Got: ${currentBranch.stdout}.`,
@@ -272,13 +199,16 @@ function bootstrapBranch(epicBranch, storyBranch, baseBranch) {
 export async function runStoryInit({
   storyId: storyIdParam,
   dryRun: dryRunParam,
+  cwd: cwdParam,
   injectedProvider,
   injectedConfig,
 } = {}) {
-  const { storyId, dryRun } =
-    storyIdParam !== undefined
-      ? { storyId: storyIdParam, dryRun: !!dryRunParam }
-      : parseSprintArgs();
+  const parsed = storyIdParam !== undefined
+    ? { storyId: storyIdParam, dryRun: !!dryRunParam, cwd: cwdParam ?? null }
+    : parseSprintArgs();
+  const { storyId, dryRun } = parsed;
+  // Worktree-aware cwd resolution: explicit param > --cwd flag > env > PROJECT_ROOT.
+  const cwd = path.resolve(cwdParam ?? parsed.cwd ?? PROJECT_ROOT);
 
   if (!storyId) {
     Logger.fatal(
@@ -341,7 +271,7 @@ export async function runStoryInit({
   if (!dryRun) {
     const baseBranch = settings.baseBranch ?? 'main';
     try {
-      bootstrapBranch(epicBranch, storyBranch, baseBranch);
+      await bootstrapBranch(epicBranch, storyBranch, baseBranch, cwd);
     } catch (err) {
       throw new Error(err.message);
     }
