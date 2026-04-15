@@ -115,6 +115,20 @@ Human reviewers should **keep using the main checkout** — not a worktree:
   in-flight story worktrees if you need to inspect one — prefer read-only
   operations (`git log`, `git show`) when you do.
 
+## Constraint
+
+- **Never** call `git worktree` directly — always go through `WorktreeManager`.
+  It enforces `storyId`/`branch` validation and path-traversal checks.
+- **Never** pass `--force` to `git worktree remove` from framework code. The
+  refuse-to-delete guard on uncommitted work is deliberate; `--force` is an
+  operator-only escape hatch.
+- **Never** commit the `.worktrees/` directory. It must be gitignored.
+- **Always** use the main checkout for code review — not a per-story worktree.
+- **Always** respect `orchestration.worktreeIsolation.enabled: false` as a
+  first-class fallback mode, not a degraded one. v5.5.1 single-tree guards
+  (`assert-branch.js`, focus-area serialization) remain the primary defense
+  in that mode.
+
 ## Operator escape hatches
 
 - **Force-remove a worktree**: the framework **never** passes `--force` to
