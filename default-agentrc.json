@@ -247,6 +247,14 @@
     },
     "notifications": {
       "mentionOperator": true
+    },
+    "worktreeIsolation": {
+      "enabled": true,
+      "root": ".worktrees",
+      "nodeModulesStrategy": "per-worktree",
+      "reapOnSuccess": true,
+      "reapOnCancel": true,
+      "warnOnUncommittedOnReap": true
     }
   },
   "autoHeal": {
