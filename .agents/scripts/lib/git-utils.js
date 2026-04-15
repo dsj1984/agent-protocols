@@ -127,7 +127,8 @@ export async function gitFetchWithRetry(cwd, ...args) {
     attempt++;
     last = gitSpawn(cwd, 'fetch', ...args);
     if (last.status === 0) return { ...last, attempts: attempt };
-    if (!isPackedRefsContention(last.stderr)) return { ...last, attempts: attempt };
+    if (!isPackedRefsContention(last.stderr))
+      return { ...last, attempts: attempt };
     if (attempt > backoff.length) return { ...last, attempts: attempt };
     await _sleep(backoff[attempt - 1]);
   }

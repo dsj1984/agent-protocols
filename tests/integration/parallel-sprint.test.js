@@ -19,9 +19,8 @@ import fs from 'node:fs';
 import os from 'node:os';
 import path from 'node:path';
 import { after, before, describe, it } from 'node:test';
-
-import { WorktreeManager } from '../../.agents/scripts/lib/worktree-manager.js';
 import { assertBranch } from '../../.agents/scripts/assert-branch.js';
+import { WorktreeManager } from '../../.agents/scripts/lib/worktree-manager.js';
 
 // ---------------------------------------------------------------------------
 // Helpers
@@ -111,7 +110,11 @@ describe('parallel sprint (worktree mode) — 5 concurrent stories', () => {
 
     // AC6a: every worktree ended up on its own story branch.
     for (const r of results) {
-      assert.equal(r.head, `story-${r.id}`, `story-${r.id} drifted to ${r.head}`);
+      assert.equal(
+        r.head,
+        `story-${r.id}`,
+        `story-${r.id} drifted to ${r.head}`,
+      );
     }
 
     // AC6b: no uncommitted WIP (would indicate a cross-commit swept state).

@@ -50,17 +50,33 @@ export function parseWorktreePorcelain(raw) {
   for (const block of blocks) {
     const lines = block.split(/\r?\n/).filter(Boolean);
     if (lines.length === 0) continue;
-    const rec = { path: '', head: null, branch: null, bare: false, detached: false };
+    const rec = {
+      path: '',
+      head: null,
+      branch: null,
+      bare: false,
+      detached: false,
+    };
     for (const line of lines) {
       const sp = line.indexOf(' ');
       const key = sp === -1 ? line : line.slice(0, sp);
       const value = sp === -1 ? '' : line.slice(sp + 1);
       switch (key) {
-        case 'worktree': rec.path = value; break;
-        case 'HEAD':     rec.head = value; break;
-        case 'branch':   rec.branch = value.replace(/^refs\/heads\//, ''); break;
-        case 'bare':     rec.bare = true; break;
-        case 'detached': rec.detached = true; break;
+        case 'worktree':
+          rec.path = value;
+          break;
+        case 'HEAD':
+          rec.head = value;
+          break;
+        case 'branch':
+          rec.branch = value.replace(/^refs\/heads\//, '');
+          break;
+        case 'bare':
+          rec.bare = true;
+          break;
+        case 'detached':
+          rec.detached = true;
+          break;
       }
     }
     if (rec.path) out.push(rec);
@@ -77,7 +93,13 @@ export class WorktreeManager {
    * @param {object} [opts.git]           Injected `{ gitSync, gitSpawn }` (defaults to git-utils).
    * @param {NodeJS.Platform} [opts.platform]  Defaults to `process.platform`.
    */
-  constructor({ repoRoot, config = {}, logger, git = defaultGit, platform = process.platform }) {
+  constructor({
+    repoRoot,
+    config = {},
+    logger,
+    git = defaultGit,
+    platform = process.platform,
+  }) {
     if (!repoRoot || typeof repoRoot !== 'string') {
       throw new Error('WorktreeManager: repoRoot is required');
     }
@@ -90,8 +112,8 @@ export class WorktreeManager {
       ...config,
     };
     this.logger = logger ?? {
-      info:  (m) => console.log(`[WorktreeManager] ${m}`),
-      warn:  (m) => console.warn(`[WorktreeManager] ⚠️ ${m}`),
+      info: (m) => console.log(`[WorktreeManager] ${m}`),
+      warn: (m) => console.warn(`[WorktreeManager] ⚠️ ${m}`),
       error: (m) => console.error(`[WorktreeManager] ❌ ${m}`),
     };
     this.git = git;
@@ -150,7 +172,13 @@ export class WorktreeManager {
     // creates-or-resets the branch to HEAD of the current ref; we use plain
     // `add <path> <branch>` so an existing branch is checked out as-is.
     const branchExists =
-      this.git.gitSpawn(this.repoRoot, 'show-ref', '--verify', '--quiet', `refs/heads/${br}`).status === 0;
+      this.git.gitSpawn(
+        this.repoRoot,
+        'show-ref',
+        '--verify',
+        '--quiet',
+        `refs/heads/${br}`,
+      ).status === 0;
 
     const addArgs = branchExists
       ? ['worktree', 'add', wtPath, br]
@@ -210,7 +238,7 @@ export class WorktreeManager {
         if (this.platform === 'win32' && !this.config.allowSymlinkOnWindows) {
           throw new Error(
             "WorktreeManager: nodeModulesStrategy='symlink' refuses on Windows. " +
-              "Symlink semantics vary by Windows version and may require admin rights. " +
+              'Symlink semantics vary by Windows version and may require admin rights. ' +
               'Set orchestration.worktreeIsolation.allowSymlinkOnWindows=true to opt in.',
           );
         }
@@ -252,9 +280,16 @@ export class WorktreeManager {
    * @returns {Promise<Array<{ path: string, head: string|null, branch: string|null, bare: boolean, detached: boolean }>>}
    */
   async list() {
-    const res = this.git.gitSpawn(this.repoRoot, 'worktree', 'list', '--porcelain');
+    const res = this.git.gitSpawn(
+      this.repoRoot,
+      'worktree',
+      'list',
+      '--porcelain',
+    );
     if (res.status !== 0) {
-      throw new Error(`WorktreeManager: git worktree list failed: ${res.stderr}`);
+      throw new Error(
+        `WorktreeManager: git worktree list failed: ${res.stderr}`,
+      );
     }
     return parseWorktreePorcelain(res.stdout);
   }
@@ -281,7 +316,12 @@ export class WorktreeManager {
     }
 
     // Resolve the checked-out branch, then its Epic base, then compare.
-    const headRes = this.git.gitSpawn(wtPath, 'rev-parse', '--abbrev-ref', 'HEAD');
+    const headRes = this.git.gitSpawn(
+      wtPath,
+      'rev-parse',
+      '--abbrev-ref',
+      'HEAD',
+    );
     if (headRes.status !== 0) {
       return { safe: false, reason: `rev-parse-failed: ${headRes.stderr}` };
     }
@@ -322,30 +362,42 @@ export class WorktreeManager {
    */
   async reap(storyId, opts = {}) {
     if (opts.force) {
-      throw new Error('WorktreeManager.reap: --force is not permitted by the framework');
+      throw new Error(
+        'WorktreeManager.reap: --force is not permitted by the framework',
+      );
     }
     const wtPath = this.pathFor(storyId);
 
     // Callers that already have a porcelain snapshot (e.g. gc()) can inject
     // it via `opts.worktrees` to skip the N+1 `git worktree list` re-probe.
     const known = opts.worktrees
-      ? opts.worktrees.some((r) => path.resolve(r.path) === path.resolve(wtPath))
+      ? opts.worktrees.some(
+          (r) => path.resolve(r.path) === path.resolve(wtPath),
+        )
       : this._findByPath(wtPath) !== null;
     if (!known) {
       return { removed: false, reason: 'not-a-worktree', path: wtPath };
     }
 
-    const safety = await this.isSafeToRemove(wtPath, { epicBranch: opts.epicBranch ?? null });
+    const safety = await this.isSafeToRemove(wtPath, {
+      epicBranch: opts.epicBranch ?? null,
+    });
     if (!safety.safe) {
       if (this.config.warnOnUncommittedOnReap) {
-        this.logger.warn(`reap-skipped storyId=${storyId} reason=${safety.reason} path=${wtPath}`);
+        this.logger.warn(
+          `reap-skipped storyId=${storyId} reason=${safety.reason} path=${wtPath}`,
+        );
       }
       return { removed: false, reason: safety.reason, path: wtPath };
     }
 
     const res = this.git.gitSpawn(this.repoRoot, 'worktree', 'remove', wtPath);
     if (res.status !== 0) {
-      return { removed: false, reason: `remove-failed: ${res.stderr}`, path: wtPath };
+      return {
+        removed: false,
+        reason: `remove-failed: ${res.stderr}`,
+        path: wtPath,
+      };
     }
 
     this.logger.info(`worktree.reaped storyId=${storyId} path=${wtPath}`);
@@ -369,8 +421,8 @@ export class WorktreeManager {
 
     for (const wt of worktrees) {
       const id = this._storyIdFromPath(wt.path);
-      if (id === null) continue;        // not a managed story worktree
-      if (open.has(id)) continue;        // still live
+      if (id === null) continue; // not a managed story worktree
+      if (open.has(id)) continue; // still live
 
       const result = await this.reap(id, {
         epicBranch: opts.epicBranch ?? null,
@@ -379,7 +431,11 @@ export class WorktreeManager {
       if (result.removed) {
         reaped.push({ storyId: id, path: wt.path });
       } else {
-        skipped.push({ storyId: id, path: wt.path, reason: result.reason ?? 'unknown' });
+        skipped.push({
+          storyId: id,
+          path: wt.path,
+          reason: result.reason ?? 'unknown',
+        });
       }
     }
 
@@ -389,12 +445,19 @@ export class WorktreeManager {
   // ───────────────────────── internals ─────────────────────────
 
   _findByPath(absPath) {
-    const res = this.git.gitSpawn(this.repoRoot, 'worktree', 'list', '--porcelain');
+    const res = this.git.gitSpawn(
+      this.repoRoot,
+      'worktree',
+      'list',
+      '--porcelain',
+    );
     if (res.status !== 0) return null;
     const normalized = path.resolve(absPath);
-    return parseWorktreePorcelain(res.stdout).find(
-      (r) => path.resolve(r.path) === normalized,
-    ) ?? null;
+    return (
+      parseWorktreePorcelain(res.stdout).find(
+        (r) => path.resolve(r.path) === normalized,
+      ) ?? null
+    );
   }
 
   _storyIdFromPath(wtPath) {

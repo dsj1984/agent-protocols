@@ -10,8 +10,8 @@
 
 import assert from 'node:assert/strict';
 import { describe, it } from 'node:test';
-import { collectOpenStoryIds } from '../../.agents/scripts/lib/orchestration/dispatch-engine.js';
 import { ManualDispatchAdapter } from '../../.agents/scripts/adapters/manual.js';
+import { collectOpenStoryIds } from '../../.agents/scripts/lib/orchestration/dispatch-engine.js';
 
 // ---------------------------------------------------------------------------
 // collectOpenStoryIds
@@ -44,19 +44,13 @@ describe('collectOpenStoryIds — gc safety', () => {
 
   it('omits stories whose tasks are all done — those worktrees are reapable', () => {
     const allTicketsById = new Map([[100, story(100)]]);
-    const tasks = [
-      task(1, 100, 'agent::done'),
-      task(2, 100, 'agent::done'),
-    ];
+    const tasks = [task(1, 100, 'agent::done'), task(2, 100, 'agent::done')];
     assert.deepEqual(collectOpenStoryIds(tasks, allTicketsById), []);
   });
 
   it('ignores tasks whose parent is not a story (e.g. orphan tasks)', () => {
     const allTicketsById = new Map([
-      [
-        500,
-        { id: 500, labels: ['type::feature'], body: '' },
-      ],
+      [500, { id: 500, labels: ['type::feature'], body: '' }],
     ]);
     const tasks = [task(1, 500, 'agent::ready')];
     assert.deepEqual(collectOpenStoryIds(tasks, allTicketsById), []);

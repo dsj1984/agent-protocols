@@ -31,11 +31,11 @@ import { parseSprintArgs } from './lib/cli-args.js';
 import { runAsCli } from './lib/cli-utils.js';
 import { PROJECT_ROOT, resolveConfig } from './lib/config-resolver.js';
 import { parseBlockedBy } from './lib/dependency-parser.js';
+import { buildGraph, topologicalSort } from './lib/Graph.js';
 import {
   checkoutStoryBranch,
   ensureEpicBranch,
 } from './lib/git-branch-lifecycle.js';
-import { buildGraph, topologicalSort } from './lib/Graph.js';
 import {
   getEpicBranch,
   getStoryBranch,
@@ -203,9 +203,10 @@ export async function runStoryInit({
   injectedProvider,
   injectedConfig,
 } = {}) {
-  const parsed = storyIdParam !== undefined
-    ? { storyId: storyIdParam, dryRun: !!dryRunParam, cwd: cwdParam ?? null }
-    : parseSprintArgs();
+  const parsed =
+    storyIdParam !== undefined
+      ? { storyId: storyIdParam, dryRun: !!dryRunParam, cwd: cwdParam ?? null }
+      : parseSprintArgs();
   const { storyId, dryRun } = parsed;
   // Worktree-aware cwd resolution: explicit param > --cwd flag > env > PROJECT_ROOT.
   const cwd = path.resolve(cwdParam ?? parsed.cwd ?? PROJECT_ROOT);

@@ -19,8 +19,8 @@ import path from 'node:path';
 import { notify } from '../../notify.js';
 import { createAdapter } from '../adapter-factory.js';
 import { PROJECT_ROOT, resolveConfig } from '../config-resolver.js';
-import { ensureLocalBranch } from '../git-branch-lifecycle.js';
 import { buildGraph, computeWaves, detectCycle } from '../Graph.js';
+import { ensureLocalBranch } from '../git-branch-lifecycle.js';
 import { getEpicBranch } from '../git-utils.js';
 import { createProvider } from '../provider-factory.js';
 import { VerboseLogger } from '../VerboseLogger.js';
@@ -712,7 +712,10 @@ async function runWorktreeGc(ctx, fetched) {
       );
     }
   } catch (err) {
-    vlog.warn('orchestration', `Worktree GC failed (non-fatal): ${err.message}`);
+    vlog.warn(
+      'orchestration',
+      `Worktree GC failed (non-fatal): ${err.message}`,
+    );
   }
 }
 

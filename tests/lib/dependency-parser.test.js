@@ -1,9 +1,9 @@
 import assert from 'node:assert/strict';
 import { describe, it } from 'node:test';
 import {
+  isSafeBranchComponent,
   parseBlockedBy,
   parseBlocks,
-  isSafeBranchComponent,
   parseTaskMetadata,
 } from '../../.agents/scripts/lib/dependency-parser.js';
 

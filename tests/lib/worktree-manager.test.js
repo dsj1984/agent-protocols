@@ -1,12 +1,12 @@
 import assert from 'node:assert/strict';
-import test from 'node:test';
+import { execFileSync } from 'node:child_process';
 import fs from 'node:fs';
 import os from 'node:os';
 import path from 'node:path';
-import { execFileSync } from 'node:child_process';
+import test from 'node:test';
 import {
-  WorktreeManager,
   parseWorktreePorcelain,
+  WorktreeManager,
 } from '../../.agents/scripts/lib/worktree-manager.js';
 
 /**
@@ -60,12 +60,13 @@ test('parseWorktreePorcelain: parses multi-block porcelain output', () => {
 
 test('constructor: rejects root that escapes repoRoot', () => {
   assert.throws(
-    () => new WorktreeManager({
-      repoRoot: '/repo',
-      config: { root: '../../evil' },
-      logger: SILENT_LOGGER,
-      git: mockGit({}),
-    }),
+    () =>
+      new WorktreeManager({
+        repoRoot: '/repo',
+        config: { root: '../../evil' },
+        logger: SILENT_LOGGER,
+        git: mockGit({}),
+      }),
     /escapes repoRoot/,
   );
 });
@@ -77,7 +78,10 @@ test('pathFor: resolves .worktrees/story-<id>/ and validates id', () => {
     git: mockGit({}),
     platform: 'linux',
   });
-  assert.equal(wm.pathFor(235), path.resolve('/repo', '.worktrees', 'story-235'));
+  assert.equal(
+    wm.pathFor(235),
+    path.resolve('/repo', '.worktrees', 'story-235'),
+  );
   assert.throws(() => wm.pathFor('abc'), /invalid storyId/);
   assert.throws(() => wm.pathFor(-5), /invalid storyId/);
 });
@@ -97,10 +101,19 @@ test('ensure: creates new branch + worktree when neither exists', async () => {
   const tmp = fs.mkdtempSync(path.join(os.tmpdir(), 'wt-'));
   try {
     const git = mockGit({
-      'worktree list': () => ({ status: 0, stdout: 'worktree /repo\nHEAD x\nbranch refs/heads/main\n', stderr: '' }),
-      'show-ref': () => ({ status: 1, stdout: '', stderr: '' }),   // branch does not exist
+      'worktree list': () => ({
+        status: 0,
+        stdout: 'worktree /repo\nHEAD x\nbranch refs/heads/main\n',
+        stderr: '',
+      }),
+      'show-ref': () => ({ status: 1, stdout: '', stderr: '' }), // branch does not exist
       'worktree add': (_cwd, args) => {
-        assert.deepEqual(args.slice(0, 4), ['worktree', 'add', '-b', 'story-235']);
+        assert.deepEqual(args.slice(0, 4), [
+          'worktree',
+          'add',
+          '-b',
+          'story-235',
+        ]);
         return { status: 0, stdout: '', stderr: '' };
       },
     });
@@ -130,7 +143,9 @@ test('ensure: idempotent when worktree already on correct branch', async () => {
         stderr: '',
       }),
       'worktree add': () => {
-        assert.fail('ensure should not call `worktree add` for existing worktree');
+        assert.fail(
+          'ensure should not call `worktree add` for existing worktree',
+        );
       },
     });
     const wm = new WorktreeManager({
@@ -164,7 +179,10 @@ test('ensure: throws on branch mismatch at existing path', async () => {
       git,
       platform: 'linux',
     });
-    await assert.rejects(() => wm.ensure(235, 'story-235'), /on branch story-999/);
+    await assert.rejects(
+      () => wm.ensure(235, 'story-235'),
+      /on branch story-999/,
+    );
   } finally {
     fs.rmSync(tmp, { recursive: true, force: true });
   }
@@ -176,9 +194,18 @@ test('isSafeToRemove: refuses on dirty tree', async () => {
   fs.mkdirSync(wtPath, { recursive: true });
   try {
     const git = mockGit({
-      'status --porcelain': () => ({ status: 0, stdout: ' M file.js', stderr: '' }),
+      'status --porcelain': () => ({
+        status: 0,
+        stdout: ' M file.js',
+        stderr: '',
+      }),
     });
-    const wm = new WorktreeManager({ repoRoot: tmp, logger: SILENT_LOGGER, git, platform: 'linux' });
+    const wm = new WorktreeManager({
+      repoRoot: tmp,
+      logger: SILENT_LOGGER,
+      git,
+      platform: 'linux',
+    });
     const r = await wm.isSafeToRemove(wtPath);
     assert.equal(r.safe, false);
     assert.equal(r.reason, 'uncommitted-changes');
@@ -195,14 +222,20 @@ test('isSafeToRemove: refuses when branch has unmerged commits vs epic', async (
     const git = mockGit({
       'status --porcelain': () => ({ status: 0, stdout: '', stderr: '' }),
       'rev-parse': (_cwd, args) => {
-        if (args.includes('--abbrev-ref')) return { status: 0, stdout: 'story-235', stderr: '' };
+        if (args.includes('--abbrev-ref'))
+          return { status: 0, stdout: 'story-235', stderr: '' };
         return { status: 0, stdout: 'TIP_SHA', stderr: '' };
       },
       // `merge-base --is-ancestor` exits 1 when branch is NOT an ancestor
       // of epicBranch — i.e. the branch has unmerged commits.
       'merge-base': () => ({ status: 1, stdout: '', stderr: '' }),
     });
-    const wm = new WorktreeManager({ repoRoot: tmp, logger: SILENT_LOGGER, git, platform: 'linux' });
+    const wm = new WorktreeManager({
+      repoRoot: tmp,
+      logger: SILENT_LOGGER,
+      git,
+      platform: 'linux',
+    });
     const r = await wm.isSafeToRemove(wtPath, { epicBranch: 'epic/229' });
     assert.equal(r.safe, false);
     assert.equal(r.reason, 'unmerged-commits');
@@ -219,13 +252,19 @@ test('isSafeToRemove: safe when clean and merged', async () => {
     const git = mockGit({
       'status --porcelain': () => ({ status: 0, stdout: '', stderr: '' }),
       'rev-parse': (_cwd, args) => {
-        if (args.includes('--abbrev-ref')) return { status: 0, stdout: 'story-235', stderr: '' };
+        if (args.includes('--abbrev-ref'))
+          return { status: 0, stdout: 'story-235', stderr: '' };
         return { status: 0, stdout: 'SAME_SHA', stderr: '' };
       },
       'show-ref': () => ({ status: 0, stdout: '', stderr: '' }),
       'merge-base': () => ({ status: 0, stdout: 'SAME_SHA', stderr: '' }),
     });
-    const wm = new WorktreeManager({ repoRoot: tmp, logger: SILENT_LOGGER, git, platform: 'linux' });
+    const wm = new WorktreeManager({
+      repoRoot: tmp,
+      logger: SILENT_LOGGER,
+      git,
+      platform: 'linux',
+    });
     const r = await wm.isSafeToRemove(wtPath, { epicBranch: 'epic/229' });
     assert.equal(r.safe, true);
   } finally {
@@ -234,15 +273,32 @@ test('isSafeToRemove: safe when clean and merged', async () => {
 });
 
 test('reap: throws on force=true', async () => {
-  const wm = new WorktreeManager({ repoRoot: '/repo', logger: SILENT_LOGGER, git: mockGit({}), platform: 'linux' });
-  await assert.rejects(() => wm.reap(235, { force: true }), /--force is not permitted/);
+  const wm = new WorktreeManager({
+    repoRoot: '/repo',
+    logger: SILENT_LOGGER,
+    git: mockGit({}),
+    platform: 'linux',
+  });
+  await assert.rejects(
+    () => wm.reap(235, { force: true }),
+    /--force is not permitted/,
+  );
 });
 
 test('reap: returns not-a-worktree when path not registered', async () => {
   const git = mockGit({
-    'worktree list': () => ({ status: 0, stdout: 'worktree /repo\nHEAD x\nbranch refs/heads/main\n', stderr: '' }),
+    'worktree list': () => ({
+      status: 0,
+      stdout: 'worktree /repo\nHEAD x\nbranch refs/heads/main\n',
+      stderr: '',
+    }),
   });
-  const wm = new WorktreeManager({ repoRoot: '/repo', logger: SILENT_LOGGER, git, platform: 'linux' });
+  const wm = new WorktreeManager({
+    repoRoot: '/repo',
+    logger: SILENT_LOGGER,
+    git,
+    platform: 'linux',
+  });
   const r = await wm.reap(235);
   assert.equal(r.removed, false);
   assert.equal(r.reason, 'not-a-worktree');
@@ -259,8 +315,13 @@ test('reap: skips unsafe worktree with warning', async () => {
         stdout: `worktree ${wtPath}\nHEAD x\nbranch refs/heads/story-235\n`,
         stderr: '',
       }),
-      'status --porcelain': () => ({ status: 0, stdout: ' M file', stderr: '' }),
-      'worktree remove': () => assert.fail('reap must not call remove on unsafe worktree'),
+      'status --porcelain': () => ({
+        status: 0,
+        stdout: ' M file',
+        stderr: '',
+      }),
+      'worktree remove': () =>
+        assert.fail('reap must not call remove on unsafe worktree'),
     });
     const warnings = [];
     const wm = new WorktreeManager({
@@ -290,9 +351,18 @@ test('gc: reaps only worktrees for stories NOT in openStoryIds', async () => {
       'worktree list': () => ({
         status: 0,
         stdout: [
-          `worktree ${tmp}`, 'HEAD x', 'branch refs/heads/main', '',
-          `worktree ${wt235}`, 'HEAD y', 'branch refs/heads/story-235', '',
-          `worktree ${wt236}`, 'HEAD z', 'branch refs/heads/story-236', '',
+          `worktree ${tmp}`,
+          'HEAD x',
+          'branch refs/heads/main',
+          '',
+          `worktree ${wt235}`,
+          'HEAD y',
+          'branch refs/heads/story-235',
+          '',
+          `worktree ${wt236}`,
+          'HEAD z',
+          'branch refs/heads/story-236',
+          '',
         ].join('\n'),
         stderr: '',
       }),
@@ -309,9 +379,17 @@ test('gc: reaps only worktrees for stories NOT in openStoryIds', async () => {
         return { status: 0, stdout: '', stderr: '' };
       },
     });
-    const wm = new WorktreeManager({ repoRoot: tmp, logger: SILENT_LOGGER, git, platform: 'linux' });
-    const r = await wm.gc([235]);   // only 235 is still "open"
-    assert.deepEqual(r.reaped.map((x) => x.storyId), [236]);
+    const wm = new WorktreeManager({
+      repoRoot: tmp,
+      logger: SILENT_LOGGER,
+      git,
+      platform: 'linux',
+    });
+    const r = await wm.gc([235]); // only 235 is still "open"
+    assert.deepEqual(
+      r.reaped.map((x) => x.storyId),
+      [236],
+    );
     assert.deepEqual(removed, [wt236]);
   } finally {
     fs.rmSync(tmp, { recursive: true, force: true });
@@ -323,7 +401,11 @@ test('gc: reaps only worktrees for stories NOT in openStoryIds', async () => {
 test('integration: round-trips worktree add and remove on a real repo', async () => {
   const tmp = fs.mkdtempSync(path.join(os.tmpdir(), 'wt-int-'));
   const run = (cwd, ...args) =>
-    execFileSync('git', args, { cwd, encoding: 'utf8', stdio: ['pipe', 'pipe', 'pipe'] });
+    execFileSync('git', args, {
+      cwd,
+      encoding: 'utf8',
+      stdio: ['pipe', 'pipe', 'pipe'],
+    });
   try {
     run(tmp, 'init', '-b', 'main');
     run(tmp, 'config', 'user.email', 'test@example.com');
@@ -438,7 +520,7 @@ test('nodeModulesStrategy: per-worktree is a no-op (default)', async () => {
   try {
     const wm = new WorktreeManager({
       repoRoot: tmp,
-      config: {},  // default strategy
+      config: {}, // default strategy
       logger: SILENT_LOGGER,
       git: defaultStrategyGit(),
       platform: 'linux',

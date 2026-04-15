@@ -252,7 +252,13 @@ async function cleanupTempFiles(storyId) {
 // CLI argument parsing
 // ---------------------------------------------------------------------------
 
-async function handleHighRiskGate(provider, storyBranch, storyId, _epicId, cwd) {
+async function handleHighRiskGate(
+  provider,
+  storyBranch,
+  storyId,
+  _epicId,
+  cwd,
+) {
   progress('RISK', '⚠️ Story is risk::high — creating PR instead of auto-merge');
   let prUrl = null;
   try {
@@ -297,13 +303,7 @@ function finalizeMerge(epicBranch, storyBranch, storyTitle, storyId, cwd) {
   progress('GIT', '✅ Merge successful');
 
   progress('GIT', `Pushing ${epicBranch}...`);
-  const pushResult = gitSpawn(
-    cwd,
-    'push',
-    '--no-verify',
-    'origin',
-    epicBranch,
-  );
+  const pushResult = gitSpawn(cwd, 'push', '--no-verify', 'origin', epicBranch);
   if (pushResult.status !== 0) {
     Logger.fatal(`Push failed: ${pushResult.stderr}`);
   }
@@ -322,14 +322,15 @@ export async function runStoryClose({
   cwd: cwdParam,
   injectedProvider,
 } = {}) {
-  const parsed = storyIdParam !== undefined
-    ? {
-        storyId: storyIdParam,
-        epicId: epicIdParam,
-        skipDashboard: !!skipDashboardParam,
-        cwd: cwdParam ?? null,
-      }
-    : parseSprintArgs();
+  const parsed =
+    storyIdParam !== undefined
+      ? {
+          storyId: storyIdParam,
+          epicId: epicIdParam,
+          skipDashboard: !!skipDashboardParam,
+          cwd: cwdParam ?? null,
+        }
+      : parseSprintArgs();
   const { storyId, epicId: argEpicId, skipDashboard } = parsed;
   // Worktree-aware cwd resolution: explicit param > --cwd flag > env > PROJECT_ROOT.
   const cwd = path.resolve(cwdParam ?? parsed.cwd ?? PROJECT_ROOT);

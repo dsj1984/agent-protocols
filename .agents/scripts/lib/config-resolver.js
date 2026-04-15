@@ -289,11 +289,7 @@ export function validateOrchestrationConfig(orchestration) {
       } else {
         const resolved = path.resolve(PROJECT_ROOT, root);
         const rel = path.relative(PROJECT_ROOT, resolved);
-        if (
-          rel === '' ||
-          rel.startsWith('..') ||
-          path.isAbsolute(rel)
-        ) {
+        if (rel === '' || rel.startsWith('..') || path.isAbsolute(rel)) {
           errors.push(
             `- [Security] orchestration.worktreeIsolation.root resolves outside the repo root: ${root}`,
           );

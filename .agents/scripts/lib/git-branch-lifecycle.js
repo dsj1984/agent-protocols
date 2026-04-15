@@ -38,13 +38,8 @@ function assertSafeBranch(...names) {
 export function branchExistsLocally(branch, cwd) {
   assertSafeBranch(branch);
   return (
-    gitSpawn(
-      cwd,
-      'rev-parse',
-      '--verify',
-      '--quiet',
-      `refs/heads/${branch}`,
-    ).status === 0
+    gitSpawn(cwd, 'rev-parse', '--verify', '--quiet', `refs/heads/${branch}`)
+      .status === 0
   );
 }
 
@@ -136,13 +131,7 @@ export function checkoutStoryBranch(storyBranch, epicBranch, cwd, opts = {}) {
         gitSpawn(cwd, 'pull', '--rebase', 'origin', storyBranch);
       }
     } else {
-      gitSync(
-        cwd,
-        'checkout',
-        '-b',
-        storyBranch,
-        `origin/${storyBranch}`,
-      );
+      gitSync(cwd, 'checkout', '-b', storyBranch, `origin/${storyBranch}`);
     }
     return;
   }
@@ -166,7 +155,8 @@ export function ensureLocalBranch(branchName, baseBranch, cwd, opts = {}) {
   assertSafeBranch(branchName, baseBranch);
   const log = opts.log ?? (() => {});
 
-  const exists = gitSpawn(cwd, 'rev-parse', '--verify', branchName).status === 0;
+  const exists =
+    gitSpawn(cwd, 'rev-parse', '--verify', branchName).status === 0;
   if (exists) {
     log(`Branch already exists: ${branchName}`);
     return;

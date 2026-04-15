@@ -7,8 +7,8 @@
  */
 
 import assert from 'node:assert/strict';
-import { after, describe, it } from 'node:test';
 import { execFileSync, spawnSync } from 'node:child_process';
+import { after, describe, it } from 'node:test';
 import {
   __setGitRunners,
   __setSleep,
@@ -52,8 +52,7 @@ const OK = { status: 0, stdout: '', stderr: '' };
 const CONTENTION = {
   status: 128,
   stdout: '',
-  stderr:
-    "error: Unable to create '/repo/.git/packed-refs.lock': File exists.",
+  stderr: "error: Unable to create '/repo/.git/packed-refs.lock': File exists.",
 };
 const OTHER_FAILURE = {
   status: 1,

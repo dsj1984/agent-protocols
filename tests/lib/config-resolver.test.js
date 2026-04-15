@@ -1,10 +1,10 @@
 import assert from 'node:assert/strict';
-import { describe, it, beforeEach } from 'node:test';
 import path from 'node:path';
+import { beforeEach, describe, it } from 'node:test';
 import { Volume } from 'memfs';
 import {
-  resolveConfig,
   PROJECT_ROOT,
+  resolveConfig,
 } from '../../.agents/scripts/lib/config-resolver.js';
 import { setupFsMock } from './fs-mock.js';
 

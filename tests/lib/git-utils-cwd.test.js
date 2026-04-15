@@ -1,6 +1,6 @@
 import assert from 'node:assert/strict';
-import { after, describe, it } from 'node:test';
 import { execFileSync, spawnSync } from 'node:child_process';
+import { after, describe, it } from 'node:test';
 import {
   __setGitRunners,
   gitSpawn,
