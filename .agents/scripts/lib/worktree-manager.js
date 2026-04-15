@@ -143,7 +143,7 @@ export class WorktreeManager {
 
     fs.mkdirSync(this.worktreeRoot, { recursive: true });
 
-    this._maybeWarnWindowsPath(wtPath);
+    const windowsPathWarning = this._maybeWarnWindowsPath(wtPath);
 
     // Pre-create the branch if it doesn't exist yet. `git worktree add -B`
     // creates-or-resets the branch to HEAD of the current ref; we use plain
@@ -167,7 +167,11 @@ export class WorktreeManager {
     }
 
     this.logger.info(`worktree.created storyId=${id} path=${wtPath}`);
-    return { path: wtPath, created: true };
+    return {
+      path: wtPath,
+      created: true,
+      ...(windowsPathWarning ? { windowsPathWarning } : {}),
+    };
   }
 
   /**
@@ -315,13 +319,29 @@ export class WorktreeManager {
     return match ? parseInt(match[1], 10) : null;
   }
 
+  /**
+   * Compute expected deepest path for a fresh worktree and warn when it
+   * crosses `windowsPathLengthWarnThreshold`. Windows has a 260-char MAX_PATH
+   * limit unless `core.longpaths=true`; even with that flag set, some older
+   * tools still truncate, so surfacing the warning early lets operators
+   * relocate the worktree root before a build actually breaks.
+   *
+   * @returns {{ path: string, length: number, threshold: number } | null}
+   *   Warning payload when the threshold is exceeded, otherwise `null`.
+   */
   _maybeWarnWindowsPath(wtPath) {
-    if (this.platform !== 'win32') return;
+    if (this.platform !== 'win32') return null;
     const threshold = this.config.windowsPathLengthWarnThreshold ?? 240;
-    if (wtPath.length > threshold) {
-      this.logger.warn(
-        `windows-long-path path=${wtPath} length=${wtPath.length} threshold=${threshold}`,
-      );
-    }
+    // Approximate the deepest path an agent is likely to touch: worktree
+    // root + a conservative project-depth allowance. 80 chars covers the
+    // common case of `apps/<name>/src/<module>/<file>.ts` and similar
+    // monorepo layouts without requiring tech-stack config wiring.
+    const deepestAllowance = 80;
+    const estimated = wtPath.length + deepestAllowance;
+    if (estimated <= threshold) return null;
+    this.logger.warn(
+      `windows-long-path path=${wtPath} length=${wtPath.length} estimated=${estimated} threshold=${threshold}`,
+    );
+    return { path: wtPath, length: estimated, threshold };
   }
 }
