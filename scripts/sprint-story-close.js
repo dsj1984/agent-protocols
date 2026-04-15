@@ -52,6 +52,7 @@ import {
   fetchChildTasks,
   resolveStoryHierarchy,
 } from './lib/story-lifecycle.js';
+import { WorktreeManager } from './lib/worktree-manager.js';
 import { notify } from './notify.js';
 
 // ---------------------------------------------------------------------------
@@ -60,16 +61,16 @@ import { notify } from './notify.js';
 
 const progress = Logger.createProgress('sprint-story-close', { stderr: true });
 
-function cleanupBranches(storyBranch) {
+function cleanupBranches(storyBranch, cwd) {
   progress('CLEANUP', `Deleting story branch: ${storyBranch}`);
 
-  const localDelete = gitSpawn(PROJECT_ROOT, 'branch', '-d', storyBranch);
+  const localDelete = gitSpawn(cwd, 'branch', '-d', storyBranch);
   if (localDelete.status !== 0) {
-    gitSpawn(PROJECT_ROOT, 'branch', '-D', storyBranch);
+    gitSpawn(cwd, 'branch', '-D', storyBranch);
   }
 
   const remoteDelete = gitSpawn(
-    PROJECT_ROOT,
+    cwd,
     'push',
     '--no-verify',
     'origin',
@@ -123,10 +124,141 @@ async function ticketClosureCascade(provider, tasks, storyId) {
 }
 
 // ---------------------------------------------------------------------------
+// Post-merge phase helpers
+// ---------------------------------------------------------------------------
+//
+// Each helper covers one discrete phase of the close-out after the merge
+// succeeds. They log via `progress` and use `Logger.error` for non-fatal
+// failures so the orchestrator keeps going. See
+// `.agents/README.md#error-handling-convention`.
+// ---------------------------------------------------------------------------
+
+async function reapStoryWorktree({ orchestration, storyId, epicBranch }) {
+  const wtConfig = orchestration?.worktreeIsolation;
+  if (!wtConfig?.enabled || !(wtConfig.reapOnSuccess ?? true)) return;
+
+  try {
+    const wm = new WorktreeManager({
+      repoRoot: PROJECT_ROOT,
+      config: wtConfig,
+    });
+    const reapResult = await wm.reap(storyId, { epicBranch });
+    if (reapResult.removed) {
+      progress('WORKTREE', `🗑️  Reaped worktree: ${reapResult.path}`);
+    } else if (reapResult.reason && reapResult.reason !== 'not-a-worktree') {
+      progress(
+        'WORKTREE',
+        `⚠️  Worktree not reaped (${reapResult.reason}): ${reapResult.path}`,
+      );
+    }
+  } catch (err) {
+    Logger.error(
+      `[sprint-story-close] Worktree reap failed (non-fatal): ${err.message}`,
+    );
+  }
+}
+
+async function notifyStoryComplete({
+  epicId,
+  storyId,
+  story,
+  epicBranch,
+  closedTickets,
+  orchestration,
+}) {
+  progress(
+    'NOTIFY',
+    `Sending story-complete notification for Story #${storyId}...`,
+  );
+  try {
+    await notify(
+      epicId,
+      {
+        type: 'notification',
+        message: `✅ Story #${storyId} — *${story.title}* — has been completed and merged into \`${epicBranch}\`. ${closedTickets.length} ticket(s) closed.`,
+        actionRequired: true,
+      },
+      { orchestration },
+    );
+    progress('NOTIFY', '✅ Notification sent');
+  } catch (err) {
+    Logger.error(
+      `[sprint-story-close] Notification failed (non-fatal): ${err.message}`,
+    );
+  }
+}
+
+async function updateHealth(epicId) {
+  progress('HEALTH', 'Updating sprint health metrics...');
+  try {
+    await updateHealthMetrics(epicId);
+    progress('HEALTH', '✅ Health metrics updated');
+    return true;
+  } catch (err) {
+    Logger.error(
+      `[sprint-story-close] Health monitor failed (non-fatal): ${err.message}`,
+    );
+    return false;
+  }
+}
+
+async function refreshDashboard({ epicId, provider, skipDashboard }) {
+  if (skipDashboard) {
+    progress(
+      'DASHBOARD',
+      '⏭️ Skipping dashboard refresh (--skip-dashboard flag set)',
+    );
+    return false;
+  }
+  progress('DASHBOARD', 'Regenerating dispatch manifest...');
+  try {
+    // Reuse our primed provider so dashboard regeneration does not re-fetch
+    // tickets already in this process's memoization cache.
+    await generateAndSaveManifest(epicId, true, null, { provider });
+    progress('DASHBOARD', '✅ Dashboard manifest updated (temp/)');
+    return true;
+  } catch (err) {
+    Logger.error(
+      `[sprint-story-close] Dashboard refresh failed (non-fatal): ${err.message}`,
+    );
+    return false;
+  }
+}
+
+async function cleanupTempFiles(storyId) {
+  try {
+    const { unlink } = await import('node:fs/promises');
+    const manifestBase = path.join(
+      PROJECT_ROOT,
+      'temp',
+      `story-manifest-${storyId}`,
+    );
+    for (const ext of ['.md', '.json']) {
+      try {
+        await unlink(`${manifestBase}${ext}`);
+        progress('CLEANUP', `🗑️  Deleted temp/story-manifest-${storyId}${ext}`);
+      } catch {
+        // File may not exist — deletion is idempotent.
+      }
+    }
+  } catch (err) {
+    Logger.error(
+      `[sprint-story-close] Story manifest cleanup failed (non-fatal): ${err.message}`,
+    );
+  }
+}
+
+// ---------------------------------------------------------------------------
 // CLI argument parsing
 // ---------------------------------------------------------------------------
 
-async function handleHighRiskGate(provider, storyBranch, storyId, _epicId) {
+async function handleHighRiskGate(
+  provider,
+  storyBranch,
+  storyId,
+  _epicId,
+  cwd,
+) {
   progress('RISK', '⚠️ Story is risk::high — creating PR instead of auto-merge');
   let prUrl = null;
   try {
@@ -137,7 +269,7 @@ async function handleHighRiskGate(provider, storyBranch, storyId, _epicId) {
     console.error(`[sprint-story-close] PR creation failed: ${err.message}`);
   }
   // Push the story branch if not already pushed
-  gitSpawn(PROJECT_ROOT, 'push', '--no-verify', 'origin', storyBranch);
+  gitSpawn(cwd, 'push', '--no-verify', 'origin', storyBranch);
 
   return {
     action: 'pr-created',
@@ -146,15 +278,15 @@ async function handleHighRiskGate(provider, storyBranch, storyId, _epicId) {
   };
 }
 
-function finalizeMerge(epicBranch, storyBranch, storyTitle, storyId) {
-  // Normal merge path
+function finalizeMerge(epicBranch, storyBranch, storyTitle, storyId, cwd) {
+  // Normal merge path.
   progress('GIT', `Checking out ${epicBranch}...`);
-  gitSync(PROJECT_ROOT, 'checkout', epicBranch);
-  gitSpawn(PROJECT_ROOT, 'pull', '--rebase', 'origin', epicBranch);
+  gitSync(cwd, 'checkout', epicBranch);
+  gitSpawn(cwd, 'pull', '--rebase', 'origin', epicBranch);
 
   progress('GIT', `Merging ${storyBranch} into ${epicBranch} (--no-ff)...`);
   const mergeResult = gitSpawn(
-    PROJECT_ROOT,
+    cwd,
     'merge',
     '--no-ff',
     storyBranch,
@@ -171,18 +303,12 @@ function finalizeMerge(epicBranch, storyBranch, storyTitle, storyId) {
   progress('GIT', '✅ Merge successful');
 
   progress('GIT', `Pushing ${epicBranch}...`);
-  const pushResult = gitSpawn(
-    PROJECT_ROOT,
-    'push',
-    '--no-verify',
-    'origin',
-    epicBranch,
-  );
+  const pushResult = gitSpawn(cwd, 'push', '--no-verify', 'origin', epicBranch);
   if (pushResult.status !== 0) {
     Logger.fatal(`Push failed: ${pushResult.stderr}`);
   }
 
-  cleanupBranches(storyBranch);
+  cleanupBranches(storyBranch, cwd);
 }
 
 /**
@@ -193,19 +319,21 @@ export async function runStoryClose({
   storyId: storyIdParam,
   epicId: epicIdParam,
   skipDashboard: skipDashboardParam,
+  cwd: cwdParam,
   injectedProvider,
 } = {}) {
-  const {
-    storyId,
-    epicId: argEpicId,
-    skipDashboard,
-  } = storyIdParam !== undefined
-    ? {
-        storyId: storyIdParam,
-        epicId: epicIdParam,
-        skipDashboard: !!skipDashboardParam,
-      }
-    : parseSprintArgs();
+  const parsed =
+    storyIdParam !== undefined
+      ? {
+          storyId: storyIdParam,
+          epicId: epicIdParam,
+          skipDashboard: !!skipDashboardParam,
+          cwd: cwdParam ?? null,
+        }
+      : parseSprintArgs();
+  const { storyId, epicId: argEpicId, skipDashboard } = parsed;
+  // Worktree-aware cwd resolution: explicit param > --cwd flag > env > PROJECT_ROOT.
+  const cwd = path.resolve(cwdParam ?? parsed.cwd ?? PROJECT_ROOT);
 
   if (!storyId) {
     Logger.fatal(
@@ -245,6 +373,13 @@ export async function runStoryClose({
 
   const tasks = await fetchChildTasks(provider, storyId);
 
+  // Prime the provider's per-instance ticket cache: cascadeCompletion and
+  // transitionTicketState will re-read these same ids, so feeding the
+  // already-hydrated list prevents redundant REST round-trips.
+  if (typeof provider.primeTicketCache === 'function') {
+    provider.primeTicketCache([story, ...tasks]);
+  }
+
   progress('TASKS', `Found ${tasks.length} child Task(s)`);
 
   // -------------------------------------------------------------------------
@@ -259,6 +394,7 @@ export async function runStoryClose({
       storyBranch,
       storyId,
       epicId,
+      cwd,
     );
     const result = { storyId, epicId, ...riskResult };
     console.log('\n--- STORY CLOSE RESULT ---');
@@ -266,82 +402,34 @@ export async function runStoryClose({
     console.log('--- END RESULT ---\n');
     return { success: false, result };
   } else {
-    finalizeMerge(epicBranch, storyBranch, story.title, storyId);
+    finalizeMerge(epicBranch, storyBranch, story.title, storyId, cwd);
+    await reapStoryWorktree({ orchestration, storyId, epicBranch });
   }
 
-  // -------------------------------------------------------------------------
-  // Step 6 — Cascade Completion (Ticket Closure)
-  // -------------------------------------------------------------------------
-
+  // Cascade Completion (Ticket Closure)
   const { closedTickets, cascadedTo } = await ticketClosureCascade(
     provider,
     tasks,
     storyId,
   );
 
-  // -------------------------------------------------------------------------
-  // Notification — story-complete (INFO channel)
-  // -------------------------------------------------------------------------
-
-  progress(
-    'NOTIFY',
-    `Sending story-complete notification for Story #${storyId}...`,
-  );
-  try {
-    await notify(
-      epicId,
-      {
-        type: 'notification',
-        message: `✅ Story #${storyId} — *${story.title}* — has been completed and merged into \`${epicBranch}\`. ${closedTickets.length} ticket(s) closed.`,
-        actionRequired: true,
-      },
-      { orchestration },
-    );
-    progress('NOTIFY', '✅ Notification sent');
-  } catch (err) {
-    console.error(
-      `[sprint-story-close] Notification failed (non-fatal): ${err.message}`,
-    );
-  }
-
-  // -------------------------------------------------------------------------
-  // Health Monitor Update
-  // -------------------------------------------------------------------------
-
-  progress('HEALTH', 'Updating sprint health metrics...');
-  let healthUpdated = false;
-  try {
-    await updateHealthMetrics(epicId);
-    healthUpdated = true;
-    progress('HEALTH', '✅ Health metrics updated');
-  } catch (err) {
-    console.error(
-      `[sprint-story-close] Health monitor failed (non-fatal): ${err.message}`,
-    );
-  }
-
-  // -------------------------------------------------------------------------
-  // Dashboard Refresh (Regenerate Manifest)
-  // -------------------------------------------------------------------------
-
-  let manifestUpdated = false;
-  if (!skipDashboard) {
-    progress('DASHBOARD', 'Regenerating dispatch manifest...');
-    try {
-      await generateAndSaveManifest(epicId, true);
-      manifestUpdated = true;
-      progress('DASHBOARD', '✅ Dashboard manifest updated (temp/)');
-    } catch (err) {
-      console.error(
-        `[sprint-story-close] Dashboard refresh failed (non-fatal): ${err.message}`,
-      );
-    }
-  } else {
-    progress(
-      'DASHBOARD',
-      '⏭️ Skipping dashboard refresh (--skip-dashboard flag set)',
-    );
-  }
+  // Notification, health, and dashboard are each best-effort; failures log
+  // but do not abort the close-out. See each helper for the specific
+  // failure mode it tolerates.
+  await notifyStoryComplete({
+    epicId,
+    storyId,
+    story,
+    epicBranch,
+    closedTickets,
+    orchestration,
+  });
+  const healthUpdated = await updateHealth(epicId);
+  const manifestUpdated = await refreshDashboard({
+    epicId,
+    provider,
+    skipDashboard,
+  });
 
   // -------------------------------------------------------------------------
   // Output — structured result
@@ -369,30 +457,7 @@ export async function runStoryClose({
       `${closedTickets.length} ticket(s) closed.`,
   );
 
-  // -------------------------------------------------------------------------
-  // Cleanup — remove ephemeral story manifest temp files (non-fatal)
-  // -------------------------------------------------------------------------
-
-  try {
-    const { unlink } = await import('node:fs/promises');
-    const manifestBase = path.join(
-      PROJECT_ROOT,
-      'temp',
-      `story-manifest-${storyId}`,
-    );
-    for (const ext of ['.md', '.json']) {
-      try {
-        await unlink(`${manifestBase}${ext}`);
-        progress('CLEANUP', `🗑️  Deleted temp/story-manifest-${storyId}${ext}`);
-      } catch {
-        // File may not exist — ignore
-      }
-    }
-  } catch (err) {
-    console.error(
-      `[sprint-story-close] Story manifest cleanup failed (non-fatal): ${err.message}`,
-    );
-  }
+  await cleanupTempFiles(storyId);
 
   return { success: true, result };
 }

@@ -71,6 +71,7 @@ export class ManualDispatchAdapter extends IExecutionAdapter {
       mode,
       skills,
       focusAreas,
+      cwd,
     } = taskDispatch;
 
     const skillList = (skills ?? []).length > 0 ? skills.join(', ') : '(none)';
@@ -90,6 +91,10 @@ export class ManualDispatchAdapter extends IExecutionAdapter {
     console.log(`  Mode         : ${mode}`);
     console.log(`  Skills       : ${skillList}`);
     console.log(`  Focus Areas  : ${focusList}`);
+    if (cwd) {
+      console.log(`  Worktree     : ${cwd}`);
+      console.log(`  → Run agent in: cd "${cwd}"`);
+    }
     console.log(separator);
     console.log('\nPROMPT:\n');
     console.log(prompt);

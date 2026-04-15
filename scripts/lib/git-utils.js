@@ -72,6 +72,69 @@ export function gitSpawn(cwd, ...args) {
 }
 
 /**
+ * Known lock-contention error signatures that occur when two worktrees
+ * fetch concurrently against the same repo. Matching any of these is the
+ * only condition under which `gitFetchWithRetry` will re-attempt —
+ * unrelated fetch failures surface immediately.
+ */
+const PACKED_REFS_CONTENTION_PATTERNS = [
+  /packed-refs\.lock/i,
+  /cannot lock ref/i,
+  /Unable to create '.*\.lock'/i,
+  /another git process seems to be running/i,
+];
+
+function isPackedRefsContention(stderr) {
+  if (!stderr) return false;
+  return PACKED_REFS_CONTENTION_PATTERNS.some((p) => p.test(stderr));
+}
+
+/**
+ * Sleep helper for retry backoff. Overridable via `__setSleep` so tests
+ * can skip real wall-clock delays without relying on node:test timer mocks.
+ * @param {number} ms
+ * @returns {Promise<void>}
+ */
+let _sleep = (ms) => new Promise((resolve) => setTimeout(resolve, ms));
+
+/**
+ * Test-only seam: replace the sleep implementation used by
+ * `gitFetchWithRetry` to avoid real backoff in unit tests.
+ * @param {(ms: number) => Promise<void>} fn
+ */
+export function __setSleep(fn) {
+  _sleep = fn;
+}
+
+/**
+ * Run `git fetch …` with a bounded retry loop that only triggers on known
+ * packed-refs lock-contention signatures. Non-contention failures surface
+ * immediately (no retry). Success short-circuits the loop.
+ *
+ * Backoff schedule: 250ms, 500ms, 1000ms (3 retries → 4 attempts total).
+ * Deliberately no global lock — a mutex would erase the parallelism the
+ * worktree-isolation model is designed to enable.
+ *
+ * @param {string} cwd
+ * @param {...string} args - Arguments after `fetch` (e.g. `'origin'`).
+ * @returns {Promise<{ status: number, stdout: string, stderr: string, attempts: number }>}
+ */
+export async function gitFetchWithRetry(cwd, ...args) {
+  const backoff = [250, 500, 1000];
+  let attempt = 0;
+  let last;
+  for (;;) {
+    attempt++;
+    last = gitSpawn(cwd, 'fetch', ...args);
+    if (last.status === 0) return { ...last, attempts: attempt };
+    if (!isPackedRefsContention(last.stderr))
+      return { ...last, attempts: attempt };
+    if (attempt > backoff.length) return { ...last, attempts: attempt };
+    await _sleep(backoff[attempt - 1]);
+  }
+}
+
+/**
  * Resolves the canonical branch name for an Epic.
  * v5 Standard: epic/[EPIC_ID]
  * @param {string|number} epicId

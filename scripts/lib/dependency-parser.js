@@ -45,6 +45,25 @@ export function isSafeBranchComponent(value) {
 }
 
 /**
+ * Pre-compiled `**Key**: value` matchers for every metadata key we extract.
+ * Construction cost is paid once at module load rather than per task.
+ */
+const METADATA_FIELD_KEYS = [
+  'Persona',
+  'Model',
+  'Mode',
+  'Skills',
+  'Focus Areas',
+  'Protocol Version',
+];
+const METADATA_FIELD_RES = new Map(
+  METADATA_FIELD_KEYS.map((k) => [
+    k,
+    new RegExp(`\\*\\*${k}\\*\\*\\s*:?\\s*(.+)`, 'i'),
+  ]),
+);
+
+/**
  * Parse task execution metadata from the `## Metadata` section of a ticket body.
  * Returns a plain object with `persona`, `model`, `mode`, `skills`, `focusAreas`,
  * and `protocolVersion`.
@@ -70,7 +89,8 @@ export function parseTaskMetadata(body) {
   const block = metaMatch[1];
 
   function extractField(key) {
-    const m = block.match(new RegExp(`\\*\\*${key}\\*\\*\\s*:?\\s*(.+)`, 'i'));
+    const re = METADATA_FIELD_RES.get(key);
+    const m = re ? block.match(re) : null;
     return m ? m[1].trim() : null;
   }
 

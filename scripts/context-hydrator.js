@@ -43,7 +43,7 @@ async function main() {
 
   // Fetch full task ticket to get labels/body
   const t = await provider.getTicket(taskId);
-  const labels = t.labels ?? [];
+  const labels = t.labels;
   const persona = labels
     .find((l) => l.startsWith('persona::'))
     ?.replace('persona::', '');

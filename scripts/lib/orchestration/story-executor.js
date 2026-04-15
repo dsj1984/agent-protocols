@@ -70,7 +70,7 @@ export async function executeStory(options) {
     epicId,
     epicBranch,
     branchName,
-    model_tier: resolveModelTier(story.labels ?? []),
+    model_tier: resolveModelTier(story.labels),
     tasks: sortedTasks.map((t) => ({
       taskId: t.id,
       title: t.title,

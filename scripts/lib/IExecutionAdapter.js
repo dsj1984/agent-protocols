@@ -43,8 +43,11 @@ export class IExecutionAdapter {
    *   mode:       string,
    *   skills:     string[],
    *   focusAreas: string[],
-   *   metadata:   object
+   *   metadata:   object,
+   *   cwd?:       string
    * }} taskDispatch - The fully hydrated task dispatch payload.
+   *   When `cwd` is set (worktree-per-story isolation), the agent must run
+   *   inside that directory; HITL adapters surface a `cd` instruction.
    * @returns {Promise<{ dispatchId: string, status: 'dispatched'|'queued' }>}
    */
   async dispatchTask(_taskDispatch) {

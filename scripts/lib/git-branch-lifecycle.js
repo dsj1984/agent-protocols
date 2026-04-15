@@ -1,0 +1,167 @@
+/**
+ * git-branch-lifecycle.js — Shared git branch state machine helpers.
+ *
+ * Consolidates the "does this branch exist locally / remotely?" and
+ * "ensure this branch exists and is checked out" logic that
+ * `sprint-story-init.js` and `dispatch-engine.js` had each re-implemented.
+ *
+ * All helpers take an explicit `cwd`. Callers with worktree isolation
+ * enabled pass the worktree path; single-tree callers pass `PROJECT_ROOT`.
+ *
+ * No helper here reads config, spawns its own logger, or knows about
+ * GitHub. They are pure git-subprocess wrappers with validation on the
+ * branch names they forward to git.
+ */
+
+import { isSafeBranchComponent } from './dependency-parser.js';
+import { gitSpawn, gitSync } from './git-utils.js';
+
+function assertSafeBranch(...names) {
+  for (const name of names) {
+    if (!isSafeBranchComponent(name)) {
+      throw new Error(
+        `[git-branch-lifecycle] Unsafe branch name detected: "${name}". ` +
+          'Branch names must contain only alphanumeric characters, hyphens, ' +
+          'underscores, dots, and slashes.',
+      );
+    }
+  }
+}
+
+/**
+ * Return true iff the given branch exists as a local ref in `cwd`'s repo.
+ *
+ * @param {string} branch
+ * @param {string} cwd
+ * @returns {boolean}
+ */
+export function branchExistsLocally(branch, cwd) {
+  assertSafeBranch(branch);
+  return (
+    gitSpawn(cwd, 'rev-parse', '--verify', '--quiet', `refs/heads/${branch}`)
+      .status === 0
+  );
+}
+
+/**
+ * Return true iff the given branch exists on the `origin` remote.
+ *
+ * @param {string} branch
+ * @param {string} cwd
+ * @returns {boolean}
+ */
+export function branchExistsRemotely(branch, cwd) {
+  assertSafeBranch(branch);
+  const result = gitSpawn(cwd, 'ls-remote', '--heads', 'origin', branch);
+  return result.status === 0 && result.stdout.length > 0;
+}
+
+/**
+ * Ensure an Epic branch exists and is published to `origin`. Handles all
+ * four states of the (local, remote) matrix.
+ *
+ * @param {string} epicBranch
+ * @param {string} baseBranch
+ * @param {string} cwd
+ * @param {{ progress?: (phase: string, message: string) => void }} [opts]
+ */
+export function ensureEpicBranch(epicBranch, baseBranch, cwd, opts = {}) {
+  assertSafeBranch(epicBranch, baseBranch);
+  const progress = opts.progress ?? (() => {});
+
+  const local = branchExistsLocally(epicBranch, cwd);
+  const remote = branchExistsRemotely(epicBranch, cwd);
+
+  if (!local && !remote) {
+    progress('GIT', `Creating Epic branch: ${epicBranch} (from ${baseBranch})`);
+    gitSync(cwd, 'checkout', baseBranch);
+    gitSpawn(cwd, 'pull', '--rebase', 'origin', baseBranch);
+    gitSync(cwd, 'checkout', '-b', epicBranch);
+    gitSync(cwd, 'push', '--no-verify', '-u', 'origin', epicBranch);
+    return;
+  }
+
+  if (local && !remote) {
+    progress(
+      'GIT',
+      `Epic branch exists locally only: ${epicBranch}. Publishing.`,
+    );
+    gitSync(cwd, 'checkout', epicBranch);
+    gitSync(cwd, 'push', '--no-verify', '-u', 'origin', epicBranch);
+    return;
+  }
+
+  if (!local && remote) {
+    progress('GIT', `Tracking remote Epic branch: ${epicBranch}`);
+    gitSync(cwd, 'checkout', '-b', epicBranch, `origin/${epicBranch}`);
+    gitSpawn(cwd, 'pull', '--rebase', 'origin', epicBranch);
+    return;
+  }
+
+  progress('GIT', `Epic branch exists. Syncing: ${epicBranch}`);
+  gitSync(cwd, 'checkout', epicBranch);
+  gitSpawn(cwd, 'pull', '--rebase', 'origin', epicBranch);
+}
+
+/**
+ * Check out a Story branch, creating it from `epicBranch` if neither local
+ * nor remote exists. Non-destructive: if the branch already exists, this
+ * plain-`checkout`s it rather than `-B`-resetting.
+ *
+ * @param {string} storyBranch
+ * @param {string} epicBranch
+ * @param {string} cwd
+ * @param {{ progress?: (phase: string, message: string) => void }} [opts]
+ */
+export function checkoutStoryBranch(storyBranch, epicBranch, cwd, opts = {}) {
+  assertSafeBranch(storyBranch, epicBranch);
+  const progress = opts.progress ?? (() => {});
+
+  const local = branchExistsLocally(storyBranch, cwd);
+  const remote = branchExistsRemotely(storyBranch, cwd);
+
+  if (local || remote) {
+    progress(
+      'GIT',
+      `Story branch already exists (local=${local}, remote=${remote}). Checking out non-destructively: ${storyBranch}`,
+    );
+    if (local) {
+      gitSync(cwd, 'checkout', storyBranch);
+      if (remote) {
+        gitSpawn(cwd, 'pull', '--rebase', 'origin', storyBranch);
+      }
+    } else {
+      gitSync(cwd, 'checkout', '-b', storyBranch, `origin/${storyBranch}`);
+    }
+    return;
+  }
+
+  progress('GIT', `Creating Story branch: ${storyBranch} (from ${epicBranch})`);
+  gitSync(cwd, 'checkout', '-b', storyBranch, epicBranch);
+}
+
+/**
+ * Ensure an arbitrary branch exists locally, creating from `baseBranch` if
+ * missing. Used by the dispatcher's task-dispatch path where the expected
+ * side-effect is "branch ref exists"; the caller does not want HEAD to
+ * move. After creation, HEAD is restored to `baseBranch`.
+ *
+ * @param {string} branchName
+ * @param {string} baseBranch
+ * @param {string} cwd
+ * @param {{ log?: (message: string) => void }} [opts]
+ */
+export function ensureLocalBranch(branchName, baseBranch, cwd, opts = {}) {
+  assertSafeBranch(branchName, baseBranch);
+  const log = opts.log ?? (() => {});
+
+  const exists =
+    gitSpawn(cwd, 'rev-parse', '--verify', branchName).status === 0;
+  if (exists) {
+    log(`Branch already exists: ${branchName}`);
+    return;
+  }
+  gitSync(cwd, 'checkout', '-b', branchName, baseBranch);
+  gitSync(cwd, 'checkout', baseBranch);
+  log(`Created branch: ${branchName} from ${baseBranch}`);
+}
