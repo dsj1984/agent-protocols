@@ -72,7 +72,8 @@ wasn't in the room when it was built.
 - `docs/CHANGELOG.md` — Maintained per release/sprint.
 - `docs/architecture.md` — Living architecture reference.
 - `docs/data-dictionary.md` — Living schema reference.
-- `docs/sprints/sprint-[##]/retro.md` — Sprint retrospective.
+- Sprint retrospective — posted as a structured `type: retro` comment on the
+  Epic issue (GitHub is the sole archive; no local retro file is produced).
 - Release notes — Generated via workflow.
 
 ## 5. Scope Boundaries
