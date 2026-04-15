@@ -23,6 +23,12 @@ This workflow operates in two modes determined by the argument provided:
   workflow for implementing work. It checks out the Story branch, implements ALL
   child Tasks sequentially, validates, and creates a unified PR.
 
+> **Worktree isolation.** When `orchestration.worktreeIsolation.enabled` is
+> `true`, each dispatched story runs in its own `git worktree` at
+> `.worktrees/story-<id>/`. The agent `cd`s into that path; the main checkout
+> stays quiet. See [`worktree-lifecycle.md`](worktree-lifecycle.md) for config,
+> node_modules strategies, Windows notes, and the single-tree fallback.
+
 ---
 
 ## Mode A: Refresh & Epic Dispatch (`/sprint-execute [Epic ID]`)
