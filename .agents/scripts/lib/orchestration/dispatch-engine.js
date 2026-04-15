@@ -616,6 +616,14 @@ export async function dispatch(options) {
   const allTickets = await provider.getTickets(epicId);
   const allTicketsById = new Map(allTickets.map((t) => [t.id, t]));
 
+  // Prime the provider's per-instance ticket cache so cascadeCompletion,
+  // reconcileHierarchy, and context-hydration read from memory instead of
+  // re-fetching each ticket via REST. Safe no-op on providers without the
+  // method (ManualProvider, mocks).
+  if (typeof provider.primeTicketCache === 'function') {
+    provider.primeTicketCache(allTickets);
+  }
+
   vlog.info('orchestration', `Filtering Tasks under Epic #${epicId}...`);
   const taskTickets = allTickets.filter((t) =>
     (t.labels ?? []).includes(TYPE_TASK_LABEL),

@@ -44,17 +44,26 @@ import {
 /**
  * High-level orchestrator that resolves the execution strategy, generates the manifest,
  * persists the files to temp, and outputs summaries.
+ *
+ * @param {number} ticketId
+ * @param {boolean} [dryRun]
+ * @param {string|null} [executorOverride]
+ * @param {{ provider?: object }} [opts] - Optional overrides. `provider`
+ *   lets callers pass a provider whose per-instance ticket cache is already
+ *   primed, so dashboard regeneration issues zero extra REST calls.
  */
 export async function generateAndSaveManifest(
   ticketId,
   dryRun = false,
   executorOverride = null,
+  opts = {},
 ) {
   // Delegate to the SDK's unified resolver
   const manifest = await resolveAndDispatch({
     ticketId,
     dryRun,
     executorOverride,
+    provider: opts.provider,
   });
 
   // Write manifest files using the new presentation abstraction

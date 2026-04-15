@@ -31,10 +31,12 @@ describe('VerboseLogger', () => {
       logDir: tmpDir,
       sprint: '99',
       source: 'test-src',
+      flushIntervalMs: 0,
     });
 
     logger.info('category-A', 'Msg 1', { key: 'val' });
     logger.info('general', 'Msg 2');
+    logger.flush();
 
     const logFile = path.join(tmpDir, 'sprint-99.jsonl');
     assert.ok(fs.existsSync(logFile), 'Log file should exist');
@@ -52,8 +54,13 @@ describe('VerboseLogger', () => {
   });
 
   it('uses session filename if no sprint is provided', () => {
-    const logger = new VerboseLogger({ enabled: true, logDir: tmpDir });
+    const logger = new VerboseLogger({
+      enabled: true,
+      logDir: tmpDir,
+      flushIntervalMs: 0,
+    });
     logger.info('general', 'Hello');
+    logger.flush();
 
     const files = fs.readdirSync(tmpDir);
     assert.ok(files.find((f) => f.startsWith('session-')));
@@ -64,24 +71,85 @@ describe('VerboseLogger', () => {
       enabled: true,
       logDir: tmpDir,
       sprint: 'test',
+      flushIntervalMs: 0,
     });
     const logFile = path.join(tmpDir, 'sprint-test.jsonl');
 
     logger.debug('sys', 'Debug msg');
+    logger.flush();
     let lines = fs.readFileSync(logFile, 'utf8').trim().split('\n');
     let lastLog = JSON.parse(lines[lines.length - 1]);
     assert.strictEqual(lastLog.level, 'debug');
 
     logger.warn('sys', 'Warn msg');
+    logger.flush();
     lines = fs.readFileSync(logFile, 'utf8').trim().split('\n');
     lastLog = JSON.parse(lines[lines.length - 1]);
     assert.strictEqual(lastLog.level, 'warn');
 
     logger.error('sys', 'Error msg', { err: 'boom' });
+    logger.flush();
     lines = fs.readFileSync(logFile, 'utf8').trim().split('\n');
     lastLog = JSON.parse(lines[lines.length - 1]);
     assert.strictEqual(lastLog.level, 'error');
     assert.strictEqual(lastLog.message, 'Error msg');
     assert.strictEqual(lastLog.data.err, 'boom');
+  });
+
+  // --------------------------------------------------------------------- //
+  // Batched writer behaviour                                              //
+  // --------------------------------------------------------------------- //
+
+  it('buffers below threshold and waits for flush()', () => {
+    const logger = new VerboseLogger({
+      enabled: true,
+      logDir: tmpDir,
+      sprint: 'batch-1',
+      flushThreshold: 10,
+      flushIntervalMs: 0,
+    });
+    for (let i = 0; i < 9; i++) logger.info('system', `msg ${i}`);
+    const logFile = path.join(tmpDir, 'sprint-batch-1.jsonl');
+    // File is created lazily on first flush; not present yet.
+    assert.equal(fs.existsSync(logFile), false);
+    logger.flush();
+    assert.equal(
+      fs.readFileSync(logFile, 'utf8').split('\n').filter(Boolean).length,
+      9,
+    );
+  });
+
+  it('auto-flushes when threshold is reached', () => {
+    const logger = new VerboseLogger({
+      enabled: true,
+      logDir: tmpDir,
+      sprint: 'batch-2',
+      flushThreshold: 5,
+      flushIntervalMs: 0,
+    });
+    for (let i = 0; i < 5; i++) logger.info('system', `msg ${i}`);
+    const logFile = path.join(tmpDir, 'sprint-batch-2.jsonl');
+    assert.equal(
+      fs.readFileSync(logFile, 'utf8').split('\n').filter(Boolean).length,
+      5,
+    );
+  });
+
+  it('auto-flushes after the configured interval', async () => {
+    const logger = new VerboseLogger({
+      enabled: true,
+      logDir: tmpDir,
+      sprint: 'batch-3',
+      flushThreshold: 100,
+      flushIntervalMs: 20,
+    });
+    logger.info('system', 'pending');
+    // Give the unref'd timer a chance to fire.
+    await new Promise((resolve) => setTimeout(resolve, 60));
+    const logFile = path.join(tmpDir, 'sprint-batch-3.jsonl');
+    assert.equal(
+      fs.readFileSync(logFile, 'utf8').split('\n').filter(Boolean).length,
+      1,
+    );
   });
 });

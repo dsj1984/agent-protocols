@@ -198,8 +198,9 @@ test('isSafeToRemove: refuses when branch has unmerged commits vs epic', async (
         if (args.includes('--abbrev-ref')) return { status: 0, stdout: 'story-235', stderr: '' };
         return { status: 0, stdout: 'TIP_SHA', stderr: '' };
       },
-      'show-ref': () => ({ status: 0, stdout: '', stderr: '' }),
-      'merge-base': () => ({ status: 0, stdout: 'BASE_SHA', stderr: '' }),
+      // `merge-base --is-ancestor` exits 1 when branch is NOT an ancestor
+      // of epicBranch — i.e. the branch has unmerged commits.
+      'merge-base': () => ({ status: 1, stdout: '', stderr: '' }),
     });
     const wm = new WorktreeManager({ repoRoot: tmp, logger: SILENT_LOGGER, git, platform: 'linux' });
     const r = await wm.isSafeToRemove(wtPath, { epicBranch: 'epic/229' });

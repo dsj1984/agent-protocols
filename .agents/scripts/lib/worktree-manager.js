@@ -292,15 +292,21 @@ export class WorktreeManager {
 
     const epicBranch = opts.epicBranch ?? null;
     if (epicBranch) {
-      const epicExists = this.git.gitSpawn(
-        this.repoRoot, 'show-ref', '--verify', '--quiet', `refs/heads/${epicBranch}`,
-      ).status === 0;
-      if (epicExists) {
-        const mergeBase = this.git.gitSpawn(this.repoRoot, 'merge-base', epicBranch, branch);
-        const branchTip = this.git.gitSpawn(this.repoRoot, 'rev-parse', branch);
-        if (mergeBase.status === 0 && branchTip.status === 0 && mergeBase.stdout !== branchTip.stdout) {
-          return { safe: false, reason: 'unmerged-commits' };
-        }
+      // `merge-base --is-ancestor A B` exits 0 when A is an ancestor of B.
+      // When A=branch and B=epicBranch, exit 0 ⇒ every commit on `branch`
+      // is reachable from `epicBranch` ⇒ fully merged. Exit 1 ⇒ unmerged.
+      // Any other exit (e.g. epic branch missing) we treat as "no epic to
+      // compare against" and fall through to safe — matching prior behavior
+      // where a missing Epic branch was silently ignored.
+      const res = this.git.gitSpawn(
+        this.repoRoot,
+        'merge-base',
+        '--is-ancestor',
+        branch,
+        epicBranch,
+      );
+      if (res.status === 1) {
+        return { safe: false, reason: 'unmerged-commits' };
       }
     }
 

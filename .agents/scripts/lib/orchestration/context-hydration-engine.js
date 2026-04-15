@@ -22,6 +22,28 @@ import path from 'node:path';
 import { PROJECT_ROOT, resolveConfig } from '../config-resolver.js';
 
 // ---------------------------------------------------------------------------
+// File-content cache — the agent-protocol template, persona files, and
+// skill files are read-only during a dispatch run. Reading them via
+// `fs.readFileSync` per task is ~4–16 blocking syscalls. Memoize by
+// absolute path; entries survive for the lifetime of the Node process
+// (fine for CLI runs; tests can call `resetContextCache()`).
+// ---------------------------------------------------------------------------
+
+const _fileCache = new Map();
+
+function readFileCached(absPath) {
+  if (_fileCache.has(absPath)) return _fileCache.get(absPath);
+  const content = fs.readFileSync(absPath, 'utf8');
+  _fileCache.set(absPath, content);
+  return content;
+}
+
+/** Test-only: clear the persona/skill/template cache between runs. */
+export function resetContextCache() {
+  _fileCache.clear();
+}
+
+// ---------------------------------------------------------------------------
 // Internal helpers
 // ---------------------------------------------------------------------------
 
@@ -132,7 +154,7 @@ export async function hydrateContext(
       settings.templatesRoot,
       'agent-protocol.md',
     );
-    protocolTpl = fs.readFileSync(pTemplatePath, 'utf8');
+    protocolTpl = readFileCached(pTemplatePath);
     protocolTpl = protocolTpl
       .replace(/\{\{PROTOCOL_VERSION\}\}/g, currentVersion)
       .replace(/\{\{BRANCH_NAME\}\}/g, taskBranch)
@@ -152,7 +174,7 @@ export async function hydrateContext(
         `${task.persona}.md`,
       );
       if (fs.existsSync(pPath)) {
-        personaContext = `## Persona: ${task.persona}\n\n${fs.readFileSync(pPath, 'utf8')}`;
+        personaContext = `## Persona: ${task.persona}\n\n${readFileCached(pPath)}`;
       }
     } catch (err) {
       console.warn(
@@ -201,7 +223,7 @@ export async function hydrateContext(
 
         const sPath = candidates.find((p) => fs.existsSync(p));
         if (sPath) {
-          skillsContext += `### Skill: ${skill}\n${fs.readFileSync(sPath, 'utf8')}\n\n`;
+          skillsContext += `### Skill: ${skill}\n${readFileCached(sPath)}\n\n`;
         }
       } catch (err) {
         console.warn(

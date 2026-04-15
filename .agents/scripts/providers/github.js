@@ -90,6 +90,15 @@ export class GitHubProvider extends ITicketingProvider {
         tokenProvider: () => opts.token ?? resolveToken(),
         fetchImpl: opts.fetchImpl,
       });
+
+    // Per-instance memoization for `getTicket`. Scoped to the lifetime of
+    // this provider instance (one dispatcher/close-out run), so a ticket
+    // fetched by the dispatcher, reconciler, and cascade all share the
+    // same network round-trip. `updateTicket` / `postComment` on a given
+    // ticketId invalidate that ticket's entry. List endpoints
+    // (`getTickets`, `getSubTickets`) deliberately do NOT populate this
+    // cache — they page through many issues where staleness is a concern.
+    this._ticketCache = new Map();
   }
 
   /** Lazily resolve the token on first API call. */
@@ -302,11 +311,15 @@ export class GitHubProvider extends ITicketingProvider {
   }
 
   async getTicket(ticketId) {
+    if (this._ticketCache.has(ticketId)) {
+      return this._ticketCache.get(ticketId);
+    }
+
     const issue = await this._rest(
       `/repos/${this.owner}/${this.repo}/issues/${ticketId}`,
     );
 
-    return {
+    const ticket = {
       id: issue.number,
       internalId: issue.id,
       nodeId: issue.node_id,
@@ -318,6 +331,27 @@ export class GitHubProvider extends ITicketingProvider {
       assignees: (issue.assignees ?? []).map((a) => a.login),
       state: issue.state,
     };
+
+    this._ticketCache.set(ticketId, ticket);
+    return ticket;
+  }
+
+  /**
+   * Seed the per-instance getTicket cache with tickets already hydrated by
+   * callers (e.g. from a single `getTickets(epicId)` sweep). Only fields
+   * shared with `getTicket`'s return shape need be present.
+   */
+  primeTicketCache(tickets) {
+    for (const t of tickets ?? []) {
+      if (t && typeof t.id === 'number') {
+        this._ticketCache.set(t.id, t);
+      }
+    }
+  }
+
+  /** Drop a specific ticket from the cache. Called after any mutation. */
+  invalidateTicket(ticketId) {
+    this._ticketCache.delete(ticketId);
   }
 
   /* node:coverage ignore next */
@@ -614,6 +648,7 @@ export class GitHubProvider extends ITicketingProvider {
         method: 'PATCH',
         body: patch,
       });
+      this.invalidateTicket(ticketId);
     }
   }
 

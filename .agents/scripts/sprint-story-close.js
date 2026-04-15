@@ -247,6 +247,13 @@ export async function runStoryClose({
 
   const tasks = await fetchChildTasks(provider, storyId);
 
+  // Prime the provider's per-instance ticket cache: cascadeCompletion and
+  // transitionTicketState will re-read these same ids, so feeding the
+  // already-hydrated list prevents redundant REST round-trips.
+  if (typeof provider.primeTicketCache === 'function') {
+    provider.primeTicketCache([story, ...tasks]);
+  }
+
   progress('TASKS', `Found ${tasks.length} child Task(s)`);
 
   // -------------------------------------------------------------------------
@@ -357,7 +364,9 @@ export async function runStoryClose({
   if (!skipDashboard) {
     progress('DASHBOARD', 'Regenerating dispatch manifest...');
     try {
-      await generateAndSaveManifest(epicId, true);
+      // Reuse our primed provider so dashboard regeneration does not re-fetch
+      // tickets already in this process's memoization cache.
+      await generateAndSaveManifest(epicId, true, null, { provider });
       manifestUpdated = true;
       progress('DASHBOARD', '✅ Dashboard manifest updated (temp/)');
     } catch (err) {
