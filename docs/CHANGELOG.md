@@ -2,6 +2,44 @@
 
 All notable changes to this project will be documented in this file.
 
+## [5.8.3] - 2026-04-15
+
+### 🧹 `techStack` moved from config to `docs/architecture.md`
+
+Project-specific technology context (frameworks, database, auth, workspace
+paths, etc.) no longer lives in `.agentrc.json`. It now lives under a
+**Tech Stack** section in `docs/architecture.md` — one home for project
+identity, outside the `.agents/` distribution bundle.
+
+**Why:** The `techStack` block was never read by any script; it was
+prose-referenced guidance. Stuffing opinionated stack defaults into
+`.agents/default-agentrc.json` meant every new project inherited a
+Hono + Cloudflare + Turso + Clerk + Astro + Expo template they had to
+edit out. Architecture context belongs in architecture docs.
+
+**Breaking (config shape):**
+
+- **Removed:** `techStack` block from `.agentrc.json` and
+  `.agents/default-agentrc.json`. Consumers should migrate the same
+  content (or a slimmed version) into their own
+  `docs/architecture.md` under a `## Tech Stack` heading.
+
+**Docs updated to reference the new location:**
+
+- `docs/architecture.md` — added a `## Tech Stack` section describing
+  this repo's actual stack (Node.js + native test runner + Biome +
+  Husky + Ajv + memfs + Stryker). Serves both as this project's spec
+  and as the template example for downstream consumers.
+- `.agents/instructions.md` — `techStack`-section reference replaced
+  with a pointer to `docs/architecture.md`'s Tech Stack section.
+- `.agents/README.md` — dropped `techStack.project.name` row from the
+  config settings table.
+- `AGENTS.md` — updated the Getting Started block.
+- `.agents/personas/devops-engineer.md` — persona now points to the
+  architecture-doc Tech Stack section and the `orchestration` block.
+- `.agents/workflows/sync-agents-config.md` — removed stale
+  `techStack.database` / `techStack.workspaces` examples.
+
 ## [5.8.2] - 2026-04-15
 
 ### 🧹 `agentSettings` audit & reorganization

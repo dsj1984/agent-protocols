@@ -74,22 +74,6 @@
       ]
     }
   },
-  "techStack": {
-    "project": {
-      "name": "agent-protocols",
-      "packageManager": "npm",
-      "monorepoTool": ""
-    },
-    "testing": {
-      "unitFramework": "Node.js Native Test Runner",
-      "e2eFramework": "",
-      "testFilePattern": "tests/**/*.test.js"
-    },
-    "deployment": {
-      "platform": "GitHub Releases",
-      "ci": "GitHub Actions"
-    }
-  },
   "orchestration": {
     "provider": "github",
     "github": {

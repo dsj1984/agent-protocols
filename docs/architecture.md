@@ -300,12 +300,14 @@ graph LR
 
 #### Key Configuration Sections
 
-| Section         | Purpose                                                                    |
-| --------------- | -------------------------------------------------------------------------- |
-| `agentSettings` | Operational limits, paths, commands, thresholds                            |
-| `orchestration` | Provider config, executor, LLM settings, notifications                     |
-| `models`        | Cost-tiered model selection guidance (Architects → Workhorses → Sprinters) |
-| `techStack`     | Project-specific technology choices                                        |
+| Section         | Purpose                                                |
+| --------------- | ------------------------------------------------------ |
+| `agentSettings` | Operational limits, paths, commands, thresholds        |
+| `orchestration` | Provider config, executor, LLM settings, notifications |
+
+> Project-specific technology context (frameworks, databases, auth, etc.) lives
+> in `docs/architecture.md` under the **Tech Stack** section — intentionally
+> not in `.agentrc.json`. See the Tech Stack section below.
 
 **Security**: The config resolver blocks shell metacharacter injection
 (`; & | \`` `` $()`) in all string values that flow into subprocesses.
@@ -616,4 +618,72 @@ Consumer Project/
 ```
 
 Consumers add the submodule, copy `default-agentrc.json` to their project root
-as `.agentrc.json`, and configure their `techStack` and `orchestration` blocks.
+as `.agentrc.json`, and configure their `orchestration` block. Project-specific
+technology context lives in `docs/architecture.md` under the **Tech Stack**
+section below — not in `.agentrc.json`.
+
+---
+
+## Tech Stack
+
+This section is the authoritative reference for the technology choices the
+agent should assume when working in this repository. Keep it **current**: the
+agent reads this to decide how to write code, which commands to run, and which
+conventions to follow.
+
+> **Template note:** Downstream projects should maintain their own
+> `## Tech Stack` section in their own `docs/architecture.md`. Agent Protocols
+> does not ship a standalone template — this section doubles as the working
+> example.
+
+### Runtime & Language
+
+- **Runtime:** Node.js (ESM, `"type": "module"` in `package.json`)
+- **Language:** JavaScript with JSDoc for type hints (no TypeScript build step)
+- **Package manager:** npm
+
+### Tooling
+
+- **Linter & formatter:** Biome (`@biomejs/biome`)
+- **Markdown lint:** `markdownlint-cli`
+- **Markdown format:** Prettier (markdown only)
+- **Git hooks:** Husky + `lint-staged`
+- **Mutation testing:** Stryker (`@stryker-mutator/core` + tap-runner)
+- **JSON Schema validation:** Ajv + `ajv-formats`
+- **In-memory filesystem for tests:** `memfs`
+- **Shell argv parsing:** `string-argv`
+- **Complexity metrics:** `typhonjs-escomplex` (maintainability baseline
+  enforcement)
+
+### Testing
+
+- **Framework:** Node.js native test runner (`node --test`)
+- **Test file pattern:** `tests/**/*.test.js`
+- **Coverage:** `node --experimental-test-coverage` with thresholds
+  enforced in `npm run test:coverage` (lines 85, branches 70, functions 75)
+
+### Key Scripts
+
+- **Orchestration engine:** `.agents/scripts/lib/orchestration/` — dispatch,
+  manifest build, story execution, context hydration, model-tier resolution
+- **Ticketing provider abstraction:** `.agents/scripts/lib/ITicketingProvider.js`
+  with a shipped GitHub implementation in `.agents/scripts/providers/github.js`
+- **Execution adapter abstraction:** `.agents/scripts/lib/IExecutionAdapter.js`
+  with a manual adapter in `.agents/scripts/adapters/manual.js`
+- **Config resolution:** `.agents/scripts/lib/config-resolver.js` +
+  `config-schema.js` (shell-metacharacter injection guards built in)
+
+### Ticketing & CI
+
+- **Ticketing provider:** GitHub (Issues, Labels, Projects V2, Sub-Issues API)
+- **CI:** GitHub Actions
+- **Distribution:** GitHub Releases (tagged from `main` by `/sprint-close`)
+
+### What the Agent Should **Not** Assume
+
+- There is no monorepo tool (no Turborepo, no pnpm workspaces) — this is a
+  single-package repository.
+- There is no web, mobile, database, or auth layer — this repo is a framework
+  of protocols and scripts, not an application.
+- There is no TypeScript compilation step; do not add `tsc` invocations.
+- There is no bundler; scripts are executed directly with `node`.
