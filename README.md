@@ -157,12 +157,24 @@ npm run mutate         # Run Stryker mutation testing
 
 ## Documentation
 
-| Document                                         | Purpose                        |
-| ------------------------------------------------ | ------------------------------ |
-| [Consumer Guide](.agents/README.md)              | Setup, configuration, and APIs |
-| [SDLC Workflow](.agents/SDLC.md)                 | End-to-end sprint lifecycle    |
-| [Changelog](docs/CHANGELOG.md)                   | Release history (v5.0.0+)      |
-| [Legacy Changelog](docs/archive/CHANGELOG-v4.md) | v1.0.0 – v4.7.2 history        |
+| Document                                                            | Purpose                                                  |
+| ------------------------------------------------------------------- | -------------------------------------------------------- |
+| [Consumer Guide](.agents/README.md)                                 | Setup, configuration, and APIs                           |
+| [SDLC Workflow](.agents/SDLC.md)                                    | End-to-end sprint lifecycle                              |
+| [Worktree Lifecycle](.agents/workflows/worktree-lifecycle.md)       | Per-story `git worktree` isolation (v5.7.0+)             |
+| [Changelog](docs/CHANGELOG.md)                                      | Release history (v5.0.0+)                                |
+| [Legacy Changelog](docs/archive/CHANGELOG-v4.md)                    | v1.0.0 – v4.7.2 history                                  |
+
+### Parallel execution model (v5.7.0+)
+
+When `orchestration.worktreeIsolation.enabled` is `true`, each dispatched story
+runs inside its own `git worktree` at `.worktrees/story-<id>/`. The main
+checkout stays quiet during a parallel sprint — branch swaps, staging, and
+reflog activity are isolated per-story. Set it to `false` to preserve
+v5.5.1 single-tree behavior, backed by the `assert-branch.js` pre-commit
+guard and focus-area wave serialization. See
+[worktree-lifecycle.md](.agents/workflows/worktree-lifecycle.md) for the
+full operator reference.
 
 ## License
 

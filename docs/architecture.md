@@ -426,9 +426,42 @@ UX/UI. Each audit activates the corresponding persona and skill set.
 | Workflow                     | Description                                     |
 | ---------------------------- | ----------------------------------------------- |
 | `/git-commit-all`            | Stage and commit all changes                    |
-| `/delete-epic-branches`     | Hard reset: delete all Epic branches            |
-| `/delete-epic-tickets`      | Hard reset: delete all Epic issues              |
+| `/delete-epic-branches`      | Hard reset: delete all Epic branches            |
+| `/delete-epic-tickets`       | Hard reset: delete all Epic issues              |
 | `/bootstrap-agent-protocols` | Initialize repo with v5 label taxonomy          |
+
+### Worktree Isolation (v5.7.0+)
+
+When `orchestration.worktreeIsolation.enabled` is `true`, each dispatched
+story runs inside its own `git worktree` at `.worktrees/story-<id>/`. The
+main checkout's HEAD never moves during a parallel sprint; branch swaps,
+staging operations, and reflog activity are isolated per-story.
+
+The `WorktreeManager` (`.agents/scripts/lib/worktree-manager.js`) is the
+single authority for worktree `ensure`/`reap`/`list`/`isSafeToRemove`/`gc`.
+No other script may call `git worktree` directly. All git calls are
+argv-based (no shell interpolation) and validate `storyId` / `branch`
+before shelling out; `reap` never passes `--force`.
+
+Dispatcher integration:
+
+- **Ensure before dispatch**: `dispatch()` calls `wm.ensure(storyId, branch)`
+  and threads the resolved worktree path as `cwd` into
+  `IExecutionAdapter.dispatchTask`. The `ManualDispatchAdapter` surfaces the
+  path as a `cd "<path>"` instruction for the HITL operator.
+- **Reap on merge**: `sprint-story-close` calls `wm.reap` after a
+  successful merge. The reap refuses dirty trees (`warnOnUncommittedOnReap`).
+- **GC on dispatch start**: `dispatch()` sweeps orphaned worktrees whose
+  stories have no remaining live tasks. Refuses to delete unmerged branches.
+
+Setting `orchestration.worktreeIsolation.enabled: false` (or omitting the
+block) restores v5.5.1 single-tree behavior. The `assert-branch.js`
+pre-commit guard and focus-area wave serialization remain in place as
+defense-in-depth in both modes.
+
+See [`worktree-lifecycle.md`](../.agents/workflows/worktree-lifecycle.md)
+for the operator reference, node_modules strategies, Windows long-path
+handling, and escape hatches.
 
 ### Security
 
