@@ -26,12 +26,12 @@
     },
     "tempRoot": "temp",
     "auditOutputDir": "temp",
-    "roadmapPath": "docs/ROADMAP.md",
-    "retroPath": "docs/retros/retro-epic-{epicId}.md",
     "roadmap": {
       "autoGenerate": true,
       "excludeLabels": ["roadmap-exclude"]
     },
+    "roadmapPath": "docs/ROADMAP.md",
+    "retroPath": "docs/retros/retro-epic-{epicId}.md",
     "verboseLogging": {
       "enabled": false,
       "logDir": "temp/verbose-logs"
@@ -211,6 +211,14 @@
     },
     "notifications": {
       "mentionOperator": true
+    },
+    "worktreeIsolation": {
+      "enabled": true,
+      "root": ".worktrees",
+      "nodeModulesStrategy": "per-worktree",
+      "reapOnSuccess": true,
+      "reapOnCancel": true,
+      "warnOnUncommittedOnReap": true
     }
   },
   "autoHeal": {
