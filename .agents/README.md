@@ -369,6 +369,7 @@ repository maintenance.
 | `git-commit-all.md`            | `/git-commit-all`            | Stage and commit all changes              |
 | `git-push.md`                  | `/git-push`                  | Stage, commit, and push to remote         |
 | `roadmap-sync.md`              | `/roadmap-sync`              | Sync ROADMAP.md from GitHub Epics         |
+| `sync-agents-config.md`        | `/sync-agents-config`        | Reconcile `.agentrc.json` with defaults   |
 | `delete-epic-branches.md`      | `/delete-epic-branches`      | Hard reset: delete Epic branches          |
 | `delete-epic-tickets.md`       | `/delete-epic-tickets`       | Hard reset: clear Epic child issues       |
 | `run-red-team.md`              | `/run-red-team`              | Adversarial security testing              |
