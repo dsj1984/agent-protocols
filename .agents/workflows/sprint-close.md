@@ -42,8 +42,9 @@ Epic GitHub issue, cleans up all sprint branches, and optionally tags a release.
      path from `agentSettings.docsRoot`).
 7. Resolve `[ROADMAP_PATH]` from `roadmapPath` in `.agentrc.json` (default:
    `docs/ROADMAP.md`).
-8. Resolve `[RETRO_PATH]` from `retroPath` in `.agentrc.json` (default:
-   `docs/retros/retro-epic-{epicId}.md`). Replace `{epicId}` with `[EPIC_ID]`.
+8. Resolve `[RUN_RETRO]` from `agentSettings.sprintClose.runRetro` in
+   `.agentrc.json` (default: `true`). When `false`, Step 1.5 is skipped entirely
+   — no retro is required or produced.
 
 ## Step 1 — Completeness Gate (Hierarchy Check)
 
@@ -59,19 +60,27 @@ the exact open IDs.
 
 ## Step 1.5 — Retrospective Gate
 
-Verify the retrospective document for this Epic exists at `[RETRO_PATH]`:
+**Skip this step entirely when `[RUN_RETRO]` is `false`.** Log
+`"retro skipped by config (agentSettings.sprintClose.runRetro=false)"` and
+proceed to Step 2.
+
+When `[RUN_RETRO]` is `true` (default), verify a retrospective comment has been
+posted on the Epic issue. Retros are stored as comments on the Epic — there is
+no local retro file.
 
 ```powershell
-Test-Path [RETRO_PATH]
+# Look for the retro marker heading on the Epic's comment thread.
+gh api "repos/{owner}/{repo}/issues/[EPIC_ID]/comments" \
+  --jq '.[] | select(.body | startswith("## 🪞 Sprint Retrospective — Epic #[EPIC_ID]"))'
 ```
 
-If the file does **not** exist: **STOP IMMEDIATELY.** The `/sprint-retro` phase
-was skipped. Invoke `/sprint-retro [EPIC_ID]` to produce the retrospective
-before re-running `/sprint-close`.
+If no matching comment is found: **STOP IMMEDIATELY.** The `/sprint-retro` phase
+was skipped. Invoke `/sprint-retro [EPIC_ID]` to produce and post the
+retrospective before re-running `/sprint-close`.
 
-> **Why this gate exists:** The dispatcher announces the Bookend Lifecycle but
-> does not automatically execute `/sprint-retro`. Without this gate, retros get
-> silently skipped and the Epic closes with no post-mortem record.
+> **Why this gate exists:** Without it, retros get silently skipped and the Epic
+> closes with no post-mortem record. The gate reads directly from GitHub (the
+> retro's source of truth), not a local path.
 
 ## Step 2 — Documentation Freshness Gate
 

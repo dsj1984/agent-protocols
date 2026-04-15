@@ -4,6 +4,28 @@ All notable changes to this project will be documented in this file.
 
 ## [5.8.0] - 2026-04-15
 
+### 🧹 CI Auto-Heal removed
+
+The `auto-heal.js` CLI, risk-tier resolver, Jules / GitHub Issue adapters,
+prompt builder, `/ci-auto-heal` workflow, reference Actions template, and
+the `autoHeal` config block have been removed. The feature shipped in
+v5.3.0 was never wired into the active CI workflow and had no usage in
+practice; dropping ~850 LOC + its config surface removes optional
+complexity that wasn't paying for itself.
+
+- **Removed:** `.agents/scripts/auto-heal.js` and
+  `.agents/scripts/lib/auto-heal/` (index, prompt-builder, risk-resolver,
+  jules-adapter, github-issue-adapter).
+- **Removed:** `.agents/workflows/ci-auto-heal.md`,
+  `.agents/templates/ci-auto-heal-job.yml`, and the generated
+  `.claude/commands/ci-auto-heal.md`.
+- **Removed:** `autoHeal` block from `.agentrc.json` and
+  `.agents/default-agentrc.json`; `AUTO_HEAL_SCHEMA` /
+  `getAutoHealValidator` from `lib/config-schema.js`;
+  `autoHeal` field from the `config-resolver.js` resolved shape.
+- **Updated:** `.agents/README.md` and `.agents/SDLC.md` sections
+  referencing auto-heal removed.
+
 ### 🧹 `/sprint-execute` simplified to single-mode (Story-only)
 
 `/sprint-execute` no longer accepts Epic IDs. Every invocation runs one
@@ -42,12 +64,47 @@ the surface area match how operators were already using it.
   the repo for one release so downstream consumers can migrate; a
   follow-up will delete them.
 
+### 🪞 Retros move to GitHub Epic comments + `runRetro` toggle
+
+Retros are no longer written to `docs/retros/retro-epic-<id>.md`. Every
+retro is now posted as a structured comment on the Epic issue, greppable
+via `gh api repos/{owner}/{repo}/issues/<id>/comments`. The comment
+begins with a `## 🪞 Sprint Retrospective — Epic #<id>` marker heading
+that `/sprint-close`'s Retrospective Gate uses to verify a retro ran.
+
+A new `agentSettings.sprintClose.runRetro` boolean (default `true`)
+controls whether `/sprint-close` enforces the retro gate. Set to `false`
+to skip the retro phase entirely on close.
+
+- **New:** `agentSettings.sprintClose.runRetro` — boolean toggle (default
+  `true`). Added to `AGENT_SETTINGS_SCHEMA` in
+  [config-schema.js](.agents/scripts/lib/config-schema.js); rejects
+  unknown keys under `sprintClose`.
+- **Removed:** `agentSettings.retroPath` and the `retroPath` pattern in
+  the agent-settings schema. `.agentrc.json` and
+  `.agents/default-agentrc.json` ship `sprintClose: { runRetro: true }`
+  in its place.
+- **Changed:** [.agents/workflows/sprint-retro.md](.agents/workflows/sprint-retro.md)
+  rewritten — drops the file-write step; posts the retro body as a
+  typed comment on the Epic (`notify.js --type retro` or
+  `provider.postComment(epicId, { type: 'retro' })`). On network
+  failure the body is dumped to `temp/retro-epic-<id>.md` as a recovery
+  aid only.
+- **Changed:** [.agents/workflows/sprint-close.md](.agents/workflows/sprint-close.md)
+  Step 1.5 honors `[RUN_RETRO]` and, when enabled, queries the Epic
+  comment thread for the marker heading instead of testing a local
+  path.
+- **Migration:** none required. Existing files under `docs/retros/`
+  remain in git history; new retros post to GitHub.
+
 ### 📝 Config defaults
 
 - `.agentrc.json` and `.agents/default-agentrc.json` now ship with
   `orchestration.worktreeIsolation.enabled: true` by default, so
   `/sprint-execute <StoryID>` produces `.worktrees/story-<id>/` out of
   the box. Set `enabled: false` to opt back into single-tree mode.
+- `.agentrc.json` and `.agents/default-agentrc.json` now ship with
+  `agentSettings.sprintClose.runRetro: true` (replacing `retroPath`).
 
 ## [5.7.0] - 2026-04-15
 

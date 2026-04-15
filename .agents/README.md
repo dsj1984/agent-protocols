@@ -446,7 +446,6 @@ The SDK centralizes orchestration logic. All CLI scripts and the MCP server are
 | `detect-merges.js`                   | Detects and reports merge conflicts                                     |
 | `audit-orchestrator.js`              | Automated, gate-based static analysis and audit runner                  |
 | `handle-approval.js`                 | CI webhook listener for `/approve` commands on audit findings           |
-| `auto-heal.js`                       | CI self-remediation — resolves risk tier and dispatches healing         |
 
 ### Orchestration Configuration
 
@@ -546,101 +545,6 @@ as structured comments on the Task issue for post-hoc analysis.
 
 ---
 
-## Auto-Heal (CI Self-Remediation)
-
-Agent Protocols ships a governance-tiered CI self-remediation engine. When a CI
-stage fails, the `auto-heal.js` script assembles an AI prompt from the error
-logs, resolves the appropriate risk tier, and dispatches a healing session to
-either the Jules API or a GitHub Issue — without ever blocking the pipeline.
-
-### Configuration
-
-Add an `autoHeal` block to your `.agentrc.json`:
-
-```json
-{
-  "autoHeal": {
-    "enabled": true,
-    "adapter": "jules",
-    "adapters": {
-      "jules": {
-        "apiKeyEnv": "JULES_API_KEY",
-        "apiUrl": "https://jules.googleapis.com/v1alpha/sessions",
-        "requirePlanApproval": true,
-        "maxRetries": 3,
-        "timeoutMs": 30000
-      },
-      "github-issue": {
-        "labelPrefix": "auto-heal",
-        "assignCopilot": false
-      }
-    },
-    "stages": {
-      "lint": {
-        "riskTier": "green",
-        "logArtifact": "lint-output.log",
-        "allowedModifications": ["Any file flagged by linter output"],
-        "forbiddenModifications": []
-      },
-      "typecheck": {
-        "riskTier": "yellow",
-        "logArtifact": "typecheck-output.log",
-        "allowedModifications": ["Type annotations", "interface definitions"],
-        "forbiddenModifications": ["Auth middleware", "seed data"]
-      },
-      "e2e": {
-        "riskTier": "red",
-        "logArtifact": "e2e-output.log",
-        "allowedModifications": ["Playwright spec files", "page objects"],
-        "forbiddenModifications": ["Auth middleware", "API route signatures"]
-      }
-    },
-    "maxLogSizeBytes": 4000,
-    "branchFilter": ["main"],
-    "consolidateSession": true
-  }
-}
-```
-
-| Field                | Default    | Description                                               |
-| -------------------- | ---------- | --------------------------------------------------------- |
-| `enabled`            | `true`     | Master on/off switch                                      |
-| `adapter`            | `"jules"`  | Active adapter (`"jules"` or `"github-issue"`)            |
-| `stages`             | `{}`       | Per-stage risk tier, log artifact, and modification scope |
-| `maxLogSizeBytes`    | `4000`     | Maximum log bytes per stage included in the prompt        |
-| `branchFilter`       | `["main"]` | Branches that auto-heal is active on (informational)      |
-| `consolidateSession` | `true`     | Bundle all failed stages into one session/issue           |
-
-### Adapters
-
-| Adapter        | Config Key                 | Description                                                    |
-| -------------- | -------------------------- | -------------------------------------------------------------- |
-| `jules`        | `adapters.jules`           | Dispatches to the Jules API v1alpha. Requires `JULES_API_KEY`. |
-| `github-issue` | `adapters['github-issue']` | Creates a labeled GitHub Issue. Requires `GITHUB_TOKEN`.       |
-
-### Risk Tier Reference
-
-| Tier     | Emoji | `autoApprove` | Typical Stages         | Description                              |
-| -------- | ----- | ------------- | ---------------------- | ---------------------------------------- |
-| `green`  | 🟢    | `true`        | lint, formatting       | Low-risk fix; no plan approval needed    |
-| `yellow` | 🟡    | `false`       | typecheck, unit tests  | Moderate risk; plan approval required    |
-| `red`    | 🔴    | `false`       | e2e, build, migrations | High risk; full human review recommended |
-
-The **highest-risk failed stage** determines the overall tier for the run.
-
-### CI Integration
-
-Copy `.agents/templates/ci-auto-heal-job.yml` into your GitHub Actions workflow
-and customize the `needs`, `if`, and artifact download steps for your project.
-
-### Slash Command
-
-Use `/ci-auto-heal` to manually trigger the auto-heal pipeline from a local
-conversation when the automated CI job did not fire. See
-`workflows/ci-auto-heal.md` for the full step-by-step guide.
-
----
-
 ## Git Performance (Windows)
 
 ### Global Settings (Run Once)
@@ -661,8 +565,8 @@ git maintenance start
 ## Error-Handling Convention
 
 All scripts under `.agents/scripts/` follow a single posture for reporting
-failures. Matching the convention keeps operator output predictable and
-avoids the "silent downgrade" bugs called out in the clean-code audit.
+failures. Matching the convention keeps operator output predictable and avoids
+the "silent downgrade" bugs called out in the clean-code audit.
 
 | Severity | Emitter                | When to use                                                                                  |
 | -------- | ---------------------- | -------------------------------------------------------------------------------------------- |
@@ -675,17 +579,16 @@ avoids the "silent downgrade" bugs called out in the clean-code audit.
 
 Rules of thumb:
 
-- Prefer `throw` inside library code (`.agents/scripts/lib/`). Let the CLI
-  entry point decide whether to fatal or continue.
+- Prefer `throw` inside library code (`.agents/scripts/lib/`). Let the CLI entry
+  point decide whether to fatal or continue.
 - `Logger.fatal` exists exactly once per script — at the CLI boundary via
-  `runAsCli`'s error handler. If you are calling it from anywhere else,
-  you are probably hiding a `throw`.
-- Empty `catch {}` is a bug in 99% of cases. Either log at the right level
-  or add a one-line comment explaining why silence is correct (e.g.
-  "deletion is idempotent, file may not exist").
-- `console.error` is reserved for paths that run before `Logger` is
-  available (e.g. pre-config-resolve bootstrap).
+  `runAsCli`'s error handler. If you are calling it from anywhere else, you are
+  probably hiding a `throw`.
+- Empty `catch {}` is a bug in 99% of cases. Either log at the right level or
+  add a one-line comment explaining why silence is correct (e.g. "deletion is
+  idempotent, file may not exist").
+- `console.error` is reserved for paths that run before `Logger` is available
+  (e.g. pre-config-resolve bootstrap).
 
 See `.agents/scripts/lib/Logger.js` for the implementation. Toggle
-`AGENT_LOG_LEVEL=debug` in your environment to enable `Logger.debug`
-output.
+`AGENT_LOG_LEVEL=debug` in your environment to enable `Logger.debug` output.

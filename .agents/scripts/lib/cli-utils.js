@@ -11,7 +11,7 @@
  * `runAsCli` centralises that pattern. Callers pass `import.meta.url`, a main
  * function, and an options bag for customising the error prefix, exit code,
  * or a fully-custom onError handler for scripts with non-standard failure
- * behaviour (e.g. auto-heal exits 0 on failure to never block CI).
+ * behaviour.
  */
 
 import path from 'node:path';

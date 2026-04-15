@@ -31,7 +31,9 @@
       "excludeLabels": ["roadmap-exclude"]
     },
     "roadmapPath": "docs/ROADMAP.md",
-    "retroPath": "docs/retros/retro-epic-{epicId}.md",
+    "sprintClose": {
+      "runRetro": true
+    },
     "verboseLogging": {
       "enabled": false,
       "logDir": "temp/verbose-logs"
@@ -219,37 +221,6 @@
       "reapOnSuccess": true,
       "reapOnCancel": true,
       "warnOnUncommittedOnReap": true
-    }
-  },
-  "autoHeal": {
-    "enabled": true,
-    "adapter": "jules",
-    "maxLogSizeBytes": 4000,
-    "branchFilter": ["main"],
-    "consolidateSession": true,
-    "adapters": {
-      "jules": {
-        "requirePlanApproval": true,
-        "maxRetries": 3
-      },
-      "github-issue": {
-        "labelPrefix": "auto-heal",
-        "assignCopilot": true
-      }
-    },
-    "stages": {
-      "lint": {
-        "riskTier": "green",
-        "autoApprove": true
-      },
-      "test": {
-        "riskTier": "yellow",
-        "autoApprove": false
-      },
-      "publish": {
-        "riskTier": "red",
-        "autoApprove": false
-      }
     }
   }
 }
