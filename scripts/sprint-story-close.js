@@ -8,7 +8,9 @@
  * Mode B workflow. Performs all post-implementation orchestration:
  *
  *   1. Validates the Story branch exists and is currently checked out.
- *   2. Checks for risk::high label — creates a PR instead of auto-merging.
+ *   2. Checks for risk::high label — pauses with a HITL comment and exits
+ *      non-zero. The operator either removes the label and re-runs, merges
+ *      manually, or reworks. The story branch is left untouched.
  *   3. Merges the Story branch into epic/<epicId> with --no-ff.
  *   4. Pushes the Epic branch.
  *   5. Deletes the Story branch (local + remote).
@@ -23,7 +25,7 @@
  *
  * Exit codes:
  *   0 — Story closed and merged successfully.
- *   1 — Error or risk::high gate (PR created instead of merge).
+ *   1 — Error or risk::high gate (paused for operator decision).
  *
  * @see .agents/workflows/sprint-execute.md Mode B
  */
@@ -257,24 +259,42 @@ async function handleHighRiskGate(
   storyBranch,
   storyId,
   _epicId,
-  cwd,
+  _cwd,
 ) {
-  progress('RISK', '⚠️ Story is risk::high — creating PR instead of auto-merge');
-  let prUrl = null;
+  progress(
+    'RISK',
+    '⚠️ Story is risk::high — pausing for operator decision (no PR, no merge).',
+  );
+
   try {
-    const pr = await provider.createPullRequest(storyBranch, storyId);
-    prUrl = pr.htmlUrl ?? pr.url;
-    progress('RISK', `PR created: ${prUrl}`);
+    await provider.postComment(storyId, {
+      body:
+        `⚠️ **HITL Gate — risk::high Story #${storyId}**\n\n` +
+        `All child tasks are complete on branch \`${storyBranch}\`, but this ` +
+        `story is labelled \`risk::high\`. Automated merge is paused.\n\n` +
+        `**Choose one:**\n` +
+        `- **Proceed with merge** — re-run \`sprint-story-close\` for this ` +
+        `story after removing the \`risk::high\` label (or flip ` +
+        `\`orchestration.hitl.riskHighApproval: false\` in \`.agentrc.json\` ` +
+        `to disable the gate globally).\n` +
+        `- **Review manually** — check out \`${storyBranch}\`, inspect the ` +
+        `diff against the epic branch, and merge by hand when satisfied.\n` +
+        `- **Reject / rework** — leave the branch in place and open follow-up ` +
+        `tasks; the story stays blocked until the label is removed.\n\n` +
+        `The story branch has **not** been pushed, merged, or deleted.`,
+      type: 'notification',
+    });
   } catch (err) {
-    console.error(`[sprint-story-close] PR creation failed: ${err.message}`);
+    console.error(
+      `[sprint-story-close] Failed to post HITL comment: ${err.message}`,
+    );
   }
-  // Push the story branch if not already pushed
-  gitSpawn(cwd, 'push', '--no-verify', 'origin', storyBranch);
 
   return {
-    action: 'pr-created',
-    prUrl,
-    reason: 'risk::high — manual review required before merge',
+    action: 'paused-for-approval',
+    reason:
+      'risk::high — operator must choose: re-run after label removal, ' +
+      'merge manually, or rework. Story branch left untouched.',
   };
 }
 
