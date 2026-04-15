@@ -255,46 +255,50 @@ async function cleanupTempFiles(storyId) {
 // ---------------------------------------------------------------------------
 
 async function handleHighRiskGate(
-  provider,
+  _provider,
   storyBranch,
   storyId,
   _epicId,
   _cwd,
 ) {
+  // Pure pause. No PR, no push, no ticket comment, no label change — the
+  // invoking agent (running /sprint-execute) sees this stderr block and the
+  // non-zero exit, stops the workflow, and relays the options to the human
+  // in chat. The human replies in chat and the agent resumes accordingly.
   progress(
     'RISK',
-    '⚠️ Story is risk::high — pausing for operator decision (no PR, no merge).',
+    `⚠️ Story #${storyId} is risk::high — pausing the workflow for operator input.`,
   );
-
-  try {
-    await provider.postComment(storyId, {
-      body:
-        `⚠️ **HITL Gate — risk::high Story #${storyId}**\n\n` +
-        `All child tasks are complete on branch \`${storyBranch}\`, but this ` +
-        `story is labelled \`risk::high\`. Automated merge is paused.\n\n` +
-        `**Choose one:**\n` +
-        `- **Proceed with merge** — re-run \`sprint-story-close\` for this ` +
-        `story after removing the \`risk::high\` label (or flip ` +
-        `\`orchestration.hitl.riskHighApproval: false\` in \`.agentrc.json\` ` +
-        `to disable the gate globally).\n` +
-        `- **Review manually** — check out \`${storyBranch}\`, inspect the ` +
-        `diff against the epic branch, and merge by hand when satisfied.\n` +
-        `- **Reject / rework** — leave the branch in place and open follow-up ` +
-        `tasks; the story stays blocked until the label is removed.\n\n` +
-        `The story branch has **not** been pushed, merged, or deleted.`,
-      type: 'notification',
-    });
-  } catch (err) {
-    console.error(
-      `[sprint-story-close] Failed to post HITL comment: ${err.message}`,
-    );
-  }
+  Logger.error('');
+  Logger.error(
+    `[HITL GATE] Story #${storyId} (\`${storyBranch}\`) is labelled risk::high.`,
+  );
+  Logger.error('All child tasks are complete, but the story has NOT been');
+  Logger.error('pushed, merged, or deleted. Ask the operator to choose:');
+  Logger.error('');
+  Logger.error(
+    '  (1) Proceed with auto-merge — remove the `risk::high` label on the',
+  );
+  Logger.error('      story, then re-run sprint-story-close for this story.');
+  Logger.error(
+    '  (2) Merge manually — operator inspects the diff and merges by hand.',
+  );
+  Logger.error(
+    '  (3) Reject / rework — leave the branch alone and open follow-up work.',
+  );
+  Logger.error('');
+  Logger.error(
+    'To skip this gate globally, set `orchestration.hitl.riskHighApproval` to',
+  );
+  Logger.error('false in `.agentrc.json`.');
+  Logger.error('');
 
   return {
     action: 'paused-for-approval',
     reason:
-      'risk::high — operator must choose: re-run after label removal, ' +
-      'merge manually, or rework. Story branch left untouched.',
+      'risk::high — operator must choose in chat: (1) remove label and ' +
+      're-run for auto-merge, (2) merge manually, or (3) reject/rework. ' +
+      'No ticket mutations were made. Story branch left untouched.',
   };
 }
 

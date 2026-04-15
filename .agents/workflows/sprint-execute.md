@@ -144,10 +144,14 @@ In single-tree mode, `--cwd` can be omitted (defaults to `PROJECT_ROOT`).
 
 The script:
 
-- Checks for `risk::high` — posts a HITL comment on the Story and exits with
-  code 1 (operator decision required). The story branch is left untouched: the
-  operator can remove the label and re-run, merge manually, or rework. Disable
-  globally via `orchestration.hitl.riskHighApproval: false`.
+- Checks for `risk::high` — if set, the script prints a HITL prompt to stderr
+  and exits non-zero **without** creating a PR, pushing the branch, or posting
+  any comment. **You (the agent) MUST stop here and ask the operator in chat**
+  which of the three options to take: (1) proceed with auto-merge (operator
+  removes the `risk::high` label, then you re-run this command), (2) merge
+  manually, or (3) reject/rework. Do not take any further action until the
+  operator replies in chat. The gate can be disabled globally via
+  `orchestration.hitl.riskHighApproval: false`.
 - Merges the Story branch into `epic/<epicId>` with `--no-ff`.
 - Pushes the Epic branch.
 - Deletes the Story branch (local + remote).

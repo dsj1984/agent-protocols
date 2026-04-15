@@ -329,4 +329,9 @@ test('sprint-story-close: handle risk::high gate', async () => {
     /risk::high/,
     'Reason should cite the risk::high label',
   );
+  assert.strictEqual(
+    provider.comments.length,
+    0,
+    'Gate must not post any ticket comment — pause is in-chat only',
+  );
 });

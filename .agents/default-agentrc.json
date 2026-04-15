@@ -15,7 +15,9 @@
       "architecture.md",
       "data-dictionary.md",
       "decisions.md",
-      "patterns.md"
+      "patterns.md",
+      "style-guide.md",
+      "web-routes.md"
     ],
     "roadmap": {
       "autoGenerate": true,
@@ -80,7 +82,7 @@
     "worktreeIsolation": {
       "enabled": true,
       "root": ".worktrees",
-      "nodeModulesStrategy": "per-worktree",
+      "nodeModulesStrategy": "pnpm-store",
       "reapOnSuccess": true,
       "reapOnCancel": true,
       "warnOnUncommittedOnReap": true
