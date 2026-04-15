@@ -14,8 +14,8 @@ into the wrong commit. Epic #229 moves each dispatched story into its own
 activity are isolated per-story. The main checkout stays quiet.
 
 This document is the operator and reviewer reference. See
-[`sprint-execute`](sprint-execute.md) for the broader sprint flow and the Epic
-#229 Tech Spec for architectural rationale.
+[`sprint-execute`](sprint-execute.md) for the broader sprint flow and the
+Epic-229 Tech Spec for architectural rationale.
 
 ## Configuration
 
