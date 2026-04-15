@@ -51,29 +51,56 @@ async function main() {
   progress('INIT', `Starting formal closure for Epic #${epicId}...`);
 
   // -------------------------------------------------------------------------
-  // 1. Resolve and Close Context Tickets (PRD, Tech Spec)
+  // 1. Resolve and Close Context + Health Tickets (PRD, Tech Spec, Sprint Health)
   // -------------------------------------------------------------------------
+  //
+  // The Sprint Health ticket (`type::health`, title starts with "📉 Sprint
+  // Health:") is a live-updated tracker dashboard created by the dispatcher.
+  // Like PRD/Tech-Spec tickets it holds no planned work, so it is closed
+  // alongside them here — otherwise it lingers as an orphan child of a
+  // closed Epic and pollutes future project views.
   try {
-    progress('CONTEXT', 'Searching for PRD and Tech Spec tickets...');
+    progress(
+      'CONTEXT',
+      'Searching for PRD, Tech Spec, and Sprint Health tickets...',
+    );
     const subTickets = await provider.getSubTickets(epicId);
 
-    const contextTickets = subTickets.filter(
-      (t) =>
+    const auxiliaryTickets = subTickets.filter((t) => {
+      if (
         t.labels.includes('context::prd') ||
-        t.labels.includes('context::tech-spec'),
-    );
+        t.labels.includes('context::tech-spec')
+      ) {
+        return true;
+      }
+      if (t.labels.includes('type::health')) return true;
+      if (
+        typeof t.title === 'string' &&
+        t.title.startsWith('📉 Sprint Health:')
+      )
+        return true;
+      return false;
+    });
 
-    if (contextTickets.length === 0) {
-      progress('CONTEXT', 'No open PRD/Tech Spec tickets found.');
+    if (auxiliaryTickets.length === 0) {
+      progress(
+        'CONTEXT',
+        'No open PRD / Tech Spec / Sprint Health tickets found.',
+      );
     } else {
       await Promise.all(
-        contextTickets.map(async (ticket) => {
+        auxiliaryTickets.map(async (ticket) => {
           if (ticket.state === 'closed') return;
 
-          progress(
-            'CONTEXT',
-            `Closing ${ticket.labels.find((l) => l.startsWith('context::'))} #${ticket.id}...`,
-          );
+          const kind =
+            ticket.labels.find((l) => l.startsWith('context::')) ??
+            (ticket.labels.includes('type::health') ||
+            (typeof ticket.title === 'string' &&
+              ticket.title.startsWith('📉 Sprint Health:'))
+              ? 'type::health'
+              : 'auxiliary');
+
+          progress('CONTEXT', `Closing ${kind} #${ticket.id}...`);
           await transitionTicketState(provider, ticket.id, STATE_LABELS.DONE);
           progress('CONTEXT', `✅ #${ticket.id} closed.`);
         }),
@@ -81,7 +108,7 @@ async function main() {
     }
   } catch (err) {
     console.warn(
-      `⚠️ Warning: Failed to process context tickets: ${err.message}`,
+      `⚠️ Warning: Failed to process auxiliary tickets: ${err.message}`,
     );
   }
 

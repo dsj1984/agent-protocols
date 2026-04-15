@@ -269,8 +269,11 @@ node [SCRIPTS_ROOT]/sprint-close.js --epic [EPIC_ID]
 
 This automated script performs:
 
-1. **Discovery**: Finds and closes `context::prd` and `context::tech-spec`
-   tickets for this Epic.
+1. **Discovery**: Finds and closes `context::prd`, `context::tech-spec`, and
+   `type::health` (Sprint Health dashboard) tickets for this Epic. These
+   auxiliary tickets hold no planned work — they exist to stage or track the
+   sprint — and are closed together so the Epic does not retain open children
+   after closure.
 2. **Epic Closure**: Posts a final summary comment and closes the Epic issue.
 3. **Cleanup**: Deletes all local and remote branches associated with this Epic
    (can be disabled with `--no-cleanup`).

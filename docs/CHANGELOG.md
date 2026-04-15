@@ -93,6 +93,25 @@ The workflow now auto-invokes both skills inline:
   (Code Review auto-invoke), revised Step 1.5 (Retro auto-invoke),
   updated "When to run" preamble and Constraints section.
 
+### 🩺 Sprint Health ticket now closed alongside PRD/Tech Spec
+
+The dispatcher creates a `📉 Sprint Health: <Epic title>` tracker issue
+(labelled `type::health`) that is rewritten with live progress metrics on
+every story close. `sprint-close.js` was only closing `context::prd` and
+`context::tech-spec` children, so the Sprint Health ticket lingered as an
+open child of a closed Epic and cluttered future project views.
+
+The closure sweep in Step 8 now matches any ticket carrying the
+`type::health` label **or** a title starting with `📉 Sprint Health:`, in
+addition to the two existing context labels. All three are closed in the
+same pass.
+
+- **Changed:** `.agents/scripts/sprint-close.js` — the context-tickets
+  filter now also matches `type::health` and the `📉 Sprint Health:`
+  title prefix; progress log messages updated.
+- **Changed:** `.agents/workflows/sprint-close.md` — Step 8 documents
+  that Sprint Health tickets are closed alongside PRD/Tech Spec.
+
 ### 🧹 Stale-lock sweep for shared `.git/` dir
 
 Parallel sprint agents use per-story worktrees, but the main repo's

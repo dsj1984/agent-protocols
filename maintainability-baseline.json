@@ -64,7 +64,7 @@
   ".agents/scripts/notify.js": 84.767,
   ".agents/scripts/providers/github-http-client.js": 100.286,
   ".agents/scripts/providers/github.js": 99.582,
-  ".agents/scripts/sprint-close.js": 94.601,
+  ".agents/scripts/sprint-close.js": 92.52,
   ".agents/scripts/sprint-code-review.js": 84.605,
   ".agents/scripts/sprint-story-close.js": 84.054,
   ".agents/scripts/sprint-story-init.js": 91.64,
