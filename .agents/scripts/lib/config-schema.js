@@ -62,23 +62,6 @@ export const ORCHESTRATION_SCHEMA = {
       },
       additionalProperties: false,
     },
-    llm: {
-      type: 'object',
-      properties: {
-        provider: {
-          type: 'string',
-          enum: [
-            'gemini',
-            'anthropic',
-            'openai',
-            'anthropic-vertex',
-            'azure-openai',
-          ],
-        },
-        model: { type: 'string' },
-      },
-      additionalProperties: false,
-    },
   },
   additionalProperties: false,
 };

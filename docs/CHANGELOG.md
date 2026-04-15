@@ -2,6 +2,40 @@
 
 All notable changes to this project will be documented in this file.
 
+## [5.6.0] - 2026-04-14
+
+### 🧹 Planning pipeline — host LLM authors PRD / Tech Spec / tickets
+
+Removed the standalone external-LLM dependency from the planning scripts. The
+host LLM driving the harness now authors planning artifacts directly, and the
+Node scripts become deterministic GitHub I/O wrappers. PRD and Tech Spec are
+still persisted as linked GitHub issues under the Epic (unchanged); only the
+authoring step has moved in-process.
+
+- **Removed:** `.agents/scripts/lib/llm-client.js` and its test. No more
+  `GEMINI_API_KEY` / `ANTHROPIC_API_KEY` / `OPENAI_API_KEY` usage anywhere
+  in the repo.
+- **`epic-planner.js` has two modes.**
+  - `--emit-context` prints a JSON envelope (epic body, scraped project docs,
+    recommended PRD/Tech-Spec system prompts) to stdout for the host LLM.
+  - Default mode takes `--prd <file> --techspec <file>` and creates the two
+    planning issues exactly as before, preserving all state-healing behavior.
+- **`ticket-decomposer.js` has two modes.**
+  - `--emit-context` prints PRD/Tech-Spec bodies, risk heuristics, the
+    decomposer system prompt, and the 25-ticket cap.
+  - Default mode takes `--tickets <file>` (a JSON array) and
+    validates + creates Feature/Story/Task issues exactly as before.
+- **Config:** removed the `orchestration.llm` block from `.agentrc.json` and
+  `default-agentrc.json`, and removed the `llm` property from the orchestration
+  JSON Schema in `config-schema.js`.
+- **`.env.example`:** removed all three LLM provider key entries.
+- **Workflow:** `sprint-plan.md` rewritten for the new two-phase flow — the
+  host LLM calls `--emit-context`, authors the artifacts locally, then hands
+  the files back to the script for persistence.
+- **Tests:** `epic-planner.test.js` and `ticket-decomposer.test.js` rewritten
+  to cover both context-emission helpers and the content-in / issues-out
+  pipeline. `llm-client.test.js` removed.
+
 ## [5.5.3] - 2026-04-14
 
 ### 🛡️ Planning Hardening — close every silent task-drop path

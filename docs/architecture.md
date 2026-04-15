@@ -171,7 +171,6 @@ graph TB
         AF["adapter-factory.js"]:::lib
         GH["Graph.js (DAG)"]:::lib
         DP["dependency-parser.js"]:::lib
-        LC["llm-client.js"]:::lib
         GMO["git-merge-orchestrator.js"]:::lib
         GU["git-utils.js"]:::lib
         VL["VerboseLogger.js"]:::lib
@@ -188,8 +187,8 @@ graph TB
     end
 
     DI --> CR & PF & AF & GH & DP & CH
-    EP --> CR & PF & LC
-    TD --> CR & PF & LC & DP
+    EP --> CR & PF
+    TD --> CR & PF & DP
 
     PF --> ITP
     AF --> IEA

@@ -1,15 +1,43 @@
 import assert from 'node:assert/strict';
 import { beforeEach, describe, it } from 'node:test';
-import { decomposeEpic } from '../.agents/scripts/ticket-decomposer.js';
+import { DECOMPOSER_SYSTEM_PROMPT } from '../.agents/scripts/lib/templates/decomposer-prompts.js';
+import {
+  buildDecomposerSystemPrompt,
+  buildDecompositionContext,
+  decomposeEpic,
+} from '../.agents/scripts/ticket-decomposer.js';
 
-describe('ticket-decomposer orchestration', () => {
+const baseTickets = () => [
+  {
+    slug: 'f1',
+    type: 'feature',
+    title: 'Feature One',
+    body: 'Body of Feature One',
+    labels: ['type::feature', 'persona::engineer'],
+  },
+  {
+    slug: 's1',
+    type: 'story',
+    title: 'Story One',
+    body: 'Body of Story One',
+    labels: ['type::story', 'persona::fullstack', 'complexity::fast'],
+    parent_slug: 'f1',
+  },
+  {
+    slug: 't1',
+    type: 'task',
+    title: 'Task One',
+    body: 'Body of Task One',
+    labels: ['type::task', 'persona::engineer'],
+    parent_slug: 's1',
+  },
+];
+
+describe('ticket-decomposer orchestration (v5.6+)', () => {
   let mockProvider;
-  let mockLlm;
 
   beforeEach(() => {
-    // Basic mock provider state setup
     mockProvider = {
-      epicId: 1,
       createdTickets: [],
       updatedTickets: [],
 
@@ -18,7 +46,7 @@ describe('ticket-decomposer orchestration', () => {
         return {
           id: 1,
           title: 'Implement V5 Core',
-          body: 'This epic covers the v5 architectural overhaul.',
+          body: 'Epic body.',
           labels: ['epic'],
           linkedIssues: { prd: 100, techSpec: 101 },
         };
@@ -40,49 +68,17 @@ describe('ticket-decomposer orchestration', () => {
         this.updatedTickets.push({ id, mutations });
       },
     };
-
-    mockLlm = {
-      promptsReceived: [],
-      async generateText(systemPrompt, userPrompt) {
-        this.promptsReceived.push({ systemPrompt, userPrompt });
-        return JSON.stringify([
-          {
-            slug: 'f1',
-            type: 'feature',
-            title: 'Feature One',
-            body: 'Body of Feature One',
-            labels: ['type::feature', 'persona::engineer'],
-          },
-          {
-            slug: 's1',
-            type: 'story',
-            title: 'Story One',
-            body: 'Body of Story One',
-            labels: ['type::story', 'persona::fullstack', 'complexity::fast'],
-            parent_slug: 'f1',
-          },
-          {
-            slug: 't1',
-            type: 'task',
-            title: 'Task One',
-            body: 'Body of Task One',
-            labels: ['type::task', 'persona::engineer'],
-            parent_slug: 's1',
-          },
-        ]);
-      },
-    };
   });
 
   it('aborts early if epic is missing linked artifacts', async () => {
-    // Override getEpic to return no links
     mockProvider.getEpic = async () => ({
       title: 'Missing Links Epic',
       linkedIssues: { prd: null, techSpec: null },
     });
 
     await assert.rejects(
-      async () => await decomposeEpic(1, mockProvider, mockLlm),
+      async () =>
+        await decomposeEpic(1, mockProvider, { tickets: baseTickets() }),
       {
         message:
           '[Decomposer] Epic #1 is missing linked PRD or Tech Spec. Run the Epic Planner first.',
@@ -90,63 +86,31 @@ describe('ticket-decomposer orchestration', () => {
     );
   });
 
-  it('runs the full decomposition pipeline correctly', async () => {
-    const config = {
-      agentSettings: {
-        riskGates: {
-          heuristics: ['Destructive DB changes'],
-        },
-      },
-    };
+  it('rejects a non-array tickets payload', async () => {
+    await assert.rejects(
+      async () =>
+        await decomposeEpic(1, mockProvider, { tickets: 'not an array' }),
+      { message: /tickets must be an array/ },
+    );
+  });
 
-    await decomposeEpic(1, mockProvider, mockLlm, config);
+  it('creates Feature/Story/Task tickets from an authored array', async () => {
+    await decomposeEpic(1, mockProvider, { tickets: baseTickets() });
 
-    // 1. LLM Generation checks
-    assert.equal(
-      mockLlm.promptsReceived.length,
-      1,
-      'Should call LLM once for decomposition',
-    );
-    assert.ok(
-      mockLlm.promptsReceived[0].systemPrompt.includes('### RISK HEURISTICS'),
-      'System prompt should include heuristics header',
-    );
-    assert.ok(
-      mockLlm.promptsReceived[0].systemPrompt.includes(
-        'Destructive DB changes',
-      ),
-      'System prompt should include specific heuristic',
-    );
-    assert.ok(
-      mockLlm.promptsReceived[0].userPrompt.includes('Mocked PRD body'),
-      'Prompt should include PRD body',
-    );
-    assert.ok(
-      mockLlm.promptsReceived[0].userPrompt.includes('Mocked Tech Spec body'),
-      'Prompt should include Tech Spec body',
-    );
-
-    // 2. Ticket Creation checks
     assert.equal(
       mockProvider.createdTickets.length,
       3,
       'Should create exactly three tickets (Feature, Story, Task)',
     );
 
-    // Feature Ticket validation
     const f1 = mockProvider.createdTickets[0];
     assert.equal(f1.ticketData.title, 'Feature One');
     assert.deepEqual(f1.ticketData.labels, [
       'type::feature',
       'persona::engineer',
     ]);
-    assert.deepEqual(
-      f1.ticketData.dependencies,
-      [],
-      'Feature should have no dependencies (root in his tier)',
-    );
+    assert.deepEqual(f1.ticketData.dependencies, []);
 
-    // Story Ticket validation
     const s1 = mockProvider.createdTickets[1];
     assert.equal(s1.ticketData.title, 'Story One');
     assert.deepEqual(s1.ticketData.labels, [
@@ -154,32 +118,94 @@ describe('ticket-decomposer orchestration', () => {
       'persona::fullstack',
       'complexity::fast',
     ]);
-    assert.deepEqual(
-      s1.ticketData.dependencies,
-      [],
-      'Story should have no dependencies',
-    );
 
-    // Task Ticket validation
     const t1 = mockProvider.createdTickets[2];
     assert.equal(t1.ticketData.title, 'Task One');
-    assert.deepEqual(t1.ticketData.labels, ['type::task', 'persona::engineer']);
-    assert.deepEqual(
-      t1.ticketData.dependencies,
-      [],
-      'Task should have no dependencies',
-    );
   });
 
-  it('handles LLM markdown wrapping in JSON response', async () => {
-    mockLlm.generateText = async () =>
-      '```json\n[{"slug":"f1","type":"feature","title":"Wrapped Feature","body":"Body","labels":[]},{"slug":"s1","type":"story","title":"Wrapped Story","body":"Body","parent_slug":"f1","labels":["complexity::high"]},{"slug":"t1","type":"task","title":"Wrapped Task","body":"Body","parent_slug":"s1","labels":[]}]\n```';
+  it('maps depends_on slugs to created issue IDs', async () => {
+    const tickets = baseTickets();
+    tickets.push({
+      slug: 't2',
+      type: 'task',
+      title: 'Task Two',
+      body: 'Depends on Task One',
+      labels: ['type::task', 'persona::engineer'],
+      parent_slug: 's1',
+      depends_on: ['t1'],
+    });
 
-    await decomposeEpic(1, mockProvider, mockLlm);
-    assert.equal(mockProvider.createdTickets.length, 3);
-    assert.equal(
-      mockProvider.createdTickets[0].ticketData.title,
-      'Wrapped Feature',
+    await decomposeEpic(1, mockProvider, { tickets });
+
+    const t2 = mockProvider.createdTickets.find(
+      (c) => c.ticketData.title === 'Task Two',
+    );
+    assert.ok(t2);
+    // t1 is the third created ticket → id 202
+    assert.deepEqual(t2.ticketData.dependencies, [202]);
+  });
+});
+
+describe('ticket-decomposer buildDecomposerSystemPrompt', () => {
+  it('returns the base prompt when no heuristics are supplied', () => {
+    const prompt = buildDecomposerSystemPrompt([]);
+    assert.equal(prompt, DECOMPOSER_SYSTEM_PROMPT);
+  });
+
+  it('appends risk heuristics when supplied', () => {
+    const prompt = buildDecomposerSystemPrompt([
+      'Destructive DB changes',
+      'Global refactors',
+    ]);
+    assert.ok(prompt.startsWith(DECOMPOSER_SYSTEM_PROMPT));
+    assert.ok(prompt.includes('### RISK HEURISTICS'));
+    assert.ok(prompt.includes('Destructive DB changes'));
+    assert.ok(prompt.includes('Global refactors'));
+  });
+});
+
+describe('ticket-decomposer buildDecompositionContext', () => {
+  it('returns the PRD/Tech Spec bodies and system prompt', async () => {
+    const provider = {
+      async getEpic(id) {
+        return {
+          id,
+          title: 'Ctx Epic',
+          linkedIssues: { prd: 10, techSpec: 11 },
+        };
+      },
+      async getTicket(id) {
+        return {
+          id,
+          body: id === 10 ? 'PRD BODY' : 'TECH SPEC BODY',
+        };
+      },
+    };
+
+    const ctx = await buildDecompositionContext(1, provider, {
+      agentSettings: { riskGates: { heuristics: ['Heuristic A'] } },
+    });
+
+    assert.equal(ctx.epic.id, 1);
+    assert.equal(ctx.prd.body, 'PRD BODY');
+    assert.equal(ctx.techSpec.body, 'TECH SPEC BODY');
+    assert.deepEqual(ctx.heuristics, ['Heuristic A']);
+    assert.ok(ctx.systemPrompt.includes('Heuristic A'));
+    assert.equal(ctx.maxTickets, 25);
+  });
+
+  it('throws when planning artifacts are missing', async () => {
+    const provider = {
+      async getEpic() {
+        return { id: 1, linkedIssues: { prd: null, techSpec: null } };
+      },
+      async getTicket() {
+        return null;
+      },
+    };
+    await assert.rejects(
+      async () => await buildDecompositionContext(1, provider, {}),
+      { message: /missing linked PRD or Tech Spec/ },
     );
   });
 });
