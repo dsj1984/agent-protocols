@@ -10,9 +10,10 @@ This workflow is the **terminal step** of the Epic lifecycle. It promotes the
 fully integrated and reviewed `epic/<epicId>` branch into `main`, closes the
 Epic GitHub issue, cleans up all sprint branches, and optionally tags a release.
 
-> **When to run**: After `/sprint-code-review` and `/sprint-retro` are complete.
-> The Code Review is a **mandatory pre-merge gate** — never run `/sprint-close`
-> without it.
+> **When to run**: As soon as all child work is closed. `/sprint-close` now
+> **auto-invokes** the mandatory pre-merge gates (`/sprint-code-review` in Step
+> 1.4 and `/sprint-retro` in Step 1.5) when they have not already been
+> completed, so operators no longer need to run them by hand.
 >
 > **Persona**: `devops-engineer` · **Skills**:
 > `core/git-workflow-and-versioning`
@@ -58,7 +59,34 @@ successfully closed:
 If ANY child ticket is not closed: **STOP IMMEDIATELY.** Alert the operator with
 the exact open IDs.
 
-## Step 1.5 — Retrospective Gate
+## Step 1.4 — Code Review Gate (auto-invoke)
+
+Before any merge-to-main, the Epic must have passed a `/sprint-code-review`.
+Historically this step was operator-driven — if the review hadn't been run,
+`/sprint-close` would halt and ask the operator to run it separately, which
+created friction between "all child work is done" and "Epic is actually merged."
+As of v5.8.7, the close workflow **auto-invokes** the review and only stops if
+the review itself surfaces a blocker.
+
+1. Invoke `/sprint-code-review [EPIC_ID]` inline (read-only audit mode — no
+   remediation).
+2. Inspect the resulting findings report:
+   - **Any 🔴 Critical Blocker** — STOP. Relay the blockers to the operator and
+     do not proceed to Step 1.5. The operator decides whether to fix on the Epic
+     branch and re-run `/sprint-close`, or to override explicitly.
+   - **Only 🟠/🟡/🟢 findings** — log them to the operator as "non-blocking
+     review findings" and continue to Step 1.5. Non-blocking findings are
+     surfaced but do not halt the close.
+3. If the operator passes `--skip-code-review` at invocation time, skip this
+   step entirely and log `"code review skipped by operator override"`.
+
+> **Why this changed:** The old gate assumed `/sprint-code-review` had already
+> been run out-of-band and stopped when it couldn't detect evidence. But
+> `/sprint-code-review` produces an inline report, not a persisted marker, so
+> the gate's "not detected" state collapsed to "never run." Auto- invoking
+> removes the ambiguity and makes the close workflow self-complete.
+
+## Step 1.5 — Retrospective Gate (auto-invoke)
 
 **Skip this step entirely when `[RUN_RETRO]` is `false`.** Log
 `"retro skipped by config (agentSettings.sprintClose.runRetro=false)"` and
@@ -74,13 +102,22 @@ gh api "repos/{owner}/{repo}/issues/[EPIC_ID]/comments" \
   --jq '.[] | select(.body | startswith("## 🪞 Sprint Retrospective — Epic #[EPIC_ID]"))'
 ```
 
-If no matching comment is found: **STOP IMMEDIATELY.** The `/sprint-retro` phase
-was skipped. Invoke `/sprint-retro [EPIC_ID]` to produce and post the
-retrospective before re-running `/sprint-close`.
+If no matching comment is found, **auto-invoke** `/sprint-retro [EPIC_ID]`
+inline. The retro skill produces and posts the retrospective comment on the
+Epic, then returns. After it completes, re-run the `gh api` check above to
+confirm the comment is now present; if it is, proceed to Step 2. If the retro
+skill failed to produce a comment for any reason, STOP and relay the failure to
+the operator.
 
 > **Why this gate exists:** Without it, retros get silently skipped and the Epic
 > closes with no post-mortem record. The gate reads directly from GitHub (the
 > retro's source of truth), not a local path.
+>
+> **Why it now auto-invokes:** The prior "STOP and ask the operator to run
+> `/sprint-retro`" step generated friction every time — the operator always
+> wanted option (a) (run it, then continue). Auto-invocation collapses the
+> round-trip; the gate still exists as a failure detector, it just no longer
+> requires a human handoff to pass.
 
 ## Step 2 — Documentation Freshness Gate
 
@@ -291,6 +328,10 @@ up branches.
   proceeds. If a file has no changes, update it.
 - **Never** skip the pre-merge validation (lint + test). A broken `main` branch
   blocks all future Epics.
+- **Always** auto-invoke `/sprint-code-review` (Step 1.4) and `/sprint-retro`
+  (Step 1.5) from inside `/sprint-close` when they have not already produced
+  their respective artefacts. Do not halt and ask the operator to run them
+  separately — that round-trip is what v5.8.7 removed.
 - **Always** bump the version and create the git tag (Step 3) before merging
   when `release.autoVersionBump` is `true`. Use **minor** for new features,
   **patch** for fixes and refactors.

@@ -2,6 +2,121 @@
 
 All notable changes to this project will be documented in this file.
 
+## [5.8.7] - 2026-04-15
+
+### 🔀 Robust story→epic merge at story close
+
+Parallel wave execution kept producing conflicts at story-close time:
+Stories branched off an Epic early in a wave landed after peers had
+already merged, and the naive `git merge --no-ff` in
+`sprint-story-close.js` had no triage — any conflict was fatal and
+required manual intervention.
+
+`finalizeMerge()` now runs two stacked mitigations:
+
+1. **Pre-merge rebase in the story worktree.** Before swinging to the
+   Epic branch on the main checkout, the Story is rebased onto
+   `origin/<epicBranch>` inside its own worktree. This shrinks the
+   merge's conflict surface to the Story's real delta instead of
+   carrying stale base content forward. A failed rebase is aborted and
+   the merge still proceeds — the triage path below handles whatever is
+   left.
+2. **Conflict triage via `mergeFeatureBranch`.** The close-merge now
+   routes through the same threshold-based triage used at integration
+   time (major = ≥3 files or ≥20 conflict markers → abort and surface
+   to operator; minor → auto-resolve by accepting the Story's version
+   and audit-log the discarded base content). `mergeFeatureBranch` was
+   extended with an `opts.message` parameter so the close-merge keeps
+   its `feat: <title> (resolves #N)` commit message regardless of path.
+
+- **Changed:** `.agents/scripts/sprint-story-close.js` — new
+  `rebaseStoryOnEpic()` helper; `finalizeMerge()` rewritten to use it
+  and `mergeFeatureBranch` with a custom commit message and explicit
+  major-conflict error surfaced via `Logger.fatal`.
+- **Changed:** `.agents/scripts/lib/git-merge-orchestrator.js` —
+  `mergeFeatureBranch(cwd, featureBranch, vlog, opts)` gains
+  `opts.message` for the final commit message (propagated through both
+  the clean-merge and auto-resolve-theirs paths).
+
+### 🔗 Per-worktree `.agents` collapsed into root symlink
+
+Consumer projects declare `.agents` as a git submodule. When a
+per-story worktree was created, the worktree carried its own gitlink
+entry for `.agents`, and `git worktree remove` refused to reap it
+("`.agents` is a submodule inside the worktree"). Operators had to
+manually `git worktree remove --force` or clean up by hand.
+
+`WorktreeManager.ensure()` now replaces the worktree's `.agents/` with
+a symlink (junction on Windows) to `<repoRoot>/.agents` and marks the
+per-worktree index entry as `skip-worktree`. `reap()` removes the
+symlink before `git worktree remove`, so git no longer sees a nested
+repo inside the worktree. Two invariants follow:
+
+1. Worktrees never carry their own `.agents` content — scripts invoked
+   from any worktree execute the same code as the root checkout.
+2. `git worktree remove` no longer trips on the submodule guard and
+   the reap completes cleanly.
+
+Detection is automatic: if `<repoRoot>/.gitmodules` declares `.agents`
+as a submodule path, the symlink is applied. The framework repo
+itself (where `.agents` is a regular tracked directory) skips this
+behavior.
+
+- **Changed:** `.agents/scripts/lib/worktree-manager.js` — new
+  `_isAgentsSubmodule()`, `_linkAgentsToRoot()`, and
+  `_unlinkAgentsFromRoot()` helpers; `ensure()` calls the link step,
+  `reap()` calls the unlink step before `git worktree remove`.
+- **Changed:** `.agents/workflows/worktree-lifecycle.md` — new
+  "`.agents` symlink (consumer projects)" section documents the
+  invariant and detection rule.
+
+### ✅ Sprint-close auto-invokes pre-merge gates
+
+`/sprint-close` used to halt whenever the Code Review or Retrospective
+gate could not find evidence of a prior run, then ask the operator to
+run `/sprint-code-review` or `/sprint-retro` separately and come back.
+In practice operators always picked "run them now, then continue" —
+the halt was pure friction.
+
+The workflow now auto-invokes both skills inline:
+
+- **Step 1.4 (new)** — Auto-invokes `/sprint-code-review [EPIC_ID]`.
+  🔴 Critical Blockers halt; non-blocking findings are surfaced and
+  the workflow continues. An `--skip-code-review` operator override
+  bypasses the step entirely.
+- **Step 1.5 (existing, revised)** — When the retrospective comment
+  marker is missing on the Epic, the workflow now auto-invokes
+  `/sprint-retro [EPIC_ID]` instead of stopping. After the retro runs
+  the marker check is re-evaluated; persistent failure still halts.
+
+- **Changed:** `.agents/workflows/sprint-close.md` — added Step 1.4
+  (Code Review auto-invoke), revised Step 1.5 (Retro auto-invoke),
+  updated "When to run" preamble and Constraints section.
+
+### 🧹 Stale-lock sweep for shared `.git/` dir
+
+Parallel sprint agents use per-story worktrees, but the main repo's
+`.git/` dir is still shared state — `git worktree add/remove/prune`,
+`fetch`, auto-gc, and IDE git integrations all touch it. A crashed
+orchestrator could leave an orphaned `.git/index.lock` that blocked the
+next `/sprint-execute` run with a "another git process seems to be
+running" error and required manual cleanup.
+
+`WorktreeManager.sweepStaleLocks({ maxAgeMs = 30_000 })` now removes
+well-known lock files (`index.lock`, `HEAD.lock`, `packed-refs.lock`,
+`config.lock`, `shallow.lock`, plus per-worktree `index.lock` /
+`HEAD.lock`) whose mtime exceeds the age threshold. Fresh locks —
+belonging to a legitimate in-flight op — are skipped. The sweep runs
+automatically at the start of `/sprint-execute`, immediately before
+worktree GC.
+
+- **Added:** `.agents/scripts/lib/worktree-manager.js` — new
+  `sweepStaleLocks()` method with 30s default age threshold.
+- **Changed:** `.agents/scripts/lib/orchestration/dispatch-engine.js` —
+  `runWorktreeGc()` calls `sweepStaleLocks()` before `.gc()`.
+- **Changed:** `.agents/workflows/worktree-lifecycle.md` — documents
+  the sweep phase and the new method.
+
 ## [5.8.6] - 2026-04-15
 
 ### 🧹 Replace `risk::high` story PR creation with in-chat pause

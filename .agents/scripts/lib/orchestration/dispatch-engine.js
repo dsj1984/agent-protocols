@@ -689,6 +689,13 @@ async function runWorktreeGc(ctx, fetched) {
   const { worktreeManager, dryRun, epicBranch } = ctx;
   if (!worktreeManager || dryRun) return;
   try {
+    const lockSweep = await worktreeManager.sweepStaleLocks();
+    if (lockSweep.removed.length > 0) {
+      vlog.info(
+        'orchestration',
+        `Stale lock sweep removed ${lockSweep.removed.length} file(s).`,
+      );
+    }
     const openStoryIds = collectOpenStoryIds(
       fetched.tasks,
       fetched.allTicketsById,
