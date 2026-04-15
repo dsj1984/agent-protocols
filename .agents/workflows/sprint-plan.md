@@ -52,34 +52,45 @@ planned.
 
 ## Phase 1: Epic Planning (PRD & Tech Spec)
 
+> **Parallel-safe file naming.** Multiple Epics may be planned or decomposed
+> concurrently. Every temp file written in this workflow MUST include the Epic
+> ID in its name (e.g. `temp/planner-context-epic-[Epic_ID].json`,
+> `temp/prd-epic-[Epic_ID].md`, `temp/techspec-epic-[Epic_ID].md`,
+> `temp/decomposer-context-epic-[Epic_ID].json`,
+> `temp/tickets-epic-[Epic_ID].json`). Do **not** reuse bare names like
+> `temp/prd.md` — they will collide with another agent's run.
+
 1. **Gather Authoring Context**: Run the Epic Planner in context-emission mode
    to fetch the Epic body, scraped project docs, and the recommended system
    prompts.
 
    ```bash
-   node .agents/scripts/epic-planner.js --epic [Epic_ID] --emit-context > temp/planner-context.json
+   node .agents/scripts/epic-planner.js --epic [Epic_ID] --emit-context > temp/planner-context-epic-[Epic_ID].json
    ```
 
-2. **Author the PRD**: Read `temp/planner-context.json`. Using the
-   `systemPrompts.prd` guidance combined with the Epic title/body, write the PRD
-   markdown to `temp/prd.md`. Keep it to the four-section structure (Context &
-   Goals, User Stories, Acceptance Criteria, Out of Scope) and start the
-   document with `## Overview` (no `<h1>`).
+2. **Author the PRD**: Read `temp/planner-context-epic-[Epic_ID].json`. Using
+   the `systemPrompts.prd` guidance combined with the Epic title/body, write the
+   PRD markdown to `temp/prd-epic-[Epic_ID].md`. Keep it to the four-section
+   structure (Context & Goals, User Stories, Acceptance Criteria, Out of Scope)
+   and start the document with `## Overview` (no `<h1>`).
 
 3. **Author the Tech Spec**: Using `systemPrompts.techSpec`, the PRD you just
-   wrote, and `docsContext`, write the Tech Spec to `temp/techspec.md`. Start
-   with `## Technical Overview` (no `<h1>`).
+   wrote, and `docsContext`, write the Tech Spec to
+   `temp/techspec-epic-[Epic_ID].md`. Start with `## Technical Overview` (no
+   `<h1>`).
 
 4. **Persist to GitHub**:
 
    ```bash
    # Normal planning
    node .agents/scripts/epic-planner.js --epic [Epic_ID] \
-     --prd temp/prd.md --techspec temp/techspec.md
+     --prd temp/prd-epic-[Epic_ID].md \
+     --techspec temp/techspec-epic-[Epic_ID].md
 
    # Re-planning (force regeneration)
    node .agents/scripts/epic-planner.js --epic [Epic_ID] \
-     --prd temp/prd.md --techspec temp/techspec.md --force
+     --prd temp/prd-epic-[Epic_ID].md \
+     --techspec temp/techspec-epic-[Epic_ID].md --force
    ```
 
 5. **Verification**:
@@ -89,28 +100,41 @@ planned.
      Do NOT proceed to decomposition until the user confirms the plan is
      accurate.
 
+6. **Cleanup**: Once the PRD/Tech Spec issues are confirmed on GitHub, delete
+   the Phase 1 temp files for this Epic so later runs don't mix artifacts:
+
+   ```bash
+   rm -f \
+     temp/planner-context-epic-[Epic_ID].json \
+     temp/prd-epic-[Epic_ID].md \
+     temp/techspec-epic-[Epic_ID].md
+   ```
+
 ## Phase 2: Work Breakdown Decomposition
 
 1. **Gather Decomposition Context**:
 
    ```bash
-   node .agents/scripts/ticket-decomposer.js --epic [Epic_ID] --emit-context > temp/decomposer-context.json
+   node .agents/scripts/ticket-decomposer.js --epic [Epic_ID] --emit-context > temp/decomposer-context-epic-[Epic_ID].json
    ```
 
-2. **Author the Ticket Array**: Read `temp/decomposer-context.json` — it
-   contains the PRD body, Tech Spec body, risk heuristics, the decomposer system
-   prompt, and a `maxTickets` cap (25). Produce a JSON array of
-   Feature/Story/Task objects conforming to the schema in the system prompt and
-   write it to `temp/tickets.json`.
+2. **Author the Ticket Array**: Read
+   `temp/decomposer-context-epic-[Epic_ID].json` — it contains the PRD body,
+   Tech Spec body, risk heuristics, the decomposer system prompt, and a
+   `maxTickets` cap (25). Produce a JSON array of Feature/Story/Task objects
+   conforming to the schema in the system prompt and write it to
+   `temp/tickets-epic-[Epic_ID].json`.
 
 3. **Persist to GitHub**:
 
    ```bash
    # Normal decomposition
-   node .agents/scripts/ticket-decomposer.js --epic [Epic_ID] --tickets temp/tickets.json
+   node .agents/scripts/ticket-decomposer.js --epic [Epic_ID] \
+     --tickets temp/tickets-epic-[Epic_ID].json
 
    # Re-planning (close old tickets first)
-   node .agents/scripts/ticket-decomposer.js --epic [Epic_ID] --tickets temp/tickets.json --force
+   node .agents/scripts/ticket-decomposer.js --epic [Epic_ID] \
+     --tickets temp/tickets-epic-[Epic_ID].json --force
    ```
 
 4. **Cross-Validation**:
@@ -125,6 +149,15 @@ planned.
    - Check the Epic's comment thread to ensure the backlog summary was posted.
    - Verify that at least one `type/feature`, `type/story`, and `type/task`
      issue was created.
+
+6. **Cleanup**: Once the backlog is confirmed on GitHub, delete the Phase 2 temp
+   files for this Epic:
+
+   ```bash
+   rm -f \
+     temp/decomposer-context-epic-[Epic_ID].json \
+     temp/tickets-epic-[Epic_ID].json
+   ```
 
 ## Phase 3: Notification & Handoff
 
