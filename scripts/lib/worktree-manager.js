@@ -196,6 +196,7 @@ export class WorktreeManager {
     }
 
     this._applyNodeModulesStrategy(wtPath);
+    this._linkAgentsToRoot(wtPath);
 
     this.logger.info(`worktree.created storyId=${id} path=${wtPath}`);
     return {
@@ -391,6 +392,13 @@ export class WorktreeManager {
       return { removed: false, reason: safety.reason, path: wtPath };
     }
 
+    // Drop the `.agents` symlink (if any) before `git worktree remove`.
+    // git refuses to remove a worktree that contains a submodule/nested repo,
+    // which is exactly what the tracked `.agents` gitlink looks like in
+    // consumer projects. Removing the symlink first sidesteps the check and
+    // leaves the root `.agents` untouched.
+    this._unlinkAgentsFromRoot(wtPath);
+
     const res = this.git.gitSpawn(this.repoRoot, 'worktree', 'remove', wtPath);
     if (res.status !== 0) {
       return {
@@ -442,6 +450,74 @@ export class WorktreeManager {
     return { reaped, skipped };
   }
 
+  /**
+   * Sweep stale `*.lock` files under the shared `.git/` dir that crash-left
+   * agents and IDE git integrations can leave behind. Worktree isolation
+   * protects per-worktree indexes but the main repo's `.git/` is still
+   * shared state — `git worktree add/remove/prune`, `fetch`, auto-gc, and
+   * VSCode's git extension all touch it. When an orchestrator crashes,
+   * orphaned `index.lock` files block the next run.
+   *
+   * Only files whose mtime is older than `maxAgeMs` are removed. Fresh
+   * locks — belonging to a legitimate in-flight operation — are left
+   * alone. This is deliberately narrow: we target the well-known lock
+   * names, not every `*.lock` under `.git/` (refs have their own lock
+   * discipline and should not be touched here).
+   *
+   * @param {{ maxAgeMs?: number }} [opts]
+   * @returns {Promise<{ removed: Array<{ path: string, ageMs: number }>, skipped: Array<{ path: string, ageMs: number }> }>}
+   */
+  async sweepStaleLocks(opts = {}) {
+    const maxAgeMs = opts.maxAgeMs ?? 30_000;
+    const now = Date.now();
+    const removed = [];
+    const skipped = [];
+
+    const gitDir = path.join(this.repoRoot, '.git');
+    const candidates = [
+      path.join(gitDir, 'index.lock'),
+      path.join(gitDir, 'HEAD.lock'),
+      path.join(gitDir, 'packed-refs.lock'),
+      path.join(gitDir, 'config.lock'),
+      path.join(gitDir, 'shallow.lock'),
+    ];
+
+    const worktreesDir = path.join(gitDir, 'worktrees');
+    if (fs.existsSync(worktreesDir)) {
+      for (const name of fs.readdirSync(worktreesDir)) {
+        candidates.push(path.join(worktreesDir, name, 'index.lock'));
+        candidates.push(path.join(worktreesDir, name, 'HEAD.lock'));
+      }
+    }
+
+    for (const lockPath of candidates) {
+      let stat;
+      try {
+        stat = fs.statSync(lockPath);
+      } catch {
+        continue;
+      }
+      const ageMs = now - stat.mtimeMs;
+      if (ageMs < maxAgeMs) {
+        skipped.push({ path: lockPath, ageMs });
+        continue;
+      }
+      try {
+        fs.unlinkSync(lockPath);
+        removed.push({ path: lockPath, ageMs });
+        this.logger.warn(
+          `stale-lock removed path=${lockPath} ageMs=${Math.round(ageMs)}`,
+        );
+      } catch (err) {
+        this.logger.warn(
+          `stale-lock unlink failed path=${lockPath}: ${err.message}`,
+        );
+      }
+    }
+
+    return { removed, skipped };
+  }
+
   // ───────────────────────── internals ─────────────────────────
 
   _findByPath(absPath) {
@@ -458,6 +534,106 @@ export class WorktreeManager {
         (r) => path.resolve(r.path) === normalized,
       ) ?? null
     );
+  }
+
+  /**
+   * Detect whether the root repo declares `.agents` as a git submodule.
+   * Only consumer projects do — in the framework repo itself `.agents` is a
+   * normal tracked directory, and the symlink would fight with tracked files.
+   */
+  _isAgentsSubmodule() {
+    const gitmodulesPath = path.join(this.repoRoot, '.gitmodules');
+    if (!fs.existsSync(gitmodulesPath)) return false;
+    try {
+      const body = fs.readFileSync(gitmodulesPath, 'utf8');
+      return /\bpath\s*=\s*\.agents\s*$/m.test(body);
+    } catch {
+      return false;
+    }
+  }
+
+  /**
+   * Replace the worktree's `.agents/` (tracked as a submodule gitlink) with a
+   * symlink to the root repo's `.agents/`. Worktrees must never carry their
+   * own copy of `.agents`: scripts invoked from any worktree run identical
+   * code, and `git worktree remove` no longer refuses on the grounds that
+   * there is a submodule inside.
+   *
+   * Only runs in repos that declare `.agents` as a submodule. The framework
+   * repo itself (where `.agents` is tracked directly) skips this.
+   *
+   * @param {string} wtPath Absolute worktree path.
+   */
+  _linkAgentsToRoot(wtPath) {
+    if (!this._isAgentsSubmodule()) return;
+    const rootAgents = path.join(this.repoRoot, '.agents');
+    if (!fs.existsSync(rootAgents)) {
+      this.logger.warn(
+        `agents-symlink skipped: root ${rootAgents} does not exist`,
+      );
+      return;
+    }
+    const wtAgents = path.join(wtPath, '.agents');
+    try {
+      fs.rmSync(wtAgents, { recursive: true, force: true });
+    } catch {
+      // Nothing to remove, or permission — symlink attempt will surface it.
+    }
+    const linkType = this.platform === 'win32' ? 'junction' : 'dir';
+    try {
+      fs.symlinkSync(rootAgents, wtAgents, linkType);
+    } catch (err) {
+      this.logger.warn(
+        `agents-symlink failed path=${wtAgents}: ${err.message}`,
+      );
+      return;
+    }
+    // Mark the gitlink path as skip-worktree so the per-worktree index
+    // stops reporting the submodule as modified/deleted.
+    this.git.gitSpawn(
+      wtPath,
+      'update-index',
+      '--skip-worktree',
+      '--',
+      '.agents',
+    );
+    this.logger.info(
+      `worktree.agents.symlinked target=${wtAgents} source=${rootAgents}`,
+    );
+  }
+
+  /**
+   * Remove the `.agents` symlink before `git worktree remove`. The real
+   * `<repoRoot>/.agents` directory is never touched — this only unlinks the
+   * worktree's pointer to it.
+   *
+   * @param {string} wtPath Absolute worktree path.
+   */
+  _unlinkAgentsFromRoot(wtPath) {
+    const wtAgents = path.join(wtPath, '.agents');
+    let target;
+    try {
+      target = fs.readlinkSync(wtAgents);
+    } catch {
+      return; // not a symlink — leave alone
+    }
+    const resolvedTarget = path.resolve(path.dirname(wtAgents), target);
+    const rootAgents = path.resolve(this.repoRoot, '.agents');
+    if (resolvedTarget !== rootAgents) {
+      this.logger.warn(
+        `agents-symlink unlink skipped: target ${resolvedTarget} is not root ${rootAgents}`,
+      );
+      return;
+    }
+    try {
+      fs.unlinkSync(wtAgents);
+    } catch {
+      try {
+        fs.rmdirSync(wtAgents);
+      } catch {
+        // best-effort; worktree remove will still try
+      }
+    }
   }
 
   _storyIdFromPath(wtPath) {

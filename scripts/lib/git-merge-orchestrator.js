@@ -64,13 +64,17 @@ export function createCandidateBranch(cwd, epicBranch, candidateBranch) {
  * @param {string}   cwd           - Project root.
  * @param {string}   featureBranch - Branch name to merge in.
  * @param {Function} vlog          - VerboseLogger-compatible `warn` helper.
+ * @param {object}   [opts]
+ * @param {string}   [opts.message] - Explicit merge commit message (passed as `-m`).
  * @returns {{ merged: true } | { merged: false, major: true } | never}
  *   Returns `{ merged: true }` on clean merge or resolved minor conflicts.
  *   Returns `{ merged: false, major: true }` on major conflict (caller should exit 2).
  *   Throws on internal git errors.
  */
-export function mergeFeatureBranch(cwd, featureBranch, vlog) {
-  const merge = gitSpawn(cwd, 'merge', '--no-ff', featureBranch);
+export function mergeFeatureBranch(cwd, featureBranch, vlog, opts = {}) {
+  const mergeArgs = ['merge', '--no-ff', featureBranch];
+  if (opts.message) mergeArgs.push('-m', opts.message);
+  const merge = gitSpawn(cwd, ...mergeArgs);
   if (merge.status === 0) return { merged: true };
 
   const conflicts = analyzeConflicts(cwd);
@@ -111,7 +115,10 @@ export function mergeFeatureBranch(cwd, featureBranch, vlog) {
     gitSpawn(cwd, 'add', file);
   }
 
-  const commitResult = gitSpawn(cwd, 'commit', '--no-edit');
+  const commitArgs = opts.message
+    ? ['commit', '-m', opts.message]
+    : ['commit', '--no-edit'];
+  const commitResult = gitSpawn(cwd, ...commitArgs);
   if (commitResult.status !== 0) {
     throw new Error(`Auto-resolution commit failed: ${commitResult.stderr}`);
   }

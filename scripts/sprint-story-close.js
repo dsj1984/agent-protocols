@@ -31,12 +31,14 @@
  * @see .agents/workflows/sprint-execute.md Mode B
  */
 
+import fs from 'node:fs';
 import path from 'node:path';
 import { generateAndSaveManifest } from './dispatcher.js';
 import { updateHealthMetrics } from './health-monitor.js';
 import { parseSprintArgs } from './lib/cli-args.js';
 import { runAsCli } from './lib/cli-utils.js';
 import { PROJECT_ROOT, resolveConfig } from './lib/config-resolver.js';
+import { mergeFeatureBranch } from './lib/git-merge-orchestrator.js';
 import {
   getEpicBranch,
   getStoryBranch,
@@ -303,29 +305,109 @@ async function handleHighRiskGate(
   };
 }
 
-function finalizeMerge(epicBranch, storyBranch, storyTitle, storyId, cwd) {
-  // Normal merge path.
+/**
+ * Pre-merge rebase of the Story branch onto `origin/<epicBranch>`.
+ *
+ * Parallel wave execution lets two Stories land on the Epic between the time
+ * a later Story branched off and the time it closes. Rebasing the Story on
+ * the latest Epic before the close-merge shrinks the conflict surface to the
+ * Story's real delta and lets `mergeFeatureBranch`'s minor-conflict auto-
+ * resolve apply surgically instead of against stale base content.
+ *
+ * Runs inside the per-story worktree so it does not disturb the main
+ * checkout. On any failure (fetch error, rebase conflict) the rebase is
+ * aborted and the caller falls through to the plain merge path, which will
+ * surface the same conflict via triage.
+ *
+ * @returns {{ rebased: boolean, reason?: string }}
+ */
+function rebaseStoryOnEpic({
+  orchestration,
+  storyId,
+  epicBranch,
+  storyBranch,
+  repoRoot,
+}) {
+  const wtConfig = orchestration?.worktreeIsolation;
+  if (!wtConfig?.enabled) {
+    return { rebased: false, reason: 'isolation-disabled' };
+  }
+  const wtRoot = wtConfig.root ?? '.worktrees';
+  const wtPath = path.join(repoRoot, wtRoot, `story-${storyId}`);
+  if (!fs.existsSync(wtPath)) {
+    return { rebased: false, reason: 'worktree-missing' };
+  }
+
+  progress('GIT', `Rebasing ${storyBranch} onto origin/${epicBranch}...`);
+  const fetch = gitSpawn(wtPath, 'fetch', 'origin', epicBranch);
+  if (fetch.status !== 0) {
+    progress(
+      'GIT',
+      `⚠️ fetch origin ${epicBranch} failed; skipping pre-merge rebase`,
+    );
+    return { rebased: false, reason: 'fetch-failed' };
+  }
+  const rebase = gitSpawn(wtPath, 'rebase', `origin/${epicBranch}`);
+  if (rebase.status !== 0) {
+    gitSpawn(wtPath, 'rebase', '--abort');
+    progress(
+      'GIT',
+      '⚠️ rebase conflicted; aborted — merge triage will handle overlap',
+    );
+    return { rebased: false, reason: 'rebase-conflict' };
+  }
+  progress('GIT', `✅ Rebased ${storyBranch} onto origin/${epicBranch}`);
+  return { rebased: true };
+}
+
+function finalizeMerge(
+  epicBranch,
+  storyBranch,
+  storyTitle,
+  storyId,
+  cwd,
+  orchestration,
+) {
+  rebaseStoryOnEpic({
+    orchestration,
+    storyId,
+    epicBranch,
+    storyBranch,
+    repoRoot: cwd,
+  });
+
   progress('GIT', `Checking out ${epicBranch}...`);
   gitSync(cwd, 'checkout', epicBranch);
   gitSpawn(cwd, 'pull', '--rebase', 'origin', epicBranch);
 
   progress('GIT', `Merging ${storyBranch} into ${epicBranch} (--no-ff)...`);
-  const mergeResult = gitSpawn(
-    cwd,
-    'merge',
-    '--no-ff',
-    storyBranch,
-    '-m',
-    `feat: ${storyTitle.charAt(0).toLowerCase() + storyTitle.slice(1)} (resolves #${storyId})`,
-  );
+  const mergeMsg = `feat: ${storyTitle.charAt(0).toLowerCase() + storyTitle.slice(1)} (resolves #${storyId})`;
+  const vlog = (_level, _ctx, msg, meta) => {
+    const tail = meta ? ` ${JSON.stringify(meta)}` : '';
+    Logger.error(`[merge] ${msg}${tail}`);
+  };
+  const result = mergeFeatureBranch(cwd, storyBranch, vlog, {
+    message: mergeMsg,
+  });
 
-  if (mergeResult.status !== 0) {
+  if (!result.merged && result.major) {
     Logger.fatal(
-      `Merge failed: ${mergeResult.stderr}\n` +
-        `Resolve conflicts manually, then re-run this script.`,
+      `Major merge conflict on story close: ` +
+        `${result.conflicts.files} file(s), ${result.conflicts.lines} marker(s). ` +
+        `Conflicting files: ${result.conflicts.fileList.join(', ')}. ` +
+        `Merge has been aborted. Resolve manually on ${epicBranch}, then ` +
+        `re-run this script.`,
     );
   }
-  progress('GIT', '✅ Merge successful');
+  if (result.autoResolved) {
+    progress(
+      'GIT',
+      `✅ Merge completed with auto-resolved minor conflicts ` +
+        `(${result.conflicts.files} file(s) resolved to theirs)`,
+    );
+  } else {
+    progress('GIT', '✅ Merge successful');
+  }
 
   progress('GIT', `Pushing ${epicBranch}...`);
   const pushResult = gitSpawn(cwd, 'push', '--no-verify', 'origin', epicBranch);
@@ -428,7 +510,14 @@ export async function runStoryClose({
     console.log('--- END RESULT ---\n');
     return { success: false, result };
   } else {
-    finalizeMerge(epicBranch, storyBranch, story.title, storyId, cwd);
+    finalizeMerge(
+      epicBranch,
+      storyBranch,
+      story.title,
+      storyId,
+      cwd,
+      orchestration,
+    );
     await reapStoryWorktree({ orchestration, storyId, epicBranch });
   }
 
