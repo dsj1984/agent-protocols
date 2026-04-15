@@ -19,9 +19,9 @@ import path from 'node:path';
 import { notify } from '../../notify.js';
 import { createAdapter } from '../adapter-factory.js';
 import { PROJECT_ROOT, resolveConfig } from '../config-resolver.js';
-import { isSafeBranchComponent } from '../dependency-parser.js';
+import { ensureLocalBranch } from '../git-branch-lifecycle.js';
 import { buildGraph, computeWaves, detectCycle } from '../Graph.js';
-import { getEpicBranch, gitSync } from '../git-utils.js';
+import { getEpicBranch } from '../git-utils.js';
 import { createProvider } from '../provider-factory.js';
 import { VerboseLogger } from '../VerboseLogger.js';
 import { WorktreeManager } from '../worktree-manager.js';
@@ -71,43 +71,18 @@ export const TYPE_TASK_LABEL = 'type::task';
 // ---------------------------------------------------------------------------
 
 /**
- * Run a git command in the project root.
- * @param {string[]} args
- * @returns {string}
- */
-/* node:coverage ignore next */
-function git(args) {
-  return gitSync(PROJECT_ROOT, ...args);
-}
-
-/**
  * Ensure a branch exists locally. Creates it from baseBranch if not found.
+ * Thin adapter over `git-branch-lifecycle.ensureLocalBranch` that keeps the
+ * existing public signature (used by tests and the MCP entry point).
  *
  * @param {string} branchName
  * @param {string} baseBranch
  */
 /* node:coverage ignore next */
 export function ensureBranch(branchName, baseBranch) {
-  if (
-    !isSafeBranchComponent(branchName) ||
-    !isSafeBranchComponent(baseBranch)
-  ) {
-    throw new Error(
-      `[Dispatcher] Unsafe branch name detected: "${branchName}" or "${baseBranch}". ` +
-        'Branch names must contain only alphanumeric characters, hyphens, underscores, dots, and slashes.',
-    );
-  }
-  try {
-    git(['rev-parse', '--verify', branchName]);
-    vlog.info('orchestration', `Branch already exists: ${branchName}`);
-  } catch {
-    git(['checkout', '-b', branchName, baseBranch]);
-    git(['checkout', baseBranch]);
-    vlog.info(
-      'orchestration',
-      `Created branch: ${branchName} from ${baseBranch}`,
-    );
-  }
+  ensureLocalBranch(branchName, baseBranch, PROJECT_ROOT, {
+    log: (msg) => vlog.info('orchestration', msg),
+  });
 }
 
 /**
@@ -229,7 +204,7 @@ async function ensureSprintHealthIssue(
   if (dryRun) return;
   const healthIssue = allTickets.find(
     (t) =>
-      (t.labels ?? []).includes('type::health') ||
+      t.labels.includes('type::health') ||
       t.title.startsWith('📉 Sprint Health:'),
   );
 
@@ -422,7 +397,7 @@ export function collectOpenStoryIds(tasks, allTicketsById) {
     if (!parentMatch) continue;
     const parentId = parseInt(parentMatch[1], 10);
     const parent = allTicketsById.get(parentId);
-    if (parent && (parent.labels ?? []).includes('type::story')) {
+    if (parent && parent.labels.includes('type::story')) {
       open.add(parentId);
     }
   }
@@ -584,7 +559,11 @@ async function dispatchWave(wave, taskMap, ctx) {
   return { dispatched, heldForApproval, shouldHalt: false, empty: false };
 }
 
-export async function dispatch(options) {
+/**
+ * Resolve the runtime context for a dispatch: settings, provider, adapter,
+ * worktree manager, base/epic branch names.
+ */
+function resolveDispatchContext(options) {
   const { epicId, dryRun = false, executorOverride } = options;
 
   const { settings, orchestration } = resolveConfig();
@@ -597,7 +576,7 @@ export async function dispatch(options) {
   // dry-run; dry-run must never touch git worktrees. Tests can inject a
   // mock via `options.worktreeManager`.
   const wtConfig = orchestration?.worktreeIsolation;
-  let worktreeManager = options.worktreeManager ?? null;
+  let worktreeManager = options.worktreeManager;
   if (!worktreeManager && wtConfig?.enabled && !dryRun) {
     worktreeManager = new WorktreeManager({
       repoRoot: PROJECT_ROOT,
@@ -608,7 +587,26 @@ export async function dispatch(options) {
   const baseBranch = settings.baseBranch ?? 'main';
   const epicBranch = getEpicBranch(epicId);
 
-  // ── Step 1: Fetch Epic and all Tickets ────────────────────────────────────
+  return {
+    epicId,
+    dryRun,
+    settings,
+    orchestration,
+    provider,
+    adapter,
+    worktreeManager,
+    baseBranch,
+    epicBranch,
+  };
+}
+
+/**
+ * Fetch Epic + all tickets, prime the provider cache, and parse the task
+ * subset. Returns everything downstream steps need.
+ */
+async function fetchEpicContext(ctx) {
+  const { provider, epicId } = ctx;
+
   vlog.info('orchestration', `\nFetching Epic #${epicId}...`);
   const epic = await provider.getEpic(epicId);
 
@@ -626,25 +624,143 @@ export async function dispatch(options) {
 
   vlog.info('orchestration', `Filtering Tasks under Epic #${epicId}...`);
   const taskTickets = allTickets.filter((t) =>
-    (t.labels ?? []).includes(TYPE_TASK_LABEL),
+    t.labels.includes(TYPE_TASK_LABEL),
   );
   const tasks = parseTasks(taskTickets);
   vlog.info('orchestration', `Found ${tasks.length} task(s).`);
 
-  // ── Step 1a: Ensure Sprint Health Issue exists ───────────────────────────
+  return { epic, allTickets, allTicketsById, tasks };
+}
+
+/**
+ * Ensure the Sprint Health issue exists, then propagate any already-done
+ * work up the hierarchy so the manifest reflects reality before dispatch.
+ */
+async function reconcileEpicState(ctx, fetched) {
+  const { provider, dryRun, epicId } = ctx;
+  const { epic, allTickets, tasks } = fetched;
+
   await ensureSprintHealthIssue(epicId, epic, allTickets, provider, dryRun);
-
-  // ── Step 1b: Reconcile stale labels on merged tasks ──────────────────────
   await reconcileClosedTasks(tasks, provider, dryRun);
-
-  // ── Step 1c: Propagate completion up the full hierarchy ──────────────────
   await reconcileHierarchy(provider, epicId, epic, tasks, allTickets, dryRun);
+}
 
-  if (tasks.length === 0) {
+/**
+ * Build the task DAG, serialize focus-area overlaps, and compute dispatch
+ * waves. Throws on cycles.
+ */
+function buildDispatchGraph(tasks) {
+  const { adjacency, taskMap } = buildGraph(tasks);
+
+  const cycle = detectCycle(adjacency);
+  if (cycle) {
+    throw new Error(
+      `[Dispatcher] Dependency cycle detected: ${cycle.join(' → ')}. ` +
+        'Fix the ticket dependencies before re-running.',
+    );
+  }
+
+  const { finalAdjacency, graphMutated } = autoSerializeOverlaps(
+    { tasks },
+    adjacency,
+  );
+  if (graphMutated) {
+    vlog.info(
+      'orchestration',
+      'Focus-area conflicts detected; serialized overlapping tasks.',
+    );
+  }
+
+  const allWaves = computeWaves(finalAdjacency, taskMap);
+  vlog.info('orchestration', `Computed ${allWaves.length} execution wave(s).`);
+  return { allWaves, taskMap };
+}
+
+/**
+ * Ensure the Epic base branch exists and capture a lint baseline. Skipped
+ * in dry-run.
+ */
+function ensureEpicScaffolding(ctx) {
+  const { dryRun, epicBranch, baseBranch, settings } = ctx;
+  if (dryRun) {
+    vlog.info('orchestration', 'Dry-run mode: skipping branch creation.');
+    return;
+  }
+  vlog.info('orchestration', `Ensuring Epic base branch: ${epicBranch}`);
+  ensureBranch(epicBranch, baseBranch);
+  captureLintBaseline(epicBranch, settings);
+}
+
+/**
+ * Reap orphaned story worktrees. A worktree is "orphaned" once its story
+ * has no remaining non-done tasks. `gc` refuses to delete dirty trees, so
+ * this is safe even mid-edit. No-op when isolation is disabled.
+ */
+async function runWorktreeGc(ctx, fetched) {
+  const { worktreeManager, dryRun, epicBranch } = ctx;
+  if (!worktreeManager || dryRun) return;
+  try {
+    const openStoryIds = collectOpenStoryIds(
+      fetched.tasks,
+      fetched.allTicketsById,
+    );
+    const gcResult = await worktreeManager.gc(openStoryIds, { epicBranch });
+    if (gcResult.reaped.length > 0) {
+      vlog.info(
+        'orchestration',
+        `Worktree GC reaped ${gcResult.reaped.length} orphan(s).`,
+      );
+    }
+  } catch (err) {
+    vlog.warn('orchestration', `Worktree GC failed (non-fatal): ${err.message}`);
+  }
+}
+
+/**
+ * Walk the wave list, dispatching the first non-empty, dependency-ready
+ * wave. Returns the lists of dispatched tasks and held-for-approval items.
+ */
+async function dispatchNextWave(ctx, fetched, allWaves, taskMap) {
+  const dispatched = [];
+  const heldForApproval = [];
+
+  const waveCtx = {
+    provider: ctx.provider,
+    adapter: ctx.adapter,
+    settings: ctx.settings,
+    allTicketsById: fetched.allTicketsById,
+    epicId: ctx.epicId,
+    epicBranch: ctx.epicBranch,
+    dryRun: ctx.dryRun,
+    worktreeManager: ctx.worktreeManager,
+  };
+
+  for (const wave of allWaves) {
+    const waveResult = await dispatchWave(wave, taskMap, waveCtx);
+    if (waveResult.empty) continue;
+    if (waveResult.shouldHalt) break;
+    dispatched.push(...waveResult.dispatched);
+    heldForApproval.push(...waveResult.heldForApproval);
+    // Only dispatch one wave per invocation
+    break;
+  }
+
+  return { dispatched, heldForApproval };
+}
+
+export async function dispatch(options) {
+  const ctx = resolveDispatchContext(options);
+  const { epicId, dryRun, adapter, settings, provider } = ctx;
+
+  // ── Step 1: Fetch Epic context and reconcile stale state ───────────────
+  const fetched = await fetchEpicContext(ctx);
+  await reconcileEpicState(ctx, fetched);
+
+  if (fetched.tasks.length === 0) {
     vlog.info('orchestration', 'No tasks found. Nothing to dispatch.');
     return buildManifest({
       epicId,
-      epic,
+      epic: fetched.epic,
       tasks: [],
       allTickets: [],
       waves: [],
@@ -656,96 +772,28 @@ export async function dispatch(options) {
     });
   }
 
-  // ── Step 2: Build dependency DAG ────────────────────────────────────────
-  const { adjacency, taskMap } = buildGraph(tasks);
+  // ── Step 2: Build dependency DAG and compute waves ─────────────────────
+  const { allWaves, taskMap } = buildDispatchGraph(fetched.tasks);
 
-  const cycle = detectCycle(adjacency);
-  if (cycle) {
-    throw new Error(
-      `[Dispatcher] Dependency cycle detected: ${cycle.join(' → ')}. ` +
-        'Fix the ticket dependencies before re-running.',
-    );
-  }
+  // ── Step 3: Scaffolding + worktree GC ──────────────────────────────────
+  ensureEpicScaffolding(ctx);
+  await runWorktreeGc(ctx, fetched);
 
-  // ── Step 3: Auto-serialize focus-area overlaps ───────────────────────────
-  const pseudoManifest = { tasks };
-  const { finalAdjacency, graphMutated } = autoSerializeOverlaps(
-    pseudoManifest,
-    adjacency,
+  // ── Step 4: Dispatch the next ready wave ───────────────────────────────
+  const { dispatched, heldForApproval } = await dispatchNextWave(
+    ctx,
+    fetched,
+    allWaves,
+    taskMap,
   );
-  if (graphMutated) {
-    vlog.info(
-      'orchestration',
-      'Focus-area conflicts detected; serialized overlapping tasks.',
-    );
-  }
 
-  // ── Step 4: Compute execution waves ─────────────────────────────────────
-  const allWaves = computeWaves(finalAdjacency, taskMap);
-  vlog.info('orchestration', `Computed ${allWaves.length} execution wave(s).`);
-
-  // ── Step 5: Epic branch creation (skip in dry-run) ─────────────────────────
-  if (!dryRun) {
-    vlog.info('orchestration', `Ensuring Epic base branch: ${epicBranch}`);
-    ensureBranch(epicBranch, baseBranch);
-    captureLintBaseline(epicBranch, settings);
-  } else {
-    vlog.info('orchestration', 'Dry-run mode: skipping branch creation.');
-  }
-
-  // ── Step 5a: Worktree GC — reap orphaned story worktrees ────────────────
-  // A story worktree is "orphaned" once its story has closed (no live tasks
-  // remaining). gc() refuses to delete dirty trees, so this is safe even
-  // mid-edit. Only runs when isolation is enabled.
-  if (worktreeManager && !dryRun) {
-    try {
-      const openStoryIds = collectOpenStoryIds(tasks, allTicketsById);
-      const gcResult = await worktreeManager.gc(openStoryIds, { epicBranch });
-      if (gcResult.reaped.length > 0) {
-        vlog.info(
-          'orchestration',
-          `Worktree GC reaped ${gcResult.reaped.length} orphan(s).`,
-        );
-      }
-    } catch (err) {
-      vlog.warn('orchestration', `Worktree GC failed (non-fatal): ${err.message}`);
-    }
-  }
-
-  // ── Step 6: Determine next wave to dispatch ──────────────────────────────
-  const dispatched = [];
-  const heldForApproval = [];
-
-  const waveCtx = {
-    provider,
-    adapter,
-    settings,
-    allTicketsById,
-    epicId,
-    epicBranch,
-    dryRun,
-    worktreeManager,
-  };
-
-  for (const wave of allWaves) {
-    const result = await dispatchWave(wave, taskMap, waveCtx);
-    if (result.empty) continue;
-    if (result.shouldHalt) break;
-    dispatched.push(...result.dispatched);
-    heldForApproval.push(...result.heldForApproval);
-    // Only dispatch one wave per invocation
-    break;
-  }
-
-  // ── Step 7: Telemetry & Diagnostics ─────────────────────────────────────
-  const agentTelemetry = await fetchTelemetry(provider, tasks);
-
-  // ── Step 8: Build and emit manifest ─────────────────────────────────────
+  // ── Step 5: Telemetry + manifest build ─────────────────────────────────
+  const agentTelemetry = await fetchTelemetry(provider, fetched.tasks);
   const manifest = buildManifest({
     epicId,
-    epic,
-    tasks,
-    allTickets,
+    epic: fetched.epic,
+    tasks: fetched.tasks,
+    allTickets: fetched.allTickets,
     waves: allWaves,
     dispatched,
     heldForApproval,
@@ -755,11 +803,11 @@ export async function dispatch(options) {
     agentTelemetry,
   });
 
-  // ── Step 9: Epic completion detection ────────────────────────────────────
+  // ── Step 6: Epic completion detection ──────────────────────────────────
   await detectEpicCompletion({
     epicId,
-    epic,
-    tasks,
+    epic: fetched.epic,
+    tasks: fetched.tasks,
     manifest,
     provider,
     settings,

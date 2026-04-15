@@ -31,13 +31,16 @@ import { parseSprintArgs } from './lib/cli-args.js';
 import { runAsCli } from './lib/cli-utils.js';
 import { PROJECT_ROOT, resolveConfig } from './lib/config-resolver.js';
 import { parseBlockedBy } from './lib/dependency-parser.js';
+import {
+  checkoutStoryBranch,
+  ensureEpicBranch,
+} from './lib/git-branch-lifecycle.js';
 import { buildGraph, topologicalSort } from './lib/Graph.js';
 import {
   getEpicBranch,
   getStoryBranch,
   gitFetchWithRetry,
   gitSpawn,
-  gitSync,
 } from './lib/git-utils.js';
 import { Logger } from './lib/Logger.js';
 import { STATE_LABELS } from './lib/orchestration/ticketing.js';
@@ -135,35 +138,16 @@ function extractAndSortTasks(tasks) {
   try {
     const { adjacency, taskMap } = buildGraph(graphTasks);
     return topologicalSort(adjacency, taskMap);
-  } catch {
-    console.error(
-      '[sprint-story-init] Warning: Could not topologically sort tasks. Using original order.',
+  } catch (err) {
+    // Execution order must respect dependencies — downstream agents assume
+    // they can run in the returned sequence. A failed sort is almost always
+    // a cycle or a malformed `blocked by`; surfacing it immediately is
+    // safer than silently returning an unordered list.
+    throw new Error(
+      `[sprint-story-init] Cannot topologically sort child tasks ` +
+        `(likely a dependency cycle or invalid blocked-by reference): ${err.message}`,
     );
-    return tasks;
   }
-}
-
-function branchExistsLocally(branch, cwd) {
-  return (
-    gitSpawn(
-      cwd,
-      'rev-parse',
-      '--verify',
-      '--quiet',
-      `refs/heads/${branch}`,
-    ).status === 0
-  );
-}
-
-function branchExistsRemotely(branch, cwd) {
-  const result = gitSpawn(
-    cwd,
-    'ls-remote',
-    '--heads',
-    'origin',
-    branch,
-  );
-  return result.status === 0 && result.stdout.length > 0;
 }
 
 function assertWorkingTreeClean(cwd) {
@@ -180,71 +164,6 @@ function assertWorkingTreeClean(cwd) {
   }
 }
 
-function ensureEpicBranch(epicBranch, baseBranch, cwd) {
-  const local = branchExistsLocally(epicBranch, cwd);
-  const remote = branchExistsRemotely(epicBranch, cwd);
-
-  if (!local && !remote) {
-    progress('GIT', `Creating Epic branch: ${epicBranch} (from ${baseBranch})`);
-    gitSync(cwd, 'checkout', baseBranch);
-    gitSpawn(cwd, 'pull', '--rebase', 'origin', baseBranch);
-    gitSync(cwd, 'checkout', '-b', epicBranch);
-    gitSync(cwd, 'push', '--no-verify', '-u', 'origin', epicBranch);
-    return;
-  }
-
-  if (local && !remote) {
-    progress(
-      'GIT',
-      `Epic branch exists locally only: ${epicBranch}. Publishing.`,
-    );
-    gitSync(cwd, 'checkout', epicBranch);
-    gitSync(cwd, 'push', '--no-verify', '-u', 'origin', epicBranch);
-    return;
-  }
-
-  if (!local && remote) {
-    progress('GIT', `Tracking remote Epic branch: ${epicBranch}`);
-    gitSync(cwd, 'checkout', '-b', epicBranch, `origin/${epicBranch}`);
-    gitSpawn(cwd, 'pull', '--rebase', 'origin', epicBranch);
-    return;
-  }
-
-  progress('GIT', `Epic branch exists. Syncing: ${epicBranch}`);
-  gitSync(cwd, 'checkout', epicBranch);
-  gitSpawn(cwd, 'pull', '--rebase', 'origin', epicBranch);
-}
-
-function checkoutStoryBranch(storyBranch, epicBranch, cwd) {
-  const local = branchExistsLocally(storyBranch, cwd);
-  const remote = branchExistsRemotely(storyBranch, cwd);
-
-  if (local || remote) {
-    progress(
-      'GIT',
-      `Story branch already exists (local=${local}, remote=${remote}). Checking out non-destructively: ${storyBranch}`,
-    );
-    if (local) {
-      gitSync(cwd, 'checkout', storyBranch);
-      if (remote) {
-        gitSpawn(cwd, 'pull', '--rebase', 'origin', storyBranch);
-      }
-    } else {
-      gitSync(
-        cwd,
-        'checkout',
-        '-b',
-        storyBranch,
-        `origin/${storyBranch}`,
-      );
-    }
-    return;
-  }
-
-  progress('GIT', `Creating Story branch: ${storyBranch} (from ${epicBranch})`);
-  gitSync(cwd, 'checkout', '-b', storyBranch, epicBranch);
-}
-
 async function bootstrapBranch(epicBranch, storyBranch, baseBranch, cwd) {
   progress('GIT', 'Fetching remote refs...');
   const fetchResult = await gitFetchWithRetry(cwd, 'origin');
@@ -257,8 +176,8 @@ async function bootstrapBranch(epicBranch, storyBranch, baseBranch, cwd) {
 
   assertWorkingTreeClean(cwd);
 
-  ensureEpicBranch(epicBranch, baseBranch, cwd);
-  checkoutStoryBranch(storyBranch, epicBranch, cwd);
+  ensureEpicBranch(epicBranch, baseBranch, cwd, { progress });
+  checkoutStoryBranch(storyBranch, epicBranch, cwd, { progress });
 
   const currentBranch = gitSpawn(cwd, 'branch', '--show-current');
   if (currentBranch.stdout !== storyBranch) {

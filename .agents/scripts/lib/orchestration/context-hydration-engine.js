@@ -26,7 +26,7 @@ import { PROJECT_ROOT, resolveConfig } from '../config-resolver.js';
 // skill files are read-only during a dispatch run. Reading them via
 // `fs.readFileSync` per task is ~4–16 blocking syscalls. Memoize by
 // absolute path; entries survive for the lifetime of the Node process
-// (fine for CLI runs; tests can call `resetContextCache()`).
+// (fine for CLI runs; tests can call `__resetContextCache()`).
 // ---------------------------------------------------------------------------
 
 const _fileCache = new Map();
@@ -38,8 +38,12 @@ function readFileCached(absPath) {
   return content;
 }
 
-/** Test-only: clear the persona/skill/template cache between runs. */
-export function resetContextCache() {
+/**
+ * Test-only seam: clear the persona/skill/template cache between runs.
+ * The `__` prefix matches the project convention for test-only exports
+ * (see `git-utils.__setGitRunners`, `git-utils.__setSleep`).
+ */
+export function __resetContextCache() {
   _fileCache.clear();
 }
 

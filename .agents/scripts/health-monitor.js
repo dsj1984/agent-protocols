@@ -26,7 +26,7 @@ export async function updateHealthMetrics(epicId, dryRun = false) {
   const allEpicTickets = await provider.getTickets(epicId);
   const healthIssue = allEpicTickets.find(
     (t) =>
-      (t.labels ?? []).includes('type::health') ||
+      t.labels.includes('type::health') ||
       t.title.startsWith('📉 Sprint Health:'),
   );
 
@@ -43,9 +43,9 @@ export async function updateHealthMetrics(epicId, dryRun = false) {
   let inProgressTasks = 0;
 
   for (const task of tasks) {
-    if ((task.labels ?? []).includes('agent::done')) doneTasks++;
-    if ((task.labels ?? []).includes('agent::blocked')) blockedTasks++;
-    if ((task.labels ?? []).includes('agent::executing')) inProgressTasks++;
+    if (task.labels.includes('agent::done')) doneTasks++;
+    if (task.labels.includes('agent::blocked')) blockedTasks++;
+    if (task.labels.includes('agent::executing')) inProgressTasks++;
   }
 
   // Attempt to fetch friction logs using recent comments

@@ -24,7 +24,7 @@ export function getResolvedBranch(task, allTicketsById, epicId) {
   if (parentMatch) {
     const parentId = parseInt(parentMatch[1], 10);
     const parentTicket = allTicketsById.get(parentId);
-    if (parentTicket && (parentTicket.labels ?? []).includes('type::story')) {
+    if (parentTicket && parentTicket.labels.includes('type::story')) {
       return getStoryBranch(epicId, parentId);
     }
   }
@@ -40,7 +40,7 @@ export function getResolvedBranch(task, allTicketsById, epicId) {
  * @param {object}   settings
  * @returns {object[]}
  */
-export function buildStoryManifest(tasks, allTickets, epicId, settings) {
+function buildStoryManifest(tasks, allTickets, epicId, settings) {
   const groups = groupTasksByStory(tasks, allTickets, epicId);
 
   // Parse explicit story-to-story dependencies from `blocked by` on story

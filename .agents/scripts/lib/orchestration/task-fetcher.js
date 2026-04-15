@@ -19,7 +19,7 @@ export function parseTasks(tickets) {
   return tickets.map((t) => {
     const metadata = parseTaskMetadata(t.body ?? '');
     const blockedBy = parseBlockedBy(t.body ?? '');
-    const labels = t.labels ?? [];
+    const labels = t.labels;
 
     const status =
       t.state === 'closed'
