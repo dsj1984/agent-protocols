@@ -71,6 +71,8 @@ export const ORCHESTRATION_SCHEMA = {
           type: 'string',
           enum: ['per-worktree', 'symlink', 'pnpm-store'],
         },
+        primeFromPath: { type: ['string', 'null'], minLength: 1 },
+        allowSymlinkOnWindows: { type: 'boolean' },
         reapOnSuccess: { type: 'boolean' },
         reapOnCancel: { type: 'boolean' },
         warnOnUncommittedOnReap: { type: 'boolean' },
