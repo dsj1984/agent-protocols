@@ -215,10 +215,26 @@ describe('validateOrchestrationConfig — worktreeIsolation', () => {
           enabled: true,
           root: '.worktrees',
           nodeModulesStrategy: 'per-worktree',
+          primeFromPath: null,
+          allowSymlinkOnWindows: false,
           reapOnSuccess: true,
           reapOnCancel: true,
           warnOnUncommittedOnReap: true,
           windowsPathLengthWarnThreshold: 240,
+        },
+      }),
+    );
+  });
+
+  it('accepts symlink strategy with primeFromPath + Windows opt-in', () => {
+    assert.doesNotThrow(() =>
+      validateOrchestrationConfig({
+        provider: 'github',
+        github: baseGithub,
+        worktreeIsolation: {
+          nodeModulesStrategy: 'symlink',
+          primeFromPath: '.worktrees/primed',
+          allowSymlinkOnWindows: true,
         },
       }),
     );
