@@ -8,6 +8,7 @@ import fs from 'node:fs';
 import path from 'node:path';
 import { fileURLToPath } from 'node:url';
 import { resolveConfig } from '../config-resolver.js';
+import { upsertStructuredComment } from '../orchestration/ticketing.js';
 
 function getProjectRoot() {
   const __dirname = path.dirname(fileURLToPath(import.meta.url));
@@ -51,6 +52,73 @@ export function persistManifest(manifest) {
     process.stderr.write(
       `[MCP/Dispatcher] Failed to persist manifest to temp/: ${persistErr.message}\n`,
     );
+  }
+}
+
+/**
+ * Persist the Epic's dispatch manifest as a structured comment on the Epic
+ * issue. The body carries a wave/story summary plus a fenced JSON block
+ * containing `{ storyId, wave, title }` entries so downstream tooling (the
+ * wave-completeness gate in particular) can parse it back.
+ *
+ * Idempotent — an existing `dispatch-manifest` structured comment on the
+ * Epic is replaced via `upsertStructuredComment`.
+ *
+ * Safe to call in dry-run mode. Only applies to Epic manifests (not the
+ * per-story-execution variant).
+ *
+ * @param {object} manifest
+ * @param {import('../ITicketingProvider.js').ITicketingProvider} provider
+ * @returns {Promise<{ posted: boolean, reason?: string }>}
+ */
+export async function postManifestEpicComment(manifest, provider) {
+  if (!manifest || manifest.type === 'story-execution' || !manifest.epicId) {
+    return { posted: false, reason: 'not-an-epic-manifest' };
+  }
+  if (!provider || typeof provider.postComment !== 'function') {
+    return { posted: false, reason: 'no-provider' };
+  }
+
+  const storyManifest = manifest.storyManifest ?? [];
+  const waveEligible = storyManifest.filter((s) => s.type !== 'feature');
+  const waveSet = new Set(
+    waveEligible.map((s) => s.earliestWave).filter((w) => w !== -1),
+  );
+  const stories = waveEligible
+    .filter((s) => s.storyId !== '__ungrouped__')
+    .map((s) => ({
+      storyId: s.storyId,
+      wave: s.earliestWave ?? -1,
+      title: s.storyTitle ?? s.storySlug ?? '',
+    }));
+
+  const body = [
+    `## 📋 Dispatch Manifest — Epic #${manifest.epicId}`,
+    '',
+    `- **Waves:** ${waveSet.size || 1}`,
+    `- **Stories:** ${stories.length}`,
+    `- **Generated:** ${manifest.generatedAt}`,
+    '',
+    'Source of truth for the wave-completeness gate run at `/sprint-close`.',
+    '',
+    '```json',
+    JSON.stringify({ stories }, null, 2),
+    '```',
+  ].join('\n');
+
+  try {
+    await upsertStructuredComment(
+      provider,
+      manifest.epicId,
+      'dispatch-manifest',
+      body,
+    );
+    return { posted: true };
+  } catch (err) {
+    process.stderr.write(
+      `[Dispatcher] Failed to persist dispatch-manifest comment to Epic #${manifest.epicId}: ${err.message}\n`,
+    );
+    return { posted: false, reason: err.message };
   }
 }
 

@@ -36,10 +36,13 @@ export {
 // ---------------------------------------------------------------------------
 
 import { parseSprintArgs } from './lib/cli-args.js';
+import { resolveConfig } from './lib/config-resolver.js';
 import {
   persistManifest,
+  postManifestEpicComment,
   printStoryDispatchTable,
 } from './lib/presentation/manifest-renderer.js';
+import { createProvider } from './lib/provider-factory.js';
 
 /**
  * High-level orchestrator that resolves the execution strategy, generates the manifest,
@@ -68,6 +71,27 @@ export async function generateAndSaveManifest(
 
   // Write manifest files using the new presentation abstraction
   persistManifest(manifest);
+
+  // Persist the Epic-level dispatch manifest as a structured comment on
+  // the Epic so the wave-completeness gate can parse it back at close time.
+  // Story-execution manifests are per-story and are not persisted upstream.
+  if (manifest.type !== 'story-execution' && manifest.epicId) {
+    try {
+      const provider =
+        opts.provider ?? createProvider(resolveConfig().orchestration);
+      const result = await postManifestEpicComment(manifest, provider);
+      if (result.posted) {
+        console.log(
+          `[Dispatcher] 💬 Dispatch manifest comment posted on Epic #${manifest.epicId}`,
+        );
+      }
+    } catch (err) {
+      /* node:coverage ignore next */
+      console.warn(
+        `[Dispatcher] Non-fatal: could not post manifest comment — ${err.message}`,
+      );
+    }
+  }
 
   if (manifest.type === 'story-execution') {
     const key = manifest.stories.map((s) => s.storyId).join('-');

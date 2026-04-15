@@ -38,6 +38,10 @@ import { updateHealthMetrics } from './health-monitor.js';
 import { parseSprintArgs } from './lib/cli-args.js';
 import { runAsCli } from './lib/cli-utils.js';
 import { PROJECT_ROOT, resolveConfig } from './lib/config-resolver.js';
+import {
+  acquireEpicMergeLock,
+  releaseEpicMergeLock,
+} from './lib/epic-merge-lock.js';
 import { mergeFeatureBranch } from './lib/git-merge-orchestrator.js';
 import {
   getEpicBranch,
@@ -280,15 +284,23 @@ async function handleHighRiskGate(
   Logger.error('pushed, merged, or deleted. Ask the operator to choose:');
   Logger.error('');
   Logger.error(
-    '  (1) Proceed with auto-merge — remove the `risk::high` label on the',
+    '  (1) Auto-merge — the AGENT removes the `risk::high` label via',
   );
-  Logger.error('      story, then re-run sprint-story-close for this story.');
+  Logger.error(
+    '      `update-ticket-state.js --ticket <id> --remove-label risk::high`',
+  );
+  Logger.error('      and re-runs sprint-story-close for this story.');
   Logger.error(
     '  (2) Merge manually — operator inspects the diff and merges by hand.',
   );
   Logger.error(
     '  (3) Reject / rework — leave the branch alone and open follow-up work.',
   );
+  Logger.error('');
+  Logger.error(
+    'Reply in chat with `Proceed` or `Proceed Option 1/2/3`. The agent',
+  );
+  Logger.error('will remove the label automatically for Option 1.');
   Logger.error('');
   Logger.error(
     'To skip this gate globally, set `orchestration.hitl.riskHighApproval` to',
@@ -299,9 +311,11 @@ async function handleHighRiskGate(
   return {
     action: 'paused-for-approval',
     reason:
-      'risk::high — operator must choose in chat: (1) remove label and ' +
-      're-run for auto-merge, (2) merge manually, or (3) reject/rework. ' +
-      'No ticket mutations were made. Story branch left untouched.',
+      'risk::high — operator must reply in chat with `Proceed` / ' +
+      '`Proceed Option 1` (agent auto-removes the label and re-runs), ' +
+      '`Proceed Option 2` (manual merge), or `Proceed Option 3` ' +
+      '(reject/rework). No ticket mutations were made. Story branch ' +
+      'left untouched.',
   };
 }
 
@@ -360,62 +374,98 @@ function rebaseStoryOnEpic({
   return { rebased: true };
 }
 
-function finalizeMerge(
+async function finalizeMerge(
   epicBranch,
   storyBranch,
   storyTitle,
   storyId,
   cwd,
   orchestration,
+  epicId,
 ) {
-  rebaseStoryOnEpic({
-    orchestration,
-    storyId,
-    epicBranch,
-    storyBranch,
-    repoRoot: cwd,
-  });
-
-  progress('GIT', `Checking out ${epicBranch}...`);
-  gitSync(cwd, 'checkout', epicBranch);
-  gitSpawn(cwd, 'pull', '--rebase', 'origin', epicBranch);
-
-  progress('GIT', `Merging ${storyBranch} into ${epicBranch} (--no-ff)...`);
-  const mergeMsg = `feat: ${storyTitle.charAt(0).toLowerCase() + storyTitle.slice(1)} (resolves #${storyId})`;
-  const vlog = (_level, _ctx, msg, meta) => {
-    const tail = meta ? ` ${JSON.stringify(meta)}` : '';
-    Logger.error(`[merge] ${msg}${tail}`);
-  };
-  const result = mergeFeatureBranch(cwd, storyBranch, vlog, {
-    message: mergeMsg,
-  });
-
-  if (!result.merged && result.major) {
+  // Acquire the per-Epic filesystem merge lock before any rebase/merge/push
+  // activity so two concurrent story closures cannot race on the Epic
+  // branch. Lock is always released in the `finally` block.
+  let lockHandle;
+  try {
+    progress('LOCK', `Acquiring epic-merge lock for epic #${epicId}...`);
+    lockHandle = await acquireEpicMergeLock(epicId, {
+      repoRoot: cwd,
+      timeoutMs: 60_000,
+    });
+    progress('LOCK', `🔒 Acquired ${path.basename(lockHandle.filePath)}`);
+  } catch (err) {
     Logger.fatal(
-      `Major merge conflict on story close: ` +
-        `${result.conflicts.files} file(s), ${result.conflicts.lines} marker(s). ` +
-        `Conflicting files: ${result.conflicts.fileList.join(', ')}. ` +
-        `Merge has been aborted. Resolve manually on ${epicBranch}, then ` +
-        `re-run this script.`,
+      `Could not acquire epic-merge lock for epic #${epicId}: ${err.message}. ` +
+        `Another story closure may be in progress, or a stale lock is present at ` +
+        `${lockPathDisplay(cwd, epicId)} — inspect and remove it manually if no ` +
+        `other process is running.`,
     );
   }
-  if (result.autoResolved) {
-    progress(
-      'GIT',
-      `✅ Merge completed with auto-resolved minor conflicts ` +
-        `(${result.conflicts.files} file(s) resolved to theirs)`,
+
+  try {
+    rebaseStoryOnEpic({
+      orchestration,
+      storyId,
+      epicBranch,
+      storyBranch,
+      repoRoot: cwd,
+    });
+
+    progress('GIT', `Checking out ${epicBranch}...`);
+    gitSync(cwd, 'checkout', epicBranch);
+    gitSpawn(cwd, 'pull', '--rebase', 'origin', epicBranch);
+
+    progress('GIT', `Merging ${storyBranch} into ${epicBranch} (--no-ff)...`);
+    const mergeMsg = `feat: ${storyTitle.charAt(0).toLowerCase() + storyTitle.slice(1)} (resolves #${storyId})`;
+    const vlog = (_level, _ctx, msg, meta) => {
+      const tail = meta ? ` ${JSON.stringify(meta)}` : '';
+      Logger.error(`[merge] ${msg}${tail}`);
+    };
+    const result = mergeFeatureBranch(cwd, storyBranch, vlog, {
+      message: mergeMsg,
+    });
+
+    if (!result.merged && result.major) {
+      Logger.fatal(
+        `Major merge conflict on story close: ` +
+          `${result.conflicts.files} file(s), ${result.conflicts.lines} marker(s). ` +
+          `Conflicting files: ${result.conflicts.fileList.join(', ')}. ` +
+          `Merge has been aborted. Resolve manually on ${epicBranch}, then ` +
+          `re-run this script.`,
+      );
+    }
+    if (result.autoResolved) {
+      progress(
+        'GIT',
+        `✅ Merge completed with auto-resolved minor conflicts ` +
+          `(${result.conflicts.files} file(s) resolved to theirs)`,
+      );
+    } else {
+      progress('GIT', '✅ Merge successful');
+    }
+
+    progress('GIT', `Pushing ${epicBranch}...`);
+    const pushResult = gitSpawn(
+      cwd,
+      'push',
+      '--no-verify',
+      'origin',
+      epicBranch,
     );
-  } else {
-    progress('GIT', '✅ Merge successful');
-  }
+    if (pushResult.status !== 0) {
+      Logger.fatal(`Push failed: ${pushResult.stderr}`);
+    }
 
-  progress('GIT', `Pushing ${epicBranch}...`);
-  const pushResult = gitSpawn(cwd, 'push', '--no-verify', 'origin', epicBranch);
-  if (pushResult.status !== 0) {
-    Logger.fatal(`Push failed: ${pushResult.stderr}`);
+    cleanupBranches(storyBranch, cwd);
+  } finally {
+    releaseEpicMergeLock(lockHandle);
+    progress('LOCK', '🔓 Released epic-merge lock');
   }
+}
 
-  cleanupBranches(storyBranch, cwd);
+function lockPathDisplay(cwd, epicId) {
+  return path.join(cwd, '.git', `epic-${epicId}.merge.lock`);
 }
 
 /**
@@ -510,13 +560,14 @@ export async function runStoryClose({
     console.log('--- END RESULT ---\n');
     return { success: false, result };
   } else {
-    finalizeMerge(
+    await finalizeMerge(
       epicBranch,
       storyBranch,
       story.title,
       storyId,
       cwd,
       orchestration,
+      epicId,
     );
     await reapStoryWorktree({ orchestration, storyId, epicBranch });
   }

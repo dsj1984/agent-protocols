@@ -20,6 +20,7 @@ describe('ITicketingProvider — interface contract', () => {
     ['createTicket', [1, { title: 'test', body: '', labels: [] }]],
     ['updateTicket', [1, {}]],
     ['postComment', [1, { body: 'test', type: 'progress' }]],
+    ['deleteComment', [1]],
     ['createPullRequest', ['branch-name', 1]],
   ];
 
@@ -50,7 +51,7 @@ describe('ITicketingProvider — interface contract', () => {
     });
   }
 
-  it('has exactly 13 interface methods', () => {
+  it('has exactly 14 interface methods', () => {
     const expectedMethods = [
       'getEpic',
       'getTickets',
@@ -61,6 +62,7 @@ describe('ITicketingProvider — interface contract', () => {
       'createTicket',
       'updateTicket',
       'postComment',
+      'deleteComment',
       'createPullRequest',
       'ensureLabels',
       'ensureProjectFields',

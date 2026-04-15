@@ -2,6 +2,47 @@
 
 All notable changes to this project will be documented in this file.
 
+## [5.9.0] - 2026-04-15
+
+Bundled SDLC-review release addressing seven findings. Summary:
+
+- **Dispatch manifest is now a structured Epic comment.** The dispatcher
+  (`manifest-renderer.js#postManifestEpicComment`) idempotently upserts a
+  `dispatch-manifest` comment on the Epic containing wave count, story
+  count, and a JSON block of `{ storyId, wave, title }` entries.
+- **New wave-completeness gate at sprint-close.**
+  `.agents/scripts/sprint-wave-gate.js` reads the `dispatch-manifest`
+  comment and verifies every listed story is closed. Wired into
+  `sprint-close.md` as Step 0.5 ahead of the hierarchy check.
+- **Retro detection moved off heading-grep.** `sprint-retro.md` now
+  appends a `<!-- retro-complete: <ISO_TIMESTAMP> -->` marker; the
+  close-workflow gate prefers a `type: "retro"` structured-comment
+  lookup and falls back to grepping for the marker.
+- **Code-review findings persisted as a structured Epic comment.**
+  `sprint-code-review.js` posts its report via `upsertStructuredComment`
+  with `type: "code-review"` (severity tier counts + full findings). The
+  retro workflow now reads that comment to summarise blockers/high
+  findings in its Architectural Debt section.
+- **`/git-push` and `/git-commit-all` consolidated.** `git-push.md` is
+  the single source of truth and accepts `--no-push`;
+  `git-commit-all.md` is a thin alias that links back to it.
+- **Shared merge-conflict resolution partial.**
+  `.agents/workflows/_merge-conflict-template.md` extracts the canonical
+  procedure. `git-merge-pr.md` Step 2.5, `sprint-execute.md` Step 1, and
+  `sprint-close.md` Step 6 reference it instead of inlining the same
+  instructions three times.
+- **`risk::high` resume protocol is now chat-only.** The operator
+  approves by typing `Proceed` / `Proceed Option 1|2|3` in chat. On
+  Option 1 the agent (not the operator) removes the `risk::high` label
+  via the new `update-ticket-state.js --ticket <id> --remove-label
+  <label>` flag, then re-runs `sprint-story-close.js`.
+- **Epic-branch merge lock for parallel-wave safety.**
+  `.agents/scripts/lib/epic-merge-lock.js` implements a filesystem mutex
+  at `<repoRoot>/.git/epic-<epicId>.merge.lock` with PID + timestamp
+  stale-lock detection. `sprint-story-close.js#finalizeMerge` acquires
+  the lock before rebasing/merging/pushing and releases it in a
+  `finally` block. Covered by `tests/lib/epic-merge-lock.test.js`.
+
 ## [5.8.7] - 2026-04-15
 
 ### 🔀 Robust story→epic merge at story close

@@ -84,36 +84,17 @@ git rebase origin/[BASE_BRANCH]
 
 ### Step 2.5 — Conflict Resolution
 
-1. Identify conflicting files:
+Follow the shared conflict-resolution procedure in
+[`_merge-conflict-template.md`](_merge-conflict-template.md): identify the
+conflicting files, read both sides, apply both when compatible (or choose a side
+with an explicit rationale), never silently drop code, then stage and
+`git rebase --continue`.
 
-   ```powershell
-   git diff --name-only --diff-filter=U
-   ```
+Once the rebase completes cleanly, force-push the rebased branch:
 
-2. For each conflicting file:
-   - Open the file and read both the `HEAD` (incoming from base) and the
-     `incoming` (from `[HEAD_BRANCH]`) change blocks.
-   - Resolve by applying **both** changes where logically compatible, or by
-     choosing the correct side based on the PR's stated intent.
-   - **Never silently drop code**. If the resolution is ambiguous, alert the
-     operator with a description of the conflict and the two sides before
-     choosing.
-
-3. After resolving all files, stage and continue the rebase:
-
-   ```powershell
-   git add .
-   git rebase --continue
-   ```
-
-4. Repeat for any subsequent conflict stanzas until the rebase completes
-   cleanly.
-
-5. Force-push the rebased branch:
-
-   ```powershell
-   git push --force-with-lease origin [HEAD_BRANCH]
-   ```
+```powershell
+git push --force-with-lease origin [HEAD_BRANCH]
+```
 
 ---
 

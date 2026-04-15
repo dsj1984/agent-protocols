@@ -47,6 +47,23 @@ Epic GitHub issue, cleans up all sprint branches, and optionally tags a release.
    `.agentrc.json` (default: `true`). When `false`, Step 1.5 is skipped entirely
    — no retro is required or produced.
 
+## Step 0.5 — Wave Completeness Gate
+
+Before any hierarchy or merge work, verify every Story in the Epic's dispatch
+manifest is closed. The manifest is persisted as a `dispatch-manifest`
+structured comment on the Epic by `/sprint-plan` (and by every subsequent
+dispatcher run), which makes it the authoritative source of truth for which
+Stories the sprint actually committed to.
+
+```powershell
+node [SCRIPTS_ROOT]/sprint-wave-gate.js --epic [EPIC_ID]
+```
+
+If the script exits non-zero: **STOP IMMEDIATELY.** The printed output lists
+every Story ID from the manifest that is still open, along with its wave and
+title. Close or re-dispatch the outstanding Stories before re-running
+`/sprint-close`.
+
 ## Step 1 — Completeness Gate (Hierarchy Check)
 
 Before executing any git operations, verify ALL child items under the Epic are
@@ -96,10 +113,19 @@ When `[RUN_RETRO]` is `true` (default), verify a retrospective comment has been
 posted on the Epic issue. Retros are stored as comments on the Epic — there is
 no local retro file.
 
+Detection strategy:
+
+1. **Preferred**: fetch `provider.getComments(epicId)` (or
+   `provider.getTicketComments(epicId)`) and filter for a comment whose
+   `type === "retro"` metadata is present.
+2. **Fallback**: grep the raw comment bodies for the
+   `<!-- retro-complete: ... -->` HTML marker written at the end of the retro
+   body.
+
 ```powershell
-# Look for the retro marker heading on the Epic's comment thread.
+# Fallback grep — matches the retro-complete HTML marker.
 gh api "repos/{owner}/{repo}/issues/[EPIC_ID]/comments" \
-  --jq '.[] | select(.body | startswith("## 🪞 Sprint Retrospective — Epic #[EPIC_ID]"))'
+  --jq '.[] | select(.body | test("retro-complete:"))'
 ```
 
 If no matching comment is found, **auto-invoke** `/sprint-retro [EPIC_ID]`
@@ -250,8 +276,9 @@ git merge --no-ff epic/[EPIC_ID] -m "chore(release): merge epic/[EPIC_ID] into [
 node [SCRIPTS_ROOT]/detect-merges.js
 ```
 
-If markers are found: resolve them, stage with `git add`, and amend the merge
-commit before proceeding.
+If markers are found: resolve them following the canonical procedure in
+[`_merge-conflict-template.md`](_merge-conflict-template.md), stage with
+`git add`, and amend the merge commit before proceeding.
 
 ## Step 7 — Push Main & Tags
 

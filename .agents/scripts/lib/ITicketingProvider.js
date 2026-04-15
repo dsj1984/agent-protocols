@@ -203,6 +203,17 @@ export class ITicketingProvider {
   }
 
   /**
+   * Delete an issue comment by its numeric id.
+   * Implementations SHOULD treat "not found" as a no-op.
+   *
+   * @param {number} _commentId
+   * @returns {Promise<void>}
+   */
+  async deleteComment(_commentId) {
+    throw new Error('Not implemented: deleteComment');
+  }
+
+  /**
    * Open a Pull Request linking the specified ticket.
    *
    * @param {string} branchName - The source branch for the PR.
