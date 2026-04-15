@@ -320,7 +320,12 @@ export class WorktreeManager {
     }
     const wtPath = this.pathFor(storyId);
 
-    if (!this._findByPath(wtPath)) {
+    // Callers that already have a porcelain snapshot (e.g. gc()) can inject
+    // it via `opts.worktrees` to skip the N+1 `git worktree list` re-probe.
+    const known = opts.worktrees
+      ? opts.worktrees.some((r) => path.resolve(r.path) === path.resolve(wtPath))
+      : this._findByPath(wtPath) !== null;
+    if (!known) {
       return { removed: false, reason: 'not-a-worktree', path: wtPath };
     }
 
@@ -361,7 +366,10 @@ export class WorktreeManager {
       if (id === null) continue;        // not a managed story worktree
       if (open.has(id)) continue;        // still live
 
-      const result = await this.reap(id, { epicBranch: opts.epicBranch ?? null });
+      const result = await this.reap(id, {
+        epicBranch: opts.epicBranch ?? null,
+        worktrees,
+      });
       if (result.removed) {
         reaped.push({ storyId: id, path: wt.path });
       } else {

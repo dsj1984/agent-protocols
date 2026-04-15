@@ -70,7 +70,7 @@ function cleanupBranches(storyBranch, cwd) {
   }
 
   const remoteDelete = gitSpawn(
-    PROJECT_ROOT,
+    cwd,
     'push',
     '--no-verify',
     'origin',
