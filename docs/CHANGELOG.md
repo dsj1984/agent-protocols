@@ -4,6 +4,28 @@ All notable changes to this project will be documented in this file.
 
 ## [5.8.3] - 2026-04-15
 
+### 🧹 Remove no-op "Live Integration Tests" CI job and its dead test
+
+The `e2e` job in `.github/workflows/ci.yml` was a placeholder that ran
+`npm ci` and echoed `"Placeholder for future E2E scripts against
+sandbox"`. The actual test invocation was commented out and no
+`test:e2e` script existed in `package.json`. The job provided zero
+coverage while blocking the `publish` job and consuming CI minutes on
+every run.
+
+`tests/integration/parallel-sprint.test.js` was likewise dead — the
+`npm test` script only globs `tests/*.test.js` and `tests/lib/*.test.js`,
+so this 204-line integration test was never executed by any pathway.
+
+- **Removed:** `e2e` job from `.github/workflows/ci.yml`.
+- **Removed:** `needs: [validate, e2e]` → `needs: [validate]` on the
+  `publish` job.
+- **Removed:** `tests/integration/parallel-sprint.test.js`.
+
+If we later want real live integration coverage against a sandbox repo,
+we'll reintroduce it with a working `npm run test:e2e` script and a
+non-placeholder CI step. Until then, this is clutter.
+
 ### 🧹 `techStack` moved from config to `docs/architecture.md`
 
 Project-specific technology context (frameworks, database, auth, workspace

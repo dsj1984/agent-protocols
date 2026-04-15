@@ -58,36 +58,9 @@ jobs:
           name: test-results-node-22
           path: test-output.txt
 
-  e2e:
-    name: Live Integration Tests
-    needs: validate
-    runs-on: ubuntu-latest
-    if: github.repository == 'dsj1984/agent-protocols'
-    env:
-      GITHUB_TOKEN: ${{ secrets.GH_SANDBOX_PAT }}
-      TEST_OWNER: "dsj1984"
-      TEST_REPO: "agent-protocols-sandbox"
-    steps:
-      - uses: actions/checkout@v4
-
-      - name: Setup Node.js
-        uses: actions/setup-node@v4
-        with:
-          node-version: 20
-          cache: 'npm'
-
-      - name: Install Dependencies
-        run: npm ci
-
-      - name: Run E2E Smoke Tests
-        if: env.GITHUB_TOKEN != ''
-        run: |
-          echo "Placeholder for future E2E scripts against sandbox"
-          # npm run test:e2e
-
   publish:
     name: Publish to Dist
-    needs: [validate, e2e]
+    needs: [validate]
     if: |
       github.ref == 'refs/heads/main' && 
       (github.event_name == 'push' || github.event_name == 'workflow_dispatch')
