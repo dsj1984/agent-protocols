@@ -8,9 +8,10 @@
  * Mode B workflow. Performs all post-implementation orchestration:
  *
  *   1. Validates the Story branch exists and is currently checked out.
- *   2. Checks for risk::high label — pauses with a HITL comment and exits
- *      non-zero. The operator either removes the label and re-runs, merges
- *      manually, or reworks. The story branch is left untouched.
+ *   2. Checks for risk::high label — prints an in-chat HITL pause prompt to
+ *      stderr and exits non-zero (no PR, no push, no comment, no label
+ *      mutation). The invoking agent relays the options to the operator in
+ *      chat; the story branch is left untouched.
  *   3. Merges the Story branch into epic/<epicId> with --no-ff.
  *   4. Pushes the Epic branch.
  *   5. Deletes the Story branch (local + remote).
