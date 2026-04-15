@@ -201,6 +201,91 @@ describe('validateOrchestrationConfig — schema violations', () => {
 });
 
 // ---------------------------------------------------------------------------
+// validateOrchestrationConfig — worktreeIsolation
+// ---------------------------------------------------------------------------
+describe('validateOrchestrationConfig — worktreeIsolation', () => {
+  const baseGithub = { owner: 'org', repo: 'repo' };
+
+  it('accepts a fully-specified worktreeIsolation block', () => {
+    assert.doesNotThrow(() =>
+      validateOrchestrationConfig({
+        provider: 'github',
+        github: baseGithub,
+        worktreeIsolation: {
+          enabled: true,
+          root: '.worktrees',
+          nodeModulesStrategy: 'per-worktree',
+          reapOnSuccess: true,
+          reapOnCancel: true,
+          warnOnUncommittedOnReap: true,
+          windowsPathLengthWarnThreshold: 240,
+        },
+      }),
+    );
+  });
+
+  it('rejects unknown nodeModulesStrategy', () => {
+    assert.throws(
+      () =>
+        validateOrchestrationConfig({
+          provider: 'github',
+          github: baseGithub,
+          worktreeIsolation: { nodeModulesStrategy: 'bogus' },
+        }),
+      /must be equal to one of the allowed values/,
+    );
+  });
+
+  it('rejects unknown property on worktreeIsolation', () => {
+    assert.throws(
+      () =>
+        validateOrchestrationConfig({
+          provider: 'github',
+          github: baseGithub,
+          worktreeIsolation: { unknownField: true },
+        }),
+      /must NOT have additional properties/,
+    );
+  });
+
+  it('rejects root that resolves outside the repo root', () => {
+    assert.throws(
+      () =>
+        validateOrchestrationConfig({
+          provider: 'github',
+          github: baseGithub,
+          worktreeIsolation: { root: '../../../evil' },
+        }),
+      /resolves outside the repo root/,
+    );
+  });
+
+  it('rejects absolute root pointing outside the repo', () => {
+    assert.throws(
+      () =>
+        validateOrchestrationConfig({
+          provider: 'github',
+          github: baseGithub,
+          worktreeIsolation: { root: '/etc' },
+        }),
+      /resolves outside the repo root/,
+    );
+  });
+
+  it('rejects root equal to the repo root itself', () => {
+    assert.throws(
+      () =>
+        validateOrchestrationConfig({
+          provider: 'github',
+          github: baseGithub,
+          worktreeIsolation: { root: '.' },
+        }),
+      /resolves outside the repo root/,
+    );
+  });
+});
+
+// ---------------------------------------------------------------------------
 // validateOrchestrationConfig — security (shell injection)
 // ---------------------------------------------------------------------------
 describe('validateOrchestrationConfig — shell injection', () => {
@@ -232,6 +317,18 @@ describe('validateOrchestrationConfig — shell injection', () => {
         validateOrchestrationConfig({
           provider: 'github',
           github: { owner: 'org', repo: 'repo', operatorHandle: '@user|hack' },
+        }),
+      /\[Security\]/,
+    );
+  });
+
+  it('rejects shell injection in worktreeIsolation.root', () => {
+    assert.throws(
+      () =>
+        validateOrchestrationConfig({
+          provider: 'github',
+          github: { owner: 'org', repo: 'repo' },
+          worktreeIsolation: { root: '.worktrees;rm -rf /' },
         }),
       /\[Security\]/,
     );

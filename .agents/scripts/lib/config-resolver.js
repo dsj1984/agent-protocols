@@ -264,6 +264,32 @@ export function validateOrchestrationConfig(orchestration) {
     }
   }
 
+  // worktreeIsolation.root — path-traversal guard.
+  // The root is interpreted relative to the repo root; resolved path must stay
+  // inside it so a hostile config like "../../../etc" cannot escape.
+  if (orchestration.worktreeIsolation?.root != null) {
+    const root = orchestration.worktreeIsolation.root;
+    if (typeof root === 'string') {
+      if (SHELL_INJECTION_RE.test(root)) {
+        errors.push(
+          '- [Security] Shell meta-characters detected in orchestration.worktreeIsolation.root.',
+        );
+      } else {
+        const resolved = path.resolve(PROJECT_ROOT, root);
+        const rel = path.relative(PROJECT_ROOT, resolved);
+        if (
+          rel === '' ||
+          rel.startsWith('..') ||
+          path.isAbsolute(rel)
+        ) {
+          errors.push(
+            `- [Security] orchestration.worktreeIsolation.root resolves outside the repo root: ${root}`,
+          );
+        }
+      }
+    }
+  }
+
   // Notification webhook injection check
   if (orchestration.notifications?.webhookUrl) {
     if (
