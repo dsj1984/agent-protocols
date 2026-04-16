@@ -119,6 +119,7 @@ export const AGENT_SETTINGS_SCHEMA = {
       },
       additionalProperties: false,
     },
+    maxTickets: { type: 'integer', minimum: 1 },
     sprintClose: {
       type: 'object',
       properties: {

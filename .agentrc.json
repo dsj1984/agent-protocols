@@ -27,6 +27,7 @@
       "runRetro": true
     },
     "maxInstructionSteps": 5,
+    "maxTickets": 40,
     "maxTokenBudget": 200000,
     "executionTimeoutMs": 300000,
     "executionMaxBuffer": 10485760,

@@ -2,6 +2,14 @@
 
 All notable changes to this project will be documented in this file.
 
+## [5.10.1] - 2026-04-16
+
+### Configurable ticket decomposition cap (`maxTickets`)
+
+The ticket decomposer's hardcoded 25-ticket limit is now configurable via
+`agentSettings.maxTickets` in `.agentrc.json`. Default raised to **40** to
+accommodate larger Epics without requiring code changes.
+
 ## [5.10.0] - 2026-04-16
 
 Framework housekeeping: remove redundant infrastructure and tighten the

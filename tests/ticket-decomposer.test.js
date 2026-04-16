@@ -191,7 +191,7 @@ describe('ticket-decomposer buildDecompositionContext', () => {
     assert.equal(ctx.techSpec.body, 'TECH SPEC BODY');
     assert.deepEqual(ctx.heuristics, ['Heuristic A']);
     assert.ok(ctx.systemPrompt.includes('Heuristic A'));
-    assert.equal(ctx.maxTickets, 25);
+    assert.equal(ctx.maxTickets, 40);
   });
 
   it('throws when planning artifacts are missing', async () => {

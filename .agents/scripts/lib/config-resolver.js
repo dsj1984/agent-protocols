@@ -104,6 +104,7 @@ export function resolveConfig(opts) {
       ],
       maintainability: { targetDirs: ['.agents/scripts', 'tests'] },
       auditOutputDir: 'temp',
+      maxTickets: 40,
       executionTimeoutMs: 300000,
       executionMaxBuffer: 10485760,
       maxTokenBudget: 200000,
@@ -180,6 +181,7 @@ export function resolveConfig(opts) {
       baseBranch: 'main',
       notificationWebhookUrl: '',
       verboseLogging: { enabled: false, logDir: 'temp/verbose-logs' },
+      maxTickets: 40,
       executionTimeoutMs: 300000, // 5 minutes
       executionMaxBuffer: 10485760, // 10MB
       maxTokenBudget: 200000, // 200k tokens — fits modern Claude/GPT windows

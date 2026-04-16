@@ -94,7 +94,7 @@ export async function buildDecompositionContext(epicId, provider, config = {}) {
     techSpec: { id: techSpec.id, body: techSpec.body },
     heuristics,
     systemPrompt,
-    maxTickets: 25,
+    maxTickets: config.agentSettings?.maxTickets ?? 40,
   };
 }
 
@@ -146,9 +146,10 @@ export async function decomposeEpic(
     console.log(`[Decomposer]   Closed ${children.length} old ticket(s).`);
   }
 
-  if (tickets.length >= 25) {
+  const maxTickets = _config.agentSettings?.maxTickets ?? 40;
+  if (tickets.length >= maxTickets) {
     console.warn(
-      `[Decomposer] ⚠️  Received ${tickets.length} tickets (at or above the 25-ticket cap). Verify every Story still has child Tasks or split the Epic into smaller scopes.`,
+      `[Decomposer] ⚠️  Received ${tickets.length} tickets (at or above the ${maxTickets}-ticket cap). Verify every Story still has child Tasks or split the Epic into smaller scopes.`,
     );
   }
 
