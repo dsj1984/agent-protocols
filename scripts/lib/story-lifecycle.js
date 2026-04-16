@@ -24,8 +24,8 @@ import {
  */
 export function resolveStoryHierarchy(body) {
   const source = body ?? '';
-  const epicMatch = source.match(/(?:^epic:\s*#(\d+))/im);
-  const parentMatch = source.match(/(?:^parent:\s*#(\d+))/im);
+  const epicMatch = source.match(/(?:^\s*epic:\s*#(\d+))/im);
+  const parentMatch = source.match(/(?:^\s*parent:\s*#(\d+))/im);
   return {
     epicId: epicMatch ? parseInt(epicMatch[1], 10) : null,
     featureId: parentMatch ? parseInt(parentMatch[1], 10) : null,
@@ -70,35 +70,38 @@ export async function batchTransitionTickets(
   const skipped = [];
   const failed = [];
 
-  await Promise.all(
-    tickets.map(async (ticket) => {
-      if (ticket.labels.includes(targetLabel)) {
-        progress?.(
-          'TICKETS',
-          `  #${ticket.id} already ${targetLabel} — skipped`,
-        );
-        skipped.push(ticket.id);
-        return;
-      }
-      if (
-        targetLabel !== STATE_LABELS.DONE &&
-        ticket.labels.includes(STATE_LABELS.DONE)
-      ) {
-        progress?.('TICKETS', `  #${ticket.id} already done — skipped`);
-        skipped.push(ticket.id);
-        return;
-      }
-      try {
-        await transitionTicketState(provider, ticket.id, targetLabel);
-        progress?.('TICKETS', `  #${ticket.id} → ${targetLabel} ✅`);
-        transitioned.push(ticket.id);
-      } catch (err) {
-        failed.push(ticket.id);
-        if (onError) onError(ticket.id, err);
-        else console.error(`  #${ticket.id} → FAILED: ${err.message}`);
-      }
-    }),
-  );
+  const concurrency = opts.concurrency ?? 10;
+
+  const processTicket = async (ticket) => {
+    if (ticket.labels.includes(targetLabel)) {
+      progress?.('TICKETS', `  #${ticket.id} already ${targetLabel} — skipped`);
+      skipped.push(ticket.id);
+      return;
+    }
+    if (
+      targetLabel !== STATE_LABELS.DONE &&
+      ticket.labels.includes(STATE_LABELS.DONE)
+    ) {
+      progress?.('TICKETS', `  #${ticket.id} already done — skipped`);
+      skipped.push(ticket.id);
+      return;
+    }
+    try {
+      await transitionTicketState(provider, ticket.id, targetLabel);
+      progress?.('TICKETS', `  #${ticket.id} → ${targetLabel} ✅`);
+      transitioned.push(ticket.id);
+    } catch (err) {
+      failed.push(ticket.id);
+      if (onError) onError(ticket.id, err);
+      else console.error(`  #${ticket.id} → FAILED: ${err.message}`);
+    }
+  };
+
+  // Process in batches to avoid overwhelming the API with concurrent requests.
+  for (let i = 0; i < tickets.length; i += concurrency) {
+    const batch = tickets.slice(i, i + concurrency);
+    await Promise.all(batch.map(processTicket));
+  }
 
   return { transitioned, skipped, failed };
 }

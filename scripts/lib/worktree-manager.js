@@ -119,6 +119,8 @@ export class WorktreeManager {
     };
     this.git = git;
     this.platform = platform;
+    /** @type {{ list: Array|null, ts: number }} */
+    this._worktreeListCache = { list: null, ts: 0 };
 
     // Path traversal guard: resolve root and assert containment.
     const resolvedRoot = path.resolve(this.repoRoot, this.config.root);
@@ -187,23 +189,38 @@ export class WorktreeManager {
 
     const res = this.git.gitSpawn(this.repoRoot, ...addArgs);
     if (res.status !== 0) {
+      // Race: another process may have created the worktree between our
+      // _findByPath check and `git worktree add`. Re-check before failing.
+      const stderr = res.stderr || res.stdout || '';
+      if (/already (exists|checked out)/.test(stderr)) {
+        const raceExisting = this._findByPath(wtPath);
+        if (raceExisting) {
+          this.logger.info(
+            `worktree.ensure race: worktree appeared concurrently for story-${id}, reusing`,
+          );
+          return { path: wtPath, created: false };
+        }
+      }
       throw new Error(
-        `WorktreeManager: git worktree add failed for story-${id}: ${res.stderr || res.stdout}`,
+        `WorktreeManager: git worktree add failed for story-${id}: ${stderr}`,
       );
     }
+
+    this._invalidateWorktreeCache();
 
     if (this.platform === 'win32') {
       this.git.gitSpawn(wtPath, 'config', '--local', 'core.longpaths', 'true');
     }
 
     this._applyNodeModulesStrategy(wtPath);
-    this._installDependencies(wtPath);
+    const installOk = this._installDependencies(wtPath);
     this._linkAgentsToRoot(wtPath);
 
     this.logger.info(`worktree.created storyId=${id} path=${wtPath}`);
     return {
       path: wtPath,
       created: true,
+      installFailed: !installOk,
       ...(windowsPathWarning ? { windowsPathWarning } : {}),
     };
   }
@@ -291,12 +308,15 @@ export class WorktreeManager {
    *
    * @param {string} wtPath Absolute worktree path.
    */
+  /**
+   * @returns {boolean} `true` if install succeeded, `false` otherwise.
+   */
   _installDependencies(wtPath) {
     const strategy = this.config.nodeModulesStrategy ?? 'per-worktree';
-    if (strategy === 'symlink') return;
+    if (strategy === 'symlink') return true;
 
     const pkgJson = path.join(wtPath, 'package.json');
-    if (!fs.existsSync(pkgJson)) return;
+    if (!fs.existsSync(pkgJson)) return true;
 
     let cmd, args;
     if (strategy === 'pnpm-store') {
@@ -319,23 +339,67 @@ export class WorktreeManager {
       }
     }
 
-    this.logger.info(
-      `worktree.install strategy=${strategy} cmd=${cmd} path=${wtPath}`,
-    );
-    const install = spawnSync(cmd, args, {
-      cwd: wtPath,
-      stdio: 'pipe',
-      encoding: 'utf-8',
-      shell: this.platform === 'win32',
-      timeout: 120_000,
-    });
-    if (install.status !== 0) {
-      this.logger.warn(
-        `worktree.install failed cmd=${cmd} status=${install.status} stderr=${(install.stderr ?? '').slice(0, 500)}`,
+    // pnpm-store first-run populates the global content-addressable store,
+    // which can be slow. Give it more headroom and retry on failure.
+    const isPnpm = cmd === 'pnpm';
+    const maxAttempts = isPnpm ? 3 : 1;
+    const timeout = isPnpm ? 300_000 : 120_000;
+    const backoffMs = [0, 2_000, 5_000];
+
+    let lastResult;
+    for (let attempt = 1; attempt <= maxAttempts; attempt++) {
+      if (attempt > 1) {
+        const delay = backoffMs[attempt - 1] ?? 5_000;
+        this.logger.info(
+          `worktree.install retry ${attempt}/${maxAttempts} after ${delay}ms...`,
+        );
+        spawnSync('sleep', [`${delay / 1000}`], {
+          shell: this.platform === 'win32',
+          timeout: delay + 1_000,
+        });
+      }
+
+      this.logger.info(
+        `worktree.install strategy=${strategy} cmd=${cmd} attempt=${attempt}/${maxAttempts} path=${wtPath}`,
       );
-    } else {
-      this.logger.info(`worktree.install succeeded cmd=${cmd} path=${wtPath}`);
+      lastResult = spawnSync(cmd, args, {
+        cwd: wtPath,
+        stdio: 'pipe',
+        encoding: 'utf-8',
+        shell: this.platform === 'win32',
+        timeout,
+      });
+
+      if (lastResult.status === 0) break;
+
+      const reason =
+        lastResult.signal === 'SIGTERM'
+          ? `timeout after ${timeout / 1000}s`
+          : `exit ${lastResult.status}`;
+      this.logger.warn(
+        `worktree.install attempt ${attempt} failed (${reason}) stderr=${(lastResult.stderr ?? '').slice(0, 500)}`,
+      );
     }
+
+    if (lastResult.status !== 0) {
+      this.logger.warn(
+        `worktree.install FAILED after ${maxAttempts} attempt(s). ` +
+          'Agent will need to run install manually in the worktree.',
+      );
+      return false;
+    }
+
+    // Verify node_modules was actually created.
+    const nmPath = path.join(wtPath, 'node_modules');
+    if (!fs.existsSync(nmPath)) {
+      this.logger.warn(
+        `worktree.install cmd=${cmd} exited 0 but node_modules missing at ${nmPath}`,
+      );
+      return false;
+    }
+
+    this.logger.info(`worktree.install succeeded cmd=${cmd} path=${wtPath}`);
+    return true;
   }
 
   /**
@@ -470,6 +534,7 @@ export class WorktreeManager {
         path: wtPath,
       };
     }
+    this._invalidateWorktreeCache();
 
     this.logger.info(`worktree.reaped storyId=${storyId} path=${wtPath}`);
     return { removed: true, path: wtPath };
@@ -531,7 +596,7 @@ export class WorktreeManager {
    * @returns {Promise<{ removed: Array<{ path: string, ageMs: number }>, skipped: Array<{ path: string, ageMs: number }> }>}
    */
   async sweepStaleLocks(opts = {}) {
-    const maxAgeMs = opts.maxAgeMs ?? 30_000;
+    const maxAgeMs = opts.maxAgeMs ?? 300_000;
     const now = Date.now();
     const removed = [];
     const skipped = [];
@@ -583,17 +648,39 @@ export class WorktreeManager {
 
   // ───────────────────────── internals ─────────────────────────
 
-  _findByPath(absPath) {
+  /**
+   * Fetch the parsed worktree list, cached for 5 seconds to avoid spawning
+   * `git worktree list --porcelain` on every call within the same operation.
+   */
+  _getWorktreeList() {
+    const now = Date.now();
+    if (
+      this._worktreeListCache.list &&
+      now - this._worktreeListCache.ts < 5_000
+    ) {
+      return this._worktreeListCache.list;
+    }
     const res = this.git.gitSpawn(
       this.repoRoot,
       'worktree',
       'list',
       '--porcelain',
     );
-    if (res.status !== 0) return null;
+    if (res.status !== 0) return [];
+    const parsed = parseWorktreePorcelain(res.stdout);
+    this._worktreeListCache = { list: parsed, ts: now };
+    return parsed;
+  }
+
+  /** Invalidate the worktree list cache (call after add/remove). */
+  _invalidateWorktreeCache() {
+    this._worktreeListCache = { list: null, ts: 0 };
+  }
+
+  _findByPath(absPath) {
     const normalized = path.resolve(absPath);
     return (
-      parseWorktreePorcelain(res.stdout).find(
+      this._getWorktreeList().find(
         (r) => path.resolve(r.path) === normalized,
       ) ?? null
     );

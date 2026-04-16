@@ -16,7 +16,8 @@
 export function parseBlockedBy(body) {
   if (!body) return [];
   const re = /(?:blocked\s+by|depends\s+on):?\s+#(\d+)/gi;
-  return [...body.matchAll(re)].map((m) => parseInt(m[1], 10));
+  const ids = [...body.matchAll(re)].map((m) => parseInt(m[1], 10));
+  return [...new Set(ids)];
 }
 
 /**
