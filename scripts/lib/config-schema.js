@@ -77,6 +77,10 @@ export const ORCHESTRATION_SCHEMA = {
         reapOnCancel: { type: 'boolean' },
         warnOnUncommittedOnReap: { type: 'boolean' },
         windowsPathLengthWarnThreshold: { type: 'integer', minimum: 1 },
+        bootstrapFiles: {
+          type: 'array',
+          items: { type: 'string', minLength: 1 },
+        },
       },
       additionalProperties: false,
     },

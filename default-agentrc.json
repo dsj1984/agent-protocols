@@ -81,7 +81,8 @@
       "nodeModulesStrategy": "pnpm-store",
       "reapOnSuccess": true,
       "reapOnCancel": true,
-      "warnOnUncommittedOnReap": true
+      "warnOnUncommittedOnReap": true,
+      "bootstrapFiles": [".env", ".mcp.json"]
     }
   }
 }
