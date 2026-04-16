@@ -2,6 +2,26 @@
 
 All notable changes to this project will be documented in this file.
 
+## [5.10.2] - 2026-04-16
+
+### Harden worktree bootstrap — HEAD-safe epic refs, auto install, branch short-circuits
+
+Three fixes for agent churn during worktree setup:
+
+- **`currentBranch()` short-circuit** in `ensureEpicBranch` / `checkoutStoryBranch` —
+  prevents the race where `branchExistsLocally` returns false while already on the
+  target branch, which routed into `checkout -b` and crashed.
+- **`ensureEpicBranchRef()`** — HEAD-safe variant for worktree bootstrap that uses
+  `git branch` / `git fetch` instead of `checkout`, so the main checkout's HEAD is
+  never moved (parallel agents and dirty trees are safe). `bootstrapWorktree` now
+  calls this instead of `ensureEpicBranch`.
+- **Auto `_installDependencies()`** in `WorktreeManager.ensure()` — runs the
+  lock-file-appropriate installer (`npm ci` / `pnpm install --frozen-lockfile` /
+  `yarn install --frozen-lockfile`) during worktree creation for `per-worktree`
+  and `pnpm-store` strategies. Non-fatal on failure so agents can retry manually.
+- **Workflow doc update** — Step 0.5 in `sprint-execute.md` now documents the
+  dependency install step with a fallback command.
+
 ## [5.10.1] - 2026-04-16
 
 ### Configurable ticket decomposition cap (`maxTickets`)

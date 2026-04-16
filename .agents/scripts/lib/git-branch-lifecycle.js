@@ -16,6 +16,17 @@
 import { isSafeBranchComponent } from './dependency-parser.js';
 import { gitSpawn, gitSync } from './git-utils.js';
 
+/**
+ * Return the current branch name, or null if in detached HEAD state.
+ * @param {string} cwd
+ * @returns {string|null}
+ */
+export function currentBranch(cwd) {
+  const result = gitSpawn(cwd, 'branch', '--show-current');
+  if (result.status !== 0 || result.stdout.length === 0) return null;
+  return result.stdout;
+}
+
 function assertSafeBranch(...names) {
   for (const name of names) {
     if (!isSafeBranchComponent(name)) {
@@ -69,6 +80,23 @@ export function ensureEpicBranch(epicBranch, baseBranch, cwd, opts = {}) {
   assertSafeBranch(epicBranch, baseBranch);
   const progress = opts.progress ?? (() => {});
 
+  // Short-circuit: if we're already on the epic branch, just sync with remote.
+  // This avoids redundant checkout calls and prevents the edge case where
+  // branchExistsLocally returns false while we're on the branch (detached HEAD,
+  // worktree race), which would route into the create path and fail on -b.
+  const onBranch = currentBranch(cwd);
+  if (onBranch === epicBranch) {
+    const remote = branchExistsRemotely(epicBranch, cwd);
+    if (remote) {
+      progress('GIT', `Already on ${epicBranch}. Syncing with remote.`);
+      gitSpawn(cwd, 'pull', '--rebase', 'origin', epicBranch);
+    } else {
+      progress('GIT', `Already on ${epicBranch}. Publishing to remote.`);
+      gitSync(cwd, 'push', '--no-verify', '-u', 'origin', epicBranch);
+    }
+    return;
+  }
+
   const local = branchExistsLocally(epicBranch, cwd);
   const remote = branchExistsRemotely(epicBranch, cwd);
 
@@ -117,6 +145,18 @@ export function checkoutStoryBranch(storyBranch, epicBranch, cwd, opts = {}) {
   assertSafeBranch(storyBranch, epicBranch);
   const progress = opts.progress ?? (() => {});
 
+  // Short-circuit: already on the story branch — just sync.
+  if (currentBranch(cwd) === storyBranch) {
+    const remote = branchExistsRemotely(storyBranch, cwd);
+    if (remote) {
+      progress('GIT', `Already on ${storyBranch}. Syncing with remote.`);
+      gitSpawn(cwd, 'pull', '--rebase', 'origin', storyBranch);
+    } else {
+      progress('GIT', `Already on ${storyBranch}. No remote to sync.`);
+    }
+    return;
+  }
+
   const local = branchExistsLocally(storyBranch, cwd);
   const remote = branchExistsRemotely(storyBranch, cwd);
 
@@ -138,6 +178,59 @@ export function checkoutStoryBranch(storyBranch, epicBranch, cwd, opts = {}) {
 
   progress('GIT', `Creating Story branch: ${storyBranch} (from ${epicBranch})`);
   gitSync(cwd, 'checkout', '-b', storyBranch, epicBranch);
+}
+
+/**
+ * Ensure an Epic branch ref exists locally and is published to `origin`,
+ * **without moving HEAD**. Designed for the worktree bootstrap path where
+ * the main checkout must not switch branches (a parallel agent may be
+ * working there, or the tree may be dirty).
+ *
+ * Uses `git branch` (not `checkout -b`) to create refs, and `git push` to
+ * publish. Callers that need HEAD on the epic branch should use
+ * `ensureEpicBranch()` instead.
+ *
+ * @param {string} epicBranch
+ * @param {string} baseBranch
+ * @param {string} cwd
+ * @param {{ progress?: (phase: string, message: string) => void }} [opts]
+ */
+export function ensureEpicBranchRef(epicBranch, baseBranch, cwd, opts = {}) {
+  assertSafeBranch(epicBranch, baseBranch);
+  const progress = opts.progress ?? (() => {});
+
+  const local = branchExistsLocally(epicBranch, cwd);
+  const remote = branchExistsRemotely(epicBranch, cwd);
+
+  if (local && remote) {
+    progress('GIT', `Epic branch ref exists (local+remote): ${epicBranch}`);
+    return;
+  }
+
+  if (!local && remote) {
+    // Fetch the remote ref into a local branch without checkout.
+    progress('GIT', `Fetching remote Epic branch ref: ${epicBranch}`);
+    const res = gitSpawn(cwd, 'fetch', 'origin', `${epicBranch}:${epicBranch}`);
+    if (res.status !== 0) {
+      throw new Error(
+        `ensureEpicBranchRef: failed to fetch ${epicBranch}: ${res.stderr}`,
+      );
+    }
+    return;
+  }
+
+  if (!local && !remote) {
+    // Create from baseBranch without moving HEAD.
+    progress(
+      'GIT',
+      `Creating Epic branch ref: ${epicBranch} (from ${baseBranch})`,
+    );
+    gitSync(cwd, 'branch', epicBranch, baseBranch);
+  }
+
+  // local exists (either pre-existing or just created) — publish.
+  progress('GIT', `Publishing Epic branch: ${epicBranch}`);
+  gitSync(cwd, 'push', '--no-verify', '-u', 'origin', epicBranch);
 }
 
 /**
