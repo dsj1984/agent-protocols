@@ -15,8 +15,6 @@
  * @see docs/v5-implementation-plan.md Sprint 1C
  */
 
-import fs from 'node:fs';
-import path from 'node:path';
 import { runAsCli } from './lib/cli-utils.js';
 import { Logger } from './lib/Logger.js';
 import { LABEL_TAXONOMY, PROJECT_FIELD_DEFS } from './lib/label-taxonomy.js';

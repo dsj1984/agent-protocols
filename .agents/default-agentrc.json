@@ -19,7 +19,7 @@
       "style-guide.md",
       "web-routes.md"
     ],
-"release": {
+    "release": {
       "docs": ["README.md"],
       "versionFile": null,
       "packageJson": true,
