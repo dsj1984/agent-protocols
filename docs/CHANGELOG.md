@@ -2,6 +2,23 @@
 
 All notable changes to this project will be documented in this file.
 
+## [5.10.5] - 2026-04-16
+
+### Fix sprint-close branch cleanup blocked by stale worktrees
+
+`sprint-close.js` branch deletion was failing with "checked out in worktree"
+errors because worktree refs held implicit locks on story branches.
+
+- **Worktree reap before branch deletion** — when worktree isolation is
+  enabled, `sprint-close` now calls `WorktreeManager.gc([])` (empty open-set,
+  since the Epic is closing) to reap all managed worktrees before attempting
+  `git branch -D`. Skipped worktrees (dirty/unmerged) are logged with reasons.
+- **Stale lock sweep** — calls `sweepStaleLocks()` to clear orphaned
+  `.git/index.lock` and per-worktree lock files left by crashed agents.
+- **Unconditional `git worktree prune`** — runs even without worktree
+  isolation enabled, clearing any stale `.git/worktrees/` bookkeeping entries
+  whose directories no longer exist on disk.
+
 ## [5.10.4] - 2026-04-16
 
 ### Post-plan health check and pnpm store priming
