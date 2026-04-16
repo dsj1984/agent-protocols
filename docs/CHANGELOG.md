@@ -4,6 +4,23 @@ All notable changes to this project will be documented in this file.
 
 ## [5.10.5] - 2026-04-16
 
+### Sprint-close performance: batched branch deletion
+
+Three I/O-amortisation wins from the performance audit, collapsing N
+sequential operations into 1 each:
+
+- **Batched remote deletes** — replaced per-branch `git push --delete <b>`
+  loop with a single `git push origin --delete b1 b2 …` call. ~85%
+  reduction in remote-cleanup wall time (one TLS handshake instead of N).
+  Falls back to per-branch deletion if the batched call fails so
+  individual errors still surface.
+- **Batched local deletes** — replaced per-branch `git branch -D <b>` loop
+  with a single multi-arg invocation. Eliminates N-1 process spawns
+  (200-700 ms on Windows for typical Epics).
+- **`git remote prune origin`** — replaced unconditional `git fetch --prune`
+  at the end of cleanup. The remote prune skips the object fetch entirely
+  and only runs when branches were actually deleted in this run.
+
 ### Fix sprint-close branch cleanup blocked by stale worktrees
 
 `sprint-close.js` branch deletion was failing with "checked out in worktree"
