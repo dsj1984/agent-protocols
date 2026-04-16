@@ -203,34 +203,8 @@ async function main() {
       progress('CLEANUP', '✅ Stash cleared.');
     }
 
-    // 3.1 Delete Epic branch (local + remote)
+    // 3.1 Enumerate all branches to delete (epic + matching stories/tasks)
     const epicBranch = `epic/${epicId}`;
-    progress('CLEANUP', `Deleting ${epicBranch}...`);
-    gitSpawn(PROJECT_ROOT, 'branch', '-D', epicBranch);
-    try {
-      const remoteDelResult = gitSpawn(
-        PROJECT_ROOT,
-        'push',
-        'origin',
-        '--delete',
-        epicBranch,
-      );
-      if (remoteDelResult.status !== 0) {
-        console.warn(
-          `⚠️ Warning: Could not delete remote ${epicBranch} (may not exist): ${remoteDelResult.stderr}`,
-        );
-      }
-    } catch (err) {
-      console.warn(
-        `⚠️ Warning: Remote deletion of ${epicBranch} threw: ${err.message}`,
-      );
-    }
-
-    // 3.2 Delete story branches
-    progress('CLEANUP', 'Deleting story/task branches...');
-
-    // Remote cleanup — match both v5 (`story-{id}`) and legacy (`story/epic-{epicId}/`) patterns
-    const remoteBranches = gitSpawn(PROJECT_ROOT, 'branch', '-r').stdout ?? '';
     const storyLegacyPattern = `story/epic-${epicId}/`;
     const taskLegacyPattern = `task/epic-${epicId}/`;
 
@@ -252,54 +226,89 @@ async function main() {
       return false;
     }
 
-    remoteBranches.split('\n').forEach((line) => {
-      const b = line.trim().replace('origin/', '');
-      if (matchesEpicBranch(b)) {
-        progress('CLEANUP', `Deleting remote branch: ${b}`);
-        try {
-          const result = gitSpawn(
-            PROJECT_ROOT,
-            'push',
-            'origin',
-            '--delete',
-            b,
-          );
-          if (result.status !== 0) {
-            console.warn(
-              `⚠️ Warning: Could not delete remote branch ${b} (may not exist): ${result.stderr}`,
-            );
-          }
-        } catch (err) {
-          console.warn(
-            `⚠️ Warning: Remote deletion of ${b} threw: ${err.message}`,
-          );
-        }
-      }
-    });
+    const remoteBranches = gitSpawn(PROJECT_ROOT, 'branch', '-r').stdout ?? '';
+    const remoteToDelete = [
+      epicBranch,
+      ...remoteBranches
+        .split('\n')
+        .map((line) => line.trim().replace('origin/', ''))
+        .filter((b) => b && matchesEpicBranch(b)),
+    ];
 
-    // Local cleanup
     const localBranches = gitSpawn(PROJECT_ROOT, 'branch').stdout ?? '';
-    localBranches.split('\n').forEach((line) => {
-      const b = line.trim().replace('* ', '');
-      if (matchesEpicBranch(b)) {
-        progress('CLEANUP', `Deleting local branch: ${b}`);
-        try {
-          const result = gitSpawn(PROJECT_ROOT, 'branch', '-D', b);
-          if (result.status !== 0) {
+    const localToDelete = [
+      epicBranch,
+      ...localBranches
+        .split('\n')
+        .map((line) => line.trim().replace('* ', ''))
+        .filter((b) => b && matchesEpicBranch(b)),
+    ];
+
+    // 3.2 Batch-delete remote branches in a single push (one TLS round-trip).
+    if (remoteToDelete.length > 0) {
+      progress(
+        'CLEANUP',
+        `Deleting ${remoteToDelete.length} remote branch(es): ${remoteToDelete.join(', ')}`,
+      );
+      const remoteResult = gitSpawn(
+        PROJECT_ROOT,
+        'push',
+        'origin',
+        '--delete',
+        ...remoteToDelete,
+      );
+      if (remoteResult.status !== 0) {
+        // Batch failed — fall back to per-branch deletion to surface specific
+        // failures (e.g., one branch already deleted on remote).
+        console.warn(
+          `⚠️ Warning: Batched remote delete failed (${remoteResult.stderr}). Falling back to per-branch deletion...`,
+        );
+        for (const b of remoteToDelete) {
+          const r = gitSpawn(PROJECT_ROOT, 'push', 'origin', '--delete', b);
+          if (r.status !== 0) {
             console.warn(
-              `⚠️ Warning: Could not delete local branch ${b}: ${result.stderr}`,
+              `⚠️ Warning: Could not delete remote branch ${b} (may not exist): ${r.stderr}`,
             );
           }
-        } catch (err) {
-          console.warn(
-            `⚠️ Warning: Local deletion of ${b} threw: ${err.message}`,
-          );
         }
       }
-    });
+    }
 
-    // 3.3 Prune
-    gitSpawn(PROJECT_ROOT, 'fetch', '--prune');
+    // 3.3 Batch-delete local branches in a single git branch -D invocation.
+    if (localToDelete.length > 0) {
+      progress(
+        'CLEANUP',
+        `Deleting ${localToDelete.length} local branch(es): ${localToDelete.join(', ')}`,
+      );
+      const localResult = gitSpawn(
+        PROJECT_ROOT,
+        'branch',
+        '-D',
+        ...localToDelete,
+      );
+      if (localResult.status !== 0) {
+        // Batch failed — fall back so individual failures (e.g., currently
+        // checked-out branch) surface clearly.
+        console.warn(
+          `⚠️ Warning: Batched local delete failed (${localResult.stderr}). Falling back to per-branch deletion...`,
+        );
+        for (const b of localToDelete) {
+          const r = gitSpawn(PROJECT_ROOT, 'branch', '-D', b);
+          if (r.status !== 0) {
+            console.warn(
+              `⚠️ Warning: Could not delete local branch ${b}: ${r.stderr}`,
+            );
+          }
+        }
+      }
+    }
+
+    // 3.4 Prune stale tracking refs only when something was actually deleted.
+    // `git remote prune origin` is faster than `git fetch --prune` because
+    // it only refreshes the remote ref list rather than fetching objects.
+    if (remoteToDelete.length > 0 || localToDelete.length > 0) {
+      gitSpawn(PROJECT_ROOT, 'remote', 'prune', 'origin');
+    }
     progress('CLEANUP', '✅ Branch cleanup complete.');
   }
 
