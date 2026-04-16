@@ -8,7 +8,7 @@
  * Unoverridden methods throw `Error('Not implemented: <method>')` to enforce
  * the contract at runtime rather than silently returning `undefined`.
  *
- * @see docs/roadmap.md §A — Provider Abstraction Layer
+ * @see docs/architecture.md — Provider Abstraction Layer
  * @see docs/v5-implementation-plan.md Sprint 1A
  */
 

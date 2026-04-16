@@ -132,9 +132,6 @@ The framework reads the Epic and autonomously builds the entire work breakdown.
    - **Metadata**: Each Task is stamped with persona, model recommendations,
      estimated files, and agent prompts.
 
-1. **Roadmap Update**: `generate-roadmap.js` detects the new Epic/Features and
-   updates `docs/ROADMAP.md`.
-
 ---
 
 ## Phase 3: Execution (Agentic)
@@ -330,8 +327,6 @@ Notifications are dispatched through two channels:
 | `/sprint-code-review`             | Comprehensive code review                        |
 | `/sprint-retro`                   | Retrospective from ticket graph                  |
 | `/sprint-close`                   | Merge to main, tag release, close Epic           |
-| `/roadmap-sync`                   | Sync ROADMAP.md from GitHub Epics status         |
-| `/create-epic`                    | Create a well-structured Epic issue              |
 | `/bootstrap-agent-protocols`      | Initialize repo labels and project fields        |
 | `/git-commit-all`                 | Stage and commit all changes                     |
 | `/git-push`                       | Stage, commit, and push to remote                |

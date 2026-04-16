@@ -15,14 +15,10 @@
  * @see docs/v5-implementation-plan.md Sprint 1C
  */
 
-import fs from 'node:fs';
-import path from 'node:path';
 import { runAsCli } from './lib/cli-utils.js';
 import { Logger } from './lib/Logger.js';
 import { LABEL_TAXONOMY, PROJECT_FIELD_DEFS } from './lib/label-taxonomy.js';
 import { createProvider } from './lib/provider-factory.js';
-
-const PROJECT_ROOT = process.cwd();
 
 // ---------------------------------------------------------------------------
 // Bootstrap Runner
@@ -83,29 +79,6 @@ export async function runBootstrap(orchestration, opts = {}) {
     );
   } else {
     log('[bootstrap] No projectNumber configured — skipping project fields.');
-  }
-
-  // Step 4: Install GitHub Workflows (if requested)
-  if (opts.installWorkflows) {
-    const workflowSource = path.join(
-      PROJECT_ROOT,
-      '.agents',
-      'templates',
-      'update-roadmap.yml',
-    );
-    const workflowDestDir = path.join(PROJECT_ROOT, '.github', 'workflows');
-    const workflowDest = path.join(workflowDestDir, 'update-roadmap.yml');
-
-    log(`[bootstrap] Installing GitHub Workflows to ${workflowDest}...`);
-    try {
-      if (!fs.existsSync(workflowDestDir)) {
-        fs.mkdirSync(workflowDestDir, { recursive: true });
-      }
-      fs.copyFileSync(workflowSource, workflowDest);
-      log('[bootstrap]   Workflow installed: update-roadmap.yml');
-    } catch (err) {
-      log(`[bootstrap]   WARNING: Failed to install workflow: ${err.message}`);
-    }
   }
 
   log('[bootstrap] Done.');

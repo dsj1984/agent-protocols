@@ -31,8 +31,8 @@ system stability.
 ## Step 3: Output Requirements
 
 Generate and save a highly structured Markdown audit report to
-`{{auditOutputDir}}/audit-dependency-update-results.md`, using the exact
-template below.
+`{{auditOutputDir}}/audit-dependencies-results.md`, using the exact template
+below.
 
 ```markdown
 # Dependency Audit Report

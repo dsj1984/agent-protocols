@@ -104,11 +104,6 @@ export function resolveConfig(opts) {
       ],
       maintainability: { targetDirs: ['.agents/scripts', 'tests'] },
       auditOutputDir: 'temp',
-      roadmap: {
-        autoGenerate: true,
-        path: 'docs/ROADMAP.md',
-        excludeLabels: ['roadmap-exclude'],
-      },
       executionTimeoutMs: 300000,
       executionMaxBuffer: 10485760,
       maxTokenBudget: 200000,
@@ -136,7 +131,6 @@ export function resolveConfig(opts) {
       settings.notificationWebhookUrl ?? defaults.notificationWebhookUrl;
     settings.verboseLogging =
       settings.verboseLogging ?? defaults.verboseLogging;
-    settings.roadmap = { ...defaults.roadmap, ...(settings.roadmap ?? {}) };
     settings.executionTimeoutMs =
       settings.executionTimeoutMs ?? defaults.executionTimeoutMs;
     settings.executionMaxBuffer =
@@ -186,11 +180,6 @@ export function resolveConfig(opts) {
       baseBranch: 'main',
       notificationWebhookUrl: '',
       verboseLogging: { enabled: false, logDir: 'temp/verbose-logs' },
-      roadmap: {
-        autoGenerate: true,
-        path: 'docs/ROADMAP.md',
-        excludeLabels: ['roadmap-exclude'],
-      },
       executionTimeoutMs: 300000, // 5 minutes
       executionMaxBuffer: 10485760, // 10MB
       maxTokenBudget: 200000, // 200k tokens — fits modern Claude/GPT windows

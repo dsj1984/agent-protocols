@@ -18,7 +18,7 @@ export const SHELL_INJECTION_RE_STRICT = /[&|;`<>()$]/;
  * Embedded JSON Schema for the `orchestration` configuration block.
  * Kept inline so all config validation lives in a single file.
  *
- * @see docs/roadmap.md §A — Provider Abstraction Layer
+ * @see docs/architecture.md — Provider Abstraction Layer
  */
 export const ORCHESTRATION_SCHEMA = {
   type: 'object',
@@ -123,18 +123,6 @@ export const AGENT_SETTINGS_SCHEMA = {
       type: 'object',
       properties: {
         runRetro: { type: 'boolean' },
-      },
-      additionalProperties: false,
-    },
-    roadmap: {
-      type: 'object',
-      properties: {
-        autoGenerate: { type: 'boolean' },
-        path: { type: 'string', not: { pattern: '([;&|`]|\\$\\()' } },
-        excludeLabels: {
-          type: 'array',
-          items: { type: 'string' },
-        },
       },
       additionalProperties: false,
     },

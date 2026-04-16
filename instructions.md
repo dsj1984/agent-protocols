@@ -333,18 +333,7 @@ successes.
 
 ---
 
-## 9. Automated Roadmap Protocol
-
-The `roadmap.md` file in the repository root is a strictly **read-only,
-auto-generated artifact**.
-
-- **Single Source of Truth**: GitHub Issues (Epics/Features) are the SSOT.
-- **Immutability**: Neither humans nor AI agents should ever manually edit
-  `roadmap.md`.
-- **Updates**: Any changes to the roadmap MUST be made by updating the
-  corresponding GitHub Issues. The file is regenerated automatically via CI.
-
-## 10. Complexity-Aware Execution
+## 9. Complexity-Aware Execution
 
 The dispatcher automatically calculates the execution plan for an Epic.
 

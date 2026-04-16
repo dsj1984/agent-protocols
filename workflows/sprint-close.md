@@ -41,9 +41,7 @@ Epic GitHub issue, cleans up all sprint branches, and optionally tags a release.
    - All files listed in `release.docs`.
    - All files listed in `agentSettings.docsContextFiles` (prefixed with the
      path from `agentSettings.docsRoot`).
-7. Resolve `[ROADMAP_PATH]` from `roadmap.path` in `.agentrc.json` (default:
-   `docs/ROADMAP.md`).
-8. Resolve `[RUN_RETRO]` from `agentSettings.sprintClose.runRetro` in
+7. Resolve `[RUN_RETRO]` from `agentSettings.sprintClose.runRetro` in
    `.agentrc.json` (default: `true`). When `false`, Step 1.5 is skipped entirely
    — no retro is required or produced.
 
@@ -176,25 +174,6 @@ git commit -m "docs: update [DOC_PATH] for Epic #[EPIC_ID]"
 > requires to `release.docs` or `agentSettings.docsContextFiles` in
 > `.agentrc.json`. Common examples: `README.md`, `docs/CHANGELOG.md`,
 > `MIGRATION.md`, `API.md`.
-
-## Step 2.5 — Roadmap Sync
-
-Synchronize `ROADMAP.md` with the current state of all GitHub Epics. This
-ensures the roadmap reflects the Epic that is about to close as `✅ Completed`,
-along with accurate progress for any other open Epics.
-
-Run the `/roadmap-sync` workflow inline — execute Steps 0 through 3 of that
-workflow, but **skip Step 4 (Commit)**. The roadmap changes will be committed as
-part of the next documentation commit or the merge itself.
-
-```powershell
-node [SCRIPTS_ROOT]/generate-roadmap.js
-git add [ROADMAP_PATH]
-```
-
-> **Config:** The roadmap output path is controlled by `roadmap.path` in
-> `.agentrc.json` (default: `docs/ROADMAP.md`). Epics labeled with any value
-> from `roadmap.excludeLabels` are omitted.
 
 ## Step 3 — Version Bump & Tag
 

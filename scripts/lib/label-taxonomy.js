@@ -111,13 +111,6 @@ export const LABEL_TAXONOMY = [
     description: 'CI/CD pipeline changes',
   },
   { name: 'focus::tests', color: '#BFD4F2', description: 'Test suite changes' },
-
-  // Visibility
-  {
-    name: 'roadmap-exclude',
-    color: '#000000',
-    description: 'Exclude from automated roadmap',
-  },
 ];
 
 /** @type {Array<{ name: string, type: 'iteration'|'single_select', options?: string[] }>} */
