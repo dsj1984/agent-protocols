@@ -36,8 +36,7 @@ agent-protocols/
 │   ├── SDLC.md               # Guide for the /plan-sprint pipeline
 │   └── README.md             # Detailed consumer user guide
 ├── .agentrc.json             # Root config for this repo (dogfooding)
-├── docs/                     # Roadmap and implementation plans
-│   ├── ROADMAP.md            # Auto-generated project roadmap
+├── docs/                     # Implementation plans and changelog
 ├── tests/                    # Framework tests
 ├── package.json              # Tooling: markdownlint, prettier, husky
 ```
@@ -118,4 +117,3 @@ npm test              # Run framework tests (node --test)
 | [`.agents/SDLC.md`](.agents/SDLC.md)                 | Sprint planning pipeline guide      |
 | [`.agentrc.json`](.agentrc.json)                     | Runtime configuration               |
 | [`docs/CHANGELOG.md`](docs/CHANGELOG.md)             | Release history                     |
-| [`docs/ROADMAP.md`](docs/ROADMAP.md)                 | Feature roadmap (Auto-generated)    |

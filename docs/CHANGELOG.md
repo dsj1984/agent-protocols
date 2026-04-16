@@ -2,6 +2,44 @@
 
 All notable changes to this project will be documented in this file.
 
+## [5.10.0] - 2026-04-16
+
+Framework housekeeping: remove redundant infrastructure and tighten the
+workflow surface area.
+
+### Removed: ROADMAP.md and roadmap sync infrastructure
+
+GitHub Issues and Epics are the single source of truth for project status.
+The local `ROADMAP.md` was a read-only mirror that added maintenance surface
+area without providing value beyond what GitHub already shows.
+
+- `docs/ROADMAP.md` — auto-generated roadmap file
+- `.agents/scripts/generate-roadmap.js` — roadmap generation engine
+- `.agents/templates/update-roadmap.yml` — CI workflow template
+- `.agents/workflows/roadmap-sync.md` and `.claude/commands/roadmap-sync.md`
+- `agentSettings.roadmap` config block from `.agentrc.json` and
+  `default-agentrc.json`
+- `roadmap-exclude` label from `label-taxonomy.js` (23 labels, down from 24)
+- Section 9 (Automated Roadmap Protocol) from `instructions.md`
+- Step 2.5 (Roadmap Sync) from `sprint-close.md`
+- All roadmap references from SDLC.md, README.md, AGENTS.md,
+  `.agents/README.md`, `audit-quality.md`, persona files, architecture.md,
+  and JSDoc `@see` pointers in interface files
+- `--install-workflows` step in `bootstrap-agent-protocols.js` (the only
+  installable workflow was `update-roadmap.yml`)
+
+### Removed: `/create-epic` and `/run-red-team` workflows
+
+- `/create-epic` — the agent already drafts well-structured Epics when asked
+  in natural language; the workflow added ceremony without value.
+- `/run-red-team` — standalone adversarial audit with no integration points;
+  `/audit-security` covers the same ground in a more structured way.
+
+### Renamed: `/audit-dependency-update` → `/audit-dependencies`
+
+Shorter, consistent with the other `/audit-*` naming pattern. Output file
+renamed to `audit-dependencies-results.md`.
+
 ## [5.9.0] - 2026-04-15
 
 Bundled SDLC-review release addressing seven findings. Summary:

@@ -162,7 +162,6 @@ graph TB
         CH["context-hydrator.js"]:::script
         NO["notify.js"]:::script
         UTS["update-ticket-state.js"]:::script
-        GR["generate-roadmap.js"]:::script
     end
 
     subgraph Lib ["Shared Library (lib/)"]
@@ -206,7 +205,6 @@ graph TB
 | `context-hydrator.js`    | Assembles self-contained prompts (protocol + persona + skills + hierarchy + task) |
 | `update-ticket-state.js` | Syncs task status via GitHub labels (`agent::ready` → `agent::done`)              |
 | `notify.js`              | Dispatches notifications via @mention and webhook channels                        |
-| `generate-roadmap.js`    | Auto-generates `docs/ROADMAP.md` from open Epics                                  |
 | `health-monitor.js`      | Updates real-time sprint status and tool success rates in GitHub                  |
 
 ---
@@ -464,12 +462,6 @@ defense-in-depth in both modes.
 See [`worktree-lifecycle.md`](../.agents/workflows/worktree-lifecycle.md)
 for the operator reference, node_modules strategies, Windows long-path
 handling, and escape hatches.
-
-### Security
-
-| Workflow        | Description                  |
-| --------------- | ---------------------------- |
-| `/run-red-team` | Adversarial security testing |
 
 ---
 

@@ -105,8 +105,8 @@ describe('Bootstrap — LABEL_TAXONOMY', () => {
     assert.ok(names.includes('focus::tests'));
   });
 
-  it('has exactly 24 label definitions', () => {
-    assert.equal(LABEL_TAXONOMY.length, 24);
+  it('has exactly 23 label definitions', () => {
+    assert.equal(LABEL_TAXONOMY.length, 23);
   });
 
   it('every label has name, color (hex), and description', () => {

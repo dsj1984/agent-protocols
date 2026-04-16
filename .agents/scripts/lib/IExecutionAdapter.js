@@ -12,7 +12,7 @@
  * the contract at runtime rather than silently returning `undefined`.
  *
  * @see docs/v5-implementation-plan.md Sprint 3A
- * @see docs/roadmap.md §C — Execution Adapter Abstraction
+ * @see docs/architecture.md — Execution Adapter Abstraction
  */
 
 export class IExecutionAdapter {

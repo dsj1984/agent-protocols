@@ -124,12 +124,12 @@ expects. The bootstrap script is **idempotent** — safe to run multiple times.
 
 ### What It Does
 
-| Step | Action                               | Details                                                                                                                                                                                     |
-| ---- | ------------------------------------ | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
-| 1    | **Verify API access**                | Sends a canary request to confirm authentication and repository access.                                                                                                                     |
-| 2    | **Create labels**                    | Creates 24 labels across 8 categories (`type::`, `agent::`, `status::`, `risk::`, `persona::`, `context::`, `execution::`, `focus::`, plus `roadmap-exclude`). Existing labels are skipped. |
-| 3    | **Create project fields** (optional) | If `orchestration.github.projectNumber` is set, creates `Execution` and `Focus Area` single-select fields on the GitHub Project V2 board.                                                   |
-| 4    | **Install workflows** (optional)     | With `--install-workflows`, copies CI workflow templates (e.g., `update-roadmap.yml`) into `.github/workflows/`.                                                                            |
+| Step | Action                               | Details                                                                                                                                                          |
+| ---- | ------------------------------------ | ---------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| 1    | **Verify API access**                | Sends a canary request to confirm authentication and repository access.                                                                                          |
+| 2    | **Create labels**                    | Creates labels across 8 categories (`type::`, `agent::`, `status::`, `risk::`, `persona::`, `context::`, `execution::`, `focus::`). Existing labels are skipped. |
+| 3    | **Create project fields** (optional) | If `orchestration.github.projectNumber` is set, creates `Execution` and `Focus Area` single-select fields on the GitHub Project V2 board.                        |
+| 4    | **Install workflows** (optional)     | With `--install-workflows`, copies CI workflow templates into `.github/workflows/`.                                                                              |
 
 ### Running It
 
@@ -238,7 +238,7 @@ Personas constrain agent behavior to a specific role.
 | `engineer.md`          | Engineer (Gen)  | Implementation, backend, shared libs, logic                |
 | `engineer-web.md`      | Web Engineer    | Frontend UI, Astro/React, browser performance, WCAG        |
 | `engineer-mobile.md`   | Mobile Engineer | Expo/React Native, native modules, mobile UX               |
-| `product.md`           | Product Mgr     | PRDs, user stories, MVP scoping, roadmap, retros           |
+| `product.md`           | Product Mgr     | PRDs, user stories, MVP scoping, retros                    |
 | `ux-designer.md`       | UX Designer     | Journey maps, component states, visual hierarchy           |
 | `qa-engineer.md`       | QA Engineer     | Test plans, E2E/Unit automation, test data management      |
 | `devops-engineer.md`   | DevOps Engineer | CI/CD pipelines, IaC, build tooling, DX                    |
@@ -333,20 +333,20 @@ repository maintenance.
 
 ### Audit Workflows
 
-| Workflow                     | Slash Command              | Purpose                                     |
-| ---------------------------- | -------------------------- | ------------------------------------------- |
-| `audit-accessibility.md`     | `/audit-accessibility`     | Lighthouse accessibility audit              |
-| `audit-architecture.md`      | `/audit-architecture`      | Architecture and coupling review            |
-| `audit-clean-code.md`        | `/audit-clean-code`        | Maintainability and technical debt analysis |
-| `audit-dependency-update.md` | `/audit-dependency-update` | Dependency security and bloat audit         |
-| `audit-devops.md`            | `/audit-devops`            | CI/CD and infrastructure review             |
-| `audit-performance.md`       | `/audit-performance`       | Bottleneck and performance audit            |
-| `audit-privacy.md`           | `/audit-privacy`           | PII and privacy compliance audit            |
-| `audit-quality.md`           | `/audit-quality`           | Test coverage and quality review            |
-| `audit-security.md`          | `/audit-security`          | Vulnerability and OWASP alignment           |
-| `audit-seo.md`               | `/audit-seo`               | SEO and Generative Engine Optimization      |
-| `audit-sre.md`               | `/audit-sre`               | Production release readiness audit          |
-| `audit-ux-ui.md`             | `/audit-ux-ui`             | Design system consistency review            |
+| Workflow                 | Slash Command          | Purpose                                     |
+| ------------------------ | ---------------------- | ------------------------------------------- |
+| `audit-accessibility.md` | `/audit-accessibility` | Lighthouse accessibility audit              |
+| `audit-architecture.md`  | `/audit-architecture`  | Architecture and coupling review            |
+| `audit-clean-code.md`    | `/audit-clean-code`    | Maintainability and technical debt analysis |
+| `audit-dependencies.md`  | `/audit-dependencies`  | Dependency security and bloat audit         |
+| `audit-devops.md`        | `/audit-devops`        | CI/CD and infrastructure review             |
+| `audit-performance.md`   | `/audit-performance`   | Bottleneck and performance audit            |
+| `audit-privacy.md`       | `/audit-privacy`       | PII and privacy compliance audit            |
+| `audit-quality.md`       | `/audit-quality`       | Test coverage and quality review            |
+| `audit-security.md`      | `/audit-security`      | Vulnerability and OWASP alignment           |
+| `audit-seo.md`           | `/audit-seo`           | SEO and Generative Engine Optimization      |
+| `audit-sre.md`           | `/audit-sre`           | Production release readiness audit          |
+| `audit-ux-ui.md`         | `/audit-ux-ui`         | Design system consistency review            |
 
 ### Sprint Workflows
 
@@ -364,14 +364,11 @@ repository maintenance.
 | Workflow                       | Slash Command                | Purpose                                   |
 | ------------------------------ | ---------------------------- | ----------------------------------------- |
 | `bootstrap-agent-protocols.md` | `/bootstrap-agent-protocols` | Initialize repo labels and project fields |
-| `create-epic.md`               | `/create-epic`               | Create a well-structured Epic issue       |
 | `git-commit-all.md`            | `/git-commit-all`            | Stage and commit all changes              |
 | `git-push.md`                  | `/git-push`                  | Stage, commit, and push to remote         |
-| `roadmap-sync.md`              | `/roadmap-sync`              | Sync ROADMAP.md from GitHub Epics         |
 | `sync-agents-config.md`        | `/sync-agents-config`        | Reconcile `.agentrc.json` with defaults   |
 | `delete-epic-branches.md`      | `/delete-epic-branches`      | Hard reset: delete Epic branches          |
 | `delete-epic-tickets.md`       | `/delete-epic-tickets`       | Hard reset: clear Epic child issues       |
-| `run-red-team.md`              | `/run-red-team`              | Adversarial security testing              |
 
 ---
 
@@ -440,7 +437,6 @@ The SDK centralizes orchestration logic. All CLI scripts and the MCP server are
 | `lint-baseline.js`                   | Lint baseline ratchet — prevents new warnings                           |
 | `check-maintainability.js`           | Maintainability score computation and baseline check                    |
 | `update-maintainability-baseline.js` | Updates the maintainability baseline after improvements                 |
-| `generate-roadmap.js`                | Auto-renders `docs/ROADMAP.md` from live Epics                          |
 | `diagnose-friction.js`               | Analyzes friction logs for patterns                                     |
 | `health-monitor.js`                  | Push-based sprint health monitoring                                     |
 | `detect-merges.js`                   | Detects and reports merge conflicts                                     |

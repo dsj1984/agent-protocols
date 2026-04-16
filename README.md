@@ -51,8 +51,6 @@ graph LR
 - **Gate-Based Quality**: An automated audit orchestration pipeline selects and
   runs relevant audits at four sprint lifecycle gates, enforcing a
   maintainability ratchet that prevents code quality degradation.
-- **Autonomous Roadmaps**: Synchronize `ROADMAP.md` directly from GitHub Epics
-  using the `/roadmap-sync` workflow, featuring visual progress bars.
 
 ## Get Started
 
@@ -111,8 +109,7 @@ Create a GitHub Issue with the `type::epic` label, then run:
 /sprint-plan [EPIC_NUMBER]
 ```
 
-See [SDLC.md](.agents/SDLC.md) for the full end-to-end workflow and the
-[/roadmap-sync](.agents/workflows/roadmap-sync.md) guide for visualization.
+See [SDLC.md](.agents/SDLC.md) for the full end-to-end workflow.
 
 ---
 
@@ -140,7 +137,7 @@ agent-protocols/
 │   │   └── providers/        # Ticketing provider implementations
 │   ├── schemas/              # JSON Schemas for validation
 │   └── templates/            # Context hydration templates
-├── docs/                     # Changelog and legacy archive
+├── docs/                     # Changelog, plans, and legacy archive
 ├── tests/                    # Unit and integration tests
 ├── package.json              # Tooling: markdownlint, prettier, husky
 ```
@@ -157,24 +154,24 @@ npm run mutate         # Run Stryker mutation testing
 
 ## Documentation
 
-| Document                                                            | Purpose                                                  |
-| ------------------------------------------------------------------- | -------------------------------------------------------- |
-| [Consumer Guide](.agents/README.md)                                 | Setup, configuration, and APIs                           |
-| [SDLC Workflow](.agents/SDLC.md)                                    | End-to-end sprint lifecycle                              |
-| [Worktree Lifecycle](.agents/workflows/worktree-lifecycle.md)       | Per-story `git worktree` isolation (v5.7.0+)             |
-| [Changelog](docs/CHANGELOG.md)                                      | Release history (v5.0.0+)                                |
-| [Legacy Changelog](docs/archive/CHANGELOG-v4.md)                    | v1.0.0 – v4.7.2 history                                  |
+| Document                                                      | Purpose                                      |
+| ------------------------------------------------------------- | -------------------------------------------- |
+| [Consumer Guide](.agents/README.md)                           | Setup, configuration, and APIs               |
+| [SDLC Workflow](.agents/SDLC.md)                              | End-to-end sprint lifecycle                  |
+| [Worktree Lifecycle](.agents/workflows/worktree-lifecycle.md) | Per-story `git worktree` isolation (v5.7.0+) |
+| [Changelog](docs/CHANGELOG.md)                                | Release history (v5.0.0+)                    |
+| [Legacy Changelog](docs/archive/CHANGELOG-v4.md)              | v1.0.0 – v4.7.2 history                      |
 
 ### Parallel execution model (v5.7.0+)
 
 When `orchestration.worktreeIsolation.enabled` is `true`, each dispatched story
 runs inside its own `git worktree` at `.worktrees/story-<id>/`. The main
 checkout stays quiet during a parallel sprint — branch swaps, staging, and
-reflog activity are isolated per-story. Set it to `false` to preserve
-v5.5.1 single-tree behavior, backed by the `assert-branch.js` pre-commit
-guard and focus-area wave serialization. See
-[worktree-lifecycle.md](.agents/workflows/worktree-lifecycle.md) for the
-full operator reference.
+reflog activity are isolated per-story. Set it to `false` to preserve v5.5.1
+single-tree behavior, backed by the `assert-branch.js` pre-commit guard and
+focus-area wave serialization. See
+[worktree-lifecycle.md](.agents/workflows/worktree-lifecycle.md) for the full
+operator reference.
 
 ## License
 

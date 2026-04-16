@@ -10,7 +10,6 @@
   ".agents/scripts/diagnose-friction.js": 84.215,
   ".agents/scripts/dispatcher.js": 101.405,
   ".agents/scripts/epic-planner.js": 78.457,
-  ".agents/scripts/generate-roadmap.js": 104.607,
   ".agents/scripts/handle-approval.js": 99.9,
   ".agents/scripts/health-monitor.js": 100.802,
   ".agents/scripts/lib/Graph.js": 97.799,

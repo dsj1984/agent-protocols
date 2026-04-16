@@ -5,7 +5,7 @@ description: >-
   (the retro is no longer written to a local file).
 ---
 
-# Sprint Retro & Roadmap Alignment
+# Sprint Retro
 
 This workflow generates a sprint retrospective by reading execution data
 directly from the GitHub ticket graph and **posts the result as a comment on the
@@ -146,15 +146,6 @@ supporting docs in the same session:
 Commit these with a conventional `docs(...)` message on the Epic branch. Do
 **not** stage or commit the retro itself — it lives only on GitHub.
 
-## Step 5 — Roadmap Sync (Handled Elsewhere)
-
-The roadmap is synced from GitHub Epics by `/sprint-close` (Step 2.5). No action
-here.
-
-> **Note:** Do NOT add new protocol-related action items to the roadmap; these
-> belong inside the Epic comment retro for later implementation in the
-> `agent-protocols` repository.
-
 ## Constraint
 
 - **Never** write the retro to `docs/retros/` or any other local path as the
@@ -166,7 +157,5 @@ here.
   the structured comment API) so downstream tooling can filter it.
 - **Always** re-run the workflow end-to-end if the comment post fails — the temp
   dump in Step 3 is a recovery aid, not a ship vehicle.
-- Do **not** mark items as implemented in `ROADMAP.md` unless they have passed
-  all QA test cases and the Code Review audit for this Epic. GitHub is the
-  Single Source of Truth in v5 — all execution data must be sourced from the
-  ticket graph.
+- GitHub is the Single Source of Truth in v5 — all execution data must be
+  sourced from the ticket graph.

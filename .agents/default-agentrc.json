@@ -19,12 +19,7 @@
       "style-guide.md",
       "web-routes.md"
     ],
-    "roadmap": {
-      "autoGenerate": true,
-      "path": "docs/ROADMAP.md",
-      "excludeLabels": ["roadmap-exclude"]
-    },
-    "release": {
+"release": {
       "docs": ["README.md"],
       "versionFile": null,
       "packageJson": true,
