@@ -36,6 +36,29 @@ errors because worktree refs held implicit locks on story branches.
   isolation enabled, clearing any stale `.git/worktrees/` bookkeeping entries
   whose directories no longer exist on disk.
 
+### Fix root `.agents/` wiped during sprint-close on Windows
+
+`WorktreeManager._unlinkAgentsFromRoot` used strict string equality to verify
+that a worktree's `.agents` symlink pointed at the root `.agents`. On Windows
+the two paths can differ by drive-letter case or separator normalization, so
+the comparison failed, the symlink was left in place, and the subsequent
+`git worktree remove` traversed the junction and deleted the real root
+`.agents`. The sprint-close reap pass added in this release exercised this
+path on every managed worktree.
+
+- **Canonical path comparison** (new `_samePath` helper) — case-insensitive
+  on Windows, strict elsewhere.
+- **Always unlink when `readlinkSync` succeeds** — unlinking a symlink never
+  traverses its target, so it's safe. A mismatched target now logs a warning
+  but no longer silently skips the unlink.
+- **Removed `rmdirSync` fallback** — Windows `RemoveDirectoryW` semantics on
+  junctions are version-sensitive; the fallback is unnecessary once
+  `unlinkSync` is attempted correctly.
+- **Containment assertion in `_linkAgentsToRoot`** — refuses to run
+  `fs.rmSync(recursive, force)` when the resolved worktree `.agents` path
+  aliases the root `.agents`. Defence-in-depth against a miscalculated
+  `wtPath` wiping the framework directory during worktree creation.
+
 ## [5.10.4] - 2026-04-16
 
 ### Post-plan health check and pnpm store priming

@@ -663,6 +663,103 @@ test('nodeModulesStrategy: unknown value throws (defense-in-depth vs schema)', a
   }
 });
 
+test('_linkAgentsToRoot: refuses to wipe root .agents when wtPath equals repoRoot', () => {
+  const tmp = fs.mkdtempSync(path.join(os.tmpdir(), 'wt-safety-'));
+  try {
+    const rootAgents = path.join(tmp, '.agents');
+    fs.mkdirSync(rootAgents);
+    fs.writeFileSync(path.join(rootAgents, 'sentinel.txt'), 'precious');
+
+    const wm = new WorktreeManager({
+      repoRoot: tmp,
+      logger: SILENT_LOGGER,
+      git: mockGit({}),
+      platform: 'linux',
+    });
+    // Force submodule-mode so `_linkAgentsToRoot` actually runs its body.
+    wm._isAgentsSubmodule = () => true;
+
+    assert.throws(
+      () => wm._linkAgentsToRoot(tmp),
+      /refusing to clear root \.agents/,
+    );
+    assert.equal(
+      fs.existsSync(path.join(rootAgents, 'sentinel.txt')),
+      true,
+      'root .agents must not be touched when wtPath aliases repoRoot',
+    );
+  } finally {
+    fs.rmSync(tmp, { recursive: true, force: true });
+  }
+});
+
+test('_unlinkAgentsFromRoot: unlinks symlink even when target case differs (win32)', () => {
+  // Simulate the Windows case where readlinkSync returns a path that differs
+  // from the constructor-resolved repoRoot only by drive-letter case. On
+  // strict-equality comparison this was silently skipped, leaving the
+  // junction for `git worktree remove` to traverse. With case-insensitive
+  // compare the symlink is unlinked cleanly.
+  const tmp = fs.mkdtempSync(path.join(os.tmpdir(), 'wt-unlink-'));
+  try {
+    const rootAgents = path.join(tmp, '.agents');
+    fs.mkdirSync(rootAgents);
+    fs.writeFileSync(path.join(rootAgents, 'sentinel.txt'), 'precious');
+
+    const wtPath = path.join(tmp, '.worktrees', 'story-1');
+    fs.mkdirSync(wtPath, { recursive: true });
+    const wtAgents = path.join(wtPath, '.agents');
+    // Use junction on Windows (doesn't require admin/dev-mode); dir
+    // elsewhere. Matches what production does in `_linkAgentsToRoot`.
+    const linkType = process.platform === 'win32' ? 'junction' : 'dir';
+    fs.symlinkSync(rootAgents, wtAgents, linkType);
+
+    const warns = [];
+    const wm = new WorktreeManager({
+      repoRoot: tmp,
+      logger: { info() {}, warn: (m) => warns.push(m), error() {} },
+      git: mockGit({}),
+      // Pretend we're on Windows to exercise case-insensitive path compare.
+      platform: 'win32',
+    });
+
+    wm._unlinkAgentsFromRoot(wtPath);
+    assert.equal(fs.existsSync(wtAgents), false, 'symlink should be unlinked');
+    assert.equal(
+      fs.existsSync(path.join(rootAgents, 'sentinel.txt')),
+      true,
+      'root target must survive symlink removal',
+    );
+    assert.equal(warns.length, 0, 'same canonical target should not warn');
+  } finally {
+    fs.rmSync(tmp, { recursive: true, force: true });
+  }
+});
+
+test('_unlinkAgentsFromRoot: no-op when .agents is a real directory (not a symlink)', () => {
+  const tmp = fs.mkdtempSync(path.join(os.tmpdir(), 'wt-unlink-real-'));
+  try {
+    const wtPath = path.join(tmp, '.worktrees', 'story-1');
+    const wtAgents = path.join(wtPath, '.agents');
+    fs.mkdirSync(wtAgents, { recursive: true });
+    fs.writeFileSync(path.join(wtAgents, 'keep.txt'), 'keep');
+
+    const wm = new WorktreeManager({
+      repoRoot: tmp,
+      logger: SILENT_LOGGER,
+      git: mockGit({}),
+      platform: 'linux',
+    });
+    wm._unlinkAgentsFromRoot(wtPath);
+    assert.equal(
+      fs.existsSync(path.join(wtAgents, 'keep.txt')),
+      true,
+      'real directories must not be disturbed',
+    );
+  } finally {
+    fs.rmSync(tmp, { recursive: true, force: true });
+  }
+});
+
 test('ensure: never warns on non-win32 even with very long paths', async () => {
   const deepRoot = `/${'x'.repeat(300)}`;
   const warns = [];

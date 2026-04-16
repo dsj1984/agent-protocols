@@ -716,14 +716,28 @@ export class WorktreeManager {
    */
   _linkAgentsToRoot(wtPath) {
     if (!this._isAgentsSubmodule()) return;
-    const rootAgents = path.join(this.repoRoot, '.agents');
+    const rootAgents = path.resolve(this.repoRoot, '.agents');
     if (!fs.existsSync(rootAgents)) {
       this.logger.warn(
         `agents-symlink skipped: root ${rootAgents} does not exist`,
       );
       return;
     }
-    const wtAgents = path.join(wtPath, '.agents');
+    const wtAgents = path.resolve(wtPath, '.agents');
+    // Containment assertion: refuse to touch anything outside the worktree.
+    // Without this, a bad wtPath (e.g. equal to repoRoot) causes `fs.rmSync`
+    // to wipe the real `<repoRoot>/.agents`.
+    if (this._samePath(wtAgents, rootAgents)) {
+      throw new Error(
+        `WorktreeManager: refusing to clear root .agents (wtPath=${wtPath} resolves to repoRoot)`,
+      );
+    }
+    const wtRel = path.relative(path.resolve(wtPath), wtAgents);
+    if (wtRel.startsWith('..') || path.isAbsolute(wtRel)) {
+      throw new Error(
+        `WorktreeManager: wtAgents ${wtAgents} escapes wtPath ${wtPath}`,
+      );
+    }
     try {
       fs.rmSync(wtAgents, { recursive: true, force: true });
     } catch {
@@ -760,30 +774,55 @@ export class WorktreeManager {
    * @param {string} wtPath Absolute worktree path.
    */
   _unlinkAgentsFromRoot(wtPath) {
-    const wtAgents = path.join(wtPath, '.agents');
+    const wtAgents = path.resolve(wtPath, '.agents');
     let target;
     try {
       target = fs.readlinkSync(wtAgents);
     } catch {
-      return; // not a symlink — leave alone
+      return; // not a symlink/junction — leave alone
     }
+    // At this point wtAgents IS a symlink/junction. Unlinking a symlink never
+    // traverses into its target, so it's always safe to unlink. The target
+    // check is a sanity check — mismatches are logged but do not block the
+    // unlink. Previously a strict string comparison could fail on Windows
+    // (case or separator differences) and leave the junction in place for
+    // `git worktree remove` to follow, which wipes the root `.agents`.
     const resolvedTarget = path.resolve(path.dirname(wtAgents), target);
     const rootAgents = path.resolve(this.repoRoot, '.agents');
-    if (resolvedTarget !== rootAgents) {
+    if (!this._samePath(resolvedTarget, rootAgents)) {
       this.logger.warn(
-        `agents-symlink unlink skipped: target ${resolvedTarget} is not root ${rootAgents}`,
+        `agents-symlink unexpected target=${resolvedTarget} expected=${rootAgents} — unlinking anyway`,
       );
-      return;
     }
     try {
       fs.unlinkSync(wtAgents);
-    } catch {
-      try {
-        fs.rmdirSync(wtAgents);
-      } catch {
-        // best-effort; worktree remove will still try
-      }
+    } catch (err) {
+      // unlinkSync on a symlink/junction should always succeed. If it does
+      // not, do NOT fall back to rmdirSync — some Windows edge cases could
+      // cause rmdirSync to traverse the junction. Surface the error so git
+      // worktree remove sees a predictable state.
+      this.logger.warn(
+        `agents-symlink unlink failed path=${wtAgents}: ${err.message}`,
+      );
     }
+  }
+
+  /**
+   * Path equality that handles platform differences. Windows filesystems are
+   * case-insensitive, and `fs.readlinkSync` can return paths with different
+   * drive-letter casing or separator normalization than the original input.
+   *
+   * @param {string} a
+   * @param {string} b
+   * @returns {boolean}
+   */
+  _samePath(a, b) {
+    const na = path.resolve(a);
+    const nb = path.resolve(b);
+    if (this.platform === 'win32') {
+      return na.toLowerCase() === nb.toLowerCase();
+    }
+    return na === nb;
   }
 
   _storyIdFromPath(wtPath) {
