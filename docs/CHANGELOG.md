@@ -2,6 +2,60 @@
 
 All notable changes to this project will be documented in this file.
 
+## [5.10.3] - 2026-04-16
+
+### Robustness and performance hardening for sprint-story-init pipeline
+
+Comprehensive review of `sprint-story-init.js` and its dependency chain addressing
+16 findings across robustness, race conditions, and performance:
+
+**HIGH — Silent failures and race conditions:**
+- **Batch transition result checking** — `sprint-story-init` now inspects the
+  `batchTransitionTickets` result and warns when tasks fail to transition.
+- **TOCTOU race in `ensureEpicBranch`** — added post-checkout branch assertion
+  to detect concurrent HEAD switches.
+- **Consistent retry on packed-refs contention** — `ensureEpicBranch` and
+  `checkoutStoryBranch` now use `gitPullWithRetry` (new) instead of raw `gitSpawn`,
+  matching the retry pattern already used for fetches.
+- **Worktree `ensure()` race** — catches "already exists" from concurrent
+  `git worktree add` and falls back to reuse instead of crashing.
+- **Upfront cycle detection** — `extractAndSortTasks` now calls `detectCycle()`
+  before `topologicalSort()`, producing a targeted error naming the offending tasks.
+
+**MEDIUM — Performance and reliability:**
+- **Concurrency-capped ticket transitions** — `batchTransitionTickets` processes
+  in batches of 10 (configurable) to avoid overwhelming the API.
+- **Deduplicated `parseBlockedBy`** — duplicate `blocked by #N` references no
+  longer create redundant graph edges.
+- **False blocker prevention** — fetch errors on blocker tickets are now logged
+  as warnings instead of treated as confirmed open blockers.
+- **Optimized `topologicalSort`** — replaced O(V² log V) full re-sort per
+  iteration with O(log V) binary insertion to maintain queue order.
+- **Cached `_findByPath()`** — `WorktreeManager` caches `git worktree list`
+  output for 5 seconds, eliminating redundant spawns during `gc()` passes.
+- **Stale lock TTL raised** — `sweepStaleLocks` default increased from 30s to
+  5 minutes to avoid killing legitimate long-running git operations.
+- **Jitter in fetch retry backoff** — adds 0–50% random jitter to prevent
+  thundering herd when multiple worktrees retry simultaneously.
+
+**LOW — Semantic fixes and validation:**
+- **Dry-run no longer blocks on open dependencies** — reports blockers as
+  warnings without exiting non-zero.
+- **Indented Epic refs** — `resolveStoryHierarchy` regex now matches `Epic: #N`
+  inside markdown lists and blockquotes.
+- **Branch name validation** — `getEpicBranch`, `getStoryBranch`, and
+  `getTaskBranch` now validate IDs before constructing branch names.
+
+**Dependency install hardening (pnpm-store friction fix):**
+- **Retry with backoff** — pnpm installs retry up to 3 times with increasing
+  delays (0s, 2s, 5s).
+- **Increased timeout** — pnpm-store gets 300s (up from 120s) to accommodate
+  first-run global store population.
+- **Post-install verification** — checks `node_modules` actually exists after
+  a zero-exit install.
+- **`installFailed` signal** — threaded through `ensure()` → `bootstrapWorktree()`
+  → story init result JSON so downstream agents know to run install manually.
+
 ## [5.10.2] - 2026-04-16
 
 ### Harden worktree bootstrap — HEAD-safe epic refs, auto install, branch short-circuits

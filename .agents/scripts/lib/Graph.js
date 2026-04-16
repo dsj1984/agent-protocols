@@ -248,8 +248,7 @@ export function topologicalSort(adjacency, taskMap) {
   const sorted = [];
 
   while (queue.length > 0) {
-    // Take smallest ID for determinism
-    queue.sort((a, b) => a - b);
+    // Take smallest ID for determinism (queue is kept sorted)
     const id = queue.shift();
     sorted.push(taskMap.get(id));
 
@@ -257,7 +256,18 @@ export function topologicalSort(adjacency, taskMap) {
     for (const dependent of reverseAdj.get(id) ?? []) {
       const newDeg = (inDegree.get(dependent) ?? 0) - 1;
       inDegree.set(dependent, newDeg);
-      if (newDeg === 0) queue.push(dependent);
+      if (newDeg === 0) {
+        // Binary insertion to maintain sorted order — O(log N) per insert
+        // instead of re-sorting the entire queue each iteration.
+        let lo = 0,
+          hi = queue.length;
+        while (lo < hi) {
+          const mid = (lo + hi) >>> 1;
+          if (queue[mid] < dependent) lo = mid + 1;
+          else hi = mid;
+        }
+        queue.splice(lo, 0, dependent);
+      }
     }
   }
 

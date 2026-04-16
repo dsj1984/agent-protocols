@@ -25,7 +25,9 @@ __setSleep(async (ms) => {
 // Restore real runners + real sleep after this suite so later tests are clean.
 after(() => {
   __setGitRunners(execFileSync, spawnSync);
-  __setSleep((ms) => new Promise((resolve) => setTimeout(resolve, ms)));
+  __setSleep((ms) => new Promise((resolve) => setTimeout(resolve, ms)), {
+    jitter: 0.5,
+  });
 });
 
 /**

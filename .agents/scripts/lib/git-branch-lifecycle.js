@@ -14,7 +14,7 @@
  */
 
 import { isSafeBranchComponent } from './dependency-parser.js';
-import { gitSpawn, gitSync } from './git-utils.js';
+import { gitPullWithRetry, gitSpawn, gitSync } from './git-utils.js';
 
 /**
  * Return the current branch name, or null if in detached HEAD state.
@@ -76,7 +76,7 @@ export function branchExistsRemotely(branch, cwd) {
  * @param {string} cwd
  * @param {{ progress?: (phase: string, message: string) => void }} [opts]
  */
-export function ensureEpicBranch(epicBranch, baseBranch, cwd, opts = {}) {
+export async function ensureEpicBranch(epicBranch, baseBranch, cwd, opts = {}) {
   assertSafeBranch(epicBranch, baseBranch);
   const progress = opts.progress ?? (() => {});
 
@@ -89,7 +89,7 @@ export function ensureEpicBranch(epicBranch, baseBranch, cwd, opts = {}) {
     const remote = branchExistsRemotely(epicBranch, cwd);
     if (remote) {
       progress('GIT', `Already on ${epicBranch}. Syncing with remote.`);
-      gitSpawn(cwd, 'pull', '--rebase', 'origin', epicBranch);
+      await gitPullWithRetry(cwd, 'origin', epicBranch);
     } else {
       progress('GIT', `Already on ${epicBranch}. Publishing to remote.`);
       gitSync(cwd, 'push', '--no-verify', '-u', 'origin', epicBranch);
@@ -103,9 +103,10 @@ export function ensureEpicBranch(epicBranch, baseBranch, cwd, opts = {}) {
   if (!local && !remote) {
     progress('GIT', `Creating Epic branch: ${epicBranch} (from ${baseBranch})`);
     gitSync(cwd, 'checkout', baseBranch);
-    gitSpawn(cwd, 'pull', '--rebase', 'origin', baseBranch);
+    await gitPullWithRetry(cwd, 'origin', baseBranch);
     gitSync(cwd, 'checkout', '-b', epicBranch);
     gitSync(cwd, 'push', '--no-verify', '-u', 'origin', epicBranch);
+    _assertOnBranch(cwd, epicBranch);
     return;
   }
 
@@ -116,19 +117,38 @@ export function ensureEpicBranch(epicBranch, baseBranch, cwd, opts = {}) {
     );
     gitSync(cwd, 'checkout', epicBranch);
     gitSync(cwd, 'push', '--no-verify', '-u', 'origin', epicBranch);
+    _assertOnBranch(cwd, epicBranch);
     return;
   }
 
   if (!local && remote) {
     progress('GIT', `Tracking remote Epic branch: ${epicBranch}`);
     gitSync(cwd, 'checkout', '-b', epicBranch, `origin/${epicBranch}`);
-    gitSpawn(cwd, 'pull', '--rebase', 'origin', epicBranch);
+    await gitPullWithRetry(cwd, 'origin', epicBranch);
+    _assertOnBranch(cwd, epicBranch);
     return;
   }
 
   progress('GIT', `Epic branch exists. Syncing: ${epicBranch}`);
   gitSync(cwd, 'checkout', epicBranch);
-  gitSpawn(cwd, 'pull', '--rebase', 'origin', epicBranch);
+  await gitPullWithRetry(cwd, 'origin', epicBranch);
+  _assertOnBranch(cwd, epicBranch);
+}
+
+/**
+ * Post-operation assertion: verify HEAD is on the expected branch.
+ * Guards against TOCTOU races where a parallel agent switches branches
+ * between our checkout and pull.
+ */
+function _assertOnBranch(cwd, expected) {
+  const actual = currentBranch(cwd);
+  if (actual !== expected) {
+    throw new Error(
+      `[git-branch-lifecycle] Branch assertion failed after checkout. ` +
+        `Expected HEAD on '${expected}', found '${actual}'. ` +
+        `A concurrent process may have switched branches.`,
+    );
+  }
 }
 
 /**
@@ -141,7 +161,12 @@ export function ensureEpicBranch(epicBranch, baseBranch, cwd, opts = {}) {
  * @param {string} cwd
  * @param {{ progress?: (phase: string, message: string) => void }} [opts]
  */
-export function checkoutStoryBranch(storyBranch, epicBranch, cwd, opts = {}) {
+export async function checkoutStoryBranch(
+  storyBranch,
+  epicBranch,
+  cwd,
+  opts = {},
+) {
   assertSafeBranch(storyBranch, epicBranch);
   const progress = opts.progress ?? (() => {});
 
@@ -150,7 +175,7 @@ export function checkoutStoryBranch(storyBranch, epicBranch, cwd, opts = {}) {
     const remote = branchExistsRemotely(storyBranch, cwd);
     if (remote) {
       progress('GIT', `Already on ${storyBranch}. Syncing with remote.`);
-      gitSpawn(cwd, 'pull', '--rebase', 'origin', storyBranch);
+      await gitPullWithRetry(cwd, 'origin', storyBranch);
     } else {
       progress('GIT', `Already on ${storyBranch}. No remote to sync.`);
     }
@@ -168,7 +193,7 @@ export function checkoutStoryBranch(storyBranch, epicBranch, cwd, opts = {}) {
     if (local) {
       gitSync(cwd, 'checkout', storyBranch);
       if (remote) {
-        gitSpawn(cwd, 'pull', '--rebase', 'origin', storyBranch);
+        await gitPullWithRetry(cwd, 'origin', storyBranch);
       }
     } else {
       gitSync(cwd, 'checkout', '-b', storyBranch, `origin/${storyBranch}`);

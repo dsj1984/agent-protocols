@@ -96,14 +96,17 @@ function isPackedRefsContention(stderr) {
  * @returns {Promise<void>}
  */
 let _sleep = (ms) => new Promise((resolve) => setTimeout(resolve, ms));
+let _jitterFactor = 0.5;
 
 /**
  * Test-only seam: replace the sleep implementation used by
  * `gitFetchWithRetry` to avoid real backoff in unit tests.
  * @param {(ms: number) => Promise<void>} fn
+ * @param {{ jitter?: number }} [opts] - Override jitter factor (default: 0 for mocks).
  */
-export function __setSleep(fn) {
+export function __setSleep(fn, opts = {}) {
   _sleep = fn;
+  _jitterFactor = opts.jitter ?? 0;
 }
 
 /**
@@ -130,7 +133,35 @@ export async function gitFetchWithRetry(cwd, ...args) {
     if (!isPackedRefsContention(last.stderr))
       return { ...last, attempts: attempt };
     if (attempt > backoff.length) return { ...last, attempts: attempt };
-    await _sleep(backoff[attempt - 1]);
+    const base = backoff[attempt - 1];
+    const jitter = Math.floor(Math.random() * base * _jitterFactor);
+    await _sleep(base + jitter);
+  }
+}
+
+/**
+ * Run `git pull --rebase …` with the same bounded retry loop as
+ * `gitFetchWithRetry`. Packed-refs contention can occur during pulls
+ * just as during fetches — particularly in multi-worktree setups.
+ *
+ * @param {string} cwd
+ * @param {...string} args - Arguments after `pull --rebase` (e.g. `'origin', 'main'`).
+ * @returns {Promise<{ status: number, stdout: string, stderr: string, attempts: number }>}
+ */
+export async function gitPullWithRetry(cwd, ...args) {
+  const backoff = [250, 500, 1000];
+  let attempt = 0;
+  let last;
+  for (;;) {
+    attempt++;
+    last = gitSpawn(cwd, 'pull', '--rebase', ...args);
+    if (last.status === 0) return { ...last, attempts: attempt };
+    if (!isPackedRefsContention(last.stderr))
+      return { ...last, attempts: attempt };
+    if (attempt > backoff.length) return { ...last, attempts: attempt };
+    const base = backoff[attempt - 1];
+    const jitter = Math.floor(Math.random() * base * _jitterFactor);
+    await _sleep(base + jitter);
   }
 }
 
@@ -141,7 +172,11 @@ export async function gitFetchWithRetry(cwd, ...args) {
  * @returns {string}
  */
 export function getEpicBranch(epicId) {
-  return `epic/${epicId}`;
+  const id = typeof epicId === 'number' ? epicId : parseInt(epicId, 10);
+  if (!Number.isFinite(id) || id <= 0) {
+    throw new Error(`getEpicBranch: invalid epicId: ${epicId}`);
+  }
+  return `epic/${id}`;
 }
 
 /**
@@ -168,7 +203,11 @@ export function slugify(text) {
  * @returns {string}
  */
 export function getStoryBranch(_epicId, storyId) {
-  return `story-${storyId}`;
+  const id = typeof storyId === 'number' ? storyId : parseInt(storyId, 10);
+  if (!Number.isFinite(id) || id <= 0) {
+    throw new Error(`getStoryBranch: invalid storyId: ${storyId}`);
+  }
+  return `story-${id}`;
 }
 
 /**
@@ -180,5 +219,19 @@ export function getStoryBranch(_epicId, storyId) {
  * @returns {string}
  */
 export function getTaskBranch(epicId, taskId) {
-  return `task/epic-${epicId}/${taskId}`;
+  const eid = typeof epicId === 'number' ? epicId : parseInt(epicId, 10);
+  if (!Number.isFinite(eid) || eid <= 0) {
+    throw new Error(`getTaskBranch: invalid epicId: ${epicId}`);
+  }
+  // taskId may be numeric or a slug like 'ungrouped' for orphan tasks.
+  const tid =
+    typeof taskId === 'number'
+      ? taskId
+      : /^\d+$/.test(String(taskId))
+        ? parseInt(taskId, 10)
+        : String(taskId);
+  if (typeof tid === 'number' && (!Number.isFinite(tid) || tid <= 0)) {
+    throw new Error(`getTaskBranch: invalid taskId: ${taskId}`);
+  }
+  return `task/epic-${eid}/${tid}`;
 }

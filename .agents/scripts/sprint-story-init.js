@@ -31,7 +31,7 @@ import { parseSprintArgs } from './lib/cli-args.js';
 import { runAsCli } from './lib/cli-utils.js';
 import { PROJECT_ROOT, resolveConfig } from './lib/config-resolver.js';
 import { parseBlockedBy } from './lib/dependency-parser.js';
-import { buildGraph, topologicalSort } from './lib/Graph.js';
+import { buildGraph, detectCycle, topologicalSort } from './lib/Graph.js';
 import {
   branchExistsLocally,
   branchExistsRemotely,
@@ -122,12 +122,25 @@ async function checkBlockers(provider, _storyId, body) {
         id: depId,
         title: '(fetch failed)',
         state: err.message,
+        fetchError: true,
       };
     }
   });
 
   const results = await Promise.all(blockerPromises);
-  return results.filter((b) => b !== null);
+  const active = results.filter((b) => b !== null);
+
+  // Fetch failures are ambiguous — they shouldn't block execution.
+  // Warn about them but only return confirmed open blockers.
+  const fetchErrors = active.filter((b) => b.fetchError);
+  const confirmed = active.filter((b) => !b.fetchError);
+  if (fetchErrors.length > 0) {
+    progress(
+      'BLOCKERS',
+      `⚠️ Could not verify ${fetchErrors.length} blocker(s) (network/API error): ${fetchErrors.map((b) => `#${b.id}`).join(', ')}. Treating as non-blocking.`,
+    );
+  }
+  return confirmed;
 }
 
 function extractAndSortTasks(tasks) {
@@ -139,19 +152,17 @@ function extractAndSortTasks(tasks) {
       tasks.some((tt) => tt.id === dep),
     ),
   }));
-  try {
-    const { adjacency, taskMap } = buildGraph(graphTasks);
-    return topologicalSort(adjacency, taskMap);
-  } catch (err) {
-    // Execution order must respect dependencies — downstream agents assume
-    // they can run in the returned sequence. A failed sort is almost always
-    // a cycle or a malformed `blocked by`; surfacing it immediately is
-    // safer than silently returning an unordered list.
+  const { adjacency, taskMap } = buildGraph(graphTasks);
+
+  const cycle = detectCycle(adjacency);
+  if (cycle) {
     throw new Error(
-      `[sprint-story-init] Cannot topologically sort child tasks ` +
-        `(likely a dependency cycle or invalid blocked-by reference): ${err.message}`,
+      `[sprint-story-init] Dependency cycle detected among child tasks: ` +
+        `#${cycle.join(' → #')}. Fix the \`blocked by\` references before retrying.`,
     );
   }
+
+  return topologicalSort(adjacency, taskMap);
 }
 
 function assertWorkingTreeClean(cwd) {
@@ -180,8 +191,8 @@ async function bootstrapBranch(epicBranch, storyBranch, baseBranch, cwd) {
 
   assertWorkingTreeClean(cwd);
 
-  ensureEpicBranch(epicBranch, baseBranch, cwd, { progress });
-  checkoutStoryBranch(storyBranch, epicBranch, cwd, { progress });
+  await ensureEpicBranch(epicBranch, baseBranch, cwd, { progress });
+  await checkoutStoryBranch(storyBranch, epicBranch, cwd, { progress });
 
   const currentBranch = gitSpawn(cwd, 'branch', '--show-current');
   if (currentBranch.stdout !== storyBranch) {
@@ -251,6 +262,13 @@ async function bootstrapWorktree({
     `${ensured.created ? '✨ Created' : '♻️  Reusing'} worktree: ${ensured.path}`,
   );
 
+  if (ensured.installFailed) {
+    progress(
+      'WORKTREE',
+      `⚠️ Dependency install failed. Agent must run package-manager install in the worktree before proceeding.`,
+    );
+  }
+
   if (ensured.windowsPathWarning) {
     const { path: p, length, threshold } = ensured.windowsPathWarning;
     progress(
@@ -259,7 +277,11 @@ async function bootstrapWorktree({
     );
   }
 
-  return { worktreePath: ensured.path, created: ensured.created };
+  return {
+    worktreePath: ensured.path,
+    created: ensured.created,
+    installFailed: !!ensured.installFailed,
+  };
 }
 
 // ---------------------------------------------------------------------------
@@ -309,13 +331,23 @@ export async function runStoryInit({
 
   const openBlockers = await checkBlockers(provider, storyId, body);
   if (openBlockers.length > 0) {
-    console.error(
-      `\n❌ BLOCKED: Story #${storyId} is blocked by ${openBlockers.length} incomplete prerequisite(s):`,
-    );
-    for (const b of openBlockers) {
-      console.error(`   - #${b.id} "${b.title}" (${b.state})`);
+    if (dryRun) {
+      progress(
+        'BLOCKERS',
+        `⚠️ ${openBlockers.length} open blocker(s) detected (dry-run — not blocking):`,
+      );
+      for (const b of openBlockers) {
+        progress('BLOCKERS', `   - #${b.id} "${b.title}" (${b.state})`);
+      }
+    } else {
+      console.error(
+        `\n❌ BLOCKED: Story #${storyId} is blocked by ${openBlockers.length} incomplete prerequisite(s):`,
+      );
+      for (const b of openBlockers) {
+        console.error(`   - #${b.id} "${b.title}" (${b.state})`);
+      }
+      return { success: false, blocked: true, openBlockers };
     }
-    return { success: false, blocked: true, openBlockers };
   }
   if (parseBlockedBy(body).length > 0)
     progress('BLOCKERS', '✅ All blockers resolved');
@@ -339,13 +371,14 @@ export async function runStoryInit({
 
   let workCwd = cwd;
   let worktreeCreated = false;
+  let installFailed = false;
   const wtConfig = orchestration?.worktreeIsolation;
   const worktreeEnabled = !!wtConfig?.enabled;
 
   if (!dryRun) {
     const baseBranch = settings.baseBranch ?? 'main';
     if (worktreeEnabled) {
-      const { worktreePath, created } = await bootstrapWorktree({
+      const wtResult = await bootstrapWorktree({
         epicBranch,
         storyBranch,
         storyId,
@@ -353,8 +386,9 @@ export async function runStoryInit({
         mainCwd: cwd,
         wtConfig,
       });
-      workCwd = worktreePath;
-      worktreeCreated = created;
+      workCwd = wtResult.worktreePath;
+      worktreeCreated = wtResult.created;
+      installFailed = wtResult.installFailed;
     } else {
       await bootstrapBranch(epicBranch, storyBranch, baseBranch, cwd);
     }
@@ -363,12 +397,18 @@ export async function runStoryInit({
       'TICKETS',
       `Transitioning ${sortedTasks.length} Task(s) to agent::executing...`,
     );
-    await batchTransitionTickets(
+    const transitionResult = await batchTransitionTickets(
       provider,
       sortedTasks,
       STATE_LABELS.EXECUTING,
       { progress },
     );
+    if (transitionResult.failed.length > 0) {
+      progress(
+        'TICKETS',
+        `⚠️ ${transitionResult.failed.length} task(s) failed to transition: #${transitionResult.failed.join(', #')}. Agent may be working with tasks in stale state.`,
+      );
+    }
   }
 
   const result = buildStoryInitResult({
@@ -380,6 +420,7 @@ export async function runStoryInit({
     worktreeEnabled,
     workCwd,
     worktreeCreated,
+    installFailed,
     sortedTasks,
     featureId,
     prdId,
@@ -405,6 +446,7 @@ function buildStoryInitResult({
   worktreeEnabled,
   workCwd,
   worktreeCreated,
+  installFailed,
   sortedTasks,
   featureId,
   prdId,
@@ -420,6 +462,7 @@ function buildStoryInitResult({
     worktreeEnabled,
     workCwd,
     worktreeCreated,
+    installFailed,
     tasks: sortedTasks.map((t) => ({
       id: t.id,
       title: t.title,
