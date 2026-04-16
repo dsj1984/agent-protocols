@@ -2,6 +2,26 @@
 
 All notable changes to this project will be documented in this file.
 
+## [5.10.6] - 2026-04-16
+
+### Copy untracked bootstrap files into new worktrees
+
+`sprint-story-init` worktrees previously did not carry `.env` or `.mcp.json`
+because `git worktree add` respects `.gitignore`. Stories that depended on
+these files (Clerk / DATABASE_URL secrets, MCP server registrations) hit
+silent failures — e.g. RBAC tests failing from seed/clerkId collisions
+against the wrong database. The manual workaround was `cp ../../.env .env`
+inside each worktree before running tests.
+
+- **`WorktreeManager._copyBootstrapFiles`** — new bootstrap step that runs
+  after `_applyNodeModulesStrategy` and before `_installDependencies`, so
+  postinstall hooks (Prisma, etc.) see the propagated values.
+- **Config**: `orchestration.worktreeIsolation.bootstrapFiles` (default
+  `[".env", ".mcp.json"]`). Names must be bare paths relative to `repoRoot`
+  — `..`, absolute paths, and NUL-bytes are rejected with a warning.
+- **Safety**: existing files in the worktree are never overwritten (agent
+  overrides survive). Missing sources are a silent no-op.
+
 ## [5.10.5] - 2026-04-16
 
 ### Sprint-close performance: batched branch deletion

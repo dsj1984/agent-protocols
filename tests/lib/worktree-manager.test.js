@@ -663,6 +663,134 @@ test('nodeModulesStrategy: unknown value throws (defense-in-depth vs schema)', a
   }
 });
 
+test('_copyBootstrapFiles: default copies .env and .mcp.json when present', () => {
+  const tmp = fs.mkdtempSync(path.join(os.tmpdir(), 'wt-env-'));
+  try {
+    fs.writeFileSync(path.join(tmp, '.env'), 'DATABASE_URL=postgres://x\n');
+    fs.writeFileSync(path.join(tmp, '.mcp.json'), '{"servers":{}}\n');
+    const wtPath = path.join(tmp, '.worktrees', 'story-1');
+    fs.mkdirSync(wtPath, { recursive: true });
+
+    const wm = new WorktreeManager({
+      repoRoot: tmp,
+      logger: SILENT_LOGGER,
+      git: mockGit({}),
+      platform: 'linux',
+    });
+    wm._copyBootstrapFiles(wtPath);
+
+    assert.equal(
+      fs.readFileSync(path.join(wtPath, '.env'), 'utf-8'),
+      'DATABASE_URL=postgres://x\n',
+    );
+    assert.equal(
+      fs.readFileSync(path.join(wtPath, '.mcp.json'), 'utf-8'),
+      '{"servers":{}}\n',
+    );
+  } finally {
+    fs.rmSync(tmp, { recursive: true, force: true });
+  }
+});
+
+test('_copyBootstrapFiles: no-op when source .env does not exist', () => {
+  const tmp = fs.mkdtempSync(path.join(os.tmpdir(), 'wt-env-'));
+  try {
+    const wtPath = path.join(tmp, '.worktrees', 'story-1');
+    fs.mkdirSync(wtPath, { recursive: true });
+
+    const wm = new WorktreeManager({
+      repoRoot: tmp,
+      logger: SILENT_LOGGER,
+      git: mockGit({}),
+      platform: 'linux',
+    });
+    wm._copyBootstrapFiles(wtPath);
+
+    assert.equal(fs.existsSync(path.join(wtPath, '.env')), false);
+  } finally {
+    fs.rmSync(tmp, { recursive: true, force: true });
+  }
+});
+
+test('_copyBootstrapFiles: never overwrites an existing worktree .env', () => {
+  const tmp = fs.mkdtempSync(path.join(os.tmpdir(), 'wt-env-'));
+  try {
+    fs.writeFileSync(path.join(tmp, '.env'), 'ROOT=1\n');
+    const wtPath = path.join(tmp, '.worktrees', 'story-1');
+    fs.mkdirSync(wtPath, { recursive: true });
+    fs.writeFileSync(path.join(wtPath, '.env'), 'AGENT_OVERRIDE=1\n');
+
+    const wm = new WorktreeManager({
+      repoRoot: tmp,
+      logger: SILENT_LOGGER,
+      git: mockGit({}),
+      platform: 'linux',
+    });
+    wm._copyBootstrapFiles(wtPath);
+
+    assert.equal(
+      fs.readFileSync(path.join(wtPath, '.env'), 'utf-8'),
+      'AGENT_OVERRIDE=1\n',
+      'agent-placed .env must survive',
+    );
+  } finally {
+    fs.rmSync(tmp, { recursive: true, force: true });
+  }
+});
+
+test('_copyBootstrapFiles: rejects path traversal and absolute paths', () => {
+  const tmp = fs.mkdtempSync(path.join(os.tmpdir(), 'wt-env-'));
+  try {
+    const wtPath = path.join(tmp, '.worktrees', 'story-1');
+    fs.mkdirSync(wtPath, { recursive: true });
+
+    const warns = [];
+    const wm = new WorktreeManager({
+      repoRoot: tmp,
+      config: { bootstrapFiles: ['../../etc/passwd', '/abs/path', '.env'] },
+      logger: { info() {}, warn: (m) => warns.push(m), error() {} },
+      git: mockGit({}),
+      platform: 'linux',
+    });
+    wm._copyBootstrapFiles(wtPath);
+
+    assert.equal(
+      warns.filter((m) => m.includes('skipped invalid')).length,
+      2,
+      'both traversal and absolute paths should be rejected',
+    );
+    // Legitimate `.env` in the list should still have been attempted (no
+    // source file here, so it's a silent no-op — no warning).
+    assert.equal(fs.existsSync(path.join(wtPath, '.env')), false);
+  } finally {
+    fs.rmSync(tmp, { recursive: true, force: true });
+  }
+});
+
+test('_copyBootstrapFiles: honors configured bootstrapFiles list', () => {
+  const tmp = fs.mkdtempSync(path.join(os.tmpdir(), 'wt-env-'));
+  try {
+    fs.writeFileSync(path.join(tmp, '.env'), 'A=1\n');
+    fs.writeFileSync(path.join(tmp, '.env.test'), 'B=2\n');
+    const wtPath = path.join(tmp, '.worktrees', 'story-1');
+    fs.mkdirSync(wtPath, { recursive: true });
+
+    const wm = new WorktreeManager({
+      repoRoot: tmp,
+      config: { bootstrapFiles: ['.env', '.env.test'] },
+      logger: SILENT_LOGGER,
+      git: mockGit({}),
+      platform: 'linux',
+    });
+    wm._copyBootstrapFiles(wtPath);
+
+    assert.equal(fs.existsSync(path.join(wtPath, '.env')), true);
+    assert.equal(fs.existsSync(path.join(wtPath, '.env.test')), true);
+  } finally {
+    fs.rmSync(tmp, { recursive: true, force: true });
+  }
+});
+
 test('_linkAgentsToRoot: refuses to wipe root .agents when wtPath equals repoRoot', () => {
   const tmp = fs.mkdtempSync(path.join(os.tmpdir(), 'wt-safety-'));
   try {

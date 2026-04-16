@@ -110,6 +110,7 @@ export class WorktreeManager {
       nodeModulesStrategy: 'per-worktree',
       warnOnUncommittedOnReap: true,
       windowsPathLengthWarnThreshold: 240,
+      bootstrapFiles: ['.env', '.mcp.json'],
       ...config,
     };
     this.logger = logger ?? {
@@ -213,6 +214,9 @@ export class WorktreeManager {
     }
 
     this._applyNodeModulesStrategy(wtPath);
+    // Copy bootstrap files (.env, .mcp.json, …) before install so postinstall
+    // hooks (Prisma, etc.) and dev-tool configs see them.
+    this._copyBootstrapFiles(wtPath);
     const installOk = this._installDependencies(wtPath);
     this._linkAgentsToRoot(wtPath);
 
@@ -291,6 +295,67 @@ export class WorktreeManager {
           `WorktreeManager: unknown nodeModulesStrategy '${strategy}'. ` +
             'Expected per-worktree | symlink | pnpm-store.',
         );
+    }
+  }
+
+  /**
+   * Copy untracked bootstrap files from the repo root into a freshly
+   * created worktree. Files like `.env` and `.mcp.json` are typically
+   * gitignored so `git worktree add` does NOT carry them over — tests
+   * that depend on DATABASE_URL, Clerk secrets, seed keys, MCP tool
+   * registrations, etc. then silently pick up stale or missing values and
+   * fail in non-obvious ways (e.g. RBAC seed/clerkId collisions).
+   *
+   * Behaviour:
+   *   - Existing files in the worktree are preserved (never overwrite —
+   *     agents may have placed their own value).
+   *   - Missing source files are a no-op.
+   *   - Filenames must be bare relative paths under repoRoot (no `..`,
+   *     no absolute paths, no glob).
+   *
+   * Configured via `orchestration.worktreeIsolation.bootstrapFiles`
+   * (default: `['.env', '.mcp.json']`).
+   *
+   * @param {string} wtPath Absolute worktree path.
+   */
+  _copyBootstrapFiles(wtPath) {
+    const names = this.config.bootstrapFiles ?? [];
+    if (!Array.isArray(names) || names.length === 0) return;
+
+    for (const name of names) {
+      if (typeof name !== 'string' || name.length === 0) continue;
+      // Reject traversal / absolute paths — names must be bare, relative
+      // to repoRoot, and must not escape it.
+      const rel = path.normalize(name);
+      if (rel.startsWith('..') || path.isAbsolute(rel) || rel.includes('\0')) {
+        this.logger.warn(
+          `worktree.bootstrap skipped invalid name='${name}' (must be relative, no traversal)`,
+        );
+        continue;
+      }
+
+      const src = path.join(this.repoRoot, rel);
+      if (!fs.existsSync(src)) continue;
+
+      const dst = path.join(wtPath, rel);
+      if (fs.existsSync(dst)) {
+        this.logger.info(
+          `worktree.bootstrap skipped path=${dst} (already exists)`,
+        );
+        continue;
+      }
+
+      try {
+        fs.mkdirSync(path.dirname(dst), { recursive: true });
+        fs.copyFileSync(src, dst);
+        this.logger.info(
+          `worktree.bootstrap copied source=${src} target=${dst}`,
+        );
+      } catch (err) {
+        this.logger.warn(
+          `worktree.bootstrap copy failed name=${name}: ${err.message}`,
+        );
+      }
     }
   }
 
