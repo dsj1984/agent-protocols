@@ -2,6 +2,26 @@
 
 All notable changes to this project will be documented in this file.
 
+## [5.10.4] - 2026-04-16
+
+### Post-plan health check and pnpm store priming
+
+New Phase 5 at the end of `/sprint-plan` validates the backlog and primes
+the execution environment before handing off to `/sprint-execute`:
+
+- **`sprint-plan-healthcheck.js`** — standalone CLI that runs four checks:
+  ticket hierarchy validation (labels, structure, acyclic deps), git remote
+  reachability, orchestration config validation, and pnpm store priming.
+- **pnpm store prime** — when `nodeModulesStrategy: 'pnpm-store'`, runs
+  `pnpm install --frozen-lockfile` in the project root at plan time so the
+  global content-addressable store is populated. Subsequent worktree installs
+  hard-link from the cache instead of downloading, reducing install time from
+  minutes to seconds.
+- **Non-blocking** — reports findings (errors, warnings, passes) but always
+  exits 0. The plan is already committed to GitHub; this is an advisory check.
+- **`sprint-plan.md`** — updated with Phase 5 documentation and the health
+  check invocation command.
+
 ## [5.10.3] - 2026-04-16
 
 ### Robustness and performance hardening for sprint-story-init pipeline

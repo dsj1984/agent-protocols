@@ -66,6 +66,7 @@
   ".agents/scripts/providers/github.js": 99.793,
   ".agents/scripts/sprint-close.js": 92.52,
   ".agents/scripts/sprint-code-review.js": 83.126,
+  ".agents/scripts/sprint-plan-healthcheck.js": 97.308,
   ".agents/scripts/sprint-story-close.js": 83.866,
   ".agents/scripts/sprint-story-init.js": 92.078,
   ".agents/scripts/sprint-wave-gate.js": 87.619,
