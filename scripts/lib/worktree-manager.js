@@ -10,6 +10,7 @@
  * `repoRoot`, and `reap` never passes `--force`.
  */
 
+import { spawnSync } from 'node:child_process';
 import fs from 'node:fs';
 import path from 'node:path';
 import * as defaultGit from './git-utils.js';
@@ -196,6 +197,7 @@ export class WorktreeManager {
     }
 
     this._applyNodeModulesStrategy(wtPath);
+    this._installDependencies(wtPath);
     this._linkAgentsToRoot(wtPath);
 
     this.logger.info(`worktree.created storyId=${id} path=${wtPath}`);
@@ -212,12 +214,12 @@ export class WorktreeManager {
    * strategy they started with.
    *
    * Strategies:
-   *   - `per-worktree`: no-op. Agents run their own `npm/pnpm install`.
+   *   - `per-worktree`: no-op here. `_installDependencies` runs the install.
    *   - `symlink`: create `<wtPath>/node_modules` → `<primeFromPath>/node_modules`.
    *     Refuses on win32 unless `allowSymlinkOnWindows: true` (symlink
    *     semantics differ by Windows version / filesystem permissions).
-   *   - `pnpm-store`: no-op here. The strategy contract is that the
-   *     agent/CI will invoke `pnpm install` against the shared store.
+   *   - `pnpm-store`: no-op here. `_installDependencies` runs `pnpm install`
+   *     against the shared content-addressable store.
    *
    * @param {string} wtPath Absolute worktree path.
    */
@@ -272,6 +274,67 @@ export class WorktreeManager {
           `WorktreeManager: unknown nodeModulesStrategy '${strategy}'. ` +
             'Expected per-worktree | symlink | pnpm-store.',
         );
+    }
+  }
+
+  /**
+   * Run the appropriate package-manager install inside a freshly created
+   * worktree. Handles both `per-worktree` and `pnpm-store` strategies.
+   *
+   * - `per-worktree`: detects the lock file and runs the matching installer.
+   * - `pnpm-store`: runs `pnpm install --frozen-lockfile` — pnpm's
+   *   content-addressable store hard-links packages from the global cache,
+   *   making repeat installs near-instant.
+   * - `symlink`: no-op — node_modules is already linked to the donor.
+   *
+   * Non-fatal: logs a warning on failure so the agent can retry manually.
+   *
+   * @param {string} wtPath Absolute worktree path.
+   */
+  _installDependencies(wtPath) {
+    const strategy = this.config.nodeModulesStrategy ?? 'per-worktree';
+    if (strategy === 'symlink') return;
+
+    const pkgJson = path.join(wtPath, 'package.json');
+    if (!fs.existsSync(pkgJson)) return;
+
+    let cmd, args;
+    if (strategy === 'pnpm-store') {
+      cmd = 'pnpm';
+      args = ['install', '--frozen-lockfile'];
+    } else {
+      // per-worktree: detect lock file to pick the right package manager.
+      const hasPnpmLock = fs.existsSync(path.join(wtPath, 'pnpm-lock.yaml'));
+      const hasYarnLock = fs.existsSync(path.join(wtPath, 'yarn.lock'));
+
+      if (hasPnpmLock) {
+        cmd = 'pnpm';
+        args = ['install', '--frozen-lockfile'];
+      } else if (hasYarnLock) {
+        cmd = 'yarn';
+        args = ['install', '--frozen-lockfile'];
+      } else {
+        cmd = 'npm';
+        args = ['ci'];
+      }
+    }
+
+    this.logger.info(
+      `worktree.install strategy=${strategy} cmd=${cmd} path=${wtPath}`,
+    );
+    const install = spawnSync(cmd, args, {
+      cwd: wtPath,
+      stdio: 'pipe',
+      encoding: 'utf-8',
+      shell: this.platform === 'win32',
+      timeout: 120_000,
+    });
+    if (install.status !== 0) {
+      this.logger.warn(
+        `worktree.install failed cmd=${cmd} status=${install.status} stderr=${(install.stderr ?? '').slice(0, 500)}`,
+      );
+    } else {
+      this.logger.info(`worktree.install succeeded cmd=${cmd} path=${wtPath}`);
     }
   }
 

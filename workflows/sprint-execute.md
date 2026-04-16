@@ -67,7 +67,7 @@ The script:
 > **Dry-run**: Add `--dry-run` to check status without git or ticket changes. No
 > worktree is created.
 
-### Step 0.5 — `cd` into the workCwd
+### Step 0.5 — `cd` into the workCwd and verify dependencies
 
 ```powershell
 cd "<workCwd from Step 0 result>"
@@ -76,6 +76,15 @@ cd "<workCwd from Step 0 result>"
 All subsequent git commands, test runs, and Step 3 closure run from this
 directory. In worktree-enabled mode this is `.worktrees/story-<id>/`; in
 single-tree mode it is the main checkout.
+
+**Dependency install:** When worktree isolation is enabled, the worktree is a
+fresh checkout with no `node_modules/`. Step 0 runs `npm ci` (or the lock-file
+appropriate equivalent) automatically during worktree creation. If `workCwd` has
+no `node_modules/` directory, run install before proceeding:
+
+```powershell
+npm ci    # or: pnpm install --frozen-lockfile / yarn install --frozen-lockfile
+```
 
 > **Model Selection**: check the **Story Dispatch Table** from `/sprint-plan`
 > for this Story's **Model Tier** (`high` or `low`). Pick any model whose

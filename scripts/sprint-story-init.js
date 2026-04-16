@@ -37,6 +37,7 @@ import {
   branchExistsRemotely,
   checkoutStoryBranch,
   ensureEpicBranch,
+  ensureEpicBranchRef,
 } from './lib/git-branch-lifecycle.js';
 import {
   getEpicBranch,
@@ -215,7 +216,9 @@ async function bootstrapWorktree({
     );
   }
 
-  ensureEpicBranch(epicBranch, baseBranch, mainCwd, { progress });
+  // Use the HEAD-safe variant — the main checkout must not switch branches
+  // because a parallel agent may be working there or the tree may be dirty.
+  ensureEpicBranchRef(epicBranch, baseBranch, mainCwd, { progress });
 
   // Pre-seed the story branch ref without moving main's HEAD. WorktreeManager
   // requires the branch to exist before `git worktree add` can check it out.
