@@ -196,6 +196,30 @@ planned.
    > start execution via `/sprint-execute #[Story ID]` using the recommended
    > model."
 
+## Phase 5: Readiness Health Check
+
+Run the post-plan health check to validate the backlog and prime the execution
+environment. This is non-blocking — it reports findings but does not fail the
+plan.
+
+```bash
+node .agents/scripts/sprint-plan-healthcheck.js --epic [Epic_ID]
+```
+
+The health check verifies:
+
+1. **Ticket hierarchy** — Features, Stories, and Tasks exist with correct labels
+   and no dependency cycles.
+2. **Git remote** — origin is reachable and the base branch exists.
+3. **Config** — `.agentrc.json` orchestration block passes validation.
+4. **pnpm store** _(only if `nodeModulesStrategy: 'pnpm-store'`)_ — runs
+   `pnpm install --frozen-lockfile` in the project root to populate the global
+   content-addressable store. This makes subsequent worktree installs
+   near-instant instead of downloading packages from scratch.
+
+If the health check reports errors, review them before starting execution.
+Warnings are advisory and do not require action.
+
 ## Troubleshooting
 
 - If `epic-planner.js --emit-context` fails, confirm the Epic exists and has a
