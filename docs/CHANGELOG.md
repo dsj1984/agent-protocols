@@ -2,6 +2,55 @@
 
 All notable changes to this project will be documented in this file.
 
+## [5.10.8] - 2026-04-17
+
+Two related sprint-story-close bugs that together explained the
+"worktree won't clean up + branch reported deleted but still local"
+pattern seen after v5.10.7.
+
+### `.agents/` is now copied into worktrees instead of symlinked (`lib/worktree-manager.js`)
+
+Previously, consumer-project worktrees had `.agents/` replaced with a
+symlink (junction on Windows) pointing at `<repoRoot>/.agents`, guarded
+by `skip-worktree` + a pre-reap gitlink scrub. In practice the junction
+was fragile: case/separator mismatches on Windows caused
+`_unlinkAgentsFromRoot` to bail silently, leaving the link in place;
+`git worktree remove` then followed the link and either refused
+("submodule inside") or risked wiping the root copy.
+
+`WorktreeManager.ensure()` now does a recursive `fs.cpSync` from
+`<repoRoot>/.agents` into each new worktree and drops the submodule
+gitlink from the per-worktree index. The worktree is self-contained —
+`git worktree remove` succeeds without any symlink teardown. Tradeoff:
+`.agents/` updates made in root after worktree creation do not
+propagate into existing worktrees (acceptable for sprint-length
+worktrees; recreate if you need a mid-sprint refresh).
+
+Renamed internals: `_linkAgentsToRoot` → `_copyAgentsFromRoot`,
+`_unlinkAgentsFromRoot` → `_removeCopiedAgents`. The legacy-symlink
+branch in `_removeCopiedAgents` unlinks rather than recursing, so
+worktrees created under the old scheme still reap cleanly after the
+upgrade.
+
+### `sprint-story-close` now reaps the worktree before deleting the branch (`sprint-story-close.js`)
+
+`cleanupBranches` ran inside `finalizeMerge`, before `reapStoryWorktree`
+was invoked. git refuses to delete a branch that is still checked out
+by any worktree, so the local delete failed whenever the story worktree
+was still registered — which was guaranteed when reap itself failed
+(see above). The structured result nonetheless reported
+`branchDeleted: true` because the remote delete succeeded. Two changes:
+
+- `cleanupBranches` moved out of `finalizeMerge` and is now called
+  after `reapStoryWorktree` in `runStoryClose`. Local delete races with
+  worktree registration no longer fire.
+- `cleanupBranches` returns `{ localDeleted, remoteDeleted }` and logs
+  a non-fatal error with the git stderr when the local delete fails.
+  The structured result now reports
+  `branchDeleted: localDeleted && remoteDeleted` plus the two
+  component fields (`branchLocalDeleted`, `branchRemoteDeleted`) so
+  operators can tell which half went through.
+
 ## [5.10.7] - 2026-04-17
 
 Bundled robustness pass across the sprint-plan / sprint-execute /

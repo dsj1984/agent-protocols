@@ -218,7 +218,7 @@ export class WorktreeManager {
     // hooks (Prisma, etc.) and dev-tool configs see them.
     this._copyBootstrapFiles(wtPath);
     const installOk = this._installDependencies(wtPath);
-    this._linkAgentsToRoot(wtPath);
+    this._copyAgentsFromRoot(wtPath);
 
     this.logger.info(`worktree.created storyId=${id} path=${wtPath}`);
     return {
@@ -584,12 +584,13 @@ export class WorktreeManager {
       return { removed: false, reason: safety.reason, path: wtPath };
     }
 
-    // Drop the `.agents` symlink (if any) before `git worktree remove`.
-    // git refuses to remove a worktree that contains a submodule/nested repo,
-    // which is exactly what the tracked `.agents` gitlink looks like in
-    // consumer projects. Removing the symlink first sidesteps the check and
-    // leaves the root `.agents` untouched.
-    this._unlinkAgentsFromRoot(wtPath);
+    // Drop the copied `.agents/` directory and its gitlink (if any) before
+    // `git worktree remove`. git refuses to remove a worktree whose index
+    // carries a submodule gitlink, and leaving the copied directory on disk
+    // would also register as untracked content. Removing both leaves the
+    // worktree in a clean, removable state. The root `.agents` is never
+    // touched — the copy is a plain directory, not a symlink.
+    this._removeCopiedAgents(wtPath);
 
     const res = this.git.gitSpawn(this.repoRoot, 'worktree', 'remove', wtPath);
     if (res.status !== 0) {
@@ -768,23 +769,27 @@ export class WorktreeManager {
   }
 
   /**
-   * Replace the worktree's `.agents/` (tracked as a submodule gitlink) with a
-   * symlink to the root repo's `.agents/`. Worktrees must never carry their
-   * own copy of `.agents`: scripts invoked from any worktree run identical
-   * code, and `git worktree remove` no longer refuses on the grounds that
-   * there is a submodule inside.
+   * Copy the root repo's `.agents/` into the worktree as a plain directory.
+   * Worktrees are self-contained — `git worktree remove` works without any
+   * submodule-teardown dance, and there is no symlink for git to follow back
+   * into the root (which previously risked wiping `<repoRoot>/.agents` on
+   * Windows when junction targets mismatched).
+   *
+   * Drift: the copy is a point-in-time snapshot. Any `.agents/` update in
+   * root after worktree creation does not propagate — acceptable for sprint-
+   * length worktrees. If that changes, add a refresh step to sprint-execute.
    *
    * Only runs in repos that declare `.agents` as a submodule. The framework
    * repo itself (where `.agents` is tracked directly) skips this.
    *
    * @param {string} wtPath Absolute worktree path.
    */
-  _linkAgentsToRoot(wtPath) {
+  _copyAgentsFromRoot(wtPath) {
     if (!this._isAgentsSubmodule()) return;
     const rootAgents = path.resolve(this.repoRoot, '.agents');
     if (!fs.existsSync(rootAgents)) {
       this.logger.warn(
-        `agents-symlink skipped: root ${rootAgents} does not exist`,
+        `agents-copy skipped: root ${rootAgents} does not exist`,
       );
       return;
     }
@@ -803,85 +808,66 @@ export class WorktreeManager {
         `WorktreeManager: wtAgents ${wtAgents} escapes wtPath ${wtPath}`,
       );
     }
+    // Remove the empty gitlink placeholder dir that `git worktree add` leaves
+    // for the .agents submodule. fs.rmSync on a plain dir never traverses a
+    // symlink, and we just asserted wtAgents is inside wtPath.
     try {
       fs.rmSync(wtAgents, { recursive: true, force: true });
     } catch {
-      // Nothing to remove, or permission — symlink attempt will surface it.
+      // Nothing to remove, or permission — copy attempt will surface it.
     }
-    const linkType = this.platform === 'win32' ? 'junction' : 'dir';
     try {
-      fs.symlinkSync(rootAgents, wtAgents, linkType);
+      fs.cpSync(rootAgents, wtAgents, {
+        recursive: true,
+        dereference: true,
+        errorOnExist: false,
+        force: true,
+      });
     } catch (err) {
-      this.logger.warn(
-        `agents-symlink failed path=${wtAgents}: ${err.message}`,
-      );
+      this.logger.warn(`agents-copy failed path=${wtAgents}: ${err.message}`);
       return;
     }
-    // Mark the gitlink path as skip-worktree so the per-worktree index
-    // stops reporting the submodule as modified/deleted.
-    this.git.gitSpawn(
-      wtPath,
-      'update-index',
-      '--skip-worktree',
-      '--',
-      '.agents',
-    );
+    // Drop the `.agents` gitlink from the worktree's index so the copied
+    // directory isn't seen as a modified submodule. Worktree-local — never
+    // touches the root repo's index.
+    this._dropAgentsGitlinkFromIndex(wtPath);
     this.logger.info(
-      `worktree.agents.symlinked target=${wtAgents} source=${rootAgents}`,
+      `worktree.agents.copied target=${wtAgents} source=${rootAgents}`,
     );
   }
 
   /**
-   * Remove the `.agents` symlink before `git worktree remove`. The real
-   * `<repoRoot>/.agents` directory is never touched — this only unlinks the
-   * worktree's pointer to it.
-   *
-   * Also drops `.agents` from the worktree's index. `skip-worktree` keeps
-   * the gitlink out of the working tree but leaves the 160000 entry in the
-   * index; `git worktree remove` refuses any worktree whose index carries
-   * a submodule entry ("working trees containing submodules cannot be moved
-   * or removed") regardless of on-disk state. `git rm --cached` is
-   * worktree-local — it only touches this worktree's index, never the root
-   * repo's index or the remote.
+   * Remove the copied `.agents/` directory and scrub the gitlink from the
+   * worktree's index before `git worktree remove`. The real
+   * `<repoRoot>/.agents` directory is never touched — the worktree copy is a
+   * plain directory, not a symlink, so rmSync has no way to traverse out.
    *
    * @param {string} wtPath Absolute worktree path.
    */
-  _unlinkAgentsFromRoot(wtPath) {
+  _removeCopiedAgents(wtPath) {
     const wtAgents = path.resolve(wtPath, '.agents');
-    let target;
-    try {
-      target = fs.readlinkSync(wtAgents);
-    } catch {
-      // Not a symlink/junction. Fall through to the index-scrub — the
-      // gitlink may still be in the index even when no link was created
-      // (e.g. `_linkAgentsToRoot` failed mid-way, or the repo never had
-      // the symlink applied).
-      this._dropAgentsGitlinkFromIndex(wtPath);
-      return;
-    }
-    // At this point wtAgents IS a symlink/junction. Unlinking a symlink never
-    // traverses into its target, so it's always safe to unlink. The target
-    // check is a sanity check — mismatches are logged but do not block the
-    // unlink. Previously a strict string comparison could fail on Windows
-    // (case or separator differences) and leave the junction in place for
-    // `git worktree remove` to follow, which wipes the root `.agents`.
-    const resolvedTarget = path.resolve(path.dirname(wtAgents), target);
     const rootAgents = path.resolve(this.repoRoot, '.agents');
-    if (!this._samePath(resolvedTarget, rootAgents)) {
-      this.logger.warn(
-        `agents-symlink unexpected target=${resolvedTarget} expected=${rootAgents} — unlinking anyway`,
+    // Defense-in-depth: never delete something that resolves to repoRoot's
+    // `.agents`. Can only happen if wtPath equals repoRoot, which earlier
+    // validation rejects — but keep the guard in case of future refactors.
+    if (this._samePath(wtAgents, rootAgents)) {
+      throw new Error(
+        `WorktreeManager: refusing to remove root .agents (wtPath=${wtPath} resolves to repoRoot)`,
       );
     }
+    // If the path is a symlink (legacy worktree created before the copy
+    // switch), unlink it rather than rmSync-ing — rmSync with recursive:true
+    // on a symlink-to-directory can traverse into the target on some
+    // platforms.
     try {
-      fs.unlinkSync(wtAgents);
-    } catch (err) {
-      // unlinkSync on a symlink/junction should always succeed. If it does
-      // not, do NOT fall back to rmdirSync — some Windows edge cases could
-      // cause rmdirSync to traverse the junction. Surface the error so git
-      // worktree remove sees a predictable state.
-      this.logger.warn(
-        `agents-symlink unlink failed path=${wtAgents}: ${err.message}`,
-      );
+      const st = fs.lstatSync(wtAgents);
+      if (st.isSymbolicLink()) {
+        fs.unlinkSync(wtAgents);
+      } else {
+        fs.rmSync(wtAgents, { recursive: true, force: true });
+      }
+    } catch {
+      // Nothing to remove — fall through to index scrub.
     }
     this._dropAgentsGitlinkFromIndex(wtPath);
   }

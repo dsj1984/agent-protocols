@@ -71,30 +71,33 @@ mtime exceeds the age threshold. Fresh locks (belonging to a legitimate
 in-flight op) are skipped. It runs automatically at the start of
 `/sprint-execute`, immediately before `gc`.
 
-## `.agents` symlink (consumer projects)
+## `.agents` copy (consumer projects)
 
 In consumer projects `.agents/` is declared as a git submodule in `.gitmodules`.
 When `git worktree add` creates `.worktrees/story-<id>/`, the worktree carries
 its own gitlink entry for `.agents`, and `git worktree remove` then refuses to
 reap it on the grounds that "there is a submodule inside the worktree."
 
-`WorktreeManager.ensure()` resolves this at worktree creation by replacing the
-worktree's `.agents` with a symlink (junction on Windows) that points at
-`<repoRoot>/.agents`. Two invariants follow:
+`WorktreeManager.ensure()` resolves this at worktree creation by removing the
+empty gitlink placeholder, recursively copying `<repoRoot>/.agents/` into the
+worktree, and dropping the gitlink from the per-worktree index so git no longer
+sees `.agents/` as a submodule. `reap()` mirrors the teardown: delete the copied
+directory, scrub the gitlink, then `git worktree remove`.
 
-- Worktrees never carry their own copy of `.agents`. Scripts invoked from any
-  worktree execute the same code as the root checkout.
-- `git worktree remove` no longer trips the submodule guard, because the
-  per-worktree index has `.agents` marked `skip-worktree` and the symlink is
-  removed by `reap` before `git worktree remove` runs.
+The copy is a point-in-time snapshot taken at worktree creation. For sprint-
+length worktrees this is acceptable; if the root `.agents/` changes during a
+sprint, those updates do not propagate into existing worktrees. Recreate the
+worktree (or add an explicit refresh step) if you need the update mid-sprint.
 
 The framework repo itself (where `.agents` is a regular tracked directory, not a
 submodule) skips this behavior. Detection is automatic — keyed off whether
 `.gitmodules` at repo root declares `.agents` as a submodule path.
 
-> **Invariant:** `.agents` must never diverge across worktrees. The symlink
-> enforces that structurally; do not work around it by copying files into a
-> worktree's `.agents/`.
+> **Why copy instead of symlink:** the previous symlink/junction approach caused
+> `git worktree remove` failures on Windows when junction targets didn't match
+> exactly, and a mismatched junction risked the remove following it and wiping
+> `<repoRoot>/.agents`. Plain directory copies have no such traversal risk and
+> `git worktree remove` works without special cases.
 
 ## node_modules strategies
 

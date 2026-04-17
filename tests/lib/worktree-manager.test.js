@@ -791,7 +791,7 @@ test('_copyBootstrapFiles: honors configured bootstrapFiles list', () => {
   }
 });
 
-test('_linkAgentsToRoot: refuses to wipe root .agents when wtPath equals repoRoot', () => {
+test('_copyAgentsFromRoot: refuses to wipe root .agents when wtPath equals repoRoot', () => {
   const tmp = fs.mkdtempSync(path.join(os.tmpdir(), 'wt-safety-'));
   try {
     const rootAgents = path.join(tmp, '.agents');
@@ -804,11 +804,11 @@ test('_linkAgentsToRoot: refuses to wipe root .agents when wtPath equals repoRoo
       git: mockGit({}),
       platform: 'linux',
     });
-    // Force submodule-mode so `_linkAgentsToRoot` actually runs its body.
+    // Force submodule-mode so `_copyAgentsFromRoot` actually runs its body.
     wm._isAgentsSubmodule = () => true;
 
     assert.throws(
-      () => wm._linkAgentsToRoot(tmp),
+      () => wm._copyAgentsFromRoot(tmp),
       /refusing to clear root \.agents/,
     );
     assert.equal(
@@ -821,62 +821,73 @@ test('_linkAgentsToRoot: refuses to wipe root .agents when wtPath equals repoRoo
   }
 });
 
-test('_unlinkAgentsFromRoot: unlinks symlink even when target case differs (win32)', () => {
-  // Simulate the Windows case where readlinkSync returns a path that differs
-  // from the constructor-resolved repoRoot only by drive-letter case. On
-  // strict-equality comparison this was silently skipped, leaving the
-  // junction for `git worktree remove` to traverse. With case-insensitive
-  // compare the symlink is unlinked cleanly.
-  const tmp = fs.mkdtempSync(path.join(os.tmpdir(), 'wt-unlink-'));
-  try {
-    const rootAgents = path.join(tmp, '.agents');
-    fs.mkdirSync(rootAgents);
-    fs.writeFileSync(path.join(rootAgents, 'sentinel.txt'), 'precious');
-
-    const wtPath = path.join(tmp, '.worktrees', 'story-1');
-    fs.mkdirSync(wtPath, { recursive: true });
-    const wtAgents = path.join(wtPath, '.agents');
-    // Use junction on Windows (doesn't require admin/dev-mode); dir
-    // elsewhere. Matches what production does in `_linkAgentsToRoot`.
-    const linkType = process.platform === 'win32' ? 'junction' : 'dir';
-    fs.symlinkSync(rootAgents, wtAgents, linkType);
-
-    const warns = [];
-    const wm = new WorktreeManager({
-      repoRoot: tmp,
-      logger: { info() {}, warn: (m) => warns.push(m), error() {} },
-      git: mockGit({}),
-      // Pretend we're on Windows to exercise case-insensitive path compare.
-      platform: 'win32',
-    });
-
-    wm._unlinkAgentsFromRoot(wtPath);
-    assert.equal(fs.existsSync(wtAgents), false, 'symlink should be unlinked');
-    assert.equal(
-      fs.existsSync(path.join(rootAgents, 'sentinel.txt')),
-      true,
-      'root target must survive symlink removal',
-    );
-    assert.equal(warns.length, 0, 'same canonical target should not warn');
-  } finally {
-    fs.rmSync(tmp, { recursive: true, force: true });
-  }
-});
-
-test('_unlinkAgentsFromRoot: drops .agents gitlink from index in submodule repos', () => {
-  const tmp = fs.mkdtempSync(path.join(os.tmpdir(), 'wt-gitlink-'));
+test('_copyAgentsFromRoot: recursively copies root .agents into the worktree', () => {
+  const tmp = fs.mkdtempSync(path.join(os.tmpdir(), 'wt-copy-'));
   try {
     fs.writeFileSync(
       path.join(tmp, '.gitmodules'),
       '[submodule ".agents"]\n\tpath = .agents\n\turl = ../agents\n',
     );
-    fs.mkdirSync(path.join(tmp, '.agents'));
+    const rootAgents = path.join(tmp, '.agents');
+    fs.mkdirSync(path.join(rootAgents, 'workflows'), { recursive: true });
+    fs.writeFileSync(path.join(rootAgents, 'VERSION'), 'v1\n');
+    fs.writeFileSync(
+      path.join(rootAgents, 'workflows', 'sprint-execute.md'),
+      '# run\n',
+    );
+
     const wtPath = path.join(tmp, '.worktrees', 'story-1');
-    fs.mkdirSync(wtPath, { recursive: true });
+    const wtAgents = path.join(wtPath, '.agents');
+    // Simulate the empty gitlink placeholder `git worktree add` leaves.
+    fs.mkdirSync(wtAgents, { recursive: true });
+
+    const wm = new WorktreeManager({
+      repoRoot: tmp,
+      logger: SILENT_LOGGER,
+      git: mockGit({}),
+      platform: 'linux',
+    });
+    wm._copyAgentsFromRoot(wtPath);
+
+    assert.equal(
+      fs.readFileSync(path.join(wtAgents, 'VERSION'), 'utf8'),
+      'v1\n',
+    );
+    assert.equal(
+      fs.readFileSync(
+        path.join(wtAgents, 'workflows', 'sprint-execute.md'),
+        'utf8',
+      ),
+      '# run\n',
+    );
+    assert.equal(
+      fs.lstatSync(wtAgents).isSymbolicLink(),
+      false,
+      'copied .agents must be a real directory, not a symlink',
+    );
+  } finally {
+    fs.rmSync(tmp, { recursive: true, force: true });
+  }
+});
+
+test('_removeCopiedAgents: removes the copied directory and scrubs the index gitlink', () => {
+  const tmp = fs.mkdtempSync(path.join(os.tmpdir(), 'wt-remove-copy-'));
+  try {
+    fs.writeFileSync(
+      path.join(tmp, '.gitmodules'),
+      '[submodule ".agents"]\n\tpath = .agents\n\turl = ../agents\n',
+    );
+    const rootAgents = path.join(tmp, '.agents');
+    fs.mkdirSync(rootAgents);
+    fs.writeFileSync(path.join(rootAgents, 'sentinel.txt'), 'precious');
+
+    const wtPath = path.join(tmp, '.worktrees', 'story-1');
+    const wtAgents = path.join(wtPath, '.agents');
+    fs.mkdirSync(wtAgents, { recursive: true });
+    fs.writeFileSync(path.join(wtAgents, 'copied.txt'), 'copy');
 
     const calls = [];
     const git = {
-      calls,
       gitSync: () => '',
       gitSpawn: (cwd, ...args) => {
         calls.push({ cwd, args });
@@ -897,25 +908,64 @@ test('_unlinkAgentsFromRoot: drops .agents gitlink from index in submodule repos
       git,
       platform: 'linux',
     });
+    wm._removeCopiedAgents(wtPath);
 
-    wm._unlinkAgentsFromRoot(wtPath);
-
+    assert.equal(
+      fs.existsSync(wtAgents),
+      false,
+      'copied .agents directory must be removed',
+    );
+    assert.equal(
+      fs.existsSync(path.join(rootAgents, 'sentinel.txt')),
+      true,
+      'root .agents must be untouched',
+    );
     const rmCall = calls.find(
       (c) => c.args[0] === 'rm' && c.args.includes('.agents'),
     );
-    assert.ok(rmCall, 'git rm --cached must be called on the gitlink');
-    assert.deepEqual(rmCall.args, ['rm', '--cached', '-f', '--', '.agents']);
+    assert.ok(rmCall, 'git rm --cached must scrub the gitlink');
+    assert.equal(rmCall.cwd, wtPath);
+  } finally {
+    fs.rmSync(tmp, { recursive: true, force: true });
+  }
+});
+
+test('_removeCopiedAgents: unlinks legacy symlinks without traversing into the target', () => {
+  // Worktrees created under the old symlink scheme may still be live when
+  // the copy-based code ships. `_removeCopiedAgents` must detect the symlink
+  // and unlink it rather than rmSync-ing through it.
+  const tmp = fs.mkdtempSync(path.join(os.tmpdir(), 'wt-legacy-symlink-'));
+  try {
+    const rootAgents = path.join(tmp, '.agents');
+    fs.mkdirSync(rootAgents);
+    fs.writeFileSync(path.join(rootAgents, 'sentinel.txt'), 'precious');
+
+    const wtPath = path.join(tmp, '.worktrees', 'story-1');
+    fs.mkdirSync(wtPath, { recursive: true });
+    const wtAgents = path.join(wtPath, '.agents');
+    const linkType = process.platform === 'win32' ? 'junction' : 'dir';
+    fs.symlinkSync(rootAgents, wtAgents, linkType);
+
+    const wm = new WorktreeManager({
+      repoRoot: tmp,
+      logger: SILENT_LOGGER,
+      git: mockGit({}),
+      platform: process.platform === 'win32' ? 'win32' : 'linux',
+    });
+    wm._removeCopiedAgents(wtPath);
+
+    assert.equal(fs.existsSync(wtAgents), false, 'symlink should be removed');
     assert.equal(
-      rmCall.cwd,
-      wtPath,
-      'rm must target the worktree, not the root',
+      fs.existsSync(path.join(rootAgents, 'sentinel.txt')),
+      true,
+      'symlink target must not be traversed during removal',
     );
   } finally {
     fs.rmSync(tmp, { recursive: true, force: true });
   }
 });
 
-test('_unlinkAgentsFromRoot: skips index scrub in non-submodule (framework) repos', () => {
+test('_removeCopiedAgents: skips index scrub in non-submodule (framework) repos', () => {
   const tmp = fs.mkdtempSync(path.join(os.tmpdir(), 'wt-framework-'));
   try {
     // No .gitmodules → _isAgentsSubmodule() returns false.
@@ -936,38 +986,13 @@ test('_unlinkAgentsFromRoot: skips index scrub in non-submodule (framework) repo
       git,
       platform: 'linux',
     });
-    wm._unlinkAgentsFromRoot(wtPath);
+    wm._removeCopiedAgents(wtPath);
     assert.equal(
       calls.includes('ls-files'),
       false,
       'framework repos must not probe the index',
     );
     assert.equal(calls.includes('rm'), false);
-  } finally {
-    fs.rmSync(tmp, { recursive: true, force: true });
-  }
-});
-
-test('_unlinkAgentsFromRoot: no-op when .agents is a real directory (not a symlink)', () => {
-  const tmp = fs.mkdtempSync(path.join(os.tmpdir(), 'wt-unlink-real-'));
-  try {
-    const wtPath = path.join(tmp, '.worktrees', 'story-1');
-    const wtAgents = path.join(wtPath, '.agents');
-    fs.mkdirSync(wtAgents, { recursive: true });
-    fs.writeFileSync(path.join(wtAgents, 'keep.txt'), 'keep');
-
-    const wm = new WorktreeManager({
-      repoRoot: tmp,
-      logger: SILENT_LOGGER,
-      git: mockGit({}),
-      platform: 'linux',
-    });
-    wm._unlinkAgentsFromRoot(wtPath);
-    assert.equal(
-      fs.existsSync(path.join(wtAgents, 'keep.txt')),
-      true,
-      'real directories must not be disturbed',
-    );
   } finally {
     fs.rmSync(tmp, { recursive: true, force: true });
   }
