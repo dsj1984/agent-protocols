@@ -181,15 +181,21 @@ export async function upsertStructuredComment(provider, ticketId, type, body) {
  * Then checks if parent's sub-tickets are ALL DONE.
  * If yes, transitions parent to DONE and cascades up.
  *
+ * Per-parent errors are isolated: a failure updating one parent (network,
+ * permission, stale ticket) never discards progress on sibling parents.
+ * Failures are collected and returned so callers can log them with full
+ * ticket context instead of seeing a single Promise.all rejection.
+ *
  * @param {import('../ITicketingProvider.js').ITicketingProvider} provider
  * @param {number} ticketId
+ * @returns {Promise<{ cascadedTo: number[], failed: Array<{ parentId: number, error: string }> }>}
  */
 export async function cascadeCompletion(provider, ticketId) {
   const ticket = await provider.getTicket(ticketId);
 
   // Determine if this ticket is agent::done
   if (!ticket.labels.includes(STATE_LABELS.DONE)) {
-    return;
+    return { cascadedTo: [], failed: [] };
   }
 
   const { blocks: parentIds } = await provider.getTicketDependencies(ticketId);
@@ -203,21 +209,21 @@ export async function cascadeCompletion(provider, ticketId) {
     parsedParents = parentMatch.map((m) => parseInt(m[1], 10));
   }
 
+  const cascadedTo = [];
+  const failed = [];
+
   await Promise.all(
     parsedParents.map(async (parentId) => {
-      // Mark checked in parent body
-      await toggleTasklistCheckbox(provider, parentId, ticketId, true);
+      try {
+        await toggleTasklistCheckbox(provider, parentId, ticketId, true);
 
-      const subTickets = await provider.getSubTickets(parentId);
+        const subTickets = await provider.getSubTickets(parentId);
+        const allDone = subTickets.every(
+          (st) =>
+            st.labels.includes(STATE_LABELS.DONE) || st.state === 'closed',
+        );
+        if (!allDone) return;
 
-      // Check if ALL are done.
-      // If a ticket reached this point, it means it's one of the sub-tickets
-      // that just finished, so subTickets.length will be at least 1.
-      const allDone = subTickets.every(
-        (st) => st.labels.includes(STATE_LABELS.DONE) || st.state === 'closed',
-      );
-
-      if (allDone) {
         // EXCLUSION: Do not auto-close Epics, PRDs, or Tech Specs via cascade.
         // These must be closed via formal sprint-close.
         const parent = await provider.getTicket(parentId);
@@ -225,7 +231,6 @@ export async function cascadeCompletion(provider, ticketId) {
         const isPlanning =
           parent.labels.includes('context::prd') ||
           parent.labels.includes('context::tech-spec');
-
         if (isEpic || isPlanning) {
           console.warn(
             `[Ticketing] Cascade reached ${isEpic ? 'Epic' : 'Planning'} #${parentId}. Skipping auto-close (reserved for sprint-close).`,
@@ -240,10 +245,19 @@ export async function cascadeCompletion(provider, ticketId) {
           'progress',
           'All child tickets completed via recursive cascade.',
         );
+        cascadedTo.push(parentId);
 
-        // recursive cascade
-        await cascadeCompletion(provider, parentId);
+        const nested = await cascadeCompletion(provider, parentId);
+        cascadedTo.push(...nested.cascadedTo);
+        failed.push(...nested.failed);
+      } catch (err) {
+        failed.push({ parentId, error: err.message ?? String(err) });
+        console.warn(
+          `[Ticketing] Cascade to parent #${parentId} failed: ${err.message ?? err}`,
+        );
       }
     }),
   );
+
+  return { cascadedTo, failed };
 }

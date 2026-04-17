@@ -863,6 +863,91 @@ test('_unlinkAgentsFromRoot: unlinks symlink even when target case differs (win3
   }
 });
 
+test('_unlinkAgentsFromRoot: drops .agents gitlink from index in submodule repos', () => {
+  const tmp = fs.mkdtempSync(path.join(os.tmpdir(), 'wt-gitlink-'));
+  try {
+    fs.writeFileSync(
+      path.join(tmp, '.gitmodules'),
+      '[submodule ".agents"]\n\tpath = .agents\n\turl = ../agents\n',
+    );
+    fs.mkdirSync(path.join(tmp, '.agents'));
+    const wtPath = path.join(tmp, '.worktrees', 'story-1');
+    fs.mkdirSync(wtPath, { recursive: true });
+
+    const calls = [];
+    const git = {
+      calls,
+      gitSync: () => '',
+      gitSpawn: (cwd, ...args) => {
+        calls.push({ cwd, args });
+        const key2 = args.slice(0, 2).join(' ');
+        if (key2 === 'ls-files --stage') {
+          return {
+            status: 0,
+            stdout: '160000 abc123 0\t.agents\n',
+            stderr: '',
+          };
+        }
+        return { status: 0, stdout: '', stderr: '' };
+      },
+    };
+    const wm = new WorktreeManager({
+      repoRoot: tmp,
+      logger: SILENT_LOGGER,
+      git,
+      platform: 'linux',
+    });
+
+    wm._unlinkAgentsFromRoot(wtPath);
+
+    const rmCall = calls.find(
+      (c) => c.args[0] === 'rm' && c.args.includes('.agents'),
+    );
+    assert.ok(rmCall, 'git rm --cached must be called on the gitlink');
+    assert.deepEqual(rmCall.args, ['rm', '--cached', '-f', '--', '.agents']);
+    assert.equal(
+      rmCall.cwd,
+      wtPath,
+      'rm must target the worktree, not the root',
+    );
+  } finally {
+    fs.rmSync(tmp, { recursive: true, force: true });
+  }
+});
+
+test('_unlinkAgentsFromRoot: skips index scrub in non-submodule (framework) repos', () => {
+  const tmp = fs.mkdtempSync(path.join(os.tmpdir(), 'wt-framework-'));
+  try {
+    // No .gitmodules → _isAgentsSubmodule() returns false.
+    const wtPath = path.join(tmp, '.worktrees', 'story-1');
+    fs.mkdirSync(wtPath, { recursive: true });
+
+    const calls = [];
+    const git = {
+      gitSync: () => '',
+      gitSpawn: (_cwd, ...args) => {
+        calls.push(args[0]);
+        return { status: 0, stdout: '', stderr: '' };
+      },
+    };
+    const wm = new WorktreeManager({
+      repoRoot: tmp,
+      logger: SILENT_LOGGER,
+      git,
+      platform: 'linux',
+    });
+    wm._unlinkAgentsFromRoot(wtPath);
+    assert.equal(
+      calls.includes('ls-files'),
+      false,
+      'framework repos must not probe the index',
+    );
+    assert.equal(calls.includes('rm'), false);
+  } finally {
+    fs.rmSync(tmp, { recursive: true, force: true });
+  }
+});
+
 test('_unlinkAgentsFromRoot: no-op when .agents is a real directory (not a symlink)', () => {
   const tmp = fs.mkdtempSync(path.join(os.tmpdir(), 'wt-unlink-real-'));
   try {

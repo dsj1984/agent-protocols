@@ -260,19 +260,25 @@ test('ticket-validator: fails if task parent is not a story', () => {
   );
 });
 
-test('ticket-validator: keeps unknown dependency slugs for downstream handling', () => {
+test('ticket-validator: fails fast on unknown depends_on slug (previously deferred to decomposer)', () => {
   const tickets = [
-    { slug: 'F1', type: 'feature' },
+    { slug: 'F1', type: 'feature', title: 'Feature 1' },
     {
       slug: 'S1',
       type: 'story',
+      title: 'Story 1',
       parent_slug: 'F1',
       labels: ['complexity::fast'],
     },
-    { slug: 'T1', type: 'task', parent_slug: 'S1', depends_on: ['MISSING'] },
+    {
+      slug: 'T1',
+      type: 'task',
+      title: 'Task 1',
+      parent_slug: 'S1',
+      depends_on: ['MISSING'],
+    },
   ];
-  const result = validateAndNormalizeTickets(tickets);
-  assert.ok(result.find((t) => t.slug === 'T1').depends_on.includes('MISSING'));
+  assert.throws(() => validateAndNormalizeTickets(tickets), /unknown slugs/);
 });
 
 test('ticket-validator: keeps cross-story deps on non-task tickets', () => {

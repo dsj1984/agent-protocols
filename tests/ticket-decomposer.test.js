@@ -123,6 +123,24 @@ describe('ticket-decomposer orchestration (v5.6+)', () => {
     assert.equal(t1.ticketData.title, 'Task One');
   });
 
+  it('throws when a depends_on references an unknown slug', async () => {
+    const tickets = baseTickets();
+    tickets.push({
+      slug: 't2',
+      type: 'task',
+      title: 'Task Two',
+      body: 'Depends on typo',
+      labels: ['type::task', 'persona::engineer'],
+      parent_slug: 's1',
+      depends_on: ['t-typo'],
+    });
+
+    await assert.rejects(
+      () => decomposeEpic(1, mockProvider, { tickets }),
+      /unknown slugs/,
+    );
+  });
+
   it('maps depends_on slugs to created issue IDs', async () => {
     const tickets = baseTickets();
     tickets.push({

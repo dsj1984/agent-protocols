@@ -131,6 +131,44 @@ test('ticketing.js', async (t) => {
   });
 
   await t.test(
+    'cascadeCompletion isolates per-parent failures and returns them',
+    async () => {
+      // Child 3 is done; feature 2 has two parents where one fails.
+      mock.tickets[3].labels = ['agent::done'];
+      // `blocks` in this mock = upward parent list (ticket 3's parents).
+      mock.deps[3] = { blocks: [2, 99], blockedBy: [] };
+      mock.tickets[99] = {
+        id: 99,
+        labels: ['agent::executing'],
+        body: '',
+        state: 'open',
+      };
+      mock.subTickets[99] = [mock.tickets[3]];
+      mock.deps[99] = { blocks: [], blockedBy: [] };
+
+      const origGetSub = mock.getSubTickets.bind(mock);
+      mock.getSubTickets = async (id) => {
+        if (id === 99) throw new Error('boom');
+        return origGetSub(id);
+      };
+
+      const result = await cascadeCompletion(mock, 3);
+
+      assert.ok(
+        result.cascadedTo.length > 0,
+        'successful parents should still cascade',
+      );
+      assert.equal(
+        result.failed.length,
+        1,
+        'failing parent must be captured, not swallowed',
+      );
+      assert.equal(result.failed[0].parentId, 99);
+      assert.match(result.failed[0].error, /boom/);
+    },
+  );
+
+  await t.test(
     'cascadeCompletion recursively transitions parents up the tree',
     async () => {
       // Manually ensure child 3 is done

@@ -117,19 +117,30 @@ async function ticketClosureCascade(provider, tasks, storyId) {
 
   progress('TICKETS', 'Running cascade completion...');
   let cascadedTo = [];
+  let cascadeFailed = [];
   try {
-    cascadedTo = (await cascadeCompletion(provider, storyId)) || [];
+    const cascade = (await cascadeCompletion(provider, storyId)) ?? {
+      cascadedTo: [],
+      failed: [],
+    };
+    cascadedTo = cascade.cascadedTo ?? [];
+    cascadeFailed = cascade.failed ?? [];
     if (cascadedTo.length > 0) {
       progress(
         'TICKETS',
         `  Cascaded to: ${cascadedTo.map((id) => `#${id}`).join(', ')}`,
       );
     }
+    for (const { parentId, error } of cascadeFailed) {
+      Logger.error(
+        `  Cascade partial-failure on parent #${parentId}: ${error}`,
+      );
+    }
   } catch (err) {
-    console.error(`  Cascade failed (non-fatal): ${err.message}`);
+    Logger.error(`  Cascade fully failed (non-fatal): ${err.message}`);
   }
 
-  return { closedTickets, cascadedTo };
+  return { closedTickets, cascadedTo, cascadeFailed };
 }
 
 // ---------------------------------------------------------------------------
@@ -441,6 +452,12 @@ async function finalizeMerge(
         `✅ Merge completed with auto-resolved minor conflicts ` +
           `(${result.conflicts.files} file(s) resolved to theirs)`,
       );
+      for (const f of result.autoResolvedFiles ?? []) {
+        progress(
+          'GIT',
+          `  ↳ auto-resolved ${f.file} (${f.discardedLines} base line(s) discarded; trailer in merge commit)`,
+        );
+      }
     } else {
       progress('GIT', '✅ Merge successful');
     }
@@ -573,11 +590,8 @@ export async function runStoryClose({
   }
 
   // Cascade Completion (Ticket Closure)
-  const { closedTickets, cascadedTo } = await ticketClosureCascade(
-    provider,
-    tasks,
-    storyId,
-  );
+  const { closedTickets, cascadedTo, cascadeFailed } =
+    await ticketClosureCascade(provider, tasks, storyId);
 
   // Notification, health, and dashboard are each best-effort; failures log
   // but do not abort the close-out. See each helper for the specific
@@ -609,6 +623,7 @@ export async function runStoryClose({
     branchDeleted: true,
     ticketsClosed: closedTickets,
     cascadedTo: cascadedTo ?? [],
+    cascadeFailed: cascadeFailed ?? [],
     healthUpdated,
     manifestUpdated,
   };

@@ -60,6 +60,10 @@ async function main() {
   // Like PRD/Tech-Spec tickets it holds no planned work, so it is closed
   // alongside them here — otherwise it lingers as an orphan child of a
   // closed Epic and pollutes future project views.
+  // Track warnings so the final status line can reflect partial success
+  // instead of printing 🎉 when cleanup silently failed.
+  const warnings = [];
+
   try {
     progress(
       'CONTEXT',
@@ -89,6 +93,10 @@ async function main() {
         'No open PRD / Tech Spec / Sprint Health tickets found.',
       );
     } else {
+      // Isolate per-ticket failures so one misbehaving auxiliary ticket
+      // does not discard progress on its siblings. Previously the whole
+      // Promise.all rejected and the outer catch reported a single
+      // generic warning without identifying which ticket failed.
       await Promise.all(
         auxiliaryTickets.map(async (ticket) => {
           if (ticket.state === 'closed') return;
@@ -102,14 +110,24 @@ async function main() {
               : 'auxiliary');
 
           progress('CONTEXT', `Closing ${kind} #${ticket.id}...`);
-          await transitionTicketState(provider, ticket.id, STATE_LABELS.DONE);
-          progress('CONTEXT', `✅ #${ticket.id} closed.`);
+          try {
+            await transitionTicketState(provider, ticket.id, STATE_LABELS.DONE);
+            progress('CONTEXT', `✅ #${ticket.id} closed.`);
+          } catch (err) {
+            warnings.push(
+              `auxiliary ticket #${ticket.id} (${kind}): ${err.message}`,
+            );
+            console.warn(
+              `⚠️ Warning: Failed to close ${kind} #${ticket.id}: ${err.message}`,
+            );
+          }
         }),
       );
     }
   } catch (err) {
+    warnings.push(`auxiliary ticket enumeration: ${err.message}`);
     console.warn(
-      `⚠️ Warning: Failed to process auxiliary tickets: ${err.message}`,
+      `⚠️ Warning: Failed to fetch auxiliary tickets: ${err.message}`,
     );
   }
 
@@ -208,9 +226,29 @@ async function main() {
     const storyLegacyPattern = `story/epic-${epicId}/`;
     const taskLegacyPattern = `task/epic-${epicId}/`;
 
-    // Fetch all tickets linked to this epic to safely match v5 short story branches.
-    const epicTickets = await provider.getTickets(epicId).catch(() => []);
-    const validTicketIds = new Set(epicTickets.map((t) => t.id));
+    // Gather the full Epic descendant set (Features → Stories → Tasks) so
+    // `story-<id>` branches are matched regardless of which body-regex
+    // `getTickets` happens to index. Relying on `getTickets(epicId)` alone
+    // missed Stories whose body referenced their Feature parent but not the
+    // Epic directly, leaving branches stranded after a successful close.
+    // Distinguish "fetch failed" from "no tickets" — the former is a real
+    // warning the operator must see; the latter is a no-op.
+    let validTicketIds = new Set();
+    try {
+      const descendantIds = await collectEpicDescendantIds(provider, epicId);
+      validTicketIds = new Set(descendantIds);
+      progress(
+        'CLEANUP',
+        `Resolved ${validTicketIds.size} descendant ticket ID(s) for branch matching.`,
+      );
+    } catch (err) {
+      warnings.push(`descendant enumeration: ${err.message}`);
+      console.warn(
+        `⚠️ Warning: Could not enumerate Epic descendants (${err.message}). ` +
+          `story-<id> branch deletion will be skipped to avoid accidentally keeping live work. ` +
+          `Legacy story/*, task/* patterns will still be matched.`,
+      );
+    }
 
     function matchesEpicBranch(branchName) {
       if (
@@ -266,6 +304,7 @@ async function main() {
         for (const b of remoteToDelete) {
           const r = gitSpawn(PROJECT_ROOT, 'push', 'origin', '--delete', b);
           if (r.status !== 0) {
+            warnings.push(`remote branch ${b}: ${r.stderr}`);
             console.warn(
               `⚠️ Warning: Could not delete remote branch ${b} (may not exist): ${r.stderr}`,
             );
@@ -295,6 +334,7 @@ async function main() {
         for (const b of localToDelete) {
           const r = gitSpawn(PROJECT_ROOT, 'branch', '-D', b);
           if (r.status !== 0) {
+            warnings.push(`local branch ${b}: ${r.stderr}`);
             console.warn(
               `⚠️ Warning: Could not delete local branch ${b}: ${r.stderr}`,
             );
@@ -312,10 +352,49 @@ async function main() {
     progress('CLEANUP', '✅ Branch cleanup complete.');
   }
 
-  progress('DONE', `🎉 Formal closure for Epic #${epicId} finished.`);
+  if (warnings.length === 0) {
+    progress('DONE', `🎉 Formal closure for Epic #${epicId} finished.`);
+  } else {
+    progress(
+      'DONE',
+      `⚠️ Formal closure for Epic #${epicId} finished with ${warnings.length} warning(s):`,
+    );
+    for (const w of warnings) progress('DONE', `   - ${w}`);
+    process.exitCode = 2;
+  }
 }
 
 const progress = Logger.createProgress('sprint-close', { stderr: false });
+
+/**
+ * Recursively collect every descendant ticket ID under an Epic. Walks the
+ * native sub-issue graph via `provider.getSubTickets` so Stories and Tasks
+ * are captured even when their bodies only reference their immediate parent
+ * (Feature or Story), not the Epic directly. Breadth-first with a visited
+ * set so shared-ancestor cycles do not loop forever.
+ *
+ * @param {object} provider
+ * @param {number} epicId
+ * @returns {Promise<number[]>}
+ */
+async function collectEpicDescendantIds(provider, epicId) {
+  const visited = new Set();
+  const queue = [epicId];
+  const out = [];
+  while (queue.length > 0) {
+    const parentId = queue.shift();
+    if (visited.has(parentId)) continue;
+    visited.add(parentId);
+    const children = await provider.getSubTickets(parentId);
+    for (const child of children) {
+      if (!visited.has(child.id)) {
+        out.push(child.id);
+        queue.push(child.id);
+      }
+    }
+  }
+  return out;
+}
 
 main().catch((err) => {
   Logger.fatal(`sprint-close: ${err.message}`);

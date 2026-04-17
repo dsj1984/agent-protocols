@@ -97,6 +97,29 @@ export function validateAndNormalizeTickets(tickets) {
     );
   }
 
+  // ── Unknown-slug dependency check ──────────────────────────────────────
+  // Any `depends_on` that references a slug not present in `ticketBySlug` is
+  // a malformed LLM output — the ticket would be created on GitHub with a
+  // silently-dropped dependency, breaking the DAG. Fail here so the operator
+  // (or the LLM's self-correction loop) sees the typo before anything hits
+  // the provider. Covers all ticket types, not just tasks.
+  const unknownDeps = [];
+  for (const t of tickets) {
+    for (const depSlug of t.depends_on ?? []) {
+      if (!ticketBySlug.has(depSlug)) {
+        unknownDeps.push({ slug: t.slug, title: t.title, dep: depSlug });
+      }
+    }
+  }
+  if (unknownDeps.length > 0) {
+    const list = unknownDeps
+      .map((u) => `"${u.title}" (${u.slug}) → "${u.dep}"`)
+      .join(', ');
+    throw new Error(
+      `Cross-Validation Failed: ${unknownDeps.length} depends_on reference(s) use unknown slugs: ${list}. Every slug in depends_on must match a slug present in the backlog.`,
+    );
+  }
+
   // ── Cross-story task dependency validation ─────────────────────────────
   // Tasks must only depend on other tasks within the same story.
   // If a cross-story task dep is found, auto-lift it to a story-level dep.
@@ -109,7 +132,8 @@ export function validateAndNormalizeTickets(tickets) {
     for (const depSlug of task.depends_on) {
       const depTicket = ticketBySlug.get(depSlug);
       if (!depTicket) {
-        keptDeps.push(depSlug); // unknown slug, keep and let cycle check handle
+        // Unreachable — unknown slugs are filtered out above. Defensive
+        // no-op so cycle detection below sees only known slugs.
         continue;
       }
 

@@ -2,6 +2,125 @@
 
 All notable changes to this project will be documented in this file.
 
+## [5.10.7] - 2026-04-17
+
+Bundled robustness pass across the sprint-plan / sprint-execute /
+sprint-close trio surfaced by the v5.10.7 comprehensive review. All
+changes are backward-compatible unless called out.
+
+### Hardened `cascadeCompletion` error isolation (`lib/orchestration/ticketing.js`)
+
+`Promise.all` over parent IDs used to swallow every rejection except the
+first, so a single flaky parent (network blip, 403, stale ticket) could
+discard progress on its siblings. `cascadeCompletion` now wraps each
+per-parent branch in try/catch, returns
+`{ cascadedTo: number[], failed: { parentId, error }[] }`, and logs each
+failure with its ticket ID. Callers that previously treated the return
+value as an array (`sprint-story-close`) have been updated; the new
+shape flows through to the story-close structured result as
+`cascadeFailed: []`.
+
+### Auto-resolved merge conflicts now record an audit trailer (`lib/git-merge-orchestrator.js`)
+
+When `mergeFeatureBranch` auto-resolves a sub-threshold conflict by
+accepting the feature branch, it now (a) records the discarded base
+line count per file, (b) embeds an `Auto-resolved-conflicts` /
+`Auto-resolved-file: …` trailer in the merge commit message when the
+caller supplied an explicit message, and (c) returns
+`autoResolvedFiles: [{ file, discardedLines }]` in the result so
+callers can surface it. `sprint-story-close` prints a one-line summary
+per resolved file. Default thresholds and fall-through behavior on
+major conflicts are unchanged.
+
+### `sprint-close` enumerates the full Epic descendant set for branch cleanup (`sprint-close.js`)
+
+`getTickets(epicId)` filters by a body regex that matches the Epic only
+when children include an explicit `Epic: #<id>` reference. Stories
+whose bodies only reference their Feature parent were silently excluded
+from `validTicketIds`, so `story-<id>` branches survived the cleanup
+even after a successful close. Added `collectEpicDescendantIds`, a
+breadth-first walker over `provider.getSubTickets`, visited-set guarded
+so shared-ancestor cycles terminate. When enumeration itself fails the
+script now logs the real error, marks a warning, and skips only the
+`story-<id>` matching path — legacy `story/epic-<id>/` and
+`task/epic-<id>/` patterns still delete safely.
+
+### `sprint-close` per-ticket error isolation + truthful final status (`sprint-close.js`)
+
+- Auxiliary ticket closure (PRD / Tech Spec / Sprint Health) now
+  isolates per-ticket failures inside the map, logging the specific
+  ticket ID and kind. One failing ticket no longer rejects the whole
+  `Promise.all` and masks itself under a generic catch.
+- Per-branch remote/local delete fallbacks now append each failure to
+  a `warnings` collector.
+- The final progress line reports `⚠️ finished with N warning(s)` and
+  enumerates each warning when anything failed, and sets
+  `process.exitCode = 2`. `🎉 finished` prints only when cleanup was
+  fully clean. CI pipelines that treat exit code 0 as "clean close"
+  will now see partial failures.
+
+### `batchTransitionTickets` retries transient errors with exponential backoff (`lib/story-lifecycle.js`)
+
+Previously a one-shot `updateTicket` failure surfaced as a permanent
+failure even for transient 429 / 5xx / ECONNRESET / timeout. Each
+ticket now retries up to `opts.retries` times (default 3) with
+exponential backoff (`retryBaseMs * 2^(attempt-1)`, default 500 ms
+base) on retryable errors; 4xx status codes and permanent errors skip
+retry so the batch does not stall. **Result shape change**: `failed`
+is now `{ id, error, attempts }[]` instead of `number[]`. The only
+internal caller (`sprint-story-init`) has been updated; external
+scripts that consumed `result.failed` as a list of IDs will need to
+map over `.id`.
+
+### `sprint-story-init` halts by default on partial task-transition failure (`sprint-story-init.js`)
+
+The old behavior warned and proceeded, which let an agent dispatch
+against tasks stuck in stale state; a later close would then transition
+the stale tasks to done, corrupting sprint history. Default behavior is
+now to return `{ success: false, reason: 'partial-transition-failure',
+failed: [...] }` when any task's retry budget is exhausted. Opt back
+into the old lenient behavior with
+`orchestration.storyInit.continueOnPartialTransition: true` in
+`.agentrc.json`.
+
+### `ticket-validator` fails fast on unknown `depends_on` slugs (`lib/orchestration/ticket-validator.js`)
+
+Unknown slugs (LLM typos, hallucinated references, missing sibling
+tickets) used to survive validation, only to be silently dropped by
+`resolveDependencies` at ticket-creation time, producing a broken DAG
+on GitHub with no actionable log trail. Validation now enumerates every
+unknown `depends_on` reference, lists the offending slug / title pairs,
+and throws before anything reaches the provider — giving the LLM's
+self-correction loop a targeted error.
+
+### Scrub `.agents` gitlink from worktree index before `git worktree remove`
+
+Worktree reap was failing in consumer projects with
+`fatal: working trees containing submodules cannot be moved or removed`,
+even though `_unlinkAgentsFromRoot` deleted the on-disk junction first.
+Root cause: git's worktree-remove guard checks the **index**, not the
+working tree. `skip-worktree` hides the gitlink from the working copy
+but leaves the 160000 submodule entry in the index, so the guard still
+fires. Operators then reached for `git worktree remove --force`, which
+hit the secondary Windows failure `Directory not empty` and left story
+worktrees — and their branches, which `git branch -D` then refused to
+delete — stranded after `/sprint-close`.
+
+- **`WorktreeManager._unlinkAgentsFromRoot`** — after unlinking the
+  junction, runs `git rm --cached -f -- .agents` inside the worktree to
+  drop the 160000 gitlink from the worktree-local index. Runs on the
+  "no symlink found" branch too, because a partial `_linkAgentsToRoot`
+  can leave the gitlink stranded without a corresponding junction. Only
+  active when the root repo declares `.agents` as a submodule in
+  `.gitmodules` — framework-repo behavior is unchanged.
+- **Side effect (intentional)**: worktree reap no longer needs `--force`,
+  which means `git branch -D` for story branches now succeeds during
+  `/sprint-close` — worktrees that held them are gone by the time
+  branch deletion runs.
+- **Doc alignment**: stale-lock sweep threshold in
+  `worktree-lifecycle.md` corrected to 5 min to match the 300_000 ms
+  code default.
+
 ## [5.10.6] - 2026-04-16
 
 ### Copy untracked bootstrap files into new worktrees

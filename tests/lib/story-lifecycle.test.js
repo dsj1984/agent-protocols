@@ -142,14 +142,62 @@ describe('story-lifecycle', () => {
         tickets,
         STATE_LABELS.EXECUTING,
         {
+          retries: 1, // permanent-error path: no retries
           onError: () => {
             /* suppress default stderr */
           },
         },
       );
       assert.deepEqual(result.transitioned.sort(), [1, 3]);
-      assert.deepEqual(result.failed, [2]);
+      assert.deepEqual(result.failed, [
+        { id: 2, error: 'api down', attempts: 1 },
+      ]);
       assert.equal(count, 3);
+    });
+
+    it('retries transient errors with exponential backoff', async () => {
+      const attempts = new Map();
+      const provider = {
+        updateTicket: async (id) => {
+          const n = (attempts.get(id) ?? 0) + 1;
+          attempts.set(id, n);
+          if (id === 5 && n < 3) {
+            const err = new Error('rate limit exceeded');
+            err.status = 429;
+            throw err;
+          }
+        },
+      };
+      const tickets = [{ id: 5, labels: ['type::task'] }];
+      const result = await batchTransitionTickets(
+        provider,
+        tickets,
+        STATE_LABELS.EXECUTING,
+        { retries: 3, retryBaseMs: 1 },
+      );
+      assert.deepEqual(result.transitioned, [5]);
+      assert.equal(attempts.get(5), 3);
+    });
+
+    it('does not retry non-transient (4xx) errors', async () => {
+      const attempts = new Map();
+      const provider = {
+        updateTicket: async (id) => {
+          attempts.set(id, (attempts.get(id) ?? 0) + 1);
+          const err = new Error('forbidden');
+          err.status = 403;
+          throw err;
+        },
+      };
+      const tickets = [{ id: 7, labels: ['type::task'] }];
+      const result = await batchTransitionTickets(
+        provider,
+        tickets,
+        STATE_LABELS.EXECUTING,
+        { retries: 3, retryBaseMs: 1, onError: () => {} },
+      );
+      assert.equal(attempts.get(7), 1, 'must not retry 403');
+      assert.equal(result.failed.length, 1);
     });
 
     it('invokes progress callback on transitions and skips', async () => {
