@@ -45,13 +45,13 @@ are all rejected at config-load time.
 
 ## Lifecycle
 
-| Phase      | When                         | What happens                                                                |
-| ---------- | ---------------------------- | --------------------------------------------------------------------------- |
-| **Sweep**  | Start of `/sprint-execute`   | Stale `*.lock` files under `.git/` (older than 30s) are removed before GC.  |
-| **GC**     | Start of `/sprint-execute`   | Orphan `.worktrees/story-*` whose stories are closed are reaped if clean.   |
-| **Ensure** | Before dispatching a story   | `git worktree add .worktrees/story-<id>/` on the `story-<id>` branch.       |
-| **Run**    | During story execution       | Agent runs inside the worktree; HEAD/reflog activity is isolated.           |
-| **Reap**   | After successful story merge | `git worktree remove` — refuses to delete dirty trees or unmerged branches. |
+| Phase      | When                         | What happens                                                                 |
+| ---------- | ---------------------------- | ---------------------------------------------------------------------------- |
+| **Sweep**  | Start of `/sprint-execute`   | Stale `*.lock` files under `.git/` (older than 5 min) are removed before GC. |
+| **GC**     | Start of `/sprint-execute`   | Orphan `.worktrees/story-*` whose stories are closed are reaped if clean.    |
+| **Ensure** | Before dispatching a story   | `git worktree add .worktrees/story-<id>/` on the `story-<id>` branch.        |
+| **Run**    | During story execution       | Agent runs inside the worktree; HEAD/reflog activity is isolated.            |
+| **Reap**   | After successful story merge | `git worktree remove` — refuses to delete dirty trees or unmerged branches.  |
 
 The `WorktreeManager` (`.agents/scripts/lib/worktree-manager.js`) is the single
 authority for `ensure`, `reap`, `list`, `isSafeToRemove`, `gc`, and
@@ -66,7 +66,7 @@ extension all touch it. A crashed orchestrator can leave an orphaned
 `index.lock`, etc.) that blocks the next run with a "another git process seems
 to be running" error.
 
-`sweepStaleLocks({ maxAgeMs = 30_000 })` removes well-known lock files whose
+`sweepStaleLocks({ maxAgeMs = 300_000 })` removes well-known lock files whose
 mtime exceeds the age threshold. Fresh locks (belonging to a legitimate
 in-flight op) are skipped. It runs automatically at the start of
 `/sprint-execute`, immediately before `gc`.

@@ -404,10 +404,31 @@ export async function runStoryInit({
       { progress },
     );
     if (transitionResult.failed.length > 0) {
-      progress(
-        'TICKETS',
-        `⚠️ ${transitionResult.failed.length} task(s) failed to transition: #${transitionResult.failed.join(', #')}. Agent may be working with tasks in stale state.`,
-      );
+      const failedSummary = transitionResult.failed
+        .map((f) => `#${f.id} (${f.attempts}x: ${f.error})`)
+        .join(', ');
+      const continueOnPartial =
+        orchestration?.storyInit?.continueOnPartialTransition === true;
+      if (continueOnPartial) {
+        progress(
+          'TICKETS',
+          `⚠️ ${transitionResult.failed.length} task(s) failed to transition after retries: ${failedSummary}. Continuing (continueOnPartialTransition=true) — agent may be working with stale state.`,
+        );
+      } else {
+        console.error(
+          `\n❌ ${transitionResult.failed.length} task(s) failed to transition after retries: ${failedSummary}`,
+        );
+        console.error(
+          'Story init aborted. Fix the underlying error and re-run, or set ' +
+            '`orchestration.storyInit.continueOnPartialTransition: true` to opt into ' +
+            'the old lenient behavior.',
+        );
+        return {
+          success: false,
+          reason: 'partial-transition-failure',
+          failed: transitionResult.failed,
+        };
+      }
     }
   }
 

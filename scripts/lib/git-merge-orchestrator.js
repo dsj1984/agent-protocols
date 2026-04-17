@@ -98,15 +98,25 @@ export function mergeFeatureBranch(cwd, featureBranch, vlog, opts = {}) {
   }
 
   // Minor conflict — auto-resolve by accepting the feature branch version.
+  // We also capture per-file line counts of the discarded "ours" version so
+  // the audit trail in the merge commit body tells an operator exactly what
+  // was dropped. Short preview is kept for vlog; the commit trailer carries
+  // only names + line counts to keep history legible.
+  const autoResolvedFiles = [];
   for (const file of conflicts.fileList) {
     const ourVersion = gitSpawn(cwd, 'show', `:2:${file}`);
+    const discardedLines = ourVersion.stdout
+      ? ourVersion.stdout.split('\n').length
+      : 0;
+    autoResolvedFiles.push({ file, discardedLines });
     if (ourVersion.stdout) {
       vlog(
         'warn',
         'integration',
-        `Auto-resolving "${file}" to theirs — discarding base version`,
+        `Auto-resolving "${file}" to theirs — discarding base version (${discardedLines} lines)`,
         {
           file,
+          discardedLines,
           discardedPreview: ourVersion.stdout.substring(0, 500),
         },
       );
@@ -115,15 +125,41 @@ export function mergeFeatureBranch(cwd, featureBranch, vlog, opts = {}) {
     gitSpawn(cwd, 'add', file);
   }
 
-  const commitArgs = opts.message
-    ? ['commit', '-m', opts.message]
+  // Embed audit trailer in the merge commit message so git history records
+  // exactly what was auto-resolved. Only applied when the caller supplied
+  // an explicit message (the default `--no-edit` path preserves git's
+  // generated message unchanged).
+  const trailer = buildAutoResolveTrailer(autoResolvedFiles);
+  const finalMessage = opts.message ? `${opts.message}\n\n${trailer}` : null;
+  const commitArgs = finalMessage
+    ? ['commit', '-m', finalMessage]
     : ['commit', '--no-edit'];
   const commitResult = gitSpawn(cwd, ...commitArgs);
   if (commitResult.status !== 0) {
     throw new Error(`Auto-resolution commit failed: ${commitResult.stderr}`);
   }
 
-  return { merged: true, autoResolved: true, conflicts };
+  return { merged: true, autoResolved: true, conflicts, autoResolvedFiles };
+}
+
+/**
+ * Build a merge-commit trailer documenting which files were auto-resolved
+ * by accepting the feature-branch version and how many lines of the base
+ * version were discarded. Human-readable, grep-friendly.
+ *
+ * @param {Array<{ file: string, discardedLines: number }>} resolved
+ * @returns {string}
+ */
+export function buildAutoResolveTrailer(resolved) {
+  const header =
+    'Auto-resolved-conflicts: accepted feature branch for the following file(s).';
+  const body = resolved
+    .map(
+      (r) =>
+        `Auto-resolved-file: ${r.file} (discarded ${r.discardedLines} base line(s))`,
+    )
+    .join('\n');
+  return `${header}\n${body}`;
 }
 
 /**

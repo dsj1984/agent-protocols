@@ -836,6 +836,14 @@ export class WorktreeManager {
    * `<repoRoot>/.agents` directory is never touched — this only unlinks the
    * worktree's pointer to it.
    *
+   * Also drops `.agents` from the worktree's index. `skip-worktree` keeps
+   * the gitlink out of the working tree but leaves the 160000 entry in the
+   * index; `git worktree remove` refuses any worktree whose index carries
+   * a submodule entry ("working trees containing submodules cannot be moved
+   * or removed") regardless of on-disk state. `git rm --cached` is
+   * worktree-local — it only touches this worktree's index, never the root
+   * repo's index or the remote.
+   *
    * @param {string} wtPath Absolute worktree path.
    */
   _unlinkAgentsFromRoot(wtPath) {
@@ -844,7 +852,12 @@ export class WorktreeManager {
     try {
       target = fs.readlinkSync(wtAgents);
     } catch {
-      return; // not a symlink/junction — leave alone
+      // Not a symlink/junction. Fall through to the index-scrub — the
+      // gitlink may still be in the index even when no link was created
+      // (e.g. `_linkAgentsToRoot` failed mid-way, or the repo never had
+      // the symlink applied).
+      this._dropAgentsGitlinkFromIndex(wtPath);
+      return;
     }
     // At this point wtAgents IS a symlink/junction. Unlinking a symlink never
     // traverses into its target, so it's always safe to unlink. The target
@@ -868,6 +881,41 @@ export class WorktreeManager {
       // worktree remove sees a predictable state.
       this.logger.warn(
         `agents-symlink unlink failed path=${wtAgents}: ${err.message}`,
+      );
+    }
+    this._dropAgentsGitlinkFromIndex(wtPath);
+  }
+
+  /**
+   * Remove any `.agents` gitlink entry from the worktree's index. Called
+   * before `git worktree remove` so git's submodule guard does not fire.
+   * Safe to call even when there is no gitlink — `git rm --cached` is
+   * short-circuited by a pre-check, and a non-zero exit is logged but
+   * does not block removal.
+   *
+   * @param {string} wtPath Absolute worktree path.
+   */
+  _dropAgentsGitlinkFromIndex(wtPath) {
+    if (!this._isAgentsSubmodule()) return;
+    const ls = this.git.gitSpawn(
+      wtPath,
+      'ls-files',
+      '--stage',
+      '--',
+      '.agents',
+    );
+    if (ls.status !== 0 || !/^160000 /.test(ls.stdout)) return;
+    const rm = this.git.gitSpawn(
+      wtPath,
+      'rm',
+      '--cached',
+      '-f',
+      '--',
+      '.agents',
+    );
+    if (rm.status !== 0) {
+      this.logger.warn(
+        `agents-index-scrub failed path=${wtPath}: ${rm.stderr || rm.stdout}`,
       );
     }
   }

@@ -46,10 +46,33 @@ export async function fetchChildTasks(provider, storyId) {
 }
 
 /**
+ * Detect transient HTTP errors (rate limits, gateways, server errors) that
+ * are worth retrying. Permission/validation errors are not retried — the
+ * second attempt would fail the same way.
+ *
+ * @param {Error} err
+ * @returns {boolean}
+ */
+function isRetryableError(err) {
+  const status = err?.status ?? err?.statusCode;
+  if (status === 429) return true;
+  if (typeof status === 'number' && status >= 500 && status < 600) return true;
+  const msg = (err?.message ?? '').toLowerCase();
+  return (
+    msg.includes('rate limit') ||
+    msg.includes('timeout') ||
+    msg.includes('econnreset') ||
+    msg.includes('etimedout') ||
+    msg.includes('socket hang up')
+  );
+}
+
+/**
  * Batch-transition a set of tickets to the target state label. Tickets
  * already carrying `STATE_LABELS.DONE` (or the target itself) are skipped.
- * Each transition runs in parallel; per-ticket failures are logged via the
- * provided `progress`/`onError` callbacks but do not abort the batch.
+ * Each transition runs in parallel with a per-ticket retry budget for
+ * transient errors (429, 5xx, network). Permanent failures are recorded
+ * in `failed` without aborting the batch.
  *
  * @param {object} provider  ITicketingProvider instance.
  * @param {object[]} tickets Array of ticket objects with `id` and `labels`.
@@ -57,7 +80,10 @@ export async function fetchChildTasks(provider, storyId) {
  * @param {object} [opts]
  * @param {(phase: string, message: string) => void} [opts.progress]  Progress reporter.
  * @param {(ticketId: number, err: Error) => void}  [opts.onError]     Per-failure callback.
- * @returns {Promise<{ transitioned: number[], skipped: number[], failed: number[] }>}
+ * @param {number} [opts.concurrency=10]    Max parallel ticket transitions.
+ * @param {number} [opts.retries=3]         Max attempts per ticket on transient errors.
+ * @param {number} [opts.retryBaseMs=500]   Base for exponential backoff (attempt * base).
+ * @returns {Promise<{ transitioned: number[], skipped: number[], failed: Array<{ id: number, error: string, attempts: number }> }>}
  */
 export async function batchTransitionTickets(
   provider,
@@ -71,6 +97,8 @@ export async function batchTransitionTickets(
   const failed = [];
 
   const concurrency = opts.concurrency ?? 10;
+  const maxRetries = opts.retries ?? 3;
+  const retryBaseMs = opts.retryBaseMs ?? 500;
 
   const processTicket = async (ticket) => {
     if (ticket.labels.includes(targetLabel)) {
@@ -86,15 +114,35 @@ export async function batchTransitionTickets(
       skipped.push(ticket.id);
       return;
     }
-    try {
-      await transitionTicketState(provider, ticket.id, targetLabel);
-      progress?.('TICKETS', `  #${ticket.id} → ${targetLabel} ✅`);
-      transitioned.push(ticket.id);
-    } catch (err) {
-      failed.push(ticket.id);
-      if (onError) onError(ticket.id, err);
-      else console.error(`  #${ticket.id} → FAILED: ${err.message}`);
+    let lastErr;
+    for (let attempt = 1; attempt <= maxRetries; attempt++) {
+      try {
+        await transitionTicketState(provider, ticket.id, targetLabel);
+        progress?.(
+          'TICKETS',
+          `  #${ticket.id} → ${targetLabel} ✅${attempt > 1 ? ` (after ${attempt} attempts)` : ''}`,
+        );
+        transitioned.push(ticket.id);
+        return;
+      } catch (err) {
+        lastErr = err;
+        if (attempt >= maxRetries || !isRetryableError(err)) break;
+        const delay = retryBaseMs * 2 ** (attempt - 1);
+        progress?.(
+          'TICKETS',
+          `  #${ticket.id} transient error (${err.message}); retrying in ${delay}ms (${attempt}/${maxRetries - 1})`,
+        );
+        await new Promise((resolve) => setTimeout(resolve, delay));
+      }
     }
+    failed.push({
+      id: ticket.id,
+      error: lastErr?.message ?? String(lastErr),
+      attempts: maxRetries,
+    });
+    if (onError) onError(ticket.id, lastErr);
+    else
+      console.error(`  #${ticket.id} → FAILED: ${lastErr?.message ?? lastErr}`);
   };
 
   // Process in batches to avoid overwhelming the API with concurrent requests.
