@@ -73,11 +73,28 @@ const progress = Logger.createProgress('sprint-story-close', { stderr: true });
 function cleanupBranches(storyBranch, cwd) {
   progress('CLEANUP', `Deleting story branch: ${storyBranch}`);
 
-  const localDelete = gitSpawn(cwd, 'branch', '-d', storyBranch);
-  if (localDelete.status !== 0) {
-    gitSpawn(cwd, 'branch', '-D', storyBranch);
+  let localDeleted = false;
+  const softDelete = gitSpawn(cwd, 'branch', '-d', storyBranch);
+  if (softDelete.status === 0) {
+    localDeleted = true;
+  } else {
+    const forceDelete = gitSpawn(cwd, 'branch', '-D', storyBranch);
+    if (forceDelete.status === 0) {
+      localDeleted = true;
+    } else {
+      // Most common cause: the branch is still "checked out" by a lingering
+      // worktree registration — git refuses to delete a checked-out branch.
+      // Surface the failure instead of silently swallowing it so the caller
+      // can report accurately and the operator can remediate.
+      const stderr = (forceDelete.stderr || softDelete.stderr || '').trim();
+      Logger.error(
+        `  Local branch ${storyBranch} delete failed: ${stderr || 'unknown'}. ` +
+          `Check for stale worktrees (git worktree list).`,
+      );
+    }
   }
 
+  let remoteDeleted = false;
   const remoteDelete = gitSpawn(
     cwd,
     'push',
@@ -89,8 +106,11 @@ function cleanupBranches(storyBranch, cwd) {
   if (remoteDelete.status !== 0) {
     progress('CLEANUP', `Remote branch ${storyBranch} not found — skipped`);
   } else {
+    remoteDeleted = true;
     progress('CLEANUP', `✅ Remote branch ${storyBranch} deleted`);
   }
+
+  return { localDeleted, remoteDeleted };
 }
 
 async function ticketClosureCascade(provider, tasks, storyId) {
@@ -474,7 +494,10 @@ async function finalizeMerge(
       Logger.fatal(`Push failed: ${pushResult.stderr}`);
     }
 
-    cleanupBranches(storyBranch, cwd);
+    // Branch cleanup is deferred to after worktree reap: git refuses to
+    // delete a branch that's still "checked out" by a worktree, and the
+    // per-story worktree still has storyBranch checked out at this point.
+    // See runStoryClose for the ordering.
   } finally {
     releaseEpicMergeLock(lockHandle);
     progress('LOCK', '🔓 Released epic-merge lock');
@@ -563,6 +586,7 @@ export async function runStoryClose({
   const riskHighGateEnabled = orchestration?.hitl?.riskHighApproval !== false;
   const isHighRisk = story.labels.includes('risk::high') && riskHighGateEnabled;
 
+  let branchCleanup = { localDeleted: false, remoteDeleted: false };
   if (isHighRisk) {
     const riskResult = await handleHighRiskGate(
       provider,
@@ -586,7 +610,13 @@ export async function runStoryClose({
       orchestration,
       epicId,
     );
+    // Reap must precede branch cleanup: git refuses to delete a branch
+    // that is still checked out by a live worktree. A failed reap will
+    // leave the worktree registration in place and the subsequent branch
+    // delete will fail — which is now reported in the structured result
+    // rather than silently swallowed.
     await reapStoryWorktree({ orchestration, storyId, epicBranch });
+    branchCleanup = cleanupBranches(storyBranch, cwd);
   }
 
   // Cascade Completion (Ticket Closure)
@@ -620,7 +650,9 @@ export async function runStoryClose({
     epicId,
     action: 'merged',
     merged: true,
-    branchDeleted: true,
+    branchDeleted: branchCleanup.localDeleted && branchCleanup.remoteDeleted,
+    branchLocalDeleted: branchCleanup.localDeleted,
+    branchRemoteDeleted: branchCleanup.remoteDeleted,
     ticketsClosed: closedTickets,
     cascadedTo: cascadedTo ?? [],
     cascadeFailed: cascadeFailed ?? [],
