@@ -109,4 +109,16 @@ describe('epic-merge-lock', () => {
 
     releaseEpicMergeLock(first);
   });
+
+  it('handles gracefully a corrupted JSON lock file when checking for timeout', async () => {
+    const filePath = path.join(repoRoot, '.git', 'epic-66.merge.lock');
+    fs.writeFileSync(filePath, '{ corrupted_json');
+
+    // The lock is "held" (by the corrupted file) and timeout will expire.
+    // It shouldn't crash while reading meta to construct the timeout error message.
+    await assert.rejects(
+      acquireEpicMergeLock(66, { repoRoot, timeoutMs: 300 }),
+      /timed out after 300ms for epic 66/,
+    );
+  });
 });
