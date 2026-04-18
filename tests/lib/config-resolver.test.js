@@ -54,6 +54,36 @@ describe('config-resolver library tests', () => {
     );
   });
 
+  it('rejects malformed release block in agentSettings', () => {
+    const agentrcPath = path.join(PROJECT_ROOT, '.agentrc.json');
+    vol.mkdirSync(PROJECT_ROOT, { recursive: true });
+    vol.writeFileSync(
+      agentrcPath,
+      JSON.stringify({
+        agentSettings: {
+          release: { autoVersionBump: 'yes-please' },
+        },
+      }),
+    );
+
+    assert.throws(() => resolveConfig({ bustCache: true }), /release/);
+  });
+
+  it('rejects shell metacharacters in release.versionFile', () => {
+    const agentrcPath = path.join(PROJECT_ROOT, '.agentrc.json');
+    vol.mkdirSync(PROJECT_ROOT, { recursive: true });
+    vol.writeFileSync(
+      agentrcPath,
+      JSON.stringify({
+        agentSettings: {
+          release: { versionFile: 'VERSION; rm -rf /' },
+        },
+      }),
+    );
+
+    assert.throws(() => resolveConfig({ bustCache: true }));
+  });
+
   it('applies environment variable override for notificationWebhookUrl', () => {
     const agentrcPath = path.join(PROJECT_ROOT, '.agentrc.json');
     vol.mkdirSync(PROJECT_ROOT, { recursive: true });

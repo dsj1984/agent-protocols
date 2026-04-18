@@ -155,6 +155,12 @@ async function main() {
       progress('EPIC', `Epic #${epicId} is already closed.`);
     }
   } catch (err) {
+    // Epic-close failure must be surfaced at the top-level exit status.
+    // Previously this only logged to stderr, letting the script finish with
+    // the 🎉 success banner whenever subsequent cleanup happened to succeed —
+    // a dangerous signal for release operations where operators rely on
+    // exit code to gate downstream steps.
+    warnings.push(`epic #${epicId} close: ${err.message}`);
     console.error(`❌ Error: Failed to close Epic #${epicId}: ${err.message}`);
   }
 

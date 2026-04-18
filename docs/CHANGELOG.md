@@ -42,11 +42,39 @@ fixes to issues surfaced during code review of the in-flight changes.
   the documented Windows-first development environment.
 - `detect-merges.js` adopts the shared `runAsCli` bootstrap.
 
+### Release-path reliability (second review pass)
+
+- `sprint-close.js` now records Epic-close failures in the top-level
+  `warnings[]` buffer. Previously a failed `provider.updateTicket(...,
+  { state: 'closed' })` only printed to stderr, and if subsequent branch
+  cleanup happened to succeed the script still exited 0 and printed the
+  🎉 banner — a dangerous false-positive for release operators.
+- `AGENT_SETTINGS_SCHEMA` gained a `release` block validating `docs`
+  (array of shell-safe strings), `versionFile` (shell-safe string or
+  `null`), `packageJson` and `autoVersionBump` (booleans). Malformed
+  release config previously slipped through silently because the schema
+  had no knowledge of that subtree.
+- `sprint-close.md` moves tag-publication verification to a new
+  Step 7.1, immediately after the push. A failed remote tag is now
+  surfaced before Epic closure and branch cleanup, rather than after the
+  sprint visibly looks shipped. Step 10 is reframed as a final sanity
+  re-check.
+
 ### Tests
 
 - New coverage for: merge-check failure path, `epic-branch-required`
   guard, `prune` helper, Windows junction symlink, quoted-submodule
-  `.gitmodules` parsing, and blocker-verification-fails-closed policy.
+  `.gitmodules` parsing, blocker-verification-fails-closed policy, and
+  `release`-block schema validation (type mismatch + shell injection).
+
+### Known limitation
+
+- `/sprint-close` remains a partial orchestrator: the script still only
+  owns the terminal cleanup stage, while `sprint-close.md` documents
+  Steps 1.4–10 as the operator's responsibility. Promoting those stages
+  into executable code with explicit stage results, override handling,
+  and failure semantics is tracked as the next major release-path
+  refactor and is intentionally out of scope for v5.10.10.
 
 ## [5.10.9] - 2026-04-17
 

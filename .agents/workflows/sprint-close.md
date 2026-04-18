@@ -263,6 +263,24 @@ If markers are found: resolve them following the canonical procedure in
 git push origin [BASE_BRANCH] --follow-tags
 ```
 
+### Step 7.1 — Verify Tag Published (If Applicable)
+
+If a version bump was performed in Step 3, confirm the tag reached the remote
+_before_ proceeding to Epic closure and branch cleanup. A missing tag at this
+stage is still cheap to fix; once the Epic is closed and branches are deleted, a
+failed tag push is far harder to notice:
+
+```powershell
+git ls-remote --tags origin "v[NEW_VERSION]"
+```
+
+If the output is empty (e.g., `--follow-tags` was skipped or the remote rejected
+the tag), push it explicitly before continuing:
+
+```powershell
+git push origin "v[NEW_VERSION]"
+```
+
 ## Step 8 — Close Planning, Strategy, and Epic Tickets
 
 Formally close the PRD and Tech Spec tickets, followed by the Epic itself.
@@ -289,18 +307,14 @@ Manually verify that the Epic and all context tickets are closed in the GitHub
 UI. Check the notification structured comment on the Epic for the final shipping
 announcement.
 
-## Step 10 — Verify Tag (If Applicable)
+## Step 10 — Final Tag Re-check
 
-If a version bump was performed in Step 3, confirm the tag exists on the remote:
+Tag publication is already verified in Step 7.1. This step is a last-line sanity
+check after closure — if the tag is still missing here, the release is _not_
+shipped and the operator must re-run Step 7.1 before announcing the release:
 
 ```powershell
 git ls-remote --tags origin "v[NEW_VERSION]"
-```
-
-If the tag is missing (e.g., `--follow-tags` was not used), push it explicitly:
-
-```powershell
-git push origin "v[NEW_VERSION]"
 ```
 
 ## Step 11 — Internal State Cleanup
