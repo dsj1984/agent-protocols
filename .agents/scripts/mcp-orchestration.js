@@ -35,6 +35,20 @@ function sendMcp(msg) {
 
 // ------------------------------------
 import { createInterface } from 'node:readline';
+import Ajv from 'ajv';
+
+const _ajv = new Ajv({ allowUnionTypes: true });
+const MCP_REQUEST_SCHEMA = {
+  type: 'object',
+  required: ['jsonrpc', 'method'],
+  properties: {
+    jsonrpc: { type: 'string', const: '2.0' },
+    id: { type: ['string', 'number', 'null'] },
+    method: { type: 'string' },
+    params: { type: ['object', 'array'] },
+  },
+};
+const _validateMcpRequest = _ajv.compile(MCP_REQUEST_SCHEMA);
 
 // ---------------------------------------------------------------------------
 // MCP Protocol Constants
@@ -293,6 +307,16 @@ async function main() {
       req = JSON.parse(trimmed);
     } catch {
       sendError(null, -32700, 'Parse error: invalid JSON');
+      return;
+    }
+
+    if (!_validateMcpRequest(req)) {
+      sendError(
+        null,
+        -32600,
+        'Invalid Request: schema validation failed',
+        _validateMcpRequest.errors,
+      );
       return;
     }
 
