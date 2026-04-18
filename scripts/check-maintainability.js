@@ -12,6 +12,50 @@ import {
 const TARGET_DIRS = ['.agents/scripts', 'tests'];
 const TOLERANCE = 0.001; // Allow for tiny floating point variances
 
+function compareScores(scores, baseline, tolerance) {
+  let regressions = 0;
+  let newFiles = 0;
+  let improvements = 0;
+
+  for (const [file, score] of Object.entries(scores)) {
+    const baselineScore = baseline[file];
+
+    if (baselineScore === undefined) {
+      console.log(
+        `[Maintainability] 🆕 New file detected: ${file} (Score: ${score.toFixed(2)})`,
+      );
+      newFiles++;
+      continue;
+    }
+
+    if (score < baselineScore - tolerance) {
+      const diff = baselineScore - score;
+      console.error(`[Maintainability] ❌ REGRESSION in ${file}`);
+      console.error(`                Current: ${score.toFixed(2)}`);
+      console.error(`                Baseline: ${baselineScore.toFixed(2)}`);
+      console.error(`                Drop: -${diff.toFixed(2)}`);
+      regressions++;
+    } else if (score > baselineScore + tolerance) {
+      improvements++;
+    }
+  }
+
+  return { regressions, newFiles, improvements };
+}
+
+function printSummaryReport(scores, stats) {
+  const { regressions, improvements, newFiles } = stats;
+  console.log('\n--- Maintainability Report ---');
+  console.log(`Total Files Checked: ${Object.keys(scores).length}`);
+  console.log(
+    `Pass:                ${Object.keys(scores).length - regressions}`,
+  );
+  console.log(`Regressions:         ${regressions}`);
+  console.log(`Improvements:        ${improvements}`);
+  console.log(`New Files:           ${newFiles}`);
+  console.log('------------------------------\n');
+}
+
 async function main() {
   console.log('[Maintainability] Verifying code quality against baseline...');
 
@@ -29,45 +73,10 @@ async function main() {
   });
   const scores = calculateAll(files);
 
-  let regressions = 0;
-  let newFiles = 0;
-  let improvements = 0;
+  const stats = compareScores(scores, baseline, TOLERANCE);
+  printSummaryReport(scores, stats);
 
-  for (const [file, score] of Object.entries(scores)) {
-    const baselineScore = baseline[file];
-
-    if (baselineScore === undefined) {
-      console.log(
-        `[Maintainability] 🆕 New file detected: ${file} (Score: ${score.toFixed(2)})`,
-      );
-      newFiles++;
-      continue;
-    }
-
-    if (score < baselineScore - TOLERANCE) {
-      const diff = baselineScore - score;
-      console.error(`[Maintainability] ❌ REGRESSION in ${file}`);
-      console.error(`                Current: ${score.toFixed(2)}`);
-      console.error(`                Baseline: ${baselineScore.toFixed(2)}`);
-      console.error(`                Drop: -${diff.toFixed(2)}`);
-      regressions++;
-    } else if (score > baselineScore + TOLERANCE) {
-      improvements++;
-    }
-  }
-
-  // Summary report
-  console.log('\n--- Maintainability Report ---');
-  console.log(`Total Files Checked: ${Object.keys(scores).length}`);
-  console.log(
-    `Pass:                ${Object.keys(scores).length - regressions}`,
-  );
-  console.log(`Regressions:         ${regressions}`);
-  console.log(`Improvements:        ${improvements}`);
-  console.log(`New Files:           ${newFiles}`);
-  console.log('------------------------------\n');
-
-  if (regressions > 0) {
+  if (stats.regressions > 0) {
     console.error(
       '[Maintainability] ❌ Regression check failed. Please refactor the affected files or update the baseline if the change is justified.',
     );
