@@ -1,0 +1,40 @@
+--- .agents/scripts/sync-claude-commands.js
++++ .agents/scripts/sync-claude-commands.js
+@@ -35,17 +35,22 @@
+ // Copy each workflow, prepending the auto-generated header
+ let synced = 0;
+-for (const file of sources) {
+-  const content = fs.readFileSync(path.join(SRC_DIR, file), 'utf8');
+-  const dest = path.join(DEST_DIR, file);
+-
+-  // Skip write if content is already identical (avoid noisy git diffs)
+-  const target = HEADER + content;
+-  if (fs.existsSync(dest) && fs.readFileSync(dest, 'utf8') === target) {
+-    continue;
+-  }
+-
+-  fs.writeFileSync(dest, target, 'utf8');
+-  synced++;
+-  console.log(`  synced   ${file}`);
+-}
++await Promise.all(
++  sources.map(async (file) => {
++    const content = await fs.promises.readFile(path.join(SRC_DIR, file), 'utf8');
++    const dest = path.join(DEST_DIR, file);
++
++    // Skip write if content is already identical (avoid noisy git diffs)
++    const target = HEADER + content;
++    try {
++      const existingContent = await fs.promises.readFile(dest, 'utf8');
++      if (existingContent === target) return;
++    } catch (err) {
++      if (err.code !== 'ENOENT') throw err;
++    }
++
++    await fs.promises.writeFile(dest, target, 'utf8');
++    synced++;
++    console.log(`  synced   ${file}`);
++  })
++);
+
+ console.log(
