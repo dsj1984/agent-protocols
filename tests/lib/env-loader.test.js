@@ -80,4 +80,17 @@ describe('loadEnv', () => {
     assert.strictEqual(process.env.TEST_A, '1');
     assert.strictEqual(process.env.TEST_B, '2');
   });
+
+  it('fails silently when fs throws an error', (t) => {
+    // Ensure the file exists so readFileSync is called
+    fs.writeFileSync(path.join(tmpDir, '.env'), 'TEST_KEY=1\n');
+
+    // Mock readFileSync to throw an error
+    t.mock.method(fs, 'readFileSync', () => {
+      throw new Error('EACCES: permission denied');
+    });
+
+    // Should not throw
+    assert.doesNotThrow(() => loadEnv(tmpDir));
+  });
 });
