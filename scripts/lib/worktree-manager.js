@@ -870,6 +870,62 @@ export class WorktreeManager {
       // Nothing to remove — fall through to index scrub.
     }
     this._dropAgentsGitlinkFromIndex(wtPath);
+    this._purgePerWorktreeSubmoduleDir(wtPath);
+  }
+
+  /**
+   * `git worktree remove` refuses with
+   * `working trees containing submodules cannot be moved or removed` when
+   * EITHER (a) a 160000 gitlink is in the worktree's index OR
+   * (b) `<common-git-dir>/worktrees/<name>/modules/` exists. Scrubbing the
+   * index alone is not sufficient when a prior run (or the legacy symlink
+   * scheme) populated the per-worktree modules directory. Remove the
+   * directory if present so the second guard also passes.
+   *
+   * Locates the per-worktree gitdir via the `gitdir:` pointer in
+   * `<wtPath>/.git`. The root `.git/modules/` (main checkout's submodule
+   * working dirs) is never touched.
+   *
+   * @param {string} wtPath Absolute worktree path.
+   */
+  _purgePerWorktreeSubmoduleDir(wtPath) {
+    if (!this._isAgentsSubmodule()) return;
+    const dotGit = path.join(wtPath, '.git');
+    let gitdir;
+    try {
+      const stat = fs.statSync(dotGit);
+      if (stat.isDirectory()) {
+        // Main checkout, not a secondary worktree — nothing to purge here.
+        return;
+      }
+      const raw = fs.readFileSync(dotGit, 'utf8').trim();
+      const m = raw.match(/^gitdir:\s*(.+)$/m);
+      if (!m) return;
+      gitdir = path.resolve(wtPath, m[1].trim());
+    } catch {
+      return;
+    }
+    // Containment: per-worktree gitdir must live under the main repo's
+    // `.git/worktrees/` — refuse anything else to avoid touching arbitrary
+    // paths if the pointer file is malformed.
+    const expectedRoot = path.resolve(this.repoRoot, '.git', 'worktrees');
+    const rel = path.relative(expectedRoot, gitdir);
+    if (rel.startsWith('..') || path.isAbsolute(rel)) {
+      this.logger.warn(
+        `agents-modules-purge skipped: per-worktree gitdir ${gitdir} is outside ${expectedRoot}`,
+      );
+      return;
+    }
+    const modulesDir = path.join(gitdir, 'modules');
+    if (!fs.existsSync(modulesDir)) return;
+    try {
+      fs.rmSync(modulesDir, { recursive: true, force: true });
+      this.logger.info(`worktree.agents.modules-purged path=${modulesDir}`);
+    } catch (err) {
+      this.logger.warn(
+        `agents-modules-purge failed path=${modulesDir}: ${err.message}`,
+      );
+    }
   }
 
   /**
