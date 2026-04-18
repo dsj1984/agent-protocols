@@ -100,36 +100,63 @@ export async function notify(ticketId, payload, opts = {}) {
   }
 }
 
-async function main() {
-  const args = process.argv.slice(2);
+export function parseNotifyArgs(args) {
   if (args.length < 1) {
     Logger.fatal('Usage: node notify.js [TicketId] <Message> [--action]');
   }
 
+  const isAction = args.includes('--action');
+  const filteredArgs = args.filter((arg) => arg !== '--action');
+  if (filteredArgs.length === 0) {
+    Logger.fatal('[Notify] Error: Message is required.');
+  }
+
   let ticketId = 0;
   let message = '';
-  const isAction = args.includes('--action');
+  const explicitTicketFlag = filteredArgs.findIndex(
+    (arg) => arg === '--ticket' || arg === '--issue',
+  );
 
-  // Detect if first arg is a ticket ID or a message (or a legacy URL)
-  const firstArg = args[0];
-  const isNumeric = /^\d+$/.test(firstArg);
-
-  if (isNumeric) {
-    ticketId = parseInt(firstArg, 10);
-    message = args[1] || '';
+  if (explicitTicketFlag !== -1) {
+    const rawTicketId = filteredArgs[explicitTicketFlag + 1] ?? '';
+    if (!/^\d+$/.test(rawTicketId)) {
+      Logger.fatal('[Notify] Error: --ticket/--issue requires a numeric ID.');
+    }
+    ticketId = parseInt(rawTicketId, 10);
+    const positional = filteredArgs.filter(
+      (_arg, idx) =>
+        idx !== explicitTicketFlag && idx !== explicitTicketFlag + 1,
+    );
+    message = positional.join(' ').trim();
   } else {
-    // If first arg is a URL or a string, treat it as the "skip-id" mode
-    // (Legacy calls pass a URL here, we skip it and find the message)
-    if (firstArg.startsWith('http')) {
-      message = args[1] || '';
+    // Detect if first arg is a ticket ID or a message (or a legacy URL)
+    const firstArg = filteredArgs[0];
+    const isNumeric = /^\d+$/.test(firstArg);
+
+    if (isNumeric) {
+      ticketId = parseInt(firstArg, 10);
+      message = filteredArgs.slice(1).join(' ').trim();
     } else {
-      message = firstArg;
+      // If first arg is a URL or a string, treat it as the "skip-id" mode
+      // (Legacy calls pass a URL here, we skip it and find the message)
+      if (firstArg.startsWith('http')) {
+        message = filteredArgs.slice(1).join(' ').trim();
+      } else {
+        message = firstArg;
+      }
     }
   }
 
   if (!message) {
     Logger.fatal('[Notify] Error: Message is required.');
   }
+
+  return { ticketId, message, isAction };
+}
+
+async function main() {
+  const args = process.argv.slice(2);
+  const { ticketId, message, isAction } = parseNotifyArgs(args);
 
   await notify(ticketId, {
     type: isAction ? 'action' : 'notification',

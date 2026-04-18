@@ -17,6 +17,12 @@ import * as defaultGit from './git-utils.js';
 
 const STORY_BRANCH_RE = /^story-\d+$/;
 
+function sleepSync(ms) {
+  if (!Number.isFinite(ms) || ms <= 0) return;
+  const signal = new Int32Array(new SharedArrayBuffer(4));
+  Atomics.wait(signal, 0, 0, ms);
+}
+
 /** @returns {number} */
 function validateStoryId(storyId) {
   const n = typeof storyId === 'number' ? storyId : parseInt(storyId, 10);
@@ -278,7 +284,13 @@ export class WorktreeManager {
 
         const target = path.join(wtPath, 'node_modules');
         try {
-          fs.symlinkSync(primeNodeModules, target, 'junction');
+          // On Windows, `junction` works without Administrator privileges
+          // (unlike `dir`/`file` symlinks) and is adequate for same-volume
+          // node_modules priming. POSIX ignores the third arg. Key off the
+          // real host OS — `this.platform` is a test-injection hook and does
+          // not change what the filesystem will accept.
+          const linkType = process.platform === 'win32' ? 'junction' : 'dir';
+          fs.symlinkSync(primeNodeModules, target, linkType);
         } catch (err) {
           throw new Error(
             `WorktreeManager: failed to symlink node_modules for ${wtPath}: ${err.message}`,
@@ -418,10 +430,7 @@ export class WorktreeManager {
         this.logger.info(
           `worktree.install retry ${attempt}/${maxAttempts} after ${delay}ms...`,
         );
-        spawnSync('sleep', [`${delay / 1000}`], {
-          shell: this.platform === 'win32',
-          timeout: delay + 1_000,
-        });
+        sleepSync(delay);
       }
 
       this.logger.info(
@@ -528,9 +537,9 @@ export class WorktreeManager {
       // `merge-base --is-ancestor A B` exits 0 when A is an ancestor of B.
       // When A=branch and B=epicBranch, exit 0 ⇒ every commit on `branch`
       // is reachable from `epicBranch` ⇒ fully merged. Exit 1 ⇒ unmerged.
-      // Any other exit (e.g. epic branch missing) we treat as "no epic to
-      // compare against" and fall through to safe — matching prior behavior
-      // where a missing Epic branch was silently ignored.
+      // Any other exit (e.g. epic branch missing, ref lookup failure) is an
+      // unsafe cleanup condition: better to leave the worktree behind than to
+      // reap something whose merge status we could not verify.
       const res = this.git.gitSpawn(
         this.repoRoot,
         'merge-base',
@@ -541,9 +550,33 @@ export class WorktreeManager {
       if (res.status === 1) {
         return { safe: false, reason: 'unmerged-commits' };
       }
+      if (res.status !== 0) {
+        return {
+          safe: false,
+          reason: `merge-check-failed: ${res.stderr || res.stdout || 'unknown'}`,
+        };
+      }
     }
 
     return { safe: true };
+  }
+
+  /**
+   * Prune stale git worktree registrations for directories that no longer
+   * exist. Kept here so all `git worktree` mutations flow through one helper.
+   *
+   * @returns {{ pruned: boolean, reason?: string }}
+   */
+  prune() {
+    const res = this.git.gitSpawn(this.repoRoot, 'worktree', 'prune');
+    if (res.status !== 0) {
+      return {
+        pruned: false,
+        reason: res.stderr || res.stdout || 'worktree-prune-failed',
+      };
+    }
+    this._invalidateWorktreeCache();
+    return { pruned: true };
   }
 
   /**
@@ -570,6 +603,10 @@ export class WorktreeManager {
       : this._findByPath(wtPath) !== null;
     if (!known) {
       return { removed: false, reason: 'not-a-worktree', path: wtPath };
+    }
+
+    if (this._storyIdFromPath(wtPath) !== null && !opts.epicBranch) {
+      return { removed: false, reason: 'epic-branch-required', path: wtPath };
     }
 
     const safety = await this.isSafeToRemove(wtPath, {
@@ -762,7 +799,7 @@ export class WorktreeManager {
     if (!fs.existsSync(gitmodulesPath)) return false;
     try {
       const body = fs.readFileSync(gitmodulesPath, 'utf8');
-      return /\bpath\s*=\s*\.agents\s*$/m.test(body);
+      return /^\s*path\s*=\s*["']?\.agents["']?\s*$/m.test(body);
     } catch {
       return false;
     }

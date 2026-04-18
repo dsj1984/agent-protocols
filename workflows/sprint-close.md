@@ -232,8 +232,6 @@ git tag -a "v[NEW_VERSION]" -m "Release v[NEW_VERSION]: Epic #[EPIC_ID] — [Epi
 Ensure the code is stable and passes all quality gates on the Epic branch before
 merging to `main`.
 
-// turbo
-
 ```powershell
 npm run lint; npm test
 ```
@@ -265,6 +263,24 @@ If markers are found: resolve them following the canonical procedure in
 git push origin [BASE_BRANCH] --follow-tags
 ```
 
+### Step 7.1 — Verify Tag Published (If Applicable)
+
+If a version bump was performed in Step 3, confirm the tag reached the remote
+_before_ proceeding to Epic closure and branch cleanup. A missing tag at this
+stage is still cheap to fix; once the Epic is closed and branches are deleted, a
+failed tag push is far harder to notice:
+
+```powershell
+git ls-remote --tags origin "v[NEW_VERSION]"
+```
+
+If the output is empty (e.g., `--follow-tags` was skipped or the remote rejected
+the tag), push it explicitly before continuing:
+
+```powershell
+git push origin "v[NEW_VERSION]"
+```
+
 ## Step 8 — Close Planning, Strategy, and Epic Tickets
 
 Formally close the PRD and Tech Spec tickets, followed by the Epic itself.
@@ -282,7 +298,8 @@ This automated script performs:
    after closure.
 2. **Epic Closure**: Posts a final summary comment and closes the Epic issue.
 3. **Cleanup**: Deletes all local and remote branches associated with this Epic
-   (can be disabled with `--no-cleanup`).
+   (can be disabled with `--no-cleanup`). Cleanup reaps stale story worktrees
+   and prunes stale worktree registrations before branch deletion.
 
 ## Step 9 — Verify Closure
 
@@ -290,32 +307,15 @@ Manually verify that the Epic and all context tickets are closed in the GitHub
 UI. Check the notification structured comment on the Epic for the final shipping
 announcement.
 
-## Step 10 — Verify Tag (If Applicable)
+## Step 10 — Final Tag Re-check
 
-If a version bump was performed in Step 3, confirm the tag exists on the remote:
+Tag publication is already verified in Step 7.1. This step is a last-line sanity
+check after closure — if the tag is still missing here, the release is _not_
+shipped and the operator must re-run Step 7.1 before announcing the release:
 
 ```powershell
 git ls-remote --tags origin "v[NEW_VERSION]"
 ```
-
-If the tag is missing (e.g., `--follow-tags` was not used), push it explicitly:
-
-```powershell
-git push origin "v[NEW_VERSION]"
-```
-
-## Step 8.5 — Pre-Cleanup Stash Clear
-
-Before deleting any branches, clear all leftover stashes so that a dirty working
-tree does not block the subsequent `git checkout` or branch-deletion commands:
-
-```powershell
-git stash clear
-```
-
-> **Note:** This is a hard clear — it permanently drops all stashed changes. If
-> you have intentional WIP stashes you need to keep, save them elsewhere
-> _before_ running `/sprint-close`.
 
 ## Step 11 — Internal State Cleanup
 
@@ -346,8 +346,6 @@ up branches.
   **patch** for fixes and refactors.
 - **Always** run `sprint-close.js` (Step 8) to ensure PRD and Tech Spec tickets
   are formally closed — they are excluded from auto-closure during execution.
-- **Always** run `git stash clear` (Step 8.5) before any branch cleanup to
-  prevent stale stashes from blocking branch operations.
 - **Always** delete all Epic, Task, and Story branches after merge to prevent
   branch bloat. Individual remote deletion failures MUST be tolerated — log them
   as warnings and continue.
@@ -356,5 +354,5 @@ up branches.
 ## Step 12 — Notification
 
 ```powershell
-node [SCRIPTS_ROOT]/notify.js "Epic #[EPIC_ID] closed. Merged to [BASE_BRANCH] and branches cleaned up." --action
+node [SCRIPTS_ROOT]/notify.js --ticket [EPIC_ID] "Epic #[EPIC_ID] closed. Merged to [BASE_BRANCH] and branches cleaned up." --action
 ```

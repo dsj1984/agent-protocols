@@ -103,11 +103,11 @@ planned.
 6. **Cleanup**: Once the PRD/Tech Spec issues are confirmed on GitHub, delete
    the Phase 1 temp files for this Epic so later runs don't mix artifacts:
 
-   ```bash
-   rm -f \
-     temp/planner-context-epic-[Epic_ID].json \
-     temp/prd-epic-[Epic_ID].md \
-     temp/techspec-epic-[Epic_ID].md
+   ```powershell
+   Remove-Item -Force -ErrorAction SilentlyContinue `
+     "temp/planner-context-epic-[Epic_ID].json", `
+     "temp/prd-epic-[Epic_ID].md", `
+     "temp/techspec-epic-[Epic_ID].md"
    ```
 
 ## Phase 2: Work Breakdown Decomposition
@@ -153,10 +153,10 @@ planned.
 6. **Cleanup**: Once the backlog is confirmed on GitHub, delete the Phase 2 temp
    files for this Epic:
 
-   ```bash
-   rm -f \
-     temp/decomposer-context-epic-[Epic_ID].json \
-     temp/tickets-epic-[Epic_ID].json
+   ```powershell
+   Remove-Item -Force -ErrorAction SilentlyContinue `
+     "temp/decomposer-context-epic-[Epic_ID].json", `
+     "temp/tickets-epic-[Epic_ID].json"
    ```
 
 ## Phase 3: Notification & Handoff

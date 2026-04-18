@@ -131,6 +131,26 @@ export const AGENT_SETTINGS_SCHEMA = {
       },
       additionalProperties: false,
     },
+    release: {
+      type: 'object',
+      properties: {
+        docs: {
+          type: 'array',
+          items: {
+            type: 'string',
+            minLength: 1,
+            not: { pattern: '([;&|`]|\\$\\()' },
+          },
+        },
+        versionFile: {
+          type: ['string', 'null'],
+          not: { pattern: '([;&|`]|\\$\\()' },
+        },
+        packageJson: { type: 'boolean' },
+        autoVersionBump: { type: 'boolean' },
+      },
+      additionalProperties: false,
+    },
   },
   patternProperties: {
     '^(notificationWebhookUrl|baseBranch|validationCommand|testCommand|buildCommand|agentRoot|scriptsRoot|workflowsRoot|personasRoot|schemasRoot|skillsRoot|templatesRoot|rulesRoot|docsRoot|tempRoot|auditOutputDir|lintBaselineCommand|lintBaselinePath|exploratoryTestCommand|typecheckCommand)$':

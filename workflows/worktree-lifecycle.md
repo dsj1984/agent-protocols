@@ -54,8 +54,12 @@ are all rejected at config-load time.
 | **Reap**   | After successful story merge | `git worktree remove` — refuses to delete dirty trees or unmerged branches.  |
 
 The `WorktreeManager` (`.agents/scripts/lib/worktree-manager.js`) is the single
-authority for `ensure`, `reap`, `list`, `isSafeToRemove`, `gc`, and
+authority for `ensure`, `reap`, `list`, `isSafeToRemove`, `gc`, `prune`, and
 `sweepStaleLocks`. No other script may call `git worktree` directly.
+
+Managed story worktrees are only eligible for `reap`/`gc` when the caller
+provides the expected Epic branch, so cleanup cannot silently skip the merge
+verification step.
 
 ### Stale-lock sweep
 
