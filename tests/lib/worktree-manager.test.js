@@ -965,6 +965,80 @@ test('_removeCopiedAgents: unlinks legacy symlinks without traversing into the t
   }
 });
 
+test('_removeCopiedAgents: purges per-worktree modules/ dir so submodule guard passes', () => {
+  // git refuses `worktree remove` when <gitdir>/modules/ exists even if the
+  // per-worktree index has no 160000 gitlink. Reap must scrub both.
+  const tmp = fs.mkdtempSync(path.join(os.tmpdir(), 'wt-modules-purge-'));
+  try {
+    fs.writeFileSync(
+      path.join(tmp, '.gitmodules'),
+      '[submodule ".agents"]\n\tpath = .agents\n\turl = ../agents\n',
+    );
+    const wtPath = path.join(tmp, '.worktrees', 'story-1');
+    fs.mkdirSync(wtPath, { recursive: true });
+    const perWtGitdir = path.join(tmp, '.git', 'worktrees', 'story-1');
+    const modulesDir = path.join(perWtGitdir, 'modules', '.agents');
+    fs.mkdirSync(modulesDir, { recursive: true });
+    fs.writeFileSync(path.join(modulesDir, 'HEAD'), 'ref: refs/heads/main\n');
+    // Worktree's .git is a file pointing at the per-worktree gitdir.
+    fs.writeFileSync(path.join(wtPath, '.git'), `gitdir: ${perWtGitdir}\n`);
+
+    const wm = new WorktreeManager({
+      repoRoot: tmp,
+      logger: SILENT_LOGGER,
+      git: mockGit({}),
+      platform: 'linux',
+    });
+    wm._removeCopiedAgents(wtPath);
+
+    assert.equal(
+      fs.existsSync(path.join(perWtGitdir, 'modules')),
+      false,
+      'per-worktree modules/ dir must be purged before git worktree remove',
+    );
+  } finally {
+    fs.rmSync(tmp, { recursive: true, force: true });
+  }
+});
+
+test('_removeCopiedAgents: refuses to purge a gitdir outside the main repos .git/worktrees', () => {
+  // If the `gitdir:` pointer is malformed or points elsewhere, we must NOT
+  // recursively delete that directory.
+  const tmp = fs.mkdtempSync(path.join(os.tmpdir(), 'wt-modules-guard-'));
+  try {
+    fs.writeFileSync(
+      path.join(tmp, '.gitmodules'),
+      '[submodule ".agents"]\n\tpath = .agents\n\turl = ../agents\n',
+    );
+    const wtPath = path.join(tmp, '.worktrees', 'story-1');
+    fs.mkdirSync(wtPath, { recursive: true });
+    // Evil: gitdir points to a sibling directory outside `.git/worktrees/`.
+    const evilGitdir = path.join(tmp, 'evil-gitdir');
+    fs.mkdirSync(path.join(evilGitdir, 'modules'), { recursive: true });
+    fs.writeFileSync(
+      path.join(evilGitdir, 'modules', 'sentinel.txt'),
+      'must survive',
+    );
+    fs.writeFileSync(path.join(wtPath, '.git'), `gitdir: ${evilGitdir}\n`);
+
+    const wm = new WorktreeManager({
+      repoRoot: tmp,
+      logger: SILENT_LOGGER,
+      git: mockGit({}),
+      platform: 'linux',
+    });
+    wm._removeCopiedAgents(wtPath);
+
+    assert.equal(
+      fs.existsSync(path.join(evilGitdir, 'modules', 'sentinel.txt')),
+      true,
+      'out-of-bounds gitdir must not have its modules/ purged',
+    );
+  } finally {
+    fs.rmSync(tmp, { recursive: true, force: true });
+  }
+});
+
 test('_removeCopiedAgents: skips index scrub in non-submodule (framework) repos', () => {
   const tmp = fs.mkdtempSync(path.join(os.tmpdir(), 'wt-framework-'));
   try {

@@ -2,6 +2,37 @@
 
 All notable changes to this project will be documented in this file.
 
+## [5.10.9] - 2026-04-17
+
+Follow-up to the v5.10.8 copy-on-create switch: `git worktree remove`
+was still failing with
+`fatal: working trees containing submodules cannot be moved or removed`
+on some worktrees even after the `.agents/` directory and the index
+gitlink were scrubbed.
+
+### `reap` now purges the per-worktree `modules/` directory (`lib/worktree-manager.js`)
+
+Git's submodule guard in `git worktree remove` fires when EITHER (a) the
+per-worktree index carries a 160000 gitlink OR (b)
+`<common-git-dir>/worktrees/<name>/modules/` exists on disk. Previously
+we only handled (a). Legacy worktrees (and any worktree where the old
+symlink scheme, a stray `git submodule update --init`, or a prior reap
+attempt populated the per-worktree modules dir) were still blocked by
+(b).
+
+`_removeCopiedAgents` now also calls `_purgePerWorktreeSubmoduleDir`,
+which:
+
+- Reads the `gitdir:` pointer from `<wtPath>/.git` to locate the
+  per-worktree gitdir.
+- Refuses to act unless that gitdir lives under
+  `<repoRoot>/.git/worktrees/` (containment guard).
+- Recursively removes `<gitdir>/modules/` if present.
+
+The main repo's `.git/modules/` (which holds the root checkout's
+submodule working dirs) is never touched. Tests cover both the happy
+path and the malformed-pointer guard.
+
 ## [5.10.8] - 2026-04-17
 
 Two related sprint-story-close bugs that together explained the
