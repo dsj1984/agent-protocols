@@ -244,6 +244,38 @@ test('isSafeToRemove: refuses when branch has unmerged commits vs epic', async (
   }
 });
 
+test('isSafeToRemove: refuses when merge verification errors unexpectedly', async () => {
+  const tmp = fs.mkdtempSync(path.join(os.tmpdir(), 'wt-'));
+  const wtPath = path.join(tmp, 'clean');
+  fs.mkdirSync(wtPath, { recursive: true });
+  try {
+    const git = mockGit({
+      'status --porcelain': () => ({ status: 0, stdout: '', stderr: '' }),
+      'rev-parse': (_cwd, args) => {
+        if (args.includes('--abbrev-ref'))
+          return { status: 0, stdout: 'story-235', stderr: '' };
+        return { status: 0, stdout: 'SHA', stderr: '' };
+      },
+      'merge-base': () => ({
+        status: 128,
+        stdout: '',
+        stderr: 'fatal: Not a valid object name epic/229',
+      }),
+    });
+    const wm = new WorktreeManager({
+      repoRoot: tmp,
+      logger: SILENT_LOGGER,
+      git,
+      platform: 'linux',
+    });
+    const r = await wm.isSafeToRemove(wtPath, { epicBranch: 'epic/229' });
+    assert.equal(r.safe, false);
+    assert.match(r.reason, /merge-check-failed/);
+  } finally {
+    fs.rmSync(tmp, { recursive: true, force: true });
+  }
+});
+
 test('isSafeToRemove: safe when clean and merged', async () => {
   const tmp = fs.mkdtempSync(path.join(os.tmpdir(), 'wt-'));
   const wtPath = path.join(tmp, 'clean');
@@ -330,7 +362,7 @@ test('reap: skips unsafe worktree with warning', async () => {
       git,
       platform: 'linux',
     });
-    const r = await wm.reap(235);
+    const r = await wm.reap(235, { epicBranch: 'epic/229' });
     assert.equal(r.removed, false);
     assert.equal(r.reason, 'uncommitted-changes');
     assert.ok(warnings.some((w) => /reap-skipped/.test(w)));
@@ -385,7 +417,7 @@ test('gc: reaps only worktrees for stories NOT in openStoryIds', async () => {
       git,
       platform: 'linux',
     });
-    const r = await wm.gc([235]); // only 235 is still "open"
+    const r = await wm.gc([235], { epicBranch: 'epic/229' }); // only 235 is still "open"
     assert.deepEqual(
       r.reaped.map((x) => x.storyId),
       [236],
@@ -394,6 +426,51 @@ test('gc: reaps only worktrees for stories NOT in openStoryIds', async () => {
   } finally {
     fs.rmSync(tmp, { recursive: true, force: true });
   }
+});
+
+test('reap: refuses managed story worktrees when epicBranch is omitted', async () => {
+  const tmp = fs.mkdtempSync(path.join(os.tmpdir(), 'wt-'));
+  const wtPath = path.join(tmp, '.worktrees', 'story-235');
+  fs.mkdirSync(wtPath, { recursive: true });
+  try {
+    const git = mockGit({
+      'worktree list': () => ({
+        status: 0,
+        stdout: `worktree ${wtPath}\nHEAD x\nbranch refs/heads/story-235\n`,
+        stderr: '',
+      }),
+    });
+    const wm = new WorktreeManager({
+      repoRoot: tmp,
+      logger: SILENT_LOGGER,
+      git,
+      platform: 'linux',
+    });
+    const r = await wm.reap(235);
+    assert.equal(r.removed, false);
+    assert.equal(r.reason, 'epic-branch-required');
+  } finally {
+    fs.rmSync(tmp, { recursive: true, force: true });
+  }
+});
+
+test('prune: runs git worktree prune through WorktreeManager', () => {
+  const git = mockGit({
+    'worktree prune': () => ({ status: 0, stdout: '', stderr: '' }),
+  });
+  const wm = new WorktreeManager({
+    repoRoot: '/repo',
+    logger: SILENT_LOGGER,
+    git,
+    platform: 'linux',
+  });
+  const r = wm.prune();
+  assert.equal(r.pruned, true);
+  assert.ok(
+    git.calls.some(
+      (call) => call.args[0] === 'worktree' && call.args[1] === 'prune',
+    ),
+  );
 });
 
 // ─────────────────── Integration test (real git) ───────────────────
@@ -644,6 +721,36 @@ test('nodeModulesStrategy: symlink refuses on Windows without explicit opt-in', 
   }
 });
 
+test('nodeModulesStrategy: symlink uses junction on Windows when opted in', async () => {
+  const tmp = fs.mkdtempSync(path.join(os.tmpdir(), 'wt-strat-'));
+  const originalSymlinkSync = fs.symlinkSync;
+  const calls = [];
+  try {
+    fs.mkdirSync(path.join(tmp, 'prime', 'node_modules'), { recursive: true });
+    fs.symlinkSync = (...args) => {
+      calls.push(args);
+    };
+    const wm = new WorktreeManager({
+      repoRoot: tmp,
+      config: {
+        nodeModulesStrategy: 'symlink',
+        primeFromPath: 'prime',
+        allowSymlinkOnWindows: true,
+      },
+      logger: SILENT_LOGGER,
+      git: defaultStrategyGit(),
+      platform: 'win32',
+    });
+    await wm.ensure(105, 'story-105');
+    assert.equal(calls.length, 1);
+    const expectedLinkType = process.platform === 'win32' ? 'junction' : 'dir';
+    assert.equal(calls[0][2], expectedLinkType);
+  } finally {
+    fs.symlinkSync = originalSymlinkSync;
+    fs.rmSync(tmp, { recursive: true, force: true });
+  }
+});
+
 test('nodeModulesStrategy: unknown value throws (defense-in-depth vs schema)', async () => {
   const tmp = fs.mkdtempSync(path.join(os.tmpdir(), 'wt-strat-'));
   try {
@@ -865,6 +972,25 @@ test('_copyAgentsFromRoot: recursively copies root .agents into the worktree', (
       false,
       'copied .agents must be a real directory, not a symlink',
     );
+  } finally {
+    fs.rmSync(tmp, { recursive: true, force: true });
+  }
+});
+
+test('_isAgentsSubmodule: accepts quoted .agents path entries', () => {
+  const tmp = fs.mkdtempSync(path.join(os.tmpdir(), 'wt-gitmodules-'));
+  try {
+    fs.writeFileSync(
+      path.join(tmp, '.gitmodules'),
+      '[submodule ".agents"]\n\tpath = ".agents"\n\turl = ../agents\n',
+    );
+    const wm = new WorktreeManager({
+      repoRoot: tmp,
+      logger: SILENT_LOGGER,
+      git: mockGit({}),
+      platform: 'linux',
+    });
+    assert.equal(wm._isAgentsSubmodule(), true);
   } finally {
     fs.rmSync(tmp, { recursive: true, force: true });
   }

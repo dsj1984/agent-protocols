@@ -1,6 +1,6 @@
 import assert from 'node:assert/strict';
 import { beforeEach, describe, it } from 'node:test';
-import { notify } from '../.agents/scripts/notify.js';
+import { notify, parseNotifyArgs } from '../.agents/scripts/notify.js';
 
 describe('notify script', () => {
   let mockProvider;
@@ -152,5 +152,32 @@ describe('notify script', () => {
     } finally {
       process.env.WEBHOOK_SECRET = originalSecret;
     }
+  });
+
+  it('parses explicit --ticket flag for CLI callers', () => {
+    const parsed = parseNotifyArgs([
+      '--ticket',
+      '321',
+      'Epic closed.',
+      '--action',
+    ]);
+    assert.deepEqual(parsed, {
+      ticketId: 321,
+      message: 'Epic closed.',
+      isAction: true,
+    });
+  });
+
+  it('parses legacy numeric ticket id followed by multi-word message', () => {
+    const parsed = parseNotifyArgs([
+      '321',
+      'Planning complete.',
+      'Review now.',
+    ]);
+    assert.deepEqual(parsed, {
+      ticketId: 321,
+      message: 'Planning complete. Review now.',
+      isAction: false,
+    });
   });
 });

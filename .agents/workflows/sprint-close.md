@@ -232,8 +232,6 @@ git tag -a "v[NEW_VERSION]" -m "Release v[NEW_VERSION]: Epic #[EPIC_ID] — [Epi
 Ensure the code is stable and passes all quality gates on the Epic branch before
 merging to `main`.
 
-// turbo
-
 ```powershell
 npm run lint; npm test
 ```
@@ -282,7 +280,8 @@ This automated script performs:
    after closure.
 2. **Epic Closure**: Posts a final summary comment and closes the Epic issue.
 3. **Cleanup**: Deletes all local and remote branches associated with this Epic
-   (can be disabled with `--no-cleanup`).
+   (can be disabled with `--no-cleanup`). Cleanup reaps stale story worktrees
+   and prunes stale worktree registrations before branch deletion.
 
 ## Step 9 — Verify Closure
 
@@ -303,19 +302,6 @@ If the tag is missing (e.g., `--follow-tags` was not used), push it explicitly:
 ```powershell
 git push origin "v[NEW_VERSION]"
 ```
-
-## Step 8.5 — Pre-Cleanup Stash Clear
-
-Before deleting any branches, clear all leftover stashes so that a dirty working
-tree does not block the subsequent `git checkout` or branch-deletion commands:
-
-```powershell
-git stash clear
-```
-
-> **Note:** This is a hard clear — it permanently drops all stashed changes. If
-> you have intentional WIP stashes you need to keep, save them elsewhere
-> _before_ running `/sprint-close`.
 
 ## Step 11 — Internal State Cleanup
 
@@ -346,8 +332,6 @@ up branches.
   **patch** for fixes and refactors.
 - **Always** run `sprint-close.js` (Step 8) to ensure PRD and Tech Spec tickets
   are formally closed — they are excluded from auto-closure during execution.
-- **Always** run `git stash clear` (Step 8.5) before any branch cleanup to
-  prevent stale stashes from blocking branch operations.
 - **Always** delete all Epic, Task, and Story branches after merge to prevent
   branch bloat. Individual remote deletion failures MUST be tolerated — log them
   as warnings and continue.
@@ -356,5 +340,5 @@ up branches.
 ## Step 12 — Notification
 
 ```powershell
-node [SCRIPTS_ROOT]/notify.js "Epic #[EPIC_ID] closed. Merged to [BASE_BRANCH] and branches cleaned up." --action
+node [SCRIPTS_ROOT]/notify.js --ticket [EPIC_ID] "Epic #[EPIC_ID] closed. Merged to [BASE_BRANCH] and branches cleaned up." --action
 ```

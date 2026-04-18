@@ -1,5 +1,6 @@
 import { execFileSync } from 'node:child_process';
 import fs from 'node:fs';
+import { runAsCli } from './lib/cli-utils.js';
 import { Logger } from './lib/Logger.js';
 
 export async function main() {
@@ -51,8 +52,4 @@ export async function main() {
   }
 }
 
-if (import.meta.url === `file://${process.argv[1]}`) {
-  main().catch((err) => {
-    Logger.fatal(`Fatal error: ${err.message}`);
-  });
-}
+runAsCli(import.meta.url, main, { source: 'detect-merges' });

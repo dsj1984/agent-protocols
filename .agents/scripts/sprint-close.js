@@ -163,24 +163,23 @@ async function main() {
   // -------------------------------------------------------------------------
   if (values.cleanup) {
     progress('CLEANUP', 'Starting branch cleanup...');
+    const wtConfig = orchestration?.worktreeIsolation;
+    const wm = new WorktreeManager({
+      repoRoot: PROJECT_ROOT,
+      config: wtConfig,
+      logger: {
+        info: (m) => progress('WORKTREE', m),
+        warn: (m) => progress('WORKTREE', `⚠️ ${m}`),
+        error: (m) => console.error(`[sprint-close] ${m}`),
+      },
+    });
 
     // 3.0a Reap worktrees — must happen before branch deletion. Worktree refs
     // hold implicit locks on their checked-out branches; `git branch -D`
     // fails with "checked out in worktree" if they aren't removed first.
-    const wtConfig = orchestration?.worktreeIsolation;
     if (wtConfig?.enabled) {
       try {
         progress('CLEANUP', 'Reaping stale worktrees...');
-        const wm = new WorktreeManager({
-          repoRoot: PROJECT_ROOT,
-          config: wtConfig,
-          logger: {
-            info: (m) => progress('WORKTREE', m),
-            warn: (m) => progress('WORKTREE', `⚠️ ${m}`),
-            error: (m) => console.error(`[sprint-close] ${m}`),
-          },
-        });
-
         await wm.sweepStaleLocks();
 
         // Empty openStoryIds — the Epic is closing, all stories are done.
@@ -208,17 +207,14 @@ async function main() {
     // 3.0b Prune any worktree bookkeeping for directories that no longer
     // exist on disk. Even without worktreeIsolation enabled, stale entries
     // in `.git/worktrees/` can block branch deletion.
-    gitSpawn(PROJECT_ROOT, 'worktree', 'prune');
-
-    // 3.0c Clear stale stashes — prevents dirty-tree errors during branch switching.
-    progress('CLEANUP', 'Clearing stale git stashes...');
-    const stashResult = gitSpawn(PROJECT_ROOT, 'stash', 'clear');
-    if (stashResult.status !== 0) {
+    progress('CLEANUP', 'Pruning stale worktree registrations...');
+    const pruneResult = wm.prune();
+    if (!pruneResult.pruned) {
       console.warn(
-        `⚠️ Warning: git stash clear failed (non-fatal): ${stashResult.stderr}`,
+        `⚠️ Warning: git worktree prune failed (non-fatal): ${pruneResult.reason}`,
       );
     } else {
-      progress('CLEANUP', '✅ Stash cleared.');
+      progress('CLEANUP', '✅ Worktree registrations pruned.');
     }
 
     // 3.1 Enumerate all branches to delete (epic + matching stories/tasks)

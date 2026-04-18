@@ -130,17 +130,17 @@ async function checkBlockers(provider, _storyId, body) {
   const results = await Promise.all(blockerPromises);
   const active = results.filter((b) => b !== null);
 
-  // Fetch failures are ambiguous — they shouldn't block execution.
-  // Warn about them but only return confirmed open blockers.
+  // Treat verification failures as blocking. Proceeding when dependency state
+  // is unknown is riskier than requiring the operator to retry once the
+  // provider/API is healthy again.
   const fetchErrors = active.filter((b) => b.fetchError);
-  const confirmed = active.filter((b) => !b.fetchError);
   if (fetchErrors.length > 0) {
     progress(
       'BLOCKERS',
-      `⚠️ Could not verify ${fetchErrors.length} blocker(s) (network/API error): ${fetchErrors.map((b) => `#${b.id}`).join(', ')}. Treating as non-blocking.`,
+      `⚠️ Could not verify ${fetchErrors.length} blocker(s) (network/API error): ${fetchErrors.map((b) => `#${b.id}`).join(', ')}. Treating as blocking until verified.`,
     );
   }
-  return confirmed;
+  return active;
 }
 
 function extractAndSortTasks(tasks) {

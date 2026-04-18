@@ -178,6 +178,51 @@ test('sprint-story-init: fails on open blockers', async () => {
   assert.strictEqual(openBlockers[0].id, 99);
 });
 
+test('sprint-story-init: fails closed when blocker verification errors', async () => {
+  const provider = new MockProvider({
+    tickets: {
+      100: {
+        id: 100,
+        title: 'Story 100',
+        body: 'Epic: #50\nblocked by #99',
+        labels: ['type::story'],
+      },
+      50: { id: 50, title: 'Epic 50', labels: ['type::epic'] },
+    },
+  });
+  provider.getTicket = async (id) => {
+    if (id === 99) throw new Error('GitHub API timeout');
+    if (!provider.tickets[id])
+      throw new Error(`Ticket #${id} not found in mock`);
+    return JSON.parse(JSON.stringify(provider.tickets[id]));
+  };
+
+  const { success, blocked, openBlockers } = await runStoryInit({
+    storyId: 100,
+    dryRun: false,
+    injectedProvider: provider,
+    injectedConfig: mockConfig,
+  });
+
+  assert.strictEqual(
+    success,
+    false,
+    'Should fail when blocker state is unknown',
+  );
+  assert.strictEqual(
+    blocked,
+    true,
+    'Unknown blocker verification should block',
+  );
+  assert.strictEqual(
+    openBlockers.length,
+    1,
+    'Should surface the unverified blocker',
+  );
+  assert.strictEqual(openBlockers[0].id, 99);
+  assert.equal(openBlockers[0].fetchError, true);
+});
+
 test('sprint-story-init: epic exists locally only → pushes to remote (no crash)', async () => {
   // Reproduces the #329 crash: epic/50 exists locally from a prior partial
   // run but not remotely. Old logic ran `checkout -b epic/50` and failed.

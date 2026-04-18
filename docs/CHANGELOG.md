@@ -2,6 +2,52 @@
 
 All notable changes to this project will be documented in this file.
 
+## [5.10.10] - 2026-04-18
+
+Follow-up hardening pass on the v5.10.x worktree/sprint-close work, plus
+fixes to issues surfaced during code review of the in-flight changes.
+
+### Worktree safety (`lib/worktree-manager.js`)
+
+- `isSafeToRemove` now fails closed when `git merge-base` returns an
+  unexpected exit (e.g. missing epic branch or ref-lookup failure) rather
+  than silently treating the worktree as safe to reap.
+- `remove` (and therefore `reap`/`gc`) refuses to act on managed
+  `story-N` worktrees unless the caller supplies `epicBranch`, so merge
+  verification cannot be bypassed by omission.
+- New `WorktreeManager.prune()` centralises `git worktree prune` so all
+  mutations flow through a single helper. `sprint-close` now calls it
+  instead of shelling out directly.
+- `.gitmodules` submodule detection accepts quoted `path = ".agents"`
+  entries (previously required an unquoted bareword).
+- Symlink `nodeModulesStrategy` restored to Windows-safe behaviour:
+  `junction` on real Windows hosts (no Administrator required), `dir`
+  elsewhere. Keys off `process.platform`, not the injected test hook.
+- Retry loop replaces a shelled-out `sleep` with `Atomics.wait` on a
+  `SharedArrayBuffer` — no more cross-platform shell contortions.
+
+### CLI and workflows
+
+- `notify.js` extracts `parseNotifyArgs` for testability and adds
+  explicit `--ticket` / `--issue` flags alongside the existing
+  positional-argument modes. Multi-word messages are now joined
+  correctly.
+- `sprint-close.js` reuses a single `WorktreeManager` instance for reap
+  + prune and drops the redundant `git stash clear` step (the workflow
+  doc is updated to match).
+- `sprint-story-init.js` now treats blocker fetch failures as blocking.
+  Proceeding while dependency state is unknown is riskier than requiring
+  the operator to retry once the provider is healthy.
+- `sprint-plan.md` workflow snippets rewritten as PowerShell to match
+  the documented Windows-first development environment.
+- `detect-merges.js` adopts the shared `runAsCli` bootstrap.
+
+### Tests
+
+- New coverage for: merge-check failure path, `epic-branch-required`
+  guard, `prune` helper, Windows junction symlink, quoted-submodule
+  `.gitmodules` parsing, and blocker-verification-fails-closed policy.
+
 ## [5.10.9] - 2026-04-17
 
 Follow-up to the v5.10.8 copy-on-create switch: `git worktree remove`
