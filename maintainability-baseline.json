@@ -58,7 +58,7 @@
   ".agents/scripts/lib/templates/decomposer-prompts.js": 161.228,
   ".agents/scripts/lib/worktree-manager.js": 83.156,
   ".agents/scripts/lint-baseline.js": 86.404,
-  ".agents/scripts/mcp-orchestration.js": 91.329,
+  ".agents/scripts/mcp-orchestration.js": 91.301,
   ".agents/scripts/mcp/run-audit-suite.js": 92.234,
   ".agents/scripts/mcp/select-audits.js": 83.95,
   ".agents/scripts/notify.js": 90.588,
