@@ -35,22 +35,33 @@ for (const file of existing) {
   }
 }
 
-// Copy each workflow, prepending the auto-generated header
+// Copy each workflow, prepending the auto-generated header. Parallelised so
+// the 27-file sync doesn't serialise on per-file fs latency (noticeable on
+// Windows where each syscall pays a larger fixed cost).
 let synced = 0;
-for (const file of sources) {
-  const content = fs.readFileSync(path.join(SRC_DIR, file), 'utf8');
-  const dest = path.join(DEST_DIR, file);
+await Promise.all(
+  sources.map(async (file) => {
+    const content = await fs.promises.readFile(
+      path.join(SRC_DIR, file),
+      'utf8',
+    );
+    const dest = path.join(DEST_DIR, file);
+    const target = HEADER + content;
 
-  // Skip write if content is already identical (avoid noisy git diffs)
-  const target = HEADER + content;
-  if (fs.existsSync(dest) && fs.readFileSync(dest, 'utf8') === target) {
-    continue;
-  }
+    // Skip write if content is already identical (avoid noisy git diffs).
+    // Use try/catch over existsSync+readFile so we only pay one syscall.
+    try {
+      const existingContent = await fs.promises.readFile(dest, 'utf8');
+      if (existingContent === target) return;
+    } catch (err) {
+      if (err.code !== 'ENOENT') throw err;
+    }
 
-  fs.writeFileSync(dest, target, 'utf8');
-  synced++;
-  console.log(`  synced   ${file}`);
-}
+    await fs.promises.writeFile(dest, target, 'utf8');
+    synced++;
+    console.log(`  synced   ${file}`);
+  }),
+);
 
 console.log(
   `\n✔ ${synced} file(s) synced, ${sources.length} total commands in .claude/commands/`,
