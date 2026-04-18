@@ -34,37 +34,11 @@ export function autoSerializeOverlaps(manifest, adjacency) {
   );
 
   const reachable = computeReachability(adjacency);
-  const pendingEdges = []; // [ [fromId, toId], ... ]
-
-  for (let i = 0; i < manifest.tasks.length; i++) {
-    for (let j = i + 1; j < manifest.tasks.length; j++) {
-      const taskA = manifest.tasks[i];
-      const taskB = manifest.tasks[j];
-
-      // Bookend tasks manage lifecycle, not files — skip them
-      if (isBookendTask(taskA) || isBookendTask(taskB)) continue;
-
-      // Skip if neither task declares focusAreas — scope-only matches are not
-      // sufficient evidence of file-level conflict
-      const setA = focusSets.get(taskA.id);
-      const setB = focusSets.get(taskB.id);
-      if (setA.size === 0 && setB.size === 0) continue;
-
-      const isGlobalA = taskA.scope === 'root' || setA.has('*');
-      const isGlobalB = taskB.scope === 'root' || setB.has('*');
-      const overlap =
-        isGlobalA || isGlobalB || [...setA].some((a) => setB.has(a));
-
-      if (overlap) {
-        const aReachesB = reachable.get(taskA.id)?.has(taskB.id);
-        const bReachesA = reachable.get(taskB.id)?.has(taskA.id);
-
-        if (!aReachesB && !bReachesA) {
-          pendingEdges.push([taskA.id, taskB.id]);
-        }
-      }
-    }
-  }
+  const pendingEdges = _collectPendingEdges(
+    manifest.tasks,
+    focusSets,
+    reachable,
+  );
 
   // Phase B: apply all collected edges in a single pass & rebuild once
   const graphMutated = pendingEdges.length > 0;
@@ -305,3 +279,39 @@ export function computeStoryWaves(storyGroups, explicitDeps) {
 
 // Exported for targeted unit testing; not part of the stable module API.
 export const __test = { rollUpStoryFocus, addFocusOverlapEdges };
+
+/**
+ * Internal helper to find all pairs of tasks that overlap but don't yet have
+ * a dependency ordering between them.
+ *
+ * @param {object[]} tasks     — The array of tasks to check.
+ * @param {Map}      focusSets — Map of taskId to Set of focus areas.
+ * @param {Map}      reachable — Reachability matrix to check existing paths.
+ * @returns {Array[]}            List of [fromId, toId] pairs.
+ */
+function _collectPendingEdges(tasks, focusSets, reachable) {
+  const pendingEdges = [];
+  for (let i = 0; i < tasks.length; i++) {
+    for (let j = i + 1; j < tasks.length; j++) {
+      const taskA = tasks[i];
+      const taskB = tasks[j];
+      if (isBookendTask(taskA) || isBookendTask(taskB)) continue;
+
+      const setA = focusSets.get(taskA.id);
+      const setB = focusSets.get(taskB.id);
+      if (setA.size === 0 && setB.size === 0) continue;
+
+      const isGlobalA = taskA.scope === 'root' || setA.has('*');
+      const isGlobalB = taskB.scope === 'root' || setB.has('*');
+      const overlap =
+        isGlobalA || isGlobalB || [...setA].some((a) => setB.has(a));
+
+      if (overlap) {
+        const aReachesB = reachable.get(taskA.id)?.has(taskB.id);
+        const bReachesA = reachable.get(taskB.id)?.has(taskA.id);
+        if (!aReachesB && !bReachesA) pendingEdges.push([taskA.id, taskB.id]);
+      }
+    }
+  }
+  return pendingEdges;
+}
