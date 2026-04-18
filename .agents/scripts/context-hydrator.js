@@ -17,30 +17,7 @@ export {
 
 import { hydrateContext } from './lib/orchestration/context-hydration-engine.js';
 
-async function main() {
-  const { values } = parseArgs({
-    options: {
-      task: { type: 'string' },
-      epic: { type: 'string' },
-      output: { type: 'string' },
-    },
-    strict: false,
-  });
-
-  const taskId = parseInt(values.task ?? '', 10);
-  const epicId = parseInt(values.epic ?? '', 10);
-
-  if (!taskId || !epicId) {
-    Logger.fatal();
-  }
-
-  const { orchestration } = resolveConfig();
-  const provider = createProvider(orchestration);
-
-  console.error(
-    `[Hydrator] Hydrating context for Task #${taskId} (Epic #${epicId})...`,
-  );
-
+export async function generatePrompt(taskId, epicId, provider) {
   // Fetch full task ticket to get labels/body
   const t = await provider.getTicket(taskId);
   const labels = t.labels;
@@ -65,13 +42,34 @@ async function main() {
   const epicBranch = getEpicBranch(epicId);
   const taskBranch = getStoryBranch(epicId, storyId);
 
-  const prompt = await hydrateContext(
-    task,
-    provider,
-    epicBranch,
-    taskBranch,
-    epicId,
+  return hydrateContext(task, provider, epicBranch, taskBranch, epicId);
+}
+
+async function main() {
+  const { values } = parseArgs({
+    options: {
+      task: { type: 'string' },
+      epic: { type: 'string' },
+      output: { type: 'string' },
+    },
+    strict: false,
+  });
+
+  const taskId = parseInt(values.task ?? '', 10);
+  const epicId = parseInt(values.epic ?? '', 10);
+
+  if (!taskId || !epicId) {
+    Logger.fatal('Missing required arguments: --task and --epic');
+  }
+
+  const { orchestration } = resolveConfig();
+  const provider = createProvider(orchestration);
+
+  console.error(
+    `[Hydrator] Hydrating context for Task #${taskId} (Epic #${epicId})...`,
   );
+
+  const prompt = await generatePrompt(taskId, epicId, provider);
 
   if (values.output) {
     fs.writeFileSync(values.output, prompt, 'utf8');
