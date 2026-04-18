@@ -311,8 +311,10 @@ async function main() {
     }
 
     if (!_validateMcpRequest(req)) {
+      // Echo req.id when present so clients can correlate the error to the
+      // request they sent — matches the catch-block pattern below.
       sendError(
-        null,
+        req?.id ?? null,
         -32600,
         'Invalid Request: schema validation failed',
         _validateMcpRequest.errors,
