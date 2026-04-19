@@ -339,6 +339,20 @@ async function handleHighRiskGate(
   Logger.error('false in `.agentrc.json`.');
   Logger.error('');
 
+  try {
+    await notify(storyId, {
+      type: 'action',
+      message:
+        `HITL gate: Story #${storyId} (\`${storyBranch}\`) is risk::high ` +
+        'and awaiting operator decision (Proceed / Option 1 / Option 2 / ' +
+        'Option 3). Story branch not merged.',
+    });
+  } catch (err) {
+    Logger.warn(
+      `[sprint-story-close] HITL webhook/mention failed (non-fatal): ${err.message}`,
+    );
+  }
+
   return {
     action: 'paused-for-approval',
     reason:

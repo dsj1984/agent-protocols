@@ -2,6 +2,21 @@
 
 All notable changes to this project will be documented in this file.
 
+## [5.11.1] - 2026-04-19
+
+### HITL gate notifications
+
+- `dispatch-engine.handleRiskHighGate` and
+  `sprint-story-close.handleHighRiskGate` now fire the configured action
+  webhook (via `notify.js --type action`) in addition to posting the GitHub
+  comment / stderr pause prompt. When
+  `orchestration.notifications.webhookUrl` is unset the webhook call is a
+  graceful no-op, preserving existing behaviour for operators who rely only
+  on the in-chat prompt.
+- Failures in the webhook/mention path are logged as non-fatal warnings and
+  never abort the HITL halt itself — the gate still pauses for the operator
+  decision regardless of notification delivery.
+
 ## [5.11.0] - 2026-04-19
 
 BDD / acceptance-tier standardisation across the framework. Epic #269
