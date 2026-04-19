@@ -148,7 +148,7 @@ files. The library layout below keeps that coupling visible.
 
 ### 4.1 Layout
 
-```
+```text
 tests/
   steps/
     _common/          # actor, auth, navigation — reused across every domain
