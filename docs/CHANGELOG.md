@@ -2,6 +2,72 @@
 
 All notable changes to this project will be documented in this file.
 
+## [5.11.0] - 2026-04-19
+
+BDD / acceptance-tier standardisation across the framework. Epic #269
+introduces a pyramid-aware testing contract: `.feature` files are authored
+against a single canonical rule, executed via a dedicated workflow, and
+ingested as sprint evidence through the QA lifecycle.
+
+### New rule
+
+- **`.agents/rules/gherkin-standards.md`** — sole SSOT for Gherkin authoring:
+  tag taxonomy (`@smoke`, `@risk-high`, `@platform-*`, `@domain-*`, `@flaky`),
+  forbidden patterns (SQL, status codes, selectors, URLs, payloads, framework
+  names, explicit waits), Scenario Outline conventions, selector discipline,
+  and the grep-before-you-write step-reuse protocol.
+
+### New skills (`skills/stack/qa/`)
+
+- **`gherkin-authoring`** — canonical Given/When/Then phrasing, PRD AC →
+  Scenario translation, Background vs. Given, Outline vs. multi-Scenario,
+  step-definition library layout, and an authoring checklist. Defers to
+  `gherkin-standards.md` for enforcement rules.
+- **`playwright-bdd`** — runtime wiring between `.feature` files and
+  Playwright: config patterns, fixture composition, tag-filtered execution,
+  trace/debug workflow, and sharding/CI notes. References
+  `gherkin-standards.md` for the tag taxonomy rather than redefining it.
+
+### Rewritten rule
+
+- **`.agents/rules/testing-standards.md`** — now pyramid-aware. Every test
+  belongs to exactly one of three tiers (unit, contract, e2e / acceptance)
+  with explicit scope, dependency, assertion, and location rules per tier.
+  Status-code and wire-shape assertions are tier-placed at contract; the
+  acceptance tier defers to `gherkin-standards.md`.
+
+### New workflow
+
+- **`.agents/workflows/run-bdd-suite.md`** (`/run-bdd-suite`) — tag-filtered
+  acceptance runner. Generates step bindings, executes the tagged subset,
+  and emits a Cucumber HTML/JSON report as the canonical evidence artifact.
+
+### Updated workflow
+
+- **`.agents/workflows/sprint-testing.md`** — now consumes the Cucumber
+  report produced by `/run-bdd-suite` as QA evidence. The sprint-testing
+  ticket is gated on all scenarios being `passed`; `failed` or `pending`
+  runs keep the ticket open.
+
+### Docs refresh
+
+- **`.agents/SDLC.md`** — new Testing Strategy section pointing at
+  `testing-standards.md`, `gherkin-standards.md`, `run-bdd-suite.md`, and
+  `sprint-testing.md`; PRD-authoring tip now recommends Gherkin-compatible
+  `Given/When/Then` phrasing for acceptance criteria so ACs lift straight
+  into `.feature` files.
+- **`.agents/README.md`** and root **`README.md`** — skill and rule indices
+  updated for the new entries; stack skill count is now 22 and rule count
+  is now 9.
+
+### Upgrade notes
+
+- No breaking changes. Consumers on v5.10.x can upgrade by pulling the
+  updated `.agents/` submodule; no `.agentrc.json` migration is required.
+- Projects that already author `.feature` files should audit their tag
+  usage against the new canonical taxonomy — ad-hoc tags now require a PR
+  to `gherkin-standards.md` before use.
+
 ## [5.10.10] - 2026-04-18
 
 Follow-up hardening pass on the v5.10.x worktree/sprint-close work, plus
