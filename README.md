@@ -123,10 +123,10 @@ agent-protocols/
 │   ├── SDLC.md               # End-to-end workflow guide
 │   ├── README.md             # Detailed consumer reference
 │   ├── personas/             # Role-specific behavior (12 personas)
-│   ├── rules/                # Domain-agnostic coding standards (8 rules)
+│   ├── rules/                # Domain-agnostic coding standards (9 rules)
 │   ├── skills/               # Two-tier skill library
 │   │   ├── core/             # Universal process skills (20 skills)
-│   │   └── stack/            # Tech-stack-specific guardrails (20 skills)
+│   │   └── stack/            # Tech-stack-specific guardrails (22 skills)
 │   ├── workflows/            # Slash-command automation (24 workflows)
 │   ├── scripts/              # Orchestration engine
 │   │   ├── lib/              # Core libraries (config, interfaces, factory)

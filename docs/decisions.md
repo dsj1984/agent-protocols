@@ -106,3 +106,56 @@ Supporting decisions:
     *   Real-git integration test (`tests/integration/parallel-sprint.test.js`)
         asserts AC6 (no WIP cross-contamination across five concurrent
         stories) and AC7 (main-checkout reflog quiet) on every run.
+
+---
+
+## ADR 004: Gherkin Standards as Sole SSOT for BDD Tags & Forbidden Patterns
+
+**Status:** Accepted
+**Date:** 2026-04-19
+**Epic:** #269
+
+### Context
+
+Epic #269 introduces a BDD authoring framework: one rule
+(`.agents/rules/gherkin-standards.md`), two skills
+(`skills/stack/qa/gherkin-authoring`, `skills/stack/qa/playwright-bdd`), one
+workflow (`/run-bdd-suite`), and a pyramid-aware rewrite of
+`testing-standards.md`. Without a single source of truth for the tag taxonomy
+and forbidden patterns, the two skills and every consuming project would
+inevitably drift into parallel vocabularies — exactly the failure mode that
+made Cucumber suites unmaintainable in earlier industry cycles.
+
+### Decision
+
+`.agents/rules/gherkin-standards.md` is the **sole** SSOT for:
+
+- the canonical tag taxonomy (`@smoke`, `@risk-high`, `@platform-*`,
+  `@domain-*`, `@flaky`);
+- the forbidden-pattern list (SQL/ORM calls, status codes, DOM selectors, raw
+  URLs, payloads, framework names, explicit waits);
+- Scenario Outline conventions, selector discipline, and the step-reuse
+  protocol.
+
+Skills and workflows MUST reference the rule rather than restate it. Additions
+to the taxonomy require a PR that updates the rule before use. The
+`testing-standards.md` pyramid rule is the companion SSOT for tier-placement of
+assertions; acceptance-tier scenarios defer shape-of-data concerns to contract
+tests rather than encoding them in `.feature` files.
+
+### Consequences
+
+*   **Positive:**
+    *   One place to look for the tag grammar; reviewers can mechanically
+        reject unknown tags.
+    *   `gherkin-authoring` and `playwright-bdd` stay focused on *how* and
+        *when* without redefining *what*.
+    *   The audit from Task #294 becomes a repeatable pattern — grep the
+        skills for redefinition, point at the rule.
+*   **Negative:**
+    *   Rule-level changes are higher friction than editing a skill; adding a
+        new domain tag requires a PR to the rule.
+*   **Mitigation:**
+    *   `@domain-<slug>` is extensible by design — consumers pick their own
+        slug without touching the rule. Only the top-level tag *categories*
+        are closed.
