@@ -366,6 +366,19 @@ async function handleRiskHighGate(task, provider, dryRun) {
       body: `⚠️ **HITL Gate**: This task is flagged \`risk::high\` and requires operator approval before dispatch.\n\nTo approve, reply with: \`/approve ${task.id}\``,
       type: 'notification',
     });
+    try {
+      await notify(task.id, {
+        type: 'action',
+        message:
+          `HITL gate: Task #${task.id} is risk::high and held for ` +
+          `operator approval. Reply \`/approve ${task.id}\` to dispatch.`,
+      });
+    } catch (err) {
+      vlog.info(
+        'orchestration',
+        `[risk::high] HITL webhook/mention failed (non-fatal): ${err.message}`,
+      );
+    }
   }
   return {
     taskId: task.id,
