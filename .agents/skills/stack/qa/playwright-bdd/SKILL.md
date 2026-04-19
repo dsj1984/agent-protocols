@@ -50,9 +50,10 @@ wiring between them.
 
 - Drive runs via tag expressions, not filename globs:
   `npx bddgen && npx playwright test --grep "@smoke and not @flaky"`.
-- Reserve a small canonical tag set (`@smoke`, `@regression`, `@slow`,
-  `@flaky`) per the `gherkin-standards` rule; domain tags use the
-  `@domain-*` extension syntax.
+- Use the canonical tag taxonomy defined in
+  [`.agents/rules/gherkin-standards.md`](../../../../rules/gherkin-standards.md#tag-taxonomy)
+  (`@smoke`, `@risk-high`, `@platform-*`, `@domain-*`). Do not invent
+  parallel tag vocabularies in the runner config; extend via `@domain-*` only.
 - Wire the `/run-bdd-suite <tag-expression>` workflow to a single npm script
   so operators never reconstruct the generate-then-run sequence by hand.
 - Fail the run if generation produces zero matching scenarios — a silent
