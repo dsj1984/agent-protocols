@@ -76,20 +76,44 @@ of the pyramid.
   `tests/steps/**` (or the project's equivalent). The companion skill is
   [`stack/qa/playwright-bdd`](../skills/stack/qa/playwright-bdd/SKILL.md).
 
-## Assertion Placement Rule
+## Assertion Placement Rule {#assertion-placement}
 
-DB state assertions and API-shape assertions (status codes, response bodies,
-error envelopes, pagination metadata, schema conformance) belong at the
-**contract** tier. They MUST NOT appear in `.feature` files, and SHOULD NOT
-appear in unit tests (unit tests exercise pure logic, not wire shapes). If a
-reviewer sees a status-code check or a DB row assertion in a `.feature`
-file, that is grounds to push the assertion down to a contract test. See
-[`gherkin-standards.md#forbidden-patterns`](./gherkin-standards.md#forbidden-patterns)
-for the companion prohibition on `.feature` authoring.
+**DB assertions and API-shape assertions MUST live at the contract tier.**
+They MUST NOT appear in `.feature` files, and SHOULD NOT appear in unit
+tests.
 
-This single rule is the pyramid's load-bearing constraint: it is why
-contract tests exist as a distinct tier, and why e2e scenarios stay
-readable and stable.
+"DB assertions" means any check against persisted state — a row count, a
+column value, the presence or absence of a record after a write.
+
+"API-shape assertions" means any check against wire format or transport
+semantics, including:
+
+- HTTP status codes (`200`, `401`, `404`, etc.)
+- Response body shape, field names, field types
+- Error envelope structure (error codes, error messages, problem+json
+  fields)
+- Pagination metadata (cursors, page counts, `total` fields)
+- JSON/OpenAPI/Zod schema conformance
+- Header values that carry protocol semantics (`Location`, `ETag`,
+  `Retry-After`)
+
+When a reviewer finds one of the above in a `.feature` file, the required
+remediation is to delete it from the scenario and add (or extend) a
+contract test that covers the assertion. The scenario should assert the
+**user-visible outcome** only ("the invoice appears in the outbox"), not
+the wire shape that produced it.
+
+This rule is enforced bidirectionally: the companion prohibition on
+`.feature` authoring lives in
+[`gherkin-standards.md § Forbidden Patterns`](./gherkin-standards.md#forbidden-patterns),
+which forbids raw SQL, HTTP status codes, DOM selectors, URLs, and JSON
+payloads inside scenarios. That list and this section are two sides of the
+same constraint: shape and state belong in contract tests; business
+outcomes belong in acceptance scenarios.
+
+This is the pyramid's load-bearing constraint. It is why the contract
+tier exists as a distinct layer, and why acceptance scenarios stay
+readable, stable, and free of implementation churn.
 
 ## Test Structure (Arrange, Act, Assert)
 
