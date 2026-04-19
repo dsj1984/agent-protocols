@@ -12,7 +12,7 @@ framework via the `.agents/` Git submodule.
 ├── instructions.md          # MANDATORY: Primary system prompt
 ├── default-agentrc.json     # Copy to project root as .agentrc.json
 ├── personas/                # 12 role-specific behavior constraints
-├── rules/                   # 8 domain-agnostic coding standards
+├── rules/                   # 9 domain-agnostic coding standards
 ├── schemas/                 # JSON Schemas for structured output validation
 ├── scripts/                 # v5 orchestration engine (CLI wrappers + SDK)
 │   ├── lib/                 # Core libraries, orchestration SDK, providers
@@ -22,7 +22,7 @@ framework via the `.agents/` Git submodule.
 │   └── mcp-orchestration.js # MCP Server entry point
 ├── skills/                  # Two-tier skill library
 │   ├── core/                # Universal process skills (20 skills)
-│   └── stack/               # Tech-stack-specific guardrails (20 skills)
+│   └── stack/               # Tech-stack-specific guardrails (22 skills)
 ├── templates/               # Context hydration and CI templates
 └── workflows/               # 24 slash-command workflows
 ```
@@ -260,7 +260,8 @@ Modular, domain-agnostic standards loaded by the system prompt.
 | `database-standards.md`              | Database        | Migration safety, naming, and indexing strategies      |
 | `git-conventions.md`                 | Version Control | Branching strategy and PR quality standards            |
 | `security-baseline.md`               | Security        | OWASP basics, credential safety, and encryption rules  |
-| `testing-standards.md`               | Quality         | Coverage thresholds and unit testing philosophy        |
+| `testing-standards.md`               | Quality         | Pyramid tiers, coverage thresholds, assertion rules    |
+| `gherkin-standards.md`               | Quality         | `.feature` grammar, tag taxonomy, forbidden patterns   |
 | `ui-copywriting.md`                  | UX              | Content tone, error messaging, and labeling standards  |
 | `search-and-execution-heuristics.md` | Shell & Search  | Optimized command usage and pipeline safety heuristics |
 
@@ -316,11 +317,13 @@ The skill library uses a **two-tier architecture**: universal process skills
 | `google-analytics-v4`           | `frontend`     | Secure event logging for GA4                          |
 | `tailwind-v4`                   | `frontend`     | Ensures strict Tailwind v4 class usage                |
 | `audit-accessibility`           | `qa`           | WCAG automated scanning compliance                    |
+| `gherkin-authoring`             | `qa`           | Business-readable `.feature` files, per-tag routing   |
 | `playwright`                    | `qa`           | Rules for writing robust Playwright E2E tests         |
+| `playwright-bdd`                | `qa`           | Binds Gherkin `.feature` files to Playwright steps    |
 | `vitest`                        | `qa`           | Unit test automation with Vitest                      |
 | `backend-security-patterns`     | `security`     | Clerk auth hardening + PII-safe telemetry/logging     |
 
-> [!NOTE] The stack skill count (20) reflects skill directories containing a
+> [!NOTE] The stack skill count (22) reflects skill directories containing a
 > `SKILL.md` file; a few also include `examples/` or `scripts/` folders with
 > companion context files.
 
