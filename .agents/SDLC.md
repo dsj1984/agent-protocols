@@ -110,6 +110,12 @@ The framework reads the Epic and autonomously builds the entire work breakdown.
    - Generates a **PRD** (`context::prd`) and **Tech Spec**
      (`context::tech-spec`) as linked GitHub Issues.
 
+> [!TIP] **PRD authoring — acceptance criteria phrasing.** Write acceptance
+> criteria in Gherkin-compatible `Given / When / Then` form so the QA sprint
+> suite can lift them directly into executable `.feature` files. See
+> [`rules/gherkin-standards.md`](rules/gherkin-standards.md) for the canonical
+> clause grammar, tag taxonomy, and forbidden patterns.
+
 1. **Ticket Decomposer** (`ticket-decomposer.js`):
    - Recursively decomposes specs into a 4-tier hierarchy:
 
@@ -251,6 +257,23 @@ Once Story waves complete, the bookend lifecycle begins.
    - **Close**: `/sprint-close` merges the Epic branch to `main`, validates
      documentation freshness, bumps the version, tags the release, and closes
      the Epic issue (including PRD/Tech Spec context tickets).
+
+---
+
+## Testing Strategy
+
+Sprints are **pyramid-aware**. Every test written during `/sprint-execute`
+belongs to exactly one of three tiers — **unit**, **contract**, or **e2e /
+acceptance** — and each tier has distinct scope, dependency, and assertion
+rules. The canonical tier definitions, assertion-placement rules, and coverage
+thresholds live in
+[`rules/testing-standards.md`](rules/testing-standards.md); Gherkin authoring
+for the acceptance tier is governed by
+[`rules/gherkin-standards.md`](rules/gherkin-standards.md).
+
+The acceptance tier is executed and reported via
+[`workflows/run-bdd-suite.md`](workflows/run-bdd-suite.md) and consumed as
+sprint evidence by [`workflows/sprint-testing.md`](workflows/sprint-testing.md).
 
 ---
 
