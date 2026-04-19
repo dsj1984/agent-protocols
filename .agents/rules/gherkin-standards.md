@@ -20,6 +20,9 @@ scenarios. Use the canonical set below; do not invent ad-hoc tags.
 - `@platform-mobile` — scenarios that only make sense on the mobile client.
 - `@domain-<slug>` — domain scope (e.g. `@domain-billing`, `@domain-auth`).
   The slug is project-defined; one tag per scenario.
+- `@flaky` — operational quarantine tag. Scenarios carrying this tag are
+  excluded from the gating suite and run in a dedicated non-blocking job
+  until stabilized. Treat `@flaky` as a debt marker, not a permanent label.
 
 Rules:
 
