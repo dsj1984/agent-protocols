@@ -89,3 +89,16 @@ Shape returned during `WorktreeManager.gc` evaluation.
 | `clean`  | `boolean` | `true` if `git status --porcelain` is empty.                                    |
 | `merged` | `boolean` | `true` if `git merge-base --is-ancestor branch epicBranch` exits 0.             |
 | `safe`   | `boolean` | `clean && merged`. Gates `git worktree remove`.                                 |
+
+### 5. Gherkin Tag Taxonomy (v5.11.0+)
+
+Canonical tag set enforced by `.agents/rules/gherkin-standards.md`. Tags outside this set MUST be proposed in a PR that updates the rule before use.
+
+| Tag               | Scope                  | Usage                                                                                                |
+| ----------------- | ---------------------- | ---------------------------------------------------------------------------------------------------- |
+| `@smoke`          | Suite membership       | Minimal critical-path scenarios that MUST pass on every PR.                                          |
+| `@risk-high`      | Suite membership       | Scenarios covering flows flagged `risk::high` on the originating ticket; runs on every RC.           |
+| `@platform-web`   | Platform exclusive     | Scenario only makes sense on the web client.                                                         |
+| `@platform-mobile`| Platform exclusive     | Scenario only makes sense on the mobile client.                                                      |
+| `@domain-<slug>`  | Domain scope (required)| Exactly one per scenario. Slug is project-defined (e.g. `@domain-billing`, `@domain-auth`).          |
+| `@flaky`          | Operational quarantine | Scenario excluded from the gating suite; runs in a non-blocking job until stabilized. Debt marker.  |

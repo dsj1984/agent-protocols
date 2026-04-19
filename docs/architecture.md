@@ -671,6 +671,28 @@ conventions to follow.
 - **CI:** GitHub Actions
 - **Distribution:** GitHub Releases (tagged from `main` by `/sprint-close`)
 
+### Testing Contract (v5.11.0+)
+
+Consumers of the framework follow a **pyramid-aware** testing contract defined
+in `.agents/rules/testing-standards.md`. Every test belongs to exactly one of
+three tiers and carries distinct scope, dependency, and assertion rules:
+
+- **Unit** — pure logic, no I/O; assertions on return values and rendered
+  output. Mutation testing (when configured) lives here.
+- **Contract** — API ↔ DB invariants and schema conformance; this is the sole
+  correct home for HTTP status codes, response body shapes, and error-envelope
+  assertions.
+- **E2E / Acceptance** — `.feature` files authored against
+  `.agents/rules/gherkin-standards.md` (the SSOT for the tag taxonomy and
+  forbidden patterns) and executed via `/run-bdd-suite`, whose Cucumber
+  HTML/JSON report is the canonical evidence artifact consumed by
+  `/sprint-testing`.
+
+Stack skills `skills/stack/qa/gherkin-authoring` and `skills/stack/qa/playwright-bdd`
+provide authoring guidance and runtime wiring respectively; neither redefines
+the rule. Scripts in this repository do not themselves run `.feature` files —
+they ship the contract that consumer projects implement.
+
 ### What the Agent Should **Not** Assume
 
 - There is no monorepo tool (no Turborepo, no pnpm workspaces) — this is a

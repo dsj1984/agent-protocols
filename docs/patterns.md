@@ -76,3 +76,51 @@ Each dispatched story runs in its own `git worktree`:
     by bounded retry (`gitFetchWithRetry`) rather than a global mutex.
 *   Windows path limits require a pre-flight warning when estimated depth
     exceeds the configured threshold.
+
+## Rule-as-SSOT, Skill-as-Guidance (v5.11.0+)
+
+### Problem
+
+When a framework ships both enforcement rules (`rules/*.md`) and authoring
+guidance (`skills/**/SKILL.md`) covering the same domain, the skill tends to
+drift — restating the rule's grammar in slightly different words, or inventing
+parallel vocabularies when no constraint forces coherence. Over time the two
+diverge, the reviewer has two documents to consult, and the rule's authority
+erodes.
+
+### Solution
+
+Adopt a strict layering:
+
+1. **Rule (`rules/<domain>.md`)** — the single SSOT for taxonomy, grammar,
+   and forbidden patterns in its domain. Defines *what* is allowed.
+2. **Skill (`skills/**/SKILL.md`)** — describes *how* and *when* authors
+   apply the rule. Cross-links to the rule for the *what*; never restates
+   the taxonomy or forbidden list.
+3. **Workflow (`workflows/*.md`)** — describes *who triggers* the work and
+   what artifact flows through the sprint. Defers to rule and skill for
+   authoring specifics.
+
+Enforced by a cross-reference audit (see Story #282 / Task #294): grep each
+skill for redefinition of rule content and rewrite any violations.
+
+### Benefits
+
+*   Reviewers have exactly one place to verify tag or pattern validity.
+*   Additions to the taxonomy require a rule PR — a deliberate, visible
+    act rather than a silent divergence in a skill.
+*   Skills stay short and focused on applied craft, not vocabulary.
+
+### Trade-offs
+
+*   Higher friction to add a new tag or forbidden pattern (rule PR + review).
+*   Mitigated by designing extensible dimensions into the rule itself — e.g.
+    `@domain-<slug>` lets consumers add project-specific domains without
+    touching the rule.
+
+### Example (this Epic)
+
+`.agents/rules/gherkin-standards.md` owns the tag taxonomy and forbidden
+patterns. `gherkin-authoring` teaches PRD AC → Scenario translation and the
+step-reuse protocol by *pointing at* the rule. `playwright-bdd` configures the
+runtime but *references* the rule's tag set instead of picking its own.
