@@ -49,6 +49,16 @@ Read execution telemetry directly from GitHub — **not** from local files:
    `sprint-code-review.js`). Summarise any Critical Blocker / High Risk findings
    in the **Architectural Debt** section of the retro body below. If no comment
    is present, note "no automated code-review findings".
+5. **Fetch the parked-follow-ons structured comment** (if present) from the Epic
+   — filter by `ap:structured-comment type="parked-follow-ons"` (posted by the
+   dispatcher). The JSON block lists **recuts** (Stories created mid-sprint
+   carrying a `<!-- recut-of: #N -->` marker attributable to a manifest Story)
+   and **parked** follow-ons (Stories without manifest lineage). Attribute
+   recuts back to their parent Story in the scorecard so the sprint count lines
+   up with the frozen manifest, and call out any parked follow-ons in **Action
+   Items for Next Epic**. Each Story also declares its recut lineage directly in
+   its body via the `<!-- recut-of: #N -->` marker — read that as a fallback
+   when the structured comment is absent.
 
 ## Step 2 — Compose the Retrospective Markdown
 

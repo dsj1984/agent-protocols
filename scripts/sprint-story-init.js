@@ -46,6 +46,10 @@ import {
   gitSpawn,
 } from './lib/git-utils.js';
 import { Logger } from './lib/Logger.js';
+import {
+  injectRecutMarker,
+  parseRecutMarker,
+} from './lib/orchestration/recut.js';
 import { STATE_LABELS } from './lib/orchestration/ticketing.js';
 import { createProvider } from './lib/provider-factory.js';
 import {
@@ -296,14 +300,21 @@ export async function runStoryInit({
   storyId: storyIdParam,
   dryRun: dryRunParam,
   cwd: cwdParam,
+  recutOf: recutOfParam,
   injectedProvider,
   injectedConfig,
 } = {}) {
   const parsed =
     storyIdParam !== undefined
-      ? { storyId: storyIdParam, dryRun: !!dryRunParam, cwd: cwdParam ?? null }
+      ? {
+          storyId: storyIdParam,
+          dryRun: !!dryRunParam,
+          cwd: cwdParam ?? null,
+          recutOf: recutOfParam ?? null,
+        }
       : parseSprintArgs();
   const { storyId, dryRun } = parsed;
+  const recutOf = recutOfParam ?? parsed.recutOf ?? null;
   // Worktree-aware cwd resolution: explicit param > --cwd flag > env > PROJECT_ROOT.
   const cwd = path.resolve(cwdParam ?? parsed.cwd ?? PROJECT_ROOT);
 
@@ -318,8 +329,46 @@ export async function runStoryInit({
 
   progress('INIT', `Initializing Story #${storyId}...`);
 
-  const { story, body, epicId, featureId, prdId, techSpecId } =
+  let { story, body, epicId, featureId, prdId, techSpecId } =
     await resolveStoryContext(provider, storyId);
+
+  if (recutOf) {
+    if (recutOf === storyId) {
+      throw new Error(
+        `[sprint-story-init] --recut-of #${recutOf} cannot point at the Story itself.`,
+      );
+    }
+    const existing = parseRecutMarker(body);
+    if (existing && existing.parentStoryId !== recutOf) {
+      progress(
+        'RECUT',
+        `⚠️ Story #${storyId} already marked recut-of #${existing.parentStoryId}; overwriting with #${recutOf}.`,
+      );
+    }
+    if (!existing || existing.parentStoryId !== recutOf) {
+      const patched = injectRecutMarker(body, recutOf);
+      if (!dryRun) {
+        await provider.updateTicket(storyId, { body: patched });
+        progress(
+          'RECUT',
+          `🪪 Marked Story #${storyId} as recut-of #${recutOf} on the ticket body.`,
+        );
+      } else {
+        progress(
+          'RECUT',
+          `[DRY-RUN] Would mark Story #${storyId} as recut-of #${recutOf}.`,
+        );
+      }
+      body = patched;
+      story = { ...story, body: patched };
+    } else {
+      progress(
+        'RECUT',
+        `Story #${storyId} already carries recut-of #${recutOf} marker.`,
+      );
+    }
+  }
+
   progress(
     'CONTEXT',
     `Epic: #${epicId}, Feature/Parent: #${featureId ?? 'none'}`,
@@ -447,6 +496,7 @@ export async function runStoryInit({
     prdId,
     techSpecId,
     dryRun,
+    recutOf,
   });
 
   emitStoryInitResult(result, {
@@ -473,6 +523,7 @@ function buildStoryInitResult({
   prdId,
   techSpecId,
   dryRun,
+  recutOf,
 }) {
   return {
     storyId,
@@ -484,6 +535,7 @@ function buildStoryInitResult({
     workCwd,
     worktreeCreated,
     installFailed,
+    recutOf: recutOf ?? null,
     tasks: sortedTasks.map((t) => ({
       id: t.id,
       title: t.title,
