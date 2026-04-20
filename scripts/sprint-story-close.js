@@ -192,10 +192,31 @@ async function reapStoryWorktree({
     const reapResult = await wm.reap(storyId, { epicBranch });
     if (reapResult.removed) {
       progress('WORKTREE', `🗑️  Reaped worktree: ${reapResult.path}`);
-    } else if (reapResult.reason && reapResult.reason !== 'not-a-worktree') {
+    } else if (reapResult.reason) {
+      // Previously the `not-a-worktree` branch was silent, which hid a drive-
+      // letter-case bug in `_findByPath` on Windows and let stale worktrees
+      // accumulate across runs. Always surface a reap-skip with remediation.
       progress(
         'WORKTREE',
         `⚠️  Worktree not reaped (${reapResult.reason}): ${reapResult.path}`,
+      );
+    }
+
+    // Defense in depth: regardless of what `reap()` reported, probe
+    // `git worktree list --porcelain` directly. If the story worktree is
+    // still registered after close, the branch delete that follows will
+    // fail and the operator needs a loud, specific hint.
+    const leftover = await wm.list();
+    const stillRegistered = leftover.find((r) =>
+      /[/\\]story-\d+$/.test(r.path)
+        ? Number(r.path.match(/story-(\d+)$/)?.[1]) === Number(storyId)
+        : false,
+    );
+    if (stillRegistered) {
+      progress(
+        'WORKTREE',
+        `⚠️  Worktree still registered after reap: ${stillRegistered.path}. ` +
+          'Run `git worktree remove <path> --force && git worktree prune` to clean up.',
       );
     }
   } catch (err) {

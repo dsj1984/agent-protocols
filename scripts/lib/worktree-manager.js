@@ -597,9 +597,7 @@ export class WorktreeManager {
     // Callers that already have a porcelain snapshot (e.g. gc()) can inject
     // it via `opts.worktrees` to skip the N+1 `git worktree list` re-probe.
     const known = opts.worktrees
-      ? opts.worktrees.some(
-          (r) => path.resolve(r.path) === path.resolve(wtPath),
-        )
+      ? opts.worktrees.some((r) => this._samePath(r.path, wtPath))
       : this._findByPath(wtPath) !== null;
     if (!known) {
       return { removed: false, reason: 'not-a-worktree', path: wtPath };
@@ -827,11 +825,9 @@ export class WorktreeManager {
   }
 
   _findByPath(absPath) {
-    const normalized = path.resolve(absPath);
     return (
-      this._getWorktreeList().find(
-        (r) => path.resolve(r.path) === normalized,
-      ) ?? null
+      this._getWorktreeList().find((r) => this._samePath(r.path, absPath)) ??
+      null
     );
   }
 
