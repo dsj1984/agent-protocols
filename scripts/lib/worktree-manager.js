@@ -864,10 +864,9 @@ export class WorktreeManager {
       this.logger.warn(`agents-copy failed path=${wtAgents}: ${err.message}`);
       return;
     }
-    // Drop the `.agents` gitlink from the worktree's index so the copied
-    // directory isn't seen as a modified submodule. Worktree-local — never
-    // touches the root repo's index.
-    this._dropAgentsGitlinkFromIndex(wtPath);
+    // Hide `.agents` working-tree drift from routine commits without staging
+    // a gitlink deletion. The actual gitlink scrub is deferred to reap().
+    this._setAgentsGitlinkSkipWorktree(wtPath, true);
     this.logger.info(
       `worktree.agents.copied target=${wtAgents} source=${rootAgents}`,
     );
@@ -906,6 +905,9 @@ export class WorktreeManager {
     } catch {
       // Nothing to remove — fall through to index scrub.
     }
+    // Clear skip-worktree before the removal scrub so git can mutate the
+    // index entry deterministically on every platform/version.
+    this._setAgentsGitlinkSkipWorktree(wtPath, false);
     this._dropAgentsGitlinkFromIndex(wtPath);
     this._purgePerWorktreeSubmoduleDir(wtPath);
   }
@@ -961,6 +963,42 @@ export class WorktreeManager {
     } catch (err) {
       this.logger.warn(
         `agents-modules-purge failed path=${modulesDir}: ${err.message}`,
+      );
+    }
+  }
+
+  /**
+   * Toggle the skip-worktree bit for `.agents` in a worktree-local index.
+   *
+   * During ensure(), setting skip-worktree avoids surfacing the copied
+   * `.agents/` directory as constant drift while preventing accidental staging
+   * of a gitlink deletion in normal task commits. During reap(), we clear the
+   * bit first, then drop the gitlink and remove the worktree.
+   *
+   * @param {string} wtPath Absolute worktree path.
+   * @param {boolean} enable
+   */
+  _setAgentsGitlinkSkipWorktree(wtPath, enable) {
+    if (!this._isAgentsSubmodule()) return;
+    const ls = this.git.gitSpawn(
+      wtPath,
+      'ls-files',
+      '--stage',
+      '--',
+      '.agents',
+    );
+    if (ls.status !== 0 || !/^160000 /.test(ls.stdout)) return;
+    const flag = enable ? '--skip-worktree' : '--no-skip-worktree';
+    const update = this.git.gitSpawn(
+      wtPath,
+      'update-index',
+      flag,
+      '--',
+      '.agents',
+    );
+    if (update.status !== 0) {
+      this.logger.warn(
+        `agents-skip-worktree ${enable ? 'set' : 'clear'} failed path=${wtPath}: ${update.stderr || update.stdout}`,
       );
     }
   }
