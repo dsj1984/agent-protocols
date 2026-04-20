@@ -6,8 +6,10 @@
  * Performs an automated "first pass" code review on an Epic branch.
  * This script:
  *   1. Identifies all files modified/added in the Epic branch vs main.
- *   2. Runs lint checks on the changed surface.
- *   3. Calculates maintainability scores for the changed files.
+ *   2. Runs lint checks on the changed surface and distinguishes
+ *      errors (🟠 high risk) from warnings (🟢 suggestion).
+ *   3. Calculates per-method maintainability reports for changed JS files
+ *      and tiers them so size-driven drops don't poison the Critical tier.
  *   4. Generates a summary report of findings.
  *   5. Posts the report to the Epic issue.
  *
@@ -15,15 +17,86 @@
  *   node .agents/scripts/sprint-code-review.js --epic <EPIC_ID>
  */
 
+import { spawnSync } from 'node:child_process';
 import path from 'node:path';
 import { parseArgs } from 'node:util';
 import { runAsCli } from './lib/cli-utils.js';
 import { PROJECT_ROOT, resolveConfig } from './lib/config-resolver.js';
 import { gitSpawn } from './lib/git-utils.js';
 import { Logger } from './lib/Logger.js';
-import { calculateForFile } from './lib/maintainability-engine.js';
+import {
+  calculateReportForFile,
+  classifyReport,
+} from './lib/maintainability-engine.js';
 import { upsertStructuredComment } from './lib/orchestration/ticketing.js';
 import { createProvider } from './lib/provider-factory.js';
+
+/**
+ * Parse stdout/stderr from a lint runner to estimate error vs warning counts.
+ *
+ * Handles the two runners composing `npm run lint` in this project:
+ *   - Biome: emits "Found N error(s)." and "Found N warning(s)." lines.
+ *   - markdownlint: emits one diagnostic per issue, plus a trailing
+ *     "Summary: N error(s)" line.
+ *
+ * When the output matches neither, we fall back to a conservative default
+ * (treat a failing exit code as at least one error so we don't mislabel a
+ * real breakage as a soft suggestion).
+ *
+ * Exported for testing.
+ *
+ * @param {{ status: number, stdout: string, stderr: string }} result
+ * @returns {{ errors: number, warnings: number, parsed: boolean }}
+ */
+export function parseLintOutput(result) {
+  const combined = `${result.stdout ?? ''}\n${result.stderr ?? ''}`;
+
+  let errors = 0;
+  let warnings = 0;
+  let parsed = false;
+
+  // Biome summary lines — use a global regex so we pick up every reporter
+  // section (markdown, JS, etc.) when the composite command runs multiple.
+  const errMatches = combined.matchAll(/Found\s+(\d+)\s+error/gi);
+  for (const m of errMatches) {
+    errors += Number(m[1]);
+    parsed = true;
+  }
+  const warnMatches = combined.matchAll(/Found\s+(\d+)\s+warning/gi);
+  for (const m of warnMatches) {
+    warnings += Number(m[1]);
+    parsed = true;
+  }
+
+  // markdownlint "Summary: N error(s)" style.
+  const mdSummary = combined.match(/Summary:\s+(\d+)\s+error/i);
+  if (mdSummary) {
+    errors += Number(mdSummary[1]);
+    parsed = true;
+  }
+
+  if (!parsed && result.status !== 0) {
+    // Runner failed and we could not classify — treat as one error so the
+    // reviewer is not misled into thinking the code is clean.
+    errors = 1;
+  }
+
+  return { errors, warnings, parsed };
+}
+
+function runLint(lintCmd, cwd) {
+  const [cmd, ...args] = lintCmd.split(' ').filter((s) => s.length > 0);
+  const result = spawnSync(cmd, args, {
+    cwd,
+    encoding: 'utf-8',
+    shell: process.platform === 'win32',
+  });
+  return {
+    status: result.status ?? 1,
+    stdout: result.stdout ?? '',
+    stderr: result.stderr ?? '',
+  };
+}
 
 async function main() {
   const { values } = parseArgs({
@@ -75,8 +148,8 @@ async function main() {
     totalFiles: changedFiles.length,
     jsFiles: 0,
     maintainability: [],
-    lintErrors: 0,
     criticalIssues: [],
+    warningIssues: [],
   };
 
   for (const relPath of changedFiles) {
@@ -85,12 +158,32 @@ async function main() {
 
     if (ext === '.js' || ext === '.mjs' || ext === '.cjs') {
       results.jsFiles++;
-      const score = calculateForFile(absPath);
-      results.maintainability.push({ file: relPath, score });
+      let report;
+      try {
+        report = calculateReportForFile(absPath);
+      } catch (_err) {
+        // File was deleted in this branch — skip it.
+        continue;
+      }
+      const tier = classifyReport(report);
+      results.maintainability.push({ file: relPath, report, tier });
 
-      if (score < 65) {
+      if (tier === 'critical') {
+        const reason =
+          report.worstMethod !== null && report.worstMethod < 20
+            ? `worst method ${report.worstMethod.toFixed(1)}`
+            : `module score ${report.moduleScore.toFixed(1)}`;
         results.criticalIssues.push(
-          `🔴 Low Maintainability: \`${relPath}\` (Score: ${score.toFixed(1)})`,
+          `🔴 Low Maintainability: \`${relPath}\` (${reason})`,
+        );
+      } else if (tier === 'warning') {
+        const moduleScore = report.moduleScore.toFixed(1);
+        const worst =
+          report.worstMethod !== null
+            ? `, worst method ${report.worstMethod.toFixed(1)}`
+            : '';
+        results.warningIssues.push(
+          `🟡 Size/Volume Warning: \`${relPath}\` (module ${moduleScore}${worst})`,
         );
       }
     }
@@ -99,12 +192,8 @@ async function main() {
   // 2. Perform focused lint
   progress('LINT', 'Running focused lint check...');
   const lintCmd = settings.validationCommand ?? 'npm run lint';
-  // Note: We run the full lint as workspace consistency is key,
-  // but a smarter script would filter errors to changed files.
-  const lintResult = gitSpawn(PROJECT_ROOT, ...lintCmd.split(' '));
-  if (lintResult.status !== 0) {
-    results.lintErrors = 1; // Mark that it failed
-  }
+  const lintResult = runLint(lintCmd, PROJECT_ROOT);
+  const lintSummary = parseLintOutput(lintResult);
 
   // 3. Generate Report
   progress('REPORT', 'Generating findings report...');
@@ -114,10 +203,20 @@ async function main() {
   // structured comment.
   const severity = {
     critical: results.criticalIssues.length,
-    high: results.lintErrors > 0 ? 1 : 0,
-    medium: 0,
-    suggestion: 0,
+    high: lintSummary.errors > 0 ? 1 : 0,
+    medium: results.warningIssues.length,
+    suggestion: lintSummary.warnings > 0 ? 1 : 0,
   };
+
+  const lintLine = (() => {
+    if (lintSummary.errors > 0) {
+      return `❌ **Lint Check Failed**: ${lintSummary.errors} error(s), ${lintSummary.warnings} warning(s). Fix errors before merging.`;
+    }
+    if (lintSummary.warnings > 0) {
+      return `🟢 **Lint Check Passed with Warnings**: ${lintSummary.warnings} warning(s) present — treat as suggestions.`;
+    }
+    return '✅ **Lint Check Passed**: Workspace is clean.';
+  })();
 
   const report = [
     `## 🔬 Automated Code Review Results for Epic #${epicId}`,
@@ -133,16 +232,20 @@ async function main() {
     `- 🟢 Suggestion: ${severity.suggestion}`,
     '',
     '### 📊 Maintainability Overview',
-    '| File | Score | Status |',
-    '| :--- | :--- | :--- |',
+    '| File | Module | Worst Method | Tier |',
+    '| :--- | :--- | :--- | :--- |',
     ...results.maintainability.map((m) => {
-      const status =
-        m.score >= 85
+      const worst =
+        m.report.worstMethod !== null ? m.report.worstMethod.toFixed(1) : 'n/a';
+      const tierLabel =
+        m.tier === 'healthy'
           ? '🟢 Healthy'
-          : m.score >= 65
+          : m.tier === 'warning'
             ? '🟡 Warning'
-            : '🔴 Critical';
-      return `| \`${m.file}\` | ${m.score.toFixed(2)} | ${status} |`;
+            : m.tier === 'critical'
+              ? '🔴 Critical'
+              : '⚠️ Parse Error';
+      return `| \`${m.file}\` | ${m.report.moduleScore.toFixed(2)} | ${worst} | ${tierLabel} |`;
     }),
     '',
     '### 🚨 Critical Findings',
@@ -150,9 +253,12 @@ async function main() {
       ? results.criticalIssues.join('\n')
       : '✅ No maintainability blockers identified.',
     '',
-    results.lintErrors > 0
-      ? '❌ **Lint Check Failed**: Workspace lint issues detected. Please fix before merging.'
-      : '✅ **Lint Check Passed**: Workspace is clean.',
+    '### 🟡 Warnings',
+    results.warningIssues.length > 0
+      ? results.warningIssues.join('\n')
+      : '✅ No size/volume warnings.',
+    '',
+    lintLine,
     '',
     '---',
     '_This is an automated pre-review. A human or specialist agent should still verify business logic and security constraints._',

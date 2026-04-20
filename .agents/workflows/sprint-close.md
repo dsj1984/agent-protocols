@@ -62,6 +62,15 @@ every Story ID from the manifest that is still open, along with its wave and
 title. Close or re-dispatch the outstanding Stories before re-running
 `/sprint-close`.
 
+The gate also reads the `parked-follow-ons` structured comment (posted by the
+dispatcher) and halts if any **recut** Story (`<!-- recut-of: #N -->` marker) or
+**parked follow-on** (out-of-manifest Story with no recut lineage) is still
+open. The operator must explicitly adopt each parked follow-on into the Epic
+(re-run the dispatcher so the manifest is refreshed) or defer it by closing the
+Story with `state_reason=not_planned` before closure can proceed. Pass
+`--allow-parked` / `--allow-open-recuts` to the wave-gate to waive once the
+operator has made that decision consciously.
+
 ## Step 1 — Completeness Gate (Hierarchy Check)
 
 Before executing any git operations, verify ALL child items under the Epic are

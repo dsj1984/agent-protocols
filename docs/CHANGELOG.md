@@ -2,6 +2,50 @@
 
 All notable changes to this project will be documented in this file.
 
+## [5.12.0] - 2026-04-20
+
+### Protocol self-healing — code-review calibration, recuts, and parked follow-ons
+
+Four related fixes that close gaps found during the v5.11 retro. All four
+land together because they share the same data path (Epic-level structured
+comments consumed by `/sprint-close` at the wave-completeness gate).
+
+**Maintainability scorer calibration**
+[`lib/maintainability-engine.js`](../.agents/scripts/lib/maintainability-engine.js)
+now exposes `calculateReport()` / `calculateReportForFile()` returning a
+per-method breakdown alongside the module-level index, plus a
+`classifyReport()` helper that tiers results. `sprint-code-review.js` uses
+the report to drive severity: a **critical** finding now requires an actual
+complexity hotspot (a method scoring < 20, or a method-less module below
+40). File-size-driven module-score drops reclassify as **🟡 Medium** instead
+of poisoning the Critical tier — the v5.11.6 issue where well-structured
+multi-hundred-line scripts scored `0` no longer surfaces as a blocker.
+
+**Structured lint output**
+`sprint-code-review.js` now spawns the lint runner directly (previously
+misrouted through `gitSpawn`, which always failed) and parses the combined
+stdout/stderr to separate **errors** from **warnings**. Errors → 🟠 High
+Risk; warnings → 🟢 Suggestion; unparseable failures conservatively default
+to one error so a broken runner is never mis-reported as clean.
+
+**Recut markers on mid-sprint Stories**
+New `<!-- recut-of: #N -->` HTML marker convention, parsed and written via
+the new [`lib/orchestration/recut.js`](../.agents/scripts/lib/orchestration/recut.js).
+`sprint-story-init.js --recut-of <parentId>` injects the marker into the
+Story body at init time. The retro workflow and the wave-completeness gate
+both attribute recut Stories back to their manifest parent so sprint counts
+line up with the frozen manifest (fixes the "manifest says 9, closed says
+10" discrepancy).
+
+**Parked follow-on protocol**
+The dispatcher now upserts a `parked-follow-ons` structured comment on the
+Epic at every dispatch cycle, classifying every `type::story` under the Epic
+as manifest / recut / parked. `sprint-wave-gate.js` reads the comment and
+halts `/sprint-close` if any recut or parked Story is still open — giving
+the operator a single checkpoint to adopt (re-dispatch) or explicitly defer
+(`state_reason=not_planned`). `--allow-parked` / `--allow-open-recuts` waive
+the gate when the operator has made that decision consciously.
+
 ## [5.11.6] - 2026-04-20
 
 ### Fix: v5.11.5 regression — worktree reap silently failed on drive-case mismatch

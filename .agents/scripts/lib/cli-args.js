@@ -16,6 +16,7 @@ export function parseSprintArgs(args = process.argv) {
       'skip-dashboard': { type: 'boolean', default: false },
       executor: { type: 'string' },
       cwd: { type: 'string' },
+      'recut-of': { type: 'string' },
     },
     allowPositionals: true,
     strict: false,
@@ -33,7 +34,14 @@ export function parseSprintArgs(args = process.argv) {
       (typeof values.cwd === 'string' && values.cwd.trim()) ||
       process.env.AGENT_WORKTREE_ROOT ||
       null,
+    recutOf: null,
   };
+
+  const recutVal = Number.parseInt(
+    (values['recut-of'] ?? '').toString().replace(/^#/, ''),
+    10,
+  );
+  if (!Number.isNaN(recutVal) && recutVal > 0) parsed.recutOf = recutVal;
 
   // Convert IDs
   const epicIdVal = parseInt(values.epic ?? '', 10);

@@ -40,6 +40,7 @@ import { resolveConfig } from './lib/config-resolver.js';
 import {
   persistManifest,
   postManifestEpicComment,
+  postParkedFollowOnsComment,
   printStoryDispatchTable,
 } from './lib/presentation/manifest-renderer.js';
 import { createProvider } from './lib/provider-factory.js';
@@ -76,9 +77,9 @@ export async function generateAndSaveManifest(
   // the Epic so the wave-completeness gate can parse it back at close time.
   // Story-execution manifests are per-story and are not persisted upstream.
   if (manifest.type !== 'story-execution' && manifest.epicId) {
+    const provider =
+      opts.provider ?? createProvider(resolveConfig().orchestration);
     try {
-      const provider =
-        opts.provider ?? createProvider(resolveConfig().orchestration);
       const result = await postManifestEpicComment(manifest, provider);
       if (result.posted) {
         console.log(
@@ -89,6 +90,23 @@ export async function generateAndSaveManifest(
       /* node:coverage ignore next */
       console.warn(
         `[Dispatcher] Non-fatal: could not post manifest comment — ${err.message}`,
+      );
+    }
+
+    try {
+      const parkedResult = await postParkedFollowOnsComment(manifest, provider);
+      if (parkedResult.posted) {
+        const hasExtras = parkedResult.recuts > 0 || parkedResult.parked > 0;
+        console.log(
+          hasExtras
+            ? `[Dispatcher] 🪝 Parked follow-ons comment posted on Epic #${manifest.epicId} (${parkedResult.recuts} recut, ${parkedResult.parked} parked)`
+            : `[Dispatcher] 🪝 No out-of-manifest Stories detected on Epic #${manifest.epicId}`,
+        );
+      }
+    } catch (err) {
+      /* node:coverage ignore next */
+      console.warn(
+        `[Dispatcher] Non-fatal: could not post parked-follow-ons comment — ${err.message}`,
       );
     }
   }

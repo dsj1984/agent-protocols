@@ -8,6 +8,10 @@ import fs from 'node:fs';
 import path from 'node:path';
 import { fileURLToPath } from 'node:url';
 import { resolveConfig } from '../config-resolver.js';
+import {
+  classifyStoriesAgainstManifest,
+  renderParkedFollowOnsComment,
+} from '../orchestration/parked-follow-ons.js';
 import { upsertStructuredComment } from '../orchestration/ticketing.js';
 
 function getProjectRoot() {
@@ -119,6 +123,78 @@ export async function postManifestEpicComment(manifest, provider) {
       `[Dispatcher] Failed to persist dispatch-manifest comment to Epic #${manifest.epicId}: ${err.message}\n`,
     );
     return { posted: false, reason: err.message };
+  }
+}
+
+/**
+ * Classify Stories under the Epic against the frozen dispatch manifest and
+ * upsert a `parked-follow-ons` structured comment on the Epic. This gives
+ * `/sprint-close` a single checkpoint to surface out-of-manifest work that
+ * the operator must either adopt or explicitly defer.
+ *
+ * Idempotent. No-op for non-Epic manifests.
+ *
+ * @param {object} manifest
+ * @param {import('../ITicketingProvider.js').ITicketingProvider} provider
+ * @returns {Promise<{ posted: boolean, recuts: number, parked: number, reason?: string }>}
+ */
+export async function postParkedFollowOnsComment(manifest, provider) {
+  if (!manifest || manifest.type === 'story-execution' || !manifest.epicId) {
+    return {
+      posted: false,
+      recuts: 0,
+      parked: 0,
+      reason: 'not-an-epic-manifest',
+    };
+  }
+  if (!provider || typeof provider.postComment !== 'function') {
+    return { posted: false, recuts: 0, parked: 0, reason: 'no-provider' };
+  }
+
+  const storyManifest = manifest.storyManifest ?? [];
+  const manifestStoryIds = storyManifest
+    .filter((s) => s.type !== 'feature' && s.storyId !== '__ungrouped__')
+    .map((s) => Number(s.storyId))
+    .filter((n) => Number.isFinite(n));
+
+  let storiesUnderEpic = [];
+  try {
+    const all = await provider.getTickets(manifest.epicId);
+    storiesUnderEpic = (all ?? []).filter((t) =>
+      (t.labels ?? []).includes('type::story'),
+    );
+  } catch (err) {
+    return { posted: false, recuts: 0, parked: 0, reason: err.message };
+  }
+
+  const classification = classifyStoriesAgainstManifest(
+    manifestStoryIds,
+    storiesUnderEpic,
+  );
+  const body = renderParkedFollowOnsComment(manifest.epicId, classification);
+
+  try {
+    await upsertStructuredComment(
+      provider,
+      manifest.epicId,
+      'parked-follow-ons',
+      body,
+    );
+    return {
+      posted: true,
+      recuts: classification.recuts.length,
+      parked: classification.parked.length,
+    };
+  } catch (err) {
+    process.stderr.write(
+      `[Dispatcher] Failed to persist parked-follow-ons comment to Epic #${manifest.epicId}: ${err.message}\n`,
+    );
+    return {
+      posted: false,
+      recuts: classification.recuts.length,
+      parked: classification.parked.length,
+      reason: err.message,
+    };
   }
 }
 
