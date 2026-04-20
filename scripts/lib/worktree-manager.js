@@ -626,6 +626,11 @@ export class WorktreeManager {
     // worktree in a clean, removable state. The root `.agents` is never
     // touched — the copy is a plain directory, not a symlink.
     this._removeCopiedAgents(wtPath);
+    // Defense in depth: remove *all* gitlinks (mode 160000) from the
+    // worktree index before `git worktree remove`. Consumer repos can carry
+    // additional submodules beyond `.agents`, and git's submodule guard trips
+    // on any gitlink.
+    this._dropAllSubmoduleGitlinksFromIndex(wtPath);
 
     // Windows locks the process cwd — if the Node process is sitting inside
     // the worktree (common when `sprint-story-close.js` is invoked from a
@@ -642,11 +647,11 @@ export class WorktreeManager {
       }
     }
 
-    const res = this.git.gitSpawn(this.repoRoot, 'worktree', 'remove', wtPath);
-    if (res.status !== 0) {
+    const removeResult = this._removeWorktreeWithRecovery(wtPath);
+    if (!removeResult.removed) {
       return {
         removed: false,
-        reason: `remove-failed: ${res.stderr}`,
+        reason: `remove-failed: ${removeResult.reason}`,
         path: wtPath,
       };
     }
@@ -955,6 +960,61 @@ export class WorktreeManager {
   }
 
   /**
+   * Retry `git worktree remove` for known transient failures:
+   * - submodule guard: scrub residual gitlinks/modules and retry
+   * - Windows lock races: short bounded backoff and retry
+   *
+   * @param {string} wtPath
+   * @returns {{ removed: boolean, reason?: string }}
+   */
+  _removeWorktreeWithRecovery(wtPath) {
+    const maxAttempts = this.platform === 'win32' ? 3 : 2;
+    const retryDelaysMs = [0, 100, 300];
+    let lastReason = 'worktree-remove-failed';
+
+    for (let attempt = 1; attempt <= maxAttempts; attempt++) {
+      const res = this.git.gitSpawn(
+        this.repoRoot,
+        'worktree',
+        'remove',
+        wtPath,
+      );
+      if (res.status === 0) return { removed: true };
+
+      const stderr = (res.stderr || res.stdout || '').trim();
+      lastReason = stderr || 'worktree-remove-failed';
+      const isSubmoduleGuard =
+        /working trees containing submodules cannot be moved or removed/i.test(
+          stderr,
+        );
+      const isLockLike =
+        /(permission denied|access is denied|directory not empty|resource busy|device or resource busy|sharing violation)/i.test(
+          stderr,
+        );
+
+      if (isSubmoduleGuard && attempt < maxAttempts) {
+        this.logger.warn(
+          `worktree.reap remove blocked by submodule guard; retrying (${attempt}/${maxAttempts})`,
+        );
+        this._dropAllSubmoduleGitlinksFromIndex(wtPath);
+        this._purgePerWorktreeSubmoduleDir(wtPath);
+        continue;
+      }
+      if (isLockLike && attempt < maxAttempts) {
+        const delay = retryDelaysMs[attempt] ?? 300;
+        this.logger.warn(
+          `worktree.reap remove hit lock-like error; retrying in ${delay}ms (${attempt}/${maxAttempts})`,
+        );
+        sleepSync(delay);
+        continue;
+      }
+      break;
+    }
+
+    return { removed: false, reason: lastReason };
+  }
+
+  /**
    * `git worktree remove` refuses with
    * `working trees containing submodules cannot be moved or removed` when
    * EITHER (a) a 160000 gitlink is in the worktree's index OR
@@ -970,7 +1030,6 @@ export class WorktreeManager {
    * @param {string} wtPath Absolute worktree path.
    */
   _purgePerWorktreeSubmoduleDir(wtPath) {
-    if (!this._isAgentsSubmodule()) return;
     const dotGit = path.join(wtPath, '.git');
     let gitdir;
     try {
@@ -1076,6 +1135,48 @@ export class WorktreeManager {
       this.logger.warn(
         `agents-index-scrub failed path=${wtPath}: ${rm.stderr || rm.stdout}`,
       );
+    }
+  }
+
+  /**
+   * Remove all mode-160000 gitlinks from a worktree index. This is used as a
+   * generic fallback when `git worktree remove` reports the submodule guard.
+   *
+   * @param {string} wtPath
+   */
+  _dropAllSubmoduleGitlinksFromIndex(wtPath) {
+    const ls = this.git.gitSpawn(wtPath, 'ls-files', '--stage');
+    if (ls.status !== 0 || !ls.stdout) return;
+    const paths = ls.stdout
+      .split(/\r?\n/)
+      .map((line) => {
+        const m = line.match(/^160000 [0-9a-f]+ \d+\t(.+)$/);
+        return m ? m[1] : null;
+      })
+      .filter(Boolean);
+    if (paths.length === 0) return;
+
+    for (const submodulePath of paths) {
+      this.git.gitSpawn(
+        wtPath,
+        'update-index',
+        '--no-skip-worktree',
+        '--',
+        submodulePath,
+      );
+      const rm = this.git.gitSpawn(
+        wtPath,
+        'rm',
+        '--cached',
+        '-f',
+        '--',
+        submodulePath,
+      );
+      if (rm.status !== 0) {
+        this.logger.warn(
+          `submodule-index-scrub failed path=${submodulePath}: ${rm.stderr || rm.stdout}`,
+        );
+      }
     }
   }
 
