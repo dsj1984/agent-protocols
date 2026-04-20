@@ -2,6 +2,20 @@
 
 All notable changes to this project will be documented in this file.
 
+## [5.11.4] - 2026-04-19
+
+### playwright-bdd skill: Epic C retro hardening
+
+- Added a top-level **Pre-authoring checklist (mandatory)** section to
+  `.agents/skills/stack/qa/playwright-bdd/SKILL.md`, promoting the
+  grep-before-you-write requirement from prose into a numbered
+  report-back contract that subagents must satisfy before authoring any
+  scenario text.
+- Added a **Recommended invocation template** section with the verbatim
+  `{{AC_TEXT}}` / `{{STEPS_DIR}}` / `{{OUTPUT_PATH}}` prompt that drove
+  the Epic C pilot result (4/5 step reuse, zero Forbidden-Patterns
+  violations, one clean named gap).
+
 ## [5.11.3] - 2026-04-19
 
 ### Worktree `.agents` gitlink safeguards
