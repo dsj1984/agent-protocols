@@ -2,6 +2,24 @@
 
 All notable changes to this project will be documented in this file.
 
+## [5.11.3] - 2026-04-19
+
+### Worktree `.agents` gitlink safeguards
+
+- `WorktreeManager.ensure()` / `_copyAgentsFromRoot` no longer runs
+  `git rm --cached .agents` at worktree setup. Instead it marks the
+  `.agents` gitlink entry with `update-index --skip-worktree`, so
+  routine task commits inside the worktree cannot accidentally stage
+  a submodule deletion.
+- `WorktreeManager.reap()` / `_removeCopiedAgents` now clears the
+  skip-worktree bit (`--no-skip-worktree`) before the existing gitlink
+  scrub, keeping index mutations deterministic across platforms.
+- New helper `_setAgentsGitlinkSkipWorktree(wtPath, enable)` encapsulates
+  both toggles; guarded by `_isAgentsSubmodule()` and by a `160000`
+  gitlink-mode check so it is a no-op in framework-style repos.
+- Docs (`.agents/workflows/worktree-lifecycle.md`) updated to describe
+  the skip-worktree on ensure / clear-and-scrub on reap contract.
+
 ## [5.11.2] - 2026-04-19
 
 ### Worktree reap + cancellation GC fixes

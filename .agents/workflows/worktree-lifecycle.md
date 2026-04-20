@@ -84,9 +84,10 @@ reap it on the grounds that "there is a submodule inside the worktree."
 
 `WorktreeManager.ensure()` resolves this at worktree creation by removing the
 empty gitlink placeholder, recursively copying `<repoRoot>/.agents/` into the
-worktree, and dropping the gitlink from the per-worktree index so git no longer
-sees `.agents/` as a submodule. `reap()` mirrors the teardown: delete the copied
-directory, scrub the gitlink, then `git worktree remove`.
+worktree, and marking the `.agents` gitlink entry `skip-worktree` so routine
+task commits do not accidentally stage submodule metadata changes. `reap()`
+mirrors the teardown: clear `skip-worktree`, delete the copied directory, scrub
+the gitlink, then `git worktree remove`.
 
 The copy is a point-in-time snapshot taken at worktree creation. For sprint-
 length worktrees this is acceptable; if the root `.agents/` changes during a

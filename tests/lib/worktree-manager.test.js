@@ -948,10 +948,18 @@ test('_copyAgentsFromRoot: recursively copies root .agents into the worktree', (
     // Simulate the empty gitlink placeholder `git worktree add` leaves.
     fs.mkdirSync(wtAgents, { recursive: true });
 
+    const git = mockGit({
+      'ls-files --stage': () => ({
+        status: 0,
+        stdout: '160000 abc123 0\t.agents\n',
+        stderr: '',
+      }),
+      'update-index': () => ({ status: 0, stdout: '', stderr: '' }),
+    });
     const wm = new WorktreeManager({
       repoRoot: tmp,
       logger: SILENT_LOGGER,
-      git: mockGit({}),
+      git,
       platform: 'linux',
     });
     wm._copyAgentsFromRoot(wtPath);
@@ -971,6 +979,21 @@ test('_copyAgentsFromRoot: recursively copies root .agents into the worktree', (
       fs.lstatSync(wtAgents).isSymbolicLink(),
       false,
       'copied .agents must be a real directory, not a symlink',
+    );
+    const skipCall = git.calls.find(
+      (c) => c.args[0] === 'update-index' && c.args.includes('--skip-worktree'),
+    );
+    assert.ok(
+      skipCall,
+      'copy path should mark .agents gitlink as skip-worktree',
+    );
+    const rmCachedCall = git.calls.find(
+      (c) => c.args[0] === 'rm' && c.args.includes('--cached'),
+    );
+    assert.equal(
+      rmCachedCall,
+      undefined,
+      'copy path must not stage gitlink deletion',
     );
   } finally {
     fs.rmSync(tmp, { recursive: true, force: true });
@@ -1051,6 +1074,14 @@ test('_removeCopiedAgents: removes the copied directory and scrubs the index git
     );
     assert.ok(rmCall, 'git rm --cached must scrub the gitlink');
     assert.equal(rmCall.cwd, wtPath);
+    const noSkipCall = calls.find(
+      (c) =>
+        c.args[0] === 'update-index' && c.args.includes('--no-skip-worktree'),
+    );
+    assert.ok(
+      noSkipCall,
+      'reap path should clear skip-worktree before index scrub',
+    );
   } finally {
     fs.rmSync(tmp, { recursive: true, force: true });
   }
