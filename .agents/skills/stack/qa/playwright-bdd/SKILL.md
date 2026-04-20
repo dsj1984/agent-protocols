@@ -2,8 +2,8 @@
 
 Guidance for running Gherkin `.feature` files against Playwright via
 `playwright-bdd`. Pairs with the `gherkin-authoring` skill (scenario prose) and
-the `playwright` skill (browser-level conventions); this skill covers the
-wiring between them.
+the `playwright` skill (browser-level conventions); this skill covers the wiring
+between them.
 
 > **Version:** consumers pick their own `playwright-bdd` version. This skill
 > documents behavioral constraints, not a pinned release.
@@ -38,11 +38,11 @@ wiring between them.
   (auth state, API clients, seeded data) are injected into `Given`/`When`/
   `Then` callbacks by name, not pulled from module-level singletons.
 - Layer fixtures: base Playwright fixtures → domain fixtures (authenticated
-  user, seeded tenant) → scenario-scoped helpers. Each layer depends only on
-  the layer below.
-- Reset persistent state with fixture teardown, not with `After` hooks buried
-  in step files — teardown order is then deterministic and visible in the
-  fixture graph.
+  user, seeded tenant) → scenario-scoped helpers. Each layer depends only on the
+  layer below.
+- Reset persistent state with fixture teardown, not with `After` hooks buried in
+  step files — teardown order is then deterministic and visible in the fixture
+  graph.
 - Reuse `storageState` for authenticated scenarios; create a "logged-in user"
   fixture rather than repeating login steps in `Background`.
 
@@ -52,18 +52,18 @@ wiring between them.
   `npx bddgen && npx playwright test --grep "@smoke and not @flaky"`.
 - Use the canonical tag taxonomy defined in
   [`.agents/rules/gherkin-standards.md`](../../../../rules/gherkin-standards.md#tag-taxonomy)
-  (`@smoke`, `@risk-high`, `@platform-*`, `@domain-*`). Do not invent
-  parallel tag vocabularies in the runner config; extend via `@domain-*` only.
-- Wire the `/run-bdd-suite <tag-expression>` workflow to a single npm script
-  so operators never reconstruct the generate-then-run sequence by hand.
-- Fail the run if generation produces zero matching scenarios — a silent
-  empty suite is worse than a red build.
+  (`@smoke`, `@risk-high`, `@platform-*`, `@domain-*`). Do not invent parallel
+  tag vocabularies in the runner config; extend via `@domain-*` only.
+- Wire the `/run-bdd-suite <tag-expression>` workflow to a single npm script so
+  operators never reconstruct the generate-then-run sequence by hand.
+- Fail the run if generation produces zero matching scenarios — a silent empty
+  suite is worse than a red build.
 
 ## 5. Debug & Trace Workflow
 
 - Keep `trace: 'on-first-retry'` (or `'retain-on-failure'`) in the Playwright
-  config. `playwright-bdd` preserves the trace attachment because each
-  scenario maps to a Playwright test.
+  config. `playwright-bdd` preserves the trace attachment because each scenario
+  maps to a Playwright test.
 - Reproduce a single failing scenario with `--grep "@scenario-id"` rather than
   the scenario title — titles change, tags are stable.
 - Open traces with `npx playwright show-trace` against the artifact produced
@@ -78,11 +78,63 @@ wiring between them.
   expression across jobs — tag-sharding makes flake triage non-deterministic.
 - Run `bddgen` once per job before `playwright test`; cache the generated
   directory only if the cache key includes every `.feature` and step file.
-- Publish the Cucumber HTML/JSON report as the evidence artifact consumed by
-  the `sprint-testing` workflow, alongside the Playwright HTML report and any
-  trace zips.
+- Publish the Cucumber HTML/JSON report as the evidence artifact consumed by the
+  `sprint-testing` workflow, alongside the Playwright HTML report and any trace
+  zips.
 - Quarantine `@flaky` scenarios with a dedicated job that does not gate the
   merge queue; do not silently retry flakes in the main suite.
+
+## Recommended invocation template
+
+Use this template when invoking a subagent to author a `.feature` file from an
+Acceptance Criterion.
+
+```text
+You are an AI coding agent. Your sole task is to invoke the
+**stack/qa/playwright-bdd** skill (defined in this repo) to author one new
+acceptance scenario from a single Acceptance Criterion. You receive nothing
+about this codebase except the AC text and the skill itself — you must
+discover everything else (existing step library, naming conventions, etc.)
+through the skill's prescribed workflow.
+
+Follow the skill's guidance precisely. Your output will be evaluated
+against `.agents/rules/gherkin-standards.md`.
+
+**Skill to invoke.** Read `.agents/skills/stack/qa/playwright-bdd/SKILL.md`
+and follow it. Also read `.agents/rules/gherkin-standards.md` (which the
+skill references).
+
+**The Acceptance Criterion (your sole input).** {{AC_TEXT}}
+
+**Your task.**
+1. Read the skill and the gherkin rule.
+2. Per the skill's "Step Reuse — Grep Before You Write" section, grep
+   {{STEPS_DIR}} to discover the existing step vocabulary BEFORE
+   authoring. List the matches you found.
+3. Author a NEW `.feature` file at {{OUTPUT_PATH}} that covers this AC.
+4. You are FORBIDDEN from editing any file under {{STEPS_DIR}}. This
+   task tests scenario authorship and step REUSE. If a step you need does
+   not exist, you must either rephrase the scenario to reuse what exists,
+   or report that as a gap (do not silently invent).
+5. Tag the feature/scenario per the canonical taxonomy in
+   `gherkin-standards.md`.
+6. Honor every "Forbidden Patterns" rule. `data-testid` hints in the AC
+   parentheses are for the step-definition layer; they MUST NOT appear in
+   your scenario text.
+
+**Report back.** Sections A–E: discovered steps, exact `.feature` content,
+step-coverage analysis, forbidden-patterns self-audit, uncertainty/gaps.
+```
+
+This template encodes the invocation prompt used in the Epic C pilot of
+dsj1984/athlete-portal, where a general-purpose subagent — given only an AC and
+a pointer to this skill — produced a publishable scenario on the first attempt
+with **zero Forbidden-Patterns violations**, reused **4 of 5** needed steps from
+the existing library, and surfaced the single remaining step as a clean, named
+gap rather than inventing one. Future maintainers: resist the urge to "simplify"
+this template. Its explicit grep-before-author step, the hard prohibition on
+editing the steps directory, and the mandated gap-report section are what forced
+those outcomes.
 
 ## 7. Cross-References
 
