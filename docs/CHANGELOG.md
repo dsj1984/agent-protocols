@@ -2,6 +2,19 @@
 
 All notable changes to this project will be documented in this file.
 
+## [5.11.5] - 2026-04-20
+
+### Worktree reap hardening (Windows)
+
+- `WorktreeManager.reap()` now detects when the Node process's `cwd` is
+  inside the target worktree and `chdir`s to `repoRoot` before
+  `git worktree remove`. On Windows the cwd holds a directory handle, so
+  leaving the process inside the worktree caused silent removal failures
+  even when `git worktree remove` reported success.
+- After `git worktree remove` succeeds, `reap()` verifies the directory
+  is gone and falls back to `fs.rmSync(wtPath, { recursive, force })` if
+  git left the tree behind (lingering submodule metadata on Windows).
+
 ## [5.11.4] - 2026-04-19
 
 ### playwright-bdd skill: Epic C retro hardening
