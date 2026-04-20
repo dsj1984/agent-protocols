@@ -516,6 +516,76 @@ test('integration: round-trips worktree add and remove on a real repo', async ()
   }
 });
 
+// v5.11.5 regression: `_findByPath` used case-sensitive `===` on paths, so
+// when the caller handed WorktreeManager a repoRoot with a different drive-
+// letter case than git's porcelain output (common on Windows when a shell
+// cwd uses `c:\...` while git stored `C:\...`), reap returned
+// `not-a-worktree` silently and the worktree was never cleaned up. The
+// integration test below is skipped off-win32 because only Windows exposes
+// drive letters.
+test('integration: reap() tolerates drive-letter-case mismatch on repoRoot (v5.11.5 regression)', {
+  skip: process.platform !== 'win32',
+}, async () => {
+  const tmp = fs.mkdtempSync(path.join(os.tmpdir(), 'wt-case-'));
+  const run = (cwd, ...args) =>
+    execFileSync('git', args, {
+      cwd,
+      encoding: 'utf8',
+      stdio: ['pipe', 'pipe', 'pipe'],
+    });
+  try {
+    run(tmp, 'init', '-b', 'main');
+    run(tmp, 'config', 'user.email', 'test@example.com');
+    run(tmp, 'config', 'user.name', 'Test');
+    fs.writeFileSync(path.join(tmp, 'README.md'), '# test\n');
+    run(tmp, 'add', '.');
+    run(tmp, 'commit', '-m', 'init');
+
+    // Create the worktree through a WorktreeManager whose repoRoot drive
+    // letter matches git's native reporting (uppercase on Windows).
+    const setup = new WorktreeManager({
+      repoRoot: tmp,
+      logger: SILENT_LOGGER,
+    });
+    const ensured = await setup.ensure(1337, 'story-1337');
+    assert.equal(ensured.created, true);
+
+    // Flip the drive letter on the repoRoot that close() will construct.
+    // This mirrors a shell invoking sprint-story-close.js with `--cwd
+    // c:\repo` while git still stores `C:\repo`.
+    const driveLetter = tmp[0];
+    const flipped =
+      driveLetter === driveLetter.toUpperCase()
+        ? driveLetter.toLowerCase() + tmp.slice(1)
+        : driveLetter.toUpperCase() + tmp.slice(1);
+    assert.notEqual(flipped, tmp, 'expected a different-case path');
+
+    const wm = new WorktreeManager({
+      repoRoot: flipped,
+      logger: SILENT_LOGGER,
+    });
+
+    const reaped = await wm.reap(1337, { epicBranch: 'main' });
+    assert.equal(
+      reaped.removed,
+      true,
+      `reap returned ${reaped.reason} — drive-case mismatch regressed`,
+    );
+    assert.equal(fs.existsSync(ensured.path), false);
+
+    const still = execFileSync('git', ['worktree', 'list', '--porcelain'], {
+      cwd: tmp,
+      encoding: 'utf8',
+    });
+    assert.ok(
+      !/story-1337/.test(still),
+      'worktree still registered after reap',
+    );
+  } finally {
+    fs.rmSync(tmp, { recursive: true, force: true });
+  }
+});
+
 // ---------------------------------------------------------------------------
 // Windows long-path pre-flight warning
 // ---------------------------------------------------------------------------

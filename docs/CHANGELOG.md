@@ -2,6 +2,36 @@
 
 All notable changes to this project will be documented in this file.
 
+## [5.11.6] - 2026-04-20
+
+### Fix: v5.11.5 regression — worktree reap silently failed on drive-case mismatch
+
+v5.11.5's reap hardening did not reach the common Windows failure mode
+reported by downstream consumers (e.g. athlete-portal). `reap()` still
+probed `git worktree list --porcelain` via `_findByPath`, which compared
+paths with case-sensitive `===` on `path.resolve()` output. On Windows,
+`path.resolve()` preserves drive-letter case, and consumers routinely
+invoke `sprint-story-close.js --cwd c:\repo` while git's porcelain
+reports `C:\repo` — the mismatch caused `reap()` to return
+`{ reason: 'not-a-worktree' }`, which `reapStoryWorktree` intentionally
+swallowed. Branch delete then failed with "cannot delete branch
+'story-<id>' used by worktree".
+
+- `WorktreeManager._findByPath` now delegates to `_samePath`, which
+  already handles Windows case-insensitive path comparison.
+- The `gc()` snapshot-based comparison in `reap()` uses `_samePath`
+  for the same reason.
+- `sprint-story-close.js` no longer silences the `not-a-worktree`
+  branch — every non-removed outcome is logged with a remediation hint.
+- After reap, `sprint-story-close.js` re-probes `git worktree list`
+  and emits a louder warning if the story worktree is still
+  registered, so the operator sees the real failure instead of the
+  downstream branch-delete error.
+
+**Cleanup for worktrees inherited from the v5.11.5 era:**
+
+    git worktree remove <path> --force && git worktree prune && git branch -D story-<id>
+
 ## [5.11.5] - 2026-04-20
 
 ### Worktree reap hardening (Windows)
