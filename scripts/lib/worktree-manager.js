@@ -629,6 +629,21 @@ export class WorktreeManager {
     // touched — the copy is a plain directory, not a symlink.
     this._removeCopiedAgents(wtPath);
 
+    // Windows locks the process cwd — if the Node process is sitting inside
+    // the worktree (common when `sprint-story-close.js` is invoked from a
+    // shell whose cwd is the worktree), the directory removal silently fails
+    // even though `git worktree remove` reports success. chdir to repoRoot
+    // before the remove so the Node process releases its handle.
+    if (this._isInsideWorktree(process.cwd(), wtPath)) {
+      try {
+        process.chdir(this.repoRoot);
+      } catch (err) {
+        this.logger.warn(
+          `worktree.reap chdir-to-root failed: ${err.message} (continuing)`,
+        );
+      }
+    }
+
     const res = this.git.gitSpawn(this.repoRoot, 'worktree', 'remove', wtPath);
     if (res.status !== 0) {
       return {
@@ -639,8 +654,39 @@ export class WorktreeManager {
     }
     this._invalidateWorktreeCache();
 
+    // `git worktree remove` drops the registration but on Windows (and when
+    // submodule metadata lingers) the directory itself can remain. Verify the
+    // disk is clean; fall back to fs.rmSync if git left the tree behind.
+    if (fs.existsSync(wtPath)) {
+      try {
+        fs.rmSync(wtPath, { recursive: true, force: true });
+      } catch (err) {
+        this.logger.warn(
+          `worktree.reap post-remove rmSync failed path=${wtPath}: ${err.message}`,
+        );
+      }
+    }
+
     this.logger.info(`worktree.reaped storyId=${storyId} path=${wtPath}`);
     return { removed: true, path: wtPath };
+  }
+
+  /**
+   * True if `candidate` is the same path as `wtPath` or nested beneath it.
+   * Used to detect when the Node process's cwd would block removal on
+   * Windows due to the cwd file handle.
+   *
+   * @param {string} candidate
+   * @param {string} wtPath
+   * @returns {boolean}
+   */
+  _isInsideWorktree(candidate, wtPath) {
+    const resolvedCandidate = path.resolve(candidate);
+    const resolvedWt = path.resolve(wtPath);
+    if (this._samePath(resolvedCandidate, resolvedWt)) return true;
+    const rel = path.relative(resolvedWt, resolvedCandidate);
+    if (!rel || rel.startsWith('..') || path.isAbsolute(rel)) return false;
+    return true;
   }
 
   /**
