@@ -8,6 +8,27 @@ between them.
 > **Version:** consumers pick their own `playwright-bdd` version. This skill
 > documents behavioral constraints, not a pinned release.
 
+## Pre-authoring checklist (mandatory)
+
+The agent MUST complete every item below AND MUST include the results in its
+output report BEFORE any scenario text is written. See
+[§ Step Reuse — Grep Before You Write](../../../../rules/gherkin-standards.md#step-reuse--grep-before-you-write)
+for rationale.
+
+1. Run `rg` against the project's steps directory and list every step signature
+   you will reuse. Format: one `Given/When/Then "…"` per line.
+2. For each scenario line you plan to author, identify the matching existing
+   step. For any line with no match, either rephrase to reuse an existing step
+   or record it as a gap. Do NOT author new step definitions during scenario
+   authoring.
+3. State the canonical domain tag and platform tag you will apply (or note
+   "Cross-Platform → no platform tag" per `gherkin-standards.md`).
+4. Confirm the AC's `data-testid`, URL, and payload hints will be stripped from
+   scenario prose.
+
+If you cannot complete every item, stop and report — do not proceed to scenario
+authoring.
+
 ## 1. Core Principles
 
 - **One source of truth per scenario:** `.feature` files describe intent; step
