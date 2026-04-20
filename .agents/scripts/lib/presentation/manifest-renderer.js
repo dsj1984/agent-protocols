@@ -457,7 +457,7 @@ export function renderStoryManifestMarkdown(manifest) {
     `3. Run \`${settings.validationCommand}\` and \`${settings.testCommand}\` to validate.`,
   );
   lines.push(
-    `4. \`node ${closePath} --story <storyId>\` (merges, cleans up, closes tickets)`,
+    `4. \`node <main-repo>/${closePath} --story <storyId> --cwd <main-repo>\` (merges, cleans up, closes tickets)`,
   );
   lines.push('');
 

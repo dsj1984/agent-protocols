@@ -18,8 +18,8 @@ import { collectOpenStoryIds } from '../../.agents/scripts/lib/orchestration/dis
 // ---------------------------------------------------------------------------
 
 describe('collectOpenStoryIds — gc safety', () => {
-  function story(id) {
-    return { id, labels: ['type::story'], body: '' };
+  function story(id, extra = {}) {
+    return { id, labels: ['type::story'], body: '', state: 'open', ...extra };
   }
   function task(id, parentStoryId, status) {
     return {
@@ -64,6 +64,28 @@ describe('collectOpenStoryIds — gc safety', () => {
       task(3, 100, 'agent::ready'),
     ];
     assert.deepEqual(collectOpenStoryIds(tasks, allTicketsById), [100]);
+  });
+
+  it('treats cancelled stories as non-open when reapOnCancel=true', () => {
+    const allTicketsById = new Map([
+      [100, story(100, { state: 'closed', labels: ['type::story'] })],
+    ]);
+    const tasks = [task(1, 100, 'agent::executing')];
+    assert.deepEqual(
+      collectOpenStoryIds(tasks, allTicketsById, { reapOnCancel: true }),
+      [],
+    );
+  });
+
+  it('keeps cancelled stories open when reapOnCancel=false', () => {
+    const allTicketsById = new Map([
+      [100, story(100, { state: 'closed', labels: ['type::story'] })],
+    ]);
+    const tasks = [task(1, 100, 'agent::executing')];
+    assert.deepEqual(
+      collectOpenStoryIds(tasks, allTicketsById, { reapOnCancel: false }),
+      [100],
+    );
   });
 });
 
@@ -110,6 +132,10 @@ describe('ManualDispatchAdapter — cwd dispatch instruction', () => {
     const text = output();
     assert.match(text, /Worktree\s*:\s*\/repo\/\.worktrees\/story-7/);
     assert.match(text, /cd "\/repo\/\.worktrees\/story-7"/);
+    assert.match(
+      text,
+      /sprint-story-close\.js --story <storyId> --cwd <main-repo>/,
+    );
   });
 
   it('omits the cd instruction when cwd is absent (single-tree mode)', async () => {

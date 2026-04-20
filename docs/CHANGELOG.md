@@ -2,6 +2,23 @@
 
 All notable changes to this project will be documented in this file.
 
+## [5.11.2] - 2026-04-19
+
+### Worktree reap + cancellation GC fixes
+
+- `sprint-story-close.reapStoryWorktree` now roots `WorktreeManager` at the
+  resolved runtime repo root (`--cwd` / `cwd` param) instead of module
+  `PROJECT_ROOT`. This ensures reap targets the real main checkout when
+  close is invoked from a copied `.agents` tree inside a story worktree.
+- `dispatch-engine.collectOpenStoryIds` now honors
+  `orchestration.worktreeIsolation.reapOnCancel`. Cancelled stories
+  (closed without `agent::done`) are treated as reapable by the GC pass
+  when `reapOnCancel=true` (default); retained for manual recovery when
+  `false`. Previously the config flag had no effect on GC behaviour.
+- Manual dispatch output and rendered story manifests now emit the safe
+  close command with `<main-repo>` prefix and `--cwd <main-repo>` so
+  operators run the closer against the real checkout by default.
+
 ## [5.11.1] - 2026-04-19
 
 ### HITL gate notifications

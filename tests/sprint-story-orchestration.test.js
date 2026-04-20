@@ -1,6 +1,8 @@
 import assert from 'node:assert/strict';
+import path from 'node:path';
 import test from 'node:test';
 import { __setGitRunners } from '../.agents/scripts/lib/git-utils.js';
+import { WorktreeManager } from '../.agents/scripts/lib/worktree-manager.js';
 import { runStoryClose } from '../.agents/scripts/sprint-story-close.js';
 import { runStoryInit } from '../.agents/scripts/sprint-story-init.js';
 import { MockProvider } from './fixtures/mock-provider.js';
@@ -379,4 +381,46 @@ test('sprint-story-close: handle risk::high gate', async () => {
     0,
     'Gate must not post any ticket comment — pause is in-chat only',
   );
+});
+
+test('sprint-story-close: reaps worktree using resolved --cwd repo root', async () => {
+  const provider = new MockProvider({
+    tickets: {
+      100: {
+        id: 100,
+        title: 'Story 100',
+        body: 'Epic: #50',
+        labels: ['type::story', 'agent::executing'],
+      },
+    },
+    subTickets: {
+      100: [],
+    },
+  });
+  const explicitMainRepo = path.resolve('C:/tmp/main-repo');
+  let observedRepoRoot = null;
+  const originalReap = WorktreeManager.prototype.reap;
+  WorktreeManager.prototype.reap = async function (_storyId, _opts) {
+    observedRepoRoot = this.repoRoot;
+    return {
+      removed: false,
+      reason: 'not-a-worktree',
+      path: this.pathFor(100),
+    };
+  };
+  try {
+    const { success } = await runStoryClose({
+      storyId: 100,
+      cwd: explicitMainRepo,
+      injectedProvider: provider,
+    });
+    assert.ok(success, 'Story close should still succeed');
+    assert.equal(
+      observedRepoRoot,
+      explicitMainRepo,
+      'WorktreeManager must be rooted at the runtime --cwd path',
+    );
+  } finally {
+    WorktreeManager.prototype.reap = originalReap;
+  }
 });
