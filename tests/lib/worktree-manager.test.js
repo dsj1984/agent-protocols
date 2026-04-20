@@ -371,6 +371,107 @@ test('reap: skips unsafe worktree with warning', async () => {
   }
 });
 
+test('reap: retries submodule-guard failure after generic gitlink scrub', async () => {
+  const tmp = fs.mkdtempSync(path.join(os.tmpdir(), 'wt-reap-submodule-'));
+  const wtPath = path.join(tmp, '.worktrees', 'story-235');
+  fs.mkdirSync(wtPath, { recursive: true });
+  try {
+    let removeCalls = 0;
+    const rmPaths = [];
+    const git = mockGit({
+      'worktree list': () => ({
+        status: 0,
+        stdout: `worktree ${wtPath}\nHEAD x\nbranch refs/heads/story-235\n`,
+        stderr: '',
+      }),
+      'status --porcelain': () => ({ status: 0, stdout: '', stderr: '' }),
+      'rev-parse': () => ({ status: 0, stdout: 'story-235', stderr: '' }),
+      'merge-base': () => ({ status: 0, stdout: '', stderr: '' }),
+      'ls-files --stage': (_cwd, args) => {
+        // Generic list call used by _dropAllSubmoduleGitlinksFromIndex.
+        if (args.length === 2) {
+          return {
+            status: 0,
+            stdout: '160000 abc123 0\tvendor/shared-submodule\n',
+            stderr: '',
+          };
+        }
+        return { status: 0, stdout: '', stderr: '' };
+      },
+      'update-index': () => ({ status: 0, stdout: '', stderr: '' }),
+      rm: (_cwd, args) => {
+        rmPaths.push(args[args.length - 1]);
+        return { status: 0, stdout: '', stderr: '' };
+      },
+      'worktree remove': () => {
+        removeCalls++;
+        if (removeCalls === 1) {
+          return {
+            status: 1,
+            stdout: '',
+            stderr:
+              'fatal: working trees containing submodules cannot be moved or removed',
+          };
+        }
+        return { status: 0, stdout: '', stderr: '' };
+      },
+    });
+    const wm = new WorktreeManager({
+      repoRoot: tmp,
+      logger: SILENT_LOGGER,
+      git,
+      platform: 'linux',
+    });
+    const r = await wm.reap(235, { epicBranch: 'main' });
+    assert.equal(r.removed, true, `reap failed: ${r.reason}`);
+    assert.equal(removeCalls, 2, 'remove should retry after submodule guard');
+    assert.ok(
+      rmPaths.includes('vendor/shared-submodule'),
+      'generic gitlink scrub should remove non-.agents submodules from index',
+    );
+  } finally {
+    fs.rmSync(tmp, { recursive: true, force: true });
+  }
+});
+
+test('reap: retries lock-like remove failures on win32', async () => {
+  const tmp = fs.mkdtempSync(path.join(os.tmpdir(), 'wt-reap-lock-'));
+  const wtPath = path.join(tmp, '.worktrees', 'story-235');
+  fs.mkdirSync(wtPath, { recursive: true });
+  try {
+    let removeCalls = 0;
+    const git = mockGit({
+      'worktree list': () => ({
+        status: 0,
+        stdout: `worktree ${wtPath}\nHEAD x\nbranch refs/heads/story-235\n`,
+        stderr: '',
+      }),
+      'status --porcelain': () => ({ status: 0, stdout: '', stderr: '' }),
+      'rev-parse': () => ({ status: 0, stdout: 'story-235', stderr: '' }),
+      'merge-base': () => ({ status: 0, stdout: '', stderr: '' }),
+      'ls-files --stage': () => ({ status: 0, stdout: '', stderr: '' }),
+      'worktree remove': () => {
+        removeCalls++;
+        if (removeCalls < 3) {
+          return { status: 1, stdout: '', stderr: 'Permission denied' };
+        }
+        return { status: 0, stdout: '', stderr: '' };
+      },
+    });
+    const wm = new WorktreeManager({
+      repoRoot: tmp,
+      logger: SILENT_LOGGER,
+      git,
+      platform: 'win32',
+    });
+    const r = await wm.reap(235, { epicBranch: 'main' });
+    assert.equal(r.removed, true, `reap failed: ${r.reason}`);
+    assert.equal(removeCalls, 3, 'remove should retry lock-like failures');
+  } finally {
+    fs.rmSync(tmp, { recursive: true, force: true });
+  }
+});
+
 test('gc: reaps only worktrees for stories NOT in openStoryIds', async () => {
   const tmp = fs.mkdtempSync(path.join(os.tmpdir(), 'wt-'));
   try {

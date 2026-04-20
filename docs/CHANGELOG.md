@@ -2,6 +2,27 @@
 
 All notable changes to this project will be documented in this file.
 
+## [5.12.1] - 2026-04-20
+
+### Harden `WorktreeManager.reap()` against submodule guard and Windows locks
+
+`reap()` now performs targeted recovery when `git worktree remove` fails:
+
+- **Submodule guard retries** — before remove, the index is scrubbed of
+  *all* mode-160000 gitlinks (not just `.agents`) via a new generic
+  `_dropAllSubmoduleGitlinksFromIndex()` helper, so consumer repos with
+  additional submodules are covered. If the guard still fires, the retry
+  loop scrubs residual gitlinks and the per-worktree `modules/` dir, then
+  retries.
+- **Windows lock-like retries** — "Permission denied", "Access is denied",
+  "Directory not empty", "resource busy", and "sharing violation" now
+  trigger short bounded backoff (100ms, 300ms) up to 3 attempts on win32.
+- **Clear failure reason** — when all attempts fail, `remove-failed: <reason>`
+  surfaces the real git stderr instead of a generic message.
+- `_purgePerWorktreeSubmoduleDir()` no longer gates on `.agents` submodule
+  detection, so stale `worktrees/<name>/modules/` directories from prior
+  runs no longer trip the guard in framework-consumer repos.
+
 ## [5.12.0] - 2026-04-20
 
 ### Protocol self-healing — code-review calibration, recuts, and parked follow-ons
