@@ -173,13 +173,20 @@ async function ticketClosureCascade(provider, tasks, storyId) {
 // `.agents/README.md#error-handling-convention`.
 // ---------------------------------------------------------------------------
 
-async function reapStoryWorktree({ orchestration, storyId, epicBranch }) {
+async function reapStoryWorktree({
+  orchestration,
+  storyId,
+  epicBranch,
+  repoRoot,
+}) {
   const wtConfig = orchestration?.worktreeIsolation;
   if (!wtConfig?.enabled || !(wtConfig.reapOnSuccess ?? true)) return;
 
   try {
     const wm = new WorktreeManager({
-      repoRoot: PROJECT_ROOT,
+      // Must use the resolved runtime repo root (`--cwd` in worktree mode),
+      // not module PROJECT_ROOT (which may point at a copied .agents tree).
+      repoRoot,
       config: wtConfig,
     });
     const reapResult = await wm.reap(storyId, { epicBranch });
@@ -629,7 +636,12 @@ export async function runStoryClose({
     // leave the worktree registration in place and the subsequent branch
     // delete will fail — which is now reported in the structured result
     // rather than silently swallowed.
-    await reapStoryWorktree({ orchestration, storyId, epicBranch });
+    await reapStoryWorktree({
+      orchestration,
+      storyId,
+      epicBranch,
+      repoRoot: cwd,
+    });
     branchCleanup = cleanupBranches(storyBranch, cwd);
   }
 

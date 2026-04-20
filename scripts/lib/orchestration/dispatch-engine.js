@@ -402,9 +402,11 @@ async function handleRiskHighGate(task, provider, dryRun) {
  *
  * @param {object[]} tasks - Parsed task tickets under the Epic.
  * @param {Map<number, object>} allTicketsById - Hierarchy lookup.
+ * @param {{ reapOnCancel?: boolean }} [opts]
  * @returns {number[]}
  */
-export function collectOpenStoryIds(tasks, allTicketsById) {
+export function collectOpenStoryIds(tasks, allTicketsById, opts = {}) {
+  const reapOnCancel = opts.reapOnCancel ?? true;
   const open = new Set();
   for (const task of tasks) {
     if (task.status === AGENT_DONE_LABEL) continue;
@@ -412,9 +414,16 @@ export function collectOpenStoryIds(tasks, allTicketsById) {
     if (!parentMatch) continue;
     const parentId = parseInt(parentMatch[1], 10);
     const parent = allTicketsById.get(parentId);
-    if (parent?.labels.includes('type::story')) {
-      open.add(parentId);
-    }
+    if (!parent?.labels.includes('type::story')) continue;
+
+    // Cancelled story: ticket is closed but was not completed via agent::done.
+    // When reapOnCancel is enabled, treat it as no longer live so GC can reap
+    // its worktree. When disabled, keep the worktree alive for manual recovery.
+    const isCancelledStory =
+      parent.state === 'closed' && !parent.labels.includes(AGENT_DONE_LABEL);
+    if (isCancelledStory && reapOnCancel) continue;
+
+    open.add(parentId);
   }
   return [...open];
 }
@@ -712,6 +721,10 @@ async function runWorktreeGc(ctx, fetched) {
     const openStoryIds = collectOpenStoryIds(
       fetched.tasks,
       fetched.allTicketsById,
+      {
+        reapOnCancel:
+          ctx.orchestration?.worktreeIsolation?.reapOnCancel ?? true,
+      },
     );
     const gcResult = await worktreeManager.gc(openStoryIds, { epicBranch });
     if (gcResult.reaped.length > 0) {
