@@ -11,7 +11,6 @@ import {
   CONTEXT_LABELS,
   EPIC_LABELS,
   EXECUTION_LABELS,
-  FOCUS_LABELS,
   LABEL_COLORS,
   PERSONA_LABELS,
   RISK_LABELS,
@@ -137,33 +136,6 @@ export const LABEL_TAXONOMY = [
     color: LABEL_COLORS.EXECUTION,
     description: 'Can execute concurrently',
   },
-
-  // Focus Area
-  {
-    name: FOCUS_LABELS.CORE,
-    color: LABEL_COLORS.FOCUS,
-    description: 'Core library changes',
-  },
-  {
-    name: FOCUS_LABELS.SCRIPTS,
-    color: LABEL_COLORS.FOCUS,
-    description: 'Script/tooling changes',
-  },
-  {
-    name: FOCUS_LABELS.DOCS,
-    color: LABEL_COLORS.FOCUS,
-    description: 'Documentation changes',
-  },
-  {
-    name: FOCUS_LABELS.CI,
-    color: LABEL_COLORS.FOCUS,
-    description: 'CI/CD pipeline changes',
-  },
-  {
-    name: FOCUS_LABELS.TESTS,
-    color: LABEL_COLORS.FOCUS,
-    description: 'Test suite changes',
-  },
 ];
 
 /** @type {Array<{ name: string, type: 'iteration'|'single_select', options?: string[] }>} */
@@ -173,10 +145,5 @@ export const PROJECT_FIELD_DEFS = [
     name: 'Execution',
     type: 'single_select',
     options: ['sequential', 'concurrent'],
-  },
-  {
-    name: 'Focus Area',
-    type: 'single_select',
-    options: ['core', 'scripts', 'docs', 'ci', 'tests'],
   },
 ];

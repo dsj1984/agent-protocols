@@ -40,23 +40,21 @@ custom fields.
 
 ### Labels
 
-| Category    | Labels                                                                      | Color      |
-| ----------- | --------------------------------------------------------------------------- | ---------- |
-| Type        | `type::epic`, `type::feature`, `type::story`, `type::task`                  | Purple     |
-| Agent State | `agent::ready`, `agent::executing`, `agent::review`, `agent::done`, `agent::dispatching` | Green      |
-| Epic        | `epic::auto-close`                                                          | Yellow     |
-| Status      | `status::blocked`                                                           | Red        |
-| Risk        | `risk::high`, `risk::medium`                                                | Yellow     |
-| Persona     | `persona::fullstack`, `persona::architect`, `persona::qa`                   | Blue       |
-| Context     | `context::prd`, `context::tech-spec`                                        | Purple     |
-| Execution   | `execution::sequential`, `execution::concurrent`                            | Peach      |
-| Focus       | `focus::core`, `focus::scripts`, `focus::docs`, `focus::ci`, `focus::tests` | Light Blue |
+| Category    | Labels                                                                                   | Color  |
+| ----------- | ---------------------------------------------------------------------------------------- | ------ |
+| Type        | `type::epic`, `type::feature`, `type::story`, `type::task`                               | Purple |
+| Agent State | `agent::ready`, `agent::executing`, `agent::review`, `agent::done`, `agent::dispatching` | Green  |
+| Epic        | `epic::auto-close`                                                                       | Yellow |
+| Status      | `status::blocked`                                                                        | Red    |
+| Risk        | `risk::high`, `risk::medium`                                                             | Yellow |
+| Persona     | `persona::fullstack`, `persona::architect`, `persona::qa`                                | Blue   |
+| Context     | `context::prd`, `context::tech-spec`                                                     | Purple |
+| Execution   | `execution::sequential`, `execution::concurrent`                                         | Peach  |
 
 ### Project Board Fields (if `projectNumber` is configured)
 
 - **Sprint** (Iteration)
 - **Execution** (Single Select): `sequential`, `concurrent`
-- **Focus Area** (Single Select): `core`, `scripts`, `docs`, `ci`, `tests`
 
 ## Troubleshooting
 

@@ -50,14 +50,6 @@ export const EXECUTION_LABELS = {
   CONCURRENT: 'execution::concurrent',
 };
 
-export const FOCUS_LABELS = {
-  CORE: 'focus::core',
-  SCRIPTS: 'focus::scripts',
-  DOCS: 'focus::docs',
-  CI: 'focus::ci',
-  TESTS: 'focus::tests',
-};
-
 /** Palette for the taxonomy; consumed by label-taxonomy.js. */
 export const LABEL_COLORS = {
   TYPE: '#7057FF',
@@ -67,6 +59,5 @@ export const LABEL_COLORS = {
   PERSONA: '#C5DEF5',
   CONTEXT: '#D4C5F9',
   EXECUTION: '#F9D0C4',
-  FOCUS: '#BFD4F2',
   EPIC: '#FBCA04',
 };

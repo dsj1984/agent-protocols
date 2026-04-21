@@ -86,7 +86,7 @@ describe('Bootstrap — LABEL_TAXONOMY', () => {
     assert.ok(names.includes('agent::done'));
   });
 
-  it('contains status, risk, persona, context, execution, and focus labels', () => {
+  it('contains status, risk, persona, context, and execution labels', () => {
     const names = LABEL_TAXONOMY.map((l) => l.name);
     assert.ok(names.includes('status::blocked'));
     assert.ok(names.includes('risk::high'));
@@ -98,15 +98,10 @@ describe('Bootstrap — LABEL_TAXONOMY', () => {
     assert.ok(names.includes('context::tech-spec'));
     assert.ok(names.includes('execution::sequential'));
     assert.ok(names.includes('execution::concurrent'));
-    assert.ok(names.includes('focus::core'));
-    assert.ok(names.includes('focus::scripts'));
-    assert.ok(names.includes('focus::docs'));
-    assert.ok(names.includes('focus::ci'));
-    assert.ok(names.includes('focus::tests'));
   });
 
-  it('has exactly 25 label definitions', () => {
-    assert.equal(LABEL_TAXONOMY.length, 25);
+  it('has exactly 20 label definitions', () => {
+    assert.equal(LABEL_TAXONOMY.length, 20);
   });
 
   it('includes the dispatch/auto-close labels', () => {
@@ -160,8 +155,8 @@ describe('Bootstrap — LABEL_TAXONOMY', () => {
 // Project Field Definitions
 // ---------------------------------------------------------------------------
 describe('Bootstrap — PROJECT_FIELD_DEFS', () => {
-  it('has exactly 3 field definitions', () => {
-    assert.equal(PROJECT_FIELD_DEFS.length, 3);
+  it('has exactly 2 field definitions', () => {
+    assert.equal(PROJECT_FIELD_DEFS.length, 2);
   });
 
   it('defines Sprint as iteration', () => {
@@ -175,13 +170,6 @@ describe('Bootstrap — PROJECT_FIELD_DEFS', () => {
     assert.ok(exec);
     assert.equal(exec.type, 'single_select');
     assert.deepEqual(exec.options, ['sequential', 'concurrent']);
-  });
-
-  it('defines Focus Area as single_select with correct options', () => {
-    const focus = PROJECT_FIELD_DEFS.find((f) => f.name === 'Focus Area');
-    assert.ok(focus);
-    assert.equal(focus.type, 'single_select');
-    assert.deepEqual(focus.options, ['core', 'scripts', 'docs', 'ci', 'tests']);
   });
 });
 
