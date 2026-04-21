@@ -41,7 +41,7 @@ test('ensureSprintHealthIssue: creates when absent', async () => {
   assert.equal(calls.length, 1);
   assert.equal(calls[0][0], 42);
   assert.match(calls[0][1].title, /Sprint Health: Demo/);
-  assert.deepEqual(calls[0][1].labels, ['type::health', 'persona::operator']);
+  assert.deepEqual(calls[0][1].labels, ['type::health']);
 });
 
 test('ensureSprintHealthIssue: swallows provider.createTicket failure', async () => {
