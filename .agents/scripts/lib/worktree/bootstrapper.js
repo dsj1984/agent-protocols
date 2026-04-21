@@ -11,6 +11,7 @@
 
 import fs from 'node:fs';
 import path from 'node:path';
+import { provision } from '../workspace-provisioner.js';
 import { samePath } from './inspector.js';
 
 /**
@@ -34,46 +35,37 @@ export function isAgentsSubmodule(repoRoot) {
 
 /**
  * Copy untracked bootstrap files (default `.env`, `.mcp.json`) from the repo
- * root into a freshly created worktree.
+ * root into a freshly created worktree. Delegates to the central
+ * `WorkspaceProvisioner`; kept as a named export so existing call sites keep
+ * working.
  *
  * @param {{ repoRoot: string, config: { bootstrapFiles?: string[] }, logger: object }} ctx
  * @param {string} wtPath
  */
 export function copyBootstrapFiles(ctx, wtPath) {
-  const names = ctx.config.bootstrapFiles ?? [];
-  if (!Array.isArray(names) || names.length === 0) return;
+  const files = ctx.config?.bootstrapFiles;
+  if (!Array.isArray(files) || files.length === 0) return;
+  const logger = wrapBootstrapLogger(ctx.logger);
+  provision({
+    sourceRoot: ctx.repoRoot,
+    targetWorktree: wtPath,
+    files,
+    logger,
+  });
+}
 
-  for (const name of names) {
-    if (typeof name !== 'string' || name.length === 0) continue;
-    const rel = path.normalize(name);
-    if (rel.startsWith('..') || path.isAbsolute(rel) || rel.includes('\0')) {
-      ctx.logger.warn(
-        `worktree.bootstrap skipped invalid name='${name}' (must be relative, no traversal)`,
-      );
-      continue;
-    }
-
-    const src = path.join(ctx.repoRoot, rel);
-    if (!fs.existsSync(src)) continue;
-
-    const dst = path.join(wtPath, rel);
-    if (fs.existsSync(dst)) {
-      ctx.logger.info(
-        `worktree.bootstrap skipped path=${dst} (already exists)`,
-      );
-      continue;
-    }
-
-    try {
-      fs.mkdirSync(path.dirname(dst), { recursive: true });
-      fs.copyFileSync(src, dst);
-      ctx.logger.info(`worktree.bootstrap copied source=${src} target=${dst}`);
-    } catch (err) {
-      ctx.logger.warn(
-        `worktree.bootstrap copy failed name=${name}: ${err.message}`,
-      );
-    }
-  }
+/**
+ * Translate provisioner log lines into the `worktree.bootstrap …` prefix that
+ * existing operators and log scrapers rely on.
+ */
+function wrapBootstrapLogger(inner) {
+  const rewrite = (msg) =>
+    String(msg).replace(/^workspace-provisioner:/, 'worktree.bootstrap');
+  return {
+    info: (m) => inner.info(rewrite(m)),
+    warn: (m) => inner.warn(rewrite(m)),
+    error: (m) => inner.error(rewrite(m)),
+  };
 }
 
 /**
