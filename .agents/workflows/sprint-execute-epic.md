@@ -16,10 +16,13 @@ entry point for the remote-agent dispatch flow (fired from
 `.github/workflows/epic-dispatch.yml`) and can also be invoked locally for
 manual end-to-end runs.
 
-> **Status**: scaffold. The engine lives in `lib/orchestration/epic-runner.js`
-> (added in a follow-up Story). Until that lands, this workflow document
-> captures the intended contract; the CLI at `.agents/scripts/epic-runner.js`
-> is a thin wrapper that will start the run once the engine is available.
+> **Status**: engine implemented. The coordinator lives at
+> `.agents/scripts/lib/orchestration/epic-runner.js` and composes the six
+> submodules in `.agents/scripts/lib/orchestration/epic-runner/` (wave-scheduler,
+> story-launcher, state-poller, checkpointer, blocker-handler,
+> notification-hook, and a bookend-chainer stub). The CLI at
+> `.agents/scripts/epic-runner.js` drives the engine with the
+> `orchestration.epicRunner` block from `.agentrc.json`.
 
 ---
 

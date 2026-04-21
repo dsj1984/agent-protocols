@@ -122,6 +122,18 @@ export const ORCHESTRATION_SCHEMA = {
       },
       additionalProperties: false,
     },
+    epicRunner: {
+      type: 'object',
+      properties: {
+        enabled: { type: 'boolean' },
+        concurrencyCap: { type: 'integer', minimum: 1 },
+        pollIntervalSec: { type: 'integer', minimum: 1 },
+        storyRetryCount: { type: 'integer', minimum: 0 },
+        blockerTimeoutHours: { type: 'integer', minimum: 0 },
+        notificationWebhookUrl: { type: ['string', 'null'], minLength: 1 },
+      },
+      additionalProperties: false,
+    },
   },
   additionalProperties: false,
 };
