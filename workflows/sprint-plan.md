@@ -142,6 +142,17 @@ planned.
      least one Task.
    - **Verify**: dependency DAG across Tasks is acyclic (no circular deps).
    - **Verify**: risk::high Tasks are flagged correctly.
+   - **Scope-overlap check (docs/runbook downstream of config work)**: Scan for
+     Stories whose scope is "docs update", "runbook", or "README" Tasks that
+     land downstream of an earlier "config + runbook" Story in the same Epic. If
+     the earlier Story's AC already covers the same document, the downstream
+     Task's deliverable is likely absorbed. Append a "Scope verification note"
+     to the downstream Task body pointing the executor to
+     `git diff main -- <path>` against the upstream Story branch so they can
+     confirm whether a substantive edit is still required (or only a
+     cross-reference remains). The decomposer system prompt emits this flag
+     automatically where it can detect the pattern — this checklist item is the
+     human/host-LLM backstop.
    - **Action**: Fix any gaps by creating additional issues or updating existing
      ones manually.
 
