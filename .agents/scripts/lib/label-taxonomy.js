@@ -9,6 +9,7 @@
 import {
   AGENT_LABELS,
   CONTEXT_LABELS,
+  EPIC_LABELS,
   EXECUTION_LABELS,
   FOCUS_LABELS,
   LABEL_COLORS,
@@ -62,6 +63,20 @@ export const LABEL_TAXONOMY = [
     name: AGENT_LABELS.DONE,
     color: LABEL_COLORS.AGENT,
     description: 'Agent work completed',
+  },
+  {
+    name: AGENT_LABELS.DISPATCHING,
+    color: LABEL_COLORS.AGENT,
+    description:
+      'Transient trigger state — remote orchestrator picks up and flips to agent::executing',
+  },
+
+  // Epic modifiers
+  {
+    name: EPIC_LABELS.AUTO_CLOSE,
+    color: LABEL_COLORS.EPIC,
+    description:
+      'Opt-in modifier authorizing autonomous bookend chain (code-review → retro → close) including merge-to-main',
   },
 
   // Status

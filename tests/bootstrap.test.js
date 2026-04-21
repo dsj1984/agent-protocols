@@ -105,8 +105,14 @@ describe('Bootstrap — LABEL_TAXONOMY', () => {
     assert.ok(names.includes('focus::tests'));
   });
 
-  it('has exactly 23 label definitions', () => {
-    assert.equal(LABEL_TAXONOMY.length, 23);
+  it('has exactly 25 label definitions', () => {
+    assert.equal(LABEL_TAXONOMY.length, 25);
+  });
+
+  it('includes the dispatch/auto-close labels', () => {
+    const names = LABEL_TAXONOMY.map((l) => l.name);
+    assert.ok(names.includes('agent::dispatching'));
+    assert.ok(names.includes('epic::auto-close'));
   });
 
   it('every label has name, color (hex), and description', () => {
