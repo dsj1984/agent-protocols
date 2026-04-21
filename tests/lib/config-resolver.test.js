@@ -84,6 +84,21 @@ describe('config-resolver library tests', () => {
     assert.throws(() => resolveConfig({ bustCache: true }));
   });
 
+  it('accepts release.versionFile: null (default shape)', () => {
+    const agentrcPath = path.join(PROJECT_ROOT, '.agentrc.json');
+    vol.mkdirSync(PROJECT_ROOT, { recursive: true });
+    vol.writeFileSync(
+      agentrcPath,
+      JSON.stringify({
+        agentSettings: {
+          release: { versionFile: null },
+        },
+      }),
+    );
+
+    assert.doesNotThrow(() => resolveConfig({ bustCache: true }));
+  });
+
   it('applies environment variable override for notificationWebhookUrl', () => {
     const agentrcPath = path.join(PROJECT_ROOT, '.agentrc.json');
     vol.mkdirSync(PROJECT_ROOT, { recursive: true });

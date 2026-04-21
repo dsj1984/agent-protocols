@@ -2,6 +2,24 @@
 
 All notable changes to this project will be documented in this file.
 
+## [5.13.2] - 2026-04-21
+
+### Fix config-schema rejecting `release.versionFile: null`
+
+`agentSettings.release.versionFile` is declared
+`type: ['string', 'null']` but the shell-injection guard was written as
+`not: { pattern: ... }`. Because JSON Schema's `pattern` keyword only
+applies to strings, the inner schema passed vacuously for `null`, and
+`not` flipped that into a validation failure — so every project that
+kept the shipped default (`"versionFile": null` in
+`.agents/default-agentrc.json`) failed config resolution.
+
+Fixed by narrowing the `not` clause to string-typed inputs:
+`not: { type: 'string', pattern: SHELL_INJECTION_PATTERN_STRING }`.
+`null` now validates; benign strings still pass; shell-metacharacter
+strings are still rejected. Added a regression test in
+`tests/lib/config-resolver.test.js`.
+
 ## [5.13.1] - 2026-04-21
 
 ### Reorder sprint-plan phases
