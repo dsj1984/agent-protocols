@@ -173,6 +173,19 @@ focus-area wave serialization. See
 [worktree-lifecycle.md](.agents/workflows/worktree-lifecycle.md) for the full
 operator reference.
 
+### Internal module layout (v5.13.0+)
+
+The orchestration SDK's three largest modules — `lib/worktree-manager.js`,
+`lib/orchestration/dispatch-engine.js`, and
+`lib/presentation/manifest-renderer.js` — are now thin facades that compose
+cohesive submodules under `lib/worktree/`, `lib/orchestration/`, and
+`lib/presentation/`. Public imports are unchanged: every caller continues to
+import `WorktreeManager`, `dispatch`, `renderManifestMarkdown`, etc. from the
+same paths. Only the facade files are part of the stable public surface;
+submodule paths are internal implementation detail. See
+[architecture.md](docs/architecture.md) for the per-submodule responsibility
+map.
+
 ## License
 
 ISC

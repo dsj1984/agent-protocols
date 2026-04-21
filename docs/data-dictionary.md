@@ -102,3 +102,24 @@ Canonical tag set enforced by `.agents/rules/gherkin-standards.md`. Tags outside
 | `@platform-mobile`| Platform exclusive     | Scenario only makes sense on the mobile client.                                                      |
 | `@domain-<slug>`  | Domain scope (required)| Exactly one per scenario. Slug is project-defined (e.g. `@domain-billing`, `@domain-auth`).          |
 | `@flaky`          | Operational quarantine | Scenario excluded from the gating suite; runs in a non-blocking job until stabilized. Debt marker.  |
+
+### 6. Orchestration Submodule Boundaries (v5.13.0+)
+
+Following Epic #297, the orchestration SDK splits its three largest
+modules into cohesive submodules behind facade files. Only the facade
+paths are part of the stable public surface; submodule paths are
+internal implementation detail and may be renamed without a major
+version bump.
+
+| Facade (public)                          | Submodule directory                 | Internal submodules                                                                                             |
+| ---------------------------------------- | ----------------------------------- | --------------------------------------------------------------------------------------------------------------- |
+| `lib/worktree-manager.js`                | `lib/worktree/`                     | `lifecycle-manager`, `node-modules-strategy`, `bootstrapper`, `inspector`                                       |
+| `lib/orchestration/dispatch-engine.js`   | `lib/orchestration/` (co-located)   | `dispatch-pipeline`, `wave-dispatcher`, `risk-gate-handler`, `health-check-service`, `epic-lifecycle-detector`, `dispatch-logger` |
+| `lib/presentation/manifest-renderer.js`  | `lib/presentation/` (co-located)    | `manifest-formatter` (pure), `manifest-persistence` (fs I/O)                                                    |
+
+Downstream consumers must import from the facade column. Tests, MCP
+tools, and CLI entry points inside this repository also import from the
+facade column — the split is internal. See
+`docs/architecture.md#dispatch-engine-submodules-v5130` and
+`docs/patterns.md#facade--responsibility-bounded-submodules` for the
+responsibility map.

@@ -17,3 +17,5 @@ temp/
 # Mutation testing
 reports/
 .stryker-tmp/
+
+.mcp.json

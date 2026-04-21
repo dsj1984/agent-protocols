@@ -124,3 +124,72 @@ skill for redefinition of rule content and rewrite any violations.
 patterns. `gherkin-authoring` teaches PRD AC → Scenario translation and the
 step-reuse protocol by *pointing at* the rule. `playwright-bdd` configures the
 runtime but *references* the rule's tag set instead of picking its own.
+
+---
+
+## Facade + Responsibility-Bounded Submodules
+
+### Motivation
+
+When an orchestration module grows past the point where a single file
+usefully describes a single responsibility, we decompose it into cohesive
+submodules behind a **thin facade**. The facade preserves every public
+export at the existing import path; submodules are internal
+implementation detail.
+
+Introduced by Epic #297 (v5.13.0) to split `lib/worktree-manager.js`
+(1,234 LOC), `lib/orchestration/dispatch-engine.js` (874 LOC), and
+`lib/presentation/manifest-renderer.js` (600 LOC).
+
+### Pattern
+
+1. Create a sibling directory (`lib/worktree/`, `lib/orchestration/`,
+   etc.) and extract cohesive submodules — each owning one
+   responsibility, ≤350 LOC, with its own per-submodule test file.
+2. Reduce the original file to a **facade** (typically ≤200 LOC) that
+   imports the submodules, composes them, and re-exports the exact set
+   of public symbols external callers currently consume.
+3. For class-based modules (like `WorktreeManager`), the facade's class
+   delegates each method body to a submodule helper that takes a
+   lightweight `ctx` bag. State (e.g. caches) lives on the facade
+   instance.
+4. Preserve every test in the existing suite without edits. Where
+   pre-existing tests probe internal helpers, add short
+   backwards-compat delegate methods on the facade rather than
+   rewriting the test.
+
+### Benefits
+
+*   Downstream consumers keep their import paths verbatim — no caller
+    edits outside the three target areas.
+*   Each submodule is individually unit-testable without mocking the
+    entire class hierarchy.
+*   Future behaviour changes land in the submodule that owns the
+    concern, not a 1,000-LOC grab-bag.
+*   The split merges are bisectable one-by-one because every
+    intermediate state still preserves the public contract.
+
+### Trade-offs
+
+*   Backwards-compat delegates on the facade are technical debt —
+    they exist solely to keep monkey-patch-heavy tests green. They
+    must be actively retired as tests migrate.
+*   Two-level indirection (facade → submodule helper) is a small
+    readability tax on follow-up contributors; ADR and
+    `architecture.md` must explicitly note which paths are the stable
+    public surface.
+
+### Example (this Epic)
+
+```text
+.agents/scripts/lib/worktree-manager.js       ← 223-LOC facade (public surface)
+.agents/scripts/lib/worktree/
+  lifecycle-manager.js                        ← git worktree ops
+  node-modules-strategy.js                    ← per-worktree / symlink / pnpm-store
+  bootstrapper.js                             ← .env, .mcp.json, .agents copy
+  inspector.js                                ← porcelain + path helpers
+```
+
+External callers continue to import `WorktreeManager` and
+`parseWorktreePorcelain` from the facade path verbatim; the four
+submodule paths are free to rename without a major version bump.

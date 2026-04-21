@@ -2,6 +2,84 @@
 
 All notable changes to this project will be documented in this file.
 
+## [5.13.0] - 2026-04-20
+
+### Decompose oversized orchestration modules (Epic #297)
+
+Delivers the structural refactor that was explicitly deferred from 5.12.3
+(`audit-clean-code` findings #5, #6, #16). Three oversized modules are
+split into cohesive submodules behind thin facade files. **No behaviour
+change, no public-API change** — every caller continues to import the
+same symbols from the same paths. Minor version bump signals the
+internal module-graph reshape for any consumer that pins a commit.
+
+**Worktree Manager split — 1,234 LOC → 223-LOC facade** (Story #302):
+
+- `lib/worktree-manager.js` is now a facade composing four submodules
+  under `lib/worktree/`:
+  - `lifecycle-manager.js` — `ensure`, `reap`, `list`, `gc`, `prune`,
+    `sweepStaleLocks`, Windows-lock-aware remove recovery.
+  - `node-modules-strategy.js` — `applyNodeModulesStrategy` +
+    `installDependencies` for `per-worktree` / `symlink` / `pnpm-store`.
+  - `bootstrapper.js` — bootstrap-file copy (`.env`, `.mcp.json`),
+    `.agents/` snapshot for submodule consumers, submodule-index scrub.
+  - `inspector.js` — pure porcelain parsing + path helpers.
+- The facade's `WorktreeManager` class preserves every public method
+  (`ensure`, `reap`, `list`, `gc`, `isSafeToRemove`, `prune`,
+  `sweepStaleLocks`, `pathFor`). Backwards-compat `_copyBootstrapFiles`,
+  `_copyAgentsFromRoot`, `_removeCopiedAgents`, `_isAgentsSubmodule`
+  delegates keep the existing 46-test `worktree-manager.test.js` green
+  without edits.
+- Added 35 new per-submodule tests (14 inspector + 8 strategy + 9
+  bootstrapper + 4 lifecycle).
+
+**Dispatch Engine split — 874 LOC → 196-LOC coordinator** (Story #303):
+
+- `lib/orchestration/dispatch-engine.js` is now a thin SDK coordinator.
+  Six cohesive submodules live beside it:
+  - `dispatch-pipeline.js` — resolve/fetch/reconcile/graph/scaffold/GC.
+  - `wave-dispatcher.js` — `dispatchWave`, `dispatchNextWave`,
+    per-task dispatch, `collectOpenStoryIds`.
+  - `risk-gate-handler.js` — task-level `risk::high` HITL flow.
+  - `health-check-service.js` — Sprint Health issue ensure.
+  - `epic-lifecycle-detector.js` — epic-completion detection + bookend.
+  - `dispatch-logger.js` — shared lazy `VerboseLogger` proxy.
+- `dispatch`, `resolveAndDispatch`, `collectOpenStoryIds`,
+  `detectEpicCompletion`, `ensureBranch`, `captureLintBaseline`, and the
+  `AGENT_*` / `RISK_HIGH_LABEL` / `TYPE_TASK_LABEL` constants still
+  export from `dispatch-engine.js` — `dispatcher.js`,
+  `mcp-orchestration.js`, and tests need no edits.
+- Added 17 new per-submodule tests.
+
+**Presentation Layer split — 600 LOC → 175-LOC facade** (Story #301):
+
+- `lib/presentation/manifest-renderer.js` is now a facade composing:
+  - `manifest-formatter.js` — pure Markdown / CLI rendering
+    (`formatManifestMarkdown`, `formatStoryManifestMarkdown`,
+    `printStoryDispatchTable`). No fs access.
+  - `manifest-persistence.js` — file I/O; writes dispatch and story
+    manifests to `temp/`.
+- `lib/orchestration/manifest-builder.js` (data-shape owner) untouched.
+- Added 13 new per-submodule tests.
+
+**Tooling:**
+
+- `npm test` glob now descends into `tests/lib/worktree/*.test.js` and
+  `tests/lib/orchestration/*.test.js` so the new submodule tests are
+  discovered. `test:coverage` mirrors the same globs.
+- `maintainability-baseline.json` refreshed for the new layout
+  (160 files, 0 regressions).
+- `docs/architecture.md` now documents each submodule's responsibility
+  and explicitly notes that submodules are internal implementation
+  detail — only facade files are part of the stable public surface.
+
+**Test posture:**
+
+- 636 total tests, 633 passing, 2 skipped, 1 failing (the documented
+  pre-existing `sprint-story-orchestration` worktree `EEXIST` — verifies
+  from main, not a regression).
+- `npm run lint` green.
+
 ## [5.12.4] - 2026-04-20
 
 ### Performance-audit remediation pass
