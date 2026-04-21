@@ -16,13 +16,15 @@
  *
  * Required env:
  *   EPIC_ID           — Epic issue number to orchestrate.
- *   REPO_URL          — HTTPS clone URL (e.g. https://github.com/owner/repo.git).
- *                       Defaults to `https://github.com/${GITHUB_REPOSITORY}.git`.
- *   ENV_FILE          — contents for `.env` (multi-line string).
  *   MCP_JSON          — contents for `.mcp.json` (JSON string).
  *   GITHUB_TOKEN      — token used for the clone (injected as x-access-token).
  *
  * Optional env:
+ *   ENV_FILE          — contents for `.env` (multi-line string). Skipped when
+ *                       empty or unset; projects that do not ship a `.env`
+ *                       can omit the secret entirely.
+ *   REPO_URL          — HTTPS clone URL. Defaults to
+ *                       `https://github.com/${GITHUB_REPOSITORY}.git`.
  *   WORKSPACE_DIR     — target directory for the clone (default: `./workspace`).
  *   REPO_REF          — branch/ref to check out (default: `main`).
  *   CLAUDE_BIN        — path to the `claude` CLI (default: `claude`).
@@ -82,7 +84,7 @@ function writeSecretFile(path, contents) {
 
 async function main() {
   const epicId = requireEnv('EPIC_ID');
-  const envFile = requireEnv('ENV_FILE');
+  const envFile = process.env.ENV_FILE ?? '';
   const mcpJson = requireEnv('MCP_JSON');
   const githubToken = requireEnv('GITHUB_TOKEN');
 
@@ -98,7 +100,7 @@ async function main() {
   const ref = process.env.REPO_REF || 'main';
 
   // 1. Mask secrets before any file I/O so stray echoes get redacted.
-  maskSecret(envFile);
+  if (envFile) maskSecret(envFile);
   maskSecret(mcpJson);
   maskSecret(githubToken);
 
@@ -112,9 +114,16 @@ async function main() {
   run('git', ['clone', '--depth=1', '--branch', ref, cloneUrl, workspace]);
 
   // 3. Materialize secret-backed workspace files with 0600 perms.
-  writeSecretFile(resolve(workspace, '.env'), envFile);
+  // `.env` is optional — skip when no ENV_FILE secret was supplied.
+  if (envFile) {
+    writeSecretFile(resolve(workspace, '.env'), envFile);
+    log('Provisioned .env and .mcp.json (mode 0600).');
+  } else {
+    log(
+      'No ENV_FILE secret supplied — skipping .env (provisioning .mcp.json only).',
+    );
+  }
   writeSecretFile(resolve(workspace, '.mcp.json'), mcpJson);
-  log('Provisioned .env and .mcp.json (mode 0600).');
 
   // 4. Install dependencies with a strict lockfile and no lifecycle
   //    scripts (supply-chain containment).
