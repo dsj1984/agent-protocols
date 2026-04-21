@@ -23,7 +23,6 @@ import * as defaultGit from './git-utils.js';
 import { assertPathContainment } from './path-security.js';
 import {
   copyAgentsFromRoot,
-  copyBootstrapFiles,
   isAgentsSubmodule,
   removeCopiedAgents,
 } from './worktree/bootstrapper.js';
@@ -41,6 +40,10 @@ import {
   reap,
   sweepStaleLocks,
 } from './worktree/lifecycle-manager.js';
+import {
+  DEFAULT_WORKSPACE_FILES,
+  provision as provisionWorkspace,
+} from './workspace-provisioner.js';
 
 export { parseWorktreePorcelain };
 
@@ -69,7 +72,7 @@ export class WorktreeManager {
       nodeModulesStrategy: 'per-worktree',
       warnOnUncommittedOnReap: true,
       windowsPathLengthWarnThreshold: 240,
-      bootstrapFiles: ['.env', '.mcp.json'],
+      bootstrapFiles: DEFAULT_WORKSPACE_FILES.slice(),
       ...config,
     };
     this.logger = logger ?? {
@@ -117,11 +120,7 @@ export class WorktreeManager {
           },
           wtPath,
         ),
-      copyBootstrapFiles: (wtPath) =>
-        copyBootstrapFiles(
-          { repoRoot: this.repoRoot, config: this.config, logger: this.logger },
-          wtPath,
-        ),
+      copyBootstrapFiles: (wtPath) => this._provisionWorkspace(wtPath),
       copyAgentsFromRoot: (wtPath) =>
         copyAgentsFromRoot(
           {
@@ -185,10 +184,37 @@ export class WorktreeManager {
   // existing worktree-manager test suite keeps working without edits.
 
   _copyBootstrapFiles(wtPath) {
-    return copyBootstrapFiles(
-      { repoRoot: this.repoRoot, config: this.config, logger: this.logger },
-      wtPath,
-    );
+    return this._provisionWorkspace(wtPath);
+  }
+
+  /**
+   * Delegate workspace-file provisioning to the central provisioner. The
+   * logger is wrapped so existing `worktree.bootstrap …` log prefixes are
+   * preserved for operators and log scrapers.
+   */
+  _provisionWorkspace(wtPath) {
+    const files = this.config?.bootstrapFiles;
+    if (!Array.isArray(files) || files.length === 0) return;
+    const wrapped = {
+      info: (m) =>
+        this.logger.info(
+          String(m).replace(/^workspace-provisioner:/, 'worktree.bootstrap'),
+        ),
+      warn: (m) =>
+        this.logger.warn(
+          String(m).replace(/^workspace-provisioner:/, 'worktree.bootstrap'),
+        ),
+      error: (m) =>
+        this.logger.error(
+          String(m).replace(/^workspace-provisioner:/, 'worktree.bootstrap'),
+        ),
+    };
+    return provisionWorkspace({
+      sourceRoot: this.repoRoot,
+      targetWorktree: wtPath,
+      files,
+      logger: wrapped,
+    });
   }
 
   _copyAgentsFromRoot(wtPath) {

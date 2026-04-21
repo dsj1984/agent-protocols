@@ -2,6 +2,53 @@
 
 All notable changes to this project will be documented in this file.
 
+## [5.14.0] - 2026-04-21
+
+### Remote-orchestrator (Epic #321)
+
+Epic-level execution now has a long-running remote runner that composes the
+existing primitives into an unattended orchestration loop. Triggered by a
+GitHub label flip; checkpointed on the Epic via a structured comment.
+
+- **New labels** (`.agents/scripts/lib/label-taxonomy.js`):
+  - `agent::dispatching` — transient trigger state; the runner flips it to
+    `agent::executing` on pickup.
+  - `epic::auto-close` — opt-in modifier authorizing the autonomous bookend
+    chain (`/sprint-code-review` → `/sprint-retro` → `/sprint-close`) at the
+    end of the run. Captured as a snapshot at dispatch; mid-run changes are
+    ignored.
+- **Skill rename.** `/sprint-execute` → `/sprint-execute-story`. The old
+  name is a deprecation alias that delegates to the new canonical workflow.
+  A new `/sprint-execute-epic` skill wraps the runner for local or remote
+  invocation.
+- **New GitHub workflow** `.github/workflows/epic-dispatch.yml` fires a
+  Claude remote trigger when an Epic is labelled `agent::dispatching`,
+  provisioning secrets (`ENV_FILE`, `MCP_JSON`) via `::add-mask::`.
+- **New CLI** `.agents/scripts/remote-bootstrap.js` clones, materializes
+  secret-backed workspace files with `0600` perms, runs `npm ci
+  --ignore-scripts`, and launches `/sprint-execute-epic`.
+- **Engine** at `.agents/scripts/lib/orchestration/epic-runner.js` composes
+  seven submodules (wave-scheduler, story-launcher, state-poller,
+  checkpointer, blocker-handler, notification-hook, bookend-chainer,
+  wave-observer, column-sync) plus an `.agents/scripts/epic-runner.js` CLI
+  wrapper.
+- **`.agentrc.json` additions** under `orchestration.epicRunner`:
+  `enabled`, `concurrencyCap`, `pollIntervalSec`, `storyRetryCount`,
+  `blockerTimeoutHours`, `notificationWebhookUrl`.
+- **`risk::high` semantics change.** Runtime gating is **retired**. The
+  label remains queryable for retro metrics but no longer halts the
+  dispatcher or `sprint-story-close`. Branch protection and executor
+  sub-agent escalation (`agent::blocked`) are the new defenses.
+- **Worktree bootstrap.** `WorkspaceProvisioner` copies `.env` /
+  `.mcp.json` into freshly-created worktrees (landed in Stories #329/#336
+  earlier this Epic; recapped here for completeness).
+- **BDD parity.** `features/epic-runner-parity.feature` documents the four
+  dual-mode scenarios (local, simulated remote, story-under-remote-epic,
+  blocker halt/resume); `tests/epic-runner/parity.test.js` is the
+  executable step-definition equivalent.
+- **Docs.** New `docs/remote-orchestrator.md`. Architecture and README
+  updated with Epic execution paths.
+
 ## [5.13.3] - 2026-04-21
 
 ### Protocol self-heal: Windows worktree reap + scope-overlap planning hint

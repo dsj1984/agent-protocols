@@ -193,3 +193,44 @@ Introduced by Epic #297 (v5.13.0) to split `lib/worktree-manager.js`
 External callers continue to import `WorktreeManager` and
 `parseWorktreePorcelain` from the facade path verbatim; the four
 submodule paths are free to rename without a major version bump.
+
+---
+
+## Marker-keyed structured comment upsert (v5.14.0)
+
+Long-running orchestrator state lives on the Epic issue itself rather
+than in a local file or side database. The pattern relies on
+`upsertStructuredComment(provider, ticketId, type, body)` (in
+`lib/orchestration/ticketing.js`), which:
+
+1. Derives a unique HTML marker of the form
+   `<!-- ap:structured-comment type="<type>" -->` from the `type`.
+2. Searches the ticket's comments for the marker.
+3. If a match exists, deletes it first.
+4. Posts the new body with the marker prepended.
+
+The result is **idempotent by marker**: re-running the upsert replaces
+the prior comment, so checkpoints and wave-boundary reports never
+accumulate as clutter.
+
+**Consumers in the epic runner:**
+
+| Type                 | Writer                      | Purpose                                                     |
+| -------------------- | --------------------------- | ----------------------------------------------------------- |
+| `epic-run-state`     | `Checkpointer`              | JSON checkpoint (`currentWave`, `autoClose`, wave history). |
+| `wave-<N>-start`     | `WaveObserver.waveStart`    | Per-wave start manifest + timestamp.                        |
+| `wave-<N>-end`       | `WaveObserver.waveEnd`      | Per-wave outcomes + duration.                               |
+| `dispatch-manifest`  | `sprint-plan` / dispatcher  | Frozen Story manifest for the wave-gate.                    |
+| `parked-follow-ons`  | dispatcher                  | Out-of-manifest Stories surfaced at sprint-close gate.      |
+| `retro`              | `/sprint-retro`             | Final retrospective body with `retro-complete` marker.      |
+| `code-review`        | (planned, Epic #349)        | Findings report from `/sprint-code-review`.                 |
+
+**When to reach for this pattern:** orchestrator state that must
+survive restarts, be human-readable on the issue, and be
+machine-parseable by downstream tooling (wave-gate, retro aggregator).
+Prefer a local file only when the state is ephemeral and recoverable
+(e.g. `temp/dispatch-manifest-<id>.{md,json}` is a view, not an SSOT).
+
+**When NOT to use it:** high-frequency state updates (sub-second or
+sub-minute) — the delete-then-post cycle has rate-limit cost. For those
+cases, compute a running total and upsert at wave boundaries instead.

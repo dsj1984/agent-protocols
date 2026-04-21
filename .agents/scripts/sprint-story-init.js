@@ -26,6 +26,7 @@
  * @see .agents/workflows/sprint-execute.md Mode B
  */
 
+import fs from 'node:fs';
 import path from 'node:path';
 import { parseSprintArgs } from './lib/cli-args.js';
 import { runAsCli } from './lib/cli-utils.js';
@@ -57,6 +58,10 @@ import {
   fetchChildTasks,
   resolveStoryHierarchy,
 } from './lib/story-lifecycle.js';
+import {
+  resolveWorkspaceFiles,
+  verify as verifyWorkspace,
+} from './lib/workspace-provisioner.js';
 import { WorktreeManager } from './lib/worktree-manager.js';
 
 // ---------------------------------------------------------------------------
@@ -265,6 +270,22 @@ async function bootstrapWorktree({
     'WORKTREE',
     `${ensured.created ? '✨ Created' : '♻️  Reusing'} worktree: ${ensured.path}`,
   );
+
+  // Post-condition: every workspace file that exists in the main checkout
+  // must also exist in the worktree. Surfaces the "silent breakage" class of
+  // bug where `.env` / `.mcp.json` fail to propagate.
+  try {
+    const workspaceFiles = resolveWorkspaceFiles(wtConfig);
+    const presentAtSource = workspaceFiles.filter((rel) =>
+      fs.existsSync(path.join(mainCwd, rel)),
+    );
+    if (presentAtSource.length > 0) {
+      verifyWorkspace({ worktree: ensured.path, files: presentAtSource });
+    }
+  } catch (err) {
+    progress('WORKTREE', `⚠️ ${err.message}`);
+    throw err;
+  }
 
   if (ensured.installFailed) {
     progress(

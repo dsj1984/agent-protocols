@@ -44,8 +44,10 @@ graph LR
   `ITicketingProvider`, an abstract interface with a shipped GitHub
   implementation using native `fetch()` (Node 20+).
 - **Two-Command UX**: `/sprint-plan` generates PRDs, Tech Specs, and a full
-  4-tier task hierarchy. `/sprint-execute` dispatches work in Story-grouped
-  waves, using shared context branches to minimize integration friction.
+  4-tier task hierarchy. `/sprint-execute-story` (formerly `/sprint-execute`)
+  dispatches a single Story to completion; `/sprint-execute-epic` drives an
+  entire Epic end-to-end — locally or via the GitHub `agent::dispatching`
+  remote-trigger workflow. See [How to execute an Epic](#how-to-execute-an-epic).
 - **Self-Contained**: Zero external SDK dependencies for core orchestration. No
   `@octokit/*`, no Axios — just raw HTTP and GraphQL.
 - **Gate-Based Quality**: An automated audit orchestration pipeline selects and
@@ -110,6 +112,49 @@ Create a GitHub Issue with the `type::epic` label, then run:
 ```
 
 See [SDLC.md](.agents/SDLC.md) for the full end-to-end workflow.
+
+---
+
+## How to execute an Epic
+
+Two invocation paths share a single engine
+(`.agents/scripts/lib/orchestration/epic-runner.js`):
+
+### Path 1 — Local, operator-driven
+
+```bash
+# Plan the Epic first (generates PRD, Tech Spec, Stories, Tasks).
+claude /sprint-plan <epicId>
+
+# Drive it end-to-end from your workstation.
+claude /sprint-execute-epic <epicId>
+
+# Or run individual Stories off the dispatch table.
+claude /sprint-execute-story <storyId>
+```
+
+`/sprint-execute-epic` flips the Epic to `agent::executing`, checkpoints
+progress on the issue itself, fans out up to `concurrencyCap` Story
+executors per wave, and lands at `agent::review`. If the Epic carries
+`epic::auto-close`, the run continues autonomously through
+`/sprint-code-review` → `/sprint-retro` → `/sprint-close`.
+
+### Path 2 — Remote, GitHub-triggered
+
+1. Configure repo secrets: `ANTHROPIC_API_KEY`, `ENV_FILE`, `MCP_JSON`.
+2. On the Epic issue, add the `agent::dispatching` label (and optionally
+   `epic::auto-close`).
+3. `.github/workflows/epic-dispatch.yml` fires, booting a Claude remote
+   runner that runs `.agents/scripts/remote-bootstrap.js` and invokes
+   `/sprint-execute-epic` against a fresh clone.
+
+The remote path has **one** pause point: `agent::blocked` on the Epic.
+Flip it back to `agent::executing` to resume. All other labels
+(`risk::high`, `epic::auto-close`, etc.) are informational during the
+run — mid-run changes are ignored.
+
+See [docs/remote-orchestrator.md](docs/remote-orchestrator.md) for the
+full runner contract, failure/resumption model, and HITL touchpoints.
 
 ---
 

@@ -123,3 +123,23 @@ facade column — the split is internal. See
 `docs/architecture.md#dispatch-engine-submodules-v5130` and
 `docs/patterns.md#facade--responsibility-bounded-submodules` for the
 responsibility map.
+
+### 7. Epic Runner Vocabulary (v5.14.0 / Epic #321)
+
+The remote-orchestrator flow introduces a small vocabulary over and
+above the existing label/comment taxonomy.
+
+| Term                       | Kind                | Definition                                                                                                     |
+| -------------------------- | ------------------- | -------------------------------------------------------------------------------------------------------------- |
+| `agent::dispatching`       | Label (transient)   | Operator-applied trigger that fires `epic-dispatch.yml`; the runner flips it to `agent::executing` on pickup.  |
+| `epic::auto-close`         | Label (snapshot)    | Opt-in modifier captured at dispatch. Authorises the bookend chain (`review → retro → close → merge-to-main`). |
+| `epic-run-state`           | Structured comment  | HTML-marker-scoped JSON checkpoint on the Epic; single SSOT for wave progress and resume.                      |
+| `wave-<N>-start`           | Structured comment  | Per-wave start marker with wave manifest and start timestamp.                                                  |
+| `wave-<N>-end`             | Structured comment  | Per-wave end marker with story outcomes and duration.                                                          |
+| `concurrencyCap`           | Config (integer)    | `orchestration.epicRunner.concurrencyCap`; max parallel `/sprint-execute-story` sub-agents per wave.           |
+| `pollIntervalSec`          | Config (integer)    | `orchestration.epicRunner.pollIntervalSec`; how often `StatePoller` rechecks labels.                           |
+| Blocker-escalation         | Flow state          | Runtime pause driven by `agent::blocked`; the sole HITL touchpoint during a remote run.                        |
+| Status (Projects v2)       | Project field       | Single-select custom field driven by `ColumnSync` from `agent::` labels.                                       |
+
+`risk::high` is explicitly no longer a runtime-gate term — it remains
+as informational metadata queryable in retros.
