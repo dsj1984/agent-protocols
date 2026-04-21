@@ -21,8 +21,10 @@ import { STATE_LABELS, transitionTicketState } from './ticketing.js';
 import { BlockerHandler } from './epic-runner/blocker-handler.js';
 import { BookendChainer } from './epic-runner/bookend-chainer.js';
 import { Checkpointer } from './epic-runner/checkpointer.js';
+import { ColumnSync } from './epic-runner/column-sync.js';
 import { NotificationHook } from './epic-runner/notification-hook.js';
 import { StoryLauncher } from './epic-runner/story-launcher.js';
+import { WaveObserver } from './epic-runner/wave-observer.js';
 import { WaveScheduler } from './epic-runner/wave-scheduler.js';
 
 const AUTO_CLOSE_LABEL = 'epic::auto-close';
@@ -97,10 +99,25 @@ export async function runEpic({
     worktreeResolver,
     logger,
   });
+  const waveObserver = new WaveObserver({ provider, epicId, logger });
+  const columnSync = new ColumnSync({
+    provider,
+    projectNumber: config?.github?.projectNumber ?? null,
+    logger,
+  });
+  const syncColumn = async (id, labels) => {
+    try {
+      await columnSync.sync(id, labels);
+    } catch (err) {
+      logger.warn?.(`[EpicRunner] column sync failed for #${id}: ${err.message}`);
+    }
+  };
+
   // --- 4. Initialize checkpoint and flip label ---
   await transitionTicketState(provider, epicId, STATE_LABELS.EXECUTING).catch(
     (err) => logger.warn?.(`[EpicRunner] label flip failed: ${err.message}`),
   );
+  await syncColumn(epicId, [STATE_LABELS.EXECUTING]);
   const state = await checkpointer.initialize({
     totalWaves: scheduler.totalWaves,
     concurrencyCap,
@@ -125,16 +142,31 @@ export async function runEpic({
     logger.info?.(
       `[EpicRunner] Wave ${wave.index + 1}/${scheduler.totalWaves} dispatching ${wave.stories.length} stor${wave.stories.length === 1 ? 'y' : 'ies'}`,
     );
+    const { startedAt } = await waveObserver.waveStart({
+      index: wave.index,
+      totalWaves: scheduler.totalWaves,
+      stories: wave.stories,
+    });
+
     const results = await launcher.launchWave(wave.stories);
     const failures = results.filter(
       (r) => r.status === 'failed' || r.status === 'blocked',
     );
 
     scheduler.markWaveComplete(wave.index);
+    await waveObserver.waveEnd({
+      index: wave.index,
+      totalWaves: scheduler.totalWaves,
+      startedAt,
+      stories: results,
+    });
+
     waveHistory.push({
       index: wave.index,
       status: failures.length ? 'halted' : 'completed',
       stories: results,
+      startedAt,
+      completedAt: new Date().toISOString(),
     });
     await checkpointer.write({
       ...state,
@@ -146,6 +178,7 @@ export async function runEpic({
 
     if (failures.length) {
       const firstFailure = failures[0];
+      await syncColumn(epicId, ['agent::blocked']);
       const halt = await blockerHandler.halt({
         reason: firstFailure.status === 'blocked' ? 'story_blocked' : 'story_failed',
         storyId: firstFailure.storyId,
@@ -159,8 +192,10 @@ export async function runEpic({
           waveHistory,
           bookends,
           logger,
+          syncColumn,
         });
       }
+      await syncColumn(epicId, [STATE_LABELS.EXECUTING]);
     }
   }
 
@@ -171,6 +206,7 @@ export async function runEpic({
     waveHistory,
     bookends,
     logger,
+    syncColumn,
   });
 }
 
@@ -181,14 +217,20 @@ async function finalize({
   waveHistory,
   bookends,
   logger,
+  syncColumn,
 }) {
   if (state === 'completed') {
     await transitionTicketState(provider, epicId, STATE_LABELS.REVIEW).catch(
       (err) => logger.warn?.(`[EpicRunner] review flip failed: ${err.message}`),
     );
+    await syncColumn?.(epicId, [STATE_LABELS.REVIEW]);
     const bookendResult = await bookends.run();
+    if (bookendResult?.completed) {
+      await syncColumn?.(epicId, [STATE_LABELS.DONE]);
+    }
     return { epicId, state, waveHistory, bookendResult };
   }
+  await syncColumn?.(epicId, ['agent::blocked']);
   return { epicId, state, waveHistory, bookendResult: null };
 }
 
