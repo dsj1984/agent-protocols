@@ -582,7 +582,7 @@ export async function runStoryClose({
 
   let epicId = argEpicId;
 
-  const { orchestration } = resolveConfig();
+  const { orchestration } = resolveConfig({ cwd });
   const provider = injectedProvider || createProvider(orchestration);
 
   progress('INIT', `Closing Story #${storyId}...`);
