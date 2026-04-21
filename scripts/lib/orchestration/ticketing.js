@@ -206,7 +206,7 @@ export async function cascadeCompletion(provider, ticketId) {
     const parentMatch = ticket.body
       ? [...ticket.body.matchAll(/parent:\s*#(\d+)/gi)]
       : [];
-    parsedParents = parentMatch.map((m) => parseInt(m[1], 10));
+    parsedParents = parentMatch.map((m) => Number.parseInt(m[1], 10));
   }
 
   const cascadedTo = [];

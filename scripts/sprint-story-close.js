@@ -42,6 +42,7 @@ import {
   acquireEpicMergeLock,
   releaseEpicMergeLock,
 } from './lib/epic-merge-lock.js';
+import { formatError } from './lib/error-formatting.js';
 import { mergeFeatureBranch } from './lib/git-merge-orchestrator.js';
 import {
   getEpicBranch,
@@ -56,6 +57,7 @@ import {
   transitionTicketState,
 } from './lib/orchestration/ticketing.js';
 import { createProvider } from './lib/provider-factory.js';
+import { postHitlGateNotification, RISK_HIGH_LABEL } from './lib/risk-gate.js';
 import {
   batchTransitionTickets,
   fetchChildTasks,
@@ -69,6 +71,22 @@ import { notify } from './notify.js';
 // ---------------------------------------------------------------------------
 
 const progress = Logger.createProgress('sprint-story-close', { stderr: true });
+
+/**
+ * Run `fn` as a best-effort post-merge phase. Logs non-fatal failures via the
+ * shared `[sprint-story-close] <phase> failed (non-fatal): <message>` envelope
+ * and returns `fn`'s resolved value, or `fallback` on failure.
+ */
+async function runPhase(name, fn, fallback) {
+  try {
+    return await fn();
+  } catch (err) {
+    Logger.error(
+      `[sprint-story-close] ${name} failed (non-fatal): ${formatError(err)}`,
+    );
+    return fallback;
+  }
+}
 
 function cleanupBranches(storyBranch, cwd) {
   progress('CLEANUP', `Deleting story branch: ${storyBranch}`);
@@ -182,7 +200,7 @@ async function reapStoryWorktree({
   const wtConfig = orchestration?.worktreeIsolation;
   if (!wtConfig?.enabled || !(wtConfig.reapOnSuccess ?? true)) return;
 
-  try {
+  await runPhase('Worktree reap', async () => {
     const wm = new WorktreeManager({
       // Must use the resolved runtime repo root (`--cwd` in worktree mode),
       // not module PROJECT_ROOT (which may point at a copied .agents tree).
@@ -219,11 +237,7 @@ async function reapStoryWorktree({
           'Run `git worktree remove <path> --force && git worktree prune` to clean up.',
       );
     }
-  } catch (err) {
-    Logger.error(
-      `[sprint-story-close] Worktree reap failed (non-fatal): ${err.message}`,
-    );
-  }
+  });
 }
 
 async function notifyStoryComplete({
@@ -238,7 +252,7 @@ async function notifyStoryComplete({
     'NOTIFY',
     `Sending story-complete notification for Story #${storyId}...`,
   );
-  try {
+  await runPhase('Notification', async () => {
     await notify(
       epicId,
       {
@@ -249,25 +263,20 @@ async function notifyStoryComplete({
       { orchestration },
     );
     progress('NOTIFY', '✅ Notification sent');
-  } catch (err) {
-    Logger.error(
-      `[sprint-story-close] Notification failed (non-fatal): ${err.message}`,
-    );
-  }
+  });
 }
 
 async function updateHealth(epicId) {
   progress('HEALTH', 'Updating sprint health metrics...');
-  try {
-    await updateHealthMetrics(epicId);
-    progress('HEALTH', '✅ Health metrics updated');
-    return true;
-  } catch (err) {
-    Logger.error(
-      `[sprint-story-close] Health monitor failed (non-fatal): ${err.message}`,
-    );
-    return false;
-  }
+  return runPhase(
+    'Health monitor',
+    async () => {
+      await updateHealthMetrics(epicId);
+      progress('HEALTH', '✅ Health metrics updated');
+      return true;
+    },
+    false,
+  );
 }
 
 async function refreshDashboard({ epicId, provider, skipDashboard }) {
@@ -279,22 +288,21 @@ async function refreshDashboard({ epicId, provider, skipDashboard }) {
     return false;
   }
   progress('DASHBOARD', 'Regenerating dispatch manifest...');
-  try {
-    // Reuse our primed provider so dashboard regeneration does not re-fetch
-    // tickets already in this process's memoization cache.
-    await generateAndSaveManifest(epicId, true, null, { provider });
-    progress('DASHBOARD', '✅ Dashboard manifest updated (temp/)');
-    return true;
-  } catch (err) {
-    Logger.error(
-      `[sprint-story-close] Dashboard refresh failed (non-fatal): ${err.message}`,
-    );
-    return false;
-  }
+  return runPhase(
+    'Dashboard refresh',
+    async () => {
+      // Reuse our primed provider so dashboard regeneration does not re-fetch
+      // tickets already in this process's memoization cache.
+      await generateAndSaveManifest(epicId, true, null, { provider });
+      progress('DASHBOARD', '✅ Dashboard manifest updated (temp/)');
+      return true;
+    },
+    false,
+  );
 }
 
 async function cleanupTempFiles(storyId) {
-  try {
+  await runPhase('Story manifest cleanup', async () => {
     const { unlink } = await import('node:fs/promises');
     const manifestBase = path.join(
       PROJECT_ROOT,
@@ -309,11 +317,7 @@ async function cleanupTempFiles(storyId) {
         // File may not exist — deletion is idempotent.
       }
     }
-  } catch (err) {
-    Logger.error(
-      `[sprint-story-close] Story manifest cleanup failed (non-fatal): ${err.message}`,
-    );
-  }
+  });
 }
 
 // ---------------------------------------------------------------------------
@@ -333,20 +337,20 @@ async function handleHighRiskGate(
   // in chat. The human replies in chat and the agent resumes accordingly.
   progress(
     'RISK',
-    `⚠️ Story #${storyId} is risk::high — pausing the workflow for operator input.`,
+    `⚠️ Story #${storyId} is ${RISK_HIGH_LABEL} — pausing the workflow for operator input.`,
   );
   Logger.error('');
   Logger.error(
-    `[HITL GATE] Story #${storyId} (\`${storyBranch}\`) is labelled risk::high.`,
+    `[HITL GATE] Story #${storyId} (\`${storyBranch}\`) is labelled ${RISK_HIGH_LABEL}.`,
   );
   Logger.error('All child tasks are complete, but the story has NOT been');
   Logger.error('pushed, merged, or deleted. Ask the operator to choose:');
   Logger.error('');
   Logger.error(
-    '  (1) Auto-merge — the AGENT removes the `risk::high` label via',
+    `  (1) Auto-merge — the AGENT removes the \`${RISK_HIGH_LABEL}\` label via`,
   );
   Logger.error(
-    '      `update-ticket-state.js --ticket <id> --remove-label risk::high`',
+    `      \`update-ticket-state.js --ticket <id> --remove-label ${RISK_HIGH_LABEL}\``,
   );
   Logger.error('      and re-runs sprint-story-close for this story.');
   Logger.error(
@@ -367,19 +371,12 @@ async function handleHighRiskGate(
   Logger.error('false in `.agentrc.json`.');
   Logger.error('');
 
-  try {
-    await notify(storyId, {
-      type: 'action',
-      message:
-        `HITL gate: Story #${storyId} (\`${storyBranch}\`) is risk::high ` +
-        'and awaiting operator decision (Proceed / Option 1 / Option 2 / ' +
-        'Option 3). Story branch not merged.',
-    });
-  } catch (err) {
-    Logger.warn(
-      `[sprint-story-close] HITL webhook/mention failed (non-fatal): ${err.message}`,
-    );
-  }
+  await postHitlGateNotification(
+    storyId,
+    `HITL gate: Story #${storyId} (\`${storyBranch}\`) is ${RISK_HIGH_LABEL} ` +
+      'and awaiting operator decision (Proceed / Option 1 / Option 2 / ' +
+      'Option 3). Story branch not merged.',
+  );
 
   return {
     action: 'paused-for-approval',
@@ -626,7 +623,8 @@ export async function runStoryClose({
   // -------------------------------------------------------------------------
 
   const riskHighGateEnabled = orchestration?.hitl?.riskHighApproval !== false;
-  const isHighRisk = story.labels.includes('risk::high') && riskHighGateEnabled;
+  const isHighRisk =
+    story.labels.includes(RISK_HIGH_LABEL) && riskHighGateEnabled;
 
   let branchCleanup = { localDeleted: false, remoteDeleted: false };
   if (isHighRisk) {

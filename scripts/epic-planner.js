@@ -188,7 +188,7 @@ async function main() {
     );
   }
 
-  const epicId = parseInt(values.epic, 10);
+  const epicId = Number.parseInt(values.epic, 10);
   if (Number.isNaN(epicId)) {
     Logger.fatal(`Invalid epic ID: "${values.epic}" — must be a number.`);
   }

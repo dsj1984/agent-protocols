@@ -112,7 +112,7 @@ function buildFrictionEvent(
     eventId: crypto.randomUUID(),
     timestamp: new Date().toISOString(),
     sprintId: resolvedSprintId,
-    taskId: taskId ? parseInt(taskId, 10) : null,
+    taskId: taskId ? Number.parseInt(taskId, 10) : null,
     category,
     source: {
       tool: 'diagnose-friction.js',
@@ -184,7 +184,7 @@ export async function main(args = process.argv.slice(2)) {
         const payloadString = `\`\`\`json\n${JSON.stringify(frictionEvent, null, 2)}\n\`\`\``;
         await postStructuredComment(
           provider,
-          parseInt(taskId, 10),
+          Number.parseInt(taskId, 10),
           'friction',
           payloadString,
         );

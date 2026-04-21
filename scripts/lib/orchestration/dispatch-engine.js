@@ -25,7 +25,9 @@ import {
   ensureLocalBranch,
 } from '../git-branch-lifecycle.js';
 import { getEpicBranch } from '../git-utils.js';
+import { TYPE_LABELS } from '../label-constants.js';
 import { createProvider } from '../provider-factory.js';
+import { postHitlGateNotification, RISK_HIGH_LABEL } from '../risk-gate.js';
 import { VerboseLogger } from '../VerboseLogger.js';
 import { WorktreeManager } from '../worktree-manager.js';
 import { hydrateContext } from './context-hydration-engine.js';
@@ -65,8 +67,8 @@ const vlog = new Proxy(
 export const AGENT_DONE_LABEL = STATE_LABELS.DONE;
 export const AGENT_EXECUTING_LABEL = STATE_LABELS.EXECUTING;
 export const AGENT_READY_LABEL = STATE_LABELS.READY;
-export const RISK_HIGH_LABEL = 'risk::high';
-export const TYPE_TASK_LABEL = 'type::task';
+export { RISK_HIGH_LABEL };
+export const TYPE_TASK_LABEL = TYPE_LABELS.TASK;
 
 // ---------------------------------------------------------------------------
 // Branch helpers
@@ -359,30 +361,33 @@ export async function detectEpicCompletion({
 async function handleRiskHighGate(task, provider, dryRun) {
   vlog.info(
     'orchestration',
-    `⚠️  Task #${task.id} flagged risk::high — held for approval.`,
+    `⚠️  Task #${task.id} flagged ${RISK_HIGH_LABEL} — held for approval.`,
   );
   if (!dryRun) {
     await provider.postComment(task.id, {
-      body: `⚠️ **HITL Gate**: This task is flagged \`risk::high\` and requires operator approval before dispatch.\n\nTo approve, reply with: \`/approve ${task.id}\``,
+      body: `⚠️ **HITL Gate**: This task is flagged \`${RISK_HIGH_LABEL}\` and requires operator approval before dispatch.\n\nTo approve, reply with: \`/approve ${task.id}\``,
       type: 'notification',
     });
-    try {
-      await notify(task.id, {
-        type: 'action',
-        message:
-          `HITL gate: Task #${task.id} is risk::high and held for ` +
-          `operator approval. Reply \`/approve ${task.id}\` to dispatch.`,
-      });
-    } catch (err) {
-      vlog.info(
-        'orchestration',
-        `[risk::high] HITL webhook/mention failed (non-fatal): ${err.message}`,
-      );
-    }
+    // Use the shared HITL helper so the dispatch and story-close gates stay in
+    // lock-step. We forward failures into the verbose log rather than the
+    // shared Logger to preserve the existing dispatcher trace format.
+    await postHitlGateNotification(
+      task.id,
+      `HITL gate: Task #${task.id} is ${RISK_HIGH_LABEL} and held for ` +
+        `operator approval. Reply \`/approve ${task.id}\` to dispatch.`,
+      'action',
+      {
+        warn: (msg) =>
+          vlog.info(
+            'orchestration',
+            `[${RISK_HIGH_LABEL}] ${msg.replace(/^\[risk-gate\] /, '')}`,
+          ),
+      },
+    );
   }
   return {
     taskId: task.id,
-    reason: 'risk::high label requires operator approval.',
+    reason: `${RISK_HIGH_LABEL} label requires operator approval.`,
   };
 }
 
@@ -412,7 +417,7 @@ export function collectOpenStoryIds(tasks, allTicketsById, opts = {}) {
     if (task.status === AGENT_DONE_LABEL) continue;
     const parentMatch = task.body?.match(/parent:\s*#(\d+)/i);
     if (!parentMatch) continue;
-    const parentId = parseInt(parentMatch[1], 10);
+    const parentId = Number.parseInt(parentMatch[1], 10);
     const parent = allTicketsById.get(parentId);
     if (!parent?.labels.includes('type::story')) continue;
 
@@ -477,7 +482,7 @@ async function dispatchTaskInWave(task, ctx) {
   // start that story explicitly — never create it as a side effect of
   // Epic-level dispatch.
   if (storyMatch) {
-    const storyId = parseInt(storyMatch[1], 10);
+    const storyId = Number.parseInt(storyMatch[1], 10);
     const wm = ctx.worktreeManager;
     const initialized = wm
       ? fs.existsSync(wm.pathFor(storyId))

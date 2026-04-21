@@ -123,7 +123,7 @@ async function main() {
   const args = process.argv.slice(2);
   const dryRun = args.includes('--dry-run');
   const excludeRoot = args.includes('--exclude-root');
-  const epicNumber = parseInt(
+  const epicNumber = Number.parseInt(
     args.find((a) => !a.startsWith('--')),
     10,
   );

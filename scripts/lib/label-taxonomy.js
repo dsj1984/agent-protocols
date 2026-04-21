@@ -1,116 +1,155 @@
 /**
  * Shared data structures for GitHub labels and custom fields.
  * Used by the bootstrap script to idempotently configure the project.
+ *
+ * All label names are sourced from `label-constants.js` so renames only need
+ * to happen in one place. Colors come from `LABEL_COLORS` in the same module.
  */
+
+import {
+  AGENT_LABELS,
+  CONTEXT_LABELS,
+  EXECUTION_LABELS,
+  FOCUS_LABELS,
+  LABEL_COLORS,
+  PERSONA_LABELS,
+  RISK_LABELS,
+  STATUS_LABELS,
+  TYPE_LABELS,
+} from './label-constants.js';
 
 /** @type {Array<{ name: string, color: string, description: string }>} */
 export const LABEL_TAXONOMY = [
   // Type
-  { name: 'type::epic', color: '#7057FF', description: 'Epic-level work item' },
   {
-    name: 'type::feature',
-    color: '#7057FF',
+    name: TYPE_LABELS.EPIC,
+    color: LABEL_COLORS.TYPE,
+    description: 'Epic-level work item',
+  },
+  {
+    name: TYPE_LABELS.FEATURE,
+    color: LABEL_COLORS.TYPE,
     description: 'Feature under an Epic',
   },
   {
-    name: 'type::story',
-    color: '#7057FF',
+    name: TYPE_LABELS.STORY,
+    color: LABEL_COLORS.TYPE,
     description: 'User story under a Feature',
   },
-  { name: 'type::task', color: '#7057FF', description: 'Implementable task' },
+  {
+    name: TYPE_LABELS.TASK,
+    color: LABEL_COLORS.TYPE,
+    description: 'Implementable task',
+  },
 
   // Agent State
   {
-    name: 'agent::ready',
-    color: '#0E8A16',
+    name: AGENT_LABELS.READY,
+    color: LABEL_COLORS.AGENT,
     description: 'Ready for agent pickup',
   },
   {
-    name: 'agent::executing',
-    color: '#0E8A16',
+    name: AGENT_LABELS.EXECUTING,
+    color: LABEL_COLORS.AGENT,
     description: 'Agent is working on this',
   },
   {
-    name: 'agent::review',
-    color: '#0E8A16',
+    name: AGENT_LABELS.REVIEW,
+    color: LABEL_COLORS.AGENT,
     description: 'Awaiting human review',
   },
   {
-    name: 'agent::done',
-    color: '#0E8A16',
+    name: AGENT_LABELS.DONE,
+    color: LABEL_COLORS.AGENT,
     description: 'Agent work completed',
   },
 
   // Status
   {
-    name: 'status::blocked',
-    color: '#D93F0B',
+    name: STATUS_LABELS.BLOCKED,
+    color: LABEL_COLORS.STATUS_BLOCKED,
     description: 'Blocked by a dependency',
   },
 
   // Risk
-  { name: 'risk::high', color: '#FBCA04', description: 'High-risk change' },
-  { name: 'risk::medium', color: '#FBCA04', description: 'Medium-risk change' },
+  {
+    name: RISK_LABELS.HIGH,
+    color: LABEL_COLORS.RISK,
+    description: 'High-risk change',
+  },
+  {
+    name: RISK_LABELS.MEDIUM,
+    color: LABEL_COLORS.RISK,
+    description: 'Medium-risk change',
+  },
 
   // Persona
   {
-    name: 'persona::fullstack',
-    color: '#C5DEF5',
+    name: PERSONA_LABELS.FULLSTACK,
+    color: LABEL_COLORS.PERSONA,
     description: 'Fullstack engineer persona',
   },
   {
-    name: 'persona::architect',
-    color: '#C5DEF5',
+    name: PERSONA_LABELS.ARCHITECT,
+    color: LABEL_COLORS.PERSONA,
     description: 'Architect persona',
   },
-  { name: 'persona::qa', color: '#C5DEF5', description: 'QA engineer persona' },
+  {
+    name: PERSONA_LABELS.QA,
+    color: LABEL_COLORS.PERSONA,
+    description: 'QA engineer persona',
+  },
 
   // Context
   {
-    name: 'context::prd',
-    color: '#D4C5F9',
+    name: CONTEXT_LABELS.PRD,
+    color: LABEL_COLORS.CONTEXT,
     description: 'Product Requirements Document',
   },
   {
-    name: 'context::tech-spec',
-    color: '#D4C5F9',
+    name: CONTEXT_LABELS.TECH_SPEC,
+    color: LABEL_COLORS.CONTEXT,
     description: 'Technical Specification',
   },
 
   // Execution
   {
-    name: 'execution::sequential',
-    color: '#F9D0C4',
+    name: EXECUTION_LABELS.SEQUENTIAL,
+    color: LABEL_COLORS.EXECUTION,
     description: 'Must execute sequentially',
   },
   {
-    name: 'execution::concurrent',
-    color: '#F9D0C4',
+    name: EXECUTION_LABELS.CONCURRENT,
+    color: LABEL_COLORS.EXECUTION,
     description: 'Can execute concurrently',
   },
 
   // Focus Area
   {
-    name: 'focus::core',
-    color: '#BFD4F2',
+    name: FOCUS_LABELS.CORE,
+    color: LABEL_COLORS.FOCUS,
     description: 'Core library changes',
   },
   {
-    name: 'focus::scripts',
-    color: '#BFD4F2',
+    name: FOCUS_LABELS.SCRIPTS,
+    color: LABEL_COLORS.FOCUS,
     description: 'Script/tooling changes',
   },
   {
-    name: 'focus::docs',
-    color: '#BFD4F2',
+    name: FOCUS_LABELS.DOCS,
+    color: LABEL_COLORS.FOCUS,
     description: 'Documentation changes',
   },
   {
-    name: 'focus::ci',
-    color: '#BFD4F2',
+    name: FOCUS_LABELS.CI,
+    color: LABEL_COLORS.FOCUS,
     description: 'CI/CD pipeline changes',
   },
-  { name: 'focus::tests', color: '#BFD4F2', description: 'Test suite changes' },
+  {
+    name: FOCUS_LABELS.TESTS,
+    color: LABEL_COLORS.FOCUS,
+    description: 'Test suite changes',
+  },
 ];
 
 /** @type {Array<{ name: string, type: 'iteration'|'single_select', options?: string[] }>} */

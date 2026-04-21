@@ -40,7 +40,7 @@ async function main() {
     strict: false,
   });
 
-  const epicId = parseInt(values.epic ?? '', 10);
+  const epicId = Number.parseInt(values.epic ?? '', 10);
 
   if (Number.isNaN(epicId) || epicId <= 0) {
     Logger.fatal('Usage: node sprint-close.js --epic <EPIC_ID>');
@@ -260,7 +260,7 @@ async function main() {
         return true;
       }
       const match = branchName.match(/^story-(\d+)$/);
-      if (match && validTicketIds.has(parseInt(match[1], 10))) {
+      if (match && validTicketIds.has(Number.parseInt(match[1], 10))) {
         return true;
       }
       return false;

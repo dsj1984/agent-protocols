@@ -19,6 +19,7 @@ import {
   SHELL_INJECTION_RE_STRICT as SHELL_INJECTION_RE,
 } from './config-schema.js';
 import { loadEnv } from './env-loader.js';
+import { assertPathContainment } from './path-security.js';
 
 const __dirname = path.dirname(fileURLToPath(import.meta.url));
 // scripts/lib/ → scripts/ → .agents/ → project root
@@ -28,6 +29,86 @@ export const PROJECT_ROOT = path.resolve(__dirname, '../../..');
 // (e.g. per-worktree) each get their own resolved config.
 const _cacheByRoot = new Map();
 const _envLoadedRoots = new Set();
+
+/**
+ * Defaults applied to a loaded .agentrc.json. Narrower than the zero-config
+ * set: fields intentionally omitted here (e.g. baseBranch, notificationWebhookUrl)
+ * remain undefined unless the operator set them explicitly in the config file.
+ */
+const LOADED_CONFIG_DEFAULTS = Object.freeze({
+  agentRoot: '.agents',
+  scriptsRoot: '.agents/scripts',
+  workflowsRoot: '.agents/workflows',
+  personasRoot: '.agents/personas',
+  skillsRoot: '.agents/skills',
+  templatesRoot: '.agents/templates',
+  rulesRoot: '.agents/rules',
+  docsContextFiles: [
+    'architecture.md',
+    'data-dictionary.md',
+    'decisions.md',
+    'patterns.md',
+  ],
+  maintainability: { targetDirs: ['.agents/scripts', 'tests'] },
+  auditOutputDir: 'temp',
+  maxTickets: 40,
+  executionTimeoutMs: 300000,
+  executionMaxBuffer: 10485760,
+  maxTokenBudget: 200000,
+});
+
+/** Richer defaults for the zero-config (no .agentrc.json present) path. */
+const ZERO_CONFIG_DEFAULTS = Object.freeze({
+  agentRoot: '.agents',
+  scriptsRoot: '.agents/scripts',
+  workflowsRoot: '.agents/workflows',
+  personasRoot: '.agents/personas',
+  schemasRoot: '.agents/schemas',
+  skillsRoot: '.agents/skills',
+  templatesRoot: '.agents/templates',
+  rulesRoot: '.agents/rules',
+  docsRoot: 'docs',
+  docsContextFiles: [
+    'architecture.md',
+    'data-dictionary.md',
+    'decisions.md',
+    'patterns.md',
+  ],
+  maintainability: { targetDirs: ['.agents/scripts', 'tests'] },
+  tempRoot: 'temp',
+  baseBranch: 'main',
+  notificationWebhookUrl: '',
+  verboseLogging: { enabled: false, logDir: 'temp/verbose-logs' },
+  maxTickets: 40,
+  executionTimeoutMs: 300000, // 5 minutes
+  executionMaxBuffer: 10485760, // 10MB
+  maxTokenBudget: 200000, // 200k tokens — fits modern Claude/GPT windows
+});
+
+/** Keys to apply on top of a loaded config when the operator omitted them.
+ * Matches the previous hand-rolled assignment block exactly so behavior is
+ * unchanged: keys not in LOADED_CONFIG_DEFAULTS resolve to `undefined`. */
+const LOADED_CONFIG_APPLY_KEYS = [
+  'agentRoot',
+  'scriptsRoot',
+  'workflowsRoot',
+  'personasRoot',
+  'schemasRoot',
+  'skillsRoot',
+  'templatesRoot',
+  'rulesRoot',
+  'docsRoot',
+  'docsContextFiles',
+  'maintainability',
+  'tempRoot',
+  'auditOutputDir',
+  'baseBranch',
+  'notificationWebhookUrl',
+  'verboseLogging',
+  'executionTimeoutMs',
+  'executionMaxBuffer',
+  'maxTokenBudget',
+];
 
 /**
  * Extract the flat agentSettings bag from whichever config format is present.
@@ -88,56 +169,14 @@ export function resolveConfig(opts) {
 
     const orchestration = raw.orchestration ?? null;
 
-    const defaults = {
-      agentRoot: '.agents',
-      scriptsRoot: '.agents/scripts',
-      workflowsRoot: '.agents/workflows',
-      personasRoot: '.agents/personas',
-      skillsRoot: '.agents/skills',
-      templatesRoot: '.agents/templates',
-      rulesRoot: '.agents/rules',
-      docsContextFiles: [
-        'architecture.md',
-        'data-dictionary.md',
-        'decisions.md',
-        'patterns.md',
-      ],
-      maintainability: { targetDirs: ['.agents/scripts', 'tests'] },
-      auditOutputDir: 'temp',
-      maxTickets: 40,
-      executionTimeoutMs: 300000,
-      executionMaxBuffer: 10485760,
-      maxTokenBudget: 200000,
-    };
-
-    // Apply defaults to the loaded config
-    settings.agentRoot = settings.agentRoot ?? defaults.agentRoot;
-    settings.scriptsRoot = settings.scriptsRoot ?? defaults.scriptsRoot;
-    settings.workflowsRoot = settings.workflowsRoot ?? defaults.workflowsRoot;
-    settings.personasRoot = settings.personasRoot ?? defaults.personasRoot;
-    settings.schemasRoot = settings.schemasRoot ?? defaults.schemasRoot;
-    settings.skillsRoot = settings.skillsRoot ?? defaults.skillsRoot;
-    settings.templatesRoot = settings.templatesRoot ?? defaults.templatesRoot;
-    settings.rulesRoot = settings.rulesRoot ?? defaults.rulesRoot;
-    settings.docsRoot = settings.docsRoot ?? defaults.docsRoot;
-    settings.docsContextFiles =
-      settings.docsContextFiles ?? defaults.docsContextFiles;
-    settings.maintainability =
-      settings.maintainability ?? defaults.maintainability;
-    settings.tempRoot = settings.tempRoot ?? defaults.tempRoot;
-    settings.auditOutputDir =
-      settings.auditOutputDir ?? defaults.auditOutputDir;
-    settings.baseBranch = settings.baseBranch ?? defaults.baseBranch;
-    settings.notificationWebhookUrl =
-      settings.notificationWebhookUrl ?? defaults.notificationWebhookUrl;
-    settings.verboseLogging =
-      settings.verboseLogging ?? defaults.verboseLogging;
-    settings.executionTimeoutMs =
-      settings.executionTimeoutMs ?? defaults.executionTimeoutMs;
-    settings.executionMaxBuffer =
-      settings.executionMaxBuffer ?? defaults.executionMaxBuffer;
-    settings.maxTokenBudget =
-      settings.maxTokenBudget ?? defaults.maxTokenBudget;
+    // Apply defaults to the loaded config. Missing keys that are also absent
+    // from LOADED_CONFIG_DEFAULTS (e.g. schemasRoot, docsRoot, tempRoot,
+    // baseBranch, notificationWebhookUrl, verboseLogging) resolve to
+    // `undefined`, preserving the long-standing zero-config/loaded-config
+    // asymmetry rather than silently promoting the richer zero-config set.
+    for (const key of LOADED_CONFIG_APPLY_KEYS) {
+      settings[key] = settings[key] ?? LOADED_CONFIG_DEFAULTS[key];
+    }
 
     // Prioritize environment variable for the webhook URL
     const envWebhookUrl = process.env.NOTIFICATION_WEBHOOK_URL;
@@ -160,32 +199,7 @@ export function resolveConfig(opts) {
 
   // 2. Hard-coded defaults (zero-config experience)
   const resolved = {
-    settings: {
-      agentRoot: '.agents',
-      scriptsRoot: '.agents/scripts',
-      workflowsRoot: '.agents/workflows',
-      personasRoot: '.agents/personas',
-      schemasRoot: '.agents/schemas',
-      skillsRoot: '.agents/skills',
-      templatesRoot: '.agents/templates',
-      rulesRoot: '.agents/rules',
-      docsRoot: 'docs',
-      docsContextFiles: [
-        'architecture.md',
-        'data-dictionary.md',
-        'decisions.md',
-        'patterns.md',
-      ],
-      maintainability: { targetDirs: ['.agents/scripts', 'tests'] },
-      tempRoot: 'temp',
-      baseBranch: 'main',
-      notificationWebhookUrl: '',
-      verboseLogging: { enabled: false, logDir: 'temp/verbose-logs' },
-      maxTickets: 40,
-      executionTimeoutMs: 300000, // 5 minutes
-      executionMaxBuffer: 10485760, // 10MB
-      maxTokenBudget: 200000, // 200k tokens — fits modern Claude/GPT windows
-    },
+    settings: { ...ZERO_CONFIG_DEFAULTS },
     orchestration: null,
     raw: null,
     source: 'built-in defaults',
@@ -266,9 +280,14 @@ export function validateOrchestrationConfig(orchestration) {
           '- [Security] Shell meta-characters detected in orchestration.worktreeIsolation.root.',
         );
       } else {
-        const resolved = path.resolve(PROJECT_ROOT, root);
-        const rel = path.relative(PROJECT_ROOT, resolved);
-        if (rel === '' || rel.startsWith('..') || path.isAbsolute(rel)) {
+        try {
+          assertPathContainment(
+            PROJECT_ROOT,
+            path.resolve(PROJECT_ROOT, root),
+            'orchestration.worktreeIsolation.root',
+            { allowEmpty: false },
+          );
+        } catch {
           errors.push(
             `- [Security] orchestration.worktreeIsolation.root resolves outside the repo root: ${root}`,
           );

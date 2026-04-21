@@ -2,10 +2,18 @@ import Ajv from 'ajv';
 import addFormats from 'ajv-formats';
 
 /**
- * Shell metacharacter pattern for injection detection in schema-validated
- * string fields (paths, commands). Matches `;`, `&`, `|`, backtick, or `$(`.
+ * Shell-injection pattern source (string form) used inside JSON Schema
+ * `not.pattern` clauses. Kept as a string so the schema literal and the
+ * regex form share one definition.
+ *
+ * Matches `;`, `&`, `|`, backtick, or `$(`.
  */
-export const SHELL_INJECTION_RE = /([;&|`]|\$\()/;
+export const SHELL_INJECTION_PATTERN_STRING = '([;&|`]|\\$\\()';
+
+/**
+ * Regex form of the lenient shell-injection pattern for runtime string checks.
+ */
+export const SHELL_INJECTION_RE = new RegExp(SHELL_INJECTION_PATTERN_STRING);
 
 /**
  * Stricter shell metacharacter pattern for orchestration runtime values
@@ -13,6 +21,36 @@ export const SHELL_INJECTION_RE = /([;&|`]|\$\()/;
  * are ever legitimate.
  */
 export const SHELL_INJECTION_RE_STRICT = /[&|;`<>()$]/;
+
+/**
+ * Flat agentSettings string fields. Every entry below is constrained to a
+ * non-malicious string by {@link AGENT_SETTINGS_SCHEMA}. Adding a new
+ * top-level string field means appending to this list, nothing else.
+ */
+export const AGENT_SETTINGS_STRING_FIELDS = Object.freeze([
+  'notificationWebhookUrl',
+  'baseBranch',
+  'validationCommand',
+  'testCommand',
+  'buildCommand',
+  'agentRoot',
+  'scriptsRoot',
+  'workflowsRoot',
+  'personasRoot',
+  'schemasRoot',
+  'skillsRoot',
+  'templatesRoot',
+  'rulesRoot',
+  'docsRoot',
+  'tempRoot',
+  'auditOutputDir',
+  'lintBaselineCommand',
+  'lintBaselinePath',
+  'exploratoryTestCommand',
+  'typecheckCommand',
+]);
+
+const STRING_FIELDS_PATTERN = `^(${AGENT_SETTINGS_STRING_FIELDS.join('|')})$`;
 
 /**
  * Embedded JSON Schema for the `orchestration` configuration block.
@@ -106,7 +144,10 @@ export const AGENT_SETTINGS_SCHEMA = {
     verboseLogging: {
       type: 'object',
       properties: {
-        logDir: { type: 'string', not: { pattern: '([;&|`]|\\$\\()' } },
+        logDir: {
+          type: 'string',
+          not: { pattern: SHELL_INJECTION_PATTERN_STRING },
+        },
       },
     },
     docsContextFiles: {
@@ -139,12 +180,12 @@ export const AGENT_SETTINGS_SCHEMA = {
           items: {
             type: 'string',
             minLength: 1,
-            not: { pattern: '([;&|`]|\\$\\()' },
+            not: { pattern: SHELL_INJECTION_PATTERN_STRING },
           },
         },
         versionFile: {
           type: ['string', 'null'],
-          not: { pattern: '([;&|`]|\\$\\()' },
+          not: { pattern: SHELL_INJECTION_PATTERN_STRING },
         },
         packageJson: { type: 'boolean' },
         autoVersionBump: { type: 'boolean' },
@@ -153,11 +194,10 @@ export const AGENT_SETTINGS_SCHEMA = {
     },
   },
   patternProperties: {
-    '^(notificationWebhookUrl|baseBranch|validationCommand|testCommand|buildCommand|agentRoot|scriptsRoot|workflowsRoot|personasRoot|schemasRoot|skillsRoot|templatesRoot|rulesRoot|docsRoot|tempRoot|auditOutputDir|lintBaselineCommand|lintBaselinePath|exploratoryTestCommand|typecheckCommand)$':
-      {
-        type: 'string',
-        not: { pattern: '([;&|`]|\\$\\()' },
-      },
+    [STRING_FIELDS_PATTERN]: {
+      type: 'string',
+      not: { pattern: SHELL_INJECTION_PATTERN_STRING },
+    },
   },
 };
 

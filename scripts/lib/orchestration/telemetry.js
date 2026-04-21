@@ -12,7 +12,7 @@ export async function fetchTelemetry(provider, tasks) {
     for (const c of comments) {
       const issueUrlMatch = c.issue_url?.match(/\/issues\/(\d+)$/);
       if (issueUrlMatch) {
-        const issueId = parseInt(issueUrlMatch[1], 10);
+        const issueId = Number.parseInt(issueUrlMatch[1], 10);
         if (taskIds.has(issueId)) {
           const body = c.body || '';
           if (

@@ -21,7 +21,7 @@ export async function executeStory(options) {
   // Find the parent Epic.
   // Stories reference their Epic via `Epic: #NNN` in the body.
   const epicMatch = story.body?.match(/^Epic:\s*#(\d+)/im);
-  const epicId = epicMatch ? parseInt(epicMatch[1], 10) : null;
+  const epicId = epicMatch ? Number.parseInt(epicMatch[1], 10) : null;
 
   const manifest = {
     type: 'story-execution',
@@ -38,7 +38,7 @@ export async function executeStory(options) {
   // Filter to tasks belonging to THIS story (via parent: #STORY_ID)
   const storyTasks = allTasks.filter((t) => {
     const parentMatch = t.body?.match(/parent:\s*#(\d+)/i);
-    return parentMatch && parseInt(parentMatch[1], 10) === story.id;
+    return parentMatch && Number.parseInt(parentMatch[1], 10) === story.id;
   });
 
   // Sort tasks by DAG
