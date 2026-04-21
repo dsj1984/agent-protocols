@@ -1,0 +1,88 @@
+import assert from 'node:assert/strict';
+import { describe, it } from 'node:test';
+
+import {
+  CHECKPOINT_SCHEMA_VERSION,
+  Checkpointer,
+  EPIC_RUN_STATE_TYPE,
+} from '../../.agents/scripts/lib/orchestration/epic-runner/checkpointer.js';
+import { structuredCommentMarker } from '../../.agents/scripts/lib/orchestration/ticketing.js';
+
+function createFakeProvider() {
+  let autoId = 1;
+  const comments = new Map(); // ticketId → [{id, body}]
+
+  return {
+    _comments: comments,
+    async getTicketComments(ticketId) {
+      return comments.get(ticketId) ?? [];
+    },
+    async postComment(ticketId, payload) {
+      const list = comments.get(ticketId) ?? [];
+      const comment = { id: autoId++, body: payload.body };
+      list.push(comment);
+      comments.set(ticketId, list);
+      return comment;
+    },
+    async deleteComment(commentId) {
+      for (const [, list] of comments) {
+        const idx = list.findIndex((c) => c.id === commentId);
+        if (idx !== -1) list.splice(idx, 1);
+      }
+    },
+  };
+}
+
+describe('Checkpointer', () => {
+  it('initialize() writes fresh state when none exists', async () => {
+    const provider = createFakeProvider();
+    const cp = new Checkpointer({ provider, epicId: 321 });
+    const state = await cp.initialize({
+      totalWaves: 3,
+      concurrencyCap: 2,
+      autoClose: true,
+    });
+    assert.equal(state.version, CHECKPOINT_SCHEMA_VERSION);
+    assert.equal(state.totalWaves, 3);
+    assert.equal(state.autoClose, true);
+    assert.equal(state.currentWave, 0);
+
+    const comments = provider._comments.get(321) ?? [];
+    assert.equal(comments.length, 1);
+    assert.ok(comments[0].body.includes(structuredCommentMarker(EPIC_RUN_STATE_TYPE)));
+  });
+
+  it('initialize() is idempotent when state exists', async () => {
+    const provider = createFakeProvider();
+    const cp = new Checkpointer({ provider, epicId: 321 });
+    await cp.initialize({ totalWaves: 3, concurrencyCap: 2, autoClose: false });
+    const second = await cp.initialize({ totalWaves: 9, concurrencyCap: 9, autoClose: true });
+    assert.equal(second.totalWaves, 3, 'existing state wins on re-initialize');
+    const comments = provider._comments.get(321) ?? [];
+    assert.equal(comments.length, 1, 'no duplicate checkpoint comment');
+  });
+
+  it('write() overwrites prior checkpoints via marker upsert', async () => {
+    const provider = createFakeProvider();
+    const cp = new Checkpointer({ provider, epicId: 321 });
+    await cp.initialize({ totalWaves: 3, concurrencyCap: 2, autoClose: false });
+    await cp.write({ epicId: 321, currentWave: 1, totalWaves: 3, waves: [] });
+    await cp.write({ epicId: 321, currentWave: 2, totalWaves: 3, waves: [] });
+
+    const comments = provider._comments.get(321) ?? [];
+    assert.equal(comments.length, 1, 'upsert keeps exactly one comment');
+    const parsed = await cp.read();
+    assert.equal(parsed.currentWave, 2);
+  });
+
+  it('read() returns null on missing or malformed comment', async () => {
+    const provider = createFakeProvider();
+    const cp = new Checkpointer({ provider, epicId: 321 });
+    assert.equal(await cp.read(), null);
+
+    await provider.postComment(321, {
+      body: `${structuredCommentMarker(EPIC_RUN_STATE_TYPE)}\n\n\`\`\`json\nnot-json\n\`\`\``,
+    });
+    assert.equal(await cp.read(), null);
+  });
+});
