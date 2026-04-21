@@ -50,30 +50,59 @@ async function main() {
     process.exit(2);
   }
 
-  // The engine is implemented in a later Story. Fail loudly until then so
-  // /sprint-execute-epic wiring that arrives first does not silently succeed.
-  let runEpic;
-  try {
-    ({ runEpic } = await import('../../lib/orchestration/epic-runner.js'));
-  } catch (err) {
-    if (err?.code === 'ERR_MODULE_NOT_FOUND') {
-      console.error(
-        '[epic-runner] ERROR: engine not yet implemented ' +
-          '(lib/orchestration/epic-runner.js missing). ' +
-          'This CLI is a scaffold from Story #331; the engine lands in a ' +
-          'follow-up Story per tech spec #323.',
-      );
-      process.exit(64);
-    }
-    throw err;
+  const { runEpic } = await import('./lib/orchestration/epic-runner.js');
+  const { resolveConfig } = await import('./lib/config-resolver.js');
+  const { createProvider } = await import('./lib/provider-factory.js');
+
+  const config = resolveConfig();
+  if (!config.orchestration) {
+    console.error(
+      '[epic-runner] ERROR: no orchestration block in .agentrc.json.',
+    );
+    process.exit(1);
+  }
+
+  const provider = createProvider(config.orchestration);
+
+  if (args.dryRun) {
+    console.log(
+      JSON.stringify(
+        {
+          epicId: args.epicId,
+          dryRun: true,
+          epicRunner: config.orchestration.epicRunner,
+        },
+        null,
+        2,
+      ),
+    );
+    return;
   }
 
   const result = await runEpic({
     epicId: args.epicId,
-    options: { dryRun: args.dryRun },
+    provider,
+    config: config.orchestration,
+    spawn: defaultSpawn,
   });
 
   console.log(JSON.stringify(result, null, 2));
+}
+
+/**
+ * Default spawn adapter — delegates to the in-repo `/sprint-execute-story`
+ * CLI. Real usage inside the Claude remote-agent environment replaces this
+ * with an Agent-tool invocation at the skill layer.
+ */
+async function defaultSpawn({ storyId }) {
+  const { spawnSync } = await import('node:child_process');
+  const r = spawnSync(
+    process.execPath,
+    ['.agents/scripts/sprint-story-init.js', '--story', String(storyId)],
+    { stdio: 'inherit', shell: false },
+  );
+  if (r.status !== 0) return { status: 'failed', detail: `exit ${r.status}` };
+  return { status: 'done' };
 }
 
 runAsCli(import.meta.url, main, { source: 'EpicRunner' });
