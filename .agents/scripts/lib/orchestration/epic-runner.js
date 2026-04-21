@@ -45,6 +45,7 @@ export async function runEpic({
   spawn,
   worktreeResolver,
   fetchImpl,
+  runSkill,
   logger = console,
 }) {
   if (!Number.isInteger(epicId)) throw new TypeError('epicId must be integer');
@@ -96,8 +97,6 @@ export async function runEpic({
     worktreeResolver,
     logger,
   });
-  const bookends = new BookendChainer({ autoClose, logger });
-
   // --- 4. Initialize checkpoint and flip label ---
   await transitionTicketState(provider, epicId, STATE_LABELS.EXECUTING).catch(
     (err) => logger.warn?.(`[EpicRunner] label flip failed: ${err.message}`),
@@ -106,6 +105,17 @@ export async function runEpic({
     totalWaves: scheduler.totalWaves,
     concurrencyCap,
     autoClose,
+  });
+  // Authoritative snapshot — on a resume, re-use whatever autoClose was
+  // captured at dispatch time, ignoring mid-run label changes.
+  const effectiveAutoClose = Boolean(state.autoClose);
+
+  const bookends = new BookendChainer({
+    autoClose: effectiveAutoClose,
+    epicId,
+    runSkill,
+    postComment: (id, payload) => provider.postComment(id, payload),
+    logger,
   });
 
   // --- 5. Wave loop ---
@@ -131,7 +141,7 @@ export async function runEpic({
       currentWave: scheduler.currentWave,
       totalWaves: scheduler.totalWaves,
       waves: waveHistory,
-      autoClose,
+      autoClose: effectiveAutoClose,
     });
 
     if (failures.length) {
