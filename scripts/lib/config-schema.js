@@ -185,7 +185,7 @@ export const AGENT_SETTINGS_SCHEMA = {
         },
         versionFile: {
           type: ['string', 'null'],
-          not: { pattern: SHELL_INJECTION_PATTERN_STRING },
+          not: { type: 'string', pattern: SHELL_INJECTION_PATTERN_STRING },
         },
         packageJson: { type: 'boolean' },
         autoVersionBump: { type: 'boolean' },
