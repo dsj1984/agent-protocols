@@ -97,6 +97,10 @@ export const ORCHESTRATION_SCHEMA = {
       properties: {
         mentionOperator: { type: 'boolean' },
         webhookUrl: { type: 'string' },
+        webhookMinLevel: {
+          type: 'string',
+          enum: ['progress', 'notification', 'friction', 'action'],
+        },
       },
       additionalProperties: false,
     },
