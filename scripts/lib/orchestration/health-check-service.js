@@ -39,7 +39,7 @@ export async function ensureSprintHealthIssue(
         epicId,
         title: `📉 Sprint Health: ${epic.title}`,
         body: `## Real-time Sprint Health Monitoring\n\nThis issue tracks the execution metrics, progress, and friction logs for this sprint.\n\n---\nparent: #${epicId}\nEpic: #${epicId}`,
-        labels: ['type::health', 'persona::operator'],
+        labels: ['type::health'],
         dependencies: [],
       });
       vlog.info('orchestration', `✅ Sprint Health issue created: #${id}`);
