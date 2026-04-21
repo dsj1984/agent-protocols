@@ -287,8 +287,8 @@ describe('dispatch() — cycle detection', () => {
   });
 });
 
-describe('dispatch() — risk::high tasks', () => {
-  it('holds risk::high tasks, does not dispatch them', async () => {
+describe('dispatch() — risk::high tasks (runtime gate retired)', () => {
+  it('dispatches risk::high tasks without holding them', async () => {
     const riskTask = makeTask(10, {
       labels: ['type::task', 'agent::ready', 'risk::high'],
     });
@@ -302,9 +302,11 @@ describe('dispatch() — risk::high tasks', () => {
       adapter,
     });
 
-    assert.equal(manifest.heldForApproval.length, 1);
-    assert.equal(manifest.heldForApproval[0].taskId, 10);
-    assert.equal(manifest.dispatched.length, 0);
+    // Per tech spec #323 / Story #334: risk::high is metadata, not a runtime
+    // gate. The task is dispatched; heldForApproval stays empty.
+    assert.equal(manifest.heldForApproval.length, 0);
+    assert.equal(manifest.dispatched.length, 1);
+    assert.equal(manifest.dispatched[0].taskId, 10);
   });
 });
 

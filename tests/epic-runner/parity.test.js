@@ -1,0 +1,245 @@
+/**
+ * Parity tests for `features/epic-runner-parity.feature`.
+ *
+ * Each `it(...)` corresponds to one Scenario in the feature file. The
+ * repository does not ship Cucumber as a runtime dependency yet, so the
+ * Gherkin file serves as documentation and these node:test cases are the
+ * executable step definitions wired into `npm test`.
+ *
+ * When @cucumber/cucumber is eventually adopted, the expectations here
+ * can move into step-definition bodies without changing semantics.
+ */
+
+import assert from 'node:assert/strict';
+import { describe, it } from 'node:test';
+
+import { runEpic } from '../../.agents/scripts/lib/orchestration/epic-runner.js';
+import {
+  waveEndMarker,
+  waveStartMarker,
+} from '../../.agents/scripts/lib/orchestration/epic-runner/wave-observer.js';
+import {
+  EPIC_RUN_STATE_TYPE,
+} from '../../.agents/scripts/lib/orchestration/epic-runner/checkpointer.js';
+import { structuredCommentMarker } from '../../.agents/scripts/lib/orchestration/ticketing.js';
+
+function quietLogger() {
+  return { info: () => {}, warn: () => {}, error: () => {} };
+}
+
+function buildFakeProvider({ epicId, stories, initialEpicLabels }) {
+  let autoId = 1;
+  const tickets = new Map();
+  const comments = new Map();
+  tickets.set(epicId, {
+    id: epicId,
+    labels: initialEpicLabels ?? ['type::epic', 'agent::executing'],
+  });
+  for (const s of stories) {
+    tickets.set(s.id, {
+      id: s.id,
+      labels: ['type::story'],
+      dependencies: s.dependencies ?? [],
+    });
+  }
+  return {
+    _tickets: tickets,
+    _comments: comments,
+    async getTicket(id) {
+      const t = tickets.get(id);
+      if (!t) throw new Error(`no ticket ${id}`);
+      return { ...t, labels: [...t.labels] };
+    },
+    async getSubTickets(parent) {
+      if (parent !== epicId) return [];
+      return stories.map((s) => ({
+        id: s.id,
+        number: s.id,
+        labels: tickets.get(s.id).labels,
+        dependencies: s.dependencies ?? [],
+      }));
+    },
+    async getTicketDependencies() {
+      return { blocks: [], blockedBy: [] };
+    },
+    async getTicketComments(id) {
+      return (comments.get(id) ?? []).map((c) => ({ ...c }));
+    },
+    async postComment(id, payload) {
+      const list = comments.get(id) ?? [];
+      const c = { id: autoId++, body: payload.body, type: payload.type };
+      list.push(c);
+      comments.set(id, list);
+      return c;
+    },
+    async deleteComment(commentId) {
+      for (const list of comments.values()) {
+        const i = list.findIndex((c) => c.id === commentId);
+        if (i !== -1) list.splice(i, 1);
+      }
+    },
+    async updateTicket(id, mutations) {
+      const t = tickets.get(id);
+      if (!t) return;
+      if (mutations.labels) {
+        const add = mutations.labels.add ?? [];
+        const remove = mutations.labels.remove ?? [];
+        t.labels = [...new Set([...t.labels.filter((l) => !remove.includes(l)), ...add])];
+      }
+    },
+  };
+}
+
+const defaultConfig = {
+  epicRunner: {
+    enabled: true,
+    concurrencyCap: 2,
+    pollIntervalSec: 1,
+    storyRetryCount: 0,
+    blockerTimeoutHours: 0,
+    notificationWebhookUrl: null,
+  },
+};
+
+describe('epic-runner parity (features/epic-runner-parity.feature)', () => {
+  it('(a) local end-to-end on a fake-provider fixture', async () => {
+    const epicId = 321;
+    const stories = [
+      { id: 400 },
+      { id: 401 },
+      { id: 402, dependencies: [400] },
+    ];
+    const provider = buildFakeProvider({ epicId, stories });
+    const spawn = async () => ({ status: 'done' });
+
+    const result = await runEpic({
+      epicId,
+      provider,
+      config: defaultConfig,
+      spawn,
+      logger: quietLogger(),
+    });
+
+    assert.equal(result.state, 'completed');
+    const epic = provider._tickets.get(epicId);
+    assert.ok(epic.labels.includes('agent::review'));
+
+    const epicComments = provider._comments.get(epicId) ?? [];
+    const checkpointMarker = structuredCommentMarker(EPIC_RUN_STATE_TYPE);
+    const checkpointCount = epicComments.filter((c) =>
+      c.body.includes(checkpointMarker),
+    ).length;
+    assert.equal(checkpointCount, 1, 'exactly one epic-run-state comment');
+
+    for (let i = 0; i < result.waveHistory.length; i++) {
+      assert.ok(
+        epicComments.some((c) => c.body.includes(waveStartMarker(i))),
+        `wave-${i}-start comment present`,
+      );
+      assert.ok(
+        epicComments.some((c) => c.body.includes(waveEndMarker(i))),
+        `wave-${i}-end comment present`,
+      );
+    }
+  });
+
+  it('(b) simulated GitHub-triggered remote run matches local parity', async () => {
+    const epicId = 321;
+    const stories = [{ id: 400 }, { id: 401 }];
+    const provider = buildFakeProvider({
+      epicId,
+      stories,
+      initialEpicLabels: ['type::epic', 'agent::dispatching'],
+    });
+    const spawn = async () => ({ status: 'done' });
+
+    const result = await runEpic({
+      epicId,
+      provider,
+      config: defaultConfig,
+      spawn,
+      logger: quietLogger(),
+    });
+
+    // The coordinator is expected to flip Epic to executing then review.
+    const epic = provider._tickets.get(epicId);
+    assert.ok(
+      epic.labels.includes('agent::review'),
+      `final label wrong: ${epic.labels.join(',')}`,
+    );
+    assert.equal(result.state, 'completed');
+    assert.equal(result.waveHistory.length, 1);
+  });
+
+  it('(c) local per-Story init leaves remote Epic label untouched', async () => {
+    // This exercises the shape rather than forking a git worktree. Running
+    // the actual sprint-story-init requires filesystem state; in the fake
+    // provider we just confirm that the orchestrator does not rewrite the
+    // Epic's executing label when launching a single-story sub-agent.
+    const epicId = 321;
+    const stories = [{ id: 400 }];
+    const provider = buildFakeProvider({ epicId, stories });
+
+    const spawn = async ({ storyId }) => {
+      // Simulate sprint-story-init: transitioning child Tasks is a Story-
+      // scoped side effect; the Story's label set should change but not the
+      // Epic's.
+      const story = provider._tickets.get(storyId);
+      story.labels = ['type::story', 'agent::executing'];
+      return { status: 'done' };
+    };
+    const labelsBefore = [...provider._tickets.get(epicId).labels];
+
+    await runEpic({ epicId, provider, config: defaultConfig, spawn, logger: quietLogger() });
+
+    const labelsAfter = provider._tickets.get(epicId).labels;
+    assert.ok(labelsAfter.includes('agent::review'));
+    // Executing was present initially; orchestrator removed it and added review.
+    // Story label transitions are Story-local.
+    assert.ok(
+      !labelsBefore.includes('agent::review'),
+      'sanity: review not present before run',
+    );
+    const storyLabels = provider._tickets.get(400).labels;
+    assert.ok(storyLabels.includes('agent::executing'));
+  });
+
+  it('(d) blocker halt-and-resume cycle', async () => {
+    const epicId = 321;
+    const stories = [{ id: 400 }, { id: 401 }];
+    const provider = buildFakeProvider({ epicId, stories });
+
+    const spawn = async ({ storyId }) => {
+      if (storyId === 401) return { status: 'failed', detail: 'boom' };
+      return { status: 'done' };
+    };
+
+    // Simulate operator flipping the Epic back to executing on the next read.
+    const origGet = provider.getTicket.bind(provider);
+    provider.getTicket = async (id) => {
+      const t = await origGet(id);
+      if (id === epicId) {
+        t.labels = t.labels.filter((l) => l !== 'agent::blocked');
+        if (!t.labels.includes('agent::executing')) t.labels.push('agent::executing');
+      }
+      return t;
+    };
+
+    const result = await runEpic({
+      epicId,
+      provider,
+      config: defaultConfig,
+      spawn,
+      logger: quietLogger(),
+    });
+
+    const halted = result.waveHistory.find((w) => w.status === 'halted');
+    assert.ok(halted, 'wave recorded as halted');
+    assert.equal(result.state, 'completed', 'orchestrator resumed after operator unblock');
+
+    const epicComments = provider._comments.get(epicId) ?? [];
+    const friction = epicComments.find((c) => /Epic blocked/.test(c.body));
+    assert.ok(friction, 'blocker friction comment posted');
+    assert.match(friction.body, /#401/);
+  });
+});

@@ -398,6 +398,69 @@ sequenceDiagram
 
 ---
 
+## Epic Runner (remote orchestration)
+
+The epic runner (`.agents/scripts/lib/orchestration/epic-runner.js`) composes
+the existing orchestration primitives into an unattended execution loop.
+Invoked via `/sprint-execute-epic` — either locally, or by the GitHub
+remote trigger workflow `.github/workflows/epic-dispatch.yml` when an Epic
+is labelled `agent::dispatching`.
+
+### State machine (Epic labels)
+
+```
+                    apply agent::dispatching
+                   ┌───────────────────────────┐
+                   │                           ▼
+  (any state) ──► agent::dispatching ──► agent::executing
+                                               │
+                                               │ wave-N halts on blocker
+                                               ▼
+                                        agent::blocked  ──── operator flips back ───┐
+                                               │                                    │
+                                               │ ───────────────────────────────────┘
+                                               ▼
+                        final wave completes ──► agent::review
+                                                    │
+                                 epic::auto-close?  │
+                               (snapshot at dispatch)
+                                                    │ yes
+                                                    ▼
+                                            /sprint-code-review
+                                                    │
+                                                    ▼
+                                               /sprint-retro
+                                                    │
+                                                    ▼
+                                               /sprint-close
+                                                    │
+                                                    ▼
+                                               agent::done
+```
+
+### Submodules
+
+| Module                | Role                                                                     |
+| --------------------- | ------------------------------------------------------------------------ |
+| `wave-scheduler`      | Iterates waves from `Graph.computeWaves()`; never spawns workers.        |
+| `story-launcher`      | Fans out up to `concurrencyCap` `/sprint-execute-story` sub-agents.      |
+| `state-poller`        | Polls Epic + child-Story labels; emits blocker / cancel / closed events. |
+| `checkpointer`        | Upserts the `epic-run-state` structured comment; handles resume.         |
+| `blocker-handler`     | The sole runtime pause point; halts on `agent::blocked`, waits to resume.|
+| `notification-hook`   | Fire-and-forget webhook; never blocks execution.                         |
+| `bookend-chainer`     | Runs `/sprint-code-review` → `/sprint-retro` → `/sprint-close` on auto-close. |
+| `wave-observer`       | Emits `wave-N-start` / `wave-N-end` structured comments each boundary.   |
+| `column-sync`         | Drives the Projects v2 Status column from agent:: labels (best-effort).  |
+
+### HITL touchpoints
+
+One runtime pause point — `agent::blocked` on the Epic. All other labels
+(`risk::high`, `epic::auto-close`, `agent::dispatching`) are snapshots or
+metadata; mid-run changes are ignored. Branch protection on `main`
+replaces `risk::high` runtime gating for destructive-action containment.
+
+---
+
 ## Ticket Hierarchy
 
 The framework uses a 4-tier GitHub Issue hierarchy with label-based typing and

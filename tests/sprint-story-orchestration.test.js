@@ -346,7 +346,7 @@ test('sprint-story-close: successful merge and closure', async () => {
   assert.ok(task.labels.includes('agent::done'), 'Task should be done');
 });
 
-test('sprint-story-close: handle risk::high gate', async () => {
+test('sprint-story-close: risk::high is informational only (runtime gate retired)', async () => {
   const provider = new MockProvider({
     tickets: {
       100: {
@@ -363,25 +363,14 @@ test('sprint-story-close: handle risk::high gate', async () => {
     injectedProvider: provider,
   });
 
-  assert.strictEqual(
-    success,
-    false,
-    'Should fail (operator decision required)',
-  );
-  assert.strictEqual(
+  // Per tech spec #323 / Story #334, `risk::high` no longer halts close.
+  // The label remains as retro metadata but the story merges normally.
+  assert.strictEqual(success, true, 'Should merge despite risk::high');
+  assert.strictEqual(result.merged, true);
+  assert.notStrictEqual(
     result.action,
     'paused-for-approval',
-    'Should pause for operator instead of creating a PR',
-  );
-  assert.match(
-    result.reason,
-    /risk::high/,
-    'Reason should cite the risk::high label',
-  );
-  assert.strictEqual(
-    provider.comments.length,
-    0,
-    'Gate must not post any ticket comment — pause is in-chat only',
+    'Legacy paused-for-approval action is gone',
   );
 });
 

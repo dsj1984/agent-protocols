@@ -187,23 +187,22 @@ export async function dispatchWave(wave, taskMap, ctx) {
 
   const dispatched = [];
   const heldForApproval = [];
-  const riskHighGateEnabled =
-    ctx.orchestration?.hitl?.riskHighApproval !== false;
 
   // Tasks in the same wave have their dependencies satisfied, so they are
   // independent by construction. Dispatch them concurrently (bounded) so a
   // 10-task wave takes ~max(dispatch time) instead of ~sum(dispatch times).
+  //
+  // `risk::high` is no longer a runtime gate (tech spec #323 — retired in
+  // Story #334). We still call `handleRiskHighGate` for the log-only
+  // warning, but it returns `null` and the task is dispatched regardless.
   const concurrency = ctx.dispatchConcurrency ?? DISPATCH_CONCURRENCY;
   const results = new Array(eligible.length);
   for (let i = 0; i < eligible.length; i += concurrency) {
     const slice = eligible.slice(i, i + concurrency);
     const sliceResults = await Promise.all(
       slice.map(async (task) => {
-        if (task.isRiskHigh && riskHighGateEnabled) {
-          return {
-            kind: 'held',
-            value: await handleRiskHighGate(task, ctx.provider, ctx.dryRun),
-          };
+        if (task.isRiskHigh) {
+          await handleRiskHighGate(task, ctx.provider, ctx.dryRun);
         }
         return {
           kind: 'dispatched',
@@ -216,11 +215,8 @@ export async function dispatchWave(wave, taskMap, ctx) {
     }
   }
 
-  // Preserve the original eligible-array ordering in both output arrays so
-  // manifest consumers see a deterministic dispatch order.
   for (const entry of results) {
-    if (entry.kind === 'held') heldForApproval.push(entry.value);
-    else dispatched.push(entry.value);
+    dispatched.push(entry.value);
   }
   return { dispatched, heldForApproval, shouldHalt: false, empty: false };
 }
