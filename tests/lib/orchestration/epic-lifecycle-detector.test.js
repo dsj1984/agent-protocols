@@ -42,7 +42,9 @@ test('detectEpicCompletion: no-op when any task is not agent::done', async () =>
 
 test('detectEpicCompletion: posts summary comment when every task is done', async () => {
   const calls = [];
-  const provider = { postComment: async (id, opts) => calls.push({ id, opts }) };
+  const provider = {
+    postComment: async (id, opts) => calls.push({ id, opts }),
+  };
   await detectEpicCompletion({
     epicId: 42,
     tasks: [

@@ -11,9 +11,7 @@ test('collectOpenStoryIds: includes stories with open tasks', () => {
     { id: 1, status: 'agent::executing', body: 'parent: #100' },
     { id: 2, status: AGENT_DONE_LABEL, body: 'parent: #100' },
   ];
-  const allById = new Map([
-    [100, { labels: ['type::story'], state: 'open' }],
-  ]);
+  const allById = new Map([[100, { labels: ['type::story'], state: 'open' }]]);
   assert.deepEqual(collectOpenStoryIds(tasks, allById), [100]);
 });
 
@@ -22,16 +20,12 @@ test('collectOpenStoryIds: excludes stories where every task is done', () => {
     { id: 1, status: AGENT_DONE_LABEL, body: 'parent: #100' },
     { id: 2, status: AGENT_DONE_LABEL, body: 'parent: #100' },
   ];
-  const allById = new Map([
-    [100, { labels: ['type::story'], state: 'open' }],
-  ]);
+  const allById = new Map([[100, { labels: ['type::story'], state: 'open' }]]);
   assert.deepEqual(collectOpenStoryIds(tasks, allById), []);
 });
 
 test('collectOpenStoryIds: skips cancelled stories by default (reapOnCancel=true)', () => {
-  const tasks = [
-    { id: 1, status: 'agent::executing', body: 'parent: #100' },
-  ];
+  const tasks = [{ id: 1, status: 'agent::executing', body: 'parent: #100' }];
   const allById = new Map([
     // Cancelled story: closed but no agent::done label.
     [100, { labels: ['type::story'], state: 'closed' }],
@@ -40,9 +34,7 @@ test('collectOpenStoryIds: skips cancelled stories by default (reapOnCancel=true
 });
 
 test('collectOpenStoryIds: keeps cancelled stories when reapOnCancel=false', () => {
-  const tasks = [
-    { id: 1, status: 'agent::executing', body: 'parent: #100' },
-  ];
+  const tasks = [{ id: 1, status: 'agent::executing', body: 'parent: #100' }];
   const allById = new Map([
     [100, { labels: ['type::story'], state: 'closed' }],
   ]);
@@ -71,7 +63,13 @@ test('dispatchWave: returns empty when every eligible task is done or executing'
 
 test('dispatchWave: halts when deps are not yet complete', async () => {
   const wave = [
-    { id: 1, status: 'agent::ready', dependsOn: [99], title: 't1', isRiskHigh: false },
+    {
+      id: 1,
+      status: 'agent::ready',
+      dependsOn: [99],
+      title: 't1',
+      isRiskHigh: false,
+    },
   ];
   const taskMap = new Map([
     [1, wave[0]],

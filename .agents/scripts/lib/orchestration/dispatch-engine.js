@@ -35,10 +35,7 @@ import { buildManifest } from './manifest-builder.js';
 import { executeStory } from './story-executor.js';
 import { fetchTelemetry } from './telemetry.js';
 import { STATE_LABELS } from './ticketing.js';
-import {
-  collectOpenStoryIds,
-  dispatchNextWave,
-} from './wave-dispatcher.js';
+import { collectOpenStoryIds, dispatchNextWave } from './wave-dispatcher.js';
 
 export const AGENT_DONE_LABEL = STATE_LABELS.DONE;
 export const AGENT_EXECUTING_LABEL = STATE_LABELS.EXECUTING;

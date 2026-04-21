@@ -103,7 +103,10 @@ test('formatter: feature containers row when features present', () => {
 
 test('formatter: renderManifestMarkdown alias matches formatManifestMarkdown', () => {
   const manifest = epicManifest();
-  assert.equal(renderManifestMarkdown(manifest), formatManifestMarkdown(manifest));
+  assert.equal(
+    renderManifestMarkdown(manifest),
+    formatManifestMarkdown(manifest),
+  );
 });
 
 test('formatter: story execution manifest respects injected settings', () => {

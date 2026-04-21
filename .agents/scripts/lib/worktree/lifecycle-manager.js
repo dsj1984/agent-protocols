@@ -55,12 +55,7 @@ function getWorktreeList(ctx) {
   if (ctx.listCache.list && now - ctx.listCache.ts < 5_000) {
     return ctx.listCache.list;
   }
-  const res = ctx.git.gitSpawn(
-    ctx.repoRoot,
-    'worktree',
-    'list',
-    '--porcelain',
-  );
+  const res = ctx.git.gitSpawn(ctx.repoRoot, 'worktree', 'list', '--porcelain');
   if (res.status !== 0) return [];
   const parsed = parseWorktreePorcelain(res.stdout);
   ctx.listCache.list = parsed;
@@ -161,16 +156,9 @@ export async function ensure(ctx, storyId, branch) {
 }
 
 export async function list(ctx) {
-  const res = ctx.git.gitSpawn(
-    ctx.repoRoot,
-    'worktree',
-    'list',
-    '--porcelain',
-  );
+  const res = ctx.git.gitSpawn(ctx.repoRoot, 'worktree', 'list', '--porcelain');
   if (res.status !== 0) {
-    throw new Error(
-      `WorktreeManager: git worktree list failed: ${res.stderr}`,
-    );
+    throw new Error(`WorktreeManager: git worktree list failed: ${res.stderr}`);
   }
   return parseWorktreePorcelain(res.stdout);
 }
@@ -247,10 +235,7 @@ export async function reap(ctx, storyId, opts = {}) {
     return { removed: false, reason: 'not-a-worktree', path: wtPath };
   }
 
-  if (
-    storyIdFromPath(wtPath, ctx.worktreeRoot) !== null &&
-    !opts.epicBranch
-  ) {
+  if (storyIdFromPath(wtPath, ctx.worktreeRoot) !== null && !opts.epicBranch) {
     return { removed: false, reason: 'epic-branch-required', path: wtPath };
   }
 
@@ -309,12 +294,7 @@ export function removeWorktreeWithRecovery(ctx, wtPath) {
   let lastReason = 'worktree-remove-failed';
 
   for (let attempt = 1; attempt <= maxAttempts; attempt++) {
-    const res = ctx.git.gitSpawn(
-      ctx.repoRoot,
-      'worktree',
-      'remove',
-      wtPath,
-    );
+    const res = ctx.git.gitSpawn(ctx.repoRoot, 'worktree', 'remove', wtPath);
     if (res.status === 0) return { removed: true };
 
     const stderr = (res.stderr || res.stdout || '').trim();

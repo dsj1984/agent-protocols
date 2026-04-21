@@ -19,20 +19,13 @@ function quietLogger() {
 
 test('pathFor: rejects invalid storyId', () => {
   assert.throws(
-    () =>
-      pathFor(
-        { worktreeRoot: '/repo/.worktrees' },
-        'nope',
-      ),
+    () => pathFor({ worktreeRoot: '/repo/.worktrees' }, 'nope'),
     /invalid storyId/,
   );
 });
 
 test('pathFor: builds worktreeRoot + story-<id>', () => {
-  const p = pathFor(
-    { worktreeRoot: '/repo/.worktrees' },
-    42,
-  );
+  const p = pathFor({ worktreeRoot: '/repo/.worktrees' }, 42);
   assert.ok(p.endsWith('story-42'));
 });
 

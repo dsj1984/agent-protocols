@@ -44,10 +44,7 @@ test('samePath: posix case-sensitive', () => {
 });
 
 test('samePath: windows case-insensitive', () => {
-  assert.equal(
-    samePath('C:\\Users\\Foo', 'C:\\users\\foo', 'win32'),
-    true,
-  );
+  assert.equal(samePath('C:\\Users\\Foo', 'C:\\users\\foo', 'win32'), true);
 });
 
 test('storyIdFromPath: valid story path returns numeric id', () => {
@@ -93,7 +90,11 @@ test('isInsideWorktree: sibling returns false', () => {
 test('maybeWarnWindowsPath: no-op on non-windows', () => {
   const logs = [];
   const result = maybeWarnWindowsPath(
-    { platform: 'linux', threshold: 100, logger: { warn: (m) => logs.push(m) } },
+    {
+      platform: 'linux',
+      threshold: 100,
+      logger: { warn: (m) => logs.push(m) },
+    },
     'a'.repeat(250),
   );
   assert.equal(result, null);
@@ -104,7 +105,11 @@ test('maybeWarnWindowsPath: warns past threshold on windows', () => {
   const logs = [];
   const wtPath = 'C:\\' + 'a'.repeat(200);
   const result = maybeWarnWindowsPath(
-    { platform: 'win32', threshold: 240, logger: { warn: (m) => logs.push(m) } },
+    {
+      platform: 'win32',
+      threshold: 240,
+      logger: { warn: (m) => logs.push(m) },
+    },
     wtPath,
   );
   assert.ok(result);
@@ -115,7 +120,11 @@ test('maybeWarnWindowsPath: warns past threshold on windows', () => {
 test('maybeWarnWindowsPath: silent under threshold on windows', () => {
   const logs = [];
   const result = maybeWarnWindowsPath(
-    { platform: 'win32', threshold: 240, logger: { warn: (m) => logs.push(m) } },
+    {
+      platform: 'win32',
+      threshold: 240,
+      logger: { warn: (m) => logs.push(m) },
+    },
     'C:\\short',
   );
   assert.equal(result, null);

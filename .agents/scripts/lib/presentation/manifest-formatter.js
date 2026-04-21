@@ -422,9 +422,7 @@ export function printStoryDispatchTable(storyManifest, opts = {}) {
     ).padEnd(4);
     const tier = (story.model_tier ?? '').padEnd(10);
     const taskCount = `${story.tasks.length} task(s)`.padEnd(12);
-    log(
-      `│ ${id.padEnd(7)} │ ${title} │ ${wave} │ ${tier} │ ${taskCount} │`,
-    );
+    log(`│ ${id.padEnd(7)} │ ${title} │ ${wave} │ ${tier} │ ${taskCount} │`);
   }
 
   log(

@@ -67,9 +67,7 @@ export function copyBootstrapFiles(ctx, wtPath) {
     try {
       fs.mkdirSync(path.dirname(dst), { recursive: true });
       fs.copyFileSync(src, dst);
-      ctx.logger.info(
-        `worktree.bootstrap copied source=${src} target=${dst}`,
-      );
+      ctx.logger.info(`worktree.bootstrap copied source=${src} target=${dst}`);
     } catch (err) {
       ctx.logger.warn(
         `worktree.bootstrap copy failed name=${name}: ${err.message}`,
@@ -90,9 +88,7 @@ export function copyAgentsFromRoot(ctx, wtPath) {
   if (!submoduleCheck(ctx.repoRoot)) return;
   const rootAgents = path.resolve(ctx.repoRoot, '.agents');
   if (!fs.existsSync(rootAgents)) {
-    ctx.logger.warn(
-      `agents-copy skipped: root ${rootAgents} does not exist`,
-    );
+    ctx.logger.warn(`agents-copy skipped: root ${rootAgents} does not exist`);
     return;
   }
   const wtAgents = path.resolve(wtPath, '.agents');
@@ -197,14 +193,7 @@ export function dropAgentsGitlinkFromIndex(ctx, wtPath) {
   if (!submoduleCheck(ctx.repoRoot)) return;
   const ls = ctx.git.gitSpawn(wtPath, 'ls-files', '--stage', '--', '.agents');
   if (ls.status !== 0 || !/^160000 /.test(ls.stdout)) return;
-  const rm = ctx.git.gitSpawn(
-    wtPath,
-    'rm',
-    '--cached',
-    '-f',
-    '--',
-    '.agents',
-  );
+  const rm = ctx.git.gitSpawn(wtPath, 'rm', '--cached', '-f', '--', '.agents');
   if (rm.status !== 0) {
     ctx.logger.warn(
       `agents-index-scrub failed path=${wtPath}: ${rm.stderr || rm.stdout}`,

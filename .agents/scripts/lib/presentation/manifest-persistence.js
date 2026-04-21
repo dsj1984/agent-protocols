@@ -38,7 +38,8 @@ export function persistManifest(manifest, opts = {}) {
     }
 
     if (manifest.type === 'story-execution') {
-      const settings = opts.settings ?? resolveConfig({ cwd: projectRoot }).settings;
+      const settings =
+        opts.settings ?? resolveConfig({ cwd: projectRoot }).settings;
       const key = manifest.stories.map((s) => s.storyId).join('-');
       fs.writeFileSync(
         path.join(manifestDir, `story-manifest-${key}.json`),
