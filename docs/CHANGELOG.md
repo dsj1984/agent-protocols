@@ -2,6 +2,35 @@
 
 All notable changes to this project will be documented in this file.
 
+## [5.13.3] - 2026-04-21
+
+### Protocol self-heal: Windows worktree reap + scope-overlap planning hint
+
+Two recurring friction points surfaced by sprint retros, bundled into a
+single patch:
+
+1. **Windows worktree reap hardening (`sprint-story-close.js`).**
+   When `WorktreeManager.reap()` fails with a Windows rmdir-EACCES /
+   sharing-violation class error (or when a story worktree remains
+   registered after reap), the close script now emits an explicit
+   `OPERATOR ACTION REQUIRED:` line to stderr with the path and the
+   remediation command, instead of only a `⚠️` progress warning that
+   was easy to miss. Lock-failure detection reuses the same regex
+   family used internally by `removeWorktreeWithRecovery` so safety
+   skips (uncommitted-changes, unmerged-commits, detached-head) do not
+   trigger the louder signal. Prevents stale `.worktrees/story-*`
+   residue from accumulating silently across Epics.
+
+2. **Scope-overlap flagging at planning time.** The decomposer system
+   prompt (`lib/templates/decomposer-prompts.js`) now instructs the
+   host LLM to flag "docs update" / "runbook" / "README" Tasks that
+   land downstream of an earlier "config + runbook" Story whose AC
+   already covers the same document. The flagged Task body carries a
+   `Scope verification note:` line pointing the executor at
+   `git diff main -- <path>` against the upstream Story branch before
+   implementing. `sprint-plan.md` Phase 2 cross-validation gains a
+   matching human/host-LLM backstop checklist item.
+
 ## [5.13.2] - 2026-04-21
 
 ### Fix config-schema rejecting `release.versionFile: null`

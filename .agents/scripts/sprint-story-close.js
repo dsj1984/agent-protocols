@@ -218,6 +218,19 @@ async function reapStoryWorktree({
         'WORKTREE',
         `⚠️  Worktree not reaped (${reapResult.reason}): ${reapResult.path}`,
       );
+      // Windows rmdir-EACCES / sharing-violation class of errors recurs
+      // across Epics. When the reap failed on a lock-like filesystem error
+      // (not just a safety skip like uncommitted-changes), raise an explicit
+      // OPERATOR ACTION REQUIRED line so the residue doesn't accumulate
+      // silently in `.worktrees/`.
+      if (isWindowsReapLockFailure(reapResult.reason)) {
+        Logger.error(
+          `[sprint-story-close] OPERATOR ACTION REQUIRED: Worktree at ${reapResult.path} ` +
+            `could not be removed (Windows lock/permission error: ${reapResult.reason}). ` +
+            'Close any editor/terminal holding the path, then run ' +
+            '`git worktree remove <path> --force && git worktree prune` to clean up.',
+        );
+      }
     }
 
     // Defense in depth: regardless of what `reap()` reported, probe
@@ -231,13 +244,28 @@ async function reapStoryWorktree({
         : false,
     );
     if (stillRegistered) {
-      progress(
-        'WORKTREE',
-        `⚠️  Worktree still registered after reap: ${stillRegistered.path}. ` +
-          'Run `git worktree remove <path> --force && git worktree prune` to clean up.',
+      Logger.error(
+        `[sprint-story-close] OPERATOR ACTION REQUIRED: Worktree still registered after reap: ` +
+          `${stillRegistered.path}. Run ` +
+          '`git worktree remove <path> --force && git worktree prune` to clean up.',
       );
     }
   });
+}
+
+/**
+ * Recognise the Windows rmdir-EACCES / sharing-violation class of reap
+ * failures. The `reason` here comes from `removeWorktreeWithRecovery` and
+ * is the trimmed stderr of `git worktree remove`. We only want to raise
+ * OPERATOR ACTION REQUIRED for filesystem-lock failures, not for safety
+ * skips (uncommitted-changes, unmerged-commits, detached-head, etc.) which
+ * are already surfaced via progress() and have different remediation.
+ */
+function isWindowsReapLockFailure(reason) {
+  if (typeof reason !== 'string') return false;
+  return /(permission denied|access is denied|directory not empty|resource busy|device or resource busy|sharing violation|EACCES|EBUSY|ENOTEMPTY)/i.test(
+    reason,
+  );
 }
 
 async function notifyStoryComplete({

@@ -32,6 +32,11 @@ You MUST respond ONLY with a valid JSON array of objects. No prose, no markdown 
   }
 ]
 
+### SCOPE-OVERLAP FLAGGING (docs/runbook downstream of config work):
+When a "docs update" / "runbook" / "README" Task appears downstream of an earlier Story in the same Epic whose AC already covers updating the same document (e.g. a "config + runbook" Story followed by a "docs" Story touching the same runbook), the downstream Task's deliverable may be fully absorbed by the earlier Story. Flag the risk directly in the Task \`body\` by appending a line of the form:
+"Scope verification note: this task's deliverable may already be satisfied by Story #<slug-or-id>'s AC — before implementing, \`git diff main -- <path>\` against the upstream Story branch and confirm whether a substantive edit is still required, or whether only a cross-reference remains."
+This prevents the executing agent from redoing work the upstream Story already merged.
+
 CRITICAL: Dependencies should follow execution blockers. For hierarchical grouping, strongly strictly use 'parent_slug' (Story parent MUST be a Feature, Task parent MUST be a Story). Features should have no 'parent_slug' (they attach to Epic).
 IMPORTANT DEPENDENCY RULE: A Task's \`depends_on\` MUST only reference other Tasks within the SAME Story (same parent_slug). Cross-story task dependencies are FORBIDDEN. If two Stories have a logical ordering requirement, add the dependency at the STORY level (one Story depends_on the other Story's slug), NOT between their child Tasks.
 WARNING: You MUST conserve your output limit. Do NOT generate more than 25 tickets in total. Combine atomic tasks into larger, cohesive tasks. Do NOT cut off the JSON array prematurely!`;
