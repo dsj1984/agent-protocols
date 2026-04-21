@@ -6,17 +6,45 @@
  * to happen in one place. Colors come from `LABEL_COLORS` in the same module.
  */
 
+import fs from 'node:fs';
+import path from 'node:path';
+import { fileURLToPath } from 'node:url';
 import {
   AGENT_LABELS,
   CONTEXT_LABELS,
   EPIC_LABELS,
   EXECUTION_LABELS,
   LABEL_COLORS,
-  PERSONA_LABELS,
+  PERSONA_LABEL_PREFIX,
   RISK_LABELS,
   STATUS_LABELS,
   TYPE_LABELS,
 } from './label-constants.js';
+
+const PERSONAS_DIR = path.resolve(
+  path.dirname(fileURLToPath(import.meta.url)),
+  '..',
+  '..',
+  'personas',
+);
+
+/**
+ * Discover persona labels from `.agents/personas/*.md`. The filename
+ * (without extension) is the label suffix — this is the same value the
+ * context hydrator uses to resolve `persona::<name>` to its markdown file.
+ */
+function buildPersonaLabels() {
+  return fs
+    .readdirSync(PERSONAS_DIR)
+    .filter((f) => f.endsWith('.md'))
+    .map((f) => f.slice(0, -3))
+    .sort()
+    .map((name) => ({
+      name: `${PERSONA_LABEL_PREFIX}${name}`,
+      color: LABEL_COLORS.PERSONA,
+      description: `${name} persona`,
+    }));
+}
 
 /** @type {Array<{ name: string, color: string, description: string }>} */
 export const LABEL_TAXONOMY = [
@@ -96,22 +124,8 @@ export const LABEL_TAXONOMY = [
     description: 'Medium-risk change',
   },
 
-  // Persona
-  {
-    name: PERSONA_LABELS.FULLSTACK,
-    color: LABEL_COLORS.PERSONA,
-    description: 'Fullstack engineer persona',
-  },
-  {
-    name: PERSONA_LABELS.ARCHITECT,
-    color: LABEL_COLORS.PERSONA,
-    description: 'Architect persona',
-  },
-  {
-    name: PERSONA_LABELS.QA,
-    color: LABEL_COLORS.PERSONA,
-    description: 'QA engineer persona',
-  },
+  // Persona — dynamically derived from .agents/personas/*.md
+  ...buildPersonaLabels(),
 
   // Context
   {

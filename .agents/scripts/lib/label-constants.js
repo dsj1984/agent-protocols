@@ -34,11 +34,13 @@ export const RISK_LABELS = {
   MEDIUM: 'risk::medium',
 };
 
-export const PERSONA_LABELS = {
-  FULLSTACK: 'persona::fullstack',
-  ARCHITECT: 'persona::architect',
-  QA: 'persona::qa',
-};
+/**
+ * Persona labels are derived at bootstrap time from `.agents/personas/*.md`
+ * (see `label-taxonomy.js`), not hard-coded here — the persona file is the
+ * source of truth, and ticket hydration resolves the label value to the
+ * matching filename.
+ */
+export const PERSONA_LABEL_PREFIX = 'persona::';
 
 export const CONTEXT_LABELS = {
   PRD: 'context::prd',

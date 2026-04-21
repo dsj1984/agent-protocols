@@ -47,7 +47,7 @@ custom fields.
 | Epic        | `epic::auto-close`                                                                       | Yellow |
 | Status      | `status::blocked`                                                                        | Red    |
 | Risk        | `risk::high`, `risk::medium`                                                             | Yellow |
-| Persona     | `persona::fullstack`, `persona::architect`, `persona::qa`                                | Blue   |
+| Persona     | `persona::<name>` — one per file in `.agents/personas/`                                  | Blue   |
 | Context     | `context::prd`, `context::tech-spec`                                                     | Purple |
 | Execution   | `execution::sequential`, `execution::concurrent`                                         | Peach  |
 

@@ -6,12 +6,18 @@
  */
 
 import assert from 'node:assert/strict';
+import fs from 'node:fs';
 import path from 'node:path';
 import { describe, it } from 'node:test';
 import { fileURLToPath, pathToFileURL } from 'node:url';
 
 const __dirname = path.dirname(fileURLToPath(import.meta.url));
 const ROOT = path.resolve(__dirname, '..');
+const PERSONAS_DIR = path.join(ROOT, '.agents', 'personas');
+const PERSONA_NAMES = fs
+  .readdirSync(PERSONAS_DIR)
+  .filter((f) => f.endsWith('.md'))
+  .map((f) => f.slice(0, -3));
 
 const { runBootstrap } = await import(
   pathToFileURL(
@@ -86,22 +92,27 @@ describe('Bootstrap — LABEL_TAXONOMY', () => {
     assert.ok(names.includes('agent::done'));
   });
 
-  it('contains status, risk, persona, context, and execution labels', () => {
+  it('contains status, risk, context, and execution labels', () => {
     const names = LABEL_TAXONOMY.map((l) => l.name);
     assert.ok(names.includes('status::blocked'));
     assert.ok(names.includes('risk::high'));
     assert.ok(names.includes('risk::medium'));
-    assert.ok(names.includes('persona::fullstack'));
-    assert.ok(names.includes('persona::architect'));
-    assert.ok(names.includes('persona::qa'));
     assert.ok(names.includes('context::prd'));
     assert.ok(names.includes('context::tech-spec'));
     assert.ok(names.includes('execution::sequential'));
     assert.ok(names.includes('execution::concurrent'));
   });
 
-  it('has exactly 20 label definitions', () => {
-    assert.equal(LABEL_TAXONOMY.length, 20);
+  it('derives one persona label per file in .agents/personas/', () => {
+    const personaLabels = LABEL_TAXONOMY.filter((l) =>
+      l.name.startsWith('persona::'),
+    ).map((l) => l.name.slice('persona::'.length));
+    assert.deepEqual(personaLabels.sort(), [...PERSONA_NAMES].sort());
+  });
+
+  it('label count = non-persona taxonomy + one per persona file', () => {
+    const nonPersonaBase = 17;
+    assert.equal(LABEL_TAXONOMY.length, nonPersonaBase + PERSONA_NAMES.length);
   });
 
   it('includes the dispatch/auto-close labels', () => {
