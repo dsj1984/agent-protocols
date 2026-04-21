@@ -207,6 +207,40 @@ graph TB
 | `notify.js`              | Dispatches notifications via @mention and webhook channels                        |
 | `health-monitor.js`      | Updates real-time sprint status and tool success rates in GitHub                  |
 
+#### Dispatch Engine Submodules (v5.13.0+)
+
+`lib/orchestration/dispatch-engine.js` is a ~200-LOC SDK coordinator that
+composes six cohesive submodules. Consumers (`dispatcher.js`,
+`mcp-orchestration.js`, tests) continue to import `dispatch`,
+`resolveAndDispatch`, `collectOpenStoryIds`, `detectEpicCompletion`, and
+the `AGENT_*` / `RISK_HIGH_LABEL` / `TYPE_TASK_LABEL` constants from the
+coordinator path — the split is an internal reorganisation only.
+
+| Submodule                     | Responsibility                                                                          |
+| ----------------------------- | --------------------------------------------------------------------------------------- |
+| `dispatch-pipeline.js`        | Resolve context, fetch Epic, reconcile state, build DAG, scaffold branch, run worktree GC |
+| `wave-dispatcher.js`          | `dispatchWave`, `dispatchNextWave`, per-task dispatch, `collectOpenStoryIds`             |
+| `risk-gate-handler.js`        | Task-level `risk::high` HITL gate (composes shared `lib/risk-gate.js`)                   |
+| `health-check-service.js`     | Sprint Health issue ensure                                                               |
+| `epic-lifecycle-detector.js`  | Epic-completion detection + bookend lifecycle fire                                       |
+| `dispatch-logger.js`          | Shared lazy `VerboseLogger` proxy used by every submodule                                |
+
+#### Presentation Layer Submodules (v5.13.0+)
+
+`lib/presentation/manifest-renderer.js` is a ~175-LOC facade composing:
+
+| Submodule                 | Responsibility                                                                       |
+| ------------------------- | ------------------------------------------------------------------------------------ |
+| `manifest-formatter.js`   | Pure Markdown / CLI rendering (`formatManifestMarkdown`, `printStoryDispatchTable`). No fs access. |
+| `manifest-persistence.js` | File I/O — writes dispatch and story manifests to `temp/`.                           |
+
+The data-shape owner (`lib/orchestration/manifest-builder.js`) is
+unchanged. As with the worktree submodules, only the facade file is part
+of the stable public surface — downstream consumers continue to import
+`renderManifestMarkdown`, `renderStoryManifestMarkdown`, `persistManifest`,
+`printStoryDispatchTable`, `postManifestEpicComment`, and
+`postParkedFollowOnsComment` from `lib/presentation/manifest-renderer.js`.
+
 ---
 
 ### 3. Provider Abstraction Layer
@@ -442,6 +476,21 @@ single authority for worktree `ensure`/`reap`/`list`/`isSafeToRemove`/`gc`.
 No other script may call `git worktree` directly. All git calls are
 argv-based (no shell interpolation) and validate `storyId` / `branch`
 before shelling out; `reap` never passes `--force`.
+
+**Internal submodule layout (v5.13.0+).** `worktree-manager.js` is a
+~220-LOC facade that composes four cohesive submodules under
+`.agents/scripts/lib/worktree/`:
+
+| Submodule                  | Responsibility                                                                                   |
+| -------------------------- | ------------------------------------------------------------------------------------------------ |
+| `lifecycle-manager.js`     | `ensure`, `reap`, `list`, `gc`, `prune`, `sweepStaleLocks`, Windows-lock-aware remove recovery   |
+| `node-modules-strategy.js` | `applyNodeModulesStrategy` + `installDependencies` for `per-worktree` / `symlink` / `pnpm-store` |
+| `bootstrapper.js`          | Bootstrap-file copy (`.env`, `.mcp.json`), `.agents/` snapshot for submodule consumers, submodule-index scrub |
+| `inspector.js`             | Pure porcelain parsing, path helpers (`samePath`, `storyIdFromPath`, `isInsideWorktree`), Windows path-length warnings |
+
+The submodules are **internal implementation detail**. Downstream projects
+must continue to import `WorktreeManager` from `lib/worktree-manager.js` —
+the submodule paths are not part of the stable public surface.
 
 Dispatcher integration:
 
