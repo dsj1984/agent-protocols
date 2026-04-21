@@ -2,6 +2,16 @@
 
 All notable changes to this project will be documented in this file.
 
+## [5.13.1] - 2026-04-21
+
+### Reorder sprint-plan phases
+
+Moved the `Notification & Handoff` step in
+`.agents/workflows/sprint-plan.md` from Phase 3 to the final phase so
+the operator is notified only after Dispatch (now Phase 3) and the
+Readiness Health Check (now Phase 4) have run. Phases renumbered
+accordingly; no script changes.
+
 ## [5.13.0] - 2026-04-20
 
 ### Decompose oversized orchestration modules (Epic #297)

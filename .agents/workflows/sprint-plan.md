@@ -159,18 +159,7 @@ planned.
      "temp/tickets-epic-[Epic_ID].json"
    ```
 
-## Phase 3: Notification & Handoff
-
-1. **Notify Operator (INFO)**:
-   - Post a summary comment on the Epic issue with work breakdown stats.
-   - @mention the operator (informational — no webhook for planning) by running
-     the notification script:
-
-   ```bash
-   node .agents/scripts/notify.js [Epic_ID] "Planning complete, review tickets. Backlog decomposition complete. Sprint is ready for /sprint-execute." --action
-   ```
-
-## Phase 4: Execution Roadmap (Story Dispatch)
+## Phase 3: Execution Roadmap (Story Dispatch)
 
 1. **Generate Roadmap**: Automatically invoke the dispatcher in dry-run mode to
    calculate execution waves and model recommendations:
@@ -196,7 +185,7 @@ planned.
    > start execution via `/sprint-execute #[Story ID]` using the recommended
    > model."
 
-## Phase 5: Readiness Health Check
+## Phase 4: Readiness Health Check
 
 Run the post-plan health check to validate the backlog and prime the execution
 environment. This is non-blocking — it reports findings but does not fail the
@@ -219,6 +208,17 @@ The health check verifies:
 
 If the health check reports errors, review them before starting execution.
 Warnings are advisory and do not require action.
+
+## Phase 5: Notification & Handoff
+
+1. **Notify Operator (INFO)**:
+   - Post a summary comment on the Epic issue with work breakdown stats.
+   - @mention the operator (informational — no webhook for planning) by running
+     the notification script:
+
+   ```bash
+   node .agents/scripts/notify.js [Epic_ID] "Planning complete, review tickets. Backlog decomposition complete. Sprint is ready for /sprint-execute." --action
+   ```
 
 ## Troubleshooting
 
