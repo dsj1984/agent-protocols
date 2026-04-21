@@ -243,6 +243,139 @@ test('GitHubProvider: primeTicketCache + invalidateTicket', async () => {
   assert.equal(fetchCount, 1, 'invalidated entry triggers a re-fetch');
 });
 
+test('GitHubProvider: getSubTickets paginates the GraphQL subIssues query', async () => {
+  const calls = [];
+  global.fetch = async (url, init) => {
+    calls.push({ url, body: init?.body ? JSON.parse(init.body) : null });
+    // Parent issue REST fetch (for getTicket(parentId))
+    if (url.includes('/issues/1') && !url.includes('graphql')) {
+      return {
+        ok: true,
+        json: async () => ({
+          number: 1,
+          id: 1,
+          node_id: 'epic-node',
+          title: 'Parent',
+          body: '',
+          labels: [{ name: 'type::epic' }],
+          assignees: [],
+          state: 'open',
+        }),
+      };
+    }
+    // Epic-type parents trigger a getTickets reverse lookup — return empty.
+    if (url.includes('/issues?')) {
+      return { ok: true, json: async () => [] };
+    }
+    // GraphQL — emulate two-page pagination.
+    if (url.includes('/graphql')) {
+      const body = init?.body ? JSON.parse(init.body) : {};
+      const cursor = body.variables?.cursor;
+      if (!cursor) {
+        return {
+          ok: true,
+          json: async () => ({
+            data: {
+              node: {
+                subIssues: {
+                  pageInfo: { hasNextPage: true, endCursor: 'cursor-1' },
+                  nodes: [
+                    {
+                      number: 10,
+                      databaseId: 1010,
+                      id: 'node-10',
+                      title: 'Child 10',
+                      body: '',
+                      state: 'OPEN',
+                      labels: { nodes: [{ name: 'type::task' }] },
+                      assignees: { nodes: [] },
+                    },
+                  ],
+                },
+              },
+            },
+          }),
+        };
+      }
+      return {
+        ok: true,
+        json: async () => ({
+          data: {
+            node: {
+              subIssues: {
+                pageInfo: { hasNextPage: false, endCursor: null },
+                nodes: [
+                  {
+                    number: 11,
+                    databaseId: 1011,
+                    id: 'node-11',
+                    title: 'Child 11',
+                    body: '',
+                    state: 'CLOSED',
+                    labels: { nodes: [{ name: 'type::task' }] },
+                    assignees: { nodes: [{ login: 'alice' }] },
+                  },
+                ],
+              },
+            },
+          },
+        }),
+      };
+    }
+    return { ok: true, json: async () => ({}) };
+  };
+
+  const provider = new GitHubProvider({ owner: 'o', repo: 'r' });
+  const subs = await provider.getSubTickets(1);
+
+  // Both pages returned
+  const ids = subs.map((t) => t.id).sort((a, b) => a - b);
+  assert.deepEqual(ids, [10, 11]);
+
+  // State normalised to lowercase
+  const child11 = subs.find((t) => t.id === 11);
+  assert.equal(child11.state, 'closed');
+  assert.deepEqual(child11.assignees, ['alice']);
+  assert.ok(child11.labelSet instanceof Set);
+  assert.ok(child11.labelSet.has('type::task'));
+
+  // No REST fan-out per child — cache seeded by the GraphQL call.
+  const restChildCalls = calls.filter(
+    (c) => /\/issues\/1[01]$/.test(c.url) && !c.url.includes('graphql'),
+  );
+  assert.equal(
+    restChildCalls.length,
+    0,
+    'Per-child REST fan-out should be eliminated',
+  );
+
+  // GraphQL was called twice (two pages).
+  const gqlCalls = calls.filter((c) => c.url.endsWith('/graphql'));
+  assert.equal(gqlCalls.length, 2);
+});
+
+test('GitHubProvider: getTicket returns labelSet in sync with labels', async () => {
+  global.fetch = async () => ({
+    ok: true,
+    json: async () => ({
+      number: 42,
+      id: 4200,
+      node_id: 'n-42',
+      title: 'T',
+      body: '',
+      labels: [{ name: 'type::task' }, { name: 'agent::done' }],
+      assignees: [],
+      state: 'closed',
+    }),
+  });
+
+  const provider = new GitHubProvider({ owner: 'o', repo: 'r' });
+  const t = await provider.getTicket(42);
+  assert.ok(t.labelSet instanceof Set);
+  assert.equal(t.labelSet.size, t.labels.length);
+  for (const l of t.labels) assert.ok(t.labelSet.has(l));
+});
+
 // Restore fetch
 test('GitHubProvider: cleanup', () => {
   global.fetch = originalFetch;

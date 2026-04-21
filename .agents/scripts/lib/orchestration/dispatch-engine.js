@@ -70,6 +70,10 @@ export const AGENT_READY_LABEL = STATE_LABELS.READY;
 export { RISK_HIGH_LABEL };
 export const TYPE_TASK_LABEL = TYPE_LABELS.TASK;
 
+// Bounded concurrency ceiling for wave dispatch. Mirrors the default used by
+// `batchTransitionTickets` in story-lifecycle.js.
+const DISPATCH_CONCURRENCY = 10;
+
 // ---------------------------------------------------------------------------
 // Branch helpers
 // ---------------------------------------------------------------------------
@@ -563,14 +567,38 @@ async function dispatchWave(wave, taskMap, ctx) {
   const heldForApproval = [];
   const riskHighGateEnabled =
     ctx.orchestration?.hitl?.riskHighApproval !== false;
-  for (const task of eligible) {
-    if (task.isRiskHigh && riskHighGateEnabled) {
-      heldForApproval.push(
-        await handleRiskHighGate(task, ctx.provider, ctx.dryRun),
-      );
-      continue;
+
+  // Tasks in the same wave have their dependencies satisfied, so they are
+  // independent by construction. Dispatch them concurrently (bounded) so a
+  // 10-task wave takes ~max(dispatch time) instead of ~sum(dispatch times).
+  const concurrency = ctx.dispatchConcurrency ?? DISPATCH_CONCURRENCY;
+  const results = new Array(eligible.length);
+  for (let i = 0; i < eligible.length; i += concurrency) {
+    const slice = eligible.slice(i, i + concurrency);
+    const sliceResults = await Promise.all(
+      slice.map(async (task) => {
+        if (task.isRiskHigh && riskHighGateEnabled) {
+          return {
+            kind: 'held',
+            value: await handleRiskHighGate(task, ctx.provider, ctx.dryRun),
+          };
+        }
+        return {
+          kind: 'dispatched',
+          value: await dispatchTaskInWave(task, ctx),
+        };
+      }),
+    );
+    for (let k = 0; k < sliceResults.length; k++) {
+      results[i + k] = sliceResults[k];
     }
-    dispatched.push(await dispatchTaskInWave(task, ctx));
+  }
+
+  // Preserve the original eligible-array ordering in both output arrays so
+  // manifest consumers see a deterministic dispatch order.
+  for (const entry of results) {
+    if (entry.kind === 'held') heldForApproval.push(entry.value);
+    else dispatched.push(entry.value);
   }
   return { dispatched, heldForApproval, shouldHalt: false, empty: false };
 }
@@ -640,7 +668,7 @@ async function fetchEpicContext(ctx) {
 
   vlog.info('orchestration', `Filtering Tasks under Epic #${epicId}...`);
   const taskTickets = allTickets.filter((t) =>
-    t.labels.includes(TYPE_TASK_LABEL),
+    (t.labelSet ?? new Set(t.labels)).has(TYPE_TASK_LABEL),
   );
   const tasks = parseTasks(taskTickets);
   vlog.info('orchestration', `Found ${tasks.length} task(s).`);

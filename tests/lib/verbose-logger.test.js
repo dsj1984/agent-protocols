@@ -135,6 +135,30 @@ describe('VerboseLogger', () => {
     );
   });
 
+  it('caps the in-memory buffer when flushing cannot keep up', () => {
+    // flushThreshold=1000 and flushIntervalMs=0 means auto-flush never fires
+    // for our small write count; maxBufferSize=10 means the 40 extra log
+    // calls must be dropped rather than accumulated unbounded.
+    const logger = new VerboseLogger({
+      enabled: true,
+      logDir: tmpDir,
+      sprint: 'cap',
+      flushThreshold: 1000,
+      flushIntervalMs: 0,
+      maxBufferSize: 10,
+    });
+
+    for (let i = 0; i < 50; i++) logger.info('system', `msg ${i}`);
+
+    const s = logger.stats();
+    assert.equal(
+      s.bufferSize,
+      10,
+      `buffer should be capped at maxBufferSize (got ${s.bufferSize})`,
+    );
+    assert.equal(s.droppedEntries, 40);
+  });
+
   it('auto-flushes after the configured interval', async () => {
     const logger = new VerboseLogger({
       enabled: true,

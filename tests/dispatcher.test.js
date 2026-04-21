@@ -555,3 +555,61 @@ describe('dispatch() — story-level orchestration', () => {
     assert.equal(manifest.waves[0].tasks[0].taskId, 50);
   });
 });
+
+// ---------------------------------------------------------------------------
+// 5.12.4 — wave dispatch is concurrent (bounded)
+// ---------------------------------------------------------------------------
+describe('dispatch() — wave-level concurrency', () => {
+  it('hydrates independent wave tasks concurrently, not sequentially', async () => {
+    // Four independent tasks (non-overlapping focus areas, no deps) — a
+    // single wave of four. Each provider.getTicket call (invoked by the
+    // hydrator once per task) sleeps DELAY ms. Sequential wave dispatch
+    // would take ≥ 4 * DELAY; the 5.12.4 concurrent dispatch completes
+    // in ~1 * DELAY.
+    const DELAY = 80;
+    const epic = {
+      id: 1,
+      title: 'Concurrency Epic',
+      body: '',
+      labels: ['type::epic'],
+    };
+
+    const tasks = [1, 2, 3, 4].map((n) => ({
+      id: n,
+      title: `T${n}`,
+      body: `## Metadata\n**Persona**: engineer\n**Mode**: fast\n**Skills**:\n**Focus Areas**: area-${n}`,
+      labels: ['type::task', 'agent::ready'],
+      state: 'open',
+      assignees: [],
+    }));
+
+    class SlowProvider extends MockProvider {
+      async getTicket(id) {
+        await new Promise((resolve) => setTimeout(resolve, DELAY));
+        return super.getTicket(id);
+      }
+    }
+
+    const provider = new SlowProvider({ epic, tasks });
+    const adapter = new MockAdapter();
+
+    const t0 = Date.now();
+    const manifest = await dispatch({
+      epicId: 1,
+      dryRun: true,
+      provider,
+      adapter,
+    });
+    const elapsed = Date.now() - t0;
+
+    // All four should have been dispatched.
+    assert.equal(manifest.dispatched.length, 4);
+    // Sequential dispatch would take ≥ 4 * DELAY = 320ms. Allow generous
+    // headroom for timer jitter on Windows; anything under 3 * DELAY is
+    // conclusive evidence the wave ran in parallel.
+    assert.ok(
+      elapsed < 3 * DELAY,
+      `Wave dispatch took ${elapsed}ms — expected < ${3 * DELAY}ms (concurrent)`,
+    );
+  });
+});

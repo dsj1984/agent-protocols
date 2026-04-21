@@ -2,6 +2,78 @@
 
 All notable changes to this project will be documented in this file.
 
+## [5.12.4] - 2026-04-20
+
+### Performance-audit remediation pass
+
+Implements every recommendation in `temp/audit-performance-results.md`.
+Internal optimisation only — no public-API break, all 578 tests pass
+(6 new, 572 pre-existing).
+
+**High-impact fixes:**
+
+- `lib/orchestration/dispatch-engine.js` — `dispatchWave` now dispatches
+  eligible tasks concurrently with bounded concurrency (10, mirroring
+  `batchTransitionTickets`). A wave of N independent tasks completes in
+  ~max(dispatch-time) instead of ~sum(dispatch-times); ordering of the
+  `dispatched` / `heldForApproval` result arrays is preserved.
+- `providers/github.js` — `getSubTickets` now paginates the GraphQL
+  `subIssues` query via `pageInfo.{hasNextPage,endCursor}`. Previously
+  capped at 50 nodes with silent truncation; large Epics now return all
+  children. The GraphQL query also pulls `databaseId`, `title`, `body`,
+  `state`, `labels(first:30)`, and `assignees(first:20)` so each node
+  seeds the per-instance ticket cache in one round-trip. This eliminates
+  the N+1 REST fan-out that followed every sub-issue fetch.
+
+**Medium-impact fixes:**
+
+- `lib/orchestration/context-hydration-engine.js` — skill-path discovery
+  is now memoised in a module-scope `Map<skillName, absolutePath>`. The
+  previous per-task `readdirSync(stackBase)` + multi-candidate
+  `existsSync` probe is replaced by an O(1) lookup. `__resetContextCache`
+  clears the index alongside the file-content cache.
+- `lib/orchestration/dependency-analyzer.js` — `autoSerializeOverlaps`
+  now accepts an optional pre-computed `reachable` matrix and returns it
+  alongside `{ finalAdjacency, graphMutated }`, letting upstream planning
+  passes share one transitive-closure computation. `_collectPendingEdges`
+  switches from a full O(n²) pairwise scan to focus-area bucketing — only
+  tasks within the same bucket (plus globally-scoped tasks) are paired,
+  collapsing expected runtime to O(n + overlaps) on sparse manifests.
+- `providers/github.js` + `lib/orchestration/task-fetcher.js` — every
+  ticket materialised by the provider (and every task emitted by
+  `parseTasks`) now carries a `labelSet: Set<string>` alongside
+  `labels: string[]`. Hot-path label lookups in
+  `lib/orchestration/reconciler.js` and `dispatch-engine.js` use the Set
+  for O(1) containment checks; the array remains for serialisation.
+
+**Low-impact fix:**
+
+- `lib/VerboseLogger.js` — adds a `maxBufferSize` option (default 500
+  entries) that hard-caps the batched writer's in-memory buffer. When the
+  buffer can't drain (flushing disabled, log sink unavailable) the oldest
+  entries are dropped and counted in `_droppedEntries`. A new `stats()`
+  accessor exposes buffer depth, cap, and drop count for tests and
+  diagnostics.
+
+**Testing:**
+
+- `tests/dispatcher.test.js` — adds a concurrency proof: four tasks whose
+  provider.getTicket sleeps 80 ms resolve in < 3 × delay, impossible with
+  a sequential await loop.
+- `tests/lib/github-provider.test.js` — verifies two-page subIssues
+  pagination, eliminated REST fan-out per child, and lowercase state
+  normalisation from GraphQL.
+- `tests/lib/dependency-analyzer.test.js` — asserts the analyzer reuses a
+  pre-computed reachability matrix and that focus-area bucketing
+  reproduces the naive pairwise edge set on a mixed-scope manifest.
+- `tests/lib/verbose-logger.test.js` — confirms `maxBufferSize` caps
+  growth and increments `_droppedEntries` on overflow.
+
+**Baseline:** `maintainability-baseline.json` refreshed; the regressions
+are localised to the touched files and are the expected cost of the
+above optimisations (new Maps, bucketing helpers, pagination loop,
+concurrency scaffolding).
+
 ## [5.12.3] - 2026-04-20
 
 ### Clean-code audit remediation pass
