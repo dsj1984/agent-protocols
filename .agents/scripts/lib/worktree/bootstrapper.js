@@ -86,7 +86,8 @@ export function copyBootstrapFiles(ctx, wtPath) {
  * @param {string} wtPath
  */
 export function copyAgentsFromRoot(ctx, wtPath) {
-  if (!isAgentsSubmodule(ctx.repoRoot)) return;
+  const submoduleCheck = ctx.isAgentsSubmodule ?? isAgentsSubmodule;
+  if (!submoduleCheck(ctx.repoRoot)) return;
   const rootAgents = path.resolve(ctx.repoRoot, '.agents');
   if (!fs.existsSync(rootAgents)) {
     ctx.logger.warn(
@@ -166,7 +167,8 @@ export function removeCopiedAgents(ctx, wtPath) {
  * @param {boolean} enable
  */
 export function setAgentsGitlinkSkipWorktree(ctx, wtPath, enable) {
-  if (!isAgentsSubmodule(ctx.repoRoot)) return;
+  const submoduleCheck = ctx.isAgentsSubmodule ?? isAgentsSubmodule;
+  if (!submoduleCheck(ctx.repoRoot)) return;
   const ls = ctx.git.gitSpawn(wtPath, 'ls-files', '--stage', '--', '.agents');
   if (ls.status !== 0 || !/^160000 /.test(ls.stdout)) return;
   const flag = enable ? '--skip-worktree' : '--no-skip-worktree';
@@ -191,7 +193,8 @@ export function setAgentsGitlinkSkipWorktree(ctx, wtPath, enable) {
  * @param {string} wtPath
  */
 export function dropAgentsGitlinkFromIndex(ctx, wtPath) {
-  if (!isAgentsSubmodule(ctx.repoRoot)) return;
+  const submoduleCheck = ctx.isAgentsSubmodule ?? isAgentsSubmodule;
+  if (!submoduleCheck(ctx.repoRoot)) return;
   const ls = ctx.git.gitSpawn(wtPath, 'ls-files', '--stage', '--', '.agents');
   if (ls.status !== 0 || !/^160000 /.test(ls.stdout)) return;
   const rm = ctx.git.gitSpawn(
