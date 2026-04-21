@@ -82,7 +82,7 @@ export function parseHierarchy(body) {
   const matches = [...body.matchAll(/([A-Za-z\s]+):\s*#(\d+)/gi)];
   for (const match of matches) {
     const key = match[1].trim().toLowerCase().replace(/\s+/g, '');
-    const val = parseInt(match[2], 10);
+    const val = Number.parseInt(match[2], 10);
     result[key] = val; // e.g. { epic: 1, feature: 2, story: 3, prd: 4, techspec: 5 }
   }
   return result;

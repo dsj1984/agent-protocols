@@ -10,7 +10,7 @@
  */
 export function parseParentId(body) {
   const match = (body ?? '').match(/^parent:\s*#(\d+)/m);
-  return match ? parseInt(match[1], 10) : null;
+  return match ? Number.parseInt(match[1], 10) : null;
 }
 
 /**

@@ -20,6 +20,7 @@
 import { execSync } from 'node:child_process';
 import { parseBlockedBy, parseBlocks } from '../lib/dependency-parser.js';
 import { ITicketingProvider } from '../lib/ITicketingProvider.js';
+import { parseLinkedIssues } from '../lib/issue-link-parser.js';
 import { GithubHttpClient } from './github-http-client.js';
 
 /**
@@ -106,25 +107,11 @@ export class GitHubProvider extends ITicketingProvider {
     return this._http.token;
   }
 
-  // ── Transport proxies ─────────────────────────────────────────────────────
-  // The class keeps these underscored method names so existing call sites
-  // throughout the file (and any tests mocking `global.fetch`) continue to
-  // work unchanged. All four delegate to `_http`.
-
-  async _rest(endpoint, opts = {}) {
-    return this._http.rest(endpoint, opts);
-  }
-
-  async _graphql(query, variables = {}, opts = {}) {
-    return this._http.graphql(query, variables, opts);
-  }
-
+  // `graphql` is part of the public ITicketingProvider interface and must
+  // therefore live on the instance. The other HTTP calls delegate directly
+  // to `this._http.*` without wrapper methods (see 5.12.3 refactor).
   async graphql(query, variables = {}, opts = {}) {
     return this._http.graphql(query, variables, opts);
-  }
-
-  async _restPaginated(endpoint) {
-    return this._http.restPaginated(endpoint);
   }
 
   // ---------------------------------------------------------------------------
@@ -143,7 +130,7 @@ export class GitHubProvider extends ITicketingProvider {
       labels: 'type::epic',
     });
 
-    const issues = await this._restPaginated(
+    const issues = await this._http.restPaginated(
       `/repos/${this.owner}/${this.repo}/issues?${params}`,
     );
 
@@ -171,26 +158,13 @@ export class GitHubProvider extends ITicketingProvider {
   }
 
   async getEpic(epicId) {
-    const issue = await this._rest(
+    const issue = await this._http.rest(
       `/repos/${this.owner}/${this.repo}/issues/${epicId}`,
     );
 
     const labels = (issue.labels ?? []).map((l) =>
       typeof l === 'string' ? l : l.name,
     );
-
-    // Parse linked context issues from the body
-    const linkedIssues = { prd: null, techSpec: null };
-    if (issue.body) {
-      // Look for references like "PRD: #42" or "Tech Spec: #43"
-      const prdMatch = issue.body.match(/(?:PRD|prd)[:\s]+#(\d+)/);
-      if (prdMatch) linkedIssues.prd = parseInt(prdMatch[1], 10);
-
-      const specMatch = issue.body.match(
-        /(?:Tech Spec|tech.?spec|technical.?spec)[:\s]+#(\d+)/i,
-      );
-      if (specMatch) linkedIssues.techSpec = parseInt(specMatch[1], 10);
-    }
 
     return {
       id: issue.number,
@@ -199,7 +173,7 @@ export class GitHubProvider extends ITicketingProvider {
       title: issue.title,
       body: issue.body ?? '',
       labels,
-      linkedIssues,
+      linkedIssues: parseLinkedIssues(issue.body),
     };
   }
 
@@ -213,7 +187,7 @@ export class GitHubProvider extends ITicketingProvider {
       params.set('labels', filters.label);
     }
 
-    const issues = await this._restPaginated(
+    const issues = await this._http.restPaginated(
       `/repos/${this.owner}/${this.repo}/issues?${params}`,
     );
 
@@ -249,7 +223,7 @@ export class GitHubProvider extends ITicketingProvider {
     // Primary: Native GitHub Sub-Issues (v5 source of truth)
     let nativeChildIds = [];
     try {
-      const data = await this._graphql(
+      const data = await this._http.graphql(
         `query($id: ID!) {
           node(id: $id) {
             ... on Issue {
@@ -273,7 +247,7 @@ export class GitHubProvider extends ITicketingProvider {
     // Secondary: Match checklist items linking to issues: "- [ ] #123" or "- [x] #123"
     const re = /-\s*\[[ xX]\]\s+#(\d+)/g;
     const checklistChildIds = [...body.matchAll(re)].map((m) =>
-      parseInt(m[1], 10),
+      Number.parseInt(m[1], 10),
     );
 
     // Tertiary: Reverse-search for issues pointing to this parent in their body (C-5 fallback).
@@ -315,7 +289,7 @@ export class GitHubProvider extends ITicketingProvider {
       return this._ticketCache.get(ticketId);
     }
 
-    const issue = await this._rest(
+    const issue = await this._http.rest(
       `/repos/${this.owner}/${this.repo}/issues/${ticketId}`,
     );
 
@@ -364,14 +338,14 @@ export class GitHubProvider extends ITicketingProvider {
   }
 
   async getRecentComments(limit = 100) {
-    const comments = await this._rest(
+    const comments = await this._http.rest(
       `/repos/${this.owner}/${this.repo}/issues/comments?sort=created&direction=desc&per_page=${limit}`,
     );
     return comments || [];
   }
 
   async getTicketComments(ticketId) {
-    const comments = await this._restPaginated(
+    const comments = await this._http.restPaginated(
       `/repos/${this.owner}/${this.repo}/issues/${ticketId}/comments`,
     );
     return comments || [];
@@ -403,14 +377,17 @@ export class GitHubProvider extends ITicketingProvider {
       }
     }
 
-    const issue = await this._rest(`/repos/${this.owner}/${this.repo}/issues`, {
-      method: 'POST',
-      body: {
-        title: ticketData.title,
-        body: bodyParts.join('\n'),
-        labels: ticketData.labels ?? [],
+    const issue = await this._http.rest(
+      `/repos/${this.owner}/${this.repo}/issues`,
+      {
+        method: 'POST',
+        body: {
+          title: ticketData.title,
+          body: bodyParts.join('\n'),
+          labels: ticketData.labels ?? [],
+        },
       },
-    });
+    );
 
     // Natively link as sub-issue
     try {
@@ -448,7 +425,7 @@ export class GitHubProvider extends ITicketingProvider {
   ) {
     const parentTicket = await this.getTicket(parentNumber);
 
-    return this._graphql(
+    return this._http.graphql(
       `
       mutation($parentId: ID!, $subIssueId: ID!, $replaceParent: Boolean) {
         addSubIssue(input: { issueId: $parentId, subIssueId: $subIssueId, replaceParent: $replaceParent }) {
@@ -473,7 +450,7 @@ export class GitHubProvider extends ITicketingProvider {
     const parentTicket = await this.getTicket(parentNumber);
     const childTicket = await this.getTicket(subIssueNumber);
 
-    return this._graphql(
+    return this._http.graphql(
       `
       mutation($parentId: ID!, $subIssueId: ID!) {
         removeSubIssue(input: { issueId: $parentId, subIssueId: $subIssueId }) {
@@ -502,7 +479,7 @@ export class GitHubProvider extends ITicketingProvider {
     const projectId = await this._fetchProjectMetadata();
     if (!projectId) return;
 
-    await this._graphql(
+    await this._http.graphql(
       `
       mutation($projectId: ID!, $contentId: ID!) {
         addProjectV2ItemById(input: { projectId: $projectId, contentId: $contentId }) {
@@ -532,7 +509,7 @@ export class GitHubProvider extends ITicketingProvider {
 
     // Try user first
     try {
-      const data = await this._graphql(buildQuery('user'), {
+      const data = await this._http.graphql(buildQuery('user'), {
         owner: this.projectOwner,
         number: this.projectNumber,
       });
@@ -546,7 +523,7 @@ export class GitHubProvider extends ITicketingProvider {
 
     // Fallback to organization
     try {
-      const data = await this._graphql(buildQuery('organization'), {
+      const data = await this._http.graphql(buildQuery('organization'), {
         owner: this.projectOwner,
         number: this.projectNumber,
       });
@@ -598,7 +575,7 @@ export class GitHubProvider extends ITicketingProvider {
     // purpose-built additive endpoint which does not require fetching
     // the current label set first.
     if (add.length > 0 && remove.length === 0 && !hasOtherPatchFields) {
-      await this._rest(
+      await this._http.rest(
         `/repos/${this.owner}/${this.repo}/issues/${ticketId}/labels`,
         { method: 'POST', body: { labels: add } },
       );
@@ -644,10 +621,13 @@ export class GitHubProvider extends ITicketingProvider {
     }
 
     if (Object.keys(patch).length > 0) {
-      await this._rest(`/repos/${this.owner}/${this.repo}/issues/${ticketId}`, {
-        method: 'PATCH',
-        body: patch,
-      });
+      await this._http.rest(
+        `/repos/${this.owner}/${this.repo}/issues/${ticketId}`,
+        {
+          method: 'PATCH',
+          body: patch,
+        },
+      );
       this.invalidateTicket(ticketId);
     }
   }
@@ -657,7 +637,7 @@ export class GitHubProvider extends ITicketingProvider {
    * @param {number} commentId
    */
   async deleteComment(commentId) {
-    await this._rest(
+    await this._http.rest(
       `/repos/${this.owner}/${this.repo}/issues/comments/${commentId}`,
       { method: 'DELETE' },
     );
@@ -673,7 +653,7 @@ export class GitHubProvider extends ITicketingProvider {
     const badge = typeBadges[payload.type] ?? '';
     const body = badge ? `${badge}\n\n${payload.body}` : payload.body;
 
-    const comment = await this._rest(
+    const comment = await this._http.rest(
       `/repos/${this.owner}/${this.repo}/issues/${ticketId}/comments`,
       { method: 'POST', body: { body } },
     );
@@ -686,15 +666,18 @@ export class GitHubProvider extends ITicketingProvider {
     // Fetch the ticket to get its title for the PR
     const ticket = await this.getTicket(ticketId);
 
-    const pr = await this._rest(`/repos/${this.owner}/${this.repo}/pulls`, {
-      method: 'POST',
-      body: {
-        title: ticket.title,
-        body: `Closes #${ticketId}`,
-        head: branchName,
-        base: baseBranch,
+    const pr = await this._http.rest(
+      `/repos/${this.owner}/${this.repo}/pulls`,
+      {
+        method: 'POST',
+        body: {
+          title: ticket.title,
+          body: `Closes #${ticketId}`,
+          head: branchName,
+          base: baseBranch,
+        },
       },
-    });
+    );
 
     // Add to project if configured
     try {
@@ -720,7 +703,7 @@ export class GitHubProvider extends ITicketingProvider {
 
   async ensureLabels(labelDefs) {
     // Paginate to fetch all existing labels (H-6).
-    const existing = await this._restPaginated(
+    const existing = await this._http.restPaginated(
       `/repos/${this.owner}/${this.repo}/labels`,
     );
     const existingNames = new Set(existing.map((l) => l.name));
@@ -734,7 +717,7 @@ export class GitHubProvider extends ITicketingProvider {
         continue;
       }
 
-      await this._rest(`/repos/${this.owner}/${this.repo}/labels`, {
+      await this._http.rest(`/repos/${this.owner}/${this.repo}/labels`, {
         method: 'POST',
         body: {
           name: def.name,
@@ -788,7 +771,7 @@ export class GitHubProvider extends ITicketingProvider {
       }
 
       if (def.type === 'single_select') {
-        await this._graphql(
+        await this._http.graphql(
           `mutation($projectId: ID!, $name: String!, $options: [ProjectV2SingleSelectFieldOptionInput!]!) {
             createProjectV2Field(input: { projectId: $projectId, dataType: SINGLE_SELECT, name: $name, singleSelectOptions: $options }) {
               projectV2Field { ... on ProjectV2SingleSelectField { name } }

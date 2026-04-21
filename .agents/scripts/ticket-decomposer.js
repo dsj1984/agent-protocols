@@ -210,7 +210,7 @@ async function main() {
     );
   }
 
-  const epicId = parseInt(values.epic, 10);
+  const epicId = Number.parseInt(values.epic, 10);
   const config = resolveConfig();
   const provider = createProvider(config.orchestration);
 

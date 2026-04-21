@@ -73,7 +73,7 @@ async function main() {
     );
   }
 
-  const ticketId = parseInt(values.ticket, 10);
+  const ticketId = Number.parseInt(values.ticket, 10);
   await handleApproval(ticketId, values.comment);
 }
 

@@ -2,6 +2,78 @@
 
 All notable changes to this project will be documented in this file.
 
+## [5.12.3] - 2026-04-20
+
+### Clean-code audit remediation pass
+
+Addresses the findings in `temp/audit-clean-code-results.md`. Internal
+refactor only — no behavior change, no public-API change, all 572 tests
+still pass.
+
+**New utility modules (single source of truth for cross-cutting concerns):**
+
+- `lib/error-formatting.js` — `formatError(err)` and `logNonfatalError(context, err)`
+  replace the scattered `err?.message ?? String(err)` idiom.
+- `lib/path-security.js` — `assertPathContainment(root, target, label)`
+  consolidates the duplicated path-traversal guard previously inlined in
+  both `worktree-manager.js` and `config-resolver.js`.
+- `lib/issue-link-parser.js` — `parseLinkedIssues(body)` replaces the inline
+  PRD / Tech-Spec regex that lived inside `providers/github.js` `getEpic()`.
+- `lib/risk-gate.js` — `postHitlGateNotification(...)` + exported
+  `RISK_HIGH_LABEL` unify the risk-high HITL logic previously duplicated
+  between `dispatch-engine.js` and `sprint-story-close.js`.
+- `lib/label-constants.js` — central registry of all GitHub label names
+  (`AGENT_*`, `TYPE_*`, `STATUS_*`, `RISK_*`, `PERSONA_*`, `CONTEXT_*`,
+  `EXECUTION_*`, `FOCUS_*`) and the `LABEL_COLORS` palette. `label-taxonomy.js`
+  now derives its entries from these constants; `dispatch-engine.js`
+  re-exports `RISK_HIGH_LABEL` from `risk-gate.js` so the string literal
+  `'risk::high'` lives in exactly one place.
+
+**Consolidations inside existing files:**
+
+- `lib/config-resolver.js` — the two hand-rolled default dictionaries
+  (loaded-config path vs zero-config fallback) are hoisted into module-scope
+  `LOADED_CONFIG_DEFAULTS` and `ZERO_CONFIG_DEFAULTS` constants. The 27-line
+  `settings.X = settings.X ?? defaults.X` block is now a single loop over
+  `LOADED_CONFIG_APPLY_KEYS`. Loaded-config behavior is preserved exactly —
+  keys not present in the loaded defaults (e.g. `baseBranch`, `tempRoot`)
+  still resolve to `undefined`, matching prior semantics.
+- `lib/config-schema.js` — pulls the shell-injection regex source into a
+  single `SHELL_INJECTION_PATTERN_STRING` constant used by all four
+  `not.pattern` schema sites. The pipe-joined list of validated string
+  fields is now an `AGENT_SETTINGS_STRING_FIELDS` array; the `patternProperties`
+  regex is generated from it.
+- `lib/cli-args.js` — new `parseTicketId(value)` helper centralises the
+  "strip optional `#`, coerce to positive integer" dance. `parseSprintArgs`
+  uses it for `--epic`, `--story`, `--recut-of`, and the positional.
+- `providers/github.js` — removes the `_rest`, `_graphql`, `_restPaginated`
+  transport proxy methods (which only delegated one line each to `_http.*`).
+  All internal call sites now invoke `this._http.rest(...)` etc. directly.
+  `graphql()` remains because it is part of the public `ITicketingProvider`
+  interface. The inline PRD / Tech-Spec regex in `getEpic()` is replaced with
+  a call to `parseLinkedIssues()`.
+- `sprint-story-close.js` — ~10 repeated `try { ... } catch { Logger.error(...) }`
+  phase wrappers collapse to a single `runPhase(name, fn, fallback)` helper.
+  The `handleHighRiskGate` notification call flows through
+  `postHitlGateNotification`.
+
+**Consistency sweep:**
+
+- All call sites now use `Number.parseInt(...)` instead of the global
+  `parseInt(...)` (43 occurrences across 27 files).
+
+**Documented deferrals (intentionally out of scope for this patch):**
+
+- The full three-way split of `lib/worktree-manager.js` (1,234 LOC),
+  `lib/orchestration/dispatch-engine.js` (841 LOC), and
+  `lib/presentation/manifest-renderer.js` (600 LOC) into 4+ cohesive
+  submodules per the audit's Finding #5, #6, and #16 is a dedicated
+  refactor sprint, not a patch-version tidy-up. Each of those carries
+  enough public-API and test-fixture surface area that they need their
+  own Epic. The utility extractions above resolve the DRY portion of
+  those findings (risk-gate, label constants, path-security,
+  error-formatting) so the remaining work is purely structural.
+
 ## [5.12.2] - 2026-04-20
 
 ### Runtime `--cwd` honored for config resolution; worktree reap recovery

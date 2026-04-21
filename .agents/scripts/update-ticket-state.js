@@ -37,7 +37,7 @@ if (
   // `--ticket` is the v5.9.0 alias for `--task` (labels can apply to any
   // ticket type, not just Tasks). Both continue to work.
   const idSource = values.ticket ?? values.task;
-  const ticketId = parseInt(idSource, 10);
+  const ticketId = Number.parseInt(idSource, 10);
   const state = values.state;
   const removeLabel = values['remove-label'];
 

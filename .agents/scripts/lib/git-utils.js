@@ -172,7 +172,7 @@ export async function gitPullWithRetry(cwd, ...args) {
  * @returns {string}
  */
 export function getEpicBranch(epicId) {
-  const id = typeof epicId === 'number' ? epicId : parseInt(epicId, 10);
+  const id = typeof epicId === 'number' ? epicId : Number.parseInt(epicId, 10);
   if (!Number.isFinite(id) || id <= 0) {
     throw new Error(`getEpicBranch: invalid epicId: ${epicId}`);
   }
@@ -203,7 +203,8 @@ export function slugify(text) {
  * @returns {string}
  */
 export function getStoryBranch(_epicId, storyId) {
-  const id = typeof storyId === 'number' ? storyId : parseInt(storyId, 10);
+  const id =
+    typeof storyId === 'number' ? storyId : Number.parseInt(storyId, 10);
   if (!Number.isFinite(id) || id <= 0) {
     throw new Error(`getStoryBranch: invalid storyId: ${storyId}`);
   }
@@ -219,7 +220,7 @@ export function getStoryBranch(_epicId, storyId) {
  * @returns {string}
  */
 export function getTaskBranch(epicId, taskId) {
-  const eid = typeof epicId === 'number' ? epicId : parseInt(epicId, 10);
+  const eid = typeof epicId === 'number' ? epicId : Number.parseInt(epicId, 10);
   if (!Number.isFinite(eid) || eid <= 0) {
     throw new Error(`getTaskBranch: invalid epicId: ${epicId}`);
   }
@@ -228,7 +229,7 @@ export function getTaskBranch(epicId, taskId) {
     typeof taskId === 'number'
       ? taskId
       : /^\d+$/.test(String(taskId))
-        ? parseInt(taskId, 10)
+        ? Number.parseInt(taskId, 10)
         : String(taskId);
   if (typeof tid === 'number' && (!Number.isFinite(tid) || tid <= 0)) {
     throw new Error(`getTaskBranch: invalid taskId: ${taskId}`);

@@ -80,13 +80,13 @@ class MockProvider extends ITicketingProvider {
 
     // Naively parse "blocked by #NNN"
     const blocksMatch = ticket.body.matchAll(/blocked by #(\d+)/gi);
-    const blockedBy = [...blocksMatch].map((m) => parseInt(m[1], 10));
+    const blockedBy = [...blocksMatch].map((m) => Number.parseInt(m[1], 10));
 
     // Naively parse "parent: #NNN" to define what this block blocks (going up)
     const blocks = [];
     const parentMatch = ticket.body.match(/parent:\s*#(\d+)/i);
     if (parentMatch) {
-      blocks.push(parseInt(parentMatch[1], 10));
+      blocks.push(Number.parseInt(parentMatch[1], 10));
     }
 
     return { blocks, blockedBy };
@@ -96,7 +96,7 @@ class MockProvider extends ITicketingProvider {
     // Return tickets whose parent is parentId
     const children = this._tasks.filter((t) => {
       const pMatch = t.body.match(/parent:\s*#(\d+)/i);
-      return pMatch && parseInt(pMatch[1], 10) === parentId;
+      return pMatch && Number.parseInt(pMatch[1], 10) === parentId;
     });
     return children;
   }

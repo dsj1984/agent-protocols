@@ -27,8 +27,8 @@ export function resolveStoryHierarchy(body) {
   const epicMatch = source.match(/(?:^\s*epic:\s*#(\d+))/im);
   const parentMatch = source.match(/(?:^\s*parent:\s*#(\d+))/im);
   return {
-    epicId: epicMatch ? parseInt(epicMatch[1], 10) : null,
-    featureId: parentMatch ? parseInt(parentMatch[1], 10) : null,
+    epicId: epicMatch ? Number.parseInt(epicMatch[1], 10) : null,
+    featureId: parentMatch ? Number.parseInt(parentMatch[1], 10) : null,
   };
 }
 

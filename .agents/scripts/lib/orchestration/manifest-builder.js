@@ -22,7 +22,7 @@ const AGENT_DONE_LABEL = STATE_LABELS.DONE;
 export function getResolvedBranch(task, allTicketsById, epicId) {
   const parentMatch = task.body?.match(/parent:\s*#(\d+)/i);
   if (parentMatch) {
-    const parentId = parseInt(parentMatch[1], 10);
+    const parentId = Number.parseInt(parentMatch[1], 10);
     const parentTicket = allTicketsById.get(parentId);
     if (parentTicket?.labels.includes('type::story')) {
       return getStoryBranch(epicId, parentId);

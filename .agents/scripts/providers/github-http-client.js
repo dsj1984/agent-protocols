@@ -40,7 +40,7 @@ export class GithubHttpClient {
         const res = await this._fetch(url, fetchOpts);
         if (res.ok || res.status === 204 || attempt === maxRetries) return res;
         if (res.status === 429 || res.status >= 500) {
-          const retryAfter = parseInt(
+          const retryAfter = Number.parseInt(
             res.headers.get('retry-after') || '0',
             10,
           );

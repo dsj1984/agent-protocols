@@ -14,6 +14,7 @@ import { spawnSync } from 'node:child_process';
 import fs from 'node:fs';
 import path from 'node:path';
 import * as defaultGit from './git-utils.js';
+import { assertPathContainment } from './path-security.js';
 
 const STORY_BRANCH_RE = /^story-\d+$/;
 
@@ -25,7 +26,8 @@ function sleepSync(ms) {
 
 /** @returns {number} */
 function validateStoryId(storyId) {
-  const n = typeof storyId === 'number' ? storyId : parseInt(storyId, 10);
+  const n =
+    typeof storyId === 'number' ? storyId : Number.parseInt(storyId, 10);
   if (!Number.isInteger(n) || n <= 0) {
     throw new Error(`WorktreeManager: invalid storyId: ${storyId}`);
   }
@@ -131,8 +133,9 @@ export class WorktreeManager {
 
     // Path traversal guard: resolve root and assert containment.
     const resolvedRoot = path.resolve(this.repoRoot, this.config.root);
-    const rel = path.relative(this.repoRoot, resolvedRoot);
-    if (rel.startsWith('..') || path.isAbsolute(rel)) {
+    try {
+      assertPathContainment(this.repoRoot, resolvedRoot, 'worktreeRoot');
+    } catch {
       throw new Error(
         `WorktreeManager: worktreeRoot escapes repoRoot (root=${this.config.root})`,
       );
@@ -1216,7 +1219,7 @@ export class WorktreeManager {
     const rel = path.relative(this.worktreeRoot, resolved);
     if (rel.startsWith('..') || path.isAbsolute(rel)) return null;
     const match = rel.match(/^story-(\d+)$/);
-    return match ? parseInt(match[1], 10) : null;
+    return match ? Number.parseInt(match[1], 10) : null;
   }
 
   /**

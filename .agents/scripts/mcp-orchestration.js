@@ -36,6 +36,7 @@ function sendMcp(msg) {
 // ------------------------------------
 import { createInterface } from 'node:readline';
 import Ajv from 'ajv';
+import { formatError } from './lib/error-formatting.js';
 
 const _ajv = new Ajv({ allowUnionTypes: true });
 const MCP_REQUEST_SCHEMA = {
@@ -255,7 +256,7 @@ async function handleRequest(req) {
           content: [
             {
               type: 'text',
-              text: `Error: ${err?.message ?? String(err)}`,
+              text: `Error: ${formatError(err)}`,
             },
           ],
           isError: true,

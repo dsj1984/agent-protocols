@@ -32,7 +32,7 @@ export async function notify(ticketId, payload, opts = {}) {
   const { type, message, actionRequired } = payload;
   const operator = orchestration.github.operatorHandle || '@operator';
 
-  const numericId = parseInt(ticketId, 10);
+  const numericId = Number.parseInt(ticketId, 10);
   const skipGitHub = Number.isNaN(numericId) || numericId <= 0;
 
   if (!skipGitHub) {
@@ -122,7 +122,7 @@ export function parseNotifyArgs(args) {
     if (!/^\d+$/.test(rawTicketId)) {
       Logger.fatal('[Notify] Error: --ticket/--issue requires a numeric ID.');
     }
-    ticketId = parseInt(rawTicketId, 10);
+    ticketId = Number.parseInt(rawTicketId, 10);
     const positional = filteredArgs.filter(
       (_arg, idx) =>
         idx !== explicitTicketFlag && idx !== explicitTicketFlag + 1,
@@ -134,7 +134,7 @@ export function parseNotifyArgs(args) {
     const isNumeric = /^\d+$/.test(firstArg);
 
     if (isNumeric) {
-      ticketId = parseInt(firstArg, 10);
+      ticketId = Number.parseInt(firstArg, 10);
       message = filteredArgs.slice(1).join(' ').trim();
     } else {
       // If first arg is a URL or a string, treat it as the "skip-id" mode

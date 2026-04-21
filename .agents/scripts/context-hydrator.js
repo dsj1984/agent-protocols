@@ -38,7 +38,7 @@ export async function generatePrompt(taskId, epicId, provider) {
 
   // Resolve the story branch by parent story ID (v5: story-<storyId>)
   const parentMatch = (t.body ?? '').match(/parent:\s*#(\d+)/i);
-  const storyId = parentMatch ? parseInt(parentMatch[1], 10) : taskId;
+  const storyId = parentMatch ? Number.parseInt(parentMatch[1], 10) : taskId;
   const epicBranch = getEpicBranch(epicId);
   const taskBranch = getStoryBranch(epicId, storyId);
 
@@ -55,8 +55,8 @@ async function main() {
     strict: false,
   });
 
-  const taskId = parseInt(values.task ?? '', 10);
-  const epicId = parseInt(values.epic ?? '', 10);
+  const taskId = Number.parseInt(values.task ?? '', 10);
+  const epicId = Number.parseInt(values.epic ?? '', 10);
 
   if (!taskId || !epicId) {
     Logger.fatal('Missing required arguments: --task and --epic');

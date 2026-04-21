@@ -218,7 +218,7 @@ async function main() {
     },
     strict: false,
   });
-  const epicId = parseInt(values.epic ?? '', 10);
+  const epicId = Number.parseInt(values.epic ?? '', 10);
   await runWaveGate({
     epicId,
     allowParked: values['allow-parked'] === true,
