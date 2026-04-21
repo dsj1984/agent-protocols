@@ -15,14 +15,20 @@ From zero to shipped:
 2. **Plan the work.** Run `/sprint-plan <epicId>` in your agentic IDE.
    The framework generates a PRD, a Tech Spec, and the full
    Feature → Story → Task hierarchy under the Epic.
-3. **Execute the Epic.** Pick one path:
+3. **Execute the Epic.** Pick one path — both run the same engine and
+   produce the same GitHub state:
    - **Local (operator-driven).** Run `/sprint-execute-epic <epicId>` in
      your IDE — or take individual Stories off the dispatch table with
-     `/sprint-execute-story <storyId>` per window.
+     `/sprint-execute-story <storyId>` per window. Runs against your
+     Max subscription quota; no GitHub Actions minutes consumed.
    - **Remote (GitHub-triggered).** Add the label `agent::dispatching`
      to the Epic. The `epic-dispatch` GitHub Actions workflow launches a
      Claude remote agent that drives the Epic end-to-end, checkpointing
-     progress on the Epic as structured comments.
+     progress on the Epic as structured comments. Works fully headless;
+     consumes GitHub Actions minutes.
+
+   See [Local vs. Remote — choosing a path](#local-vs-remote--choosing-a-path)
+   for the full comparison.
 4. **Review and close.** When the final wave lands, the Epic flips to
    `agent::review`. Two options:
    - Drive the bookends by hand — `/sprint-code-review` → `/sprint-retro`
@@ -331,6 +337,82 @@ is the entirety of the operator interface after dispatch.
 > `orchestration.hitl.riskHighApproval: true` **and**
 > `orchestration.hitl.riskHighRuntimeGate: true` in `.agentrc.json`.
 > Both keys default to off.
+
+---
+
+## Local vs. Remote — choosing a path
+
+Both paths run the same `runEpic()` engine and produce identical
+GitHub state (same label transitions, same structured comments, same
+story branches). Your notification workflow fires for both. Pick the
+invocation mode based on where you want the compute to run.
+
+### At a glance
+
+| Aspect                          | Local (`/sprint-execute-epic`)                             | Remote (`agent::dispatching` label)                                |
+| ------------------------------- | ---------------------------------------------------------- | ------------------------------------------------------------------ |
+| **Compute host**                | Your machine (VSCode / Claude Code session)                | GitHub-hosted Ubuntu runner                                        |
+| **Claude auth**                 | Your logged-in Max session                                 | `CLAUDE_CODE_OAUTH_TOKEN` repo secret (same Max quota)             |
+| **GitHub Actions minutes**      | 0 — workflow never fires                                   | 150–400 min per Epic (see cost note below)                         |
+| **Duration ceiling**            | Your machine's uptime                                      | 6 hr GHA job cap                                                   |
+| **Hands-off mode**              | Requires the IDE session to stay open                      | Fully headless — close your laptop, come back later                |
+| **Observability**               | Live in VSCode — interrupt, inspect, ask Claude questions  | Actions log + structured comments on the Epic                      |
+| **Permission prompts**          | Claude Code asks you to approve tools (or `bypass`)        | Auto `--permission-mode bypassPermissions`                         |
+| **Label trigger required?**     | No — engine flips to `agent::executing` directly           | Yes — `agent::dispatching` fires `epic-dispatch.yml`               |
+| **Env/MCP config source**       | Your local `.env` / `.mcp.json`                            | `MCP_JSON` (and optional `ENV_FILE`) repo secrets                  |
+| **Best for**                    | Interactive debugging, first runs, short Epics, private repos | Long Epics, overnight runs, public repos, delegation from mobile |
+
+### Cost guidance
+
+- **Public repos:** GitHub Actions minutes are **unlimited and free** on
+  all plans. Use remote freely.
+- **Private repos on the free plan:** 2,000 Linux minutes/month free,
+  then $0.008/min. A single Epic run can burn 150–400 min, so ~5-10
+  Epics before overage. **Default to local for private repos**, use
+  remote sparingly for hands-off overnight runs.
+- **Private repos with heavy use:** either upgrade to GitHub Team
+  ($4/user/mo, 3,000 min) or register a
+  [self-hosted runner](https://docs.github.com/en/actions/hosting-your-own-runners)
+  on your own machine (free minutes, you provide compute) and add
+  `runs-on: self-hosted` to `epic-dispatch.yml`.
+
+### Claude Max quota
+
+Both paths consume the same Max subscription quota (5-hour rolling
+window with overage disabled at the org level by default). Running a
+local VSCode session and a remote orchestrator simultaneously against
+the same account doubles your quota burn. If a long Epic exceeds the
+5-hour window, the orchestrator halts with a rate-limit error —
+`BlockerHandler` surfaces it as `agent::blocked` so you can resume
+after the quota rolls.
+
+### When to mix
+
+- **Plan locally, execute remotely.** Run `/sprint-plan <id>` in your
+  IDE (small Claude usage), then add `agent::dispatching` to hand off
+  execution.
+- **Autonomous bookends with either path.** `epic::auto-close` is a
+  snapshot label, not a remote-only switch. Either path honors it at
+  startup if set — so you can run locally to `agent::review`, skip the
+  auto-close, and drive the bookends by hand; or apply `epic::auto-close`
+  before dispatch (local or remote) for a fully autonomous run.
+- **Never mix on the same Epic at the same time.** Picking up a running
+  Epic with a second invocation leads to concurrent write conflicts on
+  the `epic-run-state` checkpoint. If a local run hangs, cancel it
+  before relabeling.
+
+### Skipping CI/CD on orchestrator commits (private-repo optimization)
+
+The orchestrator pushes many commits during a run, each potentially
+triggering the project's `CI / CD` workflow (costly minutes on private
+repos). Two mitigations:
+
+- Add `[skip ci]` to orchestrator commit messages (requires a small
+  tweak in `sprint-story-close.js`), OR
+- Add a `paths-ignore` or branch filter to `ci.yml` that excludes
+  `epic/*` and `story-*` branches. Only `main` pushes trigger CI.
+
+Epic #349 Story #362 / #363 track these as formal hardening items.
 
 ---
 
