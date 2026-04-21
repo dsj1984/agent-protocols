@@ -67,16 +67,14 @@ export const LABEL_TAXONOMY = [
   {
     name: AGENT_LABELS.DISPATCHING,
     color: LABEL_COLORS.AGENT,
-    description:
-      'Transient trigger state — remote orchestrator picks up and flips to agent::executing',
+    description: 'Trigger — remote orchestrator picks up and flips to executing',
   },
 
   // Epic modifiers
   {
     name: EPIC_LABELS.AUTO_CLOSE,
     color: LABEL_COLORS.EPIC,
-    description:
-      'Opt-in modifier authorizing autonomous bookend chain (code-review → retro → close) including merge-to-main',
+    description: 'Opt-in — autonomous review → retro → close + merge-to-main',
   },
 
   // Status

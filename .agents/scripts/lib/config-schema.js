@@ -100,6 +100,14 @@ export const ORCHESTRATION_SCHEMA = {
       },
       additionalProperties: false,
     },
+    hitl: {
+      type: 'object',
+      properties: {
+        riskHighApproval: { type: 'boolean' },
+        riskHighRuntimeGate: { type: 'boolean' },
+      },
+      additionalProperties: false,
+    },
     worktreeIsolation: {
       type: 'object',
       properties: {
