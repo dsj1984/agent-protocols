@@ -70,7 +70,10 @@
       "operatorHandle": "@[USERNAME]"
     },
     "notifications": {
-      "mentionOperator": true
+      "mentionOperator": true,
+      "level": "verbose",
+      "postToEpic": true,
+      "webhookUrl": null
     },
     "hitl": {
       "riskHighApproval": true

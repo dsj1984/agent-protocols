@@ -96,11 +96,20 @@ export const ORCHESTRATION_SCHEMA = {
       type: 'object',
       properties: {
         mentionOperator: { type: 'boolean' },
-        webhookUrl: { type: 'string' },
+        webhookUrl: { type: ['string', 'null'] },
         webhookMinLevel: {
           type: 'string',
           enum: ['progress', 'notification', 'friction', 'action'],
         },
+        // Ticket-change notification controls (consumed by
+        // .github/workflows/notify-ticket-change.yml for Epic/Feature/Story
+        // label and state transitions). Does NOT affect the in-engine
+        // NotificationHook used by the epic runner.
+        level: {
+          type: 'string',
+          enum: ['off', 'minimal', 'default', 'verbose'],
+        },
+        postToEpic: { type: 'boolean' },
       },
       additionalProperties: false,
     },

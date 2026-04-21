@@ -22,7 +22,7 @@
   ".agents/scripts/lib/cli-args.js": 89.797,
   ".agents/scripts/lib/cli-utils.js": 115.218,
   ".agents/scripts/lib/config-resolver.js": 73.329,
-  ".agents/scripts/lib/config-schema.js": 68.604,
+  ".agents/scripts/lib/config-schema.js": 68.039,
   ".agents/scripts/lib/dependency-parser.js": 112.037,
   ".agents/scripts/lib/env-loader.js": 102.643,
   ".agents/scripts/lib/epic-merge-lock.js": 99.557,

@@ -68,7 +68,9 @@
       "operatorHandle": "@dsj1984"
     },
     "notifications": {
-      "mentionOperator": true
+      "mentionOperator": true,
+      "level": "verbose",
+      "postToEpic": true
     },
     "hitl": {
       "riskHighApproval": true
