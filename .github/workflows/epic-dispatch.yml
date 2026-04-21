@@ -113,6 +113,14 @@ jobs:
           claude_code_oauth_token: ${{ secrets.CLAUDE_CODE_OAUTH_TOKEN }}
           github_token: ${{ secrets.GITHUB_TOKEN }}
           prompt: /sprint-execute-epic ${{ steps.validate.outputs.epic_id }}
+          # Bypass interactive permission prompts — the orchestrator needs
+          # Bash, Agent, Edit, MCP, and many more tools, and there is no
+          # human to approve them in a headless run. Safe in this context
+          # because (a) the runner workspace is ephemeral, (b) GITHUB_TOKEN
+          # only has issue/content/PR write on this repo, (c) branch
+          # protection on `main` is the destructive-action backstop.
+          claude_args: --permission-mode bypassPermissions
+          show_full_output: true
 
       - name: Post dispatch confirmation
         if: success()
