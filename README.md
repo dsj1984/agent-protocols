@@ -512,6 +512,60 @@ The `GitHubProvider` resolves credentials in this priority order:
 
 ---
 
+## Claude authentication for remote Epic runs
+
+The GitHub Actions remote-orchestrator workflow
+(`.github/workflows/epic-dispatch.yml`) invokes Claude Code Action,
+which supports three authentication modes. Pick based on your
+subscription model:
+
+| Mode                          | Input secret                  | Billing                              |
+| ----------------------------- | ----------------------------- | ------------------------------------ |
+| Anthropic API (per-token)     | `ANTHROPIC_API_KEY`           | Pay-as-you-go, separate from Max.    |
+| **Claude Max OAuth (target)** | `CLAUDE_CODE_OAUTH_TOKEN`     | Uses your Max subscription quota.    |
+| Bedrock / Vertex              | provider-specific vars        | Uses the cloud account's billing.    |
+
+### Target state (Max OAuth) — post-Epic #349
+
+For Claude Max subscribers, the **Max OAuth token** path is the
+recommended configuration because it runs remote orchestration against
+the same subscription quota as local Claude Code usage — no
+per-token API charges.
+
+**Setup:**
+
+1. Generate a long-lived Claude Code OAuth token from a signed-in
+   Claude Code session (e.g. via the `claude setup-token` flow or the
+   equivalent `/login` prompt in the IDE).
+2. Add the token as a GitHub repo secret named
+   `CLAUDE_CODE_OAUTH_TOKEN`.
+3. In `.github/workflows/epic-dispatch.yml`, replace the API-key input
+   with the OAuth input on the Claude Code Action step:
+
+   ```yaml
+   # Before
+   with:
+     anthropic_api_key: ${{ secrets.ANTHROPIC_API_KEY }}
+
+   # After
+   with:
+     claude_code_oauth_token: ${{ secrets.CLAUDE_CODE_OAUTH_TOKEN }}
+   ```
+
+4. Leave the other inputs (`github_token`, `prompt`, `env_vars`)
+   untouched.
+
+Epic #349 (planned for v5.15.0) tracks the workflow change itself;
+this section is documentation of the intended post-#349 steady state
+so Max subscribers know not to provision an Anthropic API key.
+
+### Which mode does my repo use?
+
+Check `.github/workflows/epic-dispatch.yml` — whichever input is set
+is the mode in effect. Only one should be populated at a time.
+
+---
+
 ## Guardrails
 
 ### Anti-Thrashing Protocol

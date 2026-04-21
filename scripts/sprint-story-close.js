@@ -650,9 +650,24 @@ export async function runStoryClose({
   // Step 5 — Risk check and merge
   // -------------------------------------------------------------------------
 
-  const riskHighGateEnabled = orchestration?.hitl?.riskHighApproval !== false;
+  // Runtime `risk::high` gating was retired in Story #334 (tech spec #323).
+  // The label is preserved as informational metadata for retro queries, but
+  // it no longer halts close. Opt-in callers that still need HITL approval
+  // can set `orchestration.hitl.riskHighApproval: true` AND
+  // `orchestration.hitl.riskHighRuntimeGate: true`; the default is off.
+  const riskHighGateEnabled =
+    orchestration?.hitl?.riskHighApproval !== false &&
+    orchestration?.hitl?.riskHighRuntimeGate === true;
   const isHighRisk =
     story.labels.includes(RISK_HIGH_LABEL) && riskHighGateEnabled;
+
+  if (story.labels.includes(RISK_HIGH_LABEL) && !isHighRisk) {
+    progress(
+      'RISK',
+      `⚠️ Story #${storyId} carries ${RISK_HIGH_LABEL} — logging only ` +
+        '(runtime gate retired per tech spec #323).',
+    );
+  }
 
   let branchCleanup = { localDeleted: false, remoteDeleted: false };
   if (isHighRisk) {

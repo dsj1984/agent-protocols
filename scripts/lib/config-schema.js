@@ -100,6 +100,14 @@ export const ORCHESTRATION_SCHEMA = {
       },
       additionalProperties: false,
     },
+    hitl: {
+      type: 'object',
+      properties: {
+        riskHighApproval: { type: 'boolean' },
+        riskHighRuntimeGate: { type: 'boolean' },
+      },
+      additionalProperties: false,
+    },
     worktreeIsolation: {
       type: 'object',
       properties: {
@@ -119,6 +127,18 @@ export const ORCHESTRATION_SCHEMA = {
           type: 'array',
           items: { type: 'string', minLength: 1 },
         },
+      },
+      additionalProperties: false,
+    },
+    epicRunner: {
+      type: 'object',
+      properties: {
+        enabled: { type: 'boolean' },
+        concurrencyCap: { type: 'integer', minimum: 1 },
+        pollIntervalSec: { type: 'integer', minimum: 1 },
+        storyRetryCount: { type: 'integer', minimum: 0 },
+        blockerTimeoutHours: { type: 'integer', minimum: 0 },
+        notificationWebhookUrl: { type: ['string', 'null'], minLength: 1 },
       },
       additionalProperties: false,
     },

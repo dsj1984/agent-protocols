@@ -11,6 +11,7 @@ export const AGENT_LABELS = {
   EXECUTING: 'agent::executing',
   REVIEW: 'agent::review',
   DONE: 'agent::done',
+  DISPATCHING: 'agent::dispatching',
 };
 
 export const TYPE_LABELS = {
@@ -18,6 +19,10 @@ export const TYPE_LABELS = {
   FEATURE: 'type::feature',
   STORY: 'type::story',
   TASK: 'type::task',
+};
+
+export const EPIC_LABELS = {
+  AUTO_CLOSE: 'epic::auto-close',
 };
 
 export const STATUS_LABELS = {
@@ -63,4 +68,5 @@ export const LABEL_COLORS = {
   CONTEXT: '#D4C5F9',
   EXECUTION: '#F9D0C4',
   FOCUS: '#BFD4F2',
+  EPIC: '#FBCA04',
 };
