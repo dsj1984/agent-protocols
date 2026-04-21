@@ -159,3 +159,67 @@ tests rather than encoding them in `.feature` files.
     *   `@domain-<slug>` is extensible by design — consumers pick their own
         slug without touching the rule. Only the top-level tag *categories*
         are closed.
+
+---
+
+## ADR: Decompose oversized orchestration modules via facade pattern
+
+**Status:** Accepted
+**Date:** 2026-04-20
+**Epic:** #297
+
+### Context
+
+Three orchestration-SDK modules grew past the point where a single file
+usefully described a single responsibility: `lib/worktree-manager.js`
+(1,234 LOC), `lib/orchestration/dispatch-engine.js` (874 LOC), and
+`lib/presentation/manifest-renderer.js` (600 LOC). The 5.12.3 clean-code
+audit flagged them as the top structural-complexity outliers in the
+repository. The DRY portion of the audit had already been addressed via
+new shared utilities (`lib/risk-gate.js`, `lib/label-constants.js`,
+`lib/path-security.js`, `lib/error-formatting.js`,
+`lib/issue-link-parser.js`). What remained was purely a structural
+decomposition.
+
+### Decision
+
+Split each target file into cohesive submodules, then reduce the original
+file to a **thin facade** that re-exports the same public symbols.
+
+- `lib/worktree-manager.js` → 223-LOC facade composing `lib/worktree/`
+  submodules (`lifecycle-manager`, `node-modules-strategy`,
+  `bootstrapper`, `inspector`).
+- `lib/orchestration/dispatch-engine.js` → 196-LOC coordinator composing
+  `wave-dispatcher`, `risk-gate-handler`, `health-check-service`,
+  `epic-lifecycle-detector`, `dispatch-pipeline`, and `dispatch-logger`.
+- `lib/presentation/manifest-renderer.js` → 175-LOC facade composing
+  `manifest-formatter` (pure) and `manifest-persistence` (fs I/O).
+
+The facade files are the **only** part of the stable public surface;
+submodule paths are internal implementation detail.
+
+### Consequences
+
+*   **Positive:**
+    *   No caller needs to change — `dispatcher.js`,
+        `mcp-orchestration.js`, `sprint-story-{init,close}.js`, and every
+        test file continue to import from the existing paths.
+    *   Each submodule owns one responsibility and is individually
+        unit-testable; 65 new per-submodule tests landed alongside the
+        refactor (13 manifest + 35 worktree + 17 orchestration).
+    *   Future behaviour changes touch the submodule that owns the
+        concern, not a 1,000-LOC grab-bag.
+*   **Negative:**
+    *   The facade carries a handful of backwards-compat `_*` delegate
+        methods on `WorktreeManager` so the existing 46-test
+        `worktree-manager.test.js` keeps passing without edits. They are
+        technical debt to be retired once those tests migrate to
+        per-submodule imports.
+    *   One new lazy-VerboseLogger implementation (`dispatch-logger.js`)
+        duplicates the pattern used elsewhere in the codebase.
+*   **Mitigation:**
+    *   Retro action items track both the delegate retirement and the
+        lazy-logger consolidation.
+    *   Downstream consumers are explicitly told (in `architecture.md`
+        and this ADR) that only the facade paths are stable — submodule
+        paths may be renamed without a major version bump.
