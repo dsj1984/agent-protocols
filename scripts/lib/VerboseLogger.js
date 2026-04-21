@@ -44,6 +44,7 @@ export class VerboseLogger {
     source = 'system',
     flushThreshold = 50,
     flushIntervalMs = 1000,
+    maxBufferSize = 500,
   }) {
     this.enabled = enabled;
     this.logDir = logDir;
@@ -61,6 +62,13 @@ export class VerboseLogger {
     this._flushIntervalMs = flushIntervalMs;
     this._flushTimer = null;
     this._exitHookInstalled = false;
+
+    // Hard cap on in-memory buffer growth. When flushing is disabled or the
+    // caller never invokes `flush()`, a long-running agent loop could
+    // otherwise accumulate unbounded JSONL. Overflow drops oldest entries
+    // and is reported via `_droppedEntries` / `stats()`.
+    this._maxBufferSize = maxBufferSize;
+    this._droppedEntries = 0;
 
     if (this.enabled && this.logDir) {
       ensureDirSync(this.logDir);
@@ -150,6 +158,29 @@ export class VerboseLogger {
     } else {
       this._scheduleFlush();
     }
+
+    // Defensive cap: if the buffer could not drain (e.g. flush failed or the
+    // logger was constructed without a logDir but still receives entries),
+    // trim the oldest surplus rather than growing unbounded.
+    if (this._maxBufferSize > 0 && this._buffer.length > this._maxBufferSize) {
+      const overflow = this._buffer.length - this._maxBufferSize;
+      this._buffer.splice(0, overflow);
+      this._droppedEntries += overflow;
+    }
+  }
+
+  /**
+   * Returns lightweight runtime stats about the logger state. Primarily
+   * intended for tests and diagnostics.
+   */
+  stats() {
+    return {
+      enabled: this.enabled,
+      bufferSize: this._buffer.length,
+      maxBufferSize: this._maxBufferSize,
+      droppedEntries: this._droppedEntries,
+      flushThreshold: this._flushThreshold,
+    };
   }
 
   /** Convenience: info-level log. */

@@ -38,6 +38,72 @@ function readFileCached(absPath) {
   return content;
 }
 
+// ---------------------------------------------------------------------------
+// Skill path index — memoized discovery for `skillsRoot`. Skill directories
+// are stable for the lifetime of a dispatch run; enumerating them once keeps
+// per-task hydration O(1) instead of re-probing the filesystem with
+// readdirSync + existsSync on every activated skill.
+// ---------------------------------------------------------------------------
+
+let _skillIndex = null;
+
+function buildSkillIndex(skillsRoot) {
+  // Map<skillName, absoluteSkillMdPath>. First writer wins so the
+  // precedence order matches the previous `candidates.find` traversal:
+  //   1. skills/core/<skill>/SKILL.md
+  //   2. skills/stack/<skill>/SKILL.md
+  //   3. skills/<skill>/SKILL.md
+  //   4. skills/stack/<category>/<skill>/SKILL.md (any subcategory)
+  const index = new Map();
+  const addIfMissing = (skillName, absPath) => {
+    if (!index.has(skillName) && fs.existsSync(absPath)) {
+      index.set(skillName, absPath);
+    }
+  };
+
+  const enumerateSkillsIn = (baseDir, addFn) => {
+    if (!fs.existsSync(baseDir)) return;
+    let entries;
+    try {
+      entries = fs.readdirSync(baseDir, { withFileTypes: true });
+    } catch {
+      return;
+    }
+    for (const entry of entries) {
+      if (!entry.isDirectory()) continue;
+      addFn(entry.name, path.join(baseDir, entry.name, 'SKILL.md'));
+    }
+  };
+
+  enumerateSkillsIn(path.join(skillsRoot, 'core'), addIfMissing);
+  enumerateSkillsIn(path.join(skillsRoot, 'stack'), addIfMissing);
+  enumerateSkillsIn(skillsRoot, addIfMissing);
+
+  // Stack subcategories: skills/stack/<category>/<skill>/SKILL.md
+  const stackBase = path.join(skillsRoot, 'stack');
+  if (fs.existsSync(stackBase)) {
+    let categories;
+    try {
+      categories = fs.readdirSync(stackBase, { withFileTypes: true });
+    } catch {
+      categories = [];
+    }
+    for (const cat of categories) {
+      if (!cat.isDirectory()) continue;
+      enumerateSkillsIn(path.join(stackBase, cat.name), addIfMissing);
+    }
+  }
+
+  return index;
+}
+
+function getSkillPath(skillsRoot, skillName) {
+  if (!_skillIndex || _skillIndex.root !== skillsRoot) {
+    _skillIndex = { root: skillsRoot, paths: buildSkillIndex(skillsRoot) };
+  }
+  return _skillIndex.paths.get(skillName) ?? null;
+}
+
 /**
  * Test-only seam: clear the persona/skill/template cache between runs.
  * The `__` prefix matches the project convention for test-only exports
@@ -45,6 +111,7 @@ function readFileCached(absPath) {
  */
 export function __resetContextCache() {
   _fileCache.clear();
+  _skillIndex = null;
 }
 
 // ---------------------------------------------------------------------------
@@ -191,41 +258,10 @@ export async function hydrateContext(
   let skillsContext = '';
   if (task.skills && task.skills.length > 0) {
     skillsContext = '## Activated Skills\n\n';
+    const skillsRoot = path.join(PROJECT_ROOT, settings.skillsRoot);
     for (const skill of task.skills) {
       try {
-        // Two-tier skill layout (core/, stack/) with flat fallback.
-        const candidates = [
-          path.join(
-            PROJECT_ROOT,
-            settings.skillsRoot,
-            'core',
-            skill,
-            'SKILL.md',
-          ),
-          path.join(
-            PROJECT_ROOT,
-            settings.skillsRoot,
-            'stack',
-            skill,
-            'SKILL.md',
-          ),
-          path.join(PROJECT_ROOT, settings.skillsRoot, skill, 'SKILL.md'),
-        ];
-        // Also check stack subcategories (e.g., stack/javascript/eslint/)
-        const stackBase = path.join(PROJECT_ROOT, settings.skillsRoot, 'stack');
-        if (fs.existsSync(stackBase)) {
-          try {
-            for (const category of fs.readdirSync(stackBase)) {
-              candidates.push(
-                path.join(stackBase, category, skill, 'SKILL.md'),
-              );
-            }
-          } catch {
-            /* ignore read errors */
-          }
-        }
-
-        const sPath = candidates.find((p) => fs.existsSync(p));
+        const sPath = getSkillPath(skillsRoot, skill);
         if (sPath) {
           skillsContext += `### Skill: ${skill}\n${readFileCached(sPath)}\n\n`;
         }

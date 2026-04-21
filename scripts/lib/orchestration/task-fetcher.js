@@ -20,18 +20,23 @@ export function parseTasks(tickets) {
     const metadata = parseTaskMetadata(t.body ?? '');
     const blockedBy = parseBlockedBy(t.body ?? '');
     const labels = t.labels;
+    // Reuse the provider-attached Set when present, otherwise materialise
+    // one so every downstream consumer can use O(1) `labelSet.has(...)`
+    // instead of array `.includes(...)`.
+    const labelSet = t.labelSet ?? new Set(labels);
 
     const status =
       t.state === 'closed'
         ? AGENT_DONE_LABEL
         : (labels.find((l) => l.startsWith('agent::')) ?? 'agent::ready');
 
-    const isRiskHigh = labels.includes(RISK_HIGH_LABEL);
+    const isRiskHigh = labelSet.has(RISK_HIGH_LABEL);
 
     return {
       id: t.id,
       title: t.title,
       labels,
+      labelSet,
       status,
       isRiskHigh,
       dependsOn: blockedBy,

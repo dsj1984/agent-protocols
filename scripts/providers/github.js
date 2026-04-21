@@ -136,15 +136,19 @@ export class GitHubProvider extends ITicketingProvider {
 
     return issues
       .filter((issue) => !issue.pull_request)
-      .map((issue) => ({
-        id: issue.number,
-        title: issue.title,
-        labels: (issue.labels ?? []).map((l) =>
+      .map((issue) => {
+        const labels = (issue.labels ?? []).map((l) =>
           typeof l === 'string' ? l : l.name,
-        ),
-        state: issue.state,
-        state_reason: issue.state_reason,
-      }));
+        );
+        return {
+          id: issue.number,
+          title: issue.title,
+          labels,
+          labelSet: new Set(labels),
+          state: issue.state,
+          state_reason: issue.state_reason,
+        };
+      });
   }
 
   /* node:coverage ignore next */
@@ -173,6 +177,7 @@ export class GitHubProvider extends ITicketingProvider {
       title: issue.title,
       body: issue.body ?? '',
       labels,
+      labelSet: new Set(labels),
       linkedIssues: parseLinkedIssues(issue.body),
     };
   }
@@ -203,40 +208,77 @@ export class GitHubProvider extends ITicketingProvider {
         const body = issue.body ?? '';
         return epicRefRe.test(body);
       })
-      .map((issue) => ({
-        id: issue.number,
-        internalId: issue.id,
-        nodeId: issue.node_id,
-        title: issue.title,
-        body: issue.body ?? '',
-        labels: (issue.labels ?? []).map((l) =>
+      .map((issue) => {
+        const labels = (issue.labels ?? []).map((l) =>
           typeof l === 'string' ? l : l.name,
-        ),
-        state: issue.state,
-      }));
+        );
+        return {
+          id: issue.number,
+          internalId: issue.id,
+          nodeId: issue.node_id,
+          title: issue.title,
+          body: issue.body ?? '',
+          labels,
+          labelSet: new Set(labels),
+          state: issue.state,
+        };
+      });
   }
 
   async getSubTickets(parentId) {
     const parent = await this.getTicket(parentId);
     const body = parent.body || '';
 
-    // Primary: Native GitHub Sub-Issues (v5 source of truth)
-    let nativeChildIds = [];
+    // Primary: Native GitHub Sub-Issues (v5 source of truth). The query
+    // pulls every field shared with `getTicket`'s return shape so each sub
+    // issue can seed `_ticketCache` in a single round-trip, eliminating
+    // the N+1 REST fan-out that followed this call previously. Cursor
+    // pagination prevents silent truncation on Epics with >50 children.
+    const nativeChildIds = [];
     try {
-      const data = await this._http.graphql(
-        `query($id: ID!) {
-          node(id: $id) {
-            ... on Issue {
-              subIssues(first: 50) {
-                nodes { number }
+      let cursor = null;
+      while (true) {
+        const data = await this._http.graphql(
+          `query($id: ID!, $cursor: String) {
+            node(id: $id) {
+              ... on Issue {
+                subIssues(first: 50, after: $cursor) {
+                  pageInfo { hasNextPage endCursor }
+                  nodes {
+                    number
+                    databaseId
+                    id
+                    title
+                    body
+                    state
+                    labels(first: 30) { nodes { name } }
+                    assignees(first: 20) { nodes { login } }
+                  }
+                }
               }
             }
+          }`,
+          { id: parent.nodeId, cursor },
+          { headers: { 'GraphQL-Features': 'sub_issues' } },
+        );
+
+        const page = data.node?.subIssues;
+        const nodes = page?.nodes ?? [];
+        for (const node of nodes) {
+          nativeChildIds.push(node.number);
+          // Only seed the cache on a miss — an existing entry may be
+          // newer (e.g. refreshed after a mutation invalidated it).
+          if (!this._ticketCache.has(node.number)) {
+            this._ticketCache.set(
+              node.number,
+              this._subIssueNodeToTicket(node),
+            );
           }
-        }`,
-        { id: parent.nodeId },
-        { headers: { 'GraphQL-Features': 'sub_issues' } },
-      );
-      nativeChildIds = (data.node?.subIssues?.nodes || []).map((n) => n.number);
+        }
+
+        if (!page?.pageInfo?.hasNextPage) break;
+        cursor = page.pageInfo.endCursor;
+      }
     } catch (err) {
       // GraphQL feature might not be enabled or permission error — proceed with checkboxes only
       console.warn(
@@ -293,21 +335,47 @@ export class GitHubProvider extends ITicketingProvider {
       `/repos/${this.owner}/${this.repo}/issues/${ticketId}`,
     );
 
+    const labels = (issue.labels ?? []).map((l) =>
+      typeof l === 'string' ? l : l.name,
+    );
+
     const ticket = {
       id: issue.number,
       internalId: issue.id,
       nodeId: issue.node_id,
       title: issue.title,
       body: issue.body ?? '',
-      labels: (issue.labels ?? []).map((l) =>
-        typeof l === 'string' ? l : l.name,
-      ),
+      labels,
+      labelSet: new Set(labels),
       assignees: (issue.assignees ?? []).map((a) => a.login),
       state: issue.state,
     };
 
     this._ticketCache.set(ticketId, ticket);
     return ticket;
+  }
+
+  /**
+   * Map a GraphQL sub-issue node into the ticket shape that
+   * `getTicket`/`getTickets` return. Keeps the state label lower-cased to
+   * match the REST API (`open`/`closed`) so downstream code never has to
+   * case-normalise at the call site.
+   * @private
+   */
+  _subIssueNodeToTicket(node) {
+    const labels = (node.labels?.nodes ?? []).map((l) => l.name);
+    return {
+      id: node.number,
+      internalId: node.databaseId,
+      nodeId: node.id,
+      title: node.title,
+      body: node.body ?? '',
+      labels,
+      labelSet: new Set(labels),
+      assignees: (node.assignees?.nodes ?? []).map((a) => a.login),
+      state:
+        typeof node.state === 'string' ? node.state.toLowerCase() : node.state,
+    };
   }
 
   /**
@@ -318,6 +386,9 @@ export class GitHubProvider extends ITicketingProvider {
   primeTicketCache(tickets) {
     for (const t of tickets ?? []) {
       if (t && typeof t.id === 'number') {
+        if (!t.labelSet && Array.isArray(t.labels)) {
+          t.labelSet = new Set(t.labels);
+        }
         this._ticketCache.set(t.id, t);
       }
     }
