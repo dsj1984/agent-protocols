@@ -6,7 +6,8 @@
  *
  * Dual-channel notification engine for v5 Orchestration.
  * 1. INFO: @mention the operator handle on a GitHub issue.
- * 2. ACTION: Fire a webhook for HITL (Human-In-The-Loop) events.
+ * 2. WEBHOOK: Fire the configured webhook for any notify() call whose type
+ *    meets `notifications.webhookMinLevel` (default: progress — everything).
  */
 
 import { createHmac } from 'node:crypto';
@@ -14,6 +15,8 @@ import { runAsCli } from './lib/cli-utils.js';
 import { resolveConfig } from './lib/config-resolver.js';
 import { Logger } from './lib/Logger.js';
 import { createProvider } from './lib/provider-factory.js';
+
+const LEVEL_RANK = { progress: 0, notification: 1, friction: 2, action: 3 };
 
 /**
  * Dispatch a notification.
@@ -59,43 +62,54 @@ export async function notify(ticketId, payload, opts = {}) {
     );
   }
 
-  // 2. Webhook for Actions (HITL)
-  if (type === 'action' || actionRequired) {
-    const webhookUrl = orchestration.notifications?.webhookUrl;
-    if (webhookUrl) {
-      console.log(`[Notify] Firing Action Webhook to ${webhookUrl}...`);
-      try {
-        const payloadBody = JSON.stringify({
-          ticketId,
-          event: 'HITL_ACTION_REQUIRED',
-          message: message.replace(operator, '').trim(),
-          timestamp: new Date().toISOString(),
-        });
-        const headers = { 'Content-Type': 'application/json' };
+  // 2. Webhook for any event that meets the configured minimum level.
+  const webhookUrl = orchestration.notifications?.webhookUrl;
+  const minLevel = orchestration.notifications?.webhookMinLevel ?? 'progress';
+  const typeRank = LEVEL_RANK[type] ?? LEVEL_RANK.notification;
+  const minRank = LEVEL_RANK[minLevel] ?? LEVEL_RANK.progress;
+  const actionEscalated = Boolean(actionRequired);
+  const effectiveRank = actionEscalated
+    ? Math.max(typeRank, LEVEL_RANK.action)
+    : typeRank;
 
-        // H-4: Optional HMAC-SHA256 signing for webhook authenticity.
-        const webhookSecret = process.env.WEBHOOK_SECRET;
-        if (webhookSecret) {
-          const signature = createHmac('sha256', webhookSecret)
-            .update(payloadBody)
-            .digest('hex');
-          headers['X-Signature-256'] = `sha256=${signature}`;
-        }
+  if (webhookUrl && effectiveRank >= minRank) {
+    console.log(`[Notify] Firing webhook (${type}) to ${webhookUrl}...`);
+    try {
+      const repo = orchestration.github?.repo ?? null;
+      const isAction = type === 'action' || actionEscalated;
+      const payloadBody = JSON.stringify({
+        repo,
+        ticketId,
+        type,
+        event: isAction ? 'HITL_ACTION_REQUIRED' : type,
+        actionRequired: isAction,
+        message: message.replace(operator, '').trim(),
+        timestamp: new Date().toISOString(),
+      });
+      const headers = { 'Content-Type': 'application/json' };
 
-        const res = await fetch(webhookUrl, {
-          method: 'POST',
-          headers,
-          body: payloadBody,
-        });
-        // M-10: Check response status instead of silently swallowing errors.
-        if (!res.ok) {
-          console.warn(
-            `[Notify] Webhook returned ${res.status}: ${await res.text().catch(() => '')}`,
-          );
-        }
-      } catch (err) {
-        console.warn(`[Notify] Failed to send webhook: ${err.message}`);
+      // H-4: Optional HMAC-SHA256 signing for webhook authenticity.
+      const webhookSecret = process.env.WEBHOOK_SECRET;
+      if (webhookSecret) {
+        const signature = createHmac('sha256', webhookSecret)
+          .update(payloadBody)
+          .digest('hex');
+        headers['X-Signature-256'] = `sha256=${signature}`;
       }
+
+      const res = await fetch(webhookUrl, {
+        method: 'POST',
+        headers,
+        body: payloadBody,
+      });
+      // M-10: Check response status instead of silently swallowing errors.
+      if (!res.ok) {
+        console.warn(
+          `[Notify] Webhook returned ${res.status}: ${await res.text().catch(() => '')}`,
+        );
+      }
+    } catch (err) {
+      console.warn(`[Notify] Failed to send webhook: ${err.message}`);
     }
   }
 }

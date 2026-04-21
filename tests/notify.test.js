@@ -28,6 +28,8 @@ describe('notify script', () => {
 
     mockOrchestration = {
       github: {
+        owner: 'acme',
+        repo: 'widgets',
         operatorHandle: '@test_operator',
       },
       notifications: {
@@ -37,7 +39,7 @@ describe('notify script', () => {
     };
   });
 
-  it('posts a notification comment with operator mention for info', async () => {
+  it('posts a notification comment with operator mention and fires webhook for info', async () => {
     await notify(
       123,
       { type: 'notification', message: 'Task complete.' },
@@ -50,10 +52,17 @@ describe('notify script', () => {
     assert.equal(comment.data.body, '@test_operator Task complete.');
     assert.equal(comment.data.type, 'notification');
 
-    assert.equal(fetchCalls.length, 0); // No webhook for simple info/notification
+    // Webhook now fires for every notify() call by default (minLevel=progress).
+    assert.equal(fetchCalls.length, 1);
+    const body = JSON.parse(fetchCalls[0].options.body);
+    assert.equal(body.repo, 'widgets');
+    assert.equal(body.ticketId, 123);
+    assert.equal(body.type, 'notification');
+    assert.equal(body.event, 'notification');
+    assert.equal(body.actionRequired, false);
   });
 
-  it('fires a webhook for action type', async () => {
+  it('fires a webhook for action type with HITL event name', async () => {
     await notify(
       124,
       { type: 'action', message: 'Review needed.' },
@@ -74,13 +83,58 @@ describe('notify script', () => {
     assert.equal(webhookCall.url, 'https://webhook.example.com/action');
 
     const body = JSON.parse(webhookCall.options.body);
+    assert.equal(body.repo, 'widgets');
     assert.equal(body.ticketId, 124);
+    assert.equal(body.type, 'action');
     assert.equal(body.event, 'HITL_ACTION_REQUIRED');
+    assert.equal(body.actionRequired, true);
     assert.equal(
       body.message,
       'Review needed.',
       'should strip the operator mention from the webhook message if present',
     );
+  });
+
+  it('suppresses webhook when type is below webhookMinLevel', async () => {
+    mockOrchestration.notifications.webhookMinLevel = 'action';
+
+    await notify(
+      200,
+      { type: 'progress', message: 'Step 3 done.' },
+      { provider: mockProvider, orchestration: mockOrchestration },
+    );
+    await notify(
+      200,
+      { type: 'notification', message: 'Story merged.' },
+      { provider: mockProvider, orchestration: mockOrchestration },
+    );
+    assert.equal(fetchCalls.length, 0, 'lower-level events filtered out');
+
+    await notify(
+      200,
+      { type: 'action', message: 'Approve?' },
+      { provider: mockProvider, orchestration: mockOrchestration },
+    );
+    assert.equal(fetchCalls.length, 1, 'action events still fire');
+  });
+
+  it('honors actionRequired flag regardless of type when filtering', async () => {
+    mockOrchestration.notifications.webhookMinLevel = 'action';
+
+    await notify(
+      201,
+      {
+        type: 'notification',
+        message: 'Approve deploy?',
+        actionRequired: true,
+      },
+      { provider: mockProvider, orchestration: mockOrchestration },
+    );
+
+    assert.equal(fetchCalls.length, 1);
+    const body = JSON.parse(fetchCalls[0].options.body);
+    assert.equal(body.actionRequired, true);
+    assert.equal(body.event, 'HITL_ACTION_REQUIRED');
   });
 
   it('tolerates webhook failures silently', async () => {
