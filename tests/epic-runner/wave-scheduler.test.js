@@ -5,11 +5,7 @@ import { WaveScheduler } from '../../.agents/scripts/lib/orchestration/epic-runn
 
 describe('WaveScheduler', () => {
   it('yields waves in order and advances the pointer', () => {
-    const waves = [
-      [{ id: 1 }, { id: 2 }],
-      [{ id: 3 }],
-      [{ id: 4 }, { id: 5 }],
-    ];
+    const waves = [[{ id: 1 }, { id: 2 }], [{ id: 3 }], [{ id: 4 }, { id: 5 }]];
     const s = new WaveScheduler(waves);
     assert.equal(s.totalWaves, 3);
     assert.equal(s.hasMoreWaves(), true);

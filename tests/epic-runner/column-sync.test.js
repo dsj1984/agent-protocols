@@ -69,7 +69,9 @@ function providerWithProject() {
         };
       }
       if (query.includes('updateProjectV2ItemFieldValue')) {
-        return { updateProjectV2ItemFieldValue: { projectV2Item: { id: vars.itemId } } };
+        return {
+          updateProjectV2ItemFieldValue: { projectV2Item: { id: vars.itemId } },
+        };
       }
       return {};
     },

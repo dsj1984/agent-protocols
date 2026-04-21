@@ -86,7 +86,9 @@ describe('StatePoller', () => {
   });
 
   it('backs off on rate-limit errors and recovers on success', async () => {
-    const labels = new Map([[321, { __error: new Error('API rate limit 403') }]]);
+    const labels = new Map([
+      [321, { __error: new Error('API rate limit 403') }],
+    ]);
     const poller = new StatePoller({
       provider: providerFrom(labels),
       epicId: 321,

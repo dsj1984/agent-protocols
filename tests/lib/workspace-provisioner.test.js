@@ -126,7 +126,12 @@ test('provision: rejects traversal and absolute names', () => {
 test('provision: empty or missing files list is a no-op', () => {
   const { src, dst } = makeRoots();
   const { logger } = quietLogger();
-  const r1 = provision({ sourceRoot: src, targetWorktree: dst, files: [], logger });
+  const r1 = provision({
+    sourceRoot: src,
+    targetWorktree: dst,
+    files: [],
+    logger,
+  });
   assert.deepEqual(r1, { copied: [], skipped: [], missing: [] });
 });
 

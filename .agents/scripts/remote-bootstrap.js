@@ -109,14 +109,7 @@ async function main() {
     `https://x-access-token:${githubToken}@`,
   );
   log(`Cloning ${repoUrl} @ ${ref} → ${workspace}`);
-  run('git', [
-    'clone',
-    '--depth=1',
-    '--branch',
-    ref,
-    cloneUrl,
-    workspace,
-  ]);
+  run('git', ['clone', '--depth=1', '--branch', ref, cloneUrl, workspace]);
 
   // 3. Materialize secret-backed workspace files with 0600 perms.
   writeSecretFile(resolve(workspace, '.env'), envFile);

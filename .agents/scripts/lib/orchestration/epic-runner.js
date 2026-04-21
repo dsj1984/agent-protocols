@@ -59,11 +59,8 @@ export async function runEpic({
   }
   if (typeof spawn !== 'function') throw new TypeError('spawn is required');
 
-  const {
-    concurrencyCap,
-    pollIntervalSec,
-    notificationWebhookUrl,
-  } = config.epicRunner;
+  const { concurrencyCap, pollIntervalSec, notificationWebhookUrl } =
+    config.epicRunner;
 
   // --- 1. Snapshot Epic state ---
   const epic = await provider.getTicket(epicId);
@@ -109,7 +106,9 @@ export async function runEpic({
     try {
       await columnSync.sync(id, labels);
     } catch (err) {
-      logger.warn?.(`[EpicRunner] column sync failed for #${id}: ${err.message}`);
+      logger.warn?.(
+        `[EpicRunner] column sync failed for #${id}: ${err.message}`,
+      );
     }
   };
 
@@ -180,7 +179,8 @@ export async function runEpic({
       const firstFailure = failures[0];
       await syncColumn(epicId, ['agent::blocked']);
       const halt = await blockerHandler.halt({
-        reason: firstFailure.status === 'blocked' ? 'story_blocked' : 'story_failed',
+        reason:
+          firstFailure.status === 'blocked' ? 'story_blocked' : 'story_failed',
         storyId: firstFailure.storyId,
         detail: firstFailure.detail,
       });

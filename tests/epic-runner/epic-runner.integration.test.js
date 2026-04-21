@@ -16,9 +16,16 @@ function buildFakeProvider({ epicId, stories }) {
   const tickets = new Map();
   const comments = new Map();
 
-  tickets.set(epicId, { id: epicId, labels: ['type::epic', 'agent::executing'] });
+  tickets.set(epicId, {
+    id: epicId,
+    labels: ['type::epic', 'agent::executing'],
+  });
   for (const s of stories) {
-    tickets.set(s.id, { id: s.id, labels: ['type::story'], dependencies: s.dependencies ?? [] });
+    tickets.set(s.id, {
+      id: s.id,
+      labels: ['type::story'],
+      dependencies: s.dependencies ?? [],
+    });
   }
 
   return {
@@ -63,7 +70,9 @@ function buildFakeProvider({ epicId, stories }) {
       if (mutations.labels) {
         const add = mutations.labels.add ?? [];
         const remove = mutations.labels.remove ?? [];
-        t.labels = [...new Set([...t.labels.filter((l) => !remove.includes(l)), ...add])];
+        t.labels = [
+          ...new Set([...t.labels.filter((l) => !remove.includes(l)), ...add]),
+        ];
       }
     },
   };
@@ -170,7 +179,8 @@ describe('EpicRunner integration', () => {
       if (id === epicId) {
         // Operator flipped back — resume.
         t.labels = t.labels.filter((l) => l !== 'agent::blocked');
-        if (!t.labels.includes('agent::executing')) t.labels.push('agent::executing');
+        if (!t.labels.includes('agent::executing'))
+          t.labels.push('agent::executing');
       }
       return t;
     };

@@ -31,7 +31,14 @@ export class StatePoller extends EventEmitter {
    *   logger?: { warn: Function, error: Function }
    * }} opts
    */
-  constructor({ provider, epicId, pollIntervalMs, backoffCapMs, storyIds, logger }) {
+  constructor({
+    provider,
+    epicId,
+    pollIntervalMs,
+    backoffCapMs,
+    storyIds,
+    logger,
+  }) {
     super();
     if (!provider) throw new TypeError('StatePoller requires a provider');
     this.provider = provider;
@@ -83,7 +90,11 @@ export class StatePoller extends EventEmitter {
     if (labels.has(BLOCKED_LABEL) && !prev.has(BLOCKED_LABEL)) {
       this.emit('blocker-raised', { source: 'epic' });
     }
-    if (!labels.has(EXECUTING_LABEL) && !labels.has(DISPATCHING_LABEL) && !labels.has(BLOCKED_LABEL)) {
+    if (
+      !labels.has(EXECUTING_LABEL) &&
+      !labels.has(DISPATCHING_LABEL) &&
+      !labels.has(BLOCKED_LABEL)
+    ) {
       // Operator dropped the execution label entirely — cancel.
       this.emit('cancel-requested', {});
     }

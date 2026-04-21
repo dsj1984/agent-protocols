@@ -18,9 +18,7 @@ import {
   waveEndMarker,
   waveStartMarker,
 } from '../../.agents/scripts/lib/orchestration/epic-runner/wave-observer.js';
-import {
-  EPIC_RUN_STATE_TYPE,
-} from '../../.agents/scripts/lib/orchestration/epic-runner/checkpointer.js';
+import { EPIC_RUN_STATE_TYPE } from '../../.agents/scripts/lib/orchestration/epic-runner/checkpointer.js';
 import { structuredCommentMarker } from '../../.agents/scripts/lib/orchestration/ticketing.js';
 
 function quietLogger() {
@@ -84,7 +82,9 @@ function buildFakeProvider({ epicId, stories, initialEpicLabels }) {
       if (mutations.labels) {
         const add = mutations.labels.add ?? [];
         const remove = mutations.labels.remove ?? [];
-        t.labels = [...new Set([...t.labels.filter((l) => !remove.includes(l)), ...add])];
+        t.labels = [
+          ...new Set([...t.labels.filter((l) => !remove.includes(l)), ...add]),
+        ];
       }
     },
   };
@@ -190,7 +190,13 @@ describe('epic-runner parity (features/epic-runner-parity.feature)', () => {
     };
     const labelsBefore = [...provider._tickets.get(epicId).labels];
 
-    await runEpic({ epicId, provider, config: defaultConfig, spawn, logger: quietLogger() });
+    await runEpic({
+      epicId,
+      provider,
+      config: defaultConfig,
+      spawn,
+      logger: quietLogger(),
+    });
 
     const labelsAfter = provider._tickets.get(epicId).labels;
     assert.ok(labelsAfter.includes('agent::review'));
@@ -220,7 +226,8 @@ describe('epic-runner parity (features/epic-runner-parity.feature)', () => {
       const t = await origGet(id);
       if (id === epicId) {
         t.labels = t.labels.filter((l) => l !== 'agent::blocked');
-        if (!t.labels.includes('agent::executing')) t.labels.push('agent::executing');
+        if (!t.labels.includes('agent::executing'))
+          t.labels.push('agent::executing');
       }
       return t;
     };
@@ -235,7 +242,11 @@ describe('epic-runner parity (features/epic-runner-parity.feature)', () => {
 
     const halted = result.waveHistory.find((w) => w.status === 'halted');
     assert.ok(halted, 'wave recorded as halted');
-    assert.equal(result.state, 'completed', 'orchestrator resumed after operator unblock');
+    assert.equal(
+      result.state,
+      'completed',
+      'orchestrator resumed after operator unblock',
+    );
 
     const epicComments = provider._comments.get(epicId) ?? [];
     const friction = epicComments.find((c) => /Epic blocked/.test(c.body));

@@ -102,7 +102,9 @@ export function provision({
     }
     const dst = path.join(targetWorktree, rel);
     if (fs.existsSync(dst)) {
-      logger.info(`workspace-provisioner: skipped path=${dst} (already exists)`);
+      logger.info(
+        `workspace-provisioner: skipped path=${dst} (already exists)`,
+      );
       result.skipped.push(rel);
       continue;
     }

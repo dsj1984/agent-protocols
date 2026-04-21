@@ -56,7 +56,9 @@ export class BookendChainer {
 
     const results = [];
     for (const skill of HANDOFF_STEPS) {
-      this.logger.info?.(`[BookendChainer] running ${skill} for Epic #${this.epicId}`);
+      this.logger.info?.(
+        `[BookendChainer] running ${skill} for Epic #${this.epicId}`,
+      );
       let outcome;
       try {
         outcome = await this.runSkill(skill, { epicId: this.epicId });

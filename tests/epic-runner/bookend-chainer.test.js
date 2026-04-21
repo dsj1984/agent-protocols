@@ -69,7 +69,8 @@ describe('BookendChainer', () => {
       epicId: 321,
       postComment: provider.postComment,
       runSkill: async (skill) => {
-        if (skill === '/sprint-retro') return { status: 'failed', detail: 'retro explode' };
+        if (skill === '/sprint-retro')
+          return { status: 'failed', detail: 'retro explode' };
         return { status: 'ok' };
       },
       logger: quietLogger(),
@@ -80,7 +81,9 @@ describe('BookendChainer', () => {
     assert.equal(result.completed, false);
     assert.equal(result.results.length, 2, 'chain stops at the failing step');
 
-    const friction = provider.comments.find((c) => c.payload.type === 'friction');
+    const friction = provider.comments.find(
+      (c) => c.payload.type === 'friction',
+    );
     assert.ok(friction, 'friction comment emitted on failure');
     assert.match(friction.payload.body, /halted at `\/sprint-retro`/);
     assert.match(friction.payload.body, /retro explode/);

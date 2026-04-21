@@ -49,14 +49,20 @@ describe('Checkpointer', () => {
 
     const comments = provider._comments.get(321) ?? [];
     assert.equal(comments.length, 1);
-    assert.ok(comments[0].body.includes(structuredCommentMarker(EPIC_RUN_STATE_TYPE)));
+    assert.ok(
+      comments[0].body.includes(structuredCommentMarker(EPIC_RUN_STATE_TYPE)),
+    );
   });
 
   it('initialize() is idempotent when state exists', async () => {
     const provider = createFakeProvider();
     const cp = new Checkpointer({ provider, epicId: 321 });
     await cp.initialize({ totalWaves: 3, concurrencyCap: 2, autoClose: false });
-    const second = await cp.initialize({ totalWaves: 9, concurrencyCap: 9, autoClose: true });
+    const second = await cp.initialize({
+      totalWaves: 9,
+      concurrencyCap: 9,
+      autoClose: true,
+    });
     assert.equal(second.totalWaves, 3, 'existing state wins on re-initialize');
     const comments = provider._comments.get(321) ?? [];
     assert.equal(comments.length, 1, 'no duplicate checkpoint comment');

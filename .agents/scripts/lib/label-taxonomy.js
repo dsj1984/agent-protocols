@@ -67,7 +67,8 @@ export const LABEL_TAXONOMY = [
   {
     name: AGENT_LABELS.DISPATCHING,
     color: LABEL_COLORS.AGENT,
-    description: 'Trigger — remote orchestrator picks up and flips to executing',
+    description:
+      'Trigger — remote orchestrator picks up and flips to executing',
   },
 
   // Epic modifiers

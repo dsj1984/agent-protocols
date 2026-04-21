@@ -35,7 +35,9 @@ describe('StoryLauncher', () => {
         return { status: 'done', detail: `finished-${storyId}` };
       },
     });
-    const results = await launcher.launchWave([1, 2, 3, 4, 5].map((id) => ({ id })));
+    const results = await launcher.launchWave(
+      [1, 2, 3, 4, 5].map((id) => ({ id })),
+    );
     assert.deepEqual(
       results.map((r) => r.storyId),
       [1, 2, 3, 4, 5],
@@ -50,7 +52,11 @@ describe('StoryLauncher', () => {
         return { status: 'done' };
       },
     });
-    const results = await launcher.launchWave([{ id: 1 }, { id: 2 }, { id: 3 }]);
+    const results = await launcher.launchWave([
+      { id: 1 },
+      { id: 2 },
+      { id: 3 },
+    ]);
     assert.equal(results[0].status, 'done');
     assert.equal(results[1].status, 'failed');
     assert.match(results[1].detail, /boom/);
@@ -62,9 +68,6 @@ describe('StoryLauncher', () => {
       () => new StoryLauncher({ concurrencyCap: 0, spawn: () => {} }),
       RangeError,
     );
-    assert.throws(
-      () => new StoryLauncher({ concurrencyCap: 1 }),
-      TypeError,
-    );
+    assert.throws(() => new StoryLauncher({ concurrencyCap: 1 }), TypeError);
   });
 });
