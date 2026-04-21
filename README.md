@@ -154,7 +154,7 @@ node .agents/scripts/bootstrap-agent-protocols.js --install-workflows
 | Agent State | `agent::ready`, `agent::executing`, `agent::review`, `agent::done` | Tracks agent execution lifecycle |
 | Status      | `status::blocked`                                                  | Signals blocked work items       |
 | Risk        | `risk::high`, `risk::medium`                                       | HITL gate triggers               |
-| Persona     | `persona::fullstack`, `persona::architect`, `persona::qa`          | Agent role assignment            |
+| Persona     | `persona::<name>` — one per file in [.agents/personas/](personas/) | Agent role assignment            |
 | Context     | `context::prd`, `context::tech-spec`                               | Planning document classification |
 | Execution   | `execution::sequential`, `execution::concurrent`                   | Dispatch strategy hints          |
 
