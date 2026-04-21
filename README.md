@@ -124,12 +124,12 @@ expects. The bootstrap script is **idempotent** — safe to run multiple times.
 
 ### What It Does
 
-| Step | Action                               | Details                                                                                                                                                          |
-| ---- | ------------------------------------ | ---------------------------------------------------------------------------------------------------------------------------------------------------------------- |
-| 1    | **Verify API access**                | Sends a canary request to confirm authentication and repository access.                                                                                          |
-| 2    | **Create labels**                    | Creates labels across 8 categories (`type::`, `agent::`, `status::`, `risk::`, `persona::`, `context::`, `execution::`, `focus::`). Existing labels are skipped. |
-| 3    | **Create project fields** (optional) | If `orchestration.github.projectNumber` is set, creates `Execution` and `Focus Area` single-select fields on the GitHub Project V2 board.                        |
-| 4    | **Install workflows** (optional)     | With `--install-workflows`, copies CI workflow templates into `.github/workflows/`.                                                                              |
+| Step | Action                               | Details                                                                                                                                               |
+| ---- | ------------------------------------ | ----------------------------------------------------------------------------------------------------------------------------------------------------- |
+| 1    | **Verify API access**                | Sends a canary request to confirm authentication and repository access.                                                                               |
+| 2    | **Create labels**                    | Creates labels across 7 categories (`type::`, `agent::`, `status::`, `risk::`, `persona::`, `context::`, `execution::`). Existing labels are skipped. |
+| 3    | **Create project fields** (optional) | If `orchestration.github.projectNumber` is set, creates the `Execution` single-select field on the GitHub Project V2 board.                           |
+| 4    | **Install workflows** (optional)     | With `--install-workflows`, copies CI workflow templates into `.github/workflows/`.                                                                   |
 
 ### Running It
 
@@ -148,16 +148,15 @@ node .agents/scripts/bootstrap-agent-protocols.js --install-workflows
 
 ### Label Categories
 
-| Category    | Example Labels                                                              | Purpose                          |
-| ----------- | --------------------------------------------------------------------------- | -------------------------------- |
-| Type        | `type::epic`, `type::feature`, `type::story`, `type::task`                  | Issue hierarchy classification   |
-| Agent State | `agent::ready`, `agent::executing`, `agent::review`, `agent::done`          | Tracks agent execution lifecycle |
-| Status      | `status::blocked`                                                           | Signals blocked work items       |
-| Risk        | `risk::high`, `risk::medium`                                                | HITL gate triggers               |
-| Persona     | `persona::fullstack`, `persona::architect`, `persona::qa`                   | Agent role assignment            |
-| Context     | `context::prd`, `context::tech-spec`                                        | Planning document classification |
-| Execution   | `execution::sequential`, `execution::concurrent`                            | Dispatch strategy hints          |
-| Focus       | `focus::core`, `focus::scripts`, `focus::docs`, `focus::ci`, `focus::tests` | Work area classification         |
+| Category    | Example Labels                                                     | Purpose                          |
+| ----------- | ------------------------------------------------------------------ | -------------------------------- |
+| Type        | `type::epic`, `type::feature`, `type::story`, `type::task`         | Issue hierarchy classification   |
+| Agent State | `agent::ready`, `agent::executing`, `agent::review`, `agent::done` | Tracks agent execution lifecycle |
+| Status      | `status::blocked`                                                  | Signals blocked work items       |
+| Risk        | `risk::high`, `risk::medium`                                       | HITL gate triggers               |
+| Persona     | `persona::fullstack`, `persona::architect`, `persona::qa`          | Agent role assignment            |
+| Context     | `context::prd`, `context::tech-spec`                               | Planning document classification |
+| Execution   | `execution::sequential`, `execution::concurrent`                   | Dispatch strategy hints          |
 
 > [!TIP] After bootstrapping, run `/sprint-plan [EPIC_ID]` to begin the planning
 > phase. See the [SDLC guide](SDLC.md) for the full end-to-end workflow.
@@ -515,32 +514,29 @@ The `GitHubProvider` resolves credentials in this priority order:
 ## Claude authentication for remote Epic runs
 
 The GitHub Actions remote-orchestrator workflow
-(`.github/workflows/epic-dispatch.yml`) invokes Claude Code Action,
-which supports three authentication modes. Pick based on your
-subscription model:
+(`.github/workflows/epic-dispatch.yml`) invokes Claude Code Action, which
+supports three authentication modes. Pick based on your subscription model:
 
-| Mode                          | Input secret                  | Billing                              |
-| ----------------------------- | ----------------------------- | ------------------------------------ |
-| Anthropic API (per-token)     | `ANTHROPIC_API_KEY`           | Pay-as-you-go, separate from Max.    |
-| **Claude Max OAuth (target)** | `CLAUDE_CODE_OAUTH_TOKEN`     | Uses your Max subscription quota.    |
-| Bedrock / Vertex              | provider-specific vars        | Uses the cloud account's billing.    |
+| Mode                          | Input secret              | Billing                           |
+| ----------------------------- | ------------------------- | --------------------------------- |
+| Anthropic API (per-token)     | `ANTHROPIC_API_KEY`       | Pay-as-you-go, separate from Max. |
+| **Claude Max OAuth (target)** | `CLAUDE_CODE_OAUTH_TOKEN` | Uses your Max subscription quota. |
+| Bedrock / Vertex              | provider-specific vars    | Uses the cloud account's billing. |
 
 ### Target state (Max OAuth) — post-Epic #349
 
-For Claude Max subscribers, the **Max OAuth token** path is the
-recommended configuration because it runs remote orchestration against
-the same subscription quota as local Claude Code usage — no
-per-token API charges.
+For Claude Max subscribers, the **Max OAuth token** path is the recommended
+configuration because it runs remote orchestration against the same subscription
+quota as local Claude Code usage — no per-token API charges.
 
 **Setup:**
 
-1. Generate a long-lived Claude Code OAuth token from a signed-in
-   Claude Code session (e.g. via the `claude setup-token` flow or the
-   equivalent `/login` prompt in the IDE).
-2. Add the token as a GitHub repo secret named
-   `CLAUDE_CODE_OAUTH_TOKEN`.
-3. In `.github/workflows/epic-dispatch.yml`, replace the API-key input
-   with the OAuth input on the Claude Code Action step:
+1. Generate a long-lived Claude Code OAuth token from a signed-in Claude Code
+   session (e.g. via the `claude setup-token` flow or the equivalent `/login`
+   prompt in the IDE).
+2. Add the token as a GitHub repo secret named `CLAUDE_CODE_OAUTH_TOKEN`.
+3. In `.github/workflows/epic-dispatch.yml`, replace the API-key input with the
+   OAuth input on the Claude Code Action step:
 
    ```yaml
    # Before
@@ -552,17 +548,16 @@ per-token API charges.
      claude_code_oauth_token: ${{ secrets.CLAUDE_CODE_OAUTH_TOKEN }}
    ```
 
-4. Leave the other inputs (`github_token`, `prompt`, `env_vars`)
-   untouched.
+4. Leave the other inputs (`github_token`, `prompt`, `env_vars`) untouched.
 
-Epic #349 (planned for v5.15.0) tracks the workflow change itself;
-this section is documentation of the intended post-#349 steady state
-so Max subscribers know not to provision an Anthropic API key.
+Epic #349 (planned for v5.15.0) tracks the workflow change itself; this section
+is documentation of the intended post-#349 steady state so Max subscribers know
+not to provision an Anthropic API key.
 
 ### Which mode does my repo use?
 
-Check `.github/workflows/epic-dispatch.yml` — whichever input is set
-is the mode in effect. Only one should be populated at a time.
+Check `.github/workflows/epic-dispatch.yml` — whichever input is set is the mode
+in effect. Only one should be populated at a time.
 
 ---
 
