@@ -223,3 +223,75 @@ submodule paths are internal implementation detail.
     *   Downstream consumers are explicitly told (in `architecture.md`
         and this ADR) that only the facade paths are stable — submodule
         paths may be renamed without a major version bump.
+
+---
+
+## ADR-20260421: Epic-level remote orchestration via GitHub label trigger
+
+*   **Status:** Accepted (Epic #321, v5.14.0).
+*   **Context:** Before v5.14.0 `/sprint-execute` was story-scoped and
+    operator-driven: the operator picked Stories off the dispatch table
+    and launched each in its own window. Wave advancement and bookend
+    chaining (review → retro → close) were manual. The orchestration
+    primitives to automate this already existed (`dispatch_wave`,
+    `Graph.computeWaves()`, `cascadeCompletion`), but no long-running
+    driver tied them together.
+*   **Decision:** A new `/sprint-execute-epic` skill wraps a composed
+    `EpicRunner` coordinator that walks the wave DAG, fans out per-story
+    executor sub-agents (bounded by `concurrencyCap`), checkpoints
+    progress on the Epic via the `epic-run-state` structured comment,
+    and halts only at `agent::review` or on blocker escalation. A
+    GitHub Actions workflow (`epic-dispatch.yml`) fires on
+    `agent::dispatching` label application, boots a Claude remote
+    agent, and launches the same skill against the same engine. Local
+    and remote runs share code path.
+*   **Alternatives considered:**
+    *   Build a separate "epic executor" service running outside
+        GitHub — rejected because it would reinvent the dispatcher and
+        require its own state store.
+    *   Extend `/sprint-execute` to accept either Story or Epic IDs
+        (single command, switch on type) — rejected for v5.14.0 to keep
+        the rename/alias story clean; planned for Epic #349.
+    *   Runtime HITL approval on every wave boundary — rejected; the
+        Epic's whole value proposition is HITL-minimal execution.
+*   **Consequences:**
+    *   Three operator touchpoints on the happy path: dispatch,
+        blocker resolution, review hand-off.
+    *   `epic::auto-close` authorizes autonomous merge-to-main, so
+        branch protection on `main` becomes the primary defense for
+        destructive actions.
+    *   `risk::high` runtime gating is retired (see ADR below); the
+        label remains as retro-visible metadata.
+    *   The remote-agent environment has a new secret surface
+        (`ENV_FILE`, `MCP_JSON`, `GITHUB_TOKEN`); `::add-mask::` +
+        `0600` file perms in `remote-bootstrap.js` are the contract.
+
+---
+
+## ADR-20260421: Retire `risk::high` runtime gating
+
+*   **Status:** Accepted (Epic #321 Story #334, v5.14.0).
+*   **Context:** `risk-gate-handler.js` halted the dispatcher on
+    `risk::high` tasks, and `sprint-story-close.js` halted close for
+    `risk::high` stories. In the new HITL-minimal model this becomes
+    two per-ticket gates the orchestrator must pause on — incompatible
+    with unattended remote runs.
+*   **Decision:** The runtime halt is removed. `handleRiskHighGate`
+    reduces to a log-only warning; `wave-dispatcher.js` dispatches
+    `risk::high` tasks unconditionally; `sprint-story-close.js` gates
+    only when both `hitl.riskHighApproval` **and**
+    `hitl.riskHighRuntimeGate` are explicitly `true` (both default
+    `false`). The label is preserved — retros and planning can still
+    query it as metadata.
+*   **Alternatives considered:** rename the label to
+    `metadata::risk-high` to make its informational nature legible —
+    deferred to Epic #349 as it is a breaking taxonomy change.
+*   **Consequences:**
+    *   Destructive-action containment moves from runtime approval to
+        (a) GitHub branch protection on `main`, (b) executor sub-agent
+        `agent::blocked` escalation when an unauthorized destructive
+        action is detected, (c) `epic::auto-close` as a deliberate
+        opt-in that must be set at dispatch.
+    *   `handleHighRiskGate` in `sprint-story-close.js` becomes dead
+        code behind a hidden opt-in flag — cleanup tracked in Epic
+        #349 Wave 0.
