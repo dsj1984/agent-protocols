@@ -18,6 +18,62 @@ import { createProvider } from './lib/provider-factory.js';
 
 const LEVEL_RANK = { progress: 0, notification: 1, friction: 2, action: 3 };
 
+function shouldFireWebhook(orchestration, type, actionEscalated) {
+  if (!orchestration.notifications?.webhookUrl) return false;
+  const minRank =
+    LEVEL_RANK[orchestration.notifications.webhookMinLevel] ??
+    LEVEL_RANK.progress;
+  const typeRank = LEVEL_RANK[type] ?? LEVEL_RANK.notification;
+  const effectiveRank = actionEscalated
+    ? Math.max(typeRank, LEVEL_RANK.action)
+    : typeRank;
+  return effectiveRank >= minRank;
+}
+
+function buildWebhookPayload({
+  orchestration,
+  ticketId,
+  type,
+  message,
+  operator,
+  isAction,
+}) {
+  return JSON.stringify({
+    repo: orchestration.github?.repo ?? null,
+    ticketId,
+    type,
+    event: isAction ? 'HITL_ACTION_REQUIRED' : type,
+    actionRequired: isAction,
+    message: message.replace(operator, '').trim(),
+    timestamp: new Date().toISOString(),
+  });
+}
+
+async function sendWebhook(url, payloadBody) {
+  const headers = { 'Content-Type': 'application/json' };
+  const webhookSecret = process.env.WEBHOOK_SECRET;
+  if (webhookSecret) {
+    const signature = createHmac('sha256', webhookSecret)
+      .update(payloadBody)
+      .digest('hex');
+    headers['X-Signature-256'] = `sha256=${signature}`;
+  }
+  try {
+    const res = await fetch(url, {
+      method: 'POST',
+      headers,
+      body: payloadBody,
+    });
+    if (!res.ok) {
+      console.warn(
+        `[Notify] Webhook returned ${res.status}: ${await res.text().catch(() => '')}`,
+      );
+    }
+  } catch (err) {
+    console.warn(`[Notify] Failed to send webhook: ${err.message}`);
+  }
+}
+
 /**
  * Dispatch a notification.
  *
@@ -63,54 +119,19 @@ export async function notify(ticketId, payload, opts = {}) {
   }
 
   // 2. Webhook for any event that meets the configured minimum level.
-  const webhookUrl = orchestration.notifications?.webhookUrl;
-  const minLevel = orchestration.notifications?.webhookMinLevel ?? 'progress';
-  const typeRank = LEVEL_RANK[type] ?? LEVEL_RANK.notification;
-  const minRank = LEVEL_RANK[minLevel] ?? LEVEL_RANK.progress;
   const actionEscalated = Boolean(actionRequired);
-  const effectiveRank = actionEscalated
-    ? Math.max(typeRank, LEVEL_RANK.action)
-    : typeRank;
-
-  if (webhookUrl && effectiveRank >= minRank) {
+  if (shouldFireWebhook(orchestration, type, actionEscalated)) {
+    const webhookUrl = orchestration.notifications.webhookUrl;
     console.log(`[Notify] Firing webhook (${type}) to ${webhookUrl}...`);
-    try {
-      const repo = orchestration.github?.repo ?? null;
-      const isAction = type === 'action' || actionEscalated;
-      const payloadBody = JSON.stringify({
-        repo,
-        ticketId,
-        type,
-        event: isAction ? 'HITL_ACTION_REQUIRED' : type,
-        actionRequired: isAction,
-        message: message.replace(operator, '').trim(),
-        timestamp: new Date().toISOString(),
-      });
-      const headers = { 'Content-Type': 'application/json' };
-
-      // H-4: Optional HMAC-SHA256 signing for webhook authenticity.
-      const webhookSecret = process.env.WEBHOOK_SECRET;
-      if (webhookSecret) {
-        const signature = createHmac('sha256', webhookSecret)
-          .update(payloadBody)
-          .digest('hex');
-        headers['X-Signature-256'] = `sha256=${signature}`;
-      }
-
-      const res = await fetch(webhookUrl, {
-        method: 'POST',
-        headers,
-        body: payloadBody,
-      });
-      // M-10: Check response status instead of silently swallowing errors.
-      if (!res.ok) {
-        console.warn(
-          `[Notify] Webhook returned ${res.status}: ${await res.text().catch(() => '')}`,
-        );
-      }
-    } catch (err) {
-      console.warn(`[Notify] Failed to send webhook: ${err.message}`);
-    }
+    const payloadBody = buildWebhookPayload({
+      orchestration,
+      ticketId,
+      type,
+      message,
+      operator,
+      isAction: type === 'action' || actionEscalated,
+    });
+    await sendWebhook(webhookUrl, payloadBody);
   }
 }
 
