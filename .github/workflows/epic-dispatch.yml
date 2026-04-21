@@ -6,13 +6,15 @@ on:
 
 permissions:
   issues: write
-  contents: read
+  contents: write
+  pull-requests: write
 
 jobs:
   dispatch:
     name: Dispatch Remote Orchestrator
     if: github.event.label.name == 'agent::dispatching'
     runs-on: ubuntu-latest
+    timeout-minutes: 360
     steps:
       - name: Validate Epic issue
         id: validate
@@ -63,19 +65,54 @@ jobs:
             core.setOutput('epic_id', String(issue.number));
             core.setOutput('auto_close', autoClose ? '1' : '0');
 
-      - name: Fire RemoteTrigger
+      - name: Checkout repo
+        uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+
+      - name: Setup Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: 'npm'
+
+      - name: Install dependencies
+        run: npm ci --ignore-scripts
+
+      - name: Materialize .mcp.json from secret
+        env:
+          MCP_JSON: ${{ secrets.MCP_JSON }}
+        run: |
+          if [ -z "$MCP_JSON" ]; then
+            echo "::error::MCP_JSON secret is empty — refusing to dispatch without the agent-protocols MCP config."
+            exit 1
+          fi
+          printf '%s' "$MCP_JSON" > .mcp.json
+          chmod 600 .mcp.json
+          echo "[epic-dispatch] .mcp.json written (mode 0600)."
+
+      - name: Materialize .env from secret (optional)
+        env:
+          ENV_FILE: ${{ secrets.ENV_FILE }}
+        run: |
+          if [ -z "$ENV_FILE" ]; then
+            echo "[epic-dispatch] No ENV_FILE secret — skipping .env."
+          else
+            printf '%s' "$ENV_FILE" > .env
+            chmod 600 .env
+            echo "[epic-dispatch] .env written (mode 0600)."
+          fi
+
+      - name: Sync slash commands from workflows
+        run: npm run sync:commands
+
+      - name: Fire Claude orchestrator
         id: trigger
         uses: anthropics/claude-code-action@v1
         with:
           claude_code_oauth_token: ${{ secrets.CLAUDE_CODE_OAUTH_TOKEN }}
           github_token: ${{ secrets.GITHUB_TOKEN }}
-          prompt: |
-            /sprint-execute-epic ${{ steps.validate.outputs.epic_id }}
-          env_vars: |
-            ENV_FILE=${{ secrets.ENV_FILE }}
-            MCP_JSON=${{ secrets.MCP_JSON }}
-            EPIC_ID=${{ steps.validate.outputs.epic_id }}
-            EPIC_AUTO_CLOSE=${{ steps.validate.outputs.auto_close }}
+          prompt: /sprint-execute-epic ${{ steps.validate.outputs.epic_id }}
 
       - name: Post dispatch confirmation
         if: success()
@@ -87,5 +124,5 @@ jobs:
               owner: context.repo.owner,
               repo: context.repo.repo,
               issue_number: Number(epicId),
-              body: `🚀 Remote orchestrator dispatched at ${new Date().toISOString()}.\n\nRun: ${context.serverUrl}/${context.repo.owner}/${context.repo.repo}/actions/runs/${context.runId}`,
+              body: `🚀 Remote orchestrator completed dispatch at ${new Date().toISOString()}.\n\nRun: ${context.serverUrl}/${context.repo.owner}/${context.repo.repo}/actions/runs/${context.runId}`,
             });
