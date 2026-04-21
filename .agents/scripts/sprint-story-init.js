@@ -324,7 +324,7 @@ export async function runStoryInit({
     );
   }
 
-  const { settings, orchestration } = injectedConfig || resolveConfig();
+  const { settings, orchestration } = injectedConfig || resolveConfig({ cwd });
   const provider = injectedProvider || createProvider(orchestration);
 
   progress('INIT', `Initializing Story #${storyId}...`);

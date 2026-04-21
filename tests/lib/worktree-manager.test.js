@@ -472,6 +472,52 @@ test('reap: retries lock-like remove failures on win32', async () => {
   }
 });
 
+test('reap: treats prune-cleared registration as removed after repeated remove failures', async () => {
+  const tmp = fs.mkdtempSync(path.join(os.tmpdir(), 'wt-reap-prune-'));
+  const wtPath = path.join(tmp, '.worktrees', 'story-235');
+  fs.mkdirSync(wtPath, { recursive: true });
+  try {
+    let pruned = false;
+    let removeCalls = 0;
+    const git = mockGit({
+      'worktree list': () => ({
+        status: 0,
+        stdout: pruned
+          ? `worktree ${tmp}\nHEAD x\nbranch refs/heads/main\n`
+          : `worktree ${tmp}\nHEAD x\nbranch refs/heads/main\n\nworktree ${wtPath}\nHEAD y\nbranch refs/heads/story-235\n`,
+        stderr: '',
+      }),
+      'status --porcelain': () => ({ status: 0, stdout: '', stderr: '' }),
+      'rev-parse': () => ({ status: 0, stdout: 'story-235', stderr: '' }),
+      'merge-base': () => ({ status: 0, stdout: '', stderr: '' }),
+      'ls-files --stage': () => ({ status: 0, stdout: '', stderr: '' }),
+      'worktree remove': () => {
+        removeCalls++;
+        return { status: 1, stdout: '', stderr: 'Directory not empty' };
+      },
+      'worktree prune': () => {
+        pruned = true;
+        return { status: 0, stdout: '', stderr: '' };
+      },
+    });
+    const wm = new WorktreeManager({
+      repoRoot: tmp,
+      logger: SILENT_LOGGER,
+      git,
+      platform: 'linux',
+    });
+    const r = await wm.reap(235, { epicBranch: 'main' });
+    assert.equal(
+      r.removed,
+      true,
+      `reap should succeed once registration is prune-cleared: ${r.reason}`,
+    );
+    assert.equal(removeCalls, 2, 'linux path should attempt remove twice');
+  } finally {
+    fs.rmSync(tmp, { recursive: true, force: true });
+  }
+});
+
 test('gc: reaps only worktrees for stories NOT in openStoryIds', async () => {
   const tmp = fs.mkdtempSync(path.join(os.tmpdir(), 'wt-'));
   try {

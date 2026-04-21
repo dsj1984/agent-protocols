@@ -1,4 +1,6 @@
 import assert from 'node:assert/strict';
+import fs from 'node:fs';
+import os from 'node:os';
 import path from 'node:path';
 import test from 'node:test';
 import { __setGitRunners } from '../.agents/scripts/lib/git-utils.js';
@@ -397,7 +399,20 @@ test('sprint-story-close: reaps worktree using resolved --cwd repo root', async 
       100: [],
     },
   });
-  const explicitMainRepo = path.resolve('C:/tmp/main-repo');
+  const explicitMainRepo = fs.mkdtempSync(
+    path.join(os.tmpdir(), 'close-cwd-reap-'),
+  );
+  fs.writeFileSync(
+    path.join(explicitMainRepo, '.agentrc.json'),
+    JSON.stringify({
+      agentSettings: { baseBranch: 'main' },
+      orchestration: {
+        provider: 'github',
+        github: { owner: 'o', repo: 'r' },
+        worktreeIsolation: { enabled: true, reapOnSuccess: true },
+      },
+    }),
+  );
   let observedRepoRoot = null;
   const originalReap = WorktreeManager.prototype.reap;
   WorktreeManager.prototype.reap = async function (_storyId, _opts) {
@@ -422,5 +437,112 @@ test('sprint-story-close: reaps worktree using resolved --cwd repo root', async 
     );
   } finally {
     WorktreeManager.prototype.reap = originalReap;
+    fs.rmSync(explicitMainRepo, { recursive: true, force: true });
+  }
+});
+
+test('sprint-story-close: resolves config from runtime --cwd (can disable reap)', async () => {
+  const provider = new MockProvider({
+    tickets: {
+      100: {
+        id: 100,
+        title: 'Story 100',
+        body: 'Epic: #50',
+        labels: ['type::story', 'agent::executing'],
+      },
+    },
+    subTickets: {
+      100: [],
+    },
+  });
+  const tmp = fs.mkdtempSync(path.join(os.tmpdir(), 'close-cwd-config-'));
+  fs.writeFileSync(
+    path.join(tmp, '.agentrc.json'),
+    JSON.stringify({
+      agentSettings: { baseBranch: 'main' },
+      orchestration: {
+        provider: 'github',
+        github: { owner: 'o', repo: 'r' },
+        worktreeIsolation: { enabled: false },
+      },
+    }),
+  );
+
+  let reapCalls = 0;
+  const originalReap = WorktreeManager.prototype.reap;
+  WorktreeManager.prototype.reap = async function (_storyId, _opts) {
+    reapCalls++;
+    return { removed: true, path: this.pathFor(100) };
+  };
+
+  try {
+    const { success } = await runStoryClose({
+      storyId: 100,
+      cwd: tmp,
+      injectedProvider: provider,
+    });
+    assert.ok(success, 'Story close should still succeed');
+    assert.equal(
+      reapCalls,
+      0,
+      'With worktreeIsolation.enabled=false in runtime cwd config, reap must be skipped',
+    );
+  } finally {
+    WorktreeManager.prototype.reap = originalReap;
+    fs.rmSync(tmp, { recursive: true, force: true });
+  }
+});
+
+test('sprint-story-init: resolves config from runtime --cwd for worktree mode', async () => {
+  const provider = new MockProvider({
+    tickets: {
+      100: {
+        id: 100,
+        title: 'Story 100',
+        body: 'Epic: #50',
+        labels: ['type::story'],
+      },
+      50: { id: 50, title: 'Epic 50', labels: ['type::epic'] },
+    },
+    subTickets: {
+      100: [],
+    },
+  });
+  const tmp = fs.mkdtempSync(path.join(os.tmpdir(), 'init-cwd-config-'));
+  fs.writeFileSync(
+    path.join(tmp, '.agentrc.json'),
+    JSON.stringify({
+      agentSettings: { baseBranch: 'main' },
+      orchestration: {
+        provider: 'github',
+        github: { owner: 'o', repo: 'r' },
+        worktreeIsolation: { enabled: false },
+      },
+    }),
+  );
+
+  let ensureCalls = 0;
+  const originalEnsure = WorktreeManager.prototype.ensure;
+  WorktreeManager.prototype.ensure = async function (_storyId, _branch) {
+    ensureCalls++;
+    return { path: this.pathFor(100), created: true };
+  };
+
+  try {
+    const { success } = await runStoryInit({
+      storyId: 100,
+      dryRun: false,
+      cwd: tmp,
+      injectedProvider: provider,
+    });
+    assert.ok(success, 'Story init should still succeed');
+    assert.equal(
+      ensureCalls,
+      0,
+      'With worktreeIsolation.enabled=false in runtime cwd config, init must not ensure worktree',
+    );
+  } finally {
+    WorktreeManager.prototype.ensure = originalEnsure;
+    fs.rmSync(tmp, { recursive: true, force: true });
   }
 });

@@ -968,8 +968,8 @@ export class WorktreeManager {
    * @returns {{ removed: boolean, reason?: string }}
    */
   _removeWorktreeWithRecovery(wtPath) {
-    const maxAttempts = this.platform === 'win32' ? 3 : 2;
-    const retryDelaysMs = [0, 100, 300];
+    const maxAttempts = this.platform === 'win32' ? 6 : 2;
+    const retryDelaysMs = [0, 150, 350, 700, 1200, 2000];
     let lastReason = 'worktree-remove-failed';
 
     for (let attempt = 1; attempt <= maxAttempts; attempt++) {
@@ -1009,6 +1009,19 @@ export class WorktreeManager {
         continue;
       }
       break;
+    }
+
+    // Best-effort recovery: some Windows lock races drop the worktree
+    // registration but fail final directory cleanup. If registration is gone
+    // after prune, treat reap as successful so branch cleanup can proceed.
+    this.git.gitSpawn(this.repoRoot, 'worktree', 'prune');
+    this._invalidateWorktreeCache();
+    const stillRegistered = this._findByPath(wtPath) !== null;
+    if (!stillRegistered) {
+      this.logger.warn(
+        `worktree.reap registration cleared after remove failure: ${lastReason}`,
+      );
+      return { removed: true, registrationOnly: true, reason: lastReason };
     }
 
     return { removed: false, reason: lastReason };

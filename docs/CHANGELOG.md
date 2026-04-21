@@ -2,6 +2,26 @@
 
 All notable changes to this project will be documented in this file.
 
+## [5.12.2] - 2026-04-20
+
+### Runtime `--cwd` honored for config resolution; worktree reap recovery
+
+- `runStoryClose()` and `runStoryInit()` now pass `cwd` to `resolveConfig()`
+  so the runtime `--cwd` actually controls which `.agentrc.json` is read.
+  Previously, `--cwd` could be ignored for config lookup, so
+  `worktreeIsolation` might appear disabled and reap would be skipped
+  entirely — producing no `WORKTREE` log, after which the branch delete
+  step would fail because the worktree still held the branch.
+- `WorktreeManager._removeWorktreeWithRecovery()` now uses a longer
+  Windows retry schedule (up to 6 attempts with 150ms–2s backoff) for
+  lock races, and — if repeated `git worktree remove` fails but
+  `git worktree prune` clears the registration — reap is treated as
+  successful for branch cleanup (with a warning). This prevents a
+  lingering folder from blocking branch deletion.
+- Added regression tests for runtime-`cwd` config control in
+  `sprint-story-close` and `sprint-story-init`, plus a prune-cleared
+  registration recovery test for `WorktreeManager.reap()`.
+
 ## [5.12.1] - 2026-04-20
 
 ### Harden `WorktreeManager.reap()` against submodule guard and Windows locks
