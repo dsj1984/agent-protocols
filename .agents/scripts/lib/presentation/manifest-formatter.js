@@ -13,7 +13,7 @@
 // Dispatch manifest (Epic-level) Markdown
 // ---------------------------------------------------------------------------
 
-export function formatManifestMarkdown(manifest, _opts = {}) {
+export function formatManifestMarkdown(manifest) {
   const lines = [];
   const { epicId, epicTitle, summary, storyManifest, dryRun, generatedAt } =
     manifest;
