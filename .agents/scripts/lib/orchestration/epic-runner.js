@@ -27,6 +27,7 @@ import { NotificationHook } from './epic-runner/notification-hook.js';
 import { StoryLauncher } from './epic-runner/story-launcher.js';
 import { WaveObserver } from './epic-runner/wave-observer.js';
 import { WaveScheduler } from './epic-runner/wave-scheduler.js';
+import { ErrorJournal } from './error-journal.js';
 import { STATE_LABELS, transitionTicketState } from './ticketing.js';
 
 const AUTO_CLOSE_LABEL = 'epic::auto-close';
@@ -40,6 +41,7 @@ const AUTO_CLOSE_LABEL = 'epic::auto-close';
  *   worktreeResolver?: (storyId: number) => string,
  *   fetchImpl?: typeof fetch,
  *   logger?: { info: Function, warn: Function, error: Function },
+ *   errorJournal?: { record: Function, finalize: Function, path: string },
  * }} args
  */
 export async function runEpic({
@@ -51,6 +53,7 @@ export async function runEpic({
   fetchImpl,
   runSkill,
   logger = console,
+  errorJournal,
 }) {
   if (!Number.isInteger(epicId)) throw new TypeError('epicId must be integer');
   if (!provider) throw new TypeError('provider is required');
@@ -62,6 +65,9 @@ export async function runEpic({
   if (typeof spawn !== 'function') throw new TypeError('spawn is required');
 
   const { concurrencyCap, pollIntervalSec } = config.epicRunner;
+  const journal = errorJournal ?? new ErrorJournal({ epicId });
+  const journalSuffix = () =>
+    journal?.path ? ` (see ${journal.path})` : '';
 
   // --- 1. Snapshot Epic state ---
   const epic = await provider.getTicket(epicId);
@@ -98,6 +104,7 @@ export async function runEpic({
     notificationHook,
     pollIntervalMs: pollIntervalSec * 1000,
     logger,
+    errorJournal: journal,
   });
   const launcher = new StoryLauncher({
     concurrencyCap,
@@ -116,17 +123,31 @@ export async function runEpic({
       await columnSync.sync(id, labels);
     } catch (err) {
       logger.warn?.(
-        `[EpicRunner] column sync failed for #${id}: ${err.message}`,
+        `[EpicRunner] column sync failed for #${id}: ${err.message}${journalSuffix()}`,
       );
+      await journal?.record({
+        module: 'EpicRunner',
+        op: `columnSync.sync(#${id})`,
+        error: err,
+        recovery: 'swallowed',
+      });
     }
   };
 
   // --- 4. Initialize checkpoint and flip label ---
   await transitionTicketState(provider, epicId, STATE_LABELS.EXECUTING, {
     notifier,
-  }).catch((err) =>
-    logger.warn?.(`[EpicRunner] label flip failed: ${err.message}`),
-  );
+  }).catch(async (err) => {
+    logger.warn?.(
+      `[EpicRunner] label flip failed: ${err.message}${journalSuffix()}`,
+    );
+    await journal?.record({
+      module: 'EpicRunner',
+      op: `transitionTicketState(#${epicId}, EXECUTING)`,
+      error: err,
+      recovery: 'swallowed',
+    });
+  });
   await syncColumn(epicId, [STATE_LABELS.EXECUTING]);
   const state = await checkpointer.initialize({
     totalWaves: scheduler.totalWaves,
@@ -143,6 +164,7 @@ export async function runEpic({
     runSkill,
     postComment: (id, payload) => provider.postComment(id, payload),
     logger,
+    errorJournal: journal,
   });
 
   // --- 5. Wave loop ---
@@ -204,6 +226,7 @@ export async function runEpic({
           bookends,
           logger,
           syncColumn,
+          journal,
         });
       }
       await syncColumn(epicId, [STATE_LABELS.EXECUTING]);
@@ -219,6 +242,7 @@ export async function runEpic({
     logger,
     syncColumn,
     notifier,
+    journal,
   });
 }
 
@@ -231,22 +255,34 @@ async function finalize({
   logger,
   syncColumn,
   notifier,
+  journal,
 }) {
-  if (state === 'completed') {
-    await transitionTicketState(provider, epicId, STATE_LABELS.REVIEW, {
-      notifier,
-    }).catch((err) =>
-      logger.warn?.(`[EpicRunner] review flip failed: ${err.message}`),
-    );
-    await syncColumn?.(epicId, [STATE_LABELS.REVIEW]);
-    const bookendResult = await bookends.run();
-    if (bookendResult?.completed) {
-      await syncColumn?.(epicId, [STATE_LABELS.DONE]);
+  try {
+    if (state === 'completed') {
+      await transitionTicketState(provider, epicId, STATE_LABELS.REVIEW, {
+        notifier,
+      }).catch(async (err) => {
+        const suffix = journal?.path ? ` (see ${journal.path})` : '';
+        logger.warn?.(`[EpicRunner] review flip failed: ${err.message}${suffix}`);
+        await journal?.record({
+          module: 'EpicRunner',
+          op: `transitionTicketState(#${epicId}, REVIEW)`,
+          error: err,
+          recovery: 'swallowed',
+        });
+      });
+      await syncColumn?.(epicId, [STATE_LABELS.REVIEW]);
+      const bookendResult = await bookends.run();
+      if (bookendResult?.completed) {
+        await syncColumn?.(epicId, [STATE_LABELS.DONE]);
+      }
+      return { epicId, state, waveHistory, bookendResult };
     }
-    return { epicId, state, waveHistory, bookendResult };
+    await syncColumn?.(epicId, ['agent::blocked']);
+    return { epicId, state, waveHistory, bookendResult: null };
+  } finally {
+    await journal?.finalize?.();
   }
-  await syncColumn?.(epicId, ['agent::blocked']);
-  return { epicId, state, waveHistory, bookendResult: null };
 }
 
 /**
