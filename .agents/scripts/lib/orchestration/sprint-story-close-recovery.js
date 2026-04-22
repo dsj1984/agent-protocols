@@ -137,3 +137,60 @@ export function detectPriorState({
 
   return { state: RECOVERY_STATES.FRESH, detail };
 }
+
+export const RECOVERY_ACTIONS = Object.freeze({
+  PROCEED: 'proceed',
+  EXIT_PRIOR_STATE: 'exit-prior-state',
+  RESUME_FROM_VALIDATE: 'resume-from-validate',
+  RESUME_FROM_MERGE: 'resume-from-merge',
+  RESUME_FROM_CONFLICT: 'resume-from-conflict',
+  RESTART: 'restart',
+});
+
+/**
+ * Decide how to dispatch given a detected prior state and CLI flags.
+ *
+ * Exactly one of `resume` / `restart` may be truthy. Passing both throws.
+ *
+ * @param {object} opts
+ * @param {string} opts.state     One of RECOVERY_STATES.
+ * @param {boolean} [opts.resume]
+ * @param {boolean} [opts.restart]
+ * @returns {{ action: string, exitCode?: number, reason?: string }}
+ */
+export function computeRecoveryMode({ state, resume, restart } = {}) {
+  if (resume && restart) {
+    throw new Error(
+      'computeRecoveryMode: --resume and --restart are mutually exclusive',
+    );
+  }
+
+  if (state === RECOVERY_STATES.FRESH) {
+    // Flags are no-ops on fresh state — proceed normally.
+    return { action: RECOVERY_ACTIONS.PROCEED };
+  }
+
+  if (restart) {
+    return { action: RECOVERY_ACTIONS.RESTART };
+  }
+
+  if (resume) {
+    switch (state) {
+      case RECOVERY_STATES.PARTIAL_MERGE:
+        return { action: RECOVERY_ACTIONS.RESUME_FROM_CONFLICT };
+      case RECOVERY_STATES.UNCOMMITTED_WORKTREE:
+        return { action: RECOVERY_ACTIONS.RESUME_FROM_VALIDATE };
+      case RECOVERY_STATES.PUSHED_UNMERGED:
+        return { action: RECOVERY_ACTIONS.RESUME_FROM_MERGE };
+      default:
+        throw new Error(`computeRecoveryMode: unknown state "${state}"`);
+    }
+  }
+
+  // Prior state detected + no flag → refuse to silently proceed.
+  return {
+    action: RECOVERY_ACTIONS.EXIT_PRIOR_STATE,
+    exitCode: 2,
+    reason: state,
+  };
+}

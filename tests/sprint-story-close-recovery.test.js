@@ -3,7 +3,9 @@ import path from 'node:path';
 import { test } from 'node:test';
 
 import {
+  RECOVERY_ACTIONS,
   RECOVERY_STATES,
+  computeRecoveryMode,
   detectPriorState,
 } from '../.agents/scripts/lib/orchestration/sprint-story-close-recovery.js';
 
@@ -166,5 +168,77 @@ test('detectPriorState', async (t) => {
       fs: makeFs([wtPath]),
     });
     assert.strictEqual(result.state, RECOVERY_STATES.UNCOMMITTED_WORKTREE);
+  });
+});
+
+test('computeRecoveryMode dispatch table', async (t) => {
+  await t.test('fresh state proceeds regardless of flags', () => {
+    for (const flags of [
+      {},
+      { resume: true },
+      { restart: true },
+    ]) {
+      const result = computeRecoveryMode({
+        state: RECOVERY_STATES.FRESH,
+        ...flags,
+      });
+      assert.strictEqual(result.action, RECOVERY_ACTIONS.PROCEED);
+    }
+  });
+
+  await t.test('non-fresh state with no flag returns exit-prior-state', () => {
+    const result = computeRecoveryMode({
+      state: RECOVERY_STATES.PARTIAL_MERGE,
+    });
+    assert.strictEqual(result.action, RECOVERY_ACTIONS.EXIT_PRIOR_STATE);
+    assert.strictEqual(result.exitCode, 2);
+    assert.strictEqual(result.reason, RECOVERY_STATES.PARTIAL_MERGE);
+  });
+
+  await t.test('--restart returns RESTART for any non-fresh state', () => {
+    for (const state of [
+      RECOVERY_STATES.PARTIAL_MERGE,
+      RECOVERY_STATES.UNCOMMITTED_WORKTREE,
+      RECOVERY_STATES.PUSHED_UNMERGED,
+    ]) {
+      const result = computeRecoveryMode({ state, restart: true });
+      assert.strictEqual(result.action, RECOVERY_ACTIONS.RESTART);
+    }
+  });
+
+  await t.test('--resume dispatches per state', () => {
+    assert.strictEqual(
+      computeRecoveryMode({
+        state: RECOVERY_STATES.PARTIAL_MERGE,
+        resume: true,
+      }).action,
+      RECOVERY_ACTIONS.RESUME_FROM_CONFLICT,
+    );
+    assert.strictEqual(
+      computeRecoveryMode({
+        state: RECOVERY_STATES.UNCOMMITTED_WORKTREE,
+        resume: true,
+      }).action,
+      RECOVERY_ACTIONS.RESUME_FROM_VALIDATE,
+    );
+    assert.strictEqual(
+      computeRecoveryMode({
+        state: RECOVERY_STATES.PUSHED_UNMERGED,
+        resume: true,
+      }).action,
+      RECOVERY_ACTIONS.RESUME_FROM_MERGE,
+    );
+  });
+
+  await t.test('--resume + --restart together throws', () => {
+    assert.throws(
+      () =>
+        computeRecoveryMode({
+          state: RECOVERY_STATES.PARTIAL_MERGE,
+          resume: true,
+          restart: true,
+        }),
+      /mutually exclusive/,
+    );
   });
 });
