@@ -103,6 +103,7 @@ async function main() {
     epicId: args.epicId,
     provider,
     config: config.orchestration,
+    autoVersionBump: Boolean(config.settings?.release?.autoVersionBump),
     spawn: (spawnArgs) => defaultSpawn({ ...spawnArgs, logsDir }),
     runSkill: (skill, runArgs) =>
       defaultRunSkill(skill, { ...runArgs, logsDir }),

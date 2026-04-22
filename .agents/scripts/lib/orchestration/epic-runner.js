@@ -32,6 +32,7 @@ import { NotificationHook } from './epic-runner/notification-hook.js';
 import { ProgressReporter } from './epic-runner/progress-reporter.js';
 import { SpawnSmokeTest } from './epic-runner/spawn-smoke-test.js';
 import { StoryLauncher } from './epic-runner/story-launcher.js';
+import { checkVersionBumpIntent } from './epic-runner/version-bump-intent.js';
 import { WaveObserver } from './epic-runner/wave-observer.js';
 import { WaveScheduler } from './epic-runner/wave-scheduler.js';
 import { ErrorJournal } from './error-journal.js';
@@ -215,6 +216,30 @@ async function runEpicWithContext(ctx, collaborators = {}) {
     concurrencyCap,
     autoClose,
   });
+
+  // Phase 0.5 — version-bump-intent snapshot. Emits a `notification`
+  // structured comment when the Epic body declares a release target that
+  // disagrees with `release.autoVersionBump`. No-op when they agree or no
+  // directive is present.
+  try {
+    await checkVersionBumpIntent({
+      provider,
+      epicId,
+      epicBody: epic.body ?? '',
+      autoVersionBump: Boolean(ctx.autoVersionBump),
+      logger,
+    });
+  } catch (err) {
+    logger.warn?.(
+      `[EpicRunner] version-bump-intent check failed: ${err.message}${journalSuffix()}`,
+    );
+    await journal?.record({
+      module: 'EpicRunner',
+      op: 'checkVersionBumpIntent',
+      error: err,
+      recovery: 'swallowed',
+    });
+  }
   // Authoritative snapshot — on a resume, re-use whatever autoClose was
   // captured at dispatch time, ignoring mid-run label changes.
   const effectiveAutoClose = Boolean(state.autoClose);
