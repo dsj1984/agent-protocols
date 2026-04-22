@@ -12,7 +12,6 @@ import { PROJECT_ROOT } from '../config-resolver.js';
 import { hydrateContext } from './context-hydration-engine.js';
 import { vlog } from './dispatch-logger.js';
 import { getResolvedBranch } from './manifest-builder.js';
-import { handleRiskHighGate } from './risk-gate-handler.js';
 import { STATE_LABELS } from './ticketing.js';
 
 export const AGENT_DONE_LABEL = STATE_LABELS.DONE;
@@ -191,19 +190,12 @@ export async function dispatchWave(wave, taskMap, ctx) {
   // Tasks in the same wave have their dependencies satisfied, so they are
   // independent by construction. Dispatch them concurrently (bounded) so a
   // 10-task wave takes ~max(dispatch time) instead of ~sum(dispatch times).
-  //
-  // `risk::high` is no longer a runtime gate (tech spec #323 — retired in
-  // Story #334). We still call `handleRiskHighGate` for the log-only
-  // warning, but it returns `null` and the task is dispatched regardless.
   const concurrency = ctx.dispatchConcurrency ?? DISPATCH_CONCURRENCY;
   const results = new Array(eligible.length);
   for (let i = 0; i < eligible.length; i += concurrency) {
     const slice = eligible.slice(i, i + concurrency);
     const sliceResults = await Promise.all(
       slice.map(async (task) => {
-        if (task.isRiskHigh) {
-          await handleRiskHighGate(task, ctx.provider, ctx.dryRun);
-        }
         return {
           kind: 'dispatched',
           value: await dispatchTaskInWave(task, ctx),

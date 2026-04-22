@@ -287,29 +287,6 @@ describe('dispatch() — cycle detection', () => {
   });
 });
 
-describe('dispatch() — risk::high tasks (runtime gate retired)', () => {
-  it('dispatches risk::high tasks without holding them', async () => {
-    const riskTask = makeTask(10, {
-      labels: ['type::task', 'agent::ready', 'risk::high'],
-    });
-    const provider = new MockProvider({ epic: EPIC, tasks: [riskTask] });
-    const adapter = new MockAdapter();
-
-    const manifest = await dispatch({
-      epicId: 1,
-      dryRun: true,
-      provider,
-      adapter,
-    });
-
-    // Per tech spec #323 / Story #334: risk::high is metadata, not a runtime
-    // gate. The task is dispatched; heldForApproval stays empty.
-    assert.equal(manifest.heldForApproval.length, 0);
-    assert.equal(manifest.dispatched.length, 1);
-    assert.equal(manifest.dispatched[0].taskId, 10);
-  });
-});
-
 describe('dispatch() — skips already-done tasks', () => {
   it('does not re-dispatch agent::done tasks', async () => {
     const doneTask = makeTask(10, {

@@ -95,7 +95,6 @@ describe('Bootstrap — LABEL_TAXONOMY', () => {
   it('contains status, risk, context, and execution labels', () => {
     const names = LABEL_TAXONOMY.map((l) => l.name);
     assert.ok(names.includes('status::blocked'));
-    assert.ok(names.includes('risk::high'));
     assert.ok(names.includes('risk::medium'));
     assert.ok(names.includes('context::prd'));
     assert.ok(names.includes('context::tech-spec'));
@@ -111,7 +110,7 @@ describe('Bootstrap — LABEL_TAXONOMY', () => {
   });
 
   it('label count = non-persona taxonomy + one per persona file', () => {
-    const nonPersonaBase = 17;
+    const nonPersonaBase = 16;
     assert.equal(LABEL_TAXONOMY.length, nonPersonaBase + PERSONA_NAMES.length);
   });
 

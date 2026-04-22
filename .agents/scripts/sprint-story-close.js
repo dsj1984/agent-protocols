@@ -8,16 +8,12 @@
  * Mode B workflow. Performs all post-implementation orchestration:
  *
  *   1. Validates the Story branch exists and is currently checked out.
- *   2. Checks for risk::high label — prints an in-chat HITL pause prompt to
- *      stderr and exits non-zero (no PR, no push, no comment, no label
- *      mutation). The invoking agent relays the options to the operator in
- *      chat; the story branch is left untouched.
- *   3. Merges the Story branch into epic/<epicId> with --no-ff.
- *   4. Pushes the Epic branch.
- *   5. Deletes the Story branch (local + remote).
- *   6. Batch transitions all child Tasks → agent::done (with cascade).
- *   7. Transitions the Story → agent::done (with cascade).
- *   8. Runs health-monitor.js.
+ *   2. Merges the Story branch into epic/<epicId> with --no-ff.
+ *   3. Pushes the Epic branch.
+ *   4. Deletes the Story branch (local + remote).
+ *   5. Batch transitions all child Tasks → agent::done (with cascade).
+ *   6. Transitions the Story → agent::done (with cascade).
+ *   7. Runs health-monitor.js.
  *
  * Usage:
  *   node sprint-story-close.js --story <STORY_ID> [--epic <EPIC_ID>]
@@ -26,7 +22,7 @@
  *
  * Exit codes:
  *   0 — Story closed and merged successfully.
- *   1 — Error or risk::high gate (paused for operator decision).
+ *   1 — Error.
  *
  * @see .agents/workflows/sprint-execute.md Mode B
  */
@@ -57,7 +53,6 @@ import {
   transitionTicketState,
 } from './lib/orchestration/ticketing.js';
 import { createProvider } from './lib/provider-factory.js';
-import { postHitlGateNotification, RISK_HIGH_LABEL } from './lib/risk-gate.js';
 import {
   batchTransitionTickets,
   fetchChildTasks,
@@ -352,71 +347,6 @@ async function cleanupTempFiles(storyId) {
 // CLI argument parsing
 // ---------------------------------------------------------------------------
 
-async function handleHighRiskGate(
-  _provider,
-  storyBranch,
-  storyId,
-  _epicId,
-  _cwd,
-) {
-  // Pure pause. No PR, no push, no ticket comment, no label change — the
-  // invoking agent (running /sprint-execute) sees this stderr block and the
-  // non-zero exit, stops the workflow, and relays the options to the human
-  // in chat. The human replies in chat and the agent resumes accordingly.
-  progress(
-    'RISK',
-    `⚠️ Story #${storyId} is ${RISK_HIGH_LABEL} — pausing the workflow for operator input.`,
-  );
-  Logger.error('');
-  Logger.error(
-    `[HITL GATE] Story #${storyId} (\`${storyBranch}\`) is labelled ${RISK_HIGH_LABEL}.`,
-  );
-  Logger.error('All child tasks are complete, but the story has NOT been');
-  Logger.error('pushed, merged, or deleted. Ask the operator to choose:');
-  Logger.error('');
-  Logger.error(
-    `  (1) Auto-merge — the AGENT removes the \`${RISK_HIGH_LABEL}\` label via`,
-  );
-  Logger.error(
-    `      \`update-ticket-state.js --ticket <id> --remove-label ${RISK_HIGH_LABEL}\``,
-  );
-  Logger.error('      and re-runs sprint-story-close for this story.');
-  Logger.error(
-    '  (2) Merge manually — operator inspects the diff and merges by hand.',
-  );
-  Logger.error(
-    '  (3) Reject / rework — leave the branch alone and open follow-up work.',
-  );
-  Logger.error('');
-  Logger.error(
-    'Reply in chat with `Proceed` or `Proceed Option 1/2/3`. The agent',
-  );
-  Logger.error('will remove the label automatically for Option 1.');
-  Logger.error('');
-  Logger.error(
-    'To skip this gate globally, set `orchestration.hitl.riskHighApproval` to',
-  );
-  Logger.error('false in `.agentrc.json`.');
-  Logger.error('');
-
-  await postHitlGateNotification(
-    storyId,
-    `HITL gate: Story #${storyId} (\`${storyBranch}\`) is ${RISK_HIGH_LABEL} ` +
-      'and awaiting operator decision (Proceed / Option 1 / Option 2 / ' +
-      'Option 3). Story branch not merged.',
-  );
-
-  return {
-    action: 'paused-for-approval',
-    reason:
-      'risk::high — operator must reply in chat with `Proceed` / ' +
-      '`Proceed Option 1` (agent auto-removes the label and re-runs), ' +
-      '`Proceed Option 2` (manual merge), or `Proceed Option 3` ' +
-      '(reject/rework). No ticket mutations were made. Story branch ' +
-      'left untouched.',
-  };
-}
-
 /**
  * Pre-merge rebase of the Story branch onto `origin/<epicBranch>`.
  *
@@ -647,65 +577,31 @@ export async function runStoryClose({
   progress('TASKS', `Found ${tasks.length} child Task(s)`);
 
   // -------------------------------------------------------------------------
-  // Step 5 — Risk check and merge
+  // Step 5 — Merge
   // -------------------------------------------------------------------------
 
-  // Runtime `risk::high` gating was retired in Story #334 (tech spec #323).
-  // The label is preserved as informational metadata for retro queries, but
-  // it no longer halts close. Opt-in callers that still need HITL approval
-  // can set `orchestration.hitl.riskHighApproval: true` AND
-  // `orchestration.hitl.riskHighRuntimeGate: true`; the default is off.
-  const riskHighGateEnabled =
-    orchestration?.hitl?.riskHighApproval !== false &&
-    orchestration?.hitl?.riskHighRuntimeGate === true;
-  const isHighRisk =
-    story.labels.includes(RISK_HIGH_LABEL) && riskHighGateEnabled;
-
-  if (story.labels.includes(RISK_HIGH_LABEL) && !isHighRisk) {
-    progress(
-      'RISK',
-      `⚠️ Story #${storyId} carries ${RISK_HIGH_LABEL} — logging only ` +
-        '(runtime gate retired per tech spec #323).',
-    );
-  }
-
   let branchCleanup = { localDeleted: false, remoteDeleted: false };
-  if (isHighRisk) {
-    const riskResult = await handleHighRiskGate(
-      provider,
-      storyBranch,
-      storyId,
-      epicId,
-      cwd,
-    );
-    const result = { storyId, epicId, ...riskResult };
-    console.log('\n--- STORY CLOSE RESULT ---');
-    console.log(JSON.stringify(result, null, 2));
-    console.log('--- END RESULT ---\n');
-    return { success: false, result };
-  } else {
-    await finalizeMerge(
-      epicBranch,
-      storyBranch,
-      story.title,
-      storyId,
-      cwd,
-      orchestration,
-      epicId,
-    );
-    // Reap must precede branch cleanup: git refuses to delete a branch
-    // that is still checked out by a live worktree. A failed reap will
-    // leave the worktree registration in place and the subsequent branch
-    // delete will fail — which is now reported in the structured result
-    // rather than silently swallowed.
-    await reapStoryWorktree({
-      orchestration,
-      storyId,
-      epicBranch,
-      repoRoot: cwd,
-    });
-    branchCleanup = cleanupBranches(storyBranch, cwd);
-  }
+  await finalizeMerge(
+    epicBranch,
+    storyBranch,
+    story.title,
+    storyId,
+    cwd,
+    orchestration,
+    epicId,
+  );
+  // Reap must precede branch cleanup: git refuses to delete a branch
+  // that is still checked out by a live worktree. A failed reap will
+  // leave the worktree registration in place and the subsequent branch
+  // delete will fail — which is now reported in the structured result
+  // rather than silently swallowed.
+  await reapStoryWorktree({
+    orchestration,
+    storyId,
+    epicBranch,
+    repoRoot: cwd,
+  });
+  branchCleanup = cleanupBranches(storyBranch, cwd);
 
   // Cascade Completion (Ticket Closure)
   const { closedTickets, cascadedTo, cascadeFailed } =

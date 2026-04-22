@@ -51,7 +51,6 @@ test('dispatchWave: returns empty when every eligible task is done or executing'
       status: AGENT_DONE_LABEL,
       dependsOn: [],
       title: 't1',
-      isRiskHigh: false,
     },
     { id: 2, status: 'agent::executing', dependsOn: [], title: 't2' },
   ];
@@ -68,7 +67,6 @@ test('dispatchWave: halts when deps are not yet complete', async () => {
       status: 'agent::ready',
       dependsOn: [99],
       title: 't1',
-      isRiskHigh: false,
     },
   ];
   const taskMap = new Map([
@@ -88,7 +86,6 @@ test('dispatchWave: dry-run dispatches eligible tasks and records dispatchId', a
       dependsOn: [],
       title: 't7',
       body: 'parent: #70',
-      isRiskHigh: false,
       persona: 'fullstack',
       mode: 'task',
       skills: [],
@@ -104,7 +101,7 @@ test('dispatchWave: dry-run dispatches eligible tasks and records dispatchId', a
     epicId: 1,
     epicBranch: 'epic/1',
     dryRun: true,
-    orchestration: { hitl: { riskHighApproval: false } },
+    orchestration: { hitl: {} },
   };
   const result = await dispatchWave(wave, taskMap, ctx);
   assert.equal(result.shouldHalt, false);
