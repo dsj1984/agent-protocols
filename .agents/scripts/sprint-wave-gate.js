@@ -3,10 +3,17 @@
 /**
  * .agents/scripts/sprint-wave-gate.js — Wave Completeness Gate
  *
- * Reads the latest `dispatch-manifest` structured comment on an Epic,
- * parses its story list, and verifies every story in the manifest is
- * closed. Exits non-zero if any remain open so `/sprint-close` can halt
- * before any merge-to-main work begins.
+ * Reads the latest `dispatch-manifest` structured comment on an Epic — the
+ * single source of truth for which Stories the sprint committed to — and
+ * verifies every Story in the manifest is closed. Exits non-zero if any
+ * remain open so `/sprint-close` can halt before any merge-to-main work
+ * begins.
+ *
+ * The gate never reads `temp/dispatch-manifest-<epicId>.{md,json}`: those
+ * files are derived views (regenerated on demand by `render-manifest.js`)
+ * and can legitimately be stale or absent. Pinning the gate to the
+ * structured comment keeps its decision reproducible across workstations,
+ * CI runners, and fresh worktrees.
  *
  * Also reads the `parked-follow-ons` structured comment (if present) so
  * the operator sees recuts and parked Stories as part of the same gate

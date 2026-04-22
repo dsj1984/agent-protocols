@@ -10,10 +10,14 @@ This workflow is the **terminal step** of the Epic lifecycle. It promotes the
 fully integrated and reviewed `epic/<epicId>` branch into `main`, closes the
 Epic GitHub issue, cleans up all sprint branches, and optionally tags a release.
 
-> **When to run**: As soon as all child work is closed. `/sprint-close` now
-> **auto-invokes** the mandatory pre-merge gates (`/sprint-code-review` in Step
-> 1.4 and `/sprint-retro` in Step 1.5) when they have not already been
-> completed, so operators no longer need to run them by hand.
+The workflow is organised around **five phases** — Validate, Review, Land,
+Finalize, Notify. Each phase is a cohesive checkpoint: skipping ahead strands
+partial state on GitHub, so run them in order.
+
+> **When to run**: As soon as all child work is closed. `/sprint-close`
+> auto-invokes the mandatory pre-merge gates (`/sprint-code-review` in the
+> Review phase and `/sprint-retro` in the Notify phase) when they have not
+> already been completed, so operators no longer need to run them by hand.
 >
 > **Persona**: `devops-engineer` · **Skills**:
 > `core/git-workflow-and-versioning`
@@ -42,167 +46,149 @@ Epic GitHub issue, cleans up all sprint branches, and optionally tags a release.
    - All files listed in `agentSettings.docsContextFiles` (prefixed with the
      path from `agentSettings.docsRoot`).
 7. Resolve `[RUN_RETRO]` from `agentSettings.sprintClose.runRetro` in
-   `.agentrc.json` (default: `true`). When `false`, Step 1.5 is skipped entirely
-   — no retro is required or produced.
+   `.agentrc.json` (default: `true`). When `false`, the Notify phase's retro
+   auto-invoke is skipped entirely — no retro is required or produced.
+8. Resolve `[AUTO_CLOSE]` — `true` when the Epic carries `epic::auto-close`.
 
-## Step 0.5 — Wave Completeness Gate
+---
 
-Before any hierarchy or merge work, verify every Story in the Epic's dispatch
-manifest is closed. The manifest is persisted as a `dispatch-manifest`
-structured comment on the Epic by `/sprint-plan` (and by every subsequent
-dispatcher run), which makes it the authoritative source of truth for which
-Stories the sprint actually committed to.
+## Phase 1 — Validate
+
+Prove the sprint is cohesive and safe to ship before running any git
+operations. If any check in this phase fails, STOP and surface the exact
+remediation to the operator.
+
+### 1.1 Wave Completeness Gate
+
+Every Story in the Epic's frozen dispatch manifest must be closed, along with
+every open recut and every parked follow-on. The manifest lives as a
+`dispatch-manifest` structured comment on the Epic — `/sprint-plan` and every
+subsequent dispatcher run refresh it, so it is the single source of truth for
+"which Stories did the sprint actually commit to?"
 
 ```powershell
 node [SCRIPTS_ROOT]/sprint-wave-gate.js --epic [EPIC_ID]
 ```
 
-If the script exits non-zero: **STOP IMMEDIATELY.** The printed output lists
-every Story ID from the manifest that is still open, along with its wave and
-title. Close or re-dispatch the outstanding Stories before re-running
-`/sprint-close`.
+If the script exits non-zero: **STOP IMMEDIATELY.** The output lists every
+manifest Story, recut, and parked follow-on that is still open, with its wave
+and title. Close or re-dispatch the outstanding work before re-running
+`/sprint-close`. Pass `--allow-parked` / `--allow-open-recuts` to waive once
+the operator has deliberately deferred the follow-on work.
 
-The gate also reads the `parked-follow-ons` structured comment (posted by the
-dispatcher) and halts if any **recut** Story (`<!-- recut-of: #N -->` marker) or
-**parked follow-on** (out-of-manifest Story with no recut lineage) is still
-open. The operator must explicitly adopt each parked follow-on into the Epic
-(re-run the dispatcher so the manifest is refreshed) or defer it by closing the
-Story with `state_reason=not_planned` before closure can proceed. Pass
-`--allow-parked` / `--allow-open-recuts` to the wave-gate to waive once the
-operator has made that decision consciously.
+> If `temp/dispatch-manifest-<epicId>.{md,json}` has drifted or was lost,
+> regenerate it from the structured comment (the SSOT) via:
+>
+> ```powershell
+> node [SCRIPTS_ROOT]/render-manifest.js --epic [EPIC_ID]
+> ```
 
-## Step 1 — Completeness Gate (Hierarchy Check)
+### 1.2 Hierarchy Completeness Gate
 
-Before executing any git operations, verify ALL child items under the Epic are
-successfully closed:
+Every child item under the Epic must be closed:
 
 1. **Tasks**: Must all be `agent::done` and closed.
 2. **Stories**: Must all be closed.
 3. **Features**: Must all be closed.
 
-If ANY child ticket is not closed: **STOP IMMEDIATELY.** Alert the operator with
+If ANY child ticket is open: **STOP IMMEDIATELY** and alert the operator with
 the exact open IDs.
 
-## Step 1.4 — Code Review Gate (auto-invoke)
+### 1.3 Documentation Freshness Gate
 
-Before any merge-to-main, the Epic must have passed a `/sprint-code-review`.
-Historically this step was operator-driven — if the review hadn't been run,
-`/sprint-close` would halt and ask the operator to run it separately, which
-created friction between "all child work is done" and "Epic is actually merged."
-As of v5.8.7, the close workflow **auto-invokes** the review and only stops if
-the review itself surfaces a blocker.
-
-1. Invoke `/sprint-code-review [EPIC_ID]` inline (read-only audit mode — no
-   remediation).
-2. Inspect the resulting findings report:
-   - **Any 🔴 Critical Blocker** — STOP. Relay the blockers to the operator and
-     do not proceed to Step 1.5. The operator decides whether to fix on the Epic
-     branch and re-run `/sprint-close`, or to override explicitly.
-   - **Only 🟠/🟡/🟢 findings** — log them to the operator as "non-blocking
-     review findings" and continue to Step 1.5. Non-blocking findings are
-     surfaced but do not halt the close.
-3. If the operator passes `--skip-code-review` at invocation time, skip this
-   step entirely and log `"code review skipped by operator override"`.
-
-> **Why this changed:** The old gate assumed `/sprint-code-review` had already
-> been run out-of-band and stopped when it couldn't detect evidence. But
-> `/sprint-code-review` produces an inline report, not a persisted marker, so
-> the gate's "not detected" state collapsed to "never run." Auto- invoking
-> removes the ambiguity and makes the close workflow self-complete.
-
-## Step 1.5 — Retrospective Gate (auto-invoke)
-
-**Skip this step entirely when `[RUN_RETRO]` is `false`.** Log
-`"retro skipped by config (agentSettings.sprintClose.runRetro=false)"` and
-proceed to Step 2.
-
-When `[RUN_RETRO]` is `true` (default), verify a retrospective comment has been
-posted on the Epic issue. Retros are stored as comments on the Epic — there is
-no local retro file.
-
-Detection strategy:
-
-1. **Preferred**: fetch `provider.getComments(epicId)` (or
-   `provider.getTicketComments(epicId)`) and filter for a comment whose
-   `type === "retro"` metadata is present.
-2. **Fallback**: grep the raw comment bodies for the
-   `<!-- retro-complete: ... -->` HTML marker written at the end of the retro
-   body.
+Every doc in `[ALL_DOCS]` must reference the Epic. A file passes when **either**
+a commit touching it mentions `#[EPIC_ID]` in its message, **or** the file's
+current body mentions `#[EPIC_ID]`. A pure-whitespace or unrelated diff no
+longer satisfies the gate.
 
 ```powershell
-# Fallback grep — matches the retro-complete HTML marker.
-gh api "repos/{owner}/{repo}/issues/[EPIC_ID]/comments" \
-  --jq '.[] | select(.body | test("retro-complete:"))'
+node [SCRIPTS_ROOT]/validate-docs-freshness.js --epic [EPIC_ID]
 ```
 
-If no matching comment is found, **auto-invoke** `/sprint-retro [EPIC_ID]`
-inline. The retro skill produces and posts the retrospective comment on the
-Epic, then returns. After it completes, re-run the `gh api` check above to
-confirm the comment is now present; if it is, proceed to Step 2. If the retro
-skill failed to produce a comment for any reason, STOP and relay the failure to
-the operator.
-
-> **Why this gate exists:** Without it, retros get silently skipped and the Epic
-> closes with no post-mortem record. The gate reads directly from GitHub (the
-> retro's source of truth), not a local path.
->
-> **Why it now auto-invokes:** The prior "STOP and ask the operator to run
-> `/sprint-retro`" step generated friction every time — the operator always
-> wanted option (a) (run it, then continue). Auto-invocation collapses the
-> round-trip; the gate still exists as a failure detector, it just no longer
-> requires a human handoff to pass.
-
-## Step 2 — Documentation Freshness Gate
-
-For each file listed in `[ALL_DOCS]`, verify it has been meaningfully updated
-during this Epic's lifecycle. The check is intentionally simple — it confirms
-that the file was **modified** (staged or committed) relative to `[BASE_BRANCH]`
-so that the operator cannot forget to update user-facing documentation before a
-release.
-
-```powershell
-# For each doc path in [ALL_DOCS]:
-git diff [BASE_BRANCH]..HEAD --name-only -- [DOC_PATH]
-```
-
-For every file that shows **no diff** (i.e., no changes compared to
-`[BASE_BRANCH]`):
-
-1. **Alert the operator** with the exact file path.
-2. Open the file, review the Epic's completed tickets (title + description), and
-   add or update the relevant sections to accurately reflect the changes shipped
-   in this Epic.
-3. Stage the documentation changes:
+For every failing file, open it, review the Epic's completed tickets
+(title + description), and add or update the relevant sections to reflect the
+shipped changes. Then stage and commit with a message that cites the Epic:
 
 ```powershell
 git add [DOC_PATH]
-git commit -m "docs: update [DOC_PATH] for Epic #[EPIC_ID]"
+git commit -m "docs([DOC_PATH]): update for Epic #[EPIC_ID]"
 ```
+
+Re-run the gate until it exits 0.
 
 > **Guidance for consuming projects:** Add every file your release process
 > requires to `release.docs` or `agentSettings.docsContextFiles` in
 > `.agentrc.json`. Common examples: `README.md`, `docs/CHANGELOG.md`,
 > `MIGRATION.md`, `API.md`.
 
-## Step 3 — Version Bump & Tag
+---
 
-If `release.autoVersionBump` is `false`, **skip this entire step** — do not bump
-any version, do not create a tag. Proceed directly to Step 4.
+## Phase 2 — Review
+
+Establish the post-hoc code-review record on the Epic. The Review phase runs
+`/sprint-code-review`, which performs the static analysis **and** persists
+its findings as a `code-review` structured comment on the Epic (via
+`upsertStructuredComment`). That comment is the durable audit trail —
+subsequent retros, incident reviews, and compliance checks read back from it.
+
+### 2.1 Auto-invoke `/sprint-code-review`
+
+1. Invoke `/sprint-code-review [EPIC_ID]` inline (read-only audit mode — no
+   remediation).
+2. Inspect the resulting findings:
+   - **Any 🔴 Critical Blocker** — STOP. Relay the blockers to the operator and
+     do not proceed to Phase 3. The operator decides whether to fix on the
+     Epic branch and re-run `/sprint-close`, or to override explicitly.
+   - **Only 🟠/🟡/🟢 findings** — log them as "non-blocking review findings"
+     and continue. The full report is already persisted on the Epic.
+3. If the operator passes `--skip-code-review` at invocation time, skip this
+   step and log `code review skipped by operator override`.
+
+> **Why auto-invoke:** The prior gate assumed `/sprint-code-review` had been
+> run out-of-band and stopped when it couldn't detect evidence. Because the
+> review now upserts a structured comment, the gate detects prior runs
+> reliably — but keeping the auto-invoke collapses the round-trip when the
+> review has not yet been written.
+
+---
+
+## Phase 3 — Land
+
+Ship the Epic: validate the branch, bump version if applicable, merge to
+`[BASE_BRANCH]`, scan for conflict markers, and push.
+
+### 3.1 Branch-Protection Prerequisite (auto-close only)
+
+When `[AUTO_CLOSE]` is `true`, confirm `[BASE_BRANCH]` carries a protection
+rule **before** the merge. An unprotected `main` + an automated merge is an
+unreviewed direct-push waiting to happen.
+
+```powershell
+node [SCRIPTS_ROOT]/check-branch-protection.js --epic [EPIC_ID] --base [BASE_BRANCH]
+```
+
+The script is a no-op when the Epic does not carry `epic::auto-close`. When
+protection is missing and auto-close is set, it exits non-zero and prints two
+remediation paths (enable protection, or drop the auto-close label).
+
+### 3.2 Version Bump & Tag
+
+If `release.autoVersionBump` is `false`, **skip this entire step** — do not
+bump any version, do not create a tag. Proceed directly to the pre-merge
+validation.
 
 If `release.autoVersionBump` is `true` (default) **and** at least one of
 `release.versionFile` or `release.packageJson` is configured, increment the
-project version **before** the merge to `main`.
+project version **before** the merge to `[BASE_BRANCH]`.
 
 1. **Read** the current version string from `[RELEASE_CONFIG].versionFile` (if
    set) or `package.json#version`.
 1. **Determine the bump segment** by inspecting the Epic's completed tickets:
-   - **minor** — if the Epic introduced new user-facing features, new workflows,
-     new CLI commands, new API surfaces, or significant behavioral changes.
-   - **patch** — if the Epic contained only bug fixes, documentation updates,
-     refactors, dependency bumps, or internal tooling changes with no
-     user-facing feature additions.
-   - The operator may override this decision at invocation time (e.g., "use
-     major for this release").
+   - **minor** — new user-facing features, new workflows, new CLI commands,
+     new API surfaces, or significant behavioural changes.
+   - **patch** — bug fixes, documentation updates, refactors, dependency
+     bumps, or internal tooling changes with no user-facing feature additions.
+   - The operator may override at invocation time (e.g., "use major").
 1. **Calculate** the next version by incrementing the chosen segment
    (`major.minor.patch`).
 1. **Write** the new version:
@@ -232,14 +218,11 @@ git commit -m "chore(release): bump version to [NEW_VERSION] for Epic #[EPIC_ID]
 git tag -a "v[NEW_VERSION]" -m "Release v[NEW_VERSION]: Epic #[EPIC_ID] — [Epic Title]"
 ```
 
-> **Note:** The tag is created on the Epic branch before the merge so it travels
-> with the merge commit into `[BASE_BRANCH]`. The tag is pushed in Step 7
-> alongside `[BASE_BRANCH]`.
+> **Note:** The tag is created on the Epic branch before the merge so it
+> travels with the merge commit into `[BASE_BRANCH]`. The tag is pushed in
+> Step 3.5 alongside `[BASE_BRANCH]`.
 
-## Step 4 — Pre-Merge Validation
-
-Ensure the code is stable and passes all quality gates on the Epic branch before
-merging to `main`.
+### 3.3 Pre-Merge Validation
 
 ```powershell
 npm run lint; npm test
@@ -248,7 +231,7 @@ npm run lint; npm test
 If the build fails: **STOP**. Fix the regressions on a hotfix branch and merge
 back into the Epic branch before restarting this workflow.
 
-## Step 5 — Merge Epic Branch to Main
+### 3.4 Merge Epic Branch to Base
 
 ```powershell
 git checkout [BASE_BRANCH]
@@ -256,7 +239,7 @@ git pull origin [BASE_BRANCH]
 git merge --no-ff epic/[EPIC_ID] -m "chore(release): merge epic/[EPIC_ID] into [BASE_BRANCH]"
 ```
 
-## Step 6 — Conflict Marker Scan
+### 3.5 Conflict Marker Scan
 
 ```powershell
 node [SCRIPTS_ROOT]/detect-merges.js
@@ -266,102 +249,151 @@ If markers are found: resolve them following the canonical procedure in
 [`_merge-conflict-template.md`](_merge-conflict-template.md), stage with
 `git add`, and amend the merge commit before proceeding.
 
-## Step 7 — Push Main & Tags
+### 3.6 Push Base & Tags
 
 ```powershell
 git push origin [BASE_BRANCH] --follow-tags
 ```
 
-### Step 7.1 — Verify Tag Published (If Applicable)
-
-If a version bump was performed in Step 3, confirm the tag reached the remote
-_before_ proceeding to Epic closure and branch cleanup. A missing tag at this
-stage is still cheap to fix; once the Epic is closed and branches are deleted, a
-failed tag push is far harder to notice:
+If Step 3.2 bumped the version, confirm the tag reached the remote **before**
+Finalize. A missing tag at this stage is still cheap to fix; once the Epic is
+closed and branches are deleted, a failed tag push is far harder to notice:
 
 ```powershell
 git ls-remote --tags origin "v[NEW_VERSION]"
 ```
 
-If the output is empty (e.g., `--follow-tags` was skipped or the remote rejected
-the tag), push it explicitly before continuing:
+If the output is empty (e.g., `--follow-tags` was skipped or the remote
+rejected the tag), push it explicitly before continuing:
 
 ```powershell
 git push origin "v[NEW_VERSION]"
 ```
 
-## Step 8 — Close Planning, Strategy, and Epic Tickets
+---
 
-Formally close the PRD and Tech Spec tickets, followed by the Epic itself.
+## Phase 4 — Finalize
+
+Close the planning, strategy, and Epic tickets, then clean up branches.
 
 ```powershell
 node [SCRIPTS_ROOT]/sprint-close.js --epic [EPIC_ID]
 ```
 
-This automated script performs:
+The script performs three phase-internal functions:
 
-1. **Discovery**: Finds and closes `context::prd`, `context::tech-spec`, and
-   `type::health` (Sprint Health dashboard) tickets for this Epic. These
-   auxiliary tickets hold no planned work — they exist to stage or track the
-   sprint — and are closed together so the Epic does not retain open children
-   after closure.
-2. **Epic Closure**: Posts a final summary comment and closes the Epic issue.
-3. **Cleanup**: Deletes all local and remote branches associated with this Epic
-   (can be disabled with `--no-cleanup`). Cleanup reaps stale story worktrees
-   and prunes stale worktree registrations before branch deletion.
+1. **Close auxiliary tickets** — `context::prd`, `context::tech-spec`, and
+   `type::health` (Sprint Health dashboard) tickets are transitioned to
+   `agent::done` and closed. These tickets hold no planned work; leaving them
+   open after the Epic closes produces orphan children that pollute future
+   project views.
+2. **Close the Epic** — posts a shipping notification comment, then closes
+   the issue with `state_reason=completed`.
+3. **Branch cleanup** — reaps stale worktrees, prunes stale worktree
+   registrations, and batch-deletes every local + remote branch associated
+   with the Epic (can be disabled with `--no-cleanup`).
 
-## Step 9 — Verify Closure
+Windows/PowerShell resilience: remote branch deletions are individually
+wrapped in error handling. A "branch not found" error on any single remote
+ref is logged as a warning but **does not** abort the cleanup pass — every
+remaining branch is still attempted.
 
-Manually verify that the Epic and all context tickets are closed in the GitHub
-UI. Check the notification structured comment on the Epic for the final shipping
-announcement.
+Manually verify in the GitHub UI that the Epic and all context tickets are
+closed. Check the notification structured comment on the Epic for the final
+shipping announcement.
 
-## Step 10 — Final Tag Re-check
-
-Tag publication is already verified in Step 7.1. This step is a last-line sanity
-check after closure — if the tag is still missing here, the release is _not_
-shipped and the operator must re-run Step 7.1 before announcing the release:
+If Step 3.2 bumped the version, re-confirm the tag is published:
 
 ```powershell
 git ls-remote --tags origin "v[NEW_VERSION]"
 ```
 
-## Step 11 — Internal State Cleanup
+If the tag is still missing here the release is **not** shipped; re-run the
+explicit tag push before announcing.
 
-If you ran Step 8 with `--no-cleanup`, or need to perform manual cleanup, run:
-`node [SCRIPTS_ROOT]/sprint-close.js --epic [EPIC_ID]` without the flag to clean
-up branches.
+---
 
-> **Windows/PowerShell Resilience:** Remote branch deletions are individually
-> wrapped in error handling inside `sprint-close.js`. A "branch not found" error
-> on any single remote ref will be logged as a warning but will **not** abort
-> the cleanup pass — all remaining branches are still attempted.
+## Phase 5 — Notify
 
-## Constraint
+Write the retrospective (if enabled) and fire the terminal notification so
+stakeholders learn the Epic shipped.
 
-- **Never** merge to `main` if any child ticket (Task, Story, Feature) is still
-  open — the Completeness Gate in Step 1 is mandatory.
-- **Never** skip the Documentation Freshness Gate (Step 2). Every file in
-  `[ALL_DOCS]` **must** show a diff against `[BASE_BRANCH]` before the merge
-  proceeds. If a file has no changes, update it.
-- **Never** skip the pre-merge validation (lint + test). A broken `main` branch
-  blocks all future Epics.
-- **Always** auto-invoke `/sprint-code-review` (Step 1.4) and `/sprint-retro`
-  (Step 1.5) from inside `/sprint-close` when they have not already produced
-  their respective artefacts. Do not halt and ask the operator to run them
-  separately — that round-trip is what v5.8.7 removed.
-- **Always** bump the version and create the git tag (Step 3) before merging
-  when `release.autoVersionBump` is `true`. Use **minor** for new features,
-  **patch** for fixes and refactors.
-- **Always** run `sprint-close.js` (Step 8) to ensure PRD and Tech Spec tickets
-  are formally closed — they are excluded from auto-closure during execution.
-- **Always** delete all Epic, Task, and Story branches after merge to prevent
-  branch bloat. Individual remote deletion failures MUST be tolerated — log them
-  as warnings and continue.
-- **Always** tag a release when the Epic corresponds to a versioned milestone.
+### 5.1 Auto-invoke `/sprint-retro`
 
-## Step 12 — Notification
+**Skip this step entirely when `[RUN_RETRO]` is `false` or the operator
+passed `--skip-retro`.** Log the override and proceed.
+
+When `[RUN_RETRO]` is `true` (default), verify a retrospective comment is
+present on the Epic. Retros are stored as comments on the Epic — there is no
+local retro file.
+
+Detection strategy:
+
+1. **Preferred**: fetch `provider.getComments(epicId)` (or
+   `provider.getTicketComments(epicId)`) and filter for a comment whose
+   `type === "retro"` metadata is present.
+2. **Fallback**: grep the raw comment bodies for the
+   `<!-- retro-complete: ... -->` HTML marker written at the end of the retro
+   body.
+
+```powershell
+# Fallback grep — matches the retro-complete HTML marker.
+gh api "repos/{owner}/{repo}/issues/[EPIC_ID]/comments" \
+  --jq '.[] | select(.body | test("retro-complete:"))'
+```
+
+If no matching comment is found, **auto-invoke** `/sprint-retro [EPIC_ID]`
+inline. After it completes, re-run the check above to confirm the comment is
+now present. If the retro skill failed to produce a comment, STOP and relay
+the failure to the operator.
+
+> **Why it exists:** without the gate, retros get silently skipped and the
+> Epic closes with no post-mortem record. The gate reads directly from
+> GitHub (the retro's source of truth), not a local path.
+>
+> **Why it auto-invokes:** the prior "STOP and ask the operator to run
+> `/sprint-retro`" step generated friction every time — the operator always
+> wanted "run it, then continue." Auto-invocation collapses the round-trip.
+>
+> **`--skip-retro` parity:** the flag behaves like `--skip-code-review` —
+> both log the override and continue. Use sparingly; the retro is how the
+> organisation learns from each Epic.
+
+### 5.2 Notification
 
 ```powershell
 node [SCRIPTS_ROOT]/notify.js --ticket [EPIC_ID] "Epic #[EPIC_ID] closed. Merged to [BASE_BRANCH] and branches cleaned up." --action
 ```
+
+---
+
+## Constraint
+
+- **Never** merge to `[BASE_BRANCH]` if any child ticket (Task, Story,
+  Feature) is still open — the Hierarchy Completeness Gate (Phase 1.2) is
+  mandatory.
+- **Never** skip the Documentation Freshness Gate (Phase 1.3). Every file in
+  `[ALL_DOCS]` **must** reference `#[EPIC_ID]` in a commit message or body
+  before the merge proceeds.
+- **Never** skip the pre-merge validation (lint + test) in Phase 3.3. A
+  broken `[BASE_BRANCH]` blocks all future Epics.
+- **Never** run auto-close merges against an unprotected `[BASE_BRANCH]` —
+  Phase 3.1 refuses them.
+- **Always** auto-invoke `/sprint-code-review` (Phase 2) and `/sprint-retro`
+  (Phase 5.1) when they have not already produced their artefacts. Do not
+  halt and ask the operator to run them separately — that round-trip is what
+  the auto-invoke replaced.
+- **Always** persist the `/sprint-code-review` output as a `code-review`
+  structured comment on the Epic — the review script already does this via
+  `upsertStructuredComment`; do not bypass it.
+- **Always** bump the version and create the git tag (Phase 3.2) before
+  merging when `release.autoVersionBump` is `true`. Use **minor** for new
+  features, **patch** for fixes and refactors.
+- **Always** run `sprint-close.js` (Phase 4) to ensure PRD and Tech Spec
+  tickets are formally closed — they are excluded from auto-closure during
+  execution.
+- **Always** delete all Epic, Task, and Story branches after merge to
+  prevent branch bloat. Individual remote deletion failures MUST be
+  tolerated — log them as warnings and continue.
+- **Always** tag a release when the Epic corresponds to a versioned
+  milestone.
