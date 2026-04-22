@@ -24,13 +24,35 @@ const ALL_STATES = Object.values(STATE_LABELS);
  * @param {import('../ITicketingProvider.js').ITicketingProvider} provider
  * @param {number} ticketId
  * @param {string} newState - Must be one of STATE_LABELS.
+ * @param {{ notifier?: { emit: Function } }} [opts] - Optional notifier.
+ *   When provided, the Notifier's `emit` is called after a successful
+ *   transition so consuming projects get in-band state-change notifications
+ *   without a bespoke GitHub Actions workflow.
  */
-export async function transitionTicketState(provider, ticketId, newState) {
+export async function transitionTicketState(
+  provider,
+  ticketId,
+  newState,
+  opts = {},
+) {
   if (!ALL_STATES.includes(newState)) {
     throw new Error(`Invalid state: ${newState}`);
   }
 
   const toRemove = ALL_STATES.filter((state) => state !== newState);
+
+  // Snapshot prior state for the notifier (best-effort; skip on error).
+  let fromState = null;
+  let ticketSnapshot = null;
+  if (opts.notifier && typeof provider.getTicket === 'function') {
+    try {
+      ticketSnapshot = await provider.getTicket(ticketId);
+      fromState =
+        ticketSnapshot?.labels?.find((l) => ALL_STATES.includes(l)) ?? null;
+    } catch {
+      // non-fatal
+    }
+  }
 
   // Closing/reopening mirrors the label state so GitHub shows the correct
   // issue state without requiring a separate manual close step.
@@ -51,6 +73,33 @@ export async function transitionTicketState(provider, ticketId, newState) {
   if (isDone) {
     await cascadeCompletion(provider, ticketId);
   }
+
+  // Fire the in-band notifier (fire-and-forget; errors swallowed upstream).
+  if (opts.notifier?.emit) {
+    const typeLabel =
+      ticketSnapshot?.labels?.find((l) => l.startsWith('type::')) ?? '';
+    const epicId = extractEpicIdFromBody(ticketSnapshot?.body) ?? null;
+    opts.notifier
+      .emit({
+        kind: 'state-transition',
+        ticket: {
+          id: ticketId,
+          title: ticketSnapshot?.title,
+          type: typeLabel.replace(/^type::/, '') || 'ticket',
+          url: ticketSnapshot?.html_url,
+          epicId,
+        },
+        fromState,
+        toState: newState,
+      })
+      .catch(() => {});
+  }
+}
+
+function extractEpicIdFromBody(body) {
+  if (!body) return null;
+  const m = body.match(/Epic:\s*#(\d+)/i);
+  return m ? Number(m[1]) : null;
 }
 
 /**

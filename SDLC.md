@@ -349,7 +349,8 @@ is the entirety of the operator interface after dispatch.
 
 Both paths run the same `runEpic()` engine and produce identical
 GitHub state (same label transitions, same structured comments, same
-story branches). Your notification workflow fires for both. Pick the
+story branches). The in-band Notifier fires for both (see
+[Notification system](#notification-system)). Pick the
 invocation mode based on where you want the compute to run.
 
 ### At a glance
@@ -558,13 +559,53 @@ Markdown report and posts it as a ticket comment via the
 
 ## Notification system
 
-Notifications are dispatched through two channels:
+Two independent notification surfaces, both living in `.agents/` so
+they ship to consuming projects:
 
-1. **GitHub @mention** — informational updates posted on the relevant
-   ticket.
-2. **Webhook** — action-required events pushed to external services
-   (Pushover, Slack, Discord). Fired fire-and-forget by
-   `NotificationHook`; webhook failures never block execution.
+### 1. In-band ticket-change Notifier
+
+Every state transition through `transitionTicketState` (the SDK layer
+used by all orchestrator scripts) fires the
+[`Notifier`](scripts/lib/notifications/notifier.js). Three channels,
+each independently skippable via config:
+
+| Channel        | What it does                                                                |
+| -------------- | --------------------------------------------------------------------------- |
+| `log`          | Prints a structured `[notify]` line to stderr for local / CI log tailing.   |
+| `epic-comment` | Posts a one-line comment on the affected Epic (linear lifecycle feed).     |
+| `webhook`      | Fire-and-forget POST to the configured URL (Make.com / Slack / Discord).   |
+
+Level gate (set `orchestration.notifications.level` in `.agentrc.json`):
+
+| Level       | Fires on                                                                        |
+| ----------- | ------------------------------------------------------------------------------- |
+| `off`       | Nothing.                                                                        |
+| `minimal`   | State transitions to `agent::done` / `agent::review` only.                      |
+| `default`   | All state transitions (agent:: lifecycle changes).                              |
+| `verbose`   | Every tracked event (default).                                                  |
+
+Webhook URL resolution (first match wins):
+
+1. `NOTIFICATION_WEBHOOK_URL` process env var (loaded from `.env`).
+2. `orchestration.notifications.webhookUrl` in `.agentrc.json`.
+3. `.mcp.json` at `.mcpServers["agent-protocols"].env.NOTIFICATION_WEBHOOK_URL`.
+
+Because the Notifier is called in-band, it captures changes from:
+
+- The Epic runner (coordinator-driven state flips)
+- Per-story scripts (`sprint-story-init.js`, `sprint-story-close.js`)
+- MCP tool calls that route through `transitionTicketState`
+
+It does **not** capture manual label clicks in the GitHub UI (no
+webhook receiver). For programmatic orchestration workflows this
+covers >95% of lifecycle transitions.
+
+### 2. Epic-runner blocker / HITL notifications
+
+The `NotificationHook` inside the Epic runner fires on
+blocker-escalation events (`agent::blocked`) and operator-attention
+events (`agent::review` hand-off, run cancellation). Fire-and-forget
+by design; webhook failures never block execution.
 
 | Event               | Type       | Channel            | Operator Action         |
 | ------------------- | ---------- | ------------------ | ----------------------- |
