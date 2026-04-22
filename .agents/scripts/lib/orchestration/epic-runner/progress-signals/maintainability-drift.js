@@ -75,7 +75,11 @@ export function createMaintainabilityDriftDetector(opts = {}) {
           fs.mkdirSync?.(path.dirname(baselinePath), { recursive: true });
           fs.writeFileSync(
             baselinePath,
-            JSON.stringify({ capturedAt: new Date().toISOString(), scores: snapshot }, null, 2),
+            JSON.stringify(
+              { capturedAt: new Date().toISOString(), scores: snapshot },
+              null,
+              2,
+            ),
           );
         } catch {
           // persistence is best-effort; the in-memory baseline still works
