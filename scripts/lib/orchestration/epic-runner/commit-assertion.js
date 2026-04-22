@@ -83,8 +83,16 @@ export class CommitAssertion {
 /**
  * Default git adapter — runs `git rev-list --count
  * origin/epic/<epicId>..origin/story-<storyId>` in `cwd` and returns the
- * integer count. Missing refs surface as a thrown error that
- * `CommitAssertion.check` records on the row.
+ * integer count.
+ *
+ * If the story branch is missing (sprint-story-close deletes both the local
+ * and remote story branch after a successful merge — by the time the Epic
+ * wave-observer invokes the assertion, `origin/story-<storyId>` is gone),
+ * the adapter falls back to counting commits on the epic branch whose
+ * message matches `resolves #<storyId>`. A non-zero fallback is treated as
+ * proof the story's work landed on the epic branch. A zero-result fallback
+ * surfaces the original `unknown revision` error so CommitAssertion.check
+ * still records it as a row-level error.
  *
  * @param {{
  *   cwd?: string,
@@ -103,16 +111,46 @@ export function buildDefaultGitAdapter(opts = {}) {
 
   return async function defaultGitAdapter({ epicId, storyId }) {
     const range = `${epicBranchPattern(epicId)}..${storyBranchPattern(storyId)}`;
-    const { stdout } = await runner('git', ['rev-list', '--count', range], {
-      cwd,
-      windowsHide: true,
-    });
-    const n = Number(String(stdout).trim());
-    if (!Number.isFinite(n) || n < 0) {
-      throw new Error(`unexpected rev-list output: "${stdout}"`);
+    try {
+      const { stdout } = await runner('git', ['rev-list', '--count', range], {
+        cwd,
+        windowsHide: true,
+      });
+      const n = Number(String(stdout).trim());
+      if (!Number.isFinite(n) || n < 0) {
+        throw new Error(`unexpected rev-list output: "${stdout}"`);
+      }
+      return Math.trunc(n);
+    } catch (err) {
+      const count = await countResolvesOnEpic({
+        runner,
+        cwd,
+        epicRef: epicBranchPattern(epicId),
+        storyId,
+      });
+      if (count > 0) return count;
+      throw err;
     }
-    return Math.trunc(n);
   };
+}
+
+async function countResolvesOnEpic({ runner, cwd, epicRef, storyId }) {
+  try {
+    const { stdout } = await runner(
+      'git',
+      [
+        'log',
+        epicRef,
+        '-E',
+        `--grep=resolves #${storyId}( |\\)|$)`,
+        '--format=%H',
+      ],
+      { cwd, windowsHide: true },
+    );
+    return String(stdout).split('\n').filter(Boolean).length;
+  } catch {
+    return 0;
+  }
 }
 
 export const COMMIT_ASSERTION_ZERO_DELTA_DETAIL =

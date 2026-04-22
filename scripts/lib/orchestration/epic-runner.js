@@ -32,9 +32,11 @@ import { NotificationHook } from './epic-runner/notification-hook.js';
 import { ProgressReporter } from './epic-runner/progress-reporter.js';
 import { SpawnSmokeTest } from './epic-runner/spawn-smoke-test.js';
 import { StoryLauncher } from './epic-runner/story-launcher.js';
+import { checkVersionBumpIntent } from './epic-runner/version-bump-intent.js';
 import { WaveObserver } from './epic-runner/wave-observer.js';
 import { WaveScheduler } from './epic-runner/wave-scheduler.js';
 import { ErrorJournal } from './error-journal.js';
+import { createFrictionEmitter } from './friction-emitter.js';
 import {
   STATE_LABELS,
   transitionTicketState,
@@ -171,9 +173,11 @@ async function runEpicWithContext(ctx, collaborators = {}) {
   const commitAssertion =
     ctx.commitAssertion ?? new CommitAssertion({ gitAdapter, logger });
   const waveObserver = new WaveObserver({ ctx, commitAssertion });
+  const frictionEmitter = createFrictionEmitter({ provider, logger });
   const progressReporter = new ProgressReporter({
     ctx,
     intervalSec: Number(config?.epicRunner?.progressReportIntervalSec ?? 0),
+    frictionEmitter,
   });
   // Seed the reporter with the full wave plan so each fire renders every
   // wave (queued / in-flight / done) instead of only the active one.
@@ -215,6 +219,30 @@ async function runEpicWithContext(ctx, collaborators = {}) {
     concurrencyCap,
     autoClose,
   });
+
+  // Phase 0.5 — version-bump-intent snapshot. Emits a `notification`
+  // structured comment when the Epic body declares a release target that
+  // disagrees with `release.autoVersionBump`. No-op when they agree or no
+  // directive is present.
+  try {
+    await checkVersionBumpIntent({
+      provider,
+      epicId,
+      epicBody: epic.body ?? '',
+      autoVersionBump: Boolean(ctx.autoVersionBump),
+      logger,
+    });
+  } catch (err) {
+    logger.warn?.(
+      `[EpicRunner] version-bump-intent check failed: ${err.message}${journalSuffix()}`,
+    );
+    await journal?.record({
+      module: 'EpicRunner',
+      op: 'checkVersionBumpIntent',
+      error: err,
+      recovery: 'swallowed',
+    });
+  }
   // Authoritative snapshot — on a resume, re-use whatever autoClose was
   // captured at dispatch time, ignoring mid-run label changes.
   const effectiveAutoClose = Boolean(state.autoClose);

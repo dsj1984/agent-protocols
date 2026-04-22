@@ -29,7 +29,10 @@
 import { readFile } from 'node:fs/promises';
 import { parseArgs } from 'node:util';
 import { runAsCli } from './lib/cli-utils.js';
-import { resolveConfig } from './lib/config-resolver.js';
+import {
+  resolveConfig,
+  validateOrchestrationConfig,
+} from './lib/config-resolver.js';
 import { AGENT_LABELS, TYPE_LABELS } from './lib/label-constants.js';
 import { Logger } from './lib/Logger.js';
 import {
@@ -153,7 +156,15 @@ async function main() {
     Logger.fatal(`Invalid epic ID: "${values.epic}" — must be a number.`);
   }
 
-  const config = resolveConfig();
+  let config;
+  try {
+    config = resolveConfig();
+    validateOrchestrationConfig(config.orchestration);
+  } catch (err) {
+    Logger.fatal(
+      `Orchestration config schema validation failed:\n${err.message}`,
+    );
+  }
   const provider = createProvider(config.orchestration);
 
   if (values['emit-context']) {
