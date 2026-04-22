@@ -115,7 +115,6 @@
                 "mode",
                 "skills",
                 "focusAreas",
-                "isRiskHigh",
                 "dependsOn"
               ],
               "properties": {
@@ -145,7 +144,6 @@
                   "type": "array",
                   "items": { "type": "string" }
                 },
-                "isRiskHigh": { "type": "boolean" },
                 "dependsOn": {
                   "type": "array",
                   "items": { "type": "integer" }

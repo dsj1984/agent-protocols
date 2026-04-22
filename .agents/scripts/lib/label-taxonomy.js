@@ -114,11 +114,6 @@ export const LABEL_TAXONOMY = [
 
   // Risk
   {
-    name: RISK_LABELS.HIGH,
-    color: LABEL_COLORS.RISK,
-    description: 'High-risk change',
-  },
-  {
     name: RISK_LABELS.MEDIUM,
     color: LABEL_COLORS.RISK,
     description: 'Medium-risk change',

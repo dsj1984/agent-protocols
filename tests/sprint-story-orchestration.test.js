@@ -346,34 +346,6 @@ test('sprint-story-close: successful merge and closure', async () => {
   assert.ok(task.labels.includes('agent::done'), 'Task should be done');
 });
 
-test('sprint-story-close: risk::high is informational only (runtime gate retired)', async () => {
-  const provider = new MockProvider({
-    tickets: {
-      100: {
-        id: 100,
-        title: 'High Risk Story',
-        body: 'Epic: #50',
-        labels: ['type::story', 'risk::high', 'agent::executing'],
-      },
-    },
-  });
-
-  const { success, result } = await runStoryClose({
-    storyId: 100,
-    injectedProvider: provider,
-  });
-
-  // Per tech spec #323 / Story #334, `risk::high` no longer halts close.
-  // The label remains as retro metadata but the story merges normally.
-  assert.strictEqual(success, true, 'Should merge despite risk::high');
-  assert.strictEqual(result.merged, true);
-  assert.notStrictEqual(
-    result.action,
-    'paused-for-approval',
-    'Legacy paused-for-approval action is gone',
-  );
-});
-
 test('sprint-story-close: reaps worktree using resolved --cwd repo root', async () => {
   const provider = new MockProvider({
     tickets: {

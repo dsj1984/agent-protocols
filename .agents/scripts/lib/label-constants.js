@@ -30,7 +30,6 @@ export const STATUS_LABELS = {
 };
 
 export const RISK_LABELS = {
-  HIGH: 'risk::high',
   MEDIUM: 'risk::medium',
 };
 

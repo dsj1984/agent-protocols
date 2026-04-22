@@ -149,7 +149,6 @@ export function buildManifest({
         mode: t.mode,
         skills: t.skills,
         focusAreas: t.focusAreas,
-        isRiskHigh: t.isRiskHigh,
         dependsOn: t.dependsOn,
       })),
     })),

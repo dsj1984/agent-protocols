@@ -74,9 +74,7 @@
       "level": "verbose",
       "postToEpic": true
     },
-    "hitl": {
-      "riskHighApproval": true
-    },
+    "hitl": {},
     "worktreeIsolation": {
       "enabled": true,
       "root": ".worktrees",
