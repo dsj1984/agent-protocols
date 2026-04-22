@@ -49,7 +49,12 @@ jobs:
         run: npm run maintainability:check
 
       - name: Run Tests with Coverage
-        run: npm run test:coverage > test-output.txt
+        # Capture stderr too — Node's test runner and the coverage-threshold
+        # gate both emit failures on stderr, and a stdout-only redirect
+        # hides them in the uploaded artifact (see Epic #441 Story 4.1).
+        run: |
+          set -o pipefail
+          npm run test:coverage 2>&1 | tee test-output.txt
 
       - name: Upload Test Results
         uses: actions/upload-artifact@v4
