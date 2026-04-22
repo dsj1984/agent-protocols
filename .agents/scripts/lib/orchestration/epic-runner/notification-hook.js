@@ -29,15 +29,16 @@ export class NotificationHook {
    * }} opts
    */
   constructor(opts = {}) {
+    const ctx = opts.ctx;
     // `webhookUrl === undefined` → resolve from env/.mcp.json.
     // `webhookUrl === null | string` → caller was explicit; don't resolve.
     this.webhookUrl =
       opts.webhookUrl === undefined
-        ? resolveWebhookUrl({ cwd: opts.cwd })
+        ? resolveWebhookUrl({ cwd: opts.cwd ?? ctx?.cwd })
         : opts.webhookUrl;
     this.secret = opts.secret ?? null;
-    this.fetchImpl = opts.fetchImpl ?? globalThis.fetch;
-    this.logger = opts.logger ?? console;
+    this.fetchImpl = opts.fetchImpl ?? ctx?.fetchImpl ?? globalThis.fetch;
+    this.logger = opts.logger ?? ctx?.logger ?? console;
     this.timeoutMs = opts.timeoutMs ?? 5_000;
   }
 

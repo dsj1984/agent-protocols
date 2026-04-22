@@ -67,14 +67,14 @@ function storyIdFromPath(wtPath) {
  *   skipped: Array<{ storyId: number|null, path: string, reason: string }>,
  * }>}
  */
-export async function sweepStaleStoryWorktrees({
-  provider,
-  repoRoot,
-  git = defaultGit,
-  logger = NOOP_LOGGER,
-  fsRm,
-  worktreeRoot,
-}) {
+export async function sweepStaleStoryWorktrees(opts = {}) {
+  const ctx = opts.ctx;
+  const provider = opts.provider ?? ctx?.provider;
+  const repoRoot = opts.repoRoot ?? ctx?.cwd;
+  const git = opts.git ?? defaultGit;
+  const logger = opts.logger ?? ctx?.logger ?? NOOP_LOGGER;
+  const fsRm = opts.fsRm;
+  const worktreeRoot = opts.worktreeRoot;
   if (!provider || typeof provider.getTicket !== 'function') {
     throw new Error(
       'sweepStaleStoryWorktrees: provider with getTicket(id) is required',

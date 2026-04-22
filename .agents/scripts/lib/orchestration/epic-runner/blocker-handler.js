@@ -31,29 +31,25 @@ export class BlockerHandler {
    *   errorJournal?: { record: Function, path: string },
    * }} opts
    */
-  constructor({
-    provider,
-    epicId,
-    notificationHook,
-    labelFetcher,
-    pollIntervalMs,
-    logger,
-    postComment,
-    errorJournal,
-  }) {
+  constructor(opts = {}) {
+    const ctx = opts.ctx;
+    const provider = opts.provider ?? ctx?.provider;
+    const epicId = opts.epicId ?? ctx?.epicId;
     if (!provider) throw new TypeError('BlockerHandler requires a provider');
     this.provider = provider;
     this.epicId = epicId;
-    this.notificationHook = notificationHook ?? { fire: async () => {} };
+    this.notificationHook = opts.notificationHook ?? { fire: async () => {} };
     this.labelFetcher =
-      labelFetcher ??
+      opts.labelFetcher ??
       (async (id) => (await provider.getTicket(id)).labels ?? []);
-    this.pollIntervalMs = pollIntervalMs ?? 30_000;
-    this.logger = logger ?? console;
+    const pollDefault =
+      ctx?.pollIntervalSec != null ? ctx.pollIntervalSec * 1000 : 30_000;
+    this.pollIntervalMs = opts.pollIntervalMs ?? pollDefault;
+    this.logger = opts.logger ?? ctx?.logger ?? console;
     this.postComment =
-      postComment ??
+      opts.postComment ??
       ((ticketId, payload) => provider.postComment(ticketId, payload));
-    this.errorJournal = errorJournal ?? null;
+    this.errorJournal = opts.errorJournal ?? ctx?.errorJournal ?? null;
   }
 
   #journalSuffix() {

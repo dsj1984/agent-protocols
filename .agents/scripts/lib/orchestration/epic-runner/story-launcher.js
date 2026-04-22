@@ -15,25 +15,29 @@ const DEFAULT_TIMEOUT_MS = 6 * 60 * 60 * 1000; // 6h — aligns with GitHub Acti
 export class StoryLauncher {
   /**
    * @param {{
-   *   concurrencyCap: number,
-   *   spawn: (args: { storyId: number, worktree?: string, signal: AbortSignal }) => Promise<{ status: 'done'|'failed'|'blocked', detail?: string }>,
+   *   ctx?: import('../context.js').EpicRunnerContext,
+   *   concurrencyCap?: number,
+   *   spawn?: (args: { storyId: number, worktree?: string, signal: AbortSignal }) => Promise<{ status: 'done'|'failed'|'blocked', detail?: string }>,
    *   worktreeResolver?: (storyId: number) => string,
    *   timeoutMs?: number,
    *   logger?: { info: Function, warn: Function, error: Function }
    * }} opts
    */
   constructor(opts) {
-    if (!opts || typeof opts.spawn !== 'function') {
+    const ctx = opts?.ctx;
+    const spawn = opts?.spawn ?? ctx?.spawn;
+    const concurrencyCap = opts?.concurrencyCap ?? ctx?.concurrencyCap;
+    if (typeof spawn !== 'function') {
       throw new TypeError('StoryLauncher requires a spawn adapter');
     }
-    if (!Number.isInteger(opts.concurrencyCap) || opts.concurrencyCap < 1) {
+    if (!Number.isInteger(concurrencyCap) || concurrencyCap < 1) {
       throw new RangeError('concurrencyCap must be a positive integer');
     }
-    this.concurrencyCap = opts.concurrencyCap;
-    this.spawn = opts.spawn;
-    this.worktreeResolver = opts.worktreeResolver;
-    this.timeoutMs = opts.timeoutMs ?? DEFAULT_TIMEOUT_MS;
-    this.logger = opts.logger ?? console;
+    this.concurrencyCap = concurrencyCap;
+    this.spawn = spawn;
+    this.worktreeResolver = opts?.worktreeResolver ?? ctx?.worktreeResolver;
+    this.timeoutMs = opts?.timeoutMs ?? DEFAULT_TIMEOUT_MS;
+    this.logger = opts?.logger ?? ctx?.logger ?? console;
   }
 
   /**
