@@ -1,0 +1,117 @@
+/**
+ * plan-router — given an Epic's current labels, decide which plan-phase CLI
+ * should run next.
+ *
+ * Used by:
+ *   - the local `/sprint-plan` wrapper (chains spec → decompose);
+ *   - the remote-bootstrap `--phase` handoff (maps triggering label → CLI).
+ *
+ * The router is intentionally stateless. Callers feed the current label set
+ * (a string array, usually from `provider.getEpic(id).labels`) and receive a
+ * `{ phase, script, command }` descriptor; no I/O is performed.
+ */
+
+import { AGENT_LABELS } from '../../label-constants.js';
+
+export const PLAN_PHASE_NAMES = Object.freeze({
+  SPEC: 'spec',
+  DECOMPOSE: 'decompose',
+  DISPATCH: 'dispatch',
+});
+
+/**
+ * Canonical descriptor for each planning phase. `script` is the repo-relative
+ * path used by both the local wrapper and the remote bootstrap; `command` is
+ * the slash-command form used by operators.
+ *
+ * Exported as `PLAN_PHASE_DESCRIPTORS` so it does not collide with the
+ * phase-name enum `PLAN_PHASES` in `plan-checkpointer.js`.
+ */
+export const PLAN_PHASE_DESCRIPTORS = Object.freeze({
+  [PLAN_PHASE_NAMES.SPEC]: {
+    phase: PLAN_PHASE_NAMES.SPEC,
+    script: '.agents/scripts/sprint-plan-spec.js',
+    command: '/sprint-plan-spec',
+    triggerLabel: AGENT_LABELS.PLANNING,
+    parkingLabel: AGENT_LABELS.REVIEW_SPEC,
+  },
+  [PLAN_PHASE_NAMES.DECOMPOSE]: {
+    phase: PLAN_PHASE_NAMES.DECOMPOSE,
+    script: '.agents/scripts/sprint-plan-decompose.js',
+    command: '/sprint-plan-decompose',
+    triggerLabel: AGENT_LABELS.DECOMPOSING,
+    parkingLabel: AGENT_LABELS.READY,
+  },
+  [PLAN_PHASE_NAMES.DISPATCH]: {
+    phase: PLAN_PHASE_NAMES.DISPATCH,
+    script: '.agents/scripts/dispatcher.js',
+    command: '/sprint-execute',
+    triggerLabel: AGENT_LABELS.DISPATCHING,
+    parkingLabel: null,
+  },
+});
+
+/**
+ * Map an applied `agent::` label to the phase descriptor the remote bootstrap
+ * should run.
+ *
+ * Returns `null` for labels that do not correspond to a plan phase.
+ *
+ * @param {string} label
+ * @returns {object|null}
+ */
+export function phaseForLabel(label) {
+  for (const phase of Object.values(PLAN_PHASE_DESCRIPTORS)) {
+    if (phase.triggerLabel === label) return phase;
+  }
+  return null;
+}
+
+/**
+ * Given the Epic's current labels, pick the next plan phase to run in the
+ * local `/sprint-plan` wrapper.
+ *
+ * Precedence:
+ *   1. If the Epic already carries `agent::ready`, there is nothing left to
+ *      do — return `null` (the wrapper surfaces a no-op message).
+ *   2. If the Epic carries `agent::decomposing`, resume decomposition.
+ *   3. If the Epic carries `agent::review-spec`, decomposition is the next
+ *      step (the operator has finished review).
+ *   4. If the Epic carries `agent::planning`, continue the spec phase.
+ *   5. Otherwise (fresh Epic), start with the spec phase.
+ *
+ * @param {string[]} labels Current labels on the Epic.
+ * @returns {object|null} Phase descriptor or null when no more work remains.
+ */
+export function nextPhaseForEpic(labels = []) {
+  const set = new Set(labels);
+  if (set.has(AGENT_LABELS.READY)) return null;
+  if (set.has(AGENT_LABELS.DECOMPOSING)) {
+    return PLAN_PHASE_DESCRIPTORS[PLAN_PHASE_NAMES.DECOMPOSE];
+  }
+  if (set.has(AGENT_LABELS.REVIEW_SPEC)) {
+    return PLAN_PHASE_DESCRIPTORS[PLAN_PHASE_NAMES.DECOMPOSE];
+  }
+  if (set.has(AGENT_LABELS.PLANNING)) {
+    return PLAN_PHASE_DESCRIPTORS[PLAN_PHASE_NAMES.SPEC];
+  }
+  return PLAN_PHASE_DESCRIPTORS[PLAN_PHASE_NAMES.SPEC];
+}
+
+/**
+ * For a given current phase, return the next phase the local wrapper should
+ * advance to. Used to chain spec → decompose after operator confirmation.
+ *
+ * @param {string} currentPhase One of `PLAN_PHASE_NAMES`.
+ * @returns {object|null}
+ */
+export function advancePhase(currentPhase) {
+  switch (currentPhase) {
+    case PLAN_PHASE_NAMES.SPEC:
+      return PLAN_PHASE_DESCRIPTORS[PLAN_PHASE_NAMES.DECOMPOSE];
+    case PLAN_PHASE_NAMES.DECOMPOSE:
+      return null;
+    default:
+      return null;
+  }
+}

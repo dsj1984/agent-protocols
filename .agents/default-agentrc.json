@@ -90,6 +90,11 @@
       "pollIntervalSec": 30,
       "storyRetryCount": 1,
       "blockerTimeoutHours": 0
+    },
+    "planRunner": {
+      "enabled": true,
+      "pollIntervalSec": 30,
+      "notificationWebhookUrl": null
     }
   }
 }
