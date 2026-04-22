@@ -90,44 +90,37 @@ export class ColumnSync {
       return { status: 'skipped', reason: 'no-project' };
     }
 
-    try {
-      const meta = await this.#loadMeta();
-      if (!meta) return { status: 'skipped', reason: 'no-meta' };
+    const meta = await this.#loadMeta();
+    if (!meta) return { status: 'skipped', reason: 'no-meta' };
 
-      const optionId = meta.options.get(column);
-      if (!optionId) {
-        return { status: 'skipped', reason: `no-option-${column}` };
-      }
-
-      const itemId = await this.#getProjectItemId(issueId, meta.projectId);
-      if (!itemId) return { status: 'skipped', reason: 'not-on-project' };
-
-      await this.provider.graphql(
-        `
-        mutation($projectId: ID!, $itemId: ID!, $fieldId: ID!, $optionId: String!) {
-          updateProjectV2ItemFieldValue(
-            input: {
-              projectId: $projectId,
-              itemId: $itemId,
-              fieldId: $fieldId,
-              value: { singleSelectOptionId: $optionId }
-            }
-          ) { projectV2Item { id } }
-        }`,
-        {
-          projectId: meta.projectId,
-          itemId,
-          fieldId: meta.fieldId,
-          optionId,
-        },
-      );
-      return { status: 'synced', column };
-    } catch (err) {
-      this.logger.warn?.(
-        `[ColumnSync] sync failed for #${issueId}: ${err?.message ?? err}`,
-      );
-      return { status: 'failed', reason: err?.message ?? String(err) };
+    const optionId = meta.options.get(column);
+    if (!optionId) {
+      return { status: 'skipped', reason: `no-option-${column}` };
     }
+
+    const itemId = await this.#getProjectItemId(issueId, meta.projectId);
+    if (!itemId) return { status: 'skipped', reason: 'not-on-project' };
+
+    await this.provider.graphql(
+      `
+      mutation($projectId: ID!, $itemId: ID!, $fieldId: ID!, $optionId: String!) {
+        updateProjectV2ItemFieldValue(
+          input: {
+            projectId: $projectId,
+            itemId: $itemId,
+            fieldId: $fieldId,
+            value: { singleSelectOptionId: $optionId }
+          }
+        ) { projectV2Item { id } }
+      }`,
+      {
+        projectId: meta.projectId,
+        itemId,
+        fieldId: meta.fieldId,
+        optionId,
+      },
+    );
+    return { status: 'synced', column };
   }
 
   async #loadMeta() {
@@ -175,7 +168,7 @@ export class ColumnSync {
   async #getProjectItemId(issueId, projectId) {
     const data = await this.provider.graphql(
       `
-      query($projectId: ID!, $issueId: Int!) {
+      query($projectId: ID!) {
         node(id: $projectId) {
           ... on ProjectV2 {
             items(first: 100) {
@@ -187,7 +180,7 @@ export class ColumnSync {
           }
         }
       }`,
-      { projectId, issueId },
+      { projectId },
     );
     const nodes = data?.node?.items?.nodes ?? [];
     const match = nodes.find((n) => n?.content?.number === issueId);
