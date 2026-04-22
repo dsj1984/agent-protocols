@@ -325,11 +325,9 @@ entirety of the operator interface after dispatch.
 - Wave boundaries — the runner advances as soon as wave N completes.
 - Individual story completion — no per-story approval prompt.
 
-> [!NOTE] Opt back in to the legacy gate. If a project still wants runtime
-> approval for `risk::high` stories, set
-> `orchestration.hitl.riskHighApproval: true` **and**
-> `orchestration.hitl.riskHighRuntimeGate: true` in `.agentrc.json`. Both keys
-> default to off.
+> [!NOTE] Legacy `risk::high` runtime gating has been retired. `risk::high`
+> remains planning/audit metadata only; the sole runtime pause point is
+> `agent::blocked`.
 
 ---
 
@@ -427,11 +425,11 @@ Flipping an Epic to `agent::dispatching` fires
 | ------------------- | ----------------------------------------------------------------------------------------------------------------------- |
 | `wave-scheduler`    | Iterates waves from `Graph.computeWaves()`.                                                                             |
 | `story-launcher`    | Fans out up to `concurrencyCap` executor sub-agents per wave.                                                           |
-| `state-poller`      | Polls Epic + Story labels; emits events for closure and blockers.                                                       |
+| `state-poller`      | Standby module (not instantiated by current coordinator); wave loop reads state synchronously per wave.                 |
 | `checkpointer`      | Upserts the `epic-run-state` structured comment; handles resume.                                                        |
 | `blocker-handler`   | The sole runtime pause point — halts on `agent::blocked`.                                                               |
 | `notification-hook` | Fire-and-forget webhook for blocker / wave-transition events.                                                           |
-| `bookend-chainer`   | Auto-invokes `/sprint-close` when `epic::auto-close` was set at dispatch (close itself runs review + retro internally). |
+| `bookend-chainer`   | Auto-invokes `/sprint-close` when `epic::auto-close` was set at dispatch.                                                |
 | `wave-observer`     | Emits `wave-N-start` / `wave-N-end` comments.                                                                           |
 | `column-sync`       | Syncs the Projects v2 Status column from `agent::` labels.                                                              |
 

@@ -156,27 +156,24 @@ stop, summarize the blockers, and present a **Re-Plan** or yield to the user:
 This protocol ensures the conversation remains focused and avoids consuming
 unnecessary tokens on failing strategies.
 
-### J. HITL Risk Gates (Safe Execution)
+### J. HITL Blocker Escalation (Safe Execution)
 
-Before executing any task, you MUST check the ticket labels for `risk::high`.
+Before executing any task, you MUST check the ticket labels and instructions for
+high-risk operations.
 
-- **Trigger**: If a task is labelled `risk::high` AND
-  `orchestration.hitl.riskHighApproval` is `true` (the default), you are
-  strictly forbidden from executing the implementation steps until you receive
-  explicit human confirmation.
-- **Intervention**: You MUST pause, summarize the high-risk operations detected
-  (based on `riskGates.heuristics` in `.agentrc.json`), and wait for a user
-  response stating "Approved" or "Proceed".
-- **Opt-out**: When `orchestration.hitl.riskHighApproval` is `false`, the gate
-  is disabled — `risk::high` tasks dispatch normally and `risk::high` stories
-  merge automatically. The label remains informational for audit/telemetry.
-- **Safety Violation**: Proceeding without approval for a flagged task (while
-  the gate is enabled) is a critical protocol violation.
-- **What counts as high risk**: `risk::high` is reserved for destructive or
-  irreversible work — data mutations without a backup/rollback path, shared
-  security/auth changes, CI/CD gating changes, parallel monorepo-wide rewrites,
-  and schema migrations that rewrite or drop existing data. Quality/style
-  constraints and localized feature work are **not** high risk.
+- **`risk::high` is metadata**: treat it as planning/audit signal only. It does
+  **not** create an automatic runtime pause.
+- **Single runtime pause point**: `agent::blocked` is the authoritative HITL
+  gate. When execution encounters an unresolvable blocker or an unsafe
+  destructive action without explicit authorization, transition to
+  `agent::blocked`, summarize the blocker, and wait for operator resume.
+- **Resume contract**: continue only after the operator explicitly unblocks
+  (`agent::executing` or equivalent workflow instruction).
+- **High-risk heuristic**: use `agentSettings.riskGates.heuristics` from
+  `.agentrc.json` to decide when to escalate via `agent::blocked`. Typical
+  triggers include destructive/irreversible data mutations, shared auth/security
+  changes, CI/CD gate changes, monorepo-wide rewrites, and destructive schema
+  migrations.
 
 ---
 
