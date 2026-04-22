@@ -36,6 +36,7 @@ import { checkVersionBumpIntent } from './epic-runner/version-bump-intent.js';
 import { WaveObserver } from './epic-runner/wave-observer.js';
 import { WaveScheduler } from './epic-runner/wave-scheduler.js';
 import { ErrorJournal } from './error-journal.js';
+import { createFrictionEmitter } from './friction-emitter.js';
 import {
   STATE_LABELS,
   transitionTicketState,
@@ -172,9 +173,11 @@ async function runEpicWithContext(ctx, collaborators = {}) {
   const commitAssertion =
     ctx.commitAssertion ?? new CommitAssertion({ gitAdapter, logger });
   const waveObserver = new WaveObserver({ ctx, commitAssertion });
+  const frictionEmitter = createFrictionEmitter({ provider, logger });
   const progressReporter = new ProgressReporter({
     ctx,
     intervalSec: Number(config?.epicRunner?.progressReportIntervalSec ?? 0),
+    frictionEmitter,
   });
   // Seed the reporter with the full wave plan so each fire renders every
   // wave (queued / in-flight / done) instead of only the active one.
