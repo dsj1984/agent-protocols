@@ -1,9 +1,21 @@
 # Remote Orchestrator
 
+> **See [`.agents/SDLC.md`](../.agents/SDLC.md)** for the end-to-end
+> workflow narrative (happy path, HITL touchpoints, local-vs-remote
+> comparison). This file is the **runner contract reference** — dispatch
+> flow, secret list, authorization model, failure and resumption
+> semantics, and the structured-comment schemas.
+
 The remote orchestrator drives an Epic end-to-end without an operator in
 the loop. It is invoked by a GitHub Actions trigger when an Epic issue is
 labelled `agent::dispatching`, but the same engine is used for local
 invocations of `/sprint-execute <epicId>` (Epic Mode).
+
+As of v5.15.0, the same runner infrastructure also powers the **planning**
+pipeline: applying `agent::planning` or `agent::decomposing` to an Epic
+fires `.github/workflows/epic-plan.yml`, which invokes
+`/sprint-plan-spec` or `/sprint-plan-decompose` via
+`remote-bootstrap.js --phase`. See [Planning flow](#planning-flow) below.
 
 ## Dispatch flow
 
@@ -14,11 +26,13 @@ Operator flips Epic to agent::dispatching
 .github/workflows/epic-dispatch.yml (issues.labeled)
         │
         ▼ Claude remote agent boots
-.agents/scripts/remote-bootstrap.js
+.agents/scripts/remote-bootstrap.js [--phase spec|decompose|execute]
     • git clone
     • write .env and .mcp.json from secrets with ::add-mask::
     • npm ci --ignore-scripts
-    • claude /sprint-execute <epicId>
+    • claude /sprint-execute <epicId>            (default / --phase execute)
+    • claude /sprint-plan-spec <epicId>          (--phase spec)
+    • claude /sprint-plan-decompose <epicId>     (--phase decompose)
         │
         ▼
 EpicRunner coordinator (.agents/scripts/lib/orchestration/epic-runner.js)
