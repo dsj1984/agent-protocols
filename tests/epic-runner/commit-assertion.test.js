@@ -53,10 +53,7 @@ describe('CommitAssertion', () => {
 
   it('requires a numeric epicId', async () => {
     const assertion = new CommitAssertion({ gitAdapter: async () => 0 });
-    await assert.rejects(
-      () => assertion.check([400], {}),
-      /numeric epicId/,
-    );
+    await assert.rejects(() => assertion.check([400], {}), /numeric epicId/);
   });
 
   it('coerces non-integer adapter output to a safe integer', async () => {
@@ -71,7 +68,10 @@ describe('CommitAssertion', () => {
   });
 
   it('exports the zero-delta detail constant for the wave-observer wiring', () => {
-    assert.equal(COMMIT_ASSERTION_ZERO_DELTA_DETAIL, 'commit-assertion: zero-delta');
+    assert.equal(
+      COMMIT_ASSERTION_ZERO_DELTA_DETAIL,
+      'commit-assertion: zero-delta',
+    );
   });
 });
 
@@ -104,7 +104,10 @@ describe('buildDefaultGitAdapter', () => {
       cb(err, { stdout: '', stderr: err.message });
     };
     const adapter = buildDefaultGitAdapter({ execFileImpl: fakeExecFile });
-    await assert.rejects(() => adapter({ epicId: 999, storyId: 420 }), /bad revision/);
+    await assert.rejects(
+      () => adapter({ epicId: 999, storyId: 420 }),
+      /bad revision/,
+    );
   });
 
   it('rejects non-numeric stdout instead of silently returning zero', async () => {
@@ -112,6 +115,9 @@ describe('buildDefaultGitAdapter', () => {
       cb(null, { stdout: 'not-a-number\n', stderr: '' });
     };
     const adapter = buildDefaultGitAdapter({ execFileImpl: fakeExecFile });
-    await assert.rejects(() => adapter({ epicId: 413, storyId: 420 }), /unexpected rev-list/);
+    await assert.rejects(
+      () => adapter({ epicId: 413, storyId: 420 }),
+      /unexpected rev-list/,
+    );
   });
 });

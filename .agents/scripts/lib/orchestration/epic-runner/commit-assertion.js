@@ -95,9 +95,7 @@ export class CommitAssertion {
  */
 export function buildDefaultGitAdapter(opts = {}) {
   const cwd = opts.cwd ?? process.cwd();
-  const runner = opts.execFileImpl
-    ? promisify(opts.execFileImpl)
-    : execFile;
+  const runner = opts.execFileImpl ? promisify(opts.execFileImpl) : execFile;
   const storyBranchPattern =
     opts.storyBranchPattern ?? ((id) => `origin/story-${id}`);
   const epicBranchPattern =
@@ -117,4 +115,5 @@ export function buildDefaultGitAdapter(opts = {}) {
   };
 }
 
-export const COMMIT_ASSERTION_ZERO_DELTA_DETAIL = 'commit-assertion: zero-delta';
+export const COMMIT_ASSERTION_ZERO_DELTA_DETAIL =
+  'commit-assertion: zero-delta';
