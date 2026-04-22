@@ -69,7 +69,10 @@ export function deleteBranchLocal(name, opts = {}) {
  * Delete a branch on the remote.
  *
  * @param {string} name - Branch name (no `refs/heads/` prefix).
- * @param {{ remote?: string, cwd?: string }} [opts]
+ * @param {{ remote?: string, cwd?: string, noVerify?: boolean }} [opts]
+ *   - `noVerify`: pass `--no-verify` so a heavy `pre-push` hook does not
+ *     block a delete-only push (the hook would still fire even though no
+ *     commits are being uploaded). Default `false`.
  * @returns {{ deleted: boolean, reason: string, stderr?: string }}
  *   `reason` is one of: `'deleted'`, `'not-found'`, `'error'`.
  */
@@ -80,8 +83,11 @@ export function deleteBranchRemote(name, opts = {}) {
     throw new Error(`[git-branch-cleanup] Unsafe remote name: "${remote}".`);
   }
   const cwd = opts.cwd ?? process.cwd();
+  const args = ['push'];
+  if (opts.noVerify) args.push('--no-verify');
+  args.push(remote, '--delete', name);
 
-  const res = gitSpawn(cwd, 'push', remote, '--delete', name);
+  const res = gitSpawn(cwd, ...args);
   if (res.status === 0) {
     return { deleted: true, reason: 'deleted' };
   }
@@ -97,7 +103,7 @@ export function deleteBranchRemote(name, opts = {}) {
  * failure does not skip the remote attempt.
  *
  * @param {string} name
- * @param {{ force?: boolean, remote?: string, cwd?: string }} [opts]
+ * @param {{ force?: boolean, remote?: string, cwd?: string, noVerify?: boolean }} [opts]
  * @returns {{
  *   deleted: boolean,
  *   reason: string,
