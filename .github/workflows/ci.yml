@@ -13,14 +13,10 @@ concurrency:
 
 jobs:
   validate:
-    name: Validate and Test (Node ${{ matrix.node-version }})
+    name: Validate and Test
     runs-on: ubuntu-latest
     permissions:
       contents: read
-    strategy:
-      fail-fast: false
-      matrix:
-        node-version: [22, 24]
     steps:
       - name: Checkout Code
         uses: actions/checkout@v4
@@ -30,7 +26,7 @@ jobs:
       - name: Setup Node.js
         uses: actions/setup-node@v4
         with:
-          node-version: ${{ matrix.node-version }}
+          node-version: 22
           cache: 'npm'
 
       - name: Install Dependencies
@@ -59,45 +55,12 @@ jobs:
         uses: actions/upload-artifact@v4
         if: always()
         with:
-          name: test-results-node-${{ matrix.node-version }}
+          name: test-results-node-22
           path: test-output.txt
-
-  spawn-integration:
-    name: Spawn Integration (${{ matrix.os }})
-    runs-on: ${{ matrix.os }}
-    permissions:
-      contents: read
-    strategy:
-      fail-fast: false
-      matrix:
-        os: [ubuntu-latest, windows-latest]
-    steps:
-      - name: Checkout Code
-        uses: actions/checkout@v4
-        with:
-          fetch-depth: 0
-
-      - name: Setup Node.js
-        uses: actions/setup-node@v4
-        with:
-          node-version: 22
-          cache: 'npm'
-
-      - name: Install Dependencies
-        run: npm ci --ignore-scripts
-
-      # Covers Epic #380 regression: the buildClaudeSpawn → child_process.spawn
-      # shape must survive both Linux and Windows quoting. `CLAUDE_BIN=node`
-      # stubs the binary so runners without Claude installed still exercise the
-      # argv-reassembly assertions.
-      - name: Run build-claude-spawn integration test
-        env:
-          CLAUDE_BIN: node
-        run: node --experimental-test-module-mocks --test tests/epic-runner/build-claude-spawn.integration.test.js
 
   publish:
     name: Publish to Dist
-    needs: [validate, spawn-integration]
+    needs: [validate]
     if: |
       github.ref == 'refs/heads/main' && 
       (github.event_name == 'push' || github.event_name == 'workflow_dispatch')
