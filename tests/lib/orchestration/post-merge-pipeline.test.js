@@ -66,10 +66,7 @@ describe('runPostMergePipeline', () => {
         },
       },
     ];
-    const state = await runPostMergePipeline(
-      { logger: makeLogger() },
-      phases,
-    );
+    const state = await runPostMergePipeline({ logger: makeLogger() }, phases);
     assert.deepEqual(calls, ['a', 'b', 'c']);
     assert.deepEqual(state.branchCleanup, {
       localDeleted: true,
@@ -103,7 +100,9 @@ describe('runPostMergePipeline', () => {
     assert.deepEqual(calls, ['first', 'second']);
     assert.equal(state.second, 'ok');
     assert.ok(
-      logger.errors.some((m) => m.includes('[phase=first]') && m.includes('boom')),
+      logger.errors.some(
+        (m) => m.includes('[phase=first]') && m.includes('boom'),
+      ),
       `expected [phase=first] log, got: ${JSON.stringify(logger.errors)}`,
     );
   });
@@ -201,8 +200,8 @@ describe('branchCleanupPhase', () => {
     assert.equal(result.localDeleted, false);
     assert.equal(result.remoteDeleted, true);
     assert.ok(
-      logger.errors.some((m) =>
-        m.includes('still checked out') && m.includes('story-7'),
+      logger.errors.some(
+        (m) => m.includes('still checked out') && m.includes('story-7'),
       ),
     );
   });
@@ -275,7 +274,11 @@ describe('worktreeReapPhase', () => {
 
   it('emits friction + OPERATOR ACTION on Windows lock-class reap failure', async () => {
     const { factory } = makeWmFactory({
-      reap: { removed: false, reason: 'EBUSY: resource busy', path: '/wt/story-1' },
+      reap: {
+        removed: false,
+        reason: 'EBUSY: resource busy',
+        path: '/wt/story-1',
+      },
     });
     const logger = makeLogger();
     const emissions = [];
@@ -299,7 +302,11 @@ describe('worktreeReapPhase', () => {
 
   it('does not raise OPERATOR ACTION for benign safety skips', async () => {
     const { factory } = makeWmFactory({
-      reap: { removed: false, reason: 'uncommitted-changes', path: '/wt/story-1' },
+      reap: {
+        removed: false,
+        reason: 'uncommitted-changes',
+        path: '/wt/story-1',
+      },
     });
     const logger = makeLogger();
     const frictionEmitter = { emit: async () => {} };
@@ -314,7 +321,8 @@ describe('worktreeReapPhase', () => {
       worktreeManagerFactory: factory,
     });
     assert.equal(
-      logger.errors.filter((m) => m.includes('OPERATOR ACTION REQUIRED')).length,
+      logger.errors.filter((m) => m.includes('OPERATOR ACTION REQUIRED'))
+        .length,
       0,
     );
   });
@@ -338,8 +346,10 @@ describe('worktreeReapPhase', () => {
       worktreeManagerFactory: factory,
     });
     assert.ok(
-      logger.errors.some((m) =>
-        m.includes('still registered') && m.includes('/repo/.worktrees/story-1'),
+      logger.errors.some(
+        (m) =>
+          m.includes('still registered') &&
+          m.includes('/repo/.worktrees/story-1'),
       ),
     );
     assert.equal(emissions.length, 1);

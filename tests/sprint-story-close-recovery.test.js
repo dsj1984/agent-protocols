@@ -293,7 +293,11 @@ test('dispatchRecovery', async (t) => {
     'throws with exitCode=2 and logs prior-state body when no flag set',
     () => {
       const logger = makeStubLogger();
-      const detail = { storyId: 100, storyBranch: 'story-100', checkout: '/repo' };
+      const detail = {
+        storyId: 100,
+        storyBranch: 'story-100',
+        checkout: '/repo',
+      };
       try {
         dispatchRecovery({
           ...DISPATCH_BASE,
@@ -309,8 +313,9 @@ test('dispatchRecovery', async (t) => {
         assert.match(err.message, /prior-state:partial-merge/);
       }
       assert.ok(
-        logger.errors.some((m) =>
-          m.includes('[phase=prior-state]') && m.includes('partial-merge'),
+        logger.errors.some(
+          (m) =>
+            m.includes('[phase=prior-state]') && m.includes('partial-merge'),
         ),
       );
     },
@@ -335,7 +340,9 @@ test('dispatchRecovery', async (t) => {
     assert.equal(restartCalls[0].cwd, '/repo');
     assert.equal(restartCalls[0].storyBranch, 'story-100');
     assert.ok(
-      events.some((e) => e.msg.includes('--restart') && e.msg.includes('partial-merge')),
+      events.some(
+        (e) => e.msg.includes('--restart') && e.msg.includes('partial-merge'),
+      ),
     );
   });
 

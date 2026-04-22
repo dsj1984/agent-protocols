@@ -199,7 +199,9 @@ export async function ticketClosurePhase(ctx) {
     closedTickets.push(storyId);
     log('TICKETS', `  #${storyId} → agent::done ✅`);
   } catch (err) {
-    logger.error(`[phase=tickets]   Story #${storyId} → FAILED: ${err.message}`);
+    logger.error(
+      `[phase=tickets]   Story #${storyId} → FAILED: ${err.message}`,
+    );
   }
 
   log('TICKETS', 'Running cascade completion...');
@@ -218,7 +220,9 @@ export async function ticketClosurePhase(ctx) {
       );
     }
     for (const { parentId, error } of cascadeFailed) {
-      logger.error(`  Cascade partial-failure on parent #${parentId}: ${error}`);
+      logger.error(
+        `  Cascade partial-failure on parent #${parentId}: ${error}`,
+      );
     }
   } catch (err) {
     logger.error(`  Cascade fully failed (non-fatal): ${err.message}`);
@@ -271,7 +275,10 @@ export async function dashboardRefreshPhase(ctx) {
   } = ctx;
   const log = reapPhaseLogger(progress);
   if (skipDashboard) {
-    log('DASHBOARD', '⏭️ Skipping dashboard refresh (--skip-dashboard flag set)');
+    log(
+      'DASHBOARD',
+      '⏭️ Skipping dashboard refresh (--skip-dashboard flag set)',
+    );
     return false;
   }
   log('DASHBOARD', 'Regenerating dispatch manifest...');
@@ -325,7 +332,10 @@ export const DEFAULT_POST_MERGE_PHASES = Object.freeze([
  *                              Phase descriptors. Defaults to `DEFAULT_POST_MERGE_PHASES`.
  * @returns {Promise<object>}   Aggregated state from each phase.
  */
-export async function runPostMergePipeline(ctx, phases = DEFAULT_POST_MERGE_PHASES) {
+export async function runPostMergePipeline(
+  ctx,
+  phases = DEFAULT_POST_MERGE_PHASES,
+) {
   const logger = ctx.logger ?? Logger;
   const state = {
     branchCleanup: { localDeleted: false, remoteDeleted: false },
