@@ -458,3 +458,71 @@ submodule paths are internal implementation detail.
         they choose their next action.
     *   Memory feedback entry `feedback_sprint_story_close_reap.md`
         gains a worked recovery example tied to the new flags.
+
+## ADR-20260422-441a: Force-reap worktrees whose Story branch is already merged
+
+*   **Status:** Accepted (Epic #441 Story #451, v5.15.3).
+*   **Context:** Epic #413's `/sprint-close` Phase 4 reaper left 3 of 6
+    worktrees orphaned (`story-420`, `story-423`, `story-424`) with
+    `reap-skipped: uncommitted-changes`, even though every Story branch
+    had already merged into `epic/413`. The "uncommitted" content was
+    biome-format drift and already-merged agent edits — safe to
+    discard, but the reaper's conservative default preserved them and
+    required manual `rmdir` + `git worktree prune` + `git branch -D`.
+*   **Decision:** When `git merge-base --is-ancestor` confirms the
+    Story branch is already part of `epic/<id>`, Phase 4 force-reaps
+    the worktree by default (`git worktree remove --force` + prune +
+    `branch -D`). The destructive step is bounded to "already-merged"
+    state, so the only content at risk is post-merge drift. A
+    `--no-reap-discard-after-merge` flag restores the prior
+    conservative behavior. Force-reap emits a `friction` structured
+    comment naming the Story and listing the discarded paths so the
+    signal isn't lost.
+*   **Alternatives considered:**
+    *   Move the assertion check before the reaper (so the reap runs
+        against the still-unmerged branch) — rejected; it conflates
+        merge state with reap state and does not solve the "Windows
+        worktree is EBUSY because a process holds a file handle" case.
+    *   Require every close to commit format drift onto the Story
+        branch before merging — rejected; increases pre-merge noise
+        without changing the post-merge "discard is safe" property.
+*   **Consequences:**
+    *   Memory feedback entry `feedback_sprint_story_close_reap.md`
+        becomes obsolete for the `already-merged` case; it remains
+        relevant only for truly-in-progress worktrees, which is now
+        the exclusive domain of the `--no-` override.
+    *   Operators who intentionally leave work-in-progress in a
+        worktree after close must pass the override explicitly.
+
+## ADR-20260422-441b: Canonical structured-comment writer is the MCP tool
+
+*   **Status:** Accepted (Epic #441 Story #449, v5.15.3).
+*   **Context:** The MCP tool
+    `mcp__agent-protocols__post_structured_comment` originally
+    accepted only `progress | friction | notification` as `type`
+    values. As a result, `sprint-code-review.js`,
+    `.claude/skills/sprint-retro.md`, the wave-observer, and the
+    progress-reporter each hand-rolled their own structured-comment
+    marker and posted via `provider.postComment` directly, bypassing
+    payload-schema validation. During Epic #413's close, the retro
+    flow had to fall back to `notification` type as a workaround.
+*   **Decision:** The MCP tool's `type` enum + payload schema are
+    extended with `code-review`, `retro`, `retro-partial`,
+    `epic-run-state`, `epic-run-progress`, `parked-follow-ons`,
+    `dispatch-manifest`, and a regex for parametric `wave-N-start` /
+    `wave-N-end`. All consumers that previously hand-rolled markers
+    route through the tool. Hand-rolled `provider.postComment` calls
+    with structured markers are treated as an anti-pattern.
+*   **Alternatives considered:**
+    *   Leave the enum as-is and continue hand-rolling — rejected;
+        duplicates the marker invariants across multiple call sites
+        and loses schema validation.
+    *   Accept arbitrary `type` strings — rejected; loses the
+        validation surface that catches typo-driven markers.
+*   **Consequences:**
+    *   A single canonical writer enforces marker shape + payload
+        validation. The retro-fallback-to-`notification` regression is
+        no longer possible.
+    *   New structured-comment types are a schema bump, not a
+        convention change — future additions land alongside their
+        validators.

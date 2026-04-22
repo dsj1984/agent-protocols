@@ -300,6 +300,23 @@ appear in the Notable section of each snapshot. The runner CLI's
 `orchestration.epicRunner.logsDir` (default `temp/epic-runner-logs/`)
 so per-story logs land in the standard temp tree.
 
+#### Observability & friction hardening (v5.15.3 / Epic #441)
+
+Three modules close the observability gaps surfaced during Epic #413's
+Wave 1:
+
+| Module                                                             | Role                                                                                                                                               |
+| ------------------------------------------------------------------ | -------------------------------------------------------------------------------------------------------------------------------------------------- |
+| `lib/orchestration/epic-runner/column-sync.js` (patched #448)      | Dropped the unused `$issueId: Int!` GraphQL variable; removed the silent-swallow try/catch so missing project rows surface as friction, not `unknown`. |
+| `lib/orchestration/friction-emitter.js` (new #450)                 | Rate-limited (`storyId` + marker hash, 60s cooldown) `friction` emitter wrapping `provider.postComment` / the MCP `post_structured_comment` tool.       |
+| `lib/orchestration/docs-context-bridge.js` (new #454)              | At Story-close, matches changed-file paths against `release.docs` + `agentSettings.docsContextFiles` and emits a `friction` comment on match.           |
+
+`CommitAssertion`'s default git adapter now falls back to a
+`resolves #<storyId>` grep on `origin/epic/<id>` when
+`origin/story-<id>` has already been deleted by `sprint-story-close` —
+closing the window where a successfully-merged Story was misreported
+as a zero-delta failure.
+
 ---
 
 ### 3. Provider Abstraction Layer

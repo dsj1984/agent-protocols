@@ -229,6 +229,26 @@ operator reference.
 
 ### Recent releases
 
+- **v5.15.3 — Epic #441 (2026-04-22).** Patch-only resilience follow-ons for
+  the retro action items from Epic #413. Fixes the `variableNotUsed: $issueId`
+  GraphQL error that rendered every wave-poller progress row as `unknown` on
+  Epic #413. Extends the MCP `post_structured_comment` `type` enum with
+  `code-review`, `retro`, `retro-partial`, `epic-run-state`,
+  `epic-run-progress`, `wave-N-start`/`wave-N-end`, `parked-follow-ons`, and
+  `dispatch-manifest`. Sub-agents now auto-post `friction` structured comments
+  for reap failures, wave-poller failures, and baseline refreshes
+  (rate-limited per-Story). `/sprint-close` Phase 4 force-reaps worktrees
+  whose Story branch is already merged into `epic/<id>` (with
+  `--no-reap-discard-after-merge` override). `validateOrchestrationConfig` is
+  wired into launcher `main()` for `epic-runner.js`, `plan-runner.js`,
+  `sprint-plan-spec.js`, `sprint-plan-decompose.js`. `/sprint-execute` Epic
+  Mode Phase 0.5 snapshots version-bump intent; `/sprint-execute` Story Mode
+  close emits a docs-context-bridge friction comment when the Story touches
+  configured `release.docs` paths. CI `test:coverage` gains stderr capture
+  (`2>&1` + `set -o pipefail`) so silent-stderr failures no longer slip past
+  the artifact. Post-wave `CommitAssertion` falls back to an epic-branch
+  `resolves #<id>` grep when `origin/story-<id>` is already deleted by
+  `sprint-story-close`.
 - **v5.15.2 — Epic #413 (2026-04-22).** Patch-only resilience follow-ons
   for the retro action items from Epic #380. Spawner hardening (real
   `claude --version` integration test, pre-wave smoke-test, post-wave
