@@ -59,8 +59,12 @@ export async function pollUntil(opts) {
 
 /**
  * Cancellable sleep. Resolves after `ms` or immediately when `signal` aborts.
- * The underlying timer is `unref`'d so a lingering sleep never blocks Node
- * from exiting.
+ *
+ * The timer is intentionally NOT `unref`'d — unref'd timers caused Node 22's
+ * test runner to cancel subtests that awaited `sleep` with `cancelledByParent`
+ * / "Promise resolution is still pending but the event loop has already
+ * resolved". Callers that need a clean shutdown should abort the `signal`
+ * instead of relying on unref.
  *
  * @param {number} ms
  * @param {AbortSignal} [signal]
@@ -70,7 +74,6 @@ export function sleep(ms, signal) {
   return new Promise((resolve) => {
     if (signal?.aborted) return resolve();
     const t = setTimeout(resolve, ms);
-    t.unref?.();
     signal?.addEventListener?.(
       'abort',
       () => {
