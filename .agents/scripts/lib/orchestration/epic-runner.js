@@ -17,6 +17,7 @@
  */
 
 import { computeWaves } from '../Graph.js';
+import { createNotifier } from '../notifications/notifier.js';
 import { BlockerHandler } from './epic-runner/blocker-handler.js';
 import { BookendChainer } from './epic-runner/bookend-chainer.js';
 import { Checkpointer } from './epic-runner/checkpointer.js';
@@ -76,6 +77,7 @@ export async function runEpic({
   const scheduler = new WaveScheduler(waves);
 
   // --- 3. Compose collaborators ---
+  const notifier = createNotifier(config, provider, { fetchImpl, logger });
   const checkpointer = new Checkpointer({ provider, epicId });
   const notificationHook = new NotificationHook({
     fetchImpl,
@@ -111,8 +113,10 @@ export async function runEpic({
   };
 
   // --- 4. Initialize checkpoint and flip label ---
-  await transitionTicketState(provider, epicId, STATE_LABELS.EXECUTING).catch(
-    (err) => logger.warn?.(`[EpicRunner] label flip failed: ${err.message}`),
+  await transitionTicketState(provider, epicId, STATE_LABELS.EXECUTING, {
+    notifier,
+  }).catch((err) =>
+    logger.warn?.(`[EpicRunner] label flip failed: ${err.message}`),
   );
   await syncColumn(epicId, [STATE_LABELS.EXECUTING]);
   const state = await checkpointer.initialize({
@@ -205,6 +209,7 @@ export async function runEpic({
     bookends,
     logger,
     syncColumn,
+    notifier,
   });
 }
 
@@ -216,10 +221,13 @@ async function finalize({
   bookends,
   logger,
   syncColumn,
+  notifier,
 }) {
   if (state === 'completed') {
-    await transitionTicketState(provider, epicId, STATE_LABELS.REVIEW).catch(
-      (err) => logger.warn?.(`[EpicRunner] review flip failed: ${err.message}`),
+    await transitionTicketState(provider, epicId, STATE_LABELS.REVIEW, {
+      notifier,
+    }).catch((err) =>
+      logger.warn?.(`[EpicRunner] review flip failed: ${err.message}`),
     );
     await syncColumn?.(epicId, [STATE_LABELS.REVIEW]);
     const bookendResult = await bookends.run();

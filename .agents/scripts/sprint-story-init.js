@@ -47,6 +47,7 @@ import {
   gitSpawn,
 } from './lib/git-utils.js';
 import { Logger } from './lib/Logger.js';
+import { createNotifier } from './lib/notifications/notifier.js';
 import {
   injectRecutMarker,
   parseRecutMarker,
@@ -352,6 +353,7 @@ export async function runStoryInit({
 
   const { settings, orchestration } = injectedConfig || resolveConfig({ cwd });
   const provider = injectedProvider || createProvider(orchestration);
+  const notifier = createNotifier(orchestration, provider, { cwd });
 
   progress('INIT', `Initializing Story #${storyId}...`);
 
@@ -476,7 +478,7 @@ export async function runStoryInit({
       provider,
       sortedTasks,
       STATE_LABELS.EXECUTING,
-      { progress },
+      { progress, notifier },
     );
     if (transitionResult.failed.length > 0) {
       const failedSummary = transitionResult.failed

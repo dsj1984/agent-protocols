@@ -47,6 +47,7 @@ import {
   gitSync,
 } from './lib/git-utils.js';
 import { Logger } from './lib/Logger.js';
+import { createNotifier } from './lib/notifications/notifier.js';
 import {
   cascadeCompletion,
   STATE_LABELS,
@@ -126,7 +127,7 @@ function cleanupBranches(storyBranch, cwd) {
   return { localDeleted, remoteDeleted };
 }
 
-async function ticketClosureCascade(provider, tasks, storyId) {
+async function ticketClosureCascade(provider, tasks, storyId, { notifier } = {}) {
   progress(
     'TICKETS',
     `Transitioning ${tasks.length} Task(s) to agent::done...`,
@@ -135,13 +136,15 @@ async function ticketClosureCascade(provider, tasks, storyId) {
     provider,
     tasks,
     STATE_LABELS.DONE,
-    { progress },
+    { progress, notifier },
   );
   const closedTickets = [...batch.transitioned, ...batch.skipped];
 
   progress('TICKETS', `Transitioning Story #${storyId} to agent::done...`);
   try {
-    await transitionTicketState(provider, storyId, STATE_LABELS.DONE);
+    await transitionTicketState(provider, storyId, STATE_LABELS.DONE, {
+      notifier,
+    });
     closedTickets.push(storyId);
     progress('TICKETS', `  #${storyId} → agent::done ✅`);
   } catch (err) {
@@ -152,7 +155,9 @@ async function ticketClosureCascade(provider, tasks, storyId) {
   let cascadedTo = [];
   let cascadeFailed = [];
   try {
-    const cascade = (await cascadeCompletion(provider, storyId)) ?? {
+    const cascade = (await cascadeCompletion(provider, storyId, {
+      notifier,
+    })) ?? {
       cascadedTo: [],
       failed: [],
     };
@@ -539,6 +544,7 @@ export async function runStoryClose({
 
   const { orchestration } = resolveConfig({ cwd });
   const provider = injectedProvider || createProvider(orchestration);
+  const notifier = createNotifier(orchestration, provider, { cwd });
 
   progress('INIT', `Closing Story #${storyId}...`);
 
@@ -605,7 +611,7 @@ export async function runStoryClose({
 
   // Cascade Completion (Ticket Closure)
   const { closedTickets, cascadedTo, cascadeFailed } =
-    await ticketClosureCascade(provider, tasks, storyId);
+    await ticketClosureCascade(provider, tasks, storyId, { notifier });
 
   // Notification, health, and dashboard are each best-effort; failures log
   // but do not abort the close-out. See each helper for the specific
