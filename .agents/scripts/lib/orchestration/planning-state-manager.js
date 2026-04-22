@@ -7,14 +7,54 @@
  * (state_reason: 'not_planned') and detached.
  */
 
+/**
+ * Snapshot of the Epic's planning-artifact state as seen / mutated by
+ * {@link PlanningStateManager}. Mirrors the `epic-plan-state` structured
+ * comment schema owned by `plan-checkpointer.js`, narrowed to the fields
+ * this manager reads and rewrites.
+ *
+ * @typedef {object} PlanCheckpointState
+ * @property {number} epicId                             Epic ticket id.
+ * @property {{ prd: (number | null), techSpec: (number | null) }} linkedIssues  Canonical planning-artifact references persisted on the Epic.
+ * @property {string} body                               Current Epic body (may include a `## Planning Artifacts` section).
+ */
+
+/**
+ * Heals and de-duplicates the Epic's PRD / Tech Spec planning artifacts so
+ * the post-state invariant holds: exactly ONE open PRD and ONE open Tech
+ * Spec, both linked from the Epic body. All redundant artifacts are closed
+ * (`state_reason: 'not_planned'`) and detached.
+ */
 export class PlanningStateManager {
+  /**
+   * @param {import('../ITicketingProvider.js').ITicketingProvider} provider  Ticketing provider used for ticket + sub-issue mutations.
+   */
   constructor(provider) {
     this.provider = provider;
   }
 
   /**
-   * Resolves existing planning artifacts and heals links if needed.
-   * Cleans up redundant artifacts by closing and detaching them.
+   * Resolve existing planning artifacts and heal / clean up the graph.
+   *
+   * With `force=false` (normal run):
+   *   - Pick the canonical PRD / Tech Spec (first open one, else first overall).
+   *   - Heal dangling `epic.linkedIssues` references.
+   *   - Close + detach any redundant artifacts (posting an audit-trace
+   *     notification first).
+   *   - Persist the healed references back to the Epic body if they were not
+   *     already written.
+   *
+   * With `force=true` (re-plan requested): close ALL existing PRD / Tech
+   * Spec artifacts, detach them, strip the `## Planning Artifacts` section
+   * from the Epic body, and null out `linkedIssues` so the caller can
+   * regenerate fresh artifacts.
+   *
+   * Mutates `epic.linkedIssues` and `epic.body` in place.
+   *
+   * @param {PlanCheckpointState & { linkedIssues: object, body: string, id: number }} epic  Epic ticket with mutable planning state.
+   * @param {boolean} [force=false]  When true, close ALL existing artifacts and reset linkedIssues for a forced re-plan.
+   * @returns {Promise<void>}
+   * @throws {Error}  Propagates non-404/410 errors from `provider.updateTicket` when `force=true`. All other provider errors are intentionally swallowed.
    */
   async healAndCleanupArtifacts(epic, force = false) {
     const epicId = epic.id;

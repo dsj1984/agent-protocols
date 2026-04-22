@@ -24,12 +24,50 @@ import { collectOpenStoryIds } from './wave-dispatcher.js';
 export const TYPE_TASK_LABEL = TYPE_LABELS.TASK;
 
 /**
+ * Runtime context for a single dispatch cycle.
+ *
+ * Produced by {@link resolveDispatchContext} and consumed by every pipeline
+ * stage (fetch → reconcile → graph → scaffold → GC → dispatch). All fields
+ * are resolved once up-front so downstream helpers can stay free of
+ * configuration look-ups.
+ *
+ * @typedef {object} DispatchContext
+ * @property {number} epicId                                  Epic ticket number under dispatch.
+ * @property {boolean} dryRun                                 When true, mutating side-effects are skipped.
+ * @property {object} settings                                Resolved `.agentrc.json` settings block.
+ * @property {object} orchestration                           Resolved `.agentrc.json` `orchestration` block.
+ * @property {import('../ITicketingProvider.js').ITicketingProvider} provider  Ticketing provider (may come from cache).
+ * @property {object} adapter                                 Execution adapter (CLI / MCP / in-process).
+ * @property {import('../worktree-manager.js').WorktreeManager | undefined} worktreeManager  Optional worktree manager (only when isolation is enabled and not dry-run).
+ * @property {string} baseBranch                              Trunk branch the Epic branches from (default `main`).
+ * @property {string} epicBranch                              Epic branch name (`epic/<epicId>`).
+ * @property {(branchName: string, baseBranch: string) => void} ensureBranch  Caller-supplied branch-creation helper.
+ */
+
+/**
+ * The output of {@link fetchEpicContext}.
+ *
+ * @typedef {object} FetchedEpic
+ * @property {object} epic                 The Epic ticket record.
+ * @property {object[]} allTickets         Every ticket under the Epic (tasks + stories + features + health).
+ * @property {Map<number, object>} allTicketsById  Index of `allTickets` by ticket id.
+ * @property {object[]} tasks              Parsed `type::task` records (see {@link parseTasks}).
+ */
+
+/**
  * Resolve the runtime context for a dispatch: settings, provider, adapter,
  * worktree manager, base/epic branch names, and the `ensureBranch` bound
  * helper supplied by the caller.
  *
- * @param {object} options
- * @param {(branchName: string, baseBranch: string) => void} ensureBranch
+ * @param {object} options                                    Dispatch entry options.
+ * @param {number} options.epicId                             Epic ticket number.
+ * @param {boolean} [options.dryRun=false]                    When true, skip branch creation and worktree setup.
+ * @param {string} [options.executorOverride]                 Optional adapter-factory executor hint.
+ * @param {import('../ITicketingProvider.js').ITicketingProvider} [options.provider]  Pre-constructed provider (overrides factory).
+ * @param {object} [options.adapter]                          Pre-constructed adapter (overrides factory).
+ * @param {import('../worktree-manager.js').WorktreeManager} [options.worktreeManager]  Pre-constructed worktree manager.
+ * @param {(branchName: string, baseBranch: string) => void} ensureBranch  Branch-creation helper bound by caller (keeps engine ↔ git-lifecycle coupling at the edge).
+ * @returns {DispatchContext}                                 Fully resolved dispatch context.
  */
 export function resolveDispatchContext(options, ensureBranch) {
   const { epicId, dryRun = false, executorOverride } = options;
@@ -66,6 +104,9 @@ export function resolveDispatchContext(options, ensureBranch) {
 /**
  * Fetch Epic + all tickets, prime the provider cache, and parse the Task
  * subset.
+ *
+ * @param {DispatchContext} ctx  Dispatch context.
+ * @returns {Promise<FetchedEpic>}  Epic + ticket graph.
  */
 export async function fetchEpicContext(ctx) {
   const { provider, epicId } = ctx;
@@ -94,6 +135,10 @@ export async function fetchEpicContext(ctx) {
 /**
  * Ensure the Sprint Health issue exists, then propagate already-done work
  * up the hierarchy so the manifest reflects reality before dispatch.
+ *
+ * @param {DispatchContext} ctx  Dispatch context.
+ * @param {FetchedEpic} fetched  Result of {@link fetchEpicContext}.
+ * @returns {Promise<void>}
  */
 export async function reconcileEpicState(ctx, fetched) {
   const { provider, dryRun, epicId } = ctx;
@@ -106,7 +151,11 @@ export async function reconcileEpicState(ctx, fetched) {
 
 /**
  * Build the task DAG, serialize focus-area overlaps, and compute dispatch
- * waves. Throws on cycles.
+ * waves.
+ *
+ * @param {object[]} tasks  Parsed task records (output of {@link parseTasks}).
+ * @returns {{ allWaves: object[][], taskMap: Map<number, object> }}  Waves (array of task arrays) and id→task lookup.
+ * @throws {Error} When the dependency graph contains a cycle — the error message lists the offending chain.
  */
 export function buildDispatchGraph(tasks) {
   const { adjacency, taskMap } = buildGraph(tasks);
@@ -139,8 +188,9 @@ export function buildDispatchGraph(tasks) {
  * Ensure the Epic base branch exists and capture a lint baseline. Skipped
  * in dry-run.
  *
- * @param {object} ctx
- * @param {(epicBranch: string, settings: object) => Promise<void>} captureLintBaseline
+ * @param {DispatchContext} ctx  Dispatch context.
+ * @param {(epicBranch: string, settings: object) => (Promise<void> | void)} captureLintBaseline  Injected baseline-capture implementation (legacy function or `LintBaselineService.capture`-bound closure).
+ * @returns {void}
  */
 export function ensureEpicScaffolding(ctx, captureLintBaseline) {
   const { dryRun, epicBranch, baseBranch, settings, ensureBranch } = ctx;
@@ -155,6 +205,12 @@ export function ensureEpicScaffolding(ctx, captureLintBaseline) {
 
 /**
  * Reap orphaned story worktrees. No-op when isolation is disabled or dry-run.
+ *
+ * Swallows manager errors — worktree GC must never fail a dispatch cycle.
+ *
+ * @param {DispatchContext} ctx  Dispatch context.
+ * @param {FetchedEpic} fetched  Ticket graph used to compute the set of still-open stories.
+ * @returns {Promise<void>}
  */
 export async function runWorktreeGc(ctx, fetched) {
   const { worktreeManager, dryRun, epicBranch } = ctx;
