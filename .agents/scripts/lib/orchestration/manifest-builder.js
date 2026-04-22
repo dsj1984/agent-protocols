@@ -4,6 +4,7 @@
 
 import { parseBlockedBy } from '../dependency-parser.js';
 import { getStoryBranch, getTaskBranch, slugify } from '../git-utils.js';
+import { TYPE_LABELS } from '../label-constants.js';
 import { computeStoryWaves } from './dependency-analyzer.js';
 import { resolveModelTier } from './model-resolver.js';
 import { groupTasksByStory } from './story-grouper.js';
@@ -24,7 +25,7 @@ export function getResolvedBranch(task, allTicketsById, epicId) {
   if (parentMatch) {
     const parentId = Number.parseInt(parentMatch[1], 10);
     const parentTicket = allTicketsById.get(parentId);
-    if (parentTicket?.labels.includes('type::story')) {
+    if (parentTicket?.labels.includes(TYPE_LABELS.STORY)) {
       return getStoryBranch(epicId, parentId);
     }
   }

@@ -12,6 +12,7 @@
  */
 
 import { resolveConfig } from '../config-resolver.js';
+import { TYPE_LABELS } from '../label-constants.js';
 import {
   classifyStoriesAgainstManifest,
   renderParkedFollowOnsComment,
@@ -137,7 +138,7 @@ export async function postParkedFollowOnsComment(manifest, provider) {
   try {
     const all = await provider.getTickets(manifest.epicId);
     storiesUnderEpic = (all ?? []).filter((t) =>
-      (t.labels ?? []).includes('type::story'),
+      (t.labels ?? []).includes(TYPE_LABELS.STORY),
     );
   } catch (err) {
     return { posted: false, recuts: 0, parked: 0, reason: err.message };

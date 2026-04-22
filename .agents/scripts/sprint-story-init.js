@@ -46,6 +46,7 @@ import {
   gitFetchWithRetry,
   gitSpawn,
 } from './lib/git-utils.js';
+import { TYPE_LABELS } from './lib/label-constants.js';
 import { Logger } from './lib/Logger.js';
 import { createNotifier } from './lib/notifications/notifier.js';
 import {
@@ -77,7 +78,7 @@ async function resolveStoryContext(provider, storyId) {
     throw new Error(`Failed to fetch Story #${storyId}: ${err.message}`);
   }
 
-  if (!story.labels.includes('type::story')) {
+  if (!story.labels.includes(TYPE_LABELS.STORY)) {
     throw new Error(
       `Issue #${storyId} is not a Story (labels: ${story.labels.join(', ')}). Use the dispatcher for Epics.`,
     );

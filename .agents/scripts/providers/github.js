@@ -21,6 +21,7 @@ import { execSync } from 'node:child_process';
 import { parseBlockedBy, parseBlocks } from '../lib/dependency-parser.js';
 import { ITicketingProvider } from '../lib/ITicketingProvider.js';
 import { parseLinkedIssues } from '../lib/issue-link-parser.js';
+import { TYPE_LABELS } from '../lib/label-constants.js';
 import { GithubHttpClient } from './github-http-client.js';
 
 /**
@@ -128,7 +129,7 @@ export class GitHubProvider extends ITicketingProvider {
   async _getEpics(filters = {}) {
     const params = new URLSearchParams({
       state: filters.state ?? 'all',
-      labels: 'type::epic',
+      labels: TYPE_LABELS.EPIC,
     });
 
     const issues = await this._http.restPaginated(
@@ -297,7 +298,7 @@ export class GitHubProvider extends ITicketingProvider {
     // Guard: only run for Epic-type parents to avoid full-repo scans on Story/Feature parents,
     // which would incorrectly pull in sibling tickets and waste API quota.
     let referencedChildIds = [];
-    const isEpicParent = (parent.labels ?? []).includes('type::epic');
+    const isEpicParent = (parent.labels ?? []).includes(TYPE_LABELS.EPIC);
     if (isEpicParent) {
       try {
         const issues = await this.getTickets(parentId);

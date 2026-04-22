@@ -3,6 +3,8 @@
  * Definitions and handlers for MCP server tools.
  */
 
+import { AGENT_LABELS } from '../label-constants.js';
+
 export async function getToolRegistry(sdk, getProvider) {
   const { selectAudits } = await import('../../mcp/select-audits.js');
   const { runAuditSuite } = await import('../../mcp/run-audit-suite.js');
@@ -100,10 +102,10 @@ export async function getToolRegistry(sdk, getProvider) {
           newState: {
             type: 'string',
             enum: [
-              'agent::ready',
-              'agent::executing',
-              'agent::review',
-              'agent::done',
+              AGENT_LABELS.READY,
+              AGENT_LABELS.EXECUTING,
+              AGENT_LABELS.REVIEW,
+              AGENT_LABELS.DONE,
             ],
             description: 'Target state label.',
           },

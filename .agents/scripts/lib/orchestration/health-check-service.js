@@ -3,6 +3,7 @@
  * concern has a dedicated home.
  */
 
+import { TYPE_LABELS } from '../label-constants.js';
 import { vlog } from './dispatch-logger.js';
 
 /**
@@ -25,7 +26,7 @@ export async function ensureSprintHealthIssue(
   if (dryRun) return;
   const healthIssue = allTickets.find(
     (t) =>
-      t.labels.includes('type::health') ||
+      t.labels.includes(TYPE_LABELS.HEALTH) ||
       t.title.startsWith('📉 Sprint Health:'),
   );
 
@@ -39,7 +40,7 @@ export async function ensureSprintHealthIssue(
         epicId,
         title: `📉 Sprint Health: ${epic.title}`,
         body: `## Real-time Sprint Health Monitoring\n\nThis issue tracks the execution metrics, progress, and friction logs for this sprint.\n\n---\nparent: #${epicId}\nEpic: #${epicId}`,
-        labels: ['type::health'],
+        labels: [TYPE_LABELS.HEALTH],
         dependencies: [],
       });
       vlog.info('orchestration', `✅ Sprint Health issue created: #${id}`);

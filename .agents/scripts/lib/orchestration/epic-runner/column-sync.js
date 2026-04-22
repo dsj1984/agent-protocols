@@ -21,16 +21,18 @@
  * GitHub.
  */
 
+import { AGENT_LABELS } from '../../label-constants.js';
+
 export const LABEL_TO_COLUMN = Object.freeze({
-  'agent::planning': 'Planning',
-  'agent::review-spec': 'Spec Review',
-  'agent::decomposing': 'Ready',
-  'agent::ready': 'Ready',
-  'agent::dispatching': 'In Progress',
-  'agent::executing': 'In Progress',
-  'agent::blocked': 'Blocked',
-  'agent::review': 'Review',
-  'agent::done': 'Done',
+  [AGENT_LABELS.PLANNING]: 'Planning',
+  [AGENT_LABELS.REVIEW_SPEC]: 'Spec Review',
+  [AGENT_LABELS.DECOMPOSING]: 'Ready',
+  [AGENT_LABELS.READY]: 'Ready',
+  [AGENT_LABELS.DISPATCHING]: 'In Progress',
+  [AGENT_LABELS.EXECUTING]: 'In Progress',
+  [AGENT_LABELS.BLOCKED]: 'Blocked',
+  [AGENT_LABELS.REVIEW]: 'Review',
+  [AGENT_LABELS.DONE]: 'Done',
 });
 
 /**
@@ -42,13 +44,14 @@ export const LABEL_TO_COLUMN = Object.freeze({
  */
 export function columnForLabels(labels) {
   const set = new Set(labels);
-  if (set.has('agent::done')) return 'Done';
-  if (set.has('agent::blocked')) return 'Blocked';
-  if (set.has('agent::review')) return 'Review';
-  if (set.has('agent::review-spec')) return 'Spec Review';
-  if (set.has('agent::ready') || set.has('agent::decomposing')) return 'Ready';
-  if (set.has('agent::planning')) return 'Planning';
-  if (set.has('agent::executing') || set.has('agent::dispatching')) {
+  if (set.has(AGENT_LABELS.DONE)) return 'Done';
+  if (set.has(AGENT_LABELS.BLOCKED)) return 'Blocked';
+  if (set.has(AGENT_LABELS.REVIEW)) return 'Review';
+  if (set.has(AGENT_LABELS.REVIEW_SPEC)) return 'Spec Review';
+  if (set.has(AGENT_LABELS.READY) || set.has(AGENT_LABELS.DECOMPOSING))
+    return 'Ready';
+  if (set.has(AGENT_LABELS.PLANNING)) return 'Planning';
+  if (set.has(AGENT_LABELS.EXECUTING) || set.has(AGENT_LABELS.DISPATCHING)) {
     return 'In Progress';
   }
   return null;

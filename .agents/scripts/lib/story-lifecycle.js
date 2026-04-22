@@ -11,6 +11,7 @@
  * cover those would over-abstract — they are genuinely different concerns.
  */
 
+import { TYPE_LABELS } from './label-constants.js';
 import {
   STATE_LABELS,
   transitionTicketState,
@@ -42,7 +43,7 @@ export function resolveStoryHierarchy(body) {
  */
 export async function fetchChildTasks(provider, storyId) {
   const subTickets = await provider.getSubTickets(storyId);
-  return subTickets.filter((t) => t.labels.includes('type::task'));
+  return subTickets.filter((t) => t.labels.includes(TYPE_LABELS.TASK));
 }
 
 /**

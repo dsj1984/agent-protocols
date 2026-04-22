@@ -11,6 +11,7 @@
 import { parseArgs } from 'node:util';
 import { runAsCli } from './lib/cli-utils.js';
 import { resolveConfig } from './lib/config-resolver.js';
+import { AGENT_LABELS } from './lib/label-constants.js';
 import { Logger } from './lib/Logger.js';
 import { createProvider } from './lib/provider-factory.js';
 
@@ -34,18 +35,18 @@ export async function handleApproval(ticketId, commentBody) {
     Logger.fatal(`Ticket #${ticketId} not found.`);
   }
 
-  Logger.info(`Transitioning #${ticketId} to agent::executing...`);
+  Logger.info(`Transitioning #${ticketId} to ${AGENT_LABELS.EXECUTING}...`);
   const ALL_AGENT_STATES = [
-    'agent::ready',
-    'agent::executing',
-    'agent::review',
-    'agent::done',
+    AGENT_LABELS.READY,
+    AGENT_LABELS.EXECUTING,
+    AGENT_LABELS.REVIEW,
+    AGENT_LABELS.DONE,
   ];
 
   await provider.updateTicket(ticketId, {
     labels: {
-      add: ['agent::executing'],
-      remove: ALL_AGENT_STATES.filter((s) => s !== 'agent::executing'),
+      add: [AGENT_LABELS.EXECUTING],
+      remove: ALL_AGENT_STATES.filter((s) => s !== AGENT_LABELS.EXECUTING),
     },
   });
 

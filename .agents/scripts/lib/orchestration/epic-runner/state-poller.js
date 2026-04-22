@@ -14,12 +14,13 @@
  */
 
 import { EventEmitter } from 'node:events';
+import { AGENT_LABELS } from '../../label-constants.js';
 import { sleep } from '../../util/poll-loop.js';
 
-const BLOCKED_LABEL = 'agent::blocked';
-const EXECUTING_LABEL = 'agent::executing';
-const DISPATCHING_LABEL = 'agent::dispatching';
-const DONE_LABEL = 'agent::done';
+const BLOCKED_LABEL = AGENT_LABELS.BLOCKED;
+const EXECUTING_LABEL = AGENT_LABELS.EXECUTING;
+const DISPATCHING_LABEL = AGENT_LABELS.DISPATCHING;
+const DONE_LABEL = AGENT_LABELS.DONE;
 
 export class StatePoller extends EventEmitter {
   /**
