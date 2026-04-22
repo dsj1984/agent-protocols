@@ -82,6 +82,7 @@ export class GitHubProvider extends ITicketingProvider {
     this.repo = config.repo;
     this.projectNumber = config.projectNumber ?? null;
     this.projectOwner = config.projectOwner ?? config.owner;
+    this.projectName = config.projectName ?? null;
     this.operatorHandle = config.operatorHandle ?? null;
     // Injectable HTTP transport. The tokenProvider closure captures opts.token
     // so tests can construct with an explicit token without touching env/gh.
@@ -610,6 +611,56 @@ export class GitHubProvider extends ITicketingProvider {
   }
 
   /**
+   * Strict sibling of `_fetchProjectV2` — tries user scope first, then org
+   * scope, and rethrows any GraphQL error instead of swallowing it. Used
+   * by `ensureStatusField` / `ensureProjectViews` so callers can detect
+   * INSUFFICIENT_SCOPES and degrade gracefully.
+   *
+   * @private
+   */
+  async _fetchProjectV2Strict(fragment) {
+    if (!this.projectNumber) return null;
+
+    const buildQuery = (type) => `
+      query($owner: String!, $number: Int!) {
+        ${type}(login: $owner) {
+          projectV2(number: $number) { ${fragment} }
+        }
+      }
+    `;
+
+    let userErr = null;
+    try {
+      const data = await this._http.graphql(buildQuery('user'), {
+        owner: this.projectOwner,
+        number: this.projectNumber,
+      });
+      if (data?.user?.projectV2) return data.user.projectV2;
+    } catch (err) {
+      if (GitHubProvider.isInsufficientScopes(err)) throw err;
+      userErr = err;
+    }
+
+    try {
+      const data = await this._http.graphql(buildQuery('organization'), {
+        owner: this.projectOwner,
+        number: this.projectNumber,
+      });
+      if (data?.organization?.projectV2) return data.organization.projectV2;
+    } catch (err) {
+      if (GitHubProvider.isInsufficientScopes(err)) throw err;
+      // If both queries failed non-scope, rethrow the org error so the
+      // caller sees a real signal rather than a silent null.
+      throw err;
+    }
+
+    // If the user query raised a non-scope error and the org query found
+    // nothing, surface the original user-scope error rather than null.
+    if (userErr) throw userErr;
+    return null;
+  }
+
+  /**
    * Resolve the global GraphQL node ID for the configured project number.
    * Caches the result to avoid redundant lookups.
    * @private
@@ -800,6 +851,303 @@ export class GitHubProvider extends ITicketingProvider {
     }
 
     return { created, skipped };
+  }
+
+  /**
+   * Detect whether a GraphQL error payload (or its serialised message)
+   * represents a missing Projects V2 permission scope. Bootstrap treats
+   * these as soft failures: the run logs a warning and continues so that
+   * label creation still completes on a token without `project` scope.
+   *
+   * @param {unknown} err
+   * @returns {boolean}
+   */
+  static isInsufficientScopes(err) {
+    if (!err) return false;
+    const haystack = err.message ?? err.toString?.() ?? String(err);
+    return (
+      /INSUFFICIENT_SCOPES/i.test(haystack) ||
+      /Resource not accessible by personal access token/i.test(haystack) ||
+      /your token has not been granted the required scopes/i.test(haystack)
+    );
+  }
+
+  /**
+   * Resolve the configured Project, or create one if `projectNumber` is not
+   * set. Returns `{ projectId, projectNumber, created }`. On insufficient
+   * scopes returns `{ scopesMissing: true }` so bootstrap can degrade.
+   *
+   * @param {{ name?: string|null, owner?: string }} [opts]
+   * @returns {Promise<{
+   *   projectId?: string,
+   *   projectNumber?: number,
+   *   created?: boolean,
+   *   scopesMissing?: boolean,
+   * }>}
+   */
+  async resolveOrCreateProject(opts = {}) {
+    const owner = opts.owner ?? this.projectOwner;
+    const name = opts.name ?? this.projectName ?? `${this.repo} — Agent Protocols`;
+
+    if (this.projectNumber) {
+      try {
+        const project = await this._fetchProjectV2('id');
+        if (project) {
+          this._projectId = project.id;
+          return { projectId: project.id, projectNumber: this.projectNumber, created: false };
+        }
+      } catch (err) {
+        if (GitHubProvider.isInsufficientScopes(err)) {
+          return { scopesMissing: true };
+        }
+        throw err;
+      }
+      throw new Error(
+        `[GitHubProvider] Project #${this.projectNumber} not found for ${owner}.`,
+      );
+    }
+
+    // No projectNumber — attempt to create a Project under the owner.
+    let ownerNodeId;
+    try {
+      const data = await this._http.graphql(
+        `query($login: String!) {
+          user(login: $login) { id }
+          organization(login: $login) { id }
+        }`,
+        { login: owner },
+      );
+      ownerNodeId = data?.organization?.id ?? data?.user?.id ?? null;
+    } catch (err) {
+      if (GitHubProvider.isInsufficientScopes(err)) return { scopesMissing: true };
+      throw err;
+    }
+
+    if (!ownerNodeId) {
+      throw new Error(
+        `[GitHubProvider] Could not resolve owner node id for "${owner}".`,
+      );
+    }
+
+    try {
+      const data = await this._http.graphql(
+        `mutation($ownerId: ID!, $title: String!) {
+          createProjectV2(input: { ownerId: $ownerId, title: $title }) {
+            projectV2 { id number }
+          }
+        }`,
+        { ownerId: ownerNodeId, title: name },
+      );
+      const project = data?.createProjectV2?.projectV2;
+      if (!project) {
+        throw new Error('[GitHubProvider] createProjectV2 returned no project.');
+      }
+      this._projectId = project.id;
+      this.projectNumber = project.number;
+      return {
+        projectId: project.id,
+        projectNumber: project.number,
+        created: true,
+      };
+    } catch (err) {
+      if (GitHubProvider.isInsufficientScopes(err)) return { scopesMissing: true };
+      throw err;
+    }
+  }
+
+  /**
+   * Ensure the Status single-select field exists on the project with the
+   * given options. Idempotent — existing options are preserved by id and
+   * only missing options are appended. When the underlying mutation is
+   * unavailable due to missing scopes, returns `{ scopesMissing: true }`
+   * instead of throwing so bootstrap can degrade.
+   *
+   * @param {string[]} optionNames
+   * @returns {Promise<{
+   *   status: 'created'|'updated'|'unchanged'|'scopes-missing',
+   *   added: string[],
+   *   fieldId?: string,
+   * }>}
+   */
+  async ensureStatusField(optionNames) {
+    if (!this.projectNumber) {
+      throw new Error('[GitHubProvider] ensureStatusField requires projectNumber.');
+    }
+
+    let project;
+    try {
+      project = await this._fetchProjectV2Strict(`
+        id
+        fields(first: 50) {
+          nodes {
+            ... on ProjectV2SingleSelectField {
+              id
+              name
+              options { id name }
+            }
+          }
+        }
+      `);
+    } catch (err) {
+      if (GitHubProvider.isInsufficientScopes(err)) {
+        return { status: 'scopes-missing', added: [] };
+      }
+      throw err;
+    }
+
+    if (!project) {
+      throw new Error(
+        `[GitHubProvider] Project #${this.projectNumber} not found for ${this.projectOwner}.`,
+      );
+    }
+
+    const statusField = (project.fields?.nodes ?? []).find(
+      (f) => f?.name === 'Status',
+    );
+
+    // Field is missing — create it with all desired options.
+    if (!statusField) {
+      try {
+        const data = await this._http.graphql(
+          `mutation($projectId: ID!, $name: String!, $options: [ProjectV2SingleSelectFieldOptionInput!]!) {
+            createProjectV2Field(input: { projectId: $projectId, dataType: SINGLE_SELECT, name: $name, singleSelectOptions: $options }) {
+              projectV2Field { ... on ProjectV2SingleSelectField { id name } }
+            }
+          }`,
+          {
+            projectId: project.id,
+            name: 'Status',
+            options: optionNames.map((o) => ({ name: o, color: 'GRAY', description: '' })),
+          },
+        );
+        return {
+          status: 'created',
+          added: [...optionNames],
+          fieldId: data?.createProjectV2Field?.projectV2Field?.id,
+        };
+      } catch (err) {
+        if (GitHubProvider.isInsufficientScopes(err)) {
+          return { status: 'scopes-missing', added: [] };
+        }
+        throw err;
+      }
+    }
+
+    // Field exists — compute missing options and append them.
+    const existing = new Map(
+      (statusField.options ?? []).map((o) => [o.name, o.id]),
+    );
+    const missing = optionNames.filter((name) => !existing.has(name));
+    if (missing.length === 0) {
+      return { status: 'unchanged', added: [], fieldId: statusField.id };
+    }
+
+    const mergedOptions = [
+      // Preserve existing options by id so Projects doesn't drop them.
+      ...(statusField.options ?? []).map((o) => ({
+        id: o.id,
+        name: o.name,
+        color: 'GRAY',
+        description: '',
+      })),
+      ...missing.map((name) => ({ name, color: 'GRAY', description: '' })),
+    ];
+
+    try {
+      await this._http.graphql(
+        `mutation($fieldId: ID!, $name: String!, $options: [ProjectV2SingleSelectFieldOptionInput!]!) {
+          updateProjectV2Field(input: { fieldId: $fieldId, name: $name, singleSelectOptions: $options }) {
+            projectV2Field { ... on ProjectV2SingleSelectField { id name } }
+          }
+        }`,
+        { fieldId: statusField.id, name: 'Status', options: mergedOptions },
+      );
+      return { status: 'updated', added: missing, fieldId: statusField.id };
+    } catch (err) {
+      if (GitHubProvider.isInsufficientScopes(err)) {
+        return { status: 'scopes-missing', added: [] };
+      }
+      throw err;
+    }
+  }
+
+  /**
+   * Best-effort Projects V2 Views creation. GitHub's public GraphQL API does
+   * not yet expose a `createProjectV2View` mutation in all contexts; any
+   * failure (missing mutation, missing scopes, rate limit) is caught and
+   * surfaced as `{ unavailable: true }` so the caller can direct the user
+   * to `docs/project-board.md` for manual setup.
+   *
+   * @param {Array<{ name: string, filter: string, groupBy?: string }>} viewDefs
+   * @returns {Promise<{
+   *   created: string[],
+   *   skipped: string[],
+   *   unavailable: boolean,
+   * }>}
+   */
+  async ensureProjectViews(viewDefs) {
+    if (!this.projectNumber) {
+      throw new Error('[GitHubProvider] ensureProjectViews requires projectNumber.');
+    }
+
+    const created = [];
+    const skipped = [];
+
+    let project;
+    try {
+      project = await this._fetchProjectV2Strict(`
+        id
+        views(first: 50) { nodes { name } }
+      `);
+    } catch (err) {
+      if (GitHubProvider.isInsufficientScopes(err)) {
+        return { created, skipped: viewDefs.map((v) => v.name), unavailable: true };
+      }
+      // Treat a schema-level "views field does not exist" failure as
+      // unavailable rather than fatal — Projects V2 Views API is GitHub-
+      // internal in most contexts as of v5.15.
+      return { created, skipped: viewDefs.map((v) => v.name), unavailable: true };
+    }
+
+    if (!project) {
+      throw new Error(
+        `[GitHubProvider] Project #${this.projectNumber} not found for ${this.projectOwner}.`,
+      );
+    }
+
+    const existingViewNames = new Set(
+      (project.views?.nodes ?? []).map((v) => v?.name).filter(Boolean),
+    );
+
+    let unavailable = false;
+    for (const def of viewDefs) {
+      if (existingViewNames.has(def.name)) {
+        skipped.push(def.name);
+        continue;
+      }
+      if (unavailable) {
+        skipped.push(def.name);
+        continue;
+      }
+      try {
+        await this._http.graphql(
+          `mutation($projectId: ID!, $name: String!, $filter: String!) {
+            createProjectV2View(input: { projectId: $projectId, name: $name, filter: $filter, layout: BOARD_LAYOUT }) {
+              projectV2View { id name }
+            }
+          }`,
+          { projectId: project.id, name: def.name, filter: def.filter },
+        );
+        created.push(def.name);
+      } catch (err) {
+        // First failure signals the mutation is unavailable in this
+        // context — stop attempting subsequent views to avoid noise.
+        unavailable = true;
+        skipped.push(def.name);
+      }
+    }
+
+    return { created, skipped, unavailable };
   }
 
   /* node:coverage ignore next */

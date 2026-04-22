@@ -79,6 +79,10 @@ export const ORCHESTRATION_SCHEMA = {
           type: ['string', 'null'],
           minLength: 1,
         },
+        projectName: {
+          type: ['string', 'null'],
+          minLength: 1,
+        },
         operatorHandle: {
           type: 'string',
           pattern: '^@.+',
