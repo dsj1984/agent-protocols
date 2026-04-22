@@ -593,8 +593,7 @@ export async function runStoryClose({
   // Epic branch at pre-push time.
   // -------------------------------------------------------------------------
 
-  const skipValidation =
-    skipValidationParam || !!process.env.SPRINT_STORY_CLOSE_SKIP_VALIDATION;
+  const skipValidation = !!skipValidationParam;
   if (!skipValidation) {
     progress(
       'VALIDATE',
