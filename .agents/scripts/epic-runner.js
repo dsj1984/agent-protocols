@@ -98,7 +98,7 @@ async function main() {
  *
  * Success criterion is not the subprocess exit code — Claude may exit 0 even
  * if the Story Mode workflow bailed. We verify by reading the Story's labels
- * after exit: `agent::done` = success, `status::blocked` = blocker, anything
+ * after exit: `agent::done` = success, `agent::blocked` = blocker, anything
  * else = failure. Per-story stdout/stderr is piped to
  * `.epic-runner-logs/story-<id>.log` to keep parallel runs readable.
  */
@@ -144,10 +144,10 @@ async function defaultSpawn({ storyId, signal }) {
         const story = await provider.getTicket(storyId);
         const labels = story?.labels ?? [];
         if (labels.includes('agent::done')) return resolve({ status: 'done' });
-        if (labels.includes('status::blocked')) {
+        if (labels.includes('agent::blocked')) {
           return resolve({
             status: 'blocked',
-            detail: `status::blocked; see ${logPath}`,
+            detail: `agent::blocked; see ${logPath}`,
           });
         }
         resolve({

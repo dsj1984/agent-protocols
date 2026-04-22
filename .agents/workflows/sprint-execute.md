@@ -239,7 +239,7 @@ If tests or lint fail:
 
 - Fix the issues and commit corrections.
 - If blocked (e.g. upstream dependency missing): post a friction comment and
-  apply `status::blocked`.
+  apply `agent::blocked`.
 
 ### Step 3 — Close (`sprint-story-close.js`)
 

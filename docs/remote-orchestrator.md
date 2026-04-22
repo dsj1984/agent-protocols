@@ -45,7 +45,7 @@ EpicRunner coordinator (.agents/scripts/lib/orchestration/epic-runner.js)
     • on blocker → BlockerHandler flips Epic to agent::blocked and waits
     • final wave completes → Epic → agent::review
     • if epic::auto-close was set at dispatch → BookendChainer runs
-      /sprint-code-review → /sprint-retro → /sprint-close
+      /sprint-close (single autonomous bookend step)
 ```
 
 ## Secrets required in the GitHub repo
@@ -105,9 +105,8 @@ execution behavior.
   parses the fenced JSON in the `epic-run-state` comment and resumes from
   `currentWave`. Stories whose branches and/or PRs exist are not
   relaunched; closed stories are treated as complete.
-- **Individual story failure.** The executor sub-agent reports `failed`,
-  the coordinator escalates to `BlockerHandler`. The `storyRetryCount`
-  config controls retries before escalation (default: 1).
+- **Individual story failure.** The executor sub-agent reports `failed`; the
+  coordinator escalates immediately to `BlockerHandler` (no in-run retry loop).
 - **Cancellation.** Remove `agent::dispatching` — the poller surfaces a
   `cancel-requested` event and the orchestrator halts cleanly, finishing
   in-flight stories and posting a cancellation comment.
@@ -219,9 +218,7 @@ this comment and decides whether to regenerate the PRD/Spec (skip if
     "epicRunner": {
       "enabled": true,          // master switch
       "concurrencyCap": 3,      // max parallel stories per wave
-      "pollIntervalSec": 30,    // how often to poll GitHub for state
-      "storyRetryCount": 1,     // retries before blocker escalation
-      "blockerTimeoutHours": 0  // 0 = park indefinitely
+      "pollIntervalSec": 30     // how often to poll GitHub for state
     }
   }
 }

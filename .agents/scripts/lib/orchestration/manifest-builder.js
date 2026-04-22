@@ -32,6 +32,30 @@ export function getResolvedBranch(task, allTicketsById, epicId) {
 }
 
 /**
+ * Resolve story-to-story dependency edges from the same source order the epic
+ * runner uses so dispatch manifest and runtime wave DAG never disagree:
+ *   1) body markers via parseBlockedBy (canonical for GitHub tickets)
+ *   2) optional provider `dependencies` array (fixture/custom providers)
+ */
+function resolveStoryDeps(groups, ticketById) {
+  const deps = new Map();
+  for (const storyId of groups.keys()) {
+    if (storyId === '__ungrouped__') continue;
+    const ticket = ticketById.get(storyId);
+    if (!ticket) continue;
+    const fromBody = parseBlockedBy(ticket.body ?? '');
+    const fromField = Array.isArray(ticket.dependencies)
+      ? ticket.dependencies.map(Number)
+      : [];
+    const merged = [...new Set([...fromBody, ...fromField])].filter(
+      (id) => Number.isInteger(id) && id !== storyId && groups.has(id),
+    );
+    if (merged.length > 0) deps.set(storyId, merged);
+  }
+  return deps;
+}
+
+/**
  * Build the story-centric manifest array.
  *
  * @param {object[]} tasks
@@ -41,29 +65,8 @@ export function getResolvedBranch(task, allTicketsById, epicId) {
  */
 function buildStoryManifest(tasks, allTickets, epicId) {
   const groups = groupTasksByStory(tasks, allTickets, epicId);
-
-  // Parse explicit story-to-story dependencies from `blocked by` on story
-  // ticket bodies. This captures dependencies declared at the story level
-  // (e.g., Story #130 body contains `blocked by #129`) which the task-level
-  // cross-story analysis would miss.
   const ticketById = new Map(allTickets.map((t) => [t.id, t]));
-  const explicitStoryDeps = new Map();
-  for (const [storyId, _group] of groups.entries()) {
-    if (storyId === '__ungrouped__') continue;
-    const storyTicket = ticketById.get(storyId);
-    if (!storyTicket) continue;
-    const blockers = parseBlockedBy(storyTicket.body ?? '');
-    if (blockers.length > 0) {
-      // Only include blockers that are actually other stories in this Epic
-      const validBlockers = blockers.filter(
-        (id) => id !== storyId && groups.has(id),
-      );
-      if (validBlockers.length > 0) {
-        explicitStoryDeps.set(storyId, validBlockers);
-      }
-    }
-  }
-
+  const explicitStoryDeps = resolveStoryDeps(groups, ticketById);
   const storyWaves = computeStoryWaves(groups, explicitStoryDeps);
 
   return [...groups.values()].map((group) => {

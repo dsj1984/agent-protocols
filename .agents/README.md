@@ -584,18 +584,18 @@ A per-file maintainability scoring engine computes composite scores based on
 cyclomatic complexity, file length, and dependency counts. The
 `maintainability-baseline.json` prevents score degradation between sprints.
 
-### HITL Risk Gates
+### HITL Blocker Escalation
 
-Deterministic safety checks force Human-In-The-Loop approval when an agent plans
-destructive operations (e.g., `DROP TABLE`, `DELETE`). The rubric
-(`agentSettings.riskGates.heuristics`) is intentionally narrow — only
-destructive/irreversible work, shared security/auth, CI/CD gating, parallel
-monorepo-wide rewrites, and destructive schema migrations are `risk::high`.
-Quality and style constraints are not.
+`risk::high` is informational/planning metadata only. Runtime execution does not
+pause automatically on `risk::high`.
 
-Both the task-dispatch gate and the story-merge gate honor
-`orchestration.hitl.riskHighApproval` (default `true`); set it to `false` to
-treat `risk::high` as informational and skip the pause.
+The sole runtime HITL pause point is `agent::blocked`: when an agent encounters
+an unresolvable blocker (including unsafe destructive actions lacking explicit
+authorization), it flips the ticket/Epic to `agent::blocked`, posts friction
+context, and waits for operator resume (`agent::executing`).
+
+`agentSettings.riskGates.heuristics` remains the rubric for identifying
+high-impact operations that should trigger blocker escalation.
 
 ### Friction Telemetry
 
