@@ -29,18 +29,21 @@ test('pathFor: builds worktreeRoot + story-<id>', () => {
   assert.ok(p.endsWith('story-42'));
 });
 
-test('removeWorktreeWithRecovery: treats prune-cleared registration as success', () => {
-  const calls = [];
+test('removeWorktreeWithRecovery: Stage 1 fs-rm-retry recovers from Windows lock-class remove failures', async () => {
+  const gitCalls = [];
+  const fsRmCalls = [];
   const ctx = {
     repoRoot: '/repo',
     platform: 'win32',
     config: {},
     listCache: { list: null, ts: 0 },
     logger: quietLogger().logger,
+    fsRm: async (p, opts) => {
+      fsRmCalls.push({ p, opts });
+    },
     git: {
-      gitSpawn: (cwd, ...args) => {
-        calls.push(args);
-        // All `git worktree remove` invocations fail with a lock-like error.
+      gitSpawn: (_cwd, ...args) => {
+        gitCalls.push(args);
         if (args[0] === 'worktree' && args[1] === 'remove') {
           return {
             status: 1,
@@ -48,28 +51,116 @@ test('removeWorktreeWithRecovery: treats prune-cleared registration as success',
             stderr: 'Access is denied. sharing violation',
           };
         }
-        // `git worktree prune` succeeds after removes fail.
-        if (args[0] === 'worktree' && args[1] === 'prune') {
-          return { status: 0, stdout: '', stderr: '' };
-        }
-        // Post-prune `git worktree list --porcelain` shows the path cleared.
-        if (
-          args[0] === 'worktree' &&
-          args[1] === 'list' &&
-          args[2] === '--porcelain'
-        ) {
-          return { status: 0, stdout: 'worktree /repo\n', stderr: '' };
+        return { status: 0, stdout: '', stderr: '' };
+      },
+    },
+  };
+  const res = await removeWorktreeWithRecovery(
+    ctx,
+    '/repo/.worktrees/story-1',
+    { storyId: 1, branch: 'story-1', push: false },
+  );
+  assert.equal(res.removed, true);
+  assert.equal(res.success, true);
+  assert.equal(res.method, 'fs-rm-retry');
+  assert.equal(res.branchDeleted, true);
+  assert.equal(res.remoteBranchDeleted, false);
+  assert.equal(fsRmCalls.length, 1);
+  assert.equal(fsRmCalls[0].p, '/repo/.worktrees/story-1');
+  assert.equal(fsRmCalls[0].opts.recursive, true);
+  assert.equal(fsRmCalls[0].opts.force, true);
+  // fsRm must be followed by `worktree prune` and `branch -D story-1`.
+  assert.ok(
+    gitCalls.some((a) => a[0] === 'worktree' && a[1] === 'prune'),
+    'Stage 1 must run `git worktree prune`',
+  );
+  assert.ok(
+    gitCalls.some((a) => a[0] === 'branch' && a[1] === '-D' && a[2] === 'story-1'),
+    'Stage 1 must run `git branch -D story-1`',
+  );
+  // push=false means no `git push --delete` call.
+  assert.ok(
+    !gitCalls.some((a) => a[0] === 'push'),
+    'push=false should not trigger remote branch delete',
+  );
+});
+
+test('removeWorktreeWithRecovery: Stage 1 retries fs.rm and succeeds on attempt 2/5 when EBUSY clears', async () => {
+  let fsRmAttempts = 0;
+  const ctx = {
+    repoRoot: '/repo',
+    platform: 'win32',
+    config: {},
+    listCache: { list: null, ts: 0 },
+    logger: quietLogger().logger,
+    fsRm: async () => {
+      fsRmAttempts += 1;
+      if (fsRmAttempts < 2) {
+        const err = new Error('EBUSY: resource busy or locked');
+        err.code = 'EBUSY';
+        throw err;
+      }
+      // EBUSY clears on attempt 2/5 — resolves cleanly.
+    },
+    git: {
+      gitSpawn: (_cwd, ...args) => {
+        if (args[0] === 'worktree' && args[1] === 'remove') {
+          return { status: 1, stdout: '', stderr: 'resource busy' };
         }
         return { status: 0, stdout: '', stderr: '' };
       },
     },
   };
-  const res = removeWorktreeWithRecovery(ctx, '/repo/.worktrees/story-1');
+  const res = await removeWorktreeWithRecovery(
+    ctx,
+    '/repo/.worktrees/story-7',
+    { storyId: 7, branch: 'story-7', push: true },
+  );
   assert.equal(res.removed, true);
-  assert.equal(res.registrationOnly, true);
+  assert.equal(res.method, 'fs-rm-retry');
+  assert.equal(res.attempts, 2);
+  assert.equal(fsRmAttempts, 2);
+  assert.equal(res.remoteBranchDeleted, true);
 });
 
-test('removeWorktreeWithRecovery: reports failure when registration survives', () => {
+test('removeWorktreeWithRecovery: Stage 1 surfaces pendingCleanup when fs.rm never clears', async () => {
+  let fsRmAttempts = 0;
+  const ctx = {
+    repoRoot: '/repo',
+    platform: 'win32',
+    config: {},
+    listCache: { list: null, ts: 0 },
+    logger: quietLogger().logger,
+    fsRm: async () => {
+      fsRmAttempts += 1;
+      const err = new Error('EBUSY: resource busy or locked');
+      err.code = 'EBUSY';
+      throw err;
+    },
+    git: {
+      gitSpawn: (_cwd, ...args) => {
+        if (args[0] === 'worktree' && args[1] === 'remove') {
+          return { status: 1, stdout: '', stderr: 'resource busy' };
+        }
+        return { status: 0, stdout: '', stderr: '' };
+      },
+    },
+  };
+  const res = await removeWorktreeWithRecovery(
+    ctx,
+    '/repo/.worktrees/story-9',
+    { storyId: 9, branch: 'story-9', push: false },
+  );
+  assert.equal(res.removed, false);
+  assert.equal(res.method, 'fs-rm-failed');
+  assert.ok(res.pendingCleanup);
+  assert.equal(res.pendingCleanup.storyId, 9);
+  assert.equal(res.pendingCleanup.branch, 'story-9');
+  assert.equal(res.pendingCleanup.path, '/repo/.worktrees/story-9');
+  assert.equal(fsRmAttempts, 5);
+});
+
+test('removeWorktreeWithRecovery: reports failure when registration survives', async () => {
   const ctx = {
     repoRoot: '/repo',
     platform: 'linux',
@@ -105,7 +196,10 @@ test('removeWorktreeWithRecovery: reports failure when registration survives', (
       },
     },
   };
-  const res = removeWorktreeWithRecovery(ctx, '/repo/.worktrees/story-2');
+  const res = await removeWorktreeWithRecovery(
+    ctx,
+    '/repo/.worktrees/story-2',
+  );
   assert.equal(res.removed, false);
   assert.match(res.reason, /unrecoverable/);
 });

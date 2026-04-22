@@ -62,6 +62,7 @@ export class WorktreeManager {
     logger,
     git = defaultGit,
     platform = process.platform,
+    fsRm,
   }) {
     if (!repoRoot || typeof repoRoot !== 'string') {
       throw new Error('WorktreeManager: repoRoot is required');
@@ -82,6 +83,7 @@ export class WorktreeManager {
     };
     this.git = git;
     this.platform = platform;
+    this.fsRm = fsRm;
 
     const resolvedRoot = path.resolve(this.repoRoot, this.config.root);
     try {
@@ -111,6 +113,7 @@ export class WorktreeManager {
       platform: this.platform,
       worktreeRoot: this.worktreeRoot,
       listCache: this._worktreeListCache,
+      fsRm: this.fsRm,
       maybeWarnWindowsPath: (wtPath) =>
         maybeWarnWindowsPath(
           {

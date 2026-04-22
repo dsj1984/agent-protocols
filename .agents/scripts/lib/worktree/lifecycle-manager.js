@@ -12,6 +12,7 @@
  */
 
 import fs from 'node:fs';
+import { rm as fsPromisesRm } from 'node:fs/promises';
 import path from 'node:path';
 import {
   dropAllSubmoduleGitlinksFromIndex,
@@ -264,12 +265,20 @@ export async function reap(ctx, storyId, opts = {}) {
     }
   }
 
-  const removeResult = removeWorktreeWithRecovery(ctx, wtPath);
+  const storyIdN = validateStoryId(storyId);
+  const branch = `story-${storyIdN}`;
+  const removeResult = await removeWorktreeWithRecovery(ctx, wtPath, {
+    storyId: storyIdN,
+    branch,
+    push: opts.push === true,
+  });
   if (!removeResult.removed) {
     return {
       removed: false,
       reason: `remove-failed: ${removeResult.reason}`,
       path: wtPath,
+      method: removeResult.method,
+      pendingCleanup: removeResult.pendingCleanup,
     };
   }
   invalidateWorktreeCache(ctx);
@@ -285,13 +294,52 @@ export async function reap(ctx, storyId, opts = {}) {
   }
 
   ctx.logger.info(`worktree.reaped storyId=${storyId} path=${wtPath}`);
-  return { removed: true, path: wtPath };
+  return {
+    removed: true,
+    path: wtPath,
+    ...(removeResult.method ? { method: removeResult.method } : {}),
+    ...(removeResult.branchDeleted !== undefined
+      ? { branchDeleted: removeResult.branchDeleted }
+      : {}),
+  };
 }
 
-export function removeWorktreeWithRecovery(ctx, wtPath) {
+const WINDOWS_LOCK_RE =
+  /(permission denied|access is denied|directory not empty|resource busy|device or resource busy|sharing violation|EACCES|EBUSY|ENOTEMPTY)/i;
+
+/**
+ * Stage 1 recovery after `git worktree remove` exhausts its retries with a
+ * Windows-lock-class error: retry `fs.rm` up to `maxRetries` times, then
+ * prune the registration, delete the local branch, and (if `push`) delete
+ * the remote branch. Returns `{ success: true, attempts }` or
+ * `{ success: false, attempts, error }` on final failure.
+ */
+async function fsRmWithRetry(
+  fsRm,
+  wtPath,
+  { maxRetries = 5, retryDelay = 200 } = {},
+) {
+  let lastErr;
+  for (let attempt = 1; attempt <= maxRetries; attempt++) {
+    try {
+      await fsRm(wtPath, { recursive: true, force: true });
+      return { success: true, attempts: attempt };
+    } catch (err) {
+      lastErr = err;
+      if (attempt < maxRetries) {
+        await new Promise((r) => setTimeout(r, retryDelay));
+      }
+    }
+  }
+  return { success: false, attempts: maxRetries, error: lastErr };
+}
+
+export async function removeWorktreeWithRecovery(ctx, wtPath, opts = {}) {
+  const { storyId = null, branch = null, push = false } = opts;
   const maxAttempts = ctx.platform === 'win32' ? 6 : 2;
   const retryDelaysMs = [0, 150, 350, 700, 1200, 2000];
   let lastReason = 'worktree-remove-failed';
+  let lastWasLockLike = false;
 
   for (let attempt = 1; attempt <= maxAttempts; attempt++) {
     const res = ctx.git.gitSpawn(ctx.repoRoot, 'worktree', 'remove', wtPath);
@@ -303,10 +351,8 @@ export function removeWorktreeWithRecovery(ctx, wtPath) {
       /working trees containing submodules cannot be moved or removed/i.test(
         stderr,
       );
-    const isLockLike =
-      /(permission denied|access is denied|directory not empty|resource busy|device or resource busy|sharing violation)/i.test(
-        stderr,
-      );
+    const isLockLike = WINDOWS_LOCK_RE.test(stderr);
+    lastWasLockLike = isLockLike;
 
     if (isSubmoduleGuard && attempt < maxAttempts) {
       ctx.logger.warn(
@@ -327,6 +373,103 @@ export function removeWorktreeWithRecovery(ctx, wtPath) {
     break;
   }
 
+  // Stage 1: Windows-lock-class fallback. After `git worktree remove` has
+  // exhausted its retries on a lock-like stderr, try to clear the directory
+  // with `fs.rm` (Node-native, built for transient Windows locks), prune the
+  // registration, delete the local branch, and optionally delete the remote
+  // branch. This is categorically different from a shell `rm -rf`: no
+  // subprocess, no argv parsing, path is always an internally-constructed
+  // `.worktrees/story-<id>` path.
+  if (lastWasLockLike) {
+    const fsRm = ctx.fsRm ?? fsPromisesRm;
+    const rmResult = await fsRmWithRetry(fsRm, wtPath, {
+      maxRetries: 5,
+      retryDelay: 200,
+    });
+
+    if (!rmResult.success) {
+      ctx.git.gitSpawn(ctx.repoRoot, 'worktree', 'prune');
+      invalidateWorktreeCache(ctx);
+      const errMsg =
+        (rmResult.error && rmResult.error.message) ||
+        String(rmResult.error) ||
+        'fs-rm-failed';
+      ctx.logger.warn(
+        `worktree.reap fs-rm-retry exhausted after ${rmResult.attempts} attempts path=${wtPath}: ${errMsg}`,
+      );
+      return {
+        removed: false,
+        method: 'fs-rm-failed',
+        reason: errMsg,
+        lockReason: lastReason,
+        attempts: rmResult.attempts,
+        pendingCleanup: { storyId, branch, path: wtPath, push },
+      };
+    }
+
+    ctx.git.gitSpawn(ctx.repoRoot, 'worktree', 'prune');
+    invalidateWorktreeCache(ctx);
+
+    let branchDeleted = false;
+    let remoteBranchDeleted = false;
+    if (branch) {
+      const localDel = ctx.git.gitSpawn(
+        ctx.repoRoot,
+        'branch',
+        '-D',
+        branch,
+      );
+      if (localDel.status === 0) {
+        branchDeleted = true;
+      } else {
+        const stderr = (localDel.stderr || localDel.stdout || '').trim();
+        if (/not found|not match|no such/i.test(stderr)) {
+          // Already gone — treat as deleted.
+          branchDeleted = true;
+        } else {
+          ctx.logger.warn(
+            `worktree.reap fs-rm-retry branch -D ${branch} failed: ${stderr || 'unknown'} (continuing)`,
+          );
+        }
+      }
+      if (push) {
+        const remoteDel = ctx.git.gitSpawn(
+          ctx.repoRoot,
+          'push',
+          '--no-verify',
+          'origin',
+          '--delete',
+          branch,
+        );
+        if (remoteDel.status === 0) {
+          remoteBranchDeleted = true;
+        } else {
+          const stderr = (remoteDel.stderr || remoteDel.stdout || '').trim();
+          if (/remote ref does not exist|not found|unable to delete/i.test(stderr)) {
+            remoteBranchDeleted = true;
+          } else {
+            ctx.logger.warn(
+              `worktree.reap fs-rm-retry push --delete ${branch} failed: ${stderr || 'unknown'} (continuing)`,
+            );
+          }
+        }
+      }
+    }
+
+    ctx.logger.warn(
+      `worktree.reap recovered via fs-rm-retry path=${wtPath} attempts=${rmResult.attempts} lockReason=${lastReason}`,
+    );
+    return {
+      removed: true,
+      success: true,
+      method: 'fs-rm-retry',
+      attempts: rmResult.attempts,
+      branchDeleted,
+      remoteBranchDeleted,
+    };
+  }
+
+  // Non-lock failure: keep the prune-cleared-registration legacy recovery.
   ctx.git.gitSpawn(ctx.repoRoot, 'worktree', 'prune');
   invalidateWorktreeCache(ctx);
   const stillRegistered = findByPath(ctx, wtPath) !== null;
