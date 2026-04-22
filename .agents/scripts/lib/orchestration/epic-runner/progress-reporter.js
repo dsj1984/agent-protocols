@@ -207,7 +207,12 @@ export class ProgressReporter {
       const fetched = await Promise.all(
         allIds.map(async (id) => {
           try {
-            const ticket = await this.provider.getTicket(id);
+            // Bypass provider cache: Story labels are transitioned by the
+            // spawned `claude -p` child processes, whose writes never reach
+            // the parent runner's in-memory _ticketCache. Reading stale cache
+            // entries would leave every Story row rendered as "unknown" for
+            // the entire run even after labels like `agent::done` land.
+            const ticket = await this.provider.getTicket(id, { fresh: true });
             return [
               id,
               {

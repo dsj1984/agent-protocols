@@ -333,8 +333,8 @@ export class GitHubProvider extends ITicketingProvider {
     return subTickets.filter(Boolean);
   }
 
-  async getTicket(ticketId) {
-    if (this._ticketCache.has(ticketId)) {
+  async getTicket(ticketId, opts = {}) {
+    if (!opts.fresh && this._ticketCache.has(ticketId)) {
       return this._ticketCache.get(ticketId);
     }
 
