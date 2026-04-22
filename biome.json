@@ -6,7 +6,14 @@
     "useIgnoreFile": true
   },
   "files": {
-    "ignoreUnknown": false
+    "ignoreUnknown": false,
+    "includes": [
+      "**",
+      "!.worktrees/**",
+      "!temp/**",
+      "!dist/**",
+      "!node_modules/**"
+    ]
   },
   "formatter": {
     "enabled": true,
