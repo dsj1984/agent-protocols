@@ -170,6 +170,31 @@ by picking stories off the Dispatch Table.
 > equals the main checkout. See [`worktree-lifecycle.md`](worktree-lifecycle.md)
 > for node_modules strategies, Windows notes, and escape hatches.
 
+### Non-interactive execution contract
+
+Story Mode is almost always launched headless by the Epic runner, which spawns
+`claude -p '/sprint-execute <id>' --dangerously-skip-permissions` with **stdin
+closed**. Any clarifying question you ask the operator will block forever —
+the runner has no way to reply and will eventually be killed by the idle
+watchdog (`orchestration.epicRunner.idleTimeoutSec`, default 900s).
+
+**Rules when running as a sub-agent:**
+
+- **Never ask the operator clarifying questions.** If information is missing
+  or ambiguous, pick the most reasonable assumption, log it explicitly in the
+  story execution log (so it appears in the ticket timeline), and proceed.
+- **If you are truly blocked** and cannot make progress without human input,
+  transition the Story to `agent::blocked` with a structured comment that
+  states (a) what decision is needed and (b) what assumption you would make by
+  default. Then exit non-zero. Do **not** wait for a reply.
+- **Tool-permission prompts are already disabled** by
+  `--dangerously-skip-permissions`; if you encounter one anyway, treat it as a
+  harness bug and mark the Story `agent::blocked` rather than hanging.
+
+When run interactively (operator typed `/sprint-execute <id>` directly),
+normal conversational clarification is fine. The contract above only binds
+when spawned headless.
+
 ### Step 0 — Initialize (`sprint-story-init.js`)
 
 Run the initialization script from the **main checkout**. It sets up the Epic
