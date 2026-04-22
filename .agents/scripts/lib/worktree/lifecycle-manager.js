@@ -30,6 +30,7 @@ import {
   installDependencies,
   sleepSync,
 } from './node-modules-strategy.js';
+import { recordPendingCleanup } from './pending-cleanup.js';
 
 const STORY_BRANCH_RE = /^story-\d+$/;
 
@@ -394,16 +395,34 @@ export async function removeWorktreeWithRecovery(ctx, wtPath, opts = {}) {
         (rmResult.error && rmResult.error.message) ||
         String(rmResult.error) ||
         'fs-rm-failed';
-      ctx.logger.warn(
-        `worktree.reap fs-rm-retry exhausted after ${rmResult.attempts} attempts path=${wtPath}: ${errMsg}`,
+      // Stage 2 hand-off: append the entry to `.worktrees/.pending-cleanup.json`
+      // so the plan-time worktree-sweep can drain it on the next run.
+      let manifestEntry = null;
+      if (storyId != null && ctx.worktreeRoot) {
+        try {
+          manifestEntry = recordPendingCleanup(ctx.worktreeRoot, {
+            storyId,
+            branch,
+            path: wtPath,
+            push,
+          });
+        } catch (err) {
+          ctx.logger.warn(
+            `worktree.reap pending-cleanup manifest write failed: ${err.message}`,
+          );
+        }
+      }
+      ctx.logger.error(
+        `OPERATOR ACTION REQUIRED: worktree reap exhausted Stage 1 (fs-rm-retry) after ${rmResult.attempts} ` +
+          `attempts path=${wtPath} — deferred to plan-time worktree-sweep. Reason: ${errMsg}`,
       );
       return {
         removed: false,
-        method: 'fs-rm-failed',
+        method: 'deferred-to-sweep',
         reason: errMsg,
         lockReason: lastReason,
         attempts: rmResult.attempts,
-        pendingCleanup: { storyId, branch, path: wtPath, push },
+        pendingCleanup: manifestEntry ?? { storyId, branch, path: wtPath, push },
       };
     }
 
