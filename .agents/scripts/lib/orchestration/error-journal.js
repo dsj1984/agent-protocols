@@ -22,6 +22,9 @@ import path from 'node:path';
 const SECRET_KEY_RE = /token|secret|password|bearer|apikey|api[-_]?key|auth/i;
 const SECRET_VALUE_RE =
   /\b(gh[pous]_[A-Za-z0-9]{30,}|sk-[A-Za-z0-9]{20,}|xox[bpars]-[A-Za-z0-9-]+|AKIA[0-9A-Z]{16})\b/;
+// Hoisted so the maintainability analyzer (escomplex) doesn't choke on an
+// inline RegExp literal inside .split() — it mis-parses the sequence.
+const NEWLINE_RE = /\r?\n/;
 
 export class ErrorJournal {
   /**
@@ -119,7 +122,7 @@ function emitMasksFor(node, parentKey = null) {
       (parentKey && SECRET_KEY_RE.test(parentKey)) ||
       SECRET_VALUE_RE.test(node)
     ) {
-      for (const line of node.split(/\r?\n/)) {
+      for (const line of node.split(NEWLINE_RE)) {
         const trimmed = line.trim();
         if (trimmed) console.log(`::add-mask::${trimmed}`);
       }

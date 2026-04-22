@@ -158,6 +158,47 @@ describe('config-resolver library tests', () => {
     assert.equal(cfg.orchestration, null);
   });
 
+  it('throws when orchestration.epicRunner is missing concurrencyCap', () => {
+    const agentrcPath = path.join(PROJECT_ROOT, '.agentrc.json');
+    vol.mkdirSync(PROJECT_ROOT, { recursive: true });
+    vol.writeFileSync(
+      agentrcPath,
+      JSON.stringify({
+        agentSettings: {},
+        orchestration: {
+          provider: 'github',
+          github: { owner: 'org', repo: 'repo' },
+          epicRunner: { enabled: true, pollIntervalSec: 30 },
+        },
+      }),
+    );
+
+    assert.throws(
+      () => resolveConfig({ bustCache: true }),
+      /Invalid orchestration configuration/,
+    );
+  });
+
+  it('skips orchestration validation when { validate: false }', () => {
+    const agentrcPath = path.join(PROJECT_ROOT, '.agentrc.json');
+    vol.mkdirSync(PROJECT_ROOT, { recursive: true });
+    vol.writeFileSync(
+      agentrcPath,
+      JSON.stringify({
+        agentSettings: {},
+        orchestration: {
+          provider: 'github',
+          github: { owner: 'org', repo: 'repo' },
+          epicRunner: { enabled: true, pollIntervalSec: 30 },
+        },
+      }),
+    );
+
+    assert.doesNotThrow(() =>
+      resolveConfig({ bustCache: true, validate: false }),
+    );
+  });
+
   it('merges defaults with loaded config', () => {
     const agentrcPath = path.join(PROJECT_ROOT, '.agentrc.json');
     vol.mkdirSync(PROJECT_ROOT, { recursive: true });

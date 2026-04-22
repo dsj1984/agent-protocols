@@ -158,6 +158,7 @@ export const ORCHESTRATION_SCHEMA = {
         pollIntervalSec: { type: 'integer', minimum: 1 },
         progressReportIntervalSec: { type: 'integer', minimum: 0 },
       },
+      required: ['concurrencyCap'],
       additionalProperties: false,
     },
     planRunner: {

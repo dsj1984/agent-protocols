@@ -27,9 +27,10 @@
  */
 
 import { readFile } from 'node:fs/promises';
+import path from 'node:path';
 import { parseArgs } from 'node:util';
 import { runAsCli } from './lib/cli-utils.js';
-import { resolveConfig } from './lib/config-resolver.js';
+import { PROJECT_ROOT, resolveConfig } from './lib/config-resolver.js';
 import { AGENT_LABELS, TYPE_LABELS } from './lib/label-constants.js';
 import { Logger } from './lib/Logger.js';
 import { buildAuthoringContext, planEpic } from './epic-planner.js';
@@ -39,6 +40,50 @@ import {
   PLAN_PHASES,
 } from './lib/orchestration/plan-runner/plan-checkpointer.js';
 import { createProvider } from './lib/provider-factory.js';
+import * as gitUtils from './lib/git-utils.js';
+import {
+  drainPendingCleanup,
+  readManifest,
+} from './lib/worktree/pending-cleanup.js';
+
+/**
+ * Drain the `.worktrees/.pending-cleanup.json` manifest left behind by Stage 1
+ * reap failures. Runs at `/sprint-plan-spec` boot before any downstream work.
+ *
+ * Non-blocking: entries that still fail this pass stay in the manifest for the
+ * next sweep; plan execution continues regardless.
+ *
+ * Exposed for integration tests.
+ *
+ * @param {{ repoRoot?: string, git?: object, logger?: object }} [opts]
+ * @returns {Promise<{ drained: number[], persistent: number[], stillPending: number[], remaining: number }>}
+ */
+export async function drainPendingCleanupAtBoot(opts = {}) {
+  const repoRoot = opts.repoRoot ?? PROJECT_ROOT;
+  const worktreeRoot = path.join(repoRoot, '.worktrees');
+  const git = opts.git ?? gitUtils;
+  const logger = opts.logger ?? console;
+  const fsRm = opts.fsRm;
+
+  const before = readManifest(worktreeRoot).length;
+  if (before === 0) {
+    return { drained: [], persistent: [], stillPending: [], remaining: 0 };
+  }
+
+  const result = await drainPendingCleanup({
+    repoRoot,
+    worktreeRoot,
+    git,
+    fsRm,
+    logger,
+  });
+  const remaining =
+    (result.persistent?.length ?? 0) + (result.stillPending?.length ?? 0);
+  logger.info?.(
+    `[sprint-plan-spec] pending-cleanup drain: reaped=${result.drained?.length ?? 0} remaining=${remaining}`,
+  );
+  return { ...result, remaining };
+}
 
 async function setEpicLabel(provider, epicId, targetLabel) {
   const planningLabels = [
@@ -149,6 +194,14 @@ async function main() {
 
   const { orchestration, settings } = resolveConfig();
   const provider = createProvider(orchestration);
+
+  try {
+    await drainPendingCleanupAtBoot();
+  } catch (err) {
+    console.warn(
+      `[sprint-plan-spec] pending-cleanup drain skipped: ${err.message}`,
+    );
+  }
 
   if (values['emit-context']) {
     const ctx = await buildAuthoringContext(epicId, provider, settings);
