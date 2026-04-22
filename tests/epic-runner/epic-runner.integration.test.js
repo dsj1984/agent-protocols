@@ -143,6 +143,56 @@ describe('EpicRunner integration', () => {
     assert.equal(checkpoints.length, 1);
   });
 
+  it('filters non-story descendants returned by getSubTickets', async () => {
+    // Real GitHub provider's `getSubTickets` returns the full descendant set
+    // (Features, PRD, Tech Spec, Stories, Tasks) via native sub-issues plus
+    // body reverse-lookup. The runner must filter to `type::story` before
+    // building the wave DAG — otherwise non-stories reach `sprint-story-init`
+    // and fail its type guard.
+    const epicId = 500;
+    const stories = [{ id: 600, dependencies: [] }];
+    const provider = buildFakeProvider({ epicId, stories });
+
+    // Seed non-story descendants that the real provider would also return.
+    provider._tickets.set(700, { id: 700, labels: ['type::feature'] });
+    provider._tickets.set(701, { id: 701, labels: ['context::prd'] });
+    provider._tickets.set(702, { id: 702, labels: ['type::task'] });
+    const origGetSub = provider.getSubTickets.bind(provider);
+    provider.getSubTickets = async (parent) => {
+      const stories = await origGetSub(parent);
+      return [
+        ...stories,
+        { id: 700, labels: ['type::feature'] },
+        { id: 701, labels: ['context::prd'] },
+        { id: 702, labels: ['type::task'] },
+      ];
+    };
+
+    const spawned = [];
+    const spawn = async ({ storyId }) => {
+      spawned.push(storyId);
+      return { status: 'done' };
+    };
+
+    await runEpic({
+      epicId,
+      provider,
+      config: {
+        epicRunner: {
+          enabled: true,
+          concurrencyCap: 1,
+          pollIntervalSec: 1,
+          storyRetryCount: 0,
+          blockerTimeoutHours: 0,
+        },
+      },
+      spawn,
+      logger: quietLogger(),
+    });
+
+    assert.deepEqual(spawned, [600], 'only the story should be spawned');
+  });
+
   it('halts on a failed story and flips the epic to agent::blocked', async () => {
     const epicId = 321;
     const stories = [

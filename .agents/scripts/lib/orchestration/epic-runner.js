@@ -68,8 +68,16 @@ export async function runEpic({
   const autoClose = epicLabels.has(AUTO_CLOSE_LABEL);
 
   // --- 2. Build the wave DAG from child Stories ---
-  const stories = await provider.getSubTickets(epicId);
-  if (!stories?.length) {
+  // `getSubTickets` returns the full descendant set (Features, PRDs,
+  // Tech Specs, Stories, Tasks) via native sub-issues + body reverse-lookup.
+  // The epic-runner only dispatches Stories, so filter by `type::story`
+  // before building the DAG — otherwise non-stories reach `sprint-story-init`
+  // and fail the type guard in `resolveStoryContext`.
+  const descendants = await provider.getSubTickets(epicId);
+  const stories = (descendants ?? []).filter((t) =>
+    (t.labels ?? []).includes('type::story'),
+  );
+  if (!stories.length) {
     throw new Error(`Epic #${epicId} has no child stories to dispatch.`);
   }
   const { adjacency, taskMap } = buildStoryDag(stories);
