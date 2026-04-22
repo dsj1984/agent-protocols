@@ -101,15 +101,23 @@ export const ORCHESTRATION_SCHEMA = {
           type: 'string',
           enum: ['progress', 'notification', 'friction', 'action'],
         },
-        // Ticket-change notification controls (consumed by
-        // .github/workflows/notify-ticket-change.yml for Epic/Feature/Story
-        // label and state transitions). Does NOT affect the in-engine
-        // NotificationHook used by the epic runner.
+        // Ticket-change notification controls (consumed by the in-band
+        // Notifier in `lib/notifications/notifier.js`, called from
+        // `transitionTicketState`). Does NOT affect the epic-runner's
+        // blocker NotificationHook, which has its own lifecycle.
         level: {
           type: 'string',
           enum: ['off', 'minimal', 'default', 'verbose'],
         },
         postToEpic: { type: 'boolean' },
+        channels: {
+          type: 'array',
+          items: {
+            type: 'string',
+            enum: ['log', 'epic-comment', 'webhook'],
+          },
+          uniqueItems: true,
+        },
       },
       additionalProperties: false,
     },

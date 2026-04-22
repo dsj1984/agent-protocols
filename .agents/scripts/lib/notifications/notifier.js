@@ -1,0 +1,224 @@
+/**
+ * Ticket-Change Notifier — in-band state/label change notifications.
+ *
+ * Invoked from the orchestration SDK (see ticketing.js:transitionTicketState)
+ * so consuming projects get notifications without needing a bespoke GitHub
+ * Actions workflow. Three channels, each independently skippable:
+ *
+ *   1. **log**         — prints a structured line to stderr for local
+ *                        operators and CI logs.
+ *   2. **epic-comment** — posts a one-line comment on the affected Epic so
+ *                        operators have a linear feed of lifecycle events
+ *                        on a single issue.
+ *   3. **webhook**     — fire-and-forget POST to the configured URL
+ *                        (Make.com / Slack / Discord / etc). Resolution
+ *                        priority: env `NOTIFICATION_WEBHOOK_URL` →
+ *                        `orchestration.notifications.webhookUrl` in
+ *                        `.agentrc.json` → `.mcp.json` at the path
+ *                        `.mcpServers["agent-protocols"].env.NOTIFICATION_WEBHOOK_URL`.
+ *
+ * Level filter (from `orchestration.notifications.level`):
+ *
+ *   off      — all channels skipped
+ *   minimal  — only `state-transition` to `agent::done` / `agent::review`
+ *   default  — all `state-transition` events (agent:: lifecycle changes)
+ *   verbose  — all events (default)
+ */
+
+import { existsSync, readFileSync } from 'node:fs';
+import { resolve } from 'node:path';
+
+const DEFAULT_LEVEL = 'verbose';
+
+export function resolveWebhookUrl(config, { cwd } = {}) {
+  // 1. Process env (from .env or CI secret)
+  if (process.env.NOTIFICATION_WEBHOOK_URL?.trim()) {
+    return process.env.NOTIFICATION_WEBHOOK_URL.trim();
+  }
+  // 2. .agentrc.json explicit override
+  if (config?.webhookUrl?.trim()) {
+    return config.webhookUrl.trim();
+  }
+  // 3. .mcp.json agent-protocols MCP server env
+  const mcpPath = resolve(cwd ?? process.cwd(), '.mcp.json');
+  if (existsSync(mcpPath)) {
+    try {
+      const mcp = JSON.parse(readFileSync(mcpPath, 'utf8'));
+      const url =
+        mcp?.mcpServers?.['agent-protocols']?.env?.NOTIFICATION_WEBHOOK_URL;
+      if (typeof url === 'string' && url.trim()) return url.trim();
+    } catch {
+      // malformed .mcp.json — skip
+    }
+  }
+  return null;
+}
+
+export class Notifier {
+  /**
+   * @param {{
+   *   config?: { level?: string, webhookUrl?: string|null, postToEpic?: boolean, channels?: string[] },
+   *   provider?: { postComment: Function, getTicket: Function },
+   *   fetchImpl?: typeof fetch,
+   *   logger?: { info: Function, warn: Function, error: Function },
+   *   cwd?: string,
+   * }} opts
+   */
+  constructor({ config, provider, fetchImpl, logger, cwd } = {}) {
+    this.config = config ?? {};
+    this.level = this.config.level ?? DEFAULT_LEVEL;
+    this.postToEpic = this.config.postToEpic !== false;
+    this.channels = new Set(
+      this.config.channels ?? ['log', 'epic-comment', 'webhook'],
+    );
+    this.provider = provider;
+    this.fetchImpl = fetchImpl ?? globalThis.fetch;
+    this.logger = logger ?? console;
+    this.webhookUrl = resolveWebhookUrl(this.config, { cwd });
+  }
+
+  /**
+   * Fire a notification. Always resolves — errors from individual channels
+   * are logged-and-swallowed so notifications never take down the caller.
+   *
+   * @param {{
+   *   kind: 'state-transition' | 'opened' | 'closed' | 'reopened',
+   *   ticket: { id: number, title?: string, type?: string, url?: string, epicId?: number|null },
+   *   fromState?: string | null,
+   *   toState?: string | null,
+   *   sender?: string,
+   *   metadata?: object,
+   * }} event
+   */
+  async emit(event) {
+    if (!this.#shouldFire(event)) return { fired: false, reason: 'filtered' };
+
+    const payload = this.#buildPayload(event);
+    const results = {};
+
+    if (this.channels.has('log')) {
+      results.log = this.#log(payload);
+    }
+    if (this.channels.has('epic-comment') && this.postToEpic && this.provider) {
+      results.epicComment = await this.#postEpicComment(payload);
+    }
+    if (this.channels.has('webhook') && this.webhookUrl) {
+      results.webhook = await this.#postWebhook(payload);
+    }
+
+    return { fired: true, results };
+  }
+
+  #shouldFire(event) {
+    if (this.level === 'off') return false;
+    if (this.level === 'verbose') return true;
+    if (this.level === 'default') {
+      return event.kind === 'state-transition';
+    }
+    if (this.level === 'minimal') {
+      return (
+        event.kind === 'state-transition' &&
+        (event.toState === 'agent::done' || event.toState === 'agent::review')
+      );
+    }
+    return true;
+  }
+
+  #buildPayload(event) {
+    const type = event.ticket?.type ?? 'ticket';
+    const id = event.ticket?.id;
+    const title = event.ticket?.title ?? '';
+    const toState = event.toState ?? '';
+    const fromState = event.fromState ?? '';
+
+    let summary;
+    switch (event.kind) {
+      case 'state-transition':
+        summary = fromState
+          ? `${type} #${id} · \`${fromState}\` → \`${toState}\``
+          : `${type} #${id} · → \`${toState}\``;
+        break;
+      case 'opened':
+        summary = `${type} #${id} · 🆕 opened`;
+        break;
+      case 'closed':
+        summary = `${type} #${id} · ✅ closed`;
+        break;
+      case 'reopened':
+        summary = `${type} #${id} · ♻️ reopened`;
+        break;
+      default:
+        summary = `${type} #${id} · ${event.kind}`;
+    }
+    if (title) summary += ` — ${title.slice(0, 80)}`;
+
+    return {
+      kind: event.kind,
+      summary,
+      ticket: event.ticket,
+      fromState,
+      toState,
+      sender: event.sender ?? 'orchestrator',
+      metadata: event.metadata ?? {},
+      timestamp: new Date().toISOString(),
+    };
+  }
+
+  #log(payload) {
+    this.logger.info?.(`[notify] ${payload.summary}`);
+    return { delivered: true };
+  }
+
+  async #postEpicComment(payload) {
+    const epicId = payload.ticket?.epicId ?? payload.ticket?.id;
+    if (!epicId) return { delivered: false, reason: 'no-epic-id' };
+    try {
+      await this.provider.postComment(epicId, {
+        type: 'progress',
+        body: `📋 **State change** · ${payload.summary} _(at ${payload.timestamp})_`,
+      });
+      return { delivered: true };
+    } catch (err) {
+      this.logger.warn?.(
+        `[notify] epic comment failed: ${err?.message ?? err}`,
+      );
+      return { delivered: false, reason: err?.message ?? 'error' };
+    }
+  }
+
+  async #postWebhook(payload) {
+    if (!this.fetchImpl || !this.webhookUrl) {
+      return { delivered: false, reason: 'no-webhook' };
+    }
+    try {
+      const res = await this.fetchImpl(this.webhookUrl, {
+        method: 'POST',
+        headers: { 'content-type': 'application/json' },
+        body: JSON.stringify(payload),
+      });
+      if (!res?.ok) {
+        this.logger.warn?.(
+          `[notify] webhook returned ${res?.status ?? 'unknown'}`,
+        );
+        return { delivered: false, reason: `status-${res?.status}` };
+      }
+      return { delivered: true };
+    } catch (err) {
+      this.logger.warn?.(`[notify] webhook error: ${err?.message ?? err}`);
+      return { delivered: false, reason: 'error' };
+    }
+  }
+}
+
+/**
+ * Convenience: build a Notifier from an orchestration config block and a
+ * provider. Returns a no-op notifier if notifications are disabled in config.
+ *
+ * @param {object} orchestration - From `.agentrc.json`
+ * @param {object} provider      - ITicketingProvider instance
+ * @param {object} [opts]
+ */
+export function createNotifier(orchestration, provider, opts = {}) {
+  const cfg = orchestration?.notifications ?? {};
+  return new Notifier({ config: cfg, provider, ...opts });
+}
