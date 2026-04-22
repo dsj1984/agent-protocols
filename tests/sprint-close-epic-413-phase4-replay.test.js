@@ -22,7 +22,7 @@ const STORY_IDS = [420, 421, 422, 423, 424, 425];
 const DIRTY_STORY_IDS = new Set([420, 423, 424]);
 const DIRTY_PORCELAIN = ' M .agents/scripts/lib/foo.js\n?? scratch.txt';
 
-function buildReplayGit(repoRoot, worktreeRoot) {
+function buildReplayGit(_repoRoot, worktreeRoot) {
   const calls = [];
   const worktreeListStdout = STORY_IDS.map(
     (id) =>
