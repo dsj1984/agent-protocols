@@ -22,6 +22,7 @@ import { parseBlockedBy, parseBlocks } from '../lib/dependency-parser.js';
 import { ITicketingProvider } from '../lib/ITicketingProvider.js';
 import { parseLinkedIssues } from '../lib/issue-link-parser.js';
 import { TYPE_LABELS } from '../lib/label-constants.js';
+import { classifyGithubError } from './github/error-classifier.js';
 import { GithubHttpClient } from './github-http-client.js';
 
 /**
@@ -139,9 +140,7 @@ export class GitHubProvider extends ITicketingProvider {
     return issues
       .filter((issue) => !issue.pull_request)
       .map((issue) => {
-        const labels = (issue.labels ?? []).map((l) =>
-          typeof l === 'string' ? l : l.name,
-        );
+        const labels = this._normalizeLabels(issue);
         return {
           id: issue.number,
           title: issue.title,
@@ -168,9 +167,7 @@ export class GitHubProvider extends ITicketingProvider {
       `/repos/${this.owner}/${this.repo}/issues/${epicId}`,
     );
 
-    const labels = (issue.labels ?? []).map((l) =>
-      typeof l === 'string' ? l : l.name,
-    );
+    const labels = this._normalizeLabels(issue);
 
     return {
       id: issue.number,
@@ -211,9 +208,7 @@ export class GitHubProvider extends ITicketingProvider {
         return epicRefRe.test(body);
       })
       .map((issue) => {
-        const labels = (issue.labels ?? []).map((l) =>
-          typeof l === 'string' ? l : l.name,
-        );
+        const labels = this._normalizeLabels(issue);
         return {
           id: issue.number,
           internalId: issue.id,
@@ -240,7 +235,7 @@ export class GitHubProvider extends ITicketingProvider {
     try {
       let cursor = null;
       while (true) {
-        const data = await this._http.graphql(
+        const subIssuesPage = await this._http.graphql(
           `query($id: ID!, $cursor: String) {
             node(id: $id) {
               ... on Issue {
@@ -264,7 +259,7 @@ export class GitHubProvider extends ITicketingProvider {
           { headers: { 'GraphQL-Features': 'sub_issues' } },
         );
 
-        const page = data.node?.subIssues;
+        const page = subIssuesPage.node?.subIssues;
         const nodes = page?.nodes ?? [];
         for (const node of nodes) {
           nativeChildIds.push(node.number);
@@ -282,10 +277,20 @@ export class GitHubProvider extends ITicketingProvider {
         cursor = page.pageInfo.endCursor;
       }
     } catch (err) {
-      // GraphQL feature might not be enabled or permission error — proceed with checkboxes only
-      console.warn(
-        `[GitHubProvider] sub-issues GraphQL fallback (parent #${parentId}): ${err.message}`,
-      );
+      const category = classifyGithubError(err);
+      if (category === 'feature-disabled') {
+        // Sub-issues GraphQL not available on this repo/org — fall back to
+        // checklist scraping silently. This is the expected path on repos
+        // without the sub-issues feature.
+        console.warn(
+          `[GitHubProvider] sub-issues GraphQL unavailable (parent #${parentId}); using checklist fallback`,
+        );
+      } else {
+        console.error(
+          `[GitHubProvider] sub-issues GraphQL failed (parent #${parentId}, category=${category}): ${err.message}`,
+        );
+        throw err;
+      }
     }
 
     // Secondary: Match checklist items linking to issues: "- [ ] #123" or "- [x] #123"
@@ -337,9 +342,7 @@ export class GitHubProvider extends ITicketingProvider {
       `/repos/${this.owner}/${this.repo}/issues/${ticketId}`,
     );
 
-    const labels = (issue.labels ?? []).map((l) =>
-      typeof l === 'string' ? l : l.name,
-    );
+    const labels = this._normalizeLabels(issue);
 
     const ticket = {
       id: issue.number,
@@ -358,6 +361,26 @@ export class GitHubProvider extends ITicketingProvider {
   }
 
   /**
+   * Normalize the label collection on an issue/node into a flat array of
+   * label names. Handles both shapes the GitHub API returns:
+   *   - REST: `issue.labels` is an array of strings or `{ name }` objects.
+   *   - GraphQL: `issue.labels.nodes` is an array of `{ name }` objects.
+   * Returns `[]` when labels are missing/null.
+   * @private
+   */
+  _normalizeLabels(issue) {
+    const raw = issue?.labels;
+    if (!raw) return [];
+    if (Array.isArray(raw?.nodes)) {
+      return raw.nodes.map((l) => l.name);
+    }
+    if (Array.isArray(raw)) {
+      return raw.map((l) => (typeof l === 'string' ? l : l.name));
+    }
+    return [];
+  }
+
+  /**
    * Map a GraphQL sub-issue node into the ticket shape that
    * `getTicket`/`getTickets` return. Keeps the state label lower-cased to
    * match the REST API (`open`/`closed`) so downstream code never has to
@@ -365,7 +388,7 @@ export class GitHubProvider extends ITicketingProvider {
    * @private
    */
   _subIssueNodeToTicket(node) {
-    const labels = (node.labels?.nodes ?? []).map((l) => l.name);
+    const labels = this._normalizeLabels(node);
     return {
       id: node.number,
       internalId: node.databaseId,
@@ -582,11 +605,12 @@ export class GitHubProvider extends ITicketingProvider {
 
     // Try user first
     try {
-      const data = await this._http.graphql(buildQuery('user'), {
+      const userProjectData = await this._http.graphql(buildQuery('user'), {
         owner: this.projectOwner,
         number: this.projectNumber,
       });
-      if (data?.user?.projectV2) return data.user.projectV2;
+      if (userProjectData?.user?.projectV2)
+        return userProjectData.user.projectV2;
     } catch (err) {
       // User-scoped ProjectV2 lookup failed; try organization scope next.
       console.warn(
@@ -596,11 +620,14 @@ export class GitHubProvider extends ITicketingProvider {
 
     // Fallback to organization
     try {
-      const data = await this._http.graphql(buildQuery('organization'), {
-        owner: this.projectOwner,
-        number: this.projectNumber,
-      });
-      return data?.organization?.projectV2;
+      const orgProjectData = await this._http.graphql(
+        buildQuery('organization'),
+        {
+          owner: this.projectOwner,
+          number: this.projectNumber,
+        },
+      );
+      return orgProjectData?.organization?.projectV2;
     } catch (err) {
       // Org-scoped ProjectV2 lookup failed; caller receives null and degrades to non-project mode.
       console.warn(
@@ -632,22 +659,27 @@ export class GitHubProvider extends ITicketingProvider {
 
     let userErr = null;
     try {
-      const data = await this._http.graphql(buildQuery('user'), {
+      const userProjectData = await this._http.graphql(buildQuery('user'), {
         owner: this.projectOwner,
         number: this.projectNumber,
       });
-      if (data?.user?.projectV2) return data.user.projectV2;
+      if (userProjectData?.user?.projectV2)
+        return userProjectData.user.projectV2;
     } catch (err) {
       if (GitHubProvider.isInsufficientScopes(err)) throw err;
       userErr = err;
     }
 
     try {
-      const data = await this._http.graphql(buildQuery('organization'), {
-        owner: this.projectOwner,
-        number: this.projectNumber,
-      });
-      if (data?.organization?.projectV2) return data.organization.projectV2;
+      const orgProjectData = await this._http.graphql(
+        buildQuery('organization'),
+        {
+          owner: this.projectOwner,
+          number: this.projectNumber,
+        },
+      );
+      if (orgProjectData?.organization?.projectV2)
+        return orgProjectData.organization.projectV2;
     } catch (err) {
       if (GitHubProvider.isInsufficientScopes(err)) throw err;
       // If both queries failed non-scope, rethrow the org error so the
@@ -938,14 +970,15 @@ export class GitHubProvider extends ITicketingProvider {
     // No projectNumber — attempt to create a Project under the owner.
     let ownerNodeId;
     try {
-      const data = await this._http.graphql(
+      const ownerLookupData = await this._http.graphql(
         `query($login: String!) {
           user(login: $login) { id }
           organization(login: $login) { id }
         }`,
         { login: owner },
       );
-      ownerNodeId = data?.organization?.id ?? data?.user?.id ?? null;
+      ownerNodeId =
+        ownerLookupData?.organization?.id ?? ownerLookupData?.user?.id ?? null;
     } catch (err) {
       if (GitHubProvider.isInsufficientScopes(err))
         return { scopesMissing: true };
@@ -959,7 +992,7 @@ export class GitHubProvider extends ITicketingProvider {
     }
 
     try {
-      const data = await this._http.graphql(
+      const createProjectData = await this._http.graphql(
         `mutation($ownerId: ID!, $title: String!) {
           createProjectV2(input: { ownerId: $ownerId, title: $title }) {
             projectV2 { id number }
@@ -967,7 +1000,7 @@ export class GitHubProvider extends ITicketingProvider {
         }`,
         { ownerId: ownerNodeId, title: name },
       );
-      const project = data?.createProjectV2?.projectV2;
+      const project = createProjectData?.createProjectV2?.projectV2;
       if (!project) {
         throw new Error(
           '[GitHubProvider] createProjectV2 returned no project.',
@@ -1042,7 +1075,7 @@ export class GitHubProvider extends ITicketingProvider {
     // Field is missing — create it with all desired options.
     if (!statusField) {
       try {
-        const data = await this._http.graphql(
+        const createFieldData = await this._http.graphql(
           `mutation($projectId: ID!, $name: String!, $options: [ProjectV2SingleSelectFieldOptionInput!]!) {
             createProjectV2Field(input: { projectId: $projectId, dataType: SINGLE_SELECT, name: $name, singleSelectOptions: $options }) {
               projectV2Field { ... on ProjectV2SingleSelectField { id name } }
@@ -1061,7 +1094,7 @@ export class GitHubProvider extends ITicketingProvider {
         return {
           status: 'created',
           added: [...optionNames],
-          fieldId: data?.createProjectV2Field?.projectV2Field?.id,
+          fieldId: createFieldData?.createProjectV2Field?.projectV2Field?.id,
         };
       } catch (err) {
         if (GitHubProvider.isInsufficientScopes(err)) {

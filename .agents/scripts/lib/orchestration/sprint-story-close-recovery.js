@@ -73,9 +73,9 @@ function hasAnyUncommittedChanges(porcelainOutput) {
  * @param {string} [opts.worktreeRoot]  Worktree root relative to cwd. Default `.worktrees`.
  * @param {object} [opts.git]           Git adapter. Defaults to real git via gitSpawn.
  * @param {object} [opts.fs]            FS adapter with `existsSync`. Defaults to node:fs.
- * @returns {{ state: string, detail: object }}
+ * @returns {{ phase: string, detail: object }}
  */
-export function detectPriorState({
+export function detectPriorPhase({
   cwd,
   storyId,
   epicId,
@@ -83,8 +83,8 @@ export function detectPriorState({
   git = DEFAULT_GIT_ADAPTER,
   fs: fsAdapter = DEFAULT_FS_ADAPTER,
 } = {}) {
-  if (!cwd) throw new Error('detectPriorState: cwd is required');
-  if (!storyId) throw new Error('detectPriorState: storyId is required');
+  if (!cwd) throw new Error('detectPriorPhase: cwd is required');
+  if (!storyId) throw new Error('detectPriorPhase: storyId is required');
 
   const storyBranch = `story-${storyId}`;
   const detail = { storyId, storyBranch };
@@ -94,7 +94,7 @@ export function detectPriorState({
   const mainStatusOut = (mainStatus?.stdout ?? '').toString();
   if (hasUnmergedMarkers(mainStatusOut)) {
     return {
-      state: RECOVERY_STATES.PARTIAL_MERGE,
+      phase: RECOVERY_STATES.PARTIAL_MERGE,
       detail: { ...detail, checkout: cwd },
     };
   }
@@ -106,7 +106,7 @@ export function detectPriorState({
     const wtStatusOut = (wtStatus?.stdout ?? '').toString();
     if (hasAnyUncommittedChanges(wtStatusOut)) {
       return {
-        state: RECOVERY_STATES.UNCOMMITTED_WORKTREE,
+        phase: RECOVERY_STATES.UNCOMMITTED_WORKTREE,
         detail: { ...detail, worktreePath: wtPath },
       };
     }
@@ -129,13 +129,13 @@ export function detectPriorState({
     }
     if (!alreadyMerged) {
       return {
-        state: RECOVERY_STATES.PUSHED_UNMERGED,
+        phase: RECOVERY_STATES.PUSHED_UNMERGED,
         detail: { ...detail, remoteRef: lsrOut.split('\n')[0] },
       };
     }
   }
 
-  return { state: RECOVERY_STATES.FRESH, detail };
+  return { phase: RECOVERY_STATES.FRESH, detail };
 }
 
 export const RECOVERY_ACTIONS = Object.freeze({
