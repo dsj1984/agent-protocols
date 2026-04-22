@@ -209,24 +209,17 @@ describe('Notifier channels', () => {
 describe('resolveWebhookUrl priority', () => {
   const ORIG = process.env.NOTIFICATION_WEBHOOK_URL;
 
-  it('prefers env var over config and mcp.json', () => {
+  it('prefers env var over mcp.json', () => {
     process.env.NOTIFICATION_WEBHOOK_URL = 'https://env.example/hook';
-    const url = resolveWebhookUrl({ webhookUrl: 'https://cfg.example/hook' });
+    const url = resolveWebhookUrl();
     assert.equal(url, 'https://env.example/hook');
-    process.env.NOTIFICATION_WEBHOOK_URL = ORIG;
-  });
-
-  it('falls back to config webhookUrl when env unset', () => {
-    delete process.env.NOTIFICATION_WEBHOOK_URL;
-    const url = resolveWebhookUrl({ webhookUrl: 'https://cfg.example/hook' });
-    assert.equal(url, 'https://cfg.example/hook');
     process.env.NOTIFICATION_WEBHOOK_URL = ORIG;
   });
 
   it('returns null when nothing is configured', () => {
     delete process.env.NOTIFICATION_WEBHOOK_URL;
     // Point resolver at a cwd without .mcp.json so the last fallback misses too.
-    const url = resolveWebhookUrl({}, { cwd: '/nonexistent-path-for-test' });
+    const url = resolveWebhookUrl({ cwd: '/nonexistent-path-for-test' });
     assert.equal(url, null);
     process.env.NOTIFICATION_WEBHOOK_URL = ORIG;
   });

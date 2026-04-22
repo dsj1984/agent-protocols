@@ -193,7 +193,9 @@ protocol:
   provided by the LLM response metadata after every tool call.
 - **Soft-Warning (80%)**: When usage reaches the threshold defined by
   `budgetWarningThreshold` (default 0.8), you MUST notify the user via a
-  terminal message and trigger the configured `notificationWebhookUrl`.
+  terminal message and trigger the configured notification webhook (resolved
+  from the `NOTIFICATION_WEBHOOK_URL` env var or the `agent-protocols` MCP
+  server entry in `.mcp.json`).
 - **Hard-Stop (100%)**: If you reach `maxTokenBudget`, you MUST **STOP**
   immediately. You are forbidden from continuing until a human operator grants
   an explicit override via a status update or CLI flag.

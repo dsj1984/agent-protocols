@@ -34,7 +34,6 @@ test('detectEpicCompletion: posts comment if all tasks are done', async () => {
     tasks: [{ id: 1, status: 'agent::done', title: 'T1' }],
     manifest: { summary: { progressPercent: 100 }, generatedAt: 'now' },
     provider,
-    settings: { notificationWebhookUrl: 'http://mock' },
     dryRun: false,
   });
 

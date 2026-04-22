@@ -14,14 +14,14 @@ import { createHmac } from 'node:crypto';
 import { runAsCli } from './lib/cli-utils.js';
 import { resolveConfig } from './lib/config-resolver.js';
 import { Logger } from './lib/Logger.js';
+import { resolveWebhookUrl } from './lib/notifications/notifier.js';
 import { createProvider } from './lib/provider-factory.js';
 
 const LEVEL_RANK = { progress: 0, notification: 1, friction: 2, action: 3 };
 
 function shouldFireWebhook(orchestration, type, actionEscalated) {
-  if (!orchestration.notifications?.webhookUrl) return false;
   const minRank =
-    LEVEL_RANK[orchestration.notifications.webhookMinLevel] ??
+    LEVEL_RANK[orchestration.notifications?.webhookMinLevel] ??
     LEVEL_RANK.progress;
   const typeRank = LEVEL_RANK[type] ?? LEVEL_RANK.notification;
   const effectiveRank = actionEscalated
@@ -121,17 +121,22 @@ export async function notify(ticketId, payload, opts = {}) {
   // 2. Webhook for any event that meets the configured minimum level.
   const actionEscalated = Boolean(actionRequired);
   if (shouldFireWebhook(orchestration, type, actionEscalated)) {
-    const webhookUrl = orchestration.notifications.webhookUrl;
-    console.log(`[Notify] Firing webhook (${type}) to ${webhookUrl}...`);
-    const payloadBody = buildWebhookPayload({
-      orchestration,
-      ticketId,
-      type,
-      message,
-      operator,
-      isAction: type === 'action' || actionEscalated,
-    });
-    await sendWebhook(webhookUrl, payloadBody);
+    // `opts.webhookUrl === undefined` → resolve from env/.mcp.json.
+    // Explicit `null` or string → caller was explicit; don't resolve.
+    const webhookUrl =
+      opts.webhookUrl === undefined ? resolveWebhookUrl() : opts.webhookUrl;
+    if (webhookUrl) {
+      console.log(`[Notify] Firing webhook (${type}) to ${webhookUrl}...`);
+      const payloadBody = buildWebhookPayload({
+        orchestration,
+        ticketId,
+        type,
+        message,
+        operator,
+        isAction: type === 'action' || actionEscalated,
+      });
+      await sendWebhook(webhookUrl, payloadBody);
+    }
   }
 }
 

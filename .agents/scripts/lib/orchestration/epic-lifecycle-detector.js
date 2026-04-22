@@ -19,7 +19,6 @@ const AGENT_DONE_LABEL = STATE_LABELS.DONE;
  *   tasks: Array<object>,
  *   manifest: object,
  *   provider: object,
- *   settings: object,
  *   dryRun: boolean,
  * }} params
  */
@@ -30,7 +29,6 @@ export async function detectEpicCompletion({
   tasks,
   manifest,
   provider,
-  settings,
   dryRun,
 }) {
   if (tasks.length === 0) return;
@@ -90,26 +88,15 @@ export async function detectEpicCompletion({
     );
   }
 
-  if (settings.notificationWebhookUrl) {
-    try {
-      await notify(
-        epicId,
-        {
-          type: 'notification',
-          message: `Epic #${epicId} complete. All tasks done. Bookend Lifecycle starting.`,
-        },
-        {
-          orchestration: {
-            github: { operatorHandle: '' },
-            notifications: { webhookUrl: settings.notificationWebhookUrl },
-          },
-        },
-      );
-    } catch (err) {
-      vlog.warn(
-        'orchestration',
-        `Webhook notification failed (non-fatal): ${err.message}`,
-      );
-    }
+  try {
+    await notify(epicId, {
+      type: 'notification',
+      message: `Epic #${epicId} complete. All tasks done. Bookend Lifecycle starting.`,
+    });
+  } catch (err) {
+    vlog.warn(
+      'orchestration',
+      `Webhook notification failed (non-fatal): ${err.message}`,
+    );
   }
 }

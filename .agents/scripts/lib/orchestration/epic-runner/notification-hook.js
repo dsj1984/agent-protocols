@@ -5,11 +5,17 @@
  *   - Never blocks execution on webhook I/O beyond the caller's `await`.
  *   - Webhook failures are logged and swallowed — they never bubble into the
  *     orchestrator flow.
- *   - When no `webhookUrl` is configured, `fire()` is a no-op that resolves
+ *   - When no webhook URL resolves, `fire()` is a no-op that resolves
  *     immediately with `{ delivered: false, reason: 'no-url' }`.
+ *   - URL resolution follows the shared `resolveWebhookUrl` contract:
+ *     env `NOTIFICATION_WEBHOOK_URL` → `.mcp.json` agent-protocols server env.
+ *     Callers may pass an explicit `webhookUrl` to bypass resolution (used by
+ *     tests).
  */
 
 import { createHmac } from 'node:crypto';
+
+import { resolveWebhookUrl } from '../../notifications/notifier.js';
 
 export class NotificationHook {
   /**
@@ -19,10 +25,16 @@ export class NotificationHook {
    *   fetchImpl?: typeof fetch,
    *   logger?: { warn: Function, error: Function },
    *   timeoutMs?: number,
+   *   cwd?: string,
    * }} opts
    */
   constructor(opts = {}) {
-    this.webhookUrl = opts.webhookUrl ?? null;
+    // `webhookUrl === undefined` → resolve from env/.mcp.json.
+    // `webhookUrl === null | string` → caller was explicit; don't resolve.
+    this.webhookUrl =
+      opts.webhookUrl === undefined
+        ? resolveWebhookUrl({ cwd: opts.cwd })
+        : opts.webhookUrl;
     this.secret = opts.secret ?? null;
     this.fetchImpl = opts.fetchImpl ?? globalThis.fetch;
     this.logger = opts.logger ?? console;

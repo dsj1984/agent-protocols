@@ -9,7 +9,10 @@ function quietLogger() {
 
 describe('NotificationHook', () => {
   it('no-ops when no webhookUrl is configured', async () => {
-    const hook = new NotificationHook({ logger: quietLogger() });
+    const hook = new NotificationHook({
+      webhookUrl: null,
+      logger: quietLogger(),
+    });
     const res = await hook.fire({ event: 'x' });
     assert.deepEqual(res, { delivered: false, reason: 'no-url' });
   });

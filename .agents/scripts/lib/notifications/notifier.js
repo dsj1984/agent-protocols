@@ -13,9 +13,9 @@
  *   3. **webhook**     — fire-and-forget POST to the configured URL
  *                        (Make.com / Slack / Discord / etc). Resolution
  *                        priority: env `NOTIFICATION_WEBHOOK_URL` →
- *                        `orchestration.notifications.webhookUrl` in
- *                        `.agentrc.json` → `.mcp.json` at the path
+ *                        `.mcp.json` at the path
  *                        `.mcpServers["agent-protocols"].env.NOTIFICATION_WEBHOOK_URL`.
+ *                        The webhook URL is never read from `.agentrc.json`.
  *
  * Level filter (from `orchestration.notifications.level`):
  *
@@ -30,16 +30,12 @@ import { resolve } from 'node:path';
 
 const DEFAULT_LEVEL = 'verbose';
 
-export function resolveWebhookUrl(config, { cwd } = {}) {
-  // 1. Process env (from .env or CI secret)
+export function resolveWebhookUrl({ cwd } = {}) {
+  // 1. Process env (from .env, CI secret, or MCP server env bridged at runtime)
   if (process.env.NOTIFICATION_WEBHOOK_URL?.trim()) {
     return process.env.NOTIFICATION_WEBHOOK_URL.trim();
   }
-  // 2. .agentrc.json explicit override
-  if (config?.webhookUrl?.trim()) {
-    return config.webhookUrl.trim();
-  }
-  // 3. .mcp.json agent-protocols MCP server env
+  // 2. .mcp.json agent-protocols MCP server env — canonical config source
   const mcpPath = resolve(cwd ?? process.cwd(), '.mcp.json');
   if (existsSync(mcpPath)) {
     try {
@@ -57,7 +53,7 @@ export function resolveWebhookUrl(config, { cwd } = {}) {
 export class Notifier {
   /**
    * @param {{
-   *   config?: { level?: string, webhookUrl?: string|null, postToEpic?: boolean, channels?: string[] },
+   *   config?: { level?: string, postToEpic?: boolean, channels?: string[] },
    *   provider?: { postComment: Function, getTicket: Function },
    *   fetchImpl?: typeof fetch,
    *   logger?: { info: Function, warn: Function, error: Function },
@@ -74,7 +70,7 @@ export class Notifier {
     this.provider = provider;
     this.fetchImpl = fetchImpl ?? globalThis.fetch;
     this.logger = logger ?? console;
-    this.webhookUrl = resolveWebhookUrl(this.config, { cwd });
+    this.webhookUrl = resolveWebhookUrl({ cwd });
   }
 
   /**

@@ -99,43 +99,6 @@ describe('config-resolver library tests', () => {
     assert.doesNotThrow(() => resolveConfig({ bustCache: true }));
   });
 
-  it('applies environment variable override for notificationWebhookUrl', () => {
-    const agentrcPath = path.join(PROJECT_ROOT, '.agentrc.json');
-    vol.mkdirSync(PROJECT_ROOT, { recursive: true });
-    vol.writeFileSync(
-      agentrcPath,
-      JSON.stringify({
-        agentSettings: {
-          notificationWebhookUrl: 'https://original.com',
-        },
-        orchestration: {
-          provider: 'github',
-          github: { owner: 'org', repo: 'repo' },
-          notifications: {
-            webhookUrl: 'https://original.com',
-          },
-        },
-      }),
-    );
-
-    const originalEnv = process.env.NOTIFICATION_WEBHOOK_URL;
-    process.env.NOTIFICATION_WEBHOOK_URL = 'https://override.com';
-
-    try {
-      const config = resolveConfig({ bustCache: true });
-      assert.equal(
-        config.settings.notificationWebhookUrl,
-        'https://override.com',
-      );
-      assert.equal(
-        config.orchestration.notifications.webhookUrl,
-        'https://override.com',
-      );
-    } finally {
-      process.env.NOTIFICATION_WEBHOOK_URL = originalEnv;
-    }
-  });
-
   it('resolves .agentrc.json relative to an injected cwd', () => {
     // Two distinct roots, each with its own .agentrc.json — proves the
     // resolver does not read PROJECT_ROOT when an explicit cwd is provided.

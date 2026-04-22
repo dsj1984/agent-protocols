@@ -64,7 +64,6 @@ describe('validateOrchestrationConfig — valid configs', () => {
         },
         notifications: {
           mentionOperator: true,
-          webhookUrl: '',
         },
       }),
     );
@@ -345,18 +344,6 @@ describe('validateOrchestrationConfig — shell injection', () => {
           provider: 'github',
           github: { owner: 'org', repo: 'repo' },
           worktreeIsolation: { root: '.worktrees;rm -rf /' },
-        }),
-      /\[Security\]/,
-    );
-  });
-
-  it('rejects shell injection in webhookUrl', () => {
-    assert.throws(
-      () =>
-        validateOrchestrationConfig({
-          provider: 'github',
-          github: { owner: 'org', repo: 'repo' },
-          notifications: { webhookUrl: 'https://evil.com;curl attacker' },
         }),
       /\[Security\]/,
     );

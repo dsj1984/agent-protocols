@@ -81,7 +81,15 @@
       "nodeModulesStrategy": "per-worktree",
       "reapOnSuccess": true,
       "reapOnCancel": true,
-      "warnOnUncommittedOnReap": true
+      "warnOnUncommittedOnReap": true,
+      "bootstrapFiles": [".env", ".mcp.json"]
+    },
+    "epicRunner": {
+      "enabled": true,
+      "concurrencyCap": 3,
+      "pollIntervalSec": 30,
+      "storyRetryCount": 1,
+      "blockerTimeoutHours": 0
     }
   }
 }

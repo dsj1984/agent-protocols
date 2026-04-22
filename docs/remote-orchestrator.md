@@ -50,8 +50,9 @@ are redacted in logs. Workspace files are written `0600`.
 ## Runner requirements
 
 - Node 22+ (matches the CI workflow).
-- Outbound HTTPS to the GitHub API and (optionally) to
-  `orchestration.notifications.webhookUrl` if configured.
+- Outbound HTTPS to the GitHub API and (optionally) to the notification
+  webhook sourced from the `agent-protocols` MCP server env
+  (`.mcp.json`) or the `NOTIFICATION_WEBHOOK_URL` process env var.
 - No inbound connectivity — the orchestrator polls for state and pushes
   webhooks; it does not listen.
 - A `claude` CLI available on `PATH`. Override with `CLAUDE_BIN`.
@@ -110,12 +111,11 @@ copy is what the runner last wrote.
 {
   "orchestration": {
     "epicRunner": {
-      "enabled": true,             // master switch
-      "concurrencyCap": 3,         // max parallel stories per wave
-      "pollIntervalSec": 30,       // how often to poll GitHub for state
-      "storyRetryCount": 1,        // retries before blocker escalation
-      "blockerTimeoutHours": 0,    // 0 = park indefinitely
-      "notificationWebhookUrl": null
+      "enabled": true,          // master switch
+      "concurrencyCap": 3,      // max parallel stories per wave
+      "pollIntervalSec": 30,    // how often to poll GitHub for state
+      "storyRetryCount": 1,     // retries before blocker escalation
+      "blockerTimeoutHours": 0  // 0 = park indefinitely
     }
   }
 }

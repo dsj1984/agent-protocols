@@ -2,10 +2,13 @@ import assert from 'node:assert/strict';
 import { beforeEach, describe, it } from 'node:test';
 import { notify, parseNotifyArgs } from '../.agents/scripts/notify.js';
 
+const DEFAULT_WEBHOOK = 'https://webhook.example.com/action';
+
 describe('notify script', () => {
   let mockProvider;
   let mockOrchestration;
   let fetchCalls;
+  let defaultOpts;
 
   beforeEach(() => {
     fetchCalls = [];
@@ -33,9 +36,14 @@ describe('notify script', () => {
         operatorHandle: '@test_operator',
       },
       notifications: {
-        webhookUrl: 'https://webhook.example.com/action',
         mentionOperator: true,
       },
+    };
+
+    defaultOpts = {
+      provider: mockProvider,
+      orchestration: mockOrchestration,
+      webhookUrl: DEFAULT_WEBHOOK,
     };
   });
 
@@ -43,7 +51,7 @@ describe('notify script', () => {
     await notify(
       123,
       { type: 'notification', message: 'Task complete.' },
-      { provider: mockProvider, orchestration: mockOrchestration },
+      defaultOpts,
     );
 
     assert.equal(mockProvider.comments.length, 1);
@@ -66,7 +74,7 @@ describe('notify script', () => {
     await notify(
       124,
       { type: 'action', message: 'Review needed.' },
-      { provider: mockProvider, orchestration: mockOrchestration },
+      defaultOpts,
     );
 
     assert.equal(mockProvider.comments.length, 1);
@@ -101,20 +109,16 @@ describe('notify script', () => {
     await notify(
       200,
       { type: 'progress', message: 'Step 3 done.' },
-      { provider: mockProvider, orchestration: mockOrchestration },
+      defaultOpts,
     );
     await notify(
       200,
       { type: 'notification', message: 'Story merged.' },
-      { provider: mockProvider, orchestration: mockOrchestration },
+      defaultOpts,
     );
     assert.equal(fetchCalls.length, 0, 'lower-level events filtered out');
 
-    await notify(
-      200,
-      { type: 'action', message: 'Approve?' },
-      { provider: mockProvider, orchestration: mockOrchestration },
-    );
+    await notify(200, { type: 'action', message: 'Approve?' }, defaultOpts);
     assert.equal(fetchCalls.length, 1, 'action events still fire');
   });
 
@@ -128,7 +132,7 @@ describe('notify script', () => {
         message: 'Approve deploy?',
         actionRequired: true,
       },
-      { provider: mockProvider, orchestration: mockOrchestration },
+      defaultOpts,
     );
 
     assert.equal(fetchCalls.length, 1);
@@ -138,14 +142,14 @@ describe('notify script', () => {
   });
 
   it('tolerates webhook failures silently', async () => {
-    mockOrchestration.notifications.webhookUrl =
-      'https://webhook.example.com/fail';
-
     // Should not throw
     await notify(
       125,
       { type: 'action', message: 'Review needed.' },
-      { provider: mockProvider, orchestration: mockOrchestration },
+      {
+        ...defaultOpts,
+        webhookUrl: 'https://webhook.example.com/fail',
+      },
     );
 
     assert.equal(mockProvider.comments.length, 1);
@@ -153,12 +157,14 @@ describe('notify script', () => {
   });
 
   it('skips webhook if url is not configured', async () => {
-    mockOrchestration.notifications.webhookUrl = null;
-
     await notify(
       126,
       { type: 'action', message: 'Review needed.' },
-      { provider: mockProvider, orchestration: mockOrchestration },
+      {
+        provider: mockProvider,
+        orchestration: mockOrchestration,
+        webhookUrl: null,
+      },
     );
 
     assert.equal(mockProvider.comments.length, 1);
@@ -171,7 +177,7 @@ describe('notify script', () => {
     await notify(
       127,
       { type: 'action', message: 'Review needed.' },
-      { provider: mockProvider, orchestration: mockOrchestration },
+      defaultOpts,
     );
 
     assert.equal(mockProvider.comments.length, 1);
@@ -182,7 +188,7 @@ describe('notify script', () => {
     await notify(
       0,
       { type: 'notification', message: 'Sidecar message' },
-      { provider: mockProvider, orchestration: mockOrchestration },
+      defaultOpts,
     );
 
     assert.equal(mockProvider.comments.length, 0);
@@ -196,7 +202,7 @@ describe('notify script', () => {
       await notify(
         128,
         { type: 'action', message: 'Secret action' },
-        { provider: mockProvider, orchestration: mockOrchestration },
+        defaultOpts,
       );
 
       assert.equal(fetchCalls.length, 1);

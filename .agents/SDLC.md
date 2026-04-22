@@ -1,8 +1,8 @@
 # Software Development Life Cycle (SDLC) Workflow
 
-Version 5 uses **Epic-Centric GitHub Orchestration** — GitHub Issues,
-Labels, and Projects V2 are the Single Source of Truth. No local
-playbooks, no sprint directories, no JSON state files.
+Version 5 uses **Epic-Centric GitHub Orchestration** — GitHub Issues, Labels,
+and Projects V2 are the Single Source of Truth. No local playbooks, no sprint
+directories, no JSON state files.
 
 ---
 
@@ -10,60 +10,59 @@ playbooks, no sprint directories, no JSON state files.
 
 From zero to shipped:
 
-1. **Define the Epic.** Open a GitHub Issue, label it `type::epic`, and
-   write a plain-English goal and scope.
-2. **Plan the work.** Run `/sprint-plan <epicId>` in your agentic IDE.
-   The framework generates a PRD, a Tech Spec, and the full
-   Feature → Story → Task hierarchy under the Epic.
-3. **Execute the Epic.** Pick one path — both run the same engine and
-   produce the same GitHub state:
-   - **Local (operator-driven).** Run `/sprint-execute-epic <epicId>` in
-     your IDE — or take individual Stories off the dispatch table with
-     `/sprint-execute-story <storyId>` per window. Runs against your
-     Max subscription quota; no GitHub Actions minutes consumed.
-   - **Remote (GitHub-triggered).** Add the label `agent::dispatching`
-     to the Epic. The `epic-dispatch` GitHub Actions workflow launches a
-     Claude remote agent that drives the Epic end-to-end, checkpointing
-     progress on the Epic as structured comments. Works fully headless;
-     consumes GitHub Actions minutes.
+1. **Define the Epic.** Open a GitHub Issue, label it `type::epic`, and write a
+   plain-English goal and scope.
+2. **Plan the work.** Run `/sprint-plan <epicId>` in your agentic IDE. The
+   framework generates a PRD, a Tech Spec, and the full Feature → Story → Task
+   hierarchy under the Epic.
+3. **Execute the Epic.** Pick one path — both run the same engine and produce
+   the same GitHub state:
+   - **Local (operator-driven).** Run `/sprint-execute-epic <epicId>` in your
+     IDE — or take individual Stories off the dispatch table with
+     `/sprint-execute-story <storyId>` per window. Runs against your Max
+     subscription quota; no GitHub Actions minutes consumed.
+   - **Remote (GitHub-triggered).** Add the label `agent::dispatching` to the
+     Epic. The `epic-dispatch` GitHub Actions workflow launches a Claude remote
+     agent that drives the Epic end-to-end, checkpointing progress on the Epic
+     as structured comments. Works fully headless; consumes GitHub Actions
+     minutes.
 
    See [Local vs. Remote — choosing a path](#local-vs-remote--choosing-a-path)
    for the full comparison.
-4. **Close the Epic.** When the final wave lands, the Epic flips to
-   `agent::review`. Run **`/sprint-close <epicId>`** — that one
-   workflow internally auto-invokes `/sprint-code-review` (code-review
-   gate) and `/sprint-retro` (retro gate) before merging to `main`.
-   You never run the review or retro skills by hand.
 
-   If you'd rather have close run autonomously when the final wave
-   completes (no manual invocation at all), add `epic::auto-close` to
-   the Epic **before Step 3**. The runner detects the snapshot label
-   at startup and chains `/sprint-close` automatically once the Epic
-   reaches `agent::review`.
+4. **Close the Epic.** When the final wave lands, the Epic flips to
+   `agent::review`. Run **`/sprint-close <epicId>`** — that one workflow
+   internally auto-invokes `/sprint-code-review` (code-review gate) and
+   `/sprint-retro` (retro gate) before merging to `main`. You never run the
+   review or retro skills by hand.
+
+   If you'd rather have close run autonomously when the final wave completes (no
+   manual invocation at all), add `epic::auto-close` to the Epic **before Step
+   3**. The runner detects the snapshot label at startup and chains
+   `/sprint-close` automatically once the Epic reaches `agent::review`.
 
 That is the whole happy path. Everything below is **detail** — branching
-conventions, HITL escalation, audit gates, the remote-orchestrator
-contract — that you only need when the default flow requires adjustment.
+conventions, HITL escalation, audit gates, the remote-orchestrator contract —
+that you only need when the default flow requires adjustment.
 
 ---
 
 ## Core Principles
 
-- **GitHub as SSOT.** Project logic, work breakdown, and task status all
-  live in GitHub Issues and Labels. No local state files.
-- **Provider Abstraction.** Orchestration flows through
-  `ITicketingProvider`, an abstract interface with a shipped GitHub
-  implementation.
-- **Story-Level Branching.** All Tasks within a Story execute
-  sequentially on a shared `story-<id>` branch. Stories merge into
-  `epic/<epicId>`; the Epic branch merges into `main` only at close.
+- **GitHub as SSOT.** Project logic, work breakdown, and task status all live in
+  GitHub Issues and Labels. No local state files.
+- **Provider Abstraction.** Orchestration flows through `ITicketingProvider`, an
+  abstract interface with a shipped GitHub implementation.
+- **Story-Level Branching.** All Tasks within a Story execute sequentially on a
+  shared `story-<id>` branch. Stories merge into `epic/<epicId>`; the Epic
+  branch merges into `main` only at close.
 - **Two invocation modes, one engine.** `/sprint-execute-epic` is the
   long-running coordinator composed over existing primitives
   (`Graph.computeWaves`, `cascadeCompletion`, `ticketing.js`,
   `WorktreeManager`). The same engine powers both local and remote runs.
-- **HITL-minimal by default.** Exactly three operator touchpoints on the
-  happy path — dispatch, blocker resolution, and review hand-off.
-  Everything else is autonomous.
+- **HITL-minimal by default.** Exactly three operator touchpoints on the happy
+  path — dispatch, blocker resolution, and review hand-off. Everything else is
+  autonomous.
 
 ---
 
@@ -123,52 +122,47 @@ graph LR
 
 ## Phase 0: Bootstrap (One-Time Setup)
 
-Before any sprint workflow, bootstrap your GitHub repository to create
-the labels and project fields the orchestration engine depends on.
+Before any sprint workflow, bootstrap your GitHub repository to create the
+labels and project fields the orchestration engine depends on.
 
-1. **Configure.** Copy `.agents/default-agentrc.json` to `.agentrc.json`
-   at your project root and fill in the `orchestration` block (owner,
-   repo, etc.).
+1. **Configure.** Copy `.agents/default-agentrc.json` to `.agentrc.json` at your
+   project root and fill in the `orchestration` block (owner, repo, etc.).
 2. **Authenticate.** Ensure a valid GitHub token is available (see
    Authentication in [README.md](README.md)).
 3. **Run bootstrap.** Execute `/bootstrap-agent-protocols` (or
-   `node .agents/scripts/bootstrap-agent-protocols.js`). Idempotently
-   creates the label taxonomy (including `agent::dispatching` and
-   `epic::auto-close` introduced in v5.14.0) and optional GitHub
-   Project V2 fields.
+   `node .agents/scripts/bootstrap-agent-protocols.js`). Idempotently creates
+   the label taxonomy (including `agent::dispatching` and `epic::auto-close`
+   introduced in v5.14.0) and optional GitHub Project V2 fields.
 
-> [!NOTE] Bootstrap runs once per repository. It is safe to re-run —
-> existing labels and fields are skipped.
+> [!NOTE] Bootstrap runs once per repository. It is safe to re-run — existing
+> labels and fields are skipped.
 
 ---
 
 ## Phase 1: Initiation (Human)
 
-The product lead defines the objective by creating a GitHub Issue
-labelled `type::epic`.
+The product lead defines the objective by creating a GitHub Issue labelled
+`type::epic`.
 
-1. **Write the Epic.** Clear, plain-English description of the goal and
-   scope.
+1. **Write the Epic.** Clear, plain-English description of the goal and scope.
 2. **Trigger planning.** Run `/sprint-plan <epicId>` in the agentic IDE.
 
 ---
 
 ## Phase 2: Planning (Autonomous)
 
-The framework reads the Epic and autonomously builds the entire work
-breakdown.
+The framework reads the Epic and autonomously builds the entire work breakdown.
 
 1. **Epic Planner** (`epic-planner.js`):
    - Synthesizes the Epic body with project documentation.
    - Generates a **PRD** (`context::prd`) and **Tech Spec**
      (`context::tech-spec`) as linked GitHub Issues.
 
-> [!TIP] **PRD authoring — acceptance criteria phrasing.** Write
-> acceptance criteria in Gherkin-compatible `Given / When / Then` form
-> so the QA sprint suite can lift them directly into executable
-> `.feature` files. See
-> [`rules/gherkin-standards.md`](rules/gherkin-standards.md) for the
-> canonical clause grammar, tag taxonomy, and forbidden patterns.
+> [!TIP] **PRD authoring — acceptance criteria phrasing.** Write acceptance
+> criteria in Gherkin-compatible `Given / When / Then` form so the QA sprint
+> suite can lift them directly into executable `.feature` files. See
+> [`rules/gherkin-standards.md`](rules/gherkin-standards.md) for the canonical
+> clause grammar, tag taxonomy, and forbidden patterns.
 
 1. **Ticket Decomposer** (`ticket-decomposer.js`):
    - Recursively decomposes specs into a 4-tier hierarchy:
@@ -187,46 +181,46 @@ breakdown.
      └── Feature (type::feature)
      ```
 
-   - **Wiring.** Each ticket is linked using `blocked by #NNN` syntax
-     and GitHub's native sub-issues API.
-   - **Metadata.** Each Task is stamped with persona, model
-     recommendations, estimated files, and agent prompts.
+   - **Wiring.** Each ticket is linked using `blocked by #NNN` syntax and
+     GitHub's native sub-issues API.
+   - **Metadata.** Each Task is stamped with persona, model recommendations,
+     estimated files, and agent prompts.
 
 ---
 
 ## Phase 3: Execution (Agentic)
 
-Execution is driven by the **Epic Runner** for whole-Epic flows and the
-**Story Init/Close** scripts for individual Stories. Both paths share
-the same primitives — DAG computation, context hydration, worktree
-isolation, and cascade closure.
+Execution is driven by the **Epic Runner** for whole-Epic flows and the **Story
+Init/Close** scripts for individual Stories. Both paths share the same
+primitives — DAG computation, context hydration, worktree isolation, and cascade
+closure.
 
 ### Invocation modes
 
-| Mode       | Entry point                        | When to use                                                    |
-| ---------- | ---------------------------------- | -------------------------------------------------------------- |
-| **Local Epic** | `/sprint-execute-epic <epicId>` | Drive an Epic end-to-end from your IDE.                        |
-| **Remote Epic** | Label Epic `agent::dispatching` | Hand the Epic off to a Claude remote agent via GitHub Actions. |
+| Mode             | Entry point                       | When to use                                                      |
+| ---------------- | --------------------------------- | ---------------------------------------------------------------- |
+| **Local Epic**   | `/sprint-execute-epic <epicId>`   | Drive an Epic end-to-end from your IDE.                          |
+| **Remote Epic**  | Label Epic `agent::dispatching`   | Hand the Epic off to a Claude remote agent via GitHub Actions.   |
 | **Single Story** | `/sprint-execute-story <storyId>` | Launch a specific Story off the dispatch table (one per window). |
 
 `/sprint-execute` still works as a **deprecation alias** to
-`/sprint-execute-story` — existing muscle-memory scripts continue to
-resolve. The alias will be removed after two minor releases.
+`/sprint-execute-story` — existing muscle-memory scripts continue to resolve.
+The alias will be removed after two minor releases.
 
 ### Story-centric branching
 
 - **Format**: `story-<storyId>` (merges into `epic/<epicId>`).
-- **Goal**: minimize merge conflicts and consolidation waves by
-  grouping related tasks on one context slice.
+- **Goal**: minimize merge conflicts and consolidation waves by grouping related
+  tasks on one context slice.
 - **Model tiering**: Stories labelled `complexity::high` resolve to
-  `model_tier: high`; all others resolve to `model_tier: low`. The tier
-  is a hint to the operator/router; concrete model selection is
-  intentionally left outside the protocol.
+  `model_tier: high`; all others resolve to `model_tier: low`. The tier is a
+  hint to the operator/router; concrete model selection is intentionally left
+  outside the protocol.
 
 ### Story execution lifecycle
 
-Whether the Story is launched locally by the operator or fanned out by
-the remote Epic runner, the same three phases run:
+Whether the Story is launched locally by the operator or fanned out by the
+remote Epic runner, the same three phases run:
 
 1. **Initialization** (`sprint-story-init.js`):
    - Verifies all upstream dependencies are satisfied.
@@ -234,28 +228,26 @@ the remote Epic runner, the same three phases run:
    - Creates or seeds the Story branch (in a worktree when
      `orchestration.worktreeIsolation.enabled: true`).
    - Transitions child Tasks to `agent::executing`.
-2. **Task implementation.** The agent executes each Task sequentially
-   on the shared Story branch, committing after each Task completion.
+2. **Task implementation.** The agent executes each Task sequentially on the
+   shared Story branch, committing after each Task completion.
 3. **Closure** (`sprint-story-close.js`):
    - Runs shift-left validation (lint, format, test).
    - Merges the Story branch into `epic/<epicId>`.
-   - Transitions Tasks → `agent::done`; cascades up
-     Task → Story → Feature (Epics and context tickets are excluded
-     from auto-cascade).
+   - Transitions Tasks → `agent::done`; cascades up Task → Story → Feature
+     (Epics and context tickets are excluded from auto-cascade).
    - Reaps the Story worktree and cleans up the merged Story branch.
 
 ### Context hydration
 
-When a sub-agent runs `/sprint-execute-story <storyId>`, the Context
-Hydrator assembles a self-contained prompt:
+When a sub-agent runs `/sprint-execute-story <storyId>`, the Context Hydrator
+assembles a self-contained prompt:
 
 1. `agent-protocol.md` (universal rules).
 2. Persona and skill directives (from Task labels).
 3. Hierarchy context (Story → Feature → Epic → PRD → Tech Spec).
-4. **Story branch context.** Automatic checkouts to the Story branch.
-   Under worktree isolation, each Story runs in its own
-   `.worktrees/story-<id>/` so branch swaps, staging, and reflog
-   activity are isolated per-story. See
+4. **Story branch context.** Automatic checkouts to the Story branch. Under
+   worktree isolation, each Story runs in its own `.worktrees/story-<id>/` so
+   branch swaps, staging, and reflog activity are isolated per-story. See
    [`workflows/worktree-lifecycle.md`](workflows/worktree-lifecycle.md).
 5. Task-specific instructions and subtask checklist.
 
@@ -264,52 +256,48 @@ Hydrator assembles a self-contained prompt:
 Agents update their state in real-time on GitHub:
 
 - **Labels**: `agent::ready` → `agent::executing` → `agent::review` →
-  `agent::done`. The `WaveObserver` submodule additionally syncs a
-  GitHub Projects v2 Status column on each transition when a
-  `projectNumber` is configured.
-- **Tasklists**: subtasks are checked off in the ticket body
-  (`- [ ]` → `- [x]`).
-- **Friction**: friction logs are posted as structured comments on the
-  Task.
-- **Wave transitions**: the Epic Runner emits `wave-N-start` and
-  `wave-N-end` structured comments on the Epic, each carrying the wave
-  manifest, story outcomes, and timing.
+  `agent::done`. The `WaveObserver` submodule additionally syncs a GitHub
+  Projects v2 Status column on each transition when a `projectNumber` is
+  configured.
+- **Tasklists**: subtasks are checked off in the ticket body (`- [ ]` →
+  `- [x]`).
+- **Friction**: friction logs are posted as structured comments on the Task.
+- **Wave transitions**: the Epic Runner emits `wave-N-start` and `wave-N-end`
+  structured comments on the Epic, each carrying the wave manifest, story
+  outcomes, and timing.
 
 ### Dependency unblocking
 
 When a Task reaches `agent::done`, the runner re-evaluates the DAG and
-dispatches any newly-unblocked Tasks. This continues until all waves
-complete.
+dispatches any newly-unblocked Tasks. This continues until all waves complete.
 
 ---
 
 ## HITL (Human-in-the-Loop) model
 
-Exactly **three** operator touchpoints during a remote Epic run. This
-is the entirety of the operator interface after dispatch.
+Exactly **three** operator touchpoints during a remote Epic run. This is the
+entirety of the operator interface after dispatch.
 
-1. **Dispatch.** The operator adds `agent::dispatching` to the Epic.
-   This is the single act of authorization for the whole run.
-2. **Blocker resolution.** If the orchestrator hits an unresolvable
-   condition, `BlockerHandler` flips the Epic to `agent::blocked`,
-   posts a structured friction comment, fires the notification
-   webhook (fire-and-forget), and halts wave N+1 (letting wave N's
-   in-flight stories finish naturally). The operator resolves via
-   `/sprint-hotfix` or a scope edit, then flips back to
+1. **Dispatch.** The operator adds `agent::dispatching` to the Epic. This is the
+   single act of authorization for the whole run.
+2. **Blocker resolution.** If the orchestrator hits an unresolvable condition,
+   `BlockerHandler` flips the Epic to `agent::blocked`, posts a structured
+   friction comment, fires the notification webhook (fire-and-forget), and halts
+   wave N+1 (letting wave N's in-flight stories finish naturally). The operator
+   resolves via `/sprint-hotfix` or a scope edit, then flips back to
    `agent::executing` to resume.
-3. **Close hand-off.** At `agent::review`, the run stops by default —
-   you run `/sprint-close <epicId>`, which internally auto-invokes
-   `/sprint-code-review` and `/sprint-retro` before merging to main.
-   If `epic::auto-close` was present at dispatch time, the
-   `BookendChainer` invokes `/sprint-close` automatically with no
-   further prompts.
+3. **Close hand-off.** At `agent::review`, the run stops by default — you run
+   `/sprint-close <epicId>`, which internally auto-invokes `/sprint-code-review`
+   and `/sprint-retro` before merging to main. If `epic::auto-close` was present
+   at dispatch time, the `BookendChainer` invokes `/sprint-close` automatically
+   with no further prompts.
 
 ### Snapshot labels (read once, ignored mid-run)
 
-- `epic::auto-close` is a **snapshot** captured at dispatch time and
-  written into the `epic-run-state` checkpoint comment. Applying or
-  removing the label mid-run has no effect. This prevents post-hoc
-  authorization of an autonomous merge-to-main.
+- `epic::auto-close` is a **snapshot** captured at dispatch time and written
+  into the `epic-run-state` checkpoint comment. Applying or removing the label
+  mid-run has no effect. This prevents post-hoc authorization of an autonomous
+  merge-to-main.
 - `agent::dispatching` is transient: the runner flips the Epic to
   `agent::executing` on pickup.
 
@@ -317,107 +305,102 @@ is the entirety of the operator interface after dispatch.
 
 - Unresolvable merge conflict that automated strategies cannot reconcile.
 - Test failures that persist after one automated remediation attempt.
-- Ambiguity in a ticket requiring a product/scope decision the
-  orchestrator cannot make from ticket context alone.
-- A destructive action not pre-authorized by the ticket body (e.g.
-  dropping a table, deleting user data, force-pushing to a protected
-  branch).
-- External service failure preventing progress (MCP server
-  unreachable, GitHub API 5xx loop, npm registry down).
+- Ambiguity in a ticket requiring a product/scope decision the orchestrator
+  cannot make from ticket context alone.
+- A destructive action not pre-authorized by the ticket body (e.g. dropping a
+  table, deleting user data, force-pushing to a protected branch).
+- External service failure preventing progress (MCP server unreachable, GitHub
+  API 5xx loop, npm registry down).
 - Wave concurrency exhausted for an unbounded time (possible deadlock).
 
 ### What is _not_ gated at runtime
 
-- `risk::high` tasks **run without pause.** The label remains as
-  planning metadata and retro telemetry, but as of v5.14.0 it does
-  **not** halt the dispatcher, `/sprint-execute-story`, or
-  `/sprint-close`. Branch protection on `main` and
-  `BlockerHandler`-driven escalation are the new defenses for
+- `risk::high` tasks **run without pause.** The label remains as planning
+  metadata and retro telemetry, but as of v5.14.0 it does **not** halt the
+  dispatcher, `/sprint-execute-story`, or `/sprint-close`. Branch protection on
+  `main` and `BlockerHandler`-driven escalation are the new defenses for
   destructive actions.
 - Wave boundaries — the runner advances as soon as wave N completes.
 - Individual story completion — no per-story approval prompt.
 
-> [!NOTE] Opt back in to the legacy gate. If a project still wants
-> runtime approval for `risk::high` stories, set
+> [!NOTE] Opt back in to the legacy gate. If a project still wants runtime
+> approval for `risk::high` stories, set
 > `orchestration.hitl.riskHighApproval: true` **and**
-> `orchestration.hitl.riskHighRuntimeGate: true` in `.agentrc.json`.
-> Both keys default to off.
+> `orchestration.hitl.riskHighRuntimeGate: true` in `.agentrc.json`. Both keys
+> default to off.
 
 ---
 
 ## Local vs. Remote — choosing a path
 
-Both paths run the same `runEpic()` engine and produce identical
-GitHub state (same label transitions, same structured comments, same
-story branches). The in-band Notifier fires for both (see
-[Notification system](#notification-system)). Pick the
-invocation mode based on where you want the compute to run.
+Both paths run the same `runEpic()` engine and produce identical GitHub state
+(same label transitions, same structured comments, same story branches). The
+in-band Notifier fires for both (see
+[Notification system](#notification-system)). Pick the invocation mode based on
+where you want the compute to run.
 
 ### At a glance
 
-| Aspect                          | Local (`/sprint-execute-epic`)                             | Remote (`agent::dispatching` label)                                |
-| ------------------------------- | ---------------------------------------------------------- | ------------------------------------------------------------------ |
-| **Compute host**                | Your machine (VSCode / Claude Code session)                | GitHub-hosted Ubuntu runner                                        |
-| **Claude auth**                 | Your logged-in Max session                                 | `CLAUDE_CODE_OAUTH_TOKEN` repo secret (same Max quota)             |
-| **GitHub Actions minutes**      | 0 — workflow never fires                                   | 150–400 min per Epic (see cost note below)                         |
-| **Duration ceiling**            | Your machine's uptime                                      | 6 hr GHA job cap                                                   |
-| **Hands-off mode**              | Requires the IDE session to stay open                      | Fully headless — close your laptop, come back later                |
-| **Observability**               | Live in VSCode — interrupt, inspect, ask Claude questions  | Actions log + structured comments on the Epic                      |
-| **Permission prompts**          | Claude Code asks you to approve tools (or `bypass`)        | Auto `--permission-mode bypassPermissions`                         |
-| **Label trigger required?**     | No — engine flips to `agent::executing` directly           | Yes — `agent::dispatching` fires `epic-dispatch.yml`               |
-| **Env/MCP config source**       | Your local `.env` / `.mcp.json`                            | `MCP_JSON` (and optional `ENV_FILE`) repo secrets                  |
-| **Best for**                    | Interactive debugging, first runs, short Epics, private repos | Long Epics, overnight runs, public repos, delegation from mobile |
+| Aspect                      | Local (`/sprint-execute-epic`)                                | Remote (`agent::dispatching` label)                              |
+| --------------------------- | ------------------------------------------------------------- | ---------------------------------------------------------------- |
+| **Compute host**            | Your machine (VSCode / Claude Code session)                   | GitHub-hosted Ubuntu runner                                      |
+| **Claude auth**             | Your logged-in Max session                                    | `CLAUDE_CODE_OAUTH_TOKEN` repo secret (same Max quota)           |
+| **GitHub Actions minutes**  | 0 — workflow never fires                                      | 150–400 min per Epic (see cost note below)                       |
+| **Duration ceiling**        | Your machine's uptime                                         | 6 hr GHA job cap                                                 |
+| **Hands-off mode**          | Requires the IDE session to stay open                         | Fully headless — close your laptop, come back later              |
+| **Observability**           | Live in VSCode — interrupt, inspect, ask Claude questions     | Actions log + structured comments on the Epic                    |
+| **Permission prompts**      | Claude Code asks you to approve tools (or `bypass`)           | Auto `--permission-mode bypassPermissions`                       |
+| **Label trigger required?** | No — engine flips to `agent::executing` directly              | Yes — `agent::dispatching` fires `epic-dispatch.yml`             |
+| **Env/MCP config source**   | Your local `.env` / `.mcp.json`                               | `MCP_JSON` (and optional `ENV_FILE`) repo secrets                |
+| **Best for**                | Interactive debugging, first runs, short Epics, private repos | Long Epics, overnight runs, public repos, delegation from mobile |
 
 ### Cost guidance
 
-- **Public repos:** GitHub Actions minutes are **unlimited and free** on
-  all plans. Use remote freely.
-- **Private repos on the free plan:** 2,000 Linux minutes/month free,
-  then $0.008/min. A single Epic run can burn 150–400 min, so ~5-10
-  Epics before overage. **Default to local for private repos**, use
-  remote sparingly for hands-off overnight runs.
-- **Private repos with heavy use:** either upgrade to GitHub Team
-  ($4/user/mo, 3,000 min) or register a
+- **Public repos:** GitHub Actions minutes are **unlimited and free** on all
+  plans. Use remote freely.
+- **Private repos on the free plan:** 2,000 Linux minutes/month free, then
+  $0.008/min. A single Epic run can burn 150–400 min, so ~5-10 Epics before
+  overage. **Default to local for private repos**, use remote sparingly for
+  hands-off overnight runs.
+- **Private repos with heavy use:** either upgrade to GitHub Team ($4/user/mo,
+  3,000 min) or register a
   [self-hosted runner](https://docs.github.com/en/actions/hosting-your-own-runners)
   on your own machine (free minutes, you provide compute) and add
   `runs-on: self-hosted` to `epic-dispatch.yml`.
 
 ### Claude Max quota
 
-Both paths consume the same Max subscription quota (5-hour rolling
-window with overage disabled at the org level by default). Running a
-local VSCode session and a remote orchestrator simultaneously against
-the same account doubles your quota burn. If a long Epic exceeds the
-5-hour window, the orchestrator halts with a rate-limit error —
-`BlockerHandler` surfaces it as `agent::blocked` so you can resume
-after the quota rolls.
+Both paths consume the same Max subscription quota (5-hour rolling window with
+overage disabled at the org level by default). Running a local VSCode session
+and a remote orchestrator simultaneously against the same account doubles your
+quota burn. If a long Epic exceeds the 5-hour window, the orchestrator halts
+with a rate-limit error — `BlockerHandler` surfaces it as `agent::blocked` so
+you can resume after the quota rolls.
 
 ### When to mix
 
-- **Plan locally, execute remotely.** Run `/sprint-plan <id>` in your
-  IDE (small Claude usage), then add `agent::dispatching` to hand off
-  execution.
-- **Autonomous close with either path.** `epic::auto-close` is a
-  snapshot label, not a remote-only switch — either path honors it at
-  startup. Without the label the Epic stops at `agent::review` and you
-  run `/sprint-close <epicId>` yourself. With the label, the runner
-  chains `/sprint-close` automatically (code-review and retro fire
-  inside close, as they always do).
-- **Never mix on the same Epic at the same time.** Picking up a running
-  Epic with a second invocation leads to concurrent write conflicts on
-  the `epic-run-state` checkpoint. If a local run hangs, cancel it
-  before relabeling.
+- **Plan locally, execute remotely.** Run `/sprint-plan <id>` in your IDE (small
+  Claude usage), then add `agent::dispatching` to hand off execution.
+- **Autonomous close with either path.** `epic::auto-close` is a snapshot label,
+  not a remote-only switch — either path honors it at startup. Without the label
+  the Epic stops at `agent::review` and you run `/sprint-close <epicId>`
+  yourself. With the label, the runner chains `/sprint-close` automatically
+  (code-review and retro fire inside close, as they always do).
+- **Never mix on the same Epic at the same time.** Picking up a running Epic
+  with a second invocation leads to concurrent write conflicts on the
+  `epic-run-state` checkpoint. If a local run hangs, cancel it before
+  relabeling.
 
 ### Skipping CI/CD on orchestrator commits (private-repo optimization)
 
-The orchestrator pushes many commits during a run, each potentially
-triggering the project's `CI / CD` workflow (costly minutes on private
-repos). Two mitigations:
+The orchestrator pushes many commits during a run, each potentially triggering
+the project's `CI / CD` workflow (costly minutes on private repos). Two
+mitigations:
 
-- Add `[skip ci]` to orchestrator commit messages (requires a small
-  tweak in `sprint-story-close.js`), OR
-- Add a `paths-ignore` or branch filter to `ci.yml` that excludes
-  `epic/*` and `story-*` branches. Only `main` pushes trigger CI.
+- Add `[skip ci]` to orchestrator commit messages (requires a small tweak in
+  `sprint-story-close.js`), OR
+- Add a `paths-ignore` or branch filter to `ci.yml` that excludes `epic/*` and
+  `story-*` branches. Only `main` pushes trigger CI.
 
 Epic #349 Story #362 / #363 track these as formal hardening items.
 
@@ -430,30 +413,28 @@ Flipping an Epic to `agent::dispatching` fires
 
 1. Validates the trigger — issue is `type::epic`, open, non-empty body.
 2. Boots a Claude remote agent.
-3. The agent runs `.agents/scripts/remote-bootstrap.js`, which clones
-   the repo, materializes `.env` and `.mcp.json` from repo secrets
-   (`ENV_FILE`, `MCP_JSON`) with `::add-mask::` redaction and
-   `0600` file perms, runs `npm ci --ignore-scripts`, and launches
-   `/sprint-execute-epic <epicId>`.
-4. The Epic Runner
-   (`.agents/scripts/lib/orchestration/epic-runner.js`) composes the
-   submodules listed below into the unattended execution loop.
+3. The agent runs `.agents/scripts/remote-bootstrap.js`, which clones the repo,
+   materializes `.env` and `.mcp.json` from repo secrets (`ENV_FILE`,
+   `MCP_JSON`) with `::add-mask::` redaction and `0600` file perms, runs
+   `npm ci --ignore-scripts`, and launches `/sprint-execute-epic <epicId>`.
+4. The Epic Runner (`.agents/scripts/lib/orchestration/epic-runner.js`) composes
+   the submodules listed below into the unattended execution loop.
 
-| Submodule             | Role                                                               |
-| --------------------- | ------------------------------------------------------------------ |
-| `wave-scheduler`      | Iterates waves from `Graph.computeWaves()`.                        |
-| `story-launcher`      | Fans out up to `concurrencyCap` executor sub-agents per wave.      |
-| `state-poller`        | Polls Epic + Story labels; emits events for closure and blockers.  |
-| `checkpointer`        | Upserts the `epic-run-state` structured comment; handles resume.   |
-| `blocker-handler`     | The sole runtime pause point — halts on `agent::blocked`.          |
-| `notification-hook`   | Fire-and-forget webhook for blocker / wave-transition events.      |
-| `bookend-chainer`     | Auto-invokes `/sprint-close` when `epic::auto-close` was set at dispatch (close itself runs review + retro internally). |
-| `wave-observer`       | Emits `wave-N-start` / `wave-N-end` comments.                      |
-| `column-sync`         | Syncs the Projects v2 Status column from `agent::` labels.         |
+| Submodule           | Role                                                                                                                    |
+| ------------------- | ----------------------------------------------------------------------------------------------------------------------- |
+| `wave-scheduler`    | Iterates waves from `Graph.computeWaves()`.                                                                             |
+| `story-launcher`    | Fans out up to `concurrencyCap` executor sub-agents per wave.                                                           |
+| `state-poller`      | Polls Epic + Story labels; emits events for closure and blockers.                                                       |
+| `checkpointer`      | Upserts the `epic-run-state` structured comment; handles resume.                                                        |
+| `blocker-handler`   | The sole runtime pause point — halts on `agent::blocked`.                                                               |
+| `notification-hook` | Fire-and-forget webhook for blocker / wave-transition events.                                                           |
+| `bookend-chainer`   | Auto-invokes `/sprint-close` when `epic::auto-close` was set at dispatch (close itself runs review + retro internally). |
+| `wave-observer`     | Emits `wave-N-start` / `wave-N-end` comments.                                                                           |
+| `column-sync`       | Syncs the Projects v2 Status column from `agent::` labels.                                                              |
 
-See [`../docs/remote-orchestrator.md`](../docs/remote-orchestrator.md)
-for the full runner contract, secret list, resumption model, and HITL
-touchpoint details.
+See [`../docs/remote-orchestrator.md`](../docs/remote-orchestrator.md) for the
+full runner contract, secret list, resumption model, and HITL touchpoint
+details.
 
 ---
 
@@ -461,73 +442,70 @@ touchpoint details.
 
 Once Story waves complete, the bookend lifecycle begins.
 
-1. **Story branch merging.** Stories merge into `epic/<epicId>`
-   automatically during Story closure (`sprint-story-close.js`). This
-   replaces the legacy `/sprint-integration` step.
-2. **Completion cascade.** When the last Task in a Story reaches
-   `agent::done`, status cascades upward:
+1. **Story branch merging.** Stories merge into `epic/<epicId>` automatically
+   during Story closure (`sprint-story-close.js`). This replaces the legacy
+   `/sprint-integration` step.
+2. **Completion cascade.** When the last Task in a Story reaches `agent::done`,
+   status cascades upward:
 
    ```text
    Task Done → Story Done → Feature Done
    ```
 
-   Epics, PRDs, and Tech Specs are explicitly excluded from
-   auto-cascade to ensure final verification happens during formal
-   closure.
-3. **Single operator command: `/sprint-close <epicId>`.** Close is the
-   only bookend workflow an operator runs by hand. It internally
-   auto-invokes, in order:
-   - **Code review gate** (`/sprint-code-review`) — inline audit;
-     halts close on 🔴 Critical Blockers, otherwise continues.
-   - **Retro gate** (`/sprint-retro`) — summarises wins and friction
-     from the ticket graph and posts the retro as a structured comment
-     on the Epic (no local files). Skippable via
-     `agentSettings.sprintClose.runRetro: false` or `--skip-retro`.
+   Epics, PRDs, and Tech Specs are explicitly excluded from auto-cascade to
+   ensure final verification happens during formal closure.
+
+3. **Single operator command: `/sprint-close <epicId>`.** Close is the only
+   bookend workflow an operator runs by hand. It internally auto-invokes, in
+   order:
+   - **Code review gate** (`/sprint-code-review`) — inline audit; halts close on
+     🔴 Critical Blockers, otherwise continues.
+   - **Retro gate** (`/sprint-retro`) — summarises wins and friction from the
+     ticket graph and posts the retro as a structured comment on the Epic (no
+     local files). Skippable via `agentSettings.sprintClose.runRetro: false` or
+     `--skip-retro`.
    - **Merge + release.** Merges `epic/<epicId>` into `main`, validates
-     documentation freshness, bumps the version, tags the release, and
-     closes the Epic (including PRD / Tech Spec context tickets).
-4. **Optional autonomous close.** With `epic::auto-close` set at
-   dispatch time, `BookendChainer` invokes `/sprint-close`
-   automatically once the final wave completes, so no operator input
-   is needed between `agent::review` and `agent::done`.
+     documentation freshness, bumps the version, tags the release, and closes
+     the Epic (including PRD / Tech Spec context tickets).
+4. **Optional autonomous close.** With `epic::auto-close` set at dispatch time,
+   `BookendChainer` invokes `/sprint-close` automatically once the final wave
+   completes, so no operator input is needed between `agent::review` and
+   `agent::done`.
 
 ---
 
 ## Testing strategy
 
-Sprints are **pyramid-aware**. Every test written during
-`/sprint-execute-story` belongs to exactly one tier — **unit**,
-**contract**, or **e2e / acceptance** — and each tier has distinct
-scope, dependency, and assertion rules. The canonical tier
-definitions, assertion-placement rules, and coverage thresholds live in
-[`rules/testing-standards.md`](rules/testing-standards.md); Gherkin
-authoring for the acceptance tier is governed by
+Sprints are **pyramid-aware**. Every test written during `/sprint-execute-story`
+belongs to exactly one tier — **unit**, **contract**, or **e2e / acceptance** —
+and each tier has distinct scope, dependency, and assertion rules. The canonical
+tier definitions, assertion-placement rules, and coverage thresholds live in
+[`rules/testing-standards.md`](rules/testing-standards.md); Gherkin authoring
+for the acceptance tier is governed by
 [`rules/gherkin-standards.md`](rules/gherkin-standards.md).
 
 The acceptance tier is executed and reported via
-[`workflows/run-bdd-suite.md`](workflows/run-bdd-suite.md) and consumed
-as sprint evidence by
-[`workflows/sprint-testing.md`](workflows/sprint-testing.md).
+[`workflows/run-bdd-suite.md`](workflows/run-bdd-suite.md) and consumed as
+sprint evidence by [`workflows/sprint-testing.md`](workflows/sprint-testing.md).
 
 ---
 
 ## Static analysis & audit orchestration
 
-An automated, gate-based static-analysis and audit orchestration
-pipeline replaces manual auditing with an MCP-driven system.
+An automated, gate-based static-analysis and audit orchestration pipeline
+replaces manual auditing with an MCP-driven system.
 
 ### Audit triggering
 
-Audits are selectively invoked by the orchestrator at four sprint
-lifecycle gates (`gate1` through `gate4`). The `audit-orchestrator.js`
-evaluates rules defined in `.agents/schemas/audit-rules.schema.json`
-based on:
+Audits are selectively invoked by the orchestrator at four sprint lifecycle
+gates (`gate1` through `gate4`). The `audit-orchestrator.js` evaluates rules
+defined in `.agents/schemas/audit-rules.schema.json` based on:
 
 1. **Gate configuration** — which gate is currently firing.
-2. **Contextual keywords** — the Epic or Task body contents (e.g.,
-   `auth` or `encrypt` triggers security audits).
-3. **File patterns** — which files changed compared to the base
-   branch (e.g., `user-profile` files trigger privacy audits).
+2. **Contextual keywords** — the Epic or Task body contents (e.g., `auth` or
+   `encrypt` triggers security audits).
+3. **File patterns** — which files changed compared to the base branch (e.g.,
+   `user-profile` files trigger privacy audits).
 
 ### Sprint lifecycle gates
 
@@ -540,55 +518,55 @@ based on:
 
 ### Review & feedback loop
 
-When audits produce findings, the orchestrator compiles a structured
-Markdown report and posts it as a ticket comment via the
-`ITicketingProvider`.
+When audits produce findings, the orchestrator compiles a structured Markdown
+report and posts it as a ticket comment via the `ITicketingProvider`.
 
-- **Maintainability ratchet.** The orchestrator enforces code quality by
-  relying on maintainability checks (`check-maintainability.js`), which
-  fail if the composite score drops below the established baseline.
-- **Auto-fixing.** If High or Critical findings are detected, the
-  system halts for human review. A human can reply to the ticket with
-  `/approve` or `/approve-audit-fixes` (processed by
-  `handle-approval.js`).
-- **Implementation.** Approved fixes automatically transition the
-  ticket to `agent::executing`, dispatching an agent to implement and
-  verify the fixes.
+- **Maintainability ratchet.** The orchestrator enforces code quality by relying
+  on maintainability checks (`check-maintainability.js`), which fail if the
+  composite score drops below the established baseline.
+- **Auto-fixing.** If High or Critical findings are detected, the system halts
+  for human review. A human can reply to the ticket with `/approve` or
+  `/approve-audit-fixes` (processed by `handle-approval.js`).
+- **Implementation.** Approved fixes automatically transition the ticket to
+  `agent::executing`, dispatching an agent to implement and verify the fixes.
 
 ---
 
 ## Notification system
 
-Two independent notification surfaces, both living in `.agents/` so
-they ship to consuming projects:
+Two independent notification surfaces, both living in `.agents/` so they ship to
+consuming projects:
 
 ### 1. In-band ticket-change Notifier
 
-Every state transition through `transitionTicketState` (the SDK layer
-used by all orchestrator scripts) fires the
-[`Notifier`](scripts/lib/notifications/notifier.js). Three channels,
-each independently skippable via config:
+Every state transition through `transitionTicketState` (the SDK layer used by
+all orchestrator scripts) fires the
+[`Notifier`](scripts/lib/notifications/notifier.js). Three channels, each
+independently skippable via config:
 
-| Channel        | What it does                                                                |
-| -------------- | --------------------------------------------------------------------------- |
-| `log`          | Prints a structured `[notify]` line to stderr for local / CI log tailing.   |
-| `epic-comment` | Posts a one-line comment on the affected Epic (linear lifecycle feed).     |
-| `webhook`      | Fire-and-forget POST to the configured URL (Make.com / Slack / Discord).   |
+| Channel        | What it does                                                              |
+| -------------- | ------------------------------------------------------------------------- |
+| `log`          | Prints a structured `[notify]` line to stderr for local / CI log tailing. |
+| `epic-comment` | Posts a one-line comment on the affected Epic (linear lifecycle feed).    |
+| `webhook`      | Fire-and-forget POST to the configured URL (Make.com / Slack / Discord).  |
 
 Level gate (set `orchestration.notifications.level` in `.agentrc.json`):
 
-| Level       | Fires on                                                                        |
-| ----------- | ------------------------------------------------------------------------------- |
-| `off`       | Nothing.                                                                        |
-| `minimal`   | State transitions to `agent::done` / `agent::review` only.                      |
-| `default`   | All state transitions (agent:: lifecycle changes).                              |
-| `verbose`   | Every tracked event (default).                                                  |
+| Level     | Fires on                                                   |
+| --------- | ---------------------------------------------------------- |
+| `off`     | Nothing.                                                   |
+| `minimal` | State transitions to `agent::done` / `agent::review` only. |
+| `default` | All state transitions (agent:: lifecycle changes).         |
+| `verbose` | Every tracked event (default).                             |
 
 Webhook URL resolution (first match wins):
 
-1. `NOTIFICATION_WEBHOOK_URL` process env var (loaded from `.env`).
-2. `orchestration.notifications.webhookUrl` in `.agentrc.json`.
-3. `.mcp.json` at `.mcpServers["agent-protocols"].env.NOTIFICATION_WEBHOOK_URL`.
+1. `NOTIFICATION_WEBHOOK_URL` process env var (loaded from `.env` / CI secret).
+2. `.mcp.json` at `.mcpServers["agent-protocols"].env.NOTIFICATION_WEBHOOK_URL`.
+
+The webhook URL is **not** sourced from `.agentrc.json` — the MCP config is the
+canonical home so the same portable `.mcp.json` drives both local and remote
+runs.
 
 Because the Notifier is called in-band, it captures changes from:
 
@@ -596,44 +574,44 @@ Because the Notifier is called in-band, it captures changes from:
 - Per-story scripts (`sprint-story-init.js`, `sprint-story-close.js`)
 - MCP tool calls that route through `transitionTicketState`
 
-It does **not** capture manual label clicks in the GitHub UI (no
-webhook receiver). For programmatic orchestration workflows this
-covers >95% of lifecycle transitions.
+It does **not** capture manual label clicks in the GitHub UI (no webhook
+receiver). For programmatic orchestration workflows this covers >95% of
+lifecycle transitions.
 
 ### 2. Epic-runner blocker / HITL notifications
 
-The `NotificationHook` inside the Epic runner fires on
-blocker-escalation events (`agent::blocked`) and operator-attention
-events (`agent::review` hand-off, run cancellation). Fire-and-forget
-by design; webhook failures never block execution.
+The `NotificationHook` inside the Epic runner fires on blocker-escalation events
+(`agent::blocked`) and operator-attention events (`agent::review` hand-off, run
+cancellation). Fire-and-forget by design; webhook failures never block
+execution.
 
-| Event               | Type       | Channel            | Operator Action         |
-| ------------------- | ---------- | ------------------ | ----------------------- |
-| `task-complete`     | **INFO**   | @mention           | Review when convenient  |
-| `feature-complete`  | **INFO**   | @mention           | Informational only      |
-| `epic-complete`     | **INFO**   | @mention + webhook | Final review            |
-| `review-needed`     | **ACTION** | @mention + webhook | Review and approve PR   |
-| `epic-blocked`      | **ACTION** | webhook            | Resolve and re-flip     |
-| `wave-transition`   | **INFO**   | webhook            | Informational only      |
+| Event              | Type       | Channel            | Operator Action        |
+| ------------------ | ---------- | ------------------ | ---------------------- |
+| `task-complete`    | **INFO**   | @mention           | Review when convenient |
+| `feature-complete` | **INFO**   | @mention           | Informational only     |
+| `epic-complete`    | **INFO**   | @mention + webhook | Final review           |
+| `review-needed`    | **ACTION** | @mention + webhook | Review and approve PR  |
+| `epic-blocked`     | **ACTION** | webhook            | Resolve and re-flip    |
+| `wave-transition`  | **INFO**   | webhook            | Informational only     |
 
 ---
 
 ## Quick reference
 
-| Command                             | Purpose                                                 |
-| ----------------------------------- | ------------------------------------------------------- |
-| `/bootstrap-agent-protocols`        | Initialize repo labels and project fields               |
-| `/sprint-plan <epicId>`             | Generate PRD, Tech Spec, and full task hierarchy        |
-| `/sprint-execute-epic <epicId>`     | Drive a whole Epic end-to-end (local)                   |
-| `/sprint-execute-story <storyId>`   | Initialize a Story branch and implement all its Tasks   |
-| `/sprint-execute` (deprecated)      | Alias for `/sprint-execute-story`                       |
-| Label Epic `agent::dispatching`     | Trigger remote orchestrator via GitHub Actions          |
-| Label Epic `epic::auto-close`       | Authorize autonomous bookend chain at dispatch time     |
-| `/sprint-close <epicId>`            | Close the Epic — auto-invokes code-review + retro, then merges to `main`, tags release, closes Epic + context issues. **The only bookend command an operator runs by hand.** |
-| `/sprint-code-review` _(internal)_  | Auto-invoked by `/sprint-close` Step 1.4; rarely called directly |
-| `/sprint-retro` _(internal)_        | Auto-invoked by `/sprint-close` Step 1.5; rarely called directly |
-| `/sprint-hotfix`                    | Rapid remediation after a failed integration candidate  |
-| `/git-commit-all`                   | Stage and commit all changes                            |
-| `/git-push`                         | Stage, commit, and push to remote                       |
-| `/delete-epic-branches <epicId>`    | Hard reset — delete all Epic-scoped branches            |
-| `/delete-epic-tickets <epicId>`     | Hard reset — delete all Epic-scoped issues              |
+| Command                            | Purpose                                                                                                                                                                      |
+| ---------------------------------- | ---------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| `/bootstrap-agent-protocols`       | Initialize repo labels and project fields                                                                                                                                    |
+| `/sprint-plan <epicId>`            | Generate PRD, Tech Spec, and full task hierarchy                                                                                                                             |
+| `/sprint-execute-epic <epicId>`    | Drive a whole Epic end-to-end (local)                                                                                                                                        |
+| `/sprint-execute-story <storyId>`  | Initialize a Story branch and implement all its Tasks                                                                                                                        |
+| `/sprint-execute` (deprecated)     | Alias for `/sprint-execute-story`                                                                                                                                            |
+| Label Epic `agent::dispatching`    | Trigger remote orchestrator via GitHub Actions                                                                                                                               |
+| Label Epic `epic::auto-close`      | Authorize autonomous bookend chain at dispatch time                                                                                                                          |
+| `/sprint-close <epicId>`           | Close the Epic — auto-invokes code-review + retro, then merges to `main`, tags release, closes Epic + context issues. **The only bookend command an operator runs by hand.** |
+| `/sprint-code-review` _(internal)_ | Auto-invoked by `/sprint-close` Step 1.4; rarely called directly                                                                                                             |
+| `/sprint-retro` _(internal)_       | Auto-invoked by `/sprint-close` Step 1.5; rarely called directly                                                                                                             |
+| `/sprint-hotfix`                   | Rapid remediation after a failed integration candidate                                                                                                                       |
+| `/git-commit-all`                  | Stage and commit all changes                                                                                                                                                 |
+| `/git-push`                        | Stage, commit, and push to remote                                                                                                                                            |
+| `/delete-epic-branches <epicId>`   | Hard reset — delete all Epic-scoped branches                                                                                                                                 |
+| `/delete-epic-tickets <epicId>`    | Hard reset — delete all Epic-scoped issues                                                                                                                                   |

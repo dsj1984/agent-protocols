@@ -1,8 +1,7 @@
 import assert from 'node:assert/strict';
 import { describe, it } from 'node:test';
-
-import { runEpic } from '../../.agents/scripts/lib/orchestration/epic-runner.js';
 import { EPIC_RUN_STATE_TYPE } from '../../.agents/scripts/lib/orchestration/epic-runner/checkpointer.js';
+import { runEpic } from '../../.agents/scripts/lib/orchestration/epic-runner.js';
 import { structuredCommentMarker } from '../../.agents/scripts/lib/orchestration/ticketing.js';
 
 /**
@@ -113,7 +112,6 @@ describe('EpicRunner integration', () => {
         pollIntervalSec: 1,
         storyRetryCount: 0,
         blockerTimeoutHours: 0,
-        notificationWebhookUrl: null,
       },
     };
 
@@ -165,7 +163,6 @@ describe('EpicRunner integration', () => {
         pollIntervalSec: 1,
         storyRetryCount: 0,
         blockerTimeoutHours: 0,
-        notificationWebhookUrl: null,
       },
     };
 

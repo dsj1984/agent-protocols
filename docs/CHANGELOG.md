@@ -2,6 +2,29 @@
 
 All notable changes to this project will be documented in this file.
 
+## [Unreleased]
+
+### Webhook config consolidated to MCP
+
+The notification webhook URL is now sourced exclusively from the
+`agent-protocols` MCP server env (`.mcp.json`) or the
+`NOTIFICATION_WEBHOOK_URL` process env var. Both `.agentrc.json` entry
+points are removed:
+
+- **Removed** `orchestration.notifications.webhookUrl` from the schema,
+  resolver, and validator.
+- **Removed** `orchestration.epicRunner.notificationWebhookUrl` from the
+  schema and epic runner.
+- `resolveWebhookUrl()` now takes a single `{ cwd }` options bag; the old
+  `config` positional argument is gone.
+- `NotificationHook` and `notify()` distinguish explicit `webhookUrl: null`
+  (opt out, no resolution) from omitted (resolve from env → `.mcp.json`).
+
+Rationale: the MCP config already provisions the webhook for remote runs
+via the `MCP_JSON` CI secret, and duplicating it in `.agentrc.json` created
+two sources of truth. Operators with existing `.agentrc.json` files must
+remove both keys — the schema now rejects them.
+
 ## [5.14.0] - 2026-04-21
 
 ### Remote-orchestrator (Epic #321)
@@ -34,7 +57,10 @@ GitHub label flip; checkpointed on the Epic via a structured comment.
   wrapper.
 - **`.agentrc.json` additions** under `orchestration.epicRunner`:
   `enabled`, `concurrencyCap`, `pollIntervalSec`, `storyRetryCount`,
-  `blockerTimeoutHours`, `notificationWebhookUrl`.
+  `blockerTimeoutHours`. Webhook URL is sourced exclusively from the
+  `agent-protocols` MCP server env (`.mcp.json`) or the
+  `NOTIFICATION_WEBHOOK_URL` process env var — it is no longer readable
+  from `.agentrc.json`.
 - **`risk::high` semantics change.** Runtime gating is **retired**. The
   label remains queryable for retro metrics but no longer halts the
   dispatcher or `sprint-story-close`. Branch protection and executor
