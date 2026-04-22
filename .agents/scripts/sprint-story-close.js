@@ -33,6 +33,7 @@ import { generateAndSaveManifest } from './dispatcher.js';
 import { updateHealthMetrics } from './health-monitor.js';
 import { parseSprintArgs } from './lib/cli-args.js';
 import { runAsCli } from './lib/cli-utils.js';
+import { runCloseValidation } from './lib/close-validation.js';
 import { PROJECT_ROOT, resolveConfig } from './lib/config-resolver.js';
 import {
   acquireEpicMergeLock,
@@ -586,6 +587,27 @@ export async function runStoryClose({
   }
 
   progress('TASKS', `Found ${tasks.length} child Task(s)`);
+
+  // -------------------------------------------------------------------------
+  // Pre-merge validation — shift-left gates so formatting drift or
+  // maintainability regressions surface in the worktree rather than on the
+  // Epic branch at pre-push time.
+  // -------------------------------------------------------------------------
+
+  if (!process.env.SPRINT_STORY_CLOSE_SKIP_VALIDATION) {
+    progress('VALIDATE', 'Running pre-merge gates (lint, test, format, maintainability)...');
+    const validation = runCloseValidation({
+      cwd,
+      log: (m) => Logger.info(m),
+    });
+    if (!validation.ok) {
+      const [{ gate, status }] = validation.failed;
+      Logger.fatal(
+        `Pre-merge validation failed at "${gate.name}" (exit ${status}).` +
+          (gate.hint ? ` ${gate.hint}` : ''),
+      );
+    }
+  }
 
   // -------------------------------------------------------------------------
   // Step 5 — Merge
