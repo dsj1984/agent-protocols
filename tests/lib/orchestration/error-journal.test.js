@@ -144,10 +144,7 @@ test('ErrorJournal: no mask emitted for mundane values', async () => {
     console.log = originalLog;
     await j.finalize();
   }
-  assert.equal(
-    lines.filter((l) => l.startsWith('::add-mask::')).length,
-    0,
-  );
+  assert.equal(lines.filter((l) => l.startsWith('::add-mask::')).length, 0);
 });
 
 test('ErrorJournal: integration — simulated BlockerHandler failure produces expected entry', async () => {
@@ -176,9 +173,13 @@ test('ErrorJournal: integration — simulated BlockerHandler failure produces ex
 
   const lines = await readJournal(journal.path);
   const entry = lines.find(
-    (l) => l.op === 'provider.updateTicket(labels)' && l.module === 'BlockerHandler',
+    (l) =>
+      l.op === 'provider.updateTicket(labels)' && l.module === 'BlockerHandler',
   );
-  assert.ok(entry, `expected BlockerHandler entry; got:\n${JSON.stringify(lines, null, 2)}`);
+  assert.ok(
+    entry,
+    `expected BlockerHandler entry; got:\n${JSON.stringify(lines, null, 2)}`,
+  );
   assert.equal(entry.error.message, 'rate-limited');
   assert.equal(entry.recovery, 'swallowed');
   assert.equal(entry.epicId, 99);

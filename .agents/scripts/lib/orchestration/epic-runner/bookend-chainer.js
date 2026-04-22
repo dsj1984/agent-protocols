@@ -37,7 +37,14 @@ export class BookendChainer {
    *   errorJournal?: { record: Function, path: string },
    * }} opts
    */
-  constructor({ autoClose, epicId, runSkill, postComment, logger, errorJournal }) {
+  constructor({
+    autoClose,
+    epicId,
+    runSkill,
+    postComment,
+    logger,
+    errorJournal,
+  }) {
     if (!Number.isInteger(epicId)) {
       throw new TypeError('BookendChainer requires a numeric epicId');
     }
