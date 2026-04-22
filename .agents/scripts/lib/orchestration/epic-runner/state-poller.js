@@ -31,22 +31,19 @@ export class StatePoller extends EventEmitter {
    *   logger?: { warn: Function, error: Function }
    * }} opts
    */
-  constructor({
-    provider,
-    epicId,
-    pollIntervalMs,
-    backoffCapMs,
-    storyIds,
-    logger,
-  }) {
+  constructor(opts = {}) {
     super();
+    const ctx = opts.ctx;
+    const provider = opts.provider ?? ctx?.provider;
     if (!provider) throw new TypeError('StatePoller requires a provider');
     this.provider = provider;
-    this.epicId = epicId;
-    this.pollIntervalMs = pollIntervalMs ?? 30_000;
-    this.backoffCapMs = backoffCapMs ?? 5 * 60_000;
-    this.storyIds = new Set(storyIds ?? []);
-    this.logger = logger ?? console;
+    this.epicId = opts.epicId ?? ctx?.epicId;
+    const pollDefault =
+      ctx?.pollIntervalSec != null ? ctx.pollIntervalSec * 1000 : 30_000;
+    this.pollIntervalMs = opts.pollIntervalMs ?? pollDefault;
+    this.backoffCapMs = opts.backoffCapMs ?? 5 * 60_000;
+    this.storyIds = new Set(opts.storyIds ?? []);
+    this.logger = opts.logger ?? ctx?.logger ?? console;
     this._stopped = true;
     this._currentBackoff = this.pollIntervalMs;
     this._seenStates = new Map(); // storyId/epicId → previous labels set

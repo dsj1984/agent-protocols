@@ -16,6 +16,7 @@
  *      BookendChainer.
  */
 
+import { EpicRunnerContext } from './context.js';
 import { parseBlockedBy } from '../dependency-parser.js';
 import { computeWaves } from '../Graph.js';
 import { createNotifier } from '../notifications/notifier.js';
@@ -32,35 +33,32 @@ import { STATE_LABELS, transitionTicketState } from './ticketing.js';
 const AUTO_CLOSE_LABEL = 'epic::auto-close';
 
 /**
+ * Entry point. Accepts either a pre-built `EpicRunnerContext` on `opts.ctx`
+ * (preferred) or the legacy flat opts-bag (kept as a one-patch-release compat
+ * shim — it is translated to a context internally before anything runs).
+ *
  * @param {{
- *   epicId: number,
- *   provider: import('../ITicketingProvider.js').ITicketingProvider,
- *   config: object,
- *   spawn: (args: { storyId: number, worktree?: string, signal: AbortSignal }) => Promise<{ status: string, detail?: string }>,
+ *   ctx?: EpicRunnerContext,
+ *   epicId?: number,
+ *   provider?: import('../ITicketingProvider.js').ITicketingProvider,
+ *   config?: object,
+ *   spawn?: (args: { storyId: number, worktree?: string, signal: AbortSignal }) => Promise<{ status: string, detail?: string }>,
  *   worktreeResolver?: (storyId: number) => string,
  *   fetchImpl?: typeof fetch,
+ *   runSkill?: Function,
  *   logger?: { info: Function, warn: Function, error: Function },
  * }} args
  */
-export async function runEpic({
-  epicId,
-  provider,
-  config,
-  spawn,
-  worktreeResolver,
-  fetchImpl,
-  runSkill,
-  logger = console,
-}) {
-  if (!Number.isInteger(epicId)) throw new TypeError('epicId must be integer');
-  if (!provider) throw new TypeError('provider is required');
-  if (!config?.epicRunner?.enabled) {
-    throw new Error(
-      'orchestration.epicRunner.enabled is false — refusing to run.',
-    );
-  }
-  if (typeof spawn !== 'function') throw new TypeError('spawn is required');
+export async function runEpic(args = {}) {
+  const ctx =
+    args.ctx instanceof EpicRunnerContext
+      ? args.ctx
+      : new EpicRunnerContext(args);
+  return runEpicWithContext(ctx);
+}
 
+async function runEpicWithContext(ctx) {
+  const { epicId, provider, config, logger, fetchImpl } = ctx;
   const { concurrencyCap, pollIntervalSec } = config.epicRunner;
 
   // --- 1. Snapshot Epic state ---
@@ -86,31 +84,18 @@ export async function runEpic({
   const scheduler = new WaveScheduler(waves);
 
   // --- 3. Compose collaborators ---
-  const notifier = createNotifier(config, provider, { fetchImpl, logger });
-  const checkpointer = new Checkpointer({ provider, epicId });
-  const notificationHook = new NotificationHook({
-    fetchImpl,
-    logger,
-  });
+  const notifier =
+    ctx.notifier ?? createNotifier(config, provider, { fetchImpl, logger });
+  const checkpointer = new Checkpointer({ ctx });
+  const notificationHook = new NotificationHook({ ctx });
   const blockerHandler = new BlockerHandler({
-    provider,
-    epicId,
+    ctx,
     notificationHook,
     pollIntervalMs: pollIntervalSec * 1000,
-    logger,
   });
-  const launcher = new StoryLauncher({
-    concurrencyCap,
-    spawn,
-    worktreeResolver,
-    logger,
-  });
-  const waveObserver = new WaveObserver({ provider, epicId, logger });
-  const columnSync = new ColumnSync({
-    provider,
-    projectNumber: config?.github?.projectNumber ?? null,
-    logger,
-  });
+  const launcher = new StoryLauncher({ ctx });
+  const waveObserver = new WaveObserver({ ctx });
+  const columnSync = new ColumnSync({ ctx });
   const syncColumn = async (id, labels) => {
     try {
       await columnSync.sync(id, labels);
@@ -138,11 +123,9 @@ export async function runEpic({
   const effectiveAutoClose = Boolean(state.autoClose);
 
   const bookends = new BookendChainer({
+    ctx,
     autoClose: effectiveAutoClose,
-    epicId,
-    runSkill,
     postComment: (id, payload) => provider.postComment(id, payload),
-    logger,
   });
 
   // --- 5. Wave loop ---

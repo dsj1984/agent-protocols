@@ -36,15 +36,17 @@ export class BookendChainer {
    *   logger?: { info: Function, warn: Function },
    * }} opts
    */
-  constructor({ autoClose, epicId, runSkill, postComment, logger }) {
+  constructor(opts = {}) {
+    const ctx = opts.ctx;
+    const epicId = opts.epicId ?? ctx?.epicId;
     if (!Number.isInteger(epicId)) {
       throw new TypeError('BookendChainer requires a numeric epicId');
     }
-    this.autoClose = Boolean(autoClose);
+    this.autoClose = Boolean(opts.autoClose);
     this.epicId = epicId;
-    this.runSkill = runSkill;
-    this.postComment = postComment;
-    this.logger = logger ?? console;
+    this.runSkill = opts.runSkill ?? ctx?.runSkill;
+    this.postComment = opts.postComment;
+    this.logger = opts.logger ?? ctx?.logger ?? console;
   }
 
   async run() {
