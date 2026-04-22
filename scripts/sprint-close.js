@@ -31,6 +31,7 @@
 
 import { parseArgs } from 'node:util';
 
+import { runAsCli } from './lib/cli-utils.js';
 import { PROJECT_ROOT, resolveConfig } from './lib/config-resolver.js';
 import { gitSpawn } from './lib/git-utils.js';
 import { Logger } from './lib/Logger.js';
@@ -423,6 +424,60 @@ async function collectEpicDescendantIds(provider, epicId) {
   return out;
 }
 
-main().catch((err) => {
-  Logger.fatal(`sprint-close: ${err.message}`);
-});
+/**
+ * Pure resolver for the Phase 3.2 tagging decision. Called before the bump to
+ * distinguish the pre-bumped-but-untagged state from a genuine double-bump or
+ * a tag collision.
+ *
+ * @param {Object} input
+ * @param {string} input.currentVersion       - Version read from package.json.
+ * @param {string} input.targetVersion        - Version the bump would produce.
+ * @param {boolean} input.tagExists           - Whether `v<targetVersion>` exists.
+ * @param {string} input.epicReleaseTarget    - Release target declared on the Epic body.
+ * @returns {{ action: 'bump' | 'skip-bump-tag' | 'abort', detail: string }}
+ */
+export function resolveTaggingPlan({
+  currentVersion,
+  targetVersion,
+  tagExists,
+  epicReleaseTarget,
+}) {
+  // Pre-bumped state: files already at the Epic's declared release target and
+  // no tag yet. Skip the bump, just tag HEAD.
+  if (currentVersion === epicReleaseTarget && !tagExists) {
+    return {
+      action: 'skip-bump-tag',
+      detail:
+        `package.json already at ${currentVersion} (Epic release target) and ` +
+        `tag v${targetVersion} missing — skipping bump, will tag HEAD.`,
+    };
+  }
+
+  // Already released: current matches target and the tag exists. Nothing to do.
+  if (currentVersion === targetVersion && tagExists) {
+    return {
+      action: 'abort',
+      detail:
+        `v${targetVersion} already released (current=${currentVersion}, ` +
+        'tag present). Nothing to do — verify release segment is correct.',
+    };
+  }
+
+  // Tag collision: bump would create a new version, but the target tag is
+  // already in use by an unrelated commit.
+  if (currentVersion !== targetVersion && tagExists) {
+    return {
+      action: 'abort',
+      detail:
+        `tag v${targetVersion} already exists but current version is ` +
+        `${currentVersion}. Refusing to re-point the tag.`,
+    };
+  }
+
+  return {
+    action: 'bump',
+    detail: `bumping ${currentVersion} → ${targetVersion} and tagging.`,
+  };
+}
+
+runAsCli(import.meta.url, main, { source: 'sprint-close' });
