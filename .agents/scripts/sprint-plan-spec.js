@@ -33,6 +33,7 @@ import { resolveConfig } from './lib/config-resolver.js';
 import { AGENT_LABELS, TYPE_LABELS } from './lib/label-constants.js';
 import { Logger } from './lib/Logger.js';
 import { buildAuthoringContext, planEpic } from './epic-planner.js';
+import { PlanRunnerContext } from './lib/orchestration/context.js';
 import {
   PlanCheckpointer,
   PLAN_PHASES,
@@ -81,7 +82,13 @@ export async function runSpecPhase(
     );
   }
 
-  const checkpointer = new PlanCheckpointer({ provider, epicId });
+  const ctx = new PlanRunnerContext({
+    epicId,
+    provider,
+    config: settings ?? {},
+    phase: PLAN_PHASES.PLANNING,
+  });
+  const checkpointer = new PlanCheckpointer({ ctx });
   await checkpointer.initialize();
 
   console.log(

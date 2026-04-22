@@ -36,6 +36,7 @@ import {
   buildDecompositionContext,
   decomposeEpic,
 } from './ticket-decomposer.js';
+import { PlanRunnerContext } from './lib/orchestration/context.js';
 import {
   PlanCheckpointer,
   PLAN_PHASES,
@@ -89,7 +90,13 @@ export async function runDecomposePhase(
     );
   }
 
-  const checkpointer = new PlanCheckpointer({ provider, epicId });
+  const ctx = new PlanRunnerContext({
+    epicId,
+    provider,
+    config: config ?? {},
+    phase: PLAN_PHASES.DECOMPOSING,
+  });
+  const checkpointer = new PlanCheckpointer({ ctx });
   await checkpointer.initialize({
     spec: {
       prdId: epic.linkedIssues.prd,
