@@ -793,10 +793,7 @@ export async function runStoryClose({
   // -------------------------------------------------------------------------
 
   const skipValidation =
-    skipValidationParam ||
-    !!process.env.SPRINT_STORY_CLOSE_SKIP_VALIDATION ||
-    resumeFromConflict ||
-    resumeFromMerge;
+    !!skipValidationParam || resumeFromConflict || resumeFromMerge;
   if (!skipValidation) {
     progress(
       'VALIDATE',

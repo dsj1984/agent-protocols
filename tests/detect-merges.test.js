@@ -1,14 +1,24 @@
 import assert from 'node:assert/strict';
-import { mkdirSync, mkdtempSync, rmSync, writeFileSync } from 'node:fs';
+import {
+  mkdirSync,
+  mkdtempSync,
+  readFileSync,
+  rmSync,
+  writeFileSync,
+} from 'node:fs';
 import { tmpdir } from 'node:os';
-import { join } from 'node:path';
+import { dirname, join, resolve } from 'node:path';
+import { fileURLToPath } from 'node:url';
 import { test } from 'node:test';
 
 import {
+  isDetectMergesTestFixture,
   isTemplatePath,
   scanForConflicts,
   TEMPLATE_PATH_PREFIXES,
 } from '../.agents/scripts/detect-merges.js';
+
+const __dirname = dirname(fileURLToPath(import.meta.url));
 
 const MARKED = '<<<<<<< HEAD\nfoo\n=======\nbar\n>>>>>>> other\n';
 
@@ -16,6 +26,7 @@ function makeRepo() {
   const root = mkdtempSync(join(tmpdir(), 'detect-merges-'));
   mkdirSync(join(root, '.agents/workflows'), { recursive: true });
   mkdirSync(join(root, 'src'), { recursive: true });
+  mkdirSync(join(root, 'tests'), { recursive: true });
   return root;
 }
 
@@ -42,6 +53,55 @@ test('detect-merges', async (t) => {
         writeFileSync(join(root, file), MARKED);
         const hits = await scanForConflicts([file], root);
         assert.deepEqual(hits, []);
+      } finally {
+        rmSync(root, { recursive: true, force: true });
+      }
+    },
+  );
+
+  await t.test('isDetectMergesTestFixture matches tests/** paths', () => {
+    assert.equal(isDetectMergesTestFixture('tests/detect-merges.test.js'), true);
+    assert.equal(isDetectMergesTestFixture('tests/detect-merges.js'), true);
+    assert.equal(
+      isDetectMergesTestFixture('tests/nested/detect-merges-fixture.js'),
+      true,
+    );
+    assert.equal(isDetectMergesTestFixture('tests/other.test.js'), false);
+    assert.equal(
+      isDetectMergesTestFixture('src/detect-merges.test.js'),
+      false,
+    );
+  });
+
+  await t.test(
+    'feeding the real detect-merges.test.js body does NOT flag',
+    async () => {
+      const root = makeRepo();
+      try {
+        const file = 'tests/detect-merges.test.js';
+        const realTest = readFileSync(
+          resolve(__dirname, 'detect-merges.test.js'),
+          'utf8',
+        );
+        writeFileSync(join(root, file), realTest);
+        const hits = await scanForConflicts([file], root);
+        assert.deepEqual(hits, []);
+      } finally {
+        rmSync(root, { recursive: true, force: true });
+      }
+    },
+  );
+
+  await t.test(
+    'real-conflict fixture outside the skip list still flags',
+    async () => {
+      const root = makeRepo();
+      try {
+        const file = 'src/broken-merge.js';
+        writeFileSync(join(root, file), MARKED);
+        const hits = await scanForConflicts([file], root);
+        assert.equal(hits.length, 1);
+        assert.equal(hits[0].file, file);
       } finally {
         rmSync(root, { recursive: true, force: true });
       }

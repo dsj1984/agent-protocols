@@ -1,5 +1,7 @@
 import assert from 'node:assert';
 import { spawnSync } from 'node:child_process';
+import { mkdtempSync, rmSync, writeFileSync } from 'node:fs';
+import { tmpdir } from 'node:os';
 import path from 'node:path';
 import { test } from 'node:test';
 
@@ -58,6 +60,43 @@ test('runCloseValidation', async (t) => {
     assert.deepEqual(result, { ok: true, failed: [] });
     assert.equal(calls.length, 2);
   });
+
+  await t.test(
+    'biome format gate exits non-zero on drift and zero on clean',
+    () => {
+      const gate = DEFAULT_GATES.find((g) => g.name.includes('biome format'));
+      const dir = mkdtempSync(path.join(tmpdir(), 'biome-gate-'));
+      try {
+        // Drifted file — missing spaces around `=` and trailing newline
+        // handling that v2 Biome flags.
+        const driftPath = path.join(dir, 'drift.js');
+        writeFileSync(driftPath, 'const x=1\n');
+        const driftResult = spawnSync(gate.cmd, [...gate.args.slice(0, -1), driftPath], {
+          shell: process.platform === 'win32',
+          encoding: 'utf8',
+        });
+        assert.notStrictEqual(
+          driftResult.status,
+          0,
+          `expected non-zero exit on drifted file, got ${driftResult.status}`,
+        );
+
+        const cleanPath = path.join(dir, 'clean.js');
+        writeFileSync(cleanPath, 'const x = 1;\n');
+        const cleanResult = spawnSync(gate.cmd, [...gate.args.slice(0, -1), cleanPath], {
+          shell: process.platform === 'win32',
+          encoding: 'utf8',
+        });
+        assert.strictEqual(
+          cleanResult.status,
+          0,
+          `expected zero exit on clean file, got ${cleanResult.status} stderr=${cleanResult.stderr}`,
+        );
+      } finally {
+        rmSync(dir, { recursive: true, force: true });
+      }
+    },
+  );
 
   await t.test('stops and reports on first non-zero gate', () => {
     const runner = (cmd) => ({ status: cmd === 'a' ? 0 : 3 });
