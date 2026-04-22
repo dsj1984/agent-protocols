@@ -29,13 +29,17 @@ From zero to shipped:
 
    See [Local vs. Remote — choosing a path](#local-vs-remote--choosing-a-path)
    for the full comparison.
-4. **Review and close.** When the final wave lands, the Epic flips to
-   `agent::review`. Two options:
-   - Drive the bookends by hand — `/sprint-code-review` → `/sprint-retro`
-     → `/sprint-close`; **or**
-   - Before Step 3, add `epic::auto-close` to the Epic. The runner will
-     chain those three skills autonomously (including merge-to-main) as
-     soon as the final wave completes.
+4. **Close the Epic.** When the final wave lands, the Epic flips to
+   `agent::review`. Run **`/sprint-close <epicId>`** — that one
+   workflow internally auto-invokes `/sprint-code-review` (code-review
+   gate) and `/sprint-retro` (retro gate) before merging to `main`.
+   You never run the review or retro skills by hand.
+
+   If you'd rather have close run autonomously when the final wave
+   completes (no manual invocation at all), add `epic::auto-close` to
+   the Epic **before Step 3**. The runner detects the snapshot label
+   at startup and chains `/sprint-close` automatically once the Epic
+   reaches `agent::review`.
 
 That is the whole happy path. Everything below is **detail** — branching
 conventions, HITL escalation, audit gates, the remote-orchestrator
@@ -293,11 +297,12 @@ is the entirety of the operator interface after dispatch.
    in-flight stories finish naturally). The operator resolves via
    `/sprint-hotfix` or a scope edit, then flips back to
    `agent::executing` to resume.
-3. **Review hand-off.** At `agent::review`, the run stops by default
-   for manual bookend execution. If `epic::auto-close` was present at
-   dispatch time, the `BookendChainer` proceeds through
-   `/sprint-code-review` → `/sprint-retro` → `/sprint-close` —
-   including merge-to-main — without further prompts.
+3. **Close hand-off.** At `agent::review`, the run stops by default —
+   you run `/sprint-close <epicId>`, which internally auto-invokes
+   `/sprint-code-review` and `/sprint-retro` before merging to main.
+   If `epic::auto-close` was present at dispatch time, the
+   `BookendChainer` invokes `/sprint-close` automatically with no
+   further prompts.
 
 ### Snapshot labels (read once, ignored mid-run)
 
@@ -391,11 +396,12 @@ after the quota rolls.
 - **Plan locally, execute remotely.** Run `/sprint-plan <id>` in your
   IDE (small Claude usage), then add `agent::dispatching` to hand off
   execution.
-- **Autonomous bookends with either path.** `epic::auto-close` is a
-  snapshot label, not a remote-only switch. Either path honors it at
-  startup if set — so you can run locally to `agent::review`, skip the
-  auto-close, and drive the bookends by hand; or apply `epic::auto-close`
-  before dispatch (local or remote) for a fully autonomous run.
+- **Autonomous close with either path.** `epic::auto-close` is a
+  snapshot label, not a remote-only switch — either path honors it at
+  startup. Without the label the Epic stops at `agent::review` and you
+  run `/sprint-close <epicId>` yourself. With the label, the runner
+  chains `/sprint-close` automatically (code-review and retro fire
+  inside close, as they always do).
 - **Never mix on the same Epic at the same time.** Picking up a running
   Epic with a second invocation leads to concurrent write conflicts on
   the `epic-run-state` checkpoint. If a local run hangs, cancel it
@@ -440,7 +446,7 @@ Flipping an Epic to `agent::dispatching` fires
 | `checkpointer`        | Upserts the `epic-run-state` structured comment; handles resume.   |
 | `blocker-handler`     | The sole runtime pause point — halts on `agent::blocked`.          |
 | `notification-hook`   | Fire-and-forget webhook for blocker / wave-transition events.      |
-| `bookend-chainer`     | Runs review → retro → close when `epic::auto-close` was set.       |
+| `bookend-chainer`     | Auto-invokes `/sprint-close` when `epic::auto-close` was set at dispatch (close itself runs review + retro internally). |
 | `wave-observer`       | Emits `wave-N-start` / `wave-N-end` comments.                      |
 | `column-sync`         | Syncs the Projects v2 Status column from `agent::` labels.         |
 
@@ -467,16 +473,22 @@ Once Story waves complete, the bookend lifecycle begins.
    Epics, PRDs, and Tech Specs are explicitly excluded from
    auto-cascade to ensure final verification happens during formal
    closure.
-3. **Lifecycle phases.**
-   - `/sprint-code-review` — comprehensive review.
-   - `/sprint-retro` — summarises wins and friction from the ticket
-     graph and posts the retro as a structured comment on the Epic
-     (no local files).
-   - `/sprint-close` — merges the Epic branch into `main`, validates
+3. **Single operator command: `/sprint-close <epicId>`.** Close is the
+   only bookend workflow an operator runs by hand. It internally
+   auto-invokes, in order:
+   - **Code review gate** (`/sprint-code-review`) — inline audit;
+     halts close on 🔴 Critical Blockers, otherwise continues.
+   - **Retro gate** (`/sprint-retro`) — summarises wins and friction
+     from the ticket graph and posts the retro as a structured comment
+     on the Epic (no local files). Skippable via
+     `agentSettings.sprintClose.runRetro: false` or `--skip-retro`.
+   - **Merge + release.** Merges `epic/<epicId>` into `main`, validates
      documentation freshness, bumps the version, tags the release, and
      closes the Epic (including PRD / Tech Spec context tickets).
-   - With `epic::auto-close` set at dispatch, `BookendChainer` runs all
-     three in sequence without operator input.
+4. **Optional autonomous close.** With `epic::auto-close` set at
+   dispatch time, `BookendChainer` invokes `/sprint-close`
+   automatically once the final wave completes, so no operator input
+   is needed between `agent::review` and `agent::done`.
 
 ---
 
@@ -576,9 +588,9 @@ Notifications are dispatched through two channels:
 | `/sprint-execute` (deprecated)      | Alias for `/sprint-execute-story`                       |
 | Label Epic `agent::dispatching`     | Trigger remote orchestrator via GitHub Actions          |
 | Label Epic `epic::auto-close`       | Authorize autonomous bookend chain at dispatch time     |
-| `/sprint-code-review`               | Comprehensive code review                               |
-| `/sprint-retro`                     | Retrospective from the ticket graph (posted on Epic)    |
-| `/sprint-close <epicId>`            | Merge to main, tag release, close Epic + context issues |
+| `/sprint-close <epicId>`            | Close the Epic — auto-invokes code-review + retro, then merges to `main`, tags release, closes Epic + context issues. **The only bookend command an operator runs by hand.** |
+| `/sprint-code-review` _(internal)_  | Auto-invoked by `/sprint-close` Step 1.4; rarely called directly |
+| `/sprint-retro` _(internal)_        | Auto-invoked by `/sprint-close` Step 1.5; rarely called directly |
 | `/sprint-hotfix`                    | Rapid remediation after a failed integration candidate  |
 | `/git-commit-all`                   | Stage and commit all changes                            |
 | `/git-push`                         | Stage, commit, and push to remote                       |
