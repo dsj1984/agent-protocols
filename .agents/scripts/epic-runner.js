@@ -17,9 +17,15 @@ import { runAsCli } from './lib/cli-utils.js';
 import { buildClaudeSpawn } from './lib/orchestration/epic-runner/build-claude-spawn.js';
 
 const DEFAULT_LOGS_DIR = 'temp/epic-runner-logs';
+const DEFAULT_IDLE_TIMEOUT_SEC = 900;
 
 function resolveLogsDir(epicRunnerCfg) {
   return epicRunnerCfg?.logsDir || DEFAULT_LOGS_DIR;
+}
+
+function resolveIdleTimeoutMs(epicRunnerCfg) {
+  const sec = Number(epicRunnerCfg?.idleTimeoutSec ?? DEFAULT_IDLE_TIMEOUT_SEC);
+  return Number.isFinite(sec) && sec > 0 ? sec * 1000 : 0;
 }
 
 function parseArgs(argv) {
@@ -99,14 +105,16 @@ async function main() {
   }
 
   const logsDir = resolveLogsDir(config.orchestration?.epicRunner);
+  const idleTimeoutMs = resolveIdleTimeoutMs(config.orchestration?.epicRunner);
   const result = await runEpic({
     epicId: args.epicId,
     provider,
     config: config.orchestration,
     autoVersionBump: Boolean(config.settings?.release?.autoVersionBump),
-    spawn: (spawnArgs) => defaultSpawn({ ...spawnArgs, logsDir }),
+    spawn: (spawnArgs) =>
+      defaultSpawn({ ...spawnArgs, logsDir, idleTimeoutMs }),
     runSkill: (skill, runArgs) =>
-      defaultRunSkill(skill, { ...runArgs, logsDir }),
+      defaultRunSkill(skill, { ...runArgs, logsDir, idleTimeoutMs }),
   });
 
   console.log(JSON.stringify(result, null, 2));
@@ -125,7 +133,12 @@ async function main() {
  * `<logsDir>/story-<id>.log` (default `temp/epic-runner-logs/`, configurable
  * via `orchestration.epicRunner.logsDir`) to keep parallel runs readable.
  */
-async function defaultSpawn({ storyId, signal, logsDir = DEFAULT_LOGS_DIR }) {
+async function defaultSpawn({
+  storyId,
+  signal,
+  logsDir = DEFAULT_LOGS_DIR,
+  idleTimeoutMs = DEFAULT_IDLE_TIMEOUT_SEC * 1000,
+}) {
   const { spawn } = await import('node:child_process');
   const { open, mkdir } = await import('node:fs/promises');
   const { join } = await import('node:path');
@@ -137,22 +150,32 @@ async function defaultSpawn({ storyId, signal, logsDir = DEFAULT_LOGS_DIR }) {
   return new Promise((resolve) => {
     const launch = buildClaudeSpawn(
       ['-p', `/sprint-execute ${storyId}`, '--dangerously-skip-permissions'],
-      { stdio: ['ignore', logHandle.fd, logHandle.fd] },
+      { stdio: ['ignore', 'pipe', 'pipe'] },
     );
     const proc = spawn(launch.file, launch.args, launch.options);
+
+    const watchdog = attachIdleWatchdog(proc, logHandle, idleTimeoutMs);
 
     const onAbort = () => proc.kill();
     signal?.addEventListener?.('abort', onAbort, { once: true });
 
     proc.on('error', (err) => {
       signal?.removeEventListener?.('abort', onAbort);
+      watchdog.stop();
       logHandle.close().catch(() => {});
       resolve({ status: 'failed', detail: err.message });
     });
 
     proc.on('exit', async (code) => {
       signal?.removeEventListener?.('abort', onAbort);
+      watchdog.stop();
       await logHandle.close().catch(() => {});
+      if (watchdog.idleTimedOut) {
+        return resolve({
+          status: 'failed',
+          detail: `idle-timeout: no output for ${Math.round(idleTimeoutMs / 1000)}s (likely hung on interactive prompt); see ${logPath}`,
+        });
+      }
       if (code !== 0) {
         return resolve({
           status: 'failed',
@@ -197,7 +220,14 @@ async function defaultSpawn({ storyId, signal, logsDir = DEFAULT_LOGS_DIR }) {
  * `orchestration.epicRunner.logsDir`) to keep the parent runner's stream
  * readable. The subprocess exit code is the sole success signal.
  */
-async function defaultRunSkill(skill, { epicId, logsDir = DEFAULT_LOGS_DIR }) {
+async function defaultRunSkill(
+  skill,
+  {
+    epicId,
+    logsDir = DEFAULT_LOGS_DIR,
+    idleTimeoutMs = DEFAULT_IDLE_TIMEOUT_SEC * 1000,
+  },
+) {
   if (skill !== '/sprint-close') {
     return {
       status: 'failed',
@@ -215,15 +245,24 @@ async function defaultRunSkill(skill, { epicId, logsDir = DEFAULT_LOGS_DIR }) {
   return new Promise((resolve) => {
     const launch = buildClaudeSpawn(
       ['-p', `${skill} ${epicId}`, '--dangerously-skip-permissions'],
-      { stdio: ['ignore', logHandle.fd, logHandle.fd] },
+      { stdio: ['ignore', 'pipe', 'pipe'] },
     );
     const proc = spawn(launch.file, launch.args, launch.options);
+    const watchdog = attachIdleWatchdog(proc, logHandle, idleTimeoutMs);
     proc.on('error', (err) => {
+      watchdog.stop();
       logHandle.close().catch(() => {});
       resolve({ status: 'failed', detail: err.message });
     });
     proc.on('exit', async (code) => {
+      watchdog.stop();
       await logHandle.close().catch(() => {});
+      if (watchdog.idleTimedOut) {
+        return resolve({
+          status: 'failed',
+          detail: `idle-timeout: no output for ${Math.round(idleTimeoutMs / 1000)}s (likely hung on interactive prompt); see ${logPath}`,
+        });
+      }
       if (code === 0) return resolve({ status: 'ok' });
       resolve({
         status: 'failed',
@@ -231,6 +270,50 @@ async function defaultRunSkill(skill, { epicId, logsDir = DEFAULT_LOGS_DIR }) {
       });
     });
   });
+}
+
+/**
+ * Attaches an idle-output watchdog to a spawned Claude subprocess. Each chunk
+ * on stdout/stderr is written to `logHandle` and resets the idle timer. If no
+ * output arrives within `idleMs`, the child is killed and `idleTimedOut` is
+ * set so the caller can distinguish this from a normal non-zero exit.
+ *
+ * `idleMs <= 0` disables the watchdog (output is still teed to the log).
+ */
+function attachIdleWatchdog(proc, logHandle, idleMs) {
+  const state = { idleTimedOut: false, timer: null, stopped: false };
+
+  const writeChunk = (chunk) => {
+    logHandle.write(chunk).catch(() => {});
+    resetTimer();
+  };
+
+  const resetTimer = () => {
+    if (state.stopped || !(idleMs > 0)) return;
+    if (state.timer) clearTimeout(state.timer);
+    state.timer = setTimeout(() => {
+      state.idleTimedOut = true;
+      try {
+        proc.kill();
+      } catch {
+        /* already exited */
+      }
+    }, idleMs);
+  };
+
+  proc.stdout?.on('data', writeChunk);
+  proc.stderr?.on('data', writeChunk);
+  resetTimer();
+
+  return {
+    get idleTimedOut() {
+      return state.idleTimedOut;
+    },
+    stop() {
+      state.stopped = true;
+      if (state.timer) clearTimeout(state.timer);
+    },
+  };
 }
 
 runAsCli(import.meta.url, main, { source: 'EpicRunner' });

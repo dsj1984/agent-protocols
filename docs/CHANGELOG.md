@@ -4,6 +4,35 @@ All notable changes to this project will be documented in this file.
 
 ## [Unreleased]
 
+## [5.16.1] - 2026-04-22
+
+### Headless hang protection for epic-runner sub-agents
+
+Patch release that prevents `/sprint-execute` (Epic Mode) sub-agents from
+hanging forever when they ask the operator a clarifying question. Root cause:
+`defaultSpawn` in `.agents/scripts/epic-runner.js` launches each Story with
+`stdio: ['ignore', …]`, so any interactive prompt the sub-agent raises has no
+reply path and only the 6-hour hard timeout eventually reaps it. Two fixes:
+
+- **Non-interactive contract.** `.agents/workflows/sprint-execute.md` now
+  documents, in a dedicated subsection under Story Mode, that headless Story
+  runs must never ask clarifying questions — they should assume a reasonable
+  default (and log it) or transition the Story to `agent::blocked` with a
+  structured comment and exit non-zero. The contract only binds when spawned
+  headless; interactive `/sprint-execute` keeps normal conversational
+  clarification.
+- **Idle-output watchdog.** `defaultSpawn` and `defaultRunSkill` now pipe
+  stdout/stderr (instead of redirecting fds) and tee each chunk to the log
+  file while resetting an idle timer. If no output arrives within
+  `orchestration.epicRunner.idleTimeoutSec` (default 900s; `0` disables), the
+  child is killed and the result is reported as `status: failed` with
+  `detail: idle-timeout: …`. Well-behaved sub-agents stream tool-call traffic
+  constantly, so a real hang trips the watchdog in minutes instead of hours.
+
+The new `idleTimeoutSec` field is added to the orchestration config schema
+(`additionalProperties: false`) and seeded in `.agents/default-agentrc.json`
+and the project's own `.agentrc.json`.
+
 ## [5.16.0] - 2026-04-22
 
 ### Live epic-runner progress in IDE chat
