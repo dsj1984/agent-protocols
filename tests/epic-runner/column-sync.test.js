@@ -15,6 +15,13 @@ describe('columnForLabels', () => {
     assert.equal(columnForLabels(['agent::done']), 'Done');
   });
 
+  it('maps the four planning-phase labels to board columns', () => {
+    assert.equal(columnForLabels(['agent::planning']), 'Planning');
+    assert.equal(columnForLabels(['agent::review-spec']), 'Spec Review');
+    assert.equal(columnForLabels(['agent::decomposing']), 'Ready');
+    assert.equal(columnForLabels(['agent::ready']), 'Ready');
+  });
+
   it('prefers the more urgent state when multiple are set', () => {
     // executing + blocked → Blocked (urgency wins)
     assert.equal(
@@ -23,6 +30,21 @@ describe('columnForLabels', () => {
     );
     // review + done → Done
     assert.equal(columnForLabels(['agent::review', 'agent::done']), 'Done');
+    // review-spec + planning → Spec Review (most-advanced phase wins)
+    assert.equal(
+      columnForLabels(['agent::planning', 'agent::review-spec']),
+      'Spec Review',
+    );
+    // ready + planning → Ready
+    assert.equal(
+      columnForLabels(['agent::planning', 'agent::ready']),
+      'Ready',
+    );
+    // done beats every planning-phase label
+    assert.equal(
+      columnForLabels(['agent::planning', 'agent::done']),
+      'Done',
+    );
   });
 
   it('returns null for labels with no mapping', () => {

@@ -1,0 +1,121 @@
+---
+description: >-
+  Phase 2 of sprint planning — decompose an Epic's PRD and Tech Spec into a
+  Feature/Story/Task hierarchy, persist the backlog, and flip the Epic to
+  `agent::ready`. Host-LLM authored; no external API calls.
+---
+
+# /sprint-plan-decompose [Epic ID]
+
+## Role
+
+Director / Architect
+
+## Context
+
+`/sprint-plan-decompose` is the **decompose phase** of the split planning
+pipeline. It reads the PRD and Tech Spec previously produced by
+`/sprint-plan-spec`, generates the Feature / Story / Task ticket hierarchy,
+persists it to GitHub, and flips the Epic from `agent::decomposing` (trigger)
+to `agent::ready` (parking) so a human can apply `agent::dispatching` when
+execution should begin.
+
+The ticket array is authored **directly by you, the host LLM**.
+`sprint-plan-decompose.js` is a deterministic wrapper that (a) emits the
+authoring context you need and (b) validates, persists, and transitions the
+Epic lifecycle state.
+
+## Constraint
+
+- **Do not** run this skill until the spec phase is complete. The Epic must
+  have linked `context::prd` and `context::tech-spec` issues; the script will
+  refuse to proceed otherwise.
+- **Do not** reassign Story / Task parents across Features after the
+  decomposition writes — the `epic-plan-state` checkpoint records the
+  structure as committed. Use `--force` to rebuild from scratch.
+- **Every** temp file must include the Epic ID in its name. Multiple Epics
+  may be decomposed concurrently; bare names will collide.
+- **Do not** apply `agent::dispatching` from this skill. The local
+  `/sprint-plan --auto-dispatch` wrapper owns that transition; remote flows
+  rely on the operator applying the label by hand.
+
+## Prerequisites
+
+1. **Epic is on `agent::review-spec` or `agent::decomposing`** — i.e. the
+   spec phase has already run and the PRD / Tech Spec exist.
+2. **API keys** — `GITHUB_TOKEN` set in `.env`.
+
+## Step 1 — Gather decomposition context
+
+```bash
+node .agents/scripts/sprint-plan-decompose.js --epic [Epic_ID] --emit-context \
+  > temp/decomposer-context-epic-[Epic_ID].json
+```
+
+The emitted JSON contains the PRD body, Tech Spec body, risk heuristics, the
+decomposer system prompt, and the `maxTickets` cap.
+
+## Step 2 — Author the ticket array
+
+Read `temp/decomposer-context-epic-[Epic_ID].json`. Produce a JSON array of
+Feature / Story / Task objects that conforms to the schema in the system
+prompt and write it to `temp/tickets-epic-[Epic_ID].json`.
+
+## Step 3 — Persist and transition
+
+```bash
+# Normal decomposition
+node .agents/scripts/sprint-plan-decompose.js --epic [Epic_ID] \
+  --tickets temp/tickets-epic-[Epic_ID].json
+
+# Re-decompose (closes existing child Features/Stories/Tasks first)
+node .agents/scripts/sprint-plan-decompose.js --epic [Epic_ID] \
+  --tickets temp/tickets-epic-[Epic_ID].json --force
+```
+
+On success the script:
+
+- Flips the Epic to `agent::decomposing` (parking while work runs).
+- Creates the Feature / Story / Task hierarchy under the Epic.
+- Updates the `epic-plan-state` structured comment with the ticket count and
+  decompose timestamp.
+- Flips the Epic to `agent::ready`.
+
+## Step 4 — Cross-validation
+
+- **Verify** every PRD feature → Feature issue → ≥ 1 Story → ≥ 1 Task.
+- **Verify** the dependency DAG across Tasks is acyclic.
+- **Verify** `risk::high` Tasks are flagged correctly.
+- **Scope-overlap check**: Stories whose scope is "docs / runbook / README"
+  downstream of a "config + runbook" Story in the same Epic should carry a
+  scope-verification note pointing at
+  `git diff main -- <path>` against the upstream Story branch.
+- **Fix** any gaps by creating additional issues or updating existing ones.
+
+## Step 5 — Cleanup
+
+```powershell
+Remove-Item -Force -ErrorAction SilentlyContinue `
+  "temp/decomposer-context-epic-[Epic_ID].json", `
+  "temp/tickets-epic-[Epic_ID].json"
+```
+
+## Handoff
+
+- Surface the backlog summary and the Wave 0 candidates to the operator:
+
+  > "Decomposition complete. Epic #[ID] is on `agent::ready` with NN ticket(s)
+  > across MM Stories. Apply `agent::dispatching` (remote) or run
+  > `/sprint-execute [Epic_ID]` (local) to begin execution."
+
+## Troubleshooting
+
+- "Epic #N is missing a linked PRD or Tech Spec" — run `/sprint-plan-spec`
+  first.
+- Validator rejects the tickets file — the most common causes are a Story
+  with no child Tasks, a Task whose `parent_slug` does not point at a Story,
+  or cross-Story Task dependencies (which must be lifted to Story-level
+  dependencies).
+- If `--force` is required but the script refuses, confirm the Epic has the
+  linked artifacts first — `--force` only re-decomposes; it does not bypass
+  the spec-phase prerequisite.

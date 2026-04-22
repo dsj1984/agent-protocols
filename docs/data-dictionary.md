@@ -136,7 +136,7 @@ above the existing label/comment taxonomy.
 | `epic-run-state`           | Structured comment  | HTML-marker-scoped JSON checkpoint on the Epic; single SSOT for wave progress and resume.                      |
 | `wave-<N>-start`           | Structured comment  | Per-wave start marker with wave manifest and start timestamp.                                                  |
 | `wave-<N>-end`             | Structured comment  | Per-wave end marker with story outcomes and duration.                                                          |
-| `concurrencyCap`           | Config (integer)    | `orchestration.epicRunner.concurrencyCap`; max parallel `/sprint-execute-story` sub-agents per wave.           |
+| `concurrencyCap`           | Config (integer)    | `orchestration.epicRunner.concurrencyCap`; max parallel `/sprint-execute <storyId>` sub-agents per wave.       |
 | `pollIntervalSec`          | Config (integer)    | `orchestration.epicRunner.pollIntervalSec`; how often `StatePoller` rechecks labels.                           |
 | Blocker-escalation         | Flow state          | Runtime pause driven by `agent::blocked`; the sole HITL touchpoint during a remote run.                        |
 | Status (Projects v2)       | Project field       | Single-select custom field driven by `ColumnSync` from `agent::` labels.                                       |

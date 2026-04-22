@@ -71,7 +71,7 @@ export async function transitionTicketState(
   // This ensures parents (Stories, Features) close as soon as their last
   // child is marked done.
   if (isDone) {
-    await cascadeCompletion(provider, ticketId);
+    await cascadeCompletion(provider, ticketId, { notifier: opts.notifier });
   }
 
   // Fire the in-band notifier (fire-and-forget; errors swallowed upstream).
@@ -237,9 +237,11 @@ export async function upsertStructuredComment(provider, ticketId, type, body) {
  *
  * @param {import('../ITicketingProvider.js').ITicketingProvider} provider
  * @param {number} ticketId
+ * @param {{ notifier?: { emit: Function } }} [opts] - Forwarded to any
+ *   recursive `transitionTicketState` fired on parent tickets.
  * @returns {Promise<{ cascadedTo: number[], failed: Array<{ parentId: number, error: string }> }>}
  */
-export async function cascadeCompletion(provider, ticketId) {
+export async function cascadeCompletion(provider, ticketId, opts = {}) {
   const ticket = await provider.getTicket(ticketId);
 
   // Determine if this ticket is agent::done
@@ -287,7 +289,9 @@ export async function cascadeCompletion(provider, ticketId) {
           return;
         }
 
-        await transitionTicketState(provider, parentId, STATE_LABELS.DONE);
+        await transitionTicketState(provider, parentId, STATE_LABELS.DONE, {
+          notifier: opts.notifier,
+        });
         await postStructuredComment(
           provider,
           parentId,
@@ -296,7 +300,9 @@ export async function cascadeCompletion(provider, ticketId) {
         );
         cascadedTo.push(parentId);
 
-        const nested = await cascadeCompletion(provider, parentId);
+        const nested = await cascadeCompletion(provider, parentId, {
+          notifier: opts.notifier,
+        });
         cascadedTo.push(...nested.cascadedTo);
         failed.push(...nested.failed);
       } catch (err) {

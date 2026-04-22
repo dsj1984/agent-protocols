@@ -47,6 +47,7 @@ import {
   gitSpawn,
 } from './lib/git-utils.js';
 import { Logger } from './lib/Logger.js';
+import { createNotifier } from './lib/notifications/notifier.js';
 import {
   injectRecutMarker,
   parseRecutMarker,
@@ -273,14 +274,19 @@ async function bootstrapWorktree({
 
   // Post-condition: every workspace file that exists in the main checkout
   // must also exist in the worktree. Surfaces the "silent breakage" class of
-  // bug where `.env` / `.mcp.json` fail to propagate.
+  // bug where `.env` / `.mcp.json` fail to propagate. Passing `sourceRoot`
+  // enriches the thrown error with a copy-ready remediation command.
   try {
     const workspaceFiles = resolveWorkspaceFiles(wtConfig);
     const presentAtSource = workspaceFiles.filter((rel) =>
       fs.existsSync(path.join(mainCwd, rel)),
     );
     if (presentAtSource.length > 0) {
-      verifyWorkspace({ worktree: ensured.path, files: presentAtSource });
+      verifyWorkspace({
+        worktree: ensured.path,
+        files: presentAtSource,
+        sourceRoot: mainCwd,
+      });
     }
   } catch (err) {
     progress('WORKTREE', `⚠️ ${err.message}`);
@@ -347,6 +353,7 @@ export async function runStoryInit({
 
   const { settings, orchestration } = injectedConfig || resolveConfig({ cwd });
   const provider = injectedProvider || createProvider(orchestration);
+  const notifier = createNotifier(orchestration, provider, { cwd });
 
   progress('INIT', `Initializing Story #${storyId}...`);
 
@@ -471,7 +478,7 @@ export async function runStoryInit({
       provider,
       sortedTasks,
       STATE_LABELS.EXECUTING,
-      { progress },
+      { progress, notifier },
     );
     if (transitionResult.failed.length > 0) {
       const failedSummary = transitionResult.failed

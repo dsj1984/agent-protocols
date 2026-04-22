@@ -155,3 +155,53 @@ test('verify: passes when all required files are present', () => {
   fs.writeFileSync(path.join(dst, '.mcp.json'), '{}\n');
   verify({ worktree: dst, files: ['.env', '.mcp.json'] });
 });
+
+test('verify: error surfaces the missing absolute path', () => {
+  const { dst } = makeRoots();
+  let caught;
+  try {
+    verify({ worktree: dst, files: ['.mcp.json'] });
+  } catch (err) {
+    caught = err;
+  }
+  assert.ok(caught, 'verify should throw when .mcp.json is missing');
+  const expectedAbs = path.join(dst, '.mcp.json');
+  assert.ok(
+    caught.message.includes(expectedAbs),
+    `error should include absolute missing path (${expectedAbs}); got: ${caught.message}`,
+  );
+});
+
+test('verify: when sourceRoot is supplied, error includes remediation command', () => {
+  const { src, dst } = makeRoots();
+  fs.writeFileSync(path.join(src, '.env'), 'A=1\n');
+  let caught;
+  try {
+    verify({ worktree: dst, files: ['.env'], sourceRoot: src });
+  } catch (err) {
+    caught = err;
+  }
+  assert.ok(caught, 'verify should throw when .env is missing from worktree');
+  assert.match(caught.message, /remediation:/);
+  assert.ok(
+    caught.message.includes(path.join(src, '.env')),
+    'error should reference the source path for remediation',
+  );
+  assert.ok(
+    caught.message.includes(path.join(dst, '.env')),
+    'error should reference the target path for remediation',
+  );
+});
+
+test('verify: reports every missing file, not just the first', () => {
+  const { dst } = makeRoots();
+  let caught;
+  try {
+    verify({ worktree: dst, files: ['.env', '.mcp.json'] });
+  } catch (err) {
+    caught = err;
+  }
+  assert.ok(caught);
+  assert.match(caught.message, /\.env/);
+  assert.match(caught.message, /\.mcp\.json/);
+});

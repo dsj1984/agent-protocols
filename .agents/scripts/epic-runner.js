@@ -7,7 +7,7 @@
  * (see tech spec #323, Core Components → `lib/orchestration/epic-runner.js`).
  * Until the engine lands, this CLI exits with a clear `not-yet-implemented`
  * message rather than silently no-op'ing — making the dependency explicit for
- * anyone wiring `/sprint-execute-epic` before the engine merge.
+ * anyone wiring `/sprint-execute` (Epic Mode) before the engine merge.
  *
  * Usage:
  *   node .agents/scripts/epic-runner.js --epic <epicId> [--dry-run]
@@ -90,9 +90,9 @@ async function main() {
 }
 
 /**
- * Default spawn adapter — delegates to the in-repo `/sprint-execute-story`
- * CLI. Real usage inside the Claude remote-agent environment replaces this
- * with an Agent-tool invocation at the skill layer.
+ * Default spawn adapter — delegates to the in-repo `/sprint-execute`
+ * Story Mode CLI. Real usage inside the Claude remote-agent environment
+ * replaces this with an Agent-tool invocation at the skill layer.
  */
 async function defaultSpawn({ storyId }) {
   const { spawnSync } = await import('node:child_process');

@@ -25,11 +25,12 @@ const { runBootstrap } = await import(
   ).href
 );
 
-const { LABEL_TAXONOMY, PROJECT_FIELD_DEFS } = await import(
-  pathToFileURL(
-    path.join(ROOT, '.agents', 'scripts', 'lib', 'label-taxonomy.js'),
-  ).href
-);
+const { LABEL_TAXONOMY, PROJECT_FIELD_DEFS, PROJECT_VIEW_DEFS, STATUS_FIELD_OPTIONS } =
+  await import(
+    pathToFileURL(
+      path.join(ROOT, '.agents', 'scripts', 'lib', 'label-taxonomy.js'),
+    ).href
+  );
 
 const { ITicketingProvider } = await import(
   pathToFileURL(
@@ -46,9 +47,19 @@ class MockProvider extends ITicketingProvider {
     super();
     this.ensureLabelsCalls = [];
     this.ensureProjectFieldsCalls = [];
+    this.ensureStatusFieldCalls = [];
+    this.ensureProjectViewsCalls = [];
+    this.resolveOrCreateProjectCalls = [];
     this.getTicketCalls = [];
     this._labelResult = { created: [], skipped: [] };
     this._fieldResult = { created: [], skipped: [] };
+    this._projectResult = {
+      projectId: 'PVT_mock',
+      projectNumber: 1,
+      created: false,
+    };
+    this._statusResult = { status: 'unchanged', added: [] };
+    this._viewsResult = { created: [], skipped: [], unavailable: false };
   }
 
   async getTicket(ticketId) {
@@ -65,6 +76,21 @@ class MockProvider extends ITicketingProvider {
   async ensureProjectFields(fieldDefs) {
     this.ensureProjectFieldsCalls.push(fieldDefs);
     return this._fieldResult;
+  }
+
+  async resolveOrCreateProject(opts) {
+    this.resolveOrCreateProjectCalls.push(opts ?? {});
+    return this._projectResult;
+  }
+
+  async ensureStatusField(options) {
+    this.ensureStatusFieldCalls.push(options);
+    return this._statusResult;
+  }
+
+  async ensureProjectViews(viewDefs) {
+    this.ensureProjectViewsCalls.push(viewDefs);
+    return this._viewsResult;
   }
 }
 
@@ -95,7 +121,6 @@ describe('Bootstrap — LABEL_TAXONOMY', () => {
   it('contains status, risk, context, and execution labels', () => {
     const names = LABEL_TAXONOMY.map((l) => l.name);
     assert.ok(names.includes('status::blocked'));
-    assert.ok(names.includes('risk::high'));
     assert.ok(names.includes('risk::medium'));
     assert.ok(names.includes('context::prd'));
     assert.ok(names.includes('context::tech-spec'));
@@ -111,8 +136,16 @@ describe('Bootstrap — LABEL_TAXONOMY', () => {
   });
 
   it('label count = non-persona taxonomy + one per persona file', () => {
-    const nonPersonaBase = 17;
+    const nonPersonaBase = 19;
     assert.equal(LABEL_TAXONOMY.length, nonPersonaBase + PERSONA_NAMES.length);
+  });
+
+  it('contains the four planning-phase agent labels', () => {
+    const names = LABEL_TAXONOMY.map((l) => l.name);
+    assert.ok(names.includes('agent::planning'));
+    assert.ok(names.includes('agent::review-spec'));
+    assert.ok(names.includes('agent::decomposing'));
+    assert.ok(names.includes('agent::ready'));
   });
 
   it('includes the dispatch/auto-close labels', () => {
@@ -185,24 +218,135 @@ describe('Bootstrap — PROJECT_FIELD_DEFS', () => {
 });
 
 // ---------------------------------------------------------------------------
+// STATUS_FIELD_OPTIONS + PROJECT_VIEW_DEFS
+// ---------------------------------------------------------------------------
+describe('Bootstrap — STATUS_FIELD_OPTIONS', () => {
+  it('contains all 8 lifecycle options in canonical order', () => {
+    assert.deepEqual(STATUS_FIELD_OPTIONS, [
+      'Backlog',
+      'Planning',
+      'Spec Review',
+      'Ready',
+      'In Progress',
+      'Blocked',
+      'Review',
+      'Done',
+    ]);
+  });
+});
+
+describe('Bootstrap — PROJECT_VIEW_DEFS', () => {
+  it('defines the three default Views', () => {
+    const names = PROJECT_VIEW_DEFS.map((v) => v.name);
+    assert.deepEqual(names, ['Epic Roadmap', 'Current Sprint', 'My Queue']);
+  });
+
+  it('each View has a filter and groupBy', () => {
+    for (const view of PROJECT_VIEW_DEFS) {
+      assert.ok(view.filter, `${view.name} missing filter`);
+      assert.equal(view.groupBy, 'Status');
+    }
+  });
+
+  it('Epic Roadmap filter targets type::epic', () => {
+    const view = PROJECT_VIEW_DEFS.find((v) => v.name === 'Epic Roadmap');
+    assert.match(view.filter, /label:type::epic/);
+  });
+});
+
+// ---------------------------------------------------------------------------
 // runBootstrap behavior
 // ---------------------------------------------------------------------------
 describe('Bootstrap — runBootstrap()', () => {
-  it('creates labels via the provider', async () => {
-    const mock = new MockProvider();
-    mock._labelResult = { created: ['type::epic'], skipped: [] };
+  const orchestration = {
+    provider: 'github',
+    github: {
+      owner: 'test-owner',
+      repo: 'test-repo',
+      projectNumber: 1,
+      projectOwner: 'test-owner',
+    },
+  };
 
-    // We test by calling runBootstrap with a crafted orchestration
-    // that includes a mock provider. Since runBootstrap uses createProvider
-    // internally, we verify independently by testing the exported data structures.
-    // The integration is tested separately.
-    assert.ok(LABEL_TAXONOMY.length > 0, 'Should have labels to create');
+  it('calls resolveOrCreateProject, ensureStatusField, ensureProjectViews, ensureProjectFields, ensureLabels in order', async () => {
+    const mock = new MockProvider();
+    const result = await runBootstrap(orchestration, {
+      providerOverride: mock,
+      quiet: true,
+    });
+
+    assert.equal(mock.ensureLabelsCalls.length, 1);
+    assert.equal(mock.resolveOrCreateProjectCalls.length, 1);
+    assert.equal(mock.ensureStatusFieldCalls.length, 1);
+    assert.deepEqual(mock.ensureStatusFieldCalls[0], STATUS_FIELD_OPTIONS);
+    assert.equal(mock.ensureProjectViewsCalls.length, 1);
+    assert.deepEqual(mock.ensureProjectViewsCalls[0], PROJECT_VIEW_DEFS);
+    assert.equal(mock.ensureProjectFieldsCalls.length, 1);
+    assert.equal(result.project.projectNumber, 1);
   });
 
-  it('skips project fields when projectNumber is null', async () => {
-    // This behavior is tested via the GitHubProvider tests
-    // (ensureProjectFields returns empty when projectNumber is null)
-    assert.ok(true);
+  it('degrades gracefully when resolveOrCreateProject reports scopesMissing', async () => {
+    const mock = new MockProvider();
+    mock._projectResult = { scopesMissing: true };
+    const result = await runBootstrap(orchestration, {
+      providerOverride: mock,
+      quiet: true,
+    });
+
+    assert.equal(result.project.scopesMissing, true);
+    assert.equal(result.project.skipped, true);
+    // Status + Views + Fields are skipped when the project is unavailable.
+    assert.equal(mock.ensureStatusFieldCalls.length, 0);
+    assert.equal(mock.ensureProjectViewsCalls.length, 0);
+    assert.equal(mock.ensureProjectFieldsCalls.length, 0);
+    // Labels still succeed.
+    assert.equal(mock.ensureLabelsCalls.length, 1);
+  });
+
+  it('reports views unavailable without throwing', async () => {
+    const mock = new MockProvider();
+    mock._viewsResult = {
+      created: [],
+      skipped: ['Epic Roadmap', 'Current Sprint', 'My Queue'],
+      unavailable: true,
+    };
+    const result = await runBootstrap(orchestration, {
+      providerOverride: mock,
+      quiet: true,
+    });
+
+    assert.equal(result.views.unavailable, true);
+    assert.equal(result.views.created.length, 0);
+    assert.equal(result.views.skipped.length, 3);
+  });
+
+  it('reports status field status "updated" with added options', async () => {
+    const mock = new MockProvider();
+    mock._statusResult = {
+      status: 'updated',
+      added: ['Planning', 'Spec Review', 'Ready'],
+    };
+    const result = await runBootstrap(orchestration, {
+      providerOverride: mock,
+      quiet: true,
+    });
+    assert.equal(result.statusField.status, 'updated');
+    assert.deepEqual(result.statusField.added, [
+      'Planning',
+      'Spec Review',
+      'Ready',
+    ]);
+  });
+
+  it('skips board provisioning when no projectNumber resolves and creation is declined (scopes)', async () => {
+    const mock = new MockProvider();
+    mock._projectResult = { scopesMissing: true };
+    const result = await runBootstrap(
+      { ...orchestration, github: { ...orchestration.github, projectNumber: null } },
+      { providerOverride: mock, quiet: true },
+    );
+    assert.equal(result.project.skipped, true);
+    assert.equal(result.project.scopesMissing, true);
   });
 });
 
@@ -220,5 +364,15 @@ describe('Bootstrap — module exports', () => {
 
   it('exports PROJECT_FIELD_DEFS array', () => {
     assert.ok(Array.isArray(PROJECT_FIELD_DEFS));
+  });
+
+  it('exports STATUS_FIELD_OPTIONS array', () => {
+    assert.ok(Array.isArray(STATUS_FIELD_OPTIONS));
+    assert.equal(STATUS_FIELD_OPTIONS.length, 8);
+  });
+
+  it('exports PROJECT_VIEW_DEFS array', () => {
+    assert.ok(Array.isArray(PROJECT_VIEW_DEFS));
+    assert.equal(PROJECT_VIEW_DEFS.length, 3);
   });
 });

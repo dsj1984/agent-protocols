@@ -263,4 +263,17 @@ export class ITicketingProvider {
   async graphql(_query, _variables = {}, _opts = {}) {
     throw new Error('Not implemented: graphql');
   }
+
+  /**
+   * Inspect the branch-protection state of a branch. Returns
+   * `{ enabled: false }` when no protection rule exists (HTTP 404), and
+   * `{ enabled: true, raw }` when one does. Implementations may return a
+   * richer shape; the only contract consumers rely on is the boolean.
+   *
+   * @param {string} _branch
+   * @returns {Promise<{ enabled: boolean, raw?: object }>}
+   */
+  async getBranchProtection(_branch) {
+    throw new Error('Not implemented: getBranchProtection');
+  }
 }

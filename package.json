@@ -1,11 +1,11 @@
 {
   "name": "agent-protocols",
-  "version": "5.14.0",
+  "version": "5.15.0",
   "description": "",
   "main": "index.js",
   "scripts": {
-    "test": "node --test tests/*.test.js tests/lib/*.test.js tests/lib/worktree/*.test.js tests/lib/orchestration/*.test.js tests/lib/notifications/*.test.js tests/epic-runner/*.test.js",
-    "test:coverage": "node --experimental-test-coverage --test-coverage-exclude='.agents/scripts/bootstrap-agent-protocols.js' --test-coverage-exclude='.agents/scripts/context-hydrator.js' --test-coverage-exclude='.agents/scripts/dispatcher.js' --test-coverage-exclude='.agents/scripts/health-monitor.js' --test-coverage-exclude='.agents/scripts/notify.js' --test-coverage-exclude='.agents/scripts/ticket-decomposer.js' --test-coverage-exclude='.agents/scripts/mcp/run-audit-suite.js' --test-coverage-exclude='.agents/scripts/providers/github.js' --test --test-coverage-lines=85 --test-coverage-branches=70 --test-coverage-functions=75 tests/*.test.js tests/lib/*.test.js tests/lib/worktree/*.test.js tests/lib/orchestration/*.test.js",
+    "test": "node --experimental-test-module-mocks --test \"tests/**/*.test.js\"",
+    "test:coverage": "node --experimental-test-coverage --experimental-test-module-mocks --test-coverage-exclude='.agents/scripts/bootstrap-agent-protocols.js' --test-coverage-exclude='.agents/scripts/context-hydrator.js' --test-coverage-exclude='.agents/scripts/dispatcher.js' --test-coverage-exclude='.agents/scripts/health-monitor.js' --test-coverage-exclude='.agents/scripts/notify.js' --test-coverage-exclude='.agents/scripts/ticket-decomposer.js' --test-coverage-exclude='.agents/scripts/mcp/run-audit-suite.js' --test-coverage-exclude='.agents/scripts/providers/github.js' --test --test-coverage-lines=85 --test-coverage-branches=70 --test-coverage-functions=75 \"tests/**/*.test.js\"",
     "mutate": "stryker run",
     "mutate:ci": "stryker run --reporters json,progress",
     "lint:md": "markdownlint \".agents/**/*.md\" \"*.md\" --ignore node_modules",

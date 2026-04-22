@@ -355,7 +355,7 @@ repository maintenance.
 | Workflow                | Slash Command         | Purpose                                        |
 | ----------------------- | --------------------- | ---------------------------------------------- |
 | `sprint-plan.md`        | `/sprint-plan`        | Autonomous PRD, Tech Spec, and task generation |
-| `sprint-execute.md`     | `/sprint-execute`     | DAG dispatch (Epic) or task implementation     |
+| `sprint-execute.md`     | `/sprint-execute`     | Routes by `type::` label — Epic orchestration or single-Story execution |
 | `sprint-code-review.md` | `/sprint-code-review` | Comprehensive code review                      |
 | `sprint-hotfix.md`      | `/sprint-hotfix`      | Rapid remediation on feature branches          |
 | `sprint-retro.md`       | `/sprint-retro`       | Retrospective from ticket graph                |

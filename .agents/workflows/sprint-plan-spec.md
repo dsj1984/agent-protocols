@@ -1,0 +1,129 @@
+---
+description: >-
+  Phase 1 of sprint planning — generate the PRD and Tech Spec for an Epic,
+  persist them as linked GitHub issues, and flip the Epic to
+  `agent::review-spec`. Host-LLM authored; no external API calls.
+---
+
+# /sprint-plan-spec [Epic ID]
+
+## Role
+
+Director / Architect
+
+## Context
+
+`/sprint-plan-spec` is the **spec phase** of the split planning pipeline. It
+produces a Product Requirements Document and a Technical Specification for an
+Epic, persists them as `context::prd` and `context::tech-spec` issues under the
+Epic, and flips the Epic's label from `agent::planning` (trigger) to
+`agent::review-spec` (parking) so a human reviewer can read the artifacts on
+GitHub before decomposition.
+
+The PRD and Tech Spec are authored **directly by you, the host LLM**.
+`sprint-plan-spec.js` is a deterministic wrapper that (a) emits the authoring
+context you need and (b) persists the artifacts and transitions the Epic
+lifecycle state.
+
+`/sprint-plan-decompose` is the complementary Phase 2 command. The local
+`/sprint-plan` wrapper chains this skill with decomposition for IDE-driven
+flows; remote planning triggers this skill directly when the operator applies
+`agent::planning` on GitHub.
+
+## Constraint
+
+- **Do not** create or modify tickets outside the `context::prd` /
+  `context::tech-spec` contract — decomposition belongs to
+  `/sprint-plan-decompose`.
+- **Do not** flip the Epic to `agent::decomposing` or `agent::ready` from this
+  skill. The terminal label for the spec phase is `agent::review-spec`.
+- **Every** temp file must include the Epic ID in its name. Multiple Epics may
+  be planned concurrently; bare names like `temp/prd.md` will collide.
+- **Stop and hand back to the operator** after Step 4 — do not chain into
+  decomposition. The human must confirm the PRD/Tech Spec on GitHub before the
+  next phase starts.
+
+## Prerequisites
+
+1. **GitHub Epic** — an open issue with the `type::epic` label. The Epic's
+   body should contain enough narrative context to seed the PRD.
+2. **API keys** — `GITHUB_TOKEN` set in `.env`.
+
+## Step 1 — Gather authoring context
+
+Run the spec-phase CLI in context-emission mode to collect the Epic body, the
+scraped project docs, and the recommended system prompts.
+
+```bash
+node .agents/scripts/sprint-plan-spec.js --epic [Epic_ID] --emit-context \
+  > temp/planner-context-epic-[Epic_ID].json
+```
+
+## Step 2 — Author the PRD
+
+Read `temp/planner-context-epic-[Epic_ID].json`. Using `systemPrompts.prd`
+combined with the Epic title/body, write the PRD markdown to
+`temp/prd-epic-[Epic_ID].md`. Use the four-section structure (Context & Goals,
+User Stories, Acceptance Criteria, Out of Scope) and start the document with
+`## Overview` (no `<h1>`).
+
+## Step 3 — Author the Tech Spec
+
+Using `systemPrompts.techSpec`, the PRD you just wrote, and `docsContext`,
+write the Tech Spec to `temp/techspec-epic-[Epic_ID].md`. Start with
+`## Technical Overview` (no `<h1>`).
+
+## Step 4 — Persist and transition
+
+```bash
+# Normal flow
+node .agents/scripts/sprint-plan-spec.js --epic [Epic_ID] \
+  --prd temp/prd-epic-[Epic_ID].md \
+  --techspec temp/techspec-epic-[Epic_ID].md
+
+# Re-plan (regenerates an existing PRD / Tech Spec)
+node .agents/scripts/sprint-plan-spec.js --epic [Epic_ID] \
+  --prd temp/prd-epic-[Epic_ID].md \
+  --techspec temp/techspec-epic-[Epic_ID].md --force
+```
+
+On success the script:
+
+- Flips the Epic to `agent::planning` (parking while work runs).
+- Creates `[PRD]` and `[Tech Spec]` child issues (`context::prd` /
+  `context::tech-spec` labels).
+- Appends a `## Planning Artifacts` section to the Epic body.
+- Upserts the `epic-plan-state` structured comment with the current phase,
+  PRD / Tech Spec IDs, and timestamps.
+- Flips the Epic to `agent::review-spec`.
+
+## Step 5 — Cleanup
+
+Once the PRD / Tech Spec issues are confirmed on GitHub, delete the phase temp
+files so later runs don't mix artifacts:
+
+```powershell
+Remove-Item -Force -ErrorAction SilentlyContinue `
+  "temp/planner-context-epic-[Epic_ID].json", `
+  "temp/prd-epic-[Epic_ID].md", `
+  "temp/techspec-epic-[Epic_ID].md"
+```
+
+## Handoff
+
+- **STOP** — do not proceed to decomposition. Surface the PRD and Tech Spec
+  URLs to the operator:
+
+  > "Spec phase complete for Epic #[ID]. Review PRD (#XX) and Tech Spec (#YY)
+  > on GitHub. When you're ready, apply `agent::decomposing` (remote) or run
+  > `/sprint-plan-decompose [Epic_ID]` (local) to continue."
+
+## Troubleshooting
+
+- If `--emit-context` fails with "Epic not found", confirm the ID matches the
+  GitHub issue number and the token has `issues:read`.
+- If the persist call fails after creating the PRD but before the Tech Spec,
+  re-run with `--force` (the script reuses the existing PRD when appropriate).
+- If the Epic stays on `agent::planning` after the script claims success, the
+  label write likely races with a concurrent mutation — re-run the persist
+  step; it's idempotent against the existing PRD/Tech Spec.

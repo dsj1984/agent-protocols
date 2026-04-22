@@ -72,9 +72,28 @@ export const LABEL_TAXONOMY = [
 
   // Agent State
   {
+    name: AGENT_LABELS.PLANNING,
+    color: LABEL_COLORS.AGENT,
+    description:
+      'Trigger — remote agent generates PRD + Tech Spec, then flips to review-spec',
+  },
+  {
+    name: AGENT_LABELS.REVIEW_SPEC,
+    color: LABEL_COLORS.AGENT,
+    description:
+      'Parking state — PRD + Tech Spec exist; awaiting human review before decomposition',
+  },
+  {
+    name: AGENT_LABELS.DECOMPOSING,
+    color: LABEL_COLORS.AGENT,
+    description:
+      'Trigger — remote agent generates Feature/Story/Task hierarchy, then flips to ready',
+  },
+  {
     name: AGENT_LABELS.READY,
     color: LABEL_COLORS.AGENT,
-    description: 'Ready for agent pickup',
+    description:
+      'Parking state — frozen dispatch manifest exists; awaiting agent::dispatching',
   },
   {
     name: AGENT_LABELS.EXECUTING,
@@ -113,11 +132,6 @@ export const LABEL_TAXONOMY = [
   },
 
   // Risk
-  {
-    name: RISK_LABELS.HIGH,
-    color: LABEL_COLORS.RISK,
-    description: 'High-risk change',
-  },
   {
     name: RISK_LABELS.MEDIUM,
     color: LABEL_COLORS.RISK,
@@ -159,5 +173,53 @@ export const PROJECT_FIELD_DEFS = [
     name: 'Execution',
     type: 'single_select',
     options: ['sequential', 'concurrent'],
+  },
+];
+
+/**
+ * Canonical lifecycle options for the Status single-select field. Order here
+ * is the order they appear on the board; `ColumnSync` reads label → column
+ * names that match these strings exactly.
+ *
+ * @type {string[]}
+ */
+export const STATUS_FIELD_OPTIONS = [
+  'Backlog',
+  'Planning',
+  'Spec Review',
+  'Ready',
+  'In Progress',
+  'Blocked',
+  'Review',
+  'Done',
+];
+
+/**
+ * Default Projects V2 saved Views. Filter strings follow GitHub's Projects
+ * search syntax (`label:`, `status:`, `assignee:`). Each is grouped by the
+ * Status field to match the board's columnar layout.
+ *
+ * GitHub's GraphQL surface does not yet expose a public `createProjectV2View`
+ * mutation; bootstrap attempts it best-effort and falls back to documenting
+ * the filter strings in `docs/project-board.md` when the mutation is
+ * unavailable.
+ *
+ * @type {Array<{ name: string, filter: string, groupBy: string }>}
+ */
+export const PROJECT_VIEW_DEFS = [
+  {
+    name: 'Epic Roadmap',
+    filter: 'label:type::epic',
+    groupBy: 'Status',
+  },
+  {
+    name: 'Current Sprint',
+    filter: 'label:type::story -status:Done',
+    groupBy: 'Status',
+  },
+  {
+    name: 'My Queue',
+    filter: 'assignee:@me',
+    groupBy: 'Status',
   },
 ];

@@ -186,13 +186,76 @@ describe('validateOrchestrationConfig — schema violations', () => {
     );
   });
 
-  it('rejects additional properties', () => {
+  it('rejects additional properties at the root', () => {
     assert.throws(
       () =>
         validateOrchestrationConfig({
           provider: 'github',
           github: { owner: 'org', repo: 'repo' },
           unknownField: true,
+        }),
+      /must NOT have additional properties/,
+    );
+  });
+
+  it('rejects typos in the github sub-block', () => {
+    assert.throws(
+      () =>
+        validateOrchestrationConfig({
+          provider: 'github',
+          github: {
+            owner: 'org',
+            repo: 'repo',
+            projectNumbre: 1,
+          },
+        }),
+      /must NOT have additional properties/,
+    );
+  });
+
+  it('rejects typos in the notifications sub-block', () => {
+    assert.throws(
+      () =>
+        validateOrchestrationConfig({
+          provider: 'github',
+          github: { owner: 'org', repo: 'repo' },
+          notifications: { mentionOperatar: true },
+        }),
+      /must NOT have additional properties/,
+    );
+  });
+
+  it('rejects typos in the hitl sub-block', () => {
+    assert.throws(
+      () =>
+        validateOrchestrationConfig({
+          provider: 'github',
+          github: { owner: 'org', repo: 'repo' },
+          hitl: { riskHigh: true },
+        }),
+      /must NOT have additional properties/,
+    );
+  });
+
+  it('rejects typos in the worktreeIsolation sub-block', () => {
+    assert.throws(
+      () =>
+        validateOrchestrationConfig({
+          provider: 'github',
+          github: { owner: 'org', repo: 'repo' },
+          worktreeIsolation: { enable: true },
+        }),
+      /must NOT have additional properties/,
+    );
+  });
+
+  it('rejects typos in the epicRunner sub-block', () => {
+    assert.throws(
+      () =>
+        validateOrchestrationConfig({
+          provider: 'github',
+          github: { owner: 'org', repo: 'repo' },
+          epicRunner: { concurencyCap: 3 },
         }),
       /must NOT have additional properties/,
     );

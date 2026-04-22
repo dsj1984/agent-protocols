@@ -7,6 +7,9 @@
  */
 
 export const AGENT_LABELS = {
+  PLANNING: 'agent::planning',
+  REVIEW_SPEC: 'agent::review-spec',
+  DECOMPOSING: 'agent::decomposing',
   READY: 'agent::ready',
   EXECUTING: 'agent::executing',
   REVIEW: 'agent::review',
@@ -30,7 +33,6 @@ export const STATUS_LABELS = {
 };
 
 export const RISK_LABELS = {
-  HIGH: 'risk::high',
   MEDIUM: 'risk::medium',
 };
 

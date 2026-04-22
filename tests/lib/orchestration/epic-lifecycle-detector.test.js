@@ -1,6 +1,21 @@
 import assert from 'node:assert/strict';
-import test from 'node:test';
-import { detectEpicCompletion } from '../../../.agents/scripts/lib/orchestration/epic-lifecycle-detector.js';
+import path from 'node:path';
+import test, { mock } from 'node:test';
+import { pathToFileURL } from 'node:url';
+
+const notifyModuleUrl = pathToFileURL(
+  path.resolve(import.meta.dirname, '../../../.agents/scripts/notify.js'),
+).href;
+
+mock.module(notifyModuleUrl, {
+  namedExports: {
+    notify: async () => {},
+  },
+});
+
+const { detectEpicCompletion } = await import(
+  '../../../.agents/scripts/lib/orchestration/epic-lifecycle-detector.js'
+);
 
 function makeManifest() {
   return {
