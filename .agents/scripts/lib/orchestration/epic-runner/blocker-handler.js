@@ -28,6 +28,7 @@ export class BlockerHandler {
    *   pollIntervalMs?: number,
    *   logger?: { info: Function, warn: Function, error: Function },
    *   postComment?: (ticketId: number, payload: object) => Promise<unknown>,
+   *   errorJournal?: { record: Function, path: string },
    * }} opts
    */
   constructor(opts = {}) {
@@ -48,6 +49,11 @@ export class BlockerHandler {
     this.postComment =
       opts.postComment ??
       ((ticketId, payload) => provider.postComment(ticketId, payload));
+    this.errorJournal = opts.errorJournal ?? ctx?.errorJournal ?? null;
+  }
+
+  #journalSuffix() {
+    return this.errorJournal?.path ? ` (see ${this.errorJournal.path})` : '';
   }
 
   /**
@@ -68,8 +74,14 @@ export class BlockerHandler {
       });
     } catch (err) {
       this.logger.warn?.(
-        `[BlockerHandler] notification hook failed (swallowed): ${err?.message ?? err}`,
+        `[BlockerHandler] notification hook failed (swallowed): ${err?.message ?? err}${this.#journalSuffix()}`,
       );
+      await this.errorJournal?.record({
+        module: 'BlockerHandler',
+        op: 'notificationHook.fire',
+        error: err,
+        recovery: 'swallowed',
+      });
     }
 
     // Wait for operator to flip the label back. The outer orchestrator is
@@ -97,8 +109,14 @@ export class BlockerHandler {
       });
     } catch (err) {
       this.logger.warn?.(
-        `[BlockerHandler] could not flip Epic label: ${err?.message ?? err}`,
+        `[BlockerHandler] could not flip Epic label: ${err?.message ?? err}${this.#journalSuffix()}`,
       );
+      await this.errorJournal?.record({
+        module: 'BlockerHandler',
+        op: 'provider.updateTicket(labels)',
+        error: err,
+        recovery: 'swallowed',
+      });
     }
 
     const body = [
@@ -114,8 +132,14 @@ export class BlockerHandler {
       await this.postComment(this.epicId, { type: 'friction', body });
     } catch (err) {
       this.logger.warn?.(
-        `[BlockerHandler] friction comment failed: ${err?.message ?? err}`,
+        `[BlockerHandler] friction comment failed: ${err?.message ?? err}${this.#journalSuffix()}`,
       );
+      await this.errorJournal?.record({
+        module: 'BlockerHandler',
+        op: 'postComment(friction)',
+        error: err,
+        recovery: 'swallowed',
+      });
     }
   }
 
@@ -124,8 +148,14 @@ export class BlockerHandler {
       return await this.labelFetcher(id);
     } catch (err) {
       this.logger.warn?.(
-        `[BlockerHandler] poll error on #${id}: ${err?.message ?? err}`,
+        `[BlockerHandler] poll error on #${id}: ${err?.message ?? err}${this.#journalSuffix()}`,
       );
+      await this.errorJournal?.record({
+        module: 'BlockerHandler',
+        op: 'labelFetcher',
+        error: err,
+        recovery: 'returned-empty',
+      });
       return [];
     }
   }

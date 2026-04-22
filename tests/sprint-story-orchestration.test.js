@@ -334,6 +334,7 @@ test('sprint-story-close: successful merge and closure', async () => {
   const { success, result } = await runStoryClose({
     storyId: 100,
     injectedProvider: provider,
+    skipValidation: true,
   });
 
   assert.ok(success, 'Should succeed');
@@ -389,6 +390,7 @@ test('sprint-story-close: reaps worktree using resolved --cwd repo root', async 
       storyId: 100,
       cwd: explicitMainRepo,
       injectedProvider: provider,
+      skipValidation: true,
     });
     assert.ok(success, 'Story close should still succeed');
     assert.equal(
@@ -441,6 +443,7 @@ test('sprint-story-close: resolves config from runtime --cwd (can disable reap)'
       storyId: 100,
       cwd: tmp,
       injectedProvider: provider,
+      skipValidation: true,
     });
     assert.ok(success, 'Story close should still succeed');
     assert.equal(

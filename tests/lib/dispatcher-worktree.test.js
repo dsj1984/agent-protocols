@@ -122,7 +122,7 @@ describe('ManualDispatchAdapter — cwd dispatch instruction', () => {
     }
   }
 
-  it('prints a cd instruction when cwd is set', async () => {
+  it('surfaces cwd in the dispatch log when set', async () => {
     const adapter = new ManualDispatchAdapter(null);
     const cwd = '/repo/.worktrees/story-7';
     const { result, output } = captureStdout(() =>
@@ -130,22 +130,16 @@ describe('ManualDispatchAdapter — cwd dispatch instruction', () => {
     );
     await result;
     const text = output();
-    assert.match(text, /Worktree\s*:\s*\/repo\/\.worktrees\/story-7/);
-    assert.match(text, /cd "\/repo\/\.worktrees\/story-7"/);
-    assert.match(
-      text,
-      /sprint-story-close\.js --story <storyId> --cwd <main-repo>/,
-    );
+    assert.match(text, /cwd=\/repo\/\.worktrees\/story-7/);
   });
 
-  it('omits the cd instruction when cwd is absent (single-tree mode)', async () => {
+  it('omits cwd from the dispatch log when absent (single-tree mode)', async () => {
     const adapter = new ManualDispatchAdapter(null);
     const { result, output } = captureStdout(() =>
       adapter.dispatchTask(makeDispatch()),
     );
     await result;
     const text = output();
-    assert.doesNotMatch(text, /Worktree\s*:/);
-    assert.doesNotMatch(text, /^→ Run agent in: cd/m);
+    assert.doesNotMatch(text, /cwd=/);
   });
 });

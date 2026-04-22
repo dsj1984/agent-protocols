@@ -63,6 +63,7 @@ export class EpicRunnerContext extends OrchestrationContext {
     this.worktreeResolver = opts.worktreeResolver ?? null;
     this.fetchImpl = opts.fetchImpl ?? null;
     this.runSkill = opts.runSkill ?? null;
+    this.errorJournal = opts.errorJournal ?? null;
     if (new.target === EpicRunnerContext) {
       this.validate();
       Object.freeze(this);

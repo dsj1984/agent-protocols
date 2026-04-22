@@ -15,13 +15,24 @@
  * directory gone no matter what.
  *
  * Public API:
- *   - `sweepStaleStoryWorktrees({ provider, repoRoot, git?, logger? })`
+ *   - `sweepStaleStoryWorktrees({ provider, repoRoot, git?, logger?, fsRm?, worktreeRoot? })`
  *
- * Returns `{ reaped: [{ storyId, path }], skipped: [{ storyId, path, reason }] }`.
+ * Also drains any `.worktrees/.pending-cleanup.json` manifest left behind
+ * by Stage 1 (`removeWorktreeWithRecovery` → fs-rm-retry exhaustion, see
+ * `../worktree/pending-cleanup.js`). Entries whose Stage 1 retry now
+ * succeeds are removed from the manifest; entries reaching
+ * MAX_SWEEP_ATTEMPTS emit an `OPERATOR ACTION REQUIRED: persistent-lock`.
+ *
+ * Returns `{
+ *   reaped, skipped,
+ *   drainedPending, persistentPending, stillPending
+ * }`.
  */
 
+import path from 'node:path';
 import * as defaultGit from '../../git-utils.js';
 import { parseWorktreePorcelain } from '../../worktree/inspector.js';
+import { drainPendingCleanup } from '../../worktree/pending-cleanup.js';
 
 const DONE_LABEL = 'agent::done';
 const NOOP_LOGGER = { info: () => {}, warn: () => {}, error: () => {} };
@@ -62,6 +73,8 @@ export async function sweepStaleStoryWorktrees(opts = {}) {
   const repoRoot = opts.repoRoot ?? ctx?.cwd;
   const git = opts.git ?? defaultGit;
   const logger = opts.logger ?? ctx?.logger ?? NOOP_LOGGER;
+  const fsRm = opts.fsRm;
+  const worktreeRoot = opts.worktreeRoot;
   if (!provider || typeof provider.getTicket !== 'function') {
     throw new Error(
       'sweepStaleStoryWorktrees: provider with getTicket(id) is required',
@@ -70,6 +83,20 @@ export async function sweepStaleStoryWorktrees(opts = {}) {
   if (!repoRoot || typeof repoRoot !== 'string') {
     throw new Error('sweepStaleStoryWorktrees: repoRoot is required');
   }
+
+  const resolvedWorktreeRoot =
+    worktreeRoot ?? path.join(repoRoot, '.worktrees');
+
+  // Stage 2: drain pending-cleanup manifest before touching the live
+  // worktree list. Retrying the Stage 1 sequence here picks up entries
+  // whose Windows file locks have since released.
+  const drainResult = await drainPendingCleanup({
+    repoRoot,
+    worktreeRoot: resolvedWorktreeRoot,
+    git,
+    fsRm,
+    logger,
+  });
 
   const reaped = [];
   const skipped = [];
@@ -136,5 +163,11 @@ export async function sweepStaleStoryWorktrees(opts = {}) {
   // or not we actually removed anything.
   git.gitSpawn(repoRoot, 'worktree', 'prune');
 
-  return { reaped, skipped };
+  return {
+    reaped,
+    skipped,
+    drainedPending: drainResult.drained,
+    persistentPending: drainResult.persistent,
+    stillPending: drainResult.stillPending,
+  };
 }

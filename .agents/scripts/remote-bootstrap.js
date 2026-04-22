@@ -45,6 +45,10 @@ import { mkdirSync, writeFileSync } from 'node:fs';
 import { dirname, resolve } from 'node:path';
 import { fileURLToPath } from 'node:url';
 
+// Factored to a module constant so the escomplex-based maintainability
+// parser doesn't choke on a regex literal passed inline to `.split()`.
+const LINE_SPLIT = /\r?\n/;
+
 /**
  * Map a phase slug to the slash command the remote agent should invoke.
  * Exported so tests and callers share a single source of truth.
@@ -112,7 +116,7 @@ function maskSecret(value) {
   // Emit ::add-mask:: per non-empty line so GitHub Actions redacts any
   // accidental echo. Safe to call even outside Actions — consumers just
   // see the directive in stdout.
-  for (const line of value.split(/\r?\n/)) {
+  for (const line of value.split(LINE_SPLIT)) {
     const trimmed = line.trim();
     if (trimmed) {
       console.log(`::add-mask::${trimmed}`);
