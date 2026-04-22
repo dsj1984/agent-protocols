@@ -295,3 +295,84 @@ submodule paths are internal implementation detail.
     *   `handleHighRiskGate` in `sprint-story-close.js` becomes dead
         code behind a hidden opt-in flag — cleanup tracked in Epic
         #349 Wave 0.
+
+---
+
+## ADR-20260422: Two-stage Windows worktree reap (fs.rm retry + deferred sweep)
+
+*   **Status:** Accepted (Epic #380 Story #386, v5.15.1).
+*   **Context:** The v5.7.0 worktree-per-story model ships a clean
+    `reap` path for POSIX, but on Windows `git worktree remove` + the
+    follow-up `fs.rm` routinely fail with `EBUSY` / `ENOTEMPTY` because
+    antivirus, indexing, and `node_modules` file handles hold the
+    directory open for seconds after the merge completes. The v5.15.0
+    symptom was `branchDeleted: false` from `/sprint-story-close` plus
+    orphan `.worktrees/story-<id>/` residue that broke the next
+    `npm run lint` (nested `biome.json` in the orphan was picked up).
+*   **Decision:** Reap is now a two-stage operation inside
+    `lifecycle-manager.js`:
+
+    1. Primary path retries `fs.rm(..., { recursive: true, force: true,
+       maxRetries, retryDelay })` on `EBUSY` / `ENOTEMPTY`.
+    2. Anything still pinned after retry is queued into
+       `.worktrees/.pending-cleanup.json` and drained on the next
+       worktree-manager run by `worktree-sweep.js`.
+
+*   **Explicitly rejected approaches:**
+    *   **Shelling out to `rm -rf` / `cmd /c rd /s /q`** — makes the
+        deletion opaque to Node, silently succeeds while antivirus is
+        still scanning, and would require per-platform branching. The
+        `fs.rm` retry path surfaces real errors and is test-drivable
+        with an injected adapter.
+    *   **Switching the default `node_modules` strategy to `symlink` or
+        `pnpm-store`** to shrink the reap surface — rejected; the
+        `per-worktree` strategy is the only one that is correct on every
+        platform and CI image, and the original Epic #229 ADR
+        (ADR 003) documents why. The Windows reap problem is worth
+        fixing on its own terms without touching the install model.
+    *   **Global mutex around reap** — rejected for the same reason the
+        fetch path refused one: it would erase the parallelism the
+        worktree model is designed to enable.
+*   **Consequences:**
+    *   `/sprint-story-close` reports `branchDeleted: true` on Windows
+        across the common antivirus failure modes; the remaining tail
+        is handled asynchronously by the sweep.
+    *   New artefact: `.worktrees/.pending-cleanup.json` (see
+        `docs/data-dictionary.md#8-epic-380-artefacts-v5151`).
+    *   Orphan-worktree biome lint block (documented in operator
+        auto-memory) disappears once the sweep drains a queued entry.
+
+---
+
+## ADR-20260422: `/sprint-retro` routes through provider.postComment, not notify.js
+
+*   **Status:** Accepted (Epic #380 Story #388, v5.15.1).
+*   **Context:** `notify.js` dispatches via the Make.com webhook
+    configured in `orchestration.notificationWebhookUrl`. It is the
+    right surface for operator pings ("your story needs review") but
+    the wrong surface for retro bodies, which are long-form markdown
+    with internal-only friction analysis. v5.15.0 routed retros through
+    `notify.js`; the webhook forwarded every retro to Slack, leaking
+    draft content and friction citations to channels that should never
+    have seen them.
+*   **Decision:** `/sprint-retro` posts the retro body via
+    `provider.postComment` (or the MCP `post_structured_comment` tool
+    when running under the MCP harness). The ticket issue is the SSOT
+    for retros; no external webhook is invoked. A `retro-partial`
+    structured-comment checkpoint is written during collection so a
+    crashed retro resumes without re-reading the friction log.
+*   **Alternatives considered:**
+    *   Keep `notify.js` but filter retro payloads at the webhook side —
+        rejected; the webhook is out-of-repo and out-of-review, so a
+        filter there is not auditable from this repository.
+    *   Write retros to a local file and upload as a gist — rejected;
+        breaks the "GitHub issue is the SSOT" invariant the whole
+        framework rests on.
+*   **Consequences:**
+    *   Operator memory entry `feedback_retro_github_only.md` is
+        resolved at the framework level, not just as a per-project rule.
+    *   `notify.js` is now scoped exclusively to short operator pings;
+        its payload surface is correspondingly smaller.
+    *   Retro resumption is a first-class flow: the `retro-partial`
+        marker is idempotent and the final `retro-complete` upsert
+        replaces it on success.
