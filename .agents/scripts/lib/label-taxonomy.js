@@ -72,9 +72,28 @@ export const LABEL_TAXONOMY = [
 
   // Agent State
   {
+    name: AGENT_LABELS.PLANNING,
+    color: LABEL_COLORS.AGENT,
+    description:
+      'Trigger — remote agent generates PRD + Tech Spec, then flips to review-spec',
+  },
+  {
+    name: AGENT_LABELS.REVIEW_SPEC,
+    color: LABEL_COLORS.AGENT,
+    description:
+      'Parking state — PRD + Tech Spec exist; awaiting human review before decomposition',
+  },
+  {
+    name: AGENT_LABELS.DECOMPOSING,
+    color: LABEL_COLORS.AGENT,
+    description:
+      'Trigger — remote agent generates Feature/Story/Task hierarchy, then flips to ready',
+  },
+  {
     name: AGENT_LABELS.READY,
     color: LABEL_COLORS.AGENT,
-    description: 'Ready for agent pickup',
+    description:
+      'Parking state — frozen dispatch manifest exists; awaiting agent::dispatching',
   },
   {
     name: AGENT_LABELS.EXECUTING,

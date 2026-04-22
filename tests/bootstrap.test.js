@@ -136,8 +136,16 @@ describe('Bootstrap — LABEL_TAXONOMY', () => {
   });
 
   it('label count = non-persona taxonomy + one per persona file', () => {
-    const nonPersonaBase = 16;
+    const nonPersonaBase = 19;
     assert.equal(LABEL_TAXONOMY.length, nonPersonaBase + PERSONA_NAMES.length);
+  });
+
+  it('contains the four planning-phase agent labels', () => {
+    const names = LABEL_TAXONOMY.map((l) => l.name);
+    assert.ok(names.includes('agent::planning'));
+    assert.ok(names.includes('agent::review-spec'));
+    assert.ok(names.includes('agent::decomposing'));
+    assert.ok(names.includes('agent::ready'));
   });
 
   it('includes the dispatch/auto-close labels', () => {
