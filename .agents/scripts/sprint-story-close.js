@@ -524,6 +524,7 @@ export async function runStoryClose({
   storyId: storyIdParam,
   epicId: epicIdParam,
   skipDashboard: skipDashboardParam,
+  skipValidation: skipValidationParam,
   cwd: cwdParam,
   injectedProvider,
 } = {}) {
@@ -594,7 +595,9 @@ export async function runStoryClose({
   // Epic branch at pre-push time.
   // -------------------------------------------------------------------------
 
-  if (!process.env.SPRINT_STORY_CLOSE_SKIP_VALIDATION) {
+  const skipValidation =
+    skipValidationParam || !!process.env.SPRINT_STORY_CLOSE_SKIP_VALIDATION;
+  if (!skipValidation) {
     progress('VALIDATE', 'Running pre-merge gates (lint, test, format, maintainability)...');
     const validation = runCloseValidation({
       cwd,
