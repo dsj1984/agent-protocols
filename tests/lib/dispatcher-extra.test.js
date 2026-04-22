@@ -1,7 +1,22 @@
 import assert from 'node:assert/strict';
-import test from 'node:test';
-import { detectEpicCompletion } from '../../.agents/scripts/lib/orchestration/dispatch-engine.js';
+import path from 'node:path';
+import test, { mock } from 'node:test';
+import { pathToFileURL } from 'node:url';
 import { MockProvider } from '../fixtures/mock-provider.js';
+
+const notifyModuleUrl = pathToFileURL(
+  path.resolve(import.meta.dirname, '../../.agents/scripts/notify.js'),
+).href;
+
+mock.module(notifyModuleUrl, {
+  namedExports: {
+    notify: async () => {},
+  },
+});
+
+const { detectEpicCompletion } = await import(
+  '../../.agents/scripts/lib/orchestration/dispatch-engine.js'
+);
 
 test('detectEpicCompletion: does nothing if tasks are missing', async () => {
   const provider = new MockProvider();
