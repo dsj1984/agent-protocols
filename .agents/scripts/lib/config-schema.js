@@ -156,6 +156,7 @@ export const ORCHESTRATION_SCHEMA = {
         enabled: { type: 'boolean' },
         concurrencyCap: { type: 'integer', minimum: 1 },
         pollIntervalSec: { type: 'integer', minimum: 1 },
+        progressReportIntervalSec: { type: 'integer', minimum: 0 },
       },
       additionalProperties: false,
     },
@@ -164,11 +165,6 @@ export const ORCHESTRATION_SCHEMA = {
       properties: {
         enabled: { type: 'boolean' },
         pollIntervalSec: { type: 'integer', minimum: 1 },
-        notificationWebhookUrl: {
-          type: ['string', 'null'],
-          minLength: 1,
-          not: { type: 'string', pattern: SHELL_INJECTION_PATTERN_STRING },
-        },
       },
       additionalProperties: false,
     },

@@ -90,8 +90,7 @@
     },
     "planRunner": {
       "enabled": true,
-      "pollIntervalSec": 30,
-      "notificationWebhookUrl": null
+      "pollIntervalSec": 30
     }
   }
 }
