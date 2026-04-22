@@ -23,6 +23,10 @@ import { EpicRunnerContext } from './context.js';
 import { BlockerHandler } from './epic-runner/blocker-handler.js';
 import { BookendChainer } from './epic-runner/bookend-chainer.js';
 import { Checkpointer } from './epic-runner/checkpointer.js';
+import {
+  CommitAssertion,
+  buildDefaultGitAdapter,
+} from './epic-runner/commit-assertion.js';
 import { ColumnSync } from './epic-runner/column-sync.js';
 import { NotificationHook } from './epic-runner/notification-hook.js';
 import { ProgressReporter } from './epic-runner/progress-reporter.js';
@@ -100,7 +104,11 @@ async function runEpicWithContext(ctx) {
     errorJournal: journal,
   });
   const launcher = new StoryLauncher({ ctx });
-  const waveObserver = new WaveObserver({ ctx });
+  const gitAdapter =
+    ctx.gitAdapter ?? buildDefaultGitAdapter({ cwd: ctx.cwd ?? process.cwd() });
+  const commitAssertion =
+    ctx.commitAssertion ?? new CommitAssertion({ gitAdapter, logger });
+  const waveObserver = new WaveObserver({ ctx, commitAssertion });
   const progressReporter = new ProgressReporter({
     ctx,
     intervalSec: Number(config?.epicRunner?.progressReportIntervalSec ?? 0),
@@ -174,19 +182,23 @@ async function runEpicWithContext(ctx) {
     });
     progressReporter.start();
 
-    const results = await launcher.launchWave(wave.stories);
+    const launchResults = await launcher.launchWave(wave.stories);
     await progressReporter.stop();
-    const failures = results.filter(
-      (r) => r.status === 'failed' || r.status === 'blocked',
-    );
 
     scheduler.markWaveComplete(wave.index);
-    await waveObserver.waveEnd({
+    // waveEnd consults CommitAssertion and returns the reclassified rows —
+    // use those for halt detection so a zero-delta story (reported `done` by
+    // the sub-agent but no commits on its story branch) correctly halts
+    // the wave rather than silently passing.
+    const { stories: results = launchResults } = await waveObserver.waveEnd({
       index: wave.index,
       totalWaves: scheduler.totalWaves,
       startedAt,
-      stories: results,
+      stories: launchResults,
     });
+    const failures = results.filter(
+      (r) => r.status === 'failed' || r.status === 'blocked',
+    );
 
     waveHistory.push({
       index: wave.index,

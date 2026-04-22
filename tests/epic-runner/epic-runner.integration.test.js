@@ -189,6 +189,7 @@ describe('EpicRunner integration', () => {
       },
       spawn,
       logger: quietLogger(),
+      gitAdapter: async () => 1,
     });
 
     assert.deepEqual(spawned, [600], 'only the story should be spawned');
@@ -239,11 +240,79 @@ describe('EpicRunner integration', () => {
       config,
       spawn,
       logger: quietLogger(),
+      gitAdapter: async () => 1,
     });
 
     // After resume, no more waves remain, so final state is 'completed'.
     assert.equal(result.state, 'completed');
     const halted = result.waveHistory.find((w) => w.status === 'halted');
     assert.ok(halted, 'one wave should record a halt');
+  });
+
+  it('reclassifies a zero-delta `done` story as failed with commit-assertion detail', async () => {
+    const epicId = 321;
+    const stories = [
+      { id: 400, dependencies: [] },
+      { id: 401, dependencies: [] },
+    ];
+    const provider = buildFakeProvider({ epicId, stories });
+
+    // Both stories report done via spawn, but story 401 produced zero commits
+    // on its story branch — the post-wave commit assertion must reclassify it.
+    const spawn = async ({ storyId }) => {
+      const t = provider._tickets.get(storyId);
+      t.labels = ['type::story', 'agent::done'];
+      return { status: 'done' };
+    };
+
+    const gitAdapter = async ({ storyId }) => (storyId === 401 ? 0 : 3);
+
+    const config = {
+      epicRunner: {
+        enabled: true,
+        concurrencyCap: 2,
+        pollIntervalSec: 1,
+        storyRetryCount: 0,
+        blockerTimeoutHours: 0,
+      },
+    };
+
+    // The reclassification turns this wave into a halt; pre-arm the provider
+    // to auto-resume so the runner can finalize rather than hanging.
+    const origGetTicket = provider.getTicket.bind(provider);
+    provider.getTicket = async (id) => {
+      const t = await origGetTicket(id);
+      if (id === epicId) {
+        t.labels = t.labels.filter((l) => l !== 'agent::blocked');
+        if (!t.labels.includes('agent::executing'))
+          t.labels.push('agent::executing');
+      }
+      return t;
+    };
+
+    const result = await runEpic({
+      epicId,
+      provider,
+      config,
+      spawn,
+      logger: quietLogger(),
+      gitAdapter,
+    });
+
+    const wave = result.waveHistory[0];
+    assert.equal(wave.status, 'halted', 'zero-delta row must halt the wave');
+    const reclassified = wave.stories.find((s) => s.storyId === 401);
+    assert.equal(reclassified.status, 'failed');
+    assert.equal(reclassified.detail, 'commit-assertion: zero-delta');
+    assert.equal(reclassified.newCommitCount, 0);
+
+    // And the wave-end structured comment reflects the reclassification.
+    const epicComments = provider._comments.get(epicId) ?? [];
+    const waveEnd = epicComments.find((c) =>
+      c.body.includes('type="wave-0-end"'),
+    );
+    assert.ok(waveEnd, 'wave-end comment written');
+    assert.match(waveEnd.body, /halted/);
+    assert.match(waveEnd.body, /commit-assertion: zero-delta/);
   });
 });
