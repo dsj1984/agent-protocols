@@ -166,21 +166,14 @@ export class ProgressReporter {
         : (this.currentWave?.stories ?? []);
       const fetched = await Promise.all(
         allIds.map(async (id) => {
-          try {
-            const ticket = await this.provider.getTicket(id);
-            return [
-              id,
-              {
-                state: deriveState(ticket),
-                title: truncate(ticket?.title ?? '', 60),
-              },
-            ];
-          } catch (err) {
-            return [
-              id,
-              { state: 'unknown', title: `(read failed: ${err.message})` },
-            ];
-          }
+          const ticket = await this.provider.getTicket(id);
+          return [
+            id,
+            {
+              state: deriveState(ticket),
+              title: truncate(ticket?.title ?? '', 60),
+            },
+          ];
         }),
       );
       const byId = new Map(fetched);
