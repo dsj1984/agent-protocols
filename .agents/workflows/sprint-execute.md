@@ -19,10 +19,19 @@ by the ticket's `type::` label:
 | `type::story`                  | **Story Mode** | Single-Story worker — init, implement Tasks, validate, close. |
 | `type::feature` / `type::task` | Rejected       | Features are containers; Tasks are child items.               |
 
-Both modes share the same dispatcher entry point at
-[`.agents/scripts/dispatcher.js`](../scripts/dispatcher.js), which auto-detects
-the ticket type via `resolveAndDispatch`. This workflow is the human/agent
-counterpart — the prose instructions Claude follows per mode.
+The skill front-door is the same for both modes — `/sprint-execute <id>` — but
+each mode drives a distinct engine:
+
+- **Epic Mode** runs [`epic-runner.js`](../scripts/epic-runner.js), which loads
+  the coordinator at
+  [`lib/orchestration/epic-runner.js`](../scripts/lib/orchestration/epic-runner.js).
+- **Story Mode** runs the init → implement → validate → close chain documented
+  below; it does not go through the dispatcher pipeline.
+
+[`.agents/scripts/dispatcher.js`](../scripts/dispatcher.js) is the **manifest
+builder** invoked by `/sprint-plan` and remote-trigger bootstrap to produce the
+dispatch manifest consumed by Epic Mode. It is not the runtime engine for
+`/sprint-execute`.
 
 ---
 
@@ -57,12 +66,15 @@ dispatch flow (fired from `.github/workflows/epic-orchestrator.yml`) and can
 also be invoked locally for manual end-to-end runs.
 
 > **Engine**: coordinator at `.agents/scripts/lib/orchestration/epic-runner.js`
-> composes the six submodules in
-> `.agents/scripts/lib/orchestration/epic-runner/` (wave-scheduler,
-> story-launcher, state-poller, checkpointer, blocker-handler,
-> notification-hook, and a bookend-chainer stub). The CLI at
-> `.agents/scripts/epic-runner.js` drives the engine with the
-> `orchestration.epicRunner` block from `.agentrc.json`.
+> composes the submodules in
+> `.agents/scripts/lib/orchestration/epic-runner/` that are active in the wave
+> loop: `wave-scheduler`, `story-launcher`, `wave-observer`, `checkpointer`,
+> `blocker-handler`, `notification-hook`, `column-sync`, and `bookend-chainer`.
+> The `state-poller` module is present in the submodule directory as a standby
+> building block but is **not** instantiated by the current coordinator — the
+> wave loop reads state synchronously per wave instead of via a background
+> poller. The CLI at `.agents/scripts/epic-runner.js` drives the engine with
+> the `orchestration.epicRunner` block from `.agentrc.json`.
 
 ### Contract
 
@@ -96,9 +108,13 @@ provisioned.
 3. **Blocker**: flip Epic to `agent::blocked`, post friction comment, fire
    webhook, park until the operator flips back to `agent::executing`.
 4. **Final wave completes**: flip Epic to `agent::review`.
-5. **If `autoClose` was set**: chain `/sprint-code-review` → `/sprint-retro` →
-   `/sprint-close`. Otherwise exit cleanly for the operator to drive the
-   bookends manually.
+5. **If `autoClose` was set**: auto-invoke `/sprint-close` only. Review and
+   retro remain operator-driven — the runner never generates review or retro
+   artefacts on its own. The hand-off comment always lists the full set of
+   operator-driven bookends (`/sprint-code-review`, `/sprint-retro`,
+   `/sprint-close`) so the operator sees exactly what remains. If
+   `epic::auto-close` was not set, the runner exits cleanly after posting the
+   hand-off.
 
 > 📎 See tech spec **#323** for the full component diagram, failure model,
 > `epic-run-state` schema, and `.agentrc.json` keys under
@@ -241,24 +257,12 @@ In single-tree mode, `--cwd` can be omitted (defaults to `PROJECT_ROOT`).
 
 The script:
 
-- Checks for `risk::high` — if set, the script prints a HITL prompt to stderr
-  and exits non-zero **without** creating a PR, pushing the branch, merging, or
-  posting any comment. **You (the agent) MUST stop here and present the three
-  options in chat**, then wait for the operator to reply with one of:
-  - `Proceed` or `Proceed Option 1` — **auto-merge.** The agent (not the
-    operator) removes the `risk::high` label programmatically via
-    `node .agents/scripts/update-ticket-state.js --ticket <storyId> --remove-label risk::high`
-    (or the equivalent MCP call), then re-runs `sprint-story-close.js` for this
-    story.
-  - `Proceed Option 2` — **manual merge.** The agent stops. The operator
-    inspects the diff and merges the story branch by hand. The agent takes no
-    further action on this story.
-  - `Proceed Option 3` — **reject / rework.** The agent stops. The operator
-    opens follow-up tickets by hand.
-
-  Do not take any action before the operator replies with one of those four
-  phrases. The gate can be disabled globally via
-  `orchestration.hitl.riskHighApproval: false`.
+> **Runtime pause model.** `risk::high` is no longer a runtime gate — it is
+> informational/planning metadata only. The sole runtime pause point is
+> `agent::blocked`: if a Task, Story, or Epic encounters a blocker, the agent
+> flips the corresponding ticket to `agent::blocked`, posts a friction comment,
+> and stops. The operator resumes by flipping the label back to
+> `agent::executing`. See `docs/decisions.md` for the retirement rationale.
 
 - Merges the Story branch into `epic/<epicId>` with `--no-ff`.
 - Pushes the Epic branch.

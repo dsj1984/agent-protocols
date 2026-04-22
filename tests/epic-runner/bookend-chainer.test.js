@@ -38,7 +38,7 @@ describe('BookendChainer', () => {
     assert.match(provider.comments[0].payload.body, /sprint-code-review/);
   });
 
-  it('runs all three skills in order when autoClose=true and each succeeds', async () => {
+  it('invokes only /sprint-close when autoClose=true (review + retro remain operator-driven)', async () => {
     const provider = recordingProvider();
     const calls = [];
     const chainer = new BookendChainer({
@@ -57,37 +57,33 @@ describe('BookendChainer', () => {
     assert.equal(result.completed, true);
     assert.deepEqual(
       calls.map((c) => c.skill),
-      ['/sprint-code-review', '/sprint-retro', '/sprint-close'],
+      ['/sprint-close'],
+      'auto-close must only fire /sprint-close',
     );
-    for (const c of calls) assert.equal(c.args.epicId, 321);
+    assert.equal(calls[0].args.epicId, 321);
   });
 
-  it('halts the chain and posts a friction comment on the first failure', async () => {
+  it('posts a friction comment when /sprint-close fails under autoClose', async () => {
     const provider = recordingProvider();
     const chainer = new BookendChainer({
       autoClose: true,
       epicId: 321,
       postComment: provider.postComment,
-      runSkill: async (skill) => {
-        if (skill === '/sprint-retro')
-          return { status: 'failed', detail: 'retro explode' };
-        return { status: 'ok' };
-      },
+      runSkill: async () => ({ status: 'failed', detail: 'close explode' }),
       logger: quietLogger(),
     });
 
     const result = await chainer.run();
     assert.equal(result.executed, true);
     assert.equal(result.completed, false);
-    assert.equal(result.results.length, 2, 'chain stops at the failing step');
+    assert.equal(result.results.length, 1, 'single-step auto-close');
 
     const friction = provider.comments.find(
       (c) => c.payload.type === 'friction',
     );
     assert.ok(friction, 'friction comment emitted on failure');
-    assert.match(friction.payload.body, /halted at `\/sprint-retro`/);
-    assert.match(friction.payload.body, /retro explode/);
-    assert.match(friction.payload.body, /sprint-code-review/);
+    assert.match(friction.payload.body, /halted at `\/sprint-close`/);
+    assert.match(friction.payload.body, /close explode/);
   });
 
   it('autoClose=true but no runSkill adapter → skipped with hand-off comment', async () => {

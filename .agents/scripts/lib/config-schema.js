@@ -156,8 +156,6 @@ export const ORCHESTRATION_SCHEMA = {
         enabled: { type: 'boolean' },
         concurrencyCap: { type: 'integer', minimum: 1 },
         pollIntervalSec: { type: 'integer', minimum: 1 },
-        storyRetryCount: { type: 'integer', minimum: 0 },
-        blockerTimeoutHours: { type: 'integer', minimum: 0 },
       },
       additionalProperties: false,
     },
