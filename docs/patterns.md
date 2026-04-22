@@ -234,3 +234,71 @@ Prefer a local file only when the state is ephemeral and recoverable
 **When NOT to use it:** high-frequency state updates (sub-second or
 sub-minute) — the delete-then-post cycle has rate-limit cost. For those
 cases, compute a running total and upsert at wave boundaries instead.
+
+---
+
+## Error Handling Convention (Fatal vs. Throw)
+
+### Problem
+
+Scripts under `.agents/scripts/` mix two ways of signalling failure —
+`throw new Error(...)` and `Logger.fatal(...)` (which calls
+`process.exit(1)`). Without a rule, library modules sometimes call
+`process.exit()` directly, which makes them untestable and impossible to
+compose. Conversely, CLI entry points sometimes let unhandled rejections
+escape, losing the framework's prefixed error line.
+
+### Rule
+
+| Layer                                                   | How failure is signalled                                                            |
+| ------------------------------------------------------- | ----------------------------------------------------------------------------------- |
+| **Library code** (`lib/**`, imported by multiple CLIs)  | `throw` an `Error`. **Never** call `Logger.fatal()` or `process.exit()`.            |
+| **CLI entry point** (`main()` in a top-level script)    | Let `throw`n errors bubble out of `main()`.                                         |
+| **CLI wrapper** (the `runAsCli(import.meta.url, main)` line) | Funnels the rejection through `cli-utils.js` → prefixed stderr + `process.exit(1)`. |
+| **Logger primitive** (`Logger.fatal` in `lib/Logger.js`) | The one sanctioned caller of `process.exit(1)` — used only by CLIs that cannot rely on the `runAsCli` handler (e.g. multi-phase orchestrators that print their own summary before exiting). |
+
+**Equivalently:** recoverable errors (or errors whose caller might want
+to retry, catch, or convert to a friction comment) are **thrown**. Fatal
+errors — the process must not continue and no caller up-stack can
+recover — are either thrown from `main()` so `runAsCli` handles them, or
+surfaced via `Logger.fatal()` at the CLI boundary.
+
+### Why it matters
+
+1.  **Library code stays pure.** `lib/orchestration/**` and
+    `lib/worktree/**` are imported by the MCP server, the epic runner,
+    and multiple CLI scripts. If any of them called `process.exit()`,
+    they would kill the MCP server process on a recoverable error. The
+    only way library code ends a process is by throwing and letting the
+    top-level `runAsCli` handler convert that to an exit.
+2.  **`runAsCli` gives uniform error output.** Every CLI that wraps its
+    `main()` in `runAsCli(import.meta.url, main, { source: '<name>' })`
+    prints `[<name>] Fatal error: <stack>` before exiting 1. Scripts
+    that bypass the wrapper and `process.exit()` themselves lose that
+    uniformity.
+3.  **Testability.** A library that `throw`s can be asserted against in
+    a unit test; a library that `process.exit()`s cannot.
+
+### Accepted exceptions
+
+*   **`lib/Logger.js`** — defines `Logger.fatal`, the one sanctioned
+    call site of `process.exit(1)`.
+*   **`lib/cli-utils.js`** — `runAsCli` is the default CLI error
+    handler; its `process.exit(exitCode)` implements the contract for
+    all entry-point scripts.
+*   **Orchestrator CLIs that print their own summary** (e.g.
+    `sprint-story-close.js`, `epic-runner.js`) may call
+    `Logger.fatal()` explicitly when the error has already been logged
+    in a structured form and a raw stack trace would add noise.
+
+### Quick sweep
+
+```bash
+# Sites that should exist only in lib/Logger.js + lib/cli-utils.js:
+grep -rn "process\.exit" .agents/scripts/lib | grep -v Logger.js | grep -v cli-utils.js
+
+# Sites that should exist only at CLI boundaries:
+grep -rn "Logger\.fatal" .agents/scripts/lib
+```
+
+Both queries should return no results when the convention holds.
