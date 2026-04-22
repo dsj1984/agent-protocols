@@ -68,6 +68,38 @@ structure. The body **must end** with an HTML marker comment of the form
 used by `/sprint-close`'s Retrospective Gate (Step 1.5) when a
 structured-comment lookup is unavailable.
 
+### Checkpoint after each composed section (`retro-partial`)
+
+Long retros can run for many minutes and occasionally crash mid-compose. To
+avoid re-composing from scratch, **upsert** a `retro-partial` structured
+comment on the Epic **after composing each major section**. The retro body
+assembled so far is the comment body; each checkpoint replaces the prior
+`retro-partial` (one comment per Epic, never N).
+
+Call order (one upsert per checkpoint):
+
+```text
+compose Sprint Scorecard                    → upsertStructuredComment(epicId, { type: 'retro-partial', body })
+compose What Went Well                      → upsertStructuredComment(epicId, { type: 'retro-partial', body })
+compose What Could Be Improved              → upsertStructuredComment(epicId, { type: 'retro-partial', body })
+compose Architectural Debt                  → upsertStructuredComment(epicId, { type: 'retro-partial', body })
+compose Protocol Optimization Recommendations → upsertStructuredComment(epicId, { type: 'retro-partial', body })
+compose Action Items for Next Epic          → upsertStructuredComment(epicId, { type: 'retro-partial', body })
+```
+
+`upsertStructuredComment` lives in
+`.agents/scripts/lib/orchestration/ticketing.js` and replaces the prior
+comment of the same type on each call, so no comment sprawl occurs. The
+partial body does **not** carry the `retro-complete:` marker — it is
+informational only. Step 3 then posts the final body as `type: 'retro'`
+with the `retro-complete:` marker, which `/sprint-close` Phase 5.1 uses as
+its sole completion gate (the regex matches `retro-complete:` exclusively,
+so `retro-partial:` checkpoints never trip the gate).
+
+If `/sprint-retro` is re-invoked after a mid-run crash, the prior
+`retro-partial` comment is visible on the Epic; resume composition from the
+next unwritten section rather than starting over.
+
 ```markdown
 ## 🪞 Sprint Retrospective — Epic #[EPIC_ID]: [Epic Title]
 
