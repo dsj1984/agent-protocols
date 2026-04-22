@@ -57,9 +57,7 @@ export class BlockerHandler {
   }
 
   #journalSuffix() {
-    return this.errorJournal?.path
-      ? ` (see ${this.errorJournal.path})`
-      : '';
+    return this.errorJournal?.path ? ` (see ${this.errorJournal.path})` : '';
   }
 
   /**

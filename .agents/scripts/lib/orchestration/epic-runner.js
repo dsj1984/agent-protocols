@@ -66,8 +66,7 @@ export async function runEpic({
 
   const { concurrencyCap, pollIntervalSec } = config.epicRunner;
   const journal = errorJournal ?? new ErrorJournal({ epicId });
-  const journalSuffix = () =>
-    journal?.path ? ` (see ${journal.path})` : '';
+  const journalSuffix = () => (journal?.path ? ` (see ${journal.path})` : '');
 
   // --- 1. Snapshot Epic state ---
   const epic = await provider.getTicket(epicId);
@@ -263,7 +262,9 @@ async function finalize({
         notifier,
       }).catch(async (err) => {
         const suffix = journal?.path ? ` (see ${journal.path})` : '';
-        logger.warn?.(`[EpicRunner] review flip failed: ${err.message}${suffix}`);
+        logger.warn?.(
+          `[EpicRunner] review flip failed: ${err.message}${suffix}`,
+        );
         await journal?.record({
           module: 'EpicRunner',
           op: `transitionTicketState(#${epicId}, REVIEW)`,
