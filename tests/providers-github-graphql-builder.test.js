@@ -33,7 +33,10 @@ describe('graphql-builder — sub-issue operations', () => {
     assert.match(builder.SUB_ISSUES_QUERY, /^query\(/);
     assert.match(builder.SUB_ISSUES_QUERY, /\$id: ID!/);
     assert.match(builder.SUB_ISSUES_QUERY, /\$cursor: String/);
-    assert.match(builder.SUB_ISSUES_QUERY, /subIssues\(first: 50, after: \$cursor\)/);
+    assert.match(
+      builder.SUB_ISSUES_QUERY,
+      /subIssues\(first: 50, after: \$cursor\)/,
+    );
     for (const field of ['number', 'databaseId', 'title', 'body', 'state']) {
       assert.ok(
         builder.SUB_ISSUES_QUERY.includes(field),
@@ -106,10 +109,7 @@ describe('graphql-builder — project mutations', () => {
   });
 
   it('CREATE_PROJECT_VIEW_MUTATION uses BOARD_LAYOUT', () => {
-    assert.match(
-      builder.CREATE_PROJECT_VIEW_MUTATION,
-      /layout: BOARD_LAYOUT/,
-    );
+    assert.match(builder.CREATE_PROJECT_VIEW_MUTATION, /layout: BOARD_LAYOUT/);
   });
 });
 
@@ -126,9 +126,6 @@ describe('graphql-builder — fragments', () => {
   it('PROJECT_FIELDS_FRAGMENT covers all three field types', () => {
     assert.match(builder.PROJECT_FIELDS_FRAGMENT, /ProjectV2Field/);
     assert.match(builder.PROJECT_FIELDS_FRAGMENT, /ProjectV2IterationField/);
-    assert.match(
-      builder.PROJECT_FIELDS_FRAGMENT,
-      /ProjectV2SingleSelectField/,
-    );
+    assert.match(builder.PROJECT_FIELDS_FRAGMENT, /ProjectV2SingleSelectField/);
   });
 });
