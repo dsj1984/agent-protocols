@@ -18,6 +18,7 @@
  */
 
 import { upsertStructuredComment } from '../ticketing.js';
+import { createStalledWorktreeDetector } from './progress-signals/stalled-worktree.js';
 
 export const EPIC_RUN_PROGRESS_TYPE = 'epic-run-progress';
 
@@ -56,6 +57,10 @@ export class ProgressReporter {
     this.now = opts.now ?? (() => new Date());
     this._setInterval = opts.setInterval ?? setInterval;
     this._clearInterval = opts.clearInterval ?? clearInterval;
+
+    this.detectors = Array.isArray(opts.detectors)
+      ? opts.detectors.filter(Boolean)
+      : [createStalledWorktreeDetector({ cwd: ctx?.cwd })];
 
     this.timer = null;
     this.emitting = false;
@@ -141,7 +146,7 @@ export class ProgressReporter {
           }
         }),
       );
-      const body = this.#render(rows);
+      const body = await this.#render(rows);
       this.logger.info?.(body);
       try {
         await upsertStructuredComment(
@@ -161,7 +166,7 @@ export class ProgressReporter {
     }
   }
 
-  #render(rows) {
+  async #render(rows) {
     const done = rows.filter((r) => r.state === 'done').length;
     const total = rows.length;
     const waveLabel = this.currentWave
@@ -182,11 +187,11 @@ export class ProgressReporter {
       ),
     ].join('\n');
 
-    const notable = this.#renderNotable(rows);
+    const notable = await this.#renderNotable(rows);
     return [header, '', table, '', '**Notable**', notable].join('\n');
   }
 
-  #renderNotable(rows) {
+  async #renderNotable(rows) {
     const items = [];
     const blocked = rows.filter((r) => r.state === 'blocked');
     if (blocked.length) {
@@ -206,6 +211,26 @@ export class ProgressReporter {
         `- ❓ ${unknown.length} unreadable (token scope / network?): ${unknown.map((r) => `#${r.id}`).join(', ')}`,
       );
     }
+    const ctx = { wave: this.currentWave };
+    const detectorResults = await Promise.all(
+      this.detectors.map(async (detector) => {
+        try {
+          const fn = typeof detector === 'function' ? detector : detector?.detect;
+          if (typeof fn !== 'function') return [];
+          const out = await fn.call(detector, rows, ctx);
+          return Array.isArray(out) ? out : [];
+        } catch (err) {
+          this.logger.warn?.(
+            `[ProgressReporter] detector failed: ${err.message}`,
+          );
+          return [];
+        }
+      }),
+    );
+    for (const bullets of detectorResults) {
+      for (const b of bullets) items.push(b.startsWith('- ') ? b : `- ${b}`);
+    }
+
     if (!items.length) items.push('- (none)');
     return items.join('\n');
   }
