@@ -1,0 +1,171 @@
+#!/usr/bin/env node
+
+/**
+ * git-pr-quality-gate.js — Lint / format / test gate for `/git-merge-pr`.
+ *
+ * `/git-merge-pr` Steps 3–4 previously hardcoded the command sequence
+ * (`npm run lint`, `npm run format:check`, `npm test`) in the workflow
+ * markdown. That coupled the .md to specific tooling names; a project that
+ * renames `lint` to `lint:ci` or swaps Biome for ESLint had to patch the
+ * skill every time.
+ *
+ * This script runs the gate and emits a structured result so the .md routes
+ * on outcome rather than re-implementing the command sequence. The three
+ * checks it runs are read from `.agentrc.json → qualityGate` when present,
+ * falling back to the hardcoded default trio.
+ *
+ * Usage:
+ *   node .agents/scripts/git-pr-quality-gate.js [--json] [--skip <name>[,<name>]]
+ *
+ * `--skip` takes a comma-separated list of check names to bypass (useful when
+ * a flake needs a targeted rerun).
+ *
+ * Output (always JSON when --json; human-readable otherwise):
+ *   {
+ *     ok: boolean,
+ *     checks: [{ name, cmd, status, stdout, stderr, durationMs }, ...],
+ *     failed: [{ name, reason }, ...]
+ *   }
+ *
+ * Exit codes:
+ *   0 — every check passed.
+ *   1 — one or more checks failed (see `failed[]`).
+ *   2 — usage / config error.
+ */
+
+import { spawnSync } from 'node:child_process';
+import { parseArgs } from 'node:util';
+import { runAsCli } from './lib/cli-utils.js';
+import { PROJECT_ROOT, resolveConfig } from './lib/config-resolver.js';
+import { Logger } from './lib/Logger.js';
+
+/**
+ * Default check suite when `.agentrc.json` supplies no override. Each entry:
+ *   name — short identifier surfaced in output
+ *   cmd  — argv array (no shell expansion; first element is the binary)
+ */
+export const DEFAULT_CHECKS = Object.freeze([
+  { name: 'lint', cmd: ['npm', 'run', 'lint'] },
+  { name: 'format:check', cmd: ['npm', 'run', 'format:check'] },
+  { name: 'test', cmd: ['npm', 'test'] },
+]);
+
+function resolveChecks(settings) {
+  const configured = settings?.qualityGate?.checks;
+  if (!Array.isArray(configured) || configured.length === 0) {
+    return DEFAULT_CHECKS;
+  }
+  return configured.map((c) => ({
+    name: c.name,
+    cmd: Array.isArray(c.cmd) ? c.cmd : String(c.cmd).split(/\s+/),
+  }));
+}
+
+function runCheck(check, cwd) {
+  const start = Date.now();
+  const [bin, ...args] = check.cmd;
+  const result = spawnSync(bin, args, {
+    cwd,
+    encoding: 'utf8',
+    shell: process.platform === 'win32',
+    stdio: ['pipe', 'pipe', 'pipe'],
+    timeout: 600_000,
+  });
+  const durationMs = Date.now() - start;
+  return {
+    name: check.name,
+    cmd: check.cmd.join(' '),
+    status: result.status ?? -1,
+    stdout: (result.stdout ?? '').slice(-4000),
+    stderr: (result.stderr ?? '').slice(-4000),
+    durationMs,
+  };
+}
+
+/**
+ * Pure test seam: run the supplied check suite with a caller-provided runner.
+ *
+ * @param {{
+ *   checks: Array<{ name: string, cmd: string[] }>,
+ *   cwd?: string,
+ *   skip?: Set<string>|string[],
+ *   runner?: (check: {name: string, cmd: string[]}, cwd: string) => { name, cmd, status, stdout, stderr, durationMs },
+ * }} opts
+ */
+export function runQualityGate({
+  checks,
+  cwd = PROJECT_ROOT,
+  skip,
+  runner = runCheck,
+}) {
+  const skipSet =
+    skip instanceof Set ? skip : new Set((skip ?? []).filter(Boolean));
+  const results = [];
+  for (const c of checks) {
+    if (skipSet.has(c.name)) {
+      results.push({
+        name: c.name,
+        cmd: c.cmd.join(' '),
+        status: 0,
+        stdout: '',
+        stderr: '',
+        durationMs: 0,
+        skipped: true,
+      });
+      continue;
+    }
+    results.push(runner(c, cwd));
+  }
+  const failed = results
+    .filter((r) => !r.skipped && r.status !== 0)
+    .map((r) => ({
+      name: r.name,
+      reason: `exit ${r.status} — ${(r.stderr || r.stdout || '').trim().split('\n').slice(0, 3).join(' | ')}`,
+    }));
+  return { ok: failed.length === 0, checks: results, failed };
+}
+
+/* node:coverage ignore next */
+async function main() {
+  const { values } = parseArgs({
+    options: {
+      json: { type: 'boolean', default: false },
+      skip: { type: 'string' },
+    },
+    strict: false,
+  });
+  const { settings } = resolveConfig();
+  const checks = resolveChecks(settings);
+  const skip = (values.skip ?? '')
+    .split(',')
+    .map((s) => s.trim())
+    .filter(Boolean);
+
+  const result = runQualityGate({ checks, skip });
+
+  if (values.json === true) {
+    process.stdout.write(`${JSON.stringify(result)}\n`);
+    if (!result.ok) process.exit(1);
+    return;
+  }
+
+  for (const c of result.checks) {
+    const icon = c.skipped ? '⏭' : c.status === 0 ? '✅' : '❌';
+    const suffix = c.skipped ? ' (skipped)' : ` (${c.durationMs}ms)`;
+    console.log(`[quality-gate] ${icon} ${c.name}${suffix}`);
+  }
+  if (!result.ok) {
+    console.error(`[quality-gate] ❌ ${result.failed.length} check(s) failed:`);
+    for (const f of result.failed) {
+      console.error(`  - ${f.name}: ${f.reason}`);
+    }
+    process.exit(1);
+  }
+  console.log(`[quality-gate] ✅ All ${result.checks.length} check(s) passed.`);
+}
+
+// Re-export Logger so callers that dynamic-import this module can surface
+// fatal errors through the same channel as other scripts.
+export { Logger };
+
+runAsCli(import.meta.url, main, { source: 'git-pr-quality-gate' });

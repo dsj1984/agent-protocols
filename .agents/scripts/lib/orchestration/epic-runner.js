@@ -44,6 +44,22 @@ import {
 } from './ticketing.js';
 
 const AUTO_CLOSE_LABEL = 'epic::auto-close';
+const DEFAULT_LOGS_DIR = 'temp/epic-runner-logs';
+
+/**
+ * Resolve the absolute-ish file path the ProgressReporter should tee rendered
+ * snapshots to, so the `/sprint-execute` Epic Mode skill can `Monitor` it for
+ * live chat updates even when the runner is launched in a background Bash.
+ *
+ * Returns `null` when progress reporting is disabled (`progressReportIntervalSec`
+ * <= 0) — no file churn on dry runs or opt-out configs.
+ */
+function resolveProgressLogFile(epicRunnerCfg, epicId) {
+  const intervalSec = Number(epicRunnerCfg?.progressReportIntervalSec ?? 0);
+  if (!Number.isFinite(intervalSec) || intervalSec <= 0) return null;
+  const dir = epicRunnerCfg?.logsDir || DEFAULT_LOGS_DIR;
+  return `${dir.replace(/[/\\]$/, '')}/epic-${epicId}-progress.log`;
+}
 
 /**
  * Entry point. Accepts either a pre-built `EpicRunnerContext` on `opts.ctx`
@@ -174,10 +190,12 @@ async function runEpicWithContext(ctx, collaborators = {}) {
     ctx.commitAssertion ?? new CommitAssertion({ gitAdapter, logger });
   const waveObserver = new WaveObserver({ ctx, commitAssertion });
   const frictionEmitter = createFrictionEmitter({ provider, logger });
+  const progressLogFile = resolveProgressLogFile(config?.epicRunner, epicId);
   const progressReporter = new ProgressReporter({
     ctx,
     intervalSec: Number(config?.epicRunner?.progressReportIntervalSec ?? 0),
     frictionEmitter,
+    logFile: progressLogFile,
   });
   // Seed the reporter with the full wave plan so each fire renders every
   // wave (queued / in-flight / done) instead of only the active one.

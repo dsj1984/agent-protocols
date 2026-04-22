@@ -10,6 +10,17 @@ This workflow provides a manual cleanup mechanism specifically for **Git
 branches** when an Epic needs to be reset. It deletes both local and origin
 branches for the Epic and its full hierarchy.
 
+The enumeration + deletion logic lives in
+[`delete-epic-branches.js`](../scripts/delete-epic-branches.js) — this
+workflow is a thin operator-confirmation wrapper. The script matches:
+
+- `epic/<id>`
+- `task/epic-<id>/*`
+- `feature/epic-<id>/*`
+- `story/epic-<id>/*`
+
+against both local and `origin/` remote refs.
+
 > **When to run**: When an Epic needs to be scrapped or reset, but you want to
 > handle branch deletion independently of issue deletion.
 >
@@ -23,60 +34,55 @@ Confirm with the operator that they want to delete branches.
 > [!WARNING] This will permanently delete branches. Ensure all valuable code is
 > backed up or committed elsewhere.
 
-## Step 2 — Resolve Configuration
+## Step 2 — Checkout Stable Branch
 
-1. Resolve `[EPIC_ID]` — the GitHub Issue number of the Epic.
-2. Resolve `[EPIC_BRANCH]` — `epic/[EPIC_ID]`.
-
-## Step 3 — Checkout Stable Branch
-
-Always switch to a stable branch (e.g., `main` or `v5`) before deletion.
+Always switch to a stable branch (e.g., `main`) before deletion so the Epic
+branch isn't the current HEAD when `git branch -D` runs.
 
 ```powershell
-git checkout v5
+git checkout main
 ```
 
-## Step 4 — List Branches (Audit)
+## Step 3 — Dry-run Audit
 
-Identify all branches targeted for deletion.
+Preview the exact refs that will be deleted:
 
 ```powershell
-# Local branches
-git branch --list "epic/[EPIC_ID]" "task/epic-[EPIC_ID]/*" "feature/epic-[EPIC_ID]/*" "story/epic-[EPIC_ID]/*"
-
-# Remote branches
-git branch -r --list "origin/epic/[EPIC_ID]" "origin/task/epic-[EPIC_ID]/*" "origin/feature/epic-[EPIC_ID]/*" "origin/story/epic-[EPIC_ID]/*"
+node .agents/scripts/delete-epic-branches.js --epic [EPIC_ID] --dry-run
 ```
 
-## Step 5 — Final Operator Approval
+The script prints the matched local + remote branches. Add `--json` if you
+want the plan as a structured `{ epicId, local, remote, dryRun }` payload.
 
-Verify the output of Step 4. Ask: "Are you sure you want to delete these
+## Step 4 — Final Operator Approval
+
+Verify the dry-run output. Ask: "Are you sure you want to delete these
 branches?"
 
-## Step 6 — Delete Local Branches
+## Step 5 — Execute
 
 ```powershell
-# Delete the Epic branch if it exists
-git branch -D epic/[EPIC_ID]
-
-# Delete all task, feature, and story branches for this epic
-git branch --list "task/epic-[EPIC_ID]/*" "feature/epic-[EPIC_ID]/*" "story/epic-[EPIC_ID]/*" | ForEach-Object { git branch -D $_.Trim() }
+node .agents/scripts/delete-epic-branches.js --epic [EPIC_ID]
 ```
 
-## Step 7 — Delete Remote Branches
+The script deletes every matched local branch (`git branch -D`) and remote
+branch (`git push origin --delete`). Remote refs that are already gone are
+treated as idempotent success; any other failure surfaces via exit code 1.
 
-```powershell
-# Delete the Epic branch on origin
-git push origin --delete epic/[EPIC_ID]
+Add `--json` to receive a structured result suitable for programmatic
+consumption:
 
-# Delete all child branches on origin
-git branch -r --list "origin/task/epic-[EPIC_ID]/*" "origin/feature/epic-[EPIC_ID]/*" "origin/story/epic-[EPIC_ID]/*" | ForEach-Object {
-    $branch = $_.Trim() -replace 'origin/', ''
-    git push origin --delete $branch
+```json
+{
+  "epicId": 441,
+  "local":  [{ "branch": "epic/441", "ok": true }, ...],
+  "remote": [{ "branch": "story/epic-441/453", "ok": true, "alreadyGone": false }, ...],
+  "failures": [],
+  "ok": true
 }
 ```
 
 ## Constraint
 
-Do **not** run this workflow if there is unmerged work that needs saving. Always
-perform Step 4 (Audit) and Step 5 (Approval) before deletion.
+Do **not** run this workflow if there is unmerged work that needs saving.
+Always perform Step 3 (Dry-run Audit) and Step 4 (Approval) before deletion.

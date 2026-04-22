@@ -255,6 +255,90 @@ describe('ProgressReporter', () => {
     await assert.rejects(() => reporter.fire(), /variableNotUsed/);
   });
 
+  it('tees each snapshot to logFile with an ISO divider when configured', async () => {
+    const provider = buildProvider({
+      1: {
+        number: 1,
+        title: 'x',
+        state: 'OPEN',
+        labels: ['agent::executing'],
+      },
+    });
+    const writes = [];
+    const mkdirs = [];
+    const reporter = new ProgressReporter({
+      provider,
+      epicId: 99,
+      intervalSec: 60,
+      logger: silentLogger(),
+      logFile: 'temp/test-logs/epic-99-progress.log',
+      appendFile: async (path, chunk) => {
+        writes.push({ path, chunk });
+      },
+      mkdir: async (path, opts) => {
+        mkdirs.push({ path, opts });
+      },
+    });
+    reporter.setWave({ index: 0, totalWaves: 1, stories: [1] });
+    await reporter.fire();
+    await reporter.fire();
+    assert.equal(writes.length, 2, 'each fire should append once');
+    assert.equal(mkdirs.length, 1, 'mkdir is lazy — only on first append');
+    assert.deepEqual(mkdirs[0], {
+      path: 'temp/test-logs',
+      opts: { recursive: true },
+    });
+    assert.match(writes[0].chunk, /^### ⏱ \d{4}-\d{2}-\d{2}T/);
+    assert.match(writes[0].chunk, /Progress — Wave 1\/1/);
+    assert.match(writes[0].chunk, /---\n\n$/);
+  });
+
+  it('writes a wave-start header to logFile on start()', async () => {
+    const provider = buildProvider({
+      1: { number: 1, title: 'x', state: 'OPEN', labels: ['agent::ready'] },
+    });
+    const writes = [];
+    const reporter = new ProgressReporter({
+      provider,
+      epicId: 42,
+      intervalSec: 60,
+      logger: silentLogger(),
+      logFile: 'temp/test-logs/epic-42-progress.log',
+      appendFile: async (_path, chunk) => {
+        writes.push(chunk);
+      },
+      mkdir: async () => {},
+      setInterval: () => ({ ref: () => {}, unref: () => {} }),
+      clearInterval: () => {},
+    });
+    reporter.setWave({ index: 2, totalWaves: 3, stories: [1] });
+    reporter.start();
+    // Header write is async-scheduled from inside start(); let it flush.
+    await new Promise((r) => setImmediate(r));
+    assert.equal(writes.length, 1);
+    assert.match(writes[0], /Wave 3\/3 starting/);
+  });
+
+  it('does not touch the filesystem when logFile is null', async () => {
+    const provider = buildProvider({
+      1: { number: 1, title: 'x', state: 'CLOSED', labels: [] },
+    });
+    let appendCalls = 0;
+    const reporter = new ProgressReporter({
+      provider,
+      epicId: 1,
+      intervalSec: 60,
+      logger: silentLogger(),
+      logFile: null,
+      appendFile: async () => {
+        appendCalls += 1;
+      },
+    });
+    reporter.setWave({ index: 0, totalWaves: 1, stories: [1] });
+    await reporter.fire();
+    assert.equal(appendCalls, 0);
+  });
+
   it('stop() emits a final snapshot and clears the interval', async () => {
     let intervalCleared = false;
     const fakeSetInterval = () => ({ ref: () => {}, unref: () => {} });

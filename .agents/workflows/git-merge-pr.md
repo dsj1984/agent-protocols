@@ -22,7 +22,7 @@ conflicts, and completes the merge into the target base branch.
 
 1. Resolve one or more `[PR_NUMBER]` values from the slash-command argument
    (e.g. `/git-merge-pr 42 43 45` → `PR_LIST=[42, 43, 45]`).
-2. **Sequential Loop**: Steps 1 through 8 must be performed **sequentially** for
+2. **Sequential Loop**: Steps 1 through 7 must be performed **sequentially** for
    each PR in the `PR_LIST`. Complete the full merge and cleanup for one PR
    before starting the next.
 3. For the current `[PR_NUMBER]`, fetch metadata from GitHub:
@@ -64,31 +64,44 @@ Summarize the following to the operator before proceeding:
 
 ## Step 2 — Checkout & Sync
 
-Check out the head branch and rebase it against the latest base to surface
-conflicts early:
+Delegate the rebase orchestration to `git-rebase-and-resolve.js`. It fetches
+`origin`, checks out the head branch, and rebases it onto the base — then
+reports the outcome in structured form so this skill routes on outcome
+instead of re-implementing the retry loop.
 
 ```powershell
-git fetch origin
-git checkout [HEAD_BRANCH]
-git pull origin [HEAD_BRANCH]
+node .agents/scripts/git-rebase-and-resolve.js --onto origin/[BASE_BRANCH] --head [HEAD_BRANCH] --json
 ```
 
-Attempt a rebase onto the latest base branch:
+Parse the JSON result. Route on `outcome`:
 
-```powershell
-git rebase origin/[BASE_BRANCH]
-```
-
-- If the rebase **succeeds**: proceed to Step 3.
-- If the rebase **has conflicts**: proceed to Step 2.5 — Conflict Resolution.
+- `clean` → rebase landed with no conflicts. Proceed to Step 3.
+- `conflict` → `conflictedFiles[]` lists the unmerged paths. Proceed to
+  Step 2.5.
+- `error` → git returned an error unrelated to conflicts. **STOP** and
+  surface `stderr` to the operator.
 
 ### Step 2.5 — Conflict Resolution
 
 Follow the shared conflict-resolution procedure in
-[`_merge-conflict-template.md`](_merge-conflict-template.md): identify the
-conflicting files, read both sides, apply both when compatible (or choose a side
-with an explicit rationale), never silently drop code, then stage and
-`git rebase --continue`.
+[`_merge-conflict-template.md`](_merge-conflict-template.md): read both sides
+of each file in `conflictedFiles[]`, apply both when compatible (or choose a
+side with an explicit rationale), never silently drop code, then stage the
+resolutions.
+
+Continue the rebase via the script — it calls `git rebase --continue` and
+reports whether the rebase is now clean, still has conflicts (cascading
+conflict), or hit a different error:
+
+```powershell
+node .agents/scripts/git-rebase-and-resolve.js --continue --json
+```
+
+Loop until `outcome` is `continued`. If you need to bail out entirely:
+
+```powershell
+node .agents/scripts/git-rebase-and-resolve.js --abort --json
+```
 
 Once the rebase completes cleanly, force-push the rebased branch:
 
@@ -98,74 +111,44 @@ git push --force-with-lease origin [HEAD_BRANCH]
 
 ---
 
-## Step 3 — Lint Gate
+## Step 3 — Quality Gate (Lint + Format + Test)
 
-Run the project's full linting and formatting suites on the head branch:
-
-// turbo
+Run the full lint / format / test suite via the gate wrapper. The wrapper
+owns the command list so this skill doesn't rot when a project renames
+`lint` → `lint:ci` or swaps Biome for ESLint. The default check set is
+`lint`, `format:check`, `test`; override via `.agentrc.json → qualityGate`.
 
 ```powershell
-npm run lint
-npm run format:check
+node .agents/scripts/git-pr-quality-gate.js --json
 ```
 
-> Both commands must pass. `npm run lint` catches code quality issues;
-> `npm run format:check` catches Biome formatting violations that CI also
-> enforces. Running only one is insufficient.
+The script emits a JSON result `{ ok, checks: [...], failed: [...] }`.
+Exit code 0 means every check passed. On failure:
 
-- If both **pass**: proceed to Step 4.
-- If lint or format **fails**:
-  1. Read each error carefully.
-  2. For **format** errors, run `npx biome format --write .` to auto-fix, then
-     re-run `npm run format:check` to confirm.
-  3. For **lint** errors, apply the minimal manual fix required.
-  4. Commit the fixes:
+1. Read the `failed[]` entries (each has `name` and `reason`).
+2. For **format** failures, run `npx biome format --write .` to auto-fix,
+   then re-run the gate.
+3. For **lint** failures, apply the minimal manual fix.
+4. For **test** failures, classify before fixing:
+   - **Pre-existing failures** (unrelated to this PR's diff): alert the
+     operator and ask whether to proceed or block.
+   - **Regression introduced by this PR**: apply the fix.
+5. Commit the fixes and re-push:
 
-     ```powershell
-     git add .
-     git commit --no-verify -m "fix(lint): resolve lint/format errors on [HEAD_BRANCH] for PR #[PR_NUMBER]"
-     git push origin [HEAD_BRANCH]
-     ```
+   ```powershell
+   git add .
+   git commit --no-verify -m "fix(ci): resolve quality-gate failures on [HEAD_BRANCH] for PR #[PR_NUMBER]"
+   git push origin [HEAD_BRANCH]
+   ```
 
-  5. Re-run both `npm run lint` and `npm run format:check` to confirm clean
-     output before continuing.
+6. Re-run the gate until it exits 0 before continuing to Step 4.
+
+> If a failure cannot be resolved after exhausting reasonable remediation
+> attempts, **STOP** and escalate to the operator with a detailed summary.
 
 ---
 
-## Step 4 — Test Gate
-
-Run the full test suite:
-
-// turbo
-
-```powershell
-npm test
-```
-
-- If tests **pass**: proceed to Step 5.
-- If tests **fail**:
-  1. Read the failure output and identify the root cause.
-  2. Classify the failure:
-     - **Pre-existing failures** (unrelated to this PR's diff): alert the
-       operator and ask whether to proceed or block.
-     - **Regression introduced by this PR**: apply the fix, commit, re-push, and
-       re-run the test suite before proceeding.
-  3. Commit any test fixes:
-
-     ```powershell
-     git add .
-     git commit --no-verify -m "test: fix failing tests on [HEAD_BRANCH] for PR #[PR_NUMBER]"
-     git push origin [HEAD_BRANCH]
-     ```
-
-  4. Re-run `npm test` to confirm zero failures before continuing.
-
-  > If the failure cannot be resolved after exhausting reasonable remediation
-  > attempts, **STOP** and escalate to the operator with a detailed summary.
-
----
-
-## Step 5 — Final Mergeability Check
+## Step 4 — Final Mergeability Check
 
 Re-query GitHub to confirm the PR is now clean and ready to merge:
 
@@ -185,7 +168,7 @@ step.
 
 ---
 
-## Step 6 — Merge
+## Step 5 — Merge
 
 Merge the PR using a squash commit to keep the base branch history clean:
 
@@ -201,20 +184,21 @@ gh pr merge [PR_NUMBER] --squash --subject "[PR_TITLE] (#[PR_NUMBER])" --delete-
 > - `--rebase` — linear history; ideal for small, atomic PRs.
 
 After the merge command returns, perform a conflict marker scan to confirm no
-stray markers entered the base branch:
+stray markers entered the base branch. Delegate to `detect-merges.js` — it
+owns the scan logic and is the same script used by `/sprint-close` Phase 3.5.
 
 ```powershell
 git checkout [BASE_BRANCH]
 git pull origin [BASE_BRANCH]
-git grep -n "<<<<<<< " -- . ":(exclude).git"
+node .agents/scripts/detect-merges.js
 ```
 
-If any markers are found: **STOP**, alert the operator immediately, and do not
-proceed until they are resolved.
+If the script exits non-zero: **STOP**, alert the operator immediately, and
+do not proceed until the conflict markers are resolved.
 
 ---
 
-## Step 7 — Post-Merge Verification & Cleanup
+## Step 6 — Post-Merge Verification & Cleanup
 
 Confirm the merge landed correctly on the base branch:
 
@@ -305,7 +289,7 @@ npm test
 
 ---
 
-## Step 8 — Summary Report
+## Step 7 — Summary Report
 
 Post a structured summary comment to the PR (now closed) for traceability:
 
@@ -330,7 +314,7 @@ gh pr comment [PR_NUMBER] --body "✅ **Merged by agent** via \`/git-merge-pr\`
 - **Never** bypass required GitHub branch protection checks (required reviewers,
   required status checks). If these are blocking, surface them to the operator
   rather than attempting to force-merge.
-- **Always** explicitly delete the remote head branch in Step 7 with
+- **Always** explicitly delete the remote head branch in Step 6 with
   `git push origin --delete [HEAD_BRANCH]`. Do **not** rely solely on
   `gh pr merge --delete-branch` — that flag is silently skipped when a PR
   auto-closes without a normal merge commit (e.g., duplicate rebase scenarios).
@@ -339,8 +323,8 @@ gh pr comment [PR_NUMBER] --body "✅ **Merged by agent** via \`/git-merge-pr\`
 - **Always** use `--force-with-lease` (never bare `--force`) when pushing
   rebased branches to avoid overwriting concurrent pushes.
 - **Always** explicitly close the GitHub PR via
-  `update_pull_request(state: closed)` in Step 7 after branch cleanup. Because
+  `update_pull_request(state: closed)` in Step 6 after branch cleanup. Because
   this workflow pushes directly to the base branch, GitHub will **never**
   auto-close the PR — it must be closed manually every time.
-- **Always** post a Step 8 summary comment for auditability, even if no fixes
+- **Always** post a Step 7 summary comment for auditability, even if no fixes
   were required.

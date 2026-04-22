@@ -20,7 +20,12 @@
  * checkbox.
  *
  * Usage:
- *   node .agents/scripts/validate-docs-freshness.js --epic <EPIC_ID> [--base main] [--docs <comma-separated>]
+ *   node .agents/scripts/validate-docs-freshness.js --epic <EPIC_ID> [--base main] [--docs <comma-separated>] [--json]
+ *
+ * `--json` emits a single JSON object on stdout with
+ *   { ok, epicId, results: [{ file, pass, reason }, ...] }
+ * and suppresses the human-readable log lines. Intended for LLM/tool consumers
+ * that need to enumerate failing files without parsing log output.
  *
  * Exit codes:
  *   0 — every doc has an Epic-ID reference.
@@ -150,16 +155,18 @@ async function main() {
       epic: { type: 'string' },
       base: { type: 'string' },
       docs: { type: 'string' },
+      json: { type: 'boolean', default: false },
     },
     strict: false,
   });
   const epicId = Number.parseInt(values.epic ?? '', 10);
   if (Number.isNaN(epicId) || epicId <= 0) {
     Logger.fatal(
-      'Usage: node validate-docs-freshness.js --epic <EPIC_ID> [--docs a.md,b.md]',
+      'Usage: node validate-docs-freshness.js --epic <EPIC_ID> [--docs a.md,b.md] [--json]',
     );
   }
 
+  const asJson = values.json === true;
   const { settings } = resolveConfig();
   const docs = values.docs
     ? values.docs
@@ -169,6 +176,12 @@ async function main() {
     : resolveDocList(settings);
 
   if (docs.length === 0) {
+    if (asJson) {
+      process.stdout.write(
+        `${JSON.stringify({ ok: true, epicId, results: [] })}\n`,
+      );
+      return;
+    }
     console.log(
       `[docs-freshness] ⏭  No docs configured under release.docs or ` +
         `docsContextFiles — nothing to check.`,
@@ -177,6 +190,12 @@ async function main() {
   }
 
   const { ok, results } = runFreshnessGate({ epicId, docs });
+
+  if (asJson) {
+    process.stdout.write(`${JSON.stringify({ ok, epicId, results })}\n`);
+    if (!ok) process.exit(1);
+    return;
+  }
 
   for (const r of results) {
     const icon = r.pass ? '✅' : '❌';

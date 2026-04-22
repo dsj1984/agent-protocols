@@ -229,6 +229,27 @@ operator reference.
 
 ### Recent releases
 
+- **v5.16.0 — Live runner progress + workflow-to-script migration (2026-04-22).**
+  Two feature slices. (1) `ProgressReporter` now mirrors every per-wave
+  snapshot to `<orchestration.epicRunner.logsDir>/epic-<epicId>-progress.log`
+  so IDE-chat operators can tail Epic Mode runs via `Monitor` without
+  tripping the Bash 10-minute ceiling. (2) Audit follow-on to the v5.15.4
+  decomposer bug — broad sweep of `.agents/workflows/*.md` folded
+  hand-authored bash/PowerShell logic into dedicated scripts so skills are
+  launchers, not recipe books. New scripts: `sprint-execute-router.js`
+  (type-label mode decision), `delete-epic-branches.js` (local + remote ref
+  cleanup with `--dry-run`/`--json`), `git-pr-quality-gate.js` (lint +
+  format + test gate, configurable via `.agentrc.json → qualityGate`),
+  `git-rebase-and-resolve.js` (rebase orchestration with structured
+  clean/conflict/error outcomes + `--continue`/`--abort`). New lib:
+  `lib/plan-phase-cleanup.js` centralises the temp-file cleanup contract
+  for the sprint-plan split flow; `Remove-Item` blocks gone from all three
+  plan workflow `.md` files. `validate-docs-freshness.js` gains `--json`
+  mode for programmatic failure enumeration. `/sprint-plan-decompose`
+  Step 4 now invokes `sprint-plan-healthcheck.js` instead of asking the
+  host LLM to walk the ticket graph by hand. `/git-merge-pr` Step 6
+  conflict scan delegates to `detect-merges.js`; step numbers collapse
+  from 8 to 7. +34 regression tests; full suite at 1010 passing.
 - **v5.15.4 — Decomposer ticket-cap alignment (2026-04-22).** Patch-only fix
   to `/sprint-plan` Phase 2. The decomposer system prompt hardcoded a `25`
   ticket cap that overrode `.agentrc.json` `agentSettings.maxTickets` (default

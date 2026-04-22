@@ -4,6 +4,127 @@ All notable changes to this project will be documented in this file.
 
 ## [Unreleased]
 
+## [5.16.0] - 2026-04-22
+
+### Live epic-runner progress in IDE chat
+
+Minor-version change that closes the visibility gap between the
+`ProgressReporter` and operators driving `/sprint-execute` (Epic Mode) from an
+IDE chat session. Before this release, per-wave progress snapshots were only
+surfaced via (a) the runner's stdout — swallowed until exit by the Bash tool
+— and (b) an `epic-run-progress` structured comment on the Epic issue. Long
+multi-wave runs regularly exceeded the Bash tool's 10-minute ceiling, so the
+chat went silent for the entire run even though the configured
+`progressReportIntervalSec` cadence was firing correctly.
+
+- **`ProgressReporter` file sink.**
+  `.agents/scripts/lib/orchestration/epic-runner/progress-reporter.js` now
+  accepts an optional `logFile` (plus `appendFile` / `mkdir` DI hooks for
+  tests). When set, `fire()` appends every rendered snapshot prefixed with an
+  ISO-timestamped `### ⏱ …` divider and a trailing `---`, and `start()`
+  writes a `Wave N/M starting` header. `mkdir` is lazy — only runs before the
+  first append — and failures log a warning without crashing the runner.
+- **Coordinator wiring.** `.agents/scripts/lib/orchestration/epic-runner.js`
+  now resolves `<orchestration.epicRunner.logsDir>/epic-<epicId>-progress.log`
+  (default `temp/epic-runner-logs/`) and threads it into the reporter. The
+  path resolves to `null` when `progressReportIntervalSec <= 0`, so
+  opt-out configs and dry runs remain filesystem-free.
+- **Skill guidance.** `.agents/workflows/sprint-execute.md` (synced into
+  `.claude/commands/`) now instructs Epic Mode invocations from an IDE chat
+  to launch the runner with `run_in_background: true` and open a `Monitor`
+  on the progress log, so each new snapshot streams into chat as a
+  notification without polling and without tripping the Bash timeout.
+- **Regression coverage.** `tests/epic-runner/progress-reporter.test.js`
+  covers: append-per-fire with ISO divider + lazy `mkdir`, wave-start header
+  on `start()`, and strict no-op behavior when `logFile` is null.
+
+The `epic-run-progress` structured comment on the Epic issue continues to be
+upserted in place — the local log file is an additional channel, not a
+replacement. No changes to `.agentrc.json` keys; `orchestration.epicRunner`
+already carried `logsDir` and `progressReportIntervalSec`.
+
+### Workflow-to-script migration (audit follow-on)
+
+Also in this release: a broad audit of `.agents/workflows/*.md` identified
+eight procedures where logic lived as hand-authored bash/PowerShell snippets
+that had drifted (or could silently drift) from the scripts the wrappers
+called. This slice folds that logic into dedicated scripts so the markdown
+becomes a launcher rather than a recipe book, and the script is the single
+source of truth. Motivated by the v5.15.4 `sprint-plan.md → ticket-decomposer.js`
+bug: the skill's bash snippets told the LLM to call a low-level script that
+didn't flip the Epic lifecycle label, producing tickets without a
+`agent::ready` transition.
+
+#### New scripts
+
+- **`sprint-execute-router.js`.** Fetches a ticket and returns
+  `{ mode: 'epic'|'story'|'reject', ticketId, title, reason }` JSON. The
+  `/sprint-execute` skill routes on `mode` instead of re-implementing the
+  `type::` label → mode decision in markdown. Taxonomy changes (e.g., adding
+  `type::feature` routing) now require only a script-side edit.
+- **`delete-epic-branches.js`.** Owns the enumerate-and-delete logic for
+  `epic/<id>`, `task/epic-<id>/*`, `feature/epic-<id>/*`, and
+  `story/epic-<id>/*` refs across both local and remote. Supports
+  `--dry-run` (prints the plan) and `--json` (structured result with
+  per-branch `{ ok, alreadyGone, stderr }`). The `/delete-epic-branches`
+  skill is now a thin confirmation wrapper.
+- **`git-pr-quality-gate.js`.** Runs the lint / format / test gate previously
+  hardcoded as three separate shell commands in `/git-merge-pr` Steps 3–4.
+  The check set is read from `.agentrc.json → qualityGate.checks` with the
+  default `npm run lint / format:check / test` trio baked in, so projects
+  that rename tooling (e.g., Biome → ESLint) patch the config rather than
+  every skill that runs a gate. Emits a structured
+  `{ ok, checks, failed }` JSON result.
+- **`git-rebase-and-resolve.js`.** Orchestrates the rebase retry loop
+  previously spelled out in `/git-merge-pr` Step 2.5. Runs fetch → checkout
+  → rebase, classifies the outcome as `clean | conflict | error`, and lists
+  unmerged paths when it stops. Also exposes `--continue` and `--abort`
+  modes so the caller drives the git-native resolution flow through the
+  same structured interface.
+
+#### New library module
+
+- **`lib/plan-phase-cleanup.js`.** Centralises the temp-file cleanup
+  contract for the sprint-plan split flow. Each phase's temp paths
+  (`temp/planner-context-epic-<id>.json`, `temp/prd-epic-<id>.md`, etc.)
+  are templated in `PHASE_TEMP_PATHS`, so adding a new temp file requires a
+  single edit instead of synchronized changes across the script and three
+  markdown files. Both `sprint-plan-spec.js` and `sprint-plan-decompose.js`
+  now call `cleanupPhaseTempFiles()` on phase success; the `Remove-Item`
+  blocks in `sprint-plan.md`, `sprint-plan-spec.md`, and
+  `sprint-plan-decompose.md` are gone.
+
+#### Existing-script enhancements
+
+- **`validate-docs-freshness.js --json`.** Emits
+  `{ ok, epicId, results: [{ file, pass, reason }, ...] }` on stdout when
+  the flag is set, so the `/sprint-close` Phase 1.3 remediation loop can
+  enumerate failing files programmatically instead of parsing log output.
+- **`sprint-plan-healthcheck.js`.** Wired into `/sprint-plan-decompose`
+  Step 4. The manual cross-validation checklist that asked the host LLM to
+  walk the ticket graph by hand is replaced with a single invocation of the
+  healthcheck, which already computes the same invariants deterministically
+  (hierarchy completeness, missing complexity labels, dependency cycles).
+
+#### Workflow simplifications
+
+- **`/git-merge-pr` Step 6 conflict scan.** Replaced the inline
+  `git grep '<<<<<<<'` with a delegation to `detect-merges.js` — the same
+  script `/sprint-close` Phase 3.5 already used. Step numbers collapsed to
+  7 (formerly 8) after merging the lint and test gates into a single
+  quality-gate step.
+- **Temp-file cleanup in `/sprint-plan*`.** `Remove-Item` blocks removed
+  from all three markdowns; the wrapper scripts delete their own temp
+  files via the shared helper.
+
+#### Regression coverage
+
+New pure-function test suites for each new module: `+34` tests across five
+new files — `tests/sprint-execute-router.test.js`,
+`tests/delete-epic-branches.test.js`, `tests/git-pr-quality-gate.test.js`,
+`tests/git-rebase-and-resolve.test.js`, and `tests/plan-phase-cleanup.test.js`.
+Full suite: 1010 passing.
+
 ## [5.15.4] - 2026-04-22
 
 ### Decomposer ticket-cap alignment
