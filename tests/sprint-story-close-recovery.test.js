@@ -173,11 +173,7 @@ test('detectPriorState', async (t) => {
 
 test('computeRecoveryMode dispatch table', async (t) => {
   await t.test('fresh state proceeds regardless of flags', () => {
-    for (const flags of [
-      {},
-      { resume: true },
-      { restart: true },
-    ]) {
+    for (const flags of [{}, { resume: true }, { restart: true }]) {
       const result = computeRecoveryMode({
         state: RECOVERY_STATES.FRESH,
         ...flags,

@@ -922,7 +922,9 @@ runAsCli(import.meta.url, runStoryClose, {
     if (err?.exitCode === 2) {
       process.exit(2);
     }
-    console.error(`[sprint-story-close] Fatal error: ${err.stack || err.message}`);
+    console.error(
+      `[sprint-story-close] Fatal error: ${err.stack || err.message}`,
+    );
     process.exit(1);
   },
 });
