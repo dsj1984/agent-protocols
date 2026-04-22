@@ -170,9 +170,6 @@ describe('ColumnSync.sync', () => {
       },
     };
     const sync = new ColumnSync({ provider, logger: { warn: () => {} } });
-    await assert.rejects(
-      () => sync.sync(321, ['agent::done']),
-      /API boom/,
-    );
+    await assert.rejects(() => sync.sync(321, ['agent::done']), /API boom/);
   });
 });

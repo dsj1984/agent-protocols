@@ -217,7 +217,11 @@ describe('ProgressReporter', () => {
 
     const { rows } = await reporter.fire();
     const unknown = rows.filter((r) => r.state === 'unknown');
-    assert.equal(unknown.length, 0, 'no fixture story should fall back to unknown');
+    assert.equal(
+      unknown.length,
+      0,
+      'no fixture story should fall back to unknown',
+    );
     assert.deepEqual(
       rows.map((r) => [r.id, r.state]),
       [
