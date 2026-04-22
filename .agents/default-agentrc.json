@@ -87,7 +87,8 @@
     "epicRunner": {
       "enabled": true,
       "concurrencyCap": 3,
-      "pollIntervalSec": 30
+      "pollIntervalSec": 30,
+      "progressReportIntervalSec": 120
     },
     "planRunner": {
       "enabled": true,

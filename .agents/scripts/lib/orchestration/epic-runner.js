@@ -16,15 +16,16 @@
  *      BookendChainer.
  */
 
-import { EpicRunnerContext } from './context.js';
 import { parseBlockedBy } from '../dependency-parser.js';
 import { computeWaves } from '../Graph.js';
 import { createNotifier } from '../notifications/notifier.js';
+import { EpicRunnerContext } from './context.js';
 import { BlockerHandler } from './epic-runner/blocker-handler.js';
 import { BookendChainer } from './epic-runner/bookend-chainer.js';
 import { Checkpointer } from './epic-runner/checkpointer.js';
 import { ColumnSync } from './epic-runner/column-sync.js';
 import { NotificationHook } from './epic-runner/notification-hook.js';
+import { ProgressReporter } from './epic-runner/progress-reporter.js';
 import { StoryLauncher } from './epic-runner/story-launcher.js';
 import { WaveObserver } from './epic-runner/wave-observer.js';
 import { WaveScheduler } from './epic-runner/wave-scheduler.js';
@@ -100,6 +101,10 @@ async function runEpicWithContext(ctx) {
   });
   const launcher = new StoryLauncher({ ctx });
   const waveObserver = new WaveObserver({ ctx });
+  const progressReporter = new ProgressReporter({
+    ctx,
+    intervalSec: Number(config?.epicRunner?.progressReportIntervalSec ?? 0),
+  });
   const columnSync = new ColumnSync({ ctx });
   const syncColumn = async (id, labels) => {
     try {
@@ -161,7 +166,16 @@ async function runEpicWithContext(ctx) {
       stories: wave.stories,
     });
 
+    progressReporter.setWave({
+      index: wave.index,
+      totalWaves: scheduler.totalWaves,
+      stories: wave.stories,
+      startedAt,
+    });
+    progressReporter.start();
+
     const results = await launcher.launchWave(wave.stories);
+    await progressReporter.stop();
     const failures = results.filter(
       (r) => r.status === 'failed' || r.status === 'blocked',
     );
