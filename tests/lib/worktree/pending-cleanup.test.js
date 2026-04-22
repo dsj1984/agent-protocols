@@ -154,11 +154,16 @@ test('drainPendingCleanup: removes entry when Stage 1 retry now succeeds', async
       'sweep must run worktree prune after fs.rm',
     );
     assert.ok(
-      calls.some((a) => a[0] === 'branch' && a[1] === '-D' && a[2] === 'story-100'),
+      calls.some(
+        (a) => a[0] === 'branch' && a[1] === '-D' && a[2] === 'story-100',
+      ),
       'sweep must run branch -D',
     );
     assert.ok(
-      calls.some((a) => a[0] === 'push' && a.includes('--delete') && a.includes('story-100')),
+      calls.some(
+        (a) =>
+          a[0] === 'push' && a.includes('--delete') && a.includes('story-100'),
+      ),
       'push=true should trigger remote branch delete',
     );
   } finally {

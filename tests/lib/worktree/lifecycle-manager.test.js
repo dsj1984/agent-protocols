@@ -78,7 +78,9 @@ test('removeWorktreeWithRecovery: Stage 1 fs-rm-retry recovers from Windows lock
     'Stage 1 must run `git worktree prune`',
   );
   assert.ok(
-    gitCalls.some((a) => a[0] === 'branch' && a[1] === '-D' && a[2] === 'story-1'),
+    gitCalls.some(
+      (a) => a[0] === 'branch' && a[1] === '-D' && a[2] === 'story-1',
+    ),
     'Stage 1 must run `git branch -D story-1`',
   );
   // push=false means no `git push --delete` call.
@@ -219,10 +221,7 @@ test('removeWorktreeWithRecovery: reports failure when registration survives', a
       },
     },
   };
-  const res = await removeWorktreeWithRecovery(
-    ctx,
-    '/repo/.worktrees/story-2',
-  );
+  const res = await removeWorktreeWithRecovery(ctx, '/repo/.worktrees/story-2');
   assert.equal(res.removed, false);
   assert.match(res.reason, /unrecoverable/);
 });

@@ -84,7 +84,8 @@ export async function sweepStaleStoryWorktrees({
     throw new Error('sweepStaleStoryWorktrees: repoRoot is required');
   }
 
-  const resolvedWorktreeRoot = worktreeRoot ?? path.join(repoRoot, '.worktrees');
+  const resolvedWorktreeRoot =
+    worktreeRoot ?? path.join(repoRoot, '.worktrees');
 
   // Stage 2: drain pending-cleanup manifest before touching the live
   // worktree list. Retrying the Stage 1 sequence here picks up entries

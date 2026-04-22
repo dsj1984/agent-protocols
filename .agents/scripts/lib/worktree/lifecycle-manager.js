@@ -420,7 +420,12 @@ export async function removeWorktreeWithRecovery(ctx, wtPath, opts = {}) {
         reason: errMsg,
         lockReason: lastReason,
         attempts: rmResult.attempts,
-        pendingCleanup: manifestEntry ?? { storyId, branch, path: wtPath, push },
+        pendingCleanup: manifestEntry ?? {
+          storyId,
+          branch,
+          path: wtPath,
+          push,
+        },
       };
     }
 
@@ -430,12 +435,7 @@ export async function removeWorktreeWithRecovery(ctx, wtPath, opts = {}) {
     let branchDeleted = false;
     let remoteBranchDeleted = false;
     if (branch) {
-      const localDel = ctx.git.gitSpawn(
-        ctx.repoRoot,
-        'branch',
-        '-D',
-        branch,
-      );
+      const localDel = ctx.git.gitSpawn(ctx.repoRoot, 'branch', '-D', branch);
       if (localDel.status === 0) {
         branchDeleted = true;
       } else {
@@ -462,7 +462,9 @@ export async function removeWorktreeWithRecovery(ctx, wtPath, opts = {}) {
           remoteBranchDeleted = true;
         } else {
           const stderr = (remoteDel.stderr || remoteDel.stdout || '').trim();
-          if (/remote ref does not exist|not found|unable to delete/i.test(stderr)) {
+          if (
+            /remote ref does not exist|not found|unable to delete/i.test(stderr)
+          ) {
             remoteBranchDeleted = true;
           } else {
             ctx.logger.warn(

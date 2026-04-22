@@ -598,7 +598,10 @@ export async function runStoryClose({
   const skipValidation =
     skipValidationParam || !!process.env.SPRINT_STORY_CLOSE_SKIP_VALIDATION;
   if (!skipValidation) {
-    progress('VALIDATE', 'Running pre-merge gates (lint, test, format, maintainability)...');
+    progress(
+      'VALIDATE',
+      'Running pre-merge gates (lint, test, format, maintainability)...',
+    );
     const validation = runCloseValidation({
       cwd,
       log: (m) => Logger.info(m),
