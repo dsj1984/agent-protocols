@@ -13,14 +13,8 @@ const MIN_EPIC_CFG = {
 
 describe('OrchestrationContext family', () => {
   it('validates required base fields at construction', () => {
-    assert.throws(
-      () => new OrchestrationContext({}),
-      /integer epicId/,
-    );
-    assert.throws(
-      () => new OrchestrationContext({ epicId: 1 }),
-      /provider/,
-    );
+    assert.throws(() => new OrchestrationContext({}), /integer epicId/);
+    assert.throws(() => new OrchestrationContext({ epicId: 1 }), /provider/);
     assert.throws(
       () => new OrchestrationContext({ epicId: 1, provider: {} }),
       /config/,

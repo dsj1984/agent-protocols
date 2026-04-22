@@ -52,12 +52,14 @@ export class EpicRunnerContext extends OrchestrationContext {
     super(opts);
     const runnerCfg = opts.config?.epicRunner ?? {};
     this.spawn = opts.spawn ?? null;
-    this.concurrencyCap = opts.concurrencyCap ?? runnerCfg.concurrencyCap ?? null;
+    this.concurrencyCap =
+      opts.concurrencyCap ?? runnerCfg.concurrencyCap ?? null;
     this.storyRetryCount =
       opts.storyRetryCount ?? runnerCfg.storyRetryCount ?? 0;
     this.blockerTimeoutHours =
       opts.blockerTimeoutHours ?? runnerCfg.blockerTimeoutHours ?? 0;
-    this.pollIntervalSec = opts.pollIntervalSec ?? runnerCfg.pollIntervalSec ?? null;
+    this.pollIntervalSec =
+      opts.pollIntervalSec ?? runnerCfg.pollIntervalSec ?? null;
     this.worktreeResolver = opts.worktreeResolver ?? null;
     this.fetchImpl = opts.fetchImpl ?? null;
     this.runSkill = opts.runSkill ?? null;
@@ -77,10 +79,7 @@ export class EpicRunnerContext extends OrchestrationContext {
     if (typeof this.spawn !== 'function') {
       throw new TypeError('EpicRunnerContext requires a spawn adapter');
     }
-    if (
-      !Number.isInteger(this.concurrencyCap) ||
-      this.concurrencyCap < 1
-    ) {
+    if (!Number.isInteger(this.concurrencyCap) || this.concurrencyCap < 1) {
       throw new RangeError(
         'EpicRunnerContext requires a positive integer concurrencyCap',
       );
