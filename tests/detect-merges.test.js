@@ -60,17 +60,17 @@ test('detect-merges', async (t) => {
   );
 
   await t.test('isDetectMergesTestFixture matches tests/** paths', () => {
-    assert.equal(isDetectMergesTestFixture('tests/detect-merges.test.js'), true);
+    assert.equal(
+      isDetectMergesTestFixture('tests/detect-merges.test.js'),
+      true,
+    );
     assert.equal(isDetectMergesTestFixture('tests/detect-merges.js'), true);
     assert.equal(
       isDetectMergesTestFixture('tests/nested/detect-merges-fixture.js'),
       true,
     );
     assert.equal(isDetectMergesTestFixture('tests/other.test.js'), false);
-    assert.equal(
-      isDetectMergesTestFixture('src/detect-merges.test.js'),
-      false,
-    );
+    assert.equal(isDetectMergesTestFixture('src/detect-merges.test.js'), false);
   });
 
   await t.test(

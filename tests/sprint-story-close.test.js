@@ -71,10 +71,14 @@ test('runCloseValidation', async (t) => {
         // handling that v2 Biome flags.
         const driftPath = path.join(dir, 'drift.js');
         writeFileSync(driftPath, 'const x=1\n');
-        const driftResult = spawnSync(gate.cmd, [...gate.args.slice(0, -1), driftPath], {
-          shell: process.platform === 'win32',
-          encoding: 'utf8',
-        });
+        const driftResult = spawnSync(
+          gate.cmd,
+          [...gate.args.slice(0, -1), driftPath],
+          {
+            shell: process.platform === 'win32',
+            encoding: 'utf8',
+          },
+        );
         assert.notStrictEqual(
           driftResult.status,
           0,
@@ -83,10 +87,14 @@ test('runCloseValidation', async (t) => {
 
         const cleanPath = path.join(dir, 'clean.js');
         writeFileSync(cleanPath, 'const x = 1;\n');
-        const cleanResult = spawnSync(gate.cmd, [...gate.args.slice(0, -1), cleanPath], {
-          shell: process.platform === 'win32',
-          encoding: 'utf8',
-        });
+        const cleanResult = spawnSync(
+          gate.cmd,
+          [...gate.args.slice(0, -1), cleanPath],
+          {
+            shell: process.platform === 'win32',
+            encoding: 'utf8',
+          },
+        );
         assert.strictEqual(
           cleanResult.status,
           0,
