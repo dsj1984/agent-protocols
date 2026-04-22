@@ -32,8 +32,8 @@ const _envLoadedRoots = new Set();
 
 /**
  * Defaults applied to a loaded .agentrc.json. Narrower than the zero-config
- * set: fields intentionally omitted here (e.g. baseBranch, notificationWebhookUrl)
- * remain undefined unless the operator set them explicitly in the config file.
+ * set: fields intentionally omitted here (e.g. baseBranch) remain undefined
+ * unless the operator set them explicitly in the config file.
  */
 const LOADED_CONFIG_DEFAULTS = Object.freeze({
   agentRoot: '.agents',
@@ -77,7 +77,6 @@ const ZERO_CONFIG_DEFAULTS = Object.freeze({
   maintainability: { targetDirs: ['.agents/scripts', 'tests'] },
   tempRoot: 'temp',
   baseBranch: 'main',
-  notificationWebhookUrl: '',
   verboseLogging: { enabled: false, logDir: 'temp/verbose-logs' },
   maxTickets: 40,
   executionTimeoutMs: 300000, // 5 minutes
@@ -103,7 +102,6 @@ const LOADED_CONFIG_APPLY_KEYS = [
   'tempRoot',
   'auditOutputDir',
   'baseBranch',
-  'notificationWebhookUrl',
   'verboseLogging',
   'executionTimeoutMs',
   'executionMaxBuffer',
@@ -171,20 +169,11 @@ export function resolveConfig(opts) {
 
     // Apply defaults to the loaded config. Missing keys that are also absent
     // from LOADED_CONFIG_DEFAULTS (e.g. schemasRoot, docsRoot, tempRoot,
-    // baseBranch, notificationWebhookUrl, verboseLogging) resolve to
-    // `undefined`, preserving the long-standing zero-config/loaded-config
-    // asymmetry rather than silently promoting the richer zero-config set.
+    // baseBranch, verboseLogging) resolve to `undefined`, preserving the
+    // long-standing zero-config/loaded-config asymmetry rather than silently
+    // promoting the richer zero-config set.
     for (const key of LOADED_CONFIG_APPLY_KEYS) {
       settings[key] = settings[key] ?? LOADED_CONFIG_DEFAULTS[key];
-    }
-
-    // Prioritize environment variable for the webhook URL
-    const envWebhookUrl = process.env.NOTIFICATION_WEBHOOK_URL;
-    if (envWebhookUrl) {
-      settings.notificationWebhookUrl = envWebhookUrl;
-      if (orchestration?.notifications) {
-        orchestration.notifications.webhookUrl = envWebhookUrl;
-      }
     }
 
     const resolved = {
@@ -293,18 +282,6 @@ export function validateOrchestrationConfig(orchestration) {
           );
         }
       }
-    }
-  }
-
-  // Notification webhook injection check
-  if (orchestration.notifications?.webhookUrl) {
-    if (
-      typeof orchestration.notifications.webhookUrl === 'string' &&
-      SHELL_INJECTION_RE.test(orchestration.notifications.webhookUrl)
-    ) {
-      errors.push(
-        '- [Security] Shell meta-characters detected in orchestration.notifications.webhookUrl.',
-      );
     }
   }
 

@@ -17,7 +17,6 @@
  */
 
 import { computeWaves } from '../Graph.js';
-import { STATE_LABELS, transitionTicketState } from './ticketing.js';
 import { BlockerHandler } from './epic-runner/blocker-handler.js';
 import { BookendChainer } from './epic-runner/bookend-chainer.js';
 import { Checkpointer } from './epic-runner/checkpointer.js';
@@ -26,6 +25,7 @@ import { NotificationHook } from './epic-runner/notification-hook.js';
 import { StoryLauncher } from './epic-runner/story-launcher.js';
 import { WaveObserver } from './epic-runner/wave-observer.js';
 import { WaveScheduler } from './epic-runner/wave-scheduler.js';
+import { STATE_LABELS, transitionTicketState } from './ticketing.js';
 
 const AUTO_CLOSE_LABEL = 'epic::auto-close';
 
@@ -59,8 +59,7 @@ export async function runEpic({
   }
   if (typeof spawn !== 'function') throw new TypeError('spawn is required');
 
-  const { concurrencyCap, pollIntervalSec, notificationWebhookUrl } =
-    config.epicRunner;
+  const { concurrencyCap, pollIntervalSec } = config.epicRunner;
 
   // --- 1. Snapshot Epic state ---
   const epic = await provider.getTicket(epicId);
@@ -79,7 +78,6 @@ export async function runEpic({
   // --- 3. Compose collaborators ---
   const checkpointer = new Checkpointer({ provider, epicId });
   const notificationHook = new NotificationHook({
-    webhookUrl: notificationWebhookUrl,
     fetchImpl,
     logger,
   });

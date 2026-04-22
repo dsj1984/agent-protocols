@@ -461,8 +461,7 @@ Add the following block to your `.agentrc.json`:
       "operatorHandle": "@your-username"
     },
     "notifications": {
-      "mentionOperator": true,
-      "webhookUrl": ""
+      "mentionOperator": true
     }
   }
 }
@@ -477,7 +476,11 @@ Add the following block to your `.agentrc.json`:
 | `github.projectOwner`           | No       | Owner of the project board (defaults to `github.owner`) |
 | `github.operatorHandle`         | No       | GitHub @mention handle for notifications                |
 | `notifications.mentionOperator` | No       | Whether to @mention the operator in comments            |
-| `notifications.webhookUrl`      | No       | Webhook URL for external notification delivery          |
+
+The webhook URL for external delivery is **not** configured in `.agentrc.json`.
+It is sourced from the `agent-protocols` MCP server's env (`.mcp.json` →
+`mcpServers["agent-protocols"].env.NOTIFICATION_WEBHOOK_URL`) or from the
+`NOTIFICATION_WEBHOOK_URL` process env var (CI secret, `.env`).
 
 ---
 

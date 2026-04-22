@@ -41,7 +41,7 @@ export const AGENT_DONE_LABEL = STATE_LABELS.DONE;
 export const AGENT_EXECUTING_LABEL = STATE_LABELS.EXECUTING;
 export const AGENT_READY_LABEL = STATE_LABELS.READY;
 export const TYPE_TASK_LABEL = TYPE_LABELS.TASK;
-export { RISK_HIGH_LABEL, collectOpenStoryIds, detectEpicCompletion };
+export { collectOpenStoryIds, detectEpicCompletion, RISK_HIGH_LABEL };
 
 /* node:coverage ignore next */
 export function ensureBranch(branchName, baseBranch) {
@@ -134,7 +134,7 @@ export async function resolveAndDispatch(options) {
  */
 export async function dispatch(options) {
   const ctx = resolveDispatchContext(options, ensureBranch);
-  const { epicId, dryRun, adapter, settings, provider } = ctx;
+  const { epicId, dryRun, adapter, provider } = ctx;
 
   const fetched = await fetchEpicContext(ctx);
   await reconcileEpicState(ctx, fetched);
@@ -185,7 +185,6 @@ export async function dispatch(options) {
     tasks: fetched.tasks,
     manifest,
     provider,
-    settings,
     dryRun,
   });
 

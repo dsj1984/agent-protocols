@@ -28,7 +28,6 @@ export const SHELL_INJECTION_RE_STRICT = /[&|;`<>()$]/;
  * top-level string field means appending to this list, nothing else.
  */
 export const AGENT_SETTINGS_STRING_FIELDS = Object.freeze([
-  'notificationWebhookUrl',
   'baseBranch',
   'validationCommand',
   'testCommand',
@@ -96,7 +95,6 @@ export const ORCHESTRATION_SCHEMA = {
       type: 'object',
       properties: {
         mentionOperator: { type: 'boolean' },
-        webhookUrl: { type: ['string', 'null'] },
         webhookMinLevel: {
           type: 'string',
           enum: ['progress', 'notification', 'friction', 'action'],
@@ -159,7 +157,6 @@ export const ORCHESTRATION_SCHEMA = {
         pollIntervalSec: { type: 'integer', minimum: 1 },
         storyRetryCount: { type: 'integer', minimum: 0 },
         blockerTimeoutHours: { type: 'integer', minimum: 0 },
-        notificationWebhookUrl: { type: ['string', 'null'], minLength: 1 },
       },
       additionalProperties: false,
     },
