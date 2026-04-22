@@ -210,6 +210,49 @@ export async function isSafeToRemove(ctx, wtPath, opts = {}) {
   return { safe: true };
 }
 
+/**
+ * Returns true iff `branch` is already fully merged into `epicBranch`
+ * (i.e. `merge-base --is-ancestor branch epicBranch` exits 0). A missing
+ * epicBranch or a git failure both yield false so callers default to the
+ * safe, non-forcing behavior.
+ */
+export function isStoryAlreadyMergedIntoEpic(ctx, branch, epicBranch) {
+  if (!branch || !epicBranch) return false;
+  const res = ctx.git.gitSpawn(
+    ctx.repoRoot,
+    'merge-base',
+    '--is-ancestor',
+    branch,
+    epicBranch,
+  );
+  return res.status === 0;
+}
+
+/**
+ * Collect the set of paths reported dirty by `git status --porcelain` inside
+ * a worktree. Returned paths are relative to the worktree root.
+ */
+function collectDirtyPaths(ctx, wtPath) {
+  const res = ctx.git.gitSpawn(wtPath, 'status', '--porcelain');
+  if (res.status !== 0) return [];
+  return res.stdout
+    .split('\n')
+    .map((line) => line.trim())
+    .filter(Boolean)
+    .map((line) => line.replace(/^[^ ]{1,2}\s+/, ''));
+}
+
+/**
+ * Hard-reset and clean a worktree so subsequent remove calls no longer hit
+ * `uncommitted-changes`. Returns `true` if both operations succeed.
+ */
+function discardWorktreeChanges(ctx, wtPath) {
+  const reset = ctx.git.gitSpawn(wtPath, 'reset', '--hard', 'HEAD');
+  if (reset.status !== 0) return false;
+  const clean = ctx.git.gitSpawn(wtPath, 'clean', '-fd');
+  return clean.status === 0;
+}
+
 export function prune(ctx) {
   const res = ctx.git.gitSpawn(ctx.repoRoot, 'worktree', 'prune');
   if (res.status !== 0) {
@@ -244,13 +287,42 @@ export async function reap(ctx, storyId, opts = {}) {
   const safety = await isSafeToRemove(ctx, wtPath, {
     epicBranch: opts.epicBranch ?? null,
   });
+  let discardedPaths = null;
   if (!safety.safe) {
-    if (ctx.config.warnOnUncommittedOnReap) {
-      ctx.logger.warn(
-        `reap-skipped storyId=${storyId} reason=${safety.reason} path=${wtPath}`,
+    const discardAfterMerge = opts.discardAfterMerge !== false;
+    const branchName = `story-${validateStoryId(storyId)}`;
+    const canForceReap =
+      discardAfterMerge &&
+      safety.reason === 'uncommitted-changes' &&
+      opts.epicBranch &&
+      isStoryAlreadyMergedIntoEpic(ctx, branchName, opts.epicBranch);
+
+    if (canForceReap) {
+      discardedPaths = collectDirtyPaths(ctx, wtPath);
+      if (!discardWorktreeChanges(ctx, wtPath)) {
+        if (ctx.config.warnOnUncommittedOnReap) {
+          ctx.logger.warn(
+            `reap-skipped storyId=${storyId} reason=discard-failed path=${wtPath}`,
+          );
+        }
+        return {
+          removed: false,
+          reason: 'discard-failed',
+          path: wtPath,
+          discardedPaths,
+        };
+      }
+      ctx.logger.info(
+        `worktree.reap discard-after-merge storyId=${storyId} paths=${discardedPaths.length}`,
       );
+    } else {
+      if (ctx.config.warnOnUncommittedOnReap) {
+        ctx.logger.warn(
+          `reap-skipped storyId=${storyId} reason=${safety.reason} path=${wtPath}`,
+        );
+      }
+      return { removed: false, reason: safety.reason, path: wtPath };
     }
-    return { removed: false, reason: safety.reason, path: wtPath };
   }
 
   removeCopiedAgents(ctx, wtPath);
@@ -301,6 +373,9 @@ export async function reap(ctx, storyId, opts = {}) {
     ...(removeResult.method ? { method: removeResult.method } : {}),
     ...(removeResult.branchDeleted !== undefined
       ? { branchDeleted: removeResult.branchDeleted }
+      : {}),
+    ...(discardedPaths && discardedPaths.length > 0
+      ? { discardedPaths }
       : {}),
   };
 }
@@ -516,9 +591,14 @@ export async function gc(ctx, openStoryIds, opts = {}) {
     const result = await reap(ctx, id, {
       epicBranch: opts.epicBranch ?? null,
       worktrees,
+      discardAfterMerge: opts.discardAfterMerge,
     });
     if (result.removed) {
-      reaped.push({ storyId: id, path: wt.path });
+      reaped.push({
+        storyId: id,
+        path: wt.path,
+        ...(result.discardedPaths ? { discardedPaths: result.discardedPaths } : {}),
+      });
     } else {
       skipped.push({
         storyId: id,

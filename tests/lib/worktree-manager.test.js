@@ -362,7 +362,10 @@ test('reap: skips unsafe worktree with warning', async () => {
       git,
       platform: 'linux',
     });
-    const r = await wm.reap(235, { epicBranch: 'epic/229' });
+    const r = await wm.reap(235, {
+      epicBranch: 'epic/229',
+      discardAfterMerge: false,
+    });
     assert.equal(r.removed, false);
     assert.equal(r.reason, 'uncommitted-changes');
     assert.ok(warnings.some((w) => /reap-skipped/.test(w)));
