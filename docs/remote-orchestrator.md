@@ -105,6 +105,98 @@ Identified by the marker
 JSON block conforming to the schema in tech spec #323; the authoritative
 copy is what the runner last wrote.
 
+## Planning flow
+
+Planning runs as a separate, GitHub-triggered pipeline that is decoupled
+from execution. Applying `agent::planning` to a `type::epic` issue fires
+`.github/workflows/epic-plan.yml`, which boots a Claude remote agent and
+invokes `/sprint-plan-spec`. The agent generates the PRD and Tech Spec as
+linked issues (`context::prd`, `context::tech-spec`), flips the Epic to
+`agent::review-spec`, and exits. The human reviews the generated documents
+on GitHub, then applies `agent::decomposing` to trigger a second remote
+invocation that generates the Feature/Story/Task hierarchy and lands the
+Epic at `agent::ready`. Flipping to `agent::dispatching` from there
+triggers execution (unchanged from v5.14.0).
+
+```
+agent::planning  ─► /sprint-plan-spec     ─► agent::review-spec
+                                                      │
+                                           (human reviews PRD/Spec)
+                                                      ▼
+agent::decomposing ─► /sprint-plan-decompose ─► agent::ready
+                                                      │
+                                           (human applies dispatching)
+                                                      ▼
+agent::dispatching ─► epic-dispatch.yml (unchanged)
+```
+
+### Planning labels
+
+| Label                | Role          | Column        | Description                                                                                  |
+| -------------------- | ------------- | ------------- | -------------------------------------------------------------------------------------------- |
+| `agent::planning`    | Trigger       | Planning      | Fires PRD + Tech Spec generation; flips to `agent::review-spec` on success.                   |
+| `agent::review-spec` | Parking state | Spec Review   | PRD + Tech Spec exist; awaiting human review before decomposition.                            |
+| `agent::decomposing` | Trigger       | Ready         | Fires Feature/Story/Task generation; flips to `agent::ready` on success.                      |
+| `agent::ready`       | Parking state | Ready         | Frozen dispatch manifest exists; awaiting `agent::dispatching`.                               |
+
+`ColumnSync` precedence (terminal states first):
+`done > blocked > review > spec-review > ready > planning > in-progress`.
+
+## `epic-plan-state` comment schema
+
+Identified by the marker
+`<!-- ap:structured-comment type="epic-plan-state" -->`. Body is a fenced
+JSON block. One comment per Epic; the runner upserts it via
+`upsertStructuredComment` after every phase transition.
+
+```json
+{
+  "version": 1,
+  "epicId": 349,
+  "phase": "review-spec",
+  "startedAt": "2026-04-21T20:15:00Z",
+  "lastUpdatedAt": "2026-04-21T20:17:42Z",
+  "spec": {
+    "prdId": 351,
+    "techSpecId": 352,
+    "completedAt": "2026-04-21T20:17:41Z"
+  },
+  "decompose": {
+    "ticketCount": null,
+    "completedAt": null
+  },
+  "manifestCommentId": null
+}
+```
+
+**Fields**
+
+| Field                | Type             | Purpose                                                                                              |
+| -------------------- | ---------------- | ---------------------------------------------------------------------------------------------------- |
+| `version`            | integer          | Schema version. Bump on breaking changes.                                                            |
+| `epicId`             | integer          | The Epic issue number this checkpoint tracks.                                                        |
+| `phase`              | string           | One of `planning`, `review-spec`, `decomposing`, `ready`. Reflects the last completed transition.    |
+| `startedAt`          | ISO-8601 string  | When the first planning phase began. Preserved across phase transitions.                             |
+| `lastUpdatedAt`      | ISO-8601 string  | When the runner last wrote this comment.                                                             |
+| `spec.prdId`         | integer \| null  | Issue number of the generated PRD (`context::prd`). `null` until spec phase completes.               |
+| `spec.techSpecId`    | integer \| null  | Issue number of the generated Tech Spec (`context::tech-spec`). `null` until spec phase completes.   |
+| `spec.completedAt`   | ISO-8601 \| null | When the spec phase finished writing the PRD + Tech Spec.                                            |
+| `decompose.ticketCount` | integer \| null | Number of Features + Stories + Tasks created. `null` until decompose phase completes.             |
+| `decompose.completedAt` | ISO-8601 \| null | When the decompose phase finished writing the hierarchy.                                         |
+| `manifestCommentId`  | integer \| null  | The GitHub comment ID of the frozen dispatch manifest. `null` until decompose phase completes.       |
+
+**Phase invariants**
+
+- `phase: "planning"` — `spec.*` and `decompose.*` all `null`.
+- `phase: "review-spec"` — `spec.*` populated; `decompose.*` all `null`.
+- `phase: "decomposing"` — `spec.*` populated; `decompose.*` populating.
+- `phase: "ready"` — all fields populated; `manifestCommentId` points at the frozen dispatch manifest comment.
+
+**Resumption semantics.** On relaunch, `plan-checkpointer.read()` parses
+this comment and decides whether to regenerate the PRD/Spec (skip if
+`spec.*` is populated and `--force` was not passed) or to re-decompose
+(skip if `decompose.*` is populated and `--force` was not passed).
+
 ## `.agentrc.json` keys
 
 ```jsonc

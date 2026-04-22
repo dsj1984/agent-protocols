@@ -2,7 +2,10 @@
  * ColumnSync — derive the GitHub Projects v2 Status column from an issue's
  * agent:: labels, and push the update via the provider's GraphQL surface.
  *
- * Mapping (tech spec #323):
+ * Mapping (tech spec #351):
+ *   agent::planning                       → Planning
+ *   agent::review-spec                    → Spec Review
+ *   agent::decomposing | agent::ready     → Ready
  *   agent::dispatching | agent::executing → In Progress
  *   agent::blocked                        → Blocked
  *   agent::review                         → Review
@@ -19,6 +22,10 @@
  */
 
 export const LABEL_TO_COLUMN = Object.freeze({
+  'agent::planning': 'Planning',
+  'agent::review-spec': 'Spec Review',
+  'agent::decomposing': 'Ready',
+  'agent::ready': 'Ready',
   'agent::dispatching': 'In Progress',
   'agent::executing': 'In Progress',
   'agent::blocked': 'Blocked',
@@ -27,18 +34,20 @@ export const LABEL_TO_COLUMN = Object.freeze({
 });
 
 /**
- * Pick the target column for a set of labels. Precedence matches the
- * lifecycle order so e.g. a ticket that still holds both `executing` and
- * `blocked` lands in Blocked (the more urgent state).
+ * Pick the target column for a set of labels. Precedence:
+ *   done > blocked > review > spec-review > ready > planning > in-progress.
+ * Terminal states win (done beats review); the active blocker outranks
+ * execution; spec-review outranks the planning-phase triggers so the board
+ * reflects the most-advanced phase the ticket has reached.
  */
 export function columnForLabels(labels) {
   const set = new Set(labels);
-  // Order: terminal states first (done), then blocker, then review, then
-  // in-progress. `done` beats `review` because closure is final; `blocked`
-  // beats `executing` because the blocker is the active condition.
   if (set.has('agent::done')) return 'Done';
   if (set.has('agent::blocked')) return 'Blocked';
   if (set.has('agent::review')) return 'Review';
+  if (set.has('agent::review-spec')) return 'Spec Review';
+  if (set.has('agent::ready') || set.has('agent::decomposing')) return 'Ready';
+  if (set.has('agent::planning')) return 'Planning';
   if (set.has('agent::executing') || set.has('agent::dispatching')) {
     return 'In Progress';
   }
