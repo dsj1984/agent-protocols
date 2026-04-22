@@ -1,0 +1,165 @@
+/**
+ * Iterate-waves phase — the wave loop.
+ *
+ * Before the loop: flip Epic to `agent::executing`, initialize checkpoint,
+ * run the version-bump-intent check, construct the BookendChainer (which
+ * the finalize phase later invokes).
+ *
+ * Inside the loop: dispatch each wave via StoryLauncher, let WaveObserver
+ * reclassify zero-delta stories, record wave history, checkpoint, and
+ * delegate blocker halts to BlockerHandler. An unresumed halt short-circuits
+ * the pipeline with a `halted` outcome.
+ */
+
+import { AGENT_LABELS } from '../../../label-constants.js';
+import { BookendChainer } from '../bookend-chainer.js';
+import { checkVersionBumpIntent } from '../version-bump-intent.js';
+import { STATE_LABELS, transitionTicketState } from '../../ticketing.js';
+
+export async function runIterateWavesPhase(ctx, collaborators, state) {
+  const { epicId, provider, config, logger } = ctx;
+  const { concurrencyCap } = config.epicRunner;
+  const {
+    notifier,
+    checkpointer,
+    blockerHandler,
+    launcher,
+    waveObserver,
+    progressReporter,
+    syncColumn,
+    journal,
+  } = collaborators;
+  const journalSuffix = () => (journal?.path ? ` (see ${journal.path})` : '');
+  const { scheduler, waves, epic, autoClose } = state;
+
+  progressReporter.setPlan({ waves });
+
+  await transitionTicketState(provider, epicId, STATE_LABELS.EXECUTING, {
+    notifier,
+  }).catch(async (err) => {
+    logger.warn?.(
+      `[EpicRunner] label flip failed: ${err.message}${journalSuffix()}`,
+    );
+    await journal?.record({
+      module: 'EpicRunner',
+      op: `transitionTicketState(#${epicId}, EXECUTING)`,
+      error: err,
+      recovery: 'swallowed',
+    });
+  });
+  await syncColumn(epicId, [STATE_LABELS.EXECUTING]);
+
+  const checkpointState = await checkpointer.initialize({
+    totalWaves: scheduler.totalWaves,
+    concurrencyCap,
+    autoClose,
+  });
+
+  try {
+    await checkVersionBumpIntent({
+      provider,
+      epicId,
+      epicBody: epic.body ?? '',
+      autoVersionBump: Boolean(ctx.autoVersionBump),
+      logger,
+    });
+  } catch (err) {
+    logger.warn?.(
+      `[EpicRunner] version-bump-intent check failed: ${err.message}${journalSuffix()}`,
+    );
+    await journal?.record({
+      module: 'EpicRunner',
+      op: 'checkVersionBumpIntent',
+      error: err,
+      recovery: 'swallowed',
+    });
+  }
+
+  // Authoritative snapshot — on a resume, re-use whatever autoClose was
+  // captured at dispatch time, ignoring mid-run label changes.
+  const effectiveAutoClose = Boolean(checkpointState.autoClose);
+
+  const bookends = new BookendChainer({
+    ctx,
+    autoClose: effectiveAutoClose,
+    postComment: (id, payload) => provider.postComment(id, payload),
+    errorJournal: journal,
+  });
+
+  const waveHistory = [];
+  while (scheduler.hasMoreWaves()) {
+    const wave = scheduler.nextWave();
+    logger.info?.(
+      `[EpicRunner] Wave ${wave.index + 1}/${scheduler.totalWaves} dispatching ${wave.stories.length} stor${wave.stories.length === 1 ? 'y' : 'ies'}`,
+    );
+    const { startedAt } = await waveObserver.waveStart({
+      index: wave.index,
+      totalWaves: scheduler.totalWaves,
+      stories: wave.stories,
+    });
+
+    progressReporter.setWave({
+      index: wave.index,
+      totalWaves: scheduler.totalWaves,
+      stories: wave.stories,
+      startedAt,
+    });
+    progressReporter.start();
+
+    const launchResults = await launcher.launchWave(wave.stories);
+    await progressReporter.stop();
+
+    scheduler.markWaveComplete(wave.index);
+    const { stories: results = launchResults } = await waveObserver.waveEnd({
+      index: wave.index,
+      totalWaves: scheduler.totalWaves,
+      startedAt,
+      stories: launchResults,
+    });
+    const failures = results.filter(
+      (r) => r.status === 'failed' || r.status === 'blocked',
+    );
+
+    waveHistory.push({
+      index: wave.index,
+      status: failures.length ? 'halted' : 'completed',
+      stories: results,
+      startedAt,
+      completedAt: new Date().toISOString(),
+    });
+    await checkpointer.write({
+      ...checkpointState,
+      currentWave: scheduler.currentWave,
+      totalWaves: scheduler.totalWaves,
+      waves: waveHistory,
+      autoClose: effectiveAutoClose,
+    });
+
+    if (failures.length) {
+      const firstFailure = failures[0];
+      await syncColumn(epicId, [AGENT_LABELS.BLOCKED]);
+      const halt = await blockerHandler.halt({
+        reason:
+          firstFailure.status === 'blocked' ? 'story_blocked' : 'story_failed',
+        storyId: firstFailure.storyId,
+        detail: firstFailure.detail,
+      });
+      if (!halt.resumed) {
+        return {
+          ...state,
+          waveHistory,
+          bookends,
+          completionState: 'halted',
+        };
+      }
+      await syncColumn(epicId, [STATE_LABELS.EXECUTING]);
+    }
+  }
+
+  return {
+    ...state,
+    waveHistory,
+    bookends,
+    completionState: 'completed',
+  };
+}
