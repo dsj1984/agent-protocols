@@ -49,6 +49,10 @@ import {
 } from './lib/git-utils.js';
 import { Logger } from './lib/Logger.js';
 import { createNotifier } from './lib/notifications/notifier.js';
+import {
+  checkDocsContextBridge,
+  getStoryChangedFiles,
+} from './lib/orchestration/docs-context-bridge.js';
 import { toDone } from './lib/orchestration/label-transitions.js';
 import {
   RECOVERY_ACTIONS,
@@ -684,7 +688,7 @@ export async function runStoryClose({
 
   let epicId = argEpicId;
 
-  const { orchestration } = resolveConfig({ cwd });
+  const { orchestration, settings: agentSettings } = resolveConfig({ cwd });
   const provider = injectedProvider || createProvider(orchestration);
   const notifier = createNotifier(orchestration, provider, { cwd });
 
@@ -813,6 +817,17 @@ export async function runStoryClose({
   }
 
   // -------------------------------------------------------------------------
+  // Snapshot Story changed-files before merge so the docs-context-bridge
+  // checkpoint can run against the Story-only delta after the merge resolves.
+  // -------------------------------------------------------------------------
+
+  const storyChangedFiles = getStoryChangedFiles({
+    cwd,
+    storyBranch,
+    epicBranch,
+  });
+
+  // -------------------------------------------------------------------------
   // Step 5 — Merge
   // -------------------------------------------------------------------------
 
@@ -849,6 +864,20 @@ export async function runStoryClose({
     repoRoot: cwd,
   });
   branchCleanup = cleanupBranches(storyBranch, cwd);
+
+  // Docs-context-bridge friction checkpoint — advisory comment when the
+  // Story's changed files overlap with sections in the configured docs.
+  // Best-effort: failures here must not abort Story close.
+  await runPhase('Docs-context bridge', async () => {
+    await checkDocsContextBridge({
+      provider,
+      storyId,
+      changedFiles: storyChangedFiles,
+      cwd,
+      agentSettings,
+      logger: { warn: (m) => Logger.error(m) },
+    });
+  });
 
   // Cascade Completion (Ticket Closure)
   const { closedTickets, cascadedTo, cascadeFailed } =
