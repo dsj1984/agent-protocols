@@ -97,10 +97,7 @@ function logSkipOverrides({ skipRetro, skipCodeReview }) {
     );
   }
   if (skipRetro) {
-    progress(
-      'NOTIFY',
-      '⚠️ retro skipped by operator override (--skip-retro)',
-    );
+    progress('NOTIFY', '⚠️ retro skipped by operator override (--skip-retro)');
   }
 }
 

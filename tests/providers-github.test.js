@@ -685,7 +685,10 @@ describe('GitHubProvider — ensureStatusField()', () => {
 
   it('throws when projectNumber is not configured', async () => {
     const provider = createTestProvider({ projectNumber: null });
-    await assert.rejects(provider.ensureStatusField(['Backlog']), /projectNumber/);
+    await assert.rejects(
+      provider.ensureStatusField(['Backlog']),
+      /projectNumber/,
+    );
   });
 
   it('creates the Status field with all options when missing', async () => {
@@ -900,7 +903,9 @@ describe('GitHubProvider — ensureProjectViews()', () => {
       status: 200,
       headers: { get: () => null },
       json: async () => ({
-        errors: [{ message: "Field 'views' doesn't exist on type 'ProjectV2'" }],
+        errors: [
+          { message: "Field 'views' doesn't exist on type 'ProjectV2'" },
+        ],
       }),
       text: async () => '',
     });

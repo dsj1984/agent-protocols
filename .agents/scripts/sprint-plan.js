@@ -25,20 +25,20 @@ import { readFile } from 'node:fs/promises';
 import { parseArgs } from 'node:util';
 import { runAsCli } from './lib/cli-utils.js';
 import { resolveConfig } from './lib/config-resolver.js';
-import { AGENT_LABELS } from './lib/label-constants.js';
 import { Logger } from './lib/Logger.js';
+import { AGENT_LABELS } from './lib/label-constants.js';
 import {
-  PlanCheckpointer,
   PLAN_PHASES,
+  PlanCheckpointer,
 } from './lib/orchestration/plan-runner/plan-checkpointer.js';
 import {
   advancePhase,
-  PLAN_PHASE_NAMES,
   nextPhaseForEpic,
+  PLAN_PHASE_NAMES,
 } from './lib/orchestration/plan-runner/plan-router.js';
 import { createProvider } from './lib/provider-factory.js';
-import { runSpecPhase } from './sprint-plan-spec.js';
 import { runDecomposePhase } from './sprint-plan-decompose.js';
+import { runSpecPhase } from './sprint-plan-spec.js';
 
 /**
  * Flip the Epic to `agent::dispatching` (removes the `agent::ready` parking
@@ -217,11 +217,6 @@ async function main() {
 // Re-export the phase names/enums so downstream tooling can import them from
 // a single entry point. `advancePhase` and `PLAN_PHASES` (phase-name enum)
 // are the two most common consumers.
-export {
-  advancePhase,
-  PLAN_PHASES,
-  PLAN_PHASE_NAMES,
-  PlanCheckpointer,
-};
+export { advancePhase, PLAN_PHASE_NAMES, PLAN_PHASES, PlanCheckpointer };
 
 runAsCli(import.meta.url, main, { source: 'sprint-plan' });

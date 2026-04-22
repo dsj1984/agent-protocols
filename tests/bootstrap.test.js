@@ -25,12 +25,16 @@ const { runBootstrap } = await import(
   ).href
 );
 
-const { LABEL_TAXONOMY, PROJECT_FIELD_DEFS, PROJECT_VIEW_DEFS, STATUS_FIELD_OPTIONS } =
-  await import(
-    pathToFileURL(
-      path.join(ROOT, '.agents', 'scripts', 'lib', 'label-taxonomy.js'),
-    ).href
-  );
+const {
+  LABEL_TAXONOMY,
+  PROJECT_FIELD_DEFS,
+  PROJECT_VIEW_DEFS,
+  STATUS_FIELD_OPTIONS,
+} = await import(
+  pathToFileURL(
+    path.join(ROOT, '.agents', 'scripts', 'lib', 'label-taxonomy.js'),
+  ).href
+);
 
 const { ITicketingProvider } = await import(
   pathToFileURL(
@@ -342,7 +346,10 @@ describe('Bootstrap — runBootstrap()', () => {
     const mock = new MockProvider();
     mock._projectResult = { scopesMissing: true };
     const result = await runBootstrap(
-      { ...orchestration, github: { ...orchestration.github, projectNumber: null } },
+      {
+        ...orchestration,
+        github: { ...orchestration.github, projectNumber: null },
+      },
       { providerOverride: mock, quiet: true },
     );
     assert.equal(result.project.skipped, true);

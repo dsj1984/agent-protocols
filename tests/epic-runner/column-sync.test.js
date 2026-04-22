@@ -36,15 +36,9 @@ describe('columnForLabels', () => {
       'Spec Review',
     );
     // ready + planning → Ready
-    assert.equal(
-      columnForLabels(['agent::planning', 'agent::ready']),
-      'Ready',
-    );
+    assert.equal(columnForLabels(['agent::planning', 'agent::ready']), 'Ready');
     // done beats every planning-phase label
-    assert.equal(
-      columnForLabels(['agent::planning', 'agent::done']),
-      'Done',
-    );
+    assert.equal(columnForLabels(['agent::planning', 'agent::done']), 'Done');
   });
 
   it('returns null for labels with no mapping', () => {

@@ -909,14 +909,19 @@ export class GitHubProvider extends ITicketingProvider {
    */
   async resolveOrCreateProject(opts = {}) {
     const owner = opts.owner ?? this.projectOwner;
-    const name = opts.name ?? this.projectName ?? `${this.repo} — Agent Protocols`;
+    const name =
+      opts.name ?? this.projectName ?? `${this.repo} — Agent Protocols`;
 
     if (this.projectNumber) {
       try {
         const project = await this._fetchProjectV2('id');
         if (project) {
           this._projectId = project.id;
-          return { projectId: project.id, projectNumber: this.projectNumber, created: false };
+          return {
+            projectId: project.id,
+            projectNumber: this.projectNumber,
+            created: false,
+          };
         }
       } catch (err) {
         if (GitHubProvider.isInsufficientScopes(err)) {
@@ -941,7 +946,8 @@ export class GitHubProvider extends ITicketingProvider {
       );
       ownerNodeId = data?.organization?.id ?? data?.user?.id ?? null;
     } catch (err) {
-      if (GitHubProvider.isInsufficientScopes(err)) return { scopesMissing: true };
+      if (GitHubProvider.isInsufficientScopes(err))
+        return { scopesMissing: true };
       throw err;
     }
 
@@ -962,7 +968,9 @@ export class GitHubProvider extends ITicketingProvider {
       );
       const project = data?.createProjectV2?.projectV2;
       if (!project) {
-        throw new Error('[GitHubProvider] createProjectV2 returned no project.');
+        throw new Error(
+          '[GitHubProvider] createProjectV2 returned no project.',
+        );
       }
       this._projectId = project.id;
       this.projectNumber = project.number;
@@ -972,7 +980,8 @@ export class GitHubProvider extends ITicketingProvider {
         created: true,
       };
     } catch (err) {
-      if (GitHubProvider.isInsufficientScopes(err)) return { scopesMissing: true };
+      if (GitHubProvider.isInsufficientScopes(err))
+        return { scopesMissing: true };
       throw err;
     }
   }
@@ -993,7 +1002,9 @@ export class GitHubProvider extends ITicketingProvider {
    */
   async ensureStatusField(optionNames) {
     if (!this.projectNumber) {
-      throw new Error('[GitHubProvider] ensureStatusField requires projectNumber.');
+      throw new Error(
+        '[GitHubProvider] ensureStatusField requires projectNumber.',
+      );
     }
 
     let project;
@@ -1039,7 +1050,11 @@ export class GitHubProvider extends ITicketingProvider {
           {
             projectId: project.id,
             name: 'Status',
-            options: optionNames.map((o) => ({ name: o, color: 'GRAY', description: '' })),
+            options: optionNames.map((o) => ({
+              name: o,
+              color: 'GRAY',
+              description: '',
+            })),
           },
         );
         return {
@@ -1109,7 +1124,9 @@ export class GitHubProvider extends ITicketingProvider {
    */
   async ensureProjectViews(viewDefs) {
     if (!this.projectNumber) {
-      throw new Error('[GitHubProvider] ensureProjectViews requires projectNumber.');
+      throw new Error(
+        '[GitHubProvider] ensureProjectViews requires projectNumber.',
+      );
     }
 
     const created = [];
@@ -1123,12 +1140,20 @@ export class GitHubProvider extends ITicketingProvider {
       `);
     } catch (err) {
       if (GitHubProvider.isInsufficientScopes(err)) {
-        return { created, skipped: viewDefs.map((v) => v.name), unavailable: true };
+        return {
+          created,
+          skipped: viewDefs.map((v) => v.name),
+          unavailable: true,
+        };
       }
       // Treat a schema-level "views field does not exist" failure as
       // unavailable rather than fatal — Projects V2 Views API is GitHub-
       // internal in most contexts as of v5.15.
-      return { created, skipped: viewDefs.map((v) => v.name), unavailable: true };
+      return {
+        created,
+        skipped: viewDefs.map((v) => v.name),
+        unavailable: true,
+      };
     }
 
     if (!project) {

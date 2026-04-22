@@ -179,9 +179,7 @@ export async function runBootstrap(orchestration, opts = {}) {
       `[bootstrap] Fields — created: ${fields.created.length}, skipped: ${fields.skipped.length}`,
     );
   } else {
-    log(
-      '[bootstrap] No active project — skipping legacy project-field setup.',
-    );
+    log('[bootstrap] No active project — skipping legacy project-field setup.');
   }
 
   log('[bootstrap] Done.');

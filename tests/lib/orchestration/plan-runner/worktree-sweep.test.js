@@ -7,7 +7,13 @@ const REPO = '/repo';
 
 function porcelain(paths) {
   return paths
-    .map((p, i) => [`worktree ${p}`, `HEAD abc${i}`, `branch refs/heads/${p.split(/[\\/]/).pop()}`].join('\n'))
+    .map((p, i) =>
+      [
+        `worktree ${p}`,
+        `HEAD abc${i}`,
+        `branch refs/heads/${p.split(/[\\/]/).pop()}`,
+      ].join('\n'),
+    )
     .join('\n\n');
 }
 
@@ -22,7 +28,11 @@ function makeFakeGit({ listStdout, removeResponses = {} }) {
       }
       if (args[0] === 'worktree' && args[1] === 'remove') {
         const path = args[args.length - 1];
-        const resp = removeResponses[path] ?? { status: 0, stdout: '', stderr: '' };
+        const resp = removeResponses[path] ?? {
+          status: 0,
+          stdout: '',
+          stderr: '',
+        };
         return resp;
       }
       if (args[0] === 'worktree' && args[1] === 'prune') {
@@ -48,11 +58,24 @@ function quietLogger() {
 test('sweepStaleStoryWorktrees: force-removes worktrees for agent::done stories', async () => {
   const provider = new MockProvider({
     tickets: {
-      100: { id: 100, title: 'S100', labels: ['type::story', 'agent::done'], state: 'closed' },
-      200: { id: 200, title: 'S200', labels: ['type::story', 'agent::executing'], state: 'open' },
+      100: {
+        id: 100,
+        title: 'S100',
+        labels: ['type::story', 'agent::done'],
+        state: 'closed',
+      },
+      200: {
+        id: 200,
+        title: 'S200',
+        labels: ['type::story', 'agent::executing'],
+        state: 'open',
+      },
     },
   });
-  const listStdout = porcelain(['/repo/.worktrees/story-100', '/repo/.worktrees/story-200']);
+  const listStdout = porcelain([
+    '/repo/.worktrees/story-100',
+    '/repo/.worktrees/story-200',
+  ]);
   const git = makeFakeGit({ listStdout });
   const { logger } = quietLogger();
 
@@ -147,8 +170,18 @@ test('sweepStaleStoryWorktrees: skips when provider.getTicket throws and logs th
 test('sweepStaleStoryWorktrees: surfaces remove failures in skipped, keeps going', async () => {
   const provider = new MockProvider({
     tickets: {
-      500: { id: 500, title: 'S500', labels: ['type::story', 'agent::done'], state: 'closed' },
-      501: { id: 501, title: 'S501', labels: ['type::story', 'agent::done'], state: 'closed' },
+      500: {
+        id: 500,
+        title: 'S500',
+        labels: ['type::story', 'agent::done'],
+        state: 'closed',
+      },
+      501: {
+        id: 501,
+        title: 'S501',
+        labels: ['type::story', 'agent::done'],
+        state: 'closed',
+      },
     },
   });
   const git = makeFakeGit({
@@ -215,7 +248,8 @@ test('sweepStaleStoryWorktrees: throws when provider is missing', async () => {
 
 test('sweepStaleStoryWorktrees: throws when repoRoot is missing', async () => {
   await assert.rejects(
-    () => sweepStaleStoryWorktrees({ provider: new MockProvider({ tickets: {} }) }),
+    () =>
+      sweepStaleStoryWorktrees({ provider: new MockProvider({ tickets: {} }) }),
     /repoRoot is required/,
   );
 });

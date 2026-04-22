@@ -127,7 +127,12 @@ function cleanupBranches(storyBranch, cwd) {
   return { localDeleted, remoteDeleted };
 }
 
-async function ticketClosureCascade(provider, tasks, storyId, { notifier } = {}) {
+async function ticketClosureCascade(
+  provider,
+  tasks,
+  storyId,
+  { notifier } = {},
+) {
   progress(
     'TICKETS',
     `Transitioning ${tasks.length} Task(s) to agent::done...`,

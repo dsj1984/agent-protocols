@@ -14,10 +14,11 @@
 
 import assert from 'node:assert/strict';
 import { describe, it } from 'node:test';
+import { AGENT_LABELS } from '../../.agents/scripts/lib/label-constants.js';
 import {
+  nextPhaseForEpic,
   PLAN_PHASE_DESCRIPTORS,
   PLAN_PHASE_NAMES,
-  nextPhaseForEpic,
   phaseForLabel,
 } from '../../.agents/scripts/lib/orchestration/plan-runner/plan-router.js';
 import {
@@ -25,7 +26,6 @@ import {
   parsePhaseFromArgv,
   resolvePhase,
 } from '../../.agents/scripts/remote-bootstrap.js';
-import { AGENT_LABELS } from '../../.agents/scripts/lib/label-constants.js';
 
 function commandForPhase(phase, epicId) {
   return `${PHASE_TO_COMMAND[phase]} ${epicId}`;
@@ -48,10 +48,7 @@ describe('plan-runner parity (features/remote-planning.feature)', () => {
   });
 
   it('(b) review-spec is a parking state — the wrapper advances to decompose', () => {
-    const next = nextPhaseForEpic([
-      'type::epic',
-      AGENT_LABELS.REVIEW_SPEC,
-    ]);
+    const next = nextPhaseForEpic(['type::epic', AGENT_LABELS.REVIEW_SPEC]);
     assert.equal(
       next.phase,
       PLAN_PHASE_NAMES.DECOMPOSE,
@@ -95,10 +92,7 @@ describe('plan-runner parity (features/remote-planning.feature)', () => {
   });
 
   it('(d.env) PHASE env var is honored when --phase is absent', () => {
-    assert.equal(
-      resolvePhase({ argv: [], env: { PHASE: 'spec' } }),
-      'spec',
-    );
+    assert.equal(resolvePhase({ argv: [], env: { PHASE: 'spec' } }), 'spec');
     // CLI flag wins over env.
     assert.equal(
       resolvePhase({ argv: ['--phase', 'decompose'], env: { PHASE: 'spec' } }),
@@ -111,10 +105,7 @@ describe('plan-runner parity (features/remote-planning.feature)', () => {
       () => resolvePhase({ argv: ['--phase', 'bogus'], env: {} }),
       /Unknown --phase "bogus".*spec\|decompose\|execute/,
     );
-    assert.throws(
-      () => parsePhaseFromArgv(['--phase']),
-      /requires a value/,
-    );
+    assert.throws(() => parsePhaseFromArgv(['--phase']), /requires a value/);
     assert.throws(
       () => parsePhaseFromArgv(['--phase', '--other']),
       /requires a value/,

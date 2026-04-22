@@ -109,16 +109,18 @@ export async function sweepStaleStoryWorktrees({
       continue;
     }
 
-    const res = git.gitSpawn(
-      repoRoot,
-      'worktree',
-      'remove',
-      '--force',
-      wtPath,
-    );
+    const res = git.gitSpawn(repoRoot, 'worktree', 'remove', '--force', wtPath);
     if (res.status !== 0) {
-      const reason = (res.stderr || res.stdout || 'worktree-remove-failed').trim();
-      skipped.push({ storyId, path: wtPath, reason: `remove-failed: ${reason}` });
+      const reason = (
+        res.stderr ||
+        res.stdout ||
+        'worktree-remove-failed'
+      ).trim();
+      skipped.push({
+        storyId,
+        path: wtPath,
+        reason: `remove-failed: ${reason}`,
+      });
       logger.warn(
         `worktree-sweep: failed to reap storyId=${storyId} path=${wtPath}: ${reason}`,
       );
