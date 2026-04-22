@@ -6,6 +6,85 @@ All notable changes to this project will be documented in this file.
 
 ## [5.15.1] - 2026-04-22
 
+### Sprint-protocol self-healing + orchestration refactor (Epic #380)
+
+Patch-only internal hardening that closes three retro themes carried forward
+from v5.15.0: sprint-protocol fragility on Windows, the orchestration layer's
+silent-catch + opts-bag debt, and residual dead code + duplication flagged by
+the 5.15.0 clean-code audit. No public API changes; every consumer import
+path is unchanged.
+
+#### Fixes
+
+- **Windows worktree reap is two-stage (#386).** `lifecycle-manager.js` now
+  retries `fs.rm` on `EBUSY` / `ENOTEMPTY`, and anything still pinned is
+  queued into `.worktrees/.pending-cleanup.json` and drained on next run by
+  `worktree-sweep.js`. Preferred over a shell `rm -rf` subprocess; the
+  `per-worktree` `node_modules` strategy is preserved. Closes the
+  partial-reap class of failures (`branchDeleted: false`, orphan
+  `.worktrees/` residue).
+- **Close-phase drift caught per-story (#387).** `.worktrees/**`, `temp/**`,
+  and `dist/**` are now in root `biome.json` ignore; Biome config migrated
+  to v2; `detect-merges.js` skips `.agents/workflows/` so template files
+  stop getting flagged; `sprint-story-close.js` runs format +
+  maintainability at close time instead of surfacing drift at final push.
+- **Retros never leak to Slack (#388).** `/sprint-retro` routes through
+  `provider.postComment` / MCP `post_structured_comment` instead of
+  `notify.js` (which fires the Make.com webhook). Adds a `retro-partial`
+  checkpoint comment so a crashed retro resumes cleanly.
+- **Cross-platform sub-agent dispatch** (`6830fbe`). New `buildClaudeSpawn`
+  helper fixes the Windows-specific `shell: true` arg-quoting bug that
+  caused every story dispatch to exit in 28s with no real work done.
+- **Maintainability parse error in `remote-bootstrap.js`** (#394) resolved
+  by factoring a regex to a module const so escomplex's parser can traverse
+  the file.
+
+#### Refactors
+
+- **`OrchestrationContext` / `EpicRunnerContext` / `PlanRunnerContext`
+  (#389)** at `.agents/scripts/lib/orchestration/context.js`. Every
+  epic-runner submodule and the plan-runner now accept a `ctx` parameter
+  instead of an opts bag — explicit provider / logger / settings /
+  errorJournal wiring per call.
+- **`ErrorJournal` (#390)** at
+  `.agents/scripts/lib/orchestration/error-journal.js` writes structured
+  JSONL to `temp/epic-<id>-errors.log`. Replaces silent `catch` +
+  `logger.warn` sites in `epic-runner.js`, `blocker-handler.js`, and
+  `bookend-chainer.js`.
+- **`LintBaselineService` extraction (#391)** from `story-executor.js` /
+  `dispatch-engine.js`, with an injected `exec` adapter so baseline
+  comparison is individually unit-testable. Full JSDoc coverage added to
+  `dispatch-pipeline.js`, `reconciler.js`, and `planning-state-manager.js`.
+- **Shared utilities (#392):** `lib/util/poll-loop.js` (`pollUntil`,
+  `sleep`) replaces hand-rolled loops in `state-poller.js` and
+  `blocker-handler.js`; `lib/orchestration/label-transitions.js`
+  (`toExecuting`, `toReview`, `toDone`) replaces ad-hoc label-set calls.
+- **Dead-code sweep + dependency-analyzer split (#393):**
+  `ConcurrentTaskResolver` extracted from `dependency-analyzer.js`;
+  `task-utils.extractDependencies` and `Graph._dfsReaches` removed;
+  `adapters/manual.js` trimmed its console-log formatting block.
+
+#### Dev-loop
+
+- **`ProgressReporter`** (`8b927ca`) — new
+  `lib/orchestration/epic-runner/progress-reporter.js` emits a periodic
+  markdown table + `epic-run-progress` structured comment on the Epic
+  during a wave. Driven by
+  `orchestration.epicRunner.progressReportIntervalSec` (default 120s).
+- **Config schema hygiene** (`8f03054`) — removed the legacy
+  `planRunner.notificationWebhookUrl` knob; added
+  `progressReportIntervalSec` to the orchestration schema.
+
+#### Docs
+
+- `architecture.md`, `data-dictionary.md`, `decisions.md`, `patterns.md`,
+  `README.md`, and this changelog all updated as part of Epic #380 to
+  record the ctx-based composition, the `ErrorJournal` contract, the new
+  artefact names (`epic-run-progress`, `retro-partial`,
+  `.pending-cleanup.json`), and the Windows worktree reap ADR.
+
+---
+
 ### Epic-runner dependency source, auto-close scope, and config hygiene
 
 Follow-up hardening on Epic #349 addressing an independent code-review pass.
