@@ -49,10 +49,10 @@ import {
 } from './lib/git-utils.js';
 import { Logger } from './lib/Logger.js';
 import { createNotifier } from './lib/notifications/notifier.js';
+import { toDone } from './lib/orchestration/label-transitions.js';
 import {
   cascadeCompletion,
   STATE_LABELS,
-  transitionTicketState,
 } from './lib/orchestration/ticketing.js';
 import { createProvider } from './lib/provider-factory.js';
 import {
@@ -148,9 +148,7 @@ async function ticketClosureCascade(
 
   progress('TICKETS', `Transitioning Story #${storyId} to agent::done...`);
   try {
-    await transitionTicketState(provider, storyId, STATE_LABELS.DONE, {
-      notifier,
-    });
+    await toDone(provider, [storyId], { notifier });
     closedTickets.push(storyId);
     progress('TICKETS', `  #${storyId} → agent::done ✅`);
   } catch (err) {

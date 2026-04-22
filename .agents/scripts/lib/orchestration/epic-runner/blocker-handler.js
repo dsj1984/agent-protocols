@@ -15,6 +15,8 @@
  * without real GitHub IO.
  */
 
+import { pollUntil } from '../../util/poll-loop.js';
+
 const BLOCKED_LABEL = 'agent::blocked';
 const EXECUTING_LABEL = 'agent::executing';
 
@@ -86,15 +88,19 @@ export class BlockerHandler {
 
     // Wait for operator to flip the label back. The outer orchestrator is
     // responsible for keeping in-flight wave-N stories running while we wait.
-    while (!signal?.aborted) {
-      const labels = await this.#safeLabels(this.epicId);
-      if (labels.includes(EXECUTING_LABEL) && !labels.includes(BLOCKED_LABEL)) {
-        this.logger.info?.(
-          `[BlockerHandler] Epic #${this.epicId} resumed by operator.`,
-        );
-        return { resumed: true };
-      }
-      await this.#sleep(this.pollIntervalMs, signal);
+    const resumed = await pollUntil({
+      fn: () => this.#safeLabels(this.epicId),
+      predicate: (labels) =>
+        labels.includes(EXECUTING_LABEL) && !labels.includes(BLOCKED_LABEL),
+      intervalMs: this.pollIntervalMs,
+      signal,
+      logger: this.logger,
+    });
+    if (resumed) {
+      this.logger.info?.(
+        `[BlockerHandler] Epic #${this.epicId} resumed by operator.`,
+      );
+      return { resumed: true };
     }
     return { resumed: false, reasonToStop: 'aborted' };
   }
@@ -158,20 +164,5 @@ export class BlockerHandler {
       });
       return [];
     }
-  }
-
-  #sleep(ms, signal) {
-    return new Promise((resolve) => {
-      const t = setTimeout(resolve, ms);
-      t.unref?.();
-      signal?.addEventListener?.(
-        'abort',
-        () => {
-          clearTimeout(t);
-          resolve();
-        },
-        { once: true },
-      );
-    });
   }
 }
