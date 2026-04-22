@@ -12,6 +12,7 @@ import {
   structuredCommentMarker,
   upsertStructuredComment,
 } from '../ticketing.js';
+import { COMMIT_ASSERTION_ZERO_DELTA_DETAIL } from './commit-assertion.js';
 
 const WAVE_START_TYPE = (index) => `wave-${index}-start`;
 const WAVE_END_TYPE = (index) => `wave-${index}-end`;
@@ -35,6 +36,7 @@ export class WaveObserver {
     this.provider = provider;
     this.epicId = epicId;
     this.logger = opts.logger ?? ctx?.logger ?? console;
+    this.commitAssertion = opts.commitAssertion ?? ctx?.commitAssertion ?? null;
   }
 
   /**
@@ -81,15 +83,16 @@ export class WaveObserver {
     const durationMs = wave.startedAt
       ? new Date(completedAt).getTime() - new Date(wave.startedAt).getTime()
       : null;
-    const ok = wave.stories.filter((s) => s.status === 'done').length;
-    const bad = wave.stories.length - ok;
+    const stories = await this.#applyCommitAssertion(wave.stories);
+    const ok = stories.filter((s) => s.status === 'done').length;
+    const bad = stories.length - ok;
     const body = [
       `### 🏁 Wave ${wave.index + 1}/${wave.totalWaves} ${bad === 0 ? 'completed' : 'halted'}`,
       '',
       `Completed: \`${completedAt}\`${durationMs != null ? ` (${formatDuration(durationMs)})` : ''}`,
       `Outcomes: ${ok} done · ${bad} failed/blocked`,
       '',
-      ...wave.stories.map((s) => {
+      ...stories.map((s) => {
         const icon = s.status === 'done' ? '✅' : '❌';
         const suffix = s.detail ? ` — ${s.detail}` : '';
         return `- ${icon} #${s.storyId} \`${s.status}\`${suffix}`;
@@ -104,7 +107,7 @@ export class WaveObserver {
           startedAt: wave.startedAt,
           completedAt,
           durationMs,
-          stories: wave.stories,
+          stories,
         },
         null,
         2,
@@ -112,7 +115,43 @@ export class WaveObserver {
       '```',
     ].join('\n');
     await this.#upsert(WAVE_END_TYPE(wave.index), body);
-    return { completedAt, durationMs };
+    return { completedAt, durationMs, stories };
+  }
+
+  /**
+   * Consult the injected `CommitAssertion` (if any) and reclassify `done`
+   * stories with zero new commits on their story branch as `failed`.
+   * Returns a new array — the caller's input is not mutated.
+   */
+  async #applyCommitAssertion(rows) {
+    if (!this.commitAssertion) return [...rows];
+    const doneIds = rows
+      .filter((s) => s.status === 'done')
+      .map((s) => s.storyId);
+    if (doneIds.length === 0) return [...rows];
+    let deltas;
+    try {
+      deltas = await this.commitAssertion.check(doneIds, {
+        epicId: this.epicId,
+      });
+    } catch (err) {
+      this.logger.warn?.(
+        `[WaveObserver] commit-assertion check failed: ${err?.message ?? err}`,
+      );
+      return [...rows];
+    }
+    const byId = new Map(deltas.map((d) => [d.storyId, d]));
+    return rows.map((row) => {
+      if (row.status !== 'done') return { ...row };
+      const delta = byId.get(row.storyId);
+      if (!delta || delta.newCommitCount !== 0) return { ...row };
+      return {
+        ...row,
+        status: 'failed',
+        detail: COMMIT_ASSERTION_ZERO_DELTA_DETAIL,
+        newCommitCount: 0,
+      };
+    });
   }
 
   async #upsert(type, body) {
