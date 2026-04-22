@@ -1,3 +1,5 @@
+import { spawn as childSpawn } from 'node:child_process';
+
 import { buildClaudeSpawn } from './build-claude-spawn.js';
 
 /**
@@ -19,7 +21,7 @@ export class SpawnSmokeTest {
    */
   constructor(opts = {}) {
     this.ctx = opts.ctx ?? null;
-    this.spawn = opts.spawn;
+    this.spawn = opts.spawn ?? childSpawn;
     if (typeof this.spawn !== 'function') {
       throw new TypeError('SpawnSmokeTest requires a spawn adapter');
     }

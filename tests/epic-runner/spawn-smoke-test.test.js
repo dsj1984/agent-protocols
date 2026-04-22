@@ -59,7 +59,15 @@ describe('SpawnSmokeTest', () => {
     assert.match(result.detail, /ENOENT claude/);
   });
 
-  it('refuses construction without a spawn adapter', () => {
-    assert.throws(() => new SpawnSmokeTest({}), /requires a spawn adapter/);
+  it('defaults to node:child_process.spawn when none is injected', () => {
+    const smoke = new SpawnSmokeTest({});
+    assert.equal(typeof smoke.spawn, 'function');
+  });
+
+  it('refuses construction when spawn is explicitly not a function', () => {
+    assert.throws(
+      () => new SpawnSmokeTest({ spawn: 'not-a-function' }),
+      /requires a spawn adapter/,
+    );
   });
 });

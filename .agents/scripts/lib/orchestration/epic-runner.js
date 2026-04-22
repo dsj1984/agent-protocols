@@ -26,11 +26,16 @@ import { Checkpointer } from './epic-runner/checkpointer.js';
 import { ColumnSync } from './epic-runner/column-sync.js';
 import { NotificationHook } from './epic-runner/notification-hook.js';
 import { ProgressReporter } from './epic-runner/progress-reporter.js';
+import { SpawnSmokeTest } from './epic-runner/spawn-smoke-test.js';
 import { StoryLauncher } from './epic-runner/story-launcher.js';
 import { WaveObserver } from './epic-runner/wave-observer.js';
 import { WaveScheduler } from './epic-runner/wave-scheduler.js';
 import { ErrorJournal } from './error-journal.js';
-import { STATE_LABELS, transitionTicketState } from './ticketing.js';
+import {
+  STATE_LABELS,
+  transitionTicketState,
+  upsertStructuredComment,
+} from './ticketing.js';
 
 const AUTO_CLOSE_LABEL = 'epic::auto-close';
 
@@ -57,14 +62,72 @@ export async function runEpic(args = {}) {
     args.ctx instanceof EpicRunnerContext
       ? args.ctx
       : new EpicRunnerContext(args);
-  return runEpicWithContext(ctx);
+  return runEpicWithContext(ctx, { smokeTest: args.smokeTest });
 }
 
-async function runEpicWithContext(ctx) {
+async function runEpicWithContext(ctx, collaborators = {}) {
   const { epicId, provider, config, logger, fetchImpl, errorJournal } = ctx;
   const { concurrencyCap, pollIntervalSec } = config.epicRunner;
   const journal = errorJournal ?? new ErrorJournal({ epicId });
   const journalSuffix = () => (journal?.path ? ` (see ${journal.path})` : '');
+
+  // --- 0. Pre-wave spawn smoke-test ---
+  // Runs `claude --version` through the real `buildClaudeSpawn` shape before
+  // any Story dispatches. A broken spawner (the Epic #380 regression class)
+  // halts the runner here instead of producing a false-positive wave.
+  const smokeTest =
+    collaborators.smokeTest ?? new SpawnSmokeTest({ ctx });
+  const smoke = await smokeTest.verify();
+  if (!smoke.ok) {
+    const body = [
+      '### 🚧 Epic blocked — pre-wave spawn smoke-test failed',
+      '',
+      `The \`claude --version\` probe returned: \`${smoke.detail}\`.`,
+      '',
+      'No wave was dispatched. Fix the spawner regression, then flip this',
+      'Epic back to `agent::executing` to resume.',
+    ].join('\n');
+    try {
+      await upsertStructuredComment(provider, epicId, 'friction', body);
+    } catch (err) {
+      logger.warn?.(
+        `[EpicRunner] smoke-test friction comment failed: ${err.message}${journalSuffix()}`,
+      );
+      await journal?.record({
+        module: 'EpicRunner',
+        op: 'upsertStructuredComment(friction, spawn-smoke-test)',
+        error: err,
+        recovery: 'swallowed',
+      });
+    }
+    try {
+      await provider.updateTicket(epicId, {
+        labels: {
+          add: ['agent::blocked'],
+          remove: [STATE_LABELS.EXECUTING],
+        },
+      });
+    } catch (err) {
+      logger.warn?.(
+        `[EpicRunner] smoke-test block-flip failed: ${err.message}${journalSuffix()}`,
+      );
+      await journal?.record({
+        module: 'EpicRunner',
+        op: 'updateTicket(labels: agent::blocked) [smoke-test]',
+        error: err,
+        recovery: 'swallowed',
+      });
+    }
+    await journal?.finalize?.();
+    return {
+      epicId,
+      state: 'halted',
+      waveHistory: [],
+      bookendResult: null,
+      aborted: 'spawn-smoke-test',
+      smokeTest: smoke,
+    };
+  }
 
   // --- 1. Snapshot Epic state ---
   const epic = await provider.getTicket(epicId);

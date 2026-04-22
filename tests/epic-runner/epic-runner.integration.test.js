@@ -5,6 +5,12 @@ import { runEpic } from '../../.agents/scripts/lib/orchestration/epic-runner.js'
 import { structuredCommentMarker } from '../../.agents/scripts/lib/orchestration/ticketing.js';
 import { buildCtx } from './_build-ctx.js';
 
+// Stub the pre-wave smoke-test so these integration tests stay hermetic
+// across CI runners that may not have the `claude` binary on PATH.
+const okSmokeTest = {
+  verify: async () => ({ ok: true, detail: 'stub', exitCode: 0 }),
+};
+
 /**
  * Fake provider — minimal surface needed by the runner under test:
  *   - getTicket, getSubTickets
@@ -122,7 +128,7 @@ describe('EpicRunner integration', () => {
       config,
       spawn,
     });
-    const result = await runEpic({ ctx });
+    const result = await runEpic({ ctx, smokeTest: okSmokeTest });
 
     assert.equal(result.state, 'completed');
     assert.equal(result.waveHistory.length, 2);
@@ -188,6 +194,7 @@ describe('EpicRunner integration', () => {
         },
       },
       spawn,
+      smokeTest: okSmokeTest,
       logger: quietLogger(),
     });
 
@@ -238,6 +245,7 @@ describe('EpicRunner integration', () => {
       provider,
       config,
       spawn,
+      smokeTest: okSmokeTest,
       logger: quietLogger(),
     });
 
