@@ -23,9 +23,9 @@ export const DEFAULT_GATES = [
   { name: 'lint', cmd: 'npm', args: ['run', 'lint'] },
   { name: 'test', cmd: 'npm', args: ['test'] },
   {
-    name: 'biome format --check',
+    name: 'biome format',
     cmd: 'npx',
-    args: ['biome', 'format', '--check', '.'],
+    args: ['biome', 'format', '.'],
     hint: 'Run `npx biome format --write` to auto-fix formatting drift.',
   },
   {
