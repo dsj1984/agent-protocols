@@ -147,7 +147,11 @@ export async function reconcileHierarchy(
       await provider.updateTicket(id, {
         labels: {
           add: [AGENT_DONE_LABEL],
-          remove: [AGENT_LABELS.READY, AGENT_LABELS.EXECUTING, AGENT_LABELS.REVIEW],
+          remove: [
+            AGENT_LABELS.READY,
+            AGENT_LABELS.EXECUTING,
+            AGENT_LABELS.REVIEW,
+          ],
         },
         state: 'closed',
         state_reason: 'completed',

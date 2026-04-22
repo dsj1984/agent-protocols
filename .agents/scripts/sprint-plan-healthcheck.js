@@ -74,7 +74,9 @@ async function checkTickets(provider, epicId) {
     return findings;
   }
 
-  const features = tickets.filter((t) => t.labels.includes(TYPE_LABELS.FEATURE));
+  const features = tickets.filter((t) =>
+    t.labels.includes(TYPE_LABELS.FEATURE),
+  );
   const stories = tickets.filter((t) => t.labels.includes(TYPE_LABELS.STORY));
   const tasks = tickets.filter((t) => t.labels.includes(TYPE_LABELS.TASK));
 

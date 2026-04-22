@@ -130,7 +130,11 @@ export async function decomposeEpic(
   if (force) {
     console.log('[Decomposer] --force: Closing existing child tickets...');
     const existing = await provider.getTickets(epicId);
-    const childTypes = [TYPE_LABELS.FEATURE, TYPE_LABELS.STORY, TYPE_LABELS.TASK];
+    const childTypes = [
+      TYPE_LABELS.FEATURE,
+      TYPE_LABELS.STORY,
+      TYPE_LABELS.TASK,
+    ];
     const children = existing.filter((t) =>
       t.labels.some((l) => childTypes.includes(l)),
     );

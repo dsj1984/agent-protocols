@@ -89,7 +89,8 @@ export function formatManifestMarkdown(manifest, _opts = {}) {
   );
   const doneStories = allStoryItems.filter(
     (s) =>
-      s.tasks.length > 0 && s.tasks.every((t) => t.status === AGENT_LABELS.DONE),
+      s.tasks.length > 0 &&
+      s.tasks.every((t) => t.status === AGENT_LABELS.DONE),
   ).length;
   lines.push(
     `> **Stories:** ${doneStories}/${allStoryItems.length} complete · **Tasks:** ${summary.doneTasks}/${summary.totalTasks} complete`,
