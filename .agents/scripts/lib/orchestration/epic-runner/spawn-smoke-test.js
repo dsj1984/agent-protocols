@@ -67,7 +67,11 @@ export class SpawnSmokeTest {
 
       proc.on('exit', (code) => {
         if (code === 0) {
-          settle({ ok: true, detail: 'claude --version exited 0', exitCode: 0 });
+          settle({
+            ok: true,
+            detail: 'claude --version exited 0',
+            exitCode: 0,
+          });
         } else {
           settle({
             ok: false,

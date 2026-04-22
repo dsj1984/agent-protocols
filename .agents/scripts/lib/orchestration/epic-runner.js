@@ -75,8 +75,7 @@ async function runEpicWithContext(ctx, collaborators = {}) {
   // Runs `claude --version` through the real `buildClaudeSpawn` shape before
   // any Story dispatches. A broken spawner (the Epic #380 regression class)
   // halts the runner here instead of producing a false-positive wave.
-  const smokeTest =
-    collaborators.smokeTest ?? new SpawnSmokeTest({ ctx });
+  const smokeTest = collaborators.smokeTest ?? new SpawnSmokeTest({ ctx });
   const smoke = await smokeTest.verify();
   if (!smoke.ok) {
     const body = [
