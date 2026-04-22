@@ -15,11 +15,17 @@ const vlog = VerboseLogger.init(globalSettings, PROJECT_ROOT, {
 const AGENT_DONE_LABEL = STATE_LABELS.DONE;
 
 /**
- * Reconcile closed GitHub issues that still have stale agent:: labels.
+ * Reconcile closed GitHub issues that still have stale `agent::` labels.
  *
- * @param {object[]} tasks
- * @param {import('../ITicketingProvider.js').ITicketingProvider} provider
- * @param {boolean} dryRun
+ * For every task that is already closed (`status === agent::done`) but
+ * missing the `agent::done` label, rewrites labels to the canonical set and
+ * sets `state_reason: completed`. Provider failures are logged and swallowed
+ * — reconciliation must never break the dispatch cycle.
+ *
+ * @param {object[]} tasks                                              Parsed task records.
+ * @param {import('../ITicketingProvider.js').ITicketingProvider} provider  Ticketing provider.
+ * @param {boolean} dryRun                                              When true, log intent without mutating.
+ * @returns {Promise<void>}
  */
 export async function reconcileClosedTasks(tasks, provider, dryRun) {
   const ALL_AGENT_STATES = Object.values(STATE_LABELS);
@@ -64,14 +70,24 @@ export async function reconcileClosedTasks(tasks, provider, dryRun) {
 }
 
 /**
- * Reconcile the full ticket hierarchy bottom-up (Tasks → Stories → Features → Epic).
+ * Reconcile the ticket hierarchy bottom-up (Tasks → Stories → Features).
  *
- * @param {import('../ITicketingProvider.js').ITicketingProvider} provider
- * @param {number} epicId
- * @param {object} epic
- * @param {object[]} tasks
- * @param {object[]} allTickets
- * @param {boolean} dryRun
+ * Walks every Story and Feature under the Epic; if all children of a
+ * container are done, closes the container and applies `agent::done`.
+ *
+ * Epic auto-closure is intentionally excluded — Epics close only through
+ * the formal `/sprint-close` workflow.
+ *
+ * Per-ticket provider failures are logged and swallowed so a single bad
+ * ticket cannot halt reconciliation across the rest of the graph.
+ *
+ * @param {import('../ITicketingProvider.js').ITicketingProvider} provider  Ticketing provider.
+ * @param {number} _epicId                                               Epic id (reserved — currently unused; kept for call-site stability).
+ * @param {object} _epic                                                 Epic ticket record (reserved — currently unused).
+ * @param {object[]} tasks                                               Parsed task records.
+ * @param {object[]} allTickets                                          Every ticket under the Epic.
+ * @param {boolean} dryRun                                               When true, mutate nothing.
+ * @returns {Promise<void>}
  */
 export async function reconcileHierarchy(
   provider,

@@ -33,6 +33,7 @@ import { generateAndSaveManifest } from './dispatcher.js';
 import { updateHealthMetrics } from './health-monitor.js';
 import { parseSprintArgs } from './lib/cli-args.js';
 import { runAsCli } from './lib/cli-utils.js';
+import { runCloseValidation } from './lib/close-validation.js';
 import { PROJECT_ROOT, resolveConfig } from './lib/config-resolver.js';
 import {
   acquireEpicMergeLock,
@@ -48,10 +49,10 @@ import {
 } from './lib/git-utils.js';
 import { Logger } from './lib/Logger.js';
 import { createNotifier } from './lib/notifications/notifier.js';
+import { toDone } from './lib/orchestration/label-transitions.js';
 import {
   cascadeCompletion,
   STATE_LABELS,
-  transitionTicketState,
 } from './lib/orchestration/ticketing.js';
 import { createProvider } from './lib/provider-factory.js';
 import {
@@ -147,9 +148,7 @@ async function ticketClosureCascade(
 
   progress('TICKETS', `Transitioning Story #${storyId} to agent::done...`);
   try {
-    await transitionTicketState(provider, storyId, STATE_LABELS.DONE, {
-      notifier,
-    });
+    await toDone(provider, [storyId], { notifier });
     closedTickets.push(storyId);
     progress('TICKETS', `  #${storyId} → agent::done ✅`);
   } catch (err) {
@@ -523,6 +522,7 @@ export async function runStoryClose({
   storyId: storyIdParam,
   epicId: epicIdParam,
   skipDashboard: skipDashboardParam,
+  skipValidation: skipValidationParam,
   cwd: cwdParam,
   injectedProvider,
 } = {}) {
@@ -586,6 +586,32 @@ export async function runStoryClose({
   }
 
   progress('TASKS', `Found ${tasks.length} child Task(s)`);
+
+  // -------------------------------------------------------------------------
+  // Pre-merge validation — shift-left gates so formatting drift or
+  // maintainability regressions surface in the worktree rather than on the
+  // Epic branch at pre-push time.
+  // -------------------------------------------------------------------------
+
+  const skipValidation =
+    skipValidationParam || !!process.env.SPRINT_STORY_CLOSE_SKIP_VALIDATION;
+  if (!skipValidation) {
+    progress(
+      'VALIDATE',
+      'Running pre-merge gates (lint, test, format, maintainability)...',
+    );
+    const validation = runCloseValidation({
+      cwd,
+      log: (m) => Logger.info(m),
+    });
+    if (!validation.ok) {
+      const [{ gate, status }] = validation.failed;
+      Logger.fatal(
+        `Pre-merge validation failed at "${gate.name}" (exit ${status}).` +
+          (gate.hint ? ` ${gate.hint}` : ''),
+      );
+    }
+  }
 
   // -------------------------------------------------------------------------
   // Step 5 — Merge

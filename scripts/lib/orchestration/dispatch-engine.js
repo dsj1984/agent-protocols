@@ -13,8 +13,6 @@
  */
 
 import { execFileSync } from 'node:child_process';
-import fs from 'node:fs';
-import path from 'node:path';
 import { PROJECT_ROOT, resolveConfig } from '../config-resolver.js';
 import { ensureLocalBranch } from '../git-branch-lifecycle.js';
 import { TYPE_LABELS } from '../label-constants.js';
@@ -29,6 +27,7 @@ import {
   runWorktreeGc,
 } from './dispatch-pipeline.js';
 import { detectEpicCompletion } from './epic-lifecycle-detector.js';
+import { LintBaselineService } from './lint-baseline-service.js';
 import { buildManifest } from './manifest-builder.js';
 import { executeStory } from './story-executor.js';
 import { fetchTelemetry } from './telemetry.js';
@@ -48,41 +47,39 @@ export function ensureBranch(branchName, baseBranch) {
   });
 }
 
+/**
+ * Default exec adapter used by the orchestrator's {@link LintBaselineService}.
+ * Thin wrapper around `execFileSync` — kept here (not inside the service)
+ * so the service stays unaware of `node:child_process` and unit tests can
+ * substitute a mocked adapter.
+ *
+ * @param {string} file
+ * @param {string[]} args
+ * @param {import('node:child_process').ExecFileSyncOptions} [options]
+ * @returns {void}
+ */
+/* node:coverage ignore next */
+function defaultLintBaselineExec(file, args, options) {
+  execFileSync(file, args, options);
+}
+
+/**
+ * Back-compat shim. Constructs a throwaway {@link LintBaselineService} with
+ * the default exec adapter and invokes `capture()`. New call-sites should
+ * instantiate the service directly and inject the exec adapter.
+ *
+ * @param {string} epicBranch
+ * @param {object} settings
+ * @returns {Promise<void>}
+ */
 /* node:coverage ignore next */
 export async function captureLintBaseline(epicBranch, settings) {
-  const lintBaselinePath =
-    settings.lintBaselinePath ?? 'temp/lint-baseline.json';
-  const absPath = path.resolve(PROJECT_ROOT, lintBaselinePath);
-
-  if (fs.existsSync(absPath)) {
-    vlog.info(
-      'orchestration',
-      `Lint baseline already exists, skipping capture.`,
-    );
-    return;
-  }
-
-  vlog.info('orchestration', `Capturing lint baseline on ${epicBranch}...`);
-  try {
-    execFileSync(
-      'node',
-      [
-        path.join(PROJECT_ROOT, settings.scriptsRoot, 'lint-baseline.js'),
-        'capture',
-      ],
-      {
-        cwd: PROJECT_ROOT,
-        encoding: 'utf8',
-        stdio: process.env.MCP_SERVER ? 'pipe' : 'inherit',
-        shell: false,
-      },
-    );
-  } catch (err) {
-    vlog.warn(
-      'orchestration',
-      `Lint baseline capture failed (non-fatal): ${err.message}`,
-    );
-  }
+  const service = new LintBaselineService({
+    exec: defaultLintBaselineExec,
+    vlog,
+    settings,
+  });
+  await service.capture(epicBranch);
 }
 
 /**
@@ -153,7 +150,16 @@ export async function dispatch(options) {
   }
 
   const { allWaves, taskMap } = buildDispatchGraph(fetched.tasks);
-  ensureEpicScaffolding(ctx, captureLintBaseline);
+  const lintBaselineService =
+    options.lintBaselineService ??
+    new LintBaselineService({
+      exec: defaultLintBaselineExec,
+      vlog,
+      settings: ctx.settings,
+    });
+  ensureEpicScaffolding(ctx, (epicBranch) =>
+    lintBaselineService.capture(epicBranch),
+  );
   await runWorktreeGc(ctx, fetched);
 
   const { dispatched, heldForApproval } = await dispatchNextWave(

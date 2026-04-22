@@ -62,11 +62,17 @@ export class ColumnSync {
    *   logger?: { info: Function, warn: Function },
    * }} opts
    */
-  constructor({ provider, projectNumber, logger }) {
+  constructor(opts = {}) {
+    const ctx = opts.ctx;
+    const provider = opts.provider ?? ctx?.provider;
     if (!provider) throw new TypeError('ColumnSync requires a provider');
     this.provider = provider;
-    this.projectNumber = projectNumber ?? provider.projectNumber ?? null;
-    this.logger = logger ?? console;
+    this.projectNumber =
+      opts.projectNumber ??
+      ctx?.config?.github?.projectNumber ??
+      provider.projectNumber ??
+      null;
+    this.logger = opts.logger ?? ctx?.logger ?? console;
     this._meta = null; // lazy-cached { projectId, fieldId, options: Map<name, id> }
   }
 

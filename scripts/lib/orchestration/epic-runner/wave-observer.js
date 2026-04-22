@@ -24,14 +24,17 @@ export class WaveObserver {
    *   logger?: { warn: Function },
    * }} opts
    */
-  constructor({ provider, epicId, logger }) {
+  constructor(opts = {}) {
+    const ctx = opts.ctx;
+    const provider = opts.provider ?? ctx?.provider;
+    const epicId = opts.epicId ?? ctx?.epicId;
     if (!provider) throw new TypeError('WaveObserver requires a provider');
     if (!Number.isInteger(epicId)) {
       throw new TypeError('WaveObserver requires a numeric epicId');
     }
     this.provider = provider;
     this.epicId = epicId;
-    this.logger = logger ?? console;
+    this.logger = opts.logger ?? ctx?.logger ?? console;
   }
 
   /**

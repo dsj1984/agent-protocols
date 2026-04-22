@@ -1,5 +1,5 @@
 /**
- * Logger conventions (see `.agents/README.md#error-handling-convention`):
+ * Logger conventions (see `docs/patterns.md` → "Error Handling Convention"):
  *
  *   - `debug`:  verbose trace; only emitted when `AGENT_LOG_LEVEL=debug`.
  *   - `info`:   normal progress.

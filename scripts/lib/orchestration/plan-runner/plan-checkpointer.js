@@ -52,7 +52,10 @@ export class PlanCheckpointer {
   /**
    * @param {{ provider: import('../../ITicketingProvider.js').ITicketingProvider, epicId: number }} opts
    */
-  constructor({ provider, epicId }) {
+  constructor(opts = {}) {
+    const ctx = opts.ctx;
+    const provider = opts.provider ?? ctx?.provider;
+    const epicId = opts.epicId ?? ctx?.epicId;
     if (!provider) throw new TypeError('PlanCheckpointer requires a provider');
     if (!Number.isInteger(epicId)) {
       throw new TypeError('PlanCheckpointer requires a numeric epicId');

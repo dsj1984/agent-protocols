@@ -59,7 +59,8 @@ export function scanDirectory(dir, fileList = []) {
         file !== 'node_modules' &&
         file !== '.git' &&
         file !== 'dist' &&
-        file !== 'temp'
+        file !== 'temp' &&
+        file !== '.worktrees'
       ) {
         scanDirectory(filePath, fileList);
       }

@@ -14,6 +14,7 @@
  */
 
 import { EventEmitter } from 'node:events';
+import { sleep } from '../../util/poll-loop.js';
 
 const BLOCKED_LABEL = 'agent::blocked';
 const EXECUTING_LABEL = 'agent::executing';
@@ -31,26 +32,23 @@ export class StatePoller extends EventEmitter {
    *   logger?: { warn: Function, error: Function }
    * }} opts
    */
-  constructor({
-    provider,
-    epicId,
-    pollIntervalMs,
-    backoffCapMs,
-    storyIds,
-    logger,
-  }) {
+  constructor(opts = {}) {
     super();
+    const ctx = opts.ctx;
+    const provider = opts.provider ?? ctx?.provider;
     if (!provider) throw new TypeError('StatePoller requires a provider');
     this.provider = provider;
-    this.epicId = epicId;
-    this.pollIntervalMs = pollIntervalMs ?? 30_000;
-    this.backoffCapMs = backoffCapMs ?? 5 * 60_000;
-    this.storyIds = new Set(storyIds ?? []);
-    this.logger = logger ?? console;
+    this.epicId = opts.epicId ?? ctx?.epicId;
+    const pollDefault =
+      ctx?.pollIntervalSec != null ? ctx.pollIntervalSec * 1000 : 30_000;
+    this.pollIntervalMs = opts.pollIntervalMs ?? pollDefault;
+    this.backoffCapMs = opts.backoffCapMs ?? 5 * 60_000;
+    this.storyIds = new Set(opts.storyIds ?? []);
+    this.logger = opts.logger ?? ctx?.logger ?? console;
     this._stopped = true;
     this._currentBackoff = this.pollIntervalMs;
     this._seenStates = new Map(); // storyId/epicId → previous labels set
-    this._timer = null;
+    this._abortController = null;
   }
 
   trackStories(ids) {
@@ -64,15 +62,14 @@ export class StatePoller extends EventEmitter {
   start() {
     if (!this._stopped) return;
     this._stopped = false;
-    this._schedule(0);
+    this._abortController = new AbortController();
+    this.#runLoop();
   }
 
   stop() {
     this._stopped = true;
-    if (this._timer) {
-      clearTimeout(this._timer);
-      this._timer = null;
-    }
+    this._abortController?.abort();
+    this._abortController = null;
   }
 
   async pollOnce() {
@@ -142,17 +139,15 @@ export class StatePoller extends EventEmitter {
     return /(403|429|rate[-\s]?limit)/i.test(msg);
   }
 
-  _schedule(delay) {
-    if (this._stopped) return;
-    this._timer = setTimeout(async () => {
+  async #runLoop() {
+    const signal = this._abortController?.signal;
+    while (!this._stopped) {
       await this.pollOnce();
       // Reset backoff on a clean cycle.
       if (this._currentBackoff > this.pollIntervalMs) {
         this._currentBackoff = this.pollIntervalMs;
       }
-      this._schedule(this._currentBackoff);
-    }, delay);
-    // Let Node exit even if the poller is still alive (e.g. tests).
-    this._timer?.unref?.();
+      await sleep(this._currentBackoff, signal);
+    }
   }
 }
