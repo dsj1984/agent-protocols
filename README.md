@@ -352,14 +352,14 @@ repository maintenance.
 
 ### Sprint Workflows
 
-| Workflow                | Slash Command         | Purpose                                        |
-| ----------------------- | --------------------- | ---------------------------------------------- |
-| `sprint-plan.md`        | `/sprint-plan`        | Autonomous PRD, Tech Spec, and task generation |
+| Workflow                | Slash Command         | Purpose                                                                 |
+| ----------------------- | --------------------- | ----------------------------------------------------------------------- |
+| `sprint-plan.md`        | `/sprint-plan`        | Autonomous PRD, Tech Spec, and task generation                          |
 | `sprint-execute.md`     | `/sprint-execute`     | Routes by `type::` label — Epic orchestration or single-Story execution |
-| `sprint-code-review.md` | `/sprint-code-review` | Comprehensive code review                      |
-| `sprint-hotfix.md`      | `/sprint-hotfix`      | Rapid remediation on feature branches          |
-| `sprint-retro.md`       | `/sprint-retro`       | Retrospective from ticket graph                |
-| `sprint-close.md`       | `/sprint-close`       | Final merge, tag release, close Epic           |
+| `sprint-code-review.md` | `/sprint-code-review` | Comprehensive code review                                               |
+| `sprint-hotfix.md`      | `/sprint-hotfix`      | Rapid remediation on feature branches                                   |
+| `sprint-retro.md`       | `/sprint-retro`       | Retrospective from ticket graph                                         |
+| `sprint-close.md`       | `/sprint-close`       | Final merge, tag release, close Epic                                    |
 
 ### Utility Workflows
 
@@ -517,7 +517,7 @@ The `GitHubProvider` resolves credentials in this priority order:
 ## Claude authentication for remote Epic runs
 
 The GitHub Actions remote-orchestrator workflow
-(`.github/workflows/epic-dispatch.yml`) invokes Claude Code Action, which
+(`.github/workflows/epic-orchestrator.yml`) invokes Claude Code Action, which
 supports three authentication modes. Pick based on your subscription model:
 
 | Mode                          | Input secret              | Billing                           |
@@ -538,8 +538,8 @@ quota as local Claude Code usage — no per-token API charges.
    session (e.g. via the `claude setup-token` flow or the equivalent `/login`
    prompt in the IDE).
 2. Add the token as a GitHub repo secret named `CLAUDE_CODE_OAUTH_TOKEN`.
-3. In `.github/workflows/epic-dispatch.yml`, replace the API-key input with the
-   OAuth input on the Claude Code Action step:
+3. In `.github/workflows/epic-orchestrator.yml`, replace the API-key input with
+   the OAuth input on the Claude Code Action step:
 
    ```yaml
    # Before
@@ -559,8 +559,8 @@ not to provision an Anthropic API key.
 
 ### Which mode does my repo use?
 
-Check `.github/workflows/epic-dispatch.yml` — whichever input is set is the mode
-in effect. Only one should be populated at a time.
+Check `.github/workflows/epic-orchestrator.yml` — whichever input is set is the
+mode in effect. Only one should be populated at a time.
 
 ---
 

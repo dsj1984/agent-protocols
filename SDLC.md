@@ -17,11 +17,11 @@ From zero to shipped:
    hierarchy under the Epic.
 3. **Execute the Epic.** Pick one path — both run the same engine and produce
    the same GitHub state:
-   - **Local (operator-driven).** Run `/sprint-execute <epicId>` in your
-     IDE — or take individual Stories off the dispatch table with
+   - **Local (operator-driven).** Run `/sprint-execute <epicId>` in your IDE —
+     or take individual Stories off the dispatch table with
      `/sprint-execute <storyId>` per window. `/sprint-execute` routes by the
-     ticket's `type::` label (Epic Mode vs. Story Mode). Runs against your
-     Max subscription quota; no GitHub Actions minutes consumed.
+     ticket's `type::` label (Epic Mode vs. Story Mode). Runs against your Max
+     subscription quota; no GitHub Actions minutes consumed.
    - **Remote (GitHub-triggered).** Add the label `agent::dispatching` to the
      Epic. The `epic-dispatch` GitHub Actions workflow launches a Claude remote
      agent that drives the Epic end-to-end, checkpointing progress on the Epic
@@ -57,11 +57,11 @@ that you only need when the default flow requires adjustment.
 - **Story-Level Branching.** All Tasks within a Story execute sequentially on a
   shared `story-<id>` branch. Stories merge into `epic/<epicId>`; the Epic
   branch merges into `main` only at close.
-- **Single entry point, two modes.** `/sprint-execute` routes by `type::`
-  label — Epic Mode runs the long-running coordinator, Story Mode runs a
-  single-Story worker. Both share the same primitives (`Graph.computeWaves`,
-  `cascadeCompletion`, `ticketing.js`, `WorktreeManager`) and power both
-  local and remote runs.
+- **Single entry point, two modes.** `/sprint-execute` routes by `type::` label
+  — Epic Mode runs the long-running coordinator, Story Mode runs a single-Story
+  worker. Both share the same primitives (`Graph.computeWaves`,
+  `cascadeCompletion`, `ticketing.js`, `WorktreeManager`) and power both local
+  and remote runs.
 - **HITL-minimal by default.** Exactly three operator touchpoints on the happy
   path — dispatch, blocker resolution, and review hand-off. Everything else is
   autonomous.
@@ -199,16 +199,15 @@ closure.
 
 ### Invocation modes
 
-| Mode             | Entry point                       | When to use                                                      |
-| ---------------- | --------------------------------- | ---------------------------------------------------------------- |
-| **Local Epic**   | `/sprint-execute <epicId>`        | Drive an Epic end-to-end from your IDE (Epic Mode).              |
-| **Remote Epic**  | Label Epic `agent::dispatching`   | Hand the Epic off to a Claude remote agent via GitHub Actions.   |
-| **Single Story** | `/sprint-execute <storyId>`       | Launch a specific Story off the dispatch table (one per window). |
+| Mode             | Entry point                     | When to use                                                      |
+| ---------------- | ------------------------------- | ---------------------------------------------------------------- |
+| **Local Epic**   | `/sprint-execute <epicId>`      | Drive an Epic end-to-end from your IDE (Epic Mode).              |
+| **Remote Epic**  | Label Epic `agent::dispatching` | Hand the Epic off to a Claude remote agent via GitHub Actions.   |
+| **Single Story** | `/sprint-execute <storyId>`     | Launch a specific Story off the dispatch table (one per window). |
 
-`/sprint-execute` is the single entry point; it routes by the ticket's
-`type::` label (Epic Mode for `type::epic`, Story Mode for `type::story`).
-The old `/sprint-execute-epic` and `/sprint-execute-story` variants have
-been retired.
+`/sprint-execute` is the single entry point; it routes by the ticket's `type::`
+label (Epic Mode for `type::epic`, Story Mode for `type::story`). The old
+`/sprint-execute-epic` and `/sprint-execute-story` variants have been retired.
 
 ### Story-centric branching
 
@@ -320,9 +319,9 @@ entirety of the operator interface after dispatch.
 
 - `risk::high` tasks **run without pause.** The label remains as planning
   metadata and retro telemetry, but as of v5.14.0 it does **not** halt the
-  dispatcher, `/sprint-execute`, or `/sprint-close`. Branch protection on
-  `main` and `BlockerHandler`-driven escalation are the new defenses for
-  destructive actions.
+  dispatcher, `/sprint-execute`, or `/sprint-close`. Branch protection on `main`
+  and `BlockerHandler`-driven escalation are the new defenses for destructive
+  actions.
 - Wave boundaries — the runner advances as soon as wave N completes.
 - Individual story completion — no per-story approval prompt.
 
@@ -353,7 +352,7 @@ where you want the compute to run.
 | **Hands-off mode**          | Requires the IDE session to stay open                         | Fully headless — close your laptop, come back later              |
 | **Observability**           | Live in VSCode — interrupt, inspect, ask Claude questions     | Actions log + structured comments on the Epic                    |
 | **Permission prompts**      | Claude Code asks you to approve tools (or `bypass`)           | Auto `--permission-mode bypassPermissions`                       |
-| **Label trigger required?** | No — engine flips to `agent::executing` directly              | Yes — `agent::dispatching` fires `epic-dispatch.yml`             |
+| **Label trigger required?** | No — engine flips to `agent::executing` directly              | Yes — `agent::dispatching` fires `epic-orchestrator.yml`         |
 | **Env/MCP config source**   | Your local `.env` / `.mcp.json`                               | `MCP_JSON` (and optional `ENV_FILE`) repo secrets                |
 | **Best for**                | Interactive debugging, first runs, short Epics, private repos | Long Epics, overnight runs, public repos, delegation from mobile |
 
@@ -369,7 +368,7 @@ where you want the compute to run.
   3,000 min) or register a
   [self-hosted runner](https://docs.github.com/en/actions/hosting-your-own-runners)
   on your own machine (free minutes, you provide compute) and add
-  `runs-on: self-hosted` to `epic-dispatch.yml`.
+  `runs-on: self-hosted` to `epic-orchestrator.yml`.
 
 ### Claude Max quota
 
@@ -412,15 +411,15 @@ Epic #349 Story #362 / #363 track these as formal hardening items.
 ## Remote orchestrator (`/sprint-execute` via GitHub Actions)
 
 Flipping an Epic to `agent::dispatching` fires
-`.github/workflows/epic-dispatch.yml`, which:
+`.github/workflows/epic-orchestrator.yml`, which:
 
 1. Validates the trigger — issue is `type::epic`, open, non-empty body.
 2. Boots a Claude remote agent.
 3. The agent runs `.agents/scripts/remote-bootstrap.js`, which clones the repo,
    materializes `.env` and `.mcp.json` from repo secrets (`ENV_FILE`,
    `MCP_JSON`) with `::add-mask::` redaction and `0600` file perms, runs
-   `npm ci --ignore-scripts`, and launches `/sprint-execute <epicId>`
-   (Epic Mode).
+   `npm ci --ignore-scripts`, and launches `/sprint-execute <epicId>` (Epic
+   Mode).
 4. The Epic Runner (`.agents/scripts/lib/orchestration/epic-runner.js`) composes
    the submodules listed below into the unattended execution loop.
 

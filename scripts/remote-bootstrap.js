@@ -4,9 +4,9 @@
  * Remote Bootstrap — boots the Claude remote-agent environment for a plan
  * or execute phase against an Epic.
  *
- * Invoked by `.github/workflows/epic-plan.yml` (spec/decompose phases) and
- * `.github/workflows/epic-dispatch.yml` (execute phase) via the Claude
- * remote-agent runner. Steps:
+ * Invoked by `.github/workflows/epic-orchestrator.yml` (spec/decompose/execute
+ * phases, routed by the triggering label) via the Claude remote-agent runner.
+ * Steps:
  *   1. git clone the target repo into a working directory.
  *   2. Materialize `.env` and `.mcp.json` from the `ENV_FILE` and
  *      `MCP_JSON` environment variables, emitting `::add-mask::` for
