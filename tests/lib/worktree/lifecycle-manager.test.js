@@ -1,4 +1,7 @@
 import assert from 'node:assert/strict';
+import fs from 'node:fs';
+import os from 'node:os';
+import path from 'node:path';
 import test from 'node:test';
 import {
   pathFor,
@@ -123,41 +126,61 @@ test('removeWorktreeWithRecovery: Stage 1 retries fs.rm and succeeds on attempt 
   assert.equal(res.remoteBranchDeleted, true);
 });
 
-test('removeWorktreeWithRecovery: Stage 1 surfaces pendingCleanup when fs.rm never clears', async () => {
-  let fsRmAttempts = 0;
-  const ctx = {
-    repoRoot: '/repo',
-    platform: 'win32',
-    config: {},
-    listCache: { list: null, ts: 0 },
-    logger: quietLogger().logger,
-    fsRm: async () => {
-      fsRmAttempts += 1;
-      const err = new Error('EBUSY: resource busy or locked');
-      err.code = 'EBUSY';
-      throw err;
-    },
-    git: {
-      gitSpawn: (_cwd, ...args) => {
-        if (args[0] === 'worktree' && args[1] === 'remove') {
-          return { status: 1, stdout: '', stderr: 'resource busy' };
-        }
-        return { status: 0, stdout: '', stderr: '' };
+test('removeWorktreeWithRecovery: Stage 1 defers to sweep and writes pending-cleanup manifest when fs.rm never clears', async () => {
+  const tmp = fs.mkdtempSync(path.join(os.tmpdir(), 'wt-pending-'));
+  const worktreeRoot = path.join(tmp, '.worktrees');
+  fs.mkdirSync(worktreeRoot, { recursive: true });
+  const wtPath = path.join(worktreeRoot, 'story-9');
+  try {
+    let fsRmAttempts = 0;
+    const ctx = {
+      repoRoot: tmp,
+      worktreeRoot,
+      platform: 'win32',
+      config: {},
+      listCache: { list: null, ts: 0 },
+      logger: quietLogger().logger,
+      fsRm: async () => {
+        fsRmAttempts += 1;
+        const err = new Error('EBUSY: resource busy or locked');
+        err.code = 'EBUSY';
+        throw err;
       },
-    },
-  };
-  const res = await removeWorktreeWithRecovery(
-    ctx,
-    '/repo/.worktrees/story-9',
-    { storyId: 9, branch: 'story-9', push: false },
-  );
-  assert.equal(res.removed, false);
-  assert.equal(res.method, 'fs-rm-failed');
-  assert.ok(res.pendingCleanup);
-  assert.equal(res.pendingCleanup.storyId, 9);
-  assert.equal(res.pendingCleanup.branch, 'story-9');
-  assert.equal(res.pendingCleanup.path, '/repo/.worktrees/story-9');
-  assert.equal(fsRmAttempts, 5);
+      git: {
+        gitSpawn: (_cwd, ...args) => {
+          if (args[0] === 'worktree' && args[1] === 'remove') {
+            return { status: 1, stdout: '', stderr: 'resource busy' };
+          }
+          return { status: 0, stdout: '', stderr: '' };
+        },
+      },
+    };
+    const res = await removeWorktreeWithRecovery(ctx, wtPath, {
+      storyId: 9,
+      branch: 'story-9',
+      push: false,
+    });
+    assert.equal(res.removed, false);
+    assert.equal(res.method, 'deferred-to-sweep');
+    assert.ok(res.pendingCleanup);
+    assert.equal(res.pendingCleanup.storyId, 9);
+    assert.equal(res.pendingCleanup.branch, 'story-9');
+    assert.equal(res.pendingCleanup.attempts, 1);
+    assert.equal(fsRmAttempts, 5);
+
+    // Manifest must be on disk with the failed entry.
+    const manifest = JSON.parse(
+      fs.readFileSync(path.join(worktreeRoot, '.pending-cleanup.json'), 'utf8'),
+    );
+    assert.equal(manifest.length, 1);
+    assert.equal(manifest[0].storyId, 9);
+    assert.equal(manifest[0].branch, 'story-9');
+    assert.equal(manifest[0].path, wtPath);
+    assert.ok(manifest[0].firstFailedAt);
+    assert.ok(manifest[0].lastFailedAt);
+  } finally {
+    fs.rmSync(tmp, { recursive: true, force: true });
+  }
 });
 
 test('removeWorktreeWithRecovery: reports failure when registration survives', async () => {
@@ -168,7 +191,7 @@ test('removeWorktreeWithRecovery: reports failure when registration survives', a
     listCache: { list: null, ts: 0 },
     logger: quietLogger().logger,
     git: {
-      gitSpawn: (cwd, ...args) => {
+      gitSpawn: (_cwd, ...args) => {
         if (args[0] === 'worktree' && args[1] === 'remove') {
           return {
             status: 1,

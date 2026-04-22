@@ -392,9 +392,7 @@ export async function removeWorktreeWithRecovery(ctx, wtPath, opts = {}) {
       ctx.git.gitSpawn(ctx.repoRoot, 'worktree', 'prune');
       invalidateWorktreeCache(ctx);
       const errMsg =
-        (rmResult.error && rmResult.error.message) ||
-        String(rmResult.error) ||
-        'fs-rm-failed';
+        rmResult.error?.message || String(rmResult.error) || 'fs-rm-failed';
       // Stage 2 hand-off: append the entry to `.worktrees/.pending-cleanup.json`
       // so the plan-time worktree-sweep can drain it on the next run.
       let manifestEntry = null;
