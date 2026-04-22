@@ -16,6 +16,7 @@
  *      BookendChainer.
  */
 
+import { parseBlockedBy } from '../dependency-parser.js';
 import { computeWaves } from '../Graph.js';
 import { createNotifier } from '../notifications/notifier.js';
 import { BlockerHandler } from './epic-runner/blocker-handler.js';
@@ -250,15 +251,32 @@ async function finalize({
 
 /**
  * Convert an ordered list of story tickets into the adjacency/taskMap shape
- * that `Graph.computeWaves()` expects. Dependencies come from each story's
- * `dependencies` field (the same shape used by `sprint-story-init.js`).
+ * that `Graph.computeWaves()` expects.
+ *
+ * Dependency source order (must match manifest-builder.js so dispatch manifest
+ * and runtime wave scheduling never disagree):
+ *   1. Canonical: `blocked by #NNN` / `depends on #NNN` parsed from the story
+ *      ticket body via `parseBlockedBy` (same parser the dispatcher uses).
+ *   2. Fallback: explicit `dependencies` array on the provider-returned story
+ *      object (present in fixture / test payloads; optional in live GitHub
+ *      payloads).
+ * Only edges to other stories in this Epic are retained — foreign IDs are
+ * dropped so the DAG stays closed over the scheduled set.
  */
 function buildStoryDag(stories) {
   const adjacency = new Map();
   const taskMap = new Map();
+  const storyIds = new Set(stories.map((s) => Number(s.id ?? s.number)));
   for (const s of stories) {
     const id = Number(s.id ?? s.number);
-    adjacency.set(id, (s.dependencies ?? []).map(Number));
+    const fromBody = parseBlockedBy(s.body ?? '');
+    const fromField = Array.isArray(s.dependencies)
+      ? s.dependencies.map(Number)
+      : [];
+    const merged = [...new Set([...fromBody, ...fromField])]
+      .map(Number)
+      .filter((dep) => dep !== id && storyIds.has(dep));
+    adjacency.set(id, merged);
     taskMap.set(id, { ...s, id });
   }
   return { adjacency, taskMap };

@@ -84,6 +84,7 @@ async function main() {
     provider,
     config: config.orchestration,
     spawn: defaultSpawn,
+    runSkill: defaultRunSkill,
   });
 
   console.log(JSON.stringify(result, null, 2));
@@ -159,6 +160,53 @@ async function defaultSpawn({ storyId, signal }) {
           detail: `post-run label check failed: ${err.message}`,
         });
       }
+    });
+  });
+}
+
+/**
+ * Default runSkill adapter — drives `/sprint-close <epicId>` in a fresh
+ * Claude Code subprocess when `epic::auto-close` was snapshotted at dispatch
+ * time. Review + retro are intentionally excluded (see BookendChainer): this
+ * adapter only exposes the single autonomous action the operator authorized.
+ *
+ * Stdout/stderr are piped to `.epic-runner-logs/bookend-<skill>.log` to keep
+ * the parent runner's stream readable. The subprocess exit code is the sole
+ * success signal.
+ */
+async function defaultRunSkill(skill, { epicId }) {
+  if (skill !== '/sprint-close') {
+    return {
+      status: 'failed',
+      detail: `defaultRunSkill refused to invoke ${skill}; only /sprint-close is auto-dispatched`,
+    };
+  }
+  const { spawn } = await import('node:child_process');
+  const { open, mkdir } = await import('node:fs/promises');
+  const { join } = await import('node:path');
+
+  const logsDir = '.epic-runner-logs';
+  await mkdir(logsDir, { recursive: true });
+  const logPath = join(logsDir, `bookend-sprint-close-${epicId}.log`);
+  const logHandle = await open(logPath, 'w');
+
+  return new Promise((resolve) => {
+    const proc = spawn(
+      'claude',
+      ['-p', `${skill} ${epicId}`, '--dangerously-skip-permissions'],
+      { stdio: ['ignore', logHandle.fd, logHandle.fd], shell: true },
+    );
+    proc.on('error', (err) => {
+      logHandle.close().catch(() => {});
+      resolve({ status: 'failed', detail: err.message });
+    });
+    proc.on('exit', async (code) => {
+      await logHandle.close().catch(() => {});
+      if (code === 0) return resolve({ status: 'ok' });
+      resolve({
+        status: 'failed',
+        detail: `claude exited ${code}; see ${logPath}`,
+      });
     });
   });
 }

@@ -87,9 +87,7 @@
     "epicRunner": {
       "enabled": true,
       "concurrencyCap": 3,
-      "pollIntervalSec": 30,
-      "storyRetryCount": 1,
-      "blockerTimeoutHours": 0
+      "pollIntervalSec": 30
     },
     "planRunner": {
       "enabled": true,
