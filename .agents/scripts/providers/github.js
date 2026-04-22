@@ -596,7 +596,8 @@ export class GitHubProvider extends ITicketingProvider {
         owner: this.projectOwner,
         number: this.projectNumber,
       });
-      if (userProjectData?.user?.projectV2) return userProjectData.user.projectV2;
+      if (userProjectData?.user?.projectV2)
+        return userProjectData.user.projectV2;
     } catch (err) {
       // User-scoped ProjectV2 lookup failed; try organization scope next.
       console.warn(
