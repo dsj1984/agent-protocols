@@ -23,11 +23,11 @@ import { EpicRunnerContext } from './context.js';
 import { BlockerHandler } from './epic-runner/blocker-handler.js';
 import { BookendChainer } from './epic-runner/bookend-chainer.js';
 import { Checkpointer } from './epic-runner/checkpointer.js';
-import {
-  CommitAssertion,
-  buildDefaultGitAdapter,
-} from './epic-runner/commit-assertion.js';
 import { ColumnSync } from './epic-runner/column-sync.js';
+import {
+  buildDefaultGitAdapter,
+  CommitAssertion,
+} from './epic-runner/commit-assertion.js';
 import { NotificationHook } from './epic-runner/notification-hook.js';
 import { ProgressReporter } from './epic-runner/progress-reporter.js';
 import { SpawnSmokeTest } from './epic-runner/spawn-smoke-test.js';
@@ -175,6 +175,9 @@ async function runEpicWithContext(ctx, collaborators = {}) {
     ctx,
     intervalSec: Number(config?.epicRunner?.progressReportIntervalSec ?? 0),
   });
+  // Seed the reporter with the full wave plan so each fire renders every
+  // wave (queued / in-flight / done) instead of only the active one.
+  progressReporter.setPlan({ waves });
   const columnSync = new ColumnSync({ ctx });
   const syncColumn = async (id, labels) => {
     try {

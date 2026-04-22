@@ -4,6 +4,61 @@ All notable changes to this project will be documented in this file.
 
 ## [Unreleased]
 
+## [5.15.2] - 2026-04-22
+
+### Sprint-protocol resilience follow-ons (Epic #413)
+
+Patch-only internal hardening that closes the retro action items carried
+forward from Epic #380. No public API changes.
+
+#### Spawner resilience (#419, #420)
+
+- **Cross-platform `buildClaudeSpawn` integration test (#425).** Real
+  `claude --version` spawn asserts arg tokenisation across POSIX and
+  Windows shapes; honours `CLAUDE_BIN` for stub-friendly CI.
+- **Pre-wave spawn smoke-test (#426, #427).** Runner aborts before Wave 1
+  if `claude --version` fails to exit 0 in 5s; flips Epic to
+  `agent::blocked` with friction comment naming `CLAUDE_BIN` + stderr.
+- **Post-wave commit assertion (#428, #429).** A "done" wave with zero
+  story-branch commits is reclassified as `halted`; would have caught the
+  Epic #380 spawn regression in <60s.
+
+#### Close-phase recovery + hygiene (#421, #422, #423)
+
+- **`sprint-story-close --resume / --restart` (#430, #431).** Detect prior
+  failed-close state (unmerged story branch, in-progress merge, dirty
+  worktree) and offer explicit recovery instead of silently re-running the
+  full init/implement/validate chain.
+- **Biome v2 format gate restored (#432).** `biome format --no-write`
+  shape exits non-zero on drift; the `SPRINT_STORY_CLOSE_SKIP_VALIDATION`
+  escape hatch is removed.
+- **`/sprint-close` Phase 3.2 tagging sanity check (#433).** Distinguishes
+  no-tag / already-tagged / files-pre-bumped cases instead of double-bumping.
+- **`detect-merges.js` skips its own test fixtures (#434).** No more false
+  positives against `tests/detect-merges.test.js`.
+- **`error-journal.js` parse-error fix (#435).** Hoisted `NEWLINE_RE`
+  unblocks escomplex maintainability scoring.
+- **`validateOrchestrationConfig` wired into `resolveConfig()` (#436).**
+  Schema drift now fails CLI launch, not silently at runtime.
+- **Pending-cleanup drain at `/sprint-plan-spec` boot (#437).** Reaps
+  orphan worktrees from `.worktrees/.pending-cleanup.json` on first run.
+
+#### Progress reporting + CI (#424)
+
+- **Stalled-worktree + maintainability-drift detectors (#438, #439).**
+  `ProgressReporter` auto-detects done stories with live worktrees and
+  baseline-vs-current maintainability drift; emitted in the Notable
+  section of each progress snapshot.
+- **CI Node 22/24 matrix + integration-test job (#440).** Catches
+  Node-version divergence before merge (the post-#380 `poll-loop`
+  `unref()` regression class).
+- **Whole-epic progress table.** `ProgressReporter.setPlan()` renders
+  every wave + story with its current state (queued / in-flight / done /
+  blocked) instead of only the active wave.
+- **Configurable runner logs dir.** `orchestration.epicRunner.logsDir`
+  controls where `defaultSpawn` and `defaultRunSkill` write per-story
+  logs; defaults to `temp/epic-runner-logs/` (was `.epic-runner-logs/`).
+
 ## [5.15.1] - 2026-04-22
 
 ### Sprint-protocol self-healing + orchestration refactor (Epic #380)

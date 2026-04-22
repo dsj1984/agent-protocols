@@ -148,6 +148,49 @@ describe('ProgressReporter', () => {
     assert.equal(peak, 1, 'only one fire should execute at a time');
   });
 
+  it('renders all waves when setPlan is called, with a Wave column', async () => {
+    const provider = buildProvider({
+      10: { number: 10, title: 'A', state: 'CLOSED', labels: [] },
+      11: { number: 11, title: 'B', state: 'CLOSED', labels: [] },
+      20: {
+        number: 20,
+        title: 'C',
+        state: 'OPEN',
+        labels: ['agent::executing'],
+      },
+    });
+    const logger = silentLogger();
+    const reporter = new ProgressReporter({
+      provider,
+      epicId: 7,
+      intervalSec: 60,
+      logger,
+    });
+    reporter.setPlan({
+      waves: [
+        [
+          { id: 10, title: 'A' },
+          { id: 11, title: 'B' },
+        ],
+        [{ id: 20, title: 'C' }],
+      ],
+      startedAt: new Date(Date.now() - 600_000).toISOString(),
+    });
+    reporter.setWave({
+      index: 1,
+      totalWaves: 2,
+      stories: [20],
+      startedAt: new Date(Date.now() - 60_000).toISOString(),
+    });
+    const { rows, body } = await reporter.fire();
+    assert.equal(rows.length, 3, 'rows cover every wave, not just the active');
+    assert.match(body, /Wave 2\/2 · 2\/3 closed/);
+    assert.match(body, /\| Wave \| ID \| State \| Title \|/);
+    assert.match(body, /\| 1 \| #10 \| ✅ done \| A \|/);
+    assert.match(body, /\| 1 \| #11 \| ✅ done \| B \|/);
+    assert.match(body, /\| 2 \| #20 \| 🔧 in-flight \| C \|/);
+  });
+
   it('stop() emits a final snapshot and clears the interval', async () => {
     let intervalCleared = false;
     const fakeSetInterval = () => ({ ref: () => {}, unref: () => {} });

@@ -65,6 +65,36 @@ export class ProgressReporter {
     this.timer = null;
     this.emitting = false;
     this.currentWave = null; // { index, totalWaves, stories: [...], startedAt }
+    // Full plan: ordered list of waves, each `{ index, stories: [storyId,...] }`.
+    // Set once via `setPlan()` at runner start so each fire renders every wave
+    // (queued / in-flight / done) rather than only the active one.
+    this.plan = null;
+    this.epicStartedAt = null;
+  }
+
+  /**
+   * Provide the full wave plan once at runner start so subsequent fires can
+   * render every wave (not just the active one). `waves` is the same shape
+   * `WaveScheduler` consumes — an array of arrays of story objects (or ids).
+   *
+   * @param {{ waves: Array<Array<number|{id?:number,number?:number,storyId?:number,title?:string}>>, startedAt?: string }} plan
+   */
+  setPlan(plan) {
+    if (!plan || !Array.isArray(plan.waves)) {
+      this.plan = null;
+      return;
+    }
+    this.plan = plan.waves.map((stories, index) => ({
+      index,
+      stories: (stories ?? []).map((s) => {
+        if (typeof s === 'object' && s !== null) {
+          const id = s.id ?? s.number ?? s.storyId;
+          return { id: Number(id), title: s.title ?? '' };
+        }
+        return { id: Number(s), title: '' };
+      }),
+    }));
+    this.epicStartedAt = plan.startedAt ?? this.now().toISOString();
   }
 
   /**
@@ -125,27 +155,48 @@ export class ProgressReporter {
    */
   async fire() {
     if (this.emitting) return null;
-    if (!this.currentWave) return null;
+    if (!this.currentWave && !this.plan) return null;
     this.emitting = true;
     try {
-      const rows = await Promise.all(
-        this.currentWave.stories.map(async (id) => {
+      // When a plan is set, fetch state for every story in every wave so the
+      // table covers the whole epic. Otherwise fall back to the current wave
+      // only (back-compat: callers that haven't migrated to setPlan).
+      const allIds = this.plan
+        ? this.plan.flatMap((w) => w.stories.map((s) => s.id))
+        : (this.currentWave?.stories ?? []);
+      const fetched = await Promise.all(
+        allIds.map(async (id) => {
           try {
             const ticket = await this.provider.getTicket(id);
-            return {
+            return [
               id,
-              state: deriveState(ticket),
-              title: truncate(ticket?.title ?? '', 60),
-            };
+              {
+                state: deriveState(ticket),
+                title: truncate(ticket?.title ?? '', 60),
+              },
+            ];
           } catch (err) {
-            return {
+            return [
               id,
-              state: 'unknown',
-              title: `(read failed: ${err.message})`,
-            };
+              { state: 'unknown', title: `(read failed: ${err.message})` },
+            ];
           }
         }),
       );
+      const byId = new Map(fetched);
+      const rows = this.plan
+        ? this.plan.flatMap((w) =>
+            w.stories.map((s) => ({
+              wave: w.index,
+              id: s.id,
+              ...byId.get(s.id),
+              title: byId.get(s.id)?.title || s.title || '',
+            })),
+          )
+        : (this.currentWave?.stories ?? []).map((id) => ({
+            id,
+            ...byId.get(id),
+          }));
       const body = await this.#render(rows);
       this.logger.info?.(body);
       try {
@@ -169,23 +220,37 @@ export class ProgressReporter {
   async #render(rows) {
     const done = rows.filter((r) => r.state === 'done').length;
     const total = rows.length;
-    const waveLabel = this.currentWave
-      ? `Wave ${this.currentWave.index + 1}/${this.currentWave.totalWaves}`
-      : 'Wave ?';
-    const elapsed = this.currentWave?.startedAt
-      ? ` · ${formatElapsed(this.now() - new Date(this.currentWave.startedAt))} elapsed`
+    const totalWaves = this.plan?.length ?? this.currentWave?.totalWaves ?? '?';
+    const currentWaveNum = this.currentWave
+      ? this.currentWave.index + 1
+      : (this.plan?.length ?? '?');
+    const waveLabel = `Wave ${currentWaveNum}/${totalWaves}`;
+    const elapsedSrc =
+      this.epicStartedAt ?? this.currentWave?.startedAt ?? null;
+    const elapsed = elapsedSrc
+      ? ` · ${formatElapsed(this.now() - new Date(elapsedSrc))} elapsed`
       : '';
 
     const header = `### 📊 Progress — ${waveLabel} · ${done}/${total} closed${elapsed}`;
 
-    const table = [
-      '| ID | State | Title |',
-      '|---|---|---|',
-      ...rows.map(
-        (r) =>
-          `| #${r.id} | ${STATE_EMOJI[r.state] ?? ''} ${r.state} | ${escapePipes(r.title)} |`,
-      ),
-    ].join('\n');
+    const includeWaveCol = rows.some((r) => Number.isInteger(r.wave));
+    const table = includeWaveCol
+      ? [
+          '| Wave | ID | State | Title |',
+          '|---|---|---|---|',
+          ...rows.map(
+            (r) =>
+              `| ${r.wave + 1} | #${r.id} | ${STATE_EMOJI[r.state] ?? ''} ${r.state} | ${escapePipes(r.title)} |`,
+          ),
+        ].join('\n')
+      : [
+          '| ID | State | Title |',
+          '|---|---|---|',
+          ...rows.map(
+            (r) =>
+              `| #${r.id} | ${STATE_EMOJI[r.state] ?? ''} ${r.state} | ${escapePipes(r.title)} |`,
+          ),
+        ].join('\n');
 
     const notable = await this.#renderNotable(rows);
     return [header, '', table, '', '**Notable**', notable].join('\n');
@@ -215,7 +280,8 @@ export class ProgressReporter {
     const detectorResults = await Promise.all(
       this.detectors.map(async (detector) => {
         try {
-          const fn = typeof detector === 'function' ? detector : detector?.detect;
+          const fn =
+            typeof detector === 'function' ? detector : detector?.detect;
           if (typeof fn !== 'function') return [];
           const out = await fn.call(detector, rows, ctx);
           return Array.isArray(out) ? out : [];

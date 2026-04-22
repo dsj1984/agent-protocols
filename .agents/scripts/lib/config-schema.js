@@ -157,6 +157,10 @@ export const ORCHESTRATION_SCHEMA = {
         concurrencyCap: { type: 'integer', minimum: 1 },
         pollIntervalSec: { type: 'integer', minimum: 1 },
         progressReportIntervalSec: { type: 'integer', minimum: 0 },
+        logsDir: {
+          type: 'string',
+          not: { pattern: SHELL_INJECTION_PATTERN_STRING },
+        },
       },
       required: ['concurrencyCap'],
       additionalProperties: false,
