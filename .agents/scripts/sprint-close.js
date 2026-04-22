@@ -34,11 +34,8 @@ import { parseArgs } from 'node:util';
 import { PROJECT_ROOT, resolveConfig } from './lib/config-resolver.js';
 import { gitSpawn } from './lib/git-utils.js';
 import { Logger } from './lib/Logger.js';
-import {
-  postStructuredComment,
-  STATE_LABELS,
-  transitionTicketState,
-} from './lib/orchestration/ticketing.js';
+import { toDone } from './lib/orchestration/label-transitions.js';
+import { postStructuredComment } from './lib/orchestration/ticketing.js';
 import { createProvider } from './lib/provider-factory.js';
 import { WorktreeManager } from './lib/worktree-manager.js';
 
@@ -152,7 +149,7 @@ async function phaseFinalizeAuxiliaryTickets(provider, epicId, warnings) {
 
         progress('CONTEXT', `Closing ${kind} #${ticket.id}...`);
         try {
-          await transitionTicketState(provider, ticket.id, STATE_LABELS.DONE);
+          await toDone(provider, [ticket.id]);
           progress('CONTEXT', `✅ #${ticket.id} closed.`);
         } catch (err) {
           warnings.push(
