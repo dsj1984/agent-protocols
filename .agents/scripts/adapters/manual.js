@@ -60,47 +60,12 @@ export class ManualDispatchAdapter extends IExecutionAdapter {
    */
   async dispatchTask(taskDispatch) {
     const dispatchId = randomUUID();
-    const {
-      taskId,
-      epicId,
-      branch,
-      epicBranch,
-      prompt,
-      persona,
-      mode,
-      skills,
-      focusAreas,
-      cwd,
-    } = taskDispatch;
+    const { taskId, epicId, branch, persona, mode, cwd } = taskDispatch;
 
-    const skillList = (skills ?? []).length > 0 ? skills.join(', ') : '(none)';
-    const focusList =
-      (focusAreas ?? []).length > 0 ? focusAreas.join(', ') : '(none)';
-
-    const separator = '─'.repeat(72);
-
-    console.log(`\n${separator}`);
-    console.log(`🚀  DISPATCH — Task #${taskId}  (Epic #${epicId})`);
-    console.log(separator);
-    console.log(`  Dispatch ID  : ${dispatchId}`);
-    console.log(`  Branch       : ${branch}`);
-    console.log(`  Epic Branch  : ${epicBranch}`);
-    console.log(`  Persona      : ${persona}`);
-    console.log(`  Mode         : ${mode}`);
-    console.log(`  Skills       : ${skillList}`);
-    console.log(`  Focus Areas  : ${focusList}`);
-    if (cwd) {
-      console.log(`  Worktree     : ${cwd}`);
-      console.log(`  → Run agent in: cd "${cwd}"`);
-    }
-    console.log(separator);
-    console.log('\nPROMPT:\n');
-    console.log(prompt);
-    console.log(`\n${separator}`);
+    const cwdPart = cwd ? ` cwd=${cwd}` : '';
     console.log(
-      `📋  When complete, close with: node <main-repo>/.agents/scripts/sprint-story-close.js --story <storyId> --cwd <main-repo>`,
+      `[manual] dispatch task=#${taskId} epic=#${epicId} branch=${branch} persona=${persona} mode=${mode} id=${dispatchId}${cwdPart}`,
     );
-    console.log(`${separator}\n`);
 
     this._registry.set(dispatchId, {
       taskId,
