@@ -77,9 +77,15 @@ async function main() {
   await phaseFinalizeAuxiliaryTickets(provider, epicId, warnings);
   await phaseFinalizeEpicClosure(provider, epicId, warnings);
   if (values.cleanup) {
-    await phaseFinalizeBranchCleanup(provider, orchestration, epicId, warnings, {
-      discardAfterMerge: values['no-reap-discard-after-merge'] !== true,
-    });
+    await phaseFinalizeBranchCleanup(
+      provider,
+      orchestration,
+      epicId,
+      warnings,
+      {
+        discardAfterMerge: values['no-reap-discard-after-merge'] !== true,
+      },
+    );
   }
 
   // Notify phase ------------------------------------------------------------
@@ -412,9 +418,7 @@ async function emitDiscardFrictionComments(provider, reaped, warnings) {
     try {
       await postStructuredComment(provider, entry.storyId, 'friction', body);
     } catch (err) {
-      warnings.push(
-        `friction comment on #${entry.storyId}: ${err.message}`,
-      );
+      warnings.push(`friction comment on #${entry.storyId}: ${err.message}`);
       console.warn(
         `⚠️ Warning: Failed to post reap-discard friction comment on Story #${entry.storyId}: ${err.message}`,
       );

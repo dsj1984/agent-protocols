@@ -61,7 +61,8 @@ function buildReplayGit(_repoRoot, worktreeRoot) {
     }
     if (key2 === 'worktree remove') {
       const target = args[2];
-      if (fs.existsSync(target)) fs.rmSync(target, { recursive: true, force: true });
+      if (fs.existsSync(target))
+        fs.rmSync(target, { recursive: true, force: true });
       return { status: 0, stdout: '', stderr: '' };
     }
     if (key2 === 'worktree prune') {
@@ -107,7 +108,9 @@ test('epic-413 phase-4 replay: reap-discard-after-merge reaps all 6 worktrees', 
     );
     assert.equal(result.skipped.length, 0, 'no worktrees should be skipped');
 
-    const dirtyReaped = result.reaped.filter((r) => DIRTY_STORY_IDS.has(r.storyId));
+    const dirtyReaped = result.reaped.filter((r) =>
+      DIRTY_STORY_IDS.has(r.storyId),
+    );
     assert.equal(
       dirtyReaped.length,
       DIRTY_STORY_IDS.size,
@@ -120,7 +123,9 @@ test('epic-413 phase-4 replay: reap-discard-after-merge reaps all 6 worktrees', 
       );
     }
 
-    const cleanReaped = result.reaped.filter((r) => !DIRTY_STORY_IDS.has(r.storyId));
+    const cleanReaped = result.reaped.filter(
+      (r) => !DIRTY_STORY_IDS.has(r.storyId),
+    );
     for (const entry of cleanReaped) {
       assert.equal(
         entry.discardedPaths,

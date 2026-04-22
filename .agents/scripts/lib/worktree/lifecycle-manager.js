@@ -374,9 +374,7 @@ export async function reap(ctx, storyId, opts = {}) {
     ...(removeResult.branchDeleted !== undefined
       ? { branchDeleted: removeResult.branchDeleted }
       : {}),
-    ...(discardedPaths && discardedPaths.length > 0
-      ? { discardedPaths }
-      : {}),
+    ...(discardedPaths && discardedPaths.length > 0 ? { discardedPaths } : {}),
   };
 }
 
@@ -597,7 +595,9 @@ export async function gc(ctx, openStoryIds, opts = {}) {
       reaped.push({
         storyId: id,
         path: wt.path,
-        ...(result.discardedPaths ? { discardedPaths: result.discardedPaths } : {}),
+        ...(result.discardedPaths
+          ? { discardedPaths: result.discardedPaths }
+          : {}),
       });
     } else {
       skipped.push({
