@@ -60,10 +60,11 @@ export class ManualDispatchAdapter extends IExecutionAdapter {
    */
   async dispatchTask(taskDispatch) {
     const dispatchId = randomUUID();
-    const { taskId, epicId, branch, persona, mode } = taskDispatch;
+    const { taskId, epicId, branch, persona, mode, cwd } = taskDispatch;
 
+    const cwdPart = cwd ? ` cwd=${cwd}` : '';
     console.log(
-      `[manual] dispatch task=#${taskId} epic=#${epicId} branch=${branch} persona=${persona} mode=${mode} id=${dispatchId}`,
+      `[manual] dispatch task=#${taskId} epic=#${epicId} branch=${branch} persona=${persona} mode=${mode} id=${dispatchId}${cwdPart}`,
     );
 
     this._registry.set(dispatchId, {
