@@ -145,7 +145,10 @@ describe('buildDefaultGitAdapter', () => {
       assert.equal(args[1], 'origin/epic/441');
       assert.equal(args[2], '-E');
       assert.match(args[3], /resolves #448/);
-      cb(null, { stdout: '3c7afd1beaf198d847be8ca34e03bed4cfccee8c\n', stderr: '' });
+      cb(null, {
+        stdout: '3c7afd1beaf198d847be8ca34e03bed4cfccee8c\n',
+        stderr: '',
+      });
     };
     const adapter = buildDefaultGitAdapter({ execFileImpl: fakeExecFile });
     const count = await adapter({ epicId: 441, storyId: 448 });

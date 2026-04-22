@@ -151,7 +151,10 @@ describe('docs-context-bridge — resolveConfiguredDocs', () => {
   });
 
   it('returns [] when no doc configuration is present', () => {
-    assert.deepEqual(resolveConfiguredDocs({ cwd: '/tmp', agentSettings: {} }), []);
+    assert.deepEqual(
+      resolveConfiguredDocs({ cwd: '/tmp', agentSettings: {} }),
+      [],
+    );
   });
 });
 

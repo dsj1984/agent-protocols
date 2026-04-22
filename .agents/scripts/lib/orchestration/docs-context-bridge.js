@@ -209,7 +209,8 @@ export async function checkDocsContextBridge({
   const comments = (await provider.getTicketComments?.(storyId)) ?? [];
   const alreadyEmitted = comments.some(
     (c) =>
-      typeof c?.body === 'string' && c.body.includes(DOCS_CONTEXT_BRIDGE_MARKER),
+      typeof c?.body === 'string' &&
+      c.body.includes(DOCS_CONTEXT_BRIDGE_MARKER),
   );
   if (alreadyEmitted) {
     return { checked: true, matched: true, emitted: false, matches };

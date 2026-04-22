@@ -9,14 +9,18 @@ const CI_WORKFLOW = join(__dirname, '..', '.github', 'workflows', 'ci.yml');
 
 function getTestCoverageStep(source) {
   const lines = source.split(/\r?\n/);
-  const startIdx = lines.findIndex((l) => /name:\s*Run Tests with Coverage/.test(l));
+  const startIdx = lines.findIndex((l) =>
+    /name:\s*Run Tests with Coverage/.test(l),
+  );
   assert.notEqual(
     startIdx,
     -1,
     'Run Tests with Coverage step not found in .github/workflows/ci.yml',
   );
   const rest = lines.slice(startIdx);
-  const nextStepIdx = rest.slice(1).findIndex((l) => /^\s*- (name|uses):/.test(l));
+  const nextStepIdx = rest
+    .slice(1)
+    .findIndex((l) => /^\s*- (name|uses):/.test(l));
   const endIdx = nextStepIdx === -1 ? rest.length : nextStepIdx + 1;
   return rest.slice(0, endIdx).join('\n');
 }
