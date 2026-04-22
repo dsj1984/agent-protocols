@@ -31,7 +31,7 @@ graph LR
 
     subgraph Quality ["🔍 Continuous Quality"]
         I["Gate-Based Audit Orchestration"]
-        J["85%+ Coverage Ratchet & Mutation Testing"]
+        J["85%+ Coverage Ratchet"]
     end
 
     A --> B --> C --> D --> E --> F --> G --> H
@@ -190,7 +190,7 @@ agent-protocols/
 │   └── templates/            # Context hydration templates
 ├── docs/                     # Changelog, plans, and legacy archive
 ├── tests/                    # Unit and integration tests
-├── package.json              # Tooling: markdownlint, prettier, husky
+├── package.json              # Tooling: biome, markdownlint, husky
 ```
 
 ## Development
@@ -200,7 +200,6 @@ npm run lint           # Check all markdown for lint errors
 npm run format         # Auto-format all markdown files
 npm test               # Run framework tests
 npm run test:coverage  # Run tests with 85% coverage gate
-npm run mutate         # Run Stryker mutation testing
 ```
 
 ## Documentation

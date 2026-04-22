@@ -737,7 +737,6 @@ conventions to follow.
 - **Markdown lint:** `markdownlint-cli`
 - **Markdown format:** Prettier (markdown only)
 - **Git hooks:** Husky + `lint-staged`
-- **Mutation testing:** Stryker (`@stryker-mutator/core` + tap-runner)
 - **JSON Schema validation:** Ajv + `ajv-formats`
 - **In-memory filesystem for tests:** `memfs`
 - **Shell argv parsing:** `string-argv`
@@ -775,7 +774,7 @@ in `.agents/rules/testing-standards.md`. Every test belongs to exactly one of
 three tiers and carries distinct scope, dependency, and assertion rules:
 
 - **Unit** — pure logic, no I/O; assertions on return values and rendered
-  output. Mutation testing (when configured) lives here.
+  output.
 - **Contract** — API ↔ DB invariants and schema conformance; this is the sole
   correct home for HTTP status codes, response body shapes, and error-envelope
   assertions.

@@ -1,13 +1,6 @@
 /**
- * Parity tests for `features/epic-runner-parity.feature`.
- *
- * Each `it(...)` corresponds to one Scenario in the feature file. The
- * repository does not ship Cucumber as a runtime dependency yet, so the
- * Gherkin file serves as documentation and these node:test cases are the
- * executable step definitions wired into `npm test`.
- *
- * When @cucumber/cucumber is eventually adopted, the expectations here
- * can move into step-definition bodies without changing semantics.
+ * Parity tests for the epic-runner's local vs. remote-trigger dispatch,
+ * wave ordering, blocker halt-and-resume, and story-under-remote-epic flow.
  */
 
 import assert from 'node:assert/strict';
@@ -99,7 +92,7 @@ const defaultConfig = {
   },
 };
 
-describe('epic-runner parity (features/epic-runner-parity.feature)', () => {
+describe('epic-runner parity', () => {
   it('(a) local end-to-end on a fake-provider fixture', async () => {
     const epicId = 321;
     const stories = [

@@ -6,10 +6,7 @@
   "scripts": {
     "test": "node --experimental-test-module-mocks --test \"tests/**/*.test.js\"",
     "test:coverage": "node --experimental-test-coverage --experimental-test-module-mocks --test-coverage-exclude='.agents/scripts/bootstrap-agent-protocols.js' --test-coverage-exclude='.agents/scripts/context-hydrator.js' --test-coverage-exclude='.agents/scripts/dispatcher.js' --test-coverage-exclude='.agents/scripts/health-monitor.js' --test-coverage-exclude='.agents/scripts/notify.js' --test-coverage-exclude='.agents/scripts/ticket-decomposer.js' --test-coverage-exclude='.agents/scripts/mcp/run-audit-suite.js' --test-coverage-exclude='.agents/scripts/providers/github.js' --test --test-coverage-lines=85 --test-coverage-branches=70 --test-coverage-functions=75 \"tests/**/*.test.js\"",
-    "mutate": "stryker run",
-    "mutate:ci": "stryker run --reporters json,progress",
     "lint:md": "markdownlint \".agents/**/*.md\" \"*.md\" --ignore node_modules",
-    "format:md": "prettier --write \".agents/**/*.md\" \"*.md\"",
     "lint": "biome lint . && markdownlint \".agents/**/*.md\" \"*.md\" --ignore node_modules",
     "format": "biome format --write .",
     "format:check": "biome format .",
@@ -32,15 +29,12 @@
   "homepage": "https://github.com/dsj1984/agent-protocols#readme",
   "devDependencies": {
     "@biomejs/biome": "^2.4.10",
-    "@stryker-mutator/core": "^9.6.0",
-    "@stryker-mutator/tap-runner": "^9.6.0",
     "ajv": "^8.18.0",
     "ajv-formats": "^3.0.1",
     "husky": "^9.1.7",
     "lint-staged": "^16.2.7",
     "markdownlint-cli": "^0.48.0",
-    "memfs": "^4.57.1",
-    "prettier": "^3.7.4"
+    "memfs": "^4.57.1"
   },
   "dependencies": {
     "string-argv": "^0.3.2",

@@ -14,8 +14,4 @@ temp/
 # Generated Claude Code commands (source of truth: .agents/workflows/)
 .claude/
 
-# Mutation testing
-reports/
-.stryker-tmp/
-
 .mcp.json

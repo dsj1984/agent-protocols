@@ -38,7 +38,7 @@ agent-protocols/
 ├── .agentrc.json             # Root config for this repo (dogfooding)
 ├── docs/                     # Implementation plans and changelog
 ├── tests/                    # Framework tests
-├── package.json              # Tooling: markdownlint, prettier, husky
+├── package.json              # Tooling: biome, markdownlint, husky
 ```
 
 > **Key distinction:** Only `.agents/` is distributed to consumers. Everything
@@ -73,8 +73,8 @@ agent-protocols/
 | Area         | Tool / Convention                                              |
 | ------------ | -------------------------------------------------------------- |
 | Language     | Markdown (prose), JavaScript ESM (scripts), JSON (config)      |
-| Linter       | `markdownlint` — run via `npm run lint`                        |
-| Formatter    | `prettier` — run via `npm run format`                          |
+| Linter       | `biome` + `markdownlint` — run via `npm run lint`              |
+| Formatter    | `biome` — run via `npm run format`                             |
 | Git Hooks    | Husky + lint-staged (auto-lint `.md` files on commit)          |
 | Node Version | 20+                                                            |
 | Package Mgr  | npm                                                            |

@@ -1,12 +1,6 @@
 /**
- * Parity tests for `features/remote-planning.feature`.
- *
- * Each `it(...)` corresponds to one Scenario in the feature file. Like the
- * epic-runner parity suite, the Gherkin file documents intent while these
- * node:test cases are the executable step definitions wired into `npm test`.
- *
- * Scope: the plan-router + remote-bootstrap `--phase` handshake. We do not
- * shell out to `claude` or clone a repo — the SKIP_LAUNCH path in
+ * Parity tests for the plan-router + remote-bootstrap `--phase` handshake.
+ * We do not shell out to `claude` or clone a repo — the SKIP_LAUNCH path in
  * remote-bootstrap.js exists precisely so the launch step stays behind a
  * unit-testable seam. Here we import the pure helpers (`resolvePhase`,
  * `PHASE_TO_COMMAND`) and the plan-router descriptors directly.
