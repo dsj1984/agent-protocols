@@ -4,26 +4,135 @@ All notable changes to this project will be documented in this file.
 
 ## [Unreleased]
 
-### Webhook config consolidated to MCP
+## [5.15.0] - 2026-04-22
 
-The notification webhook URL is now sourced exclusively from the
-`agent-protocols` MCP server env (`.mcp.json`) or the
-`NOTIFICATION_WEBHOOK_URL` process env var. Both `.agentrc.json` entry
-points are removed:
+### Self-serve planning, Kanban baseline, and v5.14 retro fixes (Epic #349)
 
-- **Removed** `orchestration.notifications.webhookUrl` from the schema,
-  resolver, and validator.
-- **Removed** `orchestration.epicRunner.notificationWebhookUrl` from the
-  schema and epic runner.
-- `resolveWebhookUrl()` now takes a single `{ cwd }` options bag; the old
-  `config` positional argument is gone.
-- `NotificationHook` and `notify()` distinguish explicit `webhookUrl: null`
-  (opt out, no resolution) from omitted (resolve from env → `.mcp.json`).
+Planning is now a GitHub-triggered, review-first pipeline: label an Epic
+`agent::planning` and the remote runner generates the PRD + Tech Spec; label
+`agent::decomposing` and the runner decomposes the hierarchy. No local IDE is
+needed until code review, and even that can be automated via
+`epic::auto-close`. Alongside planning, this release ships the default Kanban
+board, completes the 14 Epic #321 retro items, and unifies `/sprint-execute`.
 
-Rationale: the MCP config already provisions the webhook for remote runs
-via the `MCP_JSON` CI secret, and duplicating it in `.agentrc.json` created
-two sources of truth. Operators with existing `.agentrc.json` files must
-remove both keys — the schema now rejects them.
+#### Self-serve planning from GitHub
+
+- **New workflow** `.github/workflows/epic-plan.yml` fires on `agent::planning`
+  or `agent::decomposing` against a `type::epic` issue. Validates label +
+  type + open state, derives the phase slug, and invokes
+  `/sprint-plan-spec` or `/sprint-plan-decompose` via the Claude remote
+  agent. Same secret surface as `epic-dispatch.yml`
+  (`CLAUDE_CODE_OAUTH_TOKEN`, `GITHUB_TOKEN`, `MCP_JSON`, `ENV_FILE`).
+- **Split CLIs.** `/sprint-plan` is now a thin local wrapper chaining
+  `sprint-plan-spec.js` → in-chat confirmation → `sprint-plan-decompose.js`.
+  `--auto-dispatch` applies `agent::dispatching` on completion.
+- **`--phase` flag on `remote-bootstrap.js`** (`spec` | `decompose` |
+  `execute`) routes to the matching slash command. `execute` is the default
+  so the v5.14.0 dispatch path is unchanged. Exports `PHASE_TO_COMMAND`,
+  `resolvePhase`, and `parsePhaseFromArgv`; the `main()` call is now
+  behind an `isMain` guard so callers can import the helpers.
+- **Plan-runner submodule** at
+  `.agents/scripts/lib/orchestration/plan-runner/` — `plan-router.js`
+  (label ↔ phase) and `plan-checkpointer.js` (upserts the
+  `epic-plan-state` structured comment with PRD/Spec IDs, ticket count,
+  and phase transitions). No wave scheduler, no blocker handler —
+  planning is short and has no concurrency surface.
+- **New labels** (`.agents/scripts/lib/label-taxonomy.js`):
+  - `agent::planning` — trigger; PRD + Spec work running.
+  - `agent::review-spec` — parking state; awaiting human review.
+  - `agent::decomposing` — trigger; hierarchy generation running.
+  - `agent::ready` — parking state; awaiting `agent::dispatching`.
+- **`ColumnSync` extended** (`lib/orchestration/epic-runner/column-sync.js`)
+  to map the four planning labels to board columns with the precedence
+  `done > blocked > review > spec-review > ready > planning > in-progress`.
+- **BDD parity.** `features/remote-planning.feature` documents the five
+  parity scenarios (spec trigger, review-spec parking, decompose trigger,
+  execute default, unknown-phase rejection); `tests/plan-runner/parity.test.js`
+  is the executable step-definition equivalent and also asserts that
+  `PHASE_TO_COMMAND` stays in lockstep with the plan-router descriptors.
+
+#### Default Kanban board
+
+- **`bootstrap-agent-protocols.js`** gains Projects V2 provisioning:
+  resolves or creates a Project, ensures a single-select `Status` field
+  with the canonical eight-column taxonomy (`Backlog`, `Planning`,
+  `Spec Review`, `Ready`, `In Progress`, `Blocked`, `Review`, `Done`), and
+  attempts to create three saved Views (Epic Roadmap, Current Sprint, My
+  Queue) via GraphQL. Missing `project` scope degrades gracefully —
+  labels still land, a one-time warning points at
+  [`docs/project-board.md`](project-board.md).
+- **`docs/project-board.md`** is the new canonical reference for the
+  Status field, column mapping, default Views, and manual-setup checklist
+  when the API route is limited.
+
+#### Epic #321 retro fixes
+
+- **`risk::high` retired as a runtime gate.** The label is removed from
+  the taxonomy, bootstrap, planner stamping, and schema; runtime helpers
+  (`handleHighRiskGate`, `hitl.riskHighRuntimeGate`) are deleted.
+  Historical ticket stamps remain as archival data. Retro telemetry that
+  previously counted the label migrates to story count and
+  blocker-escalation count.
+- **Test-glob auto-discovery.** `npm test` now uses `tests/**/*.test.js`
+  so new test files land without touching `package.json`.
+- **Tightened `orchestration` config schema.** Additional-property checks
+  and stricter types surface typos at bootstrap rather than at first use.
+- **`WorkspaceProvisioner.verify` runtime guard.** `sprint-story-init.js`
+  now calls `verify({ worktree })` automatically; missing `.env` /
+  `.mcp.json` fails with the path and remediation command instead of
+  silent test breakage. Regression test covers the delete-`.env` case.
+- **`/sprint-close` refactor.** Reorganized from 12 numbered steps into
+  five named phases. New `--skip-retro` flag (parity with
+  `--skip-code-review`). Doc-freshness gate now requires the Epic ID to
+  appear in the commit message or file body — pure-whitespace diffs no
+  longer pass. Branch-protection prerequisite check runs when
+  `epic::auto-close` is true and refuses the merge if protection is
+  absent or weaker than the configured floor. `/sprint-code-review`
+  output persists as a structured comment via `upsertStructuredComment`.
+- **`/sprint-execute` unification.** The v5.14.0 deprecation alias is now
+  the canonical entry point; `/sprint-execute-epic` and
+  `/sprint-execute-story` are retired. Routing is by `type::` label —
+  Epic Mode for `type::epic`, Story Mode for `type::story`. Underlying
+  engines are unchanged.
+- **Dispatch manifest unification.** Epic runner and planner both emit
+  the frozen manifest via `renderManifest` → `persistManifest`. One
+  source of truth for `temp/dispatch-manifest-<epicId>.{md,json}`.
+- **Worktree reap sweep moved to plan time.** `sprint-plan-spec`
+  sweeps stale `.worktrees/story-*` residue at the top of the run so
+  `/sprint-close` no longer has to be defensive about it.
+- **`--auto-dispatch` flag** on `/sprint-plan` applies `agent::dispatching`
+  at the end of a clean plan, useful for chained headless runs.
+
+#### Notifier coverage
+
+- **In-band Notifier wired into every orchestrator call site** that flips
+  ticket state (`transitionTicketState`, story-init, story-close, MCP
+  state-writer). The Notifier fires on the same events regardless of
+  whether the transition came from the coordinator, a per-story script,
+  or an MCP tool — closing the "manual label flip in the UI" blind spot
+  for programmatic flows.
+- **Webhook config consolidated to MCP.** The notification webhook URL is
+  now sourced exclusively from the `agent-protocols` MCP server env
+  (`.mcp.json`) or the `NOTIFICATION_WEBHOOK_URL` process env var. The
+  `.agentrc.json` entry points
+  (`orchestration.notifications.webhookUrl`,
+  `orchestration.epicRunner.notificationWebhookUrl`) are removed — the
+  schema now rejects them. `resolveWebhookUrl()` takes a single
+  `{ cwd }` options bag. `NotificationHook` and `notify()` distinguish
+  explicit `webhookUrl: null` (opt out, no resolution) from omitted
+  (resolve from env → `.mcp.json`). Rationale: the MCP config already
+  provisions the webhook for remote runs via the `MCP_JSON` CI secret,
+  and duplicating it in `.agentrc.json` created two sources of truth.
+
+#### Docs
+
+- **`docs/workflows.md`** — new slash-command reference index grouped by
+  lifecycle phase (planning, execution, closure, audits, git, setup).
+- **`.agents/SDLC.md`** is now the canonical workflow narrative.
+  `docs/architecture.md`, `docs/remote-orchestrator.md`, and `README.md`
+  cross-reference it instead of duplicating the lifecycle diagrams and
+  command tables.
+- **`docs/project-board.md`** — canonical Projects V2 board reference.
 
 ## [5.14.0] - 2026-04-21
 

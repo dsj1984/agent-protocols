@@ -117,6 +117,12 @@ See [SDLC.md](.agents/SDLC.md) for the full end-to-end workflow.
 
 ## How to execute an Epic
 
+> **Full reference:** [`.agents/SDLC.md`](.agents/SDLC.md) is the canonical
+> end-to-end workflow guide. The summary below is an orientation; see SDLC.md
+> for the detailed happy path, HITL touchpoints, and the local-vs-remote
+> decision matrix. For the slash-command reference index, see
+> [`docs/workflows.md`](docs/workflows.md).
+
 Two invocation paths share a single engine
 (`.agents/scripts/lib/orchestration/epic-runner.js`):
 
@@ -163,7 +169,7 @@ full runner contract, failure/resumption model, and HITL touchpoints.
 ```text
 agent-protocols/
 ├── .agents/                  # Distributed bundle (the "product")
-│   ├── VERSION               # Current version (5.2.3)
+│   ├── VERSION               # Current version (5.15.0)
 │   ├── instructions.md       # Primary system prompt
 │   ├── SDLC.md               # End-to-end workflow guide
 │   ├── README.md             # Detailed consumer reference
@@ -199,13 +205,17 @@ npm run mutate         # Run Stryker mutation testing
 
 ## Documentation
 
-| Document                                                      | Purpose                                      |
-| ------------------------------------------------------------- | -------------------------------------------- |
-| [Consumer Guide](.agents/README.md)                           | Setup, configuration, and APIs               |
-| [SDLC Workflow](.agents/SDLC.md)                              | End-to-end sprint lifecycle                  |
-| [Worktree Lifecycle](.agents/workflows/worktree-lifecycle.md) | Per-story `git worktree` isolation (v5.7.0+) |
-| [Changelog](docs/CHANGELOG.md)                                | Release history (v5.0.0+)                    |
-| [Legacy Changelog](docs/archive/CHANGELOG-v4.md)              | v1.0.0 – v4.7.2 history                      |
+| Document                                                      | Purpose                                             |
+| ------------------------------------------------------------- | --------------------------------------------------- |
+| [SDLC Workflow](.agents/SDLC.md)                              | **Canonical** end-to-end sprint lifecycle narrative |
+| [Workflow Reference](docs/workflows.md)                       | Slash-command index grouped by lifecycle phase      |
+| [Architecture](docs/architecture.md)                          | Module map, interfaces, and data flow               |
+| [Remote Orchestrator](docs/remote-orchestrator.md)            | Runner contract, secrets, resumption semantics      |
+| [Project Board](docs/project-board.md)                        | Projects V2 Status field, columns, and Views        |
+| [Consumer Guide](.agents/README.md)                           | Setup, configuration, and APIs                      |
+| [Worktree Lifecycle](.agents/workflows/worktree-lifecycle.md) | Per-story `git worktree` isolation (v5.7.0+)        |
+| [Changelog](docs/CHANGELOG.md)                                | Release history (v5.0.0+)                           |
+| [Legacy Changelog](docs/archive/CHANGELOG-v4.md)              | v1.0.0 – v4.7.2 history                             |
 
 ### Parallel execution model (v5.7.0+)
 

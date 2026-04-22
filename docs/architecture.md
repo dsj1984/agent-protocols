@@ -1,11 +1,18 @@
 # Architecture
 
-> **Version:** 5.0.0 · **Updated:** 2026-04-06
+> **Version:** 5.15.0 · **Updated:** 2026-04-22
 
 This document describes the internal architecture of Agent Protocols — a
 framework of instructions, personas, skills, and SDLC workflows that govern AI
 coding assistants. It is the authoritative reference for how the system is
 structured, how components interact, and where to find each subsystem.
+
+> **For the end-to-end workflow narrative** — how the commands compose,
+> label transitions, HITL touchpoints, local-vs-remote comparison — see
+> [`.agents/SDLC.md`](../.agents/SDLC.md). It is the canonical workflow
+> doc as of v5.15.0; this file covers the *architecture* (modules,
+> interfaces, data flow) that the workflow runs on top of. The slash-command
+> reference index lives in [`workflows.md`](workflows.md).
 
 ---
 
@@ -67,7 +74,7 @@ The repository has a clear separation between the **distributed product**
 agent-protocols/
 ├── .agents/                  ← Distributed bundle (the "product")
 │   ├── instructions.md       ← Primary system prompt (all agent rules)
-│   ├── VERSION               ← Semantic version (currently 5.0.0)
+│   ├── VERSION               ← Semantic version (currently 5.15.0)
 │   ├── SDLC.md               ← Sprint pipeline user guide
 │   ├── README.md             ← Consumer documentation
 │   ├── default-agentrc.json  ← Default config template
@@ -499,33 +506,11 @@ stateDiagram-v2
 
 ## Workflow System
 
-The 25 slash-command workflows fall into four categories:
-
-### Sprint Lifecycle
-
-| Workflow                            | Phase     | Description                                                |
-| ----------------------------------- | --------- | ---------------------------------------------------------- |
-| `/sprint-plan`                      | Planning  | End-to-end PRD → Tech Spec → Task decomposition            |
-| `/sprint-execute`                   | Execution | Dispatch manifest (Epic) or hydrated implementation (Task) |
-| `/sprint-code-review`               | Closure   | Comprehensive code review                                  |
-| `/sprint-hotfix`                    | Closure   | Rapid remediation of integration failures                  |
-| `/sprint-retro`                     | Closure   | Retrospective from ticket graph data                       |
-| `/sprint-close-out`                 | Closure   | Merge to main, tag release, close Epic                     |
-
-### Audit Suite
-
-12 specialized audit workflows covering accessibility, architecture, clean code,
-dependencies, DevOps, performance, privacy, quality, security, SEO, SRE, and
-UX/UI. Each audit activates the corresponding persona and skill set.
-
-### Git Operations
-
-| Workflow                     | Description                                     |
-| ---------------------------- | ----------------------------------------------- |
-| `/git-commit-all`            | Stage and commit all changes                    |
-| `/delete-epic-branches`      | Hard reset: delete all Epic branches            |
-| `/delete-epic-tickets`       | Hard reset: delete all Epic issues              |
-| `/bootstrap-agent-protocols` | Initialize repo with v5 label taxonomy          |
+The shipped slash commands (under `.agents/workflows/`) fall into six
+categories — planning, execution, closure, audits, git operations, and
+setup/meta. The canonical reference is [`workflows.md`](workflows.md); the
+workflow narrative that wires them together lives in
+[`.agents/SDLC.md`](../.agents/SDLC.md).
 
 ### Worktree Isolation (v5.7.0+)
 
