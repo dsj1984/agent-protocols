@@ -8,11 +8,13 @@
  * provided ITicketingProvider instance.
  */
 
+import { AGENT_LABELS, TYPE_LABELS } from '../label-constants.js';
+
 export const STATE_LABELS = {
-  READY: 'agent::ready',
-  EXECUTING: 'agent::executing',
-  REVIEW: 'agent::review',
-  DONE: 'agent::done',
+  READY: AGENT_LABELS.READY,
+  EXECUTING: AGENT_LABELS.EXECUTING,
+  REVIEW: AGENT_LABELS.REVIEW,
+  DONE: AGENT_LABELS.DONE,
 };
 
 const ALL_STATES = Object.values(STATE_LABELS);
@@ -329,7 +331,7 @@ export async function cascadeCompletion(provider, ticketId, opts = {}) {
         // EXCLUSION: Do not auto-close Epics, PRDs, or Tech Specs via cascade.
         // These must be closed via formal sprint-close.
         const parent = await provider.getTicket(parentId);
-        const isEpic = parent.labels.includes('type::epic');
+        const isEpic = parent.labels.includes(TYPE_LABELS.EPIC);
         const isPlanning =
           parent.labels.includes('context::prd') ||
           parent.labels.includes('context::tech-spec');

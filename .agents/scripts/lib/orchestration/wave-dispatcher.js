@@ -7,8 +7,9 @@
  */
 
 import fs from 'node:fs';
-import { branchExistsLocally } from '../git-branch-lifecycle.js';
 import { PROJECT_ROOT } from '../config-resolver.js';
+import { branchExistsLocally } from '../git-branch-lifecycle.js';
+import { TYPE_LABELS } from '../label-constants.js';
 import { hydrateContext } from './context-hydration-engine.js';
 import { vlog } from './dispatch-logger.js';
 import { getResolvedBranch } from './manifest-builder.js';
@@ -40,7 +41,7 @@ export function collectOpenStoryIds(tasks, allTicketsById, opts = {}) {
     if (!parentMatch) continue;
     const parentId = Number.parseInt(parentMatch[1], 10);
     const parent = allTicketsById.get(parentId);
-    if (!parent?.labels.includes('type::story')) continue;
+    if (!parent?.labels.includes(TYPE_LABELS.STORY)) continue;
 
     // Cancelled story: ticket is closed but was not completed via agent::done.
     // When reapOnCancel is enabled, treat it as no longer live so GC can reap

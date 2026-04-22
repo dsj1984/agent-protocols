@@ -36,6 +36,7 @@ import { runAsCli } from './lib/cli-utils.js';
 import { PROJECT_ROOT, resolveConfig } from './lib/config-resolver.js';
 import { gitSpawn } from './lib/git-utils.js';
 import { Logger } from './lib/Logger.js';
+import { TYPE_LABELS } from './lib/label-constants.js';
 import { toDone } from './lib/orchestration/label-transitions.js';
 import { postStructuredComment } from './lib/orchestration/ticketing.js';
 import { createProvider } from './lib/provider-factory.js';
@@ -129,7 +130,7 @@ async function phaseFinalizeAuxiliaryTickets(provider, epicId, warnings) {
       ) {
         return true;
       }
-      if (t.labels.includes('type::health')) return true;
+      if (t.labels.includes(TYPE_LABELS.HEALTH)) return true;
       if (
         typeof t.title === 'string' &&
         t.title.startsWith('📉 Sprint Health:')
@@ -152,10 +153,10 @@ async function phaseFinalizeAuxiliaryTickets(provider, epicId, warnings) {
 
         const kind =
           ticket.labels.find((l) => l.startsWith('context::')) ??
-          (ticket.labels.includes('type::health') ||
+          (ticket.labels.includes(TYPE_LABELS.HEALTH) ||
           (typeof ticket.title === 'string' &&
             ticket.title.startsWith('📉 Sprint Health:'))
-            ? 'type::health'
+            ? TYPE_LABELS.HEALTH
             : 'auxiliary');
 
         progress('CONTEXT', `Closing ${kind} #${ticket.id}...`);

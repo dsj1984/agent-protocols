@@ -15,6 +15,7 @@ export const AGENT_LABELS = {
   REVIEW: 'agent::review',
   DONE: 'agent::done',
   DISPATCHING: 'agent::dispatching',
+  BLOCKED: 'agent::blocked',
 };
 
 export const TYPE_LABELS = {
@@ -22,6 +23,7 @@ export const TYPE_LABELS = {
   FEATURE: 'type::feature',
   STORY: 'type::story',
   TASK: 'type::task',
+  HEALTH: 'type::health',
 };
 
 export const EPIC_LABELS = {

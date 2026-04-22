@@ -3,10 +3,11 @@
  */
 
 import { parseBlockedBy, parseTaskMetadata } from '../dependency-parser.js';
+import { AGENT_LABELS, TYPE_LABELS } from '../label-constants.js';
 import { STATE_LABELS } from './ticketing.js';
 
 const AGENT_DONE_LABEL = STATE_LABELS.DONE;
-const TYPE_TASK_LABEL = 'type::task';
+const TYPE_TASK_LABEL = TYPE_LABELS.TASK;
 
 /**
  * Parses normal ticket objects into task representations.
@@ -27,7 +28,7 @@ export function parseTasks(tickets) {
     const status =
       t.state === 'closed'
         ? AGENT_DONE_LABEL
-        : (labels.find((l) => l.startsWith('agent::')) ?? 'agent::ready');
+        : (labels.find((l) => l.startsWith('agent::')) ?? AGENT_LABELS.READY);
 
     return {
       id: t.id,

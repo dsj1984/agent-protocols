@@ -9,6 +9,8 @@
  * one impure helper that reads config to build the options bag.
  */
 
+import { AGENT_LABELS } from '../label-constants.js';
+
 // ---------------------------------------------------------------------------
 // Dispatch manifest (Epic-level) Markdown
 // ---------------------------------------------------------------------------
@@ -87,7 +89,8 @@ export function formatManifestMarkdown(manifest) {
   );
   const doneStories = allStoryItems.filter(
     (s) =>
-      s.tasks.length > 0 && s.tasks.every((t) => t.status === 'agent::done'),
+      s.tasks.length > 0 &&
+      s.tasks.every((t) => t.status === AGENT_LABELS.DONE),
   ).length;
   lines.push(
     `> **Stories:** ${doneStories}/${allStoryItems.length} complete · **Tasks:** ${summary.doneTasks}/${summary.totalTasks} complete`,
@@ -113,7 +116,7 @@ export function formatManifestMarkdown(manifest) {
       const stat = waveStats.get(w);
       stat.stories++;
       stat.tasks += s.tasks.length;
-      stat.done += s.tasks.filter((t) => t.status === 'agent::done').length;
+      stat.done += s.tasks.filter((t) => t.status === AGENT_LABELS.DONE).length;
     }
 
     const sortedWaves = [...waveStats.keys()].sort((a, b) => a - b);
@@ -189,7 +192,7 @@ export function formatManifestMarkdown(manifest) {
       for (const s of stories) {
         const allDone =
           s.tasks.length > 0 &&
-          s.tasks.every((t) => t.status === 'agent::done');
+          s.tasks.every((t) => t.status === AGENT_LABELS.DONE);
         const storyCheckbox = allDone ? '✅' : '⬜';
         lines.push(
           `| ${storyCheckbox} | #${s.storyId} | ${s.storySlug} | \`${s.model_tier}\` | ${s.tasks.length} |`,
@@ -248,7 +251,7 @@ export function formatManifestMarkdown(manifest) {
       lines.push('');
 
       for (const task of story.tasks) {
-        const isDone = task.status === 'agent::done';
+        const isDone = task.status === AGENT_LABELS.DONE;
         const checkbox = isDone ? '[x]' : '[ ]';
         const deps =
           task.dependencies && task.dependencies.length > 0
@@ -342,7 +345,7 @@ export function formatStoryManifestMarkdown(manifest, opts = {}) {
     lines.push('');
     lines.push('**Tasks (execution order):**');
     for (const task of story.tasks) {
-      const isDone = task.status === 'agent::done';
+      const isDone = task.status === AGENT_LABELS.DONE;
       const checkbox = isDone ? '[x]' : '[ ]';
       const deps =
         task.dependencies && task.dependencies.length > 0

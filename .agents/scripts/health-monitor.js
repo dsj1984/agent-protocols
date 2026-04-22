@@ -3,6 +3,7 @@
 import { parseSprintArgs } from './lib/cli-args.js';
 import { runAsCli } from './lib/cli-utils.js';
 import { resolveConfig } from './lib/config-resolver.js';
+import { AGENT_LABELS, TYPE_LABELS } from './lib/label-constants.js';
 import { fetchTasks } from './lib/orchestration/task-fetcher.js';
 import { fetchTelemetry } from './lib/orchestration/telemetry.js';
 import { createProvider } from './lib/provider-factory.js';
@@ -26,7 +27,7 @@ export async function updateHealthMetrics(epicId, dryRun = false) {
   const allEpicTickets = await provider.getTickets(epicId);
   const healthIssue = allEpicTickets.find(
     (t) =>
-      t.labels.includes('type::health') ||
+      t.labels.includes(TYPE_LABELS.HEALTH) ||
       t.title.startsWith('📉 Sprint Health:'),
   );
 
@@ -43,9 +44,9 @@ export async function updateHealthMetrics(epicId, dryRun = false) {
   let inProgressTasks = 0;
 
   for (const task of tasks) {
-    if (task.labels.includes('agent::done')) doneTasks++;
-    if (task.labels.includes('agent::blocked')) blockedTasks++;
-    if (task.labels.includes('agent::executing')) inProgressTasks++;
+    if (task.labels.includes(AGENT_LABELS.DONE)) doneTasks++;
+    if (task.labels.includes(AGENT_LABELS.BLOCKED)) blockedTasks++;
+    if (task.labels.includes(AGENT_LABELS.EXECUTING)) inProgressTasks++;
   }
 
   // Attempt to fetch friction logs using recent comments

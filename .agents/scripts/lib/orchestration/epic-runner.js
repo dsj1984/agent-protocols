@@ -18,6 +18,7 @@
 
 import { parseBlockedBy } from '../dependency-parser.js';
 import { computeWaves } from '../Graph.js';
+import { AGENT_LABELS, TYPE_LABELS } from '../label-constants.js';
 import { createNotifier } from '../notifications/notifier.js';
 import { EpicRunnerContext } from './context.js';
 import { BlockerHandler } from './epic-runner/blocker-handler.js';
@@ -124,7 +125,7 @@ async function runEpicWithContext(ctx, collaborators = {}) {
     try {
       await provider.updateTicket(epicId, {
         labels: {
-          add: ['agent::blocked'],
+          add: [AGENT_LABELS.BLOCKED],
           remove: [STATE_LABELS.EXECUTING],
         },
       });
@@ -163,7 +164,7 @@ async function runEpicWithContext(ctx, collaborators = {}) {
   // and fail the type guard in `resolveStoryContext`.
   const descendants = await provider.getSubTickets(epicId);
   const stories = (descendants ?? []).filter((t) =>
-    (t.labels ?? []).includes('type::story'),
+    (t.labels ?? []).includes(TYPE_LABELS.STORY),
   );
   if (!stories.length) {
     throw new Error(`Epic #${epicId} has no child stories to dispatch.`);
@@ -328,7 +329,7 @@ async function runEpicWithContext(ctx, collaborators = {}) {
 
     if (failures.length) {
       const firstFailure = failures[0];
-      await syncColumn(epicId, ['agent::blocked']);
+      await syncColumn(epicId, [AGENT_LABELS.BLOCKED]);
       const halt = await blockerHandler.halt({
         reason:
           firstFailure.status === 'blocked' ? 'story_blocked' : 'story_failed',
@@ -398,7 +399,7 @@ async function finalize({
       }
       return { epicId, state, waveHistory, bookendResult };
     }
-    await syncColumn?.(epicId, ['agent::blocked']);
+    await syncColumn?.(epicId, [AGENT_LABELS.BLOCKED]);
     return { epicId, state, waveHistory, bookendResult: null };
   } finally {
     await journal?.finalize?.();

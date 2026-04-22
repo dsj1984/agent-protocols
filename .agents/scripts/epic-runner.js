@@ -14,6 +14,7 @@
  */
 
 import { runAsCli } from './lib/cli-utils.js';
+import { AGENT_LABELS } from './lib/label-constants.js';
 import { buildClaudeSpawn } from './lib/orchestration/epic-runner/build-claude-spawn.js';
 
 const DEFAULT_LOGS_DIR = 'temp/epic-runner-logs';
@@ -188,11 +189,12 @@ async function defaultSpawn({
         const provider = createProvider(resolveConfig().orchestration);
         const story = await provider.getTicket(storyId);
         const labels = story?.labels ?? [];
-        if (labels.includes('agent::done')) return resolve({ status: 'done' });
-        if (labels.includes('agent::blocked')) {
+        if (labels.includes(AGENT_LABELS.DONE))
+          return resolve({ status: 'done' });
+        if (labels.includes(AGENT_LABELS.BLOCKED)) {
           return resolve({
             status: 'blocked',
-            detail: `agent::blocked; see ${logPath}`,
+            detail: `${AGENT_LABELS.BLOCKED}; see ${logPath}`,
           });
         }
         resolve({

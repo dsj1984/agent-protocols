@@ -3,6 +3,7 @@
  */
 
 import { PROJECT_ROOT, resolveConfig } from '../config-resolver.js';
+import { AGENT_LABELS, TYPE_LABELS } from '../label-constants.js';
 import { VerboseLogger } from '../VerboseLogger.js';
 import { parseParentId } from './story-grouper.js';
 import { STATE_LABELS } from './ticketing.js';
@@ -53,7 +54,7 @@ export async function reconcileClosedTasks(tasks, provider, dryRun) {
           add: [AGENT_DONE_LABEL],
           remove: [
             ...ALL_AGENT_STATES.filter((s) => s !== AGENT_DONE_LABEL),
-            'agent::blocked',
+            AGENT_LABELS.BLOCKED,
           ],
         },
         state: 'closed',
@@ -146,7 +147,11 @@ export async function reconcileHierarchy(
       await provider.updateTicket(id, {
         labels: {
           add: [AGENT_DONE_LABEL],
-          remove: ['agent::ready', 'agent::executing', 'agent::review'],
+          remove: [
+            AGENT_LABELS.READY,
+            AGENT_LABELS.EXECUTING,
+            AGENT_LABELS.REVIEW,
+          ],
         },
         state: 'closed',
         state_reason: 'completed',
@@ -165,10 +170,10 @@ export async function reconcileHierarchy(
   }
 
   const storyIds = allTickets
-    .filter((t) => (t.labelSet ?? new Set(t.labels)).has('type::story'))
+    .filter((t) => (t.labelSet ?? new Set(t.labels)).has(TYPE_LABELS.STORY))
     .map((t) => t.id);
   const featureIds = allTickets
-    .filter((t) => (t.labelSet ?? new Set(t.labels)).has('type::feature'))
+    .filter((t) => (t.labelSet ?? new Set(t.labels)).has(TYPE_LABELS.FEATURE))
     .map((t) => t.id);
 
   for (const id of storyIds) await maybeClose(id, 'Story');

@@ -2,6 +2,8 @@
  * lib/orchestration/story-grouper.js — Story Grouping Helpers
  */
 
+import { TYPE_LABELS } from '../label-constants.js';
+
 /**
  * Parse the direct parent ID from a ticket body.
  *
@@ -31,8 +33,8 @@ export function groupTasksByStory(tasks, allTickets, _epicId) {
     const labels = parentTicket?.labels ?? [];
 
     // STRICT TYPE CHECKING
-    const isStory = labels.includes('type::story');
-    const isFeature = labels.includes('type::feature');
+    const isStory = labels.includes(TYPE_LABELS.STORY);
+    const isFeature = labels.includes(TYPE_LABELS.FEATURE);
 
     // Determine the grouping key and type
     let key = '__ungrouped__';

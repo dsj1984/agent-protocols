@@ -29,17 +29,18 @@ import { parseArgs } from 'node:util';
 import { runAsCli } from './lib/cli-utils.js';
 import { resolveConfig } from './lib/config-resolver.js';
 import { Logger } from './lib/Logger.js';
+import { TYPE_LABELS } from './lib/label-constants.js';
 import { createProvider } from './lib/provider-factory.js';
 
 const TYPE_TO_MODE = Object.freeze({
-  'type::epic': 'epic',
-  'type::story': 'story',
+  [TYPE_LABELS.EPIC]: 'epic',
+  [TYPE_LABELS.STORY]: 'story',
 });
 
 const REJECT_TYPES = Object.freeze({
-  'type::feature':
+  [TYPE_LABELS.FEATURE]:
     'Features are containers — run /sprint-execute against child Stories or the parent Epic.',
-  'type::task':
+  [TYPE_LABELS.TASK]:
     'Tasks execute as children of Stories — run /sprint-execute against the Story, not the Task.',
 });
 

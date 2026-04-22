@@ -39,6 +39,7 @@ import { parseBlockedBy } from './lib/dependency-parser.js';
 import { buildGraph, detectCycle } from './lib/Graph.js';
 import { gitSpawn } from './lib/git-utils.js';
 import { Logger } from './lib/Logger.js';
+import { TYPE_LABELS } from './lib/label-constants.js';
 import { createProvider } from './lib/provider-factory.js';
 
 const progress = Logger.createProgress('plan-healthcheck', { stderr: true });
@@ -73,9 +74,11 @@ async function checkTickets(provider, epicId) {
     return findings;
   }
 
-  const features = tickets.filter((t) => t.labels.includes('type::feature'));
-  const stories = tickets.filter((t) => t.labels.includes('type::story'));
-  const tasks = tickets.filter((t) => t.labels.includes('type::task'));
+  const features = tickets.filter((t) =>
+    t.labels.includes(TYPE_LABELS.FEATURE),
+  );
+  const stories = tickets.filter((t) => t.labels.includes(TYPE_LABELS.STORY));
+  const tasks = tickets.filter((t) => t.labels.includes(TYPE_LABELS.TASK));
 
   if (features.length === 0)
     findings.push({ level: 'error', msg: 'No type::feature tickets found.' });

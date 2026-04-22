@@ -25,6 +25,7 @@
 import { appendFile, mkdir } from 'node:fs/promises';
 import { dirname } from 'node:path';
 
+import { AGENT_LABELS } from '../../label-constants.js';
 import { upsertStructuredComment } from '../ticketing.js';
 import { createStalledWorktreeDetector } from './progress-signals/stalled-worktree.js';
 
@@ -396,10 +397,10 @@ function deriveState(ticket) {
   if (!ticket) return 'unknown';
   const labels = ticket.labels ?? [];
   const state = (ticket.state ?? '').toString().toUpperCase();
-  if (state === 'CLOSED' || labels.includes('agent::done')) return 'done';
-  if (labels.includes('agent::blocked')) return 'blocked';
-  if (labels.includes('agent::executing')) return 'in-flight';
-  if (labels.includes('agent::ready')) return 'queued';
+  if (state === 'CLOSED' || labels.includes(AGENT_LABELS.DONE)) return 'done';
+  if (labels.includes(AGENT_LABELS.BLOCKED)) return 'blocked';
+  if (labels.includes(AGENT_LABELS.EXECUTING)) return 'in-flight';
+  if (labels.includes(AGENT_LABELS.READY)) return 'queued';
   return 'unknown';
 }
 

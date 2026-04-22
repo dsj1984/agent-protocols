@@ -95,9 +95,9 @@ export async function resolveAndDispatch(options) {
   const ticket = await provider.getTicket(ticketId);
   const labels = ticket.labels || [];
 
-  const isStory = labels.includes('type::story');
-  const isEpic = labels.includes('type::epic');
-  const isFeature = labels.includes('type::feature');
+  const isStory = labels.includes(TYPE_LABELS.STORY);
+  const isEpic = labels.includes(TYPE_LABELS.EPIC);
+  const isFeature = labels.includes(TYPE_LABELS.FEATURE);
 
   if (isStory) {
     return executeStory({ story: ticket, provider, dryRun });
