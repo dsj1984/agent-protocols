@@ -30,7 +30,11 @@ import { readFile } from 'node:fs/promises';
 import path from 'node:path';
 import { parseArgs } from 'node:util';
 import { runAsCli } from './lib/cli-utils.js';
-import { PROJECT_ROOT, resolveConfig } from './lib/config-resolver.js';
+import {
+  PROJECT_ROOT,
+  resolveConfig,
+  validateOrchestrationConfig,
+} from './lib/config-resolver.js';
 import { AGENT_LABELS, TYPE_LABELS } from './lib/label-constants.js';
 import { Logger } from './lib/Logger.js';
 import { buildAuthoringContext, planEpic } from './epic-planner.js';
@@ -192,7 +196,16 @@ async function main() {
     Logger.fatal(`Invalid epic ID: "${values.epic}" — must be a number.`);
   }
 
-  const { orchestration, settings } = resolveConfig();
+  let orchestration;
+  let settings;
+  try {
+    ({ orchestration, settings } = resolveConfig());
+    validateOrchestrationConfig(orchestration);
+  } catch (err) {
+    Logger.fatal(
+      `Orchestration config schema validation failed:\n${err.message}`,
+    );
+  }
   const provider = createProvider(orchestration);
 
   try {

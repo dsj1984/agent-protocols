@@ -129,7 +129,11 @@ const LOADED_CONFIG_APPLY_KEYS = [
  * @returns {{ settings: object, orchestration: object|null, raw: object|null, source: string }}
  */
 export function resolveConfig(opts) {
-  const root = path.resolve(opts?.cwd ?? PROJECT_ROOT);
+  // Test-only override: `AP_AGENTRC_CWD` lets fixture tests point launcher
+  // subprocesses at a temp dir holding a synthetic `.agentrc.json`, without
+  // disk-swapping the real project config and racing against parallel tests.
+  const envCwd = process.env.AP_AGENTRC_CWD;
+  const root = path.resolve(opts?.cwd ?? envCwd ?? PROJECT_ROOT);
   const validate = opts?.validate !== false;
 
   if (!opts?.bustCache && _cacheByRoot.has(root)) {

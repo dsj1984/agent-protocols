@@ -58,10 +58,22 @@ async function main() {
   }
 
   const { runEpic } = await import('./lib/orchestration/epic-runner.js');
-  const { resolveConfig } = await import('./lib/config-resolver.js');
+  const { resolveConfig, validateOrchestrationConfig } = await import(
+    './lib/config-resolver.js'
+  );
   const { createProvider } = await import('./lib/provider-factory.js');
 
-  const config = resolveConfig();
+  let config;
+  try {
+    config = resolveConfig();
+    validateOrchestrationConfig(config.orchestration);
+  } catch (err) {
+    console.error(
+      `[epic-runner] ERROR: orchestration config schema validation failed:\n${err.message}`,
+    );
+    process.exit(2);
+  }
+
   if (!config.orchestration) {
     console.error(
       '[epic-runner] ERROR: no orchestration block in .agentrc.json.',
