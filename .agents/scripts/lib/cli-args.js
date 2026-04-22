@@ -37,6 +37,8 @@ export function parseSprintArgs(args = process.argv) {
       executor: { type: 'string' },
       cwd: { type: 'string' },
       'recut-of': { type: 'string' },
+      resume: { type: 'boolean', default: false },
+      restart: { type: 'boolean', default: false },
     },
     allowPositionals: true,
     strict: false,
@@ -55,6 +57,8 @@ export function parseSprintArgs(args = process.argv) {
       process.env.AGENT_WORKTREE_ROOT ||
       null,
     recutOf: parseTicketId(values['recut-of']),
+    resume: values.resume ?? false,
+    restart: values.restart ?? false,
   };
 
   parsed.ticketId =
