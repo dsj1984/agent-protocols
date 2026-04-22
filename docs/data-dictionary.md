@@ -131,7 +131,7 @@ above the existing label/comment taxonomy.
 
 | Term                       | Kind                | Definition                                                                                                     |
 | -------------------------- | ------------------- | -------------------------------------------------------------------------------------------------------------- |
-| `agent::dispatching`       | Label (transient)   | Operator-applied trigger that fires `epic-dispatch.yml`; the runner flips it to `agent::executing` on pickup.  |
+| `agent::dispatching`       | Label (transient)   | Operator-applied trigger that fires `epic-orchestrator.yml`; the runner flips it to `agent::executing` on pickup.  |
 | `epic::auto-close`         | Label (snapshot)    | Opt-in modifier captured at dispatch. Authorises the bookend chain (`review → retro → close → merge-to-main`). |
 | `epic-run-state`           | Structured comment  | HTML-marker-scoped JSON checkpoint on the Epic; single SSOT for wave progress and resume.                      |
 | `wave-<N>-start`           | Structured comment  | Per-wave start marker with wave manifest and start timestamp.                                                  |

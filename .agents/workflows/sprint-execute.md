@@ -2,22 +2,22 @@
 description: >-
   Execute a sprint ticket. Routes by `type::` label — `type::epic` fans out
   wave-based orchestration via the epic runner; `type::story` runs a single
-  Story end-to-end (init → implement → validate → close, per-story worktree
-  when isolation is enabled).
+  Story end-to-end (init → implement → validate → close, per-story worktree when
+  isolation is enabled).
 ---
 
 # /sprint-execute #[Ticket ID]
 
 ## Overview
 
-`/sprint-execute` is the **single entry point** for sprint execution. It
-routes by the ticket's `type::` label:
+`/sprint-execute` is the **single entry point** for sprint execution. It routes
+by the ticket's `type::` label:
 
-| Label         | Mode                 | What runs                                                    |
-| ------------- | -------------------- | ------------------------------------------------------------ |
-| `type::epic`  | **Epic Mode**        | Long-running orchestrator — fans out Stories wave-by-wave.   |
-| `type::story` | **Story Mode**       | Single-Story worker — init, implement Tasks, validate, close.|
-| `type::feature` / `type::task` | Rejected | Features are containers; Tasks are child items.              |
+| Label                          | Mode           | What runs                                                     |
+| ------------------------------ | -------------- | ------------------------------------------------------------- |
+| `type::epic`                   | **Epic Mode**  | Long-running orchestrator — fans out Stories wave-by-wave.    |
+| `type::story`                  | **Story Mode** | Single-Story worker — init, implement Tasks, validate, close. |
+| `type::feature` / `type::task` | Rejected       | Features are containers; Tasks are child items.               |
 
 Both modes share the same dispatcher entry point at
 [`.agents/scripts/dispatcher.js`](../scripts/dispatcher.js), which auto-detects
@@ -53,12 +53,12 @@ gh issue view <ticketId> --json labels,title
 
 Epic Mode is the **long-running orchestrator** that composes Story sub-agents
 across every wave of an Epic. It is the entry point for the remote-agent
-dispatch flow (fired from `.github/workflows/epic-dispatch.yml`) and can also
-be invoked locally for manual end-to-end runs.
+dispatch flow (fired from `.github/workflows/epic-orchestrator.yml`) and can
+also be invoked locally for manual end-to-end runs.
 
-> **Engine**: coordinator at
-> `.agents/scripts/lib/orchestration/epic-runner.js` composes the six
-> submodules in `.agents/scripts/lib/orchestration/epic-runner/` (wave-scheduler,
+> **Engine**: coordinator at `.agents/scripts/lib/orchestration/epic-runner.js`
+> composes the six submodules in
+> `.agents/scripts/lib/orchestration/epic-runner/` (wave-scheduler,
 > story-launcher, state-poller, checkpointer, blocker-handler,
 > notification-hook, and a bookend-chainer stub). The CLI at
 > `.agents/scripts/epic-runner.js` drives the engine with the
@@ -72,8 +72,8 @@ be invoked locally for manual end-to-end runs.
   comment if present; otherwise initializes a fresh run.
 - **Single pause point**: only `agent::blocked` halts execution. All other
   labels are informational during the run.
-- **Snapshot modifier**: `epic::auto-close` is read once at run start. Adding
-  it mid-run is ignored; removing it mid-run is ignored.
+- **Snapshot modifier**: `epic::auto-close` is read once at run start. Adding it
+  mid-run is ignored; removing it mid-run is ignored.
 
 ### Invocation
 
@@ -96,9 +96,9 @@ provisioned.
 3. **Blocker**: flip Epic to `agent::blocked`, post friction comment, fire
    webhook, park until the operator flips back to `agent::executing`.
 4. **Final wave completes**: flip Epic to `agent::review`.
-5. **If `autoClose` was set**: chain `/sprint-code-review` →
-   `/sprint-retro` → `/sprint-close`. Otherwise exit cleanly for the operator
-   to drive the bookends manually.
+5. **If `autoClose` was set**: chain `/sprint-code-review` → `/sprint-retro` →
+   `/sprint-close`. Otherwise exit cleanly for the operator to drive the
+   bookends manually.
 
 > 📎 See tech spec **#323** for the full component diagram, failure model,
 > `epic-run-state` schema, and `.agentrc.json` keys under
@@ -113,8 +113,8 @@ provisioned.
 Story Mode is a **single-purpose worker**. One invocation runs one Story from
 init to close. The argument is always a **Story ID**.
 
-For the Epic-level view — waves, recommended models, parallel suggestions —
-see the Story Dispatch Table emitted by `/sprint-plan` (Phase 4). Run one
+For the Epic-level view — waves, recommended models, parallel suggestions — see
+the Story Dispatch Table emitted by `/sprint-plan` (Phase 4). Run one
 `/sprint-execute <Story ID>` per Claude window; the operator owns launch order
 by picking stories off the Dispatch Table.
 
@@ -122,9 +122,8 @@ by picking stories off the Dispatch Table.
 > `true`, Step 0 ensures a worktree at `.worktrees/story-<id>/` and prints its
 > absolute path as `workCwd`. You **must** `cd` into that path before Step 1.
 > The main checkout's HEAD is never moved. When isolation is `false`, `workCwd`
-> equals the main checkout. See
-> [`worktree-lifecycle.md`](worktree-lifecycle.md) for node_modules strategies,
-> Windows notes, and escape hatches.
+> equals the main checkout. See [`worktree-lifecycle.md`](worktree-lifecycle.md)
+> for node_modules strategies, Windows notes, and escape hatches.
 
 ### Step 0 — Initialize (`sprint-story-init.js`)
 
@@ -171,8 +170,8 @@ single-tree mode it is the main checkout.
 
 **Dependency install:** When worktree isolation is enabled, the worktree is a
 fresh checkout with no `node_modules/`. Step 0 runs `npm ci` (or the lock-file
-appropriate equivalent) automatically during worktree creation. If `workCwd`
-has no `node_modules/` directory, run install before proceeding:
+appropriate equivalent) automatically during worktree creation. If `workCwd` has
+no `node_modules/` directory, run install before proceeding:
 
 ```powershell
 npm ci    # or: pnpm install --frozen-lockfile / yarn install --frozen-lockfile
@@ -230,8 +229,8 @@ If tests or lint fail:
 
 Run closure. Pass the main-checkout path via `--cwd` so the merge and branch
 deletion run against the main repo, not inside the worktree (branches checked
-out in a worktree cannot be deleted from themselves). The close script will
-reap the worktree after the merge succeeds.
+out in a worktree cannot be deleted from themselves). The close script will reap
+the worktree after the merge succeeds.
 
 ```powershell
 # From the worktree, invoke close against the main checkout.
@@ -286,9 +285,9 @@ Run two Stories at once by opening two Claude windows and invoking
 window gets its own `.worktrees/story-<id>/`; the main checkout stays quiet.
 Pick the story IDs from the Dispatch Table produced by `/sprint-plan`.
 
-Focus-area / file-overlap conflicts are the **operator's** responsibility —
-read the Dispatch Table before launching. The framework no longer serializes
-waves automatically.
+Focus-area / file-overlap conflicts are the **operator's** responsibility — read
+the Dispatch Table before launching. The framework no longer serializes waves
+automatically.
 
 ---
 
@@ -298,10 +297,9 @@ waves automatically.
 
 - **Never** honor a mid-run change to `epic::auto-close`. The snapshot at
   startup is authoritative.
-- **Always** checkpoint via `post_structured_comment` with the
-  `epic-run-state` marker — never write run state anywhere else.
-- **Never** launch more than `concurrencyCap` parallel Story executors per
-  wave.
+- **Always** checkpoint via `post_structured_comment` with the `epic-run-state`
+  marker — never write run state anywhere else.
+- **Never** launch more than `concurrencyCap` parallel Story executors per wave.
 
 ### Story Mode
 
@@ -320,5 +318,5 @@ waves automatically.
 - **MCP Fallback**: If `agent-protocols` MCP tools fail due to connection
   errors, **fall back immediately** to
   `node .agents/scripts/update-ticket-state.js --task <id> --state <state>`
-  (which also auto-cascades completion when `--state agent::done`). Do not
-  leave tickets in stale states.
+  (which also auto-cascades completion when `--state agent::done`). Do not leave
+  tickets in stale states.

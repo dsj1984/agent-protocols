@@ -45,9 +45,9 @@ graph LR
   implementation using native `fetch()` (Node 20+).
 - **Two-Command UX**: `/sprint-plan` generates PRDs, Tech Specs, and a full
   4-tier task hierarchy. `/sprint-execute` routes by `type::` label — pass a
-  Story ID to drive a single Story to completion, or an Epic ID to run an
-  entire Epic end-to-end (locally or via the GitHub `agent::dispatching`
-  remote-trigger workflow). See [How to execute an Epic](#how-to-execute-an-epic).
+  Story ID to drive a single Story to completion, or an Epic ID to run an entire
+  Epic end-to-end (locally or via the GitHub `agent::dispatching` remote-trigger
+  workflow). See [How to execute an Epic](#how-to-execute-an-epic).
 - **Self-Contained**: Zero external SDK dependencies for core orchestration. No
   `@octokit/*`, no Axios — just raw HTTP and GraphQL.
 - **Gate-Based Quality**: An automated audit orchestration pipeline selects and
@@ -140,27 +140,27 @@ claude /sprint-execute <storyId>
 ```
 
 `/sprint-execute` (Epic Mode) flips the Epic to `agent::executing`, checkpoints
-progress on the issue itself, fans out up to `concurrencyCap` Story
-executors per wave, and lands at `agent::review`. If the Epic carries
-`epic::auto-close`, the run continues autonomously through
-`/sprint-code-review` → `/sprint-retro` → `/sprint-close`.
+progress on the issue itself, fans out up to `concurrencyCap` Story executors
+per wave, and lands at `agent::review`. If the Epic carries `epic::auto-close`,
+the run continues autonomously through `/sprint-code-review` → `/sprint-retro` →
+`/sprint-close`.
 
 ### Path 2 — Remote, GitHub-triggered
 
 1. Configure repo secrets: `ANTHROPIC_API_KEY`, `ENV_FILE`, `MCP_JSON`.
 2. On the Epic issue, add the `agent::dispatching` label (and optionally
    `epic::auto-close`).
-3. `.github/workflows/epic-dispatch.yml` fires, booting a Claude remote
+3. `.github/workflows/epic-orchestrator.yml` fires, booting a Claude remote
    runner that runs `.agents/scripts/remote-bootstrap.js` and invokes
    `/sprint-execute` against a fresh clone.
 
-The remote path has **one** pause point: `agent::blocked` on the Epic.
-Flip it back to `agent::executing` to resume. All other labels
-(`risk::high`, `epic::auto-close`, etc.) are informational during the
-run — mid-run changes are ignored.
+The remote path has **one** pause point: `agent::blocked` on the Epic. Flip it
+back to `agent::executing` to resume. All other labels (`risk::high`,
+`epic::auto-close`, etc.) are informational during the run — mid-run changes are
+ignored.
 
-See [docs/remote-orchestrator.md](docs/remote-orchestrator.md) for the
-full runner contract, failure/resumption model, and HITL touchpoints.
+See [docs/remote-orchestrator.md](docs/remote-orchestrator.md) for the full
+runner contract, failure/resumption model, and HITL touchpoints.
 
 ---
 

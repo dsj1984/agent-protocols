@@ -13,7 +13,7 @@ invocations of `/sprint-execute <epicId>` (Epic Mode).
 
 As of v5.15.0, the same runner infrastructure also powers the **planning**
 pipeline: applying `agent::planning` or `agent::decomposing` to an Epic
-fires `.github/workflows/epic-plan.yml`, which invokes
+fires `.github/workflows/epic-orchestrator.yml`, which invokes
 `/sprint-plan-spec` or `/sprint-plan-decompose` via
 `remote-bootstrap.js --phase`. See [Planning flow](#planning-flow) below.
 
@@ -23,7 +23,7 @@ fires `.github/workflows/epic-plan.yml`, which invokes
 Operator flips Epic to agent::dispatching
         │
         ▼
-.github/workflows/epic-dispatch.yml (issues.labeled)
+.github/workflows/epic-orchestrator.yml (issues.labeled)
         │
         ▼ Claude remote agent boots
 .agents/scripts/remote-bootstrap.js [--phase spec|decompose|execute]
@@ -123,7 +123,7 @@ copy is what the runner last wrote.
 
 Planning runs as a separate, GitHub-triggered pipeline that is decoupled
 from execution. Applying `agent::planning` to a `type::epic` issue fires
-`.github/workflows/epic-plan.yml`, which boots a Claude remote agent and
+`.github/workflows/epic-orchestrator.yml`, which boots a Claude remote agent and
 invokes `/sprint-plan-spec`. The agent generates the PRD and Tech Spec as
 linked issues (`context::prd`, `context::tech-spec`), flips the Epic to
 `agent::review-spec`, and exits. The human reviews the generated documents
@@ -141,7 +141,7 @@ agent::decomposing ─► /sprint-plan-decompose ─► agent::ready
                                                       │
                                            (human applies dispatching)
                                                       ▼
-agent::dispatching ─► epic-dispatch.yml (unchanged)
+agent::dispatching ─► epic-orchestrator.yml (dispatch phase)
 ```
 
 ### Planning labels

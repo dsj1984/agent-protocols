@@ -241,7 +241,7 @@ submodule paths are internal implementation detail.
     executor sub-agents (bounded by `concurrencyCap`), checkpoints
     progress on the Epic via the `epic-run-state` structured comment,
     and halts only at `agent::review` or on blocker escalation. A
-    GitHub Actions workflow (`epic-dispatch.yml`) fires on
+    GitHub Actions workflow (`epic-orchestrator.yml`) fires on
     `agent::dispatching` label application, boots a Claude remote
     agent, and launches the same skill against the same engine. Local
     and remote runs share code path.

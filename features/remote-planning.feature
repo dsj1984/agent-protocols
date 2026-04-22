@@ -1,7 +1,7 @@
 Feature: Remote planning phase parity
   As an operator driving Epic planning end-to-end from GitHub
   I want the spec and decompose phases to behave identically whether invoked
-  by the local /sprint-plan wrapper or fired by epic-plan.yml
+  by the local /sprint-plan wrapper or fired by epic-orchestrator.yml
   So that there is one mental model regardless of how the plan starts.
 
   Background:
@@ -18,7 +18,7 @@ Feature: Remote planning phase parity
   Scenario: (b) review-spec is a parking state, not a trigger
     Given the Epic carries `agent::review-spec`
     When the remote bootstrap is invoked without the spec or decompose label
-    Then epic-plan.yml's label filter excludes the run
+    Then epic-orchestrator.yml's label filter excludes the run
     And nextPhaseForEpic advances to the `decompose` descriptor for the local wrapper
 
   Scenario: (c) agent::decomposing label triggers the decompose phase via --phase decompose

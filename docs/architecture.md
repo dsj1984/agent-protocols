@@ -410,7 +410,7 @@ sequenceDiagram
 The epic runner (`.agents/scripts/lib/orchestration/epic-runner.js`) composes
 the existing orchestration primitives into an unattended execution loop.
 Invoked via `/sprint-execute <epicId>` (Epic Mode) — either locally, or by
-the GitHub remote trigger workflow `.github/workflows/epic-dispatch.yml`
+the GitHub remote trigger workflow `.github/workflows/epic-orchestrator.yml`
 when an Epic is labelled `agent::dispatching`.
 
 ### State machine (Epic labels)

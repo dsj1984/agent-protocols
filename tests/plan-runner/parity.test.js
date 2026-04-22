@@ -54,8 +54,8 @@ describe('plan-runner parity (features/remote-planning.feature)', () => {
       PLAN_PHASE_NAMES.DECOMPOSE,
       'wrapper picks decompose after review',
     );
-    // epic-plan.yml should never fire on review-spec; phaseForLabel returns
-    // null for any label that is not itself a trigger.
+    // epic-orchestrator.yml should never fire on review-spec; phaseForLabel
+    // returns null for any label that is not itself a trigger.
     assert.equal(phaseForLabel(AGENT_LABELS.REVIEW_SPEC), null);
   });
 

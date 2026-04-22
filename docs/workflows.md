@@ -14,8 +14,8 @@ Every command file lives at `.agents/workflows/<name>.md` and is auto-synced to
 | Command                  | Purpose                                                                                   | Typical caller |
 | ------------------------ | ----------------------------------------------------------------------------------------- | -------------- |
 | `/sprint-plan`           | Local, one-shot wrapper: generate PRD + Tech Spec, pause for confirmation, then decompose.| Operator in IDE |
-| `/sprint-plan-spec`      | Phase 1 of remote planning — generate PRD + Tech Spec; flip Epic to `agent::review-spec`. | `agent::planning` label → `epic-plan.yml` |
-| `/sprint-plan-decompose` | Phase 2 of remote planning — decompose into Feature/Story/Task; flip Epic to `agent::ready`. | `agent::decomposing` label → `epic-plan.yml` |
+| `/sprint-plan-spec`      | Phase 1 of remote planning — generate PRD + Tech Spec; flip Epic to `agent::review-spec`. | `agent::planning` label → `epic-orchestrator.yml` |
+| `/sprint-plan-decompose` | Phase 2 of remote planning — decompose into Feature/Story/Task; flip Epic to `agent::ready`. | `agent::decomposing` label → `epic-orchestrator.yml` |
 
 ## Execution
 
