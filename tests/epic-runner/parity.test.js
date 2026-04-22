@@ -17,6 +17,12 @@ function quietLogger() {
   return { info: () => {}, warn: () => {}, error: () => {} };
 }
 
+// Stub the pre-wave smoke-test so these parity tests stay hermetic across
+// CI runners that may not have the `claude` binary on PATH.
+const okSmokeTest = {
+  verify: async () => ({ ok: true, detail: 'stub', exitCode: 0 }),
+};
+
 function buildFakeProvider({ epicId, stories, initialEpicLabels }) {
   let autoId = 1;
   const tickets = new Map();
@@ -108,6 +114,7 @@ describe('epic-runner parity', () => {
       provider,
       config: defaultConfig,
       spawn,
+      smokeTest: okSmokeTest,
       logger: quietLogger(),
     });
 
@@ -149,6 +156,7 @@ describe('epic-runner parity', () => {
       provider,
       config: defaultConfig,
       spawn,
+      smokeTest: okSmokeTest,
       logger: quietLogger(),
     });
 
@@ -186,6 +194,7 @@ describe('epic-runner parity', () => {
       provider,
       config: defaultConfig,
       spawn,
+      smokeTest: okSmokeTest,
       logger: quietLogger(),
     });
 
@@ -228,6 +237,7 @@ describe('epic-runner parity', () => {
       provider,
       config: defaultConfig,
       spawn,
+      smokeTest: okSmokeTest,
       logger: quietLogger(),
     });
 

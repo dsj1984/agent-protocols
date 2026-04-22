@@ -20,6 +20,12 @@ function quietLogger() {
   return { info: () => {}, warn: () => {}, error: () => {} };
 }
 
+// Stub the pre-wave smoke-test so these tests stay hermetic across CI
+// runners that may not have the `claude` binary on PATH.
+const okSmokeTest = {
+  verify: async () => ({ ok: true, detail: 'stub', exitCode: 0 }),
+};
+
 function providerFromStories(epicId, stories) {
   let autoId = 1;
   const tickets = new Map();
@@ -108,6 +114,7 @@ describe('epic-runner dependency source (body-parsed)', () => {
       provider,
       config,
       spawn,
+      smokeTest: okSmokeTest,
       logger: quietLogger(),
     });
 
@@ -143,6 +150,7 @@ describe('epic-runner dependency source (body-parsed)', () => {
       provider,
       config,
       spawn,
+      smokeTest: okSmokeTest,
       logger: quietLogger(),
     });
 
@@ -196,6 +204,7 @@ describe('epic-runner dependency source (body-parsed)', () => {
       provider,
       config,
       spawn,
+      smokeTest: okSmokeTest,
       logger: quietLogger(),
     });
 

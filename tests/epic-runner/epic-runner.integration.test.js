@@ -303,6 +303,7 @@ describe('EpicRunner integration', () => {
       provider,
       config,
       spawn,
+      smokeTest: okSmokeTest,
       logger: quietLogger(),
       gitAdapter,
     });
