@@ -376,3 +376,85 @@ submodule paths are internal implementation detail.
     *   Retro resumption is a first-class flow: the `retro-partial`
         marker is idempotent and the final `retro-complete` upsert
         replaces it on success.
+
+## ADR-20260422: Pre-wave spawn smoke-test + post-wave commit assertion
+
+*   **Status:** Accepted (Epic #413 Stories #419 / #420, v5.15.2).
+*   **Context:** The single highest-impact bug of Epic #380 was that
+    every Story dispatched via the `defaultSpawn` adapter exited in ~3
+    seconds without doing any work. A one-line Windows shell-quoting
+    bug wasted a full 28-second "successful" wave. The fix landed
+    mid-close as commit `6830fbe`, but nothing in the runtime path
+    would have flagged the regression earlier than "wave reports done,
+    no commits exist."
+*   **Decision:** Two complementary guards are wired into the
+    `epic-runner` coordinator:
+    1.  `SpawnSmokeTest` (`lib/orchestration/epic-runner/spawn-smoke-test.js`)
+        runs `claude --version` through the real `buildClaudeSpawn`
+        shape before Wave 1 dispatches. A non-zero exit (or 5s
+        timeout) halts the runner with a friction comment naming
+        `CLAUDE_BIN`, the exit code, and stderr; the Epic flips to
+        `agent::blocked`.
+    2.  `CommitAssertion` (`lib/orchestration/epic-runner/commit-assertion.js`)
+        runs after each wave reports `done`. It iterates the done
+        Stories and confirms every `origin/story-<id>` has at least
+        one new commit reachable from `origin/epic/<epicId>`. A
+        zero-delta story reclassifies the wave as `halted`.
+*   **Alternatives considered:**
+    *   Rely on the close-time assertion alone — rejected; that
+        already exists implicitly (no commits → close fails) but the
+        feedback loop is too long. Catching the spawn bug at Wave 1
+        instead of Wave N saves up to N × wave-duration of wasted run.
+    *   Invoke `claude --version` once at runner load — rejected;
+        the failure mode was specifically about the
+        `--dangerously-skip-permissions` arg shape, which `--version`
+        + a stub binary doesn't fully exercise. The smoke-test runs
+        the real shape.
+*   **Consequences:**
+    *   The `defaultSpawn` regression class fails fast (in seconds, not
+        a wave) and surfaces a structured friction comment on the
+        Epic. Operators no longer need to read the runner stdout to
+        diagnose.
+    *   The `CommitAssertion` adds one provider round-trip per Story
+        per wave — negligible against the wave duration but real
+        against a 100-Story epic; the gating is not configurable
+        (intentionally — silent zero-delta closes are always wrong).
+    *   The Epic #413 retro itself is the proof: while writing this
+        ADR, the runner correctly identified a no-spawn condition
+        for Wave N would not have surfaced under the prior protocol.
+
+## ADR-20260422: `sprint-story-close` recovery via explicit --resume / --restart
+
+*   **Status:** Accepted (Epic #413 Story #421, v5.15.2).
+*   **Context:** Epic #380's mid-close on Story #389 required ~30
+    minutes of manual git surgery (resolve the merge in progress,
+    re-run validation, re-merge to the Epic branch). The stock
+    `sprint-story-close.js` had no concept of "resuming" — re-running
+    it from the worktree always re-ran init/implement/validate
+    end-to-end, which was wasteful and racy.
+*   **Decision:** `sprint-story-close.js` now classifies the close-time
+    state via `detectPriorState()` into one of: `clean` (default,
+    proceed), `unmerged-story-branch` (story branch has commits ahead
+    of `epic/<id>` that haven't merged), `merge-in-progress` (UU
+    markers on `epic/<id>`), or `dirty-worktree` (uncommitted edits in
+    `.worktrees/story-<id>/`). With no flag, the script prints the
+    detected state + remediation guidance and exits.
+    `--resume` picks up at the merge resolution step without
+    re-running init/implement/validate. `--restart` aborts any partial
+    state and re-inits from scratch.
+*   **Alternatives considered:**
+    *   Always re-init (the prior behaviour) — rejected; throws away
+        in-flight work and risks loss of uncommitted changes in the
+        worktree.
+    *   Detect the state and silently auto-resume — rejected; the
+        operator should explicitly choose recovery vs restart so an
+        accidental partial state isn't promoted to "shipped" without
+        review.
+*   **Consequences:**
+    *   The recovery path Epic #380 needed to execute manually for
+        Story #389 reduces to `sprint-story-close --story 389 --resume`.
+    *   The default (no-flag) failure is loud and informative rather
+        than silent — operators see what state the close is in before
+        they choose their next action.
+    *   Memory feedback entry `feedback_sprint_story_close_reap.md`
+        gains a worked recovery example tied to the new flags.
