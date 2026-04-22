@@ -1,0 +1,138 @@
+/**
+ * plan-runner/worktree-sweep.js
+ *
+ * Reap-sweep called at the start of `/sprint-plan-spec`: iterates the
+ * `.worktrees/story-<id>/` entries registered with git, looks up each
+ * parent Story, and force-removes any whose Story is already closed or
+ * labeled `agent::done`.
+ *
+ * The `--force` flag is intentional. By the time a Story is `agent::done`
+ * its branch has already been merged into the Epic branch (via
+ * `sprint-story-close.js`), so any residue left in the worktree — dirty
+ * build artifacts, an interrupted rebase, a stray Windows lock — is noise.
+ * The safety rails in `WorktreeManager.reap` exist for the _active_ close
+ * path; at plan time we already know the Story is done and want the
+ * directory gone no matter what.
+ *
+ * Public API:
+ *   - `sweepStaleStoryWorktrees({ provider, repoRoot, git?, logger? })`
+ *
+ * Returns `{ reaped: [{ storyId, path }], skipped: [{ storyId, path, reason }] }`.
+ */
+
+import * as defaultGit from '../../git-utils.js';
+import { parseWorktreePorcelain } from '../../worktree/inspector.js';
+
+const DONE_LABEL = 'agent::done';
+const NOOP_LOGGER = { info: () => {}, warn: () => {}, error: () => {} };
+
+function isStoryDone(ticket) {
+  if (!ticket) return false;
+  if (ticket.state === 'closed') return true;
+  const labels = Array.isArray(ticket.labels) ? ticket.labels : [];
+  return labels.includes(DONE_LABEL);
+}
+
+function storyIdFromPath(wtPath) {
+  const parts = wtPath.replace(/\\/g, '/').split('/');
+  const last = parts[parts.length - 1] ?? '';
+  const match = last.match(/^story-(\d+)$/);
+  return match ? Number.parseInt(match[1], 10) : null;
+}
+
+/**
+ * Scan registered worktrees and force-remove any whose parent Story is
+ * done (closed or `agent::done`). Never touches worktrees whose Story is
+ * still open — those are live or in-flight.
+ *
+ * @param {object} opts
+ * @param {object} opts.provider    ITicketingProvider-compatible; only
+ *                                  `getTicket(id)` is required.
+ * @param {string} opts.repoRoot    Absolute path to the main checkout.
+ * @param {object} [opts.git]       `{ gitSpawn }` injection for tests.
+ * @param {object} [opts.logger]    `{ info, warn, error }`.
+ * @returns {Promise<{
+ *   reaped: Array<{ storyId: number, path: string }>,
+ *   skipped: Array<{ storyId: number|null, path: string, reason: string }>,
+ * }>}
+ */
+export async function sweepStaleStoryWorktrees({
+  provider,
+  repoRoot,
+  git = defaultGit,
+  logger = NOOP_LOGGER,
+}) {
+  if (!provider || typeof provider.getTicket !== 'function') {
+    throw new Error(
+      'sweepStaleStoryWorktrees: provider with getTicket(id) is required',
+    );
+  }
+  if (!repoRoot || typeof repoRoot !== 'string') {
+    throw new Error('sweepStaleStoryWorktrees: repoRoot is required');
+  }
+
+  const reaped = [];
+  const skipped = [];
+
+  const listRes = git.gitSpawn(repoRoot, 'worktree', 'list', '--porcelain');
+  if (listRes.status !== 0) {
+    logger.warn(
+      `worktree-sweep: git worktree list failed: ${listRes.stderr || listRes.stdout || 'unknown'}`,
+    );
+    return { reaped, skipped };
+  }
+
+  const entries = parseWorktreePorcelain(listRes.stdout || '');
+  for (const entry of entries) {
+    const wtPath = entry.path;
+    if (!wtPath) continue;
+    const storyId = storyIdFromPath(wtPath);
+    if (storyId === null) continue;
+
+    let ticket;
+    try {
+      ticket = await provider.getTicket(storyId);
+    } catch (err) {
+      skipped.push({
+        storyId,
+        path: wtPath,
+        reason: `provider-error: ${err.message}`,
+      });
+      logger.warn(
+        `worktree-sweep: provider.getTicket(#${storyId}) failed: ${err.message}`,
+      );
+      continue;
+    }
+
+    if (!isStoryDone(ticket)) {
+      skipped.push({ storyId, path: wtPath, reason: 'story-open' });
+      continue;
+    }
+
+    const res = git.gitSpawn(
+      repoRoot,
+      'worktree',
+      'remove',
+      '--force',
+      wtPath,
+    );
+    if (res.status !== 0) {
+      const reason = (res.stderr || res.stdout || 'worktree-remove-failed').trim();
+      skipped.push({ storyId, path: wtPath, reason: `remove-failed: ${reason}` });
+      logger.warn(
+        `worktree-sweep: failed to reap storyId=${storyId} path=${wtPath}: ${reason}`,
+      );
+      continue;
+    }
+    reaped.push({ storyId, path: wtPath });
+    logger.info(
+      `worktree-sweep: reaped stale worktree storyId=${storyId} path=${wtPath}`,
+    );
+  }
+
+  // Drop any lingering worktree registrations. Cheap; safe to run whether
+  // or not we actually removed anything.
+  git.gitSpawn(repoRoot, 'worktree', 'prune');
+
+  return { reaped, skipped };
+}

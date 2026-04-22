@@ -273,14 +273,19 @@ async function bootstrapWorktree({
 
   // Post-condition: every workspace file that exists in the main checkout
   // must also exist in the worktree. Surfaces the "silent breakage" class of
-  // bug where `.env` / `.mcp.json` fail to propagate.
+  // bug where `.env` / `.mcp.json` fail to propagate. Passing `sourceRoot`
+  // enriches the thrown error with a copy-ready remediation command.
   try {
     const workspaceFiles = resolveWorkspaceFiles(wtConfig);
     const presentAtSource = workspaceFiles.filter((rel) =>
       fs.existsSync(path.join(mainCwd, rel)),
     );
     if (presentAtSource.length > 0) {
-      verifyWorkspace({ worktree: ensured.path, files: presentAtSource });
+      verifyWorkspace({
+        worktree: ensured.path,
+        files: presentAtSource,
+        sourceRoot: mainCwd,
+      });
     }
   } catch (err) {
     progress('WORKTREE', `⚠️ ${err.message}`);
