@@ -17,10 +17,11 @@ From zero to shipped:
    hierarchy under the Epic.
 3. **Execute the Epic.** Pick one path — both run the same engine and produce
    the same GitHub state:
-   - **Local (operator-driven).** Run `/sprint-execute-epic <epicId>` in your
+   - **Local (operator-driven).** Run `/sprint-execute <epicId>` in your
      IDE — or take individual Stories off the dispatch table with
-     `/sprint-execute-story <storyId>` per window. Runs against your Max
-     subscription quota; no GitHub Actions minutes consumed.
+     `/sprint-execute <storyId>` per window. `/sprint-execute` routes by the
+     ticket's `type::` label (Epic Mode vs. Story Mode). Runs against your
+     Max subscription quota; no GitHub Actions minutes consumed.
    - **Remote (GitHub-triggered).** Add the label `agent::dispatching` to the
      Epic. The `epic-dispatch` GitHub Actions workflow launches a Claude remote
      agent that drives the Epic end-to-end, checkpointing progress on the Epic
@@ -56,10 +57,11 @@ that you only need when the default flow requires adjustment.
 - **Story-Level Branching.** All Tasks within a Story execute sequentially on a
   shared `story-<id>` branch. Stories merge into `epic/<epicId>`; the Epic
   branch merges into `main` only at close.
-- **Two invocation modes, one engine.** `/sprint-execute-epic` is the
-  long-running coordinator composed over existing primitives
-  (`Graph.computeWaves`, `cascadeCompletion`, `ticketing.js`,
-  `WorktreeManager`). The same engine powers both local and remote runs.
+- **Single entry point, two modes.** `/sprint-execute` routes by `type::`
+  label — Epic Mode runs the long-running coordinator, Story Mode runs a
+  single-Story worker. Both share the same primitives (`Graph.computeWaves`,
+  `cascadeCompletion`, `ticketing.js`, `WorktreeManager`) and power both
+  local and remote runs.
 - **HITL-minimal by default.** Exactly three operator touchpoints on the happy
   path — dispatch, blocker resolution, and review hand-off. Everything else is
   autonomous.
@@ -96,9 +98,9 @@ graph LR
 
     subgraph Phase3 ["Phase 3: Execution"]
         direction TB
-        E1["👤 /sprint-execute-epic (local)"]:::manual
+        E1["👤 /sprint-execute <epicId> (local)"]:::manual
         E2["👤 label Epic agent::dispatching (remote)"]:::manual
-        F["🤖 /sprint-execute-story per wave"]:::agentic
+        F["🤖 /sprint-execute <storyId> per wave"]:::agentic
         E1 --> F
         E2 --> F
         F -.-> F_Art["📄 Story Branch Commits"]:::artifact
@@ -199,13 +201,14 @@ closure.
 
 | Mode             | Entry point                       | When to use                                                      |
 | ---------------- | --------------------------------- | ---------------------------------------------------------------- |
-| **Local Epic**   | `/sprint-execute-epic <epicId>`   | Drive an Epic end-to-end from your IDE.                          |
+| **Local Epic**   | `/sprint-execute <epicId>`        | Drive an Epic end-to-end from your IDE (Epic Mode).              |
 | **Remote Epic**  | Label Epic `agent::dispatching`   | Hand the Epic off to a Claude remote agent via GitHub Actions.   |
-| **Single Story** | `/sprint-execute-story <storyId>` | Launch a specific Story off the dispatch table (one per window). |
+| **Single Story** | `/sprint-execute <storyId>`       | Launch a specific Story off the dispatch table (one per window). |
 
-`/sprint-execute` still works as a **deprecation alias** to
-`/sprint-execute-story` — existing muscle-memory scripts continue to resolve.
-The alias will be removed after two minor releases.
+`/sprint-execute` is the single entry point; it routes by the ticket's
+`type::` label (Epic Mode for `type::epic`, Story Mode for `type::story`).
+The old `/sprint-execute-epic` and `/sprint-execute-story` variants have
+been retired.
 
 ### Story-centric branching
 
@@ -239,7 +242,7 @@ remote Epic runner, the same three phases run:
 
 ### Context hydration
 
-When a sub-agent runs `/sprint-execute-story <storyId>`, the Context Hydrator
+When a sub-agent runs `/sprint-execute <storyId>`, the Context Hydrator
 assembles a self-contained prompt:
 
 1. `agent-protocol.md` (universal rules).
@@ -317,7 +320,7 @@ entirety of the operator interface after dispatch.
 
 - `risk::high` tasks **run without pause.** The label remains as planning
   metadata and retro telemetry, but as of v5.14.0 it does **not** halt the
-  dispatcher, `/sprint-execute-story`, or `/sprint-close`. Branch protection on
+  dispatcher, `/sprint-execute`, or `/sprint-close`. Branch protection on
   `main` and `BlockerHandler`-driven escalation are the new defenses for
   destructive actions.
 - Wave boundaries — the runner advances as soon as wave N completes.
@@ -341,7 +344,7 @@ where you want the compute to run.
 
 ### At a glance
 
-| Aspect                      | Local (`/sprint-execute-epic`)                                | Remote (`agent::dispatching` label)                              |
+| Aspect                      | Local (`/sprint-execute <epicId>`)                            | Remote (`agent::dispatching` label)                              |
 | --------------------------- | ------------------------------------------------------------- | ---------------------------------------------------------------- |
 | **Compute host**            | Your machine (VSCode / Claude Code session)                   | GitHub-hosted Ubuntu runner                                      |
 | **Claude auth**             | Your logged-in Max session                                    | `CLAUDE_CODE_OAUTH_TOKEN` repo secret (same Max quota)           |
@@ -406,7 +409,7 @@ Epic #349 Story #362 / #363 track these as formal hardening items.
 
 ---
 
-## Remote orchestrator (`/sprint-execute-epic` via GitHub Actions)
+## Remote orchestrator (`/sprint-execute` via GitHub Actions)
 
 Flipping an Epic to `agent::dispatching` fires
 `.github/workflows/epic-dispatch.yml`, which:
@@ -416,7 +419,8 @@ Flipping an Epic to `agent::dispatching` fires
 3. The agent runs `.agents/scripts/remote-bootstrap.js`, which clones the repo,
    materializes `.env` and `.mcp.json` from repo secrets (`ENV_FILE`,
    `MCP_JSON`) with `::add-mask::` redaction and `0600` file perms, runs
-   `npm ci --ignore-scripts`, and launches `/sprint-execute-epic <epicId>`.
+   `npm ci --ignore-scripts`, and launches `/sprint-execute <epicId>`
+   (Epic Mode).
 4. The Epic Runner (`.agents/scripts/lib/orchestration/epic-runner.js`) composes
    the submodules listed below into the unattended execution loop.
 
@@ -476,7 +480,7 @@ Once Story waves complete, the bookend lifecycle begins.
 
 ## Testing strategy
 
-Sprints are **pyramid-aware**. Every test written during `/sprint-execute-story`
+Sprints are **pyramid-aware**. Every test written during `/sprint-execute`
 belongs to exactly one tier — **unit**, **contract**, or **e2e / acceptance** —
 and each tier has distinct scope, dependency, and assertion rules. The canonical
 tier definitions, assertion-placement rules, and coverage thresholds live in
@@ -602,9 +606,8 @@ execution.
 | ---------------------------------- | ---------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
 | `/bootstrap-agent-protocols`       | Initialize repo labels and project fields                                                                                                                                    |
 | `/sprint-plan <epicId>`            | Generate PRD, Tech Spec, and full task hierarchy                                                                                                                             |
-| `/sprint-execute-epic <epicId>`    | Drive a whole Epic end-to-end (local)                                                                                                                                        |
-| `/sprint-execute-story <storyId>`  | Initialize a Story branch and implement all its Tasks                                                                                                                        |
-| `/sprint-execute` (deprecated)     | Alias for `/sprint-execute-story`                                                                                                                                            |
+| `/sprint-execute <epicId>`         | Drive a whole Epic end-to-end locally (Epic Mode)                                                                                                                            |
+| `/sprint-execute <storyId>`        | Initialize a Story branch and implement all its Tasks (Story Mode)                                                                                                           |
 | Label Epic `agent::dispatching`    | Trigger remote orchestrator via GitHub Actions                                                                                                                               |
 | Label Epic `epic::auto-close`      | Authorize autonomous bookend chain at dispatch time                                                                                                                          |
 | `/sprint-close <epicId>`           | Close the Epic — auto-invokes code-review + retro, then merges to `main`, tags release, closes Epic + context issues. **The only bookend command an operator runs by hand.** |

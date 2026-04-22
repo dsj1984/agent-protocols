@@ -3,7 +3,7 @@
  *
  * Concurrency is bounded by `concurrencyCap`. Each story gets its own
  * provisioned worktree (created by `sprint-story-init.js`) and runs
- * `/sprint-execute-story <storyId>` via the supplied `spawn` adapter.
+ * `/sprint-execute <storyId>` (Story Mode) via the supplied `spawn` adapter.
  *
  * The adapter is injected so the orchestrator can swap the real
  * Claude-Agent-tool invocation for a fake in tests without reaching for
