@@ -116,6 +116,79 @@ test('ticketing.js', async (t) => {
     },
   );
 
+  await t.test(
+    'transitionTicketState fires notifier.emit with state-transition payload',
+    async () => {
+      // Seed ticket #2 with type label and Epic reference so the notifier
+      // payload captures `type`, `fromState`, and `epicId` correctly.
+      mock.tickets[2] = {
+        ...mock.tickets[2],
+        labels: ['agent::executing', 'type::story'],
+        body: 'Feature body\n\nEpic: #1\n- [ ] #3',
+        title: 'Wire Notifier',
+        html_url: 'https://example.test/issues/2',
+      };
+
+      const emitted = [];
+      const fakeNotifier = {
+        emit(event) {
+          emitted.push(event);
+          return Promise.resolve({ fired: true });
+        },
+      };
+
+      await transitionTicketState(mock, 2, 'agent::review', {
+        notifier: fakeNotifier,
+      });
+
+      assert.equal(emitted.length, 1);
+      const event = emitted[0];
+      assert.equal(event.kind, 'state-transition');
+      assert.equal(event.fromState, 'agent::executing');
+      assert.equal(event.toState, 'agent::review');
+      assert.deepEqual(event.ticket, {
+        id: 2,
+        title: 'Wire Notifier',
+        type: 'story',
+        url: 'https://example.test/issues/2',
+        epicId: 1,
+      });
+    },
+  );
+
+  await t.test(
+    'transitionTicketState without a notifier does not emit',
+    async () => {
+      // Guard against a regression where an unconditional call on an undefined
+      // notifier would throw.
+      await transitionTicketState(mock, 2, 'agent::review');
+      // No throw, no emit side-effects — the absence of an emit spy here is
+      // the assertion by construction.
+      assert.ok(mock.tickets[2].labels.includes('agent::review'));
+    },
+  );
+
+  await t.test(
+    'cascadeCompletion forwards notifier to recursive transitions',
+    async () => {
+      mock.tickets[3].labels = ['agent::done'];
+      const kinds = [];
+      const fakeNotifier = {
+        emit(event) {
+          kinds.push(`${event.ticket.id}:${event.toState}`);
+          return Promise.resolve({ fired: true });
+        },
+      };
+
+      await cascadeCompletion(mock, 3, { notifier: fakeNotifier });
+
+      // #2 and #1 should both have been transitioned to agent::done via
+      // cascade, each producing one notifier event.
+      assert.ok(kinds.includes('2:agent::done'));
+      assert.ok(kinds.includes('1:agent::done'));
+    },
+  );
+
   await t.test('toggleTasklistCheckbox logic', async () => {
     await toggleTasklistCheckbox(mock, 1, 2, true);
     assert.strictEqual(mock.tickets[1].body, 'Epic body\n- [x] #2');
