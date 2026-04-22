@@ -72,12 +72,12 @@ planned.
 > `temp/tickets-epic-[Epic_ID].json`). Do **not** reuse bare names like
 > `temp/prd.md` — they will collide with another agent's run.
 
-1. **Gather Authoring Context**: Run the Epic Planner in context-emission mode
-   to fetch the Epic body, scraped project docs, and the recommended system
-   prompts.
+1. **Gather Authoring Context**: Run the spec-phase CLI in context-emission
+   mode to fetch the Epic body, scraped project docs, and the recommended
+   system prompts.
 
    ```bash
-   node .agents/scripts/epic-planner.js --epic [Epic_ID] --emit-context > temp/planner-context-epic-[Epic_ID].json
+   node .agents/scripts/sprint-plan-spec.js --epic [Epic_ID] --emit-context > temp/planner-context-epic-[Epic_ID].json
    ```
 
 2. **Author the PRD**: Read `temp/planner-context-epic-[Epic_ID].json`. Using
@@ -91,16 +91,18 @@ planned.
    `temp/techspec-epic-[Epic_ID].md`. Start with `## Technical Overview` (no
    `<h1>`).
 
-4. **Persist to GitHub**:
+4. **Persist to GitHub**: Use `sprint-plan-spec.js` (not the low-level
+   `epic-planner.js` — only the wrapper flips the Epic to `agent::review-spec`
+   and writes the `epic-plan-state` checkpoint).
 
    ```bash
    # Normal planning
-   node .agents/scripts/epic-planner.js --epic [Epic_ID] \
+   node .agents/scripts/sprint-plan-spec.js --epic [Epic_ID] \
      --prd temp/prd-epic-[Epic_ID].md \
      --techspec temp/techspec-epic-[Epic_ID].md
 
    # Re-planning (force regeneration)
-   node .agents/scripts/epic-planner.js --epic [Epic_ID] \
+   node .agents/scripts/sprint-plan-spec.js --epic [Epic_ID] \
      --prd temp/prd-epic-[Epic_ID].md \
      --techspec temp/techspec-epic-[Epic_ID].md --force
    ```
@@ -112,22 +114,17 @@ planned.
      Do NOT proceed to decomposition until the user confirms the plan is
      accurate.
 
-6. **Cleanup**: Once the PRD/Tech Spec issues are confirmed on GitHub, delete
-   the Phase 1 temp files for this Epic so later runs don't mix artifacts:
-
-   ```powershell
-   Remove-Item -Force -ErrorAction SilentlyContinue `
-     "temp/planner-context-epic-[Epic_ID].json", `
-     "temp/prd-epic-[Epic_ID].md", `
-     "temp/techspec-epic-[Epic_ID].md"
-   ```
+6. **Cleanup**: The wrapper script (`sprint-plan-spec.js`) deletes the Phase 1
+   temp files automatically on success — no operator action required. The
+   cleanup contract lives in
+   [`lib/plan-phase-cleanup.js`](../scripts/lib/plan-phase-cleanup.js).
 
 ## Phase 2: Work Breakdown Decomposition
 
 1. **Gather Decomposition Context**:
 
    ```bash
-   node .agents/scripts/ticket-decomposer.js --epic [Epic_ID] --emit-context > temp/decomposer-context-epic-[Epic_ID].json
+   node .agents/scripts/sprint-plan-decompose.js --epic [Epic_ID] --emit-context > temp/decomposer-context-epic-[Epic_ID].json
    ```
 
 2. **Author the Ticket Array**: Read
@@ -137,15 +134,17 @@ planned.
    JSON array of Feature/Story/Task objects conforming to the schema in the
    system prompt and write it to `temp/tickets-epic-[Epic_ID].json`.
 
-3. **Persist to GitHub**:
+3. **Persist to GitHub**: Use `sprint-plan-decompose.js` (not the low-level
+   `ticket-decomposer.js` — only the wrapper flips the Epic to `agent::ready`
+   and writes the `epic-plan-state` checkpoint).
 
    ```bash
    # Normal decomposition
-   node .agents/scripts/ticket-decomposer.js --epic [Epic_ID] \
+   node .agents/scripts/sprint-plan-decompose.js --epic [Epic_ID] \
      --tickets temp/tickets-epic-[Epic_ID].json
 
    # Re-planning (close old tickets first)
-   node .agents/scripts/ticket-decomposer.js --epic [Epic_ID] \
+   node .agents/scripts/sprint-plan-decompose.js --epic [Epic_ID] \
      --tickets temp/tickets-epic-[Epic_ID].json --force
    ```
 
@@ -173,14 +172,10 @@ planned.
    - Verify that at least one `type/feature`, `type/story`, and `type/task`
      issue was created.
 
-6. **Cleanup**: Once the backlog is confirmed on GitHub, delete the Phase 2 temp
-   files for this Epic:
-
-   ```powershell
-   Remove-Item -Force -ErrorAction SilentlyContinue `
-     "temp/decomposer-context-epic-[Epic_ID].json", `
-     "temp/tickets-epic-[Epic_ID].json"
-   ```
+6. **Cleanup**: The wrapper script (`sprint-plan-decompose.js`) deletes the
+   Phase 2 temp files automatically on success — no operator action required.
+   The cleanup contract lives in
+   [`lib/plan-phase-cleanup.js`](../scripts/lib/plan-phase-cleanup.js).
 
 ## Phase 3: Execution Roadmap (Story Dispatch)
 
@@ -260,9 +255,14 @@ Warnings are advisory and do not require action.
 
 ## Troubleshooting
 
-- If `epic-planner.js --emit-context` fails, confirm the Epic exists and has a
-  body with enough initial context.
-- If `ticket-decomposer.js` rejects the tickets file, re-read the validator's
-  error message — the most common causes are a Story with no child Tasks, a Task
-  whose `parent_slug` does not point at a Story, or cross-Story Task
-  dependencies (which must be lifted to Story-level dependencies).
+- If `sprint-plan-spec.js --emit-context` fails, confirm the Epic exists and
+  has a body with enough initial context.
+- If `sprint-plan-decompose.js` rejects the tickets file, re-read the
+  validator's error message — the most common causes are a Story with no child
+  Tasks, a Task whose `parent_slug` does not point at a Story, or cross-Story
+  Task dependencies (which must be lifted to Story-level dependencies).
+- If decomposition persisted the tickets but the Epic is still on
+  `agent::decomposing` (not `agent::ready`), you invoked the low-level
+  `ticket-decomposer.js` directly — only `sprint-plan-decompose.js` flips the
+  lifecycle label. Apply `agent::ready` by hand and re-run via the wrapper
+  next time.

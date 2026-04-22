@@ -99,15 +99,12 @@ On success the script:
 
 ## Step 5 — Cleanup
 
-Once the PRD / Tech Spec issues are confirmed on GitHub, delete the phase temp
-files so later runs don't mix artifacts:
-
-```powershell
-Remove-Item -Force -ErrorAction SilentlyContinue `
-  "temp/planner-context-epic-[Epic_ID].json", `
-  "temp/prd-epic-[Epic_ID].md", `
-  "temp/techspec-epic-[Epic_ID].md"
-```
+The wrapper script deletes the phase-scoped temp files automatically when
+Step 4 succeeds — no operator action required. The cleanup contract lives in
+[`lib/plan-phase-cleanup.js`](../scripts/lib/plan-phase-cleanup.js), which
+is the single source of truth for which temp paths this phase owns. If you
+need to inspect the temp artefacts after the fact, re-run
+`sprint-plan-spec.js --emit-context` to regenerate the planner context.
 
 ## Handoff
 

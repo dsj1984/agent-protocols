@@ -83,22 +83,39 @@ On success the script:
 
 ## Step 4 — Cross-validation
 
-- **Verify** every PRD feature → Feature issue → ≥ 1 Story → ≥ 1 Task.
-- **Verify** the dependency DAG across Tasks is acyclic.
-- **Verify** `risk::high` Tasks are flagged correctly.
+Delegate the structural invariants (hierarchy completeness, dependency DAG
+acyclicity, missing complexity labels) to `sprint-plan-healthcheck.js`. It is
+the single source of truth for post-decompose validation — the Phase 4 run
+inside `/sprint-plan` calls the same script, so local and remote flows agree.
+
+```bash
+node .agents/scripts/sprint-plan-healthcheck.js --epic [Epic_ID] --dry-run
+```
+
+The script exits 0 regardless of findings (non-blocking), but lists any
+`ERR`-level findings that must be addressed before execution:
+
+- Missing `type::feature` / `type::story` / `type::task` tickets.
+- Stories without `complexity::` labels.
+- Dependency cycles across Tasks.
+
+For the semantic checks the healthcheck cannot automate, do these by eye:
+
 - **Scope-overlap check**: Stories whose scope is "docs / runbook / README"
   downstream of a "config + runbook" Story in the same Epic should carry a
   scope-verification note pointing at
   `git diff main -- <path>` against the upstream Story branch.
-- **Fix** any gaps by creating additional issues or updating existing ones.
+- **Risk flagging**: Confirm `risk::high` Tasks match the heuristics in the
+  decomposer context.
+
+Fix any gaps by creating additional issues or updating existing ones.
 
 ## Step 5 — Cleanup
 
-```powershell
-Remove-Item -Force -ErrorAction SilentlyContinue `
-  "temp/decomposer-context-epic-[Epic_ID].json", `
-  "temp/tickets-epic-[Epic_ID].json"
-```
+The wrapper script deletes the phase-scoped temp files automatically when
+Step 3 succeeds — no operator action required. The cleanup contract lives in
+[`lib/plan-phase-cleanup.js`](../scripts/lib/plan-phase-cleanup.js), which
+is the single source of truth for which temp paths this phase owns.
 
 ## Handoff
 

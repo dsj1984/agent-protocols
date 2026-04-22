@@ -10,12 +10,20 @@
  *   4. Emits the rendered body to the logger AND upserts an `epic-run-progress`
  *      structured comment on the Epic issue so operators watching the ticket
  *      see a single in-place update rather than N comments.
+ *   5. When `logFile` is set, also appends the rendered snapshot (with an
+ *      ISO-timestamped divider) to that path. This lets the /sprint-execute
+ *      skill tail the file via `Monitor` to stream progress into IDE chat even
+ *      when the runner itself is invoked in a background Bash that doesn't
+ *      surface stdout live.
  *
  * Disabled when `intervalSec` is 0, null, or negative.
  *
  * The reporter is tolerant of read failures — a failed provider call logs a
  * warning and skips the fire rather than crashing the runner.
  */
+
+import { appendFile, mkdir } from 'node:fs/promises';
+import { dirname } from 'node:path';
 
 import { upsertStructuredComment } from '../ticketing.js';
 import { createStalledWorktreeDetector } from './progress-signals/stalled-worktree.js';
@@ -40,6 +48,9 @@ export class ProgressReporter {
    *   now?: () => Date,
    *   setInterval?: typeof setInterval,
    *   clearInterval?: typeof clearInterval,
+   *   logFile?: string | null,
+   *   appendFile?: typeof import('node:fs/promises').appendFile,
+   *   mkdir?: typeof import('node:fs/promises').mkdir,
    * }} opts
    */
   constructor(opts = {}) {
@@ -67,6 +78,16 @@ export class ProgressReporter {
     // fails. Undefined in legacy callers — those paths keep the prior silent
     // behavior (warn-log-only) until the coordinator wires an emitter in.
     this.frictionEmitter = opts.frictionEmitter ?? ctx?.frictionEmitter ?? null;
+
+    // Optional file sink — when set, every rendered snapshot is appended to
+    // this path prefixed by an ISO-timestamped divider. Enables operators
+    // (or the /sprint-execute skill) to tail progress in real time even when
+    // the runner's stdout is swallowed by a background Bash invocation.
+    // Tests omit `logFile` to keep the filesystem clean.
+    this.logFile = opts.logFile ?? null;
+    this._appendFile = opts.appendFile ?? appendFile;
+    this._mkdir = opts.mkdir ?? mkdir;
+    this.logFileReady = false;
 
     this.timer = null;
     this.emitting = false;
@@ -140,6 +161,18 @@ export class ProgressReporter {
       this.fire().catch(() => {});
     }, this.intervalSec * 1000);
     if (this.timer?.unref) this.timer.unref();
+    if (this.logFile && this.currentWave) {
+      const waveNum = (this.currentWave.index ?? 0) + 1;
+      const totalWaves =
+        this.currentWave.totalWaves ?? this.plan?.length ?? '?';
+      this.#appendToLogFile(
+        `### ⏱ ${this.now().toISOString()} — Wave ${waveNum}/${totalWaves} starting\n\n`,
+      ).catch((err) => {
+        this.logger.warn?.(
+          `[ProgressReporter] log header write failed: ${err.message}`,
+        );
+      });
+    }
   }
 
   /**
@@ -209,6 +242,17 @@ export class ProgressReporter {
           }));
       const body = await this.#render(rows);
       this.logger.info?.(body);
+      if (this.logFile) {
+        try {
+          await this.#appendToLogFile(
+            `### ⏱ ${this.now().toISOString()}\n\n${body}\n\n---\n\n`,
+          );
+        } catch (err) {
+          this.logger.warn?.(
+            `[ProgressReporter] log file append failed: ${err.message}`,
+          );
+        }
+      }
       try {
         await upsertStructuredComment(
           this.provider,
@@ -225,6 +269,15 @@ export class ProgressReporter {
     } finally {
       this.emitting = false;
     }
+  }
+
+  async #appendToLogFile(chunk) {
+    if (!this.logFile) return;
+    if (!this.logFileReady) {
+      await this._mkdir(dirname(this.logFile), { recursive: true });
+      this.logFileReady = true;
+    }
+    await this._appendFile(this.logFile, chunk, 'utf8');
   }
 
   async #emitFetchFailureFriction(storyId, err) {

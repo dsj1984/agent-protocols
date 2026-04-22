@@ -37,22 +37,27 @@ dispatch manifest consumed by Epic Mode. It is not the runtime engine for
 
 ## Step 0 — Identify the ticket type
 
-Fetch the ticket and inspect its labels before branching into a mode.
+Delegate the routing decision to
+[`sprint-execute-router.js`](../scripts/sprint-execute-router.js). It owns
+the `type::` label mapping so this skill never drifts from the taxonomy.
 
-```powershell
-# Via MCP (preferred when available)
-mcp__github__issue_read owner=<owner> repo=<repo> method=get issue_number=<ticketId>
-
-# Or via gh CLI
-gh issue view <ticketId> --json labels,title
+```bash
+node .agents/scripts/sprint-execute-router.js --ticket <ticketId>
 ```
 
-- If labels contain `type::epic` → follow **Epic Mode** below.
-- If labels contain `type::story` → follow **Story Mode** below.
-- If labels contain `type::feature` → **STOP**. Features are containers; run
-  `/sprint-execute` against individual Stories or the parent Epic instead.
-- If labels contain `type::task` → **STOP**. Tasks execute as children of
-  Stories, never directly.
+The script prints a JSON verdict on stdout:
+
+```json
+{ "mode": "epic" | "story" | "reject", "ticketId": N, "title": "...", "reason": "..." }
+```
+
+Route by `mode`:
+
+- `epic` → follow **Epic Mode** below.
+- `story` → follow **Story Mode** below.
+- `reject` → **STOP** and relay `reason` to the operator. Typical causes are
+  a `type::feature` container or a `type::task` that should be executed
+  through its parent Story.
 
 ---
 
@@ -96,6 +101,30 @@ node .agents/scripts/epic-runner.js --epic <epicId> [--dry-run]
 The skill drives that CLI. Inside the remote-agent environment, it is invoked
 indirectly by `.agents/scripts/remote-bootstrap.js` after the workspace is
 provisioned.
+
+#### Live progress in IDE chat (interactive runs)
+
+Epic runs regularly exceed the Bash tool's 10-minute ceiling and its stdout is
+only returned on exit — so a foreground invocation goes silent for the entire
+run. When driving Epic Mode from an IDE chat, invoke the runner in the
+background and tail its progress log so the per-wave `ProgressReporter`
+snapshots stream into chat as they're emitted:
+
+1. **Launch in background.** Run the CLI above with `run_in_background: true`.
+   Note the returned shell ID — you'll reconcile the final JSON result against
+   it once the run finishes.
+2. **Tail the progress log with `Monitor`.** The runner tees every snapshot to
+   `<orchestration.epicRunner.logsDir>/epic-<epicId>-progress.log` (default
+   `temp/epic-runner-logs/epic-<epicId>-progress.log`). Open a `Monitor` on
+   that file — each new block is a notification, so you surface the wave
+   table + Notable section to the user without polling.
+3. **On shell completion.** Read the background shell's final stdout to
+   capture the runner's terminating JSON result and any trailing diagnostics.
+   Stop the `Monitor` and report the outcome.
+
+The `epic-run-progress` structured comment on the Epic issue continues to be
+upserted in place for operators watching on GitHub — the local log file is an
+additional channel, not a replacement.
 
 ### Flow
 

@@ -29,22 +29,23 @@
 import { readFile } from 'node:fs/promises';
 import path from 'node:path';
 import { parseArgs } from 'node:util';
+import { buildAuthoringContext, planEpic } from './epic-planner.js';
 import { runAsCli } from './lib/cli-utils.js';
 import {
   PROJECT_ROOT,
   resolveConfig,
   validateOrchestrationConfig,
 } from './lib/config-resolver.js';
-import { AGENT_LABELS, TYPE_LABELS } from './lib/label-constants.js';
+import * as gitUtils from './lib/git-utils.js';
 import { Logger } from './lib/Logger.js';
-import { buildAuthoringContext, planEpic } from './epic-planner.js';
+import { AGENT_LABELS, TYPE_LABELS } from './lib/label-constants.js';
 import { PlanRunnerContext } from './lib/orchestration/context.js';
 import {
-  PlanCheckpointer,
   PLAN_PHASES,
+  PlanCheckpointer,
 } from './lib/orchestration/plan-runner/plan-checkpointer.js';
+import { cleanupPhaseTempFiles } from './lib/plan-phase-cleanup.js';
 import { createProvider } from './lib/provider-factory.js';
-import * as gitUtils from './lib/git-utils.js';
 import {
   drainPendingCleanup,
   readManifest,
@@ -166,11 +167,18 @@ export async function runSpecPhase(
   await setEpicLabel(provider, epicId, AGENT_LABELS.REVIEW_SPEC);
   await checkpointer.setPhase(PLAN_PHASES.REVIEW_SPEC);
 
+  const cleanup = await cleanupPhaseTempFiles({ phase: 'spec', epicId });
+
   console.log(
     `[sprint-plan-spec] ✅ Spec phase complete for Epic #${epicId}. PRD #${prdId}, Tech Spec #${techSpecId}.`,
   );
+  if (cleanup.deleted.length > 0) {
+    console.log(
+      `[sprint-plan-spec] 🧹 Cleaned up ${cleanup.deleted.length} temp file(s).`,
+    );
+  }
 
-  return { epicId, prdId, techSpecId, checkpoint };
+  return { epicId, prdId, techSpecId, checkpoint, cleanup };
 }
 
 /* node:coverage ignore next */

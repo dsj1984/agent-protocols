@@ -33,18 +33,19 @@ import {
   resolveConfig,
   validateOrchestrationConfig,
 } from './lib/config-resolver.js';
-import { AGENT_LABELS, TYPE_LABELS } from './lib/label-constants.js';
 import { Logger } from './lib/Logger.js';
+import { AGENT_LABELS, TYPE_LABELS } from './lib/label-constants.js';
+import { PlanRunnerContext } from './lib/orchestration/context.js';
+import {
+  PLAN_PHASES,
+  PlanCheckpointer,
+} from './lib/orchestration/plan-runner/plan-checkpointer.js';
+import { cleanupPhaseTempFiles } from './lib/plan-phase-cleanup.js';
+import { createProvider } from './lib/provider-factory.js';
 import {
   buildDecompositionContext,
   decomposeEpic,
 } from './ticket-decomposer.js';
-import { PlanRunnerContext } from './lib/orchestration/context.js';
-import {
-  PlanCheckpointer,
-  PLAN_PHASES,
-} from './lib/orchestration/plan-runner/plan-checkpointer.js';
-import { createProvider } from './lib/provider-factory.js';
 
 async function setEpicLabel(provider, epicId, targetLabel) {
   const planningLabels = [
@@ -127,11 +128,18 @@ export async function runDecomposePhase(
   await setEpicLabel(provider, epicId, AGENT_LABELS.READY);
   await checkpointer.setPhase(PLAN_PHASES.READY);
 
+  const cleanup = await cleanupPhaseTempFiles({ phase: 'decompose', epicId });
+
   console.log(
     `[sprint-plan-decompose] ✅ Decompose phase complete for Epic #${epicId}. ${tickets.length} ticket(s) persisted.`,
   );
+  if (cleanup.deleted.length > 0) {
+    console.log(
+      `[sprint-plan-decompose] 🧹 Cleaned up ${cleanup.deleted.length} temp file(s).`,
+    );
+  }
 
-  return { epicId, ticketCount: tickets.length, checkpoint };
+  return { epicId, ticketCount: tickets.length, checkpoint, cleanup };
 }
 
 /* node:coverage ignore next */

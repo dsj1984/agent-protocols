@@ -105,6 +105,14 @@ longer satisfies the gate.
 node [SCRIPTS_ROOT]/validate-docs-freshness.js --epic [EPIC_ID]
 ```
 
+Add `--json` to receive a structured `{ ok, epicId, results: [...] }` payload
+on stdout — useful when the LLM wants to enumerate failing files
+programmatically rather than parse the log output.
+
+```powershell
+node [SCRIPTS_ROOT]/validate-docs-freshness.js --epic [EPIC_ID] --json
+```
+
 For every failing file, open it, review the Epic's completed tickets
 (title + description), and add or update the relevant sections to reflect the
 shipped changes. Then stage and commit with a message that cites the Epic:
