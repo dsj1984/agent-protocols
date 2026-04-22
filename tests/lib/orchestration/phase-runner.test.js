@@ -63,7 +63,13 @@ describe('runPhase', () => {
     const logger = captureLogger();
     const original = new Error('fatal-boom');
     await assert.rejects(
-      runPhase('init', () => { throw original; }, { logger, fatal: true }),
+      runPhase(
+        'init',
+        () => {
+          throw original;
+        },
+        { logger, fatal: true },
+      ),
       (err) => err === original,
     );
     assert.equal(logger.errors[0], '[phase=init] fatal-boom');
@@ -71,12 +77,20 @@ describe('runPhase', () => {
 
   it('handles non-Error throws by stringifying', async () => {
     const logger = captureLogger();
-    await runPhase('x', () => { throw 'literal'; }, { logger });
+    await runPhase(
+      'x',
+      () => {
+        throw 'literal';
+      },
+      { logger },
+    );
     assert.equal(logger.errors[0], '[phase=x] literal');
   });
 
   it('works without a logger', async () => {
-    const result = await runPhase('x', () => { throw new Error('y'); });
+    const result = await runPhase('x', () => {
+      throw new Error('y');
+    });
     assert.equal(result, undefined);
   });
 });

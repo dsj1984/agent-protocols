@@ -29,8 +29,14 @@ const NOOP_LOGGER = { error: () => {}, warn: () => {} };
 function pickLogger(logger) {
   if (!logger) return NOOP_LOGGER;
   return {
-    error: typeof logger.error === 'function' ? logger.error.bind(logger) : NOOP_LOGGER.error,
-    warn: typeof logger.warn === 'function' ? logger.warn.bind(logger) : NOOP_LOGGER.warn,
+    error:
+      typeof logger.error === 'function'
+        ? logger.error.bind(logger)
+        : NOOP_LOGGER.error,
+    warn:
+      typeof logger.warn === 'function'
+        ? logger.warn.bind(logger)
+        : NOOP_LOGGER.warn,
   };
 }
 

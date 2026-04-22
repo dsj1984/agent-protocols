@@ -23,7 +23,9 @@
  */
 export function createTtlCache({ ttlMs, now = Date.now } = {}) {
   if (typeof ttlMs !== 'number' || ttlMs < 0 || !Number.isFinite(ttlMs)) {
-    throw new Error(`createTtlCache: ttlMs must be a non-negative finite number, got ${ttlMs}`);
+    throw new Error(
+      `createTtlCache: ttlMs must be a non-negative finite number, got ${ttlMs}`,
+    );
   }
   /** @type {Map<unknown, { value: V, expires: number }>} */
   const store = new Map();
