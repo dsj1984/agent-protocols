@@ -15,8 +15,17 @@ export const CONFLICT_MARKERS = ['<<<<<<< ', '\n=======', '>>>>>>> '];
 
 const SELF_PATH = '.agents/scripts/detect-merges.js';
 
+// Test fixtures for detect-merges itself embed literal conflict-marker strings
+// to exercise the scanner. Matches any file named `detect-merges*.js` (including
+// `.test.js`) under any depth below `tests/`.
+const TEST_FIXTURE_PATTERN = /(^|\/)tests\/(?:[^/]+\/)*detect-merges[^/]*\.js$/;
+
 export function isTemplatePath(file) {
   return TEMPLATE_PATH_PREFIXES.some((prefix) => file.startsWith(prefix));
+}
+
+export function isDetectMergesTestFixture(file) {
+  return TEST_FIXTURE_PATTERN.test(file);
 }
 
 /**
@@ -30,7 +39,13 @@ export async function scanForConflicts(files, root) {
   const hits = [];
   await Promise.all(
     files.map(async (file) => {
-      if (file === SELF_PATH || isTemplatePath(file)) return;
+      if (
+        file === SELF_PATH ||
+        isTemplatePath(file) ||
+        isDetectMergesTestFixture(file)
+      ) {
+        return;
+      }
       try {
         const content = await fs.promises.readFile(
           path.join(root, file),
