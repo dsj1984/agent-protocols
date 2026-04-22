@@ -156,3 +156,51 @@ export const PROJECT_FIELD_DEFS = [
     options: ['sequential', 'concurrent'],
   },
 ];
+
+/**
+ * Canonical lifecycle options for the Status single-select field. Order here
+ * is the order they appear on the board; `ColumnSync` reads label → column
+ * names that match these strings exactly.
+ *
+ * @type {string[]}
+ */
+export const STATUS_FIELD_OPTIONS = [
+  'Backlog',
+  'Planning',
+  'Spec Review',
+  'Ready',
+  'In Progress',
+  'Blocked',
+  'Review',
+  'Done',
+];
+
+/**
+ * Default Projects V2 saved Views. Filter strings follow GitHub's Projects
+ * search syntax (`label:`, `status:`, `assignee:`). Each is grouped by the
+ * Status field to match the board's columnar layout.
+ *
+ * GitHub's GraphQL surface does not yet expose a public `createProjectV2View`
+ * mutation; bootstrap attempts it best-effort and falls back to documenting
+ * the filter strings in `docs/project-board.md` when the mutation is
+ * unavailable.
+ *
+ * @type {Array<{ name: string, filter: string, groupBy: string }>}
+ */
+export const PROJECT_VIEW_DEFS = [
+  {
+    name: 'Epic Roadmap',
+    filter: 'label:type::epic',
+    groupBy: 'Status',
+  },
+  {
+    name: 'Current Sprint',
+    filter: 'label:type::story -status:Done',
+    groupBy: 'Status',
+  },
+  {
+    name: 'My Queue',
+    filter: 'assignee:@me',
+    groupBy: 'Status',
+  },
+];
