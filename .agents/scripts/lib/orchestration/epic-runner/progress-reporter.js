@@ -62,6 +62,12 @@ export class ProgressReporter {
       ? opts.detectors.filter(Boolean)
       : [createStalledWorktreeDetector({ cwd: ctx?.cwd })];
 
+    // Optional friction emitter for auto-posting structured comments onto
+    // affected Story tickets when the poller's per-Story `getTicket` read
+    // fails. Undefined in legacy callers — those paths keep the prior silent
+    // behavior (warn-log-only) until the coordinator wires an emitter in.
+    this.frictionEmitter = opts.frictionEmitter ?? ctx?.frictionEmitter ?? null;
+
     this.timer = null;
     this.emitting = false;
     this.currentWave = null; // { index, totalWaves, stories: [...], startedAt }
@@ -166,14 +172,25 @@ export class ProgressReporter {
         : (this.currentWave?.stories ?? []);
       const fetched = await Promise.all(
         allIds.map(async (id) => {
-          const ticket = await this.provider.getTicket(id);
-          return [
-            id,
-            {
-              state: deriveState(ticket),
-              title: truncate(ticket?.title ?? '', 60),
-            },
-          ];
+          try {
+            const ticket = await this.provider.getTicket(id);
+            return [
+              id,
+              {
+                state: deriveState(ticket),
+                title: truncate(ticket?.title ?? '', 60),
+              },
+            ];
+          } catch (err) {
+            // Preserve the post-#448 fail-loud contract: the error must still
+            // propagate so a persistent GraphQL-read regression halts the
+            // wave instead of rendering unreadable rows forever. But emit a
+            // rate-limited `friction` comment onto the affected Story first
+            // so the operator sees the failure directly on the ticket rather
+            // than only in CI logs.
+            await this.#emitFetchFailureFriction(id, err);
+            throw err;
+          }
         }),
       );
       const byId = new Map(fetched);
@@ -207,6 +224,33 @@ export class ProgressReporter {
       return { rows, body };
     } finally {
       this.emitting = false;
+    }
+  }
+
+  async #emitFetchFailureFriction(storyId, err) {
+    if (!this.frictionEmitter) return;
+    const body = [
+      `### 🚧 Friction — poller getTicket failed`,
+      '',
+      `- Story: \`#${storyId}\``,
+      `- Epic: \`#${this.epicId}\``,
+      `- Error: \`${String(err?.message ?? err).slice(0, 500)}\``,
+      '',
+      'The epic runner failed to read this Story\'s labels during its wave',
+      'progress poll. If this is the GraphQL `variableNotUsed: $issueId` class',
+      'of failure the Story will render as `unknown` in the progress table and',
+      'the poller will retry next tick.',
+    ].join('\n');
+    try {
+      await this.frictionEmitter.emit({
+        ticketId: Number(storyId),
+        markerKey: 'poller-fetch-failure',
+        body,
+      });
+    } catch (emitErr) {
+      this.logger.warn?.(
+        `[ProgressReporter] friction emit failed for #${storyId}: ${emitErr?.message ?? emitErr}`,
+      );
     }
   }
 
