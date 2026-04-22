@@ -21,6 +21,7 @@ import { execSync } from 'node:child_process';
 import { parseBlockedBy, parseBlocks } from '../lib/dependency-parser.js';
 import { ITicketingProvider } from '../lib/ITicketingProvider.js';
 import { parseLinkedIssues } from '../lib/issue-link-parser.js';
+import { classifyGithubError } from './github/error-classifier.js';
 import { GithubHttpClient } from './github-http-client.js';
 
 /**
@@ -281,10 +282,20 @@ export class GitHubProvider extends ITicketingProvider {
         cursor = page.pageInfo.endCursor;
       }
     } catch (err) {
-      // GraphQL feature might not be enabled or permission error — proceed with checkboxes only
-      console.warn(
-        `[GitHubProvider] sub-issues GraphQL fallback (parent #${parentId}): ${err.message}`,
-      );
+      const category = classifyGithubError(err);
+      if (category === 'feature-disabled') {
+        // Sub-issues GraphQL not available on this repo/org — fall back to
+        // checklist scraping silently. This is the expected path on repos
+        // without the sub-issues feature.
+        console.warn(
+          `[GitHubProvider] sub-issues GraphQL unavailable (parent #${parentId}); using checklist fallback`,
+        );
+      } else {
+        console.error(
+          `[GitHubProvider] sub-issues GraphQL failed (parent #${parentId}, category=${category}): ${err.message}`,
+        );
+        throw err;
+      }
     }
 
     // Secondary: Match checklist items linking to issues: "- [ ] #123" or "- [x] #123"

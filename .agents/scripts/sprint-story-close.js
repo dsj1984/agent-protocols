@@ -158,7 +158,9 @@ async function ticketClosureCascade(
     closedTickets.push(storyId);
     progress('TICKETS', `  #${storyId} → agent::done ✅`);
   } catch (err) {
-    console.error(`  Story #${storyId} → FAILED: ${err.message}`);
+    Logger.error(
+      `[phase=tickets]   Story #${storyId} → FAILED: ${err.message}`,
+    );
   }
 
   progress('TICKETS', 'Running cascade completion...');
@@ -780,11 +782,11 @@ export async function runStoryClose({
   });
 
   if (mode.action === RECOVERY_ACTIONS.EXIT_PRIOR_STATE) {
-    console.error(
-      `\n[sprint-story-close] Prior close state detected: ${priorState.state}\n` +
+    Logger.error(
+      `[phase=prior-state]\nPrior close state detected: ${priorState.state}\n` +
         `${JSON.stringify(priorState.detail, null, 2)}\n\n` +
         'Re-run with --resume to continue from the detected state, or ' +
-        '--restart to abort prior state and re-init.\n',
+        '--restart to abort prior state and re-init.',
     );
     // Signal exit-2 to the runAsCli wrapper.
     const err = new Error(`prior-state:${priorState.state}`);
@@ -979,8 +981,8 @@ runAsCli(import.meta.url, runStoryClose, {
     if (err?.exitCode === 2) {
       process.exit(2);
     }
-    console.error(
-      `[sprint-story-close] Fatal error: ${err.stack || err.message}`,
+    Logger.error(
+      `[phase=fatal] [sprint-story-close] ${err.stack || err.message}`,
     );
     process.exit(1);
   },
