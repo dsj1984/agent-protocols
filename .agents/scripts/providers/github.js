@@ -138,9 +138,7 @@ export class GitHubProvider extends ITicketingProvider {
     return issues
       .filter((issue) => !issue.pull_request)
       .map((issue) => {
-        const labels = (issue.labels ?? []).map((l) =>
-          typeof l === 'string' ? l : l.name,
-        );
+        const labels = this._normalizeLabels(issue);
         return {
           id: issue.number,
           title: issue.title,
@@ -167,9 +165,7 @@ export class GitHubProvider extends ITicketingProvider {
       `/repos/${this.owner}/${this.repo}/issues/${epicId}`,
     );
 
-    const labels = (issue.labels ?? []).map((l) =>
-      typeof l === 'string' ? l : l.name,
-    );
+    const labels = this._normalizeLabels(issue);
 
     return {
       id: issue.number,
@@ -210,9 +206,7 @@ export class GitHubProvider extends ITicketingProvider {
         return epicRefRe.test(body);
       })
       .map((issue) => {
-        const labels = (issue.labels ?? []).map((l) =>
-          typeof l === 'string' ? l : l.name,
-        );
+        const labels = this._normalizeLabels(issue);
         return {
           id: issue.number,
           internalId: issue.id,
@@ -336,9 +330,7 @@ export class GitHubProvider extends ITicketingProvider {
       `/repos/${this.owner}/${this.repo}/issues/${ticketId}`,
     );
 
-    const labels = (issue.labels ?? []).map((l) =>
-      typeof l === 'string' ? l : l.name,
-    );
+    const labels = this._normalizeLabels(issue);
 
     const ticket = {
       id: issue.number,
@@ -357,6 +349,26 @@ export class GitHubProvider extends ITicketingProvider {
   }
 
   /**
+   * Normalize the label collection on an issue/node into a flat array of
+   * label names. Handles both shapes the GitHub API returns:
+   *   - REST: `issue.labels` is an array of strings or `{ name }` objects.
+   *   - GraphQL: `issue.labels.nodes` is an array of `{ name }` objects.
+   * Returns `[]` when labels are missing/null.
+   * @private
+   */
+  _normalizeLabels(issue) {
+    const raw = issue?.labels;
+    if (!raw) return [];
+    if (Array.isArray(raw?.nodes)) {
+      return raw.nodes.map((l) => l.name);
+    }
+    if (Array.isArray(raw)) {
+      return raw.map((l) => (typeof l === 'string' ? l : l.name));
+    }
+    return [];
+  }
+
+  /**
    * Map a GraphQL sub-issue node into the ticket shape that
    * `getTicket`/`getTickets` return. Keeps the state label lower-cased to
    * match the REST API (`open`/`closed`) so downstream code never has to
@@ -364,7 +376,7 @@ export class GitHubProvider extends ITicketingProvider {
    * @private
    */
   _subIssueNodeToTicket(node) {
-    const labels = (node.labels?.nodes ?? []).map((l) => l.name);
+    const labels = this._normalizeLabels(node);
     return {
       id: node.number,
       internalId: node.databaseId,
