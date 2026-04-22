@@ -229,6 +229,16 @@ operator reference.
 
 ### Recent releases
 
+- **v5.15.4 — Decomposer ticket-cap alignment (2026-04-22).** Patch-only fix
+  to `/sprint-plan` Phase 2. The decomposer system prompt hardcoded a `25`
+  ticket cap that overrode `.agentrc.json` `agentSettings.maxTickets` (default
+  40) — the authoring LLM saw both values and picked the stricter one.
+  `decomposer-prompts.js` now exports `renderDecomposerSystemPrompt({ maxTickets })`
+  which interpolates the cap into the prompt's "Do NOT generate more than N
+  tickets" warning. `buildDecompositionContext` reads `maxTickets` once and
+  passes the same value to both the prompt and the returned context, so the
+  two can no longer drift. Regression tests lock both the default (40) and a
+  custom-config (60) value into the final `systemPrompt`.
 - **v5.15.3 — Epic #441 (2026-04-22).** Patch-only resilience follow-ons for
   the retro action items from Epic #413. Fixes the `variableNotUsed: $issueId`
   GraphQL error that rendered every wave-poller progress row as `unknown` on

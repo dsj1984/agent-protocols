@@ -4,6 +4,31 @@ All notable changes to this project will be documented in this file.
 
 ## [Unreleased]
 
+## [5.15.4] - 2026-04-22
+
+### Decomposer ticket-cap alignment
+
+Patch-only fix to an inconsistency in `/sprint-plan` Phase 2 — the decomposer
+system prompt hardcoded a `25` ticket cap while `.agentrc.json`
+`agentSettings.maxTickets` defaulted to `40`. The authoring LLM saw both
+numbers in the same context and picked the stricter one, silently capping
+decomposition at 25 tickets regardless of config.
+
+- **`renderDecomposerSystemPrompt({ maxTickets })`.**
+  `.agents/scripts/lib/templates/decomposer-prompts.js` now exports a render
+  function that interpolates the cap into the prompt's "Do NOT generate more
+  than N tickets" warning. The previous `DECOMPOSER_SYSTEM_PROMPT` string
+  constant is removed.
+- **`buildDecomposerSystemPrompt(heuristics, { maxTickets })`.**
+  `.agents/scripts/ticket-decomposer.js` threads the `maxTickets` value
+  through to the template builder. `buildDecompositionContext` reads
+  `agentSettings.maxTickets` once and passes the same value to both the
+  prompt and the returned context, so the two can no longer drift.
+- **Regression coverage.** `tests/ticket-decomposer.test.js` asserts the
+  default (40) is interpolated into the base prompt and that a custom
+  `.agentrc.json` value (tested at 60) appears in the
+  `buildDecompositionContext` `systemPrompt`.
+
 ## [5.15.3] - 2026-04-22
 
 ### Sprint-protocol resilience follow-ons (Epic #441)
