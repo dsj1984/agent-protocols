@@ -53,7 +53,7 @@ import { createFrictionEmitter } from './lib/orchestration/friction-emitter.js';
 import { toDone } from './lib/orchestration/label-transitions.js';
 import {
   computeRecoveryMode,
-  detectPriorState,
+  detectPriorPhase,
   RECOVERY_ACTIONS,
 } from './lib/orchestration/sprint-story-close-recovery.js';
 import {
@@ -158,7 +158,9 @@ async function ticketClosureCascade(
     closedTickets.push(storyId);
     progress('TICKETS', `  #${storyId} → agent::done ✅`);
   } catch (err) {
-    console.error(`  Story #${storyId} → FAILED: ${err.message}`);
+    Logger.error(
+      `[phase=tickets]   Story #${storyId} → FAILED: ${err.message}`,
+    );
   }
 
   progress('TICKETS', 'Running cascade completion...');
@@ -772,22 +774,22 @@ export async function runStoryClose({
     Logger.fatal('--resume and --restart are mutually exclusive');
   }
 
-  const priorState = detectPriorState({ cwd, storyId, epicId });
+  const priorPhase = detectPriorPhase({ cwd, storyId, epicId });
   const mode = computeRecoveryMode({
-    state: priorState.state,
+    state: priorPhase.phase,
     resume: resumeFlag,
     restart: restartFlag,
   });
 
   if (mode.action === RECOVERY_ACTIONS.EXIT_PRIOR_STATE) {
-    console.error(
-      `\n[sprint-story-close] Prior close state detected: ${priorState.state}\n` +
-        `${JSON.stringify(priorState.detail, null, 2)}\n\n` +
+    Logger.error(
+      `[phase=prior-state]\nPrior close state detected: ${priorPhase.phase}\n` +
+        `${JSON.stringify(priorPhase.detail, null, 2)}\n\n` +
         'Re-run with --resume to continue from the detected state, or ' +
-        '--restart to abort prior state and re-init.\n',
+        '--restart to abort prior state and re-init.',
     );
     // Signal exit-2 to the runAsCli wrapper.
-    const err = new Error(`prior-state:${priorState.state}`);
+    const err = new Error(`prior-state:${priorPhase.phase}`);
     err.exitCode = mode.exitCode ?? 2;
     throw err;
   }
@@ -795,7 +797,7 @@ export async function runStoryClose({
   if (mode.action === RECOVERY_ACTIONS.RESTART) {
     progress(
       'RESTART',
-      `--restart: aborting prior state (${priorState.state}) and re-initializing`,
+      `--restart: aborting prior state (${priorPhase.phase}) and re-initializing`,
     );
     restartStoryState({
       cwd,
@@ -812,17 +814,17 @@ export async function runStoryClose({
   if (resumeFromConflict) {
     progress(
       'RESUME',
-      `--resume: resuming from conflict resolution (state=${priorState.state})`,
+      `--resume: resuming from conflict resolution (phase=${priorPhase.phase})`,
     );
   } else if (resumeFromMerge) {
     progress(
       'RESUME',
-      `--resume: resuming from merge (state=${priorState.state})`,
+      `--resume: resuming from merge (phase=${priorPhase.phase})`,
     );
   } else if (mode.action === RECOVERY_ACTIONS.RESUME_FROM_VALIDATE) {
     progress(
       'RESUME',
-      `--resume: resuming from validate (state=${priorState.state})`,
+      `--resume: resuming from validate (phase=${priorPhase.phase})`,
     );
   }
 
@@ -979,8 +981,8 @@ runAsCli(import.meta.url, runStoryClose, {
     if (err?.exitCode === 2) {
       process.exit(2);
     }
-    console.error(
-      `[sprint-story-close] Fatal error: ${err.stack || err.message}`,
+    Logger.error(
+      `[phase=fatal] [sprint-story-close] ${err.stack || err.message}`,
     );
     process.exit(1);
   },

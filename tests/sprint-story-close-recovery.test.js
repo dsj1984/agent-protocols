@@ -6,7 +6,7 @@ import {
   RECOVERY_ACTIONS,
   RECOVERY_STATES,
   computeRecoveryMode,
-  detectPriorState,
+  detectPriorPhase,
 } from '../.agents/scripts/lib/orchestration/sprint-story-close-recovery.js';
 
 function makeGit({
@@ -35,25 +35,25 @@ function makeFs(existingPaths = []) {
 
 const CWD = '/repo';
 
-test('detectPriorState', async (t) => {
+test('detectPriorPhase', async (t) => {
   await t.test('returns fresh when no signals match', () => {
-    const result = detectPriorState({
+    const result = detectPriorPhase({
       cwd: CWD,
       storyId: 100,
       git: makeGit(),
       fs: makeFs([]),
     });
-    assert.strictEqual(result.state, RECOVERY_STATES.FRESH);
+    assert.strictEqual(result.phase, RECOVERY_STATES.FRESH);
   });
 
   await t.test('returns partial-merge when UU markers present', () => {
-    const result = detectPriorState({
+    const result = detectPriorPhase({
       cwd: CWD,
       storyId: 100,
       git: makeGit({ mainStatus: 'UU some/file.js\n M other.js\n' }),
       fs: makeFs([]),
     });
-    assert.strictEqual(result.state, RECOVERY_STATES.PARTIAL_MERGE);
+    assert.strictEqual(result.phase, RECOVERY_STATES.PARTIAL_MERGE);
     assert.strictEqual(result.detail.checkout, CWD);
   });
 
@@ -61,7 +61,7 @@ test('detectPriorState', async (t) => {
     'returns uncommitted-worktree when worktree exists and dirty',
     () => {
       const wtPath = path.join(CWD, '.worktrees', 'story-100');
-      const result = detectPriorState({
+      const result = detectPriorPhase({
         cwd: CWD,
         storyId: 100,
         git: makeGit({
@@ -69,26 +69,26 @@ test('detectPriorState', async (t) => {
         }),
         fs: makeFs([wtPath]),
       });
-      assert.strictEqual(result.state, RECOVERY_STATES.UNCOMMITTED_WORKTREE);
+      assert.strictEqual(result.phase, RECOVERY_STATES.UNCOMMITTED_WORKTREE);
       assert.strictEqual(result.detail.worktreePath, wtPath);
     },
   );
 
   await t.test('skips uncommitted-worktree when worktree is clean', () => {
     const wtPath = path.join(CWD, '.worktrees', 'story-100');
-    const result = detectPriorState({
+    const result = detectPriorPhase({
       cwd: CWD,
       storyId: 100,
       git: makeGit({ wtStatusByPath: { [wtPath]: '' } }),
       fs: makeFs([wtPath]),
     });
-    assert.strictEqual(result.state, RECOVERY_STATES.FRESH);
+    assert.strictEqual(result.phase, RECOVERY_STATES.FRESH);
   });
 
   await t.test(
     'returns pushed-unmerged when remote story branch exists and not merged',
     () => {
-      const result = detectPriorState({
+      const result = detectPriorPhase({
         cwd: CWD,
         storyId: 100,
         epicId: 42,
@@ -98,7 +98,7 @@ test('detectPriorState', async (t) => {
         }),
         fs: makeFs([]),
       });
-      assert.strictEqual(result.state, RECOVERY_STATES.PUSHED_UNMERGED);
+      assert.strictEqual(result.phase, RECOVERY_STATES.PUSHED_UNMERGED);
       assert.match(result.detail.remoteRef, /story-100/);
     },
   );
@@ -106,7 +106,7 @@ test('detectPriorState', async (t) => {
   await t.test(
     'returns fresh when remote branch exists but is already merged into epic',
     () => {
-      const result = detectPriorState({
+      const result = detectPriorPhase({
         cwd: CWD,
         storyId: 100,
         epicId: 42,
@@ -116,13 +116,13 @@ test('detectPriorState', async (t) => {
         }),
         fs: makeFs([]),
       });
-      assert.strictEqual(result.state, RECOVERY_STATES.FRESH);
+      assert.strictEqual(result.phase, RECOVERY_STATES.FRESH);
     },
   );
 
   await t.test('partial-merge takes priority over dirty worktree', () => {
     const wtPath = path.join(CWD, '.worktrees', 'story-100');
-    const result = detectPriorState({
+    const result = detectPriorPhase({
       cwd: CWD,
       storyId: 100,
       git: makeGit({
@@ -131,14 +131,14 @@ test('detectPriorState', async (t) => {
       }),
       fs: makeFs([wtPath]),
     });
-    assert.strictEqual(result.state, RECOVERY_STATES.PARTIAL_MERGE);
+    assert.strictEqual(result.phase, RECOVERY_STATES.PARTIAL_MERGE);
   });
 
   await t.test(
     'dirty worktree takes priority over pushed-unmerged remote',
     () => {
       const wtPath = path.join(CWD, '.worktrees', 'story-100');
-      const result = detectPriorState({
+      const result = detectPriorPhase({
         cwd: CWD,
         storyId: 100,
         epicId: 42,
@@ -149,25 +149,25 @@ test('detectPriorState', async (t) => {
         }),
         fs: makeFs([wtPath]),
       });
-      assert.strictEqual(result.state, RECOVERY_STATES.UNCOMMITTED_WORKTREE);
+      assert.strictEqual(result.phase, RECOVERY_STATES.UNCOMMITTED_WORKTREE);
     },
   );
 
   await t.test('throws without required cwd/storyId', () => {
-    assert.throws(() => detectPriorState({ storyId: 1 }), /cwd is required/);
-    assert.throws(() => detectPriorState({ cwd: '/x' }), /storyId is required/);
+    assert.throws(() => detectPriorPhase({ storyId: 1 }), /cwd is required/);
+    assert.throws(() => detectPriorPhase({ cwd: '/x' }), /storyId is required/);
   });
 
   await t.test('honors custom worktreeRoot', () => {
     const wtPath = path.join(CWD, 'custom-wt', 'story-100');
-    const result = detectPriorState({
+    const result = detectPriorPhase({
       cwd: CWD,
       storyId: 100,
       worktreeRoot: 'custom-wt',
       git: makeGit({ wtStatusByPath: { [wtPath]: ' M f.js\n' } }),
       fs: makeFs([wtPath]),
     });
-    assert.strictEqual(result.state, RECOVERY_STATES.UNCOMMITTED_WORKTREE);
+    assert.strictEqual(result.phase, RECOVERY_STATES.UNCOMMITTED_WORKTREE);
   });
 });
 
