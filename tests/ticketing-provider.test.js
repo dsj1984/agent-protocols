@@ -14,6 +14,7 @@ describe('ITicketingProvider — interface contract', () => {
     ['getTicket', [1]],
     ['getTicketDependencies', [1]],
     ['graphql', ['query {}', {}, {}]],
+    ['getBranchProtection', ['main']],
   ];
 
   const writeMethods = [
@@ -51,7 +52,7 @@ describe('ITicketingProvider — interface contract', () => {
     });
   }
 
-  it('has exactly 14 interface methods', () => {
+  it('has exactly 15 interface methods', () => {
     const expectedMethods = [
       'getEpic',
       'getTickets',
@@ -67,6 +68,7 @@ describe('ITicketingProvider — interface contract', () => {
       'ensureLabels',
       'ensureProjectFields',
       'graphql',
+      'getBranchProtection',
     ];
 
     for (const method of expectedMethods) {

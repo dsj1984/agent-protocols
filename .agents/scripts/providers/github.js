@@ -819,6 +819,28 @@ export class GitHubProvider extends ITicketingProvider {
     };
   }
 
+  /**
+   * Inspect branch-protection state for a branch in this repository. A 404
+   * means "no protection rule exists"; any other error propagates so the
+   * caller can distinguish "intentionally unprotected" from "transport
+   * failure." Returns `{ enabled, raw? }`.
+   *
+   * @param {string} branch
+   * @returns {Promise<{ enabled: boolean, raw?: object }>}
+   */
+  async getBranchProtection(branch) {
+    const endpoint = `/repos/${this.owner}/${this.repo}/branches/${encodeURIComponent(branch)}/protection`;
+    try {
+      const raw = await this._http.rest(endpoint);
+      return { enabled: true, raw };
+    } catch (err) {
+      if (/failed \(404\)/.test(err?.message ?? '')) {
+        return { enabled: false };
+      }
+      throw err;
+    }
+  }
+
   // ---------------------------------------------------------------------------
   // Setup Operations
   // ---------------------------------------------------------------------------
