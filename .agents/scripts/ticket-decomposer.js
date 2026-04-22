@@ -29,7 +29,7 @@ import { resolveConfig } from './lib/config-resolver.js';
 import { Logger } from './lib/Logger.js';
 import { validateAndNormalizeTickets } from './lib/orchestration/ticket-validator.js';
 import { createProvider } from './lib/provider-factory.js';
-import { DECOMPOSER_SYSTEM_PROMPT } from './lib/templates/decomposer-prompts.js';
+import { renderDecomposerSystemPrompt } from './lib/templates/decomposer-prompts.js';
 
 function resolveParentId(ticket, slugMap, epicId) {
   if (ticket.type === 'feature') return epicId;
@@ -61,12 +61,16 @@ function resolveDependencies(ticket, slugMap) {
   return resolved;
 }
 
-export function buildDecomposerSystemPrompt(heuristics = []) {
+export function buildDecomposerSystemPrompt(
+  heuristics = [],
+  { maxTickets } = {},
+) {
+  const base = renderDecomposerSystemPrompt({ maxTickets });
   const heuristicsStr =
     heuristics.length > 0
       ? `### RISK HEURISTICS (Flag as risk::medium if any apply):\n- ${heuristics.join('\n- ')}`
       : '';
-  return `${DECOMPOSER_SYSTEM_PROMPT}${heuristicsStr ? `\n\n${heuristicsStr}` : ''}`;
+  return `${base}${heuristicsStr ? `\n\n${heuristicsStr}` : ''}`;
 }
 
 /**
@@ -86,7 +90,8 @@ export async function buildDecompositionContext(epicId, provider, config = {}) {
   ]);
 
   const heuristics = config.agentSettings?.riskGates?.heuristics || [];
-  const systemPrompt = buildDecomposerSystemPrompt(heuristics);
+  const maxTickets = config.agentSettings?.maxTickets ?? 40;
+  const systemPrompt = buildDecomposerSystemPrompt(heuristics, { maxTickets });
 
   return {
     epic: { id: epic.id, title: epic.title },
@@ -94,7 +99,7 @@ export async function buildDecompositionContext(epicId, provider, config = {}) {
     techSpec: { id: techSpec.id, body: techSpec.body },
     heuristics,
     systemPrompt,
-    maxTickets: config.agentSettings?.maxTickets ?? 40,
+    maxTickets,
   };
 }
 

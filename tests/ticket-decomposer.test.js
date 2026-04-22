@@ -1,6 +1,6 @@
 import assert from 'node:assert/strict';
 import { beforeEach, describe, it } from 'node:test';
-import { DECOMPOSER_SYSTEM_PROMPT } from '../.agents/scripts/lib/templates/decomposer-prompts.js';
+import { renderDecomposerSystemPrompt } from '../.agents/scripts/lib/templates/decomposer-prompts.js';
 import {
   buildDecomposerSystemPrompt,
   buildDecompositionContext,
@@ -165,20 +165,28 @@ describe('ticket-decomposer orchestration (v5.6+)', () => {
 });
 
 describe('ticket-decomposer buildDecomposerSystemPrompt', () => {
-  it('returns the base prompt when no heuristics are supplied', () => {
+  it('returns the base prompt (with default maxTickets) when no heuristics are supplied', () => {
     const prompt = buildDecomposerSystemPrompt([]);
-    assert.equal(prompt, DECOMPOSER_SYSTEM_PROMPT);
+    assert.equal(prompt, renderDecomposerSystemPrompt());
+    assert.ok(prompt.includes('Do NOT generate more than 40 tickets in total'));
   });
 
   it('appends risk heuristics when supplied', () => {
+    const base = renderDecomposerSystemPrompt();
     const prompt = buildDecomposerSystemPrompt([
       'Destructive DB changes',
       'Global refactors',
     ]);
-    assert.ok(prompt.startsWith(DECOMPOSER_SYSTEM_PROMPT));
+    assert.ok(prompt.startsWith(base));
     assert.ok(prompt.includes('### RISK HEURISTICS'));
     assert.ok(prompt.includes('Destructive DB changes'));
     assert.ok(prompt.includes('Global refactors'));
+  });
+
+  it('interpolates the configured maxTickets cap into the prompt', () => {
+    const prompt = buildDecomposerSystemPrompt([], { maxTickets: 75 });
+    assert.ok(prompt.includes('Do NOT generate more than 75 tickets in total'));
+    assert.ok(!prompt.includes('more than 40 tickets'));
   });
 });
 
@@ -201,7 +209,10 @@ describe('ticket-decomposer buildDecompositionContext', () => {
     };
 
     const ctx = await buildDecompositionContext(1, provider, {
-      agentSettings: { riskGates: { heuristics: ['Heuristic A'] } },
+      agentSettings: {
+        riskGates: { heuristics: ['Heuristic A'] },
+        maxTickets: 60,
+      },
     });
 
     assert.equal(ctx.epic.id, 1);
@@ -209,7 +220,13 @@ describe('ticket-decomposer buildDecompositionContext', () => {
     assert.equal(ctx.techSpec.body, 'TECH SPEC BODY');
     assert.deepEqual(ctx.heuristics, ['Heuristic A']);
     assert.ok(ctx.systemPrompt.includes('Heuristic A'));
-    assert.equal(ctx.maxTickets, 40);
+    assert.equal(ctx.maxTickets, 60);
+    assert.ok(
+      ctx.systemPrompt.includes(
+        'Do NOT generate more than 60 tickets in total',
+      ),
+      'systemPrompt must interpolate the configured maxTickets cap',
+    );
   });
 
   it('throws when planning artifacts are missing', async () => {
