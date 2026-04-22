@@ -252,7 +252,12 @@ test('ticketing.js', async (t) => {
           `${type} should match ${WAVE_TYPE_PATTERN}`,
         );
       }
-      for (const type of ['wave--start', 'wave-1-middle', 'wave-1', 'wave-1-']) {
+      for (const type of [
+        'wave--start',
+        'wave-1-middle',
+        'wave-1',
+        'wave-1-',
+      ]) {
         assert.ok(
           !isValidStructuredCommentType(type),
           `${type} should not match the wave pattern`,
@@ -261,15 +266,12 @@ test('ticketing.js', async (t) => {
     },
   );
 
-  await t.test(
-    'postStructuredComment rejects unknown types',
-    async () => {
-      await assert.rejects(
-        () => postStructuredComment(mock, 1, 'not-a-real-type', 'body'),
-        /Invalid structured-comment type/,
-      );
-    },
-  );
+  await t.test('postStructuredComment rejects unknown types', async () => {
+    await assert.rejects(
+      () => postStructuredComment(mock, 1, 'not-a-real-type', 'body'),
+      /Invalid structured-comment type/,
+    );
+  });
 
   await t.test(
     'upsertStructuredComment rejects unknown types before touching the provider',
