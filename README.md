@@ -227,6 +227,23 @@ focus-area wave serialization. See
 [worktree-lifecycle.md](.agents/workflows/worktree-lifecycle.md) for the full
 operator reference.
 
+### Recent releases
+
+- **v5.15.1 — Epic #380 (2026-04-22).** Patch-only internal hardening:
+  two-stage Windows worktree reap (`fs.rm` retry + deferred sweep via
+  `.worktrees/.pending-cleanup.json`); `/sprint-retro` routed through
+  `provider.postComment` / MCP so retros never hit the Make.com webhook;
+  `OrchestrationContext` / `EpicRunnerContext` / `PlanRunnerContext`
+  replace opts bags across the epic-runner and plan-runner; new
+  `ErrorJournal` writes structured JSONL to `temp/epic-<id>-errors.log`;
+  shared `pollUntil` / `sleep` + label-transition helpers replace
+  hand-rolled loops; `ProgressReporter` emits periodic wave snapshots on
+  the Epic via an `epic-run-progress` structured comment. See
+  [docs/CHANGELOG.md](docs/CHANGELOG.md) for the full entry.
+- **v5.15.0 — Epic #349 (2026-04-22).** Self-serve GitHub-triggered
+  planning pipeline; Kanban baseline; unified `/sprint-execute`. See the
+  changelog for the full breakdown.
+
 ### Internal module layout (v5.13.0+)
 
 The orchestration SDK's three largest modules — `lib/worktree-manager.js`,

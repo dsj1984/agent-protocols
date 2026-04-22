@@ -68,6 +68,38 @@ structure. The body **must end** with an HTML marker comment of the form
 used by `/sprint-close`'s Retrospective Gate (Step 1.5) when a
 structured-comment lookup is unavailable.
 
+### Checkpoint after each composed section (`retro-partial`)
+
+Long retros can run for many minutes and occasionally crash mid-compose. To
+avoid re-composing from scratch, **upsert** a `retro-partial` structured
+comment on the Epic **after composing each major section**. The retro body
+assembled so far is the comment body; each checkpoint replaces the prior
+`retro-partial` (one comment per Epic, never N).
+
+Call order (one upsert per checkpoint):
+
+```text
+compose Sprint Scorecard                    → upsertStructuredComment(epicId, { type: 'retro-partial', body })
+compose What Went Well                      → upsertStructuredComment(epicId, { type: 'retro-partial', body })
+compose What Could Be Improved              → upsertStructuredComment(epicId, { type: 'retro-partial', body })
+compose Architectural Debt                  → upsertStructuredComment(epicId, { type: 'retro-partial', body })
+compose Protocol Optimization Recommendations → upsertStructuredComment(epicId, { type: 'retro-partial', body })
+compose Action Items for Next Epic          → upsertStructuredComment(epicId, { type: 'retro-partial', body })
+```
+
+`upsertStructuredComment` lives in
+`.agents/scripts/lib/orchestration/ticketing.js` and replaces the prior
+comment of the same type on each call, so no comment sprawl occurs. The
+partial body does **not** carry the `retro-complete:` marker — it is
+informational only. Step 3 then posts the final body as `type: 'retro'`
+with the `retro-complete:` marker, which `/sprint-close` Phase 5.1 uses as
+its sole completion gate (the regex matches `retro-complete:` exclusively,
+so `retro-partial:` checkpoints never trip the gate).
+
+If `/sprint-retro` is re-invoked after a mid-run crash, the prior
+`retro-partial` comment is visible on the Epic; resume composition from the
+next unwritten section rather than starting over.
+
 ```markdown
 ## 🪞 Sprint Retrospective — Epic #[EPIC_ID]: [Epic Title]
 
@@ -120,19 +152,43 @@ marker added at the end of the body.
 
 ## Step 3 — Post the Retrospective as an Epic Comment
 
-Post the composed markdown as a comment on the Epic issue, tagged with the
-`retro` structured type.
+Post the composed markdown as a structured comment on the Epic issue, tagged
+with the `retro` type. **Never** route the retro body through `notify.js` —
+that path fires the notification webhook, leaking the long-form retro body to
+downstream consumers (Make.com / Slack / Discord). GitHub is the sole
+destination.
 
-```powershell
-# Preferred (structured, includes marker for sprint-close gate):
-node [SCRIPTS_ROOT]/notify.js [EPIC_ID] "<retro markdown>" --type retro
+```text
+# Preferred — MCP-native structured comment (does NOT fire the webhook):
+mcp__agent-protocols__post_structured_comment \
+  --ticket [EPIC_ID] --type retro --body "<retro markdown>"
 
-# MCP-native alternative:
-# provider.postComment(epicId, { body: "<retro markdown>", type: "retro" })
+# Direct SDK fallback (also does NOT fire the webhook):
+node -e "
+  import('./.agents/scripts/lib/provider-factory.js').then(async ({ loadProvider }) => {
+    const provider = loadProvider();
+    await provider.postComment([EPIC_ID], { body: '<retro markdown>', type: 'retro' });
+  });
+"
 ```
+
+The retro body **must** still end with the `<!-- retro-complete: <ISO_TIMESTAMP> -->`
+HTML marker — `/sprint-close`'s Retrospective Gate (Phase 5.1) falls back to
+grepping that marker when the structured-comment type lookup is unavailable.
+This final `retro` comment replaces any prior `retro-partial` checkpoint
+posted during Step 2.
 
 Record the returned comment URL — the caller (typically `/sprint-close`) may
 echo it in its summary.
+
+### Manual verification
+
+After a full `/sprint-retro` run, inspect the Make.com (or equivalent)
+notification webhook log for the window of the run and confirm **no entry
+contains the retro body**. The webhook should only ever see short
+notification payloads fired elsewhere in the protocol — the retro post must
+not appear there. If it does, Step 3 has regressed to a `notify.js` path;
+stop and fix before continuing.
 
 ### Fallback on network failure
 
@@ -141,7 +197,9 @@ disk. Surface the error to the operator and abort. The retro body lives only in
 the agent's working memory for the current session — the operator re-runs
 `/sprint-retro [EPIC_ID]` after resolving connectivity so the content is
 regenerated from the ticket graph (the authoritative source) and posted fresh.
-GitHub is the sole retro archive.
+The `retro-partial` checkpoint from Step 2 remains on the Epic so prior
+section composition is preserved across the re-run. GitHub is the sole retro
+archive.
 
 ## Step 4 — Update Architecture & Patterns Documentation (Optional)
 
@@ -163,9 +221,16 @@ Commit these with a conventional `docs(...)` message on the Epic branch. Do
 - **Never** omit the closing `<!-- retro-complete: <ISO_TIMESTAMP> -->` marker —
   `/sprint-close`'s Retrospective Gate falls back to grepping for it when the
   structured-comment lookup is unavailable.
-- **Always** post the retro as `type: retro` (via `notify.js --type retro` or
-  the structured comment API) so downstream tooling can filter it.
-- **Always** re-run the workflow end-to-end if the comment post fails — the temp
-  dump in Step 3 is a recovery aid, not a ship vehicle.
+- **Never** post the retro body through `notify.js`. That path fires the
+  notification webhook and leaks the long-form retro to Make.com / Slack /
+  Discord. Use `mcp__agent-protocols__post_structured_comment` (preferred) or
+  `provider.postComment(..., { type: 'retro' })` exclusively — both post only
+  to GitHub and never touch the webhook.
+- **Always** post the retro as `type: retro` via the structured comment API so
+  downstream tooling (and the `/sprint-close` gate) can filter it.
+- **Always** re-run the workflow end-to-end if the final comment post fails.
+  The `retro-partial` checkpoint written in Step 2 preserves section-level
+  progress across the re-run — resume composition from the next unwritten
+  section rather than starting over.
 - GitHub is the Single Source of Truth in v5 — all execution data must be
   sourced from the ticket graph.

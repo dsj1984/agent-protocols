@@ -1,45 +1,71 @@
 import { execFileSync } from 'node:child_process';
 import fs from 'node:fs';
+import path from 'node:path';
 import { runAsCli } from './lib/cli-utils.js';
 import { Logger } from './lib/Logger.js';
 
+// Paths under these prefixes are treated as template/documentation files
+// that may legitimately contain literal conflict-marker strings (e.g. the
+// merge-conflict runbook). Paths use forward slashes to match `git ls-files`.
+export const TEMPLATE_PATH_PREFIXES = ['.agents/workflows/'];
+
+// Standard git conflict markers. The leading '\n' on '=======' avoids
+// matching plain separator lines.
+export const CONFLICT_MARKERS = ['<<<<<<< ', '\n=======', '>>>>>>> '];
+
+const SELF_PATH = '.agents/scripts/detect-merges.js';
+
+export function isTemplatePath(file) {
+  return TEMPLATE_PATH_PREFIXES.some((prefix) => file.startsWith(prefix));
+}
+
+/**
+ * Scan the given files for conflict markers, skipping templates and self.
+ *
+ * @param {string[]} files - Repo-relative paths (forward slashes).
+ * @param {string}   root  - Repo root used to resolve file paths.
+ * @returns {Promise<Array<{ file: string, marker: string }>>}
+ */
+export async function scanForConflicts(files, root) {
+  const hits = [];
+  await Promise.all(
+    files.map(async (file) => {
+      if (file === SELF_PATH || isTemplatePath(file)) return;
+      try {
+        const content = await fs.promises.readFile(
+          path.join(root, file),
+          'utf8',
+        );
+        for (const marker of CONFLICT_MARKERS) {
+          if (content.includes(marker)) {
+            hits.push({ file, marker });
+            break;
+          }
+        }
+      } catch (_readErr) {
+        // Ignore unreadable files (binaries, broken symlinks, etc.).
+      }
+    }),
+  );
+  return hits;
+}
+
 export async function main() {
   try {
-    // Get all tracked files using git ls-files
-    const filesOutput = execFileSync('git', ['ls-files']).toString();
+    const root = process.cwd();
+    const filesOutput = execFileSync('git', ['ls-files'], {
+      cwd: root,
+    }).toString();
     const files = filesOutput.split('\n').filter(Boolean);
-    let foundConflicts = false;
 
-    // Standard git conflict markers
-    // Adding '\n' before '=======' correctly avoids matching simple line separators
-    const markers = ['<<<<<<< ', '\n=======', '>>>>>>> '];
+    const hits = await scanForConflicts(files, root);
 
-    await Promise.all(
-      files.map(async (file) => {
-        // Exclude self and workflow docs that contain valid examples of conflict markers
-        if (
-          file === '.agents/scripts/detect-merges.js' ||
-          file === '.agents/workflows/git-merge-pr.md'
-        )
-          return;
-        try {
-          const content = await fs.promises.readFile(file, 'utf8');
-          for (const marker of markers) {
-            if (content.includes(marker)) {
-              console.error(
-                `Conflict marker '${marker.trim()}' found in tracked file: ${file}`,
-              );
-              foundConflicts = true;
-              break;
-            }
-          }
-        } catch (_readErr) {
-          // Ignore files that can't be read as utf8 (e.g., binaries or missing files)
-        }
-      }),
-    );
-
-    if (foundConflicts) {
+    if (hits.length > 0) {
+      for (const { file, marker } of hits) {
+        console.error(
+          `Conflict marker '${marker.trim()}' found in tracked file: ${file}`,
+        );
+      }
       Logger.fatal(
         '\nERROR: Merge conflicts detected. Please resolve them before proceeding.',
       );

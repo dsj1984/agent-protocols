@@ -34,17 +34,25 @@ export class BookendChainer {
    *   runSkill?: (skill: string, args: { epicId: number }) => Promise<{ status: 'ok'|'failed', detail?: string }>,
    *   postComment?: (ticketId: number, payload: object) => Promise<unknown>,
    *   logger?: { info: Function, warn: Function },
+   *   errorJournal?: { record: Function, path: string },
    * }} opts
    */
-  constructor({ autoClose, epicId, runSkill, postComment, logger }) {
+  constructor(opts = {}) {
+    const ctx = opts.ctx;
+    const epicId = opts.epicId ?? ctx?.epicId;
     if (!Number.isInteger(epicId)) {
       throw new TypeError('BookendChainer requires a numeric epicId');
     }
-    this.autoClose = Boolean(autoClose);
+    this.autoClose = Boolean(opts.autoClose);
     this.epicId = epicId;
-    this.runSkill = runSkill;
-    this.postComment = postComment;
-    this.logger = logger ?? console;
+    this.runSkill = opts.runSkill ?? ctx?.runSkill;
+    this.postComment = opts.postComment;
+    this.logger = opts.logger ?? ctx?.logger ?? console;
+    this.errorJournal = opts.errorJournal ?? ctx?.errorJournal ?? null;
+  }
+
+  #journalSuffix() {
+    return this.errorJournal?.path ? ` (see ${this.errorJournal.path})` : '';
   }
 
   async run() {
@@ -73,6 +81,12 @@ export class BookendChainer {
       outcome = await this.runSkill(AUTO_CLOSE_STEP, { epicId: this.epicId });
     } catch (err) {
       outcome = { status: 'failed', detail: err?.message ?? String(err) };
+      await this.errorJournal?.record({
+        module: 'BookendChainer',
+        op: `runSkill(${AUTO_CLOSE_STEP})`,
+        error: err,
+        recovery: 'reported-as-failed',
+      });
     }
     const results = [{ skill: AUTO_CLOSE_STEP, ...outcome }];
     if (outcome.status !== 'ok') {
@@ -101,8 +115,14 @@ export class BookendChainer {
       });
     } catch (err) {
       this.logger.warn?.(
-        `[BookendChainer] hand-off comment failed: ${err?.message ?? err}`,
+        `[BookendChainer] hand-off comment failed: ${err?.message ?? err}${this.#journalSuffix()}`,
       );
+      await this.errorJournal?.record({
+        module: 'BookendChainer',
+        op: 'postComment(handoff)',
+        error: err,
+        recovery: 'swallowed',
+      });
     }
   }
 
@@ -127,8 +147,14 @@ export class BookendChainer {
       });
     } catch (err) {
       this.logger.warn?.(
-        `[BookendChainer] failure comment post failed: ${err?.message ?? err}`,
+        `[BookendChainer] failure comment post failed: ${err?.message ?? err}${this.#journalSuffix()}`,
       );
+      await this.errorJournal?.record({
+        module: 'BookendChainer',
+        op: 'postComment(failure)',
+        error: err,
+        recovery: 'swallowed',
+      });
     }
   }
 }

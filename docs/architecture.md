@@ -248,6 +248,34 @@ of the stable public surface — downstream consumers continue to import
 `printStoryDispatchTable`, `postManifestEpicComment`, and
 `postParkedFollowOnsComment` from `lib/presentation/manifest-renderer.js`.
 
+#### Orchestration Context + ErrorJournal (v5.15.1 / Epic #380)
+
+The epic-runner and plan-runner previously threaded a loosely-shaped
+`opts` bag through every submodule — provider, logger, settings, and
+ad-hoc flags mingled in the same object. Epic #380 replaced this with
+explicit typed contexts:
+
+| Context                 | Path                                              | Consumers                                                       |
+| ----------------------- | ------------------------------------------------- | --------------------------------------------------------------- |
+| `OrchestrationContext`  | `lib/orchestration/context.js`                    | Shared base — provider, settings, logger, `errorJournal`.       |
+| `EpicRunnerContext`     | `lib/orchestration/context.js`                    | Every `epic-runner/*` submodule accepts `ctx` as first arg.     |
+| `PlanRunnerContext`     | `lib/orchestration/context.js`                    | `sprint-plan-spec.js` / `sprint-plan-decompose.js` drivers.     |
+
+The `errorJournal` field on each context is an `ErrorJournal` instance
+(`lib/orchestration/error-journal.js`) that writes structured JSONL to
+`temp/epic-<id>-errors.log`. Sites that previously did silent
+`catch (err) { logger.warn(...) }` in `epic-runner.js`,
+`blocker-handler.js`, and `bookend-chainer.js` now also call
+`errorJournal?.record({ phase, error, context })` so the error surface
+is auditable after a run completes. See
+[`docs/patterns.md#orchestrationcontext-dependency-injection-v5151`](patterns.md#orchestrationcontext-dependency-injection-v5151)
+for the pattern and the `errorJournal?.record(...)` idiom.
+
+`lib/orchestration/epic-runner/progress-reporter.js` (also new in
+v5.15.1 / #380) emits a periodic `epic-run-progress` structured
+comment on the Epic, driven by
+`orchestration.epicRunner.progressReportIntervalSec`.
+
 ---
 
 ### 3. Provider Abstraction Layer

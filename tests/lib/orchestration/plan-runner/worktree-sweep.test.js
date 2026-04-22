@@ -1,6 +1,14 @@
 import assert from 'node:assert/strict';
+import fs from 'node:fs';
+import os from 'node:os';
+import path from 'node:path';
 import test from 'node:test';
 import { sweepStaleStoryWorktrees } from '../../../../.agents/scripts/lib/orchestration/plan-runner/worktree-sweep.js';
+import {
+  manifestPath,
+  readManifest,
+  recordPendingCleanup,
+} from '../../../../.agents/scripts/lib/worktree/pending-cleanup.js';
 import { MockProvider } from '../../../fixtures/mock-provider.js';
 
 const REPO = '/repo';
@@ -252,4 +260,91 @@ test('sweepStaleStoryWorktrees: throws when repoRoot is missing', async () => {
       sweepStaleStoryWorktrees({ provider: new MockProvider({ tickets: {} }) }),
     /repoRoot is required/,
   );
+});
+
+test('sweepStaleStoryWorktrees: drains the pending-cleanup manifest when Stage 1 retry succeeds', async () => {
+  const tmp = fs.mkdtempSync(path.join(os.tmpdir(), 'sweep-drain-'));
+  const wtRoot = path.join(tmp, '.worktrees');
+  fs.mkdirSync(wtRoot, { recursive: true });
+  try {
+    recordPendingCleanup(wtRoot, {
+      storyId: 808,
+      branch: 'story-808',
+      path: path.join(wtRoot, 'story-808'),
+      push: false,
+    });
+
+    const provider = new MockProvider({ tickets: {} });
+    const git = makeFakeGit({ listStdout: porcelain([tmp]) });
+    const { logger } = quietLogger();
+
+    const result = await sweepStaleStoryWorktrees({
+      provider,
+      repoRoot: tmp,
+      worktreeRoot: wtRoot,
+      git,
+      fsRm: async () => {
+        // Lock cleared — fs.rm now succeeds.
+      },
+      logger,
+    });
+
+    assert.deepEqual(result.drainedPending, [808]);
+    assert.deepEqual(result.persistentPending, []);
+    assert.deepEqual(result.stillPending, []);
+    assert.equal(fs.existsSync(manifestPath(wtRoot)), false);
+  } finally {
+    fs.rmSync(tmp, { recursive: true, force: true });
+  }
+});
+
+test('sweepStaleStoryWorktrees: keeps stuck manifest entry and logs persistent-lock after MAX_SWEEP_ATTEMPTS', async () => {
+  const tmp = fs.mkdtempSync(path.join(os.tmpdir(), 'sweep-stuck-'));
+  const wtRoot = path.join(tmp, '.worktrees');
+  fs.mkdirSync(wtRoot, { recursive: true });
+  try {
+    recordPendingCleanup(wtRoot, {
+      storyId: 909,
+      branch: 'story-909',
+      path: path.join(wtRoot, 'story-909'),
+      push: false,
+    });
+    // Simulate two prior sweep failures already on disk.
+    const manifest = readManifest(wtRoot);
+    manifest[0].attempts = 2;
+    fs.writeFileSync(
+      manifestPath(wtRoot),
+      `${JSON.stringify(manifest, null, 2)}\n`,
+      'utf8',
+    );
+
+    const provider = new MockProvider({ tickets: {} });
+    const git = makeFakeGit({ listStdout: porcelain([tmp]) });
+    const { logger, sink } = quietLogger();
+
+    const result = await sweepStaleStoryWorktrees({
+      provider,
+      repoRoot: tmp,
+      worktreeRoot: wtRoot,
+      git,
+      fsRm: async () => {
+        const err = new Error('EBUSY: still locked');
+        err.code = 'EBUSY';
+        throw err;
+      },
+      logger,
+    });
+
+    assert.deepEqual(result.drainedPending, []);
+    assert.deepEqual(result.persistentPending, [909]);
+    assert.ok(
+      sink.error.some((m) => m.includes('persistent-lock')),
+      'expected OPERATOR ACTION REQUIRED: persistent-lock log',
+    );
+    const post = readManifest(wtRoot);
+    assert.equal(post.length, 1);
+    assert.equal(post[0].attempts, 3);
+  } finally {
+    fs.rmSync(tmp, { recursive: true, force: true });
+  }
 });

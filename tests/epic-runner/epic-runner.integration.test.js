@@ -3,6 +3,7 @@ import { describe, it } from 'node:test';
 import { EPIC_RUN_STATE_TYPE } from '../../.agents/scripts/lib/orchestration/epic-runner/checkpointer.js';
 import { runEpic } from '../../.agents/scripts/lib/orchestration/epic-runner.js';
 import { structuredCommentMarker } from '../../.agents/scripts/lib/orchestration/ticketing.js';
+import { buildCtx } from './_build-ctx.js';
 
 /**
  * Fake provider — minimal surface needed by the runner under test:
@@ -115,13 +116,13 @@ describe('EpicRunner integration', () => {
       },
     };
 
-    const result = await runEpic({
+    const ctx = buildCtx({
       epicId,
       provider,
       config,
       spawn,
-      logger: quietLogger(),
     });
+    const result = await runEpic({ ctx });
 
     assert.equal(result.state, 'completed');
     assert.equal(result.waveHistory.length, 2);

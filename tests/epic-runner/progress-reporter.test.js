@@ -1,0 +1,175 @@
+import assert from 'node:assert/strict';
+import { describe, it } from 'node:test';
+
+import {
+  EPIC_RUN_PROGRESS_TYPE,
+  ProgressReporter,
+} from '../../.agents/scripts/lib/orchestration/epic-runner/progress-reporter.js';
+
+function buildProvider(tickets = {}, comments = []) {
+  return {
+    async getTicket(id) {
+      return tickets[id] ?? null;
+    },
+    async getTicketComments() {
+      return comments;
+    },
+    async listComments() {
+      return comments;
+    },
+    async postComment(_ticketId, { body }) {
+      comments.push({ id: `new-${comments.length}`, body });
+      return { id: `new-${comments.length - 1}` };
+    },
+    async updateComment(commentId, { body }) {
+      const target = comments.find((c) => c.id === commentId);
+      if (target) target.body = body;
+      return target ?? { id: commentId };
+    },
+  };
+}
+
+function silentLogger() {
+  const calls = { info: [], warn: [] };
+  return {
+    log: calls,
+    info: (m) => calls.info.push(m),
+    warn: (m) => calls.warn.push(m),
+  };
+}
+
+describe('ProgressReporter', () => {
+  it('is disabled when intervalSec <= 0', () => {
+    const reporter = new ProgressReporter({
+      provider: buildProvider(),
+      epicId: 1,
+      intervalSec: 0,
+    });
+    assert.equal(reporter.isEnabled(), false);
+    reporter.start();
+    assert.equal(reporter.timer, null);
+  });
+
+  it('rejects missing provider or non-numeric epicId', () => {
+    assert.throws(
+      () => new ProgressReporter({ epicId: 1 }),
+      /requires a provider/,
+    );
+    assert.throws(
+      () => new ProgressReporter({ provider: buildProvider() }),
+      /requires a numeric epicId/,
+    );
+  });
+
+  it('renders a table with the correct state emoji and done-count', async () => {
+    const provider = buildProvider({
+      10: { number: 10, title: 'A', state: 'CLOSED', labels: [] },
+      11: {
+        number: 11,
+        title: 'B',
+        state: 'OPEN',
+        labels: ['agent::executing'],
+      },
+      12: { number: 12, title: 'C', state: 'OPEN', labels: ['agent::ready'] },
+      13: { number: 13, title: 'D', state: 'OPEN', labels: ['agent::blocked'] },
+    });
+    const logger = silentLogger();
+    const reporter = new ProgressReporter({
+      provider,
+      epicId: 42,
+      intervalSec: 60,
+      logger,
+    });
+    reporter.setWave({
+      index: 0,
+      totalWaves: 1,
+      stories: [10, 11, 12, 13],
+      startedAt: new Date(Date.now() - 90_000).toISOString(),
+    });
+    const { rows, body } = await reporter.fire();
+    assert.equal(rows[0].state, 'done');
+    assert.equal(rows[1].state, 'in-flight');
+    assert.equal(rows[2].state, 'queued');
+    assert.equal(rows[3].state, 'blocked');
+    assert.match(body, /Wave 1\/1 · 1\/4 closed/);
+    assert.match(body, /#10 \| ✅ done \| A/);
+    assert.match(body, /#13 \| 🚧 blocked \| D/);
+    assert.match(body, /1 stor[y] blocked: #13/);
+    assert.equal(logger.log.info.length, 1);
+  });
+
+  it('upserts a structured comment with the progress type', async () => {
+    const provider = buildProvider({
+      1: { number: 1, title: 'only', state: 'CLOSED', labels: [] },
+    });
+    const reporter = new ProgressReporter({
+      provider,
+      epicId: 9,
+      intervalSec: 60,
+      logger: silentLogger(),
+    });
+    reporter.setWave({ index: 0, totalWaves: 1, stories: [1] });
+    await reporter.fire();
+    const [comment] = await provider.listComments();
+    assert.ok(
+      comment.body.includes(
+        `<!-- ap:structured-comment type="${EPIC_RUN_PROGRESS_TYPE}" -->`,
+      ),
+      'comment should include the structured-comment marker',
+    );
+  });
+
+  it('drops re-entrant fires while one is in flight', async () => {
+    let inFlight = 0;
+    let peak = 0;
+    const provider = {
+      async getTicket() {
+        inFlight += 1;
+        peak = Math.max(peak, inFlight);
+        await new Promise((r) => setTimeout(r, 10));
+        inFlight -= 1;
+        return { number: 1, title: '', state: 'OPEN', labels: [] };
+      },
+      async getTicketComments() {
+        return [];
+      },
+      async postComment() {
+        return { id: '1' };
+      },
+    };
+    const reporter = new ProgressReporter({
+      provider,
+      epicId: 1,
+      intervalSec: 60,
+      logger: silentLogger(),
+    });
+    reporter.setWave({ index: 0, totalWaves: 1, stories: [1] });
+    await Promise.all([reporter.fire(), reporter.fire(), reporter.fire()]);
+    assert.equal(peak, 1, 'only one fire should execute at a time');
+  });
+
+  it('stop() emits a final snapshot and clears the interval', async () => {
+    let intervalCleared = false;
+    const fakeSetInterval = () => ({ ref: () => {}, unref: () => {} });
+    const fakeClearInterval = () => {
+      intervalCleared = true;
+    };
+    const provider = buildProvider({
+      1: { number: 1, title: 'x', state: 'CLOSED', labels: [] },
+    });
+    const reporter = new ProgressReporter({
+      provider,
+      epicId: 1,
+      intervalSec: 60,
+      logger: silentLogger(),
+      setInterval: fakeSetInterval,
+      clearInterval: fakeClearInterval,
+    });
+    reporter.setWave({ index: 0, totalWaves: 1, stories: [1] });
+    reporter.start();
+    await reporter.stop();
+    assert.equal(intervalCleared, true);
+    const [comment] = await provider.listComments();
+    assert.ok(comment.body.includes('Progress — Wave 1/1'));
+  });
+});
