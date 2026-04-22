@@ -44,10 +44,10 @@ graph LR
   `ITicketingProvider`, an abstract interface with a shipped GitHub
   implementation using native `fetch()` (Node 20+).
 - **Two-Command UX**: `/sprint-plan` generates PRDs, Tech Specs, and a full
-  4-tier task hierarchy. `/sprint-execute-story` (formerly `/sprint-execute`)
-  dispatches a single Story to completion; `/sprint-execute-epic` drives an
-  entire Epic end-to-end — locally or via the GitHub `agent::dispatching`
-  remote-trigger workflow. See [How to execute an Epic](#how-to-execute-an-epic).
+  4-tier task hierarchy. `/sprint-execute` routes by `type::` label — pass a
+  Story ID to drive a single Story to completion, or an Epic ID to run an
+  entire Epic end-to-end (locally or via the GitHub `agent::dispatching`
+  remote-trigger workflow). See [How to execute an Epic](#how-to-execute-an-epic).
 - **Self-Contained**: Zero external SDK dependencies for core orchestration. No
   `@octokit/*`, no Axios — just raw HTTP and GraphQL.
 - **Gate-Based Quality**: An automated audit orchestration pipeline selects and
@@ -127,13 +127,13 @@ Two invocation paths share a single engine
 claude /sprint-plan <epicId>
 
 # Drive it end-to-end from your workstation.
-claude /sprint-execute-epic <epicId>
+claude /sprint-execute <epicId>
 
 # Or run individual Stories off the dispatch table.
-claude /sprint-execute-story <storyId>
+claude /sprint-execute <storyId>
 ```
 
-`/sprint-execute-epic` flips the Epic to `agent::executing`, checkpoints
+`/sprint-execute` (Epic Mode) flips the Epic to `agent::executing`, checkpoints
 progress on the issue itself, fans out up to `concurrencyCap` Story
 executors per wave, and lands at `agent::review`. If the Epic carries
 `epic::auto-close`, the run continues autonomously through
@@ -146,7 +146,7 @@ executors per wave, and lands at `agent::review`. If the Epic carries
    `epic::auto-close`).
 3. `.github/workflows/epic-dispatch.yml` fires, booting a Claude remote
    runner that runs `.agents/scripts/remote-bootstrap.js` and invokes
-   `/sprint-execute-epic` against a fresh clone.
+   `/sprint-execute` against a fresh clone.
 
 The remote path has **one** pause point: `agent::blocked` on the Epic.
 Flip it back to `agent::executing` to resume. All other labels

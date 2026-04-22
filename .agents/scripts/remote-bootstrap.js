@@ -2,7 +2,7 @@
 /* node:coverage ignore file */
 /**
  * Remote Bootstrap — boots the Claude remote-agent environment for
- * `/sprint-execute-epic`.
+ * `/sprint-execute` (Epic Mode).
  *
  * Invoked by `.github/workflows/epic-dispatch.yml` (via the Claude
  * remote-agent runner). Steps:
@@ -11,8 +11,9 @@
  *      `MCP_JSON` environment variables, emitting `::add-mask::` for
  *      each non-empty line so any accidental echo is redacted in logs.
  *   3. Run `npm ci` (lockfile-strict) with `--ignore-scripts`.
- *   4. Exec `claude /sprint-execute-epic <EPIC_ID>` so the orchestrator
- *      engine takes over the rest of the run.
+ *   4. Exec `claude /sprint-execute <EPIC_ID>` so the orchestrator
+ *      engine takes over the rest of the run (routes to Epic Mode via
+ *      the Epic's `type::epic` label).
  *
  * Required env:
  *   EPIC_ID           — Epic issue number to orchestrate.
@@ -129,14 +130,15 @@ async function main() {
   //    scripts (supply-chain containment).
   run('npm', ['ci', '--ignore-scripts'], { cwd: workspace });
 
-  // 5. Hand off to /sprint-execute-epic.
+  // 5. Hand off to /sprint-execute. The unified workflow routes by the
+  //    ticket's `type::` label — for an Epic ID it enters Epic Mode.
   if (process.env.SKIP_LAUNCH) {
     log('SKIP_LAUNCH set — bootstrap complete, not launching claude.');
     return;
   }
   const claudeBin = process.env.CLAUDE_BIN || 'claude';
-  log(`Launching ${claudeBin} /sprint-execute-epic ${epicId}`);
-  run(claudeBin, ['/sprint-execute-epic', String(epicId)], {
+  log(`Launching ${claudeBin} /sprint-execute ${epicId}`);
+  run(claudeBin, ['/sprint-execute', String(epicId)], {
     cwd: workspace,
   });
 }

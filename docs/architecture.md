@@ -402,9 +402,9 @@ sequenceDiagram
 
 The epic runner (`.agents/scripts/lib/orchestration/epic-runner.js`) composes
 the existing orchestration primitives into an unattended execution loop.
-Invoked via `/sprint-execute-epic` — either locally, or by the GitHub
-remote trigger workflow `.github/workflows/epic-dispatch.yml` when an Epic
-is labelled `agent::dispatching`.
+Invoked via `/sprint-execute <epicId>` (Epic Mode) — either locally, or by
+the GitHub remote trigger workflow `.github/workflows/epic-dispatch.yml`
+when an Epic is labelled `agent::dispatching`.
 
 ### State machine (Epic labels)
 
@@ -443,7 +443,7 @@ is labelled `agent::dispatching`.
 | Module                | Role                                                                     |
 | --------------------- | ------------------------------------------------------------------------ |
 | `wave-scheduler`      | Iterates waves from `Graph.computeWaves()`; never spawns workers.        |
-| `story-launcher`      | Fans out up to `concurrencyCap` `/sprint-execute-story` sub-agents.      |
+| `story-launcher`      | Fans out up to `concurrencyCap` `/sprint-execute <storyId>` sub-agents.  |
 | `state-poller`        | Polls Epic + child-Story labels; emits blocker / cancel / closed events. |
 | `checkpointer`        | Upserts the `epic-run-state` structured comment; handles resume.         |
 | `blocker-handler`     | The sole runtime pause point; halts on `agent::blocked`, waits to resume.|

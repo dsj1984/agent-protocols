@@ -3,7 +3,7 @@
 The remote orchestrator drives an Epic end-to-end without an operator in
 the loop. It is invoked by a GitHub Actions trigger when an Epic issue is
 labelled `agent::dispatching`, but the same engine is used for local
-invocations of `/sprint-execute-epic`.
+invocations of `/sprint-execute <epicId>` (Epic Mode).
 
 ## Dispatch flow
 
@@ -18,14 +18,14 @@ Operator flips Epic to agent::dispatching
     • git clone
     • write .env and .mcp.json from secrets with ::add-mask::
     • npm ci --ignore-scripts
-    • claude /sprint-execute-epic <epicId>
+    • claude /sprint-execute <epicId>
         │
         ▼
 EpicRunner coordinator (.agents/scripts/lib/orchestration/epic-runner.js)
     • flip Epic to agent::executing
     • initialize / resume the epic-run-state checkpoint comment
     • for each wave N:
-        • fan out up to concurrencyCap /sprint-execute-story sub-agents
+        • fan out up to concurrencyCap /sprint-execute <storyId> sub-agents
         • emit wave-N-start / wave-N-end structured comments
         • sync the Projects Status column to reflect progress
     • on blocker → BlockerHandler flips Epic to agent::blocked and waits
@@ -134,5 +134,5 @@ node .agents/scripts/epic-runner.js --epic <epicId> [--dry-run]
 
 The CLI loads `.agentrc.json`, instantiates the GitHub provider, and
 invokes `runEpic(...)`. The `spawn` adapter is a thin wrapper around
-`/sprint-execute-story`; replace it inside a Claude skill context with a
-real Agent-tool invocation.
+`/sprint-execute` (Story Mode); replace it inside a Claude skill context
+with a real Agent-tool invocation.

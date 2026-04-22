@@ -8,7 +8,7 @@ Feature: Epic-runner dual-mode parity
     Given a fake ticketing provider seeded with an Epic and its child Stories
     And an injected spawn adapter that reports `done` by default
 
-  Scenario: (a) Local /sprint-execute-epic end-to-end on a fake-provider fixture
+  Scenario: (a) Local /sprint-execute <epicId> end-to-end on a fake-provider fixture
     When I invoke runEpic with the Epic id
     Then every Story is dispatched in wave order
     And the Epic ends with `agent::review`
@@ -22,7 +22,7 @@ Feature: Epic-runner dual-mode parity
     And the final label is `agent::review`
     And the wave history matches the local invocation for the same fixture
 
-  Scenario: (c) Local /sprint-execute-story against a story under a remote-managed Epic
+  Scenario: (c) Local /sprint-execute <storyId> against a story under a remote-managed Epic
     Given an Epic already at `agent::executing`
     And a Story whose parent is that Epic
     When I run the per-Story initializer for the Story
