@@ -143,3 +143,17 @@ above the existing label/comment taxonomy.
 
 `risk::high` is explicitly no longer a runtime-gate term — it remains
 as informational metadata queryable in retros.
+
+### 8. Epic #380 Artefacts (v5.15.1)
+
+New runtime artefacts and structured-comment types introduced by Epic
+#380's sprint-protocol self-healing + orchestration refactor work.
+
+| Term                              | Kind                     | Definition                                                                                                                                                   |
+| --------------------------------- | ------------------------ | ------------------------------------------------------------------------------------------------------------------------------------------------------------ |
+| `epic-run-progress`               | Structured comment       | Periodic wave-progress snapshot upserted on the Epic by `ProgressReporter`. Cadence set by `orchestration.epicRunner.progressReportIntervalSec` (default 120s). Marker-keyed via `upsertStructuredComment`. |
+| `retro-partial`                   | Structured comment       | Mid-run checkpoint written by `/sprint-retro` so a crashed retro can resume without re-collecting friction data. Replaced by the final `retro-complete` marker on success. |
+| `epic-<id>-errors.log`            | File (JSONL)             | Structured error journal under `temp/`, written by `ErrorJournal` in `lib/orchestration/error-journal.js`. One JSON object per line: `{ ts, phase, error, context }`. Replaces silent `catch` + `logger.warn` sites. |
+| `.worktrees/.pending-cleanup.json` | File (JSON)              | Deferred-cleanup queue written by `lifecycle-manager.js` when an `fs.rm` reap fails with `EBUSY` / `ENOTEMPTY` (primarily Windows). Drained on next run by `worktree-sweep.js`. Preserves the `per-worktree` `node_modules` strategy by avoiding a shell `rm -rf` subprocess. |
+| `progressReportIntervalSec`       | Config (integer)         | `orchestration.epicRunner.progressReportIntervalSec`; interval (seconds) between `epic-run-progress` emissions. Added to the config schema in Epic #380; `planRunner.notificationWebhookUrl` was removed in the same commit as no longer-honoured legacy. |
+| `OrchestrationContext` / `EpicRunnerContext` / `PlanRunnerContext` | In-memory ctx object | DI container shared by every orchestration submodule. Fields: `provider`, `settings`, `logger`, `errorJournal`, plus role-specific extras (see `lib/orchestration/context.js`). Replaces the prior `opts` bag convention. |
