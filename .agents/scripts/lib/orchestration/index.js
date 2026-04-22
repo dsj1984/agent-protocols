@@ -23,9 +23,14 @@ export { dispatch, resolveAndDispatch } from './dispatch-engine.js';
 export { executeStory } from './story-executor.js';
 // Ticketing operations — state transitions and hierarchy management
 export {
+  assertValidStructuredCommentType,
   cascadeCompletion,
+  isValidStructuredCommentType,
   postStructuredComment,
   STATE_LABELS,
+  STRUCTURED_COMMENT_TYPES,
   toggleTasklistCheckbox,
   transitionTicketState,
+  upsertStructuredComment,
+  WAVE_TYPE_PATTERN,
 } from './ticketing.js';

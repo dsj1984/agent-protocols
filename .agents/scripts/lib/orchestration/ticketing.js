@@ -18,6 +18,55 @@ export const STATE_LABELS = {
 const ALL_STATES = Object.values(STATE_LABELS);
 
 /**
+ * Enumerated structured-comment types accepted by `postStructuredComment` and
+ * `upsertStructuredComment`. Parametric `wave-N-start` / `wave-N-end` types
+ * are matched separately by {@link WAVE_TYPE_PATTERN}.
+ */
+export const STRUCTURED_COMMENT_TYPES = Object.freeze([
+  // Legacy core set
+  'progress',
+  'friction',
+  'notification',
+  // Extended set (Story #449 — retro follow-ons)
+  'code-review',
+  'retro',
+  'retro-partial',
+  'epic-run-state',
+  'epic-run-progress',
+  'epic-plan-state',
+  'parked-follow-ons',
+  'dispatch-manifest',
+]);
+
+export const WAVE_TYPE_PATTERN = /^wave-\d+-(start|end)$/;
+
+/**
+ * @param {string} type
+ * @returns {boolean}
+ */
+export function isValidStructuredCommentType(type) {
+  if (typeof type !== 'string' || type.length === 0) return false;
+  return (
+    STRUCTURED_COMMENT_TYPES.includes(type) || WAVE_TYPE_PATTERN.test(type)
+  );
+}
+
+/**
+ * Throws if `type` is not a recognized structured-comment type. Error
+ * message lists the accepted enum plus the wave pattern to make the
+ * schema discoverable from the failure alone.
+ *
+ * @param {string} type
+ */
+export function assertValidStructuredCommentType(type) {
+  if (isValidStructuredCommentType(type)) return;
+  throw new Error(
+    `Invalid structured-comment type: ${JSON.stringify(type)}. ` +
+      `Accepted: ${STRUCTURED_COMMENT_TYPES.join(', ')} or pattern ${WAVE_TYPE_PATTERN}.`,
+  );
+}
+
+/**
  * Transitions a ticket's label to the new state.
  * Removes other agent:: state labels.
  *
@@ -154,6 +203,7 @@ export async function toggleTasklistCheckbox(
  * @param {string} payload
  */
 export async function postStructuredComment(provider, ticketId, type, payload) {
+  assertValidStructuredCommentType(type);
   await provider.postComment(ticketId, {
     type,
     body: payload,
@@ -207,6 +257,7 @@ export async function findStructuredComment(provider, ticketId, type) {
  * @returns {Promise<{ commentId: number }>}
  */
 export async function upsertStructuredComment(provider, ticketId, type, body) {
+  assertValidStructuredCommentType(type);
   const marker = structuredCommentMarker(type);
   const existing = await findStructuredComment(provider, ticketId, type);
 
