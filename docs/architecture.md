@@ -276,6 +276,30 @@ v5.15.1 / #380) emits a periodic `epic-run-progress` structured
 comment on the Epic, driven by
 `orchestration.epicRunner.progressReportIntervalSec`.
 
+#### Spawner hardening + whole-epic progress (v5.15.2 / Epic #413)
+
+Three resilience layers were added around the runner's sub-agent
+dispatch path so the Epic #380 spawn-failure regression class cannot
+recur silently:
+
+| Module                                                             | Role                                                                                                                                                  |
+| ------------------------------------------------------------------ | ----------------------------------------------------------------------------------------------------------------------------------------------------- |
+| `lib/orchestration/epic-runner/spawn-smoke-test.js`                | Pre-Wave-1 `claude --version` probe via the real `buildClaudeSpawn` shape; flips Epic to `agent::blocked` with friction comment if the probe fails.   |
+| `lib/orchestration/epic-runner/commit-assertion.js`                | Post-wave guard — a "done" wave whose stories produced zero commits on `origin/story-<id>` is reclassified as `halted` instead of silently passing.   |
+| `tests/epic-runner/build-claude-spawn.integration.test.js`         | Real cross-platform `claude --version` integration test; honours `CLAUDE_BIN` for stub-friendly CI; runs under the Node 22/24 matrix in `ci.yml`.     |
+
+`progress-reporter.js` was extended in the same Epic with
+`setPlan({ waves })`, called once at runner start. With a plan set,
+each fire renders every wave + story (queued / in-flight / done /
+blocked) with a `Wave` column rather than only the active wave —
+operators can see overall epic progress at a glance. Mechanical
+detectors live under `lib/orchestration/epic-runner/progress-signals/`
+(`stalled-worktree.js`, `maintainability-drift.js`) and their bullets
+appear in the Notable section of each snapshot. The runner CLI's
+`defaultSpawn` and `defaultRunSkill` now honour
+`orchestration.epicRunner.logsDir` (default `temp/epic-runner-logs/`)
+so per-story logs land in the standard temp tree.
+
 ---
 
 ### 3. Provider Abstraction Layer

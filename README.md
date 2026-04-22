@@ -229,6 +229,20 @@ operator reference.
 
 ### Recent releases
 
+- **v5.15.2 — Epic #413 (2026-04-22).** Patch-only resilience follow-ons
+  for the retro action items from Epic #380. Spawner hardening (real
+  `claude --version` integration test, pre-wave smoke-test, post-wave
+  commit assertion). `sprint-story-close --resume / --restart` recovery
+  paths. Biome v2 format gate restored at close time. `/sprint-close`
+  Phase 3.2 tagging sanity check (`resolveTaggingPlan`). `detect-merges`
+  skips its own test fixtures. `error-journal` parse-error fix +
+  `validateOrchestrationConfig` wired into `resolveConfig()` +
+  pending-cleanup drain at `/sprint-plan-spec` boot. `ProgressReporter`
+  gains a stalled-worktree detector, a maintainability-drift detector,
+  and a whole-epic table via `setPlan()` (every wave + story is
+  rendered, not only the active wave). Configurable
+  `orchestration.epicRunner.logsDir` (default `temp/epic-runner-logs/`).
+  CI matrix added for Node 22 / 24.
 - **v5.15.1 — Epic #380 (2026-04-22).** Patch-only internal hardening:
   two-stage Windows worktree reap (`fs.rm` retry + deferred sweep via
   `.worktrees/.pending-cleanup.json`); `/sprint-retro` routed through

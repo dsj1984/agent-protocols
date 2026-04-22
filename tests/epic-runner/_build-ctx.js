@@ -25,6 +25,10 @@ export function buildCtx(overrides = {}) {
     },
     spawn: async () => ({ status: 'done' }),
     logger: quietLogger(),
+    // Default adapter returns a positive count so post-wave commit assertion
+    // does not reclassify `done` stories in unrelated tests. Tests that
+    // exercise the zero-delta path pass their own gitAdapter override.
+    gitAdapter: async () => 1,
   };
   return new EpicRunnerContext({ ...defaults, ...overrides });
 }

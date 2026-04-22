@@ -117,15 +117,20 @@ const LOADED_CONFIG_APPLY_KEYS = [
  *   - File present but malformed JSON → throw immediately (config corruption is
  *     a fatal error, not a silent fallback scenario).
  *
- * @param {{ bustCache?: boolean, cwd?: string }} [opts]
+ * @param {{ bustCache?: boolean, cwd?: string, validate?: boolean }} [opts]
  *   - `cwd`: absolute path to the directory whose `.agentrc.json` should be
  *     loaded. Defaults to the framework's `PROJECT_ROOT`. Worktree-mode
  *     callers pass the worktree path so each worktree resolves its own config.
  *   - `bustCache`: force re-read for the resolved root.
+ *   - `validate`: when `false`, skip `validateOrchestrationConfig()`. Default
+ *     `true`. Only unit tests that feed deliberately-malformed configs should
+ *     opt out; production callers must leave it on so a broken orchestration
+ *     block fails loudly at load time instead of mid-run.
  * @returns {{ settings: object, orchestration: object|null, raw: object|null, source: string }}
  */
 export function resolveConfig(opts) {
   const root = path.resolve(opts?.cwd ?? PROJECT_ROOT);
+  const validate = opts?.validate !== false;
 
   if (!opts?.bustCache && _cacheByRoot.has(root)) {
     return _cacheByRoot.get(root);
@@ -174,6 +179,10 @@ export function resolveConfig(opts) {
     // promoting the richer zero-config set.
     for (const key of LOADED_CONFIG_APPLY_KEYS) {
       settings[key] = settings[key] ?? LOADED_CONFIG_DEFAULTS[key];
+    }
+
+    if (validate) {
+      validateOrchestrationConfig(orchestration);
     }
 
     const resolved = {

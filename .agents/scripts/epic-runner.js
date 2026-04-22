@@ -14,27 +14,12 @@
  */
 
 import { runAsCli } from './lib/cli-utils.js';
+import { buildClaudeSpawn } from './lib/orchestration/epic-runner/build-claude-spawn.js';
 
-/**
- * Build the `[file, args, options]` tuple to hand `child_process.spawn` so we
- * can launch `claude` without tripping DEP0190 or the Node 20+ Windows policy
- * that refuses to spawn `.cmd` shims without `shell: true`.
- *
- * POSIX: direct binary execution, args array, `shell: false`.
- * Windows: cmd.exe-quoted single command line, `shell: true`. Passing a single
- * pre-quoted string (not args-array + shell) is the documented escape hatch
- * from DEP0190 and is the only shape that correctly delivers an arg like
- * `/sprint-execute 386` to the child as a single token.
- */
-function buildClaudeSpawn(argv, options) {
-  const bin = process.env.CLAUDE_BIN ?? 'claude';
-  if (process.platform === 'win32') {
-    const quote = (a) =>
-      /[\s"&|<>^]/.test(a) ? `"${a.replace(/"/g, '""')}"` : a;
-    const cmdline = [bin, ...argv].map(quote).join(' ');
-    return { file: cmdline, args: [], options: { ...options, shell: true } };
-  }
-  return { file: bin, args: argv, options: { ...options, shell: false } };
+const DEFAULT_LOGS_DIR = 'temp/epic-runner-logs';
+
+function resolveLogsDir(epicRunnerCfg) {
+  return epicRunnerCfg?.logsDir || DEFAULT_LOGS_DIR;
 }
 
 function parseArgs(argv) {
@@ -101,12 +86,14 @@ async function main() {
     return;
   }
 
+  const logsDir = resolveLogsDir(config.orchestration?.epicRunner);
   const result = await runEpic({
     epicId: args.epicId,
     provider,
     config: config.orchestration,
-    spawn: defaultSpawn,
-    runSkill: defaultRunSkill,
+    spawn: (spawnArgs) => defaultSpawn({ ...spawnArgs, logsDir }),
+    runSkill: (skill, runArgs) =>
+      defaultRunSkill(skill, { ...runArgs, logsDir }),
   });
 
   console.log(JSON.stringify(result, null, 2));
@@ -122,14 +109,14 @@ async function main() {
  * if the Story Mode workflow bailed. We verify by reading the Story's labels
  * after exit: `agent::done` = success, `agent::blocked` = blocker, anything
  * else = failure. Per-story stdout/stderr is piped to
- * `.epic-runner-logs/story-<id>.log` to keep parallel runs readable.
+ * `<logsDir>/story-<id>.log` (default `temp/epic-runner-logs/`, configurable
+ * via `orchestration.epicRunner.logsDir`) to keep parallel runs readable.
  */
-async function defaultSpawn({ storyId, signal }) {
+async function defaultSpawn({ storyId, signal, logsDir = DEFAULT_LOGS_DIR }) {
   const { spawn } = await import('node:child_process');
   const { open, mkdir } = await import('node:fs/promises');
   const { join } = await import('node:path');
 
-  const logsDir = '.epic-runner-logs';
   await mkdir(logsDir, { recursive: true });
   const logPath = join(logsDir, `story-${storyId}.log`);
   const logHandle = await open(logPath, 'w');
@@ -192,11 +179,12 @@ async function defaultSpawn({ storyId, signal }) {
  * time. Review + retro are intentionally excluded (see BookendChainer): this
  * adapter only exposes the single autonomous action the operator authorized.
  *
- * Stdout/stderr are piped to `.epic-runner-logs/bookend-<skill>.log` to keep
- * the parent runner's stream readable. The subprocess exit code is the sole
- * success signal.
+ * Stdout/stderr are piped to `<logsDir>/bookend-<skill>.log` (default
+ * `temp/epic-runner-logs/`, configurable via
+ * `orchestration.epicRunner.logsDir`) to keep the parent runner's stream
+ * readable. The subprocess exit code is the sole success signal.
  */
-async function defaultRunSkill(skill, { epicId }) {
+async function defaultRunSkill(skill, { epicId, logsDir = DEFAULT_LOGS_DIR }) {
   if (skill !== '/sprint-close') {
     return {
       status: 'failed',
@@ -207,7 +195,6 @@ async function defaultRunSkill(skill, { epicId }) {
   const { open, mkdir } = await import('node:fs/promises');
   const { join } = await import('node:path');
 
-  const logsDir = '.epic-runner-logs';
   await mkdir(logsDir, { recursive: true });
   const logPath = join(logsDir, `bookend-sprint-close-${epicId}.log`);
   const logHandle = await open(logPath, 'w');

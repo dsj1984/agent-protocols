@@ -24,13 +24,22 @@ import { BlockerHandler } from './epic-runner/blocker-handler.js';
 import { BookendChainer } from './epic-runner/bookend-chainer.js';
 import { Checkpointer } from './epic-runner/checkpointer.js';
 import { ColumnSync } from './epic-runner/column-sync.js';
+import {
+  buildDefaultGitAdapter,
+  CommitAssertion,
+} from './epic-runner/commit-assertion.js';
 import { NotificationHook } from './epic-runner/notification-hook.js';
 import { ProgressReporter } from './epic-runner/progress-reporter.js';
+import { SpawnSmokeTest } from './epic-runner/spawn-smoke-test.js';
 import { StoryLauncher } from './epic-runner/story-launcher.js';
 import { WaveObserver } from './epic-runner/wave-observer.js';
 import { WaveScheduler } from './epic-runner/wave-scheduler.js';
 import { ErrorJournal } from './error-journal.js';
-import { STATE_LABELS, transitionTicketState } from './ticketing.js';
+import {
+  STATE_LABELS,
+  transitionTicketState,
+  upsertStructuredComment,
+} from './ticketing.js';
 
 const AUTO_CLOSE_LABEL = 'epic::auto-close';
 
@@ -57,14 +66,71 @@ export async function runEpic(args = {}) {
     args.ctx instanceof EpicRunnerContext
       ? args.ctx
       : new EpicRunnerContext(args);
-  return runEpicWithContext(ctx);
+  return runEpicWithContext(ctx, { smokeTest: args.smokeTest });
 }
 
-async function runEpicWithContext(ctx) {
+async function runEpicWithContext(ctx, collaborators = {}) {
   const { epicId, provider, config, logger, fetchImpl, errorJournal } = ctx;
   const { concurrencyCap, pollIntervalSec } = config.epicRunner;
   const journal = errorJournal ?? new ErrorJournal({ epicId });
   const journalSuffix = () => (journal?.path ? ` (see ${journal.path})` : '');
+
+  // --- 0. Pre-wave spawn smoke-test ---
+  // Runs `claude --version` through the real `buildClaudeSpawn` shape before
+  // any Story dispatches. A broken spawner (the Epic #380 regression class)
+  // halts the runner here instead of producing a false-positive wave.
+  const smokeTest = collaborators.smokeTest ?? new SpawnSmokeTest({ ctx });
+  const smoke = await smokeTest.verify();
+  if (!smoke.ok) {
+    const body = [
+      '### 🚧 Epic blocked — pre-wave spawn smoke-test failed',
+      '',
+      `The \`claude --version\` probe returned: \`${smoke.detail}\`.`,
+      '',
+      'No wave was dispatched. Fix the spawner regression, then flip this',
+      'Epic back to `agent::executing` to resume.',
+    ].join('\n');
+    try {
+      await upsertStructuredComment(provider, epicId, 'friction', body);
+    } catch (err) {
+      logger.warn?.(
+        `[EpicRunner] smoke-test friction comment failed: ${err.message}${journalSuffix()}`,
+      );
+      await journal?.record({
+        module: 'EpicRunner',
+        op: 'upsertStructuredComment(friction, spawn-smoke-test)',
+        error: err,
+        recovery: 'swallowed',
+      });
+    }
+    try {
+      await provider.updateTicket(epicId, {
+        labels: {
+          add: ['agent::blocked'],
+          remove: [STATE_LABELS.EXECUTING],
+        },
+      });
+    } catch (err) {
+      logger.warn?.(
+        `[EpicRunner] smoke-test block-flip failed: ${err.message}${journalSuffix()}`,
+      );
+      await journal?.record({
+        module: 'EpicRunner',
+        op: 'updateTicket(labels: agent::blocked) [smoke-test]',
+        error: err,
+        recovery: 'swallowed',
+      });
+    }
+    await journal?.finalize?.();
+    return {
+      epicId,
+      state: 'halted',
+      waveHistory: [],
+      bookendResult: null,
+      aborted: 'spawn-smoke-test',
+      smokeTest: smoke,
+    };
+  }
 
   // --- 1. Snapshot Epic state ---
   const epic = await provider.getTicket(epicId);
@@ -100,11 +166,18 @@ async function runEpicWithContext(ctx) {
     errorJournal: journal,
   });
   const launcher = new StoryLauncher({ ctx });
-  const waveObserver = new WaveObserver({ ctx });
+  const gitAdapter =
+    ctx.gitAdapter ?? buildDefaultGitAdapter({ cwd: ctx.cwd ?? process.cwd() });
+  const commitAssertion =
+    ctx.commitAssertion ?? new CommitAssertion({ gitAdapter, logger });
+  const waveObserver = new WaveObserver({ ctx, commitAssertion });
   const progressReporter = new ProgressReporter({
     ctx,
     intervalSec: Number(config?.epicRunner?.progressReportIntervalSec ?? 0),
   });
+  // Seed the reporter with the full wave plan so each fire renders every
+  // wave (queued / in-flight / done) instead of only the active one.
+  progressReporter.setPlan({ waves });
   const columnSync = new ColumnSync({ ctx });
   const syncColumn = async (id, labels) => {
     try {
@@ -174,19 +247,23 @@ async function runEpicWithContext(ctx) {
     });
     progressReporter.start();
 
-    const results = await launcher.launchWave(wave.stories);
+    const launchResults = await launcher.launchWave(wave.stories);
     await progressReporter.stop();
-    const failures = results.filter(
-      (r) => r.status === 'failed' || r.status === 'blocked',
-    );
 
     scheduler.markWaveComplete(wave.index);
-    await waveObserver.waveEnd({
+    // waveEnd consults CommitAssertion and returns the reclassified rows —
+    // use those for halt detection so a zero-delta story (reported `done` by
+    // the sub-agent but no commits on its story branch) correctly halts
+    // the wave rather than silently passing.
+    const { stories: results = launchResults } = await waveObserver.waveEnd({
       index: wave.index,
       totalWaves: scheduler.totalWaves,
       startedAt,
-      stories: results,
+      stories: launchResults,
     });
+    const failures = results.filter(
+      (r) => r.status === 'failed' || r.status === 'blocked',
+    );
 
     waveHistory.push({
       index: wave.index,

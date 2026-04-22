@@ -436,3 +436,61 @@ passes or `timeoutMs` elapses. `sleep(ms)` is the trivial awaitable
 *   One module to audit for jitter / abort / rate-limit behaviour.
 *   Test fixtures can inject a fake clock against one module instead of
     three.
+
+## Whole-epic progress reporting via `setPlan` (v5.15.2 / Epic #413)
+
+The `ProgressReporter` (`lib/orchestration/epic-runner/progress-reporter.js`)
+emits a periodic `epic-run-progress` snapshot. Before Epic #413 the
+snapshot only covered the active wave's stories — operators couldn't
+see queued work or completed earlier waves at a glance.
+
+`setPlan({ waves })` is called once at runner start with the full wave
+DAG. With a plan present, each fire fetches state for every story in
+every wave and renders a single grouped table:
+
+```text
+### 📊 Progress — Wave 2/2 · 5/6 closed · 38m elapsed
+| Wave | ID  | State        | Title                                         |
+|------|-----|--------------|-----------------------------------------------|
+| 1    | #419| ✅ done      | Spawner hardening suite                       |
+| 1    | #420| ✅ done      | Post-wave commit assertion                    |
+| 1    | #421| ✅ done      | sprint-story-close --resume / --restart       |
+| 1    | #422| ✅ done      | Biome format gate + tagging sanity check      |
+| 1    | #423| ✅ done      | error-journal parse-fix, validator wiring     |
+| 2    | #424| 🔧 in-flight | ProgressReporter detectors + CI Node matrix   |
+```
+
+The pattern is back-compat — callers that don't migrate to `setPlan`
+still see the prior single-wave table via `setWave({ stories })`. The
+`Wave` column appears only when a plan is set.
+
+**Why it matters:** the progress signal is what operators read while
+the runner runs. A snapshot that only shows the active wave hides
+"is the epic 20% done or 80% done?" — exactly the question the
+operator is trying to answer when checking in. The grouped table
+collapses that question into a single glance.
+
+**When to extend the table:** add a new column only when every wave's
+rendering benefits. Mechanical detectors (stalled-worktree,
+maintainability-drift) belong in the `Notable` section under the
+table — they fire once per snapshot, not once per row, so a column
+would mostly be blank.
+
+## `epic-runner` per-story log destination is configurable (v5.15.2 / Epic #413)
+
+`orchestration.epicRunner.logsDir` controls where the runner CLI
+writes per-story (`story-<id>.log`) and per-bookend
+(`bookend-sprint-close-<epicId>.log`) subprocess logs. Default:
+`temp/epic-runner-logs/` (was `.epic-runner-logs/` at the project root,
+which leaked into untracked status output during every run).
+
+The `defaultSpawn` and `defaultRunSkill` adapters in
+`.agents/scripts/epic-runner.js` read the value once at CLI launch and
+thread it as a closure into each subprocess. Tests don't need this
+key — they inject their own `spawn` adapter via `EpicRunnerContext`.
+
+**When to override:** only when running against a constrained
+filesystem (e.g., `temp/` is mounted read-only in a container), or
+when correlating runner logs with an external log shipper that
+already watches a non-standard path. The default is right for every
+local-dev and CI invocation.

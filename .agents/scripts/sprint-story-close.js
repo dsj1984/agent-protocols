@@ -51,6 +51,11 @@ import { Logger } from './lib/Logger.js';
 import { createNotifier } from './lib/notifications/notifier.js';
 import { toDone } from './lib/orchestration/label-transitions.js';
 import {
+  RECOVERY_ACTIONS,
+  computeRecoveryMode,
+  detectPriorState,
+} from './lib/orchestration/sprint-story-close-recovery.js';
+import {
   cascadeCompletion,
   STATE_LABELS,
 } from './lib/orchestration/ticketing.js';
@@ -515,6 +520,128 @@ function lockPathDisplay(cwd, epicId) {
 }
 
 /**
+ * Complete an in-progress merge whose conflicts have been resolved by the
+ * operator, then push. Used by the `--resume` path when prior state is
+ * `partial-merge`.
+ */
+async function completeInProgressMerge({
+  cwd,
+  epicBranch,
+  storyBranch,
+  storyTitle,
+  storyId,
+  epicId,
+}) {
+  let lockHandle;
+  try {
+    progress('LOCK', `Acquiring epic-merge lock for epic #${epicId}...`);
+    lockHandle = await acquireEpicMergeLock(epicId, {
+      repoRoot: cwd,
+      timeoutMs: 60_000,
+    });
+    progress('LOCK', `🔒 Acquired ${path.basename(lockHandle.filePath)}`);
+
+    const mergeHeadPath = path.join(cwd, '.git', 'MERGE_HEAD');
+    if (fs.existsSync(mergeHeadPath)) {
+      progress('GIT', 'Finalizing in-progress merge (git commit --no-verify)');
+      const mergeMsg = `feat: ${storyTitle.charAt(0).toLowerCase() + storyTitle.slice(1)} (resolves #${storyId})`;
+      const commit = gitSpawn(cwd, 'commit', '--no-verify', '-m', mergeMsg);
+      if (commit.status !== 0) {
+        Logger.fatal(
+          `Failed to finalize merge commit: ${commit.stderr || commit.stdout || 'unknown'}. ` +
+            `Check that all conflicts are resolved and staged on ${epicBranch}.`,
+        );
+      }
+      progress('GIT', `✅ Merge of ${storyBranch} finalized on ${epicBranch}`);
+    } else {
+      progress(
+        'GIT',
+        '⚠️ No MERGE_HEAD found — merge already committed; proceeding to push',
+      );
+    }
+
+    progress('GIT', `Pushing ${epicBranch}...`);
+    const pushResult = gitSpawn(
+      cwd,
+      'push',
+      '--no-verify',
+      'origin',
+      epicBranch,
+    );
+    if (pushResult.status !== 0) {
+      Logger.fatal(`Push failed: ${pushResult.stderr}`);
+    }
+  } finally {
+    if (lockHandle) {
+      releaseEpicMergeLock(lockHandle);
+      progress('LOCK', '🔓 Released epic-merge lock');
+    }
+  }
+}
+
+/**
+ * Restart path: abort any in-progress merge, drop the worktree, delete the
+ * story branch ref, and re-seed branch + worktree from the Epic branch. The
+ * caller then falls through to the normal fresh-close flow.
+ */
+function restartStoryState({
+  cwd,
+  orchestration,
+  storyId,
+  epicBranch,
+  storyBranch,
+}) {
+  progress('RESTART', `Resetting prior state for Story #${storyId}...`);
+
+  // 1. Abort any in-progress merge in the main checkout (idempotent — exits
+  //    non-zero if no merge is in progress, which we ignore).
+  gitSpawn(cwd, 'merge', '--abort');
+
+  // 2. Drop the worktree if isolation is enabled.
+  const wtConfig = orchestration?.worktreeIsolation;
+  if (wtConfig?.enabled) {
+    const wtRoot = wtConfig.root ?? '.worktrees';
+    const wtPath = path.join(cwd, wtRoot, `story-${storyId}`);
+    if (fs.existsSync(wtPath)) {
+      progress('RESTART', `Removing worktree ${wtPath}`);
+      const remove = gitSpawn(cwd, 'worktree', 'remove', '--force', wtPath);
+      if (remove.status !== 0) {
+        Logger.error(
+          `[sprint-story-close] Worktree remove failed: ${remove.stderr || 'unknown'}. ` +
+            'Attempting prune to clean stale registration.',
+        );
+      }
+      gitSpawn(cwd, 'worktree', 'prune');
+    }
+  }
+
+  // 3. Delete the story branch ref (if it exists locally). Force-delete
+  //    because the branch likely has unmerged commits relative to main.
+  gitSpawn(cwd, 'branch', '-D', storyBranch);
+
+  // 4. Recreate the story branch ref from the local Epic branch.
+  const create = gitSpawn(cwd, 'branch', storyBranch, epicBranch);
+  if (create.status !== 0) {
+    Logger.fatal(
+      `Failed to recreate ${storyBranch} from ${epicBranch}: ${create.stderr || 'unknown'}`,
+    );
+  }
+
+  // 5. Recreate the worktree if isolation is enabled.
+  if (wtConfig?.enabled) {
+    const wtRoot = wtConfig.root ?? '.worktrees';
+    const wtPath = path.join(cwd, wtRoot, `story-${storyId}`);
+    const add = gitSpawn(cwd, 'worktree', 'add', wtPath, storyBranch);
+    if (add.status !== 0) {
+      Logger.fatal(
+        `Failed to re-seed worktree at ${wtPath}: ${add.stderr || 'unknown'}`,
+      );
+    }
+    progress('RESTART', `✅ Re-seeded worktree at ${wtPath}`);
+  }
+}
+
+/**
  * Orchestrate the Story initialization.
  * Exported for testing.
  */
@@ -524,6 +651,8 @@ export async function runStoryClose({
   skipDashboard: skipDashboardParam,
   skipValidation: skipValidationParam,
   cwd: cwdParam,
+  resume: resumeParam,
+  restart: restartParam,
   injectedProvider,
 } = {}) {
   const parsed =
@@ -533,9 +662,17 @@ export async function runStoryClose({
           epicId: epicIdParam,
           skipDashboard: !!skipDashboardParam,
           cwd: cwdParam ?? null,
+          resume: !!resumeParam,
+          restart: !!restartParam,
         }
       : parseSprintArgs();
-  const { storyId, epicId: argEpicId, skipDashboard } = parsed;
+  const {
+    storyId,
+    epicId: argEpicId,
+    skipDashboard,
+    resume: resumeFlag,
+    restart: restartFlag,
+  } = parsed;
   // Worktree-aware cwd resolution: explicit param > --cwd flag > env > PROJECT_ROOT.
   const cwd = path.resolve(cwdParam ?? parsed.cwd ?? PROJECT_ROOT);
 
@@ -573,6 +710,68 @@ export async function runStoryClose({
   const storyBranch = getStoryBranch(epicId, storyId);
 
   // -------------------------------------------------------------------------
+  // Prior-state detection + --resume / --restart dispatch
+  // -------------------------------------------------------------------------
+
+  if (resumeFlag && restartFlag) {
+    Logger.fatal('--resume and --restart are mutually exclusive');
+  }
+
+  const priorState = detectPriorState({ cwd, storyId, epicId });
+  const mode = computeRecoveryMode({
+    state: priorState.state,
+    resume: resumeFlag,
+    restart: restartFlag,
+  });
+
+  if (mode.action === RECOVERY_ACTIONS.EXIT_PRIOR_STATE) {
+    console.error(
+      `\n[sprint-story-close] Prior close state detected: ${priorState.state}\n` +
+        `${JSON.stringify(priorState.detail, null, 2)}\n\n` +
+        'Re-run with --resume to continue from the detected state, or ' +
+        '--restart to abort prior state and re-init.\n',
+    );
+    // Signal exit-2 to the runAsCli wrapper.
+    const err = new Error(`prior-state:${priorState.state}`);
+    err.exitCode = mode.exitCode ?? 2;
+    throw err;
+  }
+
+  if (mode.action === RECOVERY_ACTIONS.RESTART) {
+    progress(
+      'RESTART',
+      `--restart: aborting prior state (${priorState.state}) and re-initializing`,
+    );
+    restartStoryState({
+      cwd,
+      orchestration,
+      storyId,
+      epicBranch,
+      storyBranch,
+    });
+  }
+
+  const resumeFromConflict =
+    mode.action === RECOVERY_ACTIONS.RESUME_FROM_CONFLICT;
+  const resumeFromMerge = mode.action === RECOVERY_ACTIONS.RESUME_FROM_MERGE;
+  if (resumeFromConflict) {
+    progress(
+      'RESUME',
+      `--resume: resuming from conflict resolution (state=${priorState.state})`,
+    );
+  } else if (resumeFromMerge) {
+    progress(
+      'RESUME',
+      `--resume: resuming from merge (state=${priorState.state})`,
+    );
+  } else if (mode.action === RECOVERY_ACTIONS.RESUME_FROM_VALIDATE) {
+    progress(
+      'RESUME',
+      `--resume: resuming from validate (state=${priorState.state})`,
+    );
+  }
+
+  // -------------------------------------------------------------------------
   // Enumerate child Tasks
   // -------------------------------------------------------------------------
 
@@ -594,7 +793,7 @@ export async function runStoryClose({
   // -------------------------------------------------------------------------
 
   const skipValidation =
-    skipValidationParam || !!process.env.SPRINT_STORY_CLOSE_SKIP_VALIDATION;
+    !!skipValidationParam || resumeFromConflict || resumeFromMerge;
   if (!skipValidation) {
     progress(
       'VALIDATE',
@@ -618,15 +817,26 @@ export async function runStoryClose({
   // -------------------------------------------------------------------------
 
   let branchCleanup = { localDeleted: false, remoteDeleted: false };
-  await finalizeMerge(
-    epicBranch,
-    storyBranch,
-    story.title,
-    storyId,
-    cwd,
-    orchestration,
-    epicId,
-  );
+  if (resumeFromConflict) {
+    await completeInProgressMerge({
+      cwd,
+      epicBranch,
+      storyBranch,
+      storyTitle: story.title,
+      storyId,
+      epicId,
+    });
+  } else {
+    await finalizeMerge(
+      epicBranch,
+      storyBranch,
+      story.title,
+      storyId,
+      cwd,
+      orchestration,
+      epicId,
+    );
+  }
   // Reap must precede branch cleanup: git refuses to delete a branch
   // that is still checked out by a live worktree. A failed reap will
   // leave the worktree registration in place and the subsequent branch
@@ -700,4 +910,18 @@ export async function runStoryClose({
 // Main guard
 // ---------------------------------------------------------------------------
 
-runAsCli(import.meta.url, runStoryClose, { source: 'sprint-story-close' });
+runAsCli(import.meta.url, runStoryClose, {
+  source: 'sprint-story-close',
+  onError: (err) => {
+    // Prior-state detection throws with `exitCode: 2` to signal "operator
+    // must choose --resume / --restart" — the body was already printed to
+    // stderr, so skip the default stack trace and just propagate the code.
+    if (err?.exitCode === 2) {
+      process.exit(2);
+    }
+    console.error(
+      `[sprint-story-close] Fatal error: ${err.stack || err.message}`,
+    );
+    process.exit(1);
+  },
+});
