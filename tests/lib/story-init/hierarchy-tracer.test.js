@@ -30,7 +30,11 @@ test('traceHierarchy returns nulls and warns when Epic fetch fails', async () =>
 });
 
 test('traceHierarchy handles Epics missing linkedIssues', async () => {
-  const provider = { async getEpic() { return {}; } };
+  const provider = {
+    async getEpic() {
+      return {};
+    },
+  };
   const out = await traceHierarchy({ provider, input: { epicId: 1 } });
   assert.deepStrictEqual(out, { prdId: null, techSpecId: null });
 });

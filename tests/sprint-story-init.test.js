@@ -111,7 +111,10 @@ test('runStoryInit dry-run composes all stages end-to-end', async () => {
     techSpecId: 402,
   });
   // task-graph-builder must topologically sort #802 before #801.
-  assert.deepStrictEqual(r.tasks.map((t) => t.id), [802, 801]);
+  assert.deepStrictEqual(
+    r.tasks.map((t) => t.id),
+    [802, 801],
+  );
   // hierarchy-tracer and task-graph-builder each make exactly one call.
   assert.deepStrictEqual(provider.calls.getEpic, [400]);
   assert.deepStrictEqual(provider.calls.getSubTickets, [701]);

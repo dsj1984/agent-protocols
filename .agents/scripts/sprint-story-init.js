@@ -31,10 +31,7 @@ import { parseSprintArgs } from './lib/cli-args.js';
 import { runAsCli } from './lib/cli-utils.js';
 import { PROJECT_ROOT, resolveConfig } from './lib/config-resolver.js';
 import { parseBlockedBy } from './lib/dependency-parser.js';
-import {
-  getEpicBranch,
-  getStoryBranch,
-} from './lib/git-utils.js';
+import { getEpicBranch, getStoryBranch } from './lib/git-utils.js';
 import { Logger } from './lib/Logger.js';
 import { createNotifier } from './lib/notifications/notifier.js';
 import { createProvider } from './lib/provider-factory.js';

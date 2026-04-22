@@ -46,7 +46,9 @@ test('resolveContext throws when issue is not a type::story', async () => {
 
 test('resolveContext throws when Epic reference is missing', async () => {
   const provider = makeProvider({
-    tickets: { 4: { id: 4, labels: ['type::story'], body: 'no epic', title: 'S' } },
+    tickets: {
+      4: { id: 4, labels: ['type::story'], body: 'no epic', title: 'S' },
+    },
   });
   await assert.rejects(
     resolveContext({ provider, input: { storyId: 4 } }),
