@@ -20,9 +20,12 @@ function makeRepo() {
 }
 
 test('detect-merges', async (t) => {
-  await t.test('TEMPLATE_PATH_PREFIXES includes the workflow template dir', () => {
-    assert.ok(TEMPLATE_PATH_PREFIXES.includes('.agents/workflows/'));
-  });
+  await t.test(
+    'TEMPLATE_PATH_PREFIXES includes the workflow template dir',
+    () => {
+      assert.ok(TEMPLATE_PATH_PREFIXES.includes('.agents/workflows/'));
+    },
+  );
 
   await t.test('isTemplatePath matches workflow files by prefix', () => {
     assert.equal(isTemplatePath('.agents/workflows/git-merge-pr.md'), true);
