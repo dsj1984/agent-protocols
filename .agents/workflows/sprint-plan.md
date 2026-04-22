@@ -16,6 +16,13 @@ You are the master orchestrator for the v5 Epic-Centric ticketing pipeline. Your
 goal is to transform a high-level Epic into a fully decomposed, ready-to-execute
 backlog of Features, Stories, and Tasks.
 
+`/sprint-plan` is the local IDE-driven wrapper that chains
+[`/sprint-plan-spec`](sprint-plan-spec.md) and
+[`/sprint-plan-decompose`](sprint-plan-decompose.md) with a human confirmation
+gate in between. Remote planning (triggered by the operator applying
+`agent::planning` on GitHub) calls the two split skills directly; the local
+wrapper exists so the single-command IDE happy path keeps working.
+
 As of v5.6, planning artifacts (PRD, Tech Spec, ticket decomposition) are
 authored **directly by you, the host LLM** — no external Gemini / Anthropic /
 OpenAI API is called. The Node scripts are deterministic GitHub I/O wrappers
@@ -26,6 +33,11 @@ artifacts you author.
 
 - Do not modify existing issues without explicit permission.
 - Wait for user validation before migrating to Phase 2.
+- Delegate Phase 1 and Phase 2 to `/sprint-plan-spec` and
+  `/sprint-plan-decompose` respectively — they own the Epic lifecycle label
+  transitions and the `epic-plan-state` checkpoint. This wrapper must not
+  apply those labels directly (except for the optional `--auto-dispatch`
+  final step).
 
 ## Prerequisites
 
@@ -229,6 +241,21 @@ Warnings are advisory and do not require action.
 
    ```bash
    node .agents/scripts/notify.js [Epic_ID] "Planning complete, review tickets. Backlog decomposition complete. Sprint is ready for /sprint-execute." --action
+   ```
+
+2. **Auto-dispatch (optional)**: When the operator invokes `/sprint-plan` with
+   the `--auto-dispatch` flag, the wrapper applies `agent::dispatching` to the
+   Epic immediately after decomposition completes, kicking off execution
+   without a second operator round-trip. Skip this step unless the operator
+   explicitly asks for `--auto-dispatch` or you're running the
+   `sprint-plan.js` wrapper in that mode:
+
+   ```bash
+   node .agents/scripts/sprint-plan.js --epic [Epic_ID] \
+     --prd temp/prd-epic-[Epic_ID].md \
+     --techspec temp/techspec-epic-[Epic_ID].md \
+     --tickets temp/tickets-epic-[Epic_ID].json \
+     --auto-dispatch
    ```
 
 ## Troubleshooting
