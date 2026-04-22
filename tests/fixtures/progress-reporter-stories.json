@@ -1,0 +1,28 @@
+{
+  "stories": [
+    {
+      "number": 501,
+      "title": "Wire up label-read",
+      "state": "CLOSED",
+      "labels": ["agent::done"]
+    },
+    {
+      "number": 502,
+      "title": "Refactor wave scheduler",
+      "state": "OPEN",
+      "labels": ["agent::executing"]
+    },
+    {
+      "number": 503,
+      "title": "Queue retro spec",
+      "state": "OPEN",
+      "labels": ["agent::ready"]
+    },
+    {
+      "number": 504,
+      "title": "Investigate flaky CI",
+      "state": "OPEN",
+      "labels": ["agent::blocked"]
+    }
+  ]
+}

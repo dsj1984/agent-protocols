@@ -2,10 +2,15 @@ import assert from 'node:assert/strict';
 import test from 'node:test';
 import { ITicketingProvider } from '../../.agents/scripts/lib/ITicketingProvider.js';
 import {
+  assertValidStructuredCommentType,
   cascadeCompletion,
+  isValidStructuredCommentType,
   postStructuredComment,
+  STRUCTURED_COMMENT_TYPES,
   toggleTasklistCheckbox,
   transitionTicketState,
+  upsertStructuredComment,
+  WAVE_TYPE_PATTERN,
 } from '../../.agents/scripts/lib/orchestration/ticketing.js';
 
 class MockProvider extends ITicketingProvider {
@@ -202,6 +207,108 @@ test('ticketing.js', async (t) => {
     assert.strictEqual(mock.comments[0].payload.body, 'Did something');
     assert.strictEqual(mock.comments[0].payload.type, 'progress');
   });
+
+  await t.test(
+    'structured-comment type validator accepts the full enum',
+    () => {
+      for (const type of STRUCTURED_COMMENT_TYPES) {
+        assert.ok(
+          isValidStructuredCommentType(type),
+          `expected ${type} to be valid`,
+        );
+      }
+      // Nine types added by Story #449 (Tech Spec #443 §1.3) plus
+      // epic-plan-state used by the plan-runner. Guard against accidental
+      // removal of canonical types.
+      for (const required of [
+        'code-review',
+        'retro',
+        'retro-partial',
+        'epic-run-state',
+        'epic-run-progress',
+        'epic-plan-state',
+        'parked-follow-ons',
+        'dispatch-manifest',
+      ]) {
+        assert.ok(
+          STRUCTURED_COMMENT_TYPES.includes(required),
+          `enum must include ${required}`,
+        );
+      }
+    },
+  );
+
+  await t.test(
+    'structured-comment type validator accepts the wave-N-* regex',
+    () => {
+      for (const type of [
+        'wave-0-start',
+        'wave-0-end',
+        'wave-1-start',
+        'wave-12-end',
+      ]) {
+        assert.ok(
+          isValidStructuredCommentType(type),
+          `${type} should match ${WAVE_TYPE_PATTERN}`,
+        );
+      }
+      for (const type of [
+        'wave--start',
+        'wave-1-middle',
+        'wave-1',
+        'wave-1-',
+      ]) {
+        assert.ok(
+          !isValidStructuredCommentType(type),
+          `${type} should not match the wave pattern`,
+        );
+      }
+    },
+  );
+
+  await t.test('postStructuredComment rejects unknown types', async () => {
+    await assert.rejects(
+      () => postStructuredComment(mock, 1, 'not-a-real-type', 'body'),
+      /Invalid structured-comment type/,
+    );
+  });
+
+  await t.test(
+    'upsertStructuredComment rejects unknown types before touching the provider',
+    async () => {
+      const calls = [];
+      const guard = {
+        async postComment(...args) {
+          calls.push(args);
+        },
+        async getTicketComments() {
+          return [];
+        },
+      };
+      await assert.rejects(
+        () => upsertStructuredComment(guard, 1, 'bogus', 'body'),
+        /Invalid structured-comment type/,
+      );
+      assert.equal(calls.length, 0, 'provider must not be called on bad type');
+    },
+  );
+
+  await t.test(
+    'assertValidStructuredCommentType error message lists accepted types',
+    () => {
+      try {
+        assertValidStructuredCommentType('nope');
+        assert.fail('should have thrown');
+      } catch (err) {
+        for (const expected of ['retro', 'code-review', 'wave-']) {
+          assert.ok(
+            err.message.includes(expected),
+            `error message should mention ${expected}: ${err.message}`,
+          );
+        }
+      }
+    },
+  );
 
   await t.test(
     'cascadeCompletion isolates per-parent failures and returns them',

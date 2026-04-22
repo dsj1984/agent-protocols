@@ -4,6 +4,81 @@ All notable changes to this project will be documented in this file.
 
 ## [Unreleased]
 
+## [5.15.3] - 2026-04-22
+
+### Sprint-protocol resilience follow-ons (Epic #441)
+
+Patch-only internal hardening that closes the retro action items carried
+forward from Epic #413. No public API changes.
+
+#### Observability & friction signal capture
+
+- **`variableNotUsed: $issueId` fix (#448).** Shared GraphQL query builder
+  no longer declares `$issueId: Int!` without consuming it — the wave-poller
+  label-read and `ColumnSync.sync` paths no longer silently swallow the
+  GraphQL error and return `unknown` rows. Added unit tests asserting the
+  builder emits no `variableNotUsed` errors for the two confirmed query
+  shapes and a fixture-driven `ProgressReporter` test that confirms rows
+  reflect fixture Story states.
+- **Auto-post `friction` structured comments (#450).** `sprint-story-close.js`
+  reap-failure, `epic-runner` wave-poller `getTicket` failure, and
+  `check-maintainability.js` baseline-refresh sites emit `friction`
+  structured comments via the MCP tool. Emissions are rate-limited per-Story
+  (60s cooldown keyed on storyId + marker hash) to prevent a stuck poller
+  from spamming a ticket. A Wave 1 replay fixture asserts ≥ 3 distinct
+  friction comments land within the simulated first 5 minutes.
+- **MCP `post_structured_comment` `type` enum lift (#449).** Added
+  `code-review`, `retro`, `retro-partial`, `epic-run-state`,
+  `epic-run-progress`, `wave-N-start`/`wave-N-end` (parametric regex
+  `^wave-\d+-(start|end)$`), `parked-follow-ons`, and `dispatch-manifest`.
+  `sprint-code-review.js` and the `sprint-retro` skill now route through the
+  MCP tool directly — the retro flow no longer falls back to
+  `notification` type.
+
+#### Worktree reap completeness
+
+- **`--reap-discard-after-merge` default (#451).** `/sprint-close` Phase 4
+  force-reaps worktrees whose Story branch is already merged into
+  `epic/<id>` (via `git merge-base --is-ancestor`), discarding biome-format
+  drift and post-merge agent edits. `--no-reap-discard-after-merge`
+  preserves prior skip-on-uncommitted behavior. Force-reap emits a
+  `friction` comment listing the discarded paths. An Epic #413 Phase 4
+  replay fixture asserts all 6 worktrees reap (not 3).
+
+#### Lifecycle checkpoints (shift-left)
+
+- **Launcher-level config validation (#452).** `validateOrchestrationConfig`
+  now runs in `main()` of `epic-runner.js`, `plan-runner.js`,
+  `sprint-plan-spec.js`, and `sprint-plan-decompose.js` — a schema-invalid
+  `.agentrc.json` exits non-zero before any long-running flow begins.
+- **Phase 0.5 version-bump-intent snapshot (#453).** `/sprint-execute` Epic
+  Mode parses the Epic body for `Release target:` / `--segment` directives
+  at startup and posts a `notification` structured comment when they
+  disagree with `release.autoVersionBump`.
+- **Per-Story docs-context-bridge (#454).** `sprint-story-close.js` maps
+  the Story's changed-file list against `release.docs` +
+  `agentSettings.docsContextFiles` and emits a `friction` comment when the
+  Story touches code paths referenced by those docs — nudging doc updates
+  per-Story rather than batching them at Epic close.
+
+#### CI / coverage report visibility
+
+- **`test:coverage` root-cause fix (#455).** CI workflow now captures
+  stderr (`2>&1` + `| tee` with `set -o pipefail`) so silent-stderr
+  failures surface in the `test-output.txt` artifact. Added a regression
+  test asserting the CI step wiring keeps both safeguards.
+
+#### Follow-up fix (post-runner)
+
+- **`CommitAssertion` fallback when story branch is deleted.**
+  `sprint-story-close.js` deletes both the local and remote story branch
+  after a successful merge, so by the time the Epic wave-observer runs
+  `CommitAssertion` at wave-end, `origin/story-<id>` is gone. The default
+  git adapter now falls back to counting commits on `origin/epic/<id>`
+  whose message matches `resolves #<storyId>`. A non-zero fallback is
+  proof the Story's work landed; a zero-result fallback surfaces the
+  original `unknown revision` error so genuine zero-deltas still surface.
+
 ## [5.15.2] - 2026-04-22
 
 ### Sprint-protocol resilience follow-ons (Epic #413)

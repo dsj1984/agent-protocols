@@ -148,7 +148,11 @@ export async function getToolRegistry(sdk, getProvider) {
     {
       name: 'post_structured_comment',
       description:
-        'Post a structured comment (progress, friction, or notification) on a ticket.',
+        'Idempotently upsert a structured comment on a ticket. Accepted types: ' +
+        `${sdk.STRUCTURED_COMMENT_TYPES.join(', ')}, or any value matching the ` +
+        `wave pattern ${sdk.WAVE_TYPE_PATTERN} (e.g. wave-0-start, wave-1-end). ` +
+        'Existing comments with the same type marker are replaced, so repeated ' +
+        'calls never create duplicates.',
       inputSchema: {
         properties: {
           ticketId: {
@@ -157,12 +161,18 @@ export async function getToolRegistry(sdk, getProvider) {
           },
           type: {
             type: 'string',
-            enum: ['progress', 'friction', 'notification'],
-            description: 'Type of structured comment.',
+            description:
+              'Structured-comment type. Must be one of the enumerated types ' +
+              `(${sdk.STRUCTURED_COMMENT_TYPES.join(', ')}) or match the wave ` +
+              `pattern ${sdk.WAVE_TYPE_PATTERN}.`,
+            oneOf: [
+              { enum: [...sdk.STRUCTURED_COMMENT_TYPES] },
+              { pattern: sdk.WAVE_TYPE_PATTERN.source },
+            ],
           },
           payload: {
             type: 'string',
-            description: 'The comment body text.',
+            description: 'The comment body text (markdown).',
           },
           githubToken: {
             type: 'string',
@@ -173,9 +183,10 @@ export async function getToolRegistry(sdk, getProvider) {
         required: ['ticketId', 'type', 'payload'],
       },
       handler: async ({ ticketId, type, payload, githubToken }) => {
+        sdk.assertValidStructuredCommentType(type);
         const provider = getProvider(githubToken);
-        await sdk.postStructuredComment(provider, ticketId, type, payload);
-        return { success: true, ticketId };
+        await sdk.upsertStructuredComment(provider, ticketId, type, payload);
+        return { success: true, ticketId, type };
       },
     },
     {

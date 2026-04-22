@@ -49,11 +49,12 @@ import {
 } from './lib/git-utils.js';
 import { Logger } from './lib/Logger.js';
 import { createNotifier } from './lib/notifications/notifier.js';
+import { createFrictionEmitter } from './lib/orchestration/friction-emitter.js';
 import { toDone } from './lib/orchestration/label-transitions.js';
 import {
-  RECOVERY_ACTIONS,
   computeRecoveryMode,
   detectPriorState,
+  RECOVERY_ACTIONS,
 } from './lib/orchestration/sprint-story-close-recovery.js';
 import {
   cascadeCompletion,
@@ -205,6 +206,7 @@ async function reapStoryWorktree({
   storyId,
   epicBranch,
   repoRoot,
+  frictionEmitter,
 }) {
   const wtConfig = orchestration?.worktreeIsolation;
   if (!wtConfig?.enabled || !(wtConfig.reapOnSuccess ?? true)) return;
@@ -220,6 +222,16 @@ async function reapStoryWorktree({
     if (reapResult.removed) {
       progress('WORKTREE', `🗑️  Reaped worktree: ${reapResult.path}`);
     } else if (reapResult.reason) {
+      // Route the reap-failure signal onto the Story ticket via the friction
+      // emitter so the operator gets the diagnostic without scraping logs.
+      // The emitter dedups inside a 60s window, so a close-loop retry will
+      // not spam the ticket.
+      await emitReapFailureFriction({
+        frictionEmitter,
+        storyId,
+        reapResult,
+        epicBranch,
+      });
       // Previously the `not-a-worktree` branch was silent, which hid a drive-
       // letter-case bug in `_findByPath` on Windows and let stale worktrees
       // accumulate across runs. Always surface a reap-skip with remediation.
@@ -258,7 +270,50 @@ async function reapStoryWorktree({
           `${stillRegistered.path}. Run ` +
           '`git worktree remove <path> --force && git worktree prune` to clean up.',
       );
+      await emitReapFailureFriction({
+        frictionEmitter,
+        storyId,
+        reapResult: {
+          path: stillRegistered.path,
+          reason: 'still-registered-after-reap',
+        },
+        epicBranch,
+      });
     }
+  });
+}
+
+/**
+ * Post a `friction` structured comment to the Story ticket summarising the
+ * reap failure. Best-effort — the reap path is already non-fatal, so any
+ * emitter error is logged and swallowed by the emitter itself.
+ */
+async function emitReapFailureFriction({
+  frictionEmitter,
+  storyId,
+  reapResult,
+  epicBranch,
+}) {
+  if (!frictionEmitter) return;
+  const reason = String(reapResult?.reason ?? 'unknown');
+  const path = reapResult?.path ?? '(unknown path)';
+  const body = [
+    `### 🚧 Friction — worktree reap failed`,
+    '',
+    `- Story: \`#${storyId}\``,
+    `- Epic branch: \`${epicBranch}\``,
+    `- Worktree path: \`${path}\``,
+    `- Reason: \`${reason}\``,
+    '',
+    'The Story merge succeeded but the worktree could not be removed. Close',
+    'any editor/terminal holding the path, then run `git worktree remove',
+    '<path> --force && git worktree prune` to clean up. Re-running',
+    '`sprint-story-close` is idempotent.',
+  ].join('\n');
+  await frictionEmitter.emit({
+    ticketId: Number(storyId),
+    markerKey: 'reap-failure',
+    body,
   });
 }
 
@@ -842,11 +897,16 @@ export async function runStoryClose({
   // leave the worktree registration in place and the subsequent branch
   // delete will fail — which is now reported in the structured result
   // rather than silently swallowed.
+  const frictionEmitter = createFrictionEmitter({
+    provider,
+    logger: { warn: (m) => Logger.warn?.(m), debug: () => {} },
+  });
   await reapStoryWorktree({
     orchestration,
     storyId,
     epicBranch,
     repoRoot: cwd,
+    frictionEmitter,
   });
   branchCleanup = cleanupBranches(storyBranch, cwd);
 

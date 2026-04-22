@@ -494,3 +494,70 @@ filesystem (e.g., `temp/` is mounted read-only in a container), or
 when correlating runner logs with an external log shipper that
 already watches a non-standard path. The default is right for every
 local-dev and CI invocation.
+
+---
+
+## Per-Story rate-limited friction emission (v5.15.3 / Epic #441)
+
+### Problem
+
+Several failure sites in the orchestration pipeline (reap failures,
+wave-poller read failures, mid-Story baseline refreshes) were silent
+to the operator — they logged to stdout but never produced a
+machine-readable surface on the Story ticket. Epic #413's Wave 1 ran
+for ~30 minutes with the `variableNotUsed: $issueId` GraphQL error
+masking every Story's state as `unknown` and not a single `friction`
+comment was posted.
+
+### Solution
+
+`lib/orchestration/friction-emitter.js` wraps the MCP
+`post_structured_comment` tool with per-Story deduplication:
+
+1. **Key.** Dedupe key is `storyId` + a hash of the friction body's
+   marker slug (e.g. `friction: reap-skipped`).
+2. **Window.** 60-second cooldown per key — a stuck poller can't spam
+   the ticket but a distinct failure mode still surfaces immediately.
+3. **Emitters.** `sprint-story-close.js` reap failure, `epic-runner`
+   wave-poller `getTicket` failure, and `check-maintainability.js`
+   baseline-refresh sites are the three known consumers.
+
+### When to use
+
+Any silent `catch` + `logger.warn` site whose failure is operator-
+actionable. A rule of thumb: if the operator needs to act on the
+failure (inspect the worktree, re-run a reap, update a doc), emit.
+If the failure is routine (a retry that succeeds on the next tick),
+don't — the cooldown window will suppress duplicates anyway, but
+polluting the ticket with sub-second retry chatter still costs
+attention.
+
+---
+
+## Launcher-level config validation (v5.15.3 / Epic #441)
+
+### Problem
+
+`validateOrchestrationConfig` was wired into `resolveConfig()` in
+Story #436 — but the actual CLI launchers (`epic-runner.js`,
+`plan-runner.js`, `sprint-plan-spec.js`, `sprint-plan-decompose.js`)
+call `resolveConfig()` and immediately dispatch to long-running
+flows. A schema-invalid `.agentrc.json` would surface deep inside the
+dispatch chain instead of at launcher startup, producing a confusing
+stack trace instead of a clear schema error.
+
+### Solution
+
+Each launcher's `main()` now calls `validateOrchestrationConfig` after
+`resolveConfig()` returns and exits non-zero on validation failure
+before any provider call, GitHub I/O, or wave-loop begins. The
+fixture test removes a required `orchestration.epicRunner` field and
+asserts the launcher exits with a schema error before work starts.
+
+### Why the explicit call (vs relying on `resolveConfig`)
+
+`resolveConfig` reads the schema and layers defaults, but the
+canonical validation path is the schema validator. The explicit call
+in `main()` is the shift-left equivalent of a pre-flight check — a
+future refactor of `resolveConfig`'s internals can't accidentally
+drop the validation.

@@ -1,4 +1,5 @@
 import assert from 'node:assert/strict';
+import { readFileSync } from 'node:fs';
 import { describe, it } from 'node:test';
 
 import {
@@ -189,6 +190,69 @@ describe('ProgressReporter', () => {
     assert.match(body, /\| 1 \| #10 \| ✅ done \| A \|/);
     assert.match(body, /\| 1 \| #11 \| ✅ done \| B \|/);
     assert.match(body, /\| 2 \| #20 \| 🔧 in-flight \| C \|/);
+  });
+
+  it('renders fixture story states (not unknown) when the GraphQL read succeeds', async () => {
+    const fixture = JSON.parse(
+      readFileSync(
+        new URL('../fixtures/progress-reporter-stories.json', import.meta.url),
+        'utf8',
+      ),
+    );
+    const tickets = Object.fromEntries(
+      fixture.stories.map((s) => [s.number, s]),
+    );
+    const provider = buildProvider(tickets);
+    const reporter = new ProgressReporter({
+      provider,
+      epicId: 77,
+      intervalSec: 60,
+      logger: silentLogger(),
+    });
+    reporter.setWave({
+      index: 0,
+      totalWaves: 1,
+      stories: fixture.stories.map((s) => s.number),
+    });
+
+    const { rows } = await reporter.fire();
+    const unknown = rows.filter((r) => r.state === 'unknown');
+    assert.equal(
+      unknown.length,
+      0,
+      'no fixture story should fall back to unknown',
+    );
+    assert.deepEqual(
+      rows.map((r) => [r.id, r.state]),
+      [
+        [501, 'done'],
+        [502, 'in-flight'],
+        [503, 'queued'],
+        [504, 'blocked'],
+      ],
+    );
+  });
+
+  it('propagates provider errors from fire() (fail loud)', async () => {
+    const provider = {
+      async getTicket() {
+        throw new Error('variableNotUsed: $issueId');
+      },
+      async getTicketComments() {
+        return [];
+      },
+      async postComment() {
+        return { id: '1' };
+      },
+    };
+    const reporter = new ProgressReporter({
+      provider,
+      epicId: 1,
+      intervalSec: 60,
+      logger: silentLogger(),
+    });
+    reporter.setWave({ index: 0, totalWaves: 1, stories: [1] });
+    await assert.rejects(() => reporter.fire(), /variableNotUsed/);
   });
 
   it('stop() emits a final snapshot and clears the interval', async () => {

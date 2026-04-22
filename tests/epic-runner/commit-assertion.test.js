@@ -111,13 +111,63 @@ describe('buildDefaultGitAdapter', () => {
   });
 
   it('rejects non-numeric stdout instead of silently returning zero', async () => {
-    const fakeExecFile = (_cmd, _args, _opts, cb) => {
-      cb(null, { stdout: 'not-a-number\n', stderr: '' });
+    const fakeExecFile = (_cmd, args, _opts, cb) => {
+      if (args[0] === 'rev-list') {
+        cb(null, { stdout: 'not-a-number\n', stderr: '' });
+        return;
+      }
+      // Fallback git log returns no matching commits, so the original
+      // "unexpected rev-list" error must surface.
+      cb(null, { stdout: '', stderr: '' });
     };
     const adapter = buildDefaultGitAdapter({ execFileImpl: fakeExecFile });
     await assert.rejects(
       () => adapter({ epicId: 413, storyId: 420 }),
       /unexpected rev-list/,
+    );
+  });
+
+  it('falls back to epic-branch "resolves #<id>" grep when story branch is deleted', async () => {
+    // sprint-story-close deletes both the local and remote story branch after
+    // a successful merge. By the time the wave-observer runs this assertion,
+    // origin/story-<id> is gone — the fallback should find the landing commit
+    // on origin/epic/<id> via its "(resolves #<id>)" message.
+    const fakeExecFile = (_cmd, args, _opts, cb) => {
+      if (args[0] === 'rev-list') {
+        const err = new Error(
+          "fatal: ambiguous argument 'origin/epic/441..origin/story-448': unknown revision",
+        );
+        cb(err, { stdout: '', stderr: err.message });
+        return;
+      }
+      // Fallback path: git log origin/epic/441 -E --grep=...
+      assert.equal(args[0], 'log');
+      assert.equal(args[1], 'origin/epic/441');
+      assert.equal(args[2], '-E');
+      assert.match(args[3], /resolves #448/);
+      cb(null, {
+        stdout: '3c7afd1beaf198d847be8ca34e03bed4cfccee8c\n',
+        stderr: '',
+      });
+    };
+    const adapter = buildDefaultGitAdapter({ execFileImpl: fakeExecFile });
+    const count = await adapter({ epicId: 441, storyId: 448 });
+    assert.equal(count, 1);
+  });
+
+  it('rethrows the rev-list error when the fallback also finds nothing', async () => {
+    const fakeExecFile = (_cmd, args, _opts, cb) => {
+      if (args[0] === 'rev-list') {
+        const err = new Error("fatal: unknown revision 'origin/story-999'");
+        cb(err, { stdout: '', stderr: err.message });
+        return;
+      }
+      cb(null, { stdout: '', stderr: '' });
+    };
+    const adapter = buildDefaultGitAdapter({ execFileImpl: fakeExecFile });
+    await assert.rejects(
+      () => adapter({ epicId: 441, storyId: 999 }),
+      /unknown revision/,
     );
   });
 });

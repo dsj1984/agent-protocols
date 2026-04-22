@@ -142,12 +142,10 @@ describe('ColumnSync.sync', () => {
     assert.equal(res.reason, 'no-meta');
   });
 
-  it('returns failed when the update mutation throws', async () => {
-    const calls = [];
+  it('propagates errors from the update mutation (fail loud)', async () => {
     const provider = {
       projectNumber: 42,
       async graphql(query) {
-        calls.push(query);
         if (query.includes('viewer {')) {
           return {
             viewer: {
@@ -172,8 +170,6 @@ describe('ColumnSync.sync', () => {
       },
     };
     const sync = new ColumnSync({ provider, logger: { warn: () => {} } });
-    const res = await sync.sync(321, ['agent::done']);
-    assert.equal(res.status, 'failed');
-    assert.match(res.reason, /API boom/);
+    await assert.rejects(() => sync.sync(321, ['agent::done']), /API boom/);
   });
 });

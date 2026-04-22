@@ -27,6 +27,7 @@
  * Usage:
  *   node .agents/scripts/sprint-close.js --epic <EPIC_ID>
  *     [--no-cleanup] [--skip-retro] [--skip-code-review]
+ *     [--no-reap-discard-after-merge]
  */
 
 import { parseArgs } from 'node:util';
@@ -49,6 +50,7 @@ async function main() {
       cleanup: { type: 'boolean', default: true },
       'skip-retro': { type: 'boolean', default: false },
       'skip-code-review': { type: 'boolean', default: false },
+      'no-reap-discard-after-merge': { type: 'boolean', default: false },
     },
     strict: false,
   });
@@ -75,7 +77,15 @@ async function main() {
   await phaseFinalizeAuxiliaryTickets(provider, epicId, warnings);
   await phaseFinalizeEpicClosure(provider, epicId, warnings);
   if (values.cleanup) {
-    await phaseFinalizeBranchCleanup(provider, orchestration, epicId, warnings);
+    await phaseFinalizeBranchCleanup(
+      provider,
+      orchestration,
+      epicId,
+      warnings,
+      {
+        discardAfterMerge: values['no-reap-discard-after-merge'] !== true,
+      },
+    );
   }
 
   // Notify phase ------------------------------------------------------------
@@ -212,7 +222,9 @@ async function phaseFinalizeBranchCleanup(
   orchestration,
   epicId,
   warnings,
+  opts = {},
 ) {
+  const discardAfterMerge = opts.discardAfterMerge !== false;
   progress('CLEANUP', 'Starting branch cleanup...');
   const wtConfig = orchestration?.worktreeIsolation;
   const wm = new WorktreeManager({
@@ -233,9 +245,13 @@ async function phaseFinalizeBranchCleanup(
       progress('CLEANUP', 'Reaping stale worktrees...');
       await wm.sweepStaleLocks();
       const epicBranchName = `epic/${epicId}`;
-      const gcResult = await wm.gc([], { epicBranch: epicBranchName });
+      const gcResult = await wm.gc([], {
+        epicBranch: epicBranchName,
+        discardAfterMerge,
+      });
       if (gcResult.reaped.length > 0) {
         progress('CLEANUP', `Reaped ${gcResult.reaped.length} worktree(s).`);
+        await emitDiscardFrictionComments(provider, gcResult.reaped, warnings);
       }
       if (gcResult.skipped.length > 0) {
         progress(
@@ -379,6 +395,35 @@ async function phaseFinalizeBranchCleanup(
     gitSpawn(PROJECT_ROOT, 'remote', 'prune', 'origin');
   }
   progress('CLEANUP', '✅ Branch cleanup complete.');
+}
+
+/**
+ * For each reaped worktree whose dirty changes were discarded as part of the
+ * force-reap-after-merge flow, post a `friction` structured comment on the
+ * Story ticket listing the discarded paths so the signal is not lost. Best
+ * effort — per-story failures are recorded as warnings so one misbehaving
+ * ticket does not abort the rest of the close flow.
+ */
+async function emitDiscardFrictionComments(provider, reaped, warnings) {
+  for (const entry of reaped) {
+    if (!entry.discardedPaths || entry.discardedPaths.length === 0) continue;
+    const body = [
+      `⚠️ Force-reap discarded uncommitted changes in worktree \`story-${entry.storyId}\``,
+      '',
+      `The Story branch was already merged into \`epic/*\`, so \`/sprint-close\` Phase 4 discarded the following post-merge drift to complete the reap (default behavior; pass \`--no-reap-discard-after-merge\` to preserve).`,
+      '',
+      'Discarded paths:',
+      ...entry.discardedPaths.map((p) => `- \`${p}\``),
+    ].join('\n');
+    try {
+      await postStructuredComment(provider, entry.storyId, 'friction', body);
+    } catch (err) {
+      warnings.push(`friction comment on #${entry.storyId}: ${err.message}`);
+      console.warn(
+        `⚠️ Warning: Failed to post reap-discard friction comment on Story #${entry.storyId}: ${err.message}`,
+      );
+    }
+  }
 }
 
 function phaseNotifyBanner(epicId, warnings) {
