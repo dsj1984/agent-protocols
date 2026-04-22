@@ -302,3 +302,137 @@ grep -rn "Logger\.fatal" .agents/scripts/lib
 ```
 
 Both queries should return no results when the convention holds.
+
+---
+
+## OrchestrationContext Dependency Injection (v5.15.1)
+
+### Problem
+
+The epic-runner and plan-runner submodules previously took a loosely-shaped
+`opts` bag as their first argument. Over the Epic #321 and Epic #349 cycles
+this object grew to hold `provider`, `logger`, `settings`, ad-hoc
+feature flags, injected `execImpl` for tests, and several siblings. Each
+new submodule picked a slightly different subset. Adding a new cross-cutting
+concern — for Epic #380 this was the `ErrorJournal` — meant editing every
+call site and hoping no path silently dropped the new field.
+
+### Pattern
+
+`lib/orchestration/context.js` exports three typed context constructors:
+
+- `OrchestrationContext` — the shared base. Holds `provider`, `settings`,
+  `logger`, and `errorJournal`.
+- `EpicRunnerContext extends OrchestrationContext` — adds epic-runner
+  specifics (`epicId`, `concurrencyCap`, `runSkill` adapter, …).
+- `PlanRunnerContext extends OrchestrationContext` — adds plan-runner
+  specifics (`phase`, `decomposerAdapter`, …).
+
+Every orchestration submodule takes `ctx` as its first argument:
+
+```js
+export async function dispatchWave(ctx, waveNumber) {
+  const { provider, logger, errorJournal } = ctx;
+  // …
+}
+```
+
+Tests construct a minimal `ctx` with stub injectables rather than
+reaching into a shared module state. Composition (epic-runner calling
+into dispatch-engine) passes `ctx` through unchanged — submodules never
+reconstruct a new context from an opts bag.
+
+### The `errorJournal?.record(...)` idiom
+
+Alongside the ctx refactor, every silent-catch site in the orchestration
+layer now records to the journal:
+
+```js
+try {
+  await doRiskyThing();
+} catch (err) {
+  logger.warn(`[epic-runner] ${err.message}`);
+  errorJournal?.record({
+    phase: 'blocker-handler',
+    error: err,
+    context: { storyId, label },
+  });
+}
+```
+
+The optional chaining (`errorJournal?.record`) is deliberate: older test
+fixtures may construct a bare ctx without a journal, and that must
+remain valid. In production the journal is always wired by the runner
+entry points. The resulting `temp/epic-<id>-errors.log` is a JSONL
+stream consumable by the retro aggregator (and, planned, by the
+sprint-health dashboard).
+
+### Benefits
+
+*   Adding a new cross-cutting concern is a **one-line ctx extension** plus
+    grep-safe call-site updates. Epic #380 added `errorJournal` this way.
+*   Every submodule's first argument is typed and discoverable — no
+    more "what's in `opts`?" guessing.
+*   Tests no longer need to guess which `opts` keys a submodule peeks
+    at; they build a stub ctx that matches the constructor shape.
+
+### Trade-offs
+
+*   Converting the initial call sites is a one-time grind — Epic #380
+    Story #389 touched every `epic-runner/*` file.
+*   The ctx constructor is the boundary where validation lives; don't
+    sprinkle `if (!ctx.provider) …` checks across submodules.
+
+---
+
+## `pollUntil` / `sleep` instead of hand-rolled poll loops (v5.15.1)
+
+### Problem
+
+`state-poller.js` and `blocker-handler.js` each carried their own
+`while (true) { await new Promise(r => setTimeout(r, ms)); … }` loops
+with slightly different jitter, timeout, and abort handling. Adding a
+timeout budget to one did not automatically apply to the other, and
+the "is this done yet" check was inlined inside the loop body —
+untestable without mocking `setTimeout`.
+
+### Pattern
+
+Epic #380 Story #392 / #407 extracted `lib/util/poll-loop.js`:
+
+```js
+import { pollUntil, sleep } from '../util/poll-loop.js';
+
+const label = await pollUntil(
+  () => provider.getLabel(ticketId),
+  (labelValue) => labelValue === 'agent::review',
+  { intervalMs: 30_000, timeoutMs: 15 * 60_000 },
+);
+```
+
+`pollUntil(fn, predicate, opts)` runs `fn`, tests `predicate(result)`,
+and sleeps `intervalMs` between attempts until either the predicate
+passes or `timeoutMs` elapses. `sleep(ms)` is the trivial awaitable
+`setTimeout` wrapper used elsewhere.
+
+### When to reach for it
+
+*   Waiting for an external label / state transition driven by another
+    agent or a human operator.
+*   Waiting for a file or structured comment to materialise on a ticket.
+
+### When NOT to use it
+
+*   Tight sub-second polling — `pollUntil` is designed for the tens-of-
+    seconds to minutes regime typical of orchestrator pauses. For
+    sub-second work use an event or a direct await.
+*   Anything where the callee can tell you when it's done (a Promise, an
+    emitter) — don't poll around it.
+
+### Benefits
+
+*   Timeout + interval behaviour is consistent across every orchestrator
+    pause site.
+*   One module to audit for jitter / abort / rate-limit behaviour.
+*   Test fixtures can inject a fake clock against one module instead of
+    three.
