@@ -64,6 +64,8 @@ export class EpicRunnerContext extends OrchestrationContext {
     this.fetchImpl = opts.fetchImpl ?? null;
     this.runSkill = opts.runSkill ?? null;
     this.errorJournal = opts.errorJournal ?? null;
+    this.gitAdapter = opts.gitAdapter ?? null;
+    this.commitAssertion = opts.commitAssertion ?? null;
     if (new.target === EpicRunnerContext) {
       this.validate();
       Object.freeze(this);
