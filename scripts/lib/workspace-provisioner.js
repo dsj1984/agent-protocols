@@ -11,7 +11,9 @@
  *   - `provision({ sourceRoot, targetWorktree, files?, logger? })` — copies
  *     each listed file from source to target, skipping any that already exist
  *     at the target. Returns `{ copied, skipped, missing }`.
- *   - `verify({ worktree, files? })` — throws when a required file is missing.
+ *   - `verify({ worktree, files?, sourceRoot? })` — throws when a required
+ *     file is missing. When `sourceRoot` is passed, the error carries a
+ *     copy-ready remediation command the operator can run verbatim.
  *   - `resolveWorkspaceFiles(orchestrationConfig)` — resolves the list honoring
  *     the new `orchestration.workspaceFiles` key, the legacy
  *     `orchestration.worktreeIsolation.bootstrapFiles`, and the default.
@@ -124,25 +126,46 @@ export function provision({
 
 /**
  * Throw if any required workspace file is missing from `worktree`. Used as a
- * runtime guard and a test oracle.
+ * runtime guard (called right after every worktree create in
+ * `sprint-story-init.js`) and as a test oracle.
+ *
+ * When `sourceRoot` is supplied, the thrown error carries the missing target
+ * path and an exact `cp`/`copy` command the operator can paste to remediate.
  *
  * @param {object} opts
  * @param {string} opts.worktree
  * @param {string[]} [opts.files]
+ * @param {string} [opts.sourceRoot] Main repo path; enables remediation hint.
  */
-export function verify({ worktree, files = DEFAULT_WORKSPACE_FILES }) {
+export function verify({
+  worktree,
+  files = DEFAULT_WORKSPACE_FILES,
+  sourceRoot,
+}) {
   if (!worktree || typeof worktree !== 'string') {
     throw new Error('workspace-provisioner: worktree is required');
   }
   const missing = [];
   for (const name of files) {
     if (invalidNameReason(name)) continue;
-    const abs = path.join(worktree, path.normalize(name));
-    if (!fs.existsSync(abs)) missing.push(name);
+    const rel = path.normalize(name);
+    const abs = path.join(worktree, rel);
+    if (!fs.existsSync(abs)) missing.push({ name, rel, abs });
   }
-  if (missing.length > 0) {
-    throw new Error(
-      `workspace-provisioner: required workspace file(s) missing from ${worktree}: ${missing.join(', ')}`,
-    );
+  if (missing.length === 0) return;
+
+  const namesList = missing.map((m) => m.name).join(', ');
+  const pathsList = missing.map((m) => m.abs).join(', ');
+  const lines = [
+    `workspace-provisioner: required workspace file(s) missing from ${worktree}: ${namesList}`,
+    `  missing path(s): ${pathsList}`,
+  ];
+  if (sourceRoot && typeof sourceRoot === 'string') {
+    const copyCmd = process.platform === 'win32' ? 'copy /Y' : 'cp';
+    for (const m of missing) {
+      const src = path.join(sourceRoot, m.rel);
+      lines.push(`  remediation: ${copyCmd} "${src}" "${m.abs}"`);
+    }
   }
+  throw new Error(lines.join('\n'));
 }

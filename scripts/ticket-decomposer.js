@@ -64,7 +64,7 @@ function resolveDependencies(ticket, slugMap) {
 export function buildDecomposerSystemPrompt(heuristics = []) {
   const heuristicsStr =
     heuristics.length > 0
-      ? `### RISK HEURISTICS (Flag as risk::high if any apply):\n- ${heuristics.join('\n- ')}`
+      ? `### RISK HEURISTICS (Flag as risk::medium if any apply):\n- ${heuristics.join('\n- ')}`
       : '';
   return `${DECOMPOSER_SYSTEM_PROMPT}${heuristicsStr ? `\n\n${heuristicsStr}` : ''}`;
 }

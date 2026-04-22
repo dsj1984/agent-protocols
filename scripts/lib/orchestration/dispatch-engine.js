@@ -3,7 +3,6 @@
  *
  * Thin facade composing:
  *   - `wave-dispatcher.js`          — wave iteration + per-task dispatch
- *   - `risk-gate-handler.js`        — task-level `risk::high` HITL flow
  *   - `health-check-service.js`     — Sprint Health issue ensure
  *   - `epic-lifecycle-detector.js`  — epic-completion + bookend fire
  *   - `dispatch-pipeline.js`        — internal resolve/fetch/reconcile/graph/scaffold/GC helpers
@@ -20,7 +19,6 @@ import { PROJECT_ROOT, resolveConfig } from '../config-resolver.js';
 import { ensureLocalBranch } from '../git-branch-lifecycle.js';
 import { TYPE_LABELS } from '../label-constants.js';
 import { createProvider } from '../provider-factory.js';
-import { RISK_HIGH_LABEL } from '../risk-gate.js';
 import { vlog } from './dispatch-logger.js';
 import {
   buildDispatchGraph,
@@ -41,7 +39,7 @@ export const AGENT_DONE_LABEL = STATE_LABELS.DONE;
 export const AGENT_EXECUTING_LABEL = STATE_LABELS.EXECUTING;
 export const AGENT_READY_LABEL = STATE_LABELS.READY;
 export const TYPE_TASK_LABEL = TYPE_LABELS.TASK;
-export { collectOpenStoryIds, detectEpicCompletion, RISK_HIGH_LABEL };
+export { collectOpenStoryIds, detectEpicCompletion };
 
 /* node:coverage ignore next */
 export function ensureBranch(branchName, baseBranch) {

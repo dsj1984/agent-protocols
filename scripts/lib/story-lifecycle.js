@@ -83,6 +83,9 @@ function isRetryableError(err) {
  * @param {number} [opts.concurrency=10]    Max parallel ticket transitions.
  * @param {number} [opts.retries=3]         Max attempts per ticket on transient errors.
  * @param {number} [opts.retryBaseMs=500]   Base for exponential backoff (attempt * base).
+ * @param {{ emit: Function }} [opts.notifier] Optional in-band notifier — forwarded
+ *   to each `transitionTicketState` call so successful transitions fire a
+ *   `state-transition` event through the Notifier channels.
  * @returns {Promise<{ transitioned: number[], skipped: number[], failed: Array<{ id: number, error: string, attempts: number }> }>}
  */
 export async function batchTransitionTickets(
@@ -91,7 +94,7 @@ export async function batchTransitionTickets(
   targetLabel,
   opts = {},
 ) {
-  const { progress, onError } = opts;
+  const { progress, onError, notifier } = opts;
   const transitioned = [];
   const skipped = [];
   const failed = [];
@@ -117,7 +120,9 @@ export async function batchTransitionTickets(
     let lastErr;
     for (let attempt = 1; attempt <= maxRetries; attempt++) {
       try {
-        await transitionTicketState(provider, ticket.id, targetLabel);
+        await transitionTicketState(provider, ticket.id, targetLabel, {
+          notifier,
+        });
         progress?.(
           'TICKETS',
           `  #${ticket.id} → ${targetLabel} ✅${attempt > 1 ? ` (after ${attempt} attempts)` : ''}`,

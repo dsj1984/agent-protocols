@@ -74,9 +74,7 @@
       "level": "verbose",
       "postToEpic": true
     },
-    "hitl": {
-      "riskHighApproval": true
-    },
+    "hitl": {},
     "worktreeIsolation": {
       "enabled": true,
       "root": ".worktrees",
@@ -92,6 +90,11 @@
       "pollIntervalSec": 30,
       "storyRetryCount": 1,
       "blockerTimeoutHours": 0
+    },
+    "planRunner": {
+      "enabled": true,
+      "pollIntervalSec": 30,
+      "notificationWebhookUrl": null
     }
   }
 }

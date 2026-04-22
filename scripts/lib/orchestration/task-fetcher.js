@@ -6,7 +6,6 @@ import { parseBlockedBy, parseTaskMetadata } from '../dependency-parser.js';
 import { STATE_LABELS } from './ticketing.js';
 
 const AGENT_DONE_LABEL = STATE_LABELS.DONE;
-const RISK_HIGH_LABEL = 'risk::high';
 const TYPE_TASK_LABEL = 'type::task';
 
 /**
@@ -30,15 +29,12 @@ export function parseTasks(tickets) {
         ? AGENT_DONE_LABEL
         : (labels.find((l) => l.startsWith('agent::')) ?? 'agent::ready');
 
-    const isRiskHigh = labelSet.has(RISK_HIGH_LABEL);
-
     return {
       id: t.id,
       title: t.title,
       labels,
       labelSet,
       status,
-      isRiskHigh,
       dependsOn: blockedBy,
       body: t.body ?? '',
       ...metadata,

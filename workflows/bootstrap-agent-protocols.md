@@ -46,7 +46,7 @@ custom fields.
 | Agent State | `agent::ready`, `agent::executing`, `agent::review`, `agent::done`, `agent::dispatching` | Green  |
 | Epic        | `epic::auto-close`                                                                       | Yellow |
 | Status      | `status::blocked`                                                                        | Red    |
-| Risk        | `risk::high`, `risk::medium`                                                             | Yellow |
+| Risk        | `risk::medium`                                                                           | Yellow |
 | Persona     | `persona::<name>` — one per file in `.agents/personas/`                                  | Blue   |
 | Context     | `context::prd`, `context::tech-spec`                                                     | Purple |
 | Execution   | `execution::sequential`, `execution::concurrent`                                         | Peach  |
