@@ -1,10 +1,14 @@
 import assert from 'node:assert/strict';
 import test from 'node:test';
 import {
+  computeProgress,
   formatManifestMarkdown,
   formatStoryManifestMarkdown,
   printStoryDispatchTable,
   renderManifestMarkdown,
+  renderProgressBar,
+  renderStoryTable,
+  renderWaveSections,
 } from '../../.agents/scripts/lib/presentation/manifest-formatter.js';
 
 function epicManifest(overrides = {}) {
@@ -188,4 +192,136 @@ test('formatter: printStoryDispatchTable no-ops on empty manifest', () => {
   const logger = { log: (line) => lines.push(line) };
   printStoryDispatchTable([], { logger });
   assert.equal(lines.length, 0);
+});
+
+// ---------------------------------------------------------------------------
+// Pure helper fixtures (Story #484)
+// ---------------------------------------------------------------------------
+
+test('computeProgress: aggregates task pct, story counts, wave count', () => {
+  const result = computeProgress(epicManifest());
+  assert.equal(result.taskPct, 25);
+  assert.equal(result.doneTasks, 1);
+  assert.equal(result.totalTasks, 4);
+  assert.equal(result.totalStories, 2);
+  assert.equal(result.doneStories, 0);
+  assert.equal(result.storyWaveCount, 2);
+});
+
+test('computeProgress: counts a story as done only when every task is done', () => {
+  const manifest = epicManifest();
+  for (const task of manifest.storyManifest[0].tasks) {
+    task.status = 'agent::done';
+  }
+  const result = computeProgress(manifest);
+  assert.equal(result.doneStories, 1);
+});
+
+test('computeProgress: falls back to wave count of 1 when no waves are set', () => {
+  const result = computeProgress({
+    summary: { progressPercent: 0, doneTasks: 0, totalTasks: 0 },
+    storyManifest: [
+      {
+        storyId: 1,
+        type: 'story',
+        earliestWave: -1,
+        tasks: [],
+      },
+    ],
+  });
+  assert.equal(result.storyWaveCount, 1);
+});
+
+test('renderProgressBar: emits 20-cell bar by default with correct fill ratio', () => {
+  const bar = renderProgressBar(50);
+  assert.equal(bar.length, 20);
+  assert.equal(bar, '██████████░░░░░░░░░░');
+});
+
+test('renderProgressBar: respects custom width and clamps out-of-range input', () => {
+  assert.equal(renderProgressBar(100, { width: 5 }), '█████');
+  assert.equal(renderProgressBar(0, { width: 5 }), '░░░░░');
+  assert.equal(renderProgressBar(150, { width: 4 }), '████');
+  assert.equal(renderProgressBar(-10, { width: 4 }), '░░░░');
+});
+
+test('renderWaveSections: renders one row per wave with status & mini bar', () => {
+  const md = renderWaveSections(epicManifest().storyManifest);
+  assert.ok(md.includes('## Wave Summary'));
+  assert.ok(md.includes('| Wave 0 |'));
+  assert.ok(md.includes('| Wave 1 |'));
+  assert.ok(md.includes('🚀 Ready'));
+  assert.ok(md.includes('⏳ Blocked'));
+});
+
+test('renderWaveSections: returns empty string for empty input', () => {
+  assert.equal(renderWaveSections([]), '');
+  assert.equal(renderWaveSections(null), '');
+});
+
+test('renderWaveSections: marks a wave done when every task completed', () => {
+  const stories = [
+    {
+      storyId: 1,
+      type: 'story',
+      earliestWave: 0,
+      tasks: [
+        { taskId: 10, status: 'agent::done' },
+        { taskId: 11, status: 'agent::done' },
+      ],
+    },
+  ];
+  const md = renderWaveSections(stories);
+  assert.ok(md.includes('✅ Done'));
+});
+
+test('renderStoryTable: groups stories by wave and flags parallel waves', () => {
+  const manifest = epicManifest();
+  manifest.storyManifest.push({
+    storyId: 103,
+    storySlug: 'gamma',
+    type: 'story',
+    earliestWave: 1,
+    model_tier: 'low',
+    branchName: 'story-103',
+    tasks: [{ taskId: 205, taskSlug: 't-c1', status: 'agent::ready' }],
+  });
+  const md = renderStoryTable(manifest.storyManifest);
+  assert.ok(md.includes('## Execution Plan'));
+  assert.ok(md.includes('### Wave 0'));
+  assert.ok(md.includes('### Wave 1 — ✅ 2 stories can run in parallel'));
+  assert.ok(md.includes('| ⬜ | #102 | beta |'));
+});
+
+test('renderStoryTable: appends a Feature Containers section when present', () => {
+  const stories = [
+    {
+      storyId: 101,
+      storySlug: 'alpha',
+      type: 'story',
+      earliestWave: 0,
+      model_tier: 'low',
+      branchName: 'story-101',
+      tasks: [{ taskId: 200, status: 'agent::done' }],
+    },
+    {
+      storyId: 300,
+      storySlug: 'container',
+      type: 'feature',
+      earliestWave: -1,
+      model_tier: 'low',
+      branchName: 'feature-300',
+      tasks: [{ taskId: 400, status: 'agent::ready' }],
+    },
+  ];
+  const md = renderStoryTable(stories);
+  assert.ok(md.includes('## Feature Containers'));
+  assert.ok(md.includes('| #300 | container | 1 |'));
+  // story with all tasks done renders ✅ checkbox
+  assert.ok(md.includes('| ✅ | #101 | alpha |'));
+});
+
+test('renderStoryTable: returns empty string for empty input', () => {
+  assert.equal(renderStoryTable([]), '');
+  assert.equal(renderStoryTable(null), '');
 });
