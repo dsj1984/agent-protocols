@@ -17,10 +17,7 @@ import { createNotifier } from '../../notifications/notifier.js';
 import { BlockerHandler } from './blocker-handler.js';
 import { Checkpointer } from './checkpointer.js';
 import { ColumnSync } from './column-sync.js';
-import {
-  buildDefaultGitAdapter,
-  CommitAssertion,
-} from './commit-assertion.js';
+import { buildDefaultGitAdapter, CommitAssertion } from './commit-assertion.js';
 import { NotificationHook } from './notification-hook.js';
 import { ProgressReporter } from './progress-reporter.js';
 import { StoryLauncher } from './story-launcher.js';
