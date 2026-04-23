@@ -5,7 +5,10 @@ import {
   sortTasksByDependencies,
 } from '../../../.agents/scripts/lib/story-init/task-graph-builder.js';
 
-function mkTask(id, { body = '', title = `t${id}`, labels = ['type::task'] } = {}) {
+function mkTask(
+  id,
+  { body = '', title = `t${id}`, labels = ['type::task'] } = {},
+) {
   return { id, title, labels, body };
 }
 
@@ -40,7 +43,11 @@ test('sortTasksByDependencies throws on cycles', () => {
 
 test('buildTaskGraph warns on empty child task list', async () => {
   const warnings = [];
-  const provider = { async getSubTickets() { return []; } };
+  const provider = {
+    async getSubTickets() {
+      return [];
+    },
+  };
   const out = await buildTaskGraph({
     provider,
     logger: { warn: (m) => warnings.push(m), progress: () => {} },
@@ -53,15 +60,15 @@ test('buildTaskGraph warns on empty child task list', async () => {
 test('buildTaskGraph returns topologically-sorted tasks from the provider', async () => {
   const provider = {
     async getSubTickets(_storyId) {
-      return [
-        mkTask(1, { body: 'blocked by #2' }),
-        mkTask(2),
-      ];
+      return [mkTask(1, { body: 'blocked by #2' }), mkTask(2)];
     },
   };
   const out = await buildTaskGraph({
     provider,
     input: { storyId: 1 },
   });
-  assert.deepStrictEqual(out.sortedTasks.map((t) => t.id), [2, 1]);
+  assert.deepStrictEqual(
+    out.sortedTasks.map((t) => t.id),
+    [2, 1],
+  );
 });
