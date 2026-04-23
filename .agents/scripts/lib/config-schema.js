@@ -1,59 +1,121 @@
 import Ajv from 'ajv';
 import addFormats from 'ajv-formats';
 
-/**
- * Shell-injection pattern source (string form) used inside JSON Schema
- * `not.pattern` clauses. Kept as a string so the schema literal and the
- * regex form share one definition.
- *
- * Matches `;`, `&`, `|`, backtick, or `$(`.
- */
-export const SHELL_INJECTION_PATTERN_STRING = '([;&|`]|\\$\\()';
+import { SHELL_INJECTION_PATTERN_STRING } from './config-schema-shared.js';
+
+// Shell-injection constants live in config-schema-shared.js so the settings
+// schema file can import them without pulling this module's AJV bundle.
+// Re-exported here for backward-compatible import paths.
+export {
+  SHELL_INJECTION_PATTERN_STRING,
+  SHELL_INJECTION_RE,
+  SHELL_INJECTION_RE_STRICT,
+} from './config-schema-shared.js';
+
+// The agentSettings schema lives in its own module to keep this file under
+// escomplex's Halstead-volume ceiling. Re-exported here for import stability.
+export {
+  AGENT_SETTINGS_SCHEMA,
+  AGENT_SETTINGS_STRING_FIELDS,
+  getSettingsValidator,
+} from './config-settings-schema.js';
+
+/** Reusable field-level schemas to keep sub-schemas concise. */
+const SAFE_STRING = {
+  type: 'string',
+  not: { pattern: SHELL_INJECTION_PATTERN_STRING },
+};
+
+const GITHUB_SCHEMA = {
+  type: 'object',
+  required: ['owner', 'repo'],
+  properties: {
+    owner: { type: 'string', minLength: 1 },
+    repo: { type: 'string', minLength: 1 },
+    projectNumber: { type: ['integer', 'null'], minimum: 1 },
+    projectOwner: { type: ['string', 'null'], minLength: 1 },
+    projectName: { type: ['string', 'null'], minLength: 1 },
+    operatorHandle: { type: 'string', pattern: '^@.+' },
+  },
+  additionalProperties: false,
+};
+
+const NOTIFICATIONS_SCHEMA = {
+  type: 'object',
+  properties: {
+    mentionOperator: { type: 'boolean' },
+    webhookMinLevel: {
+      type: 'string',
+      enum: ['progress', 'notification', 'friction', 'action'],
+    },
+    // Ticket-change notification controls (consumed by the in-band Notifier
+    // in `lib/notifications/notifier.js`, called from `transitionTicketState`).
+    // Does NOT affect the epic-runner's blocker NotificationHook, which has
+    // its own lifecycle.
+    level: {
+      type: 'string',
+      enum: ['off', 'minimal', 'default', 'verbose'],
+    },
+    postToEpic: { type: 'boolean' },
+    channels: {
+      type: 'array',
+      items: { type: 'string', enum: ['log', 'epic-comment', 'webhook'] },
+      uniqueItems: true,
+    },
+  },
+  additionalProperties: false,
+};
+
+const WORKTREE_ISOLATION_SCHEMA = {
+  type: 'object',
+  properties: {
+    enabled: { type: 'boolean' },
+    root: { type: 'string', minLength: 1 },
+    nodeModulesStrategy: {
+      type: 'string',
+      enum: ['per-worktree', 'symlink', 'pnpm-store'],
+    },
+    primeFromPath: { type: ['string', 'null'], minLength: 1 },
+    allowSymlinkOnWindows: { type: 'boolean' },
+    reapOnSuccess: { type: 'boolean' },
+    reapOnCancel: { type: 'boolean' },
+    warnOnUncommittedOnReap: { type: 'boolean' },
+    windowsPathLengthWarnThreshold: { type: 'integer', minimum: 1 },
+    bootstrapFiles: {
+      type: 'array',
+      items: { type: 'string', minLength: 1 },
+    },
+  },
+  additionalProperties: false,
+};
+
+const EPIC_RUNNER_SCHEMA = {
+  type: 'object',
+  properties: {
+    enabled: { type: 'boolean' },
+    concurrencyCap: { type: 'integer', minimum: 1 },
+    pollIntervalSec: { type: 'integer', minimum: 1 },
+    progressReportIntervalSec: { type: 'integer', minimum: 0 },
+    idleTimeoutSec: { type: 'integer', minimum: 0 },
+    logsDir: SAFE_STRING,
+  },
+  required: ['concurrencyCap'],
+  additionalProperties: false,
+};
+
+const PLAN_RUNNER_SCHEMA = {
+  type: 'object',
+  properties: {
+    enabled: { type: 'boolean' },
+    pollIntervalSec: { type: 'integer', minimum: 1 },
+  },
+  additionalProperties: false,
+};
 
 /**
- * Regex form of the lenient shell-injection pattern for runtime string checks.
- */
-export const SHELL_INJECTION_RE = new RegExp(SHELL_INJECTION_PATTERN_STRING);
-
-/**
- * Stricter shell metacharacter pattern for orchestration runtime values
- * (owner, repo, operator handle, webhook URL) where no shell metacharacters
- * are ever legitimate.
- */
-export const SHELL_INJECTION_RE_STRICT = /[&|;`<>()$]/;
-
-/**
- * Flat agentSettings string fields. Every entry below is constrained to a
- * non-malicious string by {@link AGENT_SETTINGS_SCHEMA}. Adding a new
- * top-level string field means appending to this list, nothing else.
- */
-export const AGENT_SETTINGS_STRING_FIELDS = Object.freeze([
-  'baseBranch',
-  'validationCommand',
-  'testCommand',
-  'buildCommand',
-  'agentRoot',
-  'scriptsRoot',
-  'workflowsRoot',
-  'personasRoot',
-  'schemasRoot',
-  'skillsRoot',
-  'templatesRoot',
-  'rulesRoot',
-  'docsRoot',
-  'tempRoot',
-  'auditOutputDir',
-  'lintBaselineCommand',
-  'lintBaselinePath',
-  'exploratoryTestCommand',
-  'typecheckCommand',
-]);
-
-const STRING_FIELDS_PATTERN = `^(${AGENT_SETTINGS_STRING_FIELDS.join('|')})$`;
-
-/**
- * Embedded JSON Schema for the `orchestration` configuration block.
- * Kept inline so all config validation lives in a single file.
+ * Embedded JSON Schema for the `orchestration` configuration block. Kept
+ * inline so all config validation lives in a single file; composed from the
+ * per-section sub-schemas above.
  *
  * @see docs/architecture.md — Provider Abstraction Layer
  */
@@ -61,119 +123,18 @@ export const ORCHESTRATION_SCHEMA = {
   type: 'object',
   required: ['provider'],
   properties: {
-    provider: {
-      type: 'string',
-      enum: ['github'],
-    },
-    github: {
-      type: 'object',
-      required: ['owner', 'repo'],
-      properties: {
-        owner: { type: 'string', minLength: 1 },
-        repo: { type: 'string', minLength: 1 },
-        projectNumber: {
-          type: ['integer', 'null'],
-          minimum: 1,
-        },
-        projectOwner: {
-          type: ['string', 'null'],
-          minLength: 1,
-        },
-        projectName: {
-          type: ['string', 'null'],
-          minLength: 1,
-        },
-        operatorHandle: {
-          type: 'string',
-          pattern: '^@.+',
-        },
-      },
-      additionalProperties: false,
-    },
+    provider: { type: 'string', enum: ['github'] },
+    github: GITHUB_SCHEMA,
     executor: {
       type: 'string',
       description:
         'The execution adapter to use (e.g., "manual", "subprocess").',
     },
-    notifications: {
-      type: 'object',
-      properties: {
-        mentionOperator: { type: 'boolean' },
-        webhookMinLevel: {
-          type: 'string',
-          enum: ['progress', 'notification', 'friction', 'action'],
-        },
-        // Ticket-change notification controls (consumed by the in-band
-        // Notifier in `lib/notifications/notifier.js`, called from
-        // `transitionTicketState`). Does NOT affect the epic-runner's
-        // blocker NotificationHook, which has its own lifecycle.
-        level: {
-          type: 'string',
-          enum: ['off', 'minimal', 'default', 'verbose'],
-        },
-        postToEpic: { type: 'boolean' },
-        channels: {
-          type: 'array',
-          items: {
-            type: 'string',
-            enum: ['log', 'epic-comment', 'webhook'],
-          },
-          uniqueItems: true,
-        },
-      },
-      additionalProperties: false,
-    },
-    hitl: {
-      type: 'object',
-      properties: {},
-      additionalProperties: false,
-    },
-    worktreeIsolation: {
-      type: 'object',
-      properties: {
-        enabled: { type: 'boolean' },
-        root: { type: 'string', minLength: 1 },
-        nodeModulesStrategy: {
-          type: 'string',
-          enum: ['per-worktree', 'symlink', 'pnpm-store'],
-        },
-        primeFromPath: { type: ['string', 'null'], minLength: 1 },
-        allowSymlinkOnWindows: { type: 'boolean' },
-        reapOnSuccess: { type: 'boolean' },
-        reapOnCancel: { type: 'boolean' },
-        warnOnUncommittedOnReap: { type: 'boolean' },
-        windowsPathLengthWarnThreshold: { type: 'integer', minimum: 1 },
-        bootstrapFiles: {
-          type: 'array',
-          items: { type: 'string', minLength: 1 },
-        },
-      },
-      additionalProperties: false,
-    },
-    epicRunner: {
-      type: 'object',
-      properties: {
-        enabled: { type: 'boolean' },
-        concurrencyCap: { type: 'integer', minimum: 1 },
-        pollIntervalSec: { type: 'integer', minimum: 1 },
-        progressReportIntervalSec: { type: 'integer', minimum: 0 },
-        idleTimeoutSec: { type: 'integer', minimum: 0 },
-        logsDir: {
-          type: 'string',
-          not: { pattern: SHELL_INJECTION_PATTERN_STRING },
-        },
-      },
-      required: ['concurrencyCap'],
-      additionalProperties: false,
-    },
-    planRunner: {
-      type: 'object',
-      properties: {
-        enabled: { type: 'boolean' },
-        pollIntervalSec: { type: 'integer', minimum: 1 },
-      },
-      additionalProperties: false,
-    },
+    notifications: NOTIFICATIONS_SCHEMA,
+    hitl: { type: 'object', properties: {}, additionalProperties: false },
+    worktreeIsolation: WORKTREE_ISOLATION_SCHEMA,
+    epicRunner: EPIC_RUNNER_SCHEMA,
+    planRunner: PLAN_RUNNER_SCHEMA,
   },
   additionalProperties: false,
 };
@@ -188,68 +149,4 @@ export function getOrchestrationValidator() {
     _compiledValidator = ajv.compile(ORCHESTRATION_SCHEMA);
   }
   return _compiledValidator;
-}
-
-export const AGENT_SETTINGS_SCHEMA = {
-  type: 'object',
-  properties: {
-    docsContextFiles: {
-      type: 'array',
-      items: { type: 'string' },
-    },
-    maintainability: {
-      type: 'object',
-      properties: {
-        targetDirs: {
-          type: 'array',
-          items: { type: 'string' },
-        },
-      },
-      additionalProperties: false,
-    },
-    maxTickets: { type: 'integer', minimum: 1 },
-    sprintClose: {
-      type: 'object',
-      properties: {
-        runRetro: { type: 'boolean' },
-      },
-      additionalProperties: false,
-    },
-    release: {
-      type: 'object',
-      properties: {
-        docs: {
-          type: 'array',
-          items: {
-            type: 'string',
-            minLength: 1,
-            not: { pattern: SHELL_INJECTION_PATTERN_STRING },
-          },
-        },
-        versionFile: {
-          type: ['string', 'null'],
-          not: { type: 'string', pattern: SHELL_INJECTION_PATTERN_STRING },
-        },
-        packageJson: { type: 'boolean' },
-        autoVersionBump: { type: 'boolean' },
-      },
-      additionalProperties: false,
-    },
-  },
-  patternProperties: {
-    [STRING_FIELDS_PATTERN]: {
-      type: 'string',
-      not: { pattern: SHELL_INJECTION_PATTERN_STRING },
-    },
-  },
-};
-
-let _settingsValidator = null;
-
-export function getSettingsValidator() {
-  if (!_settingsValidator) {
-    const ajv = new Ajv({ allErrors: true });
-    _settingsValidator = ajv.compile(AGENT_SETTINGS_SCHEMA);
-  }
-  return _settingsValidator;
 }
