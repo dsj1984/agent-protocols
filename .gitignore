@@ -12,6 +12,8 @@ tmp/
 temp/
 
 # Generated Claude Code commands (source of truth: .agents/workflows/)
-.claude/
+.claude/commands/
+# Personal Claude Code overrides (team-shared config lives in .claude/settings.json)
+.claude/settings.local.json
 
 .mcp.json
