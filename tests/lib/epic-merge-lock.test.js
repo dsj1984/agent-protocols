@@ -34,28 +34,36 @@ describe('epic-merge-lock', () => {
   });
 
   it('blocks a second acquire until the first is released', async () => {
-    const first = await acquireEpicMergeLock(7, { repoRoot, timeoutMs: 2000 });
+    const first = await acquireEpicMergeLock(7, { repoRoot, timeoutMs: 5000 });
 
-    let secondAcquired = false;
     const secondPromise = acquireEpicMergeLock(7, {
       repoRoot,
-      timeoutMs: 2000,
-    }).then((h) => {
-      secondAcquired = true;
-      return h;
+      timeoutMs: 5000,
     });
 
-    // Give the polling loop time to run a couple of times.
-    await new Promise((r) => setTimeout(r, 400));
+    // Race the second acquire against a sentinel timeout. The sentinel
+    // winning means the second acquire is still blocked — which is the
+    // only guarantee we assert. Matching the blocker's poll interval
+    // (250ms) against a generous 750ms sentinel gives ~3 poll attempts
+    // of headroom: enough to cover CPU-starved CI without coupling the
+    // test to a specific poll cadence. The subsequent release/await
+    // completes the behavioral proof.
+    const STILL_BLOCKED = Symbol('still-blocked');
+    const raced = await Promise.race([
+      secondPromise,
+      new Promise((resolve) => setTimeout(() => resolve(STILL_BLOCKED), 750)),
+    ]);
     assert.equal(
-      secondAcquired,
-      false,
-      'second acquire should still be waiting',
+      raced,
+      STILL_BLOCKED,
+      'second acquire should still be blocked by first',
     );
+    // Lock file still belongs to first — proves the blocking is real.
+    const meta = JSON.parse(fs.readFileSync(first.filePath, 'utf8'));
+    assert.equal(meta.acquiredAt, first.acquiredAt);
 
     releaseEpicMergeLock(first);
     const second = await secondPromise;
-    assert.equal(secondAcquired, true);
     assert.ok(fs.existsSync(second.filePath));
     releaseEpicMergeLock(second);
   });

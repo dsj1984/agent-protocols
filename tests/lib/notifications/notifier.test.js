@@ -1,5 +1,5 @@
 import assert from 'node:assert/strict';
-import { describe, it } from 'node:test';
+import { afterEach, describe, it } from 'node:test';
 
 import {
   Notifier,
@@ -209,11 +209,23 @@ describe('Notifier channels', () => {
 describe('resolveWebhookUrl priority', () => {
   const ORIG = process.env.NOTIFICATION_WEBHOOK_URL;
 
+  // Restore via a test hook so an assertion failure can't leak the env var
+  // into sibling tests. `process.env.X = undefined` casts to the string
+  // "undefined", so restore via delete-or-set depending on original state.
+  function restoreEnv() {
+    if (ORIG === undefined) {
+      delete process.env.NOTIFICATION_WEBHOOK_URL;
+    } else {
+      process.env.NOTIFICATION_WEBHOOK_URL = ORIG;
+    }
+  }
+
+  afterEach(restoreEnv);
+
   it('prefers env var over mcp.json', () => {
     process.env.NOTIFICATION_WEBHOOK_URL = 'https://env.example/hook';
     const url = resolveWebhookUrl();
     assert.equal(url, 'https://env.example/hook');
-    process.env.NOTIFICATION_WEBHOOK_URL = ORIG;
   });
 
   it('returns null when nothing is configured', () => {
@@ -221,6 +233,5 @@ describe('resolveWebhookUrl priority', () => {
     // Point resolver at a cwd without .mcp.json so the last fallback misses too.
     const url = resolveWebhookUrl({ cwd: '/nonexistent-path-for-test' });
     assert.equal(url, null);
-    process.env.NOTIFICATION_WEBHOOK_URL = ORIG;
   });
 });

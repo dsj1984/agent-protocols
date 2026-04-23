@@ -331,20 +331,53 @@ test('sprint-story-close: successful merge and closure', async () => {
     },
   });
 
-  const { success, result } = await runStoryClose({
-    storyId: 100,
-    injectedProvider: provider,
-    skipValidation: true,
-  });
+  // Use a disposable sandbox as the repo root so the epic-merge-lock's
+  // `fs.mkdirSync(<cwd>/.git, { recursive: true })` can succeed. When the
+  // test runs inside a `.worktrees/` checkout the default PROJECT_ROOT
+  // points at a worktree whose `.git` is a gitlink *file*, which makes the
+  // recursive mkdir throw EEXIST and masks the real merge outcome.
+  const sandboxCwd = fs.mkdtempSync(
+    path.join(os.tmpdir(), 'story-close-merge-'),
+  );
+  fs.writeFileSync(
+    path.join(sandboxCwd, '.agentrc.json'),
+    JSON.stringify({
+      agentSettings: { baseBranch: 'main' },
+      orchestration: {
+        provider: 'github',
+        github: { owner: 'o', repo: 'r' },
+        worktreeIsolation: { enabled: false },
+      },
+    }),
+  );
+  const originalReap = WorktreeManager.prototype.reap;
+  WorktreeManager.prototype.reap = async function (_storyId) {
+    return {
+      removed: false,
+      reason: 'not-a-worktree',
+      path: this.pathFor(100),
+    };
+  };
+  try {
+    const { success, result } = await runStoryClose({
+      storyId: 100,
+      cwd: sandboxCwd,
+      injectedProvider: provider,
+      skipValidation: true,
+    });
 
-  assert.ok(success, 'Should succeed');
-  assert.strictEqual(result.merged, true, 'Should be marked as merged');
+    assert.ok(success, 'Should succeed');
+    assert.strictEqual(result.merged, true, 'Should be marked as merged');
 
-  // Verify closures
-  const story = provider.tickets[100];
-  const task = provider.tickets[101];
-  assert.ok(story.labels.includes('agent::done'), 'Story should be done');
-  assert.ok(task.labels.includes('agent::done'), 'Task should be done');
+    // Verify closures
+    const story = provider.tickets[100];
+    const task = provider.tickets[101];
+    assert.ok(story.labels.includes('agent::done'), 'Story should be done');
+    assert.ok(task.labels.includes('agent::done'), 'Task should be done');
+  } finally {
+    WorktreeManager.prototype.reap = originalReap;
+    fs.rmSync(sandboxCwd, { recursive: true, force: true });
+  }
 });
 
 test('sprint-story-close: reaps worktree using resolved --cwd repo root', async () => {
