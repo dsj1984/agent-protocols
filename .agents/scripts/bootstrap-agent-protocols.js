@@ -147,9 +147,7 @@ export async function runBootstrap(orchestration, opts = {}) {
 
   log('[bootstrap] Starting idempotent setup...');
   log(`[bootstrap] Provider: ${orchestration.provider}`);
-  log(
-    `[bootstrap] Target: ${providerConfig?.owner}/${providerConfig?.repo}`,
-  );
+  log(`[bootstrap] Target: ${providerConfig?.owner}/${providerConfig?.repo}`);
 
   log('[bootstrap] Verifying API access...');
   await verifyApiAccess(provider);
