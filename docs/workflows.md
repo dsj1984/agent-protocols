@@ -22,7 +22,6 @@ Every command file lives at `.agents/workflows/<name>.md` and is auto-synced to
 | Command                     | Purpose                                                                                           |
 | --------------------------- | ------------------------------------------------------------------------------------------------- |
 | `/sprint-execute`           | Single entry point. Routes by `type::` label — Epic Mode for `type::epic`, Story Mode for `type::story`. |
-| `/sprint-hotfix`            | Rapid remediation of regressions on a Task feature branch after a failed integration candidate.   |
 
 > `/sprint-execute-epic` and `/sprint-execute-story` were retired in v5.15.0.
 > The single `/sprint-execute` router replaces both; its internal engines
@@ -71,17 +70,28 @@ invoked manually or automatically at `gate1`–`gate4` by the audit orchestrator
 
 ## Setup & meta
 
-| Command                      | Purpose                                                                                   |
-| ---------------------------- | ----------------------------------------------------------------------------------------- |
-| `/bootstrap-agent-protocols` | Initialize a GitHub repo with the v5 label taxonomy, project fields, and (v5.15.0+) the default Kanban board. |
-| `/sync-agents-config`        | Reconcile `.agentrc.json` against `.agents/default-agentrc.json` — adds missing fields, removes obsolete ones. |
+| Command                    | Purpose                                                                                                          |
+| -------------------------- | ---------------------------------------------------------------------------------------------------------------- |
+| `/agents-bootstrap-github` | Initialize a GitHub repo with the v5 label taxonomy, project fields, and (v5.15.0+) the default Kanban board.    |
+| `/agents-sync-config`      | Reconcile `.agentrc.json` against `.agents/default-agentrc.json` — adds missing fields, removes obsolete ones.   |
 
 ## Internal / reference-only
 
 Not invoked directly by operators, but referenced from other workflows:
 
-- `_merge-conflict-template.md` — canonical procedure for resolving a merge
-  conflict, included by reference from `sprint-execute` and `sprint-hotfix`.
+- `helpers/_merge-conflict-template.md` — canonical procedure for resolving a
+  merge conflict, included by reference from `sprint-execute`, `sprint-close`,
+  and `git-merge-pr`.
+- `helpers/sprint-code-review.md` — comprehensive code-review procedure,
+  auto-invoked by `sprint-close` (Phase 2) and the `sprint-execute` bookends.
+- `helpers/sprint-retro.md` — retrospective authoring procedure, auto-invoked
+  by `sprint-close` (Phase 5.1).
+- `helpers/sprint-testing.md` — QA evidence ingest for the sprint-testing
+  ticket, invoked by `sprint-close` / operator; consumes `/run-bdd-suite`
+  output.
+- `helpers/sprint-plan-spec.md`, `helpers/sprint-plan-decompose.md` —
+  phase procedures delegated to by `/sprint-plan` (local wrapper) and by the
+  `/sprint-plan --phase <phase>` entry point fired by the remote orchestrator.
 - `worktree-lifecycle.md` — per-story `git worktree` isolation model, including
   node_modules strategies, Windows notes, and escape hatches.
 

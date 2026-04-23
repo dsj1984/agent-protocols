@@ -140,8 +140,9 @@ additional channel, not a replacement.
 5. **If `autoClose` was set**: auto-invoke `/sprint-close` only. Review and
    retro remain operator-driven — the runner never generates review or retro
    artefacts on its own. The hand-off comment always lists the full set of
-   operator-driven bookends (`/sprint-code-review`, `/sprint-retro`,
-   `/sprint-close`) so the operator sees exactly what remains. If
+   operator-driven bookends (the `helpers/sprint-code-review.md` procedure,
+   the `helpers/sprint-retro.md` procedure, and `/sprint-close`) so the
+   operator sees exactly what remains. If
    `epic::auto-close` was not set, the runner exits cleanly after posting the
    hand-off.
 
@@ -278,7 +279,8 @@ For **each child Task** in the order returned by `sprint-story-init.js`:
 4. Proceed to the next Task in the Story.
 
 > If a commit runs into a merge conflict during a rebase, follow the canonical
-> procedure in [`_merge-conflict-template.md`](_merge-conflict-template.md).
+> procedure in
+> [`helpers/_merge-conflict-template.md`](helpers/_merge-conflict-template.md).
 
 ### Step 2 — Validate
 

@@ -132,8 +132,8 @@ jobs:
           prompt: >-
             ${{
               steps.validate.outputs.phase == 'dispatch' && format('/sprint-execute {0}', steps.validate.outputs.epic_id) ||
-              steps.validate.outputs.phase == 'spec' && format('/sprint-plan-spec {0}', steps.validate.outputs.epic_id) ||
-              format('/sprint-plan-decompose {0}', steps.validate.outputs.epic_id)
+              steps.validate.outputs.phase == 'spec' && format('/sprint-plan --phase spec {0}', steps.validate.outputs.epic_id) ||
+              format('/sprint-plan --phase decompose {0}', steps.validate.outputs.epic_id)
             }}
           # Bypass interactive permission prompts — the orchestrator needs
           # Bash, Agent, Edit, MCP, and many more tools, and there is no

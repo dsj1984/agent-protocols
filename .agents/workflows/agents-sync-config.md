@@ -5,7 +5,7 @@ description: >-
   values. Handles arbitrarily nested structures.
 ---
 
-# /sync-agents-config
+# /agents-sync-config
 
 ## Overview
 

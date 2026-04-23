@@ -170,7 +170,7 @@ describe('v5 Infrastructure files', () => {
     'scripts/lib/config-resolver.js',
     'scripts/lib/provider-factory.js',
     'scripts/providers/github.js',
-    'scripts/bootstrap-agent-protocols.js',
+    'scripts/agents-bootstrap-github.js',
   ];
 
   for (const file of v5Files) {

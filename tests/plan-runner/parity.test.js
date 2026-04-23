@@ -26,14 +26,17 @@ function commandForPhase(phase, epicId) {
 }
 
 describe('plan-runner parity (features/remote-planning.feature)', () => {
-  it('(a) agent::planning → --phase spec → /sprint-plan-spec', () => {
+  it('(a) agent::planning → --phase spec → /sprint-plan --phase spec', () => {
     const epicId = 349;
     const descriptor = phaseForLabel(AGENT_LABELS.PLANNING);
     assert.equal(descriptor.phase, PLAN_PHASE_NAMES.SPEC);
 
     const phase = resolvePhase({ argv: ['--phase', 'spec'], env: {} });
     assert.equal(phase, 'spec');
-    assert.equal(commandForPhase(phase, epicId), `/sprint-plan-spec ${epicId}`);
+    assert.equal(
+      commandForPhase(phase, epicId),
+      `/sprint-plan --phase spec ${epicId}`,
+    );
     assert.equal(
       PHASE_TO_COMMAND[phase],
       descriptor.command,
@@ -53,7 +56,7 @@ describe('plan-runner parity (features/remote-planning.feature)', () => {
     assert.equal(phaseForLabel(AGENT_LABELS.REVIEW_SPEC), null);
   });
 
-  it('(c) agent::decomposing → --phase decompose → /sprint-plan-decompose', () => {
+  it('(c) agent::decomposing → --phase decompose → /sprint-plan --phase decompose', () => {
     const epicId = 349;
     const descriptor = phaseForLabel(AGENT_LABELS.DECOMPOSING);
     assert.equal(descriptor.phase, PLAN_PHASE_NAMES.DECOMPOSE);
@@ -65,7 +68,7 @@ describe('plan-runner parity (features/remote-planning.feature)', () => {
     assert.equal(phase, 'decompose');
     assert.equal(
       commandForPhase(phase, epicId),
-      `/sprint-plan-decompose ${epicId}`,
+      `/sprint-plan --phase decompose ${epicId}`,
     );
     assert.equal(PHASE_TO_COMMAND[phase], descriptor.command);
   });

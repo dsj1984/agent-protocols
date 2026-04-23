@@ -3,10 +3,10 @@ import { describe, it } from 'node:test';
 
 import { AGENT_LABELS } from '../../.agents/scripts/lib/label-constants.js';
 import {
-  PLAN_PHASE_DESCRIPTORS,
-  PLAN_PHASE_NAMES,
   advancePhase,
   nextPhaseForEpic,
+  PLAN_PHASE_DESCRIPTORS,
+  PLAN_PHASE_NAMES,
   phaseForLabel,
 } from '../../.agents/scripts/lib/orchestration/plan-runner/plan-router.js';
 
@@ -16,7 +16,7 @@ describe('plan-router', () => {
       const phase = phaseForLabel(AGENT_LABELS.PLANNING);
       assert.equal(phase.phase, PLAN_PHASE_NAMES.SPEC);
       assert.equal(phase.script, '.agents/scripts/sprint-plan-spec.js');
-      assert.equal(phase.command, '/sprint-plan-spec');
+      assert.equal(phase.command, '/sprint-plan --phase spec');
     });
 
     it('maps agent::decomposing → decompose descriptor', () => {

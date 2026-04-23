@@ -1,7 +1,7 @@
 # Project Board — Canonical Kanban Reference
 
 This document is the source of truth for the Agent Protocols default
-GitHub Projects V2 board. `bootstrap-agent-protocols.js` attempts to
+GitHub Projects V2 board. `agents-bootstrap-github.js` attempts to
 provision everything below automatically; any step that requires a scope
 or a GraphQL mutation the token cannot reach is logged as a warning and
 expected to be finished by hand using the checklist at the bottom.

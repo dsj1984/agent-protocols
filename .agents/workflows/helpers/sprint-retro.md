@@ -5,9 +5,14 @@ description: >-
   (the retro is no longer written to a local file).
 ---
 
-# Sprint Retro
+# Sprint Retro (helper)
 
-This workflow generates a sprint retrospective by reading execution data
+> **Helper module.** Not a slash command. Invoked automatically from
+> `/sprint-close` Phase 5.1 when the Epic has no retro comment yet. To run a
+> retro directly, use `/sprint-close [Epic_ID]` — it delegates here (or pass
+> `--skip-retro` to bypass).
+
+This helper generates a sprint retrospective by reading execution data
 directly from the GitHub ticket graph and **posts the result as a comment on the
 Epic issue**. Local `docs/retros/` is no longer used — GitHub is the sole retro
 archive.
@@ -96,7 +101,7 @@ with the `retro-complete:` marker, which `/sprint-close` Phase 5.1 uses as
 its sole completion gate (the regex matches `retro-complete:` exclusively,
 so `retro-partial:` checkpoints never trip the gate).
 
-If `/sprint-retro` is re-invoked after a mid-run crash, the prior
+If this helper is re-invoked after a mid-run crash, the prior
 `retro-partial` comment is visible on the Epic; resume composition from the
 next unwritten section rather than starting over.
 
@@ -183,7 +188,7 @@ echo it in its summary.
 
 ### Manual verification
 
-After a full `/sprint-retro` run, inspect the Make.com (or equivalent)
+After a full retro run, inspect the Make.com (or equivalent)
 notification webhook log for the window of the run and confirm **no entry
 contains the retro body**. The webhook should only ever see short
 notification payloads fired elsewhere in the protocol — the retro post must
@@ -195,8 +200,9 @@ stop and fix before continuing.
 If the comment post fails (network / 4xx / 5xx), **do not** write the retro to
 disk. Surface the error to the operator and abort. The retro body lives only in
 the agent's working memory for the current session — the operator re-runs
-`/sprint-retro [EPIC_ID]` after resolving connectivity so the content is
-regenerated from the ticket graph (the authoritative source) and posted fresh.
+`/sprint-close [EPIC_ID]` after resolving connectivity (which will re-invoke
+this helper) so the content is regenerated from the ticket graph (the
+authoritative source) and posted fresh.
 The `retro-partial` checkpoint from Step 2 remains on the Epic so prior
 section composition is preserved across the re-run. GitHub is the sole retro
 archive.

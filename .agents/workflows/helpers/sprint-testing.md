@@ -2,7 +2,12 @@
 description: QA sprint-testing workflow — ingest the Cucumber report from the BDD acceptance suite as sprint evidence
 ---
 
-# /sprint-testing
+# Sprint Testing (helper)
+
+> **Helper module.** Not a slash command. Invoked from the QA gate during
+> `/sprint-close` or directly by an operator when the sprint-testing ticket
+> needs refreshed evidence. For ad-hoc BDD runs use `/run-bdd-suite` — this
+> helper owns the sprint-evidence ticket lifecycle on top of it.
 
 Gather and attach the acceptance-suite evidence that gates sprint closure. The
 evidence artifact is the **Cucumber HTML/JSON report** produced by the

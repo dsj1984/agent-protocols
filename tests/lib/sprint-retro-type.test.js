@@ -11,6 +11,7 @@ const RETRO_SKILL_PATH = path.resolve(
   '..',
   '.agents',
   'workflows',
+  'helpers',
   'sprint-retro.md',
 );
 

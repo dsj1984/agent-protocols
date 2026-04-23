@@ -21,7 +21,7 @@ const PERSONA_NAMES = fs
 
 const { runBootstrap } = await import(
   pathToFileURL(
-    path.join(ROOT, '.agents', 'scripts', 'bootstrap-agent-protocols.js'),
+    path.join(ROOT, '.agents', 'scripts', 'agents-bootstrap-github.js'),
   ).href
 );
 

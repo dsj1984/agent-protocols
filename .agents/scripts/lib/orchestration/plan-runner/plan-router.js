@@ -22,7 +22,12 @@ export const PLAN_PHASE_NAMES = Object.freeze({
 /**
  * Canonical descriptor for each planning phase. `script` is the repo-relative
  * path used by both the local wrapper and the remote bootstrap; `command` is
- * the slash-command form used by operators.
+ * the slash-command invocation operators (and the remote orchestrator) fire.
+ *
+ * Spec and Decompose are served by the unified `/sprint-plan` wrapper with a
+ * `--phase` flag — the phase workflows themselves live at
+ * `.agents/workflows/helpers/sprint-plan-{spec,decompose}.md` and are not
+ * directly invokable slash commands.
  *
  * Exported as `PLAN_PHASE_DESCRIPTORS` so it does not collide with the
  * phase-name enum `PLAN_PHASES` in `plan-checkpointer.js`.
@@ -31,14 +36,14 @@ export const PLAN_PHASE_DESCRIPTORS = Object.freeze({
   [PLAN_PHASE_NAMES.SPEC]: {
     phase: PLAN_PHASE_NAMES.SPEC,
     script: '.agents/scripts/sprint-plan-spec.js',
-    command: '/sprint-plan-spec',
+    command: '/sprint-plan --phase spec',
     triggerLabel: AGENT_LABELS.PLANNING,
     parkingLabel: AGENT_LABELS.REVIEW_SPEC,
   },
   [PLAN_PHASE_NAMES.DECOMPOSE]: {
     phase: PLAN_PHASE_NAMES.DECOMPOSE,
     script: '.agents/scripts/sprint-plan-decompose.js',
-    command: '/sprint-plan-decompose',
+    command: '/sprint-plan --phase decompose',
     triggerLabel: AGENT_LABELS.DECOMPOSING,
     parkingLabel: AGENT_LABELS.READY,
   },

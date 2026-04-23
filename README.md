@@ -63,7 +63,7 @@ graph LR
 git submodule add -b dist https://github.com/dsj1984/agent-protocols.git .agents
 
 # Run idempotent bootstrap (creates labels, project fields)
-node .agents/scripts/bootstrap-agent-protocols.js --install-workflows
+node .agents/scripts/agents-bootstrap-github.js --install-workflows
 ```
 
 ### 2. Configure

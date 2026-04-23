@@ -4,6 +4,59 @@ All notable changes to this project will be documented in this file.
 
 ## [Unreleased]
 
+## [5.18.0] - 2026-04-23
+
+### Slash-command renames
+
+- `/bootstrap-agent-protocols` → `/agents-bootstrap-github` (workflow +
+  underlying `.agents/scripts/bootstrap-agent-protocols.js` → `agents-bootstrap-github.js`).
+- `/sync-agents-config` → `/agents-sync-config` (workflow only; no .js).
+
+The `agents-` prefix groups the two repo-lifecycle commands together in the
+slash-command palette. No behavioural changes — only the names moved.
+Consuming projects that invoke the old names (either from CI, docs, or muscle
+memory) must update; the old commands are no longer synced to
+`.claude/commands/`.
+
+### Demoted internal workflows to `helpers/` subfolder
+
+Reorganise the workflow tree so that workflows an operator never invokes
+directly are labelled as helpers rather than cluttering the slash-command
+palette. Six files moved into `.agents/workflows/helpers/`:
+
+- `sprint-plan-spec.md`
+- `sprint-plan-decompose.md`
+- `sprint-code-review.md`
+- `sprint-retro.md`
+- `sprint-testing.md`
+- `_merge-conflict-template.md`
+
+`sync-claude-commands.js` now skips the `helpers/` subdirectory, so only
+top-level workflows become slash commands. Parent workflows (`/sprint-plan`,
+`/sprint-close`, `/sprint-execute`, `/git-merge-pr`, `/run-bdd-suite`) were
+rewritten to reference the helpers by relative path rather than by slash
+command.
+
+**Breaking — remote orchestration contract changed (v5.18.0).** The spec and decompose
+helpers are no longer slash commands; the `/sprint-plan` wrapper now accepts a
+`--phase spec|decompose` flag and handles both modes. Call sites updated:
+
+- `.github/workflows/epic-orchestrator.yml` — `prompt` now fires
+  `/sprint-plan --phase spec <id>` or `/sprint-plan --phase decompose <id>`
+  instead of the retired `/sprint-plan-spec` / `/sprint-plan-decompose`.
+- `.agents/scripts/remote-bootstrap.js` — `PHASE_TO_COMMAND` entries for
+  `spec` and `decompose` changed accordingly; the argv handoff splits the
+  multi-word command before spawning `claude`.
+- `.agents/scripts/lib/orchestration/plan-runner/plan-router.js` —
+  `PLAN_PHASE_DESCRIPTORS[spec|decompose].command` updated to the new form
+  (the `.script` paths to the `.js` wrappers are unchanged).
+- `tests/plan-runner/parity.test.js` and `tests/lib/plan-router.test.js`
+  updated to expect the new command strings.
+
+Non-breaking: the underlying `.js` scripts (`sprint-plan-spec.js`,
+`sprint-plan-decompose.js`, `sprint-code-review.js`) are untouched — only the
+slash-command surface was reorganised.
+
 ### Clean-code & maintainability remediation (Epic #470)
 
 Full-repo refactor campaign across 11 Stories. No user-facing behaviour changes;

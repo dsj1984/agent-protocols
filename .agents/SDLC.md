@@ -33,9 +33,11 @@ From zero to shipped:
 
 4. **Close the Epic.** When the final wave lands, the Epic flips to
    `agent::review`. Run **`/sprint-close <epicId>`** — that one workflow
-   internally auto-invokes `/sprint-code-review` (code-review gate) and
-   `/sprint-retro` (retro gate) before merging to `main`. You never run the
-   review or retro skills by hand.
+   internally auto-invokes the code-review helper
+   (`workflows/helpers/sprint-code-review.md`) and the retro helper
+   (`workflows/helpers/sprint-retro.md`) before merging to `main`. The
+   helpers are not slash commands; you never run the review or retro by
+   hand.
 
    If you'd rather have close run autonomously when the final wave completes (no
    manual invocation at all), add `epic::auto-close` to the Epic **before Step
@@ -78,7 +80,7 @@ graph LR
 
     subgraph Phase0 ["Phase 0: Bootstrap"]
         direction TB
-        Z["👤 /bootstrap-agent-protocols"]:::manual
+        Z["👤 /agents-bootstrap-github"]:::manual
     end
 
     subgraph Phase1 ["Phase 1: Initiation"]
@@ -131,8 +133,8 @@ labels and project fields the orchestration engine depends on.
    project root and fill in the `orchestration` block (owner, repo, etc.).
 2. **Authenticate.** Ensure a valid GitHub token is available (see
    Authentication in [README.md](README.md)).
-3. **Run bootstrap.** Execute `/bootstrap-agent-protocols` (or
-   `node .agents/scripts/bootstrap-agent-protocols.js`). Idempotently creates
+3. **Run bootstrap.** Execute `/agents-bootstrap-github` (or
+   `node .agents/scripts/agents-bootstrap-github.js`). Idempotently creates
    the label taxonomy (including `agent::dispatching` and `epic::auto-close`
    introduced in v5.14.0) and optional GitHub Project V2 fields.
 
@@ -286,13 +288,15 @@ entirety of the operator interface after dispatch.
    `BlockerHandler` flips the Epic to `agent::blocked`, posts a structured
    friction comment, fires the notification webhook (fire-and-forget), and halts
    wave N+1 (letting wave N's in-flight stories finish naturally). The operator
-   resolves via `/sprint-hotfix` or a scope edit, then flips back to
+   resolves the underlying issue (e.g. a hand-fix commit on the Story branch
+   or a scope edit on the blocking ticket), then flips the Epic back to
    `agent::executing` to resume.
 3. **Close hand-off.** At `agent::review`, the run stops by default — you run
-   `/sprint-close <epicId>`, which internally auto-invokes `/sprint-code-review`
-   and `/sprint-retro` before merging to main. If `epic::auto-close` was present
-   at dispatch time, the `BookendChainer` invokes `/sprint-close` automatically
-   with no further prompts.
+   `/sprint-close <epicId>`, which internally auto-invokes the code-review
+   helper (`workflows/helpers/sprint-code-review.md`) and the retro helper
+   (`workflows/helpers/sprint-retro.md`) before merging to main. If
+   `epic::auto-close` was present at dispatch time, the `BookendChainer`
+   invokes `/sprint-close` automatically with no further prompts.
 
 ### Snapshot labels (read once, ignored mid-run)
 
@@ -459,12 +463,12 @@ Once Story waves complete, the bookend lifecycle begins.
 3. **Single operator command: `/sprint-close <epicId>`.** Close is the only
    bookend workflow an operator runs by hand. It internally auto-invokes, in
    order:
-   - **Code review gate** (`/sprint-code-review`) — inline audit; halts close on
-     🔴 Critical Blockers, otherwise continues.
-   - **Retro gate** (`/sprint-retro`) — summarises wins and friction from the
-     ticket graph and posts the retro as a structured comment on the Epic (no
-     local files). Skippable via `agentSettings.sprintClose.runRetro: false` or
-     `--skip-retro`.
+   - **Code review gate** (`workflows/helpers/sprint-code-review.md`) — inline
+     audit; halts close on 🔴 Critical Blockers, otherwise continues.
+   - **Retro gate** (`workflows/helpers/sprint-retro.md`) — summarises wins and
+     friction from the ticket graph and posts the retro as a structured
+     comment on the Epic (no local files). Skippable via
+     `agentSettings.sprintClose.runRetro: false` or `--skip-retro`.
    - **Merge + release.** Merges `epic/<epicId>` into `main`, validates
      documentation freshness, bumps the version, tags the release, and closes
      the Epic (including PRD / Tech Spec context tickets).
@@ -487,7 +491,8 @@ for the acceptance tier is governed by
 
 The acceptance tier is executed and reported via
 [`workflows/run-bdd-suite.md`](workflows/run-bdd-suite.md) and consumed as
-sprint evidence by [`workflows/sprint-testing.md`](workflows/sprint-testing.md).
+sprint evidence by
+[`workflows/helpers/sprint-testing.md`](workflows/helpers/sprint-testing.md).
 
 ---
 
@@ -601,16 +606,15 @@ execution.
 
 | Command                            | Purpose                                                                                                                                                                      |
 | ---------------------------------- | ---------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
-| `/bootstrap-agent-protocols`       | Initialize repo labels and project fields                                                                                                                                    |
+| `/agents-bootstrap-github`         | Initialize repo labels and project fields                                                                                                                                    |
 | `/sprint-plan <epicId>`            | Generate PRD, Tech Spec, and full task hierarchy                                                                                                                             |
 | `/sprint-execute <epicId>`         | Drive a whole Epic end-to-end locally (Epic Mode)                                                                                                                            |
 | `/sprint-execute <storyId>`        | Initialize a Story branch and implement all its Tasks (Story Mode)                                                                                                           |
 | Label Epic `agent::dispatching`    | Trigger remote orchestrator via GitHub Actions                                                                                                                               |
 | Label Epic `epic::auto-close`      | Authorize autonomous bookend chain at dispatch time                                                                                                                          |
 | `/sprint-close <epicId>`           | Close the Epic — auto-invokes code-review + retro, then merges to `main`, tags release, closes Epic + context issues. **The only bookend command an operator runs by hand.** |
-| `/sprint-code-review` _(internal)_ | Auto-invoked by `/sprint-close` Step 1.4; rarely called directly                                                                                                             |
-| `/sprint-retro` _(internal)_       | Auto-invoked by `/sprint-close` Step 1.5; rarely called directly                                                                                                             |
-| `/sprint-hotfix`                   | Rapid remediation after a failed integration candidate                                                                                                                       |
+| _helper_ `workflows/helpers/sprint-code-review.md` | Auto-invoked by `/sprint-close` Phase 2 and by `/sprint-execute` bookends; not a slash command                                                               |
+| _helper_ `workflows/helpers/sprint-retro.md`       | Auto-invoked by `/sprint-close` Phase 5.1; not a slash command                                                                                               |
 | `/git-commit-all`                  | Stage and commit all changes                                                                                                                                                 |
 | `/git-push`                        | Stage, commit, and push to remote                                                                                                                                            |
 | `/delete-epic-branches <epicId>`   | Hard reset — delete all Epic-scoped branches                                                                                                                                 |

@@ -510,13 +510,10 @@ when an Epic is labelled `agent::dispatching`.
                                (snapshot at dispatch)
                                                     │ yes
                                                     ▼
-                                            /sprint-code-review
-                                                    │
-                                                    ▼
-                                               /sprint-retro
-                                                    │
-                                                    ▼
                                                /sprint-close
+                                          (auto-invokes helpers:
+                                           sprint-code-review.md,
+                                           sprint-retro.md)
                                                     │
                                                     ▼
                                                agent::done
@@ -532,7 +529,7 @@ when an Epic is labelled `agent::dispatching`.
 | `checkpointer`        | Upserts the `epic-run-state` structured comment; handles resume.         |
 | `blocker-handler`     | The sole runtime pause point; halts on `agent::blocked`, waits to resume.|
 | `notification-hook`   | Fire-and-forget webhook; never blocks execution.                         |
-| `bookend-chainer`     | Runs `/sprint-code-review` → `/sprint-retro` → `/sprint-close` on auto-close. |
+| `bookend-chainer`     | Invokes `/sprint-close` on auto-close (which in turn auto-invokes the code-review + retro helpers). |
 | `wave-observer`       | Emits `wave-N-start` / `wave-N-end` structured comments each boundary.   |
 | `column-sync`         | Drives the Projects v2 Status column from agent:: labels (best-effort).  |
 
@@ -859,8 +856,8 @@ three tiers and carries distinct scope, dependency, and assertion rules:
 - **E2E / Acceptance** — `.feature` files authored against
   `.agents/rules/gherkin-standards.md` (the SSOT for the tag taxonomy and
   forbidden patterns) and executed via `/run-bdd-suite`, whose Cucumber
-  HTML/JSON report is the canonical evidence artifact consumed by
-  `/sprint-testing`.
+  HTML/JSON report is the canonical evidence artifact consumed by the
+  `workflows/helpers/sprint-testing.md` helper.
 
 Stack skills `skills/stack/qa/gherkin-authoring` and `skills/stack/qa/playwright-bdd`
 provide authoring guidance and runtime wiring respectively; neither redefines

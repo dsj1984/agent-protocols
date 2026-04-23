@@ -1,13 +1,13 @@
 /* node:coverage ignore file */
 /**
- * Bootstrap Agent Protocols — Idempotent Label & Field Setup
+ * agents-bootstrap-github — Idempotent Label & Field Setup
  *
  * Creates the required label taxonomy and project board custom fields
- * for the v5 Epic-centric orchestration. Idempotent — skips resources
- * that already exist.
+ * for the v5 Epic-centric orchestration on a target GitHub repo.
+ * Idempotent — skips resources that already exist.
  *
  * Usage:
- *   node .agents/scripts/bootstrap-agent-protocols.js
+ *   node .agents/scripts/agents-bootstrap-github.js
  *
  * Reads orchestration config from .agentrc.json via the config resolver,
  * then uses the provider factory to instantiate the correct provider.

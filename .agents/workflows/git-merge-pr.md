@@ -84,7 +84,8 @@ Parse the JSON result. Route on `outcome`:
 ### Step 2.5 — Conflict Resolution
 
 Follow the shared conflict-resolution procedure in
-[`_merge-conflict-template.md`](_merge-conflict-template.md): read both sides
+[`helpers/_merge-conflict-template.md`](helpers/_merge-conflict-template.md):
+read both sides
 of each file in `conflictedFiles[]`, apply both when compatible (or choose a
 side with an explicit rationale), never silently drop code, then stage the
 resolutions.

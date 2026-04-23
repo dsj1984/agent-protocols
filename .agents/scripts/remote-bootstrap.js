@@ -16,9 +16,11 @@
  *      The `--phase` flag (or `PHASE` env var) selects the command; execute
  *      is the default to preserve v5.14.0 behavior.
  *
- * Phase routing:
- *   --phase spec       → claude /sprint-plan-spec <EPIC_ID>
- *   --phase decompose  → claude /sprint-plan-decompose <EPIC_ID>
+ * Phase routing (post-v5.18.0 — the spec/decompose helpers are no longer
+ * slash commands; the unified `/sprint-plan` wrapper handles both via
+ * `--phase`):
+ *   --phase spec       → claude /sprint-plan --phase spec <EPIC_ID>
+ *   --phase decompose  → claude /sprint-plan --phase decompose <EPIC_ID>
  *   --phase execute    → claude /sprint-execute <EPIC_ID>   (default)
  *
  * Required env:
@@ -54,8 +56,8 @@ const LINE_SPLIT = /\r?\n/;
  * Exported so tests and callers share a single source of truth.
  */
 export const PHASE_TO_COMMAND = Object.freeze({
-  spec: '/sprint-plan-spec',
-  decompose: '/sprint-plan-decompose',
+  spec: '/sprint-plan --phase spec',
+  decompose: '/sprint-plan --phase decompose',
   execute: '/sprint-execute',
 });
 
@@ -188,9 +190,11 @@ async function main() {
   //    scripts (supply-chain containment).
   run('npm', ['ci', '--ignore-scripts'], { cwd: workspace });
 
-  // 5. Hand off to the phase-appropriate slash command. The plan phases
-  //    invoke /sprint-plan-spec or /sprint-plan-decompose; execute defers
-  //    to /sprint-execute which routes by the ticket's `type::` label.
+  // 5. Hand off to the phase-appropriate slash command. Plan phases now
+  //    route through the unified `/sprint-plan --phase <phase>` wrapper
+  //    (the dedicated spec/decompose slash commands were demoted to
+  //    path-included helpers in v5.18.0). Execute defers to /sprint-execute
+  //    which routes by the ticket's `type::` label.
   if (process.env.SKIP_LAUNCH) {
     log('SKIP_LAUNCH set — bootstrap complete, not launching claude.');
     return;
@@ -201,8 +205,9 @@ async function main() {
   });
   const command = PHASE_TO_COMMAND[phase];
   const claudeBin = process.env.CLAUDE_BIN || 'claude';
+  const commandArgs = command.split(' ');
   log(`Launching ${claudeBin} ${command} ${epicId} (phase=${phase})`);
-  run(claudeBin, [command, String(epicId)], {
+  run(claudeBin, [...commandArgs, String(epicId)], {
     cwd: workspace,
   });
 }

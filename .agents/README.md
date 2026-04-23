@@ -24,7 +24,8 @@ framework via the `.agents/` Git submodule.
 │   ├── core/                # Universal process skills (20 skills)
 │   └── stack/               # Tech-stack-specific guardrails (22 skills)
 ├── templates/               # Context hydration and CI templates
-└── workflows/               # 24 slash-command workflows
+└── workflows/               # Slash-command workflows
+    └── helpers/             # Path-included helper modules (not slash commands)
 ```
 
 ---
@@ -104,7 +105,7 @@ Override protocol behavior per-machine with `.agents/instructions.local.md`
 
 ---
 
-## Bootstrap (`/bootstrap-agent-protocols`)
+## Bootstrap (`/agents-bootstrap-github`)
 
 Before running any sprint workflows, you must bootstrap your GitHub repository
 so the orchestration engine has the labels, project fields, and metadata it
@@ -136,14 +137,14 @@ expects. The bootstrap script is **idempotent** — safe to run multiple times.
 **Via slash command (recommended):**
 
 ```text
-/bootstrap-agent-protocols
+/agents-bootstrap-github
 ```
 
 **Via CLI:**
 
 ```bash
-node .agents/scripts/bootstrap-agent-protocols.js
-node .agents/scripts/bootstrap-agent-protocols.js --install-workflows
+node .agents/scripts/agents-bootstrap-github.js
+node .agents/scripts/agents-bootstrap-github.js --install-workflows
 ```
 
 ### Label Categories
@@ -352,25 +353,44 @@ repository maintenance.
 
 ### Sprint Workflows
 
-| Workflow                | Slash Command         | Purpose                                                                 |
-| ----------------------- | --------------------- | ----------------------------------------------------------------------- |
-| `sprint-plan.md`        | `/sprint-plan`        | Autonomous PRD, Tech Spec, and task generation                          |
-| `sprint-execute.md`     | `/sprint-execute`     | Routes by `type::` label — Epic orchestration or single-Story execution |
-| `sprint-code-review.md` | `/sprint-code-review` | Comprehensive code review                                               |
-| `sprint-hotfix.md`      | `/sprint-hotfix`      | Rapid remediation on feature branches                                   |
-| `sprint-retro.md`       | `/sprint-retro`       | Retrospective from ticket graph                                         |
-| `sprint-close.md`       | `/sprint-close`       | Final merge, tag release, close Epic                                    |
+| Workflow            | Slash Command                                                             | Purpose                                                                 |
+| ------------------- | ------------------------------------------------------------------------- | ----------------------------------------------------------------------- |
+| `sprint-plan.md`    | `/sprint-plan [--phase spec\|decompose]`                                  | PRD, Tech Spec, and task generation. `--phase` runs one phase only.     |
+| `sprint-execute.md` | `/sprint-execute`                                                         | Routes by `type::` label — Epic orchestration or single-Story execution |
+| `sprint-close.md`   | `/sprint-close`                                                           | Final merge, tag release, close Epic (auto-invokes review + retro)      |
+
+### QA Workflows
+
+| Workflow            | Slash Command          | Purpose                                                       |
+| ------------------- | ---------------------- | ------------------------------------------------------------- |
+| `run-bdd-suite.md`  | `/run-bdd-suite [tag]` | Tag-filtered BDD acceptance run; collects Cucumber report     |
+
+### Helper Modules (`workflows/helpers/`)
+
+Helpers are path-included by parent workflows and are **not** exposed as
+slash commands. They exist so the orchestrators (`/sprint-plan`,
+`/sprint-close`, `/sprint-execute`) stay readable while each phase stays
+independently testable. Invoke them by running the parent workflow.
+
+| Helper                           | Invoked by                                                  | Purpose                                                |
+| -------------------------------- | ----------------------------------------------------------- | ------------------------------------------------------ |
+| `sprint-plan-spec.md`            | `/sprint-plan` (Phase 1) · `/sprint-plan --phase spec`      | PRD + Tech Spec authoring and persistence              |
+| `sprint-plan-decompose.md`       | `/sprint-plan` (Phase 2) · `/sprint-plan --phase decompose` | Feature / Story / Task decomposition                   |
+| `sprint-code-review.md`          | `/sprint-close` Phase 2 · `/sprint-execute` bookend         | Comprehensive code review, persists structured comment |
+| `sprint-retro.md`                | `/sprint-close` Phase 5.1                                   | Retrospective from ticket graph + friction logs        |
+| `sprint-testing.md`              | `/sprint-close` QA gate · operator                          | Ingests Cucumber evidence onto the sprint-testing ticket |
+| `_merge-conflict-template.md`    | `/sprint-close`, `/sprint-execute`, `/git-merge-pr`         | Shared merge-conflict resolution procedure             |
 
 ### Utility Workflows
 
-| Workflow                       | Slash Command                | Purpose                                   |
-| ------------------------------ | ---------------------------- | ----------------------------------------- |
-| `bootstrap-agent-protocols.md` | `/bootstrap-agent-protocols` | Initialize repo labels and project fields |
-| `git-commit-all.md`            | `/git-commit-all`            | Stage and commit all changes              |
-| `git-push.md`                  | `/git-push`                  | Stage, commit, and push to remote         |
-| `sync-agents-config.md`        | `/sync-agents-config`        | Reconcile `.agentrc.json` with defaults   |
-| `delete-epic-branches.md`      | `/delete-epic-branches`      | Hard reset: delete Epic branches          |
-| `delete-epic-tickets.md`       | `/delete-epic-tickets`       | Hard reset: clear Epic child issues       |
+| Workflow                      | Slash Command              | Purpose                                   |
+| ----------------------------- | -------------------------- | ----------------------------------------- |
+| `agents-bootstrap-github.md`  | `/agents-bootstrap-github` | Initialize repo labels and project fields |
+| `agents-sync-config.md`       | `/agents-sync-config`      | Reconcile `.agentrc.json` with defaults   |
+| `git-commit-all.md`           | `/git-commit-all`          | Stage and commit all changes              |
+| `git-push.md`                 | `/git-push`                | Stage, commit, and push to remote         |
+| `delete-epic-branches.md`     | `/delete-epic-branches`    | Hard reset: delete Epic branches          |
+| `delete-epic-tickets.md`      | `/delete-epic-tickets`     | Hard reset: clear Epic child issues       |
 
 ---
 
@@ -423,7 +443,7 @@ The SDK centralizes orchestration logic. All CLI scripts and the MCP server are
 
 | Script                               | Purpose                                                                 |
 | ------------------------------------ | ----------------------------------------------------------------------- |
-| `bootstrap-agent-protocols.js`       | Idempotent setup of GitHub labels and project fields                    |
+| `agents-bootstrap-github.js`         | Idempotent setup of GitHub labels and project fields                    |
 | `epic-planner.js`                    | Autonomous PRD and Tech Spec generation                                 |
 | `ticket-decomposer.js`               | Recursive 4-tier hierarchy decomposition                                |
 | `mcp-orchestration.js`               | **MCP Server** — exposes dispatch, hydration, and state tools to agents |

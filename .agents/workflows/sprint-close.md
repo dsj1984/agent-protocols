@@ -15,9 +15,10 @@ Finalize, Notify. Each phase is a cohesive checkpoint: skipping ahead strands
 partial state on GitHub, so run them in order.
 
 > **When to run**: As soon as all child work is closed. `/sprint-close`
-> auto-invokes the mandatory pre-merge gates (`/sprint-code-review` in the
-> Review phase and `/sprint-retro` in the Notify phase) when they have not
-> already been completed, so operators no longer need to run them by hand.
+> auto-invokes the mandatory pre-merge gates (the `helpers/sprint-code-review.md`
+> module in the Review phase and `helpers/sprint-retro.md` in the Notify phase)
+> when they have not already been completed, so operators no longer need to run
+> them by hand.
 >
 > **Persona**: `devops-engineer` · **Skills**:
 > `core/git-workflow-and-versioning`
@@ -134,15 +135,17 @@ Re-run the gate until it exits 0.
 ## Phase 2 — Review
 
 Establish the post-hoc code-review record on the Epic. The Review phase runs
-`/sprint-code-review`, which performs the static analysis **and** persists
-its findings as a `code-review` structured comment on the Epic (via
-`upsertStructuredComment`). That comment is the durable audit trail —
-subsequent retros, incident reviews, and compliance checks read back from it.
+the [`helpers/sprint-code-review.md`](helpers/sprint-code-review.md) module,
+which performs the static analysis **and** persists its findings as a
+`code-review` structured comment on the Epic (via `upsertStructuredComment`).
+That comment is the durable audit trail — subsequent retros, incident reviews,
+and compliance checks read back from it.
 
-### 2.1 Auto-invoke `/sprint-code-review`
+### 2.1 Auto-invoke the code-review helper
 
-1. Invoke `/sprint-code-review [EPIC_ID]` inline (read-only audit mode — no
-   remediation).
+1. Follow the procedure in
+   [`helpers/sprint-code-review.md`](helpers/sprint-code-review.md) inline for
+   `[EPIC_ID]` (read-only audit mode — no remediation).
 2. Inspect the resulting findings:
    - **Any 🔴 Critical Blocker** — STOP. Relay the blockers to the operator and
      do not proceed to Phase 3. The operator decides whether to fix on the
@@ -152,11 +155,11 @@ subsequent retros, incident reviews, and compliance checks read back from it.
 3. If the operator passes `--skip-code-review` at invocation time, skip this
    step and log `code review skipped by operator override`.
 
-> **Why auto-invoke:** The prior gate assumed `/sprint-code-review` had been
-> run out-of-band and stopped when it couldn't detect evidence. Because the
-> review now upserts a structured comment, the gate detects prior runs
-> reliably — but keeping the auto-invoke collapses the round-trip when the
-> review has not yet been written.
+> **Why auto-invoke:** The prior gate assumed the code review had been run
+> out-of-band and stopped when it couldn't detect evidence. Because the review
+> now upserts a structured comment, the gate detects prior runs reliably —
+> but keeping the auto-invoke collapses the round-trip when the review has
+> not yet been written.
 
 ---
 
@@ -254,8 +257,8 @@ node [SCRIPTS_ROOT]/detect-merges.js
 ```
 
 If markers are found: resolve them following the canonical procedure in
-[`_merge-conflict-template.md`](_merge-conflict-template.md), stage with
-`git add`, and amend the merge commit before proceeding.
+[`helpers/_merge-conflict-template.md`](helpers/_merge-conflict-template.md),
+stage with `git add`, and amend the merge commit before proceeding.
 
 ### 3.6 Push Base & Tags
 
@@ -326,7 +329,7 @@ explicit tag push before announcing.
 Write the retrospective (if enabled) and fire the terminal notification so
 stakeholders learn the Epic shipped.
 
-### 5.1 Auto-invoke `/sprint-retro`
+### 5.1 Auto-invoke the retro helper
 
 **Skip this step entirely when `[RUN_RETRO]` is `false` or the operator
 passed `--skip-retro`.** Log the override and proceed.
@@ -350,17 +353,18 @@ gh api "repos/{owner}/{repo}/issues/[EPIC_ID]/comments" \
   --jq '.[] | select(.body | test("retro-complete:"))'
 ```
 
-If no matching comment is found, **auto-invoke** `/sprint-retro [EPIC_ID]`
-inline. After it completes, re-run the check above to confirm the comment is
-now present. If the retro skill failed to produce a comment, STOP and relay
-the failure to the operator.
+If no matching comment is found, **auto-invoke** the
+[`helpers/sprint-retro.md`](helpers/sprint-retro.md) procedure inline for
+`[EPIC_ID]`. After it completes, re-run the check above to confirm the comment
+is now present. If the retro helper failed to produce a comment, STOP and
+relay the failure to the operator.
 
 > **Why it exists:** without the gate, retros get silently skipped and the
 > Epic closes with no post-mortem record. The gate reads directly from
 > GitHub (the retro's source of truth), not a local path.
 >
-> **Why it auto-invokes:** the prior "STOP and ask the operator to run
-> `/sprint-retro`" step generated friction every time — the operator always
+> **Why it auto-invokes:** the prior "STOP and ask the operator to run the
+> retro" step generated friction every time — the operator always
 > wanted "run it, then continue." Auto-invocation collapses the round-trip.
 >
 > **`--skip-retro` parity:** the flag behaves like `--skip-code-review` —
@@ -387,12 +391,12 @@ node [SCRIPTS_ROOT]/notify.js --ticket [EPIC_ID] "Epic #[EPIC_ID] closed. Merged
   broken `[BASE_BRANCH]` blocks all future Epics.
 - **Never** run auto-close merges against an unprotected `[BASE_BRANCH]` —
   Phase 3.1 refuses them.
-- **Always** auto-invoke `/sprint-code-review` (Phase 2) and `/sprint-retro`
+- **Always** auto-invoke the code-review helper (Phase 2) and the retro helper
   (Phase 5.1) when they have not already produced their artefacts. Do not
   halt and ask the operator to run them separately — that round-trip is what
   the auto-invoke replaced.
-- **Always** persist the `/sprint-code-review` output as a `code-review`
-  structured comment on the Epic — the review script already does this via
+- **Always** persist the code-review output as a `code-review` structured
+  comment on the Epic — `sprint-code-review.js` already does this via
   `upsertStructuredComment`; do not bypass it.
 - **Always** bump the version and create the git tag (Phase 3.2) before
   merging when `release.autoVersionBump` is `true`. Use **minor** for new
