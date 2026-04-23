@@ -214,7 +214,10 @@ describe('MCP Registry Parity (AC-15) — drift guard', () => {
         'object',
         `${t.name}: inputSchema must be an object`,
       );
-      assert.ok(t.inputSchema !== null, `${t.name}: inputSchema must not be null`);
+      assert.ok(
+        t.inputSchema !== null,
+        `${t.name}: inputSchema must not be null`,
+      );
       assert.equal(
         typeof t.inputSchema.properties,
         'object',
