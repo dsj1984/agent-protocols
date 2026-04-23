@@ -169,10 +169,13 @@ test('e2e: cascade leaves siblings-open parent open (regression guard for premat
     state: 'open',
   };
   provider.subTickets[STORY_ID] = [TASK_ID, siblingTaskId];
-  provider.tickets[STORY_ID].body = `parent: #${FEATURE_ID}\nEpic: #${EPIC_ID}\n\n- [ ] #${TASK_ID}\n- [ ] #${siblingTaskId}`;
+  provider.tickets[STORY_ID].body =
+    `parent: #${FEATURE_ID}\nEpic: #${EPIC_ID}\n\n- [ ] #${TASK_ID}\n- [ ] #${siblingTaskId}`;
 
   const tools = await getToolRegistry(sdk, () => provider);
-  const transitionTool = tools.find((t) => t.name === 'transition_ticket_state');
+  const transitionTool = tools.find(
+    (t) => t.name === 'transition_ticket_state',
+  );
 
   await transitionTool.handler({
     ticketId: TASK_ID,
