@@ -249,13 +249,19 @@ function runAuditSuiteTool(runAuditSuite) {
           description:
             'List of audit workflow names to execute (e.g. ["audit-clean-code"]).',
         },
+        substitutions: {
+          type: 'object',
+          description:
+            'Optional map of template placeholders ({{key}}) to values applied to each workflow body. Allowed keys are the built-ins (auditOutputDir, ticketId, baseBranch) plus any substitutionKeys declared on the requested audits in audit-rules.schema.json. Unknown keys are rejected.',
+          additionalProperties: { type: 'string' },
+        },
       },
       required: ['auditWorkflows'],
       additionalProperties: false,
     },
     outputSchemaRef: '.agents/schemas/audit-results.schema.json',
-    handler: async ({ auditWorkflows }) => {
-      return runAuditSuite({ auditWorkflows });
+    handler: async ({ auditWorkflows, substitutions }) => {
+      return runAuditSuite({ auditWorkflows, substitutions });
     },
   };
 }
