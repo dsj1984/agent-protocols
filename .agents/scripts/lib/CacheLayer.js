@@ -50,6 +50,26 @@ export function createTtlCache({ ttlMs, now = Date.now } = {}) {
       return value;
     },
 
+    /** Synchronous presence check — fresh entries only. */
+    has(key) {
+      if (ttlMs === 0) return false;
+      const entry = store.get(key);
+      return Boolean(entry && isFresh(entry));
+    },
+
+    /** Synchronous fresh-read. Returns `undefined` on miss/expired. */
+    peek(key) {
+      if (ttlMs === 0) return undefined;
+      const entry = store.get(key);
+      return entry && isFresh(entry) ? entry.value : undefined;
+    },
+
+    /** Synchronous overwrite. No-op when ttl is 0. */
+    set(key, value) {
+      if (ttlMs === 0) return;
+      store.set(key, { value, expires: now() + ttlMs });
+    },
+
     invalidate(key) {
       store.delete(key);
     },
