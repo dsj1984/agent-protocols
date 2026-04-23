@@ -8,6 +8,25 @@ import { withTimeout } from '../lib/util/with-timeout.js';
 const DEFAULT_GIT_TIMEOUT_MS = 30000;
 
 /**
+ * Test a single filename against a single glob pattern using the project's
+ * configured matcher semantics (`picomatch` with `dot: true`). Exported so
+ * regression tests can pin engine behavior without stubbing audit-rules.
+ */
+export function matchesFilePattern(pattern, file) {
+  return picomatch(pattern, { dot: true })(file);
+}
+
+/**
+ * Return true when any of `files` matches any of `patterns`.
+ * Same semantics as `matchesFilePattern`; matchers are compiled once per call.
+ */
+export function matchesAnyFilePattern(patterns, files) {
+  if (!patterns?.length || !files?.length) return false;
+  const matchers = patterns.map((p) => picomatch(p, { dot: true }));
+  return files.some((file) => matchers.some((m) => m(file)));
+}
+
+/**
  * Filter audits based on logic in audit-rules.schema.json
  * @param {object} params
  * @param {number} params.ticketId
@@ -18,6 +37,9 @@ const DEFAULT_GIT_TIMEOUT_MS = 30000;
  *   Test-only seam. Production callers leave unset; the real (synchronous) `gitSpawn`
  *   is wrapped in `Promise.resolve` so `withTimeout` can still race it. Tests can
  *   inject a promise that never resolves to exercise the ETIMEDOUT fallback.
+ * @param {number} [params.gitTimeoutMsOverride]
+ *   Test-only seam to shrink the git-spawn timeout below the configured default
+ *   (which is 30_000 ms) so timeout tests don't stall the suite.
  */
 export async function selectAudits({
   ticketId,
@@ -25,9 +47,13 @@ export async function selectAudits({
   provider,
   baseBranch = 'main',
   injectedGitSpawn,
+  gitTimeoutMsOverride,
 }) {
   const { settings, audits } = resolveConfig();
-  const timeoutMs = audits?.selectionGitTimeoutMs ?? DEFAULT_GIT_TIMEOUT_MS;
+  const timeoutMs =
+    gitTimeoutMsOverride ??
+    audits?.selectionGitTimeoutMs ??
+    DEFAULT_GIT_TIMEOUT_MS;
 
   // 1. Read audit-rules.schema.json
   const rulesPath = path.join(
@@ -80,19 +106,6 @@ export async function selectAudits({
     // Any other error: preserve prior behavior (swallow, leave changedFiles empty).
   }
 
-  // 4. Build picomatch matchers per-audit. `dot: true` so patterns match
-  //    dot-prefixed paths (e.g. .github/workflows/*.yml).
-  const matcherCache = new Map();
-  const matchFilePatterns = (patterns) => {
-    if (!patterns.length || !changedFiles.length) return false;
-    let matchers = matcherCache.get(patterns);
-    if (!matchers) {
-      matchers = patterns.map((p) => picomatch(p, { dot: true }));
-      matcherCache.set(patterns, matchers);
-    }
-    return changedFiles.some((file) => matchers.some((m) => m(file)));
-  };
-
   const selectedAudits = [];
 
   for (const [auditName, ruleOpts] of Object.entries(rulesData.audits || {})) {
@@ -118,8 +131,10 @@ export async function selectAudits({
     }
 
     // Check file patterns
-    const filePatterns = triggers.filePatterns || [];
-    const fileMatch = matchFilePatterns(filePatterns);
+    const fileMatch = matchesAnyFilePattern(
+      triggers.filePatterns || [],
+      changedFiles,
+    );
 
     if (keywordMatch || fileMatch) {
       selectedAudits.push(auditName);
