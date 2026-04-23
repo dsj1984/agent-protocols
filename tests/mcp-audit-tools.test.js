@@ -1,5 +1,6 @@
 import assert from 'node:assert/strict';
 import test from 'node:test';
+import { ValidationError } from '../.agents/scripts/lib/errors/index.js';
 import { __setGitRunners } from '../.agents/scripts/lib/git-utils.js';
 import { runAuditSuite } from '../.agents/scripts/mcp/run-audit-suite.js';
 import {
@@ -101,6 +102,135 @@ test('runAuditSuite: resolves real audit-clean-code.md from disk', async () => {
   assert.ok(
     results.workflows[0].content.length > 0,
     'Workflow content should be non-empty',
+  );
+});
+
+// --- Substitution allow-list (Task #546): aggregation across auditWorkflows.
+// Built-in keys are always allowed; each audit may declare additional keys
+// via substitutionKeys; unknown keys raise a ValidationError that names both
+// the offending key(s) and the allowed set for the call.
+
+function makeMockRules() {
+  return {
+    version: 1,
+    audits: {
+      'audit-alpha': {
+        triggers: { gates: ['gate1'] },
+        substitutionKeys: ['alphaKey'],
+      },
+      'audit-beta': {
+        triggers: { gates: ['gate1'] },
+        substitutionKeys: ['betaKey'],
+      },
+      'audit-plain': {
+        triggers: { gates: ['gate1'] },
+        substitutionKeys: [],
+      },
+    },
+  };
+}
+
+test('runAuditSuite: built-in substitution keys are accepted', async () => {
+  const mockLoader = async (auditName) => ({
+    content: `# ${auditName}\nticket={{ticketId}} base={{baseBranch}} dir={{auditOutputDir}}`,
+  });
+
+  const results = await runAuditSuite({
+    auditWorkflows: ['audit-plain'],
+    substitutions: {
+      ticketId: '525',
+      baseBranch: 'main',
+      auditOutputDir: 'out',
+    },
+    injectedLoadWorkflow: mockLoader,
+    injectedRules: makeMockRules(),
+  });
+
+  assert.strictEqual(results.findings.length, 0);
+  assert.strictEqual(results.workflows.length, 1);
+  assert.match(results.workflows[0].content, /ticket=525/);
+  assert.match(results.workflows[0].content, /base=main/);
+  assert.match(results.workflows[0].content, /dir=out/);
+});
+
+test('runAuditSuite: audit-declared substitution key is accepted', async () => {
+  const mockLoader = async (auditName) => ({
+    content: `# ${auditName} alpha={{alphaKey}}`,
+  });
+
+  const results = await runAuditSuite({
+    auditWorkflows: ['audit-alpha'],
+    substitutions: { alphaKey: 'resolved' },
+    injectedLoadWorkflow: mockLoader,
+    injectedRules: makeMockRules(),
+  });
+
+  assert.strictEqual(results.findings.length, 0);
+  assert.match(results.workflows[0].content, /alpha=resolved/);
+});
+
+test('runAuditSuite: unknown substitution key raises ValidationError naming the key and allowed set', async () => {
+  const mockLoader = async () => ({ content: '# body' });
+
+  let captured;
+  await assert.rejects(
+    runAuditSuite({
+      auditWorkflows: ['audit-alpha'],
+      substitutions: { bogus: 'x' },
+      injectedLoadWorkflow: mockLoader,
+      injectedRules: makeMockRules(),
+    }),
+    (err) => {
+      captured = err;
+      return err instanceof ValidationError;
+    },
+  );
+
+  assert.match(captured.message, /bogus/);
+  // Built-ins are always in the allowed set.
+  assert.match(captured.message, /auditOutputDir/);
+  assert.match(captured.message, /ticketId/);
+  assert.match(captured.message, /baseBranch/);
+  // The audit-declared key for this call is named.
+  assert.match(captured.message, /alphaKey/);
+  assert.deepStrictEqual(captured.unknownKeys, ['bogus']);
+  assert.ok(captured.allowedKeys.includes('alphaKey'));
+});
+
+test('runAuditSuite: substitution allow-list aggregates across multiple auditWorkflows', async () => {
+  const mockLoader = async (auditName) => ({
+    content: `# ${auditName} a={{alphaKey}} b={{betaKey}}`,
+  });
+
+  // With both audits requested, both alphaKey and betaKey are allowed
+  // and successfully substituted.
+  const results = await runAuditSuite({
+    auditWorkflows: ['audit-alpha', 'audit-beta'],
+    substitutions: { alphaKey: 'A', betaKey: 'B' },
+    injectedLoadWorkflow: mockLoader,
+    injectedRules: makeMockRules(),
+  });
+
+  assert.strictEqual(results.findings.length, 0);
+  assert.strictEqual(results.workflows.length, 2);
+  for (const wf of results.workflows) {
+    assert.match(wf.content, /a=A/);
+    assert.match(wf.content, /b=B/);
+  }
+
+  // Asking for only audit-alpha means betaKey is no longer in the allow-list
+  // — the same substitutions payload is now rejected.
+  await assert.rejects(
+    runAuditSuite({
+      auditWorkflows: ['audit-alpha'],
+      substitutions: { alphaKey: 'A', betaKey: 'B' },
+      injectedLoadWorkflow: mockLoader,
+      injectedRules: makeMockRules(),
+    }),
+    (err) =>
+      err instanceof ValidationError &&
+      /betaKey/.test(err.message) &&
+      !/alphaKey,/.test(err.unknownKeys.join(',')),
   );
 });
 

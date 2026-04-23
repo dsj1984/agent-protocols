@@ -12,3 +12,11 @@ export class ConflictingTypeLabelsError extends Error {
     this.name = 'ConflictingTypeLabelsError';
   }
 }
+
+export class ValidationError extends Error {
+  constructor(message, details = {}) {
+    super(message);
+    this.name = 'ValidationError';
+    Object.assign(this, details);
+  }
+}
