@@ -7,13 +7,7 @@
   },
   "files": {
     "ignoreUnknown": false,
-    "includes": [
-      "**",
-      "!.worktrees/**",
-      "!temp/**",
-      "!dist/**",
-      "!node_modules/**"
-    ]
+    "includes": ["**", "!.worktrees", "!temp", "!dist", "!node_modules"]
   },
   "formatter": {
     "enabled": true,

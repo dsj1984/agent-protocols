@@ -379,4 +379,83 @@ test('ticketing.js', async (t) => {
       );
     },
   );
+
+  await t.test(
+    'cascadeCompletion auto-closes Feature but not Epic (AC-05 regression)',
+    async () => {
+      // Build a typed hierarchy: Epic E > Feature F > Story S > Task T.
+      // The authoritative contract (docs/architecture.md § Cascade Behavior
+      // and the comment in ticketing.js::cascadeCompletion) is:
+      //   - Story auto-closes via cascade
+      //   - Feature auto-closes via cascade (pinned behavior — Features are
+      //     purely hierarchical groupings with no standalone branch/merge)
+      //   - Epic does NOT auto-close via cascade (reserved for /sprint-close)
+      // This test pins that contract so a future edit that adds Feature to
+      // the exclusion list or drops Epic from it fails loudly.
+      mock.tickets[10] = {
+        id: 10,
+        labels: ['agent::executing', 'type::epic'],
+        body: 'Epic body\n- [ ] #11',
+        state: 'open',
+      };
+      mock.tickets[11] = {
+        id: 11,
+        labels: ['agent::executing', 'type::feature'],
+        body: 'Feature body\n\nparent: #10\n- [ ] #12',
+        state: 'open',
+      };
+      mock.tickets[12] = {
+        id: 12,
+        labels: ['agent::executing', 'type::story'],
+        body: 'Story body\n\nparent: #11\n- [ ] #13',
+        state: 'open',
+      };
+      mock.tickets[13] = {
+        id: 13,
+        labels: ['agent::executing', 'type::task'],
+        body: 'Task body\n\nparent: #12',
+        state: 'open',
+      };
+
+      // `blocks` = upward parent list in this mock.
+      mock.deps[10] = { blocks: [], blockedBy: [11] };
+      mock.deps[11] = { blocks: [10], blockedBy: [12] };
+      mock.deps[12] = { blocks: [11], blockedBy: [13] };
+      mock.deps[13] = { blocks: [12], blockedBy: [] };
+
+      mock.subTickets[10] = [mock.tickets[11]];
+      mock.subTickets[11] = [mock.tickets[12]];
+      mock.subTickets[12] = [mock.tickets[13]];
+      mock.subTickets[13] = [];
+
+      // Drive the cascade through the production entry point: transitioning
+      // the Task to agent::done must fire cascadeCompletion internally.
+      await transitionTicketState(mock, 13, 'agent::done');
+
+      assert.ok(
+        mock.tickets[12].labels.includes('agent::done'),
+        'Story must auto-close via cascade',
+      );
+      assert.ok(
+        mock.tickets[11].labels.includes('agent::done'),
+        'Feature must auto-close via cascade (pinned behavior)',
+      );
+      assert.ok(
+        !mock.tickets[10].labels.includes('agent::done'),
+        'Epic must NOT auto-close via cascade — reserved for /sprint-close',
+      );
+      assert.ok(
+        mock.tickets[10].labels.includes('agent::executing'),
+        'Epic must retain its prior state label when cascade stops',
+      );
+
+      // Parent-checkbox toggling should still happen up to the Epic —
+      // cascade walks upward, ticks the box, then bails on the type::epic
+      // exclusion. Verifies the checkbox pass runs before the exclusion.
+      assert.ok(
+        mock.tickets[10].body.includes('- [x] #11'),
+        'Epic checkbox for Feature must be ticked even though Epic stays open',
+      );
+    },
+  );
 });

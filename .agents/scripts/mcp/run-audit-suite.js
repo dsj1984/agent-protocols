@@ -1,6 +1,13 @@
 import fs from 'node:fs/promises';
 import path from 'node:path';
 import { PROJECT_ROOT, resolveConfig } from '../lib/config-resolver.js';
+import { ValidationError } from '../lib/errors/index.js';
+
+const BUILT_IN_SUBSTITUTION_KEYS = Object.freeze([
+  'auditOutputDir',
+  'ticketId',
+  'baseBranch',
+]);
 
 function _normalizeFinding(auditName, finding) {
   const rawSeverity = finding.severity?.toLowerCase() || 'low';
@@ -29,6 +36,39 @@ async function loadWorkflow(auditName, workflowsDir) {
   }
 }
 
+function escapeRegExp(str) {
+  return str.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
+}
+
+function applySubstitutions(content, substitutions) {
+  let out = content;
+  for (const [key, value] of Object.entries(substitutions)) {
+    out = out.replace(
+      new RegExp(`\\{\\{${escapeRegExp(key)}\\}\\}`, 'g'),
+      value,
+    );
+  }
+  return out;
+}
+
+/**
+ * Aggregate the allowed substitution key set for a run: built-ins plus
+ * per-audit declared keys across the requested auditWorkflows. Audits that
+ * are not registered in rules are ignored here — the handler below rejects
+ * them with a findings entry before substitution matters.
+ */
+function computeAllowedKeys(rules, auditWorkflows) {
+  const allowed = new Set(BUILT_IN_SUBSTITUTION_KEYS);
+  for (const auditName of auditWorkflows) {
+    const entry = rules.audits?.[auditName];
+    if (!entry) continue;
+    for (const k of entry.substitutionKeys ?? []) {
+      allowed.add(k);
+    }
+  }
+  return allowed;
+}
+
 /**
  * Run a suite of named audit workflows.
  *
@@ -38,20 +78,55 @@ async function loadWorkflow(auditName, workflowsDir) {
  *   3. Return its markdown content as a structured `workflow` result for the
  *      calling AI agent to execute as a prompt-driven analysis.
  *
+ * Substitutions: callers may pass a `substitutions` map of `{{key}}` → value
+ * pairs. Allowed keys are the built-ins (auditOutputDir, ticketId, baseBranch)
+ * plus any `substitutionKeys` declared on the requested audits in
+ * audit-rules.schema.json, aggregated across auditWorkflows. Unknown keys
+ * raise a ValidationError.
+ *
  * @param {object} opts
  * @param {string[]} opts.auditWorkflows - List of audit names to run.
+ * @param {Record<string,string>} [opts.substitutions] - Optional template substitutions.
  * @param {Function} [opts.injectedLoadWorkflow] - Optional override for testing.
+ * @param {object} [opts.injectedRules] - Optional override for the audit-rules content (testing).
  * @returns {Promise<object>} Aggregated audit results.
  */
-export async function runAuditSuite({ auditWorkflows, injectedLoadWorkflow }) {
+export async function runAuditSuite({
+  auditWorkflows,
+  substitutions,
+  injectedLoadWorkflow,
+  injectedRules,
+}) {
   const { settings } = resolveConfig();
-  const rulesPath = path.join(
-    PROJECT_ROOT,
-    settings.schemasRoot,
-    'audit-rules.schema.json',
+  const callerSubstitutions = substitutions ?? {};
+
+  let rules = injectedRules;
+  if (!rules) {
+    const rulesPath = path.join(
+      PROJECT_ROOT,
+      settings.schemasRoot,
+      'audit-rules.schema.json',
+    );
+    const rulesContent = await fs.readFile(rulesPath, 'utf8');
+    rules = JSON.parse(rulesContent);
+  }
+
+  const allowedKeys = computeAllowedKeys(rules, auditWorkflows);
+  const unknownKeys = Object.keys(callerSubstitutions).filter(
+    (k) => !allowedKeys.has(k),
   );
-  const rulesContent = await fs.readFile(rulesPath, 'utf8');
-  const rules = JSON.parse(rulesContent);
+  if (unknownKeys.length > 0) {
+    const allowedList = [...allowedKeys].sort().join(', ');
+    throw new ValidationError(
+      `Unknown substitution key(s): ${unknownKeys.join(', ')}. Allowed for this call: ${allowedList}.`,
+      { unknownKeys, allowedKeys: [...allowedKeys] },
+    );
+  }
+
+  const effectiveSubstitutions = {
+    auditOutputDir: settings.auditOutputDir ?? 'temp',
+    ...callerSubstitutions,
+  };
 
   const validAudits = Object.keys(rules.audits || {});
   const auditResults = {
@@ -98,9 +173,9 @@ export async function runAuditSuite({ auditWorkflows, injectedLoadWorkflow }) {
       };
     }
 
-    const content = workflow.content.replace(
-      /\{\{auditOutputDir\}\}/g,
-      settings.auditOutputDir ?? 'temp',
+    const content = applySubstitutions(
+      workflow.content,
+      effectiveSubstitutions,
     );
 
     return {

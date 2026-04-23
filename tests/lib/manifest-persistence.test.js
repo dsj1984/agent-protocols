@@ -36,13 +36,23 @@ test('persistence: writes dispatch-manifest json + md for Epic manifest', () => 
       },
     ],
   };
-  persistManifest(manifest, { projectRoot: root });
+  const result = persistManifest(manifest, { projectRoot: root });
   const mdPath = path.join(root, 'temp', 'dispatch-manifest-77.md');
   const jsonPath = path.join(root, 'temp', 'dispatch-manifest-77.json');
+  assert.deepEqual(result, {
+    persisted: true,
+    path: jsonPath,
+    error: null,
+  });
   assert.ok(fs.existsSync(mdPath), 'dispatch-manifest-77.md missing');
   assert.ok(fs.existsSync(jsonPath), 'dispatch-manifest-77.json missing');
   const md = fs.readFileSync(mdPath, 'utf8');
   assert.ok(md.includes('Dispatch Manifest — Epic #77'));
+  const tempEntries = fs.readdirSync(path.join(root, 'temp'));
+  assert.ok(
+    !tempEntries.some((f) => f.endsWith('.tmp')),
+    'no .tmp residue should remain after successful write',
+  );
 });
 
 test('persistence: writes story-manifest json + md for story-execution manifest', () => {
@@ -111,38 +121,82 @@ test('persistence: no-op for manifest with neither story-execution type nor epic
   }
 });
 
-test('persistence: swallows fs failure and writes to stderr', () => {
-  // Pointing at an invalid root forces fs.mkdirSync to fail; function must
-  // not throw.
-  const originalWrite = process.stderr.write;
-  const captured = [];
-  process.stderr.write = (chunk) => {
-    captured.push(String(chunk));
-    return true;
-  };
-  try {
-    assert.doesNotThrow(() =>
-      persistManifest(
-        {
-          epicId: 1,
-          epicTitle: 'e',
-          dryRun: false,
-          generatedAt: 'now',
-          summary: {
-            totalTasks: 0,
-            doneTasks: 0,
-            progressPercent: 0,
-            dispatched: 0,
-            heldForApproval: 0,
-            totalWaves: 0,
-          },
-          storyManifest: [],
+test('persistence: returns { persisted:false, error } on fs failure instead of throwing', () => {
+  // Pointing at an invalid root forces fs.mkdirSync to fail; the function
+  // must capture the error and return it rather than throwing.
+  let result;
+  assert.doesNotThrow(() => {
+    result = persistManifest(
+      {
+        epicId: 1,
+        epicTitle: 'e',
+        dryRun: false,
+        generatedAt: 'now',
+        summary: {
+          totalTasks: 0,
+          doneTasks: 0,
+          progressPercent: 0,
+          dispatched: 0,
+          heldForApproval: 0,
+          totalWaves: 0,
         },
-        { projectRoot: '\0/invalid' },
-      ),
+        storyManifest: [],
+      },
+      { projectRoot: '\0/invalid' },
     );
+  });
+  assert.equal(result.persisted, false);
+  assert.equal(typeof result.error, 'string');
+  assert.ok(result.error.length > 0);
+  assert.ok(result.path?.includes('dispatch-manifest-1.json'));
+});
+
+test('persistence: on writeFileSync failure, no .tmp residue remains and final path untouched', () => {
+  const root = makeTmpRoot();
+  const manifest = {
+    epicId: 99,
+    epicTitle: 'Epic 99',
+    dryRun: false,
+    generatedAt: 'now',
+    summary: {
+      totalTasks: 0,
+      doneTasks: 0,
+      progressPercent: 0,
+      dispatched: 0,
+      heldForApproval: 0,
+      totalWaves: 0,
+    },
+    storyManifest: [],
+  };
+
+  const originalWriteFileSync = fs.writeFileSync;
+  fs.writeFileSync = (targetPath, ...rest) => {
+    if (String(targetPath).endsWith('.tmp')) {
+      const err = new Error('EACCES: permission denied');
+      err.code = 'EACCES';
+      throw err;
+    }
+    return originalWriteFileSync(targetPath, ...rest);
+  };
+  let result;
+  try {
+    result = persistManifest(manifest, { projectRoot: root });
   } finally {
-    process.stderr.write = originalWrite;
+    fs.writeFileSync = originalWriteFileSync;
   }
-  assert.ok(captured.some((s) => s.includes('Failed to persist manifest')));
+
+  assert.equal(result.persisted, false);
+  assert.match(result.error, /EACCES/);
+
+  const tempDir = path.join(root, 'temp');
+  const entries = fs.existsSync(tempDir) ? fs.readdirSync(tempDir) : [];
+  assert.ok(
+    !entries.some((f) => f.endsWith('.tmp')),
+    `no .tmp residue should remain; saw: ${entries.join(', ')}`,
+  );
+  const finalJson = path.join(tempDir, 'dispatch-manifest-99.json');
+  assert.ok(
+    !fs.existsSync(finalJson),
+    'final dispatch-manifest-99.json should not exist after failed write',
+  );
 });

@@ -51,6 +51,16 @@ const MCP_REQUEST_SCHEMA = {
 };
 const _validateMcpRequest = _ajv.compile(MCP_REQUEST_SCHEMA);
 
+// Separate Ajv instance for per-tool input validation. strict:false avoids
+// false positives on annotation keywords the registry adds for human readers
+// (e.g. long-form descriptions with markdown). coerceTypes:false is critical —
+// we want a string "71" for epicId to be rejected, not silently coerced.
+const _toolAjv = new Ajv({
+  allErrors: true,
+  coerceTypes: false,
+  strict: false,
+});
+
 // ---------------------------------------------------------------------------
 // MCP Protocol Constants
 // ---------------------------------------------------------------------------
@@ -92,27 +102,57 @@ function sendError(id, code, message, data) {
 // Tool Registry (populated lazily after SDK import)
 // ---------------------------------------------------------------------------
 
-/** @type {Map<string, { definition: object, handler: (params: object) => Promise<unknown> }>} */
+/** @type {Map<string, { definition: object, handler: (params: object) => Promise<unknown>, validate: import('ajv').ValidateFunction }>} */
 const TOOLS = new Map();
 
 /**
  * Register a tool with its JSON Schema definition and handler.
+ * The inputSchema is compiled once with Ajv and stored on the entry so the
+ * tools/call path can reject -32602 Invalid params before the handler runs.
+ *
  * @param {string} name
  * @param {string} description
  * @param {object} inputSchema - JSON Schema for the tool's input parameters
  * @param {(params: object) => Promise<unknown>} handler
+ * @param {string|null} [outputSchemaRef] - Optional repo-relative path to the
+ *   JSON Schema describing this tool's structured output. Surfaced via
+ *   tools/list so clients can typecheck responses. `null` means no structured
+ *   output contract (e.g. tools that return free-form strings or booleans).
  */
-function registerTool(name, description, inputSchema, handler) {
+// Return a -32602 data payload when args fail the per-tool validator;
+// return null on success. Shaped to match the public error contract:
+// { tool, errors: [{ path, reason }, ...] }.
+function checkToolArgs(tool, name, args) {
+  if (tool.validate(args)) return null;
+  return {
+    tool: name,
+    errors: (tool.validate.errors ?? []).map((e) => ({
+      path: e.instancePath || '/',
+      reason: e.message,
+    })),
+  };
+}
+
+function registerTool(
+  name,
+  description,
+  inputSchema,
+  handler,
+  outputSchemaRef = null,
+) {
+  const fullSchema = {
+    type: 'object',
+    ...inputSchema,
+  };
   TOOLS.set(name, {
     definition: {
       name,
       description,
-      inputSchema: {
-        type: 'object',
-        ...inputSchema,
-      },
+      inputSchema: fullSchema,
+      outputSchemaRef,
     },
     handler,
+    validate: _toolAjv.compile(fullSchema),
   });
 }
 
@@ -149,7 +189,13 @@ async function registerSDKTools() {
 
   const tools = await getToolRegistry(sdk, getProvider);
   for (const t of tools) {
-    registerTool(t.name, t.description, t.inputSchema, t.handler);
+    registerTool(
+      t.name,
+      t.description,
+      t.inputSchema,
+      t.handler,
+      t.outputSchemaRef ?? null,
+    );
   }
 }
 
@@ -219,23 +265,34 @@ async function handleRequest(req) {
         return sendError(id, -32601, `Tool not found: ${name}`);
       }
 
+      const invalidParams = checkToolArgs(tool, name, args);
+      if (invalidParams)
+        return sendError(id, -32602, 'Invalid params', invalidParams);
+
       try {
         const result = await tool.handler(args);
 
         // PERSISTENCE SYNC: Manually write files to temp/ so that the project
         // state matches what would have happened if run via CLI dispatcher.js.
-        // We use the new persistManifest abstraction to do this cleanly.
+        // The outcome is threaded back into the tool result so consumers can
+        // distinguish "dispatch succeeded AND manifest saved" from "dispatch
+        // succeeded but manifest write failed" without scraping stderr.
         if (name === 'dispatch_wave' && result && typeof result === 'object') {
+          let persisted = false;
+          let persistError = null;
           try {
             const { persistManifest } = await import(
               './lib/presentation/manifest-renderer.js'
             );
-            persistManifest(result);
-          } catch (persistErr) {
-            process.stderr.write(
-              `[MCP] Failed to persist manifest to temp/: ${persistErr.message}\n`,
-            );
+            const outcome = persistManifest(result);
+            persisted = outcome.persisted === true;
+            persistError = outcome.error ?? null;
+          } catch (err) {
+            persisted = false;
+            persistError = err?.message ?? String(err);
           }
+          result.manifestPersisted = persisted;
+          result.manifestPersistError = persistError;
         }
 
         sendResult(id, {

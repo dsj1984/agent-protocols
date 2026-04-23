@@ -28,28 +28,33 @@ function recordingProvider() {
 describe('BlockerHandler', () => {
   it('halts and resumes when the epic transitions back to executing', async () => {
     const provider = recordingProvider();
-    const labels = ['type::epic', 'agent::executing'];
+
+    // Deterministic label transition: first two polls see blocked, then
+    // the operator flips it back to executing. No wall-clock sleep needed
+    // — halt() resolves on the poll that observes the flipped label.
+    let pollCount = 0;
+    const labelFetcher = async () => {
+      pollCount += 1;
+      if (pollCount <= 2) return ['type::epic', 'agent::blocked'];
+      return ['type::epic', 'agent::executing'];
+    };
 
     const hook = { fireCalls: [], fire: async (p) => hook.fireCalls.push(p) };
     const handler = new BlockerHandler({
       provider,
       epicId: 321,
       notificationHook: hook,
-      labelFetcher: async () => [...labels],
-      pollIntervalMs: 5,
+      labelFetcher,
+      pollIntervalMs: 1,
       logger: quietLogger(),
     });
 
-    const waitPromise = handler.halt({
+    const result = await handler.halt({
       reason: 'merge_conflict',
       storyId: 400,
     });
-    // Let halt() mark blocked and enter the wait loop, then flip label back.
-    await new Promise((r) => setTimeout(r, 20));
-    labels.splice(0, labels.length, 'type::epic', 'agent::executing');
-
-    const result = await waitPromise;
     assert.equal(result.resumed, true);
+    assert.ok(pollCount >= 3, `expected ≥ 3 polls, got ${pollCount}`);
 
     // Marked blocked: add agent::blocked, remove agent::executing.
     const update = provider.updates[0];
@@ -88,18 +93,25 @@ describe('BlockerHandler', () => {
 
   it('honors the abort signal while waiting', async () => {
     const provider = recordingProvider();
+    const controller = new AbortController();
+
+    // Abort as soon as the poll loop makes its second call — a deterministic
+    // signal that halt() is really waiting, with no wall-clock race.
+    let pollCount = 0;
+    const labelFetcher = async () => {
+      pollCount += 1;
+      if (pollCount === 2) controller.abort();
+      return ['type::epic', 'agent::blocked'];
+    };
     const handler = new BlockerHandler({
       provider,
       epicId: 321,
       notificationHook: { fire: async () => {} },
-      labelFetcher: async () => ['type::epic', 'agent::blocked'],
-      pollIntervalMs: 50,
+      labelFetcher,
+      pollIntervalMs: 1,
       logger: quietLogger(),
     });
-    const controller = new AbortController();
-    const p = handler.halt({ reason: 'stuck' }, controller.signal);
-    setTimeout(() => controller.abort(), 20);
-    const res = await p;
+    const res = await handler.halt({ reason: 'stuck' }, controller.signal);
     assert.equal(res.resumed, false);
     assert.equal(res.reasonToStop, 'aborted');
   });

@@ -9,8 +9,8 @@
 import fs from 'node:fs';
 import { PROJECT_ROOT } from '../config-resolver.js';
 import { branchExistsLocally } from '../git-branch-lifecycle.js';
-import { TYPE_LABELS } from '../label-constants.js';
 import { Logger } from '../Logger.js';
+import { TYPE_LABELS } from '../label-constants.js';
 import { hydrateContext } from './context-hydration-engine.js';
 import { getResolvedBranch } from './manifest-builder.js';
 import { STATE_LABELS } from './ticketing.js';

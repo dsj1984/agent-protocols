@@ -103,7 +103,7 @@ test('maybeWarnWindowsPath: no-op on non-windows', () => {
 
 test('maybeWarnWindowsPath: warns past threshold on windows', () => {
   const logs = [];
-  const wtPath = 'C:\\' + 'a'.repeat(200);
+  const wtPath = `C:\\${'a'.repeat(200)}`;
   const result = maybeWarnWindowsPath(
     {
       platform: 'win32',

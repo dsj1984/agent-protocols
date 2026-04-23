@@ -21,52 +21,72 @@ function getProjectRoot() {
 }
 
 /**
+ * Atomic write-then-rename. On any failure, best-effort remove the `.tmp`
+ * file and rethrow so the caller can surface a structured result.
+ */
+function atomicWrite(finalPath, content) {
+  const tmpPath = `${finalPath}.tmp`;
+  try {
+    fs.writeFileSync(tmpPath, content, 'utf8');
+    fs.renameSync(tmpPath, finalPath);
+  } catch (err) {
+    try {
+      fs.rmSync(tmpPath, { force: true });
+    } catch {
+      // best-effort; original error is what the caller needs
+    }
+    throw err;
+  }
+}
+
+/**
  * Persist a manifest to `temp/`. Story-execution manifests write a
  * `story-manifest-<key>.{json,md}` pair keyed on story IDs; Epic manifests
- * write a `dispatch-manifest-<epicId>.{json,md}` pair. Failures are logged
- * to stderr but never throw — persistence is best-effort.
+ * write a `dispatch-manifest-<epicId>.{json,md}` pair. Each file is written
+ * via an atomic write-then-rename sequence. On failure the caller receives
+ * the error string and the `.tmp` residue is removed — the final path is
+ * left untouched.
  *
  * @param {object} manifest
  * @param {{ projectRoot?: string, settings?: object }} [opts]
+ * @returns {{ persisted: boolean, path: string|null, error: string|null }}
  */
 export function persistManifest(manifest, opts = {}) {
+  const projectRoot = opts.projectRoot ?? getProjectRoot();
+  const manifestDir = path.join(projectRoot, 'temp');
+
+  let jsonPath = null;
+  let mdPath = null;
+
+  if (manifest.type === 'story-execution') {
+    const key = (manifest.stories ?? []).map((s) => s.storyId).join('-');
+    jsonPath = path.join(manifestDir, `story-manifest-${key}.json`);
+    mdPath = path.join(manifestDir, `story-manifest-${key}.md`);
+  } else if (manifest.epicId) {
+    const epicId = manifest.epicId;
+    jsonPath = path.join(manifestDir, `dispatch-manifest-${epicId}.json`);
+    mdPath = path.join(manifestDir, `dispatch-manifest-${epicId}.md`);
+  } else {
+    return { persisted: false, path: null, error: null };
+  }
+
   try {
-    const projectRoot = opts.projectRoot ?? getProjectRoot();
-    const manifestDir = path.join(projectRoot, 'temp');
+    const jsonContent = JSON.stringify(manifest, null, 2);
+    const mdContent =
+      manifest.type === 'story-execution'
+        ? formatStoryManifestMarkdown(manifest, {
+            settings:
+              opts.settings ?? resolveConfig({ cwd: projectRoot }).settings,
+          })
+        : formatManifestMarkdown(manifest);
+
     if (!fs.existsSync(manifestDir)) {
       fs.mkdirSync(manifestDir, { recursive: true });
     }
-
-    if (manifest.type === 'story-execution') {
-      const settings =
-        opts.settings ?? resolveConfig({ cwd: projectRoot }).settings;
-      const key = manifest.stories.map((s) => s.storyId).join('-');
-      fs.writeFileSync(
-        path.join(manifestDir, `story-manifest-${key}.json`),
-        JSON.stringify(manifest, null, 2),
-        'utf8',
-      );
-      fs.writeFileSync(
-        path.join(manifestDir, `story-manifest-${key}.md`),
-        formatStoryManifestMarkdown(manifest, { settings }),
-        'utf8',
-      );
-    } else if (manifest.epicId) {
-      const epicId = manifest.epicId;
-      fs.writeFileSync(
-        path.join(manifestDir, `dispatch-manifest-${epicId}.json`),
-        JSON.stringify(manifest, null, 2),
-        'utf8',
-      );
-      fs.writeFileSync(
-        path.join(manifestDir, `dispatch-manifest-${epicId}.md`),
-        formatManifestMarkdown(manifest),
-        'utf8',
-      );
-    }
-  } catch (persistErr) {
-    process.stderr.write(
-      `[MCP/Dispatcher] Failed to persist manifest to temp/: ${persistErr.message}\n`,
-    );
+    atomicWrite(jsonPath, jsonContent);
+    atomicWrite(mdPath, mdContent);
+    return { persisted: true, path: jsonPath, error: null };
+  } catch (err) {
+    return { persisted: false, path: jsonPath, error: err.message };
   }
 }

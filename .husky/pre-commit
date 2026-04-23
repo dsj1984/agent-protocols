@@ -1,3 +1,2 @@
-node .agents/scripts/sync-claude-commands.js
 node scripts/check-version-sync.js
 npx lint-staged

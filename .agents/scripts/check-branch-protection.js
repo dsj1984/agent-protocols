@@ -25,8 +25,8 @@
 import { parseArgs } from 'node:util';
 import { runAsCli } from './lib/cli-utils.js';
 import { resolveConfig } from './lib/config-resolver.js';
-import { EPIC_LABELS } from './lib/label-constants.js';
 import { Logger } from './lib/Logger.js';
+import { EPIC_LABELS } from './lib/label-constants.js';
 import { createProvider } from './lib/provider-factory.js';
 
 export async function runBranchProtectionCheck({

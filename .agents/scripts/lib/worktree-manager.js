@@ -22,6 +22,10 @@ import path from 'node:path';
 import * as defaultGit from './git-utils.js';
 import { assertPathContainment } from './path-security.js';
 import {
+  DEFAULT_WORKSPACE_FILES,
+  provision as provisionWorkspace,
+} from './workspace-provisioner.js';
+import {
   copyAgentsFromRoot,
   isAgentsSubmodule,
   removeCopiedAgents,
@@ -40,10 +44,6 @@ import {
   reap,
   sweepStaleLocks,
 } from './worktree/lifecycle-manager.js';
-import {
-  DEFAULT_WORKSPACE_FILES,
-  provision as provisionWorkspace,
-} from './workspace-provisioner.js';
 
 export { parseWorktreePorcelain };
 

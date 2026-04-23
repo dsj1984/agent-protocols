@@ -541,11 +541,11 @@ describe('dispatch() — story-level orchestration', () => {
 describe('dispatch() — wave-level concurrency', () => {
   it('hydrates independent wave tasks concurrently, not sequentially', async () => {
     // Four independent tasks (non-overlapping focus areas, no deps) — a
-    // single wave of four. Each provider.getTicket call (invoked by the
-    // hydrator once per task) sleeps DELAY ms. Sequential wave dispatch
-    // would take ≥ 4 * DELAY; the 5.12.4 concurrent dispatch completes
-    // in ~1 * DELAY.
-    const DELAY = 80;
+    // single wave of four. Each provider.getTicket call yields on the
+    // microtask queue so overlapping calls pile up before any resolves.
+    // We prove concurrency by observing peak in-flight getTicket calls,
+    // not by timing wall-clock — the latter is flaky on CPU-starved CI
+    // and Windows (15ms timer granularity).
     const epic = {
       id: 1,
       title: 'Concurrency Epic',
@@ -562,33 +562,48 @@ describe('dispatch() — wave-level concurrency', () => {
       assignees: [],
     }));
 
-    class SlowProvider extends MockProvider {
+    class TrackingProvider extends MockProvider {
+      constructor(opts) {
+        super(opts);
+        this.inflight = 0;
+        this.peakInflight = 0;
+      }
       async getTicket(id) {
-        await new Promise((resolve) => setTimeout(resolve, DELAY));
-        return super.getTicket(id);
+        this.inflight += 1;
+        if (this.inflight > this.peakInflight) {
+          this.peakInflight = this.inflight;
+        }
+        // Yield through several microtask + macrotask turns so sequential
+        // callers would strictly serialize while concurrent callers pile up.
+        for (let i = 0; i < 3; i++) {
+          await new Promise((resolve) => setImmediate(resolve));
+        }
+        try {
+          return await super.getTicket(id);
+        } finally {
+          this.inflight -= 1;
+        }
       }
     }
 
-    const provider = new SlowProvider({ epic, tasks });
+    const provider = new TrackingProvider({ epic, tasks });
     const adapter = new MockAdapter();
 
-    const t0 = Date.now();
     const manifest = await dispatch({
       epicId: 1,
       dryRun: true,
       provider,
       adapter,
     });
-    const elapsed = Date.now() - t0;
 
     // All four should have been dispatched.
     assert.equal(manifest.dispatched.length, 4);
-    // Sequential dispatch would take ≥ 4 * DELAY = 320ms. Allow generous
-    // headroom for timer jitter on Windows; anything under 3 * DELAY is
-    // conclusive evidence the wave ran in parallel.
+    // Sequential dispatch would peak at 1 in-flight. Any overlap ≥ 2
+    // proves the wave ran concurrently. In practice this peaks at the
+    // wave size when bounded concurrency is uncapped.
     assert.ok(
-      elapsed < 3 * DELAY,
-      `Wave dispatch took ${elapsed}ms — expected < ${3 * DELAY}ms (concurrent)`,
+      provider.peakInflight >= 2,
+      `Expected ≥ 2 concurrent getTicket calls in-flight, got peak=${provider.peakInflight}`,
     );
   });
 });

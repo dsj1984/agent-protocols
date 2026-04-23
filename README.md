@@ -100,8 +100,18 @@ host:
 ```
 
 This enables agents to use native tools like `dispatch_wave` instead of raw
-shell commands. See [.agents/README.md](.agents/README.md) for full
-configuration details.
+shell commands. See [.agents/MCP.md](.agents/MCP.md) for the full tool
+reference (per-tool schemas, error modes, decision matrix, troubleshooting)
+and [.agents/README.md](.agents/README.md) for the host-level configuration
+details.
+
+> **Hardening note (Epic #511, v5.19.0):** `tools/call` arguments are now
+> AJV-validated against each tool's `inputSchema`, so malformed payloads
+> return JSON-RPC `-32602 Invalid params` with a failing path rather than
+> surfacing as downstream exceptions. `dispatch_wave` results also carry
+> `manifestPersisted` / `manifestPersistError` so callers can detect a
+> failed manifest write instead of reading a stale file. Full rundown in
+> [docs/CHANGELOG.md](docs/CHANGELOG.md) under 5.19.0.
 
 ### 3. Plan Your First Epic
 
@@ -212,6 +222,7 @@ npm run test:coverage  # Run tests with 85% coverage gate
 | [Remote Orchestrator](docs/remote-orchestrator.md)            | Runner contract, secrets, resumption semantics      |
 | [Project Board](docs/project-board.md)                        | Projects V2 Status field, columns, and Views        |
 | [Consumer Guide](.agents/README.md)                           | Setup, configuration, and APIs                      |
+| [MCP Server Reference](.agents/MCP.md)                        | Per-tool reference for the orchestration MCP server |
 | [Worktree Lifecycle](.agents/workflows/worktree-lifecycle.md) | Per-story `git worktree` isolation (v5.7.0+)        |
 | [Changelog](docs/CHANGELOG.md)                                | Release history (v5.0.0+)                           |
 | [Legacy Changelog](docs/archive/CHANGELOG-v4.md)              | v1.0.0 – v4.7.2 history                             |

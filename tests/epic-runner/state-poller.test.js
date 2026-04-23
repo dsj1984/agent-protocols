@@ -7,7 +7,7 @@ function providerFrom(labelMap) {
   return {
     async getTicket(id) {
       const labels = labelMap.get(id);
-      if (labels && labels.__error) throw labels.__error;
+      if (labels?.__error) throw labels.__error;
       return { id, labels: labels ?? [] };
     },
   };

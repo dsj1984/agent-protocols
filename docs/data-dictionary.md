@@ -207,3 +207,18 @@ remediation Epic.
 | Skip-done resume filter | Behavior | `iterate-waves.js` now fetches each Story's fresh labels before `launcher.launchWave`. Stories already carrying `agent::done` are short-circuited as synthetic `{ status: 'done' }` results; only non-done Stories are passed to the launcher. Prevents a blocker-halt resume from re-spawning a fresh `story-<id>` worktree + `npm ci` for every already-closed Story. |
 | Level-aware `Logger` | Module | `lib/Logger.js` gains `silent` \| `info` \| `verbose` levels, with `debug` as a backward-compat alias. Replaces the prior two-module stack — `VerboseLogger` and `dispatch-logger.vlog` are retired. Every orchestration call site (`dispatch-engine`, `dispatch-pipeline`, `wave-dispatcher`, `epic-lifecycle-detector`, `health-check-service`, `reconciler`, `health-monitor`, `LintBaselineService`) is migrated. |
 | `config-schema-shared.js` / `config-settings-schema.js` | Module split | `lib/config-schema.js` was previously a single 255-line file. It is split into `config-schema-shared.js` (shell-injection constants), `config-settings-schema.js` (`AGENT_SETTINGS_SCHEMA` + `getSettingsValidator`), and a slimmer `config-schema.js` (orchestration schema + validator). The main file re-exports every symbol from the split modules, so all existing import paths stay stable. |
+
+### 12. Epic #511 Artefacts (v5.19.0)
+
+MCP-server hardening surface: new tool-result fields, new config key, new
+schema docs entry. Captured here so downstream consumers can reason about
+the contract without re-reading the source.
+
+| Term | Kind | Definition |
+| --- | --- | --- |
+| `manifestPersisted` | MCP tool-result field | Boolean on the `dispatch_wave` result, `true` when the dispatch manifest was successfully written to `temp/dispatch-manifest-<epicId>.json` via the atomic tmp+rename sequence. Callers that treat the on-disk manifest as canonical (notably `/sprint-execute`) must branch on this instead of assuming a read-after-write. |
+| `manifestPersistError` | MCP tool-result field | Optional string on the `dispatch_wave` result, present only when `manifestPersisted` is `false`. Carries the original write/rename failure (e.g. `EACCES`, `ENOSPC`). |
+| `audits.selectionGitTimeoutMs` | Config key | Number in `.agentrc.json → audits`; default `30000`. Caps the `git diff --name-only` spawn inside `select_audits` — on timeout the tool logs a warning and falls through to keyword-only matching rather than hanging the MCP call. |
+| `outputSchemaRef` | Tool-registry field | Optional string on each MCP tool descriptor, pointing at the schema file that describes the tool's output (e.g. `dispatch_wave` → `.agents/schemas/dispatch-manifest.json`; `run_audit_suite` → `.agents/schemas/audit-results.schema.json`). Exposed via `tools/list` metadata. `null` is an explicit choice for tools whose output is a minimal inline shape. |
+| `substitutions` | MCP tool-argument field | Optional `Record<string,string>` on `run_audit_suite`. Keys must be declared in the allow-list derived from `audit-rules.schema.json` (e.g. `auditOutputDir`, `ticketId`, `baseBranch`, plus per-audit keys). Unknown keys are rejected with a clear error rather than silently dropped. |
+| Wave-marker regex upper bound | Validation contract | The wave structured-comment marker regex is now `/^wave-([0-9]{1,3})-(start\|end)$/` — up to 999 waves. `wave-1000-start` is rejected; downstream wave-index consumers (`manifest-builder`, `wave-dispatcher`) tolerate rejected indices gracefully. |

@@ -4,6 +4,43 @@ All notable changes to this project will be documented in this file.
 
 ## [Unreleased]
 
+## [5.19.0] - 2026-04-23
+
+### MCP server hardening (Epic #511)
+
+Landed the MCP server hardening epic across input validation, cascade
+semantics, audit-tool robustness, manifest persistence, consumer docs, and
+test coverage. Notable shipped items (tracked under features #514–#519):
+
+- `tools/call` arguments are now AJV-validated against each tool's
+  `inputSchema`; malformed payloads return JSON-RPC `-32602 Invalid params`
+  with the failing path, instead of surfacing as downstream exceptions.
+- Conflicting `type::*` labels on a ticket raise an explicit error in
+  `resolveAndDispatch()` instead of silently routing by scan order.
+- Wave marker regex is bounded to 1–3 digits; `wave-1000-start` is now
+  rejected.
+- `select_audits` glob engine replaced with `picomatch`; the `**.js →
+  bundlejs` false-positive is closed and the git-spawn gets a 30-second
+  timeout (configurable via `audits.selectionGitTimeoutMs`).
+- `run_audit_suite` supports declared per-audit substitutions with a
+  reject-on-unknown-key policy.
+- Dispatch-manifest writes are atomic (tmp + rename); `dispatch_wave` now
+  returns `manifestPersisted` and optional `manifestPersistError` so
+  callers can react to persist failures instead of consuming a stale file.
+- `.agents/MCP.md` is the new consumer-facing tool reference, linked from
+  `README.md` and `.agents/README.md`.
+
+### `/agents-bootstrap-project` now wires `.mcp.json`
+
+Added Step 8 to the project bootstrap workflow: scaffold `.mcp.json` from a
+committed `.mcp.json.example` template on a fresh clone, or diff an existing
+`.mcp.json` against the template to surface missing servers, command/args
+drift, and placeholder leakage. The template is the source of truth for the
+expected MCP server shape (`github`, `context7`, `chrome-devtools`,
+`agent-protocols`); `.mcp.json` itself stays gitignored because it carries
+secrets. The step never writes secrets — it reports gaps and leaves
+population to the operator.
+
 ## [5.18.0] - 2026-04-23
 
 ### Slash-command renames
