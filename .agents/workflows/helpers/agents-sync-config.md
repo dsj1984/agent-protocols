@@ -1,15 +1,21 @@
 ---
 description: >-
-  Reconcile the project's .agentrc.json against .agents/default-agentrc.json by
-  adding missing fields, removing obsolete fields, and preserving all existing
-  values. Handles arbitrarily nested structures.
+  Helper procedure — reconcile the project's .agentrc.json against
+  .agents/default-agentrc.json by adding missing fields, removing obsolete
+  fields, and preserving all existing values. Handles arbitrarily nested
+  structures. Invoked by reference from /agents-update.
 ---
 
-# /agents-sync-config
+# agents-sync-config (helper)
+
+> **Not a slash command.** Lives under `.agents/workflows/helpers/` so it is
+> not synced into `.claude/commands/`. Invoked by reference from
+> [`/agents-update`](../agents-update.md) after the submodule pointer moves;
+> previously shipped as `/agents-sync-config`.
 
 ## Overview
 
-This workflow performs a **structural diff-and-merge** between the
+This procedure performs a **structural diff-and-merge** between the
 framework-provided template (`.agents/default-agentrc.json`) and the
 project-local configuration (`.agentrc.json`) at the repository root. The goal
 is to keep the project config schema-compatible with the current framework

@@ -73,7 +73,7 @@ invoked manually or automatically at `gate1`–`gate4` by the audit orchestrator
 | Command                    | Purpose                                                                                                          |
 | -------------------------- | ---------------------------------------------------------------------------------------------------------------- |
 | `/agents-bootstrap-github` | Initialize a GitHub repo with the v5 label taxonomy, project fields, and (v5.15.0+) the default Kanban board.    |
-| `/agents-sync-config`      | Reconcile `.agentrc.json` against `.agents/default-agentrc.json` — adds missing fields, removes obsolete ones.   |
+| `/agents-update`           | Bump the `.agents` submodule to its remote HEAD, reconcile `.agentrc.json` against the new defaults, and regenerate `.claude/commands/`. |
 
 ## Internal / reference-only
 
@@ -92,6 +92,9 @@ Not invoked directly by operators, but referenced from other workflows:
 - `helpers/sprint-plan-spec.md`, `helpers/sprint-plan-decompose.md` —
   phase procedures delegated to by `/sprint-plan` (local wrapper) and by the
   `/sprint-plan --phase <phase>` entry point fired by the remote orchestrator.
+- `helpers/agents-sync-config.md` — structural diff-and-merge procedure for
+  `.agentrc.json`, invoked by `/agents-update` after the submodule pointer
+  moves (formerly shipped as `/agents-sync-config`).
 - `worktree-lifecycle.md` — per-story `git worktree` isolation model, including
   node_modules strategies, Windows notes, and escape hatches.
 

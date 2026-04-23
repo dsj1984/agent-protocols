@@ -4,6 +4,47 @@ All notable changes to this project will be documented in this file.
 
 ## [Unreleased]
 
+## [5.19.2] - 2026-04-23
+
+### Add: `/agents-update` self-update workflow
+
+Consumer projects can now bump their `.agents/` submodule pointer via a
+single slash command instead of running a `postinstall` hook that silently
+drifts the pointer on every `pnpm install`. The framework ships:
+
+- `.agents/scripts/update-self.js` — stdlib-only ESM script that refuses
+  dirty submodule worktrees, runs `git submodule update --init --force
+  --remote .agents` with 3-attempt retry/backoff, prints the
+  `OLD..NEW` SHA range plus shortlog, and delegates
+  `.claude/commands/` regeneration to `sync-claude-commands.js` (the sole
+  authoritative writer of the auto-generated header). `--remote` is
+  skipped when `CI=true` so CI honours the committed SHA.
+- `.agents/workflows/agents-update.md` — operator-facing workflow
+  documenting the upgrade contract (pointer only moves on explicit
+  invocation, no auto-commit, dirty-worktree abort), expected output
+  shape, commit guidance, and troubleshooting for the common failure
+  modes (`fatal: needed a single revision`, dirty submodule, exhausted
+  retries).
+- `docs/workflows.md` gains a `/agents-update` row under **Setup &
+  meta**.
+
+### Retire: `/agents-sync-config` as a standalone slash command
+
+Demoted `agents-sync-config.md` to a helper
+(`.agents/workflows/helpers/agents-sync-config.md`) and folded its
+invocation into `/agents-update` Step 3. A framework bump can change the
+default config schema, so running reconciliation in the same flow as the
+pointer move is the common path — running it standalone afterwards was
+redundant. `sync-claude-commands.js` already skips the `helpers/`
+subdirectory, so `/agents-sync-config` stops appearing in the
+slash-command palette automatically; the merge-and-diff procedure itself
+is unchanged and now lives as a path-included helper alongside
+`helpers/sprint-retro.md` and friends.
+
+Consumer-side cleanup (removing the legacy `scripts/sync-agents.mjs` and
+`postinstall` hook from consuming repos such as `dsj1984/domio`) is a
+separate follow-up that happens in the consuming repo, not here.
+
 ## [5.19.1] - 2026-04-23
 
 ### Fix: `/agents-bootstrap-project` Step 8 hard-aborted on consuming projects

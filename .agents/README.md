@@ -384,13 +384,14 @@ independently testable. Invoke them by running the parent workflow.
 | `sprint-retro.md`                | `/sprint-close` Phase 5.1                                   | Retrospective from ticket graph + friction logs        |
 | `sprint-testing.md`              | `/sprint-close` QA gate · operator                          | Ingests Cucumber evidence onto the sprint-testing ticket |
 | `_merge-conflict-template.md`    | `/sprint-close`, `/sprint-execute`, `/git-merge-pr`         | Shared merge-conflict resolution procedure             |
+| `agents-sync-config.md`          | `/agents-update` Step 3                                     | Reconcile `.agentrc.json` against the framework defaults |
 
 ### Utility Workflows
 
 | Workflow                      | Slash Command              | Purpose                                   |
 | ----------------------------- | -------------------------- | ----------------------------------------- |
 | `agents-bootstrap-github.md`  | `/agents-bootstrap-github` | Initialize repo labels and project fields |
-| `agents-sync-config.md`       | `/agents-sync-config`      | Reconcile `.agentrc.json` with defaults   |
+| `agents-update.md`            | `/agents-update`           | Bump `.agents/` pointer, reconcile `.agentrc.json`, regenerate `.claude/commands/` |
 | `git-commit-all.md`           | `/git-commit-all`          | Stage and commit all changes              |
 | `git-push.md`                 | `/git-push`                | Stage, commit, and push to remote         |
 | `delete-epic-branches.md`     | `/delete-epic-branches`    | Hard reset: delete Epic branches          |
