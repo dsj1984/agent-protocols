@@ -368,7 +368,15 @@ test('persistManifest', async (t) => {
   await t.test('writes story manifest files', () => {
     const manifest = {
       type: 'story-execution',
-      stories: [{ storyId: 888 }],
+      stories: [
+        {
+          storyId: 888,
+          storyTitle: 'Eight Eighty-Eight',
+          epicBranch: 'epic/1',
+          branchName: 'story-888',
+          tasks: [],
+        },
+      ],
       generatedAt: new Date().toISOString(),
     };
 
