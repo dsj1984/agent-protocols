@@ -561,3 +561,72 @@ canonical validation path is the schema validator. The explicit call
 in `main()` is the shift-left equivalent of a pre-flight check — a
 future refactor of `resolveConfig`'s internals can't accidentally
 drop the validation.
+
+## Coordinator-plus-Phases Decomposition (Epic #470)
+
+### Problem
+
+`.agents/scripts/lib/orchestration/epic-runner.js` was a 600+ line
+monolith. It composed the collaborator factory **and** implemented five
+sequential workflow steps (smoke-test, snapshot, build-wave-dag,
+iterate-waves, finalize) in-place. Any change to one step meant editing
+a single long function; the surface was hostile to unit-testing each
+step independently, and the cyclomatic complexity made new conditional
+branches risky.
+
+### Solution
+
+The coordinator becomes a **thin dispatcher** that calls into one
+phase module per step. The engine reduces to:
+
+```js
+let state = {};
+state = await runSmokeTestPhase(ctx, collaborators, state);
+if (state.halted) return state.halted;
+state = await runSnapshotPhase(ctx, collaborators, state);
+state = await runBuildWaveDagPhase(ctx, collaborators, state);
+state = await runIterateWavesPhase(ctx, collaborators, state);
+return runFinalizePhase(ctx, collaborators, state);
+```
+
+Each phase is a stand-alone module under
+`.agents/scripts/lib/orchestration/epic-runner/phases/`. The contract
+is uniform: `(ctx, collaborators, state) -> Promise<state>`.
+
+### Benefits
+
+- **Test surface**: each phase is independently importable and
+  mockable. Collaborator fakes are constructed once and passed in.
+- **Review scope**: a change to the iterate-waves loop touches only
+  `iterate-waves.js`; the coordinator, snapshot, and finalize phases
+  stay unchanged.
+- **Pattern reuse**: the same coordinator-plus-phases layout is used
+  by `sprint-story-init.js` (six injectable stages under
+  `lib/story-init/`) and by `sprint-story-close.js`'s post-merge
+  pipeline.
+
+## `ctx` Runtime Context (Epic #470)
+
+### Problem
+
+Legacy orchestration utilities (dispatcher, reconciler, cascade,
+health monitor) each hand-rolled their own opts-bag for `provider`,
+`logger`, `config`, and the operator handle. Every new consumer
+duplicated parameter-threading logic, and test doubles differed
+subtly per call site.
+
+### Solution
+
+`.agents/scripts/lib/runtime-context.js` owns a single `ctx` shape
+shared by the orchestration surface. Each entry point constructs the
+context once at the start and threads it through every downstream
+call. Legacy utilities accept either the ctx object or the legacy
+opts-bag for a release of overlap.
+
+### Benefits
+
+- Shared lifecycle primitives (e.g. cancellation signal, clock) are
+  always available without wiring them through each helper.
+- Replacing any one primitive — swapping a real provider for a fake
+  in integration tests — is a single-line override on the ctx object
+  before it flows into the pipeline.

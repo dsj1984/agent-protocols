@@ -358,6 +358,14 @@ classDiagram
 **Resolution**: The `provider-factory.js` reads `orchestration.provider` from
 `.agentrc.json` and instantiates the matching concrete class.
 
+**Internal layout (post Epic #470)**: The `providers/github.js` façade is a
+thin composition over focused modules under `providers/github/`:
+`ticket-mapper.js` (REST/GraphQL payload → ticket shape), `graphql-builder.js`
+(named query + mutation strings), `cache-manager.js` (per-instance ticket
+cache backed by `lib/CacheLayer`), and `error-classifier.js` (GraphQL error →
+category). The façade re-exports every symbol consumers previously imported,
+so the split is source-compatible.
+
 ---
 
 ### 4. Execution Adapter Layer

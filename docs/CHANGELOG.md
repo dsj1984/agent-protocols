@@ -4,6 +4,44 @@ All notable changes to this project will be documented in this file.
 
 ## [Unreleased]
 
+### Clean-code & maintainability remediation (Epic #470)
+
+Full-repo refactor campaign across 11 Stories. No user-facing behaviour changes;
+the shipped surface is internal structure and correctness fixes.
+
+**Provider layer** — `.agents/scripts/providers/github.js` split into
+`providers/github/{ticket-mapper,graphql-builder,cache-manager,error-classifier}.js`
+under a thin façade.
+
+**Story/Epic orchestration** — `sprint-story-init.js` decomposed into 6
+injectable stages under `lib/story-init/`; `sprint-story-close.js`
+post-merge pipeline extracted; epic-runner coordinator split into five
+phase modules under `lib/orchestration/epic-runner/phases/`;
+`lib/runtime-context.js` (`ctx`) introduced to inject provider, logger, and
+config into legacy utilities.
+
+**Logger consolidation** — `VerboseLogger` and `dispatch-logger.vlog` retired
+in favour of a level-aware `Logger` (silent/info/verbose). Every orchestration
+call site migrated.
+
+**Epic-runner correctness fixes** — two bugs were found and fixed while
+executing this Epic: (A) the idle-watchdog now re-reads the Story ticket after
+firing and only reports `failed` once a grace-poll confirms the ticket isn't
+`agent::done`; (B) on Windows the runner now kills the whole process tree
+(`taskkill /T /F /PID`) instead of just the `cmd.exe` shell, preventing
+orphaned grandchild node processes; (C) resumed runs short-circuit stories
+already `agent::done` instead of re-dispatching a fresh worktree + `npm ci`
+for each.
+
+**Shared helpers** — `lib/git-branch-cleanup`, `phase-runner`, `CacheLayer`,
+`lib/label-constants` (adopted across orchestration), `GithubHttpClient` +
+`_normalizeLabels`.
+
+**Maintainability lift** — `bootstrap-agent-protocols.js` refactored 74.4 →
+94.6; `lib/config-schema.js` split into three files. M4–M18 band is
+deferred — the `progress-signals/maintainability-drift.js` detector will
+surface them on future epic runs.
+
 ## [5.16.1] - 2026-04-22
 
 ### Headless hang protection for epic-runner sub-agents
