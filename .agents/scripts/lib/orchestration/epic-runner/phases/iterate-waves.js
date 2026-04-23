@@ -12,9 +12,9 @@
  */
 
 import { AGENT_LABELS } from '../../../label-constants.js';
+import { STATE_LABELS, transitionTicketState } from '../../ticketing.js';
 import { BookendChainer } from '../bookend-chainer.js';
 import { checkVersionBumpIntent } from '../version-bump-intent.js';
-import { STATE_LABELS, transitionTicketState } from '../../ticketing.js';
 
 export async function runIterateWavesPhase(ctx, collaborators, state) {
   const { epicId, provider, config, logger } = ctx;
@@ -106,7 +106,43 @@ export async function runIterateWavesPhase(ctx, collaborators, state) {
     });
     progressReporter.start();
 
-    const launchResults = await launcher.launchWave(wave.stories);
+    // Short-circuit stories that are already `agent::done` on resume.
+    // Without this, the runner re-dispatches every Story in every wave after
+    // a blocker halt — each spawn creates a fresh `story-<id>` branch +
+    // `.worktrees/story-<id>/` checkout + `npm ci` before the sub-agent
+    // notices the ticket is already closed and bails. Filter here so the
+    // launcher only sees real work.
+    const waveStoryIds = wave.stories.map((s) => s.id ?? s.storyId ?? s);
+    const freshStates = await Promise.all(
+      waveStoryIds.map(async (id) => {
+        try {
+          const ticket = await provider.getTicket(id, { fresh: true });
+          return { id, labels: ticket?.labels ?? [] };
+        } catch {
+          return { id, labels: [] };
+        }
+      }),
+    );
+    const doneIds = new Set(
+      freshStates
+        .filter((s) => s.labels.includes(AGENT_LABELS.DONE))
+        .map((s) => s.id),
+    );
+    const toLaunch = wave.stories.filter(
+      (s) => !doneIds.has(s.id ?? s.storyId ?? s),
+    );
+    const skippedResults = [...doneIds].map((storyId) => ({
+      storyId,
+      status: 'done',
+      detail: 'already agent::done on resume; dispatch skipped',
+    }));
+    if (skippedResults.length) {
+      logger.info?.(
+        `[EpicRunner] Wave ${wave.index + 1}/${scheduler.totalWaves} skipping ${skippedResults.length} already-done stor${skippedResults.length === 1 ? 'y' : 'ies'}: ${[...doneIds].map((id) => `#${id}`).join(', ')}`,
+      );
+    }
+    const spawned = toLaunch.length ? await launcher.launchWave(toLaunch) : [];
+    const launchResults = [...skippedResults, ...spawned];
     await progressReporter.stop();
 
     scheduler.markWaveComplete(wave.index);
