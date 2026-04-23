@@ -105,6 +105,14 @@ reference (per-tool schemas, error modes, decision matrix, troubleshooting)
 and [.agents/README.md](.agents/README.md) for the host-level configuration
 details.
 
+> **Hardening note (Epic #511, v5.19.0):** `tools/call` arguments are now
+> AJV-validated against each tool's `inputSchema`, so malformed payloads
+> return JSON-RPC `-32602 Invalid params` with a failing path rather than
+> surfacing as downstream exceptions. `dispatch_wave` results also carry
+> `manifestPersisted` / `manifestPersistError` so callers can detect a
+> failed manifest write instead of reading a stale file. Full rundown in
+> [docs/CHANGELOG.md](docs/CHANGELOG.md) under 5.19.0.
+
 ### 3. Plan Your First Epic
 
 Create a GitHub Issue with the `type::epic` label, then run:

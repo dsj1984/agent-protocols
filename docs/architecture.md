@@ -604,6 +604,16 @@ Implementation: [`.agents/scripts/lib/orchestration/ticketing.js`](../.agents/sc
 — `cascadeCompletion()` explicitly skips `type::epic`, `context::prd`, and
 `context::tech-spec` parents; every other parent tier is eligible.
 
+> **Pinned under Epic #511.** The exclusion list above was previously
+> implicit — Features auto-closed because nothing stopped them, not because
+> the behaviour had been decided. Epic #511 made the decision explicit (keep
+> Feature auto-close, because a Feature carries no branch/merge/release
+> machinery) and pinned it with a regression test so future refactors can't
+> drift. The `fromState` lookup inside `transitionTicketState()` was
+> reviewed at the same time: its try/catch is deliberate — a network flake
+> reading the prior state label must not block a legitimate transition —
+> and now emits a `debug`-level log instead of swallowing silently.
+
 ---
 
 ## Workflow System

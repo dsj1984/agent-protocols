@@ -568,3 +568,89 @@ submodule paths are internal implementation detail.
     *   Resumed runs short-circuit already-done Stories in `iterate-waves`
         via a pre-launch label fetch, so a blocker halt no longer costs
         a fresh worktree + `npm ci` for every closed Story on re-run.
+
+---
+
+## ADR-20260423-511a: Features remain in the cascade; Epics and Planning do not
+
+*   **Status:** Accepted
+*   **Date:** 2026-04-23
+*   **Epic:** #511
+*   **Context:** `cascadeCompletion()` previously excluded only `type::epic`,
+    `context::prd`, and `context::tech-spec` parents. Features fell through
+    the exclusion list silently — they auto-closed because nothing stopped
+    them, not because the behaviour had been chosen. A Feature still being
+    scoped while early Stories landed closed prematurely, stranding later
+    scope work without a parent.
+*   **Decision:** Keep Feature auto-close, and make it an explicit choice
+    rather than an implicit side-effect. A Feature carries no standalone
+    branch, no merge step, and no release artefacts — when its last child
+    Story closes, the Feature is complete by definition, and a manual close
+    step would be pure ceremony. Operators who want Feature-level
+    acceptance-criteria verification should encode it in the final child
+    Story. The exclusion list in `cascadeCompletion()` is now asserted by a
+    regression test pinned under Epic #511 so future refactors cannot drift.
+*   **Alternatives considered:**
+    *   Add `type::feature` to the exclusion list — forces a manual close
+        step with no corresponding merge/release work. Rejected as
+        ceremony.
+    *   Scope-guard Features via a new `feature::scoping-complete` label —
+        adds surface area to solve a problem the Story-level workflow
+        already owns.
+*   **Consequences:**
+    *   Feature cascade behaviour is load-bearing, not accidental.
+    *   A future refactor that accidentally adds `type::feature` to the
+        exclusion list fails the pinned test rather than silently changing
+        closure semantics.
+    *   The Feature auto-close rule is now documented in
+        [`architecture.md` § Cascade Behavior](architecture.md#cascade-behavior).
+
+---
+
+## ADR-20260423-511b: `transitionTicketState.fromState` lookup keeps its swallow, now with a debug log
+
+*   **Status:** Accepted
+*   **Date:** 2026-04-23
+*   **Epic:** #511
+*   **Context:** `transitionTicketState()` wraps the prior-state label
+    lookup in a silent try/catch — any error leaves `fromState` as `null`
+    and downstream notifier payloads ship `{ fromState: null, toState: … }`.
+    The review under Epic #511 asked: deliberate or accidental?
+*   **Decision:** Deliberate — keep swallowing. A transient network flake
+    reading the prior label must not block a legitimate state transition;
+    the transition itself is the authoritative event. Add a `debug`-level
+    log so the operator can correlate a null `fromState` with the
+    underlying error, and document `null` as a valid value in the notifier
+    payload contract.
+*   **Consequences:**
+    *   Transitions remain resilient to read flakes.
+    *   Consumers that branch on `fromState` must handle `null`
+        explicitly (existing contract now documented).
+    *   Silent failures are observable at `debug` log level.
+
+---
+
+## ADR-20260423-511c: Dispatch-manifest writes are atomic (tmp + rename)
+
+*   **Status:** Accepted
+*   **Date:** 2026-04-23
+*   **Epic:** #511
+*   **Context:** `.agents/scripts/lib/presentation/manifest-persistence.js`
+    wrote the dispatch manifest directly. A crash mid-write (or a full
+    disk) left the file truncated; the next orchestrator run consumed a
+    corrupt JSON file as if it were the source of truth.
+*   **Decision:** Write to `temp/dispatch-manifest-<epicId>.json.tmp`, then
+    `fs.renameSync()` to the final path. `rename` is atomic on the same
+    filesystem — the final path either carries the previous valid manifest
+    or the newly-written one, never a partial write. If `rename` fails,
+    delete the `.tmp` residue and re-throw. Surface the persist outcome to
+    the MCP caller via `manifestPersisted: boolean` and optional
+    `manifestPersistError: string` on the `dispatch_wave` tool result —
+    callers (notably `sprint-execute`) already treat the manifest as
+    canonical, so a failed persist must not be swallowed.
+*   **Consequences:**
+    *   A mid-write crash never corrupts the manifest.
+    *   MCP callers can branch on `manifestPersisted` instead of reading a
+        stale file unknowingly.
+    *   Regression test covers the write-failure path (`fs.writeFileSync`
+        throws `EACCES`, assert `manifestPersisted: false` + error string).

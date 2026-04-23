@@ -630,3 +630,72 @@ opts-bag for a release of overlap.
 - Replacing any one primitive — swapping a real provider for a fake
   in integration tests — is a single-line override on the ctx object
   before it flows into the pipeline.
+
+## Atomic file write via tmp + rename (Epic #511)
+
+### Problem
+
+Long-lived state files — the dispatch manifest is the motivating case —
+must never be observed in a truncated state. A direct `fs.writeFileSync`
+that is interrupted mid-write (process crash, disk full, CI cancel) leaves
+the final path corrupt; the next reader consumes invalid JSON as though it
+were canonical.
+
+### Solution
+
+Write to a sibling `.tmp` path, then `fs.renameSync()` to the final path.
+`rename` is atomic on the same filesystem — the target path flips in a
+single inode operation from the previous valid contents to the newly
+written contents, with no intermediate truncated state.
+
+```javascript
+const tmp = `${target}.tmp`;
+fs.writeFileSync(tmp, JSON.stringify(data, null, 2), 'utf8');
+try {
+  fs.renameSync(tmp, target);
+} catch (err) {
+  fs.rmSync(tmp, { force: true });
+  throw err;
+}
+```
+
+### Consequences
+
+- **Crash safety.** A mid-write crash leaves either the previous valid
+  contents at the final path, or both the previous contents and a stray
+  `.tmp` sibling. Never a corrupt target.
+- **Observability.** When the pattern is surfaced through an MCP tool
+  result (the `dispatch_wave` case adds `manifestPersisted` and
+  `manifestPersistError`), callers can react to persist failures instead
+  of trusting a read-after-write.
+- **Filesystem assumption.** `rename` is atomic only when source and
+  target live on the same filesystem. Putting the `.tmp` file next to the
+  target guarantees this.
+
+## MCP tool-argument schema enforcement (Epic #511)
+
+### Problem
+
+Declaring an `inputSchema` per tool in the MCP registry does not enforce
+it — the server had been validating the JSON-RPC envelope with AJV but
+not the `tools/call` arguments themselves. A malformed payload (negative
+`epicId`, string where a number was expected) reached the handler
+unchecked and surfaced as a GraphQL 422 or a `Cannot read properties of
+undefined` downstream, disguising a caller bug as a backend error.
+
+### Solution
+
+Compile each tool's `inputSchema` with AJV at registration time, then
+validate `params.arguments` before invoking the handler. On failure,
+respond with JSON-RPC `-32602 Invalid params` including the AJV error path
+and a human-readable reason — the caller sees exactly which field failed,
+at the protocol boundary.
+
+### Consequences
+
+- Tool schemas are no longer documentation-only; the registry is the
+  enforced contract.
+- Caller errors surface as protocol-level `-32602` with a precise path,
+  not as opaque downstream exceptions.
+- Tightened schemas catch subtle drifts (e.g. a `type::*` enum missing on
+  one tool but present on its siblings) at the boundary.
