@@ -9,6 +9,7 @@
  */
 
 import { AGENT_LABELS, TYPE_LABELS } from '../label-constants.js';
+import { WAVE_MARKER_RE } from './wave-marker.js';
 
 export const STATE_LABELS = {
   READY: AGENT_LABELS.READY,
@@ -40,7 +41,7 @@ export const STRUCTURED_COMMENT_TYPES = Object.freeze([
   'dispatch-manifest',
 ]);
 
-export const WAVE_TYPE_PATTERN = /^wave-\d+-(start|end)$/;
+export const WAVE_TYPE_PATTERN = WAVE_MARKER_RE;
 
 /**
  * @param {string} type
