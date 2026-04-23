@@ -86,6 +86,14 @@ export class Notifier {
    *   sender?: string,
    *   metadata?: object,
    * }} event
+   *
+   * `fromState: null` is a valid value. It signals that the prior state
+   * could not be determined — either the ticket had no `agent::*` label
+   * before transition, or the snapshot read in `transitionTicketState`
+   * failed transiently. Downstream renderers should treat `null` the same
+   * as an empty string (the `#buildPayload` branch below already does).
+   * Once `.agents/MCP.md` ships (Story s5-1), its § notification webhook
+   * payload section becomes the canonical reference for this contract.
    */
   async emit(event) {
     if (!this.#shouldFire(event)) return { fired: false, reason: 'filtered' };

@@ -28,7 +28,6 @@ import { execSync } from 'node:child_process';
 import { parseBlockedBy, parseBlocks } from '../lib/dependency-parser.js';
 import { ITicketingProvider } from '../lib/ITicketingProvider.js';
 import { TYPE_LABELS } from '../lib/label-constants.js';
-import { GithubHttpClient } from './github-http-client.js';
 import { createTicketCacheManager } from './github/cache-manager.js';
 import { classifyGithubError } from './github/error-classifier.js';
 import {
@@ -53,6 +52,7 @@ import {
   issueToTicket,
   subIssueNodeToTicket,
 } from './github/ticket-mapper.js';
+import { GithubHttpClient } from './github-http-client.js';
 
 /**
  * Resolve the GitHub token from environment or CLI.

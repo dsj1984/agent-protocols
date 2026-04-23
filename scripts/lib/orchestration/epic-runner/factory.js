@@ -14,6 +14,7 @@
  */
 
 import { createNotifier } from '../../notifications/notifier.js';
+import { createFrictionEmitter } from '../friction-emitter.js';
 import { BlockerHandler } from './blocker-handler.js';
 import { Checkpointer } from './checkpointer.js';
 import { ColumnSync } from './column-sync.js';
@@ -22,7 +23,6 @@ import { NotificationHook } from './notification-hook.js';
 import { ProgressReporter } from './progress-reporter.js';
 import { StoryLauncher } from './story-launcher.js';
 import { WaveObserver } from './wave-observer.js';
-import { createFrictionEmitter } from '../friction-emitter.js';
 
 const DEFAULT_LOGS_DIR = 'temp/epic-runner-logs';
 

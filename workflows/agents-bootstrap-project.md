@@ -1,0 +1,368 @@
+---
+description: >-
+  Bootstrap the local harness-side plumbing for an agent-protocols project:
+  wire the `.claude/commands/` sync pipeline, ensure `package.json` scripts,
+  create/merge `.claude/settings.json` hooks, ignore derived artefacts, and
+  validate parity between workflows and slash commands. Idempotent — re-running
+  on an already-bootstrapped project is a clean no-op.
+---
+
+# /agents-bootstrap-project
+
+## Overview
+
+`/agents-bootstrap-project` wires the **local** (per-clone, per-machine) harness
+around the `agent-protocols` framework. It is the sibling of
+[`/agents-bootstrap-github`](agents-bootstrap-github.md), which wires the
+**remote** (GitHub-side) taxonomy.
+
+After this workflow completes, the following invariants hold on the current
+clone:
+
+1. Claude Code sees every `.agents/workflows/*.md` file as a slash command.
+2. Fresh clones auto-populate `.claude/commands/` via `npm install` (`prepare`
+   lifecycle hook).
+3. In-session edits to workflow files propagate to slash commands on the next
+   prompt submit (`UserPromptSubmit` hook).
+4. The derived `.claude/commands/` tree is gitignored, not committed.
+5. Every workflow in `.agents/workflows/` has a matching generated entry in
+   `.claude/commands/`.
+
+`/agents-bootstrap-project` does **not** fetch workflow content, clone the
+framework, or configure GitHub. It is strictly the local harness-side wiring.
+
+> **Persona**: `devops-engineer` · **Skills**: `core/ci-cd-and-automation`,
+> `core/documentation-and-adrs`
+
+## Step 0 — Resolve paths and prerequisites
+
+1. `[PROJECT_ROOT]` → the current working directory (must be a git worktree).
+2. `[WORKFLOWS_DIR]` → `.agents/workflows/` (framework source of truth; must
+   exist).
+3. `[SYNC_SCRIPT]` → `.agents/scripts/sync-claude-commands.js` (the single
+   authoritative writer; must exist).
+4. `[COMMANDS_DIR]` → `.claude/commands/` (derived, gitignored).
+5. `[PROJECT_PKG]` → `./package.json` (will be created if missing).
+6. `[CLAUDE_SETTINGS]` → `.claude/settings.json` (will be created if missing).
+7. `[GITIGNORE]` → `./.gitignore` (will be created if missing).
+
+**Hard aborts:**
+
+- If `[WORKFLOWS_DIR]` does not exist, abort — the framework files are not
+  in place on this clone. Run the framework checkout first.
+- If `[SYNC_SCRIPT]` does not exist, abort for the same reason.
+
+**Soft aborts (prompt operator):**
+
+- If `[PROJECT_ROOT]` is not a git repository, prompt:
+  `Run 'git init' first? (recommended)`. Do not auto-init.
+
+## Step 1 — Verify Node ≥ 20
+
+[`.agents/scripts/sync-claude-commands.js`](../scripts/sync-claude-commands.js)
+uses ESM imports and top-level `await`. Both require Node ≥ 20.
+
+```bash
+node -e "const v=process.versions.node.split('.').map(Number); if(v[0]<20) { console.error('Node '+process.versions.node+' is below the required 20.x'); process.exit(1); }"
+```
+
+On failure, abort with a clear error message citing the detected version and
+the requirement.
+
+## Step 2 — Ensure `package.json` exists with the `sync:commands` + `prepare` wiring
+
+### 2a. Create `[PROJECT_PKG]` if missing
+
+If `package.json` does not exist at `[PROJECT_ROOT]`, create a minimal one:
+
+```json
+{
+  "name": "<infer-from-dir-basename>",
+  "version": "0.0.0",
+  "private": true,
+  "type": "module"
+}
+```
+
+Then proceed to the merge.
+
+### 2b. Merge the required `scripts` entries
+
+Read `package.json`, then add — only if missing — the following fields:
+
+| Path | Required value |
+|------|---------------|
+| `scripts."sync:commands"` | `node .agents/scripts/sync-claude-commands.js` |
+| `scripts.prepare` | `node .agents/scripts/sync-claude-commands.js` *(see merge rule below)* |
+
+**Merge rule for `scripts.prepare`:**
+
+- If the key is **absent**, set it to `node .agents/scripts/sync-claude-commands.js`.
+- If the key is **present** and already contains `sync-claude-commands.js`,
+  leave it unchanged.
+- If the key is **present** and does not contain the sync invocation, append
+  it with ` && ` separator (e.g. existing `"husky"` becomes
+  `"husky && node .agents/scripts/sync-claude-commands.js"`).
+- Never overwrite an existing `prepare` script wholesale.
+
+Write the merged `package.json` back with 2-space indentation and a trailing
+newline.
+
+## Step 3 — Wire the `UserPromptSubmit` hook in `.claude/settings.json`
+
+### 3a. Create `[CLAUDE_SETTINGS]` if missing
+
+If `.claude/settings.json` does not exist, create it with:
+
+```json
+{
+  "hooks": {
+    "UserPromptSubmit": [
+      {
+        "hooks": [
+          {
+            "type": "command",
+            "command": "node .agents/scripts/sync-claude-commands.js"
+          }
+        ]
+      }
+    ]
+  }
+}
+```
+
+### 3b. Merge the hook entry into an existing `.claude/settings.json`
+
+If the file exists, parse it, then:
+
+1. Ensure `hooks` is an object; initialize to `{}` if absent.
+2. Ensure `hooks.UserPromptSubmit` is an array; initialize to `[]` if absent.
+3. Scan every `hooks[].command` string within `UserPromptSubmit`. If any
+   command already references `sync-claude-commands.js`, the hook is already
+   wired — skip.
+4. Otherwise, append a new group:
+
+   ```json
+   {
+     "hooks": [
+       { "type": "command", "command": "node .agents/scripts/sync-claude-commands.js" }
+     ]
+   }
+   ```
+
+**Warnings to surface to the operator:**
+
+- If `.claude/settings.json` already has a `UserPromptSubmit` hook that uses a
+  bare `cp` command (or `rsync`, or any non-Node writer for the commands
+  directory), flag it. Do not auto-remove it — the operator decides whether
+  the legacy hook is obsolete. Recommend they remove it so the Node script is
+  the single writer.
+
+Write the merged `.claude/settings.json` back with 2-space indentation and a
+trailing newline.
+
+## Step 4 — Ensure `.claude/commands/` is gitignored
+
+### 4a. Create `[GITIGNORE]` if missing
+
+If `.gitignore` does not exist, create it containing just:
+
+```gitignore
+.claude/commands/
+```
+
+### 4b. Merge the entry into an existing `.gitignore`
+
+If the file exists and already contains a line matching `^\.claude/commands/?$`
+(with or without trailing slash), skip. Otherwise append:
+
+```gitignore
+
+# Claude Code slash commands are generated from .agents/workflows/ — do not commit.
+.claude/commands/
+```
+
+Leading blank line separates from any prior trailing block. Never rewrite
+existing gitignore entries; append only.
+
+## Step 5 — Seed `.claude/commands/` by running the sync
+
+Invoke the script exactly as the hooks do:
+
+```bash
+node .agents/scripts/sync-claude-commands.js
+```
+
+The script creates `[COMMANDS_DIR]` if it does not exist, writes every
+top-level `.md` from `[WORKFLOWS_DIR]` (with the auto-generated header),
+removes any stale entries, and prints a summary.
+
+On a fresh bootstrap this typically syncs 20+ files. On a repeat run, it syncs
+zero.
+
+## Step 6 — Validate parity between workflows and slash commands
+
+Compare the two directories by file name:
+
+```bash
+diff \
+  <(ls .agents/workflows/*.md 2>/dev/null | xargs -n1 -I{} basename {} .md | sort) \
+  <(ls .claude/commands/*.md 2>/dev/null | xargs -n1 -I{} basename {} .md | sort)
+```
+
+Expected output: **empty diff**. Any asymmetry means the sync is broken — do
+not report success until it is empty.
+
+Also verify every file in `[COMMANDS_DIR]` begins with the auto-generated
+header:
+
+```bash
+for f in .claude/commands/*.md; do
+  head -n 1 "$f" | grep -q 'AUTO-GENERATED' || echo "MISSING HEADER: $f"
+done
+```
+
+Any `MISSING HEADER` line is a failure — something bypassed the sync script.
+
+## Step 7 — Optional: husky pre-commit wiring
+
+Run this step **only if** the operator has husky available (auto-detect by
+looking for `node_modules/husky/` or a `devDependencies.husky` entry). Skip
+silently if husky is not already in the project — this workflow does not
+install husky.
+
+When husky is available:
+
+1. Ensure `.husky/` directory exists; if not, prompt the operator to run
+   `npx husky init` and re-invoke this workflow.
+2. Check `.husky/pre-commit`. If the operator wants additional pre-commit
+   checks (lint-staged, check-version-sync, etc.), suggest adding them here —
+   but **do not** add a `sync-claude-commands.js` invocation. The
+   `UserPromptSubmit` and `prepare` hooks already cover that case; duplicating
+   it in pre-commit writes to a gitignored directory for no benefit (see the
+   reasoning documented in [.agents/workflows/git-commit-all.md](git-commit-all.md)
+   if further context is required).
+
+Leave an existing `.husky/pre-commit` untouched unless the operator explicitly
+asks for changes.
+
+## Step 8 — Check `.mcp.json` against the template
+
+MCP servers (`github`, `context7`, `chrome-devtools`, `agent-protocols`) are
+loaded by Claude Code from a project-scoped `.mcp.json` at the repo root. The
+file is gitignored because it carries secrets, so a fresh clone has no MCP
+tooling until this step runs. A committed template — `.mcp.json.example` — is
+the source of truth for the expected server shape.
+
+**Hard abort:** if `.mcp.json.example` does not exist at `[PROJECT_ROOT]`,
+abort this step with a message directing the operator to restore or regenerate
+it. Do not proceed to scaffold a `.mcp.json` without a template to check against.
+
+### 8a. Scaffold when missing
+
+If `.mcp.json` does not exist at `[PROJECT_ROOT]`:
+
+1. Copy `.mcp.json.example` → `.mcp.json` verbatim.
+2. Parse `.mcp.json` and collect every placeholder of the form `<YOUR_*>` in
+   `env` values.
+3. Surface the placeholders to the operator as a checklist, e.g.:
+
+   ```text
+   [agents-bootstrap-project] .mcp.json scaffolded from template. Fill in:
+     github        env.GITHUB_PERSONAL_ACCESS_TOKEN
+     context7      env.CONTEXT7_API_KEY
+     agent-protocols env.GITHUB_TOKEN
+     agent-protocols env.NOTIFICATION_WEBHOOK_URL
+   Reload Claude Code once populated so the new servers attach.
+   ```
+
+Do **not** prompt for the secret values from within the workflow — the
+operator populates them by hand. Never commit the result: `.mcp.json` must
+remain gitignored.
+
+### 8b. Diff existing `.mcp.json` against the template
+
+If `.mcp.json` already exists, parse both files and report structural gaps —
+without mutating `.mcp.json`. Flag each of the following to the operator:
+
+1. **Servers in the template missing from `.mcp.json`** — new tooling the
+   operator has not picked up yet. List each missing `mcpServers.<name>` block.
+2. **Servers in `.mcp.json` missing from the template** — either stale
+   configuration from a removed server, or a per-developer addition. Report
+   but do not touch.
+3. **Command/args drift** — for servers present in both, compare `command` +
+   `args` arrays. Differences usually indicate a version bump in the template
+   (e.g. `chrome-devtools-mcp@0.21.0` → newer) that the operator should
+   mirror.
+4. **Placeholder leakage** — any `env` value in `.mcp.json` that still matches
+   the `<YOUR_*>` pattern from the template means a secret was never filled
+   in. Flag as a warning.
+
+Present findings as an actionable checklist; the operator edits `.mcp.json`
+by hand. This step is read-only on `.mcp.json` and never writes secrets.
+
+### 8c. Ensure `.mcp.json` is gitignored
+
+Verify `.gitignore` contains a line matching `^\.mcp\.json$`. If absent,
+append:
+
+```gitignore
+
+# Project-scoped MCP config carries secrets — template lives in .mcp.json.example.
+.mcp.json
+```
+
+Do not append `.mcp.json.example` to `.gitignore` — the template is committed.
+
+## Step 9 — Report outcome
+
+Emit a compact summary showing what was touched on this run:
+
+```text
+[agents-bootstrap-project]
+  package.json        scripts.sync:commands  added | already present
+  package.json        scripts.prepare        added | appended | already present
+  .claude/settings.json  UserPromptSubmit    wired | merged | already present
+  .gitignore             .claude/commands/   added | already present
+  .gitignore             .mcp.json           added | already present
+  .claude/commands/                          <N> file(s) synced from workflows
+  .mcp.json                                  scaffolded | <N> gap(s) flagged | OK
+  parity check                               OK | <asymmetry details>
+```
+
+If every row shows `already present` and parity is OK, print a single
+confirmation line:
+
+```text
+✔ Project already bootstrapped. No changes applied.
+```
+
+## Constraints
+
+- **Idempotent.** Running twice back-to-back must apply zero changes on the
+  second run.
+- **Additive merges only.** Never overwrite an existing `scripts.prepare`,
+  `UserPromptSubmit` hook, or `.gitignore` entry wholesale. Merge in place.
+- **Never write to `[WORKFLOWS_DIR]`.** The framework workflow content is
+  read-only from this workflow's perspective; it is managed by the framework
+  submodule/clone, not by the bootstrap.
+- **Never commit `[COMMANDS_DIR]`.** It is derived and per-clone; the
+  gitignore step is what keeps it out of git.
+- **No network I/O.** This workflow is fully local. It does not install
+  dependencies, fetch framework files, or call GitHub APIs — those are the
+  responsibility of `/agents-bootstrap-github` and the initial framework
+  checkout.
+- **Fail loudly.** Step 6 parity failure or Step 1 Node-version failure must
+  be a hard stop, not a warning.
+- **Do not auto-commit.** The operator reviews the diff of `package.json`,
+  `.claude/settings.json`, and `.gitignore` before committing.
+
+## Troubleshooting
+
+| Symptom | Likely cause | Fix |
+|---------|--------------|-----|
+| Step 6 parity check reports files in `.claude/commands/` without a source | Workflow was renamed/deleted; sync script was not re-run cleanly. | Re-run Step 5; the script removes stale entries. |
+| Step 6 parity check reports files in `.agents/workflows/` without a command | Sync script failed mid-run, or the file lives in a subdirectory (e.g. `helpers/`) and is intentionally excluded. | If top-level, re-run Step 5. If in `helpers/`, expected — helpers are not exposed as slash commands. |
+| `npm install` does not populate `.claude/commands/` | `scripts.prepare` was not merged (older package manager, or `prepare` is being skipped via `--ignore-scripts`). | Re-run Step 2, and avoid `--ignore-scripts` on trusted clones. |
+| Slash commands stale after editing a workflow file | `UserPromptSubmit` hook not wired, or settings file has a legacy `cp`-based entry that does not handle renames/deletions. | Re-run Step 3; remove any legacy `cp` entry. |
+| New clone reports "Node 18 is below required 20.x" | Project uses an older Node. | Upgrade Node or use a Node version manager (nvm, fnm, volta). |

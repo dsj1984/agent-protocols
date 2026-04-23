@@ -34,3 +34,5 @@ export {
   upsertStructuredComment,
   WAVE_TYPE_PATTERN,
 } from './ticketing.js';
+// Wave-marker helper — canonical home for the bounded wave regex + parser.
+export { parseWaveMarker, WAVE_MARKER_RE } from './wave-marker.js';

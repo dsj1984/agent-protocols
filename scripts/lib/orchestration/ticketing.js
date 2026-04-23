@@ -8,7 +8,9 @@
  * provided ITicketingProvider instance.
  */
 
+import { Logger } from '../Logger.js';
 import { AGENT_LABELS, TYPE_LABELS } from '../label-constants.js';
+import { WAVE_MARKER_RE } from './wave-marker.js';
 
 export const STATE_LABELS = {
   READY: AGENT_LABELS.READY,
@@ -40,7 +42,7 @@ export const STRUCTURED_COMMENT_TYPES = Object.freeze([
   'dispatch-manifest',
 ]);
 
-export const WAVE_TYPE_PATTERN = /^wave-\d+-(start|end)$/;
+export const WAVE_TYPE_PATTERN = WAVE_MARKER_RE;
 
 /**
  * @param {string} type
@@ -100,8 +102,16 @@ export async function transitionTicketState(
       ticketSnapshot = await provider.getTicket(ticketId);
       fromState =
         ticketSnapshot?.labels?.find((l) => ALL_STATES.includes(l)) ?? null;
-    } catch {
-      // non-fatal
+    } catch (err) {
+      // Intentional: a transient read failure MUST NOT block a label
+      // transition — the transition itself is idempotent and the notifier
+      // payload documents `fromState: null` as valid (see
+      // .agents/MCP.md § notification webhook payload). Log at debug so
+      // verbose-log runs can correlate flaky reads without adding noise
+      // in info-level operation.
+      Logger.debug(
+        `[Ticketing] fromState lookup failed for #${ticketId}: ${err.message ?? err}`,
+      );
     }
   }
 
@@ -328,8 +338,19 @@ export async function cascadeCompletion(provider, ticketId, opts = {}) {
         );
         if (!allDone) return;
 
-        // EXCLUSION: Do not auto-close Epics, PRDs, or Tech Specs via cascade.
-        // These must be closed via formal sprint-close.
+        // EXCLUSION: Epics and Planning tickets (PRDs, Tech Specs) do not
+        // auto-close via cascade.
+        //   - Epics close via formal /sprint-close (their own machinery
+        //     handles branch merges, version bumps, release tags).
+        //   - Planning tickets (context::prd, context::tech-spec) close by
+        //     operator once the Epic is finalized.
+        //
+        // Features, by contrast, DO auto-close via cascade. A Feature is a
+        // purely hierarchical grouping — no standalone branch, no merge
+        // step. When its last child Story closes, the Feature is complete
+        // by definition. Operators who need Feature-level AC verification
+        // should encode it in the final child Story, not rely on a manual
+        // close step.
         const parent = await provider.getTicket(parentId);
         const isEpic = parent.labels.includes(TYPE_LABELS.EPIC);
         const isPlanning =
