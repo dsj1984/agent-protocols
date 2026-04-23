@@ -5,6 +5,11 @@
  * workflow as a slash command.  The workflows directory remains the single
  * source of truth; this script is the only writer of .claude/commands/.
  *
+ * Only top-level .md files are synced. The `.agents/workflows/helpers/`
+ * subdirectory holds path-included modules (e.g. sprint-code-review,
+ * sprint-retro) that parent workflows read by relative path — they are
+ * intentionally **not** exposed as slash commands, so helpers/ is skipped.
+ *
  * Usage:  node .agents/scripts/sync-claude-commands.js
  */
 
@@ -23,9 +28,16 @@ const HEADER =
 
 fs.mkdirSync(DEST_DIR, { recursive: true });
 
-// Remove stale commands that no longer have a source workflow
+// Only sync top-level .md files. Subdirectories (notably helpers/) are
+// ignored — they contain path-included modules, not slash commands.
+const isTopLevelWorkflow = (entry) =>
+  entry.isFile() && entry.name.endsWith('.md');
+
 const existing = fs.readdirSync(DEST_DIR).filter((f) => f.endsWith('.md'));
-const sources = fs.readdirSync(SRC_DIR).filter((f) => f.endsWith('.md'));
+const sources = fs
+  .readdirSync(SRC_DIR, { withFileTypes: true })
+  .filter(isTopLevelWorkflow)
+  .map((entry) => entry.name);
 const sourceSet = new Set(sources);
 
 for (const file of existing) {

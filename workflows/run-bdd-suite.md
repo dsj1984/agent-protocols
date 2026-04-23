@@ -88,8 +88,8 @@ The evidence artifact for this workflow is the **Cucumber report** produced
 by the run:
 
 - **Cucumber JSON** (machine-readable) — the primary artifact. Consumed by
-  `sprint-testing.md` to attach to the sprint-testing ticket and by any
-  downstream aggregation.
+  [`helpers/sprint-testing.md`](helpers/sprint-testing.md) to attach to the
+  sprint-testing ticket and by any downstream aggregation.
 - **Cucumber HTML** (human-readable) — attached alongside the JSON for
   reviewer convenience.
 - **Playwright traces** for failed scenarios — captured by the
@@ -110,8 +110,8 @@ Summarize the run in chat with:
 - For any failure, the scenario name, file path, and a one-line symptom.
 
 If the run was triggered from a sprint-testing context, follow
-`sprint-testing.md` for where to attach the report and how to transition the
-ticket.
+[`helpers/sprint-testing.md`](helpers/sprint-testing.md) for where to attach
+the report and how to transition the ticket.
 
 ## Relationship to `run-test-plan.md`
 

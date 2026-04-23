@@ -4,7 +4,7 @@ description:
   for a GitHub Epic.
 ---
 
-# /sprint-plan [Epic ID]
+# /sprint-plan [Epic ID] [--phase spec|decompose]
 
 ## Role
 
@@ -16,12 +16,34 @@ You are the master orchestrator for the v5 Epic-Centric ticketing pipeline. Your
 goal is to transform a high-level Epic into a fully decomposed, ready-to-execute
 backlog of Features, Stories, and Tasks.
 
-`/sprint-plan` is the local IDE-driven wrapper that chains
-[`/sprint-plan-spec`](sprint-plan-spec.md) and
-[`/sprint-plan-decompose`](sprint-plan-decompose.md) with a human confirmation
-gate in between. Remote planning (triggered by the operator applying
-`agent::planning` on GitHub) calls the two split skills directly; the local
-wrapper exists so the single-command IDE happy path keeps working.
+`/sprint-plan` is the unified planning entry point. It delegates to the two
+phase helpers — [`helpers/sprint-plan-spec.md`](helpers/sprint-plan-spec.md) and
+[`helpers/sprint-plan-decompose.md`](helpers/sprint-plan-decompose.md) — and
+supports two invocation modes:
+
+- **Local IDE mode (no `--phase`):** run both phases sequentially with a human
+  confirmation gate between them. This is the default for operators typing
+  `/sprint-plan <Epic_ID>` in Claude Code.
+- **Single-phase mode (`--phase spec` or `--phase decompose`):** run exactly
+  one phase and stop. Used by the remote orchestrator
+  (`.github/workflows/epic-orchestrator.yml`) and `remote-bootstrap.js`, which
+  fire `/sprint-plan --phase spec <id>` when the operator applies
+  `agent::planning` and `/sprint-plan --phase decompose <id>` when they apply
+  `agent::decomposing`.
+
+### Phase routing
+
+Parse the slash-command arguments for a `--phase` flag (either
+`--phase spec|decompose` or `--phase=spec|decompose`). The Epic ID is the
+remaining positional argument. Order is not significant.
+
+- `--phase spec` → execute **Phase 1 only** (below), then stop at the
+  operator handoff. Skip Phase 2 through Phase 5.
+- `--phase decompose` → skip Phase 1 and the Phase 0 re-plan prompt, and
+  execute **Phases 2–5**. Assumes the Epic is already on
+  `agent::review-spec` or `agent::decomposing` with a linked PRD / Tech Spec.
+- No `--phase` flag → run the full chain (Phase 0 → Phase 5) with the
+  operator confirmation gate at the end of Phase 1.
 
 As of v5.6, planning artifacts (PRD, Tech Spec, ticket decomposition) are
 authored **directly by you, the host LLM** — no external Gemini / Anthropic /
@@ -33,11 +55,12 @@ artifacts you author.
 
 - Do not modify existing issues without explicit permission.
 - Wait for user validation before migrating to Phase 2.
-- Delegate Phase 1 and Phase 2 to `/sprint-plan-spec` and
-  `/sprint-plan-decompose` respectively — they own the Epic lifecycle label
-  transitions and the `epic-plan-state` checkpoint. This wrapper must not
-  apply those labels directly (except for the optional `--auto-dispatch`
-  final step).
+- Delegate Phase 1 and Phase 2 to the
+  [`helpers/sprint-plan-spec.md`](helpers/sprint-plan-spec.md) and
+  [`helpers/sprint-plan-decompose.md`](helpers/sprint-plan-decompose.md)
+  procedures respectively — they own the Epic lifecycle label transitions and
+  the `epic-plan-state` checkpoint. This wrapper must not apply those labels
+  directly (except for the optional `--auto-dispatch` final step).
 
 ## Prerequisites
 

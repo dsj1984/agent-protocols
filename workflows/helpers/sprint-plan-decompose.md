@@ -5,7 +5,12 @@ description: >-
   `agent::ready`. Host-LLM authored; no external API calls.
 ---
 
-# /sprint-plan-decompose [Epic ID]
+# Sprint Plan — Decompose Phase (helper)
+
+> **Helper module.** Not a slash command. Invoked by `/sprint-plan` (Phase 2)
+> and by the remote planner when the operator applies `agent::decomposing` on
+> GitHub. To run the decompose phase interactively, use
+> `/sprint-plan [Epic_ID]` — it delegates here after the spec phase.
 
 ## Role
 
@@ -13,12 +18,12 @@ Director / Architect
 
 ## Context
 
-`/sprint-plan-decompose` is the **decompose phase** of the split planning
-pipeline. It reads the PRD and Tech Spec previously produced by
-`/sprint-plan-spec`, generates the Feature / Story / Task ticket hierarchy,
-persists it to GitHub, and flips the Epic from `agent::decomposing` (trigger)
-to `agent::ready` (parking) so a human can apply `agent::dispatching` when
-execution should begin.
+This helper is the **decompose phase** of the split planning pipeline. It
+reads the PRD and Tech Spec previously produced by the spec phase helper
+([`sprint-plan-spec.md`](sprint-plan-spec.md)), generates the Feature / Story
+/ Task ticket hierarchy, persists it to GitHub, and flips the Epic from
+`agent::decomposing` (trigger) to `agent::ready` (parking) so a human can
+apply `agent::dispatching` when execution should begin.
 
 The ticket array is authored **directly by you, the host LLM**.
 `sprint-plan-decompose.js` is a deterministic wrapper that (a) emits the
@@ -35,7 +40,7 @@ Epic lifecycle state.
   structure as committed. Use `--force` to rebuild from scratch.
 - **Every** temp file must include the Epic ID in its name. Multiple Epics
   may be decomposed concurrently; bare names will collide.
-- **Do not** apply `agent::dispatching` from this skill. The local
+- **Do not** apply `agent::dispatching` from this helper. The local
   `/sprint-plan --auto-dispatch` wrapper owns that transition; remote flows
   rely on the operator applying the label by hand.
 
@@ -114,7 +119,7 @@ Fix any gaps by creating additional issues or updating existing ones.
 
 The wrapper script deletes the phase-scoped temp files automatically when
 Step 3 succeeds — no operator action required. The cleanup contract lives in
-[`lib/plan-phase-cleanup.js`](../scripts/lib/plan-phase-cleanup.js), which
+[`lib/plan-phase-cleanup.js`](../../scripts/lib/plan-phase-cleanup.js), which
 is the single source of truth for which temp paths this phase owns.
 
 ## Handoff
@@ -127,8 +132,8 @@ is the single source of truth for which temp paths this phase owns.
 
 ## Troubleshooting
 
-- "Epic #N is missing a linked PRD or Tech Spec" — run `/sprint-plan-spec`
-  first.
+- "Epic #N is missing a linked PRD or Tech Spec" — run `/sprint-plan [Epic_ID]`
+  first (it will run the spec phase if the PRD / Tech Spec are missing).
 - Validator rejects the tickets file — the most common causes are a Story
   with no child Tasks, a Task whose `parent_slug` does not point at a Story,
   or cross-Story Task dependencies (which must be lifted to Story-level

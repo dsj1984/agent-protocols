@@ -3,9 +3,15 @@ description: >-
   Perform a comprehensive code review of all changes implemented during a sprint
 ---
 
-# Sprint Code Review
+# Sprint Code Review (helper)
 
-This workflow performs a comprehensive code review of **all code changes** on an
+> **Helper module.** Not a slash command. Invoked automatically from
+> `/sprint-close` Phase 2 and from the Bookend Lifecycle in `/sprint-execute`
+> when all Tasks reach `agent::done`. To run a review directly, use
+> `/sprint-close [Epic_ID]` — it delegates here (or pass `--skip-code-review`
+> to bypass).
+
+This helper performs a comprehensive code review of **all code changes** on an
 Epic branch before it is merged to `main`. It is a mandatory Bookend phase —
 every sprint must pass a code review before closure.
 
@@ -123,7 +129,7 @@ prior baseline before merging.
 Findings are **persisted as a `code-review` structured comment on the Epic
 issue** by `sprint-code-review.js` (v5.9.0+). The comment is idempotent —
 re-runs replace the prior one — and its body includes severity-tier counts plus
-the full findings list so downstream workflows (notably `/sprint-retro`) can
+the full findings list so downstream workflows (notably the retro helper) can
 summarise blockers/high findings without re-running the review.
 
 Output a consolidated findings report grouped by severity:

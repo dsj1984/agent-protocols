@@ -5,7 +5,12 @@ description: >-
   `agent::review-spec`. Host-LLM authored; no external API calls.
 ---
 
-# /sprint-plan-spec [Epic ID]
+# Sprint Plan — Spec Phase (helper)
+
+> **Helper module.** Not a slash command. Invoked by `/sprint-plan` (Phase 1)
+> and by the remote planner when the operator applies `agent::planning` on
+> GitHub. To run the spec phase interactively, use `/sprint-plan [Epic_ID]` —
+> it delegates here.
 
 ## Role
 
@@ -13,9 +18,9 @@ Director / Architect
 
 ## Context
 
-`/sprint-plan-spec` is the **spec phase** of the split planning pipeline. It
-produces a Product Requirements Document and a Technical Specification for an
-Epic, persists them as `context::prd` and `context::tech-spec` issues under the
+This helper is the **spec phase** of the split planning pipeline. It produces a
+Product Requirements Document and a Technical Specification for an Epic,
+persists them as `context::prd` and `context::tech-spec` issues under the
 Epic, and flips the Epic's label from `agent::planning` (trigger) to
 `agent::review-spec` (parking) so a human reviewer can read the artifacts on
 GitHub before decomposition.
@@ -25,16 +30,16 @@ The PRD and Tech Spec are authored **directly by you, the host LLM**.
 context you need and (b) persists the artifacts and transitions the Epic
 lifecycle state.
 
-`/sprint-plan-decompose` is the complementary Phase 2 command. The local
-`/sprint-plan` wrapper chains this skill with decomposition for IDE-driven
-flows; remote planning triggers this skill directly when the operator applies
-`agent::planning` on GitHub.
+The complementary Phase 2 helper is
+[`sprint-plan-decompose.md`](sprint-plan-decompose.md). The `/sprint-plan`
+wrapper chains both helpers with a confirmation gate in between for
+IDE-driven flows; remote planning triggers each helper directly.
 
 ## Constraint
 
 - **Do not** create or modify tickets outside the `context::prd` /
   `context::tech-spec` contract — decomposition belongs to
-  `/sprint-plan-decompose`.
+  [`sprint-plan-decompose.md`](sprint-plan-decompose.md).
 - **Do not** flip the Epic to `agent::decomposing` or `agent::ready` from this
   skill. The terminal label for the spec phase is `agent::review-spec`.
 - **Every** temp file must include the Epic ID in its name. Multiple Epics may
@@ -101,7 +106,7 @@ On success the script:
 
 The wrapper script deletes the phase-scoped temp files automatically when
 Step 4 succeeds — no operator action required. The cleanup contract lives in
-[`lib/plan-phase-cleanup.js`](../scripts/lib/plan-phase-cleanup.js), which
+[`lib/plan-phase-cleanup.js`](../../scripts/lib/plan-phase-cleanup.js), which
 is the single source of truth for which temp paths this phase owns. If you
 need to inspect the temp artefacts after the fact, re-run
 `sprint-plan-spec.js --emit-context` to regenerate the planner context.
@@ -112,8 +117,9 @@ need to inspect the temp artefacts after the fact, re-run
   URLs to the operator:
 
   > "Spec phase complete for Epic #[ID]. Review PRD (#XX) and Tech Spec (#YY)
-  > on GitHub. When you're ready, apply `agent::decomposing` (remote) or run
-  > `/sprint-plan-decompose [Epic_ID]` (local) to continue."
+  > on GitHub. When you're ready, apply `agent::decomposing` (remote) or re-run
+  > `/sprint-plan [Epic_ID]` (local) — the wrapper will pick up where it left
+  > off and run the decompose phase."
 
 ## Troubleshooting
 

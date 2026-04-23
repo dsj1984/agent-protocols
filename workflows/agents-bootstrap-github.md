@@ -2,7 +2,7 @@
 description: Initialize GitHub repo with v5 label taxonomy and project fields
 ---
 
-# /bootstrap-agent-protocols
+# /agents-bootstrap-github
 
 ## Purpose
 
@@ -26,7 +26,7 @@ custom fields.
 2. **Run Bootstrap Script**:
 
    ```bash
-   node .agents/scripts/bootstrap-agent-protocols.js
+   node .agents/scripts/agents-bootstrap-github.js
    ```
 
 3. **Review Output**: The script prints a summary of created vs. skipped
