@@ -92,5 +92,8 @@
       "enabled": true,
       "pollIntervalSec": 30
     }
+  },
+  "audits": {
+    "selectionGitTimeoutMs": 30000
   }
 }

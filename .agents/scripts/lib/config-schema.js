@@ -113,6 +113,34 @@ const PLAN_RUNNER_SCHEMA = {
 };
 
 /**
+ * Top-level `audits` block. Controls behavior of MCP audit helpers
+ * (`select_audits`, `run_audit_suite`).
+ *
+ * @see .agents/scripts/mcp/select-audits.js
+ */
+export const AUDITS_SCHEMA = {
+  type: 'object',
+  properties: {
+    selectionGitTimeoutMs: { type: 'integer', minimum: 1000 },
+  },
+  additionalProperties: false,
+};
+
+/** Default value applied when `audits.selectionGitTimeoutMs` is unset. */
+export const DEFAULT_SELECTION_GIT_TIMEOUT_MS = 30000;
+
+let _compiledAuditsValidator = null;
+
+export function getAuditsValidator() {
+  if (!_compiledAuditsValidator) {
+    const ajv = new Ajv({ allErrors: true });
+    addFormats(ajv);
+    _compiledAuditsValidator = ajv.compile(AUDITS_SCHEMA);
+  }
+  return _compiledAuditsValidator;
+}
+
+/**
  * Embedded JSON Schema for the `orchestration` configuration block. Kept
  * inline so all config validation lives in a single file; composed from the
  * per-section sub-schemas above.

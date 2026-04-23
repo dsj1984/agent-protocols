@@ -14,6 +14,7 @@ import fs from 'node:fs';
 import path from 'node:path';
 import { fileURLToPath } from 'node:url';
 import {
+  getAuditsValidator,
   getOrchestrationValidator,
   getSettingsValidator,
   SHELL_INJECTION_RE_STRICT as SHELL_INJECTION_RE,
@@ -178,6 +179,7 @@ export function resolveConfig(opts) {
     }
 
     const orchestration = raw.orchestration ?? null;
+    const audits = raw.audits ?? null;
 
     // Apply defaults to the loaded config. Missing keys that are also absent
     // from LOADED_CONFIG_DEFAULTS (e.g. schemasRoot, docsRoot, tempRoot,
@@ -190,11 +192,13 @@ export function resolveConfig(opts) {
 
     if (validate) {
       validateOrchestrationConfig(orchestration);
+      validateAuditsConfig(audits);
     }
 
     const resolved = {
       settings,
       orchestration,
+      audits,
       raw,
       source: agentrcPath,
     };
@@ -206,6 +210,7 @@ export function resolveConfig(opts) {
   const resolved = {
     settings: { ...ZERO_CONFIG_DEFAULTS },
     orchestration: null,
+    audits: null,
     raw: null,
     source: 'built-in defaults',
   };
@@ -305,5 +310,28 @@ export function validateOrchestrationConfig(orchestration) {
     throw new Error(
       `Invalid orchestration configuration:\n${errors.join('\n')}`,
     );
+  }
+}
+
+/**
+ * Validates the top-level `audits` configuration block. Null/undefined is
+ * treated as "unset" — consumers fall through to their own defaults.
+ *
+ * @param {object|null} audits
+ * @throws {Error} If schema validation fails.
+ */
+export function validateAuditsConfig(audits) {
+  if (audits == null) return;
+
+  if (typeof audits !== 'object' || Array.isArray(audits)) {
+    throw new Error('Invalid audits configuration: audits must be an object.');
+  }
+
+  const validate = getAuditsValidator();
+  if (!validate(audits)) {
+    const details = (validate.errors ?? [])
+      .map((e) => `- ${e.instancePath || '(root)'} ${e.message}`)
+      .join('\n');
+    throw new Error(`Invalid audits configuration:\n${details}`);
   }
 }
