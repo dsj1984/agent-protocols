@@ -1,6 +1,14 @@
 /**
  * @file tool-registry.js
  * Definitions and handlers for MCP server tools.
+ *
+ * Each entry carries a tightened JSON Schema (AC-02) — required fields,
+ * integer-with-minimum-1 for id fields, enums where the domain is finite,
+ * and additionalProperties:false so stray keys are rejected with -32602
+ * rather than silently ignored. Each entry also carries an
+ * `outputSchemaRef` (AC-13) — either a repo-relative path to the schema
+ * describing the tool's structured output, or `null` when the tool returns
+ * free-form text / a trivial ack.
  */
 
 import { AGENT_LABELS } from '../label-constants.js';
@@ -17,7 +25,8 @@ export async function getToolRegistry(sdk, getProvider) {
       inputSchema: {
         properties: {
           epicId: {
-            type: 'number',
+            type: 'integer',
+            minimum: 1,
             description:
               'The GitHub issue number of the Epic or Story to process.',
           },
@@ -28,12 +37,15 @@ export async function getToolRegistry(sdk, getProvider) {
           },
           githubToken: {
             type: 'string',
+            minLength: 1,
             description:
               'Optional GitHub PAT. Overrides environment variables.',
           },
         },
         required: ['epicId'],
+        additionalProperties: false,
       },
+      outputSchemaRef: '.agents/schemas/dispatch-manifest.json',
       handler: async ({ epicId, dryRun = false, githubToken }) => {
         const provider = getProvider(githubToken);
         return sdk.resolveAndDispatch({ ticketId: epicId, dryRun, provider });
@@ -49,28 +61,39 @@ export async function getToolRegistry(sdk, getProvider) {
             type: 'object',
             description:
               'The normalized task object (id, title, body, persona, skills, protocolVersion).',
+            properties: {
+              id: { type: 'integer', minimum: 1 },
+              title: { type: 'string', minLength: 1 },
+            },
+            required: ['id', 'title'],
           },
           epicBranch: {
             type: 'string',
+            minLength: 1,
             description: 'The Epic base branch name, e.g. "epic/71".',
           },
           taskBranch: {
             type: 'string',
+            minLength: 1,
             description:
               'The task/story branch name, e.g. "story/epic-71/my-story".',
           },
           epicId: {
-            type: 'number',
+            type: 'integer',
+            minimum: 1,
             description: 'The Epic issue number.',
           },
           githubToken: {
             type: 'string',
+            minLength: 1,
             description:
               'Optional GitHub PAT. Overrides environment variables.',
           },
         },
         required: ['task', 'epicId'],
+        additionalProperties: false,
       },
+      outputSchemaRef: null,
       handler: async ({
         task,
         epicBranch,
@@ -96,7 +119,8 @@ export async function getToolRegistry(sdk, getProvider) {
       inputSchema: {
         properties: {
           ticketId: {
-            type: 'number',
+            type: 'integer',
+            minimum: 1,
             description: 'The GitHub issue number to update.',
           },
           newState: {
@@ -111,12 +135,15 @@ export async function getToolRegistry(sdk, getProvider) {
           },
           githubToken: {
             type: 'string',
+            minLength: 1,
             description:
               'Optional GitHub PAT. Overrides environment variables.',
           },
         },
         required: ['ticketId', 'newState'],
+        additionalProperties: false,
       },
+      outputSchemaRef: null,
       handler: async ({ ticketId, newState, githubToken }) => {
         const provider = getProvider(githubToken);
         await sdk.transitionTicketState(provider, ticketId, newState);
@@ -130,17 +157,21 @@ export async function getToolRegistry(sdk, getProvider) {
       inputSchema: {
         properties: {
           ticketId: {
-            type: 'number',
+            type: 'integer',
+            minimum: 1,
             description: 'The completed ticket to cascade from.',
           },
           githubToken: {
             type: 'string',
+            minLength: 1,
             description:
               'Optional GitHub PAT. Overrides environment variables.',
           },
         },
         required: ['ticketId'],
+        additionalProperties: false,
       },
+      outputSchemaRef: null,
       handler: async ({ ticketId, githubToken }) => {
         const provider = getProvider(githubToken);
         await sdk.cascadeCompletion(provider, ticketId);
@@ -158,7 +189,8 @@ export async function getToolRegistry(sdk, getProvider) {
       inputSchema: {
         properties: {
           ticketId: {
-            type: 'number',
+            type: 'integer',
+            minimum: 1,
             description: 'The GitHub issue number to comment on.',
           },
           type: {
@@ -174,16 +206,20 @@ export async function getToolRegistry(sdk, getProvider) {
           },
           payload: {
             type: 'string',
+            minLength: 1,
             description: 'The comment body text (markdown).',
           },
           githubToken: {
             type: 'string',
+            minLength: 1,
             description:
               'Optional GitHub PAT. Overrides environment variables.',
           },
         },
         required: ['ticketId', 'type', 'payload'],
+        additionalProperties: false,
       },
+      outputSchemaRef: null,
       handler: async ({ ticketId, type, payload, githubToken }) => {
         sdk.assertValidStructuredCommentType(type);
         const provider = getProvider(githubToken);
@@ -198,26 +234,32 @@ export async function getToolRegistry(sdk, getProvider) {
       inputSchema: {
         properties: {
           ticketId: {
-            type: 'number',
+            type: 'integer',
+            minimum: 1,
             description: 'The GitHub issue number to evaluate.',
           },
           gate: {
             type: 'string',
+            minLength: 1,
             description:
               'The current audit gate (e.g. gate1, gate2, gate3, gate4).',
           },
           githubToken: {
             type: 'string',
+            minLength: 1,
             description:
               'Optional GitHub PAT. Overrides environment variables.',
           },
           baseBranch: {
             type: 'string',
+            minLength: 1,
             description: 'The base branch to diff against, defaults to "main".',
           },
         },
         required: ['ticketId', 'gate'],
+        additionalProperties: false,
       },
+      outputSchemaRef: null,
       handler: async ({ ticketId, gate, githubToken, baseBranch = 'main' }) => {
         const provider = getProvider(githubToken);
         return selectAudits({ ticketId, gate, provider, baseBranch });
@@ -231,13 +273,16 @@ export async function getToolRegistry(sdk, getProvider) {
         properties: {
           auditWorkflows: {
             type: 'array',
-            items: { type: 'string' },
+            minItems: 1,
+            items: { type: 'string', minLength: 1 },
             description:
               'List of audit workflow names to execute (e.g. ["audit-clean-code"]).',
           },
         },
         required: ['auditWorkflows'],
+        additionalProperties: false,
       },
+      outputSchemaRef: '.agents/schemas/audit-results.schema.json',
       handler: async ({ auditWorkflows }) => {
         return runAuditSuite({ auditWorkflows });
       },
