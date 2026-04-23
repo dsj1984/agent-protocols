@@ -37,6 +37,7 @@
     "memfs": "^4.57.1"
   },
   "dependencies": {
+    "picomatch": "^4.0.4",
     "string-argv": "^0.3.2",
     "typhonjs-escomplex": "^0.1.0"
   }

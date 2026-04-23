@@ -2,7 +2,10 @@ import assert from 'node:assert/strict';
 import test from 'node:test';
 import { __setGitRunners } from '../.agents/scripts/lib/git-utils.js';
 import { runAuditSuite } from '../.agents/scripts/mcp/run-audit-suite.js';
-import { selectAudits } from '../.agents/scripts/mcp/select-audits.js';
+import {
+  matchesFilePattern,
+  selectAudits,
+} from '../.agents/scripts/mcp/select-audits.js';
 import { MockProvider } from './fixtures/mock-provider.js';
 
 test('selectAudits: filters based on keywords and gate', async () => {
@@ -98,5 +101,83 @@ test('runAuditSuite: resolves real audit-clean-code.md from disk', async () => {
   assert.ok(
     results.workflows[0].content.length > 0,
     'Workflow content should be non-empty',
+  );
+});
+
+// --- Glob regression (Task #543): pin `picomatch` engine semantics so a
+// future swap can't silently change matching behavior. Note: the Task body
+// listed `**/*.lock` vs `package-lock.json` — that's glob-incorrect
+// (`*.lock` only matches filenames ending in `.lock`), so the fixture
+// filename is `yarn.lock`, a real `.lock` file. See Story #524 comment.
+test('matchesFilePattern: **.js does NOT match bundlejs', () => {
+  assert.strictEqual(matchesFilePattern('**.js', 'bundlejs'), false);
+});
+
+test('matchesFilePattern: **/*.lock matches yarn.lock', () => {
+  assert.strictEqual(matchesFilePattern('**/*.lock', 'yarn.lock'), true);
+});
+
+test('matchesFilePattern: **/auth/*.js matches src/auth/login.js', () => {
+  assert.strictEqual(
+    matchesFilePattern('**/auth/*.js', 'src/auth/login.js'),
+    true,
+  );
+});
+
+test('matchesFilePattern: *.md matches README.md', () => {
+  assert.strictEqual(matchesFilePattern('*.md', 'README.md'), true);
+});
+
+// --- Timeout fallback (Task #543): inject a git-spawn that never resolves
+// and assert selectAudits logs an ETIMEDOUT warning and returns keyword-only
+// results without throwing.
+test('selectAudits: ETIMEDOUT fallback logs warn and returns keyword-only results', async () => {
+  const provider = new MockProvider({
+    tickets: {
+      200: {
+        id: 200,
+        title: 'Improve accessibility of modal dialogs',
+        body: 'Screen-reader coverage is missing on the confirm modal.',
+        labels: [],
+      },
+    },
+  });
+
+  // Never-resolving spawn forces withTimeout to fire its ETIMEDOUT branch.
+  const neverResolves = () => new Promise(() => {});
+
+  const originalWarn = console.warn;
+  const warnings = [];
+  console.warn = (...args) => {
+    warnings.push(args.join(' '));
+  };
+
+  let result;
+  try {
+    result = await selectAudits({
+      ticketId: 200,
+      gate: 'gate2',
+      provider,
+      baseBranch: 'main',
+      injectedGitSpawn: neverResolves,
+      gitTimeoutMsOverride: 50,
+    });
+  } finally {
+    console.warn = originalWarn;
+  }
+
+  assert.ok(
+    warnings.some((w) => /git-spawn timed out/i.test(w)),
+    `expected an ETIMEDOUT warn log, got: ${JSON.stringify(warnings)}`,
+  );
+  assert.strictEqual(
+    result.context.changedFilesCount,
+    0,
+    'changedFiles should be empty after the timeout fallback',
+  );
+  // Keyword-only matching should still select accessibility on the ticket title.
+  assert.ok(
+    result.selectedAudits.includes('audit-accessibility'),
+    `expected keyword-only accessibility match, got: ${JSON.stringify(result.selectedAudits)}`,
   );
 });
