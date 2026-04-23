@@ -55,7 +55,11 @@ const _validateMcpRequest = _ajv.compile(MCP_REQUEST_SCHEMA);
 // false positives on annotation keywords the registry adds for human readers
 // (e.g. long-form descriptions with markdown). coerceTypes:false is critical —
 // we want a string "71" for epicId to be rejected, not silently coerced.
-const _toolAjv = new Ajv({ allErrors: true, coerceTypes: false, strict: false });
+const _toolAjv = new Ajv({
+  allErrors: true,
+  coerceTypes: false,
+  strict: false,
+});
 
 // ---------------------------------------------------------------------------
 // MCP Protocol Constants
@@ -129,7 +133,13 @@ function checkToolArgs(tool, name, args) {
   };
 }
 
-function registerTool(name, description, inputSchema, handler, outputSchemaRef = null) {
+function registerTool(
+  name,
+  description,
+  inputSchema,
+  handler,
+  outputSchemaRef = null,
+) {
   const fullSchema = {
     type: 'object',
     ...inputSchema,
@@ -179,7 +189,13 @@ async function registerSDKTools() {
 
   const tools = await getToolRegistry(sdk, getProvider);
   for (const t of tools) {
-    registerTool(t.name, t.description, t.inputSchema, t.handler, t.outputSchemaRef ?? null);
+    registerTool(
+      t.name,
+      t.description,
+      t.inputSchema,
+      t.handler,
+      t.outputSchemaRef ?? null,
+    );
   }
 }
 
@@ -250,7 +266,8 @@ async function handleRequest(req) {
       }
 
       const invalidParams = checkToolArgs(tool, name, args);
-      if (invalidParams) return sendError(id, -32602, 'Invalid params', invalidParams);
+      if (invalidParams)
+        return sendError(id, -32602, 'Invalid params', invalidParams);
 
       try {
         const result = await tool.handler(args);

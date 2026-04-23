@@ -180,12 +180,8 @@ function postStructuredCommentTool(sdk, getProvider) {
         },
         type: {
           type: 'string',
-          description:
-            `Structured-comment type. Must be one of the enumerated types (${joinedTypes}) or match the wave pattern ${wavePatternRe}.`,
-          oneOf: [
-            { enum: enumeratedTypes },
-            { pattern: wavePatternRe.source },
-          ],
+          description: `Structured-comment type. Must be one of the enumerated types (${joinedTypes}) or match the wave pattern ${wavePatternRe}.`,
+          oneOf: [{ enum: enumeratedTypes }, { pattern: wavePatternRe.source }],
         },
         payload: {
           ...NONEMPTY_STRING,
