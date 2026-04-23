@@ -12,7 +12,9 @@
  */
 
 import assert from 'node:assert/strict';
-import { before, describe, it } from 'node:test';
+import fs from 'node:fs';
+import path from 'node:path';
+import { after, before, describe, it } from 'node:test';
 import Ajv from 'ajv';
 import { getToolRegistry } from '../.agents/scripts/lib/mcp/tool-registry.js';
 
@@ -642,6 +644,134 @@ describe('MCP Server — Per-tool Input Validation', () => {
         byName.get(name),
         null,
         `${name} should expose outputSchemaRef:null`,
+      );
+    }
+  });
+});
+
+// ---------------------------------------------------------------------------
+// dispatch_wave persist-failure surfacing (Story #526 / AC-10, AC-11)
+//
+// Mirrors the persistence-sync block from mcp-orchestration.js (tools/call
+// case, `name === 'dispatch_wave'` branch). If that block drifts, keep this
+// harness in sync.
+// ---------------------------------------------------------------------------
+
+describe('MCP Server — dispatch_wave persist-failure surfacing', () => {
+  const TEST_EPIC_ID = 99_999_526;
+  const tempDir = path.join(process.cwd(), 'temp');
+  const finalJson = path.join(
+    tempDir,
+    `dispatch-manifest-${TEST_EPIC_ID}.json`,
+  );
+  const finalMd = path.join(tempDir, `dispatch-manifest-${TEST_EPIC_ID}.md`);
+  const residuePaths = [
+    finalJson,
+    finalMd,
+    `${finalJson}.tmp`,
+    `${finalMd}.tmp`,
+  ];
+
+  function clean() {
+    for (const f of residuePaths) {
+      if (fs.existsSync(f)) fs.rmSync(f, { force: true });
+    }
+  }
+
+  before(clean);
+  after(clean);
+
+  async function invokeDispatchWaveWithPersistenceSync() {
+    const result = {
+      ok: true,
+      wave: 0,
+      epicId: TEST_EPIC_ID,
+      epicTitle: 'Persist Failure Regression',
+      dryRun: false,
+      generatedAt: '2026-04-23T00:00:00.000Z',
+      summary: {
+        totalTasks: 0,
+        doneTasks: 0,
+        progressPercent: 0,
+        dispatched: 0,
+        heldForApproval: 0,
+        totalWaves: 0,
+      },
+      storyManifest: [],
+    };
+
+    let persisted = false;
+    let persistError = null;
+    try {
+      const { persistManifest } = await import(
+        '../.agents/scripts/lib/presentation/manifest-renderer.js'
+      );
+      const outcome = persistManifest(result);
+      persisted = outcome.persisted === true;
+      persistError = outcome.error ?? null;
+    } catch (err) {
+      persisted = false;
+      persistError = err?.message ?? String(err);
+    }
+    result.manifestPersisted = persisted;
+    result.manifestPersistError = persistError;
+    return result;
+  }
+
+  it('fs.writeFileSync EACCES during persist surfaces as { manifestPersisted:false, manifestPersistError:<string> }', async () => {
+    const originalWriteFileSync = fs.writeFileSync;
+    fs.writeFileSync = (targetPath, ...rest) => {
+      if (String(targetPath).endsWith('.tmp')) {
+        const err = new Error('EACCES: permission denied, write');
+        err.code = 'EACCES';
+        throw err;
+      }
+      return originalWriteFileSync(targetPath, ...rest);
+    };
+
+    let result;
+    try {
+      result = await invokeDispatchWaveWithPersistenceSync();
+    } finally {
+      fs.writeFileSync = originalWriteFileSync;
+    }
+
+    assert.equal(
+      result.manifestPersisted,
+      false,
+      'manifestPersisted must be false after EACCES',
+    );
+    assert.equal(
+      typeof result.manifestPersistError,
+      'string',
+      'manifestPersistError must be a string (not null / undefined) on failure',
+    );
+    assert.match(result.manifestPersistError, /EACCES/);
+
+    // Final path on disk is unchanged — EACCES fired on .tmp, so the final
+    // name was never created by this call.
+    assert.ok(
+      !fs.existsSync(finalJson),
+      `final ${finalJson} must not exist after persist failure`,
+    );
+    assert.ok(
+      !fs.existsSync(finalMd),
+      `final ${finalMd} must not exist after persist failure`,
+    );
+
+    // No .tmp residue remains for this epic.
+    if (fs.existsSync(tempDir)) {
+      const residue = fs
+        .readdirSync(tempDir)
+        .filter(
+          (f) =>
+            f.startsWith(`dispatch-manifest-${TEST_EPIC_ID}`) &&
+            f.endsWith('.tmp'),
+        );
+      assert.deepEqual(
+        residue,
+        [],
+        `no .tmp residue expected; saw ${residue.join(', ')}`,
       );
     }
   });
