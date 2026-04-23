@@ -576,6 +576,34 @@ stateDiagram-v2
     agent_executing --> agent_ready: Hotfix rollback
 ```
 
+### Cascade Behavior
+
+When a child ticket transitions to `agent::done`, `cascadeCompletion()` walks
+upward through the hierarchy and closes parents whose children are all done.
+The cascade is **not** uniform across tiers — the table below is the
+authoritative contract:
+
+| Parent tier                      | Auto-closes via cascade? | How it closes                                |
+| -------------------------------- | ------------------------ | -------------------------------------------- |
+| Story (`type::story`)            | Yes                      | Last Task → `agent::done` cascades.          |
+| Feature (`type::feature`)        | Yes                      | Last Story → `agent::done` cascades.         |
+| Epic (`type::epic`)              | **No** — cascade stops.  | `/sprint-close` only.                        |
+| Planning (`context::prd`, `context::tech-spec`) | **No** — cascade stops.  | Operator close after Epic is finalized.      |
+
+**Why Features auto-close but Epics and Planning don't.** A Feature is a
+purely hierarchical grouping — no standalone branch, no merge step, no
+release artefacts. When its last child Story closes, the Feature is complete
+by definition; a manual Feature-close step would be pure ceremony. Operators
+who need Feature-level acceptance-criteria verification should encode it in
+the final child Story, not add a manual gate. Epics, by contrast, close via
+`/sprint-close` which owns branch merges, version bumps, and release tags —
+cascade must not pre-empt that machinery. Planning tickets (PRD, Tech Spec)
+are narrative artefacts the operator closes once the Epic is finalized.
+
+Implementation: [`.agents/scripts/lib/orchestration/ticketing.js`](../.agents/scripts/lib/orchestration/ticketing.js)
+— `cascadeCompletion()` explicitly skips `type::epic`, `context::prd`, and
+`context::tech-spec` parents; every other parent tier is eligible.
+
 ---
 
 ## Workflow System
