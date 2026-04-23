@@ -25,7 +25,7 @@
         "hooks": [
           {
             "type": "command",
-            "command": "mkdir -p .claude/commands && cp .agents/workflows/*.md .claude/commands/"
+            "command": "node .agents/scripts/sync-claude-commands.js"
           }
         ]
       }
