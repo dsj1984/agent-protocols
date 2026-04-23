@@ -274,18 +274,25 @@ async function handleRequest(req) {
 
         // PERSISTENCE SYNC: Manually write files to temp/ so that the project
         // state matches what would have happened if run via CLI dispatcher.js.
-        // We use the new persistManifest abstraction to do this cleanly.
+        // The outcome is threaded back into the tool result so consumers can
+        // distinguish "dispatch succeeded AND manifest saved" from "dispatch
+        // succeeded but manifest write failed" without scraping stderr.
         if (name === 'dispatch_wave' && result && typeof result === 'object') {
+          let persisted = false;
+          let persistError = null;
           try {
             const { persistManifest } = await import(
               './lib/presentation/manifest-renderer.js'
             );
-            persistManifest(result);
-          } catch (persistErr) {
-            process.stderr.write(
-              `[MCP] Failed to persist manifest to temp/: ${persistErr.message}\n`,
-            );
+            const outcome = persistManifest(result);
+            persisted = outcome.persisted === true;
+            persistError = outcome.error ?? null;
+          } catch (err) {
+            persisted = false;
+            persistError = err?.message ?? String(err);
           }
+          result.manifestPersisted = persisted;
+          result.manifestPersistError = persistError;
         }
 
         sendResult(id, {
