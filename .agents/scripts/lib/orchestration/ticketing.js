@@ -8,8 +8,8 @@
  * provided ITicketingProvider instance.
  */
 
-import { AGENT_LABELS, TYPE_LABELS } from '../label-constants.js';
 import { Logger } from '../Logger.js';
+import { AGENT_LABELS, TYPE_LABELS } from '../label-constants.js';
 import { WAVE_MARKER_RE } from './wave-marker.js';
 
 export const STATE_LABELS = {

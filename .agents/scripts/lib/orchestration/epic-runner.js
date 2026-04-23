@@ -20,8 +20,8 @@ import { createEpicRunnerCollaborators } from './epic-runner/factory.js';
 import { runBuildWaveDagPhase } from './epic-runner/phases/build-wave-dag.js';
 import { runFinalizePhase } from './epic-runner/phases/finalize.js';
 import { runIterateWavesPhase } from './epic-runner/phases/iterate-waves.js';
-import { runSnapshotPhase } from './epic-runner/phases/snapshot.js';
 import { runSmokeTestPhase } from './epic-runner/phases/smoke-test.js';
+import { runSnapshotPhase } from './epic-runner/phases/snapshot.js';
 import { ErrorJournal } from './error-journal.js';
 
 /**

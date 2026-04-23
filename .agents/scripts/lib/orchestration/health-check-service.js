@@ -3,8 +3,8 @@
  * concern has a dedicated home.
  */
 
-import { TYPE_LABELS } from '../label-constants.js';
 import { Logger } from '../Logger.js';
+import { TYPE_LABELS } from '../label-constants.js';
 
 /**
  * Ensure a Sprint Health issue exists for the Epic. Idempotent: no-op when

@@ -16,8 +16,8 @@ import { execFileSync } from 'node:child_process';
 import { PROJECT_ROOT, resolveConfig } from '../config-resolver.js';
 import { ConflictingTypeLabelsError } from '../errors/index.js';
 import { ensureLocalBranch } from '../git-branch-lifecycle.js';
-import { TYPE_LABELS } from '../label-constants.js';
 import { Logger } from '../Logger.js';
+import { TYPE_LABELS } from '../label-constants.js';
 import { createProvider } from '../provider-factory.js';
 import {
   buildDispatchGraph,

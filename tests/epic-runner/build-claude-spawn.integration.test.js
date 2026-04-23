@@ -1,7 +1,7 @@
+import assert from 'node:assert/strict';
 import { spawn as realSpawn } from 'node:child_process';
 import { accessSync } from 'node:fs';
 import { delimiter } from 'node:path';
-import assert from 'node:assert/strict';
 import { describe, it } from 'node:test';
 
 import { buildClaudeSpawn } from '../../.agents/scripts/lib/orchestration/epic-runner/build-claude-spawn.js';

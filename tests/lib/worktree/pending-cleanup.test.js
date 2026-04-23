@@ -5,8 +5,8 @@ import path from 'node:path';
 import test from 'node:test';
 import {
   drainPendingCleanup,
-  manifestPath,
   MAX_SWEEP_ATTEMPTS,
+  manifestPath,
   readManifest,
   recordPendingCleanup,
   removePendingCleanup,

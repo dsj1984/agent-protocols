@@ -1,5 +1,5 @@
-import { EventEmitter } from 'node:events';
 import assert from 'node:assert/strict';
+import { EventEmitter } from 'node:events';
 import { describe, it } from 'node:test';
 
 import { SpawnSmokeTest } from '../../.agents/scripts/lib/orchestration/epic-runner/spawn-smoke-test.js';

@@ -8,8 +8,8 @@
  */
 
 import { AGENT_LABELS } from '../../../label-constants.js';
-import { SpawnSmokeTest } from '../spawn-smoke-test.js';
 import { STATE_LABELS, upsertStructuredComment } from '../../ticketing.js';
+import { SpawnSmokeTest } from '../spawn-smoke-test.js';
 
 export async function runSmokeTestPhase(ctx, collaborators, state) {
   const { epicId, provider, logger } = ctx;

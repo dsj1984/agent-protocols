@@ -2,8 +2,8 @@
  * lib/orchestration/reconciler.js — Ticket Hierarchy Reconciliation
  */
 
-import { AGENT_LABELS, TYPE_LABELS } from '../label-constants.js';
 import { Logger } from '../Logger.js';
+import { AGENT_LABELS, TYPE_LABELS } from '../label-constants.js';
 import { parseParentId } from './story-grouper.js';
 import { STATE_LABELS } from './ticketing.js';
 

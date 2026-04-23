@@ -108,7 +108,7 @@ function fatal(msg) {
 
 function requireEnv(name) {
   const value = process.env[name];
-  if (!value || !value.trim()) {
+  if (!value?.trim()) {
     fatal(`Missing required env var: ${name}`);
   }
   return value;

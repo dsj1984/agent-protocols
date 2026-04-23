@@ -2,9 +2,9 @@ import assert from 'node:assert/strict';
 import { describe, it } from 'node:test';
 
 import {
+  buildDefaultGitAdapter,
   COMMIT_ASSERTION_ZERO_DELTA_DETAIL,
   CommitAssertion,
-  buildDefaultGitAdapter,
 } from '../../.agents/scripts/lib/orchestration/epic-runner/commit-assertion.js';
 
 function stubAdapter(map) {

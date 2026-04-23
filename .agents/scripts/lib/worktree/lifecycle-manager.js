@@ -692,4 +692,4 @@ export async function sweepStaleLocks(ctx, opts = {}) {
   return { removed, skipped };
 }
 
-export { getWorktreeList, invalidateWorktreeCache, findByPath };
+export { findByPath, getWorktreeList, invalidateWorktreeCache };
