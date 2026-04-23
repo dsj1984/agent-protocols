@@ -246,7 +246,75 @@ When husky is available:
 Leave an existing `.husky/pre-commit` untouched unless the operator explicitly
 asks for changes.
 
-## Step 8 — Report outcome
+## Step 8 — Check `.mcp.json` against the template
+
+MCP servers (`github`, `context7`, `chrome-devtools`, `agent-protocols`) are
+loaded by Claude Code from a project-scoped `.mcp.json` at the repo root. The
+file is gitignored because it carries secrets, so a fresh clone has no MCP
+tooling until this step runs. A committed template — `.mcp.json.example` — is
+the source of truth for the expected server shape.
+
+**Hard abort:** if `.mcp.json.example` does not exist at `[PROJECT_ROOT]`,
+abort this step with a message directing the operator to restore or regenerate
+it. Do not proceed to scaffold a `.mcp.json` without a template to check against.
+
+### 8a. Scaffold when missing
+
+If `.mcp.json` does not exist at `[PROJECT_ROOT]`:
+
+1. Copy `.mcp.json.example` → `.mcp.json` verbatim.
+2. Parse `.mcp.json` and collect every placeholder of the form `<YOUR_*>` in
+   `env` values.
+3. Surface the placeholders to the operator as a checklist, e.g.:
+
+   ```text
+   [agents-bootstrap-project] .mcp.json scaffolded from template. Fill in:
+     github        env.GITHUB_PERSONAL_ACCESS_TOKEN
+     context7      env.CONTEXT7_API_KEY
+     agent-protocols env.GITHUB_TOKEN
+     agent-protocols env.NOTIFICATION_WEBHOOK_URL
+   Reload Claude Code once populated so the new servers attach.
+   ```
+
+Do **not** prompt for the secret values from within the workflow — the
+operator populates them by hand. Never commit the result: `.mcp.json` must
+remain gitignored.
+
+### 8b. Diff existing `.mcp.json` against the template
+
+If `.mcp.json` already exists, parse both files and report structural gaps —
+without mutating `.mcp.json`. Flag each of the following to the operator:
+
+1. **Servers in the template missing from `.mcp.json`** — new tooling the
+   operator has not picked up yet. List each missing `mcpServers.<name>` block.
+2. **Servers in `.mcp.json` missing from the template** — either stale
+   configuration from a removed server, or a per-developer addition. Report
+   but do not touch.
+3. **Command/args drift** — for servers present in both, compare `command` +
+   `args` arrays. Differences usually indicate a version bump in the template
+   (e.g. `chrome-devtools-mcp@0.21.0` → newer) that the operator should
+   mirror.
+4. **Placeholder leakage** — any `env` value in `.mcp.json` that still matches
+   the `<YOUR_*>` pattern from the template means a secret was never filled
+   in. Flag as a warning.
+
+Present findings as an actionable checklist; the operator edits `.mcp.json`
+by hand. This step is read-only on `.mcp.json` and never writes secrets.
+
+### 8c. Ensure `.mcp.json` is gitignored
+
+Verify `.gitignore` contains a line matching `^\.mcp\.json$`. If absent,
+append:
+
+```gitignore
+
+# Project-scoped MCP config carries secrets — template lives in .mcp.json.example.
+.mcp.json
+```
+
+Do not append `.mcp.json.example` to `.gitignore` — the template is committed.
+
+## Step 9 — Report outcome
 
 Emit a compact summary showing what was touched on this run:
 
@@ -256,7 +324,9 @@ Emit a compact summary showing what was touched on this run:
   package.json        scripts.prepare        added | appended | already present
   .claude/settings.json  UserPromptSubmit    wired | merged | already present
   .gitignore             .claude/commands/   added | already present
+  .gitignore             .mcp.json           added | already present
   .claude/commands/                          <N> file(s) synced from workflows
+  .mcp.json                                  scaffolded | <N> gap(s) flagged | OK
   parity check                               OK | <asymmetry details>
 ```
 

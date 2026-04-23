@@ -4,6 +4,19 @@ All notable changes to this project will be documented in this file.
 
 ## [Unreleased]
 
+## [5.19.0] - 2026-04-23
+
+### `/agents-bootstrap-project` now wires `.mcp.json`
+
+Added Step 8 to the project bootstrap workflow: scaffold `.mcp.json` from a
+committed `.mcp.json.example` template on a fresh clone, or diff an existing
+`.mcp.json` against the template to surface missing servers, command/args
+drift, and placeholder leakage. The template is the source of truth for the
+expected MCP server shape (`github`, `context7`, `chrome-devtools`,
+`agent-protocols`); `.mcp.json` itself stays gitignored because it carries
+secrets. The step never writes secrets — it reports gaps and leaves
+population to the operator.
+
 ## [5.18.0] - 2026-04-23
 
 ### Slash-command renames
