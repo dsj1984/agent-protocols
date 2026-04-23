@@ -63,7 +63,7 @@ export function createCandidateBranch(cwd, epicBranch, candidateBranch) {
  *
  * @param {string}   cwd           - Project root.
  * @param {string}   featureBranch - Branch name to merge in.
- * @param {Function} vlog          - VerboseLogger-compatible `warn` helper.
+ * @param {Function} vlog          - `(level, context, message, meta)` warn helper for conflict triage output.
  * @param {object}   [opts]
  * @param {string}   [opts.message] - Explicit merge commit message (passed as `-m`).
  * @returns {{ merged: true } | { merged: false, major: true } | never}

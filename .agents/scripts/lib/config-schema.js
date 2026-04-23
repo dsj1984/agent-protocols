@@ -193,15 +193,6 @@ export function getOrchestrationValidator() {
 export const AGENT_SETTINGS_SCHEMA = {
   type: 'object',
   properties: {
-    verboseLogging: {
-      type: 'object',
-      properties: {
-        logDir: {
-          type: 'string',
-          not: { pattern: SHELL_INJECTION_PATTERN_STRING },
-        },
-      },
-    },
     docsContextFiles: {
       type: 'array',
       items: { type: 'string' },

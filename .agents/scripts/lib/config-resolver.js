@@ -77,7 +77,6 @@ const ZERO_CONFIG_DEFAULTS = Object.freeze({
   maintainability: { targetDirs: ['.agents/scripts', 'tests'] },
   tempRoot: 'temp',
   baseBranch: 'main',
-  verboseLogging: { enabled: false, logDir: 'temp/verbose-logs' },
   maxTickets: 40,
   executionTimeoutMs: 300000, // 5 minutes
   executionMaxBuffer: 10485760, // 10MB
@@ -102,7 +101,6 @@ const LOADED_CONFIG_APPLY_KEYS = [
   'tempRoot',
   'auditOutputDir',
   'baseBranch',
-  'verboseLogging',
   'executionTimeoutMs',
   'executionMaxBuffer',
   'maxTokenBudget',
@@ -183,9 +181,9 @@ export function resolveConfig(opts) {
 
     // Apply defaults to the loaded config. Missing keys that are also absent
     // from LOADED_CONFIG_DEFAULTS (e.g. schemasRoot, docsRoot, tempRoot,
-    // baseBranch, verboseLogging) resolve to `undefined`, preserving the
-    // long-standing zero-config/loaded-config asymmetry rather than silently
-    // promoting the richer zero-config set.
+    // baseBranch) resolve to `undefined`, preserving the long-standing
+    // zero-config/loaded-config asymmetry rather than silently promoting the
+    // richer zero-config set.
     for (const key of LOADED_CONFIG_APPLY_KEYS) {
       settings[key] = settings[key] ?? LOADED_CONFIG_DEFAULTS[key];
     }

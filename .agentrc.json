@@ -38,10 +38,6 @@
     "exploratoryTestCommand": "npm test",
     "typecheckCommand": "",
     "buildCommand": "",
-    "verboseLogging": {
-      "enabled": false,
-      "logDir": "temp/verbose-logs"
-    },
     "frictionThresholds": {
       "repetitiveCommandCount": 3,
       "consecutiveErrorCount": 3,

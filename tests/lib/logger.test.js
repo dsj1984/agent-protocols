@@ -52,7 +52,7 @@ describe('Logger', () => {
     assert.strictEqual(process.exit.mock.calls[0].arguments[0], 1);
   });
 
-  it('debug does not log when AGENT_LOG_LEVEL is not debug', () => {
+  it('debug does not log at default info level', () => {
     Logger.debug('test debug');
     assert.strictEqual(console.error.mock.calls.length, 0);
   });
