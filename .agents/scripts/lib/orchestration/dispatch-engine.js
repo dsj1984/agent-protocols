@@ -16,8 +16,8 @@ import { execFileSync } from 'node:child_process';
 import { PROJECT_ROOT, resolveConfig } from '../config-resolver.js';
 import { ensureLocalBranch } from '../git-branch-lifecycle.js';
 import { TYPE_LABELS } from '../label-constants.js';
+import { Logger } from '../Logger.js';
 import { createProvider } from '../provider-factory.js';
-import { vlog } from './dispatch-logger.js';
 import {
   buildDispatchGraph,
   ensureEpicScaffolding,
@@ -43,7 +43,7 @@ export { collectOpenStoryIds, detectEpicCompletion };
 /* node:coverage ignore next */
 export function ensureBranch(branchName, baseBranch) {
   ensureLocalBranch(branchName, baseBranch, PROJECT_ROOT, {
-    log: (msg) => vlog.info('orchestration', msg),
+    log: (msg) => Logger.info(msg),
   });
 }
 
@@ -76,7 +76,7 @@ function defaultLintBaselineExec(file, args, options) {
 export async function captureLintBaseline(epicBranch, settings) {
   const service = new LintBaselineService({
     exec: defaultLintBaselineExec,
-    vlog,
+    logger: Logger,
     settings,
   });
   await service.capture(epicBranch);
@@ -95,9 +95,9 @@ export async function resolveAndDispatch(options) {
   const ticket = await provider.getTicket(ticketId);
   const labels = ticket.labels || [];
 
-  const isStory = labels.includes('type::story');
-  const isEpic = labels.includes('type::epic');
-  const isFeature = labels.includes('type::feature');
+  const isStory = labels.includes(TYPE_LABELS.STORY);
+  const isEpic = labels.includes(TYPE_LABELS.EPIC);
+  const isFeature = labels.includes(TYPE_LABELS.FEATURE);
 
   if (isStory) {
     return executeStory({ story: ticket, provider, dryRun });
@@ -135,7 +135,7 @@ export async function dispatch(options) {
   await reconcileEpicState(ctx, fetched);
 
   if (fetched.tasks.length === 0) {
-    vlog.info('orchestration', 'No tasks found. Nothing to dispatch.');
+    Logger.info('No tasks found. Nothing to dispatch.');
     return buildManifest({
       epicId,
       epic: fetched.epic,
@@ -154,7 +154,7 @@ export async function dispatch(options) {
     options.lintBaselineService ??
     new LintBaselineService({
       exec: defaultLintBaselineExec,
-      vlog,
+      logger: Logger,
       settings: ctx.settings,
     });
   ensureEpicScaffolding(ctx, (epicBranch) =>

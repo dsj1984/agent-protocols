@@ -294,6 +294,18 @@ operator reference.
   rendered, not only the active wave). Configurable
   `orchestration.epicRunner.logsDir` (default `temp/epic-runner-logs/`).
   CI matrix added for Node 22 / 24.
+- **Unreleased — Epic #470 (2026-04-23).** Clean-code & maintainability
+  remediation: `providers/github.js` split into ticket-mapper, graphql-builder,
+  cache-manager, and error-classifier modules under a thin façade; epic-runner
+  coordinator decomposed into five phase modules; `sprint-story-init.js`
+  broken into 6 injectable stages; `VerboseLogger` and `dispatch-logger.vlog`
+  retired in favour of a level-aware `Logger`; `lib/runtime-context.js`
+  injects `ctx` into legacy utilities. Also fixes two epic-runner bugs found
+  while running the Epic itself: the idle-watchdog now re-reads the Story
+  ticket before declaring `failed`, the Windows spawn uses `taskkill /T /F`
+  to kill the shell's entire process tree, and resumed runs short-circuit
+  already-done Stories. See [docs/CHANGELOG.md](docs/CHANGELOG.md) for the
+  full entry.
 - **v5.15.1 — Epic #380 (2026-04-22).** Patch-only internal hardening:
   two-stage Windows worktree reap (`fs.rm` retry + deferred sweep via
   `.worktrees/.pending-cleanup.json`); `/sprint-retro` routed through

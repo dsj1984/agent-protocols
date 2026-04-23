@@ -358,6 +358,14 @@ classDiagram
 **Resolution**: The `provider-factory.js` reads `orchestration.provider` from
 `.agentrc.json` and instantiates the matching concrete class.
 
+**Internal layout (post Epic #470)**: The `providers/github.js` façade is a
+thin composition over focused modules under `providers/github/`:
+`ticket-mapper.js` (REST/GraphQL payload → ticket shape), `graphql-builder.js`
+(named query + mutation strings), `cache-manager.js` (per-instance ticket
+cache backed by `lib/CacheLayer`), and `error-classifier.js` (GraphQL error →
+category). The façade re-exports every symbol consumers previously imported,
+so the split is source-compatible.
+
 ---
 
 ### 4. Execution Adapter Layer
@@ -668,15 +676,16 @@ Operational difficulties are logged directly to GitHub Task tickets via
 `diagnose-friction.js`. This captures tool failures, command errors, and
 automation candidates as structured comments.
 
-### Verbose Logging
+### Log Levels
 
-When `agentSettings.verboseLogging.enabled` is `true`, the `VerboseLogger`
-writes structured JSONL files to `temp/verbose-logs/` capturing:
+`lib/Logger.js` is the single orchestrator logger. Level is selected via
+`AGENT_LOG_LEVEL`:
 
-- Agent action dispatches and environment observations
-- Workflow phase transitions
-- Integration events
-- Configuration resolution details
+- `silent`  — only `fatal` emits.
+- `info`    — default. `info` / `warn` / `error` / `fatal` emit; `debug` is
+  suppressed.
+- `verbose` — all levels emit, including `debug` trace output. `debug` is
+  accepted as a backward-compatible alias for `verbose`.
 
 ### Notification System
 

@@ -3,10 +3,11 @@ import path from 'node:path';
 import { test } from 'node:test';
 
 import {
+  computeRecoveryMode,
+  detectPriorPhase,
+  dispatchRecovery,
   RECOVERY_ACTIONS,
   RECOVERY_STATES,
-  computeRecoveryMode,
-  detectPriorState,
 } from '../.agents/scripts/lib/orchestration/sprint-story-close-recovery.js';
 
 function makeGit({
@@ -35,25 +36,25 @@ function makeFs(existingPaths = []) {
 
 const CWD = '/repo';
 
-test('detectPriorState', async (t) => {
+test('detectPriorPhase', async (t) => {
   await t.test('returns fresh when no signals match', () => {
-    const result = detectPriorState({
+    const result = detectPriorPhase({
       cwd: CWD,
       storyId: 100,
       git: makeGit(),
       fs: makeFs([]),
     });
-    assert.strictEqual(result.state, RECOVERY_STATES.FRESH);
+    assert.strictEqual(result.phase, RECOVERY_STATES.FRESH);
   });
 
   await t.test('returns partial-merge when UU markers present', () => {
-    const result = detectPriorState({
+    const result = detectPriorPhase({
       cwd: CWD,
       storyId: 100,
       git: makeGit({ mainStatus: 'UU some/file.js\n M other.js\n' }),
       fs: makeFs([]),
     });
-    assert.strictEqual(result.state, RECOVERY_STATES.PARTIAL_MERGE);
+    assert.strictEqual(result.phase, RECOVERY_STATES.PARTIAL_MERGE);
     assert.strictEqual(result.detail.checkout, CWD);
   });
 
@@ -61,7 +62,7 @@ test('detectPriorState', async (t) => {
     'returns uncommitted-worktree when worktree exists and dirty',
     () => {
       const wtPath = path.join(CWD, '.worktrees', 'story-100');
-      const result = detectPriorState({
+      const result = detectPriorPhase({
         cwd: CWD,
         storyId: 100,
         git: makeGit({
@@ -69,26 +70,26 @@ test('detectPriorState', async (t) => {
         }),
         fs: makeFs([wtPath]),
       });
-      assert.strictEqual(result.state, RECOVERY_STATES.UNCOMMITTED_WORKTREE);
+      assert.strictEqual(result.phase, RECOVERY_STATES.UNCOMMITTED_WORKTREE);
       assert.strictEqual(result.detail.worktreePath, wtPath);
     },
   );
 
   await t.test('skips uncommitted-worktree when worktree is clean', () => {
     const wtPath = path.join(CWD, '.worktrees', 'story-100');
-    const result = detectPriorState({
+    const result = detectPriorPhase({
       cwd: CWD,
       storyId: 100,
       git: makeGit({ wtStatusByPath: { [wtPath]: '' } }),
       fs: makeFs([wtPath]),
     });
-    assert.strictEqual(result.state, RECOVERY_STATES.FRESH);
+    assert.strictEqual(result.phase, RECOVERY_STATES.FRESH);
   });
 
   await t.test(
     'returns pushed-unmerged when remote story branch exists and not merged',
     () => {
-      const result = detectPriorState({
+      const result = detectPriorPhase({
         cwd: CWD,
         storyId: 100,
         epicId: 42,
@@ -98,7 +99,7 @@ test('detectPriorState', async (t) => {
         }),
         fs: makeFs([]),
       });
-      assert.strictEqual(result.state, RECOVERY_STATES.PUSHED_UNMERGED);
+      assert.strictEqual(result.phase, RECOVERY_STATES.PUSHED_UNMERGED);
       assert.match(result.detail.remoteRef, /story-100/);
     },
   );
@@ -106,7 +107,7 @@ test('detectPriorState', async (t) => {
   await t.test(
     'returns fresh when remote branch exists but is already merged into epic',
     () => {
-      const result = detectPriorState({
+      const result = detectPriorPhase({
         cwd: CWD,
         storyId: 100,
         epicId: 42,
@@ -116,13 +117,13 @@ test('detectPriorState', async (t) => {
         }),
         fs: makeFs([]),
       });
-      assert.strictEqual(result.state, RECOVERY_STATES.FRESH);
+      assert.strictEqual(result.phase, RECOVERY_STATES.FRESH);
     },
   );
 
   await t.test('partial-merge takes priority over dirty worktree', () => {
     const wtPath = path.join(CWD, '.worktrees', 'story-100');
-    const result = detectPriorState({
+    const result = detectPriorPhase({
       cwd: CWD,
       storyId: 100,
       git: makeGit({
@@ -131,14 +132,14 @@ test('detectPriorState', async (t) => {
       }),
       fs: makeFs([wtPath]),
     });
-    assert.strictEqual(result.state, RECOVERY_STATES.PARTIAL_MERGE);
+    assert.strictEqual(result.phase, RECOVERY_STATES.PARTIAL_MERGE);
   });
 
   await t.test(
     'dirty worktree takes priority over pushed-unmerged remote',
     () => {
       const wtPath = path.join(CWD, '.worktrees', 'story-100');
-      const result = detectPriorState({
+      const result = detectPriorPhase({
         cwd: CWD,
         storyId: 100,
         epicId: 42,
@@ -149,25 +150,25 @@ test('detectPriorState', async (t) => {
         }),
         fs: makeFs([wtPath]),
       });
-      assert.strictEqual(result.state, RECOVERY_STATES.UNCOMMITTED_WORKTREE);
+      assert.strictEqual(result.phase, RECOVERY_STATES.UNCOMMITTED_WORKTREE);
     },
   );
 
   await t.test('throws without required cwd/storyId', () => {
-    assert.throws(() => detectPriorState({ storyId: 1 }), /cwd is required/);
-    assert.throws(() => detectPriorState({ cwd: '/x' }), /storyId is required/);
+    assert.throws(() => detectPriorPhase({ storyId: 1 }), /cwd is required/);
+    assert.throws(() => detectPriorPhase({ cwd: '/x' }), /storyId is required/);
   });
 
   await t.test('honors custom worktreeRoot', () => {
     const wtPath = path.join(CWD, 'custom-wt', 'story-100');
-    const result = detectPriorState({
+    const result = detectPriorPhase({
       cwd: CWD,
       storyId: 100,
       worktreeRoot: 'custom-wt',
       git: makeGit({ wtStatusByPath: { [wtPath]: ' M f.js\n' } }),
       fs: makeFs([wtPath]),
     });
-    assert.strictEqual(result.state, RECOVERY_STATES.UNCOMMITTED_WORKTREE);
+    assert.strictEqual(result.phase, RECOVERY_STATES.UNCOMMITTED_WORKTREE);
   });
 });
 
@@ -233,6 +234,163 @@ test('computeRecoveryMode dispatch table', async (t) => {
           state: RECOVERY_STATES.PARTIAL_MERGE,
           resume: true,
           restart: true,
+        }),
+      /mutually exclusive/,
+    );
+  });
+});
+
+function makeStubLogger() {
+  const errors = [];
+  const fatals = [];
+  return {
+    errors,
+    fatals,
+    error: (m) => errors.push(m),
+    fatal: (m) => {
+      fatals.push(m);
+      throw new Error(m);
+    },
+    info: () => {},
+    warn: () => {},
+  };
+}
+
+function captureProgress() {
+  const events = [];
+  return { events, fn: (phase, msg) => events.push({ phase, msg }) };
+}
+
+const DISPATCH_BASE = {
+  cwd: '/repo',
+  storyId: 100,
+  epicId: 9,
+  epicBranch: 'epic/9',
+  storyBranch: 'story-100',
+  orchestration: {},
+};
+
+test('dispatchRecovery', async (t) => {
+  await t.test('returns proceed-shaped result on fresh state', () => {
+    const { events, fn } = captureProgress();
+    const result = dispatchRecovery({
+      ...DISPATCH_BASE,
+      detectFn: () => ({ phase: RECOVERY_STATES.FRESH, detail: {} }),
+      restartFn: () => {
+        throw new Error('should not be called');
+      },
+      progress: fn,
+      logger: makeStubLogger(),
+    });
+    assert.equal(result.action, RECOVERY_ACTIONS.PROCEED);
+    assert.equal(result.resumeFromConflict, false);
+    assert.equal(result.resumeFromMerge, false);
+    assert.equal(result.resumeFromValidate, false);
+    assert.equal(events.length, 0);
+  });
+
+  await t.test(
+    'throws with exitCode=2 and logs prior-state body when no flag set',
+    () => {
+      const logger = makeStubLogger();
+      const detail = {
+        storyId: 100,
+        storyBranch: 'story-100',
+        checkout: '/repo',
+      };
+      try {
+        dispatchRecovery({
+          ...DISPATCH_BASE,
+          detectFn: () => ({
+            phase: RECOVERY_STATES.PARTIAL_MERGE,
+            detail,
+          }),
+          logger,
+        });
+        assert.fail('expected throw');
+      } catch (err) {
+        assert.equal(err.exitCode, 2);
+        assert.match(err.message, /prior-state:partial-merge/);
+      }
+      assert.ok(
+        logger.errors.some(
+          (m) =>
+            m.includes('[phase=prior-state]') && m.includes('partial-merge'),
+        ),
+      );
+    },
+  );
+
+  await t.test('invokes restartFn when --restart is passed', () => {
+    const restartCalls = [];
+    const { fn: progress, events } = captureProgress();
+    const result = dispatchRecovery({
+      ...DISPATCH_BASE,
+      restart: true,
+      detectFn: () => ({
+        phase: RECOVERY_STATES.PARTIAL_MERGE,
+        detail: {},
+      }),
+      restartFn: (opts) => restartCalls.push(opts),
+      progress,
+      logger: makeStubLogger(),
+    });
+    assert.equal(result.action, RECOVERY_ACTIONS.RESTART);
+    assert.equal(restartCalls.length, 1);
+    assert.equal(restartCalls[0].cwd, '/repo');
+    assert.equal(restartCalls[0].storyBranch, 'story-100');
+    assert.ok(
+      events.some(
+        (e) => e.msg.includes('--restart') && e.msg.includes('partial-merge'),
+      ),
+    );
+  });
+
+  await t.test('emits the matching resume progress line per state', () => {
+    const cases = [
+      {
+        phase: RECOVERY_STATES.PARTIAL_MERGE,
+        flag: 'resumeFromConflict',
+        snippet: 'conflict',
+      },
+      {
+        phase: RECOVERY_STATES.PUSHED_UNMERGED,
+        flag: 'resumeFromMerge',
+        snippet: 'from merge',
+      },
+      {
+        phase: RECOVERY_STATES.UNCOMMITTED_WORKTREE,
+        flag: 'resumeFromValidate',
+        snippet: 'from validate',
+      },
+    ];
+    for (const { phase, flag, snippet } of cases) {
+      const { fn, events } = captureProgress();
+      const result = dispatchRecovery({
+        ...DISPATCH_BASE,
+        resume: true,
+        detectFn: () => ({ phase, detail: {} }),
+        progress: fn,
+        logger: makeStubLogger(),
+      });
+      assert.equal(result[flag], true, `${flag} should be true for ${phase}`);
+      assert.ok(
+        events.some((e) => e.msg.toLowerCase().includes(snippet)),
+        `expected progress containing "${snippet}" for ${phase}, got ${JSON.stringify(events)}`,
+      );
+    }
+  });
+
+  await t.test('--resume + --restart together calls logger.fatal', () => {
+    const logger = makeStubLogger();
+    assert.throws(
+      () =>
+        dispatchRecovery({
+          ...DISPATCH_BASE,
+          resume: true,
+          restart: true,
+          detectFn: () => ({ phase: RECOVERY_STATES.FRESH, detail: {} }),
+          logger,
         }),
       /mutually exclusive/,
     );

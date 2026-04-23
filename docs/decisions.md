@@ -526,3 +526,45 @@ submodule paths are internal implementation detail.
     *   New structured-comment types are a schema bump, not a
         convention change — future additions land alongside their
         validators.
+
+## ADR-20260423: Trust the ticket, not the pipe — idle-timeout ground truth
+
+*   **Status:** Accepted (Epic #470, v5.17.0).
+*   **Context:** `epic-runner` spawns each Story as
+    `claude -p '/sprint-execute <id>' --dangerously-skip-permissions`.
+    The `-p` flag runs the CLI in batch mode: the model's final response
+    is the only stdout the pipe ever sees, emitted at session exit.
+    For architect-tier stories that legitimately take >15 minutes of model
+    + tool time, the pipe stays silent the whole run. The idle-watchdog
+    was therefore firing on real work, not hangs, and declaring the
+    Story `failed` even when the sub-agent went on to merge and close
+    the ticket cleanly. Compounding the problem on Windows, the
+    `shell: true` spawn meant `proc.kill()` terminated `cmd.exe` only,
+    orphaning the grandchild `node` running Claude Code; the orphan
+    often finished the work after the runner had reported failure.
+*   **Decision:** The idle-timeout path is no longer authoritative.
+    When the watchdog fires, the runner (A) calls `killProcessTree(proc)`
+    — on Windows `taskkill /T /F /PID` to reap the whole tree, elsewhere
+    `proc.kill()` — then (B) polls the Story ticket every 15s for up to
+    120s via `provider.getTicket(id, { fresh: true })`. If a grace read
+    finds `agent::done`, resolve `done`; `agent::blocked` resolves
+    `blocked`; otherwise the runner finally reports `failed` with the
+    actual label list in the detail string.
+*   **Alternatives considered:**
+    *   Raise `idleTimeoutSec` globally — papers over the mismatch; long
+        stories just fail a few minutes later. Rejected.
+    *   Force `claude -p` to stream token output — not a supported CLI
+        flag. Rejected.
+    *   Switch to a tier-aware timeout — architect stories get 30m,
+        engineer stories 15m. Adds config surface without fixing the
+        Windows orphan. Folded into (A)+(B) as future tuning.
+*   **Consequences:**
+    *   False-positive `failed` halts on long Stories stop happening —
+        the runner reports the ticket's actual state.
+    *   Windows grandchild orphans no longer survive `proc.kill()`.
+    *   Friction-comment detail now reads
+        `idle-timeout: no output for 900s; labels=<actual labels>`
+        instead of speculating "likely hung on interactive prompt".
+    *   Resumed runs short-circuit already-done Stories in `iterate-waves`
+        via a pre-launch label fetch, so a blocker halt no longer costs
+        a fresh worktree + `npm ci` for every closed Story on re-run.

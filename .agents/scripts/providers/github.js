@@ -14,14 +14,45 @@
  *   - REST for Issues, Labels, Pull Requests
  *   - GraphQL for Projects V2 (custom fields)
  *
+ * This file is the public facade. The supporting modules under
+ * `providers/github/` own focused slices of behaviour:
+ *   - `ticket-mapper.js`  — pure REST/GraphQL-payload → ticket shape
+ *   - `graphql-builder.js` — named GraphQL query/mutation strings
+ *   - `cache-manager.js`   — per-instance ticket cache over lib/CacheLayer
+ *   - `error-classifier.js` — GraphQL error → category
+ *
  * @see docs/v5-implementation-plan.md Sprint 1B
  */
 
 import { execSync } from 'node:child_process';
 import { parseBlockedBy, parseBlocks } from '../lib/dependency-parser.js';
 import { ITicketingProvider } from '../lib/ITicketingProvider.js';
-import { parseLinkedIssues } from '../lib/issue-link-parser.js';
+import { TYPE_LABELS } from '../lib/label-constants.js';
 import { GithubHttpClient } from './github-http-client.js';
+import { createTicketCacheManager } from './github/cache-manager.js';
+import { classifyGithubError } from './github/error-classifier.js';
+import {
+  ADD_PROJECT_ITEM_MUTATION,
+  ADD_SUB_ISSUE_MUTATION,
+  buildProjectV2LookupQuery,
+  CREATE_PROJECT_MUTATION,
+  CREATE_PROJECT_VIEW_MUTATION,
+  CREATE_SINGLE_SELECT_FIELD_MUTATION,
+  OWNER_NODE_LOOKUP_QUERY,
+  PROJECT_FIELDS_FRAGMENT,
+  PROJECT_VIEWS_FRAGMENT,
+  REMOVE_SUB_ISSUE_MUTATION,
+  STATUS_FIELD_FRAGMENT,
+  SUB_ISSUES_QUERY,
+  UPDATE_SINGLE_SELECT_FIELD_MUTATION,
+} from './github/graphql-builder.js';
+import {
+  issueToEpic,
+  issueToEpicListItem,
+  issueToListItem,
+  issueToTicket,
+  subIssueNodeToTicket,
+} from './github/ticket-mapper.js';
 
 /**
  * Resolve the GitHub token from environment or CLI.
@@ -30,20 +61,14 @@ import { GithubHttpClient } from './github-http-client.js';
  *   1. Explicit GITHUB_TOKEN or GH_TOKEN env var (CI/CD / Manual)
  *   2. `gh auth token` CLI (Local development)
  *
- * NOTE: When running via an AI Agent (Antigravity), the GitHub MCP Server
- * should be used primarily by the agent itself. This Resolve function is
- * for the background Node.js scripts that cannot natively call MCP tools.
- *
  * @returns {string} The GitHub personal access token.
  * @throws {Error} If no token can be resolved.
  */
 /* node:coverage ignore next */
 function resolveToken() {
-  // 1. Environment variables
   const token = process.env.GITHUB_TOKEN || process.env.GH_TOKEN;
   if (token) return token;
 
-  // 2. GitHub CLI fallback
   try {
     const ghToken = execSync('gh auth token', {
       encoding: 'utf8',
@@ -55,7 +80,6 @@ function resolveToken() {
     // gh CLI not installed or not authenticated
   }
 
-  // 3. Robust Error Reporting
   const errorMsg = [
     '[GitHubProvider] Authentication Failed: No GitHub token found.',
     '',
@@ -68,8 +92,6 @@ function resolveToken() {
 
   throw new Error(errorMsg);
 }
-
-// parseBlockedBy and parseBlocks are now imported from lib/dependency-parser.js (M-1).
 
 export class GitHubProvider extends ITicketingProvider {
   /**
@@ -84,8 +106,6 @@ export class GitHubProvider extends ITicketingProvider {
     this.projectOwner = config.projectOwner ?? config.owner;
     this.projectName = config.projectName ?? null;
     this.operatorHandle = config.operatorHandle ?? null;
-    // Injectable HTTP transport. The tokenProvider closure captures opts.token
-    // so tests can construct with an explicit token without touching env/gh.
     this._http =
       opts.http ??
       new GithubHttpClient({
@@ -93,14 +113,12 @@ export class GitHubProvider extends ITicketingProvider {
         fetchImpl: opts.fetchImpl,
       });
 
-    // Per-instance memoization for `getTicket`. Scoped to the lifetime of
-    // this provider instance (one dispatcher/close-out run), so a ticket
-    // fetched by the dispatcher, reconciler, and cascade all share the
-    // same network round-trip. `updateTicket` / `postComment` on a given
-    // ticketId invalidate that ticket's entry. List endpoints
+    // Per-instance ticket cache. A ticket fetched by the dispatcher,
+    // reconciler, and cascade all share the same network round-trip.
+    // `updateTicket` / `postComment` invalidate the entry. List endpoints
     // (`getTickets`, `getSubTickets`) deliberately do NOT populate this
     // cache — they page through many issues where staleness is a concern.
-    this._ticketCache = new Map();
+    this._cache = createTicketCacheManager();
   }
 
   /** Lazily resolve the token on first API call. */
@@ -108,9 +126,6 @@ export class GitHubProvider extends ITicketingProvider {
     return this._http.token;
   }
 
-  // `graphql` is part of the public ITicketingProvider interface and must
-  // therefore live on the instance. The other HTTP calls delegate directly
-  // to `this._http.*` without wrapper methods (see 5.12.3 refactor).
   async graphql(query, variables = {}, opts = {}) {
     return this._http.graphql(query, variables, opts);
   }
@@ -120,7 +135,6 @@ export class GitHubProvider extends ITicketingProvider {
   // ---------------------------------------------------------------------------
 
   /**
-   * Internal helper to fetch and map Epics.
    * @param {{ state?: 'open'|'closed'|'all' }} filters
    * @returns {Promise<Array>}
    * @private
@@ -128,7 +142,7 @@ export class GitHubProvider extends ITicketingProvider {
   async _getEpics(filters = {}) {
     const params = new URLSearchParams({
       state: filters.state ?? 'all',
-      labels: 'type::epic',
+      labels: TYPE_LABELS.EPIC,
     });
 
     const issues = await this._http.restPaginated(
@@ -137,19 +151,7 @@ export class GitHubProvider extends ITicketingProvider {
 
     return issues
       .filter((issue) => !issue.pull_request)
-      .map((issue) => {
-        const labels = (issue.labels ?? []).map((l) =>
-          typeof l === 'string' ? l : l.name,
-        );
-        return {
-          id: issue.number,
-          title: issue.title,
-          labels,
-          labelSet: new Set(labels),
-          state: issue.state,
-          state_reason: issue.state_reason,
-        };
-      });
+      .map(issueToEpicListItem);
   }
 
   /* node:coverage ignore next */
@@ -166,26 +168,11 @@ export class GitHubProvider extends ITicketingProvider {
     const issue = await this._http.rest(
       `/repos/${this.owner}/${this.repo}/issues/${epicId}`,
     );
-
-    const labels = (issue.labels ?? []).map((l) =>
-      typeof l === 'string' ? l : l.name,
-    );
-
-    return {
-      id: issue.number,
-      internalId: issue.id,
-      nodeId: issue.node_id,
-      title: issue.title,
-      body: issue.body ?? '',
-      labels,
-      labelSet: new Set(labels),
-      linkedIssues: parseLinkedIssues(issue.body),
-    };
+    return issueToEpic(issue);
   }
 
   /* node:coverage ignore next */
   async getTickets(epicId, filters = {}) {
-    // Paginate through all issues to avoid silent data loss (C-1).
     const params = new URLSearchParams({
       state: filters.state ?? 'all',
     });
@@ -197,120 +184,115 @@ export class GitHubProvider extends ITicketingProvider {
       `/repos/${this.owner}/${this.repo}/issues?${params}`,
     );
 
-    // Use word-boundary regex to prevent #1 matching #10, #100, etc. (C-2).
+    // Word-boundary regex prevents #1 matching #10, #100, etc. (C-2).
     const epicRefRe = new RegExp(
       `(?:Epic:\\s*#${epicId}|parent:\\s*#${epicId})(?:\\s|$|[,.)\\]])`,
     );
 
-    // Filter to only issues that reference the epic
     return issues
       .filter((issue) => {
-        if (issue.pull_request) return false; // Skip PRs
+        if (issue.pull_request) return false;
         const body = issue.body ?? '';
         return epicRefRe.test(body);
       })
-      .map((issue) => {
-        const labels = (issue.labels ?? []).map((l) =>
-          typeof l === 'string' ? l : l.name,
-        );
-        return {
-          id: issue.number,
-          internalId: issue.id,
-          nodeId: issue.node_id,
-          title: issue.title,
-          body: issue.body ?? '',
-          labels,
-          labelSet: new Set(labels),
-          state: issue.state,
-        };
-      });
+      .map(issueToListItem);
   }
 
-  async getSubTickets(parentId) {
-    const parent = await this.getTicket(parentId);
-    const body = parent.body || '';
-
-    // Primary: Native GitHub Sub-Issues (v5 source of truth). The query
-    // pulls every field shared with `getTicket`'s return shape so each sub
-    // issue can seed `_ticketCache` in a single round-trip, eliminating
-    // the N+1 REST fan-out that followed this call previously. Cursor
-    // pagination prevents silent truncation on Epics with >50 children.
-    const nativeChildIds = [];
+  /**
+   * Strategy 1 — primary source: native GitHub Sub-Issues (v5 source of
+   * truth). Paginates the GraphQL `subIssues` connection, seeding the
+   * ticket cache along the way so the caller's subsequent `getTicket`
+   * calls resolve from memory. Returns an empty list (not throw) when the
+   * feature is disabled on this repo — all other GraphQL errors propagate.
+   * @private
+   */
+  async _getNativeSubIssues(parentNodeId, parentId) {
+    const childIds = [];
+    let cursor = null;
     try {
-      let cursor = null;
       while (true) {
-        const data = await this._http.graphql(
-          `query($id: ID!, $cursor: String) {
-            node(id: $id) {
-              ... on Issue {
-                subIssues(first: 50, after: $cursor) {
-                  pageInfo { hasNextPage endCursor }
-                  nodes {
-                    number
-                    databaseId
-                    id
-                    title
-                    body
-                    state
-                    labels(first: 30) { nodes { name } }
-                    assignees(first: 20) { nodes { login } }
-                  }
-                }
-              }
-            }
-          }`,
-          { id: parent.nodeId, cursor },
+        const subIssuesPage = await this._http.graphql(
+          SUB_ISSUES_QUERY,
+          { id: parentNodeId, cursor },
           { headers: { 'GraphQL-Features': 'sub_issues' } },
         );
 
-        const page = data.node?.subIssues;
+        const page = subIssuesPage.node?.subIssues;
         const nodes = page?.nodes ?? [];
         for (const node of nodes) {
-          nativeChildIds.push(node.number);
-          // Only seed the cache on a miss — an existing entry may be
-          // newer (e.g. refreshed after a mutation invalidated it).
-          if (!this._ticketCache.has(node.number)) {
-            this._ticketCache.set(
-              node.number,
-              this._subIssueNodeToTicket(node),
-            );
-          }
+          childIds.push(node.number);
+          // Only seed on a miss — an existing entry may be newer
+          // (e.g. refreshed after a mutation invalidated it).
+          this._cache.primeIfAbsent(subIssueNodeToTicket(node));
         }
 
         if (!page?.pageInfo?.hasNextPage) break;
         cursor = page.pageInfo.endCursor;
       }
     } catch (err) {
-      // GraphQL feature might not be enabled or permission error — proceed with checkboxes only
-      console.warn(
-        `[GitHubProvider] sub-issues GraphQL fallback (parent #${parentId}): ${err.message}`,
+      const category = classifyGithubError(err);
+      if (category === 'feature-disabled') {
+        console.warn(
+          `[GitHubProvider] sub-issues GraphQL unavailable (parent #${parentId}); using checklist fallback`,
+        );
+        return [];
+      }
+      console.error(
+        `[GitHubProvider] sub-issues GraphQL failed (parent #${parentId}, category=${category}): ${err.message}`,
       );
+      throw err;
     }
+    return childIds;
+  }
 
-    // Secondary: Match checklist items linking to issues: "- [ ] #123" or "- [x] #123"
+  /**
+   * Strategy 2 — secondary source: parse Markdown checklist links of the
+   * form `- [ ] #123` / `- [x] #123` out of the parent body.
+   * Pure parsing; no I/O.
+   * @private
+   */
+  _getChecklistChildren(parentBody) {
     const re = /-\s*\[[ xX]\]\s+#(\d+)/g;
-    const checklistChildIds = [...body.matchAll(re)].map((m) =>
+    return [...(parentBody ?? '').matchAll(re)].map((m) =>
       Number.parseInt(m[1], 10),
     );
+  }
 
-    // Tertiary: Reverse-search for issues pointing to this parent in their body (C-5 fallback).
-    // Guard: only run for Epic-type parents to avoid full-repo scans on Story/Feature parents,
-    // which would incorrectly pull in sibling tickets and waste API quota.
-    let referencedChildIds = [];
-    const isEpicParent = (parent.labels ?? []).includes('type::epic');
-    if (isEpicParent) {
-      try {
-        const issues = await this.getTickets(parentId);
-        referencedChildIds = issues.map((i) => i.id);
-      } catch (err) {
-        // Tertiary reverse-lookup failed; non-fatal — continue with native + checklist sources.
-        console.warn(
-          `[GitHubProvider] reverse dependency lookup (parent #${parentId}): ${err.message}`,
-        );
-      }
+  /**
+   * Strategy 3 — tertiary fallback: reverse-search for issues that
+   * reference the parent in their body (`Epic: #N` / `parent: #N`). Only
+   * safe for Epic parents — running against Story/Feature parents would
+   * pull in sibling tickets and waste API quota.
+   * Non-fatal on error — returns an empty list and logs a warning.
+   * @private
+   */
+  async _getReferencedChildren(parentId, parentLabels) {
+    const isEpicParent = (parentLabels ?? []).includes(TYPE_LABELS.EPIC);
+    if (!isEpicParent) return [];
+    try {
+      const issues = await this.getTickets(parentId);
+      return issues.map((i) => i.id);
+    } catch (err) {
+      console.warn(
+        `[GitHubProvider] reverse dependency lookup (parent #${parentId}): ${err.message}`,
+      );
+      return [];
     }
+  }
 
-    // Merge and remove duplicates
+  async getSubTickets(parentId) {
+    const parent = await this.getTicket(parentId);
+
+    const [nativeChildIds, checklistChildIds, referencedChildIds] =
+      await Promise.all([
+        this._getNativeSubIssues(parent.nodeId, parentId),
+        Promise.resolve(this._getChecklistChildren(parent.body)),
+        this._getReferencedChildren(parentId, parent.labels),
+      ]);
+
+    // Dedupe while preserving the historical fallback order: native first,
+    // then checklist, then reverse-referenced. Order matters for downstream
+    // consumers that rank tickets by source trust.
     const allChildIds = [
       ...new Set([
         ...nativeChildIds,
@@ -319,85 +301,36 @@ export class GitHubProvider extends ITicketingProvider {
       ]),
     ];
 
-    // Fetch all child tickets
     const subTickets = await Promise.all(
       allChildIds.map((id) => this.getTicket(id).catch(() => null)),
     );
-
     return subTickets.filter(Boolean);
   }
 
-  async getTicket(ticketId) {
-    if (this._ticketCache.has(ticketId)) {
-      return this._ticketCache.get(ticketId);
+  async getTicket(ticketId, opts = {}) {
+    if (!opts.fresh && this._cache.has(ticketId)) {
+      return this._cache.peek(ticketId);
     }
 
     const issue = await this._http.rest(
       `/repos/${this.owner}/${this.repo}/issues/${ticketId}`,
     );
-
-    const labels = (issue.labels ?? []).map((l) =>
-      typeof l === 'string' ? l : l.name,
-    );
-
-    const ticket = {
-      id: issue.number,
-      internalId: issue.id,
-      nodeId: issue.node_id,
-      title: issue.title,
-      body: issue.body ?? '',
-      labels,
-      labelSet: new Set(labels),
-      assignees: (issue.assignees ?? []).map((a) => a.login),
-      state: issue.state,
-    };
-
-    this._ticketCache.set(ticketId, ticket);
+    const ticket = issueToTicket(issue);
+    this._cache.set(ticketId, ticket);
     return ticket;
   }
 
   /**
-   * Map a GraphQL sub-issue node into the ticket shape that
-   * `getTicket`/`getTickets` return. Keeps the state label lower-cased to
-   * match the REST API (`open`/`closed`) so downstream code never has to
-   * case-normalise at the call site.
-   * @private
-   */
-  _subIssueNodeToTicket(node) {
-    const labels = (node.labels?.nodes ?? []).map((l) => l.name);
-    return {
-      id: node.number,
-      internalId: node.databaseId,
-      nodeId: node.id,
-      title: node.title,
-      body: node.body ?? '',
-      labels,
-      labelSet: new Set(labels),
-      assignees: (node.assignees?.nodes ?? []).map((a) => a.login),
-      state:
-        typeof node.state === 'string' ? node.state.toLowerCase() : node.state,
-    };
-  }
-
-  /**
    * Seed the per-instance getTicket cache with tickets already hydrated by
-   * callers (e.g. from a single `getTickets(epicId)` sweep). Only fields
-   * shared with `getTicket`'s return shape need be present.
+   * callers (e.g. from a single `getTickets(epicId)` sweep).
    */
   primeTicketCache(tickets) {
-    for (const t of tickets ?? []) {
-      if (t && typeof t.id === 'number') {
-        if (!t.labelSet && Array.isArray(t.labels)) {
-          t.labelSet = new Set(t.labels);
-        }
-        this._ticketCache.set(t.id, t);
-      }
-    }
+    this._cache.primeMany(tickets);
   }
 
   /** Drop a specific ticket from the cache. Called after any mutation. */
   invalidateTicket(ticketId) {
-    this._ticketCache.delete(ticketId);
+    this._cache.invalidate(ticketId);
   }
 
   /* node:coverage ignore next */
@@ -441,7 +374,6 @@ export class GitHubProvider extends ITicketingProvider {
       bodyParts.push(`Epic: #${epicId}`);
     }
 
-    // Add dependency references
     if (ticketData.dependencies?.length) {
       bodyParts.push('');
       for (const dep of ticketData.dependencies) {
@@ -461,17 +393,14 @@ export class GitHubProvider extends ITicketingProvider {
       },
     );
 
-    // Natively link as sub-issue
     try {
       await this.addSubIssue(parentId, issue.node_id);
     } catch (err) {
-      // Sub-issues might not be enabled or permission issues — fallback to text-only link (already in body)
       console.warn(
         `[GitHubProvider] sub-issue link failed for #${issue.number} → parent #${parentId}: ${err.message}`,
       );
     }
 
-    // Add to project if configured
     try {
       if (this.projectNumber) {
         await this._addItemToProject(issue.node_id);
@@ -496,112 +425,68 @@ export class GitHubProvider extends ITicketingProvider {
     opts = { replaceParent: false },
   ) {
     const parentTicket = await this.getTicket(parentNumber);
-
     return this._http.graphql(
-      `
-      mutation($parentId: ID!, $subIssueId: ID!, $replaceParent: Boolean) {
-        addSubIssue(input: { issueId: $parentId, subIssueId: $subIssueId, replaceParent: $replaceParent }) {
-          issue { number }
-          subIssue { number }
-        }
-      }`,
+      ADD_SUB_ISSUE_MUTATION,
       {
         parentId: parentTicket.nodeId,
         subIssueId: childNodeId,
         replaceParent: opts.replaceParent,
       },
-      {
-        headers: {
-          'GraphQL-Features': 'sub_issues',
-        },
-      },
+      { headers: { 'GraphQL-Features': 'sub_issues' } },
     );
   }
 
   async removeSubIssue(parentNumber, subIssueNumber) {
     const parentTicket = await this.getTicket(parentNumber);
     const childTicket = await this.getTicket(subIssueNumber);
-
     return this._http.graphql(
-      `
-      mutation($parentId: ID!, $subIssueId: ID!) {
-        removeSubIssue(input: { issueId: $parentId, subIssueId: $subIssueId }) {
-          issue { number }
-          subIssue { number }
-        }
-      }`,
-      {
-        parentId: parentTicket.nodeId,
-        subIssueId: childTicket.nodeId,
-      },
-      {
-        headers: {
-          'GraphQL-Features': 'sub_issues',
-        },
-      },
+      REMOVE_SUB_ISSUE_MUTATION,
+      { parentId: parentTicket.nodeId, subIssueId: childTicket.nodeId },
+      { headers: { 'GraphQL-Features': 'sub_issues' } },
     );
   }
 
   /**
-   * Internal helper to add an item (Issue/PR) to a Project V2 board.
    * @param {string} contentNodeId - GraphQL node ID of the issue/PR.
    * @private
    */
   async _addItemToProject(contentNodeId) {
     const projectId = await this._fetchProjectMetadata();
     if (!projectId) return;
-
-    await this._http.graphql(
-      `
-      mutation($projectId: ID!, $contentId: ID!) {
-        addProjectV2ItemById(input: { projectId: $projectId, contentId: $contentId }) {
-          item { id }
-        }
-      }`,
-      { projectId, contentId: contentNodeId },
-    );
+    await this._http.graphql(ADD_PROJECT_ITEM_MUTATION, {
+      projectId,
+      contentId: contentNodeId,
+    });
   }
 
   /**
-   * Internal helper to fetch Project V2 data, checking both User and Organization.
-   * @param {string} fragment - GraphQL fragment for the projectNode.
-   * @returns {Promise<object|null>}
+   * Fetch Project V2 data, checking both User and Organization scopes. Soft
+   * failures (warn + return null) so callers degrade gracefully.
    * @private
    */
   async _fetchProjectV2(fragment) {
     if (!this.projectNumber) return null;
 
-    const buildQuery = (type) => `
-      query($owner: String!, $number: Int!) {
-        ${type}(login: $owner) {
-          projectV2(number: $number) { ${fragment} }
-        }
-      }
-    `;
-
-    // Try user first
     try {
-      const data = await this._http.graphql(buildQuery('user'), {
-        owner: this.projectOwner,
-        number: this.projectNumber,
-      });
-      if (data?.user?.projectV2) return data.user.projectV2;
+      const userProjectData = await this._http.graphql(
+        buildProjectV2LookupQuery('user', fragment),
+        { owner: this.projectOwner, number: this.projectNumber },
+      );
+      if (userProjectData?.user?.projectV2)
+        return userProjectData.user.projectV2;
     } catch (err) {
-      // User-scoped ProjectV2 lookup failed; try organization scope next.
       console.warn(
         `[GitHubProvider] ProjectV2 user lookup failed (owner=${this.projectOwner}): ${err.message}`,
       );
     }
 
-    // Fallback to organization
     try {
-      const data = await this._http.graphql(buildQuery('organization'), {
-        owner: this.projectOwner,
-        number: this.projectNumber,
-      });
-      return data?.organization?.projectV2;
+      const orgProjectData = await this._http.graphql(
+        buildProjectV2LookupQuery('organization', fragment),
+        { owner: this.projectOwner, number: this.projectNumber },
+      );
+      return orgProjectData?.organization?.projectV2;
     } catch (err) {
-      // Org-scoped ProjectV2 lookup failed; caller receives null and degrades to non-project mode.
       console.warn(
         `[GitHubProvider] ProjectV2 org lookup failed (owner=${this.projectOwner}): ${err.message}`,
       );
@@ -611,60 +496,42 @@ export class GitHubProvider extends ITicketingProvider {
   }
 
   /**
-   * Strict sibling of `_fetchProjectV2` — tries user scope first, then org
-   * scope, and rethrows any GraphQL error instead of swallowing it. Used
-   * by `ensureStatusField` / `ensureProjectViews` so callers can detect
-   * INSUFFICIENT_SCOPES and degrade gracefully.
-   *
+   * Strict sibling of `_fetchProjectV2` — rethrows instead of swallowing
+   * so callers can detect INSUFFICIENT_SCOPES and degrade.
    * @private
    */
   async _fetchProjectV2Strict(fragment) {
     if (!this.projectNumber) return null;
 
-    const buildQuery = (type) => `
-      query($owner: String!, $number: Int!) {
-        ${type}(login: $owner) {
-          projectV2(number: $number) { ${fragment} }
-        }
-      }
-    `;
-
     let userErr = null;
     try {
-      const data = await this._http.graphql(buildQuery('user'), {
-        owner: this.projectOwner,
-        number: this.projectNumber,
-      });
-      if (data?.user?.projectV2) return data.user.projectV2;
+      const userProjectData = await this._http.graphql(
+        buildProjectV2LookupQuery('user', fragment),
+        { owner: this.projectOwner, number: this.projectNumber },
+      );
+      if (userProjectData?.user?.projectV2)
+        return userProjectData.user.projectV2;
     } catch (err) {
       if (GitHubProvider.isInsufficientScopes(err)) throw err;
       userErr = err;
     }
 
     try {
-      const data = await this._http.graphql(buildQuery('organization'), {
-        owner: this.projectOwner,
-        number: this.projectNumber,
-      });
-      if (data?.organization?.projectV2) return data.organization.projectV2;
+      const orgProjectData = await this._http.graphql(
+        buildProjectV2LookupQuery('organization', fragment),
+        { owner: this.projectOwner, number: this.projectNumber },
+      );
+      if (orgProjectData?.organization?.projectV2)
+        return orgProjectData.organization.projectV2;
     } catch (err) {
       if (GitHubProvider.isInsufficientScopes(err)) throw err;
-      // If both queries failed non-scope, rethrow the org error so the
-      // caller sees a real signal rather than a silent null.
       throw err;
     }
 
-    // If the user query raised a non-scope error and the org query found
-    // nothing, surface the original user-scope error rather than null.
     if (userErr) throw userErr;
     return null;
   }
 
-  /**
-   * Resolve the global GraphQL node ID for the configured project number.
-   * Caches the result to avoid redundant lookups.
-   * @private
-   */
   /* node:coverage ignore next */
   async _fetchProjectMetadata() {
     if (this._projectId) return this._projectId;
@@ -681,21 +548,11 @@ export class GitHubProvider extends ITicketingProvider {
    * PATCH fields are present, or when removing labels, computes the final
    * label set and returns it to the caller for inclusion in the PATCH.
    *
-   * @param {number} ticketId
-   * @param {{ add?: string[], remove?: string[] }} labels
-   * @param {boolean} hasOtherPatchFields Whether the caller will issue a
-   *                                       PATCH for non-label fields.
-   * @returns {Promise<{ skipPatch: boolean, mergedLabels?: string[] }>}
-   *                   skipPatch=true means the labels endpoint handled
-   *                   everything and the caller should not PATCH.
    * @private
    */
   async _updateLabels(ticketId, labels, hasOtherPatchFields) {
     const { add = [], remove = [] } = labels;
 
-    // Fast path: only adding labels, nothing else to patch. Use the
-    // purpose-built additive endpoint which does not require fetching
-    // the current label set first.
     if (add.length > 0 && remove.length === 0 && !hasOtherPatchFields) {
       await this._http.rest(
         `/repos/${this.owner}/${this.repo}/issues/${ticketId}/labels`,
@@ -704,8 +561,6 @@ export class GitHubProvider extends ITicketingProvider {
       return { skipPatch: true };
     }
 
-    // Removals or combined patches require a read-modify-write cycle so the
-    // PATCH includes the full target label set.
     const ticket = await this.getTicket(ticketId);
     const currentLabels = new Set(ticket.labels ?? []);
     for (const l of remove) currentLabels.delete(l);
@@ -718,18 +573,11 @@ export class GitHubProvider extends ITicketingProvider {
   async updateTicket(ticketId, mutations) {
     const patch = {};
 
-    if (mutations.body !== undefined) {
-      patch.body = mutations.body;
-    }
-    if (mutations.assignees) {
-      patch.assignees = mutations.assignees;
-    }
-    if (mutations.state !== undefined) {
-      patch.state = mutations.state;
-    }
-    if (mutations.state_reason !== undefined) {
+    if (mutations.body !== undefined) patch.body = mutations.body;
+    if (mutations.assignees) patch.assignees = mutations.assignees;
+    if (mutations.state !== undefined) patch.state = mutations.state;
+    if (mutations.state_reason !== undefined)
       patch.state_reason = mutations.state_reason;
-    }
 
     if (mutations.labels) {
       const hasOtherPatchFields = Object.keys(patch).length > 0;
@@ -745,19 +593,12 @@ export class GitHubProvider extends ITicketingProvider {
     if (Object.keys(patch).length > 0) {
       await this._http.rest(
         `/repos/${this.owner}/${this.repo}/issues/${ticketId}`,
-        {
-          method: 'PATCH',
-          body: patch,
-        },
+        { method: 'PATCH', body: patch },
       );
       this.invalidateTicket(ticketId);
     }
   }
 
-  /**
-   * Delete a single issue comment by its numeric id.
-   * @param {number} commentId
-   */
   async deleteComment(commentId) {
     await this._http.rest(
       `/repos/${this.owner}/${this.repo}/issues/comments/${commentId}`,
@@ -785,7 +626,6 @@ export class GitHubProvider extends ITicketingProvider {
 
   /* node:coverage ignore next */
   async createPullRequest(branchName, ticketId, baseBranch = 'main') {
-    // Fetch the ticket to get its title for the PR
     const ticket = await this.getTicket(ticketId);
 
     const pr = await this._http.rest(
@@ -801,7 +641,6 @@ export class GitHubProvider extends ITicketingProvider {
       },
     );
 
-    // Add to project if configured
     try {
       if (this.projectNumber) {
         await this._addItemToProject(pr.node_id);
@@ -812,21 +651,13 @@ export class GitHubProvider extends ITicketingProvider {
       );
     }
 
-    return {
-      number: pr.number,
-      url: pr.url,
-      htmlUrl: pr.html_url,
-    };
+    return { number: pr.number, url: pr.url, htmlUrl: pr.html_url };
   }
 
   /**
-   * Inspect branch-protection state for a branch in this repository. A 404
-   * means "no protection rule exists"; any other error propagates so the
-   * caller can distinguish "intentionally unprotected" from "transport
-   * failure." Returns `{ enabled, raw? }`.
-   *
-   * @param {string} branch
-   * @returns {Promise<{ enabled: boolean, raw?: object }>}
+   * Inspect branch-protection state. A 404 means "no protection rule
+   * exists"; any other error propagates so the caller can distinguish
+   * "intentionally unprotected" from "transport failure."
    */
   async getBranchProtection(branch) {
     const endpoint = `/repos/${this.owner}/${this.repo}/branches/${encodeURIComponent(branch)}/protection`;
@@ -834,9 +665,7 @@ export class GitHubProvider extends ITicketingProvider {
       const raw = await this._http.rest(endpoint);
       return { enabled: true, raw };
     } catch (err) {
-      if (/failed \(404\)/.test(err?.message ?? '')) {
-        return { enabled: false };
-      }
+      if (/failed \(404\)/.test(err?.message ?? '')) return { enabled: false };
       throw err;
     }
   }
@@ -846,7 +675,6 @@ export class GitHubProvider extends ITicketingProvider {
   // ---------------------------------------------------------------------------
 
   async ensureLabels(labelDefs) {
-    // Paginate to fetch all existing labels (H-6).
     const existing = await this._http.restPaginated(
       `/repos/${this.owner}/${this.repo}/labels`,
     );
@@ -876,13 +704,8 @@ export class GitHubProvider extends ITicketingProvider {
   }
 
   /**
-   * Detect whether a GraphQL error payload (or its serialised message)
-   * represents a missing Projects V2 permission scope. Bootstrap treats
-   * these as soft failures: the run logs a warning and continues so that
-   * label creation still completes on a token without `project` scope.
-   *
-   * @param {unknown} err
-   * @returns {boolean}
+   * Detect whether a GraphQL error represents a missing Projects V2
+   * permission scope. Bootstrap treats these as soft failures.
    */
   static isInsufficientScopes(err) {
     if (!err) return false;
@@ -896,16 +719,8 @@ export class GitHubProvider extends ITicketingProvider {
 
   /**
    * Resolve the configured Project, or create one if `projectNumber` is not
-   * set. Returns `{ projectId, projectNumber, created }`. On insufficient
-   * scopes returns `{ scopesMissing: true }` so bootstrap can degrade.
-   *
-   * @param {{ name?: string|null, owner?: string }} [opts]
-   * @returns {Promise<{
-   *   projectId?: string,
-   *   projectNumber?: number,
-   *   created?: boolean,
-   *   scopesMissing?: boolean,
-   * }>}
+   * set. On insufficient scopes returns `{ scopesMissing: true }` so
+   * bootstrap can degrade.
    */
   async resolveOrCreateProject(opts = {}) {
     const owner = opts.owner ?? this.projectOwner;
@@ -924,9 +739,8 @@ export class GitHubProvider extends ITicketingProvider {
           };
         }
       } catch (err) {
-        if (GitHubProvider.isInsufficientScopes(err)) {
+        if (GitHubProvider.isInsufficientScopes(err))
           return { scopesMissing: true };
-        }
         throw err;
       }
       throw new Error(
@@ -934,17 +748,14 @@ export class GitHubProvider extends ITicketingProvider {
       );
     }
 
-    // No projectNumber — attempt to create a Project under the owner.
     let ownerNodeId;
     try {
-      const data = await this._http.graphql(
-        `query($login: String!) {
-          user(login: $login) { id }
-          organization(login: $login) { id }
-        }`,
+      const ownerLookupData = await this._http.graphql(
+        OWNER_NODE_LOOKUP_QUERY,
         { login: owner },
       );
-      ownerNodeId = data?.organization?.id ?? data?.user?.id ?? null;
+      ownerNodeId =
+        ownerLookupData?.organization?.id ?? ownerLookupData?.user?.id ?? null;
     } catch (err) {
       if (GitHubProvider.isInsufficientScopes(err))
         return { scopesMissing: true };
@@ -958,15 +769,11 @@ export class GitHubProvider extends ITicketingProvider {
     }
 
     try {
-      const data = await this._http.graphql(
-        `mutation($ownerId: ID!, $title: String!) {
-          createProjectV2(input: { ownerId: $ownerId, title: $title }) {
-            projectV2 { id number }
-          }
-        }`,
+      const createProjectData = await this._http.graphql(
+        CREATE_PROJECT_MUTATION,
         { ownerId: ownerNodeId, title: name },
       );
-      const project = data?.createProjectV2?.projectV2;
+      const project = createProjectData?.createProjectV2?.projectV2;
       if (!project) {
         throw new Error(
           '[GitHubProvider] createProjectV2 returned no project.',
@@ -988,17 +795,8 @@ export class GitHubProvider extends ITicketingProvider {
 
   /**
    * Ensure the Status single-select field exists on the project with the
-   * given options. Idempotent — existing options are preserved by id and
-   * only missing options are appended. When the underlying mutation is
-   * unavailable due to missing scopes, returns `{ scopesMissing: true }`
-   * instead of throwing so bootstrap can degrade.
-   *
-   * @param {string[]} optionNames
-   * @returns {Promise<{
-   *   status: 'created'|'updated'|'unchanged'|'scopes-missing',
-   *   added: string[],
-   *   fieldId?: string,
-   * }>}
+   * given options. Idempotent. When the mutation is unavailable due to
+   * missing scopes, returns `{ status: 'scopes-missing', added: [] }`.
    */
   async ensureStatusField(optionNames) {
     if (!this.projectNumber) {
@@ -1009,22 +807,10 @@ export class GitHubProvider extends ITicketingProvider {
 
     let project;
     try {
-      project = await this._fetchProjectV2Strict(`
-        id
-        fields(first: 50) {
-          nodes {
-            ... on ProjectV2SingleSelectField {
-              id
-              name
-              options { id name }
-            }
-          }
-        }
-      `);
+      project = await this._fetchProjectV2Strict(STATUS_FIELD_FRAGMENT);
     } catch (err) {
-      if (GitHubProvider.isInsufficientScopes(err)) {
+      if (GitHubProvider.isInsufficientScopes(err))
         return { status: 'scopes-missing', added: [] };
-      }
       throw err;
     }
 
@@ -1038,15 +824,10 @@ export class GitHubProvider extends ITicketingProvider {
       (f) => f?.name === 'Status',
     );
 
-    // Field is missing — create it with all desired options.
     if (!statusField) {
       try {
-        const data = await this._http.graphql(
-          `mutation($projectId: ID!, $name: String!, $options: [ProjectV2SingleSelectFieldOptionInput!]!) {
-            createProjectV2Field(input: { projectId: $projectId, dataType: SINGLE_SELECT, name: $name, singleSelectOptions: $options }) {
-              projectV2Field { ... on ProjectV2SingleSelectField { id name } }
-            }
-          }`,
+        const createFieldData = await this._http.graphql(
+          CREATE_SINGLE_SELECT_FIELD_MUTATION,
           {
             projectId: project.id,
             name: 'Status',
@@ -1060,17 +841,15 @@ export class GitHubProvider extends ITicketingProvider {
         return {
           status: 'created',
           added: [...optionNames],
-          fieldId: data?.createProjectV2Field?.projectV2Field?.id,
+          fieldId: createFieldData?.createProjectV2Field?.projectV2Field?.id,
         };
       } catch (err) {
-        if (GitHubProvider.isInsufficientScopes(err)) {
+        if (GitHubProvider.isInsufficientScopes(err))
           return { status: 'scopes-missing', added: [] };
-        }
         throw err;
       }
     }
 
-    // Field exists — compute missing options and append them.
     const existing = new Map(
       (statusField.options ?? []).map((o) => [o.name, o.id]),
     );
@@ -1091,36 +870,24 @@ export class GitHubProvider extends ITicketingProvider {
     ];
 
     try {
-      await this._http.graphql(
-        `mutation($fieldId: ID!, $name: String!, $options: [ProjectV2SingleSelectFieldOptionInput!]!) {
-          updateProjectV2Field(input: { fieldId: $fieldId, name: $name, singleSelectOptions: $options }) {
-            projectV2Field { ... on ProjectV2SingleSelectField { id name } }
-          }
-        }`,
-        { fieldId: statusField.id, name: 'Status', options: mergedOptions },
-      );
+      await this._http.graphql(UPDATE_SINGLE_SELECT_FIELD_MUTATION, {
+        fieldId: statusField.id,
+        name: 'Status',
+        options: mergedOptions,
+      });
       return { status: 'updated', added: missing, fieldId: statusField.id };
     } catch (err) {
-      if (GitHubProvider.isInsufficientScopes(err)) {
+      if (GitHubProvider.isInsufficientScopes(err))
         return { status: 'scopes-missing', added: [] };
-      }
       throw err;
     }
   }
 
   /**
-   * Best-effort Projects V2 Views creation. GitHub's public GraphQL API does
-   * not yet expose a `createProjectV2View` mutation in all contexts; any
-   * failure (missing mutation, missing scopes, rate limit) is caught and
-   * surfaced as `{ unavailable: true }` so the caller can direct the user
-   * to `docs/project-board.md` for manual setup.
-   *
-   * @param {Array<{ name: string, filter: string, groupBy?: string }>} viewDefs
-   * @returns {Promise<{
-   *   created: string[],
-   *   skipped: string[],
-   *   unavailable: boolean,
-   * }>}
+   * Best-effort Projects V2 Views creation. Any failure (missing mutation,
+   * missing scopes, rate limit) is caught and surfaced as
+   * `{ unavailable: true }` so the caller can direct the user to
+   * `docs/project-board.md` for manual setup.
    */
   async ensureProjectViews(viewDefs) {
     if (!this.projectNumber) {
@@ -1134,10 +901,7 @@ export class GitHubProvider extends ITicketingProvider {
 
     let project;
     try {
-      project = await this._fetchProjectV2Strict(`
-        id
-        views(first: 50) { nodes { name } }
-      `);
+      project = await this._fetchProjectV2Strict(PROJECT_VIEWS_FRAGMENT);
     } catch (err) {
       if (GitHubProvider.isInsufficientScopes(err)) {
         return {
@@ -1146,9 +910,6 @@ export class GitHubProvider extends ITicketingProvider {
           unavailable: true,
         };
       }
-      // Treat a schema-level "views field does not exist" failure as
-      // unavailable rather than fatal — Projects V2 Views API is GitHub-
-      // internal in most contexts as of v5.15.
       return {
         created,
         skipped: viewDefs.map((v) => v.name),
@@ -1177,16 +938,13 @@ export class GitHubProvider extends ITicketingProvider {
         continue;
       }
       try {
-        await this._http.graphql(
-          `mutation($projectId: ID!, $name: String!, $filter: String!) {
-            createProjectV2View(input: { projectId: $projectId, name: $name, filter: $filter, layout: BOARD_LAYOUT }) {
-              projectV2View { id name }
-            }
-          }`,
-          { projectId: project.id, name: def.name, filter: def.filter },
-        );
+        await this._http.graphql(CREATE_PROJECT_VIEW_MUTATION, {
+          projectId: project.id,
+          name: def.name,
+          filter: def.filter,
+        });
         created.push(def.name);
-      } catch (err) {
+      } catch {
         // First failure signals the mutation is unavailable in this
         // context — stop attempting subsequent views to avoid noise.
         unavailable = true;
@@ -1201,16 +959,7 @@ export class GitHubProvider extends ITicketingProvider {
   async ensureProjectFields(fieldDefs) {
     if (!this.projectNumber) return { created: [], skipped: [] };
 
-    const project = await this._fetchProjectV2(`
-      id
-      fields(first: 50) {
-        nodes {
-          ... on ProjectV2Field { name }
-          ... on ProjectV2IterationField { name }
-          ... on ProjectV2SingleSelectField { name }
-        }
-      }
-    `);
+    const project = await this._fetchProjectV2(PROJECT_FIELDS_FRAGMENT);
 
     if (!project) {
       throw new Error(
@@ -1237,22 +986,15 @@ export class GitHubProvider extends ITicketingProvider {
       }
 
       if (def.type === 'single_select') {
-        await this._http.graphql(
-          `mutation($projectId: ID!, $name: String!, $options: [ProjectV2SingleSelectFieldOptionInput!]!) {
-            createProjectV2Field(input: { projectId: $projectId, dataType: SINGLE_SELECT, name: $name, singleSelectOptions: $options }) {
-              projectV2Field { ... on ProjectV2SingleSelectField { name } }
-            }
-          }`,
-          {
-            projectId: project.id,
-            name: def.name,
-            options: (def.options ?? []).map((o) => ({
-              name: o,
-              color: 'GRAY',
-              description: '',
-            })),
-          },
-        );
+        await this._http.graphql(CREATE_SINGLE_SELECT_FIELD_MUTATION, {
+          projectId: project.id,
+          name: def.name,
+          options: (def.options ?? []).map((o) => ({
+            name: o,
+            color: 'GRAY',
+            description: '',
+          })),
+        });
       }
 
       created.push(def.name);

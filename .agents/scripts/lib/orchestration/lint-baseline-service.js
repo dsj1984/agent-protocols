@@ -23,11 +23,11 @@ import { PROJECT_ROOT } from '../config-resolver.js';
 
 /**
  * Minimal logger shape consumed by {@link LintBaselineService}. Matches the
- * existing `VerboseLogger` / `dispatch-logger.js` surface.
+ * surviving `lib/Logger.js` surface (single-argument message form).
  *
- * @typedef {object} LintBaselineVlog
- * @property {(channel: string, msg: string) => void} info
- * @property {(channel: string, msg: string) => void} warn
+ * @typedef {object} LintBaselineLogger
+ * @property {(msg: string) => void} info
+ * @property {(msg: string) => void} warn
  */
 
 /**
@@ -42,16 +42,16 @@ import { PROJECT_ROOT } from '../config-resolver.js';
 export class LintBaselineService {
   /**
    * @param {object} deps
-   * @param {LintBaselineExec} deps.exec         Injected exec adapter — invoked with `(file, args, options)`.
-   * @param {LintBaselineVlog} deps.vlog         Logger for skip / capture / failure messages.
-   * @param {object} deps.settings               `.agentrc.json` `settings` block.
+   * @param {LintBaselineExec} deps.exec           Injected exec adapter — invoked with `(file, args, options)`.
+   * @param {LintBaselineLogger} deps.logger       Logger for skip / capture / failure messages.
+   * @param {object} deps.settings                 `.agentrc.json` `settings` block.
    * @param {string} [deps.settings.lintBaselinePath='temp/lint-baseline.json']  Relative path to the baseline artifact.
-   * @param {string} deps.settings.scriptsRoot   Relative scripts directory (resolved from `PROJECT_ROOT`).
-   * @param {typeof import('node:fs')} [deps.fs] Optional `fs` module (defaults to `node:fs`). Kept injectable so unit tests can assert no real-disk access.
+   * @param {string} deps.settings.scriptsRoot     Relative scripts directory (resolved from `PROJECT_ROOT`).
+   * @param {typeof import('node:fs')} [deps.fs]   Optional `fs` module (defaults to `node:fs`). Kept injectable so unit tests can assert no real-disk access.
    */
-  constructor({ exec, vlog, settings, fs = defaultFs }) {
+  constructor({ exec, logger, settings, fs = defaultFs }) {
     this.exec = exec;
-    this.vlog = vlog;
+    this.logger = logger;
     this.settings = settings;
     this.fs = fs;
   }
@@ -71,20 +71,17 @@ export class LintBaselineService {
    * @returns {Promise<LintBaselineCaptureResult>}  Resolution of the capture attempt.
    */
   async capture(epicBranch) {
-    const { settings, vlog, exec, fs } = this;
+    const { settings, logger, exec, fs } = this;
     const lintBaselinePath =
       settings.lintBaselinePath ?? 'temp/lint-baseline.json';
     const absPath = path.resolve(PROJECT_ROOT, lintBaselinePath);
 
     if (fs.existsSync(absPath)) {
-      vlog.info(
-        'orchestration',
-        `Lint baseline already exists, skipping capture.`,
-      );
+      logger.info('Lint baseline already exists, skipping capture.');
       return { skipped: true };
     }
 
-    vlog.info('orchestration', `Capturing lint baseline on ${epicBranch}...`);
+    logger.info(`Capturing lint baseline on ${epicBranch}...`);
     try {
       await exec(
         'node',
@@ -101,10 +98,7 @@ export class LintBaselineService {
       );
       return { skipped: false, captured: true };
     } catch (err) {
-      vlog.warn(
-        'orchestration',
-        `Lint baseline capture failed (non-fatal): ${err.message}`,
-      );
+      logger.warn(`Lint baseline capture failed (non-fatal): ${err.message}`);
       return { skipped: false, captured: false, error: err.message };
     }
   }

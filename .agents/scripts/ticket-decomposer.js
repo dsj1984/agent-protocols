@@ -27,6 +27,7 @@ import { parseArgs } from 'node:util';
 import { runAsCli } from './lib/cli-utils.js';
 import { resolveConfig } from './lib/config-resolver.js';
 import { Logger } from './lib/Logger.js';
+import { TYPE_LABELS } from './lib/label-constants.js';
 import { validateAndNormalizeTickets } from './lib/orchestration/ticket-validator.js';
 import { createProvider } from './lib/provider-factory.js';
 import { renderDecomposerSystemPrompt } from './lib/templates/decomposer-prompts.js';
@@ -129,7 +130,11 @@ export async function decomposeEpic(
   if (force) {
     console.log('[Decomposer] --force: Closing existing child tickets...');
     const existing = await provider.getTickets(epicId);
-    const childTypes = ['type::feature', 'type::story', 'type::task'];
+    const childTypes = [
+      TYPE_LABELS.FEATURE,
+      TYPE_LABELS.STORY,
+      TYPE_LABELS.TASK,
+    ];
     const children = existing.filter((t) =>
       t.labels.some((l) => childTypes.includes(l)),
     );

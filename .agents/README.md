@@ -629,7 +629,7 @@ the "silent downgrade" bugs called out in the clean-code audit.
 
 | Severity | Emitter                | When to use                                                                                  |
 | -------- | ---------------------- | -------------------------------------------------------------------------------------------- |
-| debug    | `Logger.debug(msg)`    | Verbose trace. Only printed when `AGENT_LOG_LEVEL=debug`. Safe for noisy cleanup paths.      |
+| debug    | `Logger.debug(msg)`    | Verbose trace. Only printed when `AGENT_LOG_LEVEL=verbose`. Safe for noisy cleanup paths.    |
 | info     | `Logger.info(msg)`     | Normal progress line; equivalent to `console.log`. Use the `progress` helper in scripts.     |
 | warn     | `Logger.warn(msg)`     | Recoverable issue the operator should notice but does not need to act on immediately.        |
 | error    | `Logger.error(msg)`    | Non-fatal failure: the current phase aborts but the script continues with degraded output.   |
@@ -649,5 +649,6 @@ Rules of thumb:
 - `console.error` is reserved for paths that run before `Logger` is available
   (e.g. pre-config-resolve bootstrap).
 
-See `.agents/scripts/lib/Logger.js` for the implementation. Toggle
-`AGENT_LOG_LEVEL=debug` in your environment to enable `Logger.debug` output.
+See `.agents/scripts/lib/Logger.js` for the implementation. The log level is
+resolved from `AGENT_LOG_LEVEL` and accepts `silent`, `info` (default), or
+`verbose` (`debug` is an alias for `verbose`).
