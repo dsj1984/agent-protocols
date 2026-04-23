@@ -17,3 +17,5 @@ temp/
 .claude/settings.local.json
 
 .mcp.json
+
+.worktrees
