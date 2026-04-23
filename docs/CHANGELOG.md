@@ -4,6 +4,24 @@ All notable changes to this project will be documented in this file.
 
 ## [Unreleased]
 
+## [5.19.1] - 2026-04-23
+
+### Fix: `/agents-bootstrap-project` Step 8 hard-aborted on consuming projects
+
+The Step 8 MCP-template check landed in v5.19.0 with the template file
+(`.mcp.json.example`) at the repo root. Consuming projects install
+`agent-protocols` as a git submodule under `.agents/` — root-level files
+from this repo never reach the consumer, so Step 8's hard-abort
+("`.mcp.json.example` is missing, regenerate and commit") triggered on
+every clean consumer clone and blocked the bootstrap.
+
+Moved the template into the submodule at `.agents/default-mcp.json` (same
+pattern as `.agents/default-agentrc.json`) so it ships with every
+consumer. The Step 8 workflow now resolves `[TEMPLATE_PATH]` to that path
+and the hard-abort message directs operators to re-run
+`git submodule update --init` if the file is absent — not to hand-author
+a template at the repo root.
+
 ## [5.19.0] - 2026-04-23
 
 ### MCP server hardening (Epic #511)

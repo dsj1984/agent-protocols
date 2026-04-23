@@ -45,6 +45,8 @@ framework, or configure GitHub. It is strictly the local harness-side wiring.
 5. `[PROJECT_PKG]` → `./package.json` (will be created if missing).
 6. `[CLAUDE_SETTINGS]` → `.claude/settings.json` (will be created if missing).
 7. `[GITIGNORE]` → `./.gitignore` (will be created if missing).
+8. `[TEMPLATE_PATH]` → `.agents/default-mcp.json` (the MCP template shipped
+   with the framework submodule; consumed by Step 8).
 
 **Hard aborts:**
 
@@ -251,24 +253,29 @@ asks for changes.
 MCP servers (`github`, `context7`, `chrome-devtools`, `agent-protocols`) are
 loaded by Claude Code from a project-scoped `.mcp.json` at the repo root. The
 file is gitignored because it carries secrets, so a fresh clone has no MCP
-tooling until this step runs. A committed template — `.mcp.json.example` — is
-the source of truth for the expected server shape.
+tooling until this step runs. The committed template ships with the
+`agent-protocols` submodule at `[TEMPLATE_PATH]` → `.agents/default-mcp.json`.
+That path is the source of truth for the expected server shape; a consuming
+project never needs to regenerate or restore a root-level template file.
 
-**Hard abort:** if `.mcp.json.example` does not exist at `[PROJECT_ROOT]`,
-abort this step with a message directing the operator to restore or regenerate
-it. Do not proceed to scaffold a `.mcp.json` without a template to check against.
+**Hard abort:** if `[TEMPLATE_PATH]` does not exist, abort this step. This
+condition should only occur when the `.agents/` submodule checkout is
+incomplete — direct the operator to re-run `git submodule update --init` or
+the framework checkout. Do **not** instruct them to hand-author a template
+at the repo root; the template is a framework artefact.
 
 ### 8a. Scaffold when missing
 
 If `.mcp.json` does not exist at `[PROJECT_ROOT]`:
 
-1. Copy `.mcp.json.example` → `.mcp.json` verbatim.
+1. Copy `[TEMPLATE_PATH]` (`.agents/default-mcp.json`) → `.mcp.json`
+   verbatim.
 2. Parse `.mcp.json` and collect every placeholder of the form `<YOUR_*>` in
    `env` values.
 3. Surface the placeholders to the operator as a checklist, e.g.:
 
    ```text
-   [agents-bootstrap-project] .mcp.json scaffolded from template. Fill in:
+   [agents-bootstrap-project] .mcp.json scaffolded from .agents/default-mcp.json. Fill in:
      github        env.GITHUB_PERSONAL_ACCESS_TOKEN
      context7      env.CONTEXT7_API_KEY
      agent-protocols env.GITHUB_TOKEN
@@ -282,8 +289,10 @@ remain gitignored.
 
 ### 8b. Diff existing `.mcp.json` against the template
 
-If `.mcp.json` already exists, parse both files and report structural gaps —
-without mutating `.mcp.json`. Flag each of the following to the operator:
+If `.mcp.json` already exists, parse both files — `.mcp.json` at
+`[PROJECT_ROOT]` and the template at `[TEMPLATE_PATH]` — and report
+structural gaps without mutating `.mcp.json`. Flag each of the following to
+the operator:
 
 1. **Servers in the template missing from `.mcp.json`** — new tooling the
    operator has not picked up yet. List each missing `mcpServers.<name>` block.
@@ -308,11 +317,12 @@ append:
 
 ```gitignore
 
-# Project-scoped MCP config carries secrets — template lives in .mcp.json.example.
+# Project-scoped MCP config carries secrets — template at .agents/default-mcp.json.
 .mcp.json
 ```
 
-Do not append `.mcp.json.example` to `.gitignore` — the template is committed.
+Do not append `.agents/default-mcp.json` to `.gitignore` — the template ships
+with the submodule and is the source of truth.
 
 ## Step 9 — Report outcome
 
