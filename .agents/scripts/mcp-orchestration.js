@@ -115,6 +115,20 @@ const TOOLS = new Map();
  *   tools/list so clients can typecheck responses. `null` means no structured
  *   output contract (e.g. tools that return free-form strings or booleans).
  */
+// Return a -32602 data payload when args fail the per-tool validator;
+// return null on success. Shaped to match the public error contract:
+// { tool, errors: [{ path, reason }, ...] }.
+function checkToolArgs(tool, name, args) {
+  if (tool.validate(args)) return null;
+  return {
+    tool: name,
+    errors: (tool.validate.errors ?? []).map((e) => ({
+      path: e.instancePath || '/',
+      reason: e.message,
+    })),
+  };
+}
+
 function registerTool(name, description, inputSchema, handler, outputSchemaRef = null) {
   const fullSchema = {
     type: 'object',
@@ -235,19 +249,8 @@ async function handleRequest(req) {
         return sendError(id, -32601, `Tool not found: ${name}`);
       }
 
-      // Per-tool input validation (AC-01). Reject malformed args with a
-      // structured -32602 before the handler runs, so tools never observe
-      // out-of-contract inputs. The validator is compiled once at
-      // registration time.
-      if (!tool.validate(args)) {
-        return sendError(id, -32602, 'Invalid params', {
-          tool: name,
-          errors: (tool.validate.errors ?? []).map((e) => ({
-            path: e.instancePath || '/',
-            reason: e.message,
-          })),
-        });
-      }
+      const invalidParams = checkToolArgs(tool, name, args);
+      if (invalidParams) return sendError(id, -32602, 'Invalid params', invalidParams);
 
       try {
         const result = await tool.handler(args);
