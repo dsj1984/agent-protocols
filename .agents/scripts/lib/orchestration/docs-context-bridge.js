@@ -50,7 +50,11 @@ export function extractDocHeadings(docPath) {
   if (!fs.existsSync(docPath)) return [];
   const text = fs.readFileSync(docPath, 'utf8');
   const headings = [];
-  for (const line of text.split(/\r?\n/)) {
+  // Lift the regex out of the `for...of` head — typhonjs-escomplex's parser
+  // fails on a regex literal inside a for-of head and assigns the enclosing
+  // module a maintainability score of 0, hiding real complexity signal.
+  const lines = text.split(/\r?\n/);
+  for (const line of lines) {
     const m = line.match(/^##\s+(.+?)\s*$/);
     if (m) headings.push(m[1].trim());
   }
