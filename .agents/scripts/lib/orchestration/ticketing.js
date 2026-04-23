@@ -9,6 +9,7 @@
  */
 
 import { AGENT_LABELS, TYPE_LABELS } from '../label-constants.js';
+import { Logger } from '../Logger.js';
 import { WAVE_MARKER_RE } from './wave-marker.js';
 
 export const STATE_LABELS = {
@@ -101,8 +102,16 @@ export async function transitionTicketState(
       ticketSnapshot = await provider.getTicket(ticketId);
       fromState =
         ticketSnapshot?.labels?.find((l) => ALL_STATES.includes(l)) ?? null;
-    } catch {
-      // non-fatal
+    } catch (err) {
+      // Intentional: a transient read failure MUST NOT block a label
+      // transition — the transition itself is idempotent and the notifier
+      // payload documents `fromState: null` as valid (see
+      // .agents/MCP.md § notification webhook payload). Log at debug so
+      // verbose-log runs can correlate flaky reads without adding noise
+      // in info-level operation.
+      Logger.debug(
+        `[Ticketing] fromState lookup failed for #${ticketId}: ${err.message ?? err}`,
+      );
     }
   }
 
