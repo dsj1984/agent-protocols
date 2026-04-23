@@ -1,0 +1,41 @@
+/**
+ * runtime-context.js — Dependency-injection seam for legacy utilities.
+ *
+ * `createRuntimeContext` returns a frozen `ctx` bag with Node defaults for
+ * the four side-effect channels that the legacy `.agents/scripts/lib/*` code
+ * historically imported directly: `git`, `fs`, `exec`, and `logger`.
+ *
+ * Callers can override any channel for tests or alternative runtimes; unset
+ * channels fall back to the real Node impls so existing production call sites
+ * behave identically to the pre-injection code.
+ */
+
+import { exec as nodeExec } from 'node:child_process';
+import nodeFs from 'node:fs';
+import * as defaultGit from './git-utils.js';
+
+const CONSOLE_LOGGER = Object.freeze({
+  info: (m) => console.log(m),
+  warn: (m) => console.warn(m),
+  error: (m) => console.error(m),
+});
+
+/**
+ * Build a runtime context bag.
+ *
+ * @param {object} [overrides]
+ * @param {object} [overrides.git]    Injected git interface (`{ gitSync, gitSpawn, ... }`).
+ *                                     Defaults to the module exports of `./git-utils.js`.
+ * @param {object} [overrides.fs]     Injected fs impl. Defaults to `node:fs`.
+ * @param {Function} [overrides.exec] Injected `child_process.exec`.
+ * @param {object} [overrides.logger] Logger with `info`/`warn`/`error`. Defaults to console.
+ * @returns {Readonly<{git: object, fs: object, exec: Function, logger: object}>}
+ */
+export function createRuntimeContext(overrides = {}) {
+  return Object.freeze({
+    git: overrides.git ?? defaultGit,
+    fs: overrides.fs ?? nodeFs,
+    exec: overrides.exec ?? nodeExec,
+    logger: overrides.logger ?? CONSOLE_LOGGER,
+  });
+}
