@@ -40,9 +40,7 @@ export async function detectEpicCompletion({
   );
 
   if (dryRun) {
-    Logger.info(
-      '[DRY-RUN] Would post epic-complete comment and fire webhook.',
-    );
+    Logger.info('[DRY-RUN] Would post epic-complete comment and fire webhook.');
     return;
   }
 

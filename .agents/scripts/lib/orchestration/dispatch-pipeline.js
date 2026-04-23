@@ -173,9 +173,7 @@ export function buildDispatchGraph(tasks) {
     adjacency,
   );
   if (graphMutated) {
-    Logger.info(
-      'Focus-area conflicts detected; serialized overlapping tasks.',
-    );
+    Logger.info('Focus-area conflicts detected; serialized overlapping tasks.');
   }
 
   const allWaves = computeWaves(finalAdjacency, taskMap);
