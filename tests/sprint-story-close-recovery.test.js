@@ -3,10 +3,11 @@ import path from 'node:path';
 import { test } from 'node:test';
 
 import {
-  RECOVERY_ACTIONS,
-  RECOVERY_STATES,
   computeRecoveryMode,
   detectPriorPhase,
+  dispatchRecovery,
+  RECOVERY_ACTIONS,
+  RECOVERY_STATES,
 } from '../.agents/scripts/lib/orchestration/sprint-story-close-recovery.js';
 
 function makeGit({
@@ -233,6 +234,163 @@ test('computeRecoveryMode dispatch table', async (t) => {
           state: RECOVERY_STATES.PARTIAL_MERGE,
           resume: true,
           restart: true,
+        }),
+      /mutually exclusive/,
+    );
+  });
+});
+
+function makeStubLogger() {
+  const errors = [];
+  const fatals = [];
+  return {
+    errors,
+    fatals,
+    error: (m) => errors.push(m),
+    fatal: (m) => {
+      fatals.push(m);
+      throw new Error(m);
+    },
+    info: () => {},
+    warn: () => {},
+  };
+}
+
+function captureProgress() {
+  const events = [];
+  return { events, fn: (phase, msg) => events.push({ phase, msg }) };
+}
+
+const DISPATCH_BASE = {
+  cwd: '/repo',
+  storyId: 100,
+  epicId: 9,
+  epicBranch: 'epic/9',
+  storyBranch: 'story-100',
+  orchestration: {},
+};
+
+test('dispatchRecovery', async (t) => {
+  await t.test('returns proceed-shaped result on fresh state', () => {
+    const { events, fn } = captureProgress();
+    const result = dispatchRecovery({
+      ...DISPATCH_BASE,
+      detectFn: () => ({ phase: RECOVERY_STATES.FRESH, detail: {} }),
+      restartFn: () => {
+        throw new Error('should not be called');
+      },
+      progress: fn,
+      logger: makeStubLogger(),
+    });
+    assert.equal(result.action, RECOVERY_ACTIONS.PROCEED);
+    assert.equal(result.resumeFromConflict, false);
+    assert.equal(result.resumeFromMerge, false);
+    assert.equal(result.resumeFromValidate, false);
+    assert.equal(events.length, 0);
+  });
+
+  await t.test(
+    'throws with exitCode=2 and logs prior-state body when no flag set',
+    () => {
+      const logger = makeStubLogger();
+      const detail = {
+        storyId: 100,
+        storyBranch: 'story-100',
+        checkout: '/repo',
+      };
+      try {
+        dispatchRecovery({
+          ...DISPATCH_BASE,
+          detectFn: () => ({
+            phase: RECOVERY_STATES.PARTIAL_MERGE,
+            detail,
+          }),
+          logger,
+        });
+        assert.fail('expected throw');
+      } catch (err) {
+        assert.equal(err.exitCode, 2);
+        assert.match(err.message, /prior-state:partial-merge/);
+      }
+      assert.ok(
+        logger.errors.some(
+          (m) =>
+            m.includes('[phase=prior-state]') && m.includes('partial-merge'),
+        ),
+      );
+    },
+  );
+
+  await t.test('invokes restartFn when --restart is passed', () => {
+    const restartCalls = [];
+    const { fn: progress, events } = captureProgress();
+    const result = dispatchRecovery({
+      ...DISPATCH_BASE,
+      restart: true,
+      detectFn: () => ({
+        phase: RECOVERY_STATES.PARTIAL_MERGE,
+        detail: {},
+      }),
+      restartFn: (opts) => restartCalls.push(opts),
+      progress,
+      logger: makeStubLogger(),
+    });
+    assert.equal(result.action, RECOVERY_ACTIONS.RESTART);
+    assert.equal(restartCalls.length, 1);
+    assert.equal(restartCalls[0].cwd, '/repo');
+    assert.equal(restartCalls[0].storyBranch, 'story-100');
+    assert.ok(
+      events.some(
+        (e) => e.msg.includes('--restart') && e.msg.includes('partial-merge'),
+      ),
+    );
+  });
+
+  await t.test('emits the matching resume progress line per state', () => {
+    const cases = [
+      {
+        phase: RECOVERY_STATES.PARTIAL_MERGE,
+        flag: 'resumeFromConflict',
+        snippet: 'conflict',
+      },
+      {
+        phase: RECOVERY_STATES.PUSHED_UNMERGED,
+        flag: 'resumeFromMerge',
+        snippet: 'from merge',
+      },
+      {
+        phase: RECOVERY_STATES.UNCOMMITTED_WORKTREE,
+        flag: 'resumeFromValidate',
+        snippet: 'from validate',
+      },
+    ];
+    for (const { phase, flag, snippet } of cases) {
+      const { fn, events } = captureProgress();
+      const result = dispatchRecovery({
+        ...DISPATCH_BASE,
+        resume: true,
+        detectFn: () => ({ phase, detail: {} }),
+        progress: fn,
+        logger: makeStubLogger(),
+      });
+      assert.equal(result[flag], true, `${flag} should be true for ${phase}`);
+      assert.ok(
+        events.some((e) => e.msg.toLowerCase().includes(snippet)),
+        `expected progress containing "${snippet}" for ${phase}, got ${JSON.stringify(events)}`,
+      );
+    }
+  });
+
+  await t.test('--resume + --restart together calls logger.fatal', () => {
+    const logger = makeStubLogger();
+    assert.throws(
+      () =>
+        dispatchRecovery({
+          ...DISPATCH_BASE,
+          resume: true,
+          restart: true,
+          detectFn: () => ({ phase: RECOVERY_STATES.FRESH, detail: {} }),
+          logger,
         }),
       /mutually exclusive/,
     );

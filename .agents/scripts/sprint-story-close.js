@@ -29,8 +29,6 @@
 
 import fs from 'node:fs';
 import path from 'node:path';
-import { generateAndSaveManifest } from './dispatcher.js';
-import { updateHealthMetrics } from './health-monitor.js';
 import { parseSprintArgs } from './lib/cli-args.js';
 import { runAsCli } from './lib/cli-utils.js';
 import { runCloseValidation } from './lib/close-validation.js';
@@ -39,7 +37,6 @@ import {
   acquireEpicMergeLock,
   releaseEpicMergeLock,
 } from './lib/epic-merge-lock.js';
-import { formatError } from './lib/error-formatting.js';
 import { mergeFeatureBranch } from './lib/git-merge-orchestrator.js';
 import {
   getEpicBranch,
@@ -50,369 +47,19 @@ import {
 import { Logger } from './lib/Logger.js';
 import { createNotifier } from './lib/notifications/notifier.js';
 import { createFrictionEmitter } from './lib/orchestration/friction-emitter.js';
-import { toDone } from './lib/orchestration/label-transitions.js';
-import {
-  computeRecoveryMode,
-  detectPriorPhase,
-  RECOVERY_ACTIONS,
-} from './lib/orchestration/sprint-story-close-recovery.js';
-import {
-  cascadeCompletion,
-  STATE_LABELS,
-} from './lib/orchestration/ticketing.js';
+import { runPostMergePipeline } from './lib/orchestration/post-merge-pipeline.js';
+import { dispatchRecovery } from './lib/orchestration/sprint-story-close-recovery.js';
 import { createProvider } from './lib/provider-factory.js';
 import {
-  batchTransitionTickets,
   fetchChildTasks,
   resolveStoryHierarchy,
 } from './lib/story-lifecycle.js';
-import { WorktreeManager } from './lib/worktree-manager.js';
-import { notify } from './notify.js';
 
 // ---------------------------------------------------------------------------
 // Helpers
 // ---------------------------------------------------------------------------
 
 const progress = Logger.createProgress('sprint-story-close', { stderr: true });
-
-/**
- * Run `fn` as a best-effort post-merge phase. Logs non-fatal failures via the
- * shared `[sprint-story-close] <phase> failed (non-fatal): <message>` envelope
- * and returns `fn`'s resolved value, or `fallback` on failure.
- */
-async function runPhase(name, fn, fallback) {
-  try {
-    return await fn();
-  } catch (err) {
-    Logger.error(
-      `[sprint-story-close] ${name} failed (non-fatal): ${formatError(err)}`,
-    );
-    return fallback;
-  }
-}
-
-function cleanupBranches(storyBranch, cwd) {
-  progress('CLEANUP', `Deleting story branch: ${storyBranch}`);
-
-  let localDeleted = false;
-  const softDelete = gitSpawn(cwd, 'branch', '-d', storyBranch);
-  if (softDelete.status === 0) {
-    localDeleted = true;
-  } else {
-    const forceDelete = gitSpawn(cwd, 'branch', '-D', storyBranch);
-    if (forceDelete.status === 0) {
-      localDeleted = true;
-    } else {
-      // Most common cause: the branch is still "checked out" by a lingering
-      // worktree registration — git refuses to delete a checked-out branch.
-      // Surface the failure instead of silently swallowing it so the caller
-      // can report accurately and the operator can remediate.
-      const stderr = (forceDelete.stderr || softDelete.stderr || '').trim();
-      Logger.error(
-        `  Local branch ${storyBranch} delete failed: ${stderr || 'unknown'}. ` +
-          `Check for stale worktrees (git worktree list).`,
-      );
-    }
-  }
-
-  let remoteDeleted = false;
-  const remoteDelete = gitSpawn(
-    cwd,
-    'push',
-    '--no-verify',
-    'origin',
-    '--delete',
-    storyBranch,
-  );
-  if (remoteDelete.status !== 0) {
-    progress('CLEANUP', `Remote branch ${storyBranch} not found — skipped`);
-  } else {
-    remoteDeleted = true;
-    progress('CLEANUP', `✅ Remote branch ${storyBranch} deleted`);
-  }
-
-  return { localDeleted, remoteDeleted };
-}
-
-async function ticketClosureCascade(
-  provider,
-  tasks,
-  storyId,
-  { notifier } = {},
-) {
-  progress(
-    'TICKETS',
-    `Transitioning ${tasks.length} Task(s) to agent::done...`,
-  );
-  const batch = await batchTransitionTickets(
-    provider,
-    tasks,
-    STATE_LABELS.DONE,
-    { progress, notifier },
-  );
-  const closedTickets = [...batch.transitioned, ...batch.skipped];
-
-  progress('TICKETS', `Transitioning Story #${storyId} to agent::done...`);
-  try {
-    await toDone(provider, [storyId], { notifier });
-    closedTickets.push(storyId);
-    progress('TICKETS', `  #${storyId} → agent::done ✅`);
-  } catch (err) {
-    Logger.error(
-      `[phase=tickets]   Story #${storyId} → FAILED: ${err.message}`,
-    );
-  }
-
-  progress('TICKETS', 'Running cascade completion...');
-  let cascadedTo = [];
-  let cascadeFailed = [];
-  try {
-    const cascade = (await cascadeCompletion(provider, storyId, {
-      notifier,
-    })) ?? {
-      cascadedTo: [],
-      failed: [],
-    };
-    cascadedTo = cascade.cascadedTo ?? [];
-    cascadeFailed = cascade.failed ?? [];
-    if (cascadedTo.length > 0) {
-      progress(
-        'TICKETS',
-        `  Cascaded to: ${cascadedTo.map((id) => `#${id}`).join(', ')}`,
-      );
-    }
-    for (const { parentId, error } of cascadeFailed) {
-      Logger.error(
-        `  Cascade partial-failure on parent #${parentId}: ${error}`,
-      );
-    }
-  } catch (err) {
-    Logger.error(`  Cascade fully failed (non-fatal): ${err.message}`);
-  }
-
-  return { closedTickets, cascadedTo, cascadeFailed };
-}
-
-// ---------------------------------------------------------------------------
-// Post-merge phase helpers
-// ---------------------------------------------------------------------------
-//
-// Each helper covers one discrete phase of the close-out after the merge
-// succeeds. They log via `progress` and use `Logger.error` for non-fatal
-// failures so the orchestrator keeps going. See
-// `.agents/README.md#error-handling-convention`.
-// ---------------------------------------------------------------------------
-
-async function reapStoryWorktree({
-  orchestration,
-  storyId,
-  epicBranch,
-  repoRoot,
-  frictionEmitter,
-}) {
-  const wtConfig = orchestration?.worktreeIsolation;
-  if (!wtConfig?.enabled || !(wtConfig.reapOnSuccess ?? true)) return;
-
-  await runPhase('Worktree reap', async () => {
-    const wm = new WorktreeManager({
-      // Must use the resolved runtime repo root (`--cwd` in worktree mode),
-      // not module PROJECT_ROOT (which may point at a copied .agents tree).
-      repoRoot,
-      config: wtConfig,
-    });
-    const reapResult = await wm.reap(storyId, { epicBranch });
-    if (reapResult.removed) {
-      progress('WORKTREE', `🗑️  Reaped worktree: ${reapResult.path}`);
-    } else if (reapResult.reason) {
-      // Route the reap-failure signal onto the Story ticket via the friction
-      // emitter so the operator gets the diagnostic without scraping logs.
-      // The emitter dedups inside a 60s window, so a close-loop retry will
-      // not spam the ticket.
-      await emitReapFailureFriction({
-        frictionEmitter,
-        storyId,
-        reapResult,
-        epicBranch,
-      });
-      // Previously the `not-a-worktree` branch was silent, which hid a drive-
-      // letter-case bug in `_findByPath` on Windows and let stale worktrees
-      // accumulate across runs. Always surface a reap-skip with remediation.
-      progress(
-        'WORKTREE',
-        `⚠️  Worktree not reaped (${reapResult.reason}): ${reapResult.path}`,
-      );
-      // Windows rmdir-EACCES / sharing-violation class of errors recurs
-      // across Epics. When the reap failed on a lock-like filesystem error
-      // (not just a safety skip like uncommitted-changes), raise an explicit
-      // OPERATOR ACTION REQUIRED line so the residue doesn't accumulate
-      // silently in `.worktrees/`.
-      if (isWindowsReapLockFailure(reapResult.reason)) {
-        Logger.error(
-          `[sprint-story-close] OPERATOR ACTION REQUIRED: Worktree at ${reapResult.path} ` +
-            `could not be removed (Windows lock/permission error: ${reapResult.reason}). ` +
-            'Close any editor/terminal holding the path, then run ' +
-            '`git worktree remove <path> --force && git worktree prune` to clean up.',
-        );
-      }
-    }
-
-    // Defense in depth: regardless of what `reap()` reported, probe
-    // `git worktree list --porcelain` directly. If the story worktree is
-    // still registered after close, the branch delete that follows will
-    // fail and the operator needs a loud, specific hint.
-    const leftover = await wm.list();
-    const stillRegistered = leftover.find((r) =>
-      /[/\\]story-\d+$/.test(r.path)
-        ? Number(r.path.match(/story-(\d+)$/)?.[1]) === Number(storyId)
-        : false,
-    );
-    if (stillRegistered) {
-      Logger.error(
-        `[sprint-story-close] OPERATOR ACTION REQUIRED: Worktree still registered after reap: ` +
-          `${stillRegistered.path}. Run ` +
-          '`git worktree remove <path> --force && git worktree prune` to clean up.',
-      );
-      await emitReapFailureFriction({
-        frictionEmitter,
-        storyId,
-        reapResult: {
-          path: stillRegistered.path,
-          reason: 'still-registered-after-reap',
-        },
-        epicBranch,
-      });
-    }
-  });
-}
-
-/**
- * Post a `friction` structured comment to the Story ticket summarising the
- * reap failure. Best-effort — the reap path is already non-fatal, so any
- * emitter error is logged and swallowed by the emitter itself.
- */
-async function emitReapFailureFriction({
-  frictionEmitter,
-  storyId,
-  reapResult,
-  epicBranch,
-}) {
-  if (!frictionEmitter) return;
-  const reason = String(reapResult?.reason ?? 'unknown');
-  const path = reapResult?.path ?? '(unknown path)';
-  const body = [
-    `### 🚧 Friction — worktree reap failed`,
-    '',
-    `- Story: \`#${storyId}\``,
-    `- Epic branch: \`${epicBranch}\``,
-    `- Worktree path: \`${path}\``,
-    `- Reason: \`${reason}\``,
-    '',
-    'The Story merge succeeded but the worktree could not be removed. Close',
-    'any editor/terminal holding the path, then run `git worktree remove',
-    '<path> --force && git worktree prune` to clean up. Re-running',
-    '`sprint-story-close` is idempotent.',
-  ].join('\n');
-  await frictionEmitter.emit({
-    ticketId: Number(storyId),
-    markerKey: 'reap-failure',
-    body,
-  });
-}
-
-/**
- * Recognise the Windows rmdir-EACCES / sharing-violation class of reap
- * failures. The `reason` here comes from `removeWorktreeWithRecovery` and
- * is the trimmed stderr of `git worktree remove`. We only want to raise
- * OPERATOR ACTION REQUIRED for filesystem-lock failures, not for safety
- * skips (uncommitted-changes, unmerged-commits, detached-head, etc.) which
- * are already surfaced via progress() and have different remediation.
- */
-function isWindowsReapLockFailure(reason) {
-  if (typeof reason !== 'string') return false;
-  return /(permission denied|access is denied|directory not empty|resource busy|device or resource busy|sharing violation|EACCES|EBUSY|ENOTEMPTY)/i.test(
-    reason,
-  );
-}
-
-async function notifyStoryComplete({
-  epicId,
-  storyId,
-  story,
-  epicBranch,
-  closedTickets,
-  orchestration,
-}) {
-  progress(
-    'NOTIFY',
-    `Sending story-complete notification for Story #${storyId}...`,
-  );
-  await runPhase('Notification', async () => {
-    await notify(
-      epicId,
-      {
-        type: 'notification',
-        message: `✅ Story #${storyId} — *${story.title}* — has been completed and merged into \`${epicBranch}\`. ${closedTickets.length} ticket(s) closed.`,
-        actionRequired: true,
-      },
-      { orchestration },
-    );
-    progress('NOTIFY', '✅ Notification sent');
-  });
-}
-
-async function updateHealth(epicId) {
-  progress('HEALTH', 'Updating sprint health metrics...');
-  return runPhase(
-    'Health monitor',
-    async () => {
-      await updateHealthMetrics(epicId);
-      progress('HEALTH', '✅ Health metrics updated');
-      return true;
-    },
-    false,
-  );
-}
-
-async function refreshDashboard({ epicId, provider, skipDashboard }) {
-  if (skipDashboard) {
-    progress(
-      'DASHBOARD',
-      '⏭️ Skipping dashboard refresh (--skip-dashboard flag set)',
-    );
-    return false;
-  }
-  progress('DASHBOARD', 'Regenerating dispatch manifest...');
-  return runPhase(
-    'Dashboard refresh',
-    async () => {
-      // Reuse our primed provider so dashboard regeneration does not re-fetch
-      // tickets already in this process's memoization cache.
-      await generateAndSaveManifest(epicId, true, null, { provider });
-      progress('DASHBOARD', '✅ Dashboard manifest updated (temp/)');
-      return true;
-    },
-    false,
-  );
-}
-
-async function cleanupTempFiles(storyId) {
-  await runPhase('Story manifest cleanup', async () => {
-    const { unlink } = await import('node:fs/promises');
-    const manifestBase = path.join(
-      PROJECT_ROOT,
-      'temp',
-      `story-manifest-${storyId}`,
-    );
-    for (const ext of ['.md', '.json']) {
-      try {
-        await unlink(`${manifestBase}${ext}`);
-        progress('CLEANUP', `🗑️  Deleted temp/story-manifest-${storyId}${ext}`);
-      } catch {
-        // File may not exist — deletion is idempotent.
-      }
-    }
-  });
-}
 
 // ---------------------------------------------------------------------------
 // CLI argument parsing
@@ -637,68 +284,6 @@ async function completeInProgressMerge({
 }
 
 /**
- * Restart path: abort any in-progress merge, drop the worktree, delete the
- * story branch ref, and re-seed branch + worktree from the Epic branch. The
- * caller then falls through to the normal fresh-close flow.
- */
-function restartStoryState({
-  cwd,
-  orchestration,
-  storyId,
-  epicBranch,
-  storyBranch,
-}) {
-  progress('RESTART', `Resetting prior state for Story #${storyId}...`);
-
-  // 1. Abort any in-progress merge in the main checkout (idempotent — exits
-  //    non-zero if no merge is in progress, which we ignore).
-  gitSpawn(cwd, 'merge', '--abort');
-
-  // 2. Drop the worktree if isolation is enabled.
-  const wtConfig = orchestration?.worktreeIsolation;
-  if (wtConfig?.enabled) {
-    const wtRoot = wtConfig.root ?? '.worktrees';
-    const wtPath = path.join(cwd, wtRoot, `story-${storyId}`);
-    if (fs.existsSync(wtPath)) {
-      progress('RESTART', `Removing worktree ${wtPath}`);
-      const remove = gitSpawn(cwd, 'worktree', 'remove', '--force', wtPath);
-      if (remove.status !== 0) {
-        Logger.error(
-          `[sprint-story-close] Worktree remove failed: ${remove.stderr || 'unknown'}. ` +
-            'Attempting prune to clean stale registration.',
-        );
-      }
-      gitSpawn(cwd, 'worktree', 'prune');
-    }
-  }
-
-  // 3. Delete the story branch ref (if it exists locally). Force-delete
-  //    because the branch likely has unmerged commits relative to main.
-  gitSpawn(cwd, 'branch', '-D', storyBranch);
-
-  // 4. Recreate the story branch ref from the local Epic branch.
-  const create = gitSpawn(cwd, 'branch', storyBranch, epicBranch);
-  if (create.status !== 0) {
-    Logger.fatal(
-      `Failed to recreate ${storyBranch} from ${epicBranch}: ${create.stderr || 'unknown'}`,
-    );
-  }
-
-  // 5. Recreate the worktree if isolation is enabled.
-  if (wtConfig?.enabled) {
-    const wtRoot = wtConfig.root ?? '.worktrees';
-    const wtPath = path.join(cwd, wtRoot, `story-${storyId}`);
-    const add = gitSpawn(cwd, 'worktree', 'add', wtPath, storyBranch);
-    if (add.status !== 0) {
-      Logger.fatal(
-        `Failed to re-seed worktree at ${wtPath}: ${add.stderr || 'unknown'}`,
-      );
-    }
-    progress('RESTART', `✅ Re-seeded worktree at ${wtPath}`);
-  }
-}
-
-/**
  * Orchestrate the Story initialization.
  * Exported for testing.
  */
@@ -770,63 +355,18 @@ export async function runStoryClose({
   // Prior-state detection + --resume / --restart dispatch
   // -------------------------------------------------------------------------
 
-  if (resumeFlag && restartFlag) {
-    Logger.fatal('--resume and --restart are mutually exclusive');
-  }
-
-  const priorPhase = detectPriorPhase({ cwd, storyId, epicId });
-  const mode = computeRecoveryMode({
-    state: priorPhase.phase,
+  const { resumeFromConflict, resumeFromMerge } = dispatchRecovery({
+    cwd,
+    storyId,
+    epicId,
+    epicBranch,
+    storyBranch,
+    orchestration,
     resume: resumeFlag,
     restart: restartFlag,
+    progress,
+    logger: Logger,
   });
-
-  if (mode.action === RECOVERY_ACTIONS.EXIT_PRIOR_STATE) {
-    Logger.error(
-      `[phase=prior-state]\nPrior close state detected: ${priorPhase.phase}\n` +
-        `${JSON.stringify(priorPhase.detail, null, 2)}\n\n` +
-        'Re-run with --resume to continue from the detected state, or ' +
-        '--restart to abort prior state and re-init.',
-    );
-    // Signal exit-2 to the runAsCli wrapper.
-    const err = new Error(`prior-state:${priorPhase.phase}`);
-    err.exitCode = mode.exitCode ?? 2;
-    throw err;
-  }
-
-  if (mode.action === RECOVERY_ACTIONS.RESTART) {
-    progress(
-      'RESTART',
-      `--restart: aborting prior state (${priorPhase.phase}) and re-initializing`,
-    );
-    restartStoryState({
-      cwd,
-      orchestration,
-      storyId,
-      epicBranch,
-      storyBranch,
-    });
-  }
-
-  const resumeFromConflict =
-    mode.action === RECOVERY_ACTIONS.RESUME_FROM_CONFLICT;
-  const resumeFromMerge = mode.action === RECOVERY_ACTIONS.RESUME_FROM_MERGE;
-  if (resumeFromConflict) {
-    progress(
-      'RESUME',
-      `--resume: resuming from conflict resolution (phase=${priorPhase.phase})`,
-    );
-  } else if (resumeFromMerge) {
-    progress(
-      'RESUME',
-      `--resume: resuming from merge (phase=${priorPhase.phase})`,
-    );
-  } else if (mode.action === RECOVERY_ACTIONS.RESUME_FROM_VALIDATE) {
-    progress(
-      'RESUME',
-      `--resume: resuming from validate (phase=${priorPhase.phase})`,
-    );
-  }
 
   // -------------------------------------------------------------------------
   // Enumerate child Tasks
@@ -873,7 +413,6 @@ export async function runStoryClose({
   // Step 5 — Merge
   // -------------------------------------------------------------------------
 
-  let branchCleanup = { localDeleted: false, remoteDeleted: false };
   if (resumeFromConflict) {
     await completeInProgressMerge({
       cwd,
@@ -894,45 +433,36 @@ export async function runStoryClose({
       epicId,
     );
   }
-  // Reap must precede branch cleanup: git refuses to delete a branch
-  // that is still checked out by a live worktree. A failed reap will
-  // leave the worktree registration in place and the subsequent branch
-  // delete will fail — which is now reported in the structured result
-  // rather than silently swallowed.
+
+  // Reap must precede branch cleanup: git refuses to delete a branch that
+  // is still checked out by a live worktree. The pipeline runs the phases
+  // in this order — see post-merge-pipeline.js.
   const frictionEmitter = createFrictionEmitter({
     provider,
     logger: { warn: (m) => Logger.warn?.(m), debug: () => {} },
   });
-  await reapStoryWorktree({
+  const pipelineState = await runPostMergePipeline({
     orchestration,
     storyId,
+    epicId,
+    story,
+    storyBranch,
     epicBranch,
     repoRoot: cwd,
-    frictionEmitter,
-  });
-  branchCleanup = cleanupBranches(storyBranch, cwd);
-
-  // Cascade Completion (Ticket Closure)
-  const { closedTickets, cascadedTo, cascadeFailed } =
-    await ticketClosureCascade(provider, tasks, storyId, { notifier });
-
-  // Notification, health, and dashboard are each best-effort; failures log
-  // but do not abort the close-out. See each helper for the specific
-  // failure mode it tolerates.
-  await notifyStoryComplete({
-    epicId,
-    storyId,
-    story,
-    epicBranch,
-    closedTickets,
-    orchestration,
-  });
-  const healthUpdated = await updateHealth(epicId);
-  const manifestUpdated = await refreshDashboard({
-    epicId,
+    projectRoot: PROJECT_ROOT,
     provider,
+    notifier,
+    frictionEmitter,
+    tasks,
     skipDashboard,
+    progress,
+    logger: Logger,
   });
+  const branchCleanup = pipelineState.branchCleanup;
+  const { closedTickets, cascadedTo, cascadeFailed } =
+    pipelineState.ticketClosure;
+  const healthUpdated = pipelineState.healthUpdated;
+  const manifestUpdated = pipelineState.manifestUpdated;
 
   // -------------------------------------------------------------------------
   // Output — structured result
@@ -962,8 +492,6 @@ export async function runStoryClose({
     `✅ Story #${storyId} merged into ${epicBranch}. ` +
       `${closedTickets.length} ticket(s) closed.`,
   );
-
-  await cleanupTempFiles(storyId);
 
   return { success: true, result };
 }
