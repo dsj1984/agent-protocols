@@ -13,12 +13,88 @@
  *   node .agents/scripts/epic-runner.js --epic <epicId> [--dry-run]
  */
 
+import { execSync, spawn } from 'node:child_process';
+import { mkdir, open } from 'node:fs/promises';
+import { join } from 'node:path';
+
 import { runAsCli } from './lib/cli-utils.js';
 import { AGENT_LABELS } from './lib/label-constants.js';
 import { buildClaudeSpawn } from './lib/orchestration/epic-runner/build-claude-spawn.js';
 
 const DEFAULT_LOGS_DIR = 'temp/epic-runner-logs';
 const DEFAULT_IDLE_TIMEOUT_SEC = 900;
+const IDLE_GRACE_MS = 120_000;
+const IDLE_GRACE_POLL_MS = 15_000;
+
+/**
+ * Kill a spawned child and — on Windows — its entire process tree.
+ *
+ * On Windows we launch `claude` via `cmd.exe` shell (see build-claude-spawn.js),
+ * so `proc.kill()` only terminates the shell and orphans the real work
+ * (node.exe running Claude Code as a grandchild). taskkill /T kills the tree.
+ */
+function killProcessTree(proc) {
+  if (!proc || proc.exitCode !== null || proc.signalCode) return;
+  if (process.platform === 'win32' && proc.pid) {
+    try {
+      execSync(`taskkill /T /F /PID ${proc.pid}`, {
+        stdio: 'ignore',
+        timeout: 5000,
+      });
+      return;
+    } catch {
+      /* best effort — fall through to proc.kill() */
+    }
+  }
+  try {
+    proc.kill();
+  } catch {
+    /* already exited */
+  }
+}
+
+/**
+ * Read a Story's current ticket state. Returns the status the epic runner
+ * cares about (done / blocked / pending) plus the raw label list so callers
+ * can include it in friction details.
+ */
+async function readStoryOutcome(storyId) {
+  const { resolveConfig } = await import('./lib/config-resolver.js');
+  const { createProvider } = await import('./lib/provider-factory.js');
+  const provider = createProvider(resolveConfig().orchestration);
+  const story = await provider.getTicket(storyId, { fresh: true });
+  const labels = story?.labels ?? [];
+  if (labels.includes(AGENT_LABELS.DONE)) return { status: 'done', labels };
+  if (labels.includes(AGENT_LABELS.BLOCKED))
+    return { status: 'blocked', labels };
+  return { status: 'pending', labels };
+}
+
+/**
+ * Poll a Story's ticket state for up to `graceMs` ms, resolving as soon as
+ * the ticket reaches a terminal state (done or blocked). Used after the idle
+ * watchdog fires to absorb the "Windows shell-spawn orphan finishes after we
+ * kill the shell" race — the real work may complete within the grace window
+ * even though the pipe went silent.
+ */
+async function pollStoryOutcome(
+  storyId,
+  graceMs = IDLE_GRACE_MS,
+  intervalMs = IDLE_GRACE_POLL_MS,
+) {
+  const deadline = Date.now() + graceMs;
+  let last = { status: 'pending', labels: [] };
+  while (true) {
+    try {
+      last = await readStoryOutcome(storyId);
+    } catch (err) {
+      last = { status: 'pending', labels: [], error: err.message };
+    }
+    if (last.status === 'done' || last.status === 'blocked') return last;
+    if (Date.now() >= deadline) return last;
+    await new Promise((r) => setTimeout(r, intervalMs));
+  }
+}
 
 function resolveLogsDir(epicRunnerCfg) {
   return epicRunnerCfg?.logsDir || DEFAULT_LOGS_DIR;
@@ -140,10 +216,6 @@ async function defaultSpawn({
   logsDir = DEFAULT_LOGS_DIR,
   idleTimeoutMs = DEFAULT_IDLE_TIMEOUT_SEC * 1000,
 }) {
-  const { spawn } = await import('node:child_process');
-  const { open, mkdir } = await import('node:fs/promises');
-  const { join } = await import('node:path');
-
   await mkdir(logsDir, { recursive: true });
   const logPath = join(logsDir, `story-${storyId}.log`);
   const logHandle = await open(logPath, 'w');
@@ -157,7 +229,7 @@ async function defaultSpawn({
 
     const watchdog = attachIdleWatchdog(proc, logHandle, idleTimeoutMs);
 
-    const onAbort = () => proc.kill();
+    const onAbort = () => killProcessTree(proc);
     signal?.addEventListener?.('abort', onAbort, { once: true });
 
     proc.on('error', (err) => {
@@ -172,9 +244,24 @@ async function defaultSpawn({
       watchdog.stop();
       await logHandle.close().catch(() => {});
       if (watchdog.idleTimedOut) {
+        // `claude -p` runs in batch mode — it emits no stdout until the model
+        // finishes, so long stories can legitimately go >idleTimeoutSec with
+        // zero output. Combined with the Windows shell-spawn orphan (the real
+        // work may survive proc.kill() on cmd.exe), the pipe-silence signal
+        // is not authoritative. Poll the Story's ticket state for a grace
+        // window — if the orphan finishes the merge+close, we report the
+        // truth (done) instead of a false failure.
+        const outcome = await pollStoryOutcome(storyId);
+        if (outcome.status === 'done') return resolve({ status: 'done' });
+        if (outcome.status === 'blocked') {
+          return resolve({
+            status: 'blocked',
+            detail: `${AGENT_LABELS.BLOCKED} (after idle-timeout grace); see ${logPath}`,
+          });
+        }
         return resolve({
           status: 'failed',
-          detail: `idle-timeout: no output for ${Math.round(idleTimeoutMs / 1000)}s (likely hung on interactive prompt); see ${logPath}`,
+          detail: `idle-timeout: no output for ${Math.round(idleTimeoutMs / 1000)}s; labels=${outcome.labels.join('|') || 'none'}; see ${logPath}`,
         });
       }
       if (code !== 0) {
@@ -184,14 +271,9 @@ async function defaultSpawn({
         });
       }
       try {
-        const { resolveConfig } = await import('./lib/config-resolver.js');
-        const { createProvider } = await import('./lib/provider-factory.js');
-        const provider = createProvider(resolveConfig().orchestration);
-        const story = await provider.getTicket(storyId);
-        const labels = story?.labels ?? [];
-        if (labels.includes(AGENT_LABELS.DONE))
-          return resolve({ status: 'done' });
-        if (labels.includes(AGENT_LABELS.BLOCKED)) {
+        const outcome = await readStoryOutcome(storyId);
+        if (outcome.status === 'done') return resolve({ status: 'done' });
+        if (outcome.status === 'blocked') {
           return resolve({
             status: 'blocked',
             detail: `${AGENT_LABELS.BLOCKED}; see ${logPath}`,
@@ -199,7 +281,7 @@ async function defaultSpawn({
         }
         resolve({
           status: 'failed',
-          detail: `story not closed (labels: ${labels.join(', ')}); see ${logPath}`,
+          detail: `story not closed (labels: ${outcome.labels.join(', ')}); see ${logPath}`,
         });
       } catch (err) {
         resolve({
@@ -236,9 +318,6 @@ async function defaultRunSkill(
       detail: `defaultRunSkill refused to invoke ${skill}; only /sprint-close is auto-dispatched`,
     };
   }
-  const { spawn } = await import('node:child_process');
-  const { open, mkdir } = await import('node:fs/promises');
-  const { join } = await import('node:path');
 
   await mkdir(logsDir, { recursive: true });
   const logPath = join(logsDir, `bookend-sprint-close-${epicId}.log`);
@@ -295,11 +374,7 @@ function attachIdleWatchdog(proc, logHandle, idleMs) {
     if (state.timer) clearTimeout(state.timer);
     state.timer = setTimeout(() => {
       state.idleTimedOut = true;
-      try {
-        proc.kill();
-      } catch {
-        /* already exited */
-      }
+      killProcessTree(proc);
     }, idleMs);
   };
 

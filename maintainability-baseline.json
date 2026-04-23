@@ -12,7 +12,7 @@
   ".agents/scripts/diagnose-friction.js": 84.192,
   ".agents/scripts/dispatcher.js": 97.369,
   ".agents/scripts/epic-planner.js": 78.434,
-  ".agents/scripts/epic-runner.js": 98.048,
+  ".agents/scripts/epic-runner.js": 97.371,
   ".agents/scripts/git-pr-quality-gate.js": 93.849,
   ".agents/scripts/git-rebase-and-resolve.js": 90.198,
   ".agents/scripts/handle-approval.js": 99.426,
