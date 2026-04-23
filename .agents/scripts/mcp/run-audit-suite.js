@@ -43,7 +43,10 @@ function escapeRegExp(str) {
 function applySubstitutions(content, substitutions) {
   let out = content;
   for (const [key, value] of Object.entries(substitutions)) {
-    out = out.replace(new RegExp(`\\{\\{${escapeRegExp(key)}\\}\\}`, 'g'), value);
+    out = out.replace(
+      new RegExp(`\\{\\{${escapeRegExp(key)}\\}\\}`, 'g'),
+      value,
+    );
   }
   return out;
 }
@@ -170,7 +173,10 @@ export async function runAuditSuite({
       };
     }
 
-    const content = applySubstitutions(workflow.content, effectiveSubstitutions);
+    const content = applySubstitutions(
+      workflow.content,
+      effectiveSubstitutions,
+    );
 
     return {
       success: true,
