@@ -15,10 +15,11 @@
  * without real GitHub IO.
  */
 
+import { AGENT_LABELS } from '../../label-constants.js';
 import { pollUntil } from '../../util/poll-loop.js';
 
-const BLOCKED_LABEL = 'agent::blocked';
-const EXECUTING_LABEL = 'agent::executing';
+const BLOCKED_LABEL = AGENT_LABELS.BLOCKED;
+const EXECUTING_LABEL = AGENT_LABELS.EXECUTING;
 
 export class BlockerHandler {
   /**

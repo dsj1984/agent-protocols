@@ -25,6 +25,7 @@
 import { appendFile, mkdir } from 'node:fs/promises';
 import { dirname } from 'node:path';
 
+import { AGENT_LABELS } from '../../label-constants.js';
 import { upsertStructuredComment } from '../ticketing.js';
 import { createStalledWorktreeDetector } from './progress-signals/stalled-worktree.js';
 
@@ -206,7 +207,12 @@ export class ProgressReporter {
       const fetched = await Promise.all(
         allIds.map(async (id) => {
           try {
-            const ticket = await this.provider.getTicket(id);
+            // Bypass provider cache: Story labels are transitioned by the
+            // spawned `claude -p` child processes, whose writes never reach
+            // the parent runner's in-memory _ticketCache. Reading stale cache
+            // entries would leave every Story row rendered as "unknown" for
+            // the entire run even after labels like `agent::done` land.
+            const ticket = await this.provider.getTicket(id, { fresh: true });
             return [
               id,
               {
@@ -396,10 +402,10 @@ function deriveState(ticket) {
   if (!ticket) return 'unknown';
   const labels = ticket.labels ?? [];
   const state = (ticket.state ?? '').toString().toUpperCase();
-  if (state === 'CLOSED' || labels.includes('agent::done')) return 'done';
-  if (labels.includes('agent::blocked')) return 'blocked';
-  if (labels.includes('agent::executing')) return 'in-flight';
-  if (labels.includes('agent::ready')) return 'queued';
+  if (state === 'CLOSED' || labels.includes(AGENT_LABELS.DONE)) return 'done';
+  if (labels.includes(AGENT_LABELS.BLOCKED)) return 'blocked';
+  if (labels.includes(AGENT_LABELS.EXECUTING)) return 'in-flight';
+  if (labels.includes(AGENT_LABELS.READY)) return 'queued';
   return 'unknown';
 }
 

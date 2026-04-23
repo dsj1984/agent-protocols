@@ -2,15 +2,10 @@
  * lib/orchestration/reconciler.js — Ticket Hierarchy Reconciliation
  */
 
-import { PROJECT_ROOT, resolveConfig } from '../config-resolver.js';
-import { VerboseLogger } from '../VerboseLogger.js';
+import { AGENT_LABELS, TYPE_LABELS } from '../label-constants.js';
+import { Logger } from '../Logger.js';
 import { parseParentId } from './story-grouper.js';
 import { STATE_LABELS } from './ticketing.js';
-
-const { settings: globalSettings } = resolveConfig();
-const vlog = VerboseLogger.init(globalSettings, PROJECT_ROOT, {
-  source: 'dispatcher',
-});
 
 const AGENT_DONE_LABEL = STATE_LABELS.DONE;
 
@@ -34,16 +29,12 @@ export async function reconcileClosedTasks(tasks, provider, dryRun) {
     if (task.status !== AGENT_DONE_LABEL) continue;
     if ((task.labelSet ?? new Set(task.labels)).has(AGENT_DONE_LABEL)) continue;
 
-    vlog.info(
-      'orchestration',
+    Logger.info(
       `Reconciling closed issue #${task.id} "${task.title}" → agent::done`,
     );
 
     if (dryRun) {
-      vlog.info(
-        'orchestration',
-        `[DRY-RUN] Would sync labels and close issue #${task.id}`,
-      );
+      Logger.info(`[DRY-RUN] Would sync labels and close issue #${task.id}`);
       continue;
     }
 
@@ -53,18 +44,15 @@ export async function reconcileClosedTasks(tasks, provider, dryRun) {
           add: [AGENT_DONE_LABEL],
           remove: [
             ...ALL_AGENT_STATES.filter((s) => s !== AGENT_DONE_LABEL),
-            'agent::blocked',
+            AGENT_LABELS.BLOCKED,
           ],
         },
         state: 'closed',
         state_reason: 'completed',
       });
-      vlog.info('orchestration', `✅ Synced #${task.id} to agent::done`);
+      Logger.info(`✅ Synced #${task.id} to agent::done`);
     } catch (err) {
-      vlog.warn(
-        'orchestration',
-        `Failed to reconcile #${task.id}: ${err.message}`,
-      );
+      Logger.warn(`Failed to reconcile #${task.id}: ${err.message}`);
     }
   }
 }
@@ -128,14 +116,12 @@ export async function reconcileHierarchy(
     if (children.length === 0) return;
     if (!children.every((cid) => isDone(cid))) return;
 
-    vlog.info(
-      'orchestration',
+    Logger.info(
       `All children of ${typeName} #${id} "${ticket.title}" are done. Closing...`,
     );
 
     if (dryRun) {
-      vlog.info(
-        'orchestration',
+      Logger.info(
         `[DRY-RUN] Would close ${typeName} #${id} and set agent::done.`,
       );
       ticket.state = 'closed';
@@ -146,29 +132,27 @@ export async function reconcileHierarchy(
       await provider.updateTicket(id, {
         labels: {
           add: [AGENT_DONE_LABEL],
-          remove: ['agent::ready', 'agent::executing', 'agent::review'],
+          remove: [
+            AGENT_LABELS.READY,
+            AGENT_LABELS.EXECUTING,
+            AGENT_LABELS.REVIEW,
+          ],
         },
         state: 'closed',
         state_reason: 'completed',
       });
       ticket.state = 'closed';
-      vlog.info(
-        'orchestration',
-        `✅ ${typeName} #${id} closed and marked agent::done.`,
-      );
+      Logger.info(`✅ ${typeName} #${id} closed and marked agent::done.`);
     } catch (err) {
-      vlog.warn(
-        'orchestration',
-        `Failed to close ${typeName} #${id}: ${err.message}`,
-      );
+      Logger.warn(`Failed to close ${typeName} #${id}: ${err.message}`);
     }
   }
 
   const storyIds = allTickets
-    .filter((t) => (t.labelSet ?? new Set(t.labels)).has('type::story'))
+    .filter((t) => (t.labelSet ?? new Set(t.labels)).has(TYPE_LABELS.STORY))
     .map((t) => t.id);
   const featureIds = allTickets
-    .filter((t) => (t.labelSet ?? new Set(t.labels)).has('type::feature'))
+    .filter((t) => (t.labelSet ?? new Set(t.labels)).has(TYPE_LABELS.FEATURE))
     .map((t) => t.id);
 
   for (const id of storyIds) await maybeClose(id, 'Story');

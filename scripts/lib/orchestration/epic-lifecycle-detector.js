@@ -5,7 +5,7 @@
  */
 
 import { notify } from '../../notify.js';
-import { vlog } from './dispatch-logger.js';
+import { Logger } from '../Logger.js';
 import { STATE_LABELS } from './ticketing.js';
 
 const AGENT_DONE_LABEL = STATE_LABELS.DONE;
@@ -35,16 +35,12 @@ export async function detectEpicCompletion({
   const allDone = tasks.every((t) => t.status === AGENT_DONE_LABEL);
   if (!allDone) return;
 
-  vlog.info(
-    'orchestration',
+  Logger.info(
     `🎉 All Tasks under Epic #${epicId} are agent::done. Starting Bookend Lifecycle.`,
   );
 
   if (dryRun) {
-    vlog.info(
-      'orchestration',
-      '[DRY-RUN] Would post epic-complete comment and fire webhook.',
-    );
+    Logger.info('[DRY-RUN] Would post epic-complete comment and fire webhook.');
     return;
   }
 
@@ -77,15 +73,9 @@ export async function detectEpicCompletion({
       body: summaryComment,
       type: 'notification',
     });
-    vlog.info(
-      'orchestration',
-      `Posted epic-complete summary comment on Epic #${epicId}.`,
-    );
+    Logger.info(`Posted epic-complete summary comment on Epic #${epicId}.`);
   } catch (err) {
-    vlog.warn(
-      'orchestration',
-      `Failed to post epic-complete comment: ${err.message}`,
-    );
+    Logger.warn(`Failed to post epic-complete comment: ${err.message}`);
   }
 
   try {
@@ -94,9 +84,6 @@ export async function detectEpicCompletion({
       message: `Epic #${epicId} complete. All tasks done. Bookend Lifecycle starting.`,
     });
   } catch (err) {
-    vlog.warn(
-      'orchestration',
-      `Webhook notification failed (non-fatal): ${err.message}`,
-    );
+    Logger.warn(`Webhook notification failed (non-fatal): ${err.message}`);
   }
 }

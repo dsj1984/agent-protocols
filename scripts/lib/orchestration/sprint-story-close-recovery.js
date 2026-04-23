@@ -14,6 +14,7 @@
 import fs from 'node:fs';
 import path from 'node:path';
 import { gitSpawn } from '../git-utils.js';
+import { Logger } from '../Logger.js';
 
 export const RECOVERY_STATES = Object.freeze({
   FRESH: 'fresh',
@@ -73,9 +74,9 @@ function hasAnyUncommittedChanges(porcelainOutput) {
  * @param {string} [opts.worktreeRoot]  Worktree root relative to cwd. Default `.worktrees`.
  * @param {object} [opts.git]           Git adapter. Defaults to real git via gitSpawn.
  * @param {object} [opts.fs]            FS adapter with `existsSync`. Defaults to node:fs.
- * @returns {{ state: string, detail: object }}
+ * @returns {{ phase: string, detail: object }}
  */
-export function detectPriorState({
+export function detectPriorPhase({
   cwd,
   storyId,
   epicId,
@@ -83,8 +84,8 @@ export function detectPriorState({
   git = DEFAULT_GIT_ADAPTER,
   fs: fsAdapter = DEFAULT_FS_ADAPTER,
 } = {}) {
-  if (!cwd) throw new Error('detectPriorState: cwd is required');
-  if (!storyId) throw new Error('detectPriorState: storyId is required');
+  if (!cwd) throw new Error('detectPriorPhase: cwd is required');
+  if (!storyId) throw new Error('detectPriorPhase: storyId is required');
 
   const storyBranch = `story-${storyId}`;
   const detail = { storyId, storyBranch };
@@ -94,7 +95,7 @@ export function detectPriorState({
   const mainStatusOut = (mainStatus?.stdout ?? '').toString();
   if (hasUnmergedMarkers(mainStatusOut)) {
     return {
-      state: RECOVERY_STATES.PARTIAL_MERGE,
+      phase: RECOVERY_STATES.PARTIAL_MERGE,
       detail: { ...detail, checkout: cwd },
     };
   }
@@ -106,7 +107,7 @@ export function detectPriorState({
     const wtStatusOut = (wtStatus?.stdout ?? '').toString();
     if (hasAnyUncommittedChanges(wtStatusOut)) {
       return {
-        state: RECOVERY_STATES.UNCOMMITTED_WORKTREE,
+        phase: RECOVERY_STATES.UNCOMMITTED_WORKTREE,
         detail: { ...detail, worktreePath: wtPath },
       };
     }
@@ -129,13 +130,13 @@ export function detectPriorState({
     }
     if (!alreadyMerged) {
       return {
-        state: RECOVERY_STATES.PUSHED_UNMERGED,
+        phase: RECOVERY_STATES.PUSHED_UNMERGED,
         detail: { ...detail, remoteRef: lsrOut.split('\n')[0] },
       };
     }
   }
 
-  return { state: RECOVERY_STATES.FRESH, detail };
+  return { phase: RECOVERY_STATES.FRESH, detail };
 }
 
 export const RECOVERY_ACTIONS = Object.freeze({
@@ -192,5 +193,191 @@ export function computeRecoveryMode({ state, resume, restart } = {}) {
     action: RECOVERY_ACTIONS.EXIT_PRIOR_STATE,
     exitCode: 2,
     reason: state,
+  };
+}
+
+/**
+ * Restart path: abort any in-progress merge, drop the worktree, delete the
+ * story branch ref, and re-seed branch + worktree from the Epic branch. The
+ * caller then falls through to the normal fresh-close flow.
+ */
+export function restartStoryState({
+  cwd,
+  orchestration,
+  storyId,
+  epicBranch,
+  storyBranch,
+  progress = () => {},
+  logger = Logger,
+} = {}) {
+  progress('RESTART', `Resetting prior state for Story #${storyId}...`);
+
+  // 1. Abort any in-progress merge in the main checkout (idempotent — exits
+  //    non-zero if no merge is in progress, which we ignore).
+  gitSpawn(cwd, 'merge', '--abort');
+
+  // 2. Drop the worktree if isolation is enabled.
+  const wtConfig = orchestration?.worktreeIsolation;
+  if (wtConfig?.enabled) {
+    const wtRoot = wtConfig.root ?? '.worktrees';
+    const wtPath = path.join(cwd, wtRoot, `story-${storyId}`);
+    if (fs.existsSync(wtPath)) {
+      progress('RESTART', `Removing worktree ${wtPath}`);
+      const remove = gitSpawn(cwd, 'worktree', 'remove', '--force', wtPath);
+      if (remove.status !== 0) {
+        logger.error(
+          `[sprint-story-close] Worktree remove failed: ${remove.stderr || 'unknown'}. ` +
+            'Attempting prune to clean stale registration.',
+        );
+      }
+      gitSpawn(cwd, 'worktree', 'prune');
+    }
+  }
+
+  // 3. Delete the story branch ref (if it exists locally). Force-delete
+  //    because the branch likely has unmerged commits relative to main.
+  gitSpawn(cwd, 'branch', '-D', storyBranch);
+
+  // 4. Recreate the story branch ref from the local Epic branch.
+  const create = gitSpawn(cwd, 'branch', storyBranch, epicBranch);
+  if (create.status !== 0) {
+    logger.fatal(
+      `Failed to recreate ${storyBranch} from ${epicBranch}: ${create.stderr || 'unknown'}`,
+    );
+  }
+
+  // 5. Recreate the worktree if isolation is enabled.
+  if (wtConfig?.enabled) {
+    const wtRoot = wtConfig.root ?? '.worktrees';
+    const wtPath = path.join(cwd, wtRoot, `story-${storyId}`);
+    const add = gitSpawn(cwd, 'worktree', 'add', wtPath, storyBranch);
+    if (add.status !== 0) {
+      logger.fatal(
+        `Failed to re-seed worktree at ${wtPath}: ${add.stderr || 'unknown'}`,
+      );
+    }
+    progress('RESTART', `✅ Re-seeded worktree at ${wtPath}`);
+  }
+}
+
+/**
+ * Single-call front door for the prior-state machine inside
+ * `runStoryClose`. Detects the prior phase, computes the recovery mode for
+ * the supplied flags, and:
+ *
+ *   - throws an `Error` with `exitCode: 2` (preserving the existing
+ *     contract for the CLI wrapper) when no flag was supplied for a
+ *     non-fresh state;
+ *   - invokes `restartStoryState` (or the supplied `restartFn`) when
+ *     `--restart` was passed;
+ *   - emits the matching progress line for any `--resume` action.
+ *
+ * Returns a small dispatch summary the caller uses to branch into the
+ * conflict-resume vs fresh-merge path and to decide whether to skip the
+ * pre-merge validation gates.
+ *
+ * @param {object} opts
+ * @param {string} opts.cwd
+ * @param {number|string} opts.storyId
+ * @param {number|string} opts.epicId
+ * @param {string} opts.epicBranch
+ * @param {string} opts.storyBranch
+ * @param {object} opts.orchestration
+ * @param {boolean} [opts.resume]
+ * @param {boolean} [opts.restart]
+ * @param {Function} [opts.progress]
+ * @param {object} [opts.logger]
+ * @param {Function} [opts.detectFn]   Override for `detectPriorPhase` (tests).
+ * @param {Function} [opts.restartFn]  Override for `restartStoryState` (tests).
+ * @returns {{
+ *   action: string,
+ *   priorPhase: { phase: string, detail: object },
+ *   resumeFromConflict: boolean,
+ *   resumeFromMerge: boolean,
+ *   resumeFromValidate: boolean,
+ * }}
+ */
+export function dispatchRecovery({
+  cwd,
+  storyId,
+  epicId,
+  epicBranch,
+  storyBranch,
+  orchestration,
+  resume = false,
+  restart = false,
+  progress = () => {},
+  logger = Logger,
+  detectFn = detectPriorPhase,
+  restartFn = restartStoryState,
+} = {}) {
+  if (resume && restart) {
+    logger.fatal('--resume and --restart are mutually exclusive');
+  }
+
+  const priorPhase = detectFn({ cwd, storyId, epicId });
+  const mode = computeRecoveryMode({
+    state: priorPhase.phase,
+    resume,
+    restart,
+  });
+
+  if (mode.action === RECOVERY_ACTIONS.EXIT_PRIOR_STATE) {
+    logger.error(
+      `[phase=prior-state]\nPrior close state detected: ${priorPhase.phase}\n` +
+        `${JSON.stringify(priorPhase.detail, null, 2)}\n\n` +
+        'Re-run with --resume to continue from the detected state, or ' +
+        '--restart to abort prior state and re-init.',
+    );
+    const err = new Error(`prior-state:${priorPhase.phase}`);
+    err.exitCode = mode.exitCode ?? 2;
+    throw err;
+  }
+
+  if (mode.action === RECOVERY_ACTIONS.RESTART) {
+    progress(
+      'RESTART',
+      `--restart: aborting prior state (${priorPhase.phase}) and re-initializing`,
+    );
+    restartFn({
+      cwd,
+      orchestration,
+      storyId,
+      epicBranch,
+      storyBranch,
+      progress,
+      logger,
+    });
+  }
+
+  const resumeFromConflict =
+    mode.action === RECOVERY_ACTIONS.RESUME_FROM_CONFLICT;
+  const resumeFromMerge = mode.action === RECOVERY_ACTIONS.RESUME_FROM_MERGE;
+  const resumeFromValidate =
+    mode.action === RECOVERY_ACTIONS.RESUME_FROM_VALIDATE;
+
+  if (resumeFromConflict) {
+    progress(
+      'RESUME',
+      `--resume: resuming from conflict resolution (phase=${priorPhase.phase})`,
+    );
+  } else if (resumeFromMerge) {
+    progress(
+      'RESUME',
+      `--resume: resuming from merge (phase=${priorPhase.phase})`,
+    );
+  } else if (resumeFromValidate) {
+    progress(
+      'RESUME',
+      `--resume: resuming from validate (phase=${priorPhase.phase})`,
+    );
+  }
+
+  return {
+    action: mode.action,
+    priorPhase,
+    resumeFromConflict,
+    resumeFromMerge,
+    resumeFromValidate,
   };
 }

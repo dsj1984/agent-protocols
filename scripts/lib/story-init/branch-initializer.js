@@ -1,0 +1,224 @@
+/**
+ * branch-initializer.js — Stage 5 of the sprint-story-init pipeline.
+ *
+ * Materialises the Story branch either in the main checkout (single-tree
+ * mode) or behind a dedicated git worktree (isolated mode). Both paths
+ * leave the agent with a working directory on the `story-<id>` branch and a
+ * clean index.
+ *
+ * The legacy `bootstrapBranch` and `bootstrapWorktree` helpers are preserved
+ * verbatim and exported alongside the canonical `initializeBranch` stage
+ * entry point so existing callers / tests can reach them directly.
+ */
+
+import nodeFs from 'node:fs';
+import nodePath from 'node:path';
+import {
+  branchExistsLocally,
+  branchExistsRemotely,
+  checkoutStoryBranch,
+  ensureEpicBranch,
+  ensureEpicBranchRef,
+} from '../git-branch-lifecycle.js';
+import { gitFetchWithRetry, gitSpawn } from '../git-utils.js';
+import { Logger } from '../Logger.js';
+import {
+  resolveWorkspaceFiles,
+  verify as verifyWorkspace,
+} from '../workspace-provisioner.js';
+import { WorktreeManager } from '../worktree-manager.js';
+
+function defaultProgress() {
+  return () => {};
+}
+
+function assertWorkingTreeClean(cwd) {
+  const status = gitSpawn(cwd, 'status', '--porcelain');
+  if (status.status !== 0) {
+    throw new Error(
+      `Failed to read git status: ${status.stderr || '(no stderr)'}`,
+    );
+  }
+  if (status.stdout.length > 0) {
+    throw new Error(
+      `Working tree is dirty. Refusing to switch branches — uncommitted/untracked files may belong to another agent.\nRun \`git status\` and resolve before retrying.\n--- dirty entries ---\n${status.stdout}`,
+    );
+  }
+}
+
+export async function bootstrapBranch({
+  epicBranch,
+  storyBranch,
+  baseBranch,
+  cwd,
+  progress = defaultProgress(),
+}) {
+  progress('GIT', 'Fetching remote refs...');
+  const fetchResult = await gitFetchWithRetry(cwd, 'origin');
+  if (fetchResult.attempts > 1) {
+    progress(
+      'GIT',
+      `Fetch completed after ${fetchResult.attempts} attempt(s) — packed-refs contention.`,
+    );
+  }
+
+  assertWorkingTreeClean(cwd);
+
+  await ensureEpicBranch(epicBranch, baseBranch, cwd, { progress });
+  await checkoutStoryBranch(storyBranch, epicBranch, cwd, { progress });
+
+  const currentBranch = gitSpawn(cwd, 'branch', '--show-current');
+  if (currentBranch.stdout !== storyBranch) {
+    throw new Error(
+      `Branch verification failed. Expected: ${storyBranch}, Got: ${currentBranch.stdout}.`,
+    );
+  }
+  progress('GIT', `✅ On branch: ${currentBranch.stdout}`);
+}
+
+export async function bootstrapWorktree({
+  epicBranch,
+  storyBranch,
+  storyId,
+  baseBranch,
+  mainCwd,
+  wtConfig,
+  progress = defaultProgress(),
+  fs = nodeFs,
+  path = nodePath,
+}) {
+  progress('GIT', 'Fetching remote refs (main checkout)...');
+  const fetchResult = await gitFetchWithRetry(mainCwd, 'origin');
+  if (fetchResult.attempts > 1) {
+    progress(
+      'GIT',
+      `Fetch completed after ${fetchResult.attempts} attempt(s) — packed-refs contention.`,
+    );
+  }
+
+  ensureEpicBranchRef(epicBranch, baseBranch, mainCwd, { progress });
+
+  const localHas = branchExistsLocally(storyBranch, mainCwd);
+  const remoteHas = branchExistsRemotely(storyBranch, mainCwd);
+  if (!localHas && remoteHas) {
+    progress('GIT', `Fetching remote story branch: ${storyBranch}`);
+    gitSpawn(mainCwd, 'fetch', 'origin', `${storyBranch}:${storyBranch}`);
+  } else if (!localHas && !remoteHas) {
+    progress(
+      'GIT',
+      `Creating story branch ref: ${storyBranch} from ${epicBranch}`,
+    );
+    gitSpawn(mainCwd, 'branch', storyBranch, epicBranch);
+  }
+
+  const wm = new WorktreeManager({
+    repoRoot: mainCwd,
+    config: wtConfig,
+    logger: {
+      info: (m) => progress('WORKTREE', m),
+      warn: (m) => progress('WORKTREE', `⚠️ ${m}`),
+      error: (m) => Logger.error(`[sprint-story-init] ${m}`),
+    },
+  });
+
+  const ensured = await wm.ensure(storyId, storyBranch);
+  progress(
+    'WORKTREE',
+    `${ensured.created ? '✨ Created' : '♻️  Reusing'} worktree: ${ensured.path}`,
+  );
+
+  try {
+    const workspaceFiles = resolveWorkspaceFiles(wtConfig);
+    const presentAtSource = workspaceFiles.filter((rel) =>
+      fs.existsSync(path.join(mainCwd, rel)),
+    );
+    if (presentAtSource.length > 0) {
+      verifyWorkspace({
+        worktree: ensured.path,
+        files: presentAtSource,
+        sourceRoot: mainCwd,
+      });
+    }
+  } catch (err) {
+    progress('WORKTREE', `⚠️ ${err.message}`);
+    throw err;
+  }
+
+  if (ensured.installFailed) {
+    progress(
+      'WORKTREE',
+      `⚠️ Dependency install failed. Agent must run package-manager install in the worktree before proceeding.`,
+    );
+  }
+
+  if (ensured.windowsPathWarning) {
+    const { path: p, length, threshold } = ensured.windowsPathWarning;
+    progress(
+      'WORKTREE',
+      `⚠️ Windows long-path: ${p} (${length} >= ${threshold}). Consider relocating orchestration.worktreeIsolation.root.`,
+    );
+  }
+
+  return {
+    worktreePath: ensured.path,
+    created: ensured.created,
+    installFailed: !!ensured.installFailed,
+  };
+}
+
+/**
+ * Canonical stage entry point. Routes to worktree-isolated or single-tree
+ * bootstrap based on `input.worktreeEnabled`.
+ *
+ * @param {object} deps
+ * @param {object} [deps.logger]
+ * @param {object} [deps.fs]
+ * @param {object} deps.input
+ * @param {number} deps.input.storyId
+ * @param {string} deps.input.epicBranch
+ * @param {string} deps.input.storyBranch
+ * @param {string} deps.input.baseBranch
+ * @param {string} deps.input.cwd
+ * @param {boolean} deps.input.worktreeEnabled
+ * @param {object|undefined} deps.input.wtConfig
+ * @returns {Promise<{ workCwd: string, worktreeCreated: boolean, installFailed: boolean }>}
+ */
+export async function initializeBranch({ logger, fs = nodeFs, input }) {
+  const {
+    storyId,
+    epicBranch,
+    storyBranch,
+    baseBranch,
+    cwd,
+    worktreeEnabled,
+    wtConfig,
+  } = input;
+  const progress = logger?.progress ?? defaultProgress();
+
+  if (worktreeEnabled) {
+    const wtResult = await bootstrapWorktree({
+      epicBranch,
+      storyBranch,
+      storyId,
+      baseBranch,
+      mainCwd: cwd,
+      wtConfig,
+      progress,
+      fs,
+    });
+    return {
+      workCwd: wtResult.worktreePath,
+      worktreeCreated: wtResult.created,
+      installFailed: wtResult.installFailed,
+    };
+  }
+
+  await bootstrapBranch({
+    epicBranch,
+    storyBranch,
+    baseBranch,
+    cwd,
+    progress,
+  });
+  return { workCwd: cwd, worktreeCreated: false, installFailed: false };
+}

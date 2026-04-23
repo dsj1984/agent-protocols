@@ -3,7 +3,8 @@
  * concern has a dedicated home.
  */
 
-import { vlog } from './dispatch-logger.js';
+import { TYPE_LABELS } from '../label-constants.js';
+import { Logger } from '../Logger.js';
 
 /**
  * Ensure a Sprint Health issue exists for the Epic. Idempotent: no-op when
@@ -25,29 +26,23 @@ export async function ensureSprintHealthIssue(
   if (dryRun) return;
   const healthIssue = allTickets.find(
     (t) =>
-      t.labels.includes('type::health') ||
+      t.labels.includes(TYPE_LABELS.HEALTH) ||
       t.title.startsWith('📉 Sprint Health:'),
   );
 
   if (!healthIssue) {
-    vlog.info(
-      'orchestration',
-      `Creating Sprint Health issue for Epic #${epicId}...`,
-    );
+    Logger.info(`Creating Sprint Health issue for Epic #${epicId}...`);
     try {
       const { id } = await provider.createTicket(epicId, {
         epicId,
         title: `📉 Sprint Health: ${epic.title}`,
         body: `## Real-time Sprint Health Monitoring\n\nThis issue tracks the execution metrics, progress, and friction logs for this sprint.\n\n---\nparent: #${epicId}\nEpic: #${epicId}`,
-        labels: ['type::health'],
+        labels: [TYPE_LABELS.HEALTH],
         dependencies: [],
       });
-      vlog.info('orchestration', `✅ Sprint Health issue created: #${id}`);
+      Logger.info(`✅ Sprint Health issue created: #${id}`);
     } catch (err) {
-      vlog.warn(
-        'orchestration',
-        `Failed to create Sprint Health ticket: ${err.message}`,
-      );
+      Logger.warn(`Failed to create Sprint Health ticket: ${err.message}`);
     }
   }
 }

@@ -120,24 +120,16 @@ details directly to the relevant GitHub Task ticket:
   boilerplate-heavy file creations, or manual processes that could be simplified
   by a dedicated workflow or skill.
 
-#### Verbose Interaction Logging
+#### Log Level Control
 
-When `agentSettings.verboseLogging.enabled` is `true` in `.agentrc.json`, the
-framework records **all agentic interactions and responses** as structured JSONL
-files for post-hoc analysis (model evaluation, cost attribution, prompt
-engineering, debugging).
+The orchestrator logger (`lib/Logger.js`) emits progress/trace output based on
+the `AGENT_LOG_LEVEL` environment variable:
 
-- **Output Directory**: Resolved from `verboseLogging.logDir` (default:
-  `temp/verbose-logs`). Each sprint produces a dedicated file
-  (`sprint-[NUM].jsonl`).
-- **What Is Logged**: Agent action dispatches, environment observations, errors,
-  workflow phase transitions, integration events, and configuration resolution.
-- **Schema**: Each line is a JSON object with `timestamp`, `level`, `category`,
-  `source`, `sprint`, `taskId`, `message`, and an optional `data` payload.
-- **Performance**: Verbose logging is designed to never crash the host process.
-  If a write fails, it degrades silently to stderr.
-- **Privacy**: The logs are stored in the configured `tempRoot` by default and
-  are excluded from Git. Do NOT commit them unless explicitly instructed.
+- `silent`  — only `fatal` emits; useful for script embedding where the caller
+  owns presentation.
+- `info`    — default. Emits `info` / `warn` / `error` / `fatal`.
+- `verbose` — adds `debug` trace output on top of the `info` set. `debug` is
+  accepted as a backward-compatible alias.
 
 ### I. Anti-Thrashing Protocol
 

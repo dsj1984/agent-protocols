@@ -27,6 +27,7 @@
 
 import { existsSync, readFileSync } from 'node:fs';
 import { resolve } from 'node:path';
+import { AGENT_LABELS } from '../label-constants.js';
 
 const DEFAULT_LEVEL = 'verbose';
 
@@ -114,7 +115,8 @@ export class Notifier {
     if (this.level === 'minimal') {
       return (
         event.kind === 'state-transition' &&
-        (event.toState === 'agent::done' || event.toState === 'agent::review')
+        (event.toState === AGENT_LABELS.DONE ||
+          event.toState === AGENT_LABELS.REVIEW)
       );
     }
     return true;

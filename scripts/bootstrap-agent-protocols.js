@@ -25,51 +25,23 @@ import {
 } from './lib/label-taxonomy.js';
 import { createProvider } from './lib/provider-factory.js';
 
-// ---------------------------------------------------------------------------
-// Bootstrap Runner
-// ---------------------------------------------------------------------------
+const PROJECTS_DOC_POINTER =
+  'See docs/project-board.md for the manual Projects V2 setup checklist.';
 
-/**
- * Run the idempotent bootstrap sequence.
- *
- * @param {object} orchestration - The orchestration config from .agentrc.json.
- * @param {{ token?: string, quiet?: boolean }} [opts]
- * @returns {Promise<{
- *   labels: { created: string[], skipped: string[] },
- *   fields: { created: string[], skipped: string[] },
- *   project: { projectNumber: number|null, created: boolean, skipped: boolean, scopesMissing: boolean },
- *   statusField: { status: string, added: string[] },
- *   views: { created: string[], skipped: string[], unavailable: boolean },
- * }>}
- */
-export async function runBootstrap(orchestration, opts = {}) {
-  const provider =
-    opts.providerOverride ??
-    createProvider(orchestration, { token: opts.token });
-  const log = opts.quiet ? () => {} : console.log;
-
-  log('[bootstrap] Starting idempotent setup...');
-  log(`[bootstrap] Provider: ${orchestration.provider}`);
-  log(
-    `[bootstrap] Target: ${orchestration[orchestration.provider]?.owner}/${orchestration[orchestration.provider]?.repo}`,
-  );
-
-  // Step 1: Verify API access
-  log('[bootstrap] Verifying API access...');
+async function verifyApiAccess(provider) {
   try {
     await provider.getTicket(1);
   } catch (err) {
-    // A 404 is fine — it means the API is reachable but issue #1 doesn't exist.
-    // Any other error indicates a real problem.
+    // A 404 is fine — API reachable, issue #1 doesn't exist. Anything else is fatal.
     if (!err.message.includes('404')) {
       throw new Error(
         `[bootstrap] API access verification failed: ${err.message}`,
       );
     }
   }
-  log('[bootstrap] API access verified.');
+}
 
-  // Step 2: Create labels
+async function ensureLabels(provider, log) {
   log(`[bootstrap] Ensuring ${LABEL_TAXONOMY.length} labels...`);
   const labels = await provider.ensureLabels(LABEL_TAXONOMY);
   log(
@@ -78,112 +50,126 @@ export async function runBootstrap(orchestration, opts = {}) {
   if (labels.created.length > 0) {
     log(`[bootstrap]   Created: ${labels.created.join(', ')}`);
   }
+  return labels;
+}
 
-  // Step 3: Resolve or create the Projects V2 board.
-  let fields = { created: [], skipped: [] };
-  let project = {
-    projectNumber: null,
+async function resolveProject(provider, providerConfig, log) {
+  const fallback = (scopesMissing) => ({
+    projectNumber: providerConfig?.projectNumber ?? null,
     created: false,
     skipped: true,
-    scopesMissing: false,
-  };
-  let statusField = { status: 'skipped', added: [] };
-  let views = { created: [], skipped: [], unavailable: false };
-  const providerConfig = orchestration[orchestration.provider];
-  const projectsDocPointer =
-    'See docs/project-board.md for the manual Projects V2 setup checklist.';
-
+    scopesMissing,
+  });
   try {
-    const projectResult = await provider.resolveOrCreateProject();
-    if (projectResult.scopesMissing) {
-      project = {
-        projectNumber: providerConfig?.projectNumber ?? null,
-        created: false,
-        skipped: true,
-        scopesMissing: true,
-      };
+    const result = await provider.resolveOrCreateProject();
+    if (result.scopesMissing) {
       log(
-        `[bootstrap] Projects V2: token lacks the "project" scope — skipping board provisioning. ${projectsDocPointer}`,
+        `[bootstrap] Projects V2: token lacks the "project" scope — skipping board provisioning. ${PROJECTS_DOC_POINTER}`,
+      );
+      return fallback(true);
+    }
+    const projectNumber = result.projectNumber ?? null;
+    const created = !!result.created;
+    log(
+      `[bootstrap] ${created ? 'Created' : 'Using'} Project V2 #${projectNumber}.`,
+    );
+    return { projectNumber, created, skipped: false, scopesMissing: false };
+  } catch (err) {
+    log(
+      `[bootstrap] Projects V2 resolution failed: ${err.message}. ${PROJECTS_DOC_POINTER}`,
+    );
+    return fallback(false);
+  }
+}
+
+async function ensureStatusField(provider, log) {
+  try {
+    const statusField = await provider.ensureStatusField(STATUS_FIELD_OPTIONS);
+    if (statusField.status === 'scopes-missing') {
+      log(
+        `[bootstrap] Projects V2 Status field: insufficient scopes. ${PROJECTS_DOC_POINTER}`,
       );
     } else {
-      project = {
-        projectNumber: projectResult.projectNumber ?? null,
-        created: !!projectResult.created,
-        skipped: false,
-        scopesMissing: false,
-      };
-      if (projectResult.created) {
-        log(`[bootstrap] Created Project V2 #${project.projectNumber}.`);
-      } else {
-        log(`[bootstrap] Using Project V2 #${project.projectNumber}.`);
-      }
+      const addedSuffix = statusField.added.length
+        ? ` (added: ${statusField.added.join(', ')})`
+        : '';
+      log(`[bootstrap] Status field — ${statusField.status}${addedSuffix}`);
     }
+    return statusField;
   } catch (err) {
-    project = {
-      projectNumber: providerConfig?.projectNumber ?? null,
-      created: false,
-      skipped: true,
-      scopesMissing: false,
-    };
-    log(
-      `[bootstrap] Projects V2 resolution failed: ${err.message}. ${projectsDocPointer}`,
-    );
+    log(`[bootstrap] Status field provisioning failed: ${err.message}`);
+    return { status: 'skipped', added: [] };
   }
+}
 
-  // Step 4: Ensure the Status single-select field (8 lifecycle options).
-  if (!project.skipped && project.projectNumber) {
-    try {
-      statusField = await provider.ensureStatusField(STATUS_FIELD_OPTIONS);
-      if (statusField.status === 'scopes-missing') {
-        log(
-          `[bootstrap] Projects V2 Status field: insufficient scopes. ${projectsDocPointer}`,
-        );
-      } else {
-        log(
-          `[bootstrap] Status field — ${statusField.status}` +
-            (statusField.added.length
-              ? ` (added: ${statusField.added.join(', ')})`
-              : ''),
-        );
-      }
-    } catch (err) {
-      log(`[bootstrap] Status field provisioning failed: ${err.message}`);
+async function ensureViews(provider, log) {
+  try {
+    const views = await provider.ensureProjectViews(PROJECT_VIEW_DEFS);
+    if (views.unavailable) {
+      log(
+        `[bootstrap] Projects V2 Views mutation unavailable — skipped ${views.skipped.join(', ')}. ${PROJECTS_DOC_POINTER}`,
+      );
+    } else {
+      log(
+        `[bootstrap] Views — created: ${views.created.length}, skipped: ${views.skipped.length}`,
+      );
     }
+    return views;
+  } catch (err) {
+    log(`[bootstrap] Views provisioning failed: ${err.message}`);
+    return { created: [], skipped: [], unavailable: false };
   }
+}
 
-  // Step 5: Attempt Views creation (best-effort).
-  if (!project.skipped && project.projectNumber) {
-    try {
-      views = await provider.ensureProjectViews(PROJECT_VIEW_DEFS);
-      if (views.unavailable) {
-        log(
-          `[bootstrap] Projects V2 Views mutation unavailable — skipped ${views.skipped.join(', ')}. ${projectsDocPointer}`,
-        );
-      } else {
-        log(
-          `[bootstrap] Views — created: ${views.created.length}, skipped: ${views.skipped.length}`,
-        );
-      }
-    } catch (err) {
-      log(`[bootstrap] Views provisioning failed: ${err.message}`);
-    }
-  }
+async function ensureProjectFields(provider, project, log) {
+  log(
+    `[bootstrap] Ensuring ${PROJECT_FIELD_DEFS.length} project fields on project #${project.projectNumber}...`,
+  );
+  const fields = await provider.ensureProjectFields(PROJECT_FIELD_DEFS);
+  log(
+    `[bootstrap] Fields — created: ${fields.created.length}, skipped: ${fields.skipped.length}`,
+  );
+  return fields;
+}
 
-  // Step 6: Ensure legacy custom fields (Sprint, Execution).
-  if (!project.skipped && project.projectNumber) {
-    log(
-      `[bootstrap] Ensuring ${PROJECT_FIELD_DEFS.length} project fields on project #${project.projectNumber}...`,
-    );
-    fields = await provider.ensureProjectFields(PROJECT_FIELD_DEFS);
-    log(
-      `[bootstrap] Fields — created: ${fields.created.length}, skipped: ${fields.skipped.length}`,
-    );
+/**
+ * Run the idempotent bootstrap sequence.
+ *
+ * @param {object} orchestration - The orchestration config from .agentrc.json.
+ * @param {{ token?: string, quiet?: boolean }} [opts]
+ */
+export async function runBootstrap(orchestration, opts = {}) {
+  const provider =
+    opts.providerOverride ??
+    createProvider(orchestration, { token: opts.token });
+  const log = opts.quiet ? () => {} : console.log;
+  const providerConfig = orchestration[orchestration.provider];
+
+  log('[bootstrap] Starting idempotent setup...');
+  log(`[bootstrap] Provider: ${orchestration.provider}`);
+  log(`[bootstrap] Target: ${providerConfig?.owner}/${providerConfig?.repo}`);
+
+  log('[bootstrap] Verifying API access...');
+  await verifyApiAccess(provider);
+  log('[bootstrap] API access verified.');
+
+  const labels = await ensureLabels(provider, log);
+  const project = await resolveProject(provider, providerConfig, log);
+
+  const projectReady = !project.skipped && project.projectNumber;
+  let statusField = { status: 'skipped', added: [] };
+  let views = { created: [], skipped: [], unavailable: false };
+  let fields = { created: [], skipped: [] };
+
+  if (projectReady) {
+    statusField = await ensureStatusField(provider, log);
+    views = await ensureViews(provider, log);
+    fields = await ensureProjectFields(provider, project, log);
   } else {
     log('[bootstrap] No active project — skipping legacy project-field setup.');
   }
 
   log('[bootstrap] Done.');
-
   return { labels, fields, project, statusField, views };
 }
 
@@ -191,8 +177,31 @@ export async function runBootstrap(orchestration, opts = {}) {
 // CLI entry point
 // ---------------------------------------------------------------------------
 
+function formatProjectSummary(project) {
+  if (project.scopesMissing) return 'skipped (missing project scope)';
+  if (project.created) return `created #${project.projectNumber}`;
+  if (project.projectNumber) return `adopted #${project.projectNumber}`;
+  return 'skipped';
+}
+
+function printSummary(result) {
+  console.log('\n=== Bootstrap Summary ===');
+  console.log(`Labels created: ${result.labels.created.length}`);
+  console.log(`Labels skipped: ${result.labels.skipped.length}`);
+  console.log(`Fields created: ${result.fields.created.length}`);
+  console.log(`Fields skipped: ${result.fields.skipped.length}`);
+  console.log(`Project: ${formatProjectSummary(result.project)}`);
+  console.log(`Status field: ${result.statusField.status}`);
+  const unavailableSuffix = result.views.unavailable
+    ? ' (mutation unavailable)'
+    : '';
+  console.log(
+    `Views — created: ${result.views.created.length}, skipped: ${result.views.skipped.length}${unavailableSuffix}`,
+  );
+}
+
 async function main() {
-  // Dynamic import to avoid circular dependency issues at module level
+  // Dynamic import to avoid circular dependency issues at module level.
   const { resolveConfig, validateOrchestrationConfig } = await import(
     './lib/config-resolver.js'
   );
@@ -219,29 +228,7 @@ async function main() {
     const result = await runBootstrap(config.orchestration, {
       installWorkflows,
     });
-
-    console.log('\n=== Bootstrap Summary ===');
-    console.log(`Labels created: ${result.labels.created.length}`);
-    console.log(`Labels skipped: ${result.labels.skipped.length}`);
-    console.log(`Fields created: ${result.fields.created.length}`);
-    console.log(`Fields skipped: ${result.fields.skipped.length}`);
-    console.log(
-      `Project: ${
-        result.project.scopesMissing
-          ? 'skipped (missing project scope)'
-          : result.project.created
-            ? `created #${result.project.projectNumber}`
-            : result.project.projectNumber
-              ? `adopted #${result.project.projectNumber}`
-              : 'skipped'
-      }`,
-    );
-    console.log(`Status field: ${result.statusField.status}`);
-    console.log(
-      `Views — created: ${result.views.created.length}, skipped: ${result.views.skipped.length}${
-        result.views.unavailable ? ' (mutation unavailable)' : ''
-      }`,
-    );
+    printSummary(result);
   } catch (_err) {
     Logger.fatal();
   }

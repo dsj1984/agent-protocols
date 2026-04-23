@@ -3,22 +3,18 @@
 import { parseSprintArgs } from './lib/cli-args.js';
 import { runAsCli } from './lib/cli-utils.js';
 import { resolveConfig } from './lib/config-resolver.js';
+import { AGENT_LABELS, TYPE_LABELS } from './lib/label-constants.js';
+import { Logger } from './lib/Logger.js';
 import { fetchTasks } from './lib/orchestration/task-fetcher.js';
 import { fetchTelemetry } from './lib/orchestration/telemetry.js';
 import { createProvider } from './lib/provider-factory.js';
-
-const vlog = {
-  info: (...args) => console.log('INFO:', ...args),
-  warn: (...args) => console.warn('WARN:', ...args),
-  error: (...args) => console.error('ERROR:', ...args),
-};
 
 export async function updateHealthMetrics(epicId, dryRun = false) {
   if (!epicId || Number.isNaN(epicId)) {
     throw new Error('updateHealthMetrics requires a valid epicId');
   }
 
-  vlog.info(`Initializing health monitor for Epic #${epicId}...`);
+  Logger.info(`Initializing health monitor for Epic #${epicId}...`);
 
   const { orchestration } = resolveConfig();
   const provider = createProvider(orchestration);
@@ -26,7 +22,7 @@ export async function updateHealthMetrics(epicId, dryRun = false) {
   const allEpicTickets = await provider.getTickets(epicId);
   const healthIssue = allEpicTickets.find(
     (t) =>
-      t.labels.includes('type::health') ||
+      t.labels.includes(TYPE_LABELS.HEALTH) ||
       t.title.startsWith('📉 Sprint Health:'),
   );
 
@@ -43,9 +39,9 @@ export async function updateHealthMetrics(epicId, dryRun = false) {
   let inProgressTasks = 0;
 
   for (const task of tasks) {
-    if (task.labels.includes('agent::done')) doneTasks++;
-    if (task.labels.includes('agent::blocked')) blockedTasks++;
-    if (task.labels.includes('agent::executing')) inProgressTasks++;
+    if (task.labels.includes(AGENT_LABELS.DONE)) doneTasks++;
+    if (task.labels.includes(AGENT_LABELS.BLOCKED)) blockedTasks++;
+    if (task.labels.includes(AGENT_LABELS.EXECUTING)) inProgressTasks++;
   }
 
   // Attempt to fetch friction logs using recent comments
@@ -74,14 +70,14 @@ Epic: #${epicId}
 `;
 
   if (dryRun) {
-    vlog.info('--- DRY RUN: Would update Health Ticket Body ---');
+    Logger.info('--- DRY RUN: Would update Health Ticket Body ---');
     console.log(body);
   } else {
-    vlog.info(`Updating Health Ticket #${healthIssue.id}`);
+    Logger.info(`Updating Health Ticket #${healthIssue.id}`);
     await provider.updateTicket(healthIssue.id, {
       body: body,
     });
-    vlog.info('✅ Health issue updated successfully.');
+    Logger.info('✅ Health issue updated successfully.');
   }
 }
 
