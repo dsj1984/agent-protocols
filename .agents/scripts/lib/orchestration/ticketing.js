@@ -329,8 +329,19 @@ export async function cascadeCompletion(provider, ticketId, opts = {}) {
         );
         if (!allDone) return;
 
-        // EXCLUSION: Do not auto-close Epics, PRDs, or Tech Specs via cascade.
-        // These must be closed via formal sprint-close.
+        // EXCLUSION: Epics and Planning tickets (PRDs, Tech Specs) do not
+        // auto-close via cascade.
+        //   - Epics close via formal /sprint-close (their own machinery
+        //     handles branch merges, version bumps, release tags).
+        //   - Planning tickets (context::prd, context::tech-spec) close by
+        //     operator once the Epic is finalized.
+        //
+        // Features, by contrast, DO auto-close via cascade. A Feature is a
+        // purely hierarchical grouping — no standalone branch, no merge
+        // step. When its last child Story closes, the Feature is complete
+        // by definition. Operators who need Feature-level AC verification
+        // should encode it in the final child Story, not rely on a manual
+        // close step.
         const parent = await provider.getTicket(parentId);
         const isEpic = parent.labels.includes(TYPE_LABELS.EPIC);
         const isPlanning =
