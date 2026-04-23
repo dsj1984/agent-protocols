@@ -14,6 +14,7 @@
 
 import { execFileSync } from 'node:child_process';
 import { PROJECT_ROOT, resolveConfig } from '../config-resolver.js';
+import { ConflictingTypeLabelsError } from '../errors/index.js';
 import { ensureLocalBranch } from '../git-branch-lifecycle.js';
 import { TYPE_LABELS } from '../label-constants.js';
 import { Logger } from '../Logger.js';
@@ -94,6 +95,13 @@ export async function resolveAndDispatch(options) {
 
   const ticket = await provider.getTicket(ticketId);
   const labels = ticket.labels || [];
+
+  const typeLabels = labels.filter((l) => l.startsWith('type::'));
+  if (typeLabels.length > 1) {
+    throw new ConflictingTypeLabelsError(
+      `Ticket #${ticketId} has conflicting type labels: ${typeLabels.join(', ')}. Exactly one type::* label is required.`,
+    );
+  }
 
   const isStory = labels.includes(TYPE_LABELS.STORY);
   const isEpic = labels.includes(TYPE_LABELS.EPIC);
