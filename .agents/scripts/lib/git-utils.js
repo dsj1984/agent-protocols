@@ -72,6 +72,75 @@ export function gitSpawn(cwd, ...args) {
 }
 
 /**
+ * Build a git interface closed over injected child-process runners. Preferred
+ * seam for callers that want explicit injection without touching the
+ * module-global `__setGitRunners` state (which is a test-only override that
+ * leaks between suites). The returned object has the same shape as this
+ * module's namespace exports (`gitSync`, `gitSpawn`, `gitFetchWithRetry`,
+ * `gitPullWithRetry`) so it is drop-in as a `ctx.git` replacement.
+ *
+ * @param {object} [deps]
+ * @param {typeof execFileSync} [deps.exec]   - Defaults to real `execFileSync`.
+ * @param {typeof spawnSync}    [deps.spawn]  - Defaults to real `spawnSync`.
+ * @param {(ms: number) => Promise<void>} [deps.sleep] - Retry backoff sleep.
+ * @param {number} [deps.jitter] - Jitter factor for retry backoff.
+ */
+export function createGitInterface(deps = {}) {
+  const exec = deps.exec ?? execFileSync;
+  const spawn = deps.spawn ?? spawnSync;
+  const sleep =
+    deps.sleep ?? ((ms) => new Promise((resolve) => setTimeout(resolve, ms)));
+  const jitterFactor = deps.jitter ?? 0.5;
+
+  const gitSync = (cwd, ...args) =>
+    exec('git', args, {
+      cwd,
+      encoding: 'utf8',
+      stdio: ['pipe', 'pipe', 'pipe'],
+      shell: false,
+    }).trim();
+
+  const gitSpawn = (cwd, ...args) => {
+    const result = spawn('git', args, {
+      cwd,
+      stdio: 'pipe',
+      encoding: 'utf-8',
+      shell: false,
+    });
+    return {
+      status: result.status ?? 1,
+      stdout: (result.stdout ?? '').trim(),
+      stderr: (result.stderr ?? '').trim(),
+    };
+  };
+
+  async function runWithRetry(leadingArgs, cwd, args) {
+    const backoff = [250, 500, 1000];
+    let attempt = 0;
+    let last;
+    for (;;) {
+      attempt++;
+      last = gitSpawn(cwd, ...leadingArgs, ...args);
+      if (last.status === 0) return { ...last, attempts: attempt };
+      if (!isPackedRefsContention(last.stderr))
+        return { ...last, attempts: attempt };
+      if (attempt > backoff.length) return { ...last, attempts: attempt };
+      const base = backoff[attempt - 1];
+      const jitter = Math.floor(Math.random() * base * jitterFactor);
+      await sleep(base + jitter);
+    }
+  }
+
+  return {
+    gitSync,
+    gitSpawn,
+    gitFetchWithRetry: (cwd, ...args) => runWithRetry(['fetch'], cwd, args),
+    gitPullWithRetry: (cwd, ...args) =>
+      runWithRetry(['pull', '--rebase'], cwd, args),
+  };
+}
+
+/**
  * Known lock-contention error signatures that occur when two worktrees
  * fetch concurrently against the same repo. Matching any of these is the
  * only condition under which `gitFetchWithRetry` will re-attempt —

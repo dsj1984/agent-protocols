@@ -117,7 +117,7 @@ const LOADED_CONFIG_APPLY_KEYS = [
  *   - File present but malformed JSON → throw immediately (config corruption is
  *     a fatal error, not a silent fallback scenario).
  *
- * @param {{ bustCache?: boolean, cwd?: string, validate?: boolean }} [opts]
+ * @param {{ bustCache?: boolean, cwd?: string, validate?: boolean, ctx?: object }} [opts]
  *   - `cwd`: absolute path to the directory whose `.agentrc.json` should be
  *     loaded. Defaults to the framework's `PROJECT_ROOT`. Worktree-mode
  *     callers pass the worktree path so each worktree resolves its own config.
@@ -126,6 +126,10 @@ const LOADED_CONFIG_APPLY_KEYS = [
  *     `true`. Only unit tests that feed deliberately-malformed configs should
  *     opt out; production callers must leave it on so a broken orchestration
  *     block fails loudly at load time instead of mid-run.
+ *   - `ctx`: runtime context from `lib/runtime-context.js`. When provided,
+ *     `ctx.fs` is used for `.agentrc.json` I/O instead of the module-level
+ *     `node:fs`. The default continues to use real `node:fs` so existing
+ *     callers keep working unchanged.
  * @returns {{ settings: object, orchestration: object|null, raw: object|null, source: string }}
  */
 export function resolveConfig(opts) {
@@ -135,6 +139,7 @@ export function resolveConfig(opts) {
   const envCwd = process.env.AP_AGENTRC_CWD;
   const root = path.resolve(opts?.cwd ?? envCwd ?? PROJECT_ROOT);
   const validate = opts?.validate !== false;
+  const fsImpl = opts?.ctx?.fs ?? fs;
 
   if (!opts?.bustCache && _cacheByRoot.has(root)) {
     return _cacheByRoot.get(root);
@@ -149,10 +154,10 @@ export function resolveConfig(opts) {
 
   // 1. Preferred: unified .agentrc.json at the resolved root
   const agentrcPath = path.join(root, '.agentrc.json');
-  if (fs.existsSync(agentrcPath)) {
+  if (fsImpl.existsSync(agentrcPath)) {
     let raw;
     try {
-      raw = JSON.parse(fs.readFileSync(agentrcPath, 'utf8'));
+      raw = JSON.parse(fsImpl.readFileSync(agentrcPath, 'utf8'));
     } catch (parseErr) {
       // File exists but is not valid JSON — this is always a fatal config error.
       throw new Error(
