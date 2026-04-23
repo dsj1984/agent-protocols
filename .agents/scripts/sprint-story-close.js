@@ -131,23 +131,27 @@ async function finalizeMerge(
 ) {
   // Acquire the per-Epic filesystem merge lock before any rebase/merge/push
   // activity so two concurrent story closures cannot race on the Epic
-  // branch. Lock is always released in the `finally` block.
+  // branch. Lock is always released in the `finally` block. Acquisition
+  // failure must halt hard — prior to this fix, the catch called
+  // `Logger.fatal` and relied on its internal `process.exit(1)` to stop the
+  // run, which silently fell through under a mocked `process.exit`. Throwing
+  // ensures the rebase/merge/push block below cannot run without the lock.
+  progress('LOCK', `Acquiring epic-merge lock for epic #${epicId}...`);
   let lockHandle;
   try {
-    progress('LOCK', `Acquiring epic-merge lock for epic #${epicId}...`);
     lockHandle = await acquireEpicMergeLock(epicId, {
       repoRoot: cwd,
       timeoutMs: 60_000,
     });
-    progress('LOCK', `🔒 Acquired ${path.basename(lockHandle.filePath)}`);
   } catch (err) {
-    Logger.fatal(
+    throw new Error(
       `Could not acquire epic-merge lock for epic #${epicId}: ${err.message}. ` +
         `Another story closure may be in progress, or a stale lock is present at ` +
         `${lockPathDisplay(cwd, epicId)} — inspect and remove it manually if no ` +
         `other process is running.`,
     );
   }
+  progress('LOCK', `🔒 Acquired ${path.basename(lockHandle.filePath)}`);
 
   try {
     rebaseStoryOnEpic({

@@ -4,7 +4,7 @@
  */
 
 import { TYPE_LABELS } from '../label-constants.js';
-import { vlog } from './dispatch-logger.js';
+import { Logger } from '../Logger.js';
 
 /**
  * Ensure a Sprint Health issue exists for the Epic. Idempotent: no-op when
@@ -31,10 +31,7 @@ export async function ensureSprintHealthIssue(
   );
 
   if (!healthIssue) {
-    vlog.info(
-      'orchestration',
-      `Creating Sprint Health issue for Epic #${epicId}...`,
-    );
+    Logger.info(`Creating Sprint Health issue for Epic #${epicId}...`);
     try {
       const { id } = await provider.createTicket(epicId, {
         epicId,
@@ -43,12 +40,9 @@ export async function ensureSprintHealthIssue(
         labels: [TYPE_LABELS.HEALTH],
         dependencies: [],
       });
-      vlog.info('orchestration', `✅ Sprint Health issue created: #${id}`);
+      Logger.info(`✅ Sprint Health issue created: #${id}`);
     } catch (err) {
-      vlog.warn(
-        'orchestration',
-        `Failed to create Sprint Health ticket: ${err.message}`,
-      );
+      Logger.warn(`Failed to create Sprint Health ticket: ${err.message}`);
     }
   }
 }

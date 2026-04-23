@@ -12,10 +12,10 @@ import { PROJECT_ROOT, resolveConfig } from '../config-resolver.js';
 import { buildGraph, computeWaves, detectCycle } from '../Graph.js';
 import { getEpicBranch } from '../git-utils.js';
 import { TYPE_LABELS } from '../label-constants.js';
+import { Logger } from '../Logger.js';
 import { createProvider } from '../provider-factory.js';
 import { WorktreeManager } from '../worktree-manager.js';
 import { autoSerializeOverlaps } from './dependency-analyzer.js';
-import { vlog } from './dispatch-logger.js';
 import { ensureSprintHealthIssue } from './health-check-service.js';
 import { reconcileClosedTasks, reconcileHierarchy } from './reconciler.js';
 import { parseTasks } from './task-fetcher.js';
@@ -111,10 +111,10 @@ export function resolveDispatchContext(options, ensureBranch) {
 export async function fetchEpicContext(ctx) {
   const { provider, epicId } = ctx;
 
-  vlog.info('orchestration', `\nFetching Epic #${epicId}...`);
+  Logger.info(`\nFetching Epic #${epicId}...`);
   const epic = await provider.getEpic(epicId);
 
-  vlog.info('orchestration', `Fetching all tickets under Epic #${epicId}...`);
+  Logger.info(`Fetching all tickets under Epic #${epicId}...`);
   const allTickets = await provider.getTickets(epicId);
   const allTicketsById = new Map(allTickets.map((t) => [t.id, t]));
 
@@ -122,12 +122,12 @@ export async function fetchEpicContext(ctx) {
     provider.primeTicketCache(allTickets);
   }
 
-  vlog.info('orchestration', `Filtering Tasks under Epic #${epicId}...`);
+  Logger.info(`Filtering Tasks under Epic #${epicId}...`);
   const taskTickets = allTickets.filter((t) =>
     (t.labelSet ?? new Set(t.labels)).has(TYPE_TASK_LABEL),
   );
   const tasks = parseTasks(taskTickets);
-  vlog.info('orchestration', `Found ${tasks.length} task(s).`);
+  Logger.info(`Found ${tasks.length} task(s).`);
 
   return { epic, allTickets, allTicketsById, tasks };
 }
@@ -173,14 +173,13 @@ export function buildDispatchGraph(tasks) {
     adjacency,
   );
   if (graphMutated) {
-    vlog.info(
-      'orchestration',
+    Logger.info(
       'Focus-area conflicts detected; serialized overlapping tasks.',
     );
   }
 
   const allWaves = computeWaves(finalAdjacency, taskMap);
-  vlog.info('orchestration', `Computed ${allWaves.length} execution wave(s).`);
+  Logger.info(`Computed ${allWaves.length} execution wave(s).`);
   return { allWaves, taskMap };
 }
 
@@ -195,10 +194,10 @@ export function buildDispatchGraph(tasks) {
 export function ensureEpicScaffolding(ctx, captureLintBaseline) {
   const { dryRun, epicBranch, baseBranch, settings, ensureBranch } = ctx;
   if (dryRun) {
-    vlog.info('orchestration', 'Dry-run mode: skipping branch creation.');
+    Logger.info('Dry-run mode: skipping branch creation.');
     return;
   }
-  vlog.info('orchestration', `Ensuring Epic base branch: ${epicBranch}`);
+  Logger.info(`Ensuring Epic base branch: ${epicBranch}`);
   ensureBranch(epicBranch, baseBranch);
   captureLintBaseline(epicBranch, settings);
 }
@@ -218,8 +217,7 @@ export async function runWorktreeGc(ctx, fetched) {
   try {
     const lockSweep = await worktreeManager.sweepStaleLocks();
     if (lockSweep.removed.length > 0) {
-      vlog.info(
-        'orchestration',
+      Logger.info(
         `Stale lock sweep removed ${lockSweep.removed.length} file(s).`,
       );
     }
@@ -233,15 +231,9 @@ export async function runWorktreeGc(ctx, fetched) {
     );
     const gcResult = await worktreeManager.gc(openStoryIds, { epicBranch });
     if (gcResult.reaped.length > 0) {
-      vlog.info(
-        'orchestration',
-        `Worktree GC reaped ${gcResult.reaped.length} orphan(s).`,
-      );
+      Logger.info(`Worktree GC reaped ${gcResult.reaped.length} orphan(s).`);
     }
   } catch (err) {
-    vlog.warn(
-      'orchestration',
-      `Worktree GC failed (non-fatal): ${err.message}`,
-    );
+    Logger.warn(`Worktree GC failed (non-fatal): ${err.message}`);
   }
 }

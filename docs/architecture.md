@@ -668,15 +668,16 @@ Operational difficulties are logged directly to GitHub Task tickets via
 `diagnose-friction.js`. This captures tool failures, command errors, and
 automation candidates as structured comments.
 
-### Verbose Logging
+### Log Levels
 
-When `agentSettings.verboseLogging.enabled` is `true`, the `VerboseLogger`
-writes structured JSONL files to `temp/verbose-logs/` capturing:
+`lib/Logger.js` is the single orchestrator logger. Level is selected via
+`AGENT_LOG_LEVEL`:
 
-- Agent action dispatches and environment observations
-- Workflow phase transitions
-- Integration events
-- Configuration resolution details
+- `silent`  — only `fatal` emits.
+- `info`    — default. `info` / `warn` / `error` / `fatal` emit; `debug` is
+  suppressed.
+- `verbose` — all levels emit, including `debug` trace output. `debug` is
+  accepted as a backward-compatible alias for `verbose`.
 
 ### Notification System
 

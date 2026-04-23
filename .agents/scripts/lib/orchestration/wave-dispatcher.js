@@ -10,8 +10,8 @@ import fs from 'node:fs';
 import { PROJECT_ROOT } from '../config-resolver.js';
 import { branchExistsLocally } from '../git-branch-lifecycle.js';
 import { TYPE_LABELS } from '../label-constants.js';
+import { Logger } from '../Logger.js';
 import { hydrateContext } from './context-hydration-engine.js';
-import { vlog } from './dispatch-logger.js';
 import { getResolvedBranch } from './manifest-builder.js';
 import { STATE_LABELS } from './ticketing.js';
 
@@ -93,10 +93,7 @@ async function dispatchTaskInWave(task, ctx) {
   };
 
   if (dryRun) {
-    vlog.info(
-      'orchestration',
-      `[DRY-RUN] Would dispatch Task #${task.id}: ${task.title}`,
-    );
+    Logger.info(`[DRY-RUN] Would dispatch Task #${task.id}: ${task.title}`);
     return {
       taskId: task.id,
       dispatchId: `dry-run-${task.id}`,
@@ -117,8 +114,7 @@ async function dispatchTaskInWave(task, ctx) {
       : branchExistsLocally(taskBranch, PROJECT_ROOT);
 
     if (!initialized) {
-      vlog.info(
-        'orchestration',
+      Logger.info(
         `⏭️  Skipping Task #${task.id}: Story #${storyId} not initialized. ` +
           `Run \`/sprint-execute #${storyId}\` to begin this story.`,
       );
@@ -139,8 +135,7 @@ async function dispatchTaskInWave(task, ctx) {
   });
 
   const result = await adapter.dispatchTask(taskDispatch);
-  vlog.info(
-    'orchestration',
+  Logger.info(
     `✅ Dispatched Task #${task.id} — dispatchId: ${result.dispatchId}`,
   );
   return { taskId: task.id, ...result };
@@ -160,7 +155,7 @@ export async function dispatchWave(wave, taskMap, ctx) {
   );
 
   if (eligible.length === 0) {
-    vlog.info('orchestration', 'Wave fully complete, moving to next...');
+    Logger.info('Wave fully complete, moving to next...');
     return {
       dispatched: [],
       heldForApproval: [],
@@ -176,7 +171,7 @@ export async function dispatchWave(wave, taskMap, ctx) {
     }),
   );
   if (!waveDepsComplete) {
-    vlog.info('orchestration', 'Wave dependencies not yet complete. Halting.');
+    Logger.info('Wave dependencies not yet complete. Halting.');
     return {
       dispatched: [],
       heldForApproval: [],
