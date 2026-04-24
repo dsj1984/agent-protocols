@@ -175,6 +175,7 @@ follow-on work (retro action items carried forward from Epic #380).
 | `setPlan({ waves })`                                | Method                | `ProgressReporter` API added in #413. Called once at runner start with the full wave plan so each fire renders every wave + story (queued / in-flight / done / blocked) with a `Wave` column rather than only the active wave. |
 | `progress-signals/stalled-worktree.js`              | Detector              | Mechanical `ProgressReporter` detector; flags Stories where `agent::done` ships with a live `.worktrees/story-<id>/` directory still on disk (the Windows partial-reap residue class). |
 | `progress-signals/maintainability-drift.js`         | Detector              | Mechanical `ProgressReporter` detector; emits a Notable bullet when the maintainability score for any tracked file has drifted negatively from the recorded baseline since wave-start. |
+| `progress-signals/crap-drift.js`                    | Detector              | Mechanical `ProgressReporter` detector; per-method CRAP drift versus a wave-start baseline. Surfaces a `🧨 CRAP drift: <file>::<method> <score> (ceiling <N>)` bullet when a method crosses the configured ceiling or rises by ≥ threshold since snapshot. Baseline persisted under `.agents/state/crap-baseline.json`. |
 
 ### 10. Epic #441 Artefacts (v5.15.3)
 
