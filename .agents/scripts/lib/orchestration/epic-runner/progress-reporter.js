@@ -26,10 +26,29 @@ import { appendFile, mkdir } from 'node:fs/promises';
 import { dirname } from 'node:path';
 
 import { AGENT_LABELS } from '../../label-constants.js';
-import { upsertStructuredComment } from '../ticketing.js';
+import {
+  findStructuredComment,
+  upsertStructuredComment,
+} from '../ticketing.js';
 import { createStalledWorktreeDetector } from './progress-signals/stalled-worktree.js';
 
 export const EPIC_RUN_PROGRESS_TYPE = 'epic-run-progress';
+export const PHASE_TIMINGS_TYPE = 'phase-timings';
+
+// Fixed ordering for the rendered phase-timings table. Matches the enum
+// in lib/util/phase-timer.js so rows line up with how operators think
+// about the story lifecycle rather than re-sorting by alphabet or
+// frequency.
+const PHASE_ORDER = [
+  'worktree-create',
+  'bootstrap',
+  'install',
+  'implement',
+  'lint',
+  'test',
+  'close',
+  'api-sync',
+];
 
 const STATE_EMOJI = {
   done: '✅',
@@ -92,6 +111,14 @@ export class ProgressReporter {
 
     this.timer = null;
     this.emitting = false;
+    // Cache of per-story phase-timing summaries keyed by storyId. Stories
+    // that have posted a `phase-timings` comment hold a parsed summary;
+    // stories that are done but posted no summary hold the sentinel
+    // `'absent'`. Sentinel-caching prevents re-fetching comments that will
+    // never materialize (e.g. legacy stories that closed before this
+    // feature shipped). Once a story is done, the comment body is
+    // immutable — so one fetch per story per epic run is sufficient.
+    this.phaseTimingCache = new Map();
     this.currentWave = null; // { index, totalWaves, stories: [...], startedAt }
     // Full plan: ordered list of waves, each `{ index, stories: [storyId,...] }`.
     // Set once via `setPlan()` at runner start so each fire renders every wave
@@ -246,7 +273,8 @@ export class ProgressReporter {
             id,
             ...byId.get(id),
           }));
-      const body = await this.#render(rows);
+      const phaseSummaries = await this.#collectPhaseTimingSummaries(rows);
+      const body = await this.#render(rows, phaseSummaries);
       this.logger.info?.(body);
       if (this.logFile) {
         try {
@@ -313,7 +341,40 @@ export class ProgressReporter {
     }
   }
 
-  async #render(rows) {
+  /**
+   * Fetch and parse `phase-timings` structured comments for any `done`
+   * story we haven't already cached. Returns the ordered list of parsed
+   * summaries for currently-done stories in the plan, suitable for
+   * aggregation by `#renderPhaseTimings`.
+   */
+  async #collectPhaseTimingSummaries(rows) {
+    const doneRows = rows.filter((r) => r.state === 'done');
+    await Promise.all(
+      doneRows.map(async (r) => {
+        if (this.phaseTimingCache.has(r.id)) return;
+        try {
+          const comment = await findStructuredComment(
+            this.provider,
+            r.id,
+            PHASE_TIMINGS_TYPE,
+          );
+          const parsed = parsePhaseTimingsComment(comment);
+          this.phaseTimingCache.set(r.id, parsed ?? 'absent');
+        } catch (err) {
+          this.logger.warn?.(
+            `[ProgressReporter] phase-timings fetch failed for #${r.id}: ${err.message}`,
+          );
+          // Don't cache on error — a transient read failure should retry
+          // next tick, whereas a parsed-absent sentinel is permanent.
+        }
+      }),
+    );
+    return doneRows
+      .map((r) => this.phaseTimingCache.get(r.id))
+      .filter((v) => v && v !== 'absent');
+  }
+
+  async #render(rows, phaseSummaries = []) {
     const done = rows.filter((r) => r.state === 'done').length;
     const total = rows.length;
     const totalWaves = this.plan?.length ?? this.currentWave?.totalWaves ?? '?';
@@ -349,7 +410,10 @@ export class ProgressReporter {
         ].join('\n');
 
     const notable = await this.#renderNotable(rows);
-    return [header, '', table, '', '**Notable**', notable].join('\n');
+    const phaseBlock = renderPhaseTimingsSection(phaseSummaries);
+    const parts = [header, '', table, '', '**Notable**', notable];
+    if (phaseBlock) parts.push('', phaseBlock);
+    return parts.join('\n');
   }
 
   async #renderNotable(rows) {
@@ -426,4 +490,104 @@ function formatElapsed(ms) {
   if (h) return `${h}h ${m}m`;
   if (m) return `${m}m ${sec}s`;
   return `${sec}s`;
+}
+
+/**
+ * Extract the `{ phases, ... }` payload from a `phase-timings` structured
+ * comment. Comment body is the fenced-JSON format produced by
+ * `renderPhaseTimingsCommentBody` in sprint-story-close. Returns `null`
+ * for any parse failure — the caller treats that as "no summary
+ * available" without erroring out progress rendering.
+ */
+export function parsePhaseTimingsComment(comment) {
+  if (!comment || typeof comment.body !== 'string') return null;
+  const match = comment.body.match(/```json\s*\n([\s\S]*?)\n```/);
+  if (!match) return null;
+  try {
+    const payload = JSON.parse(match[1]);
+    if (!Array.isArray(payload.phases)) return null;
+    return {
+      storyId: Number(payload.storyId),
+      totalMs: Number(payload.totalMs) || 0,
+      phases: payload.phases
+        .filter(
+          (p) =>
+            p &&
+            typeof p.name === 'string' &&
+            Number.isFinite(Number(p.elapsedMs)),
+        )
+        .map((p) => ({ name: p.name, elapsedMs: Number(p.elapsedMs) })),
+    };
+  } catch {
+    return null;
+  }
+}
+
+/**
+ * Aggregate a list of `phase-timings` summaries into per-phase median,
+ * p95, and sample count. Returns phases ordered by the canonical
+ * `PHASE_ORDER` so the rendered table always has the same row sequence —
+ * operators should never have to hunt for the `install` row.
+ */
+export function aggregatePhaseTimings(summaries) {
+  const buckets = new Map();
+  for (const s of summaries) {
+    if (!s || !Array.isArray(s.phases)) continue;
+    for (const p of s.phases) {
+      if (!buckets.has(p.name)) buckets.set(p.name, []);
+      buckets.get(p.name).push(p.elapsedMs);
+    }
+  }
+  const rows = [];
+  for (const name of PHASE_ORDER) {
+    const samples = buckets.get(name);
+    if (!samples || samples.length === 0) continue;
+    rows.push({
+      name,
+      median: percentile(samples, 0.5),
+      p95: percentile(samples, 0.95),
+      n: samples.length,
+    });
+  }
+  // Include any unexpected phase names at the tail so a future enum
+  // addition surfaces in the table instead of being silently dropped.
+  for (const [name, samples] of buckets.entries()) {
+    if (PHASE_ORDER.includes(name)) continue;
+    rows.push({
+      name,
+      median: percentile(samples, 0.5),
+      p95: percentile(samples, 0.95),
+      n: samples.length,
+    });
+  }
+  return rows;
+}
+
+function percentile(samples, q) {
+  const sorted = [...samples].sort((a, b) => a - b);
+  if (sorted.length === 0) return 0;
+  // Nearest-rank method — clamped so q=1 picks the last element.
+  const idx = Math.min(
+    sorted.length - 1,
+    Math.max(0, Math.ceil(q * sorted.length) - 1),
+  );
+  return sorted[idx];
+}
+
+/**
+ * Render the aggregated phase-timings table. Returns `null` when there
+ * are no summaries to render so the caller can elide the section
+ * entirely rather than emitting an empty stub.
+ */
+export function renderPhaseTimingsSection(summaries) {
+  if (!Array.isArray(summaries) || summaries.length === 0) return null;
+  const rows = aggregatePhaseTimings(summaries);
+  if (rows.length === 0) return null;
+  const header = `### Phase timings (last ${summaries.length} completed stor${summaries.length === 1 ? 'y' : 'ies'})`;
+  const table = [
+    '| Phase | median ms | p95 ms | n |',
+    '| --- | --- | --- | --- |',
+    ...rows.map((r) => `| ${r.name} | ${r.median} | ${r.p95} | ${r.n} |`),
+  ].join('\n');
+  return `${header}\n\n${table}`;
 }
