@@ -15,10 +15,7 @@ import { describe, it } from 'node:test';
 import { parseBlockedBy } from '../../.agents/scripts/lib/dependency-parser.js';
 import { computeWaves } from '../../.agents/scripts/lib/Graph.js';
 import { runEpic } from '../../.agents/scripts/lib/orchestration/epic-runner.js';
-
-function quietLogger() {
-  return { info: () => {}, warn: () => {}, error: () => {} };
-}
+import { buildCtx } from './_build-ctx.js';
 
 // Stub the pre-wave smoke-test so these tests stay hermetic across CI
 // runners that may not have the `claude` binary on PATH.
@@ -110,12 +107,8 @@ describe('epic-runner dependency source (body-parsed)', () => {
     };
 
     const result = await runEpic({
-      epicId,
-      provider,
-      config,
-      spawn,
+      ctx: buildCtx({ epicId, provider, config, spawn }),
       smokeTest: okSmokeTest,
-      logger: quietLogger(),
     });
 
     assert.equal(result.state, 'completed');
@@ -146,12 +139,8 @@ describe('epic-runner dependency source (body-parsed)', () => {
 
     const spawn = async () => ({ status: 'done' });
     const result = await runEpic({
-      epicId,
-      provider,
-      config,
-      spawn,
+      ctx: buildCtx({ epicId, provider, config, spawn }),
       smokeTest: okSmokeTest,
-      logger: quietLogger(),
     });
 
     assert.equal(result.state, 'completed');
@@ -200,12 +189,8 @@ describe('epic-runner dependency source (body-parsed)', () => {
       return { status: 'done' };
     };
     const result = await runEpic({
-      epicId,
-      provider,
-      config,
-      spawn,
+      ctx: buildCtx({ epicId, provider, config, spawn }),
       smokeTest: okSmokeTest,
-      logger: quietLogger(),
     });
 
     // Parity: same number of waves, same membership per wave.
