@@ -206,8 +206,7 @@ const isDirect = (() => {
   try {
     const invoked = process.argv[1] ? path.resolve(process.argv[1]) : '';
     const self = new URL(import.meta.url).pathname;
-    const normalizedSelf =
-      /^\/[A-Za-z]:/.test(self) ? self.slice(1) : self;
+    const normalizedSelf = /^\/[A-Za-z]:/.test(self) ? self.slice(1) : self;
     return path.resolve(normalizedSelf) === invoked;
   } catch {
     return false;

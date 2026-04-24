@@ -45,8 +45,7 @@ describe('parseChangedSinceArg', () => {
 
 describe('check-maintainability CLI — bad --changed-since ref (AC14 parity)', () => {
   it('exits non-zero with a clear "unable to resolve" message', () => {
-    const badRef =
-      'refs/heads/__never_exists_mi_changed_since_test_b18742__';
+    const badRef = 'refs/heads/__never_exists_mi_changed_since_test_b18742__';
     const script = path.join(
       REPO_ROOT,
       '.agents',

@@ -32,10 +32,7 @@ describe('getChangedFiles', () => {
       stderr: '',
     });
     const out = getChangedFiles({ ref: 'main', cwd: '/repo', git: iface });
-    assert.deepEqual(out, [
-      '.agents/scripts/foo.js',
-      '.agents/scripts/bar.js',
-    ]);
+    assert.deepEqual(out, ['.agents/scripts/foo.js', '.agents/scripts/bar.js']);
     assert.equal(calls.length, 1);
     assert.equal(calls[0].cwd, '/repo');
     assert.deepEqual(calls[0].args, ['diff', '--name-only', 'main...HEAD']);

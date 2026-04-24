@@ -118,12 +118,7 @@ describe('scanAndScore — scopeFiles narrowing (PR touching 2 files)', () => {
           return 0;
         }
       `;
-      const relPaths = [
-        'src/a.js',
-        'src/b.js',
-        'src/sub/c.js',
-        'src/sub/d.js',
-      ];
+      const relPaths = ['src/a.js', 'src/b.js', 'src/sub/c.js', 'src/sub/d.js'];
       for (const rel of relPaths) writeJsFile(tmp, rel, validBody);
       // Canary — would blow up if the scope filter let it through to the
       // scorer. Intentionally garbage.
@@ -191,9 +186,30 @@ describe('diff-scoped vs full-repo divergence (AC13)', () => {
 
     // Current state: touched-* unchanged, untouched.js regressed hard.
     const currentRowsFullScan = [
-      { file: 'src/touched-a.js', method: 'one', startLine: 10, cyclomatic: 2, coverage: 1.0, crap: 2.0 },
-      { file: 'src/touched-b.js', method: 'two', startLine: 10, cyclomatic: 2, coverage: 1.0, crap: 2.0 },
-      { file: 'src/untouched.js', method: 'three', startLine: 10, cyclomatic: 5, coverage: 0.1, crap: 23.2 },
+      {
+        file: 'src/touched-a.js',
+        method: 'one',
+        startLine: 10,
+        cyclomatic: 2,
+        coverage: 1.0,
+        crap: 2.0,
+      },
+      {
+        file: 'src/touched-b.js',
+        method: 'two',
+        startLine: 10,
+        cyclomatic: 2,
+        coverage: 1.0,
+        crap: 2.0,
+      },
+      {
+        file: 'src/untouched.js',
+        method: 'three',
+        startLine: 10,
+        cyclomatic: 5,
+        coverage: 0.1,
+        crap: 23.2,
+      },
     ];
 
     // Full-repo scan (no --changed-since): the untouched regression is caught.
@@ -235,7 +251,14 @@ describe('diff-scoped vs full-repo divergence (AC13)', () => {
       { file: 'src/untouched.js', method: 'three', startLine: 10, crap: 2.0 },
     ];
     const currentRows = [
-      { file: 'src/touched-a.js', method: 'one', startLine: 10, cyclomatic: 5, coverage: 0.1, crap: 23.2 },
+      {
+        file: 'src/touched-a.js',
+        method: 'one',
+        startLine: 10,
+        cyclomatic: 5,
+        coverage: 0.1,
+        crap: 23.2,
+      },
     ];
     const scopeSet = new Set(['src/touched-a.js']);
     const scopedResult = compareCrap({
@@ -253,14 +276,8 @@ describe('CLI integration — bad ref fails closed (AC14)', () => {
     // Spawn the real CLI. We cannot mock the git subprocess here, so we point
     // at a ref that is virtually guaranteed not to exist in any checkout.
     // The CLI must never silently degrade to "no regressions found" — see AC14.
-    const badRef =
-      'refs/heads/__never_exists_crap_changed_since_test_9f3c1a__';
-    const script = path.join(
-      REPO_ROOT,
-      '.agents',
-      'scripts',
-      'check-crap.js',
-    );
+    const badRef = 'refs/heads/__never_exists_crap_changed_since_test_9f3c1a__';
+    const script = path.join(REPO_ROOT, '.agents', 'scripts', 'check-crap.js');
     const result = spawnSync(
       process.execPath,
       [script, '--changed-since', badRef],
