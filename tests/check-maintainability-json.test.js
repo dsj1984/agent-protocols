@@ -67,7 +67,7 @@ test('buildMaintainabilityReport — regression envelope validates and omits fix
   assert.strictEqual(v.baseline, 75.0);
   assert.strictEqual(v.drop, 4.9);
   assert.ok(
-    !Object.prototype.hasOwnProperty.call(v, 'fixGuidance'),
+    !Object.hasOwn(v, 'fixGuidance'),
     'MI violations must not carry fixGuidance',
   );
 });
