@@ -174,6 +174,26 @@ export class GitHubProvider extends ITicketingProvider {
     return this._getEpics(filters);
   }
 
+  /**
+   * Paginated list of open issues filtered by a label query.
+   *
+   * Used by `StatePoller#bulkLabelPoll` to batch a whole wave's state reads
+   * into one paginated request. Returns raw issue objects (PRs filtered out)
+   * so the caller can shape-check `{ number, labels }` and demote to the
+   * per-ticket fallback on any malformed entry.
+   *
+   * @param {{ state?: 'open'|'closed'|'all', labels?: string }} [opts]
+   * @returns {Promise<Array<object>>}
+   */
+  async listIssuesByLabel({ state = 'open', labels } = {}) {
+    const params = new URLSearchParams({ state });
+    if (labels) params.set('labels', labels);
+    const issues = await this._http.restPaginated(
+      `/repos/${this.owner}/${this.repo}/issues?${params}`,
+    );
+    return issues.filter((issue) => !issue?.pull_request);
+  }
+
   /* node:coverage ignore next */
   async getEpics(filters = {}) {
     return this._getEpics(filters);
