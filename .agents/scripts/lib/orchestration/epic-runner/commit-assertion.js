@@ -63,7 +63,11 @@ export class CommitAssertion {
       async (raw) => {
         const storyId = Number(raw);
         if (!Number.isInteger(storyId)) {
-          return { storyId: raw, newCommitCount: null, error: 'invalid storyId' };
+          return {
+            storyId: raw,
+            newCommitCount: null,
+            error: 'invalid storyId',
+          };
         }
         try {
           const count = await this.gitAdapter({ epicId, storyId });

@@ -132,7 +132,9 @@ describe('CommitAssertion', () => {
       { code: 'EBUSY' },
     );
     const eperm = Object.assign(
-      new Error("EPERM: operation not permitted, unlink '.git/objects/pack/.tmp'"),
+      new Error(
+        "EPERM: operation not permitted, unlink '.git/objects/pack/.tmp'",
+      ),
       { code: 'EPERM' },
     );
     const warnings = [];
