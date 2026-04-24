@@ -24,7 +24,14 @@
  * @see docs/v5-implementation-plan.md Sprint 1B
  */
 
-import { execSync } from 'node:child_process';
+import { execSync as defaultExecSync } from 'node:child_process';
+
+// Test seam: execSync is indirected through this holder so tests can swap
+// it via `__setExecSyncForTests`. Production always uses the real impl.
+const execSyncHolder = { impl: defaultExecSync };
+export function __setExecSyncForTests(fn) {
+  execSyncHolder.impl = fn ?? defaultExecSync;
+}
 import { parseBlockedBy, parseBlocks } from '../lib/dependency-parser.js';
 import { ITicketingProvider } from '../lib/ITicketingProvider.js';
 import { TYPE_LABELS } from '../lib/label-constants.js';
@@ -70,12 +77,18 @@ function resolveToken() {
   if (token) return token;
 
   try {
-    const ghToken = execSync('gh auth token', {
+    const ghToken = execSyncHolder.impl('gh auth token', {
       encoding: 'utf8',
       timeout: 5000,
       stdio: ['pipe', 'pipe', 'pipe'],
     }).trim();
-    if (ghToken) return ghToken;
+    if (ghToken) {
+      // Memoize across subsequent provider constructions. Only set when
+      // unset — never overwrite an operator-supplied token (Tech Spec #555,
+      // Security & Privacy — Token memoization).
+      if (!process.env.GITHUB_TOKEN) process.env.GITHUB_TOKEN = ghToken;
+      return ghToken;
+    }
   } catch {
     // gh CLI not installed or not authenticated
   }
