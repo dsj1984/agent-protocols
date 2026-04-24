@@ -1310,9 +1310,15 @@ test('_removeCopiedAgents: removes the copied directory and scrubs the index git
 test('_removeCopiedAgents: unlinks legacy symlinks without traversing into the target', () => {
   // Worktrees created under the old symlink scheme may still be live when
   // the copy-based code ships. `_removeCopiedAgents` must detect the symlink
-  // and unlink it rather than rmSync-ing through it.
+  // and unlink it rather than rmSync-ing through it. The legacy scheme
+  // only existed in submodule-consumer repos, so `.gitmodules` is part of
+  // the fixture.
   const tmp = fs.mkdtempSync(path.join(os.tmpdir(), 'wt-legacy-symlink-'));
   try {
+    fs.writeFileSync(
+      path.join(tmp, '.gitmodules'),
+      '[submodule ".agents"]\n\tpath = .agents\n\turl = ../agents\n',
+    );
     const rootAgents = path.join(tmp, '.agents');
     fs.mkdirSync(rootAgents);
     fs.writeFileSync(path.join(rootAgents, 'sentinel.txt'), 'precious');
@@ -1416,12 +1422,18 @@ test('_removeCopiedAgents: refuses to purge a gitdir outside the main repos .git
   }
 });
 
-test('_removeCopiedAgents: skips index scrub in non-submodule (framework) repos', () => {
+test('_removeCopiedAgents: skips index scrub AND preserves tracked .agents in non-submodule (framework) repos', () => {
+  // See ADR-20260424-638a: the physical-delete branch must also be guarded,
+  // otherwise `.agents/` (a tracked directory in framework repos) is wiped
+  // immediately before `git worktree remove`, leaving the worktree dirty
+  // and forcing the reap path into the fs-rm-retry tail.
   const tmp = fs.mkdtempSync(path.join(os.tmpdir(), 'wt-framework-'));
   try {
     // No .gitmodules → _isAgentsSubmodule() returns false.
     const wtPath = path.join(tmp, '.worktrees', 'story-1');
-    fs.mkdirSync(wtPath, { recursive: true });
+    const wtAgents = path.join(wtPath, '.agents');
+    fs.mkdirSync(wtAgents, { recursive: true });
+    fs.writeFileSync(path.join(wtAgents, 'sentinel.txt'), 'tracked content');
 
     const calls = [];
     const git = {
@@ -1444,6 +1456,15 @@ test('_removeCopiedAgents: skips index scrub in non-submodule (framework) repos'
       'framework repos must not probe the index',
     );
     assert.equal(calls.includes('rm'), false);
+    assert.equal(
+      fs.existsSync(wtAgents),
+      true,
+      'tracked .agents must survive reap in framework repos',
+    );
+    assert.equal(
+      fs.readFileSync(path.join(wtAgents, 'sentinel.txt'), 'utf8'),
+      'tracked content',
+    );
   } finally {
     fs.rmSync(tmp, { recursive: true, force: true });
   }

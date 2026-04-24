@@ -33,6 +33,42 @@ archive.
 > `gh api repos/{owner}/{repo}/issues/[EPIC_ID]/comments` and survives branch
 > pruning, repo moves, and local cleanups.
 
+## Step 0.5 — Evaluate the Clean-Manifest Heuristic
+
+Before composing six sections of retro boilerplate, check whether the Epic's
+frozen dispatch manifest carries any friction signals at all. Clean sprints
+(zero friction, zero parked follow-ons, zero recuts, zero hotfixes, zero HITL
+gates) collapse into a three-section **compact retro** that preserves the
+scorecard and the session-observation surface without the six-section overhead.
+
+Gather the five counts and evaluate the predicate:
+
+```js
+import { isCleanManifest } from '[SCRIPTS_ROOT]/lib/orchestration/retro-heuristics.js';
+
+const counts = {
+  friction,   // count of `friction` structured comments across descendants
+  parked,     // parked follow-ons from the `parked-follow-ons` comment (no manifest lineage)
+  recuts,     // Stories carrying a `<!-- recut-of: #N -->` marker
+  hotfixes,   // Tasks that flipped to `status::blocked` mid-sprint
+  hitl,       // Tasks that tripped the HITL gate (`risk::high`)
+};
+
+const compact = isCleanManifest(counts);
+```
+
+- `compact === true` → follow the **compact path** in Step 2 (three sections).
+- `compact === false` → follow the **full path** in Step 2 (six sections — the
+  default composition that has always applied).
+
+> **Operator override.** If the caller passed `--full-retro` (via
+> `/sprint-close --full-retro` or a direct helper invocation), treat
+> `compact` as `false` regardless of the heuristic and compose the full
+> six-section retro. The `--full-retro` flag is the documented escape
+> hatch for cases where the operator wants the full narrative treatment on
+> a scorecard-clean sprint (e.g. the Epic introduced subtle architectural
+> drift that the numeric signals missed).
+
 ## Step 1 — Gather Retrospective Data from the Ticket Graph
 
 Read execution telemetry directly from GitHub — **not** from local files:
@@ -67,11 +103,20 @@ Read execution telemetry directly from GitHub — **not** from local files:
 
 ## Step 2 — Compose the Retrospective Markdown
 
-Produce the retro body (in memory — do **not** write to disk) with this
-structure. The body **must end** with an HTML marker comment of the form
-`<!-- retro-complete: <ISO_TIMESTAMP> -->` — that marker is the detection signal
-used by `/sprint-close`'s Retrospective Gate (Step 1.5) when a
-structured-comment lookup is unavailable.
+Produce the retro body (in memory — do **not** write to disk) with one of two
+structures, selected by the Step 0.5 heuristic:
+
+- **Compact path** (three sections) — fires when `isCleanManifest` returned
+  `true` and `--full-retro` was not set. Jump to
+  [Step 2 — Compact path](#step-2--compact-path-clean-manifest-only).
+- **Full path** (six sections) — fires otherwise. Continue with the full
+  template below.
+
+Either path ends with the same `<!-- retro-complete: <ISO_TIMESTAMP> -->`
+HTML marker — that marker is the detection signal used by `/sprint-close`'s
+Retrospective Gate (Step 1.5) when a structured-comment lookup is unavailable.
+The final post in Step 3 is `type: 'retro'` regardless of which path composed
+the body, so downstream tooling sees the same comment shape.
 
 ### Checkpoint after each composed section (`retro-partial`)
 
@@ -154,6 +199,54 @@ top for human readability, but `/sprint-close`'s Retrospective Gate no longer
 depends on a heading grep — it prefers `provider.getComments(epicId)` filtered
 by `type === "retro"` and falls back to grepping for the `retro-complete:` HTML
 marker added at the end of the body.
+
+## Step 2 — Compact path (clean-manifest only)
+
+When `isCleanManifest` returned `true` and `--full-retro` was not set, compose
+the three-section retro body below. The `retro-partial` checkpoint cadence
+collapses to three upserts instead of six (one after each composed section).
+The final post in Step 3 is still `type: 'retro'` with the
+`retro-complete:` marker; only the body shape changes.
+
+```markdown
+## 🪞 Sprint Retrospective — Epic #[EPIC_ID]: [Epic Title]
+
+_Generated [ISO date] · Protocol Version [from .agents/VERSION]_
+
+🟢 Clean sprint — zero friction, zero parked follow-ons, zero recuts, zero hotfixes, zero HITL gates.
+
+### Sprint Scorecard
+
+| Metric                    | Value |
+| ------------------------- | ----- |
+| Total Tasks               |       |
+| Tasks Completed First Try |       |
+| Tasks Requiring Hotfix    | 0     |
+| HITL Gates Triggered      | 0     |
+| Friction Events           | 0     |
+
+### Session Observations
+
+> Merges **What Went Well**, **What Could Be Improved**, and **Architectural
+> Debt** into a single narrative section. The operator still contributes here
+> — numeric cleanliness is not the same as "nothing worth noting". If the run
+> truly was unremarkable beyond the scorecard, `_Nothing notable beyond the
+> scorecard._` is an acceptable body.
+
+### Action Items for Next Epic
+
+> Clear, actionable items surfaced during this sprint. An empty list is valid
+> signal (the sprint was genuinely self-contained), **not** a failure mode —
+> do not fabricate action items to fill the section.
+
+<!-- retro-complete: 2026-04-15T00:00:00Z -->
+```
+
+Replace the placeholder ISO timestamp with the actual time the retro was
+composed. The **Protocol Optimization Recommendations** section is deliberately
+omitted from the compact path — a clean-manifest sprint did not produce
+systemic friction worth codifying. Restore the full six-section structure by
+re-running the helper with `--full-retro` if you need that section.
 
 ## Step 3 — Post the Retrospective as an Epic Comment
 
@@ -240,3 +333,9 @@ Commit these with a conventional `docs(...)` message on the Epic branch. Do
   section rather than starting over.
 - GitHub is the Single Source of Truth in v5 — all execution data must be
   sourced from the ticket graph.
+- **`--full-retro` override.** `/sprint-close --full-retro` (or an explicit
+  caller-side flag) forces the full six-section path regardless of the Step
+  0.5 heuristic. The override is opt-in — the compact path stays the default
+  for clean manifests. Use it when numeric signals miss an observation the
+  operator wants captured in the richer template (e.g. architectural debt
+  that would otherwise slip past a scorecard-clean sprint).

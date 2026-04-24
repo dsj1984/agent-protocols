@@ -4,6 +4,42 @@ All notable changes to this project will be documented in this file.
 
 ## [Unreleased]
 
+## [5.23.0] - 2026-04-24
+
+### Framework perf & docs follow-ons from Epic #553 retro (Epic #638)
+
+Tunes the primitives shipped in #553 with measurement data, and converts
+four carry-over retro observations into durable protocol — concurrency
+caps, a CHANGELOG style contract, a compact-retro short-circuit for
+clean sprints, and a terminal decision on the `story-566` reap-recovery
+log line.
+
+- **Configurable concurrency caps.** New `orchestration.concurrency`
+  config block exposes `waveGate` (0 = uncapped, preserves v5.21.0
+  Promise.all), `commitAssertion` (default 4), `progressReporter`
+  (default 8). Adoption at the three v5.21.0 `concurrentMap` sites reads
+  via `ctx.concurrency`; omitting the keys reproduces v5.21.0 behaviour
+  bit-for-bit.
+- **phase-timings aggregator CLI.** New
+  `.agents/scripts/aggregate-phase-timings.js` reads `phase-timings`
+  structured comments across N Epics and prints per-phase p50/p95 plus
+  recommended caps. Feeds future cap tuning without a dashboard.
+- **CHANGELOG style contract.** New `.agents/rules/changelog-style.md`
+  codifies the per-release format (1–3 sentence theme, bullets of
+  user-visible changes, banned internal detail, breaking-change
+  prominence, ≤60 soft line ceiling). Referenced from `/sprint-close`
+  Phase 1.3; this entry is itself a worked example.
+- **Compact-retro short-circuit.** `helpers/sprint-retro.md` now
+  computes an `isCleanManifest` predicate (zero friction, parked,
+  recuts, hotfixes, hitl) and emits a three-section retro on clean
+  sprints. New `--full-retro` flag on `/sprint-close` forces the
+  six-section format when needed. `retro-complete:` marker and
+  `type: 'retro'` comment shape unchanged.
+- **Reap-recovery audit closed.** Story-566's `fs-rm-retry` recovery
+  was audited end-to-end and classified as self-inflicted dirty-tree
+  bug. `bootstrapper.js` now guards `.agents` removal by submodule
+  detection so the worktree is no longer dirtied at bootstrap.
+
 ## [5.22.0] - 2026-04-24
 
 ### CRAP analysis — complexity × coverage risk gate (Epic #596)

@@ -58,7 +58,7 @@ export function createEpicRunnerCollaborators(ctx, { errorJournal } = {}) {
   const gitAdapter =
     ctx.gitAdapter ?? buildDefaultGitAdapter({ cwd: ctx.cwd ?? process.cwd() });
   const commitAssertion =
-    ctx.commitAssertion ?? new CommitAssertion({ gitAdapter, logger });
+    ctx.commitAssertion ?? new CommitAssertion({ ctx, gitAdapter, logger });
   const waveObserver = new WaveObserver({ ctx, commitAssertion });
   const frictionEmitter = createFrictionEmitter({ provider, logger });
   const progressLogFile = resolveProgressLogFile(config?.epicRunner, epicId);

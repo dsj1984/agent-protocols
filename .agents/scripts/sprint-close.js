@@ -17,16 +17,23 @@
  *
  * Notify:
  *   4. Emit the terminal banner (success or warning summary) and honour
- *      `--skip-retro` / `--skip-code-review` by logging the override so
- *      the operator has an audit trail.
+ *      `--skip-retro` / `--skip-code-review` / `--full-retro` by logging
+ *      the override so the operator has an audit trail.
  *
  * The merge-to-main and version tag remain high-visibility manual steps
  * in the workflow; this script is deliberately agnostic about them so a
  * failed release never corrupts the Epic closure state.
  *
+ * `--full-retro` is an advisory flag: sprint-close.js does not compose the
+ * retro itself (the retro helper does that, invoked from `/sprint-close`
+ * Phase 5.1). The flag is logged here so the operator sees the override
+ * in the close audit trail, and the `/sprint-close` workflow is
+ * responsible for propagating it into the retro helper invocation so the
+ * compact-retro heuristic is bypassed.
+ *
  * Usage:
  *   node .agents/scripts/sprint-close.js --epic <EPIC_ID>
- *     [--no-cleanup] [--skip-retro] [--skip-code-review]
+ *     [--no-cleanup] [--skip-retro] [--skip-code-review] [--full-retro]
  *     [--no-reap-discard-after-merge]
  */
 
@@ -51,6 +58,7 @@ async function main() {
       cleanup: { type: 'boolean', default: true },
       'skip-retro': { type: 'boolean', default: false },
       'skip-code-review': { type: 'boolean', default: false },
+      'full-retro': { type: 'boolean', default: false },
       'no-reap-discard-after-merge': { type: 'boolean', default: false },
     },
     strict: false,
@@ -70,6 +78,7 @@ async function main() {
   logSkipOverrides({
     skipRetro: values['skip-retro'] === true,
     skipCodeReview: values['skip-code-review'] === true,
+    fullRetro: values['full-retro'] === true,
   });
 
   const warnings = [];
@@ -94,11 +103,14 @@ async function main() {
 }
 
 /**
- * Record `--skip-*` overrides so the audit trail shows why a pre-close gate
- * was bypassed. Logging is intentionally best-effort — a skip flag never
- * halts close, it only narrates what the operator chose.
+ * Record `--skip-*` / `--full-retro` overrides so the audit trail shows why
+ * a pre-close gate was bypassed or which retro shape the operator forced.
+ * Logging is intentionally best-effort — the flags never halt close, they
+ * only narrate what the operator chose. `skipRetro` and `fullRetro` are
+ * mutually meaningful only when passed together (skip wins); if both are
+ * set, both lines log so the intent is visible.
  */
-function logSkipOverrides({ skipRetro, skipCodeReview }) {
+function logSkipOverrides({ skipRetro, skipCodeReview, fullRetro }) {
   if (skipCodeReview) {
     progress(
       'REVIEW',
@@ -107,6 +119,12 @@ function logSkipOverrides({ skipRetro, skipCodeReview }) {
   }
   if (skipRetro) {
     progress('NOTIFY', '⚠️ retro skipped by operator override (--skip-retro)');
+  }
+  if (fullRetro) {
+    progress(
+      'NOTIFY',
+      'ℹ️ full retro forced by operator override (--full-retro) — compact-retro heuristic bypassed',
+    );
   }
 }
 

@@ -13,6 +13,7 @@
 import { exec as nodeExec } from 'node:child_process';
 import nodeFs from 'node:fs';
 import * as defaultGit from './git-utils.js';
+import { resolveConcurrency } from './orchestration/concurrency.js';
 
 const CONSOLE_LOGGER = Object.freeze({
   info: (m) => console.log(m),
@@ -29,13 +30,22 @@ const CONSOLE_LOGGER = Object.freeze({
  * @param {object} [overrides.fs]     Injected fs impl. Defaults to `node:fs`.
  * @param {Function} [overrides.exec] Injected `child_process.exec`.
  * @param {object} [overrides.logger] Logger with `info`/`warn`/`error`. Defaults to console.
- * @returns {Readonly<{git: object, fs: object, exec: Function, logger: object}>}
+ * @param {object} [overrides.orchestration] Resolved orchestration config —
+ *                                           used to derive `ctx.concurrency`.
+ *                                           Omitting it leaves ctx.concurrency
+ *                                           at its v5.21.0 constant defaults.
+ * @param {object} [overrides.concurrency]   Pre-resolved concurrency caps.
+ *                                           Takes precedence over `orchestration`.
+ * @returns {Readonly<{git: object, fs: object, exec: Function, logger: object, concurrency: object}>}
  */
 export function createRuntimeContext(overrides = {}) {
+  const concurrency =
+    overrides.concurrency ?? resolveConcurrency(overrides.orchestration);
   return Object.freeze({
     git: overrides.git ?? defaultGit,
     fs: overrides.fs ?? nodeFs,
     exec: overrides.exec ?? nodeExec,
     logger: overrides.logger ?? CONSOLE_LOGGER,
+    concurrency,
   });
 }
