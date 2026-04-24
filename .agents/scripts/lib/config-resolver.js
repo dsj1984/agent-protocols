@@ -376,6 +376,48 @@ export function resolveWorktreeEnabled(opts = {}, env = process.env) {
   return Boolean(opts.config?.orchestration?.worktreeIsolation?.enabled);
 }
 
+/**
+ * One-shot environment-aware runtime resolution. Returns the trio of runtime
+ * signals consumed across `/sprint-execute`: whether worktree isolation is on
+ * for this process, the session id for claim labels, and whether we're in a
+ * Claude Code web session. Each signal also records its **source** so the
+ * `sprint-story-init` startup log can name why the value is what it is.
+ *
+ * @param {{ config?: object }} [opts]
+ * @param {NodeJS.ProcessEnv} [env]
+ * @returns {{
+ *   worktreeEnabled: boolean,
+ *   worktreeEnabledSource: 'env-override' | 'remote-auto' | 'config',
+ *   sessionId: string,
+ *   sessionIdSource: 'remote' | 'local',
+ *   isRemote: boolean,
+ * }}
+ */
+export function resolveRuntime(opts = {}, env = process.env) {
+  const worktreeEnabled = resolveWorktreeEnabled(opts, env);
+  const worktreeEnabledSource =
+    env.AP_WORKTREE_ENABLED === 'true' || env.AP_WORKTREE_ENABLED === 'false'
+      ? 'env-override'
+      : env.CLAUDE_CODE_REMOTE === 'true'
+        ? 'remote-auto'
+        : 'config';
+
+  const remoteId = env.CLAUDE_CODE_REMOTE_SESSION_ID;
+  const remoteUsable =
+    typeof remoteId === 'string' &&
+    remoteId.toLowerCase().replace(SESSION_ID_ALLOWED_CHAR_RE, '').length > 0;
+  const sessionId = resolveSessionId(env);
+  const sessionIdSource = remoteUsable ? 'remote' : 'local';
+
+  return {
+    worktreeEnabled,
+    worktreeEnabledSource,
+    sessionId,
+    sessionIdSource,
+    isRemote: env.CLAUDE_CODE_REMOTE === 'true',
+  };
+}
+
 const SESSION_ID_LENGTH = 12;
 const SESSION_ID_ALLOWED_CHAR_RE = /[^a-z0-9]/g;
 

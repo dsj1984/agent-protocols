@@ -1,6 +1,7 @@
 import assert from 'node:assert/strict';
 import { describe, it } from 'node:test';
 import {
+  resolveRuntime,
   resolveSessionId,
   resolveWorktreeEnabled,
 } from '../.agents/scripts/lib/config-resolver.js';
@@ -96,5 +97,47 @@ describe('resolveSessionId', () => {
     // Collisions with 4 random bytes should be astronomically rare; assert
     // inequality so a regression that drops entropy fails loudly.
     assert.notEqual(a, b);
+  });
+});
+
+describe('resolveRuntime', () => {
+  const cfgOn = { config: { orchestration: { worktreeIsolation: { enabled: true } } } };
+  const cfgOff = { config: { orchestration: { worktreeIsolation: { enabled: false } } } };
+
+  it('records env-override as the worktree source when AP_WORKTREE_ENABLED is set', () => {
+    const r = resolveRuntime(cfgOn, { AP_WORKTREE_ENABLED: 'false' });
+    assert.equal(r.worktreeEnabled, false);
+    assert.equal(r.worktreeEnabledSource, 'env-override');
+  });
+
+  it('records remote-auto as the source under CLAUDE_CODE_REMOTE without operator override', () => {
+    const r = resolveRuntime(cfgOn, { CLAUDE_CODE_REMOTE: 'true' });
+    assert.equal(r.worktreeEnabled, false);
+    assert.equal(r.worktreeEnabledSource, 'remote-auto');
+    assert.equal(r.isRemote, true);
+  });
+
+  it('records config as the source when no env signals are set', () => {
+    const r = resolveRuntime(cfgOn, {});
+    assert.equal(r.worktreeEnabled, true);
+    assert.equal(r.worktreeEnabledSource, 'config');
+    assert.equal(r.isRemote, false);
+  });
+
+  it('reports remote session-id source when CLAUDE_CODE_REMOTE_SESSION_ID sanitises non-empty', () => {
+    const r = resolveRuntime(cfgOff, { CLAUDE_CODE_REMOTE_SESSION_ID: 'abc123' });
+    assert.equal(r.sessionIdSource, 'remote');
+    assert.equal(r.sessionId, 'abc123');
+  });
+
+  it('reports local session-id source when the remote value sanitises to empty', () => {
+    const r = resolveRuntime(cfgOff, { CLAUDE_CODE_REMOTE_SESSION_ID: '!@#$' });
+    assert.equal(r.sessionIdSource, 'local');
+    assert.match(r.sessionId, /^[a-z0-9]{1,12}$/);
+  });
+
+  it('reports local session-id source when the remote env var is unset', () => {
+    const r = resolveRuntime(cfgOff, {});
+    assert.equal(r.sessionIdSource, 'local');
   });
 });

@@ -29,7 +29,11 @@
 import path from 'node:path';
 import { parseSprintArgs } from './lib/cli-args.js';
 import { runAsCli } from './lib/cli-utils.js';
-import { PROJECT_ROOT, resolveConfig } from './lib/config-resolver.js';
+import {
+  PROJECT_ROOT,
+  resolveConfig,
+  resolveRuntime,
+} from './lib/config-resolver.js';
 import { parseBlockedBy } from './lib/dependency-parser.js';
 import { getEpicBranch, getStoryBranch } from './lib/git-utils.js';
 import { Logger } from './lib/Logger.js';
@@ -94,9 +98,20 @@ export async function runStoryInit({
     );
   }
 
-  const { settings, orchestration } = injectedConfig || resolveConfig({ cwd });
+  const config = injectedConfig || resolveConfig({ cwd });
+  const { settings, orchestration } = config;
   const provider = injectedProvider || createProvider(orchestration);
   const notifier = createNotifier(orchestration, provider, { cwd });
+
+  const runtime = resolveRuntime({ config });
+  progress(
+    'ENV',
+    `worktreeIsolation=${runtime.worktreeEnabled ? 'on' : 'off'} (${runtime.worktreeEnabledSource})`,
+  );
+  progress(
+    'ENV',
+    `sessionId=${runtime.sessionId} (${runtime.sessionIdSource})`,
+  );
 
   progress('INIT', `Initializing Story #${storyId}...`);
 
@@ -166,7 +181,7 @@ export async function runStoryInit({
   let worktreeCreated = false;
   let installFailed = false;
   const wtConfig = orchestration?.worktreeIsolation;
-  const worktreeEnabled = !!wtConfig?.enabled;
+  const { worktreeEnabled } = runtime;
 
   // Per-phase timer. The init-side emits worktree-create / bootstrap /
   // install via the WorktreeManager `onPhase` callback, opens `implement`
