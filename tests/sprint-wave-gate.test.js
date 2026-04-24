@@ -104,7 +104,10 @@ describe('sprint-wave-gate — parallel getTicket fanout', () => {
     });
     provider.setBarrier(storyIds.length);
 
-    const result = await runWaveGate({ epicId: 999, injectedProvider: provider });
+    const result = await runWaveGate({
+      epicId: 999,
+      injectedProvider: provider,
+    });
 
     assert.equal(result.success, true);
     assert.equal(result.total, storyIds.length);
@@ -141,7 +144,10 @@ describe('sprint-wave-gate — parallel getTicket fanout', () => {
     });
     provider.setBarrier(allIds.length);
 
-    const result = await runWaveGate({ epicId: 999, injectedProvider: provider });
+    const result = await runWaveGate({
+      epicId: 999,
+      injectedProvider: provider,
+    });
 
     assert.equal(result.success, true);
     assert.equal(result.total, manifestIds.length);
@@ -275,10 +281,7 @@ describe('sprint-wave-gate — pass/fail/fetch-error contract', () => {
       },
       comments: [
         manifestComment([{ storyId: 10, title: 'a', wave: 1 }]),
-        parkedComment(
-          [{ storyId: 20, parentId: 10 }],
-          [{ storyId: 30 }],
-        ),
+        parkedComment([{ storyId: 20, parentId: 10 }], [{ storyId: 30 }]),
       ],
     });
     const result = await runWaveGate({ epicId: 1, injectedProvider: provider });
