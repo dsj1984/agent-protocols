@@ -1,3 +1,5 @@
+import path from 'node:path';
+import { getChangedFiles } from './lib/changed-files.js';
 import { resolveConfig } from './lib/config-resolver.js';
 import {
   calculateAll,
@@ -67,6 +69,17 @@ function parseStoryIdArg(argv = process.argv.slice(2)) {
   }
   const envVal = Number(process.env.FRICTION_STORY_ID);
   return Number.isInteger(envVal) && envVal > 0 ? envVal : null;
+}
+
+export function parseChangedSinceArg(argv = process.argv.slice(2)) {
+  for (let i = 0; i < argv.length; i += 1) {
+    if (argv[i] === '--changed-since') {
+      const next = argv[i + 1];
+      if (next && !next.startsWith('--')) return next;
+      return 'main';
+    }
+  }
+  return null;
 }
 
 async function emitRegressionFriction(storyId, regressedFiles) {
@@ -139,9 +152,39 @@ async function main() {
   TARGET_DIRS.forEach((dir) => {
     scanDirectory(dir, files);
   });
-  const scores = calculateAll(files);
 
-  const stats = compareScores(scores, baseline, TOLERANCE);
+  const changedSinceRef = parseChangedSinceArg();
+  let scopedFiles = files;
+  let scopedBaseline = baseline;
+  if (changedSinceRef) {
+    let changedList;
+    try {
+      changedList = getChangedFiles({
+        ref: changedSinceRef,
+        cwd: process.cwd(),
+      });
+    } catch (err) {
+      console.error(
+        `[Maintainability] ❌ ${err?.message ?? err}. Pass a resolvable ref or drop --changed-since for a full scan.`,
+      );
+      process.exit(1);
+    }
+    const scopeSet = new Set(changedList);
+    console.log(
+      `[Maintainability] --changed-since ${changedSinceRef}: ${scopeSet.size} changed file(s) in diff`,
+    );
+    scopedFiles = files.filter((abs) => {
+      const rel = path.relative(process.cwd(), abs).replace(/\\/g, '/');
+      return scopeSet.has(rel);
+    });
+    scopedBaseline = Object.fromEntries(
+      Object.entries(baseline).filter(([file]) => scopeSet.has(file)),
+    );
+  }
+
+  const scores = calculateAll(scopedFiles);
+
+  const stats = compareScores(scores, scopedBaseline, TOLERANCE);
   printSummaryReport(scores, stats);
 
   if (stats.regressions > 0) {
@@ -158,7 +201,22 @@ async function main() {
   console.log('[Maintainability] ✅ Clean Code check passed.');
 }
 
-main().catch((err) => {
-  console.error(`[Maintainability] ❌ Fatal error: ${err.message}`);
-  process.exit(1);
-});
+// Only run main when invoked directly — keep the module importable from tests.
+const isDirect = (() => {
+  try {
+    const invoked = process.argv[1] ? path.resolve(process.argv[1]) : '';
+    const self = new URL(import.meta.url).pathname;
+    const normalizedSelf =
+      /^\/[A-Za-z]:/.test(self) ? self.slice(1) : self;
+    return path.resolve(normalizedSelf) === invoked;
+  } catch {
+    return false;
+  }
+})();
+
+if (isDirect) {
+  main().catch((err) => {
+    console.error(`[Maintainability] ❌ Fatal error: ${err.message}`);
+    process.exit(1);
+  });
+}

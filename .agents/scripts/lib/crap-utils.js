@@ -203,11 +203,17 @@ export function saveCrapBaseline(envelope, opts = {}) {
  * skipped from the returned rows so the baseline never contains
  * partially-scored entries. Both counters surface for reporting.
  *
+ * When `scopeFiles` is provided (the `--changed-since` code path) files
+ * discovered via directory walking are filtered against that set before any
+ * I/O or scoring happens — so pre-push / PR-CI runs never pay the
+ * parse-and-score cost on untouched files.
+ *
  * @param {{
  *   targetDirs: string[],
  *   coverage: object|null,
  *   requireCoverage?: boolean,
  *   cwd?: string,
+ *   scopeFiles?: Set<string>|string[]|null,
  * }} params
  * @returns {{
  *   rows: Array<{
@@ -228,10 +234,17 @@ export function scanAndScore({
   coverage,
   requireCoverage = true,
   cwd = process.cwd(),
+  scopeFiles = null,
 }) {
   if (!Array.isArray(targetDirs)) {
     throw new TypeError('scanAndScore: targetDirs must be an array');
   }
+  const scopeSet =
+    scopeFiles == null
+      ? null
+      : scopeFiles instanceof Set
+        ? scopeFiles
+        : new Set(scopeFiles);
   const files = [];
   for (const dir of targetDirs) {
     const abs = path.isAbsolute(dir) ? dir : path.resolve(cwd, dir);
@@ -246,6 +259,7 @@ export function scanAndScore({
 
   for (const abs of files) {
     const relPath = path.relative(cwd, abs).replace(/\\/g, '/');
+    if (scopeSet && !scopeSet.has(relPath)) continue;
     scannedFiles += 1;
     const hasFile = hasCoverageFor(coverage, relPath);
     if (requireCoverage && !hasFile) {

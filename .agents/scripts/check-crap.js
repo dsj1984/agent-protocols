@@ -1,4 +1,5 @@
 import path from 'node:path';
+import { getChangedFiles } from './lib/changed-files.js';
 import { resolveConfig } from './lib/config-resolver.js';
 import { loadCoverage } from './lib/coverage-utils.js';
 import {
@@ -33,8 +34,13 @@ import { createProvider } from './lib/provider-factory.js';
  * structured comment on the named Story naming every violating method.
  */
 
-function parseCliArgs(argv = process.argv.slice(2)) {
-  const out = { storyId: null, baselinePath: undefined, coveragePath: undefined };
+export function parseCliArgs(argv = process.argv.slice(2)) {
+  const out = {
+    storyId: null,
+    baselinePath: undefined,
+    coveragePath: undefined,
+    changedSinceRef: null,
+  };
   for (let i = 0; i < argv.length; i += 1) {
     if (argv[i] === '--story' && argv[i + 1]) {
       const parsed = Number(argv[i + 1]);
@@ -46,6 +52,14 @@ function parseCliArgs(argv = process.argv.slice(2)) {
     } else if (argv[i] === '--coverage' && argv[i + 1]) {
       out.coveragePath = argv[i + 1];
       i += 1;
+    } else if (argv[i] === '--changed-since') {
+      const next = argv[i + 1];
+      if (next && !next.startsWith('--')) {
+        out.changedSinceRef = next;
+        i += 1;
+      } else {
+        out.changedSinceRef = 'main';
+      }
     }
   }
   if (out.storyId === null) {
@@ -53,6 +67,23 @@ function parseCliArgs(argv = process.argv.slice(2)) {
     if (Number.isInteger(envVal) && envVal > 0) out.storyId = envVal;
   }
   return out;
+}
+
+/**
+ * Pure helper — narrow a list of rows to the ones whose `file` field is in
+ * `scopeSet`. Shared between scan-row filtering and baseline-row filtering so
+ * the `--changed-since` code path treats both sides of the comparison the
+ * same way (otherwise every baseline row for an untouched file would surface
+ * as "removed" on every diff-scoped run).
+ *
+ * @template {{file: string}} R
+ * @param {R[]} rows
+ * @param {Set<string>} scopeSet
+ * @returns {R[]}
+ */
+export function filterRowsByFileScope(rows, scopeSet) {
+  if (!scopeSet) return rows ?? [];
+  return (rows ?? []).filter((r) => scopeSet.has(r.file));
 }
 
 /**
@@ -312,6 +343,29 @@ async function main() {
     return 0;
   }
 
+  // Resolve --changed-since BEFORE the baseline / kernel-mismatch checks.
+  // A bad ref must always surface (AC14); silent degradation to bootstrap
+  // exit 0 when the ref is misspelled would defeat the entire purpose of
+  // the flag.
+  let scopeSet = null;
+  if (args.changedSinceRef) {
+    try {
+      const changed = getChangedFiles({
+        ref: args.changedSinceRef,
+        cwd: process.cwd(),
+      });
+      scopeSet = new Set(changed);
+      console.log(
+        `[CRAP] --changed-since ${args.changedSinceRef}: ${scopeSet.size} changed file(s) in diff`,
+      );
+    } catch (err) {
+      console.error(
+        `[CRAP] ❌ ${err?.message ?? err}. Pass a resolvable ref or drop --changed-since for a full scan.`,
+      );
+      return 1;
+    }
+  }
+
   const baseline = getCrapBaseline({ baselinePath: args.baselinePath });
   const runningEscomplex = resolveEscomplexVersion();
   const compat = evaluateBaselineCompatibility({
@@ -338,16 +392,22 @@ async function main() {
   const tolerance = Number.isFinite(crap.tolerance) ? crap.tolerance : 0.001;
 
   const coverage = loadCoverage(path.resolve(process.cwd(), coveragePath));
+
   const scan = scanAndScore({
     targetDirs,
     coverage,
     requireCoverage,
     cwd: process.cwd(),
+    scopeFiles: scopeSet,
   });
+
+  const baselineRows = scopeSet
+    ? filterRowsByFileScope(baseline.rows, scopeSet)
+    : baseline.rows;
 
   const result = compareCrap({
     currentRows: scan.rows,
-    baselineRows: baseline.rows,
+    baselineRows,
     newMethodCeiling,
     tolerance,
   });
