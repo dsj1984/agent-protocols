@@ -4,8 +4,12 @@ import path from 'node:path';
 import { test } from 'node:test';
 
 import {
+  drainPendingCleanupAfterClose,
+  reconcileCleanupState,
+} from '../.agents/scripts/sprint-story-close.js';
+import {
   DEFAULT_GATES,
-  runCloseValidation,
+  runCloseValidation as runCloseValidationOnly,
 } from '../.agents/scripts/lib/close-validation.js';
 
 const SCRIPT_PATH = path.resolve('.agents/scripts/sprint-story-close.js');
@@ -54,7 +58,7 @@ test('runCloseValidation', async (t) => {
       { name: 'a', cmd: 'a', args: [] },
       { name: 'b', cmd: 'b', args: [] },
     ];
-    const result = runCloseValidation({ cwd: '.', gates, runner });
+    const result = runCloseValidationOnly({ cwd: '.', gates, runner });
     assert.deepEqual(result, { ok: true, failed: [] });
     assert.equal(calls.length, 2);
   });
@@ -67,7 +71,7 @@ test('runCloseValidation', async (t) => {
       { name: 'c', cmd: 'c', args: [] },
     ];
     const logs = [];
-    const result = runCloseValidation({
+    const result = runCloseValidationOnly({
       cwd: '.',
       gates,
       runner,
@@ -79,4 +83,104 @@ test('runCloseValidation', async (t) => {
     assert.equal(result.failed[0].status, 3);
     assert.ok(logs.some((m) => m.includes('hint: fix it')));
   });
+});
+
+test('reconcileCleanupState marks deferred worktree cleanup as removed-after-drain and updates branch deletion flags', () => {
+  const result = reconcileCleanupState({
+    storyId: 795,
+    worktreeReap: {
+      status: 'deferred-to-sweep',
+      path: '/repo/.worktrees/story-795',
+      pendingCleanup: { storyId: 795, branch: 'story-795' },
+    },
+    branchCleanup: {
+      localDeleted: false,
+      remoteDeleted: true,
+      localReason: 'error',
+      remoteReason: 'deleted',
+    },
+    pendingCleanupDrain: {
+      drained: [795],
+      drainedDetails: [
+        {
+          storyId: 795,
+          path: '/repo/.worktrees/story-795',
+          branch: 'story-795',
+          localBranchDeleted: true,
+          remoteBranchDeleted: true,
+        },
+      ],
+      persistent: [],
+      persistentDetails: [],
+      stillPending: [],
+      stillPendingDetails: [],
+    },
+  });
+  assert.equal(result.worktreeReap.status, 'removed-after-drain');
+  assert.equal(result.worktreeReap.closeDrainStatus, 'drained');
+  assert.equal(result.worktreeReap.pendingCleanup, null);
+  assert.equal(result.branchCleanup.localDeleted, true);
+  assert.equal(result.branchCleanup.remoteDeleted, true);
+});
+
+test('reconcileCleanupState preserves deferred state when the close-time drain still cannot clear the lock', () => {
+  const result = reconcileCleanupState({
+    storyId: 795,
+    worktreeReap: {
+      status: 'deferred-to-sweep',
+      path: '/repo/.worktrees/story-795',
+      pendingCleanup: { storyId: 795, branch: 'story-795' },
+    },
+    branchCleanup: {
+      localDeleted: false,
+      remoteDeleted: true,
+      localReason: 'error',
+      remoteReason: 'deleted',
+    },
+    pendingCleanupDrain: {
+      drained: [],
+      drainedDetails: [],
+      persistent: [],
+      persistentDetails: [],
+      stillPending: [795],
+      stillPendingDetails: [{ storyId: 795 }],
+    },
+  });
+  assert.equal(result.worktreeReap.status, 'deferred-to-sweep');
+  assert.equal(result.worktreeReap.closeDrainStatus, 'still-pending');
+  assert.equal(result.branchCleanup.localDeleted, false);
+  assert.equal(result.branchCleanup.remoteDeleted, true);
+});
+
+test('drainPendingCleanupAfterClose returns null when worktree isolation is disabled', async () => {
+  const res = await drainPendingCleanupAfterClose({
+    repoRoot: '.',
+    orchestration: { worktreeIsolation: { enabled: false } },
+  });
+  assert.equal(res, null);
+});
+
+test('drainPendingCleanupAfterClose reports the worktree root and drain summary', async () => {
+  const events = [];
+  const res = await drainPendingCleanupAfterClose({
+    repoRoot: '/repo',
+    orchestration: { worktreeIsolation: { enabled: true, root: '.worktrees' } },
+    progress: (phase, msg) => events.push({ phase, msg }),
+    drainFn: async () => ({
+      drained: [795],
+      drainedDetails: [{ storyId: 795, localBranchDeleted: true }],
+      persistent: [],
+      persistentDetails: [],
+      stillPending: [],
+      stillPendingDetails: [],
+    }),
+  });
+  assert.equal(res.worktreeRoot, path.join('/repo', '.worktrees'));
+  assert.deepEqual(res.drained, [795]);
+  assert.ok(
+    events.some(
+      (e) =>
+        e.phase === 'WORKTREE' && e.msg.includes('Pending cleanup drain: drained=1'),
+    ),
+  );
 });
