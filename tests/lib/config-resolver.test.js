@@ -336,7 +336,9 @@ describe('config-resolver library tests', () => {
       assert.equal(crap.tolerance, 0.001);
       assert.equal(crap.coveragePath, 'coverage/coverage-final.json');
       assert.deepEqual(crap.targetDirs, ['.agents/scripts']);
-      assert.deepEqual(crap.friction, { markerKey: 'crap-baseline-regression' });
+      assert.deepEqual(crap.friction, {
+        markerKey: 'crap-baseline-regression',
+      });
     });
 
     it('unknown crap key warns but does not fail resolution', (t) => {
@@ -433,17 +435,19 @@ describe('config-resolver library tests', () => {
     });
 
     it('resolveListValue: { append } extends and dedupes', () => {
-      assert.deepEqual(
-        resolveListValue(['a', 'b'], { append: ['b', 'c'] }),
-        ['a', 'b', 'c'],
-      );
+      assert.deepEqual(resolveListValue(['a', 'b'], { append: ['b', 'c'] }), [
+        'a',
+        'b',
+        'c',
+      ]);
     });
 
     it('resolveListValue: { prepend } places before defaults and dedupes', () => {
-      assert.deepEqual(
-        resolveListValue(['a', 'b'], { prepend: ['z', 'a'] }),
-        ['z', 'a', 'b'],
-      );
+      assert.deepEqual(resolveListValue(['a', 'b'], { prepend: ['z', 'a'] }), [
+        'z',
+        'a',
+        'b',
+      ]);
     });
 
     it('resolveListValue: { append, prepend } combine', () => {
