@@ -125,6 +125,14 @@ git commit -m "docs([DOC_PATH]): update for Epic #[EPIC_ID]"
 
 Re-run the gate until it exits 0.
 
+> **CHANGELOG style contract.** When updating `docs/CHANGELOG.md` (or the
+> project-equivalent) follow
+> [`.agents/rules/changelog-style.md`](../rules/changelog-style.md): 1–3
+> sentence theme paragraph, bullets of user-visible changes only, no internal
+> file paths or symbol names, mandatory prominence for breaking changes and
+> config/CLI shape changes, soft ceiling of ≤60 lines per non-major release
+> (≤150 for major). The rule includes a before/after worked example.
+
 > **Guidance for consuming projects:** Add every file your release process
 > requires to `release.docs` or `agentSettings.docsContextFiles` in
 > `.agentrc.json`. Common examples: `README.md`, `docs/CHANGELOG.md`,
