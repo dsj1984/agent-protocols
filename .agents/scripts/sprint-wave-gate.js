@@ -37,8 +37,10 @@ import { parseArgs } from 'node:util';
 import { runAsCli } from './lib/cli-utils.js';
 import { resolveConfig } from './lib/config-resolver.js';
 import { Logger } from './lib/Logger.js';
+import { resolveConcurrency } from './lib/orchestration/concurrency.js';
 import { findStructuredComment } from './lib/orchestration/ticketing.js';
 import { createProvider } from './lib/provider-factory.js';
+import { concurrentMap } from './lib/util/concurrent-map.js';
 
 function extractJsonBlock(body) {
   if (typeof body !== 'string') return null;
@@ -67,11 +69,24 @@ async function readParkedFollowOns(provider, epicId) {
   };
 }
 
+/**
+ * Fan out async reads either uncapped (Promise.all — preserves v5.21.0
+ * behaviour when `orchestration.concurrency.waveGate` is omitted) or
+ * capped via `concurrentMap` when the operator set a positive cap.
+ */
+function fanOut(items, mapper, cap) {
+  if (!Number.isInteger(cap) || cap <= 0) {
+    return Promise.all(items.map((item, idx) => mapper(item, idx)));
+  }
+  return concurrentMap(items, mapper, { concurrency: cap });
+}
+
 export async function runWaveGate({
   epicId,
   allowParked = false,
   allowOpenRecuts = false,
   injectedProvider,
+  injectedConcurrency,
 } = {}) {
   if (!epicId || Number.isNaN(epicId) || epicId <= 0) {
     Logger.fatal('Usage: node sprint-wave-gate.js --epic <EPIC_ID>');
@@ -79,6 +94,7 @@ export async function runWaveGate({
 
   const { orchestration } = resolveConfig();
   const provider = injectedProvider || createProvider(orchestration);
+  const concurrency = injectedConcurrency ?? resolveConcurrency(orchestration);
 
   const comment = await findStructuredComment(
     provider,
@@ -118,8 +134,9 @@ export async function runWaveGate({
     .filter(({ id }) => Number.isFinite(id));
 
   const [manifestResults, recutResults, parkedResults] = await Promise.all([
-    Promise.all(
-      manifestEntries.map(async ({ entry, id }) => {
+    fanOut(
+      manifestEntries,
+      async ({ entry, id }) => {
         try {
           const ticket = await provider.getTicket(id);
           if (ticket.state !== 'closed') {
@@ -134,10 +151,12 @@ export async function runWaveGate({
             error: err.message,
           };
         }
-      }),
+      },
+      concurrency.waveGate,
     ),
-    Promise.all(
-      recutEntries.map(async ({ r, id }) => {
+    fanOut(
+      recutEntries,
+      async ({ r, id }) => {
         try {
           const ticket = await provider.getTicket(id);
           if (ticket.state !== 'closed') {
@@ -147,10 +166,12 @@ export async function runWaveGate({
         } catch (err) {
           return { id, parentId: r.parentId, error: err.message };
         }
-      }),
+      },
+      concurrency.waveGate,
     ),
-    Promise.all(
-      parkedEntries.map(async ({ id }) => {
+    fanOut(
+      parkedEntries,
+      async ({ id }) => {
         try {
           const ticket = await provider.getTicket(id);
           if (ticket.state !== 'closed') {
@@ -160,7 +181,8 @@ export async function runWaveGate({
         } catch (err) {
           return { id, error: err.message };
         }
-      }),
+      },
+      concurrency.waveGate,
     ),
   ]);
 
