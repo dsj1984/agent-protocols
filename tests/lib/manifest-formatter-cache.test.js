@@ -55,7 +55,10 @@ test('formatManifestMarkdown returns cached string on identical input', () => {
   const second = formatManifestMarkdown(manifest);
   assert.equal(first, second);
   // Reference equality — a cache hit returns the same string instance.
-  assert.ok(Object.is(first, second), 'expected cache hit to return same instance');
+  assert.ok(
+    Object.is(first, second),
+    'expected cache hit to return same instance',
+  );
 });
 
 test('formatManifestMarkdown re-renders when input changes', () => {
