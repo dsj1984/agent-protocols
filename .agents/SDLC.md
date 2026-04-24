@@ -562,7 +562,7 @@ Level gate (set `orchestration.notifications.level` in `.agentrc.json`):
 | --------- | ---------------------------------------------------------- |
 | `off`     | Nothing.                                                   |
 | `minimal` | State transitions to `agent::done` / `agent::review` only. |
-| `default` | All state transitions (agent:: lifecycle changes).         |
+| `default` | State transitions on Story and Epic tickets only (Task-level changes suppressed). |
 | `verbose` | Every tracked event (default).                             |
 
 Webhook URL resolution (first match wins):

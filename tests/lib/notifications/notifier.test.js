@@ -89,21 +89,36 @@ describe('Notifier level gating', () => {
     assert.equal(r3.fired, true);
   });
 
-  it('default: fires on state transitions only', async () => {
+  it('default: fires on Story/Epic state transitions only, suppresses Task', async () => {
     const n = new Notifier({
       config: { level: 'default' },
       logger: quietLogger(),
       fetchImpl: async () => ({ ok: true }),
       cwd: SAFE_CWD,
     });
-    const r1 = await n.emit({
+    const rStory = await n.emit({
       kind: 'state-transition',
-      ticket: { id: 1 },
+      ticket: { id: 1, type: 'story' },
       toState: 'agent::executing',
     });
-    const r2 = await n.emit({ kind: 'opened', ticket: { id: 1 } });
-    assert.equal(r1.fired, true);
-    assert.equal(r2.fired, false);
+    const rEpic = await n.emit({
+      kind: 'state-transition',
+      ticket: { id: 2, type: 'epic' },
+      toState: 'agent::executing',
+    });
+    const rTask = await n.emit({
+      kind: 'state-transition',
+      ticket: { id: 3, type: 'task' },
+      toState: 'agent::executing',
+    });
+    const rOpened = await n.emit({
+      kind: 'opened',
+      ticket: { id: 1, type: 'story' },
+    });
+    assert.equal(rStory.fired, true);
+    assert.equal(rEpic.fired, true);
+    assert.equal(rTask.fired, false);
+    assert.equal(rOpened.fired, false);
   });
 
   it('verbose: fires on everything', async () => {

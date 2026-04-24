@@ -21,7 +21,8 @@
  *
  *   off      — all channels skipped
  *   minimal  — only `state-transition` to `agent::done` / `agent::review`
- *   default  — all `state-transition` events (agent:: lifecycle changes)
+ *   default  — `state-transition` events for Story and Epic tickets only
+ *              (Task-level lifecycle changes are suppressed to reduce noise)
  *   verbose  — all events (default)
  */
 
@@ -118,7 +119,9 @@ export class Notifier {
     if (this.level === 'off') return false;
     if (this.level === 'verbose') return true;
     if (this.level === 'default') {
-      return event.kind === 'state-transition';
+      if (event.kind !== 'state-transition') return false;
+      const type = event.ticket?.type;
+      return type === 'epic' || type === 'story';
     }
     if (this.level === 'minimal') {
       return (
