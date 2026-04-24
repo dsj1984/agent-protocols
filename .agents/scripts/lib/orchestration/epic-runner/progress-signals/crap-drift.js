@@ -174,9 +174,10 @@ export function createCrapDriftDetector(opts = {}) {
     },
 
     async detect() {
+      if (!baseline) return [];
       const coverageMap = readCoverageMap();
       const bullets = [];
-      const base = baseline ?? {};
+      const base = baseline;
       // Union of files watched and files present in baseline, so methods that
       // appeared since the snapshot (new files) are still checked, and methods
       // that disappeared from baseline-only files don't get us stuck iterating
