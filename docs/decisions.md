@@ -654,3 +654,75 @@ submodule paths are internal implementation detail.
         stale file unknowingly.
     *   Regression test covers the write-failure path (`fs.writeFileSync`
         throws `EACCES`, assert `manifestPersisted: false` + error string).
+
+---
+
+## ADR-20260424-553a: Bounded-concurrency + TTL cache for epic-runner fanout
+
+*   **Status:** Accepted
+*   **Date:** 2026-04-24
+*   **Epic:** #553
+*   **Context:** Two independent performance audits converged on the same
+    hot paths. `sprint-wave-gate.js` ran three serial `for..of` loops of
+    `await getTicket`; `ProgressReporter` fanned out `getTicket(id, { fresh: true })`
+    across every story in every wave on every cadence tick; `state-poller`
+    fetched a full ticket per tracked story just to read `.labels`; every
+    `GitHubProvider` construction spawned `gh auth token` afresh. On large
+    epics this produced avoidable wall-clock and risked secondary rate
+    limits. Unbounded `Promise.all` would trade sequential latency for a
+    thundering-herd problem.
+*   **Decision:** Introduce a single `concurrentMap(items, fn, { concurrency })`
+    primitive at `lib/util/concurrent-map.js` and adopt it at every
+    framework fanout: wave-gate (all stories), commit-assertion at wave-end
+    (cap 4; git is CPU/disk-bound), progress-reporter (cap 8). Extend the
+    provider cache with `getTicket(id, { maxAgeMs })`; swap the
+    progress-reporter's `{ fresh: true }` for `{ maxAgeMs: 10_000 }`. Prime
+    the ticket cache from every `getTickets(epicId)` sweep so downstream
+    per-ticket reads cost zero HTTP. Memoize the first successful
+    `gh auth token` into `process.env.GITHUB_TOKEN` so subsequent provider
+    constructions short-circuit. Add a bulk `issues?labels=agent::*&state=open`
+    path to `state-poller` with malformed-response fallback to per-ticket.
+*   **Consequences:**
+    *   10-second TTL staleness is the ceiling on label-observation
+        lag. Any write through the provider invalidates the cache
+        entry, so post-write reads are fresh.
+    *   Concurrency caps are currently constants; an `agentSettings`
+        override is deferred until the phase-timer data (same Epic)
+        demonstrates where the caps actually bind.
+    *   Bulk-poll is guarded by an explicit well-formedness check;
+        label-schema drift falls back to the per-ticket path rather
+        than propagating bad state.
+    *   Phase-timer instrumentation (ADR-20260424-553b) is the
+        measurement surface that validates these caps on future epics —
+        no more guessing.
+
+---
+
+## ADR-20260424-553b: Per-phase timing as a first-class epic-runner surface
+
+*   **Status:** Accepted
+*   **Date:** 2026-04-24
+*   **Epic:** #553
+*   **Context:** Consumers could not distinguish framework-intrinsic
+    overhead (worktree create, `.agents/` copy, bootstrap) from their own
+    costs (install, lint, test, implement) when a story took too long.
+    Progress snapshots reported wave-level state but carried no timing
+    data, so perf regressions were caught by anecdote rather than
+    measurement. Future perf work had no baseline to measure against.
+*   **Decision:** Build `lib/util/phase-timer.js` + `phase-timer-state.js`
+    as a framework primitive with `snapshot` / `restore` semantics so
+    phase spans survive the `sprint-story-init` → `sprint-story-close`
+    boundary. Emit per-phase elapsed-time lines during the lifecycle.
+    On Story close, post a `phase-timings` structured comment on the
+    Story ticket. Extend `ProgressReporter` to aggregate **median /
+    p95** across every closed Story in the current wave and render the
+    result into the Epic's `epic-run-progress` comment.
+*   **Consequences:**
+    *   Per-Story timings become the regression canary for future
+        framework-overhead changes — the next perf Epic starts with
+        data, not inference.
+    *   The `phase-timings` comment is machine-readable so consumer
+        projects can build their own dashboards without scraping logs.
+    *   The `ProgressReporter` aggregation runs behind the same TTL +
+        concurrency cap introduced in ADR-20260424-553a — observability
+        cannot re-introduce the fanout cost it was designed to measure.

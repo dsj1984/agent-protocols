@@ -222,3 +222,21 @@ the contract without re-reading the source.
 | `outputSchemaRef` | Tool-registry field | Optional string on each MCP tool descriptor, pointing at the schema file that describes the tool's output (e.g. `dispatch_wave` → `.agents/schemas/dispatch-manifest.json`; `run_audit_suite` → `.agents/schemas/audit-results.schema.json`). Exposed via `tools/list` metadata. `null` is an explicit choice for tools whose output is a minimal inline shape. |
 | `substitutions` | MCP tool-argument field | Optional `Record<string,string>` on `run_audit_suite`. Keys must be declared in the allow-list derived from `audit-rules.schema.json` (e.g. `auditOutputDir`, `ticketId`, `baseBranch`, plus per-audit keys). Unknown keys are rejected with a clear error rather than silently dropped. |
 | Wave-marker regex upper bound | Validation contract | The wave structured-comment marker regex is now `/^wave-([0-9]{1,3})-(start\|end)$/` — up to 999 waves. `wave-1000-start` is rejected; downstream wave-index consumers (`manifest-builder`, `wave-dispatcher`) tolerate rejected indices gracefully. |
+
+### 13. Epic #553 Artefacts (v5.21.0)
+
+Throughput / caching / observability primitives introduced by the
+epic-runner performance Epic.
+
+| Term | Kind | Definition |
+| --- | --- | --- |
+| `concurrentMap(items, fn, { concurrency })` | Utility | `lib/util/concurrent-map.js`; bounded-concurrency fanout helper used by `sprint-wave-gate`, wave-end `commit-assertion` (cap 4), and `ProgressReporter` (cap 8). Preserves result order; rejects aggregate on the first thrown error unless the callback swallows it. |
+| `getTicket(id, { maxAgeMs })` | API opt | `GitHubProvider.getTicket` honors a caller-supplied max age. Entries older than `maxAgeMs` are treated as cache misses and refetched; newer entries are served from cache. Complements the existing `{ fresh: true }` opt. |
+| `primeTicketCache(tickets)` sweep contract | Behavior | Every `provider.getTickets(epicId)` call site is followed by `primeTicketCache(result)` so downstream `getTicket` lookups for the same Epic issue zero additional HTTP round-trips. |
+| `phase-timer` | Module | `lib/util/phase-timer.js` + `phase-timer-state.js`. Records `{ phase, elapsedMs }` spans with `snapshot` / `restore` so timings survive story-init → story-close. Threaded through `sprint-story-init.js` and `sprint-story-close.js`. |
+| `phase-timings` structured comment | Comment type | Posted on a Story ticket at close, listing the per-phase elapsed times captured by `phase-timer`. Consumed by `ProgressReporter` to aggregate **median / p95** across every closed Story in the current wave, rendered into the Epic's `epic-run-progress` comment. |
+| Bulk label-poll path | Behavior | `state-poller.js` chooses between a bulk `GET /issues?labels=agent::*&state=open` read and the per-ticket fallback based on tracked-story count and response well-formedness. Malformed payloads (missing `labels` array, unexpected shape) fall back to the per-ticket path; out-of-scope tickets in the bulk response are filtered against the tracked-story set. |
+| `gh auth token` memoization | Behavior | The first successful `execSync('gh auth token')` resolution is cached into `process.env.GITHUB_TOKEN` so subsequent `GitHubProvider` constructions short-circuit — one spawn per process regardless of how many providers are built. |
+| `manifest-formatter` content-hash short-circuit | Behavior | Repeat renders of the same progress snapshot reuse the cached markdown instead of rebuilding — identified via a content hash of the input fixtures. |
+| `scanDirectory` `withFileTypes` | Behavior | `lib/maintainability-utils.js` uses `fs.readdirSync(path, { withFileTypes: true })` to avoid the per-entry `statSync` round-trip. |
+| `localReason` / `remoteReason` | Result-shape field | `branchCleanupPhase` result grows explicit per-side failure reasons so operators can distinguish a failed local `git branch -D` from a failed `git push --delete`. |
