@@ -351,6 +351,30 @@ export function resolveConfig(opts) {
 }
 
 /**
+ * Resolve whether worktree isolation is enabled for this process, with strict
+ * environment-variable precedence that outranks the committed config value.
+ *
+ * Precedence:
+ *   1. `env.AP_WORKTREE_ENABLED === 'true'`  → true   (explicit operator override)
+ *   2. `env.AP_WORKTREE_ENABLED === 'false'` → false  (explicit operator override)
+ *   3. `env.CLAUDE_CODE_REMOTE === 'true'`   → false  (web session auto-detect)
+ *   4. else                                  → Boolean(config.orchestration.worktreeIsolation.enabled)
+ *
+ * String matching on `AP_WORKTREE_ENABLED` is deliberate: `""`, `"0"`, or any
+ * other truthy-ish shell expansion must not flip the flag.
+ *
+ * @param {{ config?: { orchestration?: { worktreeIsolation?: { enabled?: boolean } } | null } }} [opts]
+ * @param {NodeJS.ProcessEnv} [env]
+ * @returns {boolean}
+ */
+export function resolveWorktreeEnabled(opts = {}, env = process.env) {
+  if (env.AP_WORKTREE_ENABLED === 'true') return true;
+  if (env.AP_WORKTREE_ENABLED === 'false') return false;
+  if (env.CLAUDE_CODE_REMOTE === 'true') return false;
+  return Boolean(opts.config?.orchestration?.worktreeIsolation?.enabled);
+}
+
+/**
  * Validates the orchestration configuration block.
  *
  * Uses ajv for formal JSON Schema validation against the inline schema
