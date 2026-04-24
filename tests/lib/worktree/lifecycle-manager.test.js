@@ -230,15 +230,26 @@ test('removeWorktreeWithRecovery: Stage 1 defers to sweep and writes pending-cle
   }
 });
 
-test('removeWorktreeWithRecovery: reports failure when registration survives', async () => {
+test('removeWorktreeWithRecovery: Stage 1 runs even when stderr matches neither lock-like nor cwd-like regex', async () => {
+  // Regression: previously, a `git worktree remove` failure whose stderr
+  // didn't match `WINDOWS_LOCK_RE || WINDOWS_CWD_RE` skipped the entire
+  // Stage 1 recovery. Localized git messages, generic I/O errors, and the
+  // exact combination that left story-562 as `still-registered-after-reap`
+  // all fall into that category. Stage 1 now runs universally.
+  const gitCalls = [];
+  const fsRmCalls = [];
   const ctx = {
     repoRoot: '/repo',
     platform: 'linux',
     config: {},
     listCache: { list: null, ts: 0 },
     logger: quietLogger().logger,
+    fsRm: async (p, opts) => {
+      fsRmCalls.push({ p, opts });
+    },
     git: {
       gitSpawn: (_cwd, ...args) => {
+        gitCalls.push(args);
         if (args[0] === 'worktree' && args[1] === 'remove') {
           return {
             status: 1,
@@ -246,27 +257,65 @@ test('removeWorktreeWithRecovery: reports failure when registration survives', a
             stderr: 'fatal: something unrecoverable',
           };
         }
-        if (args[0] === 'worktree' && args[1] === 'prune') {
-          return { status: 0, stdout: '', stderr: '' };
-        }
-        if (
-          args[0] === 'worktree' &&
-          args[1] === 'list' &&
-          args[2] === '--porcelain'
-        ) {
-          // Still registered after prune — cannot recover.
-          return {
-            status: 0,
-            stdout:
-              'worktree /repo\n\nworktree /repo/.worktrees/story-2\nbranch refs/heads/story-2\n',
-            stderr: '',
-          };
-        }
         return { status: 0, stdout: '', stderr: '' };
       },
     },
   };
-  const res = await removeWorktreeWithRecovery(ctx, '/repo/.worktrees/story-2');
-  assert.equal(res.removed, false);
-  assert.match(res.reason, /unrecoverable/);
+  const res = await removeWorktreeWithRecovery(
+    ctx,
+    '/repo/.worktrees/story-2',
+    { storyId: 2, branch: 'story-2', push: false },
+  );
+  assert.equal(res.removed, true);
+  assert.equal(res.method, 'fs-rm-retry');
+  assert.equal(res.branchDeleted, true);
+  assert.equal(fsRmCalls.length, 1);
+  assert.ok(
+    gitCalls.some((a) => a[0] === 'worktree' && a[1] === 'prune'),
+    'must prune after fs-rm-retry',
+  );
+  assert.ok(
+    gitCalls.some(
+      (a) => a[0] === 'branch' && a[1] === '-D' && a[2] === 'story-2',
+    ),
+    'must delete branch after fs-rm-retry',
+  );
+});
+
+test('removeWorktreeWithRecovery: success path prunes residual admin entries', async () => {
+  // Regression: `git worktree remove` on Windows can exit 0 while leaving
+  // `.git/worktrees/story-<id>/` admin metadata on disk (antivirus /
+  // indexer / module-handle lag). Without the follow-up prune, `worktree
+  // list` still reports the worktree and the close script lands in
+  // `still-registered-after-reap`.
+  const gitCalls = [];
+  const ctx = {
+    repoRoot: '/repo',
+    platform: 'win32',
+    config: {},
+    listCache: { list: null, ts: 0 },
+    logger: quietLogger().logger,
+    git: {
+      gitSpawn: (_cwd, ...args) => {
+        gitCalls.push(args);
+        return { status: 0, stdout: '', stderr: '' };
+      },
+    },
+  };
+  const res = await removeWorktreeWithRecovery(
+    ctx,
+    '/repo/.worktrees/story-7',
+    { storyId: 7, branch: 'story-7', push: false },
+  );
+  assert.equal(res.removed, true);
+  // Every success of `git worktree remove` must be followed by a
+  // `git worktree prune` to clear residual admin-dir registrations.
+  const removeIdx = gitCalls.findIndex(
+    (a) => a[0] === 'worktree' && a[1] === 'remove',
+  );
+  const pruneIdx = gitCalls.findIndex(
+    (a) => a[0] === 'worktree' && a[1] === 'prune',
+  );
+  assert.ok(removeIdx >= 0, 'must call `git worktree remove`');
+  assert.ok(pruneIdx > removeIdx, 'must prune *after* the remove succeeds');
 });
