@@ -297,7 +297,7 @@
   "tests/sprint-story-close-recovery.test.js": 104.17,
   "tests/sprint-story-close.test.js": 112.868,
   "tests/sprint-story-init.test.js": 92.408,
-  "tests/sprint-story-orchestration.test.js": 85.984,
+  "tests/sprint-story-orchestration.test.js": 85.938,
   "tests/structure.test.js": 107.41,
   "tests/ticket-decomposer.test.js": 102.3,
   "tests/ticket-validation.test.js": 103.382,

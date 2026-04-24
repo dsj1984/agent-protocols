@@ -89,7 +89,13 @@ test.beforeEach(() => {
 
 const mockConfig = {
   settings: { mainBranch: 'main' },
-  orchestration: { provider: 'github' },
+  orchestration: {
+    provider: 'github',
+    // Webhook safety: these tests invoke runStoryInit without a sandboxed cwd,
+    // so Notifier would otherwise resolve the real webhook URL from the
+    // project's `.mcp.json`. Disabling the level keeps POSTs from firing.
+    notifications: { level: 'off' },
+  },
 };
 
 test('sprint-story-init: successful initialization', async () => {
