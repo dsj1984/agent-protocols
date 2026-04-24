@@ -3,6 +3,7 @@ import { describe, it } from 'node:test';
 
 import { runEpic } from '../../.agents/scripts/lib/orchestration/epic-runner.js';
 import { structuredCommentMarker } from '../../.agents/scripts/lib/orchestration/ticketing.js';
+import { buildCtx } from './_build-ctx.js';
 
 /**
  * Wiring test for SpawnSmokeTest → runEpicWithContext.
@@ -99,20 +100,21 @@ describe('pre-wave spawn smoke-test wiring', () => {
     };
 
     const result = await runEpic({
-      epicId,
-      provider,
-      config: {
-        epicRunner: {
-          enabled: true,
-          concurrencyCap: 2,
-          pollIntervalSec: 1,
-          storyRetryCount: 0,
-          blockerTimeoutHours: 0,
+      ctx: buildCtx({
+        epicId,
+        provider,
+        spawn,
+        config: {
+          epicRunner: {
+            enabled: true,
+            concurrencyCap: 2,
+            pollIntervalSec: 1,
+            storyRetryCount: 0,
+            blockerTimeoutHours: 0,
+          },
         },
-      },
-      spawn,
+      }),
       smokeTest,
-      logger: { info: () => {}, warn: () => {}, error: () => {} },
     });
 
     assert.equal(result.state, 'halted');
@@ -155,20 +157,21 @@ describe('pre-wave spawn smoke-test wiring', () => {
     };
 
     const result = await runEpic({
-      epicId,
-      provider,
-      config: {
-        epicRunner: {
-          enabled: true,
-          concurrencyCap: 1,
-          pollIntervalSec: 1,
-          storyRetryCount: 0,
-          blockerTimeoutHours: 0,
+      ctx: buildCtx({
+        epicId,
+        provider,
+        spawn,
+        config: {
+          epicRunner: {
+            enabled: true,
+            concurrencyCap: 1,
+            pollIntervalSec: 1,
+            storyRetryCount: 0,
+            blockerTimeoutHours: 0,
+          },
         },
-      },
-      spawn,
+      }),
       smokeTest,
-      logger: { info: () => {}, warn: () => {}, error: () => {} },
     });
 
     assert.notEqual(result.state, 'halted');
