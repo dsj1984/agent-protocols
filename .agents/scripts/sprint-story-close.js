@@ -60,12 +60,102 @@ import {
   clearPhaseTimerState,
   loadPhaseTimerState,
 } from './lib/util/phase-timer-state.js';
+import { drainPendingCleanup } from './lib/worktree/pending-cleanup.js';
 
 // ---------------------------------------------------------------------------
 // Helpers
 // ---------------------------------------------------------------------------
 
 const progress = Logger.createProgress('sprint-story-close', { stderr: true });
+
+function resolveWorktreeRoot(repoRoot, orchestration) {
+  const configuredRoot = orchestration?.worktreeIsolation?.root ?? '.worktrees';
+  return path.join(repoRoot, configuredRoot);
+}
+
+export async function drainPendingCleanupAfterClose({
+  repoRoot,
+  orchestration,
+  progress: progressFn,
+  logger = Logger,
+  git = { gitSpawn },
+  drainFn = drainPendingCleanup,
+} = {}) {
+  const wtConfig = orchestration?.worktreeIsolation;
+  if (!wtConfig?.enabled) return null;
+  const worktreeRoot = resolveWorktreeRoot(repoRoot, orchestration);
+  const result = await drainFn({
+    repoRoot,
+    worktreeRoot,
+    git,
+    logger,
+  });
+  const totalResolved =
+    (result.drained?.length ?? 0) +
+    (result.persistent?.length ?? 0) +
+    (result.stillPending?.length ?? 0);
+  if (totalResolved > 0) {
+    (progressFn ?? progress)(
+      'WORKTREE',
+      `Pending cleanup drain: drained=${result.drained.length}, persistent=${result.persistent.length}, stillPending=${result.stillPending.length}`,
+    );
+  }
+  return { worktreeRoot, ...result };
+}
+
+export function reconcileCleanupState({
+  storyId,
+  worktreeReap,
+  branchCleanup,
+  pendingCleanupDrain,
+}) {
+  const normalizedStoryId = Number(storyId);
+  const nextWorktreeReap = worktreeReap ? { ...worktreeReap } : null;
+  const nextBranchCleanup = branchCleanup ? { ...branchCleanup } : null;
+  if (!pendingCleanupDrain || !nextWorktreeReap || !nextBranchCleanup) {
+    return { worktreeReap: nextWorktreeReap, branchCleanup: nextBranchCleanup };
+  }
+
+  const drainedEntry =
+    pendingCleanupDrain.drainedDetails?.find(
+      (entry) => Number(entry.storyId) === normalizedStoryId,
+    ) ?? null;
+  const isStillPending =
+    pendingCleanupDrain.stillPending?.includes(normalizedStoryId) ?? false;
+  const isPersistent =
+    pendingCleanupDrain.persistent?.includes(normalizedStoryId) ?? false;
+
+  if (drainedEntry) {
+    if (drainedEntry.localBranchDeleted !== null) {
+      nextBranchCleanup.localDeleted =
+        nextBranchCleanup.localDeleted || !!drainedEntry.localBranchDeleted;
+    }
+    if (drainedEntry.remoteBranchDeleted !== null) {
+      nextBranchCleanup.remoteDeleted =
+        nextBranchCleanup.remoteDeleted || !!drainedEntry.remoteBranchDeleted;
+    }
+    nextWorktreeReap.status =
+      nextWorktreeReap.status === 'deferred-to-sweep'
+        ? 'removed-after-drain'
+        : nextWorktreeReap.status;
+    nextWorktreeReap.pendingCleanup = null;
+    nextWorktreeReap.closeDrainStatus = 'drained';
+    return {
+      worktreeReap: nextWorktreeReap,
+      branchCleanup: nextBranchCleanup,
+    };
+  }
+
+  if (nextWorktreeReap.status === 'deferred-to-sweep') {
+    nextWorktreeReap.closeDrainStatus = isPersistent
+      ? 'persistent'
+      : isStillPending
+        ? 'still-pending'
+        : 'not-found';
+  }
+
+  return { worktreeReap: nextWorktreeReap, branchCleanup: nextBranchCleanup };
+}
 
 // ---------------------------------------------------------------------------
 // CLI argument parsing
@@ -510,7 +600,28 @@ export async function runStoryClose({
     progress,
     logger: Logger,
   });
-  const branchCleanup = pipelineState.branchCleanup;
+  if (
+    orchestration?.worktreeIsolation?.enabled &&
+    !pipelineState.worktreeReap
+  ) {
+    throw new Error(
+      'sprint-story-close invariant violated: worktreeReap state missing while worktree isolation is enabled.',
+    );
+  }
+  const pendingCleanupDrain = await drainPendingCleanupAfterClose({
+    repoRoot: cwd,
+    orchestration,
+    progress,
+    logger: Logger,
+  });
+  const reconciledCleanup = reconcileCleanupState({
+    storyId,
+    worktreeReap: pipelineState.worktreeReap,
+    branchCleanup: pipelineState.branchCleanup,
+    pendingCleanupDrain,
+  });
+  const branchCleanup = reconciledCleanup.branchCleanup;
+  const worktreeReap = reconciledCleanup.worktreeReap;
   const { closedTickets, cascadedTo, cascadeFailed } =
     pipelineState.ticketClosure;
   const healthUpdated = pipelineState.healthUpdated;
@@ -557,6 +668,8 @@ export async function runStoryClose({
     branchDeleted: branchCleanup.localDeleted && branchCleanup.remoteDeleted,
     branchLocalDeleted: branchCleanup.localDeleted,
     branchRemoteDeleted: branchCleanup.remoteDeleted,
+    worktreeReap,
+    pendingCleanupDrain,
     ticketsClosed: closedTickets,
     cascadedTo: cascadedTo ?? [],
     cascadeFailed: cascadeFailed ?? [],

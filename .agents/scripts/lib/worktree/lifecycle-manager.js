@@ -425,6 +425,8 @@ export async function reap(ctx, storyId, opts = {}) {
 
 const WINDOWS_LOCK_RE =
   /(permission denied|access is denied|directory not empty|resource busy|device or resource busy|sharing violation|EACCES|EBUSY|ENOTEMPTY)/i;
+const WINDOWS_CWD_RE =
+  /(current working directory|inside the worktree|cannot remove.*current working directory|used by another process because it is the current working directory)/i;
 
 /**
  * Stage 1 recovery after `git worktree remove` exhausts its retries with a
@@ -458,7 +460,7 @@ export async function removeWorktreeWithRecovery(ctx, wtPath, opts = {}) {
   const maxAttempts = ctx.platform === 'win32' ? 6 : 2;
   const retryDelaysMs = [0, 150, 350, 700, 1200, 2000];
   let lastReason = 'worktree-remove-failed';
-  let lastWasLockLike = false;
+  let lastWasRecoverable = false;
 
   for (let attempt = 1; attempt <= maxAttempts; attempt++) {
     const res = ctx.git.gitSpawn(ctx.repoRoot, 'worktree', 'remove', wtPath);
@@ -471,7 +473,9 @@ export async function removeWorktreeWithRecovery(ctx, wtPath, opts = {}) {
         stderr,
       );
     const isLockLike = WINDOWS_LOCK_RE.test(stderr);
-    lastWasLockLike = isLockLike;
+    const isCwdLike = WINDOWS_CWD_RE.test(stderr);
+    const isRecoverable = isLockLike || isCwdLike;
+    lastWasRecoverable = isRecoverable;
 
     if (isSubmoduleGuard && attempt < maxAttempts) {
       ctx.logger.warn(
@@ -481,10 +485,11 @@ export async function removeWorktreeWithRecovery(ctx, wtPath, opts = {}) {
       purgePerWorktreeSubmoduleDir(ctx, wtPath);
       continue;
     }
-    if (isLockLike && attempt < maxAttempts) {
+    if (isRecoverable && attempt < maxAttempts) {
       const delay = retryDelaysMs[attempt] ?? 300;
+      const reasonClass = isCwdLike ? 'cwd-like' : 'lock-like';
       ctx.logger.warn(
-        `worktree.reap remove hit lock-like error; retrying in ${delay}ms (${attempt}/${maxAttempts})`,
+        `worktree.reap remove hit ${reasonClass} error; retrying in ${delay}ms (${attempt}/${maxAttempts})`,
       );
       sleepSync(delay);
       continue;
@@ -492,14 +497,14 @@ export async function removeWorktreeWithRecovery(ctx, wtPath, opts = {}) {
     break;
   }
 
-  // Stage 1: Windows-lock-class fallback. After `git worktree remove` has
-  // exhausted its retries on a lock-like stderr, try to clear the directory
-  // with `fs.rm` (Node-native, built for transient Windows locks), prune the
-  // registration, delete the local branch, and optionally delete the remote
-  // branch. This is categorically different from a shell `rm -rf`: no
-  // subprocess, no argv parsing, path is always an internally-constructed
-  // `.worktrees/story-<id>` path.
-  if (lastWasLockLike) {
+  // Stage 1: Windows recoverable fallback. After `git worktree remove` has
+  // exhausted its retries on a lock-like or cwd-like stderr, try to clear the
+  // directory with `fs.rm` (Node-native, built for transient Windows locks and
+  // current-directory handle lag), prune the registration, delete the local
+  // branch, and optionally delete the remote branch. This is categorically
+  // different from a shell `rm -rf`: no subprocess, no argv parsing, path is
+  // always an internally-constructed `.worktrees/story-<id>` path.
+  if (lastWasRecoverable) {
     const fsRm = ctx.fsRm ?? fsPromisesRm;
     const rmResult = await fsRmWithRetry(fsRm, wtPath, {
       maxRetries: 5,

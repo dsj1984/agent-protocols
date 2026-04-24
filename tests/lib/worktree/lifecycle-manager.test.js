@@ -90,6 +90,51 @@ test('removeWorktreeWithRecovery: Stage 1 fs-rm-retry recovers from Windows lock
   );
 });
 
+test('removeWorktreeWithRecovery: Stage 1 fs-rm-retry also recovers from cwd-like Windows remove failures', async () => {
+  const gitCalls = [];
+  const ctx = {
+    repoRoot: '/repo',
+    platform: 'win32',
+    config: {},
+    listCache: { list: null, ts: 0 },
+    logger: quietLogger().logger,
+    fsRm: async () => {},
+    git: {
+      gitSpawn: (_cwd, ...args) => {
+        gitCalls.push(args);
+        if (args[0] === 'worktree' && args[1] === 'remove') {
+          return {
+            status: 1,
+            stdout: '',
+            stderr:
+              "fatal: cannot remove 'C:/repo/.worktrees/story-566': current working directory is inside the worktree",
+          };
+        }
+        return { status: 0, stdout: '', stderr: '' };
+      },
+    },
+  };
+  const res = await removeWorktreeWithRecovery(
+    ctx,
+    '/repo/.worktrees/story-566',
+    { storyId: 566, branch: 'story-566', push: false },
+  );
+  assert.equal(res.removed, true);
+  assert.equal(res.success, true);
+  assert.equal(res.method, 'fs-rm-retry');
+  assert.equal(res.branchDeleted, true);
+  assert.ok(
+    gitCalls.some((a) => a[0] === 'worktree' && a[1] === 'prune'),
+    'cwd-like recovery must run `git worktree prune`',
+  );
+  assert.ok(
+    gitCalls.some(
+      (a) => a[0] === 'branch' && a[1] === '-D' && a[2] === 'story-566',
+    ),
+    'cwd-like recovery must run `git branch -D story-566`',
+  );
+});
+
 test('removeWorktreeWithRecovery: Stage 1 retries fs.rm and succeeds on attempt 2/5 when EBUSY clears', async () => {
   let fsRmAttempts = 0;
   const ctx = {
