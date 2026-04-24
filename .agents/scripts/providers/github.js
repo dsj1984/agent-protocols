@@ -75,7 +75,13 @@ function resolveToken() {
       timeout: 5000,
       stdio: ['pipe', 'pipe', 'pipe'],
     }).trim();
-    if (ghToken) return ghToken;
+    if (ghToken) {
+      // Memoize across subsequent provider constructions. Only set when
+      // unset — never overwrite an operator-supplied token (Tech Spec #555,
+      // Security & Privacy — Token memoization).
+      if (!process.env.GITHUB_TOKEN) process.env.GITHUB_TOKEN = ghToken;
+      return ghToken;
+    }
   } catch {
     // gh CLI not installed or not authenticated
   }
