@@ -84,14 +84,6 @@ function buildFakeProvider({ epicId, stories }) {
   };
 }
 
-function quietLogger() {
-  return {
-    info: () => {},
-    warn: () => {},
-    error: () => {},
-  };
-}
-
 describe('EpicRunner integration', () => {
   it('drives a two-wave epic to completion via happy-path spawns', async () => {
     const epicId = 321;
@@ -182,21 +174,22 @@ describe('EpicRunner integration', () => {
     };
 
     await runEpic({
-      epicId,
-      provider,
-      config: {
-        epicRunner: {
-          enabled: true,
-          concurrencyCap: 1,
-          pollIntervalSec: 1,
-          storyRetryCount: 0,
-          blockerTimeoutHours: 0,
+      ctx: buildCtx({
+        epicId,
+        provider,
+        spawn,
+        gitAdapter: async () => 1,
+        config: {
+          epicRunner: {
+            enabled: true,
+            concurrencyCap: 1,
+            pollIntervalSec: 1,
+            storyRetryCount: 0,
+            blockerTimeoutHours: 0,
+          },
         },
-      },
-      spawn,
+      }),
       smokeTest: okSmokeTest,
-      logger: quietLogger(),
-      gitAdapter: async () => 1,
     });
 
     assert.deepEqual(spawned, [600], 'only the story should be spawned');
@@ -242,13 +235,14 @@ describe('EpicRunner integration', () => {
     };
 
     const result = await runEpic({
-      epicId,
-      provider,
-      config,
-      spawn,
+      ctx: buildCtx({
+        epicId,
+        provider,
+        spawn,
+        config,
+        gitAdapter: async () => 1,
+      }),
       smokeTest: okSmokeTest,
-      logger: quietLogger(),
-      gitAdapter: async () => 1,
     });
 
     // After resume, no more waves remain, so final state is 'completed'.
@@ -299,13 +293,14 @@ describe('EpicRunner integration', () => {
     };
 
     const result = await runEpic({
-      epicId,
-      provider,
-      config,
-      spawn,
+      ctx: buildCtx({
+        epicId,
+        provider,
+        spawn,
+        config,
+        gitAdapter,
+      }),
       smokeTest: okSmokeTest,
-      logger: quietLogger(),
-      gitAdapter,
     });
 
     const wave = result.waveHistory[0];
