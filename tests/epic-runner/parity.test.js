@@ -12,10 +12,7 @@ import {
 } from '../../.agents/scripts/lib/orchestration/epic-runner/wave-observer.js';
 import { runEpic } from '../../.agents/scripts/lib/orchestration/epic-runner.js';
 import { structuredCommentMarker } from '../../.agents/scripts/lib/orchestration/ticketing.js';
-
-function quietLogger() {
-  return { info: () => {}, warn: () => {}, error: () => {} };
-}
+import { buildCtx } from './_build-ctx.js';
 
 // Stub the pre-wave smoke-test so these parity tests stay hermetic across
 // CI runners that may not have the `claude` binary on PATH.
@@ -110,12 +107,8 @@ describe('epic-runner parity', () => {
     const spawn = async () => ({ status: 'done' });
 
     const result = await runEpic({
-      epicId,
-      provider,
-      config: defaultConfig,
-      spawn,
+      ctx: buildCtx({ epicId, provider, config: defaultConfig, spawn }),
       smokeTest: okSmokeTest,
-      logger: quietLogger(),
     });
 
     assert.equal(result.state, 'completed');
@@ -152,12 +145,8 @@ describe('epic-runner parity', () => {
     const spawn = async () => ({ status: 'done' });
 
     const result = await runEpic({
-      epicId,
-      provider,
-      config: defaultConfig,
-      spawn,
+      ctx: buildCtx({ epicId, provider, config: defaultConfig, spawn }),
       smokeTest: okSmokeTest,
-      logger: quietLogger(),
     });
 
     // The coordinator is expected to flip Epic to executing then review.
@@ -190,12 +179,8 @@ describe('epic-runner parity', () => {
     const labelsBefore = [...provider._tickets.get(epicId).labels];
 
     await runEpic({
-      epicId,
-      provider,
-      config: defaultConfig,
-      spawn,
+      ctx: buildCtx({ epicId, provider, config: defaultConfig, spawn }),
       smokeTest: okSmokeTest,
-      logger: quietLogger(),
     });
 
     const labelsAfter = provider._tickets.get(epicId).labels;
@@ -233,12 +218,8 @@ describe('epic-runner parity', () => {
     };
 
     const result = await runEpic({
-      epicId,
-      provider,
-      config: defaultConfig,
-      spawn,
+      ctx: buildCtx({ epicId, provider, config: defaultConfig, spawn }),
       smokeTest: okSmokeTest,
-      logger: quietLogger(),
     });
 
     const halted = result.waveHistory.find((w) => w.status === 'halted');
