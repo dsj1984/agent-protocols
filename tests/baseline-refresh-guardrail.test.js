@@ -288,7 +288,7 @@ test('parseCliArgs — non-integer pr-number is rejected (left null)', () => {
 
 test('applyBaselineRefreshLabel — idempotent across re-runs (label exists → still applies)', () => {
   const calls = [];
-  const runner = (cwd, args) => {
+  const runner = (_cwd, args) => {
     calls.push(args);
     if (args[0] === 'label' && args[1] === 'create') {
       // Simulate "label already exists" on re-run.
@@ -348,7 +348,7 @@ test('applyBaselineRefreshLabel — no pr-number: warns, does not call runner', 
 });
 
 test('applyBaselineRefreshLabel — gh pr edit failure: returns applied=false, does not throw', () => {
-  const runner = (cwd, args) => {
+  const runner = (_cwd, args) => {
     if (args[0] === 'pr' && args[1] === 'edit') {
       return { status: 1, stdout: '', stderr: 'forbidden' };
     }

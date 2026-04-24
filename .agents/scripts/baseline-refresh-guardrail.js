@@ -147,7 +147,7 @@ export function classifyChangedFiles(
  * @param {string} raw
  */
 export function parseCommitLog(raw) {
-  if (!raw || !raw.trim()) return [];
+  if (!raw?.trim()) return [];
   return raw
     .split(COMMIT_DELIMITER)
     .map((block) => block.trim())
