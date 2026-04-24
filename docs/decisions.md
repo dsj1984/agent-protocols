@@ -820,3 +820,55 @@ submodule paths are internal implementation detail.
     *   The `kernelVersion` field gives us a future-proof seam for
         in-formula changes (e.g., switching from `(1−cov)³` to `(1−cov)²`)
         without a destructive force-rescore on every consumer.
+
+---
+
+## ADR-20260424-638a: `story-566` reap recovery is a self-inflicted dirty-tree bug
+
+*   **Status:** Accepted
+*   **Date:** 2026-04-24
+*   **Epic:** #638 (Story #648)
+*   **Context:** Epic #553 close fired the `worktree.reap recovered via
+    fs-rm-retry … attempts=1 lockReason=contains modified or untracked
+    files` warning on `story-566`. The log is shaped for Windows-lock
+    recovery, but `attempts=1` and the stderr quoted `git worktree
+    remove`'s *own* uncommitted-files guard — not a lock class error.
+    Classification required tracing the full reap path on a framework
+    checkout (where `.agents/` is a tracked directory, not a submodule).
+*   **Root cause:** `removeCopiedAgents()` in
+    `.agents/scripts/lib/worktree/bootstrapper.js` unconditionally
+    `fs.rmSync`'s `<wtPath>/.agents` before `git worktree remove` runs.
+    The three follow-up index operations self-guard on
+    `isAgentsSubmodule(repoRoot)` and no-op in framework repos, but the
+    physical delete does not. In the framework repo the deletion wipes a
+    tracked directory, producing a deliberate dirty state that `git
+    worktree remove`'s pre-check flags with "contains modified or
+    untracked files, use --force to delete it". The belt-and-braces
+    `fs.rm` then removes the whole worktree, so the reap ultimately
+    succeeds — but the warn log misattributes the cause to a Windows
+    lock, and every framework-repo story close pays the retry cycle.
+*   **Why the existing coverage missed it:**
+    `tests/lib/worktree-manager.test.js` line 1419 — *"skips index
+    scrub in non-submodule (framework) repos"* — creates `wtPath` but
+    never materialises `wtPath/.agents`, so `fs.lstatSync` throws and
+    the `fs.rmSync` branch is never exercised. Real framework worktrees
+    always have a checked-out `.agents/` directory.
+*   **Decision:** Classify as a **recoverable bug (outcome b)**. Guard
+    the `fs.rmSync`/`fs.unlinkSync` in `removeCopiedAgents` with
+    `isAgentsSubmodule(repoRoot)`, matching the self-guard already
+    present on the three index-scrub follow-ups. Keep the
+    `removeWorktreeWithRecovery` fs-rm fallback in place as
+    belt-and-braces for genuine Windows locks. Add a regression test
+    asserting that a materialised `.agents/` survives
+    `removeCopiedAgents` in a non-submodule repo.
+*   **Consequences:**
+    *   Framework-repo story closes stop paying the retry cycle and
+        stop emitting misleading `fs-rm-retry` warnings on every close.
+    *   `git worktree remove` now succeeds on its first attempt in the
+        common framework path; Stage 1 recovery resumes being a
+        real-failure signal instead of a self-inflicted one.
+    *   Submodule-consumer repos are unaffected: `isAgentsSubmodule`
+        returns true, the physical delete still runs, and the index
+        scrub + modules purge continue as before.
+    *   The retained fs-rm fallback still covers the true Windows-lock
+        case it was designed for.
