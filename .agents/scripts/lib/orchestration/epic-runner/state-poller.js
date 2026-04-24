@@ -22,6 +22,21 @@ const EXECUTING_LABEL = AGENT_LABELS.EXECUTING;
 const DISPATCHING_LABEL = AGENT_LABELS.DISPATCHING;
 const DONE_LABEL = AGENT_LABELS.DONE;
 
+const DEFAULT_BULK_THRESHOLD = 5;
+const BULK_LABEL_QUERY = 'agent::*';
+
+/**
+ * Sentinel thrown by `#bulkLabelPoll` when the GitHub response contains an
+ * issue whose shape is unexpected. Instructs the caller to demote the
+ * current tick to the per-ticket fallback; subsequent ticks retry bulk.
+ */
+class MalformedBulkResponseError extends Error {
+  constructor(message) {
+    super(message);
+    this.name = 'MalformedBulkResponseError';
+  }
+}
+
 export class StatePoller extends EventEmitter {
   /**
    * @param {{
@@ -45,6 +60,7 @@ export class StatePoller extends EventEmitter {
     this.pollIntervalMs = opts.pollIntervalMs ?? pollDefault;
     this.backoffCapMs = opts.backoffCapMs ?? 5 * 60_000;
     this.storyIds = new Set(opts.storyIds ?? []);
+    this.bulkThreshold = opts.bulkThreshold ?? DEFAULT_BULK_THRESHOLD;
     this.logger = opts.logger ?? ctx?.logger ?? console;
     this._stopped = true;
     this._currentBackoff = this.pollIntervalMs;
@@ -111,6 +127,51 @@ export class StatePoller extends EventEmitter {
       this.emit('blocker-raised', { source: 'story', storyId });
     }
     this._seenStates.set(storyId, labels);
+  }
+
+  /**
+   * Bulk-read every open `agent::*`-labelled issue in one paginated request
+   * and return `Map<issueNumber, Set<labelName>>`. Throws
+   * `MalformedBulkResponseError` on any issue missing `number` or `labels`
+   * so the caller can demote this tick to the per-ticket fallback.
+   */
+  async #bulkLabelPoll() {
+    if (typeof this.provider.listIssuesByLabel !== 'function') {
+      throw new MalformedBulkResponseError(
+        'provider does not support listIssuesByLabel',
+      );
+    }
+    const issues = await this.provider.listIssuesByLabel({
+      state: 'open',
+      labels: BULK_LABEL_QUERY,
+    });
+    const map = new Map();
+    for (const issue of issues ?? []) {
+      if (!issue || typeof issue.number !== 'number') {
+        throw new MalformedBulkResponseError(
+          'bulk response contains issue without a numeric `number`',
+        );
+      }
+      if (!Array.isArray(issue.labels)) {
+        throw new MalformedBulkResponseError(
+          `bulk response issue #${issue.number} missing \`labels\` array`,
+        );
+      }
+      const names = issue.labels
+        .map((l) => (typeof l === 'string' ? l : l?.name))
+        .filter((name) => typeof name === 'string');
+      map.set(issue.number, new Set(names));
+    }
+    return map;
+  }
+
+  /**
+   * Decide whether this tick should use the bulk path. Bulk is selected when
+   * the tracked-story set is at or above `bulkThreshold`; small sets use the
+   * per-ticket path (fewer HTTP calls than a full repo scan).
+   */
+  #shouldUseBulk() {
+    return this.storyIds.size >= this.bulkThreshold;
   }
 
   async #labelSet(ticketId) {
