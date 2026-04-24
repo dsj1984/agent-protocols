@@ -182,6 +182,51 @@ export function compareCrap({
   };
 }
 
+/**
+ * Pure decision helper for the bootstrap / kernel-mismatch / escomplex-mismatch
+ * gate paths. Lets tests assert the exact operator-facing message without
+ * spawning a child process.
+ *
+ * @param {{
+ *   baseline: {kernelVersion: string, escomplexVersion: string, rows: Array}|null,
+ *   runningKernelVersion: string,
+ *   runningEscomplexVersion: string,
+ * }} params
+ * @returns {{ ok: true } | { ok: false, exitCode: 0|1, kind: 'bootstrap'|'kernel-mismatch'|'escomplex-mismatch', message: string }}
+ */
+export function evaluateBaselineCompatibility({
+  baseline,
+  runningKernelVersion,
+  runningEscomplexVersion,
+}) {
+  if (baseline === null || baseline === undefined) {
+    return {
+      ok: false,
+      exitCode: 0,
+      kind: 'bootstrap',
+      message:
+        "[CRAP] no baseline found — run 'npm run crap:update' to bootstrap",
+    };
+  }
+  if (baseline.kernelVersion !== runningKernelVersion) {
+    return {
+      ok: false,
+      exitCode: 1,
+      kind: 'kernel-mismatch',
+      message: `[CRAP] scorer changed from ${baseline.kernelVersion} to ${runningKernelVersion} — run 'npm run crap:update'`,
+    };
+  }
+  if (baseline.escomplexVersion !== runningEscomplexVersion) {
+    return {
+      ok: false,
+      exitCode: 1,
+      kind: 'escomplex-mismatch',
+      message: `[CRAP] scorer changed from ${baseline.escomplexVersion} to ${runningEscomplexVersion} — run 'npm run crap:update'`,
+    };
+  }
+  return { ok: true };
+}
+
 function printSummary(result, scanSummary) {
   console.log('\n--- CRAP Report ---');
   console.log(`Total methods scanned: ${result.total}`);
@@ -268,25 +313,16 @@ async function main() {
   }
 
   const baseline = getCrapBaseline({ baselinePath: args.baselinePath });
-  if (baseline === null) {
-    console.log(
-      "[CRAP] no baseline found — run 'npm run crap:update' to bootstrap",
-    );
-    return 0;
-  }
-
   const runningEscomplex = resolveEscomplexVersion();
-  if (baseline.kernelVersion !== KERNEL_VERSION) {
-    console.error(
-      `[CRAP] scorer changed from ${baseline.kernelVersion} to ${KERNEL_VERSION} — run 'npm run crap:update'`,
-    );
-    return 1;
-  }
-  if (baseline.escomplexVersion !== runningEscomplex) {
-    console.error(
-      `[CRAP] scorer changed from ${baseline.escomplexVersion} to ${runningEscomplex} — run 'npm run crap:update'`,
-    );
-    return 1;
+  const compat = evaluateBaselineCompatibility({
+    baseline,
+    runningKernelVersion: KERNEL_VERSION,
+    runningEscomplexVersion: runningEscomplex,
+  });
+  if (!compat.ok) {
+    if (compat.exitCode === 0) console.log(compat.message);
+    else console.error(compat.message);
+    return compat.exitCode;
   }
 
   const targetDirs =
