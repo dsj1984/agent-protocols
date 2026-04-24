@@ -240,4 +240,3 @@ describe('crap-drift detector', () => {
     assert.deepEqual(bullets, []);
   });
 });
-

@@ -72,7 +72,9 @@ export function createCrapDriftDetector(opts = {}) {
 
   function findCoverageEntry(coverageMap, relPath) {
     if (!coverageMap || typeof coverageMap !== 'object') return null;
-    const suffix = String(relPath).replace(/\\/g, '/').replace(/^\.\/+/, '');
+    const suffix = String(relPath)
+      .replace(/\\/g, '/')
+      .replace(/^\.\/+/, '');
     if (!suffix) return null;
     for (const key of Object.keys(coverageMap)) {
       const norm = String(key).replace(/\\/g, '/');
@@ -93,7 +95,8 @@ export function createCrapDriftDetector(opts = {}) {
       for (const row of rows) {
         if (!row || typeof row.method !== 'string') continue;
         if (typeof row.startLine !== 'number') continue;
-        if (typeof row.crap !== 'number' || !Number.isFinite(row.crap)) continue;
+        if (typeof row.crap !== 'number' || !Number.isFinite(row.crap))
+          continue;
         methods[methodKey(row.method, row.startLine)] = {
           method: row.method,
           startLine: row.startLine,
