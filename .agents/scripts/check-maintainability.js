@@ -28,6 +28,34 @@ import { createProvider } from './lib/provider-factory.js';
 const TARGET_DIRS = ['.agents/scripts', 'tests'];
 const TOLERANCE = 0.001; // Allow for tiny floating point variances
 
+/**
+ * Pure helper: resolve the effective MI tolerance by layering the
+ * `CRAP_TOLERANCE` env-var on top of the default. Shared with `check-crap.js`
+ * so the baseline-refresh-guardrail CI job can force base-branch values on
+ * both gates with a single environment variable. Malformed values warn and
+ * fall back to the default — a typo in CI must never silently relax the gate.
+ *
+ * @param {NodeJS.ProcessEnv} env
+ * @returns {{ tolerance: number, overrides: string[] }}
+ */
+export function resolveMaintainabilityEnvOverrides(env) {
+  const overrides = [];
+  let tolerance = TOLERANCE;
+  const raw = env?.CRAP_TOLERANCE;
+  if (raw !== undefined && raw !== '') {
+    const parsed = Number(raw);
+    if (Number.isFinite(parsed) && parsed >= 0) {
+      tolerance = parsed;
+      overrides.push(`tolerance=${parsed} (CRAP_TOLERANCE)`);
+    } else {
+      console.warn(
+        `[Maintainability] ⚠ ignoring malformed CRAP_TOLERANCE=${raw}; keeping default ${TOLERANCE}`,
+      );
+    }
+  }
+  return { tolerance, overrides };
+}
+
 // Envelope version for the --json parity output. Bump when the report shape
 // changes so downstream agent workflows can detect breaks without guessing.
 export const MI_REPORT_KERNEL_VERSION = '1.0.0';
@@ -244,7 +272,15 @@ async function main() {
 
   const scores = calculateAll(scopedFiles);
 
-  const stats = compareScores(scores, scopedBaseline, TOLERANCE);
+  const { tolerance, overrides } = resolveMaintainabilityEnvOverrides(
+    process.env,
+  );
+  if (overrides.length > 0) {
+    console.log(
+      `[Maintainability] env overrides active: ${overrides.join(', ')}`,
+    );
+  }
+  const stats = compareScores(scores, scopedBaseline, tolerance);
   printSummaryReport(scores, stats);
 
   const jsonPath = parseJsonPathArg();

@@ -34,7 +34,74 @@ import { createProvider } from './lib/provider-factory.js';
  * `--story <id>` (or the `FRICTION_STORY_ID` env) mirrors
  * `check-maintainability.js` — on failure we upsert a rate-limited friction
  * structured comment on the named Story naming every violating method.
+ *
+ * Environment overrides (take precedence over `.agentrc.json`):
+ *   - `CRAP_NEW_METHOD_CEILING` — integer; overrides `crap.newMethodCeiling`.
+ *   - `CRAP_TOLERANCE`          — float;   overrides `crap.tolerance`.
+ *   - `CRAP_REFRESH_TAG`        — string;  overrides `crap.refreshTag` (surfaced
+ *                                          in the failure hint).
+ * These are intended for the base-branch-enforced `baseline-refresh-guardrail`
+ * CI job (see Story #610) so CI can force base-branch values regardless of
+ * what the PR branch config says. Malformed values log a warning and fall
+ * back to the config value — a typo in CI must never silently relax the gate.
  */
+
+/**
+ * Pure helper: resolve the effective CRAP config by layering env-var overrides
+ * on top of the resolved `.agentrc.json` values. Exported so tests can assert
+ * the precedence + malformed-value behavior without spawning the CLI.
+ *
+ * @param {{ newMethodCeiling?: unknown, tolerance?: unknown, refreshTag?: unknown }} crapConfig
+ * @param {NodeJS.ProcessEnv} env
+ * @returns {{ newMethodCeiling: number, tolerance: number, refreshTag: string, overrides: string[] }}
+ */
+export function resolveCrapEnvOverrides(crapConfig, env) {
+  const overrides = [];
+  let newMethodCeiling = Number.isFinite(crapConfig?.newMethodCeiling)
+    ? crapConfig.newMethodCeiling
+    : 30;
+  let tolerance = Number.isFinite(crapConfig?.tolerance)
+    ? crapConfig.tolerance
+    : 0.001;
+  let refreshTag =
+    typeof crapConfig?.refreshTag === 'string' && crapConfig.refreshTag.length
+      ? crapConfig.refreshTag
+      : 'baseline-refresh:';
+
+  const rawCeiling = env?.CRAP_NEW_METHOD_CEILING;
+  if (rawCeiling !== undefined && rawCeiling !== '') {
+    const parsed = Number(rawCeiling);
+    if (Number.isFinite(parsed) && parsed >= 0) {
+      newMethodCeiling = parsed;
+      overrides.push(`newMethodCeiling=${parsed} (CRAP_NEW_METHOD_CEILING)`);
+    } else {
+      console.warn(
+        `[CRAP] ⚠ ignoring malformed CRAP_NEW_METHOD_CEILING=${rawCeiling}; keeping config value ${newMethodCeiling}`,
+      );
+    }
+  }
+
+  const rawTolerance = env?.CRAP_TOLERANCE;
+  if (rawTolerance !== undefined && rawTolerance !== '') {
+    const parsed = Number(rawTolerance);
+    if (Number.isFinite(parsed) && parsed >= 0) {
+      tolerance = parsed;
+      overrides.push(`tolerance=${parsed} (CRAP_TOLERANCE)`);
+    } else {
+      console.warn(
+        `[CRAP] ⚠ ignoring malformed CRAP_TOLERANCE=${rawTolerance}; keeping config value ${tolerance}`,
+      );
+    }
+  }
+
+  const rawRefreshTag = env?.CRAP_REFRESH_TAG;
+  if (typeof rawRefreshTag === 'string' && rawRefreshTag.length > 0) {
+    refreshTag = rawRefreshTag;
+    overrides.push(`refreshTag=${rawRefreshTag} (CRAP_REFRESH_TAG)`);
+  }
+
+  return { newMethodCeiling, tolerance, refreshTag, overrides };
+}
 
 export function parseCliArgs(argv = process.argv.slice(2)) {
   const out = {
@@ -469,10 +536,11 @@ async function main() {
   const requireCoverage = crap.requireCoverage !== false;
   const coveragePath =
     args.coveragePath ?? crap.coveragePath ?? 'coverage/coverage-final.json';
-  const newMethodCeiling = Number.isFinite(crap.newMethodCeiling)
-    ? crap.newMethodCeiling
-    : 30;
-  const tolerance = Number.isFinite(crap.tolerance) ? crap.tolerance : 0.001;
+  const { newMethodCeiling, tolerance, refreshTag, overrides } =
+    resolveCrapEnvOverrides(crap, process.env);
+  if (overrides.length > 0) {
+    console.log(`[CRAP] env overrides active: ${overrides.join(', ')}`);
+  }
 
   const coverage = loadCoverage(path.resolve(process.cwd(), coveragePath));
 
@@ -517,7 +585,7 @@ async function main() {
 
   if (result.regressions > 0 || result.newViolations > 0) {
     console.error(
-      '[CRAP] ❌ check failed. Reduce complexity or add coverage on the flagged methods, or run `npm run crap:update` with a `baseline-refresh:` commit if justified.',
+      `[CRAP] ❌ check failed. Reduce complexity or add coverage on the flagged methods, or run \`npm run crap:update\` with a \`${refreshTag}\` commit if justified.`,
     );
     if (args.storyId) {
       await emitFriction(args.storyId, result, {
