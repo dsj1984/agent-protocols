@@ -45,13 +45,13 @@ are all rejected at config-load time.
 
 ## Lifecycle
 
-| Phase      | When                         | What happens                                                                 |
-| ---------- | ---------------------------- | ---------------------------------------------------------------------------- |
-| **Sweep**  | Start of `/sprint-execute`   | Stale `*.lock` files under `.git/` (older than 5 min) are removed before GC. |
-| **GC**     | Start of `/sprint-execute`   | Orphan `.worktrees/story-*` whose stories are closed are reaped if clean.    |
-| **Ensure** | Before dispatching a story   | `git worktree add .worktrees/story-<id>/` on the `story-<id>` branch.        |
-| **Run**    | During story execution       | Agent runs inside the worktree; HEAD/reflog activity is isolated.            |
-| **Reap**   | After successful story merge | `git worktree remove` — refuses to delete dirty trees or unmerged branches.  |
+| Phase      | When                                                                   | What happens                                                                 |
+| ---------- | ---------------------------------------------------------------------- | ---------------------------------------------------------------------------- |
+| **Sweep**  | Dispatch-manifest build (`/sprint-plan`, remote bootstrap) and `sprint-close` | Stale `*.lock` files under `.git/` (older than 5 min) are removed before GC. |
+| **GC**     | Dispatch-manifest build (`/sprint-plan`, remote bootstrap) and `sprint-close` | Orphan `.worktrees/story-*` whose stories are closed are reaped if clean.    |
+| **Ensure** | `sprint-story-init` (Story Mode entry for `/sprint-execute`)           | `git worktree add .worktrees/story-<id>/` on the `story-<id>` branch.        |
+| **Run**    | During story execution                                                 | Agent runs inside the worktree; HEAD/reflog activity is isolated.            |
+| **Reap**   | After successful story merge (in `sprint-close`)                       | `git worktree remove` — refuses to delete dirty trees or unmerged branches.  |
 
 The `WorktreeManager` (`.agents/scripts/lib/worktree-manager.js`) is the single
 authority for `ensure`, `reap`, `list`, `isSafeToRemove`, `gc`, `prune`, and
@@ -72,8 +72,28 @@ to be running" error.
 
 `sweepStaleLocks({ maxAgeMs = 300_000 })` removes well-known lock files whose
 mtime exceeds the age threshold. Fresh locks (belonging to a legitimate
-in-flight op) are skipped. It runs automatically at the start of
-`/sprint-execute`, immediately before `gc`.
+in-flight op) are skipped. It always runs immediately before `gc`, in the same
+entry points (see table below).
+
+### Sweep & GC entry points
+
+Sweep and GC do **not** run at every sprint entry point — in particular,
+`sprint-story-init` (the Story Mode entry for `/sprint-execute`) does not
+invoke them. The full set of callers is:
+
+| Entry point                                                           | Script / caller                                           | Runs sweep? | Runs GC? | Notes                                                                                               |
+| --------------------------------------------------------------------- | --------------------------------------------------------- | ----------- | -------- | --------------------------------------------------------------------------------------------------- |
+| Dispatch manifest build (`/sprint-plan` Phase 4, remote-trigger boot) | `lib/orchestration/dispatch-pipeline.js::runWorktreeGc`   | ✅ Yes      | ✅ Yes   | Called from `dispatch-engine.js::dispatch()`. Scoped to the epic being dispatched.                  |
+| Story close                                                           | `sprint-close.js` (invoked by `sprint-story-close.js`)    | ✅ Yes      | ✅ Yes   | Runs before branch deletion so reaping cannot collide with `git branch -D`.                         |
+| Story init (`/sprint-execute <storyId>`)                              | `sprint-story-init.js`                                    | ❌ No       | ❌ No    | Story Mode relies on the dispatch/close pair to clean up; it only creates its own worktree.         |
+| Epic runner wave loop                                                 | `epic-runner.js` and `lib/orchestration/epic-runner/*`    | ❌ No       | ❌ No    | Does not call `sweepStaleLocks` or `gc` directly; cleanup still flows through dispatch + close.     |
+| Remote bootstrap                                                      | `remote-bootstrap.js`                                     | ❌ No       | ❌ No    | Only transitively, if it triggers a dispatch-manifest build as part of the epic-orchestrator flow.  |
+
+Operator takeaway: if you need to force a sweep/GC without closing a story,
+the most direct path is re-running `/sprint-plan` (or rebuilding the dispatch
+manifest via `dispatcher.js`) against the active epic. Running
+`/sprint-execute <storyId>` on its own does **not** clean up orphan worktrees
+or stale locks.
 
 ## `.agents` copy (consumer projects)
 
