@@ -286,6 +286,7 @@ export class GitHubProvider extends ITicketingProvider {
     if (!isEpicParent) return [];
     try {
       const issues = await this.getTickets(parentId);
+      this.primeTicketCache(issues);
       return issues.map((i) => i.id);
     } catch (err) {
       console.warn(
