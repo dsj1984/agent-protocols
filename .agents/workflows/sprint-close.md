@@ -367,6 +367,15 @@ If no matching comment is found, **auto-invoke** the
 is now present. If the retro helper failed to produce a comment, STOP and
 relay the failure to the operator.
 
+> **`--full-retro` override.** If the operator passed `--full-retro`,
+> propagate it into the retro helper invocation so the compact-path
+> heuristic in `helpers/sprint-retro.md` Step 0.5 is bypassed and the full
+> six-section retro is composed regardless of the dispatch manifest's
+> cleanliness. Without the flag, the helper chooses the compact or full
+> path based on the `isCleanManifest` predicate. `--skip-retro` takes
+> precedence over `--full-retro` (skipping means no retro composes at all,
+> so the shape is moot).
+
 > **Why it exists:** without the gate, retros get silently skipped and the
 > Epic closes with no post-mortem record. The gate reads directly from
 > GitHub (the retro's source of truth), not a local path.
@@ -417,3 +426,9 @@ node [SCRIPTS_ROOT]/notify.js --ticket [EPIC_ID] "Epic #[EPIC_ID] closed. Merged
   tolerated — log them as warnings and continue.
 - **Always** tag a release when the Epic corresponds to a versioned
   milestone.
+- **`--full-retro` is opt-in.** The compact three-section retro is the
+  default for clean-manifest Epics (zero friction, zero parked, zero
+  recuts, zero hotfixes, zero HITL). Pass `--full-retro` to force the
+  six-section retro regardless of manifest cleanliness. `--skip-retro`
+  still wins over `--full-retro` — skipping means no retro composes at
+  all. Neither flag affects the code-review gate.
