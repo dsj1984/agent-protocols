@@ -101,55 +101,72 @@ export async function runWaveGate({
     process.exit(2);
   }
 
-  const open = [];
-  for (const entry of parsed.stories) {
-    const id = Number(entry.storyId);
-    if (!Number.isFinite(id)) continue;
-    try {
-      const ticket = await provider.getTicket(id);
-      if (ticket.state !== 'closed') {
-        open.push({ id, title: entry.title, wave: entry.wave });
-      }
-    } catch (err) {
-      // Treat fetch failures as "still open" — better to halt than to
-      // silently skip a story we could not confirm.
-      open.push({
-        id,
-        title: entry.title,
-        wave: entry.wave,
-        error: err.message,
-      });
-    }
-  }
-
   // Read parked follow-ons + recuts structured comment (non-fatal if absent).
   const followOns = await readParkedFollowOns(provider, epicId);
-  const openRecuts = [];
-  const openParked = [];
-  for (const r of followOns.recuts) {
-    const id = Number(r.storyId);
-    if (!Number.isFinite(id)) continue;
-    try {
-      const ticket = await provider.getTicket(id);
-      if (ticket.state !== 'closed') {
-        openRecuts.push({ id, parentId: r.parentId });
-      }
-    } catch (err) {
-      openRecuts.push({ id, parentId: r.parentId, error: err.message });
-    }
-  }
-  for (const p of followOns.parked) {
-    const id = Number(p.storyId);
-    if (!Number.isFinite(id)) continue;
-    try {
-      const ticket = await provider.getTicket(id);
-      if (ticket.state !== 'closed') {
-        openParked.push({ id });
-      }
-    } catch (err) {
-      openParked.push({ id, error: err.message });
-    }
-  }
+
+  // Fan out all three getTicket batches concurrently. Each inner mapper
+  // preserves the original "fetch failure → treat as still-open" contract so
+  // we halt rather than silently skip a story we could not confirm.
+  const manifestEntries = parsed.stories
+    .map((entry) => ({ entry, id: Number(entry.storyId) }))
+    .filter(({ id }) => Number.isFinite(id));
+  const recutEntries = followOns.recuts
+    .map((r) => ({ r, id: Number(r.storyId) }))
+    .filter(({ id }) => Number.isFinite(id));
+  const parkedEntries = followOns.parked
+    .map((p) => ({ p, id: Number(p.storyId) }))
+    .filter(({ id }) => Number.isFinite(id));
+
+  const [manifestResults, recutResults, parkedResults] = await Promise.all([
+    Promise.all(
+      manifestEntries.map(async ({ entry, id }) => {
+        try {
+          const ticket = await provider.getTicket(id);
+          if (ticket.state !== 'closed') {
+            return { id, title: entry.title, wave: entry.wave };
+          }
+          return null;
+        } catch (err) {
+          return {
+            id,
+            title: entry.title,
+            wave: entry.wave,
+            error: err.message,
+          };
+        }
+      }),
+    ),
+    Promise.all(
+      recutEntries.map(async ({ r, id }) => {
+        try {
+          const ticket = await provider.getTicket(id);
+          if (ticket.state !== 'closed') {
+            return { id, parentId: r.parentId };
+          }
+          return null;
+        } catch (err) {
+          return { id, parentId: r.parentId, error: err.message };
+        }
+      }),
+    ),
+    Promise.all(
+      parkedEntries.map(async ({ id }) => {
+        try {
+          const ticket = await provider.getTicket(id);
+          if (ticket.state !== 'closed') {
+            return { id };
+          }
+          return null;
+        } catch (err) {
+          return { id, error: err.message };
+        }
+      }),
+    ),
+  ]);
+
+  const open = manifestResults.filter(Boolean);
+  const openRecuts = recutResults.filter(Boolean);
+  const openParked = parkedResults.filter(Boolean);
 
   const problems = [];
   if (open.length > 0) {
