@@ -3,10 +3,7 @@ import fs from 'node:fs';
 import path from 'node:path';
 import { test } from 'node:test';
 import Ajv from 'ajv';
-import {
-  buildCrapReport,
-  compareCrap,
-} from '../.agents/scripts/check-crap.js';
+import { buildCrapReport, compareCrap } from '../.agents/scripts/check-crap.js';
 import { crapFormula } from '../.agents/scripts/lib/crap-engine.js';
 import { KERNEL_VERSION } from '../.agents/scripts/lib/crap-utils.js';
 
@@ -205,7 +202,12 @@ test('buildCrapReport — round-trip: each single-axis fix reduces CRAP to ≤ c
 test('buildCrapReport — drifted-regression kind surfaces through the envelope', () => {
   const baseline = [makeBaselineRow({ startLine: 10, crap: 4 })];
   const current = [
-    makeRegressionRow({ startLine: 25, cyclomatic: 10, coverage: 0, crap: 110 }),
+    makeRegressionRow({
+      startLine: 25,
+      cyclomatic: 10,
+      coverage: 0,
+      crap: 110,
+    }),
   ];
   const envelope = buildCrapReport({
     compareResult: compareCrap({
