@@ -1,0 +1,42 @@
+{
+  "$schema": "http://json-schema.org/draft-07/schema#",
+  "$id": "https://agent-protocols/.agents/schemas/mi-report.schema.json",
+  "title": "MaintainabilityReport",
+  "description": "Structured `--json` output envelope emitted by check-maintainability.js. Parity shape with crap-report (kernelVersion, summary, violations) minus fixGuidance — MI scores don't decompose along the two CRAP axes, so per-violation remediation guidance is intentionally absent.",
+  "type": "object",
+  "required": ["kernelVersion", "summary", "violations"],
+  "additionalProperties": false,
+  "properties": {
+    "kernelVersion": {
+      "type": "string",
+      "pattern": "^[0-9]+\\.[0-9]+\\.[0-9]+$",
+      "description": "MI report envelope version. Bumped when the envelope shape changes."
+    },
+    "summary": {
+      "type": "object",
+      "required": ["total", "regressions", "newFiles", "improvements"],
+      "additionalProperties": false,
+      "properties": {
+        "total": { "type": "integer", "minimum": 0 },
+        "regressions": { "type": "integer", "minimum": 0 },
+        "newFiles": { "type": "integer", "minimum": 0 },
+        "improvements": { "type": "integer", "minimum": 0 }
+      }
+    },
+    "violations": {
+      "type": "array",
+      "items": {
+        "type": "object",
+        "required": ["file", "current", "baseline", "drop", "kind"],
+        "additionalProperties": false,
+        "properties": {
+          "file": { "type": "string" },
+          "current": { "type": "number" },
+          "baseline": { "type": "number" },
+          "drop": { "type": "number" },
+          "kind": { "type": "string", "enum": ["regression"] }
+        }
+      }
+    }
+  }
+}

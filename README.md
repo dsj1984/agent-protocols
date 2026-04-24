@@ -52,7 +52,12 @@ graph LR
   `@octokit/*`, no Axios — just raw HTTP and GraphQL.
 - **Gate-Based Quality**: An automated audit orchestration pipeline selects and
   runs relevant audits at four sprint lifecycle gates, enforcing a
-  maintainability ratchet that prevents code quality degradation.
+  maintainability ratchet that prevents code quality degradation. **Epic #596
+  (v5.22.0)** adds a sibling per-method **CRAP gate** (complexity × coverage
+  risk) wired into close-validation, CI, and pre-push, with a base-branch-
+  enforced anti-gaming guardrail that blocks silent threshold relaxation. See
+  the consumer-onboarding section in [`.agents/README.md`](.agents/README.md)
+  for first-run behavior, opt-out, and `--json` output semantics.
 
 ## Get Started
 

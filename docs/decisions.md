@@ -726,3 +726,97 @@ submodule paths are internal implementation detail.
     *   The `ProgressReporter` aggregation runs behind the same TTL +
         concurrency cap introduced in ADR-20260424-553a — observability
         cannot re-introduce the fanout cost it was designed to measure.
+
+## ADR-20260424-596a: CRAP as a sibling gate, not a replacement for MI
+
+*   **Status:** Accepted
+*   **Date:** 2026-04-24
+*   **Epic:** #596
+*   **Context:** The maintainability (MI) gate ratchets a per-file composite
+    score, but is coverage-blind: a 30-branch function scores identically
+    whether it has 0% or 100% test coverage. MI tells operators *what to
+    refactor*; it does not tell them *what to test next*. Per-method
+    cyclomatic complexity (from `typhonjs-escomplex`) and per-method coverage
+    (from the `c8` artifact) were already present in CI but unused for risk
+    signalling. Folding the new model into the MI baseline envelope would
+    have churned every existing consumer baseline and conflated two distinct
+    questions (file-level refactor priority vs. method-level test priority)
+    onto one ratchet.
+*   **Decision:** Ship CRAP as a **sibling pipeline** with its own baseline
+    artefact (`crap-baseline.json`), CLIs (`check-crap`, `update-crap-
+    baseline`), and config block (`agentSettings.maintainability.crap`).
+    Wire it at the same three sites as MI (close-validation, ci.yml, pre-
+    push) but enforce a **hybrid** model: tracked methods ratchet with line-
+    drift fallback; new methods must score ≤ `newMethodCeiling` (default 30,
+    the canonical CRAP threshold). Removed methods are surfaced as a counter,
+    never a failure. Both gates share an envelope shape
+    (`{ kernelVersion, summary, violations }`) so agent workflows can consume
+    both with one parser.
+*   **Consequences:**
+    *   Existing `maintainability-baseline.json` stays valid — no consumer
+        repo gets a free baseline reshuffle on adoption.
+    *   The two questions separate cleanly: MI = "where is the rot?", CRAP
+        = "where is the untested complexity?".
+    *   A future Epic can refactor both gates onto a shared envelope/helper
+        base if/when symmetry pays off; today's parity is shape-level only.
+
+## ADR-20260424-596b: Base-branch-enforced anti-gaming guardrail
+
+*   **Status:** Accepted
+*   **Date:** 2026-04-24
+*   **Epic:** #596
+*   **Context:** A PR that simultaneously raises `newMethodCeiling` in
+    `.agentrc.json` AND introduces a method over the new (relaxed) ceiling
+    would pass its own gate — the gate reads its own branch's config. With
+    agentic authorship, this is not a hypothetical: the shortest path to
+    green CI is to relax the threshold. A purely advisory "don't do this"
+    norm would be eroded within weeks.
+*   **Decision:** Add a `pull_request`-only `baseline-refresh-guardrail.yml`
+    workflow that reads thresholds from the **base branch** via
+    `git show origin/<base>:.agentrc.json`, then re-runs `check-crap` with
+    those values forced via `CRAP_NEW_METHOD_CEILING` / `CRAP_TOLERANCE` /
+    `CRAP_REFRESH_TAG` env vars. Any PR that touches `crap-baseline.json` or
+    `maintainability-baseline.json` must include at least one commit whose
+    subject starts with the configured `refreshTag` (default
+    `baseline-refresh:`) AND whose body is non-empty — both required.
+    Baseline-only PRs receive the `review::baseline-refresh` label
+    idempotently across re-runs.
+*   **Consequences:**
+    *   Threshold relaxation requires either a separately committed baseline
+        refresh (with justification body) or it fails CI under base-branch
+        values — a malicious or careless PR cannot do both at once.
+    *   The label ensures every refresh is reviewer-visible even on green
+        CI; "silently merged a baseline" is no longer a possible failure
+        mode.
+    *   The env-var seam is the same one operators can use ad-hoc to test
+        a stricter ceiling against the current branch — testing surface is
+        identical to the enforcement surface.
+
+## ADR-20260424-596c: Kernel-version stamp on the CRAP baseline
+
+*   **Status:** Accepted
+*   **Date:** 2026-04-24
+*   **Epic:** #596
+*   **Context:** `typhonjs-escomplex` makes scoring decisions that change
+    between minor versions. Without a version stamp, an upstream dependency
+    bump silently rescores every method, producing a ghost baseline that
+    looks healthy but compares against numbers no one ran. Worse, an
+    "everything passes" run after a bump masks real regressions in the
+    delta. Consumer repos pulling the framework as a submodule absorb the
+    bump without warning.
+*   **Decision:** Stamp `crap-baseline.json` with two version fields:
+    `kernelVersion` (the inline CRAP formula's contract) and
+    `escomplexVersion` (the dep). On any mismatch with the running scorer,
+    `check-crap` exits 1 with `[CRAP] scorer changed from X to Y — run 'npm
+    run crap:update'`. The bootstrap path (no baseline at all) still exits 0
+    with a different message — first-run on a consumer repo must never hard-
+    fail.
+*   **Consequences:**
+    *   Dependency bumps surface explicitly with a clear remediation, not
+        as a quiet rescore.
+    *   Bootstrap and version-mismatch are distinct exit codes (0 vs 1)
+        and distinct messages — operators do not have to diff stdout to
+        tell a fresh repo from a dependency drift.
+    *   The `kernelVersion` field gives us a future-proof seam for
+        in-formula changes (e.g., switching from `(1−cov)³` to `(1−cov)²`)
+        without a destructive force-rescore on every consumer.

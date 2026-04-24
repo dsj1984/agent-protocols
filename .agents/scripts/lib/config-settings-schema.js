@@ -41,10 +41,47 @@ const NULLABLE_SAFE_STRING = {
   not: { type: 'string', pattern: SHELL_INJECTION_PATTERN_STRING },
 };
 
+/** A list-valued config key may be a plain array (replace) or an extender
+ * object `{ append, prepend }` that deep-merges with framework defaults. */
+const LIST_OR_EXTENDER_OF_STRINGS = {
+  oneOf: [
+    { type: 'array', items: { type: 'string' } },
+    {
+      type: 'object',
+      properties: {
+        append: { type: 'array', items: { type: 'string' } },
+        prepend: { type: 'array', items: { type: 'string' } },
+      },
+      additionalProperties: false,
+    },
+  ],
+};
+
+const MAINTAINABILITY_CRAP_SCHEMA = {
+  type: 'object',
+  properties: {
+    enabled: { type: 'boolean' },
+    targetDirs: LIST_OR_EXTENDER_OF_STRINGS,
+    newMethodCeiling: { type: 'integer', minimum: 1 },
+    coveragePath: { ...SAFE_STRING, minLength: 1 },
+    tolerance: { type: 'number', minimum: 0 },
+    requireCoverage: { type: 'boolean' },
+    friction: {
+      type: 'object',
+      properties: { markerKey: { type: 'string', minLength: 1 } },
+      additionalProperties: false,
+    },
+    refreshTag: { ...SAFE_STRING, minLength: 1 },
+  },
+  // No `additionalProperties: false` — unknown keys warn at resolver time
+  // (AC19) rather than failing validation.
+};
+
 const MAINTAINABILITY_SCHEMA = {
   type: 'object',
   properties: {
-    targetDirs: { type: 'array', items: { type: 'string' } },
+    targetDirs: LIST_OR_EXTENDER_OF_STRINGS,
+    crap: MAINTAINABILITY_CRAP_SCHEMA,
   },
   additionalProperties: false,
 };

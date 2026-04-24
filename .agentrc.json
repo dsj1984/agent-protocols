@@ -34,6 +34,19 @@
     "validationCommand": "npm run lint",
     "lintBaselineCommand": "npm run lint",
     "lintBaselinePath": "temp/lint-baseline.json",
+    "maintainability": {
+      "targetDirs": [".agents/scripts", "tests"],
+      "crap": {
+        "enabled": true,
+        "targetDirs": [".agents/scripts"],
+        "newMethodCeiling": 30,
+        "coveragePath": "coverage/coverage-final.json",
+        "tolerance": 0.001,
+        "requireCoverage": true,
+        "friction": { "markerKey": "crap-baseline-regression" },
+        "refreshTag": "baseline-refresh:"
+      }
+    },
     "testCommand": "npm test",
     "exploratoryTestCommand": "npm test",
     "typecheckCommand": "",

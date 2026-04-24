@@ -3,6 +3,9 @@ name: CI / CD
 on:
   push:
     branches: [main]
+  pull_request:
+    branches: [main]
+    types: [opened, synchronize, reopened]
   schedule:
     - cron: '0 0 * * *' # Run nightly
   workflow_dispatch: # Allow manual triggering
@@ -62,6 +65,30 @@ jobs:
         with:
           name: test-results-node-22
           path: test-output.txt
+
+      - name: CRAP Check
+        # Diff-scoped on PRs (--changed-since base_ref) so the gate stays fast
+        # on large incoming diffs; full-repo scan on push-to-main so a
+        # regression in an untouched file cannot ride in alongside an unrelated
+        # PR. Self-skips when `agentSettings.maintainability.crap.enabled` is
+        # false. The `--json` artifact is uploaded for downstream agent
+        # workflows.
+        run: |
+          mkdir -p temp
+          if [[ "${{ github.event_name }}" == "pull_request" ]]; then
+            npm run crap:check -- \
+              --changed-since origin/${{ github.base_ref }} \
+              --json temp/crap-report.json
+          else
+            npm run crap:check -- --json temp/crap-report.json
+          fi
+
+      - name: Upload CRAP Report
+        uses: actions/upload-artifact@v4
+        if: always()
+        with:
+          name: crap-report
+          path: temp/crap-report.json
 
   publish:
     name: Publish to Dist
