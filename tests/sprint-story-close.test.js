@@ -7,6 +7,7 @@ import {
   DEFAULT_GATES,
   runCloseValidation,
 } from '../.agents/scripts/lib/close-validation.js';
+import { renderPhaseTimingsCommentBody } from '../.agents/scripts/sprint-story-close.js';
 
 const SCRIPT_PATH = path.resolve('.agents/scripts/sprint-story-close.js');
 
@@ -58,6 +59,30 @@ test('runCloseValidation', async (t) => {
     assert.deepEqual(result, { ok: true, failed: [] });
     assert.equal(calls.length, 2);
   });
+
+  await t.test(
+    'renderPhaseTimingsCommentBody emits a fenced JSON payload',
+    () => {
+      const body = renderPhaseTimingsCommentBody({
+        storyId: 566,
+        totalMs: 45_000,
+        phases: [
+          { name: 'worktree-create', elapsedMs: 100 },
+          { name: 'implement', elapsedMs: 40_000 },
+          { name: 'lint', elapsedMs: 200 },
+        ],
+      });
+      assert.match(body, /### Phase timings — story #566/);
+      const jsonMatch = body.match(/```json\n([\s\S]*?)\n```/);
+      assert.ok(jsonMatch, 'body must contain a fenced json block');
+      const payload = JSON.parse(jsonMatch[1]);
+      assert.equal(payload.kind, 'phase-timings');
+      assert.equal(payload.storyId, 566);
+      assert.equal(payload.totalMs, 45_000);
+      assert.equal(payload.phases.length, 3);
+      assert.equal(payload.phases[0].name, 'worktree-create');
+    },
+  );
 
   await t.test('stops and reports on first non-zero gate', () => {
     const runner = (cmd) => ({ status: cmd === 'a' ? 0 : 3 });

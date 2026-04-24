@@ -49,13 +49,17 @@ import { createNotifier } from './lib/notifications/notifier.js';
 import { createFrictionEmitter } from './lib/orchestration/friction-emitter.js';
 import { runPostMergePipeline } from './lib/orchestration/post-merge-pipeline.js';
 import { dispatchRecovery } from './lib/orchestration/sprint-story-close-recovery.js';
+import { upsertStructuredComment } from './lib/orchestration/ticketing.js';
 import { createProvider } from './lib/provider-factory.js';
 import {
   fetchChildTasks,
   resolveStoryHierarchy,
 } from './lib/story-lifecycle.js';
 import { createPhaseTimer } from './lib/util/phase-timer.js';
-import { loadPhaseTimerState } from './lib/util/phase-timer-state.js';
+import {
+  clearPhaseTimerState,
+  loadPhaseTimerState,
+} from './lib/util/phase-timer-state.js';
 
 // ---------------------------------------------------------------------------
 // Helpers
@@ -227,6 +231,24 @@ async function finalizeMerge(
 
 function lockPathDisplay(cwd, epicId) {
   return path.join(cwd, '.git', `epic-${epicId}.merge.lock`);
+}
+
+/**
+ * Render the `phase-timings` comment body.
+ *
+ * The payload is emitted inside a fenced ```json block so the epic-runner
+ * progress reporter can parse it back out with a single regex + JSON.parse
+ * rather than relying on a bespoke marker format. Schema matches tech
+ * spec #555 §Data Models (`{ kind, storyId, totalMs, phases }`).
+ */
+export function renderPhaseTimingsCommentBody(summary) {
+  const payload = {
+    kind: 'phase-timings',
+    storyId: summary.storyId,
+    totalMs: summary.totalMs,
+    phases: summary.phases,
+  };
+  return `### Phase timings — story #${summary.storyId}\n\n\`\`\`json\n${JSON.stringify(payload, null, 2)}\n\`\`\`\n`;
 }
 
 /**
@@ -495,13 +517,33 @@ export async function runStoryClose({
   const manifestUpdated = pipelineState.manifestUpdated;
 
   // -------------------------------------------------------------------------
-  // Phase-timings — close the timer so the final `api-sync` elapsedMs is
-  // appended and a terminating `[phase-timing]` log line is emitted. The
-  // comment upsert and state-file cleanup land in the structured-comment
-  // follow-on (Task #588); this task ships only the instrumentation.
+  // Phase-timings summary — post the structured comment that the epic
+  // runner's progress reporter aggregates into median/p95 rows. Finish the
+  // timer here so `api-sync` closes with the full post-merge-pipeline
+  // wall-clock included. Failure to post is non-fatal — the merge has
+  // already succeeded and we would rather log than roll back closure.
   // -------------------------------------------------------------------------
 
-  phaseTimer.finish();
+  const timingSummary = phaseTimer.finish();
+  try {
+    await upsertStructuredComment(
+      provider,
+      storyId,
+      'phase-timings',
+      renderPhaseTimingsCommentBody(timingSummary),
+    );
+  } catch (err) {
+    Logger.warn?.(
+      `[sprint-story-close] ⚠️ Failed to post phase-timings comment: ${err.message}`,
+    );
+  }
+  try {
+    clearPhaseTimerState({ mainCwd: cwd, storyId });
+  } catch (err) {
+    Logger.warn?.(
+      `[sprint-story-close] ⚠️ Failed to clear phase-timer state file: ${err.message}`,
+    );
+  }
 
   // -------------------------------------------------------------------------
   // Output — structured result
