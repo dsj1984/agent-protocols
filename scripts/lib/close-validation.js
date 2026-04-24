@@ -34,6 +34,12 @@ export const DEFAULT_GATES = [
     args: ['.agents/scripts/check-maintainability.js'],
     hint: 'Run `npm run maintainability:update` to refresh the baseline — the refreshed baseline MUST be committed on the story branch.',
   },
+  {
+    name: 'check-crap',
+    cmd: 'node',
+    args: ['.agents/scripts/check-crap.js'],
+    hint: 'Reduce complexity or add coverage on the flagged methods, or run `npm run crap:update` and commit with a `baseline-refresh:` tagged subject + non-empty body if the drift is justified. Self-skips when `agentSettings.maintainability.crap.enabled` is false.',
+  },
 ];
 
 /**

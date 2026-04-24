@@ -609,6 +609,139 @@ A per-file maintainability scoring engine computes composite scores based on
 cyclomatic complexity, file length, and dependency counts. The
 `maintainability-baseline.json` prevents score degradation between sprints.
 
+### CRAP Gate (v5.22.0+) — Consumer Onboarding
+
+A sibling per-method gate alongside the maintainability ratchet. CRAP scores
+each JavaScript method via `c² · (1 − cov)³ + c`, combining
+`typhonjs-escomplex` cyclomatic complexity with per-method coverage from the
+`coverage/coverage-final.json` artifact your test runner already produces. No
+new runtime dependencies. Runs at three sites: `close-validation` (story
+close), `ci.yml` (push + PR), and `.husky/pre-push`.
+
+If you're a consumer repo pulling the framework via the `dist` submodule,
+this is what you need to know:
+
+#### First-run behavior — never hard-fails on a fresh sync
+
+The first time `check-crap` runs in your repo there is no
+`crap-baseline.json` to compare against. Instead of failing CI, it prints:
+
+```text
+[CRAP] no baseline found — run 'npm run crap:update' to bootstrap
+```
+
+…and exits `0`. Run `npm run crap:update` to generate the initial baseline,
+commit it (with a `baseline-refresh:` tagged subject + non-empty body so
+the guardrail accepts it on the next PR), and you're set.
+
+If your test runner doesn't produce per-method coverage, see "Disabling the
+gate" below.
+
+#### Disabling the gate (single-flag opt-out)
+
+If your repo doesn't run coverage, set `enabled: false` in your
+`.agentrc.json`:
+
+```jsonc
+{
+  "agentSettings": {
+    "maintainability": {
+      "crap": { "enabled": false }
+    }
+  }
+}
+```
+
+All three gate sites self-skip with `[CRAP] gate skipped (disabled)` — no
+source edits required. The maintainability ratchet keeps running.
+
+#### Extending `targetDirs` without re-listing framework defaults
+
+The config resolver supports deep-merge for list-valued keys. To add your
+own source dirs to the framework default (`[".agents/scripts"]`):
+
+```jsonc
+{
+  "agentSettings": {
+    "maintainability": {
+      "crap": {
+        "targetDirs": { "append": ["packages/foo/src", "packages/bar/src"] }
+      }
+    }
+  }
+}
+```
+
+`{ "append": [...] }` and `{ "prepend": [...] }` are the deep-merge forms.
+Passing a plain array replaces the default entirely — useful when you want
+exactly your dirs and not the framework's. Unknown keys under
+`maintainability.crap` warn but don't fail resolution, so you can extend
+forward-compatibly.
+
+#### Interpreting the `--json` artifact
+
+`npm run crap:check -- --json temp/crap-report.json` (or the `crap-report`
+artifact uploaded by the framework's `ci.yml`) writes:
+
+```jsonc
+{
+  "kernelVersion": "1.0.0",       // Bumps when the CRAP formula changes.
+  "escomplexVersion": "7.3.2",    // Bumps with the typhonjs-escomplex dep.
+  "summary": {
+    "total": 412,
+    "regressions": 2,             // Tracked methods over baseline + tolerance.
+    "newViolations": 1,           // New methods over `newMethodCeiling`.
+    "drifted": 5,                 // Same method, shifted line — informational.
+    "removed": 3,                 // Baseline rows absent from current scan.
+    "skippedNoCoverage": 8        // Methods skipped under `requireCoverage`.
+  },
+  "violations": [
+    {
+      "file": ".agents/scripts/foo.js",
+      "method": "doWork",
+      "startLine": 42,
+      "cyclomatic": 8,
+      "coverage": 0.2,
+      "crap": 45.3,
+      "baseline": 18.0,
+      "kind": "regression",
+      "fixGuidance": {
+        "crapCeiling": 18.0,
+        "minComplexityAt100Cov": 4,             // floor(sqrt(target))
+        "minCoverageAtCurrentComplexity": 0.74  // 1 − ((target − c) / c²)^(1/3)
+      }
+    }
+  ]
+}
+```
+
+Pick the cheaper axis from `fixGuidance` per offender:
+
+- **`minComplexityAt100Cov`** — refactor the method down to ≤ this many
+  branches and your existing coverage takes you under target.
+- **`minCoverageAtCurrentComplexity`** — leave the structure alone and add
+  tests until coverage reaches this fraction (`null` means unachievable at
+  the current cyclomatic — refactor first).
+
+The round-trip property: applying either single-axis fix re-scores the
+method under target. Verified by unit test, so an agent can commit either
+strategy without re-running the gate to check.
+
+#### Refreshing the baseline (when the drift is justified)
+
+`npm run crap:update` regenerates `crap-baseline.json`. The
+`baseline-refresh-guardrail` CI job will reject your PR unless at least one
+commit on the branch has:
+
+1. A subject starting with the configured `refreshTag` (default
+   `baseline-refresh:`).
+2. A non-empty body explaining why the refresh is justified.
+
+Both conditions are required. The tag alone without justification is not
+enough. Baseline-only PRs additionally receive the `review::baseline-refresh`
+label automatically — that's intentional, so a human reviewer sees every
+refresh on top of green CI.
+
 ### HITL Blocker Escalation
 
 `risk::high` is informational/planning metadata only. Runtime execution does not

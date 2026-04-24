@@ -84,6 +84,130 @@ const ZERO_CONFIG_DEFAULTS = Object.freeze({
   maxTokenBudget: 200000, // 200k tokens — fits modern Claude/GPT windows
 });
 
+/** Framework defaults for `agentSettings.maintainability.crap`. Applied to the
+ * loaded config via {@link resolveMaintainability} so a consumer repo that
+ * omits the block (or any key within it) still gets sane defaults. Exported
+ * for tests and for consumers that want to introspect the canonical shape. */
+export const MAINTAINABILITY_CRAP_DEFAULTS = Object.freeze({
+  enabled: true,
+  targetDirs: Object.freeze(['.agents/scripts']),
+  newMethodCeiling: 30,
+  coveragePath: 'coverage/coverage-final.json',
+  tolerance: 0.001,
+  requireCoverage: true,
+  friction: Object.freeze({ markerKey: 'crap-baseline-regression' }),
+  refreshTag: 'baseline-refresh:',
+});
+
+/** Recognized keys for `maintainability.crap`. Used by the resolver to warn
+ * (not fail) on unknown keys per AC19. */
+const MAINTAINABILITY_CRAP_KEYS = new Set(
+  Object.keys(MAINTAINABILITY_CRAP_DEFAULTS),
+);
+
+/**
+ * Deep-merge a list-valued config key with its framework default.
+ *
+ * Accepts:
+ *   - `undefined`           → return a copy of `defaultList`
+ *   - plain array           → replace wholesale (returns a copy)
+ *   - `{ append, prepend }` → extend `defaultList`; items already present in
+ *                             the result are deduped so a consumer appending
+ *                             a framework entry does not produce a duplicate.
+ *
+ * @param {readonly string[]} defaultList
+ * @param {unknown} userValue
+ * @returns {string[]}
+ */
+export function resolveListValue(defaultList, userValue) {
+  if (userValue === undefined) return [...defaultList];
+  if (Array.isArray(userValue)) return [...userValue];
+  if (userValue !== null && typeof userValue === 'object') {
+    const result = [];
+    const seen = new Set();
+    const push = (item) => {
+      if (!seen.has(item)) {
+        result.push(item);
+        seen.add(item);
+      }
+    };
+    if (Array.isArray(userValue.prepend)) {
+      for (const item of userValue.prepend) push(item);
+    }
+    for (const item of defaultList) push(item);
+    if (Array.isArray(userValue.append)) {
+      for (const item of userValue.append) push(item);
+    }
+    return result;
+  }
+  return [...defaultList];
+}
+
+/**
+ * Merge a user-supplied `maintainability.crap` block with framework defaults.
+ * Scalar keys replace; `targetDirs` supports the list-extender shape; unknown
+ * keys emit a `console.warn` but do not fail resolution (AC19).
+ *
+ * @param {object|undefined} userCrap
+ * @returns {object}
+ */
+export function resolveMaintainabilityCrap(userCrap) {
+  const defaults = MAINTAINABILITY_CRAP_DEFAULTS;
+  if (userCrap == null || typeof userCrap !== 'object') {
+    return {
+      enabled: defaults.enabled,
+      targetDirs: [...defaults.targetDirs],
+      newMethodCeiling: defaults.newMethodCeiling,
+      coveragePath: defaults.coveragePath,
+      tolerance: defaults.tolerance,
+      requireCoverage: defaults.requireCoverage,
+      friction: { ...defaults.friction },
+      refreshTag: defaults.refreshTag,
+    };
+  }
+
+  for (const key of Object.keys(userCrap)) {
+    if (!MAINTAINABILITY_CRAP_KEYS.has(key)) {
+      console.warn(
+        `[config] Unknown key 'maintainability.crap.${key}' — ignoring.`,
+      );
+    }
+  }
+
+  return {
+    enabled: userCrap.enabled ?? defaults.enabled,
+    targetDirs: resolveListValue(defaults.targetDirs, userCrap.targetDirs),
+    newMethodCeiling: userCrap.newMethodCeiling ?? defaults.newMethodCeiling,
+    coveragePath: userCrap.coveragePath ?? defaults.coveragePath,
+    tolerance: userCrap.tolerance ?? defaults.tolerance,
+    requireCoverage: userCrap.requireCoverage ?? defaults.requireCoverage,
+    friction: { ...defaults.friction, ...(userCrap.friction ?? {}) },
+    refreshTag: userCrap.refreshTag ?? defaults.refreshTag,
+  };
+}
+
+/**
+ * Merge a user-supplied `maintainability` block with framework defaults,
+ * including list-extender support for `targetDirs` and full resolution of
+ * the nested `crap` sub-block.
+ *
+ * @param {object|undefined} userBlock
+ * @returns {object}
+ */
+export function resolveMaintainability(userBlock) {
+  const defaultTargetDirs = LOADED_CONFIG_DEFAULTS.maintainability.targetDirs;
+  if (userBlock == null || typeof userBlock !== 'object') {
+    return {
+      targetDirs: [...defaultTargetDirs],
+      crap: resolveMaintainabilityCrap(undefined),
+    };
+  }
+  return {
+    targetDirs: resolveListValue(defaultTargetDirs, userBlock.targetDirs),
+    crap: resolveMaintainabilityCrap(userBlock.crap),
+  };
+}
+
 /** Keys to apply on top of a loaded config when the operator omitted them.
  * Matches the previous hand-rolled assignment block exactly so behavior is
  * unchanged: keys not in LOADED_CONFIG_DEFAULTS resolve to `undefined`. */
@@ -190,6 +314,10 @@ export function resolveConfig(opts) {
       settings[key] = settings[key] ?? LOADED_CONFIG_DEFAULTS[key];
     }
 
+    // Deep-merge maintainability (list-extender on targetDirs, nested crap
+    // defaults) rather than taking the user block as-is.
+    settings.maintainability = resolveMaintainability(settings.maintainability);
+
     if (validate) {
       validateOrchestrationConfig(orchestration);
       validateAuditsConfig(audits);
@@ -207,8 +335,12 @@ export function resolveConfig(opts) {
   }
 
   // 2. Hard-coded defaults (zero-config experience)
+  const zeroSettings = { ...ZERO_CONFIG_DEFAULTS };
+  zeroSettings.maintainability = resolveMaintainability(
+    zeroSettings.maintainability,
+  );
   const resolved = {
-    settings: { ...ZERO_CONFIG_DEFAULTS },
+    settings: zeroSettings,
     orchestration: null,
     audits: null,
     raw: null,
