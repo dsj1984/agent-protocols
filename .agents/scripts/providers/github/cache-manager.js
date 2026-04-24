@@ -16,10 +16,11 @@ import { createTtlCache } from '../../lib/CacheLayer.js';
 const DEFAULT_TTL_MS = 60 * 60 * 1000;
 
 /**
- * @param {{ ttlMs?: number }} [opts]
+ * @param {{ ttlMs?: number, now?: () => number }} [opts]
  * @returns {{
  *   has(ticketId: number): boolean,
  *   peek(ticketId: number): object|undefined,
+ *   peekFresh(ticketId: number, maxAgeMs: number): object|undefined,
  *   set(ticketId: number, ticket: object): void,
  *   primeIfAbsent(ticket: object): void,
  *   primeMany(tickets: Array<object>): void,
@@ -28,8 +29,18 @@ const DEFAULT_TTL_MS = 60 * 60 * 1000;
  *   clear(): void,
  * }}
  */
-export function createTicketCacheManager({ ttlMs = DEFAULT_TTL_MS } = {}) {
+export function createTicketCacheManager({
+  ttlMs = DEFAULT_TTL_MS,
+  now = Date.now,
+} = {}) {
+  // Store `{ ticket, insertedAt }` so callers can demand a tighter freshness
+  // window than the outer TTL (e.g. progress-reporter wants ≤ 10s age even
+  // though the cache retains entries for an hour).
   const cache = createTtlCache({ ttlMs });
+
+  function unwrap(entry) {
+    return entry ? entry.ticket : undefined;
+  }
 
   function primeIfAbsent(ticket) {
     if (!ticket || typeof ticket.id !== 'number') return;
@@ -37,7 +48,7 @@ export function createTicketCacheManager({ ttlMs = DEFAULT_TTL_MS } = {}) {
     if (!ticket.labelSet && Array.isArray(ticket.labels)) {
       ticket.labelSet = new Set(ticket.labels);
     }
-    cache.set(ticket.id, ticket);
+    cache.set(ticket.id, { ticket, insertedAt: now() });
   }
 
   return {
@@ -46,11 +57,19 @@ export function createTicketCacheManager({ ttlMs = DEFAULT_TTL_MS } = {}) {
     },
 
     peek(ticketId) {
-      return cache.peek(ticketId);
+      return unwrap(cache.peek(ticketId));
+    },
+
+    peekFresh(ticketId, maxAgeMs) {
+      const entry = cache.peek(ticketId);
+      if (!entry) return undefined;
+      if (!Number.isFinite(maxAgeMs) || maxAgeMs < 0) return undefined;
+      if (now() - entry.insertedAt >= maxAgeMs) return undefined;
+      return entry.ticket;
     },
 
     set(ticketId, ticket) {
-      cache.set(ticketId, ticket);
+      cache.set(ticketId, { ticket, insertedAt: now() });
     },
 
     primeIfAbsent,
@@ -60,9 +79,10 @@ export function createTicketCacheManager({ ttlMs = DEFAULT_TTL_MS } = {}) {
     },
 
     async getOrLoad(ticketId, loader) {
-      if (cache.has(ticketId)) return cache.peek(ticketId);
+      const entry = cache.peek(ticketId);
+      if (entry) return entry.ticket;
       const ticket = await loader();
-      cache.set(ticketId, ticket);
+      cache.set(ticketId, { ticket, insertedAt: now() });
       return ticket;
     },
 

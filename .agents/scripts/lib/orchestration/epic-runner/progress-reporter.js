@@ -26,6 +26,7 @@ import { appendFile, mkdir } from 'node:fs/promises';
 import { dirname } from 'node:path';
 
 import { AGENT_LABELS } from '../../label-constants.js';
+import { concurrentMap } from '../../util/concurrent-map.js';
 import {
   findStructuredComment,
   upsertStructuredComment,
@@ -231,15 +232,21 @@ export class ProgressReporter {
       const allIds = this.plan
         ? this.plan.flatMap((w) => w.stories.map((s) => s.id))
         : (this.currentWave?.stories ?? []);
-      const fetched = await Promise.all(
-        allIds.map(async (id) => {
+      const fetched = await concurrentMap(
+        allIds,
+        async (id) => {
           try {
-            // Bypass provider cache: Story labels are transitioned by the
-            // spawned `claude -p` child processes, whose writes never reach
-            // the parent runner's in-memory _ticketCache. Reading stale cache
-            // entries would leave every Story row rendered as "unknown" for
-            // the entire run even after labels like `agent::done` land.
-            const ticket = await this.provider.getTicket(id, { fresh: true });
+            // 10s TTL window: child-written transitions (agent::done,
+            // agent::blocked) still land in the table within one poll cadence,
+            // while consecutive fires inside the window reuse the cached
+            // ticket. Runtime decisions (story-closed detection, blocker
+            // halts) do not come through this rendering path — they come
+            // from launcher subprocess exit codes and iterate-waves's own
+            // `{ fresh: true }` resume check — so a brief cache window here
+            // cannot mask them.
+            const ticket = await this.provider.getTicket(id, {
+              maxAgeMs: 10_000,
+            });
             return [
               id,
               {
@@ -257,7 +264,8 @@ export class ProgressReporter {
             await this.#emitFetchFailureFriction(id, err);
             throw err;
           }
-        }),
+        },
+        { concurrency: 8 },
       );
       const byId = new Map(fetched);
       const rows = this.plan
