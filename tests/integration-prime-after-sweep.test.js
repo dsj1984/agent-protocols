@@ -25,7 +25,12 @@ function makeIssue(number, extraLabels = []) {
 }
 
 function jsonResponse(body) {
-  return { ok: true, status: 200, json: async () => body, text: async () => '' };
+  return {
+    ok: true,
+    status: 200,
+    json: async () => body,
+    text: async () => '',
+  };
 }
 
 describe('integration: primeTicketCache after getTickets sweep', () => {
