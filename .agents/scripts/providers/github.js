@@ -324,8 +324,13 @@ export class GitHubProvider extends ITicketingProvider {
   }
 
   async getTicket(ticketId, opts = {}) {
-    if (!opts.fresh && this._cache.has(ticketId)) {
-      return this._cache.peek(ticketId);
+    if (!opts.fresh) {
+      if (Number.isFinite(opts.maxAgeMs)) {
+        const fresh = this._cache.peekFresh(ticketId, opts.maxAgeMs);
+        if (fresh !== undefined) return fresh;
+      } else if (this._cache.has(ticketId)) {
+        return this._cache.peek(ticketId);
+      }
     }
 
     const issue = await this._http.rest(
