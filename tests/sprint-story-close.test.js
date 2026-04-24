@@ -180,7 +180,8 @@ test('drainPendingCleanupAfterClose reports the worktree root and drain summary'
   assert.ok(
     events.some(
       (e) =>
-        e.phase === 'WORKTREE' && e.msg.includes('Pending cleanup drain: drained=1'),
+        e.phase === 'WORKTREE' &&
+        e.msg.includes('Pending cleanup drain: drained=1'),
     ),
   );
 });

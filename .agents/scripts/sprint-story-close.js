@@ -552,7 +552,10 @@ export async function runStoryClose({
     progress,
     logger: Logger,
   });
-  if (orchestration?.worktreeIsolation?.enabled && !pipelineState.worktreeReap) {
+  if (
+    orchestration?.worktreeIsolation?.enabled &&
+    !pipelineState.worktreeReap
+  ) {
     throw new Error(
       'sprint-story-close invariant violated: worktreeReap state missing while worktree isolation is enabled.',
     );

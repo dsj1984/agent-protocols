@@ -270,7 +270,12 @@ describe('worktreeReapPhase', () => {
     });
     assert.equal(calls.reap.length, 0);
     assert.equal(result.status, 'skipped-disabled');
-    assert.ok(events.some((e) => e.phase === 'WORKTREE' && e.msg.includes('Skipping worktree reap')));
+    assert.ok(
+      events.some(
+        (e) =>
+          e.phase === 'WORKTREE' && e.msg.includes('Skipping worktree reap'),
+      ),
+    );
   });
 
   it('no-ops when reapOnSuccess is false', async () => {
@@ -289,7 +294,11 @@ describe('worktreeReapPhase', () => {
     });
     assert.equal(calls.reap.length, 0);
     assert.equal(result.status, 'skipped-config');
-    assert.ok(events.some((e) => e.phase === 'WORKTREE' && e.msg.includes('reapOnSuccess=false')));
+    assert.ok(
+      events.some(
+        (e) => e.phase === 'WORKTREE' && e.msg.includes('reapOnSuccess=false'),
+      ),
+    );
   });
 
   it('emits friction + OPERATOR ACTION on Windows lock-class reap failure', async () => {
