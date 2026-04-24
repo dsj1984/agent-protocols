@@ -124,12 +124,24 @@ export async function ensure(ctx, storyId, branch) {
   const wtPath = pathFor(ctx, id);
   const existing = findByPath(ctx, wtPath);
 
+  // Phase-boundary callback — invoked even on reuse so sprint-story-init's
+  // phase timer records non-null `worktree-create`/`bootstrap`/`install`
+  // entries regardless of whether provisioning actually ran. The timer
+  // reports the elapsed wall-clock between marks, so reuse paths yield
+  // near-zero rows, which is the correct observability signal.
+  const phase = (name) => {
+    if (typeof ctx.onPhase === 'function') ctx.onPhase(name);
+  };
+
   if (existing) {
     if (existing.branch && existing.branch !== br) {
       throw new Error(
         `WorktreeManager: worktree at ${wtPath} is on branch ${existing.branch}, expected ${br}`,
       );
     }
+    phase('worktree-create');
+    phase('bootstrap');
+    phase('install');
     return { path: wtPath, created: false };
   }
 
@@ -150,6 +162,7 @@ export async function ensure(ctx, storyId, branch) {
     ? ['worktree', 'add', wtPath, br]
     : ['worktree', 'add', '-b', br, wtPath];
 
+  phase('worktree-create');
   const res = ctx.git.gitSpawn(ctx.repoRoot, ...addArgs);
   if (res.status !== 0) {
     const stderr = res.stderr || res.stdout || '';
@@ -174,7 +187,9 @@ export async function ensure(ctx, storyId, branch) {
   }
 
   applyNodeModulesStrategy(ctx, wtPath);
+  phase('bootstrap');
   ctx.copyBootstrapFiles(wtPath);
+  phase('install');
   const installOk = installDependencies(ctx, wtPath);
   ctx.copyAgentsFromRoot(wtPath);
 

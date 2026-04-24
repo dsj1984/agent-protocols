@@ -41,7 +41,17 @@ export const DEFAULT_GATES = [
  * recorded but still returns a summary so the caller can decide how to
  * surface the result.
  *
- * @param {{ cwd: string, gates?: Gate[], runner?: typeof spawnSync, log?: (m: string) => void }} opts
+ * @param {{
+ *   cwd: string,
+ *   gates?: Gate[],
+ *   runner?: typeof spawnSync,
+ *   log?: (m: string) => void,
+ *   onGateStart?: (gate: Gate) => void,
+ * }} opts
+ *   `onGateStart` is invoked immediately before each gate's runner spawn.
+ *   sprint-story-close uses it to drive `phaseTimer.mark('lint'|'test')`
+ *   so the per-gate wall-clock lands in the `phase-timings` structured
+ *   comment. Errors thrown from the hook propagate and halt the run.
  * @returns {{ ok: boolean, failed: Array<{ gate: Gate, status: number }> }}
  */
 export function runCloseValidation({
@@ -49,10 +59,12 @@ export function runCloseValidation({
   gates = DEFAULT_GATES,
   runner = spawnSync,
   log = () => {},
+  onGateStart,
 } = {}) {
   const failed = [];
   for (const gate of gates) {
     log(`[close-validation] ▶ ${gate.name}`);
+    if (typeof onGateStart === 'function') onGateStart(gate);
     const result = runner(gate.cmd, gate.args, {
       cwd,
       stdio: 'inherit',

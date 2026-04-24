@@ -40,6 +40,10 @@ export const STRUCTURED_COMMENT_TYPES = Object.freeze([
   'epic-plan-state',
   'parked-follow-ons',
   'dispatch-manifest',
+  // Story #566 — per-phase wall-clock summary posted by sprint-story-close
+  // and consumed by the epic-runner progress reporter to surface median /
+  // p95 phase timings across completed stories.
+  'phase-timings',
 ]);
 
 export const WAVE_TYPE_PATTERN = WAVE_MARKER_RE;

@@ -3,9 +3,14 @@ import { readFileSync } from 'node:fs';
 import { describe, it } from 'node:test';
 
 import {
+  aggregatePhaseTimings,
   EPIC_RUN_PROGRESS_TYPE,
+  PHASE_TIMINGS_TYPE,
   ProgressReporter,
+  parsePhaseTimingsComment,
+  renderPhaseTimingsSection,
 } from '../../.agents/scripts/lib/orchestration/epic-runner/progress-reporter.js';
+import { structuredCommentMarker } from '../../.agents/scripts/lib/orchestration/ticketing.js';
 
 function buildProvider(tickets = {}, comments = []) {
   return {
@@ -28,6 +33,14 @@ function buildProvider(tickets = {}, comments = []) {
       return target ?? { id: commentId };
     },
   };
+}
+
+function buildPhaseCommentBody(storyId, phasePairs) {
+  const phases = phasePairs.map(([name, elapsedMs]) => ({ name, elapsedMs }));
+  const totalMs = phases.reduce((acc, p) => acc + p.elapsedMs, 0);
+  const payload = { kind: 'phase-timings', storyId, totalMs, phases };
+  const marker = structuredCommentMarker(PHASE_TIMINGS_TYPE);
+  return `${marker}\n\n### Phase timings — story #${storyId}\n\n\`\`\`json\n${JSON.stringify(payload, null, 2)}\n\`\`\`\n`;
 }
 
 function silentLogger() {
@@ -337,6 +350,221 @@ describe('ProgressReporter', () => {
     reporter.setWave({ index: 0, totalWaves: 1, stories: [1] });
     await reporter.fire();
     assert.equal(appendCalls, 0);
+  });
+
+  it('renders a phase-timings section from done-story structured comments', async () => {
+    // 5-story fixture: each done story has a `phase-timings` structured
+    // comment with a known elapsedMs profile. The rendered section must
+    // aggregate median + p95 across all five and preserve the canonical
+    // phase ordering.
+    const phaseComments = {
+      1: buildPhaseCommentBody(1, [
+        ['worktree-create', 100],
+        ['install', 1000],
+        ['implement', 30_000],
+        ['lint', 200],
+        ['test', 5_000],
+        ['close', 300],
+        ['api-sync', 50],
+      ]),
+      2: buildPhaseCommentBody(2, [
+        ['worktree-create', 200],
+        ['install', 1100],
+        ['implement', 40_000],
+        ['lint', 220],
+        ['test', 5_200],
+        ['close', 320],
+        ['api-sync', 55],
+      ]),
+      3: buildPhaseCommentBody(3, [
+        ['worktree-create', 150],
+        ['install', 900],
+        ['implement', 35_000],
+        ['lint', 190],
+        ['test', 4_800],
+        ['close', 290],
+        ['api-sync', 45],
+      ]),
+      4: buildPhaseCommentBody(4, [
+        ['worktree-create', 180],
+        ['install', 1050],
+        ['implement', 50_000],
+        ['lint', 210],
+        ['test', 5_500],
+        ['close', 310],
+        ['api-sync', 60],
+      ]),
+      5: buildPhaseCommentBody(5, [
+        ['worktree-create', 120],
+        ['install', 950],
+        ['implement', 45_000],
+        ['lint', 205],
+        ['test', 5_100],
+        ['close', 305],
+        ['api-sync', 52],
+      ]),
+    };
+    const commentsByTicket = new Map(
+      Object.entries(phaseComments).map(([id, body]) => [
+        Number(id),
+        [{ id: `c-${id}`, body }],
+      ]),
+    );
+    const tickets = {
+      1: { number: 1, title: 'A', state: 'CLOSED', labels: [] },
+      2: { number: 2, title: 'B', state: 'CLOSED', labels: [] },
+      3: { number: 3, title: 'C', state: 'CLOSED', labels: [] },
+      4: { number: 4, title: 'D', state: 'CLOSED', labels: [] },
+      5: { number: 5, title: 'E', state: 'CLOSED', labels: [] },
+    };
+    const upserted = [];
+    const provider = {
+      async getTicket(id) {
+        return tickets[id] ?? null;
+      },
+      async getTicketComments(id) {
+        return commentsByTicket.get(Number(id)) ?? [];
+      },
+      async postComment(_ticketId, { body }) {
+        upserted.push(body);
+        return { id: `u-${upserted.length}` };
+      },
+      async deleteComment() {},
+    };
+    const reporter = new ProgressReporter({
+      provider,
+      epicId: 99,
+      intervalSec: 60,
+      logger: silentLogger(),
+    });
+    reporter.setPlan({
+      waves: [[1, 2, 3, 4, 5]],
+      startedAt: new Date().toISOString(),
+    });
+    reporter.setWave({ index: 0, totalWaves: 1, stories: [1, 2, 3, 4, 5] });
+
+    const { body } = await reporter.fire();
+
+    assert.match(body, /### Phase timings \(last 5 completed stories\)/);
+    assert.match(body, /\| Phase \| median ms \| p95 ms \| n \|/);
+    // Canonical phase ordering — worktree-create must precede install,
+    // implement, lint, test, close, api-sync. Assert by string-index order.
+    const iwc = body.indexOf('| worktree-create |');
+    const iinstall = body.indexOf('| install |');
+    const iimpl = body.indexOf('| implement |');
+    const ilint = body.indexOf('| lint |');
+    const itest = body.indexOf('| test |');
+    const iclose = body.indexOf('| close |');
+    const iapi = body.indexOf('| api-sync |');
+    assert.ok(
+      iwc < iinstall &&
+        iinstall < iimpl &&
+        iimpl < ilint &&
+        ilint < itest &&
+        itest < iclose &&
+        iclose < iapi,
+      `phase rows must render in canonical order; body was:\n${body}`,
+    );
+    // install elapsedMs samples: [1000, 1100, 900, 1050, 950]. sorted:
+    // [900, 950, 1000, 1050, 1100]. median (nearest-rank, q=0.5) = index
+    // ceil(0.5*5)-1 = 2 → 1000. p95 = index ceil(0.95*5)-1 = 4 → 1100.
+    assert.match(body, /\| install \| 1000 \| 1100 \| 5 \|/);
+    // n=5 for every phase.
+    assert.match(body, /\| api-sync \| \d+ \| \d+ \| 5 \|/);
+  });
+
+  it('omits the phase-timings section when no done-story comments exist', async () => {
+    const provider = buildProvider({
+      1: {
+        number: 1,
+        title: 'still working',
+        state: 'OPEN',
+        labels: ['agent::executing'],
+      },
+    });
+    const reporter = new ProgressReporter({
+      provider,
+      epicId: 3,
+      intervalSec: 60,
+      logger: silentLogger(),
+    });
+    reporter.setWave({ index: 0, totalWaves: 1, stories: [1] });
+    const { body } = await reporter.fire();
+    assert.ok(
+      !body.includes('Phase timings'),
+      'no phase-timings section when no done stories',
+    );
+  });
+
+  it('caches parsed phase-timings summaries — one fetch per story across ticks', async () => {
+    // Once a story is done, its `phase-timings` comment is immutable; the
+    // reporter must not re-fetch it on every tick. This protects the GH
+    // API budget on 50+ story epics.
+    const fetchesByTicket = new Map();
+    const fixtureBody = buildPhaseCommentBody(1, [
+      ['implement', 30_000],
+      ['lint', 200],
+    ]);
+    const provider = {
+      async getTicket() {
+        return { number: 1, title: 'A', state: 'CLOSED', labels: [] };
+      },
+      async getTicketComments(ticketId) {
+        fetchesByTicket.set(ticketId, (fetchesByTicket.get(ticketId) ?? 0) + 1);
+        if (ticketId === 1) return [{ id: 'c-1', body: fixtureBody }];
+        return []; // epic-level progress upsert — no prior comment.
+      },
+      async postComment() {
+        return { id: 'u-1' };
+      },
+      async deleteComment() {},
+    };
+    const reporter = new ProgressReporter({
+      provider,
+      epicId: 7,
+      intervalSec: 60,
+      logger: silentLogger(),
+    });
+    reporter.setWave({ index: 0, totalWaves: 1, stories: [1] });
+    await reporter.fire();
+    await reporter.fire();
+    await reporter.fire();
+    assert.equal(
+      fetchesByTicket.get(1) ?? 0,
+      1,
+      'phase-timings comment on the done story is fetched once and cached',
+    );
+  });
+
+  it('parsePhaseTimingsComment tolerates malformed bodies', () => {
+    assert.equal(parsePhaseTimingsComment(null), null);
+    assert.equal(parsePhaseTimingsComment({}), null);
+    assert.equal(parsePhaseTimingsComment({ body: 'no fence here' }), null);
+    assert.equal(
+      parsePhaseTimingsComment({ body: '```json\nnot-json\n```' }),
+      null,
+    );
+    assert.equal(
+      parsePhaseTimingsComment({ body: '```json\n{"phases": "nope"}\n```' }),
+      null,
+    );
+  });
+
+  it('aggregatePhaseTimings handles zero and single-sample inputs', () => {
+    assert.deepEqual(aggregatePhaseTimings([]), []);
+    const rows = aggregatePhaseTimings([
+      {
+        storyId: 1,
+        totalMs: 1,
+        phases: [{ name: 'implement', elapsedMs: 42 }],
+      },
+    ]);
+    assert.deepEqual(rows, [{ name: 'implement', median: 42, p95: 42, n: 1 }]);
+  });
+
+  it('renderPhaseTimingsSection returns null for empty input', () => {
+    assert.equal(renderPhaseTimingsSection([]), null);
+    assert.equal(renderPhaseTimingsSection(null), null);
   });
 
   it('stop() emits a final snapshot and clears the interval', async () => {
