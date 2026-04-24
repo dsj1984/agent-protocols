@@ -857,3 +857,101 @@ so a human sees every refresh, even on green CI.
 - Baseline refreshes are a deliberate, justified, reviewer-visible
   action. Silent threshold relaxation is impossible without a tagged
   commit and a label that flags the PR for human eyes.
+
+## Data-driven defaults over estimated constants (Epic #638)
+
+### Context
+
+Epic #553 shipped `concurrentMap` at three adoption sites with
+constant-valued caps (wave-gate uncapped, commit-assertion=4,
+progress-reporter=8). The constants were chosen from first-principles
+reasoning before any real workload data existed. ADR-20260424-553a
+committed to revisiting them once `phase-timings` telemetry
+accumulated.
+
+### Problem
+
+Two anti-patterns lurk when perf defaults ship as constants:
+
+1. **Frozen guesses.** Constants never get re-tuned because no one has
+   time to hunt down the files; downstream consumers inherit an
+   arbitrary choice forever.
+2. **Silent config surfaces.** An operator hitting rate limits or
+   under-utilised fanout has no tuning knob, so the only recourse is a
+   framework fork or a monkey-patch.
+
+### Solution
+
+Turn each tuning site into a config key with its v5.21.0 constant as
+the default, and ship a measurement helper that reads the Epic's own
+observability surface. Three principles:
+
+1. **Default preserves prior behaviour.** Omitting the key is
+   bit-identical to the constant it replaces. Schema validators refuse
+   typos. Regression tests assert the no-config path observably matches
+   pre-tuning fanout (e.g. `Promise.all` vs `concurrentMap` with cap=0).
+2. **One resolver, one shape.** A small helper
+   (`lib/orchestration/concurrency.js#resolveConcurrency`) handles
+   coercion, per-field fallback, and freezing. Every reader goes
+   through the same shape; no adoption site re-invents defaults or
+   reads `config.orchestration.concurrency` directly.
+3. **Tuning data comes from inside.** A standalone CLI
+   (`aggregate-phase-timings.js`) reads `phase-timings` structured
+   comments across N Epics and prints recommended caps. Operators tune
+   defaults from lived workload, not from outside measurement
+   harnesses.
+
+### Consequences
+
+- New consumers see the exact v5.21.0 behaviour; existing `.agentrc.json`
+  files need no edit.
+- Operators hitting provider rate limits or idle fanout have a
+  declarative tuning surface that the schema validates.
+- Future perf retuning becomes a decision comment + a default-file
+  edit, not a code archaeology exercise.
+
+## Compact-path short-circuit with escape hatch (Epic #638)
+
+### Context
+
+`helpers/sprint-retro.md` historically walked through six sections
+regardless of sprint shape. On clean-manifest Epics (zero friction,
+zero parked, zero recuts, zero hotfixes, zero HITL) four of those
+sections degenerate to "nothing notable" boilerplate, burning minutes
+of agent time for no retrospective value.
+
+### Solution
+
+A cheap predicate decides the branch up-front; the verbose path stays
+one flag away.
+
+1. **Pure-function predicate.** `isCleanManifest({ friction, parked,
+   recuts, hotfixes, hitl })` returns `true` iff every signal is zero.
+   Extracted into `lib/orchestration/retro-heuristics.js` so a future
+   automated retro agent uses the same truth.
+2. **Preserved downstream contract.** The compact body is still a
+   `type: 'retro'` comment and still ends with `<!-- retro-complete:
+   <ISO> -->`. `/sprint-close` Phase 5.1's completion gate is
+   unchanged. No consumer sees a shape difference beyond length.
+3. **Operator override.** A new `--full-retro` flag on `/sprint-close`
+   (and a note in the helper) forces the six-section body when the
+   operator disagrees with the predicate. Mirrors `--skip-retro` /
+   `--skip-code-review`.
+
+### When to reach for this pattern
+
+The pattern generalises to any stage whose body is mechanically
+populated from signals that are usually (but not always) zero. The
+ingredients:
+
+- A predicate that is a pure function of existing data (no new
+  source-of-truth).
+- A shorter body template that preserves the downstream contract
+  (markers, comment types, downstream parsers).
+- An operator flag that forces the verbose path without changing the
+  predicate.
+
+Use only when (a) the short path genuinely produces less work, not
+less signal, and (b) the short path is the common case. If "clean" is
+the outlier, skip — the short path becomes the one you forget to
+update.

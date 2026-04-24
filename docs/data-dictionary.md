@@ -262,3 +262,18 @@ existing maintainability ratchet.
 | `crap-drift.js` | Progress signal | `lib/orchestration/epic-runner/progress-signals/crap-drift.js`. Captures a wave-start CRAP snapshot and emits Notable bullets per tick when methods cross the ceiling or rise by ≥ threshold (default 10). Mirrors `maintainability-drift.js`; non-blocking. Baseline persisted under `.agents/state/crap-baseline-wave.json`. |
 | `crap-baseline-regression` (friction marker) | Marker key | Default `markerKey` for the rate-limited friction structured comment that `check-crap.js --story <id>` emits on regression. Configurable via `crap.friction.markerKey`. |
 | First-run bootstrap | Behavior contract | A consumer repo with no `crap-baseline.json` sees `[CRAP] no baseline found — run 'npm run crap:update' to bootstrap` and `check-crap` exits 0. Never hard-fails on first sync. |
+
+### 15. Epic #638 Artefacts — Concurrency Caps + Retro Primitives (v5.23.0)
+
+Configurable surfaces and helpers shipped by the post-#553 retro follow-on Epic.
+
+| Term | Kind | Definition |
+| --- | --- | --- |
+| `orchestration.concurrency` | Config block | `{ waveGate: integer ≥ 0, commitAssertion: integer ≥ 1, progressReporter: integer ≥ 1 }`. All keys optional. Defaults: `0` (uncapped — Promise.all preserved) / `4` / `8`, matching the v5.21.0 constants bit-for-bit. `additionalProperties: false`. |
+| `resolveConcurrency(source)` | Helper | `lib/orchestration/concurrency.js`. Reads either `orchestration.concurrency` or a pre-narrowed concurrency block, coerces per-field, falls back to `DEFAULT_CONCURRENCY` on missing/malformed values. Returned object is frozen. |
+| `ctx.concurrency` | Runtime surface | Frozen `{ waveGate, commitAssertion, progressReporter }` on both `createRuntimeContext` and every `OrchestrationContext` subclass. `CommitAssertion` and `ProgressReporter` read their cap through `ctx.concurrency.*` via the epic-runner factory; `sprint-wave-gate` resolves via `injectedConcurrency` or `resolveConfig()`. |
+| `aggregate-phase-timings.js` | CLI | `.agents/scripts/aggregate-phase-timings.js --epic <id> [--epic N …] [--from-file <path>] [--out <path>]`. Reads `phase-timings` structured comments across Story tickets, computes per-phase p50/p95, emits a markdown summary plus recommended concurrency caps. Zero-sample runs exit 1 with the v5.21.0 defaults recommended. |
+| `changelog-style.md` | Rule file | `.agents/rules/changelog-style.md`. Guidance-tier contract for release-entry shape: 1–3 sentence theme paragraph, bullets of user-visible changes only, banned content list, breaking-change prominence, soft ≤ 60 lines / non-major, ≤ 150 lines / major. `/sprint-close` Phase 1.3 references the rule. |
+| `isCleanManifest(signals)` | Predicate | `lib/orchestration/retro-heuristics.js`. Returns `true` iff `friction === 0 && parked === 0 && recuts === 0 && hotfixes === 0 && hitl === 0`. Drives the compact-retro branch of `helpers/sprint-retro.md`. |
+| `--full-retro` | CLI flag | `/sprint-close` override forcing the six-section retro body regardless of `isCleanManifest`. Mirrors the `--skip-retro` / `--skip-code-review` escape-hatch pattern; logged when applied. |
+| `phase-timings` comment (consumed) | Structured comment | Already shipped in #553. New consumers (`aggregate-phase-timings.js`) read `{ storyId, totalMs, phases: [{ name, elapsedMs }] }` from the fenced JSON block posted on each closed Story. |

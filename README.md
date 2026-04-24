@@ -58,6 +58,15 @@ graph LR
   enforced anti-gaming guardrail that blocks silent threshold relaxation. See
   the consumer-onboarding section in [`.agents/README.md`](.agents/README.md)
   for first-run behavior, opt-out, and `--json` output semantics.
+- **Tunable concurrency caps**: **Epic #638 (v5.23.0)** turns the
+  `concurrentMap` caps shipped in #553 into a configurable surface
+  (`orchestration.concurrency.{waveGate, commitAssertion, progressReporter}`).
+  Omitting the block preserves v5.21.0 behaviour exactly; operators tune from
+  real `phase-timings` data via the new
+  `.agents/scripts/aggregate-phase-timings.js` CLI. Same Epic ships a
+  CHANGELOG style contract (`.agents/rules/changelog-style.md`), a
+  compact-retro short-circuit for clean-manifest sprints, and the
+  `/sprint-close --full-retro` override.
 
 ## Get Started
 

@@ -338,6 +338,30 @@ subsequent provider constructions short-circuit;
 Windows worktree reap recovers from cwd-like removal failures and
 always runs `git worktree prune` after `remove`.
 
+#### Tunable concurrency caps (v5.23.0 / Epic #638)
+
+The three `concurrentMap` adoption sites shipped in #553 are now
+configurable via `orchestration.concurrency`, resolved from
+`.agentrc.json` and threaded through `ctx.concurrency` by a small
+resolver at `lib/orchestration/concurrency.js`:
+
+| Key | Default | Semantics |
+| --- | --- | --- |
+| `waveGate` | `0` (uncapped) | `sprint-wave-gate` retains the v5.21.0 `Promise.all` fanout when omitted; a positive integer routes through `concurrentMap` with that cap. |
+| `commitAssertion` | `4` | Wave-end `CommitAssertion.check` concurrent git-read cap. |
+| `progressReporter` | `8` | Progress-reporter concurrent `provider.getTicket` cap. |
+
+`resolveConcurrency(source)` reads either `orchestration.concurrency`
+or a pre-narrowed concurrency sub-block, coerces per-field, and falls
+back to `DEFAULT_CONCURRENCY` for missing or malformed values.
+`createRuntimeContext({ orchestration })` and `OrchestrationContext`
+both expose `ctx.concurrency`; `CommitAssertion` and `ProgressReporter`
+read `ctx.concurrency.commitAssertion` / `.progressReporter` through
+the epic-runner factory. Consumers tuning caps supply the CLI at
+`.agents/scripts/aggregate-phase-timings.js` with Epic IDs; it reads
+`phase-timings` structured comments across Stories, aggregates p50/p95
+per phase, and prints recommended caps.
+
 ---
 
 ### 3. Provider Abstraction Layer
