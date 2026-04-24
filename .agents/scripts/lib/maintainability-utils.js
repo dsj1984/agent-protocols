@@ -41,6 +41,14 @@ export function saveBaseline(baseline) {
   );
 }
 
+const IGNORED_DIRS = new Set([
+  'node_modules',
+  '.git',
+  'dist',
+  'temp',
+  '.worktrees',
+]);
+
 /**
  * Recursively scans a directory for JavaScript files.
  * @param {string} dir
@@ -48,26 +56,27 @@ export function saveBaseline(baseline) {
  * @returns {string[]}
  */
 export function scanDirectory(dir, fileList = []) {
-  if (!fs.existsSync(dir)) return fileList;
+  let entries;
+  try {
+    entries = fs.readdirSync(dir, { withFileTypes: true });
+  } catch (err) {
+    if (err.code === 'ENOENT') return fileList;
+    throw err;
+  }
 
-  const files = fs.readdirSync(dir);
-  files.forEach((file) => {
-    const filePath = path.join(dir, file);
-    if (fs.statSync(filePath).isDirectory()) {
-      // Skip common ignored directories
-      if (
-        file !== 'node_modules' &&
-        file !== '.git' &&
-        file !== 'dist' &&
-        file !== 'temp' &&
-        file !== '.worktrees'
-      ) {
+  for (const entry of entries) {
+    const filePath = path.join(dir, entry.name);
+    if (entry.isDirectory()) {
+      if (!IGNORED_DIRS.has(entry.name)) {
         scanDirectory(filePath, fileList);
       }
-    } else if (file.endsWith('.js') || file.endsWith('.mjs')) {
+    } else if (
+      entry.isFile() &&
+      (entry.name.endsWith('.js') || entry.name.endsWith('.mjs'))
+    ) {
       fileList.push(filePath);
     }
-  });
+  }
   return fileList;
 }
 
