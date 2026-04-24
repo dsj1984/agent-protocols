@@ -77,11 +77,13 @@ function resolveToken() {
   if (token) return token;
 
   try {
-    const ghToken = execSyncHolder.impl('gh auth token', {
-      encoding: 'utf8',
-      timeout: 5000,
-      stdio: ['pipe', 'pipe', 'pipe'],
-    }).trim();
+    const ghToken = execSyncHolder
+      .impl('gh auth token', {
+        encoding: 'utf8',
+        timeout: 5000,
+        stdio: ['pipe', 'pipe', 'pipe'],
+      })
+      .trim();
     if (ghToken) {
       // Memoize across subsequent provider constructions. Only set when
       // unset — never overwrite an operator-supplied token (Tech Spec #555,
