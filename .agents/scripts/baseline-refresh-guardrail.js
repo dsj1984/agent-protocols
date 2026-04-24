@@ -135,8 +135,7 @@ export function classifyChangedFiles(
     changedBaselineFiles,
     changedOther,
     hasBaselineEdits: changedBaselineFiles.length > 0,
-    baselineOnly:
-      changedBaselineFiles.length > 0 && changedOther.length === 0,
+    baselineOnly: changedBaselineFiles.length > 0 && changedOther.length === 0,
   };
 }
 
@@ -287,12 +286,7 @@ export function listChangedFiles(baseRef, cwd) {
  */
 export function listCommitsSinceBase(baseRef, cwd) {
   const format = `%H%n%s%n%b%n${COMMIT_DELIMITER}`;
-  const out = gitSpawn(
-    cwd,
-    'log',
-    `${baseRef}..HEAD`,
-    `--format=${format}`,
-  );
+  const out = gitSpawn(cwd, 'log', `${baseRef}..HEAD`, `--format=${format}`);
   if (out.status !== 0) {
     console.warn(
       `[guardrail] ⚠ git log against ${baseRef} failed: ${out.stderr?.trim() ?? 'no stderr'}`,
@@ -448,7 +442,9 @@ async function main() {
   if (!verdict.ok) return verdict.exitCode;
 
   if (args.skipCheckCrap) {
-    console.log('[guardrail] --skip-check-crap set; skipping base-enforced re-run.');
+    console.log(
+      '[guardrail] --skip-check-crap set; skipping base-enforced re-run.',
+    );
     return 0;
   }
 

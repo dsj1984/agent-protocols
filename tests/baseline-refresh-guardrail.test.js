@@ -93,9 +93,7 @@ test('parseBaseBranchConfig — malformed json falls back to defaults', () => {
 });
 
 test('parseBaseBranchConfig — missing crap block falls back to defaults', () => {
-  const parsed = parseBaseBranchConfig(
-    JSON.stringify({ agentSettings: {} }),
-  );
+  const parsed = parseBaseBranchConfig(JSON.stringify({ agentSettings: {} }));
   assert.strictEqual(parsed.newMethodCeiling, 30);
   assert.strictEqual(parsed.refreshTag, 'baseline-refresh:');
 });
@@ -150,7 +148,10 @@ test('findRefreshCommits — requires both tag prefix AND non-empty body', () =>
 test('findRefreshCommits — empty/invalid inputs return []', () => {
   assert.deepStrictEqual(findRefreshCommits(null, 'x:'), []);
   assert.deepStrictEqual(findRefreshCommits([], 'x:'), []);
-  assert.deepStrictEqual(findRefreshCommits([makeCommit('x: foo', 'b')], ''), []);
+  assert.deepStrictEqual(
+    findRefreshCommits([makeCommit('x: foo', 'b')], ''),
+    [],
+  );
 });
 
 test('evaluateGuardrail — scenario: no baseline edits → pass, no label', () => {
