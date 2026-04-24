@@ -3,8 +3,12 @@ import path from 'node:path';
 import { beforeEach, describe, it } from 'node:test';
 import { Volume } from 'memfs';
 import {
+  MAINTAINABILITY_CRAP_DEFAULTS,
   PROJECT_ROOT,
   resolveConfig,
+  resolveListValue,
+  resolveMaintainability,
+  resolveMaintainabilityCrap,
 } from '../../.agents/scripts/lib/config-resolver.js';
 import { setupFsMock } from './fs-mock.js';
 
@@ -214,5 +218,258 @@ describe('config-resolver library tests', () => {
     const config = resolveConfig({ bustCache: true });
     assert.equal(config.settings.agentRoot, 'custom-agents');
     assert.equal(config.settings.scriptsRoot, '.agents/scripts'); // default
+  });
+
+  describe('maintainability.crap defaults + deep-merge', () => {
+    it('injects full crap defaults when the block is absent', () => {
+      const config = resolveConfig({ bustCache: true });
+      assert.deepEqual(config.settings.maintainability.crap, {
+        enabled: true,
+        targetDirs: ['.agents/scripts'],
+        newMethodCeiling: 30,
+        coveragePath: 'coverage/coverage-final.json',
+        tolerance: 0.001,
+        requireCoverage: true,
+        friction: { markerKey: 'crap-baseline-regression' },
+        refreshTag: 'baseline-refresh:',
+      });
+    });
+
+    it('injects crap defaults when loaded config omits the block', () => {
+      const agentrcPath = path.join(PROJECT_ROOT, '.agentrc.json');
+      vol.mkdirSync(PROJECT_ROOT, { recursive: true });
+      vol.writeFileSync(
+        agentrcPath,
+        JSON.stringify({ agentSettings: { agentRoot: '.agents' } }),
+      );
+
+      const config = resolveConfig({ bustCache: true });
+      assert.equal(config.settings.maintainability.crap.newMethodCeiling, 30);
+      assert.deepEqual(config.settings.maintainability.crap.targetDirs, [
+        '.agents/scripts',
+      ]);
+    });
+
+    it('{ append } extends targetDirs without duplicating framework entries', () => {
+      const agentrcPath = path.join(PROJECT_ROOT, '.agentrc.json');
+      vol.mkdirSync(PROJECT_ROOT, { recursive: true });
+      vol.writeFileSync(
+        agentrcPath,
+        JSON.stringify({
+          agentSettings: {
+            maintainability: {
+              crap: {
+                targetDirs: {
+                  // Intentionally include a framework default entry to prove
+                  // dedupe: a consumer copy-pasting from docs must not cause
+                  // ".agents/scripts" to appear twice.
+                  append: ['packages/foo/src', '.agents/scripts'],
+                },
+              },
+            },
+          },
+        }),
+      );
+
+      const config = resolveConfig({ bustCache: true });
+      assert.deepEqual(config.settings.maintainability.crap.targetDirs, [
+        '.agents/scripts',
+        'packages/foo/src',
+      ]);
+    });
+
+    it('{ prepend } places entries before framework defaults', () => {
+      const agentrcPath = path.join(PROJECT_ROOT, '.agentrc.json');
+      vol.mkdirSync(PROJECT_ROOT, { recursive: true });
+      vol.writeFileSync(
+        agentrcPath,
+        JSON.stringify({
+          agentSettings: {
+            maintainability: {
+              crap: { targetDirs: { prepend: ['apps/web/src'] } },
+            },
+          },
+        }),
+      );
+
+      const config = resolveConfig({ bustCache: true });
+      assert.deepEqual(config.settings.maintainability.crap.targetDirs, [
+        'apps/web/src',
+        '.agents/scripts',
+      ]);
+    });
+
+    it('plain-array targetDirs replaces framework defaults', () => {
+      const agentrcPath = path.join(PROJECT_ROOT, '.agentrc.json');
+      vol.mkdirSync(PROJECT_ROOT, { recursive: true });
+      vol.writeFileSync(
+        agentrcPath,
+        JSON.stringify({
+          agentSettings: {
+            maintainability: { crap: { targetDirs: ['src'] } },
+          },
+        }),
+      );
+
+      const config = resolveConfig({ bustCache: true });
+      assert.deepEqual(config.settings.maintainability.crap.targetDirs, [
+        'src',
+      ]);
+    });
+
+    it('scalar override leaves other crap defaults intact', () => {
+      const agentrcPath = path.join(PROJECT_ROOT, '.agentrc.json');
+      vol.mkdirSync(PROJECT_ROOT, { recursive: true });
+      vol.writeFileSync(
+        agentrcPath,
+        JSON.stringify({
+          agentSettings: {
+            maintainability: { crap: { newMethodCeiling: 40 } },
+          },
+        }),
+      );
+
+      const config = resolveConfig({ bustCache: true });
+      const crap = config.settings.maintainability.crap;
+      assert.equal(crap.newMethodCeiling, 40);
+      assert.equal(crap.enabled, true);
+      assert.equal(crap.tolerance, 0.001);
+      assert.equal(crap.coveragePath, 'coverage/coverage-final.json');
+      assert.deepEqual(crap.targetDirs, ['.agents/scripts']);
+      assert.deepEqual(crap.friction, { markerKey: 'crap-baseline-regression' });
+    });
+
+    it('unknown crap key warns but does not fail resolution', (t) => {
+      const warnings = [];
+      t.mock.method(console, 'warn', (msg) => warnings.push(msg));
+
+      const agentrcPath = path.join(PROJECT_ROOT, '.agentrc.json');
+      vol.mkdirSync(PROJECT_ROOT, { recursive: true });
+      vol.writeFileSync(
+        agentrcPath,
+        JSON.stringify({
+          agentSettings: {
+            maintainability: {
+              crap: { newMethodCeiling: 40, nonsenseKey: true },
+            },
+          },
+        }),
+      );
+
+      const config = resolveConfig({ bustCache: true });
+      assert.equal(config.settings.maintainability.crap.newMethodCeiling, 40);
+      assert.ok(
+        warnings.some((m) => /nonsenseKey/.test(m)),
+        `expected a warning mentioning 'nonsenseKey'; got ${JSON.stringify(warnings)}`,
+      );
+    });
+
+    it('top-level maintainability.targetDirs supports { append }', () => {
+      const agentrcPath = path.join(PROJECT_ROOT, '.agentrc.json');
+      vol.mkdirSync(PROJECT_ROOT, { recursive: true });
+      vol.writeFileSync(
+        agentrcPath,
+        JSON.stringify({
+          agentSettings: {
+            maintainability: { targetDirs: { append: ['packages/foo'] } },
+          },
+        }),
+      );
+
+      const config = resolveConfig({ bustCache: true });
+      assert.deepEqual(config.settings.maintainability.targetDirs, [
+        '.agents/scripts',
+        'tests',
+        'packages/foo',
+      ]);
+    });
+
+    it('friction.markerKey override merges shallowly with defaults', () => {
+      const agentrcPath = path.join(PROJECT_ROOT, '.agentrc.json');
+      vol.mkdirSync(PROJECT_ROOT, { recursive: true });
+      vol.writeFileSync(
+        agentrcPath,
+        JSON.stringify({
+          agentSettings: {
+            maintainability: {
+              crap: { friction: { markerKey: 'custom-marker' } },
+            },
+          },
+        }),
+      );
+
+      const config = resolveConfig({ bustCache: true });
+      assert.deepEqual(config.settings.maintainability.crap.friction, {
+        markerKey: 'custom-marker',
+      });
+    });
+
+    it('rejects a malformed crap block (invalid scalar type)', () => {
+      const agentrcPath = path.join(PROJECT_ROOT, '.agentrc.json');
+      vol.mkdirSync(PROJECT_ROOT, { recursive: true });
+      vol.writeFileSync(
+        agentrcPath,
+        JSON.stringify({
+          agentSettings: {
+            maintainability: { crap: { newMethodCeiling: 'tall' } },
+          },
+        }),
+      );
+
+      assert.throws(() => resolveConfig({ bustCache: true }));
+    });
+  });
+
+  describe('deep-merge helpers (unit)', () => {
+    it('resolveListValue: undefined → copy of default', () => {
+      const d = ['a', 'b'];
+      const result = resolveListValue(d, undefined);
+      assert.deepEqual(result, ['a', 'b']);
+      assert.notEqual(result, d, 'returns a fresh array');
+    });
+
+    it('resolveListValue: plain array replaces', () => {
+      assert.deepEqual(resolveListValue(['a'], ['x', 'y']), ['x', 'y']);
+    });
+
+    it('resolveListValue: { append } extends and dedupes', () => {
+      assert.deepEqual(
+        resolveListValue(['a', 'b'], { append: ['b', 'c'] }),
+        ['a', 'b', 'c'],
+      );
+    });
+
+    it('resolveListValue: { prepend } places before defaults and dedupes', () => {
+      assert.deepEqual(
+        resolveListValue(['a', 'b'], { prepend: ['z', 'a'] }),
+        ['z', 'a', 'b'],
+      );
+    });
+
+    it('resolveListValue: { append, prepend } combine', () => {
+      assert.deepEqual(
+        resolveListValue(['b'], { prepend: ['a'], append: ['c'] }),
+        ['a', 'b', 'c'],
+      );
+    });
+
+    it('resolveMaintainabilityCrap: returns frozen-ish fresh object from defaults', () => {
+      const a = resolveMaintainabilityCrap(undefined);
+      const b = resolveMaintainabilityCrap(undefined);
+      assert.notEqual(a, b, 'distinct instances per call');
+      assert.notEqual(
+        a.targetDirs,
+        MAINTAINABILITY_CRAP_DEFAULTS.targetDirs,
+        'targetDirs is a copy, not the frozen default array',
+      );
+      a.targetDirs.push('mutate');
+      assert.deepEqual(b.targetDirs, ['.agents/scripts']);
+    });
+
+    it('resolveMaintainability: userBlock null → both targetDirs + crap defaults', () => {
+      const out = resolveMaintainability(undefined);
+      assert.deepEqual(out.targetDirs, ['.agents/scripts', 'tests']);
+      assert.equal(out.crap.newMethodCeiling, 30);
+    });
   });
 });
