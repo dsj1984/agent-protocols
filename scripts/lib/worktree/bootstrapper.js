@@ -132,15 +132,24 @@ export function removeCopiedAgents(ctx, wtPath) {
       `WorktreeManager: refusing to remove root .agents (wtPath=${wtPath} resolves to repoRoot)`,
     );
   }
-  try {
-    const st = fs.lstatSync(wtAgents);
-    if (st.isSymbolicLink()) {
-      fs.unlinkSync(wtAgents);
-    } else {
-      fs.rmSync(wtAgents, { recursive: true, force: true });
+  // Only remove `wtPath/.agents` in consumer repos where `copyAgentsFromRoot`
+  // actually materialised a copy. In framework repos (no `.gitmodules`),
+  // `.agents/` is a tracked directory and deleting it here leaves the
+  // worktree dirty, tripping `git worktree remove`'s "contains modified or
+  // untracked files" guard and forcing every reap into the fs-rm-retry tail
+  // (see ADR-20260424-638a).
+  const submoduleCheck = ctx.isAgentsSubmodule ?? isAgentsSubmodule;
+  if (submoduleCheck(ctx.repoRoot)) {
+    try {
+      const st = fs.lstatSync(wtAgents);
+      if (st.isSymbolicLink()) {
+        fs.unlinkSync(wtAgents);
+      } else {
+        fs.rmSync(wtAgents, { recursive: true, force: true });
+      }
+    } catch {
+      // Nothing to remove — fall through to index scrub.
     }
-  } catch {
-    // Nothing to remove — fall through to index scrub.
   }
   setAgentsGitlinkSkipWorktree(ctx, wtPath, false);
   dropAgentsGitlinkFromIndex(ctx, wtPath);

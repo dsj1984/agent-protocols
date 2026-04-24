@@ -27,6 +27,7 @@ import { dirname } from 'node:path';
 
 import { AGENT_LABELS } from '../../label-constants.js';
 import { concurrentMap } from '../../util/concurrent-map.js';
+import { DEFAULT_CONCURRENCY } from '../concurrency.js';
 import {
   findStructuredComment,
   upsertStructuredComment,
@@ -86,6 +87,14 @@ export class ProgressReporter {
     }
     this.intervalSec = Number(opts.intervalSec ?? 0);
     this.logger = opts.logger ?? ctx?.logger ?? console;
+    const cap =
+      opts.concurrency ??
+      ctx?.concurrency?.progressReporter ??
+      DEFAULT_CONCURRENCY.progressReporter;
+    this.concurrency =
+      Number.isInteger(cap) && cap >= 1
+        ? cap
+        : DEFAULT_CONCURRENCY.progressReporter;
     this.now = opts.now ?? (() => new Date());
     this._setInterval = opts.setInterval ?? setInterval;
     this._clearInterval = opts.clearInterval ?? clearInterval;
@@ -265,7 +274,7 @@ export class ProgressReporter {
             throw err;
           }
         },
-        { concurrency: 8 },
+        { concurrency: this.concurrency },
       );
       const byId = new Map(fetched);
       const rows = this.plan

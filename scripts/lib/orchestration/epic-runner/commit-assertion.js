@@ -19,17 +19,17 @@ import { execFile as execFileCb } from 'node:child_process';
 import { promisify } from 'node:util';
 
 import { concurrentMap } from '../../util/concurrent-map.js';
+import { DEFAULT_CONCURRENCY } from '../concurrency.js';
 
 const execFile = promisify(execFileCb);
-
-const WAVE_END_CONCURRENCY = 4;
 
 export class CommitAssertion {
   /**
    * @param {{
-   *   ctx?: { gitAdapter?: Function, logger?: { warn?: Function } },
+   *   ctx?: { gitAdapter?: Function, logger?: { warn?: Function }, concurrency?: { commitAssertion?: number } },
    *   gitAdapter?: (args: { epicId: number, storyId: number }) => Promise<number>,
    *   logger?: { warn?: Function },
+   *   concurrency?: number,
    * }} opts
    */
   constructor(opts = {}) {
@@ -40,6 +40,14 @@ export class CommitAssertion {
     }
     this.gitAdapter = gitAdapter;
     this.logger = opts.logger ?? ctx?.logger ?? console;
+    const cap =
+      opts.concurrency ??
+      ctx?.concurrency?.commitAssertion ??
+      DEFAULT_CONCURRENCY.commitAssertion;
+    this.concurrency =
+      Number.isInteger(cap) && cap >= 1
+        ? cap
+        : DEFAULT_CONCURRENCY.commitAssertion;
   }
 
   /**
@@ -84,7 +92,7 @@ export class CommitAssertion {
           return { storyId, newCommitCount: null, error: msg };
         }
       },
-      { concurrency: WAVE_END_CONCURRENCY },
+      { concurrency: this.concurrency },
     );
   }
 }
