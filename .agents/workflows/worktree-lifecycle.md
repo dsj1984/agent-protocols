@@ -110,7 +110,7 @@ submodule) skips this behavior. Detection is automatic — keyed off whether
 | -------------- | --------------------------------------------------------------------- | ---------------------------------------------------------------------- |
 | `per-worktree` | Each worktree runs its own `npm/pnpm install`. Default.               | Correct everywhere. Choose for small repos or when disk is cheap.      |
 | `symlink`      | Symlinks `<wt>/node_modules` → `<primeFromPath>/node_modules`.        | Large monorepos where install time dominates. Requires a primed donor. |
-| `pnpm-store`   | No-op at worktree level; agent runs `pnpm install` against the store. | Repos already on pnpm. Gets most of symlink's speed without fragility. |
+| `pnpm-store`   | Each worktree still runs `pnpm install --frozen-lockfile`; savings come from the shared content-addressable store, not from skipping install. | Repos already on pnpm. Gets most of symlink's speed without fragility. |
 
 Symlink strategy:
 
@@ -118,6 +118,18 @@ Symlink strategy:
 - On Windows, `allowSymlinkOnWindows: true` is required — symlink semantics vary
   by Windows version and may demand admin rights.
 - `nodeModulesStrategy: "symlink"` without `primeFromPath` is a config error.
+
+`pnpm-store` strategy — install is **not** eliminated:
+
+- `installDependencies` in `lib/worktree/node-modules-strategy.js` runs
+  `pnpm install --frozen-lockfile` in every new worktree regardless of
+  strategy (symlink is the only strategy that truly skips install).
+- The speed-up vs. `per-worktree` comes from pnpm's global
+  content-addressable store at `~/.local/share/pnpm/store` (or the platform
+  equivalent) — reused packages are hard-linked into the worktree instead of
+  re-downloaded and re-extracted. First-run on a cold store is no faster than
+  `per-worktree`, and `sprint-plan-healthcheck.js` primes the store in the
+  main checkout to avoid paying that cost in parallel story windows.
 
 ## Windows notes
 
