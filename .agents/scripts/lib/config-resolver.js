@@ -10,7 +10,9 @@
  * as a separate top-level property for ticketing provider resolution.
  */
 
+import crypto from 'node:crypto';
 import fs from 'node:fs';
+import os from 'node:os';
 import path from 'node:path';
 import { fileURLToPath } from 'node:url';
 import {
@@ -372,6 +374,58 @@ export function resolveWorktreeEnabled(opts = {}, env = process.env) {
   if (env.AP_WORKTREE_ENABLED === 'false') return false;
   if (env.CLAUDE_CODE_REMOTE === 'true') return false;
   return Boolean(opts.config?.orchestration?.worktreeIsolation?.enabled);
+}
+
+const SESSION_ID_LENGTH = 12;
+const SESSION_ID_ALLOWED_CHAR_RE = /[^a-z0-9]/g;
+
+/**
+ * Resolve the per-process session-id used for claim labels and structured
+ * comments. Prefers the Anthropic-provided `CLAUDE_CODE_REMOTE_SESSION_ID`
+ * (sanitised and truncated) and falls back to a locally-generated short id
+ * derived from hostname + pid + random entropy.
+ *
+ * Sanitisation for the remote id:
+ *   1. Lower-case.
+ *   2. Strip every character outside `[a-z0-9]`.
+ *   3. Truncate to {@link SESSION_ID_LENGTH} (12) chars.
+ *   4. If the sanitised result is empty, fall back to the locally-generated id
+ *      — an all-symbol remote id is not a usable label suffix.
+ *
+ * The return value is always a string of 1..12 chars matching `[a-z0-9]+`, so
+ * callers can inline it into `in-progress-by:<id>` labels without further
+ * escaping. See tech spec #670 § Security — Env-var injection.
+ *
+ * @param {NodeJS.ProcessEnv} [env]
+ * @returns {string}
+ */
+export function resolveSessionId(env = process.env) {
+  const remote = env.CLAUDE_CODE_REMOTE_SESSION_ID;
+  if (typeof remote === 'string' && remote.length > 0) {
+    const sanitised = remote
+      .toLowerCase()
+      .replace(SESSION_ID_ALLOWED_CHAR_RE, '')
+      .slice(0, SESSION_ID_LENGTH);
+    if (sanitised.length > 0) return sanitised;
+  }
+  return generateLocalSessionId();
+}
+
+function generateLocalSessionId() {
+  // Layout: 2 host chars + 2 pid chars + 8 random hex chars = 12 chars. The
+  // random suffix is load-bearing for uniqueness; host/pid hints are
+  // operator-friendly context, not identifiers.
+  const host = (os.hostname() || 'h')
+    .toLowerCase()
+    .replace(SESSION_ID_ALLOWED_CHAR_RE, '')
+    .slice(0, 2)
+    .padEnd(2, '0');
+  const pid = String(process.pid)
+    .replace(SESSION_ID_ALLOWED_CHAR_RE, '')
+    .slice(-2)
+    .padStart(2, '0');
+  const rand = crypto.randomBytes(4).toString('hex'); // 8 hex chars
+  return `${host}${pid}${rand}`.slice(0, SESSION_ID_LENGTH);
 }
 
 /**

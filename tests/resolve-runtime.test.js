@@ -1,6 +1,7 @@
 import assert from 'node:assert/strict';
 import { describe, it } from 'node:test';
 import {
+  resolveSessionId,
   resolveWorktreeEnabled,
 } from '../.agents/scripts/lib/config-resolver.js';
 
@@ -51,5 +52,49 @@ describe('resolveWorktreeEnabled', () => {
 
   it('ignores non-string AP_WORKTREE_ENABLED (no environments pass non-strings, guard anyway)', () => {
     assert.equal(resolveWorktreeEnabled(cfgOff, { AP_WORKTREE_ENABLED: undefined }), false);
+  });
+});
+
+describe('resolveSessionId', () => {
+  it('returns the remote id lower-cased and truncated to 12 chars', () => {
+    const id = resolveSessionId({ CLAUDE_CODE_REMOTE_SESSION_ID: 'ABCDEF0123456789XYZ' });
+    assert.equal(id, 'abcdef012345');
+    assert.equal(id.length, 12);
+  });
+
+  it('preserves remote ids shorter than 12 chars', () => {
+    const id = resolveSessionId({ CLAUDE_CODE_REMOTE_SESSION_ID: 'abc123' });
+    assert.equal(id, 'abc123');
+  });
+
+  it('strips disallowed characters from the remote id', () => {
+    const id = resolveSessionId({ CLAUDE_CODE_REMOTE_SESSION_ID: 'AB-CD_EF/01:23.45!XYZ' });
+    // After strip + lowercase: abcdef012345xyz → truncated to 12
+    assert.equal(id, 'abcdef012345');
+  });
+
+  it('falls back to a local id when the remote value sanitises to empty', () => {
+    const id = resolveSessionId({ CLAUDE_CODE_REMOTE_SESSION_ID: '!@#$%^&*()' });
+    assert.match(id, /^[a-z0-9]{1,12}$/);
+    // Must not be the empty-sanitised remote value
+    assert.notEqual(id, '');
+  });
+
+  it('falls back to a local id when CLAUDE_CODE_REMOTE_SESSION_ID is unset', () => {
+    const id = resolveSessionId({});
+    assert.match(id, /^[a-z0-9]{1,12}$/);
+  });
+
+  it('falls back to a local id when CLAUDE_CODE_REMOTE_SESSION_ID is empty string', () => {
+    const id = resolveSessionId({ CLAUDE_CODE_REMOTE_SESSION_ID: '' });
+    assert.match(id, /^[a-z0-9]{1,12}$/);
+  });
+
+  it('local ids vary across calls (entropy present)', () => {
+    const a = resolveSessionId({});
+    const b = resolveSessionId({});
+    // Collisions with 4 random bytes should be astronomically rare; assert
+    // inequality so a regression that drops entropy fails loudly.
+    assert.notEqual(a, b);
   });
 });
