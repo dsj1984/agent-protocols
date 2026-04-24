@@ -44,9 +44,10 @@ export class CommitAssertion {
       opts.concurrency ??
       ctx?.concurrency?.commitAssertion ??
       DEFAULT_CONCURRENCY.commitAssertion;
-    this.concurrency = Number.isInteger(cap) && cap >= 1
-      ? cap
-      : DEFAULT_CONCURRENCY.commitAssertion;
+    this.concurrency =
+      Number.isInteger(cap) && cap >= 1
+        ? cap
+        : DEFAULT_CONCURRENCY.commitAssertion;
   }
 
   /**

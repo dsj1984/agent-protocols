@@ -71,9 +71,7 @@ export function parsePhaseTimingsBody(body) {
   const phases = payload.phases
     .filter(
       (p) =>
-        p &&
-        typeof p.name === 'string' &&
-        Number.isFinite(Number(p.elapsedMs)),
+        p && typeof p.name === 'string' && Number.isFinite(Number(p.elapsedMs)),
     )
     .map((p) => ({ name: p.name, elapsedMs: Number(p.elapsedMs) }));
   return {
@@ -235,7 +233,8 @@ export function renderSummary({
       '| Phase | p50 | p95 | n |',
       '| --- | --- | --- | --- |',
       ...rows.map(
-        (r) => `| ${r.name} | ${formatMs(r.p50)} | ${formatMs(r.p95)} | ${r.n} |`,
+        (r) =>
+          `| ${r.name} | ${formatMs(r.p50)} | ${formatMs(r.p95)} | ${r.n} |`,
       ),
     );
   }
@@ -284,7 +283,10 @@ async function loadEpicsFromFile(path, { readFileImpl = readFile } = {}) {
  * @param {number[]} epicIds
  * @param {{ provider: import('./lib/ITicketingProvider.js').ITicketingProvider, logger?: object }} opts
  */
-export async function collectSummaries(epicIds, { provider, logger = console }) {
+export async function collectSummaries(
+  epicIds,
+  { provider, logger = console },
+) {
   const summaries = [];
   const epicSampleCounts = new Map();
   const errors = [];
@@ -398,7 +400,9 @@ async function main() {
   try {
     provider = createProvider(orchestration);
   } catch (err) {
-    console.error(`[aggregate-phase-timings] Provider init failed: ${err.message}`);
+    console.error(
+      `[aggregate-phase-timings] Provider init failed: ${err.message}`,
+    );
     process.exit(2);
   }
 

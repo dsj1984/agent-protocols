@@ -91,9 +91,10 @@ export class ProgressReporter {
       opts.concurrency ??
       ctx?.concurrency?.progressReporter ??
       DEFAULT_CONCURRENCY.progressReporter;
-    this.concurrency = Number.isInteger(cap) && cap >= 1
-      ? cap
-      : DEFAULT_CONCURRENCY.progressReporter;
+    this.concurrency =
+      Number.isInteger(cap) && cap >= 1
+        ? cap
+        : DEFAULT_CONCURRENCY.progressReporter;
     this.now = opts.now ?? (() => new Date());
     this._setInterval = opts.setInterval ?? setInterval;
     this._clearInterval = opts.clearInterval ?? clearInterval;

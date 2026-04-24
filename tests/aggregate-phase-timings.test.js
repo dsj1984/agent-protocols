@@ -104,8 +104,7 @@ describe('findPhaseTimingsInComments', () => {
     const comments = [
       {
         id: 7,
-        body:
-          '<!-- structured:phase-timings -->\n```json\n{"kind":"phase-timings","storyId":1,"totalMs":0,"phases":[]}\n```',
+        body: '<!-- structured:phase-timings -->\n```json\n{"kind":"phase-timings","storyId":1,"totalMs":0,"phases":[]}\n```',
       },
     ];
     assert.equal(findPhaseTimingsInComments(comments)?.id, 7);
@@ -282,9 +281,7 @@ describe('collectSummaries', () => {
           { id: 1, body: 'unrelated' },
           {
             id: 2,
-            body: phaseTimingsBody(401, [
-              { name: 'install', elapsedMs: 5000 },
-            ]),
+            body: phaseTimingsBody(401, [{ name: 'install', elapsedMs: 5000 }]),
           },
         ],
       ],
@@ -364,9 +361,7 @@ describe('collectSummaries', () => {
         [
           {
             id: 1,
-            body: phaseTimingsBody(202, [
-              { name: 'test', elapsedMs: 1000 },
-            ]),
+            body: phaseTimingsBody(202, [{ name: 'test', elapsedMs: 1000 }]),
           },
         ],
       ],
@@ -387,25 +382,14 @@ describe('collectSummaries', () => {
 
 describe('runAggregator (end-to-end)', () => {
   it('returns markdown + rows + caps for a realistic provider', async () => {
-    const tickets = new Map([
-      [
-        553,
-        [
-          { id: 401 },
-          { id: 402 },
-          { id: 403 },
-        ],
-      ],
-    ]);
+    const tickets = new Map([[553, [{ id: 401 }, { id: 402 }, { id: 403 }]]]);
     const commentMap = new Map([
       [
         401,
         [
           {
             id: 1,
-            body: phaseTimingsBody(401, [
-              { name: 'install', elapsedMs: 1000 },
-            ]),
+            body: phaseTimingsBody(401, [{ name: 'install', elapsedMs: 1000 }]),
           },
         ],
       ],
@@ -414,9 +398,7 @@ describe('runAggregator (end-to-end)', () => {
         [
           {
             id: 2,
-            body: phaseTimingsBody(402, [
-              { name: 'install', elapsedMs: 2000 },
-            ]),
+            body: phaseTimingsBody(402, [{ name: 'install', elapsedMs: 2000 }]),
           },
         ],
       ],
