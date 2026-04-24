@@ -52,6 +52,10 @@ import { dispatchRecovery } from './lib/orchestration/sprint-story-close-recover
 import { upsertStructuredComment } from './lib/orchestration/ticketing.js';
 import { createProvider } from './lib/provider-factory.js';
 import {
+  PushRetryConflictError,
+  pushEpicWithRetry,
+} from './lib/push-epic-retry.js';
+import {
   fetchChildTasks,
   resolveStoryHierarchy,
 } from './lib/story-lifecycle.js';
@@ -298,15 +302,36 @@ async function finalizeMerge(
     }
 
     progress('GIT', `Pushing ${epicBranch}...`);
-    const pushResult = gitSpawn(
-      cwd,
-      'push',
-      '--no-verify',
-      'origin',
-      epicBranch,
-    );
-    if (pushResult.status !== 0) {
-      Logger.fatal(`Push failed: ${pushResult.stderr}`);
+    let pushOutcome;
+    try {
+      pushOutcome = await pushEpicWithRetry({
+        cwd,
+        epicBranch,
+        storyBranch,
+        closeRetry: orchestration?.closeRetry,
+        git: { gitSpawn },
+        log: (msg) => progress('GIT', msg),
+      });
+    } catch (err) {
+      if (err instanceof PushRetryConflictError) {
+        Logger.fatal(err.message);
+      }
+      throw err;
+    }
+    if (!pushOutcome.ok) {
+      const reasonLabel =
+        pushOutcome.reason === 'retry-exhausted'
+          ? `retries exhausted after ${pushOutcome.attempts} attempt(s)`
+          : pushOutcome.reason;
+      Logger.fatal(
+        `Push failed (${reasonLabel}): ${pushOutcome.result?.stderr || pushOutcome.result?.stdout || 'unknown'}`,
+      );
+    }
+    if (pushOutcome.attempts > 1) {
+      progress(
+        'GIT',
+        `✅ Push succeeded on attempt ${pushOutcome.attempts} after sibling session landed on ${epicBranch}`,
+      );
     }
 
     // Branch cleanup is deferred to after worktree reap: git refuses to
@@ -353,6 +378,7 @@ async function completeInProgressMerge({
   storyTitle,
   storyId,
   epicId,
+  orchestration,
 }) {
   let lockHandle;
   try {
@@ -383,15 +409,30 @@ async function completeInProgressMerge({
     }
 
     progress('GIT', `Pushing ${epicBranch}...`);
-    const pushResult = gitSpawn(
-      cwd,
-      'push',
-      '--no-verify',
-      'origin',
-      epicBranch,
-    );
-    if (pushResult.status !== 0) {
-      Logger.fatal(`Push failed: ${pushResult.stderr}`);
+    let pushOutcome;
+    try {
+      pushOutcome = await pushEpicWithRetry({
+        cwd,
+        epicBranch,
+        storyBranch,
+        closeRetry: orchestration?.closeRetry,
+        git: { gitSpawn },
+        log: (msg) => progress('GIT', msg),
+      });
+    } catch (err) {
+      if (err instanceof PushRetryConflictError) {
+        Logger.fatal(err.message);
+      }
+      throw err;
+    }
+    if (!pushOutcome.ok) {
+      const reasonLabel =
+        pushOutcome.reason === 'retry-exhausted'
+          ? `retries exhausted after ${pushOutcome.attempts} attempt(s)`
+          : pushOutcome.reason;
+      Logger.fatal(
+        `Push failed (${reasonLabel}): ${pushOutcome.result?.stderr || pushOutcome.result?.stdout || 'unknown'}`,
+      );
     }
   } finally {
     if (lockHandle) {
@@ -562,6 +603,7 @@ export async function runStoryClose({
       storyTitle: story.title,
       storyId,
       epicId,
+      orchestration,
     });
   } else {
     await finalizeMerge(
