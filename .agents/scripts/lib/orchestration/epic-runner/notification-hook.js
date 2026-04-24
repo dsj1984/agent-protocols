@@ -45,7 +45,7 @@ export class NotificationHook {
   /**
    * Fire a payload. Always resolves — never rejects.
    *
-   * @param {{ event: string, [k: string]: unknown }} payload
+   * @param {{ text: string }} payload
    */
   async fire(payload) {
     if (!this.webhookUrl) {
@@ -55,10 +55,7 @@ export class NotificationHook {
       return { delivered: false, reason: 'no-fetch' };
     }
 
-    const body = JSON.stringify({
-      ...payload,
-      timestamp: new Date().toISOString(),
-    });
+    const body = JSON.stringify({ text: payload?.text ?? '' });
     const headers = { 'content-type': 'application/json' };
     if (this.secret) {
       const signature = createHmac('sha256', this.secret)

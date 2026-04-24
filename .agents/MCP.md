@@ -255,9 +255,10 @@ ready to feed to an executing agent.
 - Closes the issue when `newState === 'agent::done'`; reopens when
   transitioning **from** `agent::done` to any other state.
 - Emits a notifier event (webhook POST when `NOTIFICATION_WEBHOOK_URL` is
-  set). The notifier payload carries `{ fromState, toState }`; `fromState`
-  may be `null` if the pre-read of the ticket failed transiently — that is
-  documented and expected.
+  set). The notifier payload is `{ text }` — a human-readable summary, for
+  example `ticket #550 · agent::executing → agent::done`. If the pre-read
+  of the ticket failed transiently, the "from" side of the arrow is
+  omitted, but the transition itself is idempotent and proceeds.
 
 **Error modes**:
 
@@ -620,21 +621,21 @@ Add the following to your MCP host settings (e.g.
 ### `NOTIFICATION_WEBHOOK_URL`
 
 Optional. When set, the server POSTs a JSON payload every time a ticket's
-label transitions via `transition_ticket_state` or `cascade_completion`. The
-payload shape:
+label transitions via `transition_ticket_state` or `cascade_completion`.
+The payload is a single `text` field — a human-readable summary suitable for
+pasting into a chat channel or agentic IDE:
 
 ```jsonc
 {
-  "event": "state-transition",
-  "ticketId": 550,
-  "fromState": "agent::executing",
-  "toState":   "agent::done"
+  "text": "ticket #550 · `agent::executing` → `agent::done`"
 }
 ```
 
-`fromState` may be `null` when the pre-read of the ticket fails transiently
-(e.g. rate-limit burst). The transition itself is idempotent and proceeds
-regardless.
+The same `{ text }` schema is used by `notify.js` (ad-hoc notifications) and
+by the epic-runner blocker hook, so a single consumer can receive every
+notification on one endpoint. When the pre-read of a ticket fails transiently
+(e.g. rate-limit burst) the `from` side of the arrow is omitted, but the
+transition itself is idempotent and proceeds regardless.
 
 The URL is **not** stored in `.agentrc.json`. It is sourced from:
 

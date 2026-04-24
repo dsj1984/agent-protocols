@@ -64,9 +64,10 @@
       "operatorHandle": "@dsj1984"
     },
     "notifications": {
-      "mentionOperator": true,
-      "level": "verbose",
-      "postToEpic": true
+      "mentionOperator": false,
+      "level": "default",
+      "webhookMinLevel": "notification",
+      "postToEpic": false
     },
     "hitl": {},
     "worktreeIsolation": {

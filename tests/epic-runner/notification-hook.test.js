@@ -13,11 +13,11 @@ describe('NotificationHook', () => {
       webhookUrl: null,
       logger: quietLogger(),
     });
-    const res = await hook.fire({ event: 'x' });
+    const res = await hook.fire({ text: 'x' });
     assert.deepEqual(res, { delivered: false, reason: 'no-url' });
   });
 
-  it('posts JSON with optional HMAC signature', async () => {
+  it('posts {text} JSON with optional HMAC signature', async () => {
     const calls = [];
     const fetchImpl = async (url, init) => {
       calls.push({ url, init });
@@ -29,11 +29,12 @@ describe('NotificationHook', () => {
       fetchImpl,
       logger: quietLogger(),
     });
-    const res = await hook.fire({ event: 'wave-complete', wave: 1 });
+    const res = await hook.fire({ text: 'wave 1 complete' });
     assert.equal(res.delivered, true);
     assert.equal(calls.length, 1);
     assert.equal(calls[0].init.method, 'POST');
-    assert.match(calls[0].init.body, /"event":"wave-complete"/);
+    const body = JSON.parse(calls[0].init.body);
+    assert.deepEqual(body, { text: 'wave 1 complete' });
     assert.ok(calls[0].init.headers['x-webhook-signature']);
   });
 
@@ -45,7 +46,7 @@ describe('NotificationHook', () => {
       },
       logger: quietLogger(),
     });
-    const res = await hook.fire({ event: 'blocked' });
+    const res = await hook.fire({ text: 'blocked' });
     assert.equal(res.delivered, false);
     assert.equal(res.reason, 'error');
   });
@@ -56,7 +57,7 @@ describe('NotificationHook', () => {
       fetchImpl: async () => ({ ok: false, status: 503 }),
       logger: quietLogger(),
     });
-    const res = await hook.fire({ event: 'x' });
+    const res = await hook.fire({ text: 'x' });
     assert.equal(res.delivered, false);
     assert.equal(res.reason, 'status-503');
   });

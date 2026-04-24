@@ -4,6 +4,51 @@ All notable changes to this project will be documented in this file.
 
 ## [Unreleased]
 
+## [5.20.0] - 2026-04-23
+
+### Simplify: notification webhook payload is now `{ text }`
+
+All three webhook emitters (`notify.js` ad-hoc messages, `Notifier`
+ticket-state transitions, `NotificationHook` epic-runner events) now POST
+a single `{ "text": "..." }` field — a human-readable summary suitable
+for dropping straight into Slack, Discord, or an agentic-IDE inbox. A
+single consumer can now receive every event on one endpoint without
+branching on `event` / `kind` / `type` discriminators.
+
+- `notify.js` formats as `[TYPE] repo#id: message` (or
+  `[Action Required] …` when `actionRequired` is set).
+- `Notifier` reuses its existing `summary` string (e.g.
+  `ticket #550 · `agent::executing` → `agent::done``).
+- `NotificationHook` passes `{ text }` through unchanged and drops the
+  `timestamp` field it used to splice in.
+- `BlockerHandler` formats its halt notice as
+  `[epic-blocked] Epic #N (story #M): <reason>`.
+- `.agents/MCP.md` updated to document the new payload shape.
+
+### Quiet defaults in `default-agentrc.json`
+
+The shipped `orchestration.notifications` defaults are now
+`level: "default"`, `webhookMinLevel: "notification"`,
+`mentionOperator: false`, `postToEpic: false` — an order of magnitude
+less chatter than the previous `verbose` / `progress` / `true` / `true`
+combo. New projects bootstrapped off the template land on the quiet
+profile; existing projects keep whatever they already have in their
+local `.agentrc.json`.
+
+### Fix: `Notifier` level-gating tests were POSTing to the real webhook
+
+Three tests in `tests/lib/notifications/notifier.test.js` constructed
+`Notifier` without `fetchImpl` or an explicit `webhookUrl`. The
+constructor calls `resolveWebhookUrl()`, which reads
+`process.env.NOTIFICATION_WEBHOOK_URL` **and** `.mcp.json` at `cwd` —
+both populated in most dev environments. Result: every `npm test` run
+silently POSTed roughly seven live webhook messages to whatever Slack
+/ Discord / agentic-IDE endpoint was configured. The file now scrubs
+the env var at `before()`, restores it at `after()`, and every
+`Notifier` construction in the file either restricts channels to skip
+the webhook channel, pins `n.webhookUrl` to a test URL with a mock
+`fetchImpl`, or passes `cwd: SAFE_CWD` + stub `fetchImpl`.
+
 ## [5.19.2] - 2026-04-23
 
 ### Add: `/agents-update` self-update workflow

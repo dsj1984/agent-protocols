@@ -68,7 +68,8 @@ describe('BlockerHandler', () => {
 
     // Fired the webhook exactly once.
     assert.equal(hook.fireCalls.length, 1);
-    assert.equal(hook.fireCalls[0].event, 'epic-blocked');
+    assert.match(hook.fireCalls[0].text, /epic-blocked/);
+    assert.match(hook.fireCalls[0].text, /Epic #321/);
   });
 
   it('webhook failures do not bubble out of halt()', async () => {

@@ -63,11 +63,8 @@ describe('notify script', () => {
     // Webhook now fires for every notify() call by default (minLevel=progress).
     assert.equal(fetchCalls.length, 1);
     const body = JSON.parse(fetchCalls[0].options.body);
-    assert.equal(body.repo, 'widgets');
-    assert.equal(body.ticketId, 123);
-    assert.equal(body.type, 'notification');
-    assert.equal(body.event, 'notification');
-    assert.equal(body.actionRequired, false);
+    assert.deepEqual(Object.keys(body), ['text']);
+    assert.equal(body.text, '[notification] widgets#123: Task complete.');
   });
 
   it('fires a webhook for action type with HITL event name', async () => {
@@ -91,15 +88,11 @@ describe('notify script', () => {
     assert.equal(webhookCall.url, 'https://webhook.example.com/action');
 
     const body = JSON.parse(webhookCall.options.body);
-    assert.equal(body.repo, 'widgets');
-    assert.equal(body.ticketId, 124);
-    assert.equal(body.type, 'action');
-    assert.equal(body.event, 'HITL_ACTION_REQUIRED');
-    assert.equal(body.actionRequired, true);
+    assert.deepEqual(Object.keys(body), ['text']);
     assert.equal(
-      body.message,
-      'Review needed.',
-      'should strip the operator mention from the webhook message if present',
+      body.text,
+      '[Action Required] widgets#124: Review needed.',
+      'text payload should strip the operator mention and mark it as an action',
     );
   });
 
@@ -137,8 +130,9 @@ describe('notify script', () => {
 
     assert.equal(fetchCalls.length, 1);
     const body = JSON.parse(fetchCalls[0].options.body);
-    assert.equal(body.actionRequired, true);
-    assert.equal(body.event, 'HITL_ACTION_REQUIRED');
+    assert.deepEqual(Object.keys(body), ['text']);
+    assert.match(body.text, /^\[Action Required\]/);
+    assert.match(body.text, /Approve deploy\?$/);
   });
 
   it('tolerates webhook failures silently', async () => {

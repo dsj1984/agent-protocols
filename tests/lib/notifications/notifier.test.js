@@ -1,5 +1,5 @@
 import assert from 'node:assert/strict';
-import { afterEach, describe, it } from 'node:test';
+import { after, afterEach, before, describe, it } from 'node:test';
 
 import {
   Notifier,
@@ -9,6 +9,29 @@ import {
 function quietLogger() {
   return { info: () => {}, warn: () => {}, error: () => {} };
 }
+
+// Belt-and-braces: the Notifier constructor calls resolveWebhookUrl(), which
+// reads process.env.NOTIFICATION_WEBHOOK_URL and .mcp.json at cwd. The dev
+// environment typically has both populated, which would cause tests that
+// don't stub fetchImpl to POST to the real webhook. Every Notifier
+// construction in this file either (a) restricts channels to skip webhook,
+// (b) overrides n.webhookUrl to a test URL and provides a mock fetchImpl,
+// or (c) passes SAFE_CWD so the .mcp.json fallback misses. The env var is
+// also cleared for the duration of the file.
+const SAFE_CWD = '/nonexistent-notifier-test-cwd';
+const ORIG_WEBHOOK_ENV = process.env.NOTIFICATION_WEBHOOK_URL;
+
+before(() => {
+  delete process.env.NOTIFICATION_WEBHOOK_URL;
+});
+
+after(() => {
+  if (ORIG_WEBHOOK_ENV === undefined) {
+    delete process.env.NOTIFICATION_WEBHOOK_URL;
+  } else {
+    process.env.NOTIFICATION_WEBHOOK_URL = ORIG_WEBHOOK_ENV;
+  }
+});
 
 describe('Notifier level gating', () => {
   it('off: emits nothing', async () => {
@@ -43,6 +66,8 @@ describe('Notifier level gating', () => {
     const n = new Notifier({
       config: { level: 'minimal' },
       logger: quietLogger(),
+      fetchImpl: async () => ({ ok: true }),
+      cwd: SAFE_CWD,
     });
     const r1 = await n.emit({
       kind: 'state-transition',
@@ -68,6 +93,8 @@ describe('Notifier level gating', () => {
     const n = new Notifier({
       config: { level: 'default' },
       logger: quietLogger(),
+      fetchImpl: async () => ({ ok: true }),
+      cwd: SAFE_CWD,
     });
     const r1 = await n.emit({
       kind: 'state-transition',
@@ -83,6 +110,8 @@ describe('Notifier level gating', () => {
     const n = new Notifier({
       config: { level: 'verbose' },
       logger: quietLogger(),
+      fetchImpl: async () => ({ ok: true }),
+      cwd: SAFE_CWD,
     });
     for (const kind of ['state-transition', 'opened', 'closed', 'reopened']) {
       const r = await n.emit({
@@ -161,9 +190,10 @@ describe('Notifier channels', () => {
     assert.equal(calls.length, 1);
     assert.equal(calls[0].init.method, 'POST');
     const body = JSON.parse(calls[0].init.body);
-    assert.equal(body.kind, 'state-transition');
-    assert.equal(body.fromState, 'agent::ready');
-    assert.equal(body.toState, 'agent::executing');
+    assert.deepEqual(Object.keys(body), ['text']);
+    assert.match(body.text, /ticket #357/);
+    assert.match(body.text, /agent::ready/);
+    assert.match(body.text, /agent::executing/);
   });
 
   it('swallows webhook failures (never throws)', async () => {
