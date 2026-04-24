@@ -173,7 +173,12 @@ describe('branchCleanupPhase', () => {
       progress: fn,
       branchCleanup,
     });
-    assert.deepEqual(result, { localDeleted: true, remoteDeleted: true });
+    assert.deepEqual(result, {
+      localDeleted: true,
+      remoteDeleted: true,
+      localReason: 'deleted',
+      remoteReason: 'deleted',
+    });
     assert.equal(calls.length, 1);
     assert.equal(calls[0].name, 'story-7');
     assert.equal(calls[0].opts.cwd, '/repo');
