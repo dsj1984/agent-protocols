@@ -157,7 +157,10 @@ describe('StatePoller', () => {
 
     let bulkResponse = [
       // Well-formed issue for #500.
-      { number: 500, labels: [{ name: 'type::story' }, { name: 'agent::executing' }] },
+      {
+        number: 500,
+        labels: [{ name: 'type::story' }, { name: 'agent::executing' }],
+      },
       // Malformed: no `labels` array.
       { number: 501 },
       // Would-be well-formed for the rest, but we never reach them.
@@ -206,13 +209,19 @@ describe('StatePoller', () => {
   it('ignores out-of-scope agent::* issues in the bulk response', async () => {
     const trackedIds = [600, 601, 602, 603, 604];
     const bulkResponse = [
-      { number: 321, labels: [{ name: 'type::epic' }, { name: 'agent::executing' }] },
+      {
+        number: 321,
+        labels: [{ name: 'type::epic' }, { name: 'agent::executing' }],
+      },
       ...trackedIds.map((id) => ({
         number: id,
         labels: [{ name: 'type::story' }, { name: 'agent::executing' }],
       })),
       // Out-of-scope: has agent::done, but is not in the tracked-story set.
-      { number: 9999, labels: [{ name: 'type::story' }, { name: 'agent::done' }] },
+      {
+        number: 9999,
+        labels: [{ name: 'type::story' }, { name: 'agent::done' }],
+      },
     ];
 
     const provider = {

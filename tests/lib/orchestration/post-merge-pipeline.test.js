@@ -365,7 +365,7 @@ describe('worktreeReapPhase', () => {
     });
     const logger = makeLogger();
     const frictionEmitter = { emit: async () => {} };
-    const result = await worktreeReapPhase({
+    await worktreeReapPhase({
       orchestration: { worktreeIsolation: { enabled: true } },
       storyId: 1,
       epicBranch: 'epic/9',
