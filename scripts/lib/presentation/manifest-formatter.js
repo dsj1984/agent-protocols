@@ -9,6 +9,7 @@
  * one impure helper that reads config to build the options bag.
  */
 
+import { createHash } from 'node:crypto';
 import { AGENT_LABELS } from '../label-constants.js';
 
 // ---------------------------------------------------------------------------
@@ -242,7 +243,47 @@ function renderStoryDetailsSection(storyManifest) {
   return lines.join('\n');
 }
 
+let _lastManifestRef = null;
+let _lastManifestHash = null;
+let _lastManifestOutput = null;
+
+function hashManifest(manifest) {
+  return createHash('sha1')
+    .update(JSON.stringify(manifest ?? null))
+    .digest('hex');
+}
+
+/**
+ * Clear the content-hash cache for `formatManifestMarkdown`. Intended for tests
+ * and for callers that mutate manifest objects in place between renders.
+ */
+export function __resetManifestFormatterCache() {
+  _lastManifestRef = null;
+  _lastManifestHash = null;
+  _lastManifestOutput = null;
+}
+
 export function formatManifestMarkdown(manifest) {
+  // Fast path: same manifest instance as last call (progress-reporter reuses
+  // the same object across ticks when nothing has changed).
+  if (manifest === _lastManifestRef && _lastManifestOutput !== null) {
+    return _lastManifestOutput;
+  }
+  // Slow path: content-hash comparison for cases where the caller built a
+  // fresh manifest object with identical content.
+  const hash = hashManifest(manifest);
+  if (hash === _lastManifestHash && _lastManifestOutput !== null) {
+    _lastManifestRef = manifest;
+    return _lastManifestOutput;
+  }
+  const output = _formatManifestMarkdownUncached(manifest);
+  _lastManifestRef = manifest;
+  _lastManifestHash = hash;
+  _lastManifestOutput = output;
+  return output;
+}
+
+function _formatManifestMarkdownUncached(manifest) {
   const { epicId, epicTitle, summary, storyManifest, dryRun, generatedAt } =
     manifest;
   const progress = computeProgress(manifest);

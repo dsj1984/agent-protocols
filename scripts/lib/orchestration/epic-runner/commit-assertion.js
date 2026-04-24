@@ -18,7 +18,11 @@
 import { execFile as execFileCb } from 'node:child_process';
 import { promisify } from 'node:util';
 
+import { concurrentMap } from '../../util/concurrent-map.js';
+
 const execFile = promisify(execFileCb);
+
+const WAVE_END_CONCURRENCY = 4;
 
 export class CommitAssertion {
   /**
@@ -50,33 +54,38 @@ export class CommitAssertion {
       throw new TypeError('CommitAssertion.check requires a numeric epicId');
     }
     const ids = Array.isArray(storyIds) ? storyIds : [];
-    const results = [];
-    for (const raw of ids) {
-      const storyId = Number(raw);
-      if (!Number.isInteger(storyId)) {
-        results.push({
-          storyId: raw,
-          newCommitCount: null,
-          error: 'invalid storyId',
-        });
-        continue;
-      }
-      try {
-        const count = await this.gitAdapter({ epicId, storyId });
-        const n = Number(count);
-        results.push({
-          storyId,
-          newCommitCount: Number.isFinite(n) && n >= 0 ? Math.trunc(n) : 0,
-        });
-      } catch (err) {
-        const msg = err?.message ?? String(err);
-        this.logger?.warn?.(
-          `[CommitAssertion] git lookup for #${storyId} failed: ${msg}`,
-        );
-        results.push({ storyId, newCommitCount: null, error: msg });
-      }
-    }
-    return results;
+    // concurrentMap preserves input order in the output array, so wave-end
+    // row ordering is stable regardless of which git reads resolve first.
+    // The mapper catches adapter failures and turns them into per-row error
+    // records, so one bad story cannot short-circuit the batch.
+    return concurrentMap(
+      ids,
+      async (raw) => {
+        const storyId = Number(raw);
+        if (!Number.isInteger(storyId)) {
+          return {
+            storyId: raw,
+            newCommitCount: null,
+            error: 'invalid storyId',
+          };
+        }
+        try {
+          const count = await this.gitAdapter({ epicId, storyId });
+          const n = Number(count);
+          return {
+            storyId,
+            newCommitCount: Number.isFinite(n) && n >= 0 ? Math.trunc(n) : 0,
+          };
+        } catch (err) {
+          const msg = err?.message ?? String(err);
+          this.logger?.warn?.(
+            `[CommitAssertion] git lookup for #${storyId} failed: ${msg}`,
+          );
+          return { storyId, newCommitCount: null, error: msg };
+        }
+      },
+      { concurrency: WAVE_END_CONCURRENCY },
+    );
   }
 }
 

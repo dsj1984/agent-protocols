@@ -137,6 +137,9 @@ export async function postParkedFollowOnsComment(manifest, provider) {
   let storiesUnderEpic = [];
   try {
     const all = await provider.getTickets(manifest.epicId);
+    if (all && typeof provider.primeTicketCache === 'function') {
+      provider.primeTicketCache(all);
+    }
     storiesUnderEpic = (all ?? []).filter((t) =>
       (t.labels ?? []).includes(TYPE_LABELS.STORY),
     );

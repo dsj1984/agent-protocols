@@ -107,15 +107,22 @@ async function retryStage1ForEntry(entry, { git, repoRoot, fsRm, logger }) {
     return { success: false, error: err };
   }
   git.gitSpawn(repoRoot, 'worktree', 'prune');
+  let localBranchDeleted = null;
+  let remoteBranchDeleted = null;
   if (branch) {
     const localDel = git.gitSpawn(repoRoot, 'branch', '-D', branch);
     if (localDel.status !== 0) {
       const stderr = (localDel.stderr || localDel.stdout || '').trim();
       if (!/not found|no such|not match/i.test(stderr)) {
+        localBranchDeleted = false;
         logger.warn(
           `worktree-sweep: branch -D ${branch} failed: ${stderr || 'unknown'} (continuing)`,
         );
+      } else {
+        localBranchDeleted = true;
       }
+    } else {
+      localBranchDeleted = true;
     }
     if (push) {
       const remoteDel = git.gitSpawn(
@@ -129,14 +136,19 @@ async function retryStage1ForEntry(entry, { git, repoRoot, fsRm, logger }) {
       if (remoteDel.status !== 0) {
         const stderr = (remoteDel.stderr || remoteDel.stdout || '').trim();
         if (!/remote ref does not exist|not found/i.test(stderr)) {
+          remoteBranchDeleted = false;
           logger.warn(
             `worktree-sweep: push --delete ${branch} failed: ${stderr || 'unknown'} (continuing)`,
           );
+        } else {
+          remoteBranchDeleted = true;
         }
+      } else {
+        remoteBranchDeleted = true;
       }
     }
   }
-  return { success: true };
+  return { success: true, localBranchDeleted, remoteBranchDeleted };
 }
 
 /**
@@ -155,12 +167,22 @@ export async function drainPendingCleanup({
 }) {
   const entries = readManifest(worktreeRoot);
   if (entries.length === 0) {
-    return { drained: [], persistent: [], stillPending: [] };
+    return {
+      drained: [],
+      drainedDetails: [],
+      persistent: [],
+      persistentDetails: [],
+      stillPending: [],
+      stillPendingDetails: [],
+    };
   }
 
   const drained = [];
+  const drainedDetails = [];
   const persistent = [];
+  const persistentDetails = [];
   const stillPending = [];
+  const stillPendingDetails = [];
   const next = [];
 
   for (const entry of entries) {
@@ -172,6 +194,13 @@ export async function drainPendingCleanup({
     });
     if (result.success) {
       drained.push(entry.storyId);
+      drainedDetails.push({
+        storyId: entry.storyId,
+        path: entry.path,
+        branch: entry.branch,
+        localBranchDeleted: result.localBranchDeleted,
+        remoteBranchDeleted: result.remoteBranchDeleted,
+      });
       logger.info(
         `worktree-sweep: drained pending-cleanup storyId=${entry.storyId} path=${entry.path}`,
       );
@@ -190,12 +219,21 @@ export async function drainPendingCleanup({
           `(attempts=${updatedAttempts}, firstFailedAt=${entry.firstFailedAt}).`,
       );
       persistent.push(entry.storyId);
+      persistentDetails.push(updated);
     } else {
       stillPending.push(entry.storyId);
+      stillPendingDetails.push(updated);
     }
     next.push(updated);
   }
 
   writeManifest(worktreeRoot, next);
-  return { drained, persistent, stillPending };
+  return {
+    drained,
+    drainedDetails,
+    persistent,
+    persistentDetails,
+    stillPending,
+    stillPendingDetails,
+  };
 }
