@@ -69,11 +69,9 @@ export class BlockerHandler {
   async halt(info, signal) {
     await this.#markBlocked(info);
     try {
+      const storyPart = info.storyId ? ` (story #${info.storyId})` : '';
       await this.notificationHook.fire({
-        event: 'epic-blocked',
-        epicId: this.epicId,
-        reason: info.reason,
-        storyId: info.storyId,
+        text: `[epic-blocked] Epic #${this.epicId}${storyPart}: ${info.reason}`,
       });
     } catch (err) {
       this.logger.warn?.(

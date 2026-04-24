@@ -38,15 +38,16 @@ function buildWebhookPayload({
   operator,
   isAction,
 }) {
-  return JSON.stringify({
-    repo: orchestration.github?.repo ?? null,
-    ticketId,
-    type,
-    event: isAction ? 'HITL_ACTION_REQUIRED' : type,
-    actionRequired: isAction,
-    message: message.replace(operator, '').trim(),
-    timestamp: new Date().toISOString(),
-  });
+  const cleanMessage = message.replace(operator, '').trim();
+  const repo = orchestration.github?.repo;
+  const numericTicketId = Number.parseInt(ticketId, 10);
+  const prefix = isAction ? '[Action Required]' : `[${type}]`;
+  const ticketPart =
+    Number.isFinite(numericTicketId) && numericTicketId > 0
+      ? ` ${repo ? `${repo}#${numericTicketId}` : `#${numericTicketId}`}`
+      : '';
+  const text = `${prefix}${ticketPart}: ${cleanMessage}`;
+  return JSON.stringify({ text });
 }
 
 async function sendWebhook(url, payloadBody) {

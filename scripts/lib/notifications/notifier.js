@@ -200,7 +200,7 @@ export class Notifier {
       const res = await this.fetchImpl(this.webhookUrl, {
         method: 'POST',
         headers: { 'content-type': 'application/json' },
-        body: JSON.stringify(payload),
+        body: JSON.stringify({ text: payload.summary }),
       });
       if (!res?.ok) {
         this.logger.warn?.(
