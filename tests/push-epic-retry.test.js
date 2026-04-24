@@ -51,7 +51,7 @@ function makeGit(script) {
     calls.push({ cwd, args });
     const key = args[0];
     const q = queues.get(key);
-    if (q && q.length) return q.shift();
+    if (q?.length) return q.shift();
     return { status: 0, stdout: '', stderr: '' };
   };
   return { git: { gitSpawn }, calls };
