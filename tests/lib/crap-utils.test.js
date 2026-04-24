@@ -14,9 +14,7 @@ import {
   scanAndScore,
 } from '../../.agents/scripts/lib/crap-utils.js';
 
-const SCHEMA_PATH = path.resolve(
-  '.agents/schemas/crap-baseline.schema.json',
-);
+const SCHEMA_PATH = path.resolve('.agents/schemas/crap-baseline.schema.json');
 
 function mkTmpCwd(prefix = 'crap_utils_test_') {
   return fs.mkdtempSync(path.join(os.tmpdir(), prefix));
@@ -174,13 +172,9 @@ test('saveCrapBaseline — byte-identical output on repeated save (determinism)'
       escomplexVersion: '7.3.2',
     });
     saveCrapBaseline(envelope, { cwd });
-    const firstBytes = fs.readFileSync(
-      path.join(cwd, DEFAULT_BASELINE_PATH),
-    );
+    const firstBytes = fs.readFileSync(path.join(cwd, DEFAULT_BASELINE_PATH));
     saveCrapBaseline(envelope, { cwd });
-    const secondBytes = fs.readFileSync(
-      path.join(cwd, DEFAULT_BASELINE_PATH),
-    );
+    const secondBytes = fs.readFileSync(path.join(cwd, DEFAULT_BASELINE_PATH));
     assert.ok(
       firstBytes.equals(secondBytes),
       'repeated save must produce byte-identical bytes',
@@ -254,10 +248,7 @@ test('buildBaselineEnvelope — requires escomplexVersion', () => {
     () => buildBaselineEnvelope({ rows: [], escomplexVersion: '' }),
     /escomplexVersion/,
   );
-  assert.throws(
-    () => buildBaselineEnvelope({ rows: [] }),
-    /escomplexVersion/,
-  );
+  assert.throws(() => buildBaselineEnvelope({ rows: [] }), /escomplexVersion/);
 });
 
 test('buildBaselineEnvelope — stamps current KERNEL_VERSION by default', () => {

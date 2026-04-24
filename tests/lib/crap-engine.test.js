@@ -23,7 +23,7 @@ function coverageEntryFor(methodStartLine, ratio) {
   }
   return {
     fnMap: {
-      '0': {
+      0: {
         name: 'fn',
         decl: { start: { line: methodStartLine, column: 0 } },
         loc: {
@@ -32,7 +32,7 @@ function coverageEntryFor(methodStartLine, ratio) {
         },
       },
     },
-    f: { '0': covered > 0 ? 1 : 0 },
+    f: { 0: covered > 0 ? 1 : 0 },
     statementMap,
     s,
     branchMap: {},
@@ -102,7 +102,10 @@ export function branchy(x) {
 `;
   const cov = coverageEntryFor(2, 1.0);
   const [row] = calculateCrapForSource(source, cov);
-  assert.ok(row.cyclomatic >= 10, `expected high cyclomatic, got ${row.cyclomatic}`);
+  assert.ok(
+    row.cyclomatic >= 10,
+    `expected high cyclomatic, got ${row.cyclomatic}`,
+  );
   assert.strictEqual(row.coverage, 1);
   assert.strictEqual(row.crap, row.cyclomatic);
 });

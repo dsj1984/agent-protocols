@@ -33,7 +33,7 @@ function makeEntry({ fnStart, fnEnd, statements }) {
   return {
     path: '/abs/file.js',
     fnMap: {
-      '0': {
+      0: {
         name: 'target',
         decl: {
           start: { line: fnStart, column: 0 },
@@ -45,7 +45,7 @@ function makeEntry({ fnStart, fnEnd, statements }) {
         },
       },
     },
-    f: { '0': statements.some((st) => st.hits > 0) ? 1 : 0 },
+    f: { 0: statements.some((st) => st.hits > 0) ? 1 : 0 },
     statementMap,
     s,
     branchMap: {},
@@ -208,9 +208,13 @@ test('coverageByMethod — resolves by relative path then delegates to entry loo
 });
 
 test('coverageByMethod — file not in map returns null', () => {
-  const map = { '/repo/src/thing.js': makeEntry({
-    fnStart: 5, fnEnd: 8, statements: [{ line: 6, hits: 1 }],
-  }) };
+  const map = {
+    '/repo/src/thing.js': makeEntry({
+      fnStart: 5,
+      fnEnd: 8,
+      statements: [{ line: 6, hits: 1 }],
+    }),
+  };
   assert.strictEqual(coverageByMethod(map, 'src/other.js', 5), null);
 });
 
