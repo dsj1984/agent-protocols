@@ -530,6 +530,14 @@ report and posts it as a ticket comment via the `ITicketingProvider`.
 - **Maintainability ratchet.** The orchestrator enforces code quality by relying
   on maintainability checks (`check-maintainability.js`), which fail if the
   composite score drops below the established baseline.
+- **CRAP gate (v5.22.0+).** Sibling per-method gate (`check-crap.js`) wired
+  into `close-validation` after `check-maintainability`, the `ci.yml` step
+  after `test:coverage`, and `.husky/pre-push`. Tracks complexity × coverage
+  risk per method against `crap-baseline.json`. Self-skips when
+  `agentSettings.maintainability.crap.enabled` is `false`. A separate
+  `baseline-refresh-guardrail.yml` workflow enforces base-branch thresholds
+  on PRs and requires a `baseline-refresh:`-tagged commit (with a non-empty
+  body) on any PR that edits a committed baseline.
 - **Auto-fixing.** If High or Critical findings are detected, the system halts
   for human review. A human can reply to the ticket with `/approve` or
   `/approve-audit-fixes` (processed by `handle-approval.js`).

@@ -795,3 +795,65 @@ comment.
   install, lint, test, implement are consumer.
 - Future perf work starts with measurement. The next regression is
   caught by the p95 column drifting, not by a user filing an issue.
+
+## Quality gates: maintainability vs CRAP (v5.22.0+)
+
+### Problem
+
+The maintainability (MI) gate enforces a no-regression ratchet on a
+per-file composite score, but is **coverage-blind**: a 30-branch
+function scores identically whether it has 0% or 100% test coverage. MI
+catches files that grow gnarlier; it does not catch new untested
+complexity.
+
+### Solution
+
+Two sibling gates with complementary signals, both reading from the
+existing `typhonjs-escomplex` and `c8` outputs that the test runner
+already produces:
+
+| Gate                  | Granularity | Signal                                       | Answers                          |
+| --------------------- | ----------- | -------------------------------------------- | -------------------------------- |
+| `check-maintainability` | Per-file   | Composite MI score vs. baseline              | "What should I refactor?"        |
+| `check-crap`            | Per-method | `c² · (1 − cov)³ + c` vs. baseline + ceiling | "What should I test next?"       |
+
+Both gates run at the same three sites — pre-push, close-validation, CI
+— and share an envelope shape (`{ kernelVersion, summary, violations }`)
+so an agent can consume both reports through one parser.
+
+### Hybrid enforcement (CRAP-specific)
+
+CRAP cannot use a flat per-file ratchet because the unit is the method,
+which moves between files. The compromise:
+
+1. **Tracked methods** ratchet on `(file, method, startLine)` with a
+   line-drift fallback; current ≤ baseline + tolerance.
+2. **New methods** (no baseline match) must score ≤ `newMethodCeiling`
+   (default 30 — the canonical CRAP threshold).
+3. **Removed methods** are surfaced as a counter in the summary, never
+   a failure — deletion is visible at review without blocking.
+
+### Anti-gaming
+
+A PR that simultaneously relaxes `newMethodCeiling` in `.agentrc.json`
+and adds a method over the new (relaxed) ceiling would otherwise pass
+its own gate. The `baseline-refresh-guardrail` CI job defends against
+this by reading thresholds from the **base branch** and re-running
+`check-crap` with those values forced via `CRAP_NEW_METHOD_CEILING` /
+`CRAP_TOLERANCE` / `CRAP_REFRESH_TAG` env vars. Any PR that touches
+`crap-baseline.json` or `maintainability-baseline.json` must also carry
+a commit whose subject starts with the configured `refreshTag` (default
+`baseline-refresh:`) AND has a non-empty body — the tag alone is not
+enough. Baseline-only PRs are auto-labelled `review::baseline-refresh`
+so a human sees every refresh, even on green CI.
+
+### Consequences
+
+- A regression in test coverage on a complex method now fails CI even
+  if the per-file MI score holds steady.
+- Agents authoring PRs receive `fixGuidance` (`minComplexityAt100Cov`,
+  `minCoverageAtCurrentComplexity`) per offender so they can pick the
+  cheaper axis to fix without parsing stdout.
+- Baseline refreshes are a deliberate, justified, reviewer-visible
+  action. Silent threshold relaxation is impossible without a tagged
+  commit and a label that flags the PR for human eyes.

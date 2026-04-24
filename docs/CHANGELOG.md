@@ -4,6 +4,50 @@ All notable changes to this project will be documented in this file.
 
 ## [Unreleased]
 
+### CRAP analysis — complexity × coverage risk gate (Epic #596)
+
+Sibling pipeline to the existing maintainability (MI) ratchet. CRAP scores
+every JavaScript method via `c² · (1 − cov)³ + c`, combining
+`typhonjs-escomplex` cyclomatic complexity with per-method coverage from the
+existing `c8` artifact. No new runtime dependencies.
+
+**Hybrid enforcement.** Tracked methods ratchet on `(file, method, startLine)`
+with a line-drift fallback against `crap-baseline.json`; new (untracked)
+methods must score at or below `newMethodCeiling` (default 30, the canonical
+CRAP threshold). Removed methods are surfaced as a counter, never a failure.
+
+**Gate integration.** Wired into `close-validation` after
+`check-maintainability`, into `ci.yml` after `test:coverage` (diff-scoped on
+PRs via `--changed-since origin/<base_ref>`, full-repo on push-to-main), and
+into `.husky/pre-push`. All three sites converge on `check-crap.js`; flipping
+`agentSettings.maintainability.crap.enabled` to `false` skips at every site
+with a visible `[CRAP] gate skipped (disabled)` log line.
+
+**Anti-gaming guardrail.** A new `baseline-refresh-guardrail.yml`
+`pull_request` workflow reads thresholds from the **base branch**
+`.agentrc.json` and re-runs `check-crap` with those values forced via
+`CRAP_NEW_METHOD_CEILING` / `CRAP_TOLERANCE` / `CRAP_REFRESH_TAG` env
+overrides. Any PR touching `crap-baseline.json` or
+`maintainability-baseline.json` must carry a commit whose subject starts
+with the configured `refreshTag` (default `baseline-refresh:`) AND whose
+body is non-empty. Baseline-only PRs receive the `review::baseline-refresh`
+label idempotently across re-runs so a human sees every refresh, even on
+green CI.
+
+**Agent-era output.** `check-crap --json <path>` writes
+`{ kernelVersion, escomplexVersion, summary, violations }` with deterministic
+per-violation `fixGuidance` (`crapCeiling`, `minComplexityAt100Cov`,
+`minCoverageAtCurrentComplexity`) — applying either single-axis fix re-scores
+under target, verified by round-trip test. `check-maintainability` gains the
+`--json` and `--changed-since` flags for parity.
+
+**Consumer-repo safety.** Missing baseline → bootstrap message, exit 0 (never
+hard-fails on first sync). Baseline `kernelVersion` / `escomplexVersion`
+mismatch fails closed with a "scorer changed from X to Y" message rather than
+silently rescoring. `enabled: false` is a single-flag opt-out for repos that
+don't run coverage. Config resolver supports `{ append }` deep-merge so
+consumers extend `targetDirs` without re-listing framework defaults.
+
 ## [5.21.0] - 2026-04-24
 
 ### Epic-runner throughput & caching pass (Epic #553)
