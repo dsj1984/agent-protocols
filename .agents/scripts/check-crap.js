@@ -1,7 +1,9 @@
+import fs from 'node:fs';
 import path from 'node:path';
 import { getChangedFiles } from './lib/changed-files.js';
 import { resolveConfig } from './lib/config-resolver.js';
 import { loadCoverage } from './lib/coverage-utils.js';
+import { deriveFixGuidance } from './lib/crap-engine.js';
 import {
   getCrapBaseline,
   KERNEL_VERSION,
@@ -40,6 +42,7 @@ export function parseCliArgs(argv = process.argv.slice(2)) {
     baselinePath: undefined,
     coveragePath: undefined,
     changedSinceRef: null,
+    jsonPath: undefined,
   };
   for (let i = 0; i < argv.length; i += 1) {
     if (argv[i] === '--story' && argv[i + 1]) {
@@ -60,6 +63,9 @@ export function parseCliArgs(argv = process.argv.slice(2)) {
       } else {
         out.changedSinceRef = 'main';
       }
+    } else if (argv[i] === '--json' && argv[i + 1]) {
+      out.jsonPath = argv[i + 1];
+      i += 1;
     }
   }
   if (out.storyId === null) {
@@ -258,6 +264,81 @@ export function evaluateBaselineCompatibility({
   return { ok: true };
 }
 
+/**
+ * Build the structured `--json` report envelope.
+ *
+ * Violations carry the same fields the stdout printer emits plus a
+ * deterministic `fixGuidance` block derived from the formula: target is the
+ * baseline for regressions and the ceiling for new-method violations. Rows
+ * are deep-cloned so callers can safely mutate the envelope without
+ * corrupting the live comparator result.
+ *
+ * @param {{
+ *   compareResult: ReturnType<typeof compareCrap>,
+ *   scanSummary: { skippedFilesNoCoverage?: number, skippedMethodsNoCoverage?: number },
+ *   kernelVersion: string,
+ *   escomplexVersion: string,
+ *   newMethodCeiling: number,
+ * }} params
+ * @returns {{
+ *   kernelVersion: string,
+ *   escomplexVersion: string,
+ *   summary: object,
+ *   violations: Array<object>,
+ * }}
+ */
+export function buildCrapReport({
+  compareResult,
+  scanSummary,
+  kernelVersion,
+  escomplexVersion,
+  newMethodCeiling,
+}) {
+  const skippedNoCoverage =
+    (scanSummary?.skippedFilesNoCoverage ?? 0) +
+    (scanSummary?.skippedMethodsNoCoverage ?? 0);
+  const violations = (compareResult.violations ?? []).map((v) => {
+    const target = v.kind === 'new' ? v.ceiling : v.baseline;
+    const fixGuidance = deriveFixGuidance({
+      cyclomatic: v.cyclomatic,
+      target,
+    });
+    return {
+      file: v.file,
+      method: v.method,
+      startLine: v.startLine,
+      cyclomatic: v.cyclomatic,
+      coverage: v.coverage,
+      crap: v.crap,
+      baseline: v.kind === 'new' ? null : v.baseline,
+      ceiling: v.kind === 'new' ? v.ceiling : newMethodCeiling,
+      kind: v.kind,
+      fixGuidance,
+    };
+  });
+  return {
+    kernelVersion,
+    escomplexVersion,
+    summary: {
+      total: compareResult.total,
+      regressions: compareResult.regressions,
+      newViolations: compareResult.newViolations,
+      drifted: compareResult.drifted,
+      removed: compareResult.removed,
+      skippedNoCoverage,
+    },
+    violations,
+  };
+}
+
+function writeJsonReport(jsonPath, envelope) {
+  const abs = path.isAbsolute(jsonPath)
+    ? jsonPath
+    : path.resolve(process.cwd(), jsonPath);
+  fs.mkdirSync(path.dirname(abs), { recursive: true });
+  fs.writeFileSync(abs, `${JSON.stringify(envelope, null, 2)}\n`);
+}
+
 function printSummary(result, scanSummary) {
   console.log('\n--- CRAP Report ---');
   console.log(`Total methods scanned: ${result.total}`);
@@ -415,6 +496,24 @@ async function main() {
   });
 
   printSummary(result, scan);
+
+  if (args.jsonPath) {
+    const envelope = buildCrapReport({
+      compareResult: result,
+      scanSummary: scan,
+      kernelVersion: KERNEL_VERSION,
+      escomplexVersion: runningEscomplex,
+      newMethodCeiling,
+    });
+    try {
+      writeJsonReport(args.jsonPath, envelope);
+      console.log(`[CRAP] structured report written: ${args.jsonPath}`);
+    } catch (err) {
+      console.warn(
+        `[CRAP] failed to write --json report: ${err?.message ?? err}`,
+      );
+    }
+  }
 
   if (result.regressions > 0 || result.newViolations > 0) {
     console.error(

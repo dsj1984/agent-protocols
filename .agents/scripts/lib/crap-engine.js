@@ -69,3 +69,51 @@ export function crapFormula(cyclomatic, coverage) {
   const cov = Math.max(0, Math.min(1, Number(coverage) || 0));
   return c * c * (1 - cov) ** 3 + c;
 }
+
+/**
+ * Derive the deterministic single-axis fixes that would bring a method at
+ * cyclomatic complexity `c` at or under the `target` CRAP score.
+ *
+ * Two orthogonal remediations are surfaced:
+ *   - `minComplexityAt100Cov`: branch count a refactor must reach so that,
+ *     even untested, the method would pass (`CRAP@cov=1 = c` → `c ≤ target`).
+ *     Computed as `floor(sqrt(target))`.
+ *   - `minCoverageAtCurrentComplexity`: ratio a test-addition must reach at
+ *     the current complexity to pass, derived by inverting the formula:
+ *     `cov = 1 − ((target − c) / c²)^(1/3)`. Null when unachievable — i.e.
+ *     `c > target` (CRAP at 100% coverage still exceeds the target) or when
+ *     `c ≤ 0` (no branches; coverage is meaningless).
+ *
+ * Callers apply the target convention: `baseline` for regressions,
+ * `newMethodCeiling` for new violations. The helper stays scalar so it can
+ * be re-used by MI-parity output or future guidance surfaces.
+ *
+ * @param {{ cyclomatic: number, target: number }} params
+ * @returns {{
+ *   crapCeiling: number,
+ *   minComplexityAt100Cov: number,
+ *   minCoverageAtCurrentComplexity: number | null,
+ * } | null}
+ */
+export function deriveFixGuidance({ cyclomatic, target } = {}) {
+  const c = Number(cyclomatic);
+  const t = Number(target);
+  if (!Number.isFinite(c) || !Number.isFinite(t) || t < 0) return null;
+
+  const minComplexityAt100Cov = Math.max(0, Math.floor(Math.sqrt(t)));
+
+  let minCoverageAtCurrentComplexity = null;
+  if (c > 0 && t >= c) {
+    // `(t - c) / c²` lies in `[0, 1]` for `t ∈ [c, c + c²]`; Math.cbrt stays
+    // real-valued for any input so a numeric clamp is the only safeguard.
+    const ratio = (t - c) / (c * c);
+    const minCov = 1 - Math.cbrt(ratio);
+    minCoverageAtCurrentComplexity = Math.max(0, Math.min(1, minCov));
+  }
+
+  return {
+    crapCeiling: t,
+    minComplexityAt100Cov,
+    minCoverageAtCurrentComplexity,
+  };
+}

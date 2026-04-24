@@ -1,0 +1,91 @@
+{
+  "$schema": "http://json-schema.org/draft-07/schema#",
+  "$id": "https://agent-protocols/.agents/schemas/crap-report.schema.json",
+  "title": "CrapReport",
+  "description": "Structured `--json` output envelope emitted by check-crap.js. Mirrors the shape consumed by agent workflows — a kernel/escomplex version pair, aggregate counters, and per-offender violations with deterministic single-axis fixGuidance.",
+  "type": "object",
+  "required": ["kernelVersion", "escomplexVersion", "summary", "violations"],
+  "additionalProperties": false,
+  "properties": {
+    "kernelVersion": {
+      "type": "string",
+      "pattern": "^[0-9]+\\.[0-9]+\\.[0-9]+$",
+      "description": "CRAP scoring kernel version in effect when the report was produced."
+    },
+    "escomplexVersion": {
+      "type": "string",
+      "description": "typhonjs-escomplex version used for the scan."
+    },
+    "summary": {
+      "type": "object",
+      "required": [
+        "total",
+        "regressions",
+        "newViolations",
+        "drifted",
+        "removed",
+        "skippedNoCoverage"
+      ],
+      "additionalProperties": false,
+      "properties": {
+        "total": { "type": "integer", "minimum": 0 },
+        "regressions": { "type": "integer", "minimum": 0 },
+        "newViolations": { "type": "integer", "minimum": 0 },
+        "drifted": { "type": "integer", "minimum": 0 },
+        "removed": { "type": "integer", "minimum": 0 },
+        "skippedNoCoverage": { "type": "integer", "minimum": 0 }
+      }
+    },
+    "violations": {
+      "type": "array",
+      "items": {
+        "type": "object",
+        "required": [
+          "file",
+          "method",
+          "startLine",
+          "cyclomatic",
+          "coverage",
+          "crap",
+          "baseline",
+          "ceiling",
+          "kind",
+          "fixGuidance"
+        ],
+        "additionalProperties": false,
+        "properties": {
+          "file": { "type": "string" },
+          "method": { "type": "string" },
+          "startLine": { "type": "integer", "minimum": 1 },
+          "cyclomatic": { "type": "number", "minimum": 0 },
+          "coverage": { "type": "number", "minimum": 0, "maximum": 1 },
+          "crap": { "type": "number", "minimum": 0 },
+          "baseline": { "type": ["number", "null"], "minimum": 0 },
+          "ceiling": { "type": "number", "minimum": 0 },
+          "kind": {
+            "type": "string",
+            "enum": ["regression", "drifted-regression", "new"]
+          },
+          "fixGuidance": {
+            "type": ["object", "null"],
+            "required": [
+              "crapCeiling",
+              "minComplexityAt100Cov",
+              "minCoverageAtCurrentComplexity"
+            ],
+            "additionalProperties": false,
+            "properties": {
+              "crapCeiling": { "type": "number", "minimum": 0 },
+              "minComplexityAt100Cov": { "type": "integer", "minimum": 0 },
+              "minCoverageAtCurrentComplexity": {
+                "type": ["number", "null"],
+                "minimum": 0,
+                "maximum": 1
+              }
+            }
+          }
+        }
+      }
+    }
+  }
+}

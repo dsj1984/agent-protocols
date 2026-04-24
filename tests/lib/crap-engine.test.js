@@ -3,6 +3,7 @@ import { test } from 'node:test';
 import {
   calculateCrapForSource,
   crapFormula,
+  deriveFixGuidance,
 } from '../../.agents/scripts/lib/crap-engine.js';
 
 /**
@@ -205,4 +206,70 @@ test('calculateCrapForSource — fixGuidance round-trip (single-axis fixes pass 
   // For target=30, c=10 → 1 − (20/100)^(1/3) ≈ 0.415
   const minCov = 1 - ((target - c) / (c * c)) ** (1 / 3);
   assert.ok(crapFormula(c, minCov) <= target + 1e-9);
+});
+
+test('deriveFixGuidance — regression path (target=baseline, c=10 → both axes achievable)', () => {
+  const guidance = deriveFixGuidance({ cyclomatic: 10, target: 30 });
+  assert.ok(guidance);
+  assert.strictEqual(guidance.crapCeiling, 30);
+  assert.strictEqual(guidance.minComplexityAt100Cov, 5);
+  // Formula: 1 - ((30-10)/100)^(1/3) ≈ 0.4152; expect a finite [0,1] value.
+  assert.ok(guidance.minCoverageAtCurrentComplexity > 0);
+  assert.ok(guidance.minCoverageAtCurrentComplexity < 1);
+  // Round-trip — applying the coverage fix at the current complexity passes.
+  assert.ok(
+    crapFormula(10, guidance.minCoverageAtCurrentComplexity) <= 30 + 1e-9,
+  );
+  // Round-trip — applying the complexity fix at full coverage passes.
+  assert.ok(crapFormula(guidance.minComplexityAt100Cov, 1) <= 30);
+});
+
+test('deriveFixGuidance — c > target renders coverage axis unachievable (null)', () => {
+  // At c=40, CRAP@cov=1 = 40 which already exceeds a ceiling of 30. Coverage
+  // alone cannot rescue the method — only complexity reduction can.
+  const guidance = deriveFixGuidance({ cyclomatic: 40, target: 30 });
+  assert.ok(guidance);
+  assert.strictEqual(guidance.minCoverageAtCurrentComplexity, null);
+  assert.strictEqual(guidance.minComplexityAt100Cov, 5);
+});
+
+test('deriveFixGuidance — c === target yields cov=1 exactly (boundary)', () => {
+  // At c=t, the only passing coverage is 1.0 — the cube-root term is zero.
+  const guidance = deriveFixGuidance({ cyclomatic: 10, target: 10 });
+  assert.ok(guidance);
+  assert.strictEqual(guidance.minCoverageAtCurrentComplexity, 1);
+  assert.strictEqual(guidance.minComplexityAt100Cov, 3);
+});
+
+test('deriveFixGuidance — new-violation path (target=ceiling=30, c=6)', () => {
+  const guidance = deriveFixGuidance({ cyclomatic: 6, target: 30 });
+  assert.ok(guidance);
+  assert.strictEqual(guidance.crapCeiling, 30);
+  assert.strictEqual(guidance.minComplexityAt100Cov, 5);
+  assert.ok(
+    crapFormula(6, guidance.minCoverageAtCurrentComplexity) <= 30 + 1e-9,
+  );
+});
+
+test('deriveFixGuidance — c=0 is degenerate: coverage is null, complexity fix is 0', () => {
+  const guidance = deriveFixGuidance({ cyclomatic: 0, target: 30 });
+  assert.ok(guidance);
+  assert.strictEqual(guidance.minCoverageAtCurrentComplexity, null);
+  assert.strictEqual(guidance.minComplexityAt100Cov, 5);
+});
+
+test('deriveFixGuidance — non-finite inputs return null', () => {
+  assert.strictEqual(deriveFixGuidance({ cyclomatic: NaN, target: 30 }), null);
+  assert.strictEqual(
+    deriveFixGuidance({ cyclomatic: 10, target: Infinity }),
+    null,
+  );
+  assert.strictEqual(deriveFixGuidance({ cyclomatic: 10, target: -1 }), null);
+  assert.strictEqual(deriveFixGuidance(), null);
+});
+
+test('deriveFixGuidance — deterministic across repeated calls', () => {
+  const a = deriveFixGuidance({ cyclomatic: 10, target: 30 });
+  const b = deriveFixGuidance({ cyclomatic: 10, target: 30 });
+  assert.deepStrictEqual(a, b);
 });
