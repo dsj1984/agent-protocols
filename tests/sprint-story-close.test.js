@@ -27,13 +27,14 @@ test('sprint-story-close script', async (t) => {
 
 test('runCloseValidation', async (t) => {
   await t.test(
-    'DEFAULT_GATES covers lint, test, biome format, and maintainability',
+    'DEFAULT_GATES covers lint, test, biome format, maintainability, and crap',
     () => {
       const names = DEFAULT_GATES.map((g) => g.name);
       assert.ok(names.includes('lint'));
       assert.ok(names.includes('test'));
       assert.ok(names.some((n) => n.includes('biome format')));
       assert.ok(names.some((n) => n.includes('maintainability')));
+      assert.ok(names.some((n) => n.includes('crap')));
     },
   );
 
@@ -47,6 +48,20 @@ test('runCloseValidation', async (t) => {
     assert.match(gate.hint, /maintainability:update/);
     assert.match(gate.hint, /commit/i);
   });
+
+  await t.test(
+    'crap gate runs check-crap.js after maintainability and surfaces the refresh hint',
+    () => {
+      const names = DEFAULT_GATES.map((g) => g.name);
+      const miIdx = names.findIndex((n) => n.includes('maintainability'));
+      const crapIdx = names.findIndex((n) => n.includes('crap'));
+      assert.ok(crapIdx > miIdx, 'crap gate must run AFTER maintainability');
+      const gate = DEFAULT_GATES[crapIdx];
+      assert.deepStrictEqual(gate.args, ['.agents/scripts/check-crap.js']);
+      assert.match(gate.hint, /crap:update/);
+      assert.match(gate.hint, /baseline-refresh:/);
+    },
+  );
 
   await t.test('returns ok when every gate exits 0', () => {
     const calls = [];
