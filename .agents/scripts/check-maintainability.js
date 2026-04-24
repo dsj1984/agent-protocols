@@ -1,3 +1,5 @@
+import fs from 'node:fs';
+import path from 'node:path';
 import { resolveConfig } from './lib/config-resolver.js';
 import {
   calculateAll,
@@ -15,10 +17,19 @@ import { createProvider } from './lib/provider-factory.js';
  * also posts a rate-limited `friction` structured comment to the named Story
  * ticket naming every regressed file — turning the previously silent CI-exit
  * into an in-ticket signal the operator can see without scraping CI logs.
+ *
+ * When invoked with `--json <path>` the script writes a structured envelope
+ * shaped like the CRAP parity output (`{ kernelVersion, summary, violations }`)
+ * minus `fixGuidance`. The MI model is not amenable to the two-axis CRAP
+ * decomposition, so per-violation guidance is intentionally absent.
  */
 
 const TARGET_DIRS = ['.agents/scripts', 'tests'];
 const TOLERANCE = 0.001; // Allow for tiny floating point variances
+
+// Envelope version for the --json parity output. Bump when the report shape
+// changes so downstream agent workflows can detect breaks without guessing.
+export const MI_REPORT_KERNEL_VERSION = '1.0.0';
 
 function compareScores(scores, baseline, tolerance) {
   let regressions = 0;
@@ -67,6 +78,56 @@ function parseStoryIdArg(argv = process.argv.slice(2)) {
   }
   const envVal = Number(process.env.FRICTION_STORY_ID);
   return Number.isInteger(envVal) && envVal > 0 ? envVal : null;
+}
+
+function parseJsonPathArg(argv = process.argv.slice(2)) {
+  for (let i = 0; i < argv.length; i++) {
+    if (argv[i] === '--json' && argv[i + 1]) return argv[i + 1];
+  }
+  return null;
+}
+
+/**
+ * Build the MI parity envelope. Shape matches the CRAP `--json` output:
+ *   { kernelVersion, summary, violations }
+ * sans `fixGuidance` (MI scores don't decompose along the two CRAP axes).
+ *
+ * @param {Record<string, number>} scores current MI scores keyed by file
+ * @param {{
+ *   regressions: number,
+ *   newFiles: number,
+ *   improvements: number,
+ *   regressedFiles: Array<{file: string, current: number, baseline: number, drop: number}>
+ * }} stats
+ * @returns {{ kernelVersion: string, summary: object, violations: Array<object> }}
+ */
+export function buildMaintainabilityReport(scores, stats) {
+  const total = Object.keys(scores ?? {}).length;
+  const violations = (stats?.regressedFiles ?? []).map((r) => ({
+    file: r.file,
+    current: r.current,
+    baseline: r.baseline,
+    drop: r.drop,
+    kind: 'regression',
+  }));
+  return {
+    kernelVersion: MI_REPORT_KERNEL_VERSION,
+    summary: {
+      total,
+      regressions: stats?.regressions ?? 0,
+      newFiles: stats?.newFiles ?? 0,
+      improvements: stats?.improvements ?? 0,
+    },
+    violations,
+  };
+}
+
+function writeJsonReport(jsonPath, envelope) {
+  const abs = path.isAbsolute(jsonPath)
+    ? jsonPath
+    : path.resolve(process.cwd(), jsonPath);
+  fs.mkdirSync(path.dirname(abs), { recursive: true });
+  fs.writeFileSync(abs, `${JSON.stringify(envelope, null, 2)}\n`);
 }
 
 async function emitRegressionFriction(storyId, regressedFiles) {
@@ -144,6 +205,18 @@ async function main() {
   const stats = compareScores(scores, baseline, TOLERANCE);
   printSummaryReport(scores, stats);
 
+  const jsonPath = parseJsonPathArg();
+  if (jsonPath) {
+    try {
+      writeJsonReport(jsonPath, buildMaintainabilityReport(scores, stats));
+      console.log(`[Maintainability] structured report written: ${jsonPath}`);
+    } catch (err) {
+      console.warn(
+        `[Maintainability] failed to write --json report: ${err?.message ?? err}`,
+      );
+    }
+  }
+
   if (stats.regressions > 0) {
     console.error(
       '[Maintainability] ❌ Regression check failed. Please refactor the affected files or update the baseline if the change is justified.',
@@ -158,7 +231,22 @@ async function main() {
   console.log('[Maintainability] ✅ Clean Code check passed.');
 }
 
-main().catch((err) => {
-  console.error(`[Maintainability] ❌ Fatal error: ${err.message}`);
-  process.exit(1);
-});
+// Only run main when invoked directly — keep the module importable from tests.
+const isDirect = (() => {
+  try {
+    const invoked = process.argv[1] ? path.resolve(process.argv[1]) : '';
+    const self = new URL(import.meta.url).pathname;
+    // Normalize: on Windows URL pathname has a leading slash before the drive.
+    const normalizedSelf = /^\/[A-Za-z]:/.test(self) ? self.slice(1) : self;
+    return path.resolve(normalizedSelf) === invoked;
+  } catch {
+    return false;
+  }
+})();
+
+if (isDirect) {
+  main().catch((err) => {
+    console.error(`[Maintainability] ❌ Fatal error: ${err.message}`);
+    process.exit(1);
+  });
+}
