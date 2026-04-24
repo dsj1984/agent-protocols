@@ -113,6 +113,29 @@ const PLAN_RUNNER_SCHEMA = {
 };
 
 /**
+ * `orchestration.concurrency` — per-site caps for the `concurrentMap`
+ * adoption sites shipped in v5.21.0 (Epic #553). All keys optional;
+ * omitting them preserves the v5.21.0 constant-valued defaults exactly.
+ *
+ *   - waveGate: 0 (uncapped) preserves Promise.all behaviour in
+ *     `sprint-wave-gate.js`. Positive integers cap the three per-section
+ *     ticket-read batches to N concurrent provider calls.
+ *   - commitAssertion: default 4 matches
+ *     `CommitAssertion.WAVE_END_CONCURRENCY`.
+ *   - progressReporter: default 8 matches the literal used inside
+ *     `ProgressReporter.fire`.
+ */
+const CONCURRENCY_SCHEMA = {
+  type: 'object',
+  properties: {
+    waveGate: { type: 'integer', minimum: 0 },
+    commitAssertion: { type: 'integer', minimum: 1 },
+    progressReporter: { type: 'integer', minimum: 1 },
+  },
+  additionalProperties: false,
+};
+
+/**
  * Top-level `audits` block. Controls behavior of MCP audit helpers
  * (`select_audits`, `run_audit_suite`).
  *
@@ -163,6 +186,7 @@ export const ORCHESTRATION_SCHEMA = {
     worktreeIsolation: WORKTREE_ISOLATION_SCHEMA,
     epicRunner: EPIC_RUNNER_SCHEMA,
     planRunner: PLAN_RUNNER_SCHEMA,
+    concurrency: CONCURRENCY_SCHEMA,
   },
   additionalProperties: false,
 };
