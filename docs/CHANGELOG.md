@@ -4,6 +4,8 @@ All notable changes to this project will be documented in this file.
 
 ## [Unreleased]
 
+## [5.22.0] - 2026-04-24
+
 ### CRAP analysis — complexity × coverage risk gate (Epic #596)
 
 Sibling pipeline to the existing maintainability (MI) ratchet. CRAP scores
