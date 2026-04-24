@@ -44,7 +44,8 @@ export function createEpicRunnerCollaborators(ctx, { errorJournal } = {}) {
   const journalSuffix = () => (journal?.path ? ` (see ${journal.path})` : '');
 
   const notifier =
-    ctx.notifier ?? createNotifier(config, provider, { fetchImpl, logger });
+    ctx.notifier ??
+    createNotifier(config, provider, { fetchImpl, logger, cwd: ctx.cwd });
   const checkpointer = new Checkpointer({ ctx });
   const notificationHook = new NotificationHook({ ctx });
   const blockerHandler = new BlockerHandler({
