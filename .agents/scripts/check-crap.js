@@ -34,7 +34,11 @@ import { createProvider } from './lib/provider-factory.js';
  */
 
 function parseCliArgs(argv = process.argv.slice(2)) {
-  const out = { storyId: null, baselinePath: undefined, coveragePath: undefined };
+  const out = {
+    storyId: null,
+    baselinePath: undefined,
+    coveragePath: undefined,
+  };
   for (let i = 0; i < argv.length; i += 1) {
     if (argv[i] === '--story' && argv[i + 1]) {
       const parsed = Number(argv[i + 1]);
@@ -263,7 +267,9 @@ function printSummary(result, scanSummary) {
       `[CRAP] ℹ ${result.removed} baseline row(s) absent from current scan (deleted or moved):`,
     );
     for (const r of result.removedRows) {
-      console.log(`       - ${r.file}::${r.method} (baseline line ${r.startLine})`);
+      console.log(
+        `       - ${r.file}::${r.method} (baseline line ${r.startLine})`,
+      );
     }
   }
 }
@@ -287,7 +293,7 @@ async function emitFriction(storyId, result, orchestration) {
       return `| \`${v.file}\` | \`${v.method}\` | ${v.startLine} | ${v.crap.toFixed(2)} | ${compare} | ${v.kind} |`;
     }),
     '',
-    "Add tests to raise coverage, reduce cyclomatic complexity, or run `npm run crap:update` with a `baseline-refresh:` commit if the drift is justified.",
+    'Add tests to raise coverage, reduce cyclomatic complexity, or run `npm run crap:update` with a `baseline-refresh:` commit if the drift is justified.',
   ].join('\n');
   try {
     await emitter.emit({
@@ -377,8 +383,7 @@ const isDirect = (() => {
     const invoked = process.argv[1] ? path.resolve(process.argv[1]) : '';
     const self = new URL(import.meta.url).pathname;
     // Normalize: on Windows URL pathname has a leading slash before the drive.
-    const normalizedSelf =
-      /^\/[A-Za-z]:/.test(self) ? self.slice(1) : self;
+    const normalizedSelf = /^\/[A-Za-z]:/.test(self) ? self.slice(1) : self;
     return path.resolve(normalizedSelf) === invoked;
   } catch {
     return false;
@@ -389,7 +394,9 @@ if (isDirect) {
   main()
     .then((code) => process.exit(code ?? 0))
     .catch((err) => {
-      console.error(`[CRAP] ❌ Fatal error: ${err?.stack ?? err?.message ?? err}`);
+      console.error(
+        `[CRAP] ❌ Fatal error: ${err?.stack ?? err?.message ?? err}`,
+      );
       process.exit(1);
     });
 }
