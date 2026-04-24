@@ -305,6 +305,20 @@ operator reference.
   rendered, not only the active wave). Configurable
   `orchestration.epicRunner.logsDir` (default `temp/epic-runner-logs/`).
   CI matrix added for Node 22 / 24.
+- **v5.21.0 — Epic #553 (2026-04-24).** Epic-runner throughput and
+  observability pass. New `lib/util/concurrent-map.js` underpins bounded-
+  concurrency fanout in `sprint-wave-gate` (`getTicket` loops), wave-end
+  commit-assertion (cap=4), and `ProgressReporter` (cap=8) — which now
+  also caches per-ticket reads behind a 10-second TTL. Every
+  `getTickets(epicId)` sweep primes the ticket cache so downstream
+  `getTicket` calls issue zero HTTP. `gh auth token` is memoized across
+  provider constructions. New `lib/util/phase-timer.js` threads through
+  story-init / story-close and posts a `phase-timings` structured
+  comment on close; the epic progress comment aggregates median / p95
+  across closed stories. State-poller gains a bulk `issues?labels=…`
+  path with per-ticket fallback. Windows worktree reap recovers from
+  cwd-like failures and always `prune`s after remove. See
+  [docs/CHANGELOG.md](docs/CHANGELOG.md) for the full entry.
 - **Unreleased — Epic #470 (2026-04-23).** Clean-code & maintainability
   remediation: `providers/github.js` split into ticket-mapper, graphql-builder,
   cache-manager, and error-classifier modules under a thin façade; epic-runner

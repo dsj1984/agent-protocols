@@ -130,6 +130,9 @@ export async function decomposeEpic(
   if (force) {
     console.log('[Decomposer] --force: Closing existing child tickets...');
     const existing = await provider.getTickets(epicId);
+    if (typeof provider.primeTicketCache === 'function') {
+      provider.primeTicketCache(existing);
+    }
     const childTypes = [
       TYPE_LABELS.FEATURE,
       TYPE_LABELS.STORY,

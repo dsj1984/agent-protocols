@@ -49,17 +49,113 @@ import { createNotifier } from './lib/notifications/notifier.js';
 import { createFrictionEmitter } from './lib/orchestration/friction-emitter.js';
 import { runPostMergePipeline } from './lib/orchestration/post-merge-pipeline.js';
 import { dispatchRecovery } from './lib/orchestration/sprint-story-close-recovery.js';
+import { upsertStructuredComment } from './lib/orchestration/ticketing.js';
 import { createProvider } from './lib/provider-factory.js';
 import {
   fetchChildTasks,
   resolveStoryHierarchy,
 } from './lib/story-lifecycle.js';
+import { createPhaseTimer } from './lib/util/phase-timer.js';
+import {
+  clearPhaseTimerState,
+  loadPhaseTimerState,
+} from './lib/util/phase-timer-state.js';
+import { drainPendingCleanup } from './lib/worktree/pending-cleanup.js';
 
 // ---------------------------------------------------------------------------
 // Helpers
 // ---------------------------------------------------------------------------
 
 const progress = Logger.createProgress('sprint-story-close', { stderr: true });
+
+function resolveWorktreeRoot(repoRoot, orchestration) {
+  const configuredRoot = orchestration?.worktreeIsolation?.root ?? '.worktrees';
+  return path.join(repoRoot, configuredRoot);
+}
+
+export async function drainPendingCleanupAfterClose({
+  repoRoot,
+  orchestration,
+  progress: progressFn,
+  logger = Logger,
+  git = { gitSpawn },
+  drainFn = drainPendingCleanup,
+} = {}) {
+  const wtConfig = orchestration?.worktreeIsolation;
+  if (!wtConfig?.enabled) return null;
+  const worktreeRoot = resolveWorktreeRoot(repoRoot, orchestration);
+  const result = await drainFn({
+    repoRoot,
+    worktreeRoot,
+    git,
+    logger,
+  });
+  const totalResolved =
+    (result.drained?.length ?? 0) +
+    (result.persistent?.length ?? 0) +
+    (result.stillPending?.length ?? 0);
+  if (totalResolved > 0) {
+    (progressFn ?? progress)(
+      'WORKTREE',
+      `Pending cleanup drain: drained=${result.drained.length}, persistent=${result.persistent.length}, stillPending=${result.stillPending.length}`,
+    );
+  }
+  return { worktreeRoot, ...result };
+}
+
+export function reconcileCleanupState({
+  storyId,
+  worktreeReap,
+  branchCleanup,
+  pendingCleanupDrain,
+}) {
+  const normalizedStoryId = Number(storyId);
+  const nextWorktreeReap = worktreeReap ? { ...worktreeReap } : null;
+  const nextBranchCleanup = branchCleanup ? { ...branchCleanup } : null;
+  if (!pendingCleanupDrain || !nextWorktreeReap || !nextBranchCleanup) {
+    return { worktreeReap: nextWorktreeReap, branchCleanup: nextBranchCleanup };
+  }
+
+  const drainedEntry =
+    pendingCleanupDrain.drainedDetails?.find(
+      (entry) => Number(entry.storyId) === normalizedStoryId,
+    ) ?? null;
+  const isStillPending =
+    pendingCleanupDrain.stillPending?.includes(normalizedStoryId) ?? false;
+  const isPersistent =
+    pendingCleanupDrain.persistent?.includes(normalizedStoryId) ?? false;
+
+  if (drainedEntry) {
+    if (drainedEntry.localBranchDeleted !== null) {
+      nextBranchCleanup.localDeleted =
+        nextBranchCleanup.localDeleted || !!drainedEntry.localBranchDeleted;
+    }
+    if (drainedEntry.remoteBranchDeleted !== null) {
+      nextBranchCleanup.remoteDeleted =
+        nextBranchCleanup.remoteDeleted || !!drainedEntry.remoteBranchDeleted;
+    }
+    nextWorktreeReap.status =
+      nextWorktreeReap.status === 'deferred-to-sweep'
+        ? 'removed-after-drain'
+        : nextWorktreeReap.status;
+    nextWorktreeReap.pendingCleanup = null;
+    nextWorktreeReap.closeDrainStatus = 'drained';
+    return {
+      worktreeReap: nextWorktreeReap,
+      branchCleanup: nextBranchCleanup,
+    };
+  }
+
+  if (nextWorktreeReap.status === 'deferred-to-sweep') {
+    nextWorktreeReap.closeDrainStatus = isPersistent
+      ? 'persistent'
+      : isStillPending
+        ? 'still-pending'
+        : 'not-found';
+  }
+
+  return { worktreeReap: nextWorktreeReap, branchCleanup: nextBranchCleanup };
+}
 
 // ---------------------------------------------------------------------------
 // CLI argument parsing
@@ -228,6 +324,24 @@ function lockPathDisplay(cwd, epicId) {
 }
 
 /**
+ * Render the `phase-timings` comment body.
+ *
+ * The payload is emitted inside a fenced ```json block so the epic-runner
+ * progress reporter can parse it back out with a single regex + JSON.parse
+ * rather than relying on a bespoke marker format. Schema matches tech
+ * spec #555 §Data Models (`{ kind, storyId, totalMs, phases }`).
+ */
+export function renderPhaseTimingsCommentBody(summary) {
+  const payload = {
+    kind: 'phase-timings',
+    storyId: summary.storyId,
+    totalMs: summary.totalMs,
+    phases: summary.phases,
+  };
+  return `### Phase timings — story #${summary.storyId}\n\n\`\`\`json\n${JSON.stringify(payload, null, 2)}\n\`\`\`\n`;
+}
+
+/**
  * Complete an in-progress merge whose conflicts have been resolved by the
  * operator, then push. Used by the `--resume` path when prior state is
  * `partial-merge`.
@@ -387,6 +501,14 @@ export async function runStoryClose({
 
   progress('TASKS', `Found ${tasks.length} child Task(s)`);
 
+  // Restore the phase timer from the snapshot sprint-story-init left in
+  // `<mainCwd>/.git/`. Missing or unparseable — fall back to a fresh timer
+  // so close still emits whatever phases it observes (lint, test, close,
+  // api-sync). See lib/util/phase-timer-state.js for the persistence
+  // contract.
+  const prior = loadPhaseTimerState({ mainCwd: cwd, storyId });
+  const phaseTimer = createPhaseTimer(storyId, prior ? { restore: prior } : {});
+
   // -------------------------------------------------------------------------
   // Pre-merge validation — shift-left gates so formatting drift or
   // maintainability regressions surface in the worktree rather than on the
@@ -403,6 +525,15 @@ export async function runStoryClose({
     const validation = runCloseValidation({
       cwd,
       log: (m) => Logger.info(m),
+      onGateStart: (gate) => {
+        // Only the canonical phase-enum gates drive `mark()`. Non-enum
+        // gates (`biome format`, `check-maintainability`) share the
+        // currently-open phase's wall clock — a deliberate choice so the
+        // `phase-timings` schema stays stable against future gate churn.
+        if (gate.name === 'lint' || gate.name === 'test') {
+          phaseTimer.mark(gate.name);
+        }
+      },
     });
     if (!validation.ok) {
       const [{ gate, status }] = validation.failed;
@@ -412,6 +543,12 @@ export async function runStoryClose({
       );
     }
   }
+
+  // Everything after validation — the merge, branch cleanup, worktree reap,
+  // and push — is the `close` phase. The post-merge pipeline's ticket
+  // transitions + cascade + health + manifest regeneration is the
+  // `api-sync` phase. We mark boundaries inline below.
+  phaseTimer.mark('close');
 
   // -------------------------------------------------------------------------
   // Step 5 — Merge
@@ -441,6 +578,7 @@ export async function runStoryClose({
   // Reap must precede branch cleanup: git refuses to delete a branch that
   // is still checked out by a live worktree. The pipeline runs the phases
   // in this order — see post-merge-pipeline.js.
+  phaseTimer.mark('api-sync');
   const frictionEmitter = createFrictionEmitter({
     provider,
     logger: { warn: (m) => Logger.warn?.(m), debug: () => {} },
@@ -462,11 +600,61 @@ export async function runStoryClose({
     progress,
     logger: Logger,
   });
-  const branchCleanup = pipelineState.branchCleanup;
+  if (
+    orchestration?.worktreeIsolation?.enabled &&
+    !pipelineState.worktreeReap
+  ) {
+    throw new Error(
+      'sprint-story-close invariant violated: worktreeReap state missing while worktree isolation is enabled.',
+    );
+  }
+  const pendingCleanupDrain = await drainPendingCleanupAfterClose({
+    repoRoot: cwd,
+    orchestration,
+    progress,
+    logger: Logger,
+  });
+  const reconciledCleanup = reconcileCleanupState({
+    storyId,
+    worktreeReap: pipelineState.worktreeReap,
+    branchCleanup: pipelineState.branchCleanup,
+    pendingCleanupDrain,
+  });
+  const branchCleanup = reconciledCleanup.branchCleanup;
+  const worktreeReap = reconciledCleanup.worktreeReap;
   const { closedTickets, cascadedTo, cascadeFailed } =
     pipelineState.ticketClosure;
   const healthUpdated = pipelineState.healthUpdated;
   const manifestUpdated = pipelineState.manifestUpdated;
+
+  // -------------------------------------------------------------------------
+  // Phase-timings summary — post the structured comment that the epic
+  // runner's progress reporter aggregates into median/p95 rows. Finish the
+  // timer here so `api-sync` closes with the full post-merge-pipeline
+  // wall-clock included. Failure to post is non-fatal — the merge has
+  // already succeeded and we would rather log than roll back closure.
+  // -------------------------------------------------------------------------
+
+  const timingSummary = phaseTimer.finish();
+  try {
+    await upsertStructuredComment(
+      provider,
+      storyId,
+      'phase-timings',
+      renderPhaseTimingsCommentBody(timingSummary),
+    );
+  } catch (err) {
+    Logger.warn?.(
+      `[sprint-story-close] ⚠️ Failed to post phase-timings comment: ${err.message}`,
+    );
+  }
+  try {
+    clearPhaseTimerState({ mainCwd: cwd, storyId });
+  } catch (err) {
+    Logger.warn?.(
+      `[sprint-story-close] ⚠️ Failed to clear phase-timer state file: ${err.message}`,
+    );
+  }
 
   // -------------------------------------------------------------------------
   // Output — structured result
@@ -480,6 +668,8 @@ export async function runStoryClose({
     branchDeleted: branchCleanup.localDeleted && branchCleanup.remoteDeleted,
     branchLocalDeleted: branchCleanup.localDeleted,
     branchRemoteDeleted: branchCleanup.remoteDeleted,
+    worktreeReap,
+    pendingCleanupDrain,
     ticketsClosed: closedTickets,
     cascadedTo: cascadedTo ?? [],
     cascadeFailed: cascadeFailed ?? [],

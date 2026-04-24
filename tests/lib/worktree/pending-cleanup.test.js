@@ -111,7 +111,14 @@ test('drainPendingCleanup: empty manifest returns empty result without calling g
       },
       logger: quietLogger().logger,
     });
-    assert.deepEqual(res, { drained: [], persistent: [], stillPending: [] });
+    assert.deepEqual(res, {
+      drained: [],
+      drainedDetails: [],
+      persistent: [],
+      persistentDetails: [],
+      stillPending: [],
+      stillPendingDetails: [],
+    });
     assert.equal(calls.length, 0);
   } finally {
     fs.rmSync(tmp, { recursive: true, force: true });
@@ -146,6 +153,15 @@ test('drainPendingCleanup: removes entry when Stage 1 retry now succeeds', async
       logger: quietLogger().logger,
     });
     assert.deepEqual(res.drained, [100]);
+    assert.deepEqual(res.drainedDetails, [
+      {
+        storyId: 100,
+        path: wtPath,
+        branch: 'story-100',
+        localBranchDeleted: true,
+        remoteBranchDeleted: true,
+      },
+    ]);
     assert.deepEqual(res.persistent, []);
     assert.deepEqual(res.stillPending, []);
     assert.equal(fs.existsSync(manifestPath(wtRoot)), false);
@@ -205,6 +221,8 @@ test('drainPendingCleanup: never-clearing lock promotes to persistent after MAX_
     });
     assert.deepEqual(res.drained, []);
     assert.deepEqual(res.persistent, [77]);
+    assert.equal(res.persistentDetails.length, 1);
+    assert.equal(res.persistentDetails[0].storyId, 77);
     assert.deepEqual(res.stillPending, []);
     assert.ok(
       sink.error.some((m) => m.includes('persistent-lock')),
@@ -242,6 +260,8 @@ test('drainPendingCleanup: increments attempts and keeps entry when below max', 
     assert.deepEqual(res.drained, []);
     assert.deepEqual(res.persistent, []);
     assert.deepEqual(res.stillPending, [55]);
+    assert.equal(res.stillPendingDetails.length, 1);
+    assert.equal(res.stillPendingDetails[0].storyId, 55);
     assert.ok(
       !sink.error.some((m) => m.includes('persistent-lock')),
       'must not escalate below MAX_SWEEP_ATTEMPTS',

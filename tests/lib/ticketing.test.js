@@ -229,6 +229,8 @@ test('ticketing.js', async (t) => {
         'epic-plan-state',
         'parked-follow-ons',
         'dispatch-manifest',
+        // Story #566 — phase-timings summary posted by sprint-story-close.
+        'phase-timings',
       ]) {
         assert.ok(
           STRUCTURED_COMMENT_TYPES.includes(required),

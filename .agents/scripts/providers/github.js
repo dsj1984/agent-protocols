@@ -24,7 +24,15 @@
  * @see docs/v5-implementation-plan.md Sprint 1B
  */
 
-import { execSync } from 'node:child_process';
+import { execSync as defaultExecSync } from 'node:child_process';
+
+// Test seam: execSync is indirected through this holder so tests can swap
+// it via `__setExecSyncForTests`. Production always uses the real impl.
+const execSyncHolder = { impl: defaultExecSync };
+export function __setExecSyncForTests(fn) {
+  execSyncHolder.impl = fn ?? defaultExecSync;
+}
+
 import { parseBlockedBy, parseBlocks } from '../lib/dependency-parser.js';
 import { ITicketingProvider } from '../lib/ITicketingProvider.js';
 import { TYPE_LABELS } from '../lib/label-constants.js';
@@ -70,12 +78,20 @@ function resolveToken() {
   if (token) return token;
 
   try {
-    const ghToken = execSync('gh auth token', {
-      encoding: 'utf8',
-      timeout: 5000,
-      stdio: ['pipe', 'pipe', 'pipe'],
-    }).trim();
-    if (ghToken) return ghToken;
+    const ghToken = execSyncHolder
+      .impl('gh auth token', {
+        encoding: 'utf8',
+        timeout: 5000,
+        stdio: ['pipe', 'pipe', 'pipe'],
+      })
+      .trim();
+    if (ghToken) {
+      // Memoize across subsequent provider constructions. Only set when
+      // unset — never overwrite an operator-supplied token (Tech Spec #555,
+      // Security & Privacy — Token memoization).
+      if (!process.env.GITHUB_TOKEN) process.env.GITHUB_TOKEN = ghToken;
+      return ghToken;
+    }
   } catch {
     // gh CLI not installed or not authenticated
   }
@@ -157,6 +173,26 @@ export class GitHubProvider extends ITicketingProvider {
   /* node:coverage ignore next */
   async listIssues(filters = {}) {
     return this._getEpics(filters);
+  }
+
+  /**
+   * Paginated list of open issues filtered by a label query.
+   *
+   * Used by `StatePoller#bulkLabelPoll` to batch a whole wave's state reads
+   * into one paginated request. Returns raw issue objects (PRs filtered out)
+   * so the caller can shape-check `{ number, labels }` and demote to the
+   * per-ticket fallback on any malformed entry.
+   *
+   * @param {{ state?: 'open'|'closed'|'all', labels?: string }} [opts]
+   * @returns {Promise<Array<object>>}
+   */
+  async listIssuesByLabel({ state = 'open', labels } = {}) {
+    const params = new URLSearchParams({ state });
+    if (labels) params.set('labels', labels);
+    const issues = await this._http.restPaginated(
+      `/repos/${this.owner}/${this.repo}/issues?${params}`,
+    );
+    return issues.filter((issue) => !issue?.pull_request);
   }
 
   /* node:coverage ignore next */
@@ -271,6 +307,7 @@ export class GitHubProvider extends ITicketingProvider {
     if (!isEpicParent) return [];
     try {
       const issues = await this.getTickets(parentId);
+      this.primeTicketCache(issues);
       return issues.map((i) => i.id);
     } catch (err) {
       console.warn(
@@ -308,8 +345,13 @@ export class GitHubProvider extends ITicketingProvider {
   }
 
   async getTicket(ticketId, opts = {}) {
-    if (!opts.fresh && this._cache.has(ticketId)) {
-      return this._cache.peek(ticketId);
+    if (!opts.fresh) {
+      if (Number.isFinite(opts.maxAgeMs)) {
+        const fresh = this._cache.peekFresh(ticketId, opts.maxAgeMs);
+        if (fresh !== undefined) return fresh;
+      } else if (this._cache.has(ticketId)) {
+        return this._cache.peek(ticketId);
+      }
     }
 
     const issue = await this._http.rest(

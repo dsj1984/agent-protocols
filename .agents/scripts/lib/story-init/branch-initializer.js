@@ -86,6 +86,7 @@ export async function bootstrapWorktree({
   progress = defaultProgress(),
   fs = nodeFs,
   path = nodePath,
+  onPhase,
 }) {
   progress('GIT', 'Fetching remote refs (main checkout)...');
   const fetchResult = await gitFetchWithRetry(mainCwd, 'origin');
@@ -119,6 +120,7 @@ export async function bootstrapWorktree({
       warn: (m) => progress('WORKTREE', `⚠️ ${m}`),
       error: (m) => Logger.error(`[sprint-story-init] ${m}`),
     },
+    onPhase,
   });
 
   const ensured = await wm.ensure(storyId, storyBranch);
@@ -192,6 +194,7 @@ export async function initializeBranch({ logger, fs = nodeFs, input }) {
     cwd,
     worktreeEnabled,
     wtConfig,
+    onPhase,
   } = input;
   const progress = logger?.progress ?? defaultProgress();
 
@@ -205,6 +208,7 @@ export async function initializeBranch({ logger, fs = nodeFs, input }) {
       wtConfig,
       progress,
       fs,
+      onPhase,
     });
     return {
       workCwd: wtResult.worktreePath,

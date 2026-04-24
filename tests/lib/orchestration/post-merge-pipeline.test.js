@@ -125,6 +125,15 @@ describe('runPostMergePipeline', () => {
 
   it('seeds default state shape so consumers can destructure safely', async () => {
     const state = await runPostMergePipeline({ logger: makeLogger() }, []);
+    assert.deepEqual(state.worktreeReap, {
+      status: 'not-run',
+      path: null,
+      reason: null,
+      method: null,
+      pendingCleanup: null,
+      branchDeleted: null,
+      remoteBranchDeleted: null,
+    });
     assert.deepEqual(state.branchCleanup, {
       localDeleted: false,
       remoteDeleted: false,
@@ -173,7 +182,12 @@ describe('branchCleanupPhase', () => {
       progress: fn,
       branchCleanup,
     });
-    assert.deepEqual(result, { localDeleted: true, remoteDeleted: true });
+    assert.deepEqual(result, {
+      localDeleted: true,
+      remoteDeleted: true,
+      localReason: 'deleted',
+      remoteReason: 'deleted',
+    });
     assert.equal(calls.length, 1);
     assert.equal(calls[0].name, 'story-7');
     assert.equal(calls[0].opts.cwd, '/repo');
@@ -244,21 +258,30 @@ describe('worktreeReapPhase', () => {
 
   it('no-ops when worktree isolation is disabled', async () => {
     const { factory, calls } = makeWmFactory();
-    await worktreeReapPhase({
+    const { events, fn } = captureProgress();
+    const result = await worktreeReapPhase({
       orchestration: { worktreeIsolation: { enabled: false } },
       storyId: 1,
       epicBranch: 'epic/9',
       repoRoot: '/repo',
       logger: makeLogger(),
-      progress: () => {},
+      progress: fn,
       worktreeManagerFactory: factory,
     });
     assert.equal(calls.reap.length, 0);
+    assert.equal(result.status, 'skipped-disabled');
+    assert.ok(
+      events.some(
+        (e) =>
+          e.phase === 'WORKTREE' && e.msg.includes('Skipping worktree reap'),
+      ),
+    );
   });
 
   it('no-ops when reapOnSuccess is false', async () => {
     const { factory, calls } = makeWmFactory();
-    await worktreeReapPhase({
+    const { events, fn } = captureProgress();
+    const result = await worktreeReapPhase({
       orchestration: {
         worktreeIsolation: { enabled: true, reapOnSuccess: false },
       },
@@ -266,10 +289,16 @@ describe('worktreeReapPhase', () => {
       epicBranch: 'epic/9',
       repoRoot: '/repo',
       logger: makeLogger(),
-      progress: () => {},
+      progress: fn,
       worktreeManagerFactory: factory,
     });
     assert.equal(calls.reap.length, 0);
+    assert.equal(result.status, 'skipped-config');
+    assert.ok(
+      events.some(
+        (e) => e.phase === 'WORKTREE' && e.msg.includes('reapOnSuccess=false'),
+      ),
+    );
   });
 
   it('emits friction + OPERATOR ACTION on Windows lock-class reap failure', async () => {
@@ -283,7 +312,7 @@ describe('worktreeReapPhase', () => {
     const logger = makeLogger();
     const emissions = [];
     const frictionEmitter = { emit: async (e) => emissions.push(e) };
-    await worktreeReapPhase({
+    const result = await worktreeReapPhase({
       orchestration: { worktreeIsolation: { enabled: true } },
       storyId: 1,
       epicBranch: 'epic/9',
@@ -295,9 +324,35 @@ describe('worktreeReapPhase', () => {
     });
     assert.equal(emissions.length, 1);
     assert.equal(emissions[0].markerKey, 'reap-failure');
+    assert.equal(result.status, 'failed');
     assert.ok(
       logger.errors.some((m) => m.includes('OPERATOR ACTION REQUIRED')),
     );
+  });
+
+  it('returns deferred-to-sweep when Stage 2 handoff is required', async () => {
+    const { factory } = makeWmFactory({
+      reap: {
+        removed: false,
+        reason: 'remove-failed: EBUSY',
+        method: 'deferred-to-sweep',
+        path: '/wt/story-1',
+        pendingCleanup: { storyId: 1, branch: 'story-1' },
+      },
+    });
+    const result = await worktreeReapPhase({
+      orchestration: { worktreeIsolation: { enabled: true } },
+      storyId: 1,
+      epicBranch: 'epic/9',
+      repoRoot: '/repo',
+      logger: makeLogger(),
+      progress: () => {},
+      frictionEmitter: { emit: async () => {} },
+      worktreeManagerFactory: factory,
+    });
+    assert.equal(result.status, 'deferred-to-sweep');
+    assert.equal(result.method, 'deferred-to-sweep');
+    assert.deepEqual(result.pendingCleanup, { storyId: 1, branch: 'story-1' });
   });
 
   it('does not raise OPERATOR ACTION for benign safety skips', async () => {
@@ -335,7 +390,7 @@ describe('worktreeReapPhase', () => {
     const logger = makeLogger();
     const emissions = [];
     const frictionEmitter = { emit: async (e) => emissions.push(e) };
-    await worktreeReapPhase({
+    const result = await worktreeReapPhase({
       orchestration: { worktreeIsolation: { enabled: true } },
       storyId: 1,
       epicBranch: 'epic/9',
@@ -345,6 +400,7 @@ describe('worktreeReapPhase', () => {
       frictionEmitter,
       worktreeManagerFactory: factory,
     });
+    assert.equal(result.status, 'still-registered');
     assert.ok(
       logger.errors.some(
         (m) =>

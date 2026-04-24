@@ -20,6 +20,9 @@ export async function updateHealthMetrics(epicId, dryRun = false) {
   const provider = createProvider(orchestration);
 
   const allEpicTickets = await provider.getTickets(epicId);
+  if (typeof provider.primeTicketCache === 'function') {
+    provider.primeTicketCache(allEpicTickets);
+  }
   const healthIssue = allEpicTickets.find(
     (t) =>
       t.labels.includes(TYPE_LABELS.HEALTH) ||

@@ -699,3 +699,99 @@ at the protocol boundary.
   not as opaque downstream exceptions.
 - Tightened schemas catch subtle drifts (e.g. a `type::*` enum missing on
   one tool but present on its siblings) at the boundary.
+
+## Bounded-concurrency fanout via `concurrentMap` (Epic #553)
+
+### Problem
+
+Framework hot paths that read many tickets per tick — `sprint-wave-gate`
+(`getTicket` per story / recut / parked), `ProgressReporter` (per-story
+label read on every cadence tick), wave-end `commit-assertion` (per-story
+git probe) — were serial `for..of` loops over `await`. On a 20-story
+epic the wall-clock compounded linearly. Converting to naked
+`Promise.all` would swap that for an unbounded thundering herd against
+the GitHub API and risk secondary rate limits.
+
+### Solution
+
+One primitive at `lib/util/concurrent-map.js`:
+`concurrentMap(items, fn, { concurrency })`. Result order is preserved;
+the first unhandled rejection aggregates out. Three adoption points,
+each chosen for its bottleneck:
+
+- `sprint-wave-gate.js` — no explicit cap (the story count *is* the
+  cap); three prior serial fanouts become one outer `concurrentMap`.
+- wave-end `commit-assertion.js` — cap **4**. Git is CPU/disk-bound;
+  higher caps don't help and can contend on the repo lock.
+- `progress-reporter.js` — cap **8**, layered over a 10-second TTL
+  (`getTicket(id, { maxAgeMs: 10_000 })`) so repeated ticks inside the
+  window serve from cache instead of fanning out at all.
+
+### Consequences
+
+- One primitive, one reviewer surface. New fanouts reuse the helper
+  instead of re-rolling `Promise.all` + semaphore.
+- TTL + cap are orthogonal: the TTL handles the tight ticks; the cap
+  handles the wide waves.
+- Caps are constants for now. The phase-timer surface shipped in the
+  same Epic is the measurement that will justify an `agentSettings`
+  override — not premature configurability.
+
+## Prime the ticket cache after every `getTickets` sweep (Epic #553)
+
+### Problem
+
+`GitHubProvider` has carried a per-instance ticket cache for several
+releases, but the bulk `getTickets(epicId)` sweep wasn't priming it.
+Callers then did a second round-trip on every subsequent `getTicket(id)`
+for the same Epic — a textbook N+1 that no one had noticed because it
+was hidden behind two separate call sites and the cache's "it's there,
+we use it" reputation.
+
+### Solution
+
+Every `provider.getTickets(...)` call site in `.agents/scripts/` is
+followed by `provider.primeTicketCache(result)`. `primeTicketCache` was
+already exported and tested; adoption is a one-line diff per site. A
+regression test asserts zero extra HTTP calls across a sweep-plus-N-reads
+sequence against a mocked `fetchImpl`.
+
+### Consequences
+
+- Dispatcher passes that read children after the sweep are free.
+- The discipline is a pattern, not a new API — the helper already
+  existed; we just made adoption consistent.
+- Invalidation semantics are unchanged: any write through the provider
+  invalidates the affected entries.
+
+## Per-phase timer with `snapshot` / `restore` (Epic #553)
+
+### Problem
+
+Framework overhead was not directly observable. A slow Story could be
+slow because `.agents/` copy was slow, or because `npm ci` was slow,
+or because lint was slow — the runner's log said only "Story took 12
+minutes." Consumer projects blaming framework overhead had no way to
+prove it; framework maintainers had no way to refute it.
+
+### Solution
+
+`lib/util/phase-timer.js` + `phase-timer-state.js`. The timer records
+`{ phase, elapsedMs }` spans and exposes `snapshot` / `restore` so
+state survives the `sprint-story-init` → spawned agent →
+`sprint-story-close` boundary (where three separate processes handle
+one Story). Per-phase lines are emitted during the lifecycle; on
+close, a `phase-timings` structured comment is posted to the Story
+ticket. `ProgressReporter.setPlan()` reads closed-story timings and
+renders median / p95 per phase into the Epic's `epic-run-progress`
+comment.
+
+### Consequences
+
+- The phase-timings comment is a machine-readable artefact — consumer
+  dashboards don't have to grep logs.
+- Framework vs. consumer overhead is now attributable in a single
+  report: `.agents/` copy, worktree create, bootstrap are framework;
+  install, lint, test, implement are consumer.
+- Future perf work starts with measurement. The next regression is
+  caught by the p95 column drifting, not by a user filing an issue.

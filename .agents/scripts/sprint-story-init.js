@@ -41,6 +41,8 @@ import { resolveContext } from './lib/story-init/context-resolver.js';
 import { traceHierarchy } from './lib/story-init/hierarchy-tracer.js';
 import { transitionTaskStates } from './lib/story-init/state-transitioner.js';
 import { buildTaskGraph } from './lib/story-init/task-graph-builder.js';
+import { createPhaseTimer } from './lib/util/phase-timer.js';
+import { savePhaseTimerState } from './lib/util/phase-timer-state.js';
 
 // ---------------------------------------------------------------------------
 // Progress logger — shared stage-logger passed to every pipeline stage.
@@ -166,6 +168,13 @@ export async function runStoryInit({
   const wtConfig = orchestration?.worktreeIsolation;
   const worktreeEnabled = !!wtConfig?.enabled;
 
+  // Per-phase timer. The init-side emits worktree-create / bootstrap /
+  // install via the WorktreeManager `onPhase` callback, opens `implement`
+  // at the end, and snapshots to `.git/` so sprint-story-close can restore
+  // the open phase, append lint / test / close / api-sync, and upsert the
+  // `phase-timings` structured comment.
+  const phaseTimer = !dryRun ? createPhaseTimer(storyId) : null;
+
   if (!dryRun) {
     const branchResult = await initializeBranch({
       logger: stageLogger,
@@ -177,6 +186,7 @@ export async function runStoryInit({
         cwd,
         worktreeEnabled,
         wtConfig,
+        onPhase: (name) => phaseTimer.mark(name),
       },
     });
     workCwd = branchResult.workCwd;
@@ -214,6 +224,20 @@ export async function runStoryInit({
           failed: transition.failed,
         };
       }
+    }
+
+    // Open the `implement` phase last so everything between now and the
+    // first close-side mark attributes to agent coding time. Snapshot to
+    // disk so close can pick up the open phase across the process gap.
+    phaseTimer.mark('implement');
+    try {
+      savePhaseTimerState(phaseTimer, { mainCwd: cwd, storyId });
+    } catch (err) {
+      // Non-fatal: losing the snapshot only degrades observability, it
+      // does not affect merge correctness. Warn and continue.
+      console.error(
+        `[sprint-story-init] ⚠️ Failed to persist phase-timer state: ${err.message}`,
+      );
     }
   }
 

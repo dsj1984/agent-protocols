@@ -48,6 +48,19 @@ function reapPhaseLogger(progress) {
   return progress ?? (() => {});
 }
 
+function createWorktreeReapState(overrides = {}) {
+  return {
+    status: 'not-run',
+    path: null,
+    reason: null,
+    method: null,
+    pendingCleanup: null,
+    branchDeleted: null,
+    remoteBranchDeleted: null,
+    ...overrides,
+  };
+}
+
 async function emitReapFailureFriction({
   frictionEmitter,
   storyId,
@@ -89,13 +102,39 @@ export async function worktreeReapPhase(ctx) {
     worktreeManagerFactory,
   } = ctx;
   const wtConfig = orchestration?.worktreeIsolation;
-  if (!wtConfig?.enabled || !(wtConfig.reapOnSuccess ?? true)) return;
-
   const log = reapPhaseLogger(progress);
+  if (!wtConfig?.enabled) {
+    const state = createWorktreeReapState({ status: 'skipped-disabled' });
+    log('WORKTREE', '⏭️ Skipping worktree reap (worktree isolation disabled)');
+    return state;
+  }
+  if (!(wtConfig.reapOnSuccess ?? true)) {
+    const state = createWorktreeReapState({ status: 'skipped-config' });
+    log('WORKTREE', '⏭️ Skipping worktree reap (reapOnSuccess=false)');
+    return state;
+  }
+
   const wm = worktreeManagerFactory
     ? worktreeManagerFactory({ repoRoot, config: wtConfig })
     : new WorktreeManager({ repoRoot, config: wtConfig });
   const reapResult = await wm.reap(storyId, { epicBranch });
+  let state = createWorktreeReapState({
+    status: reapResult.removed
+      ? 'removed'
+      : reapResult.method === 'deferred-to-sweep'
+        ? 'deferred-to-sweep'
+        : 'failed',
+    path: reapResult.path ?? null,
+    reason: reapResult.reason ?? null,
+    method: reapResult.method ?? null,
+    pendingCleanup: reapResult.pendingCleanup ?? null,
+    branchDeleted:
+      reapResult.branchDeleted !== undefined ? reapResult.branchDeleted : null,
+    remoteBranchDeleted:
+      reapResult.remoteBranchDeleted !== undefined
+        ? reapResult.remoteBranchDeleted
+        : null,
+  });
   if (reapResult.removed) {
     log('WORKTREE', `🗑️  Reaped worktree: ${reapResult.path}`);
   } else if (reapResult.reason) {
@@ -126,6 +165,12 @@ export async function worktreeReapPhase(ctx) {
       : false,
   );
   if (stillRegistered) {
+    state = {
+      ...state,
+      status: 'still-registered',
+      path: stillRegistered.path,
+      reason: 'still-registered-after-reap',
+    };
     logger.error(
       `[sprint-story-close] OPERATOR ACTION REQUIRED: Worktree still registered after reap: ` +
         `${stillRegistered.path}. Run ` +
@@ -141,9 +186,10 @@ export async function worktreeReapPhase(ctx) {
       epicBranch,
     });
   }
+  return state;
 }
 
-export async function branchCleanupPhase(ctx) {
+export async function branchCleanupPhase(ctx, state = {}) {
   const {
     storyBranch,
     repoRoot,
@@ -161,9 +207,11 @@ export async function branchCleanupPhase(ctx) {
 
   if (!result.local.deleted) {
     const stderr = (result.local.stderr || '').trim();
+    const reapStatus = state.worktreeReap?.status;
     logger.error(
       `  Local branch ${storyBranch} delete failed: ${stderr || 'unknown'}. ` +
-        `Check for stale worktrees (git worktree list).`,
+        `Check for stale worktrees (git worktree list).` +
+        (reapStatus ? ` worktreeReap=${reapStatus}.` : ''),
     );
   }
   if (result.remote.deleted) {
@@ -177,6 +225,8 @@ export async function branchCleanupPhase(ctx) {
   return {
     localDeleted: result.local.deleted,
     remoteDeleted: result.remote.deleted,
+    localReason: result.local.reason,
+    remoteReason: result.remote.reason,
   };
 }
 
@@ -307,7 +357,15 @@ export async function tempCleanupPhase(ctx) {
 }
 
 export const DEFAULT_POST_MERGE_PHASES = Object.freeze([
-  { name: 'worktree-reap', fn: worktreeReapPhase },
+  {
+    name: 'worktree-reap',
+    fn: worktreeReapPhase,
+    stateKey: 'worktreeReap',
+    fallback: createWorktreeReapState({
+      status: 'failed',
+      reason: 'phase-error',
+    }),
+  },
   { name: 'branch-cleanup', fn: branchCleanupPhase, stateKey: 'branchCleanup' },
   { name: 'ticket-closure', fn: ticketClosurePhase, stateKey: 'ticketClosure' },
   { name: 'notification', fn: notificationPhase },
@@ -338,6 +396,7 @@ export async function runPostMergePipeline(
 ) {
   const logger = ctx.logger ?? Logger;
   const state = {
+    worktreeReap: createWorktreeReapState(),
     branchCleanup: { localDeleted: false, remoteDeleted: false },
     ticketClosure: { closedTickets: [], cascadedTo: [], cascadeFailed: [] },
     healthUpdated: false,
