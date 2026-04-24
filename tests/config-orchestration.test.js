@@ -263,6 +263,103 @@ describe('validateOrchestrationConfig — schema violations', () => {
 });
 
 // ---------------------------------------------------------------------------
+// validateOrchestrationConfig — closeRetry
+// ---------------------------------------------------------------------------
+describe('validateOrchestrationConfig — closeRetry', () => {
+  const baseGithub = { owner: 'org', repo: 'repo' };
+
+  it('accepts a full closeRetry block', () => {
+    assert.doesNotThrow(() =>
+      validateOrchestrationConfig({
+        provider: 'github',
+        github: baseGithub,
+        closeRetry: { maxAttempts: 3, backoffMs: [250, 500, 1000] },
+      }),
+    );
+  });
+
+  it('accepts partial closeRetry (just maxAttempts)', () => {
+    assert.doesNotThrow(() =>
+      validateOrchestrationConfig({
+        provider: 'github',
+        github: baseGithub,
+        closeRetry: { maxAttempts: 5 },
+      }),
+    );
+  });
+
+  it('accepts an empty closeRetry block (defaults apply at consumer)', () => {
+    assert.doesNotThrow(() =>
+      validateOrchestrationConfig({
+        provider: 'github',
+        github: baseGithub,
+        closeRetry: {},
+      }),
+    );
+  });
+
+  it('rejects maxAttempts < 1', () => {
+    assert.throws(
+      () =>
+        validateOrchestrationConfig({
+          provider: 'github',
+          github: baseGithub,
+          closeRetry: { maxAttempts: 0 },
+        }),
+      /must be >= 1/,
+    );
+  });
+
+  it('rejects non-integer maxAttempts', () => {
+    assert.throws(
+      () =>
+        validateOrchestrationConfig({
+          provider: 'github',
+          github: baseGithub,
+          closeRetry: { maxAttempts: 1.5 },
+        }),
+      /must be integer/,
+    );
+  });
+
+  it('rejects non-array backoffMs', () => {
+    assert.throws(
+      () =>
+        validateOrchestrationConfig({
+          provider: 'github',
+          github: baseGithub,
+          closeRetry: { backoffMs: 500 },
+        }),
+      /must be array/,
+    );
+  });
+
+  it('rejects negative backoff entries', () => {
+    assert.throws(
+      () =>
+        validateOrchestrationConfig({
+          provider: 'github',
+          github: baseGithub,
+          closeRetry: { backoffMs: [100, -50] },
+        }),
+      /must be >= 0/,
+    );
+  });
+
+  it('rejects typos in closeRetry block', () => {
+    assert.throws(
+      () =>
+        validateOrchestrationConfig({
+          provider: 'github',
+          github: baseGithub,
+          closeRetry: { maxAttemps: 3 },
+        }),
+      /must NOT have additional properties/,
+    );
+  });
+});
+
+// ---------------------------------------------------------------------------
 // validateOrchestrationConfig — worktreeIsolation
 // ---------------------------------------------------------------------------
 describe('validateOrchestrationConfig — worktreeIsolation', () => {
