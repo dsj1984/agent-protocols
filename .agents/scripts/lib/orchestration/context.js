@@ -20,6 +20,8 @@
  * never leaks. The instance is then frozen to make the DI surface immutable.
  */
 
+import { resolveConcurrency } from './concurrency.js';
+
 export class OrchestrationContext {
   constructor(opts = {}) {
     this.epicId = opts.epicId;
@@ -28,6 +30,7 @@ export class OrchestrationContext {
     this.logger = opts.logger ?? console;
     this.notifier = opts.notifier ?? null;
     this.cwd = opts.cwd ?? null;
+    this.concurrency = opts.concurrency ?? resolveConcurrency(opts.config);
     if (new.target === OrchestrationContext) {
       this.validate();
       Object.freeze(this);
