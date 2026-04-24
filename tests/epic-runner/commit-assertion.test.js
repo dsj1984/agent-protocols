@@ -73,6 +73,99 @@ describe('CommitAssertion', () => {
       'commit-assertion: zero-delta',
     );
   });
+
+  it('fans out git reads with at most 4 adapter calls in flight at once', async () => {
+    // Track concurrent adapter invocations. Each call holds until release() is
+    // invoked so we can assert the high-water mark before anything resolves.
+    let inFlight = 0;
+    let maxInFlight = 0;
+    const gates = [];
+    const adapter = async ({ storyId }) => {
+      inFlight++;
+      if (inFlight > maxInFlight) maxInFlight = inFlight;
+      await new Promise((resolve) => {
+        gates.push(resolve);
+      });
+      inFlight--;
+      return storyId % 7; // some non-trivial count per story
+    };
+
+    const assertion = new CommitAssertion({ gitAdapter: adapter });
+    const ids = [401, 402, 403, 404, 405, 406, 407, 408, 409, 410];
+    const pending = assertion.check(ids, { epicId: 321 });
+
+    // Yield once so workers spin up and saturate against the gate.
+    while (gates.length < 4) {
+      await new Promise((r) => setImmediate(r));
+    }
+    // Only 4 adapter calls should be parked simultaneously, never 5+.
+    assert.equal(gates.length, 4);
+    assert.equal(maxInFlight, 4);
+
+    // Drain in batches and verify the cap holds throughout the run.
+    while (gates.length > 0) {
+      const batch = gates.splice(0, gates.length);
+      for (const release of batch) release();
+      // Let the next wave schedule before asserting again.
+      await new Promise((r) => setImmediate(r));
+      await new Promise((r) => setImmediate(r));
+    }
+
+    const rows = await pending;
+    assert.equal(rows.length, ids.length);
+    assert.ok(maxInFlight <= 4, `maxInFlight=${maxInFlight} exceeded cap of 4`);
+    // Output order must still match input order regardless of resolve order.
+    assert.deepEqual(
+      rows.map((r) => r.storyId),
+      ids,
+    );
+  });
+
+  it('records transient Windows lock errors (EBUSY/EPERM) as per-row errors without aborting the batch', async () => {
+    // Simulates the Windows git-worktree lock-contention fixture: a few story
+    // reads throw EBUSY/EPERM the way `git` surfaces them under AV/indexer
+    // pressure, while siblings succeed. The batch must survive and each
+    // failing row must capture the adapter's error message so operators can
+    // triage from the wave-end comment.
+    const ebusy = Object.assign(
+      new Error("EBUSY: resource busy or locked, open '.git/index.lock'"),
+      { code: 'EBUSY' },
+    );
+    const eperm = Object.assign(
+      new Error("EPERM: operation not permitted, unlink '.git/objects/pack/.tmp'"),
+      { code: 'EPERM' },
+    );
+    const warnings = [];
+    const assertion = new CommitAssertion({
+      gitAdapter: stubAdapter({
+        500: 2,
+        501: ebusy,
+        502: 4,
+        503: eperm,
+        504: 1,
+      }),
+      logger: { warn: (msg) => warnings.push(msg) },
+    });
+    const rows = await assertion.check([500, 501, 502, 503, 504], {
+      epicId: 321,
+    });
+    assert.deepEqual(
+      rows.map((r) => ({ id: r.storyId, count: r.newCommitCount })),
+      [
+        { id: 500, count: 2 },
+        { id: 501, count: null },
+        { id: 502, count: 4 },
+        { id: 503, count: null },
+        { id: 504, count: 1 },
+      ],
+    );
+    assert.match(rows[1].error, /EBUSY/);
+    assert.match(rows[3].error, /EPERM/);
+    // Each failure must have been logged so operators see it in the runner log.
+    assert.equal(warnings.length, 2);
+    assert.ok(warnings.some((w) => /#501/.test(w) && /EBUSY/.test(w)));
+    assert.ok(warnings.some((w) => /#503/.test(w) && /EPERM/.test(w)));
+  });
 });
 
 describe('buildDefaultGitAdapter', () => {
