@@ -54,6 +54,8 @@ import {
   fetchChildTasks,
   resolveStoryHierarchy,
 } from './lib/story-lifecycle.js';
+import { createPhaseTimer } from './lib/util/phase-timer.js';
+import { loadPhaseTimerState } from './lib/util/phase-timer-state.js';
 
 // ---------------------------------------------------------------------------
 // Helpers
@@ -387,6 +389,14 @@ export async function runStoryClose({
 
   progress('TASKS', `Found ${tasks.length} child Task(s)`);
 
+  // Restore the phase timer from the snapshot sprint-story-init left in
+  // `<mainCwd>/.git/`. Missing or unparseable — fall back to a fresh timer
+  // so close still emits whatever phases it observes (lint, test, close,
+  // api-sync). See lib/util/phase-timer-state.js for the persistence
+  // contract.
+  const prior = loadPhaseTimerState({ mainCwd: cwd, storyId });
+  const phaseTimer = createPhaseTimer(storyId, prior ? { restore: prior } : {});
+
   // -------------------------------------------------------------------------
   // Pre-merge validation — shift-left gates so formatting drift or
   // maintainability regressions surface in the worktree rather than on the
@@ -403,6 +413,15 @@ export async function runStoryClose({
     const validation = runCloseValidation({
       cwd,
       log: (m) => Logger.info(m),
+      onGateStart: (gate) => {
+        // Only the canonical phase-enum gates drive `mark()`. Non-enum
+        // gates (`biome format`, `check-maintainability`) share the
+        // currently-open phase's wall clock — a deliberate choice so the
+        // `phase-timings` schema stays stable against future gate churn.
+        if (gate.name === 'lint' || gate.name === 'test') {
+          phaseTimer.mark(gate.name);
+        }
+      },
     });
     if (!validation.ok) {
       const [{ gate, status }] = validation.failed;
@@ -412,6 +431,12 @@ export async function runStoryClose({
       );
     }
   }
+
+  // Everything after validation — the merge, branch cleanup, worktree reap,
+  // and push — is the `close` phase. The post-merge pipeline's ticket
+  // transitions + cascade + health + manifest regeneration is the
+  // `api-sync` phase. We mark boundaries inline below.
+  phaseTimer.mark('close');
 
   // -------------------------------------------------------------------------
   // Step 5 — Merge
@@ -441,6 +466,7 @@ export async function runStoryClose({
   // Reap must precede branch cleanup: git refuses to delete a branch that
   // is still checked out by a live worktree. The pipeline runs the phases
   // in this order — see post-merge-pipeline.js.
+  phaseTimer.mark('api-sync');
   const frictionEmitter = createFrictionEmitter({
     provider,
     logger: { warn: (m) => Logger.warn?.(m), debug: () => {} },
@@ -467,6 +493,15 @@ export async function runStoryClose({
     pipelineState.ticketClosure;
   const healthUpdated = pipelineState.healthUpdated;
   const manifestUpdated = pipelineState.manifestUpdated;
+
+  // -------------------------------------------------------------------------
+  // Phase-timings — close the timer so the final `api-sync` elapsedMs is
+  // appended and a terminating `[phase-timing]` log line is emitted. The
+  // comment upsert and state-file cleanup land in the structured-comment
+  // follow-on (Task #588); this task ships only the instrumentation.
+  // -------------------------------------------------------------------------
+
+  phaseTimer.finish();
 
   // -------------------------------------------------------------------------
   // Output — structured result

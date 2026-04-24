@@ -55,6 +55,12 @@ export class WorktreeManager {
    * @param {object} [opts.logger]        Logger with info/warn/error (defaults to console-style).
    * @param {object} [opts.git]           Injected `{ gitSync, gitSpawn }` (defaults to git-utils).
    * @param {NodeJS.Platform} [opts.platform]  Defaults to `process.platform`.
+   * @param {(phase: 'worktree-create'|'bootstrap'|'install') => void} [opts.onPhase]
+   *   Optional phase-boundary callback fired from `ensure()` just before each
+   *   internal phase (git worktree add, bootstrap-file copy, dependency
+   *   install). Consumed by `sprint-story-init` to drive `phase-timer.mark()`
+   *   so `[phase-timing]` log lines attribute wall-clock correctly to the
+   *   sub-phases of worktree provisioning.
    */
   constructor({
     repoRoot,
@@ -63,6 +69,7 @@ export class WorktreeManager {
     git = defaultGit,
     platform = process.platform,
     fsRm,
+    onPhase,
   }) {
     if (!repoRoot || typeof repoRoot !== 'string') {
       throw new Error('WorktreeManager: repoRoot is required');
@@ -84,6 +91,7 @@ export class WorktreeManager {
     this.git = git;
     this.platform = platform;
     this.fsRm = fsRm;
+    this.onPhase = typeof onPhase === 'function' ? onPhase : null;
 
     const resolvedRoot = path.resolve(this.repoRoot, this.config.root);
     try {
@@ -114,6 +122,7 @@ export class WorktreeManager {
       worktreeRoot: this.worktreeRoot,
       listCache: this._worktreeListCache,
       fsRm: this.fsRm,
+      onPhase: this.onPhase,
       maybeWarnWindowsPath: (wtPath) =>
         maybeWarnWindowsPath(
           {
