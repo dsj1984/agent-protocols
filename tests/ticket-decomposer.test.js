@@ -242,7 +242,10 @@ describe('ticket-decomposer resolveDependencies', () => {
       title: 'Task Two',
       depends_on: ['t1', 'missing-slug'],
     };
-    assert.throws(() => resolveDependencies(ticket, slugMap), /unresolved slug "missing-slug"/);
+    assert.throws(
+      () => resolveDependencies(ticket, slugMap),
+      /unresolved slug "missing-slug"/,
+    );
   });
 
   it('returns resolved IDs in input order when every slug is present', () => {
@@ -282,8 +285,20 @@ describe('ticket-decomposer orderTicketsForCreation', () => {
     const tickets = [
       { slug: 'f1', type: 'feature', title: 'F' },
       { slug: 's1', type: 'story', title: 'S', parent_slug: 'f1' },
-      { slug: 't-c', type: 'task', title: 'C', parent_slug: 's1', depends_on: ['t-b'] },
-      { slug: 't-b', type: 'task', title: 'B', parent_slug: 's1', depends_on: ['t-a'] },
+      {
+        slug: 't-c',
+        type: 'task',
+        title: 'C',
+        parent_slug: 's1',
+        depends_on: ['t-b'],
+      },
+      {
+        slug: 't-b',
+        type: 'task',
+        title: 'B',
+        parent_slug: 's1',
+        depends_on: ['t-a'],
+      },
       { slug: 't-a', type: 'task', title: 'A', parent_slug: 's1' },
     ];
     const order = orderTicketsForCreation(tickets).map((t) => t.slug);
@@ -297,7 +312,13 @@ describe('ticket-decomposer orderTicketsForCreation', () => {
     const tickets = [
       { slug: 'f1', type: 'feature', title: 'F1' },
       { slug: 'f2', type: 'feature', title: 'F2' },
-      { slug: 's1', type: 'story', title: 'S1', parent_slug: 'f1', depends_on: ['s2'] },
+      {
+        slug: 's1',
+        type: 'story',
+        title: 'S1',
+        parent_slug: 'f1',
+        depends_on: ['s2'],
+      },
       { slug: 's2', type: 'story', title: 'S2', parent_slug: 'f2' },
     ];
     const order = orderTicketsForCreation(tickets).map((t) => t.slug);
