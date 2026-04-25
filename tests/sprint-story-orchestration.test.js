@@ -348,7 +348,7 @@ test('sprint-story-close: successful merge and closure', async () => {
   fs.writeFileSync(
     path.join(sandboxCwd, '.agentrc.json'),
     JSON.stringify({
-      agentSettings: { baseBranch: 'main' },
+      agentSettings: { baseBranch: 'main', agentRoot: '.agents', docsRoot: 'docs', tempRoot: 'temp' },
       orchestration: {
         provider: 'github',
         github: { owner: 'o', repo: 'r' },
@@ -406,7 +406,7 @@ test('sprint-story-close: reaps worktree using resolved --cwd repo root', async 
   fs.writeFileSync(
     path.join(explicitMainRepo, '.agentrc.json'),
     JSON.stringify({
-      agentSettings: { baseBranch: 'main' },
+      agentSettings: { baseBranch: 'main', agentRoot: '.agents', docsRoot: 'docs', tempRoot: 'temp' },
       orchestration: {
         provider: 'github',
         github: { owner: 'o', repo: 'r' },
@@ -461,7 +461,7 @@ test('sprint-story-close: resolves config from runtime --cwd (can disable reap)'
   fs.writeFileSync(
     path.join(tmp, '.agentrc.json'),
     JSON.stringify({
-      agentSettings: { baseBranch: 'main' },
+      agentSettings: { baseBranch: 'main', agentRoot: '.agents', docsRoot: 'docs', tempRoot: 'temp' },
       orchestration: {
         provider: 'github',
         github: { owner: 'o', repo: 'r' },
@@ -515,7 +515,7 @@ test('sprint-story-init: resolves config from runtime --cwd for worktree mode', 
   fs.writeFileSync(
     path.join(tmp, '.agentrc.json'),
     JSON.stringify({
-      agentSettings: { baseBranch: 'main' },
+      agentSettings: { baseBranch: 'main', agentRoot: '.agents', docsRoot: 'docs', tempRoot: 'temp' },
       orchestration: {
         provider: 'github',
         github: { owner: 'o', repo: 'r' },

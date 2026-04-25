@@ -53,7 +53,19 @@
           "additionalProperties": false
         },
         "refreshTag": { "allOf": [{ "$ref": "#/$defs/safeString" }, { "type": "string", "minLength": 1 }] }
-      }
+      },
+      "allOf": [
+        {
+          "if": {
+            "properties": {
+              "enabled": { "const": true },
+              "requireCoverage": { "const": true }
+            },
+            "required": ["enabled", "requireCoverage"]
+          },
+          "then": { "required": ["coveragePath"] }
+        }
+      ]
     },
     "maintainability": {
       "type": "object",
@@ -113,6 +125,7 @@
     },
     "agentSettings": {
       "type": "object",
+      "required": ["agentRoot", "docsRoot", "tempRoot"],
       "properties": {
         "docsContextFiles": { "type": "array", "items": { "type": "string" } },
         "maintainability": { "$ref": "#/$defs/maintainability" },
@@ -174,11 +187,19 @@
           "items": { "type": "string", "minLength": 1 }
         }
       },
-      "additionalProperties": false
+      "additionalProperties": false,
+      "allOf": [
+        {
+          "if": {
+            "properties": { "enabled": { "const": true } },
+            "required": ["enabled"]
+          },
+          "then": { "required": ["root"] }
+        }
+      ]
     },
     "epicRunner": {
       "type": "object",
-      "required": ["concurrencyCap"],
       "properties": {
         "enabled": { "type": "boolean" },
         "concurrencyCap": { "type": "integer", "minimum": 1 },
@@ -187,7 +208,18 @@
         "idleTimeoutSec": { "type": "integer", "minimum": 0 },
         "logsDir": { "$ref": "#/$defs/safeString" }
       },
-      "additionalProperties": false
+      "additionalProperties": false,
+      "allOf": [
+        {
+          "if": {
+            "not": {
+              "properties": { "enabled": { "const": false } },
+              "required": ["enabled"]
+            }
+          },
+          "then": { "required": ["concurrencyCap"] }
+        }
+      ]
     },
     "planRunner": {
       "type": "object",

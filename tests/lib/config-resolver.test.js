@@ -12,6 +12,16 @@ import {
 } from '../../.agents/scripts/lib/config-resolver.js';
 import { setupFsMock } from './fs-mock.js';
 
+/** The schema requires `agentRoot` / `docsRoot` / `tempRoot` on every loaded
+ * agentSettings block. Spread this into fixtures that aren't testing the
+ * required-key behaviour itself so the resolver gets past validation and
+ * exercises the code path under test. */
+const REQ = Object.freeze({
+  agentRoot: '.agents',
+  docsRoot: 'docs',
+  tempRoot: 'temp',
+});
+
 describe('config-resolver library tests', () => {
   let vol;
 
@@ -25,7 +35,10 @@ describe('config-resolver library tests', () => {
   it('uses default config when .agentrc.json is missing', () => {
     const config = resolveConfig({ bustCache: true });
     assert.equal(config.source, 'built-in defaults');
-    assert.equal(config.settings.agentRoot, '.agents');
+    // `agentRoot` is no longer a zero-config default — it is hard-required by
+    // the schema so a config without it cannot be silently filled in.
+    assert.equal(config.settings.agentRoot, undefined);
+    assert.equal(config.settings.scriptsRoot, '.agents/scripts');
     assert.equal(config.orchestration, null);
   });
 
@@ -48,13 +61,16 @@ describe('config-resolver library tests', () => {
       JSON.stringify({
         agentSettings: {
           baseBranch: 'main; rm -rf /',
+          agentRoot: '.agents',
+          docsRoot: 'docs',
+          tempRoot: 'temp',
         },
       }),
     );
 
     assert.throws(
       () => resolveConfig({ bustCache: true }),
-      /\[Security\] Malicious configuration value detected in .agentrc.json/,
+      /\[config\] Invalid agentSettings in .agentrc.json/,
     );
   });
 
@@ -65,6 +81,7 @@ describe('config-resolver library tests', () => {
       agentrcPath,
       JSON.stringify({
         agentSettings: {
+          ...REQ,
           release: { autoVersionBump: 'yes-please' },
         },
       }),
@@ -80,6 +97,7 @@ describe('config-resolver library tests', () => {
       agentrcPath,
       JSON.stringify({
         agentSettings: {
+          ...REQ,
           release: { versionFile: 'VERSION; rm -rf /' },
         },
       }),
@@ -95,6 +113,7 @@ describe('config-resolver library tests', () => {
       agentrcPath,
       JSON.stringify({
         agentSettings: {
+          ...REQ,
           release: { versionFile: null },
         },
       }),
@@ -114,11 +133,11 @@ describe('config-resolver library tests', () => {
     vol.mkdirSync(rootB, { recursive: true });
     vol.writeFileSync(
       path.join(rootA, '.agentrc.json'),
-      JSON.stringify({ agentSettings: { agentRoot: 'A-agents' } }),
+      JSON.stringify({ agentSettings: { ...REQ, agentRoot: 'A-agents' } }),
     );
     vol.writeFileSync(
       path.join(rootB, '.agentrc.json'),
-      JSON.stringify({ agentSettings: { agentRoot: 'B-agents' } }),
+      JSON.stringify({ agentSettings: { ...REQ, agentRoot: 'B-agents' } }),
     );
 
     const cfgA = resolveConfig({ bustCache: true, cwd: rootA });
@@ -137,11 +156,11 @@ describe('config-resolver library tests', () => {
     vol.mkdirSync(rootB, { recursive: true });
     vol.writeFileSync(
       path.join(rootA, '.agentrc.json'),
-      JSON.stringify({ agentSettings: { agentRoot: 'X' } }),
+      JSON.stringify({ agentSettings: { ...REQ, agentRoot: 'X' } }),
     );
     vol.writeFileSync(
       path.join(rootB, '.agentrc.json'),
-      JSON.stringify({ agentSettings: { agentRoot: 'Y' } }),
+      JSON.stringify({ agentSettings: { ...REQ, agentRoot: 'Y' } }),
     );
 
     const a1 = resolveConfig({ bustCache: true, cwd: rootA });
@@ -168,7 +187,7 @@ describe('config-resolver library tests', () => {
     vol.writeFileSync(
       agentrcPath,
       JSON.stringify({
-        agentSettings: {},
+        agentSettings: { ...REQ },
         orchestration: {
           provider: 'github',
           github: { owner: 'org', repo: 'repo' },
@@ -189,7 +208,7 @@ describe('config-resolver library tests', () => {
     vol.writeFileSync(
       agentrcPath,
       JSON.stringify({
-        agentSettings: {},
+        agentSettings: { ...REQ },
         orchestration: {
           provider: 'github',
           github: { owner: 'org', repo: 'repo' },
@@ -210,6 +229,7 @@ describe('config-resolver library tests', () => {
       agentrcPath,
       JSON.stringify({
         agentSettings: {
+          ...REQ,
           agentRoot: 'custom-agents',
         },
       }),
@@ -240,7 +260,7 @@ describe('config-resolver library tests', () => {
       vol.mkdirSync(PROJECT_ROOT, { recursive: true });
       vol.writeFileSync(
         agentrcPath,
-        JSON.stringify({ agentSettings: { agentRoot: '.agents' } }),
+        JSON.stringify({ agentSettings: { ...REQ } }),
       );
 
       const config = resolveConfig({ bustCache: true });
@@ -257,6 +277,7 @@ describe('config-resolver library tests', () => {
         agentrcPath,
         JSON.stringify({
           agentSettings: {
+            ...REQ,
             maintainability: {
               crap: {
                 targetDirs: {
@@ -284,6 +305,7 @@ describe('config-resolver library tests', () => {
         agentrcPath,
         JSON.stringify({
           agentSettings: {
+            ...REQ,
             maintainability: {
               crap: {
                 targetDirs: {
@@ -311,6 +333,7 @@ describe('config-resolver library tests', () => {
         agentrcPath,
         JSON.stringify({
           agentSettings: {
+            ...REQ,
             maintainability: { crap: { targetDirs: ['src'] } },
           },
         }),
@@ -329,6 +352,7 @@ describe('config-resolver library tests', () => {
         agentrcPath,
         JSON.stringify({
           agentSettings: {
+            ...REQ,
             maintainability: { crap: { newMethodCeiling: 40 } },
           },
         }),
@@ -356,6 +380,7 @@ describe('config-resolver library tests', () => {
         agentrcPath,
         JSON.stringify({
           agentSettings: {
+            ...REQ,
             maintainability: {
               crap: { newMethodCeiling: 40, nonsenseKey: true },
             },
@@ -378,6 +403,7 @@ describe('config-resolver library tests', () => {
         agentrcPath,
         JSON.stringify({
           agentSettings: {
+            ...REQ,
             maintainability: { targetDirs: { append: ['packages/foo'] } },
           },
         }),
@@ -396,6 +422,7 @@ describe('config-resolver library tests', () => {
         agentrcPath,
         JSON.stringify({
           agentSettings: {
+            ...REQ,
             maintainability: {
               crap: { friction: { markerKey: 'custom-marker' } },
             },
@@ -416,6 +443,7 @@ describe('config-resolver library tests', () => {
         agentrcPath,
         JSON.stringify({
           agentSettings: {
+            ...REQ,
             maintainability: { crap: { newMethodCeiling: 'tall' } },
           },
         }),

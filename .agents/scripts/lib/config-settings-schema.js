@@ -73,6 +73,24 @@ const MAINTAINABILITY_CRAP_SCHEMA = {
     },
     refreshTag: { ...SAFE_STRING, minLength: 1 },
   },
+  // `coveragePath` is required only when the user has explicitly opted into
+  // coverage enforcement (`enabled: true` AND `requireCoverage: true`). Either
+  // flag absent/false leaves the path optional so disabled crap blocks and
+  // coverage-relaxed configs both validate without ceremony.
+  allOf: [
+    {
+      // biome-ignore lint/suspicious/noThenProperty: JSON Schema if/then keyword
+      if: {
+        properties: {
+          enabled: { const: true },
+          requireCoverage: { const: true },
+        },
+        required: ['enabled', 'requireCoverage'],
+      },
+      // biome-ignore lint/suspicious/noThenProperty: JSON Schema if/then keyword
+      then: { required: ['coveragePath'] },
+    },
+  ],
   // No `additionalProperties: false` — unknown keys warn at resolver time
   // (AC19) rather than failing validation.
 };
@@ -143,6 +161,11 @@ const QUALITY_GATE_SCHEMA = {
 
 export const AGENT_SETTINGS_SCHEMA = {
   type: 'object',
+  // `agentRoot`, `docsRoot`, `tempRoot` are hard-required. Resolver fallbacks
+  // for these were removed in Epic #730 Story 4 — every config must declare
+  // them explicitly so a missing key surfaces as an actionable schema error
+  // instead of a silent default.
+  required: ['agentRoot', 'docsRoot', 'tempRoot'],
   properties: {
     docsContextFiles: { type: 'array', items: { type: 'string' } },
     maintainability: MAINTAINABILITY_SCHEMA,

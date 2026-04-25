@@ -14,7 +14,12 @@ describe('resolveConfig with injected ctx.fs', () => {
       readFileSync: (p) => {
         reads.push(p);
         return JSON.stringify({
-          agentSettings: { baseBranch: 'develop' },
+          agentSettings: {
+            agentRoot: '.agents',
+            docsRoot: 'docs',
+            tempRoot: 'temp',
+            baseBranch: 'develop',
+          },
         });
       },
     };
@@ -49,6 +54,9 @@ describe('resolveConfig with injected ctx.fs', () => {
 
     assert.equal(resolved.source, 'built-in defaults');
     assert.equal(resolved.orchestration, null);
-    assert.equal(resolved.settings.agentRoot, '.agents');
+    // `agentRoot` is no longer a zero-config default — schema-required keys
+    // are not silently filled in. Other zero-config keys still default.
+    assert.equal(resolved.settings.agentRoot, undefined);
+    assert.equal(resolved.settings.scriptsRoot, '.agents/scripts');
   });
 });

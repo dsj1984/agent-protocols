@@ -103,6 +103,9 @@ function makeTempRepo({ enabled = true, withBaseline = false } = {}) {
     JSON.stringify(
       {
         agentSettings: {
+          agentRoot: '.agents',
+          docsRoot: 'docs',
+          tempRoot: 'temp',
           maintainability: {
             crap: {
               enabled,
