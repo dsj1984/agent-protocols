@@ -5,8 +5,11 @@ import {
   runHydrateContext,
   ticketToTask,
 } from '../.agents/scripts/hydrate-context.js';
+import {
+  getEpicBranch,
+  getStoryBranch,
+} from '../.agents/scripts/lib/git-utils.js';
 import { hydrateContext } from '../.agents/scripts/lib/orchestration/context-hydration-engine.js';
-import { getEpicBranch, getStoryBranch } from '../.agents/scripts/lib/git-utils.js';
 
 class MockProvider {
   constructor() {
@@ -83,7 +86,12 @@ test('runHydrateContext: resolves epic id from body when --epic omitted', async 
 test('runHydrateContext: throws when epic cannot be resolved', async () => {
   const provider = {
     async getTicket(_id) {
-      return { id: 50, title: 'No epic', body: 'no hierarchy here', labels: [] };
+      return {
+        id: 50,
+        title: 'No epic',
+        body: 'no hierarchy here',
+        labels: [],
+      };
     },
   };
   await assert.rejects(

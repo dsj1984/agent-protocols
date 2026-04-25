@@ -1,9 +1,8 @@
 import assert from 'node:assert/strict';
 import test from 'node:test';
-
-import { runAuditSuite } from '../.agents/scripts/run-audit-suite.js';
-import { runAuditSuite as legacyRunAuditSuite } from '../.agents/scripts/mcp/run-audit-suite.js';
 import { ValidationError } from '../.agents/scripts/lib/errors/index.js';
+import { runAuditSuite as legacyRunAuditSuite } from '../.agents/scripts/mcp/run-audit-suite.js';
+import { runAuditSuite } from '../.agents/scripts/run-audit-suite.js';
 
 test('runAuditSuite: post-relocation export and legacy mcp/ shim are the same function', () => {
   assert.equal(runAuditSuite, legacyRunAuditSuite);
@@ -32,7 +31,11 @@ test('runAuditSuite: built-in substitutions replace template placeholders', asyn
 
   const results = await runAuditSuite({
     auditWorkflows: ['audit-plain'],
-    substitutions: { ticketId: '525', baseBranch: 'main', auditOutputDir: 'out' },
+    substitutions: {
+      ticketId: '525',
+      baseBranch: 'main',
+      auditOutputDir: 'out',
+    },
     injectedLoadWorkflow: mockLoader,
     injectedRules: makeMockRules(),
   });

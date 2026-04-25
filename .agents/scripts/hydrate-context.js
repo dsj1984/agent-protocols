@@ -68,11 +68,9 @@ export async function runHydrateContext({ ticketId, epicId, provider }) {
   const ticket = await provider.getTicket(ticketId);
   const hierarchy = parseHierarchy(ticket.body ?? '');
 
-  const resolvedEpicId =
-    epicId ?? hierarchy.epic ?? null;
+  const resolvedEpicId = epicId ?? hierarchy.epic ?? null;
 
-  const storyId =
-    hierarchy.story ?? ticket.id ?? ticket.number ?? ticketId;
+  const storyId = hierarchy.story ?? ticket.id ?? ticket.number ?? ticketId;
 
   if (!resolvedEpicId) {
     throw new Error(
@@ -118,7 +116,9 @@ export async function main(argv = process.argv.slice(2)) {
 
   const ticketId = Number.parseInt(values.ticket ?? '', 10);
   if (!Number.isFinite(ticketId) || ticketId <= 0) {
-    process.stderr.write(`[hydrate-context] --ticket <id> is required.\n${HELP}`);
+    process.stderr.write(
+      `[hydrate-context] --ticket <id> is required.\n${HELP}`,
+    );
     process.exit(2);
   }
 

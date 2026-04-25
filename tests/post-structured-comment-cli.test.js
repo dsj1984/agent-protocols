@@ -1,8 +1,7 @@
 import assert from 'node:assert/strict';
 import test from 'node:test';
-
-import { runPostStructuredComment } from '../.agents/scripts/post-structured-comment.js';
 import { upsertStructuredComment } from '../.agents/scripts/lib/orchestration/ticketing.js';
+import { runPostStructuredComment } from '../.agents/scripts/post-structured-comment.js';
 
 /**
  * In-memory provider mirroring the surface `upsertStructuredComment` uses:
@@ -54,7 +53,8 @@ test('runPostStructuredComment: CLI delegates to the same SDK function (state pa
   await upsertStructuredComment(sdkProvider, 7, 'friction', 'blocker foo');
 
   // Strip volatile ids before comparison.
-  const strip = (cs) => cs.map(({ ticketId, type, body }) => ({ ticketId, type, body }));
+  const strip = (cs) =>
+    cs.map(({ ticketId, type, body }) => ({ ticketId, type, body }));
   assert.deepEqual(strip(cliProvider.comments), strip(sdkProvider.comments));
 });
 
