@@ -45,6 +45,7 @@ import { runDispatchManifestGuard } from './lib/story-init/dependency-guard.js';
 import { traceHierarchy } from './lib/story-init/hierarchy-tracer.js';
 import { transitionTaskStates } from './lib/story-init/state-transitioner.js';
 import { buildTaskGraph } from './lib/story-init/task-graph-builder.js';
+import { postBatchedTransitionSummary } from './lib/story-init/transition-summary.js';
 import { createPhaseTimer } from './lib/util/phase-timer.js';
 import { savePhaseTimerState } from './lib/util/phase-timer-state.js';
 import { notify } from './notify.js';
@@ -104,6 +105,16 @@ export async function runStoryInit({
   const provider = injectedProvider || createProvider(orchestration);
   const notifyFn = (ticketId, payload) =>
     notify(ticketId, payload, { orchestration, provider });
+  // Per-Task transition hook: keeps the webhook fanout intact (so operators
+  // running with `notifications.minLevel: low` still see one webhook per
+  // Task) but suppresses the GitHub-comment surface. The Story-level
+  // summary below replaces the N per-Task comments with a single message.
+  const notifyWebhookOnly = (ticketId, payload) =>
+    notify(ticketId, payload, {
+      orchestration,
+      provider,
+      skipComment: true,
+    });
 
   const runtime = resolveRuntime({ config });
   progress(
@@ -234,7 +245,7 @@ export async function runStoryInit({
     const transition = await transitionTaskStates({
       provider,
       logger: stageLogger,
-      input: { tasks: sortedTasks, notify: notifyFn },
+      input: { tasks: sortedTasks, notify: notifyWebhookOnly },
     });
     if (!transition.ok) {
       const failedSummary = transition.failed
@@ -262,6 +273,22 @@ export async function runStoryInit({
           failed: transition.failed,
         };
       }
+    }
+
+    // Replace the N per-Task `agent::executing` comments (suppressed above
+    // via `notifyWebhookOnly`) with one Story-level summary. Routed through
+    // the standard `notifyFn` so `commentMinLevel` / `minLevel` still gate
+    // delivery — at the default `medium` threshold this is a no-op.
+    try {
+      await postBatchedTransitionSummary({
+        notify: notifyFn,
+        storyId,
+        transitioned: transition.transitioned ?? [],
+      });
+    } catch (err) {
+      console.error(
+        `[sprint-story-init] ⚠️ Failed to post batched transition summary: ${err.message}`,
+      );
     }
 
     // Open the `implement` phase last so everything between now and the
