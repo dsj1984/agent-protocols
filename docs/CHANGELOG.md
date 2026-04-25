@@ -4,6 +4,8 @@ All notable changes to this project will be documented in this file.
 
 ## [Unreleased]
 
+## [5.24.0] - 2026-04-24
+
 ### Parallel `/sprint-execute` on Claude Code web (Epic #668)
 
 `/sprint-execute` now runs unchanged in claude.ai/code web sessions, including
