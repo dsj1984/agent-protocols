@@ -142,37 +142,60 @@ function writeSecretFile(path, contents) {
   writeFileSync(path, contents, { mode: 0o600 });
 }
 
+/**
+ * Pure: resolve the workspace clone target (URL, ref, workspace dir) from env.
+ * Returns `{ ok: false, reason }` if neither REPO_URL nor GITHUB_REPOSITORY
+ * is set; the CLI lifts that into a fatal call.
+ */
+export function resolveCloneTarget(env) {
+  const repoSlug = env.GITHUB_REPOSITORY;
+  const repoUrl =
+    env.REPO_URL || (repoSlug ? `https://github.com/${repoSlug}.git` : null);
+  if (!repoUrl) {
+    return {
+      ok: false,
+      reason: 'REPO_URL or GITHUB_REPOSITORY must be set.',
+    };
+  }
+  return {
+    ok: true,
+    repoUrl,
+    workspace: resolve(env.WORKSPACE_DIR || 'workspace'),
+    ref: env.REPO_REF || 'main',
+  };
+}
+
+/** Pure: inject a GitHub token into an HTTPS clone URL. */
+export function buildAuthenticatedCloneUrl(repoUrl, token) {
+  return repoUrl.replace(/^https:\/\//, `https://x-access-token:${token}@`);
+}
+
+/** Pure: build the launch argv for the chosen phase. */
+export function buildLaunchInvocation({ phase, epicId, claudeBin = 'claude' }) {
+  const command = PHASE_TO_COMMAND[phase];
+  return {
+    bin: claudeBin,
+    args: [...command.split(' '), String(epicId)],
+    command,
+  };
+}
+
 async function main() {
   const epicId = requireEnv('EPIC_ID');
   const envFile = process.env.ENV_FILE ?? '';
   const githubToken = requireEnv('GITHUB_TOKEN');
 
-  const repoSlug = process.env.GITHUB_REPOSITORY;
-  const repoUrl =
-    process.env.REPO_URL ||
-    (repoSlug ? `https://github.com/${repoSlug}.git` : null);
-  if (!repoUrl) {
-    fatal('REPO_URL or GITHUB_REPOSITORY must be set.');
-  }
+  const target = resolveCloneTarget(process.env);
+  if (!target.ok) fatal(target.reason);
+  const { repoUrl, workspace, ref } = target;
 
-  const workspace = resolve(process.env.WORKSPACE_DIR || 'workspace');
-  const ref = process.env.REPO_REF || 'main';
-
-  // 1. Mask secrets before any file I/O so stray echoes get redacted.
   if (envFile) maskSecret(envFile);
   maskSecret(githubToken);
 
-  // 2. Clone. Inject token via URL so it is never placed on argv of a
-  // subprocess in clear text form beyond this one call.
-  const cloneUrl = repoUrl.replace(
-    /^https:\/\//,
-    `https://x-access-token:${githubToken}@`,
-  );
+  const cloneUrl = buildAuthenticatedCloneUrl(repoUrl, githubToken);
   log(`Cloning ${repoUrl} @ ${ref} → ${workspace}`);
   run('git', ['clone', '--depth=1', '--branch', ref, cloneUrl, workspace]);
 
-  // 3. Materialize secret-backed workspace files with 0600 perms.
-  // `.env` is optional — skip when no ENV_FILE secret was supplied.
   if (envFile) {
     writeSecretFile(resolve(workspace, '.env'), envFile);
     log('Provisioned .env (mode 0600).');
@@ -180,15 +203,8 @@ async function main() {
     log('No ENV_FILE secret supplied — skipping .env.');
   }
 
-  // 4. Install dependencies with a strict lockfile and no lifecycle
-  //    scripts (supply-chain containment).
   run('npm', ['ci', '--ignore-scripts'], { cwd: workspace });
 
-  // 5. Hand off to the phase-appropriate slash command. Plan phases now
-  //    route through the unified `/sprint-plan --phase <phase>` wrapper
-  //    (the dedicated spec/decompose slash commands were demoted to
-  //    path-included helpers in v5.18.0). Execute defers to /sprint-execute
-  //    which routes by the ticket's `type::` label.
   if (process.env.SKIP_LAUNCH) {
     log('SKIP_LAUNCH set — bootstrap complete, not launching claude.');
     return;
@@ -197,13 +213,13 @@ async function main() {
     argv: process.argv.slice(2),
     env: process.env,
   });
-  const command = PHASE_TO_COMMAND[phase];
-  const claudeBin = process.env.CLAUDE_BIN || 'claude';
-  const commandArgs = command.split(' ');
-  log(`Launching ${claudeBin} ${command} ${epicId} (phase=${phase})`);
-  run(claudeBin, [...commandArgs, String(epicId)], {
-    cwd: workspace,
+  const launch = buildLaunchInvocation({
+    phase,
+    epicId,
+    claudeBin: process.env.CLAUDE_BIN,
   });
+  log(`Launching ${launch.bin} ${launch.command} ${epicId} (phase=${phase})`);
+  run(launch.bin, launch.args, { cwd: workspace });
 }
 
 const isMain = process.argv[1] === fileURLToPath(import.meta.url);

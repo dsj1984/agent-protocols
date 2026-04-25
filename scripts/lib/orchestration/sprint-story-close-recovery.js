@@ -201,6 +201,48 @@ export function computeRecoveryMode({ state, resume, restart } = {}) {
   };
 }
 
+function dropWorktreeIfPresent({ cwd, wtPath, progress, logger }) {
+  if (!fs.existsSync(wtPath)) return;
+  progress('RESTART', `Removing worktree ${wtPath}`);
+  const remove = gitSpawn(cwd, 'worktree', 'remove', '--force', wtPath);
+  if (remove.status !== 0) {
+    logger.error(
+      `[sprint-story-close] Worktree remove failed: ${remove.stderr || 'unknown'}. ` +
+        'Attempting prune to clean stale registration.',
+    );
+  }
+  gitSpawn(cwd, 'worktree', 'prune');
+}
+
+function recreateStoryBranchRef({ cwd, storyBranch, epicBranch, logger }) {
+  gitSpawn(cwd, 'branch', '-D', storyBranch);
+  const create = gitSpawn(cwd, 'branch', storyBranch, epicBranch);
+  if (create.status !== 0) {
+    logger.fatal(
+      `Failed to recreate ${storyBranch} from ${epicBranch}: ${create.stderr || 'unknown'}`,
+    );
+  }
+}
+
+function reseedWorktreeIfNeeded({
+  cwd,
+  wtConfig,
+  storyId,
+  storyBranch,
+  progress,
+  logger,
+}) {
+  if (!wtConfig?.enabled) return;
+  const wtPath = storyWorktreePath(cwd, storyId, wtConfig.root);
+  const add = gitSpawn(cwd, 'worktree', 'add', wtPath, storyBranch);
+  if (add.status !== 0) {
+    logger.fatal(
+      `Failed to re-seed worktree at ${wtPath}: ${add.stderr || 'unknown'}`,
+    );
+  }
+  progress('RESTART', `✅ Re-seeded worktree at ${wtPath}`);
+}
+
 /**
  * Restart path: abort any in-progress merge, drop the worktree, delete the
  * story branch ref, and re-seed branch + worktree from the Epic branch. The
@@ -216,51 +258,27 @@ export function restartStoryState({
   logger = Logger,
 } = {}) {
   progress('RESTART', `Resetting prior state for Story #${storyId}...`);
-
-  // 1. Abort any in-progress merge in the main checkout (idempotent — exits
-  //    non-zero if no merge is in progress, which we ignore).
   gitSpawn(cwd, 'merge', '--abort');
 
-  // 2. Drop the worktree if isolation is enabled.
   const wtConfig = orchestration?.worktreeIsolation;
   if (wtConfig?.enabled) {
-    const wtPath = storyWorktreePath(cwd, storyId, wtConfig.root);
-    if (fs.existsSync(wtPath)) {
-      progress('RESTART', `Removing worktree ${wtPath}`);
-      const remove = gitSpawn(cwd, 'worktree', 'remove', '--force', wtPath);
-      if (remove.status !== 0) {
-        logger.error(
-          `[sprint-story-close] Worktree remove failed: ${remove.stderr || 'unknown'}. ` +
-            'Attempting prune to clean stale registration.',
-        );
-      }
-      gitSpawn(cwd, 'worktree', 'prune');
-    }
+    dropWorktreeIfPresent({
+      cwd,
+      wtPath: storyWorktreePath(cwd, storyId, wtConfig.root),
+      progress,
+      logger,
+    });
   }
 
-  // 3. Delete the story branch ref (if it exists locally). Force-delete
-  //    because the branch likely has unmerged commits relative to main.
-  gitSpawn(cwd, 'branch', '-D', storyBranch);
-
-  // 4. Recreate the story branch ref from the local Epic branch.
-  const create = gitSpawn(cwd, 'branch', storyBranch, epicBranch);
-  if (create.status !== 0) {
-    logger.fatal(
-      `Failed to recreate ${storyBranch} from ${epicBranch}: ${create.stderr || 'unknown'}`,
-    );
-  }
-
-  // 5. Recreate the worktree if isolation is enabled.
-  if (wtConfig?.enabled) {
-    const wtPath = storyWorktreePath(cwd, storyId, wtConfig.root);
-    const add = gitSpawn(cwd, 'worktree', 'add', wtPath, storyBranch);
-    if (add.status !== 0) {
-      logger.fatal(
-        `Failed to re-seed worktree at ${wtPath}: ${add.stderr || 'unknown'}`,
-      );
-    }
-    progress('RESTART', `✅ Re-seeded worktree at ${wtPath}`);
-  }
+  recreateStoryBranchRef({ cwd, storyBranch, epicBranch, logger });
+  reseedWorktreeIfNeeded({
+    cwd,
+    wtConfig,
+    storyId,
+    storyBranch,
+    progress,
+    logger,
+  });
 }
 
 /**

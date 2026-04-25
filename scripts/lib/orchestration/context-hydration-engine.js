@@ -18,7 +18,12 @@
 
 import fs from 'node:fs';
 import path from 'node:path';
-import { getLimits, PROJECT_ROOT, resolveConfig } from '../config-resolver.js';
+import {
+  getLimits,
+  getPaths,
+  PROJECT_ROOT,
+  resolveConfig,
+} from '../config-resolver.js';
 
 // ---------------------------------------------------------------------------
 // File-content cache — the agent-protocol template, persona files, and
@@ -205,6 +210,7 @@ export async function hydrateContext(
   epicId,
 ) {
   const { settings } = resolveConfig();
+  const paths = getPaths({ agentSettings: settings });
   const currentVersion = getVersion();
   let warnings = '';
 
@@ -221,7 +227,7 @@ export async function hydrateContext(
   try {
     const pTemplatePath = path.join(
       PROJECT_ROOT,
-      settings.templatesRoot,
+      paths.templatesRoot,
       'agent-protocol.md',
     );
     protocolTpl = readFileCached(pTemplatePath);
@@ -240,7 +246,7 @@ export async function hydrateContext(
     try {
       const pPath = path.join(
         PROJECT_ROOT,
-        settings.personasRoot,
+        paths.personasRoot,
         `${task.persona}.md`,
       );
       if (fs.existsSync(pPath)) {
@@ -257,7 +263,7 @@ export async function hydrateContext(
   let skillsContext = '';
   if (task.skills && task.skills.length > 0) {
     skillsContext = '## Activated Skills\n\n';
-    const skillsRoot = path.join(PROJECT_ROOT, settings.skillsRoot);
+    const skillsRoot = path.join(PROJECT_ROOT, paths.skillsRoot);
     for (const skill of task.skills) {
       try {
         const sPath = getSkillPath(skillsRoot, skill);

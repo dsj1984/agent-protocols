@@ -31,8 +31,14 @@ import fs from 'node:fs';
 import path from 'node:path';
 import { parseSprintArgs } from './lib/cli-args.js';
 import { runAsCli } from './lib/cli-utils.js';
-import { runCloseValidation } from './lib/close-validation.js';
 import {
+  formatMaintainabilityProjection,
+  projectMaintainabilityRegressions,
+  runCloseValidation,
+} from './lib/close-validation.js';
+import {
+  getBaselines,
+  getRunners,
   PROJECT_ROOT,
   resolveConfig,
   resolveWorkingPath,
@@ -67,7 +73,7 @@ import {
   clearPhaseTimerState,
   loadPhaseTimerState,
 } from './lib/util/phase-timer-state.js';
-import { drainPendingCleanup } from './lib/worktree/pending-cleanup.js';
+import { drainPendingCleanup } from './lib/worktree/lifecycle/pending-cleanup.js';
 import { notify } from './notify.js';
 
 // ---------------------------------------------------------------------------
@@ -162,6 +168,50 @@ export function reconcileCleanupState({
   }
 
   return { worktreeReap: nextWorktreeReap, branchCleanup: nextBranchCleanup };
+}
+
+/**
+ * Pre-flight check that refuses to close while the operator's shell is still
+ * cd'd into the per-story worktree being reaped. On Windows this surfaces as
+ * `EBUSY: resource busy or locked, rmdir` during reap; cross-platform it
+ * makes `--cwd` semantics impossible to honour because git operations target
+ * the main repo while the filesystem mutation targets the worktree the
+ * caller is sitting inside.
+ *
+ * Fires only when `--cwd` is set explicitly. Single-tree closures resolve
+ * `workCwd` to the main repo, so the equality check is a tautology there
+ * and we don't reject those.
+ *
+ * Pure: takes inputs, returns a verdict. Exported so the rejection path is
+ * unit-testable without spawning the script.
+ *
+ * @param {object} opts
+ * @param {boolean} opts.cwdExplicit       True when `--cwd` (or AGENT_WORKTREE_ROOT) was set.
+ * @param {string} opts.mainCwd            Resolved main repo path.
+ * @param {number|string} opts.storyId
+ * @param {string} [opts.worktreeRoot]     `orchestration.worktreeIsolation.root` (defaults to `.worktrees`).
+ * @param {string} [opts.currentCwd]       Defaults to `process.cwd()`.
+ * @returns {{ ok: true } | { ok: false, message: string }}
+ */
+export function checkCdOutGuard({
+  cwdExplicit,
+  mainCwd,
+  storyId,
+  worktreeRoot = '.worktrees',
+  currentCwd = process.cwd(),
+}) {
+  if (!cwdExplicit) return { ok: true };
+  const workCwd = path.resolve(mainCwd, worktreeRoot, `story-${storyId}`);
+  const cwd = path.resolve(currentCwd);
+  if (cwd !== workCwd) return { ok: true };
+  return {
+    ok: false,
+    message:
+      `Refusing to close while CWD is the worktree being reaped.\n` +
+      `   Current cwd:  ${cwd}\n` +
+      `   Main repo:    ${mainCwd}\n` +
+      `   Run instead:  cd "${mainCwd}" && node .agents/scripts/sprint-story-close.js --story ${storyId}`,
+  };
 }
 
 /**
@@ -344,7 +394,7 @@ async function finalizeMerge(
         cwd,
         epicBranch,
         storyBranch,
-        closeRetry: orchestration?.closeRetry,
+        closeRetry: getRunners(orchestration).closeRetry,
         git: { gitSpawn },
         log: (msg) => progress('GIT', msg),
       });
@@ -403,6 +453,87 @@ export function renderPhaseTimingsCommentBody(summary) {
 }
 
 /**
+ * Pure: build the conventional-commit subject the resume path uses to
+ * finalize a partial-merge commit. Exported for tests.
+ */
+export function buildResumeMergeCommitMsg(storyTitle, storyId) {
+  const lc = storyTitle.charAt(0).toLowerCase() + storyTitle.slice(1);
+  return `feat: ${lc} (resolves #${storyId})`;
+}
+
+/**
+ * Pure: classify a `pushEpicWithRetry` outcome into the operator-facing
+ * fatal-error message. Returns `null` when the push was ok.
+ */
+export function describeResumePushFailure(pushOutcome) {
+  if (pushOutcome.ok) return null;
+  const reasonLabel =
+    pushOutcome.reason === 'retry-exhausted'
+      ? `retries exhausted after ${pushOutcome.attempts} attempt(s)`
+      : pushOutcome.reason;
+  const detail =
+    pushOutcome.result?.stderr || pushOutcome.result?.stdout || 'unknown';
+  return `Push failed (${reasonLabel}): ${detail}`;
+}
+
+async function finalizeMergeIfPending({
+  cwd,
+  epicBranch,
+  storyBranch,
+  storyTitle,
+  storyId,
+}) {
+  const mergeHeadPath = path.join(cwd, '.git', 'MERGE_HEAD');
+  if (!fs.existsSync(mergeHeadPath)) {
+    progress(
+      'GIT',
+      '⚠️ No MERGE_HEAD found — merge already committed; proceeding to push',
+    );
+    return;
+  }
+  progress('GIT', 'Finalizing in-progress merge (git commit --no-verify)');
+  const commit = gitSpawn(
+    cwd,
+    'commit',
+    '--no-verify',
+    '-m',
+    buildResumeMergeCommitMsg(storyTitle, storyId),
+  );
+  if (commit.status !== 0) {
+    Logger.fatal(
+      `Failed to finalize merge commit: ${commit.stderr || commit.stdout || 'unknown'}. ` +
+        `Check that all conflicts are resolved and staged on ${epicBranch}.`,
+    );
+  }
+  progress('GIT', `✅ Merge of ${storyBranch} finalized on ${epicBranch}`);
+}
+
+async function pushEpicAfterResume({
+  cwd,
+  epicBranch,
+  storyBranch,
+  orchestration,
+}) {
+  progress('GIT', `Pushing ${epicBranch}...`);
+  let pushOutcome;
+  try {
+    pushOutcome = await pushEpicWithRetry({
+      cwd,
+      epicBranch,
+      storyBranch,
+      closeRetry: getRunners(orchestration).closeRetry,
+      git: { gitSpawn },
+      log: (msg) => progress('GIT', msg),
+    });
+  } catch (err) {
+    if (err instanceof PushRetryConflictError) Logger.fatal(err.message);
+    throw err;
+  }
+  const fatal = describeResumePushFailure(pushOutcome);
+  if (fatal) Logger.fatal(fatal);
+}
+
+/**
  * Complete an in-progress merge whose conflicts have been resolved by the
  * operator, then push. Used by the `--resume` path when prior state is
  * `partial-merge`.
@@ -425,51 +556,19 @@ async function completeInProgressMerge({
     });
     progress('LOCK', `🔒 Acquired ${path.basename(lockHandle.filePath)}`);
 
-    const mergeHeadPath = path.join(cwd, '.git', 'MERGE_HEAD');
-    if (fs.existsSync(mergeHeadPath)) {
-      progress('GIT', 'Finalizing in-progress merge (git commit --no-verify)');
-      const mergeMsg = `feat: ${storyTitle.charAt(0).toLowerCase() + storyTitle.slice(1)} (resolves #${storyId})`;
-      const commit = gitSpawn(cwd, 'commit', '--no-verify', '-m', mergeMsg);
-      if (commit.status !== 0) {
-        Logger.fatal(
-          `Failed to finalize merge commit: ${commit.stderr || commit.stdout || 'unknown'}. ` +
-            `Check that all conflicts are resolved and staged on ${epicBranch}.`,
-        );
-      }
-      progress('GIT', `✅ Merge of ${storyBranch} finalized on ${epicBranch}`);
-    } else {
-      progress(
-        'GIT',
-        '⚠️ No MERGE_HEAD found — merge already committed; proceeding to push',
-      );
-    }
-
-    progress('GIT', `Pushing ${epicBranch}...`);
-    let pushOutcome;
-    try {
-      pushOutcome = await pushEpicWithRetry({
-        cwd,
-        epicBranch,
-        storyBranch,
-        closeRetry: orchestration?.closeRetry,
-        git: { gitSpawn },
-        log: (msg) => progress('GIT', msg),
-      });
-    } catch (err) {
-      if (err instanceof PushRetryConflictError) {
-        Logger.fatal(err.message);
-      }
-      throw err;
-    }
-    if (!pushOutcome.ok) {
-      const reasonLabel =
-        pushOutcome.reason === 'retry-exhausted'
-          ? `retries exhausted after ${pushOutcome.attempts} attempt(s)`
-          : pushOutcome.reason;
-      Logger.fatal(
-        `Push failed (${reasonLabel}): ${pushOutcome.result?.stderr || pushOutcome.result?.stdout || 'unknown'}`,
-      );
-    }
+    await finalizeMergeIfPending({
+      cwd,
+      epicBranch,
+      storyBranch,
+      storyTitle,
+      storyId,
+    });
+    await pushEpicAfterResume({
+      cwd,
+      epicBranch,
+      storyBranch,
+      orchestration,
+    });
   } finally {
     if (lockHandle) {
       releaseEpicMergeLock(lockHandle);
@@ -521,7 +620,20 @@ export async function runStoryClose({
 
   let epicId = argEpicId;
 
-  const { orchestration } = resolveConfig({ cwd });
+  const { orchestration, settings } = resolveConfig({ cwd });
+
+  // Pre-flight cd-out guard — runs after argument parsing and config load
+  // but before any git/filesystem mutation. Converts the recurring Windows
+  // EBUSY-on-reap friction (5 events in #730) into a zero-friction abort
+  // with an exact remediation command.
+  const guard = checkCdOutGuard({
+    cwdExplicit: parsed.cwd != null,
+    mainCwd: cwd,
+    storyId,
+    worktreeRoot: orchestration?.worktreeIsolation?.root,
+  });
+  if (!guard.ok) Logger.fatal(guard.message);
+
   const provider = injectedProvider || createProvider(orchestration);
   const notifyFn = (ticketId, payload) =>
     notify(ticketId, payload, { orchestration, provider });
@@ -618,6 +730,38 @@ export async function runStoryClose({
       Logger.fatal(
         `Pre-merge validation failed at "${gate.name}" (exit ${status}).` +
           (gate.hint ? ` ${gate.hint}` : ''),
+      );
+    }
+
+    // -----------------------------------------------------------------------
+    // Pre-merge MI ceiling projection — advisory signal that lists every
+    // changed file whose post-merge MI score would breach the per-file
+    // baseline. Surfaces the exact files + the `baseline-refresh:` workflow
+    // before the merge so the operator can ship the refresh atomically with
+    // the Story PR rather than as a follow-on after the push.
+    // -----------------------------------------------------------------------
+    try {
+      const baselinePath = getBaselines({ agentSettings: settings })
+        ?.maintainability?.path;
+      if (baselinePath) {
+        const projection = projectMaintainabilityRegressions({
+          cwd,
+          epicBranch,
+          storyBranch,
+          baselinePath,
+        });
+        const advisory = formatMaintainabilityProjection(projection);
+        if (advisory) {
+          for (const line of advisory.split('\n')) Logger.info(line);
+        } else if (projection.skipped) {
+          Logger.info(
+            `[close-validation] Pre-merge MI projection skipped (${projection.skipped}).`,
+          );
+        }
+      }
+    } catch (err) {
+      Logger.warn?.(
+        `[close-validation] Pre-merge MI projection failed: ${err?.message ?? err}`,
       );
     }
   }

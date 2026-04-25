@@ -1,5 +1,5 @@
 /**
- * worktree/pending-cleanup.js
+ * worktree/lifecycle/pending-cleanup.js
  *
  * Stage 2 of the Windows worktree reap fallback (see #386).
  *
@@ -20,7 +20,7 @@
 import fs from 'node:fs';
 import { rm as fsPromisesRm } from 'node:fs/promises';
 import path from 'node:path';
-import { NOOP_LOGGER } from '../Logger.js';
+import { NOOP_LOGGER } from '../../Logger.js';
 
 export const MANIFEST_FILENAME = '.pending-cleanup.json';
 export const MAX_SWEEP_ATTEMPTS = 3;

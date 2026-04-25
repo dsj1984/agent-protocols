@@ -19,7 +19,7 @@
  *
  * Also drains any `.worktrees/.pending-cleanup.json` manifest left behind
  * by Stage 1 (`removeWorktreeWithRecovery` → fs-rm-retry exhaustion, see
- * `../worktree/pending-cleanup.js`). Entries whose Stage 1 retry now
+ * `../worktree/lifecycle/pending-cleanup.js`). Entries whose Stage 1 retry now
  * succeeds are removed from the manifest; entries reaching
  * MAX_SWEEP_ATTEMPTS emit an `OPERATOR ACTION REQUIRED: persistent-lock`.
  *
@@ -34,7 +34,7 @@ import * as defaultGit from '../../git-utils.js';
 import { NOOP_LOGGER } from '../../Logger.js';
 import { AGENT_LABELS } from '../../label-constants.js';
 import { parseWorktreePorcelain } from '../../worktree/inspector.js';
-import { drainPendingCleanup } from '../../worktree/pending-cleanup.js';
+import { drainPendingCleanup } from '../../worktree/lifecycle/pending-cleanup.js';
 
 const DONE_LABEL = AGENT_LABELS.DONE;
 

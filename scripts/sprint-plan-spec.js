@@ -49,7 +49,7 @@ import { createProvider } from './lib/provider-factory.js';
 import {
   drainPendingCleanup,
   readManifest,
-} from './lib/worktree/pending-cleanup.js';
+} from './lib/worktree/lifecycle/pending-cleanup.js';
 
 /**
  * Drain the `.worktrees/.pending-cleanup.json` manifest left behind by Stage 1

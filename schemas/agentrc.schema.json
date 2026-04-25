@@ -31,11 +31,6 @@
         }
       ]
     },
-    "stringFieldsPattern": {
-      "description": "Pattern enumerating every flat agentSettings string field. Mirrors AGENT_SETTINGS_STRING_FIELDS.",
-      "type": "string",
-      "pattern": "^(baseBranch|scriptsRoot|workflowsRoot|personasRoot|schemasRoot|skillsRoot|templatesRoot|rulesRoot)$"
-    },
     "maintainabilityCrap": {
       "type": "object",
       "properties": {
@@ -237,6 +232,48 @@
             { "$ref": "#/$defs/safeString" },
             { "type": "string", "minLength": 1 }
           ]
+        },
+        "scriptsRoot": {
+          "allOf": [
+            { "$ref": "#/$defs/safeString" },
+            { "type": "string", "minLength": 1 }
+          ]
+        },
+        "workflowsRoot": {
+          "allOf": [
+            { "$ref": "#/$defs/safeString" },
+            { "type": "string", "minLength": 1 }
+          ]
+        },
+        "personasRoot": {
+          "allOf": [
+            { "$ref": "#/$defs/safeString" },
+            { "type": "string", "minLength": 1 }
+          ]
+        },
+        "schemasRoot": {
+          "allOf": [
+            { "$ref": "#/$defs/safeString" },
+            { "type": "string", "minLength": 1 }
+          ]
+        },
+        "skillsRoot": {
+          "allOf": [
+            { "$ref": "#/$defs/safeString" },
+            { "type": "string", "minLength": 1 }
+          ]
+        },
+        "templatesRoot": {
+          "allOf": [
+            { "$ref": "#/$defs/safeString" },
+            { "type": "string", "minLength": 1 }
+          ]
+        },
+        "rulesRoot": {
+          "allOf": [
+            { "$ref": "#/$defs/safeString" },
+            { "type": "string", "minLength": 1 }
+          ]
         }
       },
       "additionalProperties": false
@@ -245,6 +282,7 @@
       "type": "object",
       "required": ["paths"],
       "properties": {
+        "baseBranch": { "$ref": "#/$defs/safeString" },
         "docsContextFiles": { "type": "array", "items": { "type": "string" } },
         "sprintClose": { "$ref": "#/$defs/sprintClose" },
         "release": { "$ref": "#/$defs/release" },
@@ -254,11 +292,7 @@
         "paths": { "$ref": "#/$defs/paths" },
         "limits": { "$ref": "#/$defs/limits" }
       },
-      "patternProperties": {
-        "^(baseBranch|scriptsRoot|workflowsRoot|personasRoot|schemasRoot|skillsRoot|templatesRoot|rulesRoot)$": {
-          "$ref": "#/$defs/safeString"
-        }
-      }
+      "additionalProperties": false
     },
     "github": {
       "type": "object",
@@ -370,6 +404,17 @@
       },
       "additionalProperties": false
     },
+    "runners": {
+      "type": "object",
+      "properties": {
+        "epicRunner": { "$ref": "#/$defs/epicRunner" },
+        "planRunner": { "$ref": "#/$defs/planRunner" },
+        "concurrency": { "$ref": "#/$defs/concurrency" },
+        "closeRetry": { "$ref": "#/$defs/closeRetry" },
+        "poolMode": { "$ref": "#/$defs/poolMode" }
+      },
+      "additionalProperties": false
+    },
     "orchestration": {
       "type": "object",
       "required": ["provider"],
@@ -384,11 +429,7 @@
           "additionalProperties": false
         },
         "worktreeIsolation": { "$ref": "#/$defs/worktreeIsolation" },
-        "epicRunner": { "$ref": "#/$defs/epicRunner" },
-        "planRunner": { "$ref": "#/$defs/planRunner" },
-        "concurrency": { "$ref": "#/$defs/concurrency" },
-        "closeRetry": { "$ref": "#/$defs/closeRetry" },
-        "poolMode": { "$ref": "#/$defs/poolMode" }
+        "runners": { "$ref": "#/$defs/runners" }
       },
       "additionalProperties": false,
       "allOf": [

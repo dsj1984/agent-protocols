@@ -92,6 +92,96 @@ export function applyNodeModulesStrategy(ctx, wtPath) {
 }
 
 /**
+ * Pure: pick the package-manager command + args for a given strategy and
+ * worktree path. Returns `null` when the strategy is `symlink` (handled
+ * elsewhere) or the worktree has no `package.json`.
+ *
+ * @param {string} strategy One of `per-worktree | pnpm-store | symlink`.
+ * @param {string} wtPath Absolute worktree path.
+ * @param {{ existsSync: (p: string) => boolean }} [fsLike] Injectable for tests.
+ * @returns {{ cmd: string, args: string[] } | null}
+ */
+export function selectInstallCommand(strategy, wtPath, fsLike = fs) {
+  if (strategy === 'symlink') return null;
+  if (!fsLike.existsSync(path.join(wtPath, 'package.json'))) return null;
+
+  if (strategy === 'pnpm-store') {
+    return { cmd: 'pnpm', args: ['install', '--frozen-lockfile'] };
+  }
+  if (fsLike.existsSync(path.join(wtPath, 'pnpm-lock.yaml'))) {
+    return { cmd: 'pnpm', args: ['install', '--frozen-lockfile'] };
+  }
+  if (fsLike.existsSync(path.join(wtPath, 'yarn.lock'))) {
+    return { cmd: 'yarn', args: ['install', '--frozen-lockfile'] };
+  }
+  return { cmd: 'npm', args: ['ci'] };
+}
+
+/** Pure: retry policy keyed off the chosen command. pnpm gets 3× + 5min. */
+export function installRetryPolicy(cmd) {
+  const isPnpm = cmd === 'pnpm';
+  return {
+    maxAttempts: isPnpm ? 3 : 1,
+    timeoutMs: isPnpm ? 300_000 : 120_000,
+    backoffMs: [0, 2_000, 5_000],
+  };
+}
+
+/** Pure: classify a failed `spawnSync` result for the warn-line. */
+export function describeAttemptFailure(result, timeoutMs) {
+  if (result.signal === 'SIGTERM') return `timeout after ${timeoutMs / 1000}s`;
+  return `exit ${result.status}`;
+}
+
+/**
+ * Run the package-manager install with the configured retry policy. Pure
+ * w.r.t. `spawnFn` + `sleepFn` — the CLI wires real ones; tests inject stubs.
+ *
+ * @returns {{ ok: boolean, attempts: number, lastResult: object }}
+ */
+export function runInstallWithRetry({
+  cmd,
+  args,
+  cwd,
+  shell,
+  policy,
+  spawnFn,
+  sleepFn,
+  logger,
+  strategy,
+}) {
+  let lastResult;
+  let attempt = 0;
+  for (attempt = 1; attempt <= policy.maxAttempts; attempt += 1) {
+    if (attempt > 1) {
+      const delay = policy.backoffMs[attempt - 1] ?? 5_000;
+      logger.info(
+        `worktree.install retry ${attempt}/${policy.maxAttempts} after ${delay}ms...`,
+      );
+      sleepFn(delay);
+    }
+    logger.info(
+      `worktree.install strategy=${strategy} cmd=${cmd} attempt=${attempt}/${policy.maxAttempts} path=${cwd}`,
+    );
+    lastResult = spawnFn(cmd, args, {
+      cwd,
+      stdio: 'pipe',
+      encoding: 'utf-8',
+      shell,
+      timeout: policy.timeoutMs,
+    });
+    if (lastResult.status === 0) {
+      return { ok: true, attempts: attempt, lastResult };
+    }
+    const reason = describeAttemptFailure(lastResult, policy.timeoutMs);
+    logger.warn(
+      `worktree.install attempt ${attempt} failed (${reason}) stderr=${(lastResult.stderr ?? '').slice(0, 500)}`,
+    );
+  }
+  return { ok: false, attempts: attempt - 1, lastResult };
+}
+
+/**
  * Run the appropriate package-manager install inside a freshly created
  * worktree. Non-fatal: logs a warning on failure so the agent can retry.
  *
@@ -101,75 +191,25 @@ export function applyNodeModulesStrategy(ctx, wtPath) {
  */
 export function installDependencies(ctx, wtPath) {
   const strategy = ctx.config.nodeModulesStrategy ?? 'per-worktree';
-  if (strategy === 'symlink') return true;
+  const selection = selectInstallCommand(strategy, wtPath);
+  if (selection === null) return true;
 
-  const pkgJson = path.join(wtPath, 'package.json');
-  if (!fs.existsSync(pkgJson)) return true;
+  const policy = installRetryPolicy(selection.cmd);
+  const run = runInstallWithRetry({
+    cmd: selection.cmd,
+    args: selection.args,
+    cwd: wtPath,
+    shell: ctx.platform === 'win32',
+    policy,
+    spawnFn: spawnSync,
+    sleepFn: sleepSync,
+    logger: ctx.logger,
+    strategy,
+  });
 
-  let cmd;
-  let args;
-  if (strategy === 'pnpm-store') {
-    cmd = 'pnpm';
-    args = ['install', '--frozen-lockfile'];
-  } else {
-    // per-worktree: detect lock file to pick the right package manager.
-    const hasPnpmLock = fs.existsSync(path.join(wtPath, 'pnpm-lock.yaml'));
-    const hasYarnLock = fs.existsSync(path.join(wtPath, 'yarn.lock'));
-
-    if (hasPnpmLock) {
-      cmd = 'pnpm';
-      args = ['install', '--frozen-lockfile'];
-    } else if (hasYarnLock) {
-      cmd = 'yarn';
-      args = ['install', '--frozen-lockfile'];
-    } else {
-      cmd = 'npm';
-      args = ['ci'];
-    }
-  }
-
-  // pnpm-store first-run populates the global content-addressable store,
-  // which can be slow. Give it more headroom and retry on failure.
-  const isPnpm = cmd === 'pnpm';
-  const maxAttempts = isPnpm ? 3 : 1;
-  const timeout = isPnpm ? 300_000 : 120_000;
-  const backoffMs = [0, 2_000, 5_000];
-
-  let lastResult;
-  for (let attempt = 1; attempt <= maxAttempts; attempt++) {
-    if (attempt > 1) {
-      const delay = backoffMs[attempt - 1] ?? 5_000;
-      ctx.logger.info(
-        `worktree.install retry ${attempt}/${maxAttempts} after ${delay}ms...`,
-      );
-      sleepSync(delay);
-    }
-
-    ctx.logger.info(
-      `worktree.install strategy=${strategy} cmd=${cmd} attempt=${attempt}/${maxAttempts} path=${wtPath}`,
-    );
-    lastResult = spawnSync(cmd, args, {
-      cwd: wtPath,
-      stdio: 'pipe',
-      encoding: 'utf-8',
-      shell: ctx.platform === 'win32',
-      timeout,
-    });
-
-    if (lastResult.status === 0) break;
-
-    const reason =
-      lastResult.signal === 'SIGTERM'
-        ? `timeout after ${timeout / 1000}s`
-        : `exit ${lastResult.status}`;
+  if (!run.ok) {
     ctx.logger.warn(
-      `worktree.install attempt ${attempt} failed (${reason}) stderr=${(lastResult.stderr ?? '').slice(0, 500)}`,
-    );
-  }
-
-  if (lastResult.status !== 0) {
-    ctx.logger.warn(
-      `worktree.install FAILED after ${maxAttempts} attempt(s). ` +
+      `worktree.install FAILED after ${policy.maxAttempts} attempt(s). ` +
         'Agent will need to run install manually in the worktree.',
     );
     return false;
@@ -178,12 +218,14 @@ export function installDependencies(ctx, wtPath) {
   const nmPath = path.join(wtPath, 'node_modules');
   if (!fs.existsSync(nmPath)) {
     ctx.logger.warn(
-      `worktree.install cmd=${cmd} exited 0 but node_modules missing at ${nmPath}`,
+      `worktree.install cmd=${selection.cmd} exited 0 but node_modules missing at ${nmPath}`,
     );
     return false;
   }
 
-  ctx.logger.info(`worktree.install succeeded cmd=${cmd} path=${wtPath}`);
+  ctx.logger.info(
+    `worktree.install succeeded cmd=${selection.cmd} path=${wtPath}`,
+  );
   return true;
 }
 
