@@ -236,8 +236,8 @@ test('applyNodeModulesStrategy: unknown strategy rejects', () => {
   );
 });
 
-test('installDependencies: symlink returns true without running installer', () => {
-  assert.equal(
+test('installDependencies: symlink reports skipped without running installer', () => {
+  assert.deepEqual(
     installDependencies(
       {
         config: { nodeModulesStrategy: 'symlink' },
@@ -246,13 +246,13 @@ test('installDependencies: symlink returns true without running installer', () =
       },
       '/nonexistent',
     ),
-    true,
+    { status: 'skipped', reason: 'symlink-strategy' },
   );
 });
 
-test('installDependencies: no package.json in worktree returns true', () => {
+test('installDependencies: no package.json in worktree reports skipped', () => {
   const root = fs.mkdtempSync(path.join(os.tmpdir(), 'nms-'));
-  assert.equal(
+  assert.deepEqual(
     installDependencies(
       {
         config: { nodeModulesStrategy: 'per-worktree' },
@@ -261,6 +261,6 @@ test('installDependencies: no package.json in worktree returns true', () => {
       },
       root,
     ),
-    true,
+    { status: 'skipped', reason: 'no-package-json' },
   );
 });

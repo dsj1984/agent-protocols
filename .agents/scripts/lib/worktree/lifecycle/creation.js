@@ -50,7 +50,11 @@ export async function ensure(ctx, storyId, branch) {
     phase('worktree-create');
     phase('bootstrap');
     phase('install');
-    return { path: wtPath, created: false };
+    return {
+      path: wtPath,
+      created: false,
+      installStatus: { status: 'skipped', reason: 'worktree-reused' },
+    };
   }
 
   fs.mkdirSync(ctx.worktreeRoot, { recursive: true });
@@ -80,7 +84,11 @@ export async function ensure(ctx, storyId, branch) {
         ctx.logger.info(
           `worktree.ensure race: worktree appeared concurrently for story-${id}, reusing`,
         );
-        return { path: wtPath, created: false };
+        return {
+          path: wtPath,
+          created: false,
+          installStatus: { status: 'skipped', reason: 'worktree-reused' },
+        };
       }
     }
     throw new Error(
@@ -98,14 +106,14 @@ export async function ensure(ctx, storyId, branch) {
   phase('bootstrap');
   ctx.copyBootstrapFiles(wtPath);
   phase('install');
-  const installOk = installDependencies(ctx, wtPath);
+  const installStatus = installDependencies(ctx, wtPath);
   ctx.copyAgentsFromRoot(wtPath);
 
   ctx.logger.info(`worktree.created storyId=${id} path=${wtPath}`);
   return {
     path: wtPath,
     created: true,
-    installFailed: !installOk,
+    installStatus,
     ...(windowsPathWarning ? { windowsPathWarning } : {}),
   };
 }
