@@ -24,7 +24,7 @@ describe('doc-reader', () => {
     fs.writeFileSync(path.join(tmpDocsDir, 'doc2.md'), 'Content 2');
     fs.writeFileSync(path.join(tmpDocsDir, 'not-a-doc.txt'), 'Text');
 
-    const result = await scrapeProjectDocs({ docsRoot: tmpDocsDir });
+    const result = await scrapeProjectDocs({ paths: { docsRoot: tmpDocsDir } });
 
     assert.ok(result.includes('--- Document: doc1.md ---'));
     assert.ok(result.includes('Content 1'));
@@ -38,7 +38,7 @@ describe('doc-reader', () => {
     fs.writeFileSync(path.join(tmpDocsDir, 'doc2.md'), 'Content 2');
 
     const result = await scrapeProjectDocs({
-      docsRoot: tmpDocsDir,
+      paths: { docsRoot: tmpDocsDir },
       docsContextFiles: ['doc2.md'],
     });
 
@@ -47,12 +47,14 @@ describe('doc-reader', () => {
   });
 
   it('returns empty string if docsRoot does not exist', async () => {
-    const result = await scrapeProjectDocs({ docsRoot: '/non/existent/path' });
+    const result = await scrapeProjectDocs({
+      paths: { docsRoot: '/non/existent/path' },
+    });
     assert.strictEqual(result, '');
   });
 
   it('handles read errors gracefully', async () => {
-    const result = await scrapeProjectDocs({ docsRoot: tmpDocsDir });
+    const result = await scrapeProjectDocs({ paths: { docsRoot: tmpDocsDir } });
     // Should not throw even if empty
     assert.strictEqual(result, '');
   });

@@ -1,5 +1,6 @@
 import fs from 'node:fs';
 import path from 'node:path';
+import { getPaths } from '../config-resolver.js';
 
 /**
  * Scrapes all eligible project markdown documentation files,
@@ -7,10 +8,9 @@ import path from 'node:path';
  */
 export async function scrapeProjectDocs(settings) {
   let docsContext = '';
-  if (settings.docsRoot && fs.existsSync(settings.docsRoot)) {
-    console.log(
-      `[Epic Planner] Scraping project docs from ${settings.docsRoot}...`,
-    );
+  const docsRoot = getPaths({ agentSettings: settings }).docsRoot;
+  if (docsRoot && fs.existsSync(docsRoot)) {
+    console.log(`[Epic Planner] Scraping project docs from ${docsRoot}...`);
     try {
       let targetFiles;
       if (
@@ -19,17 +19,17 @@ export async function scrapeProjectDocs(settings) {
       ) {
         targetFiles = settings.docsContextFiles.map((f) => ({
           name: f,
-          full: path.join(settings.docsRoot, f),
+          full: path.join(docsRoot, f),
         }));
       } else {
-        const entries = fs.readdirSync(settings.docsRoot, {
+        const entries = fs.readdirSync(docsRoot, {
           withFileTypes: true,
         });
         targetFiles = entries
           .filter((e) => e.isFile() && e.name.endsWith('.md'))
           .map((e) => ({
             name: e.name,
-            full: path.join(settings.docsRoot, e.name),
+            full: path.join(docsRoot, e.name),
           }));
       }
 

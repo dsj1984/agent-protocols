@@ -5,11 +5,11 @@ import {
   runFreshnessGate,
 } from '../.agents/scripts/validate-docs-freshness.js';
 
-test('resolveDocList merges release.docs and docsContextFiles under docsRoot', () => {
+test('resolveDocList merges release.docs and docsContextFiles under paths.docsRoot', () => {
   const docs = resolveDocList({
     release: { docs: ['README.md', 'docs/CHANGELOG.md'] },
     docsContextFiles: ['architecture.md', 'decisions.md'],
-    docsRoot: 'docs',
+    paths: { docsRoot: 'docs' },
   });
   assert.deepStrictEqual(docs, [
     'README.md',
@@ -23,7 +23,7 @@ test('resolveDocList deduplicates identical entries', () => {
   const docs = resolveDocList({
     release: { docs: ['docs/architecture.md'] },
     docsContextFiles: ['architecture.md'],
-    docsRoot: 'docs',
+    paths: { docsRoot: 'docs' },
   });
   assert.deepStrictEqual(docs, ['docs/architecture.md']);
 });

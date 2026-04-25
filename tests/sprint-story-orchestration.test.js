@@ -350,9 +350,7 @@ test('sprint-story-close: successful merge and closure', async () => {
     JSON.stringify({
       agentSettings: {
         baseBranch: 'main',
-        agentRoot: '.agents',
-        docsRoot: 'docs',
-        tempRoot: 'temp',
+        paths: { agentRoot: '.agents', docsRoot: 'docs', tempRoot: 'temp' },
       },
       orchestration: {
         provider: 'github',
@@ -413,9 +411,7 @@ test('sprint-story-close: reaps worktree using resolved --cwd repo root', async 
     JSON.stringify({
       agentSettings: {
         baseBranch: 'main',
-        agentRoot: '.agents',
-        docsRoot: 'docs',
-        tempRoot: 'temp',
+        paths: { agentRoot: '.agents', docsRoot: 'docs', tempRoot: 'temp' },
       },
       orchestration: {
         provider: 'github',
@@ -477,9 +473,7 @@ test('sprint-story-close: resolves config from runtime --cwd (can disable reap)'
     JSON.stringify({
       agentSettings: {
         baseBranch: 'main',
-        agentRoot: '.agents',
-        docsRoot: 'docs',
-        tempRoot: 'temp',
+        paths: { agentRoot: '.agents', docsRoot: 'docs', tempRoot: 'temp' },
       },
       orchestration: {
         provider: 'github',
@@ -536,9 +530,7 @@ test('sprint-story-init: resolves config from runtime --cwd for worktree mode', 
     JSON.stringify({
       agentSettings: {
         baseBranch: 'main',
-        agentRoot: '.agents',
-        docsRoot: 'docs',
-        tempRoot: 'temp',
+        paths: { agentRoot: '.agents', docsRoot: 'docs', tempRoot: 'temp' },
       },
       orchestration: {
         provider: 'github',

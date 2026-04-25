@@ -3,10 +3,12 @@
   "title": "Agent Protocols",
   "agentSettings": {
     "baseBranch": "main",
-    "agentRoot": ".agents",
-    "docsRoot": "docs",
-    "tempRoot": "temp",
-    "auditOutputDir": "temp",
+    "paths": {
+      "agentRoot": ".agents",
+      "docsRoot": "docs",
+      "tempRoot": "temp",
+      "auditOutputDir": "temp"
+    },
     "docsContextFiles": [
       "architecture.md",
       "data-dictionary.md",

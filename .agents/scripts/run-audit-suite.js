@@ -25,7 +25,11 @@ import fs from 'node:fs/promises';
 import path from 'node:path';
 import { parseArgs } from 'node:util';
 import { runAsCli } from './lib/cli-utils.js';
-import { PROJECT_ROOT, resolveConfig } from './lib/config-resolver.js';
+import {
+  getPaths,
+  PROJECT_ROOT,
+  resolveConfig,
+} from './lib/config-resolver.js';
 import { ValidationError } from './lib/errors/index.js';
 
 const BUILT_IN_SUBSTITUTION_KEYS = Object.freeze([
@@ -146,7 +150,7 @@ export async function runAuditSuite({
   }
 
   const effectiveSubstitutions = {
-    auditOutputDir: settings.auditOutputDir ?? 'temp',
+    auditOutputDir: getPaths({ agentSettings: settings }).auditOutputDir,
     ...callerSubstitutions,
   };
 
