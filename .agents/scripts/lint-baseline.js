@@ -7,6 +7,7 @@ import { runAsCli } from './lib/cli-utils.js';
 import {
   getBaselines,
   getCommands,
+  getLimits,
   resolveConfig,
 } from './lib/config-resolver.js';
 import { Logger } from './lib/Logger.js';
@@ -156,8 +157,9 @@ export async function main(args = process.argv) {
   const cmdConfig = getCommands({ agentSettings: settings }).lintBaseline;
   const baselinePathRel = getBaselines({ agentSettings: settings }).lint.path;
   const baselinePath = path.resolve(PROJECT_ROOT, baselinePathRel);
-  const executionTimeoutMs = settings.executionTimeoutMs ?? 300000;
-  const executionMaxBuffer = settings.executionMaxBuffer ?? 10485760;
+  const limits = getLimits({ agentSettings: settings });
+  const executionTimeoutMs = limits.executionTimeoutMs;
+  const executionMaxBuffer = limits.executionMaxBuffer;
 
   if (mode === 'capture') {
     captureBaseline(

@@ -77,11 +77,19 @@ describe('agentrc.schema.json mirror — drift vs runtime AJV schemas', () => {
           typecheck: null,
           build: null,
         },
-        maxTickets: 40,
-        maxInstructionSteps: 5,
-        maxTokenBudget: 200000,
-        executionTimeoutMs: 300000,
-        executionMaxBuffer: 10485760,
+        limits: {
+          maxTickets: 40,
+          maxInstructionSteps: 5,
+          maxTokenBudget: 200000,
+          executionTimeoutMs: 300000,
+          executionMaxBuffer: 10485760,
+          friction: {
+            repetitiveCommandCount: 3,
+            consecutiveErrorCount: 3,
+            stagnationStepCount: 5,
+            maxIntegrationRetries: 2,
+          },
+        },
         docsContextFiles: ['architecture.md'],
         quality: {
           maintainability: { targetDirs: ['.agents/scripts'] },
@@ -102,12 +110,6 @@ describe('agentrc.schema.json mirror — drift vs runtime AJV schemas', () => {
           autoVersionBump: true,
         },
         sprintClose: { runRetro: true },
-        frictionThresholds: {
-          repetitiveCommandCount: 3,
-          consecutiveErrorCount: 3,
-          stagnationStepCount: 5,
-          maxIntegrationRetries: 2,
-        },
         riskGates: { heuristics: ['no destructive ops'] },
       },
       'fully populated',
@@ -141,19 +143,25 @@ describe('agentrc.schema.json mirror — drift vs runtime AJV schemas', () => {
     );
   });
 
-  it('rejects unknown property on frictionThresholds on both sides', () => {
+  it('rejects unknown property on limits.friction on both sides', () => {
     assertAgree(
       'agentSettings',
-      { frictionThresholds: { repetativeCommandCount: 3 } },
-      'frictionThresholds typo',
+      {
+        paths: { agentRoot: '.agents', docsRoot: 'docs', tempRoot: 'temp' },
+        limits: { friction: { repetativeCommandCount: 3 } },
+      },
+      'limits.friction typo',
     );
   });
 
-  it('rejects non-integer maxTokenBudget on both sides', () => {
+  it('rejects non-integer limits.maxTokenBudget on both sides', () => {
     assertAgree(
       'agentSettings',
-      { maxTokenBudget: 'lots' },
-      'string maxTokenBudget',
+      {
+        paths: { agentRoot: '.agents', docsRoot: 'docs', tempRoot: 'temp' },
+        limits: { maxTokenBudget: 'lots' },
+      },
+      'string limits.maxTokenBudget',
     );
   });
 

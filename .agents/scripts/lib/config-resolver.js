@@ -60,12 +60,9 @@ const LOADED_CONFIG_DEFAULTS = Object.freeze({
   ],
   // The legacy `maintainability` flat default was removed in Epic #730 Story 6
   // — the same content now lives under `quality.maintainability` and is filled
-  // in by {@link resolveQuality}. Leaving it absent here keeps the apply-keys
-  // loop from re-creating a flat alias that would shadow the grouped read.
-  maxTickets: 40,
-  executionTimeoutMs: 300000,
-  executionMaxBuffer: 10485760,
-  maxTokenBudget: 200000,
+  // in by {@link resolveQuality}. The runtime ceiling defaults
+  // (maxTickets / maxTokenBudget / executionTimeoutMs / executionMaxBuffer)
+  // moved under `limits` in Story 8 and are filled in by {@link resolveLimits}.
 });
 
 /** Defaults for the zero-config (no .agentrc.json present) path.
@@ -89,12 +86,10 @@ const ZERO_CONFIG_DEFAULTS = Object.freeze({
   ],
   // Same Story-6 flattening as LOADED_CONFIG_DEFAULTS — `maintainability` no
   // longer lives at the top level. Zero-config callers get the merged shape
-  // via the post-load `resolveQuality(settings.quality)` mutation below.
+  // via the post-load `resolveQuality(settings.quality)` mutation below. The
+  // runtime ceilings moved under `limits` in Story 8; resolveLimits fills
+  // them in via the same post-load mutation pattern.
   baseBranch: 'main',
-  maxTickets: 40,
-  executionTimeoutMs: 300000, // 5 minutes
-  executionMaxBuffer: 10485760, // 10MB
-  maxTokenBudget: 200000, // 200k tokens — fits modern Claude/GPT windows
 });
 
 /** Framework defaults for `agentSettings.quality.crap` (lifted out of the
@@ -227,10 +222,12 @@ export function resolveMaintainabilityQuality(userBlock) {
 }
 
 /** Keys to apply on top of a loaded config when the operator omitted them.
- * `quality` and `paths` are intentionally absent — they are filled by
- * `resolveQuality` / `resolvePaths` below (deep-merge, not top-level fill)
- * right after this loop runs. `auditOutputDir` was lifted under `paths` in
- * Epic #730 Story 7 and is no longer a flat alias. */
+ * `quality`, `paths`, and `limits` are intentionally absent — they are
+ * filled by `resolveQuality` / `resolvePaths` / `resolveLimits` below
+ * (deep-merge, not top-level fill) right after this loop runs.
+ * `auditOutputDir` lives under `paths` (Story 7); the runtime ceilings
+ * (maxTickets / maxTokenBudget / executionTimeoutMs / executionMaxBuffer)
+ * live under `limits` (Story 8). */
 const LOADED_CONFIG_APPLY_KEYS = [
   'scriptsRoot',
   'workflowsRoot',
@@ -241,9 +238,6 @@ const LOADED_CONFIG_APPLY_KEYS = [
   'rulesRoot',
   'docsContextFiles',
   'baseBranch',
-  'executionTimeoutMs',
-  'executionMaxBuffer',
-  'maxTokenBudget',
 ];
 
 /**
@@ -343,6 +337,10 @@ export function resolveConfig(opts) {
     // required path roots are schema-enforced; the operator's values flow
     // through unchanged.
     settings.paths = resolvePaths(settings.paths);
+    // Story 8 — fill in `limits` defaults (counts, budgets, timeouts, friction
+    // thresholds) so direct readers see merged values without re-applying
+    // fallbacks at every call site.
+    settings.limits = resolveLimits(settings.limits);
 
     if (validate) {
       validateOrchestrationConfig(orchestration);
@@ -364,6 +362,7 @@ export function resolveConfig(opts) {
   const zeroSettings = { ...ZERO_CONFIG_DEFAULTS };
   zeroSettings.quality = resolveQuality(zeroSettings.quality);
   zeroSettings.paths = resolvePaths(zeroSettings.paths);
+  zeroSettings.limits = resolveLimits(zeroSettings.limits);
   const resolved = {
     settings: zeroSettings,
     orchestration: null,
@@ -859,4 +858,75 @@ export function getPaths(config) {
   const userPaths =
     config?.agentSettings?.paths ?? config?.paths ?? undefined;
   return resolvePaths(userPaths);
+}
+
+/**
+ * Framework defaults for `agentSettings.limits` (Epic #730 Story 8). Mirrors
+ * the long-standing flat-key fallbacks the framework used before grouping —
+ * `maxTickets: 40`, 5-minute exec timeout, 10MB exec buffer, 200k token
+ * budget. `friction` defaults match the prior `frictionThresholds` block.
+ */
+export const LIMITS_DEFAULTS = Object.freeze({
+  maxInstructionSteps: 5,
+  maxTickets: 40,
+  maxTokenBudget: 200000,
+  executionTimeoutMs: 300000,
+  executionMaxBuffer: 10485760,
+  friction: Object.freeze({
+    repetitiveCommandCount: 3,
+    consecutiveErrorCount: 3,
+    stagnationStepCount: 5,
+    maxIntegrationRetries: 2,
+  }),
+});
+
+/**
+ * Merge a user-supplied `agentSettings.limits` block with framework defaults.
+ * Scalar keys replace; the nested `friction` block is merged shallowly so an
+ * operator can override a single threshold without re-listing the others.
+ *
+ * @param {object|undefined} userLimits
+ * @returns {{
+ *   maxInstructionSteps: number,
+ *   maxTickets: number,
+ *   maxTokenBudget: number,
+ *   executionTimeoutMs: number,
+ *   executionMaxBuffer: number,
+ *   friction: {
+ *     repetitiveCommandCount: number,
+ *     consecutiveErrorCount: number,
+ *     stagnationStepCount: number,
+ *     maxIntegrationRetries: number,
+ *   },
+ * }}
+ */
+export function resolveLimits(userLimits) {
+  const block =
+    userLimits && typeof userLimits === 'object' ? userLimits : {};
+  const userFriction =
+    block.friction && typeof block.friction === 'object' ? block.friction : {};
+  return {
+    maxInstructionSteps:
+      block.maxInstructionSteps ?? LIMITS_DEFAULTS.maxInstructionSteps,
+    maxTickets: block.maxTickets ?? LIMITS_DEFAULTS.maxTickets,
+    maxTokenBudget: block.maxTokenBudget ?? LIMITS_DEFAULTS.maxTokenBudget,
+    executionTimeoutMs:
+      block.executionTimeoutMs ?? LIMITS_DEFAULTS.executionTimeoutMs,
+    executionMaxBuffer:
+      block.executionMaxBuffer ?? LIMITS_DEFAULTS.executionMaxBuffer,
+    friction: { ...LIMITS_DEFAULTS.friction, ...userFriction },
+  };
+}
+
+/**
+ * Read the merged `agentSettings.limits` block. Accepts either the full
+ * resolved config or the bare `agentSettings` bag.
+ *
+ * @param {{ agentSettings?: { limits?: object } } | object | null | undefined} config
+ * @returns {ReturnType<typeof resolveLimits>}
+ */
+export function getLimits(config) {
+  const userLimits =
+    config?.agentSettings?.limits ?? config?.limits ?? undefined;
+  return resolveLimits(userLimits);
 }

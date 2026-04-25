@@ -6,8 +6,10 @@ import {
   BASELINES_DEFAULTS,
   COMMANDS_DEFAULTS,
   getCommands,
+  getLimits,
   getPaths,
   getQuality,
+  LIMITS_DEFAULTS,
   MAINTAINABILITY_CRAP_DEFAULTS,
   PR_GATE_DEFAULTS,
   PROJECT_ROOT,
@@ -661,6 +663,52 @@ describe('config-resolver library tests', () => {
       });
       assert.equal(out.agentRoot, 'custom');
       assert.equal(out.docsRoot, 'docs');
+    });
+  });
+
+  describe('getLimits (Epic #730 Story 8)', () => {
+    it('returns LIMITS_DEFAULTS when limits block is absent', () => {
+      const out = getLimits({ agentSettings: { ...REQ } });
+      assert.deepEqual(out, {
+        ...LIMITS_DEFAULTS,
+        friction: { ...LIMITS_DEFAULTS.friction },
+      });
+    });
+
+    it('preserves user scalar overrides + falls back on the rest', () => {
+      const out = getLimits({
+        agentSettings: {
+          ...REQ,
+          limits: { maxTickets: 99, executionTimeoutMs: 60000 },
+        },
+      });
+      assert.equal(out.maxTickets, 99);
+      assert.equal(out.executionTimeoutMs, 60000);
+      assert.equal(out.maxTokenBudget, LIMITS_DEFAULTS.maxTokenBudget);
+      assert.equal(out.maxInstructionSteps, LIMITS_DEFAULTS.maxInstructionSteps);
+    });
+
+    it('shallow-merges friction overrides without re-listing siblings', () => {
+      const out = getLimits({
+        agentSettings: {
+          ...REQ,
+          limits: { friction: { stagnationStepCount: 7 } },
+        },
+      });
+      assert.equal(out.friction.stagnationStepCount, 7);
+      assert.equal(
+        out.friction.repetitiveCommandCount,
+        LIMITS_DEFAULTS.friction.repetitiveCommandCount,
+      );
+    });
+
+    it('returns defaults for null/undefined input', () => {
+      assert.deepEqual(getLimits(null).friction, {
+        ...LIMITS_DEFAULTS.friction,
+      });
+      assert.deepEqual(getLimits(undefined).friction, {
+        ...LIMITS_DEFAULTS.friction,
+      });
     });
   });
 });

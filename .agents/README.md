@@ -714,7 +714,7 @@ Only `/sprint-execute` is supported on web in this release.
 
 Agents MUST halt, summarize blockers, and re-plan if they hit consecutive tool
 errors or perform consecutive analysis steps without modifying a file.
-Controlled by `frictionThresholds` in `.agentrc.json`.
+Controlled by `limits.friction` in `.agentrc.json`.
 
 ### Lint Baseline Ratcheting
 

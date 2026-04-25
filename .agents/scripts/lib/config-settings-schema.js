@@ -134,7 +134,13 @@ const RELEASE_SCHEMA = {
   additionalProperties: false,
 };
 
-const FRICTION_THRESHOLDS_SCHEMA = {
+/**
+ * `agentSettings.limits.friction` — runtime friction-emitter thresholds
+ * (renamed from the flat `agentSettings.frictionThresholds` block in
+ * Epic #730 Story 8). Lives nested under {@link LIMITS_SCHEMA} alongside
+ * the count/budget/timeout limits.
+ */
+const FRICTION_LIMITS_SCHEMA = {
   type: 'object',
   properties: {
     repetitiveCommandCount: { type: 'integer', minimum: 1 },
@@ -216,6 +222,26 @@ const QUALITY_SCHEMA = {
 };
 
 /**
+ * `agentSettings.limits` is the grouped home for every count/budget/timeout
+ * runtime ceiling (Epic #730 Story 8). The legacy flat
+ * `maxInstructionSteps` / `maxTickets` / `maxTokenBudget` /
+ * `executionTimeoutMs` / `executionMaxBuffer` keys move under here; the
+ * `frictionThresholds` block becomes `limits.friction`.
+ */
+const LIMITS_SCHEMA = {
+  type: 'object',
+  properties: {
+    maxInstructionSteps: { type: 'integer', minimum: 1 },
+    maxTickets: { type: 'integer', minimum: 1 },
+    maxTokenBudget: { type: 'integer', minimum: 1 },
+    executionTimeoutMs: { type: 'integer', minimum: 1 },
+    executionMaxBuffer: { type: 'integer', minimum: 1 },
+    friction: FRICTION_LIMITS_SCHEMA,
+  },
+  additionalProperties: false,
+};
+
+/**
  * `agentSettings.paths` is the grouped home for the framework's filesystem
  * roots (Epic #730 Story 7). `agentRoot` / `docsRoot` / `tempRoot` are
  * hard-required (transferred from the agentSettings-level Story 4 contract);
@@ -263,18 +289,13 @@ export const AGENT_SETTINGS_SCHEMA = {
   required: ['paths'],
   properties: {
     docsContextFiles: { type: 'array', items: { type: 'string' } },
-    maxTickets: { type: 'integer', minimum: 1 },
-    maxInstructionSteps: { type: 'integer', minimum: 1 },
-    maxTokenBudget: { type: 'integer', minimum: 1 },
-    executionTimeoutMs: { type: 'integer', minimum: 1 },
-    executionMaxBuffer: { type: 'integer', minimum: 1 },
     sprintClose: SPRINT_CLOSE_SCHEMA,
     release: RELEASE_SCHEMA,
-    frictionThresholds: FRICTION_THRESHOLDS_SCHEMA,
     riskGates: RISK_GATES_SCHEMA,
     quality: QUALITY_SCHEMA,
     commands: COMMANDS_SCHEMA,
     paths: PATHS_SCHEMA,
+    limits: LIMITS_SCHEMA,
   },
   patternProperties: {
     [STRING_FIELDS_PATTERN]: SAFE_STRING,

@@ -100,13 +100,25 @@
       "properties": { "runRetro": { "type": "boolean" } },
       "additionalProperties": false
     },
-    "frictionThresholds": {
+    "frictionLimits": {
       "type": "object",
       "properties": {
         "repetitiveCommandCount": { "type": "integer", "minimum": 1 },
         "consecutiveErrorCount": { "type": "integer", "minimum": 1 },
         "stagnationStepCount": { "type": "integer", "minimum": 1 },
         "maxIntegrationRetries": { "type": "integer", "minimum": 1 }
+      },
+      "additionalProperties": false
+    },
+    "limits": {
+      "type": "object",
+      "properties": {
+        "maxInstructionSteps": { "type": "integer", "minimum": 1 },
+        "maxTickets": { "type": "integer", "minimum": 1 },
+        "maxTokenBudget": { "type": "integer", "minimum": 1 },
+        "executionTimeoutMs": { "type": "integer", "minimum": 1 },
+        "executionMaxBuffer": { "type": "integer", "minimum": 1 },
+        "friction": { "$ref": "#/$defs/frictionLimits" }
       },
       "additionalProperties": false
     },
@@ -242,18 +254,13 @@
       "required": ["paths"],
       "properties": {
         "docsContextFiles": { "type": "array", "items": { "type": "string" } },
-        "maxTickets": { "type": "integer", "minimum": 1 },
-        "maxInstructionSteps": { "type": "integer", "minimum": 1 },
-        "maxTokenBudget": { "type": "integer", "minimum": 1 },
-        "executionTimeoutMs": { "type": "integer", "minimum": 1 },
-        "executionMaxBuffer": { "type": "integer", "minimum": 1 },
         "sprintClose": { "$ref": "#/$defs/sprintClose" },
         "release": { "$ref": "#/$defs/release" },
-        "frictionThresholds": { "$ref": "#/$defs/frictionThresholds" },
         "riskGates": { "$ref": "#/$defs/riskGates" },
         "quality": { "$ref": "#/$defs/quality" },
         "commands": { "$ref": "#/$defs/commands" },
-        "paths": { "$ref": "#/$defs/paths" }
+        "paths": { "$ref": "#/$defs/paths" },
+        "limits": { "$ref": "#/$defs/limits" }
       },
       "patternProperties": {
         "^(baseBranch|scriptsRoot|workflowsRoot|personasRoot|schemasRoot|skillsRoot|templatesRoot|rulesRoot)$": {

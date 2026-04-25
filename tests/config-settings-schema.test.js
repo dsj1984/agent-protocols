@@ -28,28 +28,39 @@ const expectErrors = (settings, ...needles) => {
 };
 
 describe('AGENT_SETTINGS_SCHEMA — explicit number/object entries', () => {
-  it('accepts integer maxTokenBudget / executionTimeoutMs / executionMaxBuffer', () => {
+  it('accepts integer maxTokenBudget / executionTimeoutMs / executionMaxBuffer under limits', () => {
     assert.equal(
       validate({
         ...REQ,
-        maxTokenBudget: 200000,
-        executionTimeoutMs: 300000,
-        executionMaxBuffer: 10485760,
+        limits: {
+          maxTokenBudget: 200000,
+          executionTimeoutMs: 300000,
+          executionMaxBuffer: 10485760,
+        },
       }),
       true,
     );
   });
 
-  it('rejects non-integer maxTokenBudget', () => {
-    expectErrors({ maxTokenBudget: 'lots' }, /maxTokenBudget/);
+  it('rejects non-integer limits.maxTokenBudget', () => {
+    expectErrors(
+      { ...REQ, limits: { maxTokenBudget: 'lots' } },
+      /maxTokenBudget/,
+    );
   });
 
-  it('rejects executionTimeoutMs below 1', () => {
-    expectErrors({ executionTimeoutMs: 0 }, /executionTimeoutMs/);
+  it('rejects limits.executionTimeoutMs below 1', () => {
+    expectErrors(
+      { ...REQ, limits: { executionTimeoutMs: 0 } },
+      /executionTimeoutMs/,
+    );
   });
 
-  it('rejects executionMaxBuffer below 1', () => {
-    expectErrors({ executionMaxBuffer: 0 }, /executionMaxBuffer/);
+  it('rejects limits.executionMaxBuffer below 1', () => {
+    expectErrors(
+      { ...REQ, limits: { executionMaxBuffer: 0 } },
+      /executionMaxBuffer/,
+    );
   });
 
   it('accepts riskGates with heuristics array', () => {
@@ -87,38 +98,40 @@ describe('AGENT_SETTINGS_SCHEMA — explicit number/object entries', () => {
     );
   });
 
-  it('accepts a full frictionThresholds block', () => {
+  it('accepts a full limits.friction block', () => {
     assert.equal(
       validate({
         ...REQ,
-        frictionThresholds: {
-          repetitiveCommandCount: 3,
-          consecutiveErrorCount: 3,
-          stagnationStepCount: 5,
-          maxIntegrationRetries: 2,
+        limits: {
+          friction: {
+            repetitiveCommandCount: 3,
+            consecutiveErrorCount: 3,
+            stagnationStepCount: 5,
+            maxIntegrationRetries: 2,
+          },
         },
       }),
       true,
     );
   });
 
-  it('rejects unknown property on frictionThresholds (typo guard)', () => {
+  it('rejects unknown property on limits.friction (typo guard)', () => {
     expectErrors(
-      { frictionThresholds: { repetativeCommandCount: 3 } },
+      { ...REQ, limits: { friction: { repetativeCommandCount: 3 } } },
       /must NOT have additional properties/,
     );
   });
 
-  it('rejects non-integer frictionThresholds entries', () => {
+  it('rejects non-integer limits.friction entries', () => {
     expectErrors(
-      { frictionThresholds: { repetitiveCommandCount: 'three' } },
+      { ...REQ, limits: { friction: { repetitiveCommandCount: 'three' } } },
       /repetitiveCommandCount/,
     );
   });
 
-  it('rejects frictionThresholds value below 1', () => {
+  it('rejects limits.friction value below 1', () => {
     expectErrors(
-      { frictionThresholds: { stagnationStepCount: 0 } },
+      { ...REQ, limits: { friction: { stagnationStepCount: 0 } } },
       /stagnationStepCount/,
     );
   });
