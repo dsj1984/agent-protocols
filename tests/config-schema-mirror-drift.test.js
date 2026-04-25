@@ -204,11 +204,7 @@ describe('agentrc.schema.json mirror — drift vs runtime AJV schemas', () => {
   });
 
   it('rejects audits.selectionGitTimeoutMs below the floor on both sides', () => {
-    assertAgree(
-      'audits',
-      { selectionGitTimeoutMs: 500 },
-      'audits below floor',
-    );
+    assertAgree('audits', { selectionGitTimeoutMs: 500 }, 'audits below floor');
   });
 
   it('mirror references a draft 2020-12 $schema', () => {

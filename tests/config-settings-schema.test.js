@@ -58,10 +58,7 @@ describe('AGENT_SETTINGS_SCHEMA — explicit number/object entries', () => {
   });
 
   it('accepts qualityGate with checks array', () => {
-    assert.equal(
-      validate({ qualityGate: { checks: ['lint', 'test'] } }),
-      true,
-    );
+    assert.equal(validate({ qualityGate: { checks: ['lint', 'test'] } }), true);
   });
 
   it('rejects unknown property on qualityGate', () => {
