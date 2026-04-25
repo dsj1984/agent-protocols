@@ -81,6 +81,18 @@ const WORKTREE_ISOLATION_SCHEMA = {
     },
   },
   additionalProperties: false,
+  // `root` is required only when isolation is explicitly enabled. A
+  // disabled-or-absent block doesn't need a root path.
+  allOf: [
+    {
+      if: {
+        properties: { enabled: { const: true } },
+        required: ['enabled'],
+      },
+      // biome-ignore lint/suspicious/noThenProperty: JSON Schema if/then keyword
+      then: { required: ['root'] },
+    },
+  ],
 };
 
 const EPIC_RUNNER_SCHEMA = {
@@ -93,8 +105,23 @@ const EPIC_RUNNER_SCHEMA = {
     idleTimeoutSec: { type: 'integer', minimum: 0 },
     logsDir: SAFE_STRING,
   },
-  required: ['concurrencyCap'],
   additionalProperties: false,
+  // `concurrencyCap` is required only when the epic runner is active.
+  // Operators flipping `enabled: false` shouldn't have to declare a cap they
+  // never use; absent `enabled` (the common case) defaults to active and
+  // therefore requires the cap.
+  allOf: [
+    {
+      if: {
+        not: {
+          properties: { enabled: { const: false } },
+          required: ['enabled'],
+        },
+      },
+      // biome-ignore lint/suspicious/noThenProperty: JSON Schema if/then keyword
+      then: { required: ['concurrencyCap'] },
+    },
+  ],
 };
 
 const PLAN_RUNNER_SCHEMA = {

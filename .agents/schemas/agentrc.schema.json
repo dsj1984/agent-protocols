@@ -20,11 +20,6 @@
       "type": ["string", "null"],
       "not": { "type": "string", "pattern": "([;&|`]|\\$\\()" }
     },
-    "nullableNonemptySafeString": {
-      "type": ["string", "null"],
-      "minLength": 1,
-      "not": { "type": "string", "pattern": "([;&|`]|\\$\\()" }
-    },
     "listOrExtenderOfStrings": {
       "oneOf": [
         { "type": "array", "items": { "type": "string" } },
@@ -41,7 +36,7 @@
     "stringFieldsPattern": {
       "description": "Pattern enumerating every flat agentSettings string field. Mirrors AGENT_SETTINGS_STRING_FIELDS.",
       "type": "string",
-      "pattern": "^(baseBranch|validationCommand|testCommand|agentRoot|scriptsRoot|workflowsRoot|personasRoot|schemasRoot|skillsRoot|templatesRoot|rulesRoot|docsRoot|tempRoot|auditOutputDir|lintBaselineCommand|lintBaselinePath|exploratoryTestCommand)$"
+      "pattern": "^(baseBranch|validationCommand|testCommand|buildCommand|agentRoot|scriptsRoot|workflowsRoot|personasRoot|schemasRoot|skillsRoot|templatesRoot|rulesRoot|docsRoot|tempRoot|auditOutputDir|lintBaselineCommand|lintBaselinePath|exploratoryTestCommand|typecheckCommand)$"
     },
     "maintainabilityCrap": {
       "type": "object",
@@ -49,12 +44,7 @@
         "enabled": { "type": "boolean" },
         "targetDirs": { "$ref": "#/$defs/listOrExtenderOfStrings" },
         "newMethodCeiling": { "type": "integer", "minimum": 1 },
-        "coveragePath": {
-          "allOf": [
-            { "$ref": "#/$defs/safeString" },
-            { "type": "string", "minLength": 1 }
-          ]
-        },
+        "coveragePath": { "allOf": [{ "$ref": "#/$defs/safeString" }, { "type": "string", "minLength": 1 }] },
         "tolerance": { "type": "number", "minimum": 0 },
         "requireCoverage": { "type": "boolean" },
         "friction": {
@@ -62,13 +52,20 @@
           "properties": { "markerKey": { "type": "string", "minLength": 1 } },
           "additionalProperties": false
         },
-        "refreshTag": {
-          "allOf": [
-            { "$ref": "#/$defs/safeString" },
-            { "type": "string", "minLength": 1 }
-          ]
+        "refreshTag": { "allOf": [{ "$ref": "#/$defs/safeString" }, { "type": "string", "minLength": 1 }] }
+      },
+      "allOf": [
+        {
+          "if": {
+            "properties": {
+              "enabled": { "const": true },
+              "requireCoverage": { "const": true }
+            },
+            "required": ["enabled", "requireCoverage"]
+          },
+          "then": { "required": ["coveragePath"] }
         }
-      }
+      ]
     },
     "maintainability": {
       "type": "object",
@@ -83,12 +80,7 @@
       "properties": {
         "docs": {
           "type": "array",
-          "items": {
-            "allOf": [
-              { "$ref": "#/$defs/safeString" },
-              { "type": "string", "minLength": 1 }
-            ]
-          }
+          "items": { "allOf": [{ "$ref": "#/$defs/safeString" }, { "type": "string", "minLength": 1 }] }
         },
         "versionFile": { "$ref": "#/$defs/nullableSafeString" },
         "packageJson": { "type": "boolean" },
@@ -133,6 +125,7 @@
     },
     "agentSettings": {
       "type": "object",
+      "required": ["agentRoot", "docsRoot", "tempRoot"],
       "properties": {
         "docsContextFiles": { "type": "array", "items": { "type": "string" } },
         "maintainability": { "$ref": "#/$defs/maintainability" },
@@ -145,12 +138,10 @@
         "release": { "$ref": "#/$defs/release" },
         "frictionThresholds": { "$ref": "#/$defs/frictionThresholds" },
         "riskGates": { "$ref": "#/$defs/riskGates" },
-        "qualityGate": { "$ref": "#/$defs/qualityGate" },
-        "typecheckCommand": { "$ref": "#/$defs/nullableNonemptySafeString" },
-        "buildCommand": { "$ref": "#/$defs/nullableNonemptySafeString" }
+        "qualityGate": { "$ref": "#/$defs/qualityGate" }
       },
       "patternProperties": {
-        "^(baseBranch|validationCommand|testCommand|agentRoot|scriptsRoot|workflowsRoot|personasRoot|schemasRoot|skillsRoot|templatesRoot|rulesRoot|docsRoot|tempRoot|auditOutputDir|lintBaselineCommand|lintBaselinePath|exploratoryTestCommand)$": {
+        "^(baseBranch|validationCommand|testCommand|buildCommand|agentRoot|scriptsRoot|workflowsRoot|personasRoot|schemasRoot|skillsRoot|templatesRoot|rulesRoot|docsRoot|tempRoot|auditOutputDir|lintBaselineCommand|lintBaselinePath|exploratoryTestCommand|typecheckCommand)$": {
           "$ref": "#/$defs/safeString"
         }
       }
@@ -196,11 +187,19 @@
           "items": { "type": "string", "minLength": 1 }
         }
       },
-      "additionalProperties": false
+      "additionalProperties": false,
+      "allOf": [
+        {
+          "if": {
+            "properties": { "enabled": { "const": true } },
+            "required": ["enabled"]
+          },
+          "then": { "required": ["root"] }
+        }
+      ]
     },
     "epicRunner": {
       "type": "object",
-      "required": ["concurrencyCap"],
       "properties": {
         "enabled": { "type": "boolean" },
         "concurrencyCap": { "type": "integer", "minimum": 1 },
@@ -209,7 +208,18 @@
         "idleTimeoutSec": { "type": "integer", "minimum": 0 },
         "logsDir": { "$ref": "#/$defs/safeString" }
       },
-      "additionalProperties": false
+      "additionalProperties": false,
+      "allOf": [
+        {
+          "if": {
+            "not": {
+              "properties": { "enabled": { "const": false } },
+              "required": ["enabled"]
+            }
+          },
+          "then": { "required": ["concurrencyCap"] }
+        }
+      ]
     },
     "planRunner": {
       "type": "object",
@@ -232,10 +242,7 @@
       "type": "object",
       "properties": {
         "maxAttempts": { "type": "integer", "minimum": 1 },
-        "backoffMs": {
-          "type": "array",
-          "items": { "type": "integer", "minimum": 0 }
-        }
+        "backoffMs": { "type": "array", "items": { "type": "integer", "minimum": 0 } }
       },
       "additionalProperties": false
     },
@@ -255,11 +262,7 @@
         "github": { "$ref": "#/$defs/github" },
         "executor": { "type": "string" },
         "notifications": { "$ref": "#/$defs/notifications" },
-        "hitl": {
-          "type": "object",
-          "properties": {},
-          "additionalProperties": false
-        },
+        "hitl": { "type": "object", "properties": {}, "additionalProperties": false },
         "worktreeIsolation": { "$ref": "#/$defs/worktreeIsolation" },
         "epicRunner": { "$ref": "#/$defs/epicRunner" },
         "planRunner": { "$ref": "#/$defs/planRunner" },

@@ -45,8 +45,8 @@
     },
     "testCommand": "npm test",
     "exploratoryTestCommand": "pnpm run test:exploratory",
-    "typecheckCommand": null,
-    "buildCommand": null,
+    "typecheckCommand": "",
+    "buildCommand": "",
     "frictionThresholds": {
       "repetitiveCommandCount": 3,
       "consecutiveErrorCount": 3,

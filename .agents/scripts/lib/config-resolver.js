@@ -37,9 +37,12 @@ const _envLoadedRoots = new Set();
  * Defaults applied to a loaded .agentrc.json. Narrower than the zero-config
  * set: fields intentionally omitted here (e.g. baseBranch) remain undefined
  * unless the operator set them explicitly in the config file.
+ *
+ * `agentRoot` / `docsRoot` / `tempRoot` are intentionally absent — they are
+ * hard-required by the schema (Epic #730 Story 4) so the resolver cannot
+ * silently fill them in.
  */
 const LOADED_CONFIG_DEFAULTS = Object.freeze({
-  agentRoot: '.agents',
   scriptsRoot: '.agents/scripts',
   workflowsRoot: '.agents/workflows',
   personasRoot: '.agents/personas',
@@ -61,9 +64,12 @@ const LOADED_CONFIG_DEFAULTS = Object.freeze({
   maxTokenBudget: 200000,
 });
 
-/** Richer defaults for the zero-config (no .agentrc.json present) path. */
+/** Defaults for the zero-config (no .agentrc.json present) path.
+ *
+ * Same omission rule as {@link LOADED_CONFIG_DEFAULTS}: the three promoted
+ * keys (`agentRoot`, `docsRoot`, `tempRoot`) are deliberately not provided.
+ * Zero-config callers that need them must declare a `.agentrc.json`. */
 const ZERO_CONFIG_DEFAULTS = Object.freeze({
-  agentRoot: '.agents',
   scriptsRoot: '.agents/scripts',
   workflowsRoot: '.agents/workflows',
   personasRoot: '.agents/personas',
@@ -71,7 +77,6 @@ const ZERO_CONFIG_DEFAULTS = Object.freeze({
   skillsRoot: '.agents/skills',
   templatesRoot: '.agents/templates',
   rulesRoot: '.agents/rules',
-  docsRoot: 'docs',
   docsContextFiles: [
     'architecture.md',
     'data-dictionary.md',
@@ -79,7 +84,6 @@ const ZERO_CONFIG_DEFAULTS = Object.freeze({
     'patterns.md',
   ],
   maintainability: { targetDirs: [] },
-  tempRoot: 'temp',
   baseBranch: 'main',
   maxTickets: 40,
   executionTimeoutMs: 300000, // 5 minutes
@@ -215,7 +219,6 @@ export function resolveMaintainability(userBlock) {
  * Matches the previous hand-rolled assignment block exactly so behavior is
  * unchanged: keys not in LOADED_CONFIG_DEFAULTS resolve to `undefined`. */
 const LOADED_CONFIG_APPLY_KEYS = [
-  'agentRoot',
   'scriptsRoot',
   'workflowsRoot',
   'personasRoot',
@@ -223,10 +226,8 @@ const LOADED_CONFIG_APPLY_KEYS = [
   'skillsRoot',
   'templatesRoot',
   'rulesRoot',
-  'docsRoot',
   'docsContextFiles',
   'maintainability',
-  'tempRoot',
   'auditOutputDir',
   'baseBranch',
   'executionTimeoutMs',
@@ -297,11 +298,16 @@ export function resolveConfig(opts) {
     const validateSettings = getSettingsValidator();
     if (!validateSettings(settings)) {
       const details = validateSettings.errors
-        .map((e) => `${e.instancePath} ${e.message}`)
+        .map((e) => {
+          // For required-property failures, AJV reports the parent path; the
+          // human-readable message already names the missing key. Prefix the
+          // path so multiple errors are still distinguishable.
+          const where = e.instancePath || '(agentSettings)';
+          return `${where} ${e.message}`;
+        })
         .join(', ');
       throw new Error(
-        `[Security] Malicious configuration value detected in .agentrc.json. ` +
-          `Shell meta-characters are forbidden. Details: ${details}`,
+        `[config] Invalid agentSettings in .agentrc.json: ${details}`,
       );
     }
 

