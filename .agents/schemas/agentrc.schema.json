@@ -1,0 +1,260 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://github.com/dsj1984/agent-protocols/blob/main/.agents/schemas/agentrc.schema.json",
+  "title": "Agent Protocols .agentrc",
+  "description": "Static JSON Schema mirror of the authoritative AJV schemas in .agents/scripts/lib/config-schema.js + config-settings-schema.js. The AJV schemas are the runtime source of truth; this file exists for editor tooling and human readers. A drift test (tests/config-schema-mirror-drift.test.js) keeps the two in sync.",
+  "type": "object",
+  "properties": {
+    "$schema": { "type": "string" },
+    "title": { "type": "string" },
+    "agentSettings": { "$ref": "#/$defs/agentSettings" },
+    "orchestration": { "$ref": "#/$defs/orchestration" },
+    "audits": { "$ref": "#/$defs/audits" }
+  },
+  "$defs": {
+    "safeString": {
+      "type": "string",
+      "not": { "pattern": "([;&|`]|\\$\\()" }
+    },
+    "nullableSafeString": {
+      "type": ["string", "null"],
+      "not": { "type": "string", "pattern": "([;&|`]|\\$\\()" }
+    },
+    "listOrExtenderOfStrings": {
+      "oneOf": [
+        { "type": "array", "items": { "type": "string" } },
+        {
+          "type": "object",
+          "properties": {
+            "append": { "type": "array", "items": { "type": "string" } },
+            "prepend": { "type": "array", "items": { "type": "string" } }
+          },
+          "additionalProperties": false
+        }
+      ]
+    },
+    "stringFieldsPattern": {
+      "description": "Pattern enumerating every flat agentSettings string field. Mirrors AGENT_SETTINGS_STRING_FIELDS.",
+      "type": "string",
+      "pattern": "^(baseBranch|validationCommand|testCommand|buildCommand|agentRoot|scriptsRoot|workflowsRoot|personasRoot|schemasRoot|skillsRoot|templatesRoot|rulesRoot|docsRoot|tempRoot|auditOutputDir|lintBaselineCommand|lintBaselinePath|exploratoryTestCommand|typecheckCommand)$"
+    },
+    "maintainabilityCrap": {
+      "type": "object",
+      "properties": {
+        "enabled": { "type": "boolean" },
+        "targetDirs": { "$ref": "#/$defs/listOrExtenderOfStrings" },
+        "newMethodCeiling": { "type": "integer", "minimum": 1 },
+        "coveragePath": { "allOf": [{ "$ref": "#/$defs/safeString" }, { "type": "string", "minLength": 1 }] },
+        "tolerance": { "type": "number", "minimum": 0 },
+        "requireCoverage": { "type": "boolean" },
+        "friction": {
+          "type": "object",
+          "properties": { "markerKey": { "type": "string", "minLength": 1 } },
+          "additionalProperties": false
+        },
+        "refreshTag": { "allOf": [{ "$ref": "#/$defs/safeString" }, { "type": "string", "minLength": 1 }] }
+      }
+    },
+    "maintainability": {
+      "type": "object",
+      "properties": {
+        "targetDirs": { "$ref": "#/$defs/listOrExtenderOfStrings" },
+        "crap": { "$ref": "#/$defs/maintainabilityCrap" }
+      },
+      "additionalProperties": false
+    },
+    "release": {
+      "type": "object",
+      "properties": {
+        "docs": {
+          "type": "array",
+          "items": { "allOf": [{ "$ref": "#/$defs/safeString" }, { "type": "string", "minLength": 1 }] }
+        },
+        "versionFile": { "$ref": "#/$defs/nullableSafeString" },
+        "packageJson": { "type": "boolean" },
+        "autoVersionBump": { "type": "boolean" }
+      },
+      "additionalProperties": false
+    },
+    "sprintClose": {
+      "type": "object",
+      "properties": { "runRetro": { "type": "boolean" } },
+      "additionalProperties": false
+    },
+    "frictionThresholds": {
+      "type": "object",
+      "properties": {
+        "repetitiveCommandCount": { "type": "integer", "minimum": 1 },
+        "consecutiveErrorCount": { "type": "integer", "minimum": 1 },
+        "stagnationStepCount": { "type": "integer", "minimum": 1 },
+        "maxIntegrationRetries": { "type": "integer", "minimum": 1 }
+      },
+      "additionalProperties": false
+    },
+    "riskGates": {
+      "type": "object",
+      "properties": {
+        "heuristics": {
+          "type": "array",
+          "items": { "type": "string", "minLength": 1 }
+        }
+      },
+      "additionalProperties": false
+    },
+    "qualityGate": {
+      "type": "object",
+      "properties": {
+        "checks": {
+          "type": "array",
+          "items": { "type": "string", "minLength": 1 }
+        }
+      },
+      "additionalProperties": false
+    },
+    "agentSettings": {
+      "type": "object",
+      "properties": {
+        "docsContextFiles": { "type": "array", "items": { "type": "string" } },
+        "maintainability": { "$ref": "#/$defs/maintainability" },
+        "maxTickets": { "type": "integer", "minimum": 1 },
+        "maxInstructionSteps": { "type": "integer", "minimum": 1 },
+        "maxTokenBudget": { "type": "integer", "minimum": 1 },
+        "executionTimeoutMs": { "type": "integer", "minimum": 1 },
+        "executionMaxBuffer": { "type": "integer", "minimum": 1 },
+        "sprintClose": { "$ref": "#/$defs/sprintClose" },
+        "release": { "$ref": "#/$defs/release" },
+        "frictionThresholds": { "$ref": "#/$defs/frictionThresholds" },
+        "riskGates": { "$ref": "#/$defs/riskGates" },
+        "qualityGate": { "$ref": "#/$defs/qualityGate" }
+      },
+      "patternProperties": {
+        "^(baseBranch|validationCommand|testCommand|buildCommand|agentRoot|scriptsRoot|workflowsRoot|personasRoot|schemasRoot|skillsRoot|templatesRoot|rulesRoot|docsRoot|tempRoot|auditOutputDir|lintBaselineCommand|lintBaselinePath|exploratoryTestCommand|typecheckCommand)$": {
+          "$ref": "#/$defs/safeString"
+        }
+      }
+    },
+    "github": {
+      "type": "object",
+      "required": ["owner", "repo"],
+      "properties": {
+        "owner": { "type": "string", "minLength": 1 },
+        "repo": { "type": "string", "minLength": 1 },
+        "projectNumber": { "type": ["integer", "null"], "minimum": 1 },
+        "projectOwner": { "type": ["string", "null"], "minLength": 1 },
+        "projectName": { "type": ["string", "null"], "minLength": 1 },
+        "operatorHandle": { "type": "string", "pattern": "^@.+" }
+      },
+      "additionalProperties": false
+    },
+    "notifications": {
+      "type": "object",
+      "properties": {
+        "mentionOperator": { "type": "boolean" },
+        "minLevel": { "type": "string", "enum": ["low", "medium", "high"] }
+      },
+      "additionalProperties": false
+    },
+    "worktreeIsolation": {
+      "type": "object",
+      "properties": {
+        "enabled": { "type": "boolean" },
+        "root": { "type": "string", "minLength": 1 },
+        "nodeModulesStrategy": {
+          "type": "string",
+          "enum": ["per-worktree", "symlink", "pnpm-store"]
+        },
+        "primeFromPath": { "type": ["string", "null"], "minLength": 1 },
+        "allowSymlinkOnWindows": { "type": "boolean" },
+        "reapOnSuccess": { "type": "boolean" },
+        "reapOnCancel": { "type": "boolean" },
+        "warnOnUncommittedOnReap": { "type": "boolean" },
+        "windowsPathLengthWarnThreshold": { "type": "integer", "minimum": 1 },
+        "bootstrapFiles": {
+          "type": "array",
+          "items": { "type": "string", "minLength": 1 }
+        }
+      },
+      "additionalProperties": false
+    },
+    "epicRunner": {
+      "type": "object",
+      "required": ["concurrencyCap"],
+      "properties": {
+        "enabled": { "type": "boolean" },
+        "concurrencyCap": { "type": "integer", "minimum": 1 },
+        "pollIntervalSec": { "type": "integer", "minimum": 1 },
+        "progressReportIntervalSec": { "type": "integer", "minimum": 0 },
+        "idleTimeoutSec": { "type": "integer", "minimum": 0 },
+        "logsDir": { "$ref": "#/$defs/safeString" }
+      },
+      "additionalProperties": false
+    },
+    "planRunner": {
+      "type": "object",
+      "properties": {
+        "enabled": { "type": "boolean" },
+        "pollIntervalSec": { "type": "integer", "minimum": 1 }
+      },
+      "additionalProperties": false
+    },
+    "concurrency": {
+      "type": "object",
+      "properties": {
+        "waveGate": { "type": "integer", "minimum": 0 },
+        "commitAssertion": { "type": "integer", "minimum": 1 },
+        "progressReporter": { "type": "integer", "minimum": 1 }
+      },
+      "additionalProperties": false
+    },
+    "closeRetry": {
+      "type": "object",
+      "properties": {
+        "maxAttempts": { "type": "integer", "minimum": 1 },
+        "backoffMs": { "type": "array", "items": { "type": "integer", "minimum": 0 } }
+      },
+      "additionalProperties": false
+    },
+    "poolMode": {
+      "type": "object",
+      "properties": {
+        "staleClaimMinutes": { "type": "integer", "minimum": 1 },
+        "sessionIdLength": { "type": "integer", "minimum": 4 }
+      },
+      "additionalProperties": false
+    },
+    "orchestration": {
+      "type": "object",
+      "required": ["provider"],
+      "properties": {
+        "provider": { "type": "string", "enum": ["github"] },
+        "github": { "$ref": "#/$defs/github" },
+        "executor": { "type": "string" },
+        "notifications": { "$ref": "#/$defs/notifications" },
+        "hitl": { "type": "object", "properties": {}, "additionalProperties": false },
+        "worktreeIsolation": { "$ref": "#/$defs/worktreeIsolation" },
+        "epicRunner": { "$ref": "#/$defs/epicRunner" },
+        "planRunner": { "$ref": "#/$defs/planRunner" },
+        "concurrency": { "$ref": "#/$defs/concurrency" },
+        "closeRetry": { "$ref": "#/$defs/closeRetry" },
+        "poolMode": { "$ref": "#/$defs/poolMode" }
+      },
+      "additionalProperties": false,
+      "allOf": [
+        {
+          "if": {
+            "properties": { "provider": { "const": "github" } },
+            "required": ["provider"]
+          },
+          "then": { "required": ["github"] }
+        }
+      ]
+    },
+    "audits": {
+      "type": "object",
+      "properties": {
+        "selectionGitTimeoutMs": { "type": "integer", "minimum": 1000 }
+      },
+      "additionalProperties": false
+    }
+  }
+}
