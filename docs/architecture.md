@@ -717,6 +717,66 @@ See [`worktree-lifecycle.md`](../.agents/workflows/worktree-lifecycle.md)
 for the operator reference, node_modules strategies, Windows long-path
 handling, and escape hatches.
 
+### Execution-model modes (v5.24.0+)
+
+`/sprint-execute` runs in two execution-model modes that share one codepath
+and differ only in whether worktrees are created. The `resolveWorktreeEnabled`
+function in `lib/config-resolver.js` selects the mode at startup based on
+`AP_WORKTREE_ENABLED` and `CLAUDE_CODE_REMOTE` (precedence in
+[`patterns.md`](patterns.md#worktree-off-mode-v5240)):
+
+```text
+┌──── Local-parallel (worktrees on, default) ─────┐  ┌──── Web-parallel (worktrees off, auto) ─────┐
+│                                                  │  │                                              │
+│  one machine, one clone of the repo              │  │  N web tabs, each its own sandboxed clone   │
+│                                                  │  │                                              │
+│  ┌─ main checkout ──────────────────────┐        │  │  ┌─ tab 1 (clone A) ─┐                      │
+│  │                                       │        │  │  │  story-680        │                      │
+│  │  HEAD never moves while waves run     │        │  │  │  branch HEAD      │                      │
+│  │                                       │        │  │  └───────────────────┘                      │
+│  │  ┌─ .worktrees/story-680/ ─┐         │        │  │  ┌─ tab 2 (clone B) ─┐                      │
+│  │  │  story-680 branch HEAD  │         │        │  │  │  story-681        │                      │
+│  │  └─────────────────────────┘         │        │  │  │  branch HEAD      │                      │
+│  │  ┌─ .worktrees/story-681/ ─┐         │        │  │  └───────────────────┘                      │
+│  │  │  story-681 branch HEAD  │         │        │  │  ┌─ tab 3 (clone C) ─┐                      │
+│  │  └─────────────────────────┘         │        │  │  │  story-682        │                      │
+│  └───────────────────────────────────────┘        │  │  │  branch HEAD      │                      │
+│                                                  │  │  └───────────────────┘                      │
+│  Concurrency primitive: git worktree             │  │  Concurrency primitive: separate clones      │
+│  Coordination at close: filesystem lock          │  │  Coordination at close: bounded push retry   │
+│  Operator launches: N IDE windows                │  │  Operator launches: N web tabs               │
+└──────────────────────────────────────────────────┘  └──────────────────────────────────────────────┘
+                            ▲                                         ▲
+                            │                                         │
+                            └────────── shared launch primitive ──────┘
+                                       claim-based pool mode
+                              (in-progress-by:<sessionId> + [claim] comment)
+```
+
+Both modes share:
+
+- The same `/sprint-execute` slash command and the same routing logic.
+- The launch-time dependency guard (`runDispatchManifestGuard`) that refuses
+  a story with unmerged blockers.
+- The pool-mode claim protocol (`lib/pool-mode.js`) when `/sprint-execute`
+  is invoked without a story id — `findEligibleStory` → `claimStory` →
+  read-back race detection → `releaseStory` on race-loss.
+- The bounded retry on the epic-branch push (`lib/push-epic-retry.js`,
+  configured by `orchestration.closeRetry`) so concurrent closes from
+  separate clones converge cleanly.
+
+They differ only in:
+
+- **Filesystem layout.** Worktrees create `.worktrees/story-<id>/` siblings
+  to the main checkout; web sessions write directly into the cloned
+  workspace because the session is already isolated.
+- **`node_modules` strategy.** `nodeModulesStrategy` runs only in
+  worktree-on mode. Web sessions install once at the workspace root.
+- **Path-length warnings.** Windows long-path warnings come from worktree
+  paths — they don't fire on web (Linux) or in worktree-off mode generally.
+- **GC scope.** `WorktreeManager.gc()` runs at dispatch start in worktree-on
+  mode; in worktree-off mode it is a no-op.
+
 ---
 
 ## Security Architecture
