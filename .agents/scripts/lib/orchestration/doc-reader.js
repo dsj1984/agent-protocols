@@ -80,11 +80,7 @@ export async function scrapeProjectDocs(settings) {
  * @param {{ fullContext?: boolean }} [opts]
  * @returns {Promise<{ mode: 'full'|'summary', items: Array<object>, totalBytes: number, usedFallback: boolean }>}
  */
-export async function buildDocsContext(
-  settings,
-  planningLimits,
-  opts = {},
-) {
+export async function buildDocsContext(settings, planningLimits, opts = {}) {
   const { docs, usedFallback } = await scrapeProjectDocs(settings);
   const budgeted = applyBudget(docs, planningLimits, opts);
   return { ...budgeted, usedFallback };

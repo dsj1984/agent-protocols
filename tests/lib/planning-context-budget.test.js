@@ -84,7 +84,10 @@ describe('applyBudget — summaryMode', () => {
 
   it("summaryMode='always' returns summary mode regardless of size", () => {
     const small = [{ path: 'docs/tiny.md', content: '## H\n\ntext\n' }];
-    const out = applyBudget(small, { maxBytes: 1000000, summaryMode: 'always' });
+    const out = applyBudget(small, {
+      maxBytes: 1000000,
+      summaryMode: 'always',
+    });
     assert.equal(out.mode, 'summary');
     assert.deepEqual(out.items[0].headings, ['H']);
     assert.equal(out.items[0].excerpts.length >= 1, true);
@@ -110,9 +113,13 @@ describe('applyBudget — summaryMode', () => {
   });
 
   it('opts.fullContext=true forces full regardless of summaryMode', () => {
-    const out = applyBudget(docs, { maxBytes: 100, summaryMode: 'always' }, {
-      fullContext: true,
-    });
+    const out = applyBudget(
+      docs,
+      { maxBytes: 100, summaryMode: 'always' },
+      {
+        fullContext: true,
+      },
+    );
     assert.equal(out.mode, 'full');
     assert.equal(out.items[0].content, SAMPLE_DOC);
   });

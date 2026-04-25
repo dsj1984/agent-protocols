@@ -257,7 +257,10 @@ describe('ticket-decomposer buildDecompositionContext', () => {
         const big = `## Heading\n\n${'x'.repeat(40000)}\n`;
         return {
           id,
-          body: id === 10 ? `${big}\n## PRD-only\n\nbody` : `${big}\n## TS-only\n\nbody`,
+          body:
+            id === 10
+              ? `${big}\n## PRD-only\n\nbody`
+              : `${big}\n## TS-only\n\nbody`,
         };
       },
     });
