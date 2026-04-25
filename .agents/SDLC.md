@@ -275,6 +275,63 @@ Agents update their state in real-time on GitHub:
 When a Task reaches `agent::done`, the runner re-evaluates the DAG and
 dispatches any newly-unblocked Tasks. This continues until all waves complete.
 
+### Pool-mode launch (claim protocol)
+
+`/sprint-execute` invoked without a story id enters **pool mode**. The session
+reads the Epic's dispatch manifest and claims the first story that is
+
+- labelled `agent::ready`,
+- has no `in-progress-by:*` label, and
+- has no unmerged blockers.
+
+Claim happens in two writes — adding `in-progress-by:<sessionId>` to the
+Story issue and posting a `[claim] session=<sessionId> story=<storyId>
+at=<ISO8601>` structured comment. After both writes the labels are read back;
+if more than one `in-progress-by:*` label is present the session lost a race,
+removes its label, and tries the next eligible story. If no eligible story
+remains the session exits 0 with a visible reason ("wave fully claimed or
+complete").
+
+`runtime.sessionId` is the operating identity. It prefers the
+`CLAUDE_CODE_REMOTE_SESSION_ID` env var (set automatically inside web
+sessions) and falls back to a 12-char locally-generated short-id derived from
+hostname+pid+random. The id is truncated to
+`orchestration.poolMode.sessionIdLength` (default 12) so the label name stays
+under GitHub's 50-char ceiling.
+
+Stale claims older than `orchestration.poolMode.staleClaimMinutes` (default
+60) are surfaced as **reclaimable** in pool-mode launch output. The operator
+decides whether to take over; this Epic does not auto-sweep.
+
+### Launch-time dependency guard
+
+Before any branch operation, `sprint-story-init.js` reads the Epic's
+dispatch manifest and verifies the target story's blockers are all merged.
+Unmerged blockers print each blocker's id, state, and URL; the session exits
+0 (operator-error, not a system error) without touching any branches. A
+missing or stale-format manifest emits a warning and proceeds — the guard is
+a footgun-prevention layer, not a strict gate.
+
+The guard runs identically on web and local. Pool mode composes with it —
+blocker-unmerged stories never become eligible candidates.
+
+### Concurrent close — push retry
+
+`sprint-story-close.js` merges the Story branch into `epic/<epicId>` locally
+and pushes. With multiple sessions closing into the same Epic branch from
+separate clones, a non-fast-forward rejection is expected. The push step is
+wrapped in a bounded retry: on rejection the script fetches
+`origin/epic/<id>`, replays the Story merge on top of the new remote tip,
+and pushes again. Bounds:
+
+- `orchestration.closeRetry.maxAttempts` — default 3.
+- `orchestration.closeRetry.backoffMs` — default `[250, 500, 1000]`.
+
+A real content conflict (both stories touched the same lines) aborts the
+loop with a clear error, leaves the local tree clean, and exits non-zero for
+manual resolution. Single-machine local runs see no behavioural change — the
+retry path is a wrapper around the existing happy path.
+
 ---
 
 ## HITL (Human-in-the-Loop) model
