@@ -2497,55 +2497,55 @@
       "crap": 5,
       "file": ".agents/scripts/lib/orchestration/ticketing.js",
       "method": "isValidStructuredCommentType",
-      "startLine": 68
+      "startLine": 73
     },
     {
       "crap": 2,
       "file": ".agents/scripts/lib/orchestration/ticketing.js",
       "method": "assertValidStructuredCommentType",
-      "startLine": 84
+      "startLine": 89
     },
     {
       "crap": 9.088750297203926,
       "file": ".agents/scripts/lib/orchestration/ticketing.js",
       "method": "transitionTicketState",
-      "startLine": 106
+      "startLine": 111
     },
     {
       "crap": 6,
       "file": ".agents/scripts/lib/orchestration/ticketing.js",
       "method": "toggleTasklistCheckbox",
-      "startLine": 213
+      "startLine": 218
     },
     {
       "crap": 1,
       "file": ".agents/scripts/lib/orchestration/ticketing.js",
       "method": "postStructuredComment",
-      "startLine": 255
+      "startLine": 260
     },
     {
       "crap": 1,
       "file": ".agents/scripts/lib/orchestration/ticketing.js",
       "method": "structuredCommentMarker",
-      "startLine": 271
+      "startLine": 276
     },
     {
       "crap": 2,
       "file": ".agents/scripts/lib/orchestration/ticketing.js",
       "method": "findStructuredComment",
-      "startLine": 285
+      "startLine": 290
     },
     {
       "crap": 3.0987654320987654,
       "file": ".agents/scripts/lib/orchestration/ticketing.js",
       "method": "upsertStructuredComment",
-      "startLine": 309
+      "startLine": 314
     },
     {
       "crap": 5,
       "file": ".agents/scripts/lib/orchestration/ticketing.js",
       "method": "cascadeCompletion",
-      "startLine": 345
+      "startLine": 350
     },
     {
       "crap": 7,
@@ -2866,7 +2866,7 @@
       "startLine": 194
     },
     {
-      "crap": 11.470728,
+      "crap": 11.500117546699625,
       "file": ".agents/scripts/lib/story-init/branch-initializer.js",
       "method": "bootstrapWorktree",
       "startLine": 210
@@ -2875,7 +2875,7 @@
       "crap": 2.2156598079561043,
       "file": ".agents/scripts/lib/story-init/branch-initializer.js",
       "method": "initializeBranch",
-      "startLine": 278
+      "startLine": 285
     },
     {
       "crap": 10.629221665908057,
@@ -3220,7 +3220,7 @@
       "startLine": 121
     },
     {
-      "crap": 13.65781048528375,
+      "crap": 14.079913616377388,
       "file": ".agents/scripts/lib/worktree/lifecycle/creation.js",
       "method": "ensure",
       "startLine": 23
@@ -3418,10 +3418,10 @@
       "startLine": 142
     },
     {
-      "crap": 14.601392471214957,
+      "crap": 22.29835550291545,
       "file": ".agents/scripts/lib/worktree/node-modules-strategy.js",
       "method": "installDependencies",
-      "startLine": 192
+      "startLine": 205
     },
     {
       "crap": 6,
@@ -4270,7 +4270,7 @@
       "startLine": 807
     },
     {
-      "crap": 3.0416666666666665,
+      "crap": 8.208333333333336,
       "file": ".agents/scripts/sprint-story-close.js",
       "method": "<anon method-10>",
       "startLine": 922
@@ -4279,43 +4279,61 @@
       "crap": 1,
       "file": ".agents/scripts/sprint-story-init.js",
       "method": "<anon method-1>",
-      "startLine": 60
+      "startLine": 61
     },
     {
       "crap": 1,
       "file": ".agents/scripts/sprint-story-init.js",
       "method": "<anon method-2>",
-      "startLine": 61
+      "startLine": 62
     },
     {
-      "crap": 16.123867001579033,
+      "crap": 17.141829130260586,
       "file": ".agents/scripts/sprint-story-init.js",
       "method": "runStoryInit",
-      "startLine": 74
+      "startLine": 75
     },
     {
       "crap": 1,
       "file": ".agents/scripts/sprint-story-init.js",
       "method": "<anon method-3>",
-      "startLine": 105
+      "startLine": 106
     },
     {
       "crap": 1,
       "file": ".agents/scripts/sprint-story-init.js",
       "method": "<anon method-4>",
-      "startLine": 227
+      "startLine": 228
     },
     {
       "crap": 1,
       "file": ".agents/scripts/sprint-story-init.js",
       "method": "buildStoryInitResult",
-      "startLine": 309
+      "startLine": 319
+    },
+    {
+      "crap": 3.072,
+      "file": ".agents/scripts/sprint-story-init.js",
+      "method": "mapDependenciesInstalled",
+      "startLine": 372
+    },
+    {
+      "crap": 1.0046296296296295,
+      "file": ".agents/scripts/sprint-story-init.js",
+      "method": "postStoryInitComment",
+      "startLine": 383
+    },
+    {
+      "crap": 1,
+      "file": ".agents/scripts/sprint-story-init.js",
+      "method": "renderStoryInitCommentBody",
+      "startLine": 409
     },
     {
       "crap": 2,
       "file": ".agents/scripts/sprint-story-init.js",
       "method": "emitStoryInitResult",
-      "startLine": 348
+      "startLine": 437
     },
     {
       "crap": 3.072,
