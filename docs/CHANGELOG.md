@@ -4,6 +4,8 @@ All notable changes to this project will be documented in this file.
 
 ## [Unreleased]
 
+## [5.25.0] - 2026-04-25
+
 ### Notification severity rework — unified `low | medium | high`
 
 Collapsed the two notification subsystems (manual `notify()` API + the in-band
