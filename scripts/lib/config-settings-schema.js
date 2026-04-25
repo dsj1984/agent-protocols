@@ -7,8 +7,8 @@ import { SHELL_INJECTION_PATTERN_STRING } from './config-schema-shared.js';
  * non-malicious string by {@link AGENT_SETTINGS_SCHEMA}. Adding a new
  * top-level string field means appending to this list, nothing else.
  *
- * Command fields (validate, lintBaseline, test, exploratoryTest, typecheck,
- * build) live under `agentSettings.commands` (Epic #730 Story 5) and are NOT
+ * Command fields (validate, lintBaseline, test, typecheck, build) live under
+ * `agentSettings.commands` (Epic #730 Story 5) and are NOT
  * in this list — see {@link COMMANDS_SCHEMA} below.
  */
 export const AGENT_SETTINGS_STRING_FIELDS = Object.freeze([
@@ -273,7 +273,6 @@ export const COMMANDS_SCHEMA = {
     validate: { ...SAFE_STRING, minLength: 1 },
     lintBaseline: { ...SAFE_STRING, minLength: 1 },
     test: { ...SAFE_STRING, minLength: 1 },
-    exploratoryTest: { ...SAFE_STRING, minLength: 1 },
     typecheck: NULLABLE_NONEMPTY_SAFE_STRING,
     build: NULLABLE_NONEMPTY_SAFE_STRING,
   },

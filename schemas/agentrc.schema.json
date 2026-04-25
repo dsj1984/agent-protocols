@@ -6,10 +6,8 @@
   "type": "object",
   "properties": {
     "$schema": { "type": "string" },
-    "title": { "type": "string" },
     "agentSettings": { "$ref": "#/$defs/agentSettings" },
-    "orchestration": { "$ref": "#/$defs/orchestration" },
-    "audits": { "$ref": "#/$defs/audits" }
+    "orchestration": { "$ref": "#/$defs/orchestration" }
   },
   "$defs": {
     "safeString": {
@@ -175,12 +173,6 @@
             { "type": "string", "minLength": 1 }
           ]
         },
-        "exploratoryTest": {
-          "allOf": [
-            { "$ref": "#/$defs/safeString" },
-            { "type": "string", "minLength": 1 }
-          ]
-        },
         "typecheck": { "$ref": "#/$defs/nullableNonemptySafeString" },
         "build": { "$ref": "#/$defs/nullableNonemptySafeString" }
       },
@@ -302,7 +294,6 @@
         "allowSymlinkOnWindows": { "type": "boolean" },
         "reapOnSuccess": { "type": "boolean" },
         "reapOnCancel": { "type": "boolean" },
-        "warnOnUncommittedOnReap": { "type": "boolean" },
         "windowsPathLengthWarnThreshold": { "type": "integer", "minimum": 1 },
         "bootstrapFiles": {
           "type": "array",
@@ -409,13 +400,6 @@
           "then": { "required": ["github"] }
         }
       ]
-    },
-    "audits": {
-      "type": "object",
-      "properties": {
-        "selectionGitTimeoutMs": { "type": "integer", "minimum": 1000 }
-      },
-      "additionalProperties": false
     }
   }
 }

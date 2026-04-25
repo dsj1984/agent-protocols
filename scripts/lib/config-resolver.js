@@ -16,7 +16,6 @@ import os from 'node:os';
 import path from 'node:path';
 import { fileURLToPath } from 'node:url';
 import {
-  getAuditsValidator,
   getOrchestrationValidator,
   getSettingsValidator,
   SHELL_INJECTION_RE_STRICT as SHELL_INJECTION_RE,
@@ -317,7 +316,6 @@ export function resolveConfig(opts) {
     }
 
     const orchestration = raw.orchestration ?? null;
-    const audits = raw.audits ?? null;
 
     // Apply defaults to the loaded config. Missing keys that are also absent
     // from LOADED_CONFIG_DEFAULTS (e.g. docsRoot, tempRoot, baseBranch)
@@ -344,13 +342,11 @@ export function resolveConfig(opts) {
 
     if (validate) {
       validateOrchestrationConfig(orchestration);
-      validateAuditsConfig(audits);
     }
 
     const resolved = {
       settings,
       orchestration,
-      audits,
       raw,
       source: agentrcPath,
     };
@@ -627,29 +623,6 @@ export function validateOrchestrationConfig(orchestration) {
 }
 
 /**
- * Validates the top-level `audits` configuration block. Null/undefined is
- * treated as "unset" — consumers fall through to their own defaults.
- *
- * @param {object|null} audits
- * @throws {Error} If schema validation fails.
- */
-export function validateAuditsConfig(audits) {
-  if (audits == null) return;
-
-  if (typeof audits !== 'object' || Array.isArray(audits)) {
-    throw new Error('Invalid audits configuration: audits must be an object.');
-  }
-
-  const validate = getAuditsValidator();
-  if (!validate(audits)) {
-    const details = (validate.errors ?? [])
-      .map((e) => `- ${e.instancePath || '(root)'} ${e.message}`)
-      .join('\n');
-    throw new Error(`Invalid audits configuration:\n${details}`);
-  }
-}
-
-/**
  * Defaults applied when a setting omits `agentSettings.commands` or any field
  * within it. Mirrors the long-standing built-in fallbacks the framework used
  * before Epic #730 Story 5 grouped these keys; consumers that previously read
@@ -662,7 +635,6 @@ export const COMMANDS_DEFAULTS = Object.freeze({
   validate: 'npm run lint',
   lintBaseline: 'npx eslint . --format json',
   test: 'npm test',
-  exploratoryTest: 'npm test',
   typecheck: null,
   build: null,
 });
@@ -675,7 +647,7 @@ export const COMMANDS_DEFAULTS = Object.freeze({
  *   Either the full resolved config (`{ agentSettings, orchestration, ... }`)
  *   or the bare `agentSettings` bag — both shapes are accepted so call sites
  *   can pass whichever they already have in scope.
- * @returns {{ validate: string, lintBaseline: string, test: string, exploratoryTest: string, typecheck: string|null, build: string|null }}
+ * @returns {{ validate: string, lintBaseline: string, test: string, typecheck: string|null, build: string|null }}
  */
 export function getCommands(config) {
   const commands = config?.agentSettings?.commands || config?.commands || {};
@@ -683,8 +655,6 @@ export function getCommands(config) {
     validate: commands.validate ?? COMMANDS_DEFAULTS.validate,
     lintBaseline: commands.lintBaseline ?? COMMANDS_DEFAULTS.lintBaseline,
     test: commands.test ?? COMMANDS_DEFAULTS.test,
-    exploratoryTest:
-      commands.exploratoryTest ?? COMMANDS_DEFAULTS.exploratoryTest,
     typecheck:
       commands.typecheck === undefined
         ? COMMANDS_DEFAULTS.typecheck

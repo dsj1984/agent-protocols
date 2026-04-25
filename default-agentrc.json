@@ -1,6 +1,5 @@
 {
   "$schema": "./.agents/schemas/agentrc.schema.json",
-  "title": "Agent Protocols",
   "agentSettings": {
     "baseBranch": "main",
     "paths": {
@@ -41,7 +40,6 @@
       "validate": "npm run lint",
       "lintBaseline": "npx eslint . --format json",
       "test": "npm test",
-      "exploratoryTest": "npm run test:exploratory",
       "typecheck": null,
       "build": null
     },
@@ -95,7 +93,6 @@
       "nodeModulesStrategy": "pnpm-store",
       "reapOnSuccess": true,
       "reapOnCancel": true,
-      "warnOnUncommittedOnReap": true,
       "bootstrapFiles": [".env"]
     },
     "epicRunner": {
@@ -110,8 +107,5 @@
       "enabled": true,
       "pollIntervalSec": 30
     }
-  },
-  "audits": {
-    "selectionGitTimeoutMs": 30000
   }
 }

@@ -75,8 +75,6 @@ Validate the loaded `[PROJECT_CONFIG]` against the runtime AJV validators
   → applied to `agentSettings`.
 - `getOrchestrationValidator()` from `.agents/scripts/lib/config-schema.js`
   → applied to `orchestration`.
-- `getAuditsValidator()` from the same module → applied to `audits` when
-  present.
 
 If any validator returns errors:
 

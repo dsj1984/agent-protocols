@@ -73,7 +73,6 @@ const WORKTREE_ISOLATION_SCHEMA = {
     allowSymlinkOnWindows: { type: 'boolean' },
     reapOnSuccess: { type: 'boolean' },
     reapOnCancel: { type: 'boolean' },
-    warnOnUncommittedOnReap: { type: 'boolean' },
     windowsPathLengthWarnThreshold: { type: 'integer', minimum: 1 },
     bootstrapFiles: {
       type: 'array',
@@ -204,34 +203,6 @@ const CONCURRENCY_SCHEMA = {
   },
   additionalProperties: false,
 };
-
-/**
- * Top-level `audits` block. Controls behavior of the audit CLI helpers
- * (`select-audits.js`, `run-audit-suite.js`).
- *
- * @see .agents/scripts/select-audits.js
- */
-export const AUDITS_SCHEMA = {
-  type: 'object',
-  properties: {
-    selectionGitTimeoutMs: { type: 'integer', minimum: 1000 },
-  },
-  additionalProperties: false,
-};
-
-/** Default value applied when `audits.selectionGitTimeoutMs` is unset. */
-export const DEFAULT_SELECTION_GIT_TIMEOUT_MS = 30000;
-
-let _compiledAuditsValidator = null;
-
-export function getAuditsValidator() {
-  if (!_compiledAuditsValidator) {
-    const ajv = new Ajv({ allErrors: true });
-    addFormats(ajv);
-    _compiledAuditsValidator = ajv.compile(AUDITS_SCHEMA);
-  }
-  return _compiledAuditsValidator;
-}
 
 /**
  * Embedded JSON Schema for the `orchestration` configuration block. Kept

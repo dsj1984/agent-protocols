@@ -85,11 +85,8 @@ export async function selectAudits({
   injectedGitSpawn,
   gitTimeoutMsOverride,
 }) {
-  const { settings, audits } = resolveConfig();
-  const timeoutMs =
-    gitTimeoutMsOverride ??
-    audits?.selectionGitTimeoutMs ??
-    DEFAULT_GIT_TIMEOUT_MS;
+  const { settings } = resolveConfig();
+  const timeoutMs = gitTimeoutMsOverride ?? DEFAULT_GIT_TIMEOUT_MS;
 
   const rulesPath = path.join(
     PROJECT_ROOT,
