@@ -141,9 +141,8 @@ async function main() {
   }
 
   const { runEpic } = await import('./lib/orchestration/epic-runner.js');
-  const { resolveConfig, validateOrchestrationConfig } = await import(
-    './lib/config-resolver.js'
-  );
+  const { getRunners, resolveConfig, validateOrchestrationConfig } =
+    await import('./lib/config-resolver.js');
   const { createProvider } = await import('./lib/provider-factory.js');
 
   let config;
@@ -166,12 +165,7 @@ async function main() {
 
   const provider = createProvider(config.orchestration);
 
-  // Story 7 atomic cutover: runner sub-blocks live under `orchestration.runners.*`.
-  // Flatten into the orchestration view passed to `runEpic` so the runtime
-  // contexts (`EpicRunnerContext`, `resolveConcurrency`) keep reading flat sub-block
-  // keys until Story 8 sweeps the consumers.
-  const runners = config.orchestration?.runners ?? {};
-  const orchConfig = { ...config.orchestration, ...runners };
+  const { epicRunner } = getRunners(config.orchestration);
 
   if (args.dryRun) {
     console.log(
@@ -179,7 +173,7 @@ async function main() {
         {
           epicId: args.epicId,
           dryRun: true,
-          epicRunner: runners.epicRunner,
+          epicRunner,
         },
         null,
         2,
@@ -188,12 +182,12 @@ async function main() {
     return;
   }
 
-  const logsDir = resolveLogsDir(runners.epicRunner);
-  const idleTimeoutMs = resolveIdleTimeoutMs(runners.epicRunner);
+  const logsDir = resolveLogsDir(epicRunner);
+  const idleTimeoutMs = resolveIdleTimeoutMs(epicRunner);
   const result = await runEpic({
     epicId: args.epicId,
     provider,
-    config: orchConfig,
+    config: config.orchestration,
     autoVersionBump: Boolean(config.settings?.release?.autoVersionBump),
     spawn: (spawnArgs) =>
       defaultSpawn({ ...spawnArgs, logsDir, idleTimeoutMs }),
@@ -215,7 +209,7 @@ async function main() {
  * after exit: `agent::done` = success, `agent::blocked` = blocker, anything
  * else = failure. Per-story stdout/stderr is piped to
  * `<logsDir>/story-<id>.log` (default `temp/epic-runner-logs/`, configurable
- * via `orchestration.epicRunner.logsDir`) to keep parallel runs readable.
+ * via `orchestration.runners.epicRunner.logsDir`) to keep parallel runs readable.
  */
 async function defaultSpawn({
   storyId,
@@ -316,7 +310,7 @@ async function defaultSpawn({
  *
  * Stdout/stderr are piped to `<logsDir>/bookend-<skill>.log` (default
  * `temp/epic-runner-logs/`, configurable via
- * `orchestration.epicRunner.logsDir`) to keep the parent runner's stream
+ * `orchestration.runners.epicRunner.logsDir`) to keep the parent runner's stream
  * readable. The subprocess exit code is the sole success signal.
  */
 async function defaultRunSkill(

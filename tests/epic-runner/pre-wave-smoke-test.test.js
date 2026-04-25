@@ -105,12 +105,14 @@ describe('pre-wave spawn smoke-test wiring', () => {
         provider,
         spawn,
         config: {
-          epicRunner: {
-            enabled: true,
-            concurrencyCap: 2,
-            pollIntervalSec: 1,
-            storyRetryCount: 0,
-            blockerTimeoutHours: 0,
+          runners: {
+            epicRunner: {
+              enabled: true,
+              concurrencyCap: 2,
+              pollIntervalSec: 1,
+              storyRetryCount: 0,
+              blockerTimeoutHours: 0,
+            },
           },
         },
       }),
@@ -162,12 +164,14 @@ describe('pre-wave spawn smoke-test wiring', () => {
         provider,
         spawn,
         config: {
-          epicRunner: {
-            enabled: true,
-            concurrencyCap: 1,
-            pollIntervalSec: 1,
-            storyRetryCount: 0,
-            blockerTimeoutHours: 0,
+          runners: {
+            epicRunner: {
+              enabled: true,
+              concurrencyCap: 1,
+              pollIntervalSec: 1,
+              storyRetryCount: 0,
+              blockerTimeoutHours: 0,
+            },
           },
         },
       }),

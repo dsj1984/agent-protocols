@@ -1,8 +1,8 @@
 /**
  * Per-site concurrency caps for the `concurrentMap` adoption sites shipped
- * in v5.21.0 (Epic #553). Read from `orchestration.concurrency` with
- * fall-backs to the exact v5.21.0 constants so omitting the config block
- * preserves pre-tuning behaviour bit-for-bit.
+ * in v5.21.0 (Epic #553). Read from `orchestration.runners.concurrency` (Epic
+ * #773 Story 7 grouped shape) with fall-backs to the exact v5.21.0 constants
+ * so omitting the config block preserves pre-tuning behaviour bit-for-bit.
  *
  * Fields:
  *   - `waveGate`: 0 means "uncapped" — sprint-wave-gate keeps the
@@ -34,16 +34,17 @@ function coercePositiveInt(value, fallback) {
 
 /**
  * Resolve the concurrency caps from a raw orchestration config block.
- * Accepts both the already-narrowed `concurrency` sub-block and the
- * surrounding `orchestration` object (caller convenience).
+ * Accepts the surrounding `orchestration` object (which carries the grouped
+ * `runners.concurrency` sub-block post-Story-7) or an already-narrowed
+ * concurrency block (caller convenience).
  *
- * @param {{ concurrency?: object } | null | undefined} source
+ * @param {{ runners?: { concurrency?: object } } | { waveGate?: number, commitAssertion?: number, progressReporter?: number } | null | undefined} source
  * @returns {Readonly<{ waveGate: number, commitAssertion: number, progressReporter: number }>}
  */
 export function resolveConcurrency(source) {
   const cfg =
     source && typeof source === 'object' && source !== null
-      ? (source.concurrency ?? source)
+      ? (source.runners?.concurrency ?? source)
       : null;
   const safe = cfg && typeof cfg === 'object' ? cfg : {};
   return Object.freeze({

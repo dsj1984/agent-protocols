@@ -53,7 +53,7 @@ export class OrchestrationContext {
 export class EpicRunnerContext extends OrchestrationContext {
   constructor(opts = {}) {
     super(opts);
-    const runnerCfg = opts.config?.epicRunner ?? {};
+    const runnerCfg = opts.config?.runners?.epicRunner ?? {};
     this.spawn = opts.spawn ?? null;
     this.concurrencyCap =
       opts.concurrencyCap ?? runnerCfg.concurrencyCap ?? null;
@@ -78,9 +78,9 @@ export class EpicRunnerContext extends OrchestrationContext {
 
   validate() {
     super.validate();
-    if (!this.config?.epicRunner?.enabled) {
+    if (!this.config?.runners?.epicRunner?.enabled) {
       throw new Error(
-        'orchestration.epicRunner.enabled is false — refusing to run.',
+        'orchestration.runners.epicRunner.enabled is false — refusing to run.',
       );
     }
     if (typeof this.spawn !== 'function') {

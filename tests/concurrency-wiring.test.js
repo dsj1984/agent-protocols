@@ -43,9 +43,15 @@ describe('resolveConcurrency — defaults preserve v5.21.0 constants', () => {
 });
 
 describe('resolveConcurrency — overrides flow through', () => {
-  it('accepts a concurrency block nested under orchestration', () => {
+  it('accepts the orchestration block carrying runners.concurrency', () => {
     const out = resolveConcurrency({
-      concurrency: { waveGate: 12, commitAssertion: 2, progressReporter: 16 },
+      runners: {
+        concurrency: {
+          waveGate: 12,
+          commitAssertion: 2,
+          progressReporter: 16,
+        },
+      },
     });
     assert.deepEqual(out, {
       waveGate: 12,
@@ -67,10 +73,12 @@ describe('resolveConcurrency — overrides flow through', () => {
 
   it('falls back per-field on malformed overrides', () => {
     const out = resolveConcurrency({
-      concurrency: {
-        waveGate: -5,
-        commitAssertion: 0,
-        progressReporter: Number.NaN,
+      runners: {
+        concurrency: {
+          waveGate: -5,
+          commitAssertion: 0,
+          progressReporter: Number.NaN,
+        },
       },
     });
     // Negative waveGate → default 0. commitAssertion 0 violates ≥1 → 4.
@@ -79,7 +87,7 @@ describe('resolveConcurrency — overrides flow through', () => {
   });
 
   it('returns a frozen object', () => {
-    const out = resolveConcurrency({ concurrency: { waveGate: 5 } });
+    const out = resolveConcurrency({ runners: { concurrency: { waveGate: 5 } } });
     assert.throws(() => {
       out.waveGate = 999;
     });
@@ -99,10 +107,12 @@ describe('createRuntimeContext — ctx.concurrency', () => {
   it('resolves from overrides.orchestration', () => {
     const ctx = createRuntimeContext({
       orchestration: {
-        concurrency: {
-          waveGate: 7,
-          commitAssertion: 3,
-          progressReporter: 12,
+        runners: {
+          concurrency: {
+            waveGate: 7,
+            commitAssertion: 3,
+            progressReporter: 12,
+          },
         },
       },
     });
@@ -115,7 +125,9 @@ describe('createRuntimeContext — ctx.concurrency', () => {
     const ctx = createRuntimeContext({
       concurrency: { waveGate: 99, commitAssertion: 99, progressReporter: 99 },
       orchestration: {
-        concurrency: { waveGate: 1, commitAssertion: 1, progressReporter: 1 },
+        runners: {
+          concurrency: { waveGate: 1, commitAssertion: 1, progressReporter: 1 },
+        },
       },
     });
     assert.equal(ctx.concurrency.waveGate, 99);

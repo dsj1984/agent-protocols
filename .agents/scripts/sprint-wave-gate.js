@@ -71,7 +71,7 @@ async function readParkedFollowOns(provider, epicId) {
 
 /**
  * Fan out async reads either uncapped (Promise.all — preserves v5.21.0
- * behaviour when `orchestration.concurrency.waveGate` is omitted) or
+ * behaviour when `orchestration.runners.concurrency.waveGate` is omitted) or
  * capped via `concurrentMap` when the operator set a positive cap.
  */
 function fanOut(items, mapper, cap) {

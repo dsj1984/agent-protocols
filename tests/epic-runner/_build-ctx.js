@@ -27,12 +27,14 @@ export function buildCtx(overrides = {}) {
     epicId: 321,
     provider: {},
     config: {
-      epicRunner: {
-        enabled: true,
-        concurrencyCap: 2,
-        pollIntervalSec: 1,
-        storyRetryCount: 0,
-        blockerTimeoutHours: 0,
+      runners: {
+        epicRunner: {
+          enabled: true,
+          concurrencyCap: 2,
+          pollIntervalSec: 1,
+          storyRetryCount: 0,
+          blockerTimeoutHours: 0,
+        },
       },
     },
     spawn: async () => ({ status: 'done' }),

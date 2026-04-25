@@ -105,12 +105,14 @@ describe('EpicRunner integration', () => {
     };
 
     const config = {
-      epicRunner: {
-        enabled: true,
-        concurrencyCap: 2,
-        pollIntervalSec: 1,
-        storyRetryCount: 0,
-        blockerTimeoutHours: 0,
+      runners: {
+        epicRunner: {
+          enabled: true,
+          concurrencyCap: 2,
+          pollIntervalSec: 1,
+          storyRetryCount: 0,
+          blockerTimeoutHours: 0,
+        },
       },
     };
 
@@ -180,12 +182,14 @@ describe('EpicRunner integration', () => {
         spawn,
         gitAdapter: async () => 1,
         config: {
-          epicRunner: {
-            enabled: true,
-            concurrencyCap: 1,
-            pollIntervalSec: 1,
-            storyRetryCount: 0,
-            blockerTimeoutHours: 0,
+          runners: {
+            epicRunner: {
+              enabled: true,
+              concurrencyCap: 1,
+              pollIntervalSec: 1,
+              storyRetryCount: 0,
+              blockerTimeoutHours: 0,
+            },
           },
         },
       }),
@@ -209,12 +213,14 @@ describe('EpicRunner integration', () => {
     };
 
     const config = {
-      epicRunner: {
-        enabled: true,
-        concurrencyCap: 2,
-        pollIntervalSec: 1,
-        storyRetryCount: 0,
-        blockerTimeoutHours: 0,
+      runners: {
+        epicRunner: {
+          enabled: true,
+          concurrencyCap: 2,
+          pollIntervalSec: 1,
+          storyRetryCount: 0,
+          blockerTimeoutHours: 0,
+        },
       },
     };
 
@@ -270,12 +276,14 @@ describe('EpicRunner integration', () => {
     const gitAdapter = async ({ storyId }) => (storyId === 401 ? 0 : 3);
 
     const config = {
-      epicRunner: {
-        enabled: true,
-        concurrencyCap: 2,
-        pollIntervalSec: 1,
-        storyRetryCount: 0,
-        blockerTimeoutHours: 0,
+      runners: {
+        epicRunner: {
+          enabled: true,
+          concurrencyCap: 2,
+          pollIntervalSec: 1,
+          storyRetryCount: 0,
+          blockerTimeoutHours: 0,
+        },
       },
     };
 
