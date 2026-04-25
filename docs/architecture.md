@@ -217,8 +217,8 @@ graph TB
 #### Dispatch Engine Submodules (v5.13.0+)
 
 `lib/orchestration/dispatch-engine.js` is a ~200-LOC SDK coordinator that
-composes six cohesive submodules. Consumers (`dispatcher.js`,
-`mcp-orchestration.js`, tests) continue to import `dispatch`,
+composes six cohesive submodules. Consumers (`dispatcher.js`, tests) continue
+to import `dispatch`,
 `resolveAndDispatch`, `collectOpenStoryIds`, `detectEpicCompletion`, and
 the `AGENT_*` / `RISK_HIGH_LABEL` / `TYPE_TASK_LABEL` constants from the
 coordinator path — the split is an internal reorganisation only.
@@ -308,7 +308,7 @@ Wave 1:
 | Module                                                             | Role                                                                                                                                               |
 | ------------------------------------------------------------------ | -------------------------------------------------------------------------------------------------------------------------------------------------- |
 | `lib/orchestration/epic-runner/column-sync.js` (patched #448)      | Dropped the unused `$issueId: Int!` GraphQL variable; removed the silent-swallow try/catch so missing project rows surface as friction, not `unknown`. |
-| `lib/orchestration/friction-emitter.js` (new #450)                 | Rate-limited (`storyId` + marker hash, 60s cooldown) `friction` emitter wrapping `provider.postComment` / the MCP `post_structured_comment` tool.       |
+| `lib/orchestration/friction-emitter.js` (new #450)                 | Rate-limited (`storyId` + marker hash, 60s cooldown) `friction` emitter wrapping `provider.postComment`.                                                |
 | `lib/orchestration/docs-context-bridge.js` (new #454)              | At Story-close, matches changed-file paths against `release.docs` + `agentSettings.docsContextFiles` and emits a `friction` comment on match.           |
 
 `CommitAssertion`'s default git adapter now falls back to a
@@ -361,6 +361,24 @@ the epic-runner factory. Consumers tuning caps supply the CLI at
 `.agents/scripts/aggregate-phase-timings.js` with Epic IDs; it reads
 `phase-timings` structured comments across Stories, aggregates p50/p95
 per phase, and prints recommended caps.
+
+#### MCP server retired (Epic #702)
+
+The framework previously shipped an `agent-protocols` stdio MCP server
+exposing seven tools (`cascade_completion`, `dispatch_wave`,
+`hydrate_context`, `post_structured_comment`, `run_audit_suite`,
+`select_audits`, `transition_ticket_state`). That server is **gone** as
+of Epic #702: every capability is preserved as a direct Node CLI under
+`.agents/scripts/` (or inlined into `update-ticket-state.js`), and
+`lib/orchestration/ticketing.js` remains the authoritative SDK for
+runtime callers. Architectural consequence: there is no longer a
+"parallel pathway" for orchestration — the SDK is the single
+implementation surface, and `.mcp.json` is no longer consulted by any
+framework code. Operators see the simplification at first-run time
+(no MCP-server bootstrap step) and at secrets-resolution time
+(`GITHUB_TOKEN` and `NOTIFICATION_WEBHOOK_URL` read only from
+`process.env`). See `docs/CHANGELOG.md` for the retired-tool → CLI
+mapping and the operator migration path.
 
 ---
 
@@ -436,7 +454,7 @@ classDiagram
 
     IExecutionAdapter <|-- ManualDispatchAdapter
 
-    note for IExecutionAdapter "Future adapters: antigravity,\nclaude-code, codex, subprocess, mcp"
+    note for IExecutionAdapter "Future adapters: antigravity,\nclaude-code, codex, subprocess"
 ```
 
 **Resolution**: The `adapter-factory.js` reads `orchestration.executor` from
@@ -690,7 +708,7 @@ before shelling out; `reap` never passes `--force`.
 | -------------------------- | ------------------------------------------------------------------------------------------------ |
 | `lifecycle-manager.js`     | `ensure`, `reap`, `list`, `gc`, `prune`, `sweepStaleLocks`, Windows-lock-aware remove recovery   |
 | `node-modules-strategy.js` | `applyNodeModulesStrategy` + `installDependencies` for `per-worktree` / `symlink` / `pnpm-store` |
-| `bootstrapper.js`          | Bootstrap-file copy (`.env`, `.mcp.json`), `.agents/` snapshot for submodule consumers, submodule-index scrub |
+| `bootstrapper.js`          | Bootstrap-file copy (`.env`), `.agents/` snapshot for submodule consumers, submodule-index scrub |
 | `inspector.js`             | Pure porcelain parsing, path helpers (`samePath`, `storyIdFromPath`, `isInsideWorktree`), Windows path-length warnings |
 
 The submodules are **internal implementation detail**. Downstream projects

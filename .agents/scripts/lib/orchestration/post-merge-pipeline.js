@@ -231,21 +231,28 @@ export async function branchCleanupPhase(ctx, state = {}) {
 }
 
 export async function ticketClosurePhase(ctx) {
-  const { provider, tasks, storyId, notifier, progress, logger } = ctx;
+  const { provider, tasks, storyId, progress, logger } = ctx;
   const log = reapPhaseLogger(progress);
 
+  // The `notify` function is intentionally NOT forwarded to per-ticket
+  // transitions here. `notificationPhase` fires a single consolidated
+  // story-complete message immediately after this phase; passing notify
+  // through would emit redundant state-transition events (one from the
+  // cascade-up triggered by the last child Task, one from the explicit
+  // Story toDone below) that show up as duplicate Slack/webhook lines per
+  // story close.
   log('TICKETS', `Transitioning ${tasks.length} Task(s) to agent::done...`);
   const batch = await batchTransitionTickets(
     provider,
     tasks,
     STATE_LABELS.DONE,
-    { progress: log, notifier },
+    { progress: log },
   );
   const closedTickets = [...batch.transitioned, ...batch.skipped];
 
   log('TICKETS', `Transitioning Story #${storyId} to agent::done...`);
   try {
-    await toDone(provider, [storyId], { notifier });
+    await toDone(provider, [storyId]);
     closedTickets.push(storyId);
     log('TICKETS', `  #${storyId} → agent::done ✅`);
   } catch (err) {
@@ -258,9 +265,10 @@ export async function ticketClosurePhase(ctx) {
   let cascadedTo = [];
   let cascadeFailed = [];
   try {
-    const cascade = (await cascadeCompletion(provider, storyId, {
-      notifier,
-    })) ?? { cascadedTo: [], failed: [] };
+    const cascade = (await cascadeCompletion(provider, storyId)) ?? {
+      cascadedTo: [],
+      failed: [],
+    };
     cascadedTo = cascade.cascadedTo ?? [];
     cascadeFailed = cascade.failed ?? [];
     if (cascadedTo.length > 0) {
@@ -297,9 +305,8 @@ export async function notificationPhase(ctx, state) {
   await notifyFn(
     epicId,
     {
-      type: 'notification',
+      severity: 'medium',
       message: `✅ Story #${storyId} — *${story.title}* — has been completed and merged into \`${epicBranch}\`. ${closedTickets.length} ticket(s) closed.`,
-      actionRequired: true,
     },
     { orchestration },
   );
@@ -384,7 +391,7 @@ export const DEFAULT_POST_MERGE_PHASES = Object.freeze([
  * pipeline keeps going. Each phase's return value is recorded under its
  * `stateKey` (when defined) on the returned state object.
  *
- * @param {object} ctx          Phase collaborators (provider, notifier,
+ * @param {object} ctx          Phase collaborators (provider, notify,
  *                              frictionEmitter, logger, progress, etc.).
  * @param {Array<{name: string, fn: Function, stateKey?: string, fallback?: any}>} [phases]
  *                              Phase descriptors. Defaults to `DEFAULT_POST_MERGE_PHASES`.

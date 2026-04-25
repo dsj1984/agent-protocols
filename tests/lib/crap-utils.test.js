@@ -5,10 +5,10 @@ import path from 'node:path';
 import { test } from 'node:test';
 import Ajv from 'ajv';
 import {
-  DEFAULT_BASELINE_PATH,
-  KERNEL_VERSION,
   buildBaselineEnvelope,
+  DEFAULT_BASELINE_PATH,
   getCrapBaseline,
+  KERNEL_VERSION,
   resolveEscomplexVersion,
   saveCrapBaseline,
   scanAndScore,

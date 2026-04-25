@@ -16,14 +16,14 @@ import { batchTransitionTickets } from '../story-lifecycle.js';
  * @param {object} [deps.logger]
  * @param {object} deps.input
  * @param {Array<object>} deps.input.tasks
- * @param {object|null} [deps.input.notifier]
+ * @param {Function|null} [deps.input.notify]
  * @returns {Promise<{
  *   ok: boolean,
  *   failed: Array<{id:number,attempts:number,error:string}>,
  * }>}
  */
 export async function transitionTaskStates({ provider, logger, input }) {
-  const { tasks, notifier = null } = input;
+  const { tasks, notify = null } = input;
   const progress = logger?.progress ?? (() => {});
 
   progress(
@@ -34,7 +34,7 @@ export async function transitionTaskStates({ provider, logger, input }) {
     provider,
     tasks,
     STATE_LABELS.EXECUTING,
-    { progress, notifier },
+    { progress, notify },
   );
 
   return {

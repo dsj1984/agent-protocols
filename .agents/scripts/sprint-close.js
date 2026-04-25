@@ -3,33 +3,33 @@
 /**
  * .agents/scripts/sprint-close.js — Final Epic Lifecycle Closure
  *
- * The operator-facing `/sprint-close` workflow is structured around five
- * named phases (Validate → Review → Land → Finalize → Notify). This script
- * owns the Finalize and Notify phases end-to-end and exposes the earlier
- * phases as dedicated sister scripts (`sprint-wave-gate.js`,
- * `validate-docs-freshness.js`, `check-branch-protection.js`,
- * `sprint-code-review.js`) that the workflow invokes before the merge.
+ * The operator-facing `/sprint-close` workflow runs eight named phases.
+ * This script owns Finalize (Phase 7) and Notify (Phase 8) end-to-end and
+ * exposes the earlier phases as dedicated sister scripts
+ * (`sprint-wave-gate.js`, `sprint-hierarchy-gate.js`,
+ * `validate-docs-freshness.js`, `sprint-code-review.js`) that the workflow
+ * invokes before the merge.
  *
- * Finalize:
+ * Finalize (Phase 7):
  *   1. Close auxiliary tickets (PRD, Tech Spec, Sprint Health dashboard).
  *   2. Close the Epic issue with a notification comment.
  *   3. Reap stale worktrees and delete local + remote Epic/Story branches.
  *
- * Notify:
+ * Notify (Phase 8):
  *   4. Emit the terminal banner (success or warning summary) and honour
  *      `--skip-retro` / `--skip-code-review` / `--full-retro` by logging
  *      the override so the operator has an audit trail.
  *
- * The merge-to-main and version tag remain high-visibility manual steps
- * in the workflow; this script is deliberately agnostic about them so a
- * failed release never corrupts the Epic closure state.
+ * The merge-to-main and version bump (Phase 5) remain high-visibility
+ * manual steps in the workflow; this script is deliberately agnostic about
+ * them so a failed release never corrupts the Epic closure state.
  *
  * `--full-retro` is an advisory flag: sprint-close.js does not compose the
  * retro itself (the retro helper does that, invoked from `/sprint-close`
- * Phase 5.1). The flag is logged here so the operator sees the override
- * in the close audit trail, and the `/sprint-close` workflow is
- * responsible for propagating it into the retro helper invocation so the
- * compact-retro heuristic is bypassed.
+ * Phase 6). The flag is logged here so the operator sees the override in
+ * the close audit trail, and the `/sprint-close` workflow is responsible
+ * for propagating it into the retro helper invocation so the compact-retro
+ * heuristic is bypassed.
  *
  * Usage:
  *   node .agents/scripts/sprint-close.js --epic <EPIC_ID>
@@ -429,7 +429,7 @@ async function emitDiscardFrictionComments(provider, reaped, warnings) {
     const body = [
       `⚠️ Force-reap discarded uncommitted changes in worktree \`story-${entry.storyId}\``,
       '',
-      `The Story branch was already merged into \`epic/*\`, so \`/sprint-close\` Phase 4 discarded the following post-merge drift to complete the reap (default behavior; pass \`--no-reap-discard-after-merge\` to preserve).`,
+      `The Story branch was already merged into \`epic/*\`, so \`/sprint-close\` Phase 7 discarded the following post-merge drift to complete the reap (default behavior; pass \`--no-reap-discard-after-merge\` to preserve).`,
       '',
       'Discarded paths:',
       ...entry.discardedPaths.map((p) => `- \`${p}\``),
@@ -486,62 +486,6 @@ async function collectEpicDescendantIds(provider, epicId) {
     }
   }
   return out;
-}
-
-/**
- * Pure resolver for the Phase 3.2 tagging decision. Called before the bump to
- * distinguish the pre-bumped-but-untagged state from a genuine double-bump or
- * a tag collision.
- *
- * @param {Object} input
- * @param {string} input.currentVersion       - Version read from package.json.
- * @param {string} input.targetVersion        - Version the bump would produce.
- * @param {boolean} input.tagExists           - Whether `v<targetVersion>` exists.
- * @param {string} input.epicReleaseTarget    - Release target declared on the Epic body.
- * @returns {{ action: 'bump' | 'skip-bump-tag' | 'abort', detail: string }}
- */
-export function resolveTaggingPlan({
-  currentVersion,
-  targetVersion,
-  tagExists,
-  epicReleaseTarget,
-}) {
-  // Pre-bumped state: files already at the Epic's declared release target and
-  // no tag yet. Skip the bump, just tag HEAD.
-  if (currentVersion === epicReleaseTarget && !tagExists) {
-    return {
-      action: 'skip-bump-tag',
-      detail:
-        `package.json already at ${currentVersion} (Epic release target) and ` +
-        `tag v${targetVersion} missing — skipping bump, will tag HEAD.`,
-    };
-  }
-
-  // Already released: current matches target and the tag exists. Nothing to do.
-  if (currentVersion === targetVersion && tagExists) {
-    return {
-      action: 'abort',
-      detail:
-        `v${targetVersion} already released (current=${currentVersion}, ` +
-        'tag present). Nothing to do — verify release segment is correct.',
-    };
-  }
-
-  // Tag collision: bump would create a new version, but the target tag is
-  // already in use by an unrelated commit.
-  if (currentVersion !== targetVersion && tagExists) {
-    return {
-      action: 'abort',
-      detail:
-        `tag v${targetVersion} already exists but current version is ` +
-        `${currentVersion}. Refusing to re-point the tag.`,
-    };
-  }
-
-  return {
-    action: 'bump',
-    detail: `bumping ${currentVersion} → ${targetVersion} and tagging.`,
-  };
 }
 
 runAsCli(import.meta.url, main, { source: 'sprint-close' });

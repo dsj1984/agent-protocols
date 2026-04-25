@@ -4,6 +4,96 @@ All notable changes to this project will be documented in this file.
 
 ## [Unreleased]
 
+## [5.25.0] - 2026-04-25
+
+### Notification severity rework — unified `low | medium | high`
+
+Collapsed the two notification subsystems (manual `notify()` API + the in-band
+`Notifier` class for ticket-state transitions) into a single dispatcher with a
+unified severity vocabulary.
+
+- **Breaking — config keys renamed.** Drop `notifications.level`,
+  `notifications.webhookMinLevel`, `notifications.postToEpic`, and
+  `notifications.channels`. Replace with a single `notifications.minLevel`
+  (`low | medium | high`, default: `medium`). The defaults preserve today's
+  behaviour for everything except intermediate Story/Epic transitions, which
+  are now silenced by default (only Story/Epic reaching `agent::done` rates
+  `medium` and clears the filter).
+- **Breaking — `notify()` payload shape.** The `type:` field
+  (`progress | notification | friction | action`) and `actionRequired: true`
+  flag are gone. Pass `severity: 'low' | 'medium' | 'high'` instead. `high`
+  callers should also lead the message body with `🚨 Action Required:` so the
+  GitHub comment mirrors the `[Action Required]` webhook prefix.
+- **Breaking — `transitionTicketState` opts.** The `notifier: { emit }`
+  injection point is replaced by `notify: Function`. Production callers pass
+  the imported `notify` function from `notify.js`; tests pass a stub.
+  `transitionTicketState` now derives severity via `eventSeverity()` and
+  posts to the parent epic when the transitioned ticket carries an
+  `Epic: #N` body reference.
+- **Breaking — `createNotifier` and the `Notifier` class are deleted.**
+  `lib/notifications/notifier.js` now exports only the shared helpers
+  (`SEVERITY_RANK`, `meetsMinLevel`, `eventSeverity`,
+  `renderTransitionMessage`, `resolveWebhookUrl`).
+- **Breaking — log-only notification mode dropped.** The
+  `channels: ['log']` config no longer exists. Every notification dispatched
+  via `notify()` posts a GitHub comment (when `ticketId > 0`) and fires the
+  webhook (when severity ≥ `minLevel` and a URL is configured).
+- **Webhook payload format unified.** State-transition events now ship as
+  `[medium] repo#357: story #357 · agent::ready → agent::done — Title` —
+  the same `[severity] repo#N: ...` shape as manual `notify()` calls. State-
+  change webhooks are now also signed with `WEBHOOK_SECRET` when set
+  (previously only manual `notify()` calls were signed).
+- **Bug fix — story-complete webhook no longer mislabels as Action Required.**
+  `post-merge-pipeline.notificationPhase` previously sent
+  `type: 'notification', actionRequired: true`, which forced
+  `[Action Required]` on every successful merge. Now sends `severity: 'medium'`
+  with no escalation flag.
+- **CLI args renamed.** `node .agents/scripts/notify.js --action` is replaced
+  by `--severity high` (still accepts `--severity low|medium|high`).
+
+### `agent-protocols` MCP server retired (Epic #702)
+
+The framework no longer ships an MCP server. Every capability the server
+previously exposed remains available — the surface to invoke it is now
+the Node CLI under `.agents/scripts/` only. Secrets resolution moves to
+the process environment exclusively; `.mcp.json` is no longer consulted
+by any framework code.
+
+- **Breaking — secrets must live in `.env` or the web env-var UI.**
+  Operators who kept `GITHUB_TOKEN` or `NOTIFICATION_WEBHOOK_URL` only
+  in `.mcp.json` must move them. Locally, put them in `.env`; in a
+  Claude Code web session, set them in the session's
+  environment-variables UI; for GitHub Actions remote runs, populate
+  the `ENV_FILE` repo secret. The notifier and provider no longer read
+  `.mcp.json`.
+- **Breaking — `MCP_JSON` repo secret retired from remote orchestration.**
+  `.github/workflows/epic-orchestrator.yml` only consumes `ENV_FILE`
+  now; existing `MCP_JSON` secrets can be removed.
+- **CLI mapping for retired tools.** Each retired tool has a direct
+  Node-CLI successor:
+
+  | Retired MCP tool                                | Successor CLI                                                                |
+  | ----------------------------------------------- | ---------------------------------------------------------------------------- |
+  | `mcp__agent-protocols__dispatch_wave`           | `node .agents/scripts/dispatcher.js --epic <id>`                             |
+  | `mcp__agent-protocols__hydrate_context`         | `node .agents/scripts/context-hydrator.js --task <id> --epic <id>`           |
+  | `mcp__agent-protocols__transition_ticket_state` | `node .agents/scripts/update-ticket-state.js --task <id> --state <state>`    |
+  | `mcp__agent-protocols__cascade_completion`      | Inlined into `update-ticket-state.js`; also fires at Story close             |
+  | `mcp__agent-protocols__post_structured_comment` | `node .agents/scripts/post-structured-comment.js --ticket <id> --marker <m>` |
+  | `mcp__agent-protocols__select_audits`           | `node .agents/scripts/audit-orchestrator.js --select --gate <n>`             |
+  | `mcp__agent-protocols__run_audit_suite`         | `node .agents/scripts/audit-orchestrator.js --run --audit <id>`              |
+
+- **Fork-aware migration for consumer repos.** Consumers that copied
+  `.agents/default-mcp.json` into their own `.mcp.json` must drop the
+  `agent-protocols` entry on their next submodule bump — the script
+  path it points at no longer exists. Third-party MCP servers in the
+  same file (e.g. `@modelcontextprotocol/server-github`, `context7`)
+  are unaffected; `.mcp.json` remains a valid file in that role.
+- **Documentation realignment.** The dedicated MCP docs are deleted;
+  consumer-facing references move to a new "Secrets now live in `.env`"
+  section in `.agents/README.md` and a refreshed web-launch runbook
+  with no MCP dependency. `docs/architecture.md` and `docs/decisions.md`
+  carry the corresponding ADR.
+
 ## [5.24.0] - 2026-04-24
 
 ### Parallel `/sprint-execute` on Claude Code web (Epic #668)

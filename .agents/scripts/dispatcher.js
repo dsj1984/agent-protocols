@@ -15,6 +15,12 @@
  * The script auto-detects whether the ticket is an Epic or Story
  * and routes to the appropriate execution mode.
  *
+ * Post-retirement mapping (Epic #702 — agent-protocols MCP retirement):
+ * this CLI is the script-level entry point for the former MCP tool
+ *   - `mcp__agent-protocols__dispatch_wave`
+ *     → `node dispatcher.js <epicId>` (or `--epic <epicId>` legacy form;
+ *       add `--dry-run` for the manifest-only mode the MCP tool supported).
+ *
  * @see .agents/scripts/lib/orchestration/index.js (SDK barrel)
  * @see .agents/schemas/dispatch-manifest.json
  */

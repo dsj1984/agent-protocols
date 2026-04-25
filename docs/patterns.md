@@ -1006,7 +1006,7 @@ one flag away.
    automated retro agent uses the same truth.
 2. **Preserved downstream contract.** The compact body is still a
    `type: 'retro'` comment and still ends with `<!-- retro-complete:
-   <ISO> -->`. `/sprint-close` Phase 5.1's completion gate is
+   <ISO> -->`. `/sprint-close` Phase 6's completion gate is
    unchanged. No consumer sees a shape difference beyond length.
 3. **Operator override.** A new `--full-retro` flag on `/sprint-close`
    (and a note in the helper) forces the six-section body when the
@@ -1030,3 +1030,67 @@ Use only when (a) the short path genuinely produces less work, not
 less signal, and (b) the short path is the common case. If "clean" is
 the outlier, skip — the short path becomes the one you forget to
 update.
+
+---
+
+## Retire the parallel-pathway surface (Epic #702)
+
+### Problem
+
+The framework shipped a stdio MCP server (`agent-protocols`) exposing
+seven tools that **duplicated** capabilities already implemented in the
+SDK. The SDK was the runtime path; the MCP was a parallel surface that
+existing scripts did not exercise. Two surfaces meant: two places to
+audit, two places to keep in sync when the SDK changed, two places where
+secrets had to be threaded (`.mcp.json` env block + `process.env`), and
+a permanent "MCP-unavailable on web" degradation note in every web-launch
+runbook. The MCP cost real maintenance for marginal ergonomic gain.
+
+Earlier patterns in this file reference `MCP tool` / `post_structured_comment`
+emitter wrappers and the `MCP tool-argument schema enforcement` decision.
+Those references describe the architecture as it stood **before** Epic
+#702 retired the MCP. The patterns themselves remain valid; only the
+delivery surface changed (CLI invocation in place of MCP-routed call).
+
+### Solution
+
+When a parallel surface (SDK + MCP, SDK + RPC, etc.) duplicates work,
+collapse to one surface in three sequenced steps:
+
+1. **Add the missing CLIs first.** Wrap every capability the parallel
+   surface offered with a thin Node CLI under `.agents/scripts/`. Each
+   CLI emits the same JSON envelope the parallel tool produced and exits
+   non-zero on the same failure modes. No behavioural change.
+2. **Migrate every caller in committed code.** Grep workflow markdown,
+   skills, helpers, scripts; every `mcp__agent-protocols__*` token gets
+   rewritten to `node .agents/scripts/<name>.js …`. Add a pre-commit
+   assertion (here: `check-markdown.js`) so reintroductions break the
+   build.
+3. **Delete the parallel surface in one shot.** Delete the server, its
+   tool registry, the dedicated tests, the `agent-protocols` block in
+   `.mcp.json` / `default-mcp.json`, the dedicated docs (`MCP.md`,
+   `mcp-setup.md`). Do not leave deprecated wrappers or `mcp__X`
+   aliases.
+
+### Why one-shot deletion (no compatibility shims)
+
+Backwards-compatibility shims for a surface no caller exercises are pure
+liability: they keep the test surface alive, they keep the docs alive,
+they keep the secrets path alive, and they create the false impression
+that the surface is supported. The migration window is closed by Step 2;
+Step 3 is bounded and reversible by a single-commit revert if Step 3
+breaks something Steps 1–2 missed.
+
+### When to reach for this pattern
+
+Any time a feature ships in two places and one of them is the load-
+bearing path. Diagnostic: does any committed code call the secondary
+path? If no, the secondary path is liability the team is paying for in
+mental overhead, doc surface, and audit cost. Run the three-step
+collapse.
+
+Skip when the secondary surface is a genuinely independent product
+(e.g. a public SDK consumed by external integrators). The diagnostic
+flips: if you cannot delete the surface in one shot without breaking
+external contracts, the surfaces are not duplicates and this pattern
+does not apply.

@@ -397,8 +397,9 @@ automatically.
 
 - **Never** honor a mid-run change to `epic::auto-close`. The snapshot at
   startup is authoritative.
-- **Always** checkpoint via `post_structured_comment` with the `epic-run-state`
-  marker — never write run state anywhere else.
+- **Always** checkpoint via `node .agents/scripts/post-structured-comment.js
+  --ticket <epicId> --marker epic-run-state --body-file <path>` — never write
+  run state anywhere else.
 - **Never** launch more than `concurrencyCap` parallel Story executors per wave.
 
 ### Story Mode

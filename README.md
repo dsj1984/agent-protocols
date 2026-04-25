@@ -58,6 +58,14 @@ graph LR
   enforced anti-gaming guardrail that blocks silent threshold relaxation. See
   the consumer-onboarding section in [`.agents/README.md`](.agents/README.md)
   for first-run behavior, opt-out, and `--json` output semantics.
+- **No MCP server, secrets in `.env` only**: **Epic #702** retires the
+  `agent-protocols` stdio MCP server entirely. Every capability the server
+  exposed is preserved via direct Node CLIs under `.agents/scripts/`, and
+  `.mcp.json` is no longer consulted by any framework code — `GITHUB_TOKEN`
+  and `NOTIFICATION_WEBHOOK_URL` must live in `.env` locally (or the Claude
+  Code web env-var UI). Operators forking `.agents/default-mcp.json` should
+  drop the `agent-protocols` block on their next submodule bump; see the
+  CHANGELOG entry for the retired-tool → CLI mapping table.
 - **Tunable concurrency caps**: **Epic #638 (v5.23.0)** turns the
   `concurrentMap` caps shipped in #553 into a configurable surface
   (`orchestration.concurrency.{waveGate, commitAssertion, progressReporter}`).
@@ -100,32 +108,6 @@ set your repository details:
 
 Set `GITHUB_TOKEN` in your environment (or a `.env` file at the project root)
 for background script authentication.
-
-### 2b. MCP Activation (Optional but Recommended)
-
-For the best agentic experience, add the orchestration server to your IDE or MCP
-host:
-
-```json
-"agent-protocols": {
-  "command": "node",
-  "args": ["/absolute/path/to/your/project/.agents/scripts/mcp-orchestration.js"]
-}
-```
-
-This enables agents to use native tools like `dispatch_wave` instead of raw
-shell commands. See [.agents/MCP.md](.agents/MCP.md) for the full tool
-reference (per-tool schemas, error modes, decision matrix, troubleshooting)
-and [.agents/README.md](.agents/README.md) for the host-level configuration
-details.
-
-> **Hardening note (Epic #511, v5.19.0):** `tools/call` arguments are now
-> AJV-validated against each tool's `inputSchema`, so malformed payloads
-> return JSON-RPC `-32602 Invalid params` with a failing path rather than
-> surfacing as downstream exceptions. `dispatch_wave` results also carry
-> `manifestPersisted` / `manifestPersistError` so callers can detect a
-> failed manifest write instead of reading a stale file. Full rundown in
-> [docs/CHANGELOG.md](docs/CHANGELOG.md) under 5.19.0.
 
 ### 3. Plan Your First Epic
 
@@ -171,7 +153,9 @@ the run continues autonomously through `/sprint-code-review` → `/sprint-retro`
 
 ### Path 2 — Remote, GitHub-triggered
 
-1. Configure repo secrets: `ANTHROPIC_API_KEY`, `ENV_FILE`, `MCP_JSON`.
+1. Configure repo secrets: `ANTHROPIC_API_KEY` (or `CLAUDE_CODE_OAUTH_TOKEN`) and
+   `ENV_FILE` (the contents of your `.env`, including `GITHUB_TOKEN` and any
+   optional `NOTIFICATION_WEBHOOK_URL`).
 2. On the Epic issue, add the `agent::dispatching` label (and optionally
    `epic::auto-close`).
 3. `.github/workflows/epic-orchestrator.yml` fires, booting a Claude remote
@@ -206,9 +190,7 @@ agent-protocols/
 │   ├── scripts/              # Orchestration engine
 │   │   ├── lib/              # Core libraries (config, interfaces, factory)
 │   │   │   ├── orchestration/  # SDK (dispatcher, hydrator, ticketing)
-│   │   │   ├── presentation/   # Manifest rendering
-│   │   │   └── mcp/            # MCP tool registry
-│   │   ├── mcp/              # MCP tool implementations
+│   │   │   └── presentation/   # Manifest rendering
 │   │   └── providers/        # Ticketing provider implementations
 │   ├── schemas/              # JSON Schemas for validation
 │   └── templates/            # Context hydration templates
@@ -236,7 +218,6 @@ npm run test:coverage  # Run tests with 85% coverage gate
 | [Remote Orchestrator](docs/remote-orchestrator.md)            | Runner contract, secrets, resumption semantics      |
 | [Project Board](docs/project-board.md)                        | Projects V2 Status field, columns, and Views        |
 | [Consumer Guide](.agents/README.md)                           | Setup, configuration, and APIs                      |
-| [MCP Server Reference](.agents/MCP.md)                        | Per-tool reference for the orchestration MCP server |
 | [Worktree Lifecycle](.agents/workflows/worktree-lifecycle.md) | Per-story `git worktree` isolation (v5.7.0+)        |
 | [Changelog](docs/CHANGELOG.md)                                | Release history (v5.0.0+)                           |
 | [Legacy Changelog](docs/archive/CHANGELOG-v4.md)              | v1.0.0 – v4.7.2 history                             |

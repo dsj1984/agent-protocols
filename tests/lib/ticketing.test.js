@@ -122,10 +122,10 @@ test('ticketing.js', async (t) => {
   );
 
   await t.test(
-    'transitionTicketState fires notifier.emit with state-transition payload',
+    'transitionTicketState invokes notify with severity and message',
     async () => {
-      // Seed ticket #2 with type label and Epic reference so the notifier
-      // payload captures `type`, `fromState`, and `epicId` correctly.
+      // Seed ticket #2 with type label and Epic reference so the call posts
+      // to the epic and captures `fromState` correctly.
       mock.tickets[2] = {
         ...mock.tickets[2],
         labels: ['agent::executing', 'type::story'],
@@ -134,63 +134,87 @@ test('ticketing.js', async (t) => {
         html_url: 'https://example.test/issues/2',
       };
 
-      const emitted = [];
-      const fakeNotifier = {
-        emit(event) {
-          emitted.push(event);
-          return Promise.resolve({ fired: true });
-        },
+      const calls = [];
+      const fakeNotify = (ticketId, payload) => {
+        calls.push({ ticketId, payload });
+        return Promise.resolve();
       };
 
       await transitionTicketState(mock, 2, 'agent::review', {
-        notifier: fakeNotifier,
+        notify: fakeNotify,
       });
+      // Allow the fire-and-forget promise to settle.
+      await Promise.resolve();
 
-      assert.equal(emitted.length, 1);
-      const event = emitted[0];
-      assert.equal(event.kind, 'state-transition');
-      assert.equal(event.fromState, 'agent::executing');
-      assert.equal(event.toState, 'agent::review');
-      assert.deepEqual(event.ticket, {
-        id: 2,
-        title: 'Wire Notifier',
-        type: 'story',
-        url: 'https://example.test/issues/2',
-        epicId: 1,
-      });
+      assert.equal(calls.length, 1);
+      // Story → intermediate state is `low` per eventSeverity.
+      assert.equal(calls[0].payload.severity, 'low');
+      // Posts to the parent epic id parsed from the body.
+      assert.equal(calls[0].ticketId, 1);
+      assert.match(calls[0].payload.message, /story #2/);
+      assert.match(calls[0].payload.message, /agent::executing/);
+      assert.match(calls[0].payload.message, /agent::review/);
     },
   );
 
   await t.test(
-    'transitionTicketState without a notifier does not emit',
+    'transitionTicketState marks Story → done as medium severity',
+    async () => {
+      mock.tickets[2] = {
+        ...mock.tickets[2],
+        labels: ['agent::executing', 'type::story'],
+        body: 'Feature body\n\nEpic: #1',
+        title: 'Wire Notifier',
+      };
+
+      const calls = [];
+      const fakeNotify = (ticketId, payload) => {
+        calls.push({ ticketId, payload });
+        return Promise.resolve();
+      };
+
+      await transitionTicketState(mock, 2, 'agent::done', {
+        notify: fakeNotify,
+      });
+      await Promise.resolve();
+
+      // Story reaching `agent::done` rates `medium`.
+      assert.ok(
+        calls.some((c) => c.payload.severity === 'medium'),
+        'expected at least one medium-severity notify call',
+      );
+    },
+  );
+
+  await t.test(
+    'transitionTicketState without a notify fn does not throw',
     async () => {
       // Guard against a regression where an unconditional call on an undefined
-      // notifier would throw.
+      // notify would throw.
       await transitionTicketState(mock, 2, 'agent::review');
-      // No throw, no emit side-effects — the absence of an emit spy here is
-      // the assertion by construction.
       assert.ok(mock.tickets[2].labels.includes('agent::review'));
     },
   );
 
   await t.test(
-    'cascadeCompletion forwards notifier to recursive transitions',
+    'cascadeCompletion forwards notify to recursive transitions',
     async () => {
       mock.tickets[3].labels = ['agent::done'];
-      const kinds = [];
-      const fakeNotifier = {
-        emit(event) {
-          kinds.push(`${event.ticket.id}:${event.toState}`);
-          return Promise.resolve({ fired: true });
-        },
+      const calls = [];
+      const fakeNotify = (ticketId, payload) => {
+        calls.push({ ticketId, payload });
+        return Promise.resolve();
       };
 
-      await cascadeCompletion(mock, 3, { notifier: fakeNotifier });
+      await cascadeCompletion(mock, 3, { notify: fakeNotify });
+      await Promise.resolve();
 
       // #2 and #1 should both have been transitioned to agent::done via
-      // cascade, each producing one notifier event.
-      assert.ok(kinds.includes('2:agent::done'));
-      assert.ok(kinds.includes('1:agent::done'));
+      // cascade, each producing one notify call.
+      assert.ok(
+        calls.length >= 2,
+        `expected ≥2 notify calls, got ${calls.length}`,
+      );
     },
   );
 
@@ -402,6 +426,65 @@ test('ticketing.js', async (t) => {
         mock.tickets[1].body.includes('- [x] #2'),
         true,
         'Checkbox for feature in epic should be ticked',
+      );
+    },
+  );
+
+  await t.test(
+    'cascadeCompletion leaves a parent with mixed open/closed children open (premature-close regression guard)',
+    async () => {
+      // Build a Feature with two child Stories: one done, one still
+      // executing. Closing the done child must NOT cascade-close the
+      // Feature because at least one sibling remains open.
+      mock.tickets[20] = {
+        id: 20,
+        labels: ['agent::executing', 'type::feature'],
+        body: 'Feature body\n- [ ] #21\n- [ ] #22',
+        state: 'open',
+      };
+      mock.tickets[21] = {
+        id: 21,
+        labels: ['agent::done', 'type::story'],
+        body: 'Story 21 body\n\nparent: #20',
+        state: 'open',
+      };
+      mock.tickets[22] = {
+        id: 22,
+        labels: ['agent::executing', 'type::story'],
+        body: 'Story 22 body\n\nparent: #20',
+        state: 'open',
+      };
+
+      mock.deps[20] = { blocks: [], blockedBy: [21, 22] };
+      mock.deps[21] = { blocks: [20], blockedBy: [] };
+      mock.deps[22] = { blocks: [20], blockedBy: [] };
+
+      mock.subTickets[20] = [mock.tickets[21], mock.tickets[22]];
+      mock.subTickets[21] = [];
+      mock.subTickets[22] = [];
+
+      const result = await cascadeCompletion(mock, 21);
+
+      assert.equal(
+        result.cascadedTo.length,
+        0,
+        'cascade must not advance when the parent has open siblings',
+      );
+      assert.ok(
+        !mock.tickets[20].labels.includes('agent::done'),
+        'Feature must remain open while a sibling Story is still executing',
+      );
+      assert.ok(
+        mock.tickets[20].labels.includes('agent::executing'),
+        'Feature must retain its prior state label',
+      );
+      assert.ok(
+        mock.tickets[20].body.includes('- [x] #21'),
+        'Done child checkbox must still be ticked even when the parent stays open',
+      );
+      assert.ok(
+        mock.tickets[20].body.includes('- [ ] #22'),
+        'Open sibling checkbox must remain unchecked',
       );
     },
   );

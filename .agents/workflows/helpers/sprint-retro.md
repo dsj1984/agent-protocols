@@ -8,7 +8,7 @@ description: >-
 # Sprint Retro (helper)
 
 > **Helper module.** Not a slash command. Invoked automatically from
-> `/sprint-close` Phase 5.1 when the Epic has no retro comment yet. To run a
+> `/sprint-close` Phase 6 when the Epic has no retro comment yet. To run a
 > retro directly, use `/sprint-close [Epic_ID]` — it delegates here (or pass
 > `--skip-retro` to bypass).
 
@@ -142,7 +142,7 @@ compose Action Items for Next Epic          → upsertStructuredComment(epicId, 
 comment of the same type on each call, so no comment sprawl occurs. The
 partial body does **not** carry the `retro-complete:` marker — it is
 informational only. Step 3 then posts the final body as `type: 'retro'`
-with the `retro-complete:` marker, which `/sprint-close` Phase 5.1 uses as
+with the `retro-complete:` marker, which `/sprint-close` Phase 6 uses as
 its sole completion gate (the regex matches `retro-complete:` exclusively,
 so `retro-partial:` checkpoints never trip the gate).
 
@@ -256,10 +256,11 @@ that path fires the notification webhook, leaking the long-form retro body to
 downstream consumers (Make.com / Slack / Discord). GitHub is the sole
 destination.
 
-```text
-# Preferred — MCP-native structured comment (does NOT fire the webhook):
-mcp__agent-protocols__post_structured_comment \
-  --ticket [EPIC_ID] --type retro --body "<retro markdown>"
+```bash
+# Preferred — CLI structured comment (does NOT fire the webhook).
+# Write the retro markdown to a file first; --body-file is required.
+node .agents/scripts/post-structured-comment.js \
+  --ticket [EPIC_ID] --marker retro --body-file <path-to-retro.md>
 
 # Direct SDK fallback (also does NOT fire the webhook):
 node -e "
@@ -271,7 +272,7 @@ node -e "
 ```
 
 The retro body **must** still end with the `<!-- retro-complete: <ISO_TIMESTAMP> -->`
-HTML marker — `/sprint-close`'s Retrospective Gate (Phase 5.1) falls back to
+HTML marker — `/sprint-close`'s Retrospective Gate (Phase 6) falls back to
 grepping that marker when the structured-comment type lookup is unavailable.
 This final `retro` comment replaces any prior `retro-partial` checkpoint
 posted during Step 2.
@@ -322,9 +323,9 @@ Commit these with a conventional `docs(...)` message on the Epic branch. Do
   structured-comment lookup is unavailable.
 - **Never** post the retro body through `notify.js`. That path fires the
   notification webhook and leaks the long-form retro to Make.com / Slack /
-  Discord. Use `mcp__agent-protocols__post_structured_comment` (preferred) or
-  `provider.postComment(..., { type: 'retro' })` exclusively — both post only
-  to GitHub and never touch the webhook.
+  Discord. Use `node .agents/scripts/post-structured-comment.js --marker retro`
+  or `provider.postComment(..., { type: 'retro' })` exclusively — both post
+  only to GitHub and never touch the webhook.
 - **Always** post the retro as `type: retro` via the structured comment API so
   downstream tooling (and the `/sprint-close` gate) can filter it.
 - **Always** re-run the workflow end-to-end if the final comment post fails.

@@ -37,7 +37,6 @@ import {
 import { parseBlockedBy } from './lib/dependency-parser.js';
 import { getEpicBranch, getStoryBranch } from './lib/git-utils.js';
 import { Logger } from './lib/Logger.js';
-import { createNotifier } from './lib/notifications/notifier.js';
 import { createProvider } from './lib/provider-factory.js';
 import { validateBlockers } from './lib/story-init/blocker-validator.js';
 import { initializeBranch } from './lib/story-init/branch-initializer.js';
@@ -48,6 +47,7 @@ import { transitionTaskStates } from './lib/story-init/state-transitioner.js';
 import { buildTaskGraph } from './lib/story-init/task-graph-builder.js';
 import { createPhaseTimer } from './lib/util/phase-timer.js';
 import { savePhaseTimerState } from './lib/util/phase-timer-state.js';
+import { notify } from './notify.js';
 
 // ---------------------------------------------------------------------------
 // Progress logger — shared stage-logger passed to every pipeline stage.
@@ -102,7 +102,8 @@ export async function runStoryInit({
   const config = injectedConfig || resolveConfig({ cwd });
   const { settings, orchestration } = config;
   const provider = injectedProvider || createProvider(orchestration);
-  const notifier = createNotifier(orchestration, provider, { cwd });
+  const notifyFn = (ticketId, payload) =>
+    notify(ticketId, payload, { orchestration, provider });
 
   const runtime = resolveRuntime({ config });
   progress(
@@ -233,7 +234,7 @@ export async function runStoryInit({
     const transition = await transitionTaskStates({
       provider,
       logger: stageLogger,
-      input: { tasks: sortedTasks, notifier },
+      input: { tasks: sortedTasks, notify: notifyFn },
     });
     if (!transition.ok) {
       const failedSummary = transition.failed

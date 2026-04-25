@@ -6,6 +6,14 @@
  *
  * This file preserves backward compatibility for CLI usage and existing
  * testing patterns.
+ *
+ * Post-retirement mapping (Epic #702 — agent-protocols MCP retirement):
+ * this CLI is the script-level entry point for the former MCP tools
+ *   - `mcp__agent-protocols__transition_ticket_state`
+ *     → `node update-ticket-state.js --ticket <id> --state <state>`
+ *   - `mcp__agent-protocols__cascade_completion`
+ *     → `node update-ticket-state.js --ticket <id> --state agent::done`
+ *       (cascade fires automatically when transitioning to `agent::done`)
  */
 
 import { parseArgs } from 'node:util';

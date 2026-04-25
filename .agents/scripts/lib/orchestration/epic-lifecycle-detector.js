@@ -80,7 +80,7 @@ export async function detectEpicCompletion({
 
   try {
     await notify(epicId, {
-      type: 'notification',
+      severity: 'medium',
       message: `Epic #${epicId} complete. All tasks done. Bookend Lifecycle starting.`,
     });
   } catch (err) {
