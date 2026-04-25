@@ -38,6 +38,7 @@ import {
 } from './lib/close-validation.js';
 import {
   getBaselines,
+  getRunners,
   PROJECT_ROOT,
   resolveConfig,
   resolveWorkingPath,
@@ -393,8 +394,7 @@ async function finalizeMerge(
         cwd,
         epicBranch,
         storyBranch,
-        closeRetry:
-          orchestration?.runners?.closeRetry ?? orchestration?.closeRetry,
+        closeRetry: getRunners(orchestration).closeRetry,
         git: { gitSpawn },
         log: (msg) => progress('GIT', msg),
       });
@@ -501,8 +501,7 @@ async function completeInProgressMerge({
         cwd,
         epicBranch,
         storyBranch,
-        closeRetry:
-          orchestration?.runners?.closeRetry ?? orchestration?.closeRetry,
+        closeRetry: getRunners(orchestration).closeRetry,
         git: { gitSpawn },
         log: (msg) => progress('GIT', msg),
       });

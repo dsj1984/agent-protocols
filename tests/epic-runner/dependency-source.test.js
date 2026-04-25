@@ -86,7 +86,9 @@ function providerFromStories(epicId, stories) {
 }
 
 const config = {
-  epicRunner: { enabled: true, concurrencyCap: 5, pollIntervalSec: 1 },
+  runners: {
+    epicRunner: { enabled: true, concurrencyCap: 5, pollIntervalSec: 1 },
+  },
 };
 
 describe('epic-runner dependency source (body-parsed)', () => {

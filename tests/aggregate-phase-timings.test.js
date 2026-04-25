@@ -238,7 +238,7 @@ describe('renderSummary', () => {
     assert.match(md, /# Phase-timings aggregate/);
     assert.match(md, /#553 \(5\)/);
     assert.match(md, /\| install \|/);
-    assert.match(md, /Recommended `orchestration.concurrency`/);
+    assert.match(md, /Recommended `orchestration\.runners\.concurrency`/);
     assert.match(md, /\| waveGate \| 0 \|/);
   });
 

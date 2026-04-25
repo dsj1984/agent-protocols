@@ -10,7 +10,7 @@
  * progress-reporter).
  *
  * The recommendations are advisory: the output is meant to feed the defaults
- * chosen for `agentSettings.orchestration.concurrency.{waveGate,
+ * chosen for `orchestration.runners.concurrency.{waveGate,
  * commitAssertion, progressReporter}` in `default-agentrc.json`.
  *
  * Usage:
@@ -240,7 +240,7 @@ export function renderSummary({
   }
   lines.push(
     '',
-    '## Recommended `orchestration.concurrency` defaults',
+    '## Recommended `orchestration.runners.concurrency` defaults',
     '',
     '| Site | Cap | Rationale |',
     '| --- | --- | --- |',

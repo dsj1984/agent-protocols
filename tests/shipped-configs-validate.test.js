@@ -63,11 +63,12 @@ describe('shipped configs validate cleanly under the updated schema', () => {
       const { raw } = loadAndValidate(relPath);
       const orch = raw.orchestration ?? {};
 
-      if (orch.epicRunner && orch.epicRunner.enabled !== false) {
+      const epicRunner = orch.runners?.epicRunner;
+      if (epicRunner && epicRunner.enabled !== false) {
         assert.ok(
-          Number.isInteger(orch.epicRunner.concurrencyCap) &&
-            orch.epicRunner.concurrencyCap >= 1,
-          `${relPath}: epicRunner.concurrencyCap is required when enabled !== false`,
+          Number.isInteger(epicRunner.concurrencyCap) &&
+            epicRunner.concurrencyCap >= 1,
+          `${relPath}: runners.epicRunner.concurrencyCap is required when enabled !== false`,
         );
       }
 
