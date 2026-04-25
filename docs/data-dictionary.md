@@ -336,7 +336,7 @@ contract-shape change.
 | Sub-block                 | Required | Resolver accessor    | Holds                                                                                                  |
 | ------------------------- | -------- | -------------------- | ------------------------------------------------------------------------------------------------------ |
 | `agentSettings.paths`     | Yes      | `getPaths(config)`   | `agentRoot`, `docsRoot`, `tempRoot` (all required); optional `auditOutputDir`.                         |
-| `agentSettings.commands`  | No       | `getCommands(config)`| `validate`, `lintBaseline`, `test`, `exploratoryTest`, `typecheck` (`string \| null`), `build` (`string \| null`). |
+| `agentSettings.commands`  | No       | `getCommands(config)`| `validate`, `lintBaseline`, `test`, `typecheck` (`string \| null`), `build` (`string \| null`). |
 | `agentSettings.quality`   | No       | `getQuality(config)` | `baselines.{lint,crap,maintainability}.{path,refreshCommand?}`, `maintainability`, `crap`, `prGate`.    |
 | `agentSettings.limits`    | No       | `getLimits(config)`  | `maxInstructionSteps`, `maxTickets`, `maxTokenBudget`, `executionTimeoutMs`, `executionMaxBuffer`, `friction.*`. |
 

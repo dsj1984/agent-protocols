@@ -79,7 +79,6 @@ repo"; `null` is the canonical disabled value, empty strings are rejected.
 | `validate`        | No       | (none)  | `string`        | Comprehensive pre-merge check (e.g. `npm run lint`).    |
 | `lintBaseline`    | No       | (none)  | `string`        | Structured-output linter for the lint ratchet.          |
 | `test`            | No       | (none)  | `string`        | Project test runner.                                    |
-| `exploratoryTest` | No       | (none)  | `string`        | Optional separate command for exploratory/QA passes.    |
 | `typecheck`       | No       | `null`  | `string \| null` | Strict type-checking. `null` = disabled.                |
 | `build`           | No       | `null`  | `string \| null` | Production build. `null` = disabled.                    |
 
@@ -299,7 +298,6 @@ number of keys.
 | Key                                       | Root dogfood                          | Distributed template                | Why they differ                                                                                                                                                                          |
 | ----------------------------------------- | ------------------------------------- | ----------------------------------- | ---------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
 | `agentSettings.commands.lintBaseline`     | `npm run lint`                        | `npx eslint . --format json`        | Root piggybacks on the repo's existing lint script; consumer template assumes a generic ESLint setup with structured output.                                                              |
-| `agentSettings.commands.exploratoryTest`  | `npm test`                            | `npm run test:exploratory`          | Root has a single test target; consumer template signals where a separate exploratory suite would plug in.                                                                                |
 | `agentSettings.quality.maintainability.targetDirs` | `[".agents/scripts", "tests"]` | `["src", "tests"]`                  | Root scans the framework's own source tree; consumer template scans the conventional `src/`.                                                                                              |
 | `agentSettings.quality.crap.targetDirs`   | `[".agents/scripts"]`                 | `["src"]`                           | Same reason as MI above.                                                                                                                                                                  |
 | `agentSettings.release.docs`              | `["README.md", "docs/CHANGELOG.md"]`  | `["README.md"]`                     | Root keeps a separate CHANGELOG; template starts minimal and lets consumers extend.                                                                                                       |

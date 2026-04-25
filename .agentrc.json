@@ -1,6 +1,5 @@
 {
   "$schema": "./.agents/schemas/agentrc.schema.json",
-  "title": "Agent Protocols",
   "agentSettings": {
     "baseBranch": "main",
     "paths": {
@@ -41,7 +40,6 @@
       "validate": "npm run lint",
       "lintBaseline": "npm run lint",
       "test": "npm test",
-      "exploratoryTest": "npm test",
       "typecheck": null,
       "build": null
     },

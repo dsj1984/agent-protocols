@@ -6,7 +6,6 @@
   "type": "object",
   "properties": {
     "$schema": { "type": "string" },
-    "title": { "type": "string" },
     "agentSettings": { "$ref": "#/$defs/agentSettings" },
     "orchestration": { "$ref": "#/$defs/orchestration" },
     "audits": { "$ref": "#/$defs/audits" }
@@ -170,12 +169,6 @@
           ]
         },
         "test": {
-          "allOf": [
-            { "$ref": "#/$defs/safeString" },
-            { "type": "string", "minLength": 1 }
-          ]
-        },
-        "exploratoryTest": {
           "allOf": [
             { "$ref": "#/$defs/safeString" },
             { "type": "string", "minLength": 1 }

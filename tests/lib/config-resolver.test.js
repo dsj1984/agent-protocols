@@ -583,7 +583,6 @@ describe('config-resolver library tests', () => {
       assert.equal(out.validate, 'pnpm lint');
       assert.equal(out.test, 'pnpm test');
       assert.equal(out.lintBaseline, COMMANDS_DEFAULTS.lintBaseline);
-      assert.equal(out.exploratoryTest, COMMANDS_DEFAULTS.exploratoryTest);
       assert.equal(out.typecheck, null);
       assert.equal(out.build, null);
     });

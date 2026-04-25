@@ -662,7 +662,6 @@ export const COMMANDS_DEFAULTS = Object.freeze({
   validate: 'npm run lint',
   lintBaseline: 'npx eslint . --format json',
   test: 'npm test',
-  exploratoryTest: 'npm test',
   typecheck: null,
   build: null,
 });
@@ -675,7 +674,7 @@ export const COMMANDS_DEFAULTS = Object.freeze({
  *   Either the full resolved config (`{ agentSettings, orchestration, ... }`)
  *   or the bare `agentSettings` bag — both shapes are accepted so call sites
  *   can pass whichever they already have in scope.
- * @returns {{ validate: string, lintBaseline: string, test: string, exploratoryTest: string, typecheck: string|null, build: string|null }}
+ * @returns {{ validate: string, lintBaseline: string, test: string, typecheck: string|null, build: string|null }}
  */
 export function getCommands(config) {
   const commands = config?.agentSettings?.commands || config?.commands || {};
@@ -683,8 +682,6 @@ export function getCommands(config) {
     validate: commands.validate ?? COMMANDS_DEFAULTS.validate,
     lintBaseline: commands.lintBaseline ?? COMMANDS_DEFAULTS.lintBaseline,
     test: commands.test ?? COMMANDS_DEFAULTS.test,
-    exploratoryTest:
-      commands.exploratoryTest ?? COMMANDS_DEFAULTS.exploratoryTest,
     typecheck:
       commands.typecheck === undefined
         ? COMMANDS_DEFAULTS.typecheck
