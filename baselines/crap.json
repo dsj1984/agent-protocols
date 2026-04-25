@@ -3961,61 +3961,73 @@
       "crap": 4,
       "file": ".agents/scripts/sprint-code-review.js",
       "method": "parseLintOutput",
-      "startLine": 55
-    },
-    {
-      "crap": 2,
-      "file": ".agents/scripts/sprint-code-review.js",
-      "method": "runLint",
-      "startLine": 91
+      "startLine": 54
     },
     {
       "crap": 3,
       "file": ".agents/scripts/sprint-code-review.js",
+      "method": "partitionFilesForLint",
+      "startLine": 102
+    },
+    {
+      "crap": 2,
+      "file": ".agents/scripts/sprint-code-review.js",
+      "method": "spawnLintRunner",
+      "startLine": 113
+    },
+    {
+      "crap": 6,
+      "file": ".agents/scripts/sprint-code-review.js",
+      "method": "runScopedLint",
+      "startLine": 138
+    },
+    {
+      "crap": 4,
+      "file": ".agents/scripts/sprint-code-review.js",
       "method": "parseReviewArgs",
-      "startLine": 112
+      "startLine": 182
     },
     {
       "crap": 6,
       "file": ".agents/scripts/sprint-code-review.js",
       "method": "classifyChangedFile",
-      "startLine": 138
+      "startLine": 212
     },
     {
       "crap": 7,
       "file": ".agents/scripts/sprint-code-review.js",
       "method": "analyzeChangedFiles",
-      "startLine": 178
+      "startLine": 252
     },
     {
       "crap": 3,
       "file": ".agents/scripts/sprint-code-review.js",
       "method": "buildSeverity",
-      "startLine": 206
+      "startLine": 280
     },
     {
-      "crap": 3,
+      "crap": 5,
       "file": ".agents/scripts/sprint-code-review.js",
       "method": "buildLintLine",
-      "startLine": 216
+      "startLine": 290
     },
     {
       "crap": 4,
       "file": ".agents/scripts/sprint-code-review.js",
       "method": "tierLabel",
-      "startLine": 226
+      "startLine": 306
     },
     {
       "crap": 3,
       "file": ".agents/scripts/sprint-code-review.js",
       "method": "buildReviewReport",
-      "startLine": 234
+      "startLine": 314
     },
     {
-      "crap": 30,
+      "crap": 42,
       "file": ".agents/scripts/sprint-code-review.js",
       "method": "main",
-      "startLine": 281
+      "startLine": 361
     },
     {
       "crap": 3,
