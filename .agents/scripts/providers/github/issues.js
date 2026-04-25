@@ -95,7 +95,7 @@ export async function getTickets(ctx, epicId, filters = {}) {
  * the caller's subsequent `getTicket` calls resolve from memory. Returns an
  * empty list (not throw) when the feature is disabled on this repo.
  */
-async function getNativeSubIssues(ctx, parentNodeId, parentId) {
+export async function getNativeSubIssues(ctx, parentNodeId, parentId) {
   const childIds = [];
   let cursor = null;
   try {
@@ -137,7 +137,7 @@ async function getNativeSubIssues(ctx, parentNodeId, parentId) {
  * Strategy 2 — secondary: parse Markdown checklist links of the form
  * `- [ ] #123` / `- [x] #123` out of the parent body. Pure parsing.
  */
-function getChecklistChildren(parentBody) {
+export function getChecklistChildren(parentBody) {
   const re = /-\s*\[[ xX]\]\s+#(\d+)/g;
   return [...(parentBody ?? '').matchAll(re)].map((m) =>
     Number.parseInt(m[1], 10),
@@ -149,7 +149,7 @@ function getChecklistChildren(parentBody) {
  * (`Epic: #N` / `parent: #N`). Only safe for Epic parents; otherwise returns
  * an empty list. Non-fatal on error.
  */
-async function getReferencedChildren(ctx, parentId, parentLabels) {
+export async function getReferencedChildren(ctx, parentId, parentLabels) {
   const isEpicParent = (parentLabels ?? []).includes(TYPE_LABELS.EPIC);
   if (!isEpicParent) return [];
   try {
@@ -316,7 +316,12 @@ export async function removeSubIssue(ctx, parentNumber, subIssueNumber) {
  * fields are present, or when removing labels, computes the final label set
  * and returns it to the caller for inclusion in the PATCH.
  */
-async function applyLabelMutations(ctx, ticketId, labels, hasOtherPatchFields) {
+export async function applyLabelMutations(
+  ctx,
+  ticketId,
+  labels,
+  hasOtherPatchFields,
+) {
   const { add = [], remove = [] } = labels;
 
   if (add.length > 0 && remove.length === 0 && !hasOtherPatchFields) {
