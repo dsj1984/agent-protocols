@@ -1,5 +1,76 @@
 # Design Patterns
 
+## Schema-First, Grouped Configuration (Epic #730)
+
+### Problem
+
+A flat configuration namespace accumulates peer keys until the shape is
+illegible: operators can't tell which keys are required, which are optional,
+or how related keys group. Code-level fallbacks (`config.foo ?? 'default'`)
+mask missing required values until a script blows up downstream. Sync
+helpers that diff against a template silently strip legitimate optional
+keys the operator added on purpose.
+
+### Solution
+
+Make the schema the source of truth and group related keys into typed
+sub-blocks read through dedicated accessors:
+
+1. **Authoritative AJV schemas at runtime.** Validate the loaded config at
+   resolver entry. A missing required field is a validation error with a
+   clear `instancePath`, never a silent fallback.
+2. **Static JSON Schema mirror for editors.** Mirror the AJV schemas to a
+   `.json` file the config declares via `"$schema": "..."`. A drift test
+   prevents the mirror from going stale. Editors and operators get
+   autocomplete and inline validation; the runtime keeps a single source of
+   truth.
+3. **Grouped sub-blocks with typed accessors.** Reorganise the namespace
+   into a small number of sub-blocks (e.g. `paths`, `commands`, `quality`,
+   `limits`) and read each through a single getter (`getPaths(config)`,
+   `getCommands(config)`, ...). Consumers never reach into the raw shape.
+4. **`null` for disabled, not empty string.** Optional commands that may be
+   "not applicable" accept `string | null`. Empty strings are rejected by
+   the schema. `null` is the canonical disabled value across every site.
+5. **Schema-driven sync, not template-diff.** When reconciling a project
+   config against a framework template, validate first, then merge missing
+   keys from the template. Preserve every project-side key that validates,
+   including optional keys absent from the template. A typo aborts the sync
+   with a diagnostic instead of vanishing.
+
+### Benefits
+
+- **Discoverability.** Operators read one reference doc (e.g.
+  `docs/configuration.md`) backed by the schema, not a scattered surface.
+- **Validation fails fast.** Misconfiguration surfaces at startup, not
+  three layers down at the call site that needed the missing value.
+- **Editor support is free.** The `$schema` pointer gives autocomplete and
+  inline diagnostics in any JSON-Schema-aware editor.
+- **Localised future changes.** Adding a new sub-block is one schema edit,
+  one resolver accessor, one doc row — instead of threading through
+  multiple flat-key consumer sites.
+- **Operator overrides survive sync.** Schema-valid keys absent from the
+  template no longer disappear on `/agents-update`.
+
+### Trade-offs
+
+- The migration from a flat shape is mechanical but unavoidably breaking
+  for consumers who had the flat keys set. Mitigate with a single
+  changelog entry that names every flat → grouped mapping.
+- Schema-driven sync trades silent strip for loud abort on validation
+  failures. Operators see misconfiguration; the occasional false-positive
+  abort (e.g. genuinely retired key) is the right trade.
+
+### Companion: separate canonical baselines from drift snapshots
+
+When the same problem domain produces multiple "baseline-shaped" files
+(e.g. canonical ratchet baselines that gate every PR vs. per-wave drift
+snapshots written by an orchestrator), give them **distinct filenames in
+distinct directories** so a repo-wide grep never confuses one with the
+other. In this codebase the canonical baselines live under `/baselines/`
+and the per-wave drift snapshots under `.agents/state/wave-*-snapshot.json`.
+
+---
+
 ## Self-Healing Protocol
 
 ### Problem

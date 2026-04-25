@@ -464,32 +464,53 @@ classDiagram
 
 ### 4. Configuration System
 
-Configuration follows a **layered resolution** pattern:
+Configuration follows a **layered resolution** pattern, with operational
+settings organised into a **grouped contract** post-Epic #730:
 
 ```mermaid
 graph LR
     classDef cfg fill:#fff3cd,stroke:#333,color:#000
 
     A[".agentrc.json"]:::cfg -->|"Priority 1"| R["config-resolver.js"]
+    L[".agentrc.local.json"]:::cfg -->|"Priority 1.5 (gitignored)"| R
     B["Built-in Defaults"]:::cfg -->|"Priority 2"| R
     C[".env file"]:::cfg -->|"Env overlay"| R
-    R --> S["Flat agentSettings hash"]
+    R --> P["agentSettings.paths"]
+    R --> CMD["agentSettings.commands"]
+    R --> Q["agentSettings.quality"]
+    R --> LM["agentSettings.limits"]
     R --> O["orchestration block"]
 ```
 
+The runtime AJV schemas in `lib/config-schema.js` and
+`lib/config-settings-schema.js` are the source of truth; the static mirror at
+`.agents/schemas/agentrc.schema.json` exists for editor tooling and human
+readers, kept in sync by a drift test.
+
 #### Key Configuration Sections
 
-| Section         | Purpose                                                |
-| --------------- | ------------------------------------------------------ |
-| `agentSettings` | Operational limits, paths, commands, thresholds        |
-| `orchestration` | Provider config, executor, LLM settings, notifications |
+| Section                     | Purpose                                                              |
+| --------------------------- | -------------------------------------------------------------------- |
+| `agentSettings.paths`       | Required filesystem roots (`agentRoot`, `docsRoot`, `tempRoot`)      |
+| `agentSettings.commands`    | Validate / lint / test / typecheck / build commands; `null` disables |
+| `agentSettings.quality`     | Maintainability + CRAP + lint baselines and `prGate.checks`          |
+| `agentSettings.limits`      | Resource ceilings + `friction.*` anti-thrashing thresholds           |
+| `orchestration`             | Provider, GitHub block, worktree isolation, runners, retry tuning    |
 
-> Project-specific technology context (frameworks, databases, auth, etc.) lives
-> in `docs/architecture.md` under the **Tech Stack** section — intentionally
-> not in `.agentrc.json`. See the Tech Stack section below.
+Each grouped block is read through a typed accessor (`getPaths(config)`,
+`getCommands(config)`, `getQuality(config)`, `getLimits(config)`) — there are
+no flat-key reads anywhere in the resolver or its consumers.
+
+> See [`docs/configuration.md`](configuration.md) for the canonical
+> reader-facing reference: every key, default, and required-vs-optional flag,
+> the root-dogfood-vs-distributed-template diff table, and baseline
+> conventions (canonical `/baselines/` vs per-wave drift snapshots under
+> `.agents/state/`). Project-specific technology context still lives in this
+> file under the **Tech Stack** section — intentionally not in `.agentrc.json`.
 
 **Security**: The config resolver blocks shell metacharacter injection
-(`; & | \`` `` $()`) in all string values that flow into subprocesses.
+(`; & | \`` `` $()`) in all string values that flow into subprocesses, and the
+schema enforces non-empty strings on every command field.
 
 ---
 

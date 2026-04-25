@@ -321,3 +321,40 @@ tool names solely as historical context — those tools no longer exist.
 | `dispatcher.js` | CLI | Pre-existing CLI covers `mcp__agent-protocols__dispatch_wave`. Invoked by `/sprint-plan` Phase 3. |
 | `process.env`-only secrets resolution | Contract | `notifier.js` `resolveWebhookUrl()` and the GitHub provider's `GITHUB_TOKEN` lookup read **only** from `process.env`. `.mcp.json` is no longer consulted as a secrets backstop; operators must keep `GITHUB_TOKEN` and `NOTIFICATION_WEBHOOK_URL` in `.env` (local) or the Claude Code web env-var UI. |
 | `agent-protocols` MCP block | Removed | The `mcpServers["agent-protocols"]` entry is deleted from `.mcp.json` and from `.agents/default-mcp.json` (the latter file is itself removed). Third-party MCP servers (`github`, `context7`, `chrome-devtools`, etc.) in `.mcp.json` are unaffected. |
+
+---
+
+## Grouped `agentSettings` Contract (Epic #730)
+
+`agentSettings` is reorganised into four typed sub-blocks. Every former flat
+key now lives under one of these — there are no flat-key reads anywhere in
+the resolver or in any consumer. The full key catalogue, defaults, and
+required-vs-optional flags live in
+[`docs/configuration.md`](configuration.md); this table records the
+contract-shape change.
+
+| Sub-block                 | Required | Resolver accessor    | Holds                                                                                                  |
+| ------------------------- | -------- | -------------------- | ------------------------------------------------------------------------------------------------------ |
+| `agentSettings.paths`     | Yes      | `getPaths(config)`   | `agentRoot`, `docsRoot`, `tempRoot` (all required); optional `auditOutputDir`.                         |
+| `agentSettings.commands`  | No       | `getCommands(config)`| `validate`, `lintBaseline`, `test`, `exploratoryTest`, `typecheck` (`string \| null`), `build` (`string \| null`). |
+| `agentSettings.quality`   | No       | `getQuality(config)` | `baselines.{lint,crap,maintainability}.{path,refreshCommand?}`, `maintainability`, `crap`, `prGate`.    |
+| `agentSettings.limits`    | No       | `getLimits(config)`  | `maxInstructionSteps`, `maxTickets`, `maxTokenBudget`, `executionTimeoutMs`, `executionMaxBuffer`, `friction.*`. |
+
+Static mirror: `.agents/schemas/agentrc.schema.json` (drift-tested against the
+runtime AJV schemas).
+
+## Baseline Conventions (Epic #730)
+
+Two distinct kinds of baseline file, intentionally separated so a repo-wide
+grep never confuses one for the other.
+
+| Kind                       | Location                                  | Owner                                                   | Lifecycle                                                  |
+| -------------------------- | ----------------------------------------- | ------------------------------------------------------- | ---------------------------------------------------------- |
+| Canonical ratchet baseline | `baselines/lint.json`                     | `lint-baseline.js`                                      | Committed; refreshed via tagged `baseline-refresh:` commit. |
+| Canonical ratchet baseline | `baselines/crap.json`                     | `update-crap-baseline.js`                               | Committed; refreshed via tagged `baseline-refresh:` commit. |
+| Canonical ratchet baseline | `baselines/maintainability.json`          | `update-maintainability-baseline.js`                    | Committed; refreshed via tagged `baseline-refresh:` commit. |
+| Per-wave drift snapshot    | `.agents/state/wave-mi-snapshot.json`     | `progress-signals/maintainability-drift.js`             | Captured at wave-start; overwritten next wave; not committed. |
+| Per-wave drift snapshot    | `.agents/state/wave-crap-snapshot.json`   | `progress-signals/crap-drift.js`                        | Captured at wave-start; overwritten next wave; not committed. |
+
+Paths are configured in `agentSettings.quality.baselines.<gate>.path`. The
+default values match the canonical layout above.
