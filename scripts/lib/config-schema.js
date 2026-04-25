@@ -44,23 +44,17 @@ const NOTIFICATIONS_SCHEMA = {
   type: 'object',
   properties: {
     mentionOperator: { type: 'boolean' },
-    webhookMinLevel: {
+    // Unified severity filter for both manual `notify()` calls and the
+    // auto-fired ticket-state-transition notifications dispatched by
+    // `transitionTicketState`. Events below this threshold are dropped
+    // from every channel. Default: `medium`.
+    //
+    // Severity assignment for state-transition events:
+    //   - Story or Epic reaching `agent::done` → `medium`
+    //   - All other transitions (intermediate, task-level)  → `low`
+    minLevel: {
       type: 'string',
-      enum: ['progress', 'notification', 'friction', 'action'],
-    },
-    // Ticket-change notification controls (consumed by the in-band Notifier
-    // in `lib/notifications/notifier.js`, called from `transitionTicketState`).
-    // Does NOT affect the epic-runner's blocker NotificationHook, which has
-    // its own lifecycle.
-    level: {
-      type: 'string',
-      enum: ['off', 'minimal', 'default', 'verbose'],
-    },
-    postToEpic: { type: 'boolean' },
-    channels: {
-      type: 'array',
-      items: { type: 'string', enum: ['log', 'epic-comment', 'webhook'] },
-      uniqueItems: true,
+      enum: ['low', 'medium', 'high'],
     },
   },
   additionalProperties: false,
@@ -185,10 +179,10 @@ const CONCURRENCY_SCHEMA = {
 };
 
 /**
- * Top-level `audits` block. Controls behavior of MCP audit helpers
- * (`select_audits`, `run_audit_suite`).
+ * Top-level `audits` block. Controls behavior of the audit CLI helpers
+ * (`select-audits.js`, `run-audit-suite.js`).
  *
- * @see .agents/scripts/mcp/select-audits.js
+ * @see .agents/scripts/select-audits.js
  */
 export const AUDITS_SCHEMA = {
   type: 'object',

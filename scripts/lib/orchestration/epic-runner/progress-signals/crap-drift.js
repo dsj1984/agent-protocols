@@ -1,8 +1,7 @@
 import nodeFs from 'node:fs';
 import path from 'node:path';
-
-import { calculateCrapForSource } from '../../../crap-engine.js';
 import { loadCoverage as defaultLoadCoverage } from '../../../coverage-utils.js';
+import { calculateCrapForSource } from '../../../crap-engine.js';
 
 const DEFAULT_THRESHOLD = 5.0;
 const DEFAULT_CEILING = 30;

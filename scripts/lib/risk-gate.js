@@ -12,19 +12,28 @@ import { Logger } from './Logger.js';
 
 /**
  * Best-effort HITL webhook/mention notification. Non-fatal on failure.
+ *
+ * Defaults to `high` severity — HITL gates always require operator action.
+ * The message body is automatically prefixed with `🚨 Action Required:` so
+ * the GitHub comment mirrors the `[Action Required]` webhook prefix.
+ *
  * @param {number} ticketId
  * @param {string} message
- * @param {'action'|'notification'} [type]
+ * @param {'low'|'medium'|'high'} [severity]
  * @param {object} [logger] optional logger with `.warn(...)`; defaults to Logger
  */
 export async function postHitlGateNotification(
   ticketId,
   message,
-  type = 'action',
+  severity = 'high',
   logger = Logger,
 ) {
   try {
-    await notify(ticketId, { type, message });
+    const decorated =
+      severity === 'high' && !/^🚨\s*Action Required:/.test(message)
+        ? `🚨 Action Required: ${message}`
+        : message;
+    await notify(ticketId, { severity, message: decorated });
   } catch (err) {
     logger.warn?.(
       `[risk-gate] HITL webhook/mention failed (non-fatal): ${formatError(err)}`,

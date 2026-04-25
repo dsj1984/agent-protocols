@@ -2,16 +2,16 @@
  * lib/orchestration/index.js — Orchestration SDK Barrel Export
  *
  * Single entry point for the orchestration SDK. All public functions are
- * re-exported here so consumers (CLI wrappers, future MCP server) depend
- * on this module rather than reaching into internal module paths.
+ * re-exported here so CLI wrappers and tests depend on this module rather
+ * than reaching into internal module paths.
  *
  * @example
  *   import { dispatch, hydrateContext } from './lib/orchestration/index.js';
  */
 
-// MCP Tools - Audit execution and selection
-export { runAuditSuite } from '../../mcp/run-audit-suite.js';
-export { selectAudits } from '../../mcp/select-audits.js';
+// Audit execution and selection
+export { runAuditSuite } from '../../run-audit-suite.js';
+export { selectAudits } from '../../select-audits.js';
 // Context hydration — builds the execution prompt for an agent task
 export {
   hydrateContext,

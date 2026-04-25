@@ -1,7 +1,33 @@
+#!/usr/bin/env node
+/* node:coverage ignore file */
+
+/**
+ * run-audit-suite.js — CLI + SDK for running a list of audit workflows.
+ *
+ * Post-retirement entry point for the former MCP tool
+ * `mcp__agent-protocols__run_audit_suite`. The pure aggregation logic lives
+ * here; the legacy `.agents/scripts/mcp/run-audit-suite.js` is a re-export
+ * shim that will be deleted by the server-deletion story.
+ *
+ * Usage:
+ *   node .agents/scripts/run-audit-suite.js \
+ *     --audits <comma-list> [--ticket <id>] [--base-branch main] \
+ *     [--substitution key=value]...
+ *
+ * Output: a single JSON object on stdout matching the MCP envelope:
+ *   { metadata: { ... }, findings: [...], workflows: [...] }
+ *
+ * Exit codes:
+ *   0 — suite completed (findings entries are not failures)
+ *   non-zero — argument or substitution validation failure (error on stderr)
+ */
+
 import fs from 'node:fs/promises';
 import path from 'node:path';
-import { PROJECT_ROOT, resolveConfig } from '../lib/config-resolver.js';
-import { ValidationError } from '../lib/errors/index.js';
+import { parseArgs } from 'node:util';
+import { runAsCli } from './lib/cli-utils.js';
+import { PROJECT_ROOT, resolveConfig } from './lib/config-resolver.js';
+import { ValidationError } from './lib/errors/index.js';
 
 const BUILT_IN_SUBSTITUTION_KEYS = Object.freeze([
   'auditOutputDir',
@@ -9,23 +35,20 @@ const BUILT_IN_SUBSTITUTION_KEYS = Object.freeze([
   'baseBranch',
 ]);
 
-function _normalizeFinding(auditName, finding) {
-  const rawSeverity = finding.severity?.toLowerCase() || 'low';
-  const severity = ['critical', 'high', 'medium', 'low'].includes(rawSeverity)
-    ? rawSeverity
-    : 'low';
+const HELP = `Usage: node .agents/scripts/run-audit-suite.js \\
+  --audits <comma-list> [--ticket <id>] [--base-branch main] \\
+  [--substitution key=value]...
 
-  return {
-    audit: auditName,
-    ...finding,
-    severity,
-  };
-}
+Flags:
+  --audits         Comma-separated audit workflow names (required).
+  --ticket         Ticket id used for the {{ticketId}} substitution (optional).
+  --base-branch    Value used for the {{baseBranch}} substitution (default: main).
+  --substitution   Repeatable key=value substitution (e.g. --substitution alphaKey=val).
+                   Allowed keys are the built-ins (auditOutputDir, ticketId, baseBranch)
+                   plus any substitutionKeys declared on the requested audits.
+  --help           Show this message.
+`;
 
-/**
- * Resolve the workflow markdown file for a given audit name.
- * Returns the file content, or null if not found.
- */
 async function loadWorkflow(auditName, workflowsDir) {
   const workflowPath = path.join(workflowsDir, `${auditName}.md`);
   try {
@@ -201,3 +224,76 @@ export async function runAuditSuite({
 
   return auditResults;
 }
+
+export function parseCliArgs(argv) {
+  const { values } = parseArgs({
+    args: argv,
+    options: {
+      audits: { type: 'string' },
+      ticket: { type: 'string' },
+      'base-branch': { type: 'string' },
+      substitution: { type: 'string', multiple: true },
+      help: { type: 'boolean' },
+    },
+    strict: false,
+  });
+  return values;
+}
+
+function parseSubstitutionPairs(pairs = []) {
+  const out = {};
+  for (const entry of pairs) {
+    const eq = entry.indexOf('=');
+    if (eq <= 0) {
+      throw new ValidationError(
+        `Invalid --substitution "${entry}"; expected key=value.`,
+        { entry },
+      );
+    }
+    const key = entry.slice(0, eq);
+    const value = entry.slice(eq + 1);
+    out[key] = value;
+  }
+  return out;
+}
+
+export async function main(argv = process.argv.slice(2)) {
+  const values = parseCliArgs(argv);
+
+  if (values.help) {
+    process.stdout.write(HELP);
+    return;
+  }
+
+  if (!values.audits) {
+    process.stderr.write(
+      `[run-audit-suite] --audits <comma-list> is required.\n${HELP}`,
+    );
+    process.exit(2);
+  }
+
+  const auditWorkflows = values.audits
+    .split(',')
+    .map((a) => a.trim())
+    .filter(Boolean);
+
+  if (auditWorkflows.length === 0) {
+    process.stderr.write(
+      `[run-audit-suite] --audits must contain at least one workflow name.\n`,
+    );
+    process.exit(2);
+  }
+
+  const substitutions = parseSubstitutionPairs(values.substitution);
+  if (values.ticket && substitutions.ticketId === undefined) {
+    substitutions.ticketId = String(values.ticket);
+  }
+  if (values['base-branch'] && substitutions.baseBranch === undefined) {
+    substitutions.baseBranch = values['base-branch'];
+  }
+
+  const result = await runAuditSuite({ auditWorkflows, substitutions });
+  process.stdout.write(`${JSON.stringify(result)}\n`);
+}
+
+runAsCli(import.meta.url, main, { source: 'run-audit-suite' });

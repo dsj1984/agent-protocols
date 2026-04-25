@@ -20,7 +20,7 @@ export async function runIterateWavesPhase(ctx, collaborators, state) {
   const { epicId, provider, config, logger } = ctx;
   const { concurrencyCap } = config.epicRunner;
   const {
-    notifier,
+    notify: notifyFn,
     checkpointer,
     blockerHandler,
     launcher,
@@ -35,7 +35,7 @@ export async function runIterateWavesPhase(ctx, collaborators, state) {
   progressReporter.setPlan({ waves });
 
   await transitionTicketState(provider, epicId, STATE_LABELS.EXECUTING, {
-    notifier,
+    notify: notifyFn,
   }).catch(async (err) => {
     logger.warn?.(
       `[EpicRunner] label flip failed: ${err.message}${journalSuffix()}`,
