@@ -1,4 +1,8 @@
-import { getBaselines, resolveConfig } from './lib/config-resolver.js';
+import {
+  getBaselines,
+  getQuality,
+  resolveConfig,
+} from './lib/config-resolver.js';
 import {
   calculateAll,
   saveBaseline,
@@ -13,7 +17,8 @@ import {
 
 async function main() {
   const { settings } = resolveConfig();
-  const targetDirs = settings.maintainability?.targetDirs ?? [];
+  const targetDirs = getQuality({ agentSettings: settings }).maintainability
+    .targetDirs;
   const baselinePath = getBaselines({ agentSettings: settings })
     .maintainability.path;
   console.log('[Maintainability] Updating baseline...');

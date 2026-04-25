@@ -1,7 +1,11 @@
 import fs from 'node:fs';
 import path from 'node:path';
 import { getChangedFiles } from './lib/changed-files.js';
-import { getBaselines, resolveConfig } from './lib/config-resolver.js';
+import {
+  getBaselines,
+  getQuality,
+  resolveConfig,
+} from './lib/config-resolver.js';
 import {
   calculateAll,
   getBaseline,
@@ -238,7 +242,8 @@ async function main() {
     process.exit(0);
   }
 
-  const targetDirs = settings.maintainability?.targetDirs ?? [];
+  const targetDirs = getQuality({ agentSettings: settings }).maintainability
+    .targetDirs;
   const files = [];
   targetDirs.forEach((dir) => {
     scanDirectory(dir, files);

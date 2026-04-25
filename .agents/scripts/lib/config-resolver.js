@@ -112,8 +112,8 @@ export const MAINTAINABILITY_CRAP_DEFAULTS = Object.freeze({
   refreshTag: 'baseline-refresh:',
 });
 
-/** Recognized keys for `maintainability.crap`. Used by the resolver to warn
- * (not fail) on unknown keys per AC19. */
+/** Recognized keys for `quality.crap` (post-Story-6). Used by the resolver
+ * to warn (not fail) on unknown keys per AC19. */
 const MAINTAINABILITY_CRAP_KEYS = new Set(
   Object.keys(MAINTAINABILITY_CRAP_DEFAULTS),
 );
@@ -157,7 +157,7 @@ export function resolveListValue(defaultList, userValue) {
 }
 
 /**
- * Merge a user-supplied `maintainability.crap` block with framework defaults.
+ * Merge a user-supplied `quality.crap` block with framework defaults.
  * Scalar keys replace; `targetDirs` supports the list-extender shape; unknown
  * keys emit a `console.warn` but do not fail resolution (AC19).
  *
@@ -182,7 +182,7 @@ export function resolveMaintainabilityCrap(userCrap) {
   for (const key of Object.keys(userCrap)) {
     if (!MAINTAINABILITY_CRAP_KEYS.has(key)) {
       console.warn(
-        `[config] Unknown key 'maintainability.crap.${key}' — ignoring.`,
+        `[config] Unknown key 'quality.crap.${key}' — ignoring.`,
       );
     }
   }

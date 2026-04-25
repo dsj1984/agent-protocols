@@ -38,7 +38,7 @@ export const DEFAULT_GATES = [
     name: 'check-crap',
     cmd: 'node',
     args: ['.agents/scripts/check-crap.js'],
-    hint: 'Reduce complexity or add coverage on the flagged methods, or run `npm run crap:update` and commit with a `baseline-refresh:` tagged subject + non-empty body if the drift is justified. Self-skips when `agentSettings.maintainability.crap.enabled` is false.',
+    hint: 'Reduce complexity or add coverage on the flagged methods, or run `npm run crap:update` and commit with a `baseline-refresh:` tagged subject + non-empty body if the drift is justified. Self-skips when `agentSettings.quality.crap.enabled` is false.',
   },
 ];
 

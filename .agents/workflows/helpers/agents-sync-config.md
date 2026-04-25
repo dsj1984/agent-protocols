@@ -27,7 +27,7 @@ including optional keys the template does not declare.
 This is a deliberate departure from the previous "structural diff against
 template" behaviour, which silently stripped legitimate optional keys (e.g.
 `orchestration.concurrency`, `closeRetry`, `poolMode`, `github.projectName`,
-`agentSettings.qualityGate`) on every sync.
+`agentSettings.quality.prGate`) on every sync.
 
 The reconciliation rules are:
 
@@ -81,7 +81,7 @@ If any validator returns errors:
    project config (typo, wrong type, missing required key) and re-run.
 
 The schema is authoritative. Keys absent from `[TEMPLATE]` but valid under the
-schema (e.g. `orchestration.concurrency`, `agentSettings.qualityGate`) pass
+schema (e.g. `orchestration.concurrency`, `agentSettings.quality.prGate`) pass
 validation and survive untouched.
 
 ## Step 3 — Merge Missing Template Keys Into the Project Config
@@ -115,7 +115,7 @@ mergeMissing(template, project):
   manually.
 - **Optional keys absent from the template are preserved.** Unlike the
   previous template-diff behaviour, the project may carry schema-valid keys
-  (like `orchestration.concurrency` or `agentSettings.qualityGate`) that the
+  (like `orchestration.concurrency` or `agentSettings.quality.prGate`) that the
   template never declares — they pass validation in Step 2 and survive merge
   in Step 3 because the project sets them.
 - **`$schema` and top-level metadata** (`title`) follow the same rule as any
