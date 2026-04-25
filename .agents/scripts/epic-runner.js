@@ -235,14 +235,22 @@ async function defaultSpawn({
     proc.on('error', (err) => {
       signal?.removeEventListener?.('abort', onAbort);
       watchdog.stop();
-      logHandle.close().catch(() => {});
+      logHandle.close().catch((closeErr) => {
+        console.warn(
+          `[epic-runner] story log close failed for #${storyId}: ${closeErr?.message ?? closeErr}`,
+        );
+      });
       resolve({ status: 'failed', detail: err.message });
     });
 
     proc.on('exit', async (code) => {
       signal?.removeEventListener?.('abort', onAbort);
       watchdog.stop();
-      await logHandle.close().catch(() => {});
+      await logHandle.close().catch((closeErr) => {
+        console.warn(
+          `[epic-runner] story log close failed for #${storyId}: ${closeErr?.message ?? closeErr}`,
+        );
+      });
       if (watchdog.idleTimedOut) {
         // `claude -p` runs in batch mode — it emits no stdout until the model
         // finishes, so long stories can legitimately go >idleTimeoutSec with
@@ -332,12 +340,20 @@ async function defaultRunSkill(
     const watchdog = attachIdleWatchdog(proc, logHandle, idleTimeoutMs);
     proc.on('error', (err) => {
       watchdog.stop();
-      logHandle.close().catch(() => {});
+      logHandle.close().catch((closeErr) => {
+        console.warn(
+          `[epic-runner] sprint-close bookend log close failed for epic #${epicId}: ${closeErr?.message ?? closeErr}`,
+        );
+      });
       resolve({ status: 'failed', detail: err.message });
     });
     proc.on('exit', async (code) => {
       watchdog.stop();
-      await logHandle.close().catch(() => {});
+      await logHandle.close().catch((closeErr) => {
+        console.warn(
+          `[epic-runner] sprint-close bookend log close failed for epic #${epicId}: ${closeErr?.message ?? closeErr}`,
+        );
+      });
       if (watchdog.idleTimedOut) {
         return resolve({
           status: 'failed',
@@ -365,7 +381,11 @@ function attachIdleWatchdog(proc, logHandle, idleMs) {
   const state = { idleTimedOut: false, timer: null, stopped: false };
 
   const writeChunk = (chunk) => {
-    logHandle.write(chunk).catch(() => {});
+    logHandle.write(chunk).catch((writeErr) => {
+      console.warn(
+        `[epic-runner] log write failed: ${writeErr?.message ?? writeErr}`,
+      );
+    });
     resetTimer();
   };
 

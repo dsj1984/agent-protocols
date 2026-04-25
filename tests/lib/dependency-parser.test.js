@@ -1,6 +1,7 @@
 import assert from 'node:assert/strict';
 import { describe, it } from 'node:test';
 import {
+  extractEpicIdFromBody,
   isSafeBranchComponent,
   parseBlockedBy,
   parseBlocks,
@@ -68,6 +69,43 @@ describe('dependency-parser', () => {
 
     it('ignores non-matching text', () => {
       assert.deepEqual(parseBlocks('Fixes #999, blocked by #888'), []);
+    });
+  });
+
+  describe('extractEpicIdFromBody', () => {
+    it('returns null for falsy input', () => {
+      assert.equal(extractEpicIdFromBody(null), null);
+      assert.equal(extractEpicIdFromBody(undefined), null);
+      assert.equal(extractEpicIdFromBody(''), null);
+    });
+
+    it('extracts the epic id from a line-anchored marker', () => {
+      assert.equal(extractEpicIdFromBody('Epic: #702'), 702);
+      assert.equal(
+        extractEpicIdFromBody('## Header\n\nEpic: #441\n\nBody'),
+        441,
+      );
+    });
+
+    it('is case-insensitive on the keyword', () => {
+      assert.equal(extractEpicIdFromBody('epic: #123'), 123);
+      assert.equal(extractEpicIdFromBody('EPIC: #456'), 456);
+    });
+
+    it('tolerates whitespace variation between keyword and id', () => {
+      assert.equal(extractEpicIdFromBody('Epic:#789'), 789);
+      assert.equal(extractEpicIdFromBody('Epic:   #321'), 321);
+    });
+
+    it('does not match prose mentions of "epic" mid-line', () => {
+      assert.equal(
+        extractEpicIdFromBody('This relates to Epic: #999 in passing'),
+        null,
+      );
+    });
+
+    it('returns the first line-anchored match when multiple exist', () => {
+      assert.equal(extractEpicIdFromBody('Epic: #1\nEpic: #2\nEpic: #3'), 1);
     });
   });
 

@@ -8,6 +8,7 @@ import {
 } from '../.agents/scripts/lib/close-validation.js';
 import {
   drainPendingCleanupAfterClose,
+  getCloseDrainStatus,
   reconcileCleanupState,
   renderPhaseTimingsCommentBody,
 } from '../.agents/scripts/sprint-story-close.js';
@@ -160,6 +161,53 @@ test('reconcileCleanupState marks deferred worktree cleanup as removed-after-dra
   assert.equal(result.worktreeReap.pendingCleanup, null);
   assert.equal(result.branchCleanup.localDeleted, true);
   assert.equal(result.branchCleanup.remoteDeleted, true);
+});
+
+test('getCloseDrainStatus covers the persistent / still-pending / not-found truth table', () => {
+  // persistent wins over still-pending — operator action is the authoritative outcome
+  assert.equal(
+    getCloseDrainStatus({ isPersistent: true, isStillPending: true }),
+    'persistent',
+  );
+  assert.equal(
+    getCloseDrainStatus({ isPersistent: true, isStillPending: false }),
+    'persistent',
+  );
+  assert.equal(
+    getCloseDrainStatus({ isPersistent: false, isStillPending: true }),
+    'still-pending',
+  );
+  assert.equal(
+    getCloseDrainStatus({ isPersistent: false, isStillPending: false }),
+    'not-found',
+  );
+});
+
+test('reconcileCleanupState marks the deferred worktree as persistent when the drain hit the persistent-lock threshold', () => {
+  const result = reconcileCleanupState({
+    storyId: 808,
+    worktreeReap: {
+      status: 'deferred-to-sweep',
+      path: '/repo/.worktrees/story-808',
+      pendingCleanup: { storyId: 808, branch: 'story-808' },
+    },
+    branchCleanup: {
+      localDeleted: false,
+      remoteDeleted: true,
+      localReason: 'error',
+      remoteReason: 'deleted',
+    },
+    pendingCleanupDrain: {
+      drained: [],
+      drainedDetails: [],
+      persistent: [808],
+      persistentDetails: [{ storyId: 808 }],
+      stillPending: [],
+      stillPendingDetails: [],
+    },
+  });
+  assert.equal(result.worktreeReap.status, 'deferred-to-sweep');
+  assert.equal(result.worktreeReap.closeDrainStatus, 'persistent');
 });
 
 test('reconcileCleanupState preserves deferred state when the close-time drain still cannot clear the lock', () => {

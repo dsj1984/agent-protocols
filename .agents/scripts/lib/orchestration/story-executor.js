@@ -1,3 +1,4 @@
+import { extractEpicIdFromBody } from '../dependency-parser.js';
 import { buildGraph, detectCycle, topologicalSort } from '../Graph.js';
 import { getEpicBranch, getStoryBranch } from '../git-utils.js';
 import { resolveModelTier } from './model-resolver.js';
@@ -18,10 +19,9 @@ import { fetchTasks } from './task-fetcher.js';
 export async function executeStory(options) {
   const { story, provider, dryRun = false } = options;
 
-  // Find the parent Epic.
-  // Stories reference their Epic via `Epic: #NNN` in the body.
-  const epicMatch = story.body?.match(/^Epic:\s*#(\d+)/im);
-  const epicId = epicMatch ? Number.parseInt(epicMatch[1], 10) : null;
+  // Find the parent Epic. Stories reference their Epic via `Epic: #NNN`
+  // in the body — extraction lives in `lib/dependency-parser.js`.
+  const epicId = extractEpicIdFromBody(story.body);
 
   const manifest = {
     type: 'story-execution',
