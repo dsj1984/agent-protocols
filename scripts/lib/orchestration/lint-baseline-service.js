@@ -92,7 +92,7 @@ export class LintBaselineService {
         {
           cwd: PROJECT_ROOT,
           encoding: 'utf8',
-          stdio: process.env.MCP_SERVER ? 'pipe' : 'inherit',
+          stdio: 'inherit',
           shell: false,
         },
       );

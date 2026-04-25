@@ -6,9 +6,7 @@
  *
  * Post-retirement entry point for the former MCP tool
  * `mcp__agent-protocols__select_audits`. The pure rule-matching logic
- * (matchesFilePattern, matchesAnyFilePattern, selectAudits) lives here;
- * the legacy `.agents/scripts/mcp/select-audits.js` is a re-export shim
- * that will be deleted by the server-deletion story.
+ * (matchesFilePattern, matchesAnyFilePattern, selectAudits) lives here.
  *
  * Usage:
  *   node .agents/scripts/select-audits.js \

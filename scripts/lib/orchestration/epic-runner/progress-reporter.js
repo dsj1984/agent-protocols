@@ -366,8 +366,9 @@ export class ProgressReporter {
    */
   async #collectPhaseTimingSummaries(rows) {
     const doneRows = rows.filter((r) => r.state === 'done');
-    await Promise.all(
-      doneRows.map(async (r) => {
+    await concurrentMap(
+      doneRows,
+      async (r) => {
         if (this.phaseTimingCache.has(r.id)) return;
         try {
           const comment = await findStructuredComment(
@@ -384,7 +385,8 @@ export class ProgressReporter {
           // Don't cache on error — a transient read failure should retry
           // next tick, whereas a parsed-absent sentinel is permanent.
         }
-      }),
+      },
+      { concurrency: this.concurrency },
     );
     return doneRows
       .map((r) => this.phaseTimingCache.get(r.id))

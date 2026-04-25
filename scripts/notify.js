@@ -125,7 +125,7 @@ export async function notify(ticketId, payload, opts = {}) {
   }
 
   if (meetsMinLevel(severity, orchestration.notifications?.minLevel)) {
-    // `opts.webhookUrl === undefined` → resolve from env/.mcp.json.
+    // `opts.webhookUrl === undefined` → resolve from process env.
     // Explicit `null` or string → caller was explicit; don't resolve.
     const webhookUrl =
       opts.webhookUrl === undefined ? resolveWebhookUrl() : opts.webhookUrl;

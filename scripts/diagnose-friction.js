@@ -149,10 +149,7 @@ export async function main(args = process.argv.slice(2)) {
     maxBuffer: executionMaxBuffer,
   });
 
-  if (result.stdout) {
-    if (process.env.MCP_SERVER) process.stderr.write(result.stdout);
-    else process.stdout.write(result.stdout);
-  }
+  if (result.stdout) process.stdout.write(result.stdout);
   if (result.stderr) process.stderr.write(result.stderr);
 
   if (result.status !== 0) {
