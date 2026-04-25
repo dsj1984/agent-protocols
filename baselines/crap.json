@@ -484,7 +484,7 @@
       "startLine": 87
     },
     {
-      "crap": 39.70284375770527,
+      "crap": 53.118407999999995,
       "file": ".agents/scripts/epic-planner.js",
       "method": "main",
       "startLine": 174
@@ -4018,7 +4018,7 @@
       "startLine": 75
     },
     {
-      "crap": 10.657100677490234,
+      "crap": 14.482495420313455,
       "file": ".agents/scripts/sprint-plan-decompose.js",
       "method": "main",
       "startLine": 146
@@ -4042,7 +4042,7 @@
       "startLine": 118
     },
     {
-      "crap": 13.552779375907509,
+      "crap": 17.729649346943706,
       "file": ".agents/scripts/sprint-plan-spec.js",
       "method": "main",
       "startLine": 185
