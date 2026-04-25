@@ -175,6 +175,58 @@ describe('AGENT_SETTINGS_SCHEMA — required path roots (Story 4 → Story 7)', 
   });
 });
 
+describe('AGENT_SETTINGS_SCHEMA — top-level additionalProperties:false (Epic #773 Story 9)', () => {
+  it('rejects an unknown top-level agentSettings key (typo guard)', () => {
+    expectErrors(
+      { ...REQ, basBranch: 'main' },
+      /must NOT have additional properties/,
+    );
+  });
+
+  it('rejects each legacy `*Root` flat key at the top level', () => {
+    for (const key of [
+      'scriptsRoot',
+      'workflowsRoot',
+      'personasRoot',
+      'schemasRoot',
+      'skillsRoot',
+      'templatesRoot',
+      'rulesRoot',
+    ]) {
+      expectErrors(
+        { ...REQ, [key]: '.agents/x' },
+        /must NOT have additional properties/,
+      );
+    }
+  });
+
+  it('accepts the same `*Root` keys when nested under `paths`', () => {
+    assert.equal(
+      validate({
+        paths: {
+          ...REQ.paths,
+          scriptsRoot: '.agents/scripts',
+          workflowsRoot: '.agents/workflows',
+          personasRoot: '.agents/personas',
+          schemasRoot: '.agents/schemas',
+          skillsRoot: '.agents/skills',
+          templatesRoot: '.agents/templates',
+          rulesRoot: '.agents/rules',
+        },
+      }),
+      true,
+    );
+  });
+
+  it('accepts a top-level baseBranch (the only remaining flat string field)', () => {
+    assert.equal(validate({ ...REQ, baseBranch: 'main' }), true);
+  });
+
+  it('rejects shell-injection in baseBranch', () => {
+    expectErrors({ ...REQ, baseBranch: 'main; rm -rf /' }, /baseBranch/);
+  });
+});
+
 describe('AGENT_SETTINGS_SCHEMA — quality.crap conditional coveragePath', () => {
   it('accepts crap with enabled=false and no coveragePath', () => {
     assert.equal(

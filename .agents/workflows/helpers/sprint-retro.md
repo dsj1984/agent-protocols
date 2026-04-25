@@ -24,7 +24,8 @@ archive.
 
 1. Resolve `[EPIC_ID]` — the GitHub Issue number of the Epic that was just
    completed.
-2. Resolve `[SCRIPTS_ROOT]` from `scriptsRoot` in `.agentrc.json`.
+2. Resolve `[SCRIPTS_ROOT]` from `paths.scriptsRoot` in `.agentrc.json`
+   (default: `.agents/scripts`).
 3. Resolve `[BASE_BRANCH]` from `baseBranch` in `.agentrc.json`.
 
 > **Storage has moved.** The retro is posted as a structured comment on the Epic

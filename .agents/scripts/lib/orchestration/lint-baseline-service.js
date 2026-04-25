@@ -10,7 +10,7 @@
 
 import defaultFs from 'node:fs';
 import path from 'node:path';
-import { getBaselines, PROJECT_ROOT } from '../config-resolver.js';
+import { getBaselines, getPaths, PROJECT_ROOT } from '../config-resolver.js';
 
 /**
  * Shape of the exec adapter passed into {@link LintBaselineService}.
@@ -49,7 +49,8 @@ export class LintBaselineService {
    *   `getBaselines({ agentSettings: settings }).lint.path` (default
    *   `baselines/lint.json`); operators override under
    *   `agentSettings.quality.baselines.lint.path`.
-   * @param {string} deps.settings.scriptsRoot     Relative scripts directory (resolved from `PROJECT_ROOT`).
+   *   `scriptsRoot` is resolved via `getPaths({ agentSettings: settings })`
+   *   (lives at `settings.paths.scriptsRoot` post-Epic #773 Story 9).
    * @param {typeof import('node:fs')} [deps.fs]   Optional `fs` module (defaults to `node:fs`). Kept injectable so unit tests can assert no real-disk access.
    */
   constructor({ exec, logger, settings, fs = defaultFs }) {
@@ -85,11 +86,12 @@ export class LintBaselineService {
     }
 
     logger.info(`Capturing lint baseline on ${epicBranch}...`);
+    const scriptsRoot = getPaths({ agentSettings: settings }).scriptsRoot;
     try {
       await exec(
         'node',
         [
-          path.join(PROJECT_ROOT, settings.scriptsRoot, 'lint-baseline.js'),
+          path.join(PROJECT_ROOT, scriptsRoot, 'lint-baseline.js'),
           'capture',
         ],
         {

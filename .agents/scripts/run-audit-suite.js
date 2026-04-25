@@ -124,13 +124,14 @@ export async function runAuditSuite({
   injectedRules,
 }) {
   const { settings } = resolveConfig();
+  const paths = getPaths({ agentSettings: settings });
   const callerSubstitutions = substitutions ?? {};
 
   let rules = injectedRules;
   if (!rules) {
     const rulesPath = path.join(
       PROJECT_ROOT,
-      settings.schemasRoot,
+      paths.schemasRoot,
       'audit-rules.schema.json',
     );
     const rulesContent = await fs.readFile(rulesPath, 'utf8');
@@ -150,7 +151,7 @@ export async function runAuditSuite({
   }
 
   const effectiveSubstitutions = {
-    auditOutputDir: getPaths({ agentSettings: settings }).auditOutputDir,
+    auditOutputDir: paths.auditOutputDir,
     ...callerSubstitutions,
   };
 
@@ -171,7 +172,7 @@ export async function runAuditSuite({
     workflows: [],
   };
 
-  const workflowsDir = path.join(PROJECT_ROOT, settings.workflowsRoot);
+  const workflowsDir = path.join(PROJECT_ROOT, paths.workflowsRoot);
 
   const auditPromises = auditWorkflows.map(async (auditName) => {
     if (!validAudits.includes(auditName)) {
