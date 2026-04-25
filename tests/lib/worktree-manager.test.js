@@ -9,6 +9,14 @@ import {
   WorktreeManager,
 } from '../../.agents/scripts/lib/worktree-manager.js';
 
+// Strip every GIT_* env var so the integration tests' tmpdir cwd wins.
+// When this suite runs inside a git hook (e.g. husky pre-push) the parent
+// git invocation exports GIT_DIR / GIT_WORK_TREE / GIT_INDEX_FILE / etc.
+// that override execFileSync's `cwd`, breaking fixture isolation.
+const CLEAN_ENV = Object.fromEntries(
+  Object.entries(process.env).filter(([k]) => !k.startsWith('GIT_')),
+);
+
 /**
  * Build a mock `git` object for WorktreeManager. `handlers` maps the
  * first two positional args joined by a space ("worktree add",
@@ -632,6 +640,7 @@ test('integration: round-trips worktree add and remove on a real repo', async ()
       cwd,
       encoding: 'utf8',
       stdio: ['pipe', 'pipe', 'pipe'],
+      env: CLEAN_ENV,
     });
   try {
     run(tmp, 'init', '-b', 'main');
@@ -682,6 +691,7 @@ test('integration: reap() tolerates drive-letter-case mismatch on repoRoot (v5.1
       cwd,
       encoding: 'utf8',
       stdio: ['pipe', 'pipe', 'pipe'],
+      env: CLEAN_ENV,
     });
   try {
     run(tmp, 'init', '-b', 'main');
@@ -726,6 +736,7 @@ test('integration: reap() tolerates drive-letter-case mismatch on repoRoot (v5.1
     const still = execFileSync('git', ['worktree', 'list', '--porcelain'], {
       cwd: tmp,
       encoding: 'utf8',
+      env: CLEAN_ENV,
     });
     assert.ok(
       !/story-1337/.test(still),
