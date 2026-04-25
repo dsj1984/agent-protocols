@@ -17,10 +17,12 @@ All implementation work must be committed to the following branch:
 
 Do not push directly to `main` or `dist`.
 
-## 3. Human-in-the-Loop (HITL) Gates
+## 3. Human-in-the-Loop (HITL) Pause
 
-If your task has a `risk::high` label, or if you encounter ambiguity where you
-need human input before proceeding, STOP execution and wait for human approval.
+If you encounter ambiguity where you need human input before proceeding, or
+hit an unrecoverable blocker, STOP execution, apply `agent::blocked` to this
+task, and post a friction comment naming the decision required. `risk::high`
+is informational metadata only — it does not pause execution on its own.
 
 ## 4. Error Recovery
 
