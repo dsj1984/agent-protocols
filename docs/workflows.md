@@ -92,8 +92,8 @@ Not invoked directly by operators, but referenced from other workflows:
 - `helpers/sprint-plan-spec.md`, `helpers/sprint-plan-decompose.md` —
   phase procedures delegated to by `/sprint-plan` (local wrapper) and by the
   `/sprint-plan --phase <phase>` entry point fired by the remote orchestrator.
-- `helpers/agents-sync-config.md` — structural diff-and-merge procedure for
-  `.agentrc.json`, invoked by `/agents-update` after the submodule pointer
+- `helpers/agents-sync-config.md` — schema-driven validate-then-merge procedure
+  for `.agentrc.json`, invoked by `/agents-update` after the submodule pointer
   moves (formerly shipped as `/agents-sync-config`).
 - `worktree-lifecycle.md` — per-story `git worktree` isolation model, including
   node_modules strategies, Windows notes, and escape hatches.
