@@ -3,6 +3,7 @@
 import { parseArgs } from 'node:util';
 import { runAsCli } from './lib/cli-utils.js';
 import { resolveConfig } from './lib/config-resolver.js';
+import { isDegraded } from './lib/degraded-mode.js';
 import { Logger } from './lib/Logger.js';
 import { createProvider } from './lib/provider-factory.js';
 import { runAuditSuite } from './run-audit-suite.js';
@@ -89,6 +90,18 @@ export async function runAuditOrchestrator(
     baseBranch,
   });
 
+  // Soft-fail propagation (Tech Spec #819): when selectAudits hits its
+  // diff-timeout fallback in default (non-gate) mode it returns a degraded
+  // envelope rather than the success shape. Surface that to the caller and
+  // abort instead of crashing on `selection.selectedAudits` being undefined.
+  if (isDegraded(selection)) {
+    Logger.warn(
+      `Audit selection degraded (${selection.reason}): ${selection.detail}`,
+    );
+    process.stdout.write(`${JSON.stringify(selection)}\n`);
+    return selection;
+  }
+
   if (selection.selectedAudits.length === 0) {
     Logger.info(`No audits selected for this gate/ticket combination.`);
     const report =
@@ -135,7 +148,12 @@ async function main() {
   }
 
   const ticketId = Number.parseInt(values.ticket, 10);
-  await runAuditOrchestrator(ticketId, values.gate, values['base-branch']);
+  const result = await runAuditOrchestrator(
+    ticketId,
+    values.gate,
+    values['base-branch'],
+  );
+  if (isDegraded(result)) process.exit(1);
 }
 
 runAsCli(import.meta.url, main, { source: 'AuditOrchestrator' });

@@ -6,10 +6,12 @@ import {
   classifyChangedFiles,
   evaluateGuardrail,
   findRefreshCommits,
+  listChangedFiles,
   parseBaseBranchConfig,
   parseCliArgs,
   parseCommitLog,
 } from '../.agents/scripts/baseline-refresh-guardrail.js';
+import { __setGitRunners } from '../.agents/scripts/lib/git-utils.js';
 
 /**
  * Fixture tests for the baseline-refresh-guardrail CI job. Each scenario
@@ -264,11 +266,18 @@ test('parseCliArgs — defaults and override combinations', () => {
       cwd: process.cwd(),
       skipLabel: false,
       skipCheckCrap: false,
+      gateMode: false,
     },
   );
   const defaults = parseCliArgs([]);
   assert.strictEqual(defaults.baseRef, 'origin/main');
   assert.strictEqual(defaults.prNumber, null);
+  assert.strictEqual(defaults.gateMode, false);
+});
+
+test('parseCliArgs — --gate-mode flag toggles gate-mode', () => {
+  const parsed = parseCliArgs(['--gate-mode']);
+  assert.strictEqual(parsed.gateMode, true);
 });
 
 test('parseCliArgs — --skip-label and --skip-check-crap flags', () => {
@@ -345,6 +354,68 @@ test('applyBaselineRefreshLabel — no pr-number: warns, does not call runner', 
     assert.ok(warnings[0].includes('--pr-number'));
   } finally {
     console.warn = origWarn;
+  }
+});
+
+test('listChangedFiles — successful git diff returns repo-relative paths', () => {
+  __setGitRunners(
+    () => '',
+    () => ({
+      status: 0,
+      stdout: 'baselines/crap.json\n.agents/scripts/foo.js\n',
+      stderr: '',
+    }),
+  );
+  try {
+    const out = listChangedFiles('origin/main', '.', { argv: [], env: {} });
+    assert.deepStrictEqual(out, [
+      'baselines/crap.json',
+      '.agents/scripts/foo.js',
+    ]);
+  } finally {
+    __setGitRunners(null, null);
+  }
+});
+
+test('listChangedFiles — git diff failure returns degraded envelope (default mode)', () => {
+  // Tech Spec #819 / Story #826 — git-diff failure used to silently return
+  // [], which made the guardrail conclude "no baseline edits" on a transient
+  // git error. The new contract surfaces the failure explicitly.
+  __setGitRunners(
+    () => '',
+    () => ({ status: 128, stdout: '', stderr: 'fatal: bad ref' }),
+  );
+  try {
+    const out = listChangedFiles('origin/main', '.', { argv: [], env: {} });
+    assert.strictEqual(out.ok, false);
+    assert.strictEqual(out.degraded, true);
+    assert.strictEqual(out.reason, 'GIT_DIFF_FAILED');
+    assert.match(out.detail, /fatal: bad ref/);
+  } finally {
+    __setGitRunners(null, null);
+  }
+});
+
+test('listChangedFiles — git diff failure throws under --gate-mode', () => {
+  __setGitRunners(
+    () => '',
+    () => ({ status: 128, stdout: '', stderr: 'fatal: bad ref' }),
+  );
+  try {
+    assert.throws(
+      () =>
+        listChangedFiles('origin/main', '.', {
+          argv: ['--gate-mode'],
+          env: {},
+        }),
+      (err) => {
+        assert.strictEqual(err.code, 'GIT_DIFF_FAILED');
+        assert.strictEqual(err.degraded, true);
+        return true;
+      },
+    );
+  } finally {
+    __setGitRunners(null, null);
   }
 });
 
