@@ -170,9 +170,6 @@ Version 5 introduces the **Agent Protocols MCP Server**, enabling agents to
 discover and invoke orchestration tools natively (e.g., in Cursor, Claude
 Desktop, or VS Code) without spawning shell subprocesses.
 
-> **Full consumer reference:** [`MCP.md`](MCP.md) — per-tool input schemas,
-> output shapes, side effects, error modes, examples, a decision matrix, and
-> troubleshooting. The summary below is orientation only.
 
 ### 1. Configuration
 
