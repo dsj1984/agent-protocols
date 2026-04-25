@@ -87,7 +87,9 @@ describe('resolveConcurrency — overrides flow through', () => {
   });
 
   it('returns a frozen object', () => {
-    const out = resolveConcurrency({ runners: { concurrency: { waveGate: 5 } } });
+    const out = resolveConcurrency({
+      runners: { concurrency: { waveGate: 5 } },
+    });
     assert.throws(() => {
       out.waveGate = 999;
     });
