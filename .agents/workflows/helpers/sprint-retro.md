@@ -256,10 +256,11 @@ that path fires the notification webhook, leaking the long-form retro body to
 downstream consumers (Make.com / Slack / Discord). GitHub is the sole
 destination.
 
-```text
-# Preferred — MCP-native structured comment (does NOT fire the webhook):
-mcp__agent-protocols__post_structured_comment \
-  --ticket [EPIC_ID] --type retro --body "<retro markdown>"
+```bash
+# Preferred — CLI structured comment (does NOT fire the webhook).
+# Write the retro markdown to a file first; --body-file is required.
+node .agents/scripts/post-structured-comment.js \
+  --ticket [EPIC_ID] --marker retro --body-file <path-to-retro.md>
 
 # Direct SDK fallback (also does NOT fire the webhook):
 node -e "
@@ -322,9 +323,9 @@ Commit these with a conventional `docs(...)` message on the Epic branch. Do
   structured-comment lookup is unavailable.
 - **Never** post the retro body through `notify.js`. That path fires the
   notification webhook and leaks the long-form retro to Make.com / Slack /
-  Discord. Use `mcp__agent-protocols__post_structured_comment` (preferred) or
-  `provider.postComment(..., { type: 'retro' })` exclusively — both post only
-  to GitHub and never touch the webhook.
+  Discord. Use `node .agents/scripts/post-structured-comment.js --marker retro`
+  or `provider.postComment(..., { type: 'retro' })` exclusively — both post
+  only to GitHub and never touch the webhook.
 - **Always** post the retro as `type: retro` via the structured comment API so
   downstream tooling (and the `/sprint-close` gate) can filter it.
 - **Always** re-run the workflow end-to-end if the final comment post fails.
