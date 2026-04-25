@@ -96,26 +96,32 @@
     {
       "crap": 3,
       "file": ".agents/scripts/audit-orchestrator.js",
+      "method": "renderSummaryLine",
+      "startLine": 46
+    },
+    {
+      "crap": 4,
+      "file": ".agents/scripts/audit-orchestrator.js",
       "method": "renderWorkflowsBlock",
-      "startLine": 40
+      "startLine": 56
     },
     {
       "crap": 3,
       "file": ".agents/scripts/audit-orchestrator.js",
       "method": "formatAuditReport",
-      "startLine": 56
+      "startLine": 74
     },
     {
       "crap": 5.760065958911678,
       "file": ".agents/scripts/audit-orchestrator.js",
       "method": "runAuditOrchestrator",
-      "startLine": 72
+      "startLine": 90
     },
     {
       "crap": 12,
       "file": ".agents/scripts/audit-orchestrator.js",
       "method": "main",
-      "startLine": 122
+      "startLine": 140
     },
     {
       "crap": 12.047234408954857,
@@ -3832,28 +3838,34 @@
       "startLine": 86
     },
     {
-      "crap": 6.013477319540139,
+      "crap": 6.0127743005911025,
       "file": ".agents/scripts/run-audit-suite.js",
       "method": "runAuditSuite",
       "startLine": 120
     },
     {
+      "crap": 2,
+      "file": ".agents/scripts/run-audit-suite.js",
+      "method": "aggregateSummary",
+      "startLine": 239
+    },
+    {
       "crap": 1.800655976676385,
       "file": ".agents/scripts/run-audit-suite.js",
       "method": "parseCliArgs",
-      "startLine": 232
+      "startLine": 249
     },
     {
       "crap": 6,
       "file": ".agents/scripts/run-audit-suite.js",
       "method": "parseSubstitutionPairs",
-      "startLine": 247
+      "startLine": 264
     },
     {
       "crap": 67.07916605919232,
       "file": ".agents/scripts/run-audit-suite.js",
       "method": "main",
-      "startLine": 264
+      "startLine": 281
     },
     {
       "crap": 1,
