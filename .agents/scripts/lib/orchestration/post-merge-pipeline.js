@@ -231,21 +231,28 @@ export async function branchCleanupPhase(ctx, state = {}) {
 }
 
 export async function ticketClosurePhase(ctx) {
-  const { provider, tasks, storyId, notifier, progress, logger } = ctx;
+  const { provider, tasks, storyId, progress, logger } = ctx;
   const log = reapPhaseLogger(progress);
 
+  // The notifier is intentionally NOT forwarded to per-ticket transitions
+  // here. `notificationPhase` fires a single consolidated story-complete
+  // message immediately after this phase; passing the notifier through
+  // would emit redundant `state-transition` events (one from the
+  // cascade-up triggered by the last child Task, one from the explicit
+  // Story toDone below) that show up as duplicate Slack/webhook lines per
+  // story close.
   log('TICKETS', `Transitioning ${tasks.length} Task(s) to agent::done...`);
   const batch = await batchTransitionTickets(
     provider,
     tasks,
     STATE_LABELS.DONE,
-    { progress: log, notifier },
+    { progress: log },
   );
   const closedTickets = [...batch.transitioned, ...batch.skipped];
 
   log('TICKETS', `Transitioning Story #${storyId} to agent::done...`);
   try {
-    await toDone(provider, [storyId], { notifier });
+    await toDone(provider, [storyId]);
     closedTickets.push(storyId);
     log('TICKETS', `  #${storyId} → agent::done ✅`);
   } catch (err) {
@@ -258,9 +265,10 @@ export async function ticketClosurePhase(ctx) {
   let cascadedTo = [];
   let cascadeFailed = [];
   try {
-    const cascade = (await cascadeCompletion(provider, storyId, {
-      notifier,
-    })) ?? { cascadedTo: [], failed: [] };
+    const cascade = (await cascadeCompletion(provider, storyId)) ?? {
+      cascadedTo: [],
+      failed: [],
+    };
     cascadedTo = cascade.cascadedTo ?? [];
     cascadeFailed = cascade.failed ?? [];
     if (cascadedTo.length > 0) {
