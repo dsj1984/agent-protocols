@@ -5,30 +5,37 @@
 /**
  * sprint-plan-healthcheck.js — Post-Plan Readiness Check
  *
- * Runs at the end of /sprint-plan (Phase 5) to validate the backlog and
- * prime the execution environment before handing off to /sprint-execute.
+ * Runs at the end of /sprint-plan (Phase 4) to validate the backlog and
+ * optionally prime the execution environment before handing off to
+ * /sprint-execute.
  *
- * Checks:
- *   1. Ticket hierarchy — all Features/Stories/Tasks exist with correct labels.
- *   2. Dependency graph — no cycles in the task DAG.
- *   3. Git remote — origin is reachable and baseBranch exists.
- *   4. Config — .agentrc.json orchestration block is valid.
- *   5. pnpm store — if nodeModulesStrategy is 'pnpm-store', prime the
- *      content-addressable store so worktree installs are near-instant.
+ * Modes (additive — fast checks always run):
+ *   --fast (default)  — config validation + git remote check only.
+ *                       Targets <2s.
+ *   --paranoid        — adds ticket-hierarchy + dependency-cycle
+ *                       revalidation.
+ *   --prime-install   — adds the pnpm content-addressable-store priming
+ *                       path (up to 300s).
  *
- * Non-blocking: reports findings but always exits 0. The plan is already
- * committed to GitHub — failing here doesn't un-create tickets.
+ * Output: a single line of structured JSON on stdout —
+ *   { ok, degraded, reason, checks: [{name, ok, durationMs, detail}] }
+ *
+ * The script always exits 0; callers decide whether to act on `ok: false`.
+ * The plan is already committed to GitHub, so failing the script does not
+ * un-create tickets.
  *
  * Usage:
- *   node sprint-plan-healthcheck.js --epic <EPIC_ID> [--dry-run]
+ *   node sprint-plan-healthcheck.js --epic <EPIC_ID> \
+ *     [--fast|--paranoid] [--prime-install] [--dry-run]
  *
- * @see .agents/workflows/sprint-plan.md Phase 5
+ * @see .agents/workflows/sprint-plan.md Phase 4
  */
 
 import { spawnSync } from 'node:child_process';
 import fs from 'node:fs';
 import path from 'node:path';
-import { parseSprintArgs } from './lib/cli-args.js';
+import { parseArgs } from 'node:util';
+import { parseTicketId } from './lib/cli-args.js';
 import { runAsCli } from './lib/cli-utils.js';
 import {
   PROJECT_ROOT,
@@ -45,33 +52,109 @@ import { createProvider } from './lib/provider-factory.js';
 const progress = Logger.createProgress('plan-healthcheck', { stderr: true });
 
 // ---------------------------------------------------------------------------
-// Individual checks
+// CLI parsing
 // ---------------------------------------------------------------------------
 
 /**
- * Check 1: Validate ticket hierarchy and dependency graph.
- * Fetches all child tickets under the Epic and verifies structure.
+ * Parse the healthcheck-specific CLI surface. Kept local to the script so the
+ * shared `parseSprintArgs` helper does not have to learn about every script's
+ * private flags.
+ *
+ * @param {string[]} [argv]
+ * @returns {{ epicId: number|null, fast: boolean, paranoid: boolean,
+ *   primeInstall: boolean, dryRun: boolean }}
  */
+export function parseHealthcheckArgs(argv = process.argv) {
+  const { values, positionals } = parseArgs({
+    args: argv.slice(2),
+    options: {
+      epic: { type: 'string', short: 'e' },
+      fast: { type: 'boolean', default: false },
+      paranoid: { type: 'boolean', default: false },
+      'prime-install': { type: 'boolean', default: false },
+      'dry-run': { type: 'boolean', default: false },
+    },
+    allowPositionals: true,
+    strict: false,
+  });
+
+  return {
+    epicId: parseTicketId(values.epic) ?? parseTicketId(positionals[0]),
+    fast: !!values.fast,
+    paranoid: !!values.paranoid,
+    primeInstall: !!values['prime-install'],
+    dryRun: !!values['dry-run'],
+  };
+}
+
+// ---------------------------------------------------------------------------
+// Individual checks
+//
+// Each check returns { ok: boolean, detail: string }. The orchestrator wraps
+// it with `name` and `durationMs` for the structured output.
+// ---------------------------------------------------------------------------
+
+/** Validate `.agentrc.json` orchestration block. */
+function checkConfig(orchestration) {
+  try {
+    validateOrchestrationConfig(orchestration);
+    return { ok: true, detail: 'Orchestration config is valid.' };
+  } catch (err) {
+    return { ok: false, detail: `Config validation failed: ${err.message}` };
+  }
+}
+
+/** Verify `origin` is reachable and `baseBranch` exists on it. */
+function checkGitRemote(baseBranch, cwd) {
+  const remote = gitSpawn(
+    cwd,
+    'ls-remote',
+    '--exit-code',
+    'origin',
+    baseBranch,
+  );
+  if (remote.status === 0) {
+    return {
+      ok: true,
+      detail: `Remote reachable, base branch '${baseBranch}' exists.`,
+    };
+  }
+  if (
+    remote.stderr.includes('Could not resolve host') ||
+    remote.stderr.includes('unable to access')
+  ) {
+    return {
+      ok: false,
+      detail: `Git remote 'origin' is not reachable: ${remote.stderr.slice(0, 200)}`,
+    };
+  }
+  return {
+    ok: false,
+    detail: `Base branch '${baseBranch}' not found on origin.`,
+  };
+}
+
+/** Validate Epic ticket hierarchy and dependency-graph acyclicity. */
 async function checkTickets(provider, epicId) {
-  const findings = [];
+  if (!epicId) {
+    return {
+      ok: false,
+      detail: '--paranoid requires --epic <ID> to fetch the ticket hierarchy.',
+    };
+  }
 
   let tickets;
   try {
     tickets = await provider.getSubTickets(epicId);
   } catch (err) {
-    findings.push({
-      level: 'error',
-      msg: `Could not fetch Epic #${epicId} tickets: ${err.message}`,
-    });
-    return findings;
+    return {
+      ok: false,
+      detail: `Could not fetch Epic #${epicId} tickets: ${err.message}`,
+    };
   }
 
   if (tickets.length === 0) {
-    findings.push({
-      level: 'error',
-      msg: `Epic #${epicId} has no child tickets.`,
-    });
-    return findings;
+    return { ok: false, detail: `Epic #${epicId} has no child tickets.` };
   }
 
   const features = tickets.filter((t) =>
@@ -80,25 +163,11 @@ async function checkTickets(provider, epicId) {
   const stories = tickets.filter((t) => t.labels.includes(TYPE_LABELS.STORY));
   const tasks = tickets.filter((t) => t.labels.includes(TYPE_LABELS.TASK));
 
-  if (features.length === 0)
-    findings.push({ level: 'error', msg: 'No type::feature tickets found.' });
-  if (stories.length === 0)
-    findings.push({ level: 'error', msg: 'No type::story tickets found.' });
-  if (tasks.length === 0)
-    findings.push({ level: 'error', msg: 'No type::task tickets found.' });
+  const errors = [];
+  if (features.length === 0) errors.push('no type::feature tickets');
+  if (stories.length === 0) errors.push('no type::story tickets');
+  if (tasks.length === 0) errors.push('no type::task tickets');
 
-  // Check for stories missing complexity labels
-  const missingComplexity = stories.filter(
-    (s) => !s.labels.some((l) => l.startsWith('complexity::')),
-  );
-  if (missingComplexity.length > 0) {
-    findings.push({
-      level: 'warn',
-      msg: `${missingComplexity.length} story/stories missing complexity label: ${missingComplexity.map((s) => `#${s.id}`).join(', ')}`,
-    });
-  }
-
-  // Check for dependency cycles across tasks
   if (tasks.length > 1) {
     const graphTasks = tasks.map((t) => ({
       ...t,
@@ -108,99 +177,35 @@ async function checkTickets(provider, epicId) {
     }));
     const { adjacency } = buildGraph(graphTasks);
     const cycle = detectCycle(adjacency);
-    if (cycle) {
-      findings.push({
-        level: 'error',
-        msg: `Dependency cycle detected: #${cycle.join(' -> #')}`,
-      });
-    }
+    if (cycle) errors.push(`dependency cycle: #${cycle.join(' -> #')}`);
   }
 
-  if (findings.length === 0) {
-    findings.push({
-      level: 'ok',
-      msg: `${features.length} features, ${stories.length} stories, ${tasks.length} tasks — hierarchy valid, no cycles.`,
-    });
+  if (errors.length > 0) {
+    return { ok: false, detail: errors.join('; ') };
   }
 
-  return findings;
-}
-
-/**
- * Check 2: Verify git remote is reachable and baseBranch exists.
- */
-function checkGitRemote(baseBranch, cwd) {
-  const findings = [];
-
-  const remote = gitSpawn(
-    cwd,
-    'ls-remote',
-    '--exit-code',
-    'origin',
-    baseBranch,
+  const missingComplexity = stories.filter(
+    (s) => !s.labels.some((l) => l.startsWith('complexity::')),
   );
-  if (remote.status !== 0) {
-    if (
-      remote.stderr.includes('Could not resolve host') ||
-      remote.stderr.includes('unable to access')
-    ) {
-      findings.push({
-        level: 'error',
-        msg: `Git remote 'origin' is not reachable: ${remote.stderr.slice(0, 200)}`,
-      });
-    } else {
-      findings.push({
-        level: 'error',
-        msg: `Base branch '${baseBranch}' not found on origin.`,
-      });
-    }
-  } else {
-    findings.push({
-      level: 'ok',
-      msg: `Remote reachable, base branch '${baseBranch}' exists.`,
-    });
-  }
+  const advisory =
+    missingComplexity.length > 0
+      ? ` (advisory: ${missingComplexity.length} story/stories missing complexity label)`
+      : '';
 
-  return findings;
+  return {
+    ok: true,
+    detail: `${features.length} features, ${stories.length} stories, ${tasks.length} tasks — hierarchy valid, no cycles${advisory}.`,
+  };
 }
 
-/**
- * Check 3: Validate .agentrc.json orchestration config.
- */
-function checkConfig(orchestration) {
-  const findings = [];
-  try {
-    validateOrchestrationConfig(orchestration);
-    findings.push({ level: 'ok', msg: 'Orchestration config is valid.' });
-  } catch (err) {
-    findings.push({
-      level: 'error',
-      msg: `Config validation failed: ${err.message}`,
-    });
-  }
-  return findings;
-}
-
-/**
- * Check 4: Prime pnpm store if using pnpm-store strategy.
- * Runs `pnpm install --frozen-lockfile` in the project root so the global
- * content-addressable store is populated before any worktree needs it.
- */
+/** Prime the pnpm content-addressable store via `pnpm install --frozen-lockfile`. */
 function primePnpmStore(cwd, dryRun) {
-  const findings = [];
   const lockFile = path.join(cwd, 'pnpm-lock.yaml');
-
   if (!fs.existsSync(lockFile)) {
-    findings.push({
-      level: 'warn',
-      msg: 'No pnpm-lock.yaml found — cannot prime store.',
-    });
-    return findings;
+    return { ok: false, detail: 'No pnpm-lock.yaml found — cannot prime store.' };
   }
-
   if (dryRun) {
-    findings.push({ level: 'ok', msg: 'pnpm store prime skipped (dry-run).' });
-    return findings;
+    return { ok: true, detail: 'pnpm store prime skipped (dry-run).' };
   }
 
   progress('PRIME', 'Priming pnpm content-addressable store...');
@@ -215,123 +220,114 @@ function primePnpmStore(cwd, dryRun) {
   const elapsed = ((Date.now() - start) / 1000).toFixed(1);
 
   if (result.status === 0) {
-    findings.push({ level: 'ok', msg: `pnpm store primed in ${elapsed}s.` });
-  } else {
-    const reason =
-      result.signal === 'SIGTERM'
-        ? `timeout after ${elapsed}s`
-        : `exit ${result.status}`;
-    findings.push({
-      level: 'warn',
-      msg: `pnpm store prime failed (${reason}). First worktree install will be slower. stderr: ${(result.stderr ?? '').slice(0, 300)}`,
-    });
+    return { ok: true, detail: `pnpm store primed in ${elapsed}s.` };
   }
-
-  return findings;
+  const reason =
+    result.signal === 'SIGTERM' ? `timeout after ${elapsed}s` : `exit ${result.status}`;
+  return {
+    ok: false,
+    detail: `pnpm store prime failed (${reason}). First worktree install will be slower. stderr: ${(result.stderr ?? '').slice(0, 300)}`,
+  };
 }
 
 // ---------------------------------------------------------------------------
 // Orchestration
 // ---------------------------------------------------------------------------
 
-export async function runPlanHealthcheck({
-  epicId: epicIdParam,
-  dryRun: dryRunParam,
-  injectedProvider,
-  injectedConfig,
-} = {}) {
-  const parsed =
-    epicIdParam !== undefined
-      ? { epicId: epicIdParam, dryRun: !!dryRunParam }
-      : parseSprintArgs();
-  const { epicId, dryRun } = parsed;
+async function timed(name, fn) {
+  const start = Date.now();
+  const { ok, detail } = await fn();
+  return { name, ok, durationMs: Date.now() - start, detail };
+}
+
+/**
+ * Run the post-plan health check.
+ *
+ * @param {object} [opts]
+ * @param {number} [opts.epicId]              Epic ID (required for --paranoid).
+ * @param {boolean} [opts.fast]               Run fast checks only (default).
+ * @param {boolean} [opts.paranoid]           Add hierarchy + dep-cycle checks.
+ * @param {boolean} [opts.primeInstall]       Add pnpm-store priming.
+ * @param {boolean} [opts.dryRun]             Skip real install side effects.
+ * @param {object}  [opts.injectedProvider]   Test-only injection point.
+ * @param {object}  [opts.injectedConfig]     Test-only injection point.
+ * @returns {Promise<{ok: boolean, degraded: boolean, reason: string|null,
+ *   checks: Array<{name: string, ok: boolean, durationMs: number, detail: string}>}>}
+ */
+export async function runPlanHealthcheck(opts = {}) {
+  const ARG_KEYS = ['epicId', 'fast', 'paranoid', 'primeInstall', 'dryRun'];
+  const hasExplicitArgs = ARG_KEYS.some((k) => Object.hasOwn(opts, k));
+  const parsed = hasExplicitArgs
+    ? {
+        epicId: opts.epicId ?? null,
+        fast: !!opts.fast,
+        paranoid: !!opts.paranoid,
+        primeInstall: !!opts.primeInstall,
+        dryRun: !!opts.dryRun,
+      }
+    : parseHealthcheckArgs();
+
+  const { epicId, paranoid, primeInstall, dryRun } = parsed;
   const cwd = PROJECT_ROOT;
 
-  if (!epicId) {
-    Logger.fatal(
-      'Usage: node sprint-plan-healthcheck.js --epic <EPIC_ID> [--dry-run]',
-    );
-  }
-
-  const { settings, orchestration } = injectedConfig || resolveConfig();
+  const { settings, orchestration } = opts.injectedConfig || resolveConfig();
   const baseBranch = settings.baseBranch ?? 'main';
-  const wtConfig = orchestration?.worktreeIsolation;
-  const isPnpmStore =
-    wtConfig?.enabled && wtConfig?.nodeModulesStrategy === 'pnpm-store';
 
-  progress('HEALTH', `Running post-plan health check for Epic #${epicId}...`);
+  progress(
+    'HEALTH',
+    `Running post-plan health check${epicId ? ` for Epic #${epicId}` : ''} (mode=${paranoid ? 'paranoid' : 'fast'}${primeInstall ? '+prime-install' : ''})...`,
+  );
 
-  // Run independent checks
-  const allFindings = [];
+  const checks = [];
 
-  // Config check (no provider needed)
+  // Fast lane: config + git remote always run.
   progress('CHECK', 'Validating orchestration config...');
-  allFindings.push(
-    ...checkConfig(orchestration).map((f) => ({ ...f, check: 'config' })),
-  );
+  checks.push(await timed('config', async () => checkConfig(orchestration)));
 
-  // Git remote check (no provider needed)
   progress('CHECK', 'Checking git remote...');
-  allFindings.push(
-    ...checkGitRemote(baseBranch, cwd).map((f) => ({ ...f, check: 'git' })),
+  checks.push(
+    await timed('git-remote', async () => checkGitRemote(baseBranch, cwd)),
   );
 
-  // Ticket hierarchy check
-  const provider = injectedProvider || createProvider(orchestration);
-  progress('CHECK', 'Validating ticket hierarchy...');
-  const ticketFindings = await checkTickets(provider, epicId);
-  allFindings.push(...ticketFindings.map((f) => ({ ...f, check: 'tickets' })));
+  // Paranoid lane: ticket-hierarchy + dep-cycle revalidation.
+  if (paranoid) {
+    const provider = opts.injectedProvider || createProvider(orchestration);
+    progress('CHECK', 'Validating ticket hierarchy...');
+    checks.push(
+      await timed('ticket-hierarchy', () => checkTickets(provider, epicId)),
+    );
+  }
 
-  // pnpm store prime (only if configured)
-  if (isPnpmStore) {
+  // Optional pnpm-store priming.
+  if (primeInstall) {
     progress('CHECK', 'Priming pnpm store...');
-    allFindings.push(
-      ...primePnpmStore(cwd, dryRun).map((f) => ({
-        ...f,
-        check: 'pnpm-store',
-      })),
+    checks.push(
+      await timed('prime-install', async () => primePnpmStore(cwd, dryRun)),
     );
   }
 
-  // Emit summary
-  const errors = allFindings.filter((f) => f.level === 'error');
-  const warnings = allFindings.filter((f) => f.level === 'warn');
-  const oks = allFindings.filter((f) => f.level === 'ok');
-
-  console.log('\n--- PLAN HEALTH CHECK ---');
-  for (const f of allFindings) {
-    const icon =
-      f.level === 'ok' ? '  OK' : f.level === 'warn' ? 'WARN' : ' ERR';
-    console.log(`  [${icon}] ${f.check}: ${f.msg}`);
-  }
-
-  const summary = [];
-  if (oks.length > 0) summary.push(`${oks.length} passed`);
-  if (warnings.length > 0) summary.push(`${warnings.length} warning(s)`);
-  if (errors.length > 0) summary.push(`${errors.length} error(s)`);
-  console.log(`\n  Summary: ${summary.join(', ')}`);
-  console.log('--- END HEALTH CHECK ---\n');
-
-  if (errors.length > 0) {
-    progress(
-      'HEALTH',
-      `${errors.length} issue(s) found. Review before starting execution.`,
-    );
-  } else if (warnings.length > 0) {
-    progress(
-      'HEALTH',
-      `Plan is ready with ${warnings.length} advisory warning(s).`,
-    );
-  } else {
-    progress('HEALTH', 'All checks passed. Plan is ready for execution.');
-  }
-
-  return {
-    epicId,
-    findings: allFindings,
-    errors: errors.length,
-    warnings: warnings.length,
+  const failed = checks.filter((c) => !c.ok);
+  const ok = failed.length === 0;
+  const result = {
+    ok,
+    degraded: !ok,
+    reason: ok ? null : failed.map((c) => `${c.name}: ${c.detail}`).join('; '),
+    checks,
   };
+
+  if (ok) {
+    progress('HEALTH', `All ${checks.length} check(s) passed.`);
+  } else {
+    progress(
+      'HEALTH',
+      `${failed.length} of ${checks.length} check(s) failed: ${failed.map((c) => c.name).join(', ')}.`,
+    );
+  }
+
+  // The structured result is the only thing on stdout.
+  console.log(JSON.stringify(result));
+
+  return result;
 }
 
 // ---------------------------------------------------------------------------
