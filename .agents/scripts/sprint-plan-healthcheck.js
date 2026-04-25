@@ -202,7 +202,10 @@ async function checkTickets(provider, epicId) {
 function primePnpmStore(cwd, dryRun) {
   const lockFile = path.join(cwd, 'pnpm-lock.yaml');
   if (!fs.existsSync(lockFile)) {
-    return { ok: false, detail: 'No pnpm-lock.yaml found — cannot prime store.' };
+    return {
+      ok: false,
+      detail: 'No pnpm-lock.yaml found — cannot prime store.',
+    };
   }
   if (dryRun) {
     return { ok: true, detail: 'pnpm store prime skipped (dry-run).' };
@@ -223,7 +226,9 @@ function primePnpmStore(cwd, dryRun) {
     return { ok: true, detail: `pnpm store primed in ${elapsed}s.` };
   }
   const reason =
-    result.signal === 'SIGTERM' ? `timeout after ${elapsed}s` : `exit ${result.status}`;
+    result.signal === 'SIGTERM'
+      ? `timeout after ${elapsed}s`
+      : `exit ${result.status}`;
   return {
     ok: false,
     detail: `pnpm store prime failed (${reason}). First worktree install will be slower. stderr: ${(result.stderr ?? '').slice(0, 300)}`,
