@@ -74,4 +74,15 @@ describe('buildClaudeSpawn', () => {
       assert.deepEqual(out.args, ['--version']);
     }
   });
+  it('forces win32 branch via injected platform', () => {
+    const out = buildClaudeSpawn(['/sprint-execute', '386'], {}, 'win32');
+    assert.equal(out.options.shell, true);
+    assert.deepEqual(out.args, []);
+    assert.match(out.file, /\/sprint-execute 386/);
+  });
+  it('forces posix branch via injected platform', () => {
+    const out = buildClaudeSpawn(['/sprint-execute', '386'], {}, 'linux');
+    assert.equal(out.options.shell, false);
+    assert.deepEqual(out.args, ['/sprint-execute', '386']);
+  });
 });

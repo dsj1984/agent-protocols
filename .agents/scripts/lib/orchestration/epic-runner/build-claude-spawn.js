@@ -33,9 +33,16 @@ export function buildWindowsCmdline(bin, argv) {
   return [bin, ...argv].map(cmdQuote).join(' ');
 }
 
-export function buildClaudeSpawn(argv, options) {
+/**
+ * `platform` is injectable so the CRAP coverage scan exercises both
+ * branches on every host (defaults to `process.platform`). Without the
+ * injection point, the win32 branch was uncovered on Linux CI and the
+ * non-win32 branch was uncovered on Windows local — producing platform-
+ * skewed CRAP baselines that flapped on every cross-platform run.
+ */
+export function buildClaudeSpawn(argv, options, platform = process.platform) {
   const bin = process.env.CLAUDE_BIN ?? 'claude';
-  if (process.platform === 'win32') {
+  if (platform === 'win32') {
     return {
       file: buildWindowsCmdline(bin, argv),
       args: [],

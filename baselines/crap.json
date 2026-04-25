@@ -1780,10 +1780,10 @@
       "startLine": 32
     },
     {
-      "crap": 2.0030052592036065,
+      "crap": 2,
       "file": ".agents/scripts/lib/orchestration/epic-runner/build-claude-spawn.js",
       "method": "buildClaudeSpawn",
-      "startLine": 36
+      "startLine": 43
     },
     {
       "crap": 10,
