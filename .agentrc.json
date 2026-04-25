@@ -24,11 +24,19 @@
     "sprintClose": {
       "runRetro": true
     },
-    "maxInstructionSteps": 5,
-    "maxTickets": 40,
-    "maxTokenBudget": 200000,
-    "executionTimeoutMs": 300000,
-    "executionMaxBuffer": 10485760,
+    "limits": {
+      "maxInstructionSteps": 5,
+      "maxTickets": 40,
+      "maxTokenBudget": 200000,
+      "executionTimeoutMs": 300000,
+      "executionMaxBuffer": 10485760,
+      "friction": {
+        "repetitiveCommandCount": 3,
+        "consecutiveErrorCount": 3,
+        "stagnationStepCount": 5,
+        "maxIntegrationRetries": 2
+      }
+    },
     "commands": {
       "validate": "npm run lint",
       "lintBaseline": "npm run lint",
@@ -56,12 +64,6 @@
         "friction": { "markerKey": "crap-baseline-regression" },
         "refreshTag": "baseline-refresh:"
       }
-    },
-    "frictionThresholds": {
-      "repetitiveCommandCount": 3,
-      "consecutiveErrorCount": 3,
-      "stagnationStepCount": 5,
-      "maxIntegrationRetries": 2
     },
     "riskGates": {
       "heuristics": [

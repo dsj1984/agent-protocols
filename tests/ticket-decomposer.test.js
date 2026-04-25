@@ -211,7 +211,7 @@ describe('ticket-decomposer buildDecompositionContext', () => {
     const ctx = await buildDecompositionContext(1, provider, {
       agentSettings: {
         riskGates: { heuristics: ['Heuristic A'] },
-        maxTickets: 60,
+        limits: { maxTickets: 60 },
       },
     });
 

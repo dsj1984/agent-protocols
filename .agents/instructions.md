@@ -116,7 +116,7 @@ details directly to the relevant GitHub Task ticket:
   self-correction. The script will post a structured `friction` comment to the
   ticket and provide remediation steps.
 - **Automation Candidate**: Manually log repetitive sequences of commands (check
-  `frictionThresholds.repetitiveCommandCount` in `.agentrc.json`, default 3+),
+  `limits.friction.repetitiveCommandCount` in `.agentrc.json`, default 3+),
   boilerplate-heavy file creations, or manual processes that could be simplified
   by a dedicated workflow or skill.
 
@@ -138,11 +138,11 @@ loop. If you satisfy either of the following conditions, you MUST immediately
 stop, summarize the blockers, and present a **Re-Plan** or yield to the user:
 
 - **Error Threshold**: You execute multiple consecutive tools that return errors
-  (check `frictionThresholds.consecutiveErrorCount` in `.agentrc.json`, default
+  (check `limits.friction.consecutiveErrorCount` in `.agentrc.json`, default
   3).
 - **Stagnation Threshold**: You perform consecutive steps of research or
   analysis without modifying a file (check
-  `frictionThresholds.stagnationStepCount` in `.agentrc.json`, default 5),
+  `limits.friction.stagnationStepCount` in `.agentrc.json`, default 5),
   excluding setup/scaffolding tasks.
 
 This protocol ensures the conversation remains focused and avoids consuming
