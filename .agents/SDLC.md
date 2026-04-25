@@ -677,9 +677,9 @@ execution.
 | `/sprint-execute <storyId>`        | Initialize a Story branch and implement all its Tasks (Story Mode)                                                                                                           |
 | Label Epic `agent::dispatching`    | Trigger remote orchestrator via GitHub Actions                                                                                                                               |
 | Label Epic `epic::auto-close`      | Authorize autonomous bookend chain at dispatch time                                                                                                                          |
-| `/sprint-close <epicId>`           | Close the Epic — auto-invokes code-review + retro, then merges to `main`, tags release, closes Epic + context issues. **The only bookend command an operator runs by hand.** |
-| _helper_ `workflows/helpers/sprint-code-review.md` | Auto-invoked by `/sprint-close` Phase 2 and by `/sprint-execute` bookends; not a slash command                                                               |
-| _helper_ `workflows/helpers/sprint-retro.md`       | Auto-invoked by `/sprint-close` Phase 5.1; not a slash command                                                                                               |
+| `/sprint-close <epicId>`           | Close the Epic — auto-invokes code-review + retro, then merges to `main` and closes Epic + context issues. **The only bookend command an operator runs by hand.** |
+| _helper_ `workflows/helpers/sprint-code-review.md` | Auto-invoked by `/sprint-close` Phase 3 and by `/sprint-execute` bookends; not a slash command                                                               |
+| _helper_ `workflows/helpers/sprint-retro.md`       | Auto-invoked by `/sprint-close` Phase 6; not a slash command                                                                                               |
 | `/git-commit-all`                  | Stage and commit all changes                                                                                                                                                 |
 | `/git-push`                        | Stage, commit, and push to remote                                                                                                                                            |
 | `/delete-epic-branches <epicId>`   | Hard reset — delete all Epic-scoped branches                                                                                                                                 |

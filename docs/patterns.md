@@ -1006,7 +1006,7 @@ one flag away.
    automated retro agent uses the same truth.
 2. **Preserved downstream contract.** The compact body is still a
    `type: 'retro'` comment and still ends with `<!-- retro-complete:
-   <ISO> -->`. `/sprint-close` Phase 5.1's completion gate is
+   <ISO> -->`. `/sprint-close` Phase 6's completion gate is
    unchanged. No consumer sees a shape difference beyond length.
 3. **Operator override.** A new `--full-retro` flag on `/sprint-close`
    (and a note in the helper) forces the six-section body when the

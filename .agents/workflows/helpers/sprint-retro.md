@@ -8,7 +8,7 @@ description: >-
 # Sprint Retro (helper)
 
 > **Helper module.** Not a slash command. Invoked automatically from
-> `/sprint-close` Phase 5.1 when the Epic has no retro comment yet. To run a
+> `/sprint-close` Phase 6 when the Epic has no retro comment yet. To run a
 > retro directly, use `/sprint-close [Epic_ID]` — it delegates here (or pass
 > `--skip-retro` to bypass).
 
@@ -142,7 +142,7 @@ compose Action Items for Next Epic          → upsertStructuredComment(epicId, 
 comment of the same type on each call, so no comment sprawl occurs. The
 partial body does **not** carry the `retro-complete:` marker — it is
 informational only. Step 3 then posts the final body as `type: 'retro'`
-with the `retro-complete:` marker, which `/sprint-close` Phase 5.1 uses as
+with the `retro-complete:` marker, which `/sprint-close` Phase 6 uses as
 its sole completion gate (the regex matches `retro-complete:` exclusively,
 so `retro-partial:` checkpoints never trip the gate).
 
@@ -271,7 +271,7 @@ node -e "
 ```
 
 The retro body **must** still end with the `<!-- retro-complete: <ISO_TIMESTAMP> -->`
-HTML marker — `/sprint-close`'s Retrospective Gate (Phase 5.1) falls back to
+HTML marker — `/sprint-close`'s Retrospective Gate (Phase 6) falls back to
 grepping that marker when the structured-comment type lookup is unavailable.
 This final `retro` comment replaces any prior `retro-partial` checkpoint
 posted during Step 2.

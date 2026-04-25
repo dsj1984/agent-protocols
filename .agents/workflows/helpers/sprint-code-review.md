@@ -6,7 +6,7 @@ description: >-
 # Sprint Code Review (helper)
 
 > **Helper module.** Not a slash command. Invoked automatically from
-> `/sprint-close` Phase 2 and from the Bookend Lifecycle in `/sprint-execute`
+> `/sprint-close` Phase 3 and from the Bookend Lifecycle in `/sprint-execute`
 > when all Tasks reach `agent::done`. To run a review directly, use
 > `/sprint-close [Epic_ID]` — it delegates here (or pass `--skip-code-review`
 > to bypass).
