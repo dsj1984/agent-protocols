@@ -259,7 +259,7 @@ existing maintainability ratchet.
 | `refreshTag` (commit-message rule) | Validation contract | A PR that modifies any baseline file must include at least one commit whose subject starts with the configured `refreshTag` (default `baseline-refresh:`) AND whose body is non-empty. Both conditions are required — the tag without justification is not enough. |
 | `crap-drift.js` | Progress signal | `lib/orchestration/epic-runner/progress-signals/crap-drift.js`. Captures a wave-start CRAP snapshot and emits Notable bullets per tick when methods cross the ceiling or rise by ≥ threshold (default 10). Mirrors `maintainability-drift.js`; non-blocking. Baseline persisted under `.agents/state/wave-crap-snapshot.json`. |
 | `crap-baseline-regression` (friction marker) | Marker key | Default `markerKey` for the rate-limited friction structured comment that `check-crap.js --story <id>` emits on regression. Configurable via `crap.friction.markerKey`. |
-| First-run bootstrap | Behavior contract | A consumer repo with no `baselines/crap.json` sees `[CRAP] no baseline found — run 'npm run crap:update' to bootstrap` and `check-crap` exits 0. Never hard-fails on first sync. |
+| First-run bootstrap | Behavior contract | A consumer repo with no `baselines/crap.json` sees `[CRAP] ❌ no baseline found — run 'npm run crap:update' and commit with a 'baseline-refresh:' subject to bootstrap` and `check-crap` exits 1. Story #791 retired the transitional exit-0 mode; the gate is now hard-enforcing across close-validation, pre-push, and CI. |
 
 ### 15. Epic #638 Artefacts — Concurrency Caps + Retro Primitives (v5.23.0)
 

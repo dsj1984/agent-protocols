@@ -9,7 +9,9 @@ import { KERNEL_VERSION } from '../.agents/scripts/lib/crap-utils.js';
 /**
  * Tests for the pure comparator and baseline-compatibility decision helper
  * that drive check-crap.js. Covers all four hybrid match paths plus the
- * bootstrap and kernel/escomplex-mismatch outcomes.
+ * missing-baseline and kernel/escomplex-mismatch outcomes (Story #791
+ * retired the informational bootstrap exit-0 path; missing baseline now
+ * fails closed).
  */
 
 function makeCurrentRow(overrides = {}) {
@@ -249,18 +251,18 @@ test('compareCrap — handles empty baseline + empty current cleanly', () => {
   assert.strictEqual(result.removed, 0);
 });
 
-test('evaluateBaselineCompatibility — missing baseline returns bootstrap (exit 0)', () => {
+test('evaluateBaselineCompatibility — missing baseline fails closed (exit 1)', () => {
   const r = evaluateBaselineCompatibility({
     baseline: null,
     runningKernelVersion: KERNEL_VERSION,
     runningEscomplexVersion: '7.3.2',
   });
   assert.strictEqual(r.ok, false);
-  assert.strictEqual(r.exitCode, 0);
-  assert.strictEqual(r.kind, 'bootstrap');
+  assert.strictEqual(r.exitCode, 1);
+  assert.strictEqual(r.kind, 'missing-baseline');
   assert.match(r.message, /no baseline found/);
   assert.match(r.message, /npm run crap:update/);
-  assert.match(r.message, /bootstrap/);
+  assert.match(r.message, /baseline-refresh:/);
 });
 
 test('evaluateBaselineCompatibility — kernel-version mismatch fails closed (exit 1)', () => {
