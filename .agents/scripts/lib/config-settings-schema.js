@@ -209,11 +209,30 @@ const QUALITY_SCHEMA = {
 };
 
 /**
+ * `agentSettings.limits.planningContext` — bounded planning-context budget
+ * for the `--emit-context` planning scripts (Epic #817 Story 9). When the
+ * full payload (Epic body + docsContext + PRD/TechSpec bodies) would exceed
+ * `maxBytes`, planners switch to a summary representation that emits doc
+ * names, headings, and bounded excerpts instead of full bodies. `summaryMode`
+ * controls the decision: `auto` summarises only on overflow, `always` forces
+ * summary regardless of size, `never` is identical to `--full-context`.
+ */
+const PLANNING_CONTEXT_SCHEMA = {
+  type: 'object',
+  properties: {
+    maxBytes: { type: 'integer', minimum: 1024 },
+    summaryMode: { type: 'string', enum: ['auto', 'always', 'never'] },
+  },
+  additionalProperties: false,
+};
+
+/**
  * `agentSettings.limits` is the grouped home for every count/budget/timeout
  * runtime ceiling (Epic #730 Story 8). The legacy flat
  * `maxInstructionSteps` / `maxTickets` / `maxTokenBudget` /
  * `executionTimeoutMs` / `executionMaxBuffer` keys move under here; the
- * `frictionThresholds` block becomes `limits.friction`.
+ * `frictionThresholds` block becomes `limits.friction`. Epic #817 Story 9
+ * added `planningContext` for bounded `--emit-context` payloads.
  */
 const LIMITS_SCHEMA = {
   type: 'object',
@@ -224,6 +243,7 @@ const LIMITS_SCHEMA = {
     executionTimeoutMs: { type: 'integer', minimum: 1 },
     executionMaxBuffer: { type: 'integer', minimum: 1 },
     friction: FRICTION_LIMITS_SCHEMA,
+    planningContext: PLANNING_CONTEXT_SCHEMA,
   },
   additionalProperties: false,
 };
