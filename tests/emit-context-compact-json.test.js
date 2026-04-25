@@ -23,7 +23,12 @@ const docsFiles = [
   'docs/playbooks/sev1.md',
   'docs/playbooks/sev2.md',
   'README.md',
-].map((p, i) => ({ path: p, sha: `sha${i.toString().padStart(7, '0')}`, size: 1000 + i * 137, kind: 'md' }));
+].map((p, i) => ({
+  path: p,
+  sha: `sha${i.toString().padStart(7, '0')}`,
+  size: 1000 + i * 137,
+  kind: 'md',
+}));
 
 const fixture = {
   epic: {
@@ -32,8 +37,14 @@ const fixture = {
     body: 'Trim emit-context payloads.',
     linkedIssues: { prd: 818, techSpec: 819 },
   },
-  prd: { id: 818, body: 'Goals: lower per-Epic prompt cost; preserve roundtrip parity.' },
-  techSpec: { id: 819, body: 'All four planner scripts share an identical emit-context branch.' },
+  prd: {
+    id: 818,
+    body: 'Goals: lower per-Epic prompt cost; preserve roundtrip parity.',
+  },
+  techSpec: {
+    id: 819,
+    body: 'All four planner scripts share an identical emit-context branch.',
+  },
   heuristics,
   systemPrompt: 'Author backlog tickets matching the schema.',
   maxTickets: 25,
@@ -64,7 +75,10 @@ describe('emit-context compact JSON output', () => {
 
   it('compact output contains no formatting whitespace between tokens', () => {
     const compact = emit(fixture, { pretty: false });
-    assert.ok(!compact.includes('\n'), 'compact output must not contain newlines');
+    assert.ok(
+      !compact.includes('\n'),
+      'compact output must not contain newlines',
+    );
     assert.ok(
       !/:\s\s/.test(compact),
       'compact output must not contain indentation runs',
