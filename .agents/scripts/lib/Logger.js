@@ -61,3 +61,23 @@ export const Logger = {
     };
   },
 };
+
+/**
+ * Frozen no-op logger shaped like the public `Logger` surface (minus `fatal`,
+ * which must never be silenced — silencing process-exit is a footgun). Use
+ * this as the default-argument value when a function accepts an optional
+ * logger; consumers that don't pass one get a uniform shape without each
+ * call site re-declaring its own inline literal.
+ *
+ * Deliberately omits `fatal` so that any code path tempted to call
+ * `logger.fatal(...)` against the no-op fails loudly rather than silently
+ * skipping a process-exit that would otherwise have surfaced an
+ * unrecoverable error.
+ */
+export const NOOP_LOGGER = Object.freeze({
+  silent: true,
+  debug() {},
+  info() {},
+  warn() {},
+  error() {},
+});

@@ -82,7 +82,16 @@ if (
 
       if (state === STATE_LABELS.DONE) {
         console.log(`[State-Sync] Cascading completion from #${ticketId}...`);
-        await cascadeCompletion(provider, ticketId);
+        const cascade = await cascadeCompletion(provider, ticketId);
+        // Hoisted out of the `for...of` initializer because typhonjs-escomplex
+        // mis-parses optional chaining there (it would zero out this file's
+        // maintainability score).
+        const cascadeFailures = cascade?.failed ?? [];
+        for (const { parentId, error } of cascadeFailures) {
+          console.warn(
+            `[State-Sync] ⚠️  Cascade partial-failure on parent #${parentId}: ${error}`,
+          );
+        }
       }
 
       // Optional secondary label removal alongside the state transition

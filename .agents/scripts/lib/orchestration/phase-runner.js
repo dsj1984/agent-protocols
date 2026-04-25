@@ -18,13 +18,13 @@
  * a Promise that resolves to the function's value (or `fallback`).
  */
 
+import { NOOP_LOGGER } from '../Logger.js';
+
 /**
  * @typedef {object} PhaseLogger
  * @property {(msg: string) => void} [error]
  * @property {(msg: string) => void} [warn]
  */
-
-const NOOP_LOGGER = { error: () => {}, warn: () => {} };
 
 function pickLogger(logger) {
   if (!logger) return NOOP_LOGGER;

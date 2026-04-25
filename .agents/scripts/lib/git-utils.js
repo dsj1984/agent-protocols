@@ -4,12 +4,41 @@
  * Centralizes all Git subprocess invocations for dispatcher.js and
  * sprint-integrate.js, eliminating duplicated wrappers across the codebase.
  *
- * Two flavours are provided:
- *   gitSync(cwd, ...args)  — throws on non-zero exit; returns trimmed stdout.
- *   gitSpawn(cwd, ...args) — never throws; returns { status, stdout, stderr }.
+ * Two flavours are provided. Choose based on whether a non-zero git exit
+ * code represents a bug (use `gitSync`) or a recoverable runtime state
+ * (use `gitSpawn`):
+ *
+ *   - `gitSync(cwd, ...args)`  — throws on non-zero exit; returns trimmed
+ *     stdout. Use when the operation must succeed for the caller to
+ *     proceed (e.g. `rev-parse HEAD`, `merge-base --is-ancestor` inside a
+ *     critical-path check). A non-zero exit is treated as a bug or a
+ *     corrupted repo state, and the throw propagates to the caller's
+ *     existing error path.
+ *
+ *   - `gitSpawn(cwd, ...args)` — never throws; returns a {@link GitResult}
+ *     object. Use when the caller needs to inspect or recover from the
+ *     non-zero case (e.g. `merge-base --is-ancestor` as a boolean check,
+ *     `branch -D` where "no such branch" is acceptable, fetch/push retry
+ *     loops where the caller decides whether to retry on stderr content).
+ *
+ * The two functions are intentional siblings — they share argument shape so
+ * either can be substituted at a call site by changing the import. Do not
+ * unify into a single `git({ throwOnNonZero })` until the call-site split
+ * shows roughly even use of each contract.
  */
 
 import { execFileSync, spawnSync } from 'node:child_process';
+
+/**
+ * Result of a `gitSpawn` invocation. Field semantics match `child_process.spawnSync`
+ * with two normalisations: `status` is coerced to `1` when null (e.g. when
+ * the child terminated by signal), and stdout/stderr are trimmed.
+ *
+ * @typedef {object} GitResult
+ * @property {number} status - Process exit code (0 = success).
+ * @property {string} stdout - Trimmed stdout.
+ * @property {string} stderr - Trimmed stderr.
+ */
 
 let _execFileSync = execFileSync;
 let _spawnSync = spawnSync;
@@ -55,7 +84,7 @@ export function gitSync(cwd, ...args) {
  *
  * @param {string}   cwd  - Working directory for the git process.
  * @param {...string} args - Git sub-command and arguments.
- * @returns {{ status: number, stdout: string, stderr: string }}
+ * @returns {GitResult}
  */
 export function gitSpawn(cwd, ...args) {
   const result = _spawnSync('git', args, {

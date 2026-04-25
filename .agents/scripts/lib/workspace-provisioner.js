@@ -22,10 +22,9 @@
 
 import fs from 'node:fs';
 import path from 'node:path';
+import { NOOP_LOGGER } from './Logger.js';
 
 export const DEFAULT_WORKSPACE_FILES = ['.env'];
-
-const NOOP_LOGGER = { info: () => {}, warn: () => {}, error: () => {} };
 
 /**
  * Resolve the list of workspace files to provision.

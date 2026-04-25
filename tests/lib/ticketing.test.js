@@ -197,6 +197,40 @@ test('ticketing.js', async (t) => {
   );
 
   await t.test(
+    'transitionTicketState surfaces a rejected notify dispatch via console.warn instead of swallowing it',
+    async () => {
+      // Reset state so this test runs independently of the prior cases.
+      const isolated = new MockProvider();
+      // Notify rejects asynchronously — the rejection is what the prior
+      // .catch(() => {}) silently dropped.
+      const failingNotify = () => Promise.reject(new Error('webhook 503'));
+
+      const warnings = [];
+      const original = console.warn;
+      console.warn = (msg) => warnings.push(String(msg));
+
+      try {
+        await transitionTicketState(isolated, 2, 'agent::review', {
+          notify: failingNotify,
+        });
+        // The fire-and-forget chain queues the .catch on the microtask queue;
+        // a single tick is enough for the warn to fire.
+        await new Promise((resolve) => setImmediate(resolve));
+      } finally {
+        console.warn = original;
+      }
+
+      assert.ok(
+        warnings.some(
+          (w) =>
+            w.includes('notify dispatch failed') && w.includes('webhook 503'),
+        ),
+        `expected a 'notify dispatch failed' warning citing the webhook error, got: ${JSON.stringify(warnings)}`,
+      );
+    },
+  );
+
+  await t.test(
     'cascadeCompletion forwards notify to recursive transitions',
     async () => {
       mock.tickets[3].labels = ['agent::done'];

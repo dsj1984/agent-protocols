@@ -8,6 +8,7 @@
  * provided ITicketingProvider instance.
  */
 
+import { extractEpicIdFromBody } from '../dependency-parser.js';
 import { Logger } from '../Logger.js';
 import { AGENT_LABELS, TYPE_LABELS } from '../label-constants.js';
 import {
@@ -147,9 +148,22 @@ export async function transitionTicketState(
 
   // Automatically trigger upward cascade when a ticket is completed.
   // This ensures parents (Stories, Features) close as soon as their last
-  // child is marked done.
+  // child is marked done. Per-parent failures are aggregated by
+  // `cascadeCompletion`; surface any to the operator so a partial close
+  // doesn't look like a clean one.
   if (isDone) {
-    await cascadeCompletion(provider, ticketId, { notify: opts.notify });
+    const cascade = await cascadeCompletion(provider, ticketId, {
+      notify: opts.notify,
+    });
+    // Iterable hoisted out of the `for...of` initializer because the
+    // typhonjs-escomplex maintainability analyser mis-parses optional
+    // chaining inside that position (`traveler[node.type] is not a function`).
+    const cascadeFailures = cascade?.failed ?? [];
+    for (const { parentId, error } of cascadeFailures) {
+      Logger.warn(
+        `[Ticketing] Cascade from #${ticketId} hit partial-failure on parent #${parentId}: ${error}`,
+      );
+    }
   }
 
   // Fire the state-transition notification (fire-and-forget).
@@ -172,17 +186,19 @@ export async function transitionTicketState(
     const message = renderTransitionMessage(event);
     // Post to the epic so operators get a single timeline feed; fall back
     // to the transitioned ticket itself when no epic reference is present.
+    // The dispatch is fire-and-forget by design (a failed notification must
+    // not block the state transition itself), but surfacing the failure via
+    // the logger preserves operator visibility — the previous empty-handler
+    // .catch swallowed network blips and webhook 5xxs without any signal.
     const targetId = epicId ?? ticketId;
     Promise.resolve(opts.notify(targetId, { severity, message })).catch(
-      () => {},
+      (err) => {
+        Logger.warn(
+          `[Ticketing] notify dispatch failed for #${targetId}: ${err?.message ?? err}`,
+        );
+      },
     );
   }
-}
-
-function extractEpicIdFromBody(body) {
-  if (!body) return null;
-  const m = body.match(/Epic:\s*#(\d+)/i);
-  return m ? Number(m[1]) : null;
 }
 
 /**

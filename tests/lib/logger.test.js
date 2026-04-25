@@ -1,6 +1,6 @@
 import assert from 'node:assert/strict';
 import { afterEach, beforeEach, describe, it, mock } from 'node:test';
-import { Logger } from '../../.agents/scripts/lib/Logger.js';
+import { Logger, NOOP_LOGGER } from '../../.agents/scripts/lib/Logger.js';
 
 describe('Logger', () => {
   beforeEach(() => {
@@ -77,5 +77,36 @@ describe('Logger', () => {
       '▶ [MyScript] [phase] message',
     );
     assert.strictEqual(console.error.mock.calls.length, 0);
+  });
+});
+
+describe('NOOP_LOGGER', () => {
+  it('exposes the documented method surface (debug/info/warn/error) but no fatal', () => {
+    assert.equal(typeof NOOP_LOGGER.debug, 'function');
+    assert.equal(typeof NOOP_LOGGER.info, 'function');
+    assert.equal(typeof NOOP_LOGGER.warn, 'function');
+    assert.equal(typeof NOOP_LOGGER.error, 'function');
+    // fatal is intentionally absent — silencing process-exit is a footgun.
+    assert.equal('fatal' in NOOP_LOGGER, false);
+  });
+
+  it('every method is a no-op that returns undefined and never throws', () => {
+    assert.equal(NOOP_LOGGER.debug('any payload'), undefined);
+    assert.equal(NOOP_LOGGER.info('any payload'), undefined);
+    assert.equal(NOOP_LOGGER.warn('any payload'), undefined);
+    assert.equal(NOOP_LOGGER.error('any payload'), undefined);
+  });
+
+  it('is frozen so consumers cannot mutate the shared instance', () => {
+    assert.equal(Object.isFrozen(NOOP_LOGGER), true);
+    assert.throws(() => {
+      NOOP_LOGGER.warn = () => {
+        throw new Error('mutated');
+      };
+    });
+  });
+
+  it('carries a `silent` discriminator for callers that branch on it', () => {
+    assert.equal(NOOP_LOGGER.silent, true);
   });
 });

@@ -20,11 +20,10 @@
 import fs from 'node:fs';
 import { rm as fsPromisesRm } from 'node:fs/promises';
 import path from 'node:path';
+import { NOOP_LOGGER } from '../Logger.js';
 
 export const MANIFEST_FILENAME = '.pending-cleanup.json';
 export const MAX_SWEEP_ATTEMPTS = 3;
-
-const NOOP_LOGGER = { info: () => {}, warn: () => {}, error: () => {} };
 
 export function manifestPath(worktreeRoot) {
   return path.join(worktreeRoot, MANIFEST_FILENAME);

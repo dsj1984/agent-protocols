@@ -31,12 +31,12 @@
 
 import path from 'node:path';
 import * as defaultGit from '../../git-utils.js';
+import { NOOP_LOGGER } from '../../Logger.js';
 import { AGENT_LABELS } from '../../label-constants.js';
 import { parseWorktreePorcelain } from '../../worktree/inspector.js';
 import { drainPendingCleanup } from '../../worktree/pending-cleanup.js';
 
 const DONE_LABEL = AGENT_LABELS.DONE;
-const NOOP_LOGGER = { info: () => {}, warn: () => {}, error: () => {} };
 
 function isStoryDone(ticket) {
   if (!ticket) return false;
