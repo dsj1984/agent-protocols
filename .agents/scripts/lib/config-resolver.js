@@ -37,9 +37,14 @@ const _envLoadedRoots = new Set();
  * Defaults applied to a loaded .agentrc.json. Narrower than the zero-config
  * set: fields intentionally omitted here (e.g. baseBranch) remain undefined
  * unless the operator set them explicitly in the config file.
+ *
+ * The path roots (`agentRoot` / `docsRoot` / `tempRoot` / `auditOutputDir`)
+ * are intentionally absent — they live under `paths` (Epic #730 Story 7) and
+ * are filled in by {@link resolvePaths} via the post-load mutation. The
+ * three required ones come from the operator's config; `auditOutputDir`
+ * defaults to `'temp'` inside `resolvePaths`.
  */
 const LOADED_CONFIG_DEFAULTS = Object.freeze({
-  agentRoot: '.agents',
   scriptsRoot: '.agents/scripts',
   workflowsRoot: '.agents/workflows',
   personasRoot: '.agents/personas',
@@ -53,17 +58,19 @@ const LOADED_CONFIG_DEFAULTS = Object.freeze({
     'decisions.md',
     'patterns.md',
   ],
-  maintainability: { targetDirs: [] },
-  auditOutputDir: 'temp',
-  maxTickets: 40,
-  executionTimeoutMs: 300000,
-  executionMaxBuffer: 10485760,
-  maxTokenBudget: 200000,
+  // The legacy `maintainability` flat default was removed in Epic #730 Story 6
+  // — the same content now lives under `quality.maintainability` and is filled
+  // in by {@link resolveQuality}. The runtime ceiling defaults
+  // (maxTickets / maxTokenBudget / executionTimeoutMs / executionMaxBuffer)
+  // moved under `limits` in Story 8 and are filled in by {@link resolveLimits}.
 });
 
-/** Richer defaults for the zero-config (no .agentrc.json present) path. */
+/** Defaults for the zero-config (no .agentrc.json present) path.
+ *
+ * Same omission rule as {@link LOADED_CONFIG_DEFAULTS}: the path roots live
+ * under `paths` (Story 7), and the three required ones cannot be silently
+ * filled in. Zero-config callers that need them must declare a `.agentrc.json`. */
 const ZERO_CONFIG_DEFAULTS = Object.freeze({
-  agentRoot: '.agents',
   scriptsRoot: '.agents/scripts',
   workflowsRoot: '.agents/workflows',
   personasRoot: '.agents/personas',
@@ -71,29 +78,28 @@ const ZERO_CONFIG_DEFAULTS = Object.freeze({
   skillsRoot: '.agents/skills',
   templatesRoot: '.agents/templates',
   rulesRoot: '.agents/rules',
-  docsRoot: 'docs',
   docsContextFiles: [
     'architecture.md',
     'data-dictionary.md',
     'decisions.md',
     'patterns.md',
   ],
-  maintainability: { targetDirs: [] },
-  tempRoot: 'temp',
+  // Same Story-6 flattening as LOADED_CONFIG_DEFAULTS — `maintainability` no
+  // longer lives at the top level. Zero-config callers get the merged shape
+  // via the post-load `resolveQuality(settings.quality)` mutation below. The
+  // runtime ceilings moved under `limits` in Story 8; resolveLimits fills
+  // them in via the same post-load mutation pattern.
   baseBranch: 'main',
-  maxTickets: 40,
-  executionTimeoutMs: 300000, // 5 minutes
-  executionMaxBuffer: 10485760, // 10MB
-  maxTokenBudget: 200000, // 200k tokens — fits modern Claude/GPT windows
 });
 
-/** Framework defaults for `agentSettings.maintainability.crap`. Applied to the
- * loaded config via {@link resolveMaintainability} so a consumer repo that
- * omits the block (or any key within it) still gets sane defaults. Exported
- * for tests and for consumers that want to introspect the canonical shape. */
+/** Framework defaults for `agentSettings.quality.crap` (lifted out of the
+ * legacy `agentSettings.maintainability.crap` nest in Epic #730 Story 6).
+ * Applied via {@link resolveQuality} so a consumer repo that omits the block
+ * (or any key within it) still gets sane defaults. Exported for tests and
+ * for consumers that want to introspect the canonical shape. */
 export const MAINTAINABILITY_CRAP_DEFAULTS = Object.freeze({
   enabled: true,
-  targetDirs: Object.freeze([]),
+  targetDirs: Object.freeze(['src']),
   newMethodCeiling: 30,
   coveragePath: 'coverage/coverage-final.json',
   tolerance: 0.001,
@@ -102,8 +108,8 @@ export const MAINTAINABILITY_CRAP_DEFAULTS = Object.freeze({
   refreshTag: 'baseline-refresh:',
 });
 
-/** Recognized keys for `maintainability.crap`. Used by the resolver to warn
- * (not fail) on unknown keys per AC19. */
+/** Recognized keys for `quality.crap` (post-Story-6). Used by the resolver
+ * to warn (not fail) on unknown keys per AC19. */
 const MAINTAINABILITY_CRAP_KEYS = new Set(
   Object.keys(MAINTAINABILITY_CRAP_DEFAULTS),
 );
@@ -147,7 +153,7 @@ export function resolveListValue(defaultList, userValue) {
 }
 
 /**
- * Merge a user-supplied `maintainability.crap` block with framework defaults.
+ * Merge a user-supplied `quality.crap` block with framework defaults.
  * Scalar keys replace; `targetDirs` supports the list-extender shape; unknown
  * keys emit a `console.warn` but do not fail resolution (AC19).
  *
@@ -171,9 +177,7 @@ export function resolveMaintainabilityCrap(userCrap) {
 
   for (const key of Object.keys(userCrap)) {
     if (!MAINTAINABILITY_CRAP_KEYS.has(key)) {
-      console.warn(
-        `[config] Unknown key 'maintainability.crap.${key}' — ignoring.`,
-      );
+      console.warn(`[config] Unknown key 'quality.crap.${key}' — ignoring.`);
     }
   }
 
@@ -190,32 +194,41 @@ export function resolveMaintainabilityCrap(userCrap) {
 }
 
 /**
- * Merge a user-supplied `maintainability` block with framework defaults,
- * including list-extender support for `targetDirs` and full resolution of
- * the nested `crap` sub-block.
+ * Framework defaults for `agentSettings.quality.maintainability` — the per-file
+ * MI targeting block. Empty `targetDirs` means "no MI scan unless the operator
+ * declares targets". Lifted out of the old flat-key default in Story 6.
+ */
+export const MAINTAINABILITY_QUALITY_DEFAULTS = Object.freeze({
+  targetDirs: Object.freeze([]),
+});
+
+/**
+ * Merge a user-supplied `quality.maintainability` block with framework
+ * defaults. The grouped block now carries only `targetDirs`; the legacy
+ * nested `crap` was lifted to `quality.crap` and is resolved separately by
+ * {@link resolveMaintainabilityCrap} via {@link resolveQuality}.
  *
  * @param {object|undefined} userBlock
- * @returns {object}
+ * @returns {{ targetDirs: string[] }}
  */
-export function resolveMaintainability(userBlock) {
-  const defaultTargetDirs = LOADED_CONFIG_DEFAULTS.maintainability.targetDirs;
+export function resolveMaintainabilityQuality(userBlock) {
+  const defaultTargetDirs = MAINTAINABILITY_QUALITY_DEFAULTS.targetDirs;
   if (userBlock == null || typeof userBlock !== 'object') {
-    return {
-      targetDirs: [...defaultTargetDirs],
-      crap: resolveMaintainabilityCrap(undefined),
-    };
+    return { targetDirs: [...defaultTargetDirs] };
   }
   return {
     targetDirs: resolveListValue(defaultTargetDirs, userBlock.targetDirs),
-    crap: resolveMaintainabilityCrap(userBlock.crap),
   };
 }
 
 /** Keys to apply on top of a loaded config when the operator omitted them.
- * Matches the previous hand-rolled assignment block exactly so behavior is
- * unchanged: keys not in LOADED_CONFIG_DEFAULTS resolve to `undefined`. */
+ * `quality`, `paths`, and `limits` are intentionally absent — they are
+ * filled by `resolveQuality` / `resolvePaths` / `resolveLimits` below
+ * (deep-merge, not top-level fill) right after this loop runs.
+ * `auditOutputDir` lives under `paths` (Story 7); the runtime ceilings
+ * (maxTickets / maxTokenBudget / executionTimeoutMs / executionMaxBuffer)
+ * live under `limits` (Story 8). */
 const LOADED_CONFIG_APPLY_KEYS = [
-  'agentRoot',
   'scriptsRoot',
   'workflowsRoot',
   'personasRoot',
@@ -223,15 +236,8 @@ const LOADED_CONFIG_APPLY_KEYS = [
   'skillsRoot',
   'templatesRoot',
   'rulesRoot',
-  'docsRoot',
   'docsContextFiles',
-  'maintainability',
-  'tempRoot',
-  'auditOutputDir',
   'baseBranch',
-  'executionTimeoutMs',
-  'executionMaxBuffer',
-  'maxTokenBudget',
 ];
 
 /**
@@ -297,11 +303,16 @@ export function resolveConfig(opts) {
     const validateSettings = getSettingsValidator();
     if (!validateSettings(settings)) {
       const details = validateSettings.errors
-        .map((e) => `${e.instancePath} ${e.message}`)
+        .map((e) => {
+          // For required-property failures, AJV reports the parent path; the
+          // human-readable message already names the missing key. Prefix the
+          // path so multiple errors are still distinguishable.
+          const where = e.instancePath || '(agentSettings)';
+          return `${where} ${e.message}`;
+        })
         .join(', ');
       throw new Error(
-        `[Security] Malicious configuration value detected in .agentrc.json. ` +
-          `Shell meta-characters are forbidden. Details: ${details}`,
+        `[config] Invalid agentSettings in .agentrc.json: ${details}`,
       );
     }
 
@@ -317,9 +328,19 @@ export function resolveConfig(opts) {
       settings[key] = settings[key] ?? LOADED_CONFIG_DEFAULTS[key];
     }
 
-    // Deep-merge maintainability (list-extender on targetDirs, nested crap
-    // defaults) rather than taking the user block as-is.
-    settings.maintainability = resolveMaintainability(settings.maintainability);
+    // Deep-merge the grouped quality block (Story 6 unification): targetDirs
+    // list-extender, CRAP defaults, prGate checks, and baselines paths are all
+    // filled in here so consumers can read `settings.quality.<sub>.<key>`
+    // without re-running merge logic at every call site.
+    settings.quality = resolveQuality(settings.quality);
+    // Story 7 — fill in `paths.auditOutputDir` default in place. The three
+    // required path roots are schema-enforced; the operator's values flow
+    // through unchanged.
+    settings.paths = resolvePaths(settings.paths);
+    // Story 8 — fill in `limits` defaults (counts, budgets, timeouts, friction
+    // thresholds) so direct readers see merged values without re-applying
+    // fallbacks at every call site.
+    settings.limits = resolveLimits(settings.limits);
 
     if (validate) {
       validateOrchestrationConfig(orchestration);
@@ -339,9 +360,9 @@ export function resolveConfig(opts) {
 
   // 2. Hard-coded defaults (zero-config experience)
   const zeroSettings = { ...ZERO_CONFIG_DEFAULTS };
-  zeroSettings.maintainability = resolveMaintainability(
-    zeroSettings.maintainability,
-  );
+  zeroSettings.quality = resolveQuality(zeroSettings.quality);
+  zeroSettings.paths = resolvePaths(zeroSettings.paths);
+  zeroSettings.limits = resolveLimits(zeroSettings.limits);
   const resolved = {
     settings: zeroSettings,
     orchestration: null,
@@ -626,4 +647,284 @@ export function validateAuditsConfig(audits) {
       .join('\n');
     throw new Error(`Invalid audits configuration:\n${details}`);
   }
+}
+
+/**
+ * Defaults applied when a setting omits `agentSettings.commands` or any field
+ * within it. Mirrors the long-standing built-in fallbacks the framework used
+ * before Epic #730 Story 5 grouped these keys; consumers that previously read
+ * `settings.<flatCommand> ?? '<default>'` now go through {@link getCommands}.
+ *
+ * `typecheck` and `build` default to `null` (Story 3 disabled-means-null
+ * convention) — consumers short-circuit on falsy values.
+ */
+export const COMMANDS_DEFAULTS = Object.freeze({
+  validate: 'npm run lint',
+  lintBaseline: 'npx eslint . --format json',
+  test: 'npm test',
+  exploratoryTest: 'npm test',
+  typecheck: null,
+  build: null,
+});
+
+/**
+ * Read the grouped `agentSettings.commands` block, applying framework defaults
+ * for any field the operator omitted.
+ *
+ * @param {{ agentSettings?: { commands?: object } } | object | null | undefined} config
+ *   Either the full resolved config (`{ agentSettings, orchestration, ... }`)
+ *   or the bare `agentSettings` bag — both shapes are accepted so call sites
+ *   can pass whichever they already have in scope.
+ * @returns {{ validate: string, lintBaseline: string, test: string, exploratoryTest: string, typecheck: string|null, build: string|null }}
+ */
+export function getCommands(config) {
+  const commands = config?.agentSettings?.commands || config?.commands || {};
+  return {
+    validate: commands.validate ?? COMMANDS_DEFAULTS.validate,
+    lintBaseline: commands.lintBaseline ?? COMMANDS_DEFAULTS.lintBaseline,
+    test: commands.test ?? COMMANDS_DEFAULTS.test,
+    exploratoryTest:
+      commands.exploratoryTest ?? COMMANDS_DEFAULTS.exploratoryTest,
+    typecheck:
+      commands.typecheck === undefined
+        ? COMMANDS_DEFAULTS.typecheck
+        : commands.typecheck,
+    build:
+      commands.build === undefined ? COMMANDS_DEFAULTS.build : commands.build,
+  };
+}
+
+/**
+ * Canonical on-disk locations for every ratchet baseline (Epic #730 Story 5.5).
+ * The framework treats `<repoRoot>/baselines/` as the single tracked directory
+ * for `lint.json` / `crap.json` / `maintainability.json`; operators may
+ * override per-baseline `path` in `agentSettings.quality.baselines.*` but the
+ * defaults are designed so a fresh clone has working ratchets immediately.
+ */
+export const BASELINES_DEFAULTS = Object.freeze({
+  lint: Object.freeze({ path: 'baselines/lint.json', refreshCommand: null }),
+  crap: Object.freeze({ path: 'baselines/crap.json', refreshCommand: null }),
+  maintainability: Object.freeze({
+    path: 'baselines/maintainability.json',
+    refreshCommand: null,
+  }),
+});
+
+/**
+ * Read the grouped `agentSettings.quality.baselines` block, applying framework
+ * defaults for any baseline (or any field within a baseline) the operator
+ * omitted. Returns a `{ lint, crap, maintainability }` trio whose entries are
+ * each `{ path, refreshCommand }` — never `undefined`.
+ *
+ * @param {{ agentSettings?: { quality?: { baselines?: object } } } | object | null | undefined} config
+ * @returns {{ lint: { path: string, refreshCommand: string|null }, crap: { path: string, refreshCommand: string|null }, maintainability: { path: string, refreshCommand: string|null } }}
+ */
+export function getBaselines(config) {
+  const baselines =
+    config?.agentSettings?.quality?.baselines ||
+    config?.quality?.baselines ||
+    {};
+  const merge = (key) => {
+    const fallback = BASELINES_DEFAULTS[key];
+    const user = baselines[key] ?? {};
+    return {
+      path: user.path ?? fallback.path,
+      refreshCommand:
+        user.refreshCommand === undefined
+          ? fallback.refreshCommand
+          : user.refreshCommand,
+    };
+  };
+  return {
+    lint: merge('lint'),
+    crap: merge('crap'),
+    maintainability: merge('maintainability'),
+  };
+}
+
+/**
+ * Framework defaults for `agentSettings.quality.prGate`. `checks` defaults to
+ * an empty array so `git-pr-quality-gate.js` falls back to its hardcoded
+ * DEFAULT_CHECKS trio (lint / format:check / test) when the operator hasn't
+ * customised the suite.
+ */
+export const PR_GATE_DEFAULTS = Object.freeze({
+  checks: Object.freeze([]),
+});
+
+/**
+ * Merge the user-supplied `quality.prGate` block with framework defaults.
+ *
+ * @param {object|undefined} userBlock
+ * @returns {{ checks: string[] }}
+ */
+export function resolvePrGate(userBlock) {
+  if (userBlock == null || typeof userBlock !== 'object') {
+    return { checks: [...PR_GATE_DEFAULTS.checks] };
+  }
+  return {
+    checks: Array.isArray(userBlock.checks)
+      ? [...userBlock.checks]
+      : [...PR_GATE_DEFAULTS.checks],
+  };
+}
+
+/**
+ * Merge the user-supplied `quality.baselines` block with framework defaults.
+ * Mirrors {@link getBaselines} but returns the same `{ lint, crap,
+ * maintainability }` trio shape — used during the in-place defaults pass so
+ * `settings.quality.baselines` is fully populated for any direct reader.
+ *
+ * @param {object|undefined} userBlock
+ */
+export function resolveBaselines(userBlock) {
+  return getBaselines({ quality: { baselines: userBlock ?? {} } });
+}
+
+/**
+ * Merge the entire `agentSettings.quality` block with framework defaults
+ * (Epic #730 Story 6). Composes the per-sub-block resolvers so consumers can
+ * read every grouped field — `targetDirs`, `crap.*`, `prGate.checks`,
+ * `baselines.<kind>.path` — without re-running merge logic at the call site.
+ *
+ * @param {object|undefined} userQuality
+ * @returns {{
+ *   maintainability: { targetDirs: string[] },
+ *   crap: object,
+ *   prGate: { checks: string[] },
+ *   baselines: { lint: object, crap: object, maintainability: object }
+ * }}
+ */
+export function resolveQuality(userQuality) {
+  const block =
+    userQuality && typeof userQuality === 'object' ? userQuality : {};
+  return {
+    maintainability: resolveMaintainabilityQuality(block.maintainability),
+    crap: resolveMaintainabilityCrap(block.crap),
+    prGate: resolvePrGate(block.prGate),
+    baselines: resolveBaselines(block.baselines),
+  };
+}
+
+/**
+ * Read the merged `agentSettings.quality` block. Accepts either the full
+ * resolved config (`{ agentSettings, ... }`) or the bare `agentSettings` bag.
+ *
+ * @param {{ agentSettings?: { quality?: object } } | object | null | undefined} config
+ * @returns {ReturnType<typeof resolveQuality>}
+ */
+export function getQuality(config) {
+  const userQuality =
+    config?.agentSettings?.quality ?? config?.quality ?? undefined;
+  return resolveQuality(userQuality);
+}
+
+/**
+ * Framework defaults for `agentSettings.paths` (Epic #730 Story 7).
+ * Only the optional `auditOutputDir` has a default — the three required
+ * roots are schema-enforced and the resolver never silently fills them in.
+ */
+export const PATHS_DEFAULTS = Object.freeze({
+  auditOutputDir: 'temp',
+});
+
+/**
+ * Merge a user-supplied `paths` block with framework defaults. Required
+ * roots (`agentRoot` / `docsRoot` / `tempRoot`) flow through verbatim —
+ * the schema rejects a config that omits them. `auditOutputDir` falls back
+ * to {@link PATHS_DEFAULTS}.
+ *
+ * @param {object|undefined} userPaths
+ * @returns {{ agentRoot?: string, docsRoot?: string, tempRoot?: string, auditOutputDir: string }}
+ */
+export function resolvePaths(userPaths) {
+  const paths = userPaths && typeof userPaths === 'object' ? userPaths : {};
+  return {
+    agentRoot: paths.agentRoot,
+    docsRoot: paths.docsRoot,
+    tempRoot: paths.tempRoot,
+    auditOutputDir: paths.auditOutputDir ?? PATHS_DEFAULTS.auditOutputDir,
+  };
+}
+
+/**
+ * Read the merged `agentSettings.paths` block. Accepts either the full
+ * resolved config or the bare `agentSettings` bag.
+ *
+ * @param {{ agentSettings?: { paths?: object } } | object | null | undefined} config
+ * @returns {ReturnType<typeof resolvePaths>}
+ */
+export function getPaths(config) {
+  const userPaths = config?.agentSettings?.paths ?? config?.paths ?? undefined;
+  return resolvePaths(userPaths);
+}
+
+/**
+ * Framework defaults for `agentSettings.limits` (Epic #730 Story 8). Mirrors
+ * the long-standing flat-key fallbacks the framework used before grouping —
+ * `maxTickets: 40`, 5-minute exec timeout, 10MB exec buffer, 200k token
+ * budget. `friction` defaults match the prior `frictionThresholds` block.
+ */
+export const LIMITS_DEFAULTS = Object.freeze({
+  maxInstructionSteps: 5,
+  maxTickets: 40,
+  maxTokenBudget: 200000,
+  executionTimeoutMs: 300000,
+  executionMaxBuffer: 10485760,
+  friction: Object.freeze({
+    repetitiveCommandCount: 3,
+    consecutiveErrorCount: 3,
+    stagnationStepCount: 5,
+    maxIntegrationRetries: 2,
+  }),
+});
+
+/**
+ * Merge a user-supplied `agentSettings.limits` block with framework defaults.
+ * Scalar keys replace; the nested `friction` block is merged shallowly so an
+ * operator can override a single threshold without re-listing the others.
+ *
+ * @param {object|undefined} userLimits
+ * @returns {{
+ *   maxInstructionSteps: number,
+ *   maxTickets: number,
+ *   maxTokenBudget: number,
+ *   executionTimeoutMs: number,
+ *   executionMaxBuffer: number,
+ *   friction: {
+ *     repetitiveCommandCount: number,
+ *     consecutiveErrorCount: number,
+ *     stagnationStepCount: number,
+ *     maxIntegrationRetries: number,
+ *   },
+ * }}
+ */
+export function resolveLimits(userLimits) {
+  const block = userLimits && typeof userLimits === 'object' ? userLimits : {};
+  const userFriction =
+    block.friction && typeof block.friction === 'object' ? block.friction : {};
+  return {
+    maxInstructionSteps:
+      block.maxInstructionSteps ?? LIMITS_DEFAULTS.maxInstructionSteps,
+    maxTickets: block.maxTickets ?? LIMITS_DEFAULTS.maxTickets,
+    maxTokenBudget: block.maxTokenBudget ?? LIMITS_DEFAULTS.maxTokenBudget,
+    executionTimeoutMs:
+      block.executionTimeoutMs ?? LIMITS_DEFAULTS.executionTimeoutMs,
+    executionMaxBuffer:
+      block.executionMaxBuffer ?? LIMITS_DEFAULTS.executionMaxBuffer,
+    friction: { ...LIMITS_DEFAULTS.friction, ...userFriction },
+  };
+}
+
+/**
+ * Read the merged `agentSettings.limits` block. Accepts either the full
+ * resolved config or the bare `agentSettings` bag.
+ *
+ * @param {{ agentSettings?: { limits?: object } } | object | null | undefined} config
+ * @returns {ReturnType<typeof resolveLimits>}
+ */
+export function getLimits(config) {
+  const userLimits =
+    config?.agentSettings?.limits ?? config?.limits ?? undefined;
+  return resolveLimits(userLimits);
 }

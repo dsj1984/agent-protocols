@@ -1,5 +1,107 @@
 # Architecture Decision Records (ADR)
 
+## ADR 20260425-730a: Consolidate `agentSettings` into a grouped, schema-validated contract
+
+**Status:** Accepted
+**Date:** 2026-04-25
+**Epic:** #730
+
+### Context
+
+`.agentrc.json` had accumulated a flat `agentSettings` namespace with ~25
+peer keys spanning paths, commands, quality gates, limits, and friction
+thresholds. The shape made three problems compounded over time:
+
+1. **Discoverability.** A new operator could not tell which keys were
+   required, which had defaults, or how related keys grouped — there was no
+   typed surface for tooling and no canonical reference for humans.
+2. **Validation gaps.** `agentSettings` was schema-permissive; typos in
+   optional keys (e.g. `riskGates.heuristics`) silently disappeared during
+   the previous template-diff sync, and the resolver's code-level fallbacks
+   masked missing required values until a script blew up downstream.
+3. **Baseline drift.** Three canonical ratchet baselines lived in three
+   different locations under three different naming conventions, and the
+   epic-runner's per-wave drift snapshots collided in repo-wide greps with
+   the canonical files.
+
+### Decision
+
+Reorganise `agentSettings` into four typed sub-blocks
+(`paths`, `commands`, `quality`, `limits`), unify the canonical ratchet
+baselines under `/baselines/`, and drive the sync helper from the schema
+instead of a structural diff against the template.
+
+Concretely:
+
+- **Grouped contract.** Every former flat key moves under one of the four
+  sub-blocks. There are no flat-key reads anywhere in the resolver or in any
+  consumer; each sub-block is read through a typed accessor (`getPaths`,
+  `getCommands`, `getQuality`, `getLimits`).
+- **Hard-required `paths`.** `paths.agentRoot`, `paths.docsRoot`, and
+  `paths.tempRoot` are schema-required. The resolver no longer applies
+  code-level `?? '.agents'` / `?? 'docs'` / `?? 'temp'` fallbacks; a missing
+  value is a validation error with a clear `instancePath`.
+- **`null` for disabled commands.** `commands.typecheck` and `commands.build`
+  accept `string | null`; an empty string is rejected. `null` is the
+  canonical "not applicable" value.
+- **Conditional `orchestration.github` requirement.** When
+  `orchestration.provider` is `"github"`, the `github` block (with required
+  `owner` and `repo`) is schema-required.
+- **Static JSON Schema mirror.** Both shipped configs declare
+  `"$schema": "./.agents/schemas/agentrc.schema.json"`. The runtime AJV
+  schemas in `lib/config-schema.js` and `lib/config-settings-schema.js`
+  remain authoritative; the static mirror exists for editor tooling and
+  human readers, kept in sync by a drift test.
+- **Schema-driven sync helper.** `agents-sync-config` now validates the
+  project config against the schema, adds template-introduced keys, and
+  preserves every project-side key that validates — including optional keys
+  absent from the template (e.g. `orchestration.concurrency`, `closeRetry`,
+  `poolMode`). Validation failures abort with a diagnostic instead of
+  silently stripping unknown keys.
+- **Canonical baselines under `/baselines/`.** `baselines/lint.json`,
+  `baselines/crap.json`, and `baselines/maintainability.json` are the
+  default-configured paths. The epic-runner's per-wave drift snapshots use
+  intentionally distinct filenames (`wave-mi-snapshot.json`,
+  `wave-crap-snapshot.json`) under `.agents/state/` so a repo-wide grep
+  never confuses one with the other.
+- **New configuration reference doc.** `docs/configuration.md` documents
+  every configurable key, its default, whether it is required, and the
+  baseline conventions. The `.agents/README.md` "Key Settings" table is
+  the high-traffic subset; the doc is the canonical source.
+
+### Consequences
+
+- **Breaking for consumers carrying flat-shaped configs.** Migration is
+  mechanical (every former flat key has a single grouped equivalent) and
+  documented in the v5.26.0 changelog entry. Validation now fails closed,
+  so operators learn about misconfiguration at startup instead of at the
+  call site that needed the missing value.
+- **Editor support comes for free.** Any editor with JSON Schema support
+  picks up autocomplete and inline validation from the `$schema` pointer.
+- **Future schema changes are cheaper.** Adding a new sub-block in the
+  grouped shape is a localised change (one schema edit, one resolver
+  accessor, one row in the reference doc); previously the same change
+  threaded through multiple flat-key sites.
+- **Sync helper trades silent strip for loud abort.** A typo in an optional
+  key now aborts the sync with a diagnostic instead of vanishing on round-
+  trip. Operators see misconfiguration; the rare false-positive abort is
+  the right trade.
+
+### Alternatives considered
+
+- **Keep the flat shape, add a doc.** Rejected: documentation alone does
+  not fix the validation gap or the silent-strip behaviour, and the
+  resolver's flat-key fallbacks would still mask missing required values.
+- **Split `.agentrc.json` into multiple files** (one per concern).
+  Rejected: increases the surface operators must reason about and the sync
+  helper must reconcile. A single file with a typed grouped shape captures
+  the same separation without the file-count tax.
+- **Keep `crap-baseline.json` and `maintainability-baseline.json` at repo
+  root.** Rejected: collides in greps with the per-wave drift snapshots
+  and offers no upside over the unified `/baselines/` directory.
+
+---
+
 ## ADR 20260424-702a: Retire agent-protocols MCP
 
 **Status:** Accepted

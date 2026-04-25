@@ -4,6 +4,59 @@ All notable changes to this project will be documented in this file.
 
 ## [Unreleased]
 
+## [5.26.0] - 2026-04-25
+
+### Config schema modernization & baseline unification (Epic #730)
+
+`.agentrc.json` is now a fully-typed, schema-validated, structurally-grouped
+configuration contract. Operational settings are organised under four
+sub-blocks (`paths`, `commands`, `quality`, `limits`), the canonical ratchet
+baselines live under a single `/baselines/` directory, and the sync helper is
+schema-driven instead of template-diff. The full reference lives in
+`docs/configuration.md`.
+
+- **Breaking — flat `agentSettings` keys removed.** The grouped shape is the
+  only shape. Migrate as follows:
+  - `agentSettings.<command>Command` → `agentSettings.commands.<command>` for
+    `validate`, `lintBaseline`, `test`, `exploratoryTest`, `typecheck`,
+    `build`.
+  - `agentSettings.{agentRoot,docsRoot,tempRoot,auditOutputDir}` →
+    `agentSettings.paths.*`. `agentRoot`, `docsRoot`, and `tempRoot` are now
+    required — a missing value is a validation error with a clear path.
+  - `agentSettings.maintainability.*` and the previous flat lint/CRAP/MI/
+    prGate keys → `agentSettings.quality.*` (with `quality.baselines.<gate>`
+    holding the per-baseline `path` + optional `refreshCommand`).
+  - `agentSettings.{maxInstructionSteps,maxTickets,maxTokenBudget,executionTimeoutMs,executionMaxBuffer}`
+    and the friction thresholds → `agentSettings.limits.*` (friction nested
+    under `limits.friction`).
+- **Breaking — disabled commands declare `null`, not empty string.**
+  `commands.typecheck` and `commands.build` accept `string | null`; an empty
+  string is rejected. `null` is the canonical "not applicable" value.
+- **Breaking — canonical baselines moved under `/baselines/`.** The framework
+  reads `baselines/lint.json`, `baselines/crap.json`, and
+  `baselines/maintainability.json` by default. Override per-gate via
+  `agentSettings.quality.baselines.<gate>.path`. The previous root-level
+  `crap-baseline.json` / `maintainability-baseline.json` no longer exist.
+- **Sync helper switches to schema-driven validate-then-merge.** The
+  `agents-sync-config` helper validates the project config against the
+  schema, adds keys the template introduces, and preserves every project-side
+  key that validates — including optional keys absent from the template
+  (e.g. `orchestration.concurrency`, `closeRetry`, `poolMode`). It no longer
+  silently strips unknown keys; a typo now aborts with a diagnostic instead
+  of vanishing.
+- **New static JSON Schema mirror.** Both shipped configs now declare
+  `"$schema": "./.agents/schemas/agentrc.schema.json"`, so editors get
+  autocomplete and inline validation. The runtime AJV schemas remain the
+  source of truth; a drift test keeps the static mirror aligned.
+- **Conditional `orchestration.github` requirement.** When
+  `orchestration.provider` is `"github"`, the `github` block (with required
+  `owner` and `repo`) is now schema-required — the configuration error is
+  caught at validation time instead of surfacing as a runtime failure.
+- **New configuration reference doc.** `docs/configuration.md` documents
+  every configurable key, its default, whether it is required, and the
+  baseline conventions (canonical `/baselines/` vs per-wave drift snapshots
+  under `.agents/state/`).
+
 ## [5.25.0] - 2026-04-25
 
 ### Notification severity rework — unified `low | medium | high`

@@ -431,14 +431,15 @@ export const renderManifestMarkdown = formatManifestMarkdown;
  * touching `resolveConfig` (fs).
  *
  * @param {object} manifest
- * @param {{ settings: { scriptsRoot: string, validationCommand?: string, testCommand?: string } }} opts
+ * @param {{ settings: { scriptsRoot?: string, commands?: { validate?: string, test?: string } } }} opts
  * @returns {string}
  */
 export function formatStoryManifestMarkdown(manifest, opts = {}) {
   const settings = opts.settings ?? {};
   const scriptsRoot = settings.scriptsRoot ?? '.agents/scripts';
-  const validationCommand = settings.validationCommand ?? 'npm run lint';
-  const testCommand = settings.testCommand ?? 'npm test';
+  const commands = settings.commands ?? {};
+  const validateCmd = commands.validate ?? 'npm run lint';
+  const testCmd = commands.test ?? 'npm test';
 
   const lines = [];
   lines.push(`# 📚 Story Execution Manifest`);
@@ -477,9 +478,7 @@ export function formatStoryManifestMarkdown(manifest, opts = {}) {
     `1. \`node ${initPath} --story <storyId>\` (bootstraps branch, transitions tasks)`,
   );
   lines.push('2. Implement each Task sequentially and commit after each one.');
-  lines.push(
-    `3. Run \`${validationCommand}\` and \`${testCommand}\` to validate.`,
-  );
+  lines.push(`3. Run \`${validateCmd}\` and \`${testCmd}\` to validate.`);
   lines.push(
     `4. \`node <main-repo>/${closePath} --story <storyId> --cwd <main-repo>\` (merges, cleans up, closes tickets)`,
   );

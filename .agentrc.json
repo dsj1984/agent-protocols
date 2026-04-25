@@ -1,12 +1,14 @@
 {
-  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$schema": "./.agents/schemas/agentrc.schema.json",
   "title": "Agent Protocols",
   "agentSettings": {
     "baseBranch": "main",
-    "agentRoot": ".agents",
-    "docsRoot": "docs",
-    "tempRoot": "temp",
-    "auditOutputDir": "temp",
+    "paths": {
+      "agentRoot": ".agents",
+      "docsRoot": "docs",
+      "tempRoot": "temp",
+      "auditOutputDir": "temp"
+    },
     "docsContextFiles": [
       "architecture.md",
       "data-dictionary.md",
@@ -22,16 +24,36 @@
     "sprintClose": {
       "runRetro": true
     },
-    "maxInstructionSteps": 5,
-    "maxTickets": 40,
-    "maxTokenBudget": 200000,
-    "executionTimeoutMs": 300000,
-    "executionMaxBuffer": 10485760,
-    "validationCommand": "npm run lint",
-    "lintBaselineCommand": "npm run lint",
-    "lintBaselinePath": "temp/lint-baseline.json",
-    "maintainability": {
-      "targetDirs": [".agents/scripts", "tests"],
+    "limits": {
+      "maxInstructionSteps": 5,
+      "maxTickets": 40,
+      "maxTokenBudget": 200000,
+      "executionTimeoutMs": 300000,
+      "executionMaxBuffer": 10485760,
+      "friction": {
+        "repetitiveCommandCount": 3,
+        "consecutiveErrorCount": 3,
+        "stagnationStepCount": 5,
+        "maxIntegrationRetries": 2
+      }
+    },
+    "commands": {
+      "validate": "npm run lint",
+      "lintBaseline": "npm run lint",
+      "test": "npm test",
+      "exploratoryTest": "npm test",
+      "typecheck": null,
+      "build": null
+    },
+    "quality": {
+      "baselines": {
+        "lint": { "path": "baselines/lint.json" },
+        "crap": { "path": "baselines/crap.json" },
+        "maintainability": { "path": "baselines/maintainability.json" }
+      },
+      "maintainability": {
+        "targetDirs": [".agents/scripts", "tests"]
+      },
       "crap": {
         "enabled": true,
         "targetDirs": [".agents/scripts"],
@@ -42,16 +64,6 @@
         "friction": { "markerKey": "crap-baseline-regression" },
         "refreshTag": "baseline-refresh:"
       }
-    },
-    "testCommand": "npm test",
-    "exploratoryTestCommand": "npm test",
-    "typecheckCommand": "",
-    "buildCommand": "",
-    "frictionThresholds": {
-      "repetitiveCommandCount": 3,
-      "consecutiveErrorCount": 3,
-      "stagnationStepCount": 5,
-      "maxIntegrationRetries": 2
     },
     "riskGates": {
       "heuristics": [

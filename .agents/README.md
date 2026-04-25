@@ -60,24 +60,39 @@ cp .agents/default-agentrc.json .agentrc.json
 
 ### Key Settings
 
-| Setting                             | Purpose                                          |
-| ----------------------------------- | ------------------------------------------------ |
-| `agentSettings.baseBranch`          | Your default branch (`main`, `master`, etc.)     |
-| `agentSettings.testCommand`         | Your project's test runner                       |
-| `agentSettings.validationCommand`   | Comprehensive validation suite                   |
-| `agentSettings.lintBaselineCommand` | Structured linter output for baseline ratcheting |
-| `orchestration.provider`            | Ticketing provider (`"github"`)                  |
-| `orchestration.github.owner`        | GitHub repository owner                          |
-| `orchestration.github.repo`         | GitHub repository name                           |
+The grouped shape lives under `agentSettings.{paths,commands,quality,limits}`
+with `orchestration` as its sibling. The most-touched keys:
+
+| Setting                                                | Required | Purpose                                                       |
+| ------------------------------------------------------ | -------- | ------------------------------------------------------------- |
+| `agentSettings.paths.agentRoot`                        | Yes      | Path to the framework submodule (e.g. `.agents`)              |
+| `agentSettings.paths.docsRoot`                         | Yes      | Path to project documentation (e.g. `docs`)                   |
+| `agentSettings.paths.tempRoot`                         | Yes      | Path for ephemeral artefacts (e.g. `temp`)                    |
+| `agentSettings.baseBranch`                             | No       | Your default branch (`main`, `master`, etc.)                  |
+| `agentSettings.commands.test`                          | No       | Your project's test runner                                    |
+| `agentSettings.commands.validate`                      | No       | Comprehensive validation suite                                |
+| `agentSettings.commands.lintBaseline`                  | No       | Structured linter output for baseline ratcheting              |
+| `agentSettings.quality.baselines.{lint,crap,maintainability}.path` | No | Paths to canonical ratchet baselines (default `baselines/*.json`) |
+| `agentSettings.quality.crap.enabled`                   | No       | Master switch for the CRAP gate                               |
+| `agentSettings.limits.friction.*`                      | No       | Anti-thrashing thresholds                                     |
+| `orchestration.provider`                               | Yes      | Ticketing provider (`"github"`)                               |
+| `orchestration.github.owner`                           | Yes\*    | GitHub repository owner (\* required when `provider: "github"`) |
+| `orchestration.github.repo`                            | Yes\*    | GitHub repository name                                        |
+
+> **Full reference.** Every key, default, and required-vs-optional flag is
+> documented in [`docs/configuration.md`](../docs/configuration.md). That file
+> is the canonical reader-facing reference; the table above is just the
+> high-traffic subset.
 
 ### Validation Commands
 
-The framework uses three commands for quality checks:
+Quality-check commands live grouped under `agentSettings.commands`:
 
-1. **`validationCommand`** — Comprehensive check (e.g., `run-s lint typecheck`).
-1. **`typecheckCommand`** — Strict type-checking (e.g., `tsc --noEmit`). Run
-   independently after refactors to verify typing boundaries.
-1. **`lintBaselineCommand`** — Structured JSON output for the lint baseline
+1. **`commands.validate`** — Comprehensive check (e.g., `run-s lint typecheck`).
+1. **`commands.typecheck`** — Strict type-checking (e.g., `tsc --noEmit`). Run
+   independently after refactors to verify typing boundaries. Set to `null` to
+   disable.
+1. **`commands.lintBaseline`** — Structured JSON output for the lint baseline
    ratchet engine. Integrations fail if new warnings are introduced.
 
 > **Resolution order:** `.agentrc.json` at project root → built-in defaults
@@ -87,6 +102,37 @@ The framework uses three commands for quality checks:
 
 Override protocol behavior per-machine with `.agents/instructions.local.md`
 (rules) or `.agentrc.local.json` (config). These are automatically gitignored.
+
+### Root dogfood vs distributed template
+
+Two `.agentrc`-shaped files live in this repository and are easy to confuse.
+They serve different audiences and legitimately disagree on a small number of
+keys.
+
+| File                             | Audience                              | Role                                                                                                                                |
+| -------------------------------- | ------------------------------------- | ----------------------------------------------------------------------------------------------------------------------------------- |
+| `.agentrc.json` (repo root)      | The framework dogfooding itself       | Live config used when running `/sprint-*` workflows against this repo. Exercises the framework end-to-end on its own source tree. |
+| `.agents/default-agentrc.json`   | Downstream consumer repos             | The template a consumer copies via `cp .agents/default-agentrc.json .agentrc.json` when bootstrapping. Sane defaults for any repo. |
+
+The two files share a schema and the vast majority of keys are identical.
+Where they diverge, the divergence is intentional:
+
+- **`quality.maintainability.targetDirs` / `quality.crap.targetDirs`.** Root
+  dogfood scans `.agents/scripts` (the framework's own source tree); the
+  distributed template scans `src` (the conventional consumer source root).
+  The resolver's code-level fallback also defaults to `src` so a consumer with
+  no override matches the template they copied from.
+- **Repo-specific orchestration values.** `orchestration.github.owner`,
+  `orchestration.github.repo`, and any project-board pointers are populated in
+  the root config and left as placeholders in the template.
+- **Optional dogfood-only keys.** Keys the framework exercises against itself
+  (e.g. orchestration tuning the dogfood Epic uses) may be present in the
+  root config and absent from the template; `agents-sync-config` is
+  schema-driven so legitimate overrides are preserved across syncs.
+
+When in doubt: edit `.agents/default-agentrc.json` for changes that should
+ship to consumers, and edit `.agentrc.json` for changes that only affect this
+repo's own dogfood runs.
 
 ---
 
@@ -152,7 +198,7 @@ node .agents/scripts/agents-bootstrap-github.js --install-workflows
 | Type        | `type::epic`, `type::feature`, `type::story`, `type::task`         | Issue hierarchy classification   |
 | Agent State | `agent::ready`, `agent::executing`, `agent::review`, `agent::done` | Tracks agent execution lifecycle |
 | Status      | `status::blocked`                                                  | Signals blocked work items       |
-| Risk        | `risk::high`, `risk::medium`                                       | HITL gate triggers               |
+| Risk        | `risk::high`, `risk::medium`                                       | Informational metadata; planning/ranking only — no runtime pause |
 | Persona     | `persona::<name>` — one per file in [.agents/personas/](personas/) | Agent role assignment            |
 | Context     | `context::prd`, `context::tech-spec`                               | Planning document classification |
 | Execution   | `execution::sequential`, `execution::concurrent`                   | Dispatch strategy hints          |
@@ -682,7 +728,7 @@ Only `/sprint-execute` is supported on web in this release.
 
 Agents MUST halt, summarize blockers, and re-plan if they hit consecutive tool
 errors or perform consecutive analysis steps without modifying a file.
-Controlled by `frictionThresholds` in `.agentrc.json`.
+Controlled by `limits.friction` in `.agentrc.json`.
 
 ### Lint Baseline Ratcheting
 
@@ -694,7 +740,7 @@ automatically tightens when the codebase improves.
 
 A per-file maintainability scoring engine computes composite scores based on
 cyclomatic complexity, file length, and dependency counts. The
-`maintainability-baseline.json` prevents score degradation between sprints.
+`baselines/maintainability.json` prevents score degradation between sprints.
 
 ### CRAP Gate (v5.22.0+) — Consumer Onboarding
 
@@ -711,7 +757,7 @@ this is what you need to know:
 #### First-run behavior — never hard-fails on a fresh sync
 
 The first time `check-crap` runs in your repo there is no
-`crap-baseline.json` to compare against. Instead of failing CI, it prints:
+`baselines/crap.json` to compare against. Instead of failing CI, it prints:
 
 ```text
 [CRAP] no baseline found — run 'npm run crap:update' to bootstrap
@@ -732,7 +778,7 @@ If your repo doesn't run coverage, set `enabled: false` in your
 ```jsonc
 {
   "agentSettings": {
-    "maintainability": {
+    "quality": {
       "crap": { "enabled": false }
     }
   }
@@ -745,12 +791,12 @@ source edits required. The maintainability ratchet keeps running.
 #### Extending `targetDirs` without re-listing framework defaults
 
 The config resolver supports deep-merge for list-valued keys. To add your
-own source dirs to the framework default (`[".agents/scripts"]`):
+own source dirs to the framework default (`["src"]`):
 
 ```jsonc
 {
   "agentSettings": {
-    "maintainability": {
+    "quality": {
       "crap": {
         "targetDirs": { "append": ["packages/foo/src", "packages/bar/src"] }
       }
@@ -762,7 +808,7 @@ own source dirs to the framework default (`[".agents/scripts"]`):
 `{ "append": [...] }` and `{ "prepend": [...] }` are the deep-merge forms.
 Passing a plain array replaces the default entirely — useful when you want
 exactly your dirs and not the framework's. Unknown keys under
-`maintainability.crap` warn but don't fail resolution, so you can extend
+`quality.crap` warn but don't fail resolution, so you can extend
 forward-compatibly.
 
 #### Interpreting the `--json` artifact
@@ -816,7 +862,7 @@ strategy without re-running the gate to check.
 
 #### Refreshing the baseline (when the drift is justified)
 
-`npm run crap:update` regenerates `crap-baseline.json`. The
+`npm run crap:update` regenerates `baselines/crap.json`. The
 `baseline-refresh-guardrail` CI job will reject your PR unless at least one
 commit on the branch has:
 

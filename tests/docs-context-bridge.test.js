@@ -137,7 +137,7 @@ describe('docs-context-bridge — resolveConfiguredDocs', () => {
     const paths = resolveConfiguredDocs({
       cwd,
       agentSettings: {
-        docsRoot: 'docs',
+        paths: { docsRoot: 'docs' },
         release: { docs: ['README.md', 'docs/CHANGELOG.md'] },
         docsContextFiles: ['architecture.md', 'patterns.md'],
       },
@@ -195,7 +195,7 @@ describe('docs-context-bridge — checkDocsContextBridge (integration)', () => {
   });
 
   const agentSettings = {
-    docsRoot: 'docs',
+    paths: { docsRoot: 'docs' },
     release: { docs: ['README.md'] },
     docsContextFiles: ['architecture.md'],
   };

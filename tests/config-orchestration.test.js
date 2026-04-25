@@ -260,6 +260,13 @@ describe('validateOrchestrationConfig — schema violations', () => {
       /must NOT have additional properties/,
     );
   });
+
+  it("rejects provider:'github' with no github block (conditional require)", () => {
+    assert.throws(
+      () => validateOrchestrationConfig({ provider: 'github' }),
+      /must have required property 'github'/,
+    );
+  });
 });
 
 // ---------------------------------------------------------------------------
@@ -569,6 +576,86 @@ describe('validateOrchestrationConfig — shell injection', () => {
           worktreeIsolation: { root: '.worktrees;rm -rf /' },
         }),
       /\[Security\]/,
+    );
+  });
+});
+
+// ---------------------------------------------------------------------------
+// Conditional required keys (Epic #730 Story 4)
+//   - epicRunner.concurrencyCap when enabled !== false
+//   - worktreeIsolation.root    when enabled === true
+// ---------------------------------------------------------------------------
+describe('validateOrchestrationConfig — conditional required keys', () => {
+  const baseGithub = { owner: 'org', repo: 'repo' };
+
+  it('rejects epicRunner without concurrencyCap when enabled is omitted', () => {
+    assert.throws(
+      () =>
+        validateOrchestrationConfig({
+          provider: 'github',
+          github: baseGithub,
+          epicRunner: { pollIntervalSec: 30 },
+        }),
+      /must have required property 'concurrencyCap'/,
+    );
+  });
+
+  it('rejects epicRunner without concurrencyCap when enabled is true', () => {
+    assert.throws(
+      () =>
+        validateOrchestrationConfig({
+          provider: 'github',
+          github: baseGithub,
+          epicRunner: { enabled: true, pollIntervalSec: 30 },
+        }),
+      /must have required property 'concurrencyCap'/,
+    );
+  });
+
+  it('accepts epicRunner without concurrencyCap when enabled is false', () => {
+    assert.doesNotThrow(() =>
+      validateOrchestrationConfig({
+        provider: 'github',
+        github: baseGithub,
+        epicRunner: { enabled: false, pollIntervalSec: 30 },
+      }),
+    );
+  });
+
+  it('rejects worktreeIsolation without root when enabled is true', () => {
+    assert.throws(
+      () =>
+        validateOrchestrationConfig({
+          provider: 'github',
+          github: baseGithub,
+          worktreeIsolation: {
+            enabled: true,
+            nodeModulesStrategy: 'per-worktree',
+          },
+        }),
+      /must have required property 'root'/,
+    );
+  });
+
+  it('accepts worktreeIsolation without root when enabled is false', () => {
+    assert.doesNotThrow(() =>
+      validateOrchestrationConfig({
+        provider: 'github',
+        github: baseGithub,
+        worktreeIsolation: { enabled: false },
+      }),
+    );
+  });
+
+  it('accepts worktreeIsolation without root when enabled is omitted', () => {
+    // Schema only fires the conditional when `enabled` is explicitly true; an
+    // unset block is permitted to omit `root` so partial configs validate.
+    assert.doesNotThrow(() =>
+      validateOrchestrationConfig({
+        provider: 'github',
+        github: baseGithub,
+        worktreeIsolation: { nodeModulesStrategy: 'per-worktree' },
+      }),
     );
   });
 });

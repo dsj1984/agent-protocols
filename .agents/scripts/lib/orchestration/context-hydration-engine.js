@@ -18,7 +18,7 @@
 
 import fs from 'node:fs';
 import path from 'node:path';
-import { PROJECT_ROOT, resolveConfig } from '../config-resolver.js';
+import { getLimits, PROJECT_ROOT, resolveConfig } from '../config-resolver.js';
 
 // ---------------------------------------------------------------------------
 // File-content cache — the agent-protocol template, persona files, and
@@ -188,7 +188,7 @@ export function truncateToTokenBudget(text, tokenBudget) {
  *   4. Activated skill documents (from `.agents/skills/`)
  *   5. Work-breakdown hierarchy (Epic, Feature, Story, PRD, Tech Spec bodies)
  *   6. Task instructions (from the ticket body)
- *   7. Token budget truncation (from `agentSettings.maxTokenBudget`)
+ *   7. Token budget truncation (from `agentSettings.limits.maxTokenBudget`)
  *
  * @param {object} task - The normalized task object from the dispatcher
  * @param {import('../ITicketingProvider.js').ITicketingProvider} provider
@@ -320,6 +320,6 @@ export async function hydrateContext(
   );
 
   // 7. Token Budget
-  const budget = settings?.maxTokenBudget;
+  const budget = getLimits({ agentSettings: settings ?? {} }).maxTokenBudget;
   return truncateToTokenBudget(fullPrompt, budget);
 }

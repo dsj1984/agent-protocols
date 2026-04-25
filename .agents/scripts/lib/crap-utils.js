@@ -5,7 +5,6 @@ import { calculateCrapForSource } from './crap-engine.js';
 import { scanDirectory } from './maintainability-utils.js';
 
 export const KERNEL_VERSION = '1.0.0';
-export const DEFAULT_BASELINE_PATH = 'crap-baseline.json';
 const SCHEMA_REF = '.agents/schemas/crap-baseline.schema.json';
 
 function normalizeSep(p) {
@@ -67,8 +66,15 @@ export function resolveEscomplexVersion(cwd = process.cwd()) {
 }
 
 function resolveBaselinePath({ cwd = process.cwd(), baselinePath } = {}) {
-  const rel = baselinePath ?? DEFAULT_BASELINE_PATH;
-  return path.isAbsolute(rel) ? rel : path.join(cwd, rel);
+  if (typeof baselinePath !== 'string' || baselinePath.length === 0) {
+    throw new TypeError(
+      'crap-utils: opts.baselinePath is required (Epic #730 Story 5.5 — ' +
+        'callers resolve the path via getBaselines(config).crap.path).',
+    );
+  }
+  return path.isAbsolute(baselinePath)
+    ? baselinePath
+    : path.join(cwd, baselinePath);
 }
 
 /**

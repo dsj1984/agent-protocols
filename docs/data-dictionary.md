@@ -175,7 +175,7 @@ follow-on work (retro action items carried forward from Epic #380).
 | `setPlan({ waves })`                                | Method                | `ProgressReporter` API added in #413. Called once at runner start with the full wave plan so each fire renders every wave + story (queued / in-flight / done / blocked) with a `Wave` column rather than only the active wave. |
 | `progress-signals/stalled-worktree.js`              | Detector              | Mechanical `ProgressReporter` detector; flags Stories where `agent::done` ships with a live `.worktrees/story-<id>/` directory still on disk (the Windows partial-reap residue class). |
 | `progress-signals/maintainability-drift.js`         | Detector              | Mechanical `ProgressReporter` detector; emits a Notable bullet when the maintainability score for any tracked file has drifted negatively from the recorded baseline since wave-start. |
-| `progress-signals/crap-drift.js`                    | Detector              | Mechanical `ProgressReporter` detector; per-method CRAP drift versus a wave-start baseline. Surfaces a `🧨 CRAP drift: <file>::<method> <score> (ceiling <N>)` bullet when a method crosses the configured ceiling or rises by ≥ threshold since snapshot. Baseline persisted under `.agents/state/crap-baseline.json`. |
+| `progress-signals/crap-drift.js`                    | Detector              | Mechanical `ProgressReporter` detector; per-method CRAP drift versus a wave-start baseline. Surfaces a `🧨 CRAP drift: <file>::<method> <score> (ceiling <N>)` bullet when a method crosses the configured ceiling or rises by ≥ threshold since snapshot. Baseline persisted under `.agents/state/wave-crap-snapshot.json`. |
 
 ### 10. Epic #441 Artefacts (v5.15.3)
 
@@ -249,19 +249,19 @@ existing maintainability ratchet.
 
 | Term | Kind | Definition |
 | --- | --- | --- |
-| `crap-baseline.json` | Repo-root artefact | `{ kernelVersion, escomplexVersion, rows: [{ file, method, startLine, crap }] }`. Rows deterministically sorted by `(file, startLine)`; alphabetized keys; trailing newline. `kernelVersion` bumps when the inline CRAP formula changes; `escomplexVersion` bumps with the `typhonjs-escomplex` dependency. A baseline whose stamps don't match the running scorer fails closed with a message naming the mismatch. |
-| `agentSettings.maintainability.crap` | Config block | `{ enabled, targetDirs, newMethodCeiling, coveragePath, tolerance, requireCoverage, friction.markerKey, refreshTag }`. Defaults: `enabled: true`, `targetDirs: [".agents/scripts"]`, `newMethodCeiling: 30`, `coveragePath: "coverage/coverage-final.json"`, `tolerance: 0.001`, `requireCoverage: true`, `refreshTag: "baseline-refresh:"`. Deep-merge: list-valued keys accept `{ append }` / `{ prepend }`; consumer repos extend without re-listing framework defaults. |
+| `baselines/crap.json` | Repo-root artefact | `{ kernelVersion, escomplexVersion, rows: [{ file, method, startLine, crap }] }`. Rows deterministically sorted by `(file, startLine)`; alphabetized keys; trailing newline. `kernelVersion` bumps when the inline CRAP formula changes; `escomplexVersion` bumps with the `typhonjs-escomplex` dependency. A baseline whose stamps don't match the running scorer fails closed with a message naming the mismatch. |
+| `agentSettings.quality.crap` | Config block | `{ enabled, targetDirs, newMethodCeiling, coveragePath, tolerance, requireCoverage, friction.markerKey, refreshTag }`. Defaults: `enabled: true`, `targetDirs: ["src"]`, `newMethodCeiling: 30`, `coveragePath: "coverage/coverage-final.json"`, `tolerance: 0.001`, `requireCoverage: true`, `refreshTag: "baseline-refresh:"`. Deep-merge: list-valued keys accept `{ append }` / `{ prepend }`; consumer repos extend without re-listing framework defaults. |
 | Hybrid enforcement | Decision contract | `compareCrap()` resolves each scanned row through four match paths: exact `(file, method, startLine)`, line-drift fallback (same `(file, method)`, shifted `startLine`), new (no match → ceiling check), removed (baseline row absent → reported, never a failure). |
 | `fixGuidance` | Report field | Per-violation block in the `--json` envelope: `{ crapCeiling, minComplexityAt100Cov, minCoverageAtCurrentComplexity }`. Derived deterministically from the formula — `minComplexityAt100Cov = floor(sqrt(target))`; `minCoverageAtCurrentComplexity = 1 − ((target − c) / c²)^(1/3)` clamped to `[0,1]`, `null` when unachievable at current complexity. Round-trip property: applying either single-axis fix re-scores under target. |
 | `--changed-since <ref>` | CLI flag | On `check-crap.js` and `check-maintainability.js`. Limits scoring + comparison to files in `git diff --name-only <ref>...HEAD`. Bad ref → non-zero exit (no silent degradation to "no regressions"). |
 | `--json <path>` | CLI flag | On both gates. Writes `{ kernelVersion, summary, violations }`; CRAP envelope adds `fixGuidance` per violation. |
 | `CRAP_NEW_METHOD_CEILING` / `CRAP_TOLERANCE` / `CRAP_REFRESH_TAG` | Env vars | Override `crap.newMethodCeiling`, `crap.tolerance`, and `crap.refreshTag` respectively at runtime. Malformed values (non-numeric, negative) warn and fall back to config — a typo in CI must never silently relax the gate. Used by the `baseline-refresh-guardrail` job to force base-branch values on the PR-branch run. |
 | `baseline-refresh-guardrail.js` | CLI script | Reads `<baseRef>:.agentrc.json` via `git show`, applies env-overrides, lists changed files + commits since base, evaluates the refresh-tag rule, and (on a baseline-only PR) idempotently applies the `review::baseline-refresh` label. Pure decision helpers (`evaluateGuardrail`, `parseBaseBranchConfig`, `findRefreshCommits`, `classifyChangedFiles`) are exported for fixture testing. |
-| `review::baseline-refresh` | PR label | Auto-applied to PRs whose diff touches **only** `crap-baseline.json` and/or `maintainability-baseline.json`. Idempotent across CI re-runs (gh treats `--add-label` as a set-union). The label exists so a human reviewer sees every refresh even when CI is green. |
+| `review::baseline-refresh` | PR label | Auto-applied to PRs whose diff touches **only** `baselines/crap.json` and/or `baselines/maintainability.json`. Idempotent across CI re-runs (gh treats `--add-label` as a set-union). The label exists so a human reviewer sees every refresh even when CI is green. |
 | `refreshTag` (commit-message rule) | Validation contract | A PR that modifies any baseline file must include at least one commit whose subject starts with the configured `refreshTag` (default `baseline-refresh:`) AND whose body is non-empty. Both conditions are required — the tag without justification is not enough. |
-| `crap-drift.js` | Progress signal | `lib/orchestration/epic-runner/progress-signals/crap-drift.js`. Captures a wave-start CRAP snapshot and emits Notable bullets per tick when methods cross the ceiling or rise by ≥ threshold (default 10). Mirrors `maintainability-drift.js`; non-blocking. Baseline persisted under `.agents/state/crap-baseline-wave.json`. |
+| `crap-drift.js` | Progress signal | `lib/orchestration/epic-runner/progress-signals/crap-drift.js`. Captures a wave-start CRAP snapshot and emits Notable bullets per tick when methods cross the ceiling or rise by ≥ threshold (default 10). Mirrors `maintainability-drift.js`; non-blocking. Baseline persisted under `.agents/state/wave-crap-snapshot.json`. |
 | `crap-baseline-regression` (friction marker) | Marker key | Default `markerKey` for the rate-limited friction structured comment that `check-crap.js --story <id>` emits on regression. Configurable via `crap.friction.markerKey`. |
-| First-run bootstrap | Behavior contract | A consumer repo with no `crap-baseline.json` sees `[CRAP] no baseline found — run 'npm run crap:update' to bootstrap` and `check-crap` exits 0. Never hard-fails on first sync. |
+| First-run bootstrap | Behavior contract | A consumer repo with no `baselines/crap.json` sees `[CRAP] no baseline found — run 'npm run crap:update' to bootstrap` and `check-crap` exits 0. Never hard-fails on first sync. |
 
 ### 15. Epic #638 Artefacts — Concurrency Caps + Retro Primitives (v5.23.0)
 
@@ -321,3 +321,40 @@ tool names solely as historical context — those tools no longer exist.
 | `dispatcher.js` | CLI | Pre-existing CLI covers `mcp__agent-protocols__dispatch_wave`. Invoked by `/sprint-plan` Phase 3. |
 | `process.env`-only secrets resolution | Contract | `notifier.js` `resolveWebhookUrl()` and the GitHub provider's `GITHUB_TOKEN` lookup read **only** from `process.env`. `.mcp.json` is no longer consulted as a secrets backstop; operators must keep `GITHUB_TOKEN` and `NOTIFICATION_WEBHOOK_URL` in `.env` (local) or the Claude Code web env-var UI. |
 | `agent-protocols` MCP block | Removed | The `mcpServers["agent-protocols"]` entry is deleted from `.mcp.json` and from `.agents/default-mcp.json` (the latter file is itself removed). Third-party MCP servers (`github`, `context7`, `chrome-devtools`, etc.) in `.mcp.json` are unaffected. |
+
+---
+
+## Grouped `agentSettings` Contract (Epic #730)
+
+`agentSettings` is reorganised into four typed sub-blocks. Every former flat
+key now lives under one of these — there are no flat-key reads anywhere in
+the resolver or in any consumer. The full key catalogue, defaults, and
+required-vs-optional flags live in
+[`docs/configuration.md`](configuration.md); this table records the
+contract-shape change.
+
+| Sub-block                 | Required | Resolver accessor    | Holds                                                                                                  |
+| ------------------------- | -------- | -------------------- | ------------------------------------------------------------------------------------------------------ |
+| `agentSettings.paths`     | Yes      | `getPaths(config)`   | `agentRoot`, `docsRoot`, `tempRoot` (all required); optional `auditOutputDir`.                         |
+| `agentSettings.commands`  | No       | `getCommands(config)`| `validate`, `lintBaseline`, `test`, `exploratoryTest`, `typecheck` (`string \| null`), `build` (`string \| null`). |
+| `agentSettings.quality`   | No       | `getQuality(config)` | `baselines.{lint,crap,maintainability}.{path,refreshCommand?}`, `maintainability`, `crap`, `prGate`.    |
+| `agentSettings.limits`    | No       | `getLimits(config)`  | `maxInstructionSteps`, `maxTickets`, `maxTokenBudget`, `executionTimeoutMs`, `executionMaxBuffer`, `friction.*`. |
+
+Static mirror: `.agents/schemas/agentrc.schema.json` (drift-tested against the
+runtime AJV schemas).
+
+## Baseline Conventions (Epic #730)
+
+Two distinct kinds of baseline file, intentionally separated so a repo-wide
+grep never confuses one for the other.
+
+| Kind                       | Location                                  | Owner                                                   | Lifecycle                                                  |
+| -------------------------- | ----------------------------------------- | ------------------------------------------------------- | ---------------------------------------------------------- |
+| Canonical ratchet baseline | `baselines/lint.json`                     | `lint-baseline.js`                                      | Committed; refreshed via tagged `baseline-refresh:` commit. |
+| Canonical ratchet baseline | `baselines/crap.json`                     | `update-crap-baseline.js`                               | Committed; refreshed via tagged `baseline-refresh:` commit. |
+| Canonical ratchet baseline | `baselines/maintainability.json`          | `update-maintainability-baseline.js`                    | Committed; refreshed via tagged `baseline-refresh:` commit. |
+| Per-wave drift snapshot    | `.agents/state/wave-mi-snapshot.json`     | `progress-signals/maintainability-drift.js`             | Captured at wave-start; overwritten next wave; not committed. |
+| Per-wave drift snapshot    | `.agents/state/wave-crap-snapshot.json`   | `progress-signals/crap-drift.js`                        | Captured at wave-start; overwritten next wave; not committed. |
+
+Paths are configured in `agentSettings.quality.baselines.<gate>.path`. The
+default values match the canonical layout above.

@@ -109,6 +109,13 @@ set your repository details:
 Set `GITHUB_TOKEN` in your environment (or a `.env` file at the project root)
 for background script authentication.
 
+The full configuration reference — every key, default, and required-vs-optional
+flag — is in [`docs/configuration.md`](docs/configuration.md). After Epic #730,
+operational settings live under four grouped sub-blocks (`paths`, `commands`,
+`quality`, `limits`); the static JSON Schema at
+`.agents/schemas/agentrc.schema.json` powers editor autocomplete and inline
+validation.
+
 ### 3. Plan Your First Epic
 
 Create a GitHub Issue with the `type::epic` label, then run:

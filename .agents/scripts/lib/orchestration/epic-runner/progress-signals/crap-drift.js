@@ -5,7 +5,11 @@ import { calculateCrapForSource } from '../../../crap-engine.js';
 
 const DEFAULT_THRESHOLD = 5.0;
 const DEFAULT_CEILING = 30;
-const BASELINE_FILENAME = 'crap-baseline.json';
+// Distinct from the canonical ratchet baseline at `baselines/crap.json`
+// (Epic #730 Story 5.5) — this is a per-wave drift SNAPSHOT, not the
+// committed score baseline. Filename intentionally differs so a repo-wide
+// grep for the canonical baseline no longer hits the snapshot.
+const BASELINE_FILENAME = 'wave-crap-snapshot.json';
 
 /**
  * Detects per-method CRAP drift versus a wave-start baseline.
@@ -26,7 +30,7 @@ const BASELINE_FILENAME = 'crap-baseline.json';
  *
  *   🧨 CRAP drift: <file>::<method> <score> (ceiling <N>)
  *
- * Persistence: baseline is written to `<cwd>/<baselineDir>/crap-baseline.json`
+ * Persistence: baseline is written to `<cwd>/<baselineDir>/wave-crap-snapshot.json`
  * so a resumed epic run can reuse the wave-start anchor rather than lose it.
  *
  * Resilience: read / scoring errors for an individual file are swallowed (and

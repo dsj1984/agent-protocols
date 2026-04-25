@@ -103,7 +103,12 @@ function makeTempRepo({ enabled = true, withBaseline = false } = {}) {
     JSON.stringify(
       {
         agentSettings: {
-          maintainability: {
+          paths: {
+            agentRoot: '.agents',
+            docsRoot: 'docs',
+            tempRoot: 'temp',
+          },
+          quality: {
             crap: {
               enabled,
               targetDirs: ['src'],
@@ -125,8 +130,9 @@ function makeTempRepo({ enabled = true, withBaseline = false } = {}) {
     JSON.stringify({}),
   );
   if (withBaseline) {
+    fs.mkdirSync(path.join(dir, 'baselines'), { recursive: true });
     fs.writeFileSync(
-      path.join(dir, 'crap-baseline.json'),
+      path.join(dir, 'baselines', 'crap.json'),
       JSON.stringify(
         { kernelVersion: '1.0.0', escomplexVersion: 'unknown', rows: [] },
         null,
