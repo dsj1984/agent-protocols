@@ -168,14 +168,10 @@ const QUALITY_GATE_SCHEMA = {
 };
 
 /**
- * Grouped command fields (Epic #730 Story 5). Replaces the flat
- * `validationCommand` / `lintBaselineCommand` / `testCommand` /
- * `exploratoryTestCommand` / `typecheckCommand` / `buildCommand` keys.
- *
- * `typecheck` and `build` accept `null` to mean "disabled" (Story 3
- * `null`-for-disabled convention); the others are required-when-present
- * non-empty strings. `additionalProperties: false` so a misspelled command
- * key fails validation up front.
+ * Grouped command fields. `typecheck` and `build` accept `null` to mean
+ * "disabled" (Story 3 `null`-for-disabled convention); the others are
+ * required-when-present non-empty strings. `additionalProperties: false`
+ * so a misspelled command key fails validation up front.
  */
 export const COMMANDS_SCHEMA = {
   type: 'object',
