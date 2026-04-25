@@ -407,6 +407,65 @@ test('ticketing.js', async (t) => {
   );
 
   await t.test(
+    'cascadeCompletion leaves a parent with mixed open/closed children open (premature-close regression guard)',
+    async () => {
+      // Build a Feature with two child Stories: one done, one still
+      // executing. Closing the done child must NOT cascade-close the
+      // Feature because at least one sibling remains open.
+      mock.tickets[20] = {
+        id: 20,
+        labels: ['agent::executing', 'type::feature'],
+        body: 'Feature body\n- [ ] #21\n- [ ] #22',
+        state: 'open',
+      };
+      mock.tickets[21] = {
+        id: 21,
+        labels: ['agent::done', 'type::story'],
+        body: 'Story 21 body\n\nparent: #20',
+        state: 'open',
+      };
+      mock.tickets[22] = {
+        id: 22,
+        labels: ['agent::executing', 'type::story'],
+        body: 'Story 22 body\n\nparent: #20',
+        state: 'open',
+      };
+
+      mock.deps[20] = { blocks: [], blockedBy: [21, 22] };
+      mock.deps[21] = { blocks: [20], blockedBy: [] };
+      mock.deps[22] = { blocks: [20], blockedBy: [] };
+
+      mock.subTickets[20] = [mock.tickets[21], mock.tickets[22]];
+      mock.subTickets[21] = [];
+      mock.subTickets[22] = [];
+
+      const result = await cascadeCompletion(mock, 21);
+
+      assert.equal(
+        result.cascadedTo.length,
+        0,
+        'cascade must not advance when the parent has open siblings',
+      );
+      assert.ok(
+        !mock.tickets[20].labels.includes('agent::done'),
+        'Feature must remain open while a sibling Story is still executing',
+      );
+      assert.ok(
+        mock.tickets[20].labels.includes('agent::executing'),
+        'Feature must retain its prior state label',
+      );
+      assert.ok(
+        mock.tickets[20].body.includes('- [x] #21'),
+        'Done child checkbox must still be ticked even when the parent stays open',
+      );
+      assert.ok(
+        mock.tickets[20].body.includes('- [ ] #22'),
+        'Open sibling checkbox must remain unchecked',
+      );
+    },
+  );
+
+  await t.test(
     'cascadeCompletion auto-closes Feature but not Epic (AC-05 regression)',
     async () => {
       // Build a typed hierarchy: Epic E > Feature F > Story S > Task T.

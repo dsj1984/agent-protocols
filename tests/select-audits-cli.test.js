@@ -56,6 +56,43 @@ test('selectAudits: keyword matching against ticket title/body still selects the
   );
 });
 
+test('selectAudits: glob filePattern from audit-rules.schema.json selects an audit on a matching changed file', async () => {
+  // Regression guard for the behaviour formerly asserted via the deleted
+  // MCP-routed tests: selectAudits must apply the `triggers.filePatterns`
+  // globs declared in audit-rules.schema.json against the working tree's
+  // changed files. We pick `audit-security` (schema declares
+  // `**/auth/*.js` under filePatterns) and a ticket whose title/body share
+  // no schema keywords, so the audit can only be selected by glob.
+  const provider = new MockProvider({
+    tickets: {
+      400: {
+        id: 400,
+        title: 'Refactor billing module',
+        body: 'No keyword overlap with the security/privacy/a11y audits.',
+        labels: [],
+      },
+    },
+  });
+
+  const fakeGitSpawn = async () => ({
+    status: 0,
+    stdout: 'src/auth/login.js\n',
+    stderr: '',
+  });
+
+  const { selectedAudits } = await selectAudits({
+    ticketId: 400,
+    gate: 'gate1',
+    provider,
+    injectedGitSpawn: fakeGitSpawn,
+  });
+
+  assert.ok(
+    selectedAudits.includes('audit-security'),
+    'changed file matching `**/auth/*.js` must select audit-security via the schema filePatterns rule',
+  );
+});
+
 test('selectAudits: ETIMEDOUT fallback returns keyword-only results without throwing', async () => {
   const provider = new MockProvider({
     tickets: {
