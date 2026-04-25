@@ -685,7 +685,10 @@ describe('config-resolver library tests', () => {
       assert.equal(out.maxTickets, 99);
       assert.equal(out.executionTimeoutMs, 60000);
       assert.equal(out.maxTokenBudget, LIMITS_DEFAULTS.maxTokenBudget);
-      assert.equal(out.maxInstructionSteps, LIMITS_DEFAULTS.maxInstructionSteps);
+      assert.equal(
+        out.maxInstructionSteps,
+        LIMITS_DEFAULTS.maxInstructionSteps,
+      );
     });
 
     it('shallow-merges friction overrides without re-listing siblings', () => {

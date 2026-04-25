@@ -124,7 +124,8 @@ export function resolveConfiguredDocs({ cwd, agentSettings }) {
       out.push(path.resolve(cwd, rel));
     }
   }
-  const docsRoot = getPaths({ agentSettings: agentSettings ?? {} }).docsRoot ?? 'docs';
+  const docsRoot =
+    getPaths({ agentSettings: agentSettings ?? {} }).docsRoot ?? 'docs';
   const contextDocs = agentSettings?.docsContextFiles ?? [];
   for (const name of contextDocs) {
     if (typeof name === 'string' && name.length > 0) {

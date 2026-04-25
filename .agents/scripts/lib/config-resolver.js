@@ -855,8 +855,7 @@ export function resolvePaths(userPaths) {
  * @returns {ReturnType<typeof resolvePaths>}
  */
 export function getPaths(config) {
-  const userPaths =
-    config?.agentSettings?.paths ?? config?.paths ?? undefined;
+  const userPaths = config?.agentSettings?.paths ?? config?.paths ?? undefined;
   return resolvePaths(userPaths);
 }
 
@@ -901,8 +900,7 @@ export const LIMITS_DEFAULTS = Object.freeze({
  * }}
  */
 export function resolveLimits(userLimits) {
-  const block =
-    userLimits && typeof userLimits === 'object' ? userLimits : {};
+  const block = userLimits && typeof userLimits === 'object' ? userLimits : {};
   const userFriction =
     block.friction && typeof block.friction === 'object' ? block.friction : {};
   return {

@@ -18,11 +18,7 @@
 
 import fs from 'node:fs';
 import path from 'node:path';
-import {
-  getLimits,
-  PROJECT_ROOT,
-  resolveConfig,
-} from '../config-resolver.js';
+import { getLimits, PROJECT_ROOT, resolveConfig } from '../config-resolver.js';
 
 // ---------------------------------------------------------------------------
 // File-content cache — the agent-protocol template, persona files, and
