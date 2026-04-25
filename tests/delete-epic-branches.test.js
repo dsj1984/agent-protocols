@@ -37,8 +37,8 @@ describe('delete-epic-branches.renderDryRun', () => {
     });
     assert.equal(lines.length, 3);
     assert.match(lines[0], /Epic #12 — DRY RUN/);
-    assert.match(lines[1], /Local   \(2\): epic\/12, story\/epic-12\/40/);
-    assert.match(lines[2], /Remote  \(1\): epic\/12/);
+    assert.match(lines[1], /Local {3}\(2\): epic\/12, story\/epic-12\/40/);
+    assert.match(lines[2], /Remote {2}\(1\): epic\/12/);
   });
   it('renders (none) when both lists are empty', () => {
     const lines = renderDryRun({ epicId: 99, local: [], remote: [] });
