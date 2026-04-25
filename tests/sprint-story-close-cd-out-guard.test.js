@@ -110,7 +110,10 @@ test('sprint-story-close cd-out guard (subprocess)', async (t) => {
           env,
         });
         const output = result.stdout + result.stderr;
-        assert.doesNotMatch(output, /Refusing to close while CWD is the worktree/);
+        assert.doesNotMatch(
+          output,
+          /Refusing to close while CWD is the worktree/,
+        );
       } finally {
         fs.rmSync(tmp, { recursive: true, force: true });
       }
