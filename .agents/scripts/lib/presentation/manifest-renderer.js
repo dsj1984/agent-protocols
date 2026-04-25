@@ -7,8 +7,7 @@
  *   - GitHub comment upserts     — `postManifestEpicComment` / `postParkedFollowOnsComment`.
  *
  * Keeps every export that external callers consume today so the split is
- * internal: dispatcher.js, mcp-orchestration.js, and tests all continue to
- * import from this path.
+ * internal: dispatcher.js and tests all continue to import from this path.
  */
 
 import { resolveConfig } from '../config-resolver.js';
