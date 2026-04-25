@@ -35,9 +35,7 @@ test('validateBlockersMerged — merged blockers proceed (ok=true)', () => {
         storyId: 200,
         storyTitle: 'Downstream',
         earliestWave: 1,
-        tasks: [
-          { taskId: 2001, status: 'agent::ready', dependencies: [1001] },
-        ],
+        tasks: [{ taskId: 2001, status: 'agent::ready', dependencies: [1001] }],
       },
     ],
   });
@@ -208,9 +206,7 @@ function makeFsImpl({ files = {} } = {}) {
 test('loadDispatchManifest — reads on-disk manifest when present', async () => {
   const manifest = {
     epicId: 668,
-    storyManifest: [
-      { storyId: 200, earliestWave: 1, tasks: [] },
-    ],
+    storyManifest: [{ storyId: 200, earliestWave: 1, tasks: [] }],
   };
   const projectRoot = '/repo';
   const diskPath = '/repo/temp/dispatch-manifest-668.json'.replace(

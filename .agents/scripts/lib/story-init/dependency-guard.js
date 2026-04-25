@@ -179,7 +179,10 @@ export function validateBlockersMerged(manifest, storyId) {
         if (parentId && parentId !== targetId) blockerStoryIds.add(parentId);
       }
     }
-  } else if (typeof target.earliestWave === 'number' && target.earliestWave >= 0) {
+  } else if (
+    typeof target.earliestWave === 'number' &&
+    target.earliestWave >= 0
+  ) {
     for (const s of storyManifest) {
       if (s.storyId === '__ungrouped__') continue;
       const sid = storyKey(s.storyId);
