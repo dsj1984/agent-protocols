@@ -58,6 +58,14 @@ graph LR
   enforced anti-gaming guardrail that blocks silent threshold relaxation. See
   the consumer-onboarding section in [`.agents/README.md`](.agents/README.md)
   for first-run behavior, opt-out, and `--json` output semantics.
+- **No MCP server, secrets in `.env` only**: **Epic #702** retires the
+  `agent-protocols` stdio MCP server entirely. Every capability the server
+  exposed is preserved via direct Node CLIs under `.agents/scripts/`, and
+  `.mcp.json` is no longer consulted by any framework code — `GITHUB_TOKEN`
+  and `NOTIFICATION_WEBHOOK_URL` must live in `.env` locally (or the Claude
+  Code web env-var UI). Operators forking `.agents/default-mcp.json` should
+  drop the `agent-protocols` block on their next submodule bump; see the
+  CHANGELOG entry for the retired-tool → CLI mapping table.
 - **Tunable concurrency caps**: **Epic #638 (v5.23.0)** turns the
   `concurrentMap` caps shipped in #553 into a configurable surface
   (`orchestration.concurrency.{waveGate, commitAssertion, progressReporter}`).

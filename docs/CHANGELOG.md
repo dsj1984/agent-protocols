@@ -49,7 +49,7 @@ unified severity vocabulary.
 - **CLI args renamed.** `node .agents/scripts/notify.js --action` is replaced
   by `--severity high` (still accepts `--severity low|medium|high`).
 
-### `agent-protocols` MCP server retired
+### `agent-protocols` MCP server retired (Epic #702)
 
 The framework no longer ships an MCP server. Every capability the server
 previously exposed remains available — the surface to invoke it is now

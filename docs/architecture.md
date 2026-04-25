@@ -362,6 +362,24 @@ the epic-runner factory. Consumers tuning caps supply the CLI at
 `phase-timings` structured comments across Stories, aggregates p50/p95
 per phase, and prints recommended caps.
 
+#### MCP server retired (Epic #702)
+
+The framework previously shipped an `agent-protocols` stdio MCP server
+exposing seven tools (`cascade_completion`, `dispatch_wave`,
+`hydrate_context`, `post_structured_comment`, `run_audit_suite`,
+`select_audits`, `transition_ticket_state`). That server is **gone** as
+of Epic #702: every capability is preserved as a direct Node CLI under
+`.agents/scripts/` (or inlined into `update-ticket-state.js`), and
+`lib/orchestration/ticketing.js` remains the authoritative SDK for
+runtime callers. Architectural consequence: there is no longer a
+"parallel pathway" for orchestration — the SDK is the single
+implementation surface, and `.mcp.json` is no longer consulted by any
+framework code. Operators see the simplification at first-run time
+(no MCP-server bootstrap step) and at secrets-resolution time
+(`GITHUB_TOKEN` and `NOTIFICATION_WEBHOOK_URL` read only from
+`process.env`). See `docs/CHANGELOG.md` for the retired-tool → CLI
+mapping and the operator migration path.
+
 ---
 
 ### 3. Provider Abstraction Layer

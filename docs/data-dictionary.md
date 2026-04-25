@@ -303,3 +303,21 @@ Identity, claim, retry, and resolver surfaces shipped by the
 | `pushEpicWithRetry(...)` | Helper | `lib/push-epic-retry.js`. Wraps the `git push origin epic/<id>` step with fetch-replay-push retry on non-fast-forward rejection. Aborts cleanly on real content conflicts; never destroys local work. |
 | `runDispatchManifestGuard({ storyId, ... })` | Helper | `lib/story-init/dependency-guard.js`. Pre-flight blocker check at `sprint-story-init.js` startup. Refuses launch if any of the story's blockers are unmerged; prints each blocker's id, state, and URL; exits 0. Composes with pool-mode eligibility. |
 | `pool-claim.js` | CLI | `.agents/scripts/pool-claim.js [--epic <id>] [--max-attempts <n>]`. Pool-mode entry point invoked when `/sprint-execute` runs without a story id. Prints the claimed story id as JSON for the caller to feed into `sprint-story-init.js --story <id>`. |
+
+### 17. Epic #702 Artefacts — MCP Server Retirement
+
+The seven `mcp__agent-protocols__*` tool entries that previously occupied
+this dictionary are **retired**. Every term below replaces a former MCP
+tool surface with a direct Node CLI under `.agents/scripts/`. Earlier
+entries in this file (sections 10 and 12) reference the obsolete MCP
+tool names solely as historical context — those tools no longer exist.
+
+| Term | Kind | Definition |
+| --- | --- | --- |
+| `post-structured-comment.js` | CLI | `.agents/scripts/post-structured-comment.js --ticket <id> --marker <key> --body-file <path>`. Successor to `mcp__agent-protocols__post_structured_comment`. Wraps `upsertStructuredComment(provider, ticketId, marker, body)` from `lib/orchestration/ticketing.js`; idempotent by marker. |
+| `audit-orchestrator.js` | CLI | `.agents/scripts/audit-orchestrator.js --select --gate <n>` and `--run --audit <id>`. Successor to `mcp__agent-protocols__select_audits` and `mcp__agent-protocols__run_audit_suite`. Pure rule-based selection (no LLM) over `audit-rules.schema.json`. |
+| `context-hydrator.js` | CLI | `.agents/scripts/context-hydrator.js --task <id> --epic <id>`. Successor to `mcp__agent-protocols__hydrate_context`; emits the same JSON envelope the MCP tool produced. |
+| `update-ticket-state.js` (extended) | CLI | Pre-existing CLI now also covers `mcp__agent-protocols__transition_ticket_state` and `mcp__agent-protocols__cascade_completion`. Cascade runs inline at the SDK layer when a Story's last open Task closes. |
+| `dispatcher.js` | CLI | Pre-existing CLI covers `mcp__agent-protocols__dispatch_wave`. Invoked by `/sprint-plan` Phase 3. |
+| `process.env`-only secrets resolution | Contract | `notifier.js` `resolveWebhookUrl()` and the GitHub provider's `GITHUB_TOKEN` lookup read **only** from `process.env`. `.mcp.json` is no longer consulted as a secrets backstop; operators must keep `GITHUB_TOKEN` and `NOTIFICATION_WEBHOOK_URL` in `.env` (local) or the Claude Code web env-var UI. |
+| `agent-protocols` MCP block | Removed | The `mcpServers["agent-protocols"]` entry is deleted from `.mcp.json` and from `.agents/default-mcp.json` (the latter file is itself removed). Third-party MCP servers (`github`, `context7`, `chrome-devtools`, etc.) in `.mcp.json` are unaffected. |
