@@ -93,7 +93,11 @@ test('selectAudits: glob filePattern from audit-rules.schema.json selects an aud
   );
 });
 
-test('selectAudits: ETIMEDOUT fallback returns keyword-only results without throwing', async () => {
+test('selectAudits: ETIMEDOUT returns the degraded envelope (default mode)', async () => {
+  // Tech Spec #819 / Story #826 — historical behaviour was a silent
+  // keyword-only fallback that hid the diff timeout from callers. The new
+  // contract returns `{ ok: false, degraded: true, reason: 'GIT_DIFF_TIMEOUT', detail }`
+  // so the caller can decide whether to abort or downgrade.
   const provider = new MockProvider({
     tickets: {
       301: {
@@ -106,26 +110,51 @@ test('selectAudits: ETIMEDOUT fallback returns keyword-only results without thro
   });
 
   const neverResolves = () => new Promise(() => {});
-  const originalWarn = console.warn;
-  const warnings = [];
-  console.warn = (...args) => {
-    warnings.push(args.join(' '));
-  };
 
-  let result;
-  try {
-    result = await selectAudits({
-      ticketId: 301,
-      gate: 'gate2',
-      provider,
-      injectedGitSpawn: neverResolves,
-      gitTimeoutMsOverride: 25,
-    });
-  } finally {
-    console.warn = originalWarn;
-  }
+  const result = await selectAudits({
+    ticketId: 301,
+    gate: 'gate2',
+    provider,
+    injectedGitSpawn: neverResolves,
+    gitTimeoutMsOverride: 25,
+    gateModeOpts: { argv: [], env: {} },
+  });
 
-  assert.ok(warnings.some((w) => /git-spawn timed out/i.test(w)));
-  assert.equal(result.context.changedFilesCount, 0);
-  assert.ok(result.selectedAudits.includes('audit-accessibility'));
+  assert.equal(result.ok, false);
+  assert.equal(result.degraded, true);
+  assert.equal(result.reason, 'GIT_DIFF_TIMEOUT');
+  assert.match(result.detail, /timed out after 25 ms/);
+  assert.equal(result.selectedAudits, undefined);
+});
+
+test('selectAudits: ETIMEDOUT throws under --gate-mode (hard-fail closed)', async () => {
+  const provider = new MockProvider({
+    tickets: {
+      302: {
+        id: 302,
+        title: 'Refactor module',
+        body: '',
+        labels: [],
+      },
+    },
+  });
+
+  const neverResolves = () => new Promise(() => {});
+
+  await assert.rejects(
+    () =>
+      selectAudits({
+        ticketId: 302,
+        gate: 'gate2',
+        provider,
+        injectedGitSpawn: neverResolves,
+        gitTimeoutMsOverride: 25,
+        gateModeOpts: { argv: ['--gate-mode'], env: {} },
+      }),
+    (err) => {
+      assert.equal(err.code, 'GIT_DIFF_TIMEOUT');
+      assert.equal(err.degraded, true);
+      return true;
+    },
+  );
 });

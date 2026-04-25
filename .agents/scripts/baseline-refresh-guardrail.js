@@ -1,5 +1,6 @@
 import { spawnSync } from 'node:child_process';
 import path from 'node:path';
+import { isDegraded, softFailOrThrow } from './lib/degraded-mode.js';
 import { gitSpawn, gitSync } from './lib/git-utils.js';
 
 /**
@@ -54,6 +55,7 @@ export function parseCliArgs(argv = process.argv.slice(2)) {
     cwd: process.cwd(),
     skipLabel: false,
     skipCheckCrap: false,
+    gateMode: false,
   };
   for (let i = 0; i < argv.length; i += 1) {
     const arg = argv[i];
@@ -72,6 +74,8 @@ export function parseCliArgs(argv = process.argv.slice(2)) {
       out.skipLabel = true;
     } else if (arg === '--skip-check-crap') {
       out.skipCheckCrap = true;
+    } else if (arg === '--gate-mode') {
+      out.gateMode = true;
     }
   }
   return out;
@@ -265,17 +269,23 @@ export function readBaseBranchConfigRaw(baseRef, cwd) {
 
 /**
  * I/O: list files changed between `<baseRef>` and HEAD as repo-relative,
- * forward-slashed paths. Returns an empty array on failure (with a warning
- * printed) so the guardrail degrades predictably rather than crashing the CI
- * job on a transient git error.
+ * forward-slashed paths.
+ *
+ * Soft-fail contract (Tech Spec #819): on a non-zero git exit, return a
+ * degraded envelope so the caller can surface the explicit signal instead of
+ * silently treating an empty diff as "no baseline edits". In gate-mode
+ * (`--gate-mode` / `AGENT_PROTOCOLS_GATE_MODE=1`), throws instead.
+ *
+ * @returns {string[] | { ok: false, degraded: true, reason: string, detail: string }}
  */
-export function listChangedFiles(baseRef, cwd) {
+export function listChangedFiles(baseRef, cwd, gateModeOpts) {
   const out = gitSpawn(cwd, 'diff', '--name-only', `${baseRef}...HEAD`);
   if (out.status !== 0) {
-    console.warn(
-      `[guardrail] ⚠ git diff against ${baseRef} failed: ${out.stderr?.trim() ?? 'no stderr'}`,
+    return softFailOrThrow(
+      'GIT_DIFF_FAILED',
+      `baseline-refresh-guardrail: git diff against ${baseRef} failed: ${out.stderr?.trim() ?? 'no stderr'}`,
+      gateModeOpts,
     );
-    return [];
   }
   return out.stdout
     .split('\n')
@@ -422,7 +432,23 @@ async function main() {
     return 0;
   }
 
-  const changedFiles = listChangedFiles(args.baseRef, args.cwd);
+  const gateModeOpts = {
+    argv: args.gateMode ? ['--gate-mode'] : [],
+    env: process.env,
+  };
+  const changedFilesResult = listChangedFiles(
+    args.baseRef,
+    args.cwd,
+    gateModeOpts,
+  );
+  if (isDegraded(changedFilesResult)) {
+    process.stdout.write(`${JSON.stringify(changedFilesResult)}\n`);
+    console.error(
+      `[guardrail] ❌ ${changedFilesResult.reason}: ${changedFilesResult.detail}`,
+    );
+    return 1;
+  }
+  const changedFiles = changedFilesResult;
   const commits = listCommitsSinceBase(args.baseRef, args.cwd);
   console.log(
     `[guardrail] diff: ${changedFiles.length} file(s); commits: ${commits.length}`,
