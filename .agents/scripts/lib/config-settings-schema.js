@@ -108,14 +108,54 @@ const RELEASE_SCHEMA = {
   additionalProperties: false,
 };
 
+const FRICTION_THRESHOLDS_SCHEMA = {
+  type: 'object',
+  properties: {
+    repetitiveCommandCount: { type: 'integer', minimum: 1 },
+    consecutiveErrorCount: { type: 'integer', minimum: 1 },
+    stagnationStepCount: { type: 'integer', minimum: 1 },
+    maxIntegrationRetries: { type: 'integer', minimum: 1 },
+  },
+  additionalProperties: false,
+};
+
+const RISK_GATES_SCHEMA = {
+  type: 'object',
+  properties: {
+    heuristics: {
+      type: 'array',
+      items: { type: 'string', minLength: 1 },
+    },
+  },
+  additionalProperties: false,
+};
+
+const QUALITY_GATE_SCHEMA = {
+  type: 'object',
+  properties: {
+    checks: {
+      type: 'array',
+      items: { type: 'string', minLength: 1 },
+    },
+  },
+  additionalProperties: false,
+};
+
 export const AGENT_SETTINGS_SCHEMA = {
   type: 'object',
   properties: {
     docsContextFiles: { type: 'array', items: { type: 'string' } },
     maintainability: MAINTAINABILITY_SCHEMA,
     maxTickets: { type: 'integer', minimum: 1 },
+    maxInstructionSteps: { type: 'integer', minimum: 1 },
+    maxTokenBudget: { type: 'integer', minimum: 1 },
+    executionTimeoutMs: { type: 'integer', minimum: 1 },
+    executionMaxBuffer: { type: 'integer', minimum: 1 },
     sprintClose: SPRINT_CLOSE_SCHEMA,
     release: RELEASE_SCHEMA,
+    frictionThresholds: FRICTION_THRESHOLDS_SCHEMA,
+    riskGates: RISK_GATES_SCHEMA,
+    qualityGate: QUALITY_GATE_SCHEMA,
   },
   patternProperties: {
     [STRING_FIELDS_PATTERN]: SAFE_STRING,

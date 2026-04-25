@@ -260,6 +260,13 @@ describe('validateOrchestrationConfig — schema violations', () => {
       /must NOT have additional properties/,
     );
   });
+
+  it("rejects provider:'github' with no github block (conditional require)", () => {
+    assert.throws(
+      () => validateOrchestrationConfig({ provider: 'github' }),
+      /must have required property 'github'/,
+    );
+  });
 });
 
 // ---------------------------------------------------------------------------

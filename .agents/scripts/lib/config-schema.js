@@ -234,6 +234,12 @@ export const ORCHESTRATION_SCHEMA = {
     poolMode: POOL_MODE_SCHEMA,
   },
   additionalProperties: false,
+  allOf: [
+    {
+      if: { properties: { provider: { const: 'github' } }, required: ['provider'] },
+      then: { required: ['github'] },
+    },
+  ],
 };
 
 /** Pre-compiled ajv validator (singleton). */
