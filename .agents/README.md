@@ -589,6 +589,122 @@ mode in effect. Only one should be populated at a time.
 
 ---
 
+## Running `sprint-execute` on Claude Code web
+
+`/sprint-execute` runs unchanged in a [claude.ai/code](https://claude.ai/code)
+web session. Each web session is its own sandboxed clone of the repository, so
+the worktree-isolation logic that protects local parallel runs is automatically
+disabled on web — every session is already a clone. You can open N tabs and run
+`/sprint-execute` in each; the framework coordinates the launch through a
+claim-based pool mode.
+
+This section covers what only the web case needs: secrets setup, env-var
+behaviour, parallel launch, and reading progress across N tabs. Everything
+else — sprint planning, sprint closing, and the long-running Epic runner — is
+local-only and unchanged.
+
+### Required secrets
+
+Each web session must have the same two files a local session would have:
+
+| File          | Required keys                                                                  |
+| ------------- | ------------------------------------------------------------------------------ |
+| `.env`        | `GITHUB_TOKEN` (or `GH_TOKEN`); optional `NOTIFICATION_WEBHOOK_URL`            |
+| `.mcp.json`   | `mcpServers["agent-protocols"].env.GITHUB_TOKEN` and any other MCP server keys |
+
+Web sessions do not inherit your local secrets — provide both files inside the
+session before running `/sprint-execute`. A missing or unauthenticated token
+fails loudly on the first GitHub call; there is no degraded mode.
+
+### Env-var behaviour
+
+Three environment variables drive the worktree resolver. Resolution precedence
+is **explicit override → web auto-detect → committed config**:
+
+| Variable                       | Effect                                                                                       |
+| ------------------------------ | -------------------------------------------------------------------------------------------- |
+| `AP_WORKTREE_ENABLED=true`     | Force worktrees on, regardless of other signals.                                             |
+| `AP_WORKTREE_ENABLED=false`    | Force worktrees off, regardless of other signals.                                            |
+| `CLAUDE_CODE_REMOTE=true`      | Auto-detect web session — disables worktrees unless `AP_WORKTREE_ENABLED` is also set.       |
+| `CLAUDE_CODE_REMOTE_SESSION_ID`| Session id used for the `in-progress-by:<id>` claim label and the `[claim]` comment.         |
+
+The committed `orchestration.worktreeIsolation.enabled` value is the fallback
+when no env override applies. The committed config is **never** written by any
+runtime path — switching between web and local does not pollute git history.
+
+At `/sprint-execute` startup, one log line names the resolved value and where
+the decision came from, e.g.:
+
+```text
+[ENV] worktreeIsolation=off (CLAUDE_CODE_REMOTE auto-detect)
+[ENV] sessionId=ds486b5eb691 (remote)
+```
+
+`AP_WORKTREE_ENABLED` is matched as the literal strings `"true"` / `"false"`,
+not by truthiness — `""` and `"0"` do not disable the flag. When
+`CLAUDE_CODE_REMOTE_SESSION_ID` is unset, a 12-char id derived from the host
+and pid is generated locally; the same id is used by every claim emitted from
+the session.
+
+### Launching N parallel sessions
+
+Open N web tabs and run `/sprint-execute` in each. Two invocation forms work:
+
+- **`/sprint-execute <storyId>`** — pick a specific story off the dispatch
+  table emitted by `/sprint-plan`. The launch-time dependency guard blocks the
+  run if any of that story's blockers are unmerged.
+- **`/sprint-execute`** (no story id) — pool mode. The session reads the Epic's
+  dispatch manifest and claims the first story that is `agent::ready`, has no
+  `in-progress-by:*` label, and has no unmerged blockers. With N tabs launching
+  inside the same second, each tab claims a distinct story; if two tabs race
+  for the same one, the loser releases its label and picks the next eligible
+  story. When the manifest is fully claimed or complete the session exits 0
+  with a visible reason instead of hanging.
+
+Pool mode is also the right ergonomic for spawning a quick local session
+mid-wave — `/sprint-execute` (no id) works identically on local and web.
+
+### Reading progress across tabs
+
+Each session writes its progress to GitHub:
+
+- Story-level state lives on the Story issue (label transitions, structured
+  comments).
+- The `in-progress-by:<sessionId>` label on each in-flight Story names the
+  owning session — visible from any tab.
+- The `[claim] session=<sessionId> story=<storyId> at=<ISO8601>` structured
+  comment on each Story records the claim moment.
+- Pool-mode launches surface stale claims (older than
+  `orchestration.poolMode.staleClaimMinutes`, default 60) as **reclaimable**
+  in the launch output, so an operator can decide whether to take over a
+  story whose original session crashed.
+
+There is no shared web dashboard; the GitHub issue list filtered on the Epic
+plus the `in-progress-by:*` labels is the ground-truth view.
+
+### Concurrent close safety
+
+Two sessions closing into the same `epic/<epicId>` branch from separate clones
+both succeed. The push step inside `sprint-story-close.js` retries on a
+non-fast-forward rejection — fetch, replay the story merge on top of the new
+remote tip, push again — bounded by `orchestration.closeRetry.maxAttempts`
+(default 3) and `orchestration.closeRetry.backoffMs` (default
+`[250, 500, 1000]`). A real content conflict (both stories touched the same
+lines) aborts the loop with a clear error and leaves the local tree clean for
+manual resolution.
+
+### Out of scope on web
+
+Only `/sprint-execute` is supported on web in this release.
+
+- `/sprint-plan` and `/sprint-close` remain local-only.
+- The long-running Epic runner (`/sprint-execute <epicId>`) is local-only —
+  web sessions run a single Story per tab, not the whole Epic.
+- Web-session launch is manual: open tabs by hand. There is no automated
+  fan-out, no scheduled web agent, no webhook-spawned session.
+
+---
+
 ## Guardrails
 
 ### Anti-Thrashing Protocol
