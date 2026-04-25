@@ -83,9 +83,9 @@ Not invoked directly by operators, but referenced from other workflows:
   merge conflict, included by reference from `sprint-execute`, `sprint-close`,
   and `git-merge-pr`.
 - `helpers/sprint-code-review.md` — comprehensive code-review procedure,
-  auto-invoked by `sprint-close` (Phase 2) and the `sprint-execute` bookends.
+  auto-invoked by `sprint-close` (Phase 3) and the `sprint-execute` bookends.
 - `helpers/sprint-retro.md` — retrospective authoring procedure, auto-invoked
-  by `sprint-close` (Phase 5.1).
+  by `sprint-close` (Phase 6).
 - `helpers/sprint-testing.md` — QA evidence ingest for the sprint-testing
   ticket, invoked by `sprint-close` / operator; consumes `/run-bdd-suite`
   output.
