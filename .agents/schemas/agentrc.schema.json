@@ -36,7 +36,7 @@
     "stringFieldsPattern": {
       "description": "Pattern enumerating every flat agentSettings string field. Mirrors AGENT_SETTINGS_STRING_FIELDS.",
       "type": "string",
-      "pattern": "^(baseBranch|agentRoot|scriptsRoot|workflowsRoot|personasRoot|schemasRoot|skillsRoot|templatesRoot|rulesRoot|docsRoot|tempRoot|auditOutputDir|lintBaselinePath)$"
+      "pattern": "^(baseBranch|agentRoot|scriptsRoot|workflowsRoot|personasRoot|schemasRoot|skillsRoot|templatesRoot|rulesRoot|docsRoot|tempRoot|auditOutputDir)$"
     },
     "maintainabilityCrap": {
       "type": "object",
@@ -224,7 +224,7 @@
         "commands": { "$ref": "#/$defs/commands" }
       },
       "patternProperties": {
-        "^(baseBranch|agentRoot|scriptsRoot|workflowsRoot|personasRoot|schemasRoot|skillsRoot|templatesRoot|rulesRoot|docsRoot|tempRoot|auditOutputDir|lintBaselinePath)$": {
+        "^(baseBranch|agentRoot|scriptsRoot|workflowsRoot|personasRoot|schemasRoot|skillsRoot|templatesRoot|rulesRoot|docsRoot|tempRoot|auditOutputDir)$": {
           "$ref": "#/$defs/safeString"
         }
       }

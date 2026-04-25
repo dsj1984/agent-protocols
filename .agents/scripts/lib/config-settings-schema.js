@@ -24,7 +24,6 @@ export const AGENT_SETTINGS_STRING_FIELDS = Object.freeze([
   'docsRoot',
   'tempRoot',
   'auditOutputDir',
-  'lintBaselinePath',
 ]);
 
 const STRING_FIELDS_PATTERN = `^(${AGENT_SETTINGS_STRING_FIELDS.join('|')})$`;

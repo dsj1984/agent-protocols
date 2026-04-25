@@ -101,6 +101,9 @@ test('getCrapBaseline — returns null when baseline file is missing', () => {
 test('getCrapBaseline — returns null on malformed JSON', () => {
   const cwd = mkTmpCwd();
   try {
+    fs.mkdirSync(path.dirname(path.join(cwd, TEST_BASELINE_PATH)), {
+      recursive: true,
+    });
     fs.writeFileSync(path.join(cwd, TEST_BASELINE_PATH), '{not json');
     assert.strictEqual(getCrapBaseline({ cwd, baselinePath: TEST_BASELINE_PATH }), null);
   } finally {
@@ -111,6 +114,9 @@ test('getCrapBaseline — returns null on malformed JSON', () => {
 test('getCrapBaseline — returns null when required fields are missing', () => {
   const cwd = mkTmpCwd();
   try {
+    fs.mkdirSync(path.dirname(path.join(cwd, TEST_BASELINE_PATH)), {
+      recursive: true,
+    });
     fs.writeFileSync(
       path.join(cwd, TEST_BASELINE_PATH),
       JSON.stringify({ rows: [] }),
