@@ -312,7 +312,10 @@
       "properties": {
         "mentionOperator": { "type": "boolean" },
         "minLevel": { "type": "string", "enum": ["low", "medium", "high"] },
-        "commentMinLevel": { "type": "string", "enum": ["low", "medium", "high"] }
+        "commentMinLevel": {
+          "type": "string",
+          "enum": ["low", "medium", "high"]
+        }
       },
       "additionalProperties": false
     },
