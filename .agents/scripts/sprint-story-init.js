@@ -42,6 +42,11 @@ import { createProvider } from './lib/provider-factory.js';
 import { validateBlockers } from './lib/story-init/blocker-validator.js';
 import { initializeBranch } from './lib/story-init/branch-initializer.js';
 import { resolveContext } from './lib/story-init/context-resolver.js';
+import {
+  formatBlockerReport,
+  loadDispatchManifest,
+  validateBlockersMerged,
+} from './lib/story-init/dependency-guard.js';
 import { traceHierarchy } from './lib/story-init/hierarchy-tracer.js';
 import { transitionTaskStates } from './lib/story-init/state-transitioner.js';
 import { buildTaskGraph } from './lib/story-init/task-graph-builder.js';
@@ -165,6 +170,49 @@ export async function runStoryInit({
   }
   if (parseBlockedBy(body).length > 0)
     progress('BLOCKERS', '✅ All blockers resolved');
+
+  // Stage 3.5 — dispatch-manifest dependency guard.
+  //
+  // Distinct from the body-marker `blocked by` check above: this guard
+  // consults the dispatcher's computed wave/dep graph so cross-Story
+  // edges that the dispatcher inferred (but the operator did not write
+  // as `blocked by`) are still caught before any branch ops. Footgun
+  // prevention only — a missing or unparseable manifest warns and
+  // proceeds. Runs before any git mutation, so a halt leaves zero
+  // partial state behind.
+  if (!dryRun) {
+    const githubCfg = orchestration?.github;
+    const repoSlug =
+      githubCfg?.owner && githubCfg?.repo
+        ? `${githubCfg.owner}/${githubCfg.repo}`
+        : undefined;
+    const manifestLoad = await loadDispatchManifest({
+      epicId,
+      projectRoot: cwd,
+      provider,
+      repoSlug,
+    });
+    if (manifestLoad.ok) {
+      const check = validateBlockersMerged(manifestLoad.manifest, storyId);
+      if (!check.ok) {
+        console.error(formatBlockerReport(storyId, check.blockers));
+        return {
+          success: false,
+          blocked: true,
+          reason: 'dispatch-manifest-blockers-unmerged',
+          openBlockers: check.blockers,
+        };
+      }
+      progress(
+        'DEPENDENCY-GUARD',
+        `✅ Dispatch manifest clean (source=${manifestLoad.source})`,
+      );
+    } else {
+      console.error(
+        `[warn] dispatch-manifest dependency guard skipped: ${manifestLoad.reason}. Proceeding without blocker verification — regenerate via /sprint-plan to restore the guard.`,
+      );
+    }
+  }
 
   // Stage 4 — task graph.
   const { sortedTasks } = await buildTaskGraph({
