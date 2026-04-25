@@ -6,8 +6,10 @@
  * Performs an automated "first pass" code review on an Epic branch.
  * This script:
  *   1. Identifies all files modified/added in the Epic branch vs main.
- *   2. Runs lint checks on the changed surface and distinguishes
- *      errors (🟠 high risk) from warnings (🟢 suggestion).
+ *   2. Runs lint checks scoped to the changed surface (biome + markdownlint
+ *      over only the changed files) and distinguishes errors (🟠 high risk)
+ *      from warnings (🟢 suggestion). Workspace-wide lint enforcement lives
+ *      at story-close, pre-push, and CI.
  *   3. Calculates per-method maintainability reports for changed JS files
  *      and tiers them so size-driven drops don't poison the Critical tier.
  *   4. Generates a summary report of findings.
@@ -15,17 +17,14 @@
  *
  * Usage:
  *   node .agents/scripts/sprint-code-review.js --epic <EPIC_ID>
+ *                                              [--scope-lint changed-only|off]
  */
 
 import { spawnSync } from 'node:child_process';
 import path from 'node:path';
 import { parseArgs } from 'node:util';
 import { runAsCli } from './lib/cli-utils.js';
-import {
-  getCommands,
-  PROJECT_ROOT,
-  resolveConfig,
-} from './lib/config-resolver.js';
+import { PROJECT_ROOT, resolveConfig } from './lib/config-resolver.js';
 import { gitSpawn } from './lib/git-utils.js';
 import { Logger } from './lib/Logger.js';
 import {
@@ -88,9 +87,31 @@ export function parseLintOutput(result) {
   return { errors, warnings, parsed };
 }
 
-function runLint(lintCmd, cwd) {
-  const [cmd, ...args] = lintCmd.split(' ').filter((s) => s.length > 0);
-  const result = spawnSync(cmd, args, {
+/**
+ * Pure: split changed paths into the file lists each lint runner consumes.
+ *
+ * Biome handles JS/TS/JSON; markdownlint handles `.md`. Anything else (CSS,
+ * images, YAML, etc.) is skipped — the review is a "focused first pass," not
+ * a workspace-wide gate.
+ *
+ * Exported for testing.
+ *
+ * @param {string[]} changedFiles
+ * @returns {{ code: string[], md: string[] }}
+ */
+export function partitionFilesForLint(changedFiles) {
+  const CODE = /\.(js|mjs|cjs|jsx|ts|tsx|json|jsonc)$/i;
+  const code = [];
+  const md = [];
+  for (const f of changedFiles) {
+    if (CODE.test(f)) code.push(f);
+    else if (/\.md$/i.test(f)) md.push(f);
+  }
+  return { code, md };
+}
+
+function spawnLintRunner(bin, args, cwd) {
+  const result = spawnSync('npx', ['--no', bin, ...args], {
     cwd,
     encoding: 'utf-8',
     shell: process.platform === 'win32',
@@ -103,11 +124,58 @@ function runLint(lintCmd, cwd) {
 }
 
 /**
+ * Run lint scoped to the changed surface only. Returns a normalized summary
+ * compatible with `parseLintOutput` plus a `skipped` flag set when there is
+ * no JS or markdown file in the changed set (nothing to lint).
+ *
+ * Injectable runner makes this unit-testable without spawning processes.
+ *
+ * @param {string[]} changedFiles
+ * @param {string} cwd
+ * @param {(bin: string, args: string[], cwd: string) => { status: number, stdout: string, stderr: string }} [runnerFn]
+ * @returns {{ errors: number, warnings: number, parsed: boolean, skipped: boolean, mode: 'changed-only' }}
+ */
+export function runScopedLint(changedFiles, cwd, runnerFn = spawnLintRunner) {
+  const { code, md } = partitionFilesForLint(changedFiles);
+  if (code.length === 0 && md.length === 0) {
+    return {
+      errors: 0,
+      warnings: 0,
+      parsed: false,
+      skipped: true,
+      mode: 'changed-only',
+    };
+  }
+
+  const runs = [];
+  if (code.length > 0) runs.push(runnerFn('biome', ['lint', ...code], cwd));
+  if (md.length > 0) {
+    runs.push(runnerFn('markdownlint', [...md, '--ignore', 'node_modules'], cwd));
+  }
+
+  let status = 0;
+  let stdout = '';
+  let stderr = '';
+  for (const r of runs) {
+    if ((r.status ?? 1) > status) status = r.status ?? 1;
+    stdout += r.stdout ?? '';
+    stderr += r.stderr ?? '';
+  }
+  const summary = parseLintOutput({ status, stdout, stderr });
+  return { ...summary, skipped: false, mode: 'changed-only' };
+}
+
+/**
  * Parse the CLI argv into a normalized review-config object. Pure; exported
  * for testing.
  *
+ * `scopeLint` defaults to `changed-only` — workspace-wide lint enforcement
+ * stays at story-close, pre-push, and CI, so the review pass only needs to
+ * surface findings on the actual diff. `off` skips the lint section entirely
+ * for runs where the operator already knows lint is clean.
+ *
  * @param {string[]} argv
- * @returns {{ epicId: number|null, baseBranch: string|null, post: boolean }}
+ * @returns {{ epicId: number|null, baseBranch: string|null, post: boolean, scopeLint: 'changed-only'|'off' }}
  */
 export function parseReviewArgs(argv) {
   const { values } = parseArgs({
@@ -116,14 +184,18 @@ export function parseReviewArgs(argv) {
       epic: { type: 'string' },
       base: { type: 'string' },
       post: { type: 'boolean', default: true },
+      'scope-lint': { type: 'string', default: 'changed-only' },
     },
     strict: false,
   });
   const parsed = Number.parseInt(values.epic ?? '', 10);
+  const rawScope = values['scope-lint'] ?? 'changed-only';
+  const scopeLint = rawScope === 'off' ? 'off' : 'changed-only';
   return {
     epicId: Number.isNaN(parsed) || parsed <= 0 ? null : parsed,
     baseBranch: values.base ?? null,
     post: values.post !== false,
+    scopeLint,
   };
 }
 
@@ -214,13 +286,19 @@ export function buildSeverity(results, lintSummary) {
 
 /** Pure: render the lint-status one-liner for the report. */
 export function buildLintLine(lintSummary) {
+  if (lintSummary.mode === 'off') {
+    return 'ℹ️ **Lint Skipped**: `--scope-lint=off`. Workspace lint still gates at story-close, pre-push, and CI.';
+  }
+  if (lintSummary.skipped) {
+    return 'ℹ️ **Lint Skipped**: no JS or markdown files in changed surface.';
+  }
   if (lintSummary.errors > 0) {
-    return `❌ **Lint Check Failed**: ${lintSummary.errors} error(s), ${lintSummary.warnings} warning(s). Fix errors before merging.`;
+    return `❌ **Lint Check Failed**: ${lintSummary.errors} error(s), ${lintSummary.warnings} warning(s) on changed files. Fix errors before merging.`;
   }
   if (lintSummary.warnings > 0) {
-    return `🟢 **Lint Check Passed with Warnings**: ${lintSummary.warnings} warning(s) present — treat as suggestions.`;
+    return `🟢 **Lint Check Passed with Warnings**: ${lintSummary.warnings} warning(s) on changed files — treat as suggestions.`;
   }
-  return '✅ **Lint Check Passed**: Workspace is clean.';
+  return '✅ **Lint Check Passed**: changed surface is clean.';
 }
 
 function tierLabel(tier) {
@@ -287,6 +365,7 @@ async function main() {
   const { settings, orchestration } = resolveConfig();
   const baseBranch = args.baseBranch ?? settings.baseBranch ?? 'main';
   const epicBranch = `epic/${args.epicId}`;
+  const scopeLint = args.scopeLint;
 
   progress('INIT', `Starting automated review for Epic #${args.epicId}...`);
   progress('GIT', `Comparing ${epicBranch} against ${baseBranch}...`);
@@ -314,9 +393,23 @@ async function main() {
   progress('REVIEW', `Analyzing ${changedFiles.length} changed files...`);
   const results = analyzeChangedFiles(changedFiles);
 
-  progress('LINT', 'Running focused lint check...');
-  const lintCmd = getCommands({ agentSettings: settings }).validate;
-  const lintSummary = parseLintOutput(runLint(lintCmd, PROJECT_ROOT));
+  let lintSummary;
+  if (scopeLint === 'off') {
+    progress('LINT', 'Lint scoped off (--scope-lint=off); skipping.');
+    lintSummary = {
+      errors: 0,
+      warnings: 0,
+      parsed: false,
+      skipped: true,
+      mode: 'off',
+    };
+  } else {
+    progress(
+      'LINT',
+      'Linting changed files only (biome + markdownlint, scoped to diff)...',
+    );
+    lintSummary = runScopedLint(changedFiles, PROJECT_ROOT);
+  }
 
   progress('REPORT', 'Generating findings report...');
   const severity = buildSeverity(results, lintSummary);
