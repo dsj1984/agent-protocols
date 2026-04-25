@@ -245,7 +245,9 @@ describe('config-resolver library tests', () => {
 
       const config = resolveConfig({ bustCache: true });
       assert.equal(config.settings.maintainability.crap.newMethodCeiling, 30);
-      assert.deepEqual(config.settings.maintainability.crap.targetDirs, ['src']);
+      assert.deepEqual(config.settings.maintainability.crap.targetDirs, [
+        'src',
+      ]);
     });
 
     it('{ append } extends targetDirs and dedupes within user input', () => {
