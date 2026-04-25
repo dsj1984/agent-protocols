@@ -82,22 +82,40 @@
       "startLine": 50
     },
     {
-      "crap": 90,
+      "crap": 4,
+      "file": ".agents/scripts/audit-orchestrator.js",
+      "method": "severityIcon",
+      "startLine": 12
+    },
+    {
+      "crap": 3,
+      "file": ".agents/scripts/audit-orchestrator.js",
+      "method": "renderFindingsBlock",
+      "startLine": 20
+    },
+    {
+      "crap": 3,
+      "file": ".agents/scripts/audit-orchestrator.js",
+      "method": "renderWorkflowsBlock",
+      "startLine": 40
+    },
+    {
+      "crap": 3,
       "file": ".agents/scripts/audit-orchestrator.js",
       "method": "formatAuditReport",
-      "startLine": 11
+      "startLine": 56
     },
     {
       "crap": 5.760065958911678,
       "file": ".agents/scripts/audit-orchestrator.js",
       "method": "runAuditOrchestrator",
-      "startLine": 56
+      "startLine": 72
     },
     {
       "crap": 12,
       "file": ".agents/scripts/audit-orchestrator.js",
       "method": "main",
-      "startLine": 106
+      "startLine": 122
     },
     {
       "crap": 12.047234408954857,
@@ -346,10 +364,52 @@
       "startLine": 117
     },
     {
-      "crap": 174.4339851684893,
+      "crap": 3,
+      "file": ".agents/scripts/delete-epic-branches.js",
+      "method": "parseDeleteArgs",
+      "startLine": 145
+    },
+    {
+      "crap": 3,
+      "file": ".agents/scripts/delete-epic-branches.js",
+      "method": "renderDryRun",
+      "startLine": 164
+    },
+    {
+      "crap": 4,
+      "file": ".agents/scripts/delete-epic-branches.js",
+      "method": "renderDeletionLine",
+      "startLine": 178
+    },
+    {
+      "crap": 2,
+      "file": ".agents/scripts/delete-epic-branches.js",
+      "method": "renderExecutionSummary",
+      "startLine": 188
+    },
+    {
+      "crap": 6,
+      "file": ".agents/scripts/delete-epic-branches.js",
+      "method": "emitJson",
+      "startLine": 195
+    },
+    {
+      "crap": 2,
+      "file": ".agents/scripts/delete-epic-branches.js",
+      "method": "emitDryRunHuman",
+      "startLine": 200
+    },
+    {
+      "crap": 6,
+      "file": ".agents/scripts/delete-epic-branches.js",
+      "method": "emitExecutionHuman",
+      "startLine": 204
+    },
+    {
+      "crap": 25.84266232444535,
       "file": ".agents/scripts/delete-epic-branches.js",
       "method": "main",
-      "startLine": 140
+      "startLine": 217
     },
     {
       "crap": 1,
@@ -466,7 +526,7 @@
       "startLine": 123
     },
     {
-      "crap": 13.452042546890148,
+      "crap": 12.269540208484383,
       "file": ".agents/scripts/epic-runner.js",
       "method": "main",
       "startLine": 129
@@ -475,31 +535,31 @@
       "crap": 1,
       "file": ".agents/scripts/epic-runner.js",
       "method": "<anon method-2>",
-      "startLine": 192
+      "startLine": 198
     },
     {
       "crap": 1,
       "file": ".agents/scripts/epic-runner.js",
       "method": "<anon method-3>",
-      "startLine": 194
+      "startLine": 200
     },
     {
       "crap": 2,
       "file": ".agents/scripts/epic-runner.js",
       "method": "defaultSpawn",
-      "startLine": 214
+      "startLine": 220
     },
     {
       "crap": 6,
       "file": ".agents/scripts/epic-runner.js",
       "method": "defaultRunSkill",
-      "startLine": 316
+      "startLine": 322
     },
     {
       "crap": 6,
       "file": ".agents/scripts/epic-runner.js",
       "method": "attachIdleWatchdog",
-      "startLine": 381
+      "startLine": 387
     },
     {
       "crap": 12,
@@ -556,10 +616,46 @@
       "startLine": 142
     },
     {
-      "crap": 104.34100477924441,
+      "crap": 1,
+      "file": ".agents/scripts/git-rebase-and-resolve.js",
+      "method": "parseRebaseArgs",
+      "startLine": 156
+    },
+    {
+      "crap": 3,
+      "file": ".agents/scripts/git-rebase-and-resolve.js",
+      "method": "isCleanRebaseOutcome",
+      "startLine": 178
+    },
+    {
+      "crap": 2,
+      "file": ".agents/scripts/git-rebase-and-resolve.js",
+      "method": "renderRebaseHumanLines",
+      "startLine": 185
+    },
+    {
+      "crap": 4,
+      "file": ".agents/scripts/git-rebase-and-resolve.js",
+      "method": "selectRebaseAction",
+      "startLine": 198
+    },
+    {
+      "crap": 12,
+      "file": ".agents/scripts/git-rebase-and-resolve.js",
+      "method": "runSelectedAction",
+      "startLine": 211
+    },
+    {
+      "crap": 6,
+      "file": ".agents/scripts/git-rebase-and-resolve.js",
+      "method": "emitRebaseHuman",
+      "startLine": 217
+    },
+    {
+      "crap": 15.237311385459531,
       "file": ".agents/scripts/git-rebase-and-resolve.js",
       "method": "main",
-      "startLine": 151
+      "startLine": 223
     },
     {
       "crap": 1,
@@ -1477,7 +1573,7 @@
       "crap": 6,
       "file": ".agents/scripts/lib/orchestration/concurrency.js",
       "method": "resolveConcurrency",
-      "startLine": 44
+      "startLine": 43
     },
     {
       "crap": 3.0134344023323614,
@@ -1711,25 +1807,25 @@
       "crap": 4,
       "file": ".agents/scripts/lib/orchestration/epic-runner/factory.js",
       "method": "resolveProgressLogFile",
-      "startLine": 34
+      "startLine": 33
     },
     {
-      "crap": 1.0033248770626706,
+      "crap": 1.0034783092634332,
       "file": ".agents/scripts/lib/orchestration/epic-runner/factory.js",
       "method": "createEpicRunnerCollaborators",
-      "startLine": 41
+      "startLine": 40
     },
     {
       "crap": 2,
       "file": ".agents/scripts/lib/orchestration/epic-runner/factory.js",
       "method": "<anon method-1>",
-      "startLine": 46
+      "startLine": 44
     },
     {
       "crap": 1.2962962962962963,
       "file": ".agents/scripts/lib/orchestration/epic-runner/factory.js",
       "method": "<anon method-3>",
-      "startLine": 76
+      "startLine": 74
     },
     {
       "crap": 2.011661807580175,
@@ -1759,25 +1855,25 @@
       "crap": 10.635065792816135,
       "file": ".agents/scripts/lib/orchestration/epic-runner/phases/iterate-waves.js",
       "method": "runIterateWavesPhase",
-      "startLine": 22
+      "startLine": 21
     },
     {
       "crap": 2,
       "file": ".agents/scripts/lib/orchestration/epic-runner/phases/iterate-waves.js",
       "method": "<anon method-1>",
-      "startLine": 35
+      "startLine": 34
     },
     {
       "crap": 1,
       "file": ".agents/scripts/lib/orchestration/epic-runner/phases/iterate-waves.js",
       "method": "<anon method-3>",
-      "startLine": 88
+      "startLine": 87
     },
     {
       "crap": 1.015625,
       "file": ".agents/scripts/lib/orchestration/epic-runner/phases/iterate-waves.js",
       "method": "<anon method-5>",
-      "startLine": 121
+      "startLine": 120
     },
     {
       "crap": 2.116522530723714,
@@ -2290,16 +2386,34 @@
       "startLine": 167
     },
     {
-      "crap": 104.737950983965,
+      "crap": 20,
+      "file": ".agents/scripts/lib/orchestration/sprint-story-close-recovery.js",
+      "method": "dropWorktreeIfPresent",
+      "startLine": 204
+    },
+    {
+      "crap": 12,
+      "file": ".agents/scripts/lib/orchestration/sprint-story-close-recovery.js",
+      "method": "recreateStoryBranchRef",
+      "startLine": 217
+    },
+    {
+      "crap": 20,
+      "file": ".agents/scripts/lib/orchestration/sprint-story-close-recovery.js",
+      "method": "reseedWorktreeIfNeeded",
+      "startLine": 232
+    },
+    {
+      "crap": 5.6365966796875,
       "file": ".agents/scripts/lib/orchestration/sprint-story-close-recovery.js",
       "method": "restartStoryState",
-      "startLine": 209
+      "startLine": 256
     },
     {
       "crap": 8,
       "file": ".agents/scripts/lib/orchestration/sprint-story-close-recovery.js",
       "method": "dispatchRecovery",
-      "startLine": 303
+      "startLine": 326
     },
     {
       "crap": 5,
@@ -2692,16 +2806,40 @@
       "startLine": 103
     },
     {
-      "crap": 106.73939151055443,
+      "crap": 3,
+      "file": ".agents/scripts/lib/story-init/branch-initializer.js",
+      "method": "planStoryBranchSeed",
+      "startLine": 145
+    },
+    {
+      "crap": 12,
+      "file": ".agents/scripts/lib/story-init/branch-initializer.js",
+      "method": "ensureStoryBranchSeed",
+      "startLine": 151
+    },
+    {
+      "crap": 6,
+      "file": ".agents/scripts/lib/story-init/branch-initializer.js",
+      "method": "verifyWorkspaceSafe",
+      "startLine": 173
+    },
+    {
+      "crap": 12,
+      "file": ".agents/scripts/lib/story-init/branch-initializer.js",
+      "method": "reportEnsureWarnings",
+      "startLine": 199
+    },
+    {
+      "crap": 11.470728,
       "file": ".agents/scripts/lib/story-init/branch-initializer.js",
       "method": "bootstrapWorktree",
-      "startLine": 138
+      "startLine": 215
     },
     {
       "crap": 2.2156598079561043,
       "file": ".agents/scripts/lib/story-init/branch-initializer.js",
       "method": "initializeBranch",
-      "startLine": 247
+      "startLine": 283
     },
     {
       "crap": 10.629221665908057,
@@ -3220,10 +3358,34 @@
       "startLine": 35
     },
     {
-      "crap": 134.61282029087184,
+      "crap": 6,
+      "file": ".agents/scripts/lib/worktree/node-modules-strategy.js",
+      "method": "selectInstallCommand",
+      "startLine": 104
+    },
+    {
+      "crap": 3,
+      "file": ".agents/scripts/lib/worktree/node-modules-strategy.js",
+      "method": "installRetryPolicy",
+      "startLine": 121
+    },
+    {
+      "crap": 2,
+      "file": ".agents/scripts/lib/worktree/node-modules-strategy.js",
+      "method": "describeAttemptFailure",
+      "startLine": 131
+    },
+    {
+      "crap": 4,
+      "file": ".agents/scripts/lib/worktree/node-modules-strategy.js",
+      "method": "runInstallWithRetry",
+      "startLine": 142
+    },
+    {
+      "crap": 14.601392471214957,
       "file": ".agents/scripts/lib/worktree/node-modules-strategy.js",
       "method": "installDependencies",
-      "startLine": 102
+      "startLine": 192
     },
     {
       "crap": 1,
@@ -3592,10 +3754,28 @@
       "startLine": 140
     },
     {
-      "crap": 110,
+      "crap": 6,
+      "file": ".agents/scripts/remote-bootstrap.js",
+      "method": "resolveCloneTarget",
+      "startLine": 150
+    },
+    {
+      "crap": 1,
+      "file": ".agents/scripts/remote-bootstrap.js",
+      "method": "buildAuthenticatedCloneUrl",
+      "startLine": 169
+    },
+    {
+      "crap": 1,
+      "file": ".agents/scripts/remote-bootstrap.js",
+      "method": "buildLaunchInvocation",
+      "startLine": 174
+    },
+    {
+      "crap": 30,
       "file": ".agents/scripts/remote-bootstrap.js",
       "method": "main",
-      "startLine": 145
+      "startLine": 183
     },
     {
       "crap": 3,
@@ -3718,10 +3898,52 @@
       "startLine": 91
     },
     {
-      "crap": 342,
+      "crap": 3,
+      "file": ".agents/scripts/sprint-code-review.js",
+      "method": "parseReviewArgs",
+      "startLine": 112
+    },
+    {
+      "crap": 6,
+      "file": ".agents/scripts/sprint-code-review.js",
+      "method": "classifyChangedFile",
+      "startLine": 138
+    },
+    {
+      "crap": 7,
+      "file": ".agents/scripts/sprint-code-review.js",
+      "method": "analyzeChangedFiles",
+      "startLine": 178
+    },
+    {
+      "crap": 3,
+      "file": ".agents/scripts/sprint-code-review.js",
+      "method": "buildSeverity",
+      "startLine": 206
+    },
+    {
+      "crap": 3,
+      "file": ".agents/scripts/sprint-code-review.js",
+      "method": "buildLintLine",
+      "startLine": 216
+    },
+    {
+      "crap": 4,
+      "file": ".agents/scripts/sprint-code-review.js",
+      "method": "tierLabel",
+      "startLine": 226
+    },
+    {
+      "crap": 3,
+      "file": ".agents/scripts/sprint-code-review.js",
+      "method": "buildReviewReport",
+      "startLine": 234
+    },
+    {
+      "crap": 30,
       "file": ".agents/scripts/sprint-code-review.js",
       "method": "main",
-      "startLine": 105
+      "startLine": 281
     },
     {
       "crap": 3,
@@ -3835,49 +4057,49 @@
       "crap": 1,
       "file": ".agents/scripts/sprint-story-close.js",
       "method": "resolveWorktreeRoot",
-      "startLine": 85
+      "startLine": 84
     },
     {
       "crap": 3,
       "file": ".agents/scripts/sprint-story-close.js",
       "method": "drainPendingCleanupAfterClose",
-      "startLine": 90
+      "startLine": 89
     },
     {
       "crap": 13,
       "file": ".agents/scripts/sprint-story-close.js",
       "method": "reconcileCleanupState",
-      "startLine": 120
+      "startLine": 119
     },
     {
       "crap": 3,
       "file": ".agents/scripts/sprint-story-close.js",
       "method": "checkCdOutGuard",
-      "startLine": 196
+      "startLine": 195
     },
     {
       "crap": 3,
       "file": ".agents/scripts/sprint-story-close.js",
       "method": "getCloseDrainStatus",
-      "startLine": 240
+      "startLine": 239
     },
     {
       "crap": 8.125,
       "file": ".agents/scripts/sprint-story-close.js",
       "method": "rebaseStoryOnEpic",
-      "startLine": 266
+      "startLine": 265
     },
     {
-      "crap": 15.230680107713233,
+      "crap": 15.105149206136081,
       "file": ".agents/scripts/sprint-story-close.js",
       "method": "finalizeMerge",
-      "startLine": 309
+      "startLine": 308
     },
     {
       "crap": 2.5,
       "file": ".agents/scripts/sprint-story-close.js",
       "method": "<anon method-2>",
-      "startLine": 357
+      "startLine": 356
     },
     {
       "crap": 1,
@@ -3898,52 +4120,76 @@
       "startLine": 445
     },
     {
-      "crap": 132,
+      "crap": 1,
+      "file": ".agents/scripts/sprint-story-close.js",
+      "method": "buildResumeMergeCommitMsg",
+      "startLine": 459
+    },
+    {
+      "crap": 5,
+      "file": ".agents/scripts/sprint-story-close.js",
+      "method": "describeResumePushFailure",
+      "startLine": 468
+    },
+    {
+      "crap": 30,
+      "file": ".agents/scripts/sprint-story-close.js",
+      "method": "finalizeMergeIfPending",
+      "startLine": 479
+    },
+    {
+      "crap": 12,
+      "file": ".agents/scripts/sprint-story-close.js",
+      "method": "pushEpicAfterResume",
+      "startLine": 511
+    },
+    {
+      "crap": 6,
       "file": ".agents/scripts/sprint-story-close.js",
       "method": "completeInProgressMerge",
-      "startLine": 460
+      "startLine": 542
     },
     {
       "crap": 27.226221533226354,
       "file": ".agents/scripts/sprint-story-close.js",
       "method": "runStoryClose",
-      "startLine": 535
+      "startLine": 585
     },
     {
       "crap": 1,
       "file": ".agents/scripts/sprint-story-close.js",
       "method": "<anon method-5>",
-      "startLine": 589
+      "startLine": 639
     },
     {
       "crap": 2,
       "file": ".agents/scripts/sprint-story-close.js",
       "method": "<anon method-6>",
-      "startLine": 668
+      "startLine": 718
     },
     {
       "crap": 12,
       "file": ".agents/scripts/sprint-story-close.js",
       "method": "<anon method-7>",
-      "startLine": 669
+      "startLine": 719
     },
     {
       "crap": 1,
       "file": ".agents/scripts/sprint-story-close.js",
       "method": "<anon method-8>",
-      "startLine": 758
+      "startLine": 808
     },
     {
       "crap": 1,
       "file": ".agents/scripts/sprint-story-close.js",
       "method": "<anon method-9>",
-      "startLine": 758
+      "startLine": 808
     },
     {
       "crap": 3.0416666666666665,
       "file": ".agents/scripts/sprint-story-close.js",
       "method": "<anon method-10>",
-      "startLine": 873
+      "startLine": 923
     },
     {
       "crap": 1,
@@ -4048,10 +4294,46 @@
       "startLine": 125
     },
     {
-      "crap": 110,
+      "crap": 4,
+      "file": ".agents/scripts/validate-docs-freshness.js",
+      "method": "parseFreshnessArgs",
+      "startLine": 163
+    },
+    {
+      "crap": 2,
+      "file": ".agents/scripts/validate-docs-freshness.js",
+      "method": "renderFreshnessLine",
+      "startLine": 188
+    },
+    {
+      "crap": 1,
+      "file": ".agents/scripts/validate-docs-freshness.js",
+      "method": "renderFreshnessFailureMessage",
+      "startLine": 193
+    },
+    {
+      "crap": 1,
+      "file": ".agents/scripts/validate-docs-freshness.js",
+      "method": "renderFreshnessSuccessMessage",
+      "startLine": 202
+    },
+    {
+      "crap": 6,
+      "file": ".agents/scripts/validate-docs-freshness.js",
+      "method": "reportEmptyDocs",
+      "startLine": 206
+    },
+    {
+      "crap": 20,
+      "file": ".agents/scripts/validate-docs-freshness.js",
+      "method": "reportGateOutcome",
+      "startLine": 219
+    },
+    {
+      "crap": 12,
       "file": ".agents/scripts/validate-docs-freshness.js",
       "method": "main",
-      "startLine": 157
+      "startLine": 234
     }
   ]
 }
