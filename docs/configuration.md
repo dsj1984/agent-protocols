@@ -25,10 +25,8 @@ mirror aligned with the runtime validators.
 ```jsonc
 {
   "$schema": "./.agents/schemas/agentrc.schema.json",
-  "title": "Project Title",
   "agentSettings": { /* paths, commands, quality, limits, ... */ },
-  "orchestration":  { /* provider, github, worktreeIsolation, epicRunner, ... */ },
-  "audits":         { /* selectionGitTimeoutMs */ }
+  "orchestration":  { /* provider, github, worktreeIsolation, epicRunner, ... */ }
 }
 ```
 
@@ -230,7 +228,6 @@ checkout's HEAD.
 | `allowSymlinkOnWindows`          | No              | `false`          | Permit symlink strategy on Windows (requires admin/dev mode). |
 | `reapOnSuccess`                  | No              | `true`           | Reap the worktree after a successful Story close.            |
 | `reapOnCancel`                   | No              | `true`           | Reap the worktree if the Story is cancelled.                 |
-| `warnOnUncommittedOnReap`        | No              | `true`           | Warn (don't fail) when reaping a worktree with dirty state.   |
 | `windowsPathLengthWarnThreshold` | No              | (none)           | Emit a warning when the worktree path exceeds this length.    |
 | `bootstrapFiles`                 | No              | `[]`             | Untracked files (e.g. `.env`) copied into each new worktree. |
 
@@ -273,14 +270,6 @@ checkout's HEAD.
 | ------------------- | -------- | ------- | ------------------------------------------------------- |
 | `staleClaimMinutes` | No       | `60`    | Threshold above which a pool-mode claim is reclaimable.  |
 | `sessionIdLength`   | No       | `12`    | Length of generated session ids.                          |
-
----
-
-## `audits`
-
-| Field                   | Required | Default | Purpose                                                     |
-| ----------------------- | -------- | ------- | ----------------------------------------------------------- |
-| `selectionGitTimeoutMs` | No       | `30000` | Timeout for git operations during audit-selection probing.  |
 
 ---
 

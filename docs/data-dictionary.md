@@ -63,7 +63,6 @@ execution. Absent or `enabled: false` restores v5.5.1 single-tree behavior.
 | `allowSymlinkOnWindows`           | `boolean`         | Explicit opt-in for the symlink strategy on win32. Default `false`.                                            |
 | `reapOnSuccess`                   | `boolean`         | Remove the worktree after a successful story merge. Default `true`.                                            |
 | `reapOnCancel`                    | `boolean`         | Remove the worktree when the story is cancelled. Default `true`.                                               |
-| `warnOnUncommittedOnReap`         | `boolean`         | Refuse to delete a dirty worktree and log a warning. Default `true`.                                           |
 | `windowsPathLengthWarnThreshold`  | `integer ≥ 1`     | Pre-flight path-length warning ceiling on win32. Default `240` (headroom under the 260 MAX_PATH).              |
 
 ### 4a. `WorktreeRecord` (in-memory)
@@ -219,7 +218,6 @@ the contract without re-reading the source.
 | --- | --- | --- |
 | `manifestPersisted` | MCP tool-result field | Boolean on the `dispatch_wave` result, `true` when the dispatch manifest was successfully written to `temp/dispatch-manifest-<epicId>.json` via the atomic tmp+rename sequence. Callers that treat the on-disk manifest as canonical (notably `/sprint-execute`) must branch on this instead of assuming a read-after-write. |
 | `manifestPersistError` | MCP tool-result field | Optional string on the `dispatch_wave` result, present only when `manifestPersisted` is `false`. Carries the original write/rename failure (e.g. `EACCES`, `ENOSPC`). |
-| `audits.selectionGitTimeoutMs` | Config key | Number in `.agentrc.json → audits`; default `30000`. Caps the `git diff --name-only` spawn inside `select_audits` — on timeout the tool logs a warning and falls through to keyword-only matching rather than hanging the MCP call. |
 | `outputSchemaRef` | Tool-registry field | Optional string on each MCP tool descriptor, pointing at the schema file that describes the tool's output (e.g. `dispatch_wave` → `.agents/schemas/dispatch-manifest.json`; `run_audit_suite` → `.agents/schemas/audit-results.schema.json`). Exposed via `tools/list` metadata. `null` is an explicit choice for tools whose output is a minimal inline shape. |
 | `substitutions` | MCP tool-argument field | Optional `Record<string,string>` on `run_audit_suite`. Keys must be declared in the allow-list derived from `audit-rules.schema.json` (e.g. `auditOutputDir`, `ticketId`, `baseBranch`, plus per-audit keys). Unknown keys are rejected with a clear error rather than silently dropped. |
 | Wave-marker regex upper bound | Validation contract | The wave structured-comment marker regex is now `/^wave-([0-9]{1,3})-(start\|end)$/` — up to 999 waves. `wave-1000-start` is rejected; downstream wave-index consumers (`manifest-builder`, `wave-dispatcher`) tolerate rejected indices gracefully. |

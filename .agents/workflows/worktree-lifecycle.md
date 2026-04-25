@@ -32,7 +32,6 @@ All knobs live under `orchestration.worktreeIsolation` in `.agentrc.json`:
       "allowSymlinkOnWindows": false, // explicit opt-in for symlink on win32
       "reapOnSuccess": true, // remove worktree after successful story merge
       "reapOnCancel": true, // remove worktree when story is cancelled
-      "warnOnUncommittedOnReap": true, // refuse-to-delete + warn, never force
       "windowsPathLengthWarnThreshold": 240, // pre-flight warning threshold (MAX_PATH=260)
     },
   },

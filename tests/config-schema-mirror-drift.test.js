@@ -8,7 +8,6 @@ import Ajv2020 from 'ajv/dist/2020.js';
 import addFormats from 'ajv-formats';
 import {
   AGENT_SETTINGS_SCHEMA,
-  AUDITS_SCHEMA,
   ORCHESTRATION_SCHEMA,
 } from '../.agents/scripts/lib/config-schema.js';
 
@@ -46,7 +45,6 @@ addFormats(runtimeAjv);
 const runtimeValidators = {
   agentSettings: runtimeAjv.compile(AGENT_SETTINGS_SCHEMA),
   orchestration: runtimeAjv.compile(ORCHESTRATION_SCHEMA),
-  audits: runtimeAjv.compile(AUDITS_SCHEMA),
 };
 
 const assertAgree = (block, value, label) => {
@@ -257,14 +255,6 @@ describe('agentrc.schema.json mirror — drift vs runtime AJV schemas', () => {
     );
   });
 
-  it('accepts an audits block on both sides', () => {
-    assertAgree('audits', { selectionGitTimeoutMs: 30000 }, 'valid audits');
-  });
-
-  it('rejects audits.selectionGitTimeoutMs below the floor on both sides', () => {
-    assertAgree('audits', { selectionGitTimeoutMs: 500 }, 'audits below floor');
-  });
-
   it('mirror references a draft 2020-12 $schema', () => {
     assert.equal(
       mirror.$schema,
@@ -272,8 +262,8 @@ describe('agentrc.schema.json mirror — drift vs runtime AJV schemas', () => {
     );
   });
 
-  it('mirror exposes agentSettings, orchestration, audits under $defs', () => {
-    for (const def of ['agentSettings', 'orchestration', 'audits']) {
+  it('mirror exposes agentSettings and orchestration under $defs', () => {
+    for (const def of ['agentSettings', 'orchestration']) {
       assert.ok(mirror.$defs[def], `mirror is missing $defs.${def}`);
     }
   });

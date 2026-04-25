@@ -345,11 +345,9 @@ export async function reap(ctx, storyId, opts = {}) {
     if (canForceReap) {
       discardedPaths = collectDirtyPaths(ctx, wtPath);
       if (!discardWorktreeChanges(ctx, wtPath)) {
-        if (ctx.config.warnOnUncommittedOnReap) {
-          ctx.logger.warn(
-            `reap-skipped storyId=${storyId} reason=discard-failed path=${wtPath}`,
-          );
-        }
+        ctx.logger.warn(
+          `reap-skipped storyId=${storyId} reason=discard-failed path=${wtPath}`,
+        );
         return {
           removed: false,
           reason: 'discard-failed',
@@ -361,11 +359,9 @@ export async function reap(ctx, storyId, opts = {}) {
         `worktree.reap discard-after-merge storyId=${storyId} paths=${discardedPaths.length}`,
       );
     } else {
-      if (ctx.config.warnOnUncommittedOnReap) {
-        ctx.logger.warn(
-          `reap-skipped storyId=${storyId} reason=${safety.reason} path=${wtPath}`,
-        );
-      }
+      ctx.logger.warn(
+        `reap-skipped storyId=${storyId} reason=${safety.reason} path=${wtPath}`,
+      );
       return { removed: false, reason: safety.reason, path: wtPath };
     }
   }

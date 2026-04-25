@@ -93,7 +93,6 @@
       "nodeModulesStrategy": "pnpm-store",
       "reapOnSuccess": true,
       "reapOnCancel": true,
-      "warnOnUncommittedOnReap": true,
       "bootstrapFiles": [".env"]
     },
     "epicRunner": {
@@ -108,8 +107,5 @@
       "enabled": true,
       "pollIntervalSec": 30
     }
-  },
-  "audits": {
-    "selectionGitTimeoutMs": 30000
   }
 }

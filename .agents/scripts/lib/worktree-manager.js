@@ -78,7 +78,6 @@ export class WorktreeManager {
     this.config = {
       root: '.worktrees',
       nodeModulesStrategy: 'per-worktree',
-      warnOnUncommittedOnReap: true,
       windowsPathLengthWarnThreshold: 240,
       bootstrapFiles: DEFAULT_WORKSPACE_FILES.slice(),
       ...config,

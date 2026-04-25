@@ -3,10 +3,7 @@ import { readFileSync } from 'node:fs';
 import path from 'node:path';
 import { describe, it } from 'node:test';
 import { fileURLToPath } from 'node:url';
-import {
-  validateAuditsConfig,
-  validateOrchestrationConfig,
-} from '../.agents/scripts/lib/config-resolver.js';
+import { validateOrchestrationConfig } from '../.agents/scripts/lib/config-resolver.js';
 import { getSettingsValidator } from '../.agents/scripts/lib/config-settings-schema.js';
 
 const __dirname = path.dirname(fileURLToPath(import.meta.url));
@@ -49,11 +46,6 @@ describe('shipped configs validate cleanly under the updated schema', () => {
       assert.doesNotThrow(() =>
         validateOrchestrationConfig(raw.orchestration ?? null),
       );
-    });
-
-    it(`${relPath} — audits passes validateAuditsConfig`, () => {
-      const { raw } = loadAndValidate(relPath);
-      assert.doesNotThrow(() => validateAuditsConfig(raw.audits ?? null));
     });
 
     it(`${relPath} — declares the three required path roots explicitly under paths`, () => {

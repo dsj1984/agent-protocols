@@ -743,7 +743,7 @@ Dispatcher integration:
   `IExecutionAdapter.dispatchTask`. The `ManualDispatchAdapter` surfaces the
   path as a `cd "<path>"` instruction for the HITL operator.
 - **Reap on merge**: `sprint-story-close` calls `wm.reap` after a
-  successful merge. The reap refuses dirty trees (`warnOnUncommittedOnReap`).
+  successful merge. The reap refuses dirty trees and logs a warning.
 - **GC on dispatch start**: `dispatch()` sweeps orphaned worktrees whose
   stories have no remaining live tasks. Refuses to delete unmerged branches.
 

@@ -448,7 +448,6 @@ describe('validateOrchestrationConfig — worktreeIsolation', () => {
           allowSymlinkOnWindows: false,
           reapOnSuccess: true,
           reapOnCancel: true,
-          warnOnUncommittedOnReap: true,
           windowsPathLengthWarnThreshold: 240,
         },
       }),

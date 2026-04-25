@@ -7,8 +7,7 @@
   "properties": {
     "$schema": { "type": "string" },
     "agentSettings": { "$ref": "#/$defs/agentSettings" },
-    "orchestration": { "$ref": "#/$defs/orchestration" },
-    "audits": { "$ref": "#/$defs/audits" }
+    "orchestration": { "$ref": "#/$defs/orchestration" }
   },
   "$defs": {
     "safeString": {
@@ -295,7 +294,6 @@
         "allowSymlinkOnWindows": { "type": "boolean" },
         "reapOnSuccess": { "type": "boolean" },
         "reapOnCancel": { "type": "boolean" },
-        "warnOnUncommittedOnReap": { "type": "boolean" },
         "windowsPathLengthWarnThreshold": { "type": "integer", "minimum": 1 },
         "bootstrapFiles": {
           "type": "array",
@@ -402,13 +400,6 @@
           "then": { "required": ["github"] }
         }
       ]
-    },
-    "audits": {
-      "type": "object",
-      "properties": {
-        "selectionGitTimeoutMs": { "type": "integer", "minimum": 1000 }
-      },
-      "additionalProperties": false
     }
   }
 }
