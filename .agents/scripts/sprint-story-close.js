@@ -31,8 +31,13 @@ import fs from 'node:fs';
 import path from 'node:path';
 import { parseSprintArgs } from './lib/cli-args.js';
 import { runAsCli } from './lib/cli-utils.js';
-import { runCloseValidation } from './lib/close-validation.js';
 import {
+  formatMaintainabilityProjection,
+  projectMaintainabilityRegressions,
+  runCloseValidation,
+} from './lib/close-validation.js';
+import {
+  getBaselines,
   PROJECT_ROOT,
   resolveConfig,
   resolveWorkingPath,
@@ -521,7 +526,7 @@ export async function runStoryClose({
 
   let epicId = argEpicId;
 
-  const { orchestration } = resolveConfig({ cwd });
+  const { orchestration, settings } = resolveConfig({ cwd });
   const provider = injectedProvider || createProvider(orchestration);
   const notifyFn = (ticketId, payload) =>
     notify(ticketId, payload, { orchestration, provider });
@@ -618,6 +623,38 @@ export async function runStoryClose({
       Logger.fatal(
         `Pre-merge validation failed at "${gate.name}" (exit ${status}).` +
           (gate.hint ? ` ${gate.hint}` : ''),
+      );
+    }
+
+    // -----------------------------------------------------------------------
+    // Pre-merge MI ceiling projection — advisory signal that lists every
+    // changed file whose post-merge MI score would breach the per-file
+    // baseline. Surfaces the exact files + the `baseline-refresh:` workflow
+    // before the merge so the operator can ship the refresh atomically with
+    // the Story PR rather than as a follow-on after the push.
+    // -----------------------------------------------------------------------
+    try {
+      const baselinePath = getBaselines({ agentSettings: settings })
+        ?.maintainability?.path;
+      if (baselinePath) {
+        const projection = projectMaintainabilityRegressions({
+          cwd,
+          epicBranch,
+          storyBranch,
+          baselinePath,
+        });
+        const advisory = formatMaintainabilityProjection(projection);
+        if (advisory) {
+          for (const line of advisory.split('\n')) Logger.info(line);
+        } else if (projection.skipped) {
+          Logger.info(
+            `[close-validation] Pre-merge MI projection skipped (${projection.skipped}).`,
+          );
+        }
+      }
+    } catch (err) {
+      Logger.warn?.(
+        `[close-validation] Pre-merge MI projection failed: ${err?.message ?? err}`,
       );
     }
   }
