@@ -663,8 +663,7 @@ export const COMMANDS_DEFAULTS = Object.freeze({
  * @returns {{ validate: string, lintBaseline: string, test: string, exploratoryTest: string, typecheck: string|null, build: string|null }}
  */
 export function getCommands(config) {
-  const commands =
-    config?.agentSettings?.commands || config?.commands || {};
+  const commands = config?.agentSettings?.commands || config?.commands || {};
   return {
     validate: commands.validate ?? COMMANDS_DEFAULTS.validate,
     lintBaseline: commands.lintBaseline ?? COMMANDS_DEFAULTS.lintBaseline,
