@@ -77,7 +77,12 @@ test('parseReviewArgs - rejects missing/invalid epic id', () => {
 test('parseReviewArgs - parses epic and base', () => {
   assert.deepStrictEqual(
     parseReviewArgs(['--epic', '42', '--base', 'develop']),
-    { epicId: 42, baseBranch: 'develop', post: true, scopeLint: 'changed-only' },
+    {
+      epicId: 42,
+      baseBranch: 'develop',
+      post: true,
+      scopeLint: 'changed-only',
+    },
   );
 });
 
@@ -107,7 +112,13 @@ test('partitionFilesForLint - splits code, markdown, drops the rest', () => {
     'h.png',
     'README.MD',
   ]);
-  assert.deepStrictEqual(out.code, ['a.js', 'b.mjs', 'c.cjs', 'd.ts', 'e.json']);
+  assert.deepStrictEqual(out.code, [
+    'a.js',
+    'b.mjs',
+    'c.cjs',
+    'd.ts',
+    'e.json',
+  ]);
   assert.deepStrictEqual(out.md, ['f.md', 'README.MD']);
 });
 
@@ -118,7 +129,11 @@ test('runScopedLint - no JS/MD files in surface skips both runners', () => {
     return { status: 0, stdout: '', stderr: '' };
   };
   const out = runScopedLint(['a.css', 'b.png', 'c.yml'], '/cwd', runner);
-  assert.strictEqual(calls, 0, 'runner must not be invoked when surface is empty');
+  assert.strictEqual(
+    calls,
+    0,
+    'runner must not be invoked when surface is empty',
+  );
   assert.deepStrictEqual(out, {
     errors: 0,
     warnings: 0,
@@ -143,7 +158,11 @@ test('runScopedLint - invokes biome only on code files, never on workspace root'
   const invocations = [];
   const runner = (bin, args) => {
     invocations.push({ bin, args });
-    return { status: 0, stdout: 'Found 0 errors.\nFound 0 warnings.\n', stderr: '' };
+    return {
+      status: 0,
+      stdout: 'Found 0 errors.\nFound 0 warnings.\n',
+      stderr: '',
+    };
   };
   runScopedLint(['src/a.js', 'src/b.js'], '/cwd', runner);
   assert.strictEqual(invocations.length, 1);

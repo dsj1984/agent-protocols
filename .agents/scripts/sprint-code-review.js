@@ -150,7 +150,9 @@ export function runScopedLint(changedFiles, cwd, runnerFn = spawnLintRunner) {
   const runs = [];
   if (code.length > 0) runs.push(runnerFn('biome', ['lint', ...code], cwd));
   if (md.length > 0) {
-    runs.push(runnerFn('markdownlint', [...md, '--ignore', 'node_modules'], cwd));
+    runs.push(
+      runnerFn('markdownlint', [...md, '--ignore', 'node_modules'], cwd),
+    );
   }
 
   let status = 0;
