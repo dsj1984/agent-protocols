@@ -13,13 +13,34 @@
  * Extracted from `.agents/scripts/epic-runner.js` so it can be imported by
  * tests (story-419 hardening suite) and by the pre-wave `SpawnSmokeTest`.
  */
+/**
+ * Pure: cmd.exe-quote a single token. Wraps in double-quotes (doubling
+ * embedded `"` per cmd.exe rules) when the token contains shell-meaningful
+ * characters; otherwise returns it unchanged. Exported so it gets coverage
+ * on every platform — the previously-inline arrow function only ran on
+ * Windows, which made the CRAP baseline platform-skewed.
+ */
+export function cmdQuote(token) {
+  return /[\s"&|<>^]/.test(token) ? `"${token.replace(/"/g, '""')}"` : token;
+}
+
+/**
+ * Pure: build the cmd.exe-quoted command line `buildClaudeSpawn` hands to
+ * `child_process.spawn` under Windows. Exported alongside `cmdQuote` so the
+ * Windows assembly path is testable on Linux too.
+ */
+export function buildWindowsCmdline(bin, argv) {
+  return [bin, ...argv].map(cmdQuote).join(' ');
+}
+
 export function buildClaudeSpawn(argv, options) {
   const bin = process.env.CLAUDE_BIN ?? 'claude';
   if (process.platform === 'win32') {
-    const quote = (a) =>
-      /[\s"&|<>^]/.test(a) ? `"${a.replace(/"/g, '""')}"` : a;
-    const cmdline = [bin, ...argv].map(quote).join(' ');
-    return { file: cmdline, args: [], options: { ...options, shell: true } };
+    return {
+      file: buildWindowsCmdline(bin, argv),
+      args: [],
+      options: { ...options, shell: true },
+    };
   }
   return { file: bin, args: argv, options: { ...options, shell: false } };
 }

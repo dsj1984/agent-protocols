@@ -1768,16 +1768,22 @@
       "startLine": 54
     },
     {
-      "crap": 2.004,
-      "file": ".agents/scripts/lib/orchestration/epic-runner/build-claude-spawn.js",
-      "method": "buildClaudeSpawn",
-      "startLine": 16
-    },
-    {
       "crap": 2,
       "file": ".agents/scripts/lib/orchestration/epic-runner/build-claude-spawn.js",
-      "method": "<anon method-1>",
-      "startLine": 19
+      "method": "cmdQuote",
+      "startLine": 23
+    },
+    {
+      "crap": 1,
+      "file": ".agents/scripts/lib/orchestration/epic-runner/build-claude-spawn.js",
+      "method": "buildWindowsCmdline",
+      "startLine": 32
+    },
+    {
+      "crap": 2.0030052592036065,
+      "file": ".agents/scripts/lib/orchestration/epic-runner/build-claude-spawn.js",
+      "method": "buildClaudeSpawn",
+      "startLine": 36
     },
     {
       "crap": 10,
@@ -2401,19 +2407,19 @@
       "crap": 20,
       "file": ".agents/scripts/lib/orchestration/sprint-story-close-recovery.js",
       "method": "reseedWorktreeIfNeeded",
-      "startLine": 232
+      "startLine": 227
     },
     {
       "crap": 5.6365966796875,
       "file": ".agents/scripts/lib/orchestration/sprint-story-close-recovery.js",
       "method": "restartStoryState",
-      "startLine": 256
+      "startLine": 251
     },
     {
       "crap": 8,
       "file": ".agents/scripts/lib/orchestration/sprint-story-close-recovery.js",
       "method": "dispatchRecovery",
-      "startLine": 326
+      "startLine": 321
     },
     {
       "crap": 5,
@@ -2821,25 +2827,25 @@
       "crap": 6,
       "file": ".agents/scripts/lib/story-init/branch-initializer.js",
       "method": "verifyWorkspaceSafe",
-      "startLine": 173
+      "startLine": 168
     },
     {
       "crap": 12,
       "file": ".agents/scripts/lib/story-init/branch-initializer.js",
       "method": "reportEnsureWarnings",
-      "startLine": 199
+      "startLine": 194
     },
     {
       "crap": 11.470728,
       "file": ".agents/scripts/lib/story-init/branch-initializer.js",
       "method": "bootstrapWorktree",
-      "startLine": 215
+      "startLine": 210
     },
     {
       "crap": 2.2156598079561043,
       "file": ".agents/scripts/lib/story-init/branch-initializer.js",
       "method": "initializeBranch",
-      "startLine": 283
+      "startLine": 278
     },
     {
       "crap": 10.629221665908057,
