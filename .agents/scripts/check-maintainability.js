@@ -25,7 +25,6 @@ import { createProvider } from './lib/provider-factory.js';
  * decomposition, so per-violation guidance is intentionally absent.
  */
 
-const TARGET_DIRS = ['.agents/scripts', 'tests'];
 const TOLERANCE = 0.001; // Allow for tiny floating point variances
 
 /**
@@ -236,8 +235,10 @@ async function main() {
     process.exit(0);
   }
 
+  const { settings } = resolveConfig();
+  const targetDirs = settings.maintainability?.targetDirs ?? [];
   const files = [];
-  TARGET_DIRS.forEach((dir) => {
+  targetDirs.forEach((dir) => {
     scanDirectory(dir, files);
   });
 

@@ -53,7 +53,7 @@ const LOADED_CONFIG_DEFAULTS = Object.freeze({
     'decisions.md',
     'patterns.md',
   ],
-  maintainability: { targetDirs: ['.agents/scripts', 'tests'] },
+  maintainability: { targetDirs: [] },
   auditOutputDir: 'temp',
   maxTickets: 40,
   executionTimeoutMs: 300000,
@@ -78,7 +78,7 @@ const ZERO_CONFIG_DEFAULTS = Object.freeze({
     'decisions.md',
     'patterns.md',
   ],
-  maintainability: { targetDirs: ['.agents/scripts', 'tests'] },
+  maintainability: { targetDirs: [] },
   tempRoot: 'temp',
   baseBranch: 'main',
   maxTickets: 40,
@@ -93,7 +93,7 @@ const ZERO_CONFIG_DEFAULTS = Object.freeze({
  * for tests and for consumers that want to introspect the canonical shape. */
 export const MAINTAINABILITY_CRAP_DEFAULTS = Object.freeze({
   enabled: true,
-  targetDirs: Object.freeze(['.agents/scripts']),
+  targetDirs: Object.freeze([]),
   newMethodCeiling: 30,
   coveragePath: 'coverage/coverage-final.json',
   tolerance: 0.001,

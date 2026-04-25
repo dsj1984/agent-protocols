@@ -225,7 +225,7 @@ describe('config-resolver library tests', () => {
       const config = resolveConfig({ bustCache: true });
       assert.deepEqual(config.settings.maintainability.crap, {
         enabled: true,
-        targetDirs: ['.agents/scripts'],
+        targetDirs: [],
         newMethodCeiling: 30,
         coveragePath: 'coverage/coverage-final.json',
         tolerance: 0.001,
@@ -245,12 +245,10 @@ describe('config-resolver library tests', () => {
 
       const config = resolveConfig({ bustCache: true });
       assert.equal(config.settings.maintainability.crap.newMethodCeiling, 30);
-      assert.deepEqual(config.settings.maintainability.crap.targetDirs, [
-        '.agents/scripts',
-      ]);
+      assert.deepEqual(config.settings.maintainability.crap.targetDirs, []);
     });
 
-    it('{ append } extends targetDirs without duplicating framework entries', () => {
+    it('{ append } extends targetDirs and dedupes within user input', () => {
       const agentrcPath = path.join(PROJECT_ROOT, '.agentrc.json');
       vol.mkdirSync(PROJECT_ROOT, { recursive: true });
       vol.writeFileSync(
@@ -260,10 +258,9 @@ describe('config-resolver library tests', () => {
             maintainability: {
               crap: {
                 targetDirs: {
-                  // Intentionally include a framework default entry to prove
-                  // dedupe: a consumer copy-pasting from docs must not cause
-                  // ".agents/scripts" to appear twice.
-                  append: ['packages/foo/src', '.agents/scripts'],
+                  // Intentionally include a duplicate to prove dedupe within
+                  // the user-supplied list.
+                  append: ['packages/foo/src', 'packages/foo/src'],
                 },
               },
             },
@@ -273,12 +270,11 @@ describe('config-resolver library tests', () => {
 
       const config = resolveConfig({ bustCache: true });
       assert.deepEqual(config.settings.maintainability.crap.targetDirs, [
-        '.agents/scripts',
         'packages/foo/src',
       ]);
     });
 
-    it('{ prepend } places entries before framework defaults', () => {
+    it('{ prepend } places entries before append, with empty defaults', () => {
       const agentrcPath = path.join(PROJECT_ROOT, '.agentrc.json');
       vol.mkdirSync(PROJECT_ROOT, { recursive: true });
       vol.writeFileSync(
@@ -286,7 +282,12 @@ describe('config-resolver library tests', () => {
         JSON.stringify({
           agentSettings: {
             maintainability: {
-              crap: { targetDirs: { prepend: ['apps/web/src'] } },
+              crap: {
+                targetDirs: {
+                  prepend: ['apps/web/src'],
+                  append: ['packages/lib/src'],
+                },
+              },
             },
           },
         }),
@@ -295,7 +296,7 @@ describe('config-resolver library tests', () => {
       const config = resolveConfig({ bustCache: true });
       assert.deepEqual(config.settings.maintainability.crap.targetDirs, [
         'apps/web/src',
-        '.agents/scripts',
+        'packages/lib/src',
       ]);
     });
 
@@ -335,7 +336,7 @@ describe('config-resolver library tests', () => {
       assert.equal(crap.enabled, true);
       assert.equal(crap.tolerance, 0.001);
       assert.equal(crap.coveragePath, 'coverage/coverage-final.json');
-      assert.deepEqual(crap.targetDirs, ['.agents/scripts']);
+      assert.deepEqual(crap.targetDirs, []);
       assert.deepEqual(crap.friction, {
         markerKey: 'crap-baseline-regression',
       });
@@ -380,8 +381,6 @@ describe('config-resolver library tests', () => {
 
       const config = resolveConfig({ bustCache: true });
       assert.deepEqual(config.settings.maintainability.targetDirs, [
-        '.agents/scripts',
-        'tests',
         'packages/foo',
       ]);
     });
@@ -467,12 +466,12 @@ describe('config-resolver library tests', () => {
         'targetDirs is a copy, not the frozen default array',
       );
       a.targetDirs.push('mutate');
-      assert.deepEqual(b.targetDirs, ['.agents/scripts']);
+      assert.deepEqual(b.targetDirs, []);
     });
 
     it('resolveMaintainability: userBlock null → both targetDirs + crap defaults', () => {
       const out = resolveMaintainability(undefined);
-      assert.deepEqual(out.targetDirs, ['.agents/scripts', 'tests']);
+      assert.deepEqual(out.targetDirs, []);
       assert.equal(out.crap.newMethodCeiling, 30);
     });
   });

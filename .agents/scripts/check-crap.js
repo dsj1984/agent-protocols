@@ -529,10 +529,7 @@ async function main() {
     return compat.exitCode;
   }
 
-  const targetDirs =
-    Array.isArray(crap.targetDirs) && crap.targetDirs.length
-      ? crap.targetDirs
-      : ['.agents/scripts'];
+  const targetDirs = Array.isArray(crap.targetDirs) ? crap.targetDirs : [];
   const requireCoverage = crap.requireCoverage !== false;
   const coveragePath =
     args.coveragePath ?? crap.coveragePath ?? 'coverage/coverage-final.json';
