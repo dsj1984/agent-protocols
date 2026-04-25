@@ -170,6 +170,50 @@ export function reconcileCleanupState({
 }
 
 /**
+ * Pre-flight check that refuses to close while the operator's shell is still
+ * cd'd into the per-story worktree being reaped. On Windows this surfaces as
+ * `EBUSY: resource busy or locked, rmdir` during reap; cross-platform it
+ * makes `--cwd` semantics impossible to honour because git operations target
+ * the main repo while the filesystem mutation targets the worktree the
+ * caller is sitting inside.
+ *
+ * Fires only when `--cwd` is set explicitly. Single-tree closures resolve
+ * `workCwd` to the main repo, so the equality check is a tautology there
+ * and we don't reject those.
+ *
+ * Pure: takes inputs, returns a verdict. Exported so the rejection path is
+ * unit-testable without spawning the script.
+ *
+ * @param {object} opts
+ * @param {boolean} opts.cwdExplicit       True when `--cwd` (or AGENT_WORKTREE_ROOT) was set.
+ * @param {string} opts.mainCwd            Resolved main repo path.
+ * @param {number|string} opts.storyId
+ * @param {string} [opts.worktreeRoot]     `orchestration.worktreeIsolation.root` (defaults to `.worktrees`).
+ * @param {string} [opts.currentCwd]       Defaults to `process.cwd()`.
+ * @returns {{ ok: true } | { ok: false, message: string }}
+ */
+export function checkCdOutGuard({
+  cwdExplicit,
+  mainCwd,
+  storyId,
+  worktreeRoot = '.worktrees',
+  currentCwd = process.cwd(),
+}) {
+  if (!cwdExplicit) return { ok: true };
+  const workCwd = path.resolve(mainCwd, worktreeRoot, `story-${storyId}`);
+  const cwd = path.resolve(currentCwd);
+  if (cwd !== workCwd) return { ok: true };
+  return {
+    ok: false,
+    message:
+      `Refusing to close while CWD is the worktree being reaped.\n` +
+      `   Current cwd:  ${cwd}\n` +
+      `   Main repo:    ${mainCwd}\n` +
+      `   Run instead:  cd "${mainCwd}" && node .agents/scripts/sprint-story-close.js --story ${storyId}`,
+  };
+}
+
+/**
  * Resolve the deferred-to-sweep close-drain status when the current Story's
  * pending-cleanup entry was *not* drained on this close. Three outcomes:
  *
@@ -527,6 +571,19 @@ export async function runStoryClose({
   let epicId = argEpicId;
 
   const { orchestration, settings } = resolveConfig({ cwd });
+
+  // Pre-flight cd-out guard — runs after argument parsing and config load
+  // but before any git/filesystem mutation. Converts the recurring Windows
+  // EBUSY-on-reap friction (5 events in #730) into a zero-friction abort
+  // with an exact remediation command.
+  const guard = checkCdOutGuard({
+    cwdExplicit: parsed.cwd != null,
+    mainCwd: cwd,
+    storyId,
+    worktreeRoot: orchestration?.worktreeIsolation?.root,
+  });
+  if (!guard.ok) Logger.fatal(guard.message);
+
   const provider = injectedProvider || createProvider(orchestration);
   const notifyFn = (ticketId, payload) =>
     notify(ticketId, payload, { orchestration, provider });

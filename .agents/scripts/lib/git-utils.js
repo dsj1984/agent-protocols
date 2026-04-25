@@ -44,6 +44,25 @@ let _execFileSync = execFileSync;
 let _spawnSync = spawnSync;
 
 /**
+ * Build a child-process env that drops every `GIT_*` variable inherited from
+ * the parent. When this module's helpers run inside a git hook (e.g. husky
+ * pre-push) the parent git invocation exports GIT_DIR / GIT_WORK_TREE /
+ * GIT_INDEX_FILE / GIT_PREFIX / GIT_COMMON_DIR / etc. Those env vars
+ * override the explicit `cwd` we pass, so a `gitSync(tmpdir, 'init')` ends
+ * up operating on the parent worktree's `.git` rather than `tmpdir`. Tests
+ * that spin up real git fixtures break reproducibly under that shape.
+ *
+ * Stripping every `GIT_*` is broader than strictly necessary but cheap and
+ * impossible to drift out of sync with future git releases. Author/committer
+ * identity is restored via per-call `env:` overrides where required.
+ */
+function cleanGitEnv() {
+  return Object.fromEntries(
+    Object.entries(process.env).filter(([k]) => !k.startsWith('GIT_')),
+  );
+}
+
+/**
  * Override git runners. Testing-only seam — not part of the stable API.
  *
  * Production code must not call this. The double-underscore prefix is the
@@ -75,6 +94,7 @@ export function gitSync(cwd, ...args) {
     encoding: 'utf8',
     stdio: ['pipe', 'pipe', 'pipe'],
     shell: false,
+    env: cleanGitEnv(),
   }).trim();
 }
 
@@ -92,6 +112,7 @@ export function gitSpawn(cwd, ...args) {
     stdio: 'pipe',
     encoding: 'utf-8',
     shell: false,
+    env: cleanGitEnv(),
   });
   return {
     status: result.status ?? 1,
@@ -127,6 +148,7 @@ export function createGitInterface(deps = {}) {
       encoding: 'utf8',
       stdio: ['pipe', 'pipe', 'pipe'],
       shell: false,
+      env: cleanGitEnv(),
     }).trim();
 
   const gitSpawn = (cwd, ...args) => {
@@ -135,6 +157,7 @@ export function createGitInterface(deps = {}) {
       stdio: 'pipe',
       encoding: 'utf-8',
       shell: false,
+      env: cleanGitEnv(),
     });
     return {
       status: result.status ?? 1,

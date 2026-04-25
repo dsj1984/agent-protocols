@@ -261,8 +261,18 @@ describe('pushEpicWithRetry — fetch failure mid-retry', () => {
 //       `git push`.
 // ---------------------------------------------------------------------------
 
+// Strip every GIT_* env var so the fixture's tmpdir cwd wins. When this
+// test runs inside a git hook (e.g. husky pre-push) the parent git
+// invocation exports a constellation of GIT_DIR / GIT_WORK_TREE /
+// GIT_INDEX_FILE / GIT_PREFIX / GIT_COMMON_DIR / etc. that override
+// execFileSync's `cwd`, making every fixture-internal `git add` /
+// `git commit` operate on the parent repo instead of the tmpdir.
+const CLEAN_ENV = Object.fromEntries(
+  Object.entries(process.env).filter(([k]) => !k.startsWith('GIT_')),
+);
+
 const GIT_ENV = {
-  ...process.env,
+  ...CLEAN_ENV,
   GIT_AUTHOR_NAME: 'Test',
   GIT_AUTHOR_EMAIL: 'test@example.com',
   GIT_COMMITTER_NAME: 'Test',
