@@ -152,12 +152,30 @@ export class WorktreeManager {
   }
 
   /**
+   * True when this manager was constructed with `config.enabled === false`.
+   * The mutating lifecycle methods (`ensure`, `reap`, `gc`, `sweepStaleLocks`)
+   * short-circuit to no-op shapes in that case so the off-branch never
+   * touches fs or git regardless of caller-side gating drift.
+   */
+  _isDisabled() {
+    return this.config?.enabled === false;
+  }
+
+  /**
    * Idempotently ensure a worktree exists at `.worktrees/story-<id>/` on `branch`.
    *
    * @param {number|string} storyId
    * @param {string} branch
    */
   ensure(storyId, branch) {
+    if (this._isDisabled()) {
+      return {
+        path: null,
+        created: false,
+        skipped: true,
+        reason: 'isolation-disabled',
+      };
+    }
     return ensure(this._ctx(), storyId, branch);
   }
 
@@ -178,16 +196,30 @@ export class WorktreeManager {
 
   /** Remove the worktree for a given storyId. Never uses `--force`. */
   reap(storyId, opts) {
+    if (this._isDisabled()) {
+      return {
+        removed: false,
+        skipped: true,
+        reason: 'isolation-disabled',
+        path: null,
+      };
+    }
     return reap(this._ctx(), storyId, opts);
   }
 
   /** Sweep abandoned worktrees not in `openStoryIds`. */
   gc(openStoryIds, opts) {
+    if (this._isDisabled()) {
+      return { reaped: [], skipped: [], skippedReason: 'isolation-disabled' };
+    }
     return gc(this._ctx(), openStoryIds, opts);
   }
 
   /** Sweep stale `*.lock` files under the shared `.git/` dir. */
   sweepStaleLocks(opts) {
+    if (this._isDisabled()) {
+      return { removed: [], skipped: [], skippedReason: 'isolation-disabled' };
+    }
     return sweepStaleLocks(this._ctx(), opts);
   }
 

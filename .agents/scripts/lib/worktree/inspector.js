@@ -120,6 +120,11 @@ export function isInsideWorktree(candidate, wtPath, platform) {
  */
 export function maybeWarnWindowsPath(ctx, wtPath) {
   if (ctx.platform !== 'win32') return null;
+  // Defense-in-depth: callers on the worktree-off branch never compute a
+  // worktree path, so this should never be invoked with a falsy `wtPath`.
+  // Guard anyway so a future refactor that drops the gating can't trigger
+  // an `undefined.length` crash here.
+  if (typeof wtPath !== 'string' || wtPath.length === 0) return null;
   const threshold = ctx.threshold ?? 240;
   // Approximate the deepest path an agent is likely to touch: worktree
   // root + a conservative project-depth allowance. 80 chars covers the

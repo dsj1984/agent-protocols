@@ -32,7 +32,11 @@ import path from 'node:path';
 import { parseSprintArgs } from './lib/cli-args.js';
 import { runAsCli } from './lib/cli-utils.js';
 import { runCloseValidation } from './lib/close-validation.js';
-import { PROJECT_ROOT, resolveConfig } from './lib/config-resolver.js';
+import {
+  PROJECT_ROOT,
+  resolveConfig,
+  resolveWorkingPath,
+} from './lib/config-resolver.js';
 import {
   acquireEpicMergeLock,
   releaseEpicMergeLock,
@@ -192,8 +196,12 @@ function rebaseStoryOnEpic({
   if (!wtConfig?.enabled) {
     return { rebased: false, reason: 'isolation-disabled' };
   }
-  const wtRoot = wtConfig.root ?? '.worktrees';
-  const wtPath = path.join(repoRoot, wtRoot, `story-${storyId}`);
+  const wtPath = resolveWorkingPath({
+    worktreeEnabled: true,
+    repoRoot,
+    storyId,
+    worktreeRoot: wtConfig.root,
+  });
   if (!fs.existsSync(wtPath)) {
     return { rebased: false, reason: 'worktree-missing' };
   }
