@@ -363,7 +363,7 @@
   "tests/run-audit-suite-cli.test.js": 110.251,
   "tests/select-audits-cli.test.js": 108.726,
   "tests/shipped-configs-validate.test.js": 106.093,
-  "tests/sprint-611-gate-integration.test.js": 95.408,
+  "tests/sprint-611-gate-integration.test.js": 95.241,
   "tests/sprint-close-epic-413-phase4-replay.test.js": 89.743,
   "tests/sprint-code-review.test.js": 110.309,
   "tests/sprint-execute-router.test.js": 115.362,
