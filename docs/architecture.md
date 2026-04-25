@@ -809,11 +809,14 @@ They differ only in:
 - **Schema validation**: `orchestration` config is validated against an embedded
   JSON Schema via `ajv`.
 
-### HITL Risk Gates
+### HITL pause point
 
-Tasks labeled `risk::high` are held at dispatch for explicit human approval.
-Risk heuristics are defined in `.agentrc.json` under `riskGates.heuristics` and
-cover destructive mutations, infrastructure changes, and global refactors.
+The sole runtime pause is `agent::blocked` on the Epic. `risk::high` is
+informational/planning metadata only — it ranks work in the dispatch table and
+helps reviewers prioritize, but does not pause execution. The retired
+`risk-gate-handler.js` is preserved in `decisions.md` for context.
+`riskGates.heuristics` in `.agentrc.json` continues to drive the ranking
+heuristics.
 
 ### Anti-Thrashing Protocol
 

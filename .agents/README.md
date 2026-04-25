@@ -88,6 +88,37 @@ The framework uses three commands for quality checks:
 Override protocol behavior per-machine with `.agents/instructions.local.md`
 (rules) or `.agentrc.local.json` (config). These are automatically gitignored.
 
+### Root dogfood vs distributed template
+
+Two `.agentrc`-shaped files live in this repository and are easy to confuse.
+They serve different audiences and legitimately disagree on a small number of
+keys.
+
+| File                             | Audience                              | Role                                                                                                                                |
+| -------------------------------- | ------------------------------------- | ----------------------------------------------------------------------------------------------------------------------------------- |
+| `.agentrc.json` (repo root)      | The framework dogfooding itself       | Live config used when running `/sprint-*` workflows against this repo. Exercises the framework end-to-end on its own source tree. |
+| `.agents/default-agentrc.json`   | Downstream consumer repos             | The template a consumer copies via `cp .agents/default-agentrc.json .agentrc.json` when bootstrapping. Sane defaults for any repo. |
+
+The two files share a schema and the vast majority of keys are identical.
+Where they diverge, the divergence is intentional:
+
+- **`maintainability.targetDirs` / `maintainability.crap.targetDirs`.** Root
+  dogfood scans `.agents/scripts` (the framework's own source tree); the
+  distributed template scans `src` (the conventional consumer source root).
+  The resolver's code-level fallback also defaults to `src` so a consumer with
+  no override matches the template they copied from.
+- **Repo-specific orchestration values.** `orchestration.github.owner`,
+  `orchestration.github.repo`, and any project-board pointers are populated in
+  the root config and left as placeholders in the template.
+- **Optional dogfood-only keys.** Keys the framework exercises against itself
+  (e.g. orchestration tuning the dogfood Epic uses) may be present in the
+  root config and absent from the template; `agents-sync-config` is
+  schema-driven so legitimate overrides are preserved across syncs.
+
+When in doubt: edit `.agents/default-agentrc.json` for changes that should
+ship to consumers, and edit `.agentrc.json` for changes that only affect this
+repo's own dogfood runs.
+
 ---
 
 ## Activation
@@ -152,7 +183,7 @@ node .agents/scripts/agents-bootstrap-github.js --install-workflows
 | Type        | `type::epic`, `type::feature`, `type::story`, `type::task`         | Issue hierarchy classification   |
 | Agent State | `agent::ready`, `agent::executing`, `agent::review`, `agent::done` | Tracks agent execution lifecycle |
 | Status      | `status::blocked`                                                  | Signals blocked work items       |
-| Risk        | `risk::high`, `risk::medium`                                       | HITL gate triggers               |
+| Risk        | `risk::high`, `risk::medium`                                       | Informational metadata; planning/ranking only — no runtime pause |
 | Persona     | `persona::<name>` — one per file in [.agents/personas/](personas/) | Agent role assignment            |
 | Context     | `context::prd`, `context::tech-spec`                               | Planning document classification |
 | Execution   | `execution::sequential`, `execution::concurrent`                   | Dispatch strategy hints          |
