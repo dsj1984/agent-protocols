@@ -7,9 +7,8 @@
  *   - `epic-lifecycle-detector.js`  — epic-completion + bookend fire
  *   - `dispatch-pipeline.js`        — internal resolve/fetch/reconcile/graph/scaffold/GC helpers
  *
- * Consumers (dispatcher.js, mcp-orchestration.js, tests) import the same
- * public symbols from this path as before — the split is an internal code
- * re-organisation only.
+ * Consumers (dispatcher.js, tests) import the same public symbols from this
+ * path as before — the split is an internal code re-organisation only.
  */
 
 import { execFileSync } from 'node:child_process';

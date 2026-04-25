@@ -1,12 +1,7 @@
 import assert from 'node:assert/strict';
 import test from 'node:test';
 import { ValidationError } from '../.agents/scripts/lib/errors/index.js';
-import { runAuditSuite as legacyRunAuditSuite } from '../.agents/scripts/mcp/run-audit-suite.js';
 import { runAuditSuite } from '../.agents/scripts/run-audit-suite.js';
-
-test('runAuditSuite: post-relocation export and legacy mcp/ shim are the same function', () => {
-  assert.equal(runAuditSuite, legacyRunAuditSuite);
-});
 
 function makeMockRules() {
   return {

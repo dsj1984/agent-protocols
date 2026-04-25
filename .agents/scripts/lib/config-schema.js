@@ -185,10 +185,10 @@ const CONCURRENCY_SCHEMA = {
 };
 
 /**
- * Top-level `audits` block. Controls behavior of MCP audit helpers
- * (`select_audits`, `run_audit_suite`).
+ * Top-level `audits` block. Controls behavior of the audit CLI helpers
+ * (`select-audits.js`, `run-audit-suite.js`).
  *
- * @see .agents/scripts/mcp/select-audits.js
+ * @see .agents/scripts/select-audits.js
  */
 export const AUDITS_SCHEMA = {
   type: 'object',

@@ -7,10 +7,9 @@
  *     orchestrator flow.
  *   - When no webhook URL resolves, `fire()` is a no-op that resolves
  *     immediately with `{ delivered: false, reason: 'no-url' }`.
- *   - URL resolution follows the shared `resolveWebhookUrl` contract:
- *     env `NOTIFICATION_WEBHOOK_URL` → `.mcp.json` agent-protocols server env.
- *     Callers may pass an explicit `webhookUrl` to bypass resolution (used by
- *     tests).
+ *   - URL resolution follows the shared `resolveWebhookUrl` contract: read
+ *     from `process.env.NOTIFICATION_WEBHOOK_URL` only. Callers may pass an
+ *     explicit `webhookUrl` to bypass resolution (used by tests).
  */
 
 import { createHmac } from 'node:crypto';
@@ -25,17 +24,14 @@ export class NotificationHook {
    *   fetchImpl?: typeof fetch,
    *   logger?: { warn: Function, error: Function },
    *   timeoutMs?: number,
-   *   cwd?: string,
    * }} opts
    */
   constructor(opts = {}) {
     const ctx = opts.ctx;
-    // `webhookUrl === undefined` → resolve from env/.mcp.json.
+    // `webhookUrl === undefined` → resolve from process.env.
     // `webhookUrl === null | string` → caller was explicit; don't resolve.
     this.webhookUrl =
-      opts.webhookUrl === undefined
-        ? resolveWebhookUrl({ cwd: opts.cwd ?? ctx?.cwd })
-        : opts.webhookUrl;
+      opts.webhookUrl === undefined ? resolveWebhookUrl() : opts.webhookUrl;
     this.secret = opts.secret ?? null;
     this.fetchImpl = opts.fetchImpl ?? ctx?.fetchImpl ?? globalThis.fetch;
     this.logger = opts.logger ?? ctx?.logger ?? console;
