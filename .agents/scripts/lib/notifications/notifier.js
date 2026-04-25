@@ -11,11 +11,12 @@
  *                        operators have a linear feed of lifecycle events
  *                        on a single issue.
  *   3. **webhook**     — fire-and-forget POST to the configured URL
- *                        (Make.com / Slack / Discord / etc). Resolution
- *                        priority: env `NOTIFICATION_WEBHOOK_URL` →
- *                        `.mcp.json` at the path
- *                        `.mcpServers["agent-protocols"].env.NOTIFICATION_WEBHOOK_URL`.
- *                        The webhook URL is never read from `.agentrc.json`.
+ *                        (Make.com / Slack / Discord / etc). The URL is read
+ *                        from `process.env.NOTIFICATION_WEBHOOK_URL` only —
+ *                        sourced from `.env` locally or from the host's
+ *                        environment-variables surface in CI / Claude Code
+ *                        web. The webhook URL is never read from
+ *                        `.agentrc.json`.
  *
  * Level filter (from `orchestration.notifications.level`):
  *
@@ -26,30 +27,12 @@
  *   verbose  — all events (default)
  */
 
-import { existsSync, readFileSync } from 'node:fs';
-import { resolve } from 'node:path';
 import { AGENT_LABELS } from '../label-constants.js';
 
 const DEFAULT_LEVEL = 'verbose';
 
-export function resolveWebhookUrl({ cwd } = {}) {
-  // 1. Process env (from .env, CI secret, or MCP server env bridged at runtime)
-  if (process.env.NOTIFICATION_WEBHOOK_URL?.trim()) {
-    return process.env.NOTIFICATION_WEBHOOK_URL.trim();
-  }
-  // 2. .mcp.json agent-protocols MCP server env — canonical config source
-  const mcpPath = resolve(cwd ?? process.cwd(), '.mcp.json');
-  if (existsSync(mcpPath)) {
-    try {
-      const mcp = JSON.parse(readFileSync(mcpPath, 'utf8'));
-      const url =
-        mcp?.mcpServers?.['agent-protocols']?.env?.NOTIFICATION_WEBHOOK_URL;
-      if (typeof url === 'string' && url.trim()) return url.trim();
-    } catch {
-      // malformed .mcp.json — skip
-    }
-  }
-  return null;
+export function resolveWebhookUrl() {
+  return process.env.NOTIFICATION_WEBHOOK_URL?.trim() || null;
 }
 
 export class Notifier {
@@ -59,10 +42,9 @@ export class Notifier {
    *   provider?: { postComment: Function, getTicket: Function },
    *   fetchImpl?: typeof fetch,
    *   logger?: { info: Function, warn: Function, error: Function },
-   *   cwd?: string,
    * }} opts
    */
-  constructor({ config, provider, fetchImpl, logger, cwd } = {}) {
+  constructor({ config, provider, fetchImpl, logger } = {}) {
     this.config = config ?? {};
     this.level = this.config.level ?? DEFAULT_LEVEL;
     this.postToEpic = this.config.postToEpic !== false;
@@ -72,7 +54,7 @@ export class Notifier {
     this.provider = provider;
     this.fetchImpl = fetchImpl ?? globalThis.fetch;
     this.logger = logger ?? console;
-    this.webhookUrl = resolveWebhookUrl({ cwd });
+    this.webhookUrl = resolveWebhookUrl();
   }
 
   /**
