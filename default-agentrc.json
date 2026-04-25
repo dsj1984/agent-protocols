@@ -1,13 +1,9 @@
 {
   "$schema": "https://json-schema.org/draft/2020-12/schema",
-  "title": "Agent Protocols — Unified Root Configuration",
+  "title": "Agent Protocols",
   "agentSettings": {
     "baseBranch": "main",
     "agentRoot": ".agents",
-    "scriptsRoot": ".agents/scripts",
-    "workflowsRoot": ".agents/workflows",
-    "personasRoot": ".agents/personas",
-    "schemasRoot": ".agents/schemas",
     "docsRoot": "docs",
     "tempRoot": "temp",
     "auditOutputDir": "temp",
@@ -36,6 +32,19 @@
     "validationCommand": "pnpm turbo run lint typecheck",
     "lintBaselineCommand": "pnpm exec eslint . --format json",
     "lintBaselinePath": "temp/lint-baseline.json",
+    "maintainability": {
+      "targetDirs": ["src", "tests"],
+      "crap": {
+        "enabled": true,
+        "targetDirs": ["src"],
+        "newMethodCeiling": 30,
+        "coveragePath": "coverage/coverage-final.json",
+        "tolerance": 0.001,
+        "requireCoverage": true,
+        "friction": { "markerKey": "crap-baseline-regression" },
+        "refreshTag": "baseline-refresh:"
+      }
+    },
     "testCommand": "pnpm run test",
     "exploratoryTestCommand": "pnpm run test:exploratory",
     "typecheckCommand": "pnpm run typecheck",

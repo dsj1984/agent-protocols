@@ -43,6 +43,7 @@ const LOADED_CONFIG_DEFAULTS = Object.freeze({
   scriptsRoot: '.agents/scripts',
   workflowsRoot: '.agents/workflows',
   personasRoot: '.agents/personas',
+  schemasRoot: '.agents/schemas',
   skillsRoot: '.agents/skills',
   templatesRoot: '.agents/templates',
   rulesRoot: '.agents/rules',
@@ -52,7 +53,7 @@ const LOADED_CONFIG_DEFAULTS = Object.freeze({
     'decisions.md',
     'patterns.md',
   ],
-  maintainability: { targetDirs: ['.agents/scripts', 'tests'] },
+  maintainability: { targetDirs: [] },
   auditOutputDir: 'temp',
   maxTickets: 40,
   executionTimeoutMs: 300000,
@@ -77,7 +78,7 @@ const ZERO_CONFIG_DEFAULTS = Object.freeze({
     'decisions.md',
     'patterns.md',
   ],
-  maintainability: { targetDirs: ['.agents/scripts', 'tests'] },
+  maintainability: { targetDirs: [] },
   tempRoot: 'temp',
   baseBranch: 'main',
   maxTickets: 40,
@@ -92,7 +93,7 @@ const ZERO_CONFIG_DEFAULTS = Object.freeze({
  * for tests and for consumers that want to introspect the canonical shape. */
 export const MAINTAINABILITY_CRAP_DEFAULTS = Object.freeze({
   enabled: true,
-  targetDirs: Object.freeze(['.agents/scripts']),
+  targetDirs: Object.freeze([]),
   newMethodCeiling: 30,
   coveragePath: 'coverage/coverage-final.json',
   tolerance: 0.001,
@@ -308,10 +309,10 @@ export function resolveConfig(opts) {
     const audits = raw.audits ?? null;
 
     // Apply defaults to the loaded config. Missing keys that are also absent
-    // from LOADED_CONFIG_DEFAULTS (e.g. schemasRoot, docsRoot, tempRoot,
-    // baseBranch) resolve to `undefined`, preserving the long-standing
-    // zero-config/loaded-config asymmetry rather than silently promoting the
-    // richer zero-config set.
+    // from LOADED_CONFIG_DEFAULTS (e.g. docsRoot, tempRoot, baseBranch)
+    // resolve to `undefined`, preserving the long-standing zero-config/
+    // loaded-config asymmetry rather than silently promoting the richer
+    // zero-config set.
     for (const key of LOADED_CONFIG_APPLY_KEYS) {
       settings[key] = settings[key] ?? LOADED_CONFIG_DEFAULTS[key];
     }

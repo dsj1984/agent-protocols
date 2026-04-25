@@ -155,14 +155,42 @@ export function reconcileCleanupState({
   }
 
   if (nextWorktreeReap.status === 'deferred-to-sweep') {
-    nextWorktreeReap.closeDrainStatus = isPersistent
-      ? 'persistent'
-      : isStillPending
-        ? 'still-pending'
-        : 'not-found';
+    nextWorktreeReap.closeDrainStatus = getCloseDrainStatus({
+      isPersistent,
+      isStillPending,
+    });
   }
 
   return { worktreeReap: nextWorktreeReap, branchCleanup: nextBranchCleanup };
+}
+
+/**
+ * Resolve the deferred-to-sweep close-drain status when the current Story's
+ * pending-cleanup entry was *not* drained on this close. Three outcomes:
+ *
+ *   - `'persistent'`   — the entry has hit the persistent-lock threshold
+ *                        (`MAX_SWEEP_ATTEMPTS` reached). `isPersistent` wins
+ *                        regardless of whether the entry is also still in
+ *                        the live pending list, because operator-action is
+ *                        the authoritative outcome.
+ *   - `'still-pending'`— the entry is in the pending list but has not yet
+ *                        crossed the persistent threshold. The next sweep
+ *                        run will retry.
+ *   - `'not-found'`    — the entry is in neither list. Either the drain
+ *                        cleared it before this reconcile saw it, or this
+ *                        Story never had a pending entry. Treated as a
+ *                        clean state for downstream callers.
+ *
+ * Extracted from a nested ternary so the truth table is greppable and each
+ * branch carries an explicit name.
+ *
+ * @param {{ isPersistent: boolean, isStillPending: boolean }} flags
+ * @returns {'persistent' | 'still-pending' | 'not-found'}
+ */
+export function getCloseDrainStatus({ isPersistent, isStillPending }) {
+  if (isPersistent) return 'persistent';
+  if (isStillPending) return 'still-pending';
+  return 'not-found';
 }
 
 // ---------------------------------------------------------------------------

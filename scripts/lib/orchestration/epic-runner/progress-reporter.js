@@ -196,7 +196,17 @@ export class ProgressReporter {
   start() {
     if (!this.isEnabled() || this.timer) return;
     this.timer = this._setInterval(() => {
-      this.fire().catch(() => {});
+      // The reporter is non-fatal by design — a failed read or upsert must
+      // not crash the runner — but a silent .catch(() => {}) here masks
+      // exactly the kind of degradation operators need to see (rate-limit,
+      // network blip, schema drift). Surface to the same logger that
+      // appendToLogFile uses so the failure mode is visible in the log
+      // tail rather than hidden inside the interval handler.
+      this.fire().catch((err) => {
+        this.logger.warn?.(
+          `[ProgressReporter] fire() failed: ${err?.message ?? err}`,
+        );
+      });
     }, this.intervalSec * 1000);
     if (this.timer?.unref) this.timer.unref();
     if (this.logFile && this.currentWave) {

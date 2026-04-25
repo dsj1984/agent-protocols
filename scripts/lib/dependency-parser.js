@@ -33,6 +33,22 @@ export function parseBlocks(body) {
 }
 
 /**
+ * Extract the parent Epic id from a ticket body. Matches `Epic: #NNN`
+ * anchored to the start of a line (multiline + case-insensitive). The
+ * anchored form prevents accidental matches inside prose ("...this Epic:
+ * #...follow-on..."). Used during state-transition notification dispatch
+ * and Story-level execution planning.
+ *
+ * @param {string|null|undefined} body
+ * @returns {number|null}
+ */
+export function extractEpicIdFromBody(body) {
+  if (!body) return null;
+  const m = body.match(/^Epic:\s*#(\d+)/im);
+  return m ? Number.parseInt(m[1], 10) : null;
+}
+
+/**
  * Validates that a string is safe to use as a git branch name component.
  * Rejects shell metacharacters, whitespace, and other dangerous patterns.
  *

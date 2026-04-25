@@ -13,10 +13,7 @@ import {
 
 async function main() {
   const { settings } = resolveConfig();
-  const targetDirs = settings.maintainability?.targetDirs || [
-    '.agents/scripts',
-    'tests',
-  ];
+  const targetDirs = settings.maintainability?.targetDirs ?? [];
   console.log('[Maintainability] Updating baseline...');
 
   const files = [];
