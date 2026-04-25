@@ -569,16 +569,23 @@ local-only and unchanged.
 
 ### Required secrets
 
-Each web session must have the same two files a local session would have:
+Web sessions do not inherit your local secrets — provide every key the
+framework reads through the session's environment-variables UI before running
+`/sprint-execute`. A missing or unauthenticated token fails loudly on the
+first GitHub call; there is no degraded mode.
 
-| File          | Required keys                                                                  |
-| ------------- | ------------------------------------------------------------------------------ |
-| `.env`        | `GITHUB_TOKEN` (or `GH_TOKEN`); optional `NOTIFICATION_WEBHOOK_URL`            |
-| `.mcp.json`   | `mcpServers["agent-protocols"].env.GITHUB_TOKEN` and any other MCP server keys |
+| Variable                   | Required? | Purpose                                                                                         |
+| -------------------------- | --------- | ----------------------------------------------------------------------------------------------- |
+| `GITHUB_TOKEN`             | Yes       | GitHub API auth. `GH_TOKEN` is accepted as a synonym.                                           |
+| `NOTIFICATION_WEBHOOK_URL` | No        | POST target for in-band Notifier events. Omit to disable the webhook channel.                   |
+| `WEBHOOK_SECRET`           | No        | HMAC signing key for outbound webhook payloads (`X-Signature-256`). Omit to ship unsigned.      |
 
-Web sessions do not inherit your local secrets — provide both files inside the
-session before running `/sprint-execute`. A missing or unauthenticated token
-fails loudly on the first GitHub call; there is no degraded mode.
+> **Migrating from a pre-Epic #702 checkout.** These keys previously had two
+> homes: `.env` and the `agent-protocols` entry in `.mcp.json`. The MCP server
+> is retired, so `.mcp.json` is no longer consulted by any framework code.
+> Locally, keep them in `.env` only; on web, put them in the Claude Code
+> environment-variables UI. Any framework keys lingering in a `.mcp.json` are
+> dead config.
 
 ### Env-var behaviour
 
