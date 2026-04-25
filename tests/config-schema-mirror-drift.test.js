@@ -147,6 +147,30 @@ describe('agentrc.schema.json mirror — drift vs runtime AJV schemas', () => {
     );
   });
 
+  it('accepts null typecheckCommand on both sides', () => {
+    assertAgree(
+      'agentSettings',
+      { typecheckCommand: null },
+      'null typecheckCommand',
+    );
+  });
+
+  it('accepts null buildCommand on both sides', () => {
+    assertAgree('agentSettings', { buildCommand: null }, 'null buildCommand');
+  });
+
+  it('rejects empty-string typecheckCommand on both sides', () => {
+    assertAgree(
+      'agentSettings',
+      { typecheckCommand: '' },
+      'empty typecheckCommand',
+    );
+  });
+
+  it('rejects empty-string buildCommand on both sides', () => {
+    assertAgree('agentSettings', { buildCommand: '' }, 'empty buildCommand');
+  });
+
   it('accepts a full orchestration block on both sides', () => {
     assertAgree(
       'orchestration',

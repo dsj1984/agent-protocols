@@ -20,6 +20,11 @@
       "type": ["string", "null"],
       "not": { "type": "string", "pattern": "([;&|`]|\\$\\()" }
     },
+    "nullableNonemptySafeString": {
+      "type": ["string", "null"],
+      "minLength": 1,
+      "not": { "type": "string", "pattern": "([;&|`]|\\$\\()" }
+    },
     "listOrExtenderOfStrings": {
       "oneOf": [
         { "type": "array", "items": { "type": "string" } },
@@ -36,7 +41,7 @@
     "stringFieldsPattern": {
       "description": "Pattern enumerating every flat agentSettings string field. Mirrors AGENT_SETTINGS_STRING_FIELDS.",
       "type": "string",
-      "pattern": "^(baseBranch|validationCommand|testCommand|buildCommand|agentRoot|scriptsRoot|workflowsRoot|personasRoot|schemasRoot|skillsRoot|templatesRoot|rulesRoot|docsRoot|tempRoot|auditOutputDir|lintBaselineCommand|lintBaselinePath|exploratoryTestCommand|typecheckCommand)$"
+      "pattern": "^(baseBranch|validationCommand|testCommand|agentRoot|scriptsRoot|workflowsRoot|personasRoot|schemasRoot|skillsRoot|templatesRoot|rulesRoot|docsRoot|tempRoot|auditOutputDir|lintBaselineCommand|lintBaselinePath|exploratoryTestCommand)$"
     },
     "maintainabilityCrap": {
       "type": "object",
@@ -140,10 +145,12 @@
         "release": { "$ref": "#/$defs/release" },
         "frictionThresholds": { "$ref": "#/$defs/frictionThresholds" },
         "riskGates": { "$ref": "#/$defs/riskGates" },
-        "qualityGate": { "$ref": "#/$defs/qualityGate" }
+        "qualityGate": { "$ref": "#/$defs/qualityGate" },
+        "typecheckCommand": { "$ref": "#/$defs/nullableNonemptySafeString" },
+        "buildCommand": { "$ref": "#/$defs/nullableNonemptySafeString" }
       },
       "patternProperties": {
-        "^(baseBranch|validationCommand|testCommand|buildCommand|agentRoot|scriptsRoot|workflowsRoot|personasRoot|schemasRoot|skillsRoot|templatesRoot|rulesRoot|docsRoot|tempRoot|auditOutputDir|lintBaselineCommand|lintBaselinePath|exploratoryTestCommand|typecheckCommand)$": {
+        "^(baseBranch|validationCommand|testCommand|agentRoot|scriptsRoot|workflowsRoot|personasRoot|schemasRoot|skillsRoot|templatesRoot|rulesRoot|docsRoot|tempRoot|auditOutputDir|lintBaselineCommand|lintBaselinePath|exploratoryTestCommand)$": {
           "$ref": "#/$defs/safeString"
         }
       }

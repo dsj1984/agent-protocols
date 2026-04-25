@@ -6,12 +6,15 @@ import { SHELL_INJECTION_PATTERN_STRING } from './config-schema-shared.js';
  * Flat agentSettings string fields. Every entry below is constrained to a
  * non-malicious string by {@link AGENT_SETTINGS_SCHEMA}. Adding a new
  * top-level string field means appending to this list, nothing else.
+ *
+ * Optional commands that accept `null` to mean "disabled" (currently
+ * `typecheckCommand` and `buildCommand`) are NOT in this list; they have
+ * explicit `properties` entries below using {@link NULLABLE_NONEMPTY_SAFE_STRING}.
  */
 export const AGENT_SETTINGS_STRING_FIELDS = Object.freeze([
   'baseBranch',
   'validationCommand',
   'testCommand',
-  'buildCommand',
   'agentRoot',
   'scriptsRoot',
   'workflowsRoot',
@@ -26,7 +29,6 @@ export const AGENT_SETTINGS_STRING_FIELDS = Object.freeze([
   'lintBaselineCommand',
   'lintBaselinePath',
   'exploratoryTestCommand',
-  'typecheckCommand',
 ]);
 
 const STRING_FIELDS_PATTERN = `^(${AGENT_SETTINGS_STRING_FIELDS.join('|')})$`;
@@ -38,6 +40,17 @@ const SAFE_STRING = {
 
 const NULLABLE_SAFE_STRING = {
   type: ['string', 'null'],
+  not: { type: 'string', pattern: SHELL_INJECTION_PATTERN_STRING },
+};
+
+/**
+ * Optional commands that may be `null` to mean "disabled" but, when set as a
+ * string, must be non-empty. `minLength` is a string-only keyword so it is a
+ * no-op for `null`; the empty string is explicitly rejected.
+ */
+const NULLABLE_NONEMPTY_SAFE_STRING = {
+  type: ['string', 'null'],
+  minLength: 1,
   not: { type: 'string', pattern: SHELL_INJECTION_PATTERN_STRING },
 };
 
@@ -156,6 +169,8 @@ export const AGENT_SETTINGS_SCHEMA = {
     frictionThresholds: FRICTION_THRESHOLDS_SCHEMA,
     riskGates: RISK_GATES_SCHEMA,
     qualityGate: QUALITY_GATE_SCHEMA,
+    typecheckCommand: NULLABLE_NONEMPTY_SAFE_STRING,
+    buildCommand: NULLABLE_NONEMPTY_SAFE_STRING,
   },
   patternProperties: {
     [STRING_FIELDS_PATTERN]: SAFE_STRING,
