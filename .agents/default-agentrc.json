@@ -27,8 +27,14 @@
     "maxTokenBudget": 200000,
     "executionTimeoutMs": 300000,
     "executionMaxBuffer": 10485760,
-    "validationCommand": "npm run lint",
-    "lintBaselineCommand": "pnpm exec eslint . --format json",
+    "commands": {
+      "validate": "npm run lint",
+      "lintBaseline": "npx eslint . --format json",
+      "test": "npm test",
+      "exploratoryTest": "npm run test:exploratory",
+      "typecheck": null,
+      "build": null
+    },
     "lintBaselinePath": "temp/lint-baseline.json",
     "maintainability": {
       "targetDirs": ["src", "tests"],
@@ -43,10 +49,6 @@
         "refreshTag": "baseline-refresh:"
       }
     },
-    "testCommand": "npm test",
-    "exploratoryTestCommand": "pnpm run test:exploratory",
-    "typecheckCommand": "",
-    "buildCommand": "",
     "frictionThresholds": {
       "repetitiveCommandCount": 3,
       "consecutiveErrorCount": 3,

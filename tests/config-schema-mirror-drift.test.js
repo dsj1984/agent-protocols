@@ -68,8 +68,12 @@ describe('agentrc.schema.json mirror — drift vs runtime AJV schemas', () => {
         agentRoot: '.agents',
         docsRoot: 'docs',
         tempRoot: 'temp',
-        validationCommand: 'npm run lint',
-        testCommand: 'npm test',
+        commands: {
+          validate: 'npm run lint',
+          test: 'npm test',
+          typecheck: null,
+          build: null,
+        },
         maxTickets: 40,
         maxInstructionSteps: 5,
         maxTokenBudget: 200000,
@@ -147,28 +151,44 @@ describe('agentrc.schema.json mirror — drift vs runtime AJV schemas', () => {
     );
   });
 
-  it('accepts null typecheckCommand on both sides', () => {
+  it('accepts null commands.typecheck on both sides', () => {
     assertAgree(
       'agentSettings',
-      { typecheckCommand: null },
-      'null typecheckCommand',
+      { commands: { typecheck: null } },
+      'null commands.typecheck',
     );
   });
 
-  it('accepts null buildCommand on both sides', () => {
-    assertAgree('agentSettings', { buildCommand: null }, 'null buildCommand');
-  });
-
-  it('rejects empty-string typecheckCommand on both sides', () => {
+  it('accepts null commands.build on both sides', () => {
     assertAgree(
       'agentSettings',
-      { typecheckCommand: '' },
-      'empty typecheckCommand',
+      { commands: { build: null } },
+      'null commands.build',
     );
   });
 
-  it('rejects empty-string buildCommand on both sides', () => {
-    assertAgree('agentSettings', { buildCommand: '' }, 'empty buildCommand');
+  it('rejects empty-string commands.typecheck on both sides', () => {
+    assertAgree(
+      'agentSettings',
+      { commands: { typecheck: '' } },
+      'empty commands.typecheck',
+    );
+  });
+
+  it('rejects empty-string commands.build on both sides', () => {
+    assertAgree(
+      'agentSettings',
+      { commands: { build: '' } },
+      'empty commands.build',
+    );
+  });
+
+  it('rejects unknown property under commands on both sides', () => {
+    assertAgree(
+      'agentSettings',
+      { commands: { lint: 'npm run lint' } },
+      'commands typo',
+    );
   });
 
   it('accepts a full orchestration block on both sides', () => {

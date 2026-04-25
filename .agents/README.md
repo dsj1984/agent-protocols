@@ -60,24 +60,25 @@ cp .agents/default-agentrc.json .agentrc.json
 
 ### Key Settings
 
-| Setting                             | Purpose                                          |
-| ----------------------------------- | ------------------------------------------------ |
-| `agentSettings.baseBranch`          | Your default branch (`main`, `master`, etc.)     |
-| `agentSettings.testCommand`         | Your project's test runner                       |
-| `agentSettings.validationCommand`   | Comprehensive validation suite                   |
-| `agentSettings.lintBaselineCommand` | Structured linter output for baseline ratcheting |
-| `orchestration.provider`            | Ticketing provider (`"github"`)                  |
-| `orchestration.github.owner`        | GitHub repository owner                          |
-| `orchestration.github.repo`         | GitHub repository name                           |
+| Setting                                  | Purpose                                          |
+| ---------------------------------------- | ------------------------------------------------ |
+| `agentSettings.baseBranch`               | Your default branch (`main`, `master`, etc.)     |
+| `agentSettings.commands.test`            | Your project's test runner                       |
+| `agentSettings.commands.validate`        | Comprehensive validation suite                   |
+| `agentSettings.commands.lintBaseline`    | Structured linter output for baseline ratcheting |
+| `orchestration.provider`                 | Ticketing provider (`"github"`)                  |
+| `orchestration.github.owner`             | GitHub repository owner                          |
+| `orchestration.github.repo`              | GitHub repository name                           |
 
 ### Validation Commands
 
-The framework uses three commands for quality checks:
+Quality-check commands live grouped under `agentSettings.commands`:
 
-1. **`validationCommand`** — Comprehensive check (e.g., `run-s lint typecheck`).
-1. **`typecheckCommand`** — Strict type-checking (e.g., `tsc --noEmit`). Run
-   independently after refactors to verify typing boundaries.
-1. **`lintBaselineCommand`** — Structured JSON output for the lint baseline
+1. **`commands.validate`** — Comprehensive check (e.g., `run-s lint typecheck`).
+1. **`commands.typecheck`** — Strict type-checking (e.g., `tsc --noEmit`). Run
+   independently after refactors to verify typing boundaries. Set to `null` to
+   disable.
+1. **`commands.lintBaseline`** — Structured JSON output for the lint baseline
    ratchet engine. Integrations fail if new warnings are introduced.
 
 > **Resolution order:** `.agentrc.json` at project root → built-in defaults

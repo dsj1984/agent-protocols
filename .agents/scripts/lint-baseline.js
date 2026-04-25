@@ -4,7 +4,7 @@ import path from 'node:path';
 import { fileURLToPath } from 'node:url';
 import { parseArgsStringToArgv } from 'string-argv';
 import { runAsCli } from './lib/cli-utils.js';
-import { resolveConfig } from './lib/config-resolver.js';
+import { getCommands, resolveConfig } from './lib/config-resolver.js';
 import { Logger } from './lib/Logger.js';
 
 const __dirname = path.dirname(fileURLToPath(import.meta.url));
@@ -149,8 +149,7 @@ export async function main(args = process.argv) {
   }
 
   const { settings } = resolveConfig();
-  const cmdConfig =
-    settings.lintBaselineCommand ?? 'npx eslint . --format json';
+  const cmdConfig = getCommands({ agentSettings: settings }).lintBaseline;
   const baselinePathRel =
     settings.lintBaselinePath ?? 'temp/lint-baseline.json';
   const baselinePath = path.resolve(PROJECT_ROOT, baselinePathRel);

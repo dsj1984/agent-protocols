@@ -75,8 +75,10 @@ test('persistence: writes story-manifest json + md for story-execution manifest'
     projectRoot: root,
     settings: {
       scriptsRoot: '.agents/scripts',
-      validationCommand: 'npm run lint',
-      testCommand: 'npm test',
+      commands: {
+        validate: 'npm run lint',
+        test: 'npm test',
+      },
     },
   });
   const mdPath = path.join(root, 'temp', 'story-manifest-42.md');

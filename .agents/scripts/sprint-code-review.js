@@ -21,7 +21,11 @@ import { spawnSync } from 'node:child_process';
 import path from 'node:path';
 import { parseArgs } from 'node:util';
 import { runAsCli } from './lib/cli-utils.js';
-import { PROJECT_ROOT, resolveConfig } from './lib/config-resolver.js';
+import {
+  getCommands,
+  PROJECT_ROOT,
+  resolveConfig,
+} from './lib/config-resolver.js';
 import { gitSpawn } from './lib/git-utils.js';
 import { Logger } from './lib/Logger.js';
 import {
@@ -191,7 +195,7 @@ async function main() {
 
   // 2. Perform focused lint
   progress('LINT', 'Running focused lint check...');
-  const lintCmd = settings.validationCommand ?? 'npm run lint';
+  const lintCmd = getCommands({ agentSettings: settings }).validate;
   const lintResult = runLint(lintCmd, PROJECT_ROOT);
   const lintSummary = parseLintOutput(lintResult);
 

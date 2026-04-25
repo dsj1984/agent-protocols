@@ -27,8 +27,14 @@
     "maxTokenBudget": 200000,
     "executionTimeoutMs": 300000,
     "executionMaxBuffer": 10485760,
-    "validationCommand": "npm run lint",
-    "lintBaselineCommand": "npm run lint",
+    "commands": {
+      "validate": "npm run lint",
+      "lintBaseline": "npm run lint",
+      "test": "npm test",
+      "exploratoryTest": "npm test",
+      "typecheck": null,
+      "build": null
+    },
     "lintBaselinePath": "temp/lint-baseline.json",
     "maintainability": {
       "targetDirs": [".agents/scripts", "tests"],
@@ -43,10 +49,6 @@
         "refreshTag": "baseline-refresh:"
       }
     },
-    "testCommand": "npm test",
-    "exploratoryTestCommand": "npm test",
-    "typecheckCommand": null,
-    "buildCommand": null,
     "frictionThresholds": {
       "repetitiveCommandCount": 3,
       "consecutiveErrorCount": 3,
