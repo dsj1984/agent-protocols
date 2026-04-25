@@ -1,7 +1,7 @@
 import crypto from 'node:crypto';
 import fs from 'node:fs';
 import path from 'node:path';
-import { resolveConfig } from './config-resolver.js';
+import { getPaths, resolveConfig } from './config-resolver.js';
 import { gitSync } from './git-utils.js';
 import { Logger } from './Logger.js';
 
@@ -16,6 +16,7 @@ export class GithubRefinementService {
 
     const { settings } = resolveConfig();
     this.settings = settings;
+    this.paths = getPaths({ agentSettings: settings });
     this.baseBranch = settings.baseBranch ?? 'main';
   }
 
@@ -40,15 +41,15 @@ export class GithubRefinementService {
 
     // Security Check: Ensure the file is within allowed directories
     const allowedDirs = [
-      this.settings.personasRoot.endsWith('/')
-        ? this.settings.personasRoot
-        : `${this.settings.personasRoot}/`,
-      this.settings.rulesRoot.endsWith('/')
-        ? this.settings.rulesRoot
-        : `${this.settings.rulesRoot}/`,
-      this.settings.skillsRoot.endsWith('/')
-        ? this.settings.skillsRoot
-        : `${this.settings.skillsRoot}/`,
+      this.paths.personasRoot.endsWith('/')
+        ? this.paths.personasRoot
+        : `${this.paths.personasRoot}/`,
+      this.paths.rulesRoot.endsWith('/')
+        ? this.paths.rulesRoot
+        : `${this.paths.rulesRoot}/`,
+      this.paths.skillsRoot.endsWith('/')
+        ? this.paths.skillsRoot
+        : `${this.paths.skillsRoot}/`,
     ];
     const unixPath = protocolFile.replace(/\\/g, '/');
     const isAllowed = allowedDirs.some((dir) => unixPath.startsWith(dir));

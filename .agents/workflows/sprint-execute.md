@@ -115,9 +115,7 @@ also be invoked locally for manual end-to-end runs.
 > `.agents/scripts/lib/orchestration/epic-runner/` that are active in the wave
 > loop: `wave-scheduler`, `story-launcher`, `wave-observer`, `checkpointer`,
 > `blocker-handler`, `notification-hook`, `column-sync`, and `bookend-chainer`.
-> The `state-poller` module is present in the submodule directory as a standby
-> building block but is **not** instantiated by the current coordinator — the
-> wave loop reads state synchronously per wave instead of via a background
+> The wave loop reads state synchronously per wave rather than via a background
 > poller. The CLI at `.agents/scripts/epic-runner.js` drives the engine with
 > the `orchestration.epicRunner` block from `.agentrc.json`.
 

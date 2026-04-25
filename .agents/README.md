@@ -754,21 +754,25 @@ close), `ci.yml` (push + PR), and `.husky/pre-push`.
 If you're a consumer repo pulling the framework via the `dist` submodule,
 this is what you need to know:
 
-#### First-run behavior — never hard-fails on a fresh sync
+#### First-run behavior — bootstrap before the first push
 
-The first time `check-crap` runs in your repo there is no
-`baselines/crap.json` to compare against. Instead of failing CI, it prints:
+As of Story #791 the gate is hard-enforcing across all three firing sites
+(close-validation, pre-push, CI). With `crap.enabled: true` and no
+`baselines/crap.json` on disk, `check-crap` prints:
 
 ```text
-[CRAP] no baseline found — run 'npm run crap:update' to bootstrap
+[CRAP] ❌ no baseline found — run 'npm run crap:update' and commit with a 'baseline-refresh:' subject to bootstrap
 ```
 
-…and exits `0`. Run `npm run crap:update` to generate the initial baseline,
-commit it (with a `baseline-refresh:` tagged subject + non-empty body so
-the guardrail accepts it on the next PR), and you're set.
+…and exits `1`. Bootstrap explicitly: run `npm run test:coverage` to produce
+`coverage/coverage-final.json`, then `npm run crap:update` to generate
+`baselines/crap.json`, and commit the file with a `baseline-refresh:` tagged
+subject + non-empty body so the refresh-guardrail accepts it on the next PR.
 
-If your test runner doesn't produce per-method coverage, see "Disabling the
-gate" below.
+The transitional informational mode (exit 0 on first sync) was retired in
+Story #791 because it allowed broken pipelines to ride green for an
+indeterminate window. If your test runner doesn't produce per-method
+coverage, see "Disabling the gate" below.
 
 #### Disabling the gate (single-flag opt-out)
 

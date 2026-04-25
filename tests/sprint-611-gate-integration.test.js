@@ -79,13 +79,18 @@ test('Site 3 — .husky/pre-push runs `npm run crap:check` with --changed-since 
     'utf8',
   );
   assert.match(hook, /npm run crap:check\s+--\s+--changed-since\s+main/);
-  // Must run AFTER test:coverage so coverage data is on disk.
-  const covIdx = hook.indexOf('npm run test:coverage');
+  // Coverage capture must run AFTER lint/format/MI but BEFORE crap:check, so
+  // `coverage/coverage-final.json` is on disk for the per-method lookup.
+  // Story #790 replaced the unconditional `npm run test:coverage` call with
+  // the freshness-aware `coverage-capture.js` CLI (still spawns
+  // `npm run test:coverage` under the hood when stale).
+  const captureIdx = hook.indexOf('coverage-capture.js');
   const crapIdx = hook.indexOf('npm run crap:check');
   assert.ok(
-    covIdx > -1 && crapIdx > covIdx,
-    'crap:check must come after test:coverage in pre-push',
+    captureIdx > -1 && crapIdx > captureIdx,
+    'crap:check must come after coverage-capture in pre-push',
   );
+  assert.match(hook, /coverage-capture\.js\s+--skip-when-no-crap-files/);
 });
 
 /**
@@ -168,19 +173,21 @@ test('Behavior 4 — enabled: false → exit 0 with `[CRAP] gate skipped (disabl
   }
 });
 
-test('Behavior 5 — missing baseline → bootstrap message, exit 0', () => {
+test('Behavior 5 — missing baseline → fails closed with exit 1 (Story #791 hard-enforce)', () => {
   const dir = makeTempRepo({ enabled: true, withBaseline: false });
   try {
     const res = runCheckCrap(dir);
-    assert.strictEqual(res.status, 0);
-    assert.match(res.stdout, /no baseline found/);
-    assert.match(res.stdout, /npm run crap:update/);
+    assert.strictEqual(res.status, 1);
+    // Message lands on stderr now that the path is a hard fail.
+    assert.match(res.stderr, /no baseline found/);
+    assert.match(res.stderr, /npm run crap:update/);
+    assert.match(res.stderr, /baseline-refresh:/);
   } finally {
     fs.rmSync(dir, { recursive: true, force: true });
   }
 });
 
-test('Behavior 6 — bootstrap path completes well under the 500ms AC31 budget', () => {
+test('Behavior 6 — missing-baseline path completes well under the 500ms AC31 budget', () => {
   const dir = makeTempRepo({ enabled: true, withBaseline: false });
   try {
     // Discard a warm-up to absorb Node's startup variance, then time the run.
@@ -188,14 +195,14 @@ test('Behavior 6 — bootstrap path completes well under the 500ms AC31 budget',
     const t0 = process.hrtime.bigint();
     const res = runCheckCrap(dir);
     const elapsedMs = Number(process.hrtime.bigint() - t0) / 1_000_000;
-    assert.strictEqual(res.status, 0);
-    // The 500ms is the AC31 *delta* budget, but for the bootstrap path
-    // (no baseline → early exit before scoring) we expect to be well under
-    // total. Allow a generous 3000ms ceiling to absorb cold-start jitter on
-    // slow CI runners — anything beyond that is a real regression.
+    assert.strictEqual(res.status, 1);
+    // The 500ms is the AC31 *delta* budget, but the early missing-baseline
+    // exit (before any scoring) should be well under total. Allow a generous
+    // 3000ms ceiling to absorb cold-start jitter on slow CI runners — anything
+    // beyond that is a real regression.
     assert.ok(
       elapsedMs < 3000,
-      `bootstrap path took ${elapsedMs.toFixed(0)}ms (>3000ms ceiling)`,
+      `missing-baseline path took ${elapsedMs.toFixed(0)}ms (>3000ms ceiling)`,
     );
   } finally {
     fs.rmSync(dir, { recursive: true, force: true });

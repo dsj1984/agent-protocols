@@ -141,9 +141,8 @@ async function main() {
   }
 
   const { runEpic } = await import('./lib/orchestration/epic-runner.js');
-  const { resolveConfig, validateOrchestrationConfig } = await import(
-    './lib/config-resolver.js'
-  );
+  const { getRunners, resolveConfig, validateOrchestrationConfig } =
+    await import('./lib/config-resolver.js');
   const { createProvider } = await import('./lib/provider-factory.js');
 
   let config;
@@ -166,13 +165,15 @@ async function main() {
 
   const provider = createProvider(config.orchestration);
 
+  const { epicRunner } = getRunners(config.orchestration);
+
   if (args.dryRun) {
     console.log(
       JSON.stringify(
         {
           epicId: args.epicId,
           dryRun: true,
-          epicRunner: config.orchestration.epicRunner,
+          epicRunner,
         },
         null,
         2,
@@ -181,8 +182,8 @@ async function main() {
     return;
   }
 
-  const logsDir = resolveLogsDir(config.orchestration?.epicRunner);
-  const idleTimeoutMs = resolveIdleTimeoutMs(config.orchestration?.epicRunner);
+  const logsDir = resolveLogsDir(epicRunner);
+  const idleTimeoutMs = resolveIdleTimeoutMs(epicRunner);
   const result = await runEpic({
     epicId: args.epicId,
     provider,
@@ -208,7 +209,7 @@ async function main() {
  * after exit: `agent::done` = success, `agent::blocked` = blocker, anything
  * else = failure. Per-story stdout/stderr is piped to
  * `<logsDir>/story-<id>.log` (default `temp/epic-runner-logs/`, configurable
- * via `orchestration.epicRunner.logsDir`) to keep parallel runs readable.
+ * via `orchestration.runners.epicRunner.logsDir`) to keep parallel runs readable.
  */
 async function defaultSpawn({
   storyId,
@@ -309,7 +310,7 @@ async function defaultSpawn({
  *
  * Stdout/stderr are piped to `<logsDir>/bookend-<skill>.log` (default
  * `temp/epic-runner-logs/`, configurable via
- * `orchestration.epicRunner.logsDir`) to keep the parent runner's stream
+ * `orchestration.runners.epicRunner.logsDir`) to keep the parent runner's stream
  * readable. The subprocess exit code is the sole success signal.
  */
 async function defaultRunSkill(

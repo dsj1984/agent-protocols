@@ -1,6 +1,16 @@
 # Architecture
 
-> **Version:** 5.15.0 · **Updated:** 2026-04-22
+> **Version:** 5.27.0 · **Updated:** 2026-04-25
+>
+> **Epic #773 update.** `orchestration` consolidated under
+> `orchestration.runners` (the previously-flat `epicRunner`, `planRunner`,
+> `concurrency`, `closeRetry`, `poolMode` peers now group together);
+> `config-resolver.js` split into a facade over `quality`, `paths`,
+> `commands`, `limits`, and `runners` accessor submodules; two further
+> facades shipped — `providers/github.js` and
+> `lib/worktree/lifecycle-manager.js` each ≤250 LOC over focused
+> submodules with strict ctx-threading discipline (no inter-submodule
+> imports). All public surfaces remain byte-identical.
 
 This document describes the internal architecture of Agent Protocols — a
 framework of instructions, personas, skills, and SDLC workflows that govern AI
@@ -309,7 +319,6 @@ Wave 1:
 | ------------------------------------------------------------------ | -------------------------------------------------------------------------------------------------------------------------------------------------- |
 | `lib/orchestration/epic-runner/column-sync.js` (patched #448)      | Dropped the unused `$issueId: Int!` GraphQL variable; removed the silent-swallow try/catch so missing project rows surface as friction, not `unknown`. |
 | `lib/orchestration/friction-emitter.js` (new #450)                 | Rate-limited (`storyId` + marker hash, 60s cooldown) `friction` emitter wrapping `provider.postComment`.                                                |
-| `lib/orchestration/docs-context-bridge.js` (new #454)              | At Story-close, matches changed-file paths against `release.docs` + `agentSettings.docsContextFiles` and emits a `friction` comment on match.           |
 
 `CommitAssertion`'s default git adapter now falls back to a
 `resolves #<storyId>` grep on `origin/epic/<id>` when

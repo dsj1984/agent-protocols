@@ -11,6 +11,7 @@
  * the pipeline with a `halted` outcome.
  */
 
+import { getRunners } from '../../../config/runners.js';
 import { AGENT_LABELS } from '../../../label-constants.js';
 import { concurrentMap } from '../../../util/concurrent-map.js';
 import { DEFAULT_CONCURRENCY } from '../../concurrency.js';
@@ -20,7 +21,7 @@ import { checkVersionBumpIntent } from '../version-bump-intent.js';
 
 export async function runIterateWavesPhase(ctx, collaborators, state) {
   const { epicId, provider, config, logger } = ctx;
-  const { concurrencyCap } = config.epicRunner;
+  const { concurrencyCap } = getRunners(config).epicRunner;
   const {
     notify: notifyFn,
     checkpointer,

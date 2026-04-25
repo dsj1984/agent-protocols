@@ -2,6 +2,15 @@
 
 This document defines the core data structures and schemas used across the Agent Protocols orchestration engine.
 
+> **Epic #773 update.** The CRAP baseline envelope at `baselines/crap.json`
+> is now a shipped, hard-enforced artefact (no longer self-skipping on
+> absence). Each row carries `{file, method, startLine, crap}` plus
+> envelope-level `kernelVersion` and `escomplexVersion` stamps so a kernel
+> drift fails the gate cleanly. The grouped `orchestration.runners` block
+> now holds `epicRunner`, `planRunner`, `concurrency`, `closeRetry`, and
+> `poolMode` as nested keys (the previously-flat peer keys under
+> `orchestration` are gone).
+
 ---
 
 ## 1. Friction Log
@@ -186,7 +195,6 @@ Epic #413).
 | --------------------------------------------------- | --------------------- | -------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
 | Structured-comment `type` enum (extended)           | MCP schema            | `mcp__agent-protocols__post_structured_comment` now accepts `code-review`, `retro`, `retro-partial`, `epic-run-state`, `epic-run-progress`, `parked-follow-ons`, `dispatch-manifest`, and any string matching `^wave-\d+-(start\|end)$`, in addition to the prior `progress` / `friction` / `notification`. Validator rejects unknown types. |
 | `FrictionEmitter`                                   | Class                 | Rate-limited emitter at `lib/orchestration/friction-emitter.js` that wraps `provider.postComment` / `post_structured_comment`. Dedupe key: `storyId` + marker hash; cooldown: 60s. Consumed by `sprint-story-close.js` reap-failure, `epic-runner` wave-poller `getTicket` failure, and `check-maintainability.js` baseline-refresh sites. |
-| `docs-context-bridge.js`                            | Module                | At `sprint-story-close`, maps the Story's changed-file paths against `release.docs` + `agentSettings.docsContextFiles` and emits a `friction` structured comment when the Story touches a code path referenced by those docs. Path: `lib/orchestration/docs-context-bridge.js`. |
 | `--reap-discard-after-merge` / `--no-reap-discard-after-merge` | CLI flag | `/sprint-close` Phase 7 flag. Default force-reaps worktrees whose Story branch is already merged into `epic/<id>` (per `git merge-base --is-ancestor`), discarding uncommitted post-merge drift; the `--no-` form preserves prior skip-on-uncommitted behavior. Force-reap emits a `friction` comment listing discarded paths. |
 | Version-bump-intent snapshot                        | Checkpoint            | `/sprint-execute` Epic Mode Phase 0.5 parses the Epic body for `Release target:` / `--segment` directives and posts a `notification` structured comment on the Epic (marker `<!-- notification: version-bump-intent -->`) when they disagree with `release.autoVersionBump`. |
 | Launcher-level config validation                    | Contract              | `validateOrchestrationConfig(config)` is now invoked in `main()` of `epic-runner.js`, `plan-runner.js`, `sprint-plan-spec.js`, and `sprint-plan-decompose.js` — a schema-invalid `.agentrc.json` exits non-zero before any long-running flow begins (complements Story #436's resolver-level coverage). |
@@ -259,7 +267,7 @@ existing maintainability ratchet.
 | `refreshTag` (commit-message rule) | Validation contract | A PR that modifies any baseline file must include at least one commit whose subject starts with the configured `refreshTag` (default `baseline-refresh:`) AND whose body is non-empty. Both conditions are required — the tag without justification is not enough. |
 | `crap-drift.js` | Progress signal | `lib/orchestration/epic-runner/progress-signals/crap-drift.js`. Captures a wave-start CRAP snapshot and emits Notable bullets per tick when methods cross the ceiling or rise by ≥ threshold (default 10). Mirrors `maintainability-drift.js`; non-blocking. Baseline persisted under `.agents/state/wave-crap-snapshot.json`. |
 | `crap-baseline-regression` (friction marker) | Marker key | Default `markerKey` for the rate-limited friction structured comment that `check-crap.js --story <id>` emits on regression. Configurable via `crap.friction.markerKey`. |
-| First-run bootstrap | Behavior contract | A consumer repo with no `baselines/crap.json` sees `[CRAP] no baseline found — run 'npm run crap:update' to bootstrap` and `check-crap` exits 0. Never hard-fails on first sync. |
+| First-run bootstrap | Behavior contract | A consumer repo with no `baselines/crap.json` sees `[CRAP] ❌ no baseline found — run 'npm run crap:update' and commit with a 'baseline-refresh:' subject to bootstrap` and `check-crap` exits 1. Story #791 retired the transitional exit-0 mode; the gate is now hard-enforcing across close-validation, pre-push, and CI. |
 
 ### 15. Epic #638 Artefacts — Concurrency Caps + Retro Primitives (v5.23.0)
 

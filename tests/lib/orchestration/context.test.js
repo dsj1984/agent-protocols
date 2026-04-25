@@ -8,7 +8,9 @@ import {
 } from '../../../.agents/scripts/lib/orchestration/context.js';
 
 const MIN_EPIC_CFG = {
-  epicRunner: { enabled: true, concurrencyCap: 2, pollIntervalSec: 1 },
+  runners: {
+    epicRunner: { enabled: true, concurrencyCap: 2, pollIntervalSec: 1 },
+  },
 };
 
 describe('OrchestrationContext family', () => {
@@ -48,7 +50,9 @@ describe('OrchestrationContext family', () => {
         new EpicRunnerContext({
           epicId: 1,
           provider: {},
-          config: { epicRunner: { enabled: true, concurrencyCap: 0 } },
+          config: {
+            runners: { epicRunner: { enabled: true, concurrencyCap: 0 } },
+          },
           spawn: () => {},
         }),
       /concurrencyCap/,
@@ -61,7 +65,9 @@ describe('OrchestrationContext family', () => {
         new EpicRunnerContext({
           epicId: 1,
           provider: {},
-          config: { epicRunner: { enabled: false, concurrencyCap: 1 } },
+          config: {
+            runners: { epicRunner: { enabled: false, concurrencyCap: 1 } },
+          },
           spawn: () => {},
         }),
       /enabled is false/,

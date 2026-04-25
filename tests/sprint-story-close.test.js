@@ -7,6 +7,8 @@ import {
   runCloseValidation as runCloseValidationOnly,
 } from '../.agents/scripts/lib/close-validation.js';
 import {
+  buildResumeMergeCommitMsg,
+  describeResumePushFailure,
   drainPendingCleanupAfterClose,
   getCloseDrainStatus,
   reconcileCleanupState,
@@ -14,6 +16,62 @@ import {
 } from '../.agents/scripts/sprint-story-close.js';
 
 const SCRIPT_PATH = path.resolve('.agents/scripts/sprint-story-close.js');
+
+test('buildResumeMergeCommitMsg lower-cases the first letter and tags resolves', () => {
+  assert.strictEqual(
+    buildResumeMergeCommitMsg(
+      'Story 13 — Address top-priority CRAP hotspots',
+      792,
+    ),
+    'feat: story 13 — Address top-priority CRAP hotspots (resolves #792)',
+  );
+});
+
+test('buildResumeMergeCommitMsg handles already-lowercase titles', () => {
+  assert.strictEqual(
+    buildResumeMergeCommitMsg('cleanup tickets', 1),
+    'feat: cleanup tickets (resolves #1)',
+  );
+});
+
+test('describeResumePushFailure returns null when push is ok', () => {
+  assert.strictEqual(
+    describeResumePushFailure({ ok: true, attempts: 1, result: {} }),
+    null,
+  );
+});
+
+test('describeResumePushFailure: retry-exhausted attaches attempts count', () => {
+  const out = describeResumePushFailure({
+    ok: false,
+    reason: 'retry-exhausted',
+    attempts: 3,
+    result: { stderr: 'remote rejected' },
+  });
+  assert.match(out, /retries exhausted after 3 attempt\(s\)/);
+  assert.match(out, /remote rejected/);
+});
+
+test('describeResumePushFailure: other reasons surface raw reason and detail', () => {
+  const out = describeResumePushFailure({
+    ok: false,
+    reason: 'rebase-conflict',
+    attempts: 1,
+    result: { stdout: 'conflict in foo.js' },
+  });
+  assert.match(out, /Push failed \(rebase-conflict\)/);
+  assert.match(out, /conflict in foo\.js/);
+});
+
+test('describeResumePushFailure: missing detail falls back to "unknown"', () => {
+  const out = describeResumePushFailure({
+    ok: false,
+    reason: 'mystery',
+    attempts: 1,
+    result: {},
+  });
+  assert.match(out, /unknown/);
+});
 
 test('sprint-story-close script', async (t) => {
   await t.test('fails without --story argument', () => {

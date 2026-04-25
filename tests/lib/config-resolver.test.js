@@ -48,7 +48,10 @@ describe('config-resolver library tests', () => {
     // `agentRoot` is no longer a zero-config default — it is hard-required by
     // the schema so a config without it cannot be silently filled in.
     assert.equal(config.settings.paths.agentRoot, undefined);
-    assert.equal(config.settings.scriptsRoot, '.agents/scripts');
+    // The seven `*Root` keys moved under `paths` in Epic #773 Story 9 —
+    // their defaults flow through `resolvePaths`, not the top-level apply
+    // loop, so they live at `settings.paths.scriptsRoot` (etc.) now.
+    assert.equal(config.settings.paths.scriptsRoot, '.agents/scripts');
     assert.equal(config.orchestration, null);
   });
 
@@ -197,7 +200,7 @@ describe('config-resolver library tests', () => {
     assert.equal(cfg.orchestration, null);
   });
 
-  it('throws when orchestration.epicRunner is missing concurrencyCap', () => {
+  it('throws when orchestration.runners.epicRunner is missing concurrencyCap', () => {
     const agentrcPath = path.join(PROJECT_ROOT, '.agentrc.json');
     vol.mkdirSync(PROJECT_ROOT, { recursive: true });
     vol.writeFileSync(
@@ -207,7 +210,9 @@ describe('config-resolver library tests', () => {
         orchestration: {
           provider: 'github',
           github: { owner: 'org', repo: 'repo' },
-          epicRunner: { enabled: true, pollIntervalSec: 30 },
+          runners: {
+            epicRunner: { enabled: true, pollIntervalSec: 30 },
+          },
         },
       }),
     );
@@ -228,7 +233,9 @@ describe('config-resolver library tests', () => {
         orchestration: {
           provider: 'github',
           github: { owner: 'org', repo: 'repo' },
-          epicRunner: { enabled: true, pollIntervalSec: 30 },
+          runners: {
+            epicRunner: { enabled: true, pollIntervalSec: 30 },
+          },
         },
       }),
     );
@@ -252,7 +259,7 @@ describe('config-resolver library tests', () => {
 
     const config = resolveConfig({ bustCache: true });
     assert.equal(config.settings.paths.agentRoot, 'custom-agents');
-    assert.equal(config.settings.scriptsRoot, '.agents/scripts'); // default
+    assert.equal(config.settings.paths.scriptsRoot, '.agents/scripts'); // default
   });
 
   describe('quality.crap defaults + deep-merge', () => {
@@ -630,7 +637,7 @@ describe('config-resolver library tests', () => {
     });
   });
 
-  describe('getPaths (Epic #730 Story 7)', () => {
+  describe('getPaths (Epic #730 Story 7; extended in Epic #773 Story 9)', () => {
     it('returns the configured roots + auditOutputDir default', () => {
       const out = getPaths({ agentSettings: { ...REQ } });
       assert.equal(out.agentRoot, '.agents');
@@ -662,6 +669,33 @@ describe('config-resolver library tests', () => {
       });
       assert.equal(out.agentRoot, 'custom');
       assert.equal(out.docsRoot, 'docs');
+    });
+
+    it('fills in framework defaults for the seven *Root keys', () => {
+      const out = getPaths({ agentSettings: { ...REQ } });
+      assert.equal(out.scriptsRoot, '.agents/scripts');
+      assert.equal(out.workflowsRoot, '.agents/workflows');
+      assert.equal(out.personasRoot, '.agents/personas');
+      assert.equal(out.schemasRoot, '.agents/schemas');
+      assert.equal(out.skillsRoot, '.agents/skills');
+      assert.equal(out.templatesRoot, '.agents/templates');
+      assert.equal(out.rulesRoot, '.agents/rules');
+    });
+
+    it('honours operator-supplied *Root overrides', () => {
+      const out = getPaths({
+        agentSettings: {
+          paths: {
+            ...REQ.paths,
+            scriptsRoot: 'custom/scripts',
+            personasRoot: 'custom/personas',
+          },
+        },
+      });
+      assert.equal(out.scriptsRoot, 'custom/scripts');
+      assert.equal(out.personasRoot, 'custom/personas');
+      // Untouched keys still fall back to defaults.
+      assert.equal(out.skillsRoot, '.agents/skills');
     });
   });
 

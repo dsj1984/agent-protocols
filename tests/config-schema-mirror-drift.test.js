@@ -12,13 +12,27 @@ import {
 } from '../.agents/scripts/lib/config-schema.js';
 
 // ---------------------------------------------------------------------------
-// Behavioural drift test: the static .agents/schemas/agentrc.schema.json file
-// is the human-readable mirror; the AJV schemas in config-schema.js +
-// config-settings-schema.js remain the runtime source of truth. Rather than
-// compare structure (which would be brittle because the AJV side uses
-// programmatic shortcuts that don't translate to a static JSON file), we
-// assert the two surfaces produce the same accept/reject verdicts on a
-// curated fixture set covering every block whose typing this Story added.
+// Behavioural drift test — directionality contract.
+//
+// Authoritative direction: AJV → mirror. The runtime AJV schemas in
+// config-schema.js + config-settings-schema.js are the SOURCE OF TRUTH; the
+// static .agents/schemas/agentrc.schema.json file is an ADVISORY human-readable
+// mirror. When the two diverge, the AJV side wins and the mirror MUST be
+// updated to match — never the other way around.
+//
+// What this test catches: AJV → mirror lag. A schema change landed on the AJV
+// side without a corresponding update to the static mirror, so the two
+// surfaces now disagree on which inputs to accept or reject.
+//
+// How to fix a failure: update .agents/schemas/agentrc.schema.json to mirror
+// the AJV-side change. Do NOT relax the AJV schema to match the mirror.
+//
+// Why verdict-equivalence rather than structural diff: the AJV side uses
+// programmatic shortcuts (compiled patternProperties, helper-built keyword
+// sets, etc.) that don't translate to a static JSON file. Comparing structure
+// would be brittle. Instead we assert the two surfaces produce the same
+// accept/reject verdicts on a curated fixture set covering every block whose
+// typing previous Stories added.
 // ---------------------------------------------------------------------------
 
 const __dirname = path.dirname(fileURLToPath(import.meta.url));
@@ -50,10 +64,20 @@ const runtimeValidators = {
 const assertAgree = (block, value, label) => {
   const runtimeOk = runtimeValidators[block](value);
   const mirrorOk = mirrorValidator(block)(value);
+  let directionalHint = '';
+  if (runtimeOk && !mirrorOk) {
+    directionalHint =
+      ' Static JSON Schema mirror rejects an input the runtime AJV schema accepts.' +
+      ' The AJV schema is authoritative; update .agents/schemas/agentrc.schema.json to match.';
+  } else if (!runtimeOk && mirrorOk) {
+    directionalHint =
+      ' Static JSON Schema mirror accepts an input the runtime AJV schema rejects.' +
+      ' The AJV schema is authoritative; tighten .agents/schemas/agentrc.schema.json to match.';
+  }
   assert.equal(
     mirrorOk,
     runtimeOk,
-    `[${block}] ${label}: runtime=${runtimeOk} mirror=${mirrorOk}`,
+    `[${block}] ${label}: runtime=${runtimeOk} mirror=${mirrorOk}.${directionalHint}`,
   );
 };
 
@@ -68,6 +92,13 @@ describe('agentrc.schema.json mirror — drift vs runtime AJV schemas', () => {
           docsRoot: 'docs',
           tempRoot: 'temp',
           auditOutputDir: 'temp',
+          scriptsRoot: '.agents/scripts',
+          workflowsRoot: '.agents/workflows',
+          personasRoot: '.agents/personas',
+          schemasRoot: '.agents/schemas',
+          skillsRoot: '.agents/skills',
+          templatesRoot: '.agents/templates',
+          rulesRoot: '.agents/rules',
         },
         commands: {
           validate: 'npm run lint',
@@ -203,6 +234,49 @@ describe('agentrc.schema.json mirror — drift vs runtime AJV schemas', () => {
     );
   });
 
+  it('rejects an unknown top-level agentSettings key on both sides (Epic #773 Story 9)', () => {
+    assertAgree(
+      'agentSettings',
+      {
+        paths: { agentRoot: '.agents', docsRoot: 'docs', tempRoot: 'temp' },
+        unknownTopLevel: true,
+      },
+      'unknown agentSettings top-level',
+    );
+  });
+
+  it('rejects a legacy `scriptsRoot` flat key at the top level on both sides', () => {
+    assertAgree(
+      'agentSettings',
+      {
+        paths: { agentRoot: '.agents', docsRoot: 'docs', tempRoot: 'temp' },
+        scriptsRoot: '.agents/scripts',
+      },
+      'flat *Root after Story 9 cutover',
+    );
+  });
+
+  it('accepts the seven *Root keys nested under paths on both sides', () => {
+    assertAgree(
+      'agentSettings',
+      {
+        paths: {
+          agentRoot: '.agents',
+          docsRoot: 'docs',
+          tempRoot: 'temp',
+          scriptsRoot: '.agents/scripts',
+          workflowsRoot: '.agents/workflows',
+          personasRoot: '.agents/personas',
+          schemasRoot: '.agents/schemas',
+          skillsRoot: '.agents/skills',
+          templatesRoot: '.agents/templates',
+          rulesRoot: '.agents/rules',
+        },
+      },
+      'paths.*Root accepted',
+    );
+  });
+
   it('accepts a full orchestration block on both sides', () => {
     assertAgree(
       'orchestration',
@@ -220,10 +294,36 @@ describe('agentrc.schema.json mirror — drift vs runtime AJV schemas', () => {
           root: '.worktrees',
           nodeModulesStrategy: 'per-worktree',
         },
-        epicRunner: { enabled: true, concurrencyCap: 3, pollIntervalSec: 30 },
-        planRunner: { enabled: true, pollIntervalSec: 30 },
+        runners: {
+          epicRunner: { enabled: true, concurrencyCap: 3, pollIntervalSec: 30 },
+          planRunner: { enabled: true, pollIntervalSec: 30 },
+        },
       },
       'full orchestration',
+    );
+  });
+
+  it('rejects flat epicRunner under orchestration on both sides', () => {
+    assertAgree(
+      'orchestration',
+      {
+        provider: 'github',
+        github: { owner: 'org', repo: 'repo' },
+        epicRunner: { enabled: true, concurrencyCap: 3 },
+      },
+      'flat epicRunner is no longer allowed at the orchestration root',
+    );
+  });
+
+  it('rejects unknown property under orchestration.runners on both sides', () => {
+    assertAgree(
+      'orchestration',
+      {
+        provider: 'github',
+        github: { owner: 'org', repo: 'repo' },
+        runners: { unknownRunner: {} },
+      },
+      'unknown runners child',
     );
   });
 

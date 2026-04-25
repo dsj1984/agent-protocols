@@ -137,7 +137,7 @@ test('formatter: story execution manifest respects injected settings', () => {
     },
     {
       settings: {
-        scriptsRoot: 'custom/scripts',
+        paths: { scriptsRoot: 'custom/scripts' },
         commands: {
           validate: 'npm run check',
           test: 'npm run spec',

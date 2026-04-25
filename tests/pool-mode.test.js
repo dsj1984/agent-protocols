@@ -50,8 +50,14 @@ function makeProvider({ tickets } = {}) {
     },
     async updateTicket(id, mutations) {
       const cur = new Set(issueLabels.get(id) ?? []);
-      for (const l of mutations?.labels?.remove ?? []) cur.delete(l);
-      for (const l of mutations?.labels?.add ?? []) cur.add(l);
+      // Hoist these to locals: typhonjs-escomplex's ESTree plugin has no
+      // traveler for ChainExpression, so an optional-chain operand directly
+      // inside a for-of iterable's `??`/`||` trips formatBinaryExpressionPart
+      // and zeros the file's maintainability score.
+      const toRemove = mutations?.labels?.remove ?? [];
+      const toAdd = mutations?.labels?.add ?? [];
+      for (const l of toRemove) cur.delete(l);
+      for (const l of toAdd) cur.add(l);
       issueLabels.set(id, [...cur]);
     },
     async getTicketComments(id) {

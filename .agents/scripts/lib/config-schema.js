@@ -133,7 +133,7 @@ const PLAN_RUNNER_SCHEMA = {
 };
 
 /**
- * `orchestration.closeRetry` — bounded retry policy for the epic-branch push
+ * `orchestration.runners.closeRetry` — bounded retry policy for the epic-branch push
  * step in `sprint-story-close.js`. Protects concurrent story closures against
  * non-fast-forward rejections when a sibling session lands on the same Epic
  * branch between our fetch and our push.
@@ -153,14 +153,14 @@ const CLOSE_RETRY_SCHEMA = {
   additionalProperties: false,
 };
 
-/** Default applied when `orchestration.closeRetry` is absent or incomplete. */
+/** Default applied when `orchestration.runners.closeRetry` is absent or incomplete. */
 export const DEFAULT_CLOSE_RETRY = Object.freeze({
   maxAttempts: 3,
   backoffMs: Object.freeze([250, 500, 1000]),
 });
 
 /**
- * `orchestration.poolMode` — claim-based pool mode for `/sprint-execute`
+ * `orchestration.runners.poolMode` — claim-based pool mode for `/sprint-execute`
  * invoked without a story id. `staleClaimMinutes` controls when an
  * `in-progress-by:*` label is surfaced as reclaimable in pool-mode output;
  * `sessionIdLength` caps the truncated session-id used in the label suffix
@@ -175,14 +175,14 @@ const POOL_MODE_SCHEMA = {
   additionalProperties: false,
 };
 
-/** Default applied when `orchestration.poolMode` is absent or incomplete. */
+/** Default applied when `orchestration.runners.poolMode` is absent or incomplete. */
 export const DEFAULT_POOL_MODE = Object.freeze({
   staleClaimMinutes: 60,
   sessionIdLength: 12,
 });
 
 /**
- * `orchestration.concurrency` — per-site caps for the `concurrentMap`
+ * `orchestration.runners.concurrency` — per-site caps for the `concurrentMap`
  * adoption sites shipped in v5.21.0 (Epic #553). All keys optional;
  * omitting them preserves the v5.21.0 constant-valued defaults exactly.
  *
@@ -200,6 +200,25 @@ const CONCURRENCY_SCHEMA = {
     waveGate: { type: 'integer', minimum: 0 },
     commitAssertion: { type: 'integer', minimum: 1 },
     progressReporter: { type: 'integer', minimum: 1 },
+  },
+  additionalProperties: false,
+};
+
+/**
+ * `orchestration.runners` — typed grouping of every runner-flavoured sub-block
+ * (epicRunner, planRunner, concurrency, closeRetry, poolMode) introduced in
+ * Epic #773 Story 7. Replaces the prior flat layout where each sub-block sat
+ * directly under `orchestration`. Each sub-schema is preserved byte-for-byte;
+ * only the parent location changes.
+ */
+const RUNNERS_SCHEMA = {
+  type: 'object',
+  properties: {
+    epicRunner: EPIC_RUNNER_SCHEMA,
+    planRunner: PLAN_RUNNER_SCHEMA,
+    concurrency: CONCURRENCY_SCHEMA,
+    closeRetry: CLOSE_RETRY_SCHEMA,
+    poolMode: POOL_MODE_SCHEMA,
   },
   additionalProperties: false,
 };
@@ -225,11 +244,7 @@ export const ORCHESTRATION_SCHEMA = {
     notifications: NOTIFICATIONS_SCHEMA,
     hitl: { type: 'object', properties: {}, additionalProperties: false },
     worktreeIsolation: WORKTREE_ISOLATION_SCHEMA,
-    epicRunner: EPIC_RUNNER_SCHEMA,
-    planRunner: PLAN_RUNNER_SCHEMA,
-    concurrency: CONCURRENCY_SCHEMA,
-    closeRetry: CLOSE_RETRY_SCHEMA,
-    poolMode: POOL_MODE_SCHEMA,
+    runners: RUNNERS_SCHEMA,
   },
   additionalProperties: false,
   allOf: [

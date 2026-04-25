@@ -8,49 +8,65 @@ import { createProvider } from './lib/provider-factory.js';
 import { runAuditSuite } from './run-audit-suite.js';
 import { selectAudits } from './select-audits.js';
 
-function formatAuditReport(results) {
+/** Pure: severity → glyph used in the audit findings table. */
+export function severityIcon(severity) {
+  if (severity === 'critical') return '🔴';
+  if (severity === 'high') return '🟠';
+  if (severity === 'medium') return '🟡';
+  return '⚪';
+}
+
+/** Pure: render the findings table block; returns '' when no findings. */
+export function renderFindingsBlock(findings) {
+  if (!findings || findings.length === 0) return '';
+  const rows = findings.map((finding) => {
+    const msg = finding.message
+      ? finding.message.replace(/\n/g, '<br>')
+      : 'No details provided';
+    return `| ${finding.audit} | ${severityIcon(finding.severity)} ${finding.severity.toUpperCase()} | ${msg} |`;
+  });
+  return [
+    '### ⚠️ Audit Configuration Issues',
+    '',
+    '| Audit | Severity | Message |',
+    '|-------|----------|---------|',
+    ...rows,
+    '',
+    '',
+  ].join('\n');
+}
+
+/** Pure: render the workflows block; returns '' when no workflows. */
+export function renderWorkflowsBlock(workflows, summary, auditsRun) {
+  if (!workflows || workflows.length === 0) return '';
+  const head = [
+    `**Audit Workflows Dispatched:** ${auditsRun.join(', ')}`,
+    `**Summary:** 🔴 ${summary.critical} Critical | 🟠 ${summary.high} High | 🟡 ${summary.medium} Medium | ⚪ ${summary.low} Low`,
+    '',
+    '> [!NOTE]',
+    '> The following audit workflows are ready to execute. Run each prompt as a dedicated agent task.',
+    '',
+  ].join('\n');
+  const body = workflows
+    .map((wf) => `---\n\n### Audit: \`${wf.audit}\`\n\n${wf.content}\n\n`)
+    .join('');
+  return `${head}\n${body}`;
+}
+
+export function formatAuditReport(results) {
   const { metadata, findings, workflows } = results;
   const { summary, auditsRun } = metadata;
-
-  let report = '## 🛡️ Audit Orchestrator Report\n\n';
+  const header = '## 🛡️ Audit Orchestrator Report\n\n';
 
   if (auditsRun.length === 0 && findings.length === 0) {
-    report += 'No audits were run during this gate.\n';
-    return report;
+    return `${header}No audits were run during this gate.\n`;
   }
 
-  if (findings.length > 0) {
-    report += '### ⚠️ Audit Configuration Issues\n\n';
-    report += '| Audit | Severity | Message |\n';
-    report += '|-------|----------|---------|\n';
-    for (const finding of findings) {
-      let icon = '⚪';
-      if (finding.severity === 'critical') icon = '🔴';
-      if (finding.severity === 'high') icon = '🟠';
-      if (finding.severity === 'medium') icon = '🟡';
-      const msg = finding.message
-        ? finding.message.replace(/\n/g, '<br>')
-        : 'No details provided';
-      report += `| ${finding.audit} | ${icon} ${finding.severity.toUpperCase()} | ${msg} |\n`;
-    }
-    report += '\n';
-  }
-
-  if (workflows.length > 0) {
-    const executedList = auditsRun.join(', ');
-    report += `**Audit Workflows Dispatched:** ${executedList}\n`;
-    report += `**Summary:** 🔴 ${summary.critical} Critical | 🟠 ${summary.high} High | 🟡 ${summary.medium} Medium | ⚪ ${summary.low} Low\n\n`;
-    report +=
-      '> [!NOTE]\n> The following audit workflows are ready to execute. Run each prompt as a dedicated agent task.\n\n';
-
-    for (const wf of workflows) {
-      report += `---\n\n### Audit: \`${wf.audit}\`\n\n`;
-      report += wf.content;
-      report += '\n\n';
-    }
-  }
-
-  return report;
+  return (
+    header +
+    renderFindingsBlock(findings) +
+    renderWorkflowsBlock(workflows, summary, auditsRun)
+  );
 }
 
 export async function runAuditOrchestrator(

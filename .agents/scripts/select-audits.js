@@ -4,9 +4,10 @@
 /**
  * select-audits.js — CLI + SDK for audit selection.
  *
- * Post-retirement entry point for the former MCP tool
- * `mcp__agent-protocols__select_audits`. The pure rule-matching logic
- * (matchesFilePattern, matchesAnyFilePattern, selectAudits) lives here.
+ * Successor to the retired agent-protocols MCP tools. See ADR 20260424-702a in docs/decisions.md for the migration table.
+ *
+ * The pure rule-matching logic (matchesFilePattern, matchesAnyFilePattern,
+ * selectAudits) lives here.
  *
  * Usage:
  *   node .agents/scripts/select-audits.js \
@@ -25,7 +26,11 @@ import path from 'node:path';
 import { parseArgs } from 'node:util';
 import picomatch from 'picomatch';
 import { runAsCli } from './lib/cli-utils.js';
-import { PROJECT_ROOT, resolveConfig } from './lib/config-resolver.js';
+import {
+  getPaths,
+  PROJECT_ROOT,
+  resolveConfig,
+} from './lib/config-resolver.js';
 import { gitSpawn } from './lib/git-utils.js';
 import { createProvider } from './lib/provider-factory.js';
 import { withTimeout } from './lib/util/with-timeout.js';
@@ -90,7 +95,7 @@ export async function selectAudits({
 
   const rulesPath = path.join(
     PROJECT_ROOT,
-    settings.schemasRoot,
+    getPaths({ agentSettings: settings }).schemasRoot,
     'audit-rules.schema.json',
   );
   let rulesData;

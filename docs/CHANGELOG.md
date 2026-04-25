@@ -4,6 +4,54 @@ All notable changes to this project will be documented in this file.
 
 ## [Unreleased]
 
+## [5.27.0] - 2026-04-25
+
+### Pre-consumer-upgrade quality pass (Epic #773)
+
+The post-#730 quality pass that consolidates the `orchestration` namespace,
+splits the `config-resolver` facade, establishes the CRAP baseline as a
+hard-enforced gate, decomposes two large modules behind byte-identical
+facades, and remediates the top-10 CRAP hotspots. Fifteen stories landed
+across four themes; the framework is now ready for consumer projects to
+pull forward.
+
+- **CRAP gate is now hard-enforcing.** `baselines/crap.json` is bootstrapped
+  and shipped; `check-crap.js` no longer self-skips on a missing baseline.
+  All three firing sites (close-validation, pre-push, CI) fail closed when
+  the baseline is absent or the kernel/escomplex versions drift. Operators
+  bootstrap explicitly via `npm run crap:update` + a `baseline-refresh:`
+  commit. The top-10 method hotspots above CRAP 50 were eliminated; ten
+  long-tail methods at CRAP 50–72 are tracked as a follow-on.
+- **`orchestration` is now grouped.** Flat peer keys (`worktreeIsolation`,
+  `epicRunner`, `planRunner`, `concurrency`, `closeRetry`, `poolMode`)
+  consolidate under `orchestration.runners` (where they describe runner
+  behaviour) and `orchestration.worktreeIsolation`. The shipped configs and
+  consumer sweeps land in the same atomic cutover, so no legacy-key
+  fallbacks remain in the resolver.
+- **`config-resolver.js` split into a facade + responsibility-bounded
+  submodules.** The 930-LOC monolith is now a thin re-export over
+  `quality`, `paths`, `commands`, `limits`, and `runners` accessor
+  submodules. Public surface is byte-identical; only internals moved.
+- **Two large modules decomposed behind byte-identical facades.**
+  `providers/github.js` and `lib/worktree/lifecycle-manager.js` each split
+  into ≤250 LOC facades over focused submodules under
+  `providers/github/*` and `lib/worktree/lifecycle/*`. Same pattern
+  documented in `docs/patterns.md` (facade + responsibility-bounded
+  submodules, ctx-threading discipline, no inter-submodule imports).
+- **`*Root` paths centralised under `agentSettings.paths`.** The legacy
+  flat keys (`agentRoot`, `docsRoot`, `tempRoot`) are gone; consumers read
+  via `getPaths()`. Both shipped configs migrated.
+- **State-poller deleted.** The dormant `state-poller.js` module + solo
+  test were removed; the active wave loop reads state synchronously per
+  wave (the `sprint-execute.md` doc reference is updated).
+- **`docs-context-bridge` removed.** Deleted
+  `lib/orchestration/docs-context-bridge.js` and its test. The advisory
+  friction comment ran at sprint-story-close — too late for the dev to
+  act on, never read in practice, and the heuristic path-segment-vs-heading
+  match was noisy. The Epic-close docs-freshness gate
+  (`validate-docs-freshness.js`) is the load-bearing check and remains in
+  place.
+
 ## [5.26.0] - 2026-04-25
 
 ### Config schema modernization & baseline unification (Epic #730)

@@ -13,6 +13,7 @@
  *   with error-journal logging).
  */
 
+import { getRunners } from '../../config/runners.js';
 import { notify } from '../../../notify.js';
 import { createFrictionEmitter } from '../friction-emitter.js';
 import { BlockerHandler } from './blocker-handler.js';
@@ -39,7 +40,8 @@ export function resolveProgressLogFile(epicRunnerCfg, epicId) {
 
 export function createEpicRunnerCollaborators(ctx, { errorJournal } = {}) {
   const { epicId, provider, config, logger } = ctx;
-  const { pollIntervalSec } = config.epicRunner;
+  const { epicRunner } = getRunners(config);
+  const { pollIntervalSec } = epicRunner;
   const journal = errorJournal ?? ctx.errorJournal;
   const journalSuffix = () => (journal?.path ? ` (see ${journal.path})` : '');
 
@@ -62,10 +64,10 @@ export function createEpicRunnerCollaborators(ctx, { errorJournal } = {}) {
     ctx.commitAssertion ?? new CommitAssertion({ ctx, gitAdapter, logger });
   const waveObserver = new WaveObserver({ ctx, commitAssertion });
   const frictionEmitter = createFrictionEmitter({ provider, logger });
-  const progressLogFile = resolveProgressLogFile(config?.epicRunner, epicId);
+  const progressLogFile = resolveProgressLogFile(epicRunner, epicId);
   const progressReporter = new ProgressReporter({
     ctx,
-    intervalSec: Number(config?.epicRunner?.progressReportIntervalSec ?? 0),
+    intervalSec: Number(epicRunner.progressReportIntervalSec ?? 0),
     frictionEmitter,
     logFile: progressLogFile,
   });

@@ -4,25 +4,12 @@ import { SHELL_INJECTION_PATTERN_STRING } from './config-schema-shared.js';
 
 /**
  * Flat agentSettings string fields. Every entry below is constrained to a
- * non-malicious string by {@link AGENT_SETTINGS_SCHEMA}. Adding a new
- * top-level string field means appending to this list, nothing else.
- *
- * Command fields (validate, lintBaseline, test, typecheck, build) live under
- * `agentSettings.commands` (Epic #730 Story 5) and are NOT
- * in this list — see {@link COMMANDS_SCHEMA} below.
+ * non-malicious string by {@link AGENT_SETTINGS_SCHEMA}. The seven `*Root`
+ * filesystem keys moved under `agentSettings.paths.*` in Epic #773 Story 9
+ * (atomic cutover — no flat fallback). Command fields live under
+ * `agentSettings.commands` — see {@link COMMANDS_SCHEMA} below.
  */
-export const AGENT_SETTINGS_STRING_FIELDS = Object.freeze([
-  'baseBranch',
-  'scriptsRoot',
-  'workflowsRoot',
-  'personasRoot',
-  'schemasRoot',
-  'skillsRoot',
-  'templatesRoot',
-  'rulesRoot',
-]);
-
-const STRING_FIELDS_PATTERN = `^(${AGENT_SETTINGS_STRING_FIELDS.join('|')})$`;
+export const AGENT_SETTINGS_STRING_FIELDS = Object.freeze(['baseBranch']);
 
 const SAFE_STRING = {
   type: 'string',
@@ -243,11 +230,14 @@ const LIMITS_SCHEMA = {
 
 /**
  * `agentSettings.paths` is the grouped home for the framework's filesystem
- * roots (Epic #730 Story 7). `agentRoot` / `docsRoot` / `tempRoot` are
- * hard-required (transferred from the agentSettings-level Story 4 contract);
- * `auditOutputDir` is optional with a `'temp'` default applied by
- * {@link getPaths} in the resolver. additionalProperties: false catches
- * misspelled keys up front.
+ * roots. Story 7 (Epic #730) introduced the block with `agentRoot` /
+ * `docsRoot` / `tempRoot` (hard-required) plus optional `auditOutputDir`.
+ * Story 9 (Epic #773) rolled the seven legacy `*Root` flat keys
+ * (`scriptsRoot`, `workflowsRoot`, `personasRoot`, `schemasRoot`,
+ * `skillsRoot`, `templatesRoot`, `rulesRoot`) under here as proper named
+ * properties — they keep their resolver defaults but no longer live at the
+ * top of `agentSettings`. `additionalProperties: false` catches typos up
+ * front; defaults are applied by {@link getPaths} in the resolver.
  */
 const PATHS_SCHEMA = {
   type: 'object',
@@ -257,6 +247,13 @@ const PATHS_SCHEMA = {
     docsRoot: { ...SAFE_STRING, minLength: 1 },
     tempRoot: { ...SAFE_STRING, minLength: 1 },
     auditOutputDir: { ...SAFE_STRING, minLength: 1 },
+    scriptsRoot: { ...SAFE_STRING, minLength: 1 },
+    workflowsRoot: { ...SAFE_STRING, minLength: 1 },
+    personasRoot: { ...SAFE_STRING, minLength: 1 },
+    schemasRoot: { ...SAFE_STRING, minLength: 1 },
+    skillsRoot: { ...SAFE_STRING, minLength: 1 },
+    templatesRoot: { ...SAFE_STRING, minLength: 1 },
+    rulesRoot: { ...SAFE_STRING, minLength: 1 },
   },
   additionalProperties: false,
 };
@@ -287,6 +284,7 @@ export const AGENT_SETTINGS_SCHEMA = {
   // that omits the entire group still fails fast with a clear message.
   required: ['paths'],
   properties: {
+    baseBranch: SAFE_STRING,
     docsContextFiles: { type: 'array', items: { type: 'string' } },
     sprintClose: SPRINT_CLOSE_SCHEMA,
     release: RELEASE_SCHEMA,
@@ -296,9 +294,12 @@ export const AGENT_SETTINGS_SCHEMA = {
     paths: PATHS_SCHEMA,
     limits: LIMITS_SCHEMA,
   },
-  patternProperties: {
-    [STRING_FIELDS_PATTERN]: SAFE_STRING,
-  },
+  // Locked in Epic #773 Story 9 — Story 9 rolled the seven `*Root` flat
+  // keys under `paths.*`, leaving `baseBranch` as the only top-level
+  // string field. With the patternProperties shortcut gone we can fail
+  // closed: any unknown top-level key (typo, stale flat *Root, etc.) is
+  // rejected up front instead of silently ignored.
+  additionalProperties: false,
 };
 
 let _settingsValidator = null;

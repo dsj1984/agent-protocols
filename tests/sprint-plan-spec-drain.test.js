@@ -8,7 +8,7 @@ import {
   manifestPath,
   readManifest,
   recordPendingCleanup,
-} from '../.agents/scripts/lib/worktree/pending-cleanup.js';
+} from '../.agents/scripts/lib/worktree/lifecycle/pending-cleanup.js';
 import { drainPendingCleanupAtBoot } from '../.agents/scripts/sprint-plan-spec.js';
 
 function quietLogger() {

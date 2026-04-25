@@ -255,7 +255,22 @@ describe('validateOrchestrationConfig — schema violations', () => {
         validateOrchestrationConfig({
           provider: 'github',
           github: { owner: 'org', repo: 'repo' },
-          epicRunner: { concurencyCap: 3 },
+          runners: { epicRunner: { concurencyCap: 3 } },
+        }),
+      /must NOT have additional properties/,
+    );
+  });
+
+  it('rejects flat runner sub-blocks at the orchestration root', () => {
+    // Story 7 atomic cutover: every runner block now lives under
+    // `orchestration.runners`. A flat `epicRunner` is an additional-property
+    // violation at the orchestration root.
+    assert.throws(
+      () =>
+        validateOrchestrationConfig({
+          provider: 'github',
+          github: { owner: 'org', repo: 'repo' },
+          epicRunner: { enabled: true, concurrencyCap: 3 },
         }),
       /must NOT have additional properties/,
     );
@@ -280,7 +295,9 @@ describe('validateOrchestrationConfig — closeRetry', () => {
       validateOrchestrationConfig({
         provider: 'github',
         github: baseGithub,
-        closeRetry: { maxAttempts: 3, backoffMs: [250, 500, 1000] },
+        runners: {
+          closeRetry: { maxAttempts: 3, backoffMs: [250, 500, 1000] },
+        },
       }),
     );
   });
@@ -290,7 +307,7 @@ describe('validateOrchestrationConfig — closeRetry', () => {
       validateOrchestrationConfig({
         provider: 'github',
         github: baseGithub,
-        closeRetry: { maxAttempts: 5 },
+        runners: { closeRetry: { maxAttempts: 5 } },
       }),
     );
   });
@@ -300,7 +317,7 @@ describe('validateOrchestrationConfig — closeRetry', () => {
       validateOrchestrationConfig({
         provider: 'github',
         github: baseGithub,
-        closeRetry: {},
+        runners: { closeRetry: {} },
       }),
     );
   });
@@ -311,7 +328,7 @@ describe('validateOrchestrationConfig — closeRetry', () => {
         validateOrchestrationConfig({
           provider: 'github',
           github: baseGithub,
-          closeRetry: { maxAttempts: 0 },
+          runners: { closeRetry: { maxAttempts: 0 } },
         }),
       /must be >= 1/,
     );
@@ -323,7 +340,7 @@ describe('validateOrchestrationConfig — closeRetry', () => {
         validateOrchestrationConfig({
           provider: 'github',
           github: baseGithub,
-          closeRetry: { maxAttempts: 1.5 },
+          runners: { closeRetry: { maxAttempts: 1.5 } },
         }),
       /must be integer/,
     );
@@ -335,7 +352,7 @@ describe('validateOrchestrationConfig — closeRetry', () => {
         validateOrchestrationConfig({
           provider: 'github',
           github: baseGithub,
-          closeRetry: { backoffMs: 500 },
+          runners: { closeRetry: { backoffMs: 500 } },
         }),
       /must be array/,
     );
@@ -347,7 +364,7 @@ describe('validateOrchestrationConfig — closeRetry', () => {
         validateOrchestrationConfig({
           provider: 'github',
           github: baseGithub,
-          closeRetry: { backoffMs: [100, -50] },
+          runners: { closeRetry: { backoffMs: [100, -50] } },
         }),
       /must be >= 0/,
     );
@@ -359,7 +376,7 @@ describe('validateOrchestrationConfig — closeRetry', () => {
         validateOrchestrationConfig({
           provider: 'github',
           github: baseGithub,
-          closeRetry: { maxAttemps: 3 },
+          runners: { closeRetry: { maxAttemps: 3 } },
         }),
       /must NOT have additional properties/,
     );
@@ -377,7 +394,7 @@ describe('validateOrchestrationConfig — poolMode', () => {
       validateOrchestrationConfig({
         provider: 'github',
         github: baseGithub,
-        poolMode: { staleClaimMinutes: 60, sessionIdLength: 12 },
+        runners: { poolMode: { staleClaimMinutes: 60, sessionIdLength: 12 } },
       }),
     );
   });
@@ -387,7 +404,7 @@ describe('validateOrchestrationConfig — poolMode', () => {
       validateOrchestrationConfig({
         provider: 'github',
         github: baseGithub,
-        poolMode: {},
+        runners: { poolMode: {} },
       }),
     );
   });
@@ -398,7 +415,7 @@ describe('validateOrchestrationConfig — poolMode', () => {
         validateOrchestrationConfig({
           provider: 'github',
           github: baseGithub,
-          poolMode: { staleClaimMinutes: 0 },
+          runners: { poolMode: { staleClaimMinutes: 0 } },
         }),
       /must be >= 1/,
     );
@@ -410,7 +427,7 @@ describe('validateOrchestrationConfig — poolMode', () => {
         validateOrchestrationConfig({
           provider: 'github',
           github: baseGithub,
-          poolMode: { sessionIdLength: 2 },
+          runners: { poolMode: { sessionIdLength: 2 } },
         }),
       /must be >= 4/,
     );
@@ -422,7 +439,7 @@ describe('validateOrchestrationConfig — poolMode', () => {
         validateOrchestrationConfig({
           provider: 'github',
           github: baseGithub,
-          poolMode: { staleClaim: 60 },
+          runners: { poolMode: { staleClaim: 60 } },
         }),
       /must NOT have additional properties/,
     );
@@ -593,7 +610,7 @@ describe('validateOrchestrationConfig — conditional required keys', () => {
         validateOrchestrationConfig({
           provider: 'github',
           github: baseGithub,
-          epicRunner: { pollIntervalSec: 30 },
+          runners: { epicRunner: { pollIntervalSec: 30 } },
         }),
       /must have required property 'concurrencyCap'/,
     );
@@ -605,7 +622,7 @@ describe('validateOrchestrationConfig — conditional required keys', () => {
         validateOrchestrationConfig({
           provider: 'github',
           github: baseGithub,
-          epicRunner: { enabled: true, pollIntervalSec: 30 },
+          runners: { epicRunner: { enabled: true, pollIntervalSec: 30 } },
         }),
       /must have required property 'concurrencyCap'/,
     );
@@ -616,7 +633,7 @@ describe('validateOrchestrationConfig — conditional required keys', () => {
       validateOrchestrationConfig({
         provider: 'github',
         github: baseGithub,
-        epicRunner: { enabled: false, pollIntervalSec: 30 },
+        runners: { epicRunner: { enabled: false, pollIntervalSec: 30 } },
       }),
     );
   });

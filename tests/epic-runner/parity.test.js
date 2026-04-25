@@ -86,12 +86,14 @@ function buildFakeProvider({ epicId, stories, initialEpicLabels }) {
 }
 
 const defaultConfig = {
-  epicRunner: {
-    enabled: true,
-    concurrencyCap: 2,
-    pollIntervalSec: 1,
-    storyRetryCount: 0,
-    blockerTimeoutHours: 0,
+  runners: {
+    epicRunner: {
+      enabled: true,
+      concurrencyCap: 2,
+      pollIntervalSec: 1,
+      storyRetryCount: 0,
+      blockerTimeoutHours: 0,
+    },
   },
 };
 

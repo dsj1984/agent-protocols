@@ -4,9 +4,9 @@
 /**
  * run-audit-suite.js — CLI + SDK for running a list of audit workflows.
  *
- * Post-retirement entry point for the former MCP tool
- * `mcp__agent-protocols__run_audit_suite`. The pure aggregation logic lives
- * here.
+ * Successor to the retired agent-protocols MCP tools. See ADR 20260424-702a in docs/decisions.md for the migration table.
+ *
+ * The pure aggregation logic lives here.
  *
  * Usage:
  *   node .agents/scripts/run-audit-suite.js \
@@ -124,13 +124,14 @@ export async function runAuditSuite({
   injectedRules,
 }) {
   const { settings } = resolveConfig();
+  const paths = getPaths({ agentSettings: settings });
   const callerSubstitutions = substitutions ?? {};
 
   let rules = injectedRules;
   if (!rules) {
     const rulesPath = path.join(
       PROJECT_ROOT,
-      settings.schemasRoot,
+      paths.schemasRoot,
       'audit-rules.schema.json',
     );
     const rulesContent = await fs.readFile(rulesPath, 'utf8');
@@ -150,7 +151,7 @@ export async function runAuditSuite({
   }
 
   const effectiveSubstitutions = {
-    auditOutputDir: getPaths({ agentSettings: settings }).auditOutputDir,
+    auditOutputDir: paths.auditOutputDir,
     ...callerSubstitutions,
   };
 
@@ -171,7 +172,7 @@ export async function runAuditSuite({
     workflows: [],
   };
 
-  const workflowsDir = path.join(PROJECT_ROOT, settings.workflowsRoot);
+  const workflowsDir = path.join(PROJECT_ROOT, paths.workflowsRoot);
 
   const auditPromises = auditWorkflows.map(async (auditName) => {
     if (!validAudits.includes(auditName)) {

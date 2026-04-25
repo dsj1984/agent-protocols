@@ -154,8 +154,15 @@ export function runFreshnessGate({
   return { ok: results.every((r) => r.pass), results };
 }
 
-async function main() {
+/**
+ * Pure: parse argv into the normalized CLI option bag.
+ *
+ * @param {string[]} argv
+ * @returns {{ epicId: number|null, json: boolean, docsList: string[]|null }}
+ */
+export function parseFreshnessArgs(argv) {
   const { values } = parseArgs({
+    args: argv,
     options: {
       epic: { type: 'string' },
       base: { type: 'string' },
@@ -164,61 +171,82 @@ async function main() {
     },
     strict: false,
   });
-  const epicId = Number.parseInt(values.epic ?? '', 10);
-  if (Number.isNaN(epicId) || epicId <= 0) {
-    Logger.fatal(
-      'Usage: node validate-docs-freshness.js --epic <EPIC_ID> [--docs a.md,b.md] [--json]',
-    );
-  }
+  const parsed = Number.parseInt(values.epic ?? '', 10);
+  return {
+    epicId: Number.isNaN(parsed) || parsed <= 0 ? null : parsed,
+    json: values.json === true,
+    docsList: values.docs
+      ? values.docs
+          .split(',')
+          .map((s) => s.trim())
+          .filter(Boolean)
+      : null,
+  };
+}
 
-  const asJson = values.json === true;
-  const { settings } = resolveConfig();
-  const docs = values.docs
-    ? values.docs
-        .split(',')
-        .map((s) => s.trim())
-        .filter(Boolean)
-    : resolveDocList(settings);
+/** Pure: render a per-doc "ok / fail" line. */
+export function renderFreshnessLine(result) {
+  return `[docs-freshness] ${result.pass ? '✅' : '❌'} ${result.file} — ${result.reason}`;
+}
 
-  if (docs.length === 0) {
-    if (asJson) {
-      process.stdout.write(
-        `${JSON.stringify({ ok: true, epicId, results: [] })}\n`,
-      );
-      return;
-    }
-    console.log(
-      `[docs-freshness] ⏭  No docs configured under release.docs or ` +
-        `docsContextFiles — nothing to check.`,
+/** Pure: build the failure message for the operator. */
+export function renderFreshnessFailureMessage(epicId) {
+  return (
+    `[docs-freshness] ❌ Documentation freshness gate FAILED for Epic #${epicId}.\n\n` +
+    `Update each failing file so its commit message or body references #${epicId}, ` +
+    `then re-run /sprint-close.`
+  );
+}
+
+/** Pure: success message. */
+export function renderFreshnessSuccessMessage(epicId, count) {
+  return `[docs-freshness] ✅ All ${count} doc(s) reference Epic #${epicId}.`;
+}
+
+function reportEmptyDocs(epicId, json) {
+  if (json) {
+    process.stdout.write(
+      `${JSON.stringify({ ok: true, epicId, results: [] })}\n`,
     );
     return;
   }
+  console.log(
+    `[docs-freshness] ⏭  No docs configured under release.docs or ` +
+      `docsContextFiles — nothing to check.`,
+  );
+}
 
-  const { ok, results } = runFreshnessGate({ epicId, docs });
-
-  if (asJson) {
+function reportGateOutcome({ epicId, json, ok, results }) {
+  if (json) {
     process.stdout.write(`${JSON.stringify({ ok, epicId, results })}\n`);
     if (!ok) process.exit(1);
     return;
   }
-
-  for (const r of results) {
-    const icon = r.pass ? '✅' : '❌';
-    console.log(`[docs-freshness] ${icon} ${r.file} — ${r.reason}`);
+  for (const r of results) console.log(renderFreshnessLine(r));
+  if (ok) {
+    console.log(renderFreshnessSuccessMessage(epicId, results.length));
+    return;
   }
+  console.error(renderFreshnessFailureMessage(epicId));
+  process.exit(1);
+}
 
-  if (!ok) {
-    console.error(
-      `[docs-freshness] ❌ Documentation freshness gate FAILED for Epic #${epicId}.\n\n` +
-        `Update each failing file so its commit message or body references #${epicId}, ` +
-        `then re-run /sprint-close.`,
+async function main() {
+  const args = parseFreshnessArgs(process.argv.slice(2));
+  if (args.epicId === null) {
+    Logger.fatal(
+      'Usage: node validate-docs-freshness.js --epic <EPIC_ID> [--docs a.md,b.md] [--json]',
     );
-    process.exit(1);
   }
-
-  console.log(
-    `[docs-freshness] ✅ All ${results.length} doc(s) reference Epic #${epicId}.`,
-  );
+  const { epicId, json, docsList } = args;
+  const { settings } = resolveConfig();
+  const docs = docsList ?? resolveDocList(settings);
+  if (docs.length === 0) {
+    reportEmptyDocs(epicId, json);
+    return;
+  }
+  const { ok, results } = runFreshnessGate({ epicId, docs });
+  reportGateOutcome({ epicId, json, ok, results });
 }
 
 runAsCli(import.meta.url, main, { source: 'validate-docs-freshness' });
