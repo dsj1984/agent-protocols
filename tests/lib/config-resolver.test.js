@@ -200,7 +200,7 @@ describe('config-resolver library tests', () => {
     assert.equal(cfg.orchestration, null);
   });
 
-  it('throws when orchestration.epicRunner is missing concurrencyCap', () => {
+  it('throws when orchestration.runners.epicRunner is missing concurrencyCap', () => {
     const agentrcPath = path.join(PROJECT_ROOT, '.agentrc.json');
     vol.mkdirSync(PROJECT_ROOT, { recursive: true });
     vol.writeFileSync(
@@ -210,7 +210,9 @@ describe('config-resolver library tests', () => {
         orchestration: {
           provider: 'github',
           github: { owner: 'org', repo: 'repo' },
-          epicRunner: { enabled: true, pollIntervalSec: 30 },
+          runners: {
+            epicRunner: { enabled: true, pollIntervalSec: 30 },
+          },
         },
       }),
     );
@@ -231,7 +233,9 @@ describe('config-resolver library tests', () => {
         orchestration: {
           provider: 'github',
           github: { owner: 'org', repo: 'repo' },
-          epicRunner: { enabled: true, pollIntervalSec: 30 },
+          runners: {
+            epicRunner: { enabled: true, pollIntervalSec: 30 },
+          },
         },
       }),
     );

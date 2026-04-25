@@ -95,17 +95,19 @@
       "reapOnCancel": true,
       "bootstrapFiles": [".env"]
     },
-    "epicRunner": {
-      "enabled": true,
-      "concurrencyCap": 3,
-      "pollIntervalSec": 30,
-      "progressReportIntervalSec": 120,
-      "idleTimeoutSec": 900,
-      "logsDir": "temp/epic-runner-logs"
-    },
-    "planRunner": {
-      "enabled": true,
-      "pollIntervalSec": 30
+    "runners": {
+      "epicRunner": {
+        "enabled": true,
+        "concurrencyCap": 3,
+        "pollIntervalSec": 30,
+        "progressReportIntervalSec": 120,
+        "idleTimeoutSec": 900,
+        "logsDir": "temp/epic-runner-logs"
+      },
+      "planRunner": {
+        "enabled": true,
+        "pollIntervalSec": 30
+      }
     }
   }
 }

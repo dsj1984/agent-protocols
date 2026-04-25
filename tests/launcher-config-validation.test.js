@@ -36,9 +36,9 @@ function buildFixtureWithoutRequiredEpicRunnerField() {
   const raw = JSON.parse(
     fs.readFileSync(path.join(PROJECT_ROOT, '.agentrc.json'), 'utf8'),
   );
-  // Schema requires orchestration.epicRunner.concurrencyCap — drop it to
-  // force a validation failure before any long-running flow begins.
-  delete raw.orchestration.epicRunner.concurrencyCap;
+  // Schema requires orchestration.runners.epicRunner.concurrencyCap — drop it
+  // to force a validation failure before any long-running flow begins.
+  delete raw.orchestration.runners.epicRunner.concurrencyCap;
   return raw;
 }
 
