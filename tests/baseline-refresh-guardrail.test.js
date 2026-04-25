@@ -65,7 +65,7 @@ test('parseCommitLog — empty input returns []', () => {
 test('parseBaseBranchConfig — reads crap block from well-formed json', () => {
   const json = JSON.stringify({
     agentSettings: {
-      maintainability: {
+      quality: {
         crap: {
           enabled: true,
           newMethodCeiling: 25,
@@ -102,7 +102,7 @@ test('parseBaseBranchConfig — respects enabled: false on base branch', () => {
   const parsed = parseBaseBranchConfig(
     JSON.stringify({
       agentSettings: {
-        maintainability: { crap: { enabled: false } },
+        quality: { crap: { enabled: false } },
       },
     }),
   );

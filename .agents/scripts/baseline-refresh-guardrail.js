@@ -9,7 +9,7 @@ import { gitSpawn, gitSync } from './lib/git-utils.js';
  * Responsibilities (see Tech Spec #598, Epic #596):
  *   1. Read the **base branch** `.agentrc.json` via `git show origin/<base>:…`
  *      and extract `newMethodCeiling`, `tolerance`, `refreshTag` from
- *      `agentSettings.maintainability.crap`.
+ *      `agentSettings.quality.crap`.
  *   2. Re-run `check-crap` with those base-branch values forced via
  *      `CRAP_NEW_METHOD_CEILING` / `CRAP_TOLERANCE` / `CRAP_REFRESH_TAG`
  *      environment variables. This catches a PR that simultaneously relaxes
@@ -103,7 +103,7 @@ export function parseBaseBranchConfig(rawJson) {
       enabled: true,
     };
   }
-  const crap = parsed?.agentSettings?.maintainability?.crap ?? {};
+  const crap = parsed?.agentSettings?.quality?.crap ?? {};
   return {
     newMethodCeiling: Number.isFinite(crap.newMethodCeiling)
       ? crap.newMethodCeiling

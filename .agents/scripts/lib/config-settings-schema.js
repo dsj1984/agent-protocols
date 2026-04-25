@@ -102,11 +102,16 @@ const MAINTAINABILITY_CRAP_SCHEMA = {
   // (AC19) rather than failing validation.
 };
 
-const MAINTAINABILITY_SCHEMA = {
+/**
+ * `quality.maintainability` carries only the per-file MI targetDirs. The
+ * `crap` block was lifted out one level (it is now `quality.crap`) so the
+ * grouped quality bag has a flat top-level for each enforcement engine
+ * instead of CRAP being a nested concern of MI. See Epic #730 Story 6.
+ */
+const MAINTAINABILITY_QUALITY_SCHEMA = {
   type: 'object',
   properties: {
     targetDirs: LIST_OR_EXTENDER_OF_STRINGS,
-    crap: MAINTAINABILITY_CRAP_SCHEMA,
   },
   additionalProperties: false,
 };
@@ -155,7 +160,12 @@ const RISK_GATES_SCHEMA = {
   additionalProperties: false,
 };
 
-const QUALITY_GATE_SCHEMA = {
+/**
+ * `quality.prGate.checks` is the configurable lint/format/test trio
+ * `git-pr-quality-gate.js` runs on every `/git-merge-pr` invocation. Renamed
+ * from the flat `agentSettings.qualityGate` block in Epic #730 Story 6.
+ */
+const PR_GATE_SCHEMA = {
   type: 'object',
   properties: {
     checks: {
@@ -183,10 +193,12 @@ const BASELINE_ENTRY_SCHEMA = {
 };
 
 /**
- * `agentSettings.quality` is the new home for ratchet baselines, prGate
- * checks, and the existing maintainability/CRAP knobs (Stories 5.5 + 6 of
- * Epic #730). Story 5.5 introduces only the `baselines` sub-block; Story 6
- * folds in `lintBaseline`, `maintainability`, `crap`, and `prGate`.
+ * `agentSettings.quality` is the unified home for every enforcement engine in
+ * the framework: ratchet baselines (Story 5.5), per-method MI targeting,
+ * CRAP scoring, and the PR-gate command suite (Story 6). The old flat
+ * `agentSettings.maintainability` and `agentSettings.qualityGate` blocks are
+ * removed; consumers read via `getQuality(config)` or directly from
+ * `settings.quality.*`.
  */
 const QUALITY_SCHEMA = {
   type: 'object',
@@ -200,6 +212,9 @@ const QUALITY_SCHEMA = {
       },
       additionalProperties: false,
     },
+    maintainability: MAINTAINABILITY_QUALITY_SCHEMA,
+    crap: MAINTAINABILITY_CRAP_SCHEMA,
+    prGate: PR_GATE_SCHEMA,
   },
   additionalProperties: false,
 };
@@ -232,7 +247,6 @@ export const AGENT_SETTINGS_SCHEMA = {
   required: ['agentRoot', 'docsRoot', 'tempRoot'],
   properties: {
     docsContextFiles: { type: 'array', items: { type: 'string' } },
-    maintainability: MAINTAINABILITY_SCHEMA,
     maxTickets: { type: 'integer', minimum: 1 },
     maxInstructionSteps: { type: 'integer', minimum: 1 },
     maxTokenBudget: { type: 'integer', minimum: 1 },
@@ -242,7 +256,6 @@ export const AGENT_SETTINGS_SCHEMA = {
     release: RELEASE_SCHEMA,
     frictionThresholds: FRICTION_THRESHOLDS_SCHEMA,
     riskGates: RISK_GATES_SCHEMA,
-    qualityGate: QUALITY_GATE_SCHEMA,
     quality: QUALITY_SCHEMA,
     commands: COMMANDS_SCHEMA,
   },

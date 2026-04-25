@@ -3,14 +3,17 @@ import path from 'node:path';
 import { beforeEach, describe, it } from 'node:test';
 import { Volume } from 'memfs';
 import {
+  BASELINES_DEFAULTS,
   COMMANDS_DEFAULTS,
   getCommands,
+  getQuality,
   MAINTAINABILITY_CRAP_DEFAULTS,
+  PR_GATE_DEFAULTS,
   PROJECT_ROOT,
   resolveConfig,
   resolveListValue,
-  resolveMaintainability,
   resolveMaintainabilityCrap,
+  resolveQuality,
 } from '../../.agents/scripts/lib/config-resolver.js';
 import { setupFsMock } from './fs-mock.js';
 
@@ -242,10 +245,10 @@ describe('config-resolver library tests', () => {
     assert.equal(config.settings.scriptsRoot, '.agents/scripts'); // default
   });
 
-  describe('maintainability.crap defaults + deep-merge', () => {
+  describe('quality.crap defaults + deep-merge', () => {
     it('injects full crap defaults when the block is absent', () => {
       const config = resolveConfig({ bustCache: true });
-      assert.deepEqual(config.settings.maintainability.crap, {
+      assert.deepEqual(config.settings.quality.crap, {
         enabled: true,
         targetDirs: ['src'],
         newMethodCeiling: 30,
@@ -266,10 +269,8 @@ describe('config-resolver library tests', () => {
       );
 
       const config = resolveConfig({ bustCache: true });
-      assert.equal(config.settings.maintainability.crap.newMethodCeiling, 30);
-      assert.deepEqual(config.settings.maintainability.crap.targetDirs, [
-        'src',
-      ]);
+      assert.equal(config.settings.quality.crap.newMethodCeiling, 30);
+      assert.deepEqual(config.settings.quality.crap.targetDirs, ['src']);
     });
 
     it('{ append } extends targetDirs and dedupes within user input', () => {
@@ -280,7 +281,7 @@ describe('config-resolver library tests', () => {
         JSON.stringify({
           agentSettings: {
             ...REQ,
-            maintainability: {
+            quality: {
               crap: {
                 targetDirs: {
                   // Intentionally include a duplicate to prove dedupe within
@@ -294,7 +295,7 @@ describe('config-resolver library tests', () => {
       );
 
       const config = resolveConfig({ bustCache: true });
-      assert.deepEqual(config.settings.maintainability.crap.targetDirs, [
+      assert.deepEqual(config.settings.quality.crap.targetDirs, [
         'src',
         'packages/foo/src',
       ]);
@@ -308,7 +309,7 @@ describe('config-resolver library tests', () => {
         JSON.stringify({
           agentSettings: {
             ...REQ,
-            maintainability: {
+            quality: {
               crap: {
                 targetDirs: {
                   prepend: ['apps/web/src'],
@@ -321,7 +322,7 @@ describe('config-resolver library tests', () => {
       );
 
       const config = resolveConfig({ bustCache: true });
-      assert.deepEqual(config.settings.maintainability.crap.targetDirs, [
+      assert.deepEqual(config.settings.quality.crap.targetDirs, [
         'apps/web/src',
         'src',
         'packages/lib/src',
@@ -336,15 +337,13 @@ describe('config-resolver library tests', () => {
         JSON.stringify({
           agentSettings: {
             ...REQ,
-            maintainability: { crap: { targetDirs: ['src'] } },
+            quality: { crap: { targetDirs: ['src'] } },
           },
         }),
       );
 
       const config = resolveConfig({ bustCache: true });
-      assert.deepEqual(config.settings.maintainability.crap.targetDirs, [
-        'src',
-      ]);
+      assert.deepEqual(config.settings.quality.crap.targetDirs, ['src']);
     });
 
     it('scalar override leaves other crap defaults intact', () => {
@@ -355,13 +354,13 @@ describe('config-resolver library tests', () => {
         JSON.stringify({
           agentSettings: {
             ...REQ,
-            maintainability: { crap: { newMethodCeiling: 40 } },
+            quality: { crap: { newMethodCeiling: 40 } },
           },
         }),
       );
 
       const config = resolveConfig({ bustCache: true });
-      const crap = config.settings.maintainability.crap;
+      const crap = config.settings.quality.crap;
       assert.equal(crap.newMethodCeiling, 40);
       assert.equal(crap.enabled, true);
       assert.equal(crap.tolerance, 0.001);
@@ -383,7 +382,7 @@ describe('config-resolver library tests', () => {
         JSON.stringify({
           agentSettings: {
             ...REQ,
-            maintainability: {
+            quality: {
               crap: { newMethodCeiling: 40, nonsenseKey: true },
             },
           },
@@ -391,14 +390,14 @@ describe('config-resolver library tests', () => {
       );
 
       const config = resolveConfig({ bustCache: true });
-      assert.equal(config.settings.maintainability.crap.newMethodCeiling, 40);
+      assert.equal(config.settings.quality.crap.newMethodCeiling, 40);
       assert.ok(
         warnings.some((m) => /nonsenseKey/.test(m)),
         `expected a warning mentioning 'nonsenseKey'; got ${JSON.stringify(warnings)}`,
       );
     });
 
-    it('top-level maintainability.targetDirs supports { append }', () => {
+    it('quality.maintainability.targetDirs supports { append }', () => {
       const agentrcPath = path.join(PROJECT_ROOT, '.agentrc.json');
       vol.mkdirSync(PROJECT_ROOT, { recursive: true });
       vol.writeFileSync(
@@ -406,13 +405,15 @@ describe('config-resolver library tests', () => {
         JSON.stringify({
           agentSettings: {
             ...REQ,
-            maintainability: { targetDirs: { append: ['packages/foo'] } },
+            quality: {
+              maintainability: { targetDirs: { append: ['packages/foo'] } },
+            },
           },
         }),
       );
 
       const config = resolveConfig({ bustCache: true });
-      assert.deepEqual(config.settings.maintainability.targetDirs, [
+      assert.deepEqual(config.settings.quality.maintainability.targetDirs, [
         'packages/foo',
       ]);
     });
@@ -425,7 +426,7 @@ describe('config-resolver library tests', () => {
         JSON.stringify({
           agentSettings: {
             ...REQ,
-            maintainability: {
+            quality: {
               crap: { friction: { markerKey: 'custom-marker' } },
             },
           },
@@ -433,7 +434,7 @@ describe('config-resolver library tests', () => {
       );
 
       const config = resolveConfig({ bustCache: true });
-      assert.deepEqual(config.settings.maintainability.crap.friction, {
+      assert.deepEqual(config.settings.quality.crap.friction, {
         markerKey: 'custom-marker',
       });
     });
@@ -446,7 +447,7 @@ describe('config-resolver library tests', () => {
         JSON.stringify({
           agentSettings: {
             ...REQ,
-            maintainability: { crap: { newMethodCeiling: 'tall' } },
+            quality: { crap: { newMethodCeiling: 'tall' } },
           },
         }),
       );
@@ -503,10 +504,56 @@ describe('config-resolver library tests', () => {
       assert.deepEqual(b.targetDirs, ['src']);
     });
 
-    it('resolveMaintainability: userBlock null → both targetDirs + crap defaults', () => {
-      const out = resolveMaintainability(undefined);
-      assert.deepEqual(out.targetDirs, []);
+    it('resolveQuality: userQuality null → all sub-blocks default-populated', () => {
+      const out = resolveQuality(undefined);
+      assert.deepEqual(out.maintainability.targetDirs, []);
       assert.equal(out.crap.newMethodCeiling, 30);
+      assert.deepEqual(out.prGate.checks, []);
+      assert.equal(out.baselines.lint.path, BASELINES_DEFAULTS.lint.path);
+    });
+  });
+
+  describe('getQuality (Epic #730 Story 6)', () => {
+    it('returns full default tree when quality block is absent', () => {
+      const out = getQuality({ agentSettings: { ...REQ } });
+      assert.deepEqual(out.maintainability.targetDirs, []);
+      assert.equal(out.crap.enabled, MAINTAINABILITY_CRAP_DEFAULTS.enabled);
+      assert.deepEqual(out.prGate.checks, [...PR_GATE_DEFAULTS.checks]);
+      assert.equal(out.baselines.crap.path, BASELINES_DEFAULTS.crap.path);
+    });
+
+    it('honours user overrides per sub-block', () => {
+      const out = getQuality({
+        agentSettings: {
+          ...REQ,
+          quality: {
+            maintainability: { targetDirs: ['src', 'lib'] },
+            crap: { newMethodCeiling: 50 },
+            prGate: { checks: ['lint'] },
+            baselines: { lint: { path: 'custom/lint.json' } },
+          },
+        },
+      });
+      assert.deepEqual(out.maintainability.targetDirs, ['src', 'lib']);
+      assert.equal(out.crap.newMethodCeiling, 50);
+      assert.deepEqual(out.prGate.checks, ['lint']);
+      assert.equal(out.baselines.lint.path, 'custom/lint.json');
+      // Defaults preserved for sibling baselines
+      assert.equal(out.baselines.crap.path, BASELINES_DEFAULTS.crap.path);
+    });
+
+    it('accepts a bare agentSettings bag (no enclosing config)', () => {
+      const out = getQuality({
+        ...REQ,
+        quality: { crap: { tolerance: 0.05 } },
+      });
+      assert.equal(out.crap.tolerance, 0.05);
+      assert.equal(out.crap.newMethodCeiling, 30);
+    });
+
+    it('returns defaults for null/undefined input', () => {
+      assert.deepEqual(getQuality(null).prGate.checks, []);
+      assert.deepEqual(getQuality(undefined).prGate.checks, []);
     });
   });
 

@@ -106,7 +106,7 @@ function makeTempRepo({ enabled = true, withBaseline = false } = {}) {
           agentRoot: '.agents',
           docsRoot: 'docs',
           tempRoot: 'temp',
-          maintainability: {
+          quality: {
             crap: {
               enabled,
               targetDirs: ['src'],

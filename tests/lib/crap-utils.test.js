@@ -92,7 +92,10 @@ test('resolveEscomplexVersion — returns 0.0.0 when module is absent', () => {
 test('getCrapBaseline — returns null when baseline file is missing', () => {
   const cwd = mkTmpCwd();
   try {
-    assert.strictEqual(getCrapBaseline({ cwd, baselinePath: TEST_BASELINE_PATH }), null);
+    assert.strictEqual(
+      getCrapBaseline({ cwd, baselinePath: TEST_BASELINE_PATH }),
+      null,
+    );
   } finally {
     rmTmp(cwd);
   }
@@ -105,7 +108,10 @@ test('getCrapBaseline — returns null on malformed JSON', () => {
       recursive: true,
     });
     fs.writeFileSync(path.join(cwd, TEST_BASELINE_PATH), '{not json');
-    assert.strictEqual(getCrapBaseline({ cwd, baselinePath: TEST_BASELINE_PATH }), null);
+    assert.strictEqual(
+      getCrapBaseline({ cwd, baselinePath: TEST_BASELINE_PATH }),
+      null,
+    );
   } finally {
     rmTmp(cwd);
   }
@@ -121,7 +127,10 @@ test('getCrapBaseline — returns null when required fields are missing', () => 
       path.join(cwd, TEST_BASELINE_PATH),
       JSON.stringify({ rows: [] }),
     );
-    assert.strictEqual(getCrapBaseline({ cwd, baselinePath: TEST_BASELINE_PATH }), null);
+    assert.strictEqual(
+      getCrapBaseline({ cwd, baselinePath: TEST_BASELINE_PATH }),
+      null,
+    );
   } finally {
     rmTmp(cwd);
   }

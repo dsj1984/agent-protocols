@@ -70,7 +70,7 @@ jobs:
         # Diff-scoped on PRs (--changed-since base_ref) so the gate stays fast
         # on large incoming diffs; full-repo scan on push-to-main so a
         # regression in an untouched file cannot ride in alongside an unrelated
-        # PR. Self-skips when `agentSettings.maintainability.crap.enabled` is
+        # PR. Self-skips when `agentSettings.quality.crap.enabled` is
         # false. The `--json` artifact is uploaded for downstream agent
         # workflows.
         run: |

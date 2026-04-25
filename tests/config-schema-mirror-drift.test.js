@@ -80,8 +80,8 @@ describe('agentrc.schema.json mirror — drift vs runtime AJV schemas', () => {
         executionTimeoutMs: 300000,
         executionMaxBuffer: 10485760,
         docsContextFiles: ['architecture.md'],
-        maintainability: {
-          targetDirs: ['.agents/scripts'],
+        quality: {
+          maintainability: { targetDirs: ['.agents/scripts'] },
           crap: {
             enabled: true,
             targetDirs: ['.agents/scripts'],
@@ -90,6 +90,7 @@ describe('agentrc.schema.json mirror — drift vs runtime AJV schemas', () => {
             tolerance: 0.001,
             requireCoverage: true,
           },
+          prGate: { checks: ['lint'] },
         },
         release: {
           docs: ['README.md'],
@@ -105,7 +106,6 @@ describe('agentrc.schema.json mirror — drift vs runtime AJV schemas', () => {
           maxIntegrationRetries: 2,
         },
         riskGates: { heuristics: ['no destructive ops'] },
-        qualityGate: { checks: ['lint'] },
       },
       'fully populated',
     );
@@ -127,11 +127,16 @@ describe('agentrc.schema.json mirror — drift vs runtime AJV schemas', () => {
     );
   });
 
-  it('rejects unknown property on qualityGate on both sides', () => {
+  it('rejects unknown property on quality.prGate on both sides', () => {
     assertAgree(
       'agentSettings',
-      { qualityGate: { check: ['x'] } },
-      'qualityGate typo',
+      {
+        agentRoot: '.agents',
+        docsRoot: 'docs',
+        tempRoot: 'temp',
+        quality: { prGate: { check: ['x'] } },
+      },
+      'quality.prGate typo',
     );
   });
 

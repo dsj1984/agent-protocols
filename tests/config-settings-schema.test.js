@@ -66,16 +66,19 @@ describe('AGENT_SETTINGS_SCHEMA — explicit number/object entries', () => {
     expectErrors({ riskGates: { heuristics: [42] } }, /heuristics\/0/);
   });
 
-  it('accepts qualityGate with checks array', () => {
+  it('accepts quality.prGate with checks array', () => {
     assert.equal(
-      validate({ ...REQ, qualityGate: { checks: ['lint', 'test'] } }),
+      validate({
+        ...REQ,
+        quality: { prGate: { checks: ['lint', 'test'] } },
+      }),
       true,
     );
   });
 
-  it('rejects unknown property on qualityGate', () => {
+  it('rejects unknown property on quality.prGate', () => {
     expectErrors(
-      { qualityGate: { check: ['lint'] } },
+      { ...REQ, quality: { prGate: { check: ['lint'] } } },
       /must NOT have additional properties/,
     );
   });
@@ -153,12 +156,12 @@ describe('AGENT_SETTINGS_SCHEMA — required path roots (Epic #730 Story 4)', ()
   });
 });
 
-describe('AGENT_SETTINGS_SCHEMA — maintainability.crap conditional coveragePath', () => {
+describe('AGENT_SETTINGS_SCHEMA — quality.crap conditional coveragePath', () => {
   it('accepts crap with enabled=false and no coveragePath', () => {
     assert.equal(
       validate({
         ...REQ,
-        maintainability: { crap: { enabled: false } },
+        quality: { crap: { enabled: false } },
       }),
       true,
     );
@@ -168,7 +171,7 @@ describe('AGENT_SETTINGS_SCHEMA — maintainability.crap conditional coveragePat
     assert.equal(
       validate({
         ...REQ,
-        maintainability: {
+        quality: {
           crap: { enabled: true, requireCoverage: false },
         },
       }),
@@ -180,7 +183,7 @@ describe('AGENT_SETTINGS_SCHEMA — maintainability.crap conditional coveragePat
     expectErrors(
       {
         ...REQ,
-        maintainability: {
+        quality: {
           crap: { enabled: true, requireCoverage: true },
         },
       },
@@ -192,7 +195,7 @@ describe('AGENT_SETTINGS_SCHEMA — maintainability.crap conditional coveragePat
     assert.equal(
       validate({
         ...REQ,
-        maintainability: {
+        quality: {
           crap: {
             enabled: true,
             requireCoverage: true,

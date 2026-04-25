@@ -56,7 +56,10 @@ const LOADED_CONFIG_DEFAULTS = Object.freeze({
     'decisions.md',
     'patterns.md',
   ],
-  maintainability: { targetDirs: [] },
+  // The legacy `maintainability` flat default was removed in Epic #730 Story 6
+  // — the same content now lives under `quality.maintainability` and is filled
+  // in by {@link resolveQuality}. Leaving it absent here keeps the apply-keys
+  // loop from re-creating a flat alias that would shadow the grouped read.
   auditOutputDir: 'temp',
   maxTickets: 40,
   executionTimeoutMs: 300000,
@@ -83,7 +86,9 @@ const ZERO_CONFIG_DEFAULTS = Object.freeze({
     'decisions.md',
     'patterns.md',
   ],
-  maintainability: { targetDirs: [] },
+  // Same Story-6 flattening as LOADED_CONFIG_DEFAULTS — `maintainability` no
+  // longer lives at the top level. Zero-config callers get the merged shape
+  // via the post-load `resolveQuality(settings.quality)` mutation below.
   baseBranch: 'main',
   maxTickets: 40,
   executionTimeoutMs: 300000, // 5 minutes
@@ -91,10 +96,11 @@ const ZERO_CONFIG_DEFAULTS = Object.freeze({
   maxTokenBudget: 200000, // 200k tokens — fits modern Claude/GPT windows
 });
 
-/** Framework defaults for `agentSettings.maintainability.crap`. Applied to the
- * loaded config via {@link resolveMaintainability} so a consumer repo that
- * omits the block (or any key within it) still gets sane defaults. Exported
- * for tests and for consumers that want to introspect the canonical shape. */
+/** Framework defaults for `agentSettings.quality.crap` (lifted out of the
+ * legacy `agentSettings.maintainability.crap` nest in Epic #730 Story 6).
+ * Applied via {@link resolveQuality} so a consumer repo that omits the block
+ * (or any key within it) still gets sane defaults. Exported for tests and
+ * for consumers that want to introspect the canonical shape. */
 export const MAINTAINABILITY_CRAP_DEFAULTS = Object.freeze({
   enabled: true,
   targetDirs: Object.freeze(['src']),
@@ -106,8 +112,8 @@ export const MAINTAINABILITY_CRAP_DEFAULTS = Object.freeze({
   refreshTag: 'baseline-refresh:',
 });
 
-/** Recognized keys for `maintainability.crap`. Used by the resolver to warn
- * (not fail) on unknown keys per AC19. */
+/** Recognized keys for `quality.crap` (post-Story-6). Used by the resolver
+ * to warn (not fail) on unknown keys per AC19. */
 const MAINTAINABILITY_CRAP_KEYS = new Set(
   Object.keys(MAINTAINABILITY_CRAP_DEFAULTS),
 );
@@ -151,7 +157,7 @@ export function resolveListValue(defaultList, userValue) {
 }
 
 /**
- * Merge a user-supplied `maintainability.crap` block with framework defaults.
+ * Merge a user-supplied `quality.crap` block with framework defaults.
  * Scalar keys replace; `targetDirs` supports the list-extender shape; unknown
  * keys emit a `console.warn` but do not fail resolution (AC19).
  *
@@ -175,9 +181,7 @@ export function resolveMaintainabilityCrap(userCrap) {
 
   for (const key of Object.keys(userCrap)) {
     if (!MAINTAINABILITY_CRAP_KEYS.has(key)) {
-      console.warn(
-        `[config] Unknown key 'maintainability.crap.${key}' — ignoring.`,
-      );
+      console.warn(`[config] Unknown key 'quality.crap.${key}' — ignoring.`);
     }
   }
 
@@ -194,30 +198,36 @@ export function resolveMaintainabilityCrap(userCrap) {
 }
 
 /**
- * Merge a user-supplied `maintainability` block with framework defaults,
- * including list-extender support for `targetDirs` and full resolution of
- * the nested `crap` sub-block.
+ * Framework defaults for `agentSettings.quality.maintainability` — the per-file
+ * MI targeting block. Empty `targetDirs` means "no MI scan unless the operator
+ * declares targets". Lifted out of the old flat-key default in Story 6.
+ */
+export const MAINTAINABILITY_QUALITY_DEFAULTS = Object.freeze({
+  targetDirs: Object.freeze([]),
+});
+
+/**
+ * Merge a user-supplied `quality.maintainability` block with framework
+ * defaults. The grouped block now carries only `targetDirs`; the legacy
+ * nested `crap` was lifted to `quality.crap` and is resolved separately by
+ * {@link resolveMaintainabilityCrap} via {@link resolveQuality}.
  *
  * @param {object|undefined} userBlock
- * @returns {object}
+ * @returns {{ targetDirs: string[] }}
  */
-export function resolveMaintainability(userBlock) {
-  const defaultTargetDirs = LOADED_CONFIG_DEFAULTS.maintainability.targetDirs;
+export function resolveMaintainabilityQuality(userBlock) {
+  const defaultTargetDirs = MAINTAINABILITY_QUALITY_DEFAULTS.targetDirs;
   if (userBlock == null || typeof userBlock !== 'object') {
-    return {
-      targetDirs: [...defaultTargetDirs],
-      crap: resolveMaintainabilityCrap(undefined),
-    };
+    return { targetDirs: [...defaultTargetDirs] };
   }
   return {
     targetDirs: resolveListValue(defaultTargetDirs, userBlock.targetDirs),
-    crap: resolveMaintainabilityCrap(userBlock.crap),
   };
 }
 
 /** Keys to apply on top of a loaded config when the operator omitted them.
- * Matches the previous hand-rolled assignment block exactly so behavior is
- * unchanged: keys not in LOADED_CONFIG_DEFAULTS resolve to `undefined`. */
+ * `quality` is intentionally absent — it is filled by `resolveQuality` below
+ * (a deep-merge, not a top-level fill) right after this loop runs. */
 const LOADED_CONFIG_APPLY_KEYS = [
   'scriptsRoot',
   'workflowsRoot',
@@ -227,7 +237,6 @@ const LOADED_CONFIG_APPLY_KEYS = [
   'templatesRoot',
   'rulesRoot',
   'docsContextFiles',
-  'maintainability',
   'auditOutputDir',
   'baseBranch',
   'executionTimeoutMs',
@@ -323,9 +332,11 @@ export function resolveConfig(opts) {
       settings[key] = settings[key] ?? LOADED_CONFIG_DEFAULTS[key];
     }
 
-    // Deep-merge maintainability (list-extender on targetDirs, nested crap
-    // defaults) rather than taking the user block as-is.
-    settings.maintainability = resolveMaintainability(settings.maintainability);
+    // Deep-merge the grouped quality block (Story 6 unification): targetDirs
+    // list-extender, CRAP defaults, prGate checks, and baselines paths are all
+    // filled in here so consumers can read `settings.quality.<sub>.<key>`
+    // without re-running merge logic at every call site.
+    settings.quality = resolveQuality(settings.quality);
 
     if (validate) {
       validateOrchestrationConfig(orchestration);
@@ -345,9 +356,7 @@ export function resolveConfig(opts) {
 
   // 2. Hard-coded defaults (zero-config experience)
   const zeroSettings = { ...ZERO_CONFIG_DEFAULTS };
-  zeroSettings.maintainability = resolveMaintainability(
-    zeroSettings.maintainability,
-  );
+  zeroSettings.quality = resolveQuality(zeroSettings.quality);
   const resolved = {
     settings: zeroSettings,
     orchestration: null,
@@ -725,4 +734,81 @@ export function getBaselines(config) {
     crap: merge('crap'),
     maintainability: merge('maintainability'),
   };
+}
+
+/**
+ * Framework defaults for `agentSettings.quality.prGate`. `checks` defaults to
+ * an empty array so `git-pr-quality-gate.js` falls back to its hardcoded
+ * DEFAULT_CHECKS trio (lint / format:check / test) when the operator hasn't
+ * customised the suite.
+ */
+export const PR_GATE_DEFAULTS = Object.freeze({
+  checks: Object.freeze([]),
+});
+
+/**
+ * Merge the user-supplied `quality.prGate` block with framework defaults.
+ *
+ * @param {object|undefined} userBlock
+ * @returns {{ checks: string[] }}
+ */
+export function resolvePrGate(userBlock) {
+  if (userBlock == null || typeof userBlock !== 'object') {
+    return { checks: [...PR_GATE_DEFAULTS.checks] };
+  }
+  return {
+    checks: Array.isArray(userBlock.checks)
+      ? [...userBlock.checks]
+      : [...PR_GATE_DEFAULTS.checks],
+  };
+}
+
+/**
+ * Merge the user-supplied `quality.baselines` block with framework defaults.
+ * Mirrors {@link getBaselines} but returns the same `{ lint, crap,
+ * maintainability }` trio shape — used during the in-place defaults pass so
+ * `settings.quality.baselines` is fully populated for any direct reader.
+ *
+ * @param {object|undefined} userBlock
+ */
+export function resolveBaselines(userBlock) {
+  return getBaselines({ quality: { baselines: userBlock ?? {} } });
+}
+
+/**
+ * Merge the entire `agentSettings.quality` block with framework defaults
+ * (Epic #730 Story 6). Composes the per-sub-block resolvers so consumers can
+ * read every grouped field — `targetDirs`, `crap.*`, `prGate.checks`,
+ * `baselines.<kind>.path` — without re-running merge logic at the call site.
+ *
+ * @param {object|undefined} userQuality
+ * @returns {{
+ *   maintainability: { targetDirs: string[] },
+ *   crap: object,
+ *   prGate: { checks: string[] },
+ *   baselines: { lint: object, crap: object, maintainability: object }
+ * }}
+ */
+export function resolveQuality(userQuality) {
+  const block =
+    userQuality && typeof userQuality === 'object' ? userQuality : {};
+  return {
+    maintainability: resolveMaintainabilityQuality(block.maintainability),
+    crap: resolveMaintainabilityCrap(block.crap),
+    prGate: resolvePrGate(block.prGate),
+    baselines: resolveBaselines(block.baselines),
+  };
+}
+
+/**
+ * Read the merged `agentSettings.quality` block. Accepts either the full
+ * resolved config (`{ agentSettings, ... }`) or the bare `agentSettings` bag.
+ *
+ * @param {{ agentSettings?: { quality?: object } } | object | null | undefined} config
+ * @returns {ReturnType<typeof resolveQuality>}
+ */
+export function getQuality(config) {
+  const userQuality =
+    config?.agentSettings?.quality ?? config?.quality ?? undefined;
+  return resolveQuality(userQuality);
 }

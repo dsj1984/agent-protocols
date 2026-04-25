@@ -11,8 +11,9 @@
  *
  * This script runs the gate and emits a structured result so the .md routes
  * on outcome rather than re-implementing the command sequence. The three
- * checks it runs are read from `.agentrc.json → qualityGate` when present,
- * falling back to the hardcoded default trio.
+ * checks it runs are read from
+ * `.agentrc.json → agentSettings.quality.prGate` when present, falling back
+ * to the hardcoded default trio.
  *
  * Usage:
  *   node .agents/scripts/git-pr-quality-gate.js [--json] [--skip <name>[,<name>]]
@@ -51,7 +52,7 @@ export const DEFAULT_CHECKS = Object.freeze([
 ]);
 
 function resolveChecks(settings) {
-  const configured = settings?.qualityGate?.checks;
+  const configured = settings?.quality?.prGate?.checks;
   if (!Array.isArray(configured) || configured.length === 0) {
     return DEFAULT_CHECKS;
   }

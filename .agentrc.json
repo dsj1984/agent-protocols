@@ -40,10 +40,10 @@
         "lint": { "path": "baselines/lint.json" },
         "crap": { "path": "baselines/crap.json" },
         "maintainability": { "path": "baselines/maintainability.json" }
-      }
-    },
-    "maintainability": {
-      "targetDirs": [".agents/scripts", "tests"],
+      },
+      "maintainability": {
+        "targetDirs": [".agents/scripts", "tests"]
+      },
       "crap": {
         "enabled": true,
         "targetDirs": [".agents/scripts"],

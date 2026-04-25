@@ -1,5 +1,9 @@
 import path from 'node:path';
-import { getBaselines, resolveConfig } from './lib/config-resolver.js';
+import {
+  getBaselines,
+  getQuality,
+  resolveConfig,
+} from './lib/config-resolver.js';
 import { loadCoverage } from './lib/coverage-utils.js';
 import {
   buildBaselineEnvelope,
@@ -42,14 +46,13 @@ function parseCliArgs(argv = process.argv.slice(2)) {
 async function main() {
   const args = parseCliArgs();
   const { settings } = resolveConfig();
-  const crap = settings.maintainability?.crap ?? {};
+  const crap = getQuality({ agentSettings: settings }).crap;
   const targetDirs = Array.isArray(crap.targetDirs) ? crap.targetDirs : [];
   const requireCoverage = crap.requireCoverage !== false;
   const coveragePath =
     args.coveragePath ?? crap.coveragePath ?? 'coverage/coverage-final.json';
   const baselinePath =
-    args.baselinePath ??
-    getBaselines({ agentSettings: settings }).crap.path;
+    args.baselinePath ?? getBaselines({ agentSettings: settings }).crap.path;
 
   console.log('[CRAP] Updating baseline...');
   console.log(`[CRAP] Target dirs: ${targetDirs.join(', ')}`);

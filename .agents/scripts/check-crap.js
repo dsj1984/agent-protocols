@@ -1,7 +1,11 @@
 import fs from 'node:fs';
 import path from 'node:path';
 import { getChangedFiles } from './lib/changed-files.js';
-import { getBaselines, resolveConfig } from './lib/config-resolver.js';
+import {
+  getBaselines,
+  getQuality,
+  resolveConfig,
+} from './lib/config-resolver.js';
 import { loadCoverage } from './lib/coverage-utils.js';
 import { deriveFixGuidance } from './lib/crap-engine.js';
 import {
@@ -22,7 +26,7 @@ import { createProvider } from './lib/provider-factory.js';
  * visible at review time.
  *
  * Contract:
- *   - `settings.maintainability.crap.enabled === false` → skip, exit 0.
+ *   - `settings.quality.crap.enabled === false` → skip, exit 0.
  *   - Missing baseline → bootstrap message, exit 0 (never hard-fails a
  *     consumer repo on first sync).
  *   - Baseline `kernelVersion` or `escomplexVersion` mismatch vs. the running
@@ -486,7 +490,7 @@ async function emitFriction(storyId, result, orchestration) {
 async function main() {
   const args = parseCliArgs();
   const { settings, ...rest } = resolveConfig();
-  const crap = settings.maintainability?.crap ?? {};
+  const crap = getQuality({ agentSettings: settings }).crap;
 
   if (crap.enabled === false) {
     console.log('[CRAP] gate skipped (disabled)');
@@ -517,8 +521,7 @@ async function main() {
   }
 
   const baselinePath =
-    args.baselinePath ??
-    getBaselines({ agentSettings: settings }).crap.path;
+    args.baselinePath ?? getBaselines({ agentSettings: settings }).crap.path;
   const baseline = getCrapBaseline({ baselinePath });
   const runningEscomplex = resolveEscomplexVersion();
   const compat = evaluateBaselineCompatibility({
