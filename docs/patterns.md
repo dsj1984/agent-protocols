@@ -77,7 +77,7 @@ Each dispatched story runs in its own `git worktree`:
 *   Windows path limits require a pre-flight warning when estimated depth
     exceeds the configured threshold.
 
-## Worktree-off Mode (v5.24.0+)
+## Worktree-off Mode (Epic #668, v5.24.0+)
 
 ### Problem
 

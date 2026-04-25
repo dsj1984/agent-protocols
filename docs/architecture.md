@@ -717,7 +717,7 @@ See [`worktree-lifecycle.md`](../.agents/workflows/worktree-lifecycle.md)
 for the operator reference, node_modules strategies, Windows long-path
 handling, and escape hatches.
 
-### Execution-model modes (v5.24.0+)
+### Execution-model modes (Epic #668, v5.24.0+)
 
 `/sprint-execute` runs in two execution-model modes that share one codepath
 and differ only in whether worktrees are created. The `resolveWorktreeEnabled`
