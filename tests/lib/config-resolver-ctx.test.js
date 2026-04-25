@@ -57,8 +57,10 @@ describe('resolveConfig with injected ctx.fs', () => {
     assert.equal(resolved.source, 'built-in defaults');
     assert.equal(resolved.orchestration, null);
     // `paths.agentRoot` is no longer a zero-config default — schema-required
-    // keys are not silently filled in. Other zero-config keys still default.
+    // keys are not silently filled in. The seven `*Root` keys moved under
+    // `paths.*` in Epic #773 Story 9; their framework defaults still flow
+    // through `resolvePaths`.
     assert.equal(resolved.settings.paths.agentRoot, undefined);
-    assert.equal(resolved.settings.scriptsRoot, '.agents/scripts');
+    assert.equal(resolved.settings.paths.scriptsRoot, '.agents/scripts');
   });
 });

@@ -63,16 +63,11 @@ const _envLoadedRoots = new Set();
  * Defaults applied to a loaded .agentrc.json. Narrower than the zero-config
  * set: fields intentionally omitted here (e.g. baseBranch) remain undefined
  * unless the operator set them explicitly. The `paths`, `quality`, and
- * `limits` blocks are filled in by their resolvers below, not here.
+ * `limits` blocks are filled in by their resolvers below, not here. The
+ * seven `*Root` filesystem keys moved under `paths.*` in Epic #773
+ * Story 9; their defaults now live in {@link PATHS_DEFAULTS}.
  */
 const LOADED_CONFIG_DEFAULTS = Object.freeze({
-  scriptsRoot: '.agents/scripts',
-  workflowsRoot: '.agents/workflows',
-  personasRoot: '.agents/personas',
-  schemasRoot: '.agents/schemas',
-  skillsRoot: '.agents/skills',
-  templatesRoot: '.agents/templates',
-  rulesRoot: '.agents/rules',
   docsContextFiles: [
     'architecture.md',
     'data-dictionary.md',
@@ -85,38 +80,19 @@ const LOADED_CONFIG_DEFAULTS = Object.freeze({
  * rule as {@link LOADED_CONFIG_DEFAULTS}; zero-config callers that need the
  * required path roots must declare a `.agentrc.json`. */
 const ZERO_CONFIG_DEFAULTS = Object.freeze({
-  ...{
-    scriptsRoot: '.agents/scripts',
-    workflowsRoot: '.agents/workflows',
-    personasRoot: '.agents/personas',
-    schemasRoot: '.agents/schemas',
-    skillsRoot: '.agents/skills',
-    templatesRoot: '.agents/templates',
-    rulesRoot: '.agents/rules',
-    docsContextFiles: [
-      'architecture.md',
-      'data-dictionary.md',
-      'decisions.md',
-      'patterns.md',
-    ],
-  },
+  docsContextFiles: [
+    'architecture.md',
+    'data-dictionary.md',
+    'decisions.md',
+    'patterns.md',
+  ],
   baseBranch: 'main',
 });
 
 /** Keys filled in on a loaded config when the operator omitted them. `quality`,
  * `paths`, and `limits` are intentionally absent — they are filled by their
  * resolvers (deep-merge, not top-level fill) right after this loop runs. */
-const LOADED_CONFIG_APPLY_KEYS = [
-  'scriptsRoot',
-  'workflowsRoot',
-  'personasRoot',
-  'schemasRoot',
-  'skillsRoot',
-  'templatesRoot',
-  'rulesRoot',
-  'docsContextFiles',
-  'baseBranch',
-];
+const LOADED_CONFIG_APPLY_KEYS = ['docsContextFiles', 'baseBranch'];
 
 /**
  * Extract the flat agentSettings bag from whichever config format is present.

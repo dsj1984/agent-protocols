@@ -92,6 +92,13 @@ describe('agentrc.schema.json mirror — drift vs runtime AJV schemas', () => {
           docsRoot: 'docs',
           tempRoot: 'temp',
           auditOutputDir: 'temp',
+          scriptsRoot: '.agents/scripts',
+          workflowsRoot: '.agents/workflows',
+          personasRoot: '.agents/personas',
+          schemasRoot: '.agents/schemas',
+          skillsRoot: '.agents/skills',
+          templatesRoot: '.agents/templates',
+          rulesRoot: '.agents/rules',
         },
         commands: {
           validate: 'npm run lint',
@@ -224,6 +231,49 @@ describe('agentrc.schema.json mirror — drift vs runtime AJV schemas', () => {
       'agentSettings',
       { commands: { lint: 'npm run lint' } },
       'commands typo',
+    );
+  });
+
+  it('rejects an unknown top-level agentSettings key on both sides (Epic #773 Story 9)', () => {
+    assertAgree(
+      'agentSettings',
+      {
+        paths: { agentRoot: '.agents', docsRoot: 'docs', tempRoot: 'temp' },
+        unknownTopLevel: true,
+      },
+      'unknown agentSettings top-level',
+    );
+  });
+
+  it('rejects a legacy `scriptsRoot` flat key at the top level on both sides', () => {
+    assertAgree(
+      'agentSettings',
+      {
+        paths: { agentRoot: '.agents', docsRoot: 'docs', tempRoot: 'temp' },
+        scriptsRoot: '.agents/scripts',
+      },
+      'flat *Root after Story 9 cutover',
+    );
+  });
+
+  it('accepts the seven *Root keys nested under paths on both sides', () => {
+    assertAgree(
+      'agentSettings',
+      {
+        paths: {
+          agentRoot: '.agents',
+          docsRoot: 'docs',
+          tempRoot: 'temp',
+          scriptsRoot: '.agents/scripts',
+          workflowsRoot: '.agents/workflows',
+          personasRoot: '.agents/personas',
+          schemasRoot: '.agents/schemas',
+          skillsRoot: '.agents/skills',
+          templatesRoot: '.agents/templates',
+          rulesRoot: '.agents/rules',
+        },
+      },
+      'paths.*Root accepted',
     );
   });
 
