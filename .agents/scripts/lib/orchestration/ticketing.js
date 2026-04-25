@@ -10,6 +10,10 @@
 
 import { Logger } from '../Logger.js';
 import { AGENT_LABELS, TYPE_LABELS } from '../label-constants.js';
+import {
+  eventSeverity,
+  renderTransitionMessage,
+} from '../notifications/notifier.js';
 import { WAVE_MARKER_RE } from './wave-marker.js';
 
 export const STATE_LABELS = {
@@ -91,10 +95,12 @@ export function assertValidStructuredCommentType(type) {
  * @param {import('../ITicketingProvider.js').ITicketingProvider} provider
  * @param {number} ticketId
  * @param {string} newState - Must be one of STATE_LABELS.
- * @param {{ notifier?: { emit: Function } }} [opts] - Optional notifier.
- *   When provided, the Notifier's `emit` is called after a successful
- *   transition so consuming projects get in-band state-change notifications
- *   without a bespoke GitHub Actions workflow.
+ * @param {{ notify?: Function }} [opts] - Optional notify function (the
+ *   exported `notify(ticketId, payload, opts)` from `notify.js`, or any
+ *   stub matching its shape). When provided, a state-transition
+ *   notification fires after a successful transition. Story/Epic →
+ *   `agent::done` events are dispatched as `medium`; all other transitions
+ *   are `low` and filtered out at the default `notifications.minLevel`.
  */
 export async function transitionTicketState(
   provider,
@@ -108,20 +114,18 @@ export async function transitionTicketState(
 
   const toRemove = ALL_STATES.filter((state) => state !== newState);
 
-  // Snapshot prior state for the notifier (best-effort; skip on error).
+  // Snapshot prior state for the notification payload (best-effort; skip on
+  // error). A transient read failure MUST NOT block a label transition —
+  // the transition itself is idempotent and `fromState: null` is a valid
+  // payload value.
   let fromState = null;
   let ticketSnapshot = null;
-  if (opts.notifier && typeof provider.getTicket === 'function') {
+  if (opts.notify && typeof provider.getTicket === 'function') {
     try {
       ticketSnapshot = await provider.getTicket(ticketId);
       fromState =
         ticketSnapshot?.labels?.find((l) => ALL_STATES.includes(l)) ?? null;
     } catch (err) {
-      // Intentional: a transient read failure MUST NOT block a label
-      // transition — the transition itself is idempotent and the notifier
-      // payload documents `fromState: null` as valid. Log at debug so
-      // verbose-log runs can correlate flaky reads without adding noise
-      // in info-level operation.
       Logger.debug(
         `[Ticketing] fromState lookup failed for #${ticketId}: ${err.message ?? err}`,
       );
@@ -145,28 +149,33 @@ export async function transitionTicketState(
   // This ensures parents (Stories, Features) close as soon as their last
   // child is marked done.
   if (isDone) {
-    await cascadeCompletion(provider, ticketId, { notifier: opts.notifier });
+    await cascadeCompletion(provider, ticketId, { notify: opts.notify });
   }
 
-  // Fire the in-band notifier (fire-and-forget; errors swallowed upstream).
-  if (opts.notifier?.emit) {
+  // Fire the state-transition notification (fire-and-forget).
+  if (typeof opts.notify === 'function') {
     const typeLabel =
       ticketSnapshot?.labels?.find((l) => l.startsWith('type::')) ?? '';
+    const ticketType = typeLabel.replace(/^type::/, '') || 'ticket';
     const epicId = extractEpicIdFromBody(ticketSnapshot?.body) ?? null;
-    opts.notifier
-      .emit({
-        kind: 'state-transition',
-        ticket: {
-          id: ticketId,
-          title: ticketSnapshot?.title,
-          type: typeLabel.replace(/^type::/, '') || 'ticket',
-          url: ticketSnapshot?.html_url,
-          epicId,
-        },
-        fromState,
-        toState: newState,
-      })
-      .catch(() => {});
+    const event = {
+      kind: 'state-transition',
+      ticket: {
+        id: ticketId,
+        title: ticketSnapshot?.title,
+        type: ticketType,
+      },
+      fromState,
+      toState: newState,
+    };
+    const severity = eventSeverity(event);
+    const message = renderTransitionMessage(event);
+    // Post to the epic so operators get a single timeline feed; fall back
+    // to the transitioned ticket itself when no epic reference is present.
+    const targetId = epicId ?? ticketId;
+    Promise.resolve(opts.notify(targetId, { severity, message })).catch(
+      () => {},
+    );
   }
 }
 
@@ -313,8 +322,8 @@ export async function upsertStructuredComment(provider, ticketId, type, body) {
  *
  * @param {import('../ITicketingProvider.js').ITicketingProvider} provider
  * @param {number} ticketId
- * @param {{ notifier?: { emit: Function } }} [opts] - Forwarded to any
- *   recursive `transitionTicketState` fired on parent tickets.
+ * @param {{ notify?: Function }} [opts] - Forwarded to any recursive
+ *   `transitionTicketState` fired on parent tickets.
  * @returns {Promise<{ cascadedTo: number[], failed: Array<{ parentId: number, error: string }> }>}
  */
 export async function cascadeCompletion(provider, ticketId, opts = {}) {
@@ -377,7 +386,7 @@ export async function cascadeCompletion(provider, ticketId, opts = {}) {
         }
 
         await transitionTicketState(provider, parentId, STATE_LABELS.DONE, {
-          notifier: opts.notifier,
+          notify: opts.notify,
         });
         await postStructuredComment(
           provider,
@@ -388,7 +397,7 @@ export async function cascadeCompletion(provider, ticketId, opts = {}) {
         cascadedTo.push(parentId);
 
         const nested = await cascadeCompletion(provider, parentId, {
-          notifier: opts.notifier,
+          notify: opts.notify,
         });
         cascadedTo.push(...nested.cascadedTo);
         failed.push(...nested.failed);

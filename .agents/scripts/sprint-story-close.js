@@ -49,7 +49,6 @@ import {
   gitSync,
 } from './lib/git-utils.js';
 import { Logger } from './lib/Logger.js';
-import { createNotifier } from './lib/notifications/notifier.js';
 import { createFrictionEmitter } from './lib/orchestration/friction-emitter.js';
 import { runPostMergePipeline } from './lib/orchestration/post-merge-pipeline.js';
 import { dispatchRecovery } from './lib/orchestration/sprint-story-close-recovery.js';
@@ -69,6 +68,7 @@ import {
   loadPhaseTimerState,
 } from './lib/util/phase-timer-state.js';
 import { drainPendingCleanup } from './lib/worktree/pending-cleanup.js';
+import { notify } from './notify.js';
 
 // ---------------------------------------------------------------------------
 // Helpers
@@ -495,7 +495,8 @@ export async function runStoryClose({
 
   const { orchestration } = resolveConfig({ cwd });
   const provider = injectedProvider || createProvider(orchestration);
-  const notifier = createNotifier(orchestration, provider, { cwd });
+  const notifyFn = (ticketId, payload) =>
+    notify(ticketId, payload, { orchestration, provider });
 
   progress('INIT', `Closing Story #${storyId}...`);
 
@@ -643,7 +644,7 @@ export async function runStoryClose({
     repoRoot: cwd,
     projectRoot: PROJECT_ROOT,
     provider,
-    notifier,
+    notify: notifyFn,
     frictionEmitter,
     tasks,
     skipDashboard,

@@ -14,14 +14,14 @@ import { STATE_LABELS, transitionTicketState } from '../../ticketing.js';
 
 export async function runFinalizePhase(ctx, collaborators, state) {
   const { epicId, provider, logger } = ctx;
-  const { notifier, syncColumn, journal } = collaborators;
+  const { notify: notifyFn, syncColumn, journal } = collaborators;
   const { completionState, waveHistory, bookends } = state;
   const journalSuffix = () => (journal?.path ? ` (see ${journal.path})` : '');
 
   try {
     if (completionState === 'completed') {
       await transitionTicketState(provider, epicId, STATE_LABELS.REVIEW, {
-        notifier,
+        notify: notifyFn,
       }).catch(async (err) => {
         logger.warn?.(
           `[EpicRunner] review flip failed: ${err.message}${journalSuffix()}`,

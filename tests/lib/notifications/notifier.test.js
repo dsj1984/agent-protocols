@@ -2,23 +2,14 @@ import assert from 'node:assert/strict';
 import { after, afterEach, before, describe, it } from 'node:test';
 
 import {
-  Notifier,
+  DEFAULT_MIN_LEVEL,
+  eventSeverity,
+  meetsMinLevel,
+  renderTransitionMessage,
   resolveWebhookUrl,
+  SEVERITY_RANK,
 } from '../../../.agents/scripts/lib/notifications/notifier.js';
 
-function quietLogger() {
-  return { info: () => {}, warn: () => {}, error: () => {} };
-}
-
-// Belt-and-braces: the Notifier constructor calls resolveWebhookUrl(), which
-// reads process.env.NOTIFICATION_WEBHOOK_URL and .mcp.json at cwd. The dev
-// environment typically has both populated, which would cause tests that
-// don't stub fetchImpl to POST to the real webhook. Every Notifier
-// construction in this file either (a) restricts channels to skip webhook,
-// (b) overrides n.webhookUrl to a test URL and provides a mock fetchImpl,
-// or (c) passes SAFE_CWD so the .mcp.json fallback misses. The env var is
-// also cleared for the duration of the file.
-const SAFE_CWD = '/nonexistent-notifier-test-cwd';
 const ORIG_WEBHOOK_ENV = process.env.NOTIFICATION_WEBHOOK_URL;
 
 before(() => {
@@ -33,230 +24,143 @@ after(() => {
   }
 });
 
-describe('Notifier level gating', () => {
-  it('off: emits nothing', async () => {
-    const calls = { fetch: 0, comment: 0 };
-    const n = new Notifier({
-      config: { level: 'off' },
-      provider: {
-        postComment: async () => {
-          calls.comment++;
-        },
-      },
-      fetchImpl: async () => {
-        calls.fetch++;
-        return { ok: true };
-      },
-      logger: quietLogger(),
-    });
-    // Force a webhook URL so we can confirm the OFF gate suppresses all channels.
-    n.webhookUrl = 'https://example.test/hook';
-    const r = await n.emit({
-      kind: 'state-transition',
-      ticket: { id: 1 },
-      toState: 'agent::done',
-    });
-    assert.equal(r.fired, false);
-    assert.equal(r.reason, 'filtered');
-    assert.equal(calls.fetch, 0);
-    assert.equal(calls.comment, 0);
+describe('SEVERITY_RANK + DEFAULT_MIN_LEVEL', () => {
+  it('orders low < medium < high', () => {
+    assert.ok(SEVERITY_RANK.low < SEVERITY_RANK.medium);
+    assert.ok(SEVERITY_RANK.medium < SEVERITY_RANK.high);
   });
 
-  it('minimal: fires only on done/review transitions', async () => {
-    const n = new Notifier({
-      config: { level: 'minimal' },
-      logger: quietLogger(),
-      fetchImpl: async () => ({ ok: true }),
-      cwd: SAFE_CWD,
-    });
-    const r1 = await n.emit({
-      kind: 'state-transition',
-      ticket: { id: 1 },
-      toState: 'agent::executing',
-    });
-    const r2 = await n.emit({
-      kind: 'state-transition',
-      ticket: { id: 1 },
-      toState: 'agent::review',
-    });
-    const r3 = await n.emit({
-      kind: 'state-transition',
-      ticket: { id: 1 },
-      toState: 'agent::done',
-    });
-    assert.equal(r1.fired, false);
-    assert.equal(r2.fired, true);
-    assert.equal(r3.fired, true);
-  });
-
-  it('default: fires on Story/Epic state transitions only, suppresses Task', async () => {
-    const n = new Notifier({
-      config: { level: 'default' },
-      logger: quietLogger(),
-      fetchImpl: async () => ({ ok: true }),
-      cwd: SAFE_CWD,
-    });
-    const rStory = await n.emit({
-      kind: 'state-transition',
-      ticket: { id: 1, type: 'story' },
-      toState: 'agent::executing',
-    });
-    const rEpic = await n.emit({
-      kind: 'state-transition',
-      ticket: { id: 2, type: 'epic' },
-      toState: 'agent::executing',
-    });
-    const rTask = await n.emit({
-      kind: 'state-transition',
-      ticket: { id: 3, type: 'task' },
-      toState: 'agent::executing',
-    });
-    const rOpened = await n.emit({
-      kind: 'opened',
-      ticket: { id: 1, type: 'story' },
-    });
-    assert.equal(rStory.fired, true);
-    assert.equal(rEpic.fired, true);
-    assert.equal(rTask.fired, false);
-    assert.equal(rOpened.fired, false);
-  });
-
-  it('verbose: fires on everything', async () => {
-    const n = new Notifier({
-      config: { level: 'verbose' },
-      logger: quietLogger(),
-      fetchImpl: async () => ({ ok: true }),
-      cwd: SAFE_CWD,
-    });
-    for (const kind of ['state-transition', 'opened', 'closed', 'reopened']) {
-      const r = await n.emit({
-        kind,
-        ticket: { id: 1 },
-        toState: 'agent::executing',
-      });
-      assert.equal(r.fired, true, `${kind} should fire at verbose`);
-    }
+  it('defaults to medium', () => {
+    assert.equal(DEFAULT_MIN_LEVEL, 'medium');
   });
 });
 
-describe('Notifier channels', () => {
-  it('posts to Epic via provider when configured', async () => {
-    const comments = [];
-    const n = new Notifier({
-      config: {
-        level: 'verbose',
-        postToEpic: true,
-        channels: ['epic-comment'],
-      },
-      provider: {
-        postComment: async (id, payload) => comments.push({ id, payload }),
-      },
-      logger: quietLogger(),
-    });
-    await n.emit({
-      kind: 'state-transition',
-      ticket: { id: 357, type: 'story', epicId: 349 },
-      toState: 'agent::executing',
-    });
-    assert.equal(comments.length, 1);
-    assert.equal(comments[0].id, 349);
-    assert.match(comments[0].payload.body, /story #357/);
-    assert.match(comments[0].payload.body, /agent::executing/);
+describe('meetsMinLevel', () => {
+  it('passes when severity >= minLevel', () => {
+    assert.equal(meetsMinLevel('medium', 'medium'), true);
+    assert.equal(meetsMinLevel('high', 'medium'), true);
+    assert.equal(meetsMinLevel('low', 'low'), true);
   });
 
-  it('falls back to ticket id when no epicId provided', async () => {
-    const comments = [];
-    const n = new Notifier({
-      config: {
-        level: 'verbose',
-        postToEpic: true,
-        channels: ['epic-comment'],
-      },
-      provider: {
-        postComment: async (id, payload) => comments.push({ id, payload }),
-      },
-      logger: quietLogger(),
-    });
-    await n.emit({
-      kind: 'state-transition',
-      ticket: { id: 349, type: 'epic' },
-      toState: 'agent::executing',
-    });
-    assert.equal(comments[0].id, 349);
+  it('fails when severity < minLevel', () => {
+    assert.equal(meetsMinLevel('low', 'medium'), false);
+    assert.equal(meetsMinLevel('medium', 'high'), false);
   });
 
-  it('fires webhook with JSON payload', async () => {
-    const calls = [];
-    const n = new Notifier({
-      config: { level: 'verbose', channels: ['webhook'] },
-      fetchImpl: async (url, init) => {
-        calls.push({ url, init });
-        return { ok: true, status: 200 };
-      },
-      logger: quietLogger(),
-    });
-    n.webhookUrl = 'https://example.test/hook';
-    await n.emit({
+  it('falls back to DEFAULT_MIN_LEVEL when minLevel is unset', () => {
+    // Default is `medium` — so `low` is filtered out, `medium`/`high` pass.
+    assert.equal(meetsMinLevel('low', undefined), false);
+    assert.equal(meetsMinLevel('medium', undefined), true);
+    assert.equal(meetsMinLevel('high', undefined), true);
+  });
+
+  it('treats unknown severity as low (filtered at default)', () => {
+    assert.equal(meetsMinLevel('weird', 'medium'), false);
+  });
+});
+
+describe('eventSeverity', () => {
+  it('Story → agent::done is medium', () => {
+    assert.equal(
+      eventSeverity({
+        kind: 'state-transition',
+        ticket: { type: 'story' },
+        toState: 'agent::done',
+      }),
+      'medium',
+    );
+  });
+
+  it('Epic → agent::done is medium', () => {
+    assert.equal(
+      eventSeverity({
+        kind: 'state-transition',
+        ticket: { type: 'epic' },
+        toState: 'agent::done',
+      }),
+      'medium',
+    );
+  });
+
+  it('Story → intermediate state is low', () => {
+    assert.equal(
+      eventSeverity({
+        kind: 'state-transition',
+        ticket: { type: 'story' },
+        toState: 'agent::executing',
+      }),
+      'low',
+    );
+    assert.equal(
+      eventSeverity({
+        kind: 'state-transition',
+        ticket: { type: 'story' },
+        toState: 'agent::review',
+      }),
+      'low',
+    );
+  });
+
+  it('Task → agent::done is low (only Story/Epic done is escalated)', () => {
+    assert.equal(
+      eventSeverity({
+        kind: 'state-transition',
+        ticket: { type: 'task' },
+        toState: 'agent::done',
+      }),
+      'low',
+    );
+  });
+
+  it('non state-transition kinds are low', () => {
+    assert.equal(
+      eventSeverity({ kind: 'opened', ticket: { type: 'story' } }),
+      'low',
+    );
+    assert.equal(eventSeverity(null), 'low');
+    assert.equal(eventSeverity(undefined), 'low');
+  });
+});
+
+describe('renderTransitionMessage', () => {
+  it('renders fromState → toState when both present', () => {
+    const msg = renderTransitionMessage({
       kind: 'state-transition',
-      ticket: { id: 357 },
+      ticket: { id: 357, type: 'story' },
       fromState: 'agent::ready',
       toState: 'agent::executing',
     });
-    assert.equal(calls.length, 1);
-    assert.equal(calls[0].init.method, 'POST');
-    const body = JSON.parse(calls[0].init.body);
-    assert.deepEqual(Object.keys(body), ['text']);
-    assert.match(body.text, /ticket #357/);
-    assert.match(body.text, /agent::ready/);
-    assert.match(body.text, /agent::executing/);
+    assert.match(msg, /story #357/);
+    assert.match(msg, /agent::ready/);
+    assert.match(msg, /agent::executing/);
   });
 
-  it('swallows webhook failures (never throws)', async () => {
-    const n = new Notifier({
-      config: { level: 'verbose', channels: ['webhook'] },
-      fetchImpl: async () => {
-        throw new Error('network down');
-      },
-      logger: quietLogger(),
-    });
-    n.webhookUrl = 'https://example.test/hook';
-    const r = await n.emit({
+  it('renders → toState when fromState is missing', () => {
+    const msg = renderTransitionMessage({
       kind: 'state-transition',
-      ticket: { id: 1 },
+      ticket: { id: 1, type: 'epic' },
       toState: 'agent::done',
     });
-    assert.equal(r.fired, true);
-    assert.equal(r.results.webhook.delivered, false);
+    assert.match(msg, /epic #1/);
+    assert.match(msg, /agent::done/);
   });
 
-  it('skips epic-comment channel when disabled via config', async () => {
-    const comments = [];
-    const n = new Notifier({
-      config: {
-        level: 'verbose',
-        postToEpic: false,
-        channels: ['epic-comment'],
-      },
-      provider: {
-        postComment: async (id, payload) => comments.push({ id, payload }),
-      },
-      logger: quietLogger(),
-    });
-    await n.emit({
+  it('appends a truncated title when present', () => {
+    const longTitle = 'x'.repeat(120);
+    const msg = renderTransitionMessage({
       kind: 'state-transition',
-      ticket: { id: 1, epicId: 349 },
+      ticket: { id: 5, type: 'story', title: longTitle },
       toState: 'agent::done',
     });
-    assert.equal(comments.length, 0);
+    assert.ok(msg.endsWith('xxxxxxxx'));
+    // Title slice cap is 80 chars.
+    assert.ok(msg.length <= `story #5 · → \`agent::done\` — `.length + 80);
   });
 });
 
 describe('resolveWebhookUrl priority', () => {
   const ORIG = process.env.NOTIFICATION_WEBHOOK_URL;
 
-  // Restore via a test hook so an assertion failure can't leak the env var
-  // into sibling tests. `process.env.X = undefined` casts to the string
-  // "undefined", so restore via delete-or-set depending on original state.
   function restoreEnv() {
     if (ORIG === undefined) {
       delete process.env.NOTIFICATION_WEBHOOK_URL;
@@ -275,7 +179,6 @@ describe('resolveWebhookUrl priority', () => {
 
   it('returns null when nothing is configured', () => {
     delete process.env.NOTIFICATION_WEBHOOK_URL;
-    // Point resolver at a cwd without .mcp.json so the last fallback misses too.
     const url = resolveWebhookUrl({ cwd: '/nonexistent-path-for-test' });
     assert.equal(url, null);
   });

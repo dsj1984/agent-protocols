@@ -607,27 +607,30 @@ report and posts it as a ticket comment via the `ITicketingProvider`.
 Two independent notification surfaces, both living in `.agents/` so they ship to
 consuming projects:
 
-### 1. In-band ticket-change Notifier
+### 1. Unified `notify()` dispatcher
 
-Every state transition through `transitionTicketState` (the SDK layer used by
-all orchestrator scripts) fires the
-[`Notifier`](scripts/lib/notifications/notifier.js). Three channels, each
-independently skippable via config:
+Every notification — whether a manual orchestration milestone (story merged,
+HITL gate triggered) or an auto-fired ticket-state transition — routes through
+[`notify.js`](scripts/notify.js). Two delivery channels:
 
-| Channel        | What it does                                                              |
-| -------------- | ------------------------------------------------------------------------- |
-| `log`          | Prints a structured `[notify]` line to stderr for local / CI log tailing. |
-| `epic-comment` | Posts a one-line comment on the affected Epic (linear lifecycle feed).    |
-| `webhook`      | Fire-and-forget POST to the configured URL (Make.com / Slack / Discord).  |
+| Channel           | What it does                                                              |
+| ----------------- | ------------------------------------------------------------------------- |
+| GitHub comment    | Posts to the targeted ticket; @mentions operator for `medium`/`high`.     |
+| Webhook           | Fire-and-forget POST to the configured URL (Make.com / Slack / Discord).  |
 
-Level gate (set `orchestration.notifications.level` in `.agentrc.json`):
+Severity vocabulary (assigned by callers; `eventSeverity()` in
+`lib/notifications/notifier.js` derives it for state transitions):
 
-| Level     | Fires on                                                   |
-| --------- | ---------------------------------------------------------- |
-| `off`     | Nothing.                                                   |
-| `minimal` | State transitions to `agent::done` / `agent::review` only. |
-| `default` | State transitions on Story and Epic tickets only (Task-level changes suppressed). |
-| `verbose` | Every tracked event (default).                             |
+| Severity | Used for                                                                                                              | Webhook prefix       |
+| -------- | --------------------------------------------------------------------------------------------------------------------- | -------------------- |
+| `low`    | Routine pipeline progress, intermediate state transitions, audit reports.                                             | `[low]`              |
+| `medium` | Operator-visible milestones (story merged, epic complete, Story/Epic transitions reaching `agent::done`).             | `[medium]`           |
+| `high`   | Operator must act (HITL gates, autonomous-chain failures). Message body should also lead with `🚨 Action Required:`.  | `[Action Required]`  |
+
+Filter knob (`orchestration.notifications.minLevel` in `.agentrc.json`,
+default: `medium`): events below this severity are dropped from every channel.
+Setting `minLevel: low` surfaces task-level state churn; `minLevel: high`
+limits delivery to action-required events only.
 
 Webhook URL resolution:
 
@@ -636,7 +639,8 @@ Webhook URL resolution:
   Actions. The webhook URL is **not** sourced from `.agentrc.json`, and (as of
   Epic #702) is no longer sourced from `.mcp.json`.
 
-Because the Notifier is called in-band, it captures changes from:
+Because `notify()` is called in-band from the orchestration SDK, it captures
+changes from:
 
 - The Epic runner (coordinator-driven state flips).
 - Per-story scripts (`sprint-story-init.js`, `sprint-story-close.js`).

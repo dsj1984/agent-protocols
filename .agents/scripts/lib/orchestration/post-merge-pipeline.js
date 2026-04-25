@@ -234,10 +234,10 @@ export async function ticketClosurePhase(ctx) {
   const { provider, tasks, storyId, progress, logger } = ctx;
   const log = reapPhaseLogger(progress);
 
-  // The notifier is intentionally NOT forwarded to per-ticket transitions
-  // here. `notificationPhase` fires a single consolidated story-complete
-  // message immediately after this phase; passing the notifier through
-  // would emit redundant `state-transition` events (one from the
+  // The `notify` function is intentionally NOT forwarded to per-ticket
+  // transitions here. `notificationPhase` fires a single consolidated
+  // story-complete message immediately after this phase; passing notify
+  // through would emit redundant state-transition events (one from the
   // cascade-up triggered by the last child Task, one from the explicit
   // Story toDone below) that show up as duplicate Slack/webhook lines per
   // story close.
@@ -305,9 +305,8 @@ export async function notificationPhase(ctx, state) {
   await notifyFn(
     epicId,
     {
-      type: 'notification',
+      severity: 'medium',
       message: `✅ Story #${storyId} — *${story.title}* — has been completed and merged into \`${epicBranch}\`. ${closedTickets.length} ticket(s) closed.`,
-      actionRequired: true,
     },
     { orchestration },
   );
@@ -392,7 +391,7 @@ export const DEFAULT_POST_MERGE_PHASES = Object.freeze([
  * pipeline keeps going. Each phase's return value is recorded under its
  * `stateKey` (when defined) on the returned state object.
  *
- * @param {object} ctx          Phase collaborators (provider, notifier,
+ * @param {object} ctx          Phase collaborators (provider, notify,
  *                              frictionEmitter, logger, progress, etc.).
  * @param {Array<{name: string, fn: Function, stateKey?: string, fallback?: any}>} [phases]
  *                              Phase descriptors. Defaults to `DEFAULT_POST_MERGE_PHASES`.

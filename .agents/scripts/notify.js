@@ -4,44 +4,45 @@
 /**
  * notify.js
  *
- * Dual-channel notification engine for v5 Orchestration.
- * 1. INFO: @mention the operator handle on a GitHub issue.
- * 2. WEBHOOK: Fire the configured webhook for any notify() call whose type
- *    meets `notifications.webhookMinLevel` (default: progress — everything).
+ * Single dispatch entry point for orchestration notifications.
+ *
+ *   1. GITHUB COMMENT: posts to the ticket; @mentions operator for medium/high.
+ *   2. WEBHOOK: fires when severity >= `notifications.minLevel` (default: medium).
+ *
+ * Severity vocabulary: low | medium | high. See `lib/notifications/notifier.js`
+ * for full details and the `eventSeverity()` helper used by ticket-state-
+ * transition events.
  */
 
 import { createHmac } from 'node:crypto';
 import { runAsCli } from './lib/cli-utils.js';
 import { resolveConfig } from './lib/config-resolver.js';
 import { Logger } from './lib/Logger.js';
-import { resolveWebhookUrl } from './lib/notifications/notifier.js';
+import {
+  meetsMinLevel,
+  resolveWebhookUrl,
+  SEVERITY_RANK,
+} from './lib/notifications/notifier.js';
 import { createProvider } from './lib/provider-factory.js';
 
-const LEVEL_RANK = { progress: 0, notification: 1, friction: 2, action: 3 };
-
-function shouldFireWebhook(orchestration, type, actionEscalated) {
-  const minRank =
-    LEVEL_RANK[orchestration.notifications?.webhookMinLevel] ??
-    LEVEL_RANK.progress;
-  const typeRank = LEVEL_RANK[type] ?? LEVEL_RANK.notification;
-  const effectiveRank = actionEscalated
-    ? Math.max(typeRank, LEVEL_RANK.action)
-    : typeRank;
-  return effectiveRank >= minRank;
-}
+/** Map notification severity to a `postComment` badge style. */
+const SEVERITY_TO_COMMENT_TYPE = {
+  low: 'progress',
+  medium: 'notification',
+  high: 'friction',
+};
 
 function buildWebhookPayload({
   orchestration,
   ticketId,
-  type,
+  severity,
   message,
   operator,
-  isAction,
 }) {
   const cleanMessage = message.replace(operator, '').trim();
   const repo = orchestration.github?.repo;
   const numericTicketId = Number.parseInt(ticketId, 10);
-  const prefix = isAction ? '[Action Required]' : `[${type}]`;
+  const prefix = severity === 'high' ? '[Action Required]' : `[${severity}]`;
   const ticketPart =
     Number.isFinite(numericTicketId) && numericTicketId > 0
       ? ` ${repo ? `${repo}#${numericTicketId}` : `#${numericTicketId}`}`
@@ -79,17 +80,23 @@ async function sendWebhook(url, payloadBody) {
  * Dispatch a notification.
  *
  * @param {number} ticketId - GitHub Issue number to post the notification on.
+ *   Pass 0 (or any non-positive) to skip the GitHub comment and fire the
+ *   webhook only.
  * @param {{
- *   type: 'progress'|'friction'|'notification'|'action',
+ *   severity?: 'low'|'medium'|'high',
  *   message: string,
- *   actionRequired?: boolean
- * }} payload
+ * }} payload - `severity` defaults to `medium` when omitted.
  */
 export async function notify(ticketId, payload, opts = {}) {
   const orchestration = opts.orchestration || resolveConfig().orchestration;
   const provider = opts.provider || createProvider(orchestration);
 
-  const { type, message, actionRequired } = payload;
+  const { severity = 'medium', message } = payload;
+  if (!Object.hasOwn(SEVERITY_RANK, severity)) {
+    throw new Error(
+      `[Notify] Invalid severity "${severity}". Expected: low | medium | high.`,
+    );
+  }
   const operator = orchestration.github.operatorHandle || '@operator';
 
   const numericId = Number.parseInt(ticketId, 10);
@@ -97,44 +104,39 @@ export async function notify(ticketId, payload, opts = {}) {
 
   if (!skipGitHub) {
     console.log(
-      `[Notify] Sending ${type.toUpperCase()} to Issue #${numericId}...`,
+      `[Notify] Sending ${severity.toUpperCase()} to Issue #${numericId}...`,
     );
 
-    // 1. Mentions for Info/Notification
-    let commentBody = message;
-    if (
-      type === 'notification' ||
-      (type === 'action' && orchestration.notifications?.mentionOperator)
-    ) {
-      commentBody = `${operator} ${message}`;
-    }
+    // High always @mentions; medium @mentions when `mentionOperator` is set;
+    // low never @mentions (it's filtered out at default minLevel anyway).
+    const mention =
+      severity === 'high' ||
+      (severity === 'medium' && orchestration.notifications?.mentionOperator);
+    const commentBody = mention ? `${operator} ${message}` : message;
 
     await provider.postComment(numericId, {
       body: commentBody,
-      type: type === 'action' ? 'notification' : type,
+      type: SEVERITY_TO_COMMENT_TYPE[severity],
     });
   } else {
     console.log(
-      `[Notify] Sending ${type.toUpperCase()}... (Skipping GitHub comment)`,
+      `[Notify] Sending ${severity.toUpperCase()}... (Skipping GitHub comment)`,
     );
   }
 
-  // 2. Webhook for any event that meets the configured minimum level.
-  const actionEscalated = Boolean(actionRequired);
-  if (shouldFireWebhook(orchestration, type, actionEscalated)) {
+  if (meetsMinLevel(severity, orchestration.notifications?.minLevel)) {
     // `opts.webhookUrl === undefined` → resolve from env/.mcp.json.
     // Explicit `null` or string → caller was explicit; don't resolve.
     const webhookUrl =
       opts.webhookUrl === undefined ? resolveWebhookUrl() : opts.webhookUrl;
     if (webhookUrl) {
-      console.log(`[Notify] Firing webhook (${type}) to ${webhookUrl}...`);
+      console.log(`[Notify] Firing webhook (${severity}) to ${webhookUrl}...`);
       const payloadBody = buildWebhookPayload({
         orchestration,
         ticketId,
-        type,
+        severity,
         message,
         operator,
-        isAction: type === 'action' || actionEscalated,
       });
       await sendWebhook(webhookUrl, payloadBody);
     }
@@ -143,48 +145,56 @@ export async function notify(ticketId, payload, opts = {}) {
 
 export function parseNotifyArgs(args) {
   if (args.length < 1) {
-    Logger.fatal('Usage: node notify.js [TicketId] <Message> [--action]');
+    Logger.fatal(
+      'Usage: node notify.js [TicketId] <Message> [--severity low|medium|high]',
+    );
   }
 
-  const isAction = args.includes('--action');
-  const filteredArgs = args.filter((arg) => arg !== '--action');
-  if (filteredArgs.length === 0) {
+  let severity = 'medium';
+  const sevIdx = args.indexOf('--severity');
+  let working = args;
+  if (sevIdx !== -1) {
+    const raw = args[sevIdx + 1];
+    if (!raw || !Object.hasOwn(SEVERITY_RANK, raw)) {
+      Logger.fatal('[Notify] --severity requires one of: low | medium | high.');
+    }
+    severity = raw;
+    working = args.filter((_a, i) => i !== sevIdx && i !== sevIdx + 1);
+  }
+
+  if (working.length === 0) {
     Logger.fatal('[Notify] Error: Message is required.');
   }
 
   let ticketId = 0;
   let message = '';
-  const explicitTicketFlag = filteredArgs.findIndex(
+  const explicitTicketFlag = working.findIndex(
     (arg) => arg === '--ticket' || arg === '--issue',
   );
 
   if (explicitTicketFlag !== -1) {
-    const rawTicketId = filteredArgs[explicitTicketFlag + 1] ?? '';
+    const rawTicketId = working[explicitTicketFlag + 1] ?? '';
     if (!/^\d+$/.test(rawTicketId)) {
       Logger.fatal('[Notify] Error: --ticket/--issue requires a numeric ID.');
     }
     ticketId = Number.parseInt(rawTicketId, 10);
-    const positional = filteredArgs.filter(
+    const positional = working.filter(
       (_arg, idx) =>
         idx !== explicitTicketFlag && idx !== explicitTicketFlag + 1,
     );
     message = positional.join(' ').trim();
   } else {
-    // Detect if first arg is a ticket ID or a message (or a legacy URL)
-    const firstArg = filteredArgs[0];
+    const firstArg = working[0];
     const isNumeric = /^\d+$/.test(firstArg);
 
     if (isNumeric) {
       ticketId = Number.parseInt(firstArg, 10);
-      message = filteredArgs.slice(1).join(' ').trim();
+      message = working.slice(1).join(' ').trim();
+    } else if (firstArg.startsWith('http')) {
+      // Legacy: a leading URL was used as a sentinel; strip it.
+      message = working.slice(1).join(' ').trim();
     } else {
-      // If first arg is a URL or a string, treat it as the "skip-id" mode
-      // (Legacy calls pass a URL here, we skip it and find the message)
-      if (firstArg.startsWith('http')) {
-        message = filteredArgs.slice(1).join(' ').trim();
-      } else {
-        message = firstArg;
-      }
+      message = firstArg;
     }
   }
 
@@ -192,17 +202,14 @@ export function parseNotifyArgs(args) {
     Logger.fatal('[Notify] Error: Message is required.');
   }
 
-  return { ticketId, message, isAction };
+  return { ticketId, message, severity };
 }
 
 async function main() {
   const args = process.argv.slice(2);
-  const { ticketId, message, isAction } = parseNotifyArgs(args);
+  const { ticketId, message, severity } = parseNotifyArgs(args);
 
-  await notify(ticketId, {
-    type: isAction ? 'action' : 'notification',
-    message,
-  });
+  await notify(ticketId, { severity, message });
 }
 
 runAsCli(import.meta.url, main, { source: 'Notify' });

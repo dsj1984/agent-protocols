@@ -4,6 +4,51 @@ All notable changes to this project will be documented in this file.
 
 ## [Unreleased]
 
+### Notification severity rework — unified `low | medium | high`
+
+Collapsed the two notification subsystems (manual `notify()` API + the in-band
+`Notifier` class for ticket-state transitions) into a single dispatcher with a
+unified severity vocabulary.
+
+- **Breaking — config keys renamed.** Drop `notifications.level`,
+  `notifications.webhookMinLevel`, `notifications.postToEpic`, and
+  `notifications.channels`. Replace with a single `notifications.minLevel`
+  (`low | medium | high`, default: `medium`). The defaults preserve today's
+  behaviour for everything except intermediate Story/Epic transitions, which
+  are now silenced by default (only Story/Epic reaching `agent::done` rates
+  `medium` and clears the filter).
+- **Breaking — `notify()` payload shape.** The `type:` field
+  (`progress | notification | friction | action`) and `actionRequired: true`
+  flag are gone. Pass `severity: 'low' | 'medium' | 'high'` instead. `high`
+  callers should also lead the message body with `🚨 Action Required:` so the
+  GitHub comment mirrors the `[Action Required]` webhook prefix.
+- **Breaking — `transitionTicketState` opts.** The `notifier: { emit }`
+  injection point is replaced by `notify: Function`. Production callers pass
+  the imported `notify` function from `notify.js`; tests pass a stub.
+  `transitionTicketState` now derives severity via `eventSeverity()` and
+  posts to the parent epic when the transitioned ticket carries an
+  `Epic: #N` body reference.
+- **Breaking — `createNotifier` and the `Notifier` class are deleted.**
+  `lib/notifications/notifier.js` now exports only the shared helpers
+  (`SEVERITY_RANK`, `meetsMinLevel`, `eventSeverity`,
+  `renderTransitionMessage`, `resolveWebhookUrl`).
+- **Breaking — log-only notification mode dropped.** The
+  `channels: ['log']` config no longer exists. Every notification dispatched
+  via `notify()` posts a GitHub comment (when `ticketId > 0`) and fires the
+  webhook (when severity ≥ `minLevel` and a URL is configured).
+- **Webhook payload format unified.** State-transition events now ship as
+  `[medium] repo#357: story #357 · agent::ready → agent::done — Title` —
+  the same `[severity] repo#N: ...` shape as manual `notify()` calls. State-
+  change webhooks are now also signed with `WEBHOOK_SECRET` when set
+  (previously only manual `notify()` calls were signed).
+- **Bug fix — story-complete webhook no longer mislabels as Action Required.**
+  `post-merge-pipeline.notificationPhase` previously sent
+  `type: 'notification', actionRequired: true`, which forced
+  `[Action Required]` on every successful merge. Now sends `severity: 'medium'`
+  with no escalation flag.
+- **CLI args renamed.** `node .agents/scripts/notify.js --action` is replaced
+  by `--severity high` (still accepts `--severity low|medium|high`).
+
 ### `agent-protocols` MCP server retired
 
 The framework no longer ships an MCP server. Every capability the server

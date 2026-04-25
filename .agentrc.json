@@ -78,9 +78,7 @@
     },
     "notifications": {
       "mentionOperator": false,
-      "level": "default",
-      "webhookMinLevel": "notification",
-      "postToEpic": false
+      "minLevel": "medium"
     },
     "hitl": {},
     "worktreeIsolation": {
