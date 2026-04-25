@@ -10,7 +10,7 @@
 
 import defaultFs from 'node:fs';
 import path from 'node:path';
-import { PROJECT_ROOT } from '../config-resolver.js';
+import { getBaselines, PROJECT_ROOT } from '../config-resolver.js';
 
 /**
  * Shape of the exec adapter passed into {@link LintBaselineService}.
@@ -45,7 +45,10 @@ export class LintBaselineService {
    * @param {LintBaselineExec} deps.exec           Injected exec adapter — invoked with `(file, args, options)`.
    * @param {LintBaselineLogger} deps.logger       Logger for skip / capture / failure messages.
    * @param {object} deps.settings                 `.agentrc.json` `settings` block.
-   * @param {string} [deps.settings.lintBaselinePath='temp/lint-baseline.json']  Relative path to the baseline artifact.
+   *   The baseline artifact path is resolved via
+   *   `getBaselines({ agentSettings: settings }).lint.path` (default
+   *   `baselines/lint.json`); operators override under
+   *   `agentSettings.quality.baselines.lint.path`.
    * @param {string} deps.settings.scriptsRoot     Relative scripts directory (resolved from `PROJECT_ROOT`).
    * @param {typeof import('node:fs')} [deps.fs]   Optional `fs` module (defaults to `node:fs`). Kept injectable so unit tests can assert no real-disk access.
    */
@@ -72,8 +75,8 @@ export class LintBaselineService {
    */
   async capture(epicBranch) {
     const { settings, logger, exec, fs } = this;
-    const lintBaselinePath =
-      settings.lintBaselinePath ?? 'temp/lint-baseline.json';
+    const lintBaselinePath = getBaselines({ agentSettings: settings }).lint
+      .path;
     const absPath = path.resolve(PROJECT_ROOT, lintBaselinePath);
 
     if (fs.existsSync(absPath)) {

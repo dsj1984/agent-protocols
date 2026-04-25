@@ -12,6 +12,7 @@
 
 import fs from 'node:fs';
 import path from 'node:path';
+import { getPaths } from '../config-resolver.js';
 import { gitSpawn } from '../git-utils.js';
 import { postStructuredComment } from './ticketing.js';
 
@@ -123,7 +124,8 @@ export function resolveConfiguredDocs({ cwd, agentSettings }) {
       out.push(path.resolve(cwd, rel));
     }
   }
-  const docsRoot = agentSettings?.docsRoot ?? 'docs';
+  const docsRoot =
+    getPaths({ agentSettings: agentSettings ?? {} }).docsRoot ?? 'docs';
   const contextDocs = agentSettings?.docsContextFiles ?? [];
   for (const name of contextDocs) {
     if (typeof name === 'string' && name.length > 0) {

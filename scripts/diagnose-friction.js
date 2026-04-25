@@ -19,7 +19,7 @@
  */
 import { spawnSync } from 'node:child_process';
 import crypto from 'node:crypto';
-import { resolveConfig } from './lib/config-resolver.js';
+import { getLimits, resolveConfig } from './lib/config-resolver.js';
 import { Logger } from './lib/Logger.js';
 import { postStructuredComment } from './lib/orchestration/ticketing.js';
 import { createProvider } from './lib/provider-factory.js';
@@ -136,8 +136,9 @@ export async function main(args = process.argv.slice(2)) {
   }
 
   const { settings } = resolveConfig();
-  const executionTimeoutMs = settings.executionTimeoutMs ?? 300000;
-  const executionMaxBuffer = settings.executionMaxBuffer ?? 10485760;
+  const limits = getLimits({ agentSettings: settings });
+  const executionTimeoutMs = limits.executionTimeoutMs;
+  const executionMaxBuffer = limits.executionMaxBuffer;
 
   const commandStr = cmdArgs.join(' ');
   console.error(`[Diagnostic Interceptor] Executing: ${commandStr}`);

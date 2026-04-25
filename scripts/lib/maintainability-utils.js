@@ -2,16 +2,29 @@ import fs from 'node:fs';
 import path from 'node:path';
 import { calculateForFile } from './maintainability-engine.js';
 
-const BASELINE_FILE = 'maintainability-baseline.json';
-
 /**
- * Loads the current maintainability baseline from disk.
+ * Loads the current maintainability baseline from disk. The on-disk path is
+ * resolved by the caller via {@link getBaselines}; passing it explicitly
+ * removes the silent-default behaviour the framework dropped in Epic #730
+ * Story 5.5.
+ *
+ * @param {string} baselinePath  Repo-relative or absolute path to the baseline
+ *   JSON. Required.
  * @returns {Record<string, number>}
  */
-export function getBaseline() {
-  if (fs.existsSync(BASELINE_FILE)) {
+export function getBaseline(baselinePath) {
+  if (typeof baselinePath !== 'string' || baselinePath.length === 0) {
+    throw new TypeError(
+      'maintainability-utils.getBaseline: baselinePath is required (Epic #730 ' +
+        'Story 5.5 — callers resolve the path via getBaselines(config).maintainability.path).',
+    );
+  }
+  const abs = path.isAbsolute(baselinePath)
+    ? baselinePath
+    : path.resolve(process.cwd(), baselinePath);
+  if (fs.existsSync(abs)) {
     try {
-      return JSON.parse(fs.readFileSync(BASELINE_FILE, 'utf-8'));
+      return JSON.parse(fs.readFileSync(abs, 'utf-8'));
     } catch (err) {
       console.warn(
         `[Maintainability] Failed to parse baseline: ${err.message}`,
@@ -23,10 +36,19 @@ export function getBaseline() {
 }
 
 /**
- * Saves a new maintainability baseline to disk.
+ * Saves a new maintainability baseline to disk at `baselinePath`.
  * @param {Record<string, number>} baseline
+ * @param {string} baselinePath  Required — caller supplies via getBaselines().
  */
-export function saveBaseline(baseline) {
+export function saveBaseline(baseline, baselinePath) {
+  if (typeof baselinePath !== 'string' || baselinePath.length === 0) {
+    throw new TypeError(
+      'maintainability-utils.saveBaseline: baselinePath is required.',
+    );
+  }
+  const abs = path.isAbsolute(baselinePath)
+    ? baselinePath
+    : path.resolve(process.cwd(), baselinePath);
   // Sort keys for deterministic output
   const sortedBaseline = Object.keys(baseline)
     .sort()
@@ -35,10 +57,8 @@ export function saveBaseline(baseline) {
       return acc;
     }, {});
 
-  fs.writeFileSync(
-    BASELINE_FILE,
-    `${JSON.stringify(sortedBaseline, null, 2)}\n`,
-  );
+  fs.mkdirSync(path.dirname(abs), { recursive: true });
+  fs.writeFileSync(abs, `${JSON.stringify(sortedBaseline, null, 2)}\n`);
 }
 
 const IGNORED_DIRS = new Set([

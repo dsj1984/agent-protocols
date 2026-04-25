@@ -25,7 +25,7 @@
 import { readFile } from 'node:fs/promises';
 import { parseArgs } from 'node:util';
 import { runAsCli } from './lib/cli-utils.js';
-import { resolveConfig } from './lib/config-resolver.js';
+import { getLimits, resolveConfig } from './lib/config-resolver.js';
 import { Logger } from './lib/Logger.js';
 import { TYPE_LABELS } from './lib/label-constants.js';
 import { validateAndNormalizeTickets } from './lib/orchestration/ticket-validator.js';
@@ -91,7 +91,7 @@ export async function buildDecompositionContext(epicId, provider, config = {}) {
   ]);
 
   const heuristics = config.agentSettings?.riskGates?.heuristics || [];
-  const maxTickets = config.agentSettings?.maxTickets ?? 40;
+  const maxTickets = getLimits(config).maxTickets;
   const systemPrompt = buildDecomposerSystemPrompt(heuristics, { maxTickets });
 
   return {
@@ -159,7 +159,7 @@ export async function decomposeEpic(
     console.log(`[Decomposer]   Closed ${children.length} old ticket(s).`);
   }
 
-  const maxTickets = _config.agentSettings?.maxTickets ?? 40;
+  const maxTickets = getLimits(_config).maxTickets;
   if (tickets.length >= maxTickets) {
     console.warn(
       `[Decomposer] ⚠️  Received ${tickets.length} tickets (at or above the ${maxTickets}-ticket cap). Verify every Story still has child Tasks or split the Epic into smaller scopes.`,
