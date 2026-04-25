@@ -242,6 +242,21 @@ operator reference.
 
 ### Recent releases
 
+- **v5.27.0 — Epic #773 (2026-04-25).** Pre-consumer-upgrade quality pass.
+  CRAP gate is now hard-enforcing across close-validation, pre-push, and CI
+  — `baselines/crap.json` is bootstrapped + shipped, the missing-baseline
+  early-return is gone, and the top-10 method hotspots above CRAP 50 were
+  remediated (10 long-tail methods at CRAP 50–72 tracked separately).
+  `orchestration` consolidated under `orchestration.runners`; flat peer
+  keys (`epicRunner`, `planRunner`, `concurrency`, `closeRetry`,
+  `poolMode`) are gone. `config-resolver.js` split into a facade over
+  `quality`/`paths`/`commands`/`limits`/`runners` accessor submodules.
+  `providers/github.js` and `lib/worktree/lifecycle-manager.js` each
+  decomposed into ≤250 LOC facades over focused submodules with
+  ctx-threading discipline. `*Root` paths centralised under
+  `agentSettings.paths`; the dormant `state-poller.js` and the noisy
+  `docs-context-bridge` advisory were removed. See
+  [docs/CHANGELOG.md](docs/CHANGELOG.md) for the full entry.
 - **v5.24.0 — Epic #668 (2026-04-24).** Parallel `/sprint-execute` on Claude
   Code web. The same command runs unchanged in claude.ai/code sessions,
   including N parallel sessions against one sprint wave. The committed

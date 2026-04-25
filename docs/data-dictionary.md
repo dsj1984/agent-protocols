@@ -2,6 +2,15 @@
 
 This document defines the core data structures and schemas used across the Agent Protocols orchestration engine.
 
+> **Epic #773 update.** The CRAP baseline envelope at `baselines/crap.json`
+> is now a shipped, hard-enforced artefact (no longer self-skipping on
+> absence). Each row carries `{file, method, startLine, crap}` plus
+> envelope-level `kernelVersion` and `escomplexVersion` stamps so a kernel
+> drift fails the gate cleanly. The grouped `orchestration.runners` block
+> now holds `epicRunner`, `planRunner`, `concurrency`, `closeRetry`, and
+> `poolMode` as nested keys (the previously-flat peer keys under
+> `orchestration` are gone).
+
 ---
 
 ## 1. Friction Log

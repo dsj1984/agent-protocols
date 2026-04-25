@@ -1,5 +1,15 @@
 # Design Patterns
 
+> **Epic #773 update.** The **Facade + Responsibility-Bounded Submodules**
+> pattern (originally documented for the v5.13.0 facade pass) was applied
+> to two further large modules: `providers/github.js` and
+> `lib/worktree/lifecycle-manager.js`. Each top-level file is now a ≤250
+> LOC facade re-exporting submodules under `providers/github/*` and
+> `lib/worktree/lifecycle/*`, with strict ctx-threading discipline (no
+> inter-submodule imports). Public class surfaces remain byte-identical.
+> The same pattern also drove the `config-resolver.js` split into
+> `quality`/`paths`/`commands`/`limits`/`runners` accessor submodules.
+
 ## Schema-First, Grouped Configuration (Epic #730)
 
 ### Problem

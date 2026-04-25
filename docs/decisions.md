@@ -1,5 +1,63 @@
 # Architecture Decision Records (ADR)
 
+## ADR 20260425-773a: CRAP gate becomes hard-enforcing
+
+**Status:** Accepted
+**Date:** 2026-04-25
+**Epic:** #773
+
+### Context
+
+The CRAP gate (Change Risk Anti-Patterns: `c² · (1 − cov)³ + c`) shipped in
+the codebase but no canonical `baselines/crap.json` existed because no
+automated coverage capture flowed into the gate. The gate self-skipped on
+the missing baseline, producing false-clean reports across all three
+firing sites (close-validation, pre-push, CI).
+
+### Decision
+
+Bootstrap `baselines/crap.json` from a real `npm run test:coverage` +
+escomplex pass and ship it as the canonical baseline. Remove the
+informational early-return from `check-crap.js` so a missing baseline
+becomes a hard fail with a clear bootstrap-instruction message at all
+three firing sites. Operators bootstrap explicitly via
+`npm run crap:update` + a `baseline-refresh:` commit.
+
+### Consequences
+
+A regression now actually blocks merge instead of producing a false
+"clean" report. The top-10 method hotspots above CRAP 50 were eliminated
+in the same Epic; the long-tail of ten methods at CRAP 50–72 is tracked
+as a follow-on story.
+
+## ADR 20260425-773b: Decompose two further large modules behind byte-identical facades
+
+**Status:** Accepted
+**Date:** 2026-04-25
+**Epic:** #773
+
+### Context
+
+`providers/github.js` and `lib/worktree/lifecycle-manager.js` were the
+next two MI-ratchet outliers after the v5.13.0 facade pass. Both had
+absorbed ~50% growth since the previous decomposition and were now the
+single largest concentrations of provider-side and worktree-side code.
+
+### Decision
+
+Apply the **facade + responsibility-bounded submodules** pattern (already
+documented in `docs/patterns.md`) to both. Each top-level file becomes a
+≤250 LOC facade re-exporting submodules under `providers/github/*` and
+`lib/worktree/lifecycle/*`. Submodules thread a shared `ctx` rather than
+importing each other (ctx-threading discipline). Public class surface and
+import paths stay byte-identical; only internals move.
+
+### Consequences
+
+Same pattern as v5.13.0, three more concrete applications. Future growth
+in either area lands in a focused submodule rather than re-bloating the
+facade. Tests pass unchanged because the public surface is preserved.
+
 ## ADR 20260425-730a: Consolidate `agentSettings` into a grouped, schema-validated contract
 
 **Status:** Accepted

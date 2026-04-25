@@ -1,6 +1,16 @@
 # Architecture
 
-> **Version:** 5.15.0 · **Updated:** 2026-04-22
+> **Version:** 5.27.0 · **Updated:** 2026-04-25
+>
+> **Epic #773 update.** `orchestration` consolidated under
+> `orchestration.runners` (the previously-flat `epicRunner`, `planRunner`,
+> `concurrency`, `closeRetry`, `poolMode` peers now group together);
+> `config-resolver.js` split into a facade over `quality`, `paths`,
+> `commands`, `limits`, and `runners` accessor submodules; two further
+> facades shipped — `providers/github.js` and
+> `lib/worktree/lifecycle-manager.js` each ≤250 LOC over focused
+> submodules with strict ctx-threading discipline (no inter-submodule
+> imports). All public surfaces remain byte-identical.
 
 This document describes the internal architecture of Agent Protocols — a
 framework of instructions, personas, skills, and SDLC workflows that govern AI
