@@ -372,8 +372,8 @@ entirety of the operator interface after dispatch.
   cannot make from ticket context alone.
 - A destructive action not pre-authorized by the ticket body (e.g. dropping a
   table, deleting user data, force-pushing to a protected branch).
-- External service failure preventing progress (MCP server unreachable, GitHub
-  API 5xx loop, npm registry down).
+- External service failure preventing progress (GitHub API 5xx loop, npm
+  registry down).
 - Wave concurrency exhausted for an unbounded time (possible deadlock).
 
 ### What is _not_ gated at runtime
@@ -412,7 +412,7 @@ where you want the compute to run.
 | **Observability**           | Live in VSCode — interrupt, inspect, ask Claude questions     | Actions log + structured comments on the Epic                    |
 | **Permission prompts**      | Claude Code asks you to approve tools (or `bypass`)           | Auto `--permission-mode bypassPermissions`                       |
 | **Label trigger required?** | No — engine flips to `agent::executing` directly              | Yes — `agent::dispatching` fires `epic-orchestrator.yml`         |
-| **Env/MCP config source**   | Your local `.env` / `.mcp.json`                               | `MCP_JSON` (and optional `ENV_FILE`) repo secrets                |
+| **Env/config source**       | Your local `.env`                                             | `ENV_FILE` repo secret                                           |
 | **Best for**                | Interactive debugging, first runs, short Epics, private repos | Long Epics, overnight runs, public repos, delegation from mobile |
 
 ### Cost guidance
@@ -475,10 +475,9 @@ Flipping an Epic to `agent::dispatching` fires
 1. Validates the trigger — issue is `type::epic`, open, non-empty body.
 2. Boots a Claude remote agent.
 3. The agent runs `.agents/scripts/remote-bootstrap.js`, which clones the repo,
-   materializes `.env` and `.mcp.json` from repo secrets (`ENV_FILE`,
-   `MCP_JSON`) with `::add-mask::` redaction and `0600` file perms, runs
-   `npm ci --ignore-scripts`, and launches `/sprint-execute <epicId>` (Epic
-   Mode).
+   materializes `.env` from the `ENV_FILE` repo secret with `::add-mask::`
+   redaction and `0600` file perms, runs `npm ci --ignore-scripts`, and
+   launches `/sprint-execute <epicId>` (Epic Mode).
 4. The Epic Runner (`.agents/scripts/lib/orchestration/epic-runner.js`) composes
    the submodules listed below into the unattended execution loop.
 
@@ -556,7 +555,7 @@ sprint evidence by
 ## Static analysis & audit orchestration
 
 An automated, gate-based static-analysis and audit orchestration pipeline
-replaces manual auditing with an MCP-driven system.
+replaces manual auditing with a CLI-driven system.
 
 ### Audit triggering
 
@@ -608,42 +607,45 @@ report and posts it as a ticket comment via the `ITicketingProvider`.
 Two independent notification surfaces, both living in `.agents/` so they ship to
 consuming projects:
 
-### 1. In-band ticket-change Notifier
+### 1. Unified `notify()` dispatcher
 
-Every state transition through `transitionTicketState` (the SDK layer used by
-all orchestrator scripts) fires the
-[`Notifier`](scripts/lib/notifications/notifier.js). Three channels, each
-independently skippable via config:
+Every notification — whether a manual orchestration milestone (story merged,
+HITL gate triggered) or an auto-fired ticket-state transition — routes through
+[`notify.js`](scripts/notify.js). Two delivery channels:
 
-| Channel        | What it does                                                              |
-| -------------- | ------------------------------------------------------------------------- |
-| `log`          | Prints a structured `[notify]` line to stderr for local / CI log tailing. |
-| `epic-comment` | Posts a one-line comment on the affected Epic (linear lifecycle feed).    |
-| `webhook`      | Fire-and-forget POST to the configured URL (Make.com / Slack / Discord).  |
+| Channel           | What it does                                                              |
+| ----------------- | ------------------------------------------------------------------------- |
+| GitHub comment    | Posts to the targeted ticket; @mentions operator for `medium`/`high`.     |
+| Webhook           | Fire-and-forget POST to the configured URL (Make.com / Slack / Discord).  |
 
-Level gate (set `orchestration.notifications.level` in `.agentrc.json`):
+Severity vocabulary (assigned by callers; `eventSeverity()` in
+`lib/notifications/notifier.js` derives it for state transitions):
 
-| Level     | Fires on                                                   |
-| --------- | ---------------------------------------------------------- |
-| `off`     | Nothing.                                                   |
-| `minimal` | State transitions to `agent::done` / `agent::review` only. |
-| `default` | State transitions on Story and Epic tickets only (Task-level changes suppressed). |
-| `verbose` | Every tracked event (default).                             |
+| Severity | Used for                                                                                                              | Webhook prefix       |
+| -------- | --------------------------------------------------------------------------------------------------------------------- | -------------------- |
+| `low`    | Routine pipeline progress, intermediate state transitions, audit reports.                                             | `[low]`              |
+| `medium` | Operator-visible milestones (story merged, epic complete, Story/Epic transitions reaching `agent::done`).             | `[medium]`           |
+| `high`   | Operator must act (HITL gates, autonomous-chain failures). Message body should also lead with `🚨 Action Required:`.  | `[Action Required]`  |
 
-Webhook URL resolution (first match wins):
+Filter knob (`orchestration.notifications.minLevel` in `.agentrc.json`,
+default: `medium`): events below this severity are dropped from every channel.
+Setting `minLevel: low` surfaces task-level state churn; `minLevel: high`
+limits delivery to action-required events only.
 
-1. `NOTIFICATION_WEBHOOK_URL` process env var (loaded from `.env` / CI secret).
-2. `.mcp.json` at `.mcpServers["agent-protocols"].env.NOTIFICATION_WEBHOOK_URL`.
+Webhook URL resolution:
 
-The webhook URL is **not** sourced from `.agentrc.json` — the MCP config is the
-canonical home so the same portable `.mcp.json` drives both local and remote
-runs.
+- `NOTIFICATION_WEBHOOK_URL` process env var (loaded from `.env` locally, the
+  Claude Code web environment-variables UI on web, or `ENV_FILE` on GitHub
+  Actions), with `.mcp.json` fallback at
+  `.mcpServers["agent-protocols"].env.NOTIFICATION_WEBHOOK_URL`. The webhook
+  URL is **never** sourced from `.agentrc.json`.
 
-Because the Notifier is called in-band, it captures changes from:
+Because `notify()` is called in-band from the orchestration SDK, it captures
+changes from:
 
-- The Epic runner (coordinator-driven state flips)
-- Per-story scripts (`sprint-story-init.js`, `sprint-story-close.js`)
-- MCP tool calls that route through `transitionTicketState`
+- The Epic runner (coordinator-driven state flips).
+- Per-story scripts (`sprint-story-init.js`, `sprint-story-close.js`).
+- Any script that routes state changes through `transitionTicketState`.
 
 It does **not** capture manual label clicks in the GitHub UI (no webhook
 receiver). For programmatic orchestration workflows this covers >95% of

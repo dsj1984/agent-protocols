@@ -7,13 +7,13 @@
  * tests continue to pass unchanged.
  *
  * Returned object:
- *   notifier, checkpointer, notificationHook, blockerHandler, launcher,
+ *   notify, checkpointer, notificationHook, blockerHandler, launcher,
  *   gitAdapter, commitAssertion, waveObserver, frictionEmitter,
  *   progressReporter, columnSync, syncColumn (closure wrapping columnSync.sync
  *   with error-journal logging).
  */
 
-import { createNotifier } from '../../notifications/notifier.js';
+import { notify } from '../../../notify.js';
 import { createFrictionEmitter } from '../friction-emitter.js';
 import { BlockerHandler } from './blocker-handler.js';
 import { Checkpointer } from './checkpointer.js';
@@ -38,14 +38,15 @@ export function resolveProgressLogFile(epicRunnerCfg, epicId) {
 }
 
 export function createEpicRunnerCollaborators(ctx, { errorJournal } = {}) {
-  const { epicId, provider, config, logger, fetchImpl } = ctx;
+  const { epicId, provider, config, logger } = ctx;
   const { pollIntervalSec } = config.epicRunner;
   const journal = errorJournal ?? ctx.errorJournal;
   const journalSuffix = () => (journal?.path ? ` (see ${journal.path})` : '');
 
-  const notifier =
-    ctx.notifier ??
-    createNotifier(config, provider, { fetchImpl, logger, cwd: ctx.cwd });
+  const notifyFn =
+    ctx.notify ??
+    ((ticketId, payload) =>
+      notify(ticketId, payload, { orchestration: config, provider }));
   const checkpointer = new Checkpointer({ ctx });
   const notificationHook = new NotificationHook({ ctx });
   const blockerHandler = new BlockerHandler({
@@ -87,7 +88,7 @@ export function createEpicRunnerCollaborators(ctx, { errorJournal } = {}) {
   };
 
   return {
-    notifier,
+    notify: notifyFn,
     checkpointer,
     notificationHook,
     blockerHandler,

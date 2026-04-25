@@ -425,7 +425,7 @@ describe('ticketClosurePhase (smoke)', () => {
       provider,
       tasks: [],
       storyId: 100,
-      notifier: null,
+      notify: null,
       progress: () => {},
       logger: makeLogger(),
     };

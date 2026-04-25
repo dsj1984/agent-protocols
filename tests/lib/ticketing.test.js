@@ -122,10 +122,10 @@ test('ticketing.js', async (t) => {
   );
 
   await t.test(
-    'transitionTicketState fires notifier.emit with state-transition payload',
+    'transitionTicketState invokes notify with severity and message',
     async () => {
-      // Seed ticket #2 with type label and Epic reference so the notifier
-      // payload captures `type`, `fromState`, and `epicId` correctly.
+      // Seed ticket #2 with type label and Epic reference so the call posts
+      // to the epic and captures `fromState` correctly.
       mock.tickets[2] = {
         ...mock.tickets[2],
         labels: ['agent::executing', 'type::story'],
@@ -134,63 +134,87 @@ test('ticketing.js', async (t) => {
         html_url: 'https://example.test/issues/2',
       };
 
-      const emitted = [];
-      const fakeNotifier = {
-        emit(event) {
-          emitted.push(event);
-          return Promise.resolve({ fired: true });
-        },
+      const calls = [];
+      const fakeNotify = (ticketId, payload) => {
+        calls.push({ ticketId, payload });
+        return Promise.resolve();
       };
 
       await transitionTicketState(mock, 2, 'agent::review', {
-        notifier: fakeNotifier,
+        notify: fakeNotify,
       });
+      // Allow the fire-and-forget promise to settle.
+      await Promise.resolve();
 
-      assert.equal(emitted.length, 1);
-      const event = emitted[0];
-      assert.equal(event.kind, 'state-transition');
-      assert.equal(event.fromState, 'agent::executing');
-      assert.equal(event.toState, 'agent::review');
-      assert.deepEqual(event.ticket, {
-        id: 2,
-        title: 'Wire Notifier',
-        type: 'story',
-        url: 'https://example.test/issues/2',
-        epicId: 1,
-      });
+      assert.equal(calls.length, 1);
+      // Story → intermediate state is `low` per eventSeverity.
+      assert.equal(calls[0].payload.severity, 'low');
+      // Posts to the parent epic id parsed from the body.
+      assert.equal(calls[0].ticketId, 1);
+      assert.match(calls[0].payload.message, /story #2/);
+      assert.match(calls[0].payload.message, /agent::executing/);
+      assert.match(calls[0].payload.message, /agent::review/);
     },
   );
 
   await t.test(
-    'transitionTicketState without a notifier does not emit',
+    'transitionTicketState marks Story → done as medium severity',
+    async () => {
+      mock.tickets[2] = {
+        ...mock.tickets[2],
+        labels: ['agent::executing', 'type::story'],
+        body: 'Feature body\n\nEpic: #1',
+        title: 'Wire Notifier',
+      };
+
+      const calls = [];
+      const fakeNotify = (ticketId, payload) => {
+        calls.push({ ticketId, payload });
+        return Promise.resolve();
+      };
+
+      await transitionTicketState(mock, 2, 'agent::done', {
+        notify: fakeNotify,
+      });
+      await Promise.resolve();
+
+      // Story reaching `agent::done` rates `medium`.
+      assert.ok(
+        calls.some((c) => c.payload.severity === 'medium'),
+        'expected at least one medium-severity notify call',
+      );
+    },
+  );
+
+  await t.test(
+    'transitionTicketState without a notify fn does not throw',
     async () => {
       // Guard against a regression where an unconditional call on an undefined
-      // notifier would throw.
+      // notify would throw.
       await transitionTicketState(mock, 2, 'agent::review');
-      // No throw, no emit side-effects — the absence of an emit spy here is
-      // the assertion by construction.
       assert.ok(mock.tickets[2].labels.includes('agent::review'));
     },
   );
 
   await t.test(
-    'cascadeCompletion forwards notifier to recursive transitions',
+    'cascadeCompletion forwards notify to recursive transitions',
     async () => {
       mock.tickets[3].labels = ['agent::done'];
-      const kinds = [];
-      const fakeNotifier = {
-        emit(event) {
-          kinds.push(`${event.ticket.id}:${event.toState}`);
-          return Promise.resolve({ fired: true });
-        },
+      const calls = [];
+      const fakeNotify = (ticketId, payload) => {
+        calls.push({ ticketId, payload });
+        return Promise.resolve();
       };
 
-      await cascadeCompletion(mock, 3, { notifier: fakeNotifier });
+      await cascadeCompletion(mock, 3, { notify: fakeNotify });
+      await Promise.resolve();
 
       // #2 and #1 should both have been transitioned to agent::done via
-      // cascade, each producing one notifier event.
-      assert.ok(kinds.includes('2:agent::done'));
-      assert.ok(kinds.includes('1:agent::done'));
+      // cascade, each producing one notify call.
+      assert.ok(
+        calls.length >= 2,
+        `expected ≥2 notify calls, got ${calls.length}`,
+      );
     },
   );
 

@@ -13,7 +13,6 @@ describe('notify script', () => {
   beforeEach(() => {
     fetchCalls = [];
 
-    // Mock the global fetch
     global.fetch = async (url, options) => {
       fetchCalls.push({ url, options });
       if (url.includes('fail')) {
@@ -47,99 +46,106 @@ describe('notify script', () => {
     };
   });
 
-  it('posts a notification comment with operator mention and fires webhook for info', async () => {
+  it('medium with mentionOperator=true posts mentioned comment + fires [medium] webhook', async () => {
     await notify(
       123,
-      { type: 'notification', message: 'Task complete.' },
+      { severity: 'medium', message: 'Story merged.' },
       defaultOpts,
     );
 
     assert.equal(mockProvider.comments.length, 1);
     const comment = mockProvider.comments[0];
     assert.equal(comment.ticketId, 123);
-    assert.equal(comment.data.body, '@test_operator Task complete.');
+    assert.equal(comment.data.body, '@test_operator Story merged.');
     assert.equal(comment.data.type, 'notification');
 
-    // Webhook now fires for every notify() call by default (minLevel=progress).
     assert.equal(fetchCalls.length, 1);
     const body = JSON.parse(fetchCalls[0].options.body);
     assert.deepEqual(Object.keys(body), ['text']);
-    assert.equal(body.text, '[notification] widgets#123: Task complete.');
+    assert.equal(body.text, '[medium] widgets#123: Story merged.');
   });
 
-  it('fires a webhook for action type with HITL event name', async () => {
+  it('high always @mentions and fires [Action Required] webhook', async () => {
+    mockOrchestration.notifications.mentionOperator = false;
+
     await notify(
       124,
-      { type: 'action', message: 'Review needed.' },
+      { severity: 'high', message: '🚨 Action Required: Approve deploy?' },
       defaultOpts,
     );
 
     assert.equal(mockProvider.comments.length, 1);
-    const comment = mockProvider.comments[0];
-    assert.equal(comment.data.body, '@test_operator Review needed.');
     assert.equal(
-      comment.data.type,
-      'notification',
-      'actions post as notification comments',
+      mockProvider.comments[0].data.body,
+      '@test_operator 🚨 Action Required: Approve deploy?',
     );
+    assert.equal(mockProvider.comments[0].data.type, 'friction');
 
     assert.equal(fetchCalls.length, 1);
-    const webhookCall = fetchCalls[0];
-    assert.equal(webhookCall.url, 'https://webhook.example.com/action');
-
-    const body = JSON.parse(webhookCall.options.body);
-    assert.deepEqual(Object.keys(body), ['text']);
+    const body = JSON.parse(fetchCalls[0].options.body);
     assert.equal(
       body.text,
-      '[Action Required] widgets#124: Review needed.',
-      'text payload should strip the operator mention and mark it as an action',
+      '[Action Required] widgets#124: 🚨 Action Required: Approve deploy?',
     );
   });
 
-  it('suppresses webhook when type is below webhookMinLevel', async () => {
-    mockOrchestration.notifications.webhookMinLevel = 'action';
-
+  it('low posts a progress comment and is filtered out by default minLevel', async () => {
+    // Default minLevel is `medium`, so a `low` notify suppresses the webhook.
     await notify(
       200,
-      { type: 'progress', message: 'Step 3 done.' },
+      { severity: 'low', message: 'Step 3 done.' },
       defaultOpts,
     );
-    await notify(
-      200,
-      { type: 'notification', message: 'Story merged.' },
-      defaultOpts,
-    );
-    assert.equal(fetchCalls.length, 0, 'lower-level events filtered out');
 
-    await notify(200, { type: 'action', message: 'Approve?' }, defaultOpts);
-    assert.equal(fetchCalls.length, 1, 'action events still fire');
+    assert.equal(mockProvider.comments.length, 1);
+    assert.equal(mockProvider.comments[0].data.type, 'progress');
+    assert.equal(mockProvider.comments[0].data.body, 'Step 3 done.');
+    assert.equal(fetchCalls.length, 0, 'low filtered at default minLevel');
   });
 
-  it('honors actionRequired flag regardless of type when filtering', async () => {
-    mockOrchestration.notifications.webhookMinLevel = 'action';
+  it('low fires when minLevel is explicitly set to low', async () => {
+    mockOrchestration.notifications.minLevel = 'low';
 
     await notify(
-      201,
-      {
-        type: 'notification',
-        message: 'Approve deploy?',
-        actionRequired: true,
-      },
+      200,
+      { severity: 'low', message: 'Step 3 done.' },
       defaultOpts,
     );
 
     assert.equal(fetchCalls.length, 1);
     const body = JSON.parse(fetchCalls[0].options.body);
-    assert.deepEqual(Object.keys(body), ['text']);
-    assert.match(body.text, /^\[Action Required\]/);
-    assert.match(body.text, /Approve deploy\?$/);
+    assert.equal(body.text, '[low] widgets#200: Step 3 done.');
+  });
+
+  it('minLevel=high suppresses medium and fires high', async () => {
+    mockOrchestration.notifications.minLevel = 'high';
+
+    await notify(
+      201,
+      { severity: 'medium', message: 'Story merged.' },
+      defaultOpts,
+    );
+    assert.equal(fetchCalls.length, 0);
+
+    await notify(
+      201,
+      { severity: 'high', message: '🚨 Action Required: Review.' },
+      defaultOpts,
+    );
+    assert.equal(fetchCalls.length, 1);
+  });
+
+  it('rejects an invalid severity', async () => {
+    await assert.rejects(
+      () => notify(1, { severity: 'urgent', message: 'x' }, defaultOpts),
+      /Invalid severity/,
+    );
   });
 
   it('tolerates webhook failures silently', async () => {
-    // Should not throw
     await notify(
       125,
-      { type: 'action', message: 'Review needed.' },
+      { severity: 'high', message: 'Review needed.' },
       {
         ...defaultOpts,
         webhookUrl: 'https://webhook.example.com/fail',
@@ -153,7 +159,7 @@ describe('notify script', () => {
   it('skips webhook if url is not configured', async () => {
     await notify(
       126,
-      { type: 'action', message: 'Review needed.' },
+      { severity: 'high', message: 'Review needed.' },
       {
         provider: mockProvider,
         orchestration: mockOrchestration,
@@ -165,27 +171,27 @@ describe('notify script', () => {
     assert.equal(fetchCalls.length, 0);
   });
 
-  it('does not mention operator if mentionOperator is false for action', async () => {
-    mockOrchestration.notifications.mentionOperator = false;
-
-    await notify(
-      127,
-      { type: 'action', message: 'Review needed.' },
-      defaultOpts,
-    );
-
-    assert.equal(mockProvider.comments.length, 1);
-    assert.equal(mockProvider.comments[0].data.body, 'Review needed.');
-  });
-
   it('skips GitHub comment if ticketId is 0 or missing', async () => {
     await notify(
       0,
-      { type: 'notification', message: 'Sidecar message' },
+      { severity: 'medium', message: 'Sidecar message' },
       defaultOpts,
     );
 
     assert.equal(mockProvider.comments.length, 0);
+  });
+
+  it('does not @mention on medium when mentionOperator is false', async () => {
+    mockOrchestration.notifications.mentionOperator = false;
+
+    await notify(
+      127,
+      { severity: 'medium', message: 'Story merged.' },
+      defaultOpts,
+    );
+
+    assert.equal(mockProvider.comments.length, 1);
+    assert.equal(mockProvider.comments[0].data.body, 'Story merged.');
   });
 
   it('includes X-Signature-256 header when WEBHOOK_SECRET is provided', async () => {
@@ -195,7 +201,7 @@ describe('notify script', () => {
     try {
       await notify(
         128,
-        { type: 'action', message: 'Secret action' },
+        { severity: 'high', message: 'Secret action' },
         defaultOpts,
       );
 
@@ -208,17 +214,37 @@ describe('notify script', () => {
     }
   });
 
-  it('parses explicit --ticket flag for CLI callers', () => {
-    const parsed = parseNotifyArgs([
-      '--ticket',
-      '321',
-      'Epic closed.',
-      '--action',
-    ]);
+  it('defaults severity to medium when omitted', async () => {
+    await notify(129, { message: 'Default sev.' }, defaultOpts);
+
+    assert.equal(fetchCalls.length, 1);
+    const body = JSON.parse(fetchCalls[0].options.body);
+    assert.equal(body.text, '[medium] widgets#129: Default sev.');
+  });
+});
+
+describe('parseNotifyArgs', () => {
+  it('parses explicit --ticket flag with default severity', () => {
+    const parsed = parseNotifyArgs(['--ticket', '321', 'Epic closed.']);
     assert.deepEqual(parsed, {
       ticketId: 321,
       message: 'Epic closed.',
-      isAction: true,
+      severity: 'medium',
+    });
+  });
+
+  it('parses --severity high', () => {
+    const parsed = parseNotifyArgs([
+      '--ticket',
+      '321',
+      'Approve deploy.',
+      '--severity',
+      'high',
+    ]);
+    assert.deepEqual(parsed, {
+      ticketId: 321,
+      message: 'Approve deploy.',
+      severity: 'high',
     });
   });
 
@@ -231,7 +257,7 @@ describe('notify script', () => {
     assert.deepEqual(parsed, {
       ticketId: 321,
       message: 'Planning complete. Review now.',
-      isAction: false,
+      severity: 'medium',
     });
   });
 });
