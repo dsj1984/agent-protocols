@@ -4,9 +4,10 @@
 /**
  * select-audits.js — CLI + SDK for audit selection.
  *
- * Post-retirement entry point for the former MCP tool
- * `mcp__agent-protocols__select_audits`. The pure rule-matching logic
- * (matchesFilePattern, matchesAnyFilePattern, selectAudits) lives here.
+ * Successor to the retired agent-protocols MCP tools. See ADR 20260424-702a in docs/decisions.md for the migration table.
+ *
+ * The pure rule-matching logic (matchesFilePattern, matchesAnyFilePattern,
+ * selectAudits) lives here.
  *
  * Usage:
  *   node .agents/scripts/select-audits.js \

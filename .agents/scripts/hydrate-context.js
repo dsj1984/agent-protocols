@@ -4,10 +4,10 @@
 /**
  * hydrate-context.js — CLI wrapper for context hydration.
  *
- * Post-retirement entry point for the former MCP tool
- * `mcp__agent-protocols__hydrate_context`. Delegates to `hydrateContext`
- * from `lib/orchestration/context-hydration-engine.js` and emits the same
- * `{ prompt }` JSON envelope on stdout.
+ * Successor to the retired agent-protocols MCP tools. See ADR 20260424-702a in docs/decisions.md for the migration table.
+ *
+ * Delegates to `hydrateContext` from `lib/orchestration/context-hydration-engine.js`
+ * and emits the `{ prompt }` JSON envelope on stdout.
  *
  * Usage:
  *   node .agents/scripts/hydrate-context.js --ticket <id> [--epic <id>]
