@@ -218,6 +218,62 @@ export function validateBlockersMerged(manifest, storyId) {
 }
 
 /**
+ * Run the launch-time dependency guard as a single pipeline stage. Wraps
+ * `loadDispatchManifest` + `validateBlockersMerged` + `formatBlockerReport`
+ * so `sprint-story-init` can fold the guard into a one-line call.
+ *
+ * @param {object} opts
+ * @param {number} opts.epicId
+ * @param {number} opts.storyId
+ * @param {string} opts.cwd               Repo root for on-disk manifest lookup.
+ * @param {object} [opts.provider]        Used for the comment-fallback path.
+ * @param {object} [opts.orchestration]   Config slice; reads `github.{owner,repo}`.
+ * @param {object} [opts.logger]          `{ progress, warn? }` shape.
+ * @returns {Promise<{ blocked: false } | { blocked: true, openBlockers }>}
+ */
+export async function runDispatchManifestGuard({
+  epicId,
+  storyId,
+  cwd,
+  provider,
+  orchestration,
+  logger,
+}) {
+  const githubCfg = orchestration?.github;
+  const repoSlug =
+    githubCfg?.owner && githubCfg?.repo
+      ? `${githubCfg.owner}/${githubCfg.repo}`
+      : undefined;
+
+  const load = await loadDispatchManifest({
+    epicId,
+    projectRoot: cwd,
+    provider,
+    repoSlug,
+  });
+
+  if (!load.ok) {
+    const warn = logger?.warn ?? ((m) => console.error(m));
+    warn(
+      `[warn] dispatch-manifest dependency guard skipped: ${load.reason}. Proceeding without blocker verification — regenerate via /sprint-plan to restore the guard.`,
+    );
+    return { blocked: false };
+  }
+
+  const check = validateBlockersMerged(load.manifest, storyId);
+  if (!check.ok) {
+    console.error(formatBlockerReport(storyId, check.blockers));
+    return { blocked: true, openBlockers: check.blockers };
+  }
+
+  logger?.progress?.(
+    'DEPENDENCY-GUARD',
+    `✅ Dispatch manifest clean (source=${load.source})`,
+  );
+  return { blocked: false };
+}
+
+/**
  * Format the unmerged-blocker report for stderr. Exported so the unit test
  * can lock the wording and callers outside `sprint-story-init` stay in sync.
  *
