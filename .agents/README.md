@@ -726,7 +726,7 @@ automatically tightens when the codebase improves.
 
 A per-file maintainability scoring engine computes composite scores based on
 cyclomatic complexity, file length, and dependency counts. The
-`maintainability-baseline.json` prevents score degradation between sprints.
+`baselines/maintainability.json` prevents score degradation between sprints.
 
 ### CRAP Gate (v5.22.0+) — Consumer Onboarding
 
@@ -743,7 +743,7 @@ this is what you need to know:
 #### First-run behavior — never hard-fails on a fresh sync
 
 The first time `check-crap` runs in your repo there is no
-`crap-baseline.json` to compare against. Instead of failing CI, it prints:
+`baselines/crap.json` to compare against. Instead of failing CI, it prints:
 
 ```text
 [CRAP] no baseline found — run 'npm run crap:update' to bootstrap
@@ -848,7 +848,7 @@ strategy without re-running the gate to check.
 
 #### Refreshing the baseline (when the drift is justified)
 
-`npm run crap:update` regenerates `crap-baseline.json`. The
+`npm run crap:update` regenerates `baselines/crap.json`. The
 `baseline-refresh-guardrail` CI job will reject your PR unless at least one
 commit on the branch has:
 

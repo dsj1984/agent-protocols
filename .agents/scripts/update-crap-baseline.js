@@ -1,5 +1,5 @@
 import path from 'node:path';
-import { resolveConfig } from './lib/config-resolver.js';
+import { getBaselines, resolveConfig } from './lib/config-resolver.js';
 import { loadCoverage } from './lib/coverage-utils.js';
 import {
   buildBaselineEnvelope,
@@ -11,11 +11,13 @@ import {
 /**
  * CLI: scan → score → save the CRAP baseline.
  *
- * Writes `crap-baseline.json` at the repo root (or the path supplied via
- * `--baseline <path>`) with a deterministic, kernel-stamped envelope. Files
- * without coverage entries are skipped (not scored as 0%) when
- * `requireCoverage: true` — their count and names are logged so the operator
- * can tell the difference between "unscorable" and "safe zero".
+ * Writes the canonical CRAP baseline at the path resolved from
+ * `agentSettings.quality.baselines.crap.path` (default `baselines/crap.json`),
+ * or the path supplied via `--baseline <path>`. Output is a deterministic,
+ * kernel-stamped envelope. Files without coverage entries are skipped (not
+ * scored as 0%) when `requireCoverage: true` — their count and names are
+ * logged so the operator can tell the difference between "unscorable" and
+ * "safe zero".
  *
  * Exits non-zero only when the scanner itself crashes. An empty result (no
  * coverage at all, no scored methods) still writes an envelope with `rows: []`
@@ -45,6 +47,9 @@ async function main() {
   const requireCoverage = crap.requireCoverage !== false;
   const coveragePath =
     args.coveragePath ?? crap.coveragePath ?? 'coverage/coverage-final.json';
+  const baselinePath =
+    args.baselinePath ??
+    getBaselines({ agentSettings: settings }).crap.path;
 
   console.log('[CRAP] Updating baseline...');
   console.log(`[CRAP] Target dirs: ${targetDirs.join(', ')}`);
@@ -76,7 +81,7 @@ async function main() {
 
   const escomplexVersion = resolveEscomplexVersion();
   const envelope = buildBaselineEnvelope({ rows, escomplexVersion });
-  saveCrapBaseline(envelope, { baselinePath: args.baselinePath });
+  saveCrapBaseline(envelope, { baselinePath });
 
   console.log(
     `[CRAP] Scanned ${scannedFiles} file(s); wrote ${envelope.rows.length} row(s).`,

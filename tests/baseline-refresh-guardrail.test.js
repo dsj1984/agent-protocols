@@ -110,19 +110,19 @@ test('parseBaseBranchConfig — respects enabled: false on base branch', () => {
 });
 
 test('classifyChangedFiles — detects baseline-only diff', () => {
-  const c = classifyChangedFiles(['crap-baseline.json']);
+  const c = classifyChangedFiles(['baselines/crap.json']);
   assert.strictEqual(c.hasBaselineEdits, true);
   assert.strictEqual(c.baselineOnly, true);
 });
 
 test('classifyChangedFiles — detects mixed baseline + source diff', () => {
   const c = classifyChangedFiles([
-    'crap-baseline.json',
+    'baselines/crap.json',
     '.agents/scripts/foo.js',
   ]);
   assert.strictEqual(c.hasBaselineEdits, true);
   assert.strictEqual(c.baselineOnly, false);
-  assert.deepStrictEqual(c.changedBaselineFiles, ['crap-baseline.json']);
+  assert.deepStrictEqual(c.changedBaselineFiles, ['baselines/crap.json']);
   assert.deepStrictEqual(c.changedOther, ['.agents/scripts/foo.js']);
 });
 
@@ -168,7 +168,7 @@ test('evaluateGuardrail — scenario: no baseline edits → pass, no label', () 
 
 test('evaluateGuardrail — scenario: baseline edited, UNTAGGED commits → fail with tag in message', () => {
   const verdict = evaluateGuardrail({
-    changedFiles: ['crap-baseline.json', '.agents/scripts/foo.js'],
+    changedFiles: ['baselines/crap.json', '.agents/scripts/foo.js'],
     commits: [
       makeCommit('feat: refactor', 'body'),
       makeCommit('chore: bump', 'body'),
@@ -182,13 +182,13 @@ test('evaluateGuardrail — scenario: baseline edited, UNTAGGED commits → fail
     combined.includes('baseline-refresh:'),
     'failure message must name the required refreshTag',
   );
-  assert.ok(combined.includes('crap-baseline.json'));
+  assert.ok(combined.includes('baselines/crap.json'));
   assert.strictEqual(verdict.shouldApplyBaselineLabel, false);
 });
 
 test('evaluateGuardrail — scenario: tagged refresh commit WITH body → passes', () => {
   const verdict = evaluateGuardrail({
-    changedFiles: ['crap-baseline.json'],
+    changedFiles: ['baselines/crap.json'],
     commits: [
       makeCommit(
         'baseline-refresh: bump after escomplex 7.4',
@@ -205,7 +205,7 @@ test('evaluateGuardrail — scenario: tagged refresh commit WITH body → passes
 
 test('evaluateGuardrail — scenario: tagged commit WITHOUT body → rejected, tag-in-message', () => {
   const verdict = evaluateGuardrail({
-    changedFiles: ['crap-baseline.json'],
+    changedFiles: ['baselines/crap.json'],
     commits: [makeCommit('baseline-refresh: bump', '')],
     refreshTag: 'baseline-refresh:',
   });
@@ -218,7 +218,7 @@ test('evaluateGuardrail — scenario: tagged commit WITHOUT body → rejected, t
 
 test('evaluateGuardrail — scenario: custom refreshTag from base branch overrides default', () => {
   const verdict = evaluateGuardrail({
-    changedFiles: ['crap-baseline.json'],
+    changedFiles: ['baselines/crap.json'],
     commits: [makeCommit('chore(refresh): bump', 'justification')],
     refreshTag: 'chore(refresh):',
   });
@@ -228,7 +228,7 @@ test('evaluateGuardrail — scenario: custom refreshTag from base branch overrid
 
 test('evaluateGuardrail — scenario: baseline-only PR → shouldApplyBaselineLabel=true', () => {
   const verdict = evaluateGuardrail({
-    changedFiles: ['crap-baseline.json', 'maintainability-baseline.json'],
+    changedFiles: ['baselines/crap.json', 'baselines/maintainability.json'],
     commits: [
       makeCommit('baseline-refresh: refresh both', 'dual refresh justified'),
     ],
@@ -240,7 +240,7 @@ test('evaluateGuardrail — scenario: baseline-only PR → shouldApplyBaselineLa
 
 test('evaluateGuardrail — scenario: mixed PR (baseline + source) → no label even when passing', () => {
   const verdict = evaluateGuardrail({
-    changedFiles: ['crap-baseline.json', '.agents/scripts/foo.js'],
+    changedFiles: ['baselines/crap.json', '.agents/scripts/foo.js'],
     commits: [
       makeCommit('baseline-refresh: bump', 'justified'),
       makeCommit('feat: new behavior', 'body'),

@@ -5,10 +5,7 @@ import { describe, it } from 'node:test';
 import { createMaintainabilityDriftDetector } from '../../.agents/scripts/lib/orchestration/epic-runner/progress-signals/maintainability-drift.js';
 
 const CWD = path.join(path.sep, 'repo');
-const BASELINE_PATH = path.join(
-  CWD,
-  '.agents/state/maintainability-baseline.json',
-);
+const BASELINE_PATH = path.join(CWD, '.agents/state/wave-mi-snapshot.json');
 
 /**
  * Build a fake fs whose `readFileSync` returns canned content for either the

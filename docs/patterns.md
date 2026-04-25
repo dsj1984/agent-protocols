@@ -916,7 +916,7 @@ its own gate. The `baseline-refresh-guardrail` CI job defends against
 this by reading thresholds from the **base branch** and re-running
 `check-crap` with those values forced via `CRAP_NEW_METHOD_CEILING` /
 `CRAP_TOLERANCE` / `CRAP_REFRESH_TAG` env vars. Any PR that touches
-`crap-baseline.json` or `maintainability-baseline.json` must also carry
+`baselines/crap.json` or `baselines/maintainability.json` must also carry
 a commit whose subject starts with the configured `refreshTag` (default
 `baseline-refresh:`) AND has a non-empty body — the tag alone is not
 enough. Baseline-only PRs are auto-labelled `review::baseline-refresh`

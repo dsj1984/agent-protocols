@@ -128,8 +128,9 @@ function makeTempRepo({ enabled = true, withBaseline = false } = {}) {
     JSON.stringify({}),
   );
   if (withBaseline) {
+    fs.mkdirSync(path.join(dir, 'baselines'), { recursive: true });
     fs.writeFileSync(
-      path.join(dir, 'crap-baseline.json'),
+      path.join(dir, 'baselines', 'crap.json'),
       JSON.stringify(
         { kernelVersion: '1.0.0', escomplexVersion: 'unknown', rows: [] },
         null,

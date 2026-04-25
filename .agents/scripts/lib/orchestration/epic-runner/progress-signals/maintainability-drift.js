@@ -4,7 +4,11 @@ import path from 'node:path';
 import { calculateForSource } from '../../../maintainability-engine.js';
 
 const DEFAULT_THRESHOLD = 2.0;
-const BASELINE_FILENAME = 'maintainability-baseline.json';
+// Distinct from the canonical ratchet baseline at `baselines/maintainability.json`
+// (Epic #730 Story 5.5) — this file is a per-wave drift SNAPSHOT, not the
+// committed score baseline. Filename intentionally differs so a repo-wide
+// grep for the canonical baseline no longer hits the snapshot.
+const BASELINE_FILENAME = 'wave-mi-snapshot.json';
 
 /**
  * Detects per-file maintainability drop versus a wave-start baseline.
@@ -15,7 +19,7 @@ const BASELINE_FILENAME = 'maintainability-baseline.json';
  *   await detector.detect(rows);  // call each progress fire
  *
  * A baseline is a map of file -> score, persisted to
- * `<cwd>/<baselineDir>/maintainability-baseline.json` so that a resumed epic
+ * `<cwd>/<baselineDir>/wave-mi-snapshot.json` so that a resumed epic
  * run can re-read the snapshot from the previous wave rather than lose the
  * anchor. Any file whose score has dropped by >= `threshold` since baseline
  * is surfaced as a bullet:

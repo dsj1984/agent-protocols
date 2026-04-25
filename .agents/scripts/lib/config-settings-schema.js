@@ -24,7 +24,6 @@ export const AGENT_SETTINGS_STRING_FIELDS = Object.freeze([
   'docsRoot',
   'tempRoot',
   'auditOutputDir',
-  'lintBaselinePath',
 ]);
 
 const STRING_FIELDS_PATTERN = `^(${AGENT_SETTINGS_STRING_FIELDS.join('|')})$`;
@@ -168,6 +167,44 @@ const QUALITY_GATE_SCHEMA = {
 };
 
 /**
+ * Per-baseline shape used inside `agentSettings.quality.baselines`. Each entry
+ * carries a required on-disk `path` (the canonical baseline file the
+ * lint/CRAP/MI ratchet reads + writes) and an optional `refreshCommand` that
+ * lets an operator override the default `update-*-baseline.js` invocation.
+ */
+const BASELINE_ENTRY_SCHEMA = {
+  type: 'object',
+  required: ['path'],
+  properties: {
+    path: { ...SAFE_STRING, minLength: 1 },
+    refreshCommand: NULLABLE_NONEMPTY_SAFE_STRING,
+  },
+  additionalProperties: false,
+};
+
+/**
+ * `agentSettings.quality` is the new home for ratchet baselines, prGate
+ * checks, and the existing maintainability/CRAP knobs (Stories 5.5 + 6 of
+ * Epic #730). Story 5.5 introduces only the `baselines` sub-block; Story 6
+ * folds in `lintBaseline`, `maintainability`, `crap`, and `prGate`.
+ */
+const QUALITY_SCHEMA = {
+  type: 'object',
+  properties: {
+    baselines: {
+      type: 'object',
+      properties: {
+        lint: BASELINE_ENTRY_SCHEMA,
+        crap: BASELINE_ENTRY_SCHEMA,
+        maintainability: BASELINE_ENTRY_SCHEMA,
+      },
+      additionalProperties: false,
+    },
+  },
+  additionalProperties: false,
+};
+
+/**
  * Grouped command fields. `typecheck` and `build` accept `null` to mean
  * "disabled" (Story 3 `null`-for-disabled convention); the others are
  * required-when-present non-empty strings. `additionalProperties: false`
@@ -206,6 +243,7 @@ export const AGENT_SETTINGS_SCHEMA = {
     frictionThresholds: FRICTION_THRESHOLDS_SCHEMA,
     riskGates: RISK_GATES_SCHEMA,
     qualityGate: QUALITY_GATE_SCHEMA,
+    quality: QUALITY_SCHEMA,
     commands: COMMANDS_SCHEMA,
   },
   patternProperties: {

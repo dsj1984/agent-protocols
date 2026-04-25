@@ -589,7 +589,7 @@ report and posts it as a ticket comment via the `ITicketingProvider`.
 - **CRAP gate (v5.22.0+).** Sibling per-method gate (`check-crap.js`) wired
   into `close-validation` after `check-maintainability`, the `ci.yml` step
   after `test:coverage`, and `.husky/pre-push`. Tracks complexity × coverage
-  risk per method against `crap-baseline.json`. Self-skips when
+  risk per method against `baselines/crap.json`. Self-skips when
   `agentSettings.maintainability.crap.enabled` is `false`. A separate
   `baseline-refresh-guardrail.yml` workflow enforces base-branch thresholds
   on PRs and requires a `baseline-refresh:`-tagged commit (with a non-empty

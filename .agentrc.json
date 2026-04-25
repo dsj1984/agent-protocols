@@ -35,7 +35,13 @@
       "typecheck": null,
       "build": null
     },
-    "lintBaselinePath": "temp/lint-baseline.json",
+    "quality": {
+      "baselines": {
+        "lint": { "path": "baselines/lint.json" },
+        "crap": { "path": "baselines/crap.json" },
+        "maintainability": { "path": "baselines/maintainability.json" }
+      }
+    },
     "maintainability": {
       "targetDirs": [".agents/scripts", "tests"],
       "crap": {

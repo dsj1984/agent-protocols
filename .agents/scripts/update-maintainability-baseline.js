@@ -1,4 +1,4 @@
-import { resolveConfig } from './lib/config-resolver.js';
+import { getBaselines, resolveConfig } from './lib/config-resolver.js';
 import {
   calculateAll,
   saveBaseline,
@@ -14,6 +14,8 @@ import {
 async function main() {
   const { settings } = resolveConfig();
   const targetDirs = settings.maintainability?.targetDirs ?? [];
+  const baselinePath = getBaselines({ agentSettings: settings })
+    .maintainability.path;
   console.log('[Maintainability] Updating baseline...');
 
   const files = [];
@@ -27,10 +29,10 @@ async function main() {
   );
   const scores = calculateAll(files);
 
-  saveBaseline(scores);
+  saveBaseline(scores, baselinePath);
 
   console.log(
-    '[Maintainability] ✅ Baseline updated successfully in maintainability-baseline.json',
+    `[Maintainability] ✅ Baseline updated successfully at ${baselinePath}`,
   );
 }
 

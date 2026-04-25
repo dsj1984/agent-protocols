@@ -6,13 +6,17 @@ import { test } from 'node:test';
 import Ajv from 'ajv';
 import {
   buildBaselineEnvelope,
-  DEFAULT_BASELINE_PATH,
   getCrapBaseline,
   KERNEL_VERSION,
   resolveEscomplexVersion,
   saveCrapBaseline,
   scanAndScore,
 } from '../../.agents/scripts/lib/crap-utils.js';
+
+// Tests now pass `baselinePath` explicitly — Epic #730 Story 5.5 removed the
+// silent `DEFAULT_BASELINE_PATH = 'crap-baseline.json'` default in favour of
+// resolver-driven paths (`agentSettings.quality.baselines.crap.path`).
+const TEST_BASELINE_PATH = 'baselines/crap.json';
 
 const SCHEMA_PATH = path.resolve('.agents/schemas/crap-baseline.schema.json');
 
@@ -88,7 +92,7 @@ test('resolveEscomplexVersion — returns 0.0.0 when module is absent', () => {
 test('getCrapBaseline — returns null when baseline file is missing', () => {
   const cwd = mkTmpCwd();
   try {
-    assert.strictEqual(getCrapBaseline({ cwd }), null);
+    assert.strictEqual(getCrapBaseline({ cwd, baselinePath: TEST_BASELINE_PATH }), null);
   } finally {
     rmTmp(cwd);
   }
@@ -97,8 +101,11 @@ test('getCrapBaseline — returns null when baseline file is missing', () => {
 test('getCrapBaseline — returns null on malformed JSON', () => {
   const cwd = mkTmpCwd();
   try {
-    fs.writeFileSync(path.join(cwd, DEFAULT_BASELINE_PATH), '{not json');
-    assert.strictEqual(getCrapBaseline({ cwd }), null);
+    fs.mkdirSync(path.dirname(path.join(cwd, TEST_BASELINE_PATH)), {
+      recursive: true,
+    });
+    fs.writeFileSync(path.join(cwd, TEST_BASELINE_PATH), '{not json');
+    assert.strictEqual(getCrapBaseline({ cwd, baselinePath: TEST_BASELINE_PATH }), null);
   } finally {
     rmTmp(cwd);
   }
@@ -107,11 +114,14 @@ test('getCrapBaseline — returns null on malformed JSON', () => {
 test('getCrapBaseline — returns null when required fields are missing', () => {
   const cwd = mkTmpCwd();
   try {
+    fs.mkdirSync(path.dirname(path.join(cwd, TEST_BASELINE_PATH)), {
+      recursive: true,
+    });
     fs.writeFileSync(
-      path.join(cwd, DEFAULT_BASELINE_PATH),
+      path.join(cwd, TEST_BASELINE_PATH),
       JSON.stringify({ rows: [] }),
     );
-    assert.strictEqual(getCrapBaseline({ cwd }), null);
+    assert.strictEqual(getCrapBaseline({ cwd, baselinePath: TEST_BASELINE_PATH }), null);
   } finally {
     rmTmp(cwd);
   }
@@ -125,8 +135,8 @@ test('getCrapBaseline — surfaces kernel-version mismatch without silent rescor
       escomplexVersion: '1.2.3',
       rows: [{ file: 'a.js', method: 'foo', startLine: 1, crap: 2 }],
     };
-    saveCrapBaseline(envelope, { cwd });
-    const loaded = getCrapBaseline({ cwd });
+    saveCrapBaseline(envelope, { cwd, baselinePath: TEST_BASELINE_PATH });
+    const loaded = getCrapBaseline({ cwd, baselinePath: TEST_BASELINE_PATH });
     assert.ok(loaded);
     assert.strictEqual(loaded.kernelVersion, '9.9.9');
     assert.notStrictEqual(loaded.kernelVersion, KERNEL_VERSION);
@@ -147,8 +157,8 @@ test('saveCrapBaseline — round-trip writes and reads the same envelope', () =>
       ],
       escomplexVersion: '1.2.3',
     });
-    saveCrapBaseline(envelope, { cwd });
-    const loaded = getCrapBaseline({ cwd });
+    saveCrapBaseline(envelope, { cwd, baselinePath: TEST_BASELINE_PATH });
+    const loaded = getCrapBaseline({ cwd, baselinePath: TEST_BASELINE_PATH });
     assert.strictEqual(loaded.kernelVersion, KERNEL_VERSION);
     assert.strictEqual(loaded.escomplexVersion, '1.2.3');
     assert.strictEqual(loaded.rows.length, 2);
@@ -171,10 +181,10 @@ test('saveCrapBaseline — byte-identical output on repeated save (determinism)'
       ],
       escomplexVersion: '7.3.2',
     });
-    saveCrapBaseline(envelope, { cwd });
-    const firstBytes = fs.readFileSync(path.join(cwd, DEFAULT_BASELINE_PATH));
-    saveCrapBaseline(envelope, { cwd });
-    const secondBytes = fs.readFileSync(path.join(cwd, DEFAULT_BASELINE_PATH));
+    saveCrapBaseline(envelope, { cwd, baselinePath: TEST_BASELINE_PATH });
+    const firstBytes = fs.readFileSync(path.join(cwd, TEST_BASELINE_PATH));
+    saveCrapBaseline(envelope, { cwd, baselinePath: TEST_BASELINE_PATH });
+    const secondBytes = fs.readFileSync(path.join(cwd, TEST_BASELINE_PATH));
     assert.ok(
       firstBytes.equals(secondBytes),
       'repeated save must produce byte-identical bytes',
@@ -202,17 +212,17 @@ test('saveCrapBaseline — shuffled input produces the same bytes as sorted inpu
     const shuffledRows = [sortedRows[2], sortedRows[0], sortedRows[1]];
     saveCrapBaseline(
       buildBaselineEnvelope({ rows: sortedRows, escomplexVersion: '1.0.0' }),
-      { cwd: cwdA },
+      { cwd: cwdA, baselinePath: TEST_BASELINE_PATH },
     );
     saveCrapBaseline(
       buildBaselineEnvelope({
         rows: shuffledRows,
         escomplexVersion: '1.0.0',
       }),
-      { cwd: cwdB },
+      { cwd: cwdB, baselinePath: TEST_BASELINE_PATH },
     );
-    const a = fs.readFileSync(path.join(cwdA, DEFAULT_BASELINE_PATH));
-    const b = fs.readFileSync(path.join(cwdB, DEFAULT_BASELINE_PATH));
+    const a = fs.readFileSync(path.join(cwdA, TEST_BASELINE_PATH));
+    const b = fs.readFileSync(path.join(cwdB, TEST_BASELINE_PATH));
     assert.ok(a.equals(b), 'row order must not affect the serialized bytes');
   } finally {
     rmTmp(cwdA);
