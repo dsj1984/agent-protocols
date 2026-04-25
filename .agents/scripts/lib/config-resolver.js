@@ -181,9 +181,7 @@ export function resolveMaintainabilityCrap(userCrap) {
 
   for (const key of Object.keys(userCrap)) {
     if (!MAINTAINABILITY_CRAP_KEYS.has(key)) {
-      console.warn(
-        `[config] Unknown key 'quality.crap.${key}' — ignoring.`,
-      );
+      console.warn(`[config] Unknown key 'quality.crap.${key}' — ignoring.`);
     }
   }
 

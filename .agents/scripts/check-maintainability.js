@@ -232,8 +232,8 @@ async function main() {
   console.log('[Maintainability] Verifying code quality against baseline...');
 
   const { settings } = resolveConfig();
-  const baselinePath = getBaselines({ agentSettings: settings })
-    .maintainability.path;
+  const baselinePath = getBaselines({ agentSettings: settings }).maintainability
+    .path;
   const baseline = getBaseline(baselinePath);
   if (Object.keys(baseline).length === 0) {
     console.warn(

@@ -19,8 +19,8 @@ async function main() {
   const { settings } = resolveConfig();
   const targetDirs = getQuality({ agentSettings: settings }).maintainability
     .targetDirs;
-  const baselinePath = getBaselines({ agentSettings: settings })
-    .maintainability.path;
+  const baselinePath = getBaselines({ agentSettings: settings }).maintainability
+    .path;
   console.log('[Maintainability] Updating baseline...');
 
   const files = [];

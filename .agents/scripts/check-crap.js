@@ -521,8 +521,7 @@ async function main() {
   }
 
   const baselinePath =
-    args.baselinePath ??
-    getBaselines({ agentSettings: settings }).crap.path;
+    args.baselinePath ?? getBaselines({ agentSettings: settings }).crap.path;
   const baseline = getCrapBaseline({ baselinePath });
   const runningEscomplex = resolveEscomplexVersion();
   const compat = evaluateBaselineCompatibility({

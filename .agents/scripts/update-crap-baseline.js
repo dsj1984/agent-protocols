@@ -52,8 +52,7 @@ async function main() {
   const coveragePath =
     args.coveragePath ?? crap.coveragePath ?? 'coverage/coverage-final.json';
   const baselinePath =
-    args.baselinePath ??
-    getBaselines({ agentSettings: settings }).crap.path;
+    args.baselinePath ?? getBaselines({ agentSettings: settings }).crap.path;
 
   console.log('[CRAP] Updating baseline...');
   console.log(`[CRAP] Target dirs: ${targetDirs.join(', ')}`);

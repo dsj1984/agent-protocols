@@ -270,9 +270,7 @@ describe('config-resolver library tests', () => {
 
       const config = resolveConfig({ bustCache: true });
       assert.equal(config.settings.quality.crap.newMethodCeiling, 30);
-      assert.deepEqual(config.settings.quality.crap.targetDirs, [
-        'src',
-      ]);
+      assert.deepEqual(config.settings.quality.crap.targetDirs, ['src']);
     });
 
     it('{ append } extends targetDirs and dedupes within user input', () => {
@@ -345,9 +343,7 @@ describe('config-resolver library tests', () => {
       );
 
       const config = resolveConfig({ bustCache: true });
-      assert.deepEqual(config.settings.quality.crap.targetDirs, [
-        'src',
-      ]);
+      assert.deepEqual(config.settings.quality.crap.targetDirs, ['src']);
     });
 
     it('scalar override leaves other crap defaults intact', () => {
