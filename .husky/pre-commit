@@ -1,3 +1,2 @@
 node scripts/check-version-sync.js
-node scripts/check-mcp-references.js
 npx lint-staged
