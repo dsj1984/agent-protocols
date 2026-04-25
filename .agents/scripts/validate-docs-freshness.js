@@ -37,7 +37,11 @@ import fs from 'node:fs';
 import path from 'node:path';
 import { parseArgs } from 'node:util';
 import { runAsCli } from './lib/cli-utils.js';
-import { PROJECT_ROOT, resolveConfig } from './lib/config-resolver.js';
+import {
+  getPaths,
+  PROJECT_ROOT,
+  resolveConfig,
+} from './lib/config-resolver.js';
 import { gitSpawn } from './lib/git-utils.js';
 import { Logger } from './lib/Logger.js';
 
@@ -56,7 +60,8 @@ export function resolveDocList(settings) {
   const contextDocs = Array.isArray(settings?.docsContextFiles)
     ? settings.docsContextFiles
     : [];
-  const docsRoot = settings?.docsRoot ?? 'docs';
+  const docsRoot =
+    getPaths({ agentSettings: settings ?? {} }).docsRoot ?? 'docs';
   const resolved = [
     ...releaseDocs,
     ...contextDocs.map((f) => path.posix.join(docsRoot, f)),

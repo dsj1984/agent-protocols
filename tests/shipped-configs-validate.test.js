@@ -56,12 +56,13 @@ describe('shipped configs validate cleanly under the updated schema', () => {
       assert.doesNotThrow(() => validateAuditsConfig(raw.audits ?? null));
     });
 
-    it(`${relPath} — declares the three required path roots explicitly`, () => {
+    it(`${relPath} — declares the three required path roots explicitly under paths`, () => {
       const { settings } = loadAndValidate(relPath);
+      const paths = settings.paths ?? {};
       for (const key of ['agentRoot', 'docsRoot', 'tempRoot']) {
         assert.ok(
-          typeof settings[key] === 'string' && settings[key].length > 0,
-          `${relPath} must declare a non-empty agentSettings.${key}`,
+          typeof paths[key] === 'string' && paths[key].length > 0,
+          `${relPath} must declare a non-empty agentSettings.paths.${key}`,
         );
       }
     });

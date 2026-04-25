@@ -65,9 +65,12 @@ describe('agentrc.schema.json mirror — drift vs runtime AJV schemas', () => {
       'agentSettings',
       {
         baseBranch: 'main',
-        agentRoot: '.agents',
-        docsRoot: 'docs',
-        tempRoot: 'temp',
+        paths: {
+          agentRoot: '.agents',
+          docsRoot: 'docs',
+          tempRoot: 'temp',
+          auditOutputDir: 'temp',
+        },
         commands: {
           validate: 'npm run lint',
           test: 'npm test',
@@ -131,9 +134,7 @@ describe('agentrc.schema.json mirror — drift vs runtime AJV schemas', () => {
     assertAgree(
       'agentSettings',
       {
-        agentRoot: '.agents',
-        docsRoot: 'docs',
-        tempRoot: 'temp',
+        paths: { agentRoot: '.agents', docsRoot: 'docs', tempRoot: 'temp' },
         quality: { prGate: { check: ['x'] } },
       },
       'quality.prGate typo',

@@ -4,12 +4,16 @@ import { getSettingsValidator } from '../.agents/scripts/lib/config-settings-sch
 
 const validate = getSettingsValidator();
 
-/** Schema-required roots — Epic #730 Story 4. Spread into accept-test inputs
- * that aren't exercising the required-key behaviour itself. */
+/** Schema-required roots — Epic #730 Story 4 made `agentRoot` / `docsRoot` /
+ * `tempRoot` mandatory; Story 7 lifted them under `paths{}`. Spread into
+ * accept-test inputs that aren't exercising the required-key behaviour
+ * itself. */
 const REQ = Object.freeze({
-  agentRoot: '.agents',
-  docsRoot: 'docs',
-  tempRoot: 'temp',
+  paths: Object.freeze({
+    agentRoot: '.agents',
+    docsRoot: 'docs',
+    tempRoot: 'temp',
+  }),
 });
 
 const expectErrors = (settings, ...needles) => {
@@ -120,39 +124,41 @@ describe('AGENT_SETTINGS_SCHEMA — explicit number/object entries', () => {
   });
 });
 
-describe('AGENT_SETTINGS_SCHEMA — required path roots (Epic #730 Story 4)', () => {
-  it('rejects an empty agentSettings block, naming all three required keys', () => {
-    expectErrors(
-      {},
-      /must have required property 'agentRoot'/,
-      /must have required property 'docsRoot'/,
-      /must have required property 'tempRoot'/,
-    );
+describe('AGENT_SETTINGS_SCHEMA — required path roots (Story 4 → Story 7)', () => {
+  it('rejects an empty agentSettings block, naming the missing paths group', () => {
+    expectErrors({}, /must have required property 'paths'/);
   });
 
-  it('rejects a block missing only agentRoot, naming the missing key', () => {
+  it('rejects paths missing only agentRoot, naming the missing key', () => {
     expectErrors(
-      { docsRoot: 'docs', tempRoot: 'temp' },
+      { paths: { docsRoot: 'docs', tempRoot: 'temp' } },
       /must have required property 'agentRoot'/,
     );
   });
 
-  it('rejects a block missing only docsRoot, naming the missing key', () => {
+  it('rejects paths missing only docsRoot, naming the missing key', () => {
     expectErrors(
-      { agentRoot: '.agents', tempRoot: 'temp' },
+      { paths: { agentRoot: '.agents', tempRoot: 'temp' } },
       /must have required property 'docsRoot'/,
     );
   });
 
-  it('rejects a block missing only tempRoot, naming the missing key', () => {
+  it('rejects paths missing only tempRoot, naming the missing key', () => {
     expectErrors(
-      { agentRoot: '.agents', docsRoot: 'docs' },
+      { paths: { agentRoot: '.agents', docsRoot: 'docs' } },
       /must have required property 'tempRoot'/,
     );
   });
 
-  it('accepts a block that declares all three roots', () => {
+  it('accepts a block that declares all three roots under paths', () => {
     assert.equal(validate({ ...REQ }), true);
+  });
+
+  it('rejects unknown property under paths (typo guard)', () => {
+    expectErrors(
+      { paths: { ...REQ.paths, agntRoot: '.agents' } },
+      /must NOT have additional properties/,
+    );
   });
 });
 

@@ -46,7 +46,7 @@ strands partial state on GitHub, so run them in order.
 6. Resolve `[ALL_DOCS]` — the combined array of documentation files to verify:
    - All files listed in `release.docs`.
    - All files listed in `agentSettings.docsContextFiles` (prefixed with the
-     path from `agentSettings.docsRoot`).
+     path from `agentSettings.paths.docsRoot`).
 7. Resolve `[RUN_RETRO]` from `agentSettings.sprintClose.runRetro` in
    `.agentrc.json` (default: `true`). When `false`, the Retro phase is
    skipped entirely — no retro is required or produced.

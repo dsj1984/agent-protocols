@@ -36,7 +36,7 @@
     "stringFieldsPattern": {
       "description": "Pattern enumerating every flat agentSettings string field. Mirrors AGENT_SETTINGS_STRING_FIELDS.",
       "type": "string",
-      "pattern": "^(baseBranch|agentRoot|scriptsRoot|workflowsRoot|personasRoot|schemasRoot|skillsRoot|templatesRoot|rulesRoot|docsRoot|tempRoot|auditOutputDir)$"
+      "pattern": "^(baseBranch|scriptsRoot|workflowsRoot|personasRoot|schemasRoot|skillsRoot|templatesRoot|rulesRoot)$"
     },
     "maintainabilityCrap": {
       "type": "object",
@@ -206,9 +206,40 @@
       },
       "additionalProperties": false
     },
-    "agentSettings": {
+    "paths": {
       "type": "object",
       "required": ["agentRoot", "docsRoot", "tempRoot"],
+      "properties": {
+        "agentRoot": {
+          "allOf": [
+            { "$ref": "#/$defs/safeString" },
+            { "type": "string", "minLength": 1 }
+          ]
+        },
+        "docsRoot": {
+          "allOf": [
+            { "$ref": "#/$defs/safeString" },
+            { "type": "string", "minLength": 1 }
+          ]
+        },
+        "tempRoot": {
+          "allOf": [
+            { "$ref": "#/$defs/safeString" },
+            { "type": "string", "minLength": 1 }
+          ]
+        },
+        "auditOutputDir": {
+          "allOf": [
+            { "$ref": "#/$defs/safeString" },
+            { "type": "string", "minLength": 1 }
+          ]
+        }
+      },
+      "additionalProperties": false
+    },
+    "agentSettings": {
+      "type": "object",
+      "required": ["paths"],
       "properties": {
         "docsContextFiles": { "type": "array", "items": { "type": "string" } },
         "maxTickets": { "type": "integer", "minimum": 1 },
@@ -221,10 +252,11 @@
         "frictionThresholds": { "$ref": "#/$defs/frictionThresholds" },
         "riskGates": { "$ref": "#/$defs/riskGates" },
         "quality": { "$ref": "#/$defs/quality" },
-        "commands": { "$ref": "#/$defs/commands" }
+        "commands": { "$ref": "#/$defs/commands" },
+        "paths": { "$ref": "#/$defs/paths" }
       },
       "patternProperties": {
-        "^(baseBranch|agentRoot|scriptsRoot|workflowsRoot|personasRoot|schemasRoot|skillsRoot|templatesRoot|rulesRoot|docsRoot|tempRoot|auditOutputDir)$": {
+        "^(baseBranch|scriptsRoot|workflowsRoot|personasRoot|schemasRoot|skillsRoot|templatesRoot|rulesRoot)$": {
           "$ref": "#/$defs/safeString"
         }
       }

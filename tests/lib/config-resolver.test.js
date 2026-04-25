@@ -6,6 +6,7 @@ import {
   BASELINES_DEFAULTS,
   COMMANDS_DEFAULTS,
   getCommands,
+  getPaths,
   getQuality,
   MAINTAINABILITY_CRAP_DEFAULTS,
   PR_GATE_DEFAULTS,
@@ -17,14 +18,16 @@ import {
 } from '../../.agents/scripts/lib/config-resolver.js';
 import { setupFsMock } from './fs-mock.js';
 
-/** The schema requires `agentRoot` / `docsRoot` / `tempRoot` on every loaded
- * agentSettings block. Spread this into fixtures that aren't testing the
- * required-key behaviour itself so the resolver gets past validation and
- * exercises the code path under test. */
+/** The schema requires `paths.agentRoot` / `paths.docsRoot` / `paths.tempRoot`
+ * on every loaded agentSettings block (Epic #730 Story 7 — lifted out of the
+ * flat root). Spread this into fixtures that aren't testing the required-key
+ * behaviour itself so the resolver gets past validation. */
 const REQ = Object.freeze({
-  agentRoot: '.agents',
-  docsRoot: 'docs',
-  tempRoot: 'temp',
+  paths: Object.freeze({
+    agentRoot: '.agents',
+    docsRoot: 'docs',
+    tempRoot: 'temp',
+  }),
 });
 
 describe('config-resolver library tests', () => {
@@ -42,7 +45,7 @@ describe('config-resolver library tests', () => {
     assert.equal(config.source, 'built-in defaults');
     // `agentRoot` is no longer a zero-config default — it is hard-required by
     // the schema so a config without it cannot be silently filled in.
-    assert.equal(config.settings.agentRoot, undefined);
+    assert.equal(config.settings.paths.agentRoot, undefined);
     assert.equal(config.settings.scriptsRoot, '.agents/scripts');
     assert.equal(config.orchestration, null);
   });
@@ -65,10 +68,8 @@ describe('config-resolver library tests', () => {
       agentrcPath,
       JSON.stringify({
         agentSettings: {
+          ...REQ,
           baseBranch: 'main; rm -rf /',
-          agentRoot: '.agents',
-          docsRoot: 'docs',
-          tempRoot: 'temp',
         },
       }),
     );
@@ -138,18 +139,22 @@ describe('config-resolver library tests', () => {
     vol.mkdirSync(rootB, { recursive: true });
     vol.writeFileSync(
       path.join(rootA, '.agentrc.json'),
-      JSON.stringify({ agentSettings: { ...REQ, agentRoot: 'A-agents' } }),
+      JSON.stringify({
+        agentSettings: { paths: { ...REQ.paths, agentRoot: 'A-agents' } },
+      }),
     );
     vol.writeFileSync(
       path.join(rootB, '.agentrc.json'),
-      JSON.stringify({ agentSettings: { ...REQ, agentRoot: 'B-agents' } }),
+      JSON.stringify({
+        agentSettings: { paths: { ...REQ.paths, agentRoot: 'B-agents' } },
+      }),
     );
 
     const cfgA = resolveConfig({ bustCache: true, cwd: rootA });
     const cfgB = resolveConfig({ bustCache: true, cwd: rootB });
 
-    assert.equal(cfgA.settings.agentRoot, 'A-agents');
-    assert.equal(cfgB.settings.agentRoot, 'B-agents');
+    assert.equal(cfgA.settings.paths.agentRoot, 'A-agents');
+    assert.equal(cfgB.settings.paths.agentRoot, 'B-agents');
     assert.equal(cfgA.source, path.join(rootA, '.agentrc.json'));
     assert.equal(cfgB.source, path.join(rootB, '.agentrc.json'));
   });
@@ -161,11 +166,15 @@ describe('config-resolver library tests', () => {
     vol.mkdirSync(rootB, { recursive: true });
     vol.writeFileSync(
       path.join(rootA, '.agentrc.json'),
-      JSON.stringify({ agentSettings: { ...REQ, agentRoot: 'X' } }),
+      JSON.stringify({
+        agentSettings: { paths: { ...REQ.paths, agentRoot: 'X' } },
+      }),
     );
     vol.writeFileSync(
       path.join(rootB, '.agentrc.json'),
-      JSON.stringify({ agentSettings: { ...REQ, agentRoot: 'Y' } }),
+      JSON.stringify({
+        agentSettings: { paths: { ...REQ.paths, agentRoot: 'Y' } },
+      }),
     );
 
     const a1 = resolveConfig({ bustCache: true, cwd: rootA });
@@ -174,7 +183,7 @@ describe('config-resolver library tests', () => {
 
     assert.equal(a1, a2, 'same root → cached identity');
     assert.notEqual(a1, b1, 'different roots → different cached objects');
-    assert.equal(b1.settings.agentRoot, 'Y');
+    assert.equal(b1.settings.paths.agentRoot, 'Y');
   });
 
   it('falls back to defaults when the injected cwd has no .agentrc.json', () => {
@@ -234,14 +243,13 @@ describe('config-resolver library tests', () => {
       agentrcPath,
       JSON.stringify({
         agentSettings: {
-          ...REQ,
-          agentRoot: 'custom-agents',
+          paths: { ...REQ.paths, agentRoot: 'custom-agents' },
         },
       }),
     );
 
     const config = resolveConfig({ bustCache: true });
-    assert.equal(config.settings.agentRoot, 'custom-agents');
+    assert.equal(config.settings.paths.agentRoot, 'custom-agents');
     assert.equal(config.settings.scriptsRoot, '.agents/scripts'); // default
   });
 
@@ -618,6 +626,41 @@ describe('config-resolver library tests', () => {
       assert.equal(cmds.validate, 'npm run check');
       assert.equal(cmds.test, 'npm run spec');
       assert.equal(cmds.typecheck, 'tsc --noEmit');
+    });
+  });
+
+  describe('getPaths (Epic #730 Story 7)', () => {
+    it('returns the configured roots + auditOutputDir default', () => {
+      const out = getPaths({ agentSettings: { ...REQ } });
+      assert.equal(out.agentRoot, '.agents');
+      assert.equal(out.docsRoot, 'docs');
+      assert.equal(out.tempRoot, 'temp');
+      assert.equal(out.auditOutputDir, 'temp');
+    });
+
+    it('honours operator-supplied auditOutputDir override', () => {
+      const out = getPaths({
+        agentSettings: {
+          paths: { ...REQ.paths, auditOutputDir: 'reports' },
+        },
+      });
+      assert.equal(out.auditOutputDir, 'reports');
+    });
+
+    it('returns undefined required roots + default auditOutputDir for null/undefined input', () => {
+      const out = getPaths(null);
+      assert.equal(out.agentRoot, undefined);
+      assert.equal(out.docsRoot, undefined);
+      assert.equal(out.tempRoot, undefined);
+      assert.equal(out.auditOutputDir, 'temp');
+    });
+
+    it('accepts a bare agentSettings bag', () => {
+      const out = getPaths({
+        paths: { ...REQ.paths, agentRoot: 'custom' },
+      });
+      assert.equal(out.agentRoot, 'custom');
+      assert.equal(out.docsRoot, 'docs');
     });
   });
 });

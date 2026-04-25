@@ -13,7 +13,6 @@ import { SHELL_INJECTION_PATTERN_STRING } from './config-schema-shared.js';
  */
 export const AGENT_SETTINGS_STRING_FIELDS = Object.freeze([
   'baseBranch',
-  'agentRoot',
   'scriptsRoot',
   'workflowsRoot',
   'personasRoot',
@@ -21,9 +20,6 @@ export const AGENT_SETTINGS_STRING_FIELDS = Object.freeze([
   'skillsRoot',
   'templatesRoot',
   'rulesRoot',
-  'docsRoot',
-  'tempRoot',
-  'auditOutputDir',
 ]);
 
 const STRING_FIELDS_PATTERN = `^(${AGENT_SETTINGS_STRING_FIELDS.join('|')})$`;
@@ -220,6 +216,26 @@ const QUALITY_SCHEMA = {
 };
 
 /**
+ * `agentSettings.paths` is the grouped home for the framework's filesystem
+ * roots (Epic #730 Story 7). `agentRoot` / `docsRoot` / `tempRoot` are
+ * hard-required (transferred from the agentSettings-level Story 4 contract);
+ * `auditOutputDir` is optional with a `'temp'` default applied by
+ * {@link getPaths} in the resolver. additionalProperties: false catches
+ * misspelled keys up front.
+ */
+const PATHS_SCHEMA = {
+  type: 'object',
+  required: ['agentRoot', 'docsRoot', 'tempRoot'],
+  properties: {
+    agentRoot: { ...SAFE_STRING, minLength: 1 },
+    docsRoot: { ...SAFE_STRING, minLength: 1 },
+    tempRoot: { ...SAFE_STRING, minLength: 1 },
+    auditOutputDir: { ...SAFE_STRING, minLength: 1 },
+  },
+  additionalProperties: false,
+};
+
+/**
  * Grouped command fields. `typecheck` and `build` accept `null` to mean
  * "disabled" (Story 3 `null`-for-disabled convention); the others are
  * required-when-present non-empty strings. `additionalProperties: false`
@@ -240,11 +256,11 @@ export const COMMANDS_SCHEMA = {
 
 export const AGENT_SETTINGS_SCHEMA = {
   type: 'object',
-  // `agentRoot`, `docsRoot`, `tempRoot` are hard-required. Resolver fallbacks
-  // for these were removed in Epic #730 Story 4 — every config must declare
-  // them explicitly so a missing key surfaces as an actionable schema error
-  // instead of a silent default.
-  required: ['agentRoot', 'docsRoot', 'tempRoot'],
+  // The hard-required path roots (`agentRoot` / `docsRoot` / `tempRoot`)
+  // moved under `paths` in Epic #730 Story 7 — see PATHS_SCHEMA.required.
+  // The agentSettings-level `paths` block itself is required so a config
+  // that omits the entire group still fails fast with a clear message.
+  required: ['paths'],
   properties: {
     docsContextFiles: { type: 'array', items: { type: 'string' } },
     maxTickets: { type: 'integer', minimum: 1 },
@@ -258,6 +274,7 @@ export const AGENT_SETTINGS_SCHEMA = {
     riskGates: RISK_GATES_SCHEMA,
     quality: QUALITY_SCHEMA,
     commands: COMMANDS_SCHEMA,
+    paths: PATHS_SCHEMA,
   },
   patternProperties: {
     [STRING_FIELDS_PATTERN]: SAFE_STRING,

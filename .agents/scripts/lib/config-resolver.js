@@ -38,9 +38,11 @@ const _envLoadedRoots = new Set();
  * set: fields intentionally omitted here (e.g. baseBranch) remain undefined
  * unless the operator set them explicitly in the config file.
  *
- * `agentRoot` / `docsRoot` / `tempRoot` are intentionally absent — they are
- * hard-required by the schema (Epic #730 Story 4) so the resolver cannot
- * silently fill them in.
+ * The path roots (`agentRoot` / `docsRoot` / `tempRoot` / `auditOutputDir`)
+ * are intentionally absent — they live under `paths` (Epic #730 Story 7) and
+ * are filled in by {@link resolvePaths} via the post-load mutation. The
+ * three required ones come from the operator's config; `auditOutputDir`
+ * defaults to `'temp'` inside `resolvePaths`.
  */
 const LOADED_CONFIG_DEFAULTS = Object.freeze({
   scriptsRoot: '.agents/scripts',
@@ -60,7 +62,6 @@ const LOADED_CONFIG_DEFAULTS = Object.freeze({
   // — the same content now lives under `quality.maintainability` and is filled
   // in by {@link resolveQuality}. Leaving it absent here keeps the apply-keys
   // loop from re-creating a flat alias that would shadow the grouped read.
-  auditOutputDir: 'temp',
   maxTickets: 40,
   executionTimeoutMs: 300000,
   executionMaxBuffer: 10485760,
@@ -69,9 +70,9 @@ const LOADED_CONFIG_DEFAULTS = Object.freeze({
 
 /** Defaults for the zero-config (no .agentrc.json present) path.
  *
- * Same omission rule as {@link LOADED_CONFIG_DEFAULTS}: the three promoted
- * keys (`agentRoot`, `docsRoot`, `tempRoot`) are deliberately not provided.
- * Zero-config callers that need them must declare a `.agentrc.json`. */
+ * Same omission rule as {@link LOADED_CONFIG_DEFAULTS}: the path roots live
+ * under `paths` (Story 7), and the three required ones cannot be silently
+ * filled in. Zero-config callers that need them must declare a `.agentrc.json`. */
 const ZERO_CONFIG_DEFAULTS = Object.freeze({
   scriptsRoot: '.agents/scripts',
   workflowsRoot: '.agents/workflows',
@@ -226,8 +227,10 @@ export function resolveMaintainabilityQuality(userBlock) {
 }
 
 /** Keys to apply on top of a loaded config when the operator omitted them.
- * `quality` is intentionally absent — it is filled by `resolveQuality` below
- * (a deep-merge, not a top-level fill) right after this loop runs. */
+ * `quality` and `paths` are intentionally absent — they are filled by
+ * `resolveQuality` / `resolvePaths` below (deep-merge, not top-level fill)
+ * right after this loop runs. `auditOutputDir` was lifted under `paths` in
+ * Epic #730 Story 7 and is no longer a flat alias. */
 const LOADED_CONFIG_APPLY_KEYS = [
   'scriptsRoot',
   'workflowsRoot',
@@ -237,7 +240,6 @@ const LOADED_CONFIG_APPLY_KEYS = [
   'templatesRoot',
   'rulesRoot',
   'docsContextFiles',
-  'auditOutputDir',
   'baseBranch',
   'executionTimeoutMs',
   'executionMaxBuffer',
@@ -337,6 +339,10 @@ export function resolveConfig(opts) {
     // filled in here so consumers can read `settings.quality.<sub>.<key>`
     // without re-running merge logic at every call site.
     settings.quality = resolveQuality(settings.quality);
+    // Story 7 — fill in `paths.auditOutputDir` default in place. The three
+    // required path roots are schema-enforced; the operator's values flow
+    // through unchanged.
+    settings.paths = resolvePaths(settings.paths);
 
     if (validate) {
       validateOrchestrationConfig(orchestration);
@@ -357,6 +363,7 @@ export function resolveConfig(opts) {
   // 2. Hard-coded defaults (zero-config experience)
   const zeroSettings = { ...ZERO_CONFIG_DEFAULTS };
   zeroSettings.quality = resolveQuality(zeroSettings.quality);
+  zeroSettings.paths = resolvePaths(zeroSettings.paths);
   const resolved = {
     settings: zeroSettings,
     orchestration: null,
@@ -811,4 +818,45 @@ export function getQuality(config) {
   const userQuality =
     config?.agentSettings?.quality ?? config?.quality ?? undefined;
   return resolveQuality(userQuality);
+}
+
+/**
+ * Framework defaults for `agentSettings.paths` (Epic #730 Story 7).
+ * Only the optional `auditOutputDir` has a default — the three required
+ * roots are schema-enforced and the resolver never silently fills them in.
+ */
+export const PATHS_DEFAULTS = Object.freeze({
+  auditOutputDir: 'temp',
+});
+
+/**
+ * Merge a user-supplied `paths` block with framework defaults. Required
+ * roots (`agentRoot` / `docsRoot` / `tempRoot`) flow through verbatim —
+ * the schema rejects a config that omits them. `auditOutputDir` falls back
+ * to {@link PATHS_DEFAULTS}.
+ *
+ * @param {object|undefined} userPaths
+ * @returns {{ agentRoot?: string, docsRoot?: string, tempRoot?: string, auditOutputDir: string }}
+ */
+export function resolvePaths(userPaths) {
+  const paths = userPaths && typeof userPaths === 'object' ? userPaths : {};
+  return {
+    agentRoot: paths.agentRoot,
+    docsRoot: paths.docsRoot,
+    tempRoot: paths.tempRoot,
+    auditOutputDir: paths.auditOutputDir ?? PATHS_DEFAULTS.auditOutputDir,
+  };
+}
+
+/**
+ * Read the merged `agentSettings.paths` block. Accepts either the full
+ * resolved config or the bare `agentSettings` bag.
+ *
+ * @param {{ agentSettings?: { paths?: object } } | object | null | undefined} config
+ * @returns {ReturnType<typeof resolvePaths>}
+ */
+export function getPaths(config) {
+  const userPaths =
+    config?.agentSettings?.paths ?? config?.paths ?? undefined;
+  return resolvePaths(userPaths);
 }
