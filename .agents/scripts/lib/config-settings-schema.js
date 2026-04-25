@@ -79,7 +79,6 @@ const MAINTAINABILITY_CRAP_SCHEMA = {
   // coverage-relaxed configs both validate without ceremony.
   allOf: [
     {
-      // biome-ignore lint/suspicious/noThenProperty: JSON Schema if/then keyword
       if: {
         properties: {
           enabled: { const: true },

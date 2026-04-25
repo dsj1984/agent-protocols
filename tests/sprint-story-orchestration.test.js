@@ -410,7 +410,11 @@ test('sprint-story-close: reaps worktree using resolved --cwd repo root', async 
       orchestration: {
         provider: 'github',
         github: { owner: 'o', repo: 'r' },
-        worktreeIsolation: { enabled: true, reapOnSuccess: true },
+        worktreeIsolation: {
+          enabled: true,
+          root: '.worktrees',
+          reapOnSuccess: true,
+        },
       },
     }),
   );

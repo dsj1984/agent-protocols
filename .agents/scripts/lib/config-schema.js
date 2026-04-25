@@ -85,7 +85,6 @@ const WORKTREE_ISOLATION_SCHEMA = {
   // disabled-or-absent block doesn't need a root path.
   allOf: [
     {
-      // biome-ignore lint/suspicious/noThenProperty: JSON Schema if/then keyword
       if: {
         properties: { enabled: { const: true } },
         required: ['enabled'],
@@ -113,7 +112,6 @@ const EPIC_RUNNER_SCHEMA = {
   // therefore requires the cap.
   allOf: [
     {
-      // biome-ignore lint/suspicious/noThenProperty: JSON Schema if/then keyword
       if: {
         not: {
           properties: { enabled: { const: false } },
