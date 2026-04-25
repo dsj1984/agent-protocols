@@ -20,8 +20,8 @@ test('sprint-retro skill posts via `retro` type and never falls back to notifica
 
   assert.match(
     body,
-    /--type\s+retro\b/,
-    'skill must instruct callers to use `--type retro` for the final retro comment',
+    /--marker\s+retro\b/,
+    'skill must instruct callers to use `--marker retro` for the final retro comment (post-structured-comment.js CLI flag)',
   );
   assert.match(
     body,
