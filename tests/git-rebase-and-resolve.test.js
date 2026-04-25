@@ -3,8 +3,102 @@ import { describe, it } from 'node:test';
 import {
   abortRebase,
   continueRebase,
+  isCleanRebaseOutcome,
+  parseRebaseArgs,
+  renderRebaseHumanLines,
   runRebase,
+  selectRebaseAction,
 } from '../.agents/scripts/git-rebase-and-resolve.js';
+
+describe('selectRebaseAction', () => {
+  it('returns abort when --abort is set', () => {
+    assert.deepEqual(
+      selectRebaseAction({ abortFlag: true, continueFlag: false, onto: undefined }),
+      { kind: 'abort' },
+    );
+  });
+  it('returns continue when --continue is set and abort is not', () => {
+    assert.deepEqual(
+      selectRebaseAction({ abortFlag: false, continueFlag: true, onto: undefined }),
+      { kind: 'continue' },
+    );
+  });
+  it('returns usage-error when no flags and no --onto', () => {
+    const out = selectRebaseAction({ abortFlag: false, continueFlag: false });
+    assert.equal(out.kind, 'usage-error');
+    assert.match(out.message, /Usage: node git-rebase-and-resolve\.js/);
+  });
+  it('returns rebase action with onto + head', () => {
+    assert.deepEqual(
+      selectRebaseAction({
+        abortFlag: false,
+        continueFlag: false,
+        onto: 'main',
+        head: 'feat/x',
+      }),
+      { kind: 'rebase', onto: 'main', head: 'feat/x' },
+    );
+  });
+});
+
+describe('parseRebaseArgs', () => {
+  it('defaults all flags to false when only --onto is supplied', () => {
+    assert.deepEqual(parseRebaseArgs(['--onto', 'main']), {
+      onto: 'main',
+      head: undefined,
+      continueFlag: false,
+      abortFlag: false,
+      json: false,
+    });
+  });
+  it('parses --continue and --json', () => {
+    const out = parseRebaseArgs(['--continue', '--json']);
+    assert.equal(out.continueFlag, true);
+    assert.equal(out.json, true);
+  });
+  it('parses --abort independently', () => {
+    assert.equal(parseRebaseArgs(['--abort']).abortFlag, true);
+  });
+  it('passes through --head', () => {
+    assert.equal(
+      parseRebaseArgs(['--onto', 'main', '--head', 'feat/x']).head,
+      'feat/x',
+    );
+  });
+});
+
+describe('isCleanRebaseOutcome', () => {
+  it('returns true for non-failure outcomes', () => {
+    for (const o of ['clean', 'continued', 'aborted']) {
+      assert.equal(isCleanRebaseOutcome(o), true);
+    }
+  });
+  it('returns false for failure outcomes', () => {
+    for (const o of ['conflict', 'error', 'unknown', undefined]) {
+      assert.equal(isCleanRebaseOutcome(o), false);
+    }
+  });
+});
+
+describe('renderRebaseHumanLines', () => {
+  it('emits just the outcome line when there are no conflicts', () => {
+    assert.deepEqual(renderRebaseHumanLines({ outcome: 'clean' }), [
+      '[rebase] outcome: clean',
+    ]);
+  });
+  it('lists each conflicted file under a header', () => {
+    const lines = renderRebaseHumanLines({
+      outcome: 'conflict',
+      conflictedFiles: ['a.js', 'b.md'],
+    });
+    assert.deepEqual(lines, [
+      '[rebase] outcome: conflict',
+      '[rebase] conflicted files (2):',
+      '  - a.js',
+      '  - b.md',
+    ]);
+  });
+});
 
 /**
  * Build a fake git runner from a script of per-invocation results. Each call
