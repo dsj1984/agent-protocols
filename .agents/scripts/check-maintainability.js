@@ -1,7 +1,7 @@
 import fs from 'node:fs';
 import path from 'node:path';
 import { getChangedFiles } from './lib/changed-files.js';
-import { resolveConfig } from './lib/config-resolver.js';
+import { getBaselines, resolveConfig } from './lib/config-resolver.js';
 import {
   calculateAll,
   getBaseline,
@@ -227,15 +227,17 @@ function printSummaryReport(scores, stats) {
 async function main() {
   console.log('[Maintainability] Verifying code quality against baseline...');
 
-  const baseline = getBaseline();
+  const { settings } = resolveConfig();
+  const baselinePath = getBaselines({ agentSettings: settings })
+    .maintainability.path;
+  const baseline = getBaseline(baselinePath);
   if (Object.keys(baseline).length === 0) {
     console.warn(
-      "[Maintainability] ⚠️ No baseline found. Run 'npm run maintainability:update' to create one.",
+      `[Maintainability] ⚠️ No baseline found at ${baselinePath}. Run 'npm run maintainability:update' to create one.`,
     );
     process.exit(0);
   }
 
-  const { settings } = resolveConfig();
   const targetDirs = settings.maintainability?.targetDirs ?? [];
   const files = [];
   targetDirs.forEach((dir) => {

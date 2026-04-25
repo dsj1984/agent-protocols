@@ -911,7 +911,7 @@ A single GitHub Actions workflow (`ci.yml`) runs on every push and PR:
    branch** `.agentrc.json` via `git show origin/<base>:.agentrc.json`,
    re-runs `check-crap` with those values forced via `CRAP_NEW_METHOD_CEILING`
    / `CRAP_TOLERANCE` / `CRAP_REFRESH_TAG` env vars, and enforces that any PR
-   touching `crap-baseline.json` or `maintainability-baseline.json` carries a
+   touching `baselines/crap.json` or `baselines/maintainability.json` carries a
    commit whose subject starts with the configured `refreshTag` (default
    `baseline-refresh:`) and has a non-empty body. Baseline-only PRs receive
    the `review::baseline-refresh` label automatically.
@@ -945,7 +945,7 @@ CI    ▶ │ ci.yml:                               │
 ```
 
 All three sites converge on the same `check-crap.js` binary and the same
-`crap-baseline.json` artifact, so a regression caught at any one site fails
+`baselines/crap.json` artifact, so a regression caught at any one site fails
 the gate identically at the others. The base-enforced re-run in the guardrail
 workflow exists so a PR cannot simultaneously raise `newMethodCeiling` AND
 ship a method over the base ceiling — the guardrail rejects it under

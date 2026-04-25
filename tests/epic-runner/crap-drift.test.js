@@ -5,7 +5,7 @@ import { describe, it } from 'node:test';
 import { createCrapDriftDetector } from '../../.agents/scripts/lib/orchestration/epic-runner/progress-signals/crap-drift.js';
 
 const CWD = path.join(path.sep, 'repo');
-const BASELINE_PATH = path.join(CWD, '.agents/state/crap-baseline.json');
+const BASELINE_PATH = path.join(CWD, '.agents/state/wave-crap-snapshot.json');
 
 /**
  * Build a fake fs whose `readFileSync` returns canned content for either the

@@ -14,8 +14,9 @@ import { gitSpawn, gitSync } from './lib/git-utils.js';
  *      `CRAP_NEW_METHOD_CEILING` / `CRAP_TOLERANCE` / `CRAP_REFRESH_TAG`
  *      environment variables. This catches a PR that simultaneously relaxes
  *      the ceiling AND adds a method over the base-branch ceiling.
- *   3. If the PR diff modifies any baseline file (`crap-baseline.json`,
- *      `maintainability-baseline.json`), require at least one commit in
+ *   3. If the PR diff modifies any canonical baseline file under
+ *      `baselines/` (lint.json, crap.json, maintainability.json), require at
+ *      least one commit in
  *      `git log origin/<base>..HEAD` whose subject starts with the
  *      base-branch `refreshTag` AND has a non-empty body. Fail closed with a
  *      message naming the required tag otherwise.
@@ -30,10 +31,12 @@ import { gitSpawn, gitSync } from './lib/git-utils.js';
  * wrapper is the only I/O layer.
  */
 
-/** Baseline artifacts the guardrail watches for. */
+/** Canonical baseline artifacts the guardrail watches for. Locations match
+ * Epic #730 Story 5.5 (baselines unified under `/baselines/`). */
 export const BASELINE_FILES = Object.freeze([
-  'crap-baseline.json',
-  'maintainability-baseline.json',
+  'baselines/lint.json',
+  'baselines/crap.json',
+  'baselines/maintainability.json',
 ]);
 
 export const BASELINE_REFRESH_LABEL = 'review::baseline-refresh';

@@ -1,7 +1,7 @@
 import fs from 'node:fs';
 import path from 'node:path';
 import { getChangedFiles } from './lib/changed-files.js';
-import { resolveConfig } from './lib/config-resolver.js';
+import { getBaselines, resolveConfig } from './lib/config-resolver.js';
 import { loadCoverage } from './lib/coverage-utils.js';
 import { deriveFixGuidance } from './lib/crap-engine.js';
 import {
@@ -516,7 +516,10 @@ async function main() {
     }
   }
 
-  const baseline = getCrapBaseline({ baselinePath: args.baselinePath });
+  const baselinePath =
+    args.baselinePath ??
+    getBaselines({ agentSettings: settings }).crap.path;
+  const baseline = getCrapBaseline({ baselinePath });
   const runningEscomplex = resolveEscomplexVersion();
   const compat = evaluateBaselineCompatibility({
     baseline,
