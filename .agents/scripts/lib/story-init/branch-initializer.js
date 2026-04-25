@@ -13,6 +13,7 @@
 
 import nodeFs from 'node:fs';
 import nodePath from 'node:path';
+import { resolveWorkingPath } from '../config-resolver.js';
 import {
   branchExistsLocally,
   branchExistsRemotely,
@@ -224,5 +225,9 @@ export async function initializeBranch({ logger, fs = nodeFs, input }) {
     cwd,
     progress,
   });
-  return { workCwd: cwd, worktreeCreated: false, installFailed: false };
+  return {
+    workCwd: resolveWorkingPath({ worktreeEnabled: false, repoRoot: cwd }),
+    worktreeCreated: false,
+    installFailed: false,
+  };
 }

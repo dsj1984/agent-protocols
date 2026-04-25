@@ -1,8 +1,10 @@
 import assert from 'node:assert/strict';
+import path from 'node:path';
 import { describe, it } from 'node:test';
 import {
   resolveRuntime,
   resolveSessionId,
+  resolveWorkingPath,
   resolveWorktreeEnabled,
 } from '../.agents/scripts/lib/config-resolver.js';
 
@@ -179,5 +181,61 @@ describe('resolveRuntime', () => {
   it('reports local session-id source when the remote env var is unset', () => {
     const r = resolveRuntime(cfgOff, {});
     assert.equal(r.sessionIdSource, 'local');
+  });
+});
+
+describe('resolveWorkingPath', () => {
+  const repoRoot = path.resolve('/repo');
+
+  it('returns the resolved repoRoot when worktreeEnabled is false', () => {
+    const p = resolveWorkingPath({ worktreeEnabled: false, repoRoot });
+    assert.equal(p, repoRoot);
+  });
+
+  it('returns the resolved repoRoot without requiring storyId on the off-branch', () => {
+    assert.doesNotThrow(() =>
+      resolveWorkingPath({ worktreeEnabled: false, repoRoot }),
+    );
+  });
+
+  it('joins the default .worktrees root when worktreeEnabled is true', () => {
+    const p = resolveWorkingPath({
+      worktreeEnabled: true,
+      repoRoot,
+      storyId: 42,
+    });
+    assert.equal(p, path.join(repoRoot, '.worktrees', 'story-42'));
+  });
+
+  it('honours a custom worktreeRoot', () => {
+    const p = resolveWorkingPath({
+      worktreeEnabled: true,
+      repoRoot,
+      storyId: 7,
+      worktreeRoot: 'wt',
+    });
+    assert.equal(p, path.join(repoRoot, 'wt', 'story-7'));
+  });
+
+  it('throws when storyId is missing on the on-branch', () => {
+    assert.throws(
+      () => resolveWorkingPath({ worktreeEnabled: true, repoRoot }),
+      /storyId is required/,
+    );
+  });
+
+  it('throws when repoRoot is missing', () => {
+    assert.throws(
+      () => resolveWorkingPath({ worktreeEnabled: false }),
+      /repoRoot is required/,
+    );
+  });
+
+  it('resolves a relative repoRoot to absolute', () => {
+    const p = resolveWorkingPath({
+      worktreeEnabled: false,
+      repoRoot: '.',
+    });
+    assert.equal(path.isAbsolute(p), true);
   });
 });

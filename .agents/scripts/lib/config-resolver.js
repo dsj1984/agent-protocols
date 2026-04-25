@@ -377,6 +377,42 @@ export function resolveWorktreeEnabled(opts = {}, env = process.env) {
 }
 
 /**
+ * Resolve the absolute working path the agent should `cd` into for a given
+ * Story. When worktree isolation is on, returns the per-story worktree path
+ * (`<repoRoot>/<wtRoot>/story-<id>`). When off, returns the repo root so
+ * init, close, and recovery converge on a single canonical path with no
+ * undefined-path access on the off-branch.
+ *
+ * Pure helper — no fs / git side effects. Path-traversal containment for
+ * `worktreeRoot` is enforced earlier by `validateOrchestrationConfig`.
+ *
+ * @param {object} opts
+ * @param {boolean} opts.worktreeEnabled
+ * @param {string} opts.repoRoot          Absolute path to the main checkout.
+ * @param {number|string} [opts.storyId]  Required when `worktreeEnabled` is true.
+ * @param {string} [opts.worktreeRoot]    Worktree root relative to repoRoot. Defaults to `.worktrees`.
+ * @returns {string} Absolute path the agent should work from.
+ */
+export function resolveWorkingPath({
+  worktreeEnabled,
+  repoRoot,
+  storyId,
+  worktreeRoot = '.worktrees',
+} = {}) {
+  if (typeof repoRoot !== 'string' || repoRoot.length === 0) {
+    throw new Error('resolveWorkingPath: repoRoot is required');
+  }
+  const absRepoRoot = path.resolve(repoRoot);
+  if (!worktreeEnabled) return absRepoRoot;
+  if (storyId == null) {
+    throw new Error(
+      'resolveWorkingPath: storyId is required when worktreeEnabled is true',
+    );
+  }
+  return path.join(absRepoRoot, worktreeRoot, `story-${storyId}`);
+}
+
+/**
  * One-shot environment-aware runtime resolution. Returns the trio of runtime
  * signals consumed across `/sprint-execute`: whether worktree isolation is on
  * for this process, the session id for claim labels, and whether we're in a
