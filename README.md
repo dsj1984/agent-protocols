@@ -254,6 +254,25 @@ operator reference.
 
 ### Recent releases
 
+- **v5.24.0 — Epic #668 (2026-04-24).** Parallel `/sprint-execute` on Claude
+  Code web. The same command runs unchanged in claude.ai/code sessions,
+  including N parallel sessions against one sprint wave. The committed
+  `orchestration.worktreeIsolation.enabled` flag is now resolved per process
+  via `AP_WORKTREE_ENABLED` (explicit operator override) and `CLAUDE_CODE_REMOTE`
+  (web auto-detect), so one config serves both environments without git-
+  history thrash. New claim-based pool mode: `/sprint-execute` with no story
+  id picks the next eligible story off the Epic's dispatch manifest via an
+  `in-progress-by:<sessionId>` label plus a `[claim]` structured comment, with
+  read-back race detection. Launch-time dependency guard refuses stories with
+  unmerged blockers. Story close wraps the epic-branch push in a bounded
+  fetch-replay-push retry (`orchestration.closeRetry`) so concurrent closes
+  from separate clones converge cleanly. Reclaimable stale claims (older than
+  `orchestration.poolMode.staleClaimMinutes`, default 60) surface in pool-mode
+  launch output for operator decision. New "Running sprint-execute on Claude
+  Code web" runbook in `.agents/README.md`; worktree-off pattern and side-by-
+  side execution-model diagram in [docs/patterns.md](docs/patterns.md) and
+  [docs/architecture.md](docs/architecture.md). See
+  [docs/CHANGELOG.md](docs/CHANGELOG.md) for the full entry.
 - **v5.16.0 — Live runner progress + workflow-to-script migration (2026-04-22).**
   Two feature slices. (1) `ProgressReporter` now mirrors every per-wave
   snapshot to `<orchestration.epicRunner.logsDir>/epic-<epicId>-progress.log`

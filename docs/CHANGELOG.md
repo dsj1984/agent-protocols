@@ -4,6 +4,49 @@ All notable changes to this project will be documented in this file.
 
 ## [Unreleased]
 
+## [5.24.0] - 2026-04-24
+
+### Parallel `/sprint-execute` on Claude Code web (Epic #668)
+
+`/sprint-execute` now runs unchanged in claude.ai/code web sessions, including
+N parallel sessions against one sprint wave. The same command, the same
+ticket lifecycle, the same close-and-cascade — only the worktree layer
+changes shape based on where the session runs.
+
+- **Environment-aware worktree resolver.** `orchestration.worktreeIsolation.
+  enabled` is now resolved per process. `AP_WORKTREE_ENABLED=true|false` is an
+  explicit operator override, `CLAUDE_CODE_REMOTE=true` auto-disables
+  worktrees for web sessions, and the committed config is the fallback. The
+  committed value is never written by any runtime path.
+- **Pool-mode launch.** `/sprint-execute` invoked with no story id claims the
+  first eligible story from the Epic's dispatch manifest via an
+  `in-progress-by:<sessionId>` label plus a `[claim]` structured comment.
+  Read-back race detection releases the loser's label so the next eligible
+  story can be picked. Exits 0 with a visible reason when the manifest is
+  fully claimed or complete.
+- **Launch-time dependency guard.** A story whose blockers have not yet
+  merged refuses to launch — each blocker is printed with id, state, and URL,
+  and the session exits 0 without touching branches. Identical on local and
+  web; composes with pool-mode eligibility.
+- **Bounded push retry on story close.** The epic-branch push wraps a
+  fetch / replay / push retry loop driven by
+  `orchestration.closeRetry.maxAttempts` (default 3) and
+  `orchestration.closeRetry.backoffMs` (default `[250, 500, 1000]`).
+  Concurrent closes from separate clones converge cleanly; real content
+  conflicts abort with a clear error and a clean local tree.
+- **Reclaimable claim surfacing.** `in-progress-by:*` labels older than
+  `orchestration.poolMode.staleClaimMinutes` (default 60) are listed as
+  reclaimable in pool-mode launch output for operator decision; no automated
+  sweep.
+- **New config keys.** `orchestration.closeRetry.{maxAttempts,backoffMs}` and
+  `orchestration.poolMode.{staleClaimMinutes,sessionIdLength}`. Both blocks
+  are optional — omitting them yields v5.23.0-equivalent behaviour.
+- **Documented runbook.** New "Running sprint-execute on Claude Code web"
+  section in `.agents/README.md` covers required secrets, env-var precedence,
+  parallel launch, and progress-tracking across N tabs. The worktree-off
+  pattern and side-by-side execution-model diagram land in
+  `docs/patterns.md` and `docs/architecture.md`.
+
 ## [5.23.0] - 2026-04-24
 
 ### Framework perf & docs follow-ons from Epic #553 retro (Epic #638)

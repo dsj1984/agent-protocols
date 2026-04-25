@@ -77,6 +77,81 @@ Each dispatched story runs in its own `git worktree`:
 *   Windows path limits require a pre-flight warning when estimated depth
     exceeds the configured threshold.
 
+## Worktree-off Mode (Epic #668, v5.24.0+)
+
+### Problem
+
+Two execution environments coexist for `/sprint-execute`: local Claude Code
+sessions on a developer's machine (one shared filesystem, multiple agents) and
+web Claude Code sessions at claude.ai/code (each session is its own sandboxed
+clone). The worktree-isolation pattern from v5.7.0 was designed for the local
+case where a shared working tree had to be partitioned. On web that problem
+doesn't exist — the session itself is already an isolated clone — so creating
+`.worktrees/story-<id>/` inside an already-isolated clone wastes disk, slows
+the install step, and makes path-length warnings spuriously fire.
+
+A single committed config value (`orchestration.worktreeIsolation.enabled`)
+cannot serve both — flipping it whenever the operator switches between local
+and web would pollute git history.
+
+### Solution
+
+The flag is **resolved**, not just read, by
+`resolveWorktreeEnabled(opts, env)` in `lib/config-resolver.js`. Precedence:
+
+1. `env.AP_WORKTREE_ENABLED === 'true'` → `true` (explicit operator override).
+2. `env.AP_WORKTREE_ENABLED === 'false'` → `false` (explicit operator override).
+3. `env.CLAUDE_CODE_REMOTE === 'true'` → `false` (web-session auto-detect).
+4. Otherwise → committed `orchestration.worktreeIsolation.enabled`.
+
+The committed config is read-only at runtime; no workflow writes it. A single
+startup log line names the resolved value and the source of the decision so
+the run is auditable from logs alone.
+
+When resolved to `false`, every `WorktreeManager` method short-circuits to a
+no-op, the `.agents/` copy and `nodeModulesStrategy` branches collapse to the
+single repo-root install, and consumers use `process.cwd()` (the resolved
+`PROJECT_ROOT`) wherever they would have used the worktree path. The
+worktree-on path is byte-identical to its pre-resolver behaviour.
+
+### When it engages
+
+- A web Claude Code session: `CLAUDE_CODE_REMOTE` is set automatically.
+- A local session with `AP_WORKTREE_ENABLED=false` exported.
+- A repository whose committed `orchestration.worktreeIsolation.enabled` is
+  `false` (uncommon — most repos leave the default `true`).
+
+### Exercising it locally
+
+Set `AP_WORKTREE_ENABLED=false` in your shell and run `/sprint-execute
+<storyId>` against a story branch. The init script reports
+`[ENV] worktreeIsolation=off (AP_WORKTREE_ENABLED override)` and runs the
+story directly in the main checkout. Story close merges, reaps (a no-op),
+pushes, and cascades exactly as it would with worktrees on. The same
+`/sprint-execute` codepath drives both paths — there is no separate
+"web mode" command.
+
+### Identity signals
+
+`runtime.sessionId`, also produced by the resolver, prefers
+`CLAUDE_CODE_REMOTE_SESSION_ID` when available and falls back to a local
+hostname+pid+random short-id. It is the value used in
+`in-progress-by:<sessionId>` claim labels and `[claim]` structured comments,
+so two sessions on the same machine generate distinct claims and a web
+session retains a stable id across its run.
+
+### Trade-offs
+
+- The off-path is exercised less often than the on-path locally, so
+  regressions can land unnoticed without explicit coverage. The pattern is
+  paired with a diff test that runs the same fixture both ways and asserts
+  the on-branch logs are byte-identical to a saved baseline.
+- The resolver consumes process environment, not config — operators get no
+  schema validation on env-var typos. The string-equality match (`'true'` /
+  `'false'`) is deliberate: any other value falls through to the next rule.
+
+---
+
 ## Rule-as-SSOT, Skill-as-Guidance (v5.11.0+)
 
 ### Problem

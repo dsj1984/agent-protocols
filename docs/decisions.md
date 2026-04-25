@@ -1,5 +1,73 @@
 # Architecture Decision Records (ADR)
 
+## ADR 20260424-668a: Resolve `worktreeIsolation.enabled` from environment, not config
+
+**Status:** Accepted
+**Date:** 2026-04-24
+**Epic:** #668
+
+### Context
+
+Two execution environments coexist for `/sprint-execute`: local Claude Code
+sessions on a developer machine (one shared filesystem, multiple agents) and
+web Claude Code sessions at claude.ai/code (each session is its own sandboxed
+clone). The shared-filesystem coordination problem that `.worktrees/` solves
+locally does not exist on web — the session itself is already an isolated
+clone. A single committed `orchestration.worktreeIsolation.enabled` value
+cannot serve both: flipping it between local and web runs would pollute git
+history and confuse other contributors.
+
+### Decision
+
+`orchestration.worktreeIsolation.enabled` becomes a **resolved** value, not
+just a read value. `resolveWorktreeEnabled(opts, env)` in
+`lib/config-resolver.js` consults environment signals before falling back to
+the committed config. Precedence:
+
+1. `env.AP_WORKTREE_ENABLED === 'true'` → `true` (explicit operator override).
+2. `env.AP_WORKTREE_ENABLED === 'false'` → `false` (explicit operator
+   override).
+3. `env.CLAUDE_CODE_REMOTE === 'true'` → `false` (web-session auto-detect).
+4. Otherwise → committed `orchestration.worktreeIsolation.enabled`.
+
+The same resolver also publishes `runtime.sessionId`, preferring
+`CLAUDE_CODE_REMOTE_SESSION_ID` when available (set automatically inside web
+sessions) and falling back to a hostname+pid+random short-id. The committed
+config is read-only at runtime; no workflow writes it.
+
+### Consequences
+
+- **Positive:** One committed config, two execution environments, no git-
+  history thrash. Web sessions auto-disable worktrees; local sessions retain
+  the v5.7.0 isolation behaviour. Operators can force either mode locally with
+  one env var.
+- **Positive:** `runtime.sessionId` is available for the claim-protocol's
+  `in-progress-by:<sessionId>` label and `[claim]` structured comment without
+  a separate identity layer.
+- **Negative:** The resolver consumes process environment, not config — typos
+  in env var names fall through silently to the next rule. Mitigated by
+  string-equality matching (`'true'` / `'false'` literal) so `"0"` / `""` /
+  truthy-but-non-matching values cannot accidentally flip the flag.
+- **Negative:** The worktree-off path is exercised less often than the
+  worktree-on path on local machines. Mitigated by a diff test that runs the
+  same fixture both ways and asserts the on-branch logs are byte-identical to
+  a saved baseline.
+
+### Alternatives considered
+
+- **Two committed configs (`.agentrc.web.json` / `.agentrc.local.json`).**
+  Rejected: would require runtime selection logic anyway and operators would
+  still hand-edit one to ship.
+- **Auto-detect via `git worktree list` size or filesystem inspection.**
+  Rejected: indirect signal, unreliable in CI and exotic environments. The
+  explicit `CLAUDE_CODE_REMOTE` marker Anthropic ships in web is the right
+  contract.
+- **Dedicated `/sprint-execute-web` slash command.** Rejected: forks the
+  codepath. The Epic's hard requirement was operator parity — the same
+  command, with the same contract, working in both environments.
+
+---
+
 ## ADR 001: Autonomous Protocol Refinement Loop
 
 **Status:** Reverted (Moved to manual process)  
