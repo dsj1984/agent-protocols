@@ -159,7 +159,7 @@ describe('agentrc.schema.json mirror — drift vs runtime AJV schemas', () => {
     assertAgree('agentSettings', { buildCommand: null }, 'null buildCommand');
   });
 
-  it("rejects empty-string typecheckCommand on both sides", () => {
+  it('rejects empty-string typecheckCommand on both sides', () => {
     assertAgree(
       'agentSettings',
       { typecheckCommand: '' },
@@ -167,7 +167,7 @@ describe('agentrc.schema.json mirror — drift vs runtime AJV schemas', () => {
     );
   });
 
-  it("rejects empty-string buildCommand on both sides", () => {
+  it('rejects empty-string buildCommand on both sides', () => {
     assertAgree('agentSettings', { buildCommand: '' }, 'empty buildCommand');
   });
 
@@ -228,11 +228,7 @@ describe('agentrc.schema.json mirror — drift vs runtime AJV schemas', () => {
   });
 
   it('rejects audits.selectionGitTimeoutMs below the floor on both sides', () => {
-    assertAgree(
-      'audits',
-      { selectionGitTimeoutMs: 500 },
-      'audits below floor',
-    );
+    assertAgree('audits', { selectionGitTimeoutMs: 500 }, 'audits below floor');
   });
 
   it('mirror references a draft 2020-12 $schema', () => {

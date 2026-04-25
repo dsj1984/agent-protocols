@@ -58,10 +58,7 @@ describe('AGENT_SETTINGS_SCHEMA — explicit number/object entries', () => {
   });
 
   it('accepts qualityGate with checks array', () => {
-    assert.equal(
-      validate({ qualityGate: { checks: ['lint', 'test'] } }),
-      true,
-    );
+    assert.equal(validate({ qualityGate: { checks: ['lint', 'test'] } }), true);
   });
 
   it('rejects unknown property on qualityGate', () => {
@@ -133,10 +130,7 @@ describe('AGENT_SETTINGS_SCHEMA — nullable optional commands', () => {
   });
 
   it('rejects shell injection in typecheckCommand', () => {
-    expectErrors(
-      { typecheckCommand: 'tsc; rm -rf /' },
-      /typecheckCommand/,
-    );
+    expectErrors({ typecheckCommand: 'tsc; rm -rf /' }, /typecheckCommand/);
   });
 
   it('rejects shell injection in buildCommand', () => {

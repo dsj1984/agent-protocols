@@ -49,7 +49,12 @@
         "enabled": { "type": "boolean" },
         "targetDirs": { "$ref": "#/$defs/listOrExtenderOfStrings" },
         "newMethodCeiling": { "type": "integer", "minimum": 1 },
-        "coveragePath": { "allOf": [{ "$ref": "#/$defs/safeString" }, { "type": "string", "minLength": 1 }] },
+        "coveragePath": {
+          "allOf": [
+            { "$ref": "#/$defs/safeString" },
+            { "type": "string", "minLength": 1 }
+          ]
+        },
         "tolerance": { "type": "number", "minimum": 0 },
         "requireCoverage": { "type": "boolean" },
         "friction": {
@@ -57,7 +62,12 @@
           "properties": { "markerKey": { "type": "string", "minLength": 1 } },
           "additionalProperties": false
         },
-        "refreshTag": { "allOf": [{ "$ref": "#/$defs/safeString" }, { "type": "string", "minLength": 1 }] }
+        "refreshTag": {
+          "allOf": [
+            { "$ref": "#/$defs/safeString" },
+            { "type": "string", "minLength": 1 }
+          ]
+        }
       }
     },
     "maintainability": {
@@ -73,7 +83,12 @@
       "properties": {
         "docs": {
           "type": "array",
-          "items": { "allOf": [{ "$ref": "#/$defs/safeString" }, { "type": "string", "minLength": 1 }] }
+          "items": {
+            "allOf": [
+              { "$ref": "#/$defs/safeString" },
+              { "type": "string", "minLength": 1 }
+            ]
+          }
         },
         "versionFile": { "$ref": "#/$defs/nullableSafeString" },
         "packageJson": { "type": "boolean" },
@@ -217,7 +232,10 @@
       "type": "object",
       "properties": {
         "maxAttempts": { "type": "integer", "minimum": 1 },
-        "backoffMs": { "type": "array", "items": { "type": "integer", "minimum": 0 } }
+        "backoffMs": {
+          "type": "array",
+          "items": { "type": "integer", "minimum": 0 }
+        }
       },
       "additionalProperties": false
     },
@@ -237,7 +255,11 @@
         "github": { "$ref": "#/$defs/github" },
         "executor": { "type": "string" },
         "notifications": { "$ref": "#/$defs/notifications" },
-        "hitl": { "type": "object", "properties": {}, "additionalProperties": false },
+        "hitl": {
+          "type": "object",
+          "properties": {},
+          "additionalProperties": false
+        },
         "worktreeIsolation": { "$ref": "#/$defs/worktreeIsolation" },
         "epicRunner": { "$ref": "#/$defs/epicRunner" },
         "planRunner": { "$ref": "#/$defs/planRunner" },
