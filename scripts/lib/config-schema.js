@@ -113,6 +113,55 @@ const PLAN_RUNNER_SCHEMA = {
 };
 
 /**
+ * `orchestration.closeRetry` — bounded retry policy for the epic-branch push
+ * step in `sprint-story-close.js`. Protects concurrent story closures against
+ * non-fast-forward rejections when a sibling session lands on the same Epic
+ * branch between our fetch and our push.
+ *
+ * Both keys are optional. Defaults (applied by the consumer, not the schema)
+ * are `{ maxAttempts: 3, backoffMs: [250, 500, 1000] }`.
+ */
+const CLOSE_RETRY_SCHEMA = {
+  type: 'object',
+  properties: {
+    maxAttempts: { type: 'integer', minimum: 1 },
+    backoffMs: {
+      type: 'array',
+      items: { type: 'integer', minimum: 0 },
+    },
+  },
+  additionalProperties: false,
+};
+
+/** Default applied when `orchestration.closeRetry` is absent or incomplete. */
+export const DEFAULT_CLOSE_RETRY = Object.freeze({
+  maxAttempts: 3,
+  backoffMs: Object.freeze([250, 500, 1000]),
+});
+
+/**
+ * `orchestration.poolMode` — claim-based pool mode for `/sprint-execute`
+ * invoked without a story id. `staleClaimMinutes` controls when an
+ * `in-progress-by:*` label is surfaced as reclaimable in pool-mode output;
+ * `sessionIdLength` caps the truncated session-id used in the label suffix
+ * (GitHub label names are limited to 50 chars).
+ */
+const POOL_MODE_SCHEMA = {
+  type: 'object',
+  properties: {
+    staleClaimMinutes: { type: 'integer', minimum: 1 },
+    sessionIdLength: { type: 'integer', minimum: 4 },
+  },
+  additionalProperties: false,
+};
+
+/** Default applied when `orchestration.poolMode` is absent or incomplete. */
+export const DEFAULT_POOL_MODE = Object.freeze({
+  staleClaimMinutes: 60,
+  sessionIdLength: 12,
+});
+
+/**
  * `orchestration.concurrency` — per-site caps for the `concurrentMap`
  * adoption sites shipped in v5.21.0 (Epic #553). All keys optional;
  * omitting them preserves the v5.21.0 constant-valued defaults exactly.
@@ -187,6 +236,8 @@ export const ORCHESTRATION_SCHEMA = {
     epicRunner: EPIC_RUNNER_SCHEMA,
     planRunner: PLAN_RUNNER_SCHEMA,
     concurrency: CONCURRENCY_SCHEMA,
+    closeRetry: CLOSE_RETRY_SCHEMA,
+    poolMode: POOL_MODE_SCHEMA,
   },
   additionalProperties: false,
 };

@@ -12,7 +12,7 @@
  */
 
 import fs from 'node:fs';
-import path from 'node:path';
+import { resolveWorkingPath } from '../config-resolver.js';
 import { gitSpawn } from '../git-utils.js';
 import { Logger } from '../Logger.js';
 
@@ -40,7 +40,12 @@ const DEFAULT_FS_ADAPTER = {
 };
 
 function storyWorktreePath(cwd, storyId, worktreeRoot) {
-  return path.join(cwd, worktreeRoot ?? '.worktrees', `story-${storyId}`);
+  return resolveWorkingPath({
+    worktreeEnabled: true,
+    repoRoot: cwd,
+    storyId,
+    worktreeRoot,
+  });
 }
 
 /**
@@ -219,8 +224,7 @@ export function restartStoryState({
   // 2. Drop the worktree if isolation is enabled.
   const wtConfig = orchestration?.worktreeIsolation;
   if (wtConfig?.enabled) {
-    const wtRoot = wtConfig.root ?? '.worktrees';
-    const wtPath = path.join(cwd, wtRoot, `story-${storyId}`);
+    const wtPath = storyWorktreePath(cwd, storyId, wtConfig.root);
     if (fs.existsSync(wtPath)) {
       progress('RESTART', `Removing worktree ${wtPath}`);
       const remove = gitSpawn(cwd, 'worktree', 'remove', '--force', wtPath);
@@ -248,8 +252,7 @@ export function restartStoryState({
 
   // 5. Recreate the worktree if isolation is enabled.
   if (wtConfig?.enabled) {
-    const wtRoot = wtConfig.root ?? '.worktrees';
-    const wtPath = path.join(cwd, wtRoot, `story-${storyId}`);
+    const wtPath = storyWorktreePath(cwd, storyId, wtConfig.root);
     const add = gitSpawn(cwd, 'worktree', 'add', wtPath, storyBranch);
     if (add.status !== 0) {
       logger.fatal(

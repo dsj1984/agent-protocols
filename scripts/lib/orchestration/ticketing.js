@@ -49,13 +49,23 @@ export const STRUCTURED_COMMENT_TYPES = Object.freeze([
 export const WAVE_TYPE_PATTERN = WAVE_MARKER_RE;
 
 /**
+ * Pool-mode claim-comment marker. One marker per story-id (the comment is
+ * upserted, so racing claims on the same story collapse to a single
+ * authoritative entry — the label set is the actual race-detection signal).
+ * Bounded to 1-9 digits to mirror the wave-marker safety margin.
+ */
+export const CLAIM_TYPE_PATTERN = /^claim-([0-9]{1,9})$/;
+
+/**
  * @param {string} type
  * @returns {boolean}
  */
 export function isValidStructuredCommentType(type) {
   if (typeof type !== 'string' || type.length === 0) return false;
   return (
-    STRUCTURED_COMMENT_TYPES.includes(type) || WAVE_TYPE_PATTERN.test(type)
+    STRUCTURED_COMMENT_TYPES.includes(type) ||
+    WAVE_TYPE_PATTERN.test(type) ||
+    CLAIM_TYPE_PATTERN.test(type)
   );
 }
 
@@ -70,7 +80,7 @@ export function assertValidStructuredCommentType(type) {
   if (isValidStructuredCommentType(type)) return;
   throw new Error(
     `Invalid structured-comment type: ${JSON.stringify(type)}. ` +
-      `Accepted: ${STRUCTURED_COMMENT_TYPES.join(', ')} or pattern ${WAVE_TYPE_PATTERN}.`,
+      `Accepted: ${STRUCTURED_COMMENT_TYPES.join(', ')} or patterns ${WAVE_TYPE_PATTERN}, ${CLAIM_TYPE_PATTERN}.`,
   );
 }
 

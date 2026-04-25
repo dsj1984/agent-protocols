@@ -29,7 +29,11 @@
 import path from 'node:path';
 import { parseSprintArgs } from './lib/cli-args.js';
 import { runAsCli } from './lib/cli-utils.js';
-import { PROJECT_ROOT, resolveConfig } from './lib/config-resolver.js';
+import {
+  PROJECT_ROOT,
+  resolveConfig,
+  resolveRuntime,
+} from './lib/config-resolver.js';
 import { parseBlockedBy } from './lib/dependency-parser.js';
 import { getEpicBranch, getStoryBranch } from './lib/git-utils.js';
 import { Logger } from './lib/Logger.js';
@@ -38,6 +42,7 @@ import { createProvider } from './lib/provider-factory.js';
 import { validateBlockers } from './lib/story-init/blocker-validator.js';
 import { initializeBranch } from './lib/story-init/branch-initializer.js';
 import { resolveContext } from './lib/story-init/context-resolver.js';
+import { runDispatchManifestGuard } from './lib/story-init/dependency-guard.js';
 import { traceHierarchy } from './lib/story-init/hierarchy-tracer.js';
 import { transitionTaskStates } from './lib/story-init/state-transitioner.js';
 import { buildTaskGraph } from './lib/story-init/task-graph-builder.js';
@@ -94,9 +99,20 @@ export async function runStoryInit({
     );
   }
 
-  const { settings, orchestration } = injectedConfig || resolveConfig({ cwd });
+  const config = injectedConfig || resolveConfig({ cwd });
+  const { settings, orchestration } = config;
   const provider = injectedProvider || createProvider(orchestration);
   const notifier = createNotifier(orchestration, provider, { cwd });
+
+  const runtime = resolveRuntime({ config });
+  progress(
+    'ENV',
+    `worktreeIsolation=${runtime.worktreeEnabled ? 'on' : 'off'} (${runtime.worktreeEnabledSource})`,
+  );
+  progress(
+    'ENV',
+    `sessionId=${runtime.sessionId} (${runtime.sessionIdSource})`,
+  );
 
   progress('INIT', `Initializing Story #${storyId}...`);
 
@@ -151,6 +167,27 @@ export async function runStoryInit({
   if (parseBlockedBy(body).length > 0)
     progress('BLOCKERS', '✅ All blockers resolved');
 
+  // Stage 3.5 — dispatch-manifest dependency guard. Runs before any git
+  // mutation so a halt leaves zero partial state behind.
+  if (!dryRun) {
+    const guard = await runDispatchManifestGuard({
+      epicId,
+      storyId,
+      cwd,
+      provider,
+      orchestration,
+      logger: stageLogger,
+    });
+    if (guard.blocked) {
+      return {
+        success: false,
+        blocked: true,
+        reason: 'dispatch-manifest-blockers-unmerged',
+        openBlockers: guard.openBlockers,
+      };
+    }
+  }
+
   // Stage 4 — task graph.
   const { sortedTasks } = await buildTaskGraph({
     provider,
@@ -166,7 +203,7 @@ export async function runStoryInit({
   let worktreeCreated = false;
   let installFailed = false;
   const wtConfig = orchestration?.worktreeIsolation;
-  const worktreeEnabled = !!wtConfig?.enabled;
+  const { worktreeEnabled } = runtime;
 
   // Per-phase timer. The init-side emits worktree-create / bootstrap /
   // install via the WorktreeManager `onPhase` callback, opens `implement`
