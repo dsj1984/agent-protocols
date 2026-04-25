@@ -7,14 +7,12 @@ import { SHELL_INJECTION_PATTERN_STRING } from './config-schema-shared.js';
  * non-malicious string by {@link AGENT_SETTINGS_SCHEMA}. Adding a new
  * top-level string field means appending to this list, nothing else.
  *
- * Optional commands that accept `null` to mean "disabled" (currently
- * `typecheckCommand` and `buildCommand`) are NOT in this list; they have
- * explicit `properties` entries below using {@link NULLABLE_NONEMPTY_SAFE_STRING}.
+ * Command fields (validate, lintBaseline, test, exploratoryTest, typecheck,
+ * build) live under `agentSettings.commands` (Epic #730 Story 5) and are NOT
+ * in this list — see {@link COMMANDS_SCHEMA} below.
  */
 export const AGENT_SETTINGS_STRING_FIELDS = Object.freeze([
   'baseBranch',
-  'validationCommand',
-  'testCommand',
   'agentRoot',
   'scriptsRoot',
   'workflowsRoot',
@@ -26,9 +24,7 @@ export const AGENT_SETTINGS_STRING_FIELDS = Object.freeze([
   'docsRoot',
   'tempRoot',
   'auditOutputDir',
-  'lintBaselineCommand',
   'lintBaselinePath',
-  'exploratoryTestCommand',
 ]);
 
 const STRING_FIELDS_PATTERN = `^(${AGENT_SETTINGS_STRING_FIELDS.join('|')})$`;
@@ -171,6 +167,29 @@ const QUALITY_GATE_SCHEMA = {
   additionalProperties: false,
 };
 
+/**
+ * Grouped command fields (Epic #730 Story 5). Replaces the flat
+ * `validationCommand` / `lintBaselineCommand` / `testCommand` /
+ * `exploratoryTestCommand` / `typecheckCommand` / `buildCommand` keys.
+ *
+ * `typecheck` and `build` accept `null` to mean "disabled" (Story 3
+ * `null`-for-disabled convention); the others are required-when-present
+ * non-empty strings. `additionalProperties: false` so a misspelled command
+ * key fails validation up front.
+ */
+export const COMMANDS_SCHEMA = {
+  type: 'object',
+  properties: {
+    validate: { ...SAFE_STRING, minLength: 1 },
+    lintBaseline: { ...SAFE_STRING, minLength: 1 },
+    test: { ...SAFE_STRING, minLength: 1 },
+    exploratoryTest: { ...SAFE_STRING, minLength: 1 },
+    typecheck: NULLABLE_NONEMPTY_SAFE_STRING,
+    build: NULLABLE_NONEMPTY_SAFE_STRING,
+  },
+  additionalProperties: false,
+};
+
 export const AGENT_SETTINGS_SCHEMA = {
   type: 'object',
   // `agentRoot`, `docsRoot`, `tempRoot` are hard-required. Resolver fallbacks
@@ -191,8 +210,7 @@ export const AGENT_SETTINGS_SCHEMA = {
     frictionThresholds: FRICTION_THRESHOLDS_SCHEMA,
     riskGates: RISK_GATES_SCHEMA,
     qualityGate: QUALITY_GATE_SCHEMA,
-    typecheckCommand: NULLABLE_NONEMPTY_SAFE_STRING,
-    buildCommand: NULLABLE_NONEMPTY_SAFE_STRING,
+    commands: COMMANDS_SCHEMA,
   },
   patternProperties: {
     [STRING_FIELDS_PATTERN]: SAFE_STRING,
