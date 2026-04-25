@@ -85,127 +85,127 @@
       "crap": 4,
       "file": ".agents/scripts/audit-orchestrator.js",
       "method": "severityIcon",
-      "startLine": 12
+      "startLine": 13
     },
     {
       "crap": 3,
       "file": ".agents/scripts/audit-orchestrator.js",
       "method": "renderFindingsBlock",
-      "startLine": 20
+      "startLine": 21
     },
     {
       "crap": 3,
       "file": ".agents/scripts/audit-orchestrator.js",
       "method": "renderSummaryLine",
-      "startLine": 46
+      "startLine": 47
     },
     {
       "crap": 4,
       "file": ".agents/scripts/audit-orchestrator.js",
       "method": "renderWorkflowsBlock",
-      "startLine": 56
+      "startLine": 57
     },
     {
       "crap": 3,
       "file": ".agents/scripts/audit-orchestrator.js",
       "method": "formatAuditReport",
-      "startLine": 74
+      "startLine": 75
     },
     {
-      "crap": 5.760065958911678,
+      "crap": 11.564593512232301,
       "file": ".agents/scripts/audit-orchestrator.js",
       "method": "runAuditOrchestrator",
-      "startLine": 90
+      "startLine": 91
     },
     {
-      "crap": 12,
+      "crap": 20,
       "file": ".agents/scripts/audit-orchestrator.js",
       "method": "main",
-      "startLine": 140
+      "startLine": 153
     },
     {
-      "crap": 12.047234408954857,
+      "crap": 13.041259765625,
       "file": ".agents/scripts/baseline-refresh-guardrail.js",
       "method": "parseCliArgs",
-      "startLine": 50
+      "startLine": 51
     },
     {
       "crap": 5,
       "file": ".agents/scripts/baseline-refresh-guardrail.js",
       "method": "parseBaseBranchConfig",
-      "startLine": 94
+      "startLine": 98
     },
     {
       "crap": 3,
       "file": ".agents/scripts/baseline-refresh-guardrail.js",
       "method": "classifyChangedFiles",
-      "startLine": 126
+      "startLine": 130
     },
     {
       "crap": 2,
       "file": ".agents/scripts/baseline-refresh-guardrail.js",
       "method": "parseCommitLog",
-      "startLine": 151
+      "startLine": 155
     },
     {
       "crap": 3,
       "file": ".agents/scripts/baseline-refresh-guardrail.js",
       "method": "findRefreshCommits",
-      "startLine": 175
+      "startLine": 179
     },
     {
       "crap": 3,
       "file": ".agents/scripts/baseline-refresh-guardrail.js",
       "method": "evaluateGuardrail",
-      "startLine": 201
+      "startLine": 205
     },
     {
       "crap": 1.2962962962962963,
       "file": ".agents/scripts/baseline-refresh-guardrail.js",
       "method": "readBaseBranchConfigRaw",
-      "startLine": 262
+      "startLine": 266
     },
     {
-      "crap": 5.20262390670554,
+      "crap": 2,
       "file": ".agents/scripts/baseline-refresh-guardrail.js",
       "method": "listChangedFiles",
-      "startLine": 272
+      "startLine": 281
     },
     {
       "crap": 5.005259203606311,
       "file": ".agents/scripts/baseline-refresh-guardrail.js",
       "method": "listCommitsSinceBase",
-      "startLine": 290
+      "startLine": 300
     },
     {
       "crap": 7.028356481481482,
       "file": ".agents/scripts/baseline-refresh-guardrail.js",
       "method": "applyBaselineRefreshLabel",
-      "startLine": 310
+      "startLine": 320
     },
     {
       "crap": 2,
       "file": ".agents/scripts/baseline-refresh-guardrail.js",
       "method": "runGh",
-      "startLine": 359
+      "startLine": 369
     },
     {
       "crap": 1.8573749999999998,
       "file": ".agents/scripts/baseline-refresh-guardrail.js",
       "method": "runCheckCrapWithBaseConfig",
-      "startLine": 373
+      "startLine": 383
     },
     {
       "crap": 2,
       "file": ".agents/scripts/baseline-refresh-guardrail.js",
       "method": "spawnSyncWrapper",
-      "startLine": 394
+      "startLine": 404
     },
     {
-      "crap": 72,
+      "crap": 110,
       "file": ".agents/scripts/baseline-refresh-guardrail.js",
       "method": "main",
-      "startLine": 398
+      "startLine": 408
     },
     {
       "crap": 15,
@@ -1142,6 +1142,30 @@
       "file": ".agents/scripts/lib/crap-utils.js",
       "method": "scanAndScore",
       "startLine": 238
+    },
+    {
+      "crap": 1,
+      "file": ".agents/scripts/lib/degraded-mode.js",
+      "method": "degraded",
+      "startLine": 23
+    },
+    {
+      "crap": 5,
+      "file": ".agents/scripts/lib/degraded-mode.js",
+      "method": "isDegraded",
+      "startLine": 30
+    },
+    {
+      "crap": 5,
+      "file": ".agents/scripts/lib/degraded-mode.js",
+      "method": "isGateMode",
+      "startLine": 45
+    },
+    {
+      "crap": 2,
+      "file": ".agents/scripts/lib/degraded-mode.js",
+      "method": "softFailOrThrow",
+      "startLine": 61
     },
     {
       "crap": 2,
@@ -3400,6 +3424,36 @@
       "startLine": 192
     },
     {
+      "crap": 6,
+      "file": ".agents/scripts/lint-baseline.js",
+      "method": "parseLintOutput",
+      "startLine": 19
+    },
+    {
+      "crap": 2.002314814814815,
+      "file": ".agents/scripts/lint-baseline.js",
+      "method": "runLintCommand",
+      "startLine": 41
+    },
+    {
+      "crap": 10.962623999999998,
+      "file": ".agents/scripts/lint-baseline.js",
+      "method": "captureBaseline",
+      "startLine": 78
+    },
+    {
+      "crap": 53.508964082168184,
+      "file": ".agents/scripts/lint-baseline.js",
+      "method": "checkBaseline",
+      "startLine": 104
+    },
+    {
+      "crap": 27.917784256559766,
+      "file": ".agents/scripts/lint-baseline.js",
+      "method": "main",
+      "startLine": 163
+    },
+    {
       "crap": 1,
       "file": ".agents/scripts/post-structured-comment.js",
       "method": "runPostStructuredComment",
@@ -3871,37 +3925,37 @@
       "crap": 1,
       "file": ".agents/scripts/select-audits.js",
       "method": "matchesFilePattern",
-      "startLine": 55
+      "startLine": 56
     },
     {
       "crap": 3,
       "file": ".agents/scripts/select-audits.js",
       "method": "matchesAnyFilePattern",
-      "startLine": 63
+      "startLine": 64
     },
     {
-      "crap": 13.013022162719244,
+      "crap": 13.034398534500305,
       "file": ".agents/scripts/select-audits.js",
       "method": "selectAudits",
-      "startLine": 85
+      "startLine": 95
     },
     {
       "crap": 1,
       "file": ".agents/scripts/select-audits.js",
       "method": "<anon method-4>",
-      "startLine": 114
+      "startLine": 125
     },
     {
-      "crap": 1.7865270823850707,
+      "crap": 1.800655976676385,
       "file": ".agents/scripts/select-audits.js",
       "method": "parseCliArgs",
-      "startLine": 180
+      "startLine": 198
     },
     {
-      "crap": 27.323832749072807,
+      "crap": 52.73444543576259,
       "file": ".agents/scripts/select-audits.js",
       "method": "main",
-      "startLine": 194
+      "startLine": 213
     },
     {
       "crap": 4,
