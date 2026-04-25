@@ -309,7 +309,6 @@ Wave 1:
 | ------------------------------------------------------------------ | -------------------------------------------------------------------------------------------------------------------------------------------------- |
 | `lib/orchestration/epic-runner/column-sync.js` (patched #448)      | Dropped the unused `$issueId: Int!` GraphQL variable; removed the silent-swallow try/catch so missing project rows surface as friction, not `unknown`. |
 | `lib/orchestration/friction-emitter.js` (new #450)                 | Rate-limited (`storyId` + marker hash, 60s cooldown) `friction` emitter wrapping `provider.postComment`.                                                |
-| `lib/orchestration/docs-context-bridge.js` (new #454)              | At Story-close, matches changed-file paths against `release.docs` + `agentSettings.docsContextFiles` and emits a `friction` comment on match.           |
 
 `CommitAssertion`'s default git adapter now falls back to a
 `resolves #<storyId>` grep on `origin/epic/<id>` when

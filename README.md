@@ -305,9 +305,7 @@ operator reference.
   `--no-reap-discard-after-merge` override). `validateOrchestrationConfig` is
   wired into launcher `main()` for `epic-runner.js`, `plan-runner.js`,
   `sprint-plan-spec.js`, `sprint-plan-decompose.js`. `/sprint-execute` Epic
-  Mode Phase 0.5 snapshots version-bump intent; `/sprint-execute` Story Mode
-  close emits a docs-context-bridge friction comment when the Story touches
-  configured `release.docs` paths. CI `test:coverage` gains stderr capture
+  Mode Phase 0.5 snapshots version-bump intent. CI `test:coverage` gains stderr capture
   (`2>&1` + `set -o pipefail`) so silent-stderr failures no longer slip past
   the artifact. Post-wave `CommitAssertion` falls back to an epic-branch
   `resolves #<id>` grep when `origin/story-<id>` is already deleted by

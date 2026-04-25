@@ -4,6 +4,15 @@ All notable changes to this project will be documented in this file.
 
 ## [Unreleased]
 
+### Removed
+
+- **docs-context-bridge.** Deleted `lib/orchestration/docs-context-bridge.js`
+  and its test. The advisory friction comment ran at sprint-story-close — too
+  late for the dev to act on, never read in practice, and the heuristic
+  path-segment-vs-heading match was noisy. The Epic-close docs-freshness gate
+  (`validate-docs-freshness.js`) is the load-bearing check and remains in
+  place.
+
 ## [5.26.0] - 2026-04-25
 
 ### Config schema modernization & baseline unification (Epic #730)
