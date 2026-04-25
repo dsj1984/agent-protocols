@@ -16,10 +16,8 @@ framework via the `.agents/` Git submodule.
 ├── schemas/                 # JSON Schemas for structured output validation
 ├── scripts/                 # v5 orchestration engine (CLI wrappers + SDK)
 │   ├── lib/                 # Core libraries, orchestration SDK, providers
-│   ├── mcp/                 # MCP tool implementations
 │   ├── providers/           # Ticketing provider implementations (GitHub)
-│   ├── adapters/            # Execution adapters (shell, MCP)
-│   └── mcp-orchestration.js # MCP Server entry point
+│   └── adapters/            # Execution adapters
 ├── skills/                  # Two-tier skill library
 │   ├── core/                # Universal process skills (20 skills)
 │   └── stack/               # Tech-stack-specific guardrails (22 skills)
@@ -164,68 +162,39 @@ node .agents/scripts/agents-bootstrap-github.js --install-workflows
 
 ---
 
-## MCP Server (Native Tooling)
+## Secrets now live in `.env`
 
-Version 5 introduces the **Agent Protocols MCP Server**, enabling agents to
-discover and invoke orchestration tools natively (e.g., in Cursor, Claude
-Desktop, or VS Code) without spawning shell subprocesses.
+As of Epic #702 the framework no longer ships an MCP server, so `.mcp.json`
+is **not** a valid home for framework secrets. Every environment variable
+the orchestration engine reads is sourced from the process environment
+only — loaded from `.env` locally, or set in the Claude Code web
+environment-variables UI for web sessions.
 
+### Keys the framework reads
 
-### 1. Configuration
+| Variable                   | Required? | Purpose                                                                                                            |
+| -------------------------- | --------- | ------------------------------------------------------------------------------------------------------------------ |
+| `GITHUB_TOKEN`             | Yes\*     | GitHub API auth for all ticketing operations. `GH_TOKEN` is accepted as a synonym. `gh auth token` is a fallback for local sessions. |
+| `NOTIFICATION_WEBHOOK_URL` | No        | POST target for in-band Notifier events (Make.com / Slack / Discord). Unset disables the webhook channel; `log` and `epic-comment` channels still fire. |
+| `WEBHOOK_SECRET`           | No        | Shared secret used to sign outbound webhook payloads as `X-Signature-256: sha256=<hmac>`. Unset ships unsigned payloads. |
 
-Add the following to your MCP host settings (e.g.,
-`claude_desktop_config.json`):
+\* `GITHUB_TOKEN`/`GH_TOKEN` is required for background scripts and CI; a
+locally-authenticated `gh auth login` session is an acceptable substitute
+in interactive developer sessions only.
 
-```json
-{
-  "mcpServers": {
-    "agent-protocols": {
-      "command": "node",
-      "args": [
-        "/absolute/path/to/your/project/.agents/scripts/mcp-orchestration.js"
-      ],
-      "env": {
-        "GITHUB_TOKEN": "your_token_here",
-        "NOTIFICATION_WEBHOOK_URL": "optional_webhook_url"
-      }
-    }
-  }
-}
-```
+### Where to put them
 
-> [!IMPORTANT] Always use **absolute paths** for the `args` array to ensure the
-> server starts correctly regardless of where your agent is currently focused.
+| Environment                | Storage location                                                                                                      |
+| -------------------------- | --------------------------------------------------------------------------------------------------------------------- |
+| Local development          | `.env` at the project root (auto-loaded by `config-resolver.js`). The file is `.gitignore`d; provision it per clone.  |
+| Claude Code web session    | The session's environment-variables UI. Values are injected as process env before `/sprint-execute` starts.           |
+| GitHub Actions remote run  | Repo secret `ENV_FILE`, expanded into `.env` by `.agents/scripts/remote-bootstrap.js` with `::add-mask::` + `0600`.   |
 
-### 2. Authentication & Secrets
-
-The MCP server resolves secrets in this priority:
-
-1. **Host Environment**: Variables defined in the `env` block of your MCP
-   config.
-2. **Project `.env`**: Automatically loaded from your project root.
-3. **External Tools**: Leverages the `github-mcp-server` if active in the same
-   session.
-
-### 3. Exposed Tools
-
-| Tool                      | Purpose                                                        |
-| ------------------------- | -------------------------------------------------------------- |
-| `dispatch_wave`           | DAG-based dispatch; returns markdown manifest with progress    |
-| `hydrate_context`         | Assembles a self-contained, fully hydrated execution prompt    |
-| `transition_ticket_state` | Label-based state machine with close/reopen semantics          |
-| `cascade_completion`      | Recursively propagates completion upward through the hierarchy |
-| `post_structured_comment` | Posts progress, friction, or notification comments on tickets  |
-| `select_audits`           | Analyzes ticket content to determine which audits to run       |
-| `run_audit_suite`         | Executes audit workflows and normalizes findings               |
-
-### 4. Debugging
-
-If the server is configured but not appearing:
-
-- Check the **stderr** logs in your MCP host.
-- Success message: `[MCP] agent-protocols v5.5.2 server started`
-- Failures: Initialization errors (missing dependencies, path issues) are logged
-  before the server exits with code 1.
+`.mcp.json` is reserved for your MCP host's own discovery of third-party
+servers (e.g. `@modelcontextprotocol/server-github`, `context7`) and is
+ignored by the orchestration engine. Any framework-specific keys still
+present in a `.mcp.json` from a pre-#702 checkout are **dead config** —
+move them to `.env` (local) or your web session's env-var UI (web).
 
 ---
 
@@ -409,8 +378,8 @@ Execution operations (branch creation, script dispatch) are mediated through the
 
 #### Orchestration SDK (`scripts/lib/orchestration/`)
 
-The SDK centralizes orchestration logic. All CLI scripts and the MCP server are
-**thin wrappers** that delegate to it:
+The SDK centralizes orchestration logic. All CLI scripts are **thin wrappers**
+that delegate to it:
 
 | Module                      | Exports                                         |
 | --------------------------- | ----------------------------------------------- |
@@ -427,7 +396,6 @@ The SDK centralizes orchestration logic. All CLI scripts and the MCP server are
 
 | Entry Point              | Purpose                                                        |
 | ------------------------ | -------------------------------------------------------------- |
-| `mcp-orchestration.js`   | **MCP Server** — exposes SDK functions as native agentic tools |
 | `dispatcher.js`          | CLI wrapper — `node dispatcher.js --epic N [--dry-run]`        |
 | `context-hydrator.js`    | CLI wrapper — `node context-hydrator.js --task N --epic N`     |
 | `update-ticket-state.js` | CLI wrapper — `node update-ticket-state.js --task N --state S` |
@@ -448,7 +416,6 @@ The SDK centralizes orchestration logic. All CLI scripts and the MCP server are
 | `agents-bootstrap-github.js`         | Idempotent setup of GitHub labels and project fields                    |
 | `epic-planner.js`                    | Autonomous PRD and Tech Spec generation                                 |
 | `ticket-decomposer.js`               | Recursive 4-tier hierarchy decomposition                                |
-| `mcp-orchestration.js`               | **MCP Server** — exposes dispatch, hydration, and state tools to agents |
 | `dispatcher.js`                      | CLI wrapper — DAG scheduler; outputs dispatch manifest                  |
 | `context-hydrator.js`                | CLI wrapper — assembles self-contained agent prompts                    |
 | `sprint-story-init.js`               | Initializes Story execution: branches, deps, state transitions          |
@@ -500,9 +467,11 @@ Add the following block to your `.agentrc.json`:
 | `notifications.mentionOperator` | No       | Whether to @mention the operator in comments            |
 
 The webhook URL for external delivery is **not** configured in `.agentrc.json`.
-It is sourced from the `agent-protocols` MCP server's env (`.mcp.json` →
-`mcpServers["agent-protocols"].env.NOTIFICATION_WEBHOOK_URL`) or from the
-`NOTIFICATION_WEBHOOK_URL` process env var (CI secret, `.env`).
+It is sourced from the `NOTIFICATION_WEBHOOK_URL` process env var only — set
+it in `.env` locally, in the Claude Code web environment-variables UI for web
+sessions, or as a repo secret via `ENV_FILE` for GitHub Actions runs. See
+[**Secrets now live in `.env`**](#secrets-now-live-in-env) for the full key
+list and the rationale.
 
 ---
 
@@ -512,9 +481,8 @@ The `GitHubProvider` resolves credentials in this priority order:
 
 | Priority | Method                       | Environment               |
 | -------- | ---------------------------- | ------------------------- |
-| 1        | GitHub MCP Server            | Agentic IDE (Antigravity) |
-| 2        | `GITHUB_TOKEN` or `GH_TOKEN` | CI/CD, background scripts |
-| 3        | `gh auth token` (CLI)        | Local developer workflow  |
+| 1        | `GITHUB_TOKEN` or `GH_TOKEN` | CI/CD, background scripts |
+| 2        | `gh auth token` (CLI)        | Local developer workflow  |
 
 ### Required Token Permissions
 
@@ -529,7 +497,6 @@ The `GitHubProvider` resolves credentials in this priority order:
 
 ### Configuration
 
-1. **Agentic IDE**: Ensure the `github-mcp-server` is active in the session.
 1. **Background scripts**: Set `GITHUB_TOKEN` in your environment or `.env` file
    at the project root.
 1. **Local CLI**: Run `gh auth login`.

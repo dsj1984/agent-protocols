@@ -372,8 +372,8 @@ entirety of the operator interface after dispatch.
   cannot make from ticket context alone.
 - A destructive action not pre-authorized by the ticket body (e.g. dropping a
   table, deleting user data, force-pushing to a protected branch).
-- External service failure preventing progress (MCP server unreachable, GitHub
-  API 5xx loop, npm registry down).
+- External service failure preventing progress (GitHub API 5xx loop, npm
+  registry down).
 - Wave concurrency exhausted for an unbounded time (possible deadlock).
 
 ### What is _not_ gated at runtime
@@ -412,7 +412,7 @@ where you want the compute to run.
 | **Observability**           | Live in VSCode — interrupt, inspect, ask Claude questions     | Actions log + structured comments on the Epic                    |
 | **Permission prompts**      | Claude Code asks you to approve tools (or `bypass`)           | Auto `--permission-mode bypassPermissions`                       |
 | **Label trigger required?** | No — engine flips to `agent::executing` directly              | Yes — `agent::dispatching` fires `epic-orchestrator.yml`         |
-| **Env/MCP config source**   | Your local `.env` / `.mcp.json`                               | `MCP_JSON` (and optional `ENV_FILE`) repo secrets                |
+| **Env/config source**       | Your local `.env`                                             | `ENV_FILE` repo secret                                           |
 | **Best for**                | Interactive debugging, first runs, short Epics, private repos | Long Epics, overnight runs, public repos, delegation from mobile |
 
 ### Cost guidance
@@ -475,10 +475,9 @@ Flipping an Epic to `agent::dispatching` fires
 1. Validates the trigger — issue is `type::epic`, open, non-empty body.
 2. Boots a Claude remote agent.
 3. The agent runs `.agents/scripts/remote-bootstrap.js`, which clones the repo,
-   materializes `.env` and `.mcp.json` from repo secrets (`ENV_FILE`,
-   `MCP_JSON`) with `::add-mask::` redaction and `0600` file perms, runs
-   `npm ci --ignore-scripts`, and launches `/sprint-execute <epicId>` (Epic
-   Mode).
+   materializes `.env` from the `ENV_FILE` repo secret with `::add-mask::`
+   redaction and `0600` file perms, runs `npm ci --ignore-scripts`, and
+   launches `/sprint-execute <epicId>` (Epic Mode).
 4. The Epic Runner (`.agents/scripts/lib/orchestration/epic-runner.js`) composes
    the submodules listed below into the unattended execution loop.
 
@@ -556,7 +555,7 @@ sprint evidence by
 ## Static analysis & audit orchestration
 
 An automated, gate-based static-analysis and audit orchestration pipeline
-replaces manual auditing with an MCP-driven system.
+replaces manual auditing with a CLI-driven system.
 
 ### Audit triggering
 
@@ -630,20 +629,18 @@ Level gate (set `orchestration.notifications.level` in `.agentrc.json`):
 | `default` | State transitions on Story and Epic tickets only (Task-level changes suppressed). |
 | `verbose` | Every tracked event (default).                             |
 
-Webhook URL resolution (first match wins):
+Webhook URL resolution:
 
-1. `NOTIFICATION_WEBHOOK_URL` process env var (loaded from `.env` / CI secret).
-2. `.mcp.json` at `.mcpServers["agent-protocols"].env.NOTIFICATION_WEBHOOK_URL`.
-
-The webhook URL is **not** sourced from `.agentrc.json` — the MCP config is the
-canonical home so the same portable `.mcp.json` drives both local and remote
-runs.
+- `NOTIFICATION_WEBHOOK_URL` process env var only — loaded from `.env` locally,
+  the Claude Code web environment-variables UI on web, or `ENV_FILE` on GitHub
+  Actions. The webhook URL is **not** sourced from `.agentrc.json`, and (as of
+  Epic #702) is no longer sourced from `.mcp.json`.
 
 Because the Notifier is called in-band, it captures changes from:
 
-- The Epic runner (coordinator-driven state flips)
-- Per-story scripts (`sprint-story-init.js`, `sprint-story-close.js`)
-- MCP tool calls that route through `transitionTicketState`
+- The Epic runner (coordinator-driven state flips).
+- Per-story scripts (`sprint-story-init.js`, `sprint-story-close.js`).
+- Any script that routes state changes through `transitionTicketState`.
 
 It does **not** capture manual label clicks in the GitHub UI (no webhook
 receiver). For programmatic orchestration workflows this covers >95% of

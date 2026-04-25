@@ -145,7 +145,9 @@ the run continues autonomously through `/sprint-code-review` → `/sprint-retro`
 
 ### Path 2 — Remote, GitHub-triggered
 
-1. Configure repo secrets: `ANTHROPIC_API_KEY`, `ENV_FILE`, `MCP_JSON`.
+1. Configure repo secrets: `ANTHROPIC_API_KEY` (or `CLAUDE_CODE_OAUTH_TOKEN`) and
+   `ENV_FILE` (the contents of your `.env`, including `GITHUB_TOKEN` and any
+   optional `NOTIFICATION_WEBHOOK_URL`).
 2. On the Epic issue, add the `agent::dispatching` label (and optionally
    `epic::auto-close`).
 3. `.github/workflows/epic-orchestrator.yml` fires, booting a Claude remote
@@ -180,9 +182,7 @@ agent-protocols/
 │   ├── scripts/              # Orchestration engine
 │   │   ├── lib/              # Core libraries (config, interfaces, factory)
 │   │   │   ├── orchestration/  # SDK (dispatcher, hydrator, ticketing)
-│   │   │   ├── presentation/   # Manifest rendering
-│   │   │   └── mcp/            # MCP tool registry
-│   │   ├── mcp/              # MCP tool implementations
+│   │   │   └── presentation/   # Manifest rendering
 │   │   └── providers/        # Ticketing provider implementations
 │   ├── schemas/              # JSON Schemas for validation
 │   └── templates/            # Context hydration templates

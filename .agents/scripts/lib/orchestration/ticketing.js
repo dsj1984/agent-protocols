@@ -119,8 +119,7 @@ export async function transitionTicketState(
     } catch (err) {
       // Intentional: a transient read failure MUST NOT block a label
       // transition — the transition itself is idempotent and the notifier
-      // payload documents `fromState: null` as valid (see
-      // .agents/MCP.md § notification webhook payload). Log at debug so
+      // payload documents `fromState: null` as valid. Log at debug so
       // verbose-log runs can correlate flaky reads without adding noise
       // in info-level operation.
       Logger.debug(

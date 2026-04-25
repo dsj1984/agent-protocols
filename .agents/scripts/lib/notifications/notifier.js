@@ -75,8 +75,6 @@ export class Notifier {
    * before transition, or the snapshot read in `transitionTicketState`
    * failed transiently. Downstream renderers should treat `null` the same
    * as an empty string (the `#buildPayload` branch below already does).
-   * Once `.agents/MCP.md` ships (Story s5-1), its § notification webhook
-   * payload section becomes the canonical reference for this contract.
    */
   async emit(event) {
     if (!this.#shouldFire(event)) return { fired: false, reason: 'filtered' };
