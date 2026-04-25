@@ -190,12 +190,13 @@ async function main() {
       techspec: { type: 'string' },
       force: { type: 'boolean', default: false },
       'emit-context': { type: 'boolean', default: false },
+      pretty: { type: 'boolean', default: false },
     },
   });
 
   if (!values.epic) {
     Logger.fatal(
-      'Usage: sprint-plan-spec.js --epic <EpicId> (--emit-context | --prd <file> --techspec <file>) [--force]',
+      'Usage: sprint-plan-spec.js --epic <EpicId> (--emit-context [--pretty] | --prd <file> --techspec <file>) [--force]',
     );
   }
 
@@ -226,7 +227,10 @@ async function main() {
 
   if (values['emit-context']) {
     const ctx = await buildAuthoringContext(epicId, provider, settings);
-    process.stdout.write(`${JSON.stringify(ctx, null, 2)}\n`);
+    const json = values.pretty
+      ? JSON.stringify(ctx, null, 2)
+      : JSON.stringify(ctx);
+    process.stdout.write(`${json}\n`);
     return;
   }
 
