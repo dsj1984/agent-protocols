@@ -30,7 +30,8 @@ strands partial state on GitHub, so run them in order.
 2. Resolve `[EPIC_BRANCH]` — `epic/<epicId>`.
 3. Resolve `[BASE_BRANCH]` from `baseBranch` in `.agentrc.json` (default:
    `main`).
-4. Resolve `[SCRIPTS_ROOT]` from `scriptsRoot` in `.agentrc.json`.
+4. Resolve `[SCRIPTS_ROOT]` from `paths.scriptsRoot` in `.agentrc.json`
+   (default: `.agents/scripts`).
 5. Resolve `[RELEASE_CONFIG]` — the `release` object from `.agentrc.json`:
    - `release.docs` — array of file paths to verify (e.g.,
      `["README.md", "docs/CHANGELOG.md"]`). Defaults to `[]`.

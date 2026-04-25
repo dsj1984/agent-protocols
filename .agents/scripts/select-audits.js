@@ -26,7 +26,11 @@ import path from 'node:path';
 import { parseArgs } from 'node:util';
 import picomatch from 'picomatch';
 import { runAsCli } from './lib/cli-utils.js';
-import { PROJECT_ROOT, resolveConfig } from './lib/config-resolver.js';
+import {
+  getPaths,
+  PROJECT_ROOT,
+  resolveConfig,
+} from './lib/config-resolver.js';
 import { gitSpawn } from './lib/git-utils.js';
 import { createProvider } from './lib/provider-factory.js';
 import { withTimeout } from './lib/util/with-timeout.js';
@@ -91,7 +95,7 @@ export async function selectAudits({
 
   const rulesPath = path.join(
     PROJECT_ROOT,
-    settings.schemasRoot,
+    getPaths({ agentSettings: settings }).schemasRoot,
     'audit-rules.schema.json',
   );
   let rulesData;

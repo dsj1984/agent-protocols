@@ -74,7 +74,7 @@ test('persistence: writes story-manifest json + md for story-execution manifest'
   persistManifest(manifest, {
     projectRoot: root,
     settings: {
-      scriptsRoot: '.agents/scripts',
+      paths: { scriptsRoot: '.agents/scripts' },
       commands: {
         validate: 'npm run lint',
         test: 'npm test',

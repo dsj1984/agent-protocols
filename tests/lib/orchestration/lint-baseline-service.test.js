@@ -25,7 +25,7 @@ test('LintBaselineService.capture: skips when baseline already exists', async ()
       execCalled = true;
     },
     logger,
-    settings: { scriptsRoot: '.agents/scripts' },
+    settings: { paths: { scriptsRoot: '.agents/scripts' } },
     fs: { existsSync: () => true },
   });
 
@@ -45,7 +45,7 @@ test('LintBaselineService.capture: invokes exec with node + lint-baseline captur
       execCalls.push({ file, args, options });
     },
     logger,
-    settings: { scriptsRoot: '.agents/scripts' },
+    settings: { paths: { scriptsRoot: '.agents/scripts' } },
     fs: stubFs(),
   });
 
@@ -70,7 +70,7 @@ test('LintBaselineService.capture: supports async exec adapters', async () => {
       resolved = true;
     },
     logger,
-    settings: { scriptsRoot: '.agents/scripts' },
+    settings: { paths: { scriptsRoot: '.agents/scripts' } },
     fs: stubFs(),
   });
 
@@ -87,7 +87,7 @@ test('LintBaselineService.capture: swallows exec failures and logs at warn', asy
       throw new Error('spawn ENOENT');
     },
     logger,
-    settings: { scriptsRoot: '.agents/scripts' },
+    settings: { paths: { scriptsRoot: '.agents/scripts' } },
     fs: stubFs(),
   });
 
@@ -107,7 +107,7 @@ test('LintBaselineService.capture: honours custom quality.baselines.lint.path in
     exec: () => {},
     logger,
     settings: {
-      scriptsRoot: '.agents/scripts',
+      paths: { scriptsRoot: '.agents/scripts' },
       quality: {
         baselines: { lint: { path: 'custom/where/baseline.json' } },
       },
