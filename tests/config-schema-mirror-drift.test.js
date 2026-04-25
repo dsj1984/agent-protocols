@@ -12,13 +12,27 @@ import {
 } from '../.agents/scripts/lib/config-schema.js';
 
 // ---------------------------------------------------------------------------
-// Behavioural drift test: the static .agents/schemas/agentrc.schema.json file
-// is the human-readable mirror; the AJV schemas in config-schema.js +
-// config-settings-schema.js remain the runtime source of truth. Rather than
-// compare structure (which would be brittle because the AJV side uses
-// programmatic shortcuts that don't translate to a static JSON file), we
-// assert the two surfaces produce the same accept/reject verdicts on a
-// curated fixture set covering every block whose typing this Story added.
+// Behavioural drift test — directionality contract.
+//
+// Authoritative direction: AJV → mirror. The runtime AJV schemas in
+// config-schema.js + config-settings-schema.js are the SOURCE OF TRUTH; the
+// static .agents/schemas/agentrc.schema.json file is an ADVISORY human-readable
+// mirror. When the two diverge, the AJV side wins and the mirror MUST be
+// updated to match — never the other way around.
+//
+// What this test catches: AJV → mirror lag. A schema change landed on the AJV
+// side without a corresponding update to the static mirror, so the two
+// surfaces now disagree on which inputs to accept or reject.
+//
+// How to fix a failure: update .agents/schemas/agentrc.schema.json to mirror
+// the AJV-side change. Do NOT relax the AJV schema to match the mirror.
+//
+// Why verdict-equivalence rather than structural diff: the AJV side uses
+// programmatic shortcuts (compiled patternProperties, helper-built keyword
+// sets, etc.) that don't translate to a static JSON file. Comparing structure
+// would be brittle. Instead we assert the two surfaces produce the same
+// accept/reject verdicts on a curated fixture set covering every block whose
+// typing previous Stories added.
 // ---------------------------------------------------------------------------
 
 const __dirname = path.dirname(fileURLToPath(import.meta.url));
@@ -50,10 +64,20 @@ const runtimeValidators = {
 const assertAgree = (block, value, label) => {
   const runtimeOk = runtimeValidators[block](value);
   const mirrorOk = mirrorValidator(block)(value);
+  let directionalHint = '';
+  if (runtimeOk && !mirrorOk) {
+    directionalHint =
+      ' Static JSON Schema mirror rejects an input the runtime AJV schema accepts.' +
+      ' The AJV schema is authoritative; update .agents/schemas/agentrc.schema.json to match.';
+  } else if (!runtimeOk && mirrorOk) {
+    directionalHint =
+      ' Static JSON Schema mirror accepts an input the runtime AJV schema rejects.' +
+      ' The AJV schema is authoritative; tighten .agents/schemas/agentrc.schema.json to match.';
+  }
   assert.equal(
     mirrorOk,
     runtimeOk,
-    `[${block}] ${label}: runtime=${runtimeOk} mirror=${mirrorOk}`,
+    `[${block}] ${label}: runtime=${runtimeOk} mirror=${mirrorOk}.${directionalHint}`,
   );
 };
 
