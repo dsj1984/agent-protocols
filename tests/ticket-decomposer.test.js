@@ -5,6 +5,8 @@ import {
   buildDecomposerSystemPrompt,
   buildDecompositionContext,
   decomposeEpic,
+  orderTicketsForCreation,
+  resolveDependencies,
 } from '../.agents/scripts/ticket-decomposer.js';
 
 const baseTickets = () => [
@@ -141,6 +143,73 @@ describe('ticket-decomposer orchestration (v5.6+)', () => {
     );
   });
 
+  it('creates a depth-3 intra-Story Task dep chain in topological order', async () => {
+    // Author the chain in REVERSE dep order so the typeOrder-only sort would
+    // have created t-d before t-c before t-b before t-a, leaving every
+    // depends_on unresolvable. Topological sort within (s1, task) must
+    // re-order them to t-a, t-b, t-c, t-d before any provider.createTicket
+    // call fires.
+    const tickets = [
+      ...baseTickets().filter((t) => t.type !== 'task'),
+      {
+        slug: 't-d',
+        type: 'task',
+        title: 'Task D',
+        body: 'Depends on C',
+        labels: ['type::task', 'persona::engineer'],
+        parent_slug: 's1',
+        depends_on: ['t-c'],
+      },
+      {
+        slug: 't-c',
+        type: 'task',
+        title: 'Task C',
+        body: 'Depends on B',
+        labels: ['type::task', 'persona::engineer'],
+        parent_slug: 's1',
+        depends_on: ['t-b'],
+      },
+      {
+        slug: 't-b',
+        type: 'task',
+        title: 'Task B',
+        body: 'Depends on A',
+        labels: ['type::task', 'persona::engineer'],
+        parent_slug: 's1',
+        depends_on: ['t-a'],
+      },
+      {
+        slug: 't-a',
+        type: 'task',
+        title: 'Task A',
+        body: 'Root of chain',
+        labels: ['type::task', 'persona::engineer'],
+        parent_slug: 's1',
+      },
+    ];
+
+    await decomposeEpic(1, mockProvider, { tickets });
+
+    const taskTitles = mockProvider.createdTickets
+      .filter((c) => c.ticketData.title.startsWith('Task '))
+      .map((c) => c.ticketData.title);
+    assert.deepEqual(taskTitles, ['Task A', 'Task B', 'Task C', 'Task D']);
+
+    const byTitle = new Map(
+      mockProvider.createdTickets.map((c) => [c.ticketData.title, c]),
+    );
+    assert.deepEqual(byTitle.get('Task A').ticketData.dependencies, []);
+    assert.deepEqual(byTitle.get('Task B').ticketData.dependencies, [
+      byTitle.get('Task A').newId,
+    ]);
+    assert.deepEqual(byTitle.get('Task C').ticketData.dependencies, [
+      byTitle.get('Task B').newId,
+    ]);
+    assert.deepEqual(byTitle.get('Task D').ticketData.dependencies, [
+      byTitle.get('Task C').newId,
+    ]);
+  });
+
   it('maps depends_on slugs to created issue IDs', async () => {
     const tickets = baseTickets();
     tickets.push({
@@ -161,6 +230,79 @@ describe('ticket-decomposer orchestration (v5.6+)', () => {
     assert.ok(t2);
     // t1 is the third created ticket → id 202
     assert.deepEqual(t2.ticketData.dependencies, [202]);
+  });
+});
+
+describe('ticket-decomposer resolveDependencies', () => {
+  it('throws when a slug is missing from the slugMap', () => {
+    const slugMap = new Map([['t1', 200]]);
+    const ticket = {
+      slug: 't2',
+      type: 'task',
+      title: 'Task Two',
+      depends_on: ['t1', 'missing-slug'],
+    };
+    assert.throws(() => resolveDependencies(ticket, slugMap), /unresolved slug "missing-slug"/);
+  });
+
+  it('returns resolved IDs in input order when every slug is present', () => {
+    const slugMap = new Map([
+      ['t1', 200],
+      ['t2', 201],
+    ]);
+    const ticket = {
+      slug: 't3',
+      type: 'task',
+      title: 'Task Three',
+      depends_on: ['t2', 't1'],
+    };
+    assert.deepEqual(resolveDependencies(ticket, slugMap), [201, 200]);
+  });
+
+  it('returns an empty array when depends_on is missing', () => {
+    assert.deepEqual(
+      resolveDependencies({ slug: 't1', type: 'task', title: 'T' }, new Map()),
+      [],
+    );
+  });
+});
+
+describe('ticket-decomposer orderTicketsForCreation', () => {
+  it('places features before stories before tasks regardless of input order', () => {
+    const tickets = [
+      { slug: 't1', type: 'task', title: 'T', parent_slug: 's1' },
+      { slug: 's1', type: 'story', title: 'S', parent_slug: 'f1' },
+      { slug: 'f1', type: 'feature', title: 'F' },
+    ];
+    const order = orderTicketsForCreation(tickets).map((t) => t.slug);
+    assert.deepEqual(order, ['f1', 's1', 't1']);
+  });
+
+  it('topologically sorts within a (parent_slug, type) group', () => {
+    const tickets = [
+      { slug: 'f1', type: 'feature', title: 'F' },
+      { slug: 's1', type: 'story', title: 'S', parent_slug: 'f1' },
+      { slug: 't-c', type: 'task', title: 'C', parent_slug: 's1', depends_on: ['t-b'] },
+      { slug: 't-b', type: 'task', title: 'B', parent_slug: 's1', depends_on: ['t-a'] },
+      { slug: 't-a', type: 'task', title: 'A', parent_slug: 's1' },
+    ];
+    const order = orderTicketsForCreation(tickets).map((t) => t.slug);
+    assert.deepEqual(order, ['f1', 's1', 't-a', 't-b', 't-c']);
+  });
+
+  it('ignores cross-group deps when ordering within a group', () => {
+    // Cross-feature story dep — outside the (feature_slug, story) group, so
+    // the intra-group sort skips the edge. The typeOrder concatenation still
+    // guarantees both stories come after both features.
+    const tickets = [
+      { slug: 'f1', type: 'feature', title: 'F1' },
+      { slug: 'f2', type: 'feature', title: 'F2' },
+      { slug: 's1', type: 'story', title: 'S1', parent_slug: 'f1', depends_on: ['s2'] },
+      { slug: 's2', type: 'story', title: 'S2', parent_slug: 'f2' },
+    ];
+    const order = orderTicketsForCreation(tickets).map((t) => t.slug);
+    assert.equal(order.indexOf('f1') < order.indexOf('s1'), true);
+    assert.equal(order.indexOf('f2') < order.indexOf('s2'), true);
   });
 });
 

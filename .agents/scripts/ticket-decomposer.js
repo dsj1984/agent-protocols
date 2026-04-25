@@ -47,19 +47,72 @@ function resolveParentId(ticket, slugMap, epicId) {
   return slugMap.get(ticket.parent_slug);
 }
 
-function resolveDependencies(ticket, slugMap) {
+export function resolveDependencies(ticket, slugMap) {
   const resolved = [];
   for (const dep of ticket.depends_on || []) {
     const depId = slugMap.get(dep);
-    if (depId) {
-      resolved.push(depId);
-    } else {
-      console.warn(
-        `[Decomposer] ⚠️  ${ticket.type.toUpperCase()} "${ticket.title}" (${ticket.slug}) depends on unresolved slug "${dep}" — dependency dropped.`,
+    if (depId === undefined) {
+      // Unreachable through normal flow: validateAndNormalizeTickets
+      // already rejects unknown slugs and the new topological sort
+      // guarantees creation order. A throw here turns a future regression
+      // (e.g. someone bypassing the validator) into a loud failure instead
+      // of a silently-dropped DAG edge.
+      throw new Error(
+        `[Decomposer] ${ticket.type.toUpperCase()} "${ticket.title}" (${ticket.slug}) depends on unresolved slug "${dep}". This indicates a planner bug or out-of-order ticket creation.`,
       );
     }
+    resolved.push(depId);
   }
   return resolved;
+}
+
+/**
+ * Topologically sort tickets within each (parent_slug, type) group, then
+ * concatenate groups in typeOrder so parents are always created before
+ * children (Feature → Story → Task) and intra-group dep chains resolve
+ * before their dependents are created.
+ */
+export function orderTicketsForCreation(validated) {
+  const typeOrder = { feature: 0, story: 1, task: 2 };
+  const groups = new Map();
+
+  for (const t of validated) {
+    const parentKey = t.parent_slug ?? '__epic__';
+    const key = `${t.type}::${parentKey}`;
+    if (!groups.has(key)) groups.set(key, { type: t.type, items: [] });
+    groups.get(key).items.push(t);
+  }
+
+  const ordered = [...groups.values()].sort(
+    (a, b) => typeOrder[a.type] - typeOrder[b.type],
+  );
+
+  const result = [];
+  for (const group of ordered) {
+    for (const t of topoSortGroup(group.items)) {
+      result.push(t);
+    }
+  }
+  return result;
+}
+
+function topoSortGroup(group) {
+  const slugToTicket = new Map(group.map((t) => [t.slug, t]));
+  const visited = new Set();
+  const sorted = [];
+
+  function visit(t) {
+    if (visited.has(t.slug)) return;
+    visited.add(t.slug);
+    for (const dep of t.depends_on ?? []) {
+      const depTicket = slugToTicket.get(dep);
+      if (depTicket) visit(depTicket);
+    }
+    sorted.push(t);
+  }
+
+  for (const t of group) visit(t);
+  return sorted;
 }
 
 export function buildDecomposerSystemPrompt(
@@ -177,11 +230,9 @@ export async function decomposeEpic(
 
   const slugMap = new Map();
 
-  // Sort by type so parents are created first (Feature -> Story -> Task)
-  const typeOrder = { feature: 0, story: 1, task: 2 };
-  validated.sort((a, b) => typeOrder[a.type] - typeOrder[b.type]);
+  const ordered = orderTicketsForCreation(validated);
 
-  for (const t of validated) {
+  for (const t of ordered) {
     console.log(
       `[Decomposer] [${t.type.toUpperCase()}] Creating "${t.title}"...`,
     );
