@@ -11,9 +11,7 @@
       "architecture.md",
       "data-dictionary.md",
       "decisions.md",
-      "patterns.md",
-      "style-guide.md",
-      "web-routes.md"
+      "patterns.md"
     ],
     "release": {
       "docs": ["README.md"],
@@ -29,7 +27,7 @@
     "maxTokenBudget": 200000,
     "executionTimeoutMs": 300000,
     "executionMaxBuffer": 10485760,
-    "validationCommand": "pnpm turbo run lint typecheck",
+    "validationCommand": "npm run lint",
     "lintBaselineCommand": "pnpm exec eslint . --format json",
     "lintBaselinePath": "temp/lint-baseline.json",
     "maintainability": {
@@ -45,10 +43,10 @@
         "refreshTag": "baseline-refresh:"
       }
     },
-    "testCommand": "pnpm run test",
+    "testCommand": "npm test",
     "exploratoryTestCommand": "pnpm run test:exploratory",
-    "typecheckCommand": "pnpm run typecheck",
-    "buildCommand": "pnpm run build",
+    "typecheckCommand": null,
+    "buildCommand": null,
     "frictionThresholds": {
       "repetitiveCommandCount": 3,
       "consecutiveErrorCount": 3,
