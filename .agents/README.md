@@ -745,7 +745,7 @@ source edits required. The maintainability ratchet keeps running.
 #### Extending `targetDirs` without re-listing framework defaults
 
 The config resolver supports deep-merge for list-valued keys. To add your
-own source dirs to the framework default (`[".agents/scripts"]`):
+own source dirs to the framework default (`["src"]`):
 
 ```jsonc
 {

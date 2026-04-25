@@ -93,7 +93,7 @@ const ZERO_CONFIG_DEFAULTS = Object.freeze({
  * for tests and for consumers that want to introspect the canonical shape. */
 export const MAINTAINABILITY_CRAP_DEFAULTS = Object.freeze({
   enabled: true,
-  targetDirs: Object.freeze([]),
+  targetDirs: Object.freeze(['src']),
   newMethodCeiling: 30,
   coveragePath: 'coverage/coverage-final.json',
   tolerance: 0.001,
