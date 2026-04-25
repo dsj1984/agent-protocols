@@ -48,6 +48,7 @@ import { buildTaskGraph } from './lib/story-init/task-graph-builder.js';
 import { createPhaseTimer } from './lib/util/phase-timer.js';
 import { savePhaseTimerState } from './lib/util/phase-timer-state.js';
 import { notify } from './notify.js';
+import { upsertStructuredComment } from './lib/orchestration/ticketing.js';
 
 // ---------------------------------------------------------------------------
 // Progress logger — shared stage-logger passed to every pipeline stage.
@@ -202,7 +203,7 @@ export async function runStoryInit({
 
   let workCwd = cwd;
   let worktreeCreated = false;
-  let installFailed = false;
+  let installStatus = { status: 'skipped', reason: 'dry-run' };
   const wtConfig = orchestration?.worktreeIsolation;
   const { worktreeEnabled } = runtime;
 
@@ -229,7 +230,7 @@ export async function runStoryInit({
     });
     workCwd = branchResult.workCwd;
     worktreeCreated = branchResult.worktreeCreated;
-    installFailed = branchResult.installFailed;
+    installStatus = branchResult.installStatus ?? installStatus;
 
     const transition = await transitionTaskStates({
       provider,
@@ -288,7 +289,7 @@ export async function runStoryInit({
     worktreeEnabled,
     workCwd,
     worktreeCreated,
-    installFailed,
+    installStatus,
     sortedTasks,
     featureId,
     prdId,
@@ -303,6 +304,15 @@ export async function runStoryInit({
     taskCount: sortedTasks.length,
   });
 
+  if (!dryRun) {
+    await postStoryInitComment({
+      provider,
+      storyId,
+      result,
+      logger: stageLogger,
+    });
+  }
+
   return { success: true, result };
 }
 
@@ -315,7 +325,7 @@ function buildStoryInitResult({
   worktreeEnabled,
   workCwd,
   worktreeCreated,
-  installFailed,
+  installStatus,
   sortedTasks,
   featureId,
   prdId,
@@ -323,6 +333,7 @@ function buildStoryInitResult({
   dryRun,
   recutOf,
 }) {
+  const dependenciesInstalled = mapDependenciesInstalled(installStatus);
   return {
     storyId,
     epicId,
@@ -332,7 +343,11 @@ function buildStoryInitResult({
     worktreeEnabled,
     workCwd,
     worktreeCreated,
-    installFailed,
+    installStatus,
+    dependenciesInstalled,
+    // Retained for back-compat with `temp/` artefacts and operator log
+    // scrapers — derived from `installStatus.status === 'failed'`.
+    installFailed: installStatus?.status === 'failed',
     recutOf: recutOf ?? null,
     tasks: sortedTasks.map((t) => ({
       id: t.id,
@@ -343,6 +358,80 @@ function buildStoryInitResult({
     context: { featureId, prdId, techSpecId },
     dryRun,
   };
+}
+
+/**
+ * Map the structured install status to the workflow-facing tri-state string.
+ * Workflow consumers (`sprint-execute.md` Step 0.5) read this exact value
+ * out of the `story-init` structured comment via
+ * `gh issue view --json comments`.
+ *
+ * @param {{ status?: string }} installStatus
+ * @returns {'true' | 'false' | 'skipped'}
+ */
+function mapDependenciesInstalled(installStatus) {
+  switch (installStatus?.status) {
+    case 'installed':
+      return 'true';
+    case 'failed':
+      return 'false';
+    default:
+      return 'skipped';
+  }
+}
+
+async function postStoryInitComment({ provider, storyId, result, logger }) {
+  const body = renderStoryInitCommentBody(result);
+  try {
+    await upsertStructuredComment(provider, storyId, 'story-init', body);
+    logger?.progress?.(
+      'COMMENT',
+      `📝 Upserted story-init structured comment on #${storyId} (dependenciesInstalled=${result.dependenciesInstalled})`,
+    );
+  } catch (err) {
+    // Non-fatal: the structured comment is observability for downstream
+    // workflow steps. Failing to post it must not block the agent's
+    // implementation work — it can fall back to `installStatus` from the
+    // stdout JSON. Surface the error so operators can investigate.
+    logger?.warn?.(
+      `[sprint-story-init] ⚠️ Failed to upsert story-init structured comment: ${err?.message ?? err}`,
+    );
+  }
+}
+
+/**
+ * Render the markdown body for the `story-init` structured comment. Pure so
+ * tests can assert the shape without a provider stub.
+ *
+ * @param {object} result Output of `buildStoryInitResult`.
+ * @returns {string}
+ */
+export function renderStoryInitCommentBody(result) {
+  const payload = {
+    storyId: result.storyId,
+    epicId: result.epicId,
+    storyBranch: result.storyBranch,
+    epicBranch: result.epicBranch,
+    worktreeEnabled: result.worktreeEnabled,
+    workCwd: result.workCwd,
+    worktreeCreated: result.worktreeCreated,
+    dependenciesInstalled: result.dependenciesInstalled,
+    installStatus: result.installStatus,
+  };
+  return [
+    '## Story init',
+    '',
+    `- **dependenciesInstalled:** \`${result.dependenciesInstalled}\``,
+    `- **installStatus.status:** \`${result.installStatus?.status ?? 'unknown'}\``,
+    `- **installStatus.reason:** \`${result.installStatus?.reason ?? 'n/a'}\``,
+    `- **worktreeEnabled:** \`${result.worktreeEnabled}\``,
+    `- **worktreeCreated:** \`${result.worktreeCreated}\``,
+    '',
+    '```json',
+    JSON.stringify(payload, null, 2),
+    '```',
+    '',
+  ].join('\n');
 }
 
 function emitStoryInitResult(result, { storyId, dryRun, taskCount }) {

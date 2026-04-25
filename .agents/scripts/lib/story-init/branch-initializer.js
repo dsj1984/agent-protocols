@@ -192,10 +192,10 @@ function verifyWorkspaceSafe({
 }
 
 function reportEnsureWarnings(ensured, progress) {
-  if (ensured.installFailed) {
+  if (ensured.installStatus?.status === 'failed') {
     progress(
       'WORKTREE',
-      `⚠️ Dependency install failed. Agent must run package-manager install in the worktree before proceeding.`,
+      `⚠️ Dependency install failed (${ensured.installStatus.reason}). Agent must run package-manager install in the worktree before proceeding.`,
     );
   }
   if (ensured.windowsPathWarning) {
@@ -254,7 +254,10 @@ export async function bootstrapWorktree({
   return {
     worktreePath: ensured.path,
     created: ensured.created,
-    installFailed: !!ensured.installFailed,
+    installStatus: ensured.installStatus ?? {
+      status: 'skipped',
+      reason: 'unknown',
+    },
   };
 }
 
@@ -273,7 +276,11 @@ export async function bootstrapWorktree({
  * @param {string} deps.input.cwd
  * @param {boolean} deps.input.worktreeEnabled
  * @param {object|undefined} deps.input.wtConfig
- * @returns {Promise<{ workCwd: string, worktreeCreated: boolean, installFailed: boolean }>}
+ * @returns {Promise<{
+ *   workCwd: string,
+ *   worktreeCreated: boolean,
+ *   installStatus: { status: 'installed' | 'failed' | 'skipped', reason?: string },
+ * }>}
  */
 export async function initializeBranch({ logger, fs = nodeFs, input }) {
   const {
@@ -303,7 +310,7 @@ export async function initializeBranch({ logger, fs = nodeFs, input }) {
     return {
       workCwd: wtResult.worktreePath,
       worktreeCreated: wtResult.created,
-      installFailed: wtResult.installFailed,
+      installStatus: wtResult.installStatus,
     };
   }
 
@@ -317,6 +324,6 @@ export async function initializeBranch({ logger, fs = nodeFs, input }) {
   return {
     workCwd: resolveWorkingPath({ worktreeEnabled: false, repoRoot: cwd }),
     worktreeCreated: false,
-    installFailed: false,
+    installStatus: { status: 'skipped', reason: 'single-tree-mode' },
   };
 }
