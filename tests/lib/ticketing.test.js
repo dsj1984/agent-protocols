@@ -241,6 +241,30 @@ test('ticketing.js', async (t) => {
   );
 
   await t.test(
+    'structured-comment type validator accepts the claim-<id> regex',
+    () => {
+      for (const type of ['claim-1', 'claim-42', 'claim-987654321']) {
+        assert.ok(
+          isValidStructuredCommentType(type),
+          `${type} should match the claim-<id> pattern`,
+        );
+      }
+      for (const type of [
+        'claim-',
+        'claim',
+        'claim-abc',
+        'claim-1.5',
+        'claim-1234567890', // 10 digits — exceeds {1,9} bound.
+      ]) {
+        assert.ok(
+          !isValidStructuredCommentType(type),
+          `${type} should not match the claim-<id> pattern`,
+        );
+      }
+    },
+  );
+
+  await t.test(
     'structured-comment type validator accepts the wave-N-* regex',
     () => {
       for (const type of [
