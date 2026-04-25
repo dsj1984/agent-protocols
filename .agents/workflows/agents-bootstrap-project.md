@@ -45,8 +45,6 @@ framework, or configure GitHub. It is strictly the local harness-side wiring.
 5. `[PROJECT_PKG]` → `./package.json` (will be created if missing).
 6. `[CLAUDE_SETTINGS]` → `.claude/settings.json` (will be created if missing).
 7. `[GITIGNORE]` → `./.gitignore` (will be created if missing).
-8. `[TEMPLATE_PATH]` → `.agents/default-mcp.json` (the MCP template shipped
-   with the framework submodule; consumed by Step 8).
 
 **Hard aborts:**
 
@@ -248,81 +246,21 @@ When husky is available:
 Leave an existing `.husky/pre-commit` untouched unless the operator explicitly
 asks for changes.
 
-## Step 8 — Check `.mcp.json` against the template
+## Step 8 — Ensure `.mcp.json` is gitignored
 
-MCP servers (`github`, `context7`, `chrome-devtools`, `agent-protocols`) are
-loaded by Claude Code from a project-scoped `.mcp.json` at the repo root. The
-file is gitignored because it carries secrets, so a fresh clone has no MCP
-tooling until this step runs. The committed template ships with the
-`agent-protocols` submodule at `[TEMPLATE_PATH]` → `.agents/default-mcp.json`.
-That path is the source of truth for the expected server shape; a consuming
-project never needs to regenerate or restore a root-level template file.
-
-**Hard abort:** if `[TEMPLATE_PATH]` does not exist, abort this step. This
-condition should only occur when the `.agents/` submodule checkout is
-incomplete — direct the operator to re-run `git submodule update --init` or
-the framework checkout. Do **not** instruct them to hand-author a template
-at the repo root; the template is a framework artefact.
-
-### 8a. Scaffold when missing
-
-If `.mcp.json` does not exist at `[PROJECT_ROOT]`:
-
-1. Copy `[TEMPLATE_PATH]` (`.agents/default-mcp.json`) → `.mcp.json`
-   verbatim.
-2. Parse `.mcp.json` and collect every placeholder of the form `<YOUR_*>` in
-   `env` values.
-3. Surface the placeholders to the operator as a checklist, e.g.:
-
-   ```text
-   [agents-bootstrap-project] .mcp.json scaffolded from .agents/default-mcp.json. Fill in:
-     github        env.GITHUB_PERSONAL_ACCESS_TOKEN
-     context7      env.CONTEXT7_API_KEY
-     agent-protocols env.GITHUB_TOKEN
-     agent-protocols env.NOTIFICATION_WEBHOOK_URL
-   Reload Claude Code once populated so the new servers attach.
-   ```
-
-Do **not** prompt for the secret values from within the workflow — the
-operator populates them by hand. Never commit the result: `.mcp.json` must
-remain gitignored.
-
-### 8b. Diff existing `.mcp.json` against the template
-
-If `.mcp.json` already exists, parse both files — `.mcp.json` at
-`[PROJECT_ROOT]` and the template at `[TEMPLATE_PATH]` — and report
-structural gaps without mutating `.mcp.json`. Flag each of the following to
-the operator:
-
-1. **Servers in the template missing from `.mcp.json`** — new tooling the
-   operator has not picked up yet. List each missing `mcpServers.<name>` block.
-2. **Servers in `.mcp.json` missing from the template** — either stale
-   configuration from a removed server, or a per-developer addition. Report
-   but do not touch.
-3. **Command/args drift** — for servers present in both, compare `command` +
-   `args` arrays. Differences usually indicate a version bump in the template
-   (e.g. `chrome-devtools-mcp@0.21.0` → newer) that the operator should
-   mirror.
-4. **Placeholder leakage** — any `env` value in `.mcp.json` that still matches
-   the `<YOUR_*>` pattern from the template means a secret was never filled
-   in. Flag as a warning.
-
-Present findings as an actionable checklist; the operator edits `.mcp.json`
-by hand. This step is read-only on `.mcp.json` and never writes secrets.
-
-### 8c. Ensure `.mcp.json` is gitignored
+MCP servers are loaded by Claude Code from a project-scoped `.mcp.json` at
+the repo root. The file carries secrets and must stay out of git; the
+operator authors it by hand using the upstream documentation for whichever
+MCP servers they wire up.
 
 Verify `.gitignore` contains a line matching `^\.mcp\.json$`. If absent,
 append:
 
 ```gitignore
 
-# Project-scoped MCP config carries secrets — template at .agents/default-mcp.json.
+# Project-scoped MCP config carries secrets — keep out of git.
 .mcp.json
 ```
-
-Do not append `.agents/default-mcp.json` to `.gitignore` — the template ships
-with the submodule and is the source of truth.
 
 ## Step 9 — Report outcome
 
@@ -336,7 +274,6 @@ Emit a compact summary showing what was touched on this run:
   .gitignore             .claude/commands/   added | already present
   .gitignore             .mcp.json           added | already present
   .claude/commands/                          <N> file(s) synced from workflows
-  .mcp.json                                  scaffolded | <N> gap(s) flagged | OK
   parity check                               OK | <asymmetry details>
 ```
 
