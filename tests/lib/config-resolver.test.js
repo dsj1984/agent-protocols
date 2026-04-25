@@ -3,6 +3,8 @@ import path from 'node:path';
 import { beforeEach, describe, it } from 'node:test';
 import { Volume } from 'memfs';
 import {
+  COMMANDS_DEFAULTS,
+  getCommands,
   MAINTAINABILITY_CRAP_DEFAULTS,
   PROJECT_ROOT,
   resolveConfig,
@@ -505,6 +507,70 @@ describe('config-resolver library tests', () => {
       const out = resolveMaintainability(undefined);
       assert.deepEqual(out.targetDirs, []);
       assert.equal(out.crap.newMethodCeiling, 30);
+    });
+  });
+
+  describe('getCommands (Epic #730 Story 5)', () => {
+    it('returns COMMANDS_DEFAULTS when commands block is absent', () => {
+      const out = getCommands({ agentSettings: { ...REQ } });
+      assert.deepEqual(out, { ...COMMANDS_DEFAULTS });
+    });
+
+    it('preserves user values and fills missing keys with defaults', () => {
+      const out = getCommands({
+        agentSettings: {
+          ...REQ,
+          commands: { validate: 'pnpm lint', test: 'pnpm test' },
+        },
+      });
+      assert.equal(out.validate, 'pnpm lint');
+      assert.equal(out.test, 'pnpm test');
+      assert.equal(out.lintBaseline, COMMANDS_DEFAULTS.lintBaseline);
+      assert.equal(out.exploratoryTest, COMMANDS_DEFAULTS.exploratoryTest);
+      assert.equal(out.typecheck, null);
+      assert.equal(out.build, null);
+    });
+
+    it('honours explicit null on typecheck/build (not the default)', () => {
+      const out = getCommands({
+        agentSettings: { ...REQ, commands: { typecheck: null, build: null } },
+      });
+      assert.equal(out.typecheck, null);
+      assert.equal(out.build, null);
+    });
+
+    it('accepts a bare agentSettings bag (no enclosing config)', () => {
+      const out = getCommands({
+        ...REQ,
+        commands: { validate: 'make lint' },
+      });
+      assert.equal(out.validate, 'make lint');
+      assert.equal(out.test, COMMANDS_DEFAULTS.test);
+    });
+
+    it('returns defaults for null/undefined input', () => {
+      assert.deepEqual(getCommands(null), { ...COMMANDS_DEFAULTS });
+      assert.deepEqual(getCommands(undefined), { ...COMMANDS_DEFAULTS });
+    });
+
+    it('resolveConfig surfaces the grouped commands block on .agentrc.json reads', () => {
+      vol.fromJSON({
+        [path.join(PROJECT_ROOT, '.agentrc.json')]: JSON.stringify({
+          agentSettings: {
+            ...REQ,
+            commands: {
+              validate: 'npm run check',
+              test: 'npm run spec',
+              typecheck: 'tsc --noEmit',
+            },
+          },
+        }),
+      });
+      const { settings } = resolveConfig({ bustCache: true });
+      const cmds = getCommands({ agentSettings: settings });
+      assert.equal(cmds.validate, 'npm run check');
+      assert.equal(cmds.test, 'npm run spec');
+      assert.equal(cmds.typecheck, 'tsc --noEmit');
     });
   });
 });
