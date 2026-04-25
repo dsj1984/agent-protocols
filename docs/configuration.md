@@ -147,6 +147,16 @@ Both CLI sites self-skip when `crap.enabled === false`. The capture step is
 idempotent on warm worktrees — only stale or missing artifacts trigger a
 test:coverage run.
 
+##### Missing-baseline behaviour (Story #791)
+
+The transitional informational mode that exited 0 with a "no baseline found"
+hint was retired in Story #791. With `crap.enabled: true` and
+`baselines/crap.json` absent, all three gate sites now fail closed (exit 1).
+Bootstrap the baseline explicitly: `npm run test:coverage` to produce
+`coverage/coverage-final.json`, then `npm run crap:update` to write
+`baselines/crap.json`, and commit the file with a `baseline-refresh:` tagged
+subject + non-empty body so the refresh-guardrail accepts it.
+
 #### `agentSettings.quality.prGate`
 
 | Field    | Required | Default | Purpose                                                          |

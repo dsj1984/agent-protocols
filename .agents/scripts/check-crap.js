@@ -27,8 +27,10 @@ import { createProvider } from './lib/provider-factory.js';
  *
  * Contract:
  *   - `settings.quality.crap.enabled === false` → skip, exit 0.
- *   - Missing baseline → bootstrap message, exit 0 (never hard-fails a
- *     consumer repo on first sync).
+ *   - Missing baseline → fail closed, exit 1 with a bootstrap-instruction
+ *     message. (The transitional informational mode from #596 was retired in
+ *     Story #791; the gate is now hard-enforcing across all three firing
+ *     sites — close-validation, pre-push, CI.)
  *   - Baseline `kernelVersion` or `escomplexVersion` mismatch vs. the running
  *     scorer → fail closed, exit 1 with a message pointing at
  *     `npm run crap:update`.
@@ -291,16 +293,21 @@ export function compareCrap({
 }
 
 /**
- * Pure decision helper for the bootstrap / kernel-mismatch / escomplex-mismatch
- * gate paths. Lets tests assert the exact operator-facing message without
- * spawning a child process.
+ * Pure decision helper for the missing-baseline / kernel-mismatch /
+ * escomplex-mismatch gate paths. Lets tests assert the exact operator-facing
+ * message without spawning a child process.
+ *
+ * Story #791 retired the transitional `bootstrap` exit-0 path: a missing
+ * baseline now fails closed (exit 1) so close-validation, pre-push, and CI
+ * all enforce uniformly. Operators bootstrap explicitly via
+ * `npm run crap:update` + a `baseline-refresh:` commit.
  *
  * @param {{
  *   baseline: {kernelVersion: string, escomplexVersion: string, rows: Array}|null,
  *   runningKernelVersion: string,
  *   runningEscomplexVersion: string,
  * }} params
- * @returns {{ ok: true } | { ok: false, exitCode: 0|1, kind: 'bootstrap'|'kernel-mismatch'|'escomplex-mismatch', message: string }}
+ * @returns {{ ok: true } | { ok: false, exitCode: 1, kind: 'missing-baseline'|'kernel-mismatch'|'escomplex-mismatch', message: string }}
  */
 export function evaluateBaselineCompatibility({
   baseline,
@@ -310,10 +317,10 @@ export function evaluateBaselineCompatibility({
   if (baseline === null || baseline === undefined) {
     return {
       ok: false,
-      exitCode: 0,
-      kind: 'bootstrap',
+      exitCode: 1,
+      kind: 'missing-baseline',
       message:
-        "[CRAP] no baseline found — run 'npm run crap:update' to bootstrap",
+        "[CRAP] ❌ no baseline found — run 'npm run crap:update' and commit with a 'baseline-refresh:' subject to bootstrap",
     };
   }
   if (baseline.kernelVersion !== runningKernelVersion) {
