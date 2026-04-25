@@ -21,9 +21,10 @@
 import { readFile } from 'node:fs/promises';
 import { parseArgs } from 'node:util';
 import { runAsCli } from './lib/cli-utils.js';
-import { resolveConfig } from './lib/config-resolver.js';
+import { getLimits, resolveConfig } from './lib/config-resolver.js';
 import { Logger } from './lib/Logger.js';
-import { scrapeProjectDocs } from './lib/orchestration/doc-reader.js';
+import { buildDocsContext } from './lib/orchestration/doc-reader.js';
+import { applyBudget } from './lib/orchestration/planning-context-budget.js';
 import { PlanningStateManager } from './lib/orchestration/planning-state-manager.js';
 import { createProvider } from './lib/provider-factory.js';
 
@@ -60,20 +61,44 @@ CRITICAL REQUIREMENTS:
  * Build the authoring context the host LLM needs to write the PRD/Tech Spec.
  * Returns a plain JSON-serialisable object; never hits the network beyond the
  * provider call needed to load the Epic.
+ *
+ * `docsContext` is bounded by the planning-context budget (Epic #817 Story 9):
+ * over-budget payloads downgrade to a summary representation with headings +
+ * bounded excerpts. Pass `{ fullContext: true }` (CLI: `--full-context`) to
+ * restore the unbounded full-body envelope. The Epic body itself is always
+ * subject to the same budget so a sprawling Epic narrative cannot bypass the
+ * cap by riding on top of `docsContext`.
  */
-export async function buildAuthoringContext(epicId, provider, settings = {}) {
+export async function buildAuthoringContext(
+  epicId,
+  provider,
+  settings = {},
+  opts = {},
+) {
   const epic = await provider.getEpic(epicId);
   if (!epic) {
     throw new Error(`Epic #${epicId} not found.`);
   }
 
-  const docsContext = await scrapeProjectDocs(settings);
+  const planningLimits = getLimits({ agentSettings: settings }).planningContext;
+  const { fullContext = false } = opts;
+
+  const docsContext = await buildDocsContext(settings, planningLimits, {
+    fullContext,
+  });
+
+  const epicBody = applyBudget(
+    [{ path: `epic-${epic.id}.md`, content: epic.body ?? '' }],
+    planningLimits,
+    { fullContext },
+  );
 
   return {
     epic: {
       id: epic.id,
       title: epic.title,
-      body: epic.body,
+      body: epicBody.mode === 'full' ? epic.body : null,
+      bodySummary: epicBody.mode === 'summary' ? epicBody.items[0] : null,
       linkedIssues: epic.linkedIssues ?? { prd: null, techSpec: null },
     },
     docsContext,
@@ -178,6 +203,7 @@ async function main() {
       force: { type: 'boolean', default: false },
       'emit-context': { type: 'boolean', default: false },
       pretty: { type: 'boolean', default: false },
+      'full-context': { type: 'boolean', default: false },
       prd: { type: 'string' },
       techspec: { type: 'string' },
     },
@@ -185,7 +211,7 @@ async function main() {
 
   if (!values.epic) {
     Logger.fatal(
-      'Usage: epic-planner.js --epic <ID> (--emit-context [--pretty] | --prd <file> --techspec <file>) [--force]',
+      'Usage: epic-planner.js --epic <ID> (--emit-context [--pretty] [--full-context] | --prd <file> --techspec <file>) [--force]',
     );
   }
 
@@ -198,7 +224,9 @@ async function main() {
   const provider = createProvider(orchestration);
 
   if (values['emit-context']) {
-    const ctx = await buildAuthoringContext(epicId, provider, settings);
+    const ctx = await buildAuthoringContext(epicId, provider, settings, {
+      fullContext: values['full-context'],
+    });
     const json = values.pretty
       ? JSON.stringify(ctx, null, 2)
       : JSON.stringify(ctx);

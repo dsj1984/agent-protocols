@@ -103,6 +103,17 @@
       },
       "additionalProperties": false
     },
+    "planningContextLimits": {
+      "type": "object",
+      "properties": {
+        "maxBytes": { "type": "integer", "minimum": 1024 },
+        "summaryMode": {
+          "type": "string",
+          "enum": ["auto", "always", "never"]
+        }
+      },
+      "additionalProperties": false
+    },
     "limits": {
       "type": "object",
       "properties": {
@@ -111,7 +122,8 @@
         "maxTokenBudget": { "type": "integer", "minimum": 1 },
         "executionTimeoutMs": { "type": "integer", "minimum": 1 },
         "executionMaxBuffer": { "type": "integer", "minimum": 1 },
-        "friction": { "$ref": "#/$defs/frictionLimits" }
+        "friction": { "$ref": "#/$defs/frictionLimits" },
+        "planningContext": { "$ref": "#/$defs/planningContextLimits" }
       },
       "additionalProperties": false
     },
