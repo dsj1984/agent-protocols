@@ -60,15 +60,29 @@ cp .agents/default-agentrc.json .agentrc.json
 
 ### Key Settings
 
-| Setting                                  | Purpose                                          |
-| ---------------------------------------- | ------------------------------------------------ |
-| `agentSettings.baseBranch`               | Your default branch (`main`, `master`, etc.)     |
-| `agentSettings.commands.test`            | Your project's test runner                       |
-| `agentSettings.commands.validate`        | Comprehensive validation suite                   |
-| `agentSettings.commands.lintBaseline`    | Structured linter output for baseline ratcheting |
-| `orchestration.provider`                 | Ticketing provider (`"github"`)                  |
-| `orchestration.github.owner`             | GitHub repository owner                          |
-| `orchestration.github.repo`              | GitHub repository name                           |
+The grouped shape lives under `agentSettings.{paths,commands,quality,limits}`
+with `orchestration` as its sibling. The most-touched keys:
+
+| Setting                                                | Required | Purpose                                                       |
+| ------------------------------------------------------ | -------- | ------------------------------------------------------------- |
+| `agentSettings.paths.agentRoot`                        | Yes      | Path to the framework submodule (e.g. `.agents`)              |
+| `agentSettings.paths.docsRoot`                         | Yes      | Path to project documentation (e.g. `docs`)                   |
+| `agentSettings.paths.tempRoot`                         | Yes      | Path for ephemeral artefacts (e.g. `temp`)                    |
+| `agentSettings.baseBranch`                             | No       | Your default branch (`main`, `master`, etc.)                  |
+| `agentSettings.commands.test`                          | No       | Your project's test runner                                    |
+| `agentSettings.commands.validate`                      | No       | Comprehensive validation suite                                |
+| `agentSettings.commands.lintBaseline`                  | No       | Structured linter output for baseline ratcheting              |
+| `agentSettings.quality.baselines.{lint,crap,maintainability}.path` | No | Paths to canonical ratchet baselines (default `baselines/*.json`) |
+| `agentSettings.quality.crap.enabled`                   | No       | Master switch for the CRAP gate                               |
+| `agentSettings.limits.friction.*`                      | No       | Anti-thrashing thresholds                                     |
+| `orchestration.provider`                               | Yes      | Ticketing provider (`"github"`)                               |
+| `orchestration.github.owner`                           | Yes\*    | GitHub repository owner (\* required when `provider: "github"`) |
+| `orchestration.github.repo`                            | Yes\*    | GitHub repository name                                        |
+
+> **Full reference.** Every key, default, and required-vs-optional flag is
+> documented in [`docs/configuration.md`](../docs/configuration.md). That file
+> is the canonical reader-facing reference; the table above is just the
+> high-traffic subset.
 
 ### Validation Commands
 
@@ -103,7 +117,7 @@ keys.
 The two files share a schema and the vast majority of keys are identical.
 Where they diverge, the divergence is intentional:
 
-- **`maintainability.targetDirs` / `maintainability.crap.targetDirs`.** Root
+- **`quality.maintainability.targetDirs` / `quality.crap.targetDirs`.** Root
   dogfood scans `.agents/scripts` (the framework's own source tree); the
   distributed template scans `src` (the conventional consumer source root).
   The resolver's code-level fallback also defaults to `src` so a consumer with
@@ -764,7 +778,7 @@ If your repo doesn't run coverage, set `enabled: false` in your
 ```jsonc
 {
   "agentSettings": {
-    "maintainability": {
+    "quality": {
       "crap": { "enabled": false }
     }
   }
@@ -782,7 +796,7 @@ own source dirs to the framework default (`["src"]`):
 ```jsonc
 {
   "agentSettings": {
-    "maintainability": {
+    "quality": {
       "crap": {
         "targetDirs": { "append": ["packages/foo/src", "packages/bar/src"] }
       }
@@ -794,7 +808,7 @@ own source dirs to the framework default (`["src"]`):
 `{ "append": [...] }` and `{ "prepend": [...] }` are the deep-merge forms.
 Passing a plain array replaces the default entirely — useful when you want
 exactly your dirs and not the framework's. Unknown keys under
-`maintainability.crap` warn but don't fail resolution, so you can extend
+`quality.crap` warn but don't fail resolution, so you can extend
 forward-compatibly.
 
 #### Interpreting the `--json` artifact

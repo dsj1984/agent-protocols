@@ -13,6 +13,11 @@ description: >-
 > not synced into `.claude/commands/`. Invoked by reference from
 > [`/agents-update`](../agents-update.md) after the submodule pointer moves;
 > previously shipped as `/agents-sync-config`.
+>
+> **Configuration reference.** The full set of configurable keys, defaults,
+> and required-vs-optional flags lives in
+> [`docs/configuration.md`](../../../docs/configuration.md). This helper only
+> documents the reconciliation procedure.
 
 ## Overview
 
