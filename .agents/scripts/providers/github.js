@@ -36,6 +36,7 @@ export function __setExecSyncForTests(fn) {
 import { parseBlockedBy, parseBlocks } from '../lib/dependency-parser.js';
 import { ITicketingProvider } from '../lib/ITicketingProvider.js';
 import { TYPE_LABELS } from '../lib/label-constants.js';
+import { concurrentMap } from '../lib/util/concurrent-map.js';
 import { createTicketCacheManager } from './github/cache-manager.js';
 import { classifyGithubError } from './github/error-classifier.js';
 import {
@@ -61,6 +62,8 @@ import {
   subIssueNodeToTicket,
 } from './github/ticket-mapper.js';
 import { GithubHttpClient } from './github-http-client.js';
+
+const SUBTICKET_HYDRATION_CONCURRENCY = 8;
 
 /**
  * Resolve the GitHub token from environment or CLI.
@@ -338,8 +341,10 @@ export class GitHubProvider extends ITicketingProvider {
       ]),
     ];
 
-    const subTickets = await Promise.all(
-      allChildIds.map((id) => this.getTicket(id).catch(() => null)),
+    const subTickets = await concurrentMap(
+      allChildIds,
+      (id) => this.getTicket(id).catch(() => null),
+      { concurrency: SUBTICKET_HYDRATION_CONCURRENCY },
     );
     return subTickets.filter(Boolean);
   }

@@ -12,6 +12,8 @@
  */
 
 import { AGENT_LABELS } from '../../../label-constants.js';
+import { concurrentMap } from '../../../util/concurrent-map.js';
+import { DEFAULT_CONCURRENCY } from '../../concurrency.js';
 import { STATE_LABELS, transitionTicketState } from '../../ticketing.js';
 import { BookendChainer } from '../bookend-chainer.js';
 import { checkVersionBumpIntent } from '../version-bump-intent.js';
@@ -113,15 +115,21 @@ export async function runIterateWavesPhase(ctx, collaborators, state) {
     // notices the ticket is already closed and bails. Filter here so the
     // launcher only sees real work.
     const waveStoryIds = wave.stories.map((s) => s.id ?? s.storyId ?? s);
-    const freshStates = await Promise.all(
-      waveStoryIds.map(async (id) => {
+    const freshStates = await concurrentMap(
+      waveStoryIds,
+      async (id) => {
         try {
           const ticket = await provider.getTicket(id, { fresh: true });
           return { id, labels: ticket?.labels ?? [] };
         } catch {
           return { id, labels: [] };
         }
-      }),
+      },
+      {
+        concurrency:
+          ctx.concurrency?.progressReporter ??
+          DEFAULT_CONCURRENCY.progressReporter,
+      },
     );
     const doneIds = new Set(
       freshStates

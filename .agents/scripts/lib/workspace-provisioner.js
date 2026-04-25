@@ -2,7 +2,7 @@
  * workspace-provisioner.js
  *
  * Central authority for populating a fresh worktree (or remote-runner checkout)
- * with gitignored workspace files — `.env`, `.mcp.json`, and any other files
+ * with gitignored workspace files — `.env` by default, plus any other files
  * declared in `.agentrc.json orchestration.workspaceFiles`. Every caller that
  * needs these files in a non-main checkout should go through this module;
  * ad-hoc copy logic elsewhere in the codebase is a bug.
@@ -17,13 +17,13 @@
  *   - `resolveWorkspaceFiles(orchestrationConfig)` — resolves the list honoring
  *     the new `orchestration.workspaceFiles` key, the legacy
  *     `orchestration.worktreeIsolation.bootstrapFiles`, and the default.
- *   - `DEFAULT_WORKSPACE_FILES` — `['.env', '.mcp.json']`.
+ *   - `DEFAULT_WORKSPACE_FILES` — `['.env']`.
  */
 
 import fs from 'node:fs';
 import path from 'node:path';
 
-export const DEFAULT_WORKSPACE_FILES = ['.env', '.mcp.json'];
+export const DEFAULT_WORKSPACE_FILES = ['.env'];
 
 const NOOP_LOGGER = { info: () => {}, warn: () => {}, error: () => {} };
 

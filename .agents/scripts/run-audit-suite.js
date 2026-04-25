@@ -6,8 +6,7 @@
  *
  * Post-retirement entry point for the former MCP tool
  * `mcp__agent-protocols__run_audit_suite`. The pure aggregation logic lives
- * here; the legacy `.agents/scripts/mcp/run-audit-suite.js` is a re-export
- * shim that will be deleted by the server-deletion story.
+ * here.
  *
  * Usage:
  *   node .agents/scripts/run-audit-suite.js \

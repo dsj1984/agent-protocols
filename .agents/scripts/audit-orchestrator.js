@@ -5,8 +5,8 @@ import { runAsCli } from './lib/cli-utils.js';
 import { resolveConfig } from './lib/config-resolver.js';
 import { Logger } from './lib/Logger.js';
 import { createProvider } from './lib/provider-factory.js';
-import { runAuditSuite } from './mcp/run-audit-suite.js';
-import { selectAudits } from './mcp/select-audits.js';
+import { runAuditSuite } from './run-audit-suite.js';
+import { selectAudits } from './select-audits.js';
 
 function formatAuditReport(results) {
   const { metadata, findings, workflows } = results;

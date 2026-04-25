@@ -77,7 +77,7 @@
       "reapOnSuccess": true,
       "reapOnCancel": true,
       "warnOnUncommittedOnReap": true,
-      "bootstrapFiles": [".env", ".mcp.json"]
+      "bootstrapFiles": [".env"]
     },
     "epicRunner": {
       "enabled": true,

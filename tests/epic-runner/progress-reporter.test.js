@@ -536,6 +536,49 @@ describe('ProgressReporter', () => {
     );
   });
 
+  it('caps phase-timings comment fetch fanout using reporter concurrency', async () => {
+    const storyIds = Array.from({ length: 20 }, (_, i) => 1000 + i);
+    let inFlight = 0;
+    let maxInFlight = 0;
+    const provider = {
+      async getTicket(id) {
+        return { number: id, title: `S${id}`, state: 'CLOSED', labels: [] };
+      },
+      async getTicketComments(ticketId) {
+        if (storyIds.includes(ticketId)) {
+          inFlight += 1;
+          if (inFlight > maxInFlight) maxInFlight = inFlight;
+          await new Promise((r) => setImmediate(r));
+          await new Promise((r) => setImmediate(r));
+          inFlight -= 1;
+          return [
+            {
+              id: `c-${ticketId}`,
+              body: buildPhaseCommentBody(ticketId, [['implement', 100]]),
+            },
+          ];
+        }
+        return [];
+      },
+      async postComment() {
+        return { id: 'u-1' };
+      },
+      async deleteComment() {},
+    };
+    const reporter = new ProgressReporter({
+      provider,
+      epicId: 7,
+      intervalSec: 60,
+      logger: silentLogger(),
+      concurrency: 3,
+    });
+    reporter.setWave({ index: 0, totalWaves: 1, stories: storyIds });
+
+    await reporter.fire();
+
+    assert.equal(maxInFlight, 3);
+  });
+
   it('parsePhaseTimingsComment tolerates malformed bodies', () => {
     assert.equal(parsePhaseTimingsComment(null), null);
     assert.equal(parsePhaseTimingsComment({}), null);

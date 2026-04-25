@@ -25,6 +25,14 @@ class MockProvider {
         labels: ['persona::engineer'],
       };
     }
+    if (id === 100) {
+      return {
+        id: 100,
+        title: 'Task on parent story',
+        body: '> Epic: #1 | parent: #99\n\nFix the child task',
+        labels: [],
+      };
+    }
     if (id === 1) return { id: 1, title: 'Epic', body: 'Epic Body' };
     if (id === 2) return { id: 2, title: 'Feature', body: 'Feature Body' };
     throw new Error(`Ticket #${id} not found`);
@@ -81,6 +89,16 @@ test('runHydrateContext: resolves epic id from body when --epic omitted', async 
   const provider = new MockProvider();
   const envelope = await runHydrateContext({ ticketId: 99, provider });
   assert.ok(envelope.prompt.includes('Fix the bug'));
+});
+
+test('runHydrateContext: resolves story branch from parent marker', async () => {
+  const provider = new MockProvider();
+  const envelope = await runHydrateContext({
+    ticketId: 100,
+    epicId: 1,
+    provider,
+  });
+  assert.ok(envelope.prompt.includes('story-99'));
 });
 
 test('runHydrateContext: throws when epic cannot be resolved', async () => {

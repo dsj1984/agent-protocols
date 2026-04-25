@@ -227,7 +227,7 @@ coordinator path — the split is an internal reorganisation only.
 | ----------------------------- | --------------------------------------------------------------------------------------- |
 | `dispatch-pipeline.js`        | Resolve context, fetch Epic, reconcile state, build DAG, scaffold branch, run worktree GC |
 | `wave-dispatcher.js`          | `dispatchWave`, `dispatchNextWave`, per-task dispatch, `collectOpenStoryIds`             |
-| `risk-gate-handler.js`        | Task-level `risk::high` HITL gate (composes shared `lib/risk-gate.js`)                   |
+| `risk-gate-handler.js`        | Retired task-level `risk::high` runtime gate; risk labels are metadata only              |
 | `health-check-service.js`     | Sprint Health issue ensure                                                               |
 | `epic-lifecycle-detector.js`  | Epic-completion detection + bookend lifecycle fire                                       |
 | `dispatch-logger.js`          | Shared lazy `VerboseLogger` proxy used by every submodule                                |

@@ -2,7 +2,7 @@
  * worktree/bootstrapper.js
  *
  * File-copy + index-scrub helpers that prepare a freshly added worktree for
- * the agent (bootstrap files like `.env` and `.mcp.json`) and tear the copy
+ * the agent (bootstrap files like `.env`) and tear the copy
  * back down cleanly at reap time (index scrubbing, submodule purge).
  *
  * All helpers receive an explicit `ctx` bag so they can be unit-tested without
@@ -34,7 +34,7 @@ export function isAgentsSubmodule(repoRoot) {
 }
 
 /**
- * Copy untracked bootstrap files (default `.env`, `.mcp.json`) from the repo
+ * Copy untracked bootstrap files (default `.env`) from the repo
  * root into a freshly created worktree. Delegates to the central
  * `WorkspaceProvisioner`; kept as a named export so existing call sites keep
  * working.

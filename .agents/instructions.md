@@ -183,8 +183,7 @@ protocol:
 - **Soft-Warning (80%)**: When usage reaches the threshold defined by
   `budgetWarningThreshold` (default 0.8), you MUST notify the user via a
   terminal message and trigger the configured notification webhook (resolved
-  from the `NOTIFICATION_WEBHOOK_URL` env var or the `agent-protocols` MCP
-  server entry in `.mcp.json`).
+  from the `NOTIFICATION_WEBHOOK_URL` env var).
 - **Hard-Stop (100%)**: If you reach `maxTokenBudget`, you MUST **STOP**
   immediately. You are forbidden from continuing until a human operator grants
   an explicit override via a status update or CLI flag.
@@ -234,9 +233,9 @@ environments without needing manual command corrections.
      - `docs/web-routes.md`
    - **Epic Context**: Additionally, read the context tickets (PRD, Tech Spec)
      linked in the current Epic's body and the task-specific instructions.
-   - **Optimization**: For large projects, prioritize **Local RAG Semantic
-     Retrieval**. Run `node .agents/scripts/context-indexer.js search "<query>"`
-     to isolate specific schemas or decisions.
+   - **Optimization**: For large projects, prioritize targeted retrieval
+     (semantic code search or focused text search) to isolate specific schemas
+     or decisions before reading broad files.
 2. **Plan First:** For non-trivial tasks (3+ steps or architectural decisions),
    enter **Plan Mode**. Update the Tech Spec issue or create a new Technical
    Specification document in the `docs/` root (if not already handled by a
@@ -293,7 +292,7 @@ Administrative state mutations in the v5 model are performed via GitHub labels.
 Do NOT manually update issue descriptions or status fields unless prompted.
 
 - **Sync Tool**:
-  `node .agents/scripts/update-ticket-state.js --ticket [ID] --status [STATUS]`
+  `node .agents/scripts/update-ticket-state.js --ticket [ID] --state [STATUS]`
 - **Status Labels**: `agent::ready`, `agent::executing`, `agent::review`,
   `agent::done`
 

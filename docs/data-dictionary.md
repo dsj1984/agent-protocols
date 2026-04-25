@@ -315,8 +315,8 @@ tool names solely as historical context — those tools no longer exist.
 | Term | Kind | Definition |
 | --- | --- | --- |
 | `post-structured-comment.js` | CLI | `.agents/scripts/post-structured-comment.js --ticket <id> --marker <key> --body-file <path>`. Successor to `mcp__agent-protocols__post_structured_comment`. Wraps `upsertStructuredComment(provider, ticketId, marker, body)` from `lib/orchestration/ticketing.js`; idempotent by marker. |
-| `audit-orchestrator.js` | CLI | `.agents/scripts/audit-orchestrator.js --select --gate <n>` and `--run --audit <id>`. Successor to `mcp__agent-protocols__select_audits` and `mcp__agent-protocols__run_audit_suite`. Pure rule-based selection (no LLM) over `audit-rules.schema.json`. |
-| `context-hydrator.js` | CLI | `.agents/scripts/context-hydrator.js --task <id> --epic <id>`. Successor to `mcp__agent-protocols__hydrate_context`; emits the same JSON envelope the MCP tool produced. |
+| `select-audits.js` / `run-audit-suite.js` | CLI | Successors to `mcp__agent-protocols__select_audits` and `mcp__agent-protocols__run_audit_suite`. Selection reads `audit-rules.schema.json`; suite execution loads the selected workflow prompts. |
+| `hydrate-context.js` / `context-hydrator.js` | CLI | `hydrate-context.js --ticket <id> --epic <id>` emits the retired MCP tool's JSON envelope. `context-hydrator.js --task <id> --epic <id>` is the raw-prompt wrapper used by operator workflows. |
 | `update-ticket-state.js` (extended) | CLI | Pre-existing CLI now also covers `mcp__agent-protocols__transition_ticket_state` and `mcp__agent-protocols__cascade_completion`. Cascade runs inline at the SDK layer when a Story's last open Task closes. |
 | `dispatcher.js` | CLI | Pre-existing CLI covers `mcp__agent-protocols__dispatch_wave`. Invoked by `/sprint-plan` Phase 3. |
 | `process.env`-only secrets resolution | Contract | `notifier.js` `resolveWebhookUrl()` and the GitHub provider's `GITHUB_TOKEN` lookup read **only** from `process.env`. `.mcp.json` is no longer consulted as a secrets backstop; operators must keep `GITHUB_TOKEN` and `NOTIFICATION_WEBHOOK_URL` in `.env` (local) or the Claude Code web env-var UI. |

@@ -70,7 +70,12 @@ export async function runHydrateContext({ ticketId, epicId, provider }) {
 
   const resolvedEpicId = epicId ?? hierarchy.epic ?? null;
 
-  const storyId = hierarchy.story ?? ticket.id ?? ticket.number ?? ticketId;
+  const storyId =
+    hierarchy.story ??
+    hierarchy.parent ??
+    ticket.id ??
+    ticket.number ??
+    ticketId;
 
   if (!resolvedEpicId) {
     throw new Error(

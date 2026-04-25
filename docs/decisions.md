@@ -68,12 +68,12 @@ doesn't carry a framework-shipped entry anymore.
 | Retired MCP tool                               | Successor                                                                                                                                    |
 | ---------------------------------------------- | -------------------------------------------------------------------------------------------------------------------------------------------- |
 | `mcp__agent-protocols__dispatch_wave`          | `node .agents/scripts/dispatcher.js --epic <id>` (same SDK, same dispatch-manifest output).                                                  |
-| `mcp__agent-protocols__hydrate_context`        | `node .agents/scripts/context-hydrator.js --task <id> --epic <id>`.                                                                          |
+| `mcp__agent-protocols__hydrate_context`        | `node .agents/scripts/hydrate-context.js --ticket <id> --epic <id>` for the JSON envelope; `context-hydrator.js` remains the raw-prompt wrapper. |
 | `mcp__agent-protocols__transition_ticket_state`| `node .agents/scripts/update-ticket-state.js --task <id> --state <state>` (auto-cascades on `agent::done`).                                  |
 | `mcp__agent-protocols__cascade_completion`     | Inlined into `update-ticket-state.js`; also runs at Story close inside `sprint-story-close.js`.                                              |
 | `mcp__agent-protocols__post_structured_comment`| `node .agents/scripts/post-structured-comment.js --ticket <id> --marker <marker> --body-file <path>`; direct `provider.postComment` in lib code. |
-| `mcp__agent-protocols__select_audits`          | `node .agents/scripts/audit-orchestrator.js --select --gate <n>`.                                                                            |
-| `mcp__agent-protocols__run_audit_suite`        | `node .agents/scripts/audit-orchestrator.js --run --audit <id>`.                                                                             |
+| `mcp__agent-protocols__select_audits`          | `node .agents/scripts/select-audits.js --ticket <id> --gate <gate>`.                                                                         |
+| `mcp__agent-protocols__run_audit_suite`        | `node .agents/scripts/run-audit-suite.js --audits <comma-list>`.                                                                             |
 
 The SDK modules under `.agents/scripts/lib/orchestration/` (the things
 these tools delegated into) are unchanged — the retirement is a surface

@@ -990,7 +990,7 @@ test('nodeModulesStrategy: unknown value throws (defense-in-depth vs schema)', a
   }
 });
 
-test('_copyBootstrapFiles: default copies .env and .mcp.json when present', () => {
+test('_copyBootstrapFiles: default copies .env when present', () => {
   const tmp = fs.mkdtempSync(path.join(os.tmpdir(), 'wt-env-'));
   try {
     fs.writeFileSync(path.join(tmp, '.env'), 'DATABASE_URL=postgres://x\n');
@@ -1010,10 +1010,7 @@ test('_copyBootstrapFiles: default copies .env and .mcp.json when present', () =
       fs.readFileSync(path.join(wtPath, '.env'), 'utf-8'),
       'DATABASE_URL=postgres://x\n',
     );
-    assert.equal(
-      fs.readFileSync(path.join(wtPath, '.mcp.json'), 'utf-8'),
-      '{"servers":{}}\n',
-    );
+    assert.equal(fs.existsSync(path.join(wtPath, '.mcp.json')), false);
   } finally {
     fs.rmSync(tmp, { recursive: true, force: true });
   }

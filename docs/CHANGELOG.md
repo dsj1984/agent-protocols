@@ -75,12 +75,12 @@ by any framework code.
   | Retired MCP tool                                | Successor CLI                                                                |
   | ----------------------------------------------- | ---------------------------------------------------------------------------- |
   | `mcp__agent-protocols__dispatch_wave`           | `node .agents/scripts/dispatcher.js --epic <id>`                             |
-  | `mcp__agent-protocols__hydrate_context`         | `node .agents/scripts/context-hydrator.js --task <id> --epic <id>`           |
+  | `mcp__agent-protocols__hydrate_context`         | `node .agents/scripts/hydrate-context.js --ticket <id> --epic <id>`          |
   | `mcp__agent-protocols__transition_ticket_state` | `node .agents/scripts/update-ticket-state.js --task <id> --state <state>`    |
   | `mcp__agent-protocols__cascade_completion`      | Inlined into `update-ticket-state.js`; also fires at Story close             |
   | `mcp__agent-protocols__post_structured_comment` | `node .agents/scripts/post-structured-comment.js --ticket <id> --marker <m>` |
-  | `mcp__agent-protocols__select_audits`           | `node .agents/scripts/audit-orchestrator.js --select --gate <n>`             |
-  | `mcp__agent-protocols__run_audit_suite`         | `node .agents/scripts/audit-orchestrator.js --run --audit <id>`              |
+  | `mcp__agent-protocols__select_audits`           | `node .agents/scripts/select-audits.js --ticket <id> --gate <gate>`          |
+  | `mcp__agent-protocols__run_audit_suite`         | `node .agents/scripts/run-audit-suite.js --audits <comma-list>`              |
 
 - **Fork-aware migration for consumer repos.** Consumers that copied
   `.agents/default-mcp.json` into their own `.mcp.json` must drop the

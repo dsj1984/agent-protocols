@@ -314,4 +314,52 @@ describe('getSubTickets — orchestration', () => {
     const ids = (await provider.getSubTickets(5)).map((t) => t.id);
     assert.deepEqual(ids, [20, 21]);
   });
+
+  it('caps final child ticket hydration fanout', async () => {
+    const childIds = Array.from({ length: 20 }, (_, i) => 100 + i);
+    let inFlight = 0;
+    let maxInFlight = 0;
+    const provider = createProviderWithStubs({
+      graphql: async () => {
+        throw new Error('feature not available on this repository');
+      },
+      rest: async (url) => {
+        if (url.endsWith('/issues/5')) {
+          return {
+            number: 5,
+            id: 5,
+            node_id: 'parent-node',
+            title: 'Story',
+            body: childIds.map((id) => `- [ ] #${id}`).join('\n'),
+            labels: [{ name: 'type::story' }],
+            state: 'open',
+          };
+        }
+        const match = /\/issues\/(\d+)$/.exec(url);
+        if (match) {
+          inFlight += 1;
+          if (inFlight > maxInFlight) maxInFlight = inFlight;
+          await new Promise((r) => setImmediate(r));
+          await new Promise((r) => setImmediate(r));
+          inFlight -= 1;
+          const num = Number.parseInt(match[1], 10);
+          return {
+            number: num,
+            id: num,
+            node_id: `n${num}`,
+            title: `t${num}`,
+            body: '',
+            labels: [],
+            state: 'open',
+          };
+        }
+        return {};
+      },
+    });
+
+    const ids = (await provider.getSubTickets(5)).map((t) => t.id);
+
+    assert.deepEqual(ids, childIds);
+    assert.equal(maxInFlight, 8);
+  });
 });

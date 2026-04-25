@@ -261,7 +261,7 @@ Introduced by Epic #297 (v5.13.0) to split `lib/worktree-manager.js`
 .agents/scripts/lib/worktree/
   lifecycle-manager.js                        ← git worktree ops
   node-modules-strategy.js                    ← per-worktree / symlink / pnpm-store
-  bootstrapper.js                             ← .env, .mcp.json, .agents copy
+  bootstrapper.js                             ← .env, .agents copy
   inspector.js                                ← porcelain + path helpers
 ```
 

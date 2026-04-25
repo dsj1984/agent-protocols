@@ -28,7 +28,7 @@ Operator flips Epic to agent::dispatching
         ▼ Claude remote agent boots
 .agents/scripts/remote-bootstrap.js [--phase spec|decompose|execute]
     • git clone
-    • write .env and .mcp.json from secrets with ::add-mask::
+    • write .env from ENV_FILE with ::add-mask::
     • npm ci --ignore-scripts
     • claude /sprint-execute <epicId>            (default / --phase execute)
     • claude /sprint-plan-spec <epicId>          (--phase spec)
@@ -50,12 +50,11 @@ EpicRunner coordinator (.agents/scripts/lib/orchestration/epic-runner.js)
 
 ## Secrets required in the GitHub repo
 
-| Secret             | Purpose                                                         |
-| ------------------ | --------------------------------------------------------------- |
-| `ANTHROPIC_API_KEY`| Required by the Claude remote-agent action.                     |
-| `ENV_FILE`         | Multi-line contents of the runner's `.env`.                     |
-| `MCP_JSON`         | Contents of `.mcp.json` (the portable `agent-protocols` entry). |
-| `GITHUB_TOKEN`     | Provided automatically by Actions; used for clone + API calls.  |
+| Secret             | Purpose                                                        |
+| ------------------ | -------------------------------------------------------------- |
+| `ANTHROPIC_API_KEY`| Required by the Claude remote-agent action.                    |
+| `ENV_FILE`         | Multi-line contents of the runner's `.env`.                    |
+| `GITHUB_TOKEN`     | Provided automatically by Actions; used for clone + API calls. |
 
 `remote-bootstrap.js` emits `::add-mask::` directives for every
 secret-derived line before any fs I/O, so accidental echoes in later steps
@@ -65,8 +64,7 @@ are redacted in logs. Workspace files are written `0600`.
 
 - Node 22+ (matches the CI workflow).
 - Outbound HTTPS to the GitHub API and (optionally) to the notification
-  webhook sourced from the `agent-protocols` MCP server env
-  (`.mcp.json`) or the `NOTIFICATION_WEBHOOK_URL` process env var.
+  webhook sourced from the `NOTIFICATION_WEBHOOK_URL` process env var.
 - No inbound connectivity — the orchestrator polls for state and pushes
   webhooks; it does not listen.
 - A `claude` CLI available on `PATH`. Override with `CLAUDE_BIN`.
