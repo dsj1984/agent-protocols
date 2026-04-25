@@ -28,6 +28,7 @@ import { runAsCli } from './lib/cli-utils.js';
 import { getLimits, resolveConfig } from './lib/config-resolver.js';
 import { Logger } from './lib/Logger.js';
 import { TYPE_LABELS } from './lib/label-constants.js';
+import { applyBudget } from './lib/orchestration/planning-context-budget.js';
 import { validateAndNormalizeTickets } from './lib/orchestration/ticket-validator.js';
 import { createProvider } from './lib/provider-factory.js';
 import { renderDecomposerSystemPrompt } from './lib/templates/decomposer-prompts.js';
@@ -76,8 +77,19 @@ export function buildDecomposerSystemPrompt(
 
 /**
  * Build the authoring context the host LLM needs to produce the ticket JSON.
+ *
+ * PRD and Tech Spec bodies are bounded by the planning-context budget
+ * (Epic #817 Story 9): when their combined size exceeds `maxBytes`, each
+ * body is replaced with a `bodySummary` field carrying headings + bounded
+ * excerpts. Pass `{ fullContext: true }` (CLI: `--full-context`) to restore
+ * the unbounded full bodies.
  */
-export async function buildDecompositionContext(epicId, provider, config = {}) {
+export async function buildDecompositionContext(
+  epicId,
+  provider,
+  config = {},
+  opts = {},
+) {
   const epic = await provider.getEpic(epicId);
   if (!epic?.linkedIssues?.prd || !epic.linkedIssues.techSpec) {
     throw new Error(
@@ -91,16 +103,39 @@ export async function buildDecompositionContext(epicId, provider, config = {}) {
   ]);
 
   const heuristics = config.agentSettings?.riskGates?.heuristics || [];
-  const maxTickets = getLimits(config).maxTickets;
+  const limits = getLimits(config);
+  const maxTickets = limits.maxTickets;
+  const planningLimits = limits.planningContext;
+  const { fullContext = false } = opts;
   const systemPrompt = buildDecomposerSystemPrompt(heuristics, { maxTickets });
+
+  const budgeted = applyBudget(
+    [
+      { path: `prd-${prd.id}.md`, content: prd.body ?? '' },
+      { path: `tech-spec-${techSpec.id}.md`, content: techSpec.body ?? '' },
+    ],
+    planningLimits,
+    { fullContext },
+  );
+
+  const [prdItem, techSpecItem] = budgeted.items;
+  const prdEntry =
+    budgeted.mode === 'full'
+      ? { id: prd.id, body: prd.body }
+      : { id: prd.id, body: null, bodySummary: prdItem };
+  const techSpecEntry =
+    budgeted.mode === 'full'
+      ? { id: techSpec.id, body: techSpec.body }
+      : { id: techSpec.id, body: null, bodySummary: techSpecItem };
 
   return {
     epic: { id: epic.id, title: epic.title },
-    prd: { id: prd.id, body: prd.body },
-    techSpec: { id: techSpec.id, body: techSpec.body },
+    prd: prdEntry,
+    techSpec: techSpecEntry,
     heuristics,
     systemPrompt,
     maxTickets,
+    contextMode: budgeted.mode,
   };
 }
 
@@ -214,13 +249,14 @@ async function main() {
       force: { type: 'boolean', default: false },
       'emit-context': { type: 'boolean', default: false },
       pretty: { type: 'boolean', default: false },
+      'full-context': { type: 'boolean', default: false },
       tickets: { type: 'string' },
     },
   });
 
   if (!values.epic) {
     Logger.fatal(
-      'Usage: ticket-decomposer.js --epic <EpicId> (--emit-context [--pretty] | --tickets <file>) [--force]',
+      'Usage: ticket-decomposer.js --epic <EpicId> (--emit-context [--pretty] [--full-context] | --tickets <file>) [--force]',
     );
   }
 
@@ -229,7 +265,9 @@ async function main() {
   const provider = createProvider(config.orchestration);
 
   if (values['emit-context']) {
-    const ctx = await buildDecompositionContext(epicId, provider, config);
+    const ctx = await buildDecompositionContext(epicId, provider, config, {
+      fullContext: values['full-context'],
+    });
     const json = values.pretty
       ? JSON.stringify(ctx, null, 2)
       : JSON.stringify(ctx);

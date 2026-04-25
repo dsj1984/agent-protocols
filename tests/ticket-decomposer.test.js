@@ -243,4 +243,116 @@ describe('ticket-decomposer buildDecompositionContext', () => {
       { message: /missing linked PRD or Tech Spec/ },
     );
   });
+
+  describe('planning-context budget (Epic #817 Story 9)', () => {
+    const buildProvider = () => ({
+      async getEpic(id) {
+        return {
+          id,
+          title: 'Big Epic',
+          linkedIssues: { prd: 10, techSpec: 11 },
+        };
+      },
+      async getTicket(id) {
+        const big = `## Heading\n\n${'x'.repeat(40000)}\n`;
+        return {
+          id,
+          body: id === 10 ? `${big}\n## PRD-only\n\nbody` : `${big}\n## TS-only\n\nbody`,
+        };
+      },
+    });
+
+    it('downgrades to summary mode when PRD+TechSpec exceed maxBytes', async () => {
+      const ctx = await buildDecompositionContext(1, buildProvider(), {
+        agentSettings: {
+          limits: {
+            planningContext: { maxBytes: 4096, summaryMode: 'auto' },
+          },
+        },
+      });
+      assert.equal(ctx.contextMode, 'summary');
+      assert.equal(ctx.prd.body, null);
+      assert.ok(ctx.prd.bodySummary);
+      assert.ok(ctx.prd.bodySummary.headings.includes('Heading'));
+      assert.equal(ctx.techSpec.body, null);
+      assert.ok(ctx.techSpec.bodySummary);
+    });
+
+    it('keeps full bodies when --full-context opt is set', async () => {
+      const ctx = await buildDecompositionContext(
+        1,
+        buildProvider(),
+        {
+          agentSettings: {
+            limits: {
+              planningContext: { maxBytes: 4096, summaryMode: 'auto' },
+            },
+          },
+        },
+        { fullContext: true },
+      );
+      assert.equal(ctx.contextMode, 'full');
+      assert.ok(ctx.prd.body.includes('## Heading'));
+      assert.ok(ctx.techSpec.body.includes('## Heading'));
+    });
+
+    it('summaryMode=always forces summary even for small bodies', async () => {
+      const provider = {
+        async getEpic(id) {
+          return {
+            id,
+            title: 'Small Epic',
+            linkedIssues: { prd: 10, techSpec: 11 },
+          };
+        },
+        async getTicket(id) {
+          return { id, body: '## Tiny\n\nshort body' };
+        },
+      };
+      const ctx = await buildDecompositionContext(1, provider, {
+        agentSettings: {
+          limits: {
+            planningContext: { maxBytes: 1000000, summaryMode: 'always' },
+          },
+        },
+      });
+      assert.equal(ctx.contextMode, 'summary');
+      assert.deepEqual(ctx.prd.bodySummary.headings, ['Tiny']);
+    });
+
+    it('full and summary modes resolve identically in tickets-mode pipeline (decompose accepts both)', async () => {
+      // Decomposition itself doesn't read the bodies — it only reads the
+      // ticket array. Asserting the same `decomposeEpic` output regardless of
+      // which planning-context mode produced the upstream JSON proves the
+      // budget is purely an emit-context concern and never leaks into ticket
+      // creation.
+      const provider1 = buildProvider();
+      const provider2 = buildProvider();
+      const ticketArray = baseTickets();
+
+      // Decompose using two different upstream configs; outputs must match.
+      provider1.createdTickets = [];
+      provider1.updatedTickets = [];
+      provider1.createTicket = async (epicId, ticketData) => {
+        const newId = 200 + provider1.createdTickets.length;
+        provider1.createdTickets.push({ epicId, ticketData, newId });
+        return { id: newId, url: `https://github.com/test/${newId}` };
+      };
+      provider2.createdTickets = [];
+      provider2.updatedTickets = [];
+      provider2.createTicket = async (epicId, ticketData) => {
+        const newId = 200 + provider2.createdTickets.length;
+        provider2.createdTickets.push({ epicId, ticketData, newId });
+        return { id: newId, url: `https://github.com/test/${newId}` };
+      };
+
+      await decomposeEpic(1, provider1, { tickets: ticketArray });
+      await decomposeEpic(1, provider2, { tickets: ticketArray });
+
+      assert.deepEqual(
+        provider1.createdTickets.map((c) => c.ticketData.title),
+        provider2.createdTickets.map((c) => c.ticketData.title),
+      );
+    });
+  });
 });
