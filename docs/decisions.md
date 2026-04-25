@@ -1,5 +1,125 @@
 # Architecture Decision Records (ADR)
 
+## ADR 20260424-702a: Retire agent-protocols MCP
+
+**Status:** Accepted
+**Date:** 2026-04-24
+**Epic:** #702
+
+**Supersedes:** ADR-20260422-441b (_Canonical structured-comment writer is the MCP tool_),
+which is retained below for historical context only — its conclusion no longer
+applies now that the MCP server is gone.
+
+### Context
+
+Version 5.0 introduced the `agent-protocols` MCP server
+(`.agents/scripts/mcp-orchestration.js`) as a JSON-RPC 2.0 facade over the
+orchestration SDK. The stated goal was letting an MCP-capable host (Claude
+Desktop, Cursor) call `dispatch_wave`, `hydrate_context`,
+`transition_ticket_state`, `cascade_completion`, `post_structured_comment`,
+`select_audits`, and `run_audit_suite` natively instead of spawning shell
+subprocesses.
+
+By early 2026-04 two costs had compounded against that value:
+
+- **Surface duplication.** Every orchestration capability already shipped as
+  a Node CLI wrapper around the same SDK (`dispatcher.js`,
+  `context-hydrator.js`, `update-ticket-state.js`,
+  `post-structured-comment.js`, `audit-orchestrator.js`). The MCP server was
+  a second entry point to the same code path — two schemas to keep in sync,
+  two permission surfaces to validate, two places for a structured-comment
+  marker to drift. Epic #380's retro-routing regression (a retro body was
+  mis-posted through the webhook because the MCP tool's `type` enum missed
+  `retro`) and Epic #441's marker-shape fixes (ADR-20260422-441b) were both
+  direct consequences of that duplication.
+- **Operator ergonomics.** `.mcp.json` became the canonical home for
+  `NOTIFICATION_WEBHOOK_URL` (v5.8.0 consolidation), which meant operators
+  had to provision one file for secrets that their IDE's MCP host would
+  also read. Fresh checkouts needed the file before `/sprint-execute` would
+  find a webhook. Worktrees had to bootstrap-copy it into every isolated
+  tree. Every surface that resolved the webhook had to traverse two code
+  paths. Epic #710 traced the leak behaviour documented in the operator
+  memory entry _feedback_webhook_leak_in_tests.md_ back to this dual
+  sourcing.
+
+### Decision
+
+Retire the `agent-protocols` MCP server and its companion artefacts:
+
+- Delete `.agents/scripts/mcp-orchestration.js` and everything under
+  `.agents/scripts/lib/mcp/` and `.agents/scripts/mcp/`.
+- Delete the dedicated MCP docs (`.agents/MCP.md`, `docs/mcp-setup.md`).
+- Drop the `agent-protocols` block from `.agents/default-mcp.json` and stop
+  shipping a template that advertises the server.
+- Collapse webhook resolution to env-only: `NOTIFICATION_WEBHOOK_URL` is
+  read from the process environment (loaded from `.env` locally, or set in
+  the Claude Code web environment-variables UI). `.mcp.json` is no longer
+  consulted.
+- Keep the existing Node CLI wrappers under `.agents/scripts/` as the sole
+  consumer interface to the orchestration SDK.
+
+Third-party MCP servers an operator wants to wire into their IDE
+(`@modelcontextprotocol/server-github`, `context7`, etc.) remain
+unaffected — `.mcp.json` is still a valid file in that role, it just
+doesn't carry a framework-shipped entry anymore.
+
+### Where the capabilities live now
+
+| Retired MCP tool                               | Successor                                                                                                                                    |
+| ---------------------------------------------- | -------------------------------------------------------------------------------------------------------------------------------------------- |
+| `mcp__agent-protocols__dispatch_wave`          | `node .agents/scripts/dispatcher.js --epic <id>` (same SDK, same dispatch-manifest output).                                                  |
+| `mcp__agent-protocols__hydrate_context`        | `node .agents/scripts/context-hydrator.js --task <id> --epic <id>`.                                                                          |
+| `mcp__agent-protocols__transition_ticket_state`| `node .agents/scripts/update-ticket-state.js --task <id> --state <state>` (auto-cascades on `agent::done`).                                  |
+| `mcp__agent-protocols__cascade_completion`     | Inlined into `update-ticket-state.js`; also runs at Story close inside `sprint-story-close.js`.                                              |
+| `mcp__agent-protocols__post_structured_comment`| `node .agents/scripts/post-structured-comment.js --ticket <id> --marker <marker> --body-file <path>`; direct `provider.postComment` in lib code. |
+| `mcp__agent-protocols__select_audits`          | `node .agents/scripts/audit-orchestrator.js --select --gate <n>`.                                                                            |
+| `mcp__agent-protocols__run_audit_suite`        | `node .agents/scripts/audit-orchestrator.js --run --audit <id>`.                                                                             |
+
+The SDK modules under `.agents/scripts/lib/orchestration/` (the things
+these tools delegated into) are unchanged — the retirement is a surface
+removal, not a logic change.
+
+### Consequences
+
+- **Positive:** One entry point per capability; one schema per argument
+  shape; one place for a marker contract to live. Structured-comment
+  `type` drift (ADR-20260422-441b) is no longer a possible failure mode
+  because there is no parallel writer.
+- **Positive:** `.mcp.json` is no longer load-bearing for framework
+  orchestration. Operators provision secrets in `.env` (local) or the
+  Claude Code web env-var UI (web); `.mcp.json` is reserved for the
+  MCP host's own discovery of third-party servers.
+- **Positive:** Worktree bootstrap drops `.mcp.json` from its copy list;
+  one fewer file to keep in sync across isolated trees.
+- **Negative (breaking):** Operators who previously relied on the IDE
+  invoking tools natively must now invoke the Node CLIs directly (or let
+  the `/sprint-*` workflows invoke them, which they already did). The
+  CLI mapping above is the migration list.
+- **Negative (breaking):** Operators who kept `NOTIFICATION_WEBHOOK_URL`
+  or `GITHUB_TOKEN` only in `.mcp.json` must move them to `.env` (local)
+  or the Claude Code web env-var UI. The notifier resolver no longer
+  reads `.mcp.json`.
+- **Negative (fork-aware):** Consumer repos that pulled
+  `.agents/default-mcp.json` into their own `.mcp.json` must remove the
+  `agent-protocols` entry during their next submodule bump; leaving it
+  in place resolves to a now-missing script path.
+
+### Alternatives considered
+
+- **Keep the MCP server, deduplicate the schemas.** Rejected: the
+  duplication was *between* the MCP tool layer and the CLI wrappers, not
+  within the tool layer. Consolidating one side still leaves two surfaces.
+- **Delete the Node CLIs instead, keep MCP as the only surface.** Rejected:
+  the CLIs are invoked directly by the `/sprint-*` workflows, by
+  `remote-bootstrap.js` under GitHub Actions, and by consumer projects'
+  own scripts. They are not optional; the MCP server was.
+- **Keep the MCP server but move webhook resolution to env-only.**
+  Rejected: solves the leak symptom without addressing the duplication
+  cost. The Epic #710 audit concluded the surface itself was the
+  liability, not the specific webhook lookup.
+
+---
+
 ## ADR 20260424-668a: Resolve `worktreeIsolation.enabled` from environment, not config
 
 **Status:** Accepted

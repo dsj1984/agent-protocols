@@ -217,8 +217,8 @@ graph TB
 #### Dispatch Engine Submodules (v5.13.0+)
 
 `lib/orchestration/dispatch-engine.js` is a ~200-LOC SDK coordinator that
-composes six cohesive submodules. Consumers (`dispatcher.js`,
-`mcp-orchestration.js`, tests) continue to import `dispatch`,
+composes six cohesive submodules. Consumers (`dispatcher.js`, tests) continue
+to import `dispatch`,
 `resolveAndDispatch`, `collectOpenStoryIds`, `detectEpicCompletion`, and
 the `AGENT_*` / `RISK_HIGH_LABEL` / `TYPE_TASK_LABEL` constants from the
 coordinator path — the split is an internal reorganisation only.
@@ -308,7 +308,7 @@ Wave 1:
 | Module                                                             | Role                                                                                                                                               |
 | ------------------------------------------------------------------ | -------------------------------------------------------------------------------------------------------------------------------------------------- |
 | `lib/orchestration/epic-runner/column-sync.js` (patched #448)      | Dropped the unused `$issueId: Int!` GraphQL variable; removed the silent-swallow try/catch so missing project rows surface as friction, not `unknown`. |
-| `lib/orchestration/friction-emitter.js` (new #450)                 | Rate-limited (`storyId` + marker hash, 60s cooldown) `friction` emitter wrapping `provider.postComment` / the MCP `post_structured_comment` tool.       |
+| `lib/orchestration/friction-emitter.js` (new #450)                 | Rate-limited (`storyId` + marker hash, 60s cooldown) `friction` emitter wrapping `provider.postComment`.                                                |
 | `lib/orchestration/docs-context-bridge.js` (new #454)              | At Story-close, matches changed-file paths against `release.docs` + `agentSettings.docsContextFiles` and emits a `friction` comment on match.           |
 
 `CommitAssertion`'s default git adapter now falls back to a
@@ -436,7 +436,7 @@ classDiagram
 
     IExecutionAdapter <|-- ManualDispatchAdapter
 
-    note for IExecutionAdapter "Future adapters: antigravity,\nclaude-code, codex, subprocess, mcp"
+    note for IExecutionAdapter "Future adapters: antigravity,\nclaude-code, codex, subprocess"
 ```
 
 **Resolution**: The `adapter-factory.js` reads `orchestration.executor` from
@@ -690,7 +690,7 @@ before shelling out; `reap` never passes `--force`.
 | -------------------------- | ------------------------------------------------------------------------------------------------ |
 | `lifecycle-manager.js`     | `ensure`, `reap`, `list`, `gc`, `prune`, `sweepStaleLocks`, Windows-lock-aware remove recovery   |
 | `node-modules-strategy.js` | `applyNodeModulesStrategy` + `installDependencies` for `per-worktree` / `symlink` / `pnpm-store` |
-| `bootstrapper.js`          | Bootstrap-file copy (`.env`, `.mcp.json`), `.agents/` snapshot for submodule consumers, submodule-index scrub |
+| `bootstrapper.js`          | Bootstrap-file copy (`.env`), `.agents/` snapshot for submodule consumers, submodule-index scrub |
 | `inspector.js`             | Pure porcelain parsing, path helpers (`samePath`, `storyIdFromPath`, `isInsideWorktree`), Windows path-length warnings |
 
 The submodules are **internal implementation detail**. Downstream projects
