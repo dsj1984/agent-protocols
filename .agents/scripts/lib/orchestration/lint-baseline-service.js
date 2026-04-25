@@ -90,10 +90,7 @@ export class LintBaselineService {
     try {
       await exec(
         'node',
-        [
-          path.join(PROJECT_ROOT, scriptsRoot, 'lint-baseline.js'),
-          'capture',
-        ],
+        [path.join(PROJECT_ROOT, scriptsRoot, 'lint-baseline.js'), 'capture'],
         {
           cwd: PROJECT_ROOT,
           encoding: 'utf8',
