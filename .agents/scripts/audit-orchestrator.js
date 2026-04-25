@@ -36,17 +36,35 @@ export function renderFindingsBlock(findings) {
   ].join('\n');
 }
 
+const SEVERITY_RENDER = [
+  ['critical', '🔴', 'Critical'],
+  ['high', '🟠', 'High'],
+  ['medium', '🟡', 'Medium'],
+  ['low', '⚪', 'Low'],
+];
+
+export function renderSummaryLine(summary) {
+  if (!summary) return '';
+  const parts = SEVERITY_RENDER.filter(([key]) => (summary[key] ?? 0) > 0).map(
+    ([key, icon, label]) => `${icon} ${summary[key]} ${label}`,
+  );
+  if (parts.length === 0) return '';
+  return `**Summary:** ${parts.join(' | ')}`;
+}
+
 /** Pure: render the workflows block; returns '' when no workflows. */
 export function renderWorkflowsBlock(workflows, summary, auditsRun) {
   if (!workflows || workflows.length === 0) return '';
-  const head = [
-    `**Audit Workflows Dispatched:** ${auditsRun.join(', ')}`,
-    `**Summary:** 🔴 ${summary.critical} Critical | 🟠 ${summary.high} High | 🟡 ${summary.medium} Medium | ⚪ ${summary.low} Low`,
+  const headLines = [`**Audit Workflows Dispatched:** ${auditsRun.join(', ')}`];
+  const summaryLine = renderSummaryLine(summary);
+  if (summaryLine) headLines.push(summaryLine);
+  headLines.push(
     '',
     '> [!NOTE]',
     '> The following audit workflows are ready to execute. Run each prompt as a dedicated agent task.',
     '',
-  ].join('\n');
+  );
+  const head = headLines.join('\n');
   const body = workflows
     .map((wf) => `---\n\n### Audit: \`${wf.audit}\`\n\n${wf.content}\n\n`)
     .join('');
