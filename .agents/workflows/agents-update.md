@@ -78,21 +78,23 @@ A no-op run (already up to date) looks like:
 
 ## Step 3 — Reconcile `.agentrc.json` against the new defaults
 
-A framework bump can add, remove, or reshape fields in
-`.agents/default-agentrc.json`. Run the reconciliation helper so the
-consumer's `.agentrc.json` tracks the new schema without losing any
-project-specific overrides.
+A framework bump can add or reshape fields in
+`.agents/default-agentrc.json` (and the underlying schema). Run the
+reconciliation helper so the consumer's `.agentrc.json` tracks the new schema
+without losing any project-specific overrides.
 
 Follow the procedure in
 [`helpers/agents-sync-config.md`](helpers/agents-sync-config.md). It is a
-structural diff-and-merge:
+schema-driven validate-then-merge:
 
-- Fields present in the default but missing in the project are **added**.
-- Fields present in the project but missing from the default are
-  **removed** (treated as obsolete).
-- Scalars, arrays, and operator overrides are **preserved** verbatim.
-- The helper emits an `ADDED` / `REMOVED` / `TYPE` change report and
-  never auto-commits.
+- The project config is **validated** against the framework schema first;
+  any failure aborts the run with a diagnostic so the operator can fix the
+  underlying typo / missing required key.
+- Required or template-defaulted keys missing from the project are **added**
+  from the template (operator opt-in to new defaults).
+- Every project value that validates is **preserved unconditionally** —
+  including schema-valid optional keys the template does not declare.
+- The helper emits an `ADDED` change report and never auto-commits.
 
 If the helper reports `No changes required`, the config is already in
 sync — carry on. Otherwise, review the change report before the
