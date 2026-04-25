@@ -237,6 +237,7 @@ export const ORCHESTRATION_SCHEMA = {
   allOf: [
     {
       if: { properties: { provider: { const: 'github' } }, required: ['provider'] },
+      // biome-ignore lint/suspicious/noThenProperty: JSON Schema if/then keyword
       then: { required: ['github'] },
     },
   ],
