@@ -453,6 +453,87 @@ export function renderPhaseTimingsCommentBody(summary) {
 }
 
 /**
+ * Pure: build the conventional-commit subject the resume path uses to
+ * finalize a partial-merge commit. Exported for tests.
+ */
+export function buildResumeMergeCommitMsg(storyTitle, storyId) {
+  const lc = storyTitle.charAt(0).toLowerCase() + storyTitle.slice(1);
+  return `feat: ${lc} (resolves #${storyId})`;
+}
+
+/**
+ * Pure: classify a `pushEpicWithRetry` outcome into the operator-facing
+ * fatal-error message. Returns `null` when the push was ok.
+ */
+export function describeResumePushFailure(pushOutcome) {
+  if (pushOutcome.ok) return null;
+  const reasonLabel =
+    pushOutcome.reason === 'retry-exhausted'
+      ? `retries exhausted after ${pushOutcome.attempts} attempt(s)`
+      : pushOutcome.reason;
+  const detail =
+    pushOutcome.result?.stderr || pushOutcome.result?.stdout || 'unknown';
+  return `Push failed (${reasonLabel}): ${detail}`;
+}
+
+async function finalizeMergeIfPending({
+  cwd,
+  epicBranch,
+  storyBranch,
+  storyTitle,
+  storyId,
+}) {
+  const mergeHeadPath = path.join(cwd, '.git', 'MERGE_HEAD');
+  if (!fs.existsSync(mergeHeadPath)) {
+    progress(
+      'GIT',
+      '⚠️ No MERGE_HEAD found — merge already committed; proceeding to push',
+    );
+    return;
+  }
+  progress('GIT', 'Finalizing in-progress merge (git commit --no-verify)');
+  const commit = gitSpawn(
+    cwd,
+    'commit',
+    '--no-verify',
+    '-m',
+    buildResumeMergeCommitMsg(storyTitle, storyId),
+  );
+  if (commit.status !== 0) {
+    Logger.fatal(
+      `Failed to finalize merge commit: ${commit.stderr || commit.stdout || 'unknown'}. ` +
+        `Check that all conflicts are resolved and staged on ${epicBranch}.`,
+    );
+  }
+  progress('GIT', `✅ Merge of ${storyBranch} finalized on ${epicBranch}`);
+}
+
+async function pushEpicAfterResume({
+  cwd,
+  epicBranch,
+  storyBranch,
+  orchestration,
+}) {
+  progress('GIT', `Pushing ${epicBranch}...`);
+  let pushOutcome;
+  try {
+    pushOutcome = await pushEpicWithRetry({
+      cwd,
+      epicBranch,
+      storyBranch,
+      closeRetry: getRunners(orchestration).closeRetry,
+      git: { gitSpawn },
+      log: (msg) => progress('GIT', msg),
+    });
+  } catch (err) {
+    if (err instanceof PushRetryConflictError) Logger.fatal(err.message);
+    throw err;
+  }
+  const fatal = describeResumePushFailure(pushOutcome);
+  if (fatal) Logger.fatal(fatal);
+}
+
+/**
  * Complete an in-progress merge whose conflicts have been resolved by the
  * operator, then push. Used by the `--resume` path when prior state is
  * `partial-merge`.
@@ -475,51 +556,19 @@ async function completeInProgressMerge({
     });
     progress('LOCK', `🔒 Acquired ${path.basename(lockHandle.filePath)}`);
 
-    const mergeHeadPath = path.join(cwd, '.git', 'MERGE_HEAD');
-    if (fs.existsSync(mergeHeadPath)) {
-      progress('GIT', 'Finalizing in-progress merge (git commit --no-verify)');
-      const mergeMsg = `feat: ${storyTitle.charAt(0).toLowerCase() + storyTitle.slice(1)} (resolves #${storyId})`;
-      const commit = gitSpawn(cwd, 'commit', '--no-verify', '-m', mergeMsg);
-      if (commit.status !== 0) {
-        Logger.fatal(
-          `Failed to finalize merge commit: ${commit.stderr || commit.stdout || 'unknown'}. ` +
-            `Check that all conflicts are resolved and staged on ${epicBranch}.`,
-        );
-      }
-      progress('GIT', `✅ Merge of ${storyBranch} finalized on ${epicBranch}`);
-    } else {
-      progress(
-        'GIT',
-        '⚠️ No MERGE_HEAD found — merge already committed; proceeding to push',
-      );
-    }
-
-    progress('GIT', `Pushing ${epicBranch}...`);
-    let pushOutcome;
-    try {
-      pushOutcome = await pushEpicWithRetry({
-        cwd,
-        epicBranch,
-        storyBranch,
-        closeRetry: getRunners(orchestration).closeRetry,
-        git: { gitSpawn },
-        log: (msg) => progress('GIT', msg),
-      });
-    } catch (err) {
-      if (err instanceof PushRetryConflictError) {
-        Logger.fatal(err.message);
-      }
-      throw err;
-    }
-    if (!pushOutcome.ok) {
-      const reasonLabel =
-        pushOutcome.reason === 'retry-exhausted'
-          ? `retries exhausted after ${pushOutcome.attempts} attempt(s)`
-          : pushOutcome.reason;
-      Logger.fatal(
-        `Push failed (${reasonLabel}): ${pushOutcome.result?.stderr || pushOutcome.result?.stdout || 'unknown'}`,
-      );
-    }
+    await finalizeMergeIfPending({
+      cwd,
+      epicBranch,
+      storyBranch,
+      storyTitle,
+      storyId,
+    });
+    await pushEpicAfterResume({
+      cwd,
+      epicBranch,
+      storyBranch,
+      orchestration,
+    });
   } finally {
     if (lockHandle) {
       releaseEpicMergeLock(lockHandle);

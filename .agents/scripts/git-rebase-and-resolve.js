@@ -147,9 +147,15 @@ export function abortRebase({ cwd = PROJECT_ROOT, git = { spawn: gitSpawn } }) {
   };
 }
 
-/* node:coverage ignore next */
-async function main() {
+/**
+ * Pure: parse argv into the normalized rebase-action option bag.
+ *
+ * @param {string[]} argv
+ * @returns {{ onto?: string, head?: string, continueFlag: boolean, abortFlag: boolean, json: boolean }}
+ */
+export function parseRebaseArgs(argv) {
   const { values } = parseArgs({
+    args: argv,
     options: {
       onto: { type: 'string' },
       head: { type: 'string' },
@@ -159,46 +165,69 @@ async function main() {
     },
     strict: false,
   });
-  const cwd = PROJECT_ROOT;
-  const asJson = values.json === true;
+  return {
+    onto: values.onto,
+    head: values.head,
+    continueFlag: values.continue === true,
+    abortFlag: values.abort === true,
+    json: values.json === true,
+  };
+}
 
-  let result;
-  if (values.abort) {
-    result = abortRebase({ cwd });
-  } else if (values.continue) {
-    result = continueRebase({ cwd });
-  } else {
-    if (!values.onto) {
-      Logger.fatal(
+/** Pure: did the rebase end in a clean / non-failure outcome? */
+export function isCleanRebaseOutcome(outcome) {
+  return (
+    outcome === 'clean' || outcome === 'continued' || outcome === 'aborted'
+  );
+}
+
+/** Pure: render the human-facing output lines for a rebase result. */
+export function renderRebaseHumanLines(result) {
+  const lines = [`[rebase] outcome: ${result.outcome}`];
+  if (result.conflictedFiles?.length > 0) {
+    lines.push(`[rebase] conflicted files (${result.conflictedFiles.length}):`);
+    for (const f of result.conflictedFiles) lines.push(`  - ${f}`);
+  }
+  return lines;
+}
+
+/**
+ * Pure: dispatch the parsed args to the matching rebase action. Throws when
+ * the implicit-rebase path was selected without `--onto`. Exported for tests.
+ */
+export function selectRebaseAction(args) {
+  if (args.abortFlag) return { kind: 'abort' };
+  if (args.continueFlag) return { kind: 'continue' };
+  if (!args.onto) {
+    return {
+      kind: 'usage-error',
+      message:
         'Usage: node git-rebase-and-resolve.js --onto <base> [--head <branch>] [--json]',
-      );
-    }
-    result = runRebase({ onto: values.onto, head: values.head, cwd });
+    };
   }
+  return { kind: 'rebase', onto: args.onto, head: args.head };
+}
 
-  if (asJson) {
-    process.stdout.write(`${JSON.stringify(result)}\n`);
-  } else {
-    console.log(`[rebase] outcome: ${result.outcome}`);
-    if (result.conflictedFiles?.length > 0) {
-      console.log(
-        `[rebase] conflicted files (${result.conflictedFiles.length}):`,
-      );
-      for (const f of result.conflictedFiles) console.log(`  - ${f}`);
-    }
-    if (result.stderr?.trim()) {
-      console.error(result.stderr.trim());
-    }
-  }
+function runSelectedAction(action, cwd) {
+  if (action.kind === 'abort') return abortRebase({ cwd });
+  if (action.kind === 'continue') return continueRebase({ cwd });
+  return runRebase({ onto: action.onto, head: action.head, cwd });
+}
 
-  if (
-    result.outcome === 'clean' ||
-    result.outcome === 'continued' ||
-    result.outcome === 'aborted'
-  ) {
-    return;
-  }
-  process.exit(1);
+function emitRebaseHuman(result) {
+  for (const line of renderRebaseHumanLines(result)) console.log(line);
+  if (result.stderr?.trim()) console.error(result.stderr.trim());
+}
+
+/* node:coverage ignore next */
+async function main() {
+  const args = parseRebaseArgs(process.argv.slice(2));
+  const action = selectRebaseAction(args);
+  if (action.kind === 'usage-error') Logger.fatal(action.message);
+  const result = runSelectedAction(action, PROJECT_ROOT);
+  if (args.json) process.stdout.write(`${JSON.stringify(result)}\n`);
+  else emitRebaseHuman(result);
+  if (!isCleanRebaseOutcome(result.outcome)) process.exit(1);
 }
 
 runAsCli(import.meta.url, main, { source: 'git-rebase-and-resolve' });

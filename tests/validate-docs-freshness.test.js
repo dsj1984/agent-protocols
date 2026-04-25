@@ -1,9 +1,62 @@
 import assert from 'node:assert';
 import { test } from 'node:test';
 import {
+  parseFreshnessArgs,
+  renderFreshnessFailureMessage,
+  renderFreshnessLine,
+  renderFreshnessSuccessMessage,
   resolveDocList,
   runFreshnessGate,
 } from '../.agents/scripts/validate-docs-freshness.js';
+
+test('parseFreshnessArgs: invalid epic id returns null', () => {
+  assert.strictEqual(parseFreshnessArgs([]).epicId, null);
+  assert.strictEqual(parseFreshnessArgs(['--epic', '0']).epicId, null);
+  assert.strictEqual(parseFreshnessArgs(['--epic', 'oops']).epicId, null);
+});
+
+test('parseFreshnessArgs: parses --json and --docs comma list', () => {
+  const out = parseFreshnessArgs([
+    '--epic',
+    '7',
+    '--json',
+    '--docs',
+    ' a.md , b.md ,, ',
+  ]);
+  assert.strictEqual(out.epicId, 7);
+  assert.strictEqual(out.json, true);
+  assert.deepStrictEqual(out.docsList, ['a.md', 'b.md']);
+});
+
+test('parseFreshnessArgs: omits --docs leaves docsList null', () => {
+  const out = parseFreshnessArgs(['--epic', '5']);
+  assert.strictEqual(out.docsList, null);
+  assert.strictEqual(out.json, false);
+});
+
+test('renderFreshnessLine: pass + fail variants', () => {
+  assert.strictEqual(
+    renderFreshnessLine({ pass: true, file: 'a.md', reason: 'commit' }),
+    '[docs-freshness] ✅ a.md — commit',
+  );
+  assert.strictEqual(
+    renderFreshnessLine({ pass: false, file: 'b.md', reason: 'no ref' }),
+    '[docs-freshness] ❌ b.md — no ref',
+  );
+});
+
+test('renderFreshnessFailureMessage references epic id twice', () => {
+  const msg = renderFreshnessFailureMessage(99);
+  assert.match(msg, /FAILED for Epic #99/);
+  assert.match(msg, /references #99/);
+});
+
+test('renderFreshnessSuccessMessage formats count + epic id', () => {
+  assert.strictEqual(
+    renderFreshnessSuccessMessage(7, 4),
+    '[docs-freshness] ✅ All 4 doc(s) reference Epic #7.',
+  );
+});
 
 test('resolveDocList merges release.docs and docsContextFiles under paths.docsRoot', () => {
   const docs = resolveDocList({

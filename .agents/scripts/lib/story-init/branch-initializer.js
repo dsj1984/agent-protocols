@@ -135,6 +135,83 @@ export async function bootstrapBranch({
   progress('GIT', `✅ On branch: ${currentBranch.stdout}`);
 }
 
+/**
+ * Pure: classify whether a story branch needs to be fetched from origin or
+ * created from the epic branch. Returns the action keyword. Exported so the
+ * decision is testable without git side-effects.
+ *
+ * @returns {'none'|'fetch'|'create'}
+ */
+export function planStoryBranchSeed({ localHas, remoteHas }) {
+  if (localHas) return 'none';
+  if (remoteHas) return 'fetch';
+  return 'create';
+}
+
+function ensureStoryBranchSeed({
+  storyBranch,
+  epicBranch,
+  mainCwd,
+  progress,
+}) {
+  const action = planStoryBranchSeed({
+    localHas: branchExistsLocally(storyBranch, mainCwd),
+    remoteHas: branchExistsRemotely(storyBranch, mainCwd),
+  });
+  if (action === 'fetch') {
+    progress('GIT', `Fetching remote story branch: ${storyBranch}`);
+    gitSpawn(mainCwd, 'fetch', 'origin', `${storyBranch}:${storyBranch}`);
+  } else if (action === 'create') {
+    progress(
+      'GIT',
+      `Creating story branch ref: ${storyBranch} from ${epicBranch}`,
+    );
+    gitSpawn(mainCwd, 'branch', storyBranch, epicBranch);
+  }
+}
+
+function verifyWorkspaceSafe({
+  ensured,
+  mainCwd,
+  wtConfig,
+  fs,
+  path,
+  progress,
+}) {
+  try {
+    const workspaceFiles = resolveWorkspaceFiles(wtConfig);
+    const presentAtSource = workspaceFiles.filter((rel) =>
+      fs.existsSync(path.join(mainCwd, rel)),
+    );
+    if (presentAtSource.length > 0) {
+      verifyWorkspace({
+        worktree: ensured.path,
+        files: presentAtSource,
+        sourceRoot: mainCwd,
+      });
+    }
+  } catch (err) {
+    progress('WORKTREE', `⚠️ ${err.message}`);
+    throw err;
+  }
+}
+
+function reportEnsureWarnings(ensured, progress) {
+  if (ensured.installFailed) {
+    progress(
+      'WORKTREE',
+      `⚠️ Dependency install failed. Agent must run package-manager install in the worktree before proceeding.`,
+    );
+  }
+  if (ensured.windowsPathWarning) {
+    const { path: p, length, threshold } = ensured.windowsPathWarning;
+    progress(
+      'WORKTREE',
+      `⚠️ Windows long-path: ${p} (${length} >= ${threshold}). Consider relocating orchestration.worktreeIsolation.root.`,
+    );
+  }
+}
+
 export async function bootstrapWorktree({
   epicBranch,
   storyBranch,
@@ -157,19 +234,7 @@ export async function bootstrapWorktree({
   }
 
   ensureEpicBranchRef(epicBranch, baseBranch, mainCwd, { progress });
-
-  const localHas = branchExistsLocally(storyBranch, mainCwd);
-  const remoteHas = branchExistsRemotely(storyBranch, mainCwd);
-  if (!localHas && remoteHas) {
-    progress('GIT', `Fetching remote story branch: ${storyBranch}`);
-    gitSpawn(mainCwd, 'fetch', 'origin', `${storyBranch}:${storyBranch}`);
-  } else if (!localHas && !remoteHas) {
-    progress(
-      'GIT',
-      `Creating story branch ref: ${storyBranch} from ${epicBranch}`,
-    );
-    gitSpawn(mainCwd, 'branch', storyBranch, epicBranch);
-  }
+  ensureStoryBranchSeed({ storyBranch, epicBranch, mainCwd, progress });
 
   const wm = new WorktreeManager({
     repoRoot: mainCwd,
@@ -188,37 +253,8 @@ export async function bootstrapWorktree({
     `${ensured.created ? '✨ Created' : '♻️  Reusing'} worktree: ${ensured.path}`,
   );
 
-  try {
-    const workspaceFiles = resolveWorkspaceFiles(wtConfig);
-    const presentAtSource = workspaceFiles.filter((rel) =>
-      fs.existsSync(path.join(mainCwd, rel)),
-    );
-    if (presentAtSource.length > 0) {
-      verifyWorkspace({
-        worktree: ensured.path,
-        files: presentAtSource,
-        sourceRoot: mainCwd,
-      });
-    }
-  } catch (err) {
-    progress('WORKTREE', `⚠️ ${err.message}`);
-    throw err;
-  }
-
-  if (ensured.installFailed) {
-    progress(
-      'WORKTREE',
-      `⚠️ Dependency install failed. Agent must run package-manager install in the worktree before proceeding.`,
-    );
-  }
-
-  if (ensured.windowsPathWarning) {
-    const { path: p, length, threshold } = ensured.windowsPathWarning;
-    progress(
-      'WORKTREE',
-      `⚠️ Windows long-path: ${p} (${length} >= ${threshold}). Consider relocating orchestration.worktreeIsolation.root.`,
-    );
-  }
+  verifyWorkspaceSafe({ ensured, mainCwd, wtConfig, fs, path, progress });
+  reportEnsureWarnings(ensured, progress);
 
   return {
     worktreePath: ensured.path,

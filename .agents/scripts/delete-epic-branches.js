@@ -136,9 +136,15 @@ export function executeDeletion({
   };
 }
 
-/* node:coverage ignore next */
-async function main() {
+/**
+ * Pure: parse argv into the normalized CLI option bag. Exported for tests.
+ *
+ * @param {string[]} argv
+ * @returns {{ epicId: number|null, dryRun: boolean, json: boolean }}
+ */
+export function parseDeleteArgs(argv) {
   const { values } = parseArgs({
+    args: argv,
     options: {
       epic: { type: 'string' },
       'dry-run': { type: 'boolean', default: false },
@@ -146,62 +152,84 @@ async function main() {
     },
     strict: false,
   });
-  const epicId = Number.parseInt(values.epic ?? '', 10);
-  if (Number.isNaN(epicId) || epicId <= 0) {
+  const parsed = Number.parseInt(values.epic ?? '', 10);
+  return {
+    epicId: Number.isNaN(parsed) || parsed <= 0 ? null : parsed,
+    dryRun: values['dry-run'] === true,
+    json: values.json === true,
+  };
+}
+
+/** Pure: render the dry-run plan as the operator-facing text block. */
+export function renderDryRun(plan) {
+  return [
+    `[delete-epic-branches] Epic #${plan.epicId} — DRY RUN (nothing deleted)`,
+    `  Local   (${plan.local.length}): ${plan.local.join(', ') || '(none)'}`,
+    `  Remote  (${plan.remote.length}): ${plan.remote.join(', ') || '(none)'}`,
+  ];
+}
+
+/**
+ * Pure: render a per-branch line for the executed-deletion log.
+ *
+ * @param {{branch: string, ok: boolean, alreadyGone?: boolean}} result
+ * @param {'local'|'remote'} scope
+ */
+export function renderDeletionLine(result, scope) {
+  const icon = result.ok ? '✅' : '❌';
+  if (scope === 'local') {
+    return `[delete-epic-branches] ${icon} local  ${result.branch}`;
+  }
+  const note = result.alreadyGone ? ' (already gone)' : '';
+  return `[delete-epic-branches] ${icon} remote ${result.branch}${note}`;
+}
+
+/** Pure: render the trailing summary line for an executed deletion result. */
+export function renderExecutionSummary(epicId, result) {
+  if (!result.ok) {
+    return `[delete-epic-branches] ❌ ${result.failures.length} deletion(s) failed.`;
+  }
+  return `[delete-epic-branches] ✅ Epic #${epicId} — ${result.local.length} local + ${result.remote.length} remote branch(es) deleted.`;
+}
+
+function emitJson(payload, fail) {
+  process.stdout.write(`${JSON.stringify(payload)}\n`);
+  if (fail) process.exit(1);
+}
+
+function emitDryRunHuman(plan) {
+  for (const line of renderDryRun(plan)) console.log(line);
+}
+
+function emitExecutionHuman(epicId, result) {
+  for (const r of result.local) console.log(renderDeletionLine(r, 'local'));
+  for (const r of result.remote) console.log(renderDeletionLine(r, 'remote'));
+  const summary = renderExecutionSummary(epicId, result);
+  if (result.ok) {
+    console.log(summary);
+    return;
+  }
+  console.error(summary);
+  process.exit(1);
+}
+
+/* node:coverage ignore next */
+async function main() {
+  const { epicId, dryRun, json } = parseDeleteArgs(process.argv.slice(2));
+  if (epicId === null) {
     Logger.fatal(
       'Usage: node delete-epic-branches.js --epic <id> [--dry-run] [--json]',
     );
   }
-
   const plan = planDeletion({ epicId });
-  const asJson = values.json === true;
-  const dryRun = values['dry-run'] === true;
-
   if (dryRun) {
-    if (asJson) {
-      process.stdout.write(`${JSON.stringify({ ...plan, dryRun: true })}\n`);
-      return;
-    }
-    console.log(
-      `[delete-epic-branches] Epic #${epicId} — DRY RUN (nothing deleted)`,
-    );
-    console.log(
-      `  Local   (${plan.local.length}): ${plan.local.join(', ') || '(none)'}`,
-    );
-    console.log(
-      `  Remote  (${plan.remote.length}): ${plan.remote.join(', ') || '(none)'}`,
-    );
+    if (json) emitJson({ ...plan, dryRun: true }, false);
+    else emitDryRunHuman(plan);
     return;
   }
-
   const result = executeDeletion({ plan });
-
-  if (asJson) {
-    process.stdout.write(`${JSON.stringify(result)}\n`);
-    if (!result.ok) process.exit(1);
-    return;
-  }
-
-  for (const r of result.local) {
-    console.log(
-      `[delete-epic-branches] ${r.ok ? '✅' : '❌'} local  ${r.branch}`,
-    );
-  }
-  for (const r of result.remote) {
-    const icon = r.ok ? '✅' : '❌';
-    const note = r.alreadyGone ? ' (already gone)' : '';
-    console.log(`[delete-epic-branches] ${icon} remote ${r.branch}${note}`);
-  }
-
-  if (!result.ok) {
-    console.error(
-      `[delete-epic-branches] ❌ ${result.failures.length} deletion(s) failed.`,
-    );
-    process.exit(1);
-  }
-  console.log(
-    `[delete-epic-branches] ✅ Epic #${epicId} — ${result.local.length} local + ${result.remote.length} remote branch(es) deleted.`,
-  );
+  if (json) emitJson(result, !result.ok);
+  else emitExecutionHuman(epicId, result);
 }
 
 runAsCli(import.meta.url, main, { source: 'delete-epic-branches' });
