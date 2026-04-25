@@ -79,13 +79,18 @@ test('Site 3 — .husky/pre-push runs `npm run crap:check` with --changed-since 
     'utf8',
   );
   assert.match(hook, /npm run crap:check\s+--\s+--changed-since\s+main/);
-  // Must run AFTER test:coverage so coverage data is on disk.
-  const covIdx = hook.indexOf('npm run test:coverage');
+  // Coverage capture must run AFTER lint/format/MI but BEFORE crap:check, so
+  // `coverage/coverage-final.json` is on disk for the per-method lookup.
+  // Story #790 replaced the unconditional `npm run test:coverage` call with
+  // the freshness-aware `coverage-capture.js` CLI (still spawns
+  // `npm run test:coverage` under the hood when stale).
+  const captureIdx = hook.indexOf('coverage-capture.js');
   const crapIdx = hook.indexOf('npm run crap:check');
   assert.ok(
-    covIdx > -1 && crapIdx > covIdx,
-    'crap:check must come after test:coverage in pre-push',
+    captureIdx > -1 && crapIdx > captureIdx,
+    'crap:check must come after coverage-capture in pre-push',
   );
+  assert.match(hook, /coverage-capture\.js\s+--skip-when-no-crap-files/);
 });
 
 /**

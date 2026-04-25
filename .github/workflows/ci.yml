@@ -66,6 +66,18 @@ jobs:
           name: test-results-node-22
           path: test-output.txt
 
+      # Persist the istanbul/c8 coverage map so the CRAP gate (next step) and
+      # downstream agent workflows can re-read per-method coverage without
+      # re-running the test suite. `if: always()` so a coverage-threshold
+      # failure in the previous step still uploads the artifact for triage.
+      - name: Upload Coverage Artifact
+        uses: actions/upload-artifact@v4
+        if: always()
+        with:
+          name: coverage-final-node-22
+          path: coverage/coverage-final.json
+          if-no-files-found: warn
+
       - name: CRAP Check
         # Diff-scoped on PRs (--changed-since base_ref) so the gate stays fast
         # on large incoming diffs; full-repo scan on push-to-main so a
