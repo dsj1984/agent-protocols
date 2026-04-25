@@ -31,6 +31,7 @@ export {
 } from './config/baselines.js';
 export { PATHS_DEFAULTS, getPaths, resolvePaths } from './config/paths.js';
 export { LIMITS_DEFAULTS, getLimits, resolveLimits } from './config/limits.js';
+export { getRunners } from './config/runners.js';
 export {
   MAINTAINABILITY_CRAP_DEFAULTS,
   MAINTAINABILITY_QUALITY_DEFAULTS,

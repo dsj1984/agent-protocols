@@ -205,6 +205,25 @@ const CONCURRENCY_SCHEMA = {
 };
 
 /**
+ * `orchestration.runners` — typed grouping of every runner-flavoured sub-block
+ * (epicRunner, planRunner, concurrency, closeRetry, poolMode) introduced in
+ * Epic #773 Story 7. Replaces the prior flat layout where each sub-block sat
+ * directly under `orchestration`. Each sub-schema is preserved byte-for-byte;
+ * only the parent location changes.
+ */
+const RUNNERS_SCHEMA = {
+  type: 'object',
+  properties: {
+    epicRunner: EPIC_RUNNER_SCHEMA,
+    planRunner: PLAN_RUNNER_SCHEMA,
+    concurrency: CONCURRENCY_SCHEMA,
+    closeRetry: CLOSE_RETRY_SCHEMA,
+    poolMode: POOL_MODE_SCHEMA,
+  },
+  additionalProperties: false,
+};
+
+/**
  * Embedded JSON Schema for the `orchestration` configuration block. Kept
  * inline so all config validation lives in a single file; composed from the
  * per-section sub-schemas above.
@@ -225,11 +244,7 @@ export const ORCHESTRATION_SCHEMA = {
     notifications: NOTIFICATIONS_SCHEMA,
     hitl: { type: 'object', properties: {}, additionalProperties: false },
     worktreeIsolation: WORKTREE_ISOLATION_SCHEMA,
-    epicRunner: EPIC_RUNNER_SCHEMA,
-    planRunner: PLAN_RUNNER_SCHEMA,
-    concurrency: CONCURRENCY_SCHEMA,
-    closeRetry: CLOSE_RETRY_SCHEMA,
-    poolMode: POOL_MODE_SCHEMA,
+    runners: RUNNERS_SCHEMA,
   },
   additionalProperties: false,
   allOf: [

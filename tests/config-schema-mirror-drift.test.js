@@ -294,10 +294,36 @@ describe('agentrc.schema.json mirror — drift vs runtime AJV schemas', () => {
           root: '.worktrees',
           nodeModulesStrategy: 'per-worktree',
         },
-        epicRunner: { enabled: true, concurrencyCap: 3, pollIntervalSec: 30 },
-        planRunner: { enabled: true, pollIntervalSec: 30 },
+        runners: {
+          epicRunner: { enabled: true, concurrencyCap: 3, pollIntervalSec: 30 },
+          planRunner: { enabled: true, pollIntervalSec: 30 },
+        },
       },
       'full orchestration',
+    );
+  });
+
+  it('rejects flat epicRunner under orchestration on both sides', () => {
+    assertAgree(
+      'orchestration',
+      {
+        provider: 'github',
+        github: { owner: 'org', repo: 'repo' },
+        epicRunner: { enabled: true, concurrencyCap: 3 },
+      },
+      'flat epicRunner is no longer allowed at the orchestration root',
+    );
+  });
+
+  it('rejects unknown property under orchestration.runners on both sides', () => {
+    assertAgree(
+      'orchestration',
+      {
+        provider: 'github',
+        github: { owner: 'org', repo: 'repo' },
+        runners: { unknownRunner: {} },
+      },
+      'unknown runners child',
     );
   });
 

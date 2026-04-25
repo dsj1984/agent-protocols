@@ -166,13 +166,20 @@ async function main() {
 
   const provider = createProvider(config.orchestration);
 
+  // Story 7 atomic cutover: runner sub-blocks live under `orchestration.runners.*`.
+  // Flatten into the orchestration view passed to `runEpic` so the runtime
+  // contexts (`EpicRunnerContext`, `resolveConcurrency`) keep reading flat sub-block
+  // keys until Story 8 sweeps the consumers.
+  const runners = config.orchestration?.runners ?? {};
+  const orchConfig = { ...config.orchestration, ...runners };
+
   if (args.dryRun) {
     console.log(
       JSON.stringify(
         {
           epicId: args.epicId,
           dryRun: true,
-          epicRunner: config.orchestration.epicRunner,
+          epicRunner: runners.epicRunner,
         },
         null,
         2,
@@ -181,12 +188,12 @@ async function main() {
     return;
   }
 
-  const logsDir = resolveLogsDir(config.orchestration?.epicRunner);
-  const idleTimeoutMs = resolveIdleTimeoutMs(config.orchestration?.epicRunner);
+  const logsDir = resolveLogsDir(runners.epicRunner);
+  const idleTimeoutMs = resolveIdleTimeoutMs(runners.epicRunner);
   const result = await runEpic({
     epicId: args.epicId,
     provider,
-    config: config.orchestration,
+    config: orchConfig,
     autoVersionBump: Boolean(config.settings?.release?.autoVersionBump),
     spawn: (spawnArgs) =>
       defaultSpawn({ ...spawnArgs, logsDir, idleTimeoutMs }),
