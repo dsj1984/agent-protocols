@@ -43,6 +43,7 @@ const LOADED_CONFIG_DEFAULTS = Object.freeze({
   scriptsRoot: '.agents/scripts',
   workflowsRoot: '.agents/workflows',
   personasRoot: '.agents/personas',
+  schemasRoot: '.agents/schemas',
   skillsRoot: '.agents/skills',
   templatesRoot: '.agents/templates',
   rulesRoot: '.agents/rules',
@@ -308,10 +309,10 @@ export function resolveConfig(opts) {
     const audits = raw.audits ?? null;
 
     // Apply defaults to the loaded config. Missing keys that are also absent
-    // from LOADED_CONFIG_DEFAULTS (e.g. schemasRoot, docsRoot, tempRoot,
-    // baseBranch) resolve to `undefined`, preserving the long-standing
-    // zero-config/loaded-config asymmetry rather than silently promoting the
-    // richer zero-config set.
+    // from LOADED_CONFIG_DEFAULTS (e.g. docsRoot, tempRoot, baseBranch)
+    // resolve to `undefined`, preserving the long-standing zero-config/
+    // loaded-config asymmetry rather than silently promoting the richer
+    // zero-config set.
     for (const key of LOADED_CONFIG_APPLY_KEYS) {
       settings[key] = settings[key] ?? LOADED_CONFIG_DEFAULTS[key];
     }

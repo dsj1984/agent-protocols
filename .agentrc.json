@@ -1,13 +1,9 @@
 {
   "$schema": "https://json-schema.org/draft/2020-12/schema",
-  "title": "Agent Protocols — Unified Root Configuration",
+  "title": "Agent Protocols",
   "agentSettings": {
     "baseBranch": "main",
     "agentRoot": ".agents",
-    "scriptsRoot": ".agents/scripts",
-    "workflowsRoot": ".agents/workflows",
-    "personasRoot": ".agents/personas",
-    "schemasRoot": ".agents/schemas",
     "docsRoot": "docs",
     "tempRoot": "temp",
     "auditOutputDir": "temp",
