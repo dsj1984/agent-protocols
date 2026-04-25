@@ -72,7 +72,7 @@ import {
   clearPhaseTimerState,
   loadPhaseTimerState,
 } from './lib/util/phase-timer-state.js';
-import { drainPendingCleanup } from './lib/worktree/pending-cleanup.js';
+import { drainPendingCleanup } from './lib/worktree/lifecycle/pending-cleanup.js';
 import { notify } from './notify.js';
 
 // ---------------------------------------------------------------------------
