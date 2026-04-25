@@ -77,14 +77,6 @@
         }
       ]
     },
-    "maintainability": {
-      "type": "object",
-      "properties": {
-        "targetDirs": { "$ref": "#/$defs/listOrExtenderOfStrings" },
-        "crap": { "$ref": "#/$defs/maintainabilityCrap" }
-      },
-      "additionalProperties": false
-    },
     "release": {
       "type": "object",
       "properties": {
@@ -128,13 +120,20 @@
       },
       "additionalProperties": false
     },
-    "qualityGate": {
+    "prGate": {
       "type": "object",
       "properties": {
         "checks": {
           "type": "array",
           "items": { "type": "string", "minLength": 1 }
         }
+      },
+      "additionalProperties": false
+    },
+    "maintainabilityQuality": {
+      "type": "object",
+      "properties": {
+        "targetDirs": { "$ref": "#/$defs/listOrExtenderOfStrings" }
       },
       "additionalProperties": false
     },
@@ -200,7 +199,10 @@
             "maintainability": { "$ref": "#/$defs/baselineEntry" }
           },
           "additionalProperties": false
-        }
+        },
+        "maintainability": { "$ref": "#/$defs/maintainabilityQuality" },
+        "crap": { "$ref": "#/$defs/maintainabilityCrap" },
+        "prGate": { "$ref": "#/$defs/prGate" }
       },
       "additionalProperties": false
     },
@@ -209,7 +211,6 @@
       "required": ["agentRoot", "docsRoot", "tempRoot"],
       "properties": {
         "docsContextFiles": { "type": "array", "items": { "type": "string" } },
-        "maintainability": { "$ref": "#/$defs/maintainability" },
         "maxTickets": { "type": "integer", "minimum": 1 },
         "maxInstructionSteps": { "type": "integer", "minimum": 1 },
         "maxTokenBudget": { "type": "integer", "minimum": 1 },
@@ -219,7 +220,6 @@
         "release": { "$ref": "#/$defs/release" },
         "frictionThresholds": { "$ref": "#/$defs/frictionThresholds" },
         "riskGates": { "$ref": "#/$defs/riskGates" },
-        "qualityGate": { "$ref": "#/$defs/qualityGate" },
         "quality": { "$ref": "#/$defs/quality" },
         "commands": { "$ref": "#/$defs/commands" }
       },
