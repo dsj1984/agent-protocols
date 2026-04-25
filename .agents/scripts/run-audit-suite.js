@@ -226,7 +226,24 @@ export async function runAuditSuite({
     }
   }
 
+  auditResults.metadata.summary = aggregateSummary(auditResults.findings);
+
   return auditResults;
+}
+
+/**
+ * Pure: count findings into a {critical,high,medium,low} histogram. Findings
+ * with severities outside that set are ignored, keeping the rendered summary
+ * truthful even if upstream callers append non-standard severities.
+ */
+export function aggregateSummary(findings) {
+  const summary = { critical: 0, high: 0, medium: 0, low: 0 };
+  for (const finding of findings ?? []) {
+    if (Object.hasOwn(summary, finding.severity)) {
+      summary[finding.severity] += 1;
+    }
+  }
+  return summary;
 }
 
 export function parseCliArgs(argv) {
