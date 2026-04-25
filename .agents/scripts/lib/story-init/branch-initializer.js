@@ -33,6 +33,59 @@ function defaultProgress() {
   return () => {};
 }
 
+/**
+ * Idempotently apply `core.longpaths=true` at the repo level on Windows.
+ *
+ * On the worktree-off branch the agent works directly in the main checkout,
+ * so the per-worktree `git config --local core.longpaths` set in
+ * `WorktreeManager.ensure` is never reached. Without this, deep
+ * `node_modules/.../<long-name>` paths under the main checkout fail on
+ * Windows with `Filename too long`.
+ *
+ * Skipped on every non-Windows platform (Linux web runtime included).
+ * Skipped when the repo-local config is already `true` so the function is a
+ * single read after the first invocation.
+ *
+ * Exported for testing.
+ *
+ * @param {object} opts
+ * @param {string} opts.cwd
+ * @param {NodeJS.Platform} [opts.platform]
+ * @param {(level: string, msg: string) => void} [opts.progress]
+ * @returns {{ applied: boolean, reason: string }}
+ */
+export function ensureRepoCoreLongpathsOnWindows({
+  cwd,
+  platform = process.platform,
+  progress = defaultProgress(),
+  git = { gitSpawn },
+} = {}) {
+  if (platform !== 'win32') {
+    return { applied: false, reason: 'not-windows' };
+  }
+  const current = git.gitSpawn(
+    cwd,
+    'config',
+    '--local',
+    '--get',
+    'core.longpaths',
+  );
+  // Exit 0 means the value was found; stdout holds it. Exit 1 means unset.
+  if (current.status === 0 && (current.stdout ?? '').trim() === 'true') {
+    return { applied: false, reason: 'already-set' };
+  }
+  const set = git.gitSpawn(cwd, 'config', '--local', 'core.longpaths', 'true');
+  if (set.status !== 0) {
+    progress(
+      'GIT',
+      `⚠️ Failed to set core.longpaths on ${cwd}: ${set.stderr || 'unknown'} (continuing)`,
+    );
+    return { applied: false, reason: 'set-failed' };
+  }
+  progress('GIT', '✅ Applied core.longpaths=true (repo-level, Windows)');
+  return { applied: true, reason: 'set' };
+}
+
 function assertWorkingTreeClean(cwd) {
   const status = gitSpawn(cwd, 'status', '--porcelain');
   if (status.status !== 0) {
@@ -54,6 +107,11 @@ export async function bootstrapBranch({
   cwd,
   progress = defaultProgress(),
 }) {
+  // First-use Windows guard: ensure deep paths under node_modules/ etc. don't
+  // blow up the main checkout when worktree isolation is off. Skipped on Linux
+  // (web runtime) and when already set.
+  ensureRepoCoreLongpathsOnWindows({ cwd, progress });
+
   progress('GIT', 'Fetching remote refs...');
   const fetchResult = await gitFetchWithRetry(cwd, 'origin');
   if (fetchResult.attempts > 1) {

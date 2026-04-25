@@ -402,14 +402,17 @@ export function resolveWorkingPath({
   if (typeof repoRoot !== 'string' || repoRoot.length === 0) {
     throw new Error('resolveWorkingPath: repoRoot is required');
   }
-  const absRepoRoot = path.resolve(repoRoot);
-  if (!worktreeEnabled) return absRepoRoot;
+  // Caller is responsible for passing an already-absolute repoRoot (every
+  // production caller threads `path.resolve(...)` upstream). We do not
+  // re-resolve here so unit-test fixtures that pass sentinel paths like
+  // `/repo` keep their semantics on Windows.
+  if (!worktreeEnabled) return repoRoot;
   if (storyId == null) {
     throw new Error(
       'resolveWorkingPath: storyId is required when worktreeEnabled is true',
     );
   }
-  return path.join(absRepoRoot, worktreeRoot, `story-${storyId}`);
+  return path.join(repoRoot, worktreeRoot, `story-${storyId}`);
 }
 
 /**

@@ -231,11 +231,14 @@ describe('resolveWorkingPath', () => {
     );
   });
 
-  it('resolves a relative repoRoot to absolute', () => {
-    const p = resolveWorkingPath({
-      worktreeEnabled: false,
-      repoRoot: '.',
-    });
-    assert.equal(path.isAbsolute(p), true);
+  it('passes repoRoot through unchanged (caller is responsible for absoluteness)', () => {
+    // Production callers thread `path.resolve(...)` upstream. The helper
+    // preserves whatever was passed so unit-test fixtures using sentinel
+    // strings like "/repo" stay platform-agnostic on Windows.
+    const sentinel = '/repo-fixture';
+    assert.equal(
+      resolveWorkingPath({ worktreeEnabled: false, repoRoot: sentinel }),
+      sentinel,
+    );
   });
 });
