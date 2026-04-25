@@ -89,8 +89,22 @@ describe('notify script', () => {
     );
   });
 
-  it('low posts a progress comment and is filtered out by default minLevel', async () => {
-    // Default minLevel is `medium`, so a `low` notify suppresses the webhook.
+  it('low is filtered out of BOTH comment and webhook at default minLevel', async () => {
+    // Default minLevel is `medium`. commentMinLevel falls back to minLevel,
+    // so a `low` notify suppresses both the comment and the webhook.
+    await notify(
+      200,
+      { severity: 'low', message: 'Step 3 done.' },
+      defaultOpts,
+    );
+
+    assert.equal(mockProvider.comments.length, 0, 'low filtered from comments');
+    assert.equal(fetchCalls.length, 0, 'low filtered at default minLevel');
+  });
+
+  it('low posts a progress comment when commentMinLevel=low', async () => {
+    mockOrchestration.notifications.commentMinLevel = 'low';
+
     await notify(
       200,
       { severity: 'low', message: 'Step 3 done.' },
@@ -100,7 +114,42 @@ describe('notify script', () => {
     assert.equal(mockProvider.comments.length, 1);
     assert.equal(mockProvider.comments[0].data.type, 'progress');
     assert.equal(mockProvider.comments[0].data.body, 'Step 3 done.');
-    assert.equal(fetchCalls.length, 0, 'low filtered at default minLevel');
+    // Webhook still gated by minLevel (default medium).
+    assert.equal(fetchCalls.length, 0);
+  });
+
+  it('commentMinLevel=high suppresses medium comment but webhook fires at minLevel=medium', async () => {
+    mockOrchestration.notifications.commentMinLevel = 'high';
+    mockOrchestration.notifications.minLevel = 'medium';
+
+    await notify(
+      201,
+      { severity: 'medium', message: 'Story merged.' },
+      defaultOpts,
+    );
+
+    assert.equal(
+      mockProvider.comments.length,
+      0,
+      'medium below commentMinLevel=high',
+    );
+    assert.equal(fetchCalls.length, 1, 'webhook still fires at minLevel=medium');
+  });
+
+  it('skipComment opt suppresses comment but webhook still fires when minLevel allows', async () => {
+    mockOrchestration.notifications.minLevel = 'low';
+    mockOrchestration.notifications.commentMinLevel = 'low';
+
+    await notify(
+      210,
+      { severity: 'low', message: 'task #N → executing' },
+      { ...defaultOpts, skipComment: true },
+    );
+
+    assert.equal(mockProvider.comments.length, 0);
+    assert.equal(fetchCalls.length, 1);
+    const body = JSON.parse(fetchCalls[0].options.body);
+    assert.equal(body.text, '[low] widgets#210: task #N → executing');
   });
 
   it('low fires when minLevel is explicitly set to low', async () => {

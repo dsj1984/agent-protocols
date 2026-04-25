@@ -7,6 +7,10 @@
  * Single dispatch entry point for orchestration notifications.
  *
  *   1. GITHUB COMMENT: posts to the ticket; @mentions operator for medium/high.
+ *      Filtered by `notifications.commentMinLevel` (falls back to
+ *      `notifications.minLevel`, default: medium). Callers may pass
+ *      `opts.skipComment: true` to suppress the comment for a single dispatch
+ *      while still firing the webhook (used for batched task-start fanout).
  *   2. WEBHOOK: fires when severity >= `notifications.minLevel` (default: medium).
  *
  * Severity vocabulary: low | medium | high. See `lib/notifications/notifier.js`
@@ -98,9 +102,15 @@ export async function notify(ticketId, payload, opts = {}) {
     );
   }
   const operator = orchestration.github.operatorHandle || '@operator';
+  const notifications = orchestration.notifications ?? {};
+  const minLevel = notifications.minLevel;
+  const commentMinLevel = notifications.commentMinLevel ?? minLevel;
 
   const numericId = Number.parseInt(ticketId, 10);
-  const skipGitHub = Number.isNaN(numericId) || numericId <= 0;
+  const noTicket = Number.isNaN(numericId) || numericId <= 0;
+  const callerSuppressed = opts.skipComment === true;
+  const belowCommentMinLevel = !meetsMinLevel(severity, commentMinLevel);
+  const skipGitHub = noTicket || callerSuppressed || belowCommentMinLevel;
 
   if (!skipGitHub) {
     console.log(
@@ -111,20 +121,20 @@ export async function notify(ticketId, payload, opts = {}) {
     // low never @mentions (it's filtered out at default minLevel anyway).
     const mention =
       severity === 'high' ||
-      (severity === 'medium' && orchestration.notifications?.mentionOperator);
+      (severity === 'medium' && notifications.mentionOperator);
     const commentBody = mention ? `${operator} ${message}` : message;
 
     await provider.postComment(numericId, {
       body: commentBody,
       type: SEVERITY_TO_COMMENT_TYPE[severity],
     });
-  } else {
+  } else if (noTicket) {
     console.log(
-      `[Notify] Sending ${severity.toUpperCase()}... (Skipping GitHub comment)`,
+      `[Notify] Sending ${severity.toUpperCase()}... (Skipping GitHub comment — no ticket)`,
     );
   }
 
-  if (meetsMinLevel(severity, orchestration.notifications?.minLevel)) {
+  if (meetsMinLevel(severity, minLevel)) {
     // `opts.webhookUrl === undefined` → resolve from process env.
     // Explicit `null` or string → caller was explicit; don't resolve.
     const webhookUrl =
