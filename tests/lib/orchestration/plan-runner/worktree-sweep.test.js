@@ -8,7 +8,7 @@ import {
   manifestPath,
   readManifest,
   recordPendingCleanup,
-} from '../../../../.agents/scripts/lib/worktree/pending-cleanup.js';
+} from '../../../../.agents/scripts/lib/worktree/lifecycle/pending-cleanup.js';
 import { MockProvider } from '../../../fixtures/mock-provider.js';
 
 const REPO = '/repo';

@@ -10,7 +10,7 @@ import {
   readManifest,
   recordPendingCleanup,
   removePendingCleanup,
-} from '../../../.agents/scripts/lib/worktree/pending-cleanup.js';
+} from '../../../.agents/scripts/lib/worktree/lifecycle/pending-cleanup.js';
 
 function quietLogger() {
   const sink = { info: [], warn: [], error: [] };

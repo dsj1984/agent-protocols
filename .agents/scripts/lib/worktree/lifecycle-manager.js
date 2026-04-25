@@ -30,7 +30,7 @@ import {
   installDependencies,
   sleepSync,
 } from './node-modules-strategy.js';
-import { recordPendingCleanup } from './pending-cleanup.js';
+import { recordPendingCleanup } from './lifecycle/pending-cleanup.js';
 
 const STORY_BRANCH_RE = /^story-\d+$/;
 
