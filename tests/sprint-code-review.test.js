@@ -8,6 +8,8 @@ import {
   classifyChangedFile,
   parseLintOutput,
   parseReviewArgs,
+  partitionFilesForLint,
+  runScopedLint,
 } from '../.agents/scripts/sprint-code-review.js';
 
 test('parseLintOutput - clean run reports zero', () => {
@@ -65,6 +67,7 @@ test('parseReviewArgs - rejects missing/invalid epic id', () => {
     epicId: null,
     baseBranch: null,
     post: true,
+    scopeLint: 'changed-only',
   });
   assert.strictEqual(parseReviewArgs(['--epic', 'abc']).epicId, null);
   assert.strictEqual(parseReviewArgs(['--epic', '0']).epicId, null);
@@ -74,8 +77,147 @@ test('parseReviewArgs - rejects missing/invalid epic id', () => {
 test('parseReviewArgs - parses epic and base', () => {
   assert.deepStrictEqual(
     parseReviewArgs(['--epic', '42', '--base', 'develop']),
-    { epicId: 42, baseBranch: 'develop', post: true },
+    { epicId: 42, baseBranch: 'develop', post: true, scopeLint: 'changed-only' },
   );
+});
+
+test('parseReviewArgs - --scope-lint=off honored', () => {
+  assert.strictEqual(
+    parseReviewArgs(['--epic', '1', '--scope-lint', 'off']).scopeLint,
+    'off',
+  );
+});
+
+test('parseReviewArgs - unknown --scope-lint value falls back to changed-only', () => {
+  assert.strictEqual(
+    parseReviewArgs(['--epic', '1', '--scope-lint', 'all']).scopeLint,
+    'changed-only',
+  );
+});
+
+test('partitionFilesForLint - splits code, markdown, drops the rest', () => {
+  const out = partitionFilesForLint([
+    'a.js',
+    'b.mjs',
+    'c.cjs',
+    'd.ts',
+    'e.json',
+    'f.md',
+    'g.css',
+    'h.png',
+    'README.MD',
+  ]);
+  assert.deepStrictEqual(out.code, ['a.js', 'b.mjs', 'c.cjs', 'd.ts', 'e.json']);
+  assert.deepStrictEqual(out.md, ['f.md', 'README.MD']);
+});
+
+test('runScopedLint - no JS/MD files in surface skips both runners', () => {
+  let calls = 0;
+  const runner = () => {
+    calls += 1;
+    return { status: 0, stdout: '', stderr: '' };
+  };
+  const out = runScopedLint(['a.css', 'b.png', 'c.yml'], '/cwd', runner);
+  assert.strictEqual(calls, 0, 'runner must not be invoked when surface is empty');
+  assert.deepStrictEqual(out, {
+    errors: 0,
+    warnings: 0,
+    parsed: false,
+    skipped: true,
+    mode: 'changed-only',
+  });
+});
+
+test('runScopedLint - empty changedFiles list does not invoke any runner', () => {
+  let calls = 0;
+  const runner = () => {
+    calls += 1;
+    return { status: 0, stdout: '', stderr: '' };
+  };
+  const out = runScopedLint([], '/cwd', runner);
+  assert.strictEqual(calls, 0);
+  assert.strictEqual(out.skipped, true);
+});
+
+test('runScopedLint - invokes biome only on code files, never on workspace root', () => {
+  const invocations = [];
+  const runner = (bin, args) => {
+    invocations.push({ bin, args });
+    return { status: 0, stdout: 'Found 0 errors.\nFound 0 warnings.\n', stderr: '' };
+  };
+  runScopedLint(['src/a.js', 'src/b.js'], '/cwd', runner);
+  assert.strictEqual(invocations.length, 1);
+  assert.strictEqual(invocations[0].bin, 'biome');
+  assert.deepStrictEqual(invocations[0].args, ['lint', 'src/a.js', 'src/b.js']);
+  assert.ok(
+    !invocations[0].args.includes('.'),
+    'must not pass the workspace root to biome',
+  );
+});
+
+test('runScopedLint - invokes markdownlint only on .md files', () => {
+  const invocations = [];
+  const runner = (bin, args) => {
+    invocations.push({ bin, args });
+    return { status: 0, stdout: '', stderr: '' };
+  };
+  runScopedLint(['docs/a.md'], '/cwd', runner);
+  assert.strictEqual(invocations.length, 1);
+  assert.strictEqual(invocations[0].bin, 'markdownlint');
+  assert.deepStrictEqual(invocations[0].args, [
+    'docs/a.md',
+    '--ignore',
+    'node_modules',
+  ]);
+});
+
+test('runScopedLint - aggregates errors across both runners', () => {
+  const runner = (bin) => {
+    if (bin === 'biome') {
+      return {
+        status: 1,
+        stdout: 'Found 2 errors.\nFound 1 warning.\n',
+        stderr: '',
+      };
+    }
+    return { status: 1, stdout: '', stderr: 'Summary: 3 errors\n' };
+  };
+  const out = runScopedLint(['a.js', 'b.md'], '/cwd', runner);
+  assert.strictEqual(out.errors, 5);
+  assert.strictEqual(out.warnings, 1);
+  assert.strictEqual(out.skipped, false);
+  assert.strictEqual(out.mode, 'changed-only');
+});
+
+test('buildLintLine - mode=off renders the scoped-off banner', () => {
+  const line = buildLintLine({
+    errors: 0,
+    warnings: 0,
+    skipped: true,
+    mode: 'off',
+  });
+  assert.match(line, /Lint Skipped/);
+  assert.match(line, /scope-lint=off/);
+});
+
+test('buildLintLine - skipped (empty surface) renders the no-surface banner', () => {
+  const line = buildLintLine({
+    errors: 0,
+    warnings: 0,
+    skipped: true,
+    mode: 'changed-only',
+  });
+  assert.match(line, /no JS or markdown files in changed surface/);
+});
+
+test('buildLintLine - clean changed-only run mentions changed surface', () => {
+  const line = buildLintLine({
+    errors: 0,
+    warnings: 0,
+    skipped: false,
+    mode: 'changed-only',
+  });
+  assert.match(line, /changed surface is clean/);
 });
 
 test('classifyChangedFile - critical tier with low worst method', () => {
@@ -188,7 +330,7 @@ test('buildLintLine - error / warning / clean variants', () => {
   );
   assert.strictEqual(
     buildLintLine({ errors: 0, warnings: 0 }),
-    '✅ **Lint Check Passed**: Workspace is clean.',
+    '✅ **Lint Check Passed**: changed surface is clean.',
   );
 });
 
