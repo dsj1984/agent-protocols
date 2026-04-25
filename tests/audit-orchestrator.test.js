@@ -65,7 +65,10 @@ test('renderWorkflowsBlock: assembles header + per-workflow body', () => {
     ['a', 'b'],
   );
   assert.match(out, /\*\*Audit Workflows Dispatched:\*\* a, b/);
-  assert.match(out, /\*\*Summary:\*\* 🔴 1 Critical \| 🟡 2 Medium \| ⚪ 3 Low/);
+  assert.match(
+    out,
+    /\*\*Summary:\*\* 🔴 1 Critical \| 🟡 2 Medium \| ⚪ 3 Low/,
+  );
   assert.doesNotMatch(out, /0 High/);
   assert.match(out, /### Audit: `a`/);
   assert.match(out, /### Audit: `b`/);
