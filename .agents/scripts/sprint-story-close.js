@@ -393,7 +393,8 @@ async function finalizeMerge(
         cwd,
         epicBranch,
         storyBranch,
-        closeRetry: orchestration?.runners?.closeRetry ?? orchestration?.closeRetry,
+        closeRetry:
+          orchestration?.runners?.closeRetry ?? orchestration?.closeRetry,
         git: { gitSpawn },
         log: (msg) => progress('GIT', msg),
       });
@@ -500,7 +501,8 @@ async function completeInProgressMerge({
         cwd,
         epicBranch,
         storyBranch,
-        closeRetry: orchestration?.runners?.closeRetry ?? orchestration?.closeRetry,
+        closeRetry:
+          orchestration?.runners?.closeRetry ?? orchestration?.closeRetry,
         git: { gitSpawn },
         log: (msg) => progress('GIT', msg),
       });

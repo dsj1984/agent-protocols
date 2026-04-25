@@ -8,10 +8,7 @@
  * back to an empty object so callers can destructure without guarding.
  */
 
-import {
-  DEFAULT_CLOSE_RETRY,
-  DEFAULT_POOL_MODE,
-} from '../config-schema.js';
+import { DEFAULT_CLOSE_RETRY, DEFAULT_POOL_MODE } from '../config-schema.js';
 
 /**
  * Read the `orchestration.runners` block. Accepts either the full resolved
