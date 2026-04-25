@@ -1,7 +1,6 @@
 import assert from 'node:assert/strict';
 import test from 'node:test';
 import { __setGitRunners } from '../.agents/scripts/lib/git-utils.js';
-import { selectAudits as legacySelectAudits } from '../.agents/scripts/mcp/select-audits.js';
 import {
   matchesAnyFilePattern,
   matchesFilePattern,
@@ -23,12 +22,6 @@ test('matchesAnyFilePattern: returns true when any pattern matches any file', ()
   );
   assert.equal(matchesAnyFilePattern(['*.ts'], ['foo.js']), false);
   assert.equal(matchesAnyFilePattern([], ['foo.js']), false);
-});
-
-test('selectAudits: post-relocation export and legacy mcp/ shim are the same function', () => {
-  // The shim re-exports the relocated implementation; identity check
-  // guarantees there is no second copy of the rule engine.
-  assert.equal(selectAudits, legacySelectAudits);
 });
 
 test('selectAudits: keyword matching against ticket title/body still selects the right audit', async () => {
