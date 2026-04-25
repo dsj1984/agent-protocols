@@ -320,20 +320,28 @@ For **each child Task** in the order returned by `sprint-story-init.js`:
 > procedure in
 > [`helpers/_merge-conflict-template.md`](helpers/_merge-conflict-template.md).
 
-### Step 2 — Validate
+### Step 2 — Validate (deferred to close)
 
-After all Tasks are implemented, run shift-left validation in the worktree:
+`sprint-story-close.js` runs the canonical close-validation chain (lint, test,
+format, maintainability) before it merges — **do not** pre-run `npm run lint`
+and `npm test` here unless you are interactively iterating on a fix. The close
+script's gate is authoritative; pre-running them in headless sub-agent runs
+just doubles the wall-clock cost of every Story.
+
+**Interactive `--fast` advisory mode.** When iterating in your own terminal and
+you want a fast pre-flight before invoking close, run:
 
 ```powershell
 npm run lint
 npm test
 ```
 
-If tests or lint fail:
+Treat the output as advisory: failures here will be re-surfaced by
+`sprint-story-close.js` regardless. If you spot a regression, fix it on the
+Story branch and commit before proceeding to Step 3.
 
-- Fix the issues and commit corrections.
-- If blocked (e.g. upstream dependency missing): post a friction comment and
-  apply `agent::blocked`.
+If genuinely blocked (e.g. upstream dependency missing): post a friction comment
+and apply `agent::blocked`.
 
 ### Step 3 — Close (`sprint-story-close.js`)
 
