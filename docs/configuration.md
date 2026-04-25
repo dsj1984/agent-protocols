@@ -130,6 +130,23 @@ for first-run behaviour and consumer-extension guidance.
 | `friction.markerKey` | No              | `crap-baseline-regression` | Friction-log marker for regressions.              |
 | `refreshTag`      | No                 | `baseline-refresh:` | Subject prefix the refresh-guardrail expects on baseline-only commits. |
 
+##### Coverage capture path
+
+The CRAP gate reads per-method coverage from `crap.coveragePath` (default
+`coverage/coverage-final.json`) and skips any method without an entry under
+`requireCoverage: true`. A missing or stale artifact silently weakens the gate,
+so coverage is captured in-band at every gate site:
+
+| Site                            | Capture command                                                                  | Behaviour                                                                                                                                                  |
+| ------------------------------- | -------------------------------------------------------------------------------- | ---------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| `close-validation` (pre-flight) | `node .agents/scripts/coverage-capture.js`                                       | Runs as a gate immediately before `check-crap`. Skips when the artifact's mtime is ≥ the newest mtime in `crap.targetDirs`; otherwise runs `npm run test:coverage` and propagates its exit. |
+| `.husky/pre-push`               | `node .agents/scripts/coverage-capture.js --skip-when-no-crap-files --ref main`  | Same freshness check, plus a fast-path: skips entirely when no file under `crap.targetDirs` is in the `main...HEAD` diff.                                  |
+| `.github/workflows/ci.yml`      | `npm run test:coverage` (existing) + `Upload Coverage Artifact` step             | The coverage map is uploaded as the `coverage-final-node-22` artifact (`if: always()`) so downstream agent workflows can replay it without re-running tests. |
+
+Both CLI sites self-skip when `crap.enabled === false`. The capture step is
+idempotent on warm worktrees — only stale or missing artifacts trigger a
+test:coverage run.
+
 #### `agentSettings.quality.prGate`
 
 | Field    | Required | Default | Purpose                                                          |

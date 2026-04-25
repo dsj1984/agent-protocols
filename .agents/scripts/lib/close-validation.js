@@ -43,6 +43,12 @@ export const DEFAULT_GATES = [
     hint: 'Run `npm run maintainability:update` to refresh the baseline — the refreshed baseline MUST be committed on the story branch.',
   },
   {
+    name: 'coverage-capture',
+    cmd: 'node',
+    args: ['.agents/scripts/coverage-capture.js'],
+    hint: 'Coverage capture failed — `npm run test:coverage` exited non-zero. Fix failing tests or coverage-threshold breaches, then re-run close.',
+  },
+  {
     name: 'check-crap',
     cmd: 'node',
     args: ['.agents/scripts/check-crap.js'],

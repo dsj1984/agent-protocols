@@ -1,0 +1,105 @@
+#!/usr/bin/env node
+/**
+ * CLI: ensure `coverage/coverage-final.json` is present and fresh before the
+ * CRAP gate fires. Wired into close-validation (always) and pre-push (with
+ * `--skip-when-no-crap-files` so untouched-source pushes stay fast).
+ *
+ * Behaviour:
+ *   1. Resolve `agentSettings.quality.crap`. If `enabled === false`, exit 0.
+ *   2. With `--skip-when-no-crap-files`: read `git diff --name-only <ref>...HEAD`
+ *      (default ref `main`) and exit 0 if no changed file lives under
+ *      `crap.targetDirs`.
+ *   3. Compare the coverage artifact mtime against the newest mtime in
+ *      `crap.targetDirs`. Exit 0 when fresh.
+ *   4. Otherwise spawn `npm run test:coverage` and propagate its exit code.
+ *
+ * Exit codes:
+ *   0 — coverage is fresh (or capture skipped/succeeded).
+ *   1 — capture run failed (broken tests or coverage-threshold breach). The
+ *       caller MUST surface this — silently passing here would defeat the
+ *       CRAP gate's `requireCoverage: true` policy.
+ */
+import path from 'node:path';
+import { getChangedFiles } from './lib/changed-files.js';
+import { getQuality, resolveConfig } from './lib/config-resolver.js';
+import {
+  anyChangedUnderTargets,
+  isCoverageFresh,
+  runCapture,
+} from './lib/coverage-capture.js';
+
+function parseArgs(argv) {
+  const out = {
+    skipWhenNoCrapFiles: false,
+    ref: 'main',
+    cwd: process.cwd(),
+  };
+  for (let i = 2; i < argv.length; i += 1) {
+    const a = argv[i];
+    if (a === '--skip-when-no-crap-files') out.skipWhenNoCrapFiles = true;
+    else if (a === '--ref') out.ref = argv[++i] ?? out.ref;
+    else if (a === '--cwd') out.cwd = argv[++i] ?? out.cwd;
+  }
+  return out;
+}
+
+function main() {
+  const args = parseArgs(process.argv);
+  const { settings } = resolveConfig({ cwd: args.cwd });
+  const { crap } = getQuality({ agentSettings: settings });
+
+  if (crap.enabled === false) {
+    console.log('[coverage-capture] CRAP gate disabled — skipping capture.');
+    return 0;
+  }
+
+  if (args.skipWhenNoCrapFiles) {
+    let changed;
+    try {
+      changed = getChangedFiles({ ref: args.ref, cwd: args.cwd });
+    } catch (err) {
+      // A bad ref must not silently relax the gate. Fall through to the
+      // freshness check so coverage still gets captured if needed.
+      console.warn(
+        `[coverage-capture] ⚠ ${err?.message ?? err} — falling back to freshness check.`,
+      );
+      changed = null;
+    }
+    if (changed && !anyChangedUnderTargets(changed, crap.targetDirs)) {
+      console.log(
+        `[coverage-capture] No changed files under [${crap.targetDirs.join(', ')}] — skipping capture.`,
+      );
+      return 0;
+    }
+  }
+
+  const freshness = isCoverageFresh({
+    coveragePath: crap.coveragePath,
+    targetDirs: crap.targetDirs,
+    cwd: args.cwd,
+  });
+  if (freshness.fresh) {
+    console.log(
+      `[coverage-capture] Coverage at ${path.resolve(args.cwd, crap.coveragePath)} is ${freshness.reason} — skipping capture.`,
+    );
+    return 0;
+  }
+
+  console.log(
+    `[coverage-capture] Coverage at ${crap.coveragePath} is ${freshness.reason}; running npm run test:coverage…`,
+  );
+  const code = runCapture({ cwd: args.cwd, log: (m) => console.log(m) });
+  if (code !== 0) {
+    console.error(
+      `[coverage-capture] ✖ npm run test:coverage exited ${code}. Fix failing tests or coverage-threshold breaches before re-running the CRAP gate.`,
+    );
+  }
+  return code;
+}
+
+try {
+  process.exit(main());
+} catch (err) {
+  console.error('[coverage-capture] unexpected error:', err);
+  process.exit(1);
+}
