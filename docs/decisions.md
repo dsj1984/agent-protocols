@@ -1291,3 +1291,58 @@ submodule paths are internal implementation detail.
         adjustment to their handling.
     *   The structured envelope shape is consistent across all three
         gates so a single helper detects degradation.
+
+## ADR-20260426-817d: CLI entrypoints carry `node:coverage ignore file`; their `main()` is exercised via integration tests, not unit-line coverage
+
+*   **Status:** Accepted (Epic #817 follow-on, v5.28.1).
+*   **Context:** Story #816's long-tail CRAP cleanup attempted to score
+    `run-audit-suite.js::main`, only to find the file was silently dropped
+    from the CRAP scan because its first comment line is
+    `/* node:coverage ignore file */`. Twenty-one other CLI entrypoints
+    under `.agents/scripts/*.js` carry the same directive, including
+    `epic-runner.js`, `sprint-story-close.js`, `sprint-story-init.js`,
+    `epic-planner.js`, `dispatcher.js`, `sprint-plan-spec.js`,
+    `sprint-plan-decompose.js`, `notify.js`, `health-monitor.js`,
+    `post-structured-comment.js`, `pool-claim.js`, `remote-bootstrap.js`,
+    `select-audits.js`, `ticket-decomposer.js`, `agents-bootstrap-github.js`,
+    `assert-branch.js`, `context-hydrator.js`, `diagnose-friction.js`,
+    `hydrate-context.js`, `sprint-plan.js`, and `sprint-plan-healthcheck.js`.
+    The convention pre-dates this Epic but had never been written down,
+    making it ambiguous whether the directive on a given file was a
+    deliberate convention or an accidental escape hatch.
+*   **Decision:** The `node:coverage ignore file` directive is the
+    canonical convention for **CLI entrypoint scripts** under
+    `.agents/scripts/`. An entrypoint's `main()` orchestrates pure helpers
+    that are themselves unit-tested; the orchestrator is exercised
+    end-to-end via the framework's integration suite (story-init/close
+    happy paths, dispatcher fan-out, manifest generation, friction
+    posting) and via the `tests/*-cli.test.js` suites that drive each CLI
+    via `runAsCli` with stubbed I/O. We do not chase per-line coverage on
+    `main()` itself because (a) its branches are flag-parsing and exit
+    code routing whose value at the line level is dwarfed by the helper
+    behaviour the integration tests already cover, and (b) running the
+    CLI under coverage costs wall-clock time the helper-level tests buy
+    cheaper.
+*   **Scope of the convention:**
+    *   The directive applies to **CLI entrypoints only** — files at the
+        top of `.agents/scripts/` that ship a `runAsCli(import.meta.url,
+        main, ...)` invocation or are the documented `node ...` target
+        of a workflow phase.
+    *   It does **not** apply to library files under
+        `.agents/scripts/lib/`. Library code remains fully covered.
+    *   It does **not** waive the obligation to ratchet helpers exercised
+        by the entrypoint. The "extract pure helpers + add tests" pattern
+        from Story #792 / #816 still applies — pull complex branching
+        out of `main()` into testable helpers in either the same file
+        (`export function ...`) or a sibling module under `lib/`.
+*   **Consequences:**
+    *   The CRAP gate's silent drop of these 22 files is intentional and
+        documented; future audits can stop flagging it as a gap.
+    *   New CLI entrypoints follow the same convention. If a new
+        entrypoint does **not** carry the directive, that is a deliberate
+        choice — typically because the file is small enough to remain
+        fully testable as a single unit — and should be called out in
+        the PR description.
+    *   The convention is reviewed if a regression slips past the helper
+        tests but would have been caught by main-level coverage. None
+        observed to date.

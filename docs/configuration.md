@@ -235,10 +235,21 @@ when any of these are tripped.
 
 ### `orchestration.notifications`
 
-| Field             | Required | Default | Purpose                                              |
-| ----------------- | -------- | ------- | ---------------------------------------------------- |
-| `mentionOperator` | No       | `false` | When `true`, friction comments @-mention `operatorHandle`. |
-| `minLevel`        | No       | `medium`| Minimum notification level emitted (`low`/`medium`/`high`). |
+| Field              | Required | Default                    | Purpose                                                                                              |
+| ------------------ | -------- | -------------------------- | ---------------------------------------------------------------------------------------------------- |
+| `mentionOperator`  | No       | `false`                    | When `true`, friction comments @-mention `operatorHandle`.                                           |
+| `minLevel`         | No       | `medium`                   | Minimum severity emitted to the notification webhook (`low`/`medium`/`high`).                         |
+| `commentMinLevel`  | No       | inherits `minLevel`        | Minimum severity that posts a GitHub comment (Epic #817). Lower than `minLevel` widens comments only. |
+
+> **`minLevel` vs `commentMinLevel`** (Epic #817, v5.28.0+). `minLevel`
+> filters webhook deliveries (Slack / Discord / Make.com); `commentMinLevel`
+> filters GitHub comment posting independently. Setting them apart lets
+> you keep webhook traffic terse (`high` only) while still recording a
+> richer audit trail on the Epic / Story tickets (`medium` or `low`).
+> When `commentMinLevel` is unset, it defaults to whatever `minLevel`
+> resolves to, preserving prior behaviour. Per-Task `agent::executing`
+> transitions during Story init batch into a single Story-level summary
+> comment regardless of either filter.
 
 ### `orchestration.worktreeIsolation`
 

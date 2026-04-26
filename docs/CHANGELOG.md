@@ -4,6 +4,28 @@ All notable changes to this project will be documented in this file.
 
 ## [Unreleased]
 
+## [5.28.1] - 2026-04-26
+
+### Documentation follow-ups for Epic #817
+
+Three small documentation deltas landing the action items from the Epic
+#817 retrospective. No runtime behaviour change.
+
+- **CLI entrypoint coverage convention is now documented.** The
+  `node:coverage ignore file` directive on the 22 CLI entrypoints under
+  `.agents/scripts/` is codified as a deliberate convention in
+  `docs/decisions.md` (ADR-20260426-817d). Helper extraction + unit tests
+  remain the canonical lowering pattern; per-line coverage of `main()`
+  is intentionally not chased.
+- **`/sprint-close` Phase 4 calls out `--no-evidence`.** The workflow
+  doc now reminds operators that the SHA-keyed evidence wrapper is
+  load-bearing on the close path and that `--no-evidence` is the
+  explicit override when a flaky test slips past upstream validation.
+- **`commentMinLevel` documented alongside `minLevel`.**
+  `docs/configuration.md` now lists both keys in the
+  `orchestration.notifications` table with a short comparison note so
+  operators tuning verbosity find the new key where they expect it.
+
 ## [5.28.0] - 2026-04-26
 
 ### Sprint workflow performance — bounded context, evidence-aware gates, honest degraded modes (Epic #817)
