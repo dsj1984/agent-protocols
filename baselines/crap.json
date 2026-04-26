@@ -109,19 +109,19 @@
       "crap": 3,
       "file": ".agents/scripts/audit-orchestrator.js",
       "method": "formatAuditReport",
-      "startLine": 75
+      "startLine": 88
     },
     {
-      "crap": 11.564593512232301,
+      "crap": 11.571502299352153,
       "file": ".agents/scripts/audit-orchestrator.js",
       "method": "runAuditOrchestrator",
-      "startLine": 91
+      "startLine": 104
     },
     {
       "crap": 20,
       "file": ".agents/scripts/audit-orchestrator.js",
       "method": "main",
-      "startLine": 153
+      "startLine": 167
     },
     {
       "crap": 13.041259765625,
@@ -3944,60 +3944,6 @@
       "file": ".agents/scripts/render-manifest.js",
       "method": "main",
       "startLine": 116
-    },
-    {
-      "crap": 2,
-      "file": ".agents/scripts/run-audit-suite.js",
-      "method": "loadWorkflow",
-      "startLine": 55
-    },
-    {
-      "crap": 1,
-      "file": ".agents/scripts/run-audit-suite.js",
-      "method": "escapeRegExp",
-      "startLine": 65
-    },
-    {
-      "crap": 1,
-      "file": ".agents/scripts/run-audit-suite.js",
-      "method": "applySubstitutions",
-      "startLine": 69
-    },
-    {
-      "crap": 2,
-      "file": ".agents/scripts/run-audit-suite.js",
-      "method": "computeAllowedKeys",
-      "startLine": 86
-    },
-    {
-      "crap": 6.0127743005911025,
-      "file": ".agents/scripts/run-audit-suite.js",
-      "method": "runAuditSuite",
-      "startLine": 120
-    },
-    {
-      "crap": 2,
-      "file": ".agents/scripts/run-audit-suite.js",
-      "method": "aggregateSummary",
-      "startLine": 239
-    },
-    {
-      "crap": 1.800655976676385,
-      "file": ".agents/scripts/run-audit-suite.js",
-      "method": "parseCliArgs",
-      "startLine": 249
-    },
-    {
-      "crap": 6,
-      "file": ".agents/scripts/run-audit-suite.js",
-      "method": "parseSubstitutionPairs",
-      "startLine": 264
-    },
-    {
-      "crap": 67.07916605919232,
-      "file": ".agents/scripts/run-audit-suite.js",
-      "method": "main",
-      "startLine": 281
     },
     {
       "crap": 1,
