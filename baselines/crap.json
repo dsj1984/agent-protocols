@@ -472,22 +472,22 @@
       "startLine": 129
     },
     {
-      "crap": 2,
+      "crap": 4,
       "file": ".agents/scripts/epic-planner.js",
       "method": "buildAuthoringContext",
-      "startLine": 64
+      "startLine": 72
     },
     {
       "crap": 11,
       "file": ".agents/scripts/epic-planner.js",
       "method": "planEpic",
-      "startLine": 87
+      "startLine": 112
     },
     {
-      "crap": 53.118407999999995,
+      "crap": 53.27841775425351,
       "file": ".agents/scripts/epic-planner.js",
       "method": "main",
-      "startLine": 174
+      "startLine": 199
     },
     {
       "crap": 42,
@@ -847,7 +847,7 @@
       "crap": 2,
       "file": ".agents/scripts/lib/config-settings-schema.js",
       "method": "getSettingsValidator",
-      "startLine": 307
+      "startLine": 327
     },
     {
       "crap": 3,
@@ -874,16 +874,16 @@
       "startLine": 33
     },
     {
-      "crap": 5,
+      "crap": 7,
       "file": ".agents/scripts/lib/config/limits.js",
       "method": "resolveLimits",
-      "startLine": 46
+      "startLine": 52
     },
     {
       "crap": 1,
       "file": ".agents/scripts/lib/config/limits.js",
       "method": "getLimits",
-      "startLine": 70
+      "startLine": 84
     },
     {
       "crap": 3,
@@ -1774,10 +1774,22 @@
       "startLine": 212
     },
     {
-      "crap": 6.078417924096937,
+      "crap": 3.002197265625,
+      "file": ".agents/scripts/lib/orchestration/doc-reader.js",
+      "method": "readDocsFromRoot",
+      "startLine": 6
+    },
+    {
+      "crap": 4.215959399632869,
       "file": ".agents/scripts/lib/orchestration/doc-reader.js",
       "method": "scrapeProjectDocs",
-      "startLine": 9
+      "startLine": 50
+    },
+    {
+      "crap": 1,
+      "file": ".agents/scripts/lib/orchestration/doc-reader.js",
+      "method": "buildDocsContext",
+      "startLine": 83
     },
     {
       "crap": 4.00390625,
@@ -2258,6 +2270,66 @@
       "file": ".agents/scripts/lib/orchestration/plan-runner/worktree-sweep.js",
       "method": "sweepStaleStoryWorktrees",
       "startLine": 71
+    },
+    {
+      "crap": 2,
+      "file": ".agents/scripts/lib/orchestration/planning-context-budget.js",
+      "method": "byteLen",
+      "startLine": 39
+    },
+    {
+      "crap": 3,
+      "file": ".agents/scripts/lib/orchestration/planning-context-budget.js",
+      "method": "extractHeadings",
+      "startLine": 44
+    },
+    {
+      "crap": 3,
+      "file": ".agents/scripts/lib/orchestration/planning-context-budget.js",
+      "method": "splitSections",
+      "startLine": 60
+    },
+    {
+      "crap": 5.0407083248524325,
+      "file": ".agents/scripts/lib/orchestration/planning-context-budget.js",
+      "method": "firstParagraph",
+      "startLine": 80
+    },
+    {
+      "crap": 4,
+      "file": ".agents/scripts/lib/orchestration/planning-context-budget.js",
+      "method": "summarizeDoc",
+      "startLine": 107
+    },
+    {
+      "crap": 2,
+      "file": ".agents/scripts/lib/orchestration/planning-context-budget.js",
+      "method": "normalizeItems",
+      "startLine": 139
+    },
+    {
+      "crap": 1,
+      "file": ".agents/scripts/lib/orchestration/planning-context-budget.js",
+      "method": "totalBytes",
+      "startLine": 149
+    },
+    {
+      "crap": 1,
+      "file": ".agents/scripts/lib/orchestration/planning-context-budget.js",
+      "method": "buildFullItems",
+      "startLine": 155
+    },
+    {
+      "crap": 2,
+      "file": ".agents/scripts/lib/orchestration/planning-context-budget.js",
+      "method": "buildSummaryItems",
+      "startLine": 163
+    },
+    {
+      "crap": 6,
+      "file": ".agents/scripts/lib/orchestration/planning-context-budget.js",
+      "method": "applyBudget",
+      "startLine": 186
     },
     {
       "crap": 2,
@@ -2935,7 +3007,7 @@
       "crap": 1,
       "file": ".agents/scripts/lib/story-init/state-transitioner.js",
       "method": "transitionTaskStates",
-      "startLine": 25
+      "startLine": 30
     },
     {
       "crap": 3,
@@ -2948,6 +3020,12 @@
       "file": ".agents/scripts/lib/story-init/task-graph-builder.js",
       "method": "buildTaskGraph",
       "startLine": 44
+    },
+    {
+      "crap": 4,
+      "file": ".agents/scripts/lib/story-init/transition-summary.js",
+      "method": "postBatchedTransitionSummary",
+      "startLine": 22
     },
     {
       "crap": 3,
@@ -4084,7 +4162,7 @@
       "startLine": 75
     },
     {
-      "crap": 14.482495420313455,
+      "crap": 14.568118889891624,
       "file": ".agents/scripts/sprint-plan-decompose.js",
       "method": "main",
       "startLine": 146
@@ -4108,7 +4186,7 @@
       "startLine": 118
     },
     {
-      "crap": 17.729649346943706,
+      "crap": 17.864976672984398,
       "file": ".agents/scripts/sprint-plan-spec.js",
       "method": "main",
       "startLine": 185
@@ -4270,7 +4348,7 @@
       "startLine": 807
     },
     {
-      "crap": 8.208333333333336,
+      "crap": 3.0416666666666665,
       "file": ".agents/scripts/sprint-story-close.js",
       "method": "<anon method-10>",
       "startLine": 922
@@ -4279,61 +4357,67 @@
       "crap": 1,
       "file": ".agents/scripts/sprint-story-init.js",
       "method": "<anon method-1>",
-      "startLine": 61
+      "startLine": 62
     },
     {
       "crap": 1,
       "file": ".agents/scripts/sprint-story-init.js",
       "method": "<anon method-2>",
-      "startLine": 62
+      "startLine": 63
     },
     {
-      "crap": 17.141829130260586,
+      "crap": 16.841711186924258,
       "file": ".agents/scripts/sprint-story-init.js",
       "method": "runStoryInit",
-      "startLine": 75
+      "startLine": 76
     },
     {
       "crap": 1,
       "file": ".agents/scripts/sprint-story-init.js",
       "method": "<anon method-3>",
-      "startLine": 106
+      "startLine": 107
     },
     {
       "crap": 1,
       "file": ".agents/scripts/sprint-story-init.js",
       "method": "<anon method-4>",
-      "startLine": 228
+      "startLine": 113
+    },
+    {
+      "crap": 1,
+      "file": ".agents/scripts/sprint-story-init.js",
+      "method": "<anon method-5>",
+      "startLine": 239
     },
     {
       "crap": 1,
       "file": ".agents/scripts/sprint-story-init.js",
       "method": "buildStoryInitResult",
-      "startLine": 319
+      "startLine": 346
     },
     {
       "crap": 3.072,
       "file": ".agents/scripts/sprint-story-init.js",
       "method": "mapDependenciesInstalled",
-      "startLine": 372
+      "startLine": 399
     },
     {
       "crap": 1.0046296296296295,
       "file": ".agents/scripts/sprint-story-init.js",
       "method": "postStoryInitComment",
-      "startLine": 383
+      "startLine": 410
     },
     {
       "crap": 1,
       "file": ".agents/scripts/sprint-story-init.js",
       "method": "renderStoryInitCommentBody",
-      "startLine": 409
+      "startLine": 436
     },
     {
       "crap": 2,
       "file": ".agents/scripts/sprint-story-init.js",
       "method": "emitStoryInitResult",
-      "startLine": 437
+      "startLine": 464
     },
     {
       "crap": 3.072,
