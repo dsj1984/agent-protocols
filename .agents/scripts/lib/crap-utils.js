@@ -2,9 +2,19 @@ import fs from 'node:fs';
 import path from 'node:path';
 import { hasCoverageFor } from './coverage-utils.js';
 import { calculateCrapForSource } from './crap-engine.js';
-import { scanDirectory } from './maintainability-utils.js';
+import {
+  resolveTsTranspilerVersion,
+  scanDirectory,
+  transpileIfNeeded,
+} from './maintainability-utils.js';
 
-export const KERNEL_VERSION = '1.0.0';
+// 1.1.0 — TypeScript support landed in 5.29.0. Bumped from 1.0.0 because
+// the scanner now emits CRAP rows for TS/TSX paths that the previous
+// kernel could never reach. The CRAP formula and per-method scoring
+// shape are unchanged for JS sources.
+export const KERNEL_VERSION = '1.1.0';
+export { resolveTsTranspilerVersion };
+
 const SCHEMA_REF = '.agents/schemas/crap-baseline.schema.json';
 
 function normalizeSep(p) {
@@ -115,6 +125,13 @@ export function getCrapBaseline(opts = {}) {
   if (typeof parsed.kernelVersion !== 'string') return null;
   if (typeof parsed.escomplexVersion !== 'string') return null;
   if (!Array.isArray(parsed.rows)) return null;
+  // tsTranspilerVersion landed in kernel 1.1.0. Older envelopes (1.0.0)
+  // do not carry it; we surface that as the sentinel '0.0.0' so the
+  // version-drift detector can warn on first 1.1.0 check without
+  // crashing on a missing field.
+  if (typeof parsed.tsTranspilerVersion !== 'string') {
+    parsed.tsTranspilerVersion = '0.0.0';
+  }
   return parsed;
 }
 
@@ -142,6 +159,7 @@ function canonicalizeEnvelope(envelope) {
   ordered.escomplexVersion = envelope.escomplexVersion;
   ordered.kernelVersion = envelope.kernelVersion;
   ordered.rows = sortRows(envelope.rows).map(canonicalizeRow);
+  ordered.tsTranspilerVersion = envelope.tsTranspilerVersion ?? '0.0.0';
   return ordered;
 }
 
@@ -149,16 +167,23 @@ function canonicalizeEnvelope(envelope) {
  * Project rich scan rows onto the minimal baseline row shape and assemble an
  * envelope ready for `saveCrapBaseline`.
  *
+ * `tsTranspilerVersion` stamps the resolved `typescript` package version so
+ * consumers can detect transpiler drift on TS rows. Defaults to the
+ * sentinel `'0.0.0'` when typescript is unresolvable — drift detection
+ * then becomes a no-op rather than failing the bake.
+ *
  * @param {{
  *   rows: Array<{file: string, method: string, startLine: number, crap: number|null}>,
  *   escomplexVersion: string,
  *   kernelVersion?: string,
+ *   tsTranspilerVersion?: string,
  * }} params
  */
 export function buildBaselineEnvelope({
   rows,
   escomplexVersion,
   kernelVersion = KERNEL_VERSION,
+  tsTranspilerVersion = resolveTsTranspilerVersion(),
 }) {
   if (typeof escomplexVersion !== 'string' || !escomplexVersion) {
     throw new TypeError('buildBaselineEnvelope: escomplexVersion is required');
@@ -176,6 +201,7 @@ export function buildBaselineEnvelope({
       method: r.method,
       startLine: r.startLine,
     })),
+    tsTranspilerVersion,
   };
 }
 
@@ -279,7 +305,13 @@ export function scanAndScore({
     } catch {
       continue;
     }
-    const methodRows = calculateCrapForSource(source, entry);
+    // TS/TSX → strip-then-analyze. Coverage-entry lookup above used the
+    // ORIGINAL source path (vitest's coverage-final.json keys on the .ts
+    // file, not transpiled output) so the transpile is purely about
+    // making the code parseable by the Esprima-based escomplex kernel.
+    const prepared = transpileIfNeeded(abs, source);
+    if (prepared === null) continue;
+    const methodRows = calculateCrapForSource(prepared, entry);
     for (const mr of methodRows) {
       if (mr.crap === null || mr.coverage === null) {
         skippedMethodsNoCoverage += 1;

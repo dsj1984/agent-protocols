@@ -8,6 +8,7 @@ import { loadCoverage } from './lib/coverage-utils.js';
 import {
   buildBaselineEnvelope,
   resolveEscomplexVersion,
+  resolveTsTranspilerVersion,
   saveCrapBaseline,
   scanAndScore,
 } from './lib/crap-utils.js';
@@ -83,7 +84,12 @@ async function main() {
   });
 
   const escomplexVersion = resolveEscomplexVersion();
-  const envelope = buildBaselineEnvelope({ rows, escomplexVersion });
+  const tsTranspilerVersion = resolveTsTranspilerVersion();
+  const envelope = buildBaselineEnvelope({
+    rows,
+    escomplexVersion,
+    tsTranspilerVersion,
+  });
   saveCrapBaseline(envelope, { baselinePath });
 
   console.log(
@@ -100,7 +106,7 @@ async function main() {
     );
   }
   console.log(
-    `[CRAP] ✅ Baseline updated (kernelVersion=${envelope.kernelVersion}, escomplexVersion=${escomplexVersion}).`,
+    `[CRAP] ✅ Baseline updated (kernelVersion=${envelope.kernelVersion}, escomplexVersion=${escomplexVersion}, tsTranspilerVersion=${tsTranspilerVersion}).`,
   );
 }
 

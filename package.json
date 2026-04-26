@@ -1,6 +1,6 @@
 {
   "name": "agent-protocols",
-  "version": "5.28.1",
+  "version": "5.29.0",
   "description": "",
   "main": "index.js",
   "scripts": {
@@ -42,6 +42,15 @@
   "dependencies": {
     "picomatch": "^4.0.4",
     "string-argv": "^0.3.2",
+    "typescript": "^5.9.3",
     "typhonjs-escomplex": "^0.1.0"
+  },
+  "peerDependencies": {
+    "typescript": ">=5.0.0"
+  },
+  "peerDependenciesMeta": {
+    "typescript": {
+      "optional": false
+    }
   }
 }

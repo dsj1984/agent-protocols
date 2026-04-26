@@ -256,6 +256,7 @@ test('evaluateBaselineCompatibility — missing baseline fails closed (exit 1)',
     baseline: null,
     runningKernelVersion: KERNEL_VERSION,
     runningEscomplexVersion: '7.3.2',
+    runningTsTranspilerVersion: '5.9.3',
   });
   assert.strictEqual(r.ok, false);
   assert.strictEqual(r.exitCode, 1);
@@ -265,21 +266,25 @@ test('evaluateBaselineCompatibility — missing baseline fails closed (exit 1)',
   assert.match(r.message, /baseline-refresh:/);
 });
 
-test('evaluateBaselineCompatibility — kernel-version mismatch fails closed (exit 1)', () => {
+test('evaluateBaselineCompatibility — kernel-version drift warns, does not fail (5.29.0)', () => {
   const r = evaluateBaselineCompatibility({
     baseline: {
       kernelVersion: '0.9.0',
       escomplexVersion: '7.3.2',
+      tsTranspilerVersion: '5.9.3',
       rows: [],
     },
     runningKernelVersion: KERNEL_VERSION,
     runningEscomplexVersion: '7.3.2',
+    runningTsTranspilerVersion: '5.9.3',
   });
-  assert.strictEqual(r.ok, false);
-  assert.strictEqual(r.exitCode, 1);
-  assert.strictEqual(r.kind, 'kernel-mismatch');
-  assert.match(r.message, /scorer changed from 0\.9\.0 to /);
-  assert.match(r.message, /npm run crap:update/);
+  assert.strictEqual(r.ok, true);
+  assert.ok(Array.isArray(r.warnings));
+  assert.strictEqual(r.warnings.length, 1);
+  assert.match(r.warnings[0], /kernelVersion drift/);
+  assert.match(r.warnings[0], /baseline=0\.9\.0/);
+  assert.match(r.warnings[0], /npm run crap:update/);
+  assert.match(r.warnings[0], /baseline-refresh:/);
 });
 
 test('evaluateBaselineCompatibility — escomplex-version mismatch fails closed (exit 1)', () => {
@@ -287,10 +292,12 @@ test('evaluateBaselineCompatibility — escomplex-version mismatch fails closed 
     baseline: {
       kernelVersion: KERNEL_VERSION,
       escomplexVersion: '7.0.0',
+      tsTranspilerVersion: '5.9.3',
       rows: [],
     },
     runningKernelVersion: KERNEL_VERSION,
     runningEscomplexVersion: '7.3.2',
+    runningTsTranspilerVersion: '5.9.3',
   });
   assert.strictEqual(r.ok, false);
   assert.strictEqual(r.exitCode, 1);
@@ -299,15 +306,59 @@ test('evaluateBaselineCompatibility — escomplex-version mismatch fails closed 
   assert.match(r.message, /npm run crap:update/);
 });
 
-test('evaluateBaselineCompatibility — matching kernel + escomplex returns ok', () => {
+test('evaluateBaselineCompatibility — tsTranspilerVersion drift warns, does not fail (5.29.0)', () => {
   const r = evaluateBaselineCompatibility({
     baseline: {
       kernelVersion: KERNEL_VERSION,
       escomplexVersion: '7.3.2',
+      tsTranspilerVersion: '5.4.0',
       rows: [],
     },
     runningKernelVersion: KERNEL_VERSION,
     runningEscomplexVersion: '7.3.2',
+    runningTsTranspilerVersion: '5.9.3',
   });
-  assert.deepStrictEqual(r, { ok: true });
+  assert.strictEqual(r.ok, true);
+  assert.strictEqual(r.warnings.length, 1);
+  assert.match(r.warnings[0], /tsTranspilerVersion drift/);
+  assert.match(r.warnings[0], /baseline=5\.4\.0/);
+  assert.match(r.warnings[0], /running=5\.9\.3/);
+  assert.match(r.warnings[0], /npm run crap:update/);
+});
+
+test('evaluateBaselineCompatibility — kernel 1.0.0 baseline (no tsTranspilerVersion field) warns once for kernel drift only', () => {
+  // Simulates a consumer's first 5.29.0 run against a 1.0.0 baseline.
+  // tsTranspilerVersion was absent in 1.0.0; getCrapBaseline backfills the
+  // sentinel '0.0.0', which then triggers the second warning. Here we feed
+  // the sentinel directly to mimic the post-load envelope.
+  const r = evaluateBaselineCompatibility({
+    baseline: {
+      kernelVersion: '1.0.0',
+      escomplexVersion: '7.3.2',
+      tsTranspilerVersion: '0.0.0',
+      rows: [],
+    },
+    runningKernelVersion: KERNEL_VERSION,
+    runningEscomplexVersion: '7.3.2',
+    runningTsTranspilerVersion: '5.9.3',
+  });
+  assert.strictEqual(r.ok, true);
+  assert.strictEqual(r.warnings.length, 2);
+  assert.match(r.warnings[0], /kernelVersion drift/);
+  assert.match(r.warnings[1], /tsTranspilerVersion drift/);
+});
+
+test('evaluateBaselineCompatibility — matching kernel + escomplex + ts returns ok with no warnings', () => {
+  const r = evaluateBaselineCompatibility({
+    baseline: {
+      kernelVersion: KERNEL_VERSION,
+      escomplexVersion: '7.3.2',
+      tsTranspilerVersion: '5.9.3',
+      rows: [],
+    },
+    runningKernelVersion: KERNEL_VERSION,
+    runningEscomplexVersion: '7.3.2',
+    runningTsTranspilerVersion: '5.9.3',
+  });
+  assert.deepStrictEqual(r, { ok: true, warnings: [] });
 });

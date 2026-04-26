@@ -1,5 +1,101 @@
 # Architecture Decision Records (ADR)
 
+## ADR 20260426-829a: Strip-then-analyze for TypeScript scoring; keep typhonjs-escomplex
+
+**Status:** Accepted
+**Date:** 2026-04-26
+**Epic:** #829
+
+### Context
+
+The maintainability and CRAP gates only scored `.js` and `.mjs`. TS-first
+consumer repos (e.g. athlete-portal) hit a degenerate state on
+`agent-protocols` 5.28.1: 21 candidate files scanned, 0 rows written,
+because every `.js`/`.mjs` candidate was build-time scaffolding (eslint
+configs, `astro.config.mjs`) not exercised by tests. The actual product
+surface — TypeScript — was invisible to both gates, so neither
+maintainability nor CRAP could produce a useful baseline against the
+code consumers care about. Cyclomatic-complexity gating on the real
+source was impossible.
+
+The kernel — `typhonjs-escomplex@0.1.0` — uses an Esprima parser that
+rejects TypeScript type annotations and JSX outright.
+
+### Decision
+
+Pre-transpile TypeScript and TSX sources to plain JavaScript in memory
+via `ts.transpileModule`, then feed the result to the existing escomplex
+kernel. `JsxEmit.ReactJSX` is used so JSX expressions become function
+calls escomplex can read; `JsxEmit.Preserve` would leave JSX in the
+output and Esprima would choke.
+
+Rationale for keeping escomplex rather than swapping kernels:
+
+1. **Type annotations carry no control flow.** `if (x: string)` and
+   `if (x)` produce identical cyclomatic and cognitive complexity.
+   A TS file's score via strip-then-analyze equals what its
+   `tsc --target esnext` JS output would score under escomplex —
+   semantics-preserving for every metric the kernel emits.
+2. **Existing JS-only consumers see no scoring drift.** The CRAP
+   `kernelVersion` bump (1.0.0 → 1.1.0) and MI report kernel bump
+   (1.0.0 → 1.1.0) are version-label changes only; the per-file and
+   per-method scores for unchanged JS sources are byte-identical.
+   A snapshot test in `tests/baselines-byte-identical-js-only.test.js`
+   pins this contract.
+3. **Replacing escomplex is a multi-week project.** A `ts-morph` +
+   custom walker rewrite would invalidate every consumer's committed
+   baseline, force a coordinated refresh across the install base, and
+   bake in a new kernel that hasn't seen the years of edge-case
+   hardening escomplex has. The strip-then-analyze approach piggybacks
+   on a battle-tested kernel and ships in a single point release.
+
+`tsTranspilerVersion` is added to the CRAP baseline envelope so
+consumers can detect transpiler drift. Both `kernelVersion` and
+`tsTranspilerVersion` mismatches **warn**, not fail — consumers
+pin-and-bump and need runway to refresh deliberately rather than
+discovering the version bump from a hard CI red. `escomplexVersion`
+mismatch continues to fail closed: a different kernel can change
+scoring semantics without warning, which is exactly the silent drift
+the gate exists to catch.
+
+### Alternatives considered
+
+- **Replace `typhonjs-escomplex` with a TS-native walker (`ts-morph`).**
+  Rejected. Multi-week effort, kernel risk, and a forced baseline
+  refresh across all consumers with no compensating gain in scoring
+  fidelity for the JS path.
+- **Run a TS strip via custom regex / `@swc/core` / `esbuild`.**
+  Rejected. Each adds a dep that's heavier than `typescript` (which
+  most consumers already have as a dev-dep) and offers no upside over
+  `ts.transpileModule` for this use case.
+- **Use `tsc --noEmit` for a project-wide compile.** Rejected. Requires
+  a resolvable `tsconfig.json` in the consumer; we deliberately don't
+  trust consumer tsconfigs because they may reference paths the gate
+  has no business resolving.
+
+### Known limitations
+
+`ts.transpileModule` does not preserve source line numbers verbatim.
+JSX runtime imports add a leading line; interface elision shifts
+subsequent code. Per-method coverage lookup against a vitest
+`coverage-final.json` (which keys lines on the source) will see drifted
+line numbers from escomplex (which sees the transpiled output). The
+existing `compareCrap` line-drift fallback (same file + method, nearest
+startLine wins) absorbs this for baseline comparison; per-method
+coverage values may resolve to null on the first scan of a new TS
+method, in which case the row is skipped from the baseline rather than
+scored as zero. Sourcemap-based line remapping is a future enhancement
+and out of scope for 5.29.0.
+
+### Consequences
+
+TS-first repos can adopt the gates without rewriting their build to
+emit JS. Existing JS-only repos see a one-time warning on first
+`crap:check` / `maintainability:check` after upgrading, directing them
+to `npm run crap:update` / `npm run maintainability:update`. Their
+score numbers don't change. The scoring kernel is unchanged, so future
+ADRs about complexity ranges and tier thresholds remain valid.
+
 ## ADR 20260425-773a: CRAP gate becomes hard-enforcing
 
 **Status:** Accepted

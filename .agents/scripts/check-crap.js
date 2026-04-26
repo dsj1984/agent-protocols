@@ -12,6 +12,7 @@ import {
   getCrapBaseline,
   KERNEL_VERSION,
   resolveEscomplexVersion,
+  resolveTsTranspilerVersion,
   scanAndScore,
 } from './lib/crap-utils.js';
 import { createFrictionEmitter } from './lib/orchestration/friction-emitter.js';
@@ -294,25 +295,35 @@ export function compareCrap({
 
 /**
  * Pure decision helper for the missing-baseline / kernel-mismatch /
- * escomplex-mismatch gate paths. Lets tests assert the exact operator-facing
- * message without spawning a child process.
+ * escomplex-mismatch / tsTranspiler-mismatch gate paths. Lets tests assert
+ * the exact operator-facing message without spawning a child process.
  *
  * Story #791 retired the transitional `bootstrap` exit-0 path: a missing
- * baseline now fails closed (exit 1) so close-validation, pre-push, and CI
- * all enforce uniformly. Operators bootstrap explicitly via
+ * baseline still fails closed (exit 1) so close-validation, pre-push, and
+ * CI all enforce uniformly. Operators bootstrap explicitly via
  * `npm run crap:update` + a `baseline-refresh:` commit.
  *
+ * Story #829 (5.29.0) softened `kernelVersion` and `tsTranspilerVersion`
+ * drift to **warn**, not fail: when consumers pin-and-bump the framework
+ * the kernel may move ahead of their committed baseline, and they need
+ * runway to refresh deliberately rather than discovering the bump from
+ * a hard CI red. `escomplexVersion` mismatch continues to fail closed —
+ * a different kernel can change scoring semantics without warning.
+ *
  * @param {{
- *   baseline: {kernelVersion: string, escomplexVersion: string, rows: Array}|null,
+ *   baseline: {kernelVersion: string, escomplexVersion: string, tsTranspilerVersion?: string, rows: Array}|null,
  *   runningKernelVersion: string,
  *   runningEscomplexVersion: string,
+ *   runningTsTranspilerVersion?: string,
  * }} params
- * @returns {{ ok: true } | { ok: false, exitCode: 1, kind: 'missing-baseline'|'kernel-mismatch'|'escomplex-mismatch', message: string }}
+ * @returns {{ ok: true, warnings: string[] }
+ *   | { ok: false, exitCode: 1, kind: 'missing-baseline'|'escomplex-mismatch', message: string }}
  */
 export function evaluateBaselineCompatibility({
   baseline,
   runningKernelVersion,
   runningEscomplexVersion,
+  runningTsTranspilerVersion,
 }) {
   if (baseline === null || baseline === undefined) {
     return {
@@ -323,14 +334,6 @@ export function evaluateBaselineCompatibility({
         "[CRAP] ❌ no baseline found — run 'npm run crap:update' and commit with a 'baseline-refresh:' subject to bootstrap",
     };
   }
-  if (baseline.kernelVersion !== runningKernelVersion) {
-    return {
-      ok: false,
-      exitCode: 1,
-      kind: 'kernel-mismatch',
-      message: `[CRAP] scorer changed from ${baseline.kernelVersion} to ${runningKernelVersion} — run 'npm run crap:update'`,
-    };
-  }
   if (baseline.escomplexVersion !== runningEscomplexVersion) {
     return {
       ok: false,
@@ -339,7 +342,21 @@ export function evaluateBaselineCompatibility({
       message: `[CRAP] scorer changed from ${baseline.escomplexVersion} to ${runningEscomplexVersion} — run 'npm run crap:update'`,
     };
   }
-  return { ok: true };
+  const warnings = [];
+  if (baseline.kernelVersion !== runningKernelVersion) {
+    warnings.push(
+      `[CRAP] ⚠ kernelVersion drift: baseline=${baseline.kernelVersion} running=${runningKernelVersion}. ` +
+        "Run 'npm run crap:update' and commit with a 'baseline-refresh:' subject to refresh.",
+    );
+  }
+  const baselineTs = baseline.tsTranspilerVersion ?? '0.0.0';
+  if (runningTsTranspilerVersion && baselineTs !== runningTsTranspilerVersion) {
+    warnings.push(
+      `[CRAP] ⚠ tsTranspilerVersion drift: baseline=${baselineTs} running=${runningTsTranspilerVersion}. ` +
+        "Run 'npm run crap:update' and commit with a 'baseline-refresh:' subject to refresh.",
+    );
+  }
+  return { ok: true, warnings };
 }
 
 /**
@@ -531,15 +548,20 @@ async function main() {
     args.baselinePath ?? getBaselines({ agentSettings: settings }).crap.path;
   const baseline = getCrapBaseline({ baselinePath });
   const runningEscomplex = resolveEscomplexVersion();
+  const runningTs = resolveTsTranspilerVersion();
   const compat = evaluateBaselineCompatibility({
     baseline,
     runningKernelVersion: KERNEL_VERSION,
     runningEscomplexVersion: runningEscomplex,
+    runningTsTranspilerVersion: runningTs,
   });
   if (!compat.ok) {
     if (compat.exitCode === 0) console.log(compat.message);
     else console.error(compat.message);
     return compat.exitCode;
+  }
+  for (const warning of compat.warnings ?? []) {
+    console.warn(warning);
   }
 
   const targetDirs = Array.isArray(crap.targetDirs) ? crap.targetDirs : [];

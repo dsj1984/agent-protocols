@@ -4,6 +4,47 @@ All notable changes to this project will be documented in this file.
 
 ## [Unreleased]
 
+## [5.29.0] - 2026-04-26
+
+### TypeScript support for maintainability and CRAP gates
+
+The maintainability and CRAP scoring engines now score TypeScript and TSX
+sources in addition to plain JavaScript. TS-first repositories no longer
+need to maintain hand-rolled `.js` shims to participate in the gates.
+
+- **Strip-then-analyze pipeline.** `.ts`, `.tsx`, `.mts`, and `.cts`
+  sources are pre-transpiled in memory via `ts.transpileModule` (with
+  `JsxEmit.ReactJSX` for `.tsx`) before being fed to the existing
+  `typhonjs-escomplex` kernel. Type annotations carry no control flow,
+  so the transpiled JS scores identically to the original TS for every
+  metric escomplex emits — the same module written in `.js` or `.ts`
+  produces the same maintainability index and the same per-method CRAP.
+  See ADR-20260426-829a in `docs/decisions.md` for why escomplex stays
+  and `ts-morph` was rejected.
+- **Scanner extensions.** `scanDirectory` now accepts `.js`, `.mjs`,
+  `.cjs`, `.ts`, `.tsx`, `.mts`, and `.cts`. `coverage/` and `.next/`
+  are added to `IGNORED_DIRS` so vitest's istanbul HTML scaffolding and
+  Next.js build artifacts are skipped.
+- **Coverage keying preserved.** CRAP's coverage lookup continues to use
+  the original `.ts`/`.tsx` source path — vitest's `coverage-final.json`
+  keys on the source file, not the transpiled output, so no key-mismatch
+  introduces phantom misses.
+- **Schema bump (kernelVersion 1.1.0).** The CRAP baseline envelope
+  gains a `tsTranspilerVersion` field stamped from the resolved
+  `typescript` package version. Existing consumers will see a one-time
+  warning on `crap:check`/`maintainability:check` directing them to
+  `npm run crap:update` / `npm run maintainability:update`. Drift on
+  `kernelVersion` and `tsTranspilerVersion` is **warn**, not fail —
+  consumers refresh on their own cadence. `escomplexVersion` mismatch
+  continues to fail closed (different kernel semantics are not
+  negotiable).
+- **Byte-identical baselines for JS-only consumers.** Re-running
+  `update-{maintainability,crap}-baseline` against an unchanged
+  JS-only tree produces byte-identical scoring data. A snapshot test
+  pins this contract.
+- **`typescript` is now a peer dependency.** Wide range (`>=5.0.0`),
+  shipped as a regular dep too for the offline scaffolding fallback.
+
 ## [5.28.1] - 2026-04-26
 
 ### Documentation follow-ups for Epic #817
