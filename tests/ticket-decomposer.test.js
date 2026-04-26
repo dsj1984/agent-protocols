@@ -210,6 +210,193 @@ describe('ticket-decomposer orchestration (v5.6+)', () => {
     ]);
   });
 
+  it('staged concurrentMap preserves parent-before-child ordering under cap=3 (2F × 3S × 2T)', async () => {
+    // Author 2 Features, each with 3 Stories, each with 2 Tasks (16 tickets).
+    // The mock provider holds each createTicket promise open for one
+    // microtask burst before resolving, so when concurrencyCap=3 a Story
+    // could in principle race its parent Feature. The three staged passes
+    // (features → stories → tasks) make that impossible: every parent's
+    // ID lands in slugMap before the child pass starts. The test asserts
+    // that invariant against `createdTickets` order regardless of within-
+    // pass scheduling.
+    const tickets = [];
+    for (const f of [1, 2]) {
+      tickets.push({
+        slug: `f${f}`,
+        type: 'feature',
+        title: `Feature ${f}`,
+        body: '',
+        labels: ['type::feature', 'persona::engineer'],
+      });
+      for (const s of [1, 2, 3]) {
+        const sSlug = `f${f}-s${s}`;
+        tickets.push({
+          slug: sSlug,
+          type: 'story',
+          title: `Story ${f}.${s}`,
+          body: '',
+          labels: ['type::story', 'persona::fullstack', 'complexity::fast'],
+          parent_slug: `f${f}`,
+        });
+        for (const t of [1, 2]) {
+          tickets.push({
+            slug: `${sSlug}-t${t}`,
+            type: 'task',
+            title: `Task ${f}.${s}.${t}`,
+            body: '',
+            labels: ['type::task', 'persona::engineer'],
+            parent_slug: sSlug,
+          });
+        }
+      }
+    }
+
+    // Provider that defers each createTicket through a few microtasks so
+    // siblings genuinely interleave under cap=3.
+    let nextId = 200;
+    mockProvider.createdTickets = [];
+    mockProvider.createTicket = async (parentId, ticketData) => {
+      const id = nextId++;
+      // Yield twice so other queued workers get a chance to run.
+      await Promise.resolve();
+      await Promise.resolve();
+      mockProvider.createdTickets.push({
+        epicId: parentId,
+        ticketData,
+        newId: id,
+      });
+      return { id, url: `https://github.com/test/${id}` };
+    };
+
+    await decomposeEpic(
+      1,
+      mockProvider,
+      { tickets },
+      {
+        orchestration: {
+          runners: { decomposer: { concurrencyCap: 3 } },
+        },
+      },
+    );
+
+    // 2F + (2×3)S + (2×3×2)T = 2 + 6 + 12 = 20.
+    assert.equal(mockProvider.createdTickets.length, 20);
+
+    // Build a slug → creation index for every ticket. Then assert each
+    // child's parent appears earlier in the createdTickets array.
+    const titleToIndex = new Map(
+      mockProvider.createdTickets.map((c, i) => [c.ticketData.title, i]),
+    );
+    for (const t of tickets) {
+      if (!t.parent_slug) continue;
+      const parentTicket = tickets.find((x) => x.slug === t.parent_slug);
+      assert.ok(
+        titleToIndex.get(parentTicket.title) < titleToIndex.get(t.title),
+        `Parent "${parentTicket.title}" must be created before child "${t.title}"`,
+      );
+    }
+
+    // Stronger structural guarantee: every Feature must precede every
+    // Story, and every Story must precede every Task. The staged passes
+    // make per-type creation contiguous in time.
+    const lastFeatureIdx = Math.max(
+      ...mockProvider.createdTickets
+        .map((c, i) => (c.ticketData.title.startsWith('Feature ') ? i : -1))
+        .filter((i) => i >= 0),
+    );
+    const firstStoryIdx = mockProvider.createdTickets.findIndex((c) =>
+      c.ticketData.title.startsWith('Story '),
+    );
+    const lastStoryIdx = Math.max(
+      ...mockProvider.createdTickets
+        .map((c, i) => (c.ticketData.title.startsWith('Story ') ? i : -1))
+        .filter((i) => i >= 0),
+    );
+    const firstTaskIdx = mockProvider.createdTickets.findIndex((c) =>
+      c.ticketData.title.startsWith('Task '),
+    );
+    assert.ok(
+      lastFeatureIdx < firstStoryIdx,
+      'all features precede all stories',
+    );
+    assert.ok(lastStoryIdx < firstTaskIdx, 'all stories precede all tasks');
+  });
+
+  it('honours configured decomposer.concurrencyCap by limiting in-flight createTicket calls', async () => {
+    // Probe the cap directly: 1 Feature with 6 sibling Stories (each
+    // carrying its own Task to satisfy the validator). Track concurrent
+    // createTicket invocations during the Story pass and assert the
+    // high-water mark equals the configured concurrencyCap.
+    const tickets = [
+      {
+        slug: 'f1',
+        type: 'feature',
+        title: 'Feature 1',
+        body: '',
+        labels: ['type::feature', 'persona::engineer'],
+      },
+    ];
+    for (let i = 1; i <= 6; i++) {
+      tickets.push({
+        slug: `s${i}`,
+        type: 'story',
+        title: `Story ${i}`,
+        body: '',
+        labels: ['type::story', 'persona::fullstack', 'complexity::fast'],
+        parent_slug: 'f1',
+      });
+      tickets.push({
+        slug: `t${i}`,
+        type: 'task',
+        title: `Task ${i}`,
+        body: '',
+        labels: ['type::task', 'persona::engineer'],
+        parent_slug: `s${i}`,
+      });
+    }
+
+    let inFlight = 0;
+    const peakByType = { feature: 0, story: 0, task: 0 };
+    mockProvider.createTicket = async (parentId, ticketData) => {
+      inFlight++;
+      const labels = ticketData.labels || [];
+      const type = labels.find((l) => l.startsWith('type::'))?.slice(6);
+      if (type && inFlight > peakByType[type]) peakByType[type] = inFlight;
+      await new Promise((r) => setTimeout(r, 5));
+      inFlight--;
+      const id = 200 + mockProvider.createdTickets.length;
+      mockProvider.createdTickets.push({
+        epicId: parentId,
+        ticketData,
+        newId: id,
+      });
+      return { id, url: `https://github.com/test/${id}` };
+    };
+
+    await decomposeEpic(
+      1,
+      mockProvider,
+      { tickets },
+      {
+        orchestration: { runners: { decomposer: { concurrencyCap: 2 } } },
+      },
+    );
+
+    assert.equal(mockProvider.createdTickets.length, 13);
+    // Story pass has 6 siblings under cap=2 — peak must hit 2 exactly.
+    assert.equal(
+      peakByType.story,
+      2,
+      `expected story-pass cap=2 but observed peak=${peakByType.story}`,
+    );
+    // Task pass has 6 siblings under cap=2 — peak must hit 2 exactly.
+    assert.equal(
+      peakByType.task,
+      2,
+      `expected task-pass cap=2 but observed peak=${peakByType.task}`,
+    );
+  });
+
   it('maps depends_on slugs to created issue IDs', async () => {
     const tickets = baseTickets();
     tickets.push({

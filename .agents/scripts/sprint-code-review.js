@@ -33,6 +33,11 @@ import {
 } from './lib/maintainability-engine.js';
 import { upsertStructuredComment } from './lib/orchestration/ticketing.js';
 import { createProvider } from './lib/provider-factory.js';
+import {
+  hashCommandConfig,
+  recordPass,
+  shouldSkip,
+} from './lib/validation-evidence.js';
 
 /**
  * Parse stdout/stderr from a lint runner to estimate error vs warning counts.
@@ -110,6 +115,18 @@ export function partitionFilesForLint(changedFiles) {
   return { code, md };
 }
 
+/**
+ * Resolve `git rev-parse HEAD` inside `cwd`. Returns null on failure so the
+ * evidence-skip path silently no-ops instead of throwing — review correctness
+ * never depends on the skip firing.
+ */
+function resolveCurrentSha(cwd) {
+  const res = gitSpawn(cwd, 'rev-parse', 'HEAD');
+  if (res.status !== 0) return null;
+  const sha = (res.stdout || '').trim();
+  return sha.length > 0 ? sha : null;
+}
+
 function spawnLintRunner(bin, args, cwd) {
   const result = spawnSync('npx', ['--no', bin, ...args], {
     cwd,
@@ -176,8 +193,13 @@ export function runScopedLint(changedFiles, cwd, runnerFn = spawnLintRunner) {
  * surface findings on the actual diff. `off` skips the lint section entirely
  * for runs where the operator already knows lint is clean.
  *
+ * `--story <id>` opts the lint step into validation-evidence skip: when the
+ * Story has already recorded a `lint` pass against the current HEAD with the
+ * same scoped command-config, the lint runner is skipped. `--no-evidence`
+ * forces the runner regardless.
+ *
  * @param {string[]} argv
- * @returns {{ epicId: number|null, baseBranch: string|null, post: boolean, scopeLint: 'changed-only'|'off' }}
+ * @returns {{ epicId: number|null, baseBranch: string|null, post: boolean, scopeLint: 'changed-only'|'off', storyId: number|null, useEvidence: boolean }}
  */
 export function parseReviewArgs(argv) {
   const { values } = parseArgs({
@@ -187,10 +209,13 @@ export function parseReviewArgs(argv) {
       base: { type: 'string' },
       post: { type: 'boolean', default: true },
       'scope-lint': { type: 'string', default: 'changed-only' },
+      story: { type: 'string' },
+      'no-evidence': { type: 'boolean', default: false },
     },
     strict: false,
   });
   const parsed = Number.parseInt(values.epic ?? '', 10);
+  const parsedStory = Number.parseInt(values.story ?? '', 10);
   const rawScope = values['scope-lint'] ?? 'changed-only';
   const scopeLint = rawScope === 'off' ? 'off' : 'changed-only';
   return {
@@ -198,7 +223,31 @@ export function parseReviewArgs(argv) {
     baseBranch: values.base ?? null,
     post: values.post !== false,
     scopeLint,
+    storyId: Number.isNaN(parsedStory) || parsedStory <= 0 ? null : parsedStory,
+    useEvidence: values['no-evidence'] !== true,
   };
+}
+
+/**
+ * Compute the canonical command-config hash for the scoped-lint runner. The
+ * caller passes the partitioned biome + markdown lists so the hash captures
+ * the exact set of files; any change to that set (a different diff, a new
+ * file added) invalidates the prior evidence and forces a re-lint.
+ *
+ * Exported for testing.
+ */
+export function buildLintEvidenceConfig(changedFiles, cwd) {
+  const { code, md } = partitionFilesForLint(changedFiles);
+  const args = [];
+  if (code.length > 0) args.push('biome', 'lint', ...code);
+  if (md.length > 0) {
+    args.push('markdownlint', ...md, '--ignore', 'node_modules');
+  }
+  return hashCommandConfig({
+    cmd: 'sprint-code-review/scoped-lint',
+    args,
+    cwd,
+  });
 }
 
 /**
@@ -406,11 +455,72 @@ async function main() {
       mode: 'off',
     };
   } else {
-    progress(
-      'LINT',
-      'Linting changed files only (biome + markdownlint, scoped to diff)...',
-    );
-    lintSummary = runScopedLint(changedFiles, PROJECT_ROOT);
+    // Evidence-aware skip: when invoked with --story <id>, consult the
+    // Story's validation-evidence file. If the same scoped-lint command-
+    // config has already passed at the current HEAD, skip the runner and
+    // fabricate a clean summary so downstream report tiers stay accurate.
+    const evidenceCfg = buildLintEvidenceConfig(changedFiles, PROJECT_ROOT);
+    const headSha = resolveCurrentSha(PROJECT_ROOT);
+    let evidenceSkip = null;
+    if (args.useEvidence && args.storyId && headSha) {
+      const verdict = shouldSkip(
+        {
+          storyId: args.storyId,
+          gateName: 'sprint-code-review/lint',
+          currentSha: headSha,
+          configHash: evidenceCfg,
+        },
+        { cwd: PROJECT_ROOT },
+      );
+      if (verdict.skip) evidenceSkip = verdict;
+    }
+
+    if (evidenceSkip) {
+      progress(
+        'LINT',
+        `⏭ Scoped lint skipped (evidence match: SHA=${headSha.slice(0, 7)}, recorded ${evidenceSkip.record?.timestamp ?? 'n/a'}).`,
+      );
+      lintSummary = {
+        errors: 0,
+        warnings: 0,
+        parsed: false,
+        skipped: true,
+        mode: 'changed-only',
+        evidenceSkipped: true,
+      };
+    } else {
+      progress(
+        'LINT',
+        'Linting changed files only (biome + markdownlint, scoped to diff)...',
+      );
+      lintSummary = runScopedLint(changedFiles, PROJECT_ROOT);
+
+      if (
+        args.useEvidence &&
+        args.storyId &&
+        headSha &&
+        lintSummary.errors === 0 &&
+        !lintSummary.skipped
+      ) {
+        try {
+          recordPass(
+            {
+              storyId: args.storyId,
+              gateName: 'sprint-code-review/lint',
+              sha: headSha,
+              configHash: evidenceCfg,
+              exitCode: 0,
+            },
+            { cwd: PROJECT_ROOT },
+          );
+        } catch (err) {
+          progress(
+            'LINT',
+            `⚠ Failed to record lint evidence: ${err?.message ?? err}`,
+          );
+        }
+      }
+    }
   }
 
   progress('REPORT', 'Generating findings report...');

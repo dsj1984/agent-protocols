@@ -8,7 +8,11 @@
  * back to an empty object so callers can destructure without guarding.
  */
 
-import { DEFAULT_CLOSE_RETRY, DEFAULT_POOL_MODE } from '../config-schema.js';
+import {
+  DEFAULT_CLOSE_RETRY,
+  DEFAULT_DECOMPOSER,
+  DEFAULT_POOL_MODE,
+} from '../config-schema.js';
 
 /**
  * Read the `orchestration.runners` block. Accepts either the full resolved
@@ -22,6 +26,7 @@ import { DEFAULT_CLOSE_RETRY, DEFAULT_POOL_MODE } from '../config-schema.js';
  *   concurrency: object,
  *   closeRetry: { maxAttempts: number, backoffMs: number[] },
  *   poolMode: { staleClaimMinutes: number, sessionIdLength: number },
+ *   decomposer: { concurrencyCap: number },
  * }}
  */
 export function getRunners(config) {
@@ -32,5 +37,6 @@ export function getRunners(config) {
     concurrency: runners.concurrency ?? {},
     closeRetry: runners.closeRetry ?? DEFAULT_CLOSE_RETRY,
     poolMode: runners.poolMode ?? DEFAULT_POOL_MODE,
+    decomposer: runners.decomposer ?? DEFAULT_DECOMPOSER,
   };
 }
