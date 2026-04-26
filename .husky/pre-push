@@ -2,5 +2,13 @@ npm run lint
 npm run format:check
 npm run maintainability:check
 npm audit --audit-level=high
-node .agents/scripts/coverage-capture.js --skip-when-no-crap-files --ref main
-npm run crap:check -- --changed-since main
+# Diff against the REMOTE main (origin/main), not the local main ref.
+# When pushing from a feature branch that's caught up to local main, the two
+# are equivalent. When pushing FROM main (a release commit, an emergency
+# push-to-main), `git diff main...HEAD` is empty — pre-push then skipped
+# both coverage capture and the CRAP gate, letting unpinned new methods
+# slip into CI's full-repo scan (regression seen on the 5.29.0 push).
+# `origin/main` makes the diff equal to "unpushed commits", which is exactly
+# what pre-push should validate. (Story #829, 2026-04-26.)
+node .agents/scripts/coverage-capture.js --skip-when-no-crap-files --ref origin/main
+npm run crap:check -- --changed-since origin/main

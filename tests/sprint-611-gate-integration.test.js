@@ -73,12 +73,20 @@ test('Site 2 — ci.yml runs `npm run crap:check` after test:coverage with PR-sc
   assert.match(yml, /name:\s*crap-report/);
 });
 
-test('Site 3 — .husky/pre-push runs `npm run crap:check` with --changed-since main', () => {
+test('Site 3 — .husky/pre-push runs `npm run crap:check` with --changed-since origin/main', () => {
   const hook = fs.readFileSync(
     path.join(REPO_ROOT, '.husky', 'pre-push'),
     'utf8',
   );
-  assert.match(hook, /npm run crap:check\s+--\s+--changed-since\s+main/);
+  // Story #829 (5.29.0) switched the diff base from `main` to `origin/main`.
+  // When pushing FROM main (release commits, emergency push-to-main) the
+  // local-main diff is empty and pre-push silently skipped the gate;
+  // origin/main pins the diff to "unpushed commits" so the gate fires
+  // exactly when the upcoming push has a chance to introduce regressions.
+  assert.match(
+    hook,
+    /npm run crap:check\s+--\s+--changed-since\s+origin\/main/,
+  );
   // Coverage capture must run AFTER lint/format/MI but BEFORE crap:check, so
   // `coverage/coverage-final.json` is on disk for the per-method lookup.
   // Story #790 replaced the unconditional `npm run test:coverage` call with
@@ -91,6 +99,9 @@ test('Site 3 — .husky/pre-push runs `npm run crap:check` with --changed-since 
     'crap:check must come after coverage-capture in pre-push',
   );
   assert.match(hook, /coverage-capture\.js\s+--skip-when-no-crap-files/);
+  // The coverage-capture --ref must use origin/main for the same reason as
+  // the crap:check --changed-since arg — they form a pair.
+  assert.match(hook, /coverage-capture\.js[^\n]*--ref\s+origin\/main/);
 });
 
 /**
