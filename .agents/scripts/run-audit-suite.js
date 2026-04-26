@@ -252,8 +252,7 @@ export async function runAuditSuite({
   };
 
   const workflowsDir = path.join(PROJECT_ROOT, paths.workflowsRoot);
-  const effectiveArtifactsDir =
-    artifactsDir ?? path.join(PROJECT_ROOT, 'temp');
+  const effectiveArtifactsDir = artifactsDir ?? path.join(PROJECT_ROOT, 'temp');
   const writeArtifact = injectedWriteArtifact ?? defaultWriteArtifact;
 
   const auditPromises = auditWorkflows.map(async (auditName) => {
