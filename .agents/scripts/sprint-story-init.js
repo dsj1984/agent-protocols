@@ -49,6 +49,7 @@ import { buildTaskGraph } from './lib/story-init/task-graph-builder.js';
 import { postBatchedTransitionSummary } from './lib/story-init/transition-summary.js';
 import { createPhaseTimer } from './lib/util/phase-timer.js';
 import { savePhaseTimerState } from './lib/util/phase-timer-state.js';
+import { forceClear as clearValidationEvidence } from './lib/validation-evidence.js';
 import { notify } from './notify.js';
 
 // ---------------------------------------------------------------------------
@@ -242,6 +243,26 @@ export async function runStoryInit({
     workCwd = branchResult.workCwd;
     worktreeCreated = branchResult.worktreeCreated;
     installStatus = branchResult.installStatus ?? installStatus;
+
+    // Clear any stale validation-evidence file in the worktree so a re-run
+    // of this Story (recut, branch-recreate, manual restart) always starts
+    // with an empty evidence ledger. Story 7 / #830.
+    try {
+      const cleared = clearValidationEvidence(storyId, { cwd: workCwd });
+      if (cleared.cleared) {
+        progress(
+          'EVIDENCE',
+          `🧹 Cleared stale validation-evidence at ${cleared.path}`,
+        );
+      }
+    } catch (err) {
+      // Non-fatal: a stale evidence file at worst forces a redundant gate
+      // run. The skip predicate also re-validates SHA + config hash, so
+      // staleness cannot mis-skip a real change.
+      stageLogger.warn(
+        `[sprint-story-init] ⚠️ Failed to clear validation evidence: ${err?.message ?? err}`,
+      );
+    }
 
     const transition = await transitionTaskStates({
       provider,

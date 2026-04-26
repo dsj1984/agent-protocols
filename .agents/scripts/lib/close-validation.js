@@ -17,6 +17,11 @@ import { spawnSync } from 'node:child_process';
 import { gitSpawn as defaultGitSpawn } from './git-utils.js';
 import { calculateForSource } from './maintainability-engine.js';
 import { getBaseline } from './maintainability-utils.js';
+import {
+  hashCommandConfig,
+  recordPass as defaultRecordPass,
+  shouldSkip as defaultShouldSkip,
+} from './validation-evidence.js';
 
 /**
  * @typedef {Object} Gate
@@ -57,9 +62,33 @@ export const DEFAULT_GATES = [
 ];
 
 /**
+ * Resolve the current `git rev-parse HEAD` SHA inside `cwd`. Returns `null`
+ * when git is unavailable or the call fails — callers treat that as
+ * "evidence skip disabled" so the gate runs as before.
+ *
+ * Exported for testing.
+ */
+export function defaultGetHeadSha(cwd, gitSpawn = defaultGitSpawn) {
+  try {
+    const res = gitSpawn(cwd, 'rev-parse', 'HEAD');
+    if (res.status !== 0) return null;
+    const sha = (res.stdout || '').trim();
+    return sha.length > 0 ? sha : null;
+  } catch {
+    return null;
+  }
+}
+
+/**
  * Run every gate sequentially. Stops collecting after the first failure is
  * recorded but still returns a summary so the caller can decide how to
  * surface the result.
+ *
+ * Evidence-aware: when `storyId` is provided and `useEvidence !== false`,
+ * each gate consults `validation-evidence.shouldSkip()` against the current
+ * `git rev-parse HEAD` + the gate's command-config hash. A matching record
+ * skips the gate (logged at info level); a successful run is recorded so
+ * the next caller in the local hot path can skip in turn.
  *
  * @param {{
  *   cwd: string,
@@ -67,12 +96,18 @@ export const DEFAULT_GATES = [
  *   runner?: typeof spawnSync,
  *   log?: (m: string) => void,
  *   onGateStart?: (gate: Gate) => void,
+ *   storyId?: number|null,
+ *   useEvidence?: boolean,
+ *   evidenceClock?: () => number,
+ *   getHeadSha?: (cwd: string) => string|null,
+ *   recordPass?: typeof defaultRecordPass,
+ *   shouldSkip?: typeof defaultShouldSkip,
  * }} opts
  *   `onGateStart` is invoked immediately before each gate's runner spawn.
  *   sprint-story-close uses it to drive `phaseTimer.mark('lint'|'test')`
  *   so the per-gate wall-clock lands in the `phase-timings` structured
  *   comment. Errors thrown from the hook propagate and halt the run.
- * @returns {{ ok: boolean, failed: Array<{ gate: Gate, status: number }> }}
+ * @returns {{ ok: boolean, failed: Array<{ gate: Gate, status: number }>, skipped: Array<{ gate: Gate, reason: string }> }}
  */
 export function runCloseValidation({
   cwd,
@@ -80,11 +115,50 @@ export function runCloseValidation({
   runner = spawnSync,
   log = () => {},
   onGateStart,
+  storyId = null,
+  useEvidence = true,
+  evidenceClock = () => Date.now(),
+  getHeadSha = (resolvedCwd) => defaultGetHeadSha(resolvedCwd),
+  recordPass = defaultRecordPass,
+  shouldSkip = defaultShouldSkip,
 } = {}) {
   const failed = [];
+  const skipped = [];
+  const evidenceActive = useEvidence && storyId != null;
+  const headSha = evidenceActive ? getHeadSha(cwd) : null;
+
   for (const gate of gates) {
+    const configHash = hashCommandConfig({
+      cmd: gate.cmd,
+      args: gate.args,
+      cwd,
+    });
+
+    if (evidenceActive && headSha) {
+      const verdict = shouldSkip(
+        {
+          storyId,
+          gateName: gate.name,
+          currentSha: headSha,
+          configHash,
+        },
+        { cwd },
+      );
+      if (verdict.skip) {
+        const tsHint = verdict.record?.timestamp
+          ? ` recorded ${verdict.record.timestamp}`
+          : '';
+        log(
+          `[close-validation] ⏭ ${gate.name} skipped (evidence match: SHA=${headSha.slice(0, 7)}${tsHint})`,
+        );
+        skipped.push({ gate, reason: 'evidence-match' });
+        continue;
+      }
+    }
+
     log(`[close-validation] ▶ ${gate.name}`);
     if (typeof onGateStart === 'function') onGateStart(gate);
+    const startedAt = evidenceActive ? evidenceClock() : 0;
     const result = runner(gate.cmd, gate.args, {
       cwd,
       stdio: 'inherit',
@@ -98,8 +172,30 @@ export function runCloseValidation({
       break;
     }
     log(`[close-validation] ✓ ${gate.name}`);
+
+    if (evidenceActive && headSha) {
+      try {
+        recordPass(
+          {
+            storyId,
+            gateName: gate.name,
+            sha: headSha,
+            configHash,
+            exitCode: 0,
+            durationMs: evidenceClock() - startedAt,
+          },
+          { cwd },
+        );
+      } catch (err) {
+        // Recording is best-effort observability — never let an evidence
+        // write failure mask a successful gate run.
+        log(
+          `[close-validation]   ⚠ failed to record evidence for ${gate.name}: ${err?.message ?? err}`,
+        );
+      }
+    }
   }
-  return { ok: failed.length === 0, failed };
+  return { ok: failed.length === 0, failed, skipped };
 }
 
 /**

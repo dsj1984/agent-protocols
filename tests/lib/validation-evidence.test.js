@@ -47,7 +47,8 @@ const FAKE_CWD = path.resolve('/fake-worktree');
 
 function baseOpts(extra = {}) {
   const fs = extra.fs ?? makeFakeFs();
-  return { cwd: FAKE_CWD, fs, now: fixedNow, ...extra, fs };
+  const { fs: _ignore, ...rest } = extra;
+  return { cwd: FAKE_CWD, now: fixedNow, ...rest, fs };
 }
 
 test('evidencePath() resolves under <cwd>/temp/validation-evidence-<storyId>.json', () => {
