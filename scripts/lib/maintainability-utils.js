@@ -1,6 +1,106 @@
 import fs from 'node:fs';
+import { createRequire } from 'node:module';
 import path from 'node:path';
 import { calculateForFile } from './maintainability-engine.js';
+
+const require = createRequire(import.meta.url);
+
+const JS_EXTS = new Set(['.js', '.mjs', '.cjs']);
+const TS_EXTS = new Set(['.ts', '.tsx', '.mts', '.cts']);
+const SUPPORTED_EXTS = new Set([...JS_EXTS, ...TS_EXTS]);
+
+let _ts = null;
+let _tsLoadFailed = false;
+
+function loadTypeScript() {
+  if (_ts) return _ts;
+  if (_tsLoadFailed) return null;
+  try {
+    _ts = require('typescript');
+    return _ts;
+  } catch {
+    _tsLoadFailed = true;
+    return null;
+  }
+}
+
+/**
+ * Resolve the `typescript` package version, used to stamp baselines so
+ * consumers can detect transpiler drift. Returns `'0.0.0'` when the
+ * dependency is unresolvable — callers treat that sentinel as "unknown
+ * environment" and may refuse to persist a baseline that includes TS rows.
+ *
+ * @returns {string}
+ */
+export function resolveTsTranspilerVersion() {
+  const ts = loadTypeScript();
+  if (ts && typeof ts.version === 'string') return ts.version;
+  return '0.0.0';
+}
+
+function isTypeScriptPath(filePath) {
+  return TS_EXTS.has(path.extname(String(filePath)).toLowerCase());
+}
+
+/**
+ * Pre-transpile TypeScript or TSX sources to JavaScript that the
+ * Esprima-based escomplex kernel can parse. Returns the input unchanged
+ * for `.js` / `.mjs` / `.cjs` paths.
+ *
+ * Type annotations introduce no control flow, so the transpiled output
+ * scores identically to the original TS for cyclomatic complexity,
+ * Halstead volume, and the maintainability index. `.tsx` uses the
+ * `react-jsx` emit so JSX expressions become function calls escomplex
+ * can read; `.preserve` would leave JSX in the output and Esprima would
+ * choke on it.
+ *
+ * On transpile failure the helper returns `null` — callers treat that
+ * as "skip this file" rather than crashing the scan.
+ *
+ * @param {string} filePath
+ * @param {string} source
+ * @returns {string|null}
+ */
+export function transpileIfNeeded(filePath, source) {
+  if (!isTypeScriptPath(filePath)) return source;
+  const ts = loadTypeScript();
+  if (!ts) {
+    console.warn(
+      `[Maintainability] ⚠ typescript package not resolvable; cannot score ${filePath}. ` +
+        "Install with 'npm install --save-dev typescript' (peer dep, >=5.0.0).",
+    );
+    return null;
+  }
+  try {
+    const result = ts.transpileModule(source, {
+      compilerOptions: {
+        target: ts.ScriptTarget.ESNext,
+        module: ts.ModuleKind.ESNext,
+        isolatedModules: true,
+        noEmitHelpers: true,
+        importHelpers: false,
+        removeComments: false,
+        jsx: ts.JsxEmit.ReactJSX,
+        sourceMap: false,
+      },
+      fileName: path.basename(filePath),
+      reportDiagnostics: false,
+    });
+    return result.outputText;
+  } catch (err) {
+    console.warn(
+      `[Maintainability] ⚠ TS transpile failed for ${filePath}: ${err?.message ?? err}; skipping.`,
+    );
+    return null;
+  }
+}
+
+/**
+ * @returns {boolean} True when the path's extension is one the engines score.
+ */
+export function isSupportedSourceFile(filePath) {
+  return SUPPORTED_EXTS.has(path.extname(String(filePath)).toLowerCase());
+}
 
 /**
  * Loads the current maintainability baseline from disk. The on-disk path is
@@ -67,10 +167,16 @@ const IGNORED_DIRS = new Set([
   'dist',
   'temp',
   '.worktrees',
+  'coverage',
+  '.next',
 ]);
 
 /**
- * Recursively scans a directory for JavaScript files.
+ * Recursively scans a directory for JS/TS source files. Accepts `.js`,
+ * `.mjs`, `.cjs`, `.ts`, `.tsx`, `.mts`, and `.cts`. Directories listed
+ * in `IGNORED_DIRS` (including `coverage` and `.next`, added in 5.29.0
+ * to skip vitest's istanbul HTML scaffolding and Next.js build output)
+ * are skipped.
  * @param {string} dir
  * @param {string[]} fileList
  * @returns {string[]}
@@ -90,10 +196,7 @@ export function scanDirectory(dir, fileList = []) {
       if (!IGNORED_DIRS.has(entry.name)) {
         scanDirectory(filePath, fileList);
       }
-    } else if (
-      entry.isFile() &&
-      (entry.name.endsWith('.js') || entry.name.endsWith('.mjs'))
-    ) {
+    } else if (entry.isFile() && isSupportedSourceFile(entry.name)) {
       fileList.push(filePath);
     }
   }

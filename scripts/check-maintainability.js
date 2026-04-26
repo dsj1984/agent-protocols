@@ -61,7 +61,10 @@ export function resolveMaintainabilityEnvOverrides(env) {
 
 // Envelope version for the --json parity output. Bump when the report shape
 // changes so downstream agent workflows can detect breaks without guessing.
-export const MI_REPORT_KERNEL_VERSION = '1.0.0';
+// 1.1.0 — TypeScript support landed in 5.29.0. Reports may now include rows
+// keyed on `.ts`/`.tsx` paths in addition to `.js`/`.mjs`/`.cjs`. Score
+// values for unchanged JS files are byte-identical across the bump.
+export const MI_REPORT_KERNEL_VERSION = '1.1.0';
 
 function compareScores(scores, baseline, tolerance) {
   let regressions = 0;

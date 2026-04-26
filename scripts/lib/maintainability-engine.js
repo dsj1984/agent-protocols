@@ -1,5 +1,6 @@
 import fs from 'node:fs';
 import escomplex from 'typhonjs-escomplex';
+import { transpileIfNeeded } from './maintainability-utils.js';
 
 /**
  * Calculates the maintainability score of a JavaScript source file or string.
@@ -22,14 +23,22 @@ export function calculateForSource(sourceCode) {
 }
 
 /**
- * Calculate score for a given file.
- * @param {string} filePath Path to the JavaScript file.
- * @returns {number} Maintainability index.
+ * Calculate score for a given file. TypeScript and TSX sources are
+ * pre-transpiled in memory via `transpileIfNeeded` before being fed to
+ * the JS-only escomplex kernel; the score for a TS file is identical to
+ * the score the same logic would produce as plain JS, because TS type
+ * annotations introduce no control flow.
+ *
+ * @param {string} filePath Path to the JS/TS source file.
+ * @returns {number} Maintainability index, or 0 when the source cannot
+ *   be parsed (escomplex parse error or TS transpile failure).
  */
 export function calculateForFile(filePath) {
   try {
     const sourceCode = fs.readFileSync(filePath, 'utf-8');
-    return calculateForSource(sourceCode);
+    const prepared = transpileIfNeeded(filePath, sourceCode);
+    if (prepared === null) return 0;
+    return calculateForSource(prepared);
   } catch (err) {
     if (err.code === 'ENOENT') {
       throw new Error(`File not found: ${filePath}`);
@@ -96,6 +105,7 @@ export function calculateReport(sourceCode) {
 
 /**
  * Convenience wrapper that reads a file from disk and produces a report.
+ * TypeScript and TSX sources are transpiled in memory before scoring.
  *
  * @param {string} filePath
  * @returns {ReturnType<typeof calculateReport>}
@@ -103,7 +113,17 @@ export function calculateReport(sourceCode) {
 export function calculateReportForFile(filePath) {
   try {
     const sourceCode = fs.readFileSync(filePath, 'utf-8');
-    return calculateReport(sourceCode);
+    const prepared = transpileIfNeeded(filePath, sourceCode);
+    if (prepared === null) {
+      return {
+        moduleScore: 0,
+        methods: [],
+        worstMethod: null,
+        meanMethod: null,
+        parseError: true,
+      };
+    }
+    return calculateReport(prepared);
   } catch (err) {
     if (err.code === 'ENOENT') {
       throw new Error(`File not found: ${filePath}`);

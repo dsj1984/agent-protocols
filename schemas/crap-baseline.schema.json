@@ -14,11 +14,15 @@
     "kernelVersion": {
       "type": "string",
       "pattern": "^[0-9]+\\.[0-9]+\\.[0-9]+$",
-      "description": "Version of the in-repo CRAP scoring kernel. Bumped when the formula or scan shape changes; a mismatch against the running kernel fails the gate closed."
+      "description": "Version of the in-repo CRAP scoring kernel. Bumped when the formula or scan shape changes. From 1.1.0 onward, a mismatch against the running kernel emits a warning and the gate continues — consumers refresh on their own cadence."
     },
     "escomplexVersion": {
       "type": "string",
-      "description": "Version of the typhonjs-escomplex dependency used to produce this baseline. A mismatch against the installed dependency fails the gate closed."
+      "description": "Version of the typhonjs-escomplex dependency used to produce this baseline. A mismatch against the installed dependency fails the gate closed (different kernel semantics are not negotiable)."
+    },
+    "tsTranspilerVersion": {
+      "type": "string",
+      "description": "Version of the `typescript` package used to strip TS/TSX sources before scoring. Optional for envelopes produced by kernel 1.0.0; required for 1.1.0+. A mismatch against the running typescript dependency emits a warning and the gate continues."
     },
     "rows": {
       "type": "array",
