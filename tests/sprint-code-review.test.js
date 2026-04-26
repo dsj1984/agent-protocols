@@ -68,6 +68,8 @@ test('parseReviewArgs - rejects missing/invalid epic id', () => {
     baseBranch: null,
     post: true,
     scopeLint: 'changed-only',
+    storyId: null,
+    useEvidence: true,
   });
   assert.strictEqual(parseReviewArgs(['--epic', 'abc']).epicId, null);
   assert.strictEqual(parseReviewArgs(['--epic', '0']).epicId, null);
@@ -82,8 +84,27 @@ test('parseReviewArgs - parses epic and base', () => {
       baseBranch: 'develop',
       post: true,
       scopeLint: 'changed-only',
+      storyId: null,
+      useEvidence: true,
     },
   );
+});
+
+test('parseReviewArgs - --story enables evidence skip when present', () => {
+  const args = parseReviewArgs(['--epic', '42', '--story', '901']);
+  assert.strictEqual(args.storyId, 901);
+  assert.strictEqual(args.useEvidence, true);
+});
+
+test('parseReviewArgs - --no-evidence disables the skip', () => {
+  const args = parseReviewArgs([
+    '--epic',
+    '42',
+    '--story',
+    '901',
+    '--no-evidence',
+  ]);
+  assert.strictEqual(args.useEvidence, false);
 });
 
 test('parseReviewArgs - --scope-lint=off honored', () => {

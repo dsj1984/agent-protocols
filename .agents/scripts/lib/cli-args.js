@@ -39,6 +39,7 @@ export function parseSprintArgs(args = process.argv) {
       'recut-of': { type: 'string' },
       resume: { type: 'boolean', default: false },
       restart: { type: 'boolean', default: false },
+      'no-evidence': { type: 'boolean', default: false },
     },
     allowPositionals: true,
     strict: false,
@@ -59,6 +60,7 @@ export function parseSprintArgs(args = process.argv) {
     recutOf: parseTicketId(values['recut-of']),
     resume: values.resume ?? false,
     restart: values.restart ?? false,
+    noEvidence: values['no-evidence'] ?? false,
   };
 
   parsed.ticketId =

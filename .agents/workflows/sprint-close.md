@@ -199,12 +199,20 @@ Run the full lint + test suite on the Epic branch before any merge to
 hooks cover formatting and the maintainability index baseline, but they do
 not run the test suite.
 
+Use the **evidence-aware gate wrapper** so identical re-runs against an
+already-validated tree are skipped. Each successful run is recorded under
+`temp/validation-evidence-[EPIC_ID].json` (gitignored); the next caller
+skips when `git rev-parse HEAD` and the resolved command-config still match.
+
 ```powershell
-npm run lint; npm test
+node .agents/scripts/evidence-gate.js --scope-id [EPIC_ID] --gate lint -- npm run lint
+node .agents/scripts/evidence-gate.js --scope-id [EPIC_ID] --gate test -- npm test
 ```
 
-If either command fails: **STOP**. Fix the regressions on a hotfix branch and
-merge back into the Epic branch before restarting this workflow.
+Append `--no-evidence` to either invocation to force a re-run regardless of
+recorded state (e.g., when iterating on a flaky test). If either command
+fails: **STOP**. Fix the regressions on a hotfix branch and merge back into
+the Epic branch before restarting this workflow.
 
 ---
 

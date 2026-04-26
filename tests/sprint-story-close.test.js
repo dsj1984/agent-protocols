@@ -133,7 +133,7 @@ test('runCloseValidation', async (t) => {
       { name: 'b', cmd: 'b', args: [] },
     ];
     const result = runCloseValidationOnly({ cwd: '.', gates, runner });
-    assert.deepEqual(result, { ok: true, failed: [] });
+    assert.deepEqual(result, { ok: true, failed: [], skipped: [] });
     assert.equal(calls.length, 2);
   });
 
