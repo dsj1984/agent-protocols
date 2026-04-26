@@ -608,6 +608,7 @@ export async function runStoryClose({
     skipDashboard,
     resume: resumeFlag,
     restart: restartFlag,
+    noEvidence: noEvidenceFlag,
   } = parsed;
   // Worktree-aware cwd resolution: explicit param > --cwd flag > env > PROJECT_ROOT.
   const cwd = path.resolve(cwdParam ?? parsed.cwd ?? PROJECT_ROOT);
@@ -724,6 +725,8 @@ export async function runStoryClose({
           phaseTimer.mark(gate.name);
         }
       },
+      storyId,
+      useEvidence: !noEvidenceFlag,
     });
     if (!validation.ok) {
       const [{ gate, status }] = validation.failed;

@@ -37,6 +37,7 @@ import {
 import { parseBlockedBy } from './lib/dependency-parser.js';
 import { getEpicBranch, getStoryBranch } from './lib/git-utils.js';
 import { Logger } from './lib/Logger.js';
+import { upsertStructuredComment } from './lib/orchestration/ticketing.js';
 import { createProvider } from './lib/provider-factory.js';
 import { validateBlockers } from './lib/story-init/blocker-validator.js';
 import { initializeBranch } from './lib/story-init/branch-initializer.js';
@@ -45,8 +46,10 @@ import { runDispatchManifestGuard } from './lib/story-init/dependency-guard.js';
 import { traceHierarchy } from './lib/story-init/hierarchy-tracer.js';
 import { transitionTaskStates } from './lib/story-init/state-transitioner.js';
 import { buildTaskGraph } from './lib/story-init/task-graph-builder.js';
+import { postBatchedTransitionSummary } from './lib/story-init/transition-summary.js';
 import { createPhaseTimer } from './lib/util/phase-timer.js';
 import { savePhaseTimerState } from './lib/util/phase-timer-state.js';
+import { forceClear as clearValidationEvidence } from './lib/validation-evidence.js';
 import { notify } from './notify.js';
 
 // ---------------------------------------------------------------------------
@@ -104,6 +107,16 @@ export async function runStoryInit({
   const provider = injectedProvider || createProvider(orchestration);
   const notifyFn = (ticketId, payload) =>
     notify(ticketId, payload, { orchestration, provider });
+  // Per-Task transition hook: keeps the webhook fanout intact (so operators
+  // running with `notifications.minLevel: low` still see one webhook per
+  // Task) but suppresses the GitHub-comment surface. The Story-level
+  // summary below replaces the N per-Task comments with a single message.
+  const notifyWebhookOnly = (ticketId, payload) =>
+    notify(ticketId, payload, {
+      orchestration,
+      provider,
+      skipComment: true,
+    });
 
   const runtime = resolveRuntime({ config });
   progress(
@@ -202,7 +215,7 @@ export async function runStoryInit({
 
   let workCwd = cwd;
   let worktreeCreated = false;
-  let installFailed = false;
+  let installStatus = { status: 'skipped', reason: 'dry-run' };
   const wtConfig = orchestration?.worktreeIsolation;
   const { worktreeEnabled } = runtime;
 
@@ -229,12 +242,32 @@ export async function runStoryInit({
     });
     workCwd = branchResult.workCwd;
     worktreeCreated = branchResult.worktreeCreated;
-    installFailed = branchResult.installFailed;
+    installStatus = branchResult.installStatus ?? installStatus;
+
+    // Clear any stale validation-evidence file in the worktree so a re-run
+    // of this Story (recut, branch-recreate, manual restart) always starts
+    // with an empty evidence ledger. Story 7 / #830.
+    try {
+      const cleared = clearValidationEvidence(storyId, { cwd: workCwd });
+      if (cleared.cleared) {
+        progress(
+          'EVIDENCE',
+          `🧹 Cleared stale validation-evidence at ${cleared.path}`,
+        );
+      }
+    } catch (err) {
+      // Non-fatal: a stale evidence file at worst forces a redundant gate
+      // run. The skip predicate also re-validates SHA + config hash, so
+      // staleness cannot mis-skip a real change.
+      stageLogger.warn(
+        `[sprint-story-init] ⚠️ Failed to clear validation evidence: ${err?.message ?? err}`,
+      );
+    }
 
     const transition = await transitionTaskStates({
       provider,
       logger: stageLogger,
-      input: { tasks: sortedTasks, notify: notifyFn },
+      input: { tasks: sortedTasks, notify: notifyWebhookOnly },
     });
     if (!transition.ok) {
       const failedSummary = transition.failed
@@ -264,6 +297,22 @@ export async function runStoryInit({
       }
     }
 
+    // Replace the N per-Task `agent::executing` comments (suppressed above
+    // via `notifyWebhookOnly`) with one Story-level summary. Routed through
+    // the standard `notifyFn` so `commentMinLevel` / `minLevel` still gate
+    // delivery — at the default `medium` threshold this is a no-op.
+    try {
+      await postBatchedTransitionSummary({
+        notify: notifyFn,
+        storyId,
+        transitioned: transition.transitioned ?? [],
+      });
+    } catch (err) {
+      console.error(
+        `[sprint-story-init] ⚠️ Failed to post batched transition summary: ${err.message}`,
+      );
+    }
+
     // Open the `implement` phase last so everything between now and the
     // first close-side mark attributes to agent coding time. Snapshot to
     // disk so close can pick up the open phase across the process gap.
@@ -288,7 +337,7 @@ export async function runStoryInit({
     worktreeEnabled,
     workCwd,
     worktreeCreated,
-    installFailed,
+    installStatus,
     sortedTasks,
     featureId,
     prdId,
@@ -303,6 +352,15 @@ export async function runStoryInit({
     taskCount: sortedTasks.length,
   });
 
+  if (!dryRun) {
+    await postStoryInitComment({
+      provider,
+      storyId,
+      result,
+      logger: stageLogger,
+    });
+  }
+
   return { success: true, result };
 }
 
@@ -315,7 +373,7 @@ function buildStoryInitResult({
   worktreeEnabled,
   workCwd,
   worktreeCreated,
-  installFailed,
+  installStatus,
   sortedTasks,
   featureId,
   prdId,
@@ -323,6 +381,7 @@ function buildStoryInitResult({
   dryRun,
   recutOf,
 }) {
+  const dependenciesInstalled = mapDependenciesInstalled(installStatus);
   return {
     storyId,
     epicId,
@@ -332,7 +391,11 @@ function buildStoryInitResult({
     worktreeEnabled,
     workCwd,
     worktreeCreated,
-    installFailed,
+    installStatus,
+    dependenciesInstalled,
+    // Retained for back-compat with `temp/` artefacts and operator log
+    // scrapers — derived from `installStatus.status === 'failed'`.
+    installFailed: installStatus?.status === 'failed',
     recutOf: recutOf ?? null,
     tasks: sortedTasks.map((t) => ({
       id: t.id,
@@ -343,6 +406,80 @@ function buildStoryInitResult({
     context: { featureId, prdId, techSpecId },
     dryRun,
   };
+}
+
+/**
+ * Map the structured install status to the workflow-facing tri-state string.
+ * Workflow consumers (`sprint-execute.md` Step 0.5) read this exact value
+ * out of the `story-init` structured comment via
+ * `gh issue view --json comments`.
+ *
+ * @param {{ status?: string }} installStatus
+ * @returns {'true' | 'false' | 'skipped'}
+ */
+function mapDependenciesInstalled(installStatus) {
+  switch (installStatus?.status) {
+    case 'installed':
+      return 'true';
+    case 'failed':
+      return 'false';
+    default:
+      return 'skipped';
+  }
+}
+
+async function postStoryInitComment({ provider, storyId, result, logger }) {
+  const body = renderStoryInitCommentBody(result);
+  try {
+    await upsertStructuredComment(provider, storyId, 'story-init', body);
+    logger?.progress?.(
+      'COMMENT',
+      `📝 Upserted story-init structured comment on #${storyId} (dependenciesInstalled=${result.dependenciesInstalled})`,
+    );
+  } catch (err) {
+    // Non-fatal: the structured comment is observability for downstream
+    // workflow steps. Failing to post it must not block the agent's
+    // implementation work — it can fall back to `installStatus` from the
+    // stdout JSON. Surface the error so operators can investigate.
+    logger?.warn?.(
+      `[sprint-story-init] ⚠️ Failed to upsert story-init structured comment: ${err?.message ?? err}`,
+    );
+  }
+}
+
+/**
+ * Render the markdown body for the `story-init` structured comment. Pure so
+ * tests can assert the shape without a provider stub.
+ *
+ * @param {object} result Output of `buildStoryInitResult`.
+ * @returns {string}
+ */
+export function renderStoryInitCommentBody(result) {
+  const payload = {
+    storyId: result.storyId,
+    epicId: result.epicId,
+    storyBranch: result.storyBranch,
+    epicBranch: result.epicBranch,
+    worktreeEnabled: result.worktreeEnabled,
+    workCwd: result.workCwd,
+    worktreeCreated: result.worktreeCreated,
+    dependenciesInstalled: result.dependenciesInstalled,
+    installStatus: result.installStatus,
+  };
+  return [
+    '## Story init',
+    '',
+    `- **dependenciesInstalled:** \`${result.dependenciesInstalled}\``,
+    `- **installStatus.status:** \`${result.installStatus?.status ?? 'unknown'}\``,
+    `- **installStatus.reason:** \`${result.installStatus?.reason ?? 'n/a'}\``,
+    `- **worktreeEnabled:** \`${result.worktreeEnabled}\``,
+    `- **worktreeCreated:** \`${result.worktreeCreated}\``,
+    '',
+    '```json',
+    JSON.stringify(payload, null, 2),
+    '```',
+    '',
+  ].join('\n');
 }
 
 function emitStoryInitResult(result, { storyId, dryRun, taskCount }) {

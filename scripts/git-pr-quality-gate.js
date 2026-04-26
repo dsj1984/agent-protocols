@@ -126,6 +126,50 @@ export function runQualityGate({
   return { ok: failed.length === 0, checks: results, failed };
 }
 
+/**
+ * Pure: format the per-check status line shown in the human report.
+ *
+ * @param {{ name: string, status: number, durationMs: number, skipped?: boolean }} check
+ */
+export function formatCheckLine(check) {
+  const icon = check.skipped ? '⏭' : check.status === 0 ? '✅' : '❌';
+  const suffix = check.skipped ? ' (skipped)' : ` (${check.durationMs}ms)`;
+  return `[quality-gate] ${icon} ${check.name}${suffix}`;
+}
+
+/**
+ * Pure: render the human report for a quality-gate verdict, returning info
+ * lines (always emitted) and error lines (emitted on failure).
+ *
+ * @param {{ ok: boolean, checks: Array<object>, failed: Array<{ name: string, reason: string }> }} result
+ */
+export function renderHumanReport(result) {
+  const info = result.checks.map(formatCheckLine);
+  const errors = [];
+  if (!result.ok) {
+    errors.push(
+      `[quality-gate] ❌ ${result.failed.length} check(s) failed:`,
+      ...result.failed.map((f) => `  - ${f.name}: ${f.reason}`),
+    );
+  } else {
+    info.push(`[quality-gate] ✅ All ${result.checks.length} check(s) passed.`);
+  }
+  return { info, errors };
+}
+
+/**
+ * Pure: split a comma-separated `--skip` value into a clean list of check
+ * names.
+ *
+ * @param {string|null|undefined} value
+ */
+export function parseSkipList(value) {
+  return String(value ?? '')
+    .split(',')
+    .map((s) => s.trim())
+    .filter(Boolean);
+}
+
 /* node:coverage ignore next */
 async function main() {
   const { values } = parseArgs({
@@ -137,10 +181,7 @@ async function main() {
   });
   const { settings } = resolveConfig();
   const checks = resolveChecks(settings);
-  const skip = (values.skip ?? '')
-    .split(',')
-    .map((s) => s.trim())
-    .filter(Boolean);
+  const skip = parseSkipList(values.skip);
 
   const result = runQualityGate({ checks, skip });
 
@@ -150,19 +191,10 @@ async function main() {
     return;
   }
 
-  for (const c of result.checks) {
-    const icon = c.skipped ? '⏭' : c.status === 0 ? '✅' : '❌';
-    const suffix = c.skipped ? ' (skipped)' : ` (${c.durationMs}ms)`;
-    console.log(`[quality-gate] ${icon} ${c.name}${suffix}`);
-  }
-  if (!result.ok) {
-    console.error(`[quality-gate] ❌ ${result.failed.length} check(s) failed:`);
-    for (const f of result.failed) {
-      console.error(`  - ${f.name}: ${f.reason}`);
-    }
-    process.exit(1);
-  }
-  console.log(`[quality-gate] ✅ All ${result.checks.length} check(s) passed.`);
+  const { info, errors } = renderHumanReport(result);
+  for (const line of info) console.log(line);
+  for (const line of errors) console.error(line);
+  if (!result.ok) process.exit(1);
 }
 
 // Re-export Logger so callers that dynamic-import this module can surface

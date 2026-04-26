@@ -49,6 +49,11 @@ export const STRUCTURED_COMMENT_TYPES = Object.freeze([
   // and consumed by the epic-runner progress reporter to surface median /
   // p95 phase timings across completed stories.
   'phase-timings',
+  // Story #831 — sprint-story-init upserts a `story-init` comment that
+  // surfaces `dependenciesInstalled` (and the underlying installStatus) so
+  // downstream workflow steps don't have to infer install state from
+  // node_modules presence.
+  'story-init',
 ]);
 
 export const WAVE_TYPE_PATTERN = WAVE_MARKER_RE;

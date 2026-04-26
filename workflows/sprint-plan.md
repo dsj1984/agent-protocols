@@ -172,10 +172,12 @@ planned.
    ```
 
 4. **Cross-Validation**:
-   - **Verify**: every PRD feature -> Feature issue -> at least one Story -> at
-     least one Task.
-   - **Verify**: dependency DAG across Tasks is acyclic (no circular deps).
-   - **Verify**: risk::high Tasks are flagged correctly.
+   - Hierarchy completeness, dependency-DAG acyclicity, and `risk::high`
+     labelling are deterministic invariants enforced by
+     `validateAndNormalizeTickets` in
+     [`lib/orchestration/ticket-validator.js`](../scripts/lib/orchestration/ticket-validator.js);
+     its output during decomposition is the canonical proof — no manual
+     re-check needed.
    - **Scope-overlap check (docs/runbook downstream of config work)**: Scan for
      Stories whose scope is "docs update", "runbook", or "README" Tasks that
      land downstream of an earlier "config + runbook" Story in the same Epic. If
@@ -187,8 +189,8 @@ planned.
      cross-reference remains). The decomposer system prompt emits this flag
      automatically where it can detect the pattern — this checklist item is the
      human/host-LLM backstop.
-   - **Action**: Fix any gaps by creating additional issues or updating existing
-     ones manually.
+   - **Action**: Fix any scope-overlap exceptions or validator failures by
+     updating the affected issues manually.
 
 5. **Audit**:
    - Check the Epic's comment thread to ensure the backlog summary was posted.
@@ -228,27 +230,43 @@ planned.
 
 ## Phase 4: Readiness Health Check
 
-Run the post-plan health check to validate the backlog and prime the execution
-environment. This is non-blocking — it reports findings but does not fail the
-plan.
+Run the post-plan health check to validate the backlog before handing off to
+`/sprint-execute`. The default `--fast` mode runs only the cheap checks
+(config + git remote) and targets sub-2-second turnaround. It is non-blocking
+— the script always exits 0; the structured JSON on stdout reports findings.
 
 ```bash
-node .agents/scripts/sprint-plan-healthcheck.js --epic [Epic_ID]
+node .agents/scripts/sprint-plan-healthcheck.js --epic [Epic_ID] --fast
 ```
 
-The health check verifies:
+The script emits a single line of JSON to stdout:
 
-1. **Ticket hierarchy** — Features, Stories, and Tasks exist with correct labels
-   and no dependency cycles.
-2. **Git remote** — origin is reachable and the base branch exists.
-3. **Config** — `.agentrc.json` orchestration block passes validation.
-4. **pnpm store** _(only if `nodeModulesStrategy: 'pnpm-store'`)_ — runs
-   `pnpm install --frozen-lockfile` in the project root to populate the global
-   content-addressable store. This makes subsequent worktree installs
-   near-instant instead of downloading packages from scratch.
+```json
+{
+  "ok": true,
+  "degraded": false,
+  "reason": null,
+  "checks": [
+    { "name": "config",     "ok": true, "durationMs": 12,  "detail": "..." },
+    { "name": "git-remote", "ok": true, "durationMs": 234, "detail": "..." }
+  ]
+}
+```
 
-If the health check reports errors, review them before starting execution.
-Warnings are advisory and do not require action.
+Modes (additive — fast checks always run):
+
+- **`--fast` (default)** — config validation + git remote check only.
+- **`--paranoid`** — adds ticket-hierarchy + dependency-cycle revalidation.
+  Requires `--epic`. Use this when you want the full backlog audit before
+  execution.
+- **`--prime-install`** — adds the pnpm content-addressable-store prime
+  (`pnpm install --frozen-lockfile`, up to 300s). Run only when
+  `nodeModulesStrategy: 'pnpm-store'` is configured and you want subsequent
+  worktree installs to be near-instant instead of fetching from scratch.
+
+If `ok` is `false`, review the entries in `checks[]` before starting
+execution. Individual non-`ok` entries are advisory unless the operator
+chooses to gate on them.
 
 ## Phase 5: Notification & Handoff
 

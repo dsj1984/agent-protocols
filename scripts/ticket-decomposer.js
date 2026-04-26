@@ -25,12 +25,15 @@
 import { readFile } from 'node:fs/promises';
 import { parseArgs } from 'node:util';
 import { runAsCli } from './lib/cli-utils.js';
-import { getLimits, resolveConfig } from './lib/config-resolver.js';
+import { getLimits, getRunners, resolveConfig } from './lib/config-resolver.js';
+import { DEFAULT_DECOMPOSER } from './lib/config-schema.js';
 import { Logger } from './lib/Logger.js';
 import { TYPE_LABELS } from './lib/label-constants.js';
+import { applyBudget } from './lib/orchestration/planning-context-budget.js';
 import { validateAndNormalizeTickets } from './lib/orchestration/ticket-validator.js';
 import { createProvider } from './lib/provider-factory.js';
 import { renderDecomposerSystemPrompt } from './lib/templates/decomposer-prompts.js';
+import { concurrentMap } from './lib/util/concurrent-map.js';
 
 function resolveParentId(ticket, slugMap, epicId) {
   if (ticket.type === 'feature') return epicId;
@@ -47,19 +50,72 @@ function resolveParentId(ticket, slugMap, epicId) {
   return slugMap.get(ticket.parent_slug);
 }
 
-function resolveDependencies(ticket, slugMap) {
+export function resolveDependencies(ticket, slugMap) {
   const resolved = [];
   for (const dep of ticket.depends_on || []) {
     const depId = slugMap.get(dep);
-    if (depId) {
-      resolved.push(depId);
-    } else {
-      console.warn(
-        `[Decomposer] ⚠️  ${ticket.type.toUpperCase()} "${ticket.title}" (${ticket.slug}) depends on unresolved slug "${dep}" — dependency dropped.`,
+    if (depId === undefined) {
+      // Unreachable through normal flow: validateAndNormalizeTickets
+      // already rejects unknown slugs and the new topological sort
+      // guarantees creation order. A throw here turns a future regression
+      // (e.g. someone bypassing the validator) into a loud failure instead
+      // of a silently-dropped DAG edge.
+      throw new Error(
+        `[Decomposer] ${ticket.type.toUpperCase()} "${ticket.title}" (${ticket.slug}) depends on unresolved slug "${dep}". This indicates a planner bug or out-of-order ticket creation.`,
       );
     }
+    resolved.push(depId);
   }
   return resolved;
+}
+
+/**
+ * Topologically sort tickets within each (parent_slug, type) group, then
+ * concatenate groups in typeOrder so parents are always created before
+ * children (Feature → Story → Task) and intra-group dep chains resolve
+ * before their dependents are created.
+ */
+export function orderTicketsForCreation(validated) {
+  const typeOrder = { feature: 0, story: 1, task: 2 };
+  const groups = new Map();
+
+  for (const t of validated) {
+    const parentKey = t.parent_slug ?? '__epic__';
+    const key = `${t.type}::${parentKey}`;
+    if (!groups.has(key)) groups.set(key, { type: t.type, items: [] });
+    groups.get(key).items.push(t);
+  }
+
+  const ordered = [...groups.values()].sort(
+    (a, b) => typeOrder[a.type] - typeOrder[b.type],
+  );
+
+  const result = [];
+  for (const group of ordered) {
+    for (const t of topoSortGroup(group.items)) {
+      result.push(t);
+    }
+  }
+  return result;
+}
+
+function topoSortGroup(group) {
+  const slugToTicket = new Map(group.map((t) => [t.slug, t]));
+  const visited = new Set();
+  const sorted = [];
+
+  function visit(t) {
+    if (visited.has(t.slug)) return;
+    visited.add(t.slug);
+    for (const dep of t.depends_on ?? []) {
+      const depTicket = slugToTicket.get(dep);
+      if (depTicket) visit(depTicket);
+    }
+    sorted.push(t);
+  }
+
+  for (const t of group) visit(t);
+  return sorted;
 }
 
 export function buildDecomposerSystemPrompt(
@@ -76,8 +132,19 @@ export function buildDecomposerSystemPrompt(
 
 /**
  * Build the authoring context the host LLM needs to produce the ticket JSON.
+ *
+ * PRD and Tech Spec bodies are bounded by the planning-context budget
+ * (Epic #817 Story 9): when their combined size exceeds `maxBytes`, each
+ * body is replaced with a `bodySummary` field carrying headings + bounded
+ * excerpts. Pass `{ fullContext: true }` (CLI: `--full-context`) to restore
+ * the unbounded full bodies.
  */
-export async function buildDecompositionContext(epicId, provider, config = {}) {
+export async function buildDecompositionContext(
+  epicId,
+  provider,
+  config = {},
+  opts = {},
+) {
   const epic = await provider.getEpic(epicId);
   if (!epic?.linkedIssues?.prd || !epic.linkedIssues.techSpec) {
     throw new Error(
@@ -91,16 +158,39 @@ export async function buildDecompositionContext(epicId, provider, config = {}) {
   ]);
 
   const heuristics = config.agentSettings?.riskGates?.heuristics || [];
-  const maxTickets = getLimits(config).maxTickets;
+  const limits = getLimits(config);
+  const maxTickets = limits.maxTickets;
+  const planningLimits = limits.planningContext;
+  const { fullContext = false } = opts;
   const systemPrompt = buildDecomposerSystemPrompt(heuristics, { maxTickets });
+
+  const budgeted = applyBudget(
+    [
+      { path: `prd-${prd.id}.md`, content: prd.body ?? '' },
+      { path: `tech-spec-${techSpec.id}.md`, content: techSpec.body ?? '' },
+    ],
+    planningLimits,
+    { fullContext },
+  );
+
+  const [prdItem, techSpecItem] = budgeted.items;
+  const prdEntry =
+    budgeted.mode === 'full'
+      ? { id: prd.id, body: prd.body }
+      : { id: prd.id, body: null, bodySummary: prdItem };
+  const techSpecEntry =
+    budgeted.mode === 'full'
+      ? { id: techSpec.id, body: techSpec.body }
+      : { id: techSpec.id, body: null, bodySummary: techSpecItem };
 
   return {
     epic: { id: epic.id, title: epic.title },
-    prd: { id: prd.id, body: prd.body },
-    techSpec: { id: techSpec.id, body: techSpec.body },
+    prd: prdEntry,
+    techSpec: techSpecEntry,
     heuristics,
     systemPrompt,
     maxTickets,
+    contextMode: budgeted.mode,
   };
 }
 
@@ -171,38 +261,105 @@ export async function decomposeEpic(
   );
   const validated = validateAndNormalizeTickets(tickets);
 
+  const concurrencyCap =
+    getRunners(_config).decomposer.concurrencyCap ??
+    DEFAULT_DECOMPOSER.concurrencyCap;
+
   console.log(
-    `[Decomposer] Identified ${validated.length} tickets. Starting creation...`,
+    `[Decomposer] Identified ${validated.length} tickets. Starting creation (concurrencyCap=${concurrencyCap})...`,
   );
 
   const slugMap = new Map();
+  const ordered = orderTicketsForCreation(validated);
 
-  // Sort by type so parents are created first (Feature -> Story -> Task)
-  const typeOrder = { feature: 0, story: 1, task: 2 };
-  validated.sort((a, b) => typeOrder[a.type] - typeOrder[b.type]);
+  // Three staged passes: features → stories → tasks. Each pass blocks the
+  // next so parent_slug → ID resolution is preserved (a Story's parent
+  // Feature ID is in slugMap before the Story pass runs).
+  for (const passType of ['feature', 'story', 'task']) {
+    const passTickets = ordered.filter((t) => t.type === passType);
+    if (passTickets.length === 0) continue;
 
-  for (const t of validated) {
-    console.log(
-      `[Decomposer] [${t.type.toUpperCase()}] Creating "${t.title}"...`,
+    await runCreationPass(
+      passTickets,
+      slugMap,
+      epicId,
+      provider,
+      concurrencyCap,
     );
-
-    const parentId = resolveParentId(t, slugMap, epicId);
-    const dependencies = resolveDependencies(t, slugMap);
-
-    const created = await provider.createTicket(parentId, {
-      epicId: epicId,
-      title: t.title,
-      body: t.body,
-      labels: t.labels || [],
-      dependencies: dependencies,
-    });
-
-    console.log(`[Decomposer] -> Created Issue #${created.id}`);
-    slugMap.set(t.slug, created.id);
   }
 
   console.log(
     `[Decomposer] Backlog for Epic #${epicId} populated successfully!`,
+  );
+}
+
+/**
+ * Run one staged creation pass with bounded concurrency. Within the pass,
+ * intra-group `depends_on` chains are honoured via per-slug deferred promises:
+ * a ticket's mapper awaits each dep's promise before reading the slugMap,
+ * so a chain like t-a → t-b → t-c serialises naturally even when the cap
+ * permits parallel work.
+ */
+async function runCreationPass(
+  tickets,
+  slugMap,
+  epicId,
+  provider,
+  concurrencyCap,
+) {
+  const deferred = new Map();
+  for (const t of tickets) {
+    let resolve;
+    let reject;
+    const promise = new Promise((res, rej) => {
+      resolve = res;
+      reject = rej;
+    });
+    // Swallow rejection bookkeeping so a failed creation does not surface as
+    // an unhandled rejection when no dependent ticket awaits this promise.
+    // The original error is still re-thrown inside the mapper and observed
+    // by concurrentMap's first-rejection-wins contract.
+    promise.catch(() => {});
+    deferred.set(t.slug, { promise, resolve, reject });
+  }
+
+  await concurrentMap(
+    tickets,
+    async (t) => {
+      // Wait for any intra-pass dep to be created before reading slugMap.
+      // Cross-pass deps (story → feature) are already in slugMap from a
+      // prior completed pass and need no awaiting.
+      for (const depSlug of t.depends_on ?? []) {
+        if (deferred.has(depSlug)) {
+          await deferred.get(depSlug).promise;
+        }
+      }
+
+      console.log(
+        `[Decomposer] [${t.type.toUpperCase()}] Creating "${t.title}"...`,
+      );
+
+      const parentId = resolveParentId(t, slugMap, epicId);
+      const dependencies = resolveDependencies(t, slugMap);
+
+      try {
+        const created = await provider.createTicket(parentId, {
+          epicId,
+          title: t.title,
+          body: t.body,
+          labels: t.labels || [],
+          dependencies,
+        });
+        console.log(`[Decomposer] -> Created Issue #${created.id}`);
+        slugMap.set(t.slug, created.id);
+        deferred.get(t.slug).resolve(created.id);
+        return created.id;
+      } catch (err) {
+        deferred.get(t.slug).reject(err);
+        throw err;
+      }
+    },
+    { concurrency: concurrencyCap },
   );
 }
 
@@ -213,13 +370,15 @@ async function main() {
       epic: { type: 'string' },
       force: { type: 'boolean', default: false },
       'emit-context': { type: 'boolean', default: false },
+      pretty: { type: 'boolean', default: false },
+      'full-context': { type: 'boolean', default: false },
       tickets: { type: 'string' },
     },
   });
 
   if (!values.epic) {
     Logger.fatal(
-      'Usage: ticket-decomposer.js --epic <EpicId> (--emit-context | --tickets <file>) [--force]',
+      'Usage: ticket-decomposer.js --epic <EpicId> (--emit-context [--pretty] [--full-context] | --tickets <file>) [--force]',
     );
   }
 
@@ -228,8 +387,13 @@ async function main() {
   const provider = createProvider(config.orchestration);
 
   if (values['emit-context']) {
-    const ctx = await buildDecompositionContext(epicId, provider, config);
-    process.stdout.write(`${JSON.stringify(ctx, null, 2)}\n`);
+    const ctx = await buildDecompositionContext(epicId, provider, config, {
+      fullContext: values['full-context'],
+    });
+    const json = values.pretty
+      ? JSON.stringify(ctx, null, 2)
+      : JSON.stringify(ctx);
+    process.stdout.write(`${json}\n`);
     return;
   }
 

@@ -150,12 +150,14 @@ async function main() {
       tickets: { type: 'string' },
       force: { type: 'boolean', default: false },
       'emit-context': { type: 'boolean', default: false },
+      pretty: { type: 'boolean', default: false },
+      'full-context': { type: 'boolean', default: false },
     },
   });
 
   if (!values.epic) {
     Logger.fatal(
-      'Usage: sprint-plan-decompose.js --epic <EpicId> (--emit-context | --tickets <file>) [--force]',
+      'Usage: sprint-plan-decompose.js --epic <EpicId> (--emit-context [--pretty] [--full-context] | --tickets <file>) [--force]',
     );
   }
 
@@ -176,8 +178,13 @@ async function main() {
   const provider = createProvider(config.orchestration);
 
   if (values['emit-context']) {
-    const ctx = await buildDecompositionContext(epicId, provider, config);
-    process.stdout.write(`${JSON.stringify(ctx, null, 2)}\n`);
+    const ctx = await buildDecompositionContext(epicId, provider, config, {
+      fullContext: values['full-context'],
+    });
+    const json = values.pretty
+      ? JSON.stringify(ctx, null, 2)
+      : JSON.stringify(ctx);
+    process.stdout.write(`${json}\n`);
     return;
   }
 

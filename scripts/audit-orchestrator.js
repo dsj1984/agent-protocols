@@ -3,6 +3,7 @@
 import { parseArgs } from 'node:util';
 import { runAsCli } from './lib/cli-utils.js';
 import { resolveConfig } from './lib/config-resolver.js';
+import { isDegraded } from './lib/degraded-mode.js';
 import { Logger } from './lib/Logger.js';
 import { createProvider } from './lib/provider-factory.js';
 import { runAuditSuite } from './run-audit-suite.js';
@@ -36,19 +37,50 @@ export function renderFindingsBlock(findings) {
   ].join('\n');
 }
 
+const SEVERITY_RENDER = [
+  ['critical', '🔴', 'Critical'],
+  ['high', '🟠', 'High'],
+  ['medium', '🟡', 'Medium'],
+  ['low', '⚪', 'Low'],
+];
+
+export function renderSummaryLine(summary) {
+  if (!summary) return '';
+  const parts = SEVERITY_RENDER.filter(([key]) => (summary[key] ?? 0) > 0).map(
+    ([key, icon, label]) => `${icon} ${summary[key]} ${label}`,
+  );
+  if (parts.length === 0) return '';
+  return `**Summary:** ${parts.join(' | ')}`;
+}
+
 /** Pure: render the workflows block; returns '' when no workflows. */
 export function renderWorkflowsBlock(workflows, summary, auditsRun) {
   if (!workflows || workflows.length === 0) return '';
-  const head = [
-    `**Audit Workflows Dispatched:** ${auditsRun.join(', ')}`,
-    `**Summary:** 🔴 ${summary.critical} Critical | 🟠 ${summary.high} High | 🟡 ${summary.medium} Medium | ⚪ ${summary.low} Low`,
+  const headLines = [`**Audit Workflows Dispatched:** ${auditsRun.join(', ')}`];
+  const summaryLine = renderSummaryLine(summary);
+  if (summaryLine) headLines.push(summaryLine);
+  headLines.push(
     '',
     '> [!NOTE]',
-    '> The following audit workflows are ready to execute. Run each prompt as a dedicated agent task.',
+    '> Each entry below links to the audit workflow source. Full prompt bodies are written to `temp/audit-<gate>-<audit>.md` as local-only artifacts when downstream agents need to execute them.',
     '',
-  ].join('\n');
+  );
+  const head = headLines.join('\n');
   const body = workflows
-    .map((wf) => `---\n\n### Audit: \`${wf.audit}\`\n\n${wf.content}\n\n`)
+    .map((wf) => {
+      const lines = ['---', '', `### Audit: \`${wf.audit}\``, ''];
+      if (wf.path) lines.push(`- **Workflow:** \`${wf.path}\``);
+      if (typeof wf.byteSize === 'number') {
+        lines.push(`- **Source size:** ${wf.byteSize} bytes`);
+      }
+      if (wf.artifactPath) {
+        lines.push(
+          `- **Full prompt artifact:** \`${wf.artifactPath}\` _(local-only)_`,
+        );
+      }
+      lines.push('', wf.summary || '_No summary available._', '');
+      return `${lines.join('\n')}\n`;
+    })
     .join('');
   return `${head}\n${body}`;
 }
@@ -89,6 +121,18 @@ export async function runAuditOrchestrator(
     baseBranch,
   });
 
+  // Soft-fail propagation (Tech Spec #819): when selectAudits hits its
+  // diff-timeout fallback in default (non-gate) mode it returns a degraded
+  // envelope rather than the success shape. Surface that to the caller and
+  // abort instead of crashing on `selection.selectedAudits` being undefined.
+  if (isDegraded(selection)) {
+    Logger.warn(
+      `Audit selection degraded (${selection.reason}): ${selection.detail}`,
+    );
+    process.stdout.write(`${JSON.stringify(selection)}\n`);
+    return selection;
+  }
+
   if (selection.selectedAudits.length === 0) {
     Logger.info(`No audits selected for this gate/ticket combination.`);
     const report =
@@ -105,6 +149,7 @@ export async function runAuditOrchestrator(
 
   const results = await runAuditSuite({
     auditWorkflows: selection.selectedAudits,
+    artifactPrefix: `${gate}-${ticketId}`,
   });
 
   Logger.info(`Formatting report...`);
@@ -135,7 +180,12 @@ async function main() {
   }
 
   const ticketId = Number.parseInt(values.ticket, 10);
-  await runAuditOrchestrator(ticketId, values.gate, values['base-branch']);
+  const result = await runAuditOrchestrator(
+    ticketId,
+    values.gate,
+    values['base-branch'],
+  );
+  if (isDegraded(result)) process.exit(1);
 }
 
 runAsCli(import.meta.url, main, { source: 'AuditOrchestrator' });

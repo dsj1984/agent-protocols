@@ -1,5 +1,6 @@
 import { spawnSync } from 'node:child_process';
 import path from 'node:path';
+import { isDegraded, softFailOrThrow } from './lib/degraded-mode.js';
 import { gitSpawn, gitSync } from './lib/git-utils.js';
 
 /**
@@ -54,6 +55,7 @@ export function parseCliArgs(argv = process.argv.slice(2)) {
     cwd: process.cwd(),
     skipLabel: false,
     skipCheckCrap: false,
+    gateMode: false,
   };
   for (let i = 0; i < argv.length; i += 1) {
     const arg = argv[i];
@@ -72,6 +74,8 @@ export function parseCliArgs(argv = process.argv.slice(2)) {
       out.skipLabel = true;
     } else if (arg === '--skip-check-crap') {
       out.skipCheckCrap = true;
+    } else if (arg === '--gate-mode') {
+      out.gateMode = true;
     }
   }
   return out;
@@ -265,17 +269,23 @@ export function readBaseBranchConfigRaw(baseRef, cwd) {
 
 /**
  * I/O: list files changed between `<baseRef>` and HEAD as repo-relative,
- * forward-slashed paths. Returns an empty array on failure (with a warning
- * printed) so the guardrail degrades predictably rather than crashing the CI
- * job on a transient git error.
+ * forward-slashed paths.
+ *
+ * Soft-fail contract (Tech Spec #819): on a non-zero git exit, return a
+ * degraded envelope so the caller can surface the explicit signal instead of
+ * silently treating an empty diff as "no baseline edits". In gate-mode
+ * (`--gate-mode` / `AGENT_PROTOCOLS_GATE_MODE=1`), throws instead.
+ *
+ * @returns {string[] | { ok: false, degraded: true, reason: string, detail: string }}
  */
-export function listChangedFiles(baseRef, cwd) {
+export function listChangedFiles(baseRef, cwd, gateModeOpts) {
   const out = gitSpawn(cwd, 'diff', '--name-only', `${baseRef}...HEAD`);
   if (out.status !== 0) {
-    console.warn(
-      `[guardrail] ⚠ git diff against ${baseRef} failed: ${out.stderr?.trim() ?? 'no stderr'}`,
+    return softFailOrThrow(
+      'GIT_DIFF_FAILED',
+      `baseline-refresh-guardrail: git diff against ${baseRef} failed: ${out.stderr?.trim() ?? 'no stderr'}`,
+      gateModeOpts,
     );
-    return [];
   }
   return out.stdout
     .split('\n')
@@ -395,6 +405,75 @@ function spawnSyncWrapper(cmd, args, opts) {
   return spawnSync(cmd, args, opts);
 }
 
+/**
+ * Pure: emit each verdict message via the appropriate console channel.
+ * Pulled out of `main` so the orchestrator stays under the CRAP cyc cap and
+ * the routing rule can be unit-tested without a console hijack inside main.
+ *
+ * @param {{ ok: boolean, messages: string[] }} verdict
+ * @param {{ log?: (m: string) => void, error?: (m: string) => void }} [io]
+ */
+export function emitVerdictMessages(verdict, io = console) {
+  const log = io.log ?? console.log;
+  const error = io.error ?? console.error;
+  const sink = verdict.ok ? log : error;
+  for (const m of verdict.messages) sink(m);
+}
+
+/**
+ * Pure decision wrapper: apply the baseline-refresh label when the verdict
+ * recommends it AND the operator hasn't opted out via `--skip-label`. The
+ * actual labelling I/O is delegated to the injected `apply` runner so this
+ * helper stays pure for tests; main() supplies `applyBaselineRefreshLabel`.
+ *
+ * @param {{ verdict: { shouldApplyBaselineLabel: boolean }, args: { skipLabel: boolean, prNumber: number|null, cwd: string }, apply: typeof applyBaselineRefreshLabel }} params
+ * @returns {{ skipped: true, reason: string } | ReturnType<typeof applyBaselineRefreshLabel>}
+ */
+export function applyLabelIfNeeded({ verdict, args, apply }) {
+  if (!verdict.shouldApplyBaselineLabel) {
+    return { skipped: true, reason: 'verdict-says-no' };
+  }
+  if (args.skipLabel) return { skipped: true, reason: 'skip-label-flag' };
+  return apply({ prNumber: args.prNumber, cwd: args.cwd });
+}
+
+/**
+ * Run the check-crap re-execution step or honour `--skip-check-crap`. Pulled
+ * out of `main` so the orchestrator stays under the CRAP cyc cap and the
+ * skip-vs-run decision can be unit-tested.
+ *
+ * @param {{ args: { skipCheckCrap: boolean, baseRef: string, cwd: string }, baseConfig: { newMethodCeiling: number, tolerance: number, refreshTag: string }, run?: typeof runCheckCrapWithBaseConfig, log?: (m: string) => void, error?: (m: string) => void }} params
+ * @returns {{ ok: boolean, exitCode: number }}
+ */
+export function performCrapRecheck({
+  args,
+  baseConfig,
+  run = runCheckCrapWithBaseConfig,
+  log = console.log,
+  error = console.error,
+}) {
+  if (args.skipCheckCrap) {
+    log('[guardrail] --skip-check-crap set; skipping base-enforced re-run.');
+    return { ok: true, exitCode: 0 };
+  }
+  log(
+    '[guardrail] re-running check-crap with base-branch values forced via env...',
+  );
+  const crapExit = run({
+    cwd: args.cwd,
+    baseConfig,
+    baseRef: args.baseRef,
+  });
+  if (crapExit !== 0) {
+    error(
+      `[guardrail] ❌ check-crap failed under base-branch thresholds (exit ${crapExit}).`,
+    );
+    return { ok: false, exitCode: crapExit };
+  }
+  log('[guardrail] ✅ all guardrail checks passed.');
+  return { ok: true, exitCode: 0 };
+}
+
 async function main() {
   const args = parseCliArgs();
   console.log(
@@ -422,7 +501,23 @@ async function main() {
     return 0;
   }
 
-  const changedFiles = listChangedFiles(args.baseRef, args.cwd);
+  const gateModeOpts = {
+    argv: args.gateMode ? ['--gate-mode'] : [],
+    env: process.env,
+  };
+  const changedFilesResult = listChangedFiles(
+    args.baseRef,
+    args.cwd,
+    gateModeOpts,
+  );
+  if (isDegraded(changedFilesResult)) {
+    process.stdout.write(`${JSON.stringify(changedFilesResult)}\n`);
+    console.error(
+      `[guardrail] ❌ ${changedFilesResult.reason}: ${changedFilesResult.detail}`,
+    );
+    return 1;
+  }
+  const changedFiles = changedFilesResult;
   const commits = listCommitsSinceBase(args.baseRef, args.cwd);
   console.log(
     `[guardrail] diff: ${changedFiles.length} file(s); commits: ${commits.length}`,
@@ -433,40 +528,13 @@ async function main() {
     commits,
     refreshTag: baseConfig.refreshTag,
   });
-  for (const m of verdict.messages) {
-    if (verdict.ok) console.log(m);
-    else console.error(m);
-  }
+  emitVerdictMessages(verdict);
 
-  if (verdict.shouldApplyBaselineLabel && !args.skipLabel) {
-    applyBaselineRefreshLabel({ prNumber: args.prNumber, cwd: args.cwd });
-  }
+  applyLabelIfNeeded({ verdict, args, apply: applyBaselineRefreshLabel });
 
   if (!verdict.ok) return verdict.exitCode;
 
-  if (args.skipCheckCrap) {
-    console.log(
-      '[guardrail] --skip-check-crap set; skipping base-enforced re-run.',
-    );
-    return 0;
-  }
-
-  console.log(
-    '[guardrail] re-running check-crap with base-branch values forced via env...',
-  );
-  const crapExit = runCheckCrapWithBaseConfig({
-    cwd: args.cwd,
-    baseConfig,
-    baseRef: args.baseRef,
-  });
-  if (crapExit !== 0) {
-    console.error(
-      `[guardrail] ❌ check-crap failed under base-branch thresholds (exit ${crapExit}).`,
-    );
-    return crapExit;
-  }
-  console.log('[guardrail] ✅ all guardrail checks passed.');
-  return 0;
+  return performCrapRecheck({ args, baseConfig }).exitCode;
 }
 
 const isDirect = (() => {
