@@ -172,10 +172,12 @@ planned.
    ```
 
 4. **Cross-Validation**:
-   - **Verify**: every PRD feature -> Feature issue -> at least one Story -> at
-     least one Task.
-   - **Verify**: dependency DAG across Tasks is acyclic (no circular deps).
-   - **Verify**: risk::high Tasks are flagged correctly.
+   - Hierarchy completeness, dependency-DAG acyclicity, and `risk::high`
+     labelling are deterministic invariants enforced by
+     `validateAndNormalizeTickets` in
+     [`lib/orchestration/ticket-validator.js`](../scripts/lib/orchestration/ticket-validator.js);
+     its output during decomposition is the canonical proof — no manual
+     re-check needed.
    - **Scope-overlap check (docs/runbook downstream of config work)**: Scan for
      Stories whose scope is "docs update", "runbook", or "README" Tasks that
      land downstream of an earlier "config + runbook" Story in the same Epic. If
@@ -187,8 +189,8 @@ planned.
      cross-reference remains). The decomposer system prompt emits this flag
      automatically where it can detect the pattern — this checklist item is the
      human/host-LLM backstop.
-   - **Action**: Fix any gaps by creating additional issues or updating existing
-     ones manually.
+   - **Action**: Fix any scope-overlap exceptions or validator failures by
+     updating the affected issues manually.
 
 5. **Audit**:
    - Check the Epic's comment thread to ensure the backlog summary was posted.
