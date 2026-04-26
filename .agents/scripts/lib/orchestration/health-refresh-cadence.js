@@ -56,7 +56,8 @@ export function decideRefresh(config, state = {}, now = Date.now()) {
       if (!Number.isInteger(n) || n < 1) {
         return {
           refresh: true,
-          reason: 'cadence=every-n-closes but everyNCloses is missing/invalid; refreshing to fail open',
+          reason:
+            'cadence=every-n-closes but everyNCloses is missing/invalid; refreshing to fail open',
         };
       }
       // closeCount is the number of CLOSES BEFORE this one. The Nth close
@@ -79,7 +80,8 @@ export function decideRefresh(config, state = {}, now = Date.now()) {
       if (!Number.isFinite(wave)) {
         return {
           refresh: true,
-          reason: 'cadence=wave-boundary but current story wave is unknown; refreshing to fail open',
+          reason:
+            'cadence=wave-boundary but current story wave is unknown; refreshing to fail open',
         };
       }
       const lastWave = Number.isFinite(state.lastRefreshedWave)
@@ -102,12 +104,16 @@ export function decideRefresh(config, state = {}, now = Date.now()) {
       if (!Number.isInteger(sec) || sec < 1) {
         return {
           refresh: true,
-          reason: 'cadence=min-interval but minIntervalSec is missing/invalid; refreshing to fail open',
+          reason:
+            'cadence=min-interval but minIntervalSec is missing/invalid; refreshing to fail open',
         };
       }
       const last = state.lastRefreshAt;
       if (!Number.isFinite(last)) {
-        return { refresh: true, reason: 'cadence=min-interval — first refresh' };
+        return {
+          refresh: true,
+          reason: 'cadence=min-interval — first refresh',
+        };
       }
       const elapsedSec = Math.floor((now - last) / 1000);
       if (elapsedSec >= sec) {

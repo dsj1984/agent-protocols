@@ -25,11 +25,7 @@
 import { readFile } from 'node:fs/promises';
 import { parseArgs } from 'node:util';
 import { runAsCli } from './lib/cli-utils.js';
-import {
-  getLimits,
-  getRunners,
-  resolveConfig,
-} from './lib/config-resolver.js';
+import { getLimits, getRunners, resolveConfig } from './lib/config-resolver.js';
 import { DEFAULT_DECOMPOSER } from './lib/config-schema.js';
 import { Logger } from './lib/Logger.js';
 import { TYPE_LABELS } from './lib/label-constants.js';

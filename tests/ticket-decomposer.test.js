@@ -260,7 +260,11 @@ describe('ticket-decomposer orchestration (v5.6+)', () => {
       // Yield twice so other queued workers get a chance to run.
       await Promise.resolve();
       await Promise.resolve();
-      mockProvider.createdTickets.push({ epicId: parentId, ticketData, newId: id });
+      mockProvider.createdTickets.push({
+        epicId: parentId,
+        ticketData,
+        newId: id,
+      });
       return { id, url: `https://github.com/test/${id}` };
     };
 
@@ -311,7 +315,10 @@ describe('ticket-decomposer orchestration (v5.6+)', () => {
     const firstTaskIdx = mockProvider.createdTickets.findIndex((c) =>
       c.ticketData.title.startsWith('Task '),
     );
-    assert.ok(lastFeatureIdx < firstStoryIdx, 'all features precede all stories');
+    assert.ok(
+      lastFeatureIdx < firstStoryIdx,
+      'all features precede all stories',
+    );
     assert.ok(lastStoryIdx < firstTaskIdx, 'all stories precede all tasks');
   });
 
@@ -358,7 +365,11 @@ describe('ticket-decomposer orchestration (v5.6+)', () => {
       await new Promise((r) => setTimeout(r, 5));
       inFlight--;
       const id = 200 + mockProvider.createdTickets.length;
-      mockProvider.createdTickets.push({ epicId: parentId, ticketData, newId: id });
+      mockProvider.createdTickets.push({
+        epicId: parentId,
+        ticketData,
+        newId: id,
+      });
       return { id, url: `https://github.com/test/${id}` };
     };
 
