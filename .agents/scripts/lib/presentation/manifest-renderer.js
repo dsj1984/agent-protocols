@@ -47,6 +47,41 @@ export function renderStoryManifestMarkdown(manifest) {
 }
 
 /**
+ * Pure: a manifest qualifies for an Epic comment upsert when it exists, is
+ * not a story-execution dry-run, and carries an epicId.
+ *
+ * @param {unknown} manifest
+ */
+export function isEpicManifest(manifest) {
+  if (!manifest || typeof manifest !== 'object') return false;
+  return manifest.type !== 'story-execution' && Boolean(manifest.epicId);
+}
+
+/**
+ * Pure: a provider can upsert a comment when it is non-nullish and exposes a
+ * callable `postComment`.
+ *
+ * @param {unknown} provider
+ */
+export function providerCanPostComment(provider) {
+  return Boolean(provider) && typeof provider?.postComment === 'function';
+}
+
+/**
+ * Classify whether `(manifest, provider)` are eligible for an Epic comment
+ * upsert. Returns `null` when eligible, otherwise the skip-reason string.
+ *
+ * @param {unknown} manifest
+ * @param {unknown} provider
+ * @returns {null | 'not-an-epic-manifest' | 'no-provider'}
+ */
+export function classifyEpicCommentEligibility(manifest, provider) {
+  if (!isEpicManifest(manifest)) return 'not-an-epic-manifest';
+  if (!providerCanPostComment(provider)) return 'no-provider';
+  return null;
+}
+
+/**
  * Persist the Epic's dispatch manifest as a structured comment on the Epic
  * issue. Idempotent — replaces any existing `dispatch-manifest` comment.
  * No-op in dry-run-only story manifests (no epicId).
@@ -56,12 +91,8 @@ export function renderStoryManifestMarkdown(manifest) {
  * @returns {Promise<{ posted: boolean, reason?: string }>}
  */
 export async function postManifestEpicComment(manifest, provider) {
-  if (!manifest || manifest.type === 'story-execution' || !manifest.epicId) {
-    return { posted: false, reason: 'not-an-epic-manifest' };
-  }
-  if (!provider || typeof provider.postComment !== 'function') {
-    return { posted: false, reason: 'no-provider' };
-  }
+  const skipReason = classifyEpicCommentEligibility(manifest, provider);
+  if (skipReason) return { posted: false, reason: skipReason };
 
   const storyManifest = manifest.storyManifest ?? [];
   const waveEligible = storyManifest.filter((s) => s.type !== 'feature');
@@ -115,16 +146,9 @@ export async function postManifestEpicComment(manifest, provider) {
  * @returns {Promise<{ posted: boolean, recuts: number, parked: number, reason?: string }>}
  */
 export async function postParkedFollowOnsComment(manifest, provider) {
-  if (!manifest || manifest.type === 'story-execution' || !manifest.epicId) {
-    return {
-      posted: false,
-      recuts: 0,
-      parked: 0,
-      reason: 'not-an-epic-manifest',
-    };
-  }
-  if (!provider || typeof provider.postComment !== 'function') {
-    return { posted: false, recuts: 0, parked: 0, reason: 'no-provider' };
+  const skipReason = classifyEpicCommentEligibility(manifest, provider);
+  if (skipReason) {
+    return { posted: false, recuts: 0, parked: 0, reason: skipReason };
   }
 
   const storyManifest = manifest.storyManifest ?? [];
