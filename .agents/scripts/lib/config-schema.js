@@ -245,11 +245,31 @@ const CONCURRENCY_SCHEMA = {
 };
 
 /**
+ * `orchestration.runners.decomposer` — bounded-concurrency knob for the
+ * staged Feature/Story/Task creation pass in `ticket-decomposer.js`.
+ * `concurrencyCap` controls the maximum number of in-flight `provider.createTicket`
+ * calls per type-pass. Default `3` matches the `DEFAULT_DECOMPOSER.concurrencyCap`
+ * applied by `getRunners`.
+ */
+const DECOMPOSER_SCHEMA = {
+  type: 'object',
+  properties: {
+    concurrencyCap: { type: 'integer', minimum: 1 },
+  },
+  additionalProperties: false,
+};
+
+/** Default applied when `orchestration.runners.decomposer` is absent or incomplete. */
+export const DEFAULT_DECOMPOSER = Object.freeze({
+  concurrencyCap: 3,
+});
+
+/**
  * `orchestration.runners` — typed grouping of every runner-flavoured sub-block
- * (epicRunner, planRunner, concurrency, closeRetry, poolMode) introduced in
- * Epic #773 Story 7. Replaces the prior flat layout where each sub-block sat
- * directly under `orchestration`. Each sub-schema is preserved byte-for-byte;
- * only the parent location changes.
+ * (epicRunner, planRunner, concurrency, closeRetry, poolMode, decomposer)
+ * introduced in Epic #773 Story 7. Replaces the prior flat layout where each
+ * sub-block sat directly under `orchestration`. Each sub-schema is preserved
+ * byte-for-byte; only the parent location changes.
  */
 const RUNNERS_SCHEMA = {
   type: 'object',
@@ -259,6 +279,7 @@ const RUNNERS_SCHEMA = {
     concurrency: CONCURRENCY_SCHEMA,
     closeRetry: CLOSE_RETRY_SCHEMA,
     poolMode: POOL_MODE_SCHEMA,
+    decomposer: DECOMPOSER_SCHEMA,
   },
   additionalProperties: false,
 };

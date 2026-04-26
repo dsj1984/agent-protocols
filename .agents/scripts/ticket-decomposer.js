@@ -25,13 +25,15 @@
 import { readFile } from 'node:fs/promises';
 import { parseArgs } from 'node:util';
 import { runAsCli } from './lib/cli-utils.js';
-import { getLimits, resolveConfig } from './lib/config-resolver.js';
+import { getLimits, getRunners, resolveConfig } from './lib/config-resolver.js';
+import { DEFAULT_DECOMPOSER } from './lib/config-schema.js';
 import { Logger } from './lib/Logger.js';
 import { TYPE_LABELS } from './lib/label-constants.js';
 import { applyBudget } from './lib/orchestration/planning-context-budget.js';
 import { validateAndNormalizeTickets } from './lib/orchestration/ticket-validator.js';
 import { createProvider } from './lib/provider-factory.js';
 import { renderDecomposerSystemPrompt } from './lib/templates/decomposer-prompts.js';
+import { concurrentMap } from './lib/util/concurrent-map.js';
 
 function resolveParentId(ticket, slugMap, epicId) {
   if (ticket.type === 'feature') return epicId;
@@ -259,36 +261,105 @@ export async function decomposeEpic(
   );
   const validated = validateAndNormalizeTickets(tickets);
 
+  const concurrencyCap =
+    getRunners(_config).decomposer.concurrencyCap ??
+    DEFAULT_DECOMPOSER.concurrencyCap;
+
   console.log(
-    `[Decomposer] Identified ${validated.length} tickets. Starting creation...`,
+    `[Decomposer] Identified ${validated.length} tickets. Starting creation (concurrencyCap=${concurrencyCap})...`,
   );
 
   const slugMap = new Map();
-
   const ordered = orderTicketsForCreation(validated);
 
-  for (const t of ordered) {
-    console.log(
-      `[Decomposer] [${t.type.toUpperCase()}] Creating "${t.title}"...`,
+  // Three staged passes: features → stories → tasks. Each pass blocks the
+  // next so parent_slug → ID resolution is preserved (a Story's parent
+  // Feature ID is in slugMap before the Story pass runs).
+  for (const passType of ['feature', 'story', 'task']) {
+    const passTickets = ordered.filter((t) => t.type === passType);
+    if (passTickets.length === 0) continue;
+
+    await runCreationPass(
+      passTickets,
+      slugMap,
+      epicId,
+      provider,
+      concurrencyCap,
     );
-
-    const parentId = resolveParentId(t, slugMap, epicId);
-    const dependencies = resolveDependencies(t, slugMap);
-
-    const created = await provider.createTicket(parentId, {
-      epicId: epicId,
-      title: t.title,
-      body: t.body,
-      labels: t.labels || [],
-      dependencies: dependencies,
-    });
-
-    console.log(`[Decomposer] -> Created Issue #${created.id}`);
-    slugMap.set(t.slug, created.id);
   }
 
   console.log(
     `[Decomposer] Backlog for Epic #${epicId} populated successfully!`,
+  );
+}
+
+/**
+ * Run one staged creation pass with bounded concurrency. Within the pass,
+ * intra-group `depends_on` chains are honoured via per-slug deferred promises:
+ * a ticket's mapper awaits each dep's promise before reading the slugMap,
+ * so a chain like t-a → t-b → t-c serialises naturally even when the cap
+ * permits parallel work.
+ */
+async function runCreationPass(
+  tickets,
+  slugMap,
+  epicId,
+  provider,
+  concurrencyCap,
+) {
+  const deferred = new Map();
+  for (const t of tickets) {
+    let resolve;
+    let reject;
+    const promise = new Promise((res, rej) => {
+      resolve = res;
+      reject = rej;
+    });
+    // Swallow rejection bookkeeping so a failed creation does not surface as
+    // an unhandled rejection when no dependent ticket awaits this promise.
+    // The original error is still re-thrown inside the mapper and observed
+    // by concurrentMap's first-rejection-wins contract.
+    promise.catch(() => {});
+    deferred.set(t.slug, { promise, resolve, reject });
+  }
+
+  await concurrentMap(
+    tickets,
+    async (t) => {
+      // Wait for any intra-pass dep to be created before reading slugMap.
+      // Cross-pass deps (story → feature) are already in slugMap from a
+      // prior completed pass and need no awaiting.
+      for (const depSlug of t.depends_on ?? []) {
+        if (deferred.has(depSlug)) {
+          await deferred.get(depSlug).promise;
+        }
+      }
+
+      console.log(
+        `[Decomposer] [${t.type.toUpperCase()}] Creating "${t.title}"...`,
+      );
+
+      const parentId = resolveParentId(t, slugMap, epicId);
+      const dependencies = resolveDependencies(t, slugMap);
+
+      try {
+        const created = await provider.createTicket(parentId, {
+          epicId,
+          title: t.title,
+          body: t.body,
+          labels: t.labels || [],
+          dependencies,
+        });
+        console.log(`[Decomposer] -> Created Issue #${created.id}`);
+        slugMap.set(t.slug, created.id);
+        deferred.get(t.slug).resolve(created.id);
+        return created.id;
+      } catch (err) {
+        deferred.get(t.slug).reject(err);
+        throw err;
+      }
+    },
+    { concurrency: concurrencyCap },
   );
 }
 
