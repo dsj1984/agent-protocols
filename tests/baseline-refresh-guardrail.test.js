@@ -2,14 +2,17 @@ import assert from 'node:assert';
 import { test } from 'node:test';
 import {
   applyBaselineRefreshLabel,
+  applyLabelIfNeeded,
   BASELINE_REFRESH_LABEL,
   classifyChangedFiles,
+  emitVerdictMessages,
   evaluateGuardrail,
   findRefreshCommits,
   listChangedFiles,
   parseBaseBranchConfig,
   parseCliArgs,
   parseCommitLog,
+  performCrapRecheck,
 } from '../.agents/scripts/baseline-refresh-guardrail.js';
 import { __setGitRunners } from '../.agents/scripts/lib/git-utils.js';
 
@@ -417,6 +420,115 @@ test('listChangedFiles — git diff failure throws under --gate-mode', () => {
   } finally {
     __setGitRunners(null, null);
   }
+});
+
+test('emitVerdictMessages — ok=true routes every message through log channel', () => {
+  const log = [];
+  const error = [];
+  emitVerdictMessages(
+    { ok: true, messages: ['a', 'b'] },
+    { log: (m) => log.push(m), error: (m) => error.push(m) },
+  );
+  assert.deepStrictEqual(log, ['a', 'b']);
+  assert.deepStrictEqual(error, []);
+});
+
+test('emitVerdictMessages — ok=false routes every message through error channel', () => {
+  const log = [];
+  const error = [];
+  emitVerdictMessages(
+    { ok: false, messages: ['x', 'y'] },
+    { log: (m) => log.push(m), error: (m) => error.push(m) },
+  );
+  assert.deepStrictEqual(log, []);
+  assert.deepStrictEqual(error, ['x', 'y']);
+});
+
+test('applyLabelIfNeeded — verdict says no → skipped, apply not called', () => {
+  let called = false;
+  const res = applyLabelIfNeeded({
+    verdict: { shouldApplyBaselineLabel: false },
+    args: { skipLabel: false, prNumber: 1, cwd: '.' },
+    apply: () => {
+      called = true;
+      return { applied: true };
+    },
+  });
+  assert.deepStrictEqual(res, { skipped: true, reason: 'verdict-says-no' });
+  assert.strictEqual(called, false);
+});
+
+test('applyLabelIfNeeded — --skip-label set → skipped, apply not called', () => {
+  let called = false;
+  const res = applyLabelIfNeeded({
+    verdict: { shouldApplyBaselineLabel: true },
+    args: { skipLabel: true, prNumber: 1, cwd: '.' },
+    apply: () => {
+      called = true;
+      return { applied: true };
+    },
+  });
+  assert.deepStrictEqual(res, { skipped: true, reason: 'skip-label-flag' });
+  assert.strictEqual(called, false);
+});
+
+test('applyLabelIfNeeded — verdict yes & not skipped → apply called with prNumber/cwd', () => {
+  const calls = [];
+  const res = applyLabelIfNeeded({
+    verdict: { shouldApplyBaselineLabel: true },
+    args: { skipLabel: false, prNumber: 42, cwd: '/tmp/x' },
+    apply: (params) => {
+      calls.push(params);
+      return { applied: true };
+    },
+  });
+  assert.deepStrictEqual(res, { applied: true });
+  assert.deepStrictEqual(calls, [{ prNumber: 42, cwd: '/tmp/x' }]);
+});
+
+test('performCrapRecheck — --skip-check-crap → ok=true, run not called', () => {
+  let called = false;
+  const log = [];
+  const res = performCrapRecheck({
+    args: { skipCheckCrap: true, baseRef: 'origin/main', cwd: '.' },
+    baseConfig: {},
+    run: () => {
+      called = true;
+      return 0;
+    },
+    log: (m) => log.push(m),
+    error: () => {},
+  });
+  assert.deepStrictEqual(res, { ok: true, exitCode: 0 });
+  assert.strictEqual(called, false);
+  assert.ok(log.some((m) => m.includes('skip-check-crap')));
+});
+
+test('performCrapRecheck — run returns 0 → ok=true', () => {
+  const res = performCrapRecheck({
+    args: { skipCheckCrap: false, baseRef: 'origin/main', cwd: '.' },
+    baseConfig: { foo: 'bar' },
+    run: ({ baseRef }) => {
+      assert.strictEqual(baseRef, 'origin/main');
+      return 0;
+    },
+    log: () => {},
+    error: () => {},
+  });
+  assert.deepStrictEqual(res, { ok: true, exitCode: 0 });
+});
+
+test('performCrapRecheck — run returns non-zero → ok=false, exit code propagated', () => {
+  const errors = [];
+  const res = performCrapRecheck({
+    args: { skipCheckCrap: false, baseRef: 'origin/main', cwd: '.' },
+    baseConfig: {},
+    run: () => 2,
+    log: () => {},
+    error: (m) => errors.push(m),
+  });
+  assert.deepStrictEqual(res, { ok: false, exitCode: 2 });
+  assert.ok(errors.some((m) => m.includes('exit 2')));
 });
 
 test('applyBaselineRefreshLabel — gh pr edit failure: returns applied=false, does not throw', () => {

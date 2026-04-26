@@ -3,7 +3,11 @@ import { spawnSync } from 'node:child_process';
 import path from 'node:path';
 import { describe, it } from 'node:test';
 import { fileURLToPath } from 'node:url';
-import { parseChangedSinceArg } from '../.agents/scripts/check-maintainability.js';
+import {
+  coerceStoryId,
+  parseChangedSinceArg,
+  parseStoryIdArg,
+} from '../.agents/scripts/check-maintainability.js';
 
 /**
  * Flag-parity tests for `--changed-since` on check-maintainability.js.
@@ -40,6 +44,58 @@ describe('parseChangedSinceArg', () => {
 
   it('returns null when the flag is absent', () => {
     assert.equal(parseChangedSinceArg(['--story', '7']), null);
+  });
+});
+
+describe('coerceStoryId', () => {
+  it('returns positive integer values verbatim', () => {
+    assert.equal(coerceStoryId('42'), 42);
+    assert.equal(coerceStoryId(7), 7);
+  });
+
+  it('rejects non-positive, non-integer, and missing values', () => {
+    assert.equal(coerceStoryId('0'), null);
+    assert.equal(coerceStoryId('-1'), null);
+    assert.equal(coerceStoryId('1.5'), null);
+    assert.equal(coerceStoryId('abc'), null);
+    assert.equal(coerceStoryId(undefined), null);
+    assert.equal(coerceStoryId(null), null);
+    assert.equal(coerceStoryId(''), null);
+  });
+});
+
+describe('parseStoryIdArg', () => {
+  it('reads --story <id> from argv', () => {
+    assert.equal(parseStoryIdArg(['--story', '42'], {}), 42);
+  });
+
+  it('skips a malformed --story value and falls through to env', () => {
+    assert.equal(
+      parseStoryIdArg(['--story', 'NaN'], { FRICTION_STORY_ID: '7' }),
+      7,
+    );
+  });
+
+  it('--story without a following value falls back to env', () => {
+    assert.equal(
+      parseStoryIdArg(['--story'], { FRICTION_STORY_ID: '9' }),
+      9,
+    );
+  });
+
+  it('returns null when neither argv nor env yields a positive int', () => {
+    assert.equal(parseStoryIdArg([], {}), null);
+    assert.equal(
+      parseStoryIdArg(['--story', '0'], { FRICTION_STORY_ID: '-1' }),
+      null,
+    );
+  });
+
+  it('argv wins over env when both are valid', () => {
+    assert.equal(
+      parseStoryIdArg(['--story', '11'], { FRICTION_STORY_ID: '99' }),
+      11,
+    );
   });
 });
 

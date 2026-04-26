@@ -405,6 +405,75 @@ function spawnSyncWrapper(cmd, args, opts) {
   return spawnSync(cmd, args, opts);
 }
 
+/**
+ * Pure: emit each verdict message via the appropriate console channel.
+ * Pulled out of `main` so the orchestrator stays under the CRAP cyc cap and
+ * the routing rule can be unit-tested without a console hijack inside main.
+ *
+ * @param {{ ok: boolean, messages: string[] }} verdict
+ * @param {{ log?: (m: string) => void, error?: (m: string) => void }} [io]
+ */
+export function emitVerdictMessages(verdict, io = console) {
+  const log = io.log ?? console.log;
+  const error = io.error ?? console.error;
+  const sink = verdict.ok ? log : error;
+  for (const m of verdict.messages) sink(m);
+}
+
+/**
+ * Pure decision wrapper: apply the baseline-refresh label when the verdict
+ * recommends it AND the operator hasn't opted out via `--skip-label`. The
+ * actual labelling I/O is delegated to the injected `apply` runner so this
+ * helper stays pure for tests; main() supplies `applyBaselineRefreshLabel`.
+ *
+ * @param {{ verdict: { shouldApplyBaselineLabel: boolean }, args: { skipLabel: boolean, prNumber: number|null, cwd: string }, apply: typeof applyBaselineRefreshLabel }} params
+ * @returns {{ skipped: true, reason: string } | ReturnType<typeof applyBaselineRefreshLabel>}
+ */
+export function applyLabelIfNeeded({ verdict, args, apply }) {
+  if (!verdict.shouldApplyBaselineLabel) {
+    return { skipped: true, reason: 'verdict-says-no' };
+  }
+  if (args.skipLabel) return { skipped: true, reason: 'skip-label-flag' };
+  return apply({ prNumber: args.prNumber, cwd: args.cwd });
+}
+
+/**
+ * Run the check-crap re-execution step or honour `--skip-check-crap`. Pulled
+ * out of `main` so the orchestrator stays under the CRAP cyc cap and the
+ * skip-vs-run decision can be unit-tested.
+ *
+ * @param {{ args: { skipCheckCrap: boolean, baseRef: string, cwd: string }, baseConfig: { newMethodCeiling: number, tolerance: number, refreshTag: string }, run?: typeof runCheckCrapWithBaseConfig, log?: (m: string) => void, error?: (m: string) => void }} params
+ * @returns {{ ok: boolean, exitCode: number }}
+ */
+export function performCrapRecheck({
+  args,
+  baseConfig,
+  run = runCheckCrapWithBaseConfig,
+  log = console.log,
+  error = console.error,
+}) {
+  if (args.skipCheckCrap) {
+    log('[guardrail] --skip-check-crap set; skipping base-enforced re-run.');
+    return { ok: true, exitCode: 0 };
+  }
+  log(
+    '[guardrail] re-running check-crap with base-branch values forced via env...',
+  );
+  const crapExit = run({
+    cwd: args.cwd,
+    baseConfig,
+    baseRef: args.baseRef,
+  });
+  if (crapExit !== 0) {
+    error(
+      `[guardrail] ❌ check-crap failed under base-branch thresholds (exit ${crapExit}).`,
+    );
+    return { ok: false, exitCode: crapExit };
+  }
+  log('[guardrail] ✅ all guardrail checks passed.');
+  return { ok: true, exitCode: 0 };
+}
+
 async function main() {
   const args = parseCliArgs();
   console.log(
@@ -459,40 +528,13 @@ async function main() {
     commits,
     refreshTag: baseConfig.refreshTag,
   });
-  for (const m of verdict.messages) {
-    if (verdict.ok) console.log(m);
-    else console.error(m);
-  }
+  emitVerdictMessages(verdict);
 
-  if (verdict.shouldApplyBaselineLabel && !args.skipLabel) {
-    applyBaselineRefreshLabel({ prNumber: args.prNumber, cwd: args.cwd });
-  }
+  applyLabelIfNeeded({ verdict, args, apply: applyBaselineRefreshLabel });
 
   if (!verdict.ok) return verdict.exitCode;
 
-  if (args.skipCheckCrap) {
-    console.log(
-      '[guardrail] --skip-check-crap set; skipping base-enforced re-run.',
-    );
-    return 0;
-  }
-
-  console.log(
-    '[guardrail] re-running check-crap with base-branch values forced via env...',
-  );
-  const crapExit = runCheckCrapWithBaseConfig({
-    cwd: args.cwd,
-    baseConfig,
-    baseRef: args.baseRef,
-  });
-  if (crapExit !== 0) {
-    console.error(
-      `[guardrail] ❌ check-crap failed under base-branch thresholds (exit ${crapExit}).`,
-    );
-    return crapExit;
-  }
-  console.log('[guardrail] ✅ all guardrail checks passed.');
-  return 0;
+  return performCrapRecheck({ args, baseConfig }).exitCode;
 }
 
 const isDirect = (() => {

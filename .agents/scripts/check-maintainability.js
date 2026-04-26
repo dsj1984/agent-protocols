@@ -101,15 +101,38 @@ function compareScores(scores, baseline, tolerance) {
   return { regressions, newFiles, improvements, regressedFiles };
 }
 
-function parseStoryIdArg(argv = process.argv.slice(2)) {
+/**
+ * Pure: coerce a raw argv/env value to a positive integer Story ID, or null
+ * when it cannot be interpreted as one. Exported so the argv-walking loop and
+ * the env fallback can share a single coercion rule and so tests can pin the
+ * "what counts as a Story ID" contract without invoking the CLI.
+ *
+ * @param {unknown} value
+ * @returns {number | null}
+ */
+export function coerceStoryId(value) {
+  const n = Number(value);
+  return Number.isInteger(n) && n > 0 ? n : null;
+}
+
+/**
+ * Resolve the Story ID for friction comments. CLI arg wins; otherwise
+ * `FRICTION_STORY_ID` env. Returns null when neither yields a positive int.
+ *
+ * @param {string[]} [argv]
+ * @param {NodeJS.ProcessEnv} [env]
+ */
+export function parseStoryIdArg(
+  argv = process.argv.slice(2),
+  env = process.env,
+) {
   for (let i = 0; i < argv.length; i++) {
-    if (argv[i] === '--story' && argv[i + 1]) {
-      const parsed = Number(argv[i + 1]);
-      if (Number.isInteger(parsed) && parsed > 0) return parsed;
+    if (argv[i] === '--story') {
+      const fromArgv = coerceStoryId(argv[i + 1]);
+      if (fromArgv !== null) return fromArgv;
     }
   }
-  const envVal = Number(process.env.FRICTION_STORY_ID);
-  return Number.isInteger(envVal) && envVal > 0 ? envVal : null;
+  return coerceStoryId(env.FRICTION_STORY_ID);
 }
 
 export function parseChangedSinceArg(argv = process.argv.slice(2)) {
