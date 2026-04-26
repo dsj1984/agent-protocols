@@ -2,14 +2,19 @@ import assert from 'node:assert';
 import { test } from 'node:test';
 import {
   applyBaselineRefreshLabel,
+  applyLabelIfNeeded,
   BASELINE_REFRESH_LABEL,
   classifyChangedFiles,
+  emitVerdictMessages,
   evaluateGuardrail,
   findRefreshCommits,
+  listChangedFiles,
   parseBaseBranchConfig,
   parseCliArgs,
   parseCommitLog,
+  performCrapRecheck,
 } from '../.agents/scripts/baseline-refresh-guardrail.js';
+import { __setGitRunners } from '../.agents/scripts/lib/git-utils.js';
 
 /**
  * Fixture tests for the baseline-refresh-guardrail CI job. Each scenario
@@ -264,11 +269,18 @@ test('parseCliArgs — defaults and override combinations', () => {
       cwd: process.cwd(),
       skipLabel: false,
       skipCheckCrap: false,
+      gateMode: false,
     },
   );
   const defaults = parseCliArgs([]);
   assert.strictEqual(defaults.baseRef, 'origin/main');
   assert.strictEqual(defaults.prNumber, null);
+  assert.strictEqual(defaults.gateMode, false);
+});
+
+test('parseCliArgs — --gate-mode flag toggles gate-mode', () => {
+  const parsed = parseCliArgs(['--gate-mode']);
+  assert.strictEqual(parsed.gateMode, true);
 });
 
 test('parseCliArgs — --skip-label and --skip-check-crap flags', () => {
@@ -346,6 +358,177 @@ test('applyBaselineRefreshLabel — no pr-number: warns, does not call runner', 
   } finally {
     console.warn = origWarn;
   }
+});
+
+test('listChangedFiles — successful git diff returns repo-relative paths', () => {
+  __setGitRunners(
+    () => '',
+    () => ({
+      status: 0,
+      stdout: 'baselines/crap.json\n.agents/scripts/foo.js\n',
+      stderr: '',
+    }),
+  );
+  try {
+    const out = listChangedFiles('origin/main', '.', { argv: [], env: {} });
+    assert.deepStrictEqual(out, [
+      'baselines/crap.json',
+      '.agents/scripts/foo.js',
+    ]);
+  } finally {
+    __setGitRunners(null, null);
+  }
+});
+
+test('listChangedFiles — git diff failure returns degraded envelope (default mode)', () => {
+  // Tech Spec #819 / Story #826 — git-diff failure used to silently return
+  // [], which made the guardrail conclude "no baseline edits" on a transient
+  // git error. The new contract surfaces the failure explicitly.
+  __setGitRunners(
+    () => '',
+    () => ({ status: 128, stdout: '', stderr: 'fatal: bad ref' }),
+  );
+  try {
+    const out = listChangedFiles('origin/main', '.', { argv: [], env: {} });
+    assert.strictEqual(out.ok, false);
+    assert.strictEqual(out.degraded, true);
+    assert.strictEqual(out.reason, 'GIT_DIFF_FAILED');
+    assert.match(out.detail, /fatal: bad ref/);
+  } finally {
+    __setGitRunners(null, null);
+  }
+});
+
+test('listChangedFiles — git diff failure throws under --gate-mode', () => {
+  __setGitRunners(
+    () => '',
+    () => ({ status: 128, stdout: '', stderr: 'fatal: bad ref' }),
+  );
+  try {
+    assert.throws(
+      () =>
+        listChangedFiles('origin/main', '.', {
+          argv: ['--gate-mode'],
+          env: {},
+        }),
+      (err) => {
+        assert.strictEqual(err.code, 'GIT_DIFF_FAILED');
+        assert.strictEqual(err.degraded, true);
+        return true;
+      },
+    );
+  } finally {
+    __setGitRunners(null, null);
+  }
+});
+
+test('emitVerdictMessages — ok=true routes every message through log channel', () => {
+  const log = [];
+  const error = [];
+  emitVerdictMessages(
+    { ok: true, messages: ['a', 'b'] },
+    { log: (m) => log.push(m), error: (m) => error.push(m) },
+  );
+  assert.deepStrictEqual(log, ['a', 'b']);
+  assert.deepStrictEqual(error, []);
+});
+
+test('emitVerdictMessages — ok=false routes every message through error channel', () => {
+  const log = [];
+  const error = [];
+  emitVerdictMessages(
+    { ok: false, messages: ['x', 'y'] },
+    { log: (m) => log.push(m), error: (m) => error.push(m) },
+  );
+  assert.deepStrictEqual(log, []);
+  assert.deepStrictEqual(error, ['x', 'y']);
+});
+
+test('applyLabelIfNeeded — verdict says no → skipped, apply not called', () => {
+  let called = false;
+  const res = applyLabelIfNeeded({
+    verdict: { shouldApplyBaselineLabel: false },
+    args: { skipLabel: false, prNumber: 1, cwd: '.' },
+    apply: () => {
+      called = true;
+      return { applied: true };
+    },
+  });
+  assert.deepStrictEqual(res, { skipped: true, reason: 'verdict-says-no' });
+  assert.strictEqual(called, false);
+});
+
+test('applyLabelIfNeeded — --skip-label set → skipped, apply not called', () => {
+  let called = false;
+  const res = applyLabelIfNeeded({
+    verdict: { shouldApplyBaselineLabel: true },
+    args: { skipLabel: true, prNumber: 1, cwd: '.' },
+    apply: () => {
+      called = true;
+      return { applied: true };
+    },
+  });
+  assert.deepStrictEqual(res, { skipped: true, reason: 'skip-label-flag' });
+  assert.strictEqual(called, false);
+});
+
+test('applyLabelIfNeeded — verdict yes & not skipped → apply called with prNumber/cwd', () => {
+  const calls = [];
+  const res = applyLabelIfNeeded({
+    verdict: { shouldApplyBaselineLabel: true },
+    args: { skipLabel: false, prNumber: 42, cwd: '/tmp/x' },
+    apply: (params) => {
+      calls.push(params);
+      return { applied: true };
+    },
+  });
+  assert.deepStrictEqual(res, { applied: true });
+  assert.deepStrictEqual(calls, [{ prNumber: 42, cwd: '/tmp/x' }]);
+});
+
+test('performCrapRecheck — --skip-check-crap → ok=true, run not called', () => {
+  let called = false;
+  const log = [];
+  const res = performCrapRecheck({
+    args: { skipCheckCrap: true, baseRef: 'origin/main', cwd: '.' },
+    baseConfig: {},
+    run: () => {
+      called = true;
+      return 0;
+    },
+    log: (m) => log.push(m),
+    error: () => {},
+  });
+  assert.deepStrictEqual(res, { ok: true, exitCode: 0 });
+  assert.strictEqual(called, false);
+  assert.ok(log.some((m) => m.includes('skip-check-crap')));
+});
+
+test('performCrapRecheck — run returns 0 → ok=true', () => {
+  const res = performCrapRecheck({
+    args: { skipCheckCrap: false, baseRef: 'origin/main', cwd: '.' },
+    baseConfig: { foo: 'bar' },
+    run: ({ baseRef }) => {
+      assert.strictEqual(baseRef, 'origin/main');
+      return 0;
+    },
+    log: () => {},
+    error: () => {},
+  });
+  assert.deepStrictEqual(res, { ok: true, exitCode: 0 });
+});
+
+test('performCrapRecheck — run returns non-zero → ok=false, exit code propagated', () => {
+  const errors = [];
+  const res = performCrapRecheck({
+    args: { skipCheckCrap: false, baseRef: 'origin/main', cwd: '.' },
+    baseConfig: {},
+    run: () => 2,
+    log: () => {},
+    error: (m) => errors.push(m),
+  });
+  assert.deepStrictEqual(res, { ok: false, exitCode: 2 });
+  assert.ok(errors.some((m) => m.includes('exit 2')));
 });
 
 test('applyBaselineRefreshLabel — gh pr edit failure: returns applied=false, does not throw', () => {

@@ -2,6 +2,7 @@ import assert from 'node:assert/strict';
 import { describe, it } from 'node:test';
 import {
   DEFAULT_CLOSE_RETRY,
+  DEFAULT_DECOMPOSER,
   DEFAULT_POOL_MODE,
 } from '../../.agents/scripts/lib/config-schema.js';
 import { getRunners } from '../../.agents/scripts/lib/config/runners.js';
@@ -15,6 +16,7 @@ describe('getRunners', () => {
       assert.deepEqual(r.concurrency, {});
       assert.equal(r.closeRetry, DEFAULT_CLOSE_RETRY);
       assert.equal(r.poolMode, DEFAULT_POOL_MODE);
+      assert.equal(r.decomposer, DEFAULT_DECOMPOSER);
     }
   });
 
@@ -27,6 +29,7 @@ describe('getRunners', () => {
           concurrency: { waveGate: 2, commitAssertion: 3, progressReporter: 4 },
           closeRetry: { maxAttempts: 5, backoffMs: [100, 200, 400, 800, 1600] },
           poolMode: { staleClaimMinutes: 30, sessionIdLength: 16 },
+          decomposer: { concurrencyCap: 7 },
         },
       },
     };
@@ -46,6 +49,7 @@ describe('getRunners', () => {
       staleClaimMinutes: 30,
       sessionIdLength: 16,
     });
+    assert.deepEqual(r.decomposer, { concurrencyCap: 7 });
   });
 
   it('falls back to defaults for absent sub-blocks while honouring others', () => {
@@ -62,6 +66,7 @@ describe('getRunners', () => {
     assert.deepEqual(r.concurrency, {});
     assert.equal(r.closeRetry, DEFAULT_CLOSE_RETRY);
     assert.equal(r.poolMode, DEFAULT_POOL_MODE);
+    assert.equal(r.decomposer, DEFAULT_DECOMPOSER);
   });
 
   it('accepts a bare orchestration object (no top-level config wrapper)', () => {

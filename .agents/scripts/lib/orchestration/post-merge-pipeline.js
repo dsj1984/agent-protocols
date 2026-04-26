@@ -314,10 +314,15 @@ export async function notificationPhase(ctx, state) {
 }
 
 export async function healthMonitorPhase(ctx) {
-  const { epicId, progress, updateHealthFn = updateHealthMetrics } = ctx;
+  const {
+    epicId,
+    storyId,
+    progress,
+    updateHealthFn = updateHealthMetrics,
+  } = ctx;
   const log = reapPhaseLogger(progress);
   log('HEALTH', 'Updating sprint health metrics...');
-  await updateHealthFn(epicId);
+  await updateHealthFn(epicId, { storyId });
   log('HEALTH', '✅ Health metrics updated');
   return true;
 }

@@ -10,6 +10,7 @@ import {
   getLimits,
   resolveConfig,
 } from './lib/config-resolver.js';
+import { isDegraded, softFailOrThrow } from './lib/degraded-mode.js';
 import { Logger } from './lib/Logger.js';
 
 const __dirname = path.dirname(fileURLToPath(import.meta.url));
@@ -41,6 +42,7 @@ export function runLintCommand(
   cmdConfig,
   executionTimeoutMs,
   executionMaxBuffer,
+  gateModeOpts,
 ) {
   const parsedArgs = parseArgsStringToArgv(cmdConfig);
   if (parsedArgs.length === 0) {
@@ -61,12 +63,15 @@ export function runLintCommand(
     const jsonStr = result.stdout.trim();
     return parseLintOutput(jsonStr, cmdConfig);
   } catch (err) {
-    console.warn(
-      `⚠️ [lint-baseline] Failed to parse JSON from command output. Falling back to 0 errors.\n` +
-        `   Command: ${cmdConfig}\n` +
-        `   Error: ${err.message}`,
+    // Soft-fail contract (Tech Spec #819): the previous behaviour was a
+    // silent zero-error fallback, which masked tooling regressions. Now we
+    // emit a degraded envelope (or hard-fail in gate-mode) so callers see
+    // the explicit signal and can decide whether to abort the gate.
+    return softFailOrThrow(
+      'LINT_OUTPUT_PARSE_FAILED',
+      `lint-baseline: failed to parse JSON from \`${cmdConfig}\`: ${err.message}`,
+      gateModeOpts,
     );
-    return { errorCount: 0, warningCount: 0 };
   }
 }
 
@@ -76,13 +81,16 @@ export function captureBaseline(
   executionMaxBuffer,
   baselinePath,
   baselinePathRel,
+  gateModeOpts,
 ) {
   console.log(`▶ [lint-baseline] Capturing lint baseline...`);
   const totals = runLintCommand(
     cmdConfig,
     executionTimeoutMs,
     executionMaxBuffer,
+    gateModeOpts,
   );
+  if (isDegraded(totals)) return totals;
   const dir = path.dirname(baselinePath);
   if (!fs.existsSync(dir)) fs.mkdirSync(dir, { recursive: true });
   fs.writeFileSync(baselinePath, JSON.stringify(totals, null, 2), 'utf8');
@@ -90,6 +98,7 @@ export function captureBaseline(
     `✅ Baseline captured: ${totals.errorCount} errors, ${totals.warningCount} warnings.`,
   );
   console.log(`   Saved to: ${baselinePathRel}`);
+  return totals;
 }
 
 export function checkBaseline(
@@ -98,13 +107,16 @@ export function checkBaseline(
   executionMaxBuffer,
   baselinePath,
   baselinePathRel,
+  gateModeOpts,
 ) {
   console.log(`▶ [lint-baseline] Checking lint against baseline...`);
   const current = runLintCommand(
     cmdConfig,
     executionTimeoutMs,
     executionMaxBuffer,
+    gateModeOpts,
   );
+  if (isDegraded(current)) return current;
 
   let baseline = { errorCount: 0, warningCount: 0 };
   if (fs.existsSync(baselinePath)) {
@@ -145,12 +157,13 @@ export function checkBaseline(
   }
 
   console.log(`✅ Lint check passed.`);
+  return current;
 }
 
 export async function main(args = process.argv) {
   const mode = args[2];
   if (mode !== 'capture' && mode !== 'check') {
-    Logger.fatal('Usage: node lint-baseline.js <capture|check>');
+    Logger.fatal('Usage: node lint-baseline.js <capture|check> [--gate-mode]');
   }
 
   const { settings } = resolveConfig();
@@ -161,27 +174,26 @@ export async function main(args = process.argv) {
   const executionTimeoutMs = limits.executionTimeoutMs;
   const executionMaxBuffer = limits.executionMaxBuffer;
 
-  if (mode === 'capture') {
-    captureBaseline(
-      cmdConfig,
-      executionTimeoutMs,
-      executionMaxBuffer,
-      baselinePath,
-      baselinePathRel,
-    );
-    process.exit(0);
-  }
+  const gateModeOpts = {
+    argv: args.slice(3),
+    env: process.env,
+  };
 
-  if (mode === 'check') {
-    checkBaseline(
-      cmdConfig,
-      executionTimeoutMs,
-      executionMaxBuffer,
-      baselinePath,
-      baselinePathRel,
-    );
-    process.exit(0);
+  const runner = mode === 'capture' ? captureBaseline : checkBaseline;
+  const result = runner(
+    cmdConfig,
+    executionTimeoutMs,
+    executionMaxBuffer,
+    baselinePath,
+    baselinePathRel,
+    gateModeOpts,
+  );
+
+  if (isDegraded(result)) {
+    process.stdout.write(`${JSON.stringify(result)}\n`);
+    process.exit(1);
   }
+  process.exit(0);
 }
 
 runAsCli(import.meta.url, main, { source: 'LintBaseline' });

@@ -1,0 +1,68 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "validation-evidence",
+  "title": "Validation Evidence",
+  "description": "Per-Story record of which validation gates have passed against which commit SHA. Written by lib/validation-evidence.js to temp/validation-evidence-<storyId>.json (gitignored). Consumed by close-validation, sprint-code-review, and sprint-close Phase 4 to skip identical re-runs against an already-validated tree.",
+  "type": "object",
+  "required": ["storyId", "schemaVersion", "records"],
+  "properties": {
+    "storyId": {
+      "type": "integer",
+      "minimum": 1,
+      "description": "GitHub Issue number of the Story this evidence file belongs to."
+    },
+    "schemaVersion": {
+      "type": "integer",
+      "const": 1,
+      "description": "Evidence-record schema version. Bumped on breaking changes to the record shape."
+    },
+    "records": {
+      "type": "array",
+      "description": "One record per gate that has passed. Each subsequent successful run replaces the prior record for that gate.",
+      "items": {
+        "type": "object",
+        "required": [
+          "gateName",
+          "commitSha",
+          "commandConfigHash",
+          "exitCode",
+          "timestamp"
+        ],
+        "properties": {
+          "gateName": {
+            "type": "string",
+            "minLength": 1,
+            "description": "Stable gate identifier (e.g. 'lint', 'test', 'biome format', 'check-maintainability', 'check-crap')."
+          },
+          "commitSha": {
+            "type": "string",
+            "pattern": "^[0-9a-f]{7,64}$",
+            "description": "Output of `git rev-parse HEAD` at the moment the gate passed."
+          },
+          "commandConfigHash": {
+            "type": "string",
+            "pattern": "^sha256:[0-9a-f]{64}$",
+            "description": "sha256 of the canonical JSON of { cmd, args, cwd } used to invoke the gate. Skip is gated on exact-match with the current invocation."
+          },
+          "exitCode": {
+            "type": "integer",
+            "minimum": 0,
+            "description": "Exit code recorded for the passing run. Always 0 today; reserved for future non-zero soft-pass semantics."
+          },
+          "durationMs": {
+            "type": ["integer", "null"],
+            "minimum": 0,
+            "description": "Wall-clock duration of the passing run, in milliseconds. Optional."
+          },
+          "timestamp": {
+            "type": "string",
+            "format": "date-time",
+            "description": "ISO-8601 timestamp recorded when the gate passed."
+          }
+        },
+        "additionalProperties": false
+      }
+    }
+  },
+  "additionalProperties": false
+}

@@ -746,5 +746,26 @@ describe('config-resolver library tests', () => {
         ...LIMITS_DEFAULTS.friction,
       });
     });
+
+    it('exposes planningContext defaults (Epic #817 Story 9)', () => {
+      const out = getLimits({ agentSettings: { ...REQ } });
+      assert.deepEqual(out.planningContext, {
+        ...LIMITS_DEFAULTS.planningContext,
+      });
+    });
+
+    it('shallow-merges planningContext overrides without re-listing siblings', () => {
+      const out = getLimits({
+        agentSettings: {
+          ...REQ,
+          limits: { planningContext: { summaryMode: 'always' } },
+        },
+      });
+      assert.equal(out.planningContext.summaryMode, 'always');
+      assert.equal(
+        out.planningContext.maxBytes,
+        LIMITS_DEFAULTS.planningContext.maxBytes,
+      );
+    });
   });
 });

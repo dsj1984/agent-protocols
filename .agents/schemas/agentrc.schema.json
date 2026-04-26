@@ -103,6 +103,17 @@
       },
       "additionalProperties": false
     },
+    "planningContextLimits": {
+      "type": "object",
+      "properties": {
+        "maxBytes": { "type": "integer", "minimum": 1024 },
+        "summaryMode": {
+          "type": "string",
+          "enum": ["auto", "always", "never"]
+        }
+      },
+      "additionalProperties": false
+    },
     "limits": {
       "type": "object",
       "properties": {
@@ -111,7 +122,8 @@
         "maxTokenBudget": { "type": "integer", "minimum": 1 },
         "executionTimeoutMs": { "type": "integer", "minimum": 1 },
         "executionMaxBuffer": { "type": "integer", "minimum": 1 },
-        "friction": { "$ref": "#/$defs/frictionLimits" }
+        "friction": { "$ref": "#/$defs/frictionLimits" },
+        "planningContext": { "$ref": "#/$defs/planningContextLimits" }
       },
       "additionalProperties": false
     },
@@ -311,7 +323,11 @@
       "type": "object",
       "properties": {
         "mentionOperator": { "type": "boolean" },
-        "minLevel": { "type": "string", "enum": ["low", "medium", "high"] }
+        "minLevel": { "type": "string", "enum": ["low", "medium", "high"] },
+        "commentMinLevel": {
+          "type": "string",
+          "enum": ["low", "medium", "high"]
+        }
       },
       "additionalProperties": false
     },
@@ -345,6 +361,24 @@
         }
       ]
     },
+    "healthRefresh": {
+      "type": "object",
+      "properties": {
+        "cadence": {
+          "type": "string",
+          "enum": [
+            "every-close",
+            "every-n-closes",
+            "wave-boundary",
+            "min-interval"
+          ]
+        },
+        "everyNCloses": { "type": ["integer", "null"], "minimum": 1 },
+        "minIntervalSec": { "type": ["integer", "null"], "minimum": 30 }
+      },
+      "required": ["cadence"],
+      "additionalProperties": false
+    },
     "epicRunner": {
       "type": "object",
       "properties": {
@@ -353,7 +387,8 @@
         "pollIntervalSec": { "type": "integer", "minimum": 1 },
         "progressReportIntervalSec": { "type": "integer", "minimum": 0 },
         "idleTimeoutSec": { "type": "integer", "minimum": 0 },
-        "logsDir": { "$ref": "#/$defs/safeString" }
+        "logsDir": { "$ref": "#/$defs/safeString" },
+        "healthRefresh": { "$ref": "#/$defs/healthRefresh" }
       },
       "additionalProperties": false,
       "allOf": [
@@ -404,6 +439,13 @@
       },
       "additionalProperties": false
     },
+    "decomposer": {
+      "type": "object",
+      "properties": {
+        "concurrencyCap": { "type": "integer", "minimum": 1 }
+      },
+      "additionalProperties": false
+    },
     "runners": {
       "type": "object",
       "properties": {
@@ -411,7 +453,8 @@
         "planRunner": { "$ref": "#/$defs/planRunner" },
         "concurrency": { "$ref": "#/$defs/concurrency" },
         "closeRetry": { "$ref": "#/$defs/closeRetry" },
-        "poolMode": { "$ref": "#/$defs/poolMode" }
+        "poolMode": { "$ref": "#/$defs/poolMode" },
+        "decomposer": { "$ref": "#/$defs/decomposer" }
       },
       "additionalProperties": false
     },

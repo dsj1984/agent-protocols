@@ -85,121 +85,145 @@
       "crap": 4,
       "file": ".agents/scripts/audit-orchestrator.js",
       "method": "severityIcon",
-      "startLine": 12
+      "startLine": 13
     },
     {
       "crap": 3,
       "file": ".agents/scripts/audit-orchestrator.js",
       "method": "renderFindingsBlock",
-      "startLine": 20
+      "startLine": 21
     },
     {
       "crap": 3,
       "file": ".agents/scripts/audit-orchestrator.js",
+      "method": "renderSummaryLine",
+      "startLine": 47
+    },
+    {
+      "crap": 4,
+      "file": ".agents/scripts/audit-orchestrator.js",
       "method": "renderWorkflowsBlock",
-      "startLine": 40
+      "startLine": 57
     },
     {
       "crap": 3,
       "file": ".agents/scripts/audit-orchestrator.js",
       "method": "formatAuditReport",
-      "startLine": 56
+      "startLine": 88
     },
     {
-      "crap": 5.760065958911678,
+      "crap": 11.571502299352153,
       "file": ".agents/scripts/audit-orchestrator.js",
       "method": "runAuditOrchestrator",
-      "startLine": 72
+      "startLine": 104
     },
     {
-      "crap": 12,
+      "crap": 20,
       "file": ".agents/scripts/audit-orchestrator.js",
       "method": "main",
-      "startLine": 122
+      "startLine": 167
     },
     {
-      "crap": 12.047234408954857,
+      "crap": 13.041259765625,
       "file": ".agents/scripts/baseline-refresh-guardrail.js",
       "method": "parseCliArgs",
-      "startLine": 50
+      "startLine": 51
     },
     {
       "crap": 5,
       "file": ".agents/scripts/baseline-refresh-guardrail.js",
       "method": "parseBaseBranchConfig",
-      "startLine": 94
+      "startLine": 98
     },
     {
       "crap": 3,
       "file": ".agents/scripts/baseline-refresh-guardrail.js",
       "method": "classifyChangedFiles",
-      "startLine": 126
+      "startLine": 130
     },
     {
       "crap": 2,
       "file": ".agents/scripts/baseline-refresh-guardrail.js",
       "method": "parseCommitLog",
-      "startLine": 151
+      "startLine": 155
     },
     {
       "crap": 3,
       "file": ".agents/scripts/baseline-refresh-guardrail.js",
       "method": "findRefreshCommits",
-      "startLine": 175
+      "startLine": 179
     },
     {
       "crap": 3,
       "file": ".agents/scripts/baseline-refresh-guardrail.js",
       "method": "evaluateGuardrail",
-      "startLine": 201
+      "startLine": 205
     },
     {
       "crap": 1.2962962962962963,
       "file": ".agents/scripts/baseline-refresh-guardrail.js",
       "method": "readBaseBranchConfigRaw",
-      "startLine": 262
+      "startLine": 266
     },
     {
-      "crap": 5.20262390670554,
+      "crap": 2,
       "file": ".agents/scripts/baseline-refresh-guardrail.js",
       "method": "listChangedFiles",
-      "startLine": 272
+      "startLine": 281
     },
     {
       "crap": 5.005259203606311,
       "file": ".agents/scripts/baseline-refresh-guardrail.js",
       "method": "listCommitsSinceBase",
-      "startLine": 290
+      "startLine": 300
     },
     {
       "crap": 7.028356481481482,
       "file": ".agents/scripts/baseline-refresh-guardrail.js",
       "method": "applyBaselineRefreshLabel",
-      "startLine": 310
+      "startLine": 320
     },
     {
       "crap": 2,
       "file": ".agents/scripts/baseline-refresh-guardrail.js",
       "method": "runGh",
-      "startLine": 359
+      "startLine": 369
     },
     {
       "crap": 1.8573749999999998,
       "file": ".agents/scripts/baseline-refresh-guardrail.js",
       "method": "runCheckCrapWithBaseConfig",
-      "startLine": 373
+      "startLine": 383
     },
     {
       "crap": 2,
       "file": ".agents/scripts/baseline-refresh-guardrail.js",
       "method": "spawnSyncWrapper",
-      "startLine": 394
+      "startLine": 404
     },
     {
-      "crap": 72,
+      "crap": 2,
+      "file": ".agents/scripts/baseline-refresh-guardrail.js",
+      "method": "emitVerdictMessages",
+      "startLine": 416
+    },
+    {
+      "crap": 3,
+      "file": ".agents/scripts/baseline-refresh-guardrail.js",
+      "method": "applyLabelIfNeeded",
+      "startLine": 432
+    },
+    {
+      "crap": 3,
+      "file": ".agents/scripts/baseline-refresh-guardrail.js",
+      "method": "performCrapRecheck",
+      "startLine": 448
+    },
+    {
+      "crap": 30,
       "file": ".agents/scripts/baseline-refresh-guardrail.js",
       "method": "main",
-      "startLine": 398
+      "startLine": 477
     },
     {
       "crap": 15,
@@ -274,52 +298,58 @@
       "startLine": 66
     },
     {
-      "crap": 72,
+      "crap": 3,
+      "file": ".agents/scripts/check-maintainability.js",
+      "method": "coerceStoryId",
+      "startLine": 113
+    },
+    {
+      "crap": 4,
       "file": ".agents/scripts/check-maintainability.js",
       "method": "parseStoryIdArg",
-      "startLine": 104
+      "startLine": 125
     },
     {
       "crap": 5,
       "file": ".agents/scripts/check-maintainability.js",
       "method": "parseChangedSinceArg",
-      "startLine": 115
+      "startLine": 138
     },
     {
       "crap": 20,
       "file": ".agents/scripts/check-maintainability.js",
       "method": "parseJsonPathArg",
-      "startLine": 126
+      "startLine": 149
     },
     {
       "crap": 1,
       "file": ".agents/scripts/check-maintainability.js",
       "method": "buildMaintainabilityReport",
-      "startLine": 147
+      "startLine": 170
     },
     {
       "crap": 6,
       "file": ".agents/scripts/check-maintainability.js",
       "method": "writeJsonReport",
-      "startLine": 168
+      "startLine": 191
     },
     {
       "crap": 12,
       "file": ".agents/scripts/check-maintainability.js",
       "method": "emitRegressionFriction",
-      "startLine": 176
+      "startLine": 199
     },
     {
       "crap": 2,
       "file": ".agents/scripts/check-maintainability.js",
       "method": "printSummaryReport",
-      "startLine": 218
+      "startLine": 241
     },
     {
       "crap": 18.962890625,
       "file": ".agents/scripts/check-maintainability.js",
       "method": "main",
-      "startLine": 231
+      "startLine": 254
     },
     {
       "crap": 2,
@@ -466,22 +496,22 @@
       "startLine": 129
     },
     {
-      "crap": 2,
+      "crap": 4,
       "file": ".agents/scripts/epic-planner.js",
       "method": "buildAuthoringContext",
-      "startLine": 64
+      "startLine": 72
     },
     {
       "crap": 11,
       "file": ".agents/scripts/epic-planner.js",
       "method": "planEpic",
-      "startLine": 87
+      "startLine": 112
     },
     {
-      "crap": 39.70284375770527,
+      "crap": 53.27841775425351,
       "file": ".agents/scripts/epic-planner.js",
       "method": "main",
-      "startLine": 174
+      "startLine": 199
     },
     {
       "crap": 42,
@@ -562,6 +592,30 @@
       "startLine": 381
     },
     {
+      "crap": 2,
+      "file": ".agents/scripts/evidence-gate.js",
+      "method": "splitOnDashDash",
+      "startLine": 49
+    },
+    {
+      "crap": 3,
+      "file": ".agents/scripts/evidence-gate.js",
+      "method": "parseWrapperArgs",
+      "startLine": 63
+    },
+    {
+      "crap": 20,
+      "file": ".agents/scripts/evidence-gate.js",
+      "method": "resolveHeadSha",
+      "startLine": 83
+    },
+    {
+      "crap": 132,
+      "file": ".agents/scripts/evidence-gate.js",
+      "method": "main",
+      "startLine": 90
+    },
+    {
       "crap": 12,
       "file": ".agents/scripts/git-pr-quality-gate.js",
       "method": "resolveChecks",
@@ -580,10 +634,28 @@
       "startLine": 96
     },
     {
-      "crap": 52.13343730874776,
+      "crap": 4,
+      "file": ".agents/scripts/git-pr-quality-gate.js",
+      "method": "formatCheckLine",
+      "startLine": 134
+    },
+    {
+      "crap": 2,
+      "file": ".agents/scripts/git-pr-quality-gate.js",
+      "method": "renderHumanReport",
+      "startLine": 146
+    },
+    {
+      "crap": 1,
+      "file": ".agents/scripts/git-pr-quality-gate.js",
+      "method": "parseSkipList",
+      "startLine": 168
+    },
+    {
+      "crap": 18.155775999999996,
       "file": ".agents/scripts/git-pr-quality-gate.js",
       "method": "main",
-      "startLine": 130
+      "startLine": 176
     },
     {
       "crap": 2,
@@ -808,22 +880,28 @@
       "startLine": 46
     },
     {
-      "crap": 4,
+      "crap": 15.664000000000001,
+      "file": ".agents/scripts/lib/close-validation.js",
+      "method": "defaultGetHeadSha",
+      "startLine": 71
+    },
+    {
+      "crap": 28.871525169045835,
       "file": ".agents/scripts/lib/close-validation.js",
       "method": "runCloseValidation",
-      "startLine": 77
+      "startLine": 112
     },
     {
       "crap": 20,
       "file": ".agents/scripts/lib/close-validation.js",
       "method": "projectMaintainabilityRegressions",
-      "startLine": 149
+      "startLine": 245
     },
     {
       "crap": 4,
       "file": ".agents/scripts/lib/close-validation.js",
       "method": "formatMaintainabilityProjection",
-      "startLine": 234
+      "startLine": 330
     },
     {
       "crap": 7,
@@ -835,13 +913,13 @@
       "crap": 2,
       "file": ".agents/scripts/lib/config-schema.js",
       "method": "getOrchestrationValidator",
-      "startLine": 265
+      "startLine": 326
     },
     {
       "crap": 2,
       "file": ".agents/scripts/lib/config-settings-schema.js",
       "method": "getSettingsValidator",
-      "startLine": 307
+      "startLine": 327
     },
     {
       "crap": 3,
@@ -868,16 +946,16 @@
       "startLine": 33
     },
     {
-      "crap": 5,
+      "crap": 7,
       "file": ".agents/scripts/lib/config/limits.js",
       "method": "resolveLimits",
-      "startLine": 46
+      "startLine": 52
     },
     {
       "crap": 1,
       "file": ".agents/scripts/lib/config/limits.js",
       "method": "getLimits",
-      "startLine": 70
+      "startLine": 84
     },
     {
       "crap": 3,
@@ -925,7 +1003,7 @@
       "crap": 1,
       "file": ".agents/scripts/lib/config/runners.js",
       "method": "getRunners",
-      "startLine": 27
+      "startLine": 32
     },
     {
       "crap": 4,
@@ -1138,6 +1216,30 @@
       "startLine": 238
     },
     {
+      "crap": 1,
+      "file": ".agents/scripts/lib/degraded-mode.js",
+      "method": "degraded",
+      "startLine": 23
+    },
+    {
+      "crap": 5,
+      "file": ".agents/scripts/lib/degraded-mode.js",
+      "method": "isDegraded",
+      "startLine": 30
+    },
+    {
+      "crap": 5,
+      "file": ".agents/scripts/lib/degraded-mode.js",
+      "method": "isGateMode",
+      "startLine": 45
+    },
+    {
+      "crap": 2,
+      "file": ".agents/scripts/lib/degraded-mode.js",
+      "method": "softFailOrThrow",
+      "startLine": 61
+    },
+    {
       "crap": 2,
       "file": ".agents/scripts/lib/dependency-parser.js",
       "method": "parseBlockedBy",
@@ -1300,16 +1402,22 @@
       "startLine": 164
     },
     {
-      "crap": 66.9497956685685,
+      "crap": 4,
+      "file": ".agents/scripts/lib/git-branch-lifecycle.js",
+      "method": "planEnsureEpicBranchRefAction",
+      "startLine": 235
+    },
+    {
+      "crap": 27.974001200274348,
       "file": ".agents/scripts/lib/git-branch-lifecycle.js",
       "method": "ensureEpicBranchRef",
-      "startLine": 223
+      "startLine": 240
     },
     {
       "crap": 5.20262390670554,
       "file": ".agents/scripts/lib/git-branch-lifecycle.js",
       "method": "ensureLocalBranch",
-      "startLine": 272
+      "startLine": 288
     },
     {
       "crap": 12,
@@ -1324,28 +1432,46 @@
       "startLine": 46
     },
     {
-      "crap": 50.993586005830906,
+      "crap": 3,
+      "file": ".agents/scripts/lib/git-merge-orchestrator.js",
+      "method": "classifyConflictSeverity",
+      "startLine": 83
+    },
+    {
+      "crap": 12,
+      "file": ".agents/scripts/lib/git-merge-orchestrator.js",
+      "method": "autoResolveAcceptingTheirs",
+      "startLine": 97
+    },
+    {
+      "crap": 20,
+      "file": ".agents/scripts/lib/git-merge-orchestrator.js",
+      "method": "commitAutoResolution",
+      "startLine": 128
+    },
+    {
+      "crap": 11.760932944606413,
       "file": ".agents/scripts/lib/git-merge-orchestrator.js",
       "method": "mergeFeatureBranch",
-      "startLine": 74
+      "startLine": 140
     },
     {
       "crap": 1.7513148009015778,
       "file": ".agents/scripts/lib/git-merge-orchestrator.js",
       "method": "buildAutoResolveTrailer",
-      "startLine": 153
+      "startLine": 177
     },
     {
       "crap": 1.512,
       "file": ".agents/scripts/lib/git-merge-orchestrator.js",
       "method": "cleanupCandidateBranch",
-      "startLine": 173
+      "startLine": 197
     },
     {
       "crap": 10.503358436800326,
       "file": ".agents/scripts/lib/git-merge-orchestrator.js",
       "method": "consolidateCandidate",
-      "startLine": 187
+      "startLine": 211
     },
     {
       "crap": 1,
@@ -1744,10 +1870,22 @@
       "startLine": 212
     },
     {
-      "crap": 6.078417924096937,
+      "crap": 3.002197265625,
+      "file": ".agents/scripts/lib/orchestration/doc-reader.js",
+      "method": "readDocsFromRoot",
+      "startLine": 6
+    },
+    {
+      "crap": 4.215959399632869,
       "file": ".agents/scripts/lib/orchestration/doc-reader.js",
       "method": "scrapeProjectDocs",
-      "startLine": 9
+      "startLine": 50
+    },
+    {
+      "crap": 1,
+      "file": ".agents/scripts/lib/orchestration/doc-reader.js",
+      "method": "buildDocsContext",
+      "startLine": 83
     },
     {
       "crap": 4.00390625,
@@ -2110,6 +2248,12 @@
       "startLine": 19
     },
     {
+      "crap": 17,
+      "file": ".agents/scripts/lib/orchestration/health-refresh-cadence.js",
+      "method": "decideRefresh",
+      "startLine": 45
+    },
+    {
       "crap": 1,
       "file": ".agents/scripts/lib/orchestration/label-transitions.js",
       "method": "toExecuting",
@@ -2231,6 +2375,66 @@
     },
     {
       "crap": 2,
+      "file": ".agents/scripts/lib/orchestration/planning-context-budget.js",
+      "method": "byteLen",
+      "startLine": 39
+    },
+    {
+      "crap": 3,
+      "file": ".agents/scripts/lib/orchestration/planning-context-budget.js",
+      "method": "extractHeadings",
+      "startLine": 44
+    },
+    {
+      "crap": 3,
+      "file": ".agents/scripts/lib/orchestration/planning-context-budget.js",
+      "method": "splitSections",
+      "startLine": 60
+    },
+    {
+      "crap": 5.0407083248524325,
+      "file": ".agents/scripts/lib/orchestration/planning-context-budget.js",
+      "method": "firstParagraph",
+      "startLine": 80
+    },
+    {
+      "crap": 4,
+      "file": ".agents/scripts/lib/orchestration/planning-context-budget.js",
+      "method": "summarizeDoc",
+      "startLine": 107
+    },
+    {
+      "crap": 2,
+      "file": ".agents/scripts/lib/orchestration/planning-context-budget.js",
+      "method": "normalizeItems",
+      "startLine": 139
+    },
+    {
+      "crap": 1,
+      "file": ".agents/scripts/lib/orchestration/planning-context-budget.js",
+      "method": "totalBytes",
+      "startLine": 149
+    },
+    {
+      "crap": 1,
+      "file": ".agents/scripts/lib/orchestration/planning-context-budget.js",
+      "method": "buildFullItems",
+      "startLine": 155
+    },
+    {
+      "crap": 2,
+      "file": ".agents/scripts/lib/orchestration/planning-context-budget.js",
+      "method": "buildSummaryItems",
+      "startLine": 163
+    },
+    {
+      "crap": 6,
+      "file": ".agents/scripts/lib/orchestration/planning-context-budget.js",
+      "method": "applyBudget",
+      "startLine": 186
+    },
+    {
+      "crap": 2,
       "file": ".agents/scripts/lib/orchestration/post-merge-pipeline.js",
       "method": "isWindowsReapLockFailure",
       "startLine": 43
@@ -2287,25 +2491,25 @@
       "crap": 2,
       "file": ".agents/scripts/lib/orchestration/post-merge-pipeline.js",
       "method": "dashboardRefreshPhase",
-      "startLine": 325
+      "startLine": 330
     },
     {
       "crap": 1,
       "file": ".agents/scripts/lib/orchestration/post-merge-pipeline.js",
       "method": "tempCleanupPhase",
-      "startLine": 347
+      "startLine": 352
     },
     {
       "crap": 3,
       "file": ".agents/scripts/lib/orchestration/post-merge-pipeline.js",
       "method": "runPostMergePipeline",
-      "startLine": 400
+      "startLine": 405
     },
     {
       "crap": 1,
       "file": ".agents/scripts/lib/orchestration/post-merge-pipeline.js",
       "method": "<anon method-4>",
-      "startLine": 413
+      "startLine": 418
     },
     {
       "crap": 4.05088540606554,
@@ -2467,55 +2671,55 @@
       "crap": 5,
       "file": ".agents/scripts/lib/orchestration/ticketing.js",
       "method": "isValidStructuredCommentType",
-      "startLine": 68
+      "startLine": 73
     },
     {
       "crap": 2,
       "file": ".agents/scripts/lib/orchestration/ticketing.js",
       "method": "assertValidStructuredCommentType",
-      "startLine": 84
+      "startLine": 89
     },
     {
       "crap": 9.088750297203926,
       "file": ".agents/scripts/lib/orchestration/ticketing.js",
       "method": "transitionTicketState",
-      "startLine": 106
+      "startLine": 111
     },
     {
       "crap": 6,
       "file": ".agents/scripts/lib/orchestration/ticketing.js",
       "method": "toggleTasklistCheckbox",
-      "startLine": 213
+      "startLine": 218
     },
     {
       "crap": 1,
       "file": ".agents/scripts/lib/orchestration/ticketing.js",
       "method": "postStructuredComment",
-      "startLine": 255
+      "startLine": 260
     },
     {
       "crap": 1,
       "file": ".agents/scripts/lib/orchestration/ticketing.js",
       "method": "structuredCommentMarker",
-      "startLine": 271
+      "startLine": 276
     },
     {
       "crap": 2,
       "file": ".agents/scripts/lib/orchestration/ticketing.js",
       "method": "findStructuredComment",
-      "startLine": 285
+      "startLine": 290
     },
     {
       "crap": 3.0987654320987654,
       "file": ".agents/scripts/lib/orchestration/ticketing.js",
       "method": "upsertStructuredComment",
-      "startLine": 309
+      "startLine": 314
     },
     {
       "crap": 5,
       "file": ".agents/scripts/lib/orchestration/ticketing.js",
       "method": "cascadeCompletion",
-      "startLine": 345
+      "startLine": 350
     },
     {
       "crap": 7,
@@ -2722,16 +2926,34 @@
       "startLine": 44
     },
     {
-      "crap": 53.118407999999995,
+      "crap": 4,
       "file": ".agents/scripts/lib/presentation/manifest-renderer.js",
-      "method": "postManifestEpicComment",
-      "startLine": 58
+      "method": "isEpicManifest",
+      "startLine": 55
     },
     {
-      "crap": 68.95290523983753,
+      "crap": 2,
+      "file": ".agents/scripts/lib/presentation/manifest-renderer.js",
+      "method": "providerCanPostComment",
+      "startLine": 66
+    },
+    {
+      "crap": 3,
+      "file": ".agents/scripts/lib/presentation/manifest-renderer.js",
+      "method": "classifyEpicCommentEligibility",
+      "startLine": 78
+    },
+    {
+      "crap": 11.425710939426317,
+      "file": ".agents/scripts/lib/presentation/manifest-renderer.js",
+      "method": "postManifestEpicComment",
+      "startLine": 93
+    },
+    {
+      "crap": 19.143044327573254,
       "file": ".agents/scripts/lib/presentation/manifest-renderer.js",
       "method": "postParkedFollowOnsComment",
-      "startLine": 117
+      "startLine": 148
     },
     {
       "crap": 5,
@@ -2836,7 +3058,7 @@
       "startLine": 194
     },
     {
-      "crap": 11.470728,
+      "crap": 11.500117546699625,
       "file": ".agents/scripts/lib/story-init/branch-initializer.js",
       "method": "bootstrapWorktree",
       "startLine": 210
@@ -2845,7 +3067,7 @@
       "crap": 2.2156598079561043,
       "file": ".agents/scripts/lib/story-init/branch-initializer.js",
       "method": "initializeBranch",
-      "startLine": 278
+      "startLine": 285
     },
     {
       "crap": 10.629221665908057,
@@ -2905,7 +3127,7 @@
       "crap": 1,
       "file": ".agents/scripts/lib/story-init/state-transitioner.js",
       "method": "transitionTaskStates",
-      "startLine": 25
+      "startLine": 30
     },
     {
       "crap": 3,
@@ -2918,6 +3140,12 @@
       "file": ".agents/scripts/lib/story-init/task-graph-builder.js",
       "method": "buildTaskGraph",
       "startLine": 44
+    },
+    {
+      "crap": 4,
+      "file": ".agents/scripts/lib/story-init/transition-summary.js",
+      "method": "postBatchedTransitionSummary",
+      "startLine": 22
     },
     {
       "crap": 3,
@@ -3058,6 +3286,60 @@
       "startLine": 20
     },
     {
+      "crap": 2,
+      "file": ".agents/scripts/lib/validation-evidence.js",
+      "method": "getEvidenceValidator",
+      "startLine": 53
+    },
+    {
+      "crap": 1,
+      "file": ".agents/scripts/lib/validation-evidence.js",
+      "method": "resolveOpts",
+      "startLine": 70
+    },
+    {
+      "crap": 1,
+      "file": ".agents/scripts/lib/validation-evidence.js",
+      "method": "evidencePath",
+      "startLine": 86
+    },
+    {
+      "crap": 3,
+      "file": ".agents/scripts/lib/validation-evidence.js",
+      "method": "hashCommandConfig",
+      "startLine": 99
+    },
+    {
+      "crap": 1,
+      "file": ".agents/scripts/lib/validation-evidence.js",
+      "method": "emptyDoc",
+      "startLine": 108
+    },
+    {
+      "crap": 4,
+      "file": ".agents/scripts/lib/validation-evidence.js",
+      "method": "loadEvidence",
+      "startLine": 126
+    },
+    {
+      "crap": 7.155836556075718,
+      "file": ".agents/scripts/lib/validation-evidence.js",
+      "method": "recordPass",
+      "startLine": 159
+    },
+    {
+      "crap": 8,
+      "file": ".agents/scripts/lib/validation-evidence.js",
+      "method": "shouldSkip",
+      "startLine": 205
+    },
+    {
+      "crap": 2,
+      "file": ".agents/scripts/lib/validation-evidence.js",
+      "method": "forceClear",
+      "startLine": 233
+    },
+    {
       "crap": 3,
       "file": ".agents/scripts/lib/workspace-provisioner.js",
       "method": "resolveWorkspaceFiles",
@@ -3190,7 +3472,7 @@
       "startLine": 121
     },
     {
-      "crap": 13.65781048528375,
+      "crap": 14.079913616377388,
       "file": ".agents/scripts/lib/worktree/lifecycle/creation.js",
       "method": "ensure",
       "startLine": 23
@@ -3388,10 +3670,40 @@
       "startLine": 142
     },
     {
-      "crap": 14.601392471214957,
+      "crap": 22.29835550291545,
       "file": ".agents/scripts/lib/worktree/node-modules-strategy.js",
       "method": "installDependencies",
-      "startLine": 192
+      "startLine": 205
+    },
+    {
+      "crap": 6,
+      "file": ".agents/scripts/lint-baseline.js",
+      "method": "parseLintOutput",
+      "startLine": 19
+    },
+    {
+      "crap": 2.002314814814815,
+      "file": ".agents/scripts/lint-baseline.js",
+      "method": "runLintCommand",
+      "startLine": 41
+    },
+    {
+      "crap": 10.962623999999998,
+      "file": ".agents/scripts/lint-baseline.js",
+      "method": "captureBaseline",
+      "startLine": 78
+    },
+    {
+      "crap": 53.508964082168184,
+      "file": ".agents/scripts/lint-baseline.js",
+      "method": "checkBaseline",
+      "startLine": 104
+    },
+    {
+      "crap": 27.917784256559766,
+      "file": ".agents/scripts/lint-baseline.js",
+      "method": "main",
+      "startLine": 163
     },
     {
       "crap": 1,
@@ -3406,10 +3718,16 @@
       "startLine": 59
     },
     {
-      "crap": 52.93841441684405,
+      "crap": 5,
+      "file": ".agents/scripts/post-structured-comment.js",
+      "method": "validateRequiredArgs",
+      "startLine": 82
+    },
+    {
+      "crap": 18.589086456855053,
       "file": ".agents/scripts/post-structured-comment.js",
       "method": "main",
-      "startLine": 74
+      "startLine": 93
     },
     {
       "crap": 1,
@@ -3652,28 +3970,52 @@
       "startLine": 123
     },
     {
-      "crap": 69.00049990601768,
+      "crap": 3,
+      "file": ".agents/scripts/providers/github/projects.js",
+      "method": "isScopesMissingEnvelope",
+      "startLine": 139
+    },
+    {
+      "crap": 10.503358436800326,
+      "file": ".agents/scripts/providers/github/projects.js",
+      "method": "resolveExistingProject",
+      "startLine": 151
+    },
+    {
+      "crap": 5.146108329540283,
+      "file": ".agents/scripts/providers/github/projects.js",
+      "method": "lookupOwnerNodeId",
+      "startLine": 174
+    },
+    {
+      "crap": 10.8276671675432,
+      "file": ".agents/scripts/providers/github/projects.js",
+      "method": "createProjectForOwner",
+      "startLine": 193
+    },
+    {
+      "crap": 26.743519909842227,
       "file": ".agents/scripts/providers/github/projects.js",
       "method": "resolveOrCreateProject",
-      "startLine": 137
+      "startLine": 221
     },
     {
       "crap": 8.28596132709139,
       "file": ".agents/scripts/providers/github/projects.js",
       "method": "ensureStatusField",
-      "startLine": 206
+      "startLine": 249
     },
     {
       "crap": 6.359705052344106,
       "file": ".agents/scripts/providers/github/projects.js",
       "method": "ensureProjectViews",
-      "startLine": 298
+      "startLine": 341
     },
     {
       "crap": 35.40589298923317,
       "file": ".agents/scripts/providers/github/projects.js",
       "method": "ensureProjectFields",
-      "startLine": 365
+      "startLine": 408
     },
     {
       "crap": 4.012021036814425,
@@ -3808,148 +4150,124 @@
       "startLine": 116
     },
     {
-      "crap": 2,
-      "file": ".agents/scripts/run-audit-suite.js",
-      "method": "loadWorkflow",
-      "startLine": 55
-    },
-    {
-      "crap": 1,
-      "file": ".agents/scripts/run-audit-suite.js",
-      "method": "escapeRegExp",
-      "startLine": 65
-    },
-    {
-      "crap": 1,
-      "file": ".agents/scripts/run-audit-suite.js",
-      "method": "applySubstitutions",
-      "startLine": 69
-    },
-    {
-      "crap": 2,
-      "file": ".agents/scripts/run-audit-suite.js",
-      "method": "computeAllowedKeys",
-      "startLine": 86
-    },
-    {
-      "crap": 6.013477319540139,
-      "file": ".agents/scripts/run-audit-suite.js",
-      "method": "runAuditSuite",
-      "startLine": 120
-    },
-    {
-      "crap": 1.800655976676385,
-      "file": ".agents/scripts/run-audit-suite.js",
-      "method": "parseCliArgs",
-      "startLine": 232
-    },
-    {
-      "crap": 6,
-      "file": ".agents/scripts/run-audit-suite.js",
-      "method": "parseSubstitutionPairs",
-      "startLine": 247
-    },
-    {
-      "crap": 67.07916605919232,
-      "file": ".agents/scripts/run-audit-suite.js",
-      "method": "main",
-      "startLine": 264
-    },
-    {
       "crap": 1,
       "file": ".agents/scripts/select-audits.js",
       "method": "matchesFilePattern",
-      "startLine": 55
+      "startLine": 56
     },
     {
       "crap": 3,
       "file": ".agents/scripts/select-audits.js",
       "method": "matchesAnyFilePattern",
-      "startLine": 63
+      "startLine": 64
     },
     {
-      "crap": 13.013022162719244,
+      "crap": 13.034398534500305,
       "file": ".agents/scripts/select-audits.js",
       "method": "selectAudits",
-      "startLine": 85
+      "startLine": 95
     },
     {
       "crap": 1,
       "file": ".agents/scripts/select-audits.js",
       "method": "<anon method-4>",
-      "startLine": 114
+      "startLine": 125
     },
     {
-      "crap": 1.7865270823850707,
+      "crap": 1.800655976676385,
       "file": ".agents/scripts/select-audits.js",
       "method": "parseCliArgs",
-      "startLine": 180
+      "startLine": 198
     },
     {
-      "crap": 27.323832749072807,
+      "crap": 52.73444543576259,
       "file": ".agents/scripts/select-audits.js",
       "method": "main",
-      "startLine": 194
+      "startLine": 213
     },
     {
       "crap": 4,
       "file": ".agents/scripts/sprint-code-review.js",
       "method": "parseLintOutput",
-      "startLine": 55
-    },
-    {
-      "crap": 2,
-      "file": ".agents/scripts/sprint-code-review.js",
-      "method": "runLint",
-      "startLine": 91
+      "startLine": 59
     },
     {
       "crap": 3,
       "file": ".agents/scripts/sprint-code-review.js",
+      "method": "partitionFilesForLint",
+      "startLine": 107
+    },
+    {
+      "crap": 20,
+      "file": ".agents/scripts/sprint-code-review.js",
+      "method": "resolveCurrentSha",
+      "startLine": 123
+    },
+    {
+      "crap": 2,
+      "file": ".agents/scripts/sprint-code-review.js",
+      "method": "spawnLintRunner",
+      "startLine": 130
+    },
+    {
+      "crap": 6,
+      "file": ".agents/scripts/sprint-code-review.js",
+      "method": "runScopedLint",
+      "startLine": 155
+    },
+    {
+      "crap": 6,
+      "file": ".agents/scripts/sprint-code-review.js",
       "method": "parseReviewArgs",
-      "startLine": 112
+      "startLine": 204
+    },
+    {
+      "crap": 10.078743741465637,
+      "file": ".agents/scripts/sprint-code-review.js",
+      "method": "buildLintEvidenceConfig",
+      "startLine": 239
     },
     {
       "crap": 6,
       "file": ".agents/scripts/sprint-code-review.js",
       "method": "classifyChangedFile",
-      "startLine": 138
+      "startLine": 261
     },
     {
       "crap": 7,
       "file": ".agents/scripts/sprint-code-review.js",
       "method": "analyzeChangedFiles",
-      "startLine": 178
+      "startLine": 301
     },
     {
       "crap": 3,
       "file": ".agents/scripts/sprint-code-review.js",
       "method": "buildSeverity",
-      "startLine": 206
+      "startLine": 329
     },
     {
-      "crap": 3,
+      "crap": 5,
       "file": ".agents/scripts/sprint-code-review.js",
       "method": "buildLintLine",
-      "startLine": 216
+      "startLine": 339
     },
     {
       "crap": 4,
       "file": ".agents/scripts/sprint-code-review.js",
       "method": "tierLabel",
-      "startLine": 226
+      "startLine": 355
     },
     {
       "crap": 3,
       "file": ".agents/scripts/sprint-code-review.js",
       "method": "buildReviewReport",
-      "startLine": 234
+      "startLine": 363
     },
     {
-      "crap": 30,
+      "crap": 272,
       "file": ".agents/scripts/sprint-code-review.js",
       "method": "main",
-      "startLine": 281
+      "startLine": 410
     },
     {
       "crap": 3,
@@ -4006,7 +4324,7 @@
       "startLine": 75
     },
     {
-      "crap": 10.657100677490234,
+      "crap": 14.568118889891624,
       "file": ".agents/scripts/sprint-plan-decompose.js",
       "method": "main",
       "startLine": 146
@@ -4030,7 +4348,7 @@
       "startLine": 118
     },
     {
-      "crap": 13.552779375907509,
+      "crap": 17.864976672984398,
       "file": ".agents/scripts/sprint-plan-spec.js",
       "method": "main",
       "startLine": 185
@@ -4156,7 +4474,7 @@
       "startLine": 541
     },
     {
-      "crap": 27.226221533226354,
+      "crap": 27.52590498303476,
       "file": ".agents/scripts/sprint-story-close.js",
       "method": "runStoryClose",
       "startLine": 584
@@ -4165,79 +4483,103 @@
       "crap": 1,
       "file": ".agents/scripts/sprint-story-close.js",
       "method": "<anon method-5>",
-      "startLine": 638
+      "startLine": 639
     },
     {
       "crap": 2,
       "file": ".agents/scripts/sprint-story-close.js",
       "method": "<anon method-6>",
-      "startLine": 717
+      "startLine": 718
     },
     {
       "crap": 12,
       "file": ".agents/scripts/sprint-story-close.js",
       "method": "<anon method-7>",
-      "startLine": 718
+      "startLine": 719
     },
     {
       "crap": 1,
       "file": ".agents/scripts/sprint-story-close.js",
       "method": "<anon method-8>",
-      "startLine": 807
+      "startLine": 810
     },
     {
       "crap": 1,
       "file": ".agents/scripts/sprint-story-close.js",
       "method": "<anon method-9>",
-      "startLine": 807
+      "startLine": 810
     },
     {
       "crap": 3.0416666666666665,
       "file": ".agents/scripts/sprint-story-close.js",
       "method": "<anon method-10>",
-      "startLine": 922
+      "startLine": 925
     },
     {
       "crap": 1,
       "file": ".agents/scripts/sprint-story-init.js",
       "method": "<anon method-1>",
-      "startLine": 60
+      "startLine": 63
     },
     {
       "crap": 1,
       "file": ".agents/scripts/sprint-story-init.js",
       "method": "<anon method-2>",
-      "startLine": 61
+      "startLine": 64
     },
     {
-      "crap": 16.123867001579033,
+      "crap": 18.68350474730906,
       "file": ".agents/scripts/sprint-story-init.js",
       "method": "runStoryInit",
-      "startLine": 74
+      "startLine": 77
     },
     {
       "crap": 1,
       "file": ".agents/scripts/sprint-story-init.js",
       "method": "<anon method-3>",
-      "startLine": 105
+      "startLine": 108
     },
     {
       "crap": 1,
       "file": ".agents/scripts/sprint-story-init.js",
       "method": "<anon method-4>",
-      "startLine": 227
+      "startLine": 114
+    },
+    {
+      "crap": 1,
+      "file": ".agents/scripts/sprint-story-init.js",
+      "method": "<anon method-5>",
+      "startLine": 240
     },
     {
       "crap": 1,
       "file": ".agents/scripts/sprint-story-init.js",
       "method": "buildStoryInitResult",
-      "startLine": 309
+      "startLine": 367
+    },
+    {
+      "crap": 3.072,
+      "file": ".agents/scripts/sprint-story-init.js",
+      "method": "mapDependenciesInstalled",
+      "startLine": 420
+    },
+    {
+      "crap": 1.0046296296296295,
+      "file": ".agents/scripts/sprint-story-init.js",
+      "method": "postStoryInitComment",
+      "startLine": 431
+    },
+    {
+      "crap": 1,
+      "file": ".agents/scripts/sprint-story-init.js",
+      "method": "renderStoryInitCommentBody",
+      "startLine": 457
     },
     {
       "crap": 2,
       "file": ".agents/scripts/sprint-story-init.js",
       "method": "emitStoryInitResult",
-      "startLine": 348
+      "startLine": 485
     },
     {
       "crap": 3.072,

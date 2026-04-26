@@ -261,8 +261,14 @@ The script:
 
 - `workCwd` — absolute path where you run all subsequent commands.
 - `worktreeEnabled` — whether worktree isolation is active.
+- `dependenciesInstalled` — `'true' | 'false' | 'skipped'` (see Step 0.5).
+- `installStatus` — structured `{ status, reason }` behind the tri-state.
 - `tasks[]` — dependency-ordered list of child Tasks to implement.
 - `context.prdId`, `context.techSpecId` — fetch these before coding.
+
+The same fields are upserted as a `story-init` structured comment on the
+Story ticket so downstream workflow steps can read them via
+`gh issue view <storyId> --json comments` without re-running init.
 
 > **Dry-run**: Add `--dry-run` to check status without git or ticket changes. No
 > worktree is created.
@@ -277,10 +283,20 @@ All subsequent git commands, test runs, and Step 3 closure run from this
 directory. In worktree-enabled mode this is `.worktrees/story-<id>/`; in
 single-tree mode it is the main checkout.
 
-**Dependency install:** When worktree isolation is enabled, the worktree is a
-fresh checkout with no `node_modules/`. Step 0 runs `npm ci` (or the lock-file
-appropriate equivalent) automatically during worktree creation. If `workCwd` has
-no `node_modules/` directory, run install before proceeding:
+**Dependency install:** Read `dependenciesInstalled` from the Step 0 stdout
+JSON (or, when resuming a previously-initialized Story, from the `story-init`
+structured comment on the Story ticket — `gh issue view <storyId> --json
+comments | jq -r '.comments[] | select(.body | contains("ap:structured-comment
+type=\"story-init\""))'`). Do **not** infer install state from the presence
+or absence of `node_modules/`.
+
+| `dependenciesInstalled` | Meaning                                                                                              | Agent action                                                       |
+| ----------------------- | ---------------------------------------------------------------------------------------------------- | ------------------------------------------------------------------ |
+| `true`                  | Per-worktree install ran and succeeded.                                                              | Proceed.                                                           |
+| `false`                 | Install was attempted and failed.                                                                    | Run the appropriate install command before implementing tasks.    |
+| `skipped`               | No per-worktree install was performed (single-tree mode, reused worktree, `symlink`, `pnpm-store`). | Trust the strategy; only install if a downstream tool errors out.  |
+
+If `dependenciesInstalled === 'false'`, run the install:
 
 ```powershell
 npm ci    # or: pnpm install --frozen-lockfile / yarn install --frozen-lockfile
@@ -320,20 +336,28 @@ For **each child Task** in the order returned by `sprint-story-init.js`:
 > procedure in
 > [`helpers/_merge-conflict-template.md`](helpers/_merge-conflict-template.md).
 
-### Step 2 — Validate
+### Step 2 — Validate (deferred to close)
 
-After all Tasks are implemented, run shift-left validation in the worktree:
+`sprint-story-close.js` runs the canonical close-validation chain (lint, test,
+format, maintainability) before it merges — **do not** pre-run `npm run lint`
+and `npm test` here unless you are interactively iterating on a fix. The close
+script's gate is authoritative; pre-running them in headless sub-agent runs
+just doubles the wall-clock cost of every Story.
+
+**Interactive `--fast` advisory mode.** When iterating in your own terminal and
+you want a fast pre-flight before invoking close, run:
 
 ```powershell
 npm run lint
 npm test
 ```
 
-If tests or lint fail:
+Treat the output as advisory: failures here will be re-surfaced by
+`sprint-story-close.js` regardless. If you spot a regression, fix it on the
+Story branch and commit before proceeding to Step 3.
 
-- Fix the issues and commit corrections.
-- If blocked (e.g. upstream dependency missing): post a friction comment and
-  apply `agent::blocked`.
+If genuinely blocked (e.g. upstream dependency missing): post a friction comment
+and apply `agent::blocked`.
 
 ### Step 3 — Close (`sprint-story-close.js`)
 

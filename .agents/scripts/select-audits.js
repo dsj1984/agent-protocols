@@ -31,6 +31,7 @@ import {
   PROJECT_ROOT,
   resolveConfig,
 } from './lib/config-resolver.js';
+import { isDegraded, softFailOrThrow } from './lib/degraded-mode.js';
 import { gitSpawn } from './lib/git-utils.js';
 import { createProvider } from './lib/provider-factory.js';
 import { withTimeout } from './lib/util/with-timeout.js';
@@ -81,6 +82,15 @@ export function matchesAnyFilePattern(patterns, files) {
  * @param {number} [params.gitTimeoutMsOverride]
  *   Test-only seam to shrink the git-spawn timeout below the configured default
  *   (which is 30_000 ms) so timeout tests don't stall the suite.
+ * @param {{ argv?: string[], env?: NodeJS.ProcessEnv }} [params.gateModeOpts]
+ *   Test-only seam to drive the `--gate-mode` / `AGENT_PROTOCOLS_GATE_MODE=1`
+ *   detection; production callers leave unset and `isGateMode` reads
+ *   `process.argv` / `process.env`.
+ *
+ * Returns either the success envelope (`{ selectedAudits, ticketId, gate, context }`)
+ * OR the degraded envelope (`{ ok: false, degraded: true, reason, detail }`)
+ * when the git-diff probe times out and gate-mode is unset. In gate-mode,
+ * the same condition throws.
  */
 export async function selectAudits({
   ticketId,
@@ -89,6 +99,7 @@ export async function selectAudits({
   baseBranch = 'main',
   injectedGitSpawn,
   gitTimeoutMsOverride,
+  gateModeOpts,
 }) {
   const { settings } = resolveConfig();
   const timeoutMs = gitTimeoutMsOverride ?? DEFAULT_GIT_TIMEOUT_MS;
@@ -128,10 +139,17 @@ export async function selectAudits({
     }
   } catch (err) {
     if (err?.code === 'ETIMEDOUT') {
-      console.warn(
-        `[select-audits] git-spawn timed out after ${timeoutMs} ms; falling back to keyword-only matching`,
+      // Soft-fail contract (Tech Spec #819): in default mode, return a
+      // degraded envelope so the caller sees the explicit signal instead of
+      // silently falling through to keyword-only matching. In gate-mode,
+      // hard-fail closed.
+      return softFailOrThrow(
+        'GIT_DIFF_TIMEOUT',
+        `select-audits: git diff against ${baseBranch} timed out after ${timeoutMs} ms`,
+        gateModeOpts,
       );
     }
+    throw err;
   }
 
   const selectedAudits = [];
@@ -184,6 +202,7 @@ export function parseCliArgs(argv) {
       ticket: { type: 'string' },
       gate: { type: 'string' },
       'base-branch': { type: 'string' },
+      'gate-mode': { type: 'boolean' },
       help: { type: 'boolean' },
     },
     strict: false,
@@ -215,8 +234,25 @@ export async function main(argv = process.argv.slice(2)) {
   const { orchestration } = resolveConfig();
   const provider = createProvider(orchestration);
 
-  const result = await selectAudits({ ticketId, gate, provider, baseBranch });
+  const gateModeOpts = {
+    argv: values['gate-mode'] ? ['--gate-mode'] : [],
+    env: process.env,
+  };
+  const result = await selectAudits({
+    ticketId,
+    gate,
+    provider,
+    baseBranch,
+    gateModeOpts,
+  });
   process.stdout.write(`${JSON.stringify(result)}\n`);
+  if (isDegraded(result)) {
+    // Structured-degraded contract: print the envelope to stdout (above) so
+    // callers can parse `degraded: true`, then exit non-zero so shell-level
+    // pipelines also see the soft-fail. Gate-mode never reaches here — it
+    // throws instead, and runAsCli's default handler exits 1.
+    process.exit(1);
+  }
 }
 
 runAsCli(import.meta.url, main, { source: 'select-audits' });

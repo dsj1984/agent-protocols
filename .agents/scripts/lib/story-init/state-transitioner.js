@@ -16,10 +16,15 @@ import { batchTransitionTickets } from '../story-lifecycle.js';
  * @param {object} [deps.logger]
  * @param {object} deps.input
  * @param {Array<object>} deps.input.tasks
- * @param {Function|null} [deps.input.notify]
+ * @param {Function|null} [deps.input.notify] - Per-task notify hook. Pass a
+ *   skipComment-aware wrapper so per-task webhooks fire individually but the
+ *   comment fanout is consolidated into one Story-level summary by the caller
+ *   (see `postBatchedTransitionSummary`).
  * @returns {Promise<{
  *   ok: boolean,
  *   failed: Array<{id:number,attempts:number,error:string}>,
+ *   transitioned: number[],
+ *   skipped: number[],
  * }>}
  */
 export async function transitionTaskStates({ provider, logger, input }) {
@@ -40,5 +45,7 @@ export async function transitionTaskStates({ provider, logger, input }) {
   return {
     ok: transitionResult.failed.length === 0,
     failed: transitionResult.failed,
+    transitioned: transitionResult.transitioned,
+    skipped: transitionResult.skipped,
   };
 }

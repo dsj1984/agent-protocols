@@ -2,7 +2,10 @@ import assert from 'node:assert';
 import { spawnSync } from 'node:child_process';
 import path from 'node:path';
 import { test } from 'node:test';
-import { runStoryInit } from '../.agents/scripts/sprint-story-init.js';
+import {
+  renderStoryInitCommentBody,
+  runStoryInit,
+} from '../.agents/scripts/sprint-story-init.js';
 
 const SCRIPT_PATH = path.resolve('.agents/scripts/sprint-story-init.js');
 
@@ -105,6 +108,15 @@ test('runStoryInit dry-run composes all stages end-to-end', async () => {
   assert.strictEqual(r.worktreeEnabled, false);
   assert.strictEqual(r.worktreeCreated, false);
   assert.strictEqual(r.dryRun, true);
+  // Dry-run never executes the branch-initializer, so installStatus stays
+  // at the dry-run sentinel and `dependenciesInstalled` collapses to
+  // 'skipped' for the workflow.
+  assert.deepStrictEqual(r.installStatus, {
+    status: 'skipped',
+    reason: 'dry-run',
+  });
+  assert.strictEqual(r.dependenciesInstalled, 'skipped');
+  assert.strictEqual(r.installFailed, false);
   assert.deepStrictEqual(r.context, {
     featureId: 500,
     prdId: 401,
@@ -158,6 +170,62 @@ test('runStoryInit short-circuits with {blocked:true} when blockers are open', a
   assert.strictEqual(out.openBlockers[0].id, 999);
   // Must not reach the task-graph stage after a blocker short-circuit.
   assert.deepStrictEqual(provider.calls.getSubTickets, []);
+});
+
+test('renderStoryInitCommentBody surfaces dependenciesInstalled tri-state + installStatus', () => {
+  const body = renderStoryInitCommentBody({
+    storyId: 701,
+    epicId: 400,
+    storyBranch: 'story-701',
+    epicBranch: 'epic/400',
+    worktreeEnabled: true,
+    workCwd: '/tmp/wt/story-701',
+    worktreeCreated: true,
+    dependenciesInstalled: 'true',
+    installStatus: { status: 'installed' },
+  });
+  assert.match(body, /## Story init/);
+  assert.match(body, /\*\*dependenciesInstalled:\*\* `true`/);
+  assert.match(body, /\*\*installStatus.status:\*\* `installed`/);
+  // Embedded JSON block is canonical for downstream `jq` extraction.
+  const jsonBlock = body.match(/```json\n([\s\S]*?)\n```/)?.[1];
+  assert.ok(jsonBlock, 'expected fenced JSON payload');
+  const payload = JSON.parse(jsonBlock);
+  assert.strictEqual(payload.dependenciesInstalled, 'true');
+  assert.deepStrictEqual(payload.installStatus, { status: 'installed' });
+  assert.strictEqual(payload.workCwd, '/tmp/wt/story-701');
+});
+
+test('renderStoryInitCommentBody handles failed install', () => {
+  const body = renderStoryInitCommentBody({
+    storyId: 1,
+    epicId: 2,
+    storyBranch: 'story-1',
+    epicBranch: 'epic/2',
+    worktreeEnabled: true,
+    workCwd: '/tmp/wt',
+    worktreeCreated: true,
+    dependenciesInstalled: 'false',
+    installStatus: { status: 'failed', reason: 'install-command-nonzero' },
+  });
+  assert.match(body, /\*\*dependenciesInstalled:\*\* `false`/);
+  assert.match(body, /\*\*installStatus.reason:\*\* `install-command-nonzero`/);
+});
+
+test('renderStoryInitCommentBody handles skipped install', () => {
+  const body = renderStoryInitCommentBody({
+    storyId: 1,
+    epicId: 2,
+    storyBranch: 'story-1',
+    epicBranch: 'epic/2',
+    worktreeEnabled: false,
+    workCwd: '/repo',
+    worktreeCreated: false,
+    dependenciesInstalled: 'skipped',
+    installStatus: { status: 'skipped', reason: 'single-tree-mode' },
+  });
+  assert.match(body, /\*\*dependenciesInstalled:\*\* `skipped`/);
+  assert.match(body, /\*\*installStatus.reason:\*\* `single-tree-mode`/);
 });
 
 test('runStoryInit rejects an issue that is not a type::story', async () => {

@@ -961,6 +961,8 @@ local ▶ │ pre-push (.husky/pre-push):           │
 close ▶ │ close-validation DEFAULT_GATES:       │
         │   lint → test → biome format →        │
         │   check-maintainability → check-crap  │
+        │   (each gate skips when SHA-keyed     │
+        │    evidence still matches; #817)      │
         └───────────────────┬───────────────────┘
                             │
         ┌───────────────────▼───────────────────┐
@@ -973,6 +975,16 @@ CI    ▶ │ ci.yml:                               │
         │   review::baseline-refresh label      │
         └───────────────────────────────────────┘
 ```
+
+### Evidence-aware gate caching (Epic #817, v5.28.0+)
+
+Local close-validation, sprint-code-review, and sprint-close Phase 4 wrap
+each gate in `evidence-gate.js`. On a successful run the wrapper records
+`{ gateName, commitSha, commandConfigHash, timestamp }` in
+`temp/validation-evidence-<scopeId>.json` (gitignored). Subsequent invocations
+against the same `git rev-parse HEAD` and resolved command config skip in
+milliseconds. `--no-evidence` forces a re-run; pre-push and CI ignore the
+evidence file entirely so independent verification is never bypassed.
 
 All three sites converge on the same `check-crap.js` binary and the same
 `baselines/crap.json` artifact, so a regression caught at any one site fails

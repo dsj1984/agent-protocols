@@ -94,6 +94,45 @@ const WORKTREE_ISOLATION_SCHEMA = {
   ],
 };
 
+/**
+ * `orchestration.runners.epicRunner.healthRefresh` — cadence for the
+ * push-based sprint health monitor. Each story-close runs the health refresh,
+ * which re-fetches Epic tickets and per-task comments. For large Epics this
+ * is the dominant fanout in the post-merge pipeline. The cadence knob lets
+ * operators trade refresh frequency against per-close cost.
+ *
+ *   - `every-close` — current behaviour; refresh on every story-close.
+ *   - `every-n-closes` — refresh once per N closes (paired with
+ *     `everyNCloses`).
+ *   - `wave-boundary` (default) — refresh only when the closing story sits in
+ *     a wave higher than any previously-refreshed wave. Cheapest cadence for
+ *     a long Epic with many stories per wave.
+ *   - `min-interval` — refresh at most once every `minIntervalSec` seconds.
+ *
+ * `everyNCloses` and `minIntervalSec` are nullable so the canonical wave-
+ * boundary default doesn't have to declare unused pairings.
+ */
+const HEALTH_REFRESH_SCHEMA = {
+  type: 'object',
+  properties: {
+    cadence: {
+      type: 'string',
+      enum: ['every-close', 'every-n-closes', 'wave-boundary', 'min-interval'],
+    },
+    everyNCloses: { type: ['integer', 'null'], minimum: 1 },
+    minIntervalSec: { type: ['integer', 'null'], minimum: 30 },
+  },
+  required: ['cadence'],
+  additionalProperties: false,
+};
+
+/** Default applied when `orchestration.runners.epicRunner.healthRefresh` is absent. */
+export const DEFAULT_HEALTH_REFRESH = Object.freeze({
+  cadence: 'wave-boundary',
+  everyNCloses: null,
+  minIntervalSec: null,
+});
+
 const EPIC_RUNNER_SCHEMA = {
   type: 'object',
   properties: {
@@ -103,6 +142,7 @@ const EPIC_RUNNER_SCHEMA = {
     progressReportIntervalSec: { type: 'integer', minimum: 0 },
     idleTimeoutSec: { type: 'integer', minimum: 0 },
     logsDir: SAFE_STRING,
+    healthRefresh: HEALTH_REFRESH_SCHEMA,
   },
   additionalProperties: false,
   // `concurrencyCap` is required only when the epic runner is active.
@@ -205,11 +245,31 @@ const CONCURRENCY_SCHEMA = {
 };
 
 /**
+ * `orchestration.runners.decomposer` — bounded-concurrency knob for the
+ * staged Feature/Story/Task creation pass in `ticket-decomposer.js`.
+ * `concurrencyCap` controls the maximum number of in-flight `provider.createTicket`
+ * calls per type-pass. Default `3` matches the `DEFAULT_DECOMPOSER.concurrencyCap`
+ * applied by `getRunners`.
+ */
+const DECOMPOSER_SCHEMA = {
+  type: 'object',
+  properties: {
+    concurrencyCap: { type: 'integer', minimum: 1 },
+  },
+  additionalProperties: false,
+};
+
+/** Default applied when `orchestration.runners.decomposer` is absent or incomplete. */
+export const DEFAULT_DECOMPOSER = Object.freeze({
+  concurrencyCap: 3,
+});
+
+/**
  * `orchestration.runners` — typed grouping of every runner-flavoured sub-block
- * (epicRunner, planRunner, concurrency, closeRetry, poolMode) introduced in
- * Epic #773 Story 7. Replaces the prior flat layout where each sub-block sat
- * directly under `orchestration`. Each sub-schema is preserved byte-for-byte;
- * only the parent location changes.
+ * (epicRunner, planRunner, concurrency, closeRetry, poolMode, decomposer)
+ * introduced in Epic #773 Story 7. Replaces the prior flat layout where each
+ * sub-block sat directly under `orchestration`. Each sub-schema is preserved
+ * byte-for-byte; only the parent location changes.
  */
 const RUNNERS_SCHEMA = {
   type: 'object',
@@ -219,6 +279,7 @@ const RUNNERS_SCHEMA = {
     concurrency: CONCURRENCY_SCHEMA,
     closeRetry: CLOSE_RETRY_SCHEMA,
     poolMode: POOL_MODE_SCHEMA,
+    decomposer: DECOMPOSER_SCHEMA,
   },
   additionalProperties: false,
 };

@@ -1220,3 +1220,74 @@ submodule paths are internal implementation detail.
         scrub + modules purge continue as before.
     *   The retained fs-rm fallback still covers the true Windows-lock
         case it was designed for.
+
+## ADR-20260426-817a: Validation evidence is keyed by commit SHA, not by build ID
+
+*   **Status:** Accepted (Epic #817, v5.28.0).
+*   **Context:** Epic #817's hot-path audit found lint and tests running
+    five-plus times per Story against the same tree (sprint-execute Step 2,
+    story-close, sprint-code-review, sprint-close Phase 4, pre-push, CI).
+    The dominant local cost was repeat work, not new work, and the
+    duplicate runs were the largest source of agents chasing the same
+    failure across phases. We needed a skip mechanism that did not let a
+    stale pass paper over a fresh regression.
+*   **Decision:** Each successful gate (lint, test, biome format, MI, CRAP)
+    writes `{ gateName, commitSha, commandConfigHash, timestamp, exitCode }`
+    to `temp/validation-evidence-<scopeId>.json`. A subsequent caller skips
+    the gate **only** when the current `git rev-parse HEAD` matches the
+    recorded `commitSha` AND the resolved command-config hash matches.
+    Anything else — dirty tree, new commit, config change, missing
+    evidence file — runs the gate. `--no-evidence` is the explicit override
+    for iterating on a flaky test.
+*   **Consequences:**
+    *   Repeat phases against an unchanged tree skip in milliseconds.
+    *   False-green risk stays bounded: any working-tree change at the
+        commit-SHA granularity invalidates the evidence; config drift
+        invalidates it via the command-config hash.
+    *   Evidence is `temp/`-local and gitignored, so the skip is per-clone
+        — CI gets its own evidence record (or none), and pre-push hooks
+        retain authoritative independence.
+
+## ADR-20260426-817b: `sprint-story-close` is the canonical local Story validation gate
+
+*   **Status:** Accepted (Epic #817, v5.28.0).
+*   **Context:** `sprint-execute.md` Step 2 used to require an explicit
+    `npm run lint && npm test` before invoking `sprint-story-close.js`,
+    which then re-ran the same gates as part of close-validation. Headless
+    sub-agent runs paid the cost twice; interactive runs blurred the
+    decision of which result was authoritative. With evidence-aware skip
+    in place (#817a), the duplication was no longer needed for safety.
+*   **Decision:** `sprint-story-close.js` is the single source of truth
+    for local Story merge readiness. The pre-flight `npm run lint &&
+    npm test` is now described as advisory `--fast` mode for interactive
+    iteration — failures will be re-surfaced by the close-validation gate
+    regardless. Sub-agent runs may proceed straight from implementation
+    to close.
+*   **Consequences:**
+    *   Per-Story wall-clock cost roughly halves on sub-agent runs.
+    *   Operator authority is unambiguous: the close gate's verdict is
+        the verdict.
+    *   Interactive `--fast` mode remains useful in terminals where the
+        operator wants a fast read on a fix before composing the close.
+
+## ADR-20260426-817c: Soft-failing gates surface degraded state explicitly, not silently
+
+*   **Status:** Accepted (Epic #817, v5.28.0).
+*   **Context:** `select-audits.js` (diff timeout fallback to keyword-only),
+    `lint-baseline.js` (zero-error fallback on JSON parse failure), and
+    `baseline-refresh-guardrail.js` (empty-changed-files on `git diff`
+    failure) all returned permissive zero-error envelopes when their
+    inputs failed. The audit found this fail-open behaviour produced
+    silent green runs that read identically to genuine clean runs.
+*   **Decision:** Each soft-failing gate either fails closed under
+    `--gate-mode` (or `AGENT_PROTOCOLS_GATE_MODE=1`) — non-zero exit, no
+    permissive output — or returns a structured `{ ok: false, degraded:
+    true, reason, detail }` envelope on stdout with a non-zero exit code.
+    The caller decides how to interpret. The mute fail-open path is gone.
+*   **Consequences:**
+    *   Operators can no longer mistake a degraded run for a clean one.
+    *   CI / pre-push integrations that previously absorbed the silent
+        green now see explicit degraded output and may need a one-line
+        adjustment to their handling.
+    *   The structured envelope shape is consistent across all three
+        gates so a single helper detects degradation.

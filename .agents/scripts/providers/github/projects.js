@@ -130,52 +130,69 @@ export async function addItemToProject(ctx, contentNodeId) {
 }
 
 /**
- * Resolve the configured Project, or create one if `projectNumber` is not
- * set. On insufficient scopes returns `{ scopesMissing: true }` so bootstrap
- * can degrade.
+ * Pure: detect the soft-degrade envelope `{ scopesMissing: true }` that
+ * GraphQL helpers return on INSUFFICIENT_SCOPES. Exported for tests.
+ *
+ * @param {unknown} value
+ * @returns {value is { scopesMissing: true }}
  */
-export async function resolveOrCreateProject(ctx, opts = {}) {
-  const owner = opts.owner ?? ctx.projectOwner;
-  const name = opts.name ?? ctx.projectName ?? `${ctx.repo} — Agent Protocols`;
+export function isScopesMissingEnvelope(value) {
+  return (
+    Boolean(value) && typeof value === 'object' && value.scopesMissing === true
+  );
+}
 
-  if (ctx.projectNumber) {
-    try {
-      const project = await fetchProjectV2(ctx, 'id');
-      if (project) {
-        ctx.state.projectId = project.id;
-        return {
-          projectId: project.id,
-          projectNumber: ctx.projectNumber,
-          created: false,
-        };
-      }
-    } catch (err) {
-      if (isInsufficientScopes(err)) return { scopesMissing: true };
-      throw err;
-    }
-    throw new Error(
-      `[GitHubProvider] Project #${ctx.projectNumber} not found for ${owner}.`,
-    );
-  }
-
-  let ownerNodeId;
+/**
+ * Resolve a pre-configured project by `ctx.projectNumber`.
+ *
+ * @returns {Promise<{ projectId: string, projectNumber: number, created: false } | { scopesMissing: true } | null>}
+ *   The project on success, `{ scopesMissing: true }` when GraphQL signals
+ *   insufficient scopes, or `null` when the project number is set but the
+ *   project itself was not found (caller decides whether to throw).
+ */
+export async function resolveExistingProject(ctx) {
   try {
-    const ownerLookupData = await runGraphql(ctx, OWNER_NODE_LOOKUP_QUERY, {
-      login: owner,
-    });
-    ownerNodeId =
-      ownerLookupData?.organization?.id ?? ownerLookupData?.user?.id ?? null;
+    const project = await fetchProjectV2(ctx, 'id');
+    if (project) {
+      ctx.state.projectId = project.id;
+      return {
+        projectId: project.id,
+        projectNumber: ctx.projectNumber,
+        created: false,
+      };
+    }
   } catch (err) {
     if (isInsufficientScopes(err)) return { scopesMissing: true };
     throw err;
   }
+  return null;
+}
 
-  if (!ownerNodeId) {
-    throw new Error(
-      `[GitHubProvider] Could not resolve owner node id for "${owner}".`,
+/**
+ * Look up the GraphQL node id for `owner`, trying organization then user.
+ *
+ * @returns {Promise<string | { scopesMissing: true } | null>}
+ */
+export async function lookupOwnerNodeId(ctx, owner) {
+  try {
+    const ownerLookupData = await runGraphql(ctx, OWNER_NODE_LOOKUP_QUERY, {
+      login: owner,
+    });
+    return (
+      ownerLookupData?.organization?.id ?? ownerLookupData?.user?.id ?? null
     );
+  } catch (err) {
+    if (isInsufficientScopes(err)) return { scopesMissing: true };
+    throw err;
   }
+}
 
+/**
+ * Create a new ProjectV2 owned by `ownerNodeId` with title `name`.
+ *
+ * @returns {Promise<{ projectId: string, projectNumber: number, created: true } | { scopesMissing: true }>}
+ */
+export async function createProjectForOwner(ctx, ownerNodeId, name) {
   try {
     const createProjectData = await runGraphql(ctx, CREATE_PROJECT_MUTATION, {
       ownerId: ownerNodeId,
@@ -196,6 +213,34 @@ export async function resolveOrCreateProject(ctx, opts = {}) {
     if (isInsufficientScopes(err)) return { scopesMissing: true };
     throw err;
   }
+}
+
+/**
+ * Resolve the configured Project, or create one if `projectNumber` is not
+ * set. On insufficient scopes returns `{ scopesMissing: true }` so bootstrap
+ * can degrade.
+ */
+export async function resolveOrCreateProject(ctx, opts = {}) {
+  const owner = opts.owner ?? ctx.projectOwner;
+  const name = opts.name ?? ctx.projectName ?? `${ctx.repo} — Agent Protocols`;
+
+  if (ctx.projectNumber) {
+    const resolved = await resolveExistingProject(ctx);
+    if (resolved) return resolved;
+    throw new Error(
+      `[GitHubProvider] Project #${ctx.projectNumber} not found for ${owner}.`,
+    );
+  }
+
+  const ownerNodeId = await lookupOwnerNodeId(ctx, owner);
+  if (isScopesMissingEnvelope(ownerNodeId)) return ownerNodeId;
+  if (!ownerNodeId) {
+    throw new Error(
+      `[GitHubProvider] Could not resolve owner node id for "${owner}".`,
+    );
+  }
+
+  return createProjectForOwner(ctx, ownerNodeId, name);
 }
 
 /**

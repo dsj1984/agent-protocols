@@ -187,7 +187,11 @@ describe('epic-planner buildAuthoringContext', () => {
     assert.equal(ctx.epic.body, 'Epic body text.');
     assert.equal(ctx.systemPrompts.prd, PRD_SYSTEM_PROMPT);
     assert.equal(ctx.systemPrompts.techSpec, TECH_SPEC_SYSTEM_PROMPT);
-    assert.equal(typeof ctx.docsContext, 'string');
+    // docsContext is the planning-context budget envelope (Epic #817 Story 9)
+    assert.equal(typeof ctx.docsContext, 'object');
+    assert.ok(ctx.docsContext);
+    assert.ok(['full', 'summary'].includes(ctx.docsContext.mode));
+    assert.ok(Array.isArray(ctx.docsContext.items));
   });
 
   it('throws when the epic is not found', async () => {
