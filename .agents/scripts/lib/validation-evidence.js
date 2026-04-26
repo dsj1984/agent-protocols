@@ -175,10 +175,7 @@ export function recordPass(
     durationMs,
     timestamp: resolved.now().toISOString(),
   };
-  doc.records = [
-    ...doc.records.filter((r) => r.gateName !== gateName),
-    record,
-  ];
+  doc.records = [...doc.records.filter((r) => r.gateName !== gateName), record];
 
   const validator = getEvidenceValidator();
   if (!validator(doc)) {

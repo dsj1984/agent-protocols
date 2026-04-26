@@ -223,8 +223,7 @@ export function parseReviewArgs(argv) {
     baseBranch: values.base ?? null,
     post: values.post !== false,
     scopeLint,
-    storyId:
-      Number.isNaN(parsedStory) || parsedStory <= 0 ? null : parsedStory,
+    storyId: Number.isNaN(parsedStory) || parsedStory <= 0 ? null : parsedStory,
     useEvidence: values['no-evidence'] !== true,
   };
 }
@@ -244,7 +243,11 @@ export function buildLintEvidenceConfig(changedFiles, cwd) {
   if (md.length > 0) {
     args.push('markdownlint', ...md, '--ignore', 'node_modules');
   }
-  return hashCommandConfig({ cmd: 'sprint-code-review/scoped-lint', args, cwd });
+  return hashCommandConfig({
+    cmd: 'sprint-code-review/scoped-lint',
+    args,
+    cwd,
+  });
 }
 
 /**

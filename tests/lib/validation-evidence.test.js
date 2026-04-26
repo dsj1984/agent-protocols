@@ -52,11 +52,7 @@ function baseOpts(extra = {}) {
 }
 
 test('evidencePath() resolves under <cwd>/temp/validation-evidence-<storyId>.json', () => {
-  const expected = path.join(
-    FAKE_CWD,
-    'temp',
-    'validation-evidence-901.json',
-  );
+  const expected = path.join(FAKE_CWD, 'temp', 'validation-evidence-901.json');
   assert.equal(evidencePath(901, { cwd: FAKE_CWD }), expected);
 });
 
@@ -161,10 +157,7 @@ test('recordPass() preserves records for sibling gates', () => {
   );
   const doc = loadEvidence(901, opts);
   assert.equal(doc.records.length, 2);
-  assert.deepEqual(
-    doc.records.map((r) => r.gateName).sort(),
-    ['lint', 'test'],
-  );
+  assert.deepEqual(doc.records.map((r) => r.gateName).sort(), ['lint', 'test']);
 });
 
 test('recordPass() throws when required input is missing', () => {
@@ -179,7 +172,12 @@ test('shouldSkip() returns no-record when nothing has been recorded', () => {
   const cfg = hashCommandConfig({ cmd: 'npm', args: ['run', 'lint'] });
   assert.deepEqual(
     shouldSkip(
-      { storyId: 901, gateName: 'lint', currentSha: 'abcdef0', configHash: cfg },
+      {
+        storyId: 901,
+        gateName: 'lint',
+        currentSha: 'abcdef0',
+        configHash: cfg,
+      },
       opts,
     ),
     { skip: false, reason: 'no-record' },
@@ -250,14 +248,24 @@ test('shouldSkip() returns missing-input when any field is empty', () => {
   const opts = baseOpts();
   assert.equal(
     shouldSkip(
-      { storyId: 901, gateName: 'lint', currentSha: '', configHash: 'sha256:x' },
+      {
+        storyId: 901,
+        gateName: 'lint',
+        currentSha: '',
+        configHash: 'sha256:x',
+      },
       opts,
     ).skip,
     false,
   );
   assert.equal(
     shouldSkip(
-      { storyId: 901, gateName: '', currentSha: 'abcdef0', configHash: 'sha256:x' },
+      {
+        storyId: 901,
+        gateName: '',
+        currentSha: 'abcdef0',
+        configHash: 'sha256:x',
+      },
       opts,
     ).reason,
     'missing-input',
