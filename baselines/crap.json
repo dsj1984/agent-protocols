@@ -568,6 +568,30 @@
       "startLine": 381
     },
     {
+      "crap": 2,
+      "file": ".agents/scripts/evidence-gate.js",
+      "method": "splitOnDashDash",
+      "startLine": 49
+    },
+    {
+      "crap": 3,
+      "file": ".agents/scripts/evidence-gate.js",
+      "method": "parseWrapperArgs",
+      "startLine": 63
+    },
+    {
+      "crap": 20,
+      "file": ".agents/scripts/evidence-gate.js",
+      "method": "resolveHeadSha",
+      "startLine": 83
+    },
+    {
+      "crap": 132,
+      "file": ".agents/scripts/evidence-gate.js",
+      "method": "main",
+      "startLine": 90
+    },
+    {
       "crap": 12,
       "file": ".agents/scripts/git-pr-quality-gate.js",
       "method": "resolveChecks",
@@ -814,22 +838,28 @@
       "startLine": 46
     },
     {
-      "crap": 4,
+      "crap": 15.664000000000001,
+      "file": ".agents/scripts/lib/close-validation.js",
+      "method": "defaultGetHeadSha",
+      "startLine": 71
+    },
+    {
+      "crap": 28.871525169045835,
       "file": ".agents/scripts/lib/close-validation.js",
       "method": "runCloseValidation",
-      "startLine": 77
+      "startLine": 112
     },
     {
       "crap": 20,
       "file": ".agents/scripts/lib/close-validation.js",
       "method": "projectMaintainabilityRegressions",
-      "startLine": 149
+      "startLine": 245
     },
     {
       "crap": 4,
       "file": ".agents/scripts/lib/close-validation.js",
       "method": "formatMaintainabilityProjection",
-      "startLine": 234
+      "startLine": 330
     },
     {
       "crap": 7,
@@ -841,7 +871,7 @@
       "crap": 2,
       "file": ".agents/scripts/lib/config-schema.js",
       "method": "getOrchestrationValidator",
-      "startLine": 265
+      "startLine": 326
     },
     {
       "crap": 2,
@@ -931,7 +961,7 @@
       "crap": 1,
       "file": ".agents/scripts/lib/config/runners.js",
       "method": "getRunners",
-      "startLine": 27
+      "startLine": 32
     },
     {
       "crap": 4,
@@ -2152,6 +2182,12 @@
       "startLine": 19
     },
     {
+      "crap": 17,
+      "file": ".agents/scripts/lib/orchestration/health-refresh-cadence.js",
+      "method": "decideRefresh",
+      "startLine": 45
+    },
+    {
       "crap": 1,
       "file": ".agents/scripts/lib/orchestration/label-transitions.js",
       "method": "toExecuting",
@@ -2389,25 +2425,25 @@
       "crap": 2,
       "file": ".agents/scripts/lib/orchestration/post-merge-pipeline.js",
       "method": "dashboardRefreshPhase",
-      "startLine": 325
+      "startLine": 330
     },
     {
       "crap": 1,
       "file": ".agents/scripts/lib/orchestration/post-merge-pipeline.js",
       "method": "tempCleanupPhase",
-      "startLine": 347
+      "startLine": 352
     },
     {
       "crap": 3,
       "file": ".agents/scripts/lib/orchestration/post-merge-pipeline.js",
       "method": "runPostMergePipeline",
-      "startLine": 400
+      "startLine": 405
     },
     {
       "crap": 1,
       "file": ".agents/scripts/lib/orchestration/post-merge-pipeline.js",
       "method": "<anon method-4>",
-      "startLine": 413
+      "startLine": 418
     },
     {
       "crap": 4.05088540606554,
@@ -3164,6 +3200,60 @@
       "file": ".agents/scripts/lib/util/with-timeout.js",
       "method": "withTimeout",
       "startLine": 20
+    },
+    {
+      "crap": 2,
+      "file": ".agents/scripts/lib/validation-evidence.js",
+      "method": "getEvidenceValidator",
+      "startLine": 53
+    },
+    {
+      "crap": 1,
+      "file": ".agents/scripts/lib/validation-evidence.js",
+      "method": "resolveOpts",
+      "startLine": 70
+    },
+    {
+      "crap": 1,
+      "file": ".agents/scripts/lib/validation-evidence.js",
+      "method": "evidencePath",
+      "startLine": 86
+    },
+    {
+      "crap": 3,
+      "file": ".agents/scripts/lib/validation-evidence.js",
+      "method": "hashCommandConfig",
+      "startLine": 99
+    },
+    {
+      "crap": 1,
+      "file": ".agents/scripts/lib/validation-evidence.js",
+      "method": "emptyDoc",
+      "startLine": 108
+    },
+    {
+      "crap": 4,
+      "file": ".agents/scripts/lib/validation-evidence.js",
+      "method": "loadEvidence",
+      "startLine": 126
+    },
+    {
+      "crap": 7.155836556075718,
+      "file": ".agents/scripts/lib/validation-evidence.js",
+      "method": "recordPass",
+      "startLine": 159
+    },
+    {
+      "crap": 8,
+      "file": ".agents/scripts/lib/validation-evidence.js",
+      "method": "shouldSkip",
+      "startLine": 205
+    },
+    {
+      "crap": 2,
+      "file": ".agents/scripts/lib/validation-evidence.js",
+      "method": "forceClear",
+      "startLine": 233
     },
     {
       "crap": 3,
@@ -3985,73 +4075,85 @@
       "crap": 4,
       "file": ".agents/scripts/sprint-code-review.js",
       "method": "parseLintOutput",
-      "startLine": 54
+      "startLine": 59
     },
     {
       "crap": 3,
       "file": ".agents/scripts/sprint-code-review.js",
       "method": "partitionFilesForLint",
-      "startLine": 102
+      "startLine": 107
+    },
+    {
+      "crap": 20,
+      "file": ".agents/scripts/sprint-code-review.js",
+      "method": "resolveCurrentSha",
+      "startLine": 123
     },
     {
       "crap": 2,
       "file": ".agents/scripts/sprint-code-review.js",
       "method": "spawnLintRunner",
-      "startLine": 113
+      "startLine": 130
     },
     {
       "crap": 6,
       "file": ".agents/scripts/sprint-code-review.js",
       "method": "runScopedLint",
-      "startLine": 138
+      "startLine": 155
     },
     {
-      "crap": 4,
+      "crap": 6,
       "file": ".agents/scripts/sprint-code-review.js",
       "method": "parseReviewArgs",
-      "startLine": 182
+      "startLine": 204
+    },
+    {
+      "crap": 10.078743741465637,
+      "file": ".agents/scripts/sprint-code-review.js",
+      "method": "buildLintEvidenceConfig",
+      "startLine": 239
     },
     {
       "crap": 6,
       "file": ".agents/scripts/sprint-code-review.js",
       "method": "classifyChangedFile",
-      "startLine": 212
+      "startLine": 261
     },
     {
       "crap": 7,
       "file": ".agents/scripts/sprint-code-review.js",
       "method": "analyzeChangedFiles",
-      "startLine": 252
+      "startLine": 301
     },
     {
       "crap": 3,
       "file": ".agents/scripts/sprint-code-review.js",
       "method": "buildSeverity",
-      "startLine": 280
+      "startLine": 329
     },
     {
       "crap": 5,
       "file": ".agents/scripts/sprint-code-review.js",
       "method": "buildLintLine",
-      "startLine": 290
+      "startLine": 339
     },
     {
       "crap": 4,
       "file": ".agents/scripts/sprint-code-review.js",
       "method": "tierLabel",
-      "startLine": 306
+      "startLine": 355
     },
     {
       "crap": 3,
       "file": ".agents/scripts/sprint-code-review.js",
       "method": "buildReviewReport",
-      "startLine": 314
+      "startLine": 363
     },
     {
-      "crap": 42,
+      "crap": 272,
       "file": ".agents/scripts/sprint-code-review.js",
       "method": "main",
-      "startLine": 361
+      "startLine": 410
     },
     {
       "crap": 3,
@@ -4258,7 +4360,7 @@
       "startLine": 541
     },
     {
-      "crap": 27.226221533226354,
+      "crap": 27.52590498303476,
       "file": ".agents/scripts/sprint-story-close.js",
       "method": "runStoryClose",
       "startLine": 584
@@ -4267,103 +4369,103 @@
       "crap": 1,
       "file": ".agents/scripts/sprint-story-close.js",
       "method": "<anon method-5>",
-      "startLine": 638
+      "startLine": 639
     },
     {
       "crap": 2,
       "file": ".agents/scripts/sprint-story-close.js",
       "method": "<anon method-6>",
-      "startLine": 717
+      "startLine": 718
     },
     {
       "crap": 12,
       "file": ".agents/scripts/sprint-story-close.js",
       "method": "<anon method-7>",
-      "startLine": 718
+      "startLine": 719
     },
     {
       "crap": 1,
       "file": ".agents/scripts/sprint-story-close.js",
       "method": "<anon method-8>",
-      "startLine": 807
+      "startLine": 810
     },
     {
       "crap": 1,
       "file": ".agents/scripts/sprint-story-close.js",
       "method": "<anon method-9>",
-      "startLine": 807
+      "startLine": 810
     },
     {
       "crap": 3.0416666666666665,
       "file": ".agents/scripts/sprint-story-close.js",
       "method": "<anon method-10>",
-      "startLine": 922
+      "startLine": 925
     },
     {
       "crap": 1,
       "file": ".agents/scripts/sprint-story-init.js",
       "method": "<anon method-1>",
-      "startLine": 62
+      "startLine": 63
     },
     {
       "crap": 1,
       "file": ".agents/scripts/sprint-story-init.js",
       "method": "<anon method-2>",
-      "startLine": 63
+      "startLine": 64
     },
     {
-      "crap": 16.841711186924258,
+      "crap": 18.68350474730906,
       "file": ".agents/scripts/sprint-story-init.js",
       "method": "runStoryInit",
-      "startLine": 76
+      "startLine": 77
     },
     {
       "crap": 1,
       "file": ".agents/scripts/sprint-story-init.js",
       "method": "<anon method-3>",
-      "startLine": 107
+      "startLine": 108
     },
     {
       "crap": 1,
       "file": ".agents/scripts/sprint-story-init.js",
       "method": "<anon method-4>",
-      "startLine": 113
+      "startLine": 114
     },
     {
       "crap": 1,
       "file": ".agents/scripts/sprint-story-init.js",
       "method": "<anon method-5>",
-      "startLine": 239
+      "startLine": 240
     },
     {
       "crap": 1,
       "file": ".agents/scripts/sprint-story-init.js",
       "method": "buildStoryInitResult",
-      "startLine": 346
+      "startLine": 367
     },
     {
       "crap": 3.072,
       "file": ".agents/scripts/sprint-story-init.js",
       "method": "mapDependenciesInstalled",
-      "startLine": 399
+      "startLine": 420
     },
     {
       "crap": 1.0046296296296295,
       "file": ".agents/scripts/sprint-story-init.js",
       "method": "postStoryInitComment",
-      "startLine": 410
+      "startLine": 431
     },
     {
       "crap": 1,
       "file": ".agents/scripts/sprint-story-init.js",
       "method": "renderStoryInitCommentBody",
-      "startLine": 436
+      "startLine": 457
     },
     {
       "crap": 2,
       "file": ".agents/scripts/sprint-story-init.js",
       "method": "emitStoryInitResult",
-      "startLine": 464
+      "startLine": 485
     },
     {
       "crap": 3.072,
