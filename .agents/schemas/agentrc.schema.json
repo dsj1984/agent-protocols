@@ -439,6 +439,13 @@
       },
       "additionalProperties": false
     },
+    "decomposer": {
+      "type": "object",
+      "properties": {
+        "concurrencyCap": { "type": "integer", "minimum": 1 }
+      },
+      "additionalProperties": false
+    },
     "runners": {
       "type": "object",
       "properties": {
@@ -446,7 +453,8 @@
         "planRunner": { "$ref": "#/$defs/planRunner" },
         "concurrency": { "$ref": "#/$defs/concurrency" },
         "closeRetry": { "$ref": "#/$defs/closeRetry" },
-        "poolMode": { "$ref": "#/$defs/poolMode" }
+        "poolMode": { "$ref": "#/$defs/poolMode" },
+        "decomposer": { "$ref": "#/$defs/decomposer" }
       },
       "additionalProperties": false
     },
