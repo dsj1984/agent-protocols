@@ -375,6 +375,38 @@ function parseSubstitutionPairs(pairs = []) {
   return out;
 }
 
+/**
+ * Pure: split a comma-separated `--audits` value into a clean workflow list.
+ * Empty/whitespace tokens are dropped; nullish input yields an empty array.
+ *
+ * @param {string|null|undefined} commaList
+ * @returns {string[]}
+ */
+export function parseAuditList(commaList) {
+  return String(commaList ?? '')
+    .split(',')
+    .map((a) => a.trim())
+    .filter(Boolean);
+}
+
+/**
+ * Mutate `substitutions` in place to fold in CLI-derived defaults that should
+ * only override when the operator hasn't already supplied them via
+ * `--substitution`. Pulled out of `main` so the precedence rules can be
+ * unit-tested without the CLI layer.
+ *
+ * @param {Record<string, unknown>} values parsed CLI values
+ * @param {Record<string, string|undefined>} substitutions mutable map
+ */
+export function applyImplicitSubstitutions(values, substitutions) {
+  if (values.ticket && substitutions.ticketId === undefined) {
+    substitutions.ticketId = String(values.ticket);
+  }
+  if (values['base-branch'] && substitutions.baseBranch === undefined) {
+    substitutions.baseBranch = values['base-branch'];
+  }
+}
+
 export async function main(argv = process.argv.slice(2)) {
   const values = parseCliArgs(argv);
 
@@ -390,10 +422,7 @@ export async function main(argv = process.argv.slice(2)) {
     process.exit(2);
   }
 
-  const auditWorkflows = values.audits
-    .split(',')
-    .map((a) => a.trim())
-    .filter(Boolean);
+  const auditWorkflows = parseAuditList(values.audits);
 
   if (auditWorkflows.length === 0) {
     process.stderr.write(
@@ -403,12 +432,7 @@ export async function main(argv = process.argv.slice(2)) {
   }
 
   const substitutions = parseSubstitutionPairs(values.substitution);
-  if (values.ticket && substitutions.ticketId === undefined) {
-    substitutions.ticketId = String(values.ticket);
-  }
-  if (values['base-branch'] && substitutions.baseBranch === undefined) {
-    substitutions.baseBranch = values['base-branch'];
-  }
+  applyImplicitSubstitutions(values, substitutions);
 
   const result = await runAuditSuite({
     auditWorkflows,

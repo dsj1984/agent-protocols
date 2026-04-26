@@ -71,37 +71,30 @@ export function createCandidateBranch(cwd, epicBranch, candidateBranch) {
  *   Returns `{ merged: false, major: true }` on major conflict (caller should exit 2).
  *   Throws on internal git errors.
  */
-export function mergeFeatureBranch(cwd, featureBranch, vlog, opts = {}) {
-  const mergeArgs = ['merge', '--no-ff', featureBranch];
-  if (opts.message) mergeArgs.push('-m', opts.message);
-  const merge = gitSpawn(cwd, ...mergeArgs);
-  if (merge.status === 0) return { merged: true };
+/**
+ * Pure: classify a conflict snapshot as `'major'` (caller aborts) or
+ * `'minor'` (caller auto-resolves). Thresholds default to the values in
+ * `agentSettings.mergeThresholds` and fall back to file=3, line=20.
+ *
+ * @param {{ files: number, lines: number }} conflicts
+ * @param {{ files?: number, lines?: number } | undefined} thresholds
+ * @returns {'major' | 'minor'}
+ */
+export function classifyConflictSeverity(conflicts, thresholds = {}) {
+  const fileCap = thresholds.files ?? 3;
+  const lineCap = thresholds.lines ?? 20;
+  if (conflicts.files >= fileCap || conflicts.lines >= lineCap) return 'major';
+  return 'minor';
+}
 
-  const conflicts = analyzeConflicts(cwd);
-
-  vlog('warn', 'integration', 'Merge conflict detected', {
-    files: conflicts.files,
-    lines: conflicts.lines,
-    fileList: conflicts.fileList,
-  });
-
-  const { settings } = resolveConfig();
-  const MAJOR_CONFLICT_FILES = settings.mergeThresholds?.files ?? 3;
-  const MAJOR_CONFLICT_LINES = settings.mergeThresholds?.lines ?? 20;
-
-  if (
-    conflicts.files >= MAJOR_CONFLICT_FILES ||
-    conflicts.lines >= MAJOR_CONFLICT_LINES
-  ) {
-    gitSpawn(cwd, 'merge', '--abort');
-    return { merged: false, major: true, conflicts };
-  }
-
-  // Minor conflict — auto-resolve by accepting the feature branch version.
-  // We also capture per-file line counts of the discarded "ours" version so
-  // the audit trail in the merge commit body tells an operator exactly what
-  // was dropped. Short preview is kept for vlog; the commit trailer carries
-  // only names + line counts to keep history legible.
+/**
+ * Auto-resolve a minor merge conflict by accepting the feature-branch version
+ * for each file in `conflicts.fileList`, capturing the discarded line counts
+ * for the audit trailer. Side effects: shells out to git checkout/add.
+ *
+ * @returns {Array<{ file: string, discardedLines: number }>}
+ */
+function autoResolveAcceptingTheirs(cwd, conflicts, vlog) {
   const autoResolvedFiles = [];
   for (const file of conflicts.fileList) {
     const ourVersion = gitSpawn(cwd, 'show', `:2:${file}`);
@@ -124,11 +117,15 @@ export function mergeFeatureBranch(cwd, featureBranch, vlog, opts = {}) {
     gitSpawn(cwd, 'checkout', '--theirs', file);
     gitSpawn(cwd, 'add', file);
   }
+  return autoResolvedFiles;
+}
 
-  // Embed audit trailer in the merge commit message so git history records
-  // exactly what was auto-resolved. Only applied when the caller supplied
-  // an explicit message (the default `--no-edit` path preserves git's
-  // generated message unchanged).
+/**
+ * Commit the auto-resolved working tree. When the caller supplied an explicit
+ * merge message, append the audit trailer; otherwise use git's default
+ * `--no-edit` message.
+ */
+function commitAutoResolution(cwd, opts, autoResolvedFiles) {
   const trailer = buildAutoResolveTrailer(autoResolvedFiles);
   const finalMessage = opts.message ? `${opts.message}\n\n${trailer}` : null;
   const commitArgs = finalMessage
@@ -138,7 +135,34 @@ export function mergeFeatureBranch(cwd, featureBranch, vlog, opts = {}) {
   if (commitResult.status !== 0) {
     throw new Error(`Auto-resolution commit failed: ${commitResult.stderr}`);
   }
+}
 
+export function mergeFeatureBranch(cwd, featureBranch, vlog, opts = {}) {
+  const mergeArgs = ['merge', '--no-ff', featureBranch];
+  if (opts.message) mergeArgs.push('-m', opts.message);
+  const merge = gitSpawn(cwd, ...mergeArgs);
+  if (merge.status === 0) return { merged: true };
+
+  const conflicts = analyzeConflicts(cwd);
+
+  vlog('warn', 'integration', 'Merge conflict detected', {
+    files: conflicts.files,
+    lines: conflicts.lines,
+    fileList: conflicts.fileList,
+  });
+
+  const { settings } = resolveConfig();
+  const severity = classifyConflictSeverity(
+    conflicts,
+    settings.mergeThresholds,
+  );
+  if (severity === 'major') {
+    gitSpawn(cwd, 'merge', '--abort');
+    return { merged: false, major: true, conflicts };
+  }
+
+  const autoResolvedFiles = autoResolveAcceptingTheirs(cwd, conflicts, vlog);
+  commitAutoResolution(cwd, opts, autoResolvedFiles);
   return { merged: true, autoResolved: true, conflicts, autoResolvedFiles };
 }
 

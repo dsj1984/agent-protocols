@@ -1,7 +1,10 @@
 import assert from 'node:assert/strict';
 import test from 'node:test';
 import { upsertStructuredComment } from '../.agents/scripts/lib/orchestration/ticketing.js';
-import { runPostStructuredComment } from '../.agents/scripts/post-structured-comment.js';
+import {
+  runPostStructuredComment,
+  validateRequiredArgs,
+} from '../.agents/scripts/post-structured-comment.js';
 
 /**
  * In-memory provider mirroring the surface `upsertStructuredComment` uses:
@@ -87,4 +90,53 @@ test('runPostStructuredComment: rejects unknown structured comment types', async
     }),
     /Invalid structured-comment type/,
   );
+});
+
+test('validateRequiredArgs: returns the parsed ticketId and no errors when all required args are present', () => {
+  const out = validateRequiredArgs({
+    ticket: '123',
+    marker: 'review',
+    'body-file': '/tmp/body.md',
+  });
+  assert.equal(out.ticketId, 123);
+  assert.deepEqual(out.errors, []);
+});
+
+test('validateRequiredArgs: rejects missing/non-positive ticket id', () => {
+  for (const v of [
+    {},
+    { ticket: '' },
+    { ticket: '0' },
+    { ticket: '-3' },
+    { ticket: 'not-a-number' },
+  ]) {
+    const out = validateRequiredArgs({
+      ...v,
+      marker: 'm',
+      'body-file': 'b',
+    });
+    assert.ok(
+      out.errors.some((e) => e.includes('--ticket')),
+      `expected --ticket error for input ${JSON.stringify(v)}`,
+    );
+  }
+});
+
+test('validateRequiredArgs: rejects missing --marker and --body-file independently', () => {
+  const noMarker = validateRequiredArgs({
+    ticket: '7',
+    'body-file': '/tmp/x',
+  });
+  assert.ok(noMarker.errors.some((e) => e.includes('--marker')));
+
+  const noBodyFile = validateRequiredArgs({
+    ticket: '7',
+    marker: 'review',
+  });
+  assert.ok(noBodyFile.errors.some((e) => e.includes('--body-file')));
+});
+
+test('validateRequiredArgs: collects all errors when nothing is supplied', () => {
+  const out = validateRequiredArgs({});
+  assert.equal(out.errors.length, 3);
 });

@@ -71,6 +71,25 @@ export function parseCliArgs(argv) {
   return values;
 }
 
+/**
+ * Pure: validate the required CLI inputs for `post-structured-comment`. The
+ * orchestrator is otherwise too dense to score under the CRAP cap, and these
+ * rules deserve their own targeted tests.
+ *
+ * @param {Record<string, unknown>} values parsed CLI values
+ * @returns {{ ticketId: number, errors: string[] }} `errors` is empty on success.
+ */
+export function validateRequiredArgs(values) {
+  const ticketId = Number.parseInt(values.ticket ?? '', 10);
+  const errors = [];
+  if (!Number.isFinite(ticketId) || ticketId <= 0) {
+    errors.push('--ticket <id> is required.');
+  }
+  if (!values.marker) errors.push('--marker <type> is required.');
+  if (!values['body-file']) errors.push('--body-file <path> is required.');
+  return { ticketId, errors };
+}
+
 export async function main(argv = process.argv.slice(2)) {
   const values = parseCliArgs(argv);
 
@@ -79,30 +98,16 @@ export async function main(argv = process.argv.slice(2)) {
     return;
   }
 
-  const ticketId = Number.parseInt(values.ticket ?? '', 10);
-  const type = values.marker;
-  const bodyFile = values['body-file'];
-
-  if (!Number.isFinite(ticketId) || ticketId <= 0) {
-    process.stderr.write(
-      `[post-structured-comment] --ticket <id> is required.\n${HELP}`,
-    );
-    process.exit(2);
-  }
-  if (!type) {
-    process.stderr.write(
-      `[post-structured-comment] --marker <type> is required.\n${HELP}`,
-    );
-    process.exit(2);
-  }
-  if (!bodyFile) {
-    process.stderr.write(
-      `[post-structured-comment] --body-file <path> is required.\n${HELP}`,
-    );
+  const { ticketId, errors } = validateRequiredArgs(values);
+  if (errors.length) {
+    for (const e of errors) {
+      process.stderr.write(`[post-structured-comment] ${e}\n`);
+    }
+    process.stderr.write(HELP);
     process.exit(2);
   }
 
-  const body = await fs.readFile(bodyFile, 'utf8');
+  const body = await fs.readFile(values['body-file'], 'utf8');
 
   const { orchestration } = resolveConfig();
   const effectiveOrchestration = values.provider
@@ -112,7 +117,7 @@ export async function main(argv = process.argv.slice(2)) {
 
   const envelope = await runPostStructuredComment({
     ticketId,
-    type,
+    type: values.marker,
     body,
     provider,
   });

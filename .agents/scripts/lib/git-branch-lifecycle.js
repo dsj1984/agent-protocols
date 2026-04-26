@@ -220,20 +220,38 @@ export async function checkoutStoryBranch(
  * @param {string} cwd
  * @param {{ progress?: (phase: string, message: string) => void }} [opts]
  */
+/**
+ * Pure: choose the action to take for `ensureEpicBranchRef` given whether
+ * the branch exists locally and/or remotely. One of:
+ *   - `'noop'` — both refs exist; nothing to do.
+ *   - `'fetch'` — only remote exists; fetch into local.
+ *   - `'publish-existing'` — only local exists; push it.
+ *   - `'create-and-publish'` — neither exists; create from base then push.
+ *
+ * @param {boolean} local
+ * @param {boolean} remote
+ * @returns {'noop' | 'fetch' | 'publish-existing' | 'create-and-publish'}
+ */
+export function planEnsureEpicBranchRefAction(local, remote) {
+  if (local) return remote ? 'noop' : 'publish-existing';
+  return remote ? 'fetch' : 'create-and-publish';
+}
+
 export function ensureEpicBranchRef(epicBranch, baseBranch, cwd, opts = {}) {
   assertSafeBranch(epicBranch, baseBranch);
   const progress = opts.progress ?? (() => {});
 
-  const local = branchExistsLocally(epicBranch, cwd);
-  const remote = branchExistsRemotely(epicBranch, cwd);
+  const action = planEnsureEpicBranchRefAction(
+    branchExistsLocally(epicBranch, cwd),
+    branchExistsRemotely(epicBranch, cwd),
+  );
 
-  if (local && remote) {
+  if (action === 'noop') {
     progress('GIT', `Epic branch ref exists (local+remote): ${epicBranch}`);
     return;
   }
 
-  if (!local && remote) {
-    // Fetch the remote ref into a local branch without checkout.
+  if (action === 'fetch') {
     progress('GIT', `Fetching remote Epic branch ref: ${epicBranch}`);
     const res = gitSpawn(cwd, 'fetch', 'origin', `${epicBranch}:${epicBranch}`);
     if (res.status !== 0) {
@@ -244,8 +262,7 @@ export function ensureEpicBranchRef(epicBranch, baseBranch, cwd, opts = {}) {
     return;
   }
 
-  if (!local && !remote) {
-    // Create from baseBranch without moving HEAD.
+  if (action === 'create-and-publish') {
     progress(
       'GIT',
       `Creating Epic branch ref: ${epicBranch} (from ${baseBranch})`,
@@ -253,7 +270,6 @@ export function ensureEpicBranchRef(epicBranch, baseBranch, cwd, opts = {}) {
     gitSync(cwd, 'branch', epicBranch, baseBranch);
   }
 
-  // local exists (either pre-existing or just created) — publish.
   progress('GIT', `Publishing Epic branch: ${epicBranch}`);
   gitSync(cwd, 'push', '--no-verify', '-u', 'origin', epicBranch);
 }
