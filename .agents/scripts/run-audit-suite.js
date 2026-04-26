@@ -38,9 +38,13 @@ const BUILT_IN_SUBSTITUTION_KEYS = Object.freeze([
   'baseBranch',
 ]);
 
+const SUMMARY_MAX_SENTENCES = 3;
+const SUMMARY_MAX_CHARS = 280;
+const FRONTMATTER_RE = /^---\r?\n([\s\S]*?)\r?\n---\r?\n/;
+
 const HELP = `Usage: node .agents/scripts/run-audit-suite.js \\
   --audits <comma-list> [--ticket <id>] [--base-branch main] \\
-  [--substitution key=value]...
+  [--substitution key=value]... [--run-id <id>]
 
 Flags:
   --audits         Comma-separated audit workflow names (required).
@@ -49,6 +53,8 @@ Flags:
   --substitution   Repeatable key=value substitution (e.g. --substitution alphaKey=val).
                    Allowed keys are the built-ins (auditOutputDir, ticketId, baseBranch)
                    plus any substitutionKeys declared on the requested audits.
+  --run-id         Optional artifact prefix. When set, full prompt bodies are written
+                   to temp/audit-<run-id>-<audit>.md so downstream agents can read them.
   --help           Show this message.
 `;
 
@@ -77,6 +83,68 @@ function applySubstitutions(content, substitutions) {
   return out;
 }
 
+export function extractFrontmatter(content) {
+  const match = FRONTMATTER_RE.exec(content);
+  if (!match) return {};
+  const fm = {};
+  for (const line of match[1].split(/\r?\n/)) {
+    const eq = line.indexOf(':');
+    if (eq <= 0) continue;
+    const key = line.slice(0, eq).trim();
+    let value = line.slice(eq + 1).trim();
+    if (
+      (value.startsWith('"') && value.endsWith('"')) ||
+      (value.startsWith("'") && value.endsWith("'"))
+    ) {
+      value = value.slice(1, -1);
+    }
+    fm[key] = value;
+  }
+  return fm;
+}
+
+function firstProseParagraph(content) {
+  const stripped = content.replace(FRONTMATTER_RE, '');
+  for (const block of stripped.split(/\r?\n\s*\r?\n/)) {
+    const trimmed = block.trim();
+    if (!trimmed) continue;
+    if (trimmed.startsWith('#')) continue;
+    if (trimmed.startsWith('---')) continue;
+    return trimmed.replace(/\s+/g, ' ');
+  }
+  return '';
+}
+
+function clampSummary(text) {
+  const trimmed = text.trim();
+  if (!trimmed) return '';
+  const sentences = trimmed.match(/[^.!?\n]+[.!?]+/g);
+  let result = sentences
+    ? sentences.slice(0, SUMMARY_MAX_SENTENCES).join(' ').trim()
+    : trimmed;
+  if (result.length > SUMMARY_MAX_CHARS) {
+    result = `${result.slice(0, SUMMARY_MAX_CHARS - 1).trimEnd()}…`;
+  }
+  return result;
+}
+
+/**
+ * Pure: derive a 1–3-sentence summary from a workflow's frontmatter
+ * `description` field, falling back to the first prose paragraph.
+ */
+export function summarizeWorkflow(content) {
+  const fm = extractFrontmatter(content);
+  const candidate = fm.description?.trim() || firstProseParagraph(content);
+  return clampSummary(candidate);
+}
+
+async function defaultWriteArtifact(artifactsDir, fileName, content) {
+  await fs.mkdir(artifactsDir, { recursive: true });
+  const fullPath = path.join(artifactsDir, fileName);
+  await fs.writeFile(fullPath, content, 'utf8');
+  return fullPath;
+}
+
 /**
  * Aggregate the allowed substitution key set for a run: built-ins plus
  * per-audit declared keys across the requested auditWorkflows. Audits that
@@ -101,8 +169,11 @@ function computeAllowedKeys(rules, auditWorkflows) {
  * For each audit name the suite will:
  *   1. Validate it is registered in audit-rules.schema.json.
  *   2. Locate the corresponding `.agents/workflows/<auditName>.md` file.
- *   3. Return its markdown content as a structured `workflow` result for the
- *      calling AI agent to execute as a prompt-driven analysis.
+ *   3. Return a slim `workflow` descriptor (audit name, source path, summary,
+ *      byte size) for the calling AI agent. Full prompt bodies are written to
+ *      `temp/audit-<runId>-<audit>.md` when `artifactPrefix` (or `runId`) is
+ *      provided, so downstream agents can read them locally without bloating
+ *      the GitHub comment surface.
  *
  * Substitutions: callers may pass a `substitutions` map of `{{key}}` → value
  * pairs. Allowed keys are the built-ins (auditOutputDir, ticketId, baseBranch)
@@ -113,15 +184,23 @@ function computeAllowedKeys(rules, auditWorkflows) {
  * @param {object} opts
  * @param {string[]} opts.auditWorkflows - List of audit names to run.
  * @param {Record<string,string>} [opts.substitutions] - Optional template substitutions.
+ * @param {string} [opts.artifactPrefix] - When set, write full bodies to
+ *   `<artifactsDir>/audit-<artifactPrefix>-<audit>.md`.
+ * @param {string} [opts.artifactsDir] - Override the artifacts directory
+ *   (default: `<PROJECT_ROOT>/temp`).
  * @param {Function} [opts.injectedLoadWorkflow] - Optional override for testing.
  * @param {object} [opts.injectedRules] - Optional override for the audit-rules content (testing).
+ * @param {Function} [opts.injectedWriteArtifact] - Optional override for filesystem-free testing.
  * @returns {Promise<object>} Aggregated audit results.
  */
 export async function runAuditSuite({
   auditWorkflows,
   substitutions,
+  artifactPrefix,
+  artifactsDir,
   injectedLoadWorkflow,
   injectedRules,
+  injectedWriteArtifact,
 }) {
   const { settings } = resolveConfig();
   const paths = getPaths({ agentSettings: settings });
@@ -173,6 +252,9 @@ export async function runAuditSuite({
   };
 
   const workflowsDir = path.join(PROJECT_ROOT, paths.workflowsRoot);
+  const effectiveArtifactsDir =
+    artifactsDir ?? path.join(PROJECT_ROOT, 'temp');
+  const writeArtifact = injectedWriteArtifact ?? defaultWriteArtifact;
 
   const auditPromises = auditWorkflows.map(async (auditName) => {
     if (!validAudits.includes(auditName)) {
@@ -200,7 +282,7 @@ export async function runAuditSuite({
       };
     }
 
-    const content = applySubstitutions(
+    const substituted = applySubstitutions(
       workflow.content,
       effectiveSubstitutions,
     );
@@ -208,7 +290,10 @@ export async function runAuditSuite({
     return {
       success: true,
       auditName,
-      workflowContent: content,
+      workflowPath: workflow.path ?? null,
+      workflowContent: substituted,
+      summary: summarizeWorkflow(workflow.content),
+      byteSize: Buffer.byteLength(substituted, 'utf8'),
     };
   });
 
@@ -219,9 +304,21 @@ export async function runAuditSuite({
       auditResults.findings.push(result.finding);
     } else if (result.success) {
       auditResults.metadata.auditsRun.push(result.auditName);
+      let artifactPath = null;
+      if (artifactPrefix) {
+        const fileName = `audit-${artifactPrefix}-${result.auditName}.md`;
+        artifactPath = await writeArtifact(
+          effectiveArtifactsDir,
+          fileName,
+          result.workflowContent,
+        );
+      }
       auditResults.workflows.push({
         audit: result.auditName,
-        content: result.workflowContent,
+        path: result.workflowPath,
+        summary: result.summary,
+        byteSize: result.byteSize,
+        artifactPath,
       });
     }
   }
@@ -254,6 +351,7 @@ export function parseCliArgs(argv) {
       ticket: { type: 'string' },
       'base-branch': { type: 'string' },
       substitution: { type: 'string', multiple: true },
+      'run-id': { type: 'string' },
       help: { type: 'boolean' },
     },
     strict: false,
@@ -313,7 +411,11 @@ export async function main(argv = process.argv.slice(2)) {
     substitutions.baseBranch = values['base-branch'];
   }
 
-  const result = await runAuditSuite({ auditWorkflows, substitutions });
+  const result = await runAuditSuite({
+    auditWorkflows,
+    substitutions,
+    artifactPrefix: values['run-id'],
+  });
   process.stdout.write(`${JSON.stringify(result)}\n`);
 }
 

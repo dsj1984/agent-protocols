@@ -62,12 +62,25 @@ export function renderWorkflowsBlock(workflows, summary, auditsRun) {
   headLines.push(
     '',
     '> [!NOTE]',
-    '> The following audit workflows are ready to execute. Run each prompt as a dedicated agent task.',
+    '> Each entry below links to the audit workflow source. Full prompt bodies are written to `temp/audit-<gate>-<audit>.md` as local-only artifacts when downstream agents need to execute them.',
     '',
   );
   const head = headLines.join('\n');
   const body = workflows
-    .map((wf) => `---\n\n### Audit: \`${wf.audit}\`\n\n${wf.content}\n\n`)
+    .map((wf) => {
+      const lines = ['---', '', `### Audit: \`${wf.audit}\``, ''];
+      if (wf.path) lines.push(`- **Workflow:** \`${wf.path}\``);
+      if (typeof wf.byteSize === 'number') {
+        lines.push(`- **Source size:** ${wf.byteSize} bytes`);
+      }
+      if (wf.artifactPath) {
+        lines.push(
+          `- **Full prompt artifact:** \`${wf.artifactPath}\` _(local-only)_`,
+        );
+      }
+      lines.push('', wf.summary || '_No summary available._', '');
+      return `${lines.join('\n')}\n`;
+    })
     .join('');
   return `${head}\n${body}`;
 }
@@ -136,6 +149,7 @@ export async function runAuditOrchestrator(
 
   const results = await runAuditSuite({
     auditWorkflows: selection.selectedAudits,
+    artifactPrefix: `${gate}-${ticketId}`,
   });
 
   Logger.info(`Formatting report...`);
