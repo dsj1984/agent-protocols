@@ -16,11 +16,7 @@ import { createProvider } from './lib/provider-factory.js';
 const STATE_SCHEMA_VERSION = 1;
 
 function stateFilePath(epicId, projectRoot) {
-  return path.join(
-    projectRoot,
-    'temp',
-    `health-monitor-state-${epicId}.json`,
-  );
+  return path.join(projectRoot, 'temp', `health-monitor-state-${epicId}.json`);
 }
 
 function readState(epicId, projectRoot) {
@@ -143,7 +139,9 @@ export async function updateHealthMetrics(epicId, optsOrDryRun = {}) {
     return { refreshed: false, reason: decision.reason };
   }
 
-  Logger.info(`[health-monitor] Refreshing Epic #${epicId} — ${decision.reason}`);
+  Logger.info(
+    `[health-monitor] Refreshing Epic #${epicId} — ${decision.reason}`,
+  );
 
   const provider = createProvider(orchestration);
 

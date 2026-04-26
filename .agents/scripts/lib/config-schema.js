@@ -117,12 +117,7 @@ const HEALTH_REFRESH_SCHEMA = {
   properties: {
     cadence: {
       type: 'string',
-      enum: [
-        'every-close',
-        'every-n-closes',
-        'wave-boundary',
-        'min-interval',
-      ],
+      enum: ['every-close', 'every-n-closes', 'wave-boundary', 'min-interval'],
     },
     everyNCloses: { type: ['integer', 'null'], minimum: 1 },
     minIntervalSec: { type: ['integer', 'null'], minimum: 30 },
