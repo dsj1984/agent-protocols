@@ -364,3 +364,47 @@ grep never confuses one for the other.
 
 Paths are configured in `agentSettings.quality.baselines.<gate>.path`. The
 default values match the canonical layout above.
+
+## Validation Evidence Records (Epic #817, v5.28.0+)
+
+Each successful local quality gate persists a small evidence record so
+identical re-runs against an unchanged tree skip the second invocation.
+Evidence is per-clone, gitignored, and never committed.
+
+| Field               | Meaning                                                                              |
+| ------------------- | ------------------------------------------------------------------------------------ |
+| `gateName`          | Lowercase gate identifier (`lint`, `test`, `format`, `maintainability`, `crap`).      |
+| `commitSha`         | Output of `git rev-parse HEAD` at the time the gate ran.                             |
+| `commandConfigHash` | SHA-256 of the resolved command config (script path + args + env subset).            |
+| `timestamp`         | ISO-8601 UTC timestamp of the successful run.                                        |
+| `exitCode`          | The wrapped command's exit code (always `0` for skip-eligible records).               |
+
+Evidence is keyed on `{ scopeId, gateName }` and lives at
+`temp/validation-evidence-<scopeId>.json`. The wrapper at
+`evidence-gate.js` is the only writer; close-validation, sprint-code-review,
+and sprint-close Phase 4 are the readers. `--no-evidence` on any wrapper
+invocation forces a re-run and overwrites the record on success.
+
+## Notification Filters (Epic #817 update)
+
+`agentSettings.notifications.minLevel` filters webhook deliveries; the
+sibling `agentSettings.notifications.commentMinLevel` (added in Epic #817)
+filters GitHub comment posting independently. `commentMinLevel` defaults to
+`minLevel` when unset, preserving prior behaviour. Per-Task `agent::executing`
+transitions during Story init batch into a single Story-level summary
+comment regardless of either filter.
+
+## Health-Monitor Refresh Cadence (Epic #817, v5.28.0+)
+
+`agentSettings.healthMonitor.refreshCadence` selects how often the Sprint
+Health structured comment is refreshed during Epic execution:
+
+| Value             | Behaviour                                                                  |
+| ----------------- | -------------------------------------------------------------------------- |
+| `every-close`     | Refresh on every story-close. Legacy default.                              |
+| `wave-boundary`   | Refresh only at wave transitions and at sprint-close. Current default.     |
+| `every-n-closes`  | Refresh every Nth close, where N comes from `healthMonitor.everyNCloses`.  |
+
+`wave-boundary` is the recommended setting for large Epics; the per-close
+refresh is preserved as `every-close` for projects that prefer continuous
+health visibility.

@@ -4,6 +4,87 @@ All notable changes to this project will be documented in this file.
 
 ## [Unreleased]
 
+## [5.28.0] - 2026-04-26
+
+### Sprint workflow performance — bounded context, evidence-aware gates, honest degraded modes (Epic #817)
+
+Local hot-path performance and signal-quality pass across `/sprint-plan`,
+`/sprint-execute`, and `/sprint-close`. Repeat lint/test runs against the
+same tree are now skipped via commit-SHA evidence; planning context is
+bounded; previously silent fail-open gates now surface their degraded state.
+Sixteen stories landed across five themes; consumer-visible changes are
+additive flags and config keys with safe defaults.
+
+- **Evidence-aware gates skip duplicate runs.** Lint, test, biome format,
+  maintainability, and CRAP record `{ gateName, sha, commandConfigHash,
+  timestamp }` after each successful run under
+  `temp/validation-evidence-<scopeId>.json`. Subsequent phases skip when
+  the current `git rev-parse HEAD` and resolved command config still match.
+  Pass `--no-evidence` to any `evidence-gate.js` invocation to force a
+  re-run. Story-close, sprint-code-review, and sprint-close Phase 4 all
+  participate.
+- **`sprint-execute` Step 2 no longer requires a pre-flight lint+test.**
+  `sprint-story-close.js` is the canonical local Story merge gate. The
+  workflow guidance now treats interactive `npm run lint && npm test`
+  before close as advisory only; the close-validation gate is authoritative.
+- **Bounded planning-context budget.** Planning scripts (`epic-planner.js`,
+  `sprint-plan-spec.js`, `ticket-decomposer.js`,
+  `sprint-plan-decompose.js`) default to a summary mode emitting doc names,
+  section headings, relevant excerpts, and file pointers. Add
+  `--full-context` to restore the previous full-body behaviour. The new
+  `agentSettings.limits.planningContext` knob controls the byte budget.
+  All `--emit-context` JSON is now compact by default; pass `--pretty`
+  to indent for human debugging.
+- **Honest degraded modes.** `select-audits.js`, `lint-baseline.js`, and
+  `baseline-refresh-guardrail.js` no longer silently fail open on diff or
+  parse failures. By default they fail closed with a non-zero exit code;
+  pass `--gate-mode` (or set `AGENT_PROTOCOLS_GATE_MODE=1`) for the
+  authoritative behaviour, or read the structured
+  `{ ok: false, degraded: true, reason }` envelope on stdout otherwise.
+- **`sprint-plan-healthcheck` modes split.** `--fast` (default, config +
+  git-remote checks only), `--paranoid` (re-runs hierarchy and dep
+  validation), and `--prime-install` (the optional pnpm path) are now
+  separate flags. Output is structured `{ ok, degraded, reason }` JSON.
+  The script header now correctly documents Phase 4.
+- **Audit comment shape: summaries + paths, not full prompt bodies.**
+  `audit-orchestrator.js` posts audit names, paths, and a short summary
+  to GitHub. Expanded prompts land at `temp/audit-<gate>-<id>.md`. Reduces
+  Epic comment fanout size by an order of magnitude on multi-audit runs.
+- **`sprint-code-review` no longer re-runs full lint.** The mislabelled
+  "focused lint" step is now genuinely scoped to changed files. Lint
+  enforcement remains at story-close, pre-push, and CI.
+- **`notifications.minLevel` now applies to GitHub comments.** New
+  `notifications.commentMinLevel` knob filters comment posting (defaults
+  to `notifications.minLevel`). Per-Task `agent::executing` transitions
+  during Story init batch into a single Story-level summary comment.
+- **Health-monitor refresh cadence configurable.** New
+  `agentSettings.healthMonitor.refreshCadence` config selects between
+  `every-close` (legacy), `wave-boundary`, or `every-n-closes` (with
+  `everyNCloses`). Defaults to `wave-boundary` so the per-close hot path
+  no longer fans out a full Epic ticket re-fetch.
+- **`sprint-story-init` surfaces `dependenciesInstalled` explicitly.**
+  The structured comment and stdout JSON now include
+  `dependenciesInstalled: 'true' | 'false' | 'skipped'` and a structured
+  `installStatus`. Workflow guidance trusts this field instead of asking
+  agents to infer install state from `node_modules` presence.
+- **Topological-sort decomposition with fatal unresolved deps.**
+  `ticket-decomposer.js` now topo-sorts within `(parent, type)` groups so
+  dependency edges cannot be dropped by ordering. Unresolved slug
+  references during persistence throw instead of warning.
+- **Bounded-concurrency staged ticket creation.** Feature → Story → Task
+  creation runs through `concurrentMap` with a configurable cap. Replaces
+  the previous serial `for...of await` loop. Concurrency cap is
+  configurable; default is conservative.
+- **Long-tail CRAP hotspots cleared.** The 10 methods catalogued in #816
+  (CRAP 50–72) are remediated via the "extract pure helpers + add tests"
+  pattern. `baselines/crap.json` ratchets cleanly so consumer projects
+  don't inherit a paper ceiling.
+- **Sprint-plan deterministic-invariant manual checklist removed.** The
+  hierarchy / acyclicity / risk-label review is already proven by
+  `validateAndNormalizeTickets`; the workflow now surfaces validator
+  output as the canonical proof and asks the operator only to review
+  exceptions and scope-overlap notes.
+
 ## [5.27.0] - 2026-04-25
 
 ### Pre-consumer-upgrade quality pass (Epic #773)

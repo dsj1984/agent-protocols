@@ -242,6 +242,25 @@ operator reference.
 
 ### Recent releases
 
+- **v5.28.0 — Epic #817 (2026-04-26).** Sprint workflow performance pass:
+  bounded context, evidence-aware gates, honest degraded modes. Lint, test,
+  format, MI, and CRAP gates now record `{ commitSha, commandConfigHash }`
+  evidence after each successful run; subsequent phases skip when both
+  match. `sprint-story-close.js` is the canonical local Story validation
+  gate — `sprint-execute.md` Step 2 no longer requires a pre-flight
+  `npm run lint && npm test`. Planning context bounded by default with
+  `--full-context` opt-in; all `--emit-context` JSON is compact with
+  `--pretty` opt-in. `select-audits.js`, `lint-baseline.js`, and
+  `baseline-refresh-guardrail.js` no longer fail open silently — they
+  emit a structured `{ degraded: true, reason }` envelope or fail closed
+  under `--gate-mode`. `notifications.commentMinLevel` filters GitHub
+  comments independently of webhooks; per-Task `agent::executing`
+  transitions batch into one Story-level comment. Health-monitor refresh
+  cadence configurable via `agentSettings.healthMonitor.refreshCadence`
+  (`every-close` / `wave-boundary` / `every-n-closes`); default is now
+  `wave-boundary`. The 10 long-tail CRAP hotspots from #816 are
+  remediated. See [docs/CHANGELOG.md](docs/CHANGELOG.md) for the full
+  entry.
 - **v5.27.0 — Epic #773 (2026-04-25).** Pre-consumer-upgrade quality pass.
   CRAP gate is now hard-enforcing across close-validation, pre-push, and CI
   — `baselines/crap.json` is bootstrapped + shipped, the missing-baseline

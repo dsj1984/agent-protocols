@@ -1175,3 +1175,57 @@ Skip when the secondary surface is a genuinely independent product
 flips: if you cannot delete the surface in one shot without breaking
 external contracts, the surfaces are not duplicates and this pattern
 does not apply.
+
+## SHA-keyed validation evidence: skip the re-run, not the gate (Epic #817)
+
+When the same lint/test/format/maintainability/CRAP command is invoked
+across phases against the same tree, the framework wraps each invocation
+in `evidence-gate.js`. On success the wrapper writes
+`{ gateName, commitSha, commandConfigHash, timestamp }` to
+`temp/validation-evidence-<scopeId>.json`. The next caller reads the
+record, compares against `git rev-parse HEAD` and the resolved command
+config, and skips when both match.
+
+Pattern shape:
+
+1. **Authoritative gate runs first.** `sprint-story-close.js`'s
+   close-validation chain is the source of truth — when it passes, it
+   writes evidence.
+2. **Subsequent phases consult evidence.** `sprint-code-review`,
+   `sprint-close` Phase 4, and any other downstream caller wrap the same
+   gate via `evidence-gate.js`. They skip when the recorded SHA still
+   matches `HEAD` and the command config hash is unchanged.
+3. **Any drift invalidates.** A new commit, a working-tree change at
+   commit-SHA granularity, or a config drift (different env, different
+   script args) invalidates the record and the gate runs.
+4. **Independent verification stays independent.** Pre-push hooks and CI
+   never read the evidence file; they always run the full gate. Evidence
+   is per-clone, gitignored, and never committed.
+5. **Explicit override.** `--no-evidence` on any wrapper invocation
+   forces a re-run and overwrites the record. Use sparingly — for
+   iterating on flaky tests or bisecting an environment-only failure.
+
+Apply when: a phase needs the result of a deterministic, expensive,
+working-tree-pure gate that another phase has already produced.
+
+Skip when: the verification's authority depends on running independently
+(CI, pre-push), or when the gate's behaviour is non-deterministic at the
+commit-SHA granularity (e.g. integration tests against an external
+service that may have drifted).
+
+## Honest degraded modes: structured envelope, non-zero exit (Epic #817)
+
+When a soft-failing gate (`select-audits.js`, `lint-baseline.js`,
+`baseline-refresh-guardrail.js`) cannot fully execute — diff timeout,
+JSON parse failure, missing ref — the previous behaviour was a permissive
+zero-error fallback that read identically to a clean run. The current
+contract is:
+
+- Default mode: emit `{ ok: false, degraded: true, reason, detail }` on
+  stdout and exit non-zero. Caller decides whether to absorb.
+- `--gate-mode` (or `AGENT_PROTOCOLS_GATE_MODE=1`): fail closed without
+  the permissive envelope. Use in CI / pre-push / authoritative gates.
+
+Pattern: never let a degraded execution path mimic a clean one. The
+caller's flexibility is preserved by the structured envelope; the
+operator's ability to mistake degraded for clean is removed.
