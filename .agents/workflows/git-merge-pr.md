@@ -138,6 +138,7 @@ Exit code 0 means every check passed. On failure:
 
    ```powershell
    git add .
+   # justification: post-CI remediation; CI lint+test gate ran upstream and produced the failure being fixed here. Local hook would re-run the same gate.
    git commit --no-verify -m "fix(ci): resolve quality-gate failures on [HEAD_BRANCH] for PR #[PR_NUMBER]"
    git push origin [HEAD_BRANCH]
    ```

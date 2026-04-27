@@ -166,7 +166,7 @@ If the operator instructs you to fix any findings:
    # or, for tracked edits only:
    # git add -u
 
-   git commit --no-verify -m "fix(<scope>): <description> (review finding)"
+   git commit -m "fix(<scope>): <description> (review finding)"
    ```
 
 3. Re-run the project's validation suite to confirm no regressions:
