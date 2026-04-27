@@ -32,6 +32,7 @@ import path from 'node:path';
 import { parseSprintArgs } from './lib/cli-args.js';
 import { runAsCli } from './lib/cli-utils.js';
 import {
+  buildDefaultGates,
   formatMaintainabilityProjection,
   projectMaintainabilityRegressions,
   runCloseValidation,
@@ -711,16 +712,18 @@ export async function runStoryClose({
   if (!skipValidation) {
     progress(
       'VALIDATE',
-      'Running pre-merge gates (lint, test, format, maintainability)...',
+      'Running pre-merge gates (typecheck, lint, test, format, maintainability)...',
     );
     const validation = runCloseValidation({
       cwd,
+      gates: buildDefaultGates({ settings }),
       log: (m) => Logger.info(m),
       onGateStart: (gate) => {
         // Only the canonical phase-enum gates drive `mark()`. Non-enum
-        // gates (`biome format`, `check-maintainability`) share the
-        // currently-open phase's wall clock — a deliberate choice so the
-        // `phase-timings` schema stays stable against future gate churn.
+        // gates (`typecheck`, `biome format`, `check-maintainability`)
+        // share the currently-open phase's wall clock — a deliberate
+        // choice so the `phase-timings` schema stays stable against
+        // future gate churn.
         if (gate.name === 'lint' || gate.name === 'test') {
           phaseTimer.mark(gate.name);
         }

@@ -14,6 +14,7 @@
  */
 
 import { spawnSync } from 'node:child_process';
+import { getCommands } from './config/commands.js';
 import { gitSpawn as defaultGitSpawn } from './git-utils.js';
 import { calculateForSource } from './maintainability-engine.js';
 import { getBaseline } from './maintainability-utils.js';
@@ -31,35 +32,117 @@ import {
  * @property {string}   [hint] - Remediation hint shown on failure.
  */
 
-/** @type {Gate[]} */
-export const DEFAULT_GATES = [
-  { name: 'lint', cmd: 'npm', args: ['run', 'lint'] },
-  { name: 'test', cmd: 'npm', args: ['test'] },
-  {
-    name: 'biome format',
-    cmd: 'npx',
-    args: ['biome', 'format', '.'],
-    hint: 'Run `npx biome format --write` to auto-fix formatting drift.',
-  },
-  {
-    name: 'check-maintainability',
-    cmd: 'node',
-    args: ['.agents/scripts/check-maintainability.js'],
-    hint: 'Run `npm run maintainability:update` to refresh the baseline — the refreshed baseline MUST be committed on the story branch.',
-  },
-  {
-    name: 'coverage-capture',
-    cmd: 'node',
-    args: ['.agents/scripts/coverage-capture.js'],
-    hint: 'Coverage capture failed — `npm run test:coverage` exited non-zero. Fix failing tests or coverage-threshold breaches, then re-run close.',
-  },
-  {
-    name: 'check-crap',
-    cmd: 'node',
-    args: ['.agents/scripts/check-crap.js'],
-    hint: 'Reduce complexity or add coverage on the flagged methods, or run `npm run crap:update` and commit with a `baseline-refresh:` tagged subject + non-empty body if the drift is justified. Self-skips when `agentSettings.quality.crap.enabled` is false.',
-  },
-];
+/**
+ * Fallback typecheck command when `agentSettings.commands.typecheck` is unset
+ * or null. Mirrors the lint/test fallback shape so the gate runs unconditionally
+ * — there is intentionally no config switch to disable it (Epic-branch type
+ * regressions surface in the next Story's pre-push otherwise; see CHANGELOG
+ * 5.30.1).
+ */
+const TYPECHECK_FALLBACK = 'npm run typecheck';
+
+const TYPECHECK_HINT =
+  'TypeScript regression — fix type errors on the Story branch before retrying close. If the failure is a stale generated type (e.g. wrangler types), regenerate locally and commit before the close.';
+
+/**
+ * Resolve the typecheck command for the close-validation typecheck gate.
+ *
+ * Reads `agentSettings.commands.typecheck` (string) when present and non-empty
+ * and falls back to `npm run typecheck` otherwise. The framework-wide
+ * `COMMANDS_DEFAULTS.typecheck` is `null` (disabled-means-null convention used
+ * by other call sites), but the close-validation gate is mandatory by design,
+ * so we apply the fallback here rather than short-circuiting on null.
+ *
+ * Exported for testing.
+ *
+ * @param {{ agentSettings?: { commands?: object } } | object | null | undefined} settings
+ * @returns {string} command string (e.g. `pnpm exec turbo run typecheck`)
+ */
+export function resolveTypecheckCommand(settings) {
+  try {
+    const cmds = getCommands({ agentSettings: settings });
+    if (
+      typeof cmds.typecheck === 'string' &&
+      cmds.typecheck.trim().length > 0
+    ) {
+      return cmds.typecheck.trim();
+    }
+  } catch {
+    // Malformed settings — fall through to the framework default.
+  }
+  return TYPECHECK_FALLBACK;
+}
+
+/**
+ * Build the canonical close-validation gate list.
+ *
+ * Ordering rationale (cheapest fast-fail first):
+ *   1. typecheck — pure compile-time check, fastest to fail
+ *   2. lint     — static analysis
+ *   3. test     — full test suite
+ *   4. biome format
+ *   5. check-maintainability
+ *   6. coverage-capture
+ *   7. check-crap
+ *
+ * The `typecheck` gate is mandatory; consumers cannot opt out via config. They
+ * may customise the command via `agentSettings.commands.typecheck`; otherwise
+ * `npm run typecheck` is used.
+ *
+ * @param {{ settings?: object }} [opts]
+ * @returns {Gate[]}
+ */
+export function buildDefaultGates({ settings } = {}) {
+  const typecheckCmdString = resolveTypecheckCommand(settings);
+  const [typecheckCmd, ...typecheckArgs] = typecheckCmdString
+    .split(/\s+/)
+    .filter(Boolean);
+  return [
+    {
+      name: 'typecheck',
+      cmd: typecheckCmd,
+      args: typecheckArgs,
+      hint: TYPECHECK_HINT,
+    },
+    { name: 'lint', cmd: 'npm', args: ['run', 'lint'] },
+    { name: 'test', cmd: 'npm', args: ['test'] },
+    {
+      name: 'biome format',
+      cmd: 'npx',
+      args: ['biome', 'format', '.'],
+      hint: 'Run `npx biome format --write` to auto-fix formatting drift.',
+    },
+    {
+      name: 'check-maintainability',
+      cmd: 'node',
+      args: ['.agents/scripts/check-maintainability.js'],
+      hint: 'Run `npm run maintainability:update` to refresh the baseline — the refreshed baseline MUST be committed on the story branch.',
+    },
+    {
+      name: 'coverage-capture',
+      cmd: 'node',
+      args: ['.agents/scripts/coverage-capture.js'],
+      hint: 'Coverage capture failed — `npm run test:coverage` exited non-zero. Fix failing tests or coverage-threshold breaches, then re-run close.',
+    },
+    {
+      name: 'check-crap',
+      cmd: 'node',
+      args: ['.agents/scripts/check-crap.js'],
+      hint: 'Reduce complexity or add coverage on the flagged methods, or run `npm run crap:update` and commit with a `baseline-refresh:` tagged subject + non-empty body if the drift is justified. Self-skips when `agentSettings.quality.crap.enabled` is false.',
+    },
+  ];
+}
+
+/**
+ * Default gate list resolved with no consumer settings — uses the
+ * `npm run typecheck` fallback for the typecheck gate. Call sites that have a
+ * resolved settings object in scope (e.g. `sprint-story-close.js`) should
+ * prefer `buildDefaultGates({ settings })` so a configured
+ * `agentSettings.commands.typecheck` is honoured.
+ *
+ * @type {Gate[]}
+ */
+export const DEFAULT_GATES = buildDefaultGates();
 
 /**
  * Resolve the current `git rev-parse HEAD` SHA inside `cwd`. Returns `null`
