@@ -65,117 +65,22 @@ Pull Request Opened
 **No gate can be skipped.** If lint fails, fix lint — don't disable the rule. If
 a test fails, fix the code — don't skip the test.
 
-## GitHub Actions Configuration
+## CI Configuration (GitHub Actions)
 
-### Basic CI Pipeline
+A representative pipeline for a Node project runs lint → type check → unit
+tests → build → security audit on every PR and push to `main`. Add
+integration jobs that spin up service containers (e.g. Postgres) and an E2E
+job that installs Playwright and uploads the report on failure.
 
-```yaml
-# .github/workflows/ci.yml
-name: CI
-
-on:
-  pull_request:
-    branches: [main]
-  push:
-    branches: [main]
-
-jobs:
-  quality:
-    runs-on: ubuntu-latest
-    steps:
-      - uses: actions/checkout@v4
-
-      - uses: actions/setup-node@v4
-        with:
-          node-version: '22'
-          cache: 'npm'
-
-      - name: Install dependencies
-        run: npm ci
-
-      - name: Lint
-        run: npm run lint
-
-      - name: Type check
-        run: npx tsc --noEmit
-
-      - name: Test
-        run: npm test -- --coverage
-
-      - name: Build
-        run: npm run build
-
-      - name: Security audit
-        run: npm audit --audit-level=high
-```
-
-### With Database Integration Tests
-
-```yaml
-integration:
-  runs-on: ubuntu-latest
-  services:
-    postgres:
-      image: postgres:16
-      env:
-        POSTGRES_DB: testdb
-        POSTGRES_USER: ci_user
-        POSTGRES_PASSWORD: ${{ secrets.CI_DB_PASSWORD }}
-      ports:
-        - 5432:5432
-      options: >-
-        --health-cmd pg_isready --health-interval 10s --health-timeout 5s
-        --health-retries 5
-
-  steps:
-    - uses: actions/checkout@v4
-    - uses: actions/setup-node@v4
-      with:
-        node-version: '22'
-        cache: 'npm'
-    - run: npm ci
-    - name: Run migrations
-      run: npx prisma migrate deploy
-      env:
-        DATABASE_URL:
-          postgresql://ci_user:${{ secrets.CI_DB_PASSWORD
-          }}@localhost:5432/testdb
-    - name: Integration tests
-      run: npm run test:integration
-      env:
-        DATABASE_URL:
-          postgresql://ci_user:${{ secrets.CI_DB_PASSWORD
-          }}@localhost:5432/testdb
-```
-
-> **Note:** Even for CI-only test databases, use GitHub Secrets for credentials
-> rather than hardcoding values. This builds good habits and prevents accidental
-> reuse of test credentials in other contexts.
-
-### E2E Tests
-
-```yaml
-e2e:
-  runs-on: ubuntu-latest
-  steps:
-    - uses: actions/checkout@v4
-    - uses: actions/setup-node@v4
-      with:
-        node-version: '22'
-        cache: 'npm'
-    - run: npm ci
-    - name: Install Playwright
-      run: npx playwright install --with-deps chromium
-    - name: Build
-      run: npm run build
-    - name: Run E2E tests
-      run: npx playwright test
-    - uses: actions/upload-artifact@v4
-      if: failure()
-      with:
-        name: playwright-report
-        path: playwright-report/
-```
+> See [`examples.md`](./examples.md) for full GitHub Actions YAML covering:
+>
+> - Basic CI pipeline (lint, types, tests, build, audit)
+> - Integration tests with a Postgres service container + Prisma migrations
+> - Playwright E2E with report artifacts
+> - Caching and parallelism (split lint/typecheck/test into separate jobs)
+>
+> Use GitHub Secrets for credentials — even in CI-only test databases — to
+> avoid normalizing hardcoded values that could leak into other contexts.
 
 ## Feeding CI Failures Back to Agents
 
@@ -210,18 +115,10 @@ Build error → Agent checks config and dependencies
 
 ### Preview Deployments
 
-Every PR gets a preview deployment for manual testing:
-
-```yaml
-# Deploy preview on PR (Vercel/Netlify/etc.)
-deploy-preview:
-  runs-on: ubuntu-latest
-  if: github.event_name == 'pull_request'
-  steps:
-    - uses: actions/checkout@v4
-    - name: Deploy preview
-      run: npx vercel --token=${{ secrets.VERCEL_TOKEN }}
-```
+Every PR gets a preview deployment for manual testing — most platforms (Vercel,
+Netlify, Cloudflare Pages) ship a one-step action you wire into the PR
+workflow. See [`examples.md`](./examples.md) for a representative Vercel
+preview-deploy job.
 
 ### Feature Flags
 
@@ -233,17 +130,10 @@ features behind flags so you can:
 - **Canary new features.** Enable for 1% of users, then 10%, then 100%.
 - **Run A/B tests.** Compare behavior with and without the feature.
 
-```typescript
-// Simple feature flag pattern
-if (featureFlags.isEnabled('new-checkout-flow', { userId })) {
-  return renderNewCheckout();
-}
-return renderLegacyCheckout();
-```
-
-**Flag lifecycle:** Create → Enable for testing → Canary → Full rollout → Remove
-the flag and dead code. Flags that live forever become technical debt — set a
-cleanup date when you create them.
+**Flag lifecycle:** Create → Enable for testing → Canary → Full rollout →
+Remove the flag and dead code. Flags that live forever become technical debt —
+set a cleanup date when you create them. See [`examples.md`](./examples.md)
+for a minimal flag-check pattern.
 
 ### Staged Rollouts
 
@@ -265,27 +155,9 @@ PR merged to main
 
 ### Rollback Plan
 
-Every deployment should be reversible:
-
-```yaml
-# Manual rollback workflow
-name: Rollback
-on:
-  workflow_dispatch:
-    inputs:
-      version:
-        description: 'Version to rollback to'
-        required: true
-
-jobs:
-  rollback:
-    runs-on: ubuntu-latest
-    steps:
-      - name: Rollback deployment
-        run: |
-          # Deploy the specified previous version
-          npx vercel rollback ${{ inputs.version }}
-```
+Every deployment should be reversible. Wire a `workflow_dispatch` job that
+takes a target version as input and re-deploys it; see
+[`examples.md`](./examples.md) for a representative manual-rollback workflow.
 
 ## Environment Management
 
@@ -303,16 +175,10 @@ CI should never have production secrets. Use separate secrets for CI testing.
 
 ### Dependabot / Renovate
 
-```yaml
-# .github/dependabot.yml
-version: 2
-updates:
-  - package-ecosystem: npm
-    directory: /
-    schedule:
-      interval: weekly
-    open-pull-requests-limit: 5
-```
+Schedule dependency updates so they show up as PRs you can triage in batches
+rather than chasing security advisories ad hoc. A minimal `dependabot.yml` is
+in [`examples.md`](./examples.md); Renovate's config covers the same shape
+with more knobs.
 
 ### Build Cop Role
 
@@ -350,35 +216,9 @@ Slow CI pipeline?
 
 ### Example: Caching and Parallelism
 
-```yaml
-jobs:
-  lint:
-    runs-on: ubuntu-latest
-    steps:
-      - uses: actions/checkout@v4
-      - uses: actions/setup-node@v4
-        with: { node-version: '22', cache: 'npm' }
-      - run: npm ci
-      - run: npm run lint
-
-  typecheck:
-    runs-on: ubuntu-latest
-    steps:
-      - uses: actions/checkout@v4
-      - uses: actions/setup-node@v4
-        with: { node-version: '22', cache: 'npm' }
-      - run: npm ci
-      - run: npx tsc --noEmit
-
-  test:
-    runs-on: ubuntu-latest
-    steps:
-      - uses: actions/checkout@v4
-      - uses: actions/setup-node@v4
-        with: { node-version: '22', cache: 'npm' }
-      - run: npm ci
-      - run: npm test -- --coverage
-```
+Split lint, typecheck, and test into separate jobs that each restore the npm
+cache via `actions/setup-node`'s `cache: 'npm'` option. See
+[`examples.md`](./examples.md) for a parallel three-job layout.
 
 ## Common Rationalizations
 
