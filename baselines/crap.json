@@ -880,28 +880,40 @@
       "startLine": 46
     },
     {
+      "crap": 3.0262390670553936,
+      "file": ".agents/scripts/lib/close-validation.js",
+      "method": "resolveTypecheckCommand",
+      "startLine": 61
+    },
+    {
+      "crap": 1,
+      "file": ".agents/scripts/lib/close-validation.js",
+      "method": "buildDefaultGates",
+      "startLine": 95
+    },
+    {
       "crap": 15.664000000000001,
       "file": ".agents/scripts/lib/close-validation.js",
       "method": "defaultGetHeadSha",
-      "startLine": 71
+      "startLine": 154
     },
     {
       "crap": 28.871525169045835,
       "file": ".agents/scripts/lib/close-validation.js",
       "method": "runCloseValidation",
-      "startLine": 112
+      "startLine": 195
     },
     {
       "crap": 20,
       "file": ".agents/scripts/lib/close-validation.js",
       "method": "projectMaintainabilityRegressions",
-      "startLine": 245
+      "startLine": 328
     },
     {
       "crap": 4,
       "file": ".agents/scripts/lib/close-validation.js",
       "method": "formatMaintainabilityProjection",
-      "startLine": 330
+      "startLine": 413
     },
     {
       "crap": 7,
@@ -4411,139 +4423,139 @@
       "crap": 1,
       "file": ".agents/scripts/sprint-story-close.js",
       "method": "resolveWorktreeRoot",
-      "startLine": 85
+      "startLine": 86
     },
     {
       "crap": 3,
       "file": ".agents/scripts/sprint-story-close.js",
       "method": "drainPendingCleanupAfterClose",
-      "startLine": 90
+      "startLine": 91
     },
     {
       "crap": 13,
       "file": ".agents/scripts/sprint-story-close.js",
       "method": "reconcileCleanupState",
-      "startLine": 120
+      "startLine": 121
     },
     {
       "crap": 3,
       "file": ".agents/scripts/sprint-story-close.js",
       "method": "checkCdOutGuard",
-      "startLine": 196
+      "startLine": 197
     },
     {
       "crap": 3,
       "file": ".agents/scripts/sprint-story-close.js",
       "method": "getCloseDrainStatus",
-      "startLine": 240
+      "startLine": 241
     },
     {
       "crap": 8.125,
       "file": ".agents/scripts/sprint-story-close.js",
       "method": "rebaseStoryOnEpic",
-      "startLine": 266
+      "startLine": 267
     },
     {
       "crap": 15.230680107713233,
       "file": ".agents/scripts/sprint-story-close.js",
       "method": "finalizeMerge",
-      "startLine": 309
+      "startLine": 310
     },
     {
       "crap": 2.5,
       "file": ".agents/scripts/sprint-story-close.js",
       "method": "<anon method-2>",
-      "startLine": 357
+      "startLine": 358
     },
     {
       "crap": 1,
       "file": ".agents/scripts/sprint-story-close.js",
       "method": "<anon method-3>",
-      "startLine": 399
+      "startLine": 400
     },
     {
       "crap": 2,
       "file": ".agents/scripts/sprint-story-close.js",
       "method": "lockPathDisplay",
-      "startLine": 433
+      "startLine": 434
     },
     {
       "crap": 1,
       "file": ".agents/scripts/sprint-story-close.js",
       "method": "renderPhaseTimingsCommentBody",
-      "startLine": 445
+      "startLine": 446
     },
     {
       "crap": 1,
       "file": ".agents/scripts/sprint-story-close.js",
       "method": "buildResumeMergeCommitMsg",
-      "startLine": 459
+      "startLine": 460
     },
     {
       "crap": 5,
       "file": ".agents/scripts/sprint-story-close.js",
       "method": "describeResumePushFailure",
-      "startLine": 468
+      "startLine": 469
     },
     {
       "crap": 30,
       "file": ".agents/scripts/sprint-story-close.js",
       "method": "finalizeMergeIfPending",
-      "startLine": 479
+      "startLine": 480
     },
     {
       "crap": 12,
       "file": ".agents/scripts/sprint-story-close.js",
       "method": "pushEpicAfterResume",
-      "startLine": 511
+      "startLine": 512
     },
     {
       "crap": 6,
       "file": ".agents/scripts/sprint-story-close.js",
       "method": "completeInProgressMerge",
-      "startLine": 541
+      "startLine": 542
     },
     {
-      "crap": 27.52590498303476,
+      "crap": 27.890625,
       "file": ".agents/scripts/sprint-story-close.js",
       "method": "runStoryClose",
-      "startLine": 584
+      "startLine": 585
     },
     {
       "crap": 1,
       "file": ".agents/scripts/sprint-story-close.js",
       "method": "<anon method-5>",
-      "startLine": 639
+      "startLine": 640
     },
     {
       "crap": 2,
       "file": ".agents/scripts/sprint-story-close.js",
       "method": "<anon method-6>",
-      "startLine": 718
+      "startLine": 720
     },
     {
       "crap": 12,
       "file": ".agents/scripts/sprint-story-close.js",
       "method": "<anon method-7>",
-      "startLine": 719
+      "startLine": 721
     },
     {
       "crap": 1,
       "file": ".agents/scripts/sprint-story-close.js",
       "method": "<anon method-8>",
-      "startLine": 810
+      "startLine": 813
     },
     {
       "crap": 1,
       "file": ".agents/scripts/sprint-story-close.js",
       "method": "<anon method-9>",
-      "startLine": 810
+      "startLine": 813
     },
     {
       "crap": 3.0416666666666665,
       "file": ".agents/scripts/sprint-story-close.js",
       "method": "<anon method-10>",
-      "startLine": 925
+      "startLine": 928
     },
     {
       "crap": 1,
