@@ -1,3 +1,13 @@
+---
+name: cloudflare-workers
+description:
+  Builds and deploys high-performance edge logic on Cloudflare Workers. Use
+  when working within Workers' 128MB memory and 5–50ms CPU constraints,
+  integrating KV/R2/D1 storage, or writing Wrangler-managed edge-first
+  request/response code.
+vendor: cloudflare
+---
+
 # Skill: Cloudflare Workers
 
 Guidelines for building and deploying high-performance serverless logic at the

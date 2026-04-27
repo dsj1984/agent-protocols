@@ -1,3 +1,13 @@
+---
+name: cloudflare-queue-manager
+description:
+  Ensures idempotent and resilient background job execution on Cloudflare
+  Queues. Use when writing consumer handlers — design for at-least-once
+  delivery, wrap processing in try/catch with `message.retry()`, and order
+  cascading deletes so the database row drops last.
+vendor: cloudflare
+---
+
 # Cloudflare Queue Lifecycle Manager
 
 **Description:** Ensures idempotent and resilient background job execution.

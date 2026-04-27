@@ -1,3 +1,13 @@
+---
+name: cloudflare-hono-architect
+description:
+  Prevents Node.js module hallucinations in Cloudflare Worker (V8 isolate)
+  edge environments. Use when writing Hono routes deployed to Workers — prefer
+  Web APIs (Fetch, Web Crypto) over Node built-ins (`fs`, `path`,
+  `child_process`, `crypto`), and access bindings via Hono's `c.env`.
+vendor: cloudflare
+---
+
 # Cloudflare Worker & Hono Architect
 
 **Description:** Prevents Node.js module hallucinations in edge environments.

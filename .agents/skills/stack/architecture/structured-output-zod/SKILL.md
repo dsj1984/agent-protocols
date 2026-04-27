@@ -1,3 +1,13 @@
+---
+name: structured-output-zod
+description:
+  Validates external and structured data with Zod schemas. Use when accepting
+  untrusted input at API boundaries, validating environment variables on
+  startup, parsing third-party responses, or generating typed shapes via
+  `z.infer`. Parse, don't validate.
+vendor: zod
+---
+
 # Skill: Structured Output (Zod)
 
 Guidelines for ensuring system reliability through schema validation and typed

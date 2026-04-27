@@ -1,3 +1,13 @@
+---
+name: stripe-integration
+description:
+  Implements secure Stripe payments and subscription billing. Use when handling
+  card data (PCI compliance via Elements/Checkout), verifying webhook
+  signatures, attaching `idempotencyKey` to mutations, or treating the
+  server-side webhook as the source of truth for entitlement changes.
+vendor: stripe
+---
+
 # Skill: Stripe Payments & Billing
 
 Standard procedures for secure and robust payment + subscription billing
