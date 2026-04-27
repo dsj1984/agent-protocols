@@ -7,12 +7,12 @@ framework via the `.agents/` Git submodule.
 
 ```text
 .agents/
-├── VERSION                  # Current version (5.5.2)
+├── VERSION                  # Framework version (read this file, not a count here)
 ├── SDLC.md                  # End-to-end workflow guide
 ├── instructions.md          # MANDATORY: Primary system prompt
 ├── default-agentrc.json     # Copy to project root as .agentrc.json
 ├── personas/                # 12 role-specific behavior constraints
-├── rules/                   # 9 domain-agnostic coding standards
+├── rules/                   # 10 domain-agnostic coding standards
 ├── schemas/                 # JSON Schemas for structured output validation
 ├── scripts/                 # v5 orchestration engine (CLI wrappers + SDK)
 │   ├── lib/                 # Core libraries, orchestration SDK, providers
@@ -272,6 +272,7 @@ Modular, domain-agnostic standards loaded by the system prompt.
 | File                                 | Domain          | Purpose                                                |
 | ------------------------------------ | --------------- | ------------------------------------------------------ |
 | `api-conventions.md`                 | API             | RESTful standards, status codes, and JSON patterns     |
+| `changelog-style.md`                 | Release         | Keep-a-Changelog formatting and release-note grammar   |
 | `coding-style.md`                    | Generic         | Clean code standards and file structure conventions    |
 | `database-standards.md`              | Database        | Migration safety, naming, and indexing strategies      |
 | `git-conventions.md`                 | Version Control | Branching strategy and PR quality standards            |
