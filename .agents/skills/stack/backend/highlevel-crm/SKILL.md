@@ -1,3 +1,13 @@
+---
+name: highlevel-crm
+description:
+  Integrates with the HighLevel (GoHighLevel) CRM API v2 and its automation
+  engine. Use when synchronizing data via OAuth 2.0, building custom widgets,
+  handling sub-account `locationId` scoping, or implementing webhook-driven
+  workflows with rate-limit-aware retries.
+vendor: highlevel
+---
+
 # Skill: HighLevel CRM (GoHighLevel)
 
 Protocols for integrating with the HighLevel CRM API (v2) and building custom

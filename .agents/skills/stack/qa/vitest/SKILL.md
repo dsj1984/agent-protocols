@@ -1,3 +1,13 @@
+---
+name: vitest
+description:
+  Writes fast, isolated unit and integration tests with Vitest. Use when each
+  test must run on file-save without shared state — `vi.mock()` for external
+  deps, `vi.spyOn()` for call monitoring, AAA structure, and edge-case
+  coverage for null/undefined/boundary inputs.
+vendor: vitest
+---
+
 # Skill: Vitest
 
 Guidelines for writing fast, reliable unit and integration tests.

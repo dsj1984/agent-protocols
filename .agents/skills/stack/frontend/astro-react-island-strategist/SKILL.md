@@ -1,3 +1,13 @@
+---
+name: astro-react-island-strategist
+description:
+  Maintains strict boundaries between Astro server components and React client
+  islands in hybrid Astro/React workspaces. Use when keeping `.astro` files
+  for static HTML/SEO and `.tsx` for interactive islands — embed React only
+  with explicit `client:*` directives and pass serializable props.
+vendor: astro
+---
+
 # Astro & React Island Strategist
 
 **Description:** Maintains strict boundaries between Astro server components and

@@ -1,3 +1,14 @@
+---
+name: backend-security-patterns
+description:
+  Combined backend protocols for authentication (Clerk JWT verification) and
+  PII-safe observability. Use when handling auth on the server, verifying
+  Clerk webhooks via `svix`, scoping metadata via `publicMetadata`/
+  `privateMetadata`, or sanitizing logs to keep emails, tokens, and request
+  bodies out of telemetry.
+vendor: clerk
+---
+
 # Skill: Backend Security Patterns
 
 Combined protocols for authentication (Clerk) and PII-safe observability in

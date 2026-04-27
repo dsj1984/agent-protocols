@@ -1,3 +1,13 @@
+---
+name: playwright
+description:
+  Robust E2E browser testing with Playwright. Use when writing browser-driven
+  tests — leverage auto-waiting (no `waitForTimeout`), prefer user-visible
+  locators (`getByRole`, `getByText`, `getByLabel`) over CSS/XPath, reuse
+  `storageState` for auth, and enable trace-on-first-retry for CI debugging.
+vendor: playwright
+---
+
 # Skill: Playwright
 
 Standard operating procedures for robust, end-to-end (E2E) browser testing.
