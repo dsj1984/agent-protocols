@@ -42,7 +42,10 @@ function classifyScript(filePath) {
 }
 
 test('RUN_AS_CLI_RE matches a real call', () => {
-  assert.strictEqual(RUN_AS_CLI_RE.test('runAsCli(import.meta.url, main);'), true);
+  assert.strictEqual(
+    RUN_AS_CLI_RE.test('runAsCli(import.meta.url, main);'),
+    true,
+  );
 });
 
 test('RUN_AS_CLI_RE does not match a string mention', () => {
@@ -54,13 +57,19 @@ test('RUN_AS_CLI_RE does not match a string mention', () => {
 });
 
 test('OPT_OUT_RE requires a non-empty reason', () => {
-  assert.strictEqual(OPT_OUT_RE.test('// cli-opt-out: bespoke main-guard'), true);
+  assert.strictEqual(
+    OPT_OUT_RE.test('// cli-opt-out: bespoke main-guard'),
+    true,
+  );
   assert.strictEqual(OPT_OUT_RE.test('// cli-opt-out:'), false);
   assert.strictEqual(OPT_OUT_RE.test('// cli-opt-out:   '), false);
 });
 
 test('OPT_OUT_RE matches with leading whitespace and varied spacing', () => {
-  assert.strictEqual(OPT_OUT_RE.test('   //  cli-opt-out  :   reason here'), true);
+  assert.strictEqual(
+    OPT_OUT_RE.test('   //  cli-opt-out  :   reason here'),
+    true,
+  );
 });
 
 test('every .agents/scripts/*.js either calls runAsCli() or has a documented cli-opt-out comment', () => {
@@ -84,9 +93,4 @@ test('every .agents/scripts/*.js either calls runAsCli() or has a documented cli
   );
 });
 
-export {
-  classifyScript,
-  listTopLevelJs,
-  RUN_AS_CLI_RE,
-  OPT_OUT_RE,
-};
+export { classifyScript, listTopLevelJs, OPT_OUT_RE, RUN_AS_CLI_RE };

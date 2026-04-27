@@ -59,7 +59,10 @@ function stripCommentsAndStrings(source) {
     // Block comment — replace body with spaces so line numbers stay aligned.
     if (ch === '/' && next === '*') {
       i += 2;
-      while (i < source.length && !(source[i] === '*' && source[i + 1] === '/')) {
+      while (
+        i < source.length &&
+        !(source[i] === '*' && source[i + 1] === '/')
+      ) {
         out += source[i] === '\n' ? '\n' : ' ';
         i += 1;
       }
@@ -121,22 +124,35 @@ test('SANCTIONED_WRAPPERS files exist', () => {
 
 test('stripCommentsAndStrings: ignores process.exit in line comments', () => {
   const sample = '  // process.exit(1) — for reference only';
-  assert.strictEqual(PROCESS_EXIT_RE.test(stripCommentsAndStrings(sample)), false);
+  assert.strictEqual(
+    PROCESS_EXIT_RE.test(stripCommentsAndStrings(sample)),
+    false,
+  );
 });
 
 test('stripCommentsAndStrings: ignores process.exit inside JSDoc blocks', () => {
-  const sample = '/**\n * file I/O decisions, or process.exit(). All delegated.\n */\nexport function foo() {}';
-  assert.strictEqual(PROCESS_EXIT_RE.test(stripCommentsAndStrings(sample)), false);
+  const sample =
+    '/**\n * file I/O decisions, or process.exit(). All delegated.\n */\nexport function foo() {}';
+  assert.strictEqual(
+    PROCESS_EXIT_RE.test(stripCommentsAndStrings(sample)),
+    false,
+  );
 });
 
 test('stripCommentsAndStrings: ignores process.exit inside string literals', () => {
   const sample = "  throw new Error('do not call process.exit(1) here');";
-  assert.strictEqual(PROCESS_EXIT_RE.test(stripCommentsAndStrings(sample)), false);
+  assert.strictEqual(
+    PROCESS_EXIT_RE.test(stripCommentsAndStrings(sample)),
+    false,
+  );
 });
 
 test('stripCommentsAndStrings: still flags real process.exit calls', () => {
   const sample = '  process.exit(1);';
-  assert.strictEqual(PROCESS_EXIT_RE.test(stripCommentsAndStrings(sample)), true);
+  assert.strictEqual(
+    PROCESS_EXIT_RE.test(stripCommentsAndStrings(sample)),
+    true,
+  );
 });
 
 test('library code under .agents/scripts/lib/ does not call process.exit() outside sanctioned wrappers', () => {
@@ -152,9 +168,7 @@ test('library code under .agents/scripts/lib/ does not call process.exit() outsi
     const offenses = scanFileForProcessExit(file);
     if (offenses.length === 0) continue;
     for (const o of offenses) {
-      failures.push(
-        `  .agents/scripts/lib/${rel}:${o.line}  ${o.text}`,
-      );
+      failures.push(`  .agents/scripts/lib/${rel}:${o.line}  ${o.text}`);
     }
   }
   assert.deepStrictEqual(
@@ -165,8 +179,8 @@ test('library code under .agents/scripts/lib/ does not call process.exit() outsi
 });
 
 export {
+  PROCESS_EXIT_RE,
+  SANCTIONED_WRAPPERS,
   scanFileForProcessExit,
   stripCommentsAndStrings,
-  SANCTIONED_WRAPPERS,
-  PROCESS_EXIT_RE,
 };

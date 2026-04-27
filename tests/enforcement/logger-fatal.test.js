@@ -60,7 +60,10 @@ function stripCommentsAndStrings(source) {
     const next = source[i + 1];
     if (ch === '/' && next === '*') {
       i += 2;
-      while (i < source.length && !(source[i] === '*' && source[i + 1] === '/')) {
+      while (
+        i < source.length &&
+        !(source[i] === '*' && source[i + 1] === '/')
+      ) {
         out += source[i] === '\n' ? '\n' : ' ';
         i += 1;
       }
@@ -216,7 +219,12 @@ test('readArgList: handles balanced empty argument list', () => {
 });
 
 test('scanFileForBadFatal: ignores Logger.fatal inside JSDoc blocks', (t) => {
-  const tmp = path.join(REPO_ROOT, 'tests', 'enforcement', `.tmp-${Date.now()}-fatal-doc.js`);
+  const tmp = path.join(
+    REPO_ROOT,
+    'tests',
+    'enforcement',
+    `.tmp-${Date.now()}-fatal-doc.js`,
+  );
   fs.writeFileSync(
     tmp,
     '/**\n * Avoid Logger.fatal() with no message — pass a string.\n */\nexport function ok() { Logger.fatal("real"); }\n',
@@ -228,7 +236,12 @@ test('scanFileForBadFatal: ignores Logger.fatal inside JSDoc blocks', (t) => {
 });
 
 test('scanFileForBadFatal: catches a real zero-arg call', (t) => {
-  const tmp = path.join(REPO_ROOT, 'tests', 'enforcement', `.tmp-${Date.now()}-fatal-bad.js`);
+  const tmp = path.join(
+    REPO_ROOT,
+    'tests',
+    'enforcement',
+    `.tmp-${Date.now()}-fatal-bad.js`,
+  );
   fs.writeFileSync(tmp, 'function bad() { Logger.fatal(); }\n', 'utf8');
   t.after(() => fs.rmSync(tmp, { force: true }));
   const offenses = scanFileForBadFatal(tmp);
@@ -238,7 +251,10 @@ test('scanFileForBadFatal: catches a real zero-arg call', (t) => {
 
 test('every Logger.fatal() call across .agents/scripts/ supplies a non-empty message', () => {
   const files = listJsFiles(SCRIPTS_DIR);
-  assert.ok(files.length > 0, `expected at least one .js file under ${SCRIPTS_DIR}`);
+  assert.ok(
+    files.length > 0,
+    `expected at least one .js file under ${SCRIPTS_DIR}`,
+  );
   const failures = [];
   for (const file of files) {
     const offenses = scanFileForBadFatal(file);
@@ -257,8 +273,8 @@ test('every Logger.fatal() call across .agents/scripts/ supplies a non-empty mes
 
 export {
   classifyFatalCall,
+  LOGGER_FATAL_OPEN_RE,
   readArgList,
   scanFileForBadFatal,
   stripCommentsAndStrings,
-  LOGGER_FATAL_OPEN_RE,
 };
