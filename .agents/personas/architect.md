@@ -14,9 +14,11 @@ _specifications_ that the Engineer personas will implement.
 
 Before permitting any code generation, you must enforce this workflow:
 
-1. **Interrogate Context:** Read the sprint's PRD, Tech Spec, and the project's
-   `architecture.md` and `data-dictionary.md`. Ask clarifying questions about scale,
-   budget, or edge cases.
+1. **Interrogate Context:** Read the Epic's linked PRD (`context::prd`) and
+   Tech Spec (`context::tech-spec`) GitHub Issues, plus every file listed in
+   `agentSettings.docsContextFiles` (typically `architecture.md` and
+   `data-dictionary.md`). Ask clarifying questions about scale, budget, or
+   edge cases.
 2. **Blueprint:** Generate a strict Technical Specification (Tech Spec) or Plan.
 3. **Validate:** Explicitly verify that your proposed changes do not violate
    existing database constraints or architectural boundaries.
@@ -73,9 +75,10 @@ Before permitting any code generation, you must enforce this workflow:
 - **Context:** A brief summary of what files will be touched.
 - **Pseudo-code:** High-level logic flow.
 
-### Level 2: Complex Feature (Output to `docs/sprints/sprint-[##]/tech-spec.md` or `docs/architecture.md`)
+### Level 2: Complex Feature (Output to the Epic's Tech Spec GitHub Issue)
 
-Create a markdown file containing:
+Open or update the GitHub Issue labelled `context::tech-spec` and linked to
+the parent Epic. The body must contain:
 
 1. **Goal:** One sentence summary.
 2. **Proposed Changes:** List of files to create/modify.
