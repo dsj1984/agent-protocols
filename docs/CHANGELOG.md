@@ -4,6 +4,34 @@ All notable changes to this project will be documented in this file.
 
 ## [Unreleased]
 
+## [5.30.1] - 2026-04-27
+
+### Typecheck gate added to sprint-story-close
+
+Adds a TypeScript compile gate to the canonical close-validation chain so type
+regressions surface in the Story that introduced them rather than in the next
+Story's pre-push. Real-world driver: a Story shipped product changes that
+broke types on the Epic branch; the next Story's husky `pnpm validate` hook
+caught it and the next-Story owner had to commit a remediation for someone
+else's behaviour.
+
+- **New `typecheck` gate runs first in `runCloseValidation`.** The gate is
+  inserted at index 0 of `DEFAULT_GATES` (before `lint` and `test`) so the
+  cheapest fast-fail wins. It honours the same SHA-keyed evidence-skip path
+  as `lint`/`test` — re-running close after a no-op change reuses the
+  recorded pass.
+- **Command sourced from `agentSettings.commands.typecheck`.** Consumers that
+  declare a typecheck command in their `.agentrc.json` (e.g. `pnpm exec turbo
+  run typecheck`) get that command verbatim; the framework falls back to
+  `npm run typecheck` when the field is absent or empty. There is **no
+  config switch to disable the gate** — the whole point of the change is to
+  enforce it on every close.
+- **New exports.** `buildDefaultGates({ settings })` and
+  `resolveTypecheckCommand(settings)` are exported from
+  `lib/close-validation.js` for call sites that have a resolved settings
+  object in scope. `DEFAULT_GATES` is preserved for back-compat (it resolves
+  with the `npm run typecheck` fallback).
+
 ## [5.30.0] - 2026-04-27
 
 ### Risk/HITL semantics + dispatch-manifest cleanup (Epic #857)

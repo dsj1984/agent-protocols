@@ -3,7 +3,9 @@ import { spawnSync } from 'node:child_process';
 import path from 'node:path';
 import { test } from 'node:test';
 import {
+  buildDefaultGates,
   DEFAULT_GATES,
+  resolveTypecheckCommand,
   runCloseValidation as runCloseValidationOnly,
 } from '../.agents/scripts/lib/close-validation.js';
 import {
@@ -86,14 +88,98 @@ test('sprint-story-close script', async (t) => {
 
 test('runCloseValidation', async (t) => {
   await t.test(
-    'DEFAULT_GATES covers lint, test, biome format, maintainability, and crap',
+    'DEFAULT_GATES covers typecheck, lint, test, biome format, maintainability, and crap',
     () => {
       const names = DEFAULT_GATES.map((g) => g.name);
+      assert.ok(names.includes('typecheck'));
       assert.ok(names.includes('lint'));
       assert.ok(names.includes('test'));
       assert.ok(names.some((n) => n.includes('biome format')));
       assert.ok(names.some((n) => n.includes('maintainability')));
       assert.ok(names.some((n) => n.includes('crap')));
+    },
+  );
+
+  await t.test(
+    'DEFAULT_GATES runs typecheck first so it fast-fails before lint/test',
+    () => {
+      assert.equal(DEFAULT_GATES[0].name, 'typecheck');
+      const names = DEFAULT_GATES.map((g) => g.name);
+      const tcIdx = names.indexOf('typecheck');
+      const lintIdx = names.indexOf('lint');
+      const testIdx = names.indexOf('test');
+      assert.ok(
+        tcIdx < lintIdx && tcIdx < testIdx,
+        'typecheck must run before lint and test',
+      );
+    },
+  );
+
+  await t.test(
+    'typecheck gate falls back to `npm run typecheck` when settings is unset',
+    () => {
+      const gate = DEFAULT_GATES.find((g) => g.name === 'typecheck');
+      assert.equal(gate.cmd, 'npm');
+      assert.deepStrictEqual(gate.args, ['run', 'typecheck']);
+      assert.match(gate.hint, /TypeScript regression/);
+    },
+  );
+
+  await t.test(
+    'typecheck gate honours agentSettings.commands.typecheck when configured',
+    () => {
+      const gates = buildDefaultGates({
+        settings: { commands: { typecheck: 'pnpm exec turbo run typecheck' } },
+      });
+      const gate = gates.find((g) => g.name === 'typecheck');
+      assert.equal(gate.cmd, 'pnpm');
+      assert.deepStrictEqual(gate.args, ['exec', 'turbo', 'run', 'typecheck']);
+    },
+  );
+
+  await t.test('resolveTypecheckCommand resolution rules', () => {
+    assert.equal(resolveTypecheckCommand(undefined), 'npm run typecheck');
+    assert.equal(resolveTypecheckCommand({}), 'npm run typecheck');
+    assert.equal(
+      resolveTypecheckCommand({ commands: { typecheck: null } }),
+      'npm run typecheck',
+    );
+    assert.equal(
+      resolveTypecheckCommand({ commands: { typecheck: '   ' } }),
+      'npm run typecheck',
+    );
+    assert.equal(
+      resolveTypecheckCommand({ commands: { typecheck: 'tsc --noEmit' } }),
+      'tsc --noEmit',
+    );
+  });
+
+  await t.test(
+    'a failing typecheck halts runCloseValidation and surfaces the hint',
+    () => {
+      const gates = buildDefaultGates();
+      const tcArgs = gates[0].args;
+      const tcCmd = gates[0].cmd;
+      const calls = [];
+      const runner = (cmd, args) => {
+        calls.push({ cmd, args });
+        if (cmd === tcCmd && args.join(' ') === tcArgs.join(' ')) {
+          return { status: 2 };
+        }
+        return { status: 0 };
+      };
+      const logs = [];
+      const result = runCloseValidationOnly({
+        cwd: '.',
+        gates,
+        runner,
+        log: (m) => logs.push(m),
+      });
+      assert.equal(result.ok, false);
+      assert.equal(result.failed.length, 1);
+      assert.equal(result.failed[0].gate.name, 'typecheck');
+      assert.equal(calls.length, 1, 'should halt before running lint/test');
+      assert.ok(logs.some((m) => /TypeScript regression/.test(m)));
     },
   );
 

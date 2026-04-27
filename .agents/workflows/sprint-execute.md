@@ -338,16 +338,20 @@ For **each child Task** in the order returned by `sprint-story-init.js`:
 
 ### Step 2 — Validate (deferred to close)
 
-`sprint-story-close.js` runs the canonical close-validation chain (lint, test,
-format, maintainability) before it merges — **do not** pre-run `npm run lint`
-and `npm test` here unless you are interactively iterating on a fix. The close
-script's gate is authoritative; pre-running them in headless sub-agent runs
-just doubles the wall-clock cost of every Story.
+`sprint-story-close.js` runs the canonical close-validation chain (typecheck,
+lint, test, format, maintainability, coverage, crap) before it merges — **do
+not** pre-run `npm run typecheck`, `npm run lint`, and `npm test` here unless
+you are interactively iterating on a fix. The close script's gate is
+authoritative; pre-running them in headless sub-agent runs just doubles the
+wall-clock cost of every Story. The typecheck gate sources its command from
+`agentSettings.commands.typecheck` when set (e.g. `pnpm exec turbo run
+typecheck`) and falls back to `npm run typecheck` otherwise.
 
 **Interactive `--fast` advisory mode.** When iterating in your own terminal and
 you want a fast pre-flight before invoking close, run:
 
 ```powershell
+npm run typecheck
 npm run lint
 npm test
 ```
