@@ -1,3 +1,13 @@
+---
+name: gherkin-authoring
+description:
+  Authors `.feature` files that stay business-readable, translate cleanly from
+  PRD acceptance criteria, and reuse a shared step-definition library. Use
+  when writing or editing scenarios — the SSOT enforcement rules live in
+  `.agents/rules/gherkin-standards.md`; this skill shows authors how to apply
+  them.
+---
+
 # Skill: gherkin-authoring
 
 Guidance for authoring `.feature` files that stay business-readable, translate

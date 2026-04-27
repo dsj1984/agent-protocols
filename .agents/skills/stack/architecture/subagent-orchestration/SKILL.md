@@ -1,3 +1,12 @@
+---
+name: subagent-orchestration
+description:
+  Coordinates complex tasks via task-isolated subagents. Use when one objective
+  is too large for a single agent or when independent work streams should run
+  concurrently with minimal context bleed. One objective per subagent;
+  summarize before returning to keep the main context window clean.
+---
+
 # Skill: Subagent Orchestration
 
 Internal protocol for managing complex tasks through the creation and

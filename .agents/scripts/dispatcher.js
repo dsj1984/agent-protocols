@@ -22,7 +22,6 @@
  */
 
 import { runAsCli } from './lib/cli-utils.js';
-import { Logger } from './lib/Logger.js';
 import { resolveAndDispatch } from './lib/orchestration/index.js';
 
 // Re-export SDK functions so that direct consumers of dispatcher.js
@@ -131,9 +130,7 @@ export async function generateAndSaveManifest(
     console.log(
       `[Dispatcher] Progress: ${manifest.summary.doneTasks}/${manifest.summary.totalTasks} tasks done (${manifest.summary.progressPercent}%)`,
     );
-    console.log(
-      `[Dispatcher] Dispatched: ${manifest.summary.dispatched}, Held: ${manifest.summary.heldForApproval}`,
-    );
+    console.log(`[Dispatcher] Dispatched: ${manifest.summary.dispatched}`);
     printStoryDispatchTable(manifest.storyManifest);
   }
   return manifest;
@@ -161,10 +158,11 @@ async function main() {
 
 runAsCli(import.meta.url, main, {
   source: 'Dispatcher',
-  // Preserve legacy behaviour: report but do not exit; only abort via
-  // Logger.fatal if DEBUG is set (the orchestration tests depend on this).
+  // Preserve legacy behaviour: report but do not exit; only abort with a
+  // non-zero exit code if DEBUG is set (the orchestration tests depend on
+  // this — message context was already printed via console.error above).
   onError: (err) => {
     console.error('[Dispatcher] Fatal error:', err.message);
-    if (process.env.DEBUG) Logger.fatal();
+    if (process.env.DEBUG) process.exit(1);
   },
 });

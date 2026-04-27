@@ -13,8 +13,8 @@
  *   with error-journal logging).
  */
 
-import { getRunners } from '../../config/runners.js';
 import { notify } from '../../../notify.js';
+import { getRunners } from '../../config/runners.js';
 import { createFrictionEmitter } from '../friction-emitter.js';
 import { BlockerHandler } from './blocker-handler.js';
 import { Checkpointer } from './checkpointer.js';

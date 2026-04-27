@@ -1,3 +1,12 @@
+---
+name: audit-accessibility
+description:
+  Audits sites and apps for WCAG 2.1 Level AA compliance using automated and
+  manual testing tools. Use when running an accessibility audit or building a
+  remediation plan — semantic HTML, contrast, focus management, keyboard
+  reachability, and axe-core integration in Vitest/Playwright.
+---
+
 # Skill: Accessibility Audit (A11y)
 
 Protocols for ensuring WCAG 2.1 Level AA compliance using automated and manual

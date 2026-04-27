@@ -117,7 +117,7 @@ git push --force-with-lease origin [HEAD_BRANCH]
 Run the full lint / format / test suite via the gate wrapper. The wrapper
 owns the command list so this skill doesn't rot when a project renames
 `lint` → `lint:ci` or swaps Biome for ESLint. The default check set is
-`lint`, `format:check`, `test`; override via `.agentrc.json → qualityGate`.
+`lint`, `format:check`, `test`; override via `.agentrc.json → agentSettings.quality.prGate`.
 
 ```powershell
 node .agents/scripts/git-pr-quality-gate.js --json
@@ -138,6 +138,7 @@ Exit code 0 means every check passed. On failure:
 
    ```powershell
    git add .
+   # justification: post-CI remediation; CI lint+test gate ran upstream and produced the failure being fixed here. Local hook would re-run the same gate.
    git commit --no-verify -m "fix(ci): resolve quality-gate failures on [HEAD_BRANCH] for PR #[PR_NUMBER]"
    git push origin [HEAD_BRANCH]
    ```

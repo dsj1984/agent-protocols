@@ -1,3 +1,12 @@
+---
+name: monorepo-path-strategist
+description:
+  Enforces strict workspace package routing and dependency boundaries. Use when
+  working in a monorepo with workspace aliases (e.g. `@repo/shared/*`,
+  `@repo/ui/*`) and you need to prevent deep relative imports, cross-workspace
+  contamination, or dependencies added at the wrong package.json level.
+---
+
 # Monorepo Path Strategist
 
 **Description:** Enforces strict workspace package routing and dependency

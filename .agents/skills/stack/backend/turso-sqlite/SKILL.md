@@ -1,3 +1,13 @@
+---
+name: turso-sqlite
+description:
+  Develops with Turso's distributed SQLite (libSQL) platform. Use when working
+  with the `@libsql/client` driver — leverage edge replicas for low-latency
+  reads, route writes to the primary, and use parameterized queries plus a
+  versioned migration tool (drizzle-kit, atlas) for schema changes.
+vendor: turso
+---
+
 # Skill: Turso (SQLite)
 
 Rules for developing with Turso's distributed SQLite database platform.

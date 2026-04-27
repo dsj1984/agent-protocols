@@ -1,3 +1,13 @@
+---
+name: google-analytics-v4
+description:
+  Implements privacy-compliant event tracking with Google Analytics 4. Use
+  when wiring analytics that must comply with GDPR/CCPA via Consent Mode V2 —
+  `snake_case` event names, no PII to GA servers, GTM-driven event firing,
+  and DebugView verification before deploy.
+vendor: google
+---
+
 # Skill: Google Analytics 4 (GA4)
 
 Guidelines for privacy-compliant and data-driven event tracking using GA4.

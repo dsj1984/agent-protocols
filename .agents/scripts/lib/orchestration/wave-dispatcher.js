@@ -142,7 +142,7 @@ async function dispatchTaskInWave(task, ctx) {
 }
 
 /**
- * Dispatch one wave. Returns `{ dispatched, heldForApproval, shouldHalt, empty }`.
+ * Dispatch one wave. Returns `{ dispatched, shouldHalt, empty }`.
  * `shouldHalt=true` means upstream deps not complete; caller stops iterating.
  *
  * @param {object[]} wave
@@ -158,7 +158,6 @@ export async function dispatchWave(wave, taskMap, ctx) {
     Logger.info('Wave fully complete, moving to next...');
     return {
       dispatched: [],
-      heldForApproval: [],
       shouldHalt: false,
       empty: true,
     };
@@ -174,14 +173,12 @@ export async function dispatchWave(wave, taskMap, ctx) {
     Logger.info('Wave dependencies not yet complete. Halting.');
     return {
       dispatched: [],
-      heldForApproval: [],
       shouldHalt: true,
       empty: false,
     };
   }
 
   const dispatched = [];
-  const heldForApproval = [];
 
   // Tasks in the same wave have their dependencies satisfied, so they are
   // independent by construction. Dispatch them concurrently (bounded) so a
@@ -206,12 +203,12 @@ export async function dispatchWave(wave, taskMap, ctx) {
   for (const entry of results) {
     dispatched.push(entry.value);
   }
-  return { dispatched, heldForApproval, shouldHalt: false, empty: false };
+  return { dispatched, shouldHalt: false, empty: false };
 }
 
 /**
  * Walk the wave list, dispatching the first non-empty, dependency-ready
- * wave. Returns the lists of dispatched tasks and held-for-approval items.
+ * wave. Returns the list of dispatched tasks.
  *
  * @param {object} ctx
  * @param {{ tasks: object[], allTicketsById: Map<number, object> }} fetched
@@ -220,7 +217,6 @@ export async function dispatchWave(wave, taskMap, ctx) {
  */
 export async function dispatchNextWave(ctx, fetched, allWaves, taskMap) {
   const dispatched = [];
-  const heldForApproval = [];
 
   const waveCtx = {
     provider: ctx.provider,
@@ -239,10 +235,9 @@ export async function dispatchNextWave(ctx, fetched, allWaves, taskMap) {
     if (waveResult.empty) continue;
     if (waveResult.shouldHalt) break;
     dispatched.push(...waveResult.dispatched);
-    heldForApproval.push(...waveResult.heldForApproval);
     // Only dispatch one wave per invocation
     break;
   }
 
-  return { dispatched, heldForApproval };
+  return { dispatched };
 }

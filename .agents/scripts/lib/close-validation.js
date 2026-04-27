@@ -18,9 +18,9 @@ import { gitSpawn as defaultGitSpawn } from './git-utils.js';
 import { calculateForSource } from './maintainability-engine.js';
 import { getBaseline } from './maintainability-utils.js';
 import {
-  hashCommandConfig,
   recordPass as defaultRecordPass,
   shouldSkip as defaultShouldSkip,
+  hashCommandConfig,
 } from './validation-evidence.js';
 
 /**

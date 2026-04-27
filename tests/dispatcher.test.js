@@ -336,7 +336,6 @@ describe('dispatch() — manifest schema compliance', () => {
       'summary',
       'waves',
       'dispatched',
-      'heldForApproval',
     ];
     for (const field of required) {
       assert.ok(Object.hasOwn(manifest, field), `Missing field: ${field}`);
@@ -360,7 +359,6 @@ describe('dispatch() — manifest schema compliance', () => {
       'progressPercent',
       'totalWaves',
       'dispatched',
-      'heldForApproval',
     ];
     for (const field of requiredSummary) {
       assert.ok(

@@ -97,6 +97,7 @@ function main() {
   return code;
 }
 
+// cli-opt-out: synchronous main returns an exit code that is forwarded via process.exit(code); runAsCli's async-main signature does not preserve the result code.
 try {
   process.exit(main());
 } catch (err) {

@@ -31,23 +31,30 @@ The skill library uses a **two-tier architecture**:
 
 When a task involves a specific domain or technology, you MUST read the
 corresponding `.agents/skills/[tier]/[category]/[skill-name]/SKILL.md` file and
-apply its constraints. Review the `examples/` directory within that skill before
-writing code. When uncertain which to apply, read `core/using-agent-skills` for
-guidance on skill selection and sequencing.
+apply its constraints. Review the skill's `examples/` directory or
+`examples.md` sibling **when present and relevant** to the task — most skills
+do not ship one, so do not probe blindly. When uncertain which skill to apply,
+read `core/using-agent-skills` for guidance on skill selection and sequencing.
 
-### C. Proactive Documentation (Context7 MCP)
+### C. Proactive Documentation
 
-You MUST use the Context7 MCP proactively to prevent hallucination.
+You MUST use the host's best available live-documentation mechanism
+proactively to prevent hallucination — for example a docs MCP server such as
+Context7 when the host has it wired in, an IDE-native docs lookup, or any
+equivalent live-docs surface the host exposes.
 
 - **Mandatory Usage:** For any code generation, project setup, or complex
-  configuration using third-party libraries, resolve the library ID and fetch
-  the latest official documentation **before** writing code. Do not ask for
-  permission.
+  configuration involving third-party libraries, fetch the latest official
+  documentation **before** writing code. Do not ask for permission.
+- **Fallback Order:** If no live-docs mechanism is available, fall back to (1)
+  in-repo docs and the package's bundled `README.md`/`CHANGELOG.md`, then
+  (2) the host's web fetch/search tool. Note in your work log which channel
+  you used so reviewers can spot stale references.
 
 ### D. Error Handling & Degradation
 
-If any protocol file (Persona, Skill, or MCP) cannot be loaded, you MUST alert
-the user using the following warning format before proceeding:
+If any protocol file (Persona, Skill, or rule) cannot be loaded, you MUST
+alert the user using the following warning format before proceeding:
 
 > ⚠️ **Agent Protocol Warning**
 >
@@ -55,19 +62,10 @@ the user using the following warning format before proceeding:
 > - **Impact:** [Description]
 > - **Fallback:** [Description]
 
-#### MCP Tool Degradation
-
-If `agent-protocols` MCP tools (`transition_ticket_state`, `cascade_completion`,
-`post_structured_comment`) fail with connection errors (e.g.
-`client is closing`, `invalid character`), you MUST fall back to the equivalent
-CLI scripts immediately. Do **not** leave tickets in stale states:
-
-```powershell
-# transition_ticket_state fallback
-node .agents/scripts/update-ticket-state.js --task <id> --state <state>
-
-# cascade_completion is auto-triggered by the CLI when --state agent::done
-```
+State mutations (label transitions, cascade completion, structured comments)
+are performed via the in-repo CLI scripts under `.agents/scripts/`
+(`update-ticket-state.js`, `post-structured-comment.js`, …). Use those
+directly — there is no separate state-mutation MCP server to degrade from.
 
 ### E. Local Overrides
 
@@ -222,15 +220,17 @@ environments without needing manual command corrections.
 
 1. **Context First:** Before proposing any solution, understand the repository's
    tech stack, historical context, and structure.
-   - **Mandatory Reading**: Before starting ANY task, you MUST read the
-     following Project Reference Documents to ensure compliance with the system
-     architecture and patterns:
-     - `docs/architecture.md`
-     - `docs/data-dictionary.md`
-     - `docs/decisions.md`
-     - `docs/patterns.md`
-     - `docs/style-guide.md`
-     - `docs/web-routes.md`
+   - **Mandatory Reading**: Before starting ANY task, you MUST read every file
+     listed in `agentSettings.docsContextFiles` in `.agentrc.json`. This list
+     is the project's authoritative reference set (architecture, data
+     dictionary, decisions log, patterns, etc.) and replaces any hardcoded
+     filename list. Resolve each entry against `agentSettings.paths.docsRoot`
+     (default `docs/`) and skip silently when an entry's file is absent.
+   - **Conditional Reads**: When the task touches UI copy, layout, or routing
+     and the corresponding file is present in the project, also read
+     `docs/style-guide.md` and `docs/web-routes.md`. Skip both when absent or
+     unrelated to the task — they are not part of the universal mandatory
+     set.
    - **Epic Context**: Additionally, read the context tickets (PRD, Tech Spec)
      linked in the current Epic's body and the task-specific instructions.
    - **Optimization**: For large projects, prioritize targeted retrieval
@@ -277,14 +277,24 @@ environments without needing manual command corrections.
 To maintain a clean and readable repository history, you MUST follow these
 strict conventions for all sprint-related Git operations:
 
-### A. Task Branch Naming
+### A. Branch Naming (Canonical)
 
-All task work MUST occur on an isolated feature branch created from the current
-Epic base branch (`epic/[EPIC_ID]`).
+Sprint execution uses three branch shapes. The runtime creates and maintains
+them automatically; agents commit on the execution branch only.
 
-- **Format**: `task/[EPIC_ID]/[TASK_ID]`
-- **Example**: `task/45/45.2.1`
-- **Constraint**: Always prefix with `task/`.
+| Purpose          | Format                       | Owner                  | Notes                                                                                         |
+| ---------------- | ---------------------------- | ---------------------- | --------------------------------------------------------------------------------------------- |
+| Story execution  | `story-<storyId>`            | `sprint-story-init.js` | Per-Story worktree at `.worktrees/story-<storyId>/`. All Task commits land here.              |
+| Epic integration | `epic/<epicId>`              | `epic-runner.js`       | Story branches merge into this branch with `--no-ff`. Pushed per wave.                        |
+| Legacy fallback  | `task/<archivedEpic>/<taskN>` | (legacy, do not create) | Only present in archived Epics from runtimes prior to v5.29. Recognized for read; never created by new work. |
+
+- **Constraint**: New Story work MUST use the `story-<storyId>` shape. Agents
+  MUST NOT create `task/...` branches under the v5.29+ runtime — those
+  identifiers are retained as a legacy fallback only, for compatibility with
+  archived Epics.
+- **Verification**: After `sprint-story-init.js` returns, confirm
+  `git branch --show-current` reports `story-<storyId>` before making any
+  commits. If it does not, **STOP** and re-init.
 
 ### B. Status Tracking & Commit Standards
 

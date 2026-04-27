@@ -1,3 +1,14 @@
+---
+name: astro
+description:
+  Builds ultra-fast content-driven websites with Astro. Use when defaulting to
+  SSG, opting into SSR only for dynamic data, picking the most restrictive
+  `client:*` hydration directive, leveraging Server Islands (`server:defer`),
+  Astro Actions for type-safe mutations, and the Content Layer with Zod-
+  validated collections.
+vendor: astro
+---
+
 # Skill: Astro (Iron)
 
 Guidelines and best practices for building ultra-fast content-driven websites

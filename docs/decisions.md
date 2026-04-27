@@ -1,5 +1,99 @@
 # Architecture Decision Records (ADR)
 
+## ADR 20260427-868a: Open-root dispatch-manifest schema; AJV fixture drift test as enforcement boundary
+
+**Status:** Accepted
+**Date:** 2026-04-27
+**Epic:** #857
+**Story:** #868
+
+### Context
+
+`.agents/schemas/dispatch-manifest.json` had `additionalProperties: false`
+at the root and a `required` list pinned to one of two manifest variants
+(epic-dispatch). The runtime emits two distinct manifest shapes:
+
+1. **epic-dispatch** — written by `dispatcher.js` via `buildManifest()`
+   in `.agents/scripts/lib/orchestration/manifest-builder.js`. Persisted to
+   `temp/dispatch-manifest-<epicId>.json`.
+2. **story-execution** — returned by `executeStory()` in
+   `.agents/scripts/lib/orchestration/story-executor.js`. In-memory only.
+
+`buildManifest()` also emits fields the schema did not declare:
+`storyManifest[].storyTitle`, `storyManifest[].type`,
+`storyManifest[].tasks[].status`, and root-level `agentTelemetry`. With
+`additionalProperties: false`, every fresh runtime field caused validation
+failure. With a single-variant `required` list, the story-execution shape
+could not be validated by the same schema at all.
+
+Two design options were considered:
+
+- **Strict-with-explicit-fields.** Keep `additionalProperties: false` and
+  exhaustively list every emitted field. Catches all drift, including new
+  unannounced fields. Forces a schema commit for every new runtime field.
+- **Open-root + drift test.** Drop root `additionalProperties: false`, list
+  the known fields, and rely on a fixture-based AJV drift test running
+  `buildManifest()` and `executeStory()` against representative inputs to
+  catch shape regressions on every CI build.
+
+### Decision
+
+Adopt the **open-root + drift test** model. Concretely:
+
+1. Drop `additionalProperties: false` at the schema root. Inner objects
+   (`summary`, wave items, `dispatched[]`,
+   `storyManifest[]`, `storyManifest[].tasks[]`, `stories[]`,
+   `stories[].tasks[]`) keep `additionalProperties: false` — those shapes
+   are stable and benefit from strict validation.
+2. Use a `oneOf` discriminator on the root `type` field
+   (`"epic-dispatch" | "story-execution"`) to gate variant-specific
+   `required` fields. The epic-dispatch branch tolerates an absent `type`
+   for back-compat with the current `buildManifest()` output; new emitters
+   should set `type: "epic-dispatch"` explicitly.
+3. Add the runtime fields to `properties`: root `agentTelemetry`
+   (`object`, `additionalProperties: true`); `storyManifest[].storyTitle`;
+   `storyManifest[].type` (group classification:
+   `"story" | "feature" | "ungrouped"`); `storyManifest[].tasks[].status`.
+4. Add `stories[]` at the root for the story-execution variant.
+5. Land the AJV fixture drift test
+   (`tests/enforcement/manifest-schema.test.js`) in the same Story so the
+   enforcement boundary is in place before the loosened root reaches main.
+
+### Rationale
+
+False-rejection has historically been the more disruptive failure mode for
+this contract: a runtime field added without a schema commit blocks every
+dispatch run that writes a manifest. Open-root with a CI-blocking drift
+test inverts that bias — runtime additions ship without ceremony, but a
+shape regression (missing required field, wrong type, wrong enum value)
+fails the suite on the same commit that introduces it.
+
+The AJV drift test is run on every CI build via `npm test`, so the
+enforcement window is the same as the previous strict-root window. The
+trade is "schema diff per new field" for "fixture diff when runtime shape
+changes" — the latter is a coarser but more robust drift signal.
+
+### Implications
+
+- **For schema authors:** new optional runtime fields require no schema
+  edit; new required fields must be added to the variant's `required`
+  list AND covered by a fixture in `manifest-schema.test.js`.
+- **For runtime authors:** emitted shape must validate against the schema;
+  the AJV error path is surfaced verbatim by the drift test, so failures
+  read as `instancePath: keyword` (e.g., `/storyManifest/0: required`).
+- **For external consumers:** the schema describes a permissive root; do
+  not rely on `additionalProperties: false` to reject unknown root keys.
+  Inner objects remain strict.
+
+### Out of scope
+
+- **Splitting into `dispatch-manifest.epic-dispatch.json` and
+  `dispatch-manifest.story-execution.json`.** A second consumer needing
+  the variants apart is the trigger for that split; today's single-file
+  `oneOf` is simpler.
+- **Adding `agentTelemetry` to `required`.** Optional by design; the
+  executor decides whether to attach telemetry.
+
 ## ADR 20260426-829a: Strip-then-analyze for TypeScript scoring; keep typhonjs-escomplex
 
 **Status:** Accepted

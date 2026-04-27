@@ -41,6 +41,7 @@ async function main() {
   );
 }
 
+// cli-opt-out: top-level main().catch predates runAsCli; never imported elsewhere so the auto-run risk is moot.
 main().catch((err) => {
   console.error(`[Maintainability] ❌ Fatal error: ${err.message}`);
   process.exit(1);

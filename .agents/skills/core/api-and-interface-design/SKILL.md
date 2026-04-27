@@ -1,64 +1,66 @@
 ---
 name: api-and-interface-design
 description:
-  Guides stable API and interface design. Use when designing APIs, module
-  boundaries, or any public interface. Use when creating REST or GraphQL
-  endpoints, defining type contracts between modules, or establishing boundaries
-  between frontend and backend.
+  Designs stable, well-documented APIs and module interfaces. Use when
+  creating REST/GraphQL endpoints, defining contracts between modules, or
+  changing public interfaces. The wire-format SSOT — response envelope, HTTP
+  status codes, validation taxonomy, payload naming — lives in
+  `.agents/rules/api-conventions.md`; this skill shows authors how to apply
+  it.
 ---
 
-# API and Interface Design
+# Skill: api-and-interface-design
 
-## Overview
-
-Design stable, well-documented interfaces that are hard to misuse. Good
-interfaces make the right thing easy and the wrong thing hard. This applies to
-REST APIs, GraphQL schemas, module boundaries, component props, and any surface
-where one piece of code talks to another.
+Process guidance for designing interfaces that are hard to misuse — REST
+APIs, GraphQL schemas, module boundaries, and component props. The
+wire-format conventions (envelope shape, status codes, validation taxonomy,
+payload naming) live in
+[`.agents/rules/api-conventions.md`](../../../rules/api-conventions.md),
+which is the SSOT. This skill shows authors **how** to apply those rules;
+read the rule file for the **what**. Security validation guarantees live in
+[`security-baseline.md`](../../../rules/security-baseline.md); test-layer
+scope lives in
+[`testing-standards.md`](../../../rules/testing-standards.md).
 
 ## When to Use
 
-- Designing new API endpoints
-- Defining module boundaries or contracts between teams
-- Creating component prop interfaces
-- Establishing database schema that informs API shape
-- Changing existing public interfaces
+- Designing new API endpoints.
+- Defining module boundaries or contracts between teams.
+- Creating component prop interfaces.
+- Establishing database schema that informs API shape.
+- Changing existing public interfaces.
 
-## Core Principles
+## 1. Hyrum's Law — Be Intentional About Exposure
 
-### Hyrum's Law
+> With a sufficient number of users of an API, all observable behaviors of
+> your system will be depended on by somebody, regardless of what you promise
+> in the contract.
 
-> With a sufficient number of users of an API, all observable behaviors of your
-> system will be depended on by somebody, regardless of what you promise in the
-> contract.
-
-This means: every public behavior — including undocumented quirks, error message
-text, timing, and ordering — becomes a de facto contract once users depend on
-it. Design implications:
+Every observable behavior — undocumented quirks, error message text, timing,
+ordering — becomes a de facto contract once users depend on it. Implications:
 
 - **Be intentional about what you expose.** Every observable behavior is a
   potential commitment.
 - **Don't leak implementation details.** If users can observe it, they will
   depend on it.
-- **Plan for deprecation at design time.** See `deprecation-and-migration` for
-  how to safely remove things users depend on.
-- **Tests are not enough.** Even with perfect contract tests, Hyrum's Law means
-  "safe" changes can break real users who depend on undocumented behavior.
+- **Plan for deprecation at design time.** See `deprecation-and-migration`
+  for how to safely remove things users depend on.
+- **Tests are not enough.** Even with perfect contract tests, "safe" changes
+  can break real users who depend on undocumented behavior.
 
-### The One-Version Rule
+## 2. The One-Version Rule
 
 Avoid forcing consumers to choose between multiple versions of the same
 dependency or API. Diamond dependency problems arise when different consumers
 need different versions of the same thing. Design for a world where only one
 version exists at a time — extend rather than fork.
 
-### 1. Contract First
+## 3. Contract First
 
 Define the interface before implementing it. The contract is the spec —
 implementation follows.
 
 ```typescript
-// Define the contract first
 interface TaskAPI {
   // Creates a task and returns the created task with server-generated fields
   createTask(input: CreateTaskInput): Promise<Task>;
@@ -77,44 +79,34 @@ interface TaskAPI {
 }
 ```
 
-### 2. Consistent Error Semantics
+## 4. Wire Format — Defer to the Rule
 
-Pick one error strategy and use it everywhere:
+The response envelope, HTTP status code mapping, validation-status taxonomy,
+and payload-naming conventions are non-negotiable and live in the rule:
 
-```typescript
-// REST: HTTP status codes + structured error body
-// Every error response follows the same shape
-interface APIError {
-  error: {
-    code: string; // Machine-readable: "VALIDATION_ERROR"
-    message: string; // Human-readable: "Email is required"
-    details?: unknown; // Additional context when helpful
-  };
-}
+- Envelope shape (success flag, `error.code`, `error.message`,
+  `error.details`):
+  [`api-conventions.md` § Response Envelope](../../../rules/api-conventions.md#response-envelope).
+- Status code table (200/201/400/401/403/404/409/500):
+  [`api-conventions.md` § HTTP Status Codes](../../../rules/api-conventions.md#http-status-codes).
+- When to return 400 vs 401 vs 403 on validation failures:
+  [`api-conventions.md` § Validation Status](../../../rules/api-conventions.md#validation-status).
+- camelCase / kebab-case / UPPER_SNAKE conventions:
+  [`api-conventions.md` § Payload Formatting](../../../rules/api-conventions.md#payload-formatting).
 
-// Status code mapping
-// 400 → Client sent invalid data
-// 401 → Not authenticated
-// 403 → Authenticated but not authorized
-// 404 → Resource not found
-// 409 → Conflict (duplicate, version mismatch)
-// 422 → Validation failed (semantically invalid)
-// 500 → Server error (never expose internal details)
-```
+When designing a new endpoint, copy the canonical envelope from the rule —
+do not redraft it.
 
-**Don't mix patterns.** If some endpoints throw, others return null, and others
-return `{ error }` — the consumer can't predict behavior.
-
-### 3. Validate at Boundaries
+## 5. Validate at Boundaries
 
 Trust internal code. Validate at system edges where external input enters:
 
 ```typescript
-// Validate at the API boundary
 app.post('/api/tasks', async (req, res) => {
   const result = CreateTaskSchema.safeParse(req.body);
   if (!result.success) {
-    return res.status(422).json({
+    return res.status(400).json({
+      success: false,
       error: {
         code: 'VALIDATION_ERROR',
         message: 'Invalid task data',
@@ -131,11 +123,11 @@ app.post('/api/tasks', async (req, res) => {
 
 Where validation belongs:
 
-- API route handlers (user input)
-- Form submission handlers (user input)
-- External service response parsing (third-party data -- **always treat as
-  untrusted**)
-- Environment variable loading (configuration)
+- API route handlers (user input).
+- Form submission handlers (user input).
+- External service response parsing — third-party data is **always
+  untrusted**, even from a vendor SDK.
+- Environment variable loading (configuration).
 
 > **Third-party API responses are untrusted data.** Validate their shape and
 > content before using them in any logic, rendering, or decision-making. A
@@ -144,11 +136,11 @@ Where validation belongs:
 
 Where validation does NOT belong:
 
-- Between internal functions that share type contracts
-- In utility functions called by already-validated code
-- On data that just came from your own database
+- Between internal functions that share type contracts.
+- In utility functions called by already-validated code.
+- On data that just came from your own database.
 
-### 4. Prefer Addition Over Modification
+## 6. Prefer Addition Over Modification
 
 Extend interfaces without breaking existing consumers:
 
@@ -169,19 +161,7 @@ interface CreateTaskInput {
 }
 ```
 
-### 5. Predictable Naming
-
-| Pattern         | Convention             | Example                             |
-| --------------- | ---------------------- | ----------------------------------- |
-| REST endpoints  | Plural nouns, no verbs | `GET /api/tasks`, `POST /api/tasks` |
-| Query params    | camelCase              | `?sortBy=createdAt&pageSize=20`     |
-| Response fields | camelCase              | `{ createdAt, updatedAt, taskId }`  |
-| Boolean fields  | is/has/can prefix      | `isComplete`, `hasAttachments`      |
-| Enum values     | UPPER_SNAKE            | `"IN_PROGRESS"`, `"COMPLETED"`      |
-
-## REST API Patterns
-
-### Resource Design
+## 7. REST Resource Patterns
 
 ```text
 GET    /api/tasks              → List tasks (with query params for filtering)
@@ -222,29 +202,26 @@ Use query parameters for filters:
 GET /api/tasks?status=in_progress&assignee=user123&createdAfter=2025-01-01
 ```
 
-### Partial Updates (PATCH)
+### Partial Updates
 
-Accept partial objects — only update what's provided:
+`PATCH` accepts partial objects — only update what's provided:
 
 ```typescript
-// Only title changes, everything else preserved
 PATCH /api/tasks/123
 { "title": "Updated title" }
 ```
 
-## TypeScript Interface Patterns
+## 8. TypeScript Interface Patterns
 
-### Use Discriminated Unions for Variants
+### Discriminated Unions for Variants
 
 ```typescript
-// Good: Each variant is explicit
 type TaskStatus =
   | { type: 'pending' }
   | { type: 'in_progress'; assignee: string; startedAt: Date }
   | { type: 'completed'; completedAt: Date; completedBy: string }
   | { type: 'cancelled'; reason: string; cancelledAt: Date };
 
-// Consumer gets type narrowing
 function getStatusLabel(status: TaskStatus): string {
   switch (status.type) {
     case 'pending':
@@ -279,7 +256,7 @@ interface Task {
 }
 ```
 
-### Use Branded Types for IDs
+### Branded Types for IDs
 
 ```typescript
 type TaskId = string & { readonly __brand: 'TaskId' };
@@ -289,7 +266,7 @@ type UserId = string & { readonly __brand: 'UserId' };
 function getTask(id: TaskId): Promise<Task> { ... }
 ```
 
-## Common Rationalizations
+## 9. Common Rationalizations
 
 | Rationalization                            | Reality                                                                                                          |
 | ------------------------------------------ | ---------------------------------------------------------------------------------------------------------------- |
@@ -301,24 +278,38 @@ function getTask(id: TaskId): Promise<Task> { ... }
 | "We can just maintain two versions"        | Multiple versions multiply maintenance cost and create diamond dependency problems. Prefer the One-Version Rule. |
 | "Internal APIs don't need contracts"       | Internal consumers are still consumers. Contracts prevent coupling and enable parallel work.                     |
 
-## Red Flags
+## 10. Red Flags
 
-- Endpoints that return different shapes depending on conditions
-- Inconsistent error formats across endpoints
-- Validation scattered throughout internal code instead of at boundaries
-- Breaking changes to existing fields (type changes, removals)
-- List endpoints without pagination
-- Verbs in REST URLs (`/api/createTask`, `/api/getUsers`)
-- Third-party API responses used without validation or sanitization
+- Endpoints that return different envelope shapes depending on conditions
+  (the rule fixes the shape — see § 4).
+- Validation scattered throughout internal code instead of at boundaries.
+- Breaking changes to existing fields (type changes, removals).
+- List endpoints without pagination.
+- Verbs in REST URLs (`/api/createTask`, `/api/getUsers`).
+- Third-party API responses used without validation or sanitization.
 
-## Verification
+## 11. Authoring Checklist
 
-After designing an API:
+Before opening a PR that adds or edits an API surface:
 
-- [ ] Every endpoint has typed input and output schemas
-- [ ] Error responses follow a single consistent format
-- [ ] Validation happens at system boundaries only
-- [ ] List endpoints support pagination
-- [ ] New fields are additive and optional (backward compatible)
-- [ ] Naming follows consistent conventions across all endpoints
-- [ ] API documentation or types are committed alongside the implementation
+- [ ] Every endpoint has typed input and output schemas.
+- [ ] Error responses follow the envelope in
+      [`api-conventions.md` § Response Envelope](../../../rules/api-conventions.md#response-envelope).
+- [ ] Status codes match
+      [`api-conventions.md` § HTTP Status Codes](../../../rules/api-conventions.md#http-status-codes).
+- [ ] Validation runs at the API boundary and returns the canonical
+      `VALIDATION_ERROR` shape on failure.
+- [ ] List endpoints support pagination.
+- [ ] New fields are additive and optional (backward compatible).
+- [ ] Naming follows
+      [`api-conventions.md` § Payload Formatting](../../../rules/api-conventions.md#payload-formatting).
+- [ ] API documentation or types are committed alongside the implementation.
+
+## 12. Cross-References
+
+- SSOT rules:
+  [`.agents/rules/api-conventions.md`](../../../rules/api-conventions.md).
+- Security validation guarantees:
+  [`security-baseline.md`](../../../rules/security-baseline.md).
+- Test-layer scope:
+  [`testing-standards.md`](../../../rules/testing-standards.md).

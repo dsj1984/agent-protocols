@@ -2,25 +2,18 @@
   "$schema": "https://json-schema.org/draft/2020-12/schema",
   "$id": "dispatch-manifest",
   "title": "Dispatch Manifest",
-  "description": "Output of dispatcher.js — describes the full execution plan for one Epic. Written to temp/dispatch-manifest-<epicId>.json.",
+  "description": "Output of dispatcher.js (epic-dispatch variant) and orchestration/story-executor.js (story-execution variant). Written to temp/dispatch-manifest-<epicId>.json for the epic-dispatch variant. The two variants are discriminated by the `type` field. Open-root by design — the AJV fixture drift test is the enforcement boundary; see docs/decisions.md ADR 20260427-868a.",
   "type": "object",
-  "required": [
-    "schemaVersion",
-    "generatedAt",
-    "epicId",
-    "epicTitle",
-    "executor",
-    "dryRun",
-    "summary",
-    "waves",
-    "storyManifest",
-    "dispatched",
-    "heldForApproval"
-  ],
+  "required": ["generatedAt", "dryRun"],
   "properties": {
+    "type": {
+      "type": "string",
+      "enum": ["epic-dispatch", "story-execution"],
+      "description": "Discriminator for the manifest variant."
+    },
     "schemaVersion": {
       "type": "string",
-      "description": "Schema version for forward-compatibility checks.",
+      "description": "Schema version for forward-compatibility checks. Emitted by the epic-dispatch variant.",
       "examples": ["1.0.0"]
     },
     "generatedAt": {
@@ -50,6 +43,11 @@
       "type": "boolean",
       "description": "True if any task's generation-time protocol version differs from the current runtime version."
     },
+    "agentTelemetry": {
+      "type": ["object", "null"],
+      "description": "Optional runtime telemetry attached by the executor. Open-shape: any executor-defined fields are allowed.",
+      "additionalProperties": true
+    },
     "summary": {
       "type": "object",
       "required": [
@@ -57,8 +55,7 @@
         "doneTasks",
         "progressPercent",
         "totalWaves",
-        "dispatched",
-        "heldForApproval"
+        "dispatched"
       ],
       "properties": {
         "totalTasks": {
@@ -82,11 +79,6 @@
           "type": "integer",
           "minimum": 0,
           "description": "Number of tasks dispatched in this invocation."
-        },
-        "heldForApproval": {
-          "type": "integer",
-          "minimum": 0,
-          "description": "Number of tasks held due to risk::high label."
         }
       },
       "additionalProperties": false
@@ -173,27 +165,16 @@
         "additionalProperties": false
       }
     },
-    "heldForApproval": {
-      "type": "array",
-      "description": "Tasks held due to risk::high label — require operator approval.",
-      "items": {
-        "type": "object",
-        "required": ["taskId", "reason"],
-        "properties": {
-          "taskId": { "type": "integer", "minimum": 1 },
-          "reason": { "type": "string" }
-        },
-        "additionalProperties": false
-      }
-    },
     "storyManifest": {
       "type": "array",
-      "description": "Story-centric grouping of tasks. Each entry represents a Story with its branch, model tier, and child tasks. This is the primary execution unit — operators dispatch at the Story level.",
+      "description": "Story-centric grouping of tasks. Each entry represents a Story (or Feature/ungrouped fallback) with its branch, model tier, and child tasks. This is the primary execution unit — operators dispatch at the Story level.",
       "items": {
         "type": "object",
         "required": [
           "storyId",
+          "storyTitle",
           "storySlug",
+          "type",
           "branchName",
           "model_tier",
           "earliestWave",
@@ -205,15 +186,24 @@
               { "type": "integer", "minimum": 1 },
               { "type": "string", "const": "__ungrouped__" }
             ],
-            "description": "GitHub Issue number of the parent Story, or '__ungrouped__' for orphan tasks."
+            "description": "GitHub Issue number of the parent Story (or Feature, when a Task is parented directly to a Feature), or '__ungrouped__' for orphan tasks."
+          },
+          "storyTitle": {
+            "type": "string",
+            "description": "Title of the parent Story/Feature issue, or '(Ungrouped Tasks)' for orphans."
           },
           "storySlug": {
             "type": "string",
             "description": "URL-safe slug derived from the Story title."
           },
+          "type": {
+            "type": "string",
+            "enum": ["story", "feature", "ungrouped"],
+            "description": "Group classification: 'story' for Story-parented tasks, 'feature' for tasks parented directly to a Feature, 'ungrouped' for orphans."
+          },
           "branchName": {
             "type": "string",
-            "description": "Git branch name for this Story (e.g., story/epic-71/isolate-dispatcher-logic)."
+            "description": "Git branch name for this Story (e.g., story-868)."
           },
           "model_tier": {
             "type": "string",
@@ -229,11 +219,18 @@
             "description": "Child tasks belonging to this Story, executed sequentially on the Story branch.",
             "items": {
               "type": "object",
-              "required": ["taskId", "taskSlug", "parentSlug", "dependencies"],
+              "required": [
+                "taskId",
+                "taskSlug",
+                "parentSlug",
+                "status",
+                "dependencies"
+              ],
               "properties": {
                 "taskId": { "type": "integer", "minimum": 1 },
                 "taskSlug": { "type": "string" },
                 "parentSlug": { "type": "string" },
+                "status": { "type": "string" },
                 "dependencies": {
                   "type": "array",
                   "items": { "type": "integer" }
@@ -245,7 +242,76 @@
         },
         "additionalProperties": false
       }
+    },
+    "stories": {
+      "type": "array",
+      "description": "Story-execution variant payload — one entry per Story this manifest covers.",
+      "items": {
+        "type": "object",
+        "required": [
+          "storyId",
+          "storyTitle",
+          "branchName",
+          "model_tier",
+          "tasks"
+        ],
+        "properties": {
+          "storyId": { "type": "integer", "minimum": 1 },
+          "storyTitle": { "type": "string" },
+          "epicId": {
+            "type": ["integer", "null"],
+            "minimum": 1
+          },
+          "epicBranch": { "type": ["string", "null"] },
+          "branchName": { "type": "string" },
+          "model_tier": {
+            "type": "string",
+            "enum": ["high", "low"]
+          },
+          "tasks": {
+            "type": "array",
+            "items": {
+              "type": "object",
+              "required": ["taskId", "title", "status"],
+              "properties": {
+                "taskId": { "type": "integer", "minimum": 1 },
+                "title": { "type": "string" },
+                "status": { "type": "string" }
+              },
+              "additionalProperties": false
+            }
+          }
+        },
+        "additionalProperties": false
+      }
     }
   },
-  "additionalProperties": false
+  "oneOf": [
+    {
+      "title": "epic-dispatch variant",
+      "description": "Output of dispatcher.js / buildManifest(). The `type` field may be absent for back-compat; presence is restricted to 'epic-dispatch'.",
+      "properties": {
+        "type": { "const": "epic-dispatch" }
+      },
+      "required": [
+        "schemaVersion",
+        "epicId",
+        "epicTitle",
+        "executor",
+        "summary",
+        "waves",
+        "storyManifest",
+        "dispatched"
+      ],
+      "not": { "required": ["stories"] }
+    },
+    {
+      "title": "story-execution variant",
+      "description": "Output of orchestration/story-executor.js / executeStory().",
+      "properties": {
+        "type": { "const": "story-execution" }
+      },
+      "required": ["type", "stories"]
+    }
+  ]
 }

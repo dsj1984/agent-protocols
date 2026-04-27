@@ -242,6 +242,29 @@ operator reference.
 
 ### Recent releases
 
+- **v5.30.0 — Epic #857 (2026-04-27).** `.agents/` bundle drift remediation:
+  prompt layer, schemas, personas, and rule-as-SSOT consolidation.
+  `.agents/instructions.md` realigned with the v5.29 runtime — `story-<id>`
+  branches canonical, retired-MCP fallback removed, mandatory-docs sourced
+  from `agentSettings.docsContextFiles`. Persona files scrubbed of
+  `docs/sprints/...` paths and the retired `sprint-generate-playbook`
+  references. `dispatch-manifest.json` schema cleanup: `storyTitle`,
+  `agentTelemetry`, and `type` fields added; `heldForApproval` removed
+  outright (BREAKING, framework-internal — see CHANGELOG). Retro `hitl`
+  count switched from `risk::high` labels to `agent::blocked` events
+  (BREAKING, framework-internal). `--no-verify` policy split: removed from
+  category-1 routine commit workflows, retained in category-2 post-CI
+  remediation with a mandatory `# justification:` comment, enforced by a
+  new docs grep test. README/VERSION/rule-count freshness check landed.
+  API, security, and testing skills slimmed to process + links; their
+  rules (`api-conventions.md`, `security-baseline.md`, `testing-standards.md`)
+  promoted to canonical SSOT, mirroring the `gherkin-authoring`/
+  `gherkin-standards.md` shape. Skill frontmatter Phase 1 (`name` +
+  `description` everywhere; `vendor` on stack skills only) and a
+  `docs/deprecation-register.md` shipped, with new enforcement tests
+  blocking `process.exit()` in library code and empty-reason
+  `Logger.fatal()` calls. See [docs/CHANGELOG.md](docs/CHANGELOG.md) for
+  the full entry.
 - **v5.28.0 — Epic #817 (2026-04-26).** Sprint workflow performance pass:
   bounded context, evidence-aware gates, honest degraded modes. Lint, test,
   format, MI, and CRAP gates now record `{ commitSha, commandConfigHash }`

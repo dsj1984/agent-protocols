@@ -2773,7 +2773,7 @@
       "crap": 3,
       "file": ".agents/scripts/lib/orchestration/wave-dispatcher.js",
       "method": "dispatchNextWave",
-      "startLine": 221
+      "startLine": 218
     },
     {
       "crap": 3,
@@ -2914,7 +2914,7 @@
       "startLine": 266
     },
     {
-      "crap": 14.771541040968073,
+      "crap": 14.78920924117205,
       "file": ".agents/scripts/lib/presentation/manifest-formatter.js",
       "method": "_formatManifestMarkdownUncached",
       "startLine": 286
@@ -2923,13 +2923,13 @@
       "crap": 4,
       "file": ".agents/scripts/lib/presentation/manifest-formatter.js",
       "method": "formatStoryManifestMarkdown",
-      "startLine": 441
+      "startLine": 440
     },
     {
       "crap": 6,
       "file": ".agents/scripts/lib/presentation/manifest-formatter.js",
       "method": "printStoryDispatchTable",
-      "startLine": 507
+      "startLine": 506
     },
     {
       "crap": 1,
@@ -3724,7 +3724,7 @@
       "startLine": 78
     },
     {
-      "crap": 53.508964082168184,
+      "crap": 53.421595982142854,
       "file": ".agents/scripts/lint-baseline.js",
       "method": "checkBaseline",
       "startLine": 104
@@ -3733,7 +3733,7 @@
       "crap": 27.917784256559766,
       "file": ".agents/scripts/lint-baseline.js",
       "method": "main",
-      "startLine": 163
+      "startLine": 161
     },
     {
       "crap": 1,

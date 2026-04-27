@@ -22,7 +22,6 @@ function epicManifest(overrides = {}) {
       doneTasks: 1,
       progressPercent: 25,
       dispatched: 2,
-      heldForApproval: 0,
       totalWaves: 2,
     },
     storyManifest: [

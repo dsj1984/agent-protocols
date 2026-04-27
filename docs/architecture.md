@@ -1,6 +1,20 @@
 # Architecture
 
-> **Version:** 5.27.0 · **Updated:** 2026-04-25
+> **Version:** 5.30.0 · **Updated:** 2026-04-27
+>
+> **Epic #857 update.** `.agents/` bundle drift remediation: the
+> `dispatch-manifest.json` schema gained `storyTitle`, `agentTelemetry`,
+> and `type` discriminator fields, and dropped `heldForApproval`
+> (BREAKING, framework-internal — replay confirmed it was always empty).
+> `.agents/instructions.md` was realigned with the v5.29 runtime
+> (`story-<id>` branches canonical, retired-MCP fallback gone,
+> mandatory-docs sourced from `agentSettings.docsContextFiles`). The
+> rule-as-SSOT pattern modeled by `gherkin-standards.md` is now applied
+> to API, security, and testing layers — the rule files own the
+> taxonomy; the corresponding skills slim to process + anchored links.
+> A `docs/deprecation-register.md` and `tests/enforcement/` directory
+> were introduced; new enforcement tests block `process.exit()` in
+> library code and empty-reason `Logger.fatal()` calls.
 >
 > **Epic #773 update.** `orchestration` consolidated under
 > `orchestration.runners` (the previously-flat `epicRunner`, `planRunner`,

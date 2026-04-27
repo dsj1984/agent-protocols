@@ -4,6 +4,45 @@ All notable changes to this project will be documented in this file.
 
 ## [Unreleased]
 
+## [5.30.0] - 2026-04-27
+
+### Risk/HITL semantics + dispatch-manifest cleanup (Epic #857)
+
+Cutover release that aligns the runtime metric definitions with the
+post-retirement of `risk::high` as a runtime gate (it remains
+informational/planning metadata only). One framework-internal field is
+removed and one retro metric is redefined.
+
+- **BREAKING (framework-internal): `heldForApproval` removed from the
+  dispatch manifest.** Fixture replay confirmed the array was always `[]`
+  in current usage — `dispatch-engine.js` initialised it but no producer
+  ever populated it once `risk::high` stopped gating dispatch. The schema
+  (`.agents/schemas/dispatch-manifest.json`) drops both
+  `summary.heldForApproval` (integer) and the root `heldForApproval[]`
+  array, plus the field's entry in the epic-dispatch `required` list.
+  `buildManifest()`, `dispatchWave()`, and `dispatchNextWave()` no longer
+  return or accept the field. The "Held for Approval" row is removed from
+  the manifest markdown table and the `Held: N` segment from the
+  dispatcher CLI summary line. External consumers that snapshot the
+  manifest JSON should drop both keys. ADR-20260427-868a's enumeration of
+  strict inner objects is updated accordingly.
+- **BREAKING (framework-internal): retro `hitl` count now reflects
+  `agent::blocked` events.** The Sprint Retrospective scorecard's "HITL
+  Gates Triggered" row is renamed to "agent::blocked Events Raised", and
+  `helpers/sprint-retro.md` instructs callers to count distinct tickets
+  that received the `agent::blocked` label at any point during the sprint
+  rather than tickets carrying `risk::high`. The numeric predicate
+  `isCleanManifest({ hitl })` in
+  `.agents/scripts/lib/orchestration/retro-heuristics.js` is unchanged —
+  only the metric definition rotates. The compact-retro headline ("zero
+  HITL gates") is updated to "zero agent::blocked events" so the headline
+  matches the underlying signal.
+- **Cleanup: retired auto-merge protocol comment removed.** The
+  `risk::high auto-merge protocol` comment on the `--remove-label` path
+  in `.agents/scripts/update-ticket-state.js` is replaced with an
+  accurate description of the path's current usage (single-label
+  mutation without an `agent::*` state transition).
+
 ## [5.29.0] - 2026-04-26
 
 ### TypeScript support for maintainability and CRAP gates

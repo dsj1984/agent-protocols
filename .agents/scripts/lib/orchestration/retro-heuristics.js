@@ -23,7 +23,7 @@
  * @param {number} [counts.parked=0]    Count of parked follow-on Stories (no manifest lineage).
  * @param {number} [counts.recuts=0]    Count of Stories carrying a `<!-- recut-of: #N -->` marker.
  * @param {number} [counts.hotfixes=0]  Count of Tasks that flipped to `status::blocked` mid-sprint.
- * @param {number} [counts.hitl=0]      Count of Tasks that tripped the HITL gate (`risk::high`).
+ * @param {number} [counts.hitl=0]      Count of tickets that raised an `agent::blocked` event mid-sprint (the runtime HITL pause point).
  * @returns {boolean}
  */
 export function isCleanManifest(counts = {}) {
