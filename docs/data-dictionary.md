@@ -2,6 +2,17 @@
 
 This document defines the core data structures and schemas used across the Agent Protocols orchestration engine.
 
+> **Epic #857 update.** `dispatch-manifest.json` shape changes: the
+> `storyTitle` field is added to `storyManifest[]` rows, root-level
+> `agentTelemetry` (open object) and `type` (`"epic-dispatch"` |
+> `"story-execution"`) are added, and the `heldForApproval` array and
+> its `summary.heldForApproval` counterpart are **removed outright** —
+> fixture replay confirmed the array was always `[]` once `risk::high`
+> stopped gating dispatch (BREAKING, framework-internal). Retro `hitl`
+> count switches from `risk::high` label count to distinct
+> `agent::blocked` event count for the same window (definition change;
+> the field name is unchanged).
+>
 > **Epic #773 update.** The CRAP baseline envelope at `baselines/crap.json`
 > is now a shipped, hard-enforced artefact (no longer self-skipping on
 > absence). Each row carries `{file, method, startLine, crap}` plus

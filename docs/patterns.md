@@ -1,5 +1,19 @@
 # Design Patterns
 
+> **Epic #857 update.** The **Rule-as-SSOT** pattern — first modeled by
+> `.agents/rules/gherkin-standards.md` and its `gherkin-authoring` skill
+> companion — was applied to three further high-traffic surfaces: API
+> conventions (`api-conventions.md` + `api-and-interface-design`),
+> security baseline (`security-baseline.md` + `security-and-hardening`),
+> and testing standards (`testing-standards.md` +
+> `test-driven-development`). The rule files own the canonical taxonomy
+> (response envelope, status codes, validation taxonomy, MUST lists,
+> test-tier placement); the corresponding skills slim to process,
+> examples, and anchored deep-links back into the rule. The shape lets
+> agents load only the rule when they need the constraint and only the
+> skill when they need the process — and prevents the duplicate-guidance
+> drift that motivated this Epic.
+>
 > **Epic #773 update.** The **Facade + Responsibility-Bounded Submodules**
 > pattern (originally documented for the v5.13.0 facade pass) was applied
 > to two further large modules: `providers/github.js` and
