@@ -153,6 +153,7 @@ export async function removeWorktreeWithRecovery(ctx, wtPath, opts = {}) {
   const { storyId = null, branch = null, push = false } = opts;
   const maxAttempts = ctx.platform === 'win32' ? 6 : 2;
   const retryDelaysMs = [0, 150, 350, 700, 1200, 2000];
+  const forceRemoveBackoffMs = opts.forceRemoveBackoffMs ?? 3000;
   let lastReason = 'worktree-remove-failed';
 
   for (let attempt = 1; attempt <= maxAttempts; attempt++) {
@@ -199,6 +200,39 @@ export async function removeWorktreeWithRecovery(ctx, wtPath, opts = {}) {
       continue;
     }
     break;
+  }
+
+  if (
+    ctx.platform === 'win32' &&
+    opts.forceRemoveFallback !== false &&
+    (WINDOWS_LOCK_RE.test(lastReason) || WINDOWS_CWD_RE.test(lastReason))
+  ) {
+    ctx.logger.warn(
+      `worktree.reap remove exhausted Windows lock retry; retrying with --force in ${forceRemoveBackoffMs}ms path=${wtPath}`,
+    );
+    sleepSync(forceRemoveBackoffMs);
+    const forced = ctx.git.gitSpawn(
+      ctx.repoRoot,
+      'worktree',
+      'remove',
+      '--force',
+      wtPath,
+    );
+    if (forced.status === 0) {
+      ctx.git.gitSpawn(ctx.repoRoot, 'worktree', 'prune');
+      invalidateWorktreeCache(ctx);
+      ctx.logger.warn(
+        `worktree.reap recovered via force-remove-retry path=${wtPath} lockReason=${lastReason}`,
+      );
+      return {
+        removed: true,
+        success: true,
+        method: 'force-remove-retry',
+        attempts: maxAttempts + 1,
+      };
+    }
+    const forceReason = (forced.stderr || forced.stdout || '').trim();
+    if (forceReason) lastReason = forceReason;
   }
 
   // Stage 1 recovery is unconditional. Every path into this block has
