@@ -57,8 +57,8 @@ if (
       const config = resolveConfig();
       const provider = createProvider(config.orchestration);
 
-      // Label-only mutation path — no state transition. Used by the
-      // risk::high auto-merge protocol in /sprint-execute.
+      // Label-only mutation path — no state transition. Callers that just
+      // need to drop a single label without flipping the agent::* state.
       if (removeLabel && !state) {
         console.log(
           `[State-Sync] Removing label \`${removeLabel}\` from ticket #${ticketId}...`,

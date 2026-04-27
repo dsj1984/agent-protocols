@@ -71,3 +71,30 @@ test('isCleanManifest - multiple non-zero signals return false', () => {
     false,
   );
 });
+
+// Verifies the 5.30.0 metric-definition change: hitl now counts
+// agent::blocked events raised mid-sprint (the runtime HITL pause point),
+// not risk::high labels (informational/planning metadata only).
+test('isCleanManifest - hitl reflects agent::blocked event count (fixture replay)', () => {
+  // Fixture: an Epic where the caller scanned label events on every child
+  // ticket and tallied N=3 distinct tickets that received agent::blocked
+  // at any point during execution.
+  const fixture = {
+    friction: 0,
+    parked: 0,
+    recuts: 0,
+    hotfixes: 0,
+    hitl: 3,
+  };
+  assert.strictEqual(
+    isCleanManifest(fixture),
+    false,
+    'three agent::blocked events should disqualify the compact-retro path',
+  );
+
+  // Same Epic re-scanned after the operator unblocked everything and the
+  // sprint completed cleanly: zero agent::blocked events remain in the
+  // tally, so the heuristic falls back to the compact retro.
+  fixture.hitl = 0;
+  assert.strictEqual(isCleanManifest(fixture), true);
+});
