@@ -3616,10 +3616,16 @@
       "startLine": 145
     },
     {
-      "crap": 45.83987889918469,
+      "crap": 42.46891359400472,
       "file": ".agents/scripts/lib/worktree/lifecycle/reap.js",
       "method": "removeWorktreeWithRecovery",
       "startLine": 152
+    },
+    {
+      "crap": 27.687226676384846,
+      "file": ".agents/scripts/lib/worktree/lifecycle/reap.js",
+      "method": "reap",
+      "startLine": 352
     },
     {
       "crap": 1,
@@ -3716,6 +3722,60 @@
       "file": ".agents/scripts/lint-baseline.js",
       "method": "parseLintOutput",
       "startLine": 19
+    },
+    {
+      "crap": 14.571428571428573,
+      "file": ".agents/scripts/lint-baseline.js",
+      "method": "parseLintOutputDetailed",
+      "startLine": 64
+    },
+    {
+      "crap": 2.002314814814815,
+      "file": ".agents/scripts/lint-baseline.js",
+      "method": "runLintCommand",
+      "startLine": 100
+    },
+    {
+      "crap": 5.6365966796875,
+      "file": ".agents/scripts/lint-baseline.js",
+      "method": "runLintCommandDetailed",
+      "startLine": 142
+    },
+    {
+      "crap": 10.962623999999998,
+      "file": ".agents/scripts/lint-baseline.js",
+      "method": "captureBaseline",
+      "startLine": 175
+    },
+    {
+      "crap": 6.0033809166040575,
+      "file": ".agents/scripts/lint-baseline.js",
+      "method": "diffPerFile",
+      "startLine": 214
+    },
+    {
+      "crap": 5,
+      "file": ".agents/scripts/lint-baseline.js",
+      "method": "formatDiffTable",
+      "startLine": 245
+    },
+    {
+      "crap": 28.29606198196385,
+      "file": ".agents/scripts/lint-baseline.js",
+      "method": "diffBaseline",
+      "startLine": 283
+    },
+    {
+      "crap": 53.421595982142854,
+      "file": ".agents/scripts/lint-baseline.js",
+      "method": "checkBaseline",
+      "startLine": 327
+    },
+    {
+      "crap": 52.416109375,
+      "file": ".agents/scripts/lint-baseline.js",
+      "method": "main",
+      "startLine": 384
     },
     {
       "crap": 1,
@@ -4196,6 +4256,90 @@
       "file": ".agents/scripts/select-audits.js",
       "method": "main",
       "startLine": 213
+    },
+    {
+      "crap": 3,
+      "file": ".agents/scripts/sprint-code-review.js",
+      "method": "parseLintOutput",
+      "startLine": 64
+    },
+    {
+      "crap": 3,
+      "file": ".agents/scripts/sprint-code-review.js",
+      "method": "partitionFilesForLint",
+      "startLine": 108
+    },
+    {
+      "crap": 20,
+      "file": ".agents/scripts/sprint-code-review.js",
+      "method": "resolveCurrentSha",
+      "startLine": 124
+    },
+    {
+      "crap": 2,
+      "file": ".agents/scripts/sprint-code-review.js",
+      "method": "spawnLintRunner",
+      "startLine": 131
+    },
+    {
+      "crap": 6,
+      "file": ".agents/scripts/sprint-code-review.js",
+      "method": "runScopedLint",
+      "startLine": 156
+    },
+    {
+      "crap": 6,
+      "file": ".agents/scripts/sprint-code-review.js",
+      "method": "parseReviewArgs",
+      "startLine": 205
+    },
+    {
+      "crap": 10.078743741465637,
+      "file": ".agents/scripts/sprint-code-review.js",
+      "method": "buildLintEvidenceConfig",
+      "startLine": 240
+    },
+    {
+      "crap": 6,
+      "file": ".agents/scripts/sprint-code-review.js",
+      "method": "classifyChangedFile",
+      "startLine": 262
+    },
+    {
+      "crap": 7,
+      "file": ".agents/scripts/sprint-code-review.js",
+      "method": "analyzeChangedFiles",
+      "startLine": 302
+    },
+    {
+      "crap": 4,
+      "file": ".agents/scripts/sprint-code-review.js",
+      "method": "buildSeverity",
+      "startLine": 338
+    },
+    {
+      "crap": 6,
+      "file": ".agents/scripts/sprint-code-review.js",
+      "method": "buildLintLine",
+      "startLine": 356
+    },
+    {
+      "crap": 4,
+      "file": ".agents/scripts/sprint-code-review.js",
+      "method": "tierLabel",
+      "startLine": 375
+    },
+    {
+      "crap": 3,
+      "file": ".agents/scripts/sprint-code-review.js",
+      "method": "buildReviewReport",
+      "startLine": 383
+    },
+    {
+      "crap": 272,
+      "file": ".agents/scripts/sprint-code-review.js",
+      "method": "main",
+      "startLine": 430
     },
     {
       "crap": 3,
