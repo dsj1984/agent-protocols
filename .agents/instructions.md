@@ -31,9 +31,10 @@ The skill library uses a **two-tier architecture**:
 
 When a task involves a specific domain or technology, you MUST read the
 corresponding `.agents/skills/[tier]/[category]/[skill-name]/SKILL.md` file and
-apply its constraints. Review the `examples/` directory within that skill before
-writing code. When uncertain which to apply, read `core/using-agent-skills` for
-guidance on skill selection and sequencing.
+apply its constraints. Review the skill's `examples/` directory or
+`examples.md` sibling **when present and relevant** to the task — most skills
+do not ship one, so do not probe blindly. When uncertain which skill to apply,
+read `core/using-agent-skills` for guidance on skill selection and sequencing.
 
 ### C. Proactive Documentation
 
