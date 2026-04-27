@@ -138,11 +138,9 @@ export function checkBaseline(
     current.errorCount > baseline.errorCount ||
     current.warningCount > baseline.warningCount
   ) {
-    console.error(`\n🚨 LINT DEGRADATION DETECTED!`);
-    console.error(
-      `You have introduced new lint issues compared to the baseline.`,
+    Logger.fatal(
+      '\n🚨 LINT DEGRADATION DETECTED! You have introduced new lint issues compared to the baseline.',
     );
-    Logger.fatal();
   }
 
   // Ratchet (shrink baseline) if better

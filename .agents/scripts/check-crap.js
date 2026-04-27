@@ -632,6 +632,7 @@ async function main() {
   return 0;
 }
 
+// cli-opt-out: Windows-aware main-guard and main().then(code => process.exit(code)) result-code path; runAsCli does not propagate main's return value.
 // Only run main when invoked directly — keep the module importable from tests.
 const isDirect = (() => {
   try {

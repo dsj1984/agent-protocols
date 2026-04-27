@@ -13,6 +13,7 @@
  * Usage:  node .agents/scripts/sync-claude-commands.js
  */
 
+// cli-opt-out: top-level-await script with no main() function — runAsCli wraps an async main, which doesn't apply here.
 import fs from 'node:fs';
 import path from 'node:path';
 import { fileURLToPath } from 'node:url';

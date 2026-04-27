@@ -110,6 +110,7 @@ async function main() {
   );
 }
 
+// cli-opt-out: top-level main().catch predates runAsCli; never imported elsewhere so the auto-run risk is moot.
 main().catch((err) => {
   console.error(`[CRAP] ❌ Fatal error: ${err?.stack ?? err?.message ?? err}`);
   process.exit(1);

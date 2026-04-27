@@ -343,6 +343,7 @@ async function main() {
   console.log('[Maintainability] ✅ Clean Code check passed.');
 }
 
+// cli-opt-out: Windows-aware main-guard with leading-slash drive-letter normalisation; the bespoke logic predates runAsCli and stays for parity with check-crap.js.
 // Only run main when invoked directly — keep the module importable from tests.
 const isDirect = (() => {
   try {

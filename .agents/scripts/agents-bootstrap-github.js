@@ -209,10 +209,9 @@ async function main() {
   const config = resolveConfig();
 
   if (!config.orchestration) {
-    console.error(
-      '[bootstrap] ERROR: No "orchestration" block found in .agentrc.json.',
+    Logger.fatal(
+      '[bootstrap] No "orchestration" block found in .agentrc.json.',
     );
-    Logger.fatal();
   }
 
   try {
@@ -229,8 +228,8 @@ async function main() {
       installWorkflows,
     });
     printSummary(result);
-  } catch (_err) {
-    Logger.fatal();
+  } catch (err) {
+    Logger.fatal(`[bootstrap] runBootstrap failed: ${err.message}`);
   }
 }
 

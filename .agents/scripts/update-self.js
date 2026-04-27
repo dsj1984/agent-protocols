@@ -25,6 +25,7 @@
  * Stdlib only; no new dependencies.
  */
 
+// cli-opt-out: stdlib-only top-level script with bespoke fatal() helper; runAsCli would force a Logger import that violates the "no new dependencies" contract documented above.
 import { spawnSync } from 'node:child_process';
 import fs from 'node:fs';
 import path from 'node:path';
