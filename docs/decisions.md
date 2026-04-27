@@ -609,8 +609,10 @@ first-class fallback via `enabled: false`.
 
 Supporting decisions:
 
-- **No `git worktree --force` from framework code.** Dirty tree ⇒ refuse to
-  delete; operator may run `--force` manually as an escape hatch.
+- **Bounded `git worktree remove --force` only after safety checks.** Dirty
+  unmerged trees still refuse to delete, but a clean or already-merged
+  removable worktree may use a single force retry after Windows lock/cwd
+  retry exhausts.
 - **`core.longpaths=true`** set per worktree on win32; a pre-flight
   path-length warning is posted on the Epic issue when the estimated deepest
   path exceeds the configured threshold.

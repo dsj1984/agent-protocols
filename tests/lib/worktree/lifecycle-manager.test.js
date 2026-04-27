@@ -61,7 +61,7 @@ test('removeWorktreeWithRecovery: Stage 1 fs-rm-retry recovers from Windows lock
   const res = await removeWorktreeWithRecovery(
     ctx,
     '/repo/.worktrees/story-1',
-    { storyId: 1, branch: 'story-1', push: false },
+    { storyId: 1, branch: 'story-1', push: false, forceRemoveBackoffMs: 0 },
   );
   assert.equal(res.removed, true);
   assert.equal(res.success, true);
@@ -117,7 +117,12 @@ test('removeWorktreeWithRecovery: Stage 1 fs-rm-retry also recovers from cwd-lik
   const res = await removeWorktreeWithRecovery(
     ctx,
     '/repo/.worktrees/story-566',
-    { storyId: 566, branch: 'story-566', push: false },
+    {
+      storyId: 566,
+      branch: 'story-566',
+      push: false,
+      forceRemoveBackoffMs: 0,
+    },
   );
   assert.equal(res.removed, true);
   assert.equal(res.success, true);
@@ -164,7 +169,7 @@ test('removeWorktreeWithRecovery: Stage 1 retries fs.rm and succeeds on attempt 
   const res = await removeWorktreeWithRecovery(
     ctx,
     '/repo/.worktrees/story-7',
-    { storyId: 7, branch: 'story-7', push: true },
+    { storyId: 7, branch: 'story-7', push: true, forceRemoveBackoffMs: 0 },
   );
   assert.equal(res.removed, true);
   assert.equal(res.method, 'fs-rm-retry');
@@ -206,6 +211,7 @@ test('removeWorktreeWithRecovery: Stage 1 defers to sweep and writes pending-cle
       storyId: 9,
       branch: 'story-9',
       push: false,
+      forceRemoveBackoffMs: 0,
     });
     assert.equal(res.removed, false);
     assert.equal(res.method, 'deferred-to-sweep');
@@ -318,4 +324,66 @@ test('removeWorktreeWithRecovery: success path prunes residual admin entries', a
   );
   assert.ok(removeIdx >= 0, 'must call `git worktree remove`');
   assert.ok(pruneIdx > removeIdx, 'must prune *after* the remove succeeds');
+});
+
+test('removeWorktreeWithRecovery: Windows lock failures retry with --force before fs.rm fallback', async () => {
+  const gitCalls = [];
+  const fsRmCalls = [];
+  const ctx = {
+    repoRoot: '/repo',
+    platform: 'win32',
+    config: {},
+    listCache: { list: null, ts: 0 },
+    logger: quietLogger().logger,
+    fsRm: async (p, opts) => {
+      fsRmCalls.push({ p, opts });
+    },
+    git: {
+      gitSpawn: (_cwd, ...args) => {
+        gitCalls.push(args);
+        if (args[0] === 'worktree' && args[1] === 'remove') {
+          const force = args[2] === '--force';
+          return force
+            ? { status: 0, stdout: '', stderr: '' }
+            : {
+                status: 1,
+                stdout: '',
+                stderr: 'EBUSY: resource busy or locked',
+              };
+        }
+        return { status: 0, stdout: '', stderr: '' };
+      },
+    },
+  };
+
+  const res = await removeWorktreeWithRecovery(
+    ctx,
+    '/repo/.worktrees/story-310',
+    {
+      storyId: 310,
+      branch: 'story-310',
+      push: false,
+      forceRemoveBackoffMs: 0,
+    },
+  );
+
+  assert.equal(res.removed, true);
+  assert.equal(res.method, 'force-remove-retry');
+  assert.equal(fsRmCalls.length, 0, 'force retry should avoid fs.rm fallback');
+  const plainRemoveIdx = gitCalls.findIndex(
+    (a) => a[0] === 'worktree' && a[1] === 'remove' && a[2] !== '--force',
+  );
+  const forceRemoveIdx = gitCalls.findIndex(
+    (a) =>
+      a[0] === 'worktree' &&
+      a[1] === 'remove' &&
+      a[2] === '--force' &&
+      a[3] === '/repo/.worktrees/story-310',
+  );
+  const pruneIdx = gitCalls.findIndex(
+    (a, idx) => idx > forceRemoveIdx && a[0] === 'worktree' && a[1] === 'prune',
+  );
+  assert.ok(plainRemoveIdx >= 0, 'must attempt plain remove first');
+  assert.ok(forceRemoveIdx > plainRemoveIdx, 'must force-remove after retry');
+  assert.ok(pruneIdx > forceRemoveIdx, 'must prune after force remove');
 });

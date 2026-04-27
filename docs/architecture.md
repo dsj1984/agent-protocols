@@ -742,7 +742,9 @@ The `WorktreeManager` (`.agents/scripts/lib/worktree-manager.js`) is the
 single authority for worktree `ensure`/`reap`/`list`/`isSafeToRemove`/`gc`.
 No other script may call `git worktree` directly. All git calls are
 argv-based (no shell interpolation) and validate `storyId` / `branch`
-before shelling out; `reap` never passes `--force`.
+before shelling out. `reap` only reaches `git worktree remove --force` after
+its safety gate has already established the Story worktree is removable and
+the plain remove path has exhausted Windows lock/cwd retry.
 
 **Internal submodule layout (v5.13.0+).** `worktree-manager.js` is a
 ~220-LOC facade that composes four cohesive submodules under

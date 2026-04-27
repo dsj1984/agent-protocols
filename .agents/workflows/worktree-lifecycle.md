@@ -200,9 +200,9 @@ Human reviewers should **keep using the main checkout** — not a worktree:
 
 - **Never** call `git worktree` directly — always go through `WorktreeManager`.
   It enforces `storyId`/`branch` validation and path-traversal checks.
-- **Never** pass `--force` to `git worktree remove` from framework code. The
-  refuse-to-delete guard on uncommitted work is deliberate; `--force` is an
-  operator-only escape hatch.
+- **Only** let `WorktreeManager` pass `--force` after its safety checks have
+  established the Story worktree is removable and the plain Windows lock/cwd
+  retry has exhausted. Dirty unmerged work must still refuse deletion.
 - **Never** commit the `.worktrees/` directory. It must be gitignored.
 - **Always** use the main checkout for code review — not a per-story worktree.
 - **Always** respect `orchestration.worktreeIsolation.enabled: false` as a
@@ -212,10 +212,10 @@ Human reviewers should **keep using the main checkout** — not a worktree:
 
 ## Operator escape hatches
 
-- **Force-remove a worktree**: the framework **never** passes `--force` to
-  `git worktree remove`. If a worktree is wedged (e.g. from a crashed agent),
-  operators can manually run `git worktree remove --force <path>`. Confirm there
-  is no uncommitted work first.
+- **Force-remove a worktree**: if a worktree is wedged beyond the framework's
+  bounded retry path (e.g. from a crashed agent), operators can manually run
+  `git worktree remove --force <path>`. Confirm there is no uncommitted work
+  first.
 - **Disable temporarily**: flip `enabled: false` in `.agentrc.json`. The next
   `/sprint-execute` skips worktree creation entirely.
 - **Inspect live worktrees**: `git worktree list --porcelain` on the main

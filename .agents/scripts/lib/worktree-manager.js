@@ -14,8 +14,8 @@
  *
  * No other script may call `git worktree` directly. All git calls flow
  * through the injected `ctx.git` (defaults to `./git-utils.js`). Paths are
- * resolved and asserted to live inside `repoRoot`, and `reap` never passes
- * `--force`.
+ * resolved and asserted to live inside `repoRoot`, and callers cannot request
+ * force removal; bounded internal fallbacks live in the lifecycle module.
  */
 
 import path from 'node:path';
@@ -193,7 +193,7 @@ export class WorktreeManager {
     return prune(this._ctx());
   }
 
-  /** Remove the worktree for a given storyId. Never uses `--force`. */
+  /** Remove the worktree for a given storyId. Rejects caller-requested force. */
   reap(storyId, opts) {
     if (this._isDisabled()) {
       return {

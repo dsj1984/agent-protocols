@@ -18,7 +18,12 @@ test('parseLintOutput - clean run reports zero', () => {
     stdout: 'Checked 42 files in 120ms. No fixes applied.\n',
     stderr: '',
   });
-  assert.deepStrictEqual(out, { errors: 0, warnings: 0, parsed: false });
+  assert.deepStrictEqual(out, {
+    errors: 0,
+    warnings: 0,
+    parsed: false,
+    executionFailed: false,
+  });
 });
 
 test('parseLintOutput - biome error + warning counts both captured', () => {
@@ -27,7 +32,12 @@ test('parseLintOutput - biome error + warning counts both captured', () => {
     stdout: 'Checked 10 files.\nFound 2 errors.\nFound 3 warnings.\n',
     stderr: '',
   });
-  assert.deepStrictEqual(out, { errors: 2, warnings: 3, parsed: true });
+  assert.deepStrictEqual(out, {
+    errors: 2,
+    warnings: 3,
+    parsed: true,
+    executionFailed: false,
+  });
 });
 
 test('parseLintOutput - warnings-only run stays below high-risk threshold', () => {
@@ -51,15 +61,27 @@ test('parseLintOutput - markdownlint Summary line counted as error', () => {
   assert.strictEqual(out.parsed, true);
 });
 
-test('parseLintOutput - unknown failing runner defaults to one error', () => {
+test('parseLintOutput - unknown failing runner is flagged executionFailed (not high risk)', () => {
   const out = parseLintOutput({
     status: 1,
     stdout: 'some unexpected output\n',
     stderr: 'boom\n',
   });
-  assert.strictEqual(out.errors, 1);
+  assert.strictEqual(out.errors, 0);
   assert.strictEqual(out.warnings, 0);
   assert.strictEqual(out.parsed, false);
+  assert.strictEqual(out.executionFailed, true);
+});
+
+test('parseLintOutput - parsed run never sets executionFailed even when status is non-zero', () => {
+  const out = parseLintOutput({
+    status: 1,
+    stdout: 'Found 5 errors.\n',
+    stderr: '',
+  });
+  assert.strictEqual(out.errors, 5);
+  assert.strictEqual(out.parsed, true);
+  assert.strictEqual(out.executionFailed, false);
 });
 
 test('parseReviewArgs - rejects missing/invalid epic id', () => {
@@ -155,13 +177,11 @@ test('runScopedLint - no JS/MD files in surface skips both runners', () => {
     0,
     'runner must not be invoked when surface is empty',
   );
-  assert.deepStrictEqual(out, {
-    errors: 0,
-    warnings: 0,
-    parsed: false,
-    skipped: true,
-    mode: 'changed-only',
-  });
+  assert.strictEqual(out.errors, 0);
+  assert.strictEqual(out.warnings, 0);
+  assert.strictEqual(out.parsed, false);
+  assert.strictEqual(out.skipped, true);
+  assert.strictEqual(out.mode, 'changed-only');
 });
 
 test('runScopedLint - empty changedFiles list does not invoke any runner', () => {
@@ -357,6 +377,32 @@ test('buildSeverity - composes tally and lint counts', () => {
     medium: 1,
     suggestion: 0,
   });
+});
+
+test('buildSeverity - executionFailed downgrades to suggestion (not high risk)', () => {
+  const out = buildSeverity(
+    { criticalIssues: [], warningIssues: ['z'] },
+    { errors: 0, warnings: 0, executionFailed: true },
+  );
+  assert.deepStrictEqual(out, {
+    critical: 0,
+    high: 0,
+    medium: 1,
+    suggestion: 1,
+  });
+});
+
+test('buildLintLine - executionFailed renders the could-not-execute banner', () => {
+  const line = buildLintLine({
+    errors: 0,
+    warnings: 0,
+    executionFailed: true,
+    skipped: false,
+    mode: 'changed-only',
+  });
+  assert.match(line, /Lint Runner Could Not Execute/);
+  assert.match(line, /skipped gate/);
+  assert.match(line, /npm run lint/);
 });
 
 test('buildLintLine - error / warning / clean variants', () => {

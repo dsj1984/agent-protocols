@@ -4,6 +4,61 @@ All notable changes to this project will be documented in this file.
 
 ## [Unreleased]
 
+## [5.30.2] - 2026-04-27
+
+### Close-workflow ergonomics: per-file lint diff + sprint-review severity classification
+
+Two close-workflow ergonomic improvements driven by Phase 5 triage friction
+during recent epic closes.
+
+- **`lint-baseline.js diff` subcommand.** Operators triaging a baseline
+  regression in `/sprint-close` Phase 5 had to hand-roll JSON post-processing
+  to discover which files contributed the new warnings. The new `node
+  .agents/scripts/lint-baseline.js diff` subcommand runs the configured
+  `lintBaseline` command, compares per-file counts against the persisted
+  baseline (capture now writes a `byFile` field alongside the totals), and
+  prints a `File / Δ warn/err / rules` table sorted by descending warning
+  delta. When the on-disk baseline lacks `byFile` (older format), a banner
+  notes the limitation and treats every current regression as new since
+  baseline. The `check` and `capture` modes are unchanged on the wire — the
+  extra `byFile` field is additive and ignored by existing readers.
+- **Sprint-code-review severity classification distinguishes runner failures
+  from runner-found errors.** `parseLintOutput` previously inflated the
+  unparseable-output / non-zero-exit case into one `error`, which surfaced as
+  🟠 High Risk and forced operators to manually re-run `npm run lint` to
+  disambiguate "real lint errors" from "binary missing / parse failure /
+  environment issue". The parser now sets `executionFailed: true` for that
+  case and leaves error/warning counts at zero. `buildSeverity` downgrades
+  `executionFailed` to 🟢 Suggestion (gate skipped); `buildLintLine` renders
+  a dedicated banner pointing operators at the canonical `npm run lint` to
+  verify before merging.
+
+### Worktree reap: bounded `--force` fallback after Windows lock/cwd retry
+
+`removeWorktreeWithRecovery` now performs a single `git worktree remove
+--force` retry on win32 when the plain remove path exhausts its lock-like /
+cwd-like retry loop, before falling back to `fs.rm`. The framework-internal
+fallback is scoped tightly:
+
+- **Bounded.** One additional attempt only, after the existing 6-attempt
+  retry loop, with a configurable backoff (`forceRemoveBackoffMs`,
+  default 3000ms; tests inject 0).
+- **Gated.** Triggers only on win32 and only when the final `lastReason`
+  matches `WINDOWS_LOCK_RE` or `WINDOWS_CWD_RE`. Caller-requested `force` is
+  still rejected at the top of `reap()` — the operator-only escape-hatch
+  invariant is unchanged.
+- **Defense-in-depth.** A failed `--force` falls through to the existing
+  `fs-rm-retry` Stage 1 path; nothing about pending-cleanup hand-off
+  changes.
+- **Safety gate intact.** `isSafeToRemove` runs upstream in `reap()`; this
+  fallback only fires after a clean-tree-or-discarded-after-merge
+  precondition has already cleared.
+
+Architecture / decisions / worktree-lifecycle docs were updated to reflect
+the narrower invariant ("framework never passes `--force`" → "framework
+passes `--force` only inside `WorktreeManager` after safety + retry
+exhaustion").
+
 ## [5.30.1] - 2026-04-27
 
 ### Typecheck gate added to sprint-story-close

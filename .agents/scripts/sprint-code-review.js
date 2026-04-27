@@ -47,14 +47,19 @@ import {
  *   - markdownlint: emits one diagnostic per issue, plus a trailing
  *     "Summary: N error(s)" line.
  *
- * When the output matches neither, we fall back to a conservative default
- * (treat a failing exit code as at least one error so we don't mislabel a
- * real breakage as a soft suggestion).
+ * Severity classification (per the close-workflow recommendation): when the
+ * runner exits non-zero but its output matches neither known reporter
+ * format, the result is "could not classify" — this is the
+ * binary-missing / parse-failure / environment bucket. We mark
+ * `executionFailed: true` so callers can degrade the gate to a 🟢 suggestion
+ * + skip rather than mislabelling an environment problem as 🟠 high risk
+ * (which forced the operator to manually re-run `npm run lint` to
+ * disambiguate).
  *
  * Exported for testing.
  *
  * @param {{ status: number, stdout: string, stderr: string }} result
- * @returns {{ errors: number, warnings: number, parsed: boolean }}
+ * @returns {{ errors: number, warnings: number, parsed: boolean, executionFailed: boolean }}
  */
 export function parseLintOutput(result) {
   const combined = `${result.stdout ?? ''}\n${result.stderr ?? ''}`;
@@ -83,13 +88,9 @@ export function parseLintOutput(result) {
     parsed = true;
   }
 
-  if (!parsed && result.status !== 0) {
-    // Runner failed and we could not classify — treat as one error so the
-    // reviewer is not misled into thinking the code is clean.
-    errors = 1;
-  }
+  const executionFailed = !parsed && result.status !== 0;
 
-  return { errors, warnings, parsed };
+  return { errors, warnings, parsed, executionFailed };
 }
 
 /**
@@ -325,8 +326,24 @@ export function analyzeChangedFiles(
   return results;
 }
 
-/** Pure: severity counts derived from the analysis tally + lint summary. */
+/**
+ * Pure: severity counts derived from the analysis tally + lint summary.
+ *
+ * `executionFailed` (lint runner crashed, binary missing, or output could
+ * not be parsed) is treated as 🟢 Suggestion + skipped gate, NOT high risk.
+ * The previous behavior conflated "runner couldn't execute" with "runner
+ * found errors", forcing operators to manually re-run `npm run lint` to
+ * disambiguate.
+ */
 export function buildSeverity(results, lintSummary) {
+  if (lintSummary.executionFailed) {
+    return {
+      critical: results.criticalIssues.length,
+      high: 0,
+      medium: results.warningIssues.length,
+      suggestion: 1,
+    };
+  }
   return {
     critical: results.criticalIssues.length,
     high: lintSummary.errors > 0 ? 1 : 0,
@@ -339,6 +356,9 @@ export function buildSeverity(results, lintSummary) {
 export function buildLintLine(lintSummary) {
   if (lintSummary.mode === 'off') {
     return 'ℹ️ **Lint Skipped**: `--scope-lint=off`. Workspace lint still gates at story-close, pre-push, and CI.';
+  }
+  if (lintSummary.executionFailed) {
+    return '🟢 **Lint Runner Could Not Execute**: scoped lint produced no parseable output (binary missing, parse failure, or environment issue). Treating as suggestion + skipped gate — verify with the canonical `npm run lint` before merging.';
   }
   if (lintSummary.skipped) {
     return 'ℹ️ **Lint Skipped**: no JS or markdown files in changed surface.';

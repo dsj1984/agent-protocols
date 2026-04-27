@@ -3616,16 +3616,10 @@
       "startLine": 145
     },
     {
-      "crap": 34.88635111445029,
+      "crap": 45.83987889918469,
       "file": ".agents/scripts/lib/worktree/lifecycle/reap.js",
       "method": "removeWorktreeWithRecovery",
       "startLine": 152
-    },
-    {
-      "crap": 27.687226676384846,
-      "file": ".agents/scripts/lib/worktree/lifecycle/reap.js",
-      "method": "reap",
-      "startLine": 318
     },
     {
       "crap": 1,
@@ -3722,30 +3716,6 @@
       "file": ".agents/scripts/lint-baseline.js",
       "method": "parseLintOutput",
       "startLine": 19
-    },
-    {
-      "crap": 2.002314814814815,
-      "file": ".agents/scripts/lint-baseline.js",
-      "method": "runLintCommand",
-      "startLine": 41
-    },
-    {
-      "crap": 10.962623999999998,
-      "file": ".agents/scripts/lint-baseline.js",
-      "method": "captureBaseline",
-      "startLine": 78
-    },
-    {
-      "crap": 53.421595982142854,
-      "file": ".agents/scripts/lint-baseline.js",
-      "method": "checkBaseline",
-      "startLine": 104
-    },
-    {
-      "crap": 27.917784256559766,
-      "file": ".agents/scripts/lint-baseline.js",
-      "method": "main",
-      "startLine": 161
     },
     {
       "crap": 1,
@@ -4226,90 +4196,6 @@
       "file": ".agents/scripts/select-audits.js",
       "method": "main",
       "startLine": 213
-    },
-    {
-      "crap": 4,
-      "file": ".agents/scripts/sprint-code-review.js",
-      "method": "parseLintOutput",
-      "startLine": 59
-    },
-    {
-      "crap": 3,
-      "file": ".agents/scripts/sprint-code-review.js",
-      "method": "partitionFilesForLint",
-      "startLine": 107
-    },
-    {
-      "crap": 20,
-      "file": ".agents/scripts/sprint-code-review.js",
-      "method": "resolveCurrentSha",
-      "startLine": 123
-    },
-    {
-      "crap": 2,
-      "file": ".agents/scripts/sprint-code-review.js",
-      "method": "spawnLintRunner",
-      "startLine": 130
-    },
-    {
-      "crap": 6,
-      "file": ".agents/scripts/sprint-code-review.js",
-      "method": "runScopedLint",
-      "startLine": 155
-    },
-    {
-      "crap": 6,
-      "file": ".agents/scripts/sprint-code-review.js",
-      "method": "parseReviewArgs",
-      "startLine": 204
-    },
-    {
-      "crap": 10.078743741465637,
-      "file": ".agents/scripts/sprint-code-review.js",
-      "method": "buildLintEvidenceConfig",
-      "startLine": 239
-    },
-    {
-      "crap": 6,
-      "file": ".agents/scripts/sprint-code-review.js",
-      "method": "classifyChangedFile",
-      "startLine": 261
-    },
-    {
-      "crap": 7,
-      "file": ".agents/scripts/sprint-code-review.js",
-      "method": "analyzeChangedFiles",
-      "startLine": 301
-    },
-    {
-      "crap": 3,
-      "file": ".agents/scripts/sprint-code-review.js",
-      "method": "buildSeverity",
-      "startLine": 329
-    },
-    {
-      "crap": 5,
-      "file": ".agents/scripts/sprint-code-review.js",
-      "method": "buildLintLine",
-      "startLine": 339
-    },
-    {
-      "crap": 4,
-      "file": ".agents/scripts/sprint-code-review.js",
-      "method": "tierLabel",
-      "startLine": 355
-    },
-    {
-      "crap": 3,
-      "file": ".agents/scripts/sprint-code-review.js",
-      "method": "buildReviewReport",
-      "startLine": 363
-    },
-    {
-      "crap": 272,
-      "file": ".agents/scripts/sprint-code-review.js",
-      "method": "main",
-      "startLine": 410
     },
     {
       "crap": 3,
