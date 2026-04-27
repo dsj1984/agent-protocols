@@ -38,8 +38,7 @@ function countStackSkills(stackRoot) {
 function scanReadmeVersionClaims(content, actualVersion) {
   const offenses = [];
   const re = /VERSION[^\n]*?\((\d+\.\d+\.\d+)\)/g;
-  let m;
-  while ((m = re.exec(content)) !== null) {
+  for (const m of content.matchAll(re)) {
     if (m[1] !== actualVersion) {
       offenses.push({ found: m[1], expected: actualVersion, snippet: m[0] });
     }
@@ -134,10 +133,7 @@ test('.agents/README.md core skill count matches skills/core/ directory', () => 
     content,
     /Universal process skills \((\d+)\s+skills\)/,
   );
-  assert.ok(
-    claimed !== null,
-    'expected README to claim a core-skill count',
-  );
+  assert.ok(claimed !== null, 'expected README to claim a core-skill count');
   assert.strictEqual(
     claimed,
     actual,
@@ -152,10 +148,7 @@ test('.agents/README.md stack skill count matches skills/stack/ directory', () =
     content,
     /Tech-stack-specific guardrails \((\d+)\s+skills\)/,
   );
-  assert.ok(
-    claimed !== null,
-    'expected README to claim a stack-skill count',
-  );
+  assert.ok(claimed !== null, 'expected README to claim a stack-skill count');
   assert.strictEqual(
     claimed,
     actual,
