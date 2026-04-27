@@ -45,52 +45,24 @@ Structure context from most persistent to most transient:
 ### Level 1: Rules Files
 
 Create a rules file that persists across sessions. This is the highest-leverage
-context you can provide.
+context you can provide. Most agent harnesses load one such file automatically:
+`CLAUDE.md` (Claude Code), `.cursorrules` / `.cursor/rules/*.md` (Cursor),
+`.windsurfrules` (Windsurf), `.github/copilot-instructions.md` (Copilot),
+`AGENTS.md` (Codex).
 
-**CLAUDE.md** (for Claude Code):
+A good rules file covers, at minimum:
 
-```markdown
-# Project: [Name]
+- **Tech stack** — languages, runtimes, frameworks, key libraries
+- **Commands** — build, test, lint, dev, type-check entry points
+- **Code conventions** — module style, file layout, naming, exports
+- **Boundaries** — what the agent must not do without asking (secrets, schema,
+  dependency churn, force-push, etc.)
+- **Patterns** — one short example of a well-written component or function in
+  your style
 
-## Tech Stack
-
-- React 18, TypeScript 5, Vite, Tailwind CSS 4
-- Node.js 22, Express, PostgreSQL, Prisma
-
-## Commands
-
-- Build: `npm run build`
-- Test: `npm test`
-- Lint: `npm run lint --fix`
-- Dev: `npm run dev`
-- Type check: `npx tsc --noEmit`
-
-## Code Conventions
-
-- Functional components with hooks (no class components)
-- Named exports (no default exports)
-- colocate tests next to source: `Button.tsx` → `Button.test.tsx`
-- Use `cn()` utility for conditional classNames
-- Error boundaries at route level
-
-## Boundaries
-
-- Never commit .env files or secrets
-- Never add dependencies without checking bundle size impact
-- Ask before modifying database schema
-- Always run tests before committing
-
-## Patterns
-
-[One short example of a well-written component in your style]
-```
-
-**Equivalent files for other tools:**
-
-- `.cursorrules` or `.cursor/rules/*.md` (Cursor)
-- `.windsurfrules` (Windsurf)
-- `.github/copilot-instructions.md` (GitHub Copilot)
-- `AGENTS.md` (OpenAI Codex)
+> See [`examples.md`](./examples.md) for a fully fleshed-out rules-file
+> template (React/Vite/Postgres flavor) and notes on adapting it to other
+> harnesses.
 
 ### Level 2: Specs and Architecture
 

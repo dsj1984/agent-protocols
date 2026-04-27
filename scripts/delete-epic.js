@@ -154,8 +154,8 @@ async function main() {
       // The root issue (epicNumber) is always the LAST element in the depth-first result
       tree = tree.filter((issue) => issue.number !== epicNumber);
     }
-  } catch (_err) {
-    Logger.fatal();
+  } catch (err) {
+    Logger.fatal(`[delete-epic] Failed to collect issue tree: ${err.message}`);
   }
 
   console.log(`Found ${tree.length} issue(s) to delete:\n`);
@@ -189,6 +189,7 @@ async function main() {
   );
 }
 
-main().catch((_err) => {
-  Logger.fatal();
+// cli-opt-out: top-level main().catch predates runAsCli; never imported elsewhere so the auto-run risk is moot.
+main().catch((err) => {
+  Logger.fatal(`[delete-epic] Fatal error: ${err.message ?? err}`);
 });

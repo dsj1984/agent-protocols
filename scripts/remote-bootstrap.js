@@ -222,6 +222,7 @@ async function main() {
   run(launch.bin, launch.args, { cwd: workspace });
 }
 
+// cli-opt-out: bespoke fatal() helper (not Logger) is shared with sub-helpers in this module; runAsCli would force the default error formatter.
 const isMain = process.argv[1] === fileURLToPath(import.meta.url);
 if (isMain) {
   main().catch((err) => {

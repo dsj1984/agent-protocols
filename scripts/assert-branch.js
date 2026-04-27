@@ -62,6 +62,7 @@ function parseArgs(argv) {
   return { expected, cwd };
 }
 
+// cli-opt-out: synchronous CLI with bespoke main-guard; runAsCli's async-main pattern doesn't fit.
 const isMain = process.argv[1] === fileURLToPath(import.meta.url);
 if (isMain) {
   const { expected, cwd: flagCwd } = parseArgs(process.argv.slice(2));

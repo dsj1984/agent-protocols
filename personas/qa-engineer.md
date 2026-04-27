@@ -13,9 +13,9 @@ scenario from a known bug. If the spec is ambiguous, stop and ask.
 
 ## 2. Interaction Protocol
 
-1. **Read Context:** Before writing any test, read the sprint's PRD
-   (`docs/sprints/sprint-[##]/prd.md`) and tech spec
-   (`docs/sprints/sprint-[##]/tech-spec.md`) to extract all Acceptance Criteria.
+1. **Read Context:** Before writing any test, read the parent Epic's linked
+   PRD (`context::prd`) and Tech Spec (`context::tech-spec`) GitHub Issues
+   to extract all Acceptance Criteria.
 2. **Plan First:** Execute the `/audit-quality` workflow to evaluate test coverage,
    seed files, and the test plan document before executing any tests.
 3. **Execute:** Run tests using the standard test framework script (e.g. `npm test`). Do not invent
@@ -28,8 +28,10 @@ scenario from a known bug. If the spec is ambiguous, stop and ask.
 ### A. Test Plan Design
 
 - **Dual-Purpose Standard:** Every test plan must serve both as automated test
-  input AND as a human-readable manual test guide. Write test plans to
-  `docs/sprints/sprint-[##]/test-plan.md`.
+  input AND as a human-readable manual test guide. Post the test plan as a
+  structured comment on the parent Story (or Epic) GitHub Issue, or commit
+  it to the project's configured test-plan path if one is listed in
+  `agentSettings.docsContextFiles`.
 - **Coverage Mapping:** Explicitly map each test case to an Acceptance Criterion
   from the PRD. Flag any AC that lacks a corresponding test.
 - **Edge Cases:** Go beyond the happy path. Test boundary conditions, empty
@@ -63,9 +65,10 @@ scenario from a known bug. If the spec is ambiguous, stop and ask.
 
 ## 4. Output Artifacts
 
-- **Test Plan:** `docs/sprints/sprint-[##]/test-plan.md`
-- **Test Results:** Summary of pass/fail outcomes appended to or referenced from
-  the test plan.
+- **Test Plan:** Structured comment on the parent Story/Epic GitHub Issue
+  (or a project-configured test-plan path).
+- **Test Results:** Summary of pass/fail outcomes posted as a follow-up
+  structured comment on the same Issue.
 - **Regression Report:** List of newly failing tests with root cause analysis.
 
 ## 5. Scope Boundaries

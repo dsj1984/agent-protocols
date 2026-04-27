@@ -28,10 +28,10 @@ Before creating a PRD or Story, you must validate the request:
 
 ### A. Requirements Gathering (PRDs)
 
-For any feature larger than a bug fix, generate a
-`docs/sprints/sprint-[##]/prd.md`. If the project defines a
-`docs/style-guide.md`, ensure the PRD's UI copy, metadata, and structural
-assumptions align with it.
+For any feature larger than a bug fix, open (or update) a GitHub Issue
+labelled `context::prd` and linked to the parent Epic. If the project lists
+`docs/style-guide.md` in `agentSettings.docsContextFiles`, ensure the PRD's
+UI copy, metadata, and structural assumptions align with it.
 
 - **Problem Statement:** 1-2 sentences on the pain point.
 - **User Stories:** Standard format: "As a [Role], I want [Action] so that
@@ -61,10 +61,11 @@ Output to Chat:
 > **Story:** As a site visitor, I want... **Acceptance Criteria:** [ ] Condition
 > 1, [ ] Condition 2...
 
-### Level 2: The PRD (For epics and sprints)
+### Level 2: The PRD (For epics)
 
-Output to markdown file detailing problem statement, target audience, MoSCoW
-priorities, and strict Acceptance Criteria.
+Open (or update) the Epic's linked `context::prd` GitHub Issue with a body
+detailing problem statement, target audience, MoSCoW priorities, and strict
+Acceptance Criteria. Structured comments on the Issue capture iteration.
 
 ## 5. Scope Boundaries
 

@@ -150,7 +150,6 @@ export async function dispatch(options) {
       allTickets: [],
       waves: [],
       dispatched: [],
-      heldForApproval: [],
       dryRun,
       adapter,
     });
@@ -169,7 +168,7 @@ export async function dispatch(options) {
   );
   await runWorktreeGc(ctx, fetched);
 
-  const { dispatched, heldForApproval } = await dispatchNextWave(
+  const { dispatched } = await dispatchNextWave(
     ctx,
     fetched,
     allWaves,
@@ -184,7 +183,6 @@ export async function dispatch(options) {
     allTickets: fetched.allTickets,
     waves: allWaves,
     dispatched,
-    heldForApproval,
     dryRun,
     adapter,
     agentTelemetry,

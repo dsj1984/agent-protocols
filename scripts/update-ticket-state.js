@@ -21,6 +21,7 @@ import {
 import { createProvider } from './lib/provider-factory.js';
 
 // ── CLI Main Block ────────────────────────────────────────────────────────
+// cli-opt-out: re-export shim with a DEBUG_MAIN escape hatch for tests; runAsCli's strict path-equality guard would block the env-flag entry path.
 if (
   process.argv[1]?.endsWith('update-ticket-state.js') ||
   process.env.DEBUG_MAIN
@@ -56,8 +57,8 @@ if (
       const config = resolveConfig();
       const provider = createProvider(config.orchestration);
 
-      // Label-only mutation path — no state transition. Used by the
-      // risk::high auto-merge protocol in /sprint-execute.
+      // Label-only mutation path — no state transition. Callers that just
+      // need to drop a single label without flipping the agent::* state.
       if (removeLabel && !state) {
         console.log(
           `[State-Sync] Removing label \`${removeLabel}\` from ticket #${ticketId}...`,

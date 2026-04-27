@@ -1,3 +1,13 @@
+---
+name: tailwind-v4
+description:
+  Implements maintainable styling with Tailwind CSS v4. Use when writing
+  styles in v4 projects — CSS-first configuration via `@theme` blocks (never
+  `tailwind.config.ts/js`), mobile-first breakpoints, full class names (no
+  string interpolation), and no arbitrary `p-[13px]`-style values.
+vendor: tailwind
+---
+
 # Skill: Tailwind CSS v4
 
 Rules for implementing high-performance, maintainable styling using the latest

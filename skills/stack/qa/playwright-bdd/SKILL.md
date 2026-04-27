@@ -1,3 +1,14 @@
+---
+name: playwright-bdd
+description:
+  Wires Gherkin `.feature` files to Playwright via the `playwright-bdd`
+  library. Use when running BDD scenarios on a Playwright runtime — pairs
+  with the `gherkin-authoring` skill (scenario prose) and the `playwright`
+  skill (browser conventions). Drives execution by tag expression with
+  trace-first debugging and Playwright-native sharding.
+vendor: playwright
+---
+
 # Skill: playwright-bdd
 
 Guidance for running Gherkin `.feature` files against Playwright via

@@ -15,33 +15,33 @@
 import fs from 'node:fs';
 import path from 'node:path';
 import { fileURLToPath } from 'node:url';
-import { getSettingsValidator } from './config-schema.js';
 import { resolveLimits } from './config/limits.js';
 import { resolvePaths } from './config/paths.js';
 import { resolveQuality } from './config/quality.js';
 import { validateOrchestrationConfig } from './config/validate-orchestration.js';
+import { getSettingsValidator } from './config-schema.js';
 import { loadEnv } from './env-loader.js';
 
-// --- Re-exports (facade contract) ---
-export { COMMANDS_DEFAULTS, getCommands } from './config/commands.js';
 export {
   BASELINES_DEFAULTS,
   getBaselines,
   resolveBaselines,
 } from './config/baselines.js';
-export { PATHS_DEFAULTS, getPaths, resolvePaths } from './config/paths.js';
-export { LIMITS_DEFAULTS, getLimits, resolveLimits } from './config/limits.js';
-export { getRunners } from './config/runners.js';
+// --- Re-exports (facade contract) ---
+export { COMMANDS_DEFAULTS, getCommands } from './config/commands.js';
+export { getLimits, LIMITS_DEFAULTS, resolveLimits } from './config/limits.js';
+export { getPaths, PATHS_DEFAULTS, resolvePaths } from './config/paths.js';
 export {
+  getQuality,
   MAINTAINABILITY_CRAP_DEFAULTS,
   MAINTAINABILITY_QUALITY_DEFAULTS,
   PR_GATE_DEFAULTS,
-  getQuality,
   resolveMaintainabilityCrap,
   resolveMaintainabilityQuality,
   resolvePrGate,
   resolveQuality,
 } from './config/quality.js';
+export { getRunners } from './config/runners.js';
 export {
   resolveRuntime,
   resolveSessionId,

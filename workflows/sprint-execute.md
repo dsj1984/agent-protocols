@@ -327,7 +327,7 @@ For **each child Task** in the order returned by `sprint-story-init.js`:
    # Or, for tracked edits only:
    # git add -u
 
-   git commit --no-verify -m "feat(<scope>): <task title> (resolves #<taskId>)"
+   git commit -m "feat(<scope>): <task title> (resolves #<taskId>)"
    ```
 
 4. Proceed to the next Task in the Story.

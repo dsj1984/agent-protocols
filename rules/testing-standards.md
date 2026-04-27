@@ -6,7 +6,11 @@ tiers — **unit**, **contract**, or **e2e / acceptance** — and each tier has
 distinct responsibilities, scope, and assertion style. Choosing the correct
 tier is the first decision when adding a test; the companion rule
 [`gherkin-standards.md`](./gherkin-standards.md) governs how acceptance-tier
-scenarios are authored.
+scenarios are authored. The companion skill
+[`core/test-driven-development`](../skills/core/test-driven-development/SKILL.md)
+shows **how** to apply these standards (TDD cycle, Prove-It Pattern, naming,
+anti-patterns) — read this rule for the **what**. When the skill and this
+rule diverge, this rule wins.
 
 ## The Three Tiers
 
