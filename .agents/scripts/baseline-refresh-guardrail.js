@@ -537,6 +537,7 @@ async function main() {
   return performCrapRecheck({ args, baseConfig }).exitCode;
 }
 
+// cli-opt-out: needs a Windows-aware main-guard (path.resolve + drive-letter normalisation) and a custom main.then(code => process.exit(code)) result-code path that runAsCli does not provide.
 const isDirect = (() => {
   try {
     const invoked = process.argv[1] ? path.resolve(process.argv[1]) : '';

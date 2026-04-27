@@ -21,6 +21,7 @@ import {
 import { createProvider } from './lib/provider-factory.js';
 
 // ── CLI Main Block ────────────────────────────────────────────────────────
+// cli-opt-out: re-export shim with a DEBUG_MAIN escape hatch for tests; runAsCli's strict path-equality guard would block the env-flag entry path.
 if (
   process.argv[1]?.endsWith('update-ticket-state.js') ||
   process.env.DEBUG_MAIN
