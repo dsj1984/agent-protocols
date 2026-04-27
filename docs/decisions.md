@@ -41,7 +41,7 @@ Two design options were considered:
 Adopt the **open-root + drift test** model. Concretely:
 
 1. Drop `additionalProperties: false` at the schema root. Inner objects
-   (`summary`, wave items, `dispatched[]`, `heldForApproval[]`,
+   (`summary`, wave items, `dispatched[]`,
    `storyManifest[]`, `storyManifest[].tasks[]`, `stories[]`,
    `stories[].tasks[]`) keep `additionalProperties: false` — those shapes
    are stable and benefit from strict validation.
