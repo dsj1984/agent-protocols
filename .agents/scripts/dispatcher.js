@@ -130,9 +130,7 @@ export async function generateAndSaveManifest(
     console.log(
       `[Dispatcher] Progress: ${manifest.summary.doneTasks}/${manifest.summary.totalTasks} tasks done (${manifest.summary.progressPercent}%)`,
     );
-    console.log(
-      `[Dispatcher] Dispatched: ${manifest.summary.dispatched}, Held: ${manifest.summary.heldForApproval}`,
-    );
+    console.log(`[Dispatcher] Dispatched: ${manifest.summary.dispatched}`);
     printStoryDispatchTable(manifest.storyManifest);
   }
   return manifest;

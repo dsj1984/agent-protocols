@@ -41,7 +41,6 @@ function buildLargeManifest(storyCount = 50) {
       doneTasks: storyCount,
       progressPercent: 50,
       dispatched: storyCount,
-      heldForApproval: 0,
       totalWaves: 5,
     },
     storyManifest,

@@ -330,7 +330,6 @@ function _formatManifestMarkdownUncached(manifest) {
     `| Execution Waves | ${progress.storyWaveCount} _(${summary.totalWaves} task-level waves)_ |`,
   );
   lines.push(`| Dispatched | ${summary.dispatched} |`);
-  lines.push(`| Held for Approval | ${summary.heldForApproval} |`);
   lines.push('');
 
   // --- Hero Progress Bar ---

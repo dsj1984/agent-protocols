@@ -38,9 +38,10 @@ archive.
 
 Before composing six sections of retro boilerplate, check whether the Epic's
 frozen dispatch manifest carries any friction signals at all. Clean sprints
-(zero friction, zero parked follow-ons, zero recuts, zero hotfixes, zero HITL
-gates) collapse into a three-section **compact retro** that preserves the
-scorecard and the session-observation surface without the six-section overhead.
+(zero friction, zero parked follow-ons, zero recuts, zero hotfixes, zero
+agent::blocked events) collapse into a three-section **compact retro** that
+preserves the scorecard and the session-observation surface without the
+six-section overhead.
 
 Gather the five counts and evaluate the predicate:
 
@@ -52,7 +53,7 @@ const counts = {
   parked,     // parked follow-ons from the `parked-follow-ons` comment (no manifest lineage)
   recuts,     // Stories carrying a `<!-- recut-of: #N -->` marker
   hotfixes,   // Tasks that flipped to `status::blocked` mid-sprint
-  hitl,       // Tasks that tripped the HITL gate (`risk::high`)
+  hitl,       // Tickets that raised an `agent::blocked` event mid-sprint (the runtime HITL pause point)
 };
 
 const compact = isCleanManifest(counts);
@@ -77,13 +78,16 @@ Read execution telemetry directly from GitHub — **not** from local files:
 1. **Fetch the Epic and all child tickets** (Features, Stories, Tasks) using
    `provider.getTickets(epicId)`.
 2. **For each Task ticket**, collect:
-   - Final label state (e.g., `agent::done`, `risk::high`, `status::blocked`).
+   - Final label state (e.g., `agent::done`, `agent::blocked`, `status::blocked`).
    - All comments of type `friction` (posted via `postStructuredComment`).
    - Time between `agent::executing` and `agent::done` (from label events, if
      available).
 3. **Collect aggregate friction signals**:
    - Count of Tasks that required a hotfix (`status::blocked` was applied).
-   - Count of Tasks that hit the HITL gate (`risk::high`).
+   - Count of tickets that raised an `agent::blocked` event mid-sprint (the
+     runtime HITL pause point — count distinct tickets that received the
+     `agent::blocked` label at any point during execution, including ones
+     that were later flipped back to `agent::executing`).
    - Count of Tasks that required more than one integration attempt.
 4. **Fetch the code-review structured comment** (if present) from the Epic —
    `provider.getTicketComments(epicId)` filtered by the
@@ -160,11 +164,11 @@ _Generated [ISO date] · Protocol Version [from .agents/VERSION]_
 
 | Metric                    | Value |
 | ------------------------- | ----- |
-| Total Tasks               |       |
-| Tasks Completed First Try |       |
-| Tasks Requiring Hotfix    |       |
-| HITL Gates Triggered      |       |
-| Friction Events           |       |
+| Total Tasks                  |       |
+| Tasks Completed First Try    |       |
+| Tasks Requiring Hotfix       |       |
+| agent::blocked Events Raised |       |
+| Friction Events              |       |
 
 ### What Went Well
 
@@ -214,17 +218,17 @@ The final post in Step 3 is still `type: 'retro'` with the
 
 _Generated [ISO date] · Protocol Version [from .agents/VERSION]_
 
-🟢 Clean sprint — zero friction, zero parked follow-ons, zero recuts, zero hotfixes, zero HITL gates.
+🟢 Clean sprint — zero friction, zero parked follow-ons, zero recuts, zero hotfixes, zero agent::blocked events.
 
 ### Sprint Scorecard
 
-| Metric                    | Value |
-| ------------------------- | ----- |
-| Total Tasks               |       |
-| Tasks Completed First Try |       |
-| Tasks Requiring Hotfix    | 0     |
-| HITL Gates Triggered      | 0     |
-| Friction Events           | 0     |
+| Metric                       | Value |
+| ---------------------------- | ----- |
+| Total Tasks                  |       |
+| Tasks Completed First Try    |       |
+| Tasks Requiring Hotfix       | 0     |
+| agent::blocked Events Raised | 0     |
+| Friction Events              | 0     |
 
 ### Session Observations
 

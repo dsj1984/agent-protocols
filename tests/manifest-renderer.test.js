@@ -56,7 +56,6 @@ function makeBaseManifest(overrides = {}) {
       progressPercent: 0,
       totalWaves: 0,
       dispatched: 0,
-      heldForApproval: 0,
     },
     storyManifest: [],
     waves: [],
@@ -104,8 +103,7 @@ test('renderManifestMarkdown', async (t) => {
         progressPercent: 0,
         totalWaves: 1,
         dispatched: 0,
-        heldForApproval: 0,
-      },
+        },
     });
     const output = renderManifestMarkdown(manifest);
     assert.match(output, /0%/);
@@ -122,8 +120,7 @@ test('renderManifestMarkdown', async (t) => {
         progressPercent: 100,
         totalWaves: 1,
         dispatched: 4,
-        heldForApproval: 0,
-      },
+        },
     });
     const output = renderManifestMarkdown(manifest);
     assert.match(output, /100%/);
@@ -138,8 +135,7 @@ test('renderManifestMarkdown', async (t) => {
         progressPercent: 50,
         totalWaves: 1,
         dispatched: 2,
-        heldForApproval: 0,
-      },
+        },
     });
     const output = renderManifestMarkdown(manifest);
     assert.match(output, /🔥/);
@@ -155,8 +151,7 @@ test('renderManifestMarkdown', async (t) => {
         progressPercent: 50,
         totalWaves: 1,
         dispatched: 0,
-        heldForApproval: 0,
-      },
+        },
       storyManifest: [story],
     });
     const output = renderManifestMarkdown(manifest);
@@ -182,8 +177,7 @@ test('renderManifestMarkdown', async (t) => {
         progressPercent: 100,
         totalWaves: 1,
         dispatched: 0,
-        heldForApproval: 0,
-      },
+        },
       storyManifest: [story],
     });
     const output = renderManifestMarkdown(manifest);

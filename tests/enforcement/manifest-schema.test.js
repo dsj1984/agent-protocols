@@ -98,7 +98,6 @@ describe('dispatch-manifest schema drift (AJV fixture)', () => {
       dispatched: [
         { taskId: 101, dispatchId: 'dispatch-101', status: 'dispatched' },
       ],
-      heldForApproval: [{ taskId: 102, reason: 'risk::high label present' }],
       dryRun: false,
       adapter: { executorId: 'manual' },
       agentTelemetry: { runId: 'r-1', runner: 'epic-runner@5.30.0' },
@@ -128,7 +127,6 @@ describe('dispatch-manifest schema drift (AJV fixture)', () => {
       allTickets: [epic],
       waves: [],
       dispatched: [],
-      heldForApproval: [],
       dryRun: true,
       adapter: { executorId: 'manual' },
     });
@@ -186,7 +184,6 @@ describe('dispatch-manifest schema drift (AJV fixture)', () => {
       allTickets: [epic],
       waves: [],
       dispatched: [],
-      heldForApproval: [],
       dryRun: true,
       adapter: { executorId: 'manual' },
     });

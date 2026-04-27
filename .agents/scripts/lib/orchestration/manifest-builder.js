@@ -116,7 +116,6 @@ export function buildManifest({
   allTickets,
   waves,
   dispatched,
-  heldForApproval,
   dryRun,
   adapter,
   agentTelemetry = null,
@@ -140,7 +139,6 @@ export function buildManifest({
       progressPercent: progress,
       totalWaves: waves.length,
       dispatched: dispatched.length,
-      heldForApproval: heldForApproval.length,
     },
     waves: waves.map((wave, i) => ({
       waveIndex: i,
@@ -158,7 +156,6 @@ export function buildManifest({
     })),
     storyManifest: buildStoryManifest(tasks, allTickets ?? [], epicId),
     dispatched,
-    heldForApproval,
     agentTelemetry,
   };
 }
