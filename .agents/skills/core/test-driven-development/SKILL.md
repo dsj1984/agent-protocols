@@ -2,12 +2,21 @@
 name: test-driven-development
 description:
   Drives development with tests. Use when implementing any logic, fixing any
-  bug, or changing any behavior. Use when you need to prove that code works,
-  when a bug report arrives, or when you're about to modify existing
-  functionality.
+  bug, or changing any behavior. The non-negotiable test-tier placement,
+  mocking, assertion-placement, and coverage rules live in
+  `.agents/rules/testing-standards.md`; this skill shows how to apply them
+  via the TDD cycle, the Prove-It Pattern, and good-test style.
 ---
 
 # Test-Driven Development
+
+The non-negotiable test-tier rules — **unit / contract / e2e taxonomy**,
+**assertion placement** (DB and API-shape assertions belong at the contract
+tier), **mocking & isolation**, and **coverage thresholds** — live in
+[`.agents/rules/testing-standards.md`](../../../rules/testing-standards.md),
+which is the SSOT. This skill shows **how** to apply those rules via the TDD
+cycle, the Prove-It Pattern, and writing-good-tests style; read the rule file
+for the **what**. When this skill and the rule diverge, the rule wins.
 
 ## Overview
 
@@ -138,32 +147,30 @@ export async function completeTask(id: string): Promise<Task> {
 // Step 3: Test passes → bug fixed, regression guarded
 ```
 
-## The Test Pyramid
+## Picking the Right Tier
 
-Invest testing effort according to the pyramid — most tests should be small and
-fast, with progressively fewer tests at higher levels:
+The canonical taxonomy — **unit**, **contract**, **e2e / acceptance** — and
+the assertion-placement rule (DB and API-shape assertions live at the
+contract tier, never in `.feature` files) are defined in
+[`testing-standards.md § The Three Tiers`](../../../rules/testing-standards.md#the-three-tiers)
+and [§ Assertion Placement](../../../rules/testing-standards.md#assertion-placement).
+Use this decision flow to route a new test:
 
 ```text
-          ╱╲
-         ╱  ╲         E2E Tests (~5%)
-        ╱    ╲        Full user flows, real browser
-       ╱──────╲
-      ╱        ╲      Integration Tests (~15%)
-     ╱          ╲     Component interactions, API boundaries
-    ╱────────────╲
-   ╱              ╲   Unit Tests (~80%)
-  ╱                ╲  Pure logic, isolated, milliseconds each
- ╱──────────────────╲
+Is it pure logic with no I/O?
+  → Unit (see testing-standards § Unit)
+
+Does it cross a process or service boundary
+(API ↔ DB, schema conformance, wire shape, status codes)?
+  → Contract (see testing-standards § Contract)
+
+Is it a user-visible journey across UI / API / DB?
+  → E2E / acceptance, authored in Gherkin
+    (see testing-standards § E2E / Acceptance and gherkin-standards.md)
 ```
 
-**The Beyonce Rule:** If you liked it, you should have put a test on it.
-Infrastructure changes, refactoring, and migrations are not responsible for
-catching your bugs — your tests are. If a change breaks your code and you didn't
-have a test for it, that's on you.
-
-### Test Sizes (Resource Model)
-
-Beyond the pyramid levels, classify tests by what resources they consume:
+Invest most effort at the unit tier (the broad base of the pyramid) and the
+fewest tests at the e2e tier. Beyond the tier, classify by resource cost:
 
 | Size       | Constraints                                            | Speed        | Example                                                |
 | ---------- | ------------------------------------------------------ | ------------ | ------------------------------------------------------ |
@@ -174,18 +181,10 @@ Beyond the pyramid levels, classify tests by what resources they consume:
 Small tests should make up the vast majority of your suite. They're fast,
 reliable, and easy to debug when they fail.
 
-### Decision Guide
-
-```text
-Is it pure logic with no side effects?
-  → Unit test (small)
-
-Does it cross a boundary (API, database, file system)?
-  → Integration test (medium)
-
-Is it a critical user flow that must work end-to-end?
-  → E2E test (large) — limit these to critical paths
-```
+**The Beyonce Rule:** If you liked it, you should have put a test on it.
+Infrastructure changes, refactoring, and migrations are not responsible for
+catching your bugs — your tests are. If a change breaks your code and you
+didn't have a test for it, that's on you.
 
 ## Writing Good Tests
 
@@ -242,8 +241,11 @@ understandable.
 
 ### Prefer Real Implementations Over Mocks
 
-Use the simplest test double that gets the job done. The more your tests use
-real code, the more confidence they provide.
+The mocking MUSTs (unit tests mock external I/O; contract tests MUST NOT mock
+the boundary under test) live in
+[testing-standards § Mocking & Isolation](../../../rules/testing-standards.md#mocking--isolation).
+Within those constraints, use the simplest test double that gets the job
+done. The more your tests use real code, the more confidence they provide:
 
 ```text
 Preference order (most to least preferred):
@@ -258,6 +260,10 @@ or has side effects you can't control (external APIs, email sending).
 Over-mocking creates tests that pass while production breaks.
 
 ### Use the Arrange-Act-Assert Pattern
+
+The AAA structure is mandated by
+[testing-standards § Test Structure](../../../rules/testing-standards.md#test-structure-arrange-act-assert).
+Apply it to every test at every tier:
 
 ```typescript
 it('marks overdue tasks when deadline has passed', () => {
