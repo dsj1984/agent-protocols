@@ -5,8 +5,8 @@ import { describe, it } from 'node:test';
 import Ajv from 'ajv/dist/2020.js';
 import addFormats from 'ajv-formats';
 import { buildManifest } from '../../.agents/scripts/lib/orchestration/manifest-builder.js';
-import { parseTasks } from '../../.agents/scripts/lib/orchestration/task-fetcher.js';
 import { executeStory } from '../../.agents/scripts/lib/orchestration/story-executor.js';
+import { parseTasks } from '../../.agents/scripts/lib/orchestration/task-fetcher.js';
 import { MockProvider } from '../fixtures/mock-provider.js';
 
 /**
@@ -23,9 +23,7 @@ import { MockProvider } from '../fixtures/mock-provider.js';
  * schema author / runtime author can see exactly which field/value broke.
  */
 
-const SCHEMA_PATH = path.resolve(
-  '.agents/schemas/dispatch-manifest.json',
-);
+const SCHEMA_PATH = path.resolve('.agents/schemas/dispatch-manifest.json');
 
 function loadValidator() {
   const ajv = new Ajv({ allErrors: true, strict: false });

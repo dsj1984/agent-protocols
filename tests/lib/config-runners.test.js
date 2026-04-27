@@ -1,11 +1,11 @@
 import assert from 'node:assert/strict';
 import { describe, it } from 'node:test';
+import { getRunners } from '../../.agents/scripts/lib/config/runners.js';
 import {
   DEFAULT_CLOSE_RETRY,
   DEFAULT_DECOMPOSER,
   DEFAULT_POOL_MODE,
 } from '../../.agents/scripts/lib/config-schema.js';
-import { getRunners } from '../../.agents/scripts/lib/config/runners.js';
 
 describe('getRunners', () => {
   it('returns defaulted shape for null/undefined config', () => {
