@@ -72,7 +72,11 @@ test('scanInstructions: flags retired MCP tool names', () => {
   const { retiredMcpOffenses } = scanInstructions(sample);
   assert.deepStrictEqual(
     retiredMcpOffenses.map((o) => o.tool),
-    ['transition_ticket_state', 'cascade_completion', 'post_structured_comment'],
+    [
+      'transition_ticket_state',
+      'cascade_completion',
+      'post_structured_comment',
+    ],
   );
 });
 
