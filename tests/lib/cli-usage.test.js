@@ -11,6 +11,7 @@
 
 import assert from 'node:assert/strict';
 import { describe, it } from 'node:test';
+import { fileURLToPath } from 'node:url';
 import {
   formatUsage,
   HELP_FLAGS,
@@ -154,7 +155,13 @@ describe('runAsCli — the usage short-circuit', () => {
     const savedArgv = process.argv;
     const savedWrite = process.stdout.write;
     const written = [];
-    process.argv = [savedArgv[0], new URL(SELF).pathname, ...argv];
+    // fileURLToPath (not `new URL(...).pathname`) so the drive letter resolves
+    // correctly on Windows — the raw pathname is `/D:/…`, which path.resolve
+    // turns into a doubled-drive path that never equals runAsCli's own
+    // fileURLToPath(import.meta.url). isDirectInvocation would then return
+    // false, runAsCli would return before writing usage, and every assertion
+    // here would see ''. See Windows Smoke CI.
+    process.argv = [savedArgv[0], fileURLToPath(SELF), ...argv];
     process.stdout.write = (chunk) => {
       written.push(String(chunk));
       return true;
