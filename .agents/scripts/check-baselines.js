@@ -43,7 +43,10 @@ import {
   assertFloorAxesExist,
   compareToFloor,
 } from './lib/orchestration/check-baselines/phases/floors.js';
-import { parseArgs } from './lib/orchestration/check-baselines/phases/parse-args.js';
+import {
+  HELP_TEXT,
+  parseArgs,
+} from './lib/orchestration/check-baselines/phases/parse-args.js';
 import {
   runCheckBaselines,
   selectEnabledGates,
@@ -78,4 +81,7 @@ async function main() {
   process.exit(result.exitCode);
 }
 
-runAsCli(import.meta.url, main, { source: 'check-baselines' });
+runAsCli(import.meta.url, main, {
+  source: 'check-baselines',
+  usage: HELP_TEXT,
+});

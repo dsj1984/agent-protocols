@@ -526,4 +526,25 @@ export {
   verifyApiAccess,
 };
 
-runAsCli(import.meta.url, main, { source: 'Bootstrap' });
+runAsCli(import.meta.url, main, {
+  source: 'Bootstrap',
+  usage: {
+    invocation:
+      'node .agents/scripts/agents-bootstrap-github.js [--assume-yes|--assume-no] [--approve-github-admin] [--with-project-board] [--reap-conflicting-workflows]',
+    summary:
+      'Bootstrap the GitHub side of a consumer repo: label taxonomy, issue forms, workflows, and the optional project board.',
+    flags: [
+      ['--assume-yes', 'Answer yes to every prompt (non-interactive run).'],
+      ['--assume-no', 'Answer no to every prompt (probe only).'],
+      [
+        '--approve-github-admin',
+        'Consent to admin-scoped GitHub mutations (implied by --assume-yes).',
+      ],
+      ['--with-project-board', 'Also provision the GitHub Project board.'],
+      [
+        '--reap-conflicting-workflows',
+        'Remove pre-existing workflow files that clash with the framework set.',
+      ],
+    ],
+  },
+});

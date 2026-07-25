@@ -438,4 +438,36 @@ async function main() {
   process.stdout.write(`${JSON.stringify(result)}\n`);
 }
 
-runAsCli(import.meta.url, main, { source: 'plan-persist' });
+runAsCli(import.meta.url, main, {
+  source: 'plan-persist',
+  usage: {
+    invocation:
+      'node .agents/scripts/plan-persist.js --stories <file> [--tech-spec <file>] [--dry-run] [options]',
+    summary:
+      'Validate an authored plan and persist it as GitHub Stories. Prints the result envelope as JSON on stdout.',
+    flags: [
+      ['--stories <file>', 'Authored stories.json (required).'],
+      ['--tech-spec <file>', 'Optional companion techspec.md.'],
+      ['--plan-dir <dir>', 'Directory holding the plan artifacts.'],
+      [
+        '--plan-context <file>',
+        'The plan-context envelope this draft was authored against.',
+      ],
+      ['--plan-acceptance <file>', 'Acceptance artifact to attach.'],
+      ['--source-tickets <ids>', 'Ticket ids this plan supersedes.'],
+      [
+        '--route-downgrade-reason <text>',
+        'Why the authored route was downgraded.',
+      ],
+      ['--dry-run', 'Validate and report; create nothing.'],
+      ['--chain-on-clean', 'Persist immediately when the dry run is clean.'],
+      ['--no-close-superseded', 'Leave superseded source tickets open.'],
+      [
+        '--force-review',
+        'Require the review gate even when it would be skipped.',
+      ],
+      ['--allow-over-budget', 'Permit a Spec over the context budget.'],
+      ['--allow-large-fan-out', 'Permit a Story count above the fan-out gate.'],
+    ],
+  },
+});

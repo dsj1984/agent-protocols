@@ -247,4 +247,25 @@ runAsCli(import.meta.url, main, {
   source: 'dead-exports',
   propagateExitCode: true,
   errorPrefix: '[dead-exports] ❌ Fatal error',
+  usage: {
+    invocation:
+      'node .agents/scripts/check-dead-exports.js [--production] [--baseline <path>] [--knip-output <path>] [--json]',
+    summary:
+      'Ratchet on unused exports reported by knip: fail when an export is added above the recorded baseline.',
+    flags: [
+      [
+        '--production',
+        'Score the production-only surface (separate baseline).',
+      ],
+      ['--baseline <path>', 'Baseline file (default: mode-specific).'],
+      [
+        '--knip-output <path>',
+        'Read a saved knip JSON envelope instead of running knip.',
+      ],
+      ['--json', 'Emit the comparison envelope as JSON.'],
+    ],
+    notes: [
+      'Exit codes:\n  0  clean, or removals only\n  1  newly added unused exports',
+    ],
+  },
 });

@@ -16,6 +16,7 @@
 
 import path from 'node:path';
 import { fileURLToPath } from 'node:url';
+import { respondToHelp } from './cli-usage.js';
 import { formatCliError } from './error-redactor.js';
 
 /**
@@ -37,12 +38,21 @@ export function isDirectInvocation(importMetaUrl) {
  * `main` is funnelled through either the caller-supplied `onError` callback
  * or the default handler (prefixed stderr line + `process.exit(exitCode)`).
  *
+ * A `usage` option makes the script self-describing: when the argv carries
+ * `--help` / `-h`, the rendered usage block goes to stdout and `main` is
+ * **never invoked**. That ordering is the whole point — it makes "`--help`
+ * performs no GitHub write, acquires no lease, and mutates no working tree"
+ * structurally true for every adopting script, rather than something each
+ * `main` has to remember to check before its first side effect.
+ *
  * @param {string} importMetaUrl        Caller's `import.meta.url`.
  * @param {() => Promise<unknown>} main The CLI's main function.
  * @param {object} [options]
  * @param {string} [options.source='CLI']           Prefix used in the default error message.
  * @param {number} [options.exitCode=1]             Exit code used by the default error handler.
  * @param {(err: Error) => void} [options.onError]  Full override of the error handler.
+ * @param {object|string} [options.usage]           Usage spec (or pre-rendered
+ *   text) printed for `--help`; see `lib/cli-usage.js`.
  */
 export function runAsCli(importMetaUrl, main, options = {}) {
   if (!isDirectInvocation(importMetaUrl)) return;
@@ -52,7 +62,9 @@ export function runAsCli(importMetaUrl, main, options = {}) {
     onError,
     propagateExitCode = false,
     errorPrefix,
+    usage,
   } = options;
+  if (usage && respondToHelp(process.argv.slice(2), usage)) return;
   const promise = main();
   if (propagateExitCode) {
     promise.then((code) => process.exit(code ?? 0));

@@ -538,4 +538,20 @@ async function main() {
 runAsCli(import.meta.url, main, {
   source: 'single-story-confirm-merge',
   propagateExitCode: true,
+  usage: {
+    invocation:
+      'node .agents/scripts/single-story-confirm-merge.js --story <id> [--pr <n>] [--wait] [--max-wait-seconds <n>] [--cwd <main-repo>]',
+    summary:
+      'Confirm a Story PR merged and flip the Story to agent::done. With --wait, resumes the bounded merge wait a close handed off.',
+    flags: [
+      ['--story <id>', 'GitHub issue number of the Story (required).'],
+      ['--pr <n>', 'PR number (default: resolved from the Story branch).'],
+      ['--wait', 'Resume the bounded merge wait instead of probing once.'],
+      ['--max-wait-seconds <n>', 'Per-invocation bound for the --wait path.'],
+      [
+        '--cwd <main-repo>',
+        'Main-repo checkout to run from (default: project root).',
+      ],
+    ],
+  },
 });

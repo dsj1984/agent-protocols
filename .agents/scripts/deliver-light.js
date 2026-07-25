@@ -443,4 +443,5 @@ async function main() {
 runAsCli(import.meta.url, main, {
   source: 'deliver-light',
   propagateExitCode: true,
+  usage: HELP,
 });

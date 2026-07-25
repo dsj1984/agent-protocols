@@ -626,4 +626,29 @@ async function main() {
   );
 }
 
-runAsCli(import.meta.url, main, { source: 'audit-to-stories' });
+runAsCli(import.meta.url, main, {
+  source: 'audit-to-stories',
+  usage: {
+    invocation:
+      'node .agents/scripts/audit-to-stories.js (--scan | --auto | --emit-plan-seed | --emit-stories) [options]',
+    summary:
+      'Turn audit-lens findings under temp/audits/ into a dedup-checked plan seed or standalone Stories.',
+    flags: [
+      ['--scan', 'Print the grouped, deduplicated plan as JSON.'],
+      ['--auto', 'Run the full scan → file pipeline and print the summary.'],
+      ['--emit-plan-seed', 'Emit a /plan --seed-file document.'],
+      ['--emit-stories', 'Emit the Story drafts as JSON.'],
+      ['--glob <pattern>', 'Override the audit-results glob.'],
+      ['--severity <level>', 'Lowest severity to include (high|medium|low).'],
+      ['--ledger <path>', 'Path to the dedup ledger.'],
+      [
+        '--plan <path>',
+        'Read a previously emitted plan instead of re-scanning.',
+      ],
+      ['--out <path>', 'Write output to a file instead of stdout.'],
+      ['--no-provider', 'Skip live GitHub dedup lookups (offline).'],
+      ['--json', 'Force JSON output.'],
+      ['--dry-run', 'Report what would be filed; create nothing.'],
+    ],
+  },
+});

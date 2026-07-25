@@ -136,4 +136,7 @@ export async function runDeliverRecover({
   return { success: true, result: recovery };
 }
 
-runAsCli(import.meta.url, runDeliverRecover, { source: 'deliver-recover' });
+runAsCli(import.meta.url, runDeliverRecover, {
+  source: 'deliver-recover',
+  usage: HELP,
+});

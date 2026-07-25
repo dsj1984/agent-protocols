@@ -423,4 +423,15 @@ async function main() {
   process.exit(1);
 }
 
-runAsCli(import.meta.url, main, { source: 'check-doc-links' });
+runAsCli(import.meta.url, main, {
+  source: 'check-doc-links',
+  usage: {
+    invocation: 'node .agents/scripts/check-doc-links.js',
+    summary:
+      'Validate every relative Markdown link and /slash-command token across docs/ and .agents/, and reject mentions of retired commands.',
+    flags: [],
+    notes: [
+      'Exit codes:\n  0  every link and command token resolves\n  1  at least one violation (file:line on stderr)',
+    ],
+  },
+});

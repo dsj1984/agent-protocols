@@ -381,4 +381,24 @@ runAsCli(import.meta.url, main, {
   source: 'arch-cycles',
   propagateExitCode: true,
   errorPrefix: '[arch-cycles] ❌ Fatal error',
+  usage: {
+    invocation:
+      'node .agents/scripts/check-arch-cycles.js [--baseline <path>] [--root <dir>] [--json]',
+    summary:
+      'Ratchet on module-dependency cycles: compare the live import graph against the recorded baseline and fail on any newly added cycle.',
+    flags: [
+      [
+        '--baseline <path>',
+        'Baseline file (default: baselines/arch-cycles.json).',
+      ],
+      [
+        '--root <dir>',
+        'Scan a single root instead of the distributed surface.',
+      ],
+      ['--json', 'Emit the comparison envelope as JSON.'],
+    ],
+    notes: [
+      'Exit codes:\n  0  clean, or removals only\n  1  a new cycle was detected',
+    ],
+  },
 });

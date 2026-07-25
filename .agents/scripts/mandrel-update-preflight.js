@@ -232,4 +232,13 @@ async function main() {
 runAsCli(import.meta.url, main, {
   source: 'mandrel-update-preflight',
   propagateExitCode: true,
+  usage: {
+    invocation: 'node .agents/scripts/mandrel-update-preflight.js',
+    summary:
+      'First-run guard for /mandrel-update: hard-stops on a non-consumer repo, warns on a dirty git index and on being offline.',
+    flags: [],
+    notes: [
+      'Exit codes:\n  0  safe to update (warnings may be present)\n  1  blocker — do not update',
+    ],
+  },
 });

@@ -831,4 +831,24 @@ export function renderSingleStoryInitComment(result) {
   ].join('\n');
 }
 
-runAsCli(import.meta.url, runSingleStoryInit, { source: 'single-story-init' });
+runAsCli(import.meta.url, runSingleStoryInit, {
+  source: 'single-story-init',
+  usage: {
+    invocation:
+      'node .agents/scripts/single-story-init.js --story <id> [--dry-run] [--steal] [--cwd <main-repo>]',
+    summary:
+      'Initialize a Story for delivery: acquire the lease, seed story-<id> from the base branch, materialize the worktree, and flip the Story to agent::executing.',
+    flags: [
+      ['--story <id>', 'GitHub issue number of the Story (required).'],
+      [
+        '--dry-run',
+        'Report what would happen; no mutations, no lease, no sweep.',
+      ],
+      ['--steal', 'Forcibly transfer a lease held by another assignee.'],
+      [
+        '--cwd <main-repo>',
+        'Main-repo checkout to run from (default: project root).',
+      ],
+    ],
+  },
+});

@@ -178,4 +178,7 @@ export async function main(argv = process.argv.slice(2)) {
   process.stdout.write(`${JSON.stringify({ ticketId, ...result })}\n`);
 }
 
-runAsCli(import.meta.url, main, { source: 'resync-status-column' });
+runAsCli(import.meta.url, main, {
+  source: 'resync-status-column',
+  usage: HELP,
+});

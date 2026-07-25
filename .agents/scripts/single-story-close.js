@@ -251,4 +251,28 @@ async function main() {
 runAsCli(import.meta.url, main, {
   source: 'single-story-close',
   propagateExitCode: true,
+  usage: {
+    invocation:
+      'node .agents/scripts/single-story-close.js --story <id> [--cwd <main-repo>] [options]',
+    summary:
+      'Run the whole delivery tail for one Story — close gates, base sync, push, PR to the base branch, merge wait, agent::done flip — and emit the terminal envelope.',
+    flags: [
+      ['--story <id>', 'GitHub issue number of the Story (required).'],
+      [
+        '--cwd <main-repo>',
+        'Main-repo checkout to run from (default: project root).',
+      ],
+      ['--skip-validation', 'Skip the close-validation gate chain.'],
+      ['--skip-sync', 'Skip the base-branch sync phase.'],
+      ['--no-auto-merge', 'Open the PR without arming native auto-merge.'],
+      ['--wait-merge', 'Force the in-close merge wait.'],
+      ['--no-wait-merge', 'Return as soon as the PR is open; do not wait.'],
+      ['--max-wait-seconds <n>', 'Per-invocation merge-wait bound.'],
+      ['--no-evidence', 'Do not reuse or write gate evidence stamps.'],
+      ['--dry-run', 'Report the plan; mutate nothing.'],
+    ],
+    notes: [
+      'Exit codes:\n  0  landed\n  1  blocked or failed\n  3  pending (resumable — run the envelope’s nextCommand)',
+    ],
+  },
 });

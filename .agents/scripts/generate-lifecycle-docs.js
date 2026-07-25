@@ -221,4 +221,17 @@ export {
   spliceRegion,
 };
 
-runAsCli(import.meta.url, main, { source: 'generate-lifecycle-docs' });
+runAsCli(import.meta.url, main, {
+  source: 'generate-lifecycle-docs',
+  usage: {
+    invocation: 'node .agents/scripts/generate-lifecycle-docs.js [--check]',
+    summary:
+      'Regenerate the lifecycle-event table in docs/LIFECYCLE.md from the event schemas. Writes only when the generated content differs.',
+    flags: [
+      [
+        '--check',
+        'Verify the doc is current and fail if stale; write nothing.',
+      ],
+    ],
+  },
+});

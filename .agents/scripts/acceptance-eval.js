@@ -302,4 +302,21 @@ export async function main(argv = process.argv.slice(2)) {
   return envelope;
 }
 
-runAsCli(import.meta.url, main, { source: 'acceptance-eval' });
+runAsCli(import.meta.url, main, {
+  source: 'acceptance-eval',
+  usage: {
+    invocation:
+      'node .agents/scripts/acceptance-eval.js --story <id> --verdict <path> [--no-signal]',
+    summary:
+      "Score an authored acceptance verdict against the Story's acceptance[] criteria and emit the bounded loop's proceed / redraft / block decision.",
+    flags: [
+      ['--story <id>', 'GitHub issue number of the Story (required).'],
+      ['--verdict <path>', 'Path to the authored verdict JSON (required).'],
+      [
+        '--no-signal',
+        "Skip appending the per-criterion signal to the Story's signals ledger.",
+      ],
+    ],
+    notes: ['Exit codes:\n  0  proceed or redraft\n  1  block'],
+  },
+});
