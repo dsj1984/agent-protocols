@@ -8,8 +8,8 @@
 ## Shape-derived complexity routing (`complexitySignals`)
 
 Complexity routes on the **objective shape of the authored work**, never on
-seed word count (Story #4722 — a detailed prompt can describe trivial work, a
-terse one complex work; `maxSeedWords` is removed). The pipeline stages the
+seed word count — a detailed prompt can describe trivial work, a terse one
+complex work. The pipeline stages the
 decision:
 
 - **Signals, not routing.** The envelope's `complexitySignals` field is
@@ -37,7 +37,7 @@ decision:
   and the security baseline. Those gates run in `single-story-close.js`
   regardless of route.
 
-**The label is a hint; deliver re-derives (Story #4722).** Persist labels a
+**The label is a hint; deliver re-derives.** Persist labels a
 lite cohort's Stories with **`route::lite`** as a *human-visible hint only* —
 `/deliver` computes the route from each fetched Story body via the same shape
 function at dispatch, so neither a lost label nor an unread marker can
@@ -53,7 +53,7 @@ in [`.agents/docs/configuration.md`](../../docs/configuration.md) under
 ceilings on `STORY_SHAPE_CEILINGS` in
 [`lib/orchestration/complexity-gate.js`](../../scripts/lib/orchestration/complexity-gate.js).
 
-## Correct-by-construction authoring template (Story #4723)
+## Correct-by-construction authoring template
 
 `plan-context.js --out` writes `stories.template.json` as a
 **correct-by-construction** skeleton, built from the same repo snapshot the
@@ -73,7 +73,7 @@ ceilings on `STORY_SHAPE_CEILINGS` in
   authoritative: they probe the base branch ref, not the working tree.
 - **Keep `## Spec` near contract-level prose.** Persist emits an
   **advisory** warning past ~250 words (`SPEC_SOFT_WORD_BUDGET`) — it never
-  fails the persist, but it is the nudge toward the #4707 contract-level
+  fails the persist, but it is the nudge toward a contract-level
   Spec (interfaces, invariants, load-bearing constraints; no per-file
   behavior narration). The hard fail-closed ceiling (~1500 tokens,
   `spec-spill.js`) is unchanged.
@@ -112,7 +112,7 @@ Story (mirroring `assertAcceptancePartition`): every id passed to
 `--tickets` must be claimed by **exactly one** Story, and no Story may
 claim an id that was not a source ticket. With N>1 the mapping is not
 total by default — an authored map is the only thing that can say
-`#4525-#4528 → #4530` while `#4529 → #4531`, which a blanket "superseded by
+`#11-#14 → #20` while `#15 → #21`, which a blanket "superseded by
 this plan-run" reference could not.
 
 ## Critic dispatch detail
@@ -120,7 +120,7 @@ this plan-run" reference could not.
 The **pre-mortem** critic fires on any of three deterministic triggers: the
 draft ticket count reaching half the reviewability budget, a
 `planning.riskHeuristics` phrase matching the plan text, or the
-**external-dependency** probe (Story #4700) finding an out-of-repo marker — a
+**external-dependency** probe finding an out-of-repo marker — a
 scoped package the plan names that no repo manifest declares, a cross-repo
 `github.com/<owner>/<repo>` reference, or an endpoint named as a service
 prerequisite. That third trigger is what gives the default N=1 plan a cheap
@@ -136,7 +136,7 @@ markers only, so a plan naming no such artifact dispatches exactly as before.
 }
 ```
 
-The verdict's third entry, `textHygiene`, is advisory-only (Story #4599): it
+The verdict's third entry, `textHygiene`, is advisory-only: it
 carries deterministic body lints (`dangling-citation` / `open-question` /
 `slicing-mass`) with no dispatch semantics — it spawns nothing and never
 gates the run. Fold `textHygiene.findings[]` into the re-author round the
@@ -161,8 +161,8 @@ critic that reads the maker's case grades the case, not the draft.
 
 ## Ready means fully persisted
 
-`agent::ready` is the **terminal** step, not part of the creating POST
-(Story #4541). The order is: create unlabelled → upsert `story-plan-state` on
+`agent::ready` is the **terminal** step, not part of the creating POST.
+The order is: create unlabelled → upsert `story-plan-state` on
 every Story → upsert `plan-summary` on the primary → flip every Story to
 `agent::ready`.
 
@@ -196,7 +196,7 @@ gates, and abandoned authoring sessions do not accumulate under `temp/`.
 ## How the source ids reach persist
 
 In `--tickets` mode persist needs to know which ids were fetched. It resolves
-them **envelope-first** (Story #4554):
+them **envelope-first**:
 
 | Channel | When it wins |
 | --- | --- |

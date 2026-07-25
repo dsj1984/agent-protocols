@@ -108,10 +108,7 @@ PowerShell `Get-CimInstance Win32_Process`, terminating them with
 
 > **Not a slash command (decision overturned).** The drain is **not** a
 > `/drain-pending-cleanup` slash command — it was demoted to a
-> directly-runnable script (Story #3706, overturning the
-> `docs/decisions.md` matrix row that originally kept it as a command).
-> The wave-era automatic callers were deleted with the epic-runner in
-> the v2 cutover, so the drain is now operator-driven:
+> directly-runnable script. The drain is operator-driven:
 > `node .agents/scripts/drain-pending-cleanup.js`.
 
 ### When to run it manually

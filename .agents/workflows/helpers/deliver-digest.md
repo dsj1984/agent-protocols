@@ -1,6 +1,6 @@
 ---
 description: >-
-  The deliver path's one bundled framework read (Story #4736). Carries what
+  The deliver path's one bundled framework read. Carries what
   every Story delivery always needs — dispatch decision, engine invariants,
   the change-set/ceremony incantation, the acceptance-eval gate, and the
   terminal envelope contract — so the engine reads one file instead of
@@ -23,10 +23,10 @@ description: >-
 Read `stories[].dispatchMode` from the `resolve-stories.js` envelope. Two
 rules produce it, in order:
 
-1. **Run topology (#4736).** A run resolving **one** Story is `inline`
+1. **Run topology.** A run resolving **one** Story is `inline`
    whatever its shape — sub-agent isolation is load-bearing only against a
    *concurrent* sibling racing the same checkout, and a one-Story run has none.
-2. **Body shape (#4722).** In a multi-Story run, a lite-shaped body is
+2. **Body shape.** In a multi-Story run, a lite-shaped body is
    `inline`; a full-shaped body, an unparseable one, or a footprint touching a
    sensitive-path class is `subagent`. The `route::lite` label is a
    human-visible hint, never the control signal.
@@ -42,7 +42,6 @@ gates, same PR to `main`, same terminal envelope, byte for byte.
 | Ticket type | `type::story` only; an `Epic: #N` footer means **stop and re-plan** |
 | Branch | `story-<id>`, seeded from `project.baseBranch` (`main`) |
 | Merge target | `main` via PR (squash + required checks) — never a direct push |
-| Integration branch | **None** — no `epic/<id>`, no `--no-ff` wave merge |
 | Gates | Every close gate runs regardless of route; no route bypasses one |
 | State | Only via `update-ticket-state.js --ticket <id> --state <state>` |
 | Paths | Prefix every path-based tool with the absolute `workCwd` — `cd` does not scope them |
@@ -52,7 +51,7 @@ the only sanctioned landing. A silent local build is not a delivery.
 
 ## 3. Change set — computed once, handed to everyone
 
-One enumeration per Story (#4593). A critic that re-runs its own `git diff`
+One enumeration per Story. A critic that re-runs its own `git diff`
 can score a different set than the one that routed it:
 
 ```bash
@@ -76,7 +75,7 @@ fresh. An `inline` dispatch mode overrides all of it to inline critics. Close's
 
 ## 4. Acceptance self-eval (Step 1a, required)
 
-**One verdict-owner per cluster** (#4723) — the fresh critic *or* the inline
+**One verdict-owner per cluster** — the fresh critic *or* the inline
 self-eval, named by `verdictOwner`, never both and never a warm-up pass. It
 scores each `acceptance[]` item against the change set above, with `verify[]`
 output as evidence. Bounded by `delivery.acceptanceEval.maxRounds` (default 2).
@@ -96,7 +95,7 @@ Per-round mechanics: [`acceptance-self-eval.md`](acceptance-self-eval.md).
 `single-story-close.js` emits exactly one envelope on stdout between
 `--- STORY DELIVER TERMINAL ---` markers, schema-validated against
 [`story-deliver-terminal.schema.json`](../../schemas/story-deliver-terminal.schema.json)
-(#4543 — the SSOT; read the JSON only when you need a field this table omits).
+— the SSOT; read the JSON only when you need a field this table omits.
 Relay it verbatim; never hand-compose one, never substitute prose.
 
 | `status` | Exit | Meaning | You do |
@@ -113,7 +112,7 @@ Required fields: `kind` (`story-deliver-terminal`), `storyId`, `status`,
 reports every gate as `passed` / `failed` / `skipped` — a skipped gate is
 reported, never omitted, so a missing gate is never read as a passing one.
 
-**Gate output is captured, not streamed (#4736).** Close writes gate lines to
+**Gate output is captured, not streamed.** Close writes gate lines to
 `temp/orchestration/close-gates-<storyId>.log` and reports a one-line digest on
 success; a failed gate replays its tail inline. `AGENT_LOG_LEVEL=verbose`
 restores live streaming.

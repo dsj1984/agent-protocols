@@ -4,7 +4,7 @@ description: >-
   (resolve newest published version → install → re-materialize `.agents/` →
   migrate → doctor → surface changelog) as the single mechanical step, then
   walks the operator through the judgment wraparound the CLI deliberately
-  leaves unowned: reconcile `.agentrc.json`, install the Epic #1386
+  leaves unowned: reconcile `.agentrc.json`, install the stabilized
   quality-gate surface, refresh the harness permission allowlist, reconcile
   the consumer's `AGENTS.md` / runbooks against the surfaced changelog, and
   stage + commit the staged lockfile bump.
@@ -14,10 +14,10 @@ description: >-
 
 > **Upgrade owner.** The mechanical upgrade is owned end to end by the
 > [`mandrel update`](../../lib/cli/update.js) CLI under the npm distribution
-> model (#3436/#3437). This workflow wraps that CLI: it runs
+> model. This workflow wraps that CLI: it runs
 > `npx mandrel update`, then walks the operator through the
 > **distribution-agnostic judgment steps** the CLI deliberately does **not**
-> perform — config reconciliation, the Epic #1386 quality-gate installs, the
+> perform — config reconciliation, the quality-gate installs, the
 > permission-allowlist refresh, the consumer-side changelog reconciliation,
 > and the stage-and-commit of the staged lockfile bump.
 
@@ -125,7 +125,7 @@ Recovery sequence: run the matching remedy, then **re-run
 `npx mandrel update`** — it is idempotent (the install already landed, so a
 clean re-run short-circuits the bump and re-drives the post-install
 phases). Repeat until it reports success; only then proceed. A dedicated
-`--resume` entrypoint was evaluated and deferred (Story #4172) — the
+`--resume` entrypoint was evaluated and deferred — the
 per-phase remedies plus the idempotent re-run already cover every recovery
 case.
 
@@ -135,7 +135,7 @@ case.
 node .agents/scripts/sync-agentrc.js
 ```
 
-The helper (Story #1995) is default-aware and **read-only**: it validates
+The helper is default-aware and **read-only**: it validates
 the consumer config against the new schema (non-zero exit → fix the
 validation error and re-run before proceeding), never auto-fills missing
 optional keys (the runtime layers defaults at read time), and flags
@@ -144,7 +144,7 @@ advisory rows you may optionally delete by hand (commit alongside the bump
 in Step 5). Full procedure:
 [`helpers/mandrel-sync-config.md`](helpers/mandrel-sync-config.md).
 
-## Step 3.5 — Upgrade the stabilized-quality-gates surface (Epic #1386)
+## Step 3.5 — Upgrade the stabilized-quality-gates surface
 
 ```bash
 node .agents/scripts/apply-quality-bootstrap.js

@@ -1,7 +1,7 @@
 # Audit lens core (shared contract)
 
-> **Single source of truth for every audit lens's shared machinery
-> (Story #4665).** Each `audit-<lens>.md` workflow references this file instead
+> **Single source of truth for every audit lens's shared machinery.**
+> Each `audit-<lens>.md` workflow references this file instead
 > of re-stating the blocks below. A lens carries only its own frontmatter, a
 > short preamble, its `{{changedFiles}}` fence, and its genuinely lens-specific
 > dimensions / detection batteries / applicability gates / boundary

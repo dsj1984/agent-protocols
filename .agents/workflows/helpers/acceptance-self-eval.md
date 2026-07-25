@@ -15,7 +15,7 @@ description: >-
 After the implementation commits land and **before** the Story proceeds to
 close, run an explicit, **independent** eval pass that scores the change set
 computed once for this Story and injected into the critic — never one the
-critic re-derives (Story #4593) — against **each** `acceptance[]` item
+critic re-derives — against **each** `acceptance[]` item
 individually. This is the acceptance gate
 the close-validation chain does not provide: that chain (lint / test / format /
 maintainability / coverage / crap) proves the code is *healthy*, not that it
@@ -30,7 +30,7 @@ mid-delivery, and evaluates the actual work product.
 
 ## Per round
 
-1. **Eval pass — one verdict-owner per cluster (Story #4723).** Exactly
+1. **Eval pass — one verdict-owner per cluster.** Exactly
    **one** pass authors each cluster's verdict: the **fresh-context critic**
    when the ceremony routing below resolves `fresh` (a sub-agent via the
    `Agent` tool, *not* a continuation of your implementing turn — the
@@ -44,7 +44,7 @@ mid-delivery, and evaluates the actual work product.
    of the one authored verdict, not a second (or third) pass over the
    criteria.
 
-   > **Sub-agent type + derived-level ceremony (Epic #4478, M7-B).** When
+   > **Sub-agent type + derived-level ceremony.** When
    > `delivery.routing.roleScopedAgents` is enabled (the **default**), dispatch
    > the critic with `subagent_type: acceptance-critic` — it boots on the
    > role-scoped [`acceptance-critic`](../../agents/acceptance-critic.md) context
@@ -57,8 +57,8 @@ mid-delivery, and evaluates the actual work product.
    > — the same signal `review-depth.js` resolves depth from, so the two
    > decisions cannot disagree. Derive it with `deriveChangeLevel` from
    > [`review-depth.js`](../../scripts/lib/orchestration/review-depth.js) over
-   > the **change set your caller computed once** for this Story (Story #4593 —
-   > `computeChangeSet` from
+   > the **change set your caller computed once** for this Story
+   > (`computeChangeSet` from
    > [`change-set.js`](../../scripts/lib/orchestration/change-set.js); see
    > [`deliver-story.md`](deliver-story.md) Step 2), then
    > resolve the ceremony per cluster with `resolveCeremonyForRisk` from
@@ -73,9 +73,10 @@ mid-delivery, and evaluates the actual work product.
    > full ceremony** (fail-safe). This chooses fresh-vs-inline **per cluster
    > only — it never changes the cluster count**.
    >
-   > Story #4542 re-based this off the planner-authored risk verdict: a level
-   > the plan asserted about itself was exactly the signal that could *reduce*
-   > independent checking, and nothing verified it against the diff.
+   > The routing signal is deliberately **not** a planner-authored risk
+   > verdict: a level the plan asserted about itself was exactly the signal
+   > that could *reduce* independent checking, and nothing verified it
+   > against the diff.
    >
    > **Inline-critic path (low-level-routed OR nesting-absent harness).** The
    > verdict is authored **inline** whenever the risk router above resolves to
@@ -83,8 +84,8 @@ mid-delivery, and evaluates the actual work product.
    > a **fallback** on any harness that cannot spawn the fresh critic.
    > Dispatching the critic as a nested `Agent` is the fresh-context shape and
    > works on any harness that carries `Agent` into sub-agents (Claude Code ≥
-   > 2.1.202; see [#2870](https://github.com/dsj1984/mandrel/issues/2870)). This
-   > eval loop itself runs inside a Story delivery sub-agent, so the nested
+   > 2.1.202). This eval loop itself runs inside a Story delivery
+   > sub-agent, so the nested
    > critic sits at nesting depth 2. If the host does **not** support nested
    > `Agent` dispatch at that depth — the tool is absent, or a spawn attempt
    > returns an unsupported-capability error — do **not** stall the Story
@@ -104,7 +105,7 @@ mid-delivery, and evaluates the actual work product.
    - Inspects the **change set handed to it in its spawn context** — the one
      list computed above — and the Story's inline `acceptance[]` / `verify[]`
      arrays. Pass the file list explicitly when you dispatch the critic; it
-     does not re-enumerate the diff for itself (Story #4593), so a commit
+     does not re-enumerate the diff for itself, so a commit
      landing mid-ceremony cannot leave the critic scoring a different change
      than the one that routed it.
    - **Runs the `verify[]` commands** and consumes their output as **required
@@ -112,7 +113,7 @@ mid-delivery, and evaluates the actual work product.
      optional advisory pre-flight — a criterion cannot be scored `met` without
      the supporting `verify[]` evidence where a `verify[]` command is relevant
      to it.
-   - **Shares `lint` / `typecheck` evidence with close (Story #4250).** When a
+   - **Shares `lint` / `typecheck` evidence with close.** When a
      `verify[]` command is **byte-identical** to a close-validation gate — in
      practice only the cheap, command-identical `lint` and `typecheck` gates
      (`npm run lint` and the resolved `project.commands.typecheck`) — the
@@ -140,7 +141,7 @@ mid-delivery, and evaluates the actual work product.
 2. **Decide.** Run the gate against the verdict (the caller's Step 1a names the
    exact invocation — omit `--epic`). The gate **scores the single verdict
    the round's owner authored** — schema validation, round cap, decision —
-   and never re-scores the criteria itself (Story #4723):
+   and never re-scores the criteria itself:
 
    ```bash
    node <main-repo>/.agents/scripts/acceptance-eval.js \

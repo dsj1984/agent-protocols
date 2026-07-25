@@ -23,7 +23,7 @@ caller: helpers/deliver-story.md
 
 ## Step 0 — Lease preflight and merged-sweep
 
-### Lease preflight (Story #3483)
+### Lease preflight
 
 Before any git mutation, init takes an exclusive, time-bounded **lease** on
 the Story ticket via the assignee-as-lease primitive
@@ -33,7 +33,7 @@ Epic-scoped dispatch manifest to serialise two operators driving the same
 Story, so this lease is the only guard against a concurrent
 `single-story-init` clobbering an in-flight run.
 
-**Fail-closed (audit #3513).** Unlike `/deliver`, the standalone path
+**Fail-closed.** Unlike `/deliver`, the standalone path
 has **no Epic-scoped lifecycle ledger** to read a per-owner
 `story.heartbeat` from, so there is no live-heartbeat source to decide
 whether a foreign claim is stale. Rather than silently reclaim every
@@ -49,7 +49,7 @@ foreign assignee (which would leave the guard inert), the standalone lease
 `--dry-run` skips the lease (no assignee mutation). The matching release
 runs in `single-story-close.js` (Step 3).
 
-### Branch reuse (Story #3483)
+### Branch reuse
 
 When a `story-<id>` branch already exists locally, init **reuses** it rather
 than re-creating it (re-running `git branch` on an existing ref throws
@@ -69,7 +69,7 @@ matching `origin/` ref, and stale tracking refs for any merged sibling
 stories are reaped in one pass. The sweep never blocks init — failures
 are logged and the new story is initialized regardless.
 
-The sweep applies two hardening layers (Story #2011):
+The sweep applies two hardening layers:
 
 - **Per-candidate protection.** Each merged-PR candidate is filtered
   through three guards before reaching `executeCleanup`:
@@ -105,7 +105,7 @@ checkout** if it resolves a main-checkout absolute path. To stay in the
 worktree you MUST prefix **every Edit/Write/Read path with the absolute
 worktree root** (the `workCwd` value from Step 0), not merely `cd` into it.
 Never edit files under the bare main-checkout root. `single-story-close.js`
-runs a **wrong-tree guard** (Story #3364) that aborts close and posts a
+runs a **wrong-tree guard** that aborts close and posts a
 `friction` comment if it finds uncommitted tracked-path edits in the main
 checkout while the worktree is the active work tree — but that is a backstop,
 not a substitute for prefixing paths correctly.
@@ -121,11 +121,11 @@ The v2 engine's trait table:
 | Ticket type | `type::story` only |
 | Branch | `story-<id>` seeded from `project.baseBranch` (`main`) |
 | Merge target | `main` via PR (squash + required checks) |
-| Epic integration branch | **None** — no `epic/<id>`, no `--no-ff` wave merge |
 | Spec / slices | Folded `## Spec` + optional `## Slicing` checkpoints in-session |
 | Ceremony | Per-Story, routed off the derived change level via `ceremony-routing.js` |
 
-**Ceremony-lite Stories still land through this engine unchanged (Story #4683).** A lite-routed Story collapses only the *advisory* plan/deliver
+**Ceremony-lite Stories still land through this engine unchanged.** A
+lite-routed Story collapses only the *advisory* plan/deliver
 ceremony — the fresh-critic / Tech-Spec authoring a one-artifact scope does
 not earn. It does **not** get a cheaper landing: the close-validation gates
 (lint / test / format / coverage / CRAP / maintainability), the PR to `main`,
@@ -133,7 +133,7 @@ and the `rules/security-baseline.md` MUSTs all run exactly as for a
 full-ceremony Story. The lite route's `preserves` field is the machine-readable
 record of those non-negotiables; there is no lite-specific gate bypass.
 
-**Deliver derives the route from the Story body's shape (Story #4722).**
+**Deliver derives the route from the Story body's shape.**
 Persist stamps a lite cohort's Stories with the `route::lite` label as a
 *human-visible hint only* (and ledgers the authored verdict — recorded
 reason plus per-Story shape evidence — on the `story-plan-state`
@@ -167,7 +167,7 @@ demand. See [`.agents/instructions.md` § 3](../../instructions.md).
 write and self-check as you author. When absent, lens-aware coverage still
 runs maker-blind at Story-scope review inside the close subprocess. The
 dispatch step produces `checklistPath` from the Story's predicted footprint
-before it spawns the worker (Story #4627) — see [`/deliver`](../deliver.md).
+before it spawns the worker — see [`/deliver`](../deliver.md).
 
 **Pre-eval full-suite discipline (spine step 5).** Repo-invariant guards —
 drift-guard and schema tests living outside the Story's scoped greps — are
@@ -181,7 +181,7 @@ directly.
 
 ### Step 1a — self-eval mechanics
 
-**One verdict-owner per cluster (Story #4723).** The ceremony routing's
+**One verdict-owner per cluster.** The ceremony routing's
 resolved decision names each cluster's single verdict owner
 (`verdictOwner: 'fresh-critic' | 'inline-self-eval'` from
 `resolveCeremonyForRisk`): the fresh maker-blind critic when sensitivity
@@ -195,7 +195,7 @@ round cap, proceed / redraft / block — not an independent additional pass
 over the criteria. The M4-B floor holds: one verdict per cluster, the
 cluster count owned by `acceptance-clusters.js` alone.
 
-**Critic evidence-share (Story #4250).** When the critic runs a `verify[]`
+**Critic evidence-share.** When the critic runs a `verify[]`
 command that is byte-identical to a close gate (`lint` / `typecheck`), it
 records the pass into the Story evidence keyspace via `--standalone` so
 close short-circuits the gate at unchanged HEAD. Run it in the **Story
@@ -220,7 +220,7 @@ node .agents/scripts/update-ticket-state.js --ticket <storyId> --state agent::bl
 
 ## Step 2 — Ceremony detail
 
-**Compute the change set once** (Story #4593) with the shared enumerator —
+**Compute the change set once** with the shared enumerator —
 the same module close uses — and reuse that one list downstream:
 
 ```bash
@@ -247,7 +247,7 @@ Resolve fresh-vs-inline acceptance critics per AC-cluster with
 floor forces `fresh`). Review depth reads the same derived level via
 `review-depth.js` inside close, so the two decisions cannot disagree.
 
-**Lite-route override (Story #4722).** When the Story's body derives the
+**Lite-route override.** When the Story's body derives the
 lite shape (`resolveStoryDispatchMode` → `inline`), run every
 acceptance critic **inline** — do not spawn fresh-context critic sub-agents
 regardless of what the profile would otherwise resolve. The self-eval rigor
@@ -261,7 +261,7 @@ removed. Hard gates are untouched.
 
 **What close does internally.** The script runs the close-validation gates
 against `baseBranch`, syncs the Story branch from `origin/<baseBranch>`
-(Story #2580 — the parallel-race defence), pushes `story-<id>`, opens (or
+(the parallel-race defence), pushes `story-<id>`, opens (or
 reuses) a PR against `baseBranch` with a `Closes #<storyId>` footer, enables
 GitHub native auto-merge (`--auto --squash --delete-branch`) **when
 `delivery.ci.autoMerge` is `"trust-ci"` (the default)**, flips the Story to
@@ -284,7 +284,8 @@ The wait probes the checks every poll: a red required check fails fast as
 `checks-failed` instead of burning the budget, and a PR that falls behind its
 base is brought up to date within `updateAttempts` tries.
 
-**Async merge-confirm mode (`delivery.mergeWatch.mode: "async"`, Story #4698).** Under the default `"sync"` the merge wait runs in the foreground as
+**Async merge-confirm mode (`delivery.mergeWatch.mode: "async"`).** Under
+the default `"sync"` the merge wait runs in the foreground as
 described above. When a consumer's CI routinely takes longer than the host
 tool ceiling (~10 min) can hold a single close invocation, the foreground
 wait almost always expires `pending` after burning ~5 minutes of the slot —
@@ -315,10 +316,10 @@ judgment that help text cannot carry.
 
 - `--skip-validation` — only when re-running close after a fixed gate
   failure that's already known to pass.
-- `--skip-sync` — only after a hand-resolved sync (Story #2580), or in tests.
+- `--skip-sync` — only after a hand-resolved sync, or in tests.
 - `--no-auto-merge` — when the PR materially changes behaviour and warrants a
   pre-merge eyeball; the operator then merges via the GitHub UI.
-- `--wait-merge` — **close-and-land** (Story #4428). When neither land flag
+- `--wait-merge` — **close-and-land**. When neither land flag
   is passed, close defaults from `delivery.routing.closeAndLand` (**true**):
   attended and headless delivers share the land-in-one-close happy path.
 - `--no-wait-merge` — the explicit opt-out always wins. Use when the operator
@@ -326,7 +327,7 @@ judgment that help text cannot carry.
   will invoke `single-story-confirm-merge.js` itself). Reports `pending` —
   the work is not done, nothing is broken, and one named command finishes it.
 - `--max-wait-seconds <n>` — from a headless caller with no host
-  tool-invocation ceiling (Story #4543), to keep single-block semantics
+  tool-invocation ceiling, to keep single-block semantics
   without editing the consumer's config.
 
 ---
@@ -337,14 +338,14 @@ The `single-story-close.js` script, in order:
 
 1. Runs the close-validation gates against `baseBranch` as the baseline.
    On any gate failure it throws — the operator fixes and re-runs close.
-   **Gate output is captured, not streamed (Story #4736).** Every gate line
+   **Gate output is captured, not streamed.** Every gate line
    goes to `temp/orchestration/close-gates-<storyId>.log`; a clean run reports
    one digest line naming that artifact, and a **failed** gate replays its
    captured tail inline so the evidence is in front of you without opening a
    file. Read the artifact when you need the full text — or re-run under
    `AGENT_LOG_LEVEL=verbose` for live streaming.
-1a. **Syncs the Story branch from `origin/<baseBranch>`** before push
-   (Story #2580). Runs `git fetch origin <baseBranch>` followed by
+1a. **Syncs the Story branch from `origin/<baseBranch>`** before push.
+   Runs `git fetch origin <baseBranch>` followed by
    `git merge --no-edit origin/<baseBranch>` inside the worktree. This
    defends against the parallel-`/deliver-story` race: when
    multiple sessions run in parallel, the Story that auto-merges first
@@ -381,7 +382,7 @@ The `single-story-close.js` script, in order:
    GitHub UI. Pass `--no-auto-merge` to opt out when the PR needs a
    pre-merge eyeball.
 4. Flips the Story to **`agent::closing`** (NOT `agent::done`) and leaves
-   the GitHub issue **OPEN** (Story #3385). Auto-merge completes
+   the GitHub issue **OPEN**. Auto-merge completes
    asynchronously *after* this script exits, so closing the issue here
    would strand a CLOSED issue with no merged work if the PR later failed
    CI, went `BEHIND` base, or was closed without merging. The Story rests
@@ -393,7 +394,7 @@ The `single-story-close.js` script, in order:
    only reaches `agent::done` once its PR to `main` is confirmed merged.
 5. Reaps the worktree when `delivery.worktreeIsolation.reapOnSuccess`
    is enabled.
-6. **Releases the Story lease** (Story #3483). Clears the Story assignment
+6. **Releases the Story lease.** Clears the Story assignment
    that init claimed so the next `/deliver-story` run sees an
    unclaimed ticket. The release is a no-op when the operator no longer
    holds the claim (a later run took over via reclaim/steal), so a late
@@ -432,7 +433,7 @@ armed across retries, so you do not re-arm — then resume the land with the
 envelope's `nextCommand`.
 
 To watch the checks on the red path, drive `pr-watch-with-update.js` — the
-**single CI-watch mechanism** (Story #4358). It polls the required checks to a
+**single CI-watch mechanism**. It polls the required checks to a
 terminal state and auto-recovers from `mergeStateStatus: BEHIND`; do **not**
 fall back to a bare `gh pr checks` watch invocation:
 
@@ -481,7 +482,7 @@ where a worker most often misbehaves: it delivers up to arming auto-merge,
 then ends its turn with **free-form prose** — e.g. "I'll wait for the
 background watch task to complete" or "the next event will be its completion
 notification" — leaving the merge unconfirmed and the Story stranded at
-`agent::closing` (observed on Story #1553 / PR #1554). **Do not do this.**
+`agent::closing`. **Do not do this.**
 `pr-watch-with-update.js --pr <prNumber>` *blocks the current turn* until CI
 resolves — that is the mechanism by which you wait. You MUST keep your turn alive
 across the wait: watch → (fix + push + re-watch on red) → confirm the merge
@@ -589,14 +590,13 @@ when `--pr` is omitted) and:
 - **Story already `agent::done` / issue already closed** → idempotent
   `{ action: 'noop', reason: 'already-done' }`.
 
-The issue closes exactly when the work has merged, never at PR-open
-(#2155).
+The issue closes exactly when the work has merged, never at PR-open.
 
 ---
 
 ## Step 5.5 — Re-assert Status column detail
 
-> **The land tail already ran this** (Story #4543) — it is `tail.statusResync`
+> **The land tail already ran this** — it is `tail.statusResync`
 > in the terminal envelope. Run it by hand only when that step reported
 > `false`, or after a manual merge on a `--no-wait-merge` run.
 
@@ -605,7 +605,7 @@ node .agents/scripts/resync-status-column.js --story <storyId>
 ```
 
 The helper re-fires the `ColumnSync` mutation and **polls for ~15 s** to win the
-race against the bot's late write (Story #2876). It is idempotent and
+race against the bot's late write. It is idempotent and
 no-op-safe (`no-project` / `not-on-project` exit 0).
 
 The GitHub Projects v2 built-in workflows `Pull request merged` and
@@ -613,9 +613,9 @@ The GitHub Projects v2 built-in workflows `Pull request merged` and
 and fire ~minutes *after* auto-merge lands. They overwrite the Status
 field as a side-effect, clobbering the `Done` value
 `single-story-confirm-merge.js` set at the `agent::done` flip in Step 5
-and leaving closed Stories stuck at `In Progress` on the board
-(reproduced on Story #2813). The confirmation step has already exited by
-then, so the bot gets the last write.
+and leaving closed Stories stuck at `In Progress` on the board. The
+confirmation step has already exited by then, so the bot gets the last
+write.
 
 `resync-status-column.js`:
 
@@ -623,9 +623,9 @@ then, so the bot gets the last write.
 - Re-fires the same `ColumnSync` mutation `transitionTicketState` used
   at close, overwriting the bot's late write.
 - **Polls the live Status for ~15 s after the initial write** and
-  re-fires on drift (Story #2876). Without this loop, a one-shot
+  re-fires on drift. Without this loop, a one-shot
   mutation routinely lost the race against the bot's asynchronous
-  fire (reproduced on Story #2871 / PR #2872).
+  fire.
 - Prints a single-line JSON envelope:
   `{ ticketId, status, column?, reason?, attempts? }`. `attempts > 1`
   means the helper had to fight a bot overwrite; `status: 'drifted'`
@@ -650,7 +650,7 @@ defense-in-depth against re-enabled or future workflows.
 
 ## Step 6 — Local branch cleanup detail
 
-> **The land tail already ran this** (Story #4543) — it is `tail.refCleanup` and
+> **The land tail already ran this** — it is `tail.refCleanup` and
 > `tail.baseFastForward` in the terminal envelope, done in-process against the
 > same planners this command drives. Run it by hand only when either step
 > reported `false` (a dirty shared checkout is the common, benign cause), or
@@ -719,7 +719,7 @@ up").
 
 The field-level contract is the shipped schema
 [`story-deliver-terminal.schema.json`](../../schemas/story-deliver-terminal.schema.json)
-(Story #4543) — not this file, and not
+— not this file, and not
 [`agents/story-worker.md`](../../agents/story-worker.md). All three used to
 carry their own prose version; the schema is now the only definition. What
 follows is the *judgement* around it, which a schema cannot express.
@@ -736,7 +736,7 @@ tool-invocation ceiling, which would otherwise park the Story at
   budget is anchored at the PR's `createdAt`, so resuming does not restart the
   clock and the give-up bound still means something.
 - It is **not** a park. Returning `pending` because you would rather not wait
-  is the Story #1553 / PR #1554 failure mode wearing a schema. Return it only
+  is the no-park failure mode wearing a schema. Return it only
   when the bound genuinely expired, or a human owns the merge.
 
 The no-park rule holds: a turn that ends with prose ("I'll wait for the watch

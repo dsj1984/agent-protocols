@@ -53,9 +53,9 @@ envelope.
 ### Review depth (`depth`)
 
 `depth` is the thoroughness lever: `runCodeReview` derives it from the diff via
-[`review-depth.js`](../../scripts/lib/orchestration/review-depth.js) (Story #4542
-re-based it on that observable signal, so it takes no planner-authored input) and
-forwards it to every provider's `runReview` input.
+[`review-depth.js`](../../scripts/lib/orchestration/review-depth.js) — an
+observable signal that takes no planner-authored input — and forwards it to
+every provider's `runReview` input.
 
 It is an **input-only** signal: it changes *how thorough* the review is, never
 the findings envelope (`{ status, severity, posted, report, halted,
@@ -98,7 +98,7 @@ The caller invokes the in-process code-review pipeline
 (`runCodeReview` in `.agents/scripts/lib/orchestration/code-review.js`)
 with the resolved `{ scope, ticketId, baseRef, headRef, depth }` envelope
 (`depth` defaults to `standard` when the caller omits it). The
-pluggable `ReviewProvider` adapter chain (Epic #2815) runs against the
+pluggable `ReviewProvider` adapter chain runs against the
 diff `baseRef..headRef`, with the LLM-backed providers honoring `depth`
 (see **Review depth** above), and posts a structured summary to `[TICKET_ID]`.
 The pipeline will:
@@ -108,7 +108,7 @@ The pipeline will:
 - Run a focused lint check on the change set.
 - Post a structured summary report to the `[TICKET_ID]` issue.
 
-### Step 1a — Story-scope local-lens pass (`scope: story` only, Epic #4405)
+### Step 1a — Story-scope local-lens pass (`scope: story` only)
 
 When `scope === 'story'`, the shared review spine
 [`runStoryReviewCore`](../../scripts/lib/orchestration/story-close/phases/review-core.js)
@@ -173,7 +173,7 @@ The diff under review is `baseRef..headRef`
 (`main..story-<storyId>`, or the configured base branch to the Story
 branch). The Story-scope local-lens pass (Step 1a) has already covered the
 local-tier concerns. Lens findings and pillar findings share the single
-`verification-results` comment this pass posts (Story #4411). The
+`verification-results` comment this pass posts. The
 integration view here focuses on cross-cutting ripple within the Story and
 contract drift against the base branch. Look for:
 
@@ -257,9 +257,9 @@ prior baseline before merging.
 ## Step 4 — Produce Findings Report
 
 Findings are **persisted as a `verification-results` structured comment on
-the `[TICKET_ID]` issue** by `runCodeReview` (the unified findings contract of
-Story #4411; this single comment carries the
-Story-scope lens findings). The target ticket is the Story. The comment
+the `[TICKET_ID]` issue** by `runCodeReview` (the unified findings contract —
+this single comment carries the Story-scope lens findings). The target
+ticket is the Story. The comment
 is idempotent — re-runs replace the prior one — and its body includes
 severity-tier counts plus the full findings list so downstream workflows
 (notably the retro helper) can summarise blockers/high findings without
@@ -289,7 +289,7 @@ For every finding, provide:
   fix worked. Keep it tight (≤ 5 sentences); the sub-agent will read the
   surrounding code itself.
 
-### The `## Fixed on-branch` section (Story #4399)
+### The `## Fixed on-branch` section
 
 Findings that Step 4.5 remediated on `[HEAD_REF]` MUST be rendered under a
 dedicated **`## Fixed on-branch`** heading, **not** in the severity groups
@@ -322,7 +322,7 @@ the executor: it decides, per finding, between a focused fix on
 `[HEAD_REF]` and leaving the finding on the `verification-results`
 structured comment for the operator.
 
-### Resolve the remediation threshold (Story #4399)
+### Resolve the remediation threshold
 
 Read `delivery.codeReview.autoFixSeverity` from the resolved `.agentrc.json`
 (default **`medium`**; the resolver in

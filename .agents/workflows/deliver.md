@@ -12,14 +12,13 @@ description:
 > the per-run epilogue live in the on-demand
 > [`helpers/deliver-reference.md`](helpers/deliver-reference.md). What every
 > delivery always needs is bundled into one read:
-> [`helpers/deliver-digest.md`](helpers/deliver-digest.md) (Story #4736).
+> [`helpers/deliver-digest.md`](helpers/deliver-digest.md).
 
 ## Role
 
 Single delivery path, single input shape: **a list of Story ids**. `/deliver`
 owns input resolution and sequencing only — every Story runs through
-[`helpers/deliver-story.md`](helpers/deliver-story.md). No Epic wave loop, no
-`epic/<id>` integration branch, no `--no-ff` wave merges.
+[`helpers/deliver-story.md`](helpers/deliver-story.md).
 
 The dependency graph is **discovered, not declared**: `resolve-stories.js`
 reads it from live state (body edges ∪ native GitHub `blocked_by` edges, each
@@ -27,9 +26,9 @@ blocker resolved against its real issue state). You never hand it a graph and
 there is no batch label — which is what lets you deliver Stories **across plan
 runs and over time**. `plan-run::<id>` is filter metadata, never a resolution
 input.
-Per-Story routes are **body-derived** too (#4722); `route::lite` is a hint
-only. Ahead of that: a **single-Story run runs the engine inline** whatever the
-shape (#4736) — sub-agent isolation only earns its cost against a concurrent
+Per-Story routes are **body-derived** too; `route::lite` is a hint only.
+Ahead of that: a **single-Story run runs the engine inline** whatever the
+shape — sub-agent isolation only earns its cost against a concurrent
 sibling.
 
 ## Inputs
@@ -84,7 +83,7 @@ Story). Resolution refuses the whole set rather than silently under-delivering.
    silently defeats a `.agentrc.local.json` override (see Flags).
 
    Each beat re-probes live state to derive done / in-flight itself; you never
-   compute them (Story #4594). `--dispatched` is the one thing you must supply —
+   compute them. `--dispatched` is the one thing you must supply —
    the append-only list of every id you spawned this run — and cross-run
    de-confliction via the assignee lease is automatic
    ([`helpers/deliver-reference.md` § Sequencing edge cases](helpers/deliver-reference.md);
@@ -121,8 +120,8 @@ Story). Resolution refuses the whole set rather than silently under-delivering.
 story-<id>  →  PR  →  main (squash + required checks)
 ```
 
-No `epic/<id>` integration branch and no `--no-ff` wave merge. Dependent
-Stories land sequentially so each builds on the previous merge to `main`.
+Dependent Stories land sequentially so each builds on the previous merge to
+`main`.
 Ceremony depth (profiles + derived level via `ceremony-routing.js`,
 review depth reading the same level) and the mechanism table:
 [`helpers/deliver-reference.md` § Ceremony](helpers/deliver-reference.md).
@@ -132,12 +131,12 @@ review depth reading the same level) and the mechanism table:
 Each Story's delivery ends in exactly one schema-validated terminal envelope —
 `landed` | `pending` | `blocked` | `failed`. Statuses, exits, and fields:
 [`helpers/deliver-digest.md`](helpers/deliver-digest.md) § 5, over the shipped
-[schema](../schemas/story-deliver-terminal.schema.json) (Story #4543).
+[schema](../schemas/story-deliver-terminal.schema.json).
 
 `pending` is **not** a failure: the bounded merge wait expired with the PR
 healthy (or a human owns the merge), nothing was mutated, and the
 `nextCommand` resumes it — run that rather than re-dispatching. The slow-CI
-`async` mode (Story #4698) returns `pending` by design — launch its
+`async` mode returns `pending` by design — launch its
 `nextCommand` as a background invocation (reference appendix).
 
 For a Story in an unclear state — including the merged-but-label-stale one a

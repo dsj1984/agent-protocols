@@ -204,7 +204,7 @@ workflow owns **no** parallel dedup or footer-parsing code: the
 fingerprint, footer round-trip, and routing all live in that one shared
 module.
 
-Dedup runs in **two stages** when a provider resolves (Story #4626): a
+Dedup runs in **two stages** when a provider resolves: a
 meaning-first **semantic candidate** pass (`searchCandidates`, wired to
 [`lib/findings/semantic-issue-search.js`](../scripts/lib/findings/semantic-issue-search.js))
 runs FIRST and widens the net across open + closed issues; the exact
