@@ -167,7 +167,9 @@ export async function emitPlanContext({
       // Advisory only (Story #4722): signals, no route — the planner owns
       // the trivial-vs-standard verdict and persist validates it by shape.
       // The nested `deliverLightSuggestion` is the recorded plan-side routing
-      // handshake (Story #4741 AC-6) — advisory, never an automatic reroute.
+      // handshake (Story #4741 AC-6) and `uiSurface` the recorded /prototype
+      // offer — advisory, never an automatic reroute. Both ride the digest
+      // because with `--out` the digest is the only thing the planner reads.
       complexitySignals: envelope.complexitySignals
         ? {
             artifactCount: envelope.complexitySignals.artifactCount,
@@ -176,6 +178,7 @@ export async function emitPlanContext({
               envelope.complexitySignals.sensitivePathClasses,
             deliverLightSuggestion:
               envelope.complexitySignals.deliverLightSuggestion ?? null,
+            uiSurface: envelope.complexitySignals.uiSurface ?? null,
           }
         : null,
       amends: envelope.amends ? { id: envelope.amends.id } : null,

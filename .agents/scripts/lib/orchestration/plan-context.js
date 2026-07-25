@@ -18,6 +18,11 @@
  */
 
 import { readFile } from 'node:fs/promises';
+import { readAuditRulesSync } from '../audit-suite/audit-rules-reader.js';
+import {
+  hasWebSurface,
+  matchesAnyFilePattern,
+} from '../audit-suite/selector.js';
 import { getLimits } from '../config-resolver.js';
 import { findSimilarOpenStories } from '../duplicate-search.js';
 import { Logger } from '../Logger.js';
@@ -449,18 +454,189 @@ export function buildDeliverLightSuggestion(complexitySignals) {
 }
 
 /**
- * Attach the advisory light-path suggestion to a complexity-signals bag
- * as a **nested** field (Story #4741). Nesting — rather than a new top-level
- * envelope key — keeps every existing per-mode envelope key set byte-stable
- * (AC-5): the suggestion is derived from the signals it rides on.
+ * The `audit-rules.json` lens `target` value marking a lens applicable only to
+ * a project with a rendered frontend.
+ */
+const WEB_LENS_TARGET = 'web';
+
+/**
+ * How many matched UI paths the `uiSurface` signal carries. The signal rides the
+ * `--out` stdout digest, which has a ~2KB contract, and a seed can predict up to
+ * `MAX_PREDICTED_PATHS` paths — enumerating all of them would let one UI-heavy
+ * seed blow that budget. The full count travels beside the sample as
+ * `matchedPathCount`, so nothing is silently lost.
+ */
+const UI_MATCHED_PATH_SAMPLE = 5;
+
+/**
+ * Union of the `triggers.filePatterns` globs every `target: "web"` lens
+ * registers in `audit-rules.json` — the framework's shipped declaration of
+ * "this path is part of a rendered UI surface". Read from the manifest rather
+ * than re-listed here: a second copy of the glob set would be a second thing to
+ * keep in sync, and the manifest is already the place an operator extends it.
+ *
+ * @param {{ audits?: Record<string, object> }} rules
+ * @returns {string[]} Deduplicated globs, in manifest order.
+ */
+function resolveWebFilePatterns(rules) {
+  const patterns = new Set();
+  for (const entry of Object.values(rules?.audits ?? {})) {
+    if (entry?.target !== WEB_LENS_TARGET) continue;
+    for (const glob of entry?.triggers?.filePatterns ?? []) {
+      if (typeof glob === 'string' && glob !== '') patterns.add(glob);
+    }
+  }
+  return [...patterns];
+}
+
+/**
+ * Which predicted paths sit on a UI surface, per the web lens globs.
+ *
+ * An unreadable manifest is **indeterminate**, not "no match": the signal fails
+ * OPEN in the same direction {@link hasWebSurface} does, because a spurious
+ * mention of an operator-invoked command costs nothing while a missed one costs
+ * the whole point of the offer.
+ *
+ * @param {string[]} predictedPaths
+ * @returns {{ matchedPaths: string[], indeterminate: boolean }}
+ */
+function resolveWebFootprintMatch(predictedPaths) {
+  let patterns;
+  try {
+    patterns = resolveWebFilePatterns(readAuditRulesSync());
+  } catch {
+    return { matchedPaths: [], indeterminate: true };
+  }
+  return {
+    matchedPaths: predictedPaths.filter((p) =>
+      matchesAnyFilePattern(patterns, [p]),
+    ),
+    indeterminate: false,
+  };
+}
+
+/**
+ * The one sentence a `uiSurface` signal carries — why the offer fires, or why it
+ * does not. Kept in one place so the fired and unfired shapes stay one object.
+ *
+ * @param {{
+ *   detected: boolean,
+ *   webSurface: boolean,
+ *   indeterminate: boolean,
+ *   sample: string[],
+ *   count: number,
+ * }} facts
+ * @returns {string}
+ */
+function uiSurfaceReason({
+  detected,
+  webSurface,
+  indeterminate,
+  sample,
+  count,
+}) {
+  if (!detected) {
+    return webSurface
+      ? 'no predicted path matches a web lens filePattern — nothing to prototype'
+      : 'project has no rendered web surface — nothing to prototype';
+  }
+  if (indeterminate) {
+    return 'web-capable project and the UI-path manifest could not be read — offering /prototype rather than dropping the option';
+  }
+  const elided = count - sample.length;
+  const shown =
+    elided > 0 ? `${sample.join(', ')}, +${elided} more` : sample.join(', ');
+  return `web-capable project and the predicted footprint touches ${count} UI path(s) (${shown}) — the operator may want /prototype before UI acceptance criteria are authored`;
+}
+
+/**
+ * Derive the advisory **UI-surface** signal from a seed's predicted footprint.
+ *
+ * Two observables, both already shipped, ANDed together:
+ *
+ *   1. the project is web-capable at all (`hasWebSurface` — the same
+ *      applicability predicate the `target: "web"` audit lenses gate on), and
+ *   2. at least one predicted path matches a web lens `filePattern`.
+ *
+ * No new detection surface and no new `.agentrc.json` key: both halves are
+ * derived from the consumer's own checkout, so a frontend-less project — this
+ * repository included — resolves falsey and the offer never fires.
+ *
+ * The signal carries **no routing authority** (`automatic: false`): `/plan`
+ * may say that a plan touches UI and that `/prototype` exists, and must never
+ * invoke it. Pure over its inputs and total — a malformed signal bag or an
+ * unreadable manifest degrades, never throws.
+ *
+ * @param {{
+ *   complexitySignals?: object|null,
+ *   config?: object,
+ *   cwd?: string,
+ * }} [args]
+ * @returns {{
+ *   detected: boolean,
+ *   automatic: false,
+ *   advisory: true,
+ *   webSurface: boolean,
+ *   matchedPaths: string[],
+ *   matchedPathCount: number,
+ *   reasons: string[],
+ * }} `matchedPaths` is a bounded sample
+ *   ({@link UI_MATCHED_PATH_SAMPLE}); `matchedPathCount` is the full total.
+ */
+function buildUiSurfaceSignal({ complexitySignals, config, cwd } = {}) {
+  const predictedPaths = Array.isArray(complexitySignals?.predictedPaths)
+    ? complexitySignals.predictedPaths.filter((p) => typeof p === 'string')
+    : [];
+  const projectRoot =
+    typeof cwd === 'string' && cwd !== '' ? cwd : process.cwd();
+
+  let webSurface;
+  try {
+    webSurface = hasWebSurface({ config, projectRoot });
+  } catch {
+    webSurface = true; // indeterminate ⇒ fail open
+  }
+
+  const { matchedPaths, indeterminate } =
+    resolveWebFootprintMatch(predictedPaths);
+  const detected = webSurface && (indeterminate || matchedPaths.length > 0);
+  const sample = matchedPaths.slice(0, UI_MATCHED_PATH_SAMPLE);
+
+  return {
+    detected,
+    automatic: /** @type {const} */ (false),
+    advisory: /** @type {const} */ (true),
+    webSurface,
+    matchedPaths: sample,
+    matchedPathCount: matchedPaths.length,
+    reasons: [
+      uiSurfaceReason({
+        detected,
+        webSurface,
+        indeterminate,
+        sample,
+        count: matchedPaths.length,
+      }),
+    ],
+  };
+}
+
+/**
+ * Attach the advisory routing/offer signals to a complexity-signals bag as
+ * **nested** fields (Story #4741). Nesting — rather than new top-level envelope
+ * keys — keeps every existing per-mode envelope key set byte-stable: both are
+ * derived from the signals they ride on.
  *
  * @param {object} complexitySignals
- * @returns {object} the same signals plus `deliverLightSuggestion`.
+ * @param {{ config?: object, cwd?: string }} [context]
+ * @returns {object} the same signals plus `deliverLightSuggestion` and
+ *   `uiSurface`.
  */
-function withDeliverLightSuggestion(complexitySignals) {
+function withAdvisorySignals(complexitySignals, { config, cwd } = {}) {
   return {
     ...complexitySignals,
     deliverLightSuggestion: buildDeliverLightSuggestion(complexitySignals),
+    uiSurface: buildUiSurfaceSignal({ complexitySignals, config, cwd }),
   };
 }
 
@@ -701,14 +877,16 @@ async function buildSeedFileModeEnvelope({
     // authority. The planner authors the trivial-vs-standard verdict; persist
     // validates a lite claim against the authored Story's shape. The nested
     // `deliverLightSuggestion` is the advisory plan-side routing handshake
-    // (Story #4741 AC-6) — never an automatic reroute.
-    complexitySignals: withDeliverLightSuggestion(
+    // (Story #4741 AC-6) and `uiSurface` the advisory /prototype offer —
+    // neither is ever an automatic reroute.
+    complexitySignals: withAdvisorySignals(
       buildComplexitySignals({
         seedText: content,
         config,
         riskHeuristics: heuristics,
         cwd,
       }),
+      { config, cwd },
     ),
     duplicates,
     docsContext,
@@ -863,13 +1041,14 @@ async function buildTicketsModeEnvelope({
     mode: 'tickets',
     sourceTickets,
     seed: { text: seed, path: null },
-    complexitySignals: withDeliverLightSuggestion(
+    complexitySignals: withAdvisorySignals(
       buildComplexitySignals({
         seedText: seed,
         config,
         riskHeuristics: heuristics,
         cwd,
       }),
+      { config, cwd },
     ),
     duplicates,
     docsContext,
@@ -988,13 +1167,14 @@ async function buildAmendmentModeEnvelope({
     },
     // The prior body is the seed the delta is authored against.
     seed: { text: priorBody, path: null },
-    complexitySignals: withDeliverLightSuggestion(
+    complexitySignals: withAdvisorySignals(
       buildComplexitySignals({
         seedText: priorBody,
         config,
         riskHeuristics: heuristics,
         cwd,
       }),
+      { config, cwd },
     ),
     duplicates,
     // No plan temp dir and no from-scratch repo interrogation — the prior

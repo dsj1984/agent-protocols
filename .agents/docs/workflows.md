@@ -32,7 +32,7 @@ by `node .agents/scripts/generate-workflows-doc.js`; `npm run docs:check`
 fails when it drifts from the on-disk workflow set. To change a command’s
 description, edit the workflow file’s front-matter and regenerate.
 
-## Commands (24)
+## Commands (25)
 
 | Command | Description |
 | --- | --- |
@@ -57,6 +57,7 @@ description, edit the workflow file’s front-matter and regenerate.
 | `/git-deliver` | Single ad-hoc delivery command for working-tree changes. Detects the git setup and escalates to the right terminal step — commit only, commit + push, or commit + push + open a PR with native auto-merge — picking the default from observable state and letting flags pin any level explicitly. Replaces the retired git-commit-all, git-push, and git-pr-all trio. |
 | `/mandrel-update` | npm-era upgrade wraparound for a Mandrel consumer. Runs `npx mandrel update` (resolve newest published version → install → re-materialize `.agents/` → migrate → doctor → surface changelog) as the single mechanical step, then walks the operator through the judgment wraparound the CLI deliberately leaves unowned: reconcile `.agentrc.json`, install the stabilized quality-gate surface, refresh the harness permission allowlist, reconcile the consumer's `AGENTS.md` / runbooks against the surfaced changelog, and stage + commit the staged lockfile bump. |
 | `/plan` | Unified planning entry point. Interrogate → author → persist. Emits one Story by default; splits into N>1 only under the default-single split policy. |
+| `/prototype` | Operator-invoked UI prototype pass. Discovers the consumer's design-system SSOT first, then — only after the operator confirms — writes exactly one self-contained HTML file under the gitignored workspace-root temp tree, so a layout can be reviewed before its UI acceptance criteria are authored. |
 | `/qa-assist` | Human-led QA assist loop — set up, then ride a rolling multi-observation intake session. The operator reports observations in any order; the agent enriches each (repro + root-cause file:line + coverage verdict for bugs; analysis + options + recommendation for enhancements), asks clarifying questions only when ambiguous, and appends a redacted ledger item — recording, never planning — to a persistent, resumable session under temp/qa/. Only when the operator says they are done does it review the full ledger and hand off to /plan. |
 | `/qa-explore` | Agent-led exploratory-QA loop — the agent Plans a surface with an explicit static-vs-drive method choice, drives it (browser MCP or static), and captures ledger items read-only, then Triages — a bounded per-surface session, HITL-gated at every phase transition, routed through the shared dedup/coverage/classification/missing-test/redaction/session core under temp/qa/ |
 | `/qa-run` | Drive Gherkin scenarios through a real browser as an agent-driven QA sweep |

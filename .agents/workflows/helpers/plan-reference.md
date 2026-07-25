@@ -63,6 +63,26 @@ is terminal and requires a fresh session. The rule that separates the two, and
 why it must not be flattened into symmetry:
 [`deliver-light.md` § Why the two directions differ](deliver-light.md).
 
+## Gate #1 → the `/prototype` offer (`uiSurface`)
+
+`complexitySignals.uiSurface` is the second advisory Gate #1 offer, and the
+weaker of the two on purpose: it carries **no routing authority and adds no
+gate**. Both halves are derived from observables already in the checkout — the
+`hasWebSurface` applicability predicate the `target: "web"` audit lenses gate
+on, and whether any predicted path matches a web lens `filePattern` registered
+in `audit-rules.json`. There is no configuration key to set: a project with no
+rendered frontend resolves falsey and the offer never fires.
+
+When it does fire, **name [`/prototype`](../prototype.md) and stop there.**
+`/plan` must never invoke it — operator invocation is the entire design, because
+the value is a human looking at a layout before its UI acceptance criteria are
+frozen.
+
+**Under `--yes` the offer is recorded and planning proceeds** — no reroute, no
+prototype written, no gate raised. This is exactly how `deliverLightSuggestion`
+behaves unattended, and for the same reason: an unattended run has nobody to
+review an artifact, so recording the offer is the whole of the right behaviour.
+
 ## Shape-derived complexity routing (`complexitySignals`)
 
 Complexity routes on the **objective shape of the authored work**, never on
