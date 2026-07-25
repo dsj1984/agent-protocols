@@ -3,6 +3,7 @@ description:
   Execute one Story end-to-end. Creates story-<id> from main, implements in a
   worktree (optional ## Slicing checkpoints), runs derived-level ceremony,
   opens a PR against main, and lands.
+mandatoryReads: [deliver-digest.md]
 ---
 
 # /deliver-story #[Story ID]

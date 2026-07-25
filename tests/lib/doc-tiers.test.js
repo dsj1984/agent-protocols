@@ -214,6 +214,61 @@ test('resolveDocTiers yields an empty agentBoot tier when the dir is absent', ()
   assert.deepEqual(tiers.agentBoot, []);
 });
 
+test('resolveDocTiers adds the workflow tiers without double-counting any path (Story #4752)', () => {
+  const root = makeRepo({
+    'CLAUDE.md': '@AGENTS.md\n@.agents/rules/git-conventions.md\n',
+    'AGENTS.md': 'onboarding\n',
+    '.agents/rules/git-conventions.md': 'always-on rule\n',
+    '.agents/rules/testing-standards.md': 'on-demand rule\n',
+    '.agents/workflows/deliver.md':
+      '---\ndescription: fixture\nmandatoryReads: [helpers/digest.md]\n---\n\n# /deliver\n\n[digest](helpers/digest.md) [appendix](helpers/appendix.md) [rule](../rules/testing-standards.md)\n',
+    '.agents/workflows/helpers/digest.md': '# Digest\n',
+    '.agents/workflows/helpers/appendix.md': '# Appendix\n',
+  });
+  const { tiers, workflowClosure } = resolveDocTiers({ project: {} }, { root });
+
+  assert.deepEqual(
+    tiers.workflow.map((e) => e.path),
+    ['.agents/workflows/deliver.md', '.agents/workflows/helpers/digest.md'],
+  );
+  assert.deepEqual(
+    tiers.workflowOnDemand.map((e) => e.path),
+    ['.agents/workflows/helpers/appendix.md'],
+  );
+  // The rule the workflow links to stays in the on-demand *rules* tier — the
+  // closure never re-counts an already-tiered flat set.
+  assert.deepEqual(
+    tiers.onDemand.map((e) => e.path),
+    ['.agents/rules/testing-standards.md'],
+  );
+
+  // Every tier is disjoint: the union has no duplicate paths.
+  const all = Object.values(tiers).flatMap((t) => t.map((e) => e.path));
+  assert.equal(all.length, new Set(all).size);
+
+  assert.equal(
+    workflowClosure.mandatoryTotalBytes,
+    tierTotalBytes(tiers.workflow),
+  );
+  assert.equal(
+    workflowClosure.reachableTotalBytes,
+    tierTotalBytes(tiers.workflow) + tierTotalBytes(tiers.workflowOnDemand),
+  );
+  assert.deepEqual(
+    workflowClosure.entryPoints.map((e) => e.path),
+    ['.agents/workflows/deliver.md'],
+  );
+});
+
+test('resolveDocTiers yields empty workflow tiers when the workflow tree is absent', () => {
+  const root = makeRepo({ 'CLAUDE.md': '@AGENTS.md\n', 'AGENTS.md': 'x\n' });
+  const { tiers, workflowClosure } = resolveDocTiers({ project: {} }, { root });
+  assert.deepEqual(tiers.workflow, []);
+  assert.deepEqual(tiers.workflowOnDemand, []);
+  assert.deepEqual(workflowClosure.entryPoints, []);
+  assert.equal(workflowClosure.reachableTotalBytes, 0);
+});
+
 test('resolveDocTiers skips absent context / conditional docs silently', () => {
   const root = makeRepo({
     'CLAUDE.md': '@AGENTS.md\n',

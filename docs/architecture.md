@@ -874,6 +874,41 @@ setup/meta. The canonical reference is
 workflow narrative that wires them together lives in
 [`.agents/docs/SDLC.md`](../.agents/docs/SDLC.md).
 
+### Workflow read-tier (transitive closure)
+
+Workflows are the largest instruction body Mandrel ships and, unlike every other
+read-tier, form a **graph**. `lib/doc-tiers.js` delegates to
+`lib/workflow-closure.js`, which walks each entry point's transitive
+markdown-link closure and splits it in two: the **mandatory closure** (the entry
+point plus the transitive closure of its `mandatoryReads:` edges) is gated as the
+`workflow` tier in `baselines/context-budget.json`; the **reachable closure**
+(every workflow file transitively linked from it) is recorded per entry point
+under `workflowClosure` as a drift signal and never gates.
+
+**Entry points** are the workflows a session can be invoked on: every top-level
+`.agents/workflows/*.md`, plus any `helpers/*.md` whose H1 declares a slash
+command named after the file itself (`helpers/deliver-story.md` →
+`# /deliver-story …`). An appendix merely titled after the command it documents
+(`helpers/deliver-reference.md` → `# /deliver — reference appendix`) is
+reachable, never an entry point.
+
+**The marker is source-side and per-edge** — `mandatoryReads: [deliver-digest.md]`
+in the declaring workflow's own frontmatter, paths relative to that file, flow or
+block YAML. Tier is not intrinsic to a helper (the same file is mandatory from
+one workflow and on-demand from another), so it cannot live in the target. The
+key is **optional**: an absent key means zero mandatory edges and is never an
+error, and every reachable link not named in it is classified on-demand.
+
+Two authoring errors fail loudly, because a ratchet that silently shrinks its own
+closure is worse than none: a `mandatoryReads` entry that does not resolve to a
+workflow markdown file, and a cycle among `mandatoryReads` edges. The *reachable*
+walk is deliberately cycle-tolerant — a spine pointing at its digest while the
+digest points back is correct authoring — so it terminates via a visited set with
+each file counted once. The walk never leaves `.agents/workflows/**`; rules and
+skills are already tiered as flat sets, and following them would double-count
+them. The per-file 8 KB ceiling in `workflow-spine-budget.test.js` remains a
+complementary guard: it catches a fat file, this ratchet catches a fat *read*.
+
 ### Worktree Isolation
 
 When `delivery.worktreeIsolation.enabled` is `true`, each dispatched
