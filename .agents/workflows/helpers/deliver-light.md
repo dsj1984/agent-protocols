@@ -27,15 +27,36 @@ over-scope work silently.
 Two callers, one gate: whichever door you arrived through, the suitability gate
 below is the decision. A `/plan` Gate #1 suggestion is a *suggestion* — it is
 read against seed-time signals (`DELIVER_LIGHT_SUGGESTION_CEILINGS`: artifacts,
-risk hits, sensitive-path classes), while the gate here is read against a
-predicted *shape* (`STORY_SHAPE_CEILINGS`: `maxChanges`, `maxAcceptance`). They
-are deliberately two different checks, so the gate still runs after a confirm.
+risk hits, sensitive-path classes), while the gate here is read against the
+predicted work's *effort and risk* (`STORY_SHAPE_CEILINGS`: change kinds,
+magnitude, uncertainty, deployable span). They are deliberately two different
+checks, so the gate still runs after a confirm.
+
+## Scope by effort, not by artifact count {#scope-by-effort}
+
+**Counting the footprint is the wrong axis.** Three identical one-line edits
+across three files is trivial work with a high count; a 200-line rewrite of one
+module is a single change. The axes are therefore effort and risk: distinct
+change **kinds** (N instances of one mechanical edit is one kind at N sites), a
+coarse **magnitude** bucket, and **uncertainty** — is the shape determined by
+the request, or does it still need the design decisions `/plan` exists to
+resolve?
+
+Because the predicted footprint is a *declaration* — a guess, and a gameable one
+— this gate is deliberately **coarse**: it rejects clearly-epic work only
+(multiple deployables, a migration plus its consumers, an explicit
+multi-capability enumeration). Size is enforced where ground truth is available:
+the diff backstop in step 4. Do not talk yourself past that one.
+
+Sensitivity is the exception and stays absolute: a footprint touching an auth,
+crypto, billing, or migration class routes `full` however small or mechanical.
 
 ## Four invariants (do not skip one)
 
 1. **Suitability gate.** The prompt's predicted footprint is judged by the
-   shared shape machinery (`deriveStoryShape` / `deriveChangeLevel`) **and** a
-   ledgered model verdict with a recorded reason. Both must agree on `lite`.
+   shared effort/risk machinery (`deriveStoryShape` / `deriveChangeLevel`)
+   **and** a ledgered model verdict with a recorded reason. Both must agree on
+   `lite`.
 2. **Over-scope stops — it never hard-fails.** An over-ceiling prompt STOPS and
    asks the operator to escalate to `/plan` or proceed light. Under `--yes` it
    fails closed to an **`escalated` terminal envelope** that ends the session
@@ -50,12 +71,16 @@ are deliberately two different checks, so the gate still runs after a confirm.
 ## Procedure
 
 1. **Predict + gate.** Form the predicted footprint (new files, edited files,
-   acceptance count) and your ledgered verdict (a recorded reason for `lite`),
-   then run the gate:
+   acceptance count), judge its effort honestly (`--kinds` / `--magnitude` /
+   `--uncertainty`, per § Scope by effort), and record your ledgered verdict (a
+   recorded reason for `lite`), then run the gate — it documents every flag
+   itself, so run it with `--help` rather than guessing:
 
    ```bash
    node .agents/scripts/deliver-light.js --prompt "<prompt>" \
      --creates <csv> --refactors <csv> --acceptance <n> \
+     --kinds <csv> --magnitude trivial|moderate|substantial \
+     --uncertainty determined|needs-design \
      --route lite --reason "<why this is trivial>" [--amends '#<id>'] [--yes]
    ```
 
@@ -106,7 +131,8 @@ are deliberately two different checks, so the gate still runs after a confirm.
 
    Exit `3` (`blocked: true`) means the landed diff exceeds the light ceilings
    (file count or a sensitive-path class). STOP, flip `agent::blocked`, and
-   escalate to `/plan` — do not land.
+   escalate to `/plan` — do not land. This is the pass that actually bounds
+   size, which is why the prediction gate above can afford to be coarse.
 
 5. **Close and land (same engine).** Exactly [`/deliver`](../deliver.md)'s close:
 

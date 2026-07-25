@@ -24,10 +24,11 @@
  *      reason is `full`.
  *   3. **Deterministic backstop at persist.** After authoring, the work has
  *      measurable shape: {@link deriveStoryShape} reads the Story's own
- *      `changes[]` count, acceptance-criteria count, creates-vs-refactors
- *      mix, and sensitive-path classes against {@link STORY_SHAPE_CEILINGS}.
- *      A `lite` claim whose shape exceeds the ceilings **fails closed to
- *      `full`** (`run-plan-persist.js`).
+ *      effort and risk — distinct change kinds, declared magnitude,
+ *      uncertainty, deployable/migration span, and sensitive-path classes —
+ *      against {@link STORY_SHAPE_CEILINGS}. A `lite` claim whose work exceeds
+ *      them **fails closed to `full`** (`run-plan-persist.js`). Artifact
+ *      cardinality is deliberately not an axis (Story #4764).
  *   4. **Deliver re-derives.** `/deliver` computes the route from the fetched
  *      Story body via the **same** shape function at dispatch
  *      ({@link resolveStoryDispatchMode}) and honors it: a lite-shaped Story
@@ -104,34 +105,220 @@ const DEFAULT_COMPLEXITY_GATE = Object.freeze({
 export const LITE_ROUTE_LABEL = 'route::lite';
 
 /**
- * Shape ceilings a Story must fit for the `lite` route
+ * Effort/risk ceilings a Story's work must fit for the `lite` route
  * ({@link deriveStoryShape}). Framework constants, not operator knobs — a
- * ceiling an operator can widen past what the inline path can safely absorb
- * is a ceiling that fails silently. Conservative by construction: `lite` is
- * for genuinely trivial, mostly-additive, non-sensitive scopes.
+ * ceiling an operator can widen past what the inline path can safely absorb is
+ * a ceiling that fails silently.
  *
- *   - `maxChanges`          — total `changes[]` entries (e.g. one artifact
- *                             plus its test).
- *   - `maxAcceptance`       — acceptance-criteria count; more criteria means
- *                             more contract than a trivial scope carries.
- *   - `maxNonCreateChanges` — entries whose assumption is not `creates`
- *                             (refactors-existing / deletes / exists). A lite
- *                             change is mostly additive; touching existing
- *                             surfaces is where trivial-looking work stops
- *                             being trivial.
+ * ## Effort and risk, never artifact cardinality (Story #4764)
+ *
+ * These ceilings used to count the declared footprint (`maxChanges: 2`,
+ * `maxAcceptance: 3`, `maxNonCreateChanges: 1`). Cardinality is the wrong axis
+ * in both directions: three identical one-line edits across three files is
+ * trivial work with a high count, while a 200-line rewrite of one module is a
+ * single change. And the count was read off a footprint the model **declares
+ * before doing the work** — a guess, and a gameable one — so counting it
+ * rejected genuinely small work (mandrel-bench's hello-world scenario is a
+ * server create plus a `package.json` edit plus a test create, structurally
+ * over the old ceilings) while admitting whatever an optimistic declaration
+ * under-counted.
+ *
+ * So the axes are effort, risk, and uncertainty, and the **prediction** gate
+ * they form is deliberately **coarse**: it rejects clearly-epic work only.
+ * Real enforcement belongs to the diff-derived backstop, which sees ground
+ * truth instead of a declaration
+ * ({@link module:lib/orchestration/light-suitability.checkLightDiffBackstop}).
+ *
+ *   - `maxChangeKinds` — distinct change KINDS, not files. N instances of one
+ *                        mechanical edit is one kind at N sites; enumerating
+ *                        more kinds than this is a multi-capability scope.
+ *   - `maxMagnitude`   — coarse magnitude bucket, declared alongside the
+ *                        footprint: `trivial` < `moderate` < `substantial`.
+ *   - `maxUncertainty` — is the shape determined by the request
+ *                        (`determined`), or does it still need the design
+ *                        decisions `/plan` exists to resolve
+ *                        (`needs-design`)?
+ *   - `maxDeployables` — named deployable roots (`apps/<x>`, `packages/<x>`, …)
+ *                        the footprint spans; more than one is epic by
+ *                        construction.
+ *
+ * Two rules ride beside the ceilings and are not tunable at all: a footprint
+ * pairing a migration with its consumers is epic scope, and a footprint
+ * intersecting a sensitive-path class routes `full` however small or mechanical
+ * it is — the hard gate, unchanged.
  *
  * Exposed as the `ceilings` field on every {@link deriveStoryShape} decision
- * and exported directly (Story #4740) so the `/deliver-light` suitability gate
+ * and exported directly (Story #4740) so the light path's suitability gate
  * ({@link module:lib/orchestration/light-suitability}) judges a prompt's
- * predicted footprint against the **same** ceilings the plan-time shape
- * backstop applies — one source, so the light entry point and the plan path can
- * never disagree about what shape is trivial.
+ * predicted footprint against the **same** axes the plan-time shape backstop
+ * applies — one source, so the light entry point and the plan path can never
+ * disagree about what work is trivial.
  */
 export const STORY_SHAPE_CEILINGS = Object.freeze({
-  maxChanges: 2,
-  maxAcceptance: 3,
-  maxNonCreateChanges: 1,
+  maxChangeKinds: 2,
+  maxMagnitude: 'moderate',
+  maxUncertainty: 'determined',
+  maxDeployables: 1,
 });
+
+/** Coarse effort buckets, ascending. Anything past `maxMagnitude` routes full. */
+const MAGNITUDE_SCALE = Object.freeze(['trivial', 'moderate', 'substantial']);
+
+/** Coarse uncertainty buckets, ascending. */
+const UNCERTAINTY_SCALE = Object.freeze(['determined', 'needs-design']);
+
+/**
+ * Directory roots whose immediate child is a separately-deployable unit. A
+ * footprint spanning two of them is the "multiple deployables" epic signal.
+ */
+const DEPLOYABLE_ROOTS = Object.freeze([
+  'apps',
+  'packages',
+  'services',
+  'functions',
+  'workers',
+]);
+
+/** Paths that are schema migrations rather than ordinary source. */
+const MIGRATION_PATH_RE =
+  /(?:^|\/)(?:migrations?|migrate)(?:\/|$)|\.sql$|(?:^|\/)schema\.(?:prisma|rb)$/i;
+
+/**
+ * Place a declared bucket on an ordered scale. **Absent** means "not declared"
+ * — no signal, so the coarse gate reads the supplied default rather than
+ * rejecting. **Present but unrecognized** is a malformed claim, which cannot be
+ * verified as small and therefore fails closed to the worst bucket on the
+ * scale.
+ *
+ * @param {unknown} value
+ * @param {readonly string[]} scale Ascending buckets.
+ * @param {string} whenAbsent Bucket to assume when nothing was declared.
+ * @returns {string}
+ */
+function normalizeBucket(value, scale, whenAbsent) {
+  if (value === undefined || value === null || value === '') return whenAbsent;
+  const key = typeof value === 'string' ? value.trim().toLowerCase() : '';
+  return scale.includes(key) ? key : scale[scale.length - 1];
+}
+
+/**
+ * Resolve the distinct change KINDS in a footprint. An explicit `kinds[]`
+ * declaration wins; absent one, each entry's `assumption` is its kind — which
+ * is exactly the "N instances of one mechanical edit is one kind at N sites"
+ * reading, since N same-assumption entries collapse to one kind.
+ *
+ * @param {{ changes?: unknown, kinds?: unknown }} args
+ * @returns {string[]} Distinct kinds, in order of first appearance.
+ */
+function resolveChangeKinds({ changes, kinds }) {
+  const clean = (list) =>
+    list
+      .filter((k) => typeof k === 'string' && k.trim() !== '')
+      .map((k) => k.trim().toLowerCase());
+  const declared = clean(Array.isArray(kinds) ? kinds : []);
+  if (declared.length > 0) return [...new Set(declared)];
+  const derived = (Array.isArray(changes) ? changes : []).map((entry) =>
+    entry && typeof entry === 'object' && typeof entry.assumption === 'string'
+      ? entry.assumption.trim().toLowerCase() || 'unspecified'
+      : 'unspecified',
+  );
+  return [...new Set(derived)];
+}
+
+/**
+ * Named deployable roots a footprint spans (`apps/web`, `packages/core`, …).
+ * The repository root itself is deliberately **not** counted: a change to one
+ * app plus a root-level README is one deployable, not two.
+ *
+ * @param {string[]} paths
+ * @returns {string[]}
+ */
+function resolveDeployables(paths) {
+  const ids = new Set();
+  for (const p of paths) {
+    const segments = String(p)
+      .split('/')
+      .filter((s) => s !== '');
+    if (segments.length >= 3 && DEPLOYABLE_ROOTS.includes(segments[0])) {
+      ids.add(`${segments[0]}/${segments[1]}`);
+    }
+  }
+  return [...ids];
+}
+
+/**
+ * Does the footprint pair a schema migration with its consumers? A migration
+ * plus the code that reads through it is epic scope: the two have to land
+ * together and the ordering is the design work.
+ *
+ * @param {string[]} paths
+ * @returns {boolean}
+ */
+function spansMigrationAndConsumers(paths) {
+  const migrations = paths.filter((p) => MIGRATION_PATH_RE.test(String(p)));
+  return migrations.length > 0 && migrations.length < paths.length;
+}
+
+/**
+ * Ordered effort/risk rules, evaluated in order; the first hit is the recorded
+ * reason for a `full` route. Every rule names an effort, risk, or uncertainty
+ * property of the work — none counts artifacts.
+ *
+ * @type {ReadonlyArray<{
+ *   when: (shape: object, ceilings: typeof STORY_SHAPE_CEILINGS) => boolean,
+ *   reason: (shape: object, ceilings: typeof STORY_SHAPE_CEILINGS) => string,
+ * }>}
+ */
+const EFFORT_RULES = Object.freeze([
+  {
+    when: (s, c) => s.kindCount > c.maxChangeKinds,
+    reason: (s, c) =>
+      `${s.kindCount} distinct change kinds (${s.changeKinds.join(', ')}) > maxChangeKinds ${c.maxChangeKinds} — an explicit multi-capability enumeration, not one capability; full route`,
+  },
+  {
+    when: (s, c) =>
+      MAGNITUDE_SCALE.indexOf(s.magnitude) >
+      MAGNITUDE_SCALE.indexOf(c.maxMagnitude),
+    reason: (s, c) =>
+      `declared magnitude "${s.magnitude}" > maxMagnitude "${c.maxMagnitude}" — a substantial rewrite is effort a single inline pass should not absorb, however few files it touches; full route`,
+  },
+  {
+    when: (s, c) =>
+      UNCERTAINTY_SCALE.indexOf(s.uncertainty) >
+      UNCERTAINTY_SCALE.indexOf(c.maxUncertainty),
+    reason: (s) =>
+      `the shape is not determined by the request (uncertainty "${s.uncertainty}") — the design decisions /plan exists to resolve are still open; full route`,
+  },
+  {
+    when: (s, c) => s.deployables.length > c.maxDeployables,
+    reason: (s, c) =>
+      `footprint spans ${s.deployables.length} deployables (${s.deployables.join(', ')}) > maxDeployables ${c.maxDeployables} — clearly-epic scope; full route`,
+  },
+  {
+    when: (s) => s.migrationSpan,
+    reason: () =>
+      'footprint pairs a migration with its consumers — clearly-epic scope; full route',
+  },
+  {
+    when: (s) => s.sensitiveClasses.length > 0,
+    reason: (s) =>
+      `footprint intersects sensitive-path class(es) ${s.sensitiveClasses.join(', ')} — sensitivity wins over a small shape; full route (fresh acceptance critic retained)`,
+  },
+]);
+
+/**
+ * First effort/risk rule the shape violates, or `null` when it clears them all.
+ *
+ * @param {object} shape
+ * @param {typeof STORY_SHAPE_CEILINGS} ceilings
+ * @returns {string|null}
+ */
+function firstEffortViolation(shape, ceilings) {
+  for (const rule of EFFORT_RULES) {
+    if (rule.when(shape, ceilings)) return rule.reason(shape, ceilings);
+  }
+  return null;
+}
 
 /**
  * The non-negotiables the ceremony-lite path preserves (Story #4683 AC-2):
@@ -376,44 +563,98 @@ export function resolvePlannerRouteVerdict({ reason } = {}) {
 }
 
 /**
- * Derive the complexity route from an authored Story's **objective shape**
- * (Story #4722 AC-3/AC-4) — the single shape function persist's backstop and
- * `/deliver`'s dispatch derivation both read, so the two can never disagree
- * about the same body.
+ * Assemble the effort/risk shape of a footprint — the evidence
+ * {@link deriveStoryShape} decides on and carries on its result.
+ *
+ * @param {{
+ *   changes: unknown[],
+ *   paths: string[],
+ *   acceptance?: unknown,
+ *   kinds?: unknown,
+ *   magnitude?: unknown,
+ *   uncertainty?: unknown,
+ *   sensitiveClasses: string[],
+ * }} args
+ * @returns {{
+ *   siteCount: number,
+ *   changeKinds: string[],
+ *   kindCount: number,
+ *   magnitude: string,
+ *   uncertainty: string,
+ *   acceptanceCount: number,
+ *   deployables: string[],
+ *   migrationSpan: boolean,
+ *   sensitiveClasses: string[],
+ * }}
+ */
+function buildEffortShape({
+  changes,
+  paths,
+  acceptance,
+  kinds,
+  magnitude,
+  uncertainty,
+  sensitiveClasses,
+}) {
+  const changeKinds = resolveChangeKinds({ changes, kinds });
+  return {
+    siteCount: paths.length,
+    changeKinds,
+    kindCount: changeKinds.length,
+    magnitude: normalizeBucket(magnitude, MAGNITUDE_SCALE, 'moderate'),
+    uncertainty: normalizeBucket(uncertainty, UNCERTAINTY_SCALE, 'determined'),
+    acceptanceCount: Array.isArray(acceptance) ? acceptance.length : 0,
+    deployables: resolveDeployables(paths),
+    migrationSpan: spansMigrationAndConsumers(paths),
+    sensitiveClasses,
+  };
+}
+
+/**
+ * Derive the complexity route from an authored Story's **effort and risk**
+ * (Story #4722 AC-3/AC-4; re-anchored off artifact cardinality by Story #4764)
+ * — the single shape function persist's backstop and `/deliver`'s dispatch
+ * derivation both read, so the two can never disagree about the same body.
  *
  * `lite` requires **every** signal to agree, against
  * {@link STORY_SHAPE_CEILINGS}:
  *
- *   - a declared, parseable, glob-free `changes[]` footprint of at most
- *     `maxChanges` entries, at most `maxNonCreateChanges` of which touch
- *     existing surfaces (creates-vs-refactors mix);
- *   - at most `maxAcceptance` acceptance criteria (and at least one — a Story
- *     with no contract cannot be judged trivial);
+ *   - a declared, parseable, glob-free `changes[]` footprint — width is not
+ *     counted, but an unknown width cannot be judged;
+ *   - at least one acceptance criterion (a Story with no contract cannot be
+ *     judged trivial). The criteria are **not** capped: criterion count is
+ *     contract detail, not effort;
+ *   - at most `maxChangeKinds` distinct change kinds, magnitude no worse than
+ *     `maxMagnitude`, uncertainty no worse than `maxUncertainty`, and at most
+ *     `maxDeployables` deployable roots — plus no migration-with-consumers
+ *     span. These are the clearly-epic rejections, and nothing finer: the
+ *     declared footprint is a guess, so the diff-derived backstop does the real
+ *     enforcement (see {@link STORY_SHAPE_CEILINGS});
  *   - a footprint intersecting **no** sensitive-path class
  *     (`deriveChangeLevel`, the taxonomy close applies to the landed diff).
- *     Sensitivity always wins (AC-6): a sensitive footprint routes `full`,
- *     which keeps the fresh acceptance critic via `ceremony-routing.js`.
+ *     Sensitivity always wins (AC-6): a sensitive footprint routes `full`
+ *     however small or mechanical, which keeps the fresh acceptance critic via
+ *     `ceremony-routing.js`.
  *
- * Everything else — including an unknown/undeclared footprint or an
- * unreadable sensitive-path manifest — fails toward `full`. Total: never
- * throws.
+ * Everything else — an unknown/undeclared footprint, a malformed magnitude or
+ * uncertainty claim, or an unreadable sensitive-path manifest — fails toward
+ * `full`. Total: never throws.
  *
  * @param {{
  *   changes?: unknown,
  *   acceptance?: unknown,
+ *   kinds?: unknown,
+ *   magnitude?: unknown,
+ *   uncertainty?: unknown,
  *   injectedRules?: object,
  *   selectSensitivePathClassesFn?: Function,
- * }} [args]
+ * }} [args] `kinds` declares the distinct change kinds explicitly (absent, each
+ *   entry's `assumption` is its kind); `magnitude` and `uncertainty` are the
+ *   declared coarse buckets.
  * @returns {{
  *   route: ComplexityRoute,
  *   reasons: string[],
- *   shape: {
- *     changeCount: number,
- *     acceptanceCount: number,
- *     createCount: number,
- *     nonCreateCount: number,
- *     sensitiveClasses: string[],
- *   }|null,
+ *   shape: ReturnType<typeof buildEffortShape>|null,
  *   ceilings: typeof STORY_SHAPE_CEILINGS,
  *   preserves: typeof LITE_PATH_INVARIANTS,
  * }}
@@ -421,6 +662,9 @@ export function resolvePlannerRouteVerdict({ reason } = {}) {
 export function deriveStoryShape({
   changes,
   acceptance,
+  kinds,
+  magnitude,
+  uncertainty,
   injectedRules,
   selectSensitivePathClassesFn,
 } = {}) {
@@ -437,7 +681,7 @@ export function deriveStoryShape({
   if (!Array.isArray(changes) || changes.length === 0) {
     return decide(
       'full',
-      'no changes[] declared — the footprint is unknown, so the shape cannot be judged trivial; conservative full route',
+      'no changes[] declared — the footprint is unknown, so the work cannot be judged trivial; conservative full route',
     );
   }
 
@@ -451,35 +695,26 @@ export function deriveStoryShape({
     );
   }
 
-  const acceptanceList = Array.isArray(acceptance) ? acceptance : [];
-  const nonCreateCount = changes.filter(
-    (entry) =>
-      !(entry && typeof entry === 'object' && entry.assumption === 'creates'),
-  ).length;
+  const paths = entries.map((e) => e.path);
   const { level, classes } = deriveChangeLevel({
-    changedFiles: entries.map((e) => e.path),
+    changedFiles: paths,
     injectedRules,
     selectSensitivePathClassesFn,
   });
-  const shape = {
-    changeCount: changes.length,
-    acceptanceCount: acceptanceList.length,
-    createCount: changes.length - nonCreateCount,
-    nonCreateCount,
+  const shape = buildEffortShape({
+    changes,
+    paths,
+    acceptance,
+    kinds,
+    magnitude,
+    uncertainty,
     sensitiveClasses: classes,
-  };
+  });
 
   if (entries.some((e) => e.isGlob)) {
     return decide(
       'full',
       'changes[] contains a glob path — unknown footprint width; conservative full route',
-      shape,
-    );
-  }
-  if (shape.changeCount > ceilings.maxChanges) {
-    return decide(
-      'full',
-      `changes[] declares ${shape.changeCount} entries (> maxChanges ${ceilings.maxChanges}) — not a trivial footprint; full route`,
       shape,
     );
   }
@@ -490,27 +725,10 @@ export function deriveStoryShape({
       shape,
     );
   }
-  if (shape.acceptanceCount > ceilings.maxAcceptance) {
-    return decide(
-      'full',
-      `${shape.acceptanceCount} acceptance criteria (> maxAcceptance ${ceilings.maxAcceptance}) — more contract than a trivial scope carries; full route`,
-      shape,
-    );
-  }
-  if (shape.nonCreateCount > ceilings.maxNonCreateChanges) {
-    return decide(
-      'full',
-      `${shape.nonCreateCount} non-create change(s) (> maxNonCreateChanges ${ceilings.maxNonCreateChanges}) — a mostly-refactoring mix is not a trivial additive scope; full route`,
-      shape,
-    );
-  }
-  if (shape.sensitiveClasses.length > 0) {
-    return decide(
-      'full',
-      `footprint intersects sensitive-path class(es) ${shape.sensitiveClasses.join(', ')} — sensitivity wins over a small shape; full route (fresh acceptance critic retained)`,
-      shape,
-    );
-  }
+
+  const violation = firstEffortViolation(shape, ceilings);
+  if (violation !== null) return decide('full', violation, shape);
+
   if (level !== 'low') {
     // `deriveChangeLevel` degraded to its null fail-safe (unreadable
     // manifest / failed selector): there is no evidence the footprint is
@@ -524,7 +742,7 @@ export function deriveStoryShape({
 
   return decide(
     'lite',
-    `trivial shape: ${shape.changeCount} change(s) ≤ ${ceilings.maxChanges}, ${shape.acceptanceCount} acceptance criteria ≤ ${ceilings.maxAcceptance}, ${shape.nonCreateCount} non-create ≤ ${ceilings.maxNonCreateChanges}, no sensitive-path class — inline-eligible; non-negotiables preserved`,
+    `trivial shape: ${shape.kindCount} change kind(s) (${shape.changeKinds.join(', ')}) ≤ ${ceilings.maxChangeKinds} across ${shape.siteCount} site(s), magnitude ${shape.magnitude} ≤ ${ceilings.maxMagnitude}, shape ${shape.uncertainty}, no epic-scope span, no sensitive-path class — inline-eligible; non-negotiables preserved`,
     shape,
   );
 }

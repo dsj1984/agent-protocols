@@ -25,6 +25,14 @@
 //           — it moved under helpers/ so `/deliver` is the one delivery door;
 //   - AC-8: the light entry contains no parallel init/close implementation.
 //
+// Story #4764 re-anchors the suitability gate on effort and risk — distinct
+// change kinds, a coarse magnitude bucket, uncertainty, and epic-scope span —
+// instead of artifact cardinality, and makes the PREDICTION gate coarse: it
+// rejects clearly-epic work only, because the declared footprint is a guess and
+// the diff backstop is the pass that sees ground truth. The invariants above are
+// unchanged; the fixtures that used to be over-scope by count are now over-scope
+// by effort.
+//
 // Story #4746 makes the escalate-plan OUTCOME terminal rather than advisory.
 // The gate's decision is untouched (the describes above still pass verbatim);
 // what is new is that over-scope under --yes emits a schema-validated
@@ -133,12 +141,11 @@ describe('deriveLightSuitability — shape + ledgered verdict must agree (AC-2)'
     assert.equal(s.ledger.route, 'lite');
   });
 
-  test('an over-ceiling predicted footprint is not suitable (shape wins)', () => {
+  test('a clearly-epic predicted footprint is not suitable (shape wins)', () => {
     const s = deriveLightSuitability({
       predictedChanges: [
-        { path: 'a.js', assumption: 'refactors-existing' },
-        { path: 'b.js', assumption: 'refactors-existing' },
-        { path: 'c.js', assumption: 'refactors-existing' },
+        { path: 'apps/api/src/a.js', assumption: 'refactors-existing' },
+        { path: 'apps/web/src/b.js', assumption: 'refactors-existing' },
       ],
       predictedAcceptance: ['does a', 'does b', 'does c', 'does d'],
       verdict: LITE_VERDICT,
@@ -147,6 +154,79 @@ describe('deriveLightSuitability — shape + ledgered verdict must agree (AC-2)'
     assert.equal(s.suitable, false);
     assert.equal(s.route, 'full');
     assert.equal(s.shape.route, 'full');
+  });
+
+  // Story #4764 — the predicted axes are effort and risk, and the gate over
+  // them is coarse: it rejects clearly-epic work, not marginal small work.
+  test('AC-1: three instances of one mechanical edit are suitable; a substantial rewrite is not', () => {
+    const mechanical = deriveLightSuitability({
+      predictedChanges: ['a', 'b', 'c'].map((p) => ({
+        path: `src/${p}.js`,
+        assumption: 'refactors-existing',
+      })),
+      predictedAcceptance: ['every call site passes the new flag'],
+      predictedKinds: ['add-flag-to-call-site'],
+      predictedMagnitude: 'trivial',
+      verdict: LITE_VERDICT,
+      injectedRules: RULES,
+    });
+    assert.equal(mechanical.suitable, true);
+
+    const rewrite = deriveLightSuitability({
+      predictedChanges: [
+        { path: 'src/reporting.js', assumption: 'refactors-existing' },
+      ],
+      predictedAcceptance: ['the report renders identically'],
+      predictedMagnitude: 'substantial',
+      verdict: LITE_VERDICT,
+      injectedRules: RULES,
+    });
+    assert.equal(rewrite.suitable, false);
+  });
+
+  test('AC-3: marginal small work is no longer rejected on counts alone', () => {
+    const s = deriveLightSuitability({
+      predictedChanges: ['a', 'b', 'c', 'd', 'e'].map((p) => ({
+        path: `src/widgets/${p}.js`,
+        assumption: 'refactors-existing',
+      })),
+      predictedAcceptance: ['a', 'b', 'c', 'd'],
+      verdict: LITE_VERDICT,
+      injectedRules: RULES,
+    });
+    assert.equal(
+      s.suitable,
+      true,
+      'over every retired count ceiling, yet plainly not epic',
+    );
+  });
+
+  test('AC-5: the benchmark hello-world footprint is suitable', () => {
+    const s = deriveLightSuitability({
+      predictedChanges: [
+        { path: 'src/server.js', assumption: 'creates' },
+        { path: 'package.json', assumption: 'refactors-existing' },
+        { path: 'tests/server.test.js', assumption: 'creates' },
+      ],
+      predictedAcceptance: ['200', 'hello world', 'port', 'npm test passes'],
+      predictedMagnitude: 'trivial',
+      verdict: LITE_VERDICT,
+      injectedRules: RULES,
+    });
+    assert.equal(s.suitable, true);
+  });
+
+  test('AC-6: the benchmark epic-scope footprint is not suitable', () => {
+    const s = deriveLightSuitability({
+      predictedChanges: [
+        { path: 'packages/contract/src/schema.js', assumption: 'creates' },
+        { path: 'apps/api/src/handler.js', assumption: 'refactors-existing' },
+      ],
+      predictedAcceptance: ['both deployables honour the shared contract'],
+      verdict: LITE_VERDICT,
+      injectedRules: RULES,
+    });
+    assert.equal(s.suitable, false);
   });
 
   test('a sensitive-path footprint is not suitable even when small', () => {
@@ -248,6 +328,31 @@ describe('checkLightDiffBackstop — blocks over-ceiling actual diffs (AC-4)', (
     });
     assert.equal(r.blocked, true);
     assert.deepEqual(r.classes, ['security']);
+  });
+
+  test('AC-4 (Story #4764): relaxing the PREDICTION gate cannot land oversized work', () => {
+    // The same five same-kind files the prediction gate now admits: the
+    // backstop reads ground truth, so it still refuses to land them. This pair
+    // is the whole trade — coarse prediction, strict diff.
+    const files = ['a', 'b', 'c', 'd', 'e'].map((p) => `src/widgets/${p}.js`);
+    assert.equal(
+      deriveLightSuitability({
+        predictedChanges: files.map((path) => ({
+          path,
+          assumption: 'refactors-existing',
+        })),
+        predictedAcceptance: ['works'],
+        verdict: LITE_VERDICT,
+        injectedRules: RULES,
+      }).suitable,
+      true,
+    );
+    const backstop = checkLightDiffBackstop({
+      changedFiles: files,
+      injectedRules: RULES,
+    });
+    assert.equal(backstop.blocked, true);
+    assert.match(backstop.reasons.join(' '), /maxFiles/);
   });
 
   test('an empty or unknown change set is blocked (cannot verify light)', () => {
@@ -386,6 +491,34 @@ describe('runLightGate — end-to-end gate over the entry inputs (AC-3, AC-6)', 
     assert.equal(gate.action, 'proceed-light');
   });
 
+  test('the effort flags reach the gate: one kind at three sites proceeds', () => {
+    const gate = runLightGate({
+      prompt: 'pass the new flag at every call site',
+      refactors: ['src/a.js', 'src/b.js', 'src/c.js'],
+      acceptance: 2,
+      kinds: ['add-flag-to-call-site'],
+      magnitude: 'trivial',
+      uncertainty: 'determined',
+      route: 'lite',
+      reason: 'one mechanical edit repeated',
+      injectedRules: RULES,
+    });
+    assert.equal(gate.action, 'proceed-light');
+  });
+
+  test('the effort flags reach the gate: open design decisions ask the operator', () => {
+    const gate = runLightGate({
+      prompt: 'make the counter configurable somehow',
+      refactors: ['src/counter.js'],
+      acceptance: 1,
+      uncertainty: 'needs-design',
+      route: 'lite',
+      reason: 'one file, but the shape is not decided',
+      injectedRules: RULES,
+    });
+    assert.equal(gate.action, 'ask-operator');
+  });
+
   test('--amends: a HEAVY amendment escalates to /plan under --yes', () => {
     const gate = runLightGate({
       prompt: 'amend: overhaul auth and add a migration',
@@ -501,12 +634,13 @@ describe('deliver-light.js is a thin entry point, not a second engine (AC-8)', (
 // Story #4746 — escalation is TERMINAL, not advisory
 // ---------------------------------------------------------------------------
 
-/** Over-scope gate inputs: 7 predicted changes against a maxChanges of 2. */
+/**
+ * Over-scope gate inputs: a footprint spanning two deployables, which is
+ * clearly-epic scope by effort rather than by count (Story #4764).
+ */
 const OVER_SCOPE = {
   prompt: 'rework the whole reporting pipeline end to end',
-  refactors: Array.from({ length: 7 }, (_v, i) => `src/report/mod${i}.js`).join(
-    ',',
-  ),
+  refactors: 'apps/api/src/report.js,apps/web/src/report.js',
   acceptance: '5',
   route: 'lite',
   reason: 'claims small but is not',
@@ -569,7 +703,7 @@ describe('escalate-plan emits a terminal envelope and exits non-zero (AC-1)', ()
   test('the gate reasons survive verbatim into the envelope', async () => {
     const { terminals } = await driveGate({ ...OVER_SCOPE, yes: true });
     const reasons = terminals[0].escalation.reasons.join(' ');
-    assert.match(reasons, /maxChanges/);
+    assert.match(reasons, /maxDeployables/);
     assert.match(reasons, /--yes on over-scope fails closed to \/plan/);
   });
 });
@@ -730,6 +864,44 @@ describe('the workflow states escalation is terminal (AC-3)', () => {
       doc,
       /no receipt Story, no `story-<id>` branch, and no worktree/i,
       'the workflow must name all three artifacts an escalated run does not create',
+    );
+  });
+});
+
+describe('the workflow scopes by effort, not artifact count (Story #4764)', () => {
+  const doc = readDoc(
+    path.join(REPO_ROOT, '.agents', 'workflows', 'helpers', 'deliver-light.md'),
+  );
+
+  test('names the axes and rejects the cardinality reading in so many words', () => {
+    assertDocMentions(
+      doc,
+      /Counting the footprint is the wrong axis/i,
+      'the workflow must say outright that counting artifacts is the wrong axis',
+    );
+    assertDocMentions(doc, /change \*\*kinds\*\*/i);
+    assertDocMentions(doc, /magnitude/i);
+    assertDocMentions(doc, /uncertainty/i);
+  });
+
+  test('states the gate is coarse and names where size is really enforced', () => {
+    assertDocMentions(
+      doc,
+      /deliberately \*\*coarse\*\*: it rejects clearly-epic work only/i,
+      'a reader must know the prediction gate is not the size guard',
+    );
+    assertDocMentions(
+      doc,
+      /Size is enforced where ground truth is available/i,
+      'the doc must point at the diff backstop as the real enforcement',
+    );
+  });
+
+  test('keeps the sensitivity hard gate stated as absolute', () => {
+    assertDocMentions(
+      doc,
+      /Sensitivity is the exception and stays absolute/i,
+      'relaxing the count ceilings must not read as relaxing sensitivity',
     );
   });
 });

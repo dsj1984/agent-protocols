@@ -22,7 +22,11 @@
  *      {@link module:lib/orchestration/complexity-gate.STORY_SHAPE_CEILINGS})
  *      **and** a ledgered model verdict carrying a recorded reason
  *      ({@link resolveLedgeredVerdict}). Both must agree on `lite`; either
- *      falling short fails closed to `full`.
+ *      falling short fails closed to `full`. The shape axes are effort and
+ *      risk — distinct change kinds, a coarse magnitude bucket, uncertainty,
+ *      and epic-scope span — never artifact counts (Story #4764), so this gate
+ *      is deliberately **coarse**: it rejects clearly-epic work, and invariant
+ *      3 below does the real enforcement against ground truth.
  *   2. **Over-scope stops, never silently proceeds ({@link
  *      resolveLightGateOutcome}).** An over-ceiling prompt does **not**
  *      hard-fail — it STOPS and asks the operator to escalate to `/plan` or
@@ -49,12 +53,13 @@ import { deriveChangeLevel } from './review-depth.js';
 
 /**
  * File-count ceiling for the **actual landed** change set the diff backstop
- * ({@link checkLightDiffBackstop}) enforces. The predicted-shape ceiling caps
- * `changes[]` at `maxChanges` (one artifact plus its test); the actual diff may
- * legitimately run a touch wider (a generated projection, a snapshot), but a
- * genuinely-light change stays small. Conservative by construction — a ceiling
- * an operator could widen past what a single session safely absorbs is a
- * ceiling that fails silently, so this is a framework constant, not a knob.
+ * ({@link checkLightDiffBackstop}) enforces. This is the light path's **only**
+ * cardinality ceiling, and deliberately so (Story #4764): the predicted
+ * footprint is a declaration — a guess, and a gameable one — so the gate that
+ * counts must be the one reading ground truth. A genuinely-light change stays
+ * small; conservative by construction, since a ceiling an operator could widen
+ * past what a single session safely absorbs is a ceiling that fails silently.
+ * A framework constant, not a knob.
  */
 export const LIGHT_DIFF_CEILINGS = Object.freeze({
   maxFiles: 4,
@@ -122,16 +127,27 @@ export function resolveLedgeredVerdict({ route, reason } = {}) {
 
 /**
  * Judge whether an operator prompt's predicted footprint is suitable for the
- * light path. The deterministic shape derivation and the ledgered model verdict
- * must **both** agree on `lite`; anything else — an over-ceiling shape, a
+ * light path. The deterministic effort/risk derivation and the ledgered model
+ * verdict must **both** agree on `lite`; anything else — clearly-epic work, a
  * sensitive-path footprint, an unledgered verdict — resolves to `full` (the
  * conservative default that routes the operator to `/plan`).
+ *
+ * The predicted axes are declared by the caller: `predictedKinds` (the distinct
+ * kinds of change; absent, each entry's `assumption` is its kind, so N
+ * instances of one mechanical edit count once), `predictedMagnitude`
+ * (`trivial` | `moderate` | `substantial`), and `predictedUncertainty`
+ * (`determined` | `needs-design`). A malformed bucket fails closed; an absent
+ * one carries no signal, because a marginal footprint must not be rejected on
+ * counts the diff backstop is the right place to enforce.
  *
  * Pure and total: never throws, never mutates its inputs.
  *
  * @param {{
  *   predictedChanges?: unknown,
  *   predictedAcceptance?: unknown,
+ *   predictedKinds?: unknown,
+ *   predictedMagnitude?: unknown,
+ *   predictedUncertainty?: unknown,
  *   verdict?: { route?: unknown, reason?: unknown },
  *   injectedRules?: object,
  *   selectSensitivePathClassesFn?: Function,
@@ -148,6 +164,9 @@ export function resolveLedgeredVerdict({ route, reason } = {}) {
 export function deriveLightSuitability({
   predictedChanges,
   predictedAcceptance,
+  predictedKinds,
+  predictedMagnitude,
+  predictedUncertainty,
   verdict,
   injectedRules,
   selectSensitivePathClassesFn,
@@ -156,6 +175,9 @@ export function deriveLightSuitability({
   const shape = deriveStoryShape({
     changes: predictedChanges,
     acceptance: predictedAcceptance,
+    kinds: predictedKinds,
+    magnitude: predictedMagnitude,
+    uncertainty: predictedUncertainty,
     injectedRules,
     selectSensitivePathClassesFn,
   });
