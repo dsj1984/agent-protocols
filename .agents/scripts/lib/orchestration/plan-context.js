@@ -356,7 +356,7 @@ function resolveRiskHeuristics(config = {}) {
 
 /**
  * Ceilings a seed's advisory complexity signals must fit for the plan
- * workflow to **suggest** `/deliver-light` at Gate #1 (Story #4741 R3 plan-side
+ * workflow to **suggest** the light path at Gate #1 (Story #4741 R3 plan-side
  * handshake). Framework constants, not operator knobs — mirroring the
  * conservative intent of `complexity-gate.js`'s `STORY_SHAPE_CEILINGS`
  * (small, mostly-additive, non-sensitive) but read against the *seed-time*
@@ -364,9 +364,14 @@ function resolveRiskHeuristics(config = {}) {
  *
  * The suggestion is **advisory only and never an automatic reroute**: it
  * surfaces at Gate #1 for the operator to decide, and under `--yes` it is
- * recorded on the envelope while planning proceeds unchanged. `/deliver-light`
- * is a sibling Story; these ceilings define the plan side of the routing
- * handshake independently of it.
+ * recorded on the envelope while planning proceeds unchanged.
+ *
+ * These ceilings are deliberately NOT the ones the light path itself applies
+ * (Story #4760). A confirmed suggestion routes into
+ * `workflows/helpers/deliver-light.md`, whose gate re-judges the *predicted
+ * shape* against `STORY_SHAPE_CEILINGS`. Two checks at two different stages:
+ * this one screens a seed, that one decides. Collapsing them would make a
+ * confirm a bypass.
  *
  *   - `maxArtifacts`           — enumerated seed items (one artifact each).
  *   - `maxRiskHeuristicHits`   — any risk-heuristic hit disqualifies: risk
@@ -381,9 +386,9 @@ const DELIVER_LIGHT_SUGGESTION_CEILINGS = Object.freeze({
 });
 
 /**
- * Derive the advisory `/deliver-light` suggestion from a seed's complexity
- * signals (Story #4741 AC-6). Pure and total: a malformed / missing signal
- * bag fails conservative (not suggested), never throws.
+ * Derive the advisory light-path suggestion from a seed's complexity signals
+ * (Story #4741 AC-6). Pure and total: a malformed / missing signal bag fails
+ * conservative (not suggested), never throws.
  *
  * `automatic: false` is part of the contract — the suggestion is surfaced for
  * the operator, never a silent reroute of a non-interactive run.
@@ -435,16 +440,16 @@ export function buildDeliverLightSuggestion(complexitySignals) {
     ceilings,
     reasons: suggested
       ? [
-          `seed fits the /deliver-light ceilings (≤${ceilings.maxArtifacts} artifacts, ` +
+          `seed fits the light-path ceilings (≤${ceilings.maxArtifacts} artifacts, ` +
             'no risk-heuristic hits, no sensitive-path classes) — the operator ' +
-            'may prefer /deliver-light for this scope',
+            'may prefer /deliver for this scope',
         ]
       : reasons,
   };
 }
 
 /**
- * Attach the advisory `/deliver-light` suggestion to a complexity-signals bag
+ * Attach the advisory light-path suggestion to a complexity-signals bag
  * as a **nested** field (Story #4741). Nesting — rather than a new top-level
  * envelope key — keeps every existing per-mode envelope key set byte-stable
  * (AC-5): the suggestion is derived from the signals it rides on.
@@ -920,7 +925,7 @@ function extractPriorArtifacts(priorBody) {
 /**
  * Build the amendment (delta) envelope — `plan-context --amends #<id>`
  * (Story #4741 AC-4, R3-A). The heavy-amendment counterpart to routing a
- * light amendment through `/deliver-light`: instead of re-interrogating the
+ * light amendment through the light path: instead of re-interrogating the
  * repo from scratch (`buildAuthoringContext`'s codebase snapshot and the BDD /
  * memory / feedback probes), the envelope composes a DELTA from what already
  * exists — the prior Story's body, its acceptance criteria (the real

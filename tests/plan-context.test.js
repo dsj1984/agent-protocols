@@ -1013,7 +1013,7 @@ const PRIOR_STORY_BODY = serialize({
 });
 
 describe('plan-context deliverLightSuggestion (Story #4741 AC-6)', () => {
-  it('suggests /deliver-light for a scope inside the ceilings — advisory, never automatic', () => {
+  it('suggests the light path for a scope inside the ceilings — advisory, never automatic', () => {
     const s = buildDeliverLightSuggestion({
       artifactCount: 1,
       riskHeuristicHits: [],
@@ -1023,7 +1023,10 @@ describe('plan-context deliverLightSuggestion (Story #4741 AC-6)', () => {
     // The two contract flags: advisory, and NEVER an automatic reroute.
     assert.equal(s.advisory, true);
     assert.equal(s.automatic, false);
-    assert.match(s.reasons[0], /deliver-light ceilings/);
+    assert.match(s.reasons[0], /light-path ceilings/);
+    // Story #4760 retired the /deliver-light command; the suggestion must
+    // name a command the operator can actually type.
+    assert.doesNotMatch(s.reasons[0], /\/deliver-light/);
   });
 
   it('does not suggest when the seed exceeds the artifact ceiling', () => {

@@ -1,10 +1,13 @@
 // tests/lib/orchestration/light-suitability.test.js
 //
-// Unit tier (Story #4740): /deliver-light — a validated single-session
-// delivery path for genuinely small work that keeps every quality gate and the
+// Unit tier (Story #4740): the light path — a validated single-session
+// delivery route for genuinely small work that keeps every quality gate and the
 // landing guarantee. This suite pins the four invariants that keep the light
 // path proportional rather than a planning bypass, plus the thin-entry-point
-// contract that it reuses the shared engine scripts:
+// contract that it reuses the shared engine scripts.
+//
+// Story #4760 folded it into `/deliver` as a routed prompt path (and a second
+// caller, `/plan` Gate #1); the gate logic below is untouched by that move.
 //
 //   - AC-1: the light path lands through the unchanged single-story-close
 //           engine (buildNextCommands references it, no parallel close impl);
@@ -18,7 +21,8 @@
 //   - AC-5: a minimal receipt type::story is authored inline carrying the
 //           prompt and footprint (buildReceiptStoryTicket / createLightReceipt);
 //   - AC-6: --amends is shape-checked identically (small → light, heavy → plan);
-//   - AC-7: /deliver-light projects into the generated command tree;
+//   - AC-7: (amended by Story #4760) the light path does NOT project a command
+//           — it moved under helpers/ so `/deliver` is the one delivery door;
 //   - AC-8: the light entry contains no parallel init/close implementation.
 //
 // Story #4746 makes the escalate-plan OUTCOME terminal rather than advisory.
@@ -29,7 +33,7 @@
 
 import assert from 'node:assert/strict';
 import { spawnSync } from 'node:child_process';
-import { existsSync, mkdtempSync, readFileSync } from 'node:fs';
+import { existsSync, mkdtempSync, readFileSync, writeFileSync } from 'node:fs';
 import { tmpdir } from 'node:os';
 import path from 'node:path';
 import test, { describe } from 'node:test';
@@ -675,8 +679,11 @@ describe('the workflow states escalation is terminal (AC-3)', () => {
   // Prose assertions go through doc-assert: these claims are about what the
   // document SAYS, and a plain `assert.match` would silently also be pinning
   // where the 80-column wrap happens to fall.
+  // Story #4760 moved this from a top-level workflow to a helper: the prompt
+  // path has two callers (/deliver and /plan Gate #1) and no longer projects a
+  // command of its own. The escalation claims below are unchanged.
   const doc = readDoc(
-    path.join(REPO_ROOT, '.agents', 'workflows', 'deliver-light.md'),
+    path.join(REPO_ROOT, '.agents', 'workflows', 'helpers', 'deliver-light.md'),
   );
 
   test('names the envelope as the session terminal output', () => {
@@ -728,12 +735,25 @@ describe('the workflow states escalation is terminal (AC-3)', () => {
 });
 
 // ---------------------------------------------------------------------------
-// AC-7 — /deliver-light projects into the generated command tree
+// AC-7 (as amended by Story #4760) — the light path must NOT project a command
 // ---------------------------------------------------------------------------
+// This assertion was inverted, not deleted. #4740 shipped `/deliver-light` as
+// its own command and pinned that it projected; #4760 folded the prompt path
+// into `/deliver` precisely so an operator never has to pre-judge which door
+// to use, and a surviving `/deliver-light` command would restore that choice.
+//
+// Projection is also the whole retirement mechanism: `helpers/` is skipped by
+// the projector and the orphan-reap removes any command with no source
+// workflow, so a consumer's stale `/deliver-light` disappears on their next
+// sync with no migration step. This test is what proves that still holds.
 
-describe('/deliver-light projects via sync-claude-commands (AC-7)', () => {
-  test('the sync script writes .claude/commands/deliver-light.md', () => {
+describe('the light path does not project a command (AC-7, Story #4760)', () => {
+  test('sync-claude-commands writes no deliver-light command', () => {
     const dest = mkdtempSync(path.join(tmpdir(), 'light-cmd-'));
+    // Seed the destination with the command a pre-#4760 consumer would have,
+    // so this exercises the orphan-reap rather than merely a non-write.
+    writeFileSync(path.join(dest, 'deliver-light.md'), '# stale\n');
+
     const result = spawnSync(
       process.execPath,
       [path.join(REPO_ROOT, '.agents', 'scripts', 'sync-claude-commands.js')],
@@ -752,9 +772,15 @@ describe('/deliver-light projects via sync-claude-commands (AC-7)', () => {
       },
     );
     assert.equal(result.status, 0, result.stderr);
-    assert.ok(
+    assert.equal(
       existsSync(path.join(dest, 'deliver-light.md')),
-      'deliver-light.md was not projected into the command tree',
+      false,
+      'a stale /deliver-light command survived the sync — consumers would keep ' +
+        'a second delivery door that no workflow backs',
+    );
+    assert.ok(
+      existsSync(path.join(dest, 'deliver.md')),
+      'the one delivery door must still project',
     );
   });
 });

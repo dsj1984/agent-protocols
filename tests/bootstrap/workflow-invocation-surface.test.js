@@ -1,0 +1,245 @@
+/**
+ * tests/bootstrap/workflow-invocation-surface.test.js — the operator-facing
+ * invocation surface of `/plan` and `/deliver` (Story #4760).
+ *
+ * ## What this pins
+ *
+ * Two commands an operator can type from memory. The routing decisions that
+ * used to live in the invocation — which delivery path, which plan mode, which
+ * merge behaviour — now live in the workflows, derived from argument shape and
+ * live state. These assertions exist because that surface is prose: nothing
+ * else fails when a `## Flags` table creeps back or a retired command name
+ * survives in a doc.
+ *
+ * The negative assertions are the load-bearing half. A flag table is easy to
+ * re-add "just for reference", and each one re-imposes the memory burden the
+ * change removed.
+ *
+ * Prose assertions go through `doc-assert.js` so a re-flowed 80-column
+ * paragraph cannot turn a correct edit red (and, for the negative cases, so a
+ * forbidden phrase cannot hide by straddling a line break).
+ */
+
+import assert from 'node:assert/strict';
+import { existsSync, readFileSync } from 'node:fs';
+import path from 'node:path';
+import { describe, it } from 'node:test';
+import { fileURLToPath } from 'node:url';
+
+import {
+  assertDocMentions,
+  assertDocOmits,
+  readDoc,
+} from '../helpers/doc-assert.js';
+
+const __dirname = path.dirname(fileURLToPath(import.meta.url));
+const REPO_ROOT = path.resolve(__dirname, '..', '..');
+
+const rel = (p) => path.join(REPO_ROOT, p);
+
+const DELIVER = rel('.agents/workflows/deliver.md');
+const PLAN = rel('.agents/workflows/plan.md');
+const LIGHT = rel('.agents/workflows/helpers/deliver-light.md');
+const DELIVER_REF = rel('.agents/workflows/helpers/deliver-reference.md');
+const PLAN_REF = rel('.agents/workflows/helpers/plan-reference.md');
+
+describe('one delivery door (Story #4760)', () => {
+  it('retires the top-level /deliver-light workflow into helpers/', () => {
+    assert.equal(
+      existsSync(rel('.agents/workflows/deliver-light.md')),
+      false,
+      'a top-level deliver-light.md projects a /deliver-light command again — ' +
+        'the whole point is one delivery door',
+    );
+    assert.equal(
+      existsSync(LIGHT),
+      true,
+      'the prompt path must survive the move as a helper — it has two callers',
+    );
+  });
+
+  it('drops /deliver-light from the generated workflow index', () => {
+    // The index is generated from top-level workflow front-matter, so this
+    // also proves the move (not a hand-edit) did the retirement.
+    assertDocOmits(
+      readDoc(rel('.agents/docs/workflows.md')),
+      /\/deliver-light/,
+      'the generated command index still advertises a command that no longer projects',
+    );
+  });
+
+  it('documents all three /deliver input shapes and the mixed-input refusal', () => {
+    const md = readDoc(DELIVER);
+    assertDocMentions(
+      md,
+      /\^#\?\\d\+\$/,
+      'the id discriminator must be stated exactly',
+    );
+    assertDocMentions(
+      md,
+      /bare/i,
+      'a bare invocation must have a documented behaviour, not be undefined',
+    );
+    assertDocMentions(
+      md,
+      /mixed[^.]*hard error/i,
+      'mixed ids-and-prose must refuse rather than guess a shape',
+    );
+    assertDocMentions(
+      md,
+      /helpers\/deliver-light\.md/,
+      '/deliver must route the prompt shape into the shared helper',
+    );
+  });
+
+  it('keeps escalation terminal — /deliver must never rescue an over-scope prompt by planning', () => {
+    assertDocMentions(
+      readDoc(DELIVER),
+      /never invoke `\/plan` in this session/i,
+      'the in-session-planning guard is the mandrel-bench 2.13.0 finding; it must ' +
+        'survive the fold into one command',
+    );
+  });
+});
+
+describe('derived invocation intent (Story #4760)', () => {
+  for (const [label, file] of [
+    ['deliver.md', DELIVER],
+    ['plan.md', PLAN],
+  ]) {
+    it(`${label} carries no operator-facing flag table`, () => {
+      const md = readFileSync(file, 'utf8');
+      // Heading match, not prose: a `## Flags` section is a layout claim.
+      assert.doesNotMatch(
+        md,
+        /^##+\s+Flags\s*$/m,
+        `${label} reintroduced a flag table — the flags belong to the scripts, ` +
+          'which document themselves via --help',
+      );
+    });
+
+    it(`${label} documents --yes as runner-set, never operator-typed`, () => {
+      assertDocMentions(
+        readDoc(file),
+        /`--yes` is \*\*runner-set, never operator-typed\*\*/,
+        `${label} must keep --yes out of the operator's hands without deleting it: ` +
+          'it is the unattended switch the escalation guarantee depends on',
+      );
+    });
+  }
+
+  it('plan.md derives a bare id from live state and announces it', () => {
+    const md = readDoc(PLAN);
+    assertDocMentions(
+      md,
+      /`agent::done` can only be amended/,
+      'the amend-vs-tickets ambiguity must resolve from state, not a flag',
+    );
+    assertDocMentions(
+      md,
+      /Announce the derivation/i,
+      'a derived mode must be announced so a wrong read costs one correction',
+    );
+    assertDocMentions(
+      md,
+      /Ask \*\*only\*\* for an open Story already at `agent::ready`/,
+      'the one genuinely ambiguous case must still ask',
+    );
+  });
+
+  it('deliver-reference.md maps intent phrases to the flags they fill in', () => {
+    const md = readDoc(DELIVER_REF);
+    assertDocMentions(
+      md,
+      /Intent phrases/,
+      'the replacement for the flag table must exist',
+    );
+    assertDocMentions(
+      md,
+      /--no-wait-merge/,
+      'the merge-it-myself intent must name the flag it fills in',
+    );
+    assertDocMentions(
+      md,
+      /Silence means config, not a literal/,
+      'omitting --concurrency is what lets .agentrc.local.json win; filling in the ' +
+        'default as a literal silently defeats the override',
+    );
+  });
+
+  it('plan-reference.md orders the input-mode derivation unambiguously', () => {
+    assertDocMentions(
+      readDoc(PLAN_REF),
+      /Test \*file exists\* before \*looks like prose\*/,
+      'without an explicit order a bare notes.md becomes a one-word seed',
+    );
+  });
+});
+
+describe('the /plan ↔ light asymmetry (Story #4760)', () => {
+  it('states the guard rule that explains why the two directions differ', () => {
+    const md = readDoc(LIGHT);
+    // Asserted in halves: the rule sits in a blockquote, and `doc-assert`
+    // normalizes whitespace but not the `>` continuation marker a wrap
+    // introduces mid-sentence.
+    assertDocMentions(
+      md,
+      /The direction whose guard is model judgment must break the session\./,
+      'the asymmetry reads as an inconsistency; without the rule stated, someone ' +
+        'will flatten it into symmetry in one direction or the other',
+    );
+    assertDocMentions(
+      md,
+      /direction whose guard is mechanical need not\./,
+      'the permissive half of the rule is what licenses the in-session /plan → light route',
+    );
+    assertDocMentions(
+      md,
+      /Do not "fix" this into symmetry/,
+      'the rule needs an explicit do-not-change marker, not just an explanation',
+    );
+  });
+
+  it('keeps light → /plan escalation on a fresh session', () => {
+    assertDocMentions(
+      readDoc(LIGHT),
+      /Invoking `\/plan` in this same session is forbidden/,
+      'the empirical under-decomposition finding must survive the move',
+    );
+  });
+
+  it('routes /plan → light in-session, and bounces back in-session too', () => {
+    assertDocMentions(
+      readDoc(PLAN),
+      /route \*\*in this session\*\* into/,
+      'Gate #1 must hand off directly rather than printing a command to run elsewhere',
+    );
+    assertDocMentions(
+      readDoc(LIGHT),
+      /return to \[`\.\.\/plan\.md`\]\(\.\.\/plan\.md\) step 2 \(Author\) in the same\s*session/,
+      'an ask-operator verdict must resume planning without re-paying for the interrogation',
+    );
+  });
+
+  it('names both callers on the shared helper', () => {
+    const md = readDoc(LIGHT);
+    assertDocMentions(
+      md,
+      /There is no `\/deliver-light` to type/,
+      'it is a path, not a command',
+    );
+    assertDocMentions(
+      md,
+      /reached two ways/,
+      'the two-caller framing is what justifies it being a helper',
+    );
+  });
+
+  it('keeps the two ceiling sets as two distinct gates', () => {
+    assertDocMentions(
+      readDoc(LIGHT),
+      /deliberately two different checks, so the gate still runs after a confirm/,
+      'collapsing the seed-time and shape-time ceilings would make a confirm a bypass',
+    );
+  });
+});
