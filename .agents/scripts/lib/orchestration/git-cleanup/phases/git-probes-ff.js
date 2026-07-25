@@ -152,9 +152,24 @@ export function removeWorktree(worktreePath, cwd) {
   };
 }
 
+/**
+ * Prune the clone's stale remote-tracking refs and report which ones went.
+ *
+ * The fetch MUST NOT be `--quiet` (Story #4772). `--quiet` still prunes, but
+ * suppresses the `- [deleted] (none) -> <remote>/<ref>` progress lines that
+ * are the *only* record of what was dropped — `parsePruneFn` then reports an
+ * empty list for work that really happened, and `computeExitCode` reads the
+ * run as "nothing to do" (exit 2). The output is captured, not shown, so
+ * `--quiet` bought nothing to begin with.
+ *
+ * @param {string} cwd
+ * @param {string} remoteName
+ * @param {(output: string, remoteName: string) => string[]} parsePruneFn
+ * @returns {{ ok: boolean, pruned: string[], stderr?: string }}
+ */
 /* node:coverage ignore next */
 export function pruneRemoteTracking(cwd, remoteName, parsePruneFn) {
-  const res = gitSpawn(cwd, 'fetch', '--prune', '--quiet', remoteName);
+  const res = gitSpawn(cwd, 'fetch', '--prune', remoteName);
   if (res.status !== 0) return { ok: false, pruned: [], stderr: res.stderr };
   return { ok: true, pruned: parsePruneFn(res.stderr, remoteName) };
 }
