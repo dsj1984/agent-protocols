@@ -9,7 +9,7 @@ description:
 # /deliver — reference appendix (on-demand)
 
 Reference-only detail split out of [`deliver.md`](../deliver.md) so the
-always-resident spine stays lean (Story #4708). Nothing here is a new MUST —
+always-resident spine stays lean. Nothing here is a new MUST —
 it is the mechanics an operator consults when the matching lever is engaged.
 
 ## Sequencing edge cases (`stories-wave-tick.js`)
@@ -18,13 +18,13 @@ Each beat re-probes live state: it re-resolves the graph, classifies **done**
 (`agent::done` or a closed issue — including foreign blockers that landed in
 another run), and derives **in-flight** from live `agent::executing` /
 `agent::closing` labels. You never compute `done` or `in-flight` — that
-accounting is read from reality every beat (Story #4594).
+accounting is read from reality every beat.
 
-**`--dispatched` is the one thing you must tell it (Story #4601).** List every
+**`--dispatched` is the one thing you must tell it.** List every
 Story id you have spawned this run. Live state cannot instantly report a Story
 you dispatched moments ago: `single-story-init.js` publishes `agent::executing`
-before the worktree install (Story #4620 moved it ahead of the multi-minute
-install, so the window is now short rather than minutes-long), but it is not
+before the worktree install (ahead of the multi-minute install, so the
+window is short rather than minutes-long), but it is not
 zero — until the label lands the Story still reads `agent::ready` and, without
 `--dispatched`, the next beat would hand it back and a second sub-agent would
 join the first on the same branch and worktree, interleaving commits.
@@ -34,10 +34,10 @@ is additive, not authoritative — the probe unions it into the label-derived se
 and then filters it against live state, so an id that has since gone
 `agent::done` is dropped for you. Re-listing an id costs nothing and cannot
 double-count a slot; *omitting* one is the only way to get this wrong. This is
-why `--dispatched` is not the `--done` bookkeeping #4594 retired, and why
+why `--dispatched` is not the retired `--done` bookkeeping, and why
 `--in-flight` remains rejected under `--probe-live`.
 
-**Cross-run de-confliction is automatic (Story #4620).** A Story another
+**Cross-run de-confliction is automatic.** A Story another
 operator is delivering is withheld without any bookkeeping from you: the probe
 reads the Story's assignee lease and, when it belongs to a different operator,
 withholds the Story and reports it in the envelope's
@@ -51,7 +51,7 @@ probe logs a warning and leans on init's lease refusal alone.
 
 ## Dispatch mechanics (role-scoped by default)
 
-**A single-Story run executes inline (Story #4736).** Sub-agent isolation is
+**A single-Story run executes inline.** Sub-agent isolation is
 load-bearing only for **concurrent** dispatch — two workers sharing a checkout
 would race on worktrees and branch refs — so a run resolving exactly one Story
 has no sibling to isolate from and pays the spawn premium for nothing (a boot is
@@ -61,7 +61,7 @@ a cache write at full rate; an inline continuation is a cache read at ~10%).
 retained in full for multi-Story waves, and the rule changes **where** the
 engine runs, never what runs — gates, PR, and terminal envelope are identical.
 
-**Lite-shaped Stories execute inline (Story #4722).** Before spawning anything,
+**Lite-shaped Stories execute inline.** Before spawning anything,
 read the Story's `dispatchMode` from the resolver envelope
 (`stories[].dispatchMode`, derived by `resolveStoryDispatchMode` in
 `lib/orchestration/complexity-gate.js` **from the fetched Story body's own
@@ -91,9 +91,10 @@ prompt: `storyId`; `docsDigestPath` (the per-run docs digest, null when
 `project.docsContextFiles` is unset); `checklistPath` (the footprint-matched
 write-time audit checklist, produced at dispatch, below); and the
 **change-set discipline** — the worker computes the change set once with
-`computeChangeSet` and hands that one list to every acceptance critic (Story #4593); it never lets a critic re-derive the diff.
+`computeChangeSet` and hands that one list to every acceptance critic; it
+never lets a critic re-derive the diff.
 
-**Produce `checklistPath` before the spawn (Story #4627).** Compute the payload
+**Produce `checklistPath` before the spawn.** Compute the payload
 from the Story's predicted footprint (its `changes[]` / `references[]` path
 entries) with `buildDispatchChecklist` and write it to the run temp dir, then
 thread the resulting path (empty when nothing matched):
@@ -163,8 +164,7 @@ Ceremony depth is selected by `delivery.routing.ceremonyProfile`
 (`minimal` | `standard` | `strict`, default `standard`) and the **change level
 derived from the Story's own diff** — the changed files' intersection with the
 sensitive-path classes in `audit-rules.json`
-(`review-depth.js#deriveChangeLevel`), not a planner-authored verdict
-(Story #4542):
+(`review-depth.js#deriveChangeLevel`), not a planner-authored verdict:
 
 | Profile | Acceptance critic | When to use |
 | --- | --- | --- |
@@ -179,7 +179,7 @@ sensitive-path classes in `audit-rules.json`
 | **Per-run (N>1)** | Audit roster · follow-up roll-up · sibling coherence | `plan-run-epilogue.js` once at run end |
 | **Per-Story land tail** | Follow-up capture · status resync · ref cleanup · base fast-forward | `single-story-close/phases/post-land.js` (in-process, per-step reported) |
 
-## Async merge-confirm mode (`delivery.mergeWatch.mode: "async"`, Story #4698)
+## Async merge-confirm mode (`delivery.mergeWatch.mode: "async"`)
 
 A slow-CI consumer can opt the close into `"async"` mode so the merge wait
 probes once for ~60s (catching an instant merge or an instantly-red required

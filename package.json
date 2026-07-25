@@ -41,6 +41,7 @@
     "maintainability:update": "node .agents/scripts/update-maintainability-baseline.js",
     "check:arch": "node .agents/scripts/check-arch-cycles.js",
     "check:context-budget": "node .agents/scripts/check-context-budget.js",
+    "check:workflow-citations": "node .agents/scripts/check-workflow-citations.js",
     "crap:check": "node .agents/scripts/check-baselines.js --gate crap",
     "crap:update": "node .agents/scripts/update-crap-baseline.js",
     "duplication:check": "node .agents/scripts/check-baselines.js --gate duplication",

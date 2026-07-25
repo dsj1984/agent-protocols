@@ -190,11 +190,18 @@ jobs:
         # importers and ratchets separately, because this repo sanctions
         # test-only exports (.agents/rules/test-seams.md) and its row set is
         # therefore large and largely intentional.
+        #
+        # The workflow-citation ratchet (check-workflow-citations.js, baseline
+        # baselines/workflow-citations.json) joins the same slot: workflow
+        # prose is resident context, so provenance asides are charged at the
+        # instruction rate, and nothing but a ratchet stops them
+        # re-accumulating one well-meaning citation at a time.
         run: |
           node .agents/scripts/check-arch-cycles.js --format text
           node .agents/scripts/check-dead-exports.js
           node .agents/scripts/check-dead-exports.js --production
           node .agents/scripts/check-context-budget.js
+          node .agents/scripts/check-workflow-citations.js
 
   windows-smoke:
     # Story #3389 — advisory Windows leg. Exercises bootstrap, command sync,

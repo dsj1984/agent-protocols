@@ -55,7 +55,6 @@ describe('unified /deliver router', () => {
       /PR against main|PR to `main`|Merge target \| `main`/,
       'the helper must document the direct PR-to-main merge target',
     );
-    assertDocMentions(md, /no `epic\/<id>`/i, 'no Epic integration branch');
   });
 
   it('deliver-story stays on the single-story init/close path (no epic/ wave merge)', () => {
@@ -67,11 +66,17 @@ describe('unified /deliver router', () => {
     // `single-story-close.js` (the live v2 path until Stage 5 merges pairs).
     assert.doesNotMatch(md, /(?<!single-)story-init\.js/);
     assert.doesNotMatch(md, /(?<!single-)story-close\.js/);
-    assertDocMentions(md, /no `--no-ff` wave merge/, 'no wave merge in v2');
+    // The guard is structural, not a phrase count: the Epic-era helper and
+    // the wave merge must not reappear. It used to be paired with a positive
+    // assertion that the doc *said* "no `epic/<id>` branch, no `--no-ff` wave
+    // merge" — but that sentence taught the reader an absence, spending
+    // resident context describing a model no v2 reader can reach. The
+    // omission guard below is what actually fences the regression; the
+    // positive branch model is asserted in the sibling test above.
     assertDocOmits(
       md,
-      /helpers\/deliver-epic|git merge --no-ff/,
-      'the Epic-era helper and wave merge must not reappear',
+      /helpers\/deliver-epic|git merge --no-ff|epic\/<id> (branch|integration branch)/,
+      'the Epic-era helper, wave merge, and integration branch must not reappear',
     );
   });
 

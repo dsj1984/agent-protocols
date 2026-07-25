@@ -24,8 +24,8 @@ description: >-
 
 ## Overview
 
-Story #1995 replaced the previous template-merge behaviour with a
-**default-aware** reconciliation: the helper never adds optional keys to the
+The helper performs a **default-aware** reconciliation rather than a
+template merge: it never adds optional keys to the
 project config, because the runtime already layers framework defaults
 underneath the project's values at read time. The only thing the helper
 writes today is a structured report. The mechanical work is delegated to

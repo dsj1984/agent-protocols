@@ -1,0 +1,11 @@
+{
+  "$schema": "https://mandrel.dev/baselines/workflow-citations.schema.json",
+  "generatedAt": "2026-07-25T02:08:14.258Z",
+  "total": 2,
+  "files": [
+    {
+      "path": ".agents/workflows/helpers/signals.md",
+      "count": 2
+    }
+  ]
+}

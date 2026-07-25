@@ -77,8 +77,7 @@ prefer the higher-numbered rule — the parallelism gain compounds the
 background-shell gain. Concretely: dispatch the `Agent` calls in one turn
 (Rule 3), and **inside** each sub-agent let it apply Rule 2 to its own
 long-running shells — and, within the supported nesting depth budget
-(verified depth 2, announced max depth 5; see
-[#2870](https://github.com/dsj1984/mandrel/issues/2870)), let it apply
+(verified depth 2, announced max depth 5), let it apply
 **Rule 3** to its own independent sub-units as well, not only Rule 2
 background shells. A sub-agent is a full orchestrator at its own level:
 recursive `Agent` fan-out is available to it, so the host does not need to
