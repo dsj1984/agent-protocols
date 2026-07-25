@@ -29,11 +29,19 @@
  *                       converted spawn boots on **instead of** the always-loaded
  *                       closure, so it is budgeted independently (per-file ≤8KB
  *                       ceiling gated by `check-context-budget.js`).
+ *   - `workflow` /    — the `.agents/workflows/**` read-tier (Story #4752),
+ *     `workflowOnDemand` resolved as each entry point's transitive
+ *                       markdown-link closure by
+ *                       [`workflow-closure.js`](workflow-closure.js): the files
+ *                       an entry point's `mandatoryReads:` frontmatter forces
+ *                       you to read (`workflow`, gated) versus the reachable
+ *                       remainder (`workflowOnDemand`, recorded only).
  *
  * A file that could appear in more than one tier is kept in its **highest**
  * tier only (alwaysLoaded > mandatoryRead > digestVisible > onDemand), so the
  * arrays partition the doc set with no double-counting. `agentBoot` is disjoint
- * from the read-tiers (it lives under `.agents/agents/`, not the doc/rules set).
+ * from the read-tiers (it lives under `.agents/agents/`, not the doc/rules set),
+ * and so are the workflow tiers (confined to `.agents/workflows/`).
  *
  * The closure is discovered by parsing `@`-import references and following
  * them recursively (cycle-safe via a visited set). A candidate `@`-token only
@@ -47,6 +55,7 @@
 
 import nodeFs from 'node:fs';
 import path from 'node:path';
+import { resolveWorkflowClosures } from './workflow-closure.js';
 
 /**
  * Basename of the always-loaded entry document (the root of the closure).
@@ -212,18 +221,31 @@ export function docsContextPaths(config) {
 }
 
 /**
- * Resolve the four documentation read-tiers, each entry `{ path, bytes }`,
+ * Resolve the documentation read-tiers, each entry `{ path, bytes }`,
  * partitioned so no path appears in more than one tier (highest tier wins).
+ * `workflowClosure` rides alongside the tiers as the per-entry-point workflow
+ * measurement (Story #4752) — its `reachableTotalBytes` is a recorded drift
+ * signal, never a gate.
  *
  * @param {object} config resolved config (`resolveConfig()` output)
  * @param {{ root?: string, fs?: FsLike }} [opts]
- * @returns {{ tiers: {
- *   alwaysLoaded: Array<{ path: string, bytes: number }>,
- *   mandatoryRead: Array<{ path: string, bytes: number }>,
- *   digestVisible: Array<{ path: string, bytes: number }>,
- *   onDemand: Array<{ path: string, bytes: number }>,
- *   agentBoot: Array<{ path: string, bytes: number }>,
- * } }}
+ * @returns {{
+ *   tiers: {
+ *     alwaysLoaded: Array<{ path: string, bytes: number }>,
+ *     mandatoryRead: Array<{ path: string, bytes: number }>,
+ *     digestVisible: Array<{ path: string, bytes: number }>,
+ *     onDemand: Array<{ path: string, bytes: number }>,
+ *     agentBoot: Array<{ path: string, bytes: number }>,
+ *     workflow: Array<{ path: string, bytes: number }>,
+ *     workflowOnDemand: Array<{ path: string, bytes: number }>,
+ *   },
+ *   workflowClosure: {
+ *     mandatoryTotalBytes: number,
+ *     reachableTotalBytes: number,
+ *     entryPoints: Array<{ path: string, mandatoryBytes: number, reachableBytes: number }>,
+ *   },
+ * }}
+ * @throws {Error} on an unresolvable `mandatoryReads` entry or a mandatory cycle
  */
 export function resolveDocTiers(
   config,
@@ -265,8 +287,29 @@ export function resolveDocTiers(
   //    are standalone system prompts, disjoint from the doc read-tiers.
   const agentBoot = collect(listAgentDefs(root, fs));
 
+  // 6. workflow: each entry point's transitive markdown-link closure (#4752),
+  //    split into the gated mandatory set and the recorded on-demand remainder.
+  //    The walk is confined to `.agents/workflows/**`, and `collect` still
+  //    de-dupes, so no path is counted against two tiers.
+  const closure = resolveWorkflowClosures(root, { fs });
+  const workflow = collect(closure.mandatoryFiles.map((e) => e.path));
+  const workflowOnDemand = collect(closure.onDemandFiles.map((e) => e.path));
+
   return {
-    tiers: { alwaysLoaded, mandatoryRead, digestVisible, onDemand, agentBoot },
+    tiers: {
+      alwaysLoaded,
+      mandatoryRead,
+      digestVisible,
+      onDemand,
+      agentBoot,
+      workflow,
+      workflowOnDemand,
+    },
+    workflowClosure: {
+      mandatoryTotalBytes: closure.mandatoryTotalBytes,
+      reachableTotalBytes: closure.reachableTotalBytes,
+      entryPoints: closure.entryPoints,
+    },
   };
 }
 

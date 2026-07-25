@@ -11,6 +11,13 @@
  *   - `alwaysLoaded`  — the `CLAUDE.md` `@`-import closure re-paid on every
  *                       session and every subagent spawn (instructions.md § 4).
  *   - `mandatoryRead` — the resolved `project.docsContextFiles` set.
+ *   - `workflow`      — the workflow **mandatory closure** (Story #4752): every
+ *                       `.agents/workflows/**` entry point plus the transitive
+ *                       closure of its `mandatoryReads:` frontmatter edges. The
+ *                       companion **reachable** closure (per entry point) is
+ *                       recorded under the top-level `workflowClosure` key as a
+ *                       drift signal and never gates — growth there is a
+ *                       reading-cost signal, not a contract violation.
  *
  * It additionally enforces a **per-file** ceiling on the role-scoped agent-boot
  * tier (`.agents/agents/*.md`, #4478): no single boot context may exceed
@@ -52,12 +59,12 @@ import { resolveConfig } from './lib/config-resolver.js';
 import { resolveDocTiers, tierTotalBytes } from './lib/doc-tiers.js';
 
 /**
- * The tiers this ratchet gates (in report order). `digestVisible` and
- * `onDemand` are resolved by the tier map for the lens, but the byte budget
- * intentionally gates only the two tiers the Epic AC names.
- * @type {Array<'alwaysLoaded' | 'mandatoryRead'>}
+ * The tiers this ratchet gates (in report order). `digestVisible`, `onDemand`
+ * and `workflowOnDemand` are resolved by the tier map for the lens, but the
+ * byte budget intentionally gates only the tiers a session is *forced* to read.
+ * @type {Array<'alwaysLoaded' | 'mandatoryRead' | 'workflow'>}
  */
-export const GATED_TIERS = ['alwaysLoaded', 'mandatoryRead'];
+export const GATED_TIERS = ['alwaysLoaded', 'mandatoryRead', 'workflow'];
 
 /**
  * Default tolerance (bytes) seeded into a fresh baseline by `--update` when the
@@ -171,6 +178,12 @@ export function buildBaseline(tierMap, toleranceBytes) {
       ceilingBytes: AGENT_BOOT_CEILING_BYTES,
       files: agentBootFiles,
     },
+    // Recorded, never gated (#4752): the total reachable closure per workflow
+    // entry point. It is a drift signal — the gate is `tiers.workflow`.
+    workflowClosure: {
+      reachableTotalBytes: tierMap.workflowClosure?.reachableTotalBytes ?? 0,
+      entryPoints: tierMap.workflowClosure?.entryPoints ?? [],
+    },
   };
 }
 
@@ -247,6 +260,25 @@ export function renderDiff(diff) {
     `[context-budget] grown=${diff.grown.length} shrunk=${diff.shrunk.length} skipped=${diff.skipped.length} ${tag}`,
   );
   return lines.join('\n');
+}
+
+/**
+ * Render the workflow **reachable** closure line — recorded, never gated
+ * (Story #4752). Returns `''` when there is no workflow tier to report, so the
+ * caller can stay a one-liner.
+ *
+ * @param {{ workflowClosure?: { reachableTotalBytes?: number, entryPoints?: unknown[] } }} tierMap
+ * @param {{ workflowClosure?: { reachableTotalBytes?: number } } | null} [baseline]
+ * @returns {string}
+ */
+export function renderReachable(tierMap, baseline) {
+  const closure = tierMap?.workflowClosure;
+  const current = closure?.reachableTotalBytes ?? 0;
+  if (current <= 0) return '';
+  const recorded = baseline?.workflowClosure?.reachableTotalBytes;
+  const against = Number.isFinite(recorded) ? ` (recorded ${recorded})` : '';
+  const entries = closure.entryPoints?.length ?? 0;
+  return `  workflow reachable closure: ${current} bytes across ${entries} entry points${against} — drift signal, never gated`;
 }
 
 /**
@@ -338,12 +370,15 @@ export async function runCli({
       skipped: diff.skipped,
       agentBootCeilingBytes: ceiling,
       agentBootOverflow: bootOverflow,
+      workflowReachableBytes: tierMap.workflowClosure?.reachableTotalBytes ?? 0,
       exitCode,
     };
     stdout.write(`${JSON.stringify(envelope, null, 2)}\n`);
   } else {
     stdout.write(`\n--- context-budget preview ---\n`);
     stdout.write(`${renderDiff(diff)}\n`);
+    const reachable = renderReachable(tierMap, baseline);
+    if (reachable) stdout.write(`${reachable}\n`);
     for (const o of bootOverflow) {
       stdout.write(
         `+ agentBoot: ${o.path} is ${o.bytes} bytes, over the ${o.ceiling}-byte per-agent ceiling\n`,

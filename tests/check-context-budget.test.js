@@ -12,6 +12,7 @@ import {
   loadBaseline,
   parseArgv,
   renderDiff,
+  renderReachable,
   runCli,
 } from '../.agents/scripts/check-context-budget.js';
 
@@ -40,6 +41,7 @@ function makeSink() {
 function makeRepo({
   withClaude = true,
   docsContextFiles = ['architecture.md'],
+  withWorkflows = false,
 } = {}) {
   const root = fs.mkdtempSync(path.join(os.tmpdir(), 'ctx-budget-'));
   const write = (rel, body) => {
@@ -51,11 +53,19 @@ function makeRepo({
     write('CLAUDE.md', '@AGENTS.md\n');
     write('AGENTS.md', 'onboarding context\n');
   }
+  if (withWorkflows) {
+    write(
+      '.agents/workflows/deliver.md',
+      '---\ndescription: fixture\nmandatoryReads: [helpers/digest.md]\n---\n\n# /deliver\n\n[digest](helpers/digest.md) [appendix](helpers/appendix.md)\n',
+    );
+    write('.agents/workflows/helpers/digest.md', '# Digest\n');
+    write('.agents/workflows/helpers/appendix.md', '# Appendix\n');
+  }
   write('docs/architecture.md', 'architecture doc body\n');
   const config = {
     project: { paths: { docsRoot: 'docs' }, docsContextFiles },
   };
-  return { root, config };
+  return { root, config, write };
 }
 
 // ---------------------------------------------------------------------------
@@ -301,6 +311,192 @@ test('runCli passes when role-agent boot contexts are within the ceiling', async
     stderr: makeSink(),
   });
   assert.equal(code, 0);
+});
+
+// ---------------------------------------------------------------------------
+// Workflow mandatory-closure ratchet (Story #4752)
+// ---------------------------------------------------------------------------
+
+test('the workflow mandatory closure is a gated tier', () => {
+  assert.ok(GATED_TIERS.includes('workflow'));
+});
+
+test('--update records the workflow tier and the per-entry-point reachable closure', async () => {
+  const { root, config } = makeRepo({ withWorkflows: true });
+  await runCli({
+    argv: ['--update'],
+    cwd: root,
+    config,
+    stdout: makeSink(),
+    stderr: makeSink(),
+  });
+  const baseline = loadBaseline(
+    path.join(root, 'baselines', 'context-budget.json'),
+  );
+  assert.ok(baseline.tiers.workflow.totalBytes > 0);
+  assert.deepEqual(
+    baseline.tiers.workflow.files.map((f) => f.path),
+    ['.agents/workflows/deliver.md', '.agents/workflows/helpers/digest.md'],
+  );
+  // Reachable is recorded alongside the gated tiers, never inside them.
+  assert.ok(
+    baseline.workflowClosure.reachableTotalBytes >
+      baseline.tiers.workflow.totalBytes,
+  );
+  assert.deepEqual(
+    baseline.workflowClosure.entryPoints.map((e) => e.path),
+    ['.agents/workflows/deliver.md'],
+  );
+  assert.ok(baseline.workflowClosure.entryPoints[0].reachableBytes > 0);
+});
+
+test('runCli exits 1 when a mandatory workflow read grows beyond tolerance', async () => {
+  const { root, config } = makeRepo({ withWorkflows: true });
+  await runCli({
+    argv: ['--update'],
+    cwd: root,
+    config,
+    stdout: makeSink(),
+    stderr: makeSink(),
+  });
+  const baseline = loadBaseline(
+    path.join(root, 'baselines', 'context-budget.json'),
+  );
+  fs.appendFileSync(
+    path.join(root, '.agents', 'workflows', 'helpers', 'digest.md'),
+    'x'.repeat(baseline.toleranceBytes + 1000),
+  );
+  const stdout = makeSink();
+  const stderr = makeSink();
+  const code = await runCli({ argv: [], cwd: root, config, stdout, stderr });
+  assert.equal(code, 1);
+  assert.match(stdout.text(), /\+ workflow:/);
+  assert.match(stderr.text(), /grew beyond tolerance/);
+});
+
+test('a promoted on-demand read trips the ratchet — the marker, not the bytes, is the signal', async () => {
+  const { root, config, write } = makeRepo({ withWorkflows: true });
+  await runCli({
+    argv: ['--update'],
+    cwd: root,
+    config,
+    stdout: makeSink(),
+    stderr: makeSink(),
+  });
+  // Same bytes on disk; the appendix is merely re-declared as a mandatory read.
+  write(
+    '.agents/workflows/helpers/appendix.md',
+    `---\ndescription: appendix\n---\n\n# Appendix\n${'y'.repeat(4000)}\n`,
+  );
+  await runCli({
+    argv: ['--update'],
+    cwd: root,
+    config,
+    stdout: makeSink(),
+    stderr: makeSink(),
+  });
+  write(
+    '.agents/workflows/deliver.md',
+    '---\ndescription: fixture\nmandatoryReads: [helpers/digest.md, helpers/appendix.md]\n---\n\n# /deliver\n\n[digest](helpers/digest.md) [appendix](helpers/appendix.md)\n',
+  );
+  const stdout = makeSink();
+  const code = await runCli({
+    argv: [],
+    cwd: root,
+    config,
+    stdout,
+    stderr: makeSink(),
+  });
+  assert.equal(code, 1);
+  assert.match(stdout.text(), /\+ workflow:/);
+});
+
+test('growth in the reachable-only closure is reported but never gates', async () => {
+  const { root, config } = makeRepo({ withWorkflows: true });
+  await runCli({
+    argv: ['--update'],
+    cwd: root,
+    config,
+    stdout: makeSink(),
+    stderr: makeSink(),
+  });
+  // The appendix is reachable but not mandatory — bloat it far past tolerance.
+  fs.appendFileSync(
+    path.join(root, '.agents', 'workflows', 'helpers', 'appendix.md'),
+    'z'.repeat(50_000),
+  );
+  const stdout = makeSink();
+  const code = await runCli({
+    argv: [],
+    cwd: root,
+    config,
+    stdout,
+    stderr: makeSink(),
+  });
+  assert.equal(code, 0);
+  assert.match(stdout.text(), /workflow reachable closure: \d+ bytes/);
+  assert.match(stdout.text(), /never gated/);
+});
+
+test('a shrunken workflow closure prints the informational marker and still exits 0', async () => {
+  const { root, config, write } = makeRepo({ withWorkflows: true });
+  write('.agents/workflows/helpers/digest.md', `# Digest\n${'q'.repeat(3000)}`);
+  await runCli({
+    argv: ['--update'],
+    cwd: root,
+    config,
+    stdout: makeSink(),
+    stderr: makeSink(),
+  });
+  write('.agents/workflows/helpers/digest.md', '# Digest\n');
+  const stdout = makeSink();
+  const code = await runCli({
+    argv: [],
+    cwd: root,
+    config,
+    stdout,
+    stderr: makeSink(),
+  });
+  assert.equal(code, 0);
+  assert.match(stdout.text(), /- workflow: \d+ bytes below baseline/);
+});
+
+test('renderReachable is silent without a workflow closure and cites the recorded total with one', () => {
+  assert.equal(renderReachable({}, null), '');
+  assert.equal(
+    renderReachable({ workflowClosure: { reachableTotalBytes: 0 } }),
+    '',
+  );
+  assert.match(
+    renderReachable(
+      {
+        workflowClosure: {
+          reachableTotalBytes: 900,
+          entryPoints: [{ path: 'a' }, { path: 'b' }],
+        },
+      },
+      { workflowClosure: { reachableTotalBytes: 800 } },
+    ),
+    /900 bytes across 2 entry points \(recorded 800\) — drift signal, never gated/,
+  );
+});
+
+test('runCli propagates a loud workflow-closure failure instead of degrading', async () => {
+  const { root, config, write } = makeRepo({ withWorkflows: true });
+  write(
+    '.agents/workflows/deliver.md',
+    '---\ndescription: fixture\nmandatoryReads: [helpers/gone.md]\n---\n\n# /deliver\n',
+  );
+  await assert.rejects(
+    runCli({
+      argv: [],
+      cwd: root,
+      config,
+      stdout: makeSink(),
+      stderr: makeSink(),
+    }),
+    /helpers\/gone\.md/,
+  );
 });
 
 test('runCli is a no-op (exit 0) when the baseline is absent', async () => {
