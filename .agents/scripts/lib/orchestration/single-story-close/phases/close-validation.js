@@ -137,22 +137,31 @@ export async function runCloseValidationPhase({
   // Story #4736 — one sink for both `log` seams (gate construction and gate
   // execution), so nothing in the chain can route around the artifact.
   const gateLog = createGateLogSink({ storyId, cwd });
-  const validation = await runCloseValidation({
-    cwd,
-    worktreePath,
-    gates: buildDefaultGates({
-      config,
-      baseBranch,
-      cwd: worktreePath || cwd,
+  let validation;
+  try {
+    validation = await runCloseValidation({
+      cwd,
+      worktreePath,
+      gates: buildDefaultGates({
+        config,
+        baseBranch,
+        cwd: worktreePath || cwd,
+        log: gateLog.log,
+      }),
       log: gateLog.log,
-    }),
-    log: gateLog.log,
-    storyId,
-    // Story #4250 — standalone storyId-anchored evidence keyspace. No
-    // epicId; the standalone flag routes the cache to
-    // temp/standalone/stories/story-<id>/validation-evidence.json.
-    standalone: true,
-  });
+      storyId,
+      // Story #4250 — standalone storyId-anchored evidence keyspace. No
+      // epicId; the standalone flag routes the cache to
+      // temp/standalone/stories/story-<id>/validation-evidence.json.
+      standalone: true,
+    });
+  } finally {
+    // Story #4766 — gate lines are buffered to an async stream so the drain
+    // never blocks a gate child's pipe. Settle the artifact before anything
+    // reads it, replays from it, or reports its path — including on the throw
+    // path, where the artifact is the only surviving record.
+    await gateLog.flush();
+  }
   if (!validation.ok) {
     const [first] = validation.failed;
     const { gate, status, cwd: gateCwd } = first;

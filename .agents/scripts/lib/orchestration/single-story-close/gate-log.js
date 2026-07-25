@@ -36,6 +36,24 @@
  * The sink never throws. A log directory that cannot be written degrades to
  * inline streaming — losing the size bound is strictly better than losing the
  * gate output that says why a close failed.
+ *
+ * ## Why the artifact is written asynchronously (Story #4766)
+ *
+ * This sink is the `log` callable that `close-validation/process.js` invokes
+ * from inside the gate child's stdout/stderr `'data'` handler — once per line.
+ * The first cut wrote each line with `fs.writeSync`, which blocks the event
+ * loop while the child keeps writing: the OS pipe buffer fills, the child's
+ * write fails with `EAGAIN`, and a child that does not tolerate that dies. On
+ * a clean `main` `biome ci .` already emits ~625 lines, and it aborts with
+ * exit 101 (a `biome_console` panic, not a lint violation) when it happens —
+ * so the first gate of any close could die on plumbing while its verdict was
+ * green.
+ *
+ * So the write path buffers into an async stream instead: per-line work is
+ * O(1) and never touches a syscall on the drain path. The cost is that the
+ * artifact is not on disk the instant a line is logged, which is why the sink
+ * exposes {@link GateLogSink#flush} — callers await it before reading,
+ * replaying, or naming the artifact as final.
  */
 
 import nodeFs from 'node:fs';
@@ -65,9 +83,9 @@ function logNameFor(storyId) {
  */
 class GateLogSink {
   /**
-   * @param {{ logPath: string|null, streamInline: boolean, write: (line: string) => void, emit: (line: string) => void }} args
+   * @param {{ logPath: string|null, streamInline: boolean, write: (line: string) => void, flush?: () => Promise<void>, emit: (line: string) => void }} args
    */
-  constructor({ logPath, streamInline, write, emit }) {
+  constructor({ logPath, streamInline, write, flush, emit }) {
     /** Absolute path of the artifact, or `null` when capture is unavailable. */
     this.logPath = logPath;
     /** Whether lines are ALSO echoed inline as they arrive. */
@@ -75,6 +93,7 @@ class GateLogSink {
     /** Number of lines captured so far. */
     this.lineCount = 0;
     this._write = write;
+    this._flush = flush ?? (() => Promise.resolve());
     this._emit = emit;
     this._tail = [];
   }
@@ -94,6 +113,19 @@ class GateLogSink {
       this._write(line);
       if (this.streamInline) this._emit(line);
     };
+  }
+
+  /**
+   * Settle the artifact: wait for every buffered line to reach disk and close
+   * the file. Idempotent, never throws, and a no-op on the degraded (no
+   * artifact) path. Await it before reading {@link GateLogSink#logPath} or
+   * handing the path to anyone — the write path is async precisely so it never
+   * stalls a gate child's pipe.
+   *
+   * @returns {Promise<void>}
+   */
+  flush() {
+    return this._flush();
   }
 
   /**
@@ -130,6 +162,50 @@ class GateLogSink {
 }
 
 /**
+ * Wrap an already-open artifact fd in a non-blocking line writer.
+ *
+ * `write` hands the line to a `fs.WriteStream` — O(1), no syscall on the
+ * caller's stack — and `flush` ends the stream, resolving once every buffered
+ * line has reached disk (or the stream has errored; a half-written artifact is
+ * still better than a dead close). Both are best-effort by construction: the
+ * stream's `'error'` is absorbed, so nothing here can abort a close.
+ *
+ * @param {typeof nodeFs} fs
+ * @param {string} logPath
+ * @param {number} handle
+ * @returns {{ write: (line: string) => void, flush: () => Promise<void> }}
+ */
+function createArtifactWriter(fs, logPath, handle) {
+  const stream = fs.createWriteStream(logPath, { fd: handle, autoClose: true });
+  stream.on('error', () => {
+    /* best-effort: a mid-run write failure must not abort the close */
+  });
+  let ending = null;
+  return {
+    write: (line) => {
+      if (ending) return;
+      try {
+        stream.write(`${line}\n`);
+      } catch {
+        /* best-effort: see above */
+      }
+    },
+    flush: () => {
+      ending ??= new Promise((resolve) => {
+        const settle = () => resolve();
+        stream.once('error', settle);
+        try {
+          stream.end(settle);
+        } catch {
+          settle();
+        }
+      });
+      return ending;
+    },
+  };
+}
+
+/**
  * Build the gate-output sink for one close run.
  *
  * @param {{
@@ -155,14 +231,14 @@ export function createGateLogSink({
   const verbose = (level ?? resolveLevel()) === 'verbose';
   const dir = logDir ?? path.join(cwd, 'temp', 'orchestration');
 
-  let handle = null;
+  let writer = null;
   let logPath = null;
   try {
     fs.mkdirSync(dir, { recursive: true });
     logPath = path.join(dir, logNameFor(storyId));
     // Truncate: each close run owns its artifact outright, so a re-run never
     // hands the reader a file interleaving two runs' gates.
-    handle = fs.openSync(logPath, 'w');
+    writer = createArtifactWriter(fs, logPath, fs.openSync(logPath, 'w'));
   } catch {
     // No artifact — fall back to inline streaming rather than dropping the
     // gate output on the floor.
@@ -174,13 +250,11 @@ export function createGateLogSink({
     });
   }
 
-  const write = (line) => {
-    try {
-      fs.writeSync(handle, `${line}\n`);
-    } catch {
-      /* best-effort: a mid-run write failure must not abort the close */
-    }
-  };
-
-  return new GateLogSink({ logPath, streamInline: verbose, write, emit });
+  return new GateLogSink({
+    logPath,
+    streamInline: verbose,
+    write: writer.write,
+    flush: writer.flush,
+    emit,
+  });
 }
