@@ -11,6 +11,11 @@
  *   - an unwritable artifact degrades to streaming rather than dropping the
  *     gate output, because losing the size bound beats losing the reason a
  *     close failed.
+ *
+ * Story #4766 made the artifact write asynchronous (a synchronous per-line
+ * write stalls the gate child's pipe), so every assertion that reads the
+ * artifact now awaits `sink.flush()` first. The volume regression that forced
+ * that change lives in `tests/close-validation-gate-output-volume.test.js`.
  */
 
 import assert from 'node:assert/strict';
@@ -52,10 +57,11 @@ function sinkAt(name, opts = {}) {
 }
 
 describe('createGateLogSink — success path (AC-3)', () => {
-  it('captures gate output to the artifact and emits nothing inline', () => {
+  it('captures gate output to the artifact and emits nothing inline', async () => {
     const sink = sinkAt('quiet');
     for (let i = 0; i < 500; i += 1)
       sink.log(`[test] line ${i} ${'x'.repeat(80)}`);
+    await sink.flush();
 
     assert.deepEqual(emitted, [], 'no gate line may reach the inline sink');
     assert.equal(sink.lineCount, 500);
@@ -83,7 +89,7 @@ describe('createGateLogSink — success path (AC-3)', () => {
     );
   });
 
-  it('truncates the artifact per run so a re-run never interleaves two runs', () => {
+  it('truncates the artifact per run so a re-run never interleaves two runs', async () => {
     const dir = path.join(tmpDir, 'rerun');
     const first = createGateLogSink({
       storyId: 4736,
@@ -92,6 +98,7 @@ describe('createGateLogSink — success path (AC-3)', () => {
       level: 'info',
     });
     first.log('FIRST RUN');
+    await first.flush();
     const second = createGateLogSink({
       storyId: 4736,
       logDir: dir,
@@ -99,6 +106,7 @@ describe('createGateLogSink — success path (AC-3)', () => {
       level: 'info',
     });
     second.log('SECOND RUN');
+    await second.flush();
 
     const written = nodeFs.readFileSync(second.logPath, 'utf8');
     assert.equal(first.logPath, second.logPath, 'both runs key on the storyId');
@@ -124,10 +132,11 @@ describe('createGateLogSink — failure path (AC-4)', () => {
     ]);
   });
 
-  it('bounds the replay to the tail and says how much it omitted', () => {
+  it('bounds the replay to the tail and says how much it omitted', async () => {
     const sink = sinkAt('replay-tail');
     const total = REPLAY_TAIL_LINES + 40;
     for (let i = 0; i < total; i += 1) sink.log(`line ${i}`);
+    await sink.flush();
 
     assert.equal(sink.replay(), REPLAY_TAIL_LINES);
     assert.equal(emitted.length, REPLAY_TAIL_LINES + 1, 'tail plus one notice');
@@ -145,9 +154,10 @@ describe('createGateLogSink — failure path (AC-4)', () => {
 });
 
 describe('createGateLogSink — streaming and degradation', () => {
-  it('AGENT_LOG_LEVEL=verbose streams inline AND still writes the artifact', () => {
+  it('AGENT_LOG_LEVEL=verbose streams inline AND still writes the artifact', async () => {
     const sink = sinkAt('verbose', { level: 'verbose' });
     sink.log('gate line');
+    await sink.flush();
 
     assert.deepEqual(emitted, ['gate line']);
     assert.ok(nodeFs.readFileSync(sink.logPath, 'utf8').includes('gate line'));
@@ -177,7 +187,9 @@ describe('createGateLogSink — streaming and degradation', () => {
     assert.match(sink.digest(), /no artifact could be written/);
   });
 
-  it('survives a mid-run write failure without aborting the close', () => {
+  it('survives a mid-run write failure without aborting the close', async () => {
+    // Story #4766 — the artifact is now a stream, so the failure mode under
+    // test is a throwing/erroring `stream.write`, not a throwing `writeSync`.
     let calls = 0;
     const sink = createGateLogSink({
       storyId: 4736,
@@ -187,15 +199,38 @@ describe('createGateLogSink — streaming and degradation', () => {
       fs: {
         mkdirSync() {},
         openSync: () => 7,
-        writeSync() {
-          calls += 1;
-          throw new Error('ENOSPC: no space left on device');
-        },
+        createWriteStream: () => ({
+          on() {},
+          once() {},
+          write() {
+            calls += 1;
+            throw new Error('ENOSPC: no space left on device');
+          },
+          end(cb) {
+            cb?.();
+          },
+        }),
       },
     });
 
     assert.doesNotThrow(() => sink.log('gate line'));
     assert.equal(calls, 1);
     assert.equal(sink.lineCount, 1, 'the line is still counted and replayable');
+    await assert.doesNotReject(() => sink.flush());
+    assert.equal(sink.replay(), 1, 'the line is still replayable inline');
+  });
+
+  it('flush is idempotent and drops nothing after a second call', async () => {
+    const sink = sinkAt('flush-twice');
+    sink.log('one');
+    sink.log('two');
+    await sink.flush();
+    await sink.flush();
+
+    assert.equal(
+      nodeFs.readFileSync(sink.logPath, 'utf8'),
+      'one\ntwo\n',
+      'a second flush must neither truncate nor duplicate the artifact',
+    );
   });
 });
