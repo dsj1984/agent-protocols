@@ -2,6 +2,21 @@
 
 All notable changes to this project will be documented in this file.
 
+## [2.15.0](https://github.com/dsj1984/mandrel/compare/mandrel-v2.14.0...mandrel-v2.15.0) (2026-07-25)
+
+
+### Added
+
+* gate the workflow read-tier with a transitive mandatory-closure ratchet ([#4752](https://github.com/dsj1984/mandrel/issues/4752)) ([#4755](https://github.com/dsj1984/mandrel/issues/4755)) ([ac0f1e0](https://github.com/dsj1984/mandrel/commit/ac0f1e038560f4d69146f6dae46c2eb97ae2dbb2))
+* make workflow-invoked orchestration scripts self-describing via --help ([#4750](https://github.com/dsj1984/mandrel/issues/4750)) ([#4756](https://github.com/dsj1984/mandrel/issues/4756)) ([922c278](https://github.com/dsj1984/mandrel/commit/922c278ed15f77761c88366ce6d166e0a0dd9157))
+* **workflows:** one delivery door and derived invocation intent (refs [#4760](https://github.com/dsj1984/mandrel/issues/4760)) ([#4761](https://github.com/dsj1984/mandrel/issues/4761)) ([36bff50](https://github.com/dsj1984/mandrel/commit/36bff502b7d4e475569da7cae2eb0ec66d24b85d))
+
+
+### Fixed
+
+* **deps:** bump brace-expansion to 5.0.8 for GHSA-mh99-v99m-4gvg ([#4753](https://github.com/dsj1984/mandrel/issues/4753)) ([3351100](https://github.com/dsj1984/mandrel/commit/3351100801b70e9e17cf3ed99245b3d81e162232))
+* **tests:** resolve cli-usage argv[1] with fileURLToPath for Windows ([#4759](https://github.com/dsj1984/mandrel/issues/4759)) ([7fa3ee1](https://github.com/dsj1984/mandrel/commit/7fa3ee1e17c46995b9043fa879970a768b04b298))
+
 ## [2.14.0](https://github.com/dsj1984/mandrel/compare/mandrel-v2.13.0...mandrel-v2.14.0) (2026-07-24)
 
 
