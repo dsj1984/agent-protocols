@@ -2,6 +2,23 @@
 
 All notable changes to this project will be documented in this file.
 
+## [2.16.0](https://github.com/dsj1984/mandrel/compare/mandrel-v2.15.0...mandrel-v2.16.0) (2026-07-25)
+
+
+### Added
+
+* **workflows:** add operator-invoked /prototype and an advisory uiSurface offer (refs [#4765](https://github.com/dsj1984/mandrel/issues/4765)) ([#4769](https://github.com/dsj1984/mandrel/issues/4769)) ([d3f7173](https://github.com/dsj1984/mandrel/commit/d3f71734ef8573ffa40187b5f4f8a97be6e32041))
+
+
+### Fixed
+
+* **close-validation:** drain gate output without stalling the child's pipe (refs [#4766](https://github.com/dsj1984/mandrel/issues/4766)) ([#4770](https://github.com/dsj1984/mandrel/issues/4770)) ([fd75550](https://github.com/dsj1984/mandrel/commit/fd75550288411a4c92831ac7c9b946e2cce5a686))
+
+
+### Changed
+
+* **routing:** scope the light path by effort and risk (refs [#4764](https://github.com/dsj1984/mandrel/issues/4764)) ([#4767](https://github.com/dsj1984/mandrel/issues/4767)) ([c4851ab](https://github.com/dsj1984/mandrel/commit/c4851abe218721145daaeb4353af400223b588e6))
+
 ## [2.15.0](https://github.com/dsj1984/mandrel/compare/mandrel-v2.14.0...mandrel-v2.15.0) (2026-07-25)
 
 
