@@ -1,8 +1,10 @@
 import assert from 'node:assert/strict';
+import { spawnSync } from 'node:child_process';
 import fs from 'node:fs';
 import os from 'node:os';
 import path from 'node:path';
 import { test } from 'node:test';
+import { fileURLToPath } from 'node:url';
 import {
   AGENT_BOOT_CEILING_BYTES,
   agentBootOverflow,
@@ -479,6 +481,55 @@ test('renderReachable is silent without a workflow closure and cites the recorde
     ),
     /900 bytes across 2 entry points \(recorded 800\) — drift signal, never gated/,
   );
+});
+
+/**
+ * Run the real CLI as a subprocess against a fixture root, so the assertion is
+ * on the **process exit code** rather than the in-process return value.
+ */
+function runScript(root) {
+  const script = path.join(
+    path.dirname(fileURLToPath(import.meta.url)),
+    '..',
+    '.agents',
+    'scripts',
+    'check-context-budget.js',
+  );
+  return spawnSync(process.execPath, [script, '--root', root], {
+    encoding: 'utf8',
+  });
+}
+
+test('the CLI exits non-zero naming the workflow and path when a mandatoryReads entry is missing', () => {
+  const { root, write } = makeRepo({ withWorkflows: true });
+  write(
+    '.agents/workflows/deliver.md',
+    '---\ndescription: fixture\nmandatoryReads: [helpers/gone.md]\n---\n\n# /deliver\n',
+  );
+  const result = runScript(root);
+  assert.notEqual(result.status, 0);
+  const output = `${result.stdout}${result.stderr}`;
+  assert.match(output, /\.agents\/workflows\/deliver\.md/);
+  assert.match(output, /helpers\/gone\.md/);
+});
+
+test('the CLI exits non-zero naming the cycle when mandatoryReads edges loop', () => {
+  const { root, write } = makeRepo({ withWorkflows: true });
+  write(
+    '.agents/workflows/deliver.md',
+    '---\ndescription: fixture\nmandatoryReads: [helpers/digest.md]\n---\n\n# /deliver\n',
+  );
+  write(
+    '.agents/workflows/helpers/digest.md',
+    '---\ndescription: fixture\nmandatoryReads: [appendix.md]\n---\n\n# Digest\n',
+  );
+  write(
+    '.agents/workflows/helpers/appendix.md',
+    '---\ndescription: fixture\nmandatoryReads: [digest.md]\n---\n\n# Appendix\n',
+  );
+  const result = runScript(root);
+  assert.notEqual(result.status, 0);
+  assert.match(`${result.stdout}${result.stderr}`, /cycle/);
 });
 
 test('runCli propagates a loud workflow-closure failure instead of degrading', async () => {
