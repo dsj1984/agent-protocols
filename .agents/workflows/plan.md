@@ -82,6 +82,9 @@ this envelope, not the raw seed; an `ask-operator` verdict returns here to
 step 2 with the interrogation intact. Under `--yes` it is recorded and planning
 proceeds — never auto-downgraded to light.
 
+A truthy `complexitySignals.uiSurface` marks a UI-touching plan: name
+[`/prototype`](prototype.md) as an operator option — never invoke it here.
+
 ### 2. Author
 
 **One-shot authoring.** Start from `stories.template.json`; author
@@ -156,8 +159,7 @@ JSON.
 
 In tickets mode persist resolves source ids **envelope-first** and closes each
 as `not_planned` with a comment (default on;
-[detail](helpers/plan-reference.md)). On a stranded persist, re-run the same
-command — never hand-delete issues.
+[detail](helpers/plan-reference.md)).
 
 ## Constraints
 

@@ -1082,6 +1082,183 @@ describe('plan-context deliverLightSuggestion (Story #4741 AC-6)', () => {
   });
 });
 
+// Story #4765 — the advisory UI-surface offer. Two observables ANDed: the
+// project is web-capable at all, and a predicted path matches one of the
+// `target: "web"` lens filePatterns in audit-rules.json.
+//
+// The signal CANNOT fire in this repository (no rendered frontend), which is
+// the point of AC-8 — so exercising it at all needs a synthetic web-surface
+// fixture. `delivery.quality.navigability.routeGlobs` is the cheapest one:
+// `hasWebSurface` treats a configured route-glob set as a determinate web
+// signal and returns before it touches the filesystem, so the fixture needs no
+// temp tree and cannot be perturbed by the process-lifetime fs memo.
+describe('plan-context uiSurface offer (Story #4765)', () => {
+  /** Synthetic web-capable consumer config. */
+  const WEB_CONFIG = {
+    delivery: {
+      quality: { navigability: { routeGlobs: ['app/**/page.tsx'] } },
+    },
+  };
+
+  /** A seed naming paths that match the web lens filePatterns. */
+  const UI_SEED = [
+    '# Runs dashboard',
+    '',
+    '## Scope',
+    '',
+    '- render the run list in src/components/RunList.tsx',
+    '- style it from styles/dashboard.css',
+    '',
+  ].join('\n');
+
+  /** A seed whose predicted footprint is pure orchestration. */
+  const NON_UI_SEED = [
+    '# Resolve stories faster',
+    '',
+    '## Scope',
+    '',
+    '- memoize the probe in lib/orchestration/resolve-stories.js',
+    '',
+  ].join('\n');
+
+  const envelopeFor = (seedText, config) =>
+    buildPlanContext({
+      mode: 'seed',
+      seedText,
+      provider: buildProvider(),
+      config,
+      settings: {},
+    });
+
+  it('fires on a web-capable project whose predicted footprint touches UI paths (AC-5)', async () => {
+    const env = await envelopeFor(UI_SEED, WEB_CONFIG);
+    const ui = env.complexitySignals.uiSurface;
+    assert.equal(ui.detected, true);
+    assert.equal(ui.webSurface, true);
+    // Derived from the audit-rules web filePatterns via matchesAnyFilePattern —
+    // both named paths match (`**/components/**/*.{tsx,…}` and `**/*.css`).
+    assert.deepEqual(ui.matchedPaths.sort(), [
+      'src/components/RunList.tsx',
+      'styles/dashboard.css',
+    ]);
+    assert.equal(ui.matchedPathCount, 2);
+    assert.match(ui.reasons[0], /\/prototype/);
+  });
+
+  it('carries no routing authority — advisory, never automatic (AC-8)', async () => {
+    const env = await envelopeFor(UI_SEED, WEB_CONFIG);
+    const ui = env.complexitySignals.uiSurface;
+    assert.equal(ui.advisory, true);
+    assert.equal(
+      ui.automatic,
+      false,
+      'a truthy uiSurface must never reroute /plan — the operator invokes /prototype',
+    );
+    // The signal adds no gate: the enclosing signal bag is still advisory-only.
+    assert.equal(env.complexitySignals.routingAuthority, false);
+  });
+
+  it('self-disables when no predicted path matches a web filePattern', async () => {
+    const ui = (await envelopeFor(NON_UI_SEED, WEB_CONFIG)).complexitySignals
+      .uiSurface;
+    assert.equal(ui.detected, false);
+    assert.equal(ui.webSurface, true);
+    assert.deepEqual(ui.matchedPaths, []);
+    assert.match(ui.reasons[0], /no predicted path matches/);
+  });
+
+  it('resolves falsey in this frontend-less repository even for a UI-shaped seed (AC-8)', async () => {
+    // No routeGlobs, no web framework in package.json, no .html/.css/.jsx/.tsx
+    // in the tree: hasWebSurface is determinately false here, so the offer
+    // cannot fire however the seed is written.
+    const ui = (await envelopeFor(UI_SEED, {})).complexitySignals.uiSurface;
+    assert.equal(ui.webSurface, false);
+    assert.equal(
+      ui.detected,
+      false,
+      'mandrel ships no rendered frontend — the offer must be a silent no-op here',
+    );
+    assert.match(ui.reasons[0], /no rendered web surface/);
+  });
+
+  it('rides nested under complexitySignals — every mode key set stays byte-stable', async () => {
+    const env = await envelopeFor(UI_SEED, WEB_CONFIG);
+    assert.deepEqual(Object.keys(env).sort(), SEED_MODE_KEYS);
+    assert.ok(
+      !('uiSurface' in env),
+      'uiSurface must not become a top-level envelope key',
+    );
+  });
+
+  it('adds no gate: a fired and an unfired signal build the same envelope shape (AC-8)', async () => {
+    // The signal has no refusal path. A fired offer and an unfired one both
+    // resolve through the same successful build, leave every other advisory
+    // field intact, and produce an identical key set — so no /plan exit code
+    // can depend on it.
+    const fired = await envelopeFor(UI_SEED, WEB_CONFIG);
+    const unfired = await envelopeFor(UI_SEED, {});
+    assert.equal(fired.complexitySignals.uiSurface.detected, true);
+    assert.equal(unfired.complexitySignals.uiSurface.detected, false);
+    assert.deepEqual(
+      Object.keys(fired.complexitySignals).sort(),
+      Object.keys(unfired.complexitySignals).sort(),
+    );
+    assert.deepEqual(fired.complexitySignals.gate, { enabled: true });
+    assert.deepEqual(unfired.complexitySignals.gate, { enabled: true });
+  });
+
+  it('rides the --out stdout digest alongside the other advisory signals (AC-6)', async () => {
+    const dir = await mkdtemp(path.join(tmpdir(), 'plan-ctx-ui-'));
+    const outPath = path.join(dir, PLAN_CONTEXT_FILENAME);
+    let captured = '';
+    await emitPlanContext({
+      mode: 'seed',
+      seedText: UI_SEED,
+      provider: buildProvider(),
+      config: WEB_CONFIG,
+      settings: {},
+      outPath,
+      stdout: {
+        write(chunk) {
+          captured += chunk;
+          return true;
+        },
+      },
+    });
+    const line = captured.split('\n').filter((l) => l.length > 0)[0];
+    const digest = JSON.parse(line);
+    assert.equal(digest.complexitySignals.uiSurface.detected, true);
+    assert.equal(digest.complexitySignals.uiSurface.automatic, false);
+    assert.ok(
+      digest.complexitySignals.deliverLightSuggestion,
+      'the existing advisory signal must still ride the digest beside uiSurface',
+    );
+    assert.ok(
+      line.length < 2048,
+      `digest line is ${line.length} bytes — uiSurface must not blow the ~2KB output contract`,
+    );
+    await rm(dir, { recursive: true, force: true });
+  });
+
+  it('bounds the matched-path sample so a UI-heavy seed cannot blow the digest', async () => {
+    const many = Array.from(
+      { length: 20 },
+      (_, i) => `- edit src/components/Widget${i}.tsx`,
+    ).join('\n');
+    const ui = (
+      await envelopeFor(`# Many widgets\n\n## Scope\n\n${many}\n`, WEB_CONFIG)
+    ).complexitySignals.uiSurface;
+    assert.equal(ui.detected, true);
+    assert.equal(ui.matchedPathCount, 20);
+    assert.equal(
+      ui.matchedPaths.length,
+      5,
+      'the carried sample is bounded; matchedPathCount keeps the full total',
+    );
+    assert.match(ui.reasons[0], /\+15 more/);
+  });
+});
+
 describe('plan-context parseAmendsId (Story #4741 AC-4)', () => {
   it('accepts a bare id and a #-prefixed id', () => {
     assert.equal(parseAmendsId('4700'), 4700);
