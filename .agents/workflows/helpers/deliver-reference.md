@@ -125,6 +125,38 @@ execute it directly, in this turn, threading the same `docsDigestPath` /
 content, execute directly without a re-read turn. The engine, gates, and
 terminal envelope are identical either way — only the isolation differs.
 
+## Intent phrases (what replaced the flag table)
+
+`/deliver` has no operator-facing flags. The scripts still take every flag they
+always did — the workflow fills them in from what the operator said, the same
+derive-then-announce contract `/git-deliver` uses for its terminal level.
+
+| The operator says | You pass | Effect |
+| --- | --- | --- |
+| "I'll merge it myself", "don't wait", "just open the PR" | `--no-wait-merge` | Rest at `agent::closing` for a human land |
+| "wait for the merge", "land it" | `--wait-merge` | Close-and-land — already the default (`delivery.routing.closeAndLand`) |
+| "take the lease", "steal it", "it's mine, override" | `--steal` | Forwarded to `single-story-init.js` |
+| "one at a time", "sequentially", "no parallelism" | `--concurrency 1` | Serialize a multi-Story run |
+| "run <n> at once" | `--concurrency <n>` | One-run cap only |
+
+Two rules keep this honest:
+
+1. **Announce before acting.** Name the intent you read and the flag it fills
+   in. A misread phrase is then visible in one line rather than discovered at
+   the terminal envelope.
+2. **Silence means config, not a literal.** With no intent phrase, omit the
+   flag entirely so `delivery.deliverRunner.concurrencyCap` (and any
+   `.agentrc.local.json` override) wins. Filling in the config default as a
+   literal silently defeats that override — the failure this table most easily
+   causes.
+
+`--yes` is deliberately **absent** from the table. It is not an intent an
+operator expresses; it is a runner asserting *nobody is at the keyboard*, and
+it changes fail-closed behavior (it is what turns the unplanned path's
+over-scope stop into an `escalated` terminal envelope, and what auto-proceeds
+`/plan`'s gates). Cron, `/loop`, and headless dispatch set it. An attended run
+never does, however the operator phrases their impatience.
+
 ## Operator-merge implies no-wait
 
 `--no-auto-merge` and `delivery.ci.autoMerge: "strict"` leave the PR

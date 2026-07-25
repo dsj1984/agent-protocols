@@ -1,27 +1,35 @@
 ---
 description:
-  Single-session delivery for genuinely small work. Judges a prompt's
-  predicted footprint, authors a receipt Story, then lands it through the same
-  single-story-init / single-story-close engine — every close gate unchanged.
+  The unplanned prompt path shared by /deliver and /plan Gate #1. Judges a
+  prompt's predicted footprint, authors a receipt Story, then lands it through
+  the same single-story-init / single-story-close engine — every close gate
+  unchanged.
 ---
 
-# /deliver-light "<prompt>" | --amends '#<id>' "<prompt>"
+# Unplanned delivery (the prompt path)
 
-> **Thin entry point, not a second engine.** `/deliver-light` removes the
-> `/plan` session for small work — nothing else. It runs a suitability gate,
-> authors a minimal receipt Story, then hands off to the SAME scripts
-> [`/deliver`](deliver.md) uses. Read
-> [`helpers/deliver-digest.md`](helpers/deliver-digest.md) once first — the
-> engine invariants, gates, and terminal-envelope contract below are its.
+> **A path, not a command.** There is no `/deliver-light` to type. This file is
+> reached two ways — `/deliver "<prompt>"` (an operator describing small work)
+> and `/plan` Gate #1 (a seed the suggestion says fits the light ceilings, once
+> the operator confirms). Read
+> [`deliver-digest.md`](deliver-digest.md) once first — the engine invariants,
+> gates, and terminal-envelope contract below are its.
 
 ## Role
 
 For a genuinely trivial change — a one-file fix, a small addition, a small
 amendment — the multi-session plan→deliver ceremony buys nothing the bare model
-lacks except **gates and landing**. `/deliver-light` keeps exactly those: one
-session straight to execution from an operator prompt, landing through the
-unchanged close path. It never relaxes a close gate, never bypasses the PR to
-`main`, and never lands over-scope work silently.
+lacks except **gates and landing**. This path keeps exactly those: one session
+straight to execution from a prompt, landing through the unchanged close path.
+It never relaxes a close gate, never bypasses the PR to `main`, and never lands
+over-scope work silently.
+
+Two callers, one gate: whichever door you arrived through, the suitability gate
+below is the decision. A `/plan` Gate #1 suggestion is a *suggestion* — it is
+read against seed-time signals (`DELIVER_LIGHT_SUGGESTION_CEILINGS`: artifacts,
+risk hits, sensitive-path classes), while the gate here is read against a
+predicted *shape* (`STORY_SHAPE_CEILINGS`: `maxChanges`, `maxAcceptance`). They
+are deliberately two different checks, so the gate still runs after a confirm.
 
 ## Four invariants (do not skip one)
 
@@ -64,6 +72,16 @@ unchanged close path. It never relaxes a close gate, never bypasses the PR to
    `--amends '#<id>'` is the canonical light case — shape-checked identically; a
    heavy amendment escalates to `/plan` like any other over-scope prompt.
 
+   **Entered from `/plan` Gate #1?** Fill `--creates` / `--refactors` /
+   `--acceptance` / `--reason` from the plan-context envelope's codebase
+   snapshot and `complexitySignals` rather than re-deriving them from the seed
+   text — Gate #1 has already done that work, and re-deriving throws away the
+   better signal. An `ask-operator` verdict here means the two ceiling sets
+   disagreed: **return to [`../plan.md`](../plan.md) step 2 (Author) in the same
+   session**, carrying the interrogation you already paid for. That bounce-back
+   is not an escalation and does not need a fresh session (§ Why the two
+   directions differ).
+
 2. **Init (same engine).** From the main checkout, synchronously, with the
    maximum Bash timeout:
 
@@ -72,12 +90,12 @@ unchanged close path. It never relaxes a close gate, never bypasses the PR to
    ```
 
    Capture `workCwd`; `remoteVerified: false` → flip `agent::blocked` and stop.
-   This is [`/deliver`](deliver.md)'s worktree/branch/lease/label engine,
+   This is [`/deliver`](../deliver.md)'s worktree/branch/lease/label engine,
    invoked, not reimplemented.
 
 3. **Implement + self-eval.** `cd` into `workCwd`, implement the change, run
    `npm test` once in the worktree, then run the bounded acceptance self-eval
-   loop ([`helpers/deliver-story.md`](helpers/deliver-story.md) Step 1a). Commit
+   loop ([`deliver-story.md`](deliver-story.md) Step 1a). Commit
    on `story-<id>` with `(refs #<storyId>)`.
 
 4. **Diff backstop.** Before close, re-check the ACTUAL diff:
@@ -90,14 +108,14 @@ unchanged close path. It never relaxes a close gate, never bypasses the PR to
    (file count or a sensitive-path class). STOP, flip `agent::blocked`, and
    escalate to `/plan` — do not land.
 
-5. **Close and land (same engine).** Exactly [`/deliver`](deliver.md)'s close:
+5. **Close and land (same engine).** Exactly [`/deliver`](../deliver.md)'s close:
 
    ```bash
    node .agents/scripts/single-story-close.js --story <storyId> --cwd <main-repo>
    ```
 
    Branch on the terminal envelope's `status` per
-   [`helpers/deliver-digest.md`](helpers/deliver-digest.md) § 5 — every close
+   [`deliver-digest.md`](deliver-digest.md) § 5 — every close
    gate runs byte-identical to the full path.
 
 ## Escalation is terminal {#escalation-is-terminal}
@@ -127,13 +145,40 @@ Nothing is left half-started: an escalated run creates **no receipt Story, no
 every creation call site, and `escalation.created` records all three as `false`
 in a shape the schema pins, so a later run finds nothing to trip over.
 
+## Why the two directions differ {#why-the-two-directions-differ}
+
+Traffic runs both ways between this path and `/plan`, and the two directions
+have **deliberately different session rules**. It reads like an inconsistency;
+it is not. The rule:
+
+> **The direction whose guard is model judgment must break the session. The
+> direction whose guard is mechanical need not.**
+
+**Light → `/plan` must be a fresh session.** What is being protected is
+*authoring judgment*, and the empirical finding above is that a session already
+framed as small work under-decomposes — one Story against a 3–5 contract where
+a fresh session on the identical seed authored four. The frame is the hazard,
+so only a new session removes it.
+
+**`/plan` → light may stay in-session.** Gate #1 fires **before** authoring, so
+there is no authoring to corrupt, and the frame at that point is "plan this
+seed" — the neutral one, not the small one. Everything on the receiving side is
+mechanical: `STORY_SHAPE_CEILINGS`, the ledgered verdict, the diff backstop.
+None of them degrade because the context is large, so nothing is gained by
+paying for a fresh session.
+
+Do not "fix" this into symmetry in either direction. Making `/plan` → light
+require a fresh session throws away a paid-for interrogation for no guard.
+Letting light → `/plan` run in-session reintroduces the exact failure the
+`escalated` envelope exists to prevent.
+
 ## Constraints
 
 - **Land, block, or escalate — never a silent local build.** The close push is
   the only sanctioned landing; an `escalated` terminal is the only sanctioned
   ending that delivers nothing, and it ends the session
   (§ Escalation is terminal).
-- **No parallel engine.** `/deliver-light` invokes `single-story-init.js` and
+- **No parallel engine.** This path invokes `single-story-init.js` and
   `single-story-close.js`; it never reimplements worktree, branch, PR, or merge
   mechanics.
 - **State only via `update-ticket-state.js`.** Drive every `agent::*`
@@ -141,8 +186,11 @@ in a shape the schema pins, so a later run finds nothing to trip over.
 
 ## See also
 
-- [`/deliver`](deliver.md) — the multi-Story / planned delivery entry point.
-- [`helpers/deliver-story.md`](helpers/deliver-story.md) — the one Story
-  delivery engine both entry points share.
-- [`helpers/deliver-digest.md`](helpers/deliver-digest.md) — engine invariants,
-  gates, and the terminal-envelope contract.
+- [`/deliver`](../deliver.md) — the delivery entry point; routes here on a
+  free-text prompt.
+- [`/plan`](../plan.md) — routes here from Gate #1 on a confirmed suggestion,
+  and owns the work an over-scope prompt escalates to.
+- [`deliver-story.md`](deliver-story.md) — the one Story delivery engine every
+  path shares.
+- [`deliver-digest.md`](deliver-digest.md) — engine invariants, gates, and the
+  terminal-envelope contract.

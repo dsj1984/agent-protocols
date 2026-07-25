@@ -37,15 +37,29 @@ function section(headingPattern) {
 }
 
 describe('/plan --yes headless flag — single plan.md path', () => {
-  it('documents --yes in the flag table as a headless HITL auto-proceed flag', () => {
-    const flagRow = planSource
-      .split('\n')
-      .find((line) => /^\|\s*`--yes`\s*\|/.test(line));
-    assert.ok(flagRow, 'plan.md flag table must carry a `--yes` row');
-    assert.match(
-      flagRow,
-      /Non-interactive: auto-proceed gate #1 and gate #2 HITL waits/i,
-      '`--yes` row must name both HITL gates it auto-proceeds',
+  // Story #4760 removed plan.md's flag table: the operator-facing surface is
+  // now derived from what they typed, and the flags belong to the self-
+  // describing CLIs. `--yes` survives that removal deliberately — it is not an
+  // operator convenience but the *unattended* switch, and the behaviours it
+  // gates (auto-proceeding both HITL waits; failing an over-scope light prompt
+  // closed to an `escalated` terminal) still have to be stated somewhere an
+  // agent reads. So the claim is unchanged; only its home moved out of a table.
+  it('documents --yes as runner-set, naming both HITL gates it auto-proceeds', () => {
+    assertDocMentions(
+      planSource,
+      /`--yes` is \*\*runner-set, never operator-typed\*\*/,
+      'plan.md must keep --yes out of the operator surface without dropping it',
+    );
+    assertDocMentions(
+      planSource,
+      /cron, `\/loop`, and headless dispatch set it/,
+      '--yes must name who sets it, now that no operator does',
+    );
+    // Both gates still auto-proceed; each says so at its own gate.
+    assert.equal(
+      (planSource.match(/Under `--yes`, auto-proceed/g) ?? []).length,
+      2,
+      'both Gate #1 and Gate #2 must state that --yes auto-proceeds them',
     );
   });
 
@@ -96,18 +110,23 @@ describe('/plan --yes headless flag — gate #1', () => {
     );
   });
 
+  // Prose claims, so they go through doc-assert rather than assert.match:
+  // these sentences are hard-wrapped at ~80 columns, and a plain literal space
+  // in the pattern silently pins where the wrap falls. Story #4760's trim of
+  // this section moved "free-form" onto the next line and turned a correct
+  // edit red without changing what the document says.
   it('auto-proceeds under --yes without free-form operator questions', () => {
-    assert.match(
+    assertDocMentions(
       interrogate,
       /Under `--yes`, auto-proceed/i,
       'gate #1 must auto-proceed under --yes',
     );
-    assert.match(
+    assertDocMentions(
       interrogate,
       /do not ask free-form operator questions/i,
       'headless interrogation must not ask operator questions',
     );
-    assert.match(
+    assertDocMentions(
       interrogate,
       /Key Assumptions/,
       'unresolved unknowns must land in the one-pager Key Assumptions section',

@@ -1,9 +1,67 @@
 # /plan — on-demand reference appendix
 
 > **Applies when:** you are executing [`/plan`](../plan.md) and hit one of the
-> situations below — shape-derived complexity routing, `--tickets` supersede
-> authoring, critic dispatch detail, a failed persist, or source-id
-> resolution. The spine stays resident; this file is read on demand.
+> situations below — input-mode derivation, the Gate #1 light handoff,
+> shape-derived complexity routing, tickets-mode supersede authoring, critic
+> dispatch detail, a failed persist, or source-id resolution. The spine stays
+> resident; this file is read on demand.
+
+## Deriving the input mode
+
+`/plan` has no operator-facing flags; the CLIs below still take every flag they
+always did. Read the invocation, **announce what you derived**, then fill in
+the flag — the same derive-then-announce contract `/git-deliver` uses for its
+terminal level.
+
+| What was typed | Mode | You pass |
+| --- | --- | --- |
+| nothing | ask | — (ask what to plan) |
+| prose | seed | `--seed "<text>"` |
+| an argument resolving to an existing file | seed-file | `--seed-file <path>` |
+| ids, none of them a delivered Story | tickets | `--tickets <ids>` |
+| one id that is an `agent::done` Story | amends | `--amends '#<id>'` |
+| "…but let me review before you file" | (any) | `--force-review` |
+
+**Order matters.** Test *file exists* before *looks like prose*, or a bare
+`notes.md` becomes a one-word seed. Test *all args are `^#?\d+$`* before
+either, or a ticket list becomes prose.
+
+**The one genuinely ambiguous case** is a bare id, between `amends` and
+`tickets`. Resolve it from live state — `agent::done` can only be amended, an
+open unplanned issue can only be planned — and ask only when the id is an open
+Story already at `agent::ready`, where both readings are live. Do not ask in
+the cases state already answers; an unnecessary question is the friction this
+whole surface exists to remove.
+
+Mixed ids and prose in one invocation is a **hard error**: refuse and ask which
+was meant, rather than guessing a mode and doing the wrong work.
+
+## Gate #1 → the light path (in-session handoff)
+
+On a confirmed `deliverLightSuggestion`, `/plan` routes into
+[`deliver-light.md`](deliver-light.md) **without ending the session**. Two
+things make that safe, and both are worth understanding before changing it:
+
+1. **The handoff carries the envelope, not the seed.** Gate #1 already holds a
+   codebase snapshot and `complexitySignals`; fill the light gate's `--creates`
+   / `--refactors` / `--acceptance` / `--reason` from those. Re-deriving from
+   raw seed text throws away the better signal and can disagree with the
+   suggestion that routed you.
+2. **The gate still runs.** The suggestion is read against seed-time ceilings
+   (`DELIVER_LIGHT_SUGGESTION_CEILINGS` — artifacts, risk hits, sensitive-path
+   classes); the light gate is read against a predicted shape
+   (`STORY_SHAPE_CEILINGS` — `maxChanges`, `maxAcceptance`). Two different
+   checks on purpose, so a confirm is not a bypass.
+
+**When the light gate answers `ask-operator`**, the two ceiling sets disagreed.
+Resume `/plan` at step 2 (Author) **in this same session** — the interrogation
+is still valid and re-paying for it buys nothing. This bounce-back is not an
+escalation.
+
+Escalation in the *other* direction — an over-scope prompt on the light path —
+is terminal and requires a fresh session. The rule that separates the two, and
+why it must not be flattened into symmetry:
+[`deliver-light.md` § Why the two directions differ](deliver-light.md).
 
 ## Shape-derived complexity routing (`complexitySignals`)
 
