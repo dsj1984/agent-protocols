@@ -272,4 +272,18 @@ async function main() {
   }
 }
 
-runAsCli(import.meta.url, main, { source: 'audit-labels-bootstrap' });
+runAsCli(import.meta.url, main, {
+  source: 'audit-labels-bootstrap',
+  usage: {
+    invocation:
+      'node .agents/scripts/audit-labels-bootstrap.js [--owner <owner>] [--repo <repo>] [--force] [--dry-run]',
+    summary:
+      'Create the audit-finding label taxonomy in the target repository. Idempotent.',
+    flags: [
+      ['--owner <owner>', 'Repository owner (default: github.owner).'],
+      ['--repo <repo>', 'Repository name (default: github.repo).'],
+      ['--force', 'Update colour/description of labels that already exist.'],
+      ['--dry-run', 'Report what would be created; mutate nothing.'],
+    ],
+  },
+});

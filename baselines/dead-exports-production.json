@@ -633,6 +633,22 @@
       "symbol": "getScopeKeys"
     },
     {
+      "file": ".agents/scripts/lib/cli-usage.js",
+      "symbol": "formatUsage"
+    },
+    {
+      "file": ".agents/scripts/lib/cli-usage.js",
+      "symbol": "HELP_FLAGS"
+    },
+    {
+      "file": ".agents/scripts/lib/cli-usage.js",
+      "symbol": "renderUsage"
+    },
+    {
+      "file": ".agents/scripts/lib/cli-usage.js",
+      "symbol": "wantsHelp"
+    },
+    {
       "file": ".agents/scripts/lib/cli-utils.js",
       "symbol": "isDirectInvocation"
     },

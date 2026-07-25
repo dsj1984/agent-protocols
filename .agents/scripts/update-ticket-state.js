@@ -6,16 +6,37 @@
  */
 
 import { parseArgs } from 'node:util';
+import { respondToHelp } from './lib/cli-usage.js';
 import { resolveConfig } from './lib/config-resolver.js';
 import { Logger } from './lib/Logger.js';
 import { transitionTicketState } from './lib/orchestration/ticketing.js';
 import { createProvider } from './lib/provider-factory.js';
 
+const USAGE = {
+  invocation:
+    'node .agents/scripts/update-ticket-state.js --ticket <id> [--state <state> | --remove-label <label>]',
+  summary:
+    'The one sanctioned surface for an agent::* label transition on a ticket.',
+  flags: [
+    ['--ticket <id>', 'GitHub issue number to transition (required).'],
+    [
+      '--state <state>',
+      'Target agent state (e.g. agent::ready, agent::executing, agent::done).',
+    ],
+    [
+      '--remove-label <label>',
+      'Drop a single label without flipping the agent state.',
+    ],
+  ],
+  notes: ['Exactly one of --state or --remove-label is required.'],
+};
+
 // ── CLI Main Block ────────────────────────────────────────────────────────
 // cli-opt-out: re-export shim with a DEBUG_MAIN escape hatch for tests; runAsCli's strict path-equality guard would block the env-flag entry path.
 if (
-  process.argv[1]?.endsWith('update-ticket-state.js') ||
-  process.env.DEBUG_MAIN
+  (process.argv[1]?.endsWith('update-ticket-state.js') ||
+    process.env.DEBUG_MAIN) &&
+  !respondToHelp(process.argv.slice(2), USAGE)
 ) {
   const { values } = parseArgs({
     args: process.argv.slice(2),

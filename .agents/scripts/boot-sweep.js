@@ -212,4 +212,7 @@ async function main() {
   }
 }
 
-runAsCli(import.meta.url, main, { source: 'boot-sweep' });
+runAsCli(import.meta.url, main, {
+  source: 'boot-sweep',
+  usage: HELP,
+});

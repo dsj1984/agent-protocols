@@ -21,14 +21,26 @@
  *   0 — Config is valid (advisories may still appear).
  *   1 — Config is missing, malformed, or fails schema validation.
  *
- * Flags:
- *   --cwd <path>   Project root (defaults to process.cwd()).
- *   --quiet        Suppress advisory rows (only print the status line).
+ * The flag contract lives in `USAGE` below — `--help` is the one home for it.
  */
 
 import { fileURLToPath } from 'node:url';
+import { respondToHelp } from './lib/cli-usage.js';
 import { formatSyncReport, syncAgentrc } from './lib/config/sync-agentrc.js';
 import { Logger } from './lib/Logger.js';
+
+const USAGE = {
+  invocation: 'node .agents/scripts/sync-agentrc.js [--cwd <path>] [--quiet]',
+  summary:
+    'Validate `.agentrc.json` against the framework schema and report every project leaf that merely restates a framework default. Never writes the config.',
+  flags: [
+    ['--cwd <path>', 'Project root (default: process cwd).'],
+    ['--quiet', 'Suppress advisory rows; print only the status line.'],
+  ],
+  notes: [
+    'Exit codes:\n  0  config is valid (advisories may still appear)\n  1  config is missing, malformed, or fails schema validation',
+  ],
+};
 
 function parseArgs(argv) {
   const out = { cwd: null, quiet: false };
@@ -67,5 +79,5 @@ function trimAdvisories(report) {
 // cli-opt-out: synchronous CLI with explicit exit-code return.
 const isMain = process.argv[1] === fileURLToPath(import.meta.url);
 if (isMain) {
-  process.exit(main());
+  process.exit(respondToHelp(process.argv.slice(2), USAGE) ? 0 : main());
 }

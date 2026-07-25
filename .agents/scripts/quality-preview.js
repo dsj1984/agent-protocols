@@ -29,6 +29,22 @@ import {
   runCrapPreview,
   runMaintainabilityPreview,
 } from './lib/baselines/preview-gates.js';
+import { respondToHelp } from './lib/cli-usage.js';
+
+const USAGE = {
+  invocation:
+    'node .agents/scripts/quality-preview.js [--staged | --changed-since <ref>] [--json]',
+  summary:
+    'Preview the per-file maintainability and CRAP deltas for the change set, and exit non-zero on any threshold violation.',
+  flags: [
+    ['--staged', 'Score the git index only (the pre-commit-hook scope).'],
+    [
+      '--changed-since <ref>',
+      'Score the diff against <ref> (default: HEAD). Last occurrence wins.',
+    ],
+    ['--json', 'Emit both gate envelopes plus the merged table as JSON.'],
+  ],
+};
 
 /**
  * Parse `--changed-since <ref>` from argv. Defaults to `HEAD` when the flag is
@@ -327,7 +343,7 @@ const isDirect = (() => {
   }
 })();
 
-if (isDirect) {
+if (isDirect && !respondToHelp(process.argv.slice(2), USAGE)) {
   runCli().then(({ exitCode }) => {
     process.exit(exitCode);
   });

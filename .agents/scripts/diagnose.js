@@ -48,6 +48,21 @@ import { runAsCli } from './lib/cli-utils.js';
 const DEFAULT_SCOPE = 'diagnose';
 
 /**
+ * The `--help` block. Single-homed here so the CLI gate in `runAsCli` and the
+ * `validateDiagnoseArgs` HELP-sentinel branch print the same bytes.
+ */
+const HELP = [
+  'Usage: diagnose [--scope <scope>] [--fail-on-blocker] [--json]',
+  '',
+  'Options:',
+  '  --scope <s>         Filter checks by scope (default: diagnose).',
+  '                      Use `all` to run every registered check.',
+  '  --fail-on-blocker   Exit 2 when at least one finding is a blocker.',
+  '  --json              Emit findings as a single line of JSON.',
+  '',
+].join('\n');
+
+/**
  * Parse the CLI argv slice (i.e. argv without the leading node/script
  * elements). Exported for direct unit testing — keeps the parse pure so
  * tests can drive it without spawning a subprocess.
@@ -203,19 +218,7 @@ export async function runDiagnose({
  */
 export function validateDiagnoseArgs(err) {
   if (err && err.message === 'HELP') {
-    return {
-      kind: 'help',
-      text: [
-        'Usage: diagnose [--scope <scope>] [--fail-on-blocker] [--json]',
-        '',
-        'Options:',
-        '  --scope <s>         Filter checks by scope (default: diagnose).',
-        '                      Use `all` to run every registered check.',
-        '  --fail-on-blocker   Exit 2 when at least one finding is a blocker.',
-        '  --json              Emit findings as a single line of JSON.',
-        '',
-      ].join('\n'),
-    };
+    return { kind: 'help', text: HELP };
   }
   const message = err?.message ? err.message : String(err);
   return { kind: 'error', text: `[diagnose] ${message}\n`, exitCode: 1 };
@@ -237,4 +240,7 @@ async function main() {
   }
 }
 
-runAsCli(import.meta.url, main, { source: 'diagnose' });
+runAsCli(import.meta.url, main, {
+  source: 'diagnose',
+  usage: HELP,
+});

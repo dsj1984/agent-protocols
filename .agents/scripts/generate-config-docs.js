@@ -608,4 +608,17 @@ export {
   spliceRegion,
 };
 
-runAsCli(import.meta.url, main, { source: 'generate-config-docs' });
+runAsCli(import.meta.url, main, {
+  source: 'generate-config-docs',
+  usage: {
+    invocation: 'node .agents/scripts/generate-config-docs.js [--check]',
+    summary:
+      'Regenerate the configuration reference from the .agentrc schema. Writes only when the generated content differs.',
+    flags: [
+      [
+        '--check',
+        'Verify the doc is current and fail if stale; write nothing.',
+      ],
+    ],
+  },
+});

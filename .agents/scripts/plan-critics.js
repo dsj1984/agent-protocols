@@ -312,4 +312,14 @@ async function main() {
 runAsCli(import.meta.url, main, {
   source: 'plan-critics',
   propagateExitCode: true,
+  usage: {
+    invocation:
+      'node .agents/scripts/plan-critics.js --stories <file> [--tech-spec <file>]',
+    summary:
+      'Score an authored plan draft with the maker-blind critics and print the verdict JSON on stdout.',
+    flags: [
+      ['--stories <file>', 'Authored stories.json (required).'],
+      ['--tech-spec <file>', 'Optional companion techspec.md.'],
+    ],
+  },
 });

@@ -25,18 +25,19 @@ Epic/Story router, no scope-triage `epic|story` verdict:
 
 ## Flags
 
+Workflow-level flags only — the ones that change what **you** do:
+
 | Flag | Meaning |
 | --- | --- |
 | `--seed "<text>"` / `--seed-file <path>` | Seed text / pre-authored notes path. |
 | `--tickets <ids>` | Issue ids to analyze; closed as superseded at persist. |
 | `--amends #<id>` | Prior Story to amend; emits a delta envelope, not a full re-interrogation (#4741). |
-| `--chain-on-clean` | Persist: chain a clean lite dry-run into the real persist in one round-trip; full-route plans keep the review round-trip (#4741). |
-| `--no-close-superseded` | Keep the source issues open — no supersede comment, no close. |
 | `--force-review` | STOP at gate #2 for operator review — the only review gate (#4542). |
-| `--route-downgrade-reason "<text>"` | Authored `lite` verdict + reason (#4722); shape-validated, fails closed to `full`. |
-| `--allow-over-budget` | Permit a plan exceeding `maxTickets`. |
 | `--yes` | Non-interactive: auto-proceed gate #1 and gate #2 HITL waits. |
 | `--dry-run` | Author + validate without GitHub writes; run as a pre-pass. |
+
+Every other flag is a passthrough to a CLI that documents itself — run the
+command with `--help` rather than looking for a copy of its surface here.
 
 ## Default-single split policy
 

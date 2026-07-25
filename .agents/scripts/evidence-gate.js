@@ -238,4 +238,23 @@ async function main() {
   await runEvidenceGate({ ...args, runnerArgs });
 }
 
-runAsCli(import.meta.url, main, { source: 'evidence-gate' });
+runAsCli(import.meta.url, main, {
+  source: 'evidence-gate',
+  usage: {
+    invocation:
+      'node .agents/scripts/evidence-gate.js --scope-id <id> --gate <name> [--standalone] [--no-evidence] [--cwd <path>] [--worktree <path>]',
+    summary:
+      'Run one named gate, reusing a prior evidence stamp for the same HEAD instead of re-running it.',
+    flags: [
+      ['--scope-id <id>', 'Story id the evidence is scoped to (required).'],
+      ['--gate <name>', 'Gate to run (e.g. lint, typecheck) (required).'],
+      ['--standalone', 'Run outside a close pipeline and stamp the evidence.'],
+      [
+        '--no-evidence',
+        'Ignore and do not write evidence — always run the gate.',
+      ],
+      ['--cwd <path>', 'Repository root (default: project root).'],
+      ['--worktree <path>', 'Worktree the gate runs in.'],
+    ],
+  },
+});

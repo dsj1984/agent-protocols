@@ -248,4 +248,20 @@ export async function main(args = process.argv.slice(2)) {
 
 import { runAsCli } from './lib/cli-utils.js';
 
-runAsCli(import.meta.url, main, { source: 'DiagnoseFriction' });
+runAsCli(import.meta.url, main, {
+  source: 'DiagnoseFriction',
+  usage: {
+    invocation:
+      'node .agents/scripts/diagnose-friction.js [--story <id>] [--epic <id>] --cmd <command with args...>',
+    summary:
+      'Run a command through the diagnostic interceptor: stream its output, then append a local friction signal describing the failure. Never posts to the ticket.',
+    flags: [
+      ['--story <id>', 'Story the friction belongs to.'],
+      ['--epic <id>', 'Epic the friction belongs to.'],
+      [
+        '--cmd <command...>',
+        'The command to execute; everything after it is the argv (required).',
+      ],
+    ],
+  },
+});

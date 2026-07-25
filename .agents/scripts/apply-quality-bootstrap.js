@@ -76,4 +76,10 @@ async function main() {
 runAsCli(import.meta.url, main, {
   source: 'apply-quality-bootstrap',
   propagateExitCode: true,
+  usage: {
+    invocation: 'node .agents/scripts/apply-quality-bootstrap.js',
+    summary:
+      'Install the quality-gate surface into the consumer repo (guardrails helper, pre-commit line, npm scripts, config defaults) and migrate the baselines layout. Idempotent; prints { quality, baselines } JSON to stdout.',
+    flags: [],
+  },
 });

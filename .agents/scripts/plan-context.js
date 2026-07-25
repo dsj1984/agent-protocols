@@ -339,4 +339,20 @@ async function main() {
   );
 }
 
-runAsCli(import.meta.url, main, { source: 'plan-context' });
+runAsCli(import.meta.url, main, {
+  source: 'plan-context',
+  usage: {
+    invocation:
+      'node .agents/scripts/plan-context.js (--seed "<text>" | --seed-file <path> | --tickets <ids> | --amends <id>) [--out <path>] [--pretty]',
+    summary:
+      'Build the /plan authoring-context envelope on stdout. Exactly one entry form must be supplied.',
+    flags: [
+      ['--seed "<text>"', 'Inline seed prose.'],
+      ['--seed-file <path>', 'Seed document to read.'],
+      ['--tickets <ids>', 'Comma-separated existing ticket ids to re-plan.'],
+      ['--amends <id>', 'Amend the Spec of an existing Story.'],
+      ['--out <path>', 'Write the envelope to a file instead of stdout.'],
+      ['--pretty', 'Pretty-print the JSON envelope.'],
+    ],
+  },
+});

@@ -235,4 +235,5 @@ async function main() {
 runAsCli(import.meta.url, main, {
   source: 'resolve-stories',
   propagateExitCode: true,
+  usage: HELP,
 });

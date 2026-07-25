@@ -290,6 +290,17 @@ runAsCli(
   },
   {
     source: 'signals-view',
+    usage: {
+      invocation:
+        'node .agents/scripts/signals-view.js <run-id> [--story <id>] [--temp-root <path>]',
+      summary:
+        'Render a run’s signal ledger as a tree, optionally narrowed to one Story.',
+      flags: [
+        ['<run-id>', 'Run id whose signals are read (required positional).'],
+        ['--story <id>', 'Show only signals emitted for this Story.'],
+        ['--temp-root <path>', 'Temp root holding the signal ledgers.'],
+      ],
+    },
     onError(err) {
       println(`signals-view: unexpected error: ${err?.message ?? err}`);
       process.exit(1);

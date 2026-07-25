@@ -880,4 +880,5 @@ async function main(argv) {
 
 runAsCli(import.meta.url, () => main(process.argv.slice(2)), {
   source: 'stories-wave-tick',
+  usage: HELP,
 });

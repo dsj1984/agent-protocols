@@ -446,4 +446,17 @@ export { main };
 runAsCli(import.meta.url, main, {
   source: 'nav-registry-diff',
   propagateExitCode: true,
+  usage: {
+    invocation:
+      'node .agents/scripts/nav-registry-diff.js --routes <file> --nav <file> [--refs <file>] [--json] [--strict]',
+    summary:
+      'Diff a route inventory against the nav registry: report routes with no nav door and nav hrefs pointing nowhere.',
+    flags: [
+      ['--routes <file>', 'JSON array of route records (required).'],
+      ['--nav <file>', 'JSON array of nav entries (required).'],
+      ['--refs <file>', 'JSON array of additional href references.'],
+      ['--json', 'Emit the diff as JSON instead of a text report.'],
+      ['--strict', 'Exit non-zero on any finding.'],
+    ],
+  },
 });

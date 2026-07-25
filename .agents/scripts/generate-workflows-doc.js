@@ -198,4 +198,17 @@ async function main(argv = process.argv.slice(2)) {
 
 export { DOC_PATH, WORKFLOWS_DIR };
 
-runAsCli(import.meta.url, main, { source: 'generate-workflows-doc' });
+runAsCli(import.meta.url, main, {
+  source: 'generate-workflows-doc',
+  usage: {
+    invocation: 'node .agents/scripts/generate-workflows-doc.js [--check]',
+    summary:
+      'Regenerate the workflow catalog from .agents/workflows/. Writes only when the generated content differs.',
+    flags: [
+      [
+        '--check',
+        'Verify the doc is current and fail if stale; write nothing.',
+      ],
+    ],
+  },
+});

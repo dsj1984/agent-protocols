@@ -80,4 +80,17 @@ runAsCli(import.meta.url, main, {
   source: 'resolve-doc-tiers',
   propagateExitCode: true,
   errorPrefix: '[resolve-doc-tiers] ❌ Fatal error',
+  usage: {
+    invocation:
+      'node .agents/scripts/resolve-doc-tiers.js [--root <dir>] [--json]',
+    summary:
+      'Print the resolved documentation tiers (always-loaded vs on-demand) as JSON.',
+    flags: [
+      [
+        '--root <dir>',
+        'Repository root to resolve against (default: project root).',
+      ],
+      ['--json', 'Accepted for symmetry; output is always JSON.'],
+    ],
+  },
 });

@@ -1467,4 +1467,5 @@ export async function main(argv = process.argv.slice(2), deps = {}) {
 runAsCli(import.meta.url, main, {
   source: 'Bootstrap',
   propagateExitCode: true,
+  usage: HELP,
 });

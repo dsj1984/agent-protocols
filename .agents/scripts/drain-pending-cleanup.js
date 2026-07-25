@@ -144,4 +144,23 @@ async function main() {
   );
 }
 
-runAsCli(import.meta.url, main, { source: 'drain-pending-cleanup' });
+runAsCli(import.meta.url, main, {
+  source: 'drain-pending-cleanup',
+  usage: {
+    invocation:
+      'node .agents/scripts/drain-pending-cleanup.js [--dry-run] [--no-escalate] [--worktree-root <path>]',
+    summary:
+      'Drain the pending-worktree-cleanup manifest, removing trees whose holders have exited.',
+    flags: [
+      ['--dry-run', 'Report each entry and its holders; remove nothing.'],
+      [
+        '--no-escalate',
+        'Do not escalate to a forced removal for stuck entries.',
+      ],
+      [
+        '--worktree-root <path>',
+        'Worktree root (default: delivery.worktreeIsolation.root).',
+      ],
+    ],
+  },
+});

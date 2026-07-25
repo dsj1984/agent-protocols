@@ -129,4 +129,35 @@ async function main() {
   process.exit(exitCode);
 }
 
-runAsCli(import.meta.url, main, { source: 'git-cleanup' });
+runAsCli(import.meta.url, main, {
+  source: 'git-cleanup',
+  usage: {
+    invocation:
+      'node .agents/scripts/git-cleanup.js [--execute] [--yes] [--json] [phase flags] [filters]',
+    summary:
+      'Tidy the local checkout in four phases — fast-forward the base branch, prune stale remote refs, reap merged branches, triage stashes. Dry-run unless --execute.',
+    flags: [
+      ['--execute', 'Perform the mutations (default is a dry run).'],
+      ['--dry-run', 'Force a dry run even alongside --execute.'],
+      ['--yes', 'Skip the interactive confirmation prompts.'],
+      ['--json', 'Emit the plan/result envelope as JSON.'],
+      ['--remote', 'Also delete the matching remote branches.'],
+      ['--fast-forward-main', 'Run only the fast-forward-base phase.'],
+      ['--prune-remotes', 'Run only the prune-remotes phase.'],
+      ['--branches', 'Run only the merged-branch reap phase.'],
+      ['--stashes', 'Run only the stash-triage phase.'],
+      [
+        '--include <glob>',
+        'Only consider branches matching the glob (repeatable).',
+      ],
+      [
+        '--exclude <glob>',
+        'Never consider branches matching the glob (repeatable).',
+      ],
+      ['--drop-stashes <ref>', 'Stash ref approved for dropping (repeatable).'],
+      ['--base <branch>', 'Base branch (default: project.baseBranch).'],
+      ['--cwd <path>', 'Repository root (default: process cwd).'],
+    ],
+    notes: ['With no phase flag, every phase runs in order.'],
+  },
+});

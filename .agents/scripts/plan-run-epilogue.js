@@ -139,4 +139,15 @@ function warnOnEmptyRollup(result) {
   );
 }
 
-await runAsCli(import.meta.url, main);
+await runAsCli(import.meta.url, main, {
+  usage: {
+    invocation:
+      'node .agents/scripts/plan-run-epilogue.js --stories <id,id,...> [--cwd <path>]',
+    summary:
+      'Close out a delivery run: roll up the delivered Stories’ signals and report the run’s loop health.',
+    flags: [
+      ['--stories <ids>', 'Comma-separated delivered Story ids (required).'],
+      ['--cwd <path>', 'Repository root (default: process cwd).'],
+    ],
+  },
+});

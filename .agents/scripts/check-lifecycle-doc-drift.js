@@ -399,4 +399,13 @@ async function main() {
 await runAsCli(import.meta.url, main, {
   source: 'check-lifecycle-doc-drift',
   propagateExitCode: true,
+  usage: {
+    invocation: 'node .agents/scripts/check-lifecycle-doc-drift.js',
+    summary:
+      "Fail when the listener-model table in docs/LIFECYCLE.md drifts from the lifecycle listeners' declared subscriptions.",
+    flags: [],
+    notes: [
+      'Exit codes:\n  0  doc and code agree\n  1  drift in either direction',
+    ],
+  },
 });
