@@ -49,9 +49,9 @@ things make that safe, and both are worth understanding before changing it:
    suggestion that routed you.
 2. **The gate still runs.** The suggestion is read against seed-time ceilings
    (`DELIVER_LIGHT_SUGGESTION_CEILINGS` — artifacts, risk hits, sensitive-path
-   classes); the light gate is read against a predicted shape
-   (`STORY_SHAPE_CEILINGS` — `maxChanges`, `maxAcceptance`). Two different
-   checks on purpose, so a confirm is not a bypass.
+   classes); the light gate is read against the predicted work's effort and risk
+   (`STORY_SHAPE_CEILINGS` — change kinds, magnitude, uncertainty, deployable
+   span). Two different checks on purpose, so a confirm is not a bypass.
 
 **When the light gate answers `ask-operator`**, the two ceiling sets disagreed.
 Resume `/plan` at step 2 (Author) **in this same session** — the interrogation
@@ -85,9 +85,10 @@ decision:
   (`full`) stands.
 - **Persist backstops the claim deterministically.** After authoring, the
   work has measurable shape, so persist validates the `lite` claim against
-  each Story's own shape — `changes[]` count, acceptance-criteria count,
-  creates-vs-refactors mix, glob-free footprint, and sensitive-path classes,
-  against the framework `STORY_SHAPE_CEILINGS` — and **fails closed to
+  each Story's own shape — distinct change kinds, declared magnitude,
+  uncertainty, deployable/migration span, glob-free footprint, and
+  sensitive-path classes, against the framework `STORY_SHAPE_CEILINGS` (effort
+  and risk, never artifact counts) — and **fails closed to
   `full`** when any Story exceeds them (the refusal is ledgered on the
   checkpoint too). The lite route is **not** licence to drop a
   non-negotiable — every decision's `preserves` field enumerates what still

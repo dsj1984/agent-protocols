@@ -858,19 +858,28 @@ describe('runPlanPersist — flat Story ops', () => {
 
 describe('runPlanPersist — shape-validated lite route (Story #4722)', () => {
   /**
-   * A ticket whose shape exceeds the lite ceilings: four refactors-existing
-   * changes (paths that exist at main, so the file-assumption gate passes)
-   * against a single acceptance criterion.
+   * A ticket whose shape exceeds the lite ceilings. Since Story #4764 the
+   * ceilings are effort/risk rather than counts, so "wide" here means an
+   * explicit multi-capability enumeration — three distinct change kinds
+   * (refactor, delete, create) — not merely several files. Existing paths carry
+   * the assumptions that require them to exist, so the file-assumption gate
+   * still passes.
    */
   function wideTicket(slug) {
     const acceptance = [`${slug} done`];
     const verify = ['npm test (validate)'];
     const changes = [
-      'tests/scripts/plan-persist.flat-stories.test.js',
-      '.agents/scripts/lib/orchestration/complexity-gate.js',
-      'README.md',
-      'package.json',
-    ].map((path) => ({ path, assumption: 'refactors-existing' }));
+      {
+        path: 'tests/scripts/plan-persist.flat-stories.test.js',
+        assumption: 'refactors-existing',
+      },
+      {
+        path: '.agents/scripts/lib/orchestration/complexity-gate.js',
+        assumption: 'refactors-existing',
+      },
+      { path: 'README.md', assumption: 'deletes' },
+      { path: 'docs/wide-fixture-note.md', assumption: 'creates' },
+    ];
     return {
       slug,
       type: 'story',

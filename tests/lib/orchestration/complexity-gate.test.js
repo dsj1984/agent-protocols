@@ -156,26 +156,31 @@ describe('deriveStoryShape — the deterministic backstop (AC-1, AC-3)', () => {
     assert.equal(derived.route, 'lite');
     assert.match(derived.reasons[0], /trivial shape/i);
     assert.deepEqual(derived.shape, {
-      changeCount: 1,
+      siteCount: 1,
+      changeKinds: ['creates'],
+      kindCount: 1,
+      magnitude: 'moderate',
+      uncertainty: 'determined',
       acceptanceCount: 1,
-      createCount: 1,
-      nonCreateCount: 0,
+      deployables: [],
+      migrationSpan: false,
       sensitiveClasses: [],
     });
   });
 
-  test('AC-1: a terse Story with a wide footprint derives full — words never route', () => {
-    // Five changes, described tersely: word count would call this trivial.
+  test('AC-1: a terse Story with clearly-epic scope derives full — words never route', () => {
+    // Two deployables behind a shared contract, described in three words:
+    // word count would call this trivial.
     const derived = deriveStoryShape({
-      changes: ['a.js', 'b.js', 'c.js', 'd.js', 'e.js'].map((p) => ({
-        path: `src/${p}`,
-        assumption: 'refactors-existing',
-      })),
+      changes: [
+        { path: 'apps/api/src/handler.js', assumption: 'refactors-existing' },
+        { path: 'apps/web/src/page.js', assumption: 'refactors-existing' },
+      ],
       acceptance: ['works'],
       injectedRules: RULES,
     });
     assert.equal(derived.route, 'full');
-    assert.match(derived.reasons[0], /> maxChanges/);
+    assert.match(derived.reasons[0], /> maxDeployables/);
   });
 
   test('AC-1: a verbose-but-trivial Story derives lite — prose length is not shape', () => {
@@ -193,26 +198,26 @@ describe('deriveStoryShape — the deterministic backstop (AC-1, AC-3)', () => {
     assert.equal(decision.mode, 'inline');
   });
 
-  test('exceeding the acceptance-criteria ceiling fails to full', () => {
+  test('Story #4764: criterion count is contract detail, not effort — it no longer routes', () => {
     const derived = deriveStoryShape({
       ...TRIVIAL,
-      acceptance: ['a', 'b', 'c', 'd'],
+      acceptance: ['a', 'b', 'c', 'd', 'e'],
     });
-    assert.equal(derived.route, 'full');
-    assert.match(derived.reasons[0], /> maxAcceptance/);
+    assert.equal(derived.route, 'lite');
   });
 
-  test('a mostly-refactoring mix fails to full (creates-vs-refactors)', () => {
+  test('more distinct change KINDS than the ceiling fails to full', () => {
     const derived = deriveStoryShape({
       changes: [
         { path: 'src/one.js', assumption: 'refactors-existing' },
         { path: 'src/two.js', assumption: 'deletes' },
+        { path: 'src/three.js', assumption: 'creates' },
       ],
       acceptance: ['works'],
       injectedRules: RULES,
     });
     assert.equal(derived.route, 'full');
-    assert.match(derived.reasons[0], /> maxNonCreateChanges/);
+    assert.match(derived.reasons[0], /> maxChangeKinds/);
   });
 
   test('an unknown footprint is conservative full: empty, missing, glob, or unreadable', () => {
@@ -246,11 +251,207 @@ describe('deriveStoryShape — the deterministic backstop (AC-1, AC-3)', () => {
     const derived = deriveStoryShape(TRIVIAL);
     assert.ok(Object.isFrozen(derived.ceilings));
     assert.deepEqual(derived.ceilings, {
-      maxChanges: 2,
-      maxAcceptance: 3,
-      maxNonCreateChanges: 1,
+      maxChangeKinds: 2,
+      maxMagnitude: 'moderate',
+      maxUncertainty: 'determined',
+      maxDeployables: 1,
     });
     assert.equal(deriveStoryShape({}).ceilings, derived.ceilings);
+  });
+});
+
+// ---------------------------------------------------------------------------
+// Story #4764 — effort and risk, never artifact cardinality
+// ---------------------------------------------------------------------------
+// The old ceilings counted the DECLARED footprint (maxChanges / maxAcceptance /
+// maxNonCreateChanges). Cardinality gets triviality backwards in both
+// directions, and the count is read off a guess the model makes before doing
+// the work. These describes pin the replacement axes and — as load-bearing as
+// the new rejections — pin that marginal small work is no longer rejected.
+
+describe('effort, not artifact count (Story #4764 AC-1)', () => {
+  test('three instances of ONE mechanical edit across three files is light', () => {
+    // The case counting got backwards: high file count, trivial work. One kind
+    // at three sites, so one kind.
+    const derived = deriveStoryShape({
+      changes: [
+        { path: 'src/a.js', assumption: 'refactors-existing' },
+        { path: 'src/b.js', assumption: 'refactors-existing' },
+        { path: 'src/c.js', assumption: 'refactors-existing' },
+      ],
+      acceptance: ['every call site passes the new flag'],
+      kinds: ['add-flag-to-call-site'],
+      magnitude: 'trivial',
+      injectedRules: RULES,
+    });
+    assert.equal(derived.route, 'lite');
+    assert.equal(derived.shape.kindCount, 1);
+    assert.equal(derived.shape.siteCount, 3);
+  });
+
+  test('an explicit kinds[] declaration is unnecessary — assumptions collapse to kinds', () => {
+    const derived = deriveStoryShape({
+      changes: ['a', 'b', 'c', 'd'].map((p) => ({
+        path: `src/${p}.js`,
+        assumption: 'refactors-existing',
+      })),
+      acceptance: ['works'],
+      injectedRules: RULES,
+    });
+    assert.equal(derived.route, 'lite');
+    assert.deepEqual(derived.shape.changeKinds, ['refactors-existing']);
+  });
+
+  test('a single SUBSTANTIAL rewrite of one file is NOT light — the other direction', () => {
+    const derived = deriveStoryShape({
+      changes: [{ path: 'src/reporting.js', assumption: 'refactors-existing' }],
+      acceptance: ['the report renders identically'],
+      magnitude: 'substantial',
+      injectedRules: RULES,
+    });
+    assert.equal(derived.route, 'full');
+    assert.match(derived.reasons[0], /maxMagnitude/);
+  });
+
+  test('undeclared magnitude carries no signal; a malformed one fails closed', () => {
+    const absent = deriveStoryShape({ ...TRIVIAL, magnitude: undefined });
+    assert.equal(absent.route, 'lite');
+    assert.equal(absent.shape.magnitude, 'moderate');
+
+    // Declared but unrecognized is a claim that cannot be verified as small,
+    // so it takes the worst bucket on the scale rather than the default.
+    for (const magnitude of ['enormous', 42, {}]) {
+      assert.equal(
+        deriveStoryShape({ ...TRIVIAL, magnitude }).route,
+        'full',
+        `magnitude ${JSON.stringify(magnitude)}`,
+      );
+    }
+    // Case and padding are normalized, never rejected.
+    assert.equal(
+      deriveStoryShape({ ...TRIVIAL, magnitude: ' TRIVIAL ' }).route,
+      'lite',
+    );
+  });
+
+  test('open design decisions route full however small the footprint', () => {
+    const derived = deriveStoryShape({
+      ...TRIVIAL,
+      uncertainty: 'needs-design',
+    });
+    assert.equal(derived.route, 'full');
+    assert.match(
+      derived.reasons[0],
+      /design decisions \/plan exists to resolve/,
+    );
+  });
+});
+
+describe('the prediction gate rejects only clearly-epic work (Story #4764 AC-3)', () => {
+  test('marginal small work is no longer rejected on counts alone', () => {
+    // Five files, four acceptance criteria, all refactors: over EVERY retired
+    // ceiling (maxChanges 2, maxAcceptance 3, maxNonCreateChanges 1) and yet
+    // plainly not epic.
+    const derived = deriveStoryShape({
+      changes: ['a', 'b', 'c', 'd', 'e'].map((p) => ({
+        path: `src/widgets/${p}.js`,
+        assumption: 'refactors-existing',
+      })),
+      acceptance: ['a works', 'b works', 'c works', 'd works'],
+      injectedRules: RULES,
+    });
+    assert.equal(derived.route, 'lite');
+  });
+
+  const epicShapes = [
+    {
+      name: 'multiple deployables',
+      args: {
+        changes: [
+          { path: 'apps/web/src/page.js', assumption: 'refactors-existing' },
+          {
+            path: 'services/sync/src/job.js',
+            assumption: 'refactors-existing',
+          },
+        ],
+        acceptance: ['both sides agree'],
+      },
+      reason: /maxDeployables/,
+    },
+    {
+      name: 'a migration plus its consumers',
+      args: {
+        changes: [
+          { path: 'db/migrations/0007_add_column.sql', assumption: 'creates' },
+          { path: 'src/reports/query.js', assumption: 'refactors-existing' },
+        ],
+        acceptance: ['the report reads the new column'],
+      },
+      reason: /migration with its consumers/,
+    },
+    {
+      name: 'an explicit multi-capability enumeration',
+      args: {
+        changes: [
+          { path: 'src/one.js', assumption: 'creates' },
+          { path: 'src/two.js', assumption: 'refactors-existing' },
+          { path: 'src/three.js', assumption: 'refactors-existing' },
+        ],
+        acceptance: ['all three capabilities work'],
+        kinds: ['new-endpoint', 'schema-widening', 'telemetry-rename'],
+      },
+      reason: /multi-capability enumeration/,
+    },
+  ];
+
+  for (const { name, args, reason } of epicShapes) {
+    test(`${name} still escalates`, () => {
+      const derived = deriveStoryShape({ ...args, injectedRules: RULES });
+      assert.equal(derived.route, 'full');
+      assert.match(derived.reasons[0], reason);
+    });
+  }
+});
+
+describe('the benchmark rungs land on the right side (Story #4764 AC-5, AC-6)', () => {
+  test('AC-5: the hello-world scenario is light — one create, one edit, one test, 4 criteria', () => {
+    const derived = deriveStoryShape({
+      changes: [
+        { path: 'src/server.js', assumption: 'creates' },
+        { path: 'package.json', assumption: 'refactors-existing' },
+        { path: 'tests/server.test.js', assumption: 'creates' },
+      ],
+      acceptance: [
+        'GET / returns 200',
+        'the response body is "hello world"',
+        'the server listens on the configured port',
+        'npm test passes',
+      ],
+      magnitude: 'trivial',
+      injectedRules: RULES,
+    });
+    assert.equal(
+      derived.route,
+      'lite',
+      'the trivial bench rung must no longer sit structurally over the ceiling',
+    );
+  });
+
+  test('AC-6: the epic-scope scenario still escalates — deployables behind a shared contract', () => {
+    const derived = deriveStoryShape({
+      changes: [
+        { path: 'packages/contract/src/schema.js', assumption: 'creates' },
+        { path: 'apps/api/src/handler.js', assumption: 'refactors-existing' },
+        {
+          path: 'apps/worker/src/consumer.js',
+          assumption: 'refactors-existing',
+        },
+      ],
+      acceptance: ['both deployables validate against the shared contract'],
+      injectedRules: RULES,
+    });
+    assert.equal(derived.route, 'full');
+    assert.match(derived.reasons[0], /deployables/);
   });
 });
 
@@ -297,12 +498,14 @@ describe('resolveStoryDispatchMode — body-derived dispatch (AC-4, AC-5)', () =
     changes: [{ path: 'bin/hello.js', assumption: 'creates' }],
     acceptance: ['prints hello'],
   });
+  // Full-shaped by EFFORT, not by count (Story #4764): two deployables is
+  // clearly-epic scope however few files each side touches.
   const fullBody = storyBody({
-    changes: ['a', 'b', 'c'].map((p) => ({
-      path: `src/${p}.js`,
-      assumption: 'refactors-existing',
-    })),
-    acceptance: ['a works', 'b works', 'c works'],
+    changes: [
+      { path: 'apps/api/src/handler.js', assumption: 'refactors-existing' },
+      { path: 'apps/web/src/page.js', assumption: 'refactors-existing' },
+    ],
+    acceptance: ['both sides agree'],
   });
 
   test('AC-5: a lite-shaped Story executes inline with the route::lite label ABSENT', () => {
@@ -392,10 +595,10 @@ describe('resolveStoryDispatchMode — body-derived dispatch (AC-4, AC-5)', () =
  */
 describe('resolveStoryDispatchMode — run topology (Story #4736)', () => {
   const fullBody = storyBody({
-    changes: ['a', 'b', 'c', 'd'].map((p) => ({
-      path: `src/${p}.js`,
-      assumption: 'refactors-existing',
-    })),
+    changes: [
+      { path: 'apps/api/src/handler.js', assumption: 'refactors-existing' },
+      { path: 'apps/web/src/page.js', assumption: 'refactors-existing' },
+    ],
     acceptance: ['a works', 'b works', 'c works', 'd works'],
   });
   const sensitiveBody = storyBody({
@@ -586,17 +789,17 @@ describe('persist ↔ deliver route round-trip — one shape, two read points', 
       expectedMode: 'inline',
     },
     {
-      name: 'a refactor-mix Story routes full from both representations',
+      name: 'an epic-scope Story routes full from both representations',
       ticket: {
         slug: 'full-round-trip',
         type: 'story',
-        title: 'Refactor two modules',
+        title: 'Refactor two deployables',
         body: storyBody({
           changes: [
-            { path: 'src/one.js', assumption: 'refactors-existing' },
-            { path: 'src/two.js', assumption: 'refactors-existing' },
+            { path: 'apps/api/src/one.js', assumption: 'refactors-existing' },
+            { path: 'apps/web/src/two.js', assumption: 'refactors-existing' },
           ],
-          acceptance: ['both modules keep their contracts'],
+          acceptance: ['both deployables keep their contracts'],
         }),
       },
       expectedRoute: 'full',

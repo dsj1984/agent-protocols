@@ -79,18 +79,29 @@ import { createProvider } from './lib/provider-factory.js';
 const HELP = `\
 Usage:
   deliver-light.js --prompt <text> [--creates csv] [--refactors csv]
-                   [--acceptance n] [--route lite|full] [--reason <text>]
+                   [--acceptance n] [--kinds csv] [--magnitude m]
+                   [--uncertainty u] [--route lite|full] [--reason <text>]
                    [--amends '#id'] [--yes]
   deliver-light.js --backstop --story <id>
 
 The thin /deliver-light entry point: suitability gate → inline receipt Story →
 the same single-story-init.js / single-story-close.js engine /deliver uses.
 
+The gate judges EFFORT and RISK, not artifact counts: N instances of one
+mechanical edit is one kind at N sites. It rejects only clearly-epic work; the
+--backstop pass enforces size against the actual diff.
+
 Gate options:
   --prompt <text>    Operator prompt describing the change. Required for the gate.
   --creates <csv>    Predicted NEW file paths (comma-separated).
   --refactors <csv>  Predicted edited/existing file paths (comma-separated).
-  --acceptance <n>   Predicted acceptance-criteria count (default 1).
+  --acceptance <n>   Predicted acceptance-criteria count (default 1). Not capped.
+  --kinds <csv>      Distinct KINDS of change (default: one per assumption, so
+                     N same-shaped edits count once).
+  --magnitude <m>    Coarse effort bucket: trivial | moderate | substantial
+                     (default moderate; substantial routes to /plan).
+  --uncertainty <u>  determined (the request fixes the shape) | needs-design
+                     (default determined; needs-design routes to /plan).
   --route <r>        Ledgered model verdict route: lite | full.
   --reason <text>    Recorded reason for a lite verdict (required for lite).
   --amends <#id>     Mark this as an amendment of an existing issue.
@@ -166,17 +177,25 @@ export function synthesizeAcceptance(count) {
  *   creates?: string[],
  *   refactors?: string[],
  *   acceptance?: number,
+ *   kinds?: string[],
+ *   magnitude?: string,
+ *   uncertainty?: string,
  *   route?: string,
  *   reason?: string,
  *   yes?: boolean,
  *   injectedRules?: object,
- * }} args
+ * }} args `kinds` / `magnitude` / `uncertainty` are the declared effort-and-risk
+ *   axes the gate judges (Story #4764); omitting them declares no signal, not a
+ *   small one — an unrecognized bucket fails closed.
  * @returns {{ action: string, suitability: object, outcome: object }}
  */
 export function runLightGate({
   creates = [],
   refactors = [],
   acceptance,
+  kinds,
+  magnitude,
+  uncertainty,
   route,
   reason,
   yes = false,
@@ -186,6 +205,9 @@ export function runLightGate({
   const suitability = deriveLightSuitability({
     predictedChanges,
     predictedAcceptance: synthesizeAcceptance(acceptance),
+    predictedKinds: kinds,
+    predictedMagnitude: magnitude,
+    predictedUncertainty: uncertainty,
     verdict: { route, reason },
     injectedRules,
   });
@@ -355,6 +377,9 @@ export async function runGateMode(values, deps = {}) {
     acceptance: values.acceptance
       ? Number.parseInt(String(values.acceptance), 10)
       : 1,
+    kinds: parseCsvPaths(values.kinds),
+    magnitude: values.magnitude,
+    uncertainty: values.uncertainty,
     route: values.route,
     reason: values.reason,
     yes: values.yes === true,
@@ -417,6 +442,9 @@ async function main() {
       creates: { type: 'string' },
       refactors: { type: 'string' },
       acceptance: { type: 'string' },
+      kinds: { type: 'string' },
+      magnitude: { type: 'string' },
+      uncertainty: { type: 'string' },
       route: { type: 'string' },
       reason: { type: 'string' },
       amends: { type: 'string' },

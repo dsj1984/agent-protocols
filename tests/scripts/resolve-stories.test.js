@@ -313,8 +313,10 @@ describe('buildStoriesEnvelope — per-Story dispatchMode (Story #4722)', () => 
   });
 
   it('AC-4/AC-5: the route::lite label never routes — a full-shaped body dispatches subagent', () => {
+    // Full-shaped by EFFORT since Story #4764: two deployables is clearly-epic
+    // scope, where a mere file count no longer routes anything.
     const wide = storyBody({
-      changes: ['src/a.js', 'src/b.js', 'src/c.js', 'src/d.js'],
+      changes: ['apps/api/src/a.js', 'apps/web/src/b.js'],
     });
     const env = buildStoriesEnvelope({
       stories: [
@@ -366,8 +368,9 @@ describe('buildStoriesEnvelope — per-Story dispatchMode (Story #4722)', () => 
  * axis back in charge.
  */
 describe('buildStoriesEnvelope — single-Story runs dispatch inline (Story #4736)', () => {
+  // Full-shaped by effort (two deployables), not by file count — Story #4764.
   const wideBody = storyBody({
-    changes: ['src/a.js', 'src/b.js', 'src/c.js', 'src/d.js'],
+    changes: ['apps/api/src/a.js', 'apps/web/src/b.js'],
   });
 
   it('AC-1: a one-Story run is inline even for a full-shaped Story', () => {
