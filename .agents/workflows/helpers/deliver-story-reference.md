@@ -309,29 +309,25 @@ checks pass. Under `"strict"`, the close **does not arm auto-merge** — the
 PR opens and waits for an **operator merge**, exactly as `--no-auto-merge`
 does per-run.
 
-**Close flags:**
+**When to reach for a close flag.** What each one *does* is in
+`node .agents/scripts/single-story-close.js --help`; below is only the
+judgment that help text cannot carry.
 
-- `--skip-validation` — bypass the gates. Use only when re-running close
-  after a fixed gate failure that's already known to pass.
-- `--skip-sync` — bypass the base-sync (Story #2580). Use only after a
-  hand-resolved sync, or in tests.
-- `--no-auto-merge` — disable auto-merge. Use when the PR materially changes
-  behaviour and warrants a pre-merge eyeball; the operator then merges via
-  the GitHub UI.
-- `--wait-merge` — **close-and-land** (Story #4428). Forces close to poll
-  the armed PR to merge confirmation and flip `agent::done` itself. When
-  neither land flag is passed, close defaults from
-  `delivery.routing.closeAndLand` (**true**): attended and headless delivers
-  share the land-in-one-close happy path.
-- `--no-wait-merge` — explicit opt-out that always wins. Use when the
-  operator wants the PR left at `agent::closing` for a human land (or a
-  wrapper that will invoke `single-story-confirm-merge.js` itself). Reports
-  `pending` — the work is not done, nothing is broken, and one named command
-  finishes it.
-- `--max-wait-seconds <n>` — raise the merge wait's per-invocation bound for
-  this run (Story #4543). Use from a headless caller with no host
-  tool-invocation ceiling to keep single-block semantics without editing the
-  consumer's config.
+- `--skip-validation` — only when re-running close after a fixed gate
+  failure that's already known to pass.
+- `--skip-sync` — only after a hand-resolved sync (Story #2580), or in tests.
+- `--no-auto-merge` — when the PR materially changes behaviour and warrants a
+  pre-merge eyeball; the operator then merges via the GitHub UI.
+- `--wait-merge` — **close-and-land** (Story #4428). When neither land flag
+  is passed, close defaults from `delivery.routing.closeAndLand` (**true**):
+  attended and headless delivers share the land-in-one-close happy path.
+- `--no-wait-merge` — the explicit opt-out always wins. Use when the operator
+  wants the PR left at `agent::closing` for a human land (or a wrapper that
+  will invoke `single-story-confirm-merge.js` itself). Reports `pending` —
+  the work is not done, nothing is broken, and one named command finishes it.
+- `--max-wait-seconds <n>` — from a headless caller with no host
+  tool-invocation ceiling (Story #4543), to keep single-block semantics
+  without editing the consumer's config.
 
 ---
 
@@ -636,12 +632,8 @@ then, so the bot gets the last write.
   means the bot won every attempt in the poll budget (rare; usually
   signals operator should reap the conflicting workflows).
 
-Tuning flags (rarely needed):
-
-- `--poll-attempts <n>` — total mutation attempts including the
-  initial sync. Default `4`. Pass `1` to disable the poll loop
-  (fastest, matches pre-#2876 behaviour).
-- `--poll-delay-ms <ms>` — delay between drift checks. Default `5000`.
+Tuning flags are rarely needed; the script enumerates them itself
+(`node .agents/scripts/resync-status-column.js --help`).
 
 Idempotent: re-running on a ticket whose Status already matches the
 target returns the same envelope. No-op skips (`no-project`,

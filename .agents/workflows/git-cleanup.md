@@ -22,12 +22,12 @@ Reach for it when the automated hygiene left an unusual state behind.
 
 The enumeration + reap logic lives in
 [`git-cleanup.js`](../scripts/git-cleanup.js) — it computes the candidate list,
-the skip taxonomy, the detection signals, and the JSON envelope (add `--json`),
-and prints them itself. Without `--execute` the script is a **dry-run preview**; nothing is
-mutated. When no phase flag is passed, **all four phases run** sequentially; pass
-any of `--fast-forward-main`, `--prune-remotes`, `--branches`, `--stashes` to
-narrow the run. A failure in one phase does not short-circuit the others — each
-runs and reports independently.
+the skip taxonomy, the detection signals, and the JSON envelope, and prints them
+itself. Without `--execute` the script is a **dry-run preview**; nothing is
+mutated. When no phase flag is passed, **all four phases run** sequentially; a
+phase flag narrows the run. A failure in one phase does not short-circuit the
+others — each runs and reports independently. The script documents its own
+flags: `node .agents/scripts/git-cleanup.js --help`.
 
 ## Phases
 
@@ -44,14 +44,9 @@ runs and reports independently.
 > branches, delete remote refs (with `--remote`), and drop stashes. Without
 > `--execute` the script only previews.
 
-- **`--execute`** — the master gate. Omit it for a preview of all four phases.
-- **`--remote`** — extends the branches phase to delete the matching
-  `origin/<branch>` ref (and to delete remote-only merged branches). Cannot be
-  undone without re-pushing.
-- **`--yes`** — bypass every per-step prompt (CI / non-interactive). Under it,
-  stash drops still require `--drop-stashes <ref>`.
-- **`--exclude '<pattern>'`** — carve a branch out of the reap. This is the only
-  way to protect an in-scope merged-PR branch you want to keep.
+Two consequences the flag list alone does not carry: `--remote` deletions cannot
+be undone without re-pushing, and `--exclude '<pattern>'` is the **only** way to
+protect an in-scope merged-PR branch you want to keep.
 
 Do **not** run with `--execute` if there is unmerged work that needs saving. The
 fast-forward phase skips on a dirty tree (safe), but the branches phase reaps any

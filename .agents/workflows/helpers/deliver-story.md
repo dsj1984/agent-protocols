@@ -46,8 +46,8 @@ timeout — the per-tree install can take minutes; never `run_in_background`:
 node .agents/scripts/single-story-init.js --story <storyId>
 ```
 
-Flags: `--dry-run` (no mutations; skips lease + sweep), `--steal` (transfer
-a foreign lease). It validates `type::story`, **acquires the Story lease**
+Every script below documents its own flags — run it with `--help`.
+It validates `type::story`, **acquires the Story lease**
 (fails closed on a foreign assignee), fetches `origin`, seeds `story-<id>`
 from `baseBranch` (idempotent reuse), materializes a worktree, runs a
 guarded merged-`story-*` sweep, and flips `agent::executing` (reference

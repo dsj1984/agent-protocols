@@ -38,6 +38,11 @@ import fs from 'node:fs';
 import path from 'node:path';
 import { describe, it } from 'node:test';
 import { fileURLToPath } from 'node:url';
+import {
+  assertDocMentions,
+  assertDocOmits,
+  readDoc,
+} from '../helpers/doc-assert.js';
 
 const __dirname = path.dirname(fileURLToPath(import.meta.url));
 const REPO_ROOT = path.resolve(__dirname, '..', '..');
@@ -139,6 +144,47 @@ describe('workflow-invoked scripts are self-describing', () => {
       );
     });
   }
+
+  it('does not re-inline a flag enumeration the script now owns', () => {
+    // Story #4750 deleted these three; each is a verbatim restatement of a
+    // flag surface `--help` prints, and each is the shape most likely to be
+    // pasted back in by a well-meaning edit. Wrap-independent by construction
+    // (`assertDocOmits` normalizes) so a re-flow cannot hide a regression.
+    const deliverStory = readDoc(
+      path.join(WORKFLOWS_DIR, 'helpers', 'deliver-story.md'),
+    );
+    assertDocOmits(
+      deliverStory,
+      /Flags: `--dry-run`/,
+      'single-story-init.js documents --dry-run / --steal itself — deliver-story.md must not restate them',
+    );
+    assertDocMentions(
+      deliverStory,
+      /documents its own flags — run it with `--help`/,
+      "deliver-story.md must point the reader at each script's own --help",
+    );
+
+    const plan = readDoc(path.join(WORKFLOWS_DIR, 'plan.md'));
+    for (const flag of [
+      '--chain-on-clean',
+      '--no-close-superseded',
+      '--route-downgrade-reason',
+      '--allow-over-budget',
+    ]) {
+      assertDocOmits(
+        plan,
+        new RegExp(`\\| \`${flag}`),
+        `plan.md's flag table must not restate plan-persist.js's ${flag} — the CLI documents it`,
+      );
+    }
+
+    const gitCleanup = readDoc(path.join(WORKFLOWS_DIR, 'git-cleanup.md'));
+    assertDocMentions(
+      gitCleanup,
+      /git-cleanup\.js --help/,
+      'git-cleanup.md must point at the script for its flag list',
+    );
+  });
 
   it('leaves the working tree exactly as it found it', () => {
     assert.deepEqual(
