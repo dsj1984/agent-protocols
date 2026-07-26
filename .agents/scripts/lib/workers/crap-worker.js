@@ -18,6 +18,9 @@
  *           skippedFileNoCoverage: boolean,
  *           rows: Array<{ method, startLine, cyclomatic, coverage, crap }>,
  *           skippedMethodsNoCoverage: number,
+ *           hasCoverageEntry: boolean,
+ *           resolvedMethods: number,
+ *           totalMethods: number,
  *         } }
  *
  * A truly unrecoverable per-file failure (read error, transpile null)
@@ -26,10 +29,9 @@
  * aborts the whole scan.
  */
 
-import fs from 'node:fs';
 import { parentPort } from 'node:worker_threads';
-import { calculateCrapForSource } from '../crap-engine.js';
-import { transpileIfNeeded } from '../transpile.js';
+import { calculateCrapForSource, finalizeMethodRows } from '../crap-engine.js';
+import { prepareSourceForScoring } from '../transpile.js';
 
 /**
  * Pure handler for a single inbound worker message. Exported so unit
@@ -42,7 +44,10 @@ import { transpileIfNeeded } from '../transpile.js';
  *   - `{ kind: 'reply', message }`   — caller should `postMessage(message)`.
  *
  * Side effects (fs, transpile, escomplex) are wired through `deps` so
- * tests pass deterministic stubs.
+ * tests pass deterministic stubs. `readFile` / `transpile` are forwarded to
+ * `prepareSourceForScoring`, which also derives the transpiled →
+ * original-source line map the coverage join needs (Story #4775); a
+ * `transpile` stub that still returns a bare string is tolerated.
  *
  * Coverage is supplied via `item.coverageEntry` (pre-resolved on the host),
  * not via a whole-map `coverage` argument. The second parameter is kept as
@@ -52,8 +57,9 @@ import { transpileIfNeeded } from '../transpile.js';
  * @param {object|null} _coverage - Unused. Coverage is in `item.coverageEntry`.
  * @param {{
  *   readFile?: (abs: string) => string,
- *   transpile?: (abs: string, source: string) => string | null,
- *   calculateCrap?: (source: string, entry: object|null) => Array<object>,
+ *   transpile?: (abs: string, source: string, opts?: object) => unknown,
+ *   prepare?: (abs: string, deps: object) => object,
+ *   calculateCrap?: (source: string, entry: object|null, mapLine: Function|null) => Array<object>,
  * }} [deps]
  * @returns {{kind: 'exit'} | {kind: 'reply', message: object}}
  */
@@ -75,9 +81,6 @@ export function handleCrapWorkerMessage(msg, _coverage, deps = {}) {
     };
   }
   const { abs, relPath, requireCoverage } = item;
-  const readFile = deps.readFile ?? ((p) => fs.readFileSync(p, 'utf-8'));
-  const transpile = deps.transpile ?? transpileIfNeeded;
-  const calculateCrap = deps.calculateCrap ?? calculateCrapForSource;
 
   // Coverage entry is pre-resolved on the host and attached to the item.
   // `item.coverageEntry` may be explicitly `null` when the file has no
@@ -93,84 +96,54 @@ export function handleCrapWorkerMessage(msg, _coverage, deps = {}) {
           skippedFileNoCoverage: true,
           rows: [],
           skippedMethodsNoCoverage: 0,
+          hasCoverageEntry: false,
+          resolvedMethods: 0,
+          totalMethods: 0,
         },
       },
     };
   }
 
-  let source;
-  try {
-    source = readFile(abs);
-  } catch {
-    return {
-      kind: 'reply',
-      message: {
-        ok: true,
-        result: {
-          relPath,
-          skippedFileNoCoverage: false,
-          rows: null,
-          skippedMethodsNoCoverage: 0,
-        },
+  const dropped = (error) => ({
+    kind: 'reply',
+    message: {
+      ok: true,
+      result: {
+        relPath,
+        skippedFileNoCoverage: false,
+        rows: null,
+        skippedMethodsNoCoverage: 0,
+        hasCoverageEntry: entry !== null,
+        resolvedMethods: 0,
+        totalMethods: 0,
+        ...(error ? { error } : {}),
       },
-    };
-  }
+    },
+  });
 
-  // TS/TSX → strip-then-analyze. Coverage lookup above used the original
-  // source path (vitest's coverage-final.json keys on the .ts file, not
-  // transpiled output); the transpile is purely about making the code
-  // parseable by the Esprima-based escomplex kernel.
-  const prepared = transpile(abs, source);
-  if (prepared === null) {
-    return {
-      kind: 'reply',
-      message: {
-        ok: true,
-        result: {
-          relPath,
-          skippedFileNoCoverage: false,
-          rows: null,
-          skippedMethodsNoCoverage: 0,
-        },
-      },
-    };
-  }
+  // TS/TSX -> transpile-then-analyze, carrying the source map. The coverage
+  // lookup above used the ORIGINAL source path (vitest's coverage-final.json
+  // keys on the .ts file, not transpiled output) and the per-method join
+  // below uses ORIGINAL source *lines*, remapped from escomplex's transpiled
+  // coordinates via `prepared.mapLine` (Story #4775).
+  const prepare = deps.prepare ?? prepareSourceForScoring;
+  const prepared = prepare(abs, deps);
+  if (prepared.error) return dropped(null);
 
   let methodRows;
   try {
-    methodRows = calculateCrap(prepared, entry);
+    methodRows = (deps.calculateCrap ?? calculateCrapForSource)(
+      prepared.code,
+      entry,
+      prepared.mapLine,
+    );
   } catch (err) {
-    return {
-      kind: 'reply',
-      message: {
-        ok: true,
-        result: {
-          relPath,
-          skippedFileNoCoverage: false,
-          rows: null,
-          skippedMethodsNoCoverage: 0,
-          error:
-            err && typeof err.message === 'string' ? err.message : String(err),
-        },
-      },
-    };
+    return dropped(
+      err && typeof err.message === 'string' ? err.message : String(err),
+    );
   }
 
-  const rows = [];
-  let skippedMethodsNoCoverage = 0;
-  for (const mr of methodRows) {
-    if (mr.crap === null || mr.coverage === null) {
-      skippedMethodsNoCoverage += 1;
-      continue;
-    }
-    rows.push({
-      method: mr.method,
-      startLine: mr.startLine,
-      cyclomatic: mr.cyclomatic,
-      coverage: mr.coverage,
-      crap: mr.crap,
-    });
-  }
+  const finalized = finalizeMethodRows(methodRows, { requireCoverage });
   return {
     kind: 'reply',
     message: {
@@ -178,8 +151,8 @@ export function handleCrapWorkerMessage(msg, _coverage, deps = {}) {
       result: {
         relPath,
         skippedFileNoCoverage: false,
-        rows,
-        skippedMethodsNoCoverage,
+        hasCoverageEntry: entry !== null,
+        ...finalized,
       },
     },
   };

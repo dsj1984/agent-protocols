@@ -361,6 +361,53 @@ There is no CI guardrail rejecting unlabeled baseline edits; the convention is
 preserved so the operator can grep refresh commits in a PR diff, but
 self-policing is the operator's job during `/deliver`'s watch loop.
 
+### The per-method coverage join (Story #4775)
+
+CRAP is the only gate that joins two independently-produced artifacts: the
+per-method complexity escomplex derives from the source, and the per-function
+coverage istanbul derives from the test run. Everything below exists because
+that join is silent when it fails — an unresolved method is simply absent from
+the baseline, so a broken join looks exactly like a small repo.
+
+**One coordinate system.** For a TS/TSX source, escomplex parses the
+*transpiled* output and reports each method's `lineStart` in transpiled
+coordinates, while `coverage-final.json` is keyed against the *original*
+source. The scorer therefore asks `transpileIfNeeded` for a source map
+(`{ withLineMap: true }`, backed by Node's built-in `SourceMap` — no extra
+runtime dependency) and remaps each method start into original coordinates
+before the lookup. JavaScript is a passthrough: its coordinates already are
+original coordinates, so no map is computed and nothing changes. The
+maintainability path never requests a map, and the emitted code is
+byte-identical either way, so MI scores are unaffected.
+
+**Tolerant matching.** Remapping alone is insufficient: escomplex's method
+start and istanbul's `decl.start.line` disagree by a line when a decorator, a
+leading `export`, or a wrapped parameter list sits between them. The lookup is
+exact-line first (so every already-resolving row keeps its exact prior value),
+then innermost containment, then nearest declaration within ±1.
+
+**`requireCoverage: false` means score it.** A method with no coverage entry
+scores as 0% covered — `crap = c² + c`, the formula's own treatment of
+untested code — and lands in the baseline. It used to be dropped individually
+regardless of the flag, which made the flag a no-op for baseline population.
+`requireCoverage: true` still skips and counts it.
+
+**The updater fails closed on a thin result.** `update-crap-baseline.js`
+reports `resolved/joinable` over files that *have* coverage and refuses to
+persist below `delivery.quality.gates.crap.minMethodResolutionRate` (default
+`0.75`), naming the worst unresolved files. The floor is not enforced below 25
+joinable methods, where a diff-scoped run's rate is noise. A healthy repo
+resolves ~98%; the 4–6% signature of a coordinate-system mismatch is far below
+the floor.
+
+**Old baselines are invalidated explicitly.** Rows scored by the previous join
+are not comparable to rows scored by this one, and neither `kernelVersion` nor
+`escomplexVersion` moves (both track the same upstream package). The envelope
+therefore carries a `scoringSemantics` stamp; `check-baselines` fails closed on
+a mismatch with the exact re-baseline command rather than comparing across the
+boundary. Bump the stamp whenever the coverage join, the line coordinate
+system, or the unresolved-method policy changes.
+
 ---
 
 ## Bundle-size ratchet — one-shot refresh/acknowledge (Story #151)

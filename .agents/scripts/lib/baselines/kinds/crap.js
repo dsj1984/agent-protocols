@@ -75,6 +75,36 @@ export function kernelVersion() {
   return '0.0.0';
 }
 
+/**
+ * Scoring-semantics stamp (Story #4775, fix part 5).
+ *
+ * `kernelVersion()` above tracks the `typhonjs-escomplex` package and
+ * `escomplexVersion` tracks the same dependency — so a change in how THIS
+ * repo joins escomplex methods to istanbul coverage moves neither. Rows
+ * scored by the pre-#4775 join (exact transpiled-line equality, methods
+ * dropped when unresolved) are not comparable to rows scored by the join
+ * that replaced it (original-source coordinates, containment matching,
+ * honest `requireCoverage: false`): the same method can carry a different
+ * `crap`, a different `startLine`, or exist in one baseline and not the
+ * other. Comparing across that boundary produces phantom regressions and,
+ * worse, phantom passes.
+ *
+ * The stamp makes the boundary explicit and fails closed. Bump it whenever
+ * the coverage join, the line coordinate system, or the unresolved-method
+ * policy changes.
+ */
+export const SCORING_SEMANTICS = 'coverage-join-v2';
+
+/**
+ * Envelope-level stamps this kind contributes beyond the shared envelope
+ * keys. Consumed by `writer.write` via the kind-module protocol.
+ *
+ * @returns {{scoringSemantics: string}}
+ */
+export function envelopeExtras() {
+  return { scoringSemantics: SCORING_SEMANTICS };
+}
+
 export function projectRow(row) {
   return {
     path: canonicalise(row.path ?? row.file),
@@ -373,6 +403,23 @@ export const CRAP_COMPAT_AXES = [
   },
   kernelDriftAxis('CRAP'),
   {
+    name: 'scoring-semantics-drift',
+    severity: 'fatal',
+    check: ({ baseline }) => {
+      if (!baseline) return null;
+      const stamped = baseline.scoringSemantics ?? null;
+      if (stamped === SCORING_SEMANTICS) return null;
+      return (
+        `[CRAP] scoring semantics changed: baseline=${stamped ?? '<unstamped>'} ` +
+        `running=${SCORING_SEMANTICS}. Rows scored by the previous per-method ` +
+        'coverage join are not comparable to rows scored by the current one, ' +
+        'so this baseline cannot be compared — it must be re-derived. Run ' +
+        "'npm run test:coverage' then 'npm run crap:update -- --full-scope' " +
+        "and commit the result with a 'baseline-refresh:' subject."
+      );
+    },
+  },
+  {
     name: 'ts-transpiler-drift',
     severity: 'warn',
     check: ({ baseline, runningTsTranspilerVersion }) => {
@@ -399,6 +446,30 @@ export const CRAP_COMPAT_AXES = [
  */
 export function evaluateBaselineCompatibility(ctx) {
   return reduceCompatAxes(CRAP_COMPAT_AXES, ctx);
+}
+
+/**
+ * Kind-module hook (Story #4775): the subset of the compat table that a
+ * *loaded* v2 envelope can be judged against on its own, with no running
+ * dependency versions to compare. The unified `check-baselines` gate calls it
+ * straight after `reader.load` and turns a message into a fail-closed
+ * schema-class error, so a baseline written by the previous scoring semantics
+ * can never be silently compared against new-semantics scores.
+ *
+ * The version-drift axes stay out: the v2 envelope does not carry
+ * `escomplexVersion` / `tsTranspilerVersion`, and running those checks against
+ * an absent field would compare `undefined` to `undefined` and pass
+ * vacuously — worse than not running them.
+ *
+ * @param {object|null} baseline A loaded v2 baseline envelope.
+ * @returns {string|null} Operator-facing message, or null when compatible.
+ */
+export function assertBaselineCompatible(baseline) {
+  if (!baseline) return null;
+  const axis = CRAP_COMPAT_AXES.find(
+    (a) => a.name === 'scoring-semantics-drift',
+  );
+  return axis ? axis.check({ baseline }) : null;
 }
 
 /**

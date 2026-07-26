@@ -1,8 +1,10 @@
 import assert from 'node:assert/strict';
 import { describe, it } from 'node:test';
 import {
+  assertBaselineCompatible,
   CRAP_COMPAT_AXES,
   evaluateBaselineCompatibility,
+  SCORING_SEMANTICS,
 } from '../../.agents/scripts/lib/baselines/kinds/crap.js';
 
 // ---------------------------------------------------------------------------
@@ -24,6 +26,7 @@ const VALID_BASELINE = {
   escomplexVersion: '0.8.0',
   kernelVersion: '0.8.0',
   tsTranspilerVersion: '5.4.0',
+  scoringSemantics: SCORING_SEMANTICS,
   rows: [],
 };
 
@@ -152,5 +155,67 @@ describe('evaluateBaselineCompatibility — reduce semantics', () => {
     assert.equal(out.ok, true);
     assert.equal(out.warnings.length, 1);
     assert.match(out.warnings[0], /baseline=0\.0\.0 running=5\.4\.0/);
+  });
+});
+
+// ---------------------------------------------------------------------------
+// Story #4775 — scoring-semantics stamp. `kernelVersion` and
+// `escomplexVersion` both track the SAME upstream package, so a change to how
+// this repo joins escomplex methods to istanbul coverage moves neither. The
+// stamp is the only axis that can catch it, and it must fail CLOSED: rows
+// scored by the old join are not comparable to rows scored by the new one, so
+// an unstamped baseline is a re-baseline, never a silent comparison.
+// ---------------------------------------------------------------------------
+
+describe('scoring-semantics-drift axis', () => {
+  it('is fatal, not a warning', () => {
+    assert.equal(axis('scoring-semantics-drift').severity, 'fatal');
+  });
+
+  it('passes when the stamp matches the running semantics', () => {
+    assert.equal(axis('scoring-semantics-drift').check(VALID_CTX), null);
+    assert.equal(assertBaselineCompatible(VALID_BASELINE), null);
+  });
+
+  it('fires on an UNSTAMPED baseline (written by the previous scorer)', () => {
+    const legacy = { ...VALID_BASELINE };
+    delete legacy.scoringSemantics;
+    const message = assertBaselineCompatible(legacy);
+    assert.match(message, /scoring semantics changed/);
+    assert.match(message, /<unstamped>/);
+    assert.match(message, new RegExp(SCORING_SEMANTICS));
+  });
+
+  it('fires on a baseline stamped with different semantics', () => {
+    const message = assertBaselineCompatible({
+      ...VALID_BASELINE,
+      scoringSemantics: 'coverage-join-v1',
+    });
+    assert.match(message, /coverage-join-v1/);
+  });
+
+  it('names the exact re-baseline command in its guidance', () => {
+    const legacy = { ...VALID_BASELINE };
+    delete legacy.scoringSemantics;
+    const message = assertBaselineCompatible(legacy);
+    assert.match(message, /npm run test:coverage/);
+    assert.match(message, /crap:update -- --full-scope/);
+    assert.match(message, /baseline-refresh:/);
+  });
+
+  it('fails the whole reduce closed, not as a warning', () => {
+    const legacy = { ...VALID_BASELINE };
+    delete legacy.scoringSemantics;
+    const out = evaluateBaselineCompatibility({
+      ...VALID_CTX,
+      baseline: legacy,
+    });
+    assert.equal(out.ok, false);
+    assert.equal(out.exitCode, 1);
+    assert.equal(out.kind, 'scoring-semantics-drift');
+  });
+
+  it('treats a null baseline as the missing-baseline axis job, not its own', () => {
+    assert.equal(assertBaselineCompatible(null), null);
   });
 });

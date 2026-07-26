@@ -774,6 +774,12 @@
         "requireCoverage": {
           "type": "boolean"
         },
+        "minMethodResolutionRate": {
+          "type": "number",
+          "minimum": 0,
+          "maximum": 1,
+          "description": "Fail-closed floor on the per-method coverage JOIN (Story #4775): the fraction of methods that must resolve a coverage entry, counted only over files that HAVE one, before `update-crap-baseline.js` will persist. A broken join is silent by construction — unresolved methods are simply absent — so the updater refuses rather than writing a thin baseline and logging it as success. Not enforced below 25 joinable methods, where a diff-scoped run's rate is noise. Default 0.75; a healthy repo resolves ~98%."
+        },
         "friction": {
           "type": "object",
           "properties": {

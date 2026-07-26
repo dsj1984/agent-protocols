@@ -32,6 +32,9 @@
  *           skippedFileNoCoverage: boolean,
  *           crapRows: Array<{ method, startLine, cyclomatic, coverage, crap }> | null,
  *           skippedMethodsNoCoverage: number,
+ *           hasCoverageEntry: boolean,
+ *           resolvedMethods: number,
+ *           totalMethods: number,
  *         } }
  *
  * A read/transpile/parse failure surfaces as `crapRows: null` so the host
@@ -40,10 +43,10 @@
  * `miScore` is `null`; on a transpile/parse failure `miScore` is `0`.
  */
 
-import fs from 'node:fs';
 import { parentPort } from 'node:worker_threads';
+import { finalizeMethodRows } from '../crap-engine.js';
 import { analyzeOnce } from '../crap-utils.js';
-import { transpileIfNeeded } from '../transpile.js';
+import { prepareSourceForScoring } from '../transpile.js';
 
 /**
  * Pure handler for a single inbound worker message. Exported so unit tests
@@ -58,8 +61,9 @@ import { transpileIfNeeded } from '../transpile.js';
  * @param {unknown} msg
  * @param {{
  *   readFile?: (abs: string) => string,
- *   transpile?: (abs: string, source: string) => string | null,
- *   analyze?: (source: string, entry: object|null) => {
+ *   transpile?: (abs: string, source: string, opts?: object) => unknown,
+ *   prepare?: (abs: string, deps: object) => object,
+ *   analyze?: (source: string, entry: object|null, mapLine: Function|null) => {
  *     miScore: number,
  *     crapRows: Array<object>,
  *     parseError: boolean,
@@ -85,8 +89,7 @@ export function handleCombinedMiCrapWorkerMessage(msg, deps = {}) {
     };
   }
   const { abs, relPath, requireCoverage } = item;
-  const readFile = deps.readFile ?? ((p) => fs.readFileSync(p, 'utf-8'));
-  const transpile = deps.transpile ?? transpileIfNeeded;
+  const prepare = deps.prepare ?? prepareSourceForScoring;
   const analyze = deps.analyze ?? analyzeOnce;
 
   // Coverage entry is pre-resolved on the host and attached to the item.
@@ -94,47 +97,33 @@ export function handleCombinedMiCrapWorkerMessage(msg, deps = {}) {
   // coverage, or `undefined` when the caller did not supply it (treat as null).
   const entry = item.coverageEntry ?? null;
 
-  // Read the source once. A read failure means neither MI nor CRAP can be
-  // computed — MI drops (null), CRAP drops (rows null) — matching the two
-  // passes' read-failure contracts (calculateAll → score null; crap worker
-  // → rows null).
-  let source;
-  try {
-    source = readFile(abs);
-  } catch {
-    return {
-      kind: 'reply',
-      message: {
-        ok: true,
-        result: {
-          relPath,
-          miScore: null,
-          skippedFileNoCoverage: false,
-          crapRows: null,
-          skippedMethodsNoCoverage: 0,
-        },
+  const reply = (result) => ({
+    kind: 'reply',
+    message: {
+      ok: true,
+      result: {
+        relPath,
+        skippedFileNoCoverage: false,
+        skippedMethodsNoCoverage: 0,
+        hasCoverageEntry: entry !== null,
+        resolvedMethods: 0,
+        totalMethods: 0,
+        ...result,
       },
-    };
-  }
+    },
+  });
 
-  // TS/TSX → strip-then-analyze. A transpile failure yields miScore 0
-  // (calculateForFile returns 0 when transpileIfNeeded returns null) and a
-  // null CRAP contribution (crap worker returns rows: null).
-  const prepared = transpile(abs, source);
-  if (prepared === null) {
-    return {
-      kind: 'reply',
-      message: {
-        ok: true,
-        result: {
-          relPath,
-          miScore: 0,
-          skippedFileNoCoverage: false,
-          crapRows: null,
-          skippedMethodsNoCoverage: 0,
-        },
-      },
-    };
+  // Read + transpile once, carrying the transpiled -> original-source line
+  // map the per-method coverage join needs (Story #4775). A read failure
+  // means neither MI nor CRAP can be computed (MI drops as null, matching
+  // `calculateAll`'s filter); a transpile failure scores MI 0 (matching
+  // `calculateForFile`). CRAP drops the file either way.
+  const prepared = prepare(abs, deps);
+  if (prepared.error) {
+    return reply({
+      miScore: prepared.error === 'read' ? null : 0,
+      crapRows: null,
+    });
   }
 
   // ONE parse: analyzeOnce derives both the module MI score and the raw
@@ -144,24 +133,12 @@ export function handleCombinedMiCrapWorkerMessage(msg, deps = {}) {
     miScore,
     crapRows: rawCrapRows,
     parseError,
-  } = analyze(prepared, entry);
+  } = analyze(prepared.code, entry, prepared.mapLine);
   if (parseError) {
-    // Parse error: MI scores 0 (parity with calculateForSource's catch →
+    // Parse error: MI scores 0 (parity with calculateForSource's catch ->
     // returns 0), CRAP drops the file (rows null, parity with the crap
     // worker's calculateCrap-throw branch).
-    return {
-      kind: 'reply',
-      message: {
-        ok: true,
-        result: {
-          relPath,
-          miScore: 0,
-          skippedFileNoCoverage: false,
-          crapRows: null,
-          skippedMethodsNoCoverage: 0,
-        },
-      },
-    };
+    return reply({ miScore: 0, crapRows: null });
   }
 
   // CRAP coverage gate runs AFTER the parse so the MI score is always
@@ -169,49 +146,18 @@ export function handleCombinedMiCrapWorkerMessage(msg, deps = {}) {
   // pass would have skipped it at the file level (no rows, counted) — but the
   // MI pass would still have scored it, so miScore is returned regardless.
   if (requireCoverage && entry === null) {
-    return {
-      kind: 'reply',
-      message: {
-        ok: true,
-        result: {
-          relPath,
-          miScore,
-          skippedFileNoCoverage: true,
-          crapRows: [],
-          skippedMethodsNoCoverage: 0,
-        },
-      },
-    };
+    return reply({ miScore, skippedFileNoCoverage: true, crapRows: [] });
   }
 
-  const crapRows = [];
-  let skippedMethodsNoCoverage = 0;
-  for (const mr of rawCrapRows) {
-    if (mr.crap === null || mr.coverage === null) {
-      skippedMethodsNoCoverage += 1;
-      continue;
-    }
-    crapRows.push({
-      method: mr.method,
-      startLine: mr.startLine,
-      cyclomatic: mr.cyclomatic,
-      coverage: mr.coverage,
-      crap: mr.crap,
-    });
-  }
-  return {
-    kind: 'reply',
-    message: {
-      ok: true,
-      result: {
-        relPath,
-        miScore,
-        skippedFileNoCoverage: false,
-        crapRows,
-        skippedMethodsNoCoverage,
-      },
-    },
-  };
+  const { rows, skippedMethodsNoCoverage, resolvedMethods, totalMethods } =
+    finalizeMethodRows(rawCrapRows, { requireCoverage });
+  return reply({
+    miScore,
+    crapRows: rows,
+    skippedMethodsNoCoverage,
+    resolvedMethods,
+    totalMethods,
+  });
 }
 
 if (parentPort) {

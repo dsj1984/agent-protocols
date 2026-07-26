@@ -175,14 +175,41 @@ test('coverageForMethodInEntry — statements outside function loc are ignored',
   assert.strictEqual(coverageForMethodInEntry(entry, 10), 1);
 });
 
-test('coverageForMethodInEntry — off-line-number returns null', () => {
+test('coverageForMethodInEntry — a line inside the function body resolves by containment', () => {
+  // Story #4775: exact `decl`/`loc` start-line equality is not sufficient —
+  // after remapping a transpiled method start to original coordinates it can
+  // land a line or two into the function. Containment picks the function
+  // whose `loc` range holds the line instead of dropping the method.
   const entry = makeEntry({
     fnStart: 10,
     fnEnd: 14,
     statements: [{ line: 11, hits: 1 }],
   });
+  assert.strictEqual(coverageForMethodInEntry(entry, 11), 1);
+  assert.strictEqual(coverageForMethodInEntry(entry, 14), 1);
+});
+
+test('coverageForMethodInEntry — a declaration one line off still resolves', () => {
+  // The ±1 token disagreement between escomplex's method start and istanbul's
+  // `decl.start.line` (a leading `export`, a decorator, a wrapped parameter
+  // list) is absorbed by the nearest-decl fallback.
+  const entry = makeEntry({
+    fnStart: 10,
+    fnEnd: 14,
+    statements: [{ line: 11, hits: 1 }],
+  });
+  assert.strictEqual(coverageForMethodInEntry(entry, 9), 1);
+});
+
+test('coverageForMethodInEntry — a line outside every function returns null', () => {
+  const entry = makeEntry({
+    fnStart: 10,
+    fnEnd: 14,
+    statements: [{ line: 11, hits: 1 }],
+  });
+  // Beyond the containment range AND beyond the ±1 decl window: no data.
   assert.strictEqual(coverageForMethodInEntry(entry, 7), null);
-  assert.strictEqual(coverageForMethodInEntry(entry, 11), null);
+  assert.strictEqual(coverageForMethodInEntry(entry, 40), null);
 });
 
 test('coverageForMethodInEntry — empty / missing entry returns null', () => {

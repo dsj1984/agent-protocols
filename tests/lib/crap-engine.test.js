@@ -152,8 +152,12 @@ export function b() { return 2; }
 });
 
 test('calculateCrapForSource — method without coverage record gets null, others scored', () => {
+  // `unscored` sits far below the covered function's `loc` range so neither
+  // containment nor the ±1 decl window can claim it (Story #4775) — it is
+  // genuinely uninstrumented, not merely mis-keyed.
   const source = `
 export function scored(x) { return x + 1; }
+${'\n'.repeat(40)}
 export function unscored(x) { return x * 2; }
 `;
   // Only provide coverage for the first method (startLine=2).

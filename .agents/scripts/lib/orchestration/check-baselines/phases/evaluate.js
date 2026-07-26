@@ -13,6 +13,7 @@ import {
 } from '../../../baselines/env-overrides.js';
 import { readRangeSubjectsTouchingFile } from '../../../baselines/git-base.js';
 import {
+  checkBaselineSemantics,
   checkKernelVersion,
   getKindModule,
 } from '../../../baselines/kernel.js';
@@ -247,6 +248,18 @@ export async function evaluateKind({
   const headLoad = loadHeadBaseline(kind, cwd, configPath);
   if (headLoad.schemaError) return { kind, schemaError: headLoad.schemaError };
   const baseline = headLoad.baseline;
+  // Story #4775 — scoring-semantics gate. A baseline whose rows were produced
+  // by superseded scoring semantics is structurally valid but semantically
+  // incomparable, so schema validation alone would wave it through. Fail
+  // closed on the `semantics` tag rather than compare across the boundary;
+  // the message names the exact re-baseline command.
+  const semanticsError = checkBaselineSemantics(kind, baseline);
+  if (semanticsError) {
+    return {
+      kind,
+      schemaError: { tag: 'semantics', message: semanticsError },
+    };
+  }
   const floorRollup = rollupExcludingIgnored({
     kind,
     baseline,

@@ -88,6 +88,15 @@ export const CRAP_GATE_DEFAULTS = Object.freeze({
   // semantics.
   refreshTimeoutMs: 60_000,
   ignoreGlobs: Object.freeze([]),
+  // Story #4775 — fail-closed floor on the per-method coverage JOIN. The
+  // fraction of methods that must resolve a coverage entry, counted only over
+  // files that HAVE one, before `update-crap-baseline.js` will persist. A
+  // broken join is silent by construction (unresolved methods are simply
+  // absent from the baseline), so the updater refuses rather than writing a
+  // thin baseline and logging it as success. 0.75 sits far above a healthy
+  // run (a repo with fresh coverage resolves ~98%) and far below the 4–6%
+  // signature of a coordinate-system mismatch.
+  minMethodResolutionRate: 0.75,
 });
 
 /** Framework defaults for the coverage gate. */
@@ -121,6 +130,15 @@ export const MAINTAINABILITY_GATE_DEFAULTS = Object.freeze({
   // spawned by the baseline-attribution refresh path. Defaults to 60 s.
   refreshTimeoutMs: 60_000,
   ignoreGlobs: Object.freeze([]),
+  // Story #4775 — fail-closed floor on the per-method coverage JOIN. The
+  // fraction of methods that must resolve a coverage entry, counted only over
+  // files that HAVE one, before `update-crap-baseline.js` will persist. A
+  // broken join is silent by construction (unresolved methods are simply
+  // absent from the baseline), so the updater refuses rather than writing a
+  // thin baseline and logging it as success. 0.75 sits far above a healthy
+  // run (a repo with fresh coverage resolves ~98%) and far below the 4–6%
+  // signature of a coordinate-system mismatch.
+  minMethodResolutionRate: 0.75,
 });
 
 /**
@@ -144,6 +162,7 @@ const CRAP_GATE_KEYS = new Set([
   'refreshTag',
   'refreshTimeoutMs',
   'ignoreGlobs',
+  'minMethodResolutionRate',
 ]);
 
 const COVERAGE_GATE_KEYS = new Set([
@@ -205,6 +224,22 @@ function warnUnknownKeys(userBlock, knownKeys, blockLabel) {
  * @param {{ coveragePath: string }} coverageGate resolved coverage gate
  * @returns {object} flattened legacy-bag view that existing callers read
  */
+/**
+ * Clamp a user-supplied method-resolution floor into `[0, 1]`. A
+ * non-numeric, non-finite, or out-of-range value falls back to the framework
+ * default rather than silently disabling the guard (a floor of `NaN` would
+ * compare false against every rate and never fire).
+ *
+ * @param {unknown} value
+ * @param {number} fallback
+ * @returns {number}
+ */
+function resolveResolutionRate(value, fallback) {
+  if (typeof value !== 'number' || !Number.isFinite(value)) return fallback;
+  if (value < 0 || value > 1) return fallback;
+  return value;
+}
+
 export function resolveMaintainabilityCrap(
   userCrap,
   gateScoping,
@@ -227,6 +262,7 @@ export function resolveMaintainabilityCrap(
         DEFAULT_CRAP_TOLERANCE.value,
       ),
       requireCoverage: defaults.requireCoverage,
+      minMethodResolutionRate: defaults.minMethodResolutionRate,
       friction: { ...defaults.friction },
       refreshTag: defaults.refreshTag,
       refreshTimeoutMs: defaults.refreshTimeoutMs,
@@ -248,6 +284,10 @@ export function resolveMaintainabilityCrap(
       toleranceScalar(defaults.tolerance, DEFAULT_CRAP_TOLERANCE.value),
     ),
     requireCoverage: userCrap.requireCoverage ?? defaults.requireCoverage,
+    minMethodResolutionRate: resolveResolutionRate(
+      userCrap.minMethodResolutionRate,
+      defaults.minMethodResolutionRate,
+    ),
     friction: { ...defaults.friction, ...(userCrap.friction ?? {}) },
     refreshTag: userCrap.refreshTag ?? defaults.refreshTag,
     refreshTimeoutMs: resolvePositiveIntegerMs(

@@ -184,6 +184,8 @@ export function write({
     rollup,
     kernelVersion: kernelVersion ?? currentKernelVersion(kind),
     generatedAt,
+    extras:
+      typeof mod.envelopeExtras === 'function' ? mod.envelopeExtras() : null,
   });
   assertEnvelope(envelope);
   return envelope;

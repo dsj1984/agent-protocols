@@ -50,7 +50,9 @@ import {
 } from './kinds/coverage.js';
 import {
   applyEpsilon as crapApplyEpsilon,
+  assertBaselineCompatible as crapAssertBaselineCompatible,
   compare as crapCompare,
+  envelopeExtras as crapEnvelopeExtras,
   kernelVersion as crapKernelVersion,
   keyField as crapKeyField,
   mergeRows as crapMergeRows,
@@ -139,6 +141,12 @@ function bindKindModule(members) {
     compare: members.compare,
     applyEpsilon: members.applyEpsilon,
     mergeRows: members.mergeRows,
+    // Optional per-kind hooks (Story #4775). `envelopeExtras` contributes
+    // envelope-level stamps the shared writer would not otherwise know about;
+    // `assertBaselineCompatible` lets a kind refuse a loaded baseline whose
+    // scoring semantics predate the running scorer.
+    envelopeExtras: members.envelopeExtras,
+    assertBaselineCompatible: members.assertBaselineCompatible,
   });
 }
 
@@ -179,6 +187,8 @@ const KIND_MODULES = Object.freeze({
     compare: crapCompare,
     applyEpsilon: crapApplyEpsilon,
     mergeRows: crapMergeRows,
+    envelopeExtras: crapEnvelopeExtras,
+    assertBaselineCompatible: crapAssertBaselineCompatible,
   }),
   maintainability: bindKindModule({
     name: maintainabilityName,
@@ -268,6 +278,27 @@ export function getKindModule(kind) {
  */
 export function currentKernelVersion(kind) {
   return getKindModule(kind).kernelVersion();
+}
+
+/**
+ * Ask a kind whether a loaded baseline is compatible with the running
+ * scorer's SEMANTICS — a dimension `kernelVersion` cannot express, because a
+ * kind's scoring can change while the upstream package it stamps does not
+ * (Story #4775). Kinds without the hook always answer "compatible".
+ *
+ * @param {string} kind
+ * @param {object|null} baseline
+ * @returns {string|null} Operator-facing message, or null when compatible.
+ */
+export function checkBaselineSemantics(kind, baseline) {
+  let mod;
+  try {
+    mod = getKindModule(kind);
+  } catch {
+    return null;
+  }
+  if (typeof mod.assertBaselineCompatible !== 'function') return null;
+  return mod.assertBaselineCompatible(baseline);
 }
 
 /**
