@@ -5,6 +5,11 @@ All notable changes to this project will be documented in this file.
 ## [2.18.0](https://github.com/dsj1984/mandrel/compare/mandrel-v2.17.0...mandrel-v2.18.0) (2026-07-26)
 
 
+### Added
+
+* **temp:** auto-purge merged Stories' spent temp artifacts behind an allowlist, keeping signals ([#4794](https://github.com/dsj1984/mandrel/issues/4794)) ([#4795](https://github.com/dsj1984/mandrel/issues/4795)) ([d69d985](https://github.com/dsj1984/mandrel/commit/d69d9858511658e0ec0336db0cf8aa65d725637b))
+
+
 ### Chores
 
 * **release:** cut the 2.18.0 release missed by an unparseable squash subject ([#4796](https://github.com/dsj1984/mandrel/issues/4796)) ([8ccff57](https://github.com/dsj1984/mandrel/commit/8ccff574d44519595e04fc0f3597cb4dcd005436))
