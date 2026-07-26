@@ -2,6 +2,30 @@
 
 All notable changes to this project will be documented in this file.
 
+## [2.17.0](https://github.com/dsj1984/mandrel/compare/mandrel-v2.16.0...mandrel-v2.17.0) (2026-07-26)
+
+
+### Added
+
+* **crap:** wire the baseline-refresh projection layer and add CRAP freshness + full-scope drift detection ([#4776](https://github.com/dsj1984/mandrel/issues/4776)) ([#4778](https://github.com/dsj1984/mandrel/issues/4778)) ([8c49a12](https://github.com/dsj1984/mandrel/commit/8c49a12be6ca5ecaca60d8f0bc868f47c9a02534))
+
+
+### Fixed
+
+* **audit-to-stories:** anchor findings to their real primary file (refs [#4781](https://github.com/dsj1984/mandrel/issues/4781)) ([#4782](https://github.com/dsj1984/mandrel/issues/4782)) ([a5794c0](https://github.com/dsj1984/mandrel/commit/a5794c02c3443c39ce116699c311b4cdd8001788))
+* **cli:** drain stdio before exit and settle the audit fan-out per dimension (refs [#4783](https://github.com/dsj1984/mandrel/issues/4783)) ([#4787](https://github.com/dsj1984/mandrel/issues/4787)) ([3422fd5](https://github.com/dsj1984/mandrel/commit/3422fd564773d0e79ac4d16af5bbc5414d06c65b))
+* **crap:** join per-method coverage in original-source coordinates — TS scoring resolves ~5% of methods ([#4775](https://github.com/dsj1984/mandrel/issues/4775)) ([#4777](https://github.com/dsj1984/mandrel/issues/4777)) ([1464c75](https://github.com/dsj1984/mandrel/commit/1464c75c061960aaa9ee1af88175d9706b044c26))
+* **deliver:** keep the terminal envelope alive after the worktree reap (refs [#4784](https://github.com/dsj1984/mandrel/issues/4784)) ([#4791](https://github.com/dsj1984/mandrel/issues/4791)) ([907b7bd](https://github.com/dsj1984/mandrel/commit/907b7bdb951a70a7155e5a9a50afdbea7a81d6a6))
+* **deps:** decouple the js-yaml override from markdownlint-cli2, close Node-engine drift, and re-enable knip dependency rules ([#4784](https://github.com/dsj1984/mandrel/issues/4784)) ([#4788](https://github.com/dsj1984/mandrel/issues/4788)) ([9ed687b](https://github.com/dsj1984/mandrel/commit/9ed687bead90d3e0edf76e7d0e700b0f51e8cb5d))
+* **docs:** re-sync the reference docs to the contracts the code actually implements ([#4785](https://github.com/dsj1984/mandrel/issues/4785)) ([#4790](https://github.com/dsj1984/mandrel/issues/4790)) ([00d9270](https://github.com/dsj1984/mandrel/commit/00d92708b3d3ac0978c073c5a31fd6a80a25767e))
+* **docs:** supersede the stale ADR chain in place and archive the retired pattern history ([#4786](https://github.com/dsj1984/mandrel/issues/4786)) ([#4789](https://github.com/dsj1984/mandrel/issues/4789)) ([5ba2e34](https://github.com/dsj1984/mandrel/commit/5ba2e3486973b87603fd3f2f23f750f18e75e240))
+* **git-cleanup:** report the refs the prune phase actually dropped (refs [#4772](https://github.com/dsj1984/mandrel/issues/4772)) ([#4773](https://github.com/dsj1984/mandrel/issues/4773)) ([16424d5](https://github.com/dsj1984/mandrel/commit/16424d53305549841b6294ceb1d7651baf1f98e7))
+
+
+### Changed
+
+* **quality:** floor CRAP on methodsAbove20 instead of a fitted max ceiling ([#4779](https://github.com/dsj1984/mandrel/issues/4779)) ([647130b](https://github.com/dsj1984/mandrel/commit/647130b313a85add64978205d4bb300e90e3c9a3)), closes [#4775](https://github.com/dsj1984/mandrel/issues/4775)
+
 ## [2.16.0](https://github.com/dsj1984/mandrel/compare/mandrel-v2.15.0...mandrel-v2.16.0) (2026-07-25)
 
 
