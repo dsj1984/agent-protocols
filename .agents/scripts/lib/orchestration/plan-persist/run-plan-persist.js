@@ -37,13 +37,12 @@
  * @module lib/orchestration/plan-persist/run-plan-persist
  */
 
-import { readdir, rm, stat } from 'node:fs/promises';
+import { rm } from 'node:fs/promises';
 import path from 'node:path';
-
-import { anchorTempRoot, tempRootFrom } from '../../config/temp-paths.js';
 import { getLimits, PROJECT_ROOT } from '../../config-resolver.js';
 import { gitSpawn } from '../../git-utils.js';
 import { Logger } from '../../Logger.js';
+import { sweepTempRetention } from '../../temp-retention.js';
 import {
   deriveStoryShape,
   LITE_ROUTE_LABEL,
@@ -375,13 +374,6 @@ function resolveEffectiveRoute({
 }
 
 /**
- * Age after which an abandoned `temp/plan-*` directory is reaped. A plan run
- * that is still being authored is minutes-to-hours old; a week is far past
- * any live run and comfortably past an operator returning to a paused one.
- */
-const STALE_PLAN_DIR_MS = 7 * 24 * 60 * 60 * 1000;
-
-/**
  * Reap abandoned `plan-*` directories under the temp root (Story #4541).
  *
  * Terminal-success cleanup only ever removed the *current* run's `planDir`,
@@ -389,9 +381,16 @@ const STALE_PLAN_DIR_MS = 7 * 24 * 60 * 60 * 1000;
  * `--dry-run` left its directory behind forever. This sweeps the stragglers
  * on each persist.
  *
+ * Story #4794 folded the age-floored reap into the shared temp-retention
+ * engine — `planDirs` is one of its declared classes, so the plan path and
+ * the delivery path now converge on one classifier and one staleness floor
+ * (`delivery.tempRetention.staleDays`, still 7 days by default) instead of
+ * this module owning a private constant. Behaviour is unchanged: only
+ * `plan-*` directories are considered, the age test is the directory's own
+ * mtime, and the current run's `planDir` is excluded.
+ *
  * Best-effort throughout: this is hygiene, never a reason to fail a run that
- * has already created Stories. The current run's own `planDir` is always
- * excluded — its cleanup is the caller's decision.
+ * has already created Stories.
  *
  * @param {{ config?: object, keepDir?: string|null, now?: number }} args
  * @returns {Promise<{ reaped: string[] }>}
@@ -401,35 +400,14 @@ export async function reapStalePlanDirs({
   keepDir = null,
   now = Date.now(),
 } = {}) {
-  const reaped = [];
-  const tempRoot = anchorTempRoot(tempRootFrom(config));
-  let entries;
-  try {
-    entries = await readdir(tempRoot, { withFileTypes: true });
-  } catch {
-    return { reaped }; // No temp root yet — nothing to reap.
-  }
-  const keep = keepDir ? path.resolve(keepDir) : null;
-  for (const entry of entries) {
-    if (!entry.isDirectory() || !entry.name.startsWith('plan-')) continue;
-    const dir = path.resolve(tempRoot, entry.name);
-    if (keep !== null && dir === keep) continue;
-    try {
-      const { mtimeMs } = await stat(dir);
-      if (now - mtimeMs < STALE_PLAN_DIR_MS) continue;
-      await rm(dir, { recursive: true, force: true });
-      reaped.push(dir);
-    } catch {
-      // A racing writer or a permission error: leave it for the next run.
-    }
-  }
-  if (reaped.length > 0) {
-    Logger.info(
-      `[plan-persist] reaped ${reaped.length} abandoned plan director(ies) ` +
-        `older than 7d under ${tempRoot}.`,
-    );
-  }
-  return { reaped };
+  const result = await sweepTempRetention({
+    config,
+    only: ['planDirs'],
+    excludePaths: keepDir ? [keepDir] : [],
+    now,
+    label: 'plan-persist',
+  });
+  return { reaped: result.purged.map((entry) => entry.path) };
 }
 
 /**

@@ -66,6 +66,7 @@ const CLEAN_TAIL = {
   statusResync: true,
   refCleanup: true,
   baseFastForward: true,
+  tempPurge: true,
 };
 
 describe('story-deliver-terminal — the status contract', () => {
@@ -266,7 +267,13 @@ describe('story-deliver-terminal — landed', () => {
       Object.keys(env.tail)
         .filter((k) => k !== 'details')
         .sort(),
-      ['baseFastForward', 'followUps', 'refCleanup', 'statusResync'],
+      [
+        'baseFastForward',
+        'followUps',
+        'refCleanup',
+        'statusResync',
+        'tempPurge',
+      ],
     );
   });
 

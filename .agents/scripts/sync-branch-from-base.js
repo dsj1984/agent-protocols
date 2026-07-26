@@ -31,6 +31,7 @@
 import path from 'node:path';
 import { parseArgs } from 'node:util';
 import { runAsCli } from './lib/cli-utils.js';
+import { resolveConfig } from './lib/config-resolver.js';
 import { syncBranchFromBase } from './lib/git/sync-from-base.js';
 import { gitSpawn, gitSync } from './lib/git-utils.js';
 import { Logger } from './lib/Logger.js';
@@ -95,11 +96,21 @@ export async function runSyncBranchFromBase(opts = {}) {
   });
 
   // Story #4685 — full detail to a temp log; emit a single summary line.
+  // Story #4794 — resolve the config so the log honours `project.paths.tempRoot`
+  // instead of the hardcoded `<cwd>/temp` this used to join. A zero-config
+  // invocation (tests, ad-hoc runs outside a configured repo) falls back to the
+  // framework default root rather than failing a sync over a log path.
+  let config = null;
+  try {
+    config = resolveConfig({ cwd });
+  } catch {
+    config = null;
+  }
   emitTerseResult({
     label: 'SYNC RESULT',
     result,
     scope: branch,
-    logDir: path.join(cwd, 'temp', 'orchestration'),
+    config,
     summary: { branch, base, synced: result.synced, kind: result.kind },
   });
 

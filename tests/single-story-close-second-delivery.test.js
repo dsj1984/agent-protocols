@@ -308,6 +308,7 @@ describe('second delivery reaches the landed state (AC-2)', () => {
           statusResync: true,
           refCleanup: true,
           baseFastForward: true,
+          tempPurge: true,
           details: {},
         };
       },

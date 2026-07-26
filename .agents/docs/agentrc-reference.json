@@ -128,6 +128,16 @@
     "docsFreshness": {
       "paths": ["README.md"]
     },
+    "tempRetention": {
+      "enabled": true,
+      "staleDays": 7,
+      "classes": {
+        "orchestrationLogs": true,
+        "validationEvidence": true,
+        "auditResults": true,
+        "planDirs": true
+      }
+    },
     "deliverRunner": {
       "concurrencyCap": 3
     },

@@ -63,6 +63,14 @@ function baseSeams(trace) {
       trace?.push('baseFastForward');
       return { applied: true, behind: 1 };
     },
+    // Stubbed for the same isolation reason as the friction emit above
+    // (Story #4794): the real purge resolves its tempRoot from `config`,
+    // which these tests do not pass, so an unstubbed call would scan a temp
+    // tree this suite does not own. The engine has its own suite.
+    purgeStoryTempArtifactsFn: async () => {
+      trace?.push('tempPurge');
+      return { skipped: null, purged: [], errors: [], bytesReclaimed: 0 };
+    },
   };
 }
 
@@ -107,11 +115,13 @@ describe('runPostLandTail — lock scope (Story #4622)', () => {
       statusResync: true,
       refCleanup: true,
       baseFastForward: true,
+      tempPurge: true,
       details: {
         followUps: null,
         statusResync: null,
         refCleanup: null,
         baseFastForward: null,
+        tempPurge: null,
       },
     });
     assert.ok(released, 'the lock is released');
@@ -119,6 +129,9 @@ describe('runPostLandTail — lock scope (Story #4622)', () => {
     // capture reads the signal stream, so a marker written after it would
     // arrive too late to net the failure it cancels out of this very run.
     // GitHub steps then precede the lock; both mutations are inside it.
+    // The temp purge (Story #4794) is LAST and outside the lock: it touches
+    // only the temp tree, so it contends with nothing, and running it after
+    // every other step means no step can still be reading what it deletes.
     assert.deepEqual(events, [
       'closeRecovered',
       'followUps',
@@ -127,6 +140,7 @@ describe('runPostLandTail — lock scope (Story #4622)', () => {
       'refCleanup',
       'baseFastForward',
       'release',
+      'tempPurge',
     ]);
   });
 

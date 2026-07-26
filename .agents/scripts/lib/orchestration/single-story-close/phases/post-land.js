@@ -40,6 +40,10 @@ import {
 } from '../../../observability/runtime-friction.js';
 import { acquireLockWithWait as defaultAcquireLockWithWait } from '../../../single-story-sweep/sweep-lock.js';
 import {
+  purgeStoryTempArtifacts as defaultPurgeStoryTempArtifacts,
+  formatBytes,
+} from '../../../temp-retention.js';
+import {
   executeFastForward as defaultExecuteFastForward,
   planFastForward as defaultPlanFastForward,
 } from '../../git-cleanup/phases/fast-forward.js';
@@ -225,6 +229,38 @@ async function stepBaseFastForward({
 }
 
 /**
+ * Purge this Story's spent temp artifacts now that its merge is confirmed
+ * (Story #4794).
+ *
+ * A disabled policy is a **success**, not a degradation: the operator turned
+ * the purge off, so doing nothing is the correct outcome and reporting it as a
+ * failed step would train readers to ignore the field. Only a real error —
+ * an unreadable temp root, an undeletable artifact — degrades it.
+ */
+async function stepTempPurge({
+  storyId,
+  config,
+  progress,
+  purgeStoryTempArtifactsFn,
+}) {
+  const result = await purgeStoryTempArtifactsFn({ storyId, config });
+  if (result?.skipped === 'disabled') {
+    progress?.('POST-LAND', '⏭  temp purge disabled by config.');
+    return { ok: true, detail: null };
+  }
+  if (result?.errors?.length > 0) {
+    return { ok: false, detail: result.errors.join('; ') };
+  }
+  if (result?.purged?.length > 0) {
+    progress?.(
+      'POST-LAND',
+      `🧹 purged ${result.purged.length} spent temp artifact(s) (${formatBytes(result.bytesReclaimed)}).`,
+    );
+  }
+  return { ok: true, detail: null };
+}
+
+/**
  * Run the whole post-land tail. Never throws.
  *
  * Steps run **sequentially** and in this order deliberately: follow-up
@@ -262,7 +298,8 @@ async function stepBaseFastForward({
  * @param {Function} [args.planFastForwardFn]       Test seam.
  * @param {Function} [args.executeFastForwardFn]    Test seam.
  * @param {Function} [args.acquireLockWithWaitFn]   Test seam.
- * @returns {Promise<{ followUps: boolean, statusResync: boolean, refCleanup: boolean, baseFastForward: boolean, details: Record<string, string|null> }>}
+ * @param {Function} [args.purgeStoryTempArtifactsFn] Test seam.
+ * @returns {Promise<{ followUps: boolean, statusResync: boolean, refCleanup: boolean, baseFastForward: boolean, tempPurge: boolean, details: Record<string, string|null> }>}
  */
 export async function runPostLandTail({
   storyId,
@@ -280,6 +317,7 @@ export async function runPostLandTail({
   planFastForwardFn = defaultPlanFastForward,
   executeFastForwardFn = defaultExecuteFastForward,
   acquireLockWithWaitFn = defaultAcquireLockWithWait,
+  purgeStoryTempArtifactsFn = defaultPurgeStoryTempArtifacts,
 }) {
   progress?.('POST-LAND', `🧾 Running land tail for Story #${storyId}...`);
 
@@ -373,16 +411,28 @@ export async function runPostLandTail({
     if (lock.acquired) lock.release();
   }
 
+  // Story #4794 — the merge is confirmed, so this Story's gate transcripts and
+  // validation evidence are spent. Runs LAST so a purge can never race a step
+  // that still reads them, and outside the checkout lock because it touches
+  // only the temp tree. Its `signals.ndjson` survives by construction.
+  const tempPurge = await step(
+    () =>
+      stepTempPurge({ storyId, config, progress, purgeStoryTempArtifactsFn }),
+    { name: 'temp purge', progress },
+  );
+
   const tail = {
     followUps: followUps.ok,
     statusResync: statusResync.ok,
     refCleanup: refCleanup.ok,
     baseFastForward: baseFastForward.ok,
+    tempPurge: tempPurge.ok,
     details: {
       followUps: followUps.detail,
       statusResync: statusResync.detail,
       refCleanup: refCleanup.detail,
       baseFastForward: baseFastForward.detail,
+      tempPurge: tempPurge.detail,
     },
   };
   const degraded = Object.entries(tail)

@@ -33,6 +33,7 @@ const TAIL = Object.freeze({
   statusResync: true,
   refCleanup: true,
   baseFastForward: true,
+  tempPurge: true,
   details: {},
 });
 

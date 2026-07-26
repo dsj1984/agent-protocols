@@ -125,6 +125,14 @@ top-level keys are validation errors.
 | `lease.ttlMs` | No | `integer` | — | — |
 | `docsFreshness` | No | `object` | — | Nested configuration block. |
 | `docsFreshness.paths` | No | `array` | — | — |
+| `tempRetention` | No | `object` | — | Story #4794. Auto-purge of spent temp artifacts once their Story lands. Classification is an allowlist: only the declared classes below are ever deleted, so operator scratch files under tempRoot are reported with their size and left alone. signals.ndjson is never purged by any path. |
+| `tempRetention.enabled` | No | `boolean` | — | Master switch. Default true — reclaiming a landed Story's gate transcripts and validation evidence is the behaviour, and this knob turns it off. When false every purge path is a reported no-op. |
+| `tempRetention.staleDays` | No | `integer` | — | Age floor (days, default 7) for the families no Story id can be recovered from — roster-level audit reports and abandoned plan-<slug>/ dirs. Story-keyed artifacts do not wait for it: they are purged as soon as their merge is confirmed. |
+| `tempRetention.classes` | No | `object` | — | Per-class opt-out. Each defaults to true; set one false to keep that family while the rest are purged. |
+| `tempRetention.classes.orchestrationLogs` | No | `boolean` | — | <tempRoot>/orchestration/*.log — close gate transcripts and terse-result detail dumps. |
+| `tempRetention.classes.validationEvidence` | No | `boolean` | — | Per-Story validation-evidence.json, lifecycle.ndjson, and manifest.md under the standalone and per-run story trees. |
+| `tempRetention.classes.auditResults` | No | `boolean` | — | <tempRoot>/audits/ — audit lens reports. |
+| `tempRetention.classes.planDirs` | No | `boolean` | — | <tempRoot>/plan-<slug>/ — abandoned plan authoring dirs. Age-floored only; the current run is always excluded. |
 | `deliverRunner` | No | `object` | — | Nested configuration block. |
 | `deliverRunner.concurrencyCap` | No | `integer` | — | Maximum ready Stories dispatched by /deliver at once. Default 3. Moderate by design — keeps host-quota consumption predictable while allowing a small ready-set fan-out. Set 1 for strictly sequential delivery; raise further on hosts with adequate parallel-agent quota. See deliver.md for the sequencing model and throughput tradeoff. |
 | `worktreeIsolation` | No | `object` | — | Nested configuration block. |

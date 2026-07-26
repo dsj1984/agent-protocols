@@ -143,7 +143,7 @@ export async function runCloseValidationPhase({
   );
   // Story #4736 — one sink for both `log` seams (gate construction and gate
   // execution), so nothing in the chain can route around the artifact.
-  const gateLog = createGateLogSink({ storyId, cwd });
+  const gateLog = createGateLogSink({ storyId, config });
   let validation;
   try {
     validation = await runCloseValidation({

@@ -777,7 +777,7 @@ export async function runSingleStoryInit({
     label: 'STORY INIT RESULT',
     result,
     scope: storyId,
-    logDir: path.join(cwd, 'temp', 'orchestration'),
+    config,
     summary: {
       storyId,
       storyBranch,

@@ -86,13 +86,18 @@
         "followUps",
         "statusResync",
         "refCleanup",
-        "baseFastForward"
+        "baseFastForward",
+        "tempPurge"
       ],
       "properties": {
         "followUps": { "type": "boolean" },
         "statusResync": { "type": "boolean" },
         "refCleanup": { "type": "boolean" },
         "baseFastForward": { "type": "boolean" },
+        "tempPurge": {
+          "type": "boolean",
+          "description": "Story #4794 — the merged Story's spent temp artifacts (gate transcripts, validation evidence) were purged under delivery.tempRetention. A disabled policy reports true: the operator turned the purge off, so doing nothing IS the correct outcome. Only a real failure — an unreadable temp root, an undeletable artifact — reports false, and like every tail step that degrades the report, never the land."
+        },
         "details": {
           "type": "object",
           "description": "Per-step diagnostic detail — the reason a false step reported false.",

@@ -274,6 +274,33 @@ export function tempRootFrom(config) {
     : 'temp';
 }
 
+/**
+ * Directory segment (under `tempRoot`) holding every orchestration run log —
+ * the close gate transcripts (`close-gates-<sid>.log`) and the terse-result
+ * detail dumps (`story-init-result-<sid>.log`, `sync-result-<branch>.log`, …).
+ *
+ * Story #4794: the four writers that land here each hand-rolled the temp path
+ * from a literal `temp` segment joined onto their own cwd, which ignores
+ * `project.paths.tempRoot` entirely. On a consumer that relocates its temp
+ * root, the writers wrote to `<cwd>/temp/` while every reader — including the
+ * retention purge — resolved the configured root, so the artifacts were
+ * invisible to the tooling meant to manage them. Routing all four through this
+ * helper also picks up main-checkout anchoring for free, so a close running
+ * from a Story worktree lands its logs in the same tree the host reads.
+ */
+export const ORCHESTRATION_DIRNAME = 'orchestration';
+
+/**
+ * `<tempRoot>/orchestration/` — resolved against the configured temp root and
+ * anchored to the main checkout, like every other helper in this module.
+ *
+ * @param {object} [config]
+ * @returns {string}
+ */
+export function orchestrationLogDir(config) {
+  return path.join(anchorTempRoot(tempRootFrom(config)), ORCHESTRATION_DIRNAME);
+}
+
 const runId = (id) => {
   if (!Number.isInteger(id) || id <= 0) {
     throw new Error(`[temp-paths] runId must be a positive integer; got ${id}`);
