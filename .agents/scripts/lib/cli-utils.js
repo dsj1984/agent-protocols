@@ -18,6 +18,7 @@ import path from 'node:path';
 import { fileURLToPath } from 'node:url';
 import { respondToHelp } from './cli-usage.js';
 import { formatCliError } from './error-redactor.js';
+import { flushStdio } from './stdio-flush.js';
 
 /**
  * Is the current module being executed directly as a CLI (as opposed to
@@ -33,10 +34,47 @@ export function isDirectInvocation(importMetaUrl) {
 }
 
 /**
+ * Settle one CLI run: await `main`, translate its outcome into an exit code,
+ * then flush stdio.
+ *
+ * **The exit is never eager** (Story #4783). This helper assigns
+ * `process.exitCode` and returns, letting Node terminate once the event loop
+ * is empty — which is *after* the pending stdout writes drain. The previous
+ * `process.exit()` call terminated first, discarding anything still queued
+ * behind a full pipe buffer, so any CLI emitting more than 64 KiB into a pipe
+ * truncated silently while still reporting success. The resulting exit code is
+ * identical for every caller: `code ?? 0` on the `propagateExitCode` path,
+ * `options.exitCode` (default 1) on the fatal-error path, and an untouched 0
+ * everywhere else.
+ *
+ * @param {() => Promise<unknown>} main
+ * @param {{ source: string, exitCode: number, onError?: (err: Error) => void,
+ *   propagateExitCode: boolean, errorPrefix?: string }} settings
+ * @returns {Promise<void>}
+ */
+async function settleCli(main, settings) {
+  const { source, exitCode, onError, propagateExitCode, errorPrefix } =
+    settings;
+  try {
+    const code = await main();
+    if (propagateExitCode) process.exitCode = code ?? 0;
+  } catch (err) {
+    if (typeof onError === 'function') {
+      onError(err);
+    } else {
+      const prefix = errorPrefix ?? `[${source}] Fatal error`;
+      console.error(`${prefix}: ${formatCliError(err)}`);
+      process.exitCode = exitCode;
+    }
+  }
+  await flushStdio();
+}
+
+/**
  * Run `main` as the CLI entry point for the caller's module. No-op when the
  * module is imported rather than invoked directly. Promise rejection from
  * `main` is funnelled through either the caller-supplied `onError` callback
- * or the default handler (prefixed stderr line + `process.exit(exitCode)`).
+ * or the default handler (prefixed stderr line + `process.exitCode`).
  *
  * A `usage` option makes the script self-describing: when the argv carries
  * `--help` / `-h`, the rendered usage block goes to stdout and `main` is
@@ -51,6 +89,9 @@ export function isDirectInvocation(importMetaUrl) {
  * @param {string} [options.source='CLI']           Prefix used in the default error message.
  * @param {number} [options.exitCode=1]             Exit code used by the default error handler.
  * @param {(err: Error) => void} [options.onError]  Full override of the error handler.
+ * @param {boolean} [options.propagateExitCode=false] Adopt `main`'s resolved
+ *   value as the process exit code.
+ * @param {string} [options.errorPrefix]            Overrides the `[source] Fatal error` prefix.
  * @param {object|string} [options.usage]           Usage spec (or pre-rendered
  *   text) printed for `--help`; see `lib/cli-usage.js`.
  */
@@ -65,17 +106,11 @@ export function runAsCli(importMetaUrl, main, options = {}) {
     usage,
   } = options;
   if (usage && respondToHelp(process.argv.slice(2), usage)) return;
-  const promise = main();
-  if (propagateExitCode) {
-    promise.then((code) => process.exit(code ?? 0));
-  }
-  promise.catch((err) => {
-    if (typeof onError === 'function') {
-      onError(err);
-      return;
-    }
-    const prefix = errorPrefix ?? `[${source}] Fatal error`;
-    console.error(`${prefix}: ${formatCliError(err)}`);
-    process.exit(exitCode);
+  void settleCli(main, {
+    source,
+    exitCode,
+    onError,
+    propagateExitCode,
+    errorPrefix,
   });
 }

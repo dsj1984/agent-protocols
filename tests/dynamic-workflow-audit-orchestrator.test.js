@@ -26,7 +26,7 @@ const READ_ONLY = Object.freeze(['Read', 'Grep', 'Glob']);
  * synthesis agent "writes" — defaults to a conformant report so the contract
  * self-check passes.
  */
-function makeCtx({ synthesisReport = 'CONFORMANT' } = {}) {
+function makeCtx({ synthesisReport = 'CONFORMANT', failWhen = null } = {}) {
   const agentCalls = [];
   const phaseNames = [];
   let agentSeq = 0;
@@ -39,6 +39,8 @@ function makeCtx({ synthesisReport = 'CONFORMANT' } = {}) {
       if (opts.allowedTools?.includes(SYNTHESIS_WRITE_TOOL)) {
         return { output: synthesisReport };
       }
+      const failure = failWhen?.(opts.prompt);
+      if (failure) throw new Error(failure);
       agentSeq += 1;
       return { output: `out-${agentSeq}:${opts.prompt}` };
     },
@@ -203,6 +205,157 @@ test('runAuditOrchestration: lens-supplied formatContractError phrases the throw
     ),
     /LENS-SPECIFIC MESSAGE/,
   );
+});
+
+// --- partial-failure posture (Story #4783) -----------------------------------
+//
+// One rejected dimension used to discard every sibling's completed work
+// (`Promise.all`). The fan-out is now settled and partitioned: survivors flow
+// on, casualties are named in the report.
+
+/** A conformant report skeleton with the Executive Summary the note targets. */
+const REPORT_WITH_SUMMARY = [
+  '# Audit Report',
+  '',
+  '## Executive Summary',
+  '',
+  'Everything analysed looked fine.',
+  '',
+  '## Detailed Findings',
+  '',
+  'None.',
+].join('\n');
+
+test('runAuditOrchestration: one rejected dimension does not discard its siblings', async () => {
+  const { ctx, agentCalls } = makeCtx({
+    failWhen: (prompt) =>
+      prompt === 'DIM:Beta' ? 'beta analysis blew up' : null,
+    synthesisReport: REPORT_WITH_SUMMARY,
+  });
+
+  const result = await runAuditOrchestration(
+    makeSpec(ctx, { dimensions: ['Alpha', 'Beta', 'Gamma'] }),
+  );
+
+  // Synthesis still ran, and it saw the two surviving dimensions.
+  const synth = agentCalls.find((c) => c.prompt.startsWith('SYNTH:'));
+  assert.ok(synth, 'synthesis must still run when one dimension rejects');
+  const blocks = synth.prompt.slice('SYNTH:'.length).split('|');
+  assert.equal(blocks.length, 2);
+  assert.ok(blocks.some((b) => b.includes('DIM:Alpha')));
+  assert.ok(blocks.some((b) => b.includes('DIM:Gamma')));
+  assert.ok(!blocks.some((b) => b.includes('DIM:Beta')));
+  assert.ok(result.report.includes('Detailed Findings'));
+});
+
+test('runAuditOrchestration: the rejected dimension never reaches cross-check', async () => {
+  const { ctx, agentCalls } = makeCtx({
+    failWhen: (prompt) => (prompt === 'DIM:Beta' ? 'beta failed' : null),
+    synthesisReport: REPORT_WITH_SUMMARY,
+  });
+
+  await runAuditOrchestration(makeSpec(ctx, { dimensions: ['Alpha', 'Beta'] }));
+
+  const xchecks = agentCalls.filter((c) => c.prompt.startsWith('XCHECK:'));
+  assert.equal(xchecks.length, 1);
+  assert.ok(xchecks[0].prompt.startsWith('XCHECK:Alpha:'));
+});
+
+test('runAuditOrchestration: the Executive Summary names the failed dimension', async () => {
+  const { ctx } = makeCtx({
+    failWhen: (prompt) =>
+      prompt === 'DIM:Beta' ? 'context window exhausted' : null,
+    synthesisReport: REPORT_WITH_SUMMARY,
+  });
+
+  const { report } = await runAuditOrchestration(
+    makeSpec(ctx, { dimensions: ['Alpha', 'Beta', 'Gamma'] }),
+  );
+
+  const lines = report.split('\n');
+  const summaryIndex = lines.indexOf('## Executive Summary');
+  const bodyIndex = lines.indexOf('## Detailed Findings');
+  const noteIndex = lines.findIndex((l) => l.includes('Degraded coverage'));
+
+  assert.ok(noteIndex > summaryIndex, 'note sits under the Executive Summary');
+  assert.ok(noteIndex < bodyIndex, 'note precedes the findings body');
+  assert.match(report, /Degraded coverage/);
+  assert.match(report, /1 of 3 analysis dimension did not complete/);
+  assert.match(report, /\*\*Beta\*\* \(analyze: context window exhausted\)/);
+  // The surviving dimensions must not be implicated.
+  assert.doesNotMatch(report, /\*\*Alpha\*\*/);
+});
+
+test('runAuditOrchestration: a cross-check rejection is partitioned and named too', async () => {
+  const { ctx, agentCalls } = makeCtx({
+    failWhen: (prompt) =>
+      prompt.startsWith('XCHECK:Beta:') ? 'reviewer timed out' : null,
+    synthesisReport: REPORT_WITH_SUMMARY,
+  });
+
+  const { report } = await runAuditOrchestration(
+    makeSpec(ctx, { dimensions: ['Alpha', 'Beta'] }),
+  );
+
+  const synth = agentCalls.find((c) => c.prompt.startsWith('SYNTH:'));
+  assert.equal(synth.prompt.slice('SYNTH:'.length).split('|').length, 1);
+  assert.match(report, /\*\*Beta\*\* \(cross-check: reviewer timed out\)/);
+});
+
+test('runAuditOrchestration: the degraded list is handed to buildSynthesisPrompt', async () => {
+  const { ctx } = makeCtx({
+    failWhen: (prompt) => (prompt === 'DIM:Beta' ? 'nope' : null),
+    synthesisReport: REPORT_WITH_SUMMARY,
+  });
+
+  let seen = null;
+  await runAuditOrchestration(
+    makeSpec(ctx, {
+      dimensions: ['Alpha', 'Beta'],
+      buildSynthesisPrompt: (blocks, degraded) => {
+        seen = degraded;
+        return `SYNTH:${blocks.join('|')}`;
+      },
+    }),
+  );
+
+  assert.deepEqual(seen, [
+    { dimension: 'Beta', phase: 'analyze', reason: 'nope' },
+  ]);
+});
+
+test('runAuditOrchestration: a full-coverage run carries no degraded note', async () => {
+  const { ctx } = makeCtx({ synthesisReport: REPORT_WITH_SUMMARY });
+  const { report } = await runAuditOrchestration(
+    makeSpec(ctx, { dimensions: ['Alpha', 'Beta'] }),
+  );
+  assert.equal(report, REPORT_WITH_SUMMARY);
+  assert.doesNotMatch(report, /Degraded coverage/);
+});
+
+test('runAuditOrchestration: a total loss throws rather than emitting an empty report', async () => {
+  const { ctx, agentCalls } = makeCtx({ failWhen: () => 'all agents down' });
+  await assert.rejects(
+    runAuditOrchestration(makeSpec(ctx, { dimensions: ['Alpha', 'Beta'] })),
+    /every audit dimension failed:.*Alpha.*Beta/s,
+  );
+  assert.equal(
+    agentCalls.filter((c) => c.prompt.startsWith('SYNTH:')).length,
+    0,
+    'synthesis must not run when nothing survived',
+  );
+});
+
+test('runAuditOrchestration: a report without an Executive Summary is prefixed with the note', async () => {
+  const { ctx } = makeCtx({
+    failWhen: (prompt) => (prompt === 'DIM:Beta' ? 'gone' : null),
+    synthesisReport: 'NO HEADINGS HERE',
+  });
+  const { report } = await runAuditOrchestration(
+    makeSpec(ctx, { dimensions: ['Alpha', 'Beta'] }),
+  );
+  assert.ok(report.startsWith('> ⚠️ **Degraded coverage**'));
+  assert.ok(report.endsWith('NO HEADINGS HERE'));
 });
 
 // --- default helpers ---------------------------------------------------------
