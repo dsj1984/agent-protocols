@@ -90,6 +90,26 @@ name: Install Matrix
 # release-correctness invariant the Gate legs already cover. Promote only if a
 # pnpm-layout resolveNewBinPath regression slips a release despite nightly cover.
 #
+# ── Engine upper-bound leg (Story #4081 → #4784) ─────────────────────────────
+# `engines.node` advertises `>=22.22.1 <25`, but every substantive job resolves
+# Node from the repo-root `.nvmrc` (`22`), so 23/24 were advertised and
+# exercised by nothing. The `node-upper-bound` job below closes that drift by
+# running the quick test tier on the HIGHEST major the declared range admits.
+#
+# It derives that major from `engines.node` itself rather than restating a
+# version literal, so the advertised range and the tested range cannot drift
+# apart again: widen `engines.node` and the leg follows on the next run.
+# `.nvmrc` therefore stays the sole SSOT for the *development* Node, and
+# `engines.node` is the sole SSOT for the *supported ceiling* — no workflow
+# hardcodes either.
+#
+# It is deliberately NON-BLOCKING (schedule / workflow_dispatch only, NOT added
+# to branch protection) for exactly the reason the header documents above: a
+# job that does not report on every `pull_request` hangs a required check
+# "pending" forever. Upper-bound coverage is a regression-catcher with an
+# acceptable ≤24h latency, not a release-correctness invariant — the Gate legs
+# and ci.yml already cover the `.nvmrc` Node the project actually ships on.
+#
 # OPERATOR ACTION (branch protection on `main`): add these two job names to the
 # required-status-check set so the Install Matrix gate actually blocks merges
 # (including the release PR). Add EXACTLY these two checks, not the whole
@@ -100,7 +120,8 @@ name: Install Matrix
 # The internal `select-matrix` setup job is plumbing and must NOT be added to
 # branch protection.
 # The `install-contract` job (extra legs) is nightly-coverage and must NOT be
-# added to branch protection.
+# added to branch protection. The `node-upper-bound` job is nightly-coverage
+# too and must NOT be added either.
 
 on:
   push:
@@ -324,28 +345,55 @@ jobs:
             --check doctor-ready \
             --doctor-output "$RUNNER_TEMP/doctor-output.txt"
 
-  # ── PROPOSAL (Story #4081 — not yet implemented) ───────────────────────────
-  # The declared engines range is `>=22.22.1 <25`, but every job pins Node via
-  # the repo-root `.nvmrc` (currently `22`), so 23/24 are permitted but never
-  # exercised. Proposal: add a non-blocking nightly leg that runs the quick
-  # test tier (`npm run test:quick`) on Node 24 to cover the upper bound of the
-  # range, gated `if: github.event_name == 'schedule' || ... workflow_dispatch`
-  # like the install-contract legs below, and explicitly NOT added to
-  # branch-protection required checks. Sketch:
-  #
-  #   node24-upper-bound:
-  #     if: github.event_name == 'schedule' || github.event_name == 'workflow_dispatch'
-  #     name: node24-upper-bound
-  #     runs-on: ubuntu-latest
-  #     steps:
-  #       - uses: actions/checkout@v4
-  #       - uses: actions/setup-node@v4
-  #         with: { node-version: 24, cache: 'npm' }
-  #       - run: npm ci --ignore-scripts
-  #       - run: npm run test:quick
-  #
-  # Deliberately left as a comment per the Story's "propose (do not yet add)"
-  # instruction; promote to a live job in a follow-up.
+  # ── Engine upper-bound leg (Story #4081 → #4784) ───────────────────────────
+  # Non-blocking nightly coverage for the top of the declared `engines.node`
+  # range. Do NOT add this to branch-protection required checks — see the
+  # required-check deadlock note in the file header.
+  node-upper-bound:
+    if: github.event_name == 'schedule' || github.event_name == 'workflow_dispatch'
+    name: node-upper-bound
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout Code
+        uses: actions/checkout@v4
+
+      - name: Derive the highest Node major engines.node admits
+        id: engines
+        shell: bash
+        # `engines.node` is the SSOT for the supported ceiling; deriving the
+        # major here instead of restating a literal is what keeps the advertised
+        # range and the tested range from drifting apart again — widen
+        # `engines.node` and this leg follows on the next nightly run. The range
+        # must carry an exclusive upper bound (`<N`); fail loudly rather than
+        # silently covering nothing if that ever stops holding.
+        run: |
+          set -euo pipefail
+          major="$(node -p "
+            const range = require('./package.json').engines.node;
+            const m = /<\s*(\d+)/.exec(range);
+            if (!m) {
+              throw new Error('engines.node has no exclusive upper bound: ' + range);
+            }
+            String(Number(m[1]) - 1);
+          ")"
+          echo "engines.node upper-bound major: $major"
+          echo "major=$major" >> "$GITHUB_OUTPUT"
+
+      - name: Setup Node.js (declared upper bound)
+        uses: actions/setup-node@v4
+        with:
+          node-version: ${{ steps.engines.outputs.major }}
+          cache: 'npm'
+
+      - name: Install dependencies
+        # The repo `.npmrc` already sets `ignore-scripts=true`; passing the flag
+        # explicitly keeps the leg honest if that default ever changes.
+        shell: bash
+        run: npm ci --ignore-scripts
+
+      - name: Run the quick test tier on the upper-bound Node
+        shell: bash
+        run: npm run test:quick
 
   # ── Extra contract legs (Story #4049 — C2) ─────────────────────────────────
   # Non-blocking nightly-coverage legs. Do NOT add these to branch-protection
