@@ -174,6 +174,7 @@ top-level keys are validation errors.
 | `quality.gates.crap.targetDirs` | No | `string[]` or `{ append?, prepend? }` | — | Directories whose JS sources the CRAP gate scores. Mandrel ships a `src/`-centric default; projects whose executable code lives elsewhere (e.g. this repo's `.agents/scripts/`) override here. The framework default is intentionally not auto-discovered, so an override is the explicit, auditable signal. |
 | `quality.gates.crap.newMethodCeiling` | No | `integer` | — | — |
 | `quality.gates.crap.requireCoverage` | No | `boolean` | — | — |
+| `quality.gates.crap.minMethodResolutionRate` | No | `number` | — | Fail-closed floor on the per-method coverage JOIN (Story #4775): the fraction of methods that must resolve a coverage entry, counted only over files that HAVE one, before `update-crap-baseline.js` will persist. A broken join is silent by construction — unresolved methods are simply absent — so the updater refuses rather than writing a thin baseline and logging it as success. Not enforced below 25 joinable methods, where a diff-scoped run's rate is noise. Default 0.75; a healthy repo resolves ~98%. |
 | `quality.gates.crap.friction` | No | `object` | — | Nested configuration block. |
 | `quality.gates.crap.friction.markerKey` | No | `string` | — | — |
 | `quality.gates.crap.refreshTag` | No | `string` | — | — |
