@@ -2,6 +2,13 @@
 
 All notable changes to this project will be documented in this file.
 
+## [2.18.0](https://github.com/dsj1984/mandrel/compare/mandrel-v2.17.0...mandrel-v2.18.0) (2026-07-26)
+
+
+### Chores
+
+* **release:** cut the 2.18.0 release missed by an unparseable squash subject ([#4796](https://github.com/dsj1984/mandrel/issues/4796)) ([8ccff57](https://github.com/dsj1984/mandrel/commit/8ccff574d44519595e04fc0f3597cb4dcd005436))
+
 ## [2.17.0](https://github.com/dsj1984/mandrel/compare/mandrel-v2.16.0...mandrel-v2.17.0) (2026-07-26)
 
 
