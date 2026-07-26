@@ -2346,6 +2346,10 @@
     },
     {
       "file": ".agents/scripts/lib/temp-retention.js",
+      "symbol": "formatBytes"
+    },
+    {
+      "file": ".agents/scripts/lib/temp-retention.js",
       "symbol": "resolveTempRetention"
     },
     {

@@ -39,10 +39,7 @@ import {
   RUNTIME_FRICTION_CATEGORIES,
 } from '../../../observability/runtime-friction.js';
 import { acquireLockWithWait as defaultAcquireLockWithWait } from '../../../single-story-sweep/sweep-lock.js';
-import {
-  purgeStoryTempArtifacts as defaultPurgeStoryTempArtifacts,
-  formatBytes,
-} from '../../../temp-retention.js';
+import { purgeStoryTempArtifacts as defaultPurgeStoryTempArtifacts } from '../../../temp-retention.js';
 import {
   executeFastForward as defaultExecuteFastForward,
   planFastForward as defaultPlanFastForward,
@@ -232,32 +229,16 @@ async function stepBaseFastForward({
  * Purge this Story's spent temp artifacts now that its merge is confirmed
  * (Story #4794).
  *
- * A disabled policy is a **success**, not a degradation: the operator turned
- * the purge off, so doing nothing is the correct outcome and reporting it as a
- * failed step would train readers to ignore the field. Only a real error —
- * an unreadable temp root, an undeletable artifact — degrades it.
+ * The engine already emits its own one-line summary and returns a disabled
+ * policy as `skipped` with no errors, so this step needs no branching of its
+ * own: errors degrade it, everything else — including a deliberate
+ * config-disabled no-op — is a success. Reporting a disabled purge as a failed
+ * step would train readers to ignore the field.
  */
-async function stepTempPurge({
-  storyId,
-  config,
-  progress,
-  purgeStoryTempArtifactsFn,
-}) {
+async function stepTempPurge({ storyId, config, purgeStoryTempArtifactsFn }) {
   const result = await purgeStoryTempArtifactsFn({ storyId, config });
-  if (result?.skipped === 'disabled') {
-    progress?.('POST-LAND', '⏭  temp purge disabled by config.');
-    return { ok: true, detail: null };
-  }
-  if (result?.errors?.length > 0) {
-    return { ok: false, detail: result.errors.join('; ') };
-  }
-  if (result?.purged?.length > 0) {
-    progress?.(
-      'POST-LAND',
-      `🧹 purged ${result.purged.length} spent temp artifact(s) (${formatBytes(result.bytesReclaimed)}).`,
-    );
-  }
-  return { ok: true, detail: null };
+  const errors = result?.errors ?? [];
+  return { ok: errors.length === 0, detail: errors.join('; ') || null };
 }
 
 /**
@@ -416,8 +397,7 @@ export async function runPostLandTail({
   // that still reads them, and outside the checkout lock because it touches
   // only the temp tree. Its `signals.ndjson` survives by construction.
   const tempPurge = await step(
-    () =>
-      stepTempPurge({ storyId, config, progress, purgeStoryTempArtifactsFn }),
+    () => stepTempPurge({ storyId, config, purgeStoryTempArtifactsFn }),
     { name: 'temp purge', progress },
   );
 
