@@ -1,5 +1,8 @@
 import assert from 'node:assert/strict';
 import { execFileSync, spawnSync } from 'node:child_process';
+import { mkdtempSync, rmSync } from 'node:fs';
+import { tmpdir } from 'node:os';
+import path from 'node:path';
 import { afterEach, describe, it } from 'node:test';
 
 import {
@@ -7,8 +10,10 @@ import {
   branchExistsRemotely,
   branchExistsViaTrackingRef,
   checkoutStoryBranch,
+  classifyBranchSeed,
   currentBranch,
   ensureLocalBranch,
+  seedStoryBranchRef,
 } from '../../.agents/scripts/lib/git-branch-lifecycle.js';
 import { __setGitRunners } from '../../.agents/scripts/lib/git-utils.js';
 
@@ -172,6 +177,202 @@ describe('checkoutStoryBranch', () => {
     const r = installScriptedRunner([OK('main'), FAIL(), OK('')]);
     await checkoutStoryBranch('story-100', 'epic/1', '/cwd');
     assert.deepEqual(r.execCalls[0], ['checkout', '-b', 'story-100', 'epic/1']);
+  });
+});
+
+/**
+ * Story #4780 — `seedStoryBranchRef` scored CRAP 123.8, the worst method in
+ * the repo: the single-homed story-branch seed switch that every `/deliver`
+ * run goes through had no test at all.
+ *
+ * Its git seams are supplied through the function's own parameters — plain
+ * stubs, never a module mock (`.agents/rules/test-seams.md` rules 3 and 5) —
+ * and the defaults-bind-to-cwd contract (rule 1) is proven against a real
+ * throwaway repository rather than by mocking.
+ */
+describe('classifyBranchSeed', () => {
+  it('maps the (local, remote) presence matrix onto the three actions', () => {
+    assert.equal(
+      classifyBranchSeed({ localHas: true, remoteHas: true }),
+      'local',
+    );
+    assert.equal(
+      classifyBranchSeed({ localHas: true, remoteHas: false }),
+      'local',
+    );
+    assert.equal(
+      classifyBranchSeed({ localHas: false, remoteHas: true }),
+      'fetch',
+    );
+    assert.equal(
+      classifyBranchSeed({ localHas: false, remoteHas: false }),
+      'create',
+    );
+  });
+});
+
+describe('seedStoryBranchRef', () => {
+  const messages = {
+    reuse: (b) => `reuse ${b}`,
+    fetch: (b) => `fetch ${b}`,
+    create: (b, ref) => `create ${b} from ${ref}`,
+    createRace: (b) => `race ${b}`,
+    createError: (b, ref, stderr) => `createError ${b} ${ref} ${stderr}`,
+    fetchError: (b, stderr) => `fetchError ${b} ${stderr}`,
+  };
+
+  /**
+   * @param {{ local?: boolean, remote?: boolean, spawnResult?: object }} opts
+   */
+  function seams({ local = false, remote = false, spawnResult = OK() } = {}) {
+    const spawned = [];
+    const progressed = [];
+    return {
+      spawned,
+      progressed,
+      args: {
+        storyBranch: 'story-4780',
+        baseRef: 'main',
+        spawn: (a) => {
+          spawned.push(a);
+          return typeof spawnResult === 'function'
+            ? spawnResult(a)
+            : spawnResult;
+        },
+        existsLocally: () => local,
+        existsRemotely: () => remote,
+        progress: (level, message) => progressed.push(`${level}:${message}`),
+        messages,
+      },
+    };
+  }
+
+  it('reuses an existing local ref without spawning git', () => {
+    const s = seams({ local: true, remote: true });
+    seedStoryBranchRef(s.args);
+    assert.deepEqual(s.spawned, []);
+    assert.deepEqual(s.progressed, ['GIT:reuse story-4780']);
+  });
+
+  it('materialises a remote-only ref with a fetch', () => {
+    const s = seams({ remote: true });
+    seedStoryBranchRef(s.args);
+    assert.deepEqual(s.spawned, [['fetch', 'origin', 'story-4780:story-4780']]);
+    assert.deepEqual(s.progressed, ['GIT:fetch story-4780']);
+  });
+
+  it('throws the caller-supplied fetch error when the fetch fails', () => {
+    const s = seams({ remote: true, spawnResult: FAIL('no such ref') });
+    assert.throws(
+      () => seedStoryBranchRef(s.args),
+      /fetchError story-4780 no such ref/,
+    );
+  });
+
+  it('reports "(no stderr)" when a failing fetch says nothing', () => {
+    const s = seams({
+      remote: true,
+      spawnResult: { status: 1, stdout: '', stderr: '' },
+    });
+    assert.throws(
+      () => seedStoryBranchRef(s.args),
+      /fetchError story-4780 \(no stderr\)/,
+    );
+  });
+
+  it('does not inspect the fetch exit status when no fetchError message is given', () => {
+    const s = seams({ remote: true, spawnResult: FAIL('ignored') });
+    s.args.messages = { ...messages, fetchError: undefined };
+    assert.doesNotThrow(() => seedStoryBranchRef(s.args));
+  });
+
+  it('creates the branch from the base ref when neither side has it', () => {
+    const s = seams();
+    seedStoryBranchRef(s.args);
+    assert.deepEqual(s.spawned, [['branch', 'story-4780', 'main']]);
+    assert.deepEqual(s.progressed, ['GIT:create story-4780 from main']);
+  });
+
+  it('throws the caller-supplied create error when the create fails', () => {
+    const s = seams({ spawnResult: FAIL('fatal: bad object') });
+    assert.throws(
+      () => seedStoryBranchRef(s.args),
+      /createError story-4780 main fatal: bad object/,
+    );
+  });
+
+  it('falls back to stdout when a failing create wrote nothing to stderr', () => {
+    const s = seams({
+      spawnResult: { status: 1, stdout: 'on stdout', stderr: '' },
+    });
+    assert.throws(
+      () => seedStoryBranchRef(s.args),
+      /createError story-4780 main on stdout/,
+    );
+  });
+
+  it('swallows an "already exists" create race only when asked to', () => {
+    const racing = seams({
+      spawnResult: FAIL('fatal: a branch named ... already exists'),
+    });
+    racing.args.swallowCreateRace = true;
+    assert.doesNotThrow(() => seedStoryBranchRef(racing.args));
+    assert.equal(racing.progressed.at(-1), 'GIT:race story-4780');
+
+    const strict = seams({
+      spawnResult: FAIL('fatal: a branch named ... already exists'),
+    });
+    assert.throws(() => seedStoryBranchRef(strict.args), /createError/);
+  });
+
+  it('still throws under swallowCreateRace for any other create failure', () => {
+    const s = seams({ spawnResult: FAIL('fatal: not a valid object name') });
+    s.args.swallowCreateRace = true;
+    assert.throws(() => seedStoryBranchRef(s.args), /createError/);
+  });
+
+  it('uses a no-op progress sink when none is supplied', () => {
+    const s = seams({ local: true });
+    delete s.args.progress;
+    assert.doesNotThrow(() => seedStoryBranchRef(s.args));
+  });
+
+  it('defaults its git seams to the real implementation bound to cwd', () => {
+    const repo = mkdtempSync(path.join(tmpdir(), 'seed-story-branch-'));
+    try {
+      const env = Object.fromEntries(
+        Object.entries(process.env).filter(([k]) => !k.startsWith('GIT_')),
+      );
+      const git = (...args) =>
+        execFileSync('git', args, { cwd: repo, env, encoding: 'utf8' });
+      git('init', '--initial-branch=main');
+      git('config', 'user.email', 'test@example.com');
+      git('config', 'user.name', 'Test');
+      git('commit', '--allow-empty', '-m', 'root');
+
+      // No spawn / existsLocally / existsRemotely passed: the defaults must
+      // reach real git in `cwd` and create the branch.
+      seedStoryBranchRef({
+        storyBranch: 'story-4780',
+        baseRef: 'main',
+        cwd: repo,
+        messages,
+      });
+      assert.match(git('branch', '--list', 'story-4780'), /story-4780/);
+
+      // Re-running is a no-op: the local ref now exists, so the classifier
+      // returns `local` and nothing is re-created.
+      assert.doesNotThrow(() =>
+        seedStoryBranchRef({
+          storyBranch: 'story-4780',
+          baseRef: 'main',
+          cwd: repo,
+          messages,
+        }),
+      );
+    } finally {
+      rmSync(repo, { recursive: true, force: true });
+    }
   });
 });
 

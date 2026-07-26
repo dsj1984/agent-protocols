@@ -39,8 +39,44 @@ const progress = Logger.createProgress('drain-pending-cleanup', {
   stderr: false,
 });
 
-async function main() {
+/**
+ * The drain core, extracted from the CLI shell so the whole decision table —
+ * empty manifest, dry-run report, drain + escalate reporting — is reachable
+ * without a real worktree ledger or a real process kill.
+ *
+ * Every seam on the optional final `deps` parameter defaults to the real
+ * implementation (`.agents/rules/test-seams.md` rules 1-2, 4), so `main` and
+ * every production caller are unchanged.
+ *
+ * @param {string[]} [argv]
+ * @param {{
+ *   resolveConfigImpl?: typeof resolveConfig,
+ *   readManifestImpl?: typeof readManifest,
+ *   findHoldersInPathImpl?: typeof findHoldersInPath,
+ *   forceDrainImpl?: typeof forceDrainPendingCleanup,
+ *   gitImpl?: typeof gitUtils,
+ *   projectRoot?: string,
+ *   progressImpl?: (phase: string, message: string) => void,
+ *   logger?: { error: Function },
+ * }} [deps]
+ * @returns {Promise<{ drained: number[], remaining: number } | { remaining: number }>}
+ */
+export async function runDrainPendingCleanup(
+  argv = process.argv.slice(2),
+  deps = {},
+) {
+  const {
+    resolveConfigImpl = resolveConfig,
+    readManifestImpl = readManifest,
+    findHoldersInPathImpl = findHoldersInPath,
+    forceDrainImpl = forceDrainPendingCleanup,
+    gitImpl = gitUtils,
+    projectRoot = PROJECT_ROOT,
+    progressImpl = progress,
+    logger = Logger,
+  } = deps;
   const { values } = parseArgs({
+    args: argv,
     options: {
       escalate: { type: 'boolean', default: true },
       'dry-run': { type: 'boolean', default: false },
@@ -49,20 +85,23 @@ async function main() {
     strict: false,
   });
 
-  const config = resolveConfig();
+  const config = resolveConfigImpl();
   const wtConfig = config.delivery?.worktreeIsolation;
   const worktreeRoot = path.resolve(
-    PROJECT_ROOT,
+    projectRoot,
     values['worktree-root'] ?? wtConfig?.root ?? '.worktrees',
   );
 
-  const before = readManifest(worktreeRoot);
+  const before = readManifestImpl(worktreeRoot);
   if (before.length === 0) {
-    progress('SCAN', 'pending-cleanup manifest is empty — nothing to drain.');
-    return;
+    progressImpl(
+      'SCAN',
+      'pending-cleanup manifest is empty — nothing to drain.',
+    );
+    return { remaining: 0 };
   }
 
-  progress(
+  progressImpl(
     'SCAN',
     `pending-cleanup manifest has ${before.length} entry(ies): ${before
       .map((e) => `story-${e.storyId}(attempts=${e.attempts ?? 0})`)
@@ -71,8 +110,8 @@ async function main() {
 
   if (values['dry-run']) {
     for (const entry of before) {
-      const holders = findHoldersInPath(entry.path);
-      progress(
+      const holders = findHoldersInPathImpl(entry.path);
+      progressImpl(
         'DRY-RUN',
         `story-${entry.storyId} path=${entry.path} holders=${holders.length}` +
           (holders.length > 0
@@ -80,23 +119,23 @@ async function main() {
             : ''),
       );
     }
-    return;
+    return { remaining: before.length };
   }
 
-  const result = await forceDrainPendingCleanup({
-    repoRoot: PROJECT_ROOT,
+  const result = await forceDrainImpl({
+    repoRoot: projectRoot,
     worktreeRoot,
-    git: gitUtils,
+    git: gitImpl,
     escalate: values.escalate,
     logger: {
-      info: (m) => progress('DRAIN', m),
-      warn: (m) => progress('DRAIN', `⚠️ ${m}`),
-      error: (m) => Logger.error(`[drain-pending-cleanup] ${m}`),
+      info: (m) => progressImpl('DRAIN', m),
+      warn: (m) => progressImpl('DRAIN', `⚠️ ${m}`),
+      error: (m) => logger.error(`[drain-pending-cleanup] ${m}`),
     },
   });
 
   if (result.drained.length > 0) {
-    progress(
+    progressImpl(
       'DRAIN',
       `✅ drained ${result.drained.length} entry(ies): ${result.drained
         .map((id) => `story-${id}`)
@@ -107,10 +146,10 @@ async function main() {
     const summary = result.escalated
       .map((id) => `story-${id}=[${(result.killedPids[id] ?? []).join(',')}]`)
       .join(', ');
-    progress('ESCALATE', `terminated holders: ${summary}`);
+    progressImpl('ESCALATE', `terminated holders: ${summary}`);
   }
   if (result.noHolders && result.noHolders.length > 0) {
-    progress(
+    progressImpl(
       'ESCALATE',
       `⚠️ no user-mode holders for: ${result.noHolders
         .map((id) => `story-${id}`)
@@ -120,7 +159,7 @@ async function main() {
     );
   }
   if (result.persistent.length > 0) {
-    progress(
+    progressImpl(
       'PERSIST',
       `⚠️ persistent-lock remains on: ${result.persistent
         .map((id) => `story-${id}`)
@@ -128,7 +167,7 @@ async function main() {
     );
   }
   if (result.stillPending.length > 0) {
-    progress(
+    progressImpl(
       'STILL-PENDING',
       `⚠️ still-pending (below threshold): ${result.stillPending
         .map((id) => `story-${id}`)
@@ -136,12 +175,17 @@ async function main() {
     );
   }
 
-  const after = readManifest(worktreeRoot);
-  progress(
+  const after = readManifestImpl(worktreeRoot);
+  progressImpl(
     'DONE',
     `pending-cleanup manifest now has ${after.length} entry(ies). ` +
       `Drained=${result.drained.length}, escalated=${result.escalated.length}, persistent=${result.persistent.length}.`,
   );
+  return { drained: result.drained, remaining: after.length };
+}
+
+async function main() {
+  await runDrainPendingCleanup();
 }
 
 runAsCli(import.meta.url, main, {

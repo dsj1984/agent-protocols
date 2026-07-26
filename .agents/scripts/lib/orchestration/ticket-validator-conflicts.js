@@ -449,15 +449,29 @@ function computeMissingBddScaffoldFindings(stories, reach, severity) {
  * Tasks satisfy (a) or (b). When ≥2 such Stories sit in the same wave (no
  * transitive `depends_on` between them), emit a single finding keyed by the
  * registry path.
+ *
+ * Reached from the module's `_internal` named export. The pass is pure — it
+ * performs no filesystem I/O and spawns no process — so its optional final
+ * `deps` parameter seams the three collaborating predicates rather than a
+ * built-in; each entry defaults to the real implementation
+ * (`.agents/rules/test-seams.md` rules 1-3: the defaults live on the function,
+ * never on a module-level mutable variable).
+ *
+ * @param {object} input
+ * @param {{
+ *   isRegistryPathImpl?: typeof isRegistryPath,
+ *   inSameWaveImpl?: typeof inSameWave,
+ *   registryRegistryImpl?: typeof registryRegistry,
+ * }} [deps]
  */
-function computeRegistryFindings({
-  stories,
-  reach,
-  patterns,
-  producers,
-  assumptionEntries,
-  severity,
-}) {
+function computeRegistryFindings(
+  { stories, reach, patterns, producers, assumptionEntries, severity },
+  {
+    isRegistryPathImpl = isRegistryPath,
+    inSameWaveImpl = inSameWave,
+    registryRegistryImpl = registryRegistry,
+  } = {},
+) {
   const findings = [];
   // Build the matching registry path set from producer & creator paths.
   const registryHits = new Map(); // registryPath -> Map<storySlug, producers[]>
@@ -474,7 +488,7 @@ function computeRegistryFindings({
   // (a) direct registry edits — object-form `{ path, assumption }` entries
   // from `indexAssumptionEntries` (and the producer index built from them).
   for (const [path, entries] of producers.entries()) {
-    if (!isRegistryPath(path, patterns)) continue;
+    if (!isRegistryPathImpl(path, patterns)) continue;
     for (const e of entries) {
       bump(path, {
         storySlug: e.storySlug,
@@ -485,7 +499,7 @@ function computeRegistryFindings({
     }
   }
   for (const e of assumptionEntries) {
-    if (!isRegistryPath(e.path, patterns)) continue;
+    if (!isRegistryPathImpl(e.path, patterns)) continue;
     bump(e.path, {
       storySlug: e.storySlug,
       taskSlug: e.taskSlug,
@@ -510,7 +524,7 @@ function computeRegistryFindings({
         continue;
       const childParent = parentDirOf(change.path);
       if (!childParent) continue;
-      for (const reg of registryRegistry(
+      for (const reg of registryRegistryImpl(
         producers,
         assumptionEntries,
         patterns,
@@ -532,7 +546,7 @@ function computeRegistryFindings({
     const cluster = new Set();
     for (let i = 0; i < stories.length; i += 1) {
       for (let j = i + 1; j < stories.length; j += 1) {
-        if (inSameWave(reach, stories[i], stories[j])) {
+        if (inSameWaveImpl(reach, stories[i], stories[j])) {
           cluster.add(stories[i]);
           cluster.add(stories[j]);
         }

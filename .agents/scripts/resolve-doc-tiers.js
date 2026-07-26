@@ -50,24 +50,34 @@ export function parseArgv(argv = []) {
  * Top-level CLI entry. Exported so tests can drive it against a fixture root
  * with an injected sink and config.
  *
+ * The optional final `deps` parameter is the module's injectable seam
+ * (`.agents/rules/test-seams.md` rules 1-2): every entry defaults to the real
+ * implementation, so the CLI path below — and any production caller — needs no
+ * configuration change.
+ *
  * @param {{
  *   argv?: string[],
  *   config?: object,
  *   root?: string,
  *   stdout?: { write: (s: string) => void },
  * }} [opts]
+ * @param {{
+ *   resolveConfigImpl?: typeof resolveConfig,
+ *   resolveDocTiersImpl?: typeof resolveDocTiers,
+ * }} [deps]
  * @returns {Promise<number>} always 0
  */
-export async function runCli({
-  argv = process.argv.slice(2),
-  config,
-  root,
-  stdout = process.stdout,
-} = {}) {
+export async function runCli(
+  { argv = process.argv.slice(2), config, root, stdout = process.stdout } = {},
+  {
+    resolveConfigImpl = resolveConfig,
+    resolveDocTiersImpl = resolveDocTiers,
+  } = {},
+) {
   const { rootPath } = parseArgv(argv);
-  const resolvedConfig = config ?? resolveConfig();
+  const resolvedConfig = config ?? resolveConfigImpl();
   const resolvedRoot = root ?? rootPath ?? PROJECT_ROOT;
-  const result = resolveDocTiers(resolvedConfig, { root: resolvedRoot });
+  const result = resolveDocTiersImpl(resolvedConfig, { root: resolvedRoot });
   stdout.write(`${JSON.stringify(result, null, 2)}\n`);
   return 0;
 }

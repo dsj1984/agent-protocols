@@ -134,16 +134,22 @@ export function classifyBranchSeed({ localHas, remoteHas }) {
  *
  * Caller-specific log lines and error text are passed in as the `messages`
  * data bag so behaviour stays byte-identical to the pre-extraction switches.
- * The git seams (`spawn`, `existsLocally`, `existsRemotely`) are injected so
- * each caller can bind its own cwd (and tests can mock them).
+ * The git seams (`spawn`, `existsLocally`, `existsRemotely`) are injectable so
+ * each caller can bind its own cwd (and tests can substitute stubs through the
+ * parameter rather than by module mocking). Per
+ * `.agents/rules/test-seams.md` rule 1 each seam **defaults to the real
+ * implementation** bound to `cwd`, so a caller that only knows its checkout
+ * passes `cwd` and nothing else; `single-story-init.js` keeps passing its own
+ * pre-bound seams and is unaffected.
  *
  * @param {object} opts
  * @param {string} opts.storyBranch
  * @param {string} opts.baseRef            Ref to branch from on `create`.
+ * @param {string} [opts.cwd]              Checkout the default seams bind to.
  * @param {boolean} [opts.swallowCreateRace=false]
- * @param {(args: string[]) => { status: number, stdout?: string, stderr?: string }} opts.spawn
- * @param {(branch: string) => boolean} opts.existsLocally
- * @param {(branch: string) => boolean} opts.existsRemotely
+ * @param {(args: string[]) => { status: number, stdout?: string, stderr?: string }} [opts.spawn]
+ * @param {(branch: string) => boolean} [opts.existsLocally]
+ * @param {(branch: string) => boolean} [opts.existsRemotely]
  * @param {(level: string, message: string) => void} [opts.progress]
  * @param {object} opts.messages
  * @param {(b: string) => string} opts.messages.reuse
@@ -158,10 +164,11 @@ export function classifyBranchSeed({ localHas, remoteHas }) {
 export function seedStoryBranchRef({
   storyBranch,
   baseRef,
+  cwd,
   swallowCreateRace = false,
-  spawn,
-  existsLocally,
-  existsRemotely,
+  spawn = (args) => gitSpawn(cwd, ...args),
+  existsLocally = (branch) => branchExistsLocally(branch, cwd),
+  existsRemotely = (branch) => branchExistsViaTrackingRef(branch, cwd),
   progress = () => {},
   messages,
 }) {

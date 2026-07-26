@@ -963,3 +963,274 @@ test('string body: a depends_on chain still serialises string-body writers (no s
   const shared = result.findings.filter((f) => f.kind === 'shared-editor');
   assert.deepEqual(shared, []);
 });
+
+/**
+ * Story #4780 — `computeRegistryFindings` scored CRAP 58.1: the
+ * cross-cutting-registry pass was reachable only incidentally through
+ * `computeConflictFindings`, leaving its sibling-create scope resolution and
+ * its same-wave clustering rules unverified.
+ *
+ * The pass is pure — no filesystem, no child process — so its optional final
+ * `deps` parameter seams the three collaborating predicates, each defaulting
+ * to the real implementation. Every stub below goes through that parameter
+ * (`.agents/rules/test-seams.md` rules 1, 3 and 5); nothing is module-mocked.
+ */
+const REGISTRY = 'lib/orchestration/lifecycle/listeners/index.js';
+
+/** Build a `reach` map where every listed pair is explicitly ordered. */
+function makeReach(edges = {}) {
+  return new Map(
+    Object.entries(edges).map(([slug, reachable]) => [
+      slug,
+      new Set(reachable),
+    ]),
+  );
+}
+
+/** Build the `producers` index shape: `Map<path, Array<{storySlug, taskSlug}>>`. */
+function makeProducers(entries) {
+  const map = new Map();
+  for (const [path, slugs] of Object.entries(entries)) {
+    map.set(
+      path,
+      slugs.map((storySlug) => ({ storySlug, taskSlug: storySlug })),
+    );
+  }
+  return map;
+}
+
+const registryInput = (overrides = {}) => ({
+  stories: [],
+  reach: makeReach(),
+  patterns: [REGISTRY, '**/handlers/index.js'],
+  producers: new Map(),
+  assumptionEntries: [],
+  severity: 'soft',
+  ...overrides,
+});
+
+test('registry pass: no hits at all yields no findings', () => {
+  assert.deepEqual(
+    _internal.computeRegistryFindings(
+      registryInput({
+        producers: makeProducers({ 'src/unrelated.js': ['s-a'] }),
+      }),
+    ),
+    [],
+  );
+});
+
+test('registry pass: two same-wave Stories editing the registry cluster into one finding', () => {
+  const findings = _internal.computeRegistryFindings(
+    registryInput({ producers: makeProducers({ [REGISTRY]: ['s-a', 's-b'] }) }),
+  );
+  assert.equal(findings.length, 1);
+  assert.equal(findings[0].kind, 'cross-cutting-registries');
+  assert.equal(findings[0].registryPath, REGISTRY);
+  assert.equal(findings[0].severity, 'soft');
+  assert.deepEqual(findings[0].storySlugs, ['s-a', 's-b']);
+  assert.deepEqual(
+    findings[0].producers.map((p) => p.reason),
+    ['edits-registry', 'edits-registry'],
+  );
+});
+
+test('registry pass: a depends_on chain between the editors suppresses the finding', () => {
+  assert.deepEqual(
+    _internal.computeRegistryFindings(
+      registryInput({
+        producers: makeProducers({ [REGISTRY]: ['s-a', 's-b'] }),
+        reach: makeReach({ 's-b': ['s-a'] }),
+      }),
+    ),
+    [],
+  );
+});
+
+test('registry pass: a single editing Story is never a conflict', () => {
+  assert.deepEqual(
+    _internal.computeRegistryFindings(
+      registryInput({ producers: makeProducers({ [REGISTRY]: ['s-a'] }) }),
+    ),
+    [],
+  );
+});
+
+test('registry pass: the severity flag is carried onto the finding', () => {
+  const findings = _internal.computeRegistryFindings(
+    registryInput({
+      producers: makeProducers({ [REGISTRY]: ['s-a', 's-b'] }),
+      severity: 'hard',
+    }),
+  );
+  assert.equal(findings[0].severity, 'hard');
+});
+
+test('registry pass: assumption entries touching the registry count as editors', () => {
+  const findings = _internal.computeRegistryFindings(
+    registryInput({
+      assumptionEntries: [
+        { path: REGISTRY, storySlug: 's-a', taskSlug: 's-a' },
+        { path: REGISTRY, storySlug: 's-b', taskSlug: 's-b' },
+        { path: 'src/other.js', storySlug: 's-c', taskSlug: 's-c' },
+      ],
+    }),
+  );
+  assert.equal(findings.length, 1);
+  assert.deepEqual(findings[0].storySlugs, ['s-a', 's-b']);
+});
+
+test('registry pass: a sibling create in the registry directory collides with an editor', () => {
+  const findings = _internal.computeRegistryFindings(
+    registryInput({
+      producers: makeProducers({ [REGISTRY]: ['s-a'] }),
+      stories: [
+        {
+          slug: 's-b',
+          body: {
+            changes: [
+              {
+                path: 'lib/orchestration/lifecycle/listeners/new-listener.js',
+                assumption: 'creates',
+              },
+            ],
+          },
+        },
+      ],
+    }),
+  );
+  assert.equal(findings.length, 1);
+  assert.deepEqual(findings[0].storySlugs, ['s-a', 's-b']);
+  assert.deepEqual(findings[0].producers.map((p) => p.reason).sort(), [
+    'creates-sibling',
+    'edits-registry',
+  ]);
+});
+
+test('registry pass: a create in a different directory is out of the registration scope', () => {
+  assert.deepEqual(
+    _internal.computeRegistryFindings(
+      registryInput({
+        producers: makeProducers({ [REGISTRY]: ['s-a'] }),
+        stories: [
+          {
+            slug: 's-b',
+            body: {
+              changes: [
+                { path: 'lib/elsewhere/new.js', assumption: 'creates' },
+              ],
+            },
+          },
+        ],
+      }),
+    ),
+    [],
+  );
+});
+
+test('registry pass: a glob pattern is only in scope once some path matches it', () => {
+  const withoutMatch = _internal.computeRegistryFindings(
+    registryInput({
+      patterns: ['**/handlers/index.js'],
+      stories: [
+        {
+          slug: 's-b',
+          body: {
+            changes: [{ path: 'src/handlers/new.js', assumption: 'creates' }],
+          },
+        },
+      ],
+    }),
+  );
+  assert.deepEqual(withoutMatch, []);
+
+  const withMatch = _internal.computeRegistryFindings(
+    registryInput({
+      patterns: ['**/handlers/index.js'],
+      producers: makeProducers({ 'src/handlers/index.js': ['s-a'] }),
+      stories: [
+        {
+          slug: 's-b',
+          body: {
+            changes: [{ path: 'src/handlers/new.js', assumption: 'creates' }],
+          },
+        },
+      ],
+    }),
+  );
+  assert.equal(withMatch.length, 1);
+  assert.equal(withMatch[0].registryPath, 'src/handlers/index.js');
+});
+
+test('registry pass: a glob pattern is in scope via an assumption entry too', () => {
+  const findings = _internal.computeRegistryFindings(
+    registryInput({
+      patterns: ['**/handlers/index.js'],
+      assumptionEntries: [
+        { path: 'src/handlers/index.js', storySlug: 's-a', taskSlug: 's-a' },
+      ],
+      stories: [
+        {
+          slug: 's-b',
+          body: {
+            changes: [{ path: 'src/handlers/new.js', assumption: 'creates' }],
+          },
+        },
+      ],
+    }),
+  );
+  assert.equal(findings.length, 1);
+  assert.deepEqual(findings[0].storySlugs, ['s-a', 's-b']);
+});
+
+test('registry pass: malformed Stories and change entries are skipped, not thrown on', () => {
+  assert.doesNotThrow(() =>
+    _internal.computeRegistryFindings(
+      registryInput({
+        producers: makeProducers({ [REGISTRY]: ['s-a'] }),
+        stories: [
+          { slug: 'no-body' },
+          { slug: 'string-body', body: 'not an object' },
+          { slug: 'no-changes', body: {} },
+          {
+            slug: 's-b',
+            body: {
+              changes: [
+                null,
+                'a string change',
+                { path: 'lib/x.js', assumption: 'refactors-existing' },
+                { assumption: 'creates' },
+                { path: 'top-level.js', assumption: 'creates' },
+              ],
+            },
+          },
+        ],
+      }),
+    ),
+  );
+});
+
+test('registry pass: every collaborating predicate is injectable through the final deps parameter', () => {
+  const seen = { registryPaths: [], waveChecks: 0 };
+  const findings = _internal.computeRegistryFindings(
+    registryInput({
+      producers: makeProducers({ 'anything/at/all.js': ['s-a', 's-b'] }),
+    }),
+    {
+      // Declare every path a registry — the pass must consult the seam, not
+      // the module-level predicate.
+      isRegistryPathImpl: (p) => {
+        seen.registryPaths.push(p);
+        return true;
+      },
+      inSameWaveImpl: () => {
+        seen.waveChecks += 1;
+        return true;
+      },
+    },
+  );
+  assert.deepEqual(seen.registryPaths, ['anything/at/all.js']);
+  assert.equal(seen.waveChecks, 1);
+  assert.equal(findings.length, 1);
+  assert.equal(findings[0].registryPath, 'anything/at/all.js');
+});
