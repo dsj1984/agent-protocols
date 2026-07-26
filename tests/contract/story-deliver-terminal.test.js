@@ -26,9 +26,9 @@
  */
 
 import assert from 'node:assert/strict';
-import { readFileSync } from 'node:fs';
+import fs from 'node:fs';
 import path from 'node:path';
-import { describe, it } from 'node:test';
+import { describe, it, mock } from 'node:test';
 import { fileURLToPath } from 'node:url';
 import { setLevel } from '../../.agents/scripts/lib/Logger.js';
 import { MERGE_UNLANDED_BLOCK_CLASSES } from '../../.agents/scripts/lib/orchestration/merge-block-class.js';
@@ -48,7 +48,7 @@ import {
 
 const __dirname = path.dirname(fileURLToPath(import.meta.url));
 const SCHEMA = JSON.parse(
-  readFileSync(
+  fs.readFileSync(
     path.resolve(
       __dirname,
       '..',
@@ -460,6 +460,150 @@ describe('story-deliver-terminal — validation surface', () => {
       surpriseField: true,
     });
     assert.equal(valid, false);
+  });
+});
+
+describe('story-deliver-terminal — the schema outlives the schema FILE', () => {
+  // The regression: `single-story-close.js` invoked by a worktree-relative
+  // path runs the WORKTREE's copy of the script and then reaps that worktree
+  // as one of its own phases. The schema used to be read lazily, on the first
+  // envelope build — which happens AFTER the reap — so the read hit a path
+  // that no longer existed. It threw inside `failedTerminalFor`, meaning a
+  // Story whose PR had merged, whose label had flipped to `agent::done`, and
+  // whose post-land tail was green exited non-zero emitting NO envelope at
+  // all. The engine's documented return contract was lost to a success.
+  //
+  // Two independent guarantees close it, and this block pins both: the read
+  // happens at import (so the file's later disappearance is irrelevant), and
+  // an unusable schema degrades to an unvalidated envelope rather than to no
+  // envelope.
+
+  const LANDED = {
+    storyId: 4784,
+    status: 'landed',
+    phase: 'done',
+    storyBranch: 'story-4784',
+    baseBranch: 'main',
+    pr: {
+      number: 4788,
+      url: 'https://example.test/pull/4788',
+      state: 'MERGED',
+    },
+    tail: CLEAN_TAIL,
+    nextCommand: null,
+    elapsedSeconds: 12,
+  };
+
+  /** Break every filesystem read, the way a reaped worktree does. */
+  function withNoFilesystem(fn) {
+    mock.method(fs, 'readFileSync', () => {
+      throw new Error('ENOENT: no such file or directory (reaped worktree)');
+    });
+    try {
+      assert.throws(
+        () => fs.readFileSync('/anything'),
+        /ENOENT/,
+        'the filesystem stub must actually be in force',
+      );
+      return fn();
+    } finally {
+      mock.restoreAll();
+    }
+  }
+
+  it('validates with the filesystem gone — the schema is read at IMPORT', async () => {
+    // A FRESH instance of the module that OWNS the read, deliberately. The
+    // cached one compiled its validator during an earlier test, so it would
+    // survive a lost filesystem no matter when it read the schema — which is
+    // exactly how a lazy read hides from a suite until production reaps a
+    // worktree. Import fresh while the filesystem is healthy, break the
+    // filesystem, then validate: only an import-time read survives that
+    // sequence.
+    const fresh = await import(
+      `${
+        new URL(
+          '../../.agents/scripts/lib/orchestration/story-deliver-terminal-schema.js',
+          import.meta.url,
+        ).href
+      }?eager-schema-probe`
+    );
+    const envelope = buildTerminalEnvelope(LANDED);
+
+    withNoFilesystem(() => {
+      const result = fresh.validateTerminalEnvelope(envelope);
+      // `validated: true`, not merely `valid` — the degrade path did NOT
+      // fire, which is what proves the schema was already in memory.
+      assert.equal(
+        result.validated,
+        true,
+        'the eagerly-loaded schema is what validated this envelope',
+      );
+      assert.equal(result.valid, true);
+    });
+  });
+
+  it('builds an envelope after the filesystem stops answering', () => {
+    // The writer-level composition of the same guarantee: assembling a
+    // terminal must touch no file at all, whatever state the tree is in.
+    withNoFilesystem(() => {
+      const envelope = buildTerminalEnvelope(LANDED);
+      assert.equal(envelope.status, 'landed');
+      assert.equal(envelope.storyId, 4784);
+    });
+  });
+
+  it('degrades to an UNVALIDATED envelope when the schema cannot be read', () => {
+    // Belt to the eager-load brace: if the schema is ever unavailable anyway
+    // — a partial install, a truncated file — the run must still get its
+    // terminal. An envelope a caller can act on beats a lost contract.
+    const unreadable = {
+      schema: null,
+      error: 'ENOENT: no such file or directory',
+    };
+    const envelope = buildTerminalEnvelope({
+      ...LANDED,
+      schemaSource: unreadable,
+    });
+    assert.equal(envelope.status, 'landed');
+    assert.equal(envelope.nextCommand, null);
+
+    const degraded = validateTerminalEnvelope(envelope, {
+      schemaSource: unreadable,
+    });
+    assert.equal(
+      degraded.validated,
+      false,
+      'the degrade is reported, not hidden',
+    );
+    assert.equal(degraded.valid, true);
+
+    // And the envelope it emitted unchecked is in fact well-formed — the
+    // degrade skips the check, it does not lower the shape.
+    const rechecked = validateTerminalEnvelope(envelope);
+    assert.equal(rechecked.validated, true);
+    assert.deepEqual(rechecked.errors, []);
+    assert.equal(rechecked.valid, true);
+  });
+
+  it('still throws on a genuine schema VIOLATION — the degrade is scoped to an unreadable schema', () => {
+    // The distinction that has to hold: "I cannot check this envelope" is
+    // survivable; "this envelope is wrong" is not. Collapsing the two would
+    // trade one silent failure for another.
+    assert.throws(
+      () =>
+        buildTerminalEnvelope({
+          ...LANDED,
+          status: 'landed',
+          storyId: null,
+        }),
+      /violates story-deliver-terminal\.schema\.json/,
+    );
+  });
+
+  it('reports validated: true on the normal path', () => {
+    const result = validateTerminalEnvelope(buildTerminalEnvelope(LANDED));
+    assert.equal(result.validated, true);
+    assert.equal(result.valid, true);
   });
 });
 
