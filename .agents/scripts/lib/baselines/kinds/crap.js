@@ -92,8 +92,13 @@ export function kernelVersion() {
  * The stamp makes the boundary explicit and fails closed. Bump it whenever
  * the coverage join, the line coordinate system, or the unresolved-method
  * policy changes.
+ *
+ * Deliberately module-local: `envelopeExtras()` is the single production door
+ * to this value, so exporting the bare constant would add a second entry
+ * point that nothing in production reaches. Callers and tests that need the
+ * string read it off `envelopeExtras().scoringSemantics`.
  */
-export const SCORING_SEMANTICS = 'coverage-join-v2';
+const SCORING_SEMANTICS = 'coverage-join-v2';
 
 /**
  * Envelope-level stamps this kind contributes beyond the shared envelope

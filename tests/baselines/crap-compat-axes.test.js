@@ -3,9 +3,14 @@ import { describe, it } from 'node:test';
 import {
   assertBaselineCompatible,
   CRAP_COMPAT_AXES,
+  envelopeExtras,
   evaluateBaselineCompatibility,
-  SCORING_SEMANTICS,
 } from '../../.agents/scripts/lib/baselines/kinds/crap.js';
+
+// The stamp is read through the production door the writer uses, not a
+// second exported constant — so a drift between what the writer stamps and
+// what the compat axis expects would fail this suite rather than hide.
+const SCORING_SEMANTICS = envelopeExtras().scoringSemantics;
 
 // ---------------------------------------------------------------------------
 // crap-compat-axes.test.js — Story #2467 / Task #2491.
