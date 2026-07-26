@@ -5,6 +5,7 @@ import {
   buildSummaryLine,
   runBootSweep,
   runBootSweepCli,
+  storyIdsFromBranches,
 } from '../.agents/scripts/boot-sweep.js';
 
 /**
@@ -183,5 +184,100 @@ describe('runBootSweep', () => {
     assert.deepEqual(seen.exclude, ['story-4780']);
     assert.equal(seen.baseBranch, 'main');
     assert.equal(seen.logTag, '[boot-sweep]');
+  });
+});
+
+/**
+ * Story #4794 — the temp-retention catch-up. The sweep already confirms each
+ * merge it reaps (merged PR + matching headRefOid), so those branch names are
+ * the evidence the purge needs; the age floor collects the rest. The purge is
+ * injected here so no suite run touches a real temp tree.
+ */
+describe('storyIdsFromBranches', () => {
+  it('reads the id out of the canonical branch shape only', () => {
+    assert.deepEqual(
+      storyIdsFromBranches([
+        'story-4794',
+        'story-101',
+        'feature/story-999',
+        'story-abc',
+        'main',
+      ]),
+      [4794, 101],
+      'an ad-hoc branch that merely matched the glob contributes no id',
+    );
+  });
+
+  it('treats a missing or non-array reaped list as no ids', () => {
+    assert.deepEqual(storyIdsFromBranches(undefined), []);
+    assert.deepEqual(storyIdsFromBranches(null), []);
+  });
+});
+
+describe('runBootSweep — temp-retention catch-up (Story #4794)', () => {
+  it('hands the purge exactly the Story ids whose merge the sweep confirmed', async () => {
+    let seen = null;
+    const result = await runBootSweep({
+      cwd: '/repo',
+      injectedConfig: { project: { baseBranch: 'main' } },
+      injectedProvider: {},
+      injectedSweep: async () => ({
+        ok: true,
+        reaped: ['story-4794', 'story-4780'],
+      }),
+      purgeFn: async (args) => {
+        seen = args;
+        return { purged: [{ path: '/repo/temp/x.log', bytes: 10 }] };
+      },
+      logger: { info: () => {}, warn: () => {} },
+    });
+
+    assert.deepEqual(seen.mergedStoryIds, [4794, 4780]);
+    assert.equal(seen.label, 'boot-sweep');
+    assert.deepEqual(
+      seen.config,
+      { project: { baseBranch: 'main' } },
+      'the purge resolves its tempRoot from the same config the sweep used',
+    );
+    assert.equal(result.tempPurge.purged.length, 1);
+    assert.equal(result.ok, true, 'the sweep envelope survives alongside it');
+  });
+
+  it('still runs the age-floored purge when the sweep reaped nothing', async () => {
+    let called = false;
+    await runBootSweep({
+      cwd: '/repo',
+      injectedConfig: { project: { baseBranch: 'main' } },
+      injectedProvider: {},
+      injectedSweep: async () => ({ ok: true, reaped: [] }),
+      purgeFn: async (args) => {
+        called = true;
+        assert.deepEqual(args.mergedStoryIds, []);
+        return { purged: [] };
+      },
+      logger: { info: () => {}, warn: () => {} },
+    });
+    assert.equal(
+      called,
+      true,
+      'the backlog is reclaimed by age even with no branch to reap',
+    );
+  });
+
+  it('degrades to the swallowed envelope when the purge throws (exit stays 0)', async () => {
+    const warns = [];
+    const result = await runBootSweep({
+      cwd: '/repo',
+      injectedConfig: { project: { baseBranch: 'main' } },
+      injectedProvider: {},
+      injectedSweep: async () => ({ ok: true, reaped: [] }),
+      purgeFn: async () => {
+        throw new Error('temp root unreadable');
+      },
+      logger: { info: () => {}, warn: (m) => warns.push(m) },
+    });
+    assert.equal(result.ok, false);
+    assert.equal(result.skipped, true);
+    assert.match(warns[0], /host continues/);
   });
 });
