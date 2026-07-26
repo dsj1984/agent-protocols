@@ -47,7 +47,7 @@ the floor-vs-ratchet policy are tooling commitments rather than ADRs and live in
 | Decision | Governs | Surface |
 | --- | --- | --- |
 | [`20260726-v2-story-collapse`](#adr-20260726-v2-story-collapse-story-only-ticket-model-one-plan-one-deliver-one-engine) | Story-only ticket model; one /plan, one /deliver, one engine | `.agents/workflows/deliver.md` |
-| [`20260624-loop-units-division-of-labor`](#adr-20260624-loop-units-division-of-labor-mandrel-owns-content--oracle--contract-the-host-owns-cadence--iteration) | mandrel owns content + oracle + contract; the host owns cadence +… | `docs/decisions/loop-units-division-of-labor.md` |
+| [`20260624-loop-units-division-of-labor`](#adr-20260624-loop-units-division-of-labor-mandrel-owns-content--oracle--contract-the-host-owns-cadence--iteration) | mandrel owns content + oracle + contract; the host owns cadence +… | `.agents/scripts/sync-claude-commands.js` |
 | [`20260610-lifecycle-bus-retained`](#adr-20260610-lifecycle-bus-retained-keep-the-lifecycle-bus-collapse-by-deletion-is-already-done) | Keep the lifecycle bus; collapse-by-deletion is already done | `.agents/scripts/lib/orchestration/lifecycle/bus.js` |
 | [`20260610-planning-determinism-dispositions`](#adr-20260610-planning-determinism-dispositions-per-layer-dispositions-for-the-deterministic-planning-proxies) | Per-layer dispositions for the deterministic planning proxies | `.agents/scripts/lib/orchestration/ticket-validator.js` |
 | [`Overturn`](#overturn-drain-pending-cleanup-demoted-to-a-helper) | `drain-pending-cleanup` demoted to a helper | `.agents/scripts/drain-pending-cleanup.js` |
@@ -216,7 +216,7 @@ is the only merge surface.
 ## ADR 20260624-loop-units-division-of-labor: mandrel owns content + oracle + contract; the host owns cadence + iteration
 
 **Date:** 2026-06-24
-**Surface:** `docs/decisions/loop-units-division-of-labor.md`
+**Surface:** `.agents/scripts/sync-claude-commands.js`
 **Status:** Accepted
 **Epic:** [#4284](https://github.com/dsj1984/mandrel/issues/4284)
 **Builds on:**

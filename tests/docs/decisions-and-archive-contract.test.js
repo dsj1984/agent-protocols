@@ -1,8 +1,8 @@
 import assert from 'node:assert/strict';
 import fs from 'node:fs';
 import path from 'node:path';
-import { fileURLToPath } from 'node:url';
 import { test } from 'node:test';
+import { fileURLToPath } from 'node:url';
 
 /**
  * Story #4786 — contract tests for the decision log and the pattern archive.
@@ -19,7 +19,11 @@ import { test } from 'node:test';
  *      behind in the live doc, so relocated history is never orphaned.
  */
 
-const REPO_ROOT = path.resolve(path.dirname(fileURLToPath(import.meta.url)), '..', '..');
+const REPO_ROOT = path.resolve(
+  path.dirname(fileURLToPath(import.meta.url)),
+  '..',
+  '..',
+);
 const DECISIONS = path.join(REPO_ROOT, 'docs', 'decisions.md');
 const PATTERNS = path.join(REPO_ROOT, 'docs', 'patterns.md');
 const ARCHIVE = path.join(REPO_ROOT, 'docs', 'archive', 'patterns-2026-07.md');
@@ -65,8 +69,13 @@ export function adrIdentifier(title) {
 }
 
 test('every Accepted ADR names a Surface path that exists on disk', () => {
-  const adrs = parseAdrs(fs.readFileSync(DECISIONS, 'utf8')).filter((a) => a.isAdr);
-  assert.ok(adrs.length > 20, `expected a populated decision log, saw ${adrs.length} entries`);
+  const adrs = parseAdrs(fs.readFileSync(DECISIONS, 'utf8')).filter(
+    (a) => a.isAdr,
+  );
+  assert.ok(
+    adrs.length > 20,
+    `expected a populated decision log, saw ${adrs.length} entries`,
+  );
 
   const missingSurface = adrs.filter((a) => a.isAccepted && !a.surface);
   assert.deepEqual(
@@ -86,16 +95,23 @@ test('every Accepted ADR names a Surface path that exists on disk', () => {
 });
 
 test('every ADR identifier in docs/decisions.md is unique', () => {
-  const adrs = parseAdrs(fs.readFileSync(DECISIONS, 'utf8')).filter((a) => a.isAdr);
+  const adrs = parseAdrs(fs.readFileSync(DECISIONS, 'utf8')).filter(
+    (a) => a.isAdr,
+  );
   const seen = new Map();
   const duplicates = [];
   for (const adr of adrs) {
     const id = adrIdentifier(adr.title);
     if (!id) continue;
-    if (seen.has(id)) duplicates.push(`${id}: L${seen.get(id)} and L${adr.line}`);
+    if (seen.has(id))
+      duplicates.push(`${id}: L${seen.get(id)} and L${adr.line}`);
     else seen.set(id, adr.line);
   }
-  assert.deepEqual(duplicates, [], 'a cross-reference by identifier must resolve to exactly one entry');
+  assert.deepEqual(
+    duplicates,
+    [],
+    'a cross-reference by identifier must resolve to exactly one entry',
+  );
 });
 
 test('every ADR heading anchor linked from within docs/decisions.md resolves', () => {
@@ -109,14 +125,21 @@ test('every ADR heading anchor linked from within docs/decisions.md resolves', (
   const broken = [...source.matchAll(/\]\(#([^)]+)\)/g)]
     .map((m) => m[1])
     .filter((a) => !anchors.has(a));
-  assert.deepEqual([...new Set(broken)], [], 'in-document anchor links must resolve to a heading');
+  assert.deepEqual(
+    [...new Set(broken)],
+    [],
+    'in-document anchor links must resolve to a heading',
+  );
 });
 
 test('the index lists every ADR with its current status', () => {
   const source = fs.readFileSync(DECISIONS, 'utf8');
   const start = source.indexOf('<!-- ADR-INDEX:START -->');
   const end = source.indexOf('<!-- ADR-INDEX:END -->');
-  assert.ok(start !== -1 && end > start, 'docs/decisions.md must carry a delimited index block');
+  assert.ok(
+    start !== -1 && end > start,
+    'docs/decisions.md must carry a delimited index block',
+  );
   const index = source.slice(start, end);
 
   const adrs = parseAdrs(source).filter((a) => a.isAdr);
@@ -129,10 +152,16 @@ test('the index lists every ADR with its current status', () => {
 
   // Accepted entries are listed in the in-force table, ahead of the closed one.
   const closedHeading = index.indexOf('**Closed (');
-  assert.ok(closedHeading !== -1, 'the index must separate in-force entries from closed ones');
+  assert.ok(
+    closedHeading !== -1,
+    'the index must separate in-force entries from closed ones',
+  );
   for (const adr of adrs.filter((a) => a.isAccepted)) {
     const at = index.indexOf(`#${slugify(adr.title)}`);
-    assert.ok(at < closedHeading, `Accepted ADR listed under Closed: ${adr.title}`);
+    assert.ok(
+      at < closedHeading,
+      `Accepted ADR listed under Closed: ${adr.title}`,
+    );
   }
 });
 
@@ -144,10 +173,16 @@ test('every archived pattern section has a pointer line in docs/patterns.md', ()
     .split('\n')
     .filter((l) => l.startsWith('## '))
     .map((l) => l.slice(3).trim());
-  assert.ok(sections.length >= 5, `expected the archived sections, saw ${sections.length}`);
+  assert.ok(
+    sections.length >= 5,
+    `expected the archived sections, saw ${sections.length}`,
+  );
 
   const orphaned = sections.filter(
-    (heading) => !live.includes(`[${heading}](archive/patterns-2026-07.md#${slugify(heading)})`),
+    (heading) =>
+      !live.includes(
+        `[${heading}](archive/patterns-2026-07.md#${slugify(heading)})`,
+      ),
   );
   assert.deepEqual(
     orphaned,
@@ -160,7 +195,11 @@ test('every archived pattern section has a pointer line in docs/patterns.md', ()
   const broken = [...live.matchAll(/archive\/patterns-2026-07\.md#([^)]+)\)/g)]
     .map((m) => m[1])
     .filter((a) => !archiveAnchors.has(a));
-  assert.deepEqual([...new Set(broken)], [], 'archive pointers must resolve to an archived section');
+  assert.deepEqual(
+    [...new Set(broken)],
+    [],
+    'archive pointers must resolve to an archived section',
+  );
 });
 
 test('no archived pattern section is left duplicated in the live doc', () => {
@@ -177,5 +216,9 @@ test('no archived pattern section is left duplicated in the live doc', () => {
     .filter((l) => l.startsWith('## '))
     .map((l) => l.slice(3).trim())
     .filter((h) => liveHeadings.has(h));
-  assert.deepEqual(duplicated, [], 'an archived section must be moved, not copied');
+  assert.deepEqual(
+    duplicated,
+    [],
+    'an archived section must be moved, not copied',
+  );
 });
