@@ -1,18 +1,18 @@
 {
   "$schema": ".agents/schemas/baselines/maintainability.schema.json",
   "kernelVersion": "0.1.0",
-  "generatedAt": "2026-07-23T20:39:17.851Z",
+  "generatedAt": "2026-07-26T02:47:20.953Z",
   "rollup": {
     "*": {
       "min": 74.146,
       "p50": 98.065,
-      "p95": 126.964
+      "p95": 126.637
     }
   },
   "rows": [
     {
       "path": ".agents/scripts/acceptance-eval.js",
-      "mi": 88.489
+      "mi": 87.896
     },
     {
       "path": ".agents/scripts/agents-bootstrap-github.js",
@@ -20,7 +20,7 @@
     },
     {
       "path": ".agents/scripts/apply-quality-bootstrap.js",
-      "mi": 112.652
+      "mi": 109.526
     },
     {
       "path": ".agents/scripts/audit-labels-bootstrap.js",
@@ -48,7 +48,7 @@
     },
     {
       "path": ".agents/scripts/check-baselines.js",
-      "mi": 106.627
+      "mi": 105.768
     },
     {
       "path": ".agents/scripts/check-context-budget.js",
@@ -56,7 +56,7 @@
     },
     {
       "path": ".agents/scripts/check-dead-exports.js",
-      "mi": 92.947
+      "mi": 92.322
     },
     {
       "path": ".agents/scripts/check-doc-links.js",
@@ -79,6 +79,10 @@
       "mi": 95.062
     },
     {
+      "path": ".agents/scripts/check-workflow-citations.js",
+      "mi": 95.345
+    },
+    {
       "path": ".agents/scripts/check-workflow-cli-lint.js",
       "mi": 89.165
     },
@@ -89,6 +93,10 @@
     {
       "path": ".agents/scripts/coverage-capture.js",
       "mi": 85.592
+    },
+    {
+      "path": ".agents/scripts/deliver-light.js",
+      "mi": 93.198
     },
     {
       "path": ".agents/scripts/deliver-recover.js",
@@ -104,7 +112,7 @@
     },
     {
       "path": ".agents/scripts/drain-pending-cleanup.js",
-      "mi": 106.26
+      "mi": 105.381
     },
     {
       "path": ".agents/scripts/evidence-gate.js",
@@ -128,15 +136,19 @@
     },
     {
       "path": ".agents/scripts/generate-workflows-doc.js",
-      "mi": 91.197
+      "mi": 90.422
     },
     {
       "path": ".agents/scripts/git-cleanup.js",
-      "mi": 131.94
+      "mi": 116.866
     },
     {
       "path": ".agents/scripts/install-matrix-assert.js",
       "mi": 89.263
+    },
+    {
+      "path": ".agents/scripts/lib/audit-suite/audit-rules-reader.js",
+      "mi": 111.662
     },
     {
       "path": ".agents/scripts/lib/audit-suite/checklist-threading.js",
@@ -268,7 +280,7 @@
     },
     {
       "path": ".agents/scripts/lib/baselines/kinds/crap.js",
-      "mi": 94.757
+      "mi": 96.235
     },
     {
       "path": ".agents/scripts/lib/baselines/kinds/duplication.js",
@@ -324,7 +336,7 @@
     },
     {
       "path": ".agents/scripts/lib/baselines/writer.js",
-      "mi": 94.752
+      "mi": 93.855
     },
     {
       "path": ".agents/scripts/lib/bdd-runner-detect.js",
@@ -460,7 +472,7 @@
     },
     {
       "path": ".agents/scripts/lib/cli-utils.js",
-      "mi": 112.427
+      "mi": 109.326
     },
     {
       "path": ".agents/scripts/lib/cli/parse-numeric.js",
@@ -480,7 +492,7 @@
     },
     {
       "path": ".agents/scripts/lib/close-validation/process.js",
-      "mi": 113.248
+      "mi": 112.269
     },
     {
       "path": ".agents/scripts/lib/close-validation/projections/head-sha.js",
@@ -640,7 +652,7 @@
     },
     {
       "path": ".agents/scripts/lib/coverage-utils.js",
-      "mi": 90.902
+      "mi": 87.488
     },
     {
       "path": ".agents/scripts/lib/cpu-pool.js",
@@ -648,11 +660,11 @@
     },
     {
       "path": ".agents/scripts/lib/crap-engine.js",
-      "mi": 92.895
+      "mi": 90.698
     },
     {
       "path": ".agents/scripts/lib/crap-utils.js",
-      "mi": 83.935
+      "mi": 87.082
     },
     {
       "path": ".agents/scripts/lib/dead-exports-knip.js",
@@ -948,7 +960,7 @@
     },
     {
       "path": ".agents/scripts/lib/orchestration/check-baselines/phases/evaluate.js",
-      "mi": 87.782
+      "mi": 86.936
     },
     {
       "path": ".agents/scripts/lib/orchestration/check-baselines/phases/floors.js",
@@ -980,7 +992,7 @@
     },
     {
       "path": ".agents/scripts/lib/orchestration/complexity-gate.js",
-      "mi": 92.192
+      "mi": 100.304
     },
     {
       "path": ".agents/scripts/lib/orchestration/consolidation-precondition.js",
@@ -1111,6 +1123,10 @@
       "mi": 94.692
     },
     {
+      "path": ".agents/scripts/lib/orchestration/light-suitability.js",
+      "mi": 91.282
+    },
+    {
       "path": ".agents/scripts/lib/orchestration/lint-baseline-service.js",
       "mi": 96.762
     },
@@ -1133,10 +1149,6 @@
     {
       "path": ".agents/scripts/lib/orchestration/phase-runner.js",
       "mi": 105.908
-    },
-    {
-      "path": ".agents/scripts/lib/orchestration/plan-context.js",
-      "mi": 89.629
     },
     {
       "path": ".agents/scripts/lib/orchestration/plan-critic-conditions.js",
@@ -1283,6 +1295,10 @@
       "mi": 87.009
     },
     {
+      "path": ".agents/scripts/lib/orchestration/single-story-close/gate-log.js",
+      "mi": 112.677
+    },
+    {
       "path": ".agents/scripts/lib/orchestration/single-story-close/phases/auto-merge.js",
       "mi": 90.534
     },
@@ -1292,7 +1308,7 @@
     },
     {
       "path": ".agents/scripts/lib/orchestration/single-story-close/phases/close-validation.js",
-      "mi": 97.919
+      "mi": 81.997
     },
     {
       "path": ".agents/scripts/lib/orchestration/single-story-close/phases/code-review.js",
@@ -1384,7 +1400,7 @@
     },
     {
       "path": ".agents/scripts/lib/orchestration/story-deliver-terminal.js",
-      "mi": 102.568
+      "mi": 101.19
     },
     {
       "path": ".agents/scripts/lib/orchestration/story-follow-ups.js",
@@ -1656,7 +1672,7 @@
     },
     {
       "path": ".agents/scripts/lib/transpile.js",
-      "mi": 101.416
+      "mi": 93.208
     },
     {
       "path": ".agents/scripts/lib/util/concurrent-map.js",
@@ -1692,11 +1708,11 @@
     },
     {
       "path": ".agents/scripts/lib/workers/combined-mi-crap-worker.js",
-      "mi": 80.901
+      "mi": 88.83
     },
     {
       "path": ".agents/scripts/lib/workers/crap-worker.js",
-      "mi": 81.404
+      "mi": 87.712
     },
     {
       "path": ".agents/scripts/lib/workers/maintainability-report-worker.js",
@@ -1705,6 +1721,10 @@
     {
       "path": ".agents/scripts/lib/workers/maintainability-worker.js",
       "mi": 95.936
+    },
+    {
+      "path": ".agents/scripts/lib/workflow-closure.js",
+      "mi": 97.938
     },
     {
       "path": ".agents/scripts/lib/workspace-provisioner.js",
@@ -1784,7 +1804,7 @@
     },
     {
       "path": ".agents/scripts/mandrel-update-preflight.js",
-      "mi": 89.455
+      "mi": 88.701
     },
     {
       "path": ".agents/scripts/nav-registry-diff.js",
@@ -1796,7 +1816,7 @@
     },
     {
       "path": ".agents/scripts/plan-context.js",
-      "mi": 91.889
+      "mi": 89.701
     },
     {
       "path": ".agents/scripts/plan-critics.js",
@@ -1804,11 +1824,11 @@
     },
     {
       "path": ".agents/scripts/plan-persist.js",
-      "mi": 90.426
+      "mi": 87.007
     },
     {
       "path": ".agents/scripts/plan-run-epilogue.js",
-      "mi": 106.311
+      "mi": 105.213
     },
     {
       "path": ".agents/scripts/post-structured-comment.js",
@@ -1904,11 +1924,11 @@
     },
     {
       "path": ".agents/scripts/quality-preview.js",
-      "mi": 95.317
+      "mi": 94.696
     },
     {
       "path": ".agents/scripts/resolve-doc-tiers.js",
-      "mi": 104.744
+      "mi": 102.67
     },
     {
       "path": ".agents/scripts/resolve-stories.js",
@@ -1944,7 +1964,7 @@
     },
     {
       "path": ".agents/scripts/single-story-close.js",
-      "mi": 94.232
+      "mi": 92.831
     },
     {
       "path": ".agents/scripts/single-story-confirm-merge.js",
@@ -1964,7 +1984,7 @@
     },
     {
       "path": ".agents/scripts/sync-agentrc.js",
-      "mi": 105.583
+      "mi": 102.354
     },
     {
       "path": ".agents/scripts/sync-branch-from-base.js",
@@ -1992,7 +2012,7 @@
     },
     {
       "path": ".agents/scripts/update-crap-baseline.js",
-      "mi": 88.413
+      "mi": 86.599
     },
     {
       "path": ".agents/scripts/update-duplication-baseline.js",
@@ -2004,7 +2024,7 @@
     },
     {
       "path": ".agents/scripts/update-ticket-state.js",
-      "mi": 94.799
+      "mi": 91.705
     },
     {
       "path": ".agents/scripts/validate-docs-freshness.js",

@@ -13,6 +13,7 @@ import {
 } from './lib/config-resolver.js';
 import { loadCoverage } from './lib/coverage-utils.js';
 import {
+  checkResolutionFloor,
   resolveEscomplexVersion,
   resolveTsTranspilerVersion,
   scanAndScore,
@@ -71,6 +72,7 @@ async function main() {
   const crap = getQuality(config).crap;
   const targetDirs = Array.isArray(crap.targetDirs) ? crap.targetDirs : [];
   const requireCoverage = crap.requireCoverage !== false;
+  const minMethodResolutionRate = crap.minMethodResolutionRate ?? 0.75;
   const coveragePath =
     args.coveragePath ?? crap.coveragePath ?? 'coverage/coverage-final.json';
   const baselinePath = args.baselinePath ?? getBaselines(config).crap.path;
@@ -117,6 +119,7 @@ async function main() {
       scannedFiles,
       skippedFilesNoCoverage,
       skippedMethodsNoCoverage,
+      resolution,
     } = await scanAndScore({
       targetDirs,
       coverage,
@@ -137,6 +140,16 @@ async function main() {
         `[CRAP] Skipped ${skippedMethodsNoCoverage} method(s) whose per-method coverage was unresolved.`,
       );
     }
+    if (resolution) {
+      Logger.info(
+        `[CRAP] Method resolution: ${resolution.resolvedMethods}/${resolution.joinableMethods} ` +
+          `(${(resolution.rate * 100).toFixed(1)}%) in files with coverage.`,
+      );
+    }
+    // Fail closed BEFORE the service persists anything — a thin baseline is
+    // never written and then apologised for.
+    const refusal = checkResolutionFloor(resolution, minMethodResolutionRate);
+    if (refusal) throw new Error(refusal);
 
     return (rows ?? []).filter(
       (r) => typeof r?.crap === 'number' && Number.isFinite(r.crap),

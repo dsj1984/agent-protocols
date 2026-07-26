@@ -2,6 +2,108 @@ import escomplex from 'typhonjs-escomplex';
 import { coverageForMethodInEntry } from './coverage-utils.js';
 
 /**
+ * Derive the raw per-method CRAP rows from an escomplex report.
+ *
+ * Single-sourced between `calculateCrapForSource` (CRAP-only path) and
+ * `analyzeOnce` (combined MI + CRAP path) so the two cannot drift on how a
+ * method's line is remapped or its coverage joined — the parity the
+ * combined-parity suite asserts.
+ *
+ * **Coordinates (Story #4775).** `mapLine` translates escomplex's
+ * `lineStart` — which is in *transpiled* coordinates for a TS/TSX source —
+ * into the *original source* coordinates istanbul's `fnMap` uses. Without it
+ * the join compares two different coordinate systems and either misses or,
+ * worse, collides with an unrelated function. A `null` mapper means the two
+ * coordinate systems already coincide (plain JavaScript), and a line the map
+ * cannot resolve falls back to the un-remapped value rather than dropping the
+ * method outright. The remapped line is also what the row reports, so a
+ * persisted row points at a line the reader can actually open.
+ *
+ * @param {object|null} report An `escomplex.analyzeModule` report.
+ * @param {object|null} coverageForFile Istanbul coverage entry for this file.
+ * @param {((line: number) => number|null)|null} [mapLine]
+ * @returns {Array<{
+ *   method: string,
+ *   startLine: number,
+ *   cyclomatic: number,
+ *   coverage: number|null,
+ *   crap: number|null,
+ * }>}
+ */
+export function methodRowsFromReport(report, coverageForFile, mapLine = null) {
+  const methods = report?.methods ?? [];
+  const rows = [];
+  for (const m of methods) {
+    const rawStartLine = m?.lineStart;
+    if (typeof rawStartLine !== 'number') continue;
+    const mapped = typeof mapLine === 'function' ? mapLine(rawStartLine) : null;
+    const startLine = typeof mapped === 'number' ? mapped : rawStartLine;
+    const cyclomatic = m?.cyclomatic ?? 0;
+    const coverage = coverageForFile
+      ? coverageForMethodInEntry(coverageForFile, startLine)
+      : null;
+    const crap = coverage === null ? null : crapFormula(cyclomatic, coverage);
+    rows.push({ method: m.name, startLine, cyclomatic, coverage, crap });
+  }
+  return rows;
+}
+
+/**
+ * Apply the scanner's `requireCoverage` policy to raw method rows and report
+ * how much of the coverage join actually landed.
+ *
+ * Two policies, one honest each way (Story #4775, fix part 3):
+ *
+ *   - `requireCoverage: true` — an unresolved method is skipped and counted,
+ *     exactly as before. The baseline stays a record of measured code.
+ *   - `requireCoverage: false` — an unresolved method scores as **0%
+ *     covered** (`crap = c² + c`, the formula's own treatment of untested
+ *     code) and lands in the baseline. Previously the flag only stopped
+ *     whole *files* being skipped while each individual method was still
+ *     dropped, which made it a no-op for baseline population — the caller
+ *     asked for "score it anyway" and got silence.
+ *
+ * `resolvedMethods` / `totalMethods` count the *join*, not the fill: a
+ * method scored 0% because its coverage was unresolved counts as
+ * unresolved. That is what makes them usable as a health signal for the
+ * updater's fail-closed resolution-rate floor.
+ *
+ * @param {Array<object>} rawRows Rows from `methodRowsFromReport`.
+ * @param {{requireCoverage?: boolean}} [opts]
+ * @returns {{
+ *   rows: Array<object>,
+ *   skippedMethodsNoCoverage: number,
+ *   resolvedMethods: number,
+ *   totalMethods: number,
+ * }}
+ */
+export function finalizeMethodRows(rawRows, { requireCoverage = true } = {}) {
+  const rows = [];
+  let skippedMethodsNoCoverage = 0;
+  let resolvedMethods = 0;
+  let totalMethods = 0;
+  for (const mr of rawRows ?? []) {
+    totalMethods += 1;
+    const unresolved = mr.crap === null || mr.coverage === null;
+    if (!unresolved) resolvedMethods += 1;
+    if (unresolved && requireCoverage) {
+      skippedMethodsNoCoverage += 1;
+      continue;
+    }
+    const coverage = unresolved ? 0 : mr.coverage;
+    const crap = unresolved ? crapFormula(mr.cyclomatic, 0) : mr.crap;
+    rows.push({
+      method: mr.method,
+      startLine: mr.startLine,
+      cyclomatic: mr.cyclomatic,
+      coverage,
+      crap,
+    });
+  }
+  return { rows, skippedMethodsNoCoverage, resolvedMethods, totalMethods };
+}
+
+/**
  * Score each method in a JavaScript source for Change Risk Anti-Patterns
  * (CRAP): `c² · (1 − cov)³ + c`, where `c` is cyclomatic complexity and `cov`
  * is the per-method statement-coverage ratio in [0, 1].
@@ -11,15 +113,17 @@ import { coverageForMethodInEntry } from './coverage-utils.js';
  *     `analyzeModule`).
  *   - Methods whose coverage cannot be resolved from `coverageForFile`
  *     produce `coverage: null` and `crap: null`. Callers apply their own
- *     `requireCoverage` policy at the scanner level; this kernel never
- *     decides to skip.
+ *     `requireCoverage` policy at the scanner level (`finalizeMethodRows`);
+ *     this kernel never decides to skip.
  *   - A parse error returns an empty array — the file is unscorable, not
  *     zero-complexity.
  *
- * @param {string} source JavaScript source text.
+ * @param {string} source JavaScript source text (possibly transpiled).
  * @param {object|null} coverageForFile The inner value from a
  *   `coverage-final.json` map keyed by this file's path, or null when no
  *   coverage data is available for this file.
+ * @param {((line: number) => number|null)|null} [mapLine] Transpiled →
+ *   original line resolver; see `methodRowsFromReport`.
  * @returns {Array<{
  *   method: string,
  *   startLine: number,
@@ -28,32 +132,18 @@ import { coverageForMethodInEntry } from './coverage-utils.js';
  *   crap: number|null,
  * }>}
  */
-export function calculateCrapForSource(source, coverageForFile) {
+export function calculateCrapForSource(
+  source,
+  coverageForFile,
+  mapLine = null,
+) {
   let report;
   try {
     report = escomplex.analyzeModule(source);
   } catch {
     return [];
   }
-  const methods = report?.methods ?? [];
-  const rows = [];
-  for (const m of methods) {
-    const startLine = m?.lineStart;
-    if (typeof startLine !== 'number') continue;
-    const cyclomatic = m?.cyclomatic ?? 0;
-    const coverage = coverageForFile
-      ? coverageForMethodInEntry(coverageForFile, startLine)
-      : null;
-    const crap = coverage === null ? null : crapFormula(cyclomatic, coverage);
-    rows.push({
-      method: m.name,
-      startLine,
-      cyclomatic,
-      coverage,
-      crap,
-    });
-  }
-  return rows;
+  return methodRowsFromReport(report, coverageForFile, mapLine);
 }
 
 /**

@@ -282,12 +282,19 @@ test('scanAndScore — scores uncovered files when requireCoverage=false', async
       requireCoverage: false,
       cwd,
     });
-    // File produces a method row in the kernel, but crap is null without
-    // coverage → it is filtered out of scanAndScore rows (no silent zeros).
+    // Story #4775 (AC-5): `requireCoverage: false` means "score it anyway".
+    // A method with no coverage entry is untested code, so it scores at 0%
+    // coverage — crap = c² + c — and lands in the baseline. Previously the
+    // flag only stopped whole FILES being skipped while each method was
+    // still dropped individually, making it a no-op for baseline population.
     assert.strictEqual(result.scannedFiles, 1);
     assert.strictEqual(result.skippedFilesNoCoverage, 0);
-    assert.ok(result.skippedMethodsNoCoverage >= 1);
-    assert.deepStrictEqual(result.rows, []);
+    assert.strictEqual(result.skippedMethodsNoCoverage, 0);
+    assert.strictEqual(result.rows.length, 1);
+    const [row] = result.rows;
+    assert.strictEqual(row.method, 'a');
+    assert.strictEqual(row.coverage, 0);
+    assert.strictEqual(row.crap, row.cyclomatic ** 2 + row.cyclomatic);
   } finally {
     rmTmp(cwd);
   }

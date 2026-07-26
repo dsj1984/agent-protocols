@@ -21,6 +21,10 @@
       "format": "date-time",
       "description": "ISO-8601 timestamp of the baseline run. Used for stale-baseline detection and audit trails."
     },
+    "scoringSemantics": {
+      "type": "string",
+      "description": "Optional per-kind stamp identifying the SCORING SEMANTICS that produced these rows — the dimension kernelVersion cannot express, because a kind's own scoring can change while the upstream package it stamps does not. A baseline whose stamp differs from the running scorer's is incomparable and the gate fails closed with re-baseline guidance rather than comparing across the boundary."
+    },
     "rollup": {
       "type": "object",
       "description": "Aggregate metrics keyed by component. The '*' key is reserved for the whole-repo rollup and is REQUIRED; additional keys MAY be present, one per declared component.",

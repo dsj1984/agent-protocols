@@ -133,6 +133,7 @@ function resolveGeneratedAt(explicit) {
  *   rows: Array<object>,
  *   kernelVersion: string,
  *   generatedAt?: string,
+ *   extras?: Record<string, unknown>,
  * }} params
  * @returns {{
  *   $schema: string,
@@ -148,6 +149,7 @@ export function buildEnvelope({
   rows,
   kernelVersion,
   generatedAt,
+  extras,
 } = {}) {
   if (typeof kind !== 'string' || !KNOWN_KINDS.includes(kind)) {
     throw new TypeError(
@@ -176,10 +178,15 @@ export function buildEnvelope({
     throw new TypeError('envelope.buildEnvelope: rows must be an array');
   }
 
+  // Per-kind envelope-level stamps (Story #4775). A kind whose SCORING
+  // SEMANTICS can change independently of its kernel version contributes them
+  // here; `assertEnvelope` still validates the result against the kind's
+  // schema, so an unrecognised extra fails closed rather than being persisted.
   return {
     $schema: schemaRefFor(kind),
     kernelVersion,
     generatedAt: resolveGeneratedAt(generatedAt),
+    ...(extras && typeof extras === 'object' ? extras : {}),
     rollup,
     rows,
   };

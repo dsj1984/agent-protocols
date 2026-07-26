@@ -4,6 +4,7 @@ import os from 'node:os';
 import path from 'node:path';
 import { afterEach, beforeEach, describe, it } from 'node:test';
 
+import { POOL_SERIAL_THRESHOLD } from '../../.agents/scripts/lib/cpu-pool.js';
 import {
   scanAndScore,
   scanAndScoreCombined,
@@ -298,5 +299,212 @@ export function classify(x) {
       () => scanAndScoreCombined({ targetDirs: 'nope', coverage: null }),
       /targetDirs must be an array/,
     );
+  });
+});
+
+/**
+ * Story #4775 — parity across the WORKER-POOL path, on TypeScript.
+ *
+ * The suite above proves two-pass-vs-single-pass parity, but its fixture tree
+ * is all JavaScript (`mapLine` is null, so the remap is a no-op) and sits
+ * below `POOL_SERIAL_THRESHOLD`, so every scan takes the serial branch. That
+ * leaves the two axes this Story actually changed uncovered: the transpiled ->
+ * original line remap, and the worker-pool scorer that has to reproduce it in
+ * another thread.
+ *
+ * This fixture is TypeScript (interfaces are elided, so transpiled and source
+ * coordinates genuinely diverge) and deliberately large enough to cross the
+ * pool threshold. The serial reference is reconstructed by scanning the same
+ * files in sub-threshold batches, which is the only way to force the serial
+ * branch over a file set the pool would otherwise claim.
+ */
+const TS_FILE_COUNT = POOL_SERIAL_THRESHOLD + 1;
+
+function tsFixture(index) {
+  // Leading interface + type alias guarantee the transpile shifts every
+  // method's line, so a missing remap cannot pass by coincidence.
+  return `interface Input${index} {
+  value: number;
+  label: string;
+}
+
+type Out${index} = { ok: boolean; n: number };
+
+export function classify${index}(input: Input${index}): Out${index} {
+  if (input.value > 10) {
+    return { ok: true, n: input.value };
+  }
+  if (input.value < 0) {
+    return { ok: false, n: 0 };
+  }
+  return { ok: input.value === 0, n: input.value };
+}
+
+export function total${index}(items: Input${index}[]): number {
+  let sum = 0;
+  for (const item of items) {
+    if (item.value > 0) {
+      sum += item.value;
+    }
+  }
+  return sum;
+}
+`;
+}
+
+/** The 1-based source lines the two exported functions occupy. */
+const TS_FN_RANGES = [
+  { start: 8, end: 16 },
+  { start: 18, end: 26 },
+];
+
+/**
+ * Coverage entry keyed at the REAL source lines of `tsFixture` — the only
+ * shape a real `coverage-final.json` can carry. A scan that fails to remap
+ * looks these up in transpiled coordinates and resolves nothing.
+ */
+function tsCoverageEntry() {
+  const fnMap = {};
+  const statementMap = {};
+  const s = {};
+  let stmtId = 0;
+  TS_FN_RANGES.forEach((range, i) => {
+    fnMap[String(i)] = {
+      name: `fn${i}`,
+      decl: { start: { line: range.start }, end: { line: range.start } },
+      loc: {
+        start: { line: range.start },
+        end: { line: range.end },
+      },
+    };
+    for (let line = range.start + 1; line < range.end; line += 1) {
+      statementMap[String(stmtId)] = { start: { line }, end: { line } };
+      s[String(stmtId)] = 1;
+      stmtId += 1;
+    }
+  });
+  return { fnMap, statementMap, s };
+}
+
+/**
+ * Score `files` through the SERIAL branch by feeding `scanAndScore`
+ * sub-threshold batches and merging, then re-sorting exactly as the scanner
+ * does. Merging is sound because the per-file scorers are independent — the
+ * only thing batching changes is which branch runs.
+ */
+async function scoreSerialInBatches({ targetDirs, coverage, cwd, files }) {
+  const batchSize = POOL_SERIAL_THRESHOLD - 1;
+  const merged = {
+    rows: [],
+    scannedFiles: 0,
+    skippedFilesNoCoverage: 0,
+    skippedMethodsNoCoverage: 0,
+  };
+  for (let i = 0; i < files.length; i += batchSize) {
+    const batch = files.slice(i, i + batchSize);
+    const out = await scanAndScore({
+      targetDirs,
+      coverage,
+      requireCoverage: true,
+      cwd,
+      preScannedFiles: batch,
+    });
+    merged.rows.push(...out.rows);
+    merged.scannedFiles += out.scannedFiles;
+    merged.skippedFilesNoCoverage += out.skippedFilesNoCoverage;
+    merged.skippedMethodsNoCoverage += out.skippedMethodsNoCoverage;
+  }
+  merged.rows.sort((a, b) => {
+    if (a.file !== b.file) return a.file < b.file ? -1 : 1;
+    if (a.startLine !== b.startLine) return a.startLine - b.startLine;
+    return a.method < b.method ? -1 : a.method > b.method ? 1 : 0;
+  });
+  return merged;
+}
+
+describe('worker-pool parity on TypeScript — the remap survives the thread boundary', () => {
+  let tmpDir;
+  let files;
+  let coverage;
+  let targetDirs;
+
+  beforeEach(() => {
+    tmpDir = fs.mkdtempSync(path.join(os.tmpdir(), 'crap-pool-ts-parity-'));
+    files = [];
+    coverage = {};
+    for (let i = 0; i < TS_FILE_COUNT; i += 1) {
+      const abs = mkFixtureFile(tmpDir, `src/mod${i}.ts`, tsFixture(i));
+      files.push(abs);
+      coverage[abs] = tsCoverageEntry();
+    }
+    targetDirs = [path.join(tmpDir, 'src')];
+  });
+
+  afterEach(() => {
+    fs.rmSync(tmpDir, { recursive: true, force: true });
+  });
+
+  it('the fixture actually crosses the pool threshold', () => {
+    assert.ok(
+      files.length >= POOL_SERIAL_THRESHOLD,
+      `fixture must force the pool branch (${files.length} < ${POOL_SERIAL_THRESHOLD})`,
+    );
+  });
+
+  it('pool-scored rows are byte-identical to serially-scored rows', async () => {
+    const pooled = await scanAndScore({
+      targetDirs,
+      coverage,
+      requireCoverage: true,
+      cwd: tmpDir,
+    });
+    const serial = await scoreSerialInBatches({
+      targetDirs,
+      coverage,
+      cwd: tmpDir,
+      files,
+    });
+
+    assert.deepEqual(pooled.rows, serial.rows);
+    assert.equal(pooled.skippedMethodsNoCoverage, 0);
+    assert.equal(serial.skippedMethodsNoCoverage, 0);
+    // Both functions in every file resolved — proving the remap ran on BOTH
+    // sides. Without it the lookups land in transpiled coordinates and the
+    // rows vanish, which would make the two sides agree on emptiness.
+    assert.equal(pooled.rows.length, TS_FILE_COUNT * TS_FN_RANGES.length);
+    assert.equal(pooled.resolution.rate, 1);
+  });
+
+  it('rows carry ORIGINAL source coordinates on the pool path', async () => {
+    const pooled = await scanAndScore({
+      targetDirs,
+      coverage,
+      requireCoverage: true,
+      cwd: tmpDir,
+    });
+    const starts = new Set(pooled.rows.map((r) => r.startLine));
+    assert.deepEqual(
+      [...starts].sort((a, b) => a - b),
+      TS_FN_RANGES.map((r) => r.start),
+    );
+  });
+
+  it('the combined single-pass scan matches the two-pass scan on the pool path', async () => {
+    const twoPass = await scanAndScore({
+      targetDirs,
+      coverage,
+      requireCoverage: true,
+      cwd: tmpDir,
+    });
+    const { crap, miScores } = await scanAndScoreCombined({
+      targetDirs,
+      coverage,
+      requireCoverage: true,
+      cwd: tmpDir,
+    });
+    assert.deepEqual(crap, twoPass);
+    // The combined worker must still emit an MI score per file — the remap
+    // opt-in must not have disturbed the maintainability half.
+    assert.equal(Object.keys(miScores).length, TS_FILE_COUNT);
   });
 });

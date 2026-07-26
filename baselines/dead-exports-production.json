@@ -137,6 +137,10 @@
       "symbol": "resolveDescription"
     },
     {
+      "file": ".agents/scripts/lib/audit-suite/lens-diff-floor.js",
+      "symbol": "DEFAULT_LENS_DIFF_FLOOR"
+    },
+    {
       "file": ".agents/scripts/lib/audit-suite/selector.js",
       "symbol": "GLOBAL_LENS_ALLOWLIST"
     },
@@ -154,11 +158,11 @@
     },
     {
       "file": ".agents/scripts/lib/audit-suite/selector.js",
-      "symbol": "hasPersistenceLayer"
+      "symbol": "_resetWebSurfaceCache"
     },
     {
       "file": ".agents/scripts/lib/audit-suite/selector.js",
-      "symbol": "_resetWebSurfaceCache"
+      "symbol": "hasPersistenceLayer"
     },
     {
       "file": ".agents/scripts/lib/audit-suite/selector.js",
@@ -634,11 +638,11 @@
     },
     {
       "file": ".agents/scripts/lib/cli-usage.js",
-      "symbol": "formatUsage"
+      "symbol": "HELP_FLAGS"
     },
     {
       "file": ".agents/scripts/lib/cli-usage.js",
-      "symbol": "HELP_FLAGS"
+      "symbol": "formatUsage"
     },
     {
       "file": ".agents/scripts/lib/cli-usage.js",
@@ -1035,6 +1039,10 @@
     {
       "file": ".agents/scripts/lib/coverage-utils.js",
       "symbol": "hasCoverageFor"
+    },
+    {
+      "file": ".agents/scripts/lib/crap-engine.js",
+      "symbol": "crapFormula"
     },
     {
       "file": ".agents/scripts/lib/crap-utils.js",
@@ -1538,6 +1546,10 @@
     },
     {
       "file": ".agents/scripts/lib/orchestration/plan-context.js",
+      "symbol": "buildDeliverLightSuggestion"
+    },
+    {
+      "file": ".agents/scripts/lib/orchestration/plan-context.js",
       "symbol": "buildDeliveryShapeSignal"
     },
     {
@@ -1547,10 +1559,6 @@
     {
       "file": ".agents/scripts/lib/orchestration/plan-context.js",
       "symbol": "buildSystemPrompts"
-    },
-    {
-      "file": ".agents/scripts/lib/orchestration/plan-context.js",
-      "symbol": "buildDeliverLightSuggestion"
     },
     {
       "file": ".agents/scripts/lib/orchestration/plan-critic-conditions.js",
@@ -1590,19 +1598,19 @@
     },
     {
       "file": ".agents/scripts/lib/orchestration/plan-persist/story-ops.js",
-      "symbol": "normalizePlanRunId"
-    },
-    {
-      "file": ".agents/scripts/lib/orchestration/plan-persist/story-ops.js",
-      "symbol": "planRunLabel"
-    },
-    {
-      "file": ".agents/scripts/lib/orchestration/plan-persist/story-ops.js",
       "symbol": "foldSpecIntoStoryBody"
     },
     {
       "file": ".agents/scripts/lib/orchestration/plan-persist/story-ops.js",
+      "symbol": "normalizePlanRunId"
+    },
+    {
+      "file": ".agents/scripts/lib/orchestration/plan-persist/story-ops.js",
       "symbol": "normalizeStoryTicket"
+    },
+    {
+      "file": ".agents/scripts/lib/orchestration/plan-persist/story-ops.js",
+      "symbol": "planRunLabel"
     },
     {
       "file": ".agents/scripts/lib/orchestration/plan-persist/story-ops.js",
@@ -1969,6 +1977,10 @@
       "symbol": "resolveOperator"
     },
     {
+      "file": ".agents/scripts/lib/orchestration/spec-budget.js",
+      "symbol": "SPEC_SOFT_WORD_BUDGET"
+    },
+    {
       "file": ".agents/scripts/lib/orchestration/spec-spill.js",
       "symbol": "DEFAULT_SPEC_BODY_TOKEN_BUDGET"
     },
@@ -2067,10 +2079,6 @@
     {
       "file": ".agents/scripts/lib/orchestration/ticket-validator-sizing.js",
       "symbol": "estimateStorySessionMass"
-    },
-    {
-      "file": ".agents/scripts/lib/orchestration/spec-budget.js",
-      "symbol": "SPEC_SOFT_WORD_BUDGET"
     },
     {
       "file": ".agents/scripts/lib/orchestration/ticket-validator.js",
@@ -2599,10 +2607,6 @@
     {
       "file": ".agents/scripts/providers/github/search-budget.js",
       "symbol": "createSearchBudget"
-    },
-    {
-      "file": ".agents/scripts/lib/audit-suite/lens-diff-floor.js",
-      "symbol": "DEFAULT_LENS_DIFF_FLOOR"
     }
   ]
 }

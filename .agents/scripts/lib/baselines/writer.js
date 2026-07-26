@@ -184,6 +184,8 @@ export function write({
     rollup,
     kernelVersion: kernelVersion ?? currentKernelVersion(kind),
     generatedAt,
+    extras:
+      typeof mod.envelopeExtras === 'function' ? mod.envelopeExtras() : null,
   });
   assertEnvelope(envelope);
   return envelope;
@@ -258,10 +260,18 @@ export function writeFile(absPath, envelope, opts = {}) {
   // Canonical key order on the top-level envelope keeps diffs stable
   // across runs and platforms. Per-kind row keys retain their natural
   // declaration order; the row sort is done by `sortRows()`.
+  //
+  // Story #4775: the projection is deliberately explicit, so any per-kind
+  // envelope stamp (`scoringSemantics`) must be carried through by name or it
+  // is silently dropped on the way to disk — the stamp would then be present
+  // in memory, validated, and absent from the file it exists to protect.
   const canonical = {
     $schema: envelope.$schema,
     kernelVersion: envelope.kernelVersion,
     generatedAt: envelope.generatedAt,
+    ...(envelope.scoringSemantics === undefined
+      ? {}
+      : { scoringSemantics: envelope.scoringSemantics }),
     rollup: envelope.rollup,
     rows: envelope.rows,
   };

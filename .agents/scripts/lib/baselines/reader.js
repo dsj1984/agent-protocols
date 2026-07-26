@@ -18,7 +18,8 @@
 //      hand-edited while inside a story worktree — so downstream
 //      consumers see canonical repo-relative paths.
 //   5. Returns the envelope's headline fields plus rows/rollup as a
-//      narrow contract: `{ rollup, rows, kernelVersion, generatedAt }`.
+//      narrow contract: `{ rollup, rows, kernelVersion, generatedAt,
+//      scoringSemantics }`.
 //
 // Reader-only: the writer side lives in a sibling module (Story #1891).
 // No I/O happens here beyond reading the JSON file itself.
@@ -215,6 +216,11 @@ function readAndShape(kind, absolutePath) {
     rows,
     kernelVersion: parsed.kernelVersion,
     generatedAt: parsed.generatedAt,
+    // Story #4775 — carry the per-kind scoring-semantics stamp through the
+    // narrowing. The gate's compat check reads it off the LOADED envelope, so
+    // dropping it here would make every baseline look unstamped and fail the
+    // whole repo closed on a stamp that is actually present on disk.
+    scoringSemantics: parsed.scoringSemantics,
   };
 }
 
@@ -303,6 +309,11 @@ export function loadFile(absolutePath, opts = {}) {
     rows,
     kernelVersion: parsed.kernelVersion,
     generatedAt: parsed.generatedAt,
+    // Story #4775 — carry the per-kind scoring-semantics stamp through the
+    // narrowing. The gate's compat check reads it off the LOADED envelope, so
+    // dropping it here would make every baseline look unstamped and fail the
+    // whole repo closed on a stamp that is actually present on disk.
+    scoringSemantics: parsed.scoringSemantics,
   };
 }
 

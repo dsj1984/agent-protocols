@@ -6,6 +6,10 @@
   "allOf": [{ "$ref": "baseline-envelope.schema.json" }],
   "type": "object",
   "properties": {
+    "scoringSemantics": {
+      "type": "string",
+      "description": "Identifier for the per-method coverage-join semantics that produced these rows (Story #4775). Deliberately NOT constrained to the current value here: an old-semantics baseline must reach the gate's compat axis, which fails it closed with an explicit re-baseline command, rather than being rejected with a raw schema error."
+    },
     "rollup": {
       "type": "object",
       "required": ["*"],

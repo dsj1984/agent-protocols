@@ -13,6 +13,13 @@ export const CRAP_GATE = {
     targetDirs: LIST_OR_EXTENDER_OF_STRINGS,
     newMethodCeiling: { type: 'integer', minimum: 1 },
     requireCoverage: { type: 'boolean' },
+    // Story #4775 — fail-closed floor on the per-method coverage JOIN: the
+    // fraction of methods that must resolve a coverage entry, counted only
+    // over files that HAVE one, before `update-crap-baseline.js` will
+    // persist. A broken join is silent by construction (unresolved methods
+    // are simply absent), so the updater refuses rather than writing a thin
+    // baseline and logging it as success. Default 0.75.
+    minMethodResolutionRate: { type: 'number', minimum: 0, maximum: 1 },
     friction: {
       type: 'object',
       properties: { markerKey: { type: 'string', minLength: 1 } },
