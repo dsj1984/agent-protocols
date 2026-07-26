@@ -168,6 +168,89 @@ describe('reapWorktreePhase — the close-path call shape (Story #4539)', () => 
     });
   });
 
+  it('refuses to delete the tree the running script was loaded from', async () => {
+    // The #4784 failure. `node .agents/scripts/single-story-close.js` invoked
+    // with the shell cwd inside the Story worktree resolves to the
+    // WORKTREE's copy of the script — so the reap deleted the running
+    // program. Node had already loaded the static module graph, so nothing
+    // died at the reap; the run died later, at the first lazy read, in the
+    // terminal-envelope writer. Result: a Story whose PR had merged, whose
+    // label was `agent::done`, and whose post-land tail was green exited
+    // non-zero with no envelope, recoverable only by a second close run from
+    // the main checkout.
+    //
+    // The tree surviving one extra cycle costs nothing — the next boot sweep
+    // takes it. Reaping it costs the run's return contract.
+    await withWorktree(async ({ tmp, wtPath }) => {
+      const messages = [];
+      const git = makeGit({ wtPath });
+      const realArgv1 = process.argv[1];
+      process.argv[1] = path.join(
+        wtPath,
+        '.agents',
+        'scripts',
+        'single-story-close.js',
+      );
+      try {
+        const reaped = await reapWorktreePhase({
+          cwd: tmp,
+          storyId: 4539,
+          worktreePath: wtPath,
+          wtIsolation: {},
+          progress: (_tag, msg) => messages.push(msg),
+          WorktreeManager: class extends WorktreeManager {
+            constructor(args) {
+              super({ ...args, git, platform: 'linux' });
+            }
+          },
+        });
+        assert.equal(reaped, false, 'the reap is refused, not performed');
+        assert.equal(
+          git.calls.some((c) => c.startsWith('worktree remove')),
+          false,
+          'no removal may run against the tree holding the running script',
+        );
+        assert.ok(
+          messages.some((m) => /running-from-target-tree/.test(m)),
+          `the refusal names its reason; got: ${JSON.stringify(messages)}`,
+        );
+        assert.ok(
+          messages.some((m) => /not reaped/.test(m)),
+          'the phase reports the refusal rather than claiming a reap',
+        );
+      } finally {
+        process.argv[1] = realArgv1;
+      }
+    });
+  });
+
+  it('reaps normally when the running script lives outside the tree', async () => {
+    // The guard must be scoped to the actual hazard: a close driven from the
+    // main checkout — the normal case — still reaps.
+    await withWorktree(async ({ tmp, wtPath }) => {
+      const git = makeGit({ wtPath });
+      const realArgv1 = process.argv[1];
+      process.argv[1] = path.join(tmp, 'main-checkout', 'close.js');
+      try {
+        const reaped = await reapWorktreePhase({
+          cwd: tmp,
+          storyId: 4539,
+          worktreePath: wtPath,
+          wtIsolation: {},
+          progress: NOOP_PROGRESS,
+          WorktreeManager: class extends WorktreeManager {
+            constructor(args) {
+              super({ ...args, git, platform: 'linux' });
+            }
+          },
+        });
+        assert.equal(reaped, true);
+      } finally {
+        process.argv[1] = realArgv1;
+      }
+    });
+  });
+
   it('honours reapOnSuccess:false without touching git', async () => {
     await withWorktree(async ({ tmp, wtPath }) => {
       const git = makeGit({ wtPath });

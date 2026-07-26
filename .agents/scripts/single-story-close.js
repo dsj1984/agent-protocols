@@ -90,6 +90,10 @@ import { runAsCli } from './lib/cli-utils.js';
 import { formatCliError } from './lib/error-redactor.js';
 import { Logger } from './lib/Logger.js';
 import { emitTerminalFriction } from './lib/observability/runtime-friction.js';
+import {
+  failedTerminalFor,
+  gatesForFailedPhase,
+} from './lib/orchestration/single-story-close/failed-terminal.js';
 import { enableAutoMergeWith } from './lib/orchestration/single-story-close/phases/auto-merge.js';
 import {
   buildSyncFailureCommentBody,
@@ -102,10 +106,8 @@ import {
 } from './lib/orchestration/single-story-close/phases/code-review.js';
 import { ensurePullRequestWith } from './lib/orchestration/single-story-close/phases/pull-request.js';
 import {
-  buildTerminalEnvelope,
   emitTerminalEnvelope,
   exitCodeForTerminal,
-  NEXT_COMMANDS,
 } from './lib/orchestration/story-deliver-terminal.js';
 
 // Story #2990 moved the `gh`-spawn boundary into the `lib/gh-exec.js`
@@ -118,9 +120,13 @@ export const enableAutoMerge = enableAutoMergeWith;
 
 // Re-export pure helpers verbatim — they don't touch `execFileSync`
 // or any URL-mocked module, so the phase exports work unmodified.
+// `gatesForFailedPhase` now lives beside the envelope it feeds
+// (`single-story-close/failed-terminal.js`); it is re-exported here so the
+// CLI's public surface is unchanged by that move.
 export {
   buildStoryReviewCrossRefBody,
   buildSyncFailureCommentBody,
+  gatesForFailedPhase,
   handleSyncFailure,
   parsePrNumber,
   runStoryScopeReview,
@@ -135,95 +141,6 @@ export async function runSingleStoryClose(opts) {
 }
 
 /**
- * The close pipeline's phase order, as `setPhase` walks it. Only used to
- * decide whether a gate had already run when a later phase died.
- */
-const PHASE_ORDER = Object.freeze([
-  'init',
-  'wrong-tree-guard',
-  'close-validation',
-  'base-sync',
-  'push',
-  'pull-request',
-  'code-review',
-  'auto-merge',
-  'confirm-merge',
-  'post-land',
-  'done',
-]);
-
-/** Each reported gate and the pipeline phase that decides it. */
-const GATE_PHASES = Object.freeze([
-  ['validation', 'close-validation'],
-  ['baseSync', 'base-sync'],
-  ['codeReview', 'code-review'],
-]);
-
-/**
- * Report every gate's outcome for a run that died at `phase`.
- *
- * The schema's contract: "A gate the run skipped … reports `skipped` rather
- * than being omitted, so a missing gate is never mistaken for a passing one."
- * The previous shape named only the gate that died and omitted the rest
- * entirely — exactly the ambiguity the contract forbids.
- *
- * Reconstructed from the phase order, which is sound because the pipeline is
- * strictly sequential: reaching phase N means every gate before it completed.
- * A gate whose phase the run never reached is `skipped`; one the operator
- * turned off via `--skip-validation` / `--skip-sync` is `skipped` too (it did
- * not pass — it never ran).
- *
- * @param {string} phase The phase the run died in.
- * @param {{ skipValidation?: boolean, skipSync?: boolean }} args Parsed CLI args.
- * @returns {Record<string, 'passed'|'failed'|'skipped'>}
- */
-export function gatesForFailedPhase(phase, args = {}) {
-  const skipped = { validation: args.skipValidation, baseSync: args.skipSync };
-  const failedAt = PHASE_ORDER.indexOf(phase);
-  const gates = {};
-  for (const [gate, gatePhase] of GATE_PHASES) {
-    const at = PHASE_ORDER.indexOf(gatePhase);
-    if (gatePhase === phase) gates[gate] = 'failed';
-    else if (failedAt < 0 || at > failedAt) gates[gate] = 'skipped';
-    else gates[gate] = skipped[gate] ? 'skipped' : 'passed';
-  }
-  return gates;
-}
-
-/**
- * Build the `failed` terminal for a phase that crashed.
- *
- * The runner deliberately throws rather than returning a failure (a red gate
- * must not look like a return value), so without this the most common
- * non-happy ending — a failing close-validation gate — would emit **no
- * envelope at all**, exiting 1 with only a stderr line while the workflow
- * docs promise the agent a `failed` envelope naming the phase. Every close
- * invocation emits exactly one envelope; this is the path that keeps that
- * true when a phase dies.
- *
- * `err.closePhase` is tagged by the runner's phase tracker.
- *
- * @param {unknown} err
- * @returns {object|null} A validated envelope, or null when even the story id
- *   is unknown (a usage error — there is nothing to report an envelope about).
- */
-function failedTerminalFor(err) {
-  const phase = err?.closePhase ?? 'init';
-  const args = parseSprintArgs();
-  const storyId = Number(args.storyId);
-  if (!Number.isInteger(storyId) || storyId <= 0) return null;
-  return buildTerminalEnvelope({
-    storyId,
-    status: 'failed',
-    phase,
-    gates: gatesForFailedPhase(phase, args),
-    failure: { reason: String(err?.message ?? err) },
-    nextCommand: NEXT_COMMANDS.recover(storyId),
-    elapsedSeconds: 0,
-  });
-}
-
-/**
  * CLI entry — resolves the process exit code from the terminal envelope's
  * status rather than from a thrown/not-thrown distinction, so `pending`
  * (resumable) is distinguishable from `blocked` (come look) without parsing
@@ -234,7 +151,7 @@ async function main() {
     const outcome = await runSingleStoryClose();
     return exitCodeForTerminal(outcome?.terminal ?? { status: 'failed' });
   } catch (err) {
-    const terminal = failedTerminalFor(err);
+    const terminal = failedTerminalFor(err, parseSprintArgs());
     if (!terminal) throw err;
     // Mirror runAsCli's default error line (which this catch pre-empts) so the
     // human-facing failure text is unchanged, then emit the envelope.

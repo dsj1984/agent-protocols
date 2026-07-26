@@ -15,6 +15,7 @@
 
 import fs from 'node:fs';
 import { rm as fsPromisesRm } from 'node:fs/promises';
+import { fileURLToPath } from 'node:url';
 import { isInsideWorktree, samePath } from '../inspector.js';
 import { sleepSync } from '../node-modules-strategy.js';
 import { checkMergeReachability } from './merge-reachability.js';
@@ -493,20 +494,92 @@ async function deleteBranchAfterReap(ctx, { branch, push }) {
   return { branchDeleted, remoteBranchDeleted };
 }
 
+/**
+ * The on-disk paths of the code currently executing: the entry script and
+ * this module itself.
+ *
+ * @returns {string[]}
+ */
+function runningCodePaths() {
+  const paths = [];
+  const entry = process.argv[1];
+  if (typeof entry === 'string' && entry !== '') paths.push(entry);
+  try {
+    paths.push(fileURLToPath(import.meta.url));
+  } catch {
+    // A non-file module URL cannot be inside a worktree; nothing to add.
+  }
+  return paths;
+}
+
+/**
+ * Return the running-code path that lives inside `wtPath`, or `null`.
+ *
+ * `escapeWorktreeCwd` already handles the *cwd* being inside the doomed
+ * tree; this is the other half — the **code** being inside it. An agent that
+ * invokes `node .agents/scripts/single-story-close.js` with its shell cwd set
+ * to the Story worktree runs the WORKTREE's copy of the script, and reaping
+ * the tree then deletes the running program out from under itself. Node has
+ * already loaded the static module graph, so the process does not die on the
+ * spot — it dies later, at the first lazy read or dynamic `import()`, in
+ * whatever phase happens to need one. That is how a close whose PR merged,
+ * whose Story flipped to `agent::done`, and whose post-land tail was green
+ * still exited non-zero with no terminal envelope.
+ *
+ * Refusing the reap is cheap: the tree survives one extra cycle and the next
+ * boot sweep takes it. Reaping it costs the run's return contract.
+ *
+ * @param {object} ctx
+ * @param {string} wtPath
+ * @returns {string|null}
+ */
+function findRunningCodeInside(ctx, wtPath) {
+  return (
+    runningCodePaths().find((p) => isInsideWorktree(p, wtPath, ctx.platform)) ??
+    null
+  );
+}
+
+/**
+ * The refusals that disqualify a tree before any git work happens, in the
+ * order they are checked. Returns the refusal envelope, or `null` when the
+ * tree is eligible for the safety checks that follow.
+ *
+ * @param {object} ctx
+ * @param {object} opts
+ * @param {string} wtPath
+ * @returns {object|null}
+ */
+function firstReapRefusal(ctx, opts, wtPath) {
+  const known = opts.worktrees
+    ? opts.worktrees.some((r) => samePath(r.path, wtPath, ctx.platform))
+    : findByPath(ctx, wtPath) !== null;
+  if (!known) return { removed: false, reason: 'not-a-worktree', path: wtPath };
+
+  const selfPath = findRunningCodeInside(ctx, wtPath);
+  if (!selfPath) return null;
+  ctx.logger.warn(
+    `reap-skipped reason=running-from-target-tree path=${wtPath} selfPath=${selfPath} — ` +
+      `the running process was loaded from this worktree; removing it would break every ` +
+      `later lazy read and dynamic import in this run. Left for the next sweep. ` +
+      `Invoke the script by its MAIN-checkout path to reap in-run.`,
+  );
+  return {
+    removed: false,
+    reason: 'running-from-target-tree',
+    path: wtPath,
+    selfPath,
+  };
+}
+
 function checkReapPreconditions(ctx, _storyId, opts, wtPath) {
   if (opts.force) {
     throw new Error(
       'WorktreeManager.reap: --force is not permitted by the framework',
     );
   }
-  const known = opts.worktrees
-    ? opts.worktrees.some((r) => samePath(r.path, wtPath, ctx.platform))
-    : findByPath(ctx, wtPath) !== null;
-  if (!known)
-    return {
-      ok: false,
-      result: { removed: false, reason: 'not-a-worktree', path: wtPath },
-    };
+  const refusal = firstReapRefusal(ctx, opts, wtPath);
+  if (refusal) return { ok: false, result: refusal };
   // Story #4539 removed an `epic-branch-required` gate here: a
   // `story-<id>` worktree used to be unreapable unless the caller supplied
   // an Epic integration branch. v2 has no Epic branch, and the only v2
