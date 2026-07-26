@@ -1,7 +1,7 @@
 {
   "$schema": ".agents/schemas/baselines/maintainability.schema.json",
   "kernelVersion": "0.1.0",
-  "generatedAt": "2026-07-26T02:47:20.953Z",
+  "generatedAt": "2026-07-26T21:08:58.213Z",
   "rollup": {
     "*": {
       "min": 74.146,
@@ -32,7 +32,7 @@
     },
     {
       "path": ".agents/scripts/boot-sweep.js",
-      "mi": 88.822
+      "mi": 90.516
     },
     {
       "path": ".agents/scripts/bootstrap.js",
@@ -920,7 +920,7 @@
     },
     {
       "path": ".agents/scripts/lib/observability/terse-result.js",
-      "mi": 102.093
+      "mi": 102.61
     },
     {
       "path": ".agents/scripts/lib/observability/tool-trace-hook.js",
@@ -1176,7 +1176,7 @@
     },
     {
       "path": ".agents/scripts/lib/orchestration/plan-persist/run-plan-persist.js",
-      "mi": 87.717
+      "mi": 90.533
     },
     {
       "path": ".agents/scripts/lib/orchestration/plan-persist/story-ops.js",
@@ -1308,7 +1308,7 @@
     },
     {
       "path": ".agents/scripts/lib/orchestration/single-story-close/phases/close-validation.js",
-      "mi": 81.997
+      "mi": 80.891
     },
     {
       "path": ".agents/scripts/lib/orchestration/single-story-close/phases/code-review.js",

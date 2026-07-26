@@ -31,6 +31,7 @@
 import path from 'node:path';
 import { parseArgs } from 'node:util';
 import { runAsCli } from './lib/cli-utils.js';
+import { resolveConfig } from './lib/config-resolver.js';
 import { syncBranchFromBase } from './lib/git/sync-from-base.js';
 import { gitSpawn, gitSync } from './lib/git-utils.js';
 import { Logger } from './lib/Logger.js';
@@ -95,11 +96,15 @@ export async function runSyncBranchFromBase(opts = {}) {
   });
 
   // Story #4685 — full detail to a temp log; emit a single summary line.
+  // Story #4794 — resolve the config so the log honours `project.paths.tempRoot`
+  // instead of the hardcoded `<cwd>/temp` this used to join. `resolveConfig`
+  // degrades to the framework defaults when no `.agentrc.json` is present, so
+  // a zero-config invocation needs no guard here.
   emitTerseResult({
     label: 'SYNC RESULT',
     result,
     scope: branch,
-    logDir: path.join(cwd, 'temp', 'orchestration'),
+    config: resolveConfig({ cwd }),
     summary: { branch, base, synced: result.synced, kind: result.kind },
   });
 

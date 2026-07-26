@@ -59,6 +59,7 @@
 import nodeFs from 'node:fs';
 import path from 'node:path';
 
+import { orchestrationLogDir } from '../../config/temp-paths.js';
 import { Logger, resolveLevel } from '../../Logger.js';
 
 /**
@@ -210,26 +211,29 @@ function createArtifactWriter(fs, logPath, handle) {
  *
  * @param {{
  *   storyId: number|null,
- *   cwd?: string,
  *   logDir?: string,
  *   fs?: typeof nodeFs,
  *   logger?: { info: (m: string) => void },
  *   level?: string,
- * }} [args] `logDir` defaults to `<cwd>/temp/orchestration`; `level` defaults
- *   to the live Logger level so `AGENT_LOG_LEVEL=verbose` restores streaming.
+ *   config?: object,
+ * }} [args] `logDir` defaults to the configured `<tempRoot>/orchestration`
+ *   (Story #4794 — was a hardcoded `<cwd>/temp/orchestration`, which ignored
+ *   `project.paths.tempRoot` and hid the artifact from the retention purge);
+ *   `level` defaults to the live Logger level so `AGENT_LOG_LEVEL=verbose`
+ *   restores streaming.
  * @returns {GateLogSink}
  */
 export function createGateLogSink({
   storyId = null,
-  cwd = process.cwd(),
   logDir,
   fs = nodeFs,
   logger = Logger,
   level,
+  config,
 } = {}) {
   const emit = (line) => logger.info?.(line);
   const verbose = (level ?? resolveLevel()) === 'verbose';
-  const dir = logDir ?? path.join(cwd, 'temp', 'orchestration');
+  const dir = logDir ?? orchestrationLogDir(config);
 
   let writer = null;
   let logPath = null;

@@ -208,7 +208,13 @@ describe('runCloseValidationPhase — bounded gate output (Story #4736)', () => 
       const args = {
         cwd: tmpDir,
         worktreePath: null,
-        config: {},
+        // Story #4794 — an absolute, non-default tempRoot. The gate sink used
+        // to join a hardcoded `temp` onto `cwd`; it now resolves the configured
+        // root, so pinning a relocated one here proves the artifact follows the
+        // config rather than the working directory.
+        config: {
+          project: { paths: { tempRoot: path.join(tmpDir, 'relocated-temp') } },
+        },
         baseBranch: 'main',
         storyBranch: 'story-4736',
         storyId: 4736,
@@ -256,7 +262,7 @@ describe('runCloseValidationPhase — bounded gate output (Story #4736)', () => 
 
     const artifact = path.join(
       tmpDir,
-      'temp',
+      'relocated-temp',
       'orchestration',
       'close-gates-4736.log',
     );

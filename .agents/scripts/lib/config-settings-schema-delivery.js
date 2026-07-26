@@ -352,12 +352,81 @@ const AUDIT_TO_STORIES_SCHEMA = {
   additionalProperties: false,
 };
 
+/**
+ * `delivery.tempRetention` — auto-purge of spent temp artifacts (Story #4794).
+ *
+ * `enabled` defaults to `true`: reclaiming a landed Story's gate transcripts
+ * and evidence is the behaviour, and the knob exists to turn it off. `classes`
+ * lets an operator keep one family while purging the rest; `staleDays` is the
+ * age floor for the families no Story id can be recovered from (audit reports,
+ * abandoned `plan-<slug>/` dirs).
+ */
+const TEMP_RETENTION_SCHEMA = {
+  type: 'object',
+  description:
+    'Story #4794. Auto-purge of spent temp artifacts once their Story lands. ' +
+    'Classification is an allowlist: only the declared classes below are ever ' +
+    'deleted, so operator scratch files under tempRoot are reported with their ' +
+    'size and left alone. signals.ndjson is never purged by any path.',
+  properties: {
+    enabled: {
+      type: 'boolean',
+      description:
+        "Master switch. Default true — reclaiming a landed Story's gate " +
+        'transcripts and validation evidence is the behaviour, and this knob ' +
+        'turns it off. When false every purge path is a reported no-op.',
+    },
+    staleDays: {
+      type: 'integer',
+      minimum: 1,
+      description:
+        'Age floor (days, default 7) for the families no Story id can be ' +
+        'recovered from — roster-level audit reports and abandoned ' +
+        'plan-<slug>/ dirs. Story-keyed artifacts do not wait for it: they are ' +
+        'purged as soon as their merge is confirmed.',
+    },
+    classes: {
+      type: 'object',
+      description:
+        'Per-class opt-out. Each defaults to true; set one false to keep that ' +
+        'family while the rest are purged.',
+      properties: {
+        orchestrationLogs: {
+          type: 'boolean',
+          description:
+            '<tempRoot>/orchestration/*.log — close gate transcripts and ' +
+            'terse-result detail dumps.',
+        },
+        validationEvidence: {
+          type: 'boolean',
+          description:
+            'Per-Story validation-evidence.json, lifecycle.ndjson, and ' +
+            'manifest.md under the standalone and per-run story trees.',
+        },
+        auditResults: {
+          type: 'boolean',
+          description: '<tempRoot>/audits/ — audit lens reports.',
+        },
+        planDirs: {
+          type: 'boolean',
+          description:
+            '<tempRoot>/plan-<slug>/ — abandoned plan authoring dirs. ' +
+            'Age-floored only; the current run is always excluded.',
+        },
+      },
+      additionalProperties: false,
+    },
+  },
+  additionalProperties: false,
+};
+
 export const DELIVERY_SCHEMA = {
   type: 'object',
   properties: {
     execution: EXECUTION_SCHEMA,
     lease: LEASE_SCHEMA,
     docsFreshness: DOCS_FRESHNESS_SCHEMA,
+    tempRetention: TEMP_RETENTION_SCHEMA,
     deliverRunner: DELIVER_RUNNER_SCHEMA,
     worktreeIsolation: WORKTREE_ISOLATION_SCHEMA,
     signals: SIGNALS_SCHEMA,

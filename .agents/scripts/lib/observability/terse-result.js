@@ -1,6 +1,7 @@
 import nodeFs from 'node:fs';
 import path from 'node:path';
 
+import { orchestrationLogDir } from '../config/temp-paths.js';
 import { Logger } from '../Logger.js';
 
 /**
@@ -69,8 +70,10 @@ function detailBlock(label, result) {
  *   on; serialized compactly onto the single summary line.
  * @param {string|number} [args.scope] Disambiguating suffix for the log name
  *   (typically the Story id) so concurrent deliveries don't clobber one file.
- * @param {string} [args.logDir] Directory for the detail log. Defaults to
- *   `<cwd>/temp/orchestration`.
+ * @param {string} [args.logDir] Directory for the detail log. Defaults to the
+ *   configured `<tempRoot>/orchestration` (Story #4794 — was a hardcoded
+ *   `<cwd>/temp/orchestration`, which ignored `project.paths.tempRoot`).
+ * @param {object} [args.config] Resolved config bag, for the default `logDir`.
  * @param {typeof nodeFs} [args.fs] Filesystem seam (tests).
  * @param {{ info: (m: string) => void }} [args.log] Logger seam (tests).
  * @param {NodeJS.ProcessEnv} [args.env] Environment seam (tests).
@@ -82,6 +85,7 @@ export function emitTerseResult({
   summary = {},
   scope,
   logDir,
+  config,
   fs = nodeFs,
   log = Logger,
   env = process.env,
@@ -94,7 +98,7 @@ export function emitTerseResult({
     return { logPath: null, inline: true };
   }
 
-  const dir = logDir ?? path.join(process.cwd(), 'temp', 'orchestration');
+  const dir = logDir ?? orchestrationLogDir(config);
   const name = `${slugify(label)}${scope ? `-${scope}` : ''}.log`;
 
   try {
