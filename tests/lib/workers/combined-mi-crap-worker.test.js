@@ -21,6 +21,13 @@ const okItem = {
   coverageEntry: STUB_ENTRY,
 };
 
+// One resolved method and two the coverage join could not resolve.
+const UNRESOLVED_ROWS = [
+  { method: 'a', startLine: 5, cyclomatic: 2, coverage: 1, crap: 2 },
+  { method: 'b', startLine: 9, cyclomatic: 1, coverage: null, crap: null },
+  { method: 'c', startLine: 12, cyclomatic: 3, coverage: 0.8, crap: null },
+];
+
 function stubDeps({
   readFile = () => 'export const x = 1;',
   transpile = (_abs, src) => src,
@@ -157,20 +164,43 @@ describe('handleCombinedMiCrapWorkerMessage — success rows', () => {
     assert.equal(out.message.result.skippedMethodsNoCoverage, 0);
   });
 
-  it('skips methods with null crap or null coverage and counts them', () => {
-    const rawRows = [
-      { method: 'a', startLine: 5, cyclomatic: 2, coverage: 1, crap: 2 },
-      { method: 'b', startLine: 9, cyclomatic: 1, coverage: null, crap: null },
-      { method: 'c', startLine: 12, cyclomatic: 3, coverage: 0.8, crap: null },
-    ];
+  it('skips methods with null crap or null coverage under requireCoverage', () => {
     const out = handleCombinedMiCrapWorkerMessage(
-      { item: okItem },
+      { item: { ...okItem, requireCoverage: true } },
       stubDeps({
-        analyze: () => ({ miScore: 50, crapRows: rawRows, parseError: false }),
+        analyze: () => ({
+          miScore: 50,
+          crapRows: UNRESOLVED_ROWS,
+          parseError: false,
+        }),
       }),
     );
     assert.equal(out.message.result.crapRows.length, 1);
     assert.equal(out.message.result.skippedMethodsNoCoverage, 2);
     assert.equal(out.message.result.miScore, 50);
+    assert.equal(out.message.result.resolvedMethods, 1);
+    assert.equal(out.message.result.totalMethods, 3);
+  });
+
+  it('scores unresolved methods at 0% when requireCoverage is false', () => {
+    // Story #4775 (AC-5) — same policy as the CRAP-only worker; the combined
+    // path must not diverge, which is what the parity suite pins.
+    const out = handleCombinedMiCrapWorkerMessage(
+      { item: { ...okItem, requireCoverage: false } },
+      stubDeps({
+        analyze: () => ({
+          miScore: 50,
+          crapRows: UNRESOLVED_ROWS,
+          parseError: false,
+        }),
+      }),
+    );
+    assert.equal(out.message.result.crapRows.length, 3);
+    assert.equal(out.message.result.skippedMethodsNoCoverage, 0);
+    const b = out.message.result.crapRows.find((r) => r.method === 'b');
+    assert.equal(b.coverage, 0);
+    assert.equal(b.crap, b.cyclomatic ** 2 + b.cyclomatic);
+    assert.equal(out.message.result.resolvedMethods, 1);
+    assert.equal(out.message.result.totalMethods, 3);
   });
 });

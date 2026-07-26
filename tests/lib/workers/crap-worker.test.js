@@ -13,6 +13,14 @@ const okItem = {
   coverageEntry: STUB_ENTRY,
 };
 
+// One resolved method and two the coverage join could not resolve — `b` has
+// no coverage at all, `c` resolved a ratio but no crap (a malformed row).
+const UNRESOLVED_METHODS = [
+  { method: 'a', startLine: 5, cyclomatic: 2, coverage: 1, crap: 2 },
+  { method: 'b', startLine: 9, cyclomatic: 1, coverage: null, crap: null },
+  { method: 'c', startLine: 12, cyclomatic: 3, coverage: 0.8, crap: null },
+];
+
 function stubDeps({
   readFile = () => 'export const x = 1;',
   transpile = (_abs, src) => src,
@@ -155,18 +163,35 @@ describe('handleCrapWorkerMessage — success rows', () => {
     assert.equal(out.message.result.skippedMethodsNoCoverage, 0);
   });
 
-  it('skips methods with null crap or null coverage and counts them', () => {
-    const methods = [
-      { method: 'a', startLine: 5, cyclomatic: 2, coverage: 1, crap: 2 },
-      { method: 'b', startLine: 9, cyclomatic: 1, coverage: null, crap: null },
-      { method: 'c', startLine: 12, cyclomatic: 3, coverage: 0.8, crap: null },
-    ];
+  it('skips methods with null crap or null coverage under requireCoverage', () => {
     const out = handleCrapWorkerMessage(
-      { item: okItem },
+      { item: { ...okItem, requireCoverage: true } },
       null,
-      stubDeps({ calculateCrap: () => methods }),
+      stubDeps({ calculateCrap: () => UNRESOLVED_METHODS }),
     );
     assert.equal(out.message.result.rows.length, 1);
     assert.equal(out.message.result.skippedMethodsNoCoverage, 2);
+    assert.equal(out.message.result.resolvedMethods, 1);
+    assert.equal(out.message.result.totalMethods, 3);
+  });
+
+  it('scores unresolved methods at 0% when requireCoverage is false', () => {
+    // Story #4775 (AC-5): the flag means "score it anyway". Dropping the
+    // method individually made it a no-op for baseline population.
+    const out = handleCrapWorkerMessage(
+      { item: { ...okItem, requireCoverage: false } },
+      null,
+      stubDeps({ calculateCrap: () => UNRESOLVED_METHODS }),
+    );
+    assert.equal(out.message.result.rows.length, 3);
+    assert.equal(out.message.result.skippedMethodsNoCoverage, 0);
+    for (const name of ['b', 'c']) {
+      const row = out.message.result.rows.find((r) => r.method === name);
+      assert.equal(row.coverage, 0);
+      assert.equal(row.crap, row.cyclomatic ** 2 + row.cyclomatic);
+    }
+    // The telemetry still reports the JOIN, not the fill.
+    assert.equal(out.message.result.resolvedMethods, 1);
+    assert.equal(out.message.result.totalMethods, 3);
   });
 });
