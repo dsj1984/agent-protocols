@@ -1,22 +1,222 @@
 # Architecture Decision Records (ADR)
 
-> **Rebrand ADR cluster.** The post-Epic-A/C/D/G/F reality is fixed by
-> four load-bearing ADRs that subsequent decisions cite:
->
-> - [`20260512-coupling-stance`](#adr-20260512-coupling-stance-two-surface-coupling-stance) — Claude Code-first, runtime-pluggable dispatcher (Epic G).
-> - [`20260512-destructive-replan-retired`](#adr-20260512-destructive-replan-retired-epic-1182--retire-delete-epicjs-re-plan--edit-spec--reconcile) — declarative `epic.yaml` + reconciler (Epic D).
-> - [`20260512-loop-adoption`](#adr-20260512-loop-adoption-adopt-built-in-loop-no-homegrown-surface-to-reconcile) — adopt built-in `/loop`; no homegrown surface to reconcile (Epic G).
-> - The absolute quality floors and floor-vs-ratchet policy live in
->   [`quality-gates.md`](../.agents/docs/quality-gates.md) (Epic F Story #1602) — they
->   are tooling commitments rather than architectural ADRs.
->
-> Older ADRs remain authoritative on the architectural question they
-> answered at the time; cross-cuts that the Mandrel rebrand supersedes
-> are flagged in the entries themselves.
+## How to read this log
+
+**ADRs are superseded in place, never archived or deleted.** An entry whose
+decided surface no longer exists keeps its number and its date, and gains a
+`Superseded by <ref>` or `Reverted (<date>)` status plus a one-line outcome; its
+body is collapsed and the full original text stays recoverable at the release
+tag named in the entry. Only the accreted history of *living* docs is relocated
+under `docs/archive/` — see the Pruning & Archiving section of
+[`documentation-and-adrs`](../.agents/skills/core/documentation-and-adrs/reference.md).
+
+Every entry that is still **Accepted** carries a `**Surface:**` line naming the
+one primary path the decision governs. That line is the machine-checkable
+contract behind this log: a decision cannot claim to be in force while the file
+it decided is absent from the tree (`tests/docs/decisions-and-archive-contract.test.js`).
+
+**Identifiers are unique and stable.** An entry is cited by its `<date>-<ticket>`
+identifier, and the same contract test rejects a collision. Story #4786 resolved
+seven: the freshness-gate entry moved from `20260507-1114a` to `-1114b`, and the
+six date-only `ADR-20260421` / `ADR-20260422` entries gained their Epic suffix
+(`-321a/b`, `-380a/b`, `-413a/b`). Renumber, never reuse.
+
+Backticked paths **inside an entry's body are not maintained**. An ADR records
+what was true when it was written, so roughly 60% of them point at files later
+renamed or removed — that is the record working as intended, not rot. Trust the
+`**Surface:**` line and the status; treat body paths as historical citations.
+
+Four load-bearing entries are cited by most of the others:
+[`20260726-v2-story-collapse`](#adr-20260726-v2-story-collapse-story-only-ticket-model-one-plan-one-deliver-one-engine)
+(the current ticket and delivery model),
+[`20260512-coupling-stance`](#adr-20260512-coupling-stance-two-surface-coupling-stance)
+(Claude Code-first, runtime-pluggable),
+[`20260512-loop-adoption`](#adr-20260512-loop-adoption-adopt-built-in-loop-no-homegrown-surface-to-reconcile)
+(no homegrown loop runner), and
+[`20260624-loop-units-division-of-labor`](#adr-20260624-loop-units-division-of-labor-mandrel-owns-content--oracle--contract-the-host-owns-cadence--iteration)
+(mandrel owns content, the host owns cadence). The absolute quality floors and
+the floor-vs-ratchet policy are tooling commitments rather than ADRs and live in
+[`quality-gates.md`](../.agents/docs/quality-gates.md).
+
+## Index
+
+<!-- ADR-INDEX:START -->
+
+**In force (34).** Each governs the surface named beside it.
+
+| Decision | Governs | Surface |
+| --- | --- | --- |
+| [`20260726-v2-story-collapse`](#adr-20260726-v2-story-collapse-story-only-ticket-model-one-plan-one-deliver-one-engine) | Story-only ticket model; one /plan, one /deliver, one engine | `.agents/workflows/deliver.md` |
+| [`20260624-loop-units-division-of-labor`](#adr-20260624-loop-units-division-of-labor-mandrel-owns-content--oracle--contract-the-host-owns-cadence--iteration) | mandrel owns content + oracle + contract; the host owns cadence +… | `.agents/scripts/sync-claude-commands.js` |
+| [`20260610-lifecycle-bus-retained`](#adr-20260610-lifecycle-bus-retained-keep-the-lifecycle-bus-collapse-by-deletion-is-already-done) | Keep the lifecycle bus; collapse-by-deletion is already done | `.agents/scripts/lib/orchestration/lifecycle/bus.js` |
+| [`20260610-planning-determinism-dispositions`](#adr-20260610-planning-determinism-dispositions-per-layer-dispositions-for-the-deterministic-planning-proxies) | Per-layer dispositions for the deterministic planning proxies | `.agents/scripts/lib/orchestration/ticket-validator.js` |
+| [`Overturn`](#overturn-drain-pending-cleanup-demoted-to-a-helper) | `drain-pending-cleanup` demoted to a helper | `.agents/scripts/drain-pending-cleanup.js` |
+| [`20260604-flat-command-projection-revert`](#adr-20260604-flat-command-projection-revert-revert-the-plugin-cutover--project-workflows-as-flat-name-commands) | Revert the plugin cutover — project workflows as flat `/<name>` c… | `.agents/scripts/sync-claude-commands.js` |
+| [`20260519-adapter-layer-removed`](#adr-20260519-adapter-layer-removed-delete-the-iexecutionadapter-abstraction) | Delete the `IExecutionAdapter` abstraction | `.agents/scripts/providers/github.js` |
+| [`20260514-drop-churn-idle`](#adr-20260514-drop-churn-idle-drop-churn--idle-from-active-perf-signal-taxonomy) | Drop `churn` + `idle` from active perf-signal taxonomy | `.agents/schemas/agentrc.schema.json` |
+| [`20260512-coupling-stance`](#adr-20260512-coupling-stance-two-surface-coupling-stance) | Two-surface coupling stance | `.agents/scripts/providers/github.js` |
+| [`20260507-1072a`](#adr-20260507-1072a-bounded-fanout-tightened-module-boundaries-dead-module-sweep) | Bounded fanout, tightened module boundaries, dead-module sweep | `.agents/scripts/lib/branch-name-guard.js` |
+| [`20260507-1030a`](#adr-20260507-1030a-performance-signal-telemetry--events-local-summaries-on-tickets) | Performance-signal telemetry — events local, summaries on tickets | `.agents/scripts/diagnose-friction.js` |
+| [`20260505-990a`](#adr-20260505-990a-audit-remediation--agents-framework-hardening--concept-removal) | Audit remediation — `.agents` framework hardening + concept removal | `.agents/schemas/audit-rules.json` |
+| [`20260426-829a`](#adr-20260426-829a-strip-then-analyze-for-typescript-scoring-keep-typhonjs-escomplex) | Strip-then-analyze for TypeScript scoring; keep typhonjs-escomplex | `.agents/scripts/lib/transpile.js` |
+| [`20260425-773a`](#adr-20260425-773a-crap-gate-becomes-hard-enforcing) | CRAP gate becomes hard-enforcing | `baselines/crap.json` |
+| [`20260425-773b`](#adr-20260425-773b-decompose-two-further-large-modules-behind-byte-identical-facades) | Decompose two further large modules behind byte-identical facades | `.agents/scripts/lib/worktree/lifecycle-manager.js` |
+| [`20260425-730a`](#adr-20260425-730a-consolidate-agentsettings-into-a-grouped-schema-validated-contract) | Consolidate `agentSettings` into a grouped, schema-validated cont… | `.agents/scripts/lib/config-settings-schema.js` |
+| [`20260424-702a`](#adr-20260424-702a-retire-mandrel-mcp) | Retire mandrel MCP | `.agents/scripts/post-structured-comment.js` |
+| [`20260424-668a`](#adr-20260424-668a-resolve-worktreeisolationenabled-from-environment-not-config) | Resolve `worktreeIsolation.enabled` from environment, not config | `.agents/scripts/lib/config/runtime.js` |
+| [`004`](#adr-004-gherkin-standards-as-sole-ssot-for-bdd-tags--forbidden-patterns) | Gherkin Standards as Sole SSOT for BDD Tags & Forbidden Patterns | `.agents/rules/gherkin-standards.md` |
+| [`ADR: Decompose oversized orchestration modules via facade pattern`](#adr-decompose-oversized-orchestration-modules-via-facade-pattern) | Decompose oversized orchestration modules via facade pattern | `.agents/scripts/lib/worktree-manager.js` |
+| [`20260421-321b`](#adr-20260421-321b-retire-riskhigh-runtime-gating) | Retire `risk::high` runtime gating | `.agents/instructions.md` |
+| [`20260422-380a`](#adr-20260422-380a-two-stage-windows-worktree-reap-fsrm-retry--deferred-sweep) | Two-stage Windows worktree reap (fs.rm retry + deferred sweep) | `.agents/scripts/lib/worktree/lifecycle-manager.js` |
+| [`20260422-441a`](#adr-20260422-441a-force-reap-worktrees-whose-story-branch-is-already-merged) | Force-reap worktrees whose Story branch is already merged | `.agents/scripts/boot-sweep.js` |
+| [`20260423-511b`](#adr-20260423-511b-transitionticketstatefromstate-lookup-keeps-its-swallow-now-with-a-debug-log) | `transitionTicketState.fromState` lookup keeps its swallow, now w… | `.agents/scripts/providers/github/tickets.js` |
+| [`20260424-596a`](#adr-20260424-596a-crap-as-a-sibling-gate-not-a-replacement-for-mi) | CRAP as a sibling gate, not a replacement for MI | `baselines/maintainability.json` |
+| [`20260424-596c`](#adr-20260424-596c-kernel-version-stamp-on-the-crap-baseline) | Kernel-version stamp on the CRAP baseline | `baselines/crap.json` |
+| [`20260424-638a`](#adr-20260424-638a-story-566-reap-recovery-is-a-self-inflicted-dirty-tree-bug) | `story-566` reap recovery is a self-inflicted dirty-tree bug | `.agents/scripts/lib/worktree/bootstrapper.js` |
+| [`20260426-817a`](#adr-20260426-817a-validation-evidence-is-keyed-by-commit-sha-not-by-build-id) | Validation evidence is keyed by commit SHA, not by build ID | `.agents/scripts/evidence-gate.js` |
+| [`20260426-817c`](#adr-20260426-817c-soft-failing-gates-surface-degraded-state-explicitly-not-silently) | Soft-failing gates surface degraded state explicitly, not silently | `.agents/scripts/lint-baseline.js` |
+| [`20260426-817d`](#adr-20260426-817d-cli-entrypoints-carry-nodecoverage-ignore-file-their-main-is-exercised-via-integration-tests-not-unit-line-coverage) | CLI entrypoints carry `node:coverage ignore file`; their `main()`… | `.agents/scripts/notify.js` |
+| [`20260502-960a`](#adr-20260502-960a-production-code-is-not-shaped-by-test-internals--tests-import-helpers-directly-with-an-explicit-ctx-bag) | Production code is not shaped by test internals — tests import he… | `.agents/scripts/lib/worktree/bootstrapper.js` |
+| [`20260507-1114b`](#adr-20260507-1114b-freshness-gate-on-decompose--fail-fast-on-stale-path-references) | Freshness gate on decompose — fail fast on stale path references | `.agents/scripts/lib/orchestration/ticket-validator.js` |
+| [`20260512-loop-adoption`](#adr-20260512-loop-adoption-adopt-built-in-loop-no-homegrown-surface-to-reconcile) | Adopt built-in `/loop`; no homegrown surface to reconcile | `.agents/scripts/lib/util/poll-loop.js` |
+| [`20260513-command-naming-discipline`](#adr-20260513-command-naming-discipline-domain-vocabulary-command-names-single-mandrel-prefixed-discoverability-entry) | Domain-vocabulary command names; single Mandrel-prefixed discover… | `.agents/scripts/sync-claude-commands.js` |
+
+**Closed (21).** Body collapsed to a one-line outcome; full text
+at the release tag named in the entry.
+
+| Decision | Recorded | Status |
+| --- | --- | --- |
+| [`20260611-two-tier-hierarchy`](#adr-20260611-two-tier-hierarchy-remove-the-feature-tier-epic--story-superseded) | Remove the Feature tier (Epic → Story) (superseded) | Superseded |
+| [`20260603-plugin-namespace-cutover`](#adr-20260603-plugin-namespace-cutover-project-workflows-as-a-claude-code-plugin-mandrelname-superseded) | Project workflows as a Claude Code plugin (`/mandrel:<name>`) (su… | Superseded |
+| [`20260527-three-tier-hierarchy`](#adr-20260527-three-tier-hierarchy-collapse-the-task-level-epic--feature--story-superseded) | Collapse the Task level (Epic → Feature → Story) (superseded) | Superseded |
+| [`20260512-destructive-replan-retired`](#adr-20260512-destructive-replan-retired-epic-1182--retire-delete-epicjs-re-plan--edit-spec--reconcile-superseded) | Epic #1182 — retire `delete-epic.js`; re-plan = edit-spec + recon… | Superseded |
+| [`20260510-sdl-collapse`](#adr-20260510-sdl-collapse-5400--collapse-to-epic-plan--epic-deliver-fold-retro-into-deliver-tail-superseded) | 5.40.0 — collapse to `/epic-plan` + `/epic-deliver`, fold retro i… | Superseded |
+| [`20260508-flatten`](#adr-20260508-flatten-retire-wave-execute-epic-execute-owns-the-wave-loop-directly-superseded) | Retire `/wave-execute`; `/epic-execute` owns the wave loop direct… | Superseded |
+| [`20260507-1114a`](#adr-20260507-1114a-wave-runner-is-a-custom-sub-agent-type-not-general-purpose-superseded) | Wave-runner is a custom sub-agent type, not `general-purpose` (su… | Superseded |
+| [`20260501-900a`](#adr-20260501-900a-epic-centric-workflow-rework--four-skill-split-single-session-fan-out-retire-github-triggers-superseded) | Epic-centric workflow rework — four-skill split, single-session f… | Superseded |
+| [`20260427-868a`](#adr-20260427-868a-open-root-dispatch-manifest-schema-ajv-fixture-drift-test-as-enforcement-boundary-superseded) | Open-root dispatch-manifest schema; AJV fixture drift test as enf… | Superseded |
+| [`20260421-321a`](#adr-20260421-321a-epic-level-remote-orchestration-via-github-label-trigger-superseded) | Epic-level remote orchestration via GitHub label trigger (superse… | Superseded |
+| [`20260422-380b`](#adr-20260422-380b-sprint-retro-routes-through-providerpostcomment-not-notifyjs-superseded) | `/sprint-retro` routes through provider.postComment, not notify.j… | Superseded |
+| [`20260422-413a`](#adr-20260422-413a-pre-wave-spawn-smoke-test--post-wave-commit-assertion-superseded) | Pre-wave spawn smoke-test + post-wave commit assertion (superseded) | Superseded |
+| [`20260422-413b`](#adr-20260422-413b-sprint-story-close-recovery-via-explicit---resume----restart-superseded) | `sprint-story-close` recovery via explicit --resume / --restart (… | Superseded |
+| [`20260422-441b`](#adr-20260422-441b-canonical-structured-comment-writer-is-the-mcp-tool-superseded) | Canonical structured-comment writer is the MCP tool (superseded) | Superseded |
+| [`20260423`](#adr-20260423-trust-the-ticket-not-the-pipe--idle-timeout-ground-truth-superseded) | Trust the ticket, not the pipe — idle-timeout ground truth (super… | Superseded |
+| [`20260423-511a`](#adr-20260423-511a-features-remain-in-the-cascade-epics-and-planning-do-not-superseded) | Features remain in the cascade; Epics and Planning do not (supers… | Superseded |
+| [`20260423-511c`](#adr-20260423-511c-dispatch-manifest-writes-are-atomic-tmp--rename-superseded) | Dispatch-manifest writes are atomic (tmp + rename) (superseded) | Superseded |
+| [`20260424-553a`](#adr-20260424-553a-bounded-concurrency--ttl-cache-for-epic-runner-fanout-superseded) | Bounded-concurrency + TTL cache for epic-runner fanout (superseded) | Superseded |
+| [`20260424-553b`](#adr-20260424-553b-per-phase-timing-as-a-first-class-epic-runner-surface-superseded) | Per-phase timing as a first-class epic-runner surface (superseded) | Superseded |
+| [`20260424-596b`](#adr-20260424-596b-base-branch-enforced-anti-gaming-guardrail-reverted) | Base-branch-enforced anti-gaming guardrail (reverted) | Reverted |
+| [`20260426-817b`](#adr-20260426-817b-sprint-story-close-is-the-canonical-local-story-validation-gate-superseded) | `sprint-story-close` is the canonical local Story validation gate… | Superseded |
+
+**Not ADR entries (1).**
+
+- [Earlier ADRs (001 / 002 / 003)](#earlier-adrs-001--002--003)
+
+<!-- ADR-INDEX:END -->
+
+## ADR 20260726-v2-story-collapse: Story-only ticket model; one /plan, one /deliver, one engine
+
+**Status:** Accepted
+**Date:** 2026-07-26
+**Surface:** `.agents/workflows/deliver.md`
+**Released:** `mandrel-v2.0.0` (2026-07-15) and the v2.x line since
+**Supersedes:**
+[`20260611-two-tier-hierarchy`](#adr-20260611-two-tier-hierarchy-remove-the-feature-tier-epic--story-superseded),
+[`20260510-sdl-collapse`](#adr-20260510-sdl-collapse-5400--collapse-to-epic-plan--epic-deliver-fold-retro-into-deliver-tail-superseded),
+[`20260508-flatten`](#adr-20260508-flatten-retire-wave-execute-epic-execute-owns-the-wave-loop-directly-superseded),
+[`20260501-900a`](#adr-20260501-900a-epic-centric-workflow-rework--four-skill-split-single-session-fan-out-retire-github-triggers-superseded),
+[`20260512-destructive-replan-retired`](#adr-20260512-destructive-replan-retired-epic-1182--retire-delete-epicjs-re-plan--edit-spec--reconcile-superseded),
+[`20260427-868a`](#adr-20260427-868a-open-root-dispatch-manifest-schema-ajv-fixture-drift-test-as-enforcement-boundary-superseded),
+and the Epic-scoped `ADR-202604*` cluster (each flagged in place).
+
+### Context
+
+The v2 cutover landed across `mandrel-v2.0.0` and the v2.x line without an ADR
+of its own, so the newest hierarchy entry in this log
+(`20260611-two-tier-hierarchy`) still stamped the retired `Epic → Story`
+topology **Accepted** with nothing superseding it. An agent reasoning about the
+current ticket model from this file read a shape the runtime had already
+deleted. This ADR is the authoritative record of what replaced it; the entries
+it supersedes are flagged in place rather than removed.
+
+The v1 model was Epic-centric: an Epic ticket owned a decomposed tree of Story
+tickets, an `epic.yaml` spec, a wave DAG, an in-process Epic runner that fanned
+Stories out per wave, a dispatch manifest, an `epic/<id>` integration branch,
+and a command surface (`/epic-plan`, `/epic-deliver`, `/epic-execute`,
+`/wave-execute`, the `sprint-*` scripts) that grew a tier every time the
+orchestration needed one. Every tier carried ceremony but only the Story carried
+an execution payload — a point `20260527-three-tier-hierarchy` and
+`20260611-two-tier-hierarchy` each conceded one tier at a time.
+
+### Decision
+
+**One ticket type.** `type::story` is the only ticket type. `acceptance[]` and
+`verify[]` live inline in the Story body alongside a folded Tech Spec under
+`## Spec`; over-budget Specs fail closed (split or tighten — never write a Spec
+under `docs/`). There is no `type::epic` and no `type::feature` label, no
+`epic-spec.schema.json`, no decomposer tree, and no completion cascade. Rare
+multi-Story ordering is expressed as `depends_on` edges resolved from live state
+at delivery time; the `plan-run::<id>` label is filter metadata only. `/deliver`
+refuses any ticket carrying an `Epic: #N` footer — a v1 ticket is a stop-and-
+re-plan signal, not a compatibility case.
+
+**Two commands.** `/plan` (interrogate → author → persist) and `/deliver` (the
+unified delivery entry point) are the whole SDLC surface. The `/deliver-light`
+split introduced during the cutover was folded back into `/deliver`, which
+derives the path from the work rather than from a flag; `route::lite` survives
+as a human-visible hint that never controls dispatch. `/prototype` was added as
+a separate operator-invoked pass for reviewing a UI layout *before* its
+acceptance criteria are authored — deliberately outside `/deliver`, because it
+produces a throwaway artefact under the gitignored temp tree rather than a
+landed change.
+
+**One delivery engine.** `helpers/deliver-story` is the single engine every
+Story runs, sub-agent or inline: `single-story-init.js` seeds `story-<id>` from
+`main` and materializes a worktree, the agent implements and commits on that
+branch, a bounded acceptance self-eval scores the change set against
+`acceptance[]`, and `single-story-close.js` runs the close-validation chain,
+pushes, opens the PR, watches CI, merges, and emits one schema-validated
+terminal envelope. There are no waves, no Epic runner, no dispatch manifest, no
+`epic/<id>` integration branch, and no `--no-ff` wave merge. A PR against `main`
+is the only merge surface.
+
+### Consequences
+
+- The orchestration surface a reader must hold in context collapsed from a tier
+  hierarchy plus a fan-out runtime to one ticket type and one engine. Roughly a
+  third of this log's entries describe surfaces that no longer exist; they are
+  collapsed in place with a `Superseded by` pointer here.
+- Parallelism moved from a wave barrier to a continuously resolved ready set,
+  so a Story is dispatchable the moment its dependencies land rather than at the
+  next wave boundary.
+- Some v1 primitives outlived their decisions and are now consumed elsewhere:
+  `lib/util/concurrent-map.js` (bounded fan-out), `lib/util/poll-loop.js`
+  (bounded waits), the atomic tmp+rename write, and the lifecycle bus. Their
+  originating ADRs are superseded on the Epic-runner axis only, and each says so.
+- `lib/util/phase-timer.js` survived the collapse without its consumer: no
+  producer posts the `phase-timings` structured comment any more, even though
+  the kind is still registered in `ticketing/reads.js`. Recorded here so the
+  next reader does not mistake a registered kind for a produced one.
+
+### Alternatives considered
+
+- **Keep the Epic tier as an optional grouping ticket.** Rejected for the same
+  reason `20260611-two-tier-hierarchy` rejected an optional Feature tier: an
+  optional tier means every consumer keeps both code paths alive forever, which
+  is the shim layer the hard-cutover policy forbids.
+- **Keep `/deliver-light` as a separate command.** Rejected — two delivery doors
+  meant the operator picked the route, and an operator-picked route is a guess
+  about the change set. Deriving intent inside one door keeps the guard
+  asymmetry honest.
+- **Ship a compatibility path for v1 Epics.** Rejected per the hard-cutover
+  contract policy; in-flight Epics are drained on the old version instead.
+
+---
 
 ## ADR 20260624-loop-units-division-of-labor: mandrel owns content + oracle + contract; the host owns cadence + iteration
 
 **Date:** 2026-06-24
+**Surface:** `.agents/scripts/sync-claude-commands.js`
 **Status:** Accepted
 **Epic:** [#4284](https://github.com/dsj1984/mandrel/issues/4284)
 **Builds on:**
@@ -41,75 +241,13 @@ to **not** build one is deliberate.
 
 ---
 
-## ADR 20260611-two-tier-hierarchy: Remove the Feature tier (Epic → Story)
+## ADR 20260611-two-tier-hierarchy: Remove the Feature tier (Epic → Story) (superseded)
 
+**Status:** Superseded by [ADR 20260726-v2-story-collapse](#adr-20260726-v2-story-collapse-story-only-ticket-model-one-plan-one-deliver-one-engine)
 **Date:** 2026-06-11
-**Status:** Accepted — supersedes
-[ADR 20260527-three-tier-hierarchy](#adr-20260527-three-tier-hierarchy-collapse-the-task-level-epic--feature--story-superseded-by-adr-20260611-two-tier-hierarchy)
-**Driver:** Story #4041 (hard cutover; single PR with the `/plan` +
-`/deliver` command collapse)
+**Full text:** `git show mandrel-v2.16.0:docs/decisions.md`
 
-### Context
-
-The 3-tier hierarchy (Epic → Feature → Story) kept the Feature tier as a
-"thematic frame", but a survey for Story #4041 confirmed the tier is
-semantics-free at runtime:
-
-- Nothing dispatches on `type::feature` beyond a pass-through traversal in
-  the wave-DAG (`build-wave-dag.js` walked one level past the Epic's direct
-  children to collect grandchild Stories).
-- Nothing closes Feature issues except the generic completion cascade —
-  `finalize/close-planning-tickets.js` closes only the three planning
-  context tickets.
-- Every load-bearing contract (waves, `dependsOn`, inline `acceptance[]` /
-  `verify[]`, Story branches, the Epic-branch merge model) lives on the
-  Story or the Epic. The Feature carried only a title and a two-sentence
-  body — planning ceremony with no execution payload, plus a planner-facing
-  invariant (`assertNoSingleStoryFeature`) whose only job was policing the
-  tier's own existence.
-
-### Decision
-
-Adopt a **2-tier hierarchy** (Epic → Story) as the only published shape:
-
-- `epic-spec.schema.json` v4.0.0: `$defs/feature` deleted, `stories[]` at
-  the spec root, required set `["epic", "stories"]`, Story slugs unique
-  epic-wide.
-- The decomposer emits `type::story` tickets only; `parent_slug` is gone
-  from the planner contract. Thematic grouping moves to prose in the Epic
-  body / Tech Spec.
-- The runtime Feature surface is deleted end to end: `TYPE_LABELS.FEATURE`,
-  the label-taxonomy entry and bootstrap seeding, the dispatcher's Feature
-  routing branch, the wave-DAG Feature descent (Stories are now direct Epic
-  children; `snapshot.js` stays in lockstep), the reconciler's Feature
-  close loop, the spec renderer's Feature layer, and the manifest
-  presentation's "Feature Containers" sections.
-- Per the hard-cutover policy in
-  [`git-conventions.md` § Contract Cutovers](../.agents/rules/git-conventions.md),
-  no tolerance branch and no preflight guard ship. Pre-cutover Epics with
-  Feature-nested Stories must be drained or manually re-parented before
-  upgrading (migration notes ride in the v1.60.0 release-PR body).
-
-### Consequences
-
-- A pre-cutover Epic with Feature-nested Stories dispatches **zero**
-  stories post-upgrade — the wave-DAG reads direct children only. Operators
-  reconcile by re-parenting Stories to the Epic via sub-issue moves and
-  closing the Feature issues.
-- v3 epic-spec YAMLs with `features[]` fail validation; flatten by moving
-  each feature's `stories[]` to the root (slugs must stay unique
-  epic-wide).
-- The planner loses one degree of freedom (no ticket-level grouping) and
-  gains a simpler contract: one ticket type to author, one invariant set to
-  satisfy, no single-Story-Feature policing.
-
-### Alternatives considered
-
-- **Keep Feature as an optional grouping tier.** Rejected — an optional
-  tier means every consumer keeps both code paths alive forever, which is
-  exactly the shim layer the hard-cutover policy forbids.
-- **Generalize to an arbitrary ticket graph.** Rejected in design — fixed
-  tiers are what keep the orchestration deterministic.
+Deleted the Feature tier end to end and published Epic → Story as the only shape (`epic-spec.schema.json` v4.0.0, `stories[]` at the spec root). The v2 collapse then removed the Epic tier as well, so no tier hierarchy survives.
 
 ---
 
@@ -117,6 +255,7 @@ Adopt a **2-tier hierarchy** (Epic → Story) as the only published shape:
 
 **Status:** Accepted
 **Date:** 2026-06-10
+**Surface:** `.agents/scripts/lib/orchestration/lifecycle/bus.js`
 **Scope:** Story #3911 (audit findings — see git history at `409e0529`).
 **Depends on:** #3908 (dead-stratum deletion), #3909 (state-surface collapse) —
 both merged before this decision was recorded.
@@ -223,9 +362,19 @@ is now the sole production wiring path).
 
 ## ADR 20260610-planning-determinism-dispositions: Per-layer dispositions for the deterministic planning proxies
 
-**Status:** Accepted
+**Status:** Accepted — dispositions stand; the `/epic-plan` rows are superseded
 **Date:** 2026-06-10
+**Surface:** `.agents/scripts/lib/orchestration/ticket-validator.js`
 **Scope:** Story #3910 (audit findings — see git history at `409e0529`).
+
+> **Superseding note (Story #4786).** The *keep / simplify / defer* dispositions
+> below still govern the planning proxies, and the kept layers are live:
+> `lib/orchestration/ticket-validator*.js`, `lib/duplicate-search.js`, and the
+> evidence-gate skip cache. The rows scoped to the retired `/epic-plan` surface
+> — the clarity gate (`lib/epic-plan-clarity.js`), the consolidate critic's
+> scope-preservation claim, and `assertNoSingleStoryFeature` — went with the v2
+> Story collapse and are historical; read them as rationale, not as a live
+> contract.
 
 ### Context
 
@@ -306,6 +455,7 @@ and the change set stays reviewable.
 **Status:** Accepted (overturns the `drain-pending-cleanup` row of the
 recategorization matrix above).
 **Date:** 2026-06-07
+**Surface:** `.agents/scripts/drain-pending-cleanup.js`
 **Story:** #3706
 
 ### Context
@@ -373,6 +523,7 @@ a command. This mirrors the `worktree-lifecycle` row's treatment.
 
 **Status:** Accepted
 **Date:** 2026-06-04
+**Surface:** `.agents/scripts/sync-claude-commands.js`
 **Supersedes:**
 [`20260603-plugin-namespace-cutover`](#adr-20260603-plugin-namespace-cutover-project-workflows-as-a-claude-code-plugin-mandrelname-superseded)
 — reverts the plugin projection back to a flat `.claude/commands/` surface.
@@ -423,227 +574,21 @@ namespace to protect.
 
 ## ADR 20260603-plugin-namespace-cutover: Project workflows as a Claude Code plugin (`/mandrel:<name>`) (superseded)
 
-**Status:** Superseded by
-[`20260604-flat-command-projection-revert`](#adr-20260604-flat-command-projection-revert-revert-the-plugin-cutover--project-workflows-as-flat-name-commands)
-(the plugin system is unavailable in some Claude Code environments; the
-projection reverted to flat `.claude/commands/`).
+**Status:** Superseded by [`20260604-flat-command-projection-revert`](#adr-20260604-flat-command-projection-revert-revert-the-plugin-cutover--project-workflows-as-flat-name-commands)
 **Date:** 2026-06-03
-**Date:** 2026-06-03
-**Story:** [#3576](https://github.com/dsj1984/mandrel/issues/3576) —
-Project workflows as a Claude Code plugin — hard cutover from flat
-`.claude/commands/`
-**Supersedes (collision axis only):**
-[`20260513-command-naming-discipline`](#adr-20260513-command-naming-discipline-domain-vocabulary-command-names-single-mandrel-prefixed-discoverability-entry)
-— the base-name naming discipline still holds; this ADR replaces the
-*how* of the single-brand-affordance with a plugin namespace.
+**Full text:** `git show mandrel-v2.16.0:docs/decisions.md`
 
-### Context
+Projected `.agents/workflows/*.md` into a Claude Code plugin namespace (`/mandrel:<name>`) as a hard cutover from flat `.claude/commands/`. Reverted one day later — the plugin system is unavailable in some Claude Code environments.
 
-The pre-cutover slash-command surface was a **flat projection**:
-`sync-claude-commands.js` copied every top-level `.agents/workflows/*.md`
-into `.claude/commands/`, so each workflow showed up bare (`/epic-deliver`,
-`/audit-clean-code`, …). Two problems the operator wanted addressed:
+---
 
-1. **Collision risk.** Bare names share Claude Code's `/` namespace with
-   built-ins and other plugins; a same-named command *silently shadows*
-   rather than disambiguates.
-2. **No provenance.** Nothing in a bare name signals "this came from
-   Mandrel" — only the on-demand `/mandrel` catalog answered that.
+## ADR 20260527-three-tier-hierarchy: Collapse the Task level (Epic → Feature → Story) (superseded)
 
-ADR 20260513 chose a single Mandrel-prefixed discoverability entry
-(`/mandrel`) plus descriptive base names, and **rejected** a `mandrel-`
-filename prefix on every command (reverse-coupling, clutters the `/`
-menu). That decision left both problems above unaddressed at the
-invocation layer: bare commands still collide and still carry no
-namespace.
-
-Claude Code's **plugin system** is the only mechanism that provides a
-real invocation-level namespace. A plugin named `mandrel` exposes its
-commands as `/mandrel:<name>` — structurally unshadowable and
-self-identifying — **without** a `mandrel-` filename prefix and
-**without** reducing portability (the slash-command surface is already a
-Claude-Code-only projection per the Epic G #1471 coupling stance; the
-cross-runtime contract remains `.agents/workflows/` + the dispatch
-manifest, untouched here).
-
-### Decision
-
-Project `.agents/workflows/` into a Claude Code **plugin** named
-`mandrel`, replacing the flat `.claude/commands/` output in the same
-change (a **hard cutover** per
-[git-conventions § Contract Cutovers](../.agents/rules/git-conventions.md),
-Epic #2646 — no coexistence window where both `/epic-deliver` and
-`/mandrel:epic-deliver` appear).
-
-- **`.agents/workflows/` stays the single source of truth.** The plugin
-  is a *downstream projection* generated by `sync-claude-commands.js` —
-  the same role it played for the flat output. Workflows are **not**
-  converted into plugin `SKILL.md` files as source (that would
-  Claude-lock the portable layer).
-- **Layout (open question resolved at delivery → flat `commands/`).** The
-  plugin root is `.claude/plugins/mandrel/`, with the manifest at
-  `.claude/plugins/mandrel/.claude-plugin/plugin.json` (`name: "mandrel"`,
-  `version` sourced from the root `package.json`) and the command tree at
-  `.claude/plugins/mandrel/commands/<name>.md`. The flat `commands/`
-  layout is the minimal reuse of the existing workflow bodies (frontmatter
-  + body project as-is under the AUTO-GENERATED header); the doc-recommended
-  `skills/<name>/SKILL.md` layout was not adopted because the
-  invocation contract (`/mandrel:<name>`) is satisfied identically by the
-  flat tree and the flat tree needs no body restructuring. Nesting the
-  plugin under `.claude/plugins/` (not `.claude/commands/`) is what makes
-  Claude Code load the commands *namespaced* rather than as bare project
-  commands — that nesting is the hard cutover.
-- **Enablement is repo-local, no hosted marketplace.** The writer emits a
-  repo-local marketplace at `.claude/.claude-plugin/marketplace.json`
-  listing the plugin from `./plugins/mandrel`; bootstrap writes
-  `extraKnownMarketplaces` (a `directory` source pointing at `./.claude`)
-  and `enabledPlugins` (`mandrel@mandrel: true`) into the consumer's
-  checked-in `.claude/settings.json`. **Sequencing guard:** enablement and
-  flat-output removal are a single atomic change so an upgrading consumer
-  is never left with the bare commands gone and the plugin still disabled.
-- **`/mandrel` → `/mandrel:mandrel`.** Under the namespace the catalog
-  entry itself becomes `/mandrel:mandrel`. It is kept for the printed
-  catalog but is now partly redundant (the namespace signals provenance on
-  every command); a later Story may retire or repurpose it.
-
-This **supersedes ADR 20260513 on the collision axis only**: base command
-names stay descriptive (no `mandrel-` filename prefix — that prohibition
-still holds); the brand now appears once as the *plugin namespace* instead
-of once as the `/mandrel` discoverability entry.
-
-### Consequences
-
-- **Breaking command rename for every consumer** (`/x` → `/mandrel:x`),
-  and the flat bare surface is removed in one beat. High-risk per
-  `planning.riskHeuristics` (shared consumer-facing contract + CI/hook
-  surface) — intentional hard cutover; the PR body documents the rename
-  and the "enable the plugin on upgrade" step. Minimum runtime: Claude
-  Code **v2.1.0+** for stable `plugin:command` namespacing.
-- **One projection after the change.** `/epic-deliver`-style bare commands
-  no longer appear in the `/` menu — only `/mandrel:<name>`. The writer
-  also reaps any stale pre-cutover `.claude/commands/*.md` on the next sync
-  (generated files only, identified by the AUTO-GENERATED header).
-- **Every internal trigger is repointed:** the `npm run sync:commands`
-  package script (delegates to the repointed writer), the
-  `UserPromptSubmit` re-sync hook, the bootstrap parity check
-  (`.agents/workflows/` ↔ `.claude/plugins/mandrel/commands/`), the doctor
-  `commands-in-sync` check, the uninstall reversal, and the install-matrix
-  sync step.
-- **`extraKnownMarketplaces` directory-source caveat.** Claude Code does
-  not reliably resolve a *relative* `directory` source path cross-machine
-  (anthropics/claude-code #23978); the `./.claude` entry works when the
-  project folder is trusted interactively. The checked-in
-  marketplace + `enabledPlugins` pair is the durable enablement record;
-  operators on affected versions can `claude plugin marketplace add ./.claude`
-  once.
-
-### Alternatives considered
-
-- **`mandrel-` filename prefix on every command** — still rejected (ADR
-  20260513 rationale: clutters the `/` menu, reverses the `.agents/` /
-  `.agentrc.json` naming logic, no information value). The plugin namespace
-  delivers collision-safety + provenance without it.
-- **Keep the flat `/mandrel` catalog as the only brand affordance** — does
-  not solve the collision problem (bare commands still shadow) and provides
-  no per-command provenance.
-- **Convert workflows to plugin `SKILL.md` as the source of truth** —
-  explicitly rejected; it would Claude-lock the portable `.agents/workflows/`
-  layer, violating the Epic G coupling stance.
-- **Hosted plugin marketplace** — rejected; repo-local/settings-based
-  enablement keeps the framework self-contained with no external hosting.
-
-## ADR 20260527-three-tier-hierarchy: Collapse the Task level (Epic → Feature → Story) (superseded by ADR 20260611-two-tier-hierarchy)
-
-**Status:** Superseded by
-[ADR 20260611-two-tier-hierarchy](#adr-20260611-two-tier-hierarchy-remove-the-feature-tier-epic--story)
-(was: Accepted, cutover complete)
+**Status:** Superseded by [ADR 20260611-two-tier-hierarchy](#adr-20260611-two-tier-hierarchy-remove-the-feature-tier-epic--story-superseded)
 **Date:** 2026-05-27
-**Epic:** [#3078](https://github.com/dsj1984/mandrel/issues/3078) —
-Collapse Task level — adopt 3-tier hierarchy (Epic / Feature / Story)
-**Related:** [`docs/architecture.md` § Ticket Hierarchy](architecture.md)
-carries the canonical diagram.
+**Full text:** `git show mandrel-v2.16.0:docs/decisions.md`
 
-### Context
-
-The framework today enforces a strict 4-level hierarchy
-(Epic → Feature → Story → Task). The Task level is the unit of atomic
-dispatch and commit: `task-commit.js`, the per-Task `agent::*` lifecycle,
-the `(resolves #<taskId>)` commit-subject convention, and the
-`/story-deliver` per-Task sub-loop (`helpers/task-execute.md`) all hang
-off it. Most reconciler pain (`epic-spec-reconciler*.js`, the decompose
-helper, the file-assumption gate, recent body-wipe / acceptance-gap
-incidents) crystallises at or below the Task tier — most of which can
-be expressed at Story scope. Modern coding agents self-decompose
-competently inside a single Story worktree, eroding the Task layer's
-value as pre-chunked work. Features, by contrast, do real load-bearing
-work for the wave model and stay.
-
-### Decision
-
-Adopt a **3-tier hierarchy** (Epic → Feature → Story) as the target
-shape. Acceptance criteria and verification steps live inline on the
-Story body (`acceptance[]` / `verify[]`) instead of on child Task
-bodies. `/story-deliver` runs a single Story-implementation phase per
-Story — no per-Task sub-loop, no `task-commit.js`, no per-Task
-lifecycle transitions. The wave-loop fan-out in `/epic-deliver`, the
-Story-branch → Epic-branch merge model, and the Feature thematic frame
-are unchanged.
-
-Rollout follows **Strategy B — Destructive-Last DAG** to preserve the
-hard-cutover guarantee at the published-surface boundary while letting
-the Epic itself execute on intact 4-tier infrastructure:
-
-- **Features 1–7 are additive.** They introduce 3-tier shape support
-  behind a `planning.hierarchy: '3-tier' | '4-tier'` config flag
-  (default `'4-tier'`), add Story-level code paths alongside the
-  existing Task-level paths, and update docs to describe the target
-  shape as a preview.
-- **Feature 8 is a single destructive Story** with `depends_on`
-  covering every Story in F1–F7. It demolishes both the 4-tier surface
-  and the temporary additive support, flips the default to 3-tier, and
-  deletes all parallel-shape code in one auditable landing. The
-  `planning.hierarchy` flag is removed in F8 — by the time `epic/3078`
-  opens its PR to `main`, the shim is gone.
-
-### Consequences
-
-**Positive.**
-
-- Removes the layer with the worst cost-to-value ratio in the
-  framework. Decompose-layer pain (body-wipe, acceptance-gap,
-  decompose-drift) loses its primary surface.
-- Per-Task state machinery (`agent::*` transitions, cascade-to-Story
-  closure rules, per-Task wave assignment, heartbeat counters,
-  `tasks[]` arrays in the dispatch manifest) collapses into Story-tier
-  equivalents.
-- Commit subjects become Story-scoped (`(refs #<storyId>)`), simpler
-  to author and to reason about during retro and bisect.
-
-**Negative.**
-
-- Single-Story bisect granularity drops from per-Task to per-Story.
-  Stories must stay sized for the agent to commit incrementally
-  inside one worktree; otherwise rollback windows grow.
-- Breaking change for consumers — published surface flips at F8.
-  Consumers re-pin the `@mandrelai/agents` package on upgrade per the
-  [hard-cutover policy](#contract-cutovers-no-shim-layer) (see also
-  [`.agents/rules/git-conventions.md`](../.agents/rules/git-conventions.md)).
-  (This ADR predates the npm-distribution cutover (#3436); the upgrade unit
-  was the `.agents/` submodule pointer at the time it was written.)
-  The shipping release carries `BREAKING CHANGE:` / `!` so the
-  operator can drive the major-version bump on the release PR per
-  [`AGENTS.md` § Major-version policy](../AGENTS.md).
-
-### Implementation
-
-Eight Features land in dependency order. F1 (additive schema +
-validator support), F2 (planner opt-in), F3 (runtime accepts
-Story-level execution), F4 (observability / retro / ticketing
-internals), F5 (documentation), F6 (test coverage of 3-tier path), F7
-(operator cutover prep — bootstrap cleanup utility, CHANGELOG draft).
-F8 (destructive cutover) lands alone in the final wave with
-`depends_on` covering every prior Story. See the Epic body for the
-full Feature/Story breakdown.
+Removed the Task tier, leaving Epic → Feature → Story. Both remaining tiers were removed in turn (Feature by 20260611, Epic by the v2 collapse).
 
 ---
 
@@ -651,6 +596,7 @@ full Feature/Story breakdown.
 
 **Status:** Accepted
 **Date:** 2026-05-19
+**Surface:** `.agents/scripts/providers/github.js`
 **Epic:** [#2646](https://github.com/dsj1984/mandrel/issues/2646) —
 hard-cutover cleanup pass
 **Story:** [#2688](https://github.com/dsj1984/mandrel/issues/2688) —
@@ -726,6 +672,7 @@ not an in-process interface.
 
 **Status:** Accepted
 **Date:** 2026-05-14
+**Surface:** `.agents/schemas/agentrc.schema.json`
 **Epic:** [#1721](https://github.com/dsj1984/mandrel/issues/1721) —
 performance-signal detectors
 **Supersedes (in part):**
@@ -802,94 +749,13 @@ detectors. When Epic #1721 sat down to actually ship the missing three
 
 ---
 
-## ADR 20260512-destructive-replan-retired: Epic #1182 — retire `delete-epic.js`; re-plan = edit-spec + reconcile
+## ADR 20260512-destructive-replan-retired: Epic #1182 — retire `delete-epic.js`; re-plan = edit-spec + reconcile (superseded)
 
-**Status:** Accepted
+**Status:** Superseded by [ADR 20260726-v2-story-collapse](#adr-20260726-v2-story-collapse-story-only-ticket-model-one-plan-one-deliver-one-engine)
 **Date:** 2026-05-12
-**Epic:** [#1182](https://github.com/dsj1984/mandrel/issues/1182) —
-v6 Epic D, "Declarative `epic.yaml` + reconciler"
-**PRD:** [#1482](https://github.com/dsj1984/mandrel/issues/1482)
-**Tech Spec:** [#1483](https://github.com/dsj1984/mandrel/issues/1483)
-**Closing Story:** [#1502](https://github.com/dsj1984/mandrel/issues/1502)
-— "Remove `delete-epic.js` + `delete-epic-tickets` workflow"
+**Full text:** `git show mandrel-v2.16.0:docs/decisions.md`
 
-### Context
-
-Through v5.x the only re-plan path for an Epic was destructive: an operator
-ran `/delete-epic-tickets <epicId>` (the `delete-epic.js` engine,
-~208 LOC of GraphQL `deleteIssue` mutations), then `/delete-epic-branches`
-to scrub local + worktree state, then re-ran `/epic-plan`. Every re-plan
-therefore (a) round-tripped through GitHub-issue deletion, (b) depended on
-the local cleanup script's regex for branch enumeration, and (c) had no
-diffable description of the structural shape it was reverting from. Two
-auto-memory entries surfaced this friction repeatedly:
-
-- **`post-merge-close ignores test sandbox tempRoot`** — `phase-timings.json`
-  + reap-failure signals leaked to real repo `temp/epic-<eid>/` regardless
-  of `cwd:` / `tempRoot`. The destructive-replan path made this worse by
-  forcing operators back through close + cleanup whenever a Story needed
-  re-shaping.
-- **`delete-epic-branches misses flat story-NNNN naming`** — the cleanup
-  script's regex expected `story/epic-<id>/<n>` and silently ignored flat
-  `story-NNNN` naming. Operators discovered this only mid-replan, when
-  stale local branches collided with the new plan.
-
-Both entries were named in the PRD (#1482) as motivating Epic #1182.
-
-### Decision
-
-Epic #1182 ships:
-
-- `.agents/epics/<id>.yaml` as the structural SSOT for an Epic (hierarchy,
-  dependencies, wave grouping, gate/baseline refs, labels).
-- `epic-reconcile.js` as the diff+apply reconciler. Default mode is
-  `--dry-run`; mutation requires `--apply`; structural close ops require
-  `--explicit-delete` AND the Story absent from the spec AND no
-  `agent::done|review|executing` execution-state label.
-- Distinct treatment of structural drift (Story added/removed in spec) vs
-  execution drift (wave-runner-driven label flips). The reconciler never
-  closes a merged Story and never re-opens an operator-removed one.
-
-Story #1502 closes the loop by **removing the destructive surface
-entirely**:
-
-- `.agents/scripts/delete-epic.js` (208 LOC) — deleted.
-- `.agents/workflows/delete-epic-tickets.md` — deleted (the corresponding
-  `.claude/commands/` entry is regenerated by `sync:commands` and dropped).
-- All in-tree references that named `delete-epic.js` or
-  `/delete-epic-tickets` (SDLC.md, `docs/workflows.md`, the orchestration
-  README index, the provider GraphQL header comments, the maintainability
-  baseline) — rewritten to point at `epic-reconcile.js --explicit-delete`
-  or removed.
-- `delete-epic-branches.js` is **retained** as a worktree + local-branch
-  cleanup utility. It no longer fronts GH state. Its companion workflow
-  (`/delete-epic-branches`) remains the right tool for "scrap and reset"
-  branch hygiene. Flat `story-NNNN` branch regex coverage is tracked by
-  the `delete-epic-branches-naming` self-healing check and was out of
-  scope for this Epic.
-
-> **Superseded (Story #2301, 2026-05-17):** `delete-epic-branches.js` and
-> its `/delete-epic-branches` workflow were later removed entirely along
-> with the `delete-epic-branches-naming` check — the scrap-and-reset case
-> is now handled manually when (rarely) needed. Flat `story-NNNN` is the
-> canonical Story-branch naming per `git-conventions.md`, so the naming
-> check no longer had a purpose once the deletion script was gone.
-
-### Consequences
-
-- Re-plan is **edit-spec + reconcile**. The destructive replay loop that
-  drove the cited incidents no longer exists in the SDL.
-- Operators who land on the old `/delete-epic-tickets` command via muscle
-  memory hit a missing-command error; the SDLC.md command table and
-  `docs/workflows.md` table both surface `epic-reconcile.js --explicit-delete`
-  as the supersedent.
-- The test-sandbox `tempRoot` amplifier is removed: operators are no
-  longer forced into the close + cleanup hot path to re-shape a Story.
-  The underlying `tempRoot` bug is not itself fixed by this ADR — only
-  its blast radius is bounded.
-- Flat `story-NNNN` cleanup remains tracked by
-  `delete-epic-branches-naming`; this ADR explicitly records that it was
-  surfaced in the PRD but not in scope for resolution here.
+Retired `delete-epic.js` in favour of a declarative `epic.yaml` edited then reconciled, so re-planning was never destructive. The v2 collapse removed the Epic spec, the reconciler, and the whole re-plan surface; a Story is re-planned by editing its `## Spec` in place.
 
 ---
 
@@ -897,6 +763,7 @@ entirely**:
 
 **Status:** Accepted
 **Date:** 2026-05-12
+**Surface:** `.agents/scripts/providers/github.js`
 **Supersedes:**
 
 - Implicit assumption that the entire framework — dispatcher, workflow,
@@ -998,314 +865,33 @@ name without rewriting this ADR text.
 
 ---
 
-## ADR 20260510-sdl-collapse: 5.40.0 — collapse to `/epic-plan` + `/epic-deliver`, fold retro into deliver tail
+## ADR 20260510-sdl-collapse: 5.40.0 — collapse to `/epic-plan` + `/epic-deliver`, fold retro into deliver tail (superseded)
 
-**Status:** Accepted
+**Status:** Superseded by [ADR 20260726-v2-story-collapse](#adr-20260726-v2-story-collapse-story-only-ticket-model-one-plan-one-deliver-one-engine)
 **Date:** 2026-05-10
-**Supersedes:**
+**Full text:** `git show mandrel-v2.16.0:docs/decisions.md`
 
-- Prior decisions documenting `epic::auto-close` as the runtime
-  authorization for autonomous merge-to-main (now obsolete: the SDL
-  no longer merges to `main` — the operator does, via the GitHub UI).
-- Prior decisions documenting the legacy `epicClose.runRetro`
-  toggle under the pre-reshape `agentSettings` block (now obsolete:
-  the retro is always-on inside the new
-  `/epic-deliver` tail; the configuration knob has been deleted from
-  the schema).
-- Two-skill execution surface decisions that named `/epic-execute` +
-  `/epic-close` as the canonical critical path. The 5.40 critical
-  path is `/epic-plan` + `/epic-deliver`.
-
-### Context
-
-By v5.39 the SDL critical path was three slash commands —
-`/epic-plan`, `/epic-execute`, `/epic-close` — with the close phase
-silently merging to `main` from inside an LLM session.  Three failure
-modes accumulated against that shape:
-
-1. **Implicit merge-to-main from an LLM session.**  The close phase
-   ran `git merge` against `main` from inside the operator's IDE.  No
-   GitHub PR existed, no required-checks dashboard was consulted, no
-   reviewer trail was recorded.  The branch-protection story was
-   ad-hoc and easy to skip.
-2. **Retro firing after merge-to-main.**  Because the retro was the
-   last step of close, it ran with the operator's local env access
-   (env vars, MCP servers, credentials) but only after the
-   irrevocable merge.  Any retro-detected regression had no clean
-   rollback path.
-3. **Two slash commands for one continuous flow.**  Operators
-   routinely typed `/epic-close` immediately after `/epic-execute`
-   returned.  The split offered no real choice — a human gate
-   between "execute" and "close" was nominal at best.  Meanwhile
-   `epic::auto-close` and `BookendChainer` existed solely to skip
-   that nominal gate, adding mid-run authorization complexity that
-   nothing benefited from.
-
-### Decision
-
-Collapse the v5.39 critical path to two slash commands:
-
-- **`/epic-plan`** stays the planning entry point and gains an
-  optional **ideation mode** (`/epic-plan` with no args, or
-  `/epic-plan --idea "<seed>"`) that sharpens a raw idea into an
-  Epic body, runs cross-Epic duplicate search via the new
-  `lib/duplicate-search.js`, opens the GitHub Issue with only
-  `type::epic`, then proceeds into the existing PRD + Tech Spec +
-  decomposition flow.  The existing-Epic mode (`/epic-plan <id>`)
-  is preserved verbatim.
-- **`/epic-deliver`** replaces the v5.39 `/epic-execute` +
-  `/epic-close` pair.  Six phases run end-to-end: prepare → wave
-  loop → close-validation → code-review → retro → finalize.  The
-  finalize phase opens a pull request from `epic/<id>` to `main`
-  and **stops**; the operator merges the PR through the GitHub UI.
-  There is no in-script merge to `main`.
-
-The retro fires inside Phase 5, **before** the PR is opened, so it
-keeps full env access in the operator's local session and any
-retro-detected concern can be fixed on the Epic branch before the
-human merge gate is reached.
-
-The runtime engine renames in lockstep: `epic-runner.js` (top-level
-CLI) → the `/epic-deliver` slash command (which supplanted the
-short-lived deliver-runner CLI wrapper retired in Epic #2172);
-`epic-execute-prepare.js` → `epic-deliver-prepare.js`;
-`epic-finalize.js` → `epic-deliver-finalize.js`.  `epic-close.js` is
-deleted entirely; the close-tail logic is folded into the deliver
-runner alongside two new in-process modules
-(`lib/orchestration/code-review.js` extracted from the helper, and
-`lib/orchestration/retro-runner.js` extracted from the now-deleted
-retro helper).
-
-The supporting deletions land atomically:
-
-- `BookendChainer` and the `epic::auto-close` snapshot label.
-- The `agent::review` epic-level label (the PR's existence is the
-  equivalent signal at the Epic level).
-- `risk::medium`, `execution::sequential`, and `execution::concurrent`
-  labels.
-- The legacy `epicClose` config block (including `runRetro`).
-- The legacy `hitl` empty placeholder block.
-- The legacy `riskGates` config block — risk heuristics moved to
-  `planning/riskHeuristics`.
-- Legacy runner block `runners/epicRunner` → renamed to
-  `runners/deliverRunner`.
-- Legacy runner block `runners/closeRetry` → renamed to
-  `runners/storyMergeRetry`.
-- The resolver wrapper key `settings` → renamed to the
-  pre-reshape top-level key (matches the legacy `.agentrc.json`
-  literal, fixing the silent override-drop bug where every accessor
-  read against a wrapper that never carried the expected key).
-
-The legacy `quality/prGate` block is promoted from schema-only to
-default config and gains an `enforceBranchProtection` boolean
-(default `true`). `node .agents/scripts/bootstrap.js` gains an
-`ensureMainBranchProtection({ checks })` step that creates or merges
-branch protection on `main` with the configured `prGate.checks` as
-required status checks. Branch protection is now load-bearing
-because the operator's PR merge is the sole promotion gate.
-
-The legacy `limits/maxTickets` default bumps 40 → 60.
-
-### Consequences
-
-- **One human gate at the end of the SDL.**  The PR merge is the
-  explicit, auditable promotion to `main` — required-checks history,
-  reviewer trail, and the GitHub branch-protection enforcement all
-  apply.  The framework no longer authorizes its own merge.
-- **Retro is always-on.**  The `epicClose.runRetro` toggle is gone.
-  Operators who genuinely need to skip a retro on a one-off pass an
-  explicit `--skip-retro` flag to `/epic-deliver`.  This trades a
-  configuration knob for a hot-path CLI flag, which is the right
-  trade for a rarely-skipped step.
-- **No mid-run authorization.**  `epic::auto-close`, `BookendChainer`,
-  and the snapshot-label semantics are gone.  Every `/epic-deliver`
-  run completes with the same exit condition: a PR opens and the
-  operator merges.
-- **Branch protection is load-bearing.**  Consumers that previously
-  relied on the in-script merge to gate red trees from `main` must
-  ensure `enforceBranchProtection: true` and re-run
-  `node .agents/scripts/bootstrap.js` so the required-checks set is wired up.
-  The default flips this on; the migration path is documented in
-  the 5.40.0 CHANGELOG entry.
-- **Resolver-key alignment fixes the silent override-drop bug.**
-  Any consumer that did `const { settings } = resolveConfig()` must
-  rename the destructure to `agentSettings`.  This is one mechanical
-  change per call site; the framework's ~50 call sites are updated
-  in the same PR via Story #1155.
-- **Targeted retired-surface tests guard future regressions.**
-  Schema, workflow, and live-import tests reject retired config keys,
-  command names, and module imports at the boundary that still matters.
-  Historical narrative remains in docs and archives without forcing a
-  repo-wide forbidden-token sweep into every CI run.
-- **Operator workflow simplification.**  Two commands replace three
-  on the SDL critical path.  Ideation entry replaces an opaque manual
-  Epic-body-authoring step.  The HITL touchpoints reduce from
-  "blocker resolution + close hand-off" to "blocker resolution + PR
-  merge".
-
-### Migration
-
-See the 5.40.0 entry in [`CHANGELOG.md`](CHANGELOG.md) for the
-full operator migration script (config renames, command-shape
-updates, retired-surface test wiring).  The CHANGELOG carries
-side-by-side `.agentrc.json` before/after blocks for every removed,
-renamed, moved, promoted, and bumped key.
+Collapsed the SDLC command surface to `/epic-plan` + `/epic-deliver` and folded the retro into the deliver tail. The two-command shape survives as `/plan` + `/deliver`; the Epic-scoped commands themselves do not.
 
 ---
 
-## ADR 20260508-flatten: Retire `/wave-execute`; `/epic-execute` owns the wave loop directly
+## ADR 20260508-flatten: Retire `/wave-execute`; `/epic-execute` owns the wave loop directly (superseded)
 
-**Status:** Accepted — decision stands; rationale partially superseded (see note)
+**Status:** Superseded by [ADR 20260726-v2-story-collapse](#adr-20260726-v2-story-collapse-story-only-ticket-model-one-plan-one-deliver-one-engine)
 **Date:** 2026-05-08
-**Supersedes:** ADR 20260507-1114a (Wave-runner is a custom sub-agent type)
+**Full text:** `git show mandrel-v2.16.0:docs/decisions.md`
 
-> **Superseding note (2026-07-08, Epic
-> [#4385](https://github.com/dsj1984/mandrel/issues/4385) /
-> [#2870](https://github.com/dsj1984/mandrel/issues/2870)).** The
-> **decision** — flat, host-owned Story fan-out with
-> `subagent_type: general-purpose` — still stands and remains the delivery
-> architecture. But part of the **rationale** below is now obsolete: as of
-> Claude Code 2.1.202 the harness limitation this ADR leaned on (nested
-> `Agent` grants "wobbling across releases") is **lifted** — a level-1
-> sub-agent carries `Agent` and can nest further (verified depth 2,
-> announced max depth 5). Flat wave dispatch is therefore now a **design
-> choice** (the wave aggregator, idle watchdog, and merge-lock all assume a
-> single host-owned dispatch level), not a capability floor. The
-> `subagent-agent-tool-required` self-healing check referenced under
-> *Context* is inverted into a depth/budget guard by Epic #4385 (Story S2);
-> do not read the "custom sub-agent types" fragility argument as a live
-> constraint.
-
-### Context
-
-The three-level topology — `/epic-execute` → `wave-runner` →
-`/wave-execute` → `/story-deliver` — depended on a custom `wave-runner`
-sub-agent type whose frontmatter granted the `Agent` tool to the
-wave-level child. That contract was documented in framework code, but
-**the agent file was never scaffolded into consumer projects** by
-`agents-bootstrap-project` or `mandrel-update`. Downstream consumers
-running `/epic-execute` saw the host harness reject `subagent_type:
-wave-runner` with "Agent type not found" before any Story sub-agent
-could be dispatched, halting at wave 0. The host-driven flat fan-out
-(documented as emergency-only in ADR 20260507-1114a) had to be reached
-for under any circumstance — meaning the supposedly "supported"
-architecture was unreachable from a clean consumer install.
-
-Even if the agent file were scaffolded, the topology has a second
-load-bearing harness assumption: that custom sub-agent types continue to
-be granted nested `Agent`. That assumption has wobbled across releases;
-the `subagent-agent-tool-required` self-healing check now guards the
-current flat fan-out contract. Two-level dispatch with the host LLM as
-the wave dispatcher needs neither assumption.
-
-### Decision
-
-Retire `/wave-execute` entirely. `/epic-execute` (the host LLM) owns the
-wave loop and fans Stories out directly, one assistant turn per wave,
-with `subagent_type: general-purpose`. The custom `wave-runner` agent
-type is removed.
-
-Concrete changes:
-
-- Delete `.agents/workflows/wave-execute.md`,
-  `.claude/commands/wave-execute.md`, and `.claude/agents/wave-runner.md`.
-- Delete `.agents/scripts/wave-prepare.js`,
-  `.agents/scripts/wave-record.js`, and `.agents/scripts/epic-rollup.js`.
-- Merge their behavior into `.agents/scripts/epic-execute-record-wave.js`,
-  which now: parses / reconciles / verifies the per-Story returns,
-  appends the wave outcome to `state.waves[]`, and re-renders the unified
-  `epic-run-progress` rollup from the checkpoint.
-- Delete the `wave-run-progress` structured-comment type and its writer
-  (`wave-run-progress-writer.js`). `epic-run-progress` becomes the
-  single operator-facing summary, grouped by wave.
-- `epic-deliver.md` Step 2 absorbs the per-wave fan-out (one assistant
-  turn per wave; pump-and-refill at `concurrencyCap`).
-
-### Consequences
-
-- Works on every Claude Code release — no dependency on custom-sub-agent
-  `Agent` grants and no dependency on framework-shipped agent files.
-- One execution model. The host-driven flat fan-out documented as
-  emergency-only in #1072 / #1114 is now *the* architecture.
-- Per-wave operator re-entry (`/wave-execute <epicId> <waveN>`) is no
-  longer a slash command. Manual re-entry is `/epic-execute <id>`
-  (resumes from checkpoint, re-fires the next undispatched wave) or
-  `/story-deliver <id>` per Story. Strictly fewer escape hatches.
-- Existing Epics with `wave-run-progress` comments on their tickets are
-  unaffected — nothing reads those comments anymore; they remain as
-  cosmetic leftovers and do not block resume.
-- Bumps the framework to a new minor version (5.39.0). No data
-  migration is required.
+Retired `/wave-execute` and gave `/epic-execute` the wave loop directly, with flat host-owned Story fan-out. Waves, the Epic runner, and the fan-out layer were all removed by the v2 collapse; `/deliver` resolves a ready set instead. Supersedes ADR 20260507-1114a (wave-runner sub-agent type).
 
 ---
 
 ## ADR 20260507-1114a: Wave-runner is a custom sub-agent type, not `general-purpose` (superseded)
 
-**Status:** Superseded by ADR 20260508-flatten
+**Status:** Superseded by [ADR 20260508-flatten](#adr-20260508-flatten-retire-wave-execute-epic-execute-owns-the-wave-loop-directly-superseded)
 **Date:** 2026-05-07
-**Epic:** #1114
-**Story:** #1122
+**Full text:** `git show mandrel-v2.16.0:docs/decisions.md`
 
-### Context
-
-The orchestration topology described in tech spec #902 assumed three
-levels of in-session sub-agent fan-out: `/epic-execute` dispatches one
-`/wave-execute` per wave through the `Agent` tool, and each
-`/wave-execute` dispatches one `/story-deliver` per Story in its plan.
-The design assumption was that sub-agents inherit their parent's tool
-permissions, so a `/wave-execute` invoked as a `general-purpose`
-sub-agent would itself have the `Agent` tool available for the per-Story
-fan-out.
-
-That assumption did not survive contact with the harness. During Epic
-#1072's first wave, the wave-level fan-out failed entirely: the
-`general-purpose` wave sub-agent reported that the `Agent` tool was not
-in its grant list, and the Story dispatch had to be performed by an
-ad-hoc host-driven flat fan-out instead — the host LLM emitting one
-`Agent` tool call per Story directly, bypassing `/wave-execute` entirely.
-The flat workaround loses the wave-level rollup, the parse-failure
-reconciler, and the per-wave checkpoint, so it was tagged as
-emergency-only rather than the supported architecture. Epic #1114
-re-opened the question with a Q6 probe.
-
-### Decision
-
-Define a custom sub-agent type at `.claude/agents/wave-runner.md` whose
-frontmatter declares `tools: Agent, Read, Bash, Edit, Write, Glob, Grep,
-Skill`. The `tools: Agent` line is what the harness reads to decide
-whether a sub-agent of that type carries the `Agent` tool — naming the
-tool explicitly in a per-agent config file is the supported way to grant
-nested-`Agent` capability to a sub-agent in this Claude Code release.
-`/epic-execute` Step 2 and `/wave-execute` Step 2 both dispatch via
-`subagent_type: wave-runner` rather than `general-purpose`.
-
-The host-driven flat fan-out remains documented as an emergency-only
-fallback, not the supported architecture. The probe artefact
-(`tests/wave-runner-probe.test.js`) checks that the agent file's
-frontmatter declares the required tools and explicitly skips the
-nested-`Agent` dispatch step with a clear reason when the harness is
-unreachable from `node --test` — it never silently passes.
-
-### Consequences
-
-- The three-level fan-out topology described in tech spec #902 holds: a
-  `/wave-execute` invoked as a `wave-runner` sub-agent has the `Agent`
-  tool and can dispatch its per-Story children.
-- `subagent_type: general-purpose` for wave-level dispatch is forbidden.
-  The harness-constraint section in `wave-execute.md` and the
-  cross-reference from `epic-deliver.md` Step 2 spell this out so the
-  next operator does not rediscover the constraint by hitting the same
-  failure mode.
-- A future Claude Code release that disallows nested `Agent` even for
-  custom agent types would re-block this architecture. The probe test
-  is the canonical regression catcher for the artefact shape; the
-  live-dispatch verification is harness-coupled and runs implicitly the
-  next time `/wave-execute` is exercised end-to-end.
-- Story sub-agents (children of the wave-runner) are themselves
-  dispatched as `wave-runner` per Task #1137. They nominally do not
-  need the `Agent` tool — they iterate Tasks sequentially via
-  `helpers/task-execute.md` — but the extra grant is harmless and keeps
-  the topology uniform.
+Dispatched the wave runner as a custom `.claude/agents/wave-runner.md` sub-agent type rather than `general-purpose`. Superseded within a day by the flat fan-out of 20260508-flatten, and the wave surface is gone entirely. This entry is the sole holder of the `20260507-1114a` identifier; the freshness-gate ADR that once shared it is now `20260507-1114b`.
 
 ---
 
@@ -1313,6 +899,7 @@ unreachable from `node --test` — it never silently passes.
 
 **Status:** Accepted
 **Date:** 2026-05-07
+**Surface:** `.agents/scripts/lib/branch-name-guard.js`
 **Epic:** #1072
 
 ### Context
@@ -1368,6 +955,7 @@ maintenance work:
 
 **Status:** Accepted
 **Date:** 2026-05-07
+**Surface:** `.agents/scripts/diagnose-friction.js`
 **Epic:** #1030
 
 ### Context
@@ -1457,6 +1045,7 @@ declare default values that the `.agentrc.json` template could mirror.
 
 **Status:** Accepted
 **Date:** 2026-05-05
+**Surface:** `.agents/schemas/audit-rules.json`
 **Epic:** #990
 
 ### Context
@@ -1562,271 +1151,31 @@ why each was set aside.
 
 ---
 
-## ADR 20260501-900a: Epic-centric workflow rework — four-skill split, single-session fan-out, retire GitHub triggers
+## ADR 20260501-900a: Epic-centric workflow rework — four-skill split, single-session fan-out, retire GitHub triggers (superseded)
 
-**Status:** Accepted
+**Status:** Superseded by [ADR 20260726-v2-story-collapse](#adr-20260726-v2-story-collapse-story-only-ticket-model-one-plan-one-deliver-one-engine)
 **Date:** 2026-05-01
-**Epic:** #900
-**Story:** #918
+**Full text:** `git show mandrel-v2.16.0:docs/decisions.md`
 
-### Context
-
-The execution surface had accreted in three layers that no longer
-matched the ticket model:
-
-1. A **single mega-skill** (`/sprint-execute`) that routed by `type::`
-   label (Epic Mode vs. Story Mode) and fanned out subprocess Claude
-   sessions for each Story.
-2. A **GitHub-triggered remote orchestrator** (`epic-orchestrator.yml`,
-   `remote-bootstrap.js`, `agent::dispatching` / `agent::planning` /
-   `agent::decomposing` trigger labels) that existed only to invoke the
-   slash commands headlessly on a GitHub-hosted runner.
-3. A **claim-based pool mode** (`pool-claim.js`, `lib/pool-mode.js`,
-   `in-progress-by:<sessionId>` claim labels) that arbitrated no-id
-   `/sprint-execute` launches across N web tabs.
-
-In the operator's day-to-day flow — single Claude Code session, no
-remote dispatch — every layer above was dead weight: extra labels, a
-parallel YAML, a bootstrap script, subprocess machinery, a claim race,
-and a routing CLI (`sprint-execute-router.js`) whose only job was to
-reverse the single-CLI design. The "sprint" nomenclature itself
-mismatched the Epic-centric ticket model on which everything sits.
-
-Six framing questions drove the scope.
-
-- **Q1.** Which trigger labels go? Just the three trigger-only labels, or
-  the whole `agent::review-spec`/`agent::ready` set too?
-- **Q2.** How does the wave loop fan out Stories — keep `claude -p`
-  subprocesses, or use the Agent tool inside the single session?
-- **Q3.** Should `task-execute` be its own slash command, or a path-
-  included helper read inline by `/story-deliver`?
-- **Q4.** What is renamed in the sprint→epic sweep? Slash commands and
-  helper `.md` files only, or top-level scripts and config keys too?
-  Structured-comment markers? `lib/orchestration/*` paths?
-- **Q5.** How does multi-level progress collation work — one shared
-  `epic-run-progress` comment written by all levels, or per-level
-  comments that parents collate?
-- **Q6.** With remote triggers gone, what survives of the planner CLI
-  surface? `--phase spec|decompose`? `--auto-dispatch`?
-  `epic-plan-state` checkpoint?
-
-### Decision
-
-Adopt the answers below for Epic #900; defer alternatives to a future
-ADR if the trade-off proves wrong.
-
-- **Q1 — minimal label cleanup.** Delete only the three trigger-only
-  labels: `agent::dispatching`, `agent::planning`, `agent::decomposing`.
-  Keep `agent::review-spec`, `agent::ready`, `agent::executing`,
-  `agent::review`, `agent::blocked`, `agent::done` — they still encode
-  lifecycle state independent of triggers.
-- **Q2 — single-session Agent-tool fan-out.** `/wave-execute` launches
-  Story sub-agents through the Agent tool in one assistant turn (capped
-  at `concurrencyCap`). No `claude -p` subprocess spawn, no headless
-  `--dangerously-skip-permissions` contract, no idle-watchdog, no
-  progress-log tailing via `Monitor`. Worktree filesystem isolation is
-  preserved; only the process boundary disappears.
-- **Q3 — `task-execute.md` is a helper, not a slash command.** The
-  per-Task discipline (`## Instructions` reading, scope guard,
-  `assert-branch`, conventional commit) is a procedural module read
-  inline by `/story-deliver` — not registered in `.claude/commands/`.
-  Tasks are not directly executable; they are implemented by the
-  parent Story's loop.
-- **Q4 — rename the operator-visible surface; keep internal markers
-  and lib paths.**
-  - Renamed: slash commands (`/epic-plan`, `/epic-close`), the new
-    skill files (`epic-deliver.md`, `wave-execute.md`,
-    `story-deliver.md`), top-level scripts (`epic-plan*.js`,
-    `story-*.js`, `epic-*.js`), helper `.md` files under
-    `workflows/helpers/`, and the config key
-    the legacy `sprintClose/runRetro` key →
-    `epicClose/runRetro` under the pre-reshape top-level block (with a
-    one-release shim that logs a deprecation warning when the legacy
-    key is read).
-  - Kept: structured-comment markers (`epic-run-state`,
-    `epic-plan-state`, `dispatch-manifest`, `story-init`,
-    `code-review`, `retro-complete` — already epic-shaped where it
-    matters; renaming would orphan history on existing Epics) and
-    `lib/orchestration/*` module paths (internal facade decomposition;
-    the public-facing renames already deliver the nomenclature win
-    without churning every import path).
-- **Q5 — per-level progress, parents collate.** `/story-deliver` writes
-  a `story-run-progress` structured comment per Task transition.
-  `/wave-execute` reads child story progress comments and writes a
-  wave-level rolled-up `wave-run-progress` comment. `/epic-execute`
-  reads child wave progress and renders the wave-level table inside
-  the operator-facing `epic-run-progress` summary at the top of the
-  Epic. Each level owns the comment for its own children; no shared
-  writer contention.
-- **Q6 — drop dead planner flags; keep checkpoint.** With remote
-  triggers gone, `/epic-plan` no longer needs `--phase spec|decompose`
-  (existed only so two GH labels could fire two halves) or
-  `--auto-dispatch` (applied `agent::dispatching`, which no longer
-  exists). The unified two-phase flow with the operator confirmation
-  gate is the only mode. The `epic-plan-state` checkpoint comment is
-  retained — it costs nothing and helps re-plans.
-
-### Rationale
-
-The four-skill split mirrors how the engine already decomposes work
-(`wave-scheduler`, `story-launcher`, `wave-observer` are existing
-internal submodules); promoting them to slash commands lets the
-operator stop or resume at any level and removes the "this skill
-routes by label" indirection. Single-session Agent-tool fan-out trades
-process isolation (which the worktree boundary already provided at the
-filesystem level) for in-session context budget; in practice the wave
-loop spends most of its time waiting on Story sub-agents and the
-in-session model was never the bottleneck. Per-level progress
-collation localises ownership of each comment to the level that
-generates it — no two writers contend for the same comment marker —
-at the cost of one extra structured-comment marker
-(`wave-run-progress`) per wave, which is cheap.
-
-The label-cleanup scope is deliberately narrow: deleting only the
-three trigger-only labels means downstream consumers running existing
-state machines on `agent::review`/`agent::done` see no change. The
-config-key rename ships with a one-release shim so a typical
-`.agentrc.json` update is a no-op until 5.32.0.
-
-### Implications
-
-- **For operators.** The `/sprint-*` muscle memory is gone. New flow:
-  `/epic-plan <id>` → `/epic-execute <id>` → `/epic-close <id>`. For
-  a single Story off the dispatch table, run `/story-deliver <id>`
-  directly. The four-skill split lets you stop or resume at any
-  level.
-- **For repos that used the GitHub-trigger path.** That surface is
-  deleted. The `agent::dispatching` label, the
-  `epic-orchestrator.yml` workflow, and the `remote-bootstrap.js`
-  script are gone. Drive Epics from a local Claude Code session
-  going forward; if you genuinely need a GitHub-Action driver,
-  re-introduce it as an out-of-tree workflow that invokes the local
-  CLI scripts directly.
-- **For consumer `.agentrc.json` files.** Rename the legacy
-  `sprintClose/runRetro` key → `epicClose/runRetro` under the
-  pre-reshape top-level block on your next edit. The legacy key
-  still reads with a one-shot
-  deprecation warning until removal in 5.32.0.
-- **For sub-agent prompt budget.** Story sub-agents now share the
-  parent session's context budget instead of getting a fresh
-  subprocess. The Story prompt deliberately scopes to one Story so
-  the budget remains predictable; a runaway Story burns parent
-  budget rather than its own.
-- **For history continuity.** Structured-comment markers and
-  `lib/orchestration/*` paths are unchanged, so existing Epics in
-  flight at the cutover boundary continue to validate against the
-  same readers.
-
-### References
-
-- Epic #900 body — full goals, non-goals, story decomposition, and
-  Q1–Q6 framing.
-- ADR 20260427-868a — open-root dispatch-manifest schema +
-  AJV fixture drift test (the pattern this Epic adopts for the
-  `wave-run-progress` comment shape).
-- `docs/CHANGELOG.md` 5.31.0 entry — consumer-visible migration
-  block for this Epic.
+Reworked the framework around an Epic-centric four-skill split with single-session fan-out, and retired the GitHub-label remote trigger. The Epic tier, the skill split, and the fan-out session are all gone; the trigger retirement stands and was never revisited.
 
 ---
 
-## ADR 20260427-868a: Open-root dispatch-manifest schema; AJV fixture drift test as enforcement boundary
+## ADR 20260427-868a: Open-root dispatch-manifest schema; AJV fixture drift test as enforcement boundary (superseded)
 
-**Status:** Accepted
+**Status:** Superseded by [ADR 20260726-v2-story-collapse](#adr-20260726-v2-story-collapse-story-only-ticket-model-one-plan-one-deliver-one-engine)
 **Date:** 2026-04-27
-**Epic:** #857
-**Story:** #868
+**Full text:** `git show mandrel-v2.16.0:docs/decisions.md`
 
-### Context
+Gave the dispatch manifest an open-root JSON schema policed by an AJV fixture-drift test. The dispatcher and its manifest were removed with the v2 collapse; the fixture-drift enforcement pattern survives on the lifecycle-event schemas.
 
-`.agents/schemas/dispatch-manifest.json` had `additionalProperties: false`
-at the root and a `required` list pinned to one of two manifest variants
-(epic-dispatch). The runtime emits two distinct manifest shapes:
-
-1. **epic-dispatch** — written by `dispatcher.js` via `buildManifest()`
-   in `.agents/scripts/lib/orchestration/manifest-builder.js`. Persisted to
-   `temp/dispatch-manifest-<epicId>.json`.
-2. **story-execution** — returned by `executeStory()` in
-   `.agents/scripts/lib/orchestration/story-executor.js`. In-memory only.
-
-`buildManifest()` also emits fields the schema did not declare:
-`storyManifest[].storyTitle`, `storyManifest[].type`,
-`storyManifest[].tasks[].status`, and root-level `agentTelemetry`. With
-`additionalProperties: false`, every fresh runtime field caused validation
-failure. With a single-variant `required` list, the story-execution shape
-could not be validated by the same schema at all.
-
-Two design options were considered:
-
-- **Strict-with-explicit-fields.** Keep `additionalProperties: false` and
-  exhaustively list every emitted field. Catches all drift, including new
-  unannounced fields. Forces a schema commit for every new runtime field.
-- **Open-root + drift test.** Drop root `additionalProperties: false`, list
-  the known fields, and rely on a fixture-based AJV drift test running
-  `buildManifest()` and `executeStory()` against representative inputs to
-  catch shape regressions on every CI build.
-
-### Decision
-
-Adopt the **open-root + drift test** model. Concretely:
-
-1. Drop `additionalProperties: false` at the schema root. Inner objects
-   (`summary`, wave items, `dispatched[]`,
-   `storyManifest[]`, `storyManifest[].tasks[]`, `stories[]`,
-   `stories[].tasks[]`) keep `additionalProperties: false` — those shapes
-   are stable and benefit from strict validation.
-2. Use a `oneOf` discriminator on the root `type` field
-   (`"epic-dispatch" | "story-execution"`) to gate variant-specific
-   `required` fields. The epic-dispatch branch tolerates an absent `type`
-   for back-compat with the current `buildManifest()` output; new emitters
-   should set `type: "epic-dispatch"` explicitly.
-3. Add the runtime fields to `properties`: root `agentTelemetry`
-   (`object`, `additionalProperties: true`); `storyManifest[].storyTitle`;
-   `storyManifest[].type` (group classification:
-   `"story" | "feature" | "ungrouped"`); `storyManifest[].tasks[].status`.
-4. Add `stories[]` at the root for the story-execution variant.
-5. Land the AJV fixture drift test
-   (`tests/enforcement/manifest-schema.test.js`) in the same Story so the
-   enforcement boundary is in place before the loosened root reaches main.
-
-### Rationale
-
-False-rejection has historically been the more disruptive failure mode for
-this contract: a runtime field added without a schema commit blocks every
-dispatch run that writes a manifest. Open-root with a CI-blocking drift
-test inverts that bias — runtime additions ship without ceremony, but a
-shape regression (missing required field, wrong type, wrong enum value)
-fails the suite on the same commit that introduces it.
-
-The AJV drift test is run on every CI build via `npm test`, so the
-enforcement window is the same as the previous strict-root window. The
-trade is "schema diff per new field" for "fixture diff when runtime shape
-changes" — the latter is a coarser but more robust drift signal.
-
-### Implications
-
-- **For schema authors:** new optional runtime fields require no schema
-  edit; new required fields must be added to the variant's `required`
-  list AND covered by a fixture in `manifest-schema.test.js`.
-- **For runtime authors:** emitted shape must validate against the schema;
-  the AJV error path is surfaced verbatim by the drift test, so failures
-  read as `instancePath: keyword` (e.g., `/storyManifest/0: required`).
-- **For external consumers:** the schema describes a permissive root; do
-  not rely on `additionalProperties: false` to reject unknown root keys.
-  Inner objects remain strict.
-
-### Out of scope
-
-- **Splitting into `dispatch-manifest.epic-dispatch.json` and
-  `dispatch-manifest.story-execution.json`.** A second consumer needing
-  the variants apart is the trigger for that split; today's single-file
-  `oneOf` is simpler.
-- **Adding `agentTelemetry` to `required`.** Optional by design; the
-  executor decides whether to attach telemetry.
+---
 
 ## ADR 20260426-829a: Strip-then-analyze for TypeScript scoring; keep typhonjs-escomplex
 
 **Status:** Accepted
 **Date:** 2026-04-26
+**Surface:** `.agents/scripts/lib/transpile.js`
 **Epic:** #829
 
 ### Context
@@ -1923,6 +1272,7 @@ ADRs about complexity ranges and tier thresholds remain valid.
 
 **Status:** Accepted
 **Date:** 2026-04-25
+**Surface:** `baselines/crap.json`
 **Epic:** #773
 
 ### Context
@@ -1953,6 +1303,7 @@ as a follow-on story.
 
 **Status:** Accepted
 **Date:** 2026-04-25
+**Surface:** `.agents/scripts/lib/worktree/lifecycle-manager.js`
 **Epic:** #773
 
 ### Context
@@ -1981,6 +1332,7 @@ facade. Tests pass unchanged because the public surface is preserved.
 
 **Status:** Accepted
 **Date:** 2026-04-25
+**Surface:** `.agents/scripts/lib/config-settings-schema.js`
 **Epic:** #730
 
 ### Context
@@ -2084,6 +1436,7 @@ Concretely:
 
 **Status:** Accepted
 **Date:** 2026-04-24
+**Surface:** `.agents/scripts/post-structured-comment.js`
 **Epic:** #702
 
 **Supersedes:** ADR-20260422-441b (_Canonical structured-comment writer is the MCP tool_),
@@ -2203,6 +1556,7 @@ removal, not a logic change.
 
 **Status:** Accepted
 **Date:** 2026-04-24
+**Surface:** `.agents/scripts/lib/config/runtime.js`
 **Epic:** #668
 
 ### Context
@@ -2280,6 +1634,7 @@ and are preserved in the project's Git history. ADR 004
 
 **Status:** Accepted
 **Date:** 2026-04-19
+**Surface:** `.agents/rules/gherkin-standards.md`
 **Epic:** #269
 
 ### Context
@@ -2334,6 +1689,7 @@ tests rather than encoding them in `.feature` files.
 
 **Status:** Accepted
 **Date:** 2026-04-20
+**Surface:** `.agents/scripts/lib/worktree-manager.js`
 **Epic:** #297
 
 ### Context
@@ -2394,51 +1750,20 @@ submodule paths are internal implementation detail.
 
 ---
 
-## ADR-20260421: Epic-level remote orchestration via GitHub label trigger
+## ADR-20260421-321a: Epic-level remote orchestration via GitHub label trigger (superseded)
 
-*   **Status:** Accepted (Epic #321, v5.14.0).
-*   **Context:** Before v5.14.0 `/sprint-execute` was story-scoped and
-    operator-driven: the operator picked Stories off the dispatch table
-    and launched each in its own window. Wave advancement and bookend
-    chaining (review → retro → close) were manual. The orchestration
-    primitives to automate this already existed (`dispatch_wave`,
-    `Graph.computeWaves()`, `cascadeCompletion`), but no long-running
-    driver tied them together.
-*   **Decision:** A new `/sprint-execute-epic` skill wraps a composed
-    `EpicRunner` coordinator that walks the wave DAG, fans out per-story
-    executor sub-agents (bounded by `concurrencyCap`), checkpoints
-    progress on the Epic via the `epic-run-state` structured comment,
-    and halts only at `agent::review` or on blocker escalation. A
-    GitHub Actions workflow (`epic-orchestrator.yml`) fires on
-    `agent::dispatching` label application, boots a Claude remote
-    agent, and launches the same skill against the same engine. Local
-    and remote runs share code path.
-*   **Alternatives considered:**
-    *   Build a separate "epic executor" service running outside
-        GitHub — rejected because it would reinvent the dispatcher and
-        require its own state store.
-    *   Extend `/sprint-execute` to accept either Story or Epic IDs
-        (single command, switch on type) — rejected for v5.14.0 to keep
-        the rename/alias story clean; planned for Epic #349.
-    *   Runtime HITL approval on every wave boundary — rejected; the
-        Epic's whole value proposition is HITL-minimal execution.
-*   **Consequences:**
-    *   Three operator touchpoints on the happy path: dispatch,
-        blocker resolution, review hand-off.
-    *   `epic::auto-close` authorizes autonomous merge-to-main, so
-        branch protection on `main` becomes the primary defense for
-        destructive actions.
-    *   `risk::high` runtime gating is retired (see ADR below); the
-        label remains as retro-visible metadata.
-    *   The remote-agent environment has a new secret surface
-        (`ENV_FILE`, `MCP_JSON`, `GITHUB_TOKEN`); `::add-mask::` +
-        `0600` file perms in `remote-bootstrap.js` are the contract.
+**Status:** Superseded by [ADR 20260501-900a](#adr-20260501-900a-epic-centric-workflow-rework--four-skill-split-single-session-fan-out-retire-github-triggers-superseded)
+**Date:** 2026-04-21
+**Full text:** `git show mandrel-v2.16.0:docs/decisions.md`
+
+Triggered Epic-level orchestration from a GitHub label via `epic-orchestrator.yml` + `remote-bootstrap.js`. Retired by 900a, which removed GitHub triggers outright; delivery is operator-invoked only.
 
 ---
 
-## ADR-20260421: Retire `risk::high` runtime gating
+## ADR-20260421-321b: Retire `risk::high` runtime gating
 
 *   **Status:** Accepted (Epic #321 Story #334, v5.14.0).
+*   **Surface:** `.agents/instructions.md`
 *   **Context:** `risk-gate-handler.js` halted the dispatcher on
     `risk::high` tasks, and `story-close.js` halted close for
     `risk::high` stories. In the new HITL-minimal model this becomes
@@ -2466,9 +1791,10 @@ submodule paths are internal implementation detail.
 
 ---
 
-## ADR-20260422: Two-stage Windows worktree reap (fs.rm retry + deferred sweep)
+## ADR-20260422-380a: Two-stage Windows worktree reap (fs.rm retry + deferred sweep)
 
 *   **Status:** Accepted (Epic #380 Story #386, v5.15.1).
+*   **Surface:** `.agents/scripts/lib/worktree/lifecycle-manager.js`
 *   **Context:** The v5.7.0 worktree-per-story model ships a clean
     `reap` path for POSIX, but on Windows `git worktree remove` + the
     follow-up `fs.rm` routinely fail with `EBUSY` / `ENOTEMPTY` because
@@ -2512,124 +1838,45 @@ submodule paths are internal implementation detail.
 
 ---
 
-## ADR-20260422: `/sprint-retro` routes through provider.postComment, not notify.js
+## ADR-20260422-380b: `/sprint-retro` routes through provider.postComment, not notify.js (superseded)
 
-*   **Status:** Accepted (Epic #380 Story #388, v5.15.1).
-*   **Context:** `notify.js` dispatches via the Make.com webhook
-    configured via the `NOTIFICATION_WEBHOOK_URL` env var (formerly the
-    legacy `notificationWebhookUrl` key under the pre-reshape
-    `orchestration` block). It is the
-    right surface for operator pings ("your story needs review") but
-    the wrong surface for retro bodies, which are long-form markdown
-    with internal-only friction analysis. v5.15.0 routed retros through
-    `notify.js`; the webhook forwarded every retro to Slack, leaking
-    draft content and friction citations to channels that should never
-    have seen them.
-*   **Decision:** `/sprint-retro` posts the retro body via
-    `provider.postComment` (or the MCP `post_structured_comment` tool
-    when running under the MCP harness). The ticket issue is the SSOT
-    for retros; no external webhook is invoked. A `retro-partial`
-    structured-comment checkpoint is written during collection so a
-    crashed retro resumes without re-reading the friction log.
-*   **Alternatives considered:**
-    *   Keep `notify.js` but filter retro payloads at the webhook side —
-        rejected; the webhook is out-of-repo and out-of-review, so a
-        filter there is not auditable from this repository.
-    *   Write retros to a local file and upload as a gist — rejected;
-        breaks the "GitHub issue is the SSOT" invariant the whole
-        framework rests on.
-*   **Consequences:**
-    *   Retro routing is resolved at the framework level, not just as a
-        per-project rule.
-    *   `notify.js` is now scoped exclusively to short operator pings;
-        its payload surface is correspondingly smaller.
-    *   Retro resumption is a first-class flow: the `retro-partial`
-        marker is idempotent and the final `retro-complete` upsert
-        replaces it on success.
+**Status:** Superseded by [ADR 20260510-sdl-collapse](#adr-20260510-sdl-collapse-5400--collapse-to-epic-plan--epic-deliver-fold-retro-into-deliver-tail-superseded)
+**Date:** 2026-04-22
+**Full text:** `git show mandrel-v2.16.0:docs/decisions.md`
 
-## ADR-20260422: Pre-wave spawn smoke-test + post-wave commit assertion
+Routed `/sprint-retro` through `provider.postComment` instead of `notify.js`. The retro command was folded into the deliver tail and then removed; `notify.js` survives as the operator-notification surface only.
 
-*   **Status:** Accepted (Epic #413 Stories #419 / #420, v5.15.2).
-*   **Context:** The single highest-impact bug of Epic #380 was that
-    every Story dispatched via the `defaultSpawn` adapter exited in ~3
-    seconds without doing any work. A one-line Windows shell-quoting
-    bug wasted a full 28-second "successful" wave. The fix landed
-    mid-close as commit `6830fbe`, but nothing in the runtime path
-    would have flagged the regression earlier than "wave reports done,
-    no commits exist."
-*   **Decision:** Two complementary guards are wired into the
-    `epic-runner` coordinator:
-    1.  `SpawnSmokeTest` (`lib/orchestration/epic-runner/spawn-smoke-test.js`)
-        runs `claude --version` through the real `buildClaudeSpawn`
-        shape before Wave 1 dispatches. A non-zero exit (or 5s
-        timeout) halts the runner with a friction comment naming
-        `CLAUDE_BIN`, the exit code, and stderr; the Epic flips to
-        `agent::blocked`.
-    2.  `CommitAssertion` (`lib/orchestration/epic-runner/commit-assertion.js`)
-        runs after each wave reports `done`. It iterates the done
-        Stories and confirms every `origin/story-<id>` has at least
-        one new commit reachable from `origin/epic/<epicId>`. A
-        zero-delta story reclassifies the wave as `halted`.
-*   **Alternatives considered:**
-    *   Rely on the close-time assertion alone — rejected; that
-        already exists implicitly (no commits → close fails) but the
-        feedback loop is too long. Catching the spawn bug at Wave 1
-        instead of Wave N saves up to N × wave-duration of wasted run.
-    *   Invoke `claude --version` once at runner load — rejected;
-        the failure mode was specifically about the
-        `--dangerously-skip-permissions` arg shape, which `--version`
-        + a stub binary doesn't fully exercise. The smoke-test runs
-        the real shape.
-*   **Consequences:**
-    *   The `defaultSpawn` regression class fails fast (in seconds, not
-        a wave) and surfaces a structured friction comment on the
-        Epic. Operators no longer need to read the runner stdout to
-        diagnose.
-    *   The `CommitAssertion` adds one provider round-trip per Story
-        per wave — negligible against the wave duration but real
-        against a 100-Story epic; the gating is not configurable
-        (intentionally — silent zero-delta closes are always wrong).
-    *   The Epic #413 retro itself is the proof: while writing this
-        ADR, the runner correctly identified a no-spawn condition
-        for Wave N would not have surfaced under the prior protocol.
+---
 
-## ADR-20260422: `sprint-story-close` recovery via explicit --resume / --restart
+## ADR-20260422-413a: Pre-wave spawn smoke-test + post-wave commit assertion (superseded)
 
-*   **Status:** Accepted (Epic #413 Story #421, v5.15.2).
-*   **Context:** Epic #380's mid-close on Story #389 required ~30
-    minutes of manual git surgery (resolve the merge in progress,
-    re-run validation, re-merge to the Epic branch). The stock
-    `story-close.js` had no concept of "resuming" — re-running
-    it from the worktree always re-ran init/implement/validate
-    end-to-end, which was wasteful and racy.
-*   **Decision:** `story-close.js` now classifies the close-time
-    state via `detectPriorState()` into one of: `clean` (default,
-    proceed), `unmerged-story-branch` (story branch has commits ahead
-    of `epic/<id>` that haven't merged), `merge-in-progress` (UU
-    markers on `epic/<id>`), or `dirty-worktree` (uncommitted edits in
-    `.worktrees/story-<id>/`). With no flag, the script prints the
-    detected state + remediation guidance and exits.
-    `--resume` picks up at the merge resolution step without
-    re-running init/implement/validate. `--restart` aborts any partial
-    state and re-inits from scratch.
-*   **Alternatives considered:**
-    *   Always re-init (the prior behaviour) — rejected; throws away
-        in-flight work and risks loss of uncommitted changes in the
-        worktree.
-    *   Detect the state and silently auto-resume — rejected; the
-        operator should explicitly choose recovery vs restart so an
-        accidental partial state isn't promoted to "shipped" without
-        review.
-*   **Consequences:**
-    *   The recovery path Epic #380 needed to execute manually for
-        Story #389 reduces to `sprint-story-close --story 389 --resume`.
-    *   The default (no-flag) failure is loud and informative rather
-        than silent — operators see what state the close is in before
-        they choose their next action.
+**Status:** Superseded by [ADR 20260726-v2-story-collapse](#adr-20260726-v2-story-collapse-story-only-ticket-model-one-plan-one-deliver-one-engine)
+**Date:** 2026-04-22
+**Full text:** `git show mandrel-v2.16.0:docs/decisions.md`
+
+Guarded wave dispatch with a pre-wave spawn smoke-test and a post-wave commit assertion, so a silent fan-out failure could not read as success. Waves are gone; the equivalent guard is the close pipeline’s wrong-tree guard plus the terminal envelope’s explicit gate verdicts.
+
+---
+
+## ADR-20260422-413b: `sprint-story-close` recovery via explicit --resume / --restart (superseded)
+
+**Status:** Superseded by [ADR 20260726-v2-story-collapse](#adr-20260726-v2-story-collapse-story-only-ticket-model-one-plan-one-deliver-one-engine)
+**Date:** 2026-04-22
+**Full text:** `git show mandrel-v2.16.0:docs/decisions.md`
+
+Made `sprint-story-close` recovery explicit via `--resume` / `--restart` rather than inferred. The script is gone; recovery is now a read-only probe (`deliver-recover.js`) that prints one next command.
+
+---
 
 ## ADR-20260422-441a: Force-reap worktrees whose Story branch is already merged
 
-*   **Status:** Accepted (Epic #441 Story #451, v5.15.3).
+*   **Status:** Accepted (Epic #441 Story #451, v5.15.3) — rule stands; the
+    `/sprint-close` Phase 4 mechanics below are superseded. The
+    force-reap-when-already-merged rule now lives in the protected boot sweep
+    (`boot-sweep.js`), which reaps a local branch only when its PR is MERGED
+    and HEAD matches the merged `headRefOid`; content-merged branches are
+    report-only.
+*   **Surface:** `.agents/scripts/boot-sweep.js`
 *   **Context:** Epic #413's `/sprint-close` Phase 4 reaper left 3 of 6
     worktrees orphaned (`story-420`, `story-423`, `story-424`) with
     `reap-skipped: uncommitted-changes`, even though every Story branch
@@ -2661,116 +1908,33 @@ submodule paths are internal implementation detail.
     *   Operators who intentionally leave work-in-progress in a
         worktree after close must pass the override explicitly.
 
-## ADR-20260422-441b: Canonical structured-comment writer is the MCP tool
+## ADR-20260422-441b: Canonical structured-comment writer is the MCP tool (superseded)
 
-*   **Status:** Accepted (Epic #441 Story #449, v5.15.3).
-*   **Context:** The MCP tool
-    `mcp__mandrel__post_structured_comment` originally
-    accepted only `progress | friction | notification` as `type`
-    values. As a result, `epic-code-review.js`,
-    `.claude/skills/epic-retro.md`, the wave-observer, and the
-    progress-reporter each hand-rolled their own structured-comment
-    marker and posted via `provider.postComment` directly, bypassing
-    payload-schema validation. During Epic #413's close, the retro
-    flow had to fall back to `notification` type as a workaround.
-*   **Decision:** The MCP tool's `type` enum + payload schema are
-    extended with `code-review`, `retro`, `retro-partial`,
-    `epic-run-state`, `epic-run-progress`, `parked-follow-ons`,
-    `dispatch-manifest`, and a regex for parametric `wave-N-start` /
-    `wave-N-end`. All consumers that previously hand-rolled markers
-    route through the tool. Hand-rolled `provider.postComment` calls
-    with structured markers are treated as an anti-pattern.
-*   **Alternatives considered:**
-    *   Leave the enum as-is and continue hand-rolling — rejected;
-        duplicates the marker invariants across multiple call sites
-        and loses schema validation.
-    *   Accept arbitrary `type` strings — rejected; loses the
-        validation surface that catches typo-driven markers.
-*   **Consequences:**
-    *   A single canonical writer enforces marker shape + payload
-        validation. The retro-fallback-to-`notification` regression is
-        no longer possible.
-    *   New structured-comment types are a schema bump, not a
-        convention change — future additions land alongside their
-        validators.
+**Status:** Superseded by [ADR 20260424-702a](#adr-20260424-702a-retire-mandrel-mcp)
+**Date:** 2026-04-22
+**Full text:** `git show mandrel-v2.16.0:docs/decisions.md`
 
-## ADR-20260423: Trust the ticket, not the pipe — idle-timeout ground truth
-
-*   **Status:** Accepted (Epic #470, v5.17.0).
-*   **Context:** `epic-runner` spawns each Story as
-    `claude -p '/sprint-execute <id>' --dangerously-skip-permissions`.
-    The `-p` flag runs the CLI in batch mode: the model's final response
-    is the only stdout the pipe ever sees, emitted at session exit.
-    For architect-tier stories that legitimately take >15 minutes of model
-    + tool time, the pipe stays silent the whole run. The idle-watchdog
-    was therefore firing on real work, not hangs, and declaring the
-    Story `failed` even when the sub-agent went on to merge and close
-    the ticket cleanly. Compounding the problem on Windows, the
-    `shell: true` spawn meant `proc.kill()` terminated `cmd.exe` only,
-    orphaning the grandchild `node` running Claude Code; the orphan
-    often finished the work after the runner had reported failure.
-*   **Decision:** The idle-timeout path is no longer authoritative.
-    When the watchdog fires, the runner (A) calls `killProcessTree(proc)`
-    — on Windows `taskkill /T /F /PID` to reap the whole tree, elsewhere
-    `proc.kill()` — then (B) polls the Story ticket every 15s for up to
-    120s via `provider.getTicket(id, { fresh: true })`. If a grace read
-    finds `agent::done`, resolve `done`; `agent::blocked` resolves
-    `blocked`; otherwise the runner finally reports `failed` with the
-    actual label list in the detail string.
-*   **Alternatives considered:**
-    *   Raise `idleTimeoutSec` globally — papers over the mismatch; long
-        stories just fail a few minutes later. Rejected.
-    *   Force `claude -p` to stream token output — not a supported CLI
-        flag. Rejected.
-    *   Switch to a tier-aware timeout — architect stories get 30m,
-        engineer stories 15m. Adds config surface without fixing the
-        Windows orphan. Folded into (A)+(B) as future tuning.
-*   **Consequences:**
-    *   False-positive `failed` halts on long Stories stop happening —
-        the runner reports the ticket's actual state.
-    *   Windows grandchild orphans no longer survive `proc.kill()`.
-    *   Friction-comment detail now reads
-        `idle-timeout: no output for 900s; labels=<actual labels>`
-        instead of speculating "likely hung on interactive prompt".
-    *   Resumed runs short-circuit already-done Stories in `iterate-waves`
-        via a pre-launch label fetch, so a blocker halt no longer costs
-        a fresh worktree + `npm ci` for every closed Story on re-run.
+Named the mandrel MCP tool the canonical structured-comment writer. The MCP server was retired two days later; `post-structured-comment.js` is the canonical writer.
 
 ---
 
-## ADR-20260423-511a: Features remain in the cascade; Epics and Planning do not
+## ADR-20260423: Trust the ticket, not the pipe — idle-timeout ground truth (superseded)
 
-*   **Status:** Accepted
-*   **Date:** 2026-04-23
-*   **Epic:** #511
-*   **Context:** `cascadeCompletion()` previously excluded only `type::epic`,
-    `context::prd`, and `context::tech-spec` parents. Features fell through
-    the exclusion list silently — they auto-closed because nothing stopped
-    them, not because the behaviour had been chosen. A Feature still being
-    scoped while early Stories landed closed prematurely, stranding later
-    scope work without a parent.
-*   **Decision:** Keep Feature auto-close, and make it an explicit choice
-    rather than an implicit side-effect. A Feature carries no standalone
-    branch, no merge step, and no release artefacts — when its last child
-    Story closes, the Feature is complete by definition, and a manual close
-    step would be pure ceremony. Operators who want Feature-level
-    acceptance-criteria verification should encode it in the final child
-    Story. The exclusion list in `cascadeCompletion()` is now asserted by a
-    regression test pinned under Epic #511 so future refactors cannot drift.
-*   **Alternatives considered:**
-    *   Add `type::feature` to the exclusion list — forces a manual close
-        step with no corresponding merge/release work. Rejected as
-        ceremony.
-    *   Scope-guard Features via a new `feature::scoping-complete` label —
-        adds surface area to solve a problem the Story-level workflow
-        already owns.
-*   **Consequences:**
-    *   Feature cascade behaviour is load-bearing, not accidental.
-    *   A future refactor that accidentally adds `type::feature` to the
-        exclusion list fails the pinned test rather than silently changing
-        closure semantics.
-    *   The Feature auto-close rule is now documented in
-        [`architecture.md` § Cascade Behavior](architecture.md#cascade-behavior).
+**Status:** Superseded by [ADR 20260726-v2-story-collapse](#adr-20260726-v2-story-collapse-story-only-ticket-model-one-plan-one-deliver-one-engine)
+**Date:** 2026-04-23
+**Full text:** `git show mandrel-v2.16.0:docs/decisions.md`
+
+Treated the ticket, not the sub-agent stdout pipe, as ground truth for idle-timeout decisions during Epic fan-out. There is no dispatch pipe and no idle timeout in v2; the ticket-is-ground-truth principle survives in the label-driven state model.
+
+---
+
+## ADR-20260423-511a: Features remain in the cascade; Epics and Planning do not (superseded)
+
+**Status:** Superseded by [ADR 20260611-two-tier-hierarchy](#adr-20260611-two-tier-hierarchy-remove-the-feature-tier-epic--story-superseded)
+**Date:** 2026-04-23
+**Full text:** `git show mandrel-v2.16.0:docs/decisions.md`
+
+Kept Feature tickets inside the completion cascade while excluding Epics and planning tickets. The Feature tier was deleted, taking the cascade rule with it.
 
 ---
 
@@ -2778,6 +1942,7 @@ submodule paths are internal implementation detail.
 
 *   **Status:** Accepted
 *   **Date:** 2026-04-23
+*   **Surface:** `.agents/scripts/providers/github/tickets.js`
 *   **Epic:** #511
 *   **Context:** `transitionTicketState()` wraps the prior-state label
     lookup in a silent try/catch — any error leaves `fromState` as `null`
@@ -2797,107 +1962,41 @@ submodule paths are internal implementation detail.
 
 ---
 
-## ADR-20260423-511c: Dispatch-manifest writes are atomic (tmp + rename)
+## ADR-20260423-511c: Dispatch-manifest writes are atomic (tmp + rename) (superseded)
 
-*   **Status:** Accepted
-*   **Date:** 2026-04-23
-*   **Epic:** #511
-*   **Context:** `.agents/scripts/lib/presentation/manifest-persistence.js`
-    wrote the dispatch manifest directly. A crash mid-write (or a full
-    disk) left the file truncated; the next orchestrator run consumed a
-    corrupt JSON file as if it were the source of truth.
-*   **Decision:** Write to `temp/dispatch-manifest-<epicId>.json.tmp`, then
-    `fs.renameSync()` to the final path. `rename` is atomic on the same
-    filesystem — the final path either carries the previous valid manifest
-    or the newly-written one, never a partial write. If `rename` fails,
-    delete the `.tmp` residue and re-throw. Surface the persist outcome to
-    the MCP caller via `manifestPersisted: boolean` and optional
-    `manifestPersistError: string` on the `dispatch_wave` tool result —
-    callers (notably `sprint-execute`) already treat the manifest as
-    canonical, so a failed persist must not be swallowed.
-*   **Consequences:**
-    *   A mid-write crash never corrupts the manifest.
-    *   MCP callers can branch on `manifestPersisted` instead of reading a
-        stale file unknowingly.
-    *   Regression test covers the write-failure path (`fs.writeFileSync`
-        throws `EACCES`, assert `manifestPersisted: false` + error string).
+**Status:** Superseded by [ADR 20260726-v2-story-collapse](#adr-20260726-v2-story-collapse-story-only-ticket-model-one-plan-one-deliver-one-engine)
+**Date:** 2026-04-23
+**Full text:** `git show mandrel-v2.16.0:docs/decisions.md`
+
+Made dispatch-manifest writes atomic (write-tmp + rename) so a crashed dispatcher could not leave a half-written manifest. The manifest is gone; the atomic-write discipline survives in the baseline and ledger writers.
 
 ---
 
-## ADR-20260424-553a: Bounded-concurrency + TTL cache for epic-runner fanout
+## ADR-20260424-553a: Bounded-concurrency + TTL cache for epic-runner fanout (superseded)
 
-*   **Status:** Accepted
-*   **Date:** 2026-04-24
-*   **Epic:** #553
-*   **Context:** Two independent performance audits converged on the same
-    hot paths. `wave-gate.js` ran three serial `for..of` loops of
-    `await getTicket`; `ProgressReporter` fanned out `getTicket(id, { fresh: true })`
-    across every story in every wave on every cadence tick; `state-poller`
-    fetched a full ticket per tracked story just to read `.labels`; every
-    `GitHubProvider` construction spawned `gh auth token` afresh. On large
-    epics this produced avoidable wall-clock and risked secondary rate
-    limits. Unbounded `Promise.all` would trade sequential latency for a
-    thundering-herd problem.
-*   **Decision:** Introduce a single `concurrentMap(items, fn, { concurrency })`
-    primitive at `lib/util/concurrent-map.js` and adopt it at every
-    framework fanout: wave-gate (all stories), commit-assertion at wave-end
-    (cap 4; git is CPU/disk-bound), progress-reporter (cap 8). Extend the
-    provider cache with `getTicket(id, { maxAgeMs })`; swap the
-    progress-reporter's `{ fresh: true }` for `{ maxAgeMs: 10_000 }`. Prime
-    the ticket cache from every `getTickets(epicId)` sweep so downstream
-    per-ticket reads cost zero HTTP. Memoize the first successful
-    `gh auth token` into `process.env.GITHUB_TOKEN` so subsequent provider
-    constructions short-circuit. Add a bulk `issues?labels=agent::*&state=open`
-    path to `state-poller` with malformed-response fallback to per-ticket.
-*   **Consequences:**
-    *   10-second TTL staleness is the ceiling on label-observation
-        lag. Any write through the provider invalidates the cache
-        entry, so post-write reads are fresh.
-    *   Concurrency caps are currently constants; an `agentSettings`
-        override is deferred until the phase-timer data (same Epic)
-        demonstrates where the caps actually bind.
-    *   Bulk-poll is guarded by an explicit well-formedness check;
-        label-schema drift falls back to the per-ticket path rather
-        than propagating bad state.
-    *   Phase-timer instrumentation (ADR-20260424-553b) is the
-        measurement surface that validates these caps on future epics —
-        no more guessing.
+**Status:** Superseded by [ADR 20260726-v2-story-collapse](#adr-20260726-v2-story-collapse-story-only-ticket-model-one-plan-one-deliver-one-engine)
+**Date:** 2026-04-24
+**Full text:** `git show mandrel-v2.16.0:docs/decisions.md`
+
+Bounded the Epic-runner fan-out with a concurrency cap and a TTL cache over provider reads. The Epic runner is gone; the primitive survives as `lib/util/concurrent-map.js`, now consumed by `resolve-stories.js` and the provider clients.
 
 ---
 
-## ADR-20260424-553b: Per-phase timing as a first-class epic-runner surface
+## ADR-20260424-553b: Per-phase timing as a first-class epic-runner surface (superseded)
 
-*   **Status:** Accepted
-*   **Date:** 2026-04-24
-*   **Epic:** #553
-*   **Context:** Consumers could not distinguish framework-intrinsic
-    overhead (worktree create, `.agents/` copy, bootstrap) from their own
-    costs (install, lint, test, implement) when a story took too long.
-    Progress snapshots reported wave-level state but carried no timing
-    data, so perf regressions were caught by anecdote rather than
-    measurement. Future perf work had no baseline to measure against.
-*   **Decision:** Build `lib/util/phase-timer.js` + `phase-timer-state.js`
-    as a framework primitive with `snapshot` / `restore` semantics so
-    phase spans survive the `sprint-story-init` → `sprint-story-close`
-    boundary. Emit per-phase elapsed-time lines during the lifecycle.
-    On Story close, post a `phase-timings` structured comment on the
-    Story ticket. Extend `ProgressReporter` to aggregate **median /
-    p95** across every closed Story in the current wave and render the
-    result into the Epic's `epic-run-progress` comment.
-*   **Consequences:**
-    *   Per-Story timings become the regression canary for future
-        framework-overhead changes — the next perf Epic starts with
-        data, not inference.
-    *   The `phase-timings` comment is machine-readable so consumer
-        projects can build their own dashboards without scraping logs.
-    *   The `ProgressReporter` aggregation runs behind the same TTL +
-        concurrency cap introduced in ADR-20260424-553a — observability
-        cannot re-introduce the fanout cost it was designed to measure.
+**Status:** Superseded by [ADR 20260726-v2-story-collapse](#adr-20260726-v2-story-collapse-story-only-ticket-model-one-plan-one-deliver-one-engine)
+**Date:** 2026-04-24
+**Full text:** `git show mandrel-v2.16.0:docs/decisions.md`
+
+Made per-phase timing a first-class Epic-runner surface, posting a `phase-timings` structured comment on Story close. The Epic runner is gone and no producer posts that comment any more; `lib/util/phase-timer.js` survives as an internal span recorder for the close-validation runner.
+
+---
 
 ## ADR-20260424-596a: CRAP as a sibling gate, not a replacement for MI
 
 *   **Status:** Accepted
 *   **Date:** 2026-04-24
+*   **Surface:** `baselines/maintainability.json`
 *   **Epic:** #596
 *   **Context:** The maintainability (MI) gate ratchets a per-file composite
     score, but is coverage-blind: a 30-branch function scores identically
@@ -2927,47 +2026,21 @@ submodule paths are internal implementation detail.
     *   A future Epic can refactor both gates onto a shared envelope/helper
         base if/when symmetry pays off; today's parity is shape-level only.
 
-## ADR-20260424-596b: Base-branch-enforced anti-gaming guardrail
+## ADR-20260424-596b: Base-branch-enforced anti-gaming guardrail (reverted)
 
-*   **Status:** Reverted (2026-05-12) — see CHANGELOG 5.42 entry. The
-    `baseline-refresh-guardrail.yml` workflow and its supporting CLI
-    script were removed alongside the bot-approver pipeline. The
-    `baseline-refresh:`-tagged commit convention is preserved as an
-    operator standard but is no longer machine-enforced. Decision text
-    retained for historical context.
-*   **Date:** 2026-04-24
-*   **Epic:** #596
-*   **Context:** A PR that simultaneously raises `newMethodCeiling` in
-    `.agentrc.json` AND introduces a method over the new (relaxed) ceiling
-    would pass its own gate — the gate reads its own branch's config. With
-    agentic authorship, this is not a hypothetical: the shortest path to
-    green CI is to relax the threshold. A purely advisory "don't do this"
-    norm would be eroded within weeks.
-*   **Decision:** Add a `pull_request`-only `baseline-refresh-guardrail.yml`
-    workflow that reads thresholds from the **base branch** via
-    `git show origin/<base>:.agentrc.json`, then re-runs `check-crap` with
-    those values forced via `CRAP_NEW_METHOD_CEILING` / `CRAP_TOLERANCE` /
-    `CRAP_REFRESH_TAG` env vars. Any PR that touches `crap-baseline.json` or
-    `maintainability-baseline.json` must include at least one commit whose
-    subject starts with the configured `refreshTag` (default
-    `baseline-refresh:`) AND whose body is non-empty — both required.
-    Baseline-only PRs receive the `review::baseline-refresh` label
-    idempotently across re-runs.
-*   **Consequences:**
-    *   Threshold relaxation requires either a separately committed baseline
-        refresh (with justification body) or it fails CI under base-branch
-        values — a malicious or careless PR cannot do both at once.
-    *   The label ensures every refresh is reviewer-visible even on green
-        CI; "silently merged a baseline" is no longer a possible failure
-        mode.
-    *   The env-var seam is the same one operators can use ad-hoc to test
-        a stricter ceiling against the current branch — testing surface is
-        identical to the enforcement surface.
+**Status:** Reverted (2026-05-12) — see the CHANGELOG 5.42 entry
+**Date:** 2026-04-24
+**Full text:** `git show mandrel-v2.16.0:docs/decisions.md`
+
+Read quality-gate thresholds from the base branch rather than the PR branch, so a PR could not relax its own ceiling. Reverted with the bot-approver pipeline: `baseline-refresh-guardrail.yml` and its CLI were removed and the `baseline-refresh:` commit-tag convention is now an operator standard, not a machine-enforced one.
+
+---
 
 ## ADR-20260424-596c: Kernel-version stamp on the CRAP baseline
 
 *   **Status:** Accepted
 *   **Date:** 2026-04-24
+*   **Surface:** `baselines/crap.json`
 *   **Epic:** #596
 *   **Context:** `typhonjs-escomplex` makes scoring decisions that change
     between minor versions. Without a version stamp, an upstream dependency
@@ -2999,6 +2072,7 @@ submodule paths are internal implementation detail.
 
 *   **Status:** Accepted
 *   **Date:** 2026-04-24
+*   **Surface:** `.agents/scripts/lib/worktree/bootstrapper.js`
 *   **Epic:** #638 (Story #648)
 *   **Context:** Epic #553 close fired the `worktree.reap recovered via
     fs-rm-retry … attempts=1 lockReason=contains modified or untracked
@@ -3048,6 +2122,7 @@ submodule paths are internal implementation detail.
 ## ADR-20260426-817a: Validation evidence is keyed by commit SHA, not by build ID
 
 *   **Status:** Accepted (Epic #817, v5.28.0).
+*   **Surface:** `.agents/scripts/evidence-gate.js`
 *   **Context:** Epic #817's hot-path audit found lint and tests running
     five-plus times per Story against the same tree (sprint-execute Step 2,
     story-close, sprint-code-review, sprint-close Phase 4, pre-push, CI).
@@ -3076,31 +2151,20 @@ submodule paths are internal implementation detail.
         — CI gets its own evidence record (or none), and pre-push hooks
         retain authoritative independence.
 
-## ADR-20260426-817b: `sprint-story-close` is the canonical local Story validation gate
+## ADR-20260426-817b: `sprint-story-close` is the canonical local Story validation gate (superseded)
 
-*   **Status:** Accepted (Epic #817, v5.28.0).
-*   **Context:** `sprint-execute.md` Step 2 used to require an explicit
-    `npm run lint && npm test` before invoking `story-close.js`,
-    which then re-ran the same gates as part of close-validation. Headless
-    sub-agent runs paid the cost twice; interactive runs blurred the
-    decision of which result was authoritative. With evidence-aware skip
-    in place (#817a), the duplication was no longer needed for safety.
-*   **Decision:** `story-close.js` is the single source of truth
-    for local Story merge readiness. The pre-flight `npm run lint &&
-    npm test` is now described as advisory `--fast` mode for interactive
-    iteration — failures will be re-surfaced by the close-validation gate
-    regardless. Sub-agent runs may proceed straight from implementation
-    to close.
-*   **Consequences:**
-    *   Per-Story wall-clock cost roughly halves on sub-agent runs.
-    *   Operator authority is unambiguous: the close gate's verdict is
-        the verdict.
-    *   Interactive `--fast` mode remains useful in terminals where the
-        operator wants a fast read on a fix before composing the close.
+**Status:** Superseded by [ADR 20260726-v2-story-collapse](#adr-20260726-v2-story-collapse-story-only-ticket-model-one-plan-one-deliver-one-engine)
+**Date:** 2026-04-26
+**Full text:** `git show mandrel-v2.16.0:docs/decisions.md`
+
+Named `sprint-story-close` the single canonical local Story validation gate, so no other surface could claim to have validated a Story. The rule stands verbatim with `single-story-close.js` as the named gate.
+
+---
 
 ## ADR-20260426-817c: Soft-failing gates surface degraded state explicitly, not silently
 
 *   **Status:** Accepted (Epic #817, v5.28.0).
+*   **Surface:** `.agents/scripts/lint-baseline.js`
 *   **Context:** `select-audits.js` (diff timeout fallback to keyword-only),
     `lint-baseline.js` (zero-error fallback on JSON parse failure), and
     `baseline-refresh-guardrail.js` (empty-changed-files on `git diff`
@@ -3123,6 +2187,7 @@ submodule paths are internal implementation detail.
 ## ADR-20260426-817d: CLI entrypoints carry `node:coverage ignore file`; their `main()` is exercised via integration tests, not unit-line coverage
 
 *   **Status:** Accepted (Epic #817 follow-on, v5.28.1).
+*   **Surface:** `.agents/scripts/notify.js`
 *   **Context:** Story #816's long-tail CRAP cleanup attempted to score
     `run-audit-suite.js::main`, only to find the file was silently dropped
     from the CRAP scan because its first comment line is
@@ -3178,6 +2243,7 @@ submodule paths are internal implementation detail.
 ## ADR-20260502-960a: Production code is not shaped by test internals — tests import helpers directly with an explicit `ctx` bag
 
 *   **Status:** Accepted (Epic #946, Stories C1+C2 → #960).
+*   **Surface:** `.agents/scripts/lib/worktree/bootstrapper.js`
 *   **Context:** `WorktreeManager` historically grew a "Backwards-compat
     delegates for tests that probe private helpers" block — five
     `_`-prefixed methods (`_copyBootstrapFiles`, `_provisionWorkspace`,
@@ -3226,11 +2292,17 @@ submodule paths are internal implementation detail.
         mutate them (the old `wm._isAgentsSubmodule = () => true`
         pattern is replaced by `ctx.isAgentsSubmodule: () => true`).
 
-## ADR 20260507-1114a: Freshness gate on decompose — fail fast on stale path references
+## ADR 20260507-1114b: Freshness gate on decompose — fail fast on stale path references
 
 **Status:** Accepted
 **Date:** 2026-05-07
+**Surface:** `.agents/scripts/lib/orchestration/ticket-validator.js`
 **Epic:** #1114
+**Identifier note (Story #4786):** this entry was filed as `20260507-1114a`,
+colliding with the wave-runner ADR of the same date and Epic. The wave-runner
+entry keeps `-1114a` (it is the one cited by name elsewhere in this file); this
+one is renumbered `-1114b`. No reference outside `docs/decisions.md` cited
+either identifier.
 
 ### Context
 
@@ -3310,6 +2382,7 @@ honoured.
 
 **Status:** Accepted
 **Date:** 2026-05-12
+**Surface:** `.agents/scripts/lib/util/poll-loop.js`
 **Epic:** #1471 (v6.0.0 Epic G — Claude Code-first adoption)
 **Story:** #1557 (Rebase homegrown loop on built-in `/loop` or document divergence)
 **Supporting evidence:** `temp/epic-1471/loop-contract-comparison.md` (ephemeral) — full discovery audit and contract surface table.
@@ -3355,6 +2428,7 @@ The base-name naming discipline below still holds (descriptive names, no
 plugin namespace `/mandrel:<name>` rather than the lone `/mandrel`
 discoverability entry, which itself became `/mandrel:mandrel`.
 **Date:** 2026-05-13
+**Surface:** `.agents/scripts/sync-claude-commands.js`
 **Epic:** #1184 (v6.0.0 Epic F — Cut-over + Mandrel rebrand)
 **Story:** #1601 (Scripts + commands surface audit; `/mandrel` discoverability)
 **Supporting evidence:** A full reference-count audit of the script + command surface as of 2026-05-12 (audit report archived post-release with `docs/audits/` in commit `8855ab6c`).
