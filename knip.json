@@ -26,12 +26,11 @@
     ".claude/**",
     "lib/**/__tests__/**"
   ],
-  "ignoreDependencies": ["typescript", "c8"],
   "rules": {
     "files": "warn",
     "duplicates": "off",
-    "dependencies": "off",
-    "devDependencies": "off",
+    "dependencies": "error",
+    "devDependencies": "error",
     "binaries": "off",
     "unlisted": "off",
     "unresolved": "off",

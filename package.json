@@ -110,6 +110,10 @@
       "optional": true
     }
   },
+  "//": {
+    "overrides.js-yaml": "COUPLED to devDependencies.markdownlint-cli2 — do not bump either alone, and do NOT drop this override. It is load-bearing: markdownlint-cli2 0.22.x pulls js-yaml 4.1.1, which carries GHSA-52cp-r559-cp3m (high) and GHSA-h67p-54hq-rp68 (moderate); removing the override was measured to reintroduce both (1 high + 1 moderate), while with it in place `npm audit` is clean. An npm override also wins over a transitive package's own pin, so this tree-wide ^4.2.0 is imposed on every js-yaml consumer regardless of what they declare — and markdownlint-cli2 0.23.x declares an exact js-yaml 5.2.1. A dry-run bump confirmed the trap: markdownlint-cli2 0.23.1 resolves against js-yaml 4.3.0, two majors off what it declares, silently. The only safe move is to raise this override and bump markdownlint-cli2 in ONE reviewed commit (first confirming cosmiconfig, under @commitlint/cli, tolerates the same major). renovate.json excludes markdownlint-cli2 from devDependency auto-merge so that pair cannot drift apart unattended.",
+    "dependencies.js-yaml": "States the SAME range as overrides.js-yaml above. The two are deliberate duplicates — npm has no way to reference the direct range from the overrides block — so they MUST move in lockstep; changing one without the other silently splits the direct and transitive resolutions."
+  },
   "overrides": {
     "js-yaml": "^4.2.0",
     "markdown-it": "^14.2.0"
