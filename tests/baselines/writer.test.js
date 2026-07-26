@@ -210,6 +210,10 @@ describe('writeFile()', () => {
         $schema: env.$schema,
         kernelVersion: env.kernelVersion,
         generatedAt: env.generatedAt,
+        // Story #4775 — the crap kind stamps its scoring semantics, and the
+        // disk projection must carry it through by name or the stamp exists
+        // only in memory.
+        scoringSemantics: env.scoringSemantics,
         rollup: env.rollup,
         rows: env.rows,
       },
@@ -217,6 +221,7 @@ describe('writeFile()', () => {
       2,
     )}\n`;
     assert.equal(onDisk, expected);
+    assert.equal(typeof env.scoringSemantics, 'string');
   });
 
   it('terminates the file with a trailing newline', () => {

@@ -400,6 +400,15 @@ joinable methods, where a diff-scoped run's rate is noise. A healthy repo
 resolves ~98%; the 4–6% signature of a coordinate-system mismatch is far below
 the floor.
 
+**Re-derive your floors after adopting this.** A `crap.floors` ceiling pinned
+before the fix was pinned to a maximum computed over the minority of methods
+the join could see, so it is not a real ceiling — it is an artefact. This
+repository's own `*.max` moved from `30` to `125` on the first honest scan
+(2215 → 4058 visible methods), not because anything got worse but because the
+worst methods were previously invisible. `newMethodCeiling` is deliberately
+left at 30: the ratchet's forward pressure on *new* code is unaffected by how
+much old debt the gate can now see.
+
 **Old baselines are invalidated explicitly.** Rows scored by the previous join
 are not comparable to rows scored by this one, and neither `kernelVersion` nor
 `escomplexVersion` moves (both track the same upstream package). The envelope
