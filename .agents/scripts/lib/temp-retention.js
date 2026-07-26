@@ -415,7 +415,11 @@ function isPurgeable(entry, ctx) {
 }
 
 /**
- * The purge core. Both public entry points below are thin policy wrappers.
+ * The purge core. Deliberately **module-private**: the two exported entry
+ * points below are the whole public surface, and each encodes a policy
+ * decision (Story-keyed vs. age-floored) that a caller reaching this directly
+ * could get wrong. Exporting it would also be a dead export — nothing outside
+ * this file has a reason to call it.
  *
  * @param {object} [args]
  * @param {object} [args.config] Resolved config bag.
@@ -430,7 +434,7 @@ function isPurgeable(entry, ctx) {
  * @param {string} [args.label] Prefix for the single summary line.
  * @returns {Promise<object>} Result envelope; never throws.
  */
-export async function purgeTempArtifacts({
+async function purgeTempArtifacts({
   config,
   storyIds = [],
   sweepStale = false,
