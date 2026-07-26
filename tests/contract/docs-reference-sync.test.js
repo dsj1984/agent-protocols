@@ -519,3 +519,105 @@ describe('data-dictionary.md — crap.json row mirrors the live schema (Story #4
     );
   });
 });
+
+// ---------------------------------------------------------------------------
+// 4. ci-contract.md names the LIVE required-check contexts
+// ---------------------------------------------------------------------------
+
+describe('ci-contract.md — required-check contexts match the ruleset (Story #4785)', () => {
+  const liveContexts = () => {
+    const ruleset = JSON.parse(read('.github/ruleset.json'));
+    const rule = ruleset.rules.find((r) => r.type === 'required_status_checks');
+    return rule.parameters.required_status_checks.map((c) => c.context);
+  };
+
+  it('names every live context and no context the ruleset does not declare', () => {
+    const md = read('docs/ci-contract.md');
+    for (const context of liveContexts()) {
+      assert.ok(
+        md.includes(`\`${context}\``),
+        `ci-contract.md never names the live required check \`${context}\``,
+      );
+    }
+  });
+
+  it('does not present the .agentrc.json requiredChecks names as contexts', () => {
+    // The failure this guards is the one that motivated Story #4785: telling an
+    // operator to require `lint` / `test` produces contexts no workflow reports,
+    // and removing the ruleset to unstick it leaves `trust-ci` ungated.
+    const agentrc = JSON.parse(read('.agentrc.json'));
+    const localLabels = agentrc.github.branchProtection.requiredChecks.map(
+      (c) => c.name,
+    );
+    const contexts = new Set(liveContexts());
+    const notContexts = localLabels.filter((name) => !contexts.has(name));
+    assert.ok(
+      notContexts.length > 0,
+      'expected at least one requiredChecks label that is not a live context',
+    );
+
+    const md = read('docs/ci-contract.md');
+    assert.match(
+      md,
+      /`requiredChecks` names are NOT check contexts/,
+      'ci-contract.md must state outright that the .agentrc.json names are local labels',
+    );
+    for (const label of notContexts) {
+      assert.ok(
+        md.includes(`there is no \`${label}\` context`) ||
+          md.includes(`no \`${label}\` context`),
+        `ci-contract.md must say there is no \`${label}\` check context`,
+      );
+    }
+  });
+});
+
+// ---------------------------------------------------------------------------
+// 5. The distribution surface is stated identically in all three doors
+// ---------------------------------------------------------------------------
+
+describe('distribution surface — one claim, three docs (Story #4785)', () => {
+  /** Directory entries of package.json `files`, minus the negated patterns. */
+  const shippedDirs = () =>
+    JSON.parse(read('package.json'))
+      .files.filter((f) => !f.startsWith('!'))
+      .filter((f) => f.endsWith('/'))
+      .map((f) => f.replace(/\/$/, ''));
+
+  it('publishes exactly .agents/, bin/, lib/ — the set the docs must agree on', () => {
+    assert.deepEqual(shippedDirs().sort(), ['.agents', 'bin', 'lib']);
+  });
+
+  it('is claimed identically by AGENTS.md, README.md, and onboarding.md', () => {
+    for (const doc of ['AGENTS.md', 'README.md', 'docs/onboarding.md']) {
+      const md = read(doc);
+      for (const dir of shippedDirs()) {
+        assert.ok(
+          md.includes(`\`${dir}/\``),
+          `${doc} never names the shipped directory \`${dir}/\``,
+        );
+      }
+      assert.doesNotMatch(
+        md,
+        /Only `\.agents\/` is distributed to consumers/,
+        `${doc} still claims only .agents/ ships, contradicting package.json files`,
+      );
+    }
+  });
+
+  it('lists bin/ and lib/ in both repository-layout trees', () => {
+    for (const doc of ['docs/architecture.md', 'docs/onboarding.md']) {
+      const md = read(doc);
+      // The layout tree is the fenced block that opens with the repo root.
+      const start = md.indexOf('\nmandrel/\n');
+      assert.ok(start > 0, `${doc} has no repository-layout tree`);
+      const tree = md.slice(start, md.indexOf('\n```', start));
+      for (const dir of ['bin/', 'lib/']) {
+        assert.ok(
+          tree.includes(`├── ${dir}`),
+          `${doc}'s repository-layout tree omits a top-level ${dir} entry`,
+        );
+      }
+    }
+  });
+});
