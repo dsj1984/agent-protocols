@@ -31,9 +31,9 @@ authoritative verdict is the CI run on the pull request.
 > | --- | --- |
 > | `check-arch-cycles.js` | Via the `lint` step — `run-lint.js` has run it since Story #3991. Deliberately **not** repeated in `run-verify.js`; doing so would double-pay the gate. |
 > | `check-dead-exports.js` | Its own `dead-exports` step (Story #4549). |
-| `check-dead-exports.js --production` | Its own `dead-exports-production` step — added when the production-mode pass (#4582) joined CI's baselines job. |
+> | `check-dead-exports.js --production` | Its own `dead-exports-production` step — added when the production-mode pass (#4582) joined CI's baselines job. |
 > | `check-context-budget.js` | Its own `context-budget` step (Story #4549). |
-| `check-workflow-citations.js` | Via the `test` step — `tests/check-workflow-citations.test.js` runs the same ratchet against the committed baseline, so a regression fails the suite. Deliberately **not** a separate `run-verify.js` step; doing so would double-pay the gate. |
+> | `check-workflow-citations.js` | Via the `test` step — `tests/check-workflow-citations.test.js` runs the same ratchet against the committed baseline, so a regression fails the suite. Deliberately **not** a separate `run-verify.js` step; doing so would double-pay the gate. |
 >
 > Before #4549 the latter two sat in a contract hole — omitted from the mirror
 > *and* absent from the CI-only table below — reachable locally only by a direct
@@ -67,9 +67,34 @@ CI gate** in front of the arm. Green-with-nothing-to-be-green is treated as
 armable, mirroring GitHub's own "no required checks = nothing to gate"
 semantics.
 
-Operators running `trust-ci` unattended MUST therefore keep at least the
-live required-check set (`lint`, `test`, `baselines`) configured on the base
-branch. Consumers who cannot guarantee that should set
+Operators running `trust-ci` unattended MUST therefore keep a non-empty
+required-status-check set configured on the base branch. In **this**
+repository that set is the four contexts declared in
+[`.github/ruleset.json`](../.github/ruleset.json):
+
+| Required check context     | Produced by                                                    |
+| -------------------------- | -------------------------------------------------------------- |
+| `Validate and Test`        | the `validate` job of `.github/workflows/ci.yml`               |
+| `baselines`                | the `baselines` job of `.github/workflows/ci.yml`              |
+| `install (npm / ubuntu-latest)`   | the Gate profile of `.github/workflows/install-matrix.yml` |
+| `install (yarn / windows-latest)` | the Gate profile of `.github/workflows/install-matrix.yml` |
+
+> **`.agentrc.json` `requiredChecks` names are NOT check contexts.** The
+> `github.branchProtection.requiredChecks` entries are `{ name, cmd }` pairs —
+> `name` is a **local label** for a command the bootstrap/verification path
+> runs on your machine (`lint` → `npm run lint`, `test` → `npm test`,
+> `baselines` → `node .agents/scripts/check-baselines.js`). GitHub reports a
+> status under the *job's display name*, which is a different string:
+> `npm run lint` and `npm test` both run **inside** the job GitHub reports as
+> `Validate and Test`, so there is no `lint` context and no `test` context to
+> require. Configuring branch protection from the `.agentrc.json` names would
+> register up to two contexts that no workflow ever reports — GitHub would
+> hold every PR forever, or, if the ruleset were removed to unstick it, leave
+> the `trust-ci` arm with nothing to gate. Read the contexts off the live
+> ruleset (`gh api repos/{owner}/{repo}/rulesets`) or the job `name:` fields
+> in `.github/workflows/`, never off `.agentrc.json`.
+
+Consumers who cannot guarantee a live required-check set should set
 `delivery.ci.autoMerge: "strict"`, which restores the prior clean-sprint
 predicate (zero interventions, zero 🔴/🟠 findings, clean-sprint retro) as the
 arming gate regardless of the required-check configuration.

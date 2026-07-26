@@ -25,8 +25,8 @@ materialized into consumer projects' `.agents/` directories by
   [`package.json`](package.json) (run `npm ls mandrel` in a consumer project)
 - **License:** MIT
 
-> **Key distinction:** Only `.agents/` is distributed to consumers. Everything
-> else in this repository is internal development tooling.
+> **Key distinction:** the package ships `.agents/`, `bin/`, `lib/` — the rest
+> of this repository is internal development tooling.
 
 ---
 

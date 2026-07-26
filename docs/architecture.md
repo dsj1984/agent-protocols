@@ -74,12 +74,13 @@ graph TB
 
 ## Repository Layout
 
-The repository has a clear separation between the **distributed product**
-(`.agents/`) and **development tooling** (root-level files).
+The **distributed product** is the three directories in `package.json`'s
+`files` array — `.agents/`, `bin/`, `lib/`; only `.agents/` is *materialized*
+into a consumer tree (`mandrel sync`). The rest is **dev tooling**.
 
 ```text
 mandrel/
-├── .agents/                  ← Distributed bundle (the "product")
+├── .agents/                  ← Distributed + materialized (the "product")
 │   ├── instructions.md       ← Primary system prompt (all agent rules)
 │   ├── README.md             ← Consumer documentation
 │   ├── starter-agentrc.json ← Bootstrap delta-seed (copy to .agentrc.json)
@@ -99,6 +100,9 @@ mandrel/
 │       ├── SDLC.md           ←   End-to-end workflow guide
 │       ├── configuration.md  ←   Every .agentrc.json key (shipped)
 │       └── agentrc-reference.json ← Exhaustive editor reference
+│
+├── bin/                      ← Distributed: mandrel.js, postinstall.js
+├── lib/                      ← Distributed: cli/ (subcommands) + migrations/
 │
 ├── .agentrc.json             ← Runtime configuration (dogfooding)
 ├── .github/workflows/        ← CI/CD pipeline (ci.yml)
@@ -247,26 +251,20 @@ import them.
 | `lib/wave-runner/live-probe.js` | State-probing adapter feeding the pure `selectReadySet` kernel from live GitHub state (done / in-flight / foreign blockers) instead of caller-transcribed flags. |
 | `dependency-parser.js`        | Parse `depends_on` / `blocked by #N` edges from Story bodies. |
 
-#### ErrorJournal
+#### Failure auditability
 
-`ErrorJournal` (`lib/orchestration/error-journal.js`) writes structured
-JSONL to `temp/run-<id>-errors.log` via
-`errorJournal?.record({ phase, error, context })`, so failure sites that
-would otherwise be silent `catch (err) { logger.warn(...) }` blocks stay
-auditable after a run completes. See [`docs/patterns.md`](patterns.md)
-for the pattern and the `errorJournal?.record(...)` idiom. The typed
-context classes that once threaded it through an in-process runner
-(`OrchestrationContext` / `EpicRunnerContext` / `PlanRunnerContext` in
-`lib/orchestration/context.js`) were deleted with the dead in-process
-epic-runner stratum (#3908) — the host LLM drives the CLIs directly.
+There is **no** `ErrorJournal` and no `lib/orchestration/error-journal.js`. It
+was an in-process-runner concept threaded through the typed context classes in
+`lib/orchestration/context.js`, and died with them and the epic-runner stratum
+(#3908) — do not write `errorJournal?.record(...)`; nothing can inject it. Two
+file-based surfaces replace it: the append-only signals stream
+(`lib/observability/signals-writer.js`, written by `diagnose-friction.js`) and
+the per-script logs under `temp/orchestration/`.
 
-Progress reporting for the deleted in-process epic-runner stratum
-(`lib/orchestration/epic-runner/progress-reporter/`, consumed by
-`epic-execute-record-wave.js`) was removed in PR #3936 / #3908. Live
-Story progress surfaces via lifecycle ledger events and structured
-comments (`story-init`, `friction`, `verification-results`, `follow-ups`)
-posted by the single-story init/close path — the host LLM drives those
-CLIs directly.
+The epic-runner progress reporter went with the same stratum (#3908). Live
+Story progress surfaces via lifecycle ledger events and structured comments
+(`story-init`, `friction`, `verification-results`, `follow-ups`) posted by the
+single-story init/close path.
 
 #### Codebase snapshot (Phase 7)
 
@@ -300,12 +298,10 @@ envelope so Phase 7 stays non-blocking.
 | `lib/observability/signals-writer.js`               | Append-only NDJSON writer for `friction` / trace records under `temp/run-<eid>/stories/story-<sid>/signals.ndjson` (standalone Stories: `temp/standalone/stories/story-<sid>/`). The single producer for the telemetry pipeline; the reader is the `read()` async generator in `lib/signals/read.js`. |
 | `lib/orchestration/column-sync.js`                  | Drives the Projects v2 Status column from `agent::` labels (best-effort). Invoked from inside `transitionTicketState` (Story #2548) so every label flip mirrors onto the board.                  |
 
-The earlier `CommitAssertion` post-wave guard was epic-runner-scoped and
-was deleted with the in-process epic-runner stratum (#3908); its
-successor (`verifySingleResult` in the wave-record layer) went with the
-wave machinery in v2. The guard against a Story being reported "done"
-without verifiable completion is now structural: `agent::done` follows
-the confirmed squash-merge of the Story's own PR.
+The `CommitAssertion` post-wave guard and its `verifySingleResult` successor
+both went with the epic-runner / wave machinery. The guard against a Story
+being reported "done" without verifiable completion is now structural:
+`agent::done` follows the confirmed squash-merge of the Story's own PR.
 
 #### Throughput primitives
 
@@ -321,14 +317,13 @@ the confirmed squash-merge of the Story's own PR.
 The fan-out cap is resolved deterministically by
 `resolveConcurrencyCap` in `stories-wave-tick.js`
 (from `delivery.deliverRunner.concurrencyCap`) and surfaced on the
-ready-set envelopes the same script emits. The epic-runner-era concurrency surface —
-`wave-gate.js`, `lib/orchestration/concurrency.js`
-(`DEFAULT_CONCURRENCY` / `resolveConcurrency`), `CommitAssertion`, and
-the `ProgressReporter` listener class — was deleted with the dead
-in-process stratum (#3908); do not confuse the surviving
-`resolveConcurrencyCap` with the deleted `resolveConcurrency`. Story #4545 deleted the perf-summary surface that
-used to report throughput; the local `signals.ndjson` stream and the retro's
-aggregate over it are what remain.
+ready-set envelopes the same script emits. The whole epic-runner-era
+concurrency surface (`DEFAULT_CONCURRENCY` / `resolveConcurrency`,
+`CommitAssertion`, the `ProgressReporter` listener) went with the dead
+in-process stratum (#3908) — do not confuse the surviving
+`resolveConcurrencyCap` with the deleted `resolveConcurrency`. Story #4545
+deleted the perf-summary throughput surface; the local `signals.ndjson`
+stream and the retro's aggregate over it are what remain.
 
 #### Direct CLIs (no MCP server)
 
@@ -344,24 +339,28 @@ time (`GITHUB_TOKEN` and `NOTIFICATION_WEBHOOK_URL` read only from
 Scripts in the Mandrel framework divide into two non-overlapping sets. The
 partition is determined by **who invokes the script**:
 
-| Partition     | Invocation context                                       | Resident path                    |
-| ------------- | -------------------------------------------------------- | -------------------------------- |
-| **Lifecycle** | Human operators (CLI, one-time setup, consumer sync)     | `bin/` (mandrel CLI subcommands) |
-| **Runtime**   | Agent sessions, git hooks, CI pipelines                  | `.agents/scripts/`               |
+| Partition     | Invocation context                                    | Resident path       |
+| ------------- | ----------------------------------------------------- | ------------------- |
+| **Lifecycle** | Human operators (CLI, one-time setup, consumer sync)  | `.agents/scripts/`  |
+| **Runtime**   | Agent sessions, git hooks, CI pipelines               | `.agents/scripts/`  |
+
+It is a boundary of **who invokes**, not of where the file lives: both sets
+resolve under `.agents/scripts/`. `bin/` holds exactly two files
+(`bin/mandrel.js`, the subcommand dispatcher, and `bin/postinstall.js`), with
+the implementations in `lib/cli/`. The Epic #3435 plan to relocate the
+lifecycle set into `bin/` was **not** carried out — `lib/cli/`'s `sync`,
+`sync-commands`, and `sync-agents` delegate back into the engines below.
 
 **Lifecycle scripts** are invoked only by human operators — never by agent
-sessions, git hooks, or CI pipelines. They were moved to the `mandrel` CLI
-bin (under `bin/`) as part of Epic #3435 to make the boundary explicit and
-machine-enforceable:
+sessions, git hooks, or CI. Every one is still at `.agents/scripts/<name>`:
 
-- `bootstrap.js` — one-time consumer onboarding
-- `agents-bootstrap-github.js` — GitHub-side bootstrap (labels, branch
-  protection)
-- `sync-claude-commands.js` — projects `.agents/workflows/` into the flat
-  Claude Code `.claude/commands/` tree (invoked as `/<name>`)
-- `sync-agentrc.js` — merges upstream `starter-agentrc.json` deltas into the
-  consumer's `.agentrc.json`
-- `check-windows-git-perf.js` — one-time Windows git performance diagnostic
+- `bootstrap.js` / `agents-bootstrap-github.js` — consumer and GitHub-side
+  onboarding (via `mandrel init`)
+- `sync-claude-commands.js` / `sync-claude-agents.js` — project
+  `.agents/workflows/` and `.agents/agents/` into `.claude/commands/` and
+  `.claude/agents/` (via `mandrel sync-commands` / `sync-agents`)
+- `sync-agentrc.js` — merges `starter-agentrc.json` deltas into `.agentrc.json`
+- `check-windows-git-perf.js` — one-time Windows git perf diagnostic
 - `lib/bootstrap/*` — shared bootstrap helper modules
 
 **Runtime orchestration scripts** are invoked by agent sessions, git hooks,
@@ -374,19 +373,11 @@ or CI pipelines and must remain at their `.agents/scripts/<name>` paths
 - `update-ticket-state.js` — GitHub label transitions
 - And all other scripts under `.agents/scripts/` not listed above
 
-**The rule:** a script is *lifecycle* if it is only ever invoked by a human
-operator at the terminal; it is *runtime* if it is invoked by an agent
-session, a git hook, or a CI step via the `.agents/scripts/<name>` path.
-Moving a lifecycle script to `bin/` without updating the hook or CI
-invocation site breaks the calling surface; moving a runtime script away
-from `.agents/scripts/` breaks agent sessions and git hooks.
-
-This partition is enforced by the invariant test at
-`tests/cli/partition.test.js`: it asserts that `.claude/settings.json`'s
-`UserPromptSubmit` hook no longer contains a bare
-`node .agents/scripts/sync-claude-commands.js` invocation — evidence that
-the hook migration from Story #3451 has taken effect and the lifecycle
-script is now correctly invoked through the `mandrel` CLI.
+**The rule:** *lifecycle* = only ever invoked by a human at the terminal;
+*runtime* = invoked by an agent session, git hook, or CI step via the
+`.agents/scripts/<name>` path — moving one off that path breaks both. The
+invariant test `tests/cli/partition.test.js` enforces it: `.claude/settings.json`'s
+`UserPromptSubmit` hook must not call `sync-claude-commands.js` directly.
 
 ---
 
@@ -528,11 +519,15 @@ The `Graph.js` module provides the mathematical foundation for task scheduling:
 | `computeWaves()`          | Layer-grouped wave partitioning            | O(V+E)     |
 | `topologicalSort()`       | Kahn's algorithm (deterministic tie-break) | O(V+E)     |
 | `transitiveReduction()`   | DFS-based edge pruning                     | O(V·(V+E)) |
-| `autoSerializeOverlaps()` | Focus-area conflict serialization          | O(N²+V·E)  |
 | `computeReachability()`   | Memoized DFS transitive closure            | O(V·(V+E)) |
+| `computeChatDependencies()` | Session-level edge rollup + reduction    | O(V+E)     |
 
-The auto-serialization pass prevents file-level merge conflicts by injecting
-synthetic dependency edges between tasks with overlapping `focusAreas`.
+That is the complete live export surface — in particular there is **no**
+`autoSerializeOverlaps()`. The focus-area auto-serialization pass it named is
+gone; its job now happens at *selection* time via `storiesOverlap()` in
+`lib/wave-runner/ready-set.js`, where `selectReadySet` skips a Story whose
+**declared** footprint overlaps an already-selected peer — de-conflicting
+within one tick only, reserving nothing against a later one.
 
 ---
 
@@ -806,13 +801,16 @@ changing its shape (full per-field reference:
   default `true`: non-blocking code-review / audit findings may be
   auto-filed as follow-up issues (routed via `lib/feedback-loop/`). Set
   `false` to keep findings only in structured comments.
-- **`delivery.ci.skipForStoryPushes`** — default `true`: pre-push
-  tooling appends `[skip ci]` to Story-branch commit subjects so
-  intermediate pushes don't stampede CI; the final PR to `main` never
-  carries the marker for the merge commit GitHub creates.
+- **`delivery.ci`** — exactly two keys (`additionalProperties: false`, so a
+  third fails AJV validation): `autoMerge` (`"trust-ci"` default arms once
+  every *required* check is green; `"strict"` restores the clean-sprint
+  predicate) and `watch` (the merge-wait budget). Required-check contexts come
+  off the live ruleset, never off `.agentrc.json` —
+  [`ci-contract.md`](ci-contract.md).
 - **`delivery.routing.closeAndLand`** — default `true`: `single-story-close`
   arms auto-merge and may poll to confirmation; set `false` to stop at
   PR-open for operator-driven merge.
+
 ---
 
 ## Ticket Hierarchy
@@ -1081,15 +1079,20 @@ automatic staleness check.
 
 ### Performance-Signal Telemetry
 
-The framework emits a closed taxonomy of NDJSON record kinds — the
-active detectors `friction`, `hotspot`, `rework`, `retry`, plus the raw
-`trace` (schema:
-[`signal-event.schema.json`](../.agents/schemas/signal-event.schema.json)).
-The schema also reserves `churn` and `idle` slots for future use; their
-detectors and config keys were dropped under Epic #1721 (see ADR in
-[`docs/decisions.md`](decisions.md)) but the names remain in
-`EVENT_KINDS` so a future re-introduction does not need a schema bump.
-Records are written **append-only to local disk** under
+The framework emits a closed taxonomy of **thirteen** NDJSON record kinds —
+`EVENT_KINDS` (`lib/signals/schema.js`), mirrored by the `kind` enum in
+[`signal-event.schema.json`](../.agents/schemas/signal-event.schema.json).
+
+Enumerated ≠ produced: only **two** detector modules ship
+(`lib/signals/detectors/`: `rework.js`, `retry.js`), beside the
+`diagnose-friction.js` writer and the raw `trace` hook. `hotspot`, `churn`,
+`idle` are **reserved names with no detector** — `churn`/`idle` dropped under
+Epic #1721, `hotspot` retired with its detector under Epic #4406 (ADR in
+[`docs/decisions.md`](decisions.md)). The names stay so a re-introduction
+needs no schema bump, but the config keys are gone: `SIGNALS_DEFAULTS`
+(`lib/config/limits.js`) carries `rework` and `retry` only under an
+`additionalProperties: false` block, so `delivery.signals.hotspot` fails AJV
+validation. Records are written **append-only to local disk** under
 `temp/run-<eid>/stories/story-<sid>/signals.ndjson` (and a sibling
 `traces.ndjson` for `kind: trace`; standalone Stories use
 `temp/standalone/stories/story-<sid>/`). GitHub tickets receive **summaries
@@ -1106,29 +1109,27 @@ The model has three layers:
    not lose their tail. The per-Story directory is created lazily on the
    first write; `epicId` / `storyId` must be positive integers.
 2. **Detectors — `diagnose-friction.js` and the per-detector pure
-   modules under `lib/signals/detectors/` (`rework.js`, `retry.js`,
-   `hotspot.js`).** Signals are aggregated by the retro's signal-gathering
-   phase (`lib/orchestration/retro/phases/gather-signals.js`).
-   Each call site resolves thresholds via `getSignals(config)`
-   (defaults: `hotspot.p95Multiplier=1.25`, `rework.editsPerFile=5`,
-   `retry.repeatCount=3`). Operators override individual keys in
-   `.agentrc.json` under `delivery.signals.*`; the resolver shallow-
-   merges per detector, so a re-tuned `hotspot.p95Multiplier` does not
-   require re-listing the others.
+   modules under `lib/signals/detectors/` (`rework.js`, `retry.js`).**
+   Signals are read back by `read()` in `lib/signals/read.js` and composed
+   into routed proposals by `lib/orchestration/retro-proposals.js`, called
+   from `run-epilogue.js` and `story-follow-ups.js`. Thresholds resolve via
+   `getSignals(config)` — the whole surviving surface is two keys,
+   `rework.editsPerFile` (default 5) and `retry.repeatCount` (default 3),
+   overridable under `delivery.signals.*`. The resolver shallow-merges per
+   detector, so re-tuning one does not require re-listing the other.
 3. **Analyzers — the retro.** Story #4545 deleted the perf-summary /
-   perf-report analyzers (`analyze-execution.js` and the
-   `lib/observability/perf-*` modules it exclusively owned): the CLI
-   hard-failed without an Epic id, read signals from a path a standalone
-   Story can never produce, and no workflow invoked it. The surviving
-   consumer of the stream is the retro's signal-gathering phase, which routes
-   recurring friction into proposals. Nothing writes a
+   perf-report analyzers: the CLI hard-failed without an Epic id, read
+   signals from a path a standalone Story can never produce, and no workflow
+   invoked it. The surviving consumer is the retro proposal composer
+   (`lib/orchestration/retro-proposals.js`), which routes recurring friction
+   into framework / consumer / discarded proposals. Nothing writes a
    `structured:story-perf-summary` or `structured:epic-perf-report` comment.
 
-The split — events local, summaries on tickets — keeps the GitHub
-comment surface bounded and keeps the raw stream cheap enough that detectors
-can fire on every tool-call without rate-limiting or batching. The per-Epic temp tree is
-reaped together with the worktree on `WorktreeManager.reap`. See
-[`docs/decisions.md`](decisions.md) ADR for the architectural rationale.
+The split — events local, summaries on tickets — keeps the comment surface
+bounded and the raw stream cheap enough that detectors can fire on every
+tool-call without rate-limiting. The temp tree is reaped with the worktree on
+`WorktreeManager.reap`. Rationale: the ADR in
+[`docs/decisions.md`](decisions.md).
 
 ### Log Levels
 
@@ -1143,34 +1144,37 @@ reaped together with the worktree on `WorktreeManager.reap`. See
 
 ### Notification System
 
-| Event               | Severity | Channel            |
-| ------------------- | -------- | ------------------ |
-| `task-complete`     | INFO     | GitHub @mention    |
-| `feature-complete`  | INFO     | GitHub @mention    |
-| `epic-complete`     | INFO     | @mention + webhook |
-| `review-needed`     | ACTION   | @mention + webhook |
-| `approval-required` | ACTION   | Webhook            |
-| `blocked`           | ACTION   | Webhook            |
+The vocabulary is an **allowlist per channel**, not a severity routing table.
+Both lists are declared once in `lib/config-settings-schema.js` as enums, so
+an event name outside its channel's list is an AJV validation failure, not a
+silently-dropped subscription. `github.notifications` gates the two channels
+independently — `commentEvents` for ticket comments, `webhookEvents` for
+`NOTIFICATION_WEBHOOK_URL` — with no fallback chain between them.
 
-`github.notifications` carries two independent per-channel gates,
-both using the same event-name-allowlist model: `commentEvents` filters
-GitHub-ticket comment posting; `webhookEvents` filters
-`NOTIFICATION_WEBHOOK_URL` deliveries. There is no fallback chain;
-raising or lowering one channel never affects the other. The default
-comment allowlist is `state-transition`, `story-merged`,
-`operator-message`; the default webhook allowlist is the curated
-`epic-*` vocabulary — `epic-started`, `epic-progress`, `epic-blocked`,
-`epic-unblocked`, `epic-complete` — so Slack consumers see the epic
-narrative (% progress + blockers) without the per-story firehose.
-`transitionTicketState` suppresses the `notify()` dispatch entirely
-for low-severity transitions (non-terminal story / epic
-flips) so the comment channel sees only the medium-severity
-story-level events operators expect. Severity is carried as envelope
-metadata and still drives `@mention` behavior on the comment channel
-but is no longer a routing factor for either channel. Webhook
-subscribers receive a typed envelope
-(`{ text, severity, ticketId, event?, level?, epicId?, phase? }`) so
-allowlisted events stay routable by event name and hierarchy level.
+| Event name          | `webhookEvents` | `commentEvents` |
+| ------------------- | :-------------: | :-------------: |
+| `state-transition`  | ✅              | ✅              |
+| `story-merged`      | ✅              | ✅              |
+| `operator-message`  | ✅              | ✅              |
+| `story-closing`     | ✅              | ✅              |
+| `merge.unlanded`    | ✅              | —               |
+| `merge.flip-failed` | ✅              | —               |
+| `loop.tick`         | ✅              | —               |
+
+Shipped defaults: every webhook event, and the first three comment events.
+
+The comment list is narrower on an axis of **ticket scope, not importance**:
+a comment lands on a Story issue, so only Story-scoped narrative belongs
+there, and `notify()` drops a comment for any dispatch without a resolvable
+ticket id anyway. `story-closing` is allowlistable for comments but absent
+from the shipped `NOTIFICATIONS_DEFAULTS` (`lib/config/github.js`).
+
+`transitionTicketState` skips the dispatch for low-severity transitions
+(`eventSeverity` rates only a Story/Epic reaching `agent::done` as `medium`;
+everything else is `low`). Severity — `low` | `medium` | `high` — is envelope
+metadata driving `@mention` behavior (`high` always; `medium` when
+`mentionOperator` is set), never routing. Webhook subscribers receive
+`{ text, severity, ticketId?, event?, level?, epicId?, phase? }`.
 
 ---
 
@@ -1306,27 +1310,34 @@ live LLM metering:
 
 ### Budget protocol
 
-- **`delivery.maxTokenBudget`**: caps assembled context envelopes. The
-  envelope builders estimate tokens (≈4 characters per token) and elide
-  sections when the envelope exceeds the cap (`elideEnvelope` in
-  `lib/orchestration/context-envelope.js`).
-- **`delivery.preflight.*`** (optional): preflight helpers compare
-  estimates (Stories, install time, GitHub API calls, Claude quota
-  tokens) to configured ceilings before `/deliver` fan-out. Live entry
-  is via `single-story-init.js` / `helpers/deliver-story` (the pre-v2
-  `epic-deliver-preflight.js` entry is deleted).
-- **Host runtime**: session quota and billing hard stops are enforced by the
-  operator's editor / CLI provider, not by Mandrel scripts.
+**There is no operator-configurable token budget.** The two keys this section
+used to document — `delivery.maxTokenBudget` and `delivery.preflight.*` — are
+on the "Dropped entirely" list in `lib/config/limits.js`, and the delivery
+schema is `additionalProperties: false`, so writing either now fails AJV
+validation. The surviving ceilings are **fixed framework constants**:
+
+- **Estimator:** `estimateTokens` (≈4 chars/token) in
+  `lib/orchestration/context-envelope.js`, shared by everything below (its
+  sibling `elideEnvelope` is exported but has no live caller).
+- **`PLAN_CONTEXT_ENVELOPE_BYTE_CEILING`** (`lib/orchestration/plan-context.js`,
+  256,000 bytes) — the `/plan` authoring envelope bound; fails closed.
+- **`DEFAULT_MODEL_CAPACITY`** (`lib/orchestration/ticket-validator-sizing.js`)
+  — plan-time Story sizing over **authored prose only**; never read from
+  `.agentrc.json`. `spec-spill.js` and `checklist-threading.js` use the same
+  estimator for their own payloads.
+- **Host runtime:** quota and billing hard stops are the operator's editor /
+  CLI provider's job, not Mandrel's.
 
 ---
 
 ## Distribution Model
 
 Mandrel is distributed as the
-[`mandrel`](https://www.npmjs.com/package/mandrel) npm package.
-The package payload is materialized into the consumer's `./.agents/` directory
-as plain regular files by `mandrel sync` (run best-effort from the package
-`postinstall`, or invoked directly):
+[`mandrel`](https://www.npmjs.com/package/mandrel) npm package, whose `files`
+array publishes `.agents/`, `bin/`, and `lib/`. Only **`.agents/`** is
+materialized into the consumer's `./.agents/` directory as plain regular files
+by `mandrel sync` (best-effort from `postinstall`, or invoked directly);
+`bin/` + `lib/` stay in `node_modules/mandrel/`, reached via `npx mandrel`:
 
 ```text
 Consumer Project/
@@ -1407,11 +1418,10 @@ conventions to follow.
 - **Config resolution:** `.agents/scripts/lib/config-resolver.js` +
   `config-schema.js` (shell-metacharacter injection guards built in)
 - **Operator scripts catalog:**
-  [`.agents/scripts/README.md`](../.agents/scripts/README.md) documents
-  the optional operator-only CLIs (`loc-delta.js`,
-  `validate-docs-freshness.js`,
-  `update-mutation-baseline.js`) that are not wired into `npm` /
-  Husky / CI.
+  [`.agents/scripts/README.md`](../.agents/scripts/README.md) documents the
+  optional operator-only CLIs not wired into `npm` / Husky / CI — today just
+  `validate-docs-freshness.js` (`loc-delta.js` and
+  `update-mutation-baseline.js` no longer exist).
 
 ### Ticketing & CI
 
