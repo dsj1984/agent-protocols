@@ -54,8 +54,11 @@ The **Install Matrix** workflow
 proves the published-package consumer contract end to end (pack → install →
 `mandrel sync` / `sync-commands` → assert materialization, a clean consumer
 manifest, and a `mandrel doctor` ready verdict). It gates releases the same
-way `lint` / `test` / `baselines` do — through **branch protection on the
-release PR**, not through `release-please.yml`. To avoid the classic
+way the `Validate and Test` and `baselines` contexts do — through **branch
+protection on the release PR**, not through `release-please.yml`. (Those two
+strings are the CI job *display names*, which is what GitHub reports a status
+under; they are not the `.agentrc.json` `requiredChecks` labels — see
+[`ci-contract.md`](ci-contract.md).) To avoid the classic
 required-check + path-filter deadlock, the workflow splits into two profiles:
 
 - **Gate (required, always reports):** a 2-leg diagonal that runs on **every**

@@ -17,7 +17,7 @@ authoritative system prompt.
 
 ```text
 mandrel/
-├── .agents/                  # Distributed bundle (the "product")
+├── .agents/                  # Distributed: the materialized payload
 │   ├── instructions.md       # ★ Primary system prompt — load this first
 │   ├── agents/               # Role-scoped spawn boot contexts (optional)
 │   ├── rules/                # Domain-agnostic coding/ops rules
@@ -29,14 +29,20 @@ mandrel/
 │   ├── docs/                 # Shipped consumer reference docs (SDLC.md, configuration.md, agentrc-reference.json)
 │   ├── starter-agentrc.json  # Bootstrap delta-seed — consumers copy to project root
 │   └── README.md             # Detailed consumer user guide
+├── bin/                      # Distributed: mandrel.js (CLI dispatcher) + postinstall.js
+├── lib/                      # Distributed: cli/ subcommand impls + migrations/
 ├── .agentrc.json             # Root config for this repo (dogfooding)
 ├── docs/                     # Implementation plans and changelog
 ├── tests/                    # Framework tests
 ├── package.json              # Tooling: biome, markdownlint, husky
 ```
 
-> **Key distinction:** Only `.agents/` is distributed to consumers. Everything
-> else is internal development tooling.
+> **Key distinction:** the published package ships exactly the three
+> directories marked *Distributed* above — `.agents/`, `bin/`, and `lib/`, per
+> the `files` array in [`package.json`](../package.json). Only `.agents/` is
+> *materialized* into the consumer's working tree (by `mandrel sync`); `bin/`
+> and `lib/` stay in `node_modules/mandrel/` and back the `npx mandrel …` CLI.
+> Everything else in this repository is internal development tooling.
 
 ---
 
@@ -106,9 +112,10 @@ touched git/orchestration hooks, and `npm run verify` when you want pre-PR
 confidence (audit + lint + full tests + baselines + the dead-exports and
 context-budget ratchets; the arch-cycles ratchet rides along inside `lint`).
 `npm run verify` is a **true CI mirror** for the gates it can prove locally,
-but a small set of CI gates (action pinning, the TruffleHog secret scan, and
-the push-scoped `BASELINE_SCOPE=full` maintainability run) cannot be
-reproduced from a local working tree — those are catalogued in
+but a small set of CI gates (action pinning, the TruffleHog secret scan, the
+push-scoped `BASELINE_SCOPE=full` maintainability run, and the
+`check-test-temp-hygiene.js` snapshot/assert bracket around the test run)
+cannot be reproduced from a local working tree — those are catalogued in
 [`ci-contract.md`](ci-contract.md), so a local green is necessary but not
 sufficient. Pre-push runs only diff-scoped quality preview plus coverage/CRAP
 ratchet; it does not run full lint or `npm test`. CI always runs the full
@@ -133,7 +140,9 @@ the same machine before and after an optimization. Optional flags:
 ## Contribution Workflow
 
 1. Branch from `main`.
-2. Make changes inside `.agents/` (the distributed product).
+2. Make the change. Framework behaviour lives under `.agents/`; the operator
+   CLI lives under `bin/` + `lib/` — both ship, so both carry the same
+   quality gates.
 3. Commit — Husky will auto-lint and format staged `.md` files.
 4. Open a PR against `main`. CI validates the change; once merged,
    release-please cuts the release that publishes `mandrel` to npm.
