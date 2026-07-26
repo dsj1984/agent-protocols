@@ -355,11 +355,17 @@ const KIND_SCORER_BUILDERS = Object.freeze({
  * rather than crashing the refresh. The production crap/maintainability paths
  * never rely on this fallback — they inject an explicit, configured scorer.
  *
+ * Exported since Story #4776 so the full-scope drift detector
+ * (`check-baseline-drift.js`) re-scores through the *same* scorer that
+ * writes the baseline. A drift check scoring by a second, parallel
+ * implementation would report the two implementations' disagreement as
+ * drift, which is exactly the false signal it exists to rule out.
+ *
  * @param {string} kind
  * @param {{ cwd: string }} opts
  * @returns {((files: string[], opts: object) => Promise<object[]> | object[]) | undefined}
  */
-function resolveDefaultScorer(kind, { cwd } = {}) {
+export function resolveDefaultScorer(kind, { cwd } = {}) {
   const builder = KIND_SCORER_BUILDERS[kind];
   if (typeof builder !== 'function') return undefined;
   const effectiveCwd = cwd ?? process.cwd();

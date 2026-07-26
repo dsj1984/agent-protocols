@@ -33,6 +33,13 @@
  * needs the evidence in front of them. `AGENT_LOG_LEVEL=verbose` restores
  * live streaming.
  *
+ * Projection advisories (Story #4776). `baseBranch`, `storyBranch` and the
+ * resolved `config` are forwarded to `runCloseValidation` so its projection
+ * phase can run. They surface, after the gates pass, which committed
+ * baseline rows the post-merge tree would breach and the exact
+ * `*:update` + `baseline-refresh:` remedy — advisory only, so the close
+ * verdict is unchanged.
+ *
  * `runCloseValidation`, `buildDefaultGates`, and `runScopedFormatAutofix`
  * are accepted as injected dependencies so the parent CLI's cache-busted
  * bindings win in tests that mock the upstream module URLs.
@@ -154,6 +161,13 @@ export async function runCloseValidationPhase({
       // epicId; the standalone flag routes the cache to
       // temp/standalone/stories/story-<id>/validation-evidence.json.
       standalone: true,
+      // Story #4776 — the branch pair and resolved config the advisory
+      // projections need. Without them the runner skips the projection
+      // phase entirely, which is the correct behaviour for resume/legacy
+      // callers that have no story branch to diff.
+      baseBranch,
+      storyBranch,
+      config,
     });
   } finally {
     // Story #4766 — gate lines are buffered to an async stream so the drain

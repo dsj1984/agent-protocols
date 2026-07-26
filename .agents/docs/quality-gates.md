@@ -419,6 +419,66 @@ system, or the unresolved-method policy changes.
 
 ---
 
+## Keeping a baseline fresh (Story #4776)
+
+Populating a baseline correctly is only half the loop. The other half is
+keeping it correct as the tree grows, and that half has two distinct holes —
+one at close time, one over the long run. Both are **advisory**:
+`check-baselines` already fails closed on a real regression, and duplicating
+that would double-gate the same defect.
+
+### Pre-merge projections — the refresh nudge at close time
+
+Close-validation projects, after its gates pass, which committed baseline rows
+the post-merge tree would breach, and names the exact remedy while the operator
+still has the branch in hand:
+
+- `lib/close-validation/projections/maintainability.js` — per-file MI.
+- `lib/close-validation/projections/crap.js` — per-method CRAP, against each
+  method's baseline row or, for methods with no row, `newMethodCeiling`.
+
+Both are wired through `projections/advisories.js`, which
+`close-validation/runner.js` calls once. Each self-skips — logging the reason,
+never erroring — when its gate is disabled, when no baseline exists, when the
+diff has no scorable files, or when the CRAP scorer finds no coverage
+artifact. A projected breach never changes the close verdict.
+
+> The maintainability projection shipped in v1 fully written and fully
+> unit-tested, and the v2 Epic-tier collapse removed its only caller. It sat
+> importable-but-unimported for the whole of v2, so its advisory never fired
+> once. `tests/lib/close-validation/runner-projections.test.js` now walks the
+> import graph and fails if **any** module under `projections/` is reachable
+> from nothing in production — the orphaning itself is the regression.
+
+### `check-baseline-drift.js` — the scheduled full-scope re-score
+
+Every per-PR enforcement site (close-validation, pre-push, CI) is
+**diff-scoped**: it compares the files a branch touched against their baseline
+rows. A file nobody touches after its row is written is therefore never
+re-scored, so drift introduced *indirectly* — a dependency getting more
+complex, coverage moving underneath a method — stays invisible indefinitely.
+Full-scope scoring on every push is far too expensive to be the answer.
+
+```bash
+node .agents/scripts/check-baseline-drift.js                     # both kinds
+node .agents/scripts/check-baseline-drift.js --gate crap         # one kind
+node .agents/scripts/check-baseline-drift.js --tolerance 1 --json
+```
+
+It re-scores full-scope through the *same* scorer that writes the baseline
+(`refresh-service.resolveDefaultScorer`) — scoring by a second implementation
+would report the two implementations' disagreement as drift — and prints a
+per-row before/after table for everything that moved beyond the gate's
+tolerance, **in either direction**. A row that silently improved is equally
+strong evidence the baseline no longer describes the tree.
+
+Exit codes: `0` no drift (or every kind skipped), `1` drift detected, `2` the
+check could not run. It is designed to be wired as a scheduled CI job;
+scheduling it is deliberately consumer-side work, and nothing in this
+repository runs it automatically.
+
+---
+
 ## Bundle-size ratchet — one-shot refresh/acknowledge (Story #151)
 
 > Baseline envelope, axes, and component model: see the
