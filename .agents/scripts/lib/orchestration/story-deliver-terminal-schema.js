@@ -36,8 +36,15 @@ import addFormats from 'ajv-formats';
 
 const __dirname = path.dirname(fileURLToPath(import.meta.url));
 
-/** Absolute path to the shipped schema — the SSOT this module reads. */
-export const SCHEMA_PATH = path.resolve(
+/**
+ * Absolute path to the shipped schema — the SSOT this module reads.
+ *
+ * Module-private, like every other `SCHEMA_PATH` in the tree
+ * (`validation-evidence.js`, `signal-validator.js`): the path is an
+ * implementation detail of loading, and callers want the verdict, not the
+ * location.
+ */
+const SCHEMA_PATH = path.resolve(
   __dirname,
   '..',
   '..',
