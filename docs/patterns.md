@@ -6,6 +6,42 @@ the solution, and the trade-offs it accepts. Use it as a reference when
 designing new components — applying an established pattern is preferred over
 inventing parallel surface area.
 
+Five sections covering retired surfaces were relocated to
+[`archive/patterns-2026-07.md`](archive/patterns-2026-07.md); the pointers are
+in § [Archived history](#archived-history) at the foot of this file. Everything
+above that section describes surfaces that exist today.
+
+## Standing gotchas
+
+Constraints lifted out of the archived sections because they still bind current
+code. Each is a rule, not a history note.
+
+- **No shared `ctx` bag.** The retired `OrchestrationContext` /
+  `EpicRunnerContext` typed-ctx DI substrate is gone and no live module
+  demonstrates it. Do **not** re-introduce a shared ctx object for new
+  orchestration code — the surviving style is **explicit named arguments**:
+  each module declares the collaborators it needs (`provider`, `logger`,
+  `config`, …) as plain destructured parameters, and tests pass stubs directly.
+  See [`rules/git-conventions.md` § Contract Cutovers](../.agents/rules/git-conventions.md)
+  for why the old stratum was removed wholesale rather than shimmed.
+- **`phase-timings` has no producer.** `phase-timings` is still a registered
+  structured-comment kind in `lib/orchestration/ticketing/reads.js`, but nothing
+  writes it and `lib/util/phase-timer.js` has no production importer. A
+  registered kind is not a produced one — do not build a consumer, a dashboard,
+  or a perf argument on it without shipping the writer first.
+- **Compact paths need a common case.** A predicate-plus-short-body
+  short-circuit is worth it only when (a) the short path genuinely produces less
+  work, not less signal, and (b) the short path is the common case. If the short
+  path is the outlier, skip it — it becomes the one you forget to update.
+- **Progress signals report every unit, not just the active ones.** A rollup
+  that shows only in-flight work hides "is the run 20% done or 80% done?" —
+  exactly the question the reader is checking in to answer. Add a row-level
+  column only when every row benefits.
+- **A declared argument schema that is never compiled is documentation.**
+  Whatever the boundary is — a CLI, a tool registry, a JSON-RPC handler —
+  compile the declared schema and validate arguments *at* that boundary, before
+  the handler runs, and fail with the offending field path.
+
 ## Schema-First, Grouped Configuration
 
 ### Problem
@@ -72,8 +108,10 @@ When the same problem domain produces multiple "baseline-shaped" files
 (e.g. canonical ratchet baselines that gate every PR vs. per-wave drift
 snapshots written by an orchestrator), give them **distinct filenames in
 distinct directories** so a repo-wide grep never confuses one with the
-other. In this codebase the canonical baselines live under `/baselines/`
-and the per-wave drift snapshots under `.agents/state/wave-*-snapshot.json`.
+other. In this codebase the canonical ratchet baselines live under
+`/baselines/` and are the only baseline-shaped files that gate a PR; run-scoped
+drift and evidence artefacts are written under the gitignored `temp/run-<id>/`
+tree, never beside them.
 
 ---
 
@@ -424,22 +462,6 @@ Both queries should return no results when the convention holds.
 
 ---
 
-## Historical note: OrchestrationContext Dependency Injection (retired)
-
-This document previously taught an `OrchestrationContext` /
-`EpicRunnerContext` / `PlanRunnerContext` typed-ctx DI pattern backed by
-`lib/orchestration/context.js`. That substrate was deleted with the
-in-process epic-runner stratum (PR #3936; the host-LLM-drives-CLIs model
-superseded it), and no live module demonstrates the pattern. Do **not**
-re-introduce a shared ctx object for new orchestration code — the
-surviving style is **explicit named arguments**: each module declares
-the collaborators it needs (`provider`, `logger`, `config`, …) as plain
-destructured parameters, and tests pass stubs directly. See
-[`rules/git-conventions.md` § Contract Cutovers](../.agents/rules/git-conventions.md)
-for why the old stratum was removed wholesale rather than shimmed.
-
----
-
 ## `pollUntil` / `sleep` instead of hand-rolled poll loops
 
 ### Problem
@@ -495,53 +517,6 @@ that own their own cadence.
 *   One module to audit for jitter / abort / rate-limit behaviour.
 *   Test fixtures can inject a fake clock against one module instead of
     three.
-
-## Whole-epic progress reporting via `epic-run-progress` (historical)
-
-> **Historical.** The progress-reporter module and its caller were
-> deleted with the Epic tier in v2.0.0 — there is no Epic-level rollup
-> comment any more (see the matching historical note in
-> [`docs/data-dictionary.md`](data-dictionary.md)). The *pattern* —
-> one idempotent, marker-keyed rollup covering every unit of work, not
-> just the active ones — remains the reference shape for any future
-> multi-Story progress surface.
-
-The progress-reporter module
-(`lib/orchestration/epic-runner/progress-reporter/composition.js`,
-`upsertEpicRunProgress`) rendered the `epic-run-progress` snapshot
-covering every story in the Epic — queued, in-flight, done, blocked —
-so operators saw the full Epic at a glance.
-
-`upsertEpicRunProgress` was called by `/deliver`'s per-Story status
-recorder (`epic-execute-record-wave.js`) after each recorder beat.
-Story #4155 (Epic #4151) cut the runtime over from the wave-batch
-scheduler to the continuous ready-set core, so the rollup was a **flat
-per-Story table** keyed by the checkpoint's `stories` status map — there
-was no `Wave` column and no `waves[]` grouping:
-
-```text
-### 📊 Epic Progress — 5/6 stories done
-| ID | State | Title |
-|---|---|---|
-| #419 | ✅ done | Spawner hardening suite |
-| #420 | ✅ done | Post-wave commit assertion |
-| #421 | ✅ done | story-close --resume / --restart |
-| #422 | ✅ done | Biome format gate + tagging sanity check |
-| #423 | ✅ done | error-journal parse-fix, validator wiring |
-| #424 | 🔧 in-flight | ProgressReporter detectors + CI Node matrix |
-```
-
-There was no separate per-Story structured comment — `epic-run-progress`
-was the single operator-facing summary, and the upsert was idempotent by
-marker (see the structured-comment pattern above).
-
-**Why it mattered (and still generalises):** a progress signal is what
-operators read while a delivery loop runs. A snapshot that only shows
-the active stories hides "is the run 20% done or 80% done?" — exactly
-the question the operator is trying to answer when checking in. A flat
-all-rows table collapses that question into a single glance; row-level
-columns should be added only when every row benefits, with once-per-
-snapshot detectors relegated to a `Notable` section under the table.
 
 ## Per-Story friction signal emission (NDJSON)
 
@@ -631,11 +606,11 @@ phase module per step, with a uniform contract per phase:
 stand-alone module under a sibling `phases/` directory.
 
 The in-process epic-runner coordinator that motivated the pattern was
-later deleted wholesale (PR #3936 — the host-LLM-drives-CLIs model
-superseded it; only `phases/build-wave-dag.js` and `phases/snapshot.js`
-survive under `lib/orchestration/epic-runner/phases/`, consumed by the
-`/deliver` prepare/preflight CLIs), but the decomposition layout it
-established is the live convention.
+deleted wholesale (PR #3936 — the host-LLM-drives-CLIs model superseded it),
+and nothing survives under `lib/orchestration/epic-runner/`. The decomposition
+layout it established is the live convention: the working exemplars are
+`lib/orchestration/single-story-close/phases/` and
+`lib/orchestration/git-cleanup/phases/`.
 
 ### Benefits
 
@@ -765,34 +740,6 @@ try {
   target live on the same filesystem. Putting the `.tmp` file next to the
   target guarantees this.
 
-## MCP tool-argument schema enforcement
-
-### Problem
-
-Declaring an `inputSchema` per tool in the MCP registry does not enforce
-it — the server had been validating the JSON-RPC envelope with AJV but
-not the `tools/call` arguments themselves. A malformed payload (negative
-`epicId`, string where a number was expected) reached the handler
-unchecked and surfaced as a GraphQL 422 or a `Cannot read properties of
-undefined` downstream, disguising a caller bug as a backend error.
-
-### Solution
-
-Compile each tool's `inputSchema` with AJV at registration time, then
-validate `params.arguments` before invoking the handler. On failure,
-respond with JSON-RPC `-32602 Invalid params` including the AJV error path
-and a human-readable reason — the caller sees exactly which field failed,
-at the protocol boundary.
-
-### Consequences
-
-- Tool schemas are no longer documentation-only; the registry is the
-  enforced contract.
-- Caller errors surface as protocol-level `-32602` with a precise path,
-  not as opaque downstream exceptions.
-- Tightened schemas catch subtle drifts (e.g. a `type::*` enum missing on
-  one tool but present on its siblings) at the boundary.
-
 ## Bounded-concurrency fanout via `concurrentMap`
 
 ### Problem
@@ -828,67 +775,40 @@ higher parallelism doesn't help and can contend on locks.
 - Provider-level caching (see the ticket-cache pattern below) and the
   cap are orthogonal: the cache handles repeated reads; the cap handles
   the wide fanouts.
-- Caps are constants for now. The phase-timer surface is the
-  measurement that will justify an `agentSettings` override — not
-  premature configurability.
+- Caps are constants for now. Raising one to a config key needs
+  measurement first, and the framework has no live per-phase timing surface
+  to supply it (see § Standing gotchas) — the per-Story `signals.ndjson`
+  stream is the available evidence. Constants until then, not premature
+  configurability.
 
 ## Prime the ticket cache after every `getTickets` sweep
 
 ### Problem
 
 `GitHubProvider` has carried a per-instance ticket cache for several
-releases, but the bulk `getTickets(epicId)` sweep wasn't priming it.
+releases, but the bulk `getTickets(...)` sweep wasn't priming it.
 Callers then did a second round-trip on every subsequent `getTicket(id)`
-for the same Epic — a textbook N+1 that no one had noticed because it
+over the same set — a textbook N+1 that no one had noticed because it
 was hidden behind two separate call sites and the cache's "it's there,
 we use it" reputation.
 
 ### Solution
 
-Every `provider.getTickets(...)` call site in `.agents/scripts/` is
-followed by `provider.primeTicketCache(result)`. `primeTicketCache` was
-already exported and tested; adoption is a one-line diff per site. A
+Every bulk-read call site is followed by `provider.primeTicketCache(result)`.
+Since the v2 Story collapse the only in-tree sweep lives inside the provider
+itself (`providers/github/issues.js`), which primes as part of the read; the
+discipline is the standing rule for any future bulk read. `primeTicketCache`
+was already exported and tested; adoption is a one-line diff per site. A
 regression test asserts zero extra HTTP calls across a sweep-plus-N-reads
 sequence against a mocked `fetchImpl`.
 
 ### Consequences
 
-- Dispatcher passes that read children after the sweep are free.
+- Passes that read a set and then re-read its members are free.
 - The discipline is a pattern, not a new API — the helper already
   existed; we just made adoption consistent.
 - Invalidation semantics are unchanged: any write through the provider
   invalidates the affected entries.
-
-## Per-phase timer with `snapshot` / `restore`
-
-### Problem
-
-Framework overhead was not directly observable. A slow Story could be
-slow because `.agents/` copy was slow, or because `npm ci` was slow,
-or because lint was slow — the runner's log said only "Story took 12
-minutes." Consumer projects blaming framework overhead had no way to
-prove it; framework maintainers had no way to refute it.
-
-### Solution
-
-`lib/util/phase-timer.js` + `phase-timer-state.js`. The timer records
-`{ phase, elapsedMs }` spans and exposes `snapshot` / `restore` so
-state survives the `story-init` → sub-agent →
-`story-close` boundary (where three separate phases handle
-one Story). Per-phase lines are emitted during the lifecycle; on
-close, a `phase-timings` structured comment is posted to the Story
-ticket. Story #4545 deleted the aggregator that rolled those timings into
-a median / p95 report; the per-Story comment is what remains.
-
-### Consequences
-
-- The phase-timings comment is a machine-readable artefact — consumer
-  dashboards don't have to grep logs.
-- Framework vs. consumer overhead is now attributable in a single
-  report: `.agents/` copy, worktree create, bootstrap are framework;
-  install, lint, test, implement are consumer.
-- Future perf work starts with measurement. The next regression is
-  caught by the p95 column drifting, not by a user filing an issue.
 
 ## Quality gates: maintainability vs CRAP (sibling-gate pattern)
 
@@ -951,15 +871,16 @@ observability surface. Three principles:
    typos. Regression tests assert the no-config path observably matches
    pre-tuning fanout (e.g. `Promise.all` vs `concurrentMap` with cap=0).
 2. **One resolver, one shape.** A small helper
-   (`lib/orchestration/wave-record-projection.js#resolveConcurrencyCap`)
+   (`resolveConcurrencyCap`, now in `.agents/scripts/stories-wave-tick.js`)
    handles coercion, per-field fallback, and freezing. Every reader goes
    through the same shape; no adoption site re-invents defaults or
    reads concurrency caps from the resolved config directly.
 3. **Tuning data comes from inside.** The per-Story `signals.ndjson`
-   stream is written from lived workload, and the retro aggregates it.
-   Operators tune defaults from that, not from outside measurement
-   harnesses. (Story #4545 deleted the `analyze-execution.js` CLI that
-   rendered phase p50/p95 and concurrency hints into a structured comment.)
+   stream is written from lived workload. Operators tune defaults from that,
+   not from outside measurement harnesses — and today that stream is the
+   *only* internal source: Story #4545 deleted the `analyze-execution.js` CLI
+   that rendered phase p50/p95 and concurrency hints, and no per-phase timing
+   surface replaced it (see § Standing gotchas).
 
 ### Consequences
 
@@ -969,41 +890,6 @@ observability surface. Three principles:
   declarative tuning surface that the schema validates.
 - Future perf retuning becomes a decision comment + a default-file
   edit, not a code archaeology exercise.
-
-## Compact-path short-circuit with escape hatch (historical)
-
-### Context
-
-`helpers/epic-retro.md` historically walked through six sections
-regardless of sprint shape. On clean-manifest Epics (zero friction,
-zero parked, zero recuts, zero hotfixes, zero HITL) four of those
-sections degenerated to "nothing notable" boilerplate.
-
-### Solution (pre-v2)
-
-A cheap predicate decided the branch up-front; the verbose path stayed
-one flag away.
-
-1. **Pure-function predicate.** `isCleanManifest({ friction, parked,
-   recuts, hotfixes, hitl })` returned `true` iff every signal was zero.
-   Lived in `lib/orchestration/retro-heuristics.js` (deleted in v2 with
-   the Epic retro path).
-2. **Preserved downstream contract.** The compact body was still a
-   `type: 'retro'` comment ending with `<!-- retro-complete: <ISO> -->`.
-3. **Operator override.** `--full-retro` forced the six-section body.
-
-### When this pattern still applies
-
-The *pattern* (predicate + shorter body + escape hatch) generalises to
-any stage whose body is mechanically populated from usually-zero
-signals. The Epic-retro *instance* of the pattern is gone in v2.
-
-Use only when (a) the short path genuinely produces less work, not
-less signal, and (b) the short path is the common case. If "clean" is
-the outlier, skip — the short path becomes the one you forget to
-update.
-
----
 
 ## Retire the parallel-pathway surface
 
@@ -1018,11 +904,11 @@ secrets had to be threaded (`.mcp.json` env block + `process.env`), and
 a permanent "MCP-unavailable on web" degradation note in every web-launch
 runbook. The MCP cost real maintenance for marginal ergonomic gain.
 
-Earlier patterns in this file reference `MCP tool` / `post_structured_comment`
-emitter wrappers and the `MCP tool-argument schema enforcement` decision.
-Those references describe the architecture as it stood **before** Epic
-#702 retired the MCP. The patterns themselves remain valid; only the
-delivery surface changed (CLI invocation in place of MCP-routed call).
+The MCP-era companion pattern — compiling each tool's declared `inputSchema`
+and validating arguments at the protocol boundary — moved to
+[`archive/patterns-2026-07.md`](archive/patterns-2026-07.md) with the surface it
+described. The rule it taught survives in § Standing gotchas; only the delivery
+surface changed (CLI invocation in place of an MCP-routed call).
 
 ### Solution
 
@@ -1035,9 +921,12 @@ collapse to one surface in three sequenced steps:
    non-zero on the same failure modes. No behavioural change.
 2. **Migrate every caller in committed code.** Grep workflow markdown,
    skills, helpers, scripts; every `mcp__mandrel__*` token gets
-   rewritten to `node .agents/scripts/<name>.js …`. Add a pre-commit
-   assertion (here: `check-markdown.js`) so reintroductions break the
-   build.
+   rewritten to `node .agents/scripts/<name>.js …`. Add a repo-gated
+   assertion so reintroductions break the build — the surviving example of
+   that mechanism is the `RETIRED_COMMANDS` blocklist in
+   `check-doc-links.js`, which fails any active doc that mentions a retired
+   command token. (The MCP-specific `check-markdown.js` guard was itself
+   deleted once the token had no remaining source to creep back from.)
 3. **Delete the parallel surface in one shot.** Delete the server, its
    tool registry, the dedicated tests, the `mandrel` block in
    `.mcp.json` / `default-mcp.json`, the dedicated docs (`MCP.md`,
@@ -1072,13 +961,13 @@ does not apply.
 When the same lint/test/format/maintainability/CRAP command is invoked
 across phases against the same tree, the framework wraps each invocation
 in `evidence-gate.js`. On success the wrapper writes
-`{ gateName, commitSha, commandConfigHash, timestamp }` under the run
-tree at `temp/run-<id>/validation-evidence.json` (run-scoped) or
+`{ gateName, commitSha, commandConfigHash, inputFingerprint, timestamp }`
+under the run tree at `temp/run-<id>/validation-evidence.json` (run-scoped) or
 `temp/run-<id>/stories/story-<storyId>/validation-evidence.json`
 (Story-scoped; standalone Stories use
 `temp/standalone/stories/story-<storyId>/`). The next caller reads the
-record, compares against `git rev-parse HEAD` and the resolved command
-config, and skips when both match.
+record, compares against `git rev-parse HEAD` (resolved in the *worktree*, not
+the caller's cwd) and the resolved command config, and skips when they match.
 
 Pattern shape:
 
@@ -1089,15 +978,30 @@ Pattern shape:
    needs the same gate result wraps the gate via `evidence-gate.js` and
    skips when the recorded SHA still matches `HEAD` and the command
    config hash is unchanged.
-3. **Any drift invalidates.** A new commit, a working-tree change at
-   commit-SHA granularity, or a config drift (different env, different
-   script args) invalidates the record and the gate runs.
-4. **Independent verification stays independent.** Pre-push hooks and CI
+3. **Config drift always invalidates; SHA drift usually does.** A
+   different `commandConfigHash` — which hashes `{ cmd, args, cwd }`, so the
+   same gate run from the main checkout and from the worktree never shares
+   evidence — is an unconditional re-run. A moved `HEAD` is a re-run *unless*
+   both the record and the caller supply the same non-empty
+   `inputFingerprint`, the escape hatch that lets a docs-only or
+   whitespace-only commit skip a gate whose effective inputs are unchanged
+   (`shouldSkip` in `lib/validation-evidence.js`). **No shipped gate populates
+   `inputFingerprint` today** — `close-validation/runner.js` passes
+   `gate.inputFingerprint ?? null` and no gate sets it — so in practice every
+   new commit re-runs the gate and `evidence-match` is the only skip reason
+   `evidence-gate.js` can produce. Treat the fingerprint path as a wired but
+   dormant capability, not as current behaviour.
+4. **Unreadable evidence means re-run, never error.** A missing file, a
+   parse failure, a schema-invalid document, or a record belonging to another
+   Story all resolve to `no-record` and the gate runs. Likewise an
+   unresolvable `HEAD`: the wrapper runs the gate and records nothing.
+5. **Independent verification stays independent.** Pre-push hooks and CI
    never read the evidence file; they always run the full gate. Evidence
    is per-clone, gitignored, and never committed.
-5. **Explicit override.** `--no-evidence` on any wrapper invocation
-   forces a re-run and overwrites the record. Use sparingly — for
-   iterating on flaky tests or bisecting an environment-only failure.
+6. **Explicit override.** `--no-evidence` on any wrapper invocation
+   forces a re-run and, despite the name reading like a cache bust, also skips
+   *writing* the record. Use sparingly — for iterating on flaky tests or
+   bisecting an environment-only failure.
 
 Apply when: a phase needs the result of a deterministic, expensive,
 working-tree-pure gate that another phase has already produced.
@@ -1123,3 +1027,18 @@ contract is:
 Pattern: never let a degraded execution path mimic a clean one. The
 caller's flexibility is preserved by the structured envelope; the
 operator's ability to mistake degraded for clean is removed.
+
+---
+
+## Archived history
+
+Five sections documenting surfaces this repository no longer implements were
+relocated verbatim to [`archive/patterns-2026-07.md`](archive/patterns-2026-07.md)
+by Story #4786. Every constraint in them that still binds current code was
+lifted into § [Standing gotchas](#standing-gotchas) first.
+
+- [Historical note: OrchestrationContext Dependency Injection (retired)](archive/patterns-2026-07.md#historical-note-orchestrationcontext-dependency-injection-retired) — the typed-ctx DI substrate deleted with the in-process Epic runner.
+- [Whole-epic progress reporting via `epic-run-progress` (historical)](archive/patterns-2026-07.md#whole-epic-progress-reporting-via-epic-run-progress-historical) — the Epic-level rollup comment, including its reproduced progress table.
+- [MCP tool-argument schema enforcement](archive/patterns-2026-07.md#mcp-tool-argument-schema-enforcement) — argument validation inside the retired `mandrel` MCP server.
+- [Per-phase timer with `snapshot` / `restore`](archive/patterns-2026-07.md#per-phase-timer-with-snapshot--restore) — the phase-timing surface and the `phase-timings` comment it claimed to post.
+- [Compact-path short-circuit with escape hatch (historical)](archive/patterns-2026-07.md#compact-path-short-circuit-with-escape-hatch-historical) — the Epic-retro compact body and its `--full-retro` override.

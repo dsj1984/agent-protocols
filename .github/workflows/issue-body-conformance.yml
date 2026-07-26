@@ -30,7 +30,9 @@ jobs:
       - name: Setup Node.js
         uses: actions/setup-node@v4
         with:
-          node-version: '22'
+          # `.nvmrc` is the sole Node SSOT for every workflow in this repo — never
+          # re-state the version literal here (Story #4081, re-detected as #4784).
+          node-version-file: .nvmrc
 
       - name: Lint issue body
         env:
