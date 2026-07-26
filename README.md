@@ -181,10 +181,14 @@ dimensions, run model, and how to benchmark a new version.
 
 ## Contributors
 
-Only `.agents/` is distributed to consumers — it ships inside the
-`mandrel` npm package and is materialized into a consumer's
-`./.agents/` directory by `mandrel sync`. Everything else in this
-repository is internal development tooling.
+The published `mandrel` package ships three directories — `.agents/`, `bin/`,
+and `lib/` (see the `files` array in [`package.json`](package.json)).
+`.agents/` is the payload `mandrel sync` materializes into a consumer's
+`./.agents/` directory; `bin/mandrel.js` and its `lib/` implementation stay
+inside `node_modules/mandrel/` and back the `npx mandrel …` CLI used
+throughout this README. Everything else in this repository — `docs/`,
+`tests/`, `.github/`, the root tooling configs — is internal development
+tooling and is not published.
 
 Common commands while developing the framework itself:
 
@@ -204,8 +208,12 @@ Deeper reference material lives in `docs/` rather than inline here:
 - [`.agents/docs/workflows.md`](.agents/docs/workflows.md) — slash-command
   index (auto-generated from the workflow set).
 - [`docs/CHANGELOG.md`](docs/CHANGELOG.md) — release history.
-- [`AGENTS.md`](AGENTS.md) — repository onboarding, the single-package release
-  topology, PAT / npm-token setup, and major-version policy. Releases are
+- [`AGENTS.md`](AGENTS.md) — the repository-level orientation pointer; it
+  links on to [`docs/onboarding.md`](docs/onboarding.md) for the layout,
+  commands, and development standards.
+- [`docs/release-operations.md`](docs/release-operations.md) — the Release
+  Checklist, the Install Matrix release gate, the single-package release
+  topology, PAT / npm-token setup, and the major-version policy. Releases are
   automated by `release-please`: land Conventional Commits on `main` and it
   opens a combined `chore: release main` PR that squash-merges itself once
   CI is green, tags `main`, and publishes `mandrel` to npm.

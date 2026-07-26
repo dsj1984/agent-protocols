@@ -10,9 +10,7 @@ Mandrel orchestration engine.
 One newline-terminated JSON object emitted by `signals-writer.appendSignal`
 to `temp/run-<eid>/stories/story-<sid>/signals.ndjson` (standalone Stories:
 `temp/standalone/stories/story-<sid>/signals.ndjson`; and a sibling
-`traces.ndjson` for `kind: trace`). Closed taxonomy of seven record kinds —
-`friction`, `hotspot`, `rework`, `churn`, `idle`, `retry`, `trace` — defined
-by Epic #1030. Schema lives at
+`traces.ndjson` for `kind: trace`). Schema lives at
 [`signal-event.schema.json`](../.agents/schemas/signal-event.schema.json);
 the table below mirrors that schema — update both together. See
 [`docs/architecture.md`](architecture.md#performance-signal-telemetry) for
@@ -20,26 +18,33 @@ the producer / detector / analyzer flow and the ADR in
 [`docs/decisions.md`](decisions.md) for the events-local /
 summaries-on-tickets rationale.
 
+**Only `ts` and `kind` are required** (the envelope is
+`additionalProperties: true`); the Required column mirrors the schema, not
+usage. The `kind` enum holds **thirteen** values, mirrored by `EVENT_KINDS`
+(`lib/signals/schema.js`): `friction`, `trace`, `wave-start`, `wave-end`,
+`wave-complete`, `state-transition`, `hotspot`, `rework`, `churn`, `idle`,
+`retry`, `acceptance-eval`, `notification.emitted` — `hotspot`/`churn`/`idle`
+being reserved names with no shipped detector.
+
 | Field      | Type                | Required | Description                                                                                                                |
 | ---------- | ------------------- | -------- | -------------------------------------------------------------------------------------------------------------------------- |
-| `ts`       | `ISO8601 date-time` | Yes      | Event timestamp in UTC.                                                                                                    |
-| `kind`     | `enum`              | Yes      | One of `friction`, `hotspot`, `rework`, `churn`, `idle`, `retry`, `trace`. Drives detector dispatch and analyzer rollup.   |
-| `source`   | `object`            | Yes      | `{ tool: string, script?: string }`. `tool` is the originating surface (`Bash`, `Edit`, `Write`, `Read`, `Grep`, `Glob`, or a script name for derived signals). |
-| `epicId`   | `integer ≥ 1`       | Yes      | Run / parent id the event belongs to (field name retained for schema compat). Pins the on-disk path to `temp/run-<epicId>/` (standalone Stories: `temp/standalone/`). |
-| `storyId`  | `integer ≥ 1`       | Yes      | Story the event was sampled inside. Pins the on-disk path to `story-<storyId>/`.                                           |
+| `ts`       | `ISO8601 date-time` | **Yes**  | Event timestamp in UTC. The single canonical timestamp key — the legacy `timestamp` alias is gone.                          |
+| `kind`     | `enum` (13 values)  | **Yes**  | One of the thirteen kinds listed above. Drives detector dispatch and analyzer rollup.                                       |
+| `source`   | `string` enum       | No       | **`framework` \| `consumer` only** — the classifier tag from `tagSignalSource` (`signals-writer.js`). **Not** a provenance object; the pre-#4406 `source: { tool }` shape was deleted outright. |
+| `emitter`  | `object`            | No       | Provenance — `{ tool?, command? }`, where the old `source.tool` went. `tool` is the originating surface (`Bash`, `Edit`, a script name); `command` is the line blamed. |
+| `epicId`   | `integer ≥ 1` \| `null` | No   | Run / parent id the event belongs to (field name retained for schema compat). Pins the on-disk path to `temp/run-<epicId>/` (standalone Stories: `temp/standalone/`). |
+| `storyId`  | `integer ≥ 1` \| `null` | No   | Story the event was sampled inside. Pins the on-disk path to `story-<storyId>/`.                                            |
 | `taskId`   | `integer ≥ 1` \| `null` | No   | Legacy field name; GitHub issue number when the event is scoped below Epic level. `null` for Story-wide events.              |
 | `phase`    | `string` \| `null`  | No       | Execution phase the event was sampled inside (`bootstrap`, `implement`, `test`, `close`, …). `null` for raw traces outside a phase boundary. |
-| `details`  | `object`            | No       | Kind-specific payload (free-form for forward compatibility). Common keys: `category`, `command`, `elapsedMs`, `targetHash`. |
+| `details`  | `object`            | No       | Kind-specific payload — always an object, never a bare string. Free-form; common keys `errorPreview`, `command`, `commandHash`, `targetHash`, `exitCode`, `elapsedMs`. |
 
 ---
 
 ## StoryPerfSummary / EpicPerfReport — removed (Story #4545)
 
 Both payloads and their schemas were deleted with the execution-analysis
-surface that produced them: the analyzer hard-failed without an Epic id, read
-signals from a path a standalone Story can never produce, and no workflow
-invoked it. Nothing writes a `structured:story-perf-summary` or
-`structured:epic-perf-report` comment, and neither kind is a valid structured
+surface that produced them. Nothing writes a `structured:story-perf-summary`
+or `structured:epic-perf-report` comment, and neither is a valid structured
 comment type any more.
 
 ## FrictionEvent (`friction` NDJSON signal)
@@ -201,14 +206,11 @@ readers should not re-implement the fence-extraction logic inline.
 
 ## Dispatch Manifest (historical)
 
-> **Historical.** The dispatch manifest
-> (`temp/dispatch-manifest-<epicId>.json`, the `dispatch-manifest`
-> structured comment on the Epic, and its renderer
-> `render-manifest.js`) was deleted with the Epic tier in v2.0.0. No
-> producer writes it, and the live structured-comment table above omits
-> it. The dispatch record in v2 is the Story's own GitHub surface —
-> labels, structured comments, and the `story-<id>` PR. Manifests on
-> historical Epics remain readable as plain comments.
+> **Historical.** The dispatch manifest (`temp/dispatch-manifest-<epicId>.json`,
+> its structured comment, and its renderer `render-manifest.js`) was deleted
+> with the Epic tier in v2.0.0 — nothing writes it. The v2 dispatch record is
+> the Story's own GitHub surface: labels, structured comments, and the
+> `story-<id>` PR.
 
 ---
 
@@ -247,15 +249,6 @@ readers should not re-implement the fence-extraction logic inline.
 
 ---
 
-## Wave Marker Regex
-
-The wave structured-comment marker regex is
-`/^wave-([0-9]{1,3})-(start|end)$/` — up to 999 waves. `wave-1000-start` is
-rejected; downstream wave-index consumers (`manifest-builder`) tolerate
-rejected indices gracefully.
-
----
-
 ## CRAP Analysis Artefacts
 
 Per-method complexity × coverage risk gate, sibling to the maintainability
@@ -263,14 +256,15 @@ ratchet.
 
 | Term                                                | Kind               | Definition                                                                                                                                                                                                                                                                                                                                                                  |
 | --------------------------------------------------- | ------------------ | --------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
-| `baselines/crap.json`                               | Repo-root artefact | `{ kernelVersion, escomplexVersion, rows: [{ file, method, startLine, crap }] }`. Rows deterministically sorted by `(file, startLine)`; alphabetized keys; trailing newline. `kernelVersion` bumps when the inline CRAP formula changes; `escomplexVersion` bumps with the `typhonjs-escomplex` dependency. A baseline whose stamps don't match the running scorer fails closed. |
-| `delivery.quality.gates.crap`                       | Config block       | `{ enabled, targetDirs, newMethodCeiling, coveragePath, tolerance, requireCoverage, friction.markerKey, refreshTag }`. Defaults: `enabled: true`, `targetDirs: ["src"]`, `newMethodCeiling: 30`, `coveragePath: "coverage/coverage-final.json"`, `tolerance: 0.05`, `requireCoverage: true`, `refreshTag: "baseline-refresh:"`. List-valued keys accept `{ append }` / `{ prepend }`. |
+| `baselines/crap.json`                               | Repo-root artefact | Envelope-shaped ([`crap.schema.json`](../.agents/schemas/baselines/crap.schema.json) over [`baseline-envelope.schema.json`](../.agents/schemas/baselines/baseline-envelope.schema.json), `additionalProperties: false`): `{ $schema, kernelVersion, generatedAt, scoringSemantics, rollup, rows }`. **There is no `escomplexVersion` key** — the envelope forbids one; that stamp belongs to the legacy flat `crap-baseline.schema.json`. Rows are `{ path, method, startLine, crap }` — keyed on **`path`**, not `file` — sorted by `(path, startLine)`; alphabetized keys; trailing newline. The gate compares two stamps: `scoringSemantics` (e.g. `"coverage-join-v2"`) names the coverage-join semantics that produced the rows (#4775), and a baseline stamped differently from the running scorer is **incomparable** — it fails closed with re-baseline guidance; `rollup` is required, keyed by component (`"*"` = whole repo), each entry carrying exactly `{ p50, p95, max, methodsAbove20 }`, the axes `floors` check. |
+| `delivery.quality.gates.crap`                       | Config block       | `{ enabled, baselinePath, tolerance, floors, components, targetDirs, newMethodCeiling, requireCoverage, minMethodResolutionRate, friction.markerKey, refreshTag, refreshTimeoutMs, ignoreGlobs }` — `additionalProperties: false` (first five from the shared `GATE_BASE`). Defaults in `CRAP_GATE_DEFAULTS` (`lib/config/quality.js`): `tolerance: { kind: "absolute", value: 0.05 }`, `floors: { "*": { max: 30, p95: 20, methodsAbove20: 50 } }`, `targetDirs: ["src"]`, `newMethodCeiling: 30`, `minMethodResolutionRate: 0.75`, `refreshTag: "baseline-refresh:"`. List-valued keys accept `{ append }` / `{ prepend }`. |
+| `coveragePath` — **on the coverage gate**           | Config key         | `delivery.quality.gates.coverage.coveragePath` (default `"coverage/coverage-final.json"`). Moved off the CRAP gate in #1737; CRAP reads it from there. Both schemas are `additionalProperties: false`, so putting it back under `crap` is a hard AJV failure, not a no-op. |
 | Hybrid enforcement                                  | Decision contract  | `compareCrap()` resolves each scanned row through four match paths: exact `(file, method, startLine)`, line-drift fallback (same `(file, method)`, shifted `startLine`), new (no match → ceiling check), removed (baseline row absent → reported, never a failure).                                                                                                          |
 | `fixGuidance`                                       | Report field       | Per-violation block in the `--json` envelope: `{ crapCeiling, minComplexityAt100Cov, minCoverageAtCurrentComplexity }`. Derived deterministically from the formula; `null` when unachievable at current complexity. Round-trip property: applying either single-axis fix re-scores under target.                                                                              |
-| `--changed-since <ref>`                             | CLI flag           | On `quality-preview.js` (defaults to `HEAD` when omitted). Limits scoring + comparison to files changed relative to `<ref>`. For the unified gate (`check-baselines.js`), diff scoping is config-driven via `delivery.quality.gateScoping` rather than a CLI flag.                                                                                                            |
-| `--json` / `--format json`                          | CLI flag           | `quality-preview.js` takes boolean `--json` (emits the merged machine-readable envelope on stdout); `check-baselines.js` takes `--format json\|text` and emits the JSON report on stdout. The standalone per-gate `--json <path>` file writers went away with `check-crap.js` / `check-maintainability.js` — per-kind gate logic now lives in `lib/baselines/kinds/`.        |
-| `CRAP_NEW_METHOD_CEILING` / `CRAP_TOLERANCE` / `CRAP_REFRESH_TAG` | Env vars | Override `crap.newMethodCeiling`, `crap.tolerance`, and `crap.refreshTag` respectively at runtime. Malformed values warn and fall back to config — a typo must never silently relax the gate. Originally consumed by the (since-removed) baseline-refresh CI guardrail; still available for local re-runs that need to force base-branch values.                                |
-| `refreshTag` (commit-message convention)            | Operator convention | A baseline edit should land in a commit whose subject starts with the configured `refreshTag` (default `baseline-refresh:`) and whose body is non-empty. The CI guardrail that mechanically enforced this was removed in 5.42; the operator is now the gate during `/deliver` Phase 7.                                                                                  |
+| `--changed-since <ref>`                             | CLI flag           | On `quality-preview.js` (defaults to `HEAD`). Limits scoring + comparison to files changed relative to `<ref>`. The unified gate (`check-baselines.js`) scopes via `delivery.quality.gateScoping` instead. |
+| `--json` / `--format json`                          | CLI flag           | `quality-preview.js` takes boolean `--json` (emits the merged machine-readable envelope on stdout); `check-baselines.js` takes `--format json\|text`. The standalone per-gate `--json <path>` writers went away with `check-crap.js` / `check-maintainability.js`; per-kind logic now lives in `lib/baselines/kinds/`. |
+| `CRAP_NEW_METHOD_CEILING` / `CRAP_TOLERANCE` / `CRAP_REFRESH_TAG` | Env vars | Override `crap.newMethodCeiling`, `crap.tolerance`, and `crap.refreshTag` respectively at runtime. Malformed values warn and fall back to config — a typo must never silently relax the gate. Available for local re-runs that need base-branch values. |
+| `refreshTag` (commit-message convention)            | Operator convention | A baseline edit should land in a commit whose subject starts with the configured `refreshTag` (default `baseline-refresh:`) and whose body is non-empty. No CI guardrail enforces it; the operator is the gate. |
 
 ---
 
@@ -306,7 +300,7 @@ authoritative SDK.
 | Term                                       | Kind     | Definition                                                                                                                                                         |
 | ------------------------------------------ | -------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------ |
 | `post-structured-comment.js`               | CLI      | `--ticket <id> --marker <key> --body-file <path>`. Wraps `upsertStructuredComment(provider, ticketId, marker, body)` from `lib/orchestration/ticketing.js`; idempotent by marker. |
-| `select-audits.js` / `run-audit-suite.js`  | CLI      | Selection reads `audit-rules.json` (manifest schema: `audit-rules.schema.json`); suite execution loads the selected workflow prompts.                              |
+| `lib/audit-suite/index.js`                 | SDK barrel | `selectAudits()` / `runAuditSuite()`. Selection reads `audit-rules.json` (schema `audit-rules.schema.json`); execution loads the selected prompts. Imported by `run-epilogue.js` and the Story-close review phases — the `select-audits.js` / `run-audit-suite.js` entry scripts were deleted, so there is no audit-suite CLI. |
 | `update-ticket-state.js`                   | CLI      | Covers ticket state transitions and cascade-completion. Cascade runs inline at the SDK layer when a Story reaches `agent::done`.                                    |
 | `dispatcher.js`                            | CLI      | **Deleted in v2.** Pre-v2 DAG / wave / dispatch-manifest CLI. Multi-Story ordering now uses `stories-wave-tick.js` + `lib/wave-runner/ready-set.js`. |
 | `process.env`-only secrets resolution      | Contract | `notifier.js` `resolveWebhookUrl()` and the GitHub provider's `GITHUB_TOKEN` lookup read **only** from `process.env`. `.mcp.json` is not consulted as a secrets backstop.       |
@@ -375,10 +369,10 @@ before it reaches disk.
 
 ## Retro Heuristic (historical)
 
-> **Removed in v2.** The `epic-retro` helper and `lib/orchestration/retro-heuristics.js`
-> (`isCleanManifest`) were deleted with the Epic delivery path. Compact vs full
-> retro branching no longer applies; keep this section only as a glossary for
-> archived docs that still name the predicate.
+> **Removed in v2.** The `epic-retro` helper and
+> `lib/orchestration/retro-heuristics.js` (`isCleanManifest`) were deleted with
+> the Epic delivery path; compact-vs-full retro branching no longer applies.
+> Kept as a glossary for archived docs that still name the predicate.
 
 | Term                       | Kind     | Definition                                                                                                                                                |
 | -------------------------- | -------- | --------------------------------------------------------------------------------------------------------------------------------------------------------- |
