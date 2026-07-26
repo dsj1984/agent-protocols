@@ -28,22 +28,12 @@
  * pre-#4543 pipeline collapsed by treating budget exhaustion as a block.
  */
 
-import { readFileSync } from 'node:fs';
-import path from 'node:path';
-import { fileURLToPath } from 'node:url';
+import { validateTerminalEnvelope } from './story-deliver-terminal-schema.js';
 
-import Ajv2020 from 'ajv/dist/2020.js';
-import addFormats from 'ajv-formats';
-
-const __dirname = path.dirname(fileURLToPath(import.meta.url));
-const SCHEMA_PATH = path.resolve(
-  __dirname,
-  '..',
-  '..',
-  '..',
-  'schemas',
-  'story-deliver-terminal.schema.json',
-);
+// Re-exported so the schema split stays an implementation detail: every
+// consumer still reaches the validator through the envelope module that owns
+// the contract.
+export { validateTerminalEnvelope };
 
 export const TERMINAL_ENVELOPE_KIND = 'story-deliver-terminal';
 
@@ -152,39 +142,6 @@ export const NEXT_COMMANDS = Object.freeze({
   escalateToPlan: (prompt) => `/plan "${quoteForPlan(prompt)}"`,
 });
 
-/** @type {Function|null} */
-let _validator = null;
-
-/**
- * Compile (once) and return the terminal-envelope validator.
- *
- * @returns {Function}
- */
-function getValidator() {
-  if (_validator) return _validator;
-  const schema = JSON.parse(readFileSync(SCHEMA_PATH, 'utf8'));
-  const ajv = new Ajv2020({ allErrors: true, strict: false });
-  addFormats(ajv);
-  _validator = ajv.compile(schema);
-  return _validator;
-}
-
-/**
- * Validate a candidate envelope against the shipped schema.
- *
- * @param {object} envelope
- * @returns {{ valid: boolean, errors: string[] }}
- */
-export function validateTerminalEnvelope(envelope) {
-  const validate = getValidator();
-  const valid = validate(envelope);
-  if (valid) return { valid: true, errors: [] };
-  const errors = (validate.errors ?? []).map(
-    (e) => `${e.instancePath || '/'} ${e.message}`,
-  );
-  return { valid: false, errors };
-}
-
 /**
  * Drop `undefined`-valued keys so the schema's `additionalProperties: false`
  * and its nullable unions both stay satisfiable from one optional-argument
@@ -207,8 +164,13 @@ function compact(obj) {
  * Throws a `TypeError` naming the schema violations when the assembled
  * object does not validate. That is deliberate: the whole point of the
  * envelope is that a caller can trust its status without re-probing
- * GitHub, so emitting an unvalidated one would reintroduce the ambiguity
+ * GitHub, so emitting a *malformed* one would reintroduce the ambiguity
  * this replaces.
+ *
+ * A schema that cannot be READ is the opposite case and does not throw —
+ * see {@link validateTerminalEnvelope}. "This envelope is wrong" is worth
+ * failing on; "I could not check this envelope" is not worth destroying
+ * the return contract over.
  *
  * @param {object} args
  * @param {number|null} args.storyId `null` only for an `escalated` terminal,
@@ -227,6 +189,9 @@ function compact(obj) {
  * @param {number} args.elapsedSeconds
  * @param {object|null} [args.waitBudget]
  * @param {string} [args.timestamp]
+ * @param {{ schema: object|null, error: string|null }} [args.schemaSource]
+ *   Test seam; never passed in production. Not part of the envelope — the
+ *   envelope is assembled from named fields only.
  * @returns {object} The validated envelope.
  */
 export function buildTerminalEnvelope({
@@ -245,6 +210,7 @@ export function buildTerminalEnvelope({
   elapsedSeconds = 0,
   waitBudget,
   timestamp = new Date().toISOString(),
+  schemaSource,
 }) {
   const envelope = compact({
     kind: TERMINAL_ENVELOPE_KIND,
@@ -268,7 +234,10 @@ export function buildTerminalEnvelope({
     timestamp,
   });
 
-  const { valid, errors } = validateTerminalEnvelope(envelope);
+  const { valid, errors } = validateTerminalEnvelope(
+    envelope,
+    schemaSource === undefined ? undefined : { schemaSource },
+  );
   if (!valid) {
     throw new TypeError(
       `buildTerminalEnvelope: assembled envelope violates story-deliver-terminal.schema.json:\n` +
