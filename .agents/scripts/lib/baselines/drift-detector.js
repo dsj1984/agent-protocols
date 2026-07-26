@@ -27,6 +27,14 @@
  *
  * Pure-ish: the scorer and the baseline loader are both injectable, and the
  * module never writes anything, exits, or emits friction.
+ *
+ * The public surface is deliberately the three symbols the CLI actually
+ * uses — `DRIFT_KINDS`, `detectBaselineDrift`, `formatDriftReport`. Every
+ * internal helper below stays module-local and is exercised through them
+ * (`detectBaselineDrift` forwards its `loadBaselineRows` / `scoreFullScope`
+ * seams straight down). Exporting the helpers so tests could reach them
+ * directly would ship five entry points nothing in production reaches —
+ * exactly the orphaning this Story exists to stop.
  */
 
 import { getQuality } from '../config/quality.js';
@@ -70,7 +78,7 @@ const KIND_SPECS = Object.freeze({
  * @param {number|null|undefined} override
  * @returns {number}
  */
-export function resolveTolerance(kind, gate, override) {
+function resolveTolerance(kind, gate, override) {
   if (typeof override === 'number' && Number.isFinite(override)) {
     return Math.abs(override);
   }
@@ -93,7 +101,7 @@ export function resolveTolerance(kind, gate, override) {
  * @param {Array<object>} rows
  * @returns {Array<object>}
  */
-export function projectScoredRows(kind, rows) {
+function projectScoredRows(kind, rows) {
   const mod = getKindModule(kind);
   const out = [];
   for (const row of rows ?? []) {
@@ -113,7 +121,7 @@ export function projectScoredRows(kind, rows) {
  * @param {{ kind: string, baselineRows: Array<object>, currentRows: Array<object>, tolerance: number }} opts
  * @returns {{ drifted: Array<object>, added: Array<object>, removed: Array<object> }}
  */
-export function diffRows({ kind, baselineRows, currentRows, tolerance }) {
+function diffRows({ kind, baselineRows, currentRows, tolerance }) {
   const spec = KIND_SPECS[kind];
   const baseByKey = new Map();
   for (const row of baselineRows ?? []) baseByKey.set(spec.identity(row), row);
@@ -171,7 +179,7 @@ export function diffRows({ kind, baselineRows, currentRows, tolerance }) {
  * }} opts
  * @returns {Promise<object>}
  */
-export async function detectKindDrift({
+async function detectKindDrift({
   kind,
   cwd = process.cwd(),
   quality,
@@ -293,7 +301,7 @@ async function defaultScoreFullScope(kind, cwd) {
  * @param {object} result
  * @returns {string}
  */
-export function formatKindDrift(result) {
+function formatKindDrift(result) {
   if (result.skipped) {
     return `[drift] ⏭ ${result.kind}: skipped (${result.skipped})`;
   }

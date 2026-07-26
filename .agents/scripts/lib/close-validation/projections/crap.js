@@ -69,10 +69,15 @@ function normaliseSkipReason(reason) {
  * Returns `[]` when the baseline is absent or unreadable — the caller maps
  * that to the `no-baseline` skip.
  *
+ * Deliberately module-local: `projectCrapBreaches`'s `loadBaseline` default
+ * is the single production door to it, and tests inject their own loader.
+ * Exporting it would add a second entry point nothing in production reaches
+ * — which is precisely the orphaning this Story exists to stop.
+ *
  * @param {string} baselinePath absolute path to `baselines/crap.json`
  * @returns {Array<{file: string, method: string, startLine: number, crap: number}>}
  */
-export function loadCrapBaselineRows(baselinePath) {
+function loadCrapBaselineRows(baselinePath) {
   let envelope;
   try {
     envelope = loadBaselineFile(baselinePath, { kind: 'crap' });

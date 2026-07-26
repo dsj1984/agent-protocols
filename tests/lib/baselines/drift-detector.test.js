@@ -6,6 +6,12 @@
  * cannot see: a file nobody has touched since its baseline row was written.
  * The centrepiece test below therefore drifts ONLY an untouched row and
  * asserts it is still caught.
+ *
+ * Everything is driven through the module's public surface — the three
+ * symbols the CLI uses. The internals are deliberately not exported (a
+ * test-only export is an orphan by another name, which is the defect this
+ * Story is about), so they are reached the way production reaches them:
+ * through `detectBaselineDrift`'s injectable loader/scorer seams.
  */
 
 import assert from 'node:assert/strict';
@@ -17,12 +23,7 @@ import {
 import {
   DRIFT_KINDS,
   detectBaselineDrift,
-  detectKindDrift,
-  diffRows,
   formatDriftReport,
-  formatKindDrift,
-  projectScoredRows,
-  resolveTolerance,
 } from '../../../.agents/scripts/lib/baselines/drift-detector.js';
 
 const MI_BASELINE = [
@@ -30,116 +31,105 @@ const MI_BASELINE = [
   { path: 'src/untouched.js', mi: 75 },
 ];
 
-function miSeams({ rows, baseline = MI_BASELINE }) {
-  return {
+/**
+ * Drive one kind through the public entry point with injected seams.
+ *
+ * @returns {Promise<object>} that kind's result record
+ */
+async function detectOne({
+  kind = 'maintainability',
+  rows,
+  baseline = MI_BASELINE,
+  quality = {},
+  tolerance = null,
+}) {
+  const run = await detectBaselineDrift({
+    kinds: [kind],
+    quality,
+    tolerance,
     loadBaselineRows: () => baseline,
     scoreFullScope: async () => rows,
-  };
+  });
+  assert.equal(run.results.length, 1);
+  assert.equal(run.ok, run.results[0].ok);
+  return run.results[0];
 }
 
-describe('resolveTolerance', () => {
-  it('prefers an explicit override, as an absolute value', () => {
-    assert.equal(resolveTolerance('maintainability', {}, -2), 2);
+describe('detectBaselineDrift — tolerance resolution', () => {
+  it('prefers an explicit override over the gate config', async () => {
+    const rows = [
+      { path: 'src/touched.js', mi: 80 },
+      { path: 'src/untouched.js', mi: 73 },
+    ];
+    const tight = await detectOne({ rows, tolerance: 0.5 });
+    assert.equal(tight.ok, false);
+    assert.equal(tight.tolerance, 0.5);
+
+    const loose = await detectOne({ rows, tolerance: 5 });
+    assert.equal(loose.ok, true);
+    assert.equal(loose.tolerance, 5);
   });
 
-  it("falls back to the gate's configured absolute tolerance", () => {
-    const gate = { tolerance: { kind: 'absolute', value: 1.25 } };
-    assert.equal(resolveTolerance('maintainability', gate, null), 1.25);
-  });
-
-  it('falls back to the per-kind default when nothing is configured', () => {
-    assert.equal(resolveTolerance('maintainability', undefined, null), 0.5);
-    assert.equal(resolveTolerance('crap', undefined, null), 0.001);
-  });
-});
-
-describe('projectScoredRows', () => {
-  it("reconciles the CRAP scorer's `file` key with the envelope's `path`", () => {
-    const rows = projectScoredRows('crap', [
-      { file: 'src/a.js', method: 'go', startLine: 3, crap: 9 },
-    ]);
-    assert.deepEqual(rows, [
-      { path: 'src/a.js', method: 'go', startLine: 3, crap: 9 },
-    ]);
-  });
-
-  it('drops rows the writer itself would refuse rather than throwing', () => {
-    const rows = projectScoredRows('maintainability', [
-      { path: 'src/a.js', mi: 70 },
-      { path: '/absolute/is/not/canonical.js', mi: 70 },
-    ]);
-    assert.equal(rows.length, 1);
-    assert.equal(rows[0].path, 'src/a.js');
-  });
-});
-
-describe('diffRows', () => {
-  it('classifies drift in both directions, plus added and removed rows', () => {
-    const out = diffRows({
-      kind: 'maintainability',
-      baselineRows: MI_BASELINE,
-      currentRows: [
-        { path: 'src/touched.js', mi: 84 },
-        { path: 'src/brand-new.js', mi: 90 },
-      ],
-      tolerance: 0.5,
+  it("falls back to the gate's configured absolute tolerance", async () => {
+    const result = await detectOne({
+      rows: MI_BASELINE,
+      quality: {
+        maintainability: { tolerance: { kind: 'absolute', value: 1.25 } },
+      },
     });
-    assert.equal(out.drifted.length, 1);
-    assert.equal(out.drifted[0].delta, 4);
-    assert.deepEqual(
-      out.added.map((a) => a.label),
-      ['src/brand-new.js'],
-    );
-    assert.deepEqual(
-      out.removed.map((r) => r.label),
-      ['src/untouched.js'],
-    );
+    assert.equal(result.tolerance, 1.25);
   });
 
-  it('holds rows within tolerance', () => {
-    const out = diffRows({
-      kind: 'maintainability',
-      baselineRows: MI_BASELINE,
-      currentRows: [
-        { path: 'src/touched.js', mi: 80.4 },
-        { path: 'src/untouched.js', mi: 75 },
-      ],
-      tolerance: 0.5,
-    });
-    assert.deepEqual(out.drifted, []);
-  });
+  it('falls back to the per-kind default when nothing is configured', async () => {
+    const mi = await detectOne({ rows: MI_BASELINE });
+    assert.equal(mi.tolerance, 0.5);
 
-  it('keys CRAP rows per method, not per file', () => {
-    const out = diffRows({
+    const crap = await detectOne({
       kind: 'crap',
-      baselineRows: [
-        { path: 'src/a.js', method: 'one', startLine: 1, crap: 5 },
-        { path: 'src/a.js', method: 'two', startLine: 9, crap: 5 },
-      ],
-      currentRows: [
-        { path: 'src/a.js', method: 'one', startLine: 1, crap: 5 },
-        { path: 'src/a.js', method: 'two', startLine: 9, crap: 22 },
-      ],
-      tolerance: 0.001,
+      baseline: [{ path: 'src/a.js', method: 'go', startLine: 1, crap: 5 }],
+      rows: [{ file: 'src/a.js', method: 'go', startLine: 1, crap: 5 }],
     });
-    assert.equal(out.drifted.length, 1);
-    assert.equal(out.drifted[0].key, 'src/a.js::two@9');
+    assert.equal(crap.tolerance, 0.001);
   });
 });
 
-describe('detectKindDrift (AC-6)', () => {
+describe('detectBaselineDrift — row projection', () => {
+  it("reconciles the CRAP scorer's `file` key with the envelope's `path`", async () => {
+    // The scorer emits `file`; the baseline keys on `path`. If the two were
+    // not reconciled every row would look added AND removed at once.
+    const result = await detectOne({
+      kind: 'crap',
+      baseline: [{ path: 'src/a.js', method: 'go', startLine: 3, crap: 9 }],
+      rows: [{ file: 'src/a.js', method: 'go', startLine: 3, crap: 9 }],
+    });
+    assert.equal(result.ok, true);
+    assert.deepEqual(result.added, []);
+    assert.deepEqual(result.removed, []);
+    assert.equal(result.scanned, 1);
+  });
+
+  it('drops rows the writer itself would refuse rather than throwing', async () => {
+    const result = await detectOne({
+      rows: [
+        { path: 'src/touched.js', mi: 80 },
+        { path: 'src/untouched.js', mi: 75 },
+        { path: '/absolute/is/not/canonical.js', mi: 70 },
+      ],
+    });
+    assert.equal(result.ok, true);
+    assert.equal(result.scanned, 2);
+  });
+});
+
+describe('detectBaselineDrift — classification (AC-6)', () => {
   it('catches drift on a file untouched by any recent diff', async () => {
-    const result = await detectKindDrift({
-      kind: 'maintainability',
-      quality: {},
-      ...miSeams({
-        rows: [
-          // The file the branch changed is unchanged in score; only the
-          // never-touched one moved. A diff-scoped gate sees nothing here.
-          { path: 'src/touched.js', mi: 80 },
-          { path: 'src/untouched.js', mi: 61 },
-        ],
-      }),
+    const result = await detectOne({
+      rows: [
+        // The file the branch changed is unchanged in score; only the
+        // never-touched one moved. A diff-scoped gate sees nothing here.
+        { path: 'src/touched.js', mi: 80 },
+        { path: 'src/untouched.js', mi: 61 },
+      ],
     });
     assert.equal(result.ok, false);
     assert.equal(result.drifted.length, 1);
@@ -149,87 +139,105 @@ describe('detectKindDrift (AC-6)', () => {
     assert.equal(result.drifted[0].delta, -14);
   });
 
-  it('is clean when every re-scored row matches its baseline', async () => {
-    const result = await detectKindDrift({
-      kind: 'maintainability',
-      quality: {},
-      ...miSeams({ rows: MI_BASELINE }),
+  it('reports improvement as drift too — a stale baseline either way', async () => {
+    const result = await detectOne({
+      rows: [
+        { path: 'src/touched.js', mi: 80 },
+        { path: 'src/untouched.js', mi: 91 },
+      ],
     });
+    assert.equal(result.ok, false);
+    assert.equal(result.drifted[0].delta, 16);
+  });
+
+  it('separates added and removed rows from drift', async () => {
+    const result = await detectOne({
+      rows: [
+        { path: 'src/touched.js', mi: 84 },
+        { path: 'src/brand-new.js', mi: 90 },
+      ],
+    });
+    assert.equal(result.drifted.length, 1);
+    assert.deepEqual(
+      result.added.map((a) => a.label),
+      ['src/brand-new.js'],
+    );
+    assert.deepEqual(
+      result.removed.map((r) => r.label),
+      ['src/untouched.js'],
+    );
+  });
+
+  it('holds rows within tolerance', async () => {
+    const result = await detectOne({
+      rows: [
+        { path: 'src/touched.js', mi: 80.4 },
+        { path: 'src/untouched.js', mi: 75 },
+      ],
+    });
+    assert.equal(result.ok, true);
+    assert.deepEqual(result.drifted, []);
+  });
+
+  it('keys CRAP rows per method, not per file', async () => {
+    const result = await detectOne({
+      kind: 'crap',
+      baseline: [
+        { path: 'src/a.js', method: 'one', startLine: 1, crap: 5 },
+        { path: 'src/a.js', method: 'two', startLine: 9, crap: 5 },
+      ],
+      rows: [
+        { file: 'src/a.js', method: 'one', startLine: 1, crap: 5 },
+        { file: 'src/a.js', method: 'two', startLine: 9, crap: 22 },
+      ],
+    });
+    assert.equal(result.drifted.length, 1);
+    assert.equal(result.drifted[0].key, 'src/a.js::two@9');
+  });
+
+  it('is clean when every re-scored row matches its baseline', async () => {
+    const result = await detectOne({ rows: MI_BASELINE });
     assert.equal(result.ok, true);
     assert.deepEqual(result.drifted, []);
     assert.equal(result.scanned, 2);
   });
+});
 
-  it('honours an explicit tolerance override', async () => {
-    const seams = miSeams({
-      rows: [
-        { path: 'src/touched.js', mi: 80 },
-        { path: 'src/untouched.js', mi: 73 },
-      ],
-    });
-    const tight = await detectKindDrift({
-      kind: 'maintainability',
-      quality: {},
-      tolerance: 0.5,
-      ...seams,
-    });
-    assert.equal(tight.ok, false);
-    const loose = await detectKindDrift({
-      kind: 'maintainability',
-      quality: {},
-      tolerance: 5,
-      ...seams,
-    });
-    assert.equal(loose.ok, true);
-  });
-
+describe('detectBaselineDrift — skips and fan-out', () => {
   it('skips a disabled gate, a missing baseline, and a missing scorer', async () => {
-    const disabled = await detectKindDrift({
+    const disabled = await detectOne({
       kind: 'crap',
+      rows: [],
       quality: { crap: { enabled: false } },
-      ...miSeams({ rows: [] }),
     });
     assert.equal(disabled.ok, true);
     assert.equal(disabled.skipped, 'gate-disabled');
 
-    const noBaseline = await detectKindDrift({
-      kind: 'maintainability',
-      quality: {},
-      loadBaselineRows: () => null,
-      scoreFullScope: async () => [],
-    });
+    const noBaseline = await detectOne({ rows: [], baseline: null });
     assert.equal(noBaseline.ok, true);
     assert.equal(noBaseline.skipped, 'no-baseline');
 
-    const noScorer = await detectKindDrift({
-      kind: 'maintainability',
-      quality: {},
-      loadBaselineRows: () => MI_BASELINE,
-      scoreFullScope: async () => null,
-    });
+    const noScorer = await detectOne({ rows: null });
     assert.equal(noScorer.ok, true);
     assert.equal(noScorer.skipped, 'no-scorer');
   });
 
   it('rejects an unknown kind', async () => {
     await assert.rejects(
-      () => detectKindDrift({ kind: 'bogus', quality: {} }),
+      () => detectBaselineDrift({ kinds: ['bogus'], quality: {} }),
       /unknown kind "bogus"/,
     );
   });
-});
 
-describe('detectBaselineDrift', () => {
   it('is red when any single kind drifts', async () => {
     const run = await detectBaselineDrift({
       kinds: ['maintainability', 'crap'],
       quality: { crap: { enabled: false } },
-      ...miSeams({
-        rows: [
-          { path: 'src/touched.js', mi: 80 },
-          { path: 'src/untouched.js', mi: 40 },
-        ],
-      }),
+      loadBaselineRows: () => MI_BASELINE,
+      scoreFullScope: async () => [
+        { path: 'src/touched.js', mi: 80 },
+        { path: 'src/untouched.js', mi: 40 },
+      ],
     });
     assert.equal(run.ok, false);
     assert.equal(run.results.length, 2);
@@ -242,60 +250,54 @@ describe('detectBaselineDrift', () => {
 });
 
 describe('drift report rendering (AC-7)', () => {
-  const drifted = {
-    kind: 'maintainability',
-    ok: false,
-    tolerance: 0.5,
-    scanned: 2,
-    baselineRows: 2,
-    refreshCommand: 'npm run maintainability:update -- --full-scope',
-    drifted: [
-      {
-        key: 'src/untouched.js',
-        label: 'src/untouched.js',
-        baseline: 75,
-        current: 61,
-        delta: -14,
-      },
-    ],
-    added: [],
-    removed: [],
-  };
+  async function driftedRun() {
+    return await detectBaselineDrift({
+      kinds: ['maintainability'],
+      quality: {},
+      loadBaselineRows: () => MI_BASELINE,
+      scoreFullScope: async () => [
+        { path: 'src/touched.js', mi: 80 },
+        { path: 'src/untouched.js', mi: 61 },
+      ],
+    });
+  }
 
-  it('prints a per-row before/after table', () => {
-    const text = formatKindDrift(drifted);
+  it('prints a per-row before/after table', async () => {
+    const text = formatDriftReport(await driftedRun());
     assert.match(text, /BASELINE/);
     assert.match(text, /CURRENT/);
     assert.match(text, /DELTA/);
     assert.match(text, /src\/untouched\.js\s+75\.00\s+61\.00\s+-14\.00/);
   });
 
-  it('names the refresh remedy', () => {
-    const text = formatKindDrift(drifted);
+  it('names the refresh remedy', async () => {
+    const text = formatDriftReport(await driftedRun());
     assert.match(text, /npm run maintainability:update -- --full-scope/);
     assert.match(text, /baseline-refresh:/);
+    assert.match(text, /Baseline drift detected/);
   });
 
-  it('reports a clean or skipped kind on one line', () => {
-    assert.match(
-      formatKindDrift({ kind: 'crap', skipped: 'no-baseline' }),
-      /⏭ crap: skipped \(no-baseline\)/,
+  it('reports a clean or skipped kind on one line', async () => {
+    const skipped = formatDriftReport(
+      await detectBaselineDrift({
+        kinds: ['crap'],
+        quality: {},
+        loadBaselineRows: () => null,
+        scoreFullScope: async () => [],
+      }),
     );
-    assert.match(
-      formatKindDrift({ kind: 'crap', ok: true, scanned: 9, tolerance: 0.001 }),
-      /✓ crap: 9 row\(s\) re-scored full-scope/,
-    );
-  });
+    assert.match(skipped, /⏭ crap: skipped \(no-baseline\)/);
+    assert.match(skipped, /No baseline drift detected/);
 
-  it('summarises the whole run', () => {
-    assert.match(
-      formatDriftReport({ ok: true, results: [] }),
-      /No baseline drift detected/,
+    const clean = formatDriftReport(
+      await detectBaselineDrift({
+        kinds: ['maintainability'],
+        quality: {},
+        loadBaselineRows: () => MI_BASELINE,
+        scoreFullScope: async () => MI_BASELINE,
+      }),
     );
-    assert.match(
-      formatDriftReport({ ok: false, results: [drifted] }),
-      /Baseline drift detected/,
-    );
+    assert.match(clean, /✓ maintainability: 2 row\(s\) re-scored full-scope/);
   });
 });
 
@@ -308,11 +310,7 @@ describe('check-baseline-drift CLI (AC-7)', () => {
     });
     assert.deepEqual(
       parseArgs(['--gate', 'crap', '--tolerance', '2', '--json']),
-      {
-        kinds: ['crap'],
-        tolerance: 2,
-        json: true,
-      },
+      { kinds: ['crap'], tolerance: 2, json: true },
     );
   });
 
@@ -324,41 +322,42 @@ describe('check-baseline-drift CLI (AC-7)', () => {
 
   it('exits non-zero on drift and zero when clean', async () => {
     const red = await runCheckBaselineDrift({
-      argv: [],
-      detect: async () => ({
-        ok: false,
-        results: [
-          {
-            kind: 'crap',
-            ok: false,
-            tolerance: 0.001,
-            scanned: 1,
-            baselineRows: 1,
-            refreshCommand: 'npm run crap:update -- --full-scope',
-            drifted: [
-              {
-                key: 'src/a.js::go@1',
-                label: 'src/a.js::go (line 1)',
-                baseline: 5,
-                current: 40,
-                delta: 35,
-              },
-            ],
-            added: [],
-            removed: [],
-          },
-        ],
-      }),
+      argv: ['--gate', 'crap'],
+      detect: async (opts) =>
+        await detectBaselineDrift({
+          ...opts,
+          quality: {},
+          loadBaselineRows: () => [
+            { path: 'src/a.js', method: 'go', startLine: 1, crap: 5 },
+          ],
+          scoreFullScope: async () => [
+            { file: 'src/a.js', method: 'go', startLine: 1, crap: 40 },
+          ],
+        }),
     });
     assert.equal(red.exitCode, 1);
     assert.match(red.output, /src\/a\.js::go \(line 1\)/);
     assert.match(red.output, /\+35\.00/);
+    assert.match(red.output, /npm run crap:update -- --full-scope/);
 
     const green = await runCheckBaselineDrift({
       argv: [],
       detect: async () => ({ ok: true, results: [] }),
     });
     assert.equal(green.exitCode, 0);
+  });
+
+  it('forwards the parsed kinds and tolerance to the detector', async () => {
+    let seen = null;
+    await runCheckBaselineDrift({
+      argv: ['--gate', 'crap', '--tolerance', '3'],
+      detect: async (opts) => {
+        seen = opts;
+        return { ok: true, results: [] };
+      },
+    });
+    assert.deepEqual(seen.kinds, ['crap']);
+    assert.equal(seen.tolerance, 3);
   });
 
   it('emits a machine-readable report under --json', async () => {
