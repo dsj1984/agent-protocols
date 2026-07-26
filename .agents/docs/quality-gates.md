@@ -400,14 +400,35 @@ joinable methods, where a diff-scoped run's rate is noise. A healthy repo
 resolves ~98%; the 4–6% signature of a coordinate-system mismatch is far below
 the floor.
 
-**Re-derive your floors after adopting this.** A `crap.floors` ceiling pinned
-before the fix was pinned to a maximum computed over the minority of methods
-the join could see, so it is not a real ceiling — it is an artefact. This
-repository's own `*.max` moved from `30` to `125` on the first honest scan
-(2215 → 4058 visible methods), not because anything got worse but because the
-worst methods were previously invisible. `newMethodCeiling` is deliberately
-left at 30: the ratchet's forward pressure on *new* code is unaffected by how
-much old debt the gate can now see.
+**Re-derive your floors after adopting this — but do not re-pin `max`.** A
+`crap.floors` `max` ceiling pinned before the fix was computed over the
+minority of methods the join could see, so it is not a real ceiling — it is an
+artefact. The honest scan sees far more (in this repository, 2215 → 4058
+visible methods), and the newly-visible methods include the worst ones.
+
+The tempting response — raise `*.max` until the gate is green again — produces a
+floor fitted to the tree's current high-water mark, which **can never fire**:
+nothing breaches it until something becomes worse than the worst method already
+present. Prefer a *count* budget over a max ceiling:
+
+```jsonc
+"crap": {
+  // Number of methods allowed to score above 20. Ratchet this down; it
+  // breaches the moment the count grows, which a `max` ceiling cannot do.
+  "floors": { "*": { "methodsAbove20": 40 } }
+}
+```
+
+`max` remains available and is the right instrument when you genuinely have a
+hard per-method ceiling to hold. It is the wrong instrument for absorbing
+pre-existing debt.
+
+Note that neither choice is what protects new code. `floors` is an absolute
+tree-wide comparison against the rollup; the forward pressure lives in
+`newMethodCeiling` (a *new* method scoring above it fails, default 30) and in
+`compareCrap`'s ratchet (an *existing* method fails when it regresses against
+its own baseline row). Both are unaffected by how much old debt the gate can
+now see, and neither consults `floors`.
 
 **Old baselines are invalidated explicitly.** Rows scored by the previous join
 are not comparable to rows scored by this one, and neither `kernelVersion` nor
