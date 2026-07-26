@@ -11,6 +11,7 @@ describe('cli-utils', () => {
   let origArgv1;
   let origExit;
   let origConsoleError;
+  let origExitCode;
   let exitCalls;
   let errorLines;
 
@@ -18,9 +19,13 @@ describe('cli-utils', () => {
     origArgv1 = process.argv[1];
     origExit = process.exit;
     origConsoleError = console.error;
+    origExitCode = process.exitCode;
+    process.exitCode = undefined;
     exitCalls = [];
     errorLines = [];
-    // Prevent the test from actually exiting.
+    // Story #4783: the helper must never call `process.exit` — exiting eagerly
+    // discards stdio still queued behind a full pipe buffer. This stub is a
+    // tripwire, not a shim: every assertion below expects it to stay empty.
     process.exit = (code) => {
       exitCalls.push(code);
     };
@@ -33,7 +38,16 @@ describe('cli-utils', () => {
     process.argv[1] = origArgv1;
     process.exit = origExit;
     console.error = origConsoleError;
+    // Never leak a failing code into the test runner's own exit status.
+    process.exitCode = origExitCode;
   });
+
+  /** Let `settleCli` reach its exit-code assignment. */
+  const settle = async () => {
+    await new Promise((r) => setImmediate(r));
+    await new Promise((r) => setImmediate(r));
+    await new Promise((r) => setImmediate(r));
+  };
 
   // Use a real absolute path under the project so fileURLToPath works on
   // both POSIX and Windows.
@@ -75,12 +89,13 @@ describe('cli-utils', () => {
       runAsCli(fakeUrl, async () => {
         called = true;
       });
-      await new Promise((r) => setImmediate(r));
+      await settle();
       assert.equal(called, true);
       assert.equal(exitCalls.length, 0);
+      assert.equal(process.exitCode, undefined);
     });
 
-    it('uses default handler on rejection: prefixed stderr + exit(1)', async () => {
+    it('uses default handler on rejection: prefixed stderr + exitCode 1', async () => {
       process.argv[1] = fileURLToPath(fakeUrl);
       runAsCli(
         fakeUrl,
@@ -89,10 +104,9 @@ describe('cli-utils', () => {
         },
         { source: 'TestCli' },
       );
-      await new Promise((r) => setImmediate(r));
-      await new Promise((r) => setImmediate(r));
-      assert.equal(exitCalls.length, 1);
-      assert.equal(exitCalls[0], 1);
+      await settle();
+      assert.equal(process.exitCode, 1);
+      assert.equal(exitCalls.length, 0, 'must not call process.exit');
       assert.ok(errorLines.some((l) => l.includes('[TestCli] Fatal error:')));
       assert.ok(errorLines.some((l) => l.includes('boom')));
     });
@@ -106,9 +120,24 @@ describe('cli-utils', () => {
         },
         { exitCode: 42 },
       );
-      await new Promise((r) => setImmediate(r));
-      await new Promise((r) => setImmediate(r));
-      assert.equal(exitCalls[0], 42);
+      await settle();
+      assert.equal(process.exitCode, 42);
+      assert.equal(exitCalls.length, 0);
+    });
+
+    it('adopts the resolved code under propagateExitCode', async () => {
+      process.argv[1] = fileURLToPath(fakeUrl);
+      runAsCli(fakeUrl, async () => 3, { propagateExitCode: true });
+      await settle();
+      assert.equal(process.exitCode, 3);
+      assert.equal(exitCalls.length, 0);
+    });
+
+    it('maps an undefined resolution to 0 under propagateExitCode', async () => {
+      process.argv[1] = fileURLToPath(fakeUrl);
+      runAsCli(fakeUrl, async () => undefined, { propagateExitCode: true });
+      await settle();
+      assert.equal(process.exitCode, 0);
     });
 
     it('delegates to onError when provided (no default stderr/exit)', async () => {
@@ -125,11 +154,11 @@ describe('cli-utils', () => {
           },
         },
       );
-      await new Promise((r) => setImmediate(r));
-      await new Promise((r) => setImmediate(r));
+      await settle();
       assert.equal(captured.message, 'nope');
       assert.equal(exitCalls.length, 0);
       assert.equal(errorLines.length, 0);
+      assert.equal(process.exitCode, undefined);
     });
   });
 });
