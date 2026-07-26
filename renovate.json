@@ -66,7 +66,7 @@
       "enabled": false
     },
     {
-      "description": "markdownlint-cli2 is COUPLED to the tree-wide `overrides.js-yaml` pin in package.json (see the `//` note there). npm applies an override ahead of a transitive package's own pin, and markdownlint-cli2 0.23.x declares an exact `js-yaml` 5.2.1 — so an unattended bump across that boundary would silently resolve it onto a js-yaml major it does not support. Exclude it from the devDependency patch/minor auto-merge rule above: the override and the bump must land together, under human review.",
+      "description": "markdownlint-cli2 is COUPLED to the tree-wide `overrides.js-yaml` pin in package.json (see the `//` note there). npm applies an override ahead of a transitive package's own pin, and markdownlint-cli2 0.23.x declares an exact `js-yaml` 5.2.1 — a dry-run bump resolved 0.23.1 against js-yaml 4.3.0, two majors off, silently. The override cannot simply be dropped either: it is what keeps GHSA-52cp-r559-cp3m (high) out of the tree. So exclude markdownlint-cli2 from the devDependency patch/minor auto-merge rule above — the override and the bump must land together in one commit, under human review.",
       "matchPackageNames": ["markdownlint-cli2"],
       "automerge": false,
       "platformAutomerge": false,
