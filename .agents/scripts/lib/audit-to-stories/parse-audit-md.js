@@ -31,6 +31,9 @@ const HEADING_FINDING = /^###\s+(.+?)\s*$/;
 const HEADING_SECTION = /^##\s+(.+?)\s*$/;
 const PATH_HINT =
   /(?<![\w/])([A-Za-z0-9_./\\@-]+\.(?:js|ts|tsx|jsx|mjs|cjs|md|json|yaml|yml|css|scss|html|py|go|rs|java|kt|rb|sh|ps1|tf|env))(?![\w])/g;
+const FILE_EXT =
+  /\.(?:js|ts|tsx|jsx|mjs|cjs|md|json|yaml|yml|css|scss|html|py|go|rs|java|kt|rb|sh|ps1|tf|env)$/;
+const TITLE_ANCHOR = /^\s*`([^`]+)`/;
 
 function unwrapInlineCode(value) {
   if (typeof value !== 'string') return '';
@@ -81,17 +84,81 @@ function deriveDimension(fields, fallbackDimension) {
  * @param {Record<string, string>} fields
  * @returns {string[]}
  */
-function deriveLocationFiles(fields) {
+/**
+ * Normalise a raw path token to a repo-relative path, or `null` when the
+ * token is not a usable file reference.
+ *
+ * Three shapes historically leaked through and poisoned grouping downstream:
+ * an **absolute** path (which can never match a repo-relative group key), a
+ * **degenerate** token such as a bare `/`, and — most damagingly — a
+ * **root-level** file such as `AGENTS.md`, which the old slash-only guard
+ * discarded outright even when it was the finding's explicit `Location:`.
+ *
+ * `requireSeparator` is what keeps that third fix from over-reaching. In the
+ * **structured** fields — the title anchor and `Location:` — a bare
+ * `AGENTS.md` is unambiguously a file, so the separator is not required. In
+ * free **prose**, a bare `description.md` is far more likely to be a word than
+ * a path, so the separator stays mandatory there.
+ *
+ * @param {string} raw — the token as it appeared in the report.
+ * @param {string} [repoRoot] — absolute repo root; absolute tokens beneath it
+ *   are relativised. Omitted (the pure default) leaves absolutes to be dropped.
+ * @param {{ requireSeparator?: boolean }} [options]
+ * @returns {string|null}
+ */
+function normalisePathToken(raw, repoRoot, { requireSeparator = false } = {}) {
+  if (typeof raw !== 'string') return null;
+  const stripped = raw
+    .replace(/^[`'"([]+/, '')
+    .replace(/[`'")\].,;]+$/, '')
+    .trim();
+  // `Location:` anchors appear as `:line`, `:line:col`, and `:start-end`.
+  const cleaned = stripped.replace(/:\d+(?:-\d+)?(?::\d+)?$/, '');
+  if (!cleaned || cleaned === '.' || cleaned === '..') return null;
+
+  let out = cleaned;
+  if (typeof repoRoot === 'string' && repoRoot.length > 0) {
+    for (const sep of ['/', '\\']) {
+      const root = repoRoot.endsWith(sep) ? repoRoot : `${repoRoot}${sep}`;
+      if (out.startsWith(root)) {
+        out = out.slice(root.length);
+        break;
+      }
+    }
+  }
+  // A path that is still absolute lives outside the repo — it can never be a
+  // valid group key, so drop it rather than let it become one.
+  if (out.startsWith('/') || out.startsWith('\\') || /^[A-Za-z]:/.test(out)) {
+    return null;
+  }
+  const hasSeparator = out.includes('/') || out.includes('\\');
+  if (requireSeparator && !hasSeparator) return null;
+  if (!hasSeparator && !FILE_EXT.test(out)) return null;
+  return out;
+}
+
+/**
+ * The finding-block skeleton mandates that a title lead with the primary file
+ * the finding lives in (``### `path/to/file.ext` — title``). That anchor is
+ * the most reliable primary-file signal a block carries, so it seeds `files[]`
+ * ahead of `Location:` and prose scraping — `pickPrimaryFile` takes `files[0]`.
+ */
+function deriveTitleFile(title, repoRoot) {
+  const match = TITLE_ANCHOR.exec(typeof title === 'string' ? title : '');
+  if (!match) return [];
+  const normalised = normalisePathToken(match[1], repoRoot);
+  return normalised ? [normalised] : [];
+}
+
+function deriveLocationFiles(fields, repoRoot) {
   const raw = fields.location;
   if (typeof raw !== 'string' || raw.trim().length === 0) return [];
   const cleaned = raw.replace(/[`[\]]/g, ' ');
   const out = [];
   for (const token of cleaned.split(/[\s,]+/)) {
     if (!token) continue;
-    const withoutLine = token.replace(/:\d+(?::\d+)?$/, '');
-    if (withoutLine.includes('/') || withoutLine.includes('\\')) {
-      out.push(withoutLine);
-    }
+    const normalised = normalisePathToken(token, repoRoot);
+    if (normalised) out.push(normalised);
   }
   return out;
 }
@@ -113,14 +180,15 @@ function normaliseTitle(title) {
     .trim();
 }
 
-function extractFilePaths(text) {
+function extractFilePaths(text, repoRoot) {
   if (typeof text !== 'string') return [];
   const seen = new Set();
   for (const match of text.matchAll(PATH_HINT)) {
-    const candidate = match[1].replace(/^[`'"]+|[`'"]+$/g, '');
-    if (candidate.includes('/') || candidate.includes('\\')) {
-      seen.add(candidate);
-    }
+    // Prose: a bare `description.md` is more likely a word than a path.
+    const normalised = normalisePathToken(match[1], repoRoot, {
+      requireSeparator: true,
+    });
+    if (normalised) seen.add(normalised);
   }
   return [...seen];
 }
@@ -211,7 +279,7 @@ function parseBlockFields(bodyLines) {
  *   sourceReport: string,
  * }>}
  */
-export function parseAuditReport({ markdown, sourceReport }) {
+export function parseAuditReport({ markdown, sourceReport, repoRoot }) {
   if (typeof markdown !== 'string') {
     throw new Error('parseAuditReport: markdown must be a string');
   }
@@ -231,10 +299,11 @@ export function parseAuditReport({ markdown, sourceReport }) {
       fields['recommendation & rationale'] ?? fields.recommendation ?? '';
     const agentPrompt = fields['agent prompt'] ?? '';
     const fileSet = new Set([
-      ...deriveLocationFiles(fields),
-      ...extractFilePaths(currentState),
-      ...extractFilePaths(recommendation),
-      ...extractFilePaths(agentPrompt),
+      ...deriveTitleFile(block.title, repoRoot),
+      ...deriveLocationFiles(fields, repoRoot),
+      ...extractFilePaths(currentState, repoRoot),
+      ...extractFilePaths(recommendation, repoRoot),
+      ...extractFilePaths(agentPrompt, repoRoot),
     ]);
 
     return {
@@ -258,15 +327,17 @@ export function parseAuditReport({ markdown, sourceReport }) {
  * an audit can legitimately come back empty.
  *
  * @param {Array<{ markdown: string, sourceReport: string }>} reports
+ * @param {{ repoRoot?: string }} [options] — `repoRoot` relativises absolute
+ *   paths quoted in a report so they can match repo-relative group keys.
  * @returns {Array<ReturnType<typeof parseAuditReport>[number]>}
  */
-export function parseAuditReports(reports) {
+export function parseAuditReports(reports, { repoRoot } = {}) {
   if (!Array.isArray(reports)) {
     throw new Error('parseAuditReports: reports must be an array');
   }
   const out = [];
   for (const report of reports) {
-    out.push(...parseAuditReport(report));
+    out.push(...parseAuditReport({ ...report, repoRoot }));
   }
   return out;
 }

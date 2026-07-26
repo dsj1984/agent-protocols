@@ -246,7 +246,7 @@ async function buildPlan({ glob: pattern, severity, useProvider, ledger }) {
   }
 
   const reports = readReports(reportPaths);
-  const allFindings = parseAuditReports(reports);
+  const allFindings = parseAuditReports(reports, { repoRoot: process.cwd() });
   const filtered = allFindings.filter((f) => meetsSeverity(f, severity));
   const stamped = withFingerprints(filtered);
   const { groups, edges } = groupFindings(stamped);
