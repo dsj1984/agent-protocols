@@ -34,7 +34,7 @@
     "quality": {
       "gates": {
         "crap": {
-          "floors": { "*": { "methodsAbove20": 40 } },
+          "floors": { "*": { "methodsAbove20": 13 } },
           "targetDirs": [".agents/scripts", "bin", "lib"],
           "ignoreGlobs": [
             ".agents/scripts/lifecycle-emit.js",

@@ -176,8 +176,25 @@ export function buildSummaryLine(result) {
   return `[boot-sweep] reaped ${result.localDeleted} local + ${result.remoteDeleted} remote; protected ${protectedCount}${contentMergedSuffix}.`;
 }
 
-async function main() {
+/**
+ * The CLI core: parse argv, run the sweep, render the report. Extracted from
+ * the `main` shell so the argv → render decision table is reachable without
+ * spawning a real sweep against a real git tree.
+ *
+ * Both seams on the optional final `deps` parameter default to the real
+ * implementation (`.agents/rules/test-seams.md` rules 1-2), so `main` and any
+ * production caller are unchanged.
+ *
+ * @param {string[]} [argv]
+ * @param {{ runBootSweepImpl?: typeof runBootSweep, logger?: { info: Function } }} [deps]
+ * @returns {Promise<object>} the sweep envelope that was rendered.
+ */
+export async function runBootSweepCli(
+  argv = process.argv.slice(2),
+  { runBootSweepImpl = runBootSweep, logger = Logger } = {},
+) {
   const { values } = parseArgs({
+    args: argv,
     options: {
       base: { type: 'string' },
       cwd: { type: 'string' },
@@ -192,11 +209,11 @@ async function main() {
   });
 
   if (values.help) {
-    Logger.info(HELP);
-    return;
+    logger.info(HELP);
+    return undefined;
   }
 
-  const result = await runBootSweep({
+  const result = await runBootSweepImpl({
     cwd: typeof values.cwd === 'string' ? values.cwd : undefined,
     base: typeof values.base === 'string' ? values.base : undefined,
     include: Array.isArray(values.include) ? values.include : [],
@@ -206,10 +223,15 @@ async function main() {
   });
 
   if (values.json) {
-    Logger.info(JSON.stringify(result, null, 2));
+    logger.info(JSON.stringify(result, null, 2));
   } else {
-    Logger.info(buildSummaryLine(result));
+    logger.info(buildSummaryLine(result));
   }
+  return result;
+}
+
+async function main() {
+  await runBootSweepCli();
 }
 
 runAsCli(import.meta.url, main, {

@@ -83,16 +83,21 @@ export function planChecklists(lenses, workflowExists, readWorkflow) {
  *   content; `missing` lists lenses with no `audit-<lens>.md`; `strays` lists
  *   on-disk checklist basenames that map to no current lens.
  */
-export function buildExpected() {
-  const workflowPath = (lens) => path.join(WORKFLOWS_DIR, `audit-${lens}.md`);
+export function buildExpected({
+  fsImpl = fs,
+  lenses = AUDIT_LENSES,
+  workflowsDir = WORKFLOWS_DIR,
+  checklistsDir = CHECKLISTS_DIR,
+} = {}) {
+  const workflowPath = (lens) => path.join(workflowsDir, `audit-${lens}.md`);
   const { expected, missing } = planChecklists(
-    AUDIT_LENSES,
-    (lens) => fs.existsSync(workflowPath(lens)),
-    (lens) => fs.readFileSync(workflowPath(lens), 'utf8'),
+    lenses,
+    (lens) => fsImpl.existsSync(workflowPath(lens)),
+    (lens) => fsImpl.readFileSync(workflowPath(lens), 'utf8'),
   );
 
-  const onDisk = fs.existsSync(CHECKLISTS_DIR)
-    ? fs.readdirSync(CHECKLISTS_DIR).filter((name) => name.endsWith('.md'))
+  const onDisk = fsImpl.existsSync(checklistsDir)
+    ? fsImpl.readdirSync(checklistsDir).filter((name) => name.endsWith('.md'))
     : [];
   const strays = onDisk.filter((name) => !expected.has(name));
 
@@ -101,29 +106,69 @@ export function buildExpected() {
 
 /**
  * @param {string} basename — e.g. `security.md`
+ * @param {string} [checklistsDir]
+ * @param {string} [projectRoot]
  * @returns {string} repo-relative POSIX path for messages.
  */
-function relChecklist(basename) {
+function relChecklist(
+  basename,
+  checklistsDir = CHECKLISTS_DIR,
+  projectRoot = PROJECT_ROOT,
+) {
   return path
-    .relative(PROJECT_ROOT, path.join(CHECKLISTS_DIR, basename))
+    .relative(projectRoot, path.join(checklistsDir, basename))
     .split(path.sep)
     .join('/');
 }
 
 /**
- * @param {string[]} argv
+ * The generator core, extracted from the CLI shell so both modes — the
+ * `--check` drift gate and the write/prune pass — are reachable without
+ * touching the real `.agents/audit-checklists` tree.
+ *
+ * Every seam on the optional final `deps` parameter defaults to the real
+ * implementation (`.agents/rules/test-seams.md` rules 1-2, 4), so `main` and
+ * `npm run docs:check` are unchanged.
+ *
+ * @param {string[]} [argv]
+ * @param {{
+ *   fsImpl?: typeof fs,
+ *   lenses?: ReadonlyArray<string>,
+ *   workflowsDir?: string,
+ *   checklistsDir?: string,
+ *   projectRoot?: string,
+ *   logger?: { info: Function },
+ * }} [deps]
+ * @returns {Promise<{ wrote: number, pruned: number, checked?: boolean }>}
  */
-async function main(argv = process.argv.slice(2)) {
+export async function runGenerateLensChecklists(
+  argv = process.argv.slice(2),
+  deps = {},
+) {
+  const {
+    fsImpl = fs,
+    lenses = AUDIT_LENSES,
+    workflowsDir = WORKFLOWS_DIR,
+    checklistsDir = CHECKLISTS_DIR,
+    projectRoot = PROJECT_ROOT,
+    logger = Logger,
+  } = deps;
   const { values } = parseArgs({
     args: argv,
     options: { check: { type: 'boolean', default: false } },
     allowPositionals: false,
   });
 
-  const { expected, missing, strays } = buildExpected();
+  const { expected, missing, strays } = buildExpected({
+    fsImpl,
+    lenses,
+    workflowsDir,
+    checklistsDir,
+  });
+  const rel = (basename) => relChecklist(basename, checklistsDir, projectRoot);
 
   if (missing.length > 0) {
-    Logger.info(
+    logger.info(
       `generate-lens-checklists: no audit-<lens>.md for: ${missing.join(', ')} — no checklist emitted.`,
     );
   }
@@ -131,21 +176,21 @@ async function main(argv = process.argv.slice(2)) {
   if (values.check) {
     const drifted = [];
     for (const [basename, content] of expected) {
-      const target = path.join(CHECKLISTS_DIR, basename);
-      const original = fs.existsSync(target)
-        ? fs.readFileSync(target, 'utf8')
+      const target = path.join(checklistsDir, basename);
+      const original = fsImpl.existsSync(target)
+        ? fsImpl.readFileSync(target, 'utf8')
         : null;
-      if (original !== content) drifted.push(relChecklist(basename));
+      if (original !== content) drifted.push(rel(basename));
     }
     if (drifted.length === 0 && strays.length === 0) {
-      Logger.info(
+      logger.info(
         `generate-lens-checklists: ${expected.size} checklist(s) up to date.`,
       );
-      return;
+      return { wrote: 0, pruned: 0, checked: true };
     }
     const problems = [
       ...drifted.map((p) => `out of date: ${p}`),
-      ...strays.map((s) => `stray (no lens): ${relChecklist(s)}`),
+      ...strays.map((s) => `stray (no lens): ${rel(s)}`),
     ];
     throw new Error(
       `Lens checklists are out of sync:\n  ${problems.join('\n  ')}\n` +
@@ -153,26 +198,32 @@ async function main(argv = process.argv.slice(2)) {
     );
   }
 
-  fs.mkdirSync(CHECKLISTS_DIR, { recursive: true });
+  fsImpl.mkdirSync(checklistsDir, { recursive: true });
   let wrote = 0;
   for (const [basename, content] of expected) {
-    const target = path.join(CHECKLISTS_DIR, basename);
-    const original = fs.existsSync(target)
-      ? fs.readFileSync(target, 'utf8')
+    const target = path.join(checklistsDir, basename);
+    const original = fsImpl.existsSync(target)
+      ? fsImpl.readFileSync(target, 'utf8')
       : null;
     if (original === content) continue;
-    fs.writeFileSync(target, content, 'utf8');
+    fsImpl.writeFileSync(target, content, 'utf8');
     wrote += 1;
   }
   for (const stray of strays) {
-    fs.rmSync(path.join(CHECKLISTS_DIR, stray));
-    Logger.info(
-      `generate-lens-checklists: pruned stray ${relChecklist(stray)}`,
-    );
+    fsImpl.rmSync(path.join(checklistsDir, stray));
+    logger.info(`generate-lens-checklists: pruned stray ${rel(stray)}`);
   }
-  Logger.info(
+  logger.info(
     `generate-lens-checklists: wrote ${wrote} of ${expected.size} checklist(s) (${strays.length} pruned).`,
   );
+  return { wrote, pruned: strays.length };
+}
+
+/**
+ * @param {string[]} [argv]
+ */
+async function main(argv = process.argv.slice(2)) {
+  await runGenerateLensChecklists(argv);
 }
 
 export { CHECKLISTS_DIR, WORKFLOWS_DIR };

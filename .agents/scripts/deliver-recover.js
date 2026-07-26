@@ -82,19 +82,44 @@ export function parseArgv(argv) {
 
 /**
  * Probe and report. Exported for testing.
+ *
+ * The optional final `deps` parameter is the module's injectable seam
+ * (`.agents/rules/test-seams.md` rules 1-2): config resolution, provider
+ * construction, the probe itself, the renderer, and the log sink each default
+ * to the real implementation, so the CLI path and every production caller are
+ * unchanged. The pre-existing `injected*` fields on the first argument stay
+ * supported for callers already threading a resolved provider/config.
+ *
+ * @param {object} [args]
+ * @param {{
+ *   resolveConfigImpl?: typeof resolveConfig,
+ *   createProviderImpl?: typeof createProvider,
+ *   recoverStoryImpl?: typeof recoverStory,
+ *   renderRecoveryImpl?: typeof renderRecovery,
+ *   logger?: { info: Function },
+ * }} [deps]
  */
-export async function runDeliverRecover({
-  storyId: storyIdParam,
-  cwd: cwdParam,
-  json: jsonParam,
-  reprobe: reprobeParam,
-  argv,
-  injectedProvider,
-  injectedConfig,
-  injectedGh,
-  injectedGitSpawn,
-  injectedSleepFn,
-} = {}) {
+export async function runDeliverRecover(
+  {
+    storyId: storyIdParam,
+    cwd: cwdParam,
+    json: jsonParam,
+    reprobe: reprobeParam,
+    argv,
+    injectedProvider,
+    injectedConfig,
+    injectedGh,
+    injectedGitSpawn,
+    injectedSleepFn,
+  } = {},
+  {
+    resolveConfigImpl = resolveConfig,
+    createProviderImpl = createProvider,
+    recoverStoryImpl = recoverStory,
+    renderRecoveryImpl = renderRecovery,
+    logger = Logger,
+  } = {},
+) {
   const parsed =
     storyIdParam !== undefined
       ? {
@@ -106,7 +131,7 @@ export async function runDeliverRecover({
       : parseArgv(argv ?? process.argv.slice(2));
 
   if (parsed.help) {
-    Logger.info(HELP);
+    logger.info(HELP);
     return { success: true, result: null };
   }
   if (!Number.isInteger(parsed.storyId) || parsed.storyId <= 0) {
@@ -116,10 +141,10 @@ export async function runDeliverRecover({
   }
 
   const cwd = parsed.cwd ?? PROJECT_ROOT;
-  const config = injectedConfig || resolveConfig({ cwd });
-  const provider = injectedProvider || createProvider(config);
+  const config = injectedConfig || resolveConfigImpl({ cwd });
+  const provider = injectedProvider || createProviderImpl(config);
 
-  const recovery = await recoverStory({
+  const recovery = await recoverStoryImpl({
     storyId: parsed.storyId,
     cwd,
     provider,
@@ -130,8 +155,10 @@ export async function runDeliverRecover({
     ...(injectedSleepFn ? { sleepFn: injectedSleepFn } : {}),
   });
 
-  Logger.info(
-    parsed.json ? JSON.stringify(recovery, null, 2) : renderRecovery(recovery),
+  logger.info(
+    parsed.json
+      ? JSON.stringify(recovery, null, 2)
+      : renderRecoveryImpl(recovery),
   );
   return { success: true, result: recovery };
 }

@@ -340,12 +340,13 @@ export function computeNavDiff({ routes = [], nav = [], refs = [] } = {}) {
  *
  * @param {string} label human-readable role for the error message
  * @param {string} file
+ * @param {typeof fs} [fsImpl] filesystem seam; defaults to the real `node:fs`.
  * @returns {unknown[]}
  */
-function readJsonArray(label, file) {
+function readJsonArray(label, file, fsImpl = fs) {
   let raw;
   try {
-    raw = fs.readFileSync(file, 'utf8');
+    raw = fsImpl.readFileSync(file, 'utf8');
   } catch (err) {
     throw new Error(
       `nav-registry-diff: cannot read ${label} file '${file}': ${err.message}`,
@@ -400,10 +401,23 @@ export function formatDiffText(diff) {
 }
 
 /**
- * @param {string[]} argv
+ * The reporter core, extracted from the CLI shell so the argv → read → diff →
+ * render → exit-code path is reachable without touching the real filesystem or
+ * the real stdout.
+ *
+ * Both seams on the optional final `deps` parameter default to the real
+ * implementation (`.agents/rules/test-seams.md` rules 1-2, 4 — `readJsonArray`
+ * forwards `fsImpl` rather than re-acquiring `fs`), so `main` and every
+ * production invocation are unchanged.
+ *
+ * @param {string[]} [argv]
+ * @param {{ fsImpl?: typeof fs, stdout?: { write: (s: string) => void } }} [deps]
  * @returns {Promise<number>} process exit code
  */
-async function main(argv = process.argv.slice(2)) {
+export async function runNavRegistryDiff(
+  argv = process.argv.slice(2),
+  { fsImpl = fs, stdout = process.stdout } = {},
+) {
   const { values } = parseArgs({
     args: argv,
     options: {
@@ -423,9 +437,9 @@ async function main(argv = process.argv.slice(2)) {
     );
   }
 
-  const routes = readJsonArray('routes', values.routes);
-  const nav = readJsonArray('nav', values.nav);
-  const refs = values.refs ? readJsonArray('refs', values.refs) : [];
+  const routes = readJsonArray('routes', values.routes, fsImpl);
+  const nav = readJsonArray('nav', values.nav, fsImpl);
+  const refs = values.refs ? readJsonArray('refs', values.refs, fsImpl) : [];
 
   const diff = computeNavDiff({ routes, nav, refs });
 
@@ -434,11 +448,19 @@ async function main(argv = process.argv.slice(2)) {
   const rendered = values.json
     ? JSON.stringify(diff, null, 2)
     : formatDiffText(diff);
-  process.stdout.write(`${rendered}\n`);
+  stdout.write(`${rendered}\n`);
 
   const hasFindings =
     diff.orphanedRoutes.length > 0 || diff.deadHrefs.length > 0;
   return values.strict && hasFindings ? 1 : 0;
+}
+
+/**
+ * @param {string[]} [argv]
+ * @returns {Promise<number>} process exit code
+ */
+async function main(argv = process.argv.slice(2)) {
+  return runNavRegistryDiff(argv);
 }
 
 export { main };

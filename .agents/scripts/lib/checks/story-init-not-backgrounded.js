@@ -26,7 +26,7 @@
  * fan-out target, or `&` shell backgrounding) within a small line window.
  */
 
-import { readdirSync, readFileSync } from 'node:fs';
+import nodeFs from 'node:fs';
 import path from 'node:path';
 
 const SCAN_ROOT_DEFAULT = '.agents';
@@ -54,14 +54,20 @@ const BACKGROUND_TOKENS = [
  * and `.md` sources. Skips `node_modules`, `.worktrees`, and directories
  * starting with `.git`.
  *
+ * The optional final `fsImpl` parameter defaults to the real `node:fs`
+ * (`.agents/rules/test-seams.md` rule 1) and is forwarded to the recursive
+ * call rather than re-acquired there (rule 4), so a test drives the whole walk
+ * through a plain stub object instead of module mocking (rule 5).
+ *
  * @param {string} dir
+ * @param {typeof nodeFs} [fsImpl]
  * @returns {string[]}
  */
-function walkSources(dir) {
+export function walkSources(dir, fsImpl = nodeFs) {
   const out = [];
   let entries;
   try {
-    entries = readdirSync(dir, { withFileTypes: true });
+    entries = fsImpl.readdirSync(dir, { withFileTypes: true });
   } catch {
     return out;
   }
@@ -75,7 +81,7 @@ function walkSources(dir) {
       ) {
         continue;
       }
-      out.push(...walkSources(full));
+      out.push(...walkSources(full, fsImpl));
       continue;
     }
     if (!entry.isFile()) continue;
@@ -94,11 +100,14 @@ function walkSources(dir) {
  * any dedicated check module (this file): the source-of-truth
  * implementation legitimately mentions itself.
  *
+ * Pure: it is handed the already-read source, so it needs no filesystem seam
+ * of its own.
+ *
  * @param {string} file
  * @param {string} src
  * @returns {Array<{ line: number, kind: string }>}
  */
-function scanFile(file, src) {
+export function scanFile(file, src) {
   const offences = [];
   // Don't flag the actual story-init script, self-references, or the
   // parallel-tooling helper — the helper documents both Rule 2
@@ -149,15 +158,21 @@ export default {
   scope: ['story-close', 'retro'],
   autoCorrect: 'refuse-and-print',
 
-  detect(state) {
+  /**
+   * @param {{ cwd?: string, scanRoot?: string, scope?: string }} [state]
+   * @param {typeof nodeFs} [fsImpl] Optional final filesystem seam; defaults
+   *   to the real `node:fs` (`.agents/rules/test-seams.md` rule 1) and is
+   *   forwarded to {@link walkSources} rather than re-acquired (rule 4).
+   */
+  detect(state, fsImpl = nodeFs) {
     const cwd = state?.cwd ?? process.cwd();
     const root = state?.scanRoot ?? path.join(cwd, SCAN_ROOT_DEFAULT);
-    const files = walkSources(root);
+    const files = walkSources(root, fsImpl);
     const offences = [];
     for (const file of files) {
       let src;
       try {
-        src = readFileSync(file, 'utf8');
+        src = fsImpl.readFileSync(file, 'utf8');
       } catch {
         continue;
       }

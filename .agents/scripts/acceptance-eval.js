@@ -82,10 +82,14 @@ const VERDICT_SCHEMA_PATH = path.resolve(
   'acceptance-eval-verdict.schema.json',
 );
 
-let cachedValidator = null;
-
 /**
- * Compile (and cache) the Ajv2020 validator for the verdict schema.
+ * Compile the Ajv2020 validator for the verdict schema.
+ *
+ * Deliberately **not** memoised in a module-level variable: a module-level
+ * cache is reset only on re-import, so it silently defeats the `io` seam below
+ * (the second caller's injected reader is never consulted) and makes parallel
+ * test isolation impossible — `.agents/rules/test-seams.md` rule 3. The gate
+ * compiles the schema once per CLI run, so there is nothing to memoise.
  *
  * @param {string} [schemaPath]
  * @param {{ readFileSync: typeof readFileSync }} [io]
@@ -95,12 +99,10 @@ function getVerdictValidator(
   schemaPath = VERDICT_SCHEMA_PATH,
   io = { readFileSync },
 ) {
-  if (cachedValidator) return cachedValidator;
   const ajv = new Ajv2020({ allErrors: true, strict: false });
   addFormats(ajv);
   const schema = JSON.parse(io.readFileSync(schemaPath, 'utf8'));
-  cachedValidator = ajv.compile(schema);
-  return cachedValidator;
+  return ajv.compile(schema);
 }
 
 /**
@@ -235,7 +237,37 @@ export async function runAcceptanceEval(
   return { envelope, exitCode };
 }
 
-export async function main(argv = process.argv.slice(2)) {
+/**
+ * The gate's CLI core: argv → verdict read → schema validation → decision →
+ * envelope. Extracted from the `main` shell so the whole error table (missing
+ * flags, unreadable verdict, non-JSON verdict, storyId mismatch, block) is
+ * reachable without spawning the CLI or writing a real verdict file.
+ *
+ * Every seam on the optional final `deps` parameter defaults to the real
+ * implementation (`.agents/rules/test-seams.md` rules 1-2, 4), so `main` and
+ * every production invocation are unchanged.
+ *
+ * @param {string[]} [argv]
+ * @param {{
+ *   readFileSyncImpl?: typeof readFileSync,
+ *   resolveConfigImpl?: typeof resolveConfig,
+ *   validateVerdictImpl?: typeof validateVerdict,
+ *   runAcceptanceEvalImpl?: typeof runAcceptanceEval,
+ *   logger?: { info: Function },
+ * }} [deps]
+ * @returns {Promise<object>} the emitted envelope.
+ */
+export async function runAcceptanceEvalCli(
+  argv = process.argv.slice(2),
+  deps = {},
+) {
+  const {
+    readFileSyncImpl = readFileSync,
+    resolveConfigImpl = resolveConfig,
+    validateVerdictImpl = validateVerdict,
+    runAcceptanceEvalImpl = runAcceptanceEval,
+    logger = Logger,
+  } = deps;
   const { storyId, verdictPath, emitSignal } = parseCliArgs(argv);
 
   if (!storyId) {
@@ -249,7 +281,7 @@ export async function main(argv = process.argv.slice(2)) {
 
   let raw;
   try {
-    raw = readFileSync(path.resolve(verdictPath), 'utf8');
+    raw = readFileSyncImpl(path.resolve(verdictPath), 'utf8');
   } catch (err) {
     throw new Error(
       `acceptance-eval: cannot read verdict file at ${verdictPath}: ${
@@ -269,7 +301,7 @@ export async function main(argv = process.argv.slice(2)) {
     );
   }
 
-  const verdict = validateVerdict(parsed);
+  const verdict = validateVerdictImpl(parsed);
 
   // A verdict whose embedded storyId disagrees with the CLI flag is a
   // wiring error worth failing on, not a silent mismatch.
@@ -279,15 +311,15 @@ export async function main(argv = process.argv.slice(2)) {
     );
   }
 
-  const config = resolveConfig();
-  const { envelope, exitCode } = await runAcceptanceEval({
+  const config = resolveConfigImpl();
+  const { envelope, exitCode } = await runAcceptanceEvalImpl({
     storyId,
     verdict,
     config,
     emitSignal,
   });
 
-  Logger.info(JSON.stringify(envelope));
+  logger.info(JSON.stringify(envelope));
 
   if (exitCode !== 0) {
     const names = envelope.unmetCriteria
@@ -300,6 +332,14 @@ export async function main(argv = process.argv.slice(2)) {
   }
 
   return envelope;
+}
+
+/**
+ * @param {string[]} [argv]
+ * @returns {Promise<object>}
+ */
+export async function main(argv = process.argv.slice(2)) {
+  return runAcceptanceEvalCli(argv);
 }
 
 runAsCli(import.meta.url, main, {

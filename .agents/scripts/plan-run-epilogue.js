@@ -27,9 +27,23 @@ const CLI_OPTIONS = {
 
 /**
  * @param {string[]} [argv]
+ * @param {{
+ *   resolveConfigImpl?: typeof resolveConfig,
+ *   createProviderImpl?: typeof createProvider,
+ *   runPlanRunEpilogueImpl?: typeof runPlanRunEpilogue,
+ *   logger?: { info: Function, warn: Function },
+ * }} [deps] Injectable seams; every entry defaults to the real
+ *   implementation (`.agents/rules/test-seams.md` rules 1-2), so the CLI path
+ *   and every production caller are unchanged.
  * @returns {Promise<object>}
  */
-export async function main(argv = process.argv.slice(2)) {
+export async function main(argv = process.argv.slice(2), deps = {}) {
+  const {
+    resolveConfigImpl = resolveConfig,
+    createProviderImpl = createProvider,
+    runPlanRunEpilogueImpl = runPlanRunEpilogue,
+    logger = Logger,
+  } = deps;
   const { values } = parseArgs({
     args: argv,
     options: CLI_OPTIONS,
@@ -44,8 +58,8 @@ export async function main(argv = process.argv.slice(2)) {
     typeof values.cwd === 'string' && values.cwd.trim()
       ? values.cwd.trim()
       : process.cwd();
-  const config = resolveConfig({ cwd });
-  const provider = createProvider(config);
+  const config = resolveConfigImpl({ cwd });
+  const provider = createProviderImpl(config);
 
   // Story #4540 retired the `--run <planRunId>` label-resolution branch
   // along with the label itself. The epilogue is keyed on the delivered id
@@ -58,16 +72,16 @@ export async function main(argv = process.argv.slice(2)) {
 
   const planRunId = `adhoc-${[...stories].sort((a, b) => a - b).join('-')}`;
 
-  const result = await runPlanRunEpilogue({
+  const result = await runPlanRunEpilogueImpl({
     planRunId,
     stories,
     provider,
     config,
     cwd,
   });
-  warnOnUnresolvedBase(result);
-  warnOnEmptyRollup(result);
-  Logger.info(JSON.stringify(result));
+  warnOnUnresolvedBase(result, logger);
+  warnOnEmptyRollup(result, logger);
+  logger.info(JSON.stringify(result));
   if (result.errors?.length) {
     process.exitCode = 1;
   }
@@ -84,15 +98,16 @@ export async function main(argv = process.argv.slice(2)) {
  * roster is still useful.
  *
  * @param {object} result - `runPlanRunEpilogue` envelope.
+ * @param {{ warn: Function }} [logger]
  * @returns {void}
  */
-function warnOnUnresolvedBase(result) {
+function warnOnUnresolvedBase(result, logger = Logger) {
   const roster = (result?.results ?? []).find(
     (r) => r?.kind === 'audit-roster',
   );
   const base = roster?.baseResolution;
   if (base?.resolved !== false) return;
-  Logger.warn(
+  logger.warn(
     `⚠️  Combined landed diff unavailable — the pre-run base sha could not be ` +
       `resolved against \`${base.baseRef}\`: ${base.reason}\n` +
       `    changedFiles is null (NOT an empty set). Determine the run diff by ` +
@@ -117,14 +132,15 @@ function warnOnUnresolvedBase(result) {
  * rather than asserting either reading.
  *
  * @param {object} result - `runPlanRunEpilogue` envelope.
+ * @param {{ warn: Function }} [logger]
  * @returns {void}
  */
-function warnOnEmptyRollup(result) {
+function warnOnEmptyRollup(result, logger = Logger) {
   const rollup = (result?.results ?? []).find(
     (r) => r?.kind === 'follow-up-rollup',
   );
   if (!rollup?.emptyRollupSuspect) return;
-  Logger.warn(
+  logger.warn(
     `⚠️  0 friction signals across ${rollup.storyCount} Stories — telemetry may not ` +
       `have fired.\n` +
       `    An empty roll-up is NOT evidence of a clean run: it is the same output a ` +
