@@ -4,7 +4,10 @@ import { tmpdir } from 'node:os';
 import path from 'node:path';
 import { after, before, describe, it } from 'node:test';
 
-import { __testing } from '../../.agents/scripts/audit-to-stories.js';
+import {
+  __testing,
+  runAuditToStories,
+} from '../../.agents/scripts/audit-to-stories.js';
 
 /**
  * Story #4780, AC-6 — `buildPlan` scored CRAP 110 despite 21 audit-to-stories
@@ -324,5 +327,152 @@ describe('runAuto', () => {
       suppressedByLedger: 0,
     });
     assert.deepEqual(stories, []);
+  });
+});
+
+describe('runAuditToStories (sub-command dispatch)', () => {
+  function harness() {
+    const persisted = [];
+    const written = [];
+    const seen = {};
+    return {
+      persisted,
+      written,
+      seen,
+      deps: {
+        buildPlanImpl: async (params) => {
+          seen.buildPlan = params;
+          return {
+            groups: ['g'],
+            findings: ['f'],
+            sourceReports: ['r'],
+            edges: [],
+          };
+        },
+        runAutoImpl: async (params) => {
+          seen.runAuto = params;
+          return { summary: { mode: 'auto' }, stories: [] };
+        },
+        loadPlanImpl: (planPath) => {
+          seen.loadPlan = planPath;
+          return {
+            groups: ['g'],
+            findings: ['f'],
+            sourceReports: ['r'],
+            edges: [{ fromGroupKey: 'a', toGroupKey: 'b' }],
+            classifications: [
+              { action: 'create', group: 'g1' },
+              { action: 'skip-open', group: 'g2' },
+            ],
+          };
+        },
+        buildAndGateStoriesImpl: (eligible, edges) => {
+          seen.gate = { eligible, edges };
+          return [{ title: 'T', labels: ['a', 'b'], body: 'BODY' }];
+        },
+        buildPlanSeedMarkdownImpl: (args) => {
+          seen.seed = args;
+          return '# seed\n';
+        },
+        persistImpl: (text, outPath) => persisted.push({ text, outPath }),
+        stdout: { write: (s) => written.push(s) },
+      },
+    };
+  }
+
+  it('throws the usage error when no sub-command is given', async () => {
+    await assert.rejects(
+      () => runAuditToStories([], harness().deps),
+      /Usage: node audit-to-stories\.js \(--scan \| --emit-plan-seed \| --emit-stories\)/,
+    );
+  });
+
+  it('--auto persists the summary and adds a trailing newline on stdout', async () => {
+    const h = harness();
+    await runAuditToStories(
+      [
+        '--auto',
+        '--dry-run',
+        '--glob',
+        'g/*.md',
+        '--severity',
+        'high',
+        '--ledger',
+        'l.json',
+      ],
+      h.deps,
+    );
+    assert.deepEqual(h.seen.runAuto, {
+      glob: 'g/*.md',
+      severity: 'high',
+      dryRun: true,
+      useProvider: true,
+      ledgerPath: 'l.json',
+    });
+    assert.deepEqual(JSON.parse(h.persisted[0].text), { mode: 'auto' });
+    assert.equal(h.persisted[0].outPath, undefined);
+    assert.deepEqual(h.written, ['\n']);
+  });
+
+  it('--auto with --out writes to the file and skips the stdout newline', async () => {
+    const h = harness();
+    await runAuditToStories(['--auto', '--out', 'summary.json'], h.deps);
+    assert.equal(h.persisted[0].outPath, 'summary.json');
+    assert.deepEqual(h.written, []);
+  });
+
+  it('--scan persists the plan envelope and honours --no-provider', async () => {
+    const h = harness();
+    await runAuditToStories(['--scan', '--no-provider'], h.deps);
+    assert.equal(h.seen.buildPlan.useProvider, false);
+    assert.equal(JSON.parse(h.persisted[0].text).groups.length, 1);
+    assert.deepEqual(h.written, ['\n']);
+  });
+
+  it('--emit-plan-seed renders the seed document from a loaded plan', async () => {
+    const h = harness();
+    await runAuditToStories(
+      ['--emit-plan-seed', '--plan', 'plan.json', '--out', 'seed.md'],
+      h.deps,
+    );
+    assert.equal(h.seen.loadPlan, 'plan.json');
+    assert.deepEqual(h.seen.seed, {
+      groups: ['g'],
+      findings: ['f'],
+      sourceReports: ['r'],
+    });
+    assert.deepEqual(h.persisted[0], { text: '# seed\n', outPath: 'seed.md' });
+    assert.deepEqual(h.written, []);
+  });
+
+  it('--emit-stories gates only the create-eligible groups and renders prose by default', async () => {
+    const h = harness();
+    await runAuditToStories(['--emit-stories', '--plan', 'plan.json'], h.deps);
+    assert.deepEqual(h.seen.gate.eligible, ['g1']);
+    assert.deepEqual(h.seen.gate.edges, [
+      { fromGroupKey: 'a', toGroupKey: 'b' },
+    ]);
+    assert.match(
+      h.persisted[0].text,
+      /--- story 1 ---\nTitle: T\nLabels: a, b\n\nBODY/,
+    );
+  });
+
+  it('--emit-stories --json emits the raw Story objects', async () => {
+    const h = harness();
+    await runAuditToStories(
+      ['--emit-stories', '--plan', 'plan.json', '--json'],
+      h.deps,
+    );
+    assert.deepEqual(JSON.parse(h.persisted[0].text), [
+      { title: 'T', labels: ['a', 'b'], body: 'BODY' },
+    ]);
+  });
+
+  it('--auto takes precedence over --scan when both are present', async () => {
+    const h = harness();
+    await runAuditToStories(['--auto', '--scan'], h.deps);
+    assert.ok(h.seen.runAuto);
+    assert.equal(h.seen.buildPlan, undefined);
   });
 });
