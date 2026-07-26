@@ -1,7 +1,7 @@
 {
   "$schema": ".agents/schemas/baselines/crap.schema.json",
   "kernelVersion": "0.1.0",
-  "generatedAt": "2026-07-26T14:44:02.481Z",
+  "generatedAt": "2026-07-26T21:10:01.647Z",
   "scoringSemantics": "coverage-join-v2",
   "rollup": {
     "*": {
@@ -344,38 +344,44 @@
     },
     {
       "path": ".agents/scripts/boot-sweep.js",
+      "method": "storyIdsFromBranches",
+      "startLine": 60,
+      "crap": 2
+    },
+    {
+      "path": ".agents/scripts/boot-sweep.js",
       "method": "runBootSweep",
-      "startLine": 92,
+      "startLine": 113,
       "crap": 6
     },
     {
       "path": ".agents/scripts/boot-sweep.js",
       "method": "<anon method-1>",
-      "startLine": 136,
+      "startLine": 158,
       "crap": 1
     },
     {
       "path": ".agents/scripts/boot-sweep.js",
       "method": "<anon method-2>",
-      "startLine": 137,
+      "startLine": 159,
       "crap": 1
     },
     {
       "path": ".agents/scripts/boot-sweep.js",
       "method": "buildSummaryLine",
-      "startLine": 169,
+      "startLine": 206,
       "crap": 2
     },
     {
       "path": ".agents/scripts/boot-sweep.js",
       "method": "runBootSweepCli",
-      "startLine": 192,
+      "startLine": 229,
       "crap": 8
     },
     {
       "path": ".agents/scripts/boot-sweep.js",
       "method": "main",
-      "startLine": 233,
+      "startLine": 270,
       "crap": 2
     },
     {
@@ -7430,74 +7436,80 @@
     },
     {
       "path": ".agents/scripts/lib/config/temp-paths.js",
+      "method": "orchestrationLogDir",
+      "startLine": 300,
+      "crap": 1
+    },
+    {
+      "path": ".agents/scripts/lib/config/temp-paths.js",
       "method": "<anon method-1>",
-      "startLine": 277,
+      "startLine": 304,
       "crap": 3
     },
     {
       "path": ".agents/scripts/lib/config/temp-paths.js",
       "method": "<anon method-2>",
-      "startLine": 291,
+      "startLine": 318,
       "crap": 4
     },
     {
       "path": ".agents/scripts/lib/config/temp-paths.js",
       "method": "<anon method-3>",
-      "startLine": 301,
+      "startLine": 328,
       "crap": 3
     },
     {
       "path": ".agents/scripts/lib/config/temp-paths.js",
       "method": "<anon method-4>",
-      "startLine": 310,
+      "startLine": 337,
       "crap": 6
     },
     {
       "path": ".agents/scripts/lib/config/temp-paths.js",
       "method": "runTempDir",
-      "startLine": 332,
+      "startLine": 359,
       "crap": 1
     },
     {
       "path": ".agents/scripts/lib/config/temp-paths.js",
       "method": "storyTempDir",
-      "startLine": 356,
+      "startLine": 383,
       "crap": 2
     },
     {
       "path": ".agents/scripts/lib/config/temp-paths.js",
       "method": "signalsFile",
-      "startLine": 374,
+      "startLine": 401,
       "crap": 1
     },
     {
       "path": ".agents/scripts/lib/config/temp-paths.js",
       "method": "<anon method-5>",
-      "startLine": 399,
+      "startLine": 426,
       "crap": 1
     },
     {
       "path": ".agents/scripts/lib/config/temp-paths.js",
       "method": "runArtifactPath",
-      "startLine": 413,
+      "startLine": 440,
       "crap": 1
     },
     {
       "path": ".agents/scripts/lib/config/temp-paths.js",
       "method": "storyArtifactPath",
-      "startLine": 427,
+      "startLine": 454,
       "crap": 1
     },
     {
       "path": ".agents/scripts/lib/config/temp-paths.js",
       "method": "<anon method-6>",
-      "startLine": 444,
+      "startLine": 471,
       "crap": 1
     },
     {
       "path": ".agents/scripts/lib/config/temp-paths.js",
       "method": "<anon method-7>",
-      "startLine": 449,
+      "startLine": 476,
       "crap": 1
     },
     {
@@ -10857,19 +10869,19 @@
     {
       "path": ".agents/scripts/lib/observability/terse-result.js",
       "method": "slugify",
-      "startLine": 38,
+      "startLine": 39,
       "crap": 2
     },
     {
       "path": ".agents/scripts/lib/observability/terse-result.js",
       "method": "detailBlock",
-      "startLine": 56,
+      "startLine": 57,
       "crap": 1
     },
     {
       "path": ".agents/scripts/lib/observability/terse-result.js",
       "method": "emitTerseResult",
-      "startLine": 79,
+      "startLine": 82,
       "crap": 3
     },
     {
@@ -13821,121 +13833,127 @@
     {
       "path": ".agents/scripts/lib/orchestration/plan-persist/run-plan-persist.js",
       "method": "writeCheckpointV2",
-      "startLine": 94,
+      "startLine": 93,
       "crap": 2.0030052592036065
     },
     {
       "path": ".agents/scripts/lib/orchestration/plan-persist/run-plan-persist.js",
       "method": "enforceTicketValidation",
-      "startLine": 136,
+      "startLine": 135,
       "crap": 4.025155017797175
     },
     {
       "path": ".agents/scripts/lib/orchestration/plan-persist/run-plan-persist.js",
       "method": "<anon method-1>",
-      "startLine": 138,
+      "startLine": 137,
       "crap": 1.0015721886123234
     },
     {
       "path": ".agents/scripts/lib/orchestration/plan-persist/run-plan-persist.js",
       "method": "<anon method-2>",
-      "startLine": 142,
+      "startLine": 141,
       "crap": 1.0015721886123234
     },
     {
       "path": ".agents/scripts/lib/orchestration/plan-persist/run-plan-persist.js",
       "method": "<anon method-3>",
-      "startLine": 147,
+      "startLine": 146,
       "crap": 1.0015721886123234
     },
     {
       "path": ".agents/scripts/lib/orchestration/plan-persist/run-plan-persist.js",
       "method": "<anon method-4>",
-      "startLine": 170,
+      "startLine": 169,
       "crap": 1.0015721886123234
     },
     {
       "path": ".agents/scripts/lib/orchestration/plan-persist/run-plan-persist.js",
       "method": "runSupersedePhase",
-      "startLine": 190,
+      "startLine": 189,
       "crap": 1.4614012021036813
     },
     {
       "path": ".agents/scripts/lib/orchestration/plan-persist/run-plan-persist.js",
       "method": "<anon method-5>",
-      "startLine": 205,
+      "startLine": 204,
       "crap": 1.4614012021036813
     },
     {
       "path": ".agents/scripts/lib/orchestration/plan-persist/run-plan-persist.js",
       "method": "renderRunScopedPlanMetricsLine",
-      "startLine": 240,
+      "startLine": 239,
       "crap": 2.0044282258395176
     },
     {
       "path": ".agents/scripts/lib/orchestration/plan-persist/run-plan-persist.js",
       "method": "resolveEffectiveRoute",
-      "startLine": 313,
+      "startLine": 312,
       "crap": 5
     },
     {
       "path": ".agents/scripts/lib/orchestration/plan-persist/run-plan-persist.js",
       "method": "<anon method-6>",
-      "startLine": 340,
+      "startLine": 339,
       "crap": 1
     },
     {
       "path": ".agents/scripts/lib/orchestration/plan-persist/run-plan-persist.js",
       "method": "<anon method-7>",
-      "startLine": 353,
+      "startLine": 352,
       "crap": 1
     },
     {
       "path": ".agents/scripts/lib/orchestration/plan-persist/run-plan-persist.js",
       "method": "<anon method-8>",
-      "startLine": 360,
+      "startLine": 359,
       "crap": 1
     },
     {
       "path": ".agents/scripts/lib/orchestration/plan-persist/run-plan-persist.js",
       "method": "reapStalePlanDirs",
-      "startLine": 399,
-      "crap": 8.011941690962098
-    },
-    {
-      "path": ".agents/scripts/lib/orchestration/plan-persist/run-plan-persist.js",
-      "method": "runPlanPersist",
-      "startLine": 465,
-      "crap": 19.196954412986514
+      "startLine": 398,
+      "crap": 2
     },
     {
       "path": ".agents/scripts/lib/orchestration/plan-persist/run-plan-persist.js",
       "method": "<anon method-9>",
-      "startLine": 599,
-      "crap": 1.0005455800913754
+      "startLine": 410,
+      "crap": 1
+    },
+    {
+      "path": ".agents/scripts/lib/orchestration/plan-persist/run-plan-persist.js",
+      "method": "runPlanPersist",
+      "startLine": 443,
+      "crap": 19.196954412986514
     },
     {
       "path": ".agents/scripts/lib/orchestration/plan-persist/run-plan-persist.js",
       "method": "<anon method-10>",
-      "startLine": 640,
+      "startLine": 577,
       "crap": 1.0005455800913754
     },
     {
       "path": ".agents/scripts/lib/orchestration/plan-persist/run-plan-persist.js",
       "method": "<anon method-11>",
-      "startLine": 689,
+      "startLine": 618,
       "crap": 1.0005455800913754
     },
     {
       "path": ".agents/scripts/lib/orchestration/plan-persist/run-plan-persist.js",
       "method": "<anon method-12>",
-      "startLine": 693,
+      "startLine": 667,
       "crap": 1.0005455800913754
     },
     {
       "path": ".agents/scripts/lib/orchestration/plan-persist/run-plan-persist.js",
       "method": "<anon method-13>",
-      "startLine": 701,
+      "startLine": 671,
+      "crap": 1.0005455800913754
+    },
+    {
+      "path": ".agents/scripts/lib/orchestration/plan-persist/run-plan-persist.js",
+      "method": "<anon method-14>",
+      "startLine": 679,
       "crap": 1.0005455800913754
     },
     {
@@ -15621,61 +15639,61 @@
     {
       "path": ".agents/scripts/lib/orchestration/single-story-close/gate-log.js",
       "method": "logNameFor",
-      "startLine": 73,
+      "startLine": 74,
       "crap": 1
     },
     {
       "path": ".agents/scripts/lib/orchestration/single-story-close/gate-log.js",
       "method": "createArtifactWriter",
-      "startLine": 178,
+      "startLine": 179,
       "crap": 1.0011070564598794
     },
     {
       "path": ".agents/scripts/lib/orchestration/single-story-close/gate-log.js",
       "method": "<anon method-3>",
-      "startLine": 180,
+      "startLine": 181,
       "crap": 1.0011070564598794
     },
     {
       "path": ".agents/scripts/lib/orchestration/single-story-close/gate-log.js",
       "method": "<anon method-4>",
-      "startLine": 185,
+      "startLine": 186,
       "crap": 2
     },
     {
       "path": ".agents/scripts/lib/orchestration/single-story-close/gate-log.js",
       "method": "<anon method-5>",
-      "startLine": 193,
-      "crap": 1.0046296296296295
-    },
-    {
-      "path": ".agents/scripts/lib/orchestration/single-story-close/gate-log.js",
-      "method": "<anon method-6>",
       "startLine": 194,
       "crap": 1.0046296296296295
     },
     {
       "path": ".agents/scripts/lib/orchestration/single-story-close/gate-log.js",
-      "method": "<anon method-7>",
+      "method": "<anon method-6>",
       "startLine": 195,
+      "crap": 1.0046296296296295
+    },
+    {
+      "path": ".agents/scripts/lib/orchestration/single-story-close/gate-log.js",
+      "method": "<anon method-7>",
+      "startLine": 196,
       "crap": 1
     },
     {
       "path": ".agents/scripts/lib/orchestration/single-story-close/gate-log.js",
       "method": "createGateLogSink",
-      "startLine": 222,
+      "startLine": 226,
       "crap": 1
     },
     {
       "path": ".agents/scripts/lib/orchestration/single-story-close/gate-log.js",
       "method": "<anon method-8>",
-      "startLine": 230,
+      "startLine": 234,
       "crap": 1
     },
     {
       "path": ".agents/scripts/lib/orchestration/single-story-close/gate-log.js",
       "method": "<anon method-9>",
-      "startLine": 248,
+      "startLine": 252,
       "crap": 1
     },
     {
@@ -15759,8 +15777,8 @@
     {
       "path": ".agents/scripts/lib/orchestration/single-story-close/phases/close-validation.js",
       "method": "runCloseValidationPhase",
-      "startLine": 76,
-      "crap": 9.004884998982291
+      "startLine": 83,
+      "crap": 9.004002999160637
     },
     {
       "path": ".agents/scripts/lib/orchestration/single-story-close/phases/code-review.js",
@@ -15957,103 +15975,115 @@
     {
       "path": ".agents/scripts/lib/orchestration/single-story-close/phases/post-land.js",
       "method": "postLandLockPath",
-      "startLine": 60,
+      "startLine": 61,
       "crap": 1
     },
     {
       "path": ".agents/scripts/lib/orchestration/single-story-close/phases/post-land.js",
       "method": "step",
-      "startLine": 74,
+      "startLine": 75,
       "crap": 2
     },
     {
       "path": ".agents/scripts/lib/orchestration/single-story-close/phases/post-land.js",
       "method": "stepFollowUps",
-      "startLine": 101,
+      "startLine": 102,
       "crap": 2
     },
     {
       "path": ".agents/scripts/lib/orchestration/single-story-close/phases/post-land.js",
       "method": "stepStatusResync",
-      "startLine": 130,
+      "startLine": 131,
       "crap": 3.0052083333333335
     },
     {
       "path": ".agents/scripts/lib/orchestration/single-story-close/phases/post-land.js",
       "method": "<anon method-1>",
-      "startLine": 142,
-      "crap": 1
-    },
-    {
-      "path": ".agents/scripts/lib/orchestration/single-story-close/phases/post-land.js",
-      "method": "<anon method-2>",
       "startLine": 143,
       "crap": 1
     },
     {
       "path": ".agents/scripts/lib/orchestration/single-story-close/phases/post-land.js",
+      "method": "<anon method-2>",
+      "startLine": 144,
+      "crap": 1
+    },
+    {
+      "path": ".agents/scripts/lib/orchestration/single-story-close/phases/post-land.js",
       "method": "stepRefCleanup",
-      "startLine": 163,
+      "startLine": 164,
       "crap": 3.010497157019974
     },
     {
       "path": ".agents/scripts/lib/orchestration/single-story-close/phases/post-land.js",
       "method": "stepBaseFastForward",
-      "startLine": 193,
+      "startLine": 194,
       "crap": 4.003561788685755
     },
     {
       "path": ".agents/scripts/lib/orchestration/single-story-close/phases/post-land.js",
       "method": "<anon method-3>",
-      "startLine": 210,
-      "crap": 1
-    },
-    {
-      "path": ".agents/scripts/lib/orchestration/single-story-close/phases/post-land.js",
-      "method": "<anon method-4>",
       "startLine": 211,
       "crap": 1
     },
     {
       "path": ".agents/scripts/lib/orchestration/single-story-close/phases/post-land.js",
+      "method": "<anon method-4>",
+      "startLine": 212,
+      "crap": 1
+    },
+    {
+      "path": ".agents/scripts/lib/orchestration/single-story-close/phases/post-land.js",
+      "method": "stepTempPurge",
+      "startLine": 238,
+      "crap": 2
+    },
+    {
+      "path": ".agents/scripts/lib/orchestration/single-story-close/phases/post-land.js",
       "method": "runPostLandTail",
-      "startLine": 267,
+      "startLine": 285,
       "crap": 4
     },
     {
       "path": ".agents/scripts/lib/orchestration/single-story-close/phases/post-land.js",
       "method": "<anon method-5>",
-      "startLine": 313,
+      "startLine": 332,
       "crap": 1
     },
     {
       "path": ".agents/scripts/lib/orchestration/single-story-close/phases/post-land.js",
       "method": "<anon method-6>",
-      "startLine": 325,
+      "startLine": 344,
       "crap": 1
     },
     {
       "path": ".agents/scripts/lib/orchestration/single-story-close/phases/post-land.js",
       "method": "<anon method-7>",
-      "startLine": 358,
+      "startLine": 377,
       "crap": 1
     },
     {
       "path": ".agents/scripts/lib/orchestration/single-story-close/phases/post-land.js",
       "method": "<anon method-8>",
-      "startLine": 362,
+      "startLine": 381,
       "crap": 1
     },
     {
       "path": ".agents/scripts/lib/orchestration/single-story-close/phases/post-land.js",
       "method": "<anon method-9>",
-      "startLine": 389,
-      "crap": 2
+      "startLine": 400,
+      "crap": 1
     },
     {
       "path": ".agents/scripts/lib/orchestration/single-story-close/phases/post-land.js",
       "method": "<anon method-10>",
-      "startLine": 390,
+      "startLine": 420,
+      "crap": 2
+    },
+    {
+      "path": ".agents/scripts/lib/orchestration/single-story-close/phases/post-land.js",
+      "method": "<anon method-11>",
+      "startLine": 421,
       "crap": 1
     },
     {
@@ -19047,109 +19077,115 @@
     {
       "path": ".agents/scripts/lib/single-story-sweep.js",
       "method": "sweepMergedBranches",
-      "startLine": 101,
-      "crap": 11.001420454545455
+      "startLine": 102,
+      "crap": 11.001373110023277
     },
     {
       "path": ".agents/scripts/lib/single-story-sweep.js",
       "method": "<anon method-1>",
-      "startLine": 120,
-      "crap": 1
-    },
-    {
-      "path": ".agents/scripts/lib/single-story-sweep.js",
-      "method": "<anon method-2>",
       "startLine": 121,
       "crap": 1
     },
     {
       "path": ".agents/scripts/lib/single-story-sweep.js",
+      "method": "<anon method-2>",
+      "startLine": 122,
+      "crap": 1
+    },
+    {
+      "path": ".agents/scripts/lib/single-story-sweep.js",
       "method": "<anon method-3>",
-      "startLine": 134,
+      "startLine": 135,
       "crap": 1
     },
     {
       "path": ".agents/scripts/lib/single-story-sweep.js",
       "method": "sweepMergedStoryBranches",
-      "startLine": 213,
+      "startLine": 215,
       "crap": 3
     },
     {
       "path": ".agents/scripts/lib/single-story-sweep.js",
       "method": "partitionContentMerged",
-      "startLine": 237,
+      "startLine": 239,
       "crap": 2
     },
     {
       "path": ".agents/scripts/lib/single-story-sweep.js",
       "method": "runSweepUnderLock",
-      "startLine": 257,
+      "startLine": 259,
       "crap": 4
     },
     {
       "path": ".agents/scripts/lib/single-story-sweep.js",
       "method": "<anon method-4>",
-      "startLine": 286,
+      "startLine": 288,
       "crap": 1
     },
     {
       "path": ".agents/scripts/lib/single-story-sweep.js",
       "method": "executeReap",
-      "startLine": 346,
+      "startLine": 350,
       "crap": 4
     },
     {
       "path": ".agents/scripts/lib/single-story-sweep.js",
       "method": "<anon method-5>",
-      "startLine": 375,
+      "startLine": 380,
       "crap": 1
     },
     {
       "path": ".agents/scripts/lib/single-story-sweep.js",
       "method": "<anon method-6>",
-      "startLine": 376,
-      "crap": 1
-    },
-    {
-      "path": ".agents/scripts/lib/single-story-sweep.js",
-      "method": "<anon method-7>",
-      "startLine": 377,
-      "crap": 1
-    },
-    {
-      "path": ".agents/scripts/lib/single-story-sweep.js",
-      "method": "<anon method-8>",
       "startLine": 381,
       "crap": 1
     },
     {
       "path": ".agents/scripts/lib/single-story-sweep.js",
-      "method": "runFastForwardStep",
-      "startLine": 412,
+      "method": "<anon method-7>",
+      "startLine": 382,
+      "crap": 1
+    },
+    {
+      "path": ".agents/scripts/lib/single-story-sweep.js",
+      "method": "<anon method-8>",
+      "startLine": 386,
       "crap": 1
     },
     {
       "path": ".agents/scripts/lib/single-story-sweep.js",
       "method": "<anon method-9>",
-      "startLine": 427,
+      "startLine": 410,
+      "crap": 1
+    },
+    {
+      "path": ".agents/scripts/lib/single-story-sweep.js",
+      "method": "runFastForwardStep",
+      "startLine": 422,
       "crap": 1
     },
     {
       "path": ".agents/scripts/lib/single-story-sweep.js",
       "method": "<anon method-10>",
-      "startLine": 428,
+      "startLine": 437,
+      "crap": 1
+    },
+    {
+      "path": ".agents/scripts/lib/single-story-sweep.js",
+      "method": "<anon method-11>",
+      "startLine": 438,
       "crap": 1
     },
     {
       "path": ".agents/scripts/lib/single-story-sweep.js",
       "method": "partitionCandidates",
-      "startLine": 458,
+      "startLine": 468,
       "crap": 3.102515625
     },
     {
       "path": ".agents/scripts/lib/single-story-sweep.js",
       "method": "zeroResult",
-      "startLine": 499,
+      "startLine": 509,
       "crap": 1
     },
     {
@@ -23301,19 +23337,19 @@
     {
       "path": ".agents/scripts/sync-branch-from-base.js",
       "method": "runSyncBranchFromBase",
-      "startLine": 56,
-      "crap": 8.015625
+      "startLine": 57,
+      "crap": 8.013026663952779
     },
     {
       "path": ".agents/scripts/sync-branch-from-base.js",
       "method": "<anon method-1>",
-      "startLine": 93,
+      "startLine": 94,
       "crap": 1
     },
     {
       "path": ".agents/scripts/sync-branch-from-base.js",
       "method": "parseArgv",
-      "startLine": 125,
+      "startLine": 130,
       "crap": 1
     },
     {
