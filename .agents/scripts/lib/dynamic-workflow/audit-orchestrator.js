@@ -26,6 +26,18 @@
  * single write in the run is the report artifact, performed by the synthesis
  * agent, which is granted the read-only allowlist plus `Write`.
  *
+ * ## Partial-failure posture
+ *
+ * The per-dimension fan-out is settled, not all-or-nothing (Story #4783). One
+ * rejected dimension used to discard every sibling's completed work; the
+ * engine now partitions the settled results, flows the fulfilled dimensions on
+ * to the next phase, and records the rejected ones as an explicit
+ * degraded-coverage note in the report's Executive Summary. This mirrors the
+ * posture `close-validation/runner.js` already takes with per-gate errors:
+ * capture the failure into the result rather than rejecting the whole run.
+ * Only a *total* loss — every dimension rejected — throws, because there is
+ * then nothing to synthesise.
+ *
  * ## Report-contract self-check
  *
  * After synthesis the engine calls the caller-supplied `assertReportContract`
@@ -41,6 +53,14 @@
  * runtime.
  *
  * @module dynamic-workflow/audit-orchestrator
+ */
+
+import { withDegradedCoverageNote } from './degraded-coverage.js';
+
+/**
+ * A dimension that did not complete, as recorded by the settled fan-out.
+ *
+ * @typedef {import('./degraded-coverage.js').DimensionFailure} DimensionFailure
  */
 
 /**
@@ -82,8 +102,11 @@
  *   Compose the analysis prompt for one dimension (lens-specific).
  * @property {(dimension: string, findings: string) => string} buildCrossCheckPrompt
  *   Compose the adversarial cross-check prompt for one dimension's findings.
- * @property {(crossCheckedBlocks: string[]) => string} buildSynthesisPrompt
- *   Compose the synthesis prompt that assembles the report and writes it.
+ * @property {(crossCheckedBlocks: string[], degraded: DimensionFailure[]) => string} buildSynthesisPrompt
+ *   Compose the synthesis prompt that assembles the report and writes it. The
+ *   second argument lists the dimensions that did not complete (empty on a
+ *   full-coverage run); lenses may ignore it — the engine annotates the report
+ *   with the degraded-coverage note either way.
  * @property {(report: string) => { conformant: boolean, missingSections: string[], hasTitle: boolean }} assertReportContract
  *   Self-check the synthesised report against the lens's report contract.
  * @property {(check: { conformant: boolean, missingSections: string[], hasTitle: boolean }) => string} [formatContractError]
@@ -123,6 +146,45 @@ export function defaultContractError(check) {
 }
 
 /**
+ * Reduce a rejection reason to a single-line message.
+ *
+ * @param {unknown} reason
+ * @returns {string}
+ */
+function describeRejection(reason) {
+  if (reason instanceof Error) return reason.message;
+  return String(reason ?? 'unknown error');
+}
+
+/**
+ * Partition settled fan-out results into the values that completed and the
+ * dimensions that did not. `dimensions[i]` names the dimension behind
+ * `settled[i]`, so a rejection is always attributable.
+ *
+ * @template T
+ * @param {readonly string[]} dimensions
+ * @param {readonly PromiseSettledResult<T>[]} settled
+ * @param {string} phaseName Phase recorded on each failure.
+ * @returns {{ fulfilled: T[], failures: DimensionFailure[] }}
+ */
+function partitionSettled(dimensions, settled, phaseName) {
+  const fulfilled = [];
+  const failures = [];
+  settled.forEach((result, index) => {
+    if (result.status === 'fulfilled') {
+      fulfilled.push(result.value);
+      return;
+    }
+    failures.push({
+      dimension: dimensions[index],
+      phase: phaseName,
+      reason: describeRejection(result.reason),
+    });
+  });
+  return { fulfilled, failures };
+}
+
+/**
  * Run the shared three-phase audit-lens orchestration: parallel per-dimension
  * analysis → adversarial cross-check → synthesis + report-contract self-check.
  *
@@ -149,9 +211,10 @@ export async function runAuditOrchestration(spec) {
 
   const { agent, phase } = ctx;
 
-  // Phase 1 — parallel per-dimension analysis (read-only agents).
-  const rawFindings = await phase(ORCHESTRATION_PHASES.ANALYZE, async () =>
-    Promise.all(
+  // Phase 1 — parallel per-dimension analysis (read-only agents). Settled, not
+  // all-or-nothing: one dimension's rejection must not discard its siblings.
+  const analyzed = await phase(ORCHESTRATION_PHASES.ANALYZE, async () =>
+    Promise.allSettled(
       dimensions.map(async (dimension) => {
         const { output } = await agent({
           prompt: buildDimensionPrompt(dimension),
@@ -161,11 +224,15 @@ export async function runAuditOrchestration(spec) {
       }),
     ),
   );
+  const { fulfilled: rawFindings, failures: analyzeFailures } =
+    partitionSettled(dimensions, analyzed, 'analyze');
 
   // Phase 2 — adversarial cross-check: an independent agent re-verifies each
-  // dimension's findings and filters false positives before inclusion.
-  const crossChecked = await phase(ORCHESTRATION_PHASES.CROSS_CHECK, async () =>
-    Promise.all(
+  // surviving dimension's findings and filters false positives before
+  // inclusion. Settled for the same reason as phase 1.
+  const checkedDimensions = rawFindings.map((entry) => entry.dimension);
+  const checked = await phase(ORCHESTRATION_PHASES.CROSS_CHECK, async () =>
+    Promise.allSettled(
       rawFindings.map(async ({ dimension, findings }) => {
         const { output } = await agent({
           prompt: buildCrossCheckPrompt(dimension, findings),
@@ -175,16 +242,36 @@ export async function runAuditOrchestration(spec) {
       }),
     ),
   );
+  const { fulfilled: crossChecked, failures: crossCheckFailures } =
+    partitionSettled(checkedDimensions, checked, 'cross-check');
+
+  const degraded = [...analyzeFailures, ...crossCheckFailures];
+  if (dimensions.length > 0 && crossChecked.length === 0) {
+    // Nothing survived — there is no partial report to salvage.
+    throw new Error(
+      `every audit dimension failed: ${degraded
+        .map((f) => `${f.dimension} (${f.phase}: ${f.reason})`)
+        .join('; ')}`,
+    );
+  }
 
   // Phase 3 — synthesis: assemble the report contract and write the artifact.
-  const { output: report } = await phase(
+  const { output: synthesised } = await phase(
     ORCHESTRATION_PHASES.SYNTHESIZE,
     async () =>
       agent({
-        prompt: buildSynthesisPrompt(crossChecked),
+        prompt: buildSynthesisPrompt(crossChecked, degraded),
         // Synthesis is the one stage permitted to write the report artifact.
         allowedTools: [...readOnlyTools, SYNTHESIS_WRITE_TOOL],
       }),
+  );
+
+  // The coverage gap is annotated by the engine, never left to the synthesis
+  // agent's discretion.
+  const report = withDegradedCoverageNote(
+    synthesised,
+    degraded,
+    dimensions.length,
   );
 
   // Self-verify report-contract conformance before returning.
