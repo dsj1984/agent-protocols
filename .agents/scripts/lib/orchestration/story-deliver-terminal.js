@@ -234,10 +234,12 @@ export function buildTerminalEnvelope({
     timestamp,
   });
 
-  const { valid, errors } = validateTerminalEnvelope(
-    envelope,
-    schemaSource === undefined ? undefined : { schemaSource },
-  );
+  // Passing `{ schemaSource }` unconditionally is safe: an `undefined`
+  // property value is exactly what triggers the destructuring default on the
+  // other side, so production still gets the eagerly-loaded module source.
+  const { valid, errors } = validateTerminalEnvelope(envelope, {
+    schemaSource,
+  });
   if (!valid) {
     throw new TypeError(
       `buildTerminalEnvelope: assembled envelope violates story-deliver-terminal.schema.json:\n` +

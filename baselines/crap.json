@@ -1,12 +1,12 @@
 {
   "$schema": ".agents/schemas/baselines/crap.schema.json",
   "kernelVersion": "0.1.0",
-  "generatedAt": "2026-07-26T02:47:13.697Z",
+  "generatedAt": "2026-07-26T14:13:00.471Z",
   "scoringSemantics": "coverage-join-v2",
   "rollup": {
     "*": {
       "p50": 2,
-      "p95": 11.036579789666211,
+      "p95": 11.020747599451303,
       "max": 123.75293999270504,
       "methodsAbove20": 40
     }
@@ -15571,6 +15571,18 @@
       "crap": 7.033660696112355
     },
     {
+      "path": ".agents/scripts/lib/orchestration/single-story-close/failed-terminal.js",
+      "method": "gatesForFailedPhase",
+      "startLine": 66,
+      "crap": 5
+    },
+    {
+      "path": ".agents/scripts/lib/orchestration/single-story-close/failed-terminal.js",
+      "method": "failedTerminalFor",
+      "startLine": 102,
+      "crap": 10.774538386783284
+    },
+    {
       "path": ".agents/scripts/lib/orchestration/single-story-close/gate-log.js",
       "method": "logNameFor",
       "startLine": 73,
@@ -16591,123 +16603,135 @@
       "crap": 1.0233236151603498
     },
     {
+      "path": ".agents/scripts/lib/orchestration/story-deliver-terminal-schema.js",
+      "method": "loadSchemaSource",
+      "startLine": 56,
+      "crap": 1.008
+    },
+    {
+      "path": ".agents/scripts/lib/orchestration/story-deliver-terminal-schema.js",
+      "method": "getValidator",
+      "startLine": 92,
+      "crap": 3
+    },
+    {
+      "path": ".agents/scripts/lib/orchestration/story-deliver-terminal-schema.js",
+      "method": "warnUnvalidated",
+      "startLine": 117,
+      "crap": 2
+    },
+    {
+      "path": ".agents/scripts/lib/orchestration/story-deliver-terminal-schema.js",
+      "method": "validateTerminalEnvelope",
+      "startLine": 144,
+      "crap": 3
+    },
+    {
+      "path": ".agents/scripts/lib/orchestration/story-deliver-terminal-schema.js",
+      "method": "<anon method-1>",
+      "startLine": 156,
+      "crap": 2
+    },
+    {
       "path": ".agents/scripts/lib/orchestration/story-deliver-terminal.js",
       "method": "quoteForPlan",
-      "startLine": 97,
+      "startLine": 87,
       "crap": 3
     },
     {
       "path": ".agents/scripts/lib/orchestration/story-deliver-terminal.js",
       "method": "<anon method-1>",
-      "startLine": 121,
+      "startLine": 111,
       "crap": 1
     },
     {
       "path": ".agents/scripts/lib/orchestration/story-deliver-terminal.js",
       "method": "<anon method-2>",
-      "startLine": 124,
+      "startLine": 114,
       "crap": 1
     },
     {
       "path": ".agents/scripts/lib/orchestration/story-deliver-terminal.js",
       "method": "<anon method-3>",
-      "startLine": 127,
+      "startLine": 117,
       "crap": 1
     },
     {
       "path": ".agents/scripts/lib/orchestration/story-deliver-terminal.js",
       "method": "<anon method-4>",
-      "startLine": 130,
+      "startLine": 120,
       "crap": 1
     },
     {
       "path": ".agents/scripts/lib/orchestration/story-deliver-terminal.js",
       "method": "<anon method-5>",
-      "startLine": 133,
+      "startLine": 123,
       "crap": 1
     },
     {
       "path": ".agents/scripts/lib/orchestration/story-deliver-terminal.js",
       "method": "<anon method-6>",
-      "startLine": 136,
+      "startLine": 126,
       "crap": 1
     },
     {
       "path": ".agents/scripts/lib/orchestration/story-deliver-terminal.js",
       "method": "<anon method-7>",
-      "startLine": 139,
+      "startLine": 129,
       "crap": 1
     },
     {
       "path": ".agents/scripts/lib/orchestration/story-deliver-terminal.js",
       "method": "<anon method-8>",
-      "startLine": 152,
+      "startLine": 142,
       "crap": 1
     },
     {
       "path": ".agents/scripts/lib/orchestration/story-deliver-terminal.js",
-      "method": "getValidator",
-      "startLine": 163,
-      "crap": 2
-    },
-    {
-      "path": ".agents/scripts/lib/orchestration/story-deliver-terminal.js",
-      "method": "validateTerminalEnvelope",
-      "startLine": 178,
-      "crap": 2
-    },
-    {
-      "path": ".agents/scripts/lib/orchestration/story-deliver-terminal.js",
-      "method": "<anon method-9>",
-      "startLine": 183,
-      "crap": 2
-    },
-    {
-      "path": ".agents/scripts/lib/orchestration/story-deliver-terminal.js",
       "method": "compact",
-      "startLine": 196,
+      "startLine": 153,
       "crap": 2
     },
     {
       "path": ".agents/scripts/lib/orchestration/story-deliver-terminal.js",
       "method": "buildTerminalEnvelope",
-      "startLine": 232,
+      "startLine": 197,
       "crap": 5
     },
     {
       "path": ".agents/scripts/lib/orchestration/story-deliver-terminal.js",
-      "method": "<anon method-10>",
-      "startLine": 275,
+      "method": "<anon method-9>",
+      "startLine": 246,
       "crap": 1
     },
     {
       "path": ".agents/scripts/lib/orchestration/story-deliver-terminal.js",
       "method": "buildEscalationTerminal",
-      "startLine": 308,
+      "startLine": 279,
       "crap": 5
     },
     {
       "path": ".agents/scripts/lib/orchestration/story-deliver-terminal.js",
-      "method": "<anon method-11>",
-      "startLine": 323,
+      "method": "<anon method-10>",
+      "startLine": 294,
       "crap": 2
     },
     {
       "path": ".agents/scripts/lib/orchestration/story-deliver-terminal.js",
       "method": "exitCodeForTerminal",
-      "startLine": 350,
+      "startLine": 321,
       "crap": 1
     },
     {
       "path": ".agents/scripts/lib/orchestration/story-deliver-terminal.js",
       "method": "emitTerminalEnvelope",
-      "startLine": 378,
+      "startLine": 349,
       "crap": 1
     },
     {
       "path": ".agents/scripts/lib/orchestration/story-deliver-terminal.js",
       "method": "terminalFromWaitOutcome",
-      "startLine": 398,
+      "startLine": 369,
       "crap": 5
     },
     {
@@ -21135,175 +21159,199 @@
     {
       "path": ".agents/scripts/lib/worktree/lifecycle/reap.js",
       "method": "isSafeToRemove",
-      "startLine": 63,
+      "startLine": 64,
       "crap": 4
     },
     {
       "path": ".agents/scripts/lib/worktree/lifecycle/reap.js",
       "method": "isBranchMergedIntoBase",
-      "startLine": 108,
+      "startLine": 109,
       "crap": 5.084375
     },
     {
       "path": ".agents/scripts/lib/worktree/lifecycle/reap.js",
       "method": "<anon method-1>",
-      "startLine": 123,
+      "startLine": 124,
       "crap": 1.003375
     },
     {
       "path": ".agents/scripts/lib/worktree/lifecycle/reap.js",
       "method": "<anon method-2>",
-      "startLine": 126,
+      "startLine": 127,
       "crap": 1.003375
     },
     {
       "path": ".agents/scripts/lib/worktree/lifecycle/reap.js",
       "method": "collectDirtyPaths",
-      "startLine": 133,
+      "startLine": 134,
       "crap": 2
     },
     {
       "path": ".agents/scripts/lib/worktree/lifecycle/reap.js",
       "method": "<anon method-3>",
-      "startLine": 138,
+      "startLine": 139,
       "crap": 1
     },
     {
       "path": ".agents/scripts/lib/worktree/lifecycle/reap.js",
       "method": "<anon method-4>",
-      "startLine": 140,
+      "startLine": 141,
       "crap": 1
     },
     {
       "path": ".agents/scripts/lib/worktree/lifecycle/reap.js",
       "method": "discardWorktreeChanges",
-      "startLine": 147,
+      "startLine": 148,
       "crap": 2
     },
     {
       "path": ".agents/scripts/lib/worktree/lifecycle/reap.js",
       "method": "fsRmWithRetry",
-      "startLine": 160,
+      "startLine": 161,
       "crap": 4.018661612479954
     },
     {
       "path": ".agents/scripts/lib/worktree/lifecycle/reap.js",
       "method": "<anon method-5>",
-      "startLine": 173,
+      "startLine": 174,
       "crap": 2
     },
     {
       "path": ".agents/scripts/lib/worktree/lifecycle/reap.js",
       "method": "classifyRemoveStderr",
-      "startLine": 180,
+      "startLine": 181,
       "crap": 1
     },
     {
       "path": ".agents/scripts/lib/worktree/lifecycle/reap.js",
       "method": "finalizeGitWorktreeRemove",
-      "startLine": 187,
+      "startLine": 188,
       "crap": 1
     },
     {
       "path": ".agents/scripts/lib/worktree/lifecycle/reap.js",
       "method": "handleRemoveFailure",
-      "startLine": 192,
+      "startLine": 193,
       "crap": 5
     },
     {
       "path": ".agents/scripts/lib/worktree/lifecycle/reap.js",
       "method": "runGitWorktreeRemoveLoop",
-      "startLine": 213,
+      "startLine": 214,
       "crap": 8
     },
     {
       "path": ".agents/scripts/lib/worktree/lifecycle/reap.js",
       "method": "tryForceRemoveFallback",
-      "startLine": 238,
+      "startLine": 239,
       "crap": 7.006125
     },
     {
       "path": ".agents/scripts/lib/worktree/lifecycle/reap.js",
       "method": "tryStage15WindowsFsRm",
-      "startLine": 279,
+      "startLine": 280,
       "crap": 1.0314914710599212
     },
     {
       "path": ".agents/scripts/lib/worktree/lifecycle/reap.js",
       "method": "recordPendingCleanupSafe",
-      "startLine": 318,
+      "startLine": 319,
       "crap": 3.274658203125
     },
     {
       "path": ".agents/scripts/lib/worktree/lifecycle/reap.js",
       "method": "handleFsRmFailure",
-      "startLine": 335,
+      "startLine": 336,
       "crap": 5
     },
     {
       "path": ".agents/scripts/lib/worktree/lifecycle/reap.js",
       "method": "removeWorktreeWithRecovery",
-      "startLine": 387,
+      "startLine": 388,
       "crap": 8
     },
     {
       "path": ".agents/scripts/lib/worktree/lifecycle/reap.js",
       "method": "reapDeleteLocal",
-      "startLine": 458,
+      "startLine": 459,
       "crap": 6.036
     },
     {
       "path": ".agents/scripts/lib/worktree/lifecycle/reap.js",
       "method": "reapDeleteRemote",
-      "startLine": 469,
+      "startLine": 470,
       "crap": 6.141711619769646
     },
     {
       "path": ".agents/scripts/lib/worktree/lifecycle/reap.js",
       "method": "deleteBranchAfterReap",
-      "startLine": 489,
+      "startLine": 490,
       "crap": 3
     },
     {
       "path": ".agents/scripts/lib/worktree/lifecycle/reap.js",
-      "method": "checkReapPreconditions",
-      "startLine": 496,
-      "crap": 4
+      "method": "runningCodePaths",
+      "startLine": 503,
+      "crap": 3.0540946656649135
     },
     {
       "path": ".agents/scripts/lib/worktree/lifecycle/reap.js",
-      "method": "<anon method-6>",
-      "startLine": 503,
+      "method": "findRunningCodeInside",
+      "startLine": 536,
       "crap": 1
     },
     {
       "path": ".agents/scripts/lib/worktree/lifecycle/reap.js",
+      "method": "<anon method-6>",
+      "startLine": 538,
+      "crap": 1
+    },
+    {
+      "path": ".agents/scripts/lib/worktree/lifecycle/reap.js",
+      "method": "firstReapRefusal",
+      "startLine": 553,
+      "crap": 4
+    },
+    {
+      "path": ".agents/scripts/lib/worktree/lifecycle/reap.js",
+      "method": "<anon method-7>",
+      "startLine": 555,
+      "crap": 1
+    },
+    {
+      "path": ".agents/scripts/lib/worktree/lifecycle/reap.js",
+      "method": "checkReapPreconditions",
+      "startLine": 575,
+      "crap": 3
+    },
+    {
+      "path": ".agents/scripts/lib/worktree/lifecycle/reap.js",
       "method": "ensureSafeOrForceDiscard",
-      "startLine": 525,
+      "startLine": 598,
       "crap": 7.973424840856482
     },
     {
       "path": ".agents/scripts/lib/worktree/lifecycle/reap.js",
       "method": "escapeWorktreeCwd",
-      "startLine": 574,
+      "startLine": 647,
       "crap": 3.372
     },
     {
       "path": ".agents/scripts/lib/worktree/lifecycle/reap.js",
       "method": "postRemoveBeltSweep",
-      "startLine": 585,
+      "startLine": 658,
       "crap": 3.2099125364431487
     },
     {
       "path": ".agents/scripts/lib/worktree/lifecycle/reap.js",
       "method": "buildReapSuccess",
-      "startLine": 600,
+      "startLine": 673,
       "crap": 5
     },
     {
       "path": ".agents/scripts/lib/worktree/lifecycle/reap.js",
       "method": "reap",
-      "startLine": 612,
+      "startLine": 685,
       "crap": 8.442284850448116
     },
     {
@@ -22887,25 +22935,13 @@
     {
       "path": ".agents/scripts/single-story-close.js",
       "method": "runSingleStoryClose",
-      "startLine": 129,
+      "startLine": 135,
       "crap": 1
     },
     {
       "path": ".agents/scripts/single-story-close.js",
-      "method": "gatesForFailedPhase",
-      "startLine": 180,
-      "crap": 5
-    },
-    {
-      "path": ".agents/scripts/single-story-close.js",
-      "method": "failedTerminalFor",
-      "startLine": 210,
-      "crap": 12
-    },
-    {
-      "path": ".agents/scripts/single-story-close.js",
       "method": "main",
-      "startLine": 232,
+      "startLine": 149,
       "crap": 6
     },
     {

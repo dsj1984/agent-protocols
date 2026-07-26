@@ -540,38 +540,46 @@ function findRunningCodeInside(ctx, wtPath) {
   );
 }
 
+/**
+ * The refusals that disqualify a tree before any git work happens, in the
+ * order they are checked. Returns the refusal envelope, or `null` when the
+ * tree is eligible for the safety checks that follow.
+ *
+ * @param {object} ctx
+ * @param {object} opts
+ * @param {string} wtPath
+ * @returns {object|null}
+ */
+function firstReapRefusal(ctx, opts, wtPath) {
+  const known = opts.worktrees
+    ? opts.worktrees.some((r) => samePath(r.path, wtPath, ctx.platform))
+    : findByPath(ctx, wtPath) !== null;
+  if (!known) return { removed: false, reason: 'not-a-worktree', path: wtPath };
+
+  const selfPath = findRunningCodeInside(ctx, wtPath);
+  if (!selfPath) return null;
+  ctx.logger.warn(
+    `reap-skipped reason=running-from-target-tree path=${wtPath} selfPath=${selfPath} — ` +
+      `the running process was loaded from this worktree; removing it would break every ` +
+      `later lazy read and dynamic import in this run. Left for the next sweep. ` +
+      `Invoke the script by its MAIN-checkout path to reap in-run.`,
+  );
+  return {
+    removed: false,
+    reason: 'running-from-target-tree',
+    path: wtPath,
+    selfPath,
+  };
+}
+
 function checkReapPreconditions(ctx, _storyId, opts, wtPath) {
   if (opts.force) {
     throw new Error(
       'WorktreeManager.reap: --force is not permitted by the framework',
     );
   }
-  const known = opts.worktrees
-    ? opts.worktrees.some((r) => samePath(r.path, wtPath, ctx.platform))
-    : findByPath(ctx, wtPath) !== null;
-  if (!known)
-    return {
-      ok: false,
-      result: { removed: false, reason: 'not-a-worktree', path: wtPath },
-    };
-  const selfPath = findRunningCodeInside(ctx, wtPath);
-  if (selfPath) {
-    ctx.logger.warn(
-      `reap-skipped reason=running-from-target-tree path=${wtPath} selfPath=${selfPath} — ` +
-        `the running process was loaded from this worktree; removing it would break every ` +
-        `later lazy read and dynamic import in this run. Left for the next sweep. ` +
-        `Invoke the script by its MAIN-checkout path to reap in-run.`,
-    );
-    return {
-      ok: false,
-      result: {
-        removed: false,
-        reason: 'running-from-target-tree',
-        path: wtPath,
-        selfPath,
-      },
-    };
-  }
+  const refusal = firstReapRefusal(ctx, opts, wtPath);
+  if (refusal) return { ok: false, result: refusal };
   // Story #4539 removed an `epic-branch-required` gate here: a
   // `story-<id>` worktree used to be unreapable unless the caller supplied
   // an Epic integration branch. v2 has no Epic branch, and the only v2
