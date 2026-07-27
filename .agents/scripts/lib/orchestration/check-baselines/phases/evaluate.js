@@ -7,10 +7,7 @@
  * @module lib/orchestration/check-baselines/phases/evaluate
  */
 
-import {
-  resolveBundleSizeEnvOverrides,
-  resolveMaintainabilityRefreshOverrides,
-} from '../../../baselines/env-overrides.js';
+import { resolveKindRefreshOverrides } from '../../../baselines/env-overrides.js';
 import { readRangeSubjectsTouchingFile } from '../../../baselines/git-base.js';
 import {
   checkBaselineSemantics,
@@ -91,57 +88,34 @@ function loadHeadBaseline(kind, cwd, configPath) {
 }
 
 /**
- * One-shot bundle-size refresh/acknowledge (Story #151). When
- * `BUNDLE_SIZE_REFRESH=1` is set, demote every `bundle-size` regression to
- * `unchanged` for this run only — floors still apply, so a genuine budget
- * breach is still caught. The flag is read fresh on every invocation and
- * never persisted, so the ratchet returns to full strength automatically on
- * the very next run (no lingering loosened tolerance to remember to reset).
+ * Resolve the one-shot refresh trigger for any ratcheted kind (Story #4802,
+ * generalizing Story #151's bundle-size env flag and Story #4731's
+ * maintainability env-or-commit-tag pair). Two paths, either of which
+ * acknowledges:
  *
- * No-op for every other kind.
- */
-function applyBundleSizeAcknowledgment(kind, compareOutput, env) {
-  if (kind !== 'bundle-size') return { compareOutput, acknowledged: false };
-  const { acknowledged, overrides } = resolveBundleSizeEnvOverrides(env);
-  if (!acknowledged || compareOutput.regressions.length === 0) {
-    return { compareOutput, acknowledged: false };
-  }
-  Logger.warn(
-    `[bundle-size] ⚠ ${overrides.join(', ')} — ` +
-      `${compareOutput.regressions.length} regression(s) acknowledged for this run only; ` +
-      'floors still enforced. This does not persist: the next run without ' +
-      'BUNDLE_SIZE_REFRESH re-enforces the ratchet at full strength.',
-  );
-  return {
-    acknowledged: true,
-    compareOutput: {
-      ...compareOutput,
-      regressions: [],
-      unchanged: [...compareOutput.unchanged, ...compareOutput.regressions],
-    },
-  };
-}
-
-/**
- * Resolve the maintainability refresh trigger (Story #4731). Two paths, either
- * of which acknowledges — mirroring the bundle-size acknowledge but adding the
- * commit-tagged trigger the breach message already documents:
- *
- *   1. Env parity: `MAINTAINABILITY_REFRESH=1` (the manual override).
+ *   1. Env parity: `<KIND>_REFRESH=1` (the manual override) — upper-snaked,
+ *      so the two pre-existing names (`BUNDLE_SIZE_REFRESH`,
+ *      `MAINTAINABILITY_REFRESH`) keep working unchanged.
  *   2. Commit tag: a commit in the compared range `<baseRef>..HEAD` whose
- *      subject contains the configured `refreshTag` AND whose diff touches the
- *      maintainability baseline file. One-shot by construction — once merged,
- *      the refreshed baseline becomes the base and the tag leaves the range.
+ *      subject contains the configured `refreshTag` AND whose diff touches
+ *      that kind's baseline file. One-shot by construction — once merged, the
+ *      refreshed baseline becomes the base and the tag leaves the range.
  *
  * The tag is matched as a plain substring of a conventional commit subject, so
  * commitlint stays satisfied (e.g. `chore(baselines): baseline-refresh: …`).
  *
+ * Fails closed: a kind whose baseline path is neither configured nor present
+ * in `DEFAULT_BASELINE_PATHS` simply skips the commit-tag path rather than
+ * throwing, leaving the run un-acknowledged.
+ *
  * @returns {{ triggered: boolean, reasons: string[] }}
  */
-function resolveMaintainabilityRefreshTrigger({ gateBlock, cmp, cwd, env }) {
+function resolveRefreshTrigger({ kind, gateBlock, cmp, cwd, env }) {
   const reasons = [];
-  const { acknowledged: envAck, overrides } =
-    resolveMaintainabilityRefreshOverrides(env);
+  const { acknowledged: envAck, overrides } = resolveKindRefreshOverrides(
+    kind,
+    env,
+  );
   if (envAck) reasons.push(...overrides);
 
   const baseRef = cmp?.baseRef ?? null;
@@ -154,15 +128,17 @@ function resolveMaintainabilityRefreshTrigger({ gateBlock, cmp, cwd, env }) {
       typeof gateBlock?.baselinePath === 'string' &&
       gateBlock.baselinePath.length
         ? gateBlock.baselinePath
-        : DEFAULT_BASELINE_PATHS.maintainability;
-    const subjects = readRangeSubjectsTouchingFile(baseRef, baselinePath, {
-      cwd,
-    });
-    const match = subjects.find((s) => s.includes(refreshTag));
-    if (match) {
-      reasons.push(
-        `refresh commit "${match}" (subject contains ${JSON.stringify(refreshTag)}, touches ${baselinePath})`,
-      );
+        : DEFAULT_BASELINE_PATHS[kind];
+    if (typeof baselinePath === 'string' && baselinePath.length) {
+      const subjects = readRangeSubjectsTouchingFile(baseRef, baselinePath, {
+        cwd,
+      });
+      const match = subjects.find((s) => s.includes(refreshTag));
+      if (match) {
+        reasons.push(
+          `refresh commit "${match}" (subject contains ${JSON.stringify(refreshTag)}, touches ${baselinePath})`,
+        );
+      }
     }
   }
 
@@ -170,26 +146,24 @@ function resolveMaintainabilityRefreshTrigger({ gateBlock, cmp, cwd, env }) {
 }
 
 /**
- * One-shot maintainability refresh/acknowledge (Story #4731). When triggered
- * (env flag OR a `baseline-refresh:`-tagged range commit touching the baseline),
- * demote every maintainability head-vs-base regression to `unchanged` for this
- * run only — floors still apply, so a row below its `min` floor still breaches.
- * The trigger is read fresh every run and never persisted: post-merge the
- * refreshed baseline is the new base and the tag leaves the range, so the
- * ratchet returns to full strength automatically.
+ * One-shot baseline refresh/acknowledge for any ratcheted kind (Story #4802).
+ * When triggered (env flag OR a `baseline-refresh:`-tagged range commit
+ * touching that kind's baseline), demote every head-vs-base regression to
+ * `unchanged` for this run only — floors still apply, so a row below its floor
+ * still breaches. The trigger is read fresh every run and never persisted:
+ * post-merge the refreshed baseline is the new base and the tag leaves the
+ * range, so the ratchet returns to full strength automatically.
  *
- * No-op for every other kind.
+ * A no-op absent a trigger, so an unacknowledged run of any kind reports its
+ * regressions exactly as before.
  */
-function applyMaintainabilityAcknowledgment(kind, compareOutput, ctx) {
-  if (kind !== 'maintainability') {
-    return { compareOutput, acknowledged: false };
-  }
-  const { triggered, reasons } = resolveMaintainabilityRefreshTrigger(ctx);
+function applyRefreshAcknowledgment(kind, compareOutput, ctx) {
+  const { triggered, reasons } = resolveRefreshTrigger({ ...ctx, kind });
   if (!triggered || compareOutput.regressions.length === 0) {
     return { compareOutput, acknowledged: false };
   }
   Logger.warn(
-    `[maintainability] ⚠ ${reasons.join('; ')} — ` +
+    `[${kind}] ⚠ ${reasons.join('; ')} — ` +
       `${compareOutput.regressions.length} regression(s) acknowledged for this run only; ` +
       'floors still enforced. This does not persist: once the refresh is the ' +
       'new base the ratchet re-enforces at full strength.',
@@ -274,14 +248,14 @@ export async function evaluateKind({
     rawCompare,
     gateBlock.tolerance ?? null,
   );
-  const bundleAck = applyBundleSizeAcknowledgment(kind, toleratedCompare, env);
-  const miAck = applyMaintainabilityAcknowledgment(
-    kind,
-    bundleAck.compareOutput,
-    { gateBlock, cmp, cwd, env },
-  );
-  const compareOutput = miAck.compareOutput;
-  const acknowledged = bundleAck.acknowledged || miAck.acknowledged;
+  const ack = applyRefreshAcknowledgment(kind, toleratedCompare, {
+    gateBlock,
+    cmp,
+    cwd,
+    env,
+  });
+  const compareOutput = ack.compareOutput;
+  const acknowledged = ack.acknowledged;
   return buildGateReport({
     kind,
     gateBlock,
