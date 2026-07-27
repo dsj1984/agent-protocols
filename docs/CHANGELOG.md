@@ -2,6 +2,14 @@
 
 All notable changes to this project will be documented in this file.
 
+## [2.20.0](https://github.com/dsj1984/mandrel/compare/mandrel-v2.19.0...mandrel-v2.20.0) (2026-07-27)
+
+
+### Added
+
+* retire the planner codebase snapshot; Phase 8 file-assumption validation is the grounding gate ([#4811](https://github.com/dsj1984/mandrel/issues/4811)) ([#4812](https://github.com/dsj1984/mandrel/issues/4812)) ([48621a8](https://github.com/dsj1984/mandrel/commit/48621a8fdcbfa5076a1c94ebe9098bb36736db09))
+* route every suite temp dir under one reaped per-process root and guard the OS temp root against regression ([#4808](https://github.com/dsj1984/mandrel/issues/4808)) ([#4809](https://github.com/dsj1984/mandrel/issues/4809)) ([2e81c05](https://github.com/dsj1984/mandrel/commit/2e81c05f3113378ff2ed96b0f1802c406f4e61bf))
+
 ## [2.19.0](https://github.com/dsj1984/mandrel/compare/mandrel-v2.18.0...mandrel-v2.19.0) (2026-07-27)
 
 
