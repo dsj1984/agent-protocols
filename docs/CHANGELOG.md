@@ -2,6 +2,14 @@
 
 All notable changes to this project will be documented in this file.
 
+## [2.19.0](https://github.com/dsj1984/mandrel/compare/mandrel-v2.18.0...mandrel-v2.19.0) (2026-07-27)
+
+
+### Added
+
+* check-baselines: generalize the one-shot baseline-refresh acknowledgment across every ratcheted kind ([#4802](https://github.com/dsj1984/mandrel/issues/4802)) ([#4805](https://github.com/dsj1984/mandrel/issues/4805)) ([ec9b066](https://github.com/dsj1984/mandrel/commit/ec9b066a5d4f74eb53f88ab347138b3434ffa47b))
+* **doc-links:** reject links escaping the materialized .agents payload (refs [#4801](https://github.com/dsj1984/mandrel/issues/4801)) ([#4803](https://github.com/dsj1984/mandrel/issues/4803)) ([97a383a](https://github.com/dsj1984/mandrel/commit/97a383a4765a9a617648f6c1b422c17d837b6ad8))
+
 ## [2.18.0](https://github.com/dsj1984/mandrel/compare/mandrel-v2.17.0...mandrel-v2.18.0) (2026-07-26)
 
 
