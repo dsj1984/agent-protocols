@@ -1,6 +1,12 @@
 import assert from 'node:assert';
 import { test } from 'node:test';
-import { resolveBundleSizeEnvOverrides } from '../.agents/scripts/lib/baselines/env-overrides.js';
+import { resolveKindRefreshOverrides } from '../.agents/scripts/lib/baselines/env-overrides.js';
+
+// Story #4802 generalized the per-kind resolvers into one kind-keyed helper.
+// This shim keeps every original bundle-size assertion below byte-identical
+// while driving the generic function, so the #151 contract is still pinned.
+const resolveBundleSizeEnvOverrides = (env) =>
+  resolveKindRefreshOverrides('bundle-size', env);
 
 /**
  * Tests for `resolveBundleSizeEnvOverrides` (Story #151 upstream port,
@@ -94,4 +100,74 @@ test('resolveBundleSizeEnvOverrides — other env vars present do not interfere'
   });
   assert.strictEqual(result.acknowledged, true);
   assert.strictEqual(result.overrides.length, 1);
+});
+
+// --- Kind-generic surface (Story #4802) ------------------------------------
+
+// The env-var naming rule is pinned through the public resolver: each kind is
+// acknowledged by its upper-snaked name and by nothing else. That is a
+// stronger assertion than reading the name back, since it also proves the
+// resolver actually reads that variable.
+test('env-var naming — each kind is acknowledged by its upper-snaked name, incl. both legacy names', () => {
+  const cases = [
+    ['bundle-size', 'BUNDLE_SIZE_REFRESH'],
+    ['maintainability', 'MAINTAINABILITY_REFRESH'],
+    ['coverage', 'COVERAGE_REFRESH'],
+    ['crap', 'CRAP_REFRESH'],
+    ['duplication', 'DUPLICATION_REFRESH'],
+  ];
+  for (const [kind, varName] of cases) {
+    const result = resolveKindRefreshOverrides(kind, { [varName]: '1' });
+    assert.strictEqual(result.acknowledged, true, `${kind} via ${varName}`);
+    assert.ok(result.overrides[0].includes(`${varName}=1`));
+  }
+});
+
+test('env-var naming — a non-usable kind is a no-op rather than reading a bogus var', () => {
+  for (const kind of ['', undefined, null, 42]) {
+    const result = resolveKindRefreshOverrides(kind, {
+      _REFRESH: '1',
+      REFRESH: '1',
+      '42_REFRESH': '1',
+    });
+    assert.strictEqual(result.acknowledged, false, `kind=${String(kind)}`);
+    assert.deepStrictEqual(result.overrides, []);
+  }
+});
+
+test('resolveKindRefreshOverrides — COVERAGE_REFRESH=1 acknowledges the coverage kind (the #4802 gap)', () => {
+  const result = resolveKindRefreshOverrides('coverage', {
+    COVERAGE_REFRESH: '1',
+  });
+  assert.strictEqual(result.acknowledged, true);
+  assert.ok(result.overrides[0].includes('COVERAGE_REFRESH=1'));
+});
+
+test('resolveKindRefreshOverrides — crap and duplication gain the same escape', () => {
+  assert.strictEqual(
+    resolveKindRefreshOverrides('crap', { CRAP_REFRESH: '1' }).acknowledged,
+    true,
+  );
+  assert.strictEqual(
+    resolveKindRefreshOverrides('duplication', { DUPLICATION_REFRESH: 'true' })
+      .acknowledged,
+    true,
+  );
+});
+
+test('resolveKindRefreshOverrides — a kind is not acknowledged by another kind flag', () => {
+  const result = resolveKindRefreshOverrides('coverage', {
+    MAINTAINABILITY_REFRESH: '1',
+    BUNDLE_SIZE_REFRESH: '1',
+  });
+  assert.strictEqual(result.acknowledged, false);
+  assert.deepStrictEqual(result.overrides, []);
+});
+
+test('resolveKindRefreshOverrides — an unusable kind is a no-op, not a throw', () => {
+  const result = resolveKindRefreshOverrides(undefined, {
+    COVERAGE_REFRESH: '1',
+  });
+  assert.strictEqual(result.acknowledged, false);
+  assert.deepStrictEqual(result.overrides, []);
 });

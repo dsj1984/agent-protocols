@@ -44,18 +44,26 @@ compare) over every configured gate, with centralised friction emission and
 aggregated exit codes.
 
 Env vars:
-  BUNDLE_SIZE_REFRESH=1  One-shot acknowledge for an intentional bundle-size
-                         growth: demotes bundle-size regressions to
-                         "unchanged" for this run only (floors still
-                         enforced). Never persisted — the next run without
-                         this flag re-enforces the ratchet.
-  MAINTAINABILITY_REFRESH=1
-                         One-shot acknowledge for a deliberate maintainability
-                         baseline refresh: demotes maintainability head-vs-base
-                         regressions to "unchanged" for this run only (floors
-                         still enforced). Env-parity override for the
-                         'baseline-refresh:'-tagged range commit that touches
-                         baselines/maintainability.json. Never persisted.
+  <KIND>_REFRESH=1       One-shot acknowledge for a deliberate baseline
+                         refresh of that kind: demotes its head-vs-base
+                         regressions to "unchanged" for this run only. Floors
+                         are STILL enforced, so a genuine breach is still
+                         caught. The kind name is upper-snaked, e.g.
+                         COVERAGE_REFRESH, CRAP_REFRESH, DUPLICATION_REFRESH,
+                         MAINTAINABILITY_REFRESH, BUNDLE_SIZE_REFRESH.
+                         Never persisted — the next run without the flag
+                         re-enforces the ratchet at full strength.
+
+                         Equivalent commit-tagged trigger: a commit in the
+                         compared range whose subject contains the gate's
+                         'refreshTag' (default 'baseline-refresh:') AND whose
+                         diff touches that kind's baseline file. One-shot by
+                         construction — once merged the refreshed baseline is
+                         the new base and the tag leaves the range.
+
+                         Use these when replacing a diff-scope baseline with a
+                         full-scope measurement: the resulting row deltas are
+                         arithmetic, not behavioural.
 
 Exit codes:
   0  every enabled gate passes

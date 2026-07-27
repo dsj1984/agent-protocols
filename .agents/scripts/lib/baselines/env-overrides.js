@@ -83,69 +83,61 @@ export function resolveCrapEnvOverrides(crapConfig, env) {
 }
 
 /**
- * Pure helper: resolve the one-shot bundle-size refresh/acknowledge flag
- * (Story #151). Unlike `coverage` / `crap` / `maintainability`, the
- * bundle-size gate has no scorer of its own — the measured sizes come from
- * a build step the operator already runs, not a source-tree rescan — so
- * there is no `refreshBaseline({ kind: 'bundle-size', ... })` path to
- * regenerate a "corrected" baseline. Instead, `BUNDLE_SIZE_REFRESH=1`
- * (mirroring `CRAP_TOLERANCE`'s env-override precedent) tells
- * `check-baselines --gate bundle-size` to treat this run's head
- * measurements as the newly acknowledged baseline: head-vs-base
- * regressions are demoted to `unchanged` for this invocation only. Floors
- * still apply — an acknowledged PR can still fail on an absolute budget
- * breach, only the ratchet-vs-`origin/main` comparison is suspended.
+ * The env var that acknowledges a deliberate baseline refresh for `kind`.
+ * Upper-snakes the kind name, so `bundle-size` → `BUNDLE_SIZE_REFRESH` and
+ * `coverage` → `COVERAGE_REFRESH`. The two names that predate the generic
+ * mechanism (`BUNDLE_SIZE_REFRESH`, Story #151; `MAINTAINABILITY_REFRESH`,
+ * Story #4731) are exactly what this rule produces, so generalizing kept
+ * both working unchanged.
  *
- * The flag is **not persisted** anywhere (no config write, no committed
- * tag): the very next `check-baselines` invocation without the env var —
- * i.e. the next PR — reverts to full strict enforcement automatically, so
- * there is no lingering loosened tolerance to remember to reset (AC-3).
+ * Module-local: `resolveKindRefreshOverrides` is the public surface, and the
+ * naming rule is pinned through it rather than exported for its own sake.
  *
- * Accepted truthy values: `1`, `true` (case-insensitive). Anything else
- * (including unset/empty) resolves to `acknowledged: false`.
- *
- * @param {NodeJS.ProcessEnv} env
- * @returns {{ acknowledged: boolean, overrides: string[] }}
+ * @param {string} kind
+ * @returns {string|null} null when `kind` is not a usable kind name
  */
-export function resolveBundleSizeEnvOverrides(env) {
-  const raw = env?.BUNDLE_SIZE_REFRESH;
-  const acknowledged =
-    typeof raw === 'string' && /^(1|true)$/i.test(raw.trim());
-  const overrides = acknowledged
-    ? [`acknowledged=true (BUNDLE_SIZE_REFRESH=${raw})`]
-    : [];
-  return { acknowledged, overrides };
+function kindRefreshEnvVar(kind) {
+  if (typeof kind !== 'string' || kind.length === 0) return null;
+  return `${kind.toUpperCase().replace(/-/g, '_')}_REFRESH`;
 }
 
 /**
- * Pure helper: resolve the one-shot maintainability refresh/acknowledge flag
- * (Story #4731). This is the env-parity sibling of
- * `resolveBundleSizeEnvOverrides`: `MAINTAINABILITY_REFRESH=1` (or `true`,
- * case-insensitive) tells `check-baselines --gate maintainability` to demote
- * this run's head-vs-base maintainability regressions to `unchanged` for this
- * invocation only. Floors still apply — an acknowledged run can still fail on
- * an absolute floor breach (e.g. a row below `min` 70); only the
- * ratchet-vs-base regression comparison is suspended.
+ * Pure helper: resolve the one-shot baseline refresh/acknowledge flag for any
+ * ratcheted kind (Story #4802, generalizing Story #151 / Story #4731).
  *
- * Unlike bundle-size, maintainability also has a **commit-tagged** trigger
- * (a `baseline-refresh:`-tagged commit in the compared range that touches the
- * maintainability baseline file) resolved in the evaluate phase — this env
- * flag is the manual override the two share by shape. Neither is persisted:
- * the next run without the flag / tag re-enforces the ratchet at full
- * strength automatically.
+ * `<KIND>_REFRESH=1` tells `check-baselines --gate <kind>` to demote this
+ * run's head-vs-base regressions to `unchanged` for this invocation only.
+ * Floors still apply — an acknowledged run can still fail on an absolute
+ * floor breach; only the ratchet-vs-base comparison is suspended.
  *
- * Accepted truthy values: `1`, `true` (case-insensitive). Anything else
- * (including unset/empty) resolves to `acknowledged: false`.
+ * Why every kind needs this: a diff-scope baseline is an accretion of many
+ * partial runs, not one measurement. Replacing it with a single full-scope
+ * measurement necessarily produces row deltas in both directions that are
+ * arithmetic, not behavioural — so without an acknowledgment path the gate
+ * blocks precisely the correction it should encourage.
  *
+ * The flag is **not persisted** anywhere (no config write, no committed tag):
+ * the very next invocation without the env var reverts to full strict
+ * enforcement automatically, so there is no lingering loosened tolerance to
+ * remember to reset. The evaluate phase pairs this with a commit-tagged
+ * trigger that is likewise one-shot by construction.
+ *
+ * Accepted truthy values: `1`, `true` (case-insensitive), with surrounding
+ * whitespace trimmed. Anything else — including unset, empty, `0`, `false`,
+ * and non-string values — resolves to `acknowledged: false`.
+ *
+ * @param {string} kind
  * @param {NodeJS.ProcessEnv} env
  * @returns {{ acknowledged: boolean, overrides: string[] }}
  */
-export function resolveMaintainabilityRefreshOverrides(env) {
-  const raw = env?.MAINTAINABILITY_REFRESH;
+export function resolveKindRefreshOverrides(kind, env) {
+  const varName = kindRefreshEnvVar(kind);
+  if (!varName) return { acknowledged: false, overrides: [] };
+  const raw = env?.[varName];
   const acknowledged =
     typeof raw === 'string' && /^(1|true)$/i.test(raw.trim());
   const overrides = acknowledged
-    ? [`acknowledged=true (MAINTAINABILITY_REFRESH=${raw})`]
+    ? [`acknowledged=true (${varName}=${raw})`]
     : [];
   return { acknowledged, overrides };
 }
