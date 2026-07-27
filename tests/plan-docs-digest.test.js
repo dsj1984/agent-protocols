@@ -25,11 +25,11 @@
 
 import assert from 'node:assert/strict';
 import fs from 'node:fs';
-import os from 'node:os';
 import path from 'node:path';
 import { afterEach, beforeEach, describe, it } from 'node:test';
 import { ensureDocsDigest } from '../.agents/scripts/lib/orchestration/docs-digest.js';
 import { buildAuthoringContext } from '../.agents/scripts/lib/orchestration/planning/authoring-context.js';
+import { makeTempDir } from '../.agents/scripts/lib/test-temp.js';
 
 function stubProvider(body = '## Scope\n\nSome epic body.') {
   return {
@@ -48,7 +48,7 @@ describe('docs-digest.ensureDocsDigest — shared generate-and-write export (Sto
   let tmpRoot;
 
   beforeEach(() => {
-    tmpRoot = fs.mkdtempSync(path.join(os.tmpdir(), 'ensure-docs-digest-'));
+    tmpRoot = makeTempDir('ensure-docs-digest-');
   });
 
   afterEach(() => {
@@ -137,7 +137,7 @@ describe('buildAuthoringContext — digest-first docsContext (Story #4433)', () 
   let tmpRoot;
 
   beforeEach(() => {
-    tmpRoot = fs.mkdtempSync(path.join(os.tmpdir(), 'plan-docs-digest-'));
+    tmpRoot = makeTempDir('plan-docs-digest-');
   });
 
   afterEach(() => {

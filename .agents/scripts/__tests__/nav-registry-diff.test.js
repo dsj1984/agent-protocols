@@ -10,12 +10,11 @@
 
 import assert from 'node:assert/strict';
 import { execFileSync } from 'node:child_process';
-import { mkdtempSync, writeFileSync } from 'node:fs';
-import { tmpdir } from 'node:os';
+import { writeFileSync } from 'node:fs';
 import path from 'node:path';
 import { describe, it } from 'node:test';
 import { fileURLToPath } from 'node:url';
-
+import { makeTempDir } from '../lib/test-temp.js';
 import {
   computeNavDiff,
   formatDiffText,
@@ -296,7 +295,7 @@ describe('formatDiffText', () => {
 
 /** Write JSON fixtures into an isolated temp dir; return their paths. */
 function writeFixtures({ routes, nav, refs }) {
-  const dir = mkdtempSync(path.join(tmpdir(), 'nav-registry-diff-'));
+  const dir = makeTempDir('nav-registry-diff-');
   const routesFile = path.join(dir, 'routes.json');
   const navFile = path.join(dir, 'nav.json');
   writeFileSync(routesFile, JSON.stringify(routes));

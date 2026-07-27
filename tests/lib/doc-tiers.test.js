@@ -1,6 +1,5 @@
 import assert from 'node:assert/strict';
 import fs from 'node:fs';
-import os from 'node:os';
 import path from 'node:path';
 import { test } from 'node:test';
 import {
@@ -10,6 +9,7 @@ import {
   resolveDocTiers,
   tierTotalBytes,
 } from '../../.agents/scripts/lib/doc-tiers.js';
+import { makeTempDir } from '../../.agents/scripts/lib/test-temp.js';
 
 /**
  * Unit coverage for the doc-tier resolver (Story #4438).
@@ -29,7 +29,7 @@ import {
  * paths to string contents. Returns the absolute root.
  */
 function makeRepo(files) {
-  const root = fs.mkdtempSync(path.join(os.tmpdir(), 'doc-tiers-'));
+  const root = makeTempDir('doc-tiers-');
   for (const [rel, body] of Object.entries(files)) {
     const abs = path.join(root, rel);
     fs.mkdirSync(path.dirname(abs), { recursive: true });

@@ -4,13 +4,7 @@
 
 import assert from 'node:assert/strict';
 import { execFileSync } from 'node:child_process';
-import {
-  existsSync,
-  mkdirSync,
-  mkdtempSync,
-  rmSync,
-  utimesSync,
-} from 'node:fs';
+import { existsSync, mkdirSync, rmSync, utimesSync } from 'node:fs';
 import { tmpdir } from 'node:os';
 import path from 'node:path';
 import { describe, it } from 'node:test';
@@ -35,6 +29,7 @@ import {
 import { PLAN_SUMMARY_COMMENT_TYPE } from '../../.agents/scripts/lib/orchestration/plan-persist/summary.js';
 import { resolveSourceTicketIds } from '../../.agents/scripts/lib/orchestration/plan-persist/supersede-ops.js';
 import { serialize } from '../../.agents/scripts/lib/story-body/story-body.js';
+import { makeTempDir } from '../../.agents/scripts/lib/test-temp.js';
 
 function ticket(slug) {
   const acceptance = [`${slug} done`];
@@ -626,7 +621,7 @@ describe('runPlanPersist — flat Story ops', () => {
     // An ABSOLUTE per-test tempRoot keeps this off the real checkout's
     // shared standalone ledger (which would both poison it and make the
     // assertion depend on the host's plan history).
-    const workRoot = mkdtempSync(path.join(tmpdir(), 'plan-metrics-'));
+    const workRoot = makeTempDir('plan-metrics-');
     try {
       const config = { project: { paths: { tempRoot: workRoot } } };
       // A pre-existing record from a *previous* plan run: the scoped
@@ -1423,7 +1418,7 @@ describe('reapStalePlanDirs (Story #4541)', () => {
   const DAY = 24 * 60 * 60 * 1000;
 
   it('reaps abandoned plan dirs, keeps fresh ones and non-plan dirs', async () => {
-    const workRoot = mkdtempSync(path.join(tmpdir(), 'plan-reap-'));
+    const workRoot = makeTempDir('plan-reap-');
     try {
       const config = { project: { paths: { tempRoot: workRoot } } };
       const make = (name, ageMs) => {

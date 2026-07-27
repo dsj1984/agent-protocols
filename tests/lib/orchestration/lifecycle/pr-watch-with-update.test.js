@@ -25,11 +25,10 @@
  */
 
 import assert from 'node:assert/strict';
-import { chmodSync, mkdtempSync, rmSync, writeFileSync } from 'node:fs';
-import { tmpdir } from 'node:os';
+import { chmodSync, rmSync, writeFileSync } from 'node:fs';
 import { join } from 'node:path';
 import { after, before, describe, it } from 'node:test';
-
+import { makeTempDir } from '../../../../.agents/scripts/lib/test-temp.js';
 import { runPrWatch } from '../../../../.agents/scripts/pr-watch-with-update.js';
 
 function quietLogger() {
@@ -240,7 +239,7 @@ describe('runPrWatch — CLI path wiring (no injected gh ports, Story #4144)', (
   }
 
   before(() => {
-    tmpDir = mkdtempSync(join(tmpdir(), 'pr-watch-4144-'));
+    tmpDir = makeTempDir('pr-watch-4144-');
     originalPath = process.env.PATH;
   });
 

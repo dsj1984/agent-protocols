@@ -29,8 +29,7 @@
 
 import assert from 'node:assert/strict';
 import { spawnSync } from 'node:child_process';
-import { mkdtempSync, rmSync, writeFileSync } from 'node:fs';
-import os from 'node:os';
+import { rmSync, writeFileSync } from 'node:fs';
 import path from 'node:path';
 import { afterEach, beforeEach, describe, it } from 'node:test';
 import { fileURLToPath } from 'node:url';
@@ -40,6 +39,7 @@ import {
   fingerprintFooter,
   parseFingerprintFooter,
 } from '../.agents/scripts/lib/findings/route-finding.js';
+import { makeTempDir } from '../.agents/scripts/lib/test-temp.js';
 
 const __dirname = path.dirname(fileURLToPath(import.meta.url));
 const PROJECT_ROOT = path.resolve(__dirname, '..');
@@ -89,7 +89,7 @@ describe('qa promote → /plan footer round-trip (Story #4115)', () => {
   const { full: sha } = fingerprintFinding(finding);
 
   beforeEach(() => {
-    tmp = mkdtempSync(path.join(os.tmpdir(), 'qa-footer-'));
+    tmp = makeTempDir('qa-footer-');
   });
   afterEach(() => {
     rmSync(tmp, { recursive: true, force: true });

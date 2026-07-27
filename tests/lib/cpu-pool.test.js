@@ -23,7 +23,6 @@
 import assert from 'node:assert/strict';
 import { EventEmitter } from 'node:events';
 import fs from 'node:fs';
-import os from 'node:os';
 import path from 'node:path';
 import { after, before, describe, it } from 'node:test';
 
@@ -31,6 +30,7 @@ import { runOnPool } from '../../.agents/scripts/lib/cpu-pool.js';
 import { scanAndScore } from '../../.agents/scripts/lib/crap-utils.js';
 import { calculateForFile } from '../../.agents/scripts/lib/maintainability-engine.js';
 import { calculateAll } from '../../.agents/scripts/lib/maintainability-utils.js';
+import { makeTempDir } from '../../.agents/scripts/lib/test-temp.js';
 
 /**
  * Generate N small but non-trivial JS files under `dir`, each shaped so
@@ -99,9 +99,7 @@ describe('cpu-pool — byte-for-byte parity with serial baseline', () => {
     // symlink, and the expected keys (built via path.relative(workDir, …))
     // would then diverge from calculateAll's cwd-relative output. No-op on
     // Linux.
-    workDir = fs.realpathSync(
-      fs.mkdtempSync(path.join(os.tmpdir(), 'cpu-pool-parity-')),
-    );
+    workDir = fs.realpathSync(makeTempDir('cpu-pool-parity-'));
     originalCwd = process.cwd();
     process.chdir(workDir);
   });
@@ -199,9 +197,7 @@ describe('cpu-pool — parse-error isolation', () => {
     // See the parity suite's note: realpathSync keeps workDir in sync with
     // process.cwd() after chdir so macOS's /tmp symlink doesn't skew the
     // cwd-relative keys. No-op on Linux.
-    workDir = fs.realpathSync(
-      fs.mkdtempSync(path.join(os.tmpdir(), 'cpu-pool-isolate-')),
-    );
+    workDir = fs.realpathSync(makeTempDir('cpu-pool-isolate-'));
     originalCwd = process.cwd();
     process.chdir(workDir);
   });

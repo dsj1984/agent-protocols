@@ -7,13 +7,7 @@
 
 import assert from 'node:assert/strict';
 import { spawnSync } from 'node:child_process';
-import {
-  mkdtempSync,
-  readdirSync,
-  rmSync,
-  statSync,
-  writeFileSync,
-} from 'node:fs';
+import { readdirSync, rmSync, statSync, writeFileSync } from 'node:fs';
 import os from 'node:os';
 import path from 'node:path';
 import { after, afterEach, before, describe, it } from 'node:test';
@@ -31,6 +25,7 @@ import {
   TEST_TEMP_ROOT_ENV,
   tempRootFrom,
 } from '../../../.agents/scripts/lib/config/temp-paths.js';
+import { makeTempDir } from '../../../.agents/scripts/lib/test-temp.js';
 
 const SEP = path.sep;
 
@@ -540,7 +535,7 @@ describe('lib/config/temp-paths.js — direct `node --test` appends zero bytes t
       '../../../.agents/scripts/lib/config/temp-paths.js',
       import.meta.url,
     ).href;
-    const fixtureDir = mkdtempSync(path.join(os.tmpdir(), 'arming-fixture-'));
+    const fixtureDir = makeTempDir('arming-fixture-');
     // `.mjs` so the fixture parses as ESM outside any package.json scope.
     const fixturePath = path.join(fixtureDir, 'arming-fixture.test.mjs');
     writeFileSync(

@@ -5,8 +5,7 @@
 // rollup fallback for the '*' key).
 
 import assert from 'node:assert/strict';
-import { mkdirSync, mkdtempSync, rmSync, writeFileSync } from 'node:fs';
-import { tmpdir } from 'node:os';
+import { mkdirSync, rmSync, writeFileSync } from 'node:fs';
 import path from 'node:path';
 import { afterEach, beforeEach, describe, it } from 'node:test';
 
@@ -15,6 +14,7 @@ import {
   load,
   loadFile,
 } from '../../.agents/scripts/lib/baselines/reader.js';
+import { makeTempDir } from '../../.agents/scripts/lib/test-temp.js';
 
 function writeJson(p, value) {
   writeFileSync(p, JSON.stringify(value));
@@ -80,7 +80,7 @@ describe('baselines/reader — canonicaliseRowPath', () => {
 describe('baselines/reader — loadFile', () => {
   let tmp;
   beforeEach(() => {
-    tmp = mkdtempSync(path.join(tmpdir(), 'baseline-reader-'));
+    tmp = makeTempDir('baseline-reader-');
   });
   afterEach(() => {
     rmSync(tmp, { recursive: true, force: true });
@@ -176,7 +176,7 @@ describe('baselines/reader — loadFile', () => {
 describe('baselines/reader — load (config-driven)', () => {
   let tmp;
   beforeEach(() => {
-    tmp = mkdtempSync(path.join(tmpdir(), 'baseline-reader-load-'));
+    tmp = makeTempDir('baseline-reader-load-');
   });
   afterEach(() => {
     rmSync(tmp, { recursive: true, force: true });

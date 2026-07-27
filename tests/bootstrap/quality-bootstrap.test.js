@@ -20,7 +20,6 @@
 
 import assert from 'node:assert/strict';
 import fs from 'node:fs';
-import os from 'node:os';
 import path from 'node:path';
 import { afterEach, beforeEach, describe, it } from 'node:test';
 
@@ -34,6 +33,7 @@ import {
   PRE_COMMIT_MARKER,
   QUALITY_NPM_SCRIPTS,
 } from '../../.agents/scripts/lib/bootstrap/quality-bootstrap.js';
+import { makeTempDir } from '../../.agents/scripts/lib/test-temp.js';
 
 let tmpRoot;
 let frameworkRoot;
@@ -48,7 +48,7 @@ function readJson(p) {
 }
 
 beforeEach(() => {
-  tmpRoot = fs.mkdtempSync(path.join(os.tmpdir(), 'quality-bootstrap-'));
+  tmpRoot = makeTempDir('quality-bootstrap-');
   // Stand up a minimal "framework" tree so the helper has a copy source.
   // Real-world callers pass the path to their materialized `.agents/` checkout.
   frameworkRoot = path.join(tmpRoot, '_framework');

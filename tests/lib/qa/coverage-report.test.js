@@ -1,6 +1,5 @@
 import assert from 'node:assert/strict';
 import fs from 'node:fs';
-import os from 'node:os';
 import path from 'node:path';
 import { afterEach, beforeEach, describe, it } from 'node:test';
 import {
@@ -10,6 +9,7 @@ import {
   writeCoverageReport,
 } from '../../../.agents/scripts/lib/qa/coverage-report.js';
 import { acceptanceMatrix } from '../../../.agents/scripts/lib/qa/coverage-verdict.js';
+import { makeTempDir } from '../../../.agents/scripts/lib/test-temp.js';
 
 /**
  * Unit tests for `lib/qa/coverage-report.js` — renders the AC × test-tier
@@ -130,7 +130,7 @@ describe('writeCoverageReport', () => {
   let config;
 
   beforeEach(() => {
-    tmpDir = fs.mkdtempSync(path.join(os.tmpdir(), 'qa-coverage-report-'));
+    tmpDir = makeTempDir('qa-coverage-report-');
     config = { project: { paths: { tempRoot: tmpDir } } };
   });
 

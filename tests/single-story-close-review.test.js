@@ -17,11 +17,11 @@
  */
 
 import assert from 'node:assert/strict';
-import { mkdtempSync, rmSync } from 'node:fs';
-import os from 'node:os';
+import { rmSync } from 'node:fs';
 import path from 'node:path';
 import { describe, it } from 'node:test';
 import { fileURLToPath, pathToFileURL } from 'node:url';
+import { makeTempDir } from '../.agents/scripts/lib/test-temp.js';
 
 const REPO_ROOT = path
   .resolve(path.dirname(fileURLToPath(import.meta.url)), '..')
@@ -527,7 +527,7 @@ describe('findings-yield ledger (Story #4699, AC-3)', () => {
         ),
       ).href
     );
-    const tempRoot = mkdtempSync(path.join(os.tmpdir(), 'findings-yield-'));
+    const tempRoot = makeTempDir('findings-yield-');
     const config = { project: { paths: { tempRoot } } };
     try {
       const ok = await appendFindingsYield(

@@ -20,18 +20,17 @@
  */
 
 import assert from 'node:assert/strict';
-import { mkdtempSync, rmSync } from 'node:fs';
+import { rmSync } from 'node:fs';
 import fs from 'node:fs/promises';
-import { tmpdir } from 'node:os';
 import path from 'node:path';
 import { afterEach, beforeEach, describe, it } from 'node:test';
-
+import { makeTempDir } from '../.agents/scripts/lib/test-temp.js';
 import { main, parseArgs } from '../.agents/scripts/signals-view.js';
 
 let workRoot;
 
 beforeEach(() => {
-  workRoot = mkdtempSync(path.join(tmpdir(), 'signals-view-'));
+  workRoot = makeTempDir('signals-view-');
 });
 
 afterEach(() => {
@@ -285,7 +284,7 @@ describe('signals-view — tempRoot honour (memory: phase_timings_uses_project_r
         storyId: 1438,
       },
     ]);
-    const otherRoot = mkdtempSync(path.join(tmpdir(), 'signals-other-'));
+    const otherRoot = makeTempDir('signals-other-');
     try {
       const cap = captureStdout();
       let exitCode;

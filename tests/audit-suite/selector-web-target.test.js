@@ -18,7 +18,7 @@
  */
 
 import assert from 'node:assert/strict';
-import { mkdirSync, mkdtempSync, readFileSync, writeFileSync } from 'node:fs';
+import { mkdirSync, readFileSync, writeFileSync } from 'node:fs';
 import { tmpdir } from 'node:os';
 import path from 'node:path';
 import test from 'node:test';
@@ -31,6 +31,7 @@ import {
   hasWebSurface,
   selectAudits,
 } from '../../.agents/scripts/lib/audit-suite/selector.js';
+import { makeTempDir } from '../../.agents/scripts/lib/test-temp.js';
 import { MockProvider } from '../fixtures/mock-provider.js';
 
 const HERE = path.dirname(fileURLToPath(import.meta.url));
@@ -69,7 +70,7 @@ function select({ body, changedFiles, gate = 'gate3', hasWebSurfaceFn }) {
 
 /** Build an isolated fixture project root; each test gets its own. */
 function fixtureRoot(files = {}) {
-  const root = mkdtempSync(path.join(tmpdir(), 'mandrel-websurface-'));
+  const root = makeTempDir('mandrel-websurface-');
   for (const [rel, contents] of Object.entries(files)) {
     const abs = path.join(root, rel);
     mkdirSync(path.dirname(abs), { recursive: true });

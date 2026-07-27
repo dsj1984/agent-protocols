@@ -1,5 +1,5 @@
 import assert from 'node:assert/strict';
-import { mkdirSync, mkdtempSync, rmSync, writeFileSync } from 'node:fs';
+import { mkdirSync, rmSync, writeFileSync } from 'node:fs';
 import { tmpdir } from 'node:os';
 import path from 'node:path';
 import { describe, it } from 'node:test';
@@ -13,6 +13,7 @@ import {
   scanBddScenarios,
   scoreMatch,
 } from '../.agents/scripts/lib/bdd-scenario-scanner.js';
+import { makeTempDir } from '../.agents/scripts/lib/test-temp.js';
 
 /**
  * Story #2637 — BDD scenario cross-reference scanner.
@@ -24,7 +25,7 @@ import {
  */
 
 function mkFixture() {
-  const dir = mkdtempSync(path.join(tmpdir(), 'bdd-scanner-'));
+  const dir = makeTempDir('bdd-scanner-');
   return {
     dir,
     cleanup: () => rmSync(dir, { recursive: true, force: true }),

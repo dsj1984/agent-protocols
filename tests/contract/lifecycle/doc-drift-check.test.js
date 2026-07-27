@@ -20,14 +20,7 @@
 
 import { strict as assert } from 'node:assert';
 import { spawnSync } from 'node:child_process';
-import {
-  mkdirSync,
-  mkdtempSync,
-  readFileSync,
-  rmSync,
-  writeFileSync,
-} from 'node:fs';
-import * as os from 'node:os';
+import { mkdirSync, readFileSync, rmSync, writeFileSync } from 'node:fs';
 import * as path from 'node:path';
 import { describe, it } from 'node:test';
 import { fileURLToPath, pathToFileURL } from 'node:url';
@@ -42,6 +35,7 @@ import {
   loadCodeListeners,
   parseListenerTable,
 } from '../../../.agents/scripts/check-lifecycle-doc-drift.js';
+import { makeTempDir } from '../../../.agents/scripts/lib/test-temp.js';
 
 const __dirname = path.dirname(fileURLToPath(import.meta.url));
 const REPO_ROOT = path.resolve(__dirname, '..', '..', '..');
@@ -207,7 +201,7 @@ describe('check-lifecycle-doc-drift — repo state', () => {
 
 describe('check-lifecycle-doc-drift — fixture drift detection', () => {
   it('flags a fixture listener whose event is missing from the doc', () => {
-    const tmp = mkdtempSync(path.join(os.tmpdir(), 'lifecycle-drift-'));
+    const tmp = makeTempDir('lifecycle-drift-');
     try {
       const listenersDir = path.join(tmp, 'listeners');
       mkdirSync(listenersDir, { recursive: true });
@@ -258,7 +252,7 @@ describe('check-lifecycle-doc-drift — fixture drift detection', () => {
   });
 
   it('flags a fixture listener with no doc row at all', () => {
-    const tmp = mkdtempSync(path.join(os.tmpdir(), 'lifecycle-drift-'));
+    const tmp = makeTempDir('lifecycle-drift-');
     try {
       const listenersDir = path.join(tmp, 'listeners');
       mkdirSync(listenersDir, { recursive: true });
@@ -302,7 +296,7 @@ describe('check-lifecycle-doc-drift — fixture drift detection', () => {
   });
 
   it('CLI invocation against a drift fixture exits non-zero', () => {
-    const tmp = mkdtempSync(path.join(os.tmpdir(), 'lifecycle-drift-cli-'));
+    const tmp = makeTempDir('lifecycle-drift-cli-');
     try {
       // Build a self-contained repo skeleton the CLI can run against by
       // pointing it at a fixture listenersDir + docPath. The script's

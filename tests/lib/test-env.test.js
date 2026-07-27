@@ -10,6 +10,7 @@
  */
 
 import assert from 'node:assert/strict';
+import { existsSync, mkdirSync, writeFileSync } from 'node:fs';
 import os from 'node:os';
 import path from 'node:path';
 import { afterEach, beforeEach, describe, it } from 'node:test';
@@ -22,6 +23,7 @@ import {
   buildWebhookSafeTestEnv,
   ensureTestScratchTempRoot,
 } from '../../.agents/scripts/lib/test-env.js';
+import { makeTempDir } from '../../.agents/scripts/lib/test-temp.js';
 
 describe('buildWebhookSafeTestEnv', () => {
   it('deletes NOTIFICATION_WEBHOOK_URL by default', () => {
@@ -144,5 +146,78 @@ describe('ensureTestScratchTempRoot (Story #4696 / #4711)', () => {
     assert.equal(typeof scratch, 'string');
     assert.ok(path.isAbsolute(scratch));
     assert.equal(anchorTempRoot('temp', env), path.join(scratch, 'temp'));
+  });
+});
+
+describe('scratch-root reaping is creator-only (Story #4808)', () => {
+  beforeEach(() => _clearTestScratchTempRootCache());
+  afterEach(() => _clearTestScratchTempRootCache());
+
+  it('registers a reaper when this process mints the scratch root', () => {
+    const registered = [];
+    const created = path.join(os.tmpdir(), 'mandrel-test-temp-MINTED');
+
+    ensureTestScratchTempRoot(
+      {},
+      { mkdtemp: () => created, onExit: (fn) => registered.push(fn) },
+    );
+
+    assert.equal(
+      registered.length,
+      1,
+      'the minting process arms teardown for the root it created',
+    );
+  });
+
+  it('registers no reaper when the root was inherited from a parent', () => {
+    const registered = [];
+    const inherited = path.join(os.tmpdir(), 'mandrel-test-temp-PARENT');
+
+    const resolved = ensureTestScratchTempRoot(
+      { [TEST_TEMP_ROOT_ENV]: inherited },
+      {
+        mkdtemp: () => {
+          throw new Error('must not mint when a root was inherited');
+        },
+        onExit: (fn) => registered.push(fn),
+      },
+    );
+
+    assert.equal(resolved, inherited);
+    assert.deepEqual(
+      registered,
+      [],
+      'a child must never reap the root its parent is still writing to',
+    );
+  });
+
+  it('arms teardown once even when called repeatedly in one process', () => {
+    const registered = [];
+    const created = path.join(os.tmpdir(), 'mandrel-test-temp-ONCE');
+    const deps = {
+      mkdtemp: () => created,
+      onExit: (fn) => registered.push(fn),
+    };
+
+    ensureTestScratchTempRoot({}, deps);
+    ensureTestScratchTempRoot({}, deps);
+
+    assert.equal(registered.length, 1);
+  });
+
+  it('removes the scratch root when the registered hook fires', () => {
+    const scratchParent = makeTempDir('scratch-reap-');
+    const created = path.join(scratchParent, 'mandrel-test-temp-REAL');
+    mkdirSync(created, { recursive: true });
+    writeFileSync(path.join(created, 'fixture.ndjson'), 'x\n', 'utf8');
+    let hook = null;
+
+    ensureTestScratchTempRoot(
+      {},
+      { mkdtemp: () => created, onExit: (fn) => (hook = fn) },
+    );
+    hook();
+
+    assert.ok(!existsSync(created), 'the scratch root is gone after exit');
   });
 });

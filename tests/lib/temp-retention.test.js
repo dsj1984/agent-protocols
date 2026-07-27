@@ -11,12 +11,10 @@ import assert from 'node:assert/strict';
 import {
   existsSync,
   mkdirSync,
-  mkdtempSync,
   rmSync,
   utimesSync,
   writeFileSync,
 } from 'node:fs';
-import { tmpdir } from 'node:os';
 import path from 'node:path';
 import { after, beforeEach, describe, it } from 'node:test';
 
@@ -30,13 +28,14 @@ import {
   sweepTempRetention,
   TEMP_RETENTION_DEFAULTS,
 } from '../../.agents/scripts/lib/temp-retention.js';
+import { makeTempDir } from '../../.agents/scripts/lib/test-temp.js';
 
 const DAY = 24 * 60 * 60 * 1000;
 const roots = [];
 
 /** A fresh absolute temp root, torn down after the suite. */
 function makeRoot() {
-  const root = mkdtempSync(path.join(tmpdir(), 'temp-retention-'));
+  const root = makeTempDir('temp-retention-');
   roots.push(root);
   return root;
 }

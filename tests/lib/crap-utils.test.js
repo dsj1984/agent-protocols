@@ -1,6 +1,5 @@
 import assert from 'node:assert';
 import fs from 'node:fs';
-import os from 'node:os';
 import path from 'node:path';
 import { test } from 'node:test';
 import Ajv from 'ajv';
@@ -11,6 +10,7 @@ import {
   resolveEscomplexVersion,
   scanAndScore,
 } from '../../.agents/scripts/lib/crap-utils.js';
+import { makeTempDir } from '../../.agents/scripts/lib/test-temp.js';
 
 // Tests now pass `baselinePath` explicitly — Epic #730 Story 5.5 removed the
 // silent `DEFAULT_BASELINE_PATH = 'crap-baseline.json'` default in favour of
@@ -20,7 +20,7 @@ const TEST_BASELINE_PATH = 'baselines/crap.json';
 const SCHEMA_PATH = path.resolve('.agents/schemas/crap-baseline.schema.json');
 
 function mkTmpCwd(prefix = 'crap_utils_test_') {
-  return fs.mkdtempSync(path.join(os.tmpdir(), prefix));
+  return makeTempDir(prefix);
 }
 
 function rmTmp(dir) {

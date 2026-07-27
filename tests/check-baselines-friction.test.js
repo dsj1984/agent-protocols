@@ -16,8 +16,7 @@
 //   - schema           — head baseline failed schema validation / read
 
 import assert from 'node:assert/strict';
-import { mkdirSync, mkdtempSync, rmSync, writeFileSync } from 'node:fs';
-import { tmpdir } from 'node:os';
+import { mkdirSync, rmSync, writeFileSync } from 'node:fs';
 import path from 'node:path';
 import { afterEach, beforeEach, describe, it } from 'node:test';
 
@@ -27,6 +26,7 @@ import {
   __setSpawnRunner,
 } from '../.agents/scripts/lib/baselines/git-base.js';
 import { currentKernelVersion } from '../.agents/scripts/lib/baselines/kernel.js';
+import { makeTempDir } from '../.agents/scripts/lib/test-temp.js';
 
 function writeJson(p, value) {
   writeFileSync(p, JSON.stringify(value, null, 2));
@@ -53,7 +53,7 @@ function lintEnvelope({ rollup, rows, kernelVersion } = {}) {
 }
 
 function setupTmpRepo() {
-  const root = mkdtempSync(path.join(tmpdir(), 'check-baselines-friction-'));
+  const root = makeTempDir('check-baselines-friction-');
   mkdirSync(path.join(root, 'baselines'), { recursive: true });
   const agentrc = {
     project: {

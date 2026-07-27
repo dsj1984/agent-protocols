@@ -17,8 +17,7 @@
 
 import assert from 'node:assert/strict';
 import { spawnSync } from 'node:child_process';
-import { mkdtempSync, readFileSync, rmSync, writeFileSync } from 'node:fs';
-import { tmpdir } from 'node:os';
+import { readFileSync, rmSync, writeFileSync } from 'node:fs';
 import path from 'node:path';
 import { describe, it } from 'node:test';
 import { fileURLToPath } from 'node:url';
@@ -29,6 +28,7 @@ import {
   renderRegion,
   spliceRegion,
 } from '../../.agents/scripts/generate-config-docs.js';
+import { makeTempDir } from '../../.agents/scripts/lib/test-temp.js';
 
 const __dirname = path.dirname(fileURLToPath(import.meta.url));
 const repoRoot = path.resolve(__dirname, '..', '..');
@@ -160,7 +160,7 @@ describe('generate-config-docs CLI --check', () => {
     const original = readFileSync(docPath, 'utf8');
     const beginIdx = original.indexOf(REGION_BEGIN);
     assert.ok(beginIdx !== -1, 'expected REGION_BEGIN marker in the live doc');
-    const sandboxDir = mkdtempSync(path.join(tmpdir(), 'gen-config-docs-'));
+    const sandboxDir = makeTempDir('gen-config-docs-');
     try {
       // Doctor in place via a temp swap so the test does not leave the
       // working tree mutated even if the assertion fails.

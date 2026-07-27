@@ -18,8 +18,7 @@
  */
 
 import assert from 'node:assert/strict';
-import { existsSync, mkdtempSync, readFileSync, rmSync } from 'node:fs';
-import os from 'node:os';
+import { existsSync, readFileSync, rmSync } from 'node:fs';
 import path from 'node:path';
 import { afterEach, beforeEach, describe, it } from 'node:test';
 
@@ -29,12 +28,13 @@ import {
   renderActiveStoryEnvFile,
   setActiveStoryEnv,
 } from '../../../.agents/scripts/lib/observability/active-story-env.js';
+import { makeTempDir } from '../../../.agents/scripts/lib/test-temp.js';
 
 let tmp;
 let env;
 
 beforeEach(() => {
-  tmp = mkdtempSync(path.join(os.tmpdir(), 'active-story-env-test-'));
+  tmp = makeTempDir('active-story-env-test-');
   env = {};
 });
 

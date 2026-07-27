@@ -20,11 +20,11 @@
 
 import assert from 'node:assert/strict';
 import fs from 'node:fs';
-import os from 'node:os';
 import path from 'node:path';
 import { describe, it } from 'node:test';
 
 import { reapWorktreePhase } from '../.agents/scripts/lib/orchestration/single-story-close/phases/worktree-reap.js';
+import { makeTempDir } from '../.agents/scripts/lib/test-temp.js';
 import { WorktreeManager } from '../.agents/scripts/lib/worktree-manager.js';
 
 const NOOP_PROGRESS = () => {};
@@ -75,7 +75,7 @@ function makeGit({ dirty = false, wtPath, removeStatus = 0 }) {
 }
 
 function withWorktree(fn) {
-  const tmp = fs.mkdtempSync(path.join(os.tmpdir(), 'reap-phase-'));
+  const tmp = makeTempDir('reap-phase-');
   const wtPath = path.join(tmp, '.worktrees', 'story-4539');
   fs.mkdirSync(wtPath, { recursive: true });
   try {

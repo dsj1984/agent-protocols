@@ -11,8 +11,7 @@
  */
 
 import assert from 'node:assert/strict';
-import { mkdtempSync, rmSync } from 'node:fs';
-import os from 'node:os';
+import { rmSync } from 'node:fs';
 import path from 'node:path';
 import { afterEach, beforeEach, describe, it } from 'node:test';
 
@@ -23,6 +22,7 @@ import {
 } from '../../.agents/scripts/lib/orchestration/plan-metrics.js';
 import { runPlanPersist } from '../../.agents/scripts/lib/orchestration/plan-persist/run-plan-persist.js';
 import { serialize } from '../../.agents/scripts/lib/story-body/story-body.js';
+import { makeTempDir } from '../../.agents/scripts/lib/test-temp.js';
 
 const OPERATOR = 'plan-persist-reachability-tester';
 
@@ -96,7 +96,7 @@ let sandbox;
 let config;
 
 beforeEach(() => {
-  sandbox = mkdtempSync(path.join(os.tmpdir(), 'plan-persist-reach-'));
+  sandbox = makeTempDir('plan-persist-reach-');
   config = {
     github: { operatorHandle: OPERATOR },
     project: { paths: { tempRoot: path.join(sandbox, 'temp') } },

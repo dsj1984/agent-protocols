@@ -1,9 +1,8 @@
 import assert from 'node:assert/strict';
 import fs from 'node:fs';
-import os from 'node:os';
 import path from 'node:path';
 import { afterEach, beforeEach, describe, it } from 'node:test';
-
+import { makeTempDir } from '../../../../.agents/scripts/lib/test-temp.js';
 import { sweepStaleLocks } from '../../../../.agents/scripts/lib/worktree/lifecycle/drift-detection.js';
 
 let tmpRepo;
@@ -16,7 +15,7 @@ const ctx = () => ({
 });
 
 beforeEach(() => {
-  tmpRepo = fs.mkdtempSync(path.join(os.tmpdir(), 'drift-detection-'));
+  tmpRepo = makeTempDir('drift-detection-');
   warnings.length = 0;
 });
 

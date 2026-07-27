@@ -12,13 +12,13 @@
 // and the breach payload names the `min` axis and the observed value.
 
 import assert from 'node:assert/strict';
-import { mkdirSync, mkdtempSync, rmSync, writeFileSync } from 'node:fs';
-import { tmpdir } from 'node:os';
+import { mkdirSync, rmSync, writeFileSync } from 'node:fs';
 import path from 'node:path';
 import { afterEach, describe, it } from 'node:test';
 
 import { runCheckBaselines } from '../../.agents/scripts/check-baselines.js';
 import { currentKernelVersion } from '../../.agents/scripts/lib/baselines/kernel.js';
+import { makeTempDir } from '../../.agents/scripts/lib/test-temp.js';
 
 function writeJson(p, value) {
   writeFileSync(p, JSON.stringify(value, null, 2));
@@ -37,7 +37,7 @@ function maintainabilityEnvelope({ min }) {
 }
 
 function setupRepo({ floors } = {}) {
-  const root = mkdtempSync(path.join(tmpdir(), 'check-baselines-mi-min-'));
+  const root = makeTempDir('check-baselines-mi-min-');
   mkdirSync(path.join(root, 'baselines'), { recursive: true });
   const gate = {
     enabled: true,
@@ -155,7 +155,7 @@ describe('check-baselines — maintainability min floor (Story #2193 AC-5)', () 
 // ---------------------------------------------------------------------------
 
 function setupRepoWithIgnoreGlobs({ floors, ignoreGlobs } = {}) {
-  const root = mkdtempSync(path.join(tmpdir(), 'check-baselines-mi-ignore-'));
+  const root = makeTempDir('check-baselines-mi-ignore-');
   mkdirSync(path.join(root, 'baselines'), { recursive: true });
   const gate = {
     enabled: true,

@@ -20,7 +20,6 @@
 
 import assert from 'node:assert/strict';
 import nodeFs from 'node:fs';
-import nodeOs from 'node:os';
 import path from 'node:path';
 import { after, before, beforeEach, describe, it } from 'node:test';
 
@@ -28,13 +27,14 @@ import {
   createGateLogSink,
   REPLAY_TAIL_LINES,
 } from '../../../../.agents/scripts/lib/orchestration/single-story-close/gate-log.js';
+import { makeTempDir } from '../../../../.agents/scripts/lib/test-temp.js';
 
 let tmpDir;
 let emitted;
 const logger = { info: (m) => emitted.push(m) };
 
 before(() => {
-  tmpDir = nodeFs.mkdtempSync(path.join(nodeOs.tmpdir(), 'gate-log-'));
+  tmpDir = makeTempDir('gate-log-');
 });
 
 after(() => {

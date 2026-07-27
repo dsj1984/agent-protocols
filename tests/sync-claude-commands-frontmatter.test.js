@@ -15,12 +15,12 @@
 import assert from 'node:assert/strict';
 import { spawnSync } from 'node:child_process';
 import fs from 'node:fs';
-import os from 'node:os';
 import path from 'node:path';
 import test from 'node:test';
 import { fileURLToPath } from 'node:url';
 
 import { applyHeader } from '../.agents/scripts/lib/command-header.js';
+import { makeTempDir } from '../.agents/scripts/lib/test-temp.js';
 
 const __dirname = path.dirname(fileURLToPath(import.meta.url));
 const PROJECT_ROOT = path.resolve(__dirname, '..');
@@ -40,7 +40,7 @@ const HEADER =
  * map of synced filename → on-disk content. The caller owns cleanup.
  */
 function runSyncWith(sources) {
-  const tmp = fs.mkdtempSync(path.join(os.tmpdir(), 'sync-claude-commands-'));
+  const tmp = makeTempDir('sync-claude-commands-');
   const src = path.join(tmp, 'workflows');
   const dest = path.join(tmp, '.claude', 'commands');
   fs.mkdirSync(src, { recursive: true });
@@ -144,7 +144,7 @@ test('sync-claude-commands: excludes the helpers/ subdirectory', () => {
   const source = ['---', 'description: Fixture.', '---', '', 'Body.', ''].join(
     '\n',
   );
-  const tmp = fs.mkdtempSync(path.join(os.tmpdir(), 'sync-claude-commands-'));
+  const tmp = makeTempDir('sync-claude-commands-');
   try {
     const src = path.join(tmp, 'workflows');
     const helpers = path.join(src, 'helpers');
@@ -175,7 +175,7 @@ test('sync-claude-commands: re-running is idempotent (no churn)', () => {
   const source = ['---', 'description: Fixture.', '---', '', 'Body.', ''].join(
     '\n',
   );
-  const tmp = fs.mkdtempSync(path.join(os.tmpdir(), 'sync-claude-commands-'));
+  const tmp = makeTempDir('sync-claude-commands-');
   try {
     const src = path.join(tmp, 'workflows');
     const dest = path.join(tmp, '.claude', 'commands');

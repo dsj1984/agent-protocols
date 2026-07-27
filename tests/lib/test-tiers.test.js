@@ -1,9 +1,8 @@
 import assert from 'node:assert/strict';
 import fs from 'node:fs';
-import os from 'node:os';
 import path from 'node:path';
 import { test } from 'node:test';
-
+import { makeTempDir } from '../../.agents/scripts/lib/test-temp.js';
 import {
   INTEGRATION_INCLUDE,
   listTestFilesForTier,
@@ -29,7 +28,7 @@ test('parseTierArgv rejects unknown tier', () => {
 });
 
 test('listTestFilesForTier partitions quick vs integration', () => {
-  const root = fs.mkdtempSync(path.join(os.tmpdir(), 'tier-'));
+  const root = makeTempDir('tier-');
   const testsDir = path.join(root, 'tests', 'unit');
   fs.mkdirSync(testsDir, { recursive: true });
   fs.writeFileSync(path.join(testsDir, 'fast.test.js'), '');
@@ -54,7 +53,7 @@ test('listTestFilesForTier partitions quick vs integration', () => {
 });
 
 test('listTestFilesForTier full returns the tests + lib + .agents/scripts glob set', () => {
-  const root = fs.mkdtempSync(path.join(os.tmpdir(), 'tier-full-'));
+  const root = makeTempDir('tier-full-');
   fs.mkdirSync(path.join(root, 'tests'), { recursive: true });
   assert.deepEqual(listTestFilesForTier('full', root, fs), [
     'tests/**/*.test.js',
@@ -65,7 +64,7 @@ test('listTestFilesForTier full returns the tests + lib + .agents/scripts glob s
 });
 
 test('quick / integration walk lib/**/__tests__ as a second root', () => {
-  const root = fs.mkdtempSync(path.join(os.tmpdir(), 'tier-lib-'));
+  const root = makeTempDir('tier-lib-');
   const libTests = path.join(root, 'lib', 'cli', '__tests__');
   fs.mkdirSync(libTests, { recursive: true });
   fs.mkdirSync(path.join(root, 'tests'), { recursive: true });
@@ -83,7 +82,7 @@ test('quick / integration walk lib/**/__tests__ as a second root', () => {
 });
 
 test('quick / integration walk .agents/scripts/**/__tests__ as a third root', () => {
-  const root = fs.mkdtempSync(path.join(os.tmpdir(), 'tier-agents-'));
+  const root = makeTempDir('tier-agents-');
   const agentTests = path.join(
     root,
     '.agents',

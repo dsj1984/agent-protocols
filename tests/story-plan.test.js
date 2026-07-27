@@ -18,8 +18,7 @@
 
 import assert from 'node:assert/strict';
 import { spawnSync } from 'node:child_process';
-import { mkdirSync, mkdtempSync, rmSync, writeFileSync } from 'node:fs';
-import os from 'node:os';
+import { mkdirSync, rmSync, writeFileSync } from 'node:fs';
 import path from 'node:path';
 import { afterEach, beforeEach, describe, it } from 'node:test';
 import { fileURLToPath } from 'node:url';
@@ -34,6 +33,7 @@ import {
   shouldRefine,
   validateStoryBody,
 } from '../.agents/scripts/lib/story-plan.js';
+import { makeTempDir } from '../.agents/scripts/lib/test-temp.js';
 import { TicketGateway } from '../.agents/scripts/providers/github/tickets.js';
 import {
   extractTitle,
@@ -289,7 +289,7 @@ describe('resolveSeed', () => {
   });
 
   it('reads and trims the --seed-file file', async () => {
-    const tmp = mkdtempSync(path.join(os.tmpdir(), 'story-plan-seed-'));
+    const tmp = makeTempDir('story-plan-seed-');
     try {
       const notesPath = path.join(tmp, 'notes.md');
       writeFileSync(notesPath, '  seed from a file  \n');
@@ -355,7 +355,7 @@ describe('runEmitContext', () => {
     };
 
     const originalCwd = process.cwd();
-    const tmpCwd = mkdtempSync(path.join(os.tmpdir(), 'story-plan-cwd-'));
+    const tmpCwd = makeTempDir('story-plan-cwd-');
     process.chdir(tmpCwd);
     try {
       await runEmitContext({
@@ -402,7 +402,7 @@ describe('story-plan.js CLI: --help', () => {
 describe('story-plan.js CLI: --dry-run --body', () => {
   let tmp;
   beforeEach(() => {
-    tmp = mkdtempSync(path.join(os.tmpdir(), 'story-plan-'));
+    tmp = makeTempDir('story-plan-');
   });
   afterEach(() => {
     rmSync(tmp, { recursive: true, force: true });
@@ -472,7 +472,7 @@ describe('story-plan.js runPersist: Projects V2 board membership (Story #3822)',
 
   let tmp;
   beforeEach(() => {
-    tmp = mkdtempSync(path.join(os.tmpdir(), 'story-plan-board-'));
+    tmp = makeTempDir('story-plan-board-');
   });
   afterEach(() => {
     rmSync(tmp, { recursive: true, force: true });
@@ -558,7 +558,7 @@ describe('readTechStackSummary (Story #4228)', () => {
   let tmp;
 
   beforeEach(() => {
-    tmp = mkdtempSync(path.join(os.tmpdir(), 'tech-stack-'));
+    tmp = makeTempDir('tech-stack-');
     mkdirSync(path.join(tmp, 'docs'), { recursive: true });
   });
 

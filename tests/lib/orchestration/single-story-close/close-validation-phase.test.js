@@ -1,10 +1,10 @@
 import assert from 'node:assert/strict';
 import nodeFs from 'node:fs';
-import nodeOs from 'node:os';
 import path from 'node:path';
 import { after, before, describe, it } from 'node:test';
 
 import { runCloseValidationPhase } from '../../../../.agents/scripts/lib/orchestration/single-story-close/phases/close-validation.js';
+import { makeTempDir } from '../../../../.agents/scripts/lib/test-temp.js';
 
 /**
  * Story #4250 — standalone close-validation phase.
@@ -187,7 +187,7 @@ describe('runCloseValidationPhase — bounded gate output (Story #4736)', () => 
   let realLog;
 
   before(() => {
-    tmpDir = nodeFs.mkdtempSync(path.join(nodeOs.tmpdir(), 'close-gate-out-'));
+    tmpDir = makeTempDir('close-gate-out-');
   });
 
   after(() => {

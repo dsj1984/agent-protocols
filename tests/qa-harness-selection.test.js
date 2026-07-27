@@ -1,6 +1,5 @@
 import assert from 'node:assert/strict';
-import { mkdirSync, mkdtempSync, rmSync, writeFileSync } from 'node:fs';
-import { tmpdir } from 'node:os';
+import { mkdirSync, rmSync, writeFileSync } from 'node:fs';
 import path from 'node:path';
 import { describe, it } from 'node:test';
 
@@ -8,6 +7,7 @@ import {
   parseTagExpression,
   resolveSelection,
 } from '../.agents/scripts/lib/qa/resolve-selection.js';
+import { makeTempDir } from '../.agents/scripts/lib/test-temp.js';
 
 /**
  * Story #3296 — scenario-selection resolver for the agent-driven QA harness.
@@ -28,7 +28,7 @@ import {
  *   <root>/admin/users.feature           — domain "admin", @admin
  */
 function mkTree() {
-  const root = mkdtempSync(path.join(tmpdir(), 'qa-selection-'));
+  const root = makeTempDir('qa-selection-');
   mkdirSync(path.join(root, 'billing'), { recursive: true });
   mkdirSync(path.join(root, 'admin'), { recursive: true });
 

@@ -16,7 +16,6 @@
 
 import assert from 'node:assert/strict';
 import fs from 'node:fs';
-import os from 'node:os';
 import path from 'node:path';
 import { describe, it } from 'node:test';
 import { ensureRuntimeDepsInstalled } from '../../.agents/scripts/lib/runtime-deps/ensure-installed.js';
@@ -32,9 +31,10 @@ import {
   stripComments,
   toTopLevelPackage,
 } from '../../.agents/scripts/lib/runtime-deps/scan-imports.js';
+import { makeTempDir } from '../../.agents/scripts/lib/test-temp.js';
 
 function tmpFile(name, body) {
-  const dir = fs.mkdtempSync(path.join(os.tmpdir(), 'mandrel-rtdeps-'));
+  const dir = makeTempDir('mandrel-rtdeps-');
   const file = path.join(dir, name);
   fs.writeFileSync(file, body, 'utf8');
   return file;

@@ -1,7 +1,6 @@
 import assert from 'node:assert/strict';
 import { execFileSync } from 'node:child_process';
-import { mkdirSync, mkdtempSync, rmSync, writeFileSync } from 'node:fs';
-import { tmpdir } from 'node:os';
+import { mkdirSync, rmSync, writeFileSync } from 'node:fs';
 import path from 'node:path';
 import { describe, it } from 'node:test';
 
@@ -10,6 +9,7 @@ import {
   CODEBASE_SNAPSHOT_TIERS,
   resolveSnapshotConfig,
 } from '../.agents/scripts/lib/codebase-snapshot.js';
+import { makeTempDir } from '../.agents/scripts/lib/test-temp.js';
 
 // Env with every `GIT_*` variable dropped. Under a husky pre-push from a
 // linked worktree, git exports GIT_DIR pointing at the shared main gitdir —
@@ -101,7 +101,7 @@ describe('buildCodebaseSnapshot — medium tier exercises signatures', () => {
   let fixture;
 
   function setup() {
-    fixture = mkdtempSync(path.join(tmpdir(), 'snapshot-fixture-'));
+    fixture = makeTempDir('snapshot-fixture-');
     mkdirSync(path.join(fixture, 'src'), { recursive: true });
     writeFileSync(
       path.join(fixture, 'package.json'),
@@ -186,7 +186,7 @@ describe('buildCodebaseSnapshot — memoized glob compilation is output-stable',
   }
 
   function setup() {
-    fixture = mkdtempSync(path.join(tmpdir(), 'snapshot-stable-'));
+    fixture = makeTempDir('snapshot-stable-');
     gitInit(fixture);
     // A fixed tracked-file set spanning include hits, exclude hits, and
     // misses — exercises both glob lists across many files.
@@ -270,7 +270,7 @@ describe('buildCodebaseSnapshot — memoized glob compilation is output-stable',
 
 describe('buildCodebaseSnapshot — robustness', () => {
   it('returns a usable envelope even when cwd is not a git repo', () => {
-    const fixture = mkdtempSync(path.join(tmpdir(), 'snapshot-nongit-'));
+    const fixture = makeTempDir('snapshot-nongit-');
     try {
       const snapshot = buildCodebaseSnapshot({ cwd: fixture });
       assert.equal(snapshot.tier, 'skinny');
@@ -325,7 +325,7 @@ describe('buildCodebaseSnapshot — skinny-tier proportional cap (Story #3959)',
   }
 
   it('keeps consumer source in an over-cap tree dominated by .agents paths', () => {
-    const fixture = mkdtempSync(path.join(tmpdir(), 'snapshot-overcap-'));
+    const fixture = makeTempDir('snapshot-overcap-');
     try {
       gitInit(fixture);
       // 400 `.agents/scripts` files (sort ahead of everything) + 100 each
@@ -370,7 +370,7 @@ describe('buildCodebaseSnapshot — skinny-tier proportional cap (Story #3959)',
   });
 
   it('degenerates to a flat slice when .agents is the only matching tree (Mandrel dogfood)', () => {
-    const fixture = mkdtempSync(path.join(tmpdir(), 'snapshot-onlyagents-'));
+    const fixture = makeTempDir('snapshot-onlyagents-');
     try {
       gitInit(fixture);
       writeManyUnder(fixture, '.agents/scripts', 400);
@@ -396,7 +396,7 @@ describe('buildCodebaseSnapshot — skinny-tier proportional cap (Story #3959)',
   });
 
   it('leaves an under-cap tree unchanged (no truncation, full lexicographic order)', () => {
-    const fixture = mkdtempSync(path.join(tmpdir(), 'snapshot-undercap-'));
+    const fixture = makeTempDir('snapshot-undercap-');
     try {
       gitInit(fixture);
       writeManyUnder(fixture, '.agents/scripts', 40);

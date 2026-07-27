@@ -7,9 +7,8 @@
  */
 
 import assert from 'node:assert/strict';
-import { mkdirSync, mkdtempSync, rmSync, writeFileSync } from 'node:fs';
+import { mkdirSync, rmSync, writeFileSync } from 'node:fs';
 import fs from 'node:fs/promises';
-import { tmpdir } from 'node:os';
 import path from 'node:path';
 import { afterEach, beforeEach, describe, it } from 'node:test';
 
@@ -28,11 +27,12 @@ import {
   tempDirFor,
   writeSnapshot,
 } from '../.agents/scripts/check-test-temp-hygiene.js';
+import { makeTempDir } from '../.agents/scripts/lib/test-temp.js';
 
 let repoRoot;
 
 beforeEach(() => {
-  repoRoot = mkdtempSync(path.join(tmpdir(), 'temp-hygiene-'));
+  repoRoot = makeTempDir('temp-hygiene-');
 });
 afterEach(() => {
   // The default baseline lives OUTSIDE repoRoot (Story #4711) — sweep it too.
@@ -152,7 +152,7 @@ describe('check-test-temp-hygiene — external baseline (Story #4711, AC-2)', ()
   });
 
   it('defaultBaselinePath is keyed by repo root (no cross-checkout collision)', () => {
-    const other = mkdtempSync(path.join(tmpdir(), 'temp-hygiene-other-'));
+    const other = makeTempDir('temp-hygiene-other-');
     try {
       assert.notEqual(
         defaultBaselinePath(repoRoot),
@@ -276,12 +276,13 @@ describe('check-test-temp-hygiene — parseArgv', () => {
   });
 });
 
-describe('check-test-temp-hygiene — runHygiene', () => {
-  const collect = () => {
-    const lines = [];
-    return { lines, log: (l) => lines.push(l) };
-  };
+/** Capture the guard's log lines instead of writing them to stdout. */
+const collect = () => {
+  const lines = [];
+  return { lines, log: (l) => lines.push(l) };
+};
 
+describe('check-test-temp-hygiene — runHygiene', () => {
   it('snapshot mode records the baseline and returns 0', () => {
     writeStream('run-1/lifecycle.ndjson', 'a\n');
     const { lines, log } = collect();
@@ -382,5 +383,183 @@ describe('check-test-temp-hygiene — runHygiene', () => {
     );
     assert.equal(code, 0);
     assert.ok(lines.join('\n').includes('no fixture-id stream directories'));
+  });
+});
+
+describe('check-test-temp-hygiene — OS temp root dimension (Story #4808)', () => {
+  /** A fake OS temp root, so the assertions never read the real one. */
+  let fakeTmp;
+
+  beforeEach(() => {
+    fakeTmp = makeTempDir('fake-os-tmp-');
+  });
+
+  /** Simulate a suite root that a run minted and failed to reap. */
+  const leakSuiteRoot = (name = 'mandrel-suite-4242-abcdef') => {
+    mkdirSync(path.join(fakeTmp, name), { recursive: true });
+    return name;
+  };
+
+  it('records pre-existing suite roots in the snapshot', () => {
+    leakSuiteRoot('mandrel-suite-111-aaa');
+    const { suiteRoots } = writeSnapshot(repoRoot, undefined, {
+      tmpDir: fakeTmp,
+    });
+
+    assert.equal(suiteRoots, 1);
+  });
+
+  it('passes when the run reaped every root it created', () => {
+    writeSnapshot(repoRoot, undefined, { tmpDir: fakeTmp });
+    const { lines, log } = collect();
+
+    const code = runHygiene({ mode: 'assert', repoRoot }, log, {
+      tmpDir: fakeTmp,
+    });
+
+    assert.equal(code, 0);
+    assert.ok(lines.join('\n').includes('no suite temp roots survived'));
+  });
+
+  it('fails and names the root when one survived the run', () => {
+    writeSnapshot(repoRoot, undefined, { tmpDir: fakeTmp });
+    const leaked = leakSuiteRoot();
+    const { lines, log } = collect();
+
+    const code = runHygiene({ mode: 'assert', repoRoot }, log, {
+      tmpDir: fakeTmp,
+    });
+
+    assert.equal(code, 1);
+    const out = lines.join('\n');
+    assert.ok(out.includes('suite temp root(s) survived'));
+    assert.ok(out.includes(leaked), 'the surviving root is named');
+  });
+
+  it('ignores a root that predates the snapshot (concurrent suite)', () => {
+    const sibling = leakSuiteRoot('mandrel-suite-999-concurrent');
+    writeSnapshot(repoRoot, undefined, { tmpDir: fakeTmp });
+    const { lines, log } = collect();
+
+    const code = runHygiene({ mode: 'assert', repoRoot }, log, {
+      tmpDir: fakeTmp,
+    });
+
+    assert.equal(code, 0, `a pre-existing ${sibling} must not fail this run`);
+  });
+
+  it('reports a leaked root even when the temp/ tree is clean', () => {
+    writeSnapshot(repoRoot, undefined, { tmpDir: fakeTmp });
+    leakSuiteRoot();
+    const { lines, log } = collect();
+
+    const code = runHygiene({ mode: 'assert', repoRoot }, log, {
+      tmpDir: fakeTmp,
+    });
+
+    const out = lines.join('\n');
+    assert.equal(code, 1);
+    // Both dimensions report; one failing never hides the other's verdict.
+    assert.ok(out.includes('no new or grown stream files'));
+    assert.ok(out.includes('suite temp root(s) survived'));
+  });
+
+  it('tolerates a legacy snapshot with no recorded suite roots', () => {
+    writeFileSync(
+      defaultBaselinePath(repoRoot),
+      `${JSON.stringify({ 'run-1/lifecycle.ndjson': { size: 0, sha256: 'x' } })}\n`,
+      'utf8',
+    );
+    const { log } = collect();
+
+    assert.doesNotThrow(() =>
+      runHygiene({ mode: 'assert', repoRoot }, log, { tmpDir: fakeTmp }),
+    );
+  });
+});
+
+describe('check-test-temp-hygiene — raw-tmpdir lint dimension (Story #4808)', () => {
+  /**
+   * A fake OS temp root for the suite-root dimension that runs alongside
+   * the one under test. Without it these assertions read the *real* temp
+   * root, where a sibling test process minting its own suite root between
+   * snapshot and assert flips the exit code and makes them flaky.
+   */
+  let fakeTmp;
+
+  beforeEach(() => {
+    fakeTmp = makeTempDir('fake-os-tmp-lint-');
+  });
+
+  /** Stage a test file under the fake repo root. */
+  const writeTest = (rel, body) => {
+    const abs = path.join(repoRoot, rel);
+    mkdirSync(path.dirname(abs), { recursive: true });
+    writeFileSync(abs, body, 'utf8');
+  };
+
+  it('parses --lint-globs into a list', () => {
+    const opts = parseArgv([
+      '--assert',
+      '--lint-globs',
+      'tests/**,!tests/x.js',
+    ]);
+
+    assert.deepEqual(opts.lintGlobs, ['tests/**', '!tests/x.js']);
+  });
+
+  it('defaults to an empty glob list (off for consumers)', () => {
+    assert.deepEqual(parseArgv(['--assert']).lintGlobs, []);
+  });
+
+  it('reports SKIP and passes when no globs were requested', () => {
+    writeTest(
+      'tests/leaky.test.js',
+      "mkdtempSync(path.join(os.tmpdir(), 'leaky-'));\n", // test-temp-allow: fixture the lint must flag
+    );
+    writeSnapshot(repoRoot, undefined, { tmpDir: fakeTmp });
+    const { lines, log } = collect();
+
+    const code = runHygiene({ mode: 'assert', repoRoot, lintGlobs: [] }, log, {
+      tmpDir: fakeTmp,
+    });
+
+    assert.equal(code, 0, 'a consumer repo is never failed by this dimension');
+    assert.ok(lines.join('\n').includes('raw-tmpdir lint not requested'));
+  });
+
+  it('fails and names file:line when a test mints an OS temp dir directly', () => {
+    writeTest(
+      'tests/leaky.test.js',
+      "const a = 1;\nconst d = mkdtempSync(path.join(os.tmpdir(), 'leaky-'));\n", // test-temp-allow: fixture the lint must flag
+    );
+    writeSnapshot(repoRoot, undefined, { tmpDir: fakeTmp });
+    const { lines, log } = collect();
+
+    const code = runHygiene(
+      { mode: 'assert', repoRoot, lintGlobs: ['tests/**/*.js'] },
+      log,
+      { tmpDir: fakeTmp },
+    );
+
+    assert.equal(code, 1);
+    const out = lines.join('\n');
+    assert.ok(out.includes('tests/leaky.test.js:2'));
+    assert.ok(out.includes('makeTempDir()'));
+  });
+
+  it('passes when every test uses the helper', () => {
+    writeTest('tests/clean.test.js', "const d = makeTempDir('clean-');\n");
+    writeSnapshot(repoRoot, undefined, { tmpDir: fakeTmp });
+    const { lines, log } = collect();
+
+    const code = runHygiene(
+      { mode: 'assert', repoRoot, lintGlobs: ['tests/**/*.js'] },
+      log,
+      { tmpDir: fakeTmp },
+    );
+
+    assert.equal(code, 0);
+    assert.ok(lines.join('\n').includes('no test file mints OS temp dirs'));
   });
 });

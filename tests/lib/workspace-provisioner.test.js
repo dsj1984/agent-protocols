@@ -1,8 +1,8 @@
 import assert from 'node:assert/strict';
 import fs from 'node:fs';
-import os from 'node:os';
 import path from 'node:path';
 import test from 'node:test';
+import { makeTempDir } from '../../.agents/scripts/lib/test-temp.js';
 import {
   DEFAULT_WORKSPACE_FILES,
   provision,
@@ -11,8 +11,8 @@ import {
 } from '../../.agents/scripts/lib/workspace-provisioner.js';
 
 function makeRoots() {
-  const src = fs.mkdtempSync(path.join(os.tmpdir(), 'wsp-src-'));
-  const dst = fs.mkdtempSync(path.join(os.tmpdir(), 'wsp-dst-'));
+  const src = makeTempDir('wsp-src-');
+  const dst = makeTempDir('wsp-dst-');
   return { src, dst };
 }
 

@@ -20,8 +20,7 @@
 //   - The acknowledgment names itself on the gate report (`acknowledged:true`).
 
 import assert from 'node:assert/strict';
-import { mkdirSync, mkdtempSync, rmSync, writeFileSync } from 'node:fs';
-import { tmpdir } from 'node:os';
+import { mkdirSync, rmSync, writeFileSync } from 'node:fs';
 import path from 'node:path';
 import { afterEach, beforeEach, describe, it } from 'node:test';
 
@@ -31,6 +30,7 @@ import {
   __setSpawnRunner,
 } from '../.agents/scripts/lib/baselines/git-base.js';
 import { currentKernelVersion } from '../.agents/scripts/lib/baselines/kernel.js';
+import { makeTempDir } from '../.agents/scripts/lib/test-temp.js';
 
 const MI_BASELINE_REL = 'baselines/maintainability.json';
 
@@ -49,7 +49,7 @@ function miEnvelope({ rows, rollup } = {}) {
 }
 
 function setupTmpRepo() {
-  const root = mkdtempSync(path.join(tmpdir(), 'check-baselines-refresh-'));
+  const root = makeTempDir('check-baselines-refresh-');
   mkdirSync(path.join(root, 'baselines'), { recursive: true });
   const agentrc = {
     project: {

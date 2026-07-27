@@ -20,12 +20,12 @@
  */
 
 import assert from 'node:assert/strict';
-import { mkdtempSync, readFileSync, rmSync } from 'node:fs';
-import { tmpdir } from 'node:os';
+import { readFileSync, rmSync } from 'node:fs';
 import path from 'node:path';
 import { afterEach, beforeEach, describe, it } from 'node:test';
 
 import { refreshBaseline } from '../../.agents/scripts/lib/baselines/refresh-service.js';
+import { makeTempDir } from '../../.agents/scripts/lib/test-temp.js';
 
 const FIXED = '2026-05-15T00:00:00Z';
 
@@ -52,7 +52,7 @@ describe('refreshBaseline — determinism (Task #2206)', () => {
   let workDir;
 
   beforeEach(() => {
-    workDir = mkdtempSync(path.join(tmpdir(), 'mandrel-refresh-det-'));
+    workDir = makeTempDir('mandrel-refresh-det-');
   });
 
   afterEach(() => {

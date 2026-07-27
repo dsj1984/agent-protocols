@@ -16,13 +16,13 @@
 
 import assert from 'node:assert/strict';
 import { spawnSync } from 'node:child_process';
-import { mkdirSync, mkdtempSync, rmSync, writeFileSync } from 'node:fs';
-import { tmpdir } from 'node:os';
+import { mkdirSync, rmSync, writeFileSync } from 'node:fs';
 import path from 'node:path';
 import { after, before, describe, it } from 'node:test';
 import { fileURLToPath } from 'node:url';
 
 import { currentKernelVersion } from '../../.agents/scripts/lib/baselines/kernel.js';
+import { makeTempDir } from '../../.agents/scripts/lib/test-temp.js';
 
 const __filename = fileURLToPath(import.meta.url);
 const repoRoot = path.resolve(path.dirname(__filename), '..', '..');
@@ -71,7 +71,7 @@ function runGit(args, cwd) {
 }
 
 function setupRepo({ baseRollup, baseRows } = {}) {
-  const root = mkdtempSync(path.join(tmpdir(), 'cb-contract-regress-'));
+  const root = makeTempDir('cb-contract-regress-');
   mkdirSync(path.join(root, 'baselines'), { recursive: true });
 
   const agentrc = {

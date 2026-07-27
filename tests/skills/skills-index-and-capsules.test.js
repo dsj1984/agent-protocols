@@ -23,11 +23,11 @@
 import assert from 'node:assert/strict';
 import { spawnSync } from 'node:child_process';
 import fs from 'node:fs';
-import os from 'node:os';
 import path from 'node:path';
 import { afterEach, beforeEach, describe, it } from 'node:test';
 import { fileURLToPath } from 'node:url';
 import { run as runGenerator } from '../../.agents/scripts/generate-skills-index.js';
+import { makeTempDir } from '../../.agents/scripts/lib/test-temp.js';
 
 const HERE = path.dirname(fileURLToPath(import.meta.url));
 const REPO_ROOT = path.resolve(HERE, '..', '..');
@@ -103,7 +103,7 @@ function runCli(cli, args, env = {}) {
 let tmpParent;
 
 beforeEach(() => {
-  tmpParent = fs.mkdtempSync(path.join(os.tmpdir(), 'skills-int-'));
+  tmpParent = makeTempDir('skills-int-');
 });
 
 afterEach(() => {

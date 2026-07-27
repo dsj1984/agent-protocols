@@ -1,9 +1,9 @@
 import assert from 'node:assert/strict';
 import fs from 'node:fs';
-import os from 'node:os';
 import path from 'node:path';
 import test from 'node:test';
 import { sweepStaleStoryWorktrees } from '../../../../.agents/scripts/lib/orchestration/plan-runner/worktree-sweep.js';
+import { makeTempDir } from '../../../../.agents/scripts/lib/test-temp.js';
 import {
   manifestPath,
   readManifest,
@@ -334,7 +334,7 @@ test('sweepStaleStoryWorktrees: provider reads fan out at concurrency=8', async 
 });
 
 test('sweepStaleStoryWorktrees: drains the pending-cleanup manifest when Stage 1 retry succeeds', async () => {
-  const tmp = fs.mkdtempSync(path.join(os.tmpdir(), 'sweep-drain-'));
+  const tmp = makeTempDir('sweep-drain-');
   const wtRoot = path.join(tmp, '.worktrees');
   fs.mkdirSync(wtRoot, { recursive: true });
   try {
@@ -370,7 +370,7 @@ test('sweepStaleStoryWorktrees: drains the pending-cleanup manifest when Stage 1
 });
 
 test('sweepStaleStoryWorktrees: keeps stuck manifest entry and logs persistent-lock after MAX_SWEEP_ATTEMPTS', async () => {
-  const tmp = fs.mkdtempSync(path.join(os.tmpdir(), 'sweep-stuck-'));
+  const tmp = makeTempDir('sweep-stuck-');
   const wtRoot = path.join(tmp, '.worktrees');
   fs.mkdirSync(wtRoot, { recursive: true });
   try {

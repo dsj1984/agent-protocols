@@ -19,11 +19,11 @@
 
 import assert from 'node:assert/strict';
 import { spawnSync } from 'node:child_process';
-import { mkdtempSync, readFileSync, rmSync } from 'node:fs';
-import { tmpdir } from 'node:os';
+import { readFileSync, rmSync } from 'node:fs';
 import path from 'node:path';
 import { afterEach, beforeEach, describe, it } from 'node:test';
 import { fileURLToPath } from 'node:url';
+import { makeTempDir } from '../.agents/scripts/lib/test-temp.js';
 
 const __dirname = path.dirname(fileURLToPath(import.meta.url));
 const ROOT = path.resolve(__dirname, '..');
@@ -37,7 +37,7 @@ const SCRIPT_PATH = path.join(
 let tmpRoot;
 
 beforeEach(() => {
-  tmpRoot = mkdtempSync(path.join(tmpdir(), 'diagnose-friction-'));
+  tmpRoot = makeTempDir('diagnose-friction-');
 });
 
 afterEach(() => {

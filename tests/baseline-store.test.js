@@ -1,6 +1,5 @@
 import assert from 'node:assert/strict';
 import fs from 'node:fs';
-import os from 'node:os';
 import path from 'node:path';
 import { afterEach, beforeEach, describe, it } from 'node:test';
 import {
@@ -9,6 +8,7 @@ import {
   loadBaseline,
   writeBaseline,
 } from '../.agents/scripts/lib/gates/baseline-store.js';
+import { makeTempDir } from '../.agents/scripts/lib/test-temp.js';
 
 /**
  * Story #1476 — pure-I/O baseline store. Covers the four behaviours each
@@ -22,7 +22,7 @@ import {
 let tmpRoot;
 
 beforeEach(() => {
-  tmpRoot = fs.mkdtempSync(path.join(os.tmpdir(), 'baseline-store-'));
+  tmpRoot = makeTempDir('baseline-store-');
 });
 
 afterEach(() => {

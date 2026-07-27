@@ -1,9 +1,8 @@
 import assert from 'node:assert/strict';
 import fs from 'node:fs';
-import os from 'node:os';
 import path from 'node:path';
 import { afterEach, beforeEach, describe, it } from 'node:test';
-
+import { makeTempDir } from '../../../.agents/scripts/lib/test-temp.js';
 import { createPhaseTimer } from '../../../.agents/scripts/lib/util/phase-timer.js';
 import {
   clearPhaseTimerState,
@@ -15,7 +14,7 @@ describe('phase-timer-state', () => {
   let tmpRoot;
 
   beforeEach(() => {
-    tmpRoot = fs.mkdtempSync(path.join(os.tmpdir(), 'phase-timer-state-'));
+    tmpRoot = makeTempDir('phase-timer-state-');
     fs.mkdirSync(path.join(tmpRoot, '.git'), { recursive: true });
   });
 

@@ -1,6 +1,5 @@
 import assert from 'node:assert/strict';
-import { mkdirSync, mkdtempSync, rmSync, writeFileSync } from 'node:fs';
-import { tmpdir } from 'node:os';
+import { mkdirSync, rmSync, writeFileSync } from 'node:fs';
 import path from 'node:path';
 import { afterEach, beforeEach, describe, it } from 'node:test';
 
@@ -9,6 +8,7 @@ import {
   PENDING_TAGS,
   verifyBddRunnerPendingTag,
 } from '../.agents/scripts/lib/bdd-runner-detect.js';
+import { makeTempDir } from '../.agents/scripts/lib/test-temp.js';
 
 /**
  * Unit tests for `verifyBddRunnerPendingTag` — the package.json scan that
@@ -240,7 +240,7 @@ describe('bdd-runner-detect:verifyBddRunnerPendingTag', () => {
     describe('default discovery against the filesystem', () => {
       let root;
       beforeEach(() => {
-        root = mkdtempSync(path.join(tmpdir(), 'bdd-runner-detect-'));
+        root = makeTempDir('bdd-runner-detect-');
       });
       afterEach(() => {
         rmSync(root, { recursive: true, force: true });

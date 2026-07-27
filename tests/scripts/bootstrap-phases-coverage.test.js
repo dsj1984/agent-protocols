@@ -38,7 +38,6 @@
 import assert from 'node:assert/strict';
 import * as realChildProcess from 'node:child_process';
 import fs from 'node:fs';
-import os from 'node:os';
 import path from 'node:path';
 import { afterEach, describe, it } from 'node:test';
 import { fileURLToPath, pathToFileURL } from 'node:url';
@@ -54,6 +53,7 @@ import {
 import { LEDGER_RELATIVE_PATH } from '../../.agents/scripts/lib/bootstrap/install-ledger.js';
 import { PHASE_GROUPS } from '../../.agents/scripts/lib/bootstrap/manifest.js';
 import { Logger } from '../../.agents/scripts/lib/Logger.js';
+import { makeTempDir } from '../../.agents/scripts/lib/test-temp.js';
 
 const ROOT = path.resolve(
   path.dirname(fileURLToPath(import.meta.url)),
@@ -90,7 +90,7 @@ const CONFIG_RESOLVER_URL = pathToFileURL(CONFIG_RESOLVER_PATH).href;
 const scratchDirs = [];
 
 function makeScratchDir() {
-  const dir = fs.mkdtempSync(path.join(os.tmpdir(), 'bootstrap-phases-'));
+  const dir = makeTempDir('bootstrap-phases-');
   scratchDirs.push(dir);
   return dir;
 }

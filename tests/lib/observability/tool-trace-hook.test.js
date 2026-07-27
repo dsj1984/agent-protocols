@@ -16,9 +16,8 @@
 
 import assert from 'node:assert/strict';
 import { createHash } from 'node:crypto';
-import { existsSync, mkdtempSync, rmSync } from 'node:fs';
+import { existsSync, rmSync } from 'node:fs';
 import fs from 'node:fs/promises';
-import { tmpdir } from 'node:os';
 import path from 'node:path';
 import { afterEach, beforeEach, describe, it } from 'node:test';
 
@@ -30,6 +29,7 @@ import {
   normaliseBashCommand,
   resolveActiveStory,
 } from '../../../.agents/scripts/lib/observability/tool-trace-hook.js';
+import { makeTempDir } from '../../../.agents/scripts/lib/test-temp.js';
 
 let workRoot;
 const ORIGINAL_CWD = process.cwd();
@@ -59,7 +59,7 @@ const signalsPath = (eid, sid) =>
   );
 
 beforeEach(() => {
-  workRoot = mkdtempSync(path.join(tmpdir(), 'tool-trace-hook-'));
+  workRoot = makeTempDir('tool-trace-hook-');
   _resetInflightForTests();
   process.env.CC_EPIC_ID = '1030';
   process.env.CC_STORY_ID = '1043';

@@ -1,12 +1,12 @@
 import assert from 'node:assert';
 import fs from 'node:fs';
-import os from 'node:os';
 import path from 'node:path';
 import { test } from 'node:test';
 import {
   calculateForFile,
   calculateReportForFile,
 } from '../.agents/scripts/lib/maintainability-engine.js';
+import { makeTempDir } from '../.agents/scripts/lib/test-temp.js';
 import { transpileIfNeeded } from '../.agents/scripts/lib/transpile.js';
 
 /**
@@ -23,7 +23,7 @@ import { transpileIfNeeded } from '../.agents/scripts/lib/transpile.js';
  */
 
 function mkTmp() {
-  return fs.mkdtempSync(path.join(os.tmpdir(), 'mi_ts_fixture_'));
+  return makeTempDir('mi_ts_fixture_');
 }
 
 function rmTmp(dir) {

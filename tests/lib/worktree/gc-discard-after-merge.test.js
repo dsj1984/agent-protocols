@@ -1,9 +1,8 @@
 import assert from 'node:assert/strict';
 import fs from 'node:fs';
-import os from 'node:os';
 import path from 'node:path';
 import test from 'node:test';
-
+import { makeTempDir } from '../../../.agents/scripts/lib/test-temp.js';
 import { WorktreeManager } from '../../../.agents/scripts/lib/worktree-manager.js';
 
 const EPIC_BRANCH = 'epic/999001';
@@ -80,7 +79,7 @@ function makeManager(tmp, worktreeRoot) {
 }
 
 function makeWorktreeFixture() {
-  const tmp = fs.mkdtempSync(path.join(os.tmpdir(), 'gc-discard-after-merge-'));
+  const tmp = makeTempDir('gc-discard-after-merge-');
   const worktreeRoot = path.join(tmp, '.worktrees');
   fs.mkdirSync(worktreeRoot, { recursive: true });
   for (const id of STORY_IDS) {

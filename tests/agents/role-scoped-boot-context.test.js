@@ -23,14 +23,14 @@
 
 import assert from 'node:assert/strict';
 import { spawnSync } from 'node:child_process';
-import { existsSync, mkdtempSync, readdirSync, readFileSync } from 'node:fs';
-import { tmpdir } from 'node:os';
+import { existsSync, readdirSync, readFileSync } from 'node:fs';
 import path from 'node:path';
 import test, { before, describe } from 'node:test';
 import { fileURLToPath } from 'node:url';
 
 import Ajv2020 from 'ajv/dist/2020.js';
 import addFormats from 'ajv-formats';
+import { makeTempDir } from '../../.agents/scripts/lib/test-temp.js';
 
 const __dirname = path.dirname(fileURLToPath(import.meta.url));
 const REPO_ROOT = path.resolve(__dirname, '..', '..');
@@ -61,7 +61,7 @@ function resolveImportFromHostLocation(fileName, importSpec) {
 }
 
 before(() => {
-  destDir = mkdtempSync(path.join(tmpdir(), 'm7b-agents-'));
+  destDir = makeTempDir('m7b-agents-');
   const result = spawnSync(process.execPath, [SYNC_SCRIPT], {
     cwd: REPO_ROOT,
     encoding: 'utf8',

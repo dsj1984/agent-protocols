@@ -23,14 +23,14 @@
  */
 
 import assert from 'node:assert/strict';
-import { mkdirSync, mkdtempSync, rmSync, writeFileSync } from 'node:fs';
-import { tmpdir } from 'node:os';
+import { mkdirSync, rmSync, writeFileSync } from 'node:fs';
 import path from 'node:path';
 import { afterEach, beforeEach, describe, it } from 'node:test';
 
 import { refreshBaseline } from '../../.agents/scripts/lib/baselines/refresh-service.js';
 import { loadCoverage } from '../../.agents/scripts/lib/coverage-utils.js';
 import { scanAndScore } from '../../.agents/scripts/lib/crap-utils.js';
+import { makeTempDir } from '../../.agents/scripts/lib/test-temp.js';
 
 // A function with a single decision point so escomplex yields a cyclomatic
 // complexity > 1 and `scanAndScore` produces a deterministic CRAP row.
@@ -71,7 +71,7 @@ describe('refreshBaseline — default CRAP scorer honours config (Story #3694)',
   const scopeFiles = ['src/a.js', 'src/ignored.js'];
 
   beforeEach(() => {
-    projectDir = mkdtempSync(path.join(tmpdir(), 'mandrel-3694-crap-'));
+    projectDir = makeTempDir('mandrel-3694-crap-');
     mkdirSync(path.join(projectDir, 'src'), { recursive: true });
     mkdirSync(path.join(projectDir, 'coverage'), { recursive: true });
     mkdirSync(path.join(projectDir, 'baselines'), { recursive: true });

@@ -28,9 +28,9 @@
 import assert from 'node:assert/strict';
 import { execFileSync } from 'node:child_process';
 import fs from 'node:fs';
-import os from 'node:os';
 import path from 'node:path';
 import test from 'node:test';
+import { makeTempDir } from '../../../.agents/scripts/lib/test-temp.js';
 import { WorktreeManager } from '../../../.agents/scripts/lib/worktree-manager.js';
 
 const SILENT_LOGGER = { info() {}, warn() {}, error() {} };
@@ -42,9 +42,7 @@ const CLEAN_ENV = Object.fromEntries(
 );
 
 function mkTmpRepo() {
-  const tmp = fs.realpathSync(
-    fs.mkdtempSync(path.join(os.tmpdir(), 'wt-rebase-')),
-  );
+  const tmp = fs.realpathSync(makeTempDir('wt-rebase-'));
   const run = (cwd, ...args) =>
     execFileSync('git', args, {
       cwd,

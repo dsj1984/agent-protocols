@@ -15,9 +15,8 @@
  */
 
 import assert from 'node:assert/strict';
-import { mkdtempSync, readFileSync, rmSync } from 'node:fs';
+import { readFileSync, rmSync } from 'node:fs';
 import fs from 'node:fs/promises';
-import { tmpdir } from 'node:os';
 import path from 'node:path';
 import { afterEach, beforeEach, describe, it } from 'node:test';
 import { fileURLToPath } from 'node:url';
@@ -38,6 +37,7 @@ import { buildAcceptanceEvalSignal } from '../../.agents/scripts/lib/orchestrati
 import { composeRoutedProposals } from '../../.agents/scripts/lib/orchestration/retro-proposals.js';
 import { detectRetry } from '../../.agents/scripts/lib/signals/detectors/retry.js';
 import { hasCommonEnvelope } from '../../.agents/scripts/lib/signals/schema.js';
+import { makeTempDir } from '../../.agents/scripts/lib/test-temp.js';
 
 const __dirname = path.dirname(fileURLToPath(import.meta.url));
 const SCHEMA_PATH = path.resolve(
@@ -229,7 +229,7 @@ describe('signal contract — appendSignal classifier + provenance (item 3)', ()
   let workRoot;
   let cfg;
   beforeEach(() => {
-    workRoot = mkdtempSync(path.join(tmpdir(), 'sig-classify-'));
+    workRoot = makeTempDir('sig-classify-');
     cfg = { project: { paths: { tempRoot: workRoot } } };
   });
   afterEach(() => rmSync(workRoot, { recursive: true, force: true }));
@@ -271,7 +271,7 @@ describe('signal contract — write-time validation + reject tally (item 6)', ()
   let workRoot;
   let cfg;
   beforeEach(() => {
-    workRoot = mkdtempSync(path.join(tmpdir(), 'sig-reject-'));
+    workRoot = makeTempDir('sig-reject-');
     cfg = { project: { paths: { tempRoot: workRoot } } };
   });
   afterEach(() => rmSync(workRoot, { recursive: true, force: true }));
@@ -347,7 +347,7 @@ describe('signal contract — trace hook records exitCode (item 4)', () => {
   });
 
   it('handlePost records details.exitCode for a Bash PostToolUse event and omits it for a non-Bash tool', async () => {
-    const workRoot = mkdtempSync(path.join(tmpdir(), 'sig-trace-'));
+    const workRoot = makeTempDir('sig-trace-');
     // handlePost writes through the default writer, whose temp root is
     // anchored at the main checkout root (git rev-parse). A freshly-minted
     // temp dir is not a git repo, so chdir'ing into it makes the writer
@@ -405,7 +405,7 @@ describe('signal contract — trace hook records exitCode (item 4)', () => {
   });
 
   it('detectRetry fires when the failed-repeat count strictly exceeds the threshold', async () => {
-    const workRoot = mkdtempSync(path.join(tmpdir(), 'sig-retry-'));
+    const workRoot = makeTempDir('sig-retry-');
     const tracesPath = path.join(workRoot, 'traces.ndjson');
     try {
       // Three failed (exitCode 1) Bash invocations of the same command

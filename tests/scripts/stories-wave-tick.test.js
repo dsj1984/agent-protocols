@@ -23,12 +23,11 @@
 
 import assert from 'node:assert/strict';
 import { spawnSync } from 'node:child_process';
-import { mkdtempSync, writeFileSync } from 'node:fs';
-import { tmpdir } from 'node:os';
+import { writeFileSync } from 'node:fs';
 import path from 'node:path';
 import { describe, it } from 'node:test';
 import { fileURLToPath } from 'node:url';
-
+import { makeTempDir } from '../../.agents/scripts/lib/test-temp.js';
 import {
   buildReadySetEnvelope,
   detectWedge,
@@ -403,7 +402,7 @@ describe('runStoriesWaveTick', () => {
   });
 
   it('reads DAG from a file when dagFile is provided', () => {
-    const tmp = mkdtempSync(path.join(tmpdir(), 'stories-wave-tick-'));
+    const tmp = makeTempDir('stories-wave-tick-');
     const dagPath = path.join(tmp, 'dag.json');
     writeFileSync(
       dagPath,
@@ -661,7 +660,7 @@ describe('CLI', () => {
   });
 
   it('--dag-file with a valid JSON file exits 0', () => {
-    const tmp = mkdtempSync(path.join(tmpdir(), 'stories-wave-tick-cli-'));
+    const tmp = makeTempDir('stories-wave-tick-cli-');
     const dagPath = path.join(tmp, 'dag.json');
     writeFileSync(dagPath, JSON.stringify([{ id: 50, dependsOn: [] }]), 'utf8');
     const result = spawnSync(process.execPath, [CLI, '--dag-file', dagPath], {

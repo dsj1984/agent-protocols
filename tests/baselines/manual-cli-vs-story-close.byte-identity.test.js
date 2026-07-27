@@ -35,18 +35,12 @@
  */
 
 import assert from 'node:assert/strict';
-import {
-  mkdirSync,
-  mkdtempSync,
-  readFileSync,
-  rmSync,
-  writeFileSync,
-} from 'node:fs';
-import { tmpdir } from 'node:os';
+import { mkdirSync, readFileSync, rmSync, writeFileSync } from 'node:fs';
 import path from 'node:path';
 import { afterEach, beforeEach, describe, it } from 'node:test';
 
 import { refreshBaseline } from '../../.agents/scripts/lib/baselines/refresh-service.js';
+import { makeTempDir } from '../../.agents/scripts/lib/test-temp.js';
 
 const FIXED_GENERATED_AT = '2026-05-15T00:00:00Z';
 
@@ -108,7 +102,7 @@ describe('manual CLI vs story-close — byte-identity (AC-3, Task #2212)', () =>
   let storyClosePath;
 
   beforeEach(() => {
-    workDir = mkdtempSync(path.join(tmpdir(), 'mandrel-2212-byteid-'));
+    workDir = makeTempDir('mandrel-2212-byteid-');
     mkdirSync(path.join(workDir, 'baselines'), { recursive: true });
     manualPath = path.join(workDir, 'baselines', 'manual.json');
     storyClosePath = path.join(workDir, 'baselines', 'story-close.json');

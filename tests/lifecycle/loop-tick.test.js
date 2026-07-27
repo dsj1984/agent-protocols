@@ -1,7 +1,6 @@
 // tests/lifecycle/loop-tick.test.js
 import assert from 'node:assert/strict';
-import { mkdtempSync, readFileSync, rmSync } from 'node:fs';
-import { tmpdir } from 'node:os';
+import { readFileSync, rmSync } from 'node:fs';
 import path from 'node:path';
 import { afterEach, describe, it } from 'node:test';
 import { fileURLToPath } from 'node:url';
@@ -10,6 +9,7 @@ import Ajv2020 from 'ajv/dist/2020.js';
 import addFormats from 'ajv-formats';
 
 import { emitLoopTick } from '../../.agents/scripts/lib/orchestration/lifecycle/emit-loop-tick.js';
+import { makeTempDir } from '../../.agents/scripts/lib/test-temp.js';
 
 /**
  * Contract for the `loop.tick` lifecycle event (Story #4287, Epic #4284).
@@ -46,7 +46,7 @@ function compileSchema() {
 
 /** Build a canonical ledger path under a throwaway temp root. */
 function makeLedger(epicId) {
-  const root = mkdtempSync(path.join(tmpdir(), 'loop-tick-'));
+  const root = makeTempDir('loop-tick-');
   return {
     root,
     ledgerPath: path.join(root, `run-${epicId}`, 'lifecycle.ndjson'),

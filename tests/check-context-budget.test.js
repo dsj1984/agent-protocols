@@ -1,7 +1,6 @@
 import assert from 'node:assert/strict';
 import { spawnSync } from 'node:child_process';
 import fs from 'node:fs';
-import os from 'node:os';
 import path from 'node:path';
 import { test } from 'node:test';
 import { fileURLToPath } from 'node:url';
@@ -17,6 +16,7 @@ import {
   renderReachable,
   runCli,
 } from '../.agents/scripts/check-context-budget.js';
+import { makeTempDir } from '../.agents/scripts/lib/test-temp.js';
 
 /**
  * Unit coverage for the context-budget ratchet (Story #4438).
@@ -45,7 +45,7 @@ function makeRepo({
   docsContextFiles = ['architecture.md'],
   withWorkflows = false,
 } = {}) {
-  const root = fs.mkdtempSync(path.join(os.tmpdir(), 'ctx-budget-'));
+  const root = makeTempDir('ctx-budget-');
   const write = (rel, body) => {
     const abs = path.join(root, rel);
     fs.mkdirSync(path.dirname(abs), { recursive: true });

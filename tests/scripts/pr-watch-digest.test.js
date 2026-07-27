@@ -9,11 +9,10 @@
  */
 
 import assert from 'node:assert/strict';
-import { mkdtempSync, readFileSync, rmSync } from 'node:fs';
-import { tmpdir } from 'node:os';
+import { readFileSync, rmSync } from 'node:fs';
 import path from 'node:path';
 import { describe, it } from 'node:test';
-
+import { makeTempDir } from '../../.agents/scripts/lib/test-temp.js';
 import {
   resolveDigestScope,
   writeCiDigest,
@@ -25,7 +24,7 @@ const FAILURES = [
 ];
 
 function withTempRoot(fn) {
-  const dir = mkdtempSync(path.join(tmpdir(), 'mandrel-digest-'));
+  const dir = makeTempDir('mandrel-digest-');
   try {
     return fn(dir);
   } finally {

@@ -13,7 +13,6 @@
 
 import assert from 'node:assert/strict';
 import fs from 'node:fs';
-import os from 'node:os';
 import path from 'node:path';
 import { afterEach, beforeEach, describe, it } from 'node:test';
 import {
@@ -25,6 +24,7 @@ import {
   STORY_FORM_RELATIVE_PATH,
 } from '../../.agents/scripts/lib/bootstrap/issue-forms-template.js';
 import { parse } from '../../.agents/scripts/lib/story-body/story-body.js';
+import { makeTempDir } from '../../.agents/scripts/lib/test-temp.js';
 
 describe('renderIssueForm — field set and labels', () => {
   it('exposes only the human intent subset (no machine-managed fields)', () => {
@@ -130,7 +130,7 @@ describe('ensureIssueForms — materialization', () => {
   let tmpRoot;
 
   beforeEach(() => {
-    tmpRoot = fs.mkdtempSync(path.join(os.tmpdir(), 'issue-forms-'));
+    tmpRoot = makeTempDir('issue-forms-');
   });
 
   afterEach(() => {

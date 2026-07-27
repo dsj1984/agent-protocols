@@ -17,10 +17,10 @@
 import assert from 'node:assert/strict';
 import { spawn } from 'node:child_process';
 import fs from 'node:fs';
-import os from 'node:os';
 import path from 'node:path';
 import test, { after } from 'node:test';
 import { fileURLToPath, pathToFileURL } from 'node:url';
+import { makeTempDir } from '../.agents/scripts/lib/test-temp.js';
 
 const __dirname = path.dirname(fileURLToPath(import.meta.url));
 const ROOT = path.resolve(__dirname, '..');
@@ -33,9 +33,7 @@ const CLI_UTILS = pathToFileURL(
 // against `path.resolve(process.argv[1])` (not resolved). Without it the
 // fixture is not recognised as a direct invocation and every assertion below
 // would pass vacuously against a CLI that never ran.
-const TMP = fs.realpathSync(
-  fs.mkdtempSync(path.join(os.tmpdir(), 'cli-exit-flush-')),
-);
+const TMP = fs.realpathSync(makeTempDir('cli-exit-flush-'));
 
 after(() => {
   fs.rmSync(TMP, { recursive: true, force: true });

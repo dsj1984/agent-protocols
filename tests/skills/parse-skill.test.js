@@ -6,11 +6,11 @@
 
 import assert from 'node:assert/strict';
 import fs from 'node:fs';
-import os from 'node:os';
 import path from 'node:path';
 import { afterEach, beforeEach, describe, it } from 'node:test';
 
 import { parseSkill } from '../../.agents/scripts/lib/skills/parse-skill.js';
+import { makeTempDir } from '../../.agents/scripts/lib/test-temp.js';
 
 const FIXTURE_ROOT = path.resolve(import.meta.dirname, 'fixtures');
 
@@ -50,7 +50,7 @@ function stageFixture(
 let tmpRoot;
 
 beforeEach(() => {
-  tmpRoot = fs.mkdtempSync(path.join(os.tmpdir(), 'parse-skill-'));
+  tmpRoot = makeTempDir('parse-skill-');
 });
 
 afterEach(() => {
@@ -89,10 +89,8 @@ describe('parseSkill — well-formed SKILL with Policy Capsule', () => {
   it('tolerates CRLF line endings without altering bullet count', () => {
     // Stage two isolated repo roots so both stagings can use the parent
     // directory name that matches the fixture's declared frontmatter name.
-    const lfRoot = fs.mkdtempSync(path.join(os.tmpdir(), 'parse-skill-lf-'));
-    const crlfRoot = fs.mkdtempSync(
-      path.join(os.tmpdir(), 'parse-skill-crlf-'),
-    );
+    const lfRoot = makeTempDir('parse-skill-lf-');
+    const crlfRoot = makeTempDir('parse-skill-crlf-');
     try {
       const lfPath = stageFixture(lfRoot, 'well-formed.md', {
         tier: 'core',

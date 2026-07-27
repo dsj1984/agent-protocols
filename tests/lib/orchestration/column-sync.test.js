@@ -1,13 +1,12 @@
 import assert from 'node:assert/strict';
 import fs from 'node:fs';
-import os from 'node:os';
-import path from 'node:path';
 import { afterEach, beforeEach, describe, it } from 'node:test';
 
 import {
   ColumnSync,
   columnForLabels,
 } from '../../../.agents/scripts/lib/orchestration/column-sync.js';
+import { makeTempDir } from '../../../.agents/scripts/lib/test-temp.js';
 
 // Story #4252 — ColumnSync now persists resolved board metadata to an
 // on-disk cache under the resolved `tempRoot`. Give every ColumnSync in this
@@ -18,7 +17,7 @@ import {
 let _testTempDir;
 let _testConfig;
 beforeEach(() => {
-  _testTempDir = fs.mkdtempSync(path.join(os.tmpdir(), 'mandrel-cs-cache-'));
+  _testTempDir = makeTempDir('mandrel-cs-cache-');
   _testConfig = { project: { paths: { tempRoot: _testTempDir } } };
 });
 afterEach(() => {

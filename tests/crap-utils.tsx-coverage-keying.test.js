@@ -1,9 +1,9 @@
 import assert from 'node:assert';
 import fs from 'node:fs';
-import os from 'node:os';
 import path from 'node:path';
 import { test } from 'node:test';
 import { scanAndScore } from '../.agents/scripts/lib/crap-utils.js';
+import { makeTempDir } from '../.agents/scripts/lib/test-temp.js';
 
 /**
  * Acceptance criterion (Story #829, 5.29.0): when scoring a `.tsx`
@@ -33,7 +33,7 @@ import { scanAndScore } from '../.agents/scripts/lib/crap-utils.js';
  */
 
 function mkTmp() {
-  return fs.mkdtempSync(path.join(os.tmpdir(), 'crap_tsx_'));
+  return makeTempDir('crap_tsx_');
 }
 
 function rmTmp(dir) {

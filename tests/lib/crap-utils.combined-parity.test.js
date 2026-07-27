@@ -1,6 +1,5 @@
 import assert from 'node:assert/strict';
 import fs from 'node:fs';
-import os from 'node:os';
 import path from 'node:path';
 import { afterEach, beforeEach, describe, it } from 'node:test';
 
@@ -10,6 +9,7 @@ import {
   scanAndScoreCombined,
 } from '../../.agents/scripts/lib/crap-utils.js';
 import { calculateAll } from '../../.agents/scripts/lib/maintainability-utils.js';
+import { makeTempDir } from '../../.agents/scripts/lib/test-temp.js';
 
 /**
  * Story #4192 — byte-identical parity proof for the combined single-pass
@@ -131,7 +131,7 @@ export function classify(x) {
   };
 
   beforeEach(() => {
-    tmpDir = fs.mkdtempSync(path.join(os.tmpdir(), 'crap-combined-parity-'));
+    tmpDir = makeTempDir('crap-combined-parity-');
     for (const [rel, contents] of Object.entries(FIXTURES)) {
       mkFixtureFile(tmpDir, rel, contents);
     }
@@ -429,7 +429,7 @@ describe('worker-pool parity on TypeScript — the remap survives the thread bou
   let targetDirs;
 
   beforeEach(() => {
-    tmpDir = fs.mkdtempSync(path.join(os.tmpdir(), 'crap-pool-ts-parity-'));
+    tmpDir = makeTempDir('crap-pool-ts-parity-');
     files = [];
     coverage = {};
     for (let i = 0; i < TS_FILE_COUNT; i += 1) {

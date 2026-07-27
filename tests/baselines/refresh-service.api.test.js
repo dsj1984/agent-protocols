@@ -10,13 +10,13 @@
  */
 
 import assert from 'node:assert/strict';
-import { mkdtempSync, readFileSync, rmSync } from 'node:fs';
-import { tmpdir } from 'node:os';
+import { readFileSync, rmSync } from 'node:fs';
 import path from 'node:path';
 import { afterEach, beforeEach, describe, it } from 'node:test';
 
 import * as refreshServiceModule from '../../.agents/scripts/lib/baselines/refresh-service.js';
 import { refreshBaseline } from '../../.agents/scripts/lib/baselines/refresh-service.js';
+import { makeTempDir } from '../../.agents/scripts/lib/test-temp.js';
 
 const FIXED = '2026-05-15T00:00:00Z';
 
@@ -42,7 +42,7 @@ describe('refreshBaseline — option-bag validation', () => {
   let workDir;
 
   beforeEach(() => {
-    workDir = mkdtempSync(path.join(tmpdir(), 'mandrel-refresh-api-'));
+    workDir = makeTempDir('mandrel-refresh-api-');
   });
 
   afterEach(() => {
@@ -126,7 +126,7 @@ describe('refreshBaseline — per-kind dispatch (Task #2203)', () => {
   let workDir;
 
   beforeEach(() => {
-    workDir = mkdtempSync(path.join(tmpdir(), 'mandrel-refresh-disp-'));
+    workDir = makeTempDir('mandrel-refresh-disp-');
   });
 
   afterEach(() => {
@@ -201,7 +201,7 @@ describe('refreshBaseline — path canonicalization (AC-7)', () => {
   let workDir;
 
   beforeEach(() => {
-    workDir = mkdtempSync(path.join(tmpdir(), 'mandrel-refresh-canon-'));
+    workDir = makeTempDir('mandrel-refresh-canon-');
   });
 
   afterEach(() => {

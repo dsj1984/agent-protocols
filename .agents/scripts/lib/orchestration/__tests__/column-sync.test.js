@@ -12,10 +12,9 @@
 
 import assert from 'node:assert/strict';
 import fs from 'node:fs';
-import os from 'node:os';
 import path from 'node:path';
 import { afterEach, beforeEach, describe, it } from 'node:test';
-
+import { makeTempDir } from '../../test-temp.js';
 import { ColumnSync } from '../column-sync.js';
 import {
   readProjectMetaCache,
@@ -35,7 +34,7 @@ const cachePathFor = (tmpDir) =>
  * path is honoured verbatim by the temp-paths anchor.
  */
 function makeTempConfig() {
-  const dir = fs.mkdtempSync(path.join(os.tmpdir(), 'mandrel-pmcache-'));
+  const dir = makeTempDir('mandrel-pmcache-');
   return { dir, config: { project: { paths: { tempRoot: dir } } } };
 }
 

@@ -21,10 +21,10 @@
 
 import assert from 'node:assert/strict';
 import fs from 'node:fs';
-import os from 'node:os';
 import path from 'node:path';
 import { afterEach, describe, it } from 'node:test';
 import { fileURLToPath } from 'node:url';
+import { makeTempDir } from '../../test-temp.js';
 import {
   _resetPersistenceLayerCache,
   hasPersistenceLayer,
@@ -38,7 +38,7 @@ const MANDREL_ROOT = path.resolve(__dirname, '..', '..', '..', '..', '..');
 
 /** Create a throwaway fixture repo root, applying `build(root)` to populate it. */
 function makeFixture(build) {
-  const root = fs.mkdtempSync(path.join(os.tmpdir(), 'data-model-probe-'));
+  const root = makeTempDir('data-model-probe-');
   build(root);
   return root;
 }

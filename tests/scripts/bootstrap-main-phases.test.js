@@ -20,7 +20,6 @@
 
 import assert from 'node:assert/strict';
 import fs from 'node:fs';
-import os from 'node:os';
 import path from 'node:path';
 import { afterEach, beforeEach, describe, it } from 'node:test';
 
@@ -32,6 +31,7 @@ import {
   prepareContext,
   runPipeline,
 } from '../../.agents/scripts/bootstrap.js';
+import { makeTempDir } from '../../.agents/scripts/lib/test-temp.js';
 
 describe('parseAndValidate', () => {
   it('halts with exit 0 and writes HELP when --help is passed', () => {
@@ -513,7 +513,7 @@ describe('collectAndConfirm — @-handle normalization (Story #3700)', () => {
 describe('persistProjectNumber — minimal write (Story #3700)', () => {
   let dir;
   beforeEach(() => {
-    dir = fs.mkdtempSync(path.join(os.tmpdir(), 'bootstrap-persist-'));
+    dir = makeTempDir('bootstrap-persist-');
   });
   afterEach(() => {
     fs.rmSync(dir, { recursive: true, force: true });

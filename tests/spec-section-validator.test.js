@@ -21,8 +21,7 @@
  */
 
 import assert from 'node:assert/strict';
-import { mkdtemp, rm, writeFile } from 'node:fs/promises';
-import { tmpdir } from 'node:os';
+import { rm, writeFile } from 'node:fs/promises';
 import { join } from 'node:path';
 import { afterEach, beforeEach, describe, it } from 'node:test';
 import {
@@ -31,6 +30,7 @@ import {
   validateSpecFile,
   validateSpecSections,
 } from '../.agents/scripts/lib/orchestration/spec-section-validator.js';
+import { makeTempDir } from '../.agents/scripts/lib/test-temp.js';
 
 const SPEC_WITH_SLICING = `# Tech Spec
 
@@ -139,7 +139,7 @@ describe('validateSpecFile — reads from disk', () => {
   let dir;
 
   beforeEach(async () => {
-    dir = await mkdtemp(join(tmpdir(), 'spec-section-validator-'));
+    dir = await makeTempDir('spec-section-validator-');
   });
 
   afterEach(async () => {

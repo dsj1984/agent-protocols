@@ -1,6 +1,5 @@
 import assert from 'node:assert/strict';
 import fs from 'node:fs';
-import os from 'node:os';
 import path from 'node:path';
 import { test } from 'node:test';
 import {
@@ -16,6 +15,7 @@ import {
   runCheck,
   SLASH_ALLOWLIST,
 } from '../.agents/scripts/check-doc-links.js';
+import { makeTempDir } from '../.agents/scripts/lib/test-temp.js';
 
 /**
  * Unit coverage for the doc-links / slash-command resolver.
@@ -28,7 +28,7 @@ import {
  */
 
 function makeFakeRepo() {
-  const root = fs.mkdtempSync(path.join(os.tmpdir(), 'check-doc-links-'));
+  const root = makeTempDir('check-doc-links-');
   fs.mkdirSync(path.join(root, 'docs'), { recursive: true });
   fs.mkdirSync(path.join(root, 'docs', 'archive'), { recursive: true });
   fs.mkdirSync(path.join(root, '.agents'), { recursive: true });
@@ -355,9 +355,7 @@ test('escapesPayload: unit contract for source scoping and the allowlist', () =>
 });
 
 test('runCheck: a consumer-shaped tree (only .agents/) scans clean', () => {
-  const root = fs.mkdtempSync(
-    path.join(os.tmpdir(), 'check-doc-links-consumer-'),
-  );
+  const root = makeTempDir('check-doc-links-consumer-');
   fs.mkdirSync(path.join(root, '.agents', 'workflows'), { recursive: true });
   write(root, '.agents/workflows/plan.md', '# plan\n');
   write(

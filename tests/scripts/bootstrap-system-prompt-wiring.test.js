@@ -16,7 +16,6 @@
 
 import assert from 'node:assert/strict';
 import fs from 'node:fs';
-import os from 'node:os';
 import path from 'node:path';
 import { afterEach, beforeEach, describe, it } from 'node:test';
 
@@ -27,6 +26,7 @@ import {
   ensureSystemPromptWiring,
   SYSTEM_PROMPT_IMPORT,
 } from '../../.agents/scripts/lib/bootstrap/project-bootstrap.js';
+import { makeTempDir } from '../../.agents/scripts/lib/test-temp.js';
 
 let tmpRoot;
 
@@ -44,7 +44,7 @@ function countOccurrences(haystack, needle) {
 }
 
 beforeEach(() => {
-  tmpRoot = fs.mkdtempSync(path.join(os.tmpdir(), 'system-prompt-wiring-'));
+  tmpRoot = makeTempDir('system-prompt-wiring-');
 });
 
 afterEach(() => {

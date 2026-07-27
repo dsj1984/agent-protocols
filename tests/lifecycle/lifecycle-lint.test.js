@@ -1,7 +1,6 @@
 // tests/lifecycle/lifecycle-lint.test.js
 import assert from 'node:assert/strict';
-import { mkdirSync, mkdtempSync, rmSync, writeFileSync } from 'node:fs';
-import { tmpdir } from 'node:os';
+import { mkdirSync, rmSync, writeFileSync } from 'node:fs';
 import path from 'node:path';
 import { afterEach, beforeEach, describe, it } from 'node:test';
 
@@ -9,11 +8,12 @@ import {
   findPromiseAllViolations,
   findWildcardObserverFirewallViolations,
 } from '../../.agents/scripts/check-lifecycle-lint.js';
+import { makeTempDir } from '../../.agents/scripts/lib/test-temp.js';
 
 describe('lifecycle-lint/rule-1-no-promise-all', () => {
   let dir;
   beforeEach(() => {
-    dir = mkdtempSync(path.join(tmpdir(), 'mandrel-lint-1-'));
+    dir = makeTempDir('mandrel-lint-1-');
   });
   afterEach(() => {
     rmSync(dir, { recursive: true, force: true });
@@ -71,7 +71,7 @@ async function emit(event, payload) {
 describe('lifecycle-lint/rule-2-wildcard-firewall', () => {
   let dir;
   beforeEach(() => {
-    dir = mkdtempSync(path.join(tmpdir(), 'mandrel-lint-2-'));
+    dir = makeTempDir('mandrel-lint-2-');
   });
   afterEach(() => {
     rmSync(dir, { recursive: true, force: true });

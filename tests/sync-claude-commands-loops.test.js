@@ -32,10 +32,10 @@
 import assert from 'node:assert/strict';
 import { spawnSync } from 'node:child_process';
 import fs from 'node:fs';
-import os from 'node:os';
 import path from 'node:path';
 import test from 'node:test';
 import { fileURLToPath } from 'node:url';
+import { makeTempDir } from '../.agents/scripts/lib/test-temp.js';
 
 const __dirname = path.dirname(fileURLToPath(import.meta.url));
 const PROJECT_ROOT = path.resolve(__dirname, '..');
@@ -68,7 +68,7 @@ const namespacedCommand = (name) => `/loops:${name}`;
  * map keyed by the destination-relative path (`loops/foo.md`, `plan.md`).
  */
 function runSyncIsolated({ payloadFiles = {}, existingDest = {} } = {}) {
-  const tmp = fs.mkdtempSync(path.join(os.tmpdir(), 'sync-loops-test-'));
+  const tmp = makeTempDir('sync-loops-test-');
 
   const payloadSrc = path.join(tmp, 'workflows');
   fs.mkdirSync(payloadSrc, { recursive: true });
@@ -290,7 +290,7 @@ test('AC4: a loop unit and a flat top-level command of the same basename coexist
 // ---------------------------------------------------------------------------
 
 test('AC5: removing a loop unit reaps loops/<name>.md without touching flat commands', () => {
-  const tmp = fs.mkdtempSync(path.join(os.tmpdir(), 'sync-loops-reap-'));
+  const tmp = makeTempDir('sync-loops-reap-');
   try {
     const payloadSrc = path.join(tmp, 'workflows');
     fs.mkdirSync(path.join(payloadSrc, 'loops'), { recursive: true });

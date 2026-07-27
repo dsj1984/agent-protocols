@@ -1,9 +1,9 @@
 import assert from 'node:assert';
 import fs from 'node:fs';
-import os from 'node:os';
 import path from 'node:path';
 import { test } from 'node:test';
 import { scanDirectory } from '../.agents/scripts/lib/maintainability-utils.js';
+import { makeTempDir } from '../.agents/scripts/lib/test-temp.js';
 
 /**
  * Acceptance criterion (Story #829, 5.29.0): `coverage/` and `.next/`
@@ -14,7 +14,7 @@ import { scanDirectory } from '../.agents/scripts/lib/maintainability-utils.js';
  */
 
 function mkTmp() {
-  return fs.mkdtempSync(path.join(os.tmpdir(), 'mi_ignore_'));
+  return makeTempDir('mi_ignore_');
 }
 
 function rmTmp(dir) {

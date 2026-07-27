@@ -18,10 +18,10 @@
 import assert from 'node:assert/strict';
 import { spawnSync } from 'node:child_process';
 import fs from 'node:fs';
-import os from 'node:os';
 import path from 'node:path';
 import test from 'node:test';
 import { fileURLToPath } from 'node:url';
+import { makeTempDir } from '../.agents/scripts/lib/test-temp.js';
 
 const __dirname = path.dirname(fileURLToPath(import.meta.url));
 const PROJECT_ROOT = path.resolve(__dirname, '..');
@@ -52,7 +52,7 @@ function runSyncIsolated({
   localFiles = {},
   existingDest = {},
 } = {}) {
-  const tmp = fs.mkdtempSync(path.join(os.tmpdir(), 'sync-local-test-'));
+  const tmp = makeTempDir('sync-local-test-');
 
   // Payload source (overridden via SYNC_CLAUDE_COMMANDS_SRC)
   const payloadSrc = path.join(tmp, 'workflows');
@@ -141,7 +141,7 @@ test('AC1: .agents/local/workflows/foo.md projects to .claude/commands/foo.md', 
 // ---------------------------------------------------------------------------
 
 test('AC2: local command survives a second sync run (prune-exempt)', () => {
-  const tmp = fs.mkdtempSync(path.join(os.tmpdir(), 'sync-local-survive-'));
+  const tmp = makeTempDir('sync-local-survive-');
   try {
     const payloadSrc = path.join(tmp, 'workflows');
     fs.mkdirSync(payloadSrc, { recursive: true });
@@ -240,7 +240,7 @@ test('AC3: payload command wins when local has same basename; shadowed warning e
 // ---------------------------------------------------------------------------
 
 test('AC4: removing .agents/local/workflows/foo.md reaps .claude/commands/foo.md on next sync', () => {
-  const tmp = fs.mkdtempSync(path.join(os.tmpdir(), 'sync-local-reap-'));
+  const tmp = makeTempDir('sync-local-reap-');
   try {
     const payloadSrc = path.join(tmp, 'workflows');
     fs.mkdirSync(payloadSrc, { recursive: true });

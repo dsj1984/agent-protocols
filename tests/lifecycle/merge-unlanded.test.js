@@ -14,8 +14,7 @@
  */
 
 import { strict as assert } from 'node:assert';
-import { mkdtempSync, readFileSync, rmSync } from 'node:fs';
-import { tmpdir } from 'node:os';
+import { readFileSync, rmSync } from 'node:fs';
 import path from 'node:path';
 import { afterEach, describe, it } from 'node:test';
 import { fileURLToPath } from 'node:url';
@@ -24,6 +23,7 @@ import Ajv2020 from 'ajv/dist/2020.js';
 import addFormats from 'ajv-formats';
 import { storyLedgerPath } from '../../.agents/scripts/lib/config/temp-paths.js';
 import { emitMergeUnlanded } from '../../.agents/scripts/lib/orchestration/lifecycle/emit-merge-unlanded.js';
+import { makeTempDir } from '../../.agents/scripts/lib/test-temp.js';
 
 const __dirname = path.dirname(fileURLToPath(import.meta.url));
 const SCHEMA_PATH = path.resolve(
@@ -125,7 +125,7 @@ describe('lifecycle/emit-merge-unlanded', () => {
   });
 
   it('scope:"story" resolves the story-scope ledger destination and round-trips through it (not only via injected fakes)', () => {
-    const root = mkdtempSync(path.join(tmpdir(), 'merge-unlanded-story-'));
+    const root = makeTempDir('merge-unlanded-story-');
     roots.push(root);
     const config = { project: { paths: { tempRoot: root } } };
 
@@ -177,7 +177,7 @@ describe('lifecycle/emit-merge-unlanded', () => {
   });
 
   it('rejects an invalid blockClass before writing anything to disk', () => {
-    const root = mkdtempSync(path.join(tmpdir(), 'merge-unlanded-invalid-'));
+    const root = makeTempDir('merge-unlanded-invalid-');
     roots.push(root);
     const config = { project: { paths: { tempRoot: root } } };
 

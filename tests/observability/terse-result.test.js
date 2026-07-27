@@ -9,11 +9,10 @@
 
 import assert from 'node:assert/strict';
 import nodeFs from 'node:fs';
-import nodeOs from 'node:os';
-import path from 'node:path';
 import { afterEach, beforeEach, describe, it } from 'node:test';
 
 import { emitTerseResult } from '../../.agents/scripts/lib/observability/terse-result.js';
+import { makeTempDir } from '../../.agents/scripts/lib/test-temp.js';
 
 /** The env var that restores the legacy inline pretty dump (module-private). */
 const RESULT_DETAIL_ENV = 'MANDREL_RESULT_DETAIL';
@@ -36,7 +35,7 @@ describe('emitTerseResult', () => {
   let tmpDir;
 
   beforeEach(() => {
-    tmpDir = nodeFs.mkdtempSync(path.join(nodeOs.tmpdir(), 'terse-result-'));
+    tmpDir = makeTempDir('terse-result-');
   });
 
   afterEach(() => {

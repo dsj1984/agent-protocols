@@ -1,6 +1,5 @@
 import assert from 'node:assert/strict';
 import fs from 'node:fs';
-import { tmpdir } from 'node:os';
 import path from 'node:path';
 import { after, before, describe, it } from 'node:test';
 
@@ -8,6 +7,7 @@ import {
   __testing,
   runAuditToStories,
 } from '../../.agents/scripts/audit-to-stories.js';
+import { makeTempDir } from '../../.agents/scripts/lib/test-temp.js';
 
 /**
  * Story #4780, AC-6 — `buildPlan` scored CRAP 110 despite 21 audit-to-stories
@@ -32,7 +32,7 @@ let reportGlob;
 let emptyGlob;
 
 before(() => {
-  workspace = fs.mkdtempSync(path.join(tmpdir(), 'audit-build-plan-'));
+  workspace = makeTempDir('audit-build-plan-');
   const reports = path.join(workspace, 'audits');
   fs.mkdirSync(reports, { recursive: true });
   for (const name of fs.readdirSync(FIXTURES)) {

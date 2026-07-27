@@ -15,12 +15,12 @@
 import assert from 'node:assert/strict';
 import { spawnSync } from 'node:child_process';
 import fs from 'node:fs';
-import os from 'node:os';
 import path from 'node:path';
 import { after, before, describe, it } from 'node:test';
 import { fileURLToPath } from 'node:url';
 
 import { renderDecomposerSystemPrompt } from '../.agents/scripts/lib/templates/decomposer-prompts.js';
+import { makeTempDir } from '../.agents/scripts/lib/test-temp.js';
 import {
   collectRepoPackages,
   evaluateCriticArtifacts,
@@ -284,7 +284,7 @@ describe('plan-critics.js CLI — verdict contract', () => {
   }
 
   before(() => {
-    fixtureDir = fs.mkdtempSync(path.join(os.tmpdir(), 'plan-critics-'));
+    fixtureDir = makeTempDir('plan-critics-');
     // An absolute tempRoot inside the fixture dir keeps every ledger write
     // this suite makes out of the real checkout's temp/ (the shared-cache
     // poisoning class that blocked Story #4555).
@@ -393,7 +393,7 @@ describe('plan-critics.js CLI — verdict contract', () => {
 
 describe('plan-critics.js — repo manifest package collection (#4700)', () => {
   it('returns [] when the root has no package.json', async () => {
-    const empty = fs.mkdtempSync(path.join(os.tmpdir(), 'plan-critics-nopkg-'));
+    const empty = makeTempDir('plan-critics-nopkg-');
     try {
       assert.deepEqual(await collectRepoPackages({ rootDir: empty }), []);
     } finally {
@@ -402,7 +402,7 @@ describe('plan-critics.js — repo manifest package collection (#4700)', () => {
   });
 
   it('collects the own name and every dependency map', async () => {
-    const root = fs.mkdtempSync(path.join(os.tmpdir(), 'plan-critics-deps-'));
+    const root = makeTempDir('plan-critics-deps-');
     try {
       fs.writeFileSync(
         path.join(root, 'package.json'),
@@ -431,7 +431,7 @@ describe('plan-critics.js — repo manifest package collection (#4700)', () => {
 
   it('resolves a `dir/*` workspace glob one level down', async () => {
     // Fresh root so the glob resolution is the only source of names.
-    const glob = fs.mkdtempSync(path.join(os.tmpdir(), 'plan-critics-ws-'));
+    const glob = makeTempDir('plan-critics-ws-');
     try {
       fs.writeFileSync(
         path.join(glob, 'package.json'),
@@ -450,7 +450,7 @@ describe('plan-critics.js — repo manifest package collection (#4700)', () => {
   });
 
   it('resolves a literal workspace path and its `{ packages: [] }` shape', async () => {
-    const lit = fs.mkdtempSync(path.join(os.tmpdir(), 'plan-critics-lit-'));
+    const lit = makeTempDir('plan-critics-lit-');
     try {
       fs.writeFileSync(
         path.join(lit, 'package.json'),
@@ -476,7 +476,7 @@ describe('plan-critics.js — artifact loading + skip ledger', () => {
   let dir;
 
   before(() => {
-    dir = fs.mkdtempSync(path.join(os.tmpdir(), 'plan-critics-unit-'));
+    dir = makeTempDir('plan-critics-unit-');
   });
 
   after(() => {

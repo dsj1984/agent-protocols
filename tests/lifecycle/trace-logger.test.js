@@ -1,7 +1,6 @@
 // tests/lifecycle/trace-logger.test.js
 import assert from 'node:assert/strict';
-import { mkdtempSync, readFileSync, rmSync, writeFileSync } from 'node:fs';
-import { tmpdir } from 'node:os';
+import { readFileSync, rmSync, writeFileSync } from 'node:fs';
 import path from 'node:path';
 import { describe, it } from 'node:test';
 
@@ -12,6 +11,7 @@ import {
   render,
   TraceLogger,
 } from '../../.agents/scripts/lib/orchestration/lifecycle/trace-logger.js';
+import { makeTempDir } from '../../.agents/scripts/lib/test-temp.js';
 
 // `story.dispatch.*` and `pr.created` are GENERIC FIXTURE EVENTS here — the
 // tests exercise render()/parseLedger(), not dispatch or PR semantics. The
@@ -137,7 +137,7 @@ describe('lifecycle/trace-logger', () => {
   });
 
   it('TraceLogger.rerender() writes the companion next to the ledger', async () => {
-    const dir = mkdtempSync(path.join(tmpdir(), 'mandrel-trace-'));
+    const dir = makeTempDir('mandrel-trace-');
     try {
       const bus = new Bus();
       const writer = new LedgerWriter({ epicId: 99, tempRoot: dir });
@@ -158,7 +158,7 @@ describe('lifecycle/trace-logger', () => {
   });
 
   it('TraceLogger.rerender() is a no-op when the ledger does not yet exist', () => {
-    const dir = mkdtempSync(path.join(tmpdir(), 'mandrel-trace-'));
+    const dir = makeTempDir('mandrel-trace-');
     try {
       const tracer = new TraceLogger({
         ledgerPath: path.join(dir, 'no-such.ndjson'),
@@ -180,7 +180,7 @@ describe('lifecycle/trace-logger', () => {
     // Validate the contract that re-rendering produces a byte-identical
     // result regardless of any human edits to the companion: the function
     // ignores companionPath entirely and always re-projects from ledger.
-    const dir = mkdtempSync(path.join(tmpdir(), 'mandrel-trace-'));
+    const dir = makeTempDir('mandrel-trace-');
     try {
       const ledgerPath = path.join(dir, 'lifecycle.ndjson');
       writeFileSync(
@@ -202,7 +202,7 @@ describe('lifecycle/trace-logger', () => {
   });
 
   it('A throwing rerender does not propagate out of the bus emit', async () => {
-    const dir = mkdtempSync(path.join(tmpdir(), 'mandrel-trace-'));
+    const dir = makeTempDir('mandrel-trace-');
     const originalStderrWrite = process.stderr.write;
     const stderrChunks = [];
     try {
