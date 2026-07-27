@@ -349,13 +349,13 @@ as absolute authored-token constants on `DEFAULT_MODEL_CAPACITY` in
 envelope, and cohesion / split policy / conflict advisories are the primary
 sizing signal.
 
-There is no snapshot knob to tune: Story #4811 retired `codebaseSnapshot`
-outright. Spec authoring is grounded by the author's own targeted repo
+There is no snapshot knob to tune: Story #4811 retired the structural-snapshot
+block outright. Spec authoring is grounded by the author's own targeted repo
 retrieval plus the Phase 8 `validateStoryFileAssumptions` gate, which probes
 every authored `{path, assumption}` against the real tree as a hard error — a
 pre-computed inventory added a second, staler answer to the same question.
-A config still carrying the key is a hard validation failure; the
-`2.20.0-retire-codebase-snapshot` migration strips it on upgrade.
+A config still carrying the retired key is a hard validation failure; the
+2.20.0 retirement migration strips it on upgrade.
 
 - **`complexityGate`.** Shape-derived ceremony-lite routing (Story #4722,
   superseding the word-count gate of Stories #4683/#4707). The full ceremony

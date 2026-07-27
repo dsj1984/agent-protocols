@@ -249,14 +249,14 @@ const GITHUB_SCHEMA = {
 // rejected as an additional property, so a resurrected key fails loudly rather
 // than silently doing nothing.
 
-// Story #4811: `planning.codebaseSnapshot` was retired along with the
-// snapshot itself. The pre-computed structural view it configured grounded
+// Story #4811: the `planning` block's structural-snapshot key was retired
+// along with the snapshot itself. The pre-computed view it configured grounded
 // nothing — its default include globs missed the standard monorepo layout, and
 // its knobs only re-filtered the same matched set. Spec authoring is grounded
 // by the author's own targeted repo retrieval plus the Phase 8
 // `validateStoryFileAssumptions` gate, neither of which is configurable here.
 // `planning` carries `additionalProperties: false`, so a resurrected key fails
-// loudly; `2.20.0-retire-codebase-snapshot.js` strips it on upgrade.
+// loudly; the 2.20.0 retirement migration strips it on upgrade.
 
 const PLANNING_SCHEMA = {
   type: 'object',
