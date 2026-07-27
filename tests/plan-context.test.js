@@ -143,7 +143,6 @@ function buildProvider({
 const SEED_MODE_KEYS = [
   'bddRunner',
   'bddScenarios',
-  'codebaseSnapshot',
   'complexitySignals',
   'docsContext',
   'duplicates',
@@ -162,7 +161,6 @@ const SEED_MODE_KEYS = [
 const SEED_FILE_MODE_KEYS = [
   'bddRunner',
   'bddScenarios',
-  'codebaseSnapshot',
   'complexitySignals',
   'docsContext',
   'duplicates',
@@ -1313,7 +1311,6 @@ describe('plan-context amends mode — delta envelope (Story #4741 AC-4)', () =>
     // The whole point of R3-A: none of the heavy authoring-context repo probes
     // ride the amendment envelope — the prior artifacts stand in for them.
     for (const heavy of [
-      'codebaseSnapshot',
       'bddRunner',
       'bddScenarios',
       'memoryFreshness',

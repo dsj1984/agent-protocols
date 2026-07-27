@@ -60,11 +60,10 @@ export const MAINTAINABILITY_EXCLUSIONS = Object.freeze(
     // the audit-to-stories parser reuses the same regex-property scan
     // patterns as acceptance-spec-reconciler.
     '.agents/scripts/lib/audit-to-stories/parse-audit-md.js',
-    // escomplex: same "pattern" parse failure family — BDD scanner and
-    // codebase snapshot helpers walk source trees with regex visitors that
-    // hit the upstream destructuring bug.
+    // escomplex: same "pattern" parse failure family — the BDD scanner walks
+    // source trees with regex visitors that hit the upstream destructuring
+    // bug.
     '.agents/scripts/lib/bdd-scenario-scanner.js',
-    '.agents/scripts/lib/codebase-snapshot.js',
     // escomplex: same "pattern" parse failure — the wave-runner tick uses
     // the regex-property destructuring escomplex chokes on.
     '.agents/scripts/lib/wave-runner/tick.js',

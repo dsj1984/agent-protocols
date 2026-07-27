@@ -249,35 +249,19 @@ const GITHUB_SCHEMA = {
 // rejected as an additional property, so a resurrected key fails loudly rather
 // than silently doing nothing.
 
-/**
- * Story #2634 — `planning.codebaseSnapshot` controls the structural
- * view of the consumer repo threaded into `/plan` Phase 7 spec
- * authoring. Absent / partial entries resolve to defaults inside
- * `lib/codebase-snapshot.js#resolveSnapshotConfig` — the schema only
- * enforces shape (correct enum value, well-formed glob arrays).
- */
-const CODEBASE_SNAPSHOT_SCHEMA = {
-  type: 'object',
-  properties: {
-    tier: { type: 'string', enum: ['skinny', 'medium'] },
-    include: {
-      type: 'array',
-      items: { type: 'string', minLength: 1 },
-    },
-    exclude: {
-      type: 'array',
-      items: { type: 'string', minLength: 1 },
-    },
-    recentCommitWindow: { type: 'integer', minimum: 1 },
-  },
-  additionalProperties: false,
-};
+// Story #4811: `planning.codebaseSnapshot` was retired along with the
+// snapshot itself. The pre-computed structural view it configured grounded
+// nothing — its default include globs missed the standard monorepo layout, and
+// its knobs only re-filtered the same matched set. Spec authoring is grounded
+// by the author's own targeted repo retrieval plus the Phase 8
+// `validateStoryFileAssumptions` gate, neither of which is configurable here.
+// `planning` carries `additionalProperties: false`, so a resurrected key fails
+// loudly; `2.20.0-retire-codebase-snapshot.js` strips it on upgrade.
 
 const PLANNING_SCHEMA = {
   type: 'object',
   properties: {
     riskHeuristics: LIST_OR_EXTENDER_OF_STRINGS,
-    codebaseSnapshot: CODEBASE_SNAPSHOT_SCHEMA,
     // Story #4722 (superseding #4683's word-count gate) — shape-derived
     // ceremony-lite routing. Complexity routes on the objective shape of the
     // authored work (changes[] count, acceptance count, creates-vs-refactors

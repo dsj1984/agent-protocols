@@ -42,8 +42,8 @@ On a confirmed `deliverLightSuggestion`, `/plan` routes into
 [`deliver-light.md`](deliver-light.md) **without ending the session**. Two
 things make that safe, and both are worth understanding before changing it:
 
-1. **The handoff carries the envelope, not the seed.** Gate #1 already holds a
-   codebase snapshot and `complexitySignals`; fill the light gate's `--creates`
+1. **The handoff carries the envelope, not the seed.** Gate #1 already holds
+   the interrogated `complexitySignals`; fill the light gate's `--creates`
    / `--refactors` / `--acceptance` / `--reason` from those. Re-deriving from
    raw seed text throws away the better signal and can disagree with the
    suggestion that routed you.
@@ -135,8 +135,8 @@ ceilings on `STORY_SHAPE_CEILINGS` in
 ## Correct-by-construction authoring template
 
 `plan-context.js --out` writes `stories.template.json` as a
-**correct-by-construction** skeleton, built from the same repo snapshot the
-`complexitySignals` probed:
+**correct-by-construction** skeleton, built from the same repo probe the
+`complexitySignals` ran:
 
 - **`verify[]` placeholders already end with a valid `(tier)` tag.** Keep
   every filled entry's trailing tag one of `(unit)` / `(contract)` /
@@ -160,6 +160,21 @@ ceilings on `STORY_SHAPE_CEILINGS` in
 A faithfully-filled skeleton — placeholders replaced, pre-resolved entries
 kept, tags valid — passes the persist ticket validators with no
 round-trip.
+
+### Authored entry shape
+
+Each `stories.json` entry: `slug` (`^[a-z0-9][a-z0-9-]*$`), `type: "story"`,
+`title`, `body` (`goal`, optional `spec`, `changes[{path, assumption}]` —
+`creates|refactors-existing|deletes`, `non_goals`, `reason_to_exist`),
+top-level `acceptance[]`, `verify[]` (`… (unit|contract|e2e|validate)`), and
+`depends_on[]` (N>1 only).
+
+Nothing in that shape inventories the repo for the author. `changes[]` arrives
+pre-resolved against the working tree, and Phase 8's
+`validateStoryFileAssumptions` re-probes every `{path, assumption}` at persist
+as a hard error — so the grounding contract is the author's own targeted reads
+plus that gate. There is no pre-computed codebase snapshot to fall back on,
+and no manifest-derived replacement to build.
 
 ## Tickets mode — authoring `supersedes[]`
 

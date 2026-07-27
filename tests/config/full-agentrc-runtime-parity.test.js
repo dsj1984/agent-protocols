@@ -13,7 +13,6 @@
 
 import assert from 'node:assert/strict';
 import { describe, it } from 'node:test';
-import { CODEBASE_SNAPSHOT_TIERS } from '../../.agents/scripts/lib/codebase-snapshot.js';
 import { ACCEPTANCE_EVAL_DEFAULTS } from '../../.agents/scripts/lib/config/acceptance-eval.js';
 import { CI_DELIVERY_DEFAULTS } from '../../.agents/scripts/lib/config/ci.js';
 import { COMMANDS_DEFAULTS } from '../../.agents/scripts/lib/config/commands.js';
@@ -51,7 +50,6 @@ const AGENT_READ_ONLY_PREFIXES = Object.freeze([
   'project.docsContextFiles',
   'project.baseBranch',
   'planning.riskHeuristics',
-  'planning.codebaseSnapshot',
   'planning.failOn',
   'planning.requireExplicitCrossStoryDeps',
   'planning.navigation',
@@ -120,10 +118,8 @@ describe('full-agentrc-runtime-parity', () => {
     ]);
   });
 
-  it('planning.codebaseSnapshot.tier is a known CODEBASE_SNAPSHOT_TIERS value', () => {
-    assert.ok(
-      CODEBASE_SNAPSHOT_TIERS.includes(ref.planning.codebaseSnapshot.tier),
-    );
+  it('omits planning.codebaseSnapshot (retired — Story #4811)', () => {
+    assert.equal(ref.planning.codebaseSnapshot, undefined);
   });
 
   it('omits delivery.maxTokenBudget (retired envelope)', () => {

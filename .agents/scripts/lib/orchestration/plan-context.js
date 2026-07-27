@@ -48,15 +48,16 @@ const SOURCE_TICKET_FETCH_CONCURRENCY = 4;
  * body and ship the raw seed on `seed.content` instead — the budget bounded
  * a field that never left the function.
  *
- * The envelope's bounded parts are: the tier-capped codebase snapshot
- * (~35 KB skinny on this repo), the three rendered system prompts (~15 KB),
- * and the digest-first `docsContext` (outline-only, or inline digest in
- * one-pager/seed mode). The seed itself is operator-supplied and carried
- * verbatim. Measured folded envelopes on this repo land at ~42 KB; 256 KB
- * (~64K tokens at the ≈4-chars/token estimate) gives >2× headroom over a
- * worst-case seed + medium-tier snapshot while staying an order of magnitude
- * under the session budget. The test suite asserts serialized envelopes stay
- * under this value — raise it only with a measured justification.
+ * A measured seed-mode envelope on this repo is ~120 KB, dominated by the
+ * digest-first `docsContext` (~63 KB inline digest) and the rendered
+ * `systemPrompts` (~54 KB); every other field is under 1 KB. Story #4811
+ * retired the tier-capped codebase snapshot that used to sit alongside them
+ * (~35 KB skinny here). The seed itself is operator-supplied, carried
+ * verbatim, and is the only unbounded contributor. 256 KB (~64K tokens at the
+ * ≈4-chars/token estimate) leaves roughly 2× headroom over that measurement
+ * while staying well under the session budget. The test suite asserts
+ * serialized envelopes stay under this value — raise it only with a measured
+ * justification.
  */
 export const PLAN_CONTEXT_ENVELOPE_BYTE_CEILING = 256_000;
 
@@ -112,9 +113,9 @@ function assertPlanContextWithinCeiling(envelope, opts = {}) {
     `[plan-context] the assembled "${envelope?.mode}" envelope is ` +
       `${Math.round(bytes / 1024)} KB, over the ` +
       `${Math.round(ceiling / 1024)} KB planner-context ceiling. Largest ` +
-      `fields: ${largest}. Trim the seed, plan fewer --tickets source issues ` +
-      'in one run, or narrow `planning.codebaseSnapshot`. Raising the ceiling ' +
-      'needs a measured justification — see PLAN_CONTEXT_ENVELOPE_BYTE_CEILING.',
+      `fields: ${largest}. Trim the seed, or plan fewer --tickets source ` +
+      'issues in one run. Raising the ceiling needs a measured ' +
+      'justification — see PLAN_CONTEXT_ENVELOPE_BYTE_CEILING.',
   );
 }
 
@@ -890,7 +891,6 @@ async function buildSeedFileModeEnvelope({
     ),
     duplicates,
     docsContext,
-    codebaseSnapshot: authoring.codebaseSnapshot,
     bddRunner: authoring.bddRunner,
     bddScenarios: authoring.bddScenarios,
     memoryFreshness: authoring.memoryFreshness,
@@ -1052,7 +1052,6 @@ async function buildTicketsModeEnvelope({
     ),
     duplicates,
     docsContext,
-    codebaseSnapshot: authoring.codebaseSnapshot,
     bddRunner: authoring.bddRunner,
     bddScenarios: authoring.bddScenarios,
     memoryFreshness: authoring.memoryFreshness,

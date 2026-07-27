@@ -298,6 +298,30 @@ describe('planning.* shape', () => {
       /additional propert/i,
     );
   });
+
+  it('rejects the retired planning.codebaseSnapshot block (Story #4811)', () => {
+    // The pre-computed structural view is gone: its default include globs
+    // missed the standard monorepo layout, and its knobs only re-filtered the
+    // same matched set. Spec authoring is grounded by the author's own
+    // targeted retrieval plus the Phase 8 file-assumption gate — neither
+    // configurable. `additionalProperties: false` on the planning block
+    // rejects the retired key (the 2.20.0-retire-codebase-snapshot migration
+    // strips it on consumer upgrade).
+    expectErrors(
+      {
+        ...REQ,
+        planning: { codebaseSnapshot: { tier: 'skinny' } },
+      },
+      /additional propert/i,
+    );
+    expectErrors(
+      {
+        ...REQ,
+        planning: { codebaseSnapshot: { include: ['src/**'] } },
+      },
+      /additional propert/i,
+    );
+  });
 });
 
 describe('delivery.* shape', () => {

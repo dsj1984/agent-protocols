@@ -324,9 +324,6 @@
         "riskHeuristics": {
           "$ref": "#/$defs/listOrExtenderOfStrings"
         },
-        "codebaseSnapshot": {
-          "$ref": "#/$defs/codebaseSnapshot"
-        },
         "complexityGate": {
           "type": "object",
           "description": "Shape-derived ceremony-lite complexity routing. A lite claim is validated against the authored Story shape at persist and re-derived from the Story body at dispatch; conservative (full on any doubt). Never relaxes the Story-ticket / PR-to-main / repo-gates / security-baseline non-negotiables.",
@@ -388,34 +385,6 @@
             }
           },
           "additionalProperties": false
-        }
-      },
-      "additionalProperties": false
-    },
-    "codebaseSnapshot": {
-      "type": "object",
-      "properties": {
-        "tier": {
-          "type": "string",
-          "enum": ["skinny", "medium"]
-        },
-        "include": {
-          "type": "array",
-          "items": {
-            "type": "string",
-            "minLength": 1
-          }
-        },
-        "exclude": {
-          "type": "array",
-          "items": {
-            "type": "string",
-            "minLength": 1
-          }
-        },
-        "recentCommitWindow": {
-          "type": "integer",
-          "minimum": 1
         }
       },
       "additionalProperties": false

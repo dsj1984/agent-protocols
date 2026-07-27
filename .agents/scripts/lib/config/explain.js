@@ -114,14 +114,6 @@ const KEY_MEANINGS = Object.freeze({
     'Allowlist of events that fire a webhook notification.',
 
   // planning.*
-  'planning.codebaseSnapshot.tier':
-    'Depth of the structural codebase view threaded into spec authoring.',
-  'planning.codebaseSnapshot.include':
-    'Glob patterns included in the codebase snapshot.',
-  'planning.codebaseSnapshot.exclude':
-    'Glob patterns excluded from the codebase snapshot.',
-  'planning.codebaseSnapshot.recentCommitWindow':
-    'How many recent commits the snapshot summarizes.',
   'planning.riskHeuristics':
     'Phrases that flag a Story as high-risk for HITL escalation.',
   'planning.failOnSharedEditors':

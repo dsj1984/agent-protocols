@@ -60,8 +60,10 @@ import { isObjectPathEntry } from './task-body-validator.js';
 /**
  * Default git probe — returns `true` when `path` exists at
  * `baseBranchRef`. Mirrors the existence check used by
- * {@link ./ticket-validator.js#validateAcFreshness} and
- * {@link ./spec-freshness.js} so all three gates share semantics.
+ * {@link ./ticket-validator.js#validateAcFreshness} so both gates share
+ * semantics. (Story #4811 deleted the third sharer, `spec-freshness.js`,
+ * along with the codebase snapshot it grounded; this gate — Phase 8 — is
+ * now the grounding gate and its behaviour is unchanged.)
  *
  * @param {{ baseBranchRef: string, path: string, cwd?: string }} opts
  * @returns {boolean}

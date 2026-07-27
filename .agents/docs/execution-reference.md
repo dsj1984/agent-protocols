@@ -96,12 +96,15 @@ over-ceiling envelope or an over-budget Story count.
 - **`PLAN_CONTEXT_ENVELOPE_BYTE_CEILING`** (`lib/orchestration/plan-context.js`):
   256 KB (≈64K tokens at the ≈4-chars/token estimate) on the serialized
   envelope `buildPlanContext` assembles, checked at the single choke point
-  every mode returns through. Measured envelopes on this repo land at ~42 KB,
-  so the ceiling is >2× headroom over a worst-case seed plus a medium-tier
-  codebase snapshot.
+  every mode returns through. A measured seed-mode envelope on this repo is
+  ~120 KB — `docsContext` (~63 KB) and `systemPrompts` (~54 KB) are the whole
+  of it, every other field under 1 KB — so the ceiling carries roughly 2×
+  headroom. Story #4811 retired the codebase snapshot that used to sit
+  alongside them, leaving the operator-supplied seed the only unbounded
+  contributor.
 - **On refusal**, the error names the envelope's largest fields. Trim the seed,
-  plan fewer `--tickets` source issues in one run, or narrow
-  `planning.codebaseSnapshot`. The seed is carried **verbatim** by design — it
+  or plan fewer `--tickets` source issues in one run. The seed is carried
+  **verbatim** by design — it
   is the operator's request, and summarizing it silently would degrade planning
   quality precisely when the input is richest — so there is no elision path to
   fall back on. Raising the ceiling needs a measured justification.
