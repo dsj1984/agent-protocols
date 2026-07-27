@@ -5,10 +5,13 @@ import path from 'node:path';
 import { test } from 'node:test';
 import {
   checkFile,
+  DEFAULT_SCAN_ROOTS,
   discoverMarkdown,
+  escapesPayload,
   extractLinks,
   extractSlashTokens,
   maskCodeRegions,
+  parseArgs,
   RETIRED_COMMANDS,
   runCheck,
   SLASH_ALLOWLIST,
@@ -252,4 +255,156 @@ test('static constants: retired blocklist seeded with agents-bootstrap-github; a
 
 test('static constants: retired blocklist includes /mandrel (retired for generated workflows.md)', () => {
   assert.ok(RETIRED_COMMANDS.has('mandrel'));
+});
+
+// --- Payload boundary (Story #4801) ----------------------------------------
+
+test('payload-boundary: an .agents/** link to a framework-only path is a violation even though the target exists', () => {
+  const root = makeFakeRepo();
+  write(root, 'tests/diagnose-output.test.js', '// real file\n');
+  const abs = write(
+    root,
+    '.agents/workflows/helpers/diagnose.md',
+    '# diagnose\n\nSee [the test](../../../tests/diagnose-output.test.js).\n',
+  );
+  const v = checkFile(abs, root);
+  assert.equal(v.length, 1);
+  assert.equal(v[0].kind, 'payload-boundary');
+  assert.notEqual(v[0].kind, 'broken-link');
+  assert.match(v[0].message, /materialized/);
+  assert.match(v[0].message, /\.agents\//);
+});
+
+test('payload-boundary: a packaged-but-unmaterialized lib/ target still violates (package.json#files would have missed it)', () => {
+  const root = makeFakeRepo();
+  write(
+    root,
+    'lib/cli/update.js',
+    '// shipped in the tarball, not to the repo root\n',
+  );
+  const abs = write(
+    root,
+    '.agents/workflows/mandrel-update.md',
+    '# update\n\nOwned by [`lib/cli/update.js`](../../lib/cli/update.js).\n',
+  );
+  const v = checkFile(abs, root);
+  assert.equal(v.length, 1);
+  assert.equal(v[0].kind, 'payload-boundary');
+});
+
+test('payload-boundary: the rule is scoped to .agents/** sources — a docs/** link to the same path is clean', () => {
+  const root = makeFakeRepo();
+  write(root, 'tests/diagnose-output.test.js', '// real file\n');
+  const abs = write(
+    root,
+    'docs/notes.md',
+    '# notes\n\nSee [the test](../tests/diagnose-output.test.js).\n',
+  );
+  const v = checkFile(abs, root);
+  assert.equal(v.length, 0);
+});
+
+test('payload-boundary: consumer-owned escapes are allowed from .agents/**', () => {
+  const root = makeFakeRepo();
+  write(root, 'package.json', '{}\n');
+  write(root, '.agentrc.json', '{}\n');
+  write(root, 'baselines/coverage.json', '{}\n');
+  write(root, 'docs/architecture.md', '# arch\n');
+  const abs = write(
+    root,
+    '.agents/docs/quality-gates.md',
+    '# gates\n\n' +
+      'See [pkg](../../package.json), [rc](../../.agentrc.json),\n' +
+      '[cov](../../baselines/coverage.json) and [arch](../../docs/architecture.md).\n',
+  );
+  const v = checkFile(abs, root);
+  assert.deepEqual(v, []);
+});
+
+test('payload-boundary: links that stay inside .agents/ are clean', () => {
+  const root = makeFakeRepo();
+  const abs = write(
+    root,
+    '.agents/workflows/deliver.md',
+    '# deliver\n\nSee [plan](plan.md).\n',
+  );
+  const v = checkFile(abs, root);
+  assert.deepEqual(v, []);
+});
+
+test('escapesPayload: unit contract for source scoping and the allowlist', () => {
+  assert.equal(
+    escapesPayload('.agents/workflows/a.md', 'tests/x.test.js'),
+    true,
+  );
+  assert.equal(
+    escapesPayload('.agents/workflows/a.md', 'lib/cli/update.js'),
+    true,
+  );
+  assert.equal(
+    escapesPayload('.agents/workflows/a.md', '.agents/docs/b.md'),
+    false,
+  );
+  assert.equal(escapesPayload('.agents/workflows/a.md', 'package.json'), false);
+  assert.equal(
+    escapesPayload('.agents/workflows/a.md', 'baselines/crap.json'),
+    false,
+  );
+  // docs/** is framework-repo-only and keeps existence-only semantics.
+  assert.equal(escapesPayload('docs/notes.md', 'tests/x.test.js'), false);
+});
+
+test('runCheck: a consumer-shaped tree (only .agents/) scans clean', () => {
+  const root = fs.mkdtempSync(
+    path.join(os.tmpdir(), 'check-doc-links-consumer-'),
+  );
+  fs.mkdirSync(path.join(root, '.agents', 'workflows'), { recursive: true });
+  write(root, '.agents/workflows/plan.md', '# plan\n');
+  write(
+    root,
+    '.agents/workflows/deliver.md',
+    '# deliver\n\nRun [/plan](plan.md); see the harness docs at\n' +
+      '[update](https://github.com/dsj1984/mandrel/blob/main/lib/cli/update.js).\n',
+  );
+  const result = runCheck({ repoRoot: root, scanRoots: ['.agents'] });
+  assert.deepEqual(result.violations, []);
+  assert.equal(result.exitCode, 0);
+});
+
+// --- CLI scoping flags (Story #4801) ---------------------------------------
+
+test('discoverMarkdown: --exclude globs drop matching files from the scan', () => {
+  const root = makeFakeRepo();
+  write(root, 'docs/keep.md', '# keep\n');
+  write(root, 'docs/drafts/skip.md', '# skip\n');
+  const all = discoverMarkdown(root, ['docs']).map((f) =>
+    path.relative(root, f).split(path.sep).join('/'),
+  );
+  assert.ok(all.includes('docs/drafts/skip.md'));
+  const filtered = discoverMarkdown(root, ['docs'], ['docs/drafts/**']).map(
+    (f) => path.relative(root, f).split(path.sep).join('/'),
+  );
+  assert.ok(filtered.includes('docs/keep.md'));
+  assert.equal(filtered.includes('docs/drafts/skip.md'), false);
+});
+
+test('parseArgs: no flags reproduces the pre-#4801 defaults', () => {
+  const parsed = parseArgs([]);
+  assert.deepEqual(parsed.scanRoots, [...DEFAULT_SCAN_ROOTS]);
+  assert.deepEqual(parsed.exclude, []);
+});
+
+test('parseArgs: --scan-root and --exclude are repeatable and --scan-root replaces the defaults', () => {
+  const parsed = parseArgs([
+    '--scan-root',
+    '.agents',
+    '--scan-root',
+    'handbook',
+    '--exclude',
+    '**/archive/**',
+    '--exclude',
+    '**/tmp/**',
+  ]);
+  assert.deepEqual(parsed.scanRoots, ['.agents', 'handbook']);
+  assert.deepEqual(parsed.exclude, ['**/archive/**', '**/tmp/**']);
 });

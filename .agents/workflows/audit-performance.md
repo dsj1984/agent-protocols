@@ -39,8 +39,8 @@ Sequential inline execution is the fallback (see the core's Execution strategy).
 > orchestrated path grants its measurement agents a `Bash` tool restricted to a
 > **non-mutating command allowlist** (profilers, timers, bundle-stat and
 > file-size probes — never a command that writes source, installs, or mutates
-> git/labels). See the allowlist in
-> [`../../.claude/workflows/audit-performance.workflow.js`](../../.claude/workflows/audit-performance.workflow.js).
+> git/labels). See the allowlist in the harness-generated
+> `.claude/workflows/audit-performance.workflow.js`.
 
 ## Step 0: Measure before you judge (mandatory)
 
