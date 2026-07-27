@@ -528,7 +528,7 @@ new CI gate**, route the check through a `package.json` script (add it to
 transitivity. **When a workflow file genuinely must change** (a new job, a
 trigger change, a runner bump), the edit must be made by an operator with
 `Workflows: Read and write` PAT permissions — see
-[`docs/release-operations.md` § One-time PAT setup](../../docs/release-operations.md#one-time-pat-setup).
+[`docs/release-operations.md` § One-time PAT setup](https://github.com/dsj1984/mandrel/blob/main/docs/release-operations.md#one-time-pat-setup).
 
 ### Worktree config shadow
 

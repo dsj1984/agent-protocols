@@ -106,7 +106,7 @@ node .agents/scripts/signals-view.js 9999
   CLI implementation backing this helper.
 - [`.agents/scripts/lib/signals/`](../../scripts/lib/signals/) — the
   shared reader + schema + span-tree barrel.
-- [`tests/signals-view.test.js`](../../../tests/signals-view.test.js) —
+- [`tests/signals-view.test.js`](https://github.com/dsj1984/mandrel/blob/main/tests/signals-view.test.js) —
   pinned output and tempRoot-honour contracts.
-- [`tests/lib/signals/span-tree.test.js`](../../../tests/lib/signals/span-tree.test.js) —
+- [`tests/lib/signals/span-tree.test.js`](https://github.com/dsj1984/mandrel/blob/main/tests/lib/signals/span-tree.test.js) —
   pure-function contract for the span-tree builder.

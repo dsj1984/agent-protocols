@@ -113,5 +113,5 @@ pipelines and CI-step parsing.
   — the canonical contract every check module must satisfy.
 - [`.agents/scripts/diagnose.js`](../../scripts/diagnose.js) — the CLI
   implementation backing this helper.
-- [`tests/diagnose-output.test.js`](../../../tests/diagnose-output.test.js)
+- [`tests/diagnose-output.test.js`](https://github.com/dsj1984/mandrel/blob/main/tests/diagnose-output.test.js)
   — pinned output and exit-code contracts.

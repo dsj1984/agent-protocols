@@ -2,7 +2,8 @@
 
 Each listener in this directory subscribes to one or more lifecycle bus
 events and performs a single side effect. The full close-tail roster and
-event taxonomy live in [`docs/LIFECYCLE.md`](../../../../../../docs/LIFECYCLE.md)
+event taxonomy live in
+[`docs/LIFECYCLE.md`](https://github.com/dsj1984/mandrel/blob/main/docs/LIFECYCLE.md)
 — that document is the SSOT. This README only indexes the **files that still
 live in this folder**.
 

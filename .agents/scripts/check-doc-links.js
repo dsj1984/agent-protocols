@@ -25,6 +25,10 @@
 //      a retired token is always a non-zero exit even if a stale workflow
 //      file happens to exist.
 //
+//   4. Story #4801 — every relative link originating under `.agents/**`
+//      resolves to a target that still exists once the tree is materialized
+//      into a *consumer* project. See `escapesPayload` for the boundary rule.
+//
 // Exit codes:
 //   0  every link and slash-command token resolves cleanly.
 //   1  at least one violation; details are written to stderr (file:line).
@@ -35,6 +39,8 @@
 import fs from 'node:fs';
 import path from 'node:path';
 import { fileURLToPath } from 'node:url';
+import { minimatch } from 'minimatch';
+import { parseStandardCliArgs } from './lib/cli/standard-args.js';
 import { runAsCli } from './lib/cli-utils.js';
 import { Logger } from './lib/Logger.js';
 
@@ -124,6 +130,63 @@ export const SLASH_ALLOWLIST = new Set([
   'main',
 ]);
 
+// --- Payload boundary (Story #4801) ----------------------------------------
+
+// `mandrel sync` materializes ONLY the package's `.agents/` payload into a
+// consumer's project, at `<projectRoot>/.agents` (see `lib/cli/sync.js`:
+// `destRoot = path.join(projectRoot, '.agents')`). `bin/` and `lib/` ship
+// inside the npm tarball but stay under `node_modules/mandrel/`, and the
+// framework's own `tests/`, `docs/` (bar the CHANGELOG) and `.claude/` trees
+// ship nowhere at all. So a relative link that escapes `.agents/` resolves
+// cleanly in THIS repo and dangles in every consumer — which is exactly why
+// the checker cannot catch this class by `fs.existsSync` alone.
+//
+// This is why the boundary is `.agents/` and NOT `package.json#files`: the
+// latter lists `lib/` and `bin/`, which are packaged but never materialized
+// at a consumer's repo root.
+export const MATERIALIZED_ROOT = '.agents';
+
+// Repo-root-relative paths OUTSIDE `.agents/` that a Mandrel *consumer*
+// legitimately owns, so a doc under `.agents/**` may still link to them.
+// Deliberately explicit rather than pattern-derived: whether a given repo-root
+// path is consumer-owned or framework-only is a judgment per path, not a rule.
+// A new escaping link fails closed until it is justified and added here.
+export const CONSUMER_OWNED_PATHS = new Set([
+  'package.json',
+  '.agentrc.json',
+  '.c8rc.cjs',
+  'docs/architecture.md',
+  'docs/decisions.md',
+]);
+
+// Directory prefixes (repo-root-relative, trailing slash) whose whole subtree
+// is consumer-owned.
+export const CONSUMER_OWNED_PREFIXES = Object.freeze(['baselines/']);
+
+/**
+ * True when `relTarget` is unreachable from a materialized consumer tree.
+ *
+ * Only links whose SOURCE lives under `.agents/**` are subject to the rule —
+ * `docs/**` is framework-repo-only, ships nowhere, and keeps today's
+ * existence-only semantics.
+ *
+ * @param {string} relFile   repo-relative POSIX path of the linking document
+ * @param {string} relTarget repo-relative POSIX path the link resolves to
+ */
+export function escapesPayload(relFile, relTarget) {
+  if (!relFile.startsWith(`${MATERIALIZED_ROOT}/`)) return false;
+  if (
+    relTarget === MATERIALIZED_ROOT ||
+    relTarget.startsWith(`${MATERIALIZED_ROOT}/`)
+  ) {
+    return false;
+  }
+  if (CONSUMER_OWNED_PATHS.has(relTarget)) return false;
+  if (CONSUMER_OWNED_PREFIXES.some((p) => relTarget.startsWith(p)))
+    return false;
+  return true;
+}
+
 // --- File discovery --------------------------------------------------------
 
 function isExcludedRelPath(relPath) {
@@ -150,14 +213,28 @@ function walkMarkdown(dirAbs, repoRoot, out) {
   }
 }
 
-export function discoverMarkdown(rootAbs, scanRoots) {
+/**
+ * Collect every non-excluded `*.md` under each `scanRoots` entry.
+ *
+ * @param {string}   rootAbs     absolute repo root
+ * @param {string[]} scanRoots   repo-relative subtrees to walk
+ * @param {string[]} [exclude]   minimatch globs; a repo-relative POSIX path
+ *                               matching any of them is dropped from the scan
+ */
+export function discoverMarkdown(rootAbs, scanRoots, exclude = []) {
   const out = [];
   for (const sub of scanRoots) {
     const subAbs = path.join(rootAbs, sub);
     if (fs.existsSync(subAbs)) walkMarkdown(subAbs, rootAbs, out);
   }
-  out.sort();
-  return out;
+  const filtered = exclude.length
+    ? out.filter((abs) => {
+        const rel = path.relative(rootAbs, abs).split(path.sep).join('/');
+        return !exclude.some((g) => minimatch(rel, g, { dot: true }));
+      })
+    : out;
+  filtered.sort();
+  return filtered;
 }
 
 // --- Region masking --------------------------------------------------------
@@ -326,6 +403,26 @@ export function checkFile(absPath, repoRoot) {
     } else {
       resolved = path.resolve(fileDir, pathOnly);
     }
+    // Payload boundary (Story #4801) takes precedence over existence: a link
+    // that escapes the materialized tree is a defect even when the target
+    // exists here, and reporting both kinds for one link would double-count.
+    const relTarget = path
+      .relative(repoRoot, resolved)
+      .split(path.sep)
+      .join('/');
+    if (escapesPayload(relFile, relTarget)) {
+      violations.push({
+        file: relFile,
+        line,
+        kind: 'payload-boundary',
+        message:
+          `link escapes the materialized payload: ${target} → ${relTarget}. ` +
+          `Only '${MATERIALIZED_ROOT}/' is materialized into a consumer project, ` +
+          'so this resolves here but dangles for every consumer. Use an absolute ' +
+          'GitHub URL or a non-link code span.',
+      });
+      continue;
+    }
     if (!fs.existsSync(resolved)) {
       violations.push({
         file: relFile,
@@ -377,6 +474,8 @@ export function checkFile(absPath, repoRoot) {
 
 // --- Public entry point ----------------------------------------------------
 
+export const DEFAULT_SCAN_ROOTS = Object.freeze(['docs', '.agents']);
+
 /**
  * Run the checker programmatically. Returns `{ exitCode, violations }`.
  * `exitCode` is 0 when every doc is clean, 1 otherwise.
@@ -384,11 +483,13 @@ export function checkFile(absPath, repoRoot) {
  * @param {object} [options]
  * @param {string} [options.repoRoot] Defaults to the framework repo root.
  * @param {string[]} [options.scanRoots] Defaults to `['docs', '.agents']`.
+ * @param {string[]} [options.exclude] minimatch globs dropped from the scan.
  */
 export function runCheck(options = {}) {
   const repoRoot = options.repoRoot ?? REPO_ROOT;
-  const scanRoots = options.scanRoots ?? ['docs', '.agents'];
-  const files = discoverMarkdown(repoRoot, scanRoots);
+  const scanRoots = options.scanRoots ?? [...DEFAULT_SCAN_ROOTS];
+  const exclude = options.exclude ?? [];
+  const files = discoverMarkdown(repoRoot, scanRoots, exclude);
   const violations = [];
   for (const abs of files) {
     const fileViolations = checkFile(abs, repoRoot);
@@ -405,8 +506,28 @@ function formatViolation(v) {
   return `${v.file}:${v.line}: [${v.kind}] ${v.message}`;
 }
 
+/**
+ * Translate argv into `runCheck` options. Repeatable `--scan-root` replaces
+ * the default scan set entirely; repeatable `--exclude` filters whatever was
+ * scanned. Absent flags reproduce the pre-#4801 defaults exactly.
+ */
+export function parseArgs(argv) {
+  const { values } = parseStandardCliArgs({
+    argv,
+    extras: {
+      'scan-root': { type: 'string-multi', alias: 'scanRoot' },
+      exclude: { type: 'string-multi', alias: 'exclude' },
+    },
+  });
+  const scanRoots = values.scanRoot?.length
+    ? values.scanRoot
+    : [...DEFAULT_SCAN_ROOTS];
+  return { scanRoots, exclude: values.exclude ?? [] };
+}
+
 async function main() {
-  const result = runCheck();
+  const { scanRoots, exclude } = parseArgs(process.argv.slice(2));
+  const result = runCheck({ scanRoots, exclude });
   if (result.violations.length === 0) {
     Logger.info(
       `[check-doc-links] OK — scanned ${result.scanned} active markdown file(s); no violations.`,
@@ -426,11 +547,22 @@ async function main() {
 runAsCli(import.meta.url, main, {
   source: 'check-doc-links',
   usage: {
-    invocation: 'node .agents/scripts/check-doc-links.js',
+    invocation:
+      'node .agents/scripts/check-doc-links.js [--scan-root <path>] [--exclude <glob>]',
     summary:
-      'Validate every relative Markdown link and /slash-command token across docs/ and .agents/, and reject mentions of retired commands.',
-    flags: [],
+      'Validate every relative Markdown link and /slash-command token across docs/ and .agents/, reject mentions of retired commands, and reject links that escape the materialized .agents/ payload.',
+    flags: [
+      [
+        '--scan-root <path>',
+        'Repeatable. Repo-relative subtree to scan. Replaces the default set (docs, .agents).',
+      ],
+      [
+        '--exclude <glob>',
+        'Repeatable. minimatch glob; matching files are dropped from the scan.',
+      ],
+    ],
     notes: [
+      'Consumers materialize only .agents/, so a relative link from .agents/**\nto a framework-repo-only path (tests/, lib/, .claude/, framework docs)\nis reported as a payload-boundary violation even though it resolves here.',
       'Exit codes:\n  0  every link and command token resolves\n  1  at least one violation (file:line on stderr)',
     ],
   },

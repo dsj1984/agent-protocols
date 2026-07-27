@@ -13,7 +13,7 @@ description: >-
 # /mandrel-update
 
 > **Upgrade owner.** The mechanical upgrade is owned end to end by the
-> [`mandrel update`](../../lib/cli/update.js) CLI under the npm distribution
+> [`mandrel update`](https://github.com/dsj1984/mandrel/blob/main/lib/cli/update.js) CLI under the npm distribution
 > model. This workflow wraps that CLI: it runs
 > `npx mandrel update`, then walks the operator through the
 > **distribution-agnostic judgment steps** the CLI deliberately does **not**
@@ -66,7 +66,7 @@ envelope (`{ ok, blocked, findings[] }`) plus a human-readable report:
   the version probe.
 
 The preflight is a workflow-layer guard; it deliberately lives outside
-[`lib/cli/update.js`](../../lib/cli/update.js), which stays git-free.
+[`lib/cli/update.js`](https://github.com/dsj1984/mandrel/blob/main/lib/cli/update.js), which stays git-free.
 
 ## Step 1 — Run the updater
 
@@ -102,9 +102,9 @@ recovered and a clean re-run reports success.**
 
 Identify the failed phase (the CLI's stderr names it) and run the matching
 remedy. These commands match the hint strings
-[`lib/cli/update.js`](../../lib/cli/update.js) emits verbatim — it is the
+[`lib/cli/update.js`](https://github.com/dsj1984/mandrel/blob/main/lib/cli/update.js) emits verbatim — it is the
 single source of truth, kept in lockstep with this table by
-[`tests/bootstrap/mandrel-update-recovery-drift.test.js`](../../tests/bootstrap/mandrel-update-recovery-drift.test.js):
+[`tests/bootstrap/mandrel-update-recovery-drift.test.js`](https://github.com/dsj1984/mandrel/blob/main/tests/bootstrap/mandrel-update-recovery-drift.test.js):
 
 | Failed phase      | Manual remedy                                            |
 | ----------------- | ------------------------------------------------------- |
