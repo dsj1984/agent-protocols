@@ -15,8 +15,7 @@
  */
 
 import assert from 'node:assert/strict';
-import { mkdtempSync, rmSync } from 'node:fs';
-import { tmpdir } from 'node:os';
+import { rmSync } from 'node:fs';
 import path from 'node:path';
 import { afterEach, beforeEach, describe, it } from 'node:test';
 
@@ -25,6 +24,7 @@ import {
   fileFilterFor,
   refreshBaseline,
 } from '../../.agents/scripts/lib/baselines/refresh-service.js';
+import { makeTempDir } from '../../.agents/scripts/lib/test-temp.js';
 
 const FIXED = '2026-05-15T00:00:00Z';
 
@@ -54,7 +54,7 @@ describe('refreshBaseline — diff-scope default (Task #2207)', () => {
   let workDir;
 
   beforeEach(() => {
-    workDir = mkdtempSync(path.join(tmpdir(), 'mandrel-refresh-diff-'));
+    workDir = makeTempDir('mandrel-refresh-diff-');
   });
 
   afterEach(() => {

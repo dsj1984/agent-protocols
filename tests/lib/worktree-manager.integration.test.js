@@ -8,9 +8,9 @@
 import assert from 'node:assert/strict';
 import { execFileSync } from 'node:child_process';
 import fs from 'node:fs';
-import os from 'node:os';
 import path from 'node:path';
 import test from 'node:test';
+import { makeTempDir } from '../../.agents/scripts/lib/test-temp.js';
 import { WorktreeManager } from '../../.agents/scripts/lib/worktree-manager.js';
 
 // Strip every GIT_* env var so the integration tests' tmpdir cwd wins.
@@ -33,9 +33,7 @@ test('integration: round-trips worktree add and remove on a real repo', async ()
   // breaks samePath()-based idempotence checks. The native realpath
   // variant calls Windows' GetFinalPathNameByHandle, which expands short
   // segments; the JS realpathSync does not.
-  const tmp = fs.realpathSync.native(
-    fs.mkdtempSync(path.join(os.tmpdir(), 'wt-int-')),
-  );
+  const tmp = fs.realpathSync.native(makeTempDir('wt-int-'));
   const run = (cwd, ...args) =>
     execFileSync('git', args, {
       cwd,
@@ -92,9 +90,7 @@ test('integration: reap() tolerates drive-letter-case mismatch on repoRoot (v5.1
   // load-bearing — but we want the *base* path consistent with what git
   // will report so the reap() drive-case path-comparison branch is the
   // only difference under test.
-  const tmp = fs.realpathSync.native(
-    fs.mkdtempSync(path.join(os.tmpdir(), 'wt-case-')),
-  );
+  const tmp = fs.realpathSync.native(makeTempDir('wt-case-'));
   const run = (cwd, ...args) =>
     execFileSync('git', args, {
       cwd,

@@ -1,8 +1,8 @@
 import assert from 'node:assert/strict';
 import fs from 'node:fs';
-import os from 'node:os';
 import path from 'node:path';
 import test from 'node:test';
+import { makeTempDir } from '../../.agents/scripts/lib/test-temp.js';
 import {
   DEFAULT_WORKSPACE_FILES,
   provision,
@@ -15,8 +15,8 @@ import {
 // missing override previously broke single-story Story-lease release at close.
 
 function makeRoots() {
-  const src = fs.mkdtempSync(path.join(os.tmpdir(), 'wsp-lo-src-'));
-  const dst = fs.mkdtempSync(path.join(os.tmpdir(), 'wsp-lo-dst-'));
+  const src = makeTempDir('wsp-lo-src-');
+  const dst = makeTempDir('wsp-lo-dst-');
   return { src, dst };
 }
 

@@ -1,5 +1,5 @@
 import assert from 'node:assert/strict';
-import { mkdtempSync, readFileSync, rmSync } from 'node:fs';
+import { readFileSync, rmSync } from 'node:fs';
 import { tmpdir } from 'node:os';
 import path from 'node:path';
 import { afterEach, beforeEach, describe, it } from 'node:test';
@@ -8,6 +8,7 @@ import {
   write,
   writeFile,
 } from '../../.agents/scripts/lib/baselines/writer.js';
+import { makeTempDir } from '../../.agents/scripts/lib/test-temp.js';
 
 // ---------------------------------------------------------------------------
 // writer.test.js — round-trip and idempotency fixtures for the shared
@@ -193,7 +194,7 @@ describe('writeFile()', () => {
   let workDir;
 
   beforeEach(() => {
-    workDir = mkdtempSync(path.join(tmpdir(), 'mandrel-writer-'));
+    workDir = makeTempDir('mandrel-writer-');
   });
 
   afterEach(() => {
@@ -309,7 +310,7 @@ describe('writeFile() — fsImpl seam (Story #2135 / Task #2146)', () => {
 
   it('treats a two-argument call as the default (real fs) path', () => {
     const env = write({ ...FIXTURES.lint, generatedAt: FIXED_TIMESTAMP });
-    const workDir = mkdtempSync(path.join(tmpdir(), 'mandrel-writer-bc-'));
+    const workDir = makeTempDir('mandrel-writer-bc-');
     try {
       const target = path.join(workDir, 'lint.json');
       assert.doesNotThrow(() => writeFile(target, env));

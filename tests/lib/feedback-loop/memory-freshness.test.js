@@ -8,16 +8,16 @@
 
 import { strict as assert } from 'node:assert';
 import { EventEmitter } from 'node:events';
-import { mkdtempSync } from 'node:fs';
 import * as fs from 'node:fs/promises';
 import * as os from 'node:os';
 import * as path from 'node:path';
 import { after, before, describe, it } from 'node:test';
 
 import { scanMemoryFreshness } from '../../../.agents/scripts/lib/feedback-loop/memory-freshness.js';
+import { makeTempDir } from '../../../.agents/scripts/lib/test-temp.js';
 
 function makeTmpDir(label) {
-  return mkdtempSync(path.join(os.tmpdir(), `memfresh-${label}-`));
+  return makeTempDir(`memfresh-${label}-`);
 }
 
 describe('scanMemoryFreshness', () => {

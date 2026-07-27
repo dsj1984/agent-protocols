@@ -20,11 +20,11 @@
  */
 import assert from 'node:assert/strict';
 import fs from 'node:fs';
-import os from 'node:os';
 import path from 'node:path';
 import { afterEach, beforeEach, describe, it } from 'node:test';
 import { resolveConfig } from '../../../.agents/scripts/lib/config-resolver.js';
 import { getAgentrcValidator } from '../../../.agents/scripts/lib/config-schema.js';
+import { makeTempDir } from '../../../.agents/scripts/lib/test-temp.js';
 
 const LEGACY_KEYS = ['agentSettings', 'orchestration'];
 
@@ -33,7 +33,7 @@ describe('contract/config/no-legacy-shim', () => {
     let tmpRoot;
 
     beforeEach(() => {
-      tmpRoot = fs.mkdtempSync(path.join(os.tmpdir(), 'mandrel-no-shim-'));
+      tmpRoot = makeTempDir('mandrel-no-shim-');
     });
 
     afterEach(() => {

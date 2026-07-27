@@ -18,7 +18,6 @@
 
 import assert from 'node:assert/strict';
 import fs from 'node:fs';
-import os from 'node:os';
 import path from 'node:path';
 import { after, describe, it } from 'node:test';
 import { fileURLToPath } from 'node:url';
@@ -33,6 +32,7 @@ import {
   runCli,
   tallyCitations,
 } from '../.agents/scripts/check-workflow-citations.js';
+import { makeTempDir } from '../.agents/scripts/lib/test-temp.js';
 
 const __dirname = path.dirname(fileURLToPath(import.meta.url));
 const REPO_ROOT = path.resolve(__dirname, '..');
@@ -41,7 +41,7 @@ const tempRoots = [];
 
 /** Build a throwaway repo-shaped fixture: `.agents/workflows` + a baseline. */
 function makeFixture({ docs = {}, baseline = null } = {}) {
-  const root = fs.mkdtempSync(path.join(os.tmpdir(), 'workflow-citations-'));
+  const root = makeTempDir('workflow-citations-');
   tempRoots.push(root);
   const workflows = path.join(root, '.agents', 'workflows');
   fs.mkdirSync(workflows, { recursive: true });

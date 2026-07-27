@@ -1,6 +1,5 @@
 import assert from 'node:assert/strict';
 import fs from 'node:fs';
-import os from 'node:os';
 import path from 'node:path';
 import { describe, it, test } from 'node:test';
 import { coverageForMethodInEntry } from '../../.agents/scripts/lib/coverage-utils.js';
@@ -9,6 +8,7 @@ import {
   checkResolutionFloor,
   scanAndScore,
 } from '../../.agents/scripts/lib/crap-utils.js';
+import { makeTempDir } from '../../.agents/scripts/lib/test-temp.js';
 import {
   prepareSourceForScoring,
   transpileIfNeeded,
@@ -34,7 +34,7 @@ import {
  */
 
 function mkTmp() {
-  return fs.mkdtempSync(path.join(os.tmpdir(), 'crap_smjoin_'));
+  return makeTempDir('crap_smjoin_');
 }
 
 function rmTmp(dir) {

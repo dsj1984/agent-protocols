@@ -9,7 +9,6 @@
 
 import assert from 'node:assert/strict';
 import fs from 'node:fs';
-import os from 'node:os';
 import path from 'node:path';
 import { afterEach, beforeEach, describe, it } from 'node:test';
 
@@ -28,6 +27,7 @@ import {
   SYNC_COMMAND,
   satisfiesNodeEngine,
 } from '../../.agents/scripts/lib/bootstrap/project-bootstrap.js';
+import { makeTempDir } from '../../.agents/scripts/lib/test-temp.js';
 
 let tmpRoot;
 
@@ -41,7 +41,7 @@ function readJson(p) {
 }
 
 beforeEach(() => {
-  tmpRoot = fs.mkdtempSync(path.join(os.tmpdir(), 'project-bootstrap-'));
+  tmpRoot = makeTempDir('project-bootstrap-');
 });
 
 afterEach(() => {

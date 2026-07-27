@@ -7,8 +7,7 @@
 // `applyFloors`, `formatReport`).
 
 import assert from 'node:assert/strict';
-import { mkdirSync, mkdtempSync, rmSync, writeFileSync } from 'node:fs';
-import { tmpdir } from 'node:os';
+import { mkdirSync, rmSync, writeFileSync } from 'node:fs';
 import path from 'node:path';
 import { afterEach, describe, it } from 'node:test';
 
@@ -22,6 +21,7 @@ import {
 } from '../../.agents/scripts/check-baselines.js';
 
 import { currentKernelVersion } from '../../.agents/scripts/lib/baselines/kernel.js';
+import { makeTempDir } from '../../.agents/scripts/lib/test-temp.js';
 
 function writeJson(p, value) {
   writeFileSync(p, JSON.stringify(value, null, 2));
@@ -38,7 +38,7 @@ function coverageEnvelope({ rollup, kernelVersion } = {}) {
 }
 
 function setupTmpRepo(extraConfig = {}) {
-  const root = mkdtempSync(path.join(tmpdir(), 'check-baselines-test-'));
+  const root = makeTempDir('check-baselines-test-');
   mkdirSync(path.join(root, 'baselines'), { recursive: true });
   const agentrc = {
     project: {
@@ -299,7 +299,7 @@ describe('check-baselines — integration (pass / floor-breach / schema-error / 
   });
 
   it('exits 3 (via thrown error) when the config file is malformed', async () => {
-    const tmp = mkdtempSync(path.join(tmpdir(), 'check-baselines-badconfig-'));
+    const tmp = makeTempDir('check-baselines-badconfig-');
     try {
       // Write a syntactically-invalid JSON document so `resolveConfig`
       // throws — the CLI shell maps a throw out of `runCheckBaselines`

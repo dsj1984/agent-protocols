@@ -10,18 +10,18 @@
  */
 
 import assert from 'node:assert/strict';
-import { mkdirSync, mkdtempSync, rmSync, writeFileSync } from 'node:fs';
-import os from 'node:os';
+import { mkdirSync, rmSync, writeFileSync } from 'node:fs';
 import path from 'node:path';
 import { afterEach, beforeEach, describe, it } from 'node:test';
 
 import { buildCorpusContext } from '../.agents/scripts/lib/planning-corpus.js';
+import { makeTempDir } from '../.agents/scripts/lib/test-temp.js';
 
 describe('buildCorpusContext', () => {
   let tmp;
 
   beforeEach(() => {
-    tmp = mkdtempSync(path.join(os.tmpdir(), 'planning-corpus-'));
+    tmp = makeTempDir('planning-corpus-');
     mkdirSync(path.join(tmp, 'docs'), { recursive: true });
   });
 

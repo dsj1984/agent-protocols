@@ -1,6 +1,5 @@
 import assert from 'node:assert/strict';
-import { mkdtemp, readFile, rm } from 'node:fs/promises';
-import { tmpdir } from 'node:os';
+import { readFile, rm } from 'node:fs/promises';
 import path from 'node:path';
 import test from 'node:test';
 
@@ -8,9 +7,10 @@ import {
   defaultWriteArtifact,
   loadWorkflow,
 } from '../../.agents/scripts/lib/audit-suite/workflow-loader.js';
+import { makeTempDir } from '../../.agents/scripts/lib/test-temp.js';
 
 async function withTmp(prefix, fn) {
-  const dir = await mkdtemp(path.join(tmpdir(), `${prefix}-`));
+  const dir = await makeTempDir(`${prefix}-`);
   try {
     await fn(dir);
   } finally {

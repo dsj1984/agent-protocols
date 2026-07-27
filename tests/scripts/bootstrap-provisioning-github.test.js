@@ -29,7 +29,6 @@
 import assert from 'node:assert/strict';
 import { spawnSync } from 'node:child_process';
 import fs from 'node:fs';
-import os from 'node:os';
 import path from 'node:path';
 import { afterEach, describe, it } from 'node:test';
 
@@ -39,6 +38,7 @@ import {
   provisionResources,
 } from '../../.agents/scripts/bootstrap.js';
 import { GhNotFoundError } from '../../.agents/scripts/lib/gh-exec.js';
+import { makeTempDir } from '../../.agents/scripts/lib/test-temp.js';
 
 const ANSWERS = Object.freeze({
   owner: 'acme',
@@ -51,7 +51,7 @@ const ANSWERS = Object.freeze({
 const tmpDirs = [];
 
 function makeTmpDir() {
-  const dir = fs.mkdtempSync(path.join(os.tmpdir(), 'bootstrap-prov-gh-'));
+  const dir = makeTempDir('bootstrap-prov-gh-');
   tmpDirs.push(dir);
   return dir;
 }

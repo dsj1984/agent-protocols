@@ -15,7 +15,6 @@
 
 import assert from 'node:assert/strict';
 import fs from 'node:fs/promises';
-import os from 'node:os';
 import path from 'node:path';
 import { afterEach, beforeEach, describe, it } from 'node:test';
 import { RUNTIME_FRICTION_CATEGORIES } from '../../../.agents/scripts/lib/observability/runtime-friction.js';
@@ -24,6 +23,7 @@ import {
   STATE_LABELS,
   transitionTicketState,
 } from '../../../.agents/scripts/lib/orchestration/ticketing.js';
+import { makeTempDir } from '../../../.agents/scripts/lib/test-temp.js';
 
 /**
  * Absolute, per-test tempRoot. Never the shared main-checkout `temp/` — a
@@ -33,7 +33,7 @@ let tempRoot;
 let config;
 
 beforeEach(async () => {
-  tempRoot = await fs.mkdtemp(path.join(os.tmpdir(), 'blocked-friction-'));
+  tempRoot = await makeTempDir('blocked-friction-');
   config = { project: { paths: { tempRoot } } };
 });
 

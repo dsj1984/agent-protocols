@@ -1,9 +1,9 @@
 import assert from 'node:assert/strict';
 import fs from 'node:fs';
 import { rm as fsPromisesRm } from 'node:fs/promises';
-import os from 'node:os';
 import path from 'node:path';
 import test from 'node:test';
+import { makeTempDir } from '../../../.agents/scripts/lib/test-temp.js';
 import {
   computeProtectedPids,
   fetchProcessTable,
@@ -30,7 +30,7 @@ function quietLogger() {
 }
 
 function tmpWorktreeRoot() {
-  const tmp = fs.mkdtempSync(path.join(os.tmpdir(), 'fd-'));
+  const tmp = makeTempDir('fd-');
   const wtRoot = path.join(tmp, '.worktrees');
   fs.mkdirSync(wtRoot, { recursive: true });
   return { tmp, wtRoot };

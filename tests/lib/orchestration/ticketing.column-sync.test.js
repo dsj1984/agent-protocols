@@ -1,10 +1,9 @@
 import assert from 'node:assert/strict';
-import { mkdtempSync, rmSync } from 'node:fs';
-import { tmpdir } from 'node:os';
-import path from 'node:path';
+import { rmSync } from 'node:fs';
 import { afterEach, beforeEach, describe, it } from 'node:test';
 
 import { transitionTicketState } from '../../../.agents/scripts/lib/orchestration/ticketing.js';
+import { makeTempDir } from '../../../.agents/scripts/lib/test-temp.js';
 
 /**
  * Story #2548 — `transitionTicketState` MUST mirror every label flip
@@ -108,7 +107,7 @@ describe('transitionTicketState — Projects v2 Status column sync', () => {
   let isolatedConfig;
 
   beforeEach(() => {
-    tempRoot = mkdtempSync(path.join(tmpdir(), 'mandrel-colsync-'));
+    tempRoot = makeTempDir('mandrel-colsync-');
     isolatedConfig = { project: { paths: { tempRoot } } };
   });
 

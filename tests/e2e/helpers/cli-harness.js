@@ -42,9 +42,9 @@
 
 import { spawnSync } from 'node:child_process';
 import fs from 'node:fs';
-import os from 'node:os';
 import path from 'node:path';
 import { fileURLToPath } from 'node:url';
+import { makeTempDir } from '../../../.agents/scripts/lib/test-temp.js';
 
 /**
  * Absolute path to this repo's root, resolved from the harness file location
@@ -112,7 +112,7 @@ function webhookSafeEnv(base = process.env) {
  *   `cleanup` — idempotent recursive remove of `dir`.
  */
 export function makeTempConsumer({ prefix = 'mandrel-e2e-' } = {}) {
-  const dir = fs.realpathSync(fs.mkdtempSync(path.join(os.tmpdir(), prefix)));
+  const dir = fs.realpathSync(makeTempDir(prefix));
   createdDirs.push(dir);
 
   // Wire a node_modules/mandrel directory symlink → repo root so the real

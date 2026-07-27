@@ -12,13 +12,13 @@
  */
 
 import { strict as assert } from 'node:assert';
-import { mkdtempSync } from 'node:fs';
 import * as fs from 'node:fs/promises';
 import * as os from 'node:os';
 import * as path from 'node:path';
 import { after, before, describe, it } from 'node:test';
 
 import { buildAuthoringContext } from '../../.agents/scripts/lib/orchestration/planning/authoring-context.js';
+import { makeTempDir } from '../../.agents/scripts/lib/test-temp.js';
 
 function makeProvider() {
   return {
@@ -37,7 +37,7 @@ describe('epic-plan-spec --emit-context: memoryFreshness envelope contract', () 
   let fixtureDir;
 
   before(async () => {
-    fixtureDir = mkdtempSync(path.join(os.tmpdir(), 'memfresh-contract-'));
+    fixtureDir = makeTempDir('memfresh-contract-');
     // One entry that points at a deleted file (will be flagged).
     await fs.writeFile(
       path.join(fixtureDir, 'dead-fixture.md'),

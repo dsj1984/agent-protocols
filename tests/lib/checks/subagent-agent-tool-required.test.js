@@ -11,16 +11,16 @@
  */
 
 import assert from 'node:assert/strict';
-import { mkdirSync, mkdtempSync, rmSync, writeFileSync } from 'node:fs';
-import { tmpdir } from 'node:os';
+import { mkdirSync, rmSync, writeFileSync } from 'node:fs';
 import path from 'node:path';
 import { afterEach, beforeEach, describe, it } from 'node:test';
 import check, {
   ANNOUNCED_MAX_DEPTH,
 } from '../../../.agents/scripts/lib/checks/subagent-agent-tool-required.js';
+import { makeTempDir } from '../../../.agents/scripts/lib/test-temp.js';
 
 function makeFixtureRoot() {
-  const root = mkdtempSync(path.join(tmpdir(), 'subagent-agent-fixture-'));
+  const root = makeTempDir('subagent-agent-fixture-');
   return {
     root,
     write(relPath, contents) {

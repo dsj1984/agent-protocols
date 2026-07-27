@@ -1,13 +1,13 @@
 import assert from 'node:assert';
 import fs from 'node:fs';
-import os from 'node:os';
 import path from 'node:path';
 import { afterEach, beforeEach, test } from 'node:test';
 import { scaffoldDocs } from '../../.agents/scripts/lib/onboard/scaffold-docs.js';
+import { makeTempDir } from '../../.agents/scripts/lib/test-temp.js';
 
 /** Create an isolated temp project root with an optional .agentrc.json. */
 function makeProject(agentrc) {
-  const root = fs.mkdtempSync(path.join(os.tmpdir(), 'scaffold-docs-'));
+  const root = makeTempDir('scaffold-docs-');
   if (agentrc !== undefined) {
     fs.writeFileSync(
       path.join(root, '.agentrc.json'),

@@ -1,8 +1,6 @@
 import assert from 'node:assert/strict';
 import { execFileSync, spawnSync } from 'node:child_process';
-import { mkdtempSync, rmSync } from 'node:fs';
-import { tmpdir } from 'node:os';
-import path from 'node:path';
+import { rmSync } from 'node:fs';
 import { afterEach, describe, it } from 'node:test';
 
 import {
@@ -16,6 +14,7 @@ import {
   seedStoryBranchRef,
 } from '../../.agents/scripts/lib/git-branch-lifecycle.js';
 import { __setGitRunners } from '../../.agents/scripts/lib/git-utils.js';
+import { makeTempDir } from '../../.agents/scripts/lib/test-temp.js';
 
 const OK = (stdout = '') => ({ status: 0, stdout, stderr: '' });
 const FAIL = (stderr = 'fail') => ({ status: 1, stdout: '', stderr });
@@ -338,7 +337,7 @@ describe('seedStoryBranchRef', () => {
   });
 
   it('defaults its git seams to the real implementation bound to cwd', () => {
-    const repo = mkdtempSync(path.join(tmpdir(), 'seed-story-branch-'));
+    const repo = makeTempDir('seed-story-branch-');
     try {
       const env = Object.fromEntries(
         Object.entries(process.env).filter(([k]) => !k.startsWith('GIT_')),

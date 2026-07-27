@@ -15,7 +15,6 @@
 import assert from 'node:assert/strict';
 import { execFileSync } from 'node:child_process';
 import fs from 'node:fs';
-import os from 'node:os';
 import path from 'node:path';
 import { afterEach, beforeEach, describe, it } from 'node:test';
 
@@ -28,6 +27,7 @@ import {
   buildJsonEnvelope,
   computeExitCode,
 } from '../../../.agents/scripts/lib/orchestration/git-cleanup/phases/render.js';
+import { makeTempDir } from '../../../.agents/scripts/lib/test-temp.js';
 
 // Strip every GIT_* env var so the tmpdir cwd wins even when this suite
 // runs inside a git hook (husky pre-push exports GIT_DIR / GIT_WORK_TREE /
@@ -70,9 +70,7 @@ describe('git-cleanup prune reporting (real git, Story #4772)', () => {
   let clone;
 
   beforeEach(() => {
-    base = fs.realpathSync.native(
-      fs.mkdtempSync(path.join(os.tmpdir(), 'git-cleanup-prune-')),
-    );
+    base = fs.realpathSync.native(makeTempDir('git-cleanup-prune-'));
     origin = path.join(base, 'origin');
     clone = path.join(base, 'clone');
 

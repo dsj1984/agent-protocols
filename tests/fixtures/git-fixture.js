@@ -14,9 +14,9 @@
 //   rmSync(dir, { recursive: true, force: true });
 
 import { execFileSync } from 'node:child_process';
-import { mkdtempSync, writeFileSync } from 'node:fs';
-import { tmpdir } from 'node:os';
+import { writeFileSync } from 'node:fs';
 import path from 'node:path';
+import { makeTempDir } from '../../.agents/scripts/lib/test-temp.js';
 
 /**
  * Env with every `GIT_*` variable dropped. When a test runs inside a git
@@ -56,7 +56,7 @@ export function makeGitRepo({
   fileName = 'baseline.json',
   fileContent = JSON.stringify({ floor: 40 }, null, 2),
 } = {}) {
-  const dir = mkdtempSync(path.join(tmpdir(), prefix));
+  const dir = makeTempDir(prefix);
 
   const git = (...args) =>
     execFileSync('git', args, {

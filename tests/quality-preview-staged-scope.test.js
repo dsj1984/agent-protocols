@@ -1,13 +1,13 @@
 import assert from 'node:assert/strict';
 import { execSync } from 'node:child_process';
 import fs from 'node:fs';
-import os from 'node:os';
 import path from 'node:path';
 import { describe, it } from 'node:test';
 import {
   getStagedFiles,
   resolvePreviewScope,
 } from '../.agents/scripts/lib/changed-files.js';
+import { makeTempDir } from '../.agents/scripts/lib/test-temp.js';
 
 // Env with every `GIT_*` variable dropped. Under a husky pre-push from a
 // linked worktree, git exports GIT_DIR pointing at the shared main gitdir —
@@ -22,7 +22,7 @@ function git(cwd, ...args) {
 }
 
 function initRepo() {
-  const repo = fs.mkdtempSync(path.join(os.tmpdir(), 'qp-staged-'));
+  const repo = makeTempDir('qp-staged-');
   git(repo, 'init');
   git(repo, 'config', 'user.email', 'test@example.com');
   git(repo, 'config', 'user.name', 'Test');

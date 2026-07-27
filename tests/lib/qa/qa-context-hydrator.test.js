@@ -1,6 +1,5 @@
 import assert from 'node:assert/strict';
 import fs from 'node:fs';
-import os from 'node:os';
 import path from 'node:path';
 import { afterEach, beforeEach, describe, it } from 'node:test';
 
@@ -10,6 +9,7 @@ import {
   hydrateQaContext,
   verifySurfaceMap,
 } from '../../../.agents/scripts/lib/qa/qa-context-hydrator.js';
+import { makeTempDir } from '../../../.agents/scripts/lib/test-temp.js';
 
 /**
  * Story #3805 — QA context hydrator (Epic #3798, f1-shared-qa-core).
@@ -62,7 +62,7 @@ function fakeGitPort({ trackedOnRef = [], log = [] } = {}) {
 
 let tmpRoot;
 beforeEach(() => {
-  tmpRoot = fs.mkdtempSync(path.join(os.tmpdir(), 'qa-hydrator-'));
+  tmpRoot = makeTempDir('qa-hydrator-');
 });
 afterEach(() => {
   fs.rmSync(tmpRoot, { recursive: true, force: true });

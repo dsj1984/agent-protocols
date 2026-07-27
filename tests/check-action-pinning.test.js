@@ -1,6 +1,5 @@
 import assert from 'node:assert/strict';
 import fs from 'node:fs';
-import os from 'node:os';
 import path from 'node:path';
 import { test } from 'node:test';
 import {
@@ -12,6 +11,7 @@ import {
   runCli,
   scanWorkflowText,
 } from '../.agents/scripts/check-action-pinning.js';
+import { makeTempDir } from '../.agents/scripts/lib/test-temp.js';
 
 /**
  * Unit coverage for the third-party action-pinning gate (Story #4079).
@@ -126,7 +126,7 @@ test('listWorkflowFiles: returns empty list for a missing directory', () => {
 });
 
 test('listWorkflowFiles: lists yml and yaml files sorted', () => {
-  const tmp = fs.mkdtempSync(path.join(os.tmpdir(), 'action-pin-'));
+  const tmp = makeTempDir('action-pin-');
   fs.writeFileSync(path.join(tmp, 'b.yml'), '');
   fs.writeFileSync(path.join(tmp, 'a.yaml'), '');
   fs.writeFileSync(path.join(tmp, 'ignore.txt'), '');
@@ -156,7 +156,7 @@ function captureStream() {
 }
 
 function seedWorkflowsDir(files) {
-  const tmp = fs.mkdtempSync(path.join(os.tmpdir(), 'action-pin-cli-'));
+  const tmp = makeTempDir('action-pin-cli-');
   const wfDir = path.join(tmp, '.github', 'workflows');
   fs.mkdirSync(wfDir, { recursive: true });
   for (const [name, content] of Object.entries(files)) {
@@ -224,7 +224,7 @@ test('runCli: human output prints violation rows and the gate-fail marker', asyn
 });
 
 test('runCli: exits 0 and warns when the workflows directory is missing', async () => {
-  const tmp = fs.mkdtempSync(path.join(os.tmpdir(), 'action-pin-empty-'));
+  const tmp = makeTempDir('action-pin-empty-');
   const stdout = captureStream();
   const stderr = captureStream();
   const exit = await runCli({

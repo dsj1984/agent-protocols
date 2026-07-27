@@ -23,7 +23,6 @@
 import assert from 'node:assert/strict';
 import { spawnSync } from 'node:child_process';
 import fs from 'node:fs';
-import os from 'node:os';
 import path from 'node:path';
 import { afterEach, describe, it } from 'node:test';
 
@@ -33,6 +32,7 @@ import {
 } from '../../.agents/scripts/bootstrap.js';
 import { LEDGER_RELATIVE_PATH } from '../../.agents/scripts/lib/bootstrap/install-ledger.js';
 import { PHASE_GROUPS } from '../../.agents/scripts/lib/bootstrap/manifest.js';
+import { makeTempDir } from '../../.agents/scripts/lib/test-temp.js';
 
 const ANSWERS = Object.freeze({
   owner: 'acme',
@@ -45,7 +45,7 @@ const ANSWERS = Object.freeze({
 const tmpDirs = [];
 
 function makeTmpDir() {
-  const dir = fs.mkdtempSync(path.join(os.tmpdir(), 'bootstrap-prov-'));
+  const dir = makeTempDir('bootstrap-prov-');
   tmpDirs.push(dir);
   return dir;
 }

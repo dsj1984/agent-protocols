@@ -1,12 +1,12 @@
 import assert from 'node:assert/strict';
 import fs from 'node:fs';
-import os from 'node:os';
 import path from 'node:path';
 import test from 'node:test';
+import { makeTempDir } from '../../../.agents/scripts/lib/test-temp.js';
 import { copyBootstrapFiles } from '../../../.agents/scripts/lib/worktree/bootstrapper.js';
 
 function makeRepo() {
-  return fs.mkdtempSync(path.join(os.tmpdir(), 'bootstrap-'));
+  return makeTempDir('bootstrap-');
 }
 
 function quietLogger() {

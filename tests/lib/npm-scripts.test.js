@@ -6,8 +6,7 @@
  */
 
 import assert from 'node:assert/strict';
-import { mkdtempSync, rmSync, writeFileSync } from 'node:fs';
-import { tmpdir } from 'node:os';
+import { rmSync, writeFileSync } from 'node:fs';
 import path from 'node:path';
 import { afterEach, beforeEach, describe, it } from 'node:test';
 
@@ -15,12 +14,13 @@ import {
   hasNpmScript,
   readPackageScripts,
 } from '../../.agents/scripts/lib/npm-scripts.js';
+import { makeTempDir } from '../../.agents/scripts/lib/test-temp.js';
 
 describe('readPackageScripts', () => {
   let dir;
 
   beforeEach(() => {
-    dir = mkdtempSync(path.join(tmpdir(), 'npm-scripts-'));
+    dir = makeTempDir('npm-scripts-');
   });
 
   afterEach(() => {

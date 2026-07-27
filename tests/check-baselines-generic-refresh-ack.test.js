@@ -16,8 +16,7 @@
 // path fails closed instead of throwing.
 
 import assert from 'node:assert/strict';
-import { mkdirSync, mkdtempSync, rmSync, writeFileSync } from 'node:fs';
-import { tmpdir } from 'node:os';
+import { mkdirSync, rmSync, writeFileSync } from 'node:fs';
 import path from 'node:path';
 import { afterEach, beforeEach, describe, it } from 'node:test';
 
@@ -27,6 +26,7 @@ import {
   __setSpawnRunner,
 } from '../.agents/scripts/lib/baselines/git-base.js';
 import { currentKernelVersion } from '../.agents/scripts/lib/baselines/kernel.js';
+import { makeTempDir } from '../.agents/scripts/lib/test-temp.js';
 
 const COV_BASELINE_REL = 'baselines/coverage.json';
 
@@ -45,7 +45,7 @@ function covEnvelope({ rows, rollup } = {}) {
 }
 
 function setupTmpRepo({ floors } = {}) {
-  const root = mkdtempSync(path.join(tmpdir(), 'check-baselines-generic-'));
+  const root = makeTempDir('check-baselines-generic-');
   mkdirSync(path.join(root, 'baselines'), { recursive: true });
   writeJson(path.join(root, '.agentrc.json'), {
     project: {
@@ -231,7 +231,7 @@ describe('check-baselines — generic refresh acknowledgment (#4802)', () => {
   // that branch is unreachable from here. Its no-throw contract is pinned at
   // the resolver level in tests/check-bundle-size-env-overrides.test.js.)
   it('the commit-tag probe falls back to DEFAULT_BASELINE_PATHS when the gate block omits baselinePath', async () => {
-    root = mkdtempSync(path.join(tmpdir(), 'check-baselines-generic-'));
+    root = makeTempDir('check-baselines-generic-');
     mkdirSync(path.join(root, 'baselines'), { recursive: true });
     writeJson(path.join(root, '.agentrc.json'), {
       project: {

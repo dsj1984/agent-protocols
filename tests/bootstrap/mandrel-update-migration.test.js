@@ -26,7 +26,6 @@
 
 import assert from 'node:assert/strict';
 import fs from 'node:fs';
-import os from 'node:os';
 import path from 'node:path';
 import { afterEach, beforeEach, describe, it } from 'node:test';
 
@@ -36,6 +35,7 @@ import {
   PRE_COMMIT_MARKER,
   QUALITY_NPM_SCRIPTS,
 } from '../../.agents/scripts/lib/bootstrap/quality-bootstrap.js';
+import { makeTempDir } from '../../.agents/scripts/lib/test-temp.js';
 
 let tmpRoot;
 let frameworkRoot;
@@ -50,7 +50,7 @@ function readJson(p) {
 }
 
 beforeEach(() => {
-  tmpRoot = fs.mkdtempSync(path.join(os.tmpdir(), 'mandrel-update-mig-'));
+  tmpRoot = makeTempDir('mandrel-update-mig-');
   frameworkRoot = path.join(tmpRoot, '_framework');
   const helperSrc = path.join(
     frameworkRoot,

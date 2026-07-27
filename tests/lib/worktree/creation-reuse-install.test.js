@@ -1,8 +1,8 @@
 import assert from 'node:assert/strict';
 import fs from 'node:fs';
-import os from 'node:os';
 import path from 'node:path';
 import test from 'node:test';
+import { makeTempDir } from '../../../.agents/scripts/lib/test-temp.js';
 import { ensure } from '../../../.agents/scripts/lib/worktree/lifecycle/creation.js';
 
 function quietLogger() {
@@ -35,7 +35,7 @@ function reuseCtx({ wtRoot, wtPath, branch, installDependencies }) {
 }
 
 test('ensure (reuse): retries install when the prior install failed (no node_modules)', async () => {
-  const tmp = fs.mkdtempSync(path.join(os.tmpdir(), 'cre-'));
+  const tmp = makeTempDir('cre-');
   try {
     const wtRoot = path.join(tmp, '.worktrees');
     const wtPath = path.join(wtRoot, 'story-7');
@@ -64,7 +64,7 @@ test('ensure (reuse): retries install when the prior install failed (no node_mod
 });
 
 test('ensure (reuse): skips install when a completed install is present', async () => {
-  const tmp = fs.mkdtempSync(path.join(os.tmpdir(), 'cre-'));
+  const tmp = makeTempDir('cre-');
   try {
     const wtRoot = path.join(tmp, '.worktrees');
     const wtPath = path.join(wtRoot, 'story-8');

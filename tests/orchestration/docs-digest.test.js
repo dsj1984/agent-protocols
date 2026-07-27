@@ -11,16 +11,16 @@
 
 import assert from 'node:assert/strict';
 import fs from 'node:fs';
-import os from 'node:os';
 import path from 'node:path';
 import { afterEach, beforeEach, test } from 'node:test';
 
 import { buildDocsDigest } from '../../.agents/scripts/lib/orchestration/docs-digest.js';
+import { makeTempDir } from '../../.agents/scripts/lib/test-temp.js';
 
 let docsRoot;
 
 beforeEach(() => {
-  docsRoot = fs.mkdtempSync(path.join(os.tmpdir(), 'docs-digest-'));
+  docsRoot = makeTempDir('docs-digest-');
 });
 
 afterEach(() => {

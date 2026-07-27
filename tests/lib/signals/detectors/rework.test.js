@@ -20,14 +20,14 @@
  */
 
 import assert from 'node:assert/strict';
-import { mkdtempSync, rmSync, statSync } from 'node:fs';
+import { rmSync, statSync } from 'node:fs';
 import fs from 'node:fs/promises';
-import { tmpdir } from 'node:os';
 import path from 'node:path';
 import { afterEach, beforeEach, describe, it } from 'node:test';
 import { fileURLToPath } from 'node:url';
 import { detectRework as detectReworkFromBarrel } from '../../../../.agents/scripts/lib/signals/detectors/index.js';
 import { detectRework } from '../../../../.agents/scripts/lib/signals/detectors/rework.js';
+import { makeTempDir } from '../../../../.agents/scripts/lib/test-temp.js';
 
 const __dirname = path.dirname(fileURLToPath(import.meta.url));
 const FIXTURES_DIR = path.join(__dirname, 'fixtures');
@@ -39,7 +39,7 @@ const TASK_ID = 1772;
 let scratchDir;
 
 beforeEach(() => {
-  scratchDir = mkdtempSync(path.join(tmpdir(), 'rework-detector-'));
+  scratchDir = makeTempDir('rework-detector-');
 });
 
 afterEach(() => {

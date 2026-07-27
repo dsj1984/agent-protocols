@@ -20,11 +20,11 @@
 
 import assert from 'node:assert/strict';
 import fs from 'node:fs';
-import os from 'node:os';
 import path from 'node:path';
 import { afterEach, beforeEach, describe, it } from 'node:test';
 
 import { runPostLandTail } from '../../../.agents/scripts/lib/orchestration/single-story-close/phases/post-land.js';
+import { makeTempDir } from '../../../.agents/scripts/lib/test-temp.js';
 
 /** A gitSpawn stub: story-branch exists, deletes cleanly. */
 function fakeGitSpawn(trace) {
@@ -77,7 +77,7 @@ function baseSeams(trace) {
 let tmpDir;
 beforeEach(() => {
   // A `.git` dir must exist for the lockfile's parent to be writable.
-  tmpDir = fs.mkdtempSync(path.join(os.tmpdir(), 'post-land-lock-'));
+  tmpDir = makeTempDir('post-land-lock-');
   fs.mkdirSync(path.join(tmpDir, '.git'), { recursive: true });
 });
 afterEach(() => {

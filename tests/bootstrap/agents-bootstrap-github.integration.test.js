@@ -15,7 +15,6 @@
 
 import assert from 'node:assert/strict';
 import fs from 'node:fs';
-import os from 'node:os';
 import path from 'node:path';
 import { afterEach, beforeEach, describe, it } from 'node:test';
 import {
@@ -38,6 +37,7 @@ import {
   GhVersionError,
   MissingRuntimeDepsError,
 } from '../../.agents/scripts/lib/errors/index.js';
+import { makeTempDir } from '../../.agents/scripts/lib/test-temp.js';
 
 const PR_GATE = {
   checks: [
@@ -240,7 +240,7 @@ describe('agents-bootstrap-github — CI workflow template (Story #1401)', () =>
   let tmpRoot;
 
   beforeEach(() => {
-    tmpRoot = fs.mkdtempSync(path.join(os.tmpdir(), 'bootstrap-ci-'));
+    tmpRoot = makeTempDir('bootstrap-ci-');
   });
   afterEach(() => {
     fs.rmSync(tmpRoot, { recursive: true, force: true });

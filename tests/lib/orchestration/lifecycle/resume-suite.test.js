@@ -40,14 +40,14 @@
  */
 
 import assert from 'node:assert/strict';
-import { mkdtempSync, readdirSync, readFileSync, rmSync } from 'node:fs';
-import { tmpdir } from 'node:os';
+import { readdirSync, readFileSync, rmSync } from 'node:fs';
 import path from 'node:path';
 import { afterEach, beforeEach, describe, it } from 'node:test';
 import { fileURLToPath } from 'node:url';
 
 import { Bus } from '../../../../.agents/scripts/lib/orchestration/lifecycle/bus.js';
 import { LedgerWriter } from '../../../../.agents/scripts/lib/orchestration/lifecycle/ledger-writer.js';
+import { makeTempDir } from '../../../../.agents/scripts/lib/test-temp.js';
 
 const __dirname = path.dirname(fileURLToPath(import.meta.url));
 const SCHEMA_DIR = path.resolve(
@@ -231,7 +231,7 @@ describe('lifecycle/resume-suite (per-event consolidated)', () => {
   let tempRoot;
 
   beforeEach(() => {
-    tempRoot = mkdtempSync(path.join(tmpdir(), 'mandrel-resume-suite-'));
+    tempRoot = makeTempDir('mandrel-resume-suite-');
   });
   afterEach(() => {
     rmSync(tempRoot, { recursive: true, force: true });
@@ -268,7 +268,7 @@ describe('lifecycle/resume-suite (per-event consolidated)', () => {
       // Reference (uninterrupted) ledger — written into a sibling
       // tempRoot so the resume scenario writes into a clean
       // directory.
-      const refRoot = mkdtempSync(path.join(tmpdir(), 'mandrel-resume-ref-'));
+      const refRoot = makeTempDir('mandrel-resume-ref-');
       try {
         const refWriter = await emitUninterrupted({
           event,

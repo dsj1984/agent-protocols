@@ -114,13 +114,23 @@ jobs:
           set -o pipefail
           npm run test:coverage 2>&1 | tee test-output.txt
 
-      - name: Assert temp/ stream hygiene (post-test)
+      - name: Assert temp hygiene (post-test)
         # Story #4696: fail the build if the suite added or grew any stream
         # file under temp/ relative to the pre-test snapshot. A future writer
         # that bypasses the scratch seam reds here instead of silently
         # polluting friction / rollup / loop-health consumers. A missing
         # baseline is a hard failure (Story #4711) — never a re-baseline.
-        run: node .agents/scripts/check-test-temp-hygiene.js --assert --baseline "$RUNNER_TEMP/test-temp-hygiene-snapshot.json"
+        # Story #4808: --lint-globs additionally fails the build when a test
+        # file mints an OS temp dir outside makeTempDir(), which is what let
+        # ~26k unreaped directories accumulate in the shared temp root. The
+        # flag is passed here rather than defaulted on because this script
+        # ships in the materialized .agents/ payload and the rule must not
+        # fire on a consumer's own tests. The helper's spec is excluded: it
+        # carries mkdtemp calls inside string fixtures.
+        run: |
+          node .agents/scripts/check-test-temp-hygiene.js --assert \
+            --baseline "$RUNNER_TEMP/test-temp-hygiene-snapshot.json" \
+            --lint-globs 'tests/**/*.js,.agents/**/__tests__/**/*.js,!tests/lib/test-temp.test.js'
 
       - name: Upload Test Results
         uses: actions/upload-artifact@v4

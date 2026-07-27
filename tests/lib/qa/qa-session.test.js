@@ -1,6 +1,5 @@
 import assert from 'node:assert/strict';
 import fs from 'node:fs';
-import os from 'node:os';
 import path from 'node:path';
 import { afterEach, beforeEach, describe, it } from 'node:test';
 import { fileURLToPath } from 'node:url';
@@ -15,6 +14,7 @@ import {
   resolveSessionId,
   TRIAGED_DISPOSITIONS,
 } from '../../../.agents/scripts/lib/qa/qa-session.js';
+import { makeTempDir } from '../../../.agents/scripts/lib/test-temp.js';
 
 /**
  * Story #3723 — session-id + ledger resume helper (Epic #3686).
@@ -80,7 +80,7 @@ function seedLedger(ledgerPath, items) {
 }
 
 beforeEach(() => {
-  tmpRoot = fs.mkdtempSync(path.join(os.tmpdir(), 'qa-session-'));
+  tmpRoot = makeTempDir('qa-session-');
 });
 
 afterEach(() => {

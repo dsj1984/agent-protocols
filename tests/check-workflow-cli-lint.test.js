@@ -16,7 +16,6 @@
 
 import assert from 'node:assert/strict';
 import fs from 'node:fs';
-import os from 'node:os';
 import path from 'node:path';
 import { describe, it } from 'node:test';
 import {
@@ -25,6 +24,7 @@ import {
   stripFences,
   toParagraphs,
 } from '../.agents/scripts/check-workflow-cli-lint.js';
+import { makeTempDir } from '../.agents/scripts/lib/test-temp.js';
 
 describe('workflow-cli-lint — flags the retired no-CLI instruction shapes', () => {
   it('flags the imperative "Call `fn(...)` exported from" paragraph (retired Phase 2 shape)', () => {
@@ -214,7 +214,7 @@ describe('workflow-cli-lint — corpus and fixture-driven runCheck', () => {
   });
 
   it('runCheck over a fixture directory surfaces file-relative violations', () => {
-    const dir = fs.mkdtempSync(path.join(os.tmpdir(), 'workflow-cli-lint-'));
+    const dir = makeTempDir('workflow-cli-lint-');
     try {
       fs.mkdirSync(path.join(dir, 'helpers'));
       fs.writeFileSync(

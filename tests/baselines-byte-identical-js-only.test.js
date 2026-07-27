@@ -1,6 +1,5 @@
 import assert from 'node:assert';
 import fs from 'node:fs';
-import os from 'node:os';
 import path from 'node:path';
 import { test } from 'node:test';
 import {
@@ -9,6 +8,7 @@ import {
 } from '../.agents/scripts/lib/crap-utils.js';
 import { calculateForFile } from '../.agents/scripts/lib/maintainability-engine.js';
 import { calculateAll } from '../.agents/scripts/lib/maintainability-utils.js';
+import { makeTempDir } from '../.agents/scripts/lib/test-temp.js';
 
 /**
  * Acceptance criterion (Story #829, 5.29.0): existing JS-only consumer
@@ -31,9 +31,7 @@ function mkTmp() {
   // path.relative() the scorer runs against cwd would emit a `../../…`
   // traversal instead of the bare `a.js` key these snapshots pin. No-op on
   // Linux, where /tmp is a real directory.
-  return fs.realpathSync(
-    fs.mkdtempSync(path.join(os.tmpdir(), 'baseline_snap_')),
-  );
+  return fs.realpathSync(makeTempDir('baseline_snap_'));
 }
 
 function rmTmp(dir) {

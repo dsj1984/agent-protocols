@@ -3,9 +3,7 @@
  */
 
 import assert from 'node:assert/strict';
-import { mkdtempSync, rmSync } from 'node:fs';
-import { tmpdir } from 'node:os';
-import path from 'node:path';
+import { rmSync } from 'node:fs';
 import { describe, it } from 'node:test';
 import {
   planRunEpilogue,
@@ -13,6 +11,7 @@ import {
   resolveRunBaseSha,
   runPlanRunEpilogue,
 } from '../../../.agents/scripts/lib/orchestration/run-epilogue.js';
+import { makeTempDir } from '../../../.agents/scripts/lib/test-temp.js';
 
 const US = String.fromCharCode(31);
 
@@ -537,7 +536,7 @@ describe('follow-up-rollup — an empty roll-up over N>1 asserts (Story #4578)',
   it('flags emptyRollupSuspect and names the count when no Story emitted a signal', async () => {
     const comments = [];
     // An absolute tempRoot with no signals.ndjson under it → an empty stream.
-    const tempRoot = mkdtempSync(path.join(tmpdir(), 'rollup-empty-'));
+    const tempRoot = makeTempDir('rollup-empty-');
     try {
       const result = await runPlanRunEpilogue({
         planRunId: 'adhoc-1-2-3',

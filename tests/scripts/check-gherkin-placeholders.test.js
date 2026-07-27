@@ -1,6 +1,5 @@
 import assert from 'node:assert/strict';
 import fs from 'node:fs';
-import os from 'node:os';
 import path from 'node:path';
 import { test } from 'node:test';
 import {
@@ -16,6 +15,7 @@ import {
   runCheck,
   substitutePlaceholders,
 } from '../../.agents/scripts/check-gherkin-placeholders.js';
+import { makeTempDir } from '../../.agents/scripts/lib/test-temp.js';
 
 /**
  * Unit coverage for the Gherkin placeholder-reference lint validator.
@@ -32,7 +32,7 @@ import {
  */
 
 function makeFakeRepo() {
-  const root = fs.mkdtempSync(path.join(os.tmpdir(), 'check-gherkin-ph-'));
+  const root = makeTempDir('check-gherkin-ph-');
   fs.mkdirSync(path.join(root, 'tests', 'features'), { recursive: true });
   fs.mkdirSync(path.join(root, 'tests', 'steps'), { recursive: true });
   return root;

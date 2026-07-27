@@ -41,8 +41,7 @@
 
 import assert from 'node:assert/strict';
 import { spawnSync } from 'node:child_process';
-import { existsSync, mkdtempSync, readFileSync, writeFileSync } from 'node:fs';
-import { tmpdir } from 'node:os';
+import { existsSync, readFileSync, writeFileSync } from 'node:fs';
 import path from 'node:path';
 import test, { describe } from 'node:test';
 import { fileURLToPath } from 'node:url';
@@ -69,6 +68,7 @@ import {
   TERMINAL_END_MARKER,
   validateTerminalEnvelope,
 } from '../../../.agents/scripts/lib/orchestration/story-deliver-terminal.js';
+import { makeTempDir } from '../../../.agents/scripts/lib/test-temp.js';
 import { assertDocMentions, readDoc } from '../../helpers/doc-assert.js';
 
 const __dirname = path.dirname(fileURLToPath(import.meta.url));
@@ -738,7 +738,7 @@ describe('an escalated run starts nothing (AC-2)', () => {
     // somewhere with no git repository at all. Anything that cut a branch,
     // materialized a worktree, or resolved repo config would fail here; a
     // clean exit 2 with a valid envelope proves the path did none of it.
-    const cwd = mkdtempSync(path.join(tmpdir(), 'light-escalate-'));
+    const cwd = makeTempDir('light-escalate-');
     const result = spawnSync(
       process.execPath,
       [
@@ -921,7 +921,7 @@ describe('the workflow scopes by effort, not artifact count (Story #4764)', () =
 
 describe('the light path does not project a command (AC-7, Story #4760)', () => {
   test('sync-claude-commands writes no deliver-light command', () => {
-    const dest = mkdtempSync(path.join(tmpdir(), 'light-cmd-'));
+    const dest = makeTempDir('light-cmd-');
     // Seed the destination with the command a pre-#4760 consumer would have,
     // so this exercises the orphan-reap rather than merely a non-write.
     writeFileSync(path.join(dest, 'deliver-light.md'), '# stale\n');

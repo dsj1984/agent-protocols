@@ -27,8 +27,7 @@
 
 import assert from 'node:assert/strict';
 import { execFileSync, spawnSync } from 'node:child_process';
-import { mkdtempSync, rmSync, writeFileSync } from 'node:fs';
-import { tmpdir } from 'node:os';
+import { rmSync, writeFileSync } from 'node:fs';
 import path from 'node:path';
 import process from 'node:process';
 import { after, afterEach, before, describe, it } from 'node:test';
@@ -40,6 +39,7 @@ import {
 } from '../.agents/scripts/lib/baselines/git-base.js';
 import { getChangedFiles } from '../.agents/scripts/lib/changed-files.js';
 import { runCapture } from '../.agents/scripts/lib/coverage-capture.js';
+import { makeTempDir } from '../.agents/scripts/lib/test-temp.js';
 
 // ---------------------------------------------------------------------------
 // The mutating-subcommand set. Any first-arg in this list — when passed
@@ -159,7 +159,7 @@ function gitInRepo(dir) {
 }
 
 function makeHookFixture() {
-  const dir = mkdtempSync(path.join(tmpdir(), 'hook-reflog-'));
+  const dir = makeTempDir('hook-reflog-');
   const run = gitInRepo(dir);
   run('init', '--initial-branch=main');
   run('config', 'user.email', 'test@example.com');

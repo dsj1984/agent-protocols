@@ -12,7 +12,6 @@
 import assert from 'node:assert/strict';
 import { execFileSync } from 'node:child_process';
 import fs from 'node:fs';
-import os from 'node:os';
 import path from 'node:path';
 import { afterEach, beforeEach, describe, it } from 'node:test';
 
@@ -20,6 +19,7 @@ import {
   resolveRunBaseSha,
   runPlanRunEpilogue,
 } from '../../../.agents/scripts/lib/orchestration/run-epilogue.js';
+import { makeTempDir } from '../../../.agents/scripts/lib/test-temp.js';
 
 // Strip every GIT_* env var so the tmpdir cwd wins even when this suite runs
 // inside a git hook (husky exports GIT_DIR / GIT_WORK_TREE, which would
@@ -70,9 +70,7 @@ describe('run-epilogue combined landed diff (real git, Story #4550)', () => {
   let preRunBase;
 
   beforeEach(() => {
-    repo = fs.realpathSync.native(
-      fs.mkdtempSync(path.join(os.tmpdir(), 'run-epilogue-base-')),
-    );
+    repo = fs.realpathSync.native(makeTempDir('run-epilogue-base-'));
     run(repo, 'init', '-b', 'main');
     run(repo, 'config', 'user.email', 'test@example.com');
     run(repo, 'config', 'user.name', 'Test');

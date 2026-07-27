@@ -1,6 +1,5 @@
 import assert from 'node:assert/strict';
 import fs from 'node:fs';
-import os from 'node:os';
 import path from 'node:path';
 import { test } from 'node:test';
 import {
@@ -15,6 +14,7 @@ import {
   renderDiff,
   runCli,
 } from '../.agents/scripts/check-arch-cycles.js';
+import { makeTempDir } from '../.agents/scripts/lib/test-temp.js';
 
 /**
  * Unit coverage for the arch-cycle ratchet gate (Story #3991).
@@ -35,7 +35,7 @@ import {
  * Returns `{ cwd, root }` where `root` is the scanned scripts dir.
  */
 function makeFixture(modules, { cycles } = {}) {
-  const cwd = fs.mkdtempSync(path.join(os.tmpdir(), 'arch-cycles-'));
+  const cwd = makeTempDir('arch-cycles-');
   const root = path.join(cwd, 'scripts');
   for (const [rel, imports] of Object.entries(modules)) {
     const file = path.join(root, rel);
@@ -68,7 +68,7 @@ function makeSink() {
  * `cwd`, so a cross-root edge resolves into the single graph.
  */
 function makeMultiRootFixture(modules, { cycles } = {}) {
-  const cwd = fs.mkdtempSync(path.join(os.tmpdir(), 'arch-multiroot-'));
+  const cwd = makeTempDir('arch-multiroot-');
   // Ensure every default root dir exists so the scan walks all of them.
   for (const dir of DEFAULT_ROOTS) {
     fs.mkdirSync(path.join(cwd, dir), { recursive: true });
@@ -199,7 +199,7 @@ test('findCycles: detects a longer cycle and dedupes by normalized identity', ()
 // ---------------------------------------------------------------------------
 
 test('loadBaseline: returns null for missing or unparseable files', () => {
-  const dir = fs.mkdtempSync(path.join(os.tmpdir(), 'arch-base-'));
+  const dir = makeTempDir('arch-base-');
   assert.equal(loadBaseline(path.join(dir, 'nope.json')), null);
   const bad = path.join(dir, 'bad.json');
   fs.writeFileSync(bad, '{not json');
@@ -340,7 +340,7 @@ test('runCli: --json emits structured envelope and skips human summary', async (
 });
 
 test('runCli: throws when the scan root does not exist', async () => {
-  const cwd = fs.mkdtempSync(path.join(os.tmpdir(), 'arch-noroot-'));
+  const cwd = makeTempDir('arch-noroot-');
   await assert.rejects(
     () =>
       runCli({
@@ -443,7 +443,7 @@ test('runCli: explicit --root keeps the single-root contract (no cross-root edge
 test('runCli: default scan tolerates a missing optional root', async () => {
   // Only one of the default roots is materialized; the scan proceeds over the
   // present root(s) rather than throwing.
-  const cwd = fs.mkdtempSync(path.join(os.tmpdir(), 'arch-partial-'));
+  const cwd = makeTempDir('arch-partial-');
   fs.mkdirSync(path.join(cwd, '.agents', 'scripts'), { recursive: true });
   fs.writeFileSync(
     path.join(cwd, '.agents', 'scripts', 'a.js'),

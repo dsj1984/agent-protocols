@@ -1,18 +1,12 @@
 import assert from 'node:assert/strict';
 import { execFileSync } from 'node:child_process';
-import {
-  mkdirSync,
-  mkdtempSync,
-  readFileSync,
-  rmSync,
-  writeFileSync,
-} from 'node:fs';
-import { tmpdir } from 'node:os';
+import { mkdirSync, readFileSync, rmSync, writeFileSync } from 'node:fs';
 import path from 'node:path';
 import { afterEach, beforeEach, describe, it } from 'node:test';
 import { fileURLToPath } from 'node:url';
 import { assertEnvelope } from '../../.agents/scripts/lib/baselines/envelope.js';
 import { writeBaseline } from '../../.agents/scripts/lib/coverage-baseline.js';
+import { makeTempDir } from '../../.agents/scripts/lib/test-temp.js';
 
 // ---------------------------------------------------------------------------
 // refresh-entry-points-migration.test.js — Task #1901 contract tests.
@@ -35,7 +29,7 @@ describe('coverage-baseline.writeBaseline — envelope migration', () => {
   let workDir;
 
   beforeEach(() => {
-    workDir = mkdtempSync(path.join(tmpdir(), 'mandrel-cov-baseline-'));
+    workDir = makeTempDir('mandrel-cov-baseline-');
     mkdirSync(path.join(workDir, 'baselines'), { recursive: true });
   });
 
@@ -120,7 +114,7 @@ describe('update-maintainability-baseline.js — end-to-end smoke', () => {
   let workDir;
 
   beforeEach(() => {
-    workDir = mkdtempSync(path.join(tmpdir(), 'mandrel-mi-update-'));
+    workDir = makeTempDir('mandrel-mi-update-');
     mkdirSync(path.join(workDir, '.agents'), { recursive: true });
     mkdirSync(path.join(workDir, 'src'), { recursive: true });
     mkdirSync(path.join(workDir, 'baselines'), { recursive: true });

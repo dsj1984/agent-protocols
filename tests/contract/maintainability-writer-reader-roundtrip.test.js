@@ -11,18 +11,18 @@
  */
 
 import assert from 'node:assert/strict';
-import { mkdtempSync, rmSync } from 'node:fs';
-import { tmpdir } from 'node:os';
+import { rmSync } from 'node:fs';
 import path from 'node:path';
 import { afterEach, beforeEach, describe, it } from 'node:test';
 import { saveBaseline } from '../../.agents/scripts/lib/baselines/maintainability-baseline-save.js';
 import { loadFile as loadBaselineFile } from '../../.agents/scripts/lib/baselines/reader.js';
+import { makeTempDir } from '../../.agents/scripts/lib/test-temp.js';
 
 describe('maintainability writer/reader round-trip', () => {
   let dir;
 
   beforeEach(() => {
-    dir = mkdtempSync(path.join(tmpdir(), 'mandrel-mi-roundtrip-'));
+    dir = makeTempDir('mandrel-mi-roundtrip-');
   });
   afterEach(() => {
     rmSync(dir, { recursive: true, force: true });

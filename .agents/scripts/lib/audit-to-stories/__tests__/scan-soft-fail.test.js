@@ -12,10 +12,10 @@
 import assert from 'node:assert/strict';
 import { execFileSync } from 'node:child_process';
 import fs from 'node:fs';
-import os from 'node:os';
 import path from 'node:path';
 import { after, before, test } from 'node:test';
 import { fileURLToPath } from 'node:url';
+import { makeTempDir } from '../../test-temp.js';
 
 const HERE = path.dirname(fileURLToPath(import.meta.url));
 const REPO_ROOT = path.resolve(HERE, '../../../../..');
@@ -58,7 +58,7 @@ const FIXTURE = `# Audit: Security
 let workDir;
 
 before(() => {
-  workDir = fs.mkdtempSync(path.join(os.tmpdir(), 'audit-scan-softfail-'));
+  workDir = makeTempDir('audit-scan-softfail-');
   const auditsDir = path.join(workDir, 'audits');
   fs.mkdirSync(auditsDir, { recursive: true });
   fs.writeFileSync(path.join(auditsDir, 'audit-security-results.md'), FIXTURE);

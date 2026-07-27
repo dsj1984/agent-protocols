@@ -56,6 +56,8 @@ import { mkdtempSync } from 'node:fs';
 import os from 'node:os';
 import path from 'node:path';
 
+import { reapOnExit } from '../test-temp.js';
+
 /**
  * Cache the resolved main-checkout root per spawn cwd so the
  * `git rev-parse` shell-out runs at most once per distinct working
@@ -223,7 +225,7 @@ function inNodeTestContext(env, execArgv) {
  *
  * @param {string} tempRoot
  * @param {NodeJS.ProcessEnv} [env=process.env]
- * @param {{ mkdtemp?: typeof mkdtempSync, execArgv?: string[] }} [deps]
+ * @param {{ mkdtemp?: typeof mkdtempSync, execArgv?: string[], onExit?: (fn: () => void) => void }} [deps]
  *   Injectable for tests.
  * @returns {string}
  */
@@ -238,8 +240,17 @@ export function anchorTempRoot(tempRoot, env = process.env, deps = {}) {
   ) {
     if (_testContextScratchDir === null) {
       const mkdtemp = deps.mkdtemp ?? mkdtempSync;
+      // test-temp-allow: published to children below, so it must live
+      // outside the per-process suite root that this process reaps.
       _testContextScratchDir = mkdtemp(
         path.join(os.tmpdir(), 'mandrel-test-temp-'),
+      );
+      // Creator-only reaping (Story #4808): a process that read the root
+      // from the env returned at `scratch` above and never reaches here,
+      // so it can never remove a root its parent is still writing to.
+      reapOnExit(
+        _testContextScratchDir,
+        deps.onExit ? { onExit: deps.onExit } : {},
       );
       if (env === process.env) {
         // Children spawned by this test process inherit the same scratch.

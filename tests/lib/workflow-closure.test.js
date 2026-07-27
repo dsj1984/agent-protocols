@@ -1,8 +1,8 @@
 import assert from 'node:assert/strict';
 import fs from 'node:fs';
-import os from 'node:os';
 import path from 'node:path';
 import { test } from 'node:test';
+import { makeTempDir } from '../../.agents/scripts/lib/test-temp.js';
 import { resolveWorkflowClosures } from '../../.agents/scripts/lib/workflow-closure.js';
 
 /**
@@ -24,7 +24,7 @@ import { resolveWorkflowClosures } from '../../.agents/scripts/lib/workflow-clos
  * paths to string contents. Returns the absolute root.
  */
 function makeRepo(files) {
-  const root = fs.mkdtempSync(path.join(os.tmpdir(), 'wf-closure-'));
+  const root = makeTempDir('wf-closure-');
   for (const [rel, body] of Object.entries(files)) {
     const abs = path.join(root, rel);
     fs.mkdirSync(path.dirname(abs), { recursive: true });

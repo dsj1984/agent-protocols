@@ -2381,6 +2381,30 @@
       "symbol": "runSuite"
     },
     {
+      "file": ".agents/scripts/lib/test-temp.js",
+      "symbol": "SUITE_ROOT_PREFIX"
+    },
+    {
+      "file": ".agents/scripts/lib/test-temp.js",
+      "symbol": "_currentSuiteTempRoot"
+    },
+    {
+      "file": ".agents/scripts/lib/test-temp.js",
+      "symbol": "_resetSuiteTempRootForTests"
+    },
+    {
+      "file": ".agents/scripts/lib/test-temp.js",
+      "symbol": "makeTempDir"
+    },
+    {
+      "file": ".agents/scripts/lib/test-temp.js",
+      "symbol": "reapSuiteTempRoot"
+    },
+    {
+      "file": ".agents/scripts/lib/test-temp.js",
+      "symbol": "suiteTempRoot"
+    },
+    {
       "file": ".agents/scripts/lib/test-tiers.js",
       "symbol": "INTEGRATION_INCLUDE"
     },

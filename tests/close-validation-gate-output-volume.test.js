@@ -25,12 +25,12 @@
 
 import assert from 'node:assert/strict';
 import nodeFs from 'node:fs';
-import nodeOs from 'node:os';
 import path from 'node:path';
 import { after, before, describe, it } from 'node:test';
 
 import { defaultGateRunner } from '../.agents/scripts/lib/close-validation/process.js';
 import { createGateLogSink } from '../.agents/scripts/lib/orchestration/single-story-close/gate-log.js';
+import { makeTempDir } from '../.agents/scripts/lib/test-temp.js';
 
 /**
  * `defaultGateRunner` routes through `cmd.exe` on win32 (`shell: true`), which
@@ -47,7 +47,7 @@ let tmpDir;
 const quietLogger = { info: () => {} };
 
 before(() => {
-  tmpDir = nodeFs.mkdtempSync(path.join(nodeOs.tmpdir(), 'gate-volume-'));
+  tmpDir = makeTempDir('gate-volume-');
 });
 
 after(() => {

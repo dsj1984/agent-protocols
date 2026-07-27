@@ -12,8 +12,7 @@
 // silent-skip comparator runs.
 
 import assert from 'node:assert/strict';
-import { mkdirSync, mkdtempSync, rmSync, writeFileSync } from 'node:fs';
-import { tmpdir } from 'node:os';
+import { mkdirSync, rmSync, writeFileSync } from 'node:fs';
 import path from 'node:path';
 import { afterEach, describe, it } from 'node:test';
 
@@ -22,6 +21,7 @@ import {
   runCheckBaselines,
 } from '../../.agents/scripts/check-baselines.js';
 import { currentKernelVersion } from '../../.agents/scripts/lib/baselines/kernel.js';
+import { makeTempDir } from '../../.agents/scripts/lib/test-temp.js';
 
 function writeJson(p, value) {
   writeFileSync(p, JSON.stringify(value, null, 2));
@@ -38,7 +38,7 @@ function maintainabilityEnvelope({ min }) {
 }
 
 function setupRepoWithBadFloor() {
-  const root = mkdtempSync(path.join(tmpdir(), 'check-baselines-unknown-'));
+  const root = makeTempDir('check-baselines-unknown-');
   mkdirSync(path.join(root, 'baselines'), { recursive: true });
   const agentrc = {
     project: {

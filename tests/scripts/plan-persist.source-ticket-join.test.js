@@ -9,11 +9,11 @@
  */
 
 import assert from 'node:assert/strict';
-import { mkdtemp, rm, writeFile } from 'node:fs/promises';
-import { tmpdir } from 'node:os';
+import { rm, writeFile } from 'node:fs/promises';
 import path from 'node:path';
 import { describe, it } from 'node:test';
 import { PLAN_CONTEXT_FILENAME } from '../../.agents/scripts/lib/orchestration/plan-persist/plan-context-source.js';
+import { makeTempDir } from '../../.agents/scripts/lib/test-temp.js';
 import {
   buildPersistOptions,
   resolveInputPaths,
@@ -33,7 +33,7 @@ function values(overrides = {}) {
 }
 
 async function planDirWithEnvelope(envelope = TICKETS_ENVELOPE) {
-  const dir = await mkdtemp(path.join(tmpdir(), 'persist-join-'));
+  const dir = await makeTempDir('persist-join-');
   await writeFile(
     path.join(dir, PLAN_CONTEXT_FILENAME),
     JSON.stringify(envelope),

@@ -1,12 +1,5 @@
 import assert from 'node:assert/strict';
-import {
-  mkdirSync,
-  mkdtempSync,
-  rmSync,
-  utimesSync,
-  writeFileSync,
-} from 'node:fs';
-import { tmpdir } from 'node:os';
+import { mkdirSync, rmSync, utimesSync, writeFileSync } from 'node:fs';
 import path from 'node:path';
 import { afterEach, beforeEach, describe, it } from 'node:test';
 import {
@@ -21,6 +14,7 @@ import check, {
   sampleStreamInvalidCount,
   scanRetroMirror,
 } from '../../.agents/scripts/lib/checks/loop-health.js';
+import { makeTempDir } from '../../.agents/scripts/lib/test-temp.js';
 
 /**
  * Unit tests for the loop-health retro check. Drives `detectLoopHealth`
@@ -41,7 +35,7 @@ function writeStream(epicDir, relParts, lines) {
 }
 
 beforeEach(() => {
-  root = mkdtempSync(path.join(tmpdir(), 'loop-health-'));
+  root = makeTempDir('loop-health-');
 });
 
 afterEach(() => {

@@ -19,8 +19,7 @@
  */
 
 import assert from 'node:assert/strict';
-import { mkdirSync, mkdtempSync, readFileSync, rmSync } from 'node:fs';
-import { tmpdir } from 'node:os';
+import { mkdirSync, readFileSync, rmSync } from 'node:fs';
 import path from 'node:path';
 import { afterEach, beforeEach, describe, it } from 'node:test';
 import { refreshBaseline } from '../../.agents/scripts/lib/baselines/refresh-service.js';
@@ -28,6 +27,7 @@ import {
   write as writeEnvelope,
   writeFile as writeEnvelopeFile,
 } from '../../.agents/scripts/lib/baselines/writer.js';
+import { makeTempDir } from '../../.agents/scripts/lib/test-temp.js';
 
 const FIXED_PRIOR = '2024-01-01T00:00:00Z';
 const FIXED_NOW = '2026-05-15T00:00:00Z';
@@ -69,7 +69,7 @@ describe('refreshBaseline — out-of-scope row preservation (Task #2209, AC-4)',
   let workDir;
 
   beforeEach(() => {
-    workDir = mkdtempSync(path.join(tmpdir(), 'mandrel-refresh-rows-'));
+    workDir = makeTempDir('mandrel-refresh-rows-');
   });
 
   afterEach(() => {
@@ -284,7 +284,7 @@ describe('refreshBaseline — scoped refresh includes new files (Story #3695)', 
   let workDir;
 
   beforeEach(() => {
-    workDir = mkdtempSync(path.join(tmpdir(), 'mandrel-refresh-new-'));
+    workDir = makeTempDir('mandrel-refresh-new-');
   });
 
   afterEach(() => {

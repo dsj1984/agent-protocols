@@ -3,6 +3,7 @@ import os from 'node:os';
 import path from 'node:path';
 
 import { TEST_TEMP_ROOT_ENV } from './config/temp-paths.js';
+import { reapOnExit } from './test-temp.js';
 
 /**
  * Per-process memo for the created scratch dir, so repeated calls in one
@@ -32,16 +33,26 @@ export function _clearTestScratchTempRootCache() {
  * `temp/` telemetry tree — the regression that let 99% of friction records
  * be test-fixture pollution.
  *
+ * Reaping (Story #4808): the minting process registers removal of the
+ * scratch dir at exit. This branch is creator-only by construction — a
+ * process that inherited an absolute root returns above without ever
+ * touching the memo, so a child can never delete its parent's scratch
+ * while the parent is still writing to it. Left unreaped, this seam was
+ * the single largest contributor to the OS-temp-root leak (870 surviving
+ * `mandrel-test-temp-` roots on one host), because it mints one per
+ * `run-tests.js` invocation.
+ *
  * Directly unit-tested via the injectable `mkdtemp` seam in
  * `tests/lib/test-env.test.js` (Story #4711).
  *
  * @param {NodeJS.ProcessEnv} [baseEnv=process.env]
- * @param {{ mkdtemp?: typeof mkdtempSync }} [deps] Injectable for tests.
+ * @param {{ mkdtemp?: typeof mkdtempSync, onExit?: (fn: () => void) => void }} [deps]
+ *   Injectable for tests.
  * @returns {string} absolute scratch tempRoot
  */
 export function ensureTestScratchTempRoot(
   baseEnv = process.env,
-  { mkdtemp = mkdtempSync } = {},
+  { mkdtemp = mkdtempSync, onExit } = {},
 ) {
   const existing = baseEnv?.[TEST_TEMP_ROOT_ENV];
   if (
@@ -52,7 +63,8 @@ export function ensureTestScratchTempRoot(
     return existing;
   }
   if (_createdScratchDir === null) {
-    _createdScratchDir = mkdtemp(path.join(os.tmpdir(), 'mandrel-test-temp-'));
+    _createdScratchDir = mkdtemp(path.join(os.tmpdir(), 'mandrel-test-temp-')); // test-temp-allow: children inherit this path, so it lives outside the suite root.
+    reapOnExit(_createdScratchDir, onExit ? { onExit } : {});
   }
   return _createdScratchDir;
 }

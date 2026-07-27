@@ -1,10 +1,9 @@
 import assert from 'node:assert/strict';
-import { mkdtempSync, rmSync } from 'node:fs';
-import { tmpdir } from 'node:os';
-import path from 'node:path';
+import { rmSync } from 'node:fs';
 import { afterEach, beforeEach, describe, it } from 'node:test';
 
 import { ColumnSync } from '../../.agents/scripts/lib/orchestration/column-sync.js';
+import { makeTempDir } from '../../.agents/scripts/lib/test-temp.js';
 
 /**
  * Tech spec #443 §1.1 regression guard: GitHub's GraphQL server rejects any
@@ -103,7 +102,7 @@ describe('shared GraphQL query builders', () => {
   let isolatedConfig;
 
   beforeEach(() => {
-    tempRoot = mkdtempSync(path.join(tmpdir(), 'mandrel-colsync-'));
+    tempRoot = makeTempDir('mandrel-colsync-');
     isolatedConfig = { project: { paths: { tempRoot } } };
   });
 

@@ -1,9 +1,8 @@
 import assert from 'node:assert/strict';
 import fs from 'node:fs';
-import os from 'node:os';
-import path from 'node:path';
 import { test } from 'node:test';
 import { fileURLToPath } from 'node:url';
+import { makeTempDir } from '../.agents/scripts/lib/test-temp.js';
 import {
   computeExitCode,
   mergeEnvelopes,
@@ -67,7 +66,7 @@ function makeStreamCapture() {
 }
 
 function _makeTmpDir() {
-  return fs.mkdtempSync(path.join(os.tmpdir(), 'quality-preview-test-'));
+  return makeTempDir('quality-preview-test-');
 }
 
 test('parseChangedSinceArg — returns ref when flag has value', () => {

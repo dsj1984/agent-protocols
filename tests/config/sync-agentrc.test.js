@@ -1,6 +1,5 @@
 import assert from 'node:assert/strict';
-import { mkdtempSync, readFileSync, writeFileSync } from 'node:fs';
-import { tmpdir } from 'node:os';
+import { readFileSync, writeFileSync } from 'node:fs';
 import path from 'node:path';
 import { beforeEach, describe, it } from 'node:test';
 import { fileURLToPath } from 'node:url';
@@ -10,6 +9,7 @@ import {
   formatSyncReport,
   syncAgentrc,
 } from '../../.agents/scripts/lib/config/sync-agentrc.js';
+import { makeTempDir } from '../../.agents/scripts/lib/test-temp.js';
 
 const STARTER_PATH = fileURLToPath(
   new URL('../../.agents/starter-agentrc.json', import.meta.url),
@@ -19,7 +19,7 @@ const FULL_PATH = fileURLToPath(
 );
 
 function makeTmpProject() {
-  const root = mkdtempSync(path.join(tmpdir(), 'sync-agentrc-'));
+  const root = makeTempDir('sync-agentrc-');
   return root;
 }
 

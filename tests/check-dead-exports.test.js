@@ -1,6 +1,5 @@
 import assert from 'node:assert/strict';
 import fs from 'node:fs';
-import os from 'node:os';
 import path from 'node:path';
 import { test } from 'node:test';
 import {
@@ -14,6 +13,7 @@ import {
   extractRowsFromKnip,
   runKnip,
 } from '../.agents/scripts/lib/dead-exports-knip.js';
+import { makeTempDir } from '../.agents/scripts/lib/test-temp.js';
 
 /**
  * Unit coverage for the advisory dead-export ratchet.
@@ -49,7 +49,7 @@ test('loadBaseline: returns null when the file does not exist', () => {
 });
 
 test('loadBaseline: returns parsed envelope on a well-formed file', () => {
-  const tmp = fs.mkdtempSync(path.join(os.tmpdir(), 'dead-exports-'));
+  const tmp = makeTempDir('dead-exports-');
   const file = path.join(tmp, 'baseline.json');
   fs.writeFileSync(
     file,
@@ -67,7 +67,7 @@ test('loadBaseline: returns parsed envelope on a well-formed file', () => {
 });
 
 test('loadBaseline: returns null on malformed JSON', () => {
-  const tmp = fs.mkdtempSync(path.join(os.tmpdir(), 'dead-exports-'));
+  const tmp = makeTempDir('dead-exports-');
   const file = path.join(tmp, 'bad.json');
   fs.writeFileSync(file, '{not json');
   assert.equal(loadBaseline(file), null);
@@ -200,7 +200,7 @@ function captureStream() {
 }
 
 test('runCli: exits 0 and emits JSON envelope on clean diff', async () => {
-  const tmp = fs.mkdtempSync(path.join(os.tmpdir(), 'dead-exports-cli-'));
+  const tmp = makeTempDir('dead-exports-cli-');
   const baselinePath = path.join(tmp, 'baselines', 'dead-exports.json');
   fs.mkdirSync(path.dirname(baselinePath), { recursive: true });
   fs.writeFileSync(
@@ -241,7 +241,7 @@ test('runCli: exits 0 and emits JSON envelope on clean diff', async () => {
 });
 
 test('runCli: exits 1 and includes exitCode in JSON envelope when added exports present', async () => {
-  const tmp = fs.mkdtempSync(path.join(os.tmpdir(), 'dead-exports-cli-'));
+  const tmp = makeTempDir('dead-exports-cli-');
   const baselinePath = path.join(tmp, 'baseline.json');
   fs.writeFileSync(
     baselinePath,
@@ -288,7 +288,7 @@ test('runCli: exits 1 and includes exitCode in JSON envelope when added exports 
 });
 
 test('runCli: exits 0 when only removals detected (baseline shrinking)', async () => {
-  const tmp = fs.mkdtempSync(path.join(os.tmpdir(), 'dead-exports-cli-'));
+  const tmp = makeTempDir('dead-exports-cli-');
   const baselinePath = path.join(tmp, 'baseline.json');
   fs.writeFileSync(
     baselinePath,
@@ -326,7 +326,7 @@ test('runCli: exits 0 when only removals detected (baseline shrinking)', async (
 });
 
 test('runCli: human output prints + and - lines for drift and gate-fail marker', async () => {
-  const tmp = fs.mkdtempSync(path.join(os.tmpdir(), 'dead-exports-cli-'));
+  const tmp = makeTempDir('dead-exports-cli-');
   const baselinePath = path.join(tmp, 'baseline.json');
   fs.writeFileSync(
     baselinePath,
@@ -366,7 +366,7 @@ test('runCli: human output prints + and - lines for drift and gate-fail marker',
 });
 
 test('runCli: exits 1 when baseline is missing and current rows are non-empty', async () => {
-  const tmp = fs.mkdtempSync(path.join(os.tmpdir(), 'dead-exports-cli-'));
+  const tmp = makeTempDir('dead-exports-cli-');
   const knipOutPath = path.join(tmp, 'knip.json');
   fs.writeFileSync(
     knipOutPath,
@@ -394,7 +394,7 @@ test('runCli: exits 1 when baseline is missing and current rows are non-empty', 
 });
 
 test('runCli: surfaces knip spawn failure as advisory warning', async () => {
-  const tmp = fs.mkdtempSync(path.join(os.tmpdir(), 'dead-exports-cli-'));
+  const tmp = makeTempDir('dead-exports-cli-');
   const baselinePath = path.join(tmp, 'baseline.json');
   fs.writeFileSync(
     baselinePath,
@@ -461,7 +461,7 @@ test('runKnip: passes --production when requested', () => {
 });
 
 test('runCli: --production defaults to the production baseline path', async () => {
-  const tmp = fs.mkdtempSync(path.join(os.tmpdir(), 'dead-exports-prod-'));
+  const tmp = makeTempDir('dead-exports-prod-');
   const baselinePath = path.join(
     tmp,
     'baselines',
@@ -489,7 +489,7 @@ test('runCli: --production defaults to the production baseline path', async () =
 });
 
 test('runCli: default mode keeps the original baseline path and mode tag', async () => {
-  const tmp = fs.mkdtempSync(path.join(os.tmpdir(), 'dead-exports-prod-'));
+  const tmp = makeTempDir('dead-exports-prod-');
   const baselinePath = path.join(tmp, 'baselines', 'dead-exports.json');
   fs.mkdirSync(path.dirname(baselinePath), { recursive: true });
   fs.writeFileSync(
@@ -513,7 +513,7 @@ test('runCli: default mode keeps the original baseline path and mode tag', async
 });
 
 test('runCli: --baseline still overrides the production default', async () => {
-  const tmp = fs.mkdtempSync(path.join(os.tmpdir(), 'dead-exports-prod-'));
+  const tmp = makeTempDir('dead-exports-prod-');
   const baselinePath = path.join(tmp, 'custom.json');
   fs.writeFileSync(
     baselinePath,
@@ -541,7 +541,7 @@ test('runCli: --baseline still overrides the production default', async () => {
 });
 
 test('runCli: --production ratchets independently (added row fails the gate)', async () => {
-  const tmp = fs.mkdtempSync(path.join(os.tmpdir(), 'dead-exports-prod-'));
+  const tmp = makeTempDir('dead-exports-prod-');
   const baselinePath = path.join(
     tmp,
     'baselines',
@@ -580,7 +580,7 @@ test('runCli: --production ratchets independently (added row fails the gate)', a
 });
 
 test('runCli: --production labels its human output distinctly', async () => {
-  const tmp = fs.mkdtempSync(path.join(os.tmpdir(), 'dead-exports-prod-'));
+  const tmp = makeTempDir('dead-exports-prod-');
   const baselinePath = path.join(tmp, 'baseline.json');
   fs.writeFileSync(
     baselinePath,

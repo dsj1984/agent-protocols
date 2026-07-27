@@ -28,11 +28,11 @@
  */
 
 import assert from 'node:assert/strict';
-import { mkdirSync, mkdtempSync, rmSync } from 'node:fs';
-import { tmpdir } from 'node:os';
+import { mkdirSync, rmSync } from 'node:fs';
 import path from 'node:path';
 import { afterEach, beforeEach, describe, it } from 'node:test';
 import { fileURLToPath, pathToFileURL } from 'node:url';
+import { makeTempDir } from '../.agents/scripts/lib/test-temp.js';
 
 const REPO_ROOT = path
   .resolve(path.dirname(fileURLToPath(import.meta.url)), '..')
@@ -158,7 +158,7 @@ function makeFakeProvider({
 // can never reach the shared file.
 let tempRoot;
 beforeEach(() => {
-  tempRoot = mkdtempSync(path.join(tmpdir(), 'mandrel-colsync-'));
+  tempRoot = makeTempDir('mandrel-colsync-');
 });
 afterEach(() => {
   rmSync(tempRoot, { recursive: true, force: true });

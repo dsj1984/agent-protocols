@@ -53,13 +53,13 @@
  */
 
 import assert from 'node:assert/strict';
-import { mkdtempSync, readFileSync, rmSync, writeFileSync } from 'node:fs';
-import { tmpdir } from 'node:os';
+import { readFileSync, rmSync, writeFileSync } from 'node:fs';
 import path from 'node:path';
 import { afterEach, beforeEach, describe, it } from 'node:test';
 import { fileURLToPath } from 'node:url';
 import { Bus } from '../../.agents/scripts/lib/orchestration/lifecycle/bus.js';
 import { LedgerWriter } from '../../.agents/scripts/lib/orchestration/lifecycle/ledger-writer.js';
+import { makeTempDir } from '../../.agents/scripts/lib/test-temp.js';
 
 /**
  * Inline ledger parse / compare helpers. These lived in
@@ -202,7 +202,7 @@ describe('Epic #2307 — Acceptance Criterion 8 (lifecycle ledger parity)', () =
   let tempRoot;
 
   beforeEach(() => {
-    tempRoot = mkdtempSync(path.join(tmpdir(), 'mandrel-ledger-parity-'));
+    tempRoot = makeTempDir('mandrel-ledger-parity-');
   });
 
   afterEach(() => {

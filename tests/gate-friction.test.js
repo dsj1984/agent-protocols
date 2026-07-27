@@ -1,9 +1,9 @@
 import assert from 'node:assert/strict';
 import fs from 'node:fs';
-import os from 'node:os';
 import path from 'node:path';
 import { afterEach, beforeEach, describe, it } from 'node:test';
 import { emitFrictionSignal } from '../.agents/scripts/lib/gates/friction.js';
+import { makeTempDir } from '../.agents/scripts/lib/test-temp.js';
 
 /**
  * Story #1476 — friction-signal helper shared by the baseline gates.
@@ -14,7 +14,7 @@ import { emitFrictionSignal } from '../.agents/scripts/lib/gates/friction.js';
 let tmpRoot;
 
 beforeEach(() => {
-  tmpRoot = fs.mkdtempSync(path.join(os.tmpdir(), 'gate-friction-'));
+  tmpRoot = makeTempDir('gate-friction-');
 });
 
 afterEach(() => {

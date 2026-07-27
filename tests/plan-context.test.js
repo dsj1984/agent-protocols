@@ -22,14 +22,7 @@
  */
 
 import assert from 'node:assert/strict';
-import {
-  mkdir,
-  mkdtemp,
-  readdir,
-  readFile,
-  rm,
-  writeFile,
-} from 'node:fs/promises';
+import { mkdir, readdir, readFile, rm, writeFile } from 'node:fs/promises';
 import { tmpdir } from 'node:os';
 import path from 'node:path';
 import { describe, it } from 'node:test';
@@ -62,6 +55,7 @@ import {
   renderAcceptanceSpecSystemPrompt,
   renderTechSpecSystemPrompt,
 } from '../.agents/scripts/lib/templates/spec-author-prompts.js';
+import { makeTempDir } from '../.agents/scripts/lib/test-temp.js';
 import {
   emitPlanContext,
   parseAmendsId,
@@ -750,7 +744,7 @@ describe('plan-context --out envelope capture (Story #4554)', () => {
   // The producer half of the flagless `--tickets` supersede path: persist can
   // only derive source ids from an envelope that actually reached disk.
   it('writes an envelope persist can read the source ids back out of', async () => {
-    const dir = await mkdtemp(path.join(tmpdir(), 'plan-ctx-out-'));
+    const dir = await makeTempDir('plan-ctx-out-');
     const outPath = path.join(dir, PLAN_CONTEXT_FILENAME);
 
     const envelope = await emitPlanContext({
@@ -779,7 +773,7 @@ describe('plan-context --out envelope capture (Story #4554)', () => {
   });
 
   it('creates missing parent directories for --out', async () => {
-    const dir = await mkdtemp(path.join(tmpdir(), 'plan-ctx-mkdir-'));
+    const dir = await makeTempDir('plan-ctx-mkdir-');
     const outPath = path.join(dir, 'nested', 'deeper', PLAN_CONTEXT_FILENAME);
 
     await emitPlanContext({
@@ -802,7 +796,7 @@ describe('plan-context --out envelope capture (Story #4554)', () => {
   // middle starts from a fillable skeleton instead of discovering the
   // serializer contract by reading story-body.js source.
   it('emits the ready-to-fill stories template next to the envelope', async () => {
-    const dir = await mkdtemp(path.join(tmpdir(), 'plan-ctx-template-'));
+    const dir = await makeTempDir('plan-ctx-template-');
     const outPath = path.join(dir, PLAN_CONTEXT_FILENAME);
 
     await emitPlanContext({
@@ -828,7 +822,7 @@ describe('plan-context --out envelope capture (Story #4554)', () => {
   // Story #4708 AC-5: with --out the envelope is on disk, so stdout carries
   // a compact digest naming the artifact instead of the ~40KB payload.
   it('emits a compact digest on stdout when --out captures the envelope', async () => {
-    const dir = await mkdtemp(path.join(tmpdir(), 'plan-ctx-digest-'));
+    const dir = await makeTempDir('plan-ctx-digest-');
     const outPath = path.join(dir, PLAN_CONTEXT_FILENAME);
     let captured = '';
     const capture = {
@@ -866,7 +860,7 @@ describe('plan-context --out envelope capture (Story #4554)', () => {
   });
 
   it('writes nothing when --out is omitted (stdout-only remains the default)', async () => {
-    const dir = await mkdtemp(path.join(tmpdir(), 'plan-ctx-noout-'));
+    const dir = await makeTempDir('plan-ctx-noout-');
     await emitPlanContext({
       mode: 'seed-file',
       seedFileContent: ONE_PAGER,
@@ -962,7 +956,7 @@ describe('renderStoriesTemplate — correct-by-construction skeleton (Story #472
   });
 
   it('emitPlanContext threads the envelope signals into the written template', async () => {
-    const dir = await mkdtemp(path.join(tmpdir(), 'plan-ctx-resolved-'));
+    const dir = await makeTempDir('plan-ctx-resolved-');
     const repo = path.join(dir, 'repo');
     await mkdir(path.join(repo, 'src'), { recursive: true });
     await writeFile(path.join(repo, 'src', 'real.js'), '// fixture\n', 'utf8');
@@ -1208,7 +1202,7 @@ describe('plan-context uiSurface offer (Story #4765)', () => {
   });
 
   it('rides the --out stdout digest alongside the other advisory signals (AC-6)', async () => {
-    const dir = await mkdtemp(path.join(tmpdir(), 'plan-ctx-ui-'));
+    const dir = await makeTempDir('plan-ctx-ui-');
     const outPath = path.join(dir, PLAN_CONTEXT_FILENAME);
     let captured = '';
     await emitPlanContext({

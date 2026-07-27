@@ -10,9 +10,8 @@
  */
 
 import assert from 'node:assert/strict';
-import { mkdtempSync, rmSync } from 'node:fs';
+import { rmSync } from 'node:fs';
 import fs from 'node:fs/promises';
-import { tmpdir } from 'node:os';
 import path from 'node:path';
 import { afterEach, beforeEach, describe, it } from 'node:test';
 import {
@@ -25,12 +24,13 @@ import {
   appendTrace,
   forEachLine,
 } from '../../../.agents/scripts/lib/observability/signals-writer.js';
+import { makeTempDir } from '../../../.agents/scripts/lib/test-temp.js';
 
 let workRoot;
 let cfg;
 
 beforeEach(() => {
-  workRoot = mkdtempSync(path.join(tmpdir(), 'signals-writer-'));
+  workRoot = makeTempDir('signals-writer-');
   cfg = { project: { paths: { tempRoot: workRoot } } };
 });
 
@@ -594,7 +594,7 @@ describe('signals-writer — scratch-root isolation under the test bootstrap (St
   let savedScratchEnv;
 
   beforeEach(() => {
-    scratchRoot = mkdtempSync(path.join(tmpdir(), 'signals-scratch-'));
+    scratchRoot = makeTempDir('signals-scratch-');
     savedScratchEnv = process.env[TEST_TEMP_ROOT_ENV];
     process.env[TEST_TEMP_ROOT_ENV] = scratchRoot;
   });

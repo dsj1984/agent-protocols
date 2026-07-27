@@ -13,8 +13,7 @@
  */
 
 import assert from 'node:assert/strict';
-import { mkdirSync, mkdtempSync, readFileSync, writeFileSync } from 'node:fs';
-import { tmpdir } from 'node:os';
+import { mkdirSync, readFileSync, writeFileSync } from 'node:fs';
 import path from 'node:path';
 import { describe, it } from 'node:test';
 
@@ -22,6 +21,7 @@ import {
   findMergeLockoutViolations,
   stripComments,
 } from '../../../../.agents/scripts/check-lifecycle-lint.js';
+import { makeTempDir } from '../../../../.agents/scripts/lib/test-temp.js';
 
 /**
  * Build an in-tmp fixture tree shaped like the production layout so
@@ -29,7 +29,7 @@ import {
  * the test should hand to `findMergeLockoutViolations`.
  */
 function makeFixtureTree(files) {
-  const root = mkdtempSync(path.join(tmpdir(), 'merge-lockout-'));
+  const root = makeTempDir('merge-lockout-');
   for (const [relPath, content] of Object.entries(files)) {
     const abs = path.join(root, relPath);
     mkdirSync(path.dirname(abs), { recursive: true });

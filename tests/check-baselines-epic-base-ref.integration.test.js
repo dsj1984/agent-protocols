@@ -24,8 +24,7 @@
 
 import assert from 'node:assert/strict';
 import { execFileSync } from 'node:child_process';
-import { mkdtempSync, rmSync, writeFileSync } from 'node:fs';
-import { tmpdir } from 'node:os';
+import { rmSync, writeFileSync } from 'node:fs';
 import path from 'node:path';
 import { afterEach, describe, it } from 'node:test';
 
@@ -35,6 +34,7 @@ import {
   resolveDispatchScope,
   runCompareStage,
 } from '../.agents/scripts/lib/orchestration/check-baselines/phases/compare.js';
+import { makeTempDir } from '../.agents/scripts/lib/test-temp.js';
 
 // Env with every `GIT_*` variable dropped. Under a husky pre-push from a
 // linked worktree, git exports GIT_DIR pointing at the shared main gitdir —
@@ -70,7 +70,7 @@ function maintainabilityBaseline(rows) {
  *   already landed on the integration branch in untouched files.
  */
 function makeEpicBaselineRepo() {
-  const dir = mkdtempSync(path.join(tmpdir(), 'cb-epic-ref-'));
+  const dir = makeTempDir('cb-epic-ref-');
   const git = (...args) =>
     execFileSync('git', args, {
       cwd: dir,

@@ -20,7 +20,6 @@
 
 import assert from 'node:assert/strict';
 import fs from 'node:fs/promises';
-import os from 'node:os';
 import path from 'node:path';
 import { afterEach, beforeEach, describe, it } from 'node:test';
 import {
@@ -35,13 +34,14 @@ import {
 import { forEachLine } from '../../../.agents/scripts/lib/observability/signals-writer.js';
 import { composeRoutedProposals } from '../../../.agents/scripts/lib/orchestration/retro-proposals.js';
 import { gatherStoryFrictionSignals } from '../../../.agents/scripts/lib/orchestration/story-follow-ups.js';
+import { makeTempDir } from '../../../.agents/scripts/lib/test-temp.js';
 
 /** An absolute, per-test tempRoot — never the shared main-checkout temp. */
 let tempRoot;
 let config;
 
 beforeEach(async () => {
-  tempRoot = await fs.mkdtemp(path.join(os.tmpdir(), 'runtime-friction-'));
+  tempRoot = await makeTempDir('runtime-friction-');
   config = { project: { paths: { tempRoot } } };
 });
 

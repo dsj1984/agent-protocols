@@ -1,7 +1,5 @@
 import assert from 'node:assert/strict';
 import fs from 'node:fs/promises';
-import os from 'node:os';
-import path from 'node:path';
 import { afterEach, beforeEach, describe, it } from 'node:test';
 import {
   emitBlockRecoveredFriction,
@@ -19,6 +17,7 @@ import {
   gatherStoryFrictionSignals,
   resolveFollowUpRepos,
 } from '../../../.agents/scripts/lib/orchestration/story-follow-ups.js';
+import { makeTempDir } from '../../../.agents/scripts/lib/test-temp.js';
 
 describe('story follow-ups', () => {
   it('resolves repos from github config', () => {
@@ -95,7 +94,7 @@ describe('gatherStoryFrictionSignals field preservation (Story #4649)', () => {
   let config;
 
   beforeEach(async () => {
-    tempRoot = await fs.mkdtemp(path.join(os.tmpdir(), 'follow-ups-'));
+    tempRoot = await makeTempDir('follow-ups-');
     config = { project: { paths: { tempRoot } } };
   });
 
@@ -158,7 +157,7 @@ describe('post-land recovery marking end-to-end (Story #4654)', () => {
   let config;
 
   beforeEach(async () => {
-    tempRoot = await fs.mkdtemp(path.join(os.tmpdir(), 'post-land-recover-'));
+    tempRoot = await makeTempDir('post-land-recover-');
     // Disable auto-filing so the graduator is a no-op (no `gh` calls) and the
     // assertions read the composed proposals, not a live GitHub filing.
     config = {

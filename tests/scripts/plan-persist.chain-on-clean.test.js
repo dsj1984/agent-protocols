@@ -11,15 +11,14 @@
  */
 
 import assert from 'node:assert/strict';
-import { mkdtempSync, rmSync } from 'node:fs';
-import { tmpdir } from 'node:os';
-import path from 'node:path';
+import { rmSync } from 'node:fs';
 import { describe, it } from 'node:test';
 import {
   AGENT_LABELS,
   TYPE_LABELS,
 } from '../../.agents/scripts/lib/label-constants.js';
 import { serialize } from '../../.agents/scripts/lib/story-body/story-body.js';
+import { makeTempDir } from '../../.agents/scripts/lib/test-temp.js';
 import { runPersistChain } from '../../.agents/scripts/plan-persist.js';
 
 /**
@@ -120,7 +119,7 @@ function fakeProvider() {
 
 /** Per-test isolated tempRoot so plan-metrics never touch the shared ledger. */
 function isolatedConfig() {
-  const tempRoot = mkdtempSync(path.join(tmpdir(), 'plan-chain-'));
+  const tempRoot = makeTempDir('plan-chain-');
   return { config: { project: { paths: { tempRoot } } }, tempRoot };
 }
 

@@ -1,8 +1,8 @@
 import assert from 'node:assert/strict';
 import fs from 'node:fs';
-import os from 'node:os';
 import path from 'node:path';
 import test from 'node:test';
+import { makeTempDir } from '../../../.agents/scripts/lib/test-temp.js';
 import {
   applyNodeModulesStrategy,
   cloneNodeModules,
@@ -261,7 +261,7 @@ test('applyNodeModulesStrategy: symlink refuses on win32 without opt-in', () => 
 });
 
 test('applyNodeModulesStrategy: symlink errors when primeFromPath has no node_modules', () => {
-  const root = fs.mkdtempSync(path.join(os.tmpdir(), 'nms-'));
+  const root = makeTempDir('nms-');
   assert.throws(
     () =>
       applyNodeModulesStrategy(
@@ -312,7 +312,7 @@ test('installDependencies: symlink reports skipped without running installer', (
 });
 
 test('installDependencies: no package.json in worktree reports skipped', () => {
-  const root = fs.mkdtempSync(path.join(os.tmpdir(), 'nms-'));
+  const root = makeTempDir('nms-');
   assert.deepEqual(
     installDependencies(
       {
@@ -408,7 +408,7 @@ test('lockfileHash: null when no lockfile is present', () => {
 });
 
 test('lockfileHash: identical lockfile bytes hash identically; a single byte change differs', () => {
-  const root = fs.mkdtempSync(path.join(os.tmpdir(), 'lh-'));
+  const root = makeTempDir('lh-');
   const a = path.join(root, 'a');
   const b = path.join(root, 'b');
   const c = path.join(root, 'c');
@@ -510,7 +510,7 @@ test(
   'cloneNodeModules: invokes cp reflink and reports cloned on success',
   POSIX_ONLY,
   () => {
-    const root = fs.mkdtempSync(path.join(os.tmpdir(), 'cl-'));
+    const root = makeTempDir('cl-');
     fs.mkdirSync(path.join(root, 'node_modules'), { recursive: true });
     const wtPath = path.join(root, '.worktrees', 'story-1');
     fs.mkdirSync(wtPath, { recursive: true });
@@ -541,7 +541,7 @@ test(
   'cloneNodeModules: falls back (no throw) on unsupported-fs / cross-volume cp failure',
   POSIX_ONLY,
   () => {
-    const root = fs.mkdtempSync(path.join(os.tmpdir(), 'cl-'));
+    const root = makeTempDir('cl-');
     fs.mkdirSync(path.join(root, 'node_modules'), { recursive: true });
     const wtPath = path.join(root, '.worktrees', 'story-2');
     fs.mkdirSync(wtPath, { recursive: true });
@@ -557,7 +557,7 @@ test(
   'cloneNodeModules: falls back when the donor has no node_modules',
   POSIX_ONLY,
   () => {
-    const root = fs.mkdtempSync(path.join(os.tmpdir(), 'cl-'));
+    const root = makeTempDir('cl-');
     const wtPath = path.join(root, '.worktrees', 'story-3');
     fs.mkdirSync(wtPath, { recursive: true });
     let spawned = false;
@@ -580,7 +580,7 @@ test(
   'cloneNodeModules: Windows short-circuits to per-worktree fallback without spawning cp',
   WIN_ONLY,
   () => {
-    const root = fs.mkdtempSync(path.join(os.tmpdir(), 'cl-'));
+    const root = makeTempDir('cl-');
     fs.mkdirSync(path.join(root, 'node_modules'), { recursive: true });
     const wtPath = path.join(root, '.worktrees', 'story-w');
     fs.mkdirSync(wtPath, { recursive: true });
@@ -598,7 +598,7 @@ test(
 );
 
 test('applyNodeModulesStrategy: clone is wired through (no throw regardless of host)', () => {
-  const root = fs.mkdtempSync(path.join(os.tmpdir(), 'cl-'));
+  const root = makeTempDir('cl-');
   // No donor node_modules → clone falls back cleanly without throwing.
   assert.doesNotThrow(() =>
     applyNodeModulesStrategy(
@@ -616,7 +616,7 @@ test('applyNodeModulesStrategy: clone is wired through (no throw regardless of h
 // ---- installDependencies: clone install-skip vs forced install ----
 
 test('installDependencies: clone skips the install when lockfile matches donor + marker present', () => {
-  const root = fs.mkdtempSync(path.join(os.tmpdir(), 'cl-'));
+  const root = makeTempDir('cl-');
   // Donor (repoRoot) lockfile.
   fs.writeFileSync(path.join(root, 'package-lock.json'), 'LOCK-A');
   // Worktree carries a matching lockfile + a completed-install marker.
@@ -641,7 +641,7 @@ test('installDependencies: clone skips the install when lockfile matches donor +
 });
 
 test('installDependencies: clone does NOT skip when worktree lockfile differs from donor (no package.json → install path reached, not clone-skip)', () => {
-  const root = fs.mkdtempSync(path.join(os.tmpdir(), 'cl-'));
+  const root = makeTempDir('cl-');
   fs.writeFileSync(path.join(root, 'package-lock.json'), 'DONOR-LOCK');
   // A worktree with no package.json short-circuits at selectInstallCommand
   // (returns null) BEFORE the clone skip-gate, so we instead prove the

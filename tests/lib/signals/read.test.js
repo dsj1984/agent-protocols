@@ -14,9 +14,8 @@
  */
 
 import assert from 'node:assert/strict';
-import { mkdtempSync, rmSync, writeFileSync } from 'node:fs';
+import { rmSync, writeFileSync } from 'node:fs';
 import fs from 'node:fs/promises';
-import { tmpdir } from 'node:os';
 import path from 'node:path';
 import { afterEach, beforeEach, describe, it } from 'node:test';
 
@@ -25,12 +24,13 @@ import {
   __resetMalformedLatchForTests,
   read,
 } from '../../../.agents/scripts/lib/signals/read.js';
+import { makeTempDir } from '../../../.agents/scripts/lib/test-temp.js';
 
 let workRoot;
 let cfg;
 
 beforeEach(() => {
-  workRoot = mkdtempSync(path.join(tmpdir(), 'signals-read-'));
+  workRoot = makeTempDir('signals-read-');
   cfg = { project: { paths: { tempRoot: workRoot } } };
   __resetMalformedLatchForTests();
 });

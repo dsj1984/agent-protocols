@@ -1,3 +1,4 @@
+import { makeTempDir } from '../../.agents/scripts/lib/test-temp.js';
 // tests/e2e/update-chain.integration.test.js
 /**
  * End-to-end (real-binary) coverage of the `mandrel update` upgrade chain
@@ -88,7 +89,6 @@
 import assert from 'node:assert/strict';
 import { execFileSync, spawn, spawnSync } from 'node:child_process';
 import fs from 'node:fs';
-import os from 'node:os';
 import path from 'node:path';
 
 import { after, afterEach, describe, it } from 'node:test';
@@ -172,7 +172,7 @@ const createdDirs = [];
 
 /** Make a tracked temp dir (realpath'd for macOS /var symlink parity). */
 function mkTempDir(prefix) {
-  const dir = fs.realpathSync(fs.mkdtempSync(path.join(os.tmpdir(), prefix)));
+  const dir = fs.realpathSync(makeTempDir(prefix));
   createdDirs.push(dir);
   return dir;
 }

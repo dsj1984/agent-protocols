@@ -23,8 +23,7 @@
 // Run: node --test tests/scripts/check-baselines-pipeline.test.js
 
 import assert from 'node:assert/strict';
-import { mkdirSync, mkdtempSync, rmSync, writeFileSync } from 'node:fs';
-import { tmpdir } from 'node:os';
+import { mkdirSync, rmSync, writeFileSync } from 'node:fs';
 import path from 'node:path';
 import { afterEach, describe, it } from 'node:test';
 
@@ -38,6 +37,7 @@ import {
   selectEnabledGates,
 } from '../../.agents/scripts/check-baselines.js';
 import { currentKernelVersion } from '../../.agents/scripts/lib/baselines/kernel.js';
+import { makeTempDir } from '../../.agents/scripts/lib/test-temp.js';
 
 function writeJson(p, value) {
   writeFileSync(p, JSON.stringify(value, null, 2));
@@ -54,7 +54,7 @@ function coverageEnvelope({ rollup, rows } = {}) {
 }
 
 function setupTmpRepo({ coverageRollup } = {}) {
-  const root = mkdtempSync(path.join(tmpdir(), 'check-baselines-pipeline-'));
+  const root = makeTempDir('check-baselines-pipeline-');
   mkdirSync(path.join(root, 'baselines'), { recursive: true });
   const agentrc = {
     project: {

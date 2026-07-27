@@ -13,12 +13,11 @@
 
 import { strict as assert } from 'node:assert';
 import { spawnSync } from 'node:child_process';
-import { mkdtempSync, rmSync, writeFileSync } from 'node:fs';
-import * as os from 'node:os';
+import { rmSync, writeFileSync } from 'node:fs';
 import * as path from 'node:path';
 import { describe, it } from 'node:test';
 import { fileURLToPath } from 'node:url';
-
+import { makeTempDir } from '../../../.agents/scripts/lib/test-temp.js';
 import {
   findVocabularyViolations,
   lintLabelVocabulary,
@@ -89,7 +88,7 @@ describe('lint-label-vocabulary — repo state', () => {
   });
 
   it('CLI invocation exits non-zero when a temp doc carries drift', () => {
-    const tmp = mkdtempSync(path.join(os.tmpdir(), 'lint-label-vocab-'));
+    const tmp = makeTempDir('lint-label-vocab-');
     try {
       const driftDoc = path.join(tmp, 'drift.md');
       writeFileSync(

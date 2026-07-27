@@ -1,9 +1,7 @@
 import assert from 'node:assert/strict';
 import fs from 'node:fs';
-import os from 'node:os';
-import path from 'node:path';
 import { test } from 'node:test';
-
+import { makeTempDir } from '../../.agents/scripts/lib/test-temp.js';
 import {
   parseProfileArgv,
   runTestProfile,
@@ -17,7 +15,7 @@ test('parseProfileArgv defaults outDir and top', () => {
 });
 
 test('runTestProfile writes utf8 tap and summary under outDir', () => {
-  const outDir = fs.mkdtempSync(path.join(os.tmpdir(), 'profile-'));
+  const outDir = makeTempDir('profile-');
   const fixtureTap = fs.readFileSync(
     new URL('../fixtures/test-profile/sample.tap', import.meta.url),
     'utf8',

@@ -6,9 +6,9 @@
 
 import assert from 'node:assert/strict';
 import fs from 'node:fs';
-import os from 'node:os';
 import path from 'node:path';
 import test from 'node:test';
+import { makeTempDir } from '../../.agents/scripts/lib/test-temp.js';
 import { provision as provisionWorkspace } from '../../.agents/scripts/lib/workspace-provisioner.js';
 import {
   parseWorktreePorcelain,
@@ -104,7 +104,7 @@ test('ensure: rejects branch not matching storyId', async () => {
 });
 
 test('ensure: creates new branch + worktree when neither exists', async () => {
-  const tmp = fs.mkdtempSync(path.join(os.tmpdir(), 'wt-'));
+  const tmp = makeTempDir('wt-');
   try {
     const git = mockGit({
       'worktree list': () => ({
@@ -139,7 +139,7 @@ test('ensure: creates new branch + worktree when neither exists', async () => {
 });
 
 test('ensure: idempotent when worktree already on correct branch', async () => {
-  const tmp = fs.mkdtempSync(path.join(os.tmpdir(), 'wt-'));
+  const tmp = makeTempDir('wt-');
   try {
     const wtPath = path.join(tmp, '.worktrees', 'story-235');
     const git = mockGit({
@@ -169,7 +169,7 @@ test('ensure: idempotent when worktree already on correct branch', async () => {
 });
 
 test('ensure: throws on branch mismatch at existing path', async () => {
-  const tmp = fs.mkdtempSync(path.join(os.tmpdir(), 'wt-'));
+  const tmp = makeTempDir('wt-');
   try {
     const wtPath = path.join(tmp, '.worktrees', 'story-235');
     const git = mockGit({
@@ -195,7 +195,7 @@ test('ensure: throws on branch mismatch at existing path', async () => {
 });
 
 test('isSafeToRemove: refuses on dirty tree', async () => {
-  const tmp = fs.mkdtempSync(path.join(os.tmpdir(), 'wt-'));
+  const tmp = makeTempDir('wt-');
   const wtPath = path.join(tmp, 'dirty');
   fs.mkdirSync(wtPath, { recursive: true });
   try {
@@ -221,7 +221,7 @@ test('isSafeToRemove: refuses on dirty tree', async () => {
 });
 
 test('isSafeToRemove: refuses when branch has unmerged commits vs epic', async () => {
-  const tmp = fs.mkdtempSync(path.join(os.tmpdir(), 'wt-'));
+  const tmp = makeTempDir('wt-');
   const wtPath = path.join(tmp, 'clean');
   fs.mkdirSync(wtPath, { recursive: true });
   try {
@@ -252,7 +252,7 @@ test('isSafeToRemove: refuses when branch has unmerged commits vs epic', async (
 });
 
 test('isSafeToRemove: refuses when merge verification errors unexpectedly', async () => {
-  const tmp = fs.mkdtempSync(path.join(os.tmpdir(), 'wt-'));
+  const tmp = makeTempDir('wt-');
   const wtPath = path.join(tmp, 'clean');
   fs.mkdirSync(wtPath, { recursive: true });
   try {
@@ -284,7 +284,7 @@ test('isSafeToRemove: refuses when merge verification errors unexpectedly', asyn
 });
 
 test('isSafeToRemove: safe when clean and merged', async () => {
-  const tmp = fs.mkdtempSync(path.join(os.tmpdir(), 'wt-'));
+  const tmp = makeTempDir('wt-');
   const wtPath = path.join(tmp, 'clean');
   fs.mkdirSync(wtPath, { recursive: true });
   try {
@@ -345,7 +345,7 @@ test('reap: returns not-a-worktree when path not registered', async () => {
 });
 
 test('reap: skips unsafe worktree with warning', async () => {
-  const tmp = fs.mkdtempSync(path.join(os.tmpdir(), 'wt-'));
+  const tmp = makeTempDir('wt-');
   const wtPath = path.join(tmp, '.worktrees', 'story-235');
   fs.mkdirSync(wtPath, { recursive: true });
   try {
@@ -383,7 +383,7 @@ test('reap: skips unsafe worktree with warning', async () => {
 });
 
 test('reap: retries lock-like remove failures on win32', async () => {
-  const tmp = fs.mkdtempSync(path.join(os.tmpdir(), 'wt-reap-lock-'));
+  const tmp = makeTempDir('wt-reap-lock-');
   const wtPath = path.join(tmp, '.worktrees', 'story-235');
   fs.mkdirSync(wtPath, { recursive: true });
   try {
@@ -421,7 +421,7 @@ test('reap: retries lock-like remove failures on win32', async () => {
 });
 
 test('reap: treats prune-cleared registration as removed after repeated remove failures', async () => {
-  const tmp = fs.mkdtempSync(path.join(os.tmpdir(), 'wt-reap-prune-'));
+  const tmp = makeTempDir('wt-reap-prune-');
   const wtPath = path.join(tmp, '.worktrees', 'story-235');
   fs.mkdirSync(wtPath, { recursive: true });
   try {
@@ -467,7 +467,7 @@ test('reap: treats prune-cleared registration as removed after repeated remove f
 });
 
 test('gc: reaps only worktrees for stories NOT in openStoryIds', async () => {
-  const tmp = fs.mkdtempSync(path.join(os.tmpdir(), 'wt-'));
+  const tmp = makeTempDir('wt-');
   try {
     const wt235 = path.join(tmp, '.worktrees', 'story-235');
     const wt236 = path.join(tmp, '.worktrees', 'story-236');
@@ -530,7 +530,7 @@ test('reap: reaps a clean managed story worktree without any epicBranch (Story #
   // and v2 has no Epic branch to supply. Nothing is lost by reaping here —
   // close pushes `story-<id>` to origin before this runs, and a dirty tree
   // is still refused by the `uncommitted-changes` check below.
-  const tmp = fs.mkdtempSync(path.join(os.tmpdir(), 'wt-'));
+  const tmp = makeTempDir('wt-');
   const wtPath = path.join(tmp, '.worktrees', 'story-235');
   fs.mkdirSync(wtPath, { recursive: true });
   try {
@@ -566,7 +566,7 @@ test('reap: reaps a clean managed story worktree without any epicBranch (Story #
 });
 
 test('reap: still refuses a dirty managed story worktree — the safety net that actually matters', async () => {
-  const tmp = fs.mkdtempSync(path.join(os.tmpdir(), 'wt-'));
+  const tmp = makeTempDir('wt-');
   const wtPath = path.join(tmp, '.worktrees', 'story-235');
   fs.mkdirSync(wtPath, { recursive: true });
   try {
@@ -692,7 +692,7 @@ function defaultStrategyGit() {
 }
 
 test('nodeModulesStrategy: per-worktree is a no-op (default)', async () => {
-  const tmp = fs.mkdtempSync(path.join(os.tmpdir(), 'wt-strat-'));
+  const tmp = makeTempDir('wt-strat-');
   try {
     const wm = new WorktreeManager({
       repoRoot: tmp,
@@ -709,7 +709,7 @@ test('nodeModulesStrategy: per-worktree is a no-op (default)', async () => {
 });
 
 test('nodeModulesStrategy: pnpm-store is a no-op (agent runs pnpm install)', async () => {
-  const tmp = fs.mkdtempSync(path.join(os.tmpdir(), 'wt-strat-'));
+  const tmp = makeTempDir('wt-strat-');
   try {
     const wm = new WorktreeManager({
       repoRoot: tmp,
@@ -726,7 +726,7 @@ test('nodeModulesStrategy: pnpm-store is a no-op (agent runs pnpm install)', asy
 });
 
 test('nodeModulesStrategy: symlink creates link from primed donor', async () => {
-  const tmp = fs.mkdtempSync(path.join(os.tmpdir(), 'wt-strat-'));
+  const tmp = makeTempDir('wt-strat-');
   try {
     // Prime a donor worktree-like directory with node_modules.
     const prime = path.join(tmp, 'prime');
@@ -755,7 +755,7 @@ test('nodeModulesStrategy: symlink creates link from primed donor', async () => 
 });
 
 test('nodeModulesStrategy: symlink without primeFromPath throws', async () => {
-  const tmp = fs.mkdtempSync(path.join(os.tmpdir(), 'wt-strat-'));
+  const tmp = makeTempDir('wt-strat-');
   try {
     const wm = new WorktreeManager({
       repoRoot: tmp,
@@ -774,7 +774,7 @@ test('nodeModulesStrategy: symlink without primeFromPath throws', async () => {
 });
 
 test('nodeModulesStrategy: symlink with missing primed node_modules throws', async () => {
-  const tmp = fs.mkdtempSync(path.join(os.tmpdir(), 'wt-strat-'));
+  const tmp = makeTempDir('wt-strat-');
   try {
     // primeFromPath exists but has no node_modules dir.
     fs.mkdirSync(path.join(tmp, 'empty-prime'), { recursive: true });
@@ -798,7 +798,7 @@ test('nodeModulesStrategy: symlink with missing primed node_modules throws', asy
 });
 
 test('nodeModulesStrategy: symlink refuses on Windows without explicit opt-in', async () => {
-  const tmp = fs.mkdtempSync(path.join(os.tmpdir(), 'wt-strat-'));
+  const tmp = makeTempDir('wt-strat-');
   try {
     fs.mkdirSync(path.join(tmp, 'prime', 'node_modules'), { recursive: true });
     const wm = new WorktreeManager({
@@ -821,7 +821,7 @@ test('nodeModulesStrategy: symlink refuses on Windows without explicit opt-in', 
 });
 
 test('nodeModulesStrategy: symlink uses junction on Windows when opted in', async () => {
-  const tmp = fs.mkdtempSync(path.join(os.tmpdir(), 'wt-strat-'));
+  const tmp = makeTempDir('wt-strat-');
   const originalSymlinkSync = fs.symlinkSync;
   const calls = [];
   try {
@@ -851,7 +851,7 @@ test('nodeModulesStrategy: symlink uses junction on Windows when opted in', asyn
 });
 
 test('nodeModulesStrategy: unknown value throws (defense-in-depth vs schema)', async () => {
-  const tmp = fs.mkdtempSync(path.join(os.tmpdir(), 'wt-strat-'));
+  const tmp = makeTempDir('wt-strat-');
   try {
     const wm = new WorktreeManager({
       repoRoot: tmp,
@@ -870,7 +870,7 @@ test('nodeModulesStrategy: unknown value throws (defense-in-depth vs schema)', a
 });
 
 test('provisionWorkspace: default copies .env when present', () => {
-  const tmp = fs.mkdtempSync(path.join(os.tmpdir(), 'wt-env-'));
+  const tmp = makeTempDir('wt-env-');
   try {
     fs.writeFileSync(path.join(tmp, '.env'), 'DATABASE_URL=postgres://x\n');
     fs.writeFileSync(path.join(tmp, '.mcp.json'), '{"servers":{}}\n');
@@ -895,7 +895,7 @@ test('provisionWorkspace: default copies .env when present', () => {
 });
 
 test('provisionWorkspace: no-op when source .env does not exist', () => {
-  const tmp = fs.mkdtempSync(path.join(os.tmpdir(), 'wt-env-'));
+  const tmp = makeTempDir('wt-env-');
   try {
     const wtPath = path.join(tmp, '.worktrees', 'story-1');
     fs.mkdirSync(wtPath, { recursive: true });
@@ -914,7 +914,7 @@ test('provisionWorkspace: no-op when source .env does not exist', () => {
 });
 
 test('provisionWorkspace: never overwrites an existing worktree .env', () => {
-  const tmp = fs.mkdtempSync(path.join(os.tmpdir(), 'wt-env-'));
+  const tmp = makeTempDir('wt-env-');
   try {
     fs.writeFileSync(path.join(tmp, '.env'), 'ROOT=1\n');
     const wtPath = path.join(tmp, '.worktrees', 'story-1');
@@ -939,7 +939,7 @@ test('provisionWorkspace: never overwrites an existing worktree .env', () => {
 });
 
 test('provisionWorkspace: rejects path traversal and absolute paths', () => {
-  const tmp = fs.mkdtempSync(path.join(os.tmpdir(), 'wt-env-'));
+  const tmp = makeTempDir('wt-env-');
   try {
     const wtPath = path.join(tmp, '.worktrees', 'story-1');
     fs.mkdirSync(wtPath, { recursive: true });
@@ -966,7 +966,7 @@ test('provisionWorkspace: rejects path traversal and absolute paths', () => {
 });
 
 test('provisionWorkspace: honors configured workspace files list', () => {
-  const tmp = fs.mkdtempSync(path.join(os.tmpdir(), 'wt-env-'));
+  const tmp = makeTempDir('wt-env-');
   try {
     fs.writeFileSync(path.join(tmp, '.env'), 'A=1\n');
     fs.writeFileSync(path.join(tmp, '.env.test'), 'B=2\n');

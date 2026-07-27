@@ -1,10 +1,10 @@
 import assert from 'node:assert/strict';
 import fs from 'node:fs';
-import os from 'node:os';
 import path from 'node:path';
 import { describe, it } from 'node:test';
 
 import { getBaseline } from '../../.agents/scripts/lib/baselines/maintainability-baseline-io.js';
+import { makeTempDir } from '../../.agents/scripts/lib/test-temp.js';
 
 // ---------------------------------------------------------------------------
 // maintainability-baseline-exact-match.test.js — Story #4603.
@@ -53,7 +53,7 @@ const SHARED_TAIL = 'story-close/phases/code-review.js';
 
 /** Write an envelope-shaped baseline to a temp file; returns its path. */
 function writeBaseline(rows) {
-  const dir = fs.mkdtempSync(path.join(os.tmpdir(), 'mi-baseline-exact-'));
+  const dir = makeTempDir('mi-baseline-exact-');
   const file = path.join(dir, 'maintainability.json');
   fs.writeFileSync(
     file,

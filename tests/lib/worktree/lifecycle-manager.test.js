@@ -1,8 +1,8 @@
 import assert from 'node:assert/strict';
 import fs from 'node:fs';
-import os from 'node:os';
 import path from 'node:path';
 import test from 'node:test';
+import { makeTempDir } from '../../../.agents/scripts/lib/test-temp.js';
 import {
   pathFor,
   removeWorktreeWithRecovery,
@@ -198,7 +198,7 @@ test('removeWorktreeWithRecovery: Stage 1 retries fs.rm and succeeds on attempt 
 });
 
 test('removeWorktreeWithRecovery: Stage 1 defers to sweep and writes pending-cleanup manifest when fs.rm never clears', async () => {
-  const tmp = fs.mkdtempSync(path.join(os.tmpdir(), 'wt-pending-'));
+  const tmp = makeTempDir('wt-pending-');
   const worktreeRoot = path.join(tmp, '.worktrees');
   fs.mkdirSync(worktreeRoot, { recursive: true });
   const wtPath = path.join(worktreeRoot, 'story-9');

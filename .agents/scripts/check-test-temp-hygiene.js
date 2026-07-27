@@ -15,16 +15,41 @@
  * per-process scratch dir. This script is the regression guard that keeps
  * the fix honest, plus a local cleanup mode for the accumulated noise:
  *
+ * The guard covers two distinct temp roots, and conflating them is how the
+ * second one went unmeasured for so long:
+ *
+ *   1. The repo's own `temp/` telemetry tree — the original dimension above.
+ *   2. The **OS temp root** (Story #4808). The redirect in (1) sends stray
+ *      writes into `os.tmpdir()` scratch dirs, and nothing ever reaped them:
+ *      the remedy for (1) became the largest single leaker into (2). Since
+ *      the damaging axis there is entry *count*, the suite now nests every
+ *      managed dir inside one per-process `mandrel-suite-*` root
+ *      (`lib/test-temp.js`) and reaps it, and this guard asserts that no
+ *      such root survives a run.
+ *
  *   --snapshot         Record a fingerprint (size + sha256) of every stream
- *                      file under `temp/` to the snapshot baseline. Run this
- *                      before the suite.
+ *                      file under `temp/`, plus the `mandrel-suite-*` roots
+ *                      already present in the OS temp root, to the snapshot
+ *                      baseline. Run this before the suite.
  *   --assert           Re-scan and fail if any stream file was added or grew
- *                      relative to the snapshot. Run this after the suite. A
- *                      missing snapshot is a hard failure ("snapshot missing
+ *                      relative to the snapshot, or if a suite root appeared
+ *                      and survived. Run this after the suite. A missing
+ *                      snapshot is a hard failure ("snapshot missing
  *                      — guard cannot attest"), never a silent re-baseline:
  *                      the baseline lives *outside* the protected `temp/`
  *                      tree (Story #4711), so a test wiping `temp/` can no
  *                      longer destroy the baseline and fail the guard open.
+ *                      Recording pre-existing suite roots (rather than
+ *                      asserting an empty set) is what keeps a concurrent
+ *                      suite in another checkout from failing this one.
+ *   --lint-globs <g>   Comma-separated repo-relative globs to scan for test
+ *                      files that call `mkdtemp` against `os.tmpdir()`
+ *                      directly instead of going through `makeTempDir`.
+ *                      **Off unless passed**: this script ships in the
+ *                      materialized `.agents/` payload and a consumer's
+ *                      tests are none of this rule's business. A line (or
+ *                      the line above it) carrying `test-temp-allow` opts
+ *                      out.
  *   --baseline <path>  Explicit snapshot-baseline path (CI sets this to a
  *                      runner-temp path). Defaults to an OS scratch location
  *                      keyed by the resolved repo root. Refused when it
@@ -53,6 +78,12 @@ import os from 'node:os';
 import path from 'node:path';
 import { fileURLToPath } from 'node:url';
 import { runAsCli } from './lib/cli-utils.js';
+import {
+  findRawTmpdirMkdtemp,
+  listSuiteTempRoots,
+  SUITE_ROOTS_KEY,
+  survivingSuiteTempRoots,
+} from './lib/test-temp.js';
 
 const __dirname = path.dirname(fileURLToPath(import.meta.url));
 const REPO_ROOT = path.resolve(__dirname, '..', '..');
@@ -193,17 +224,27 @@ export function buildManifest(tempDir) {
  * `defaultBaselinePath` — never inside `temp/`).
  * @param {string} repoRoot
  * @param {string} [baselinePath]
- * @returns {{ snapshotPath: string, count: number }}
+ * @param {{ tmpDir?: string }} [deps] Injectable OS temp root for tests.
+ * @returns {{ snapshotPath: string, count: number, suiteRoots: number }}
  */
-export function writeSnapshot(repoRoot, baselinePath) {
+export function writeSnapshot(repoRoot, baselinePath, { tmpDir } = {}) {
   const snapshotPath = checkedBaselinePath(
     repoRoot,
     baselinePath ?? defaultBaselinePath(repoRoot),
   );
   const manifest = buildManifest(tempDirFor(repoRoot));
+  const count = Object.keys(manifest).length;
+  // Reserved key: stream entries are always `*.ndjson` relative paths, so
+  // this cannot shadow one, and `diffAgainstSnapshot` only ever looks up
+  // keys derived from the tree it just walked.
+  manifest[SUITE_ROOTS_KEY] = listSuiteTempRoots(tmpDir ?? os.tmpdir());
   mkdirSync(path.dirname(snapshotPath), { recursive: true });
   writeFileSync(snapshotPath, `${JSON.stringify(manifest, null, 2)}\n`, 'utf8');
-  return { snapshotPath, count: Object.keys(manifest).length };
+  return {
+    snapshotPath,
+    count,
+    suiteRoots: manifest[SUITE_ROOTS_KEY].length,
+  };
 }
 
 /**
@@ -331,7 +372,7 @@ export function cleanFixtureDirs({
 /**
  * Parse the CLI argv into a normalised options object.
  * @param {string[]} argv
- * @returns {{ mode: 'snapshot'|'assert'|'clean', apply: boolean, ids: number[]|null, repoRoot: string, baseline: string|null }}
+ * @returns {{ mode: 'snapshot'|'assert'|'clean', apply: boolean, ids: number[]|null, repoRoot: string, baseline: string|null, lintGlobs: string[] }}
  */
 export function parseArgv(argv) {
   let mode = 'assert';
@@ -339,13 +380,20 @@ export function parseArgv(argv) {
   let ids = null;
   let repoRoot = REPO_ROOT;
   let baseline = null;
+  let lintGlobs = [];
   for (let i = 0; i < argv.length; i += 1) {
     const arg = argv[i];
     if (arg === '--snapshot') mode = 'snapshot';
     else if (arg === '--assert') mode = 'assert';
     else if (arg === '--clean') mode = 'clean';
     else if (arg === '--yes') apply = true;
-    else if (arg === '--ids') {
+    else if (arg === '--lint-globs') {
+      i += 1;
+      lintGlobs = String(argv[i] ?? '')
+        .split(',')
+        .map((s) => s.trim())
+        .filter(Boolean);
+    } else if (arg === '--ids') {
       i += 1;
       ids = String(argv[i] ?? '')
         .split(',')
@@ -359,7 +407,7 @@ export function parseArgv(argv) {
       baseline = path.resolve(String(argv[i] ?? '.'));
     }
   }
-  return { mode, apply, ids, repoRoot, baseline };
+  return { mode, apply, ids, repoRoot, baseline, lintGlobs };
 }
 
 /**
@@ -369,14 +417,23 @@ export function parseArgv(argv) {
  *
  * @param {ReturnType<typeof parseArgv>} opts
  * @param {(line: string) => void} [log]
+ * @param {{ tmpDir?: string }} [deps] Injectable OS temp root for tests.
  * @returns {number}
  */
-export function runHygiene(opts, log = (l) => process.stdout.write(`${l}\n`)) {
-  const { mode, apply, ids, repoRoot, baseline = null } = opts;
+export function runHygiene(
+  opts,
+  log = (l) => process.stdout.write(`${l}\n`),
+  { tmpDir = os.tmpdir() } = {},
+) {
+  const { mode, apply, ids, repoRoot, baseline = null, lintGlobs = [] } = opts;
   if (mode === 'snapshot') {
-    const { snapshotPath, count } = writeSnapshot(repoRoot, baseline);
+    const { snapshotPath, count, suiteRoots } = writeSnapshot(
+      repoRoot,
+      baseline,
+      { tmpDir },
+    );
     log(
-      `[test-temp-hygiene] snapshot recorded (${count} stream file(s)) → ${snapshotPath}`,
+      `[test-temp-hygiene] snapshot recorded (${count} stream file(s), ${suiteRoots} pre-existing suite root(s)) → ${snapshotPath}`,
     );
     return 0;
   }
@@ -409,6 +466,26 @@ export function runHygiene(opts, log = (l) => process.stdout.write(`${l}\n`)) {
     );
     return 1;
   }
+  // Every dimension runs and reports; a failure in one must not hide a
+  // failure in another, so the exit code is the max rather than an
+  // early return.
+  const codes = [
+    assertStreamTree(repoRoot, snapshot, log),
+    assertNoSurvivingSuiteRoots(snapshot, log, tmpDir),
+    assertNoRawTmpdirMkdtemp(repoRoot, lintGlobs, log),
+  ];
+  return Math.max(...codes);
+}
+
+/**
+ * Dimension 1 — the repo's own `temp/` telemetry tree (Story #4696).
+ *
+ * @param {string} repoRoot
+ * @param {Record<string, unknown>} snapshot
+ * @param {(line: string) => void} log
+ * @returns {number} exit code
+ */
+function assertStreamTree(repoRoot, snapshot, log) {
   const { added, changed } = diffAgainstSnapshot(
     tempDirFor(repoRoot),
     snapshot,
@@ -424,6 +501,68 @@ export function runHygiene(opts, log = (l) => process.stdout.write(`${l}\n`)) {
   for (const rel of changed) log(`  ~ grew   ${rel}`);
   log(
     '[test-temp-hygiene] a writer bypassed the scratch seam. Inject an absolute per-test tempRoot; do not weaken this guard.',
+  );
+  return 1;
+}
+
+/**
+ * Dimension 2 — the OS temp root (Story #4808). Fails when a suite root
+ * appeared since the snapshot and is still on disk, which means the run
+ * created it and never reaped it.
+ *
+ * @param {Record<string, unknown>} snapshot
+ * @param {(line: string) => void} log
+ * @param {string} tmpDir
+ * @returns {number} exit code
+ */
+function assertNoSurvivingSuiteRoots(snapshot, log, tmpDir) {
+  const before = Array.isArray(snapshot[SUITE_ROOTS_KEY])
+    ? snapshot[SUITE_ROOTS_KEY]
+    : [];
+  const surviving = survivingSuiteTempRoots(tmpDir, before);
+  if (surviving.length === 0) {
+    log('[test-temp-hygiene] OK — no suite temp roots survived the run.');
+    return 0;
+  }
+  log(
+    `[test-temp-hygiene] FAIL — ${surviving.length} suite temp root(s) survived in ${tmpDir}:`,
+  );
+  for (const name of surviving) log(`  + leaked ${name}`);
+  log(
+    '[test-temp-hygiene] a process minted a suite root and exited without reaping it. Do not delete these by hand — find the writer that bypassed makeTempDir().',
+  );
+  return 1;
+}
+
+/**
+ * Dimension 3 — the static backstop (Story #4808). Skipped, and reported
+ * as skipped, unless the caller passed `--lint-globs`.
+ *
+ * @param {string} repoRoot
+ * @param {string[]} globs
+ * @param {(line: string) => void} log
+ * @returns {number} exit code
+ */
+function assertNoRawTmpdirMkdtemp(repoRoot, globs, log) {
+  if (!globs || globs.length === 0) {
+    log(
+      '[test-temp-hygiene] SKIP — raw-tmpdir lint not requested (pass --lint-globs to enable).',
+    );
+    return 0;
+  }
+  const findings = findRawTmpdirMkdtemp(repoRoot, globs);
+  if (findings.length === 0) {
+    log(
+      '[test-temp-hygiene] OK — no test file mints OS temp dirs outside makeTempDir().',
+    );
+    return 0;
+  }
+  log(
+    `[test-temp-hygiene] FAIL — ${findings.length} raw os.tmpdir() mkdtemp call(s) in test files:`,
+  );
+  for (const f of findings) log(`  ${f.file}:${f.line}  ${f.text}`);
+  log(
+    "[test-temp-hygiene] use makeTempDir() from .agents/scripts/lib/test-temp.js so teardown is registered, or mark the line 'test-temp-allow: <reason>' when the real root is genuinely required.",
   );
   return 1;
 }

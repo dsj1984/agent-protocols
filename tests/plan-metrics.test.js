@@ -11,9 +11,8 @@
  */
 
 import assert from 'node:assert/strict';
-import { mkdtempSync, readFileSync, rmSync } from 'node:fs';
+import { readFileSync, rmSync } from 'node:fs';
 import fs from 'node:fs/promises';
-import { tmpdir } from 'node:os';
 import path from 'node:path';
 import { afterEach, beforeEach, describe, it } from 'node:test';
 import { fileURLToPath } from 'node:url';
@@ -33,12 +32,13 @@ import {
   renderPlanMetricsSummaryLine,
   summarizePlanMetrics,
 } from '../.agents/scripts/lib/orchestration/plan-metrics.js';
+import { makeTempDir } from '../.agents/scripts/lib/test-temp.js';
 
 let workRoot;
 let config;
 
 beforeEach(() => {
-  workRoot = mkdtempSync(path.join(tmpdir(), 'plan-metrics-'));
+  workRoot = makeTempDir('plan-metrics-');
   // Absolute tempRoot is honoured verbatim by temp-paths, so the ledger
   // lands inside the per-test sandbox with no git anchoring involved.
   config = { project: { paths: { tempRoot: workRoot } } };

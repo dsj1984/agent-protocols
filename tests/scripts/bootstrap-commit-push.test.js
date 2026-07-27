@@ -16,7 +16,6 @@
 
 import assert from 'node:assert/strict';
 import fs from 'node:fs';
-import os from 'node:os';
 import path from 'node:path';
 import { afterEach, beforeEach, describe, it, mock } from 'node:test';
 
@@ -30,6 +29,7 @@ import {
   stageBootstrapFiles,
 } from '../../.agents/scripts/lib/bootstrap/commit-push.js';
 import { Logger } from '../../.agents/scripts/lib/Logger.js';
+import { makeTempDir } from '../../.agents/scripts/lib/test-temp.js';
 
 const ANSWERS = Object.freeze({
   owner: 'acme',
@@ -41,7 +41,7 @@ const ANSWERS = Object.freeze({
 const tmpDirs = [];
 
 function makeTmpDir() {
-  const dir = fs.mkdtempSync(path.join(os.tmpdir(), 'bootstrap-cp-'));
+  const dir = makeTempDir('bootstrap-cp-');
   tmpDirs.push(dir);
   return dir;
 }

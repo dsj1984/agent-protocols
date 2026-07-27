@@ -8,8 +8,7 @@
  */
 
 import assert from 'node:assert/strict';
-import { mkdtemp, rm, writeFile } from 'node:fs/promises';
-import { tmpdir } from 'node:os';
+import { rm, writeFile } from 'node:fs/promises';
 import path from 'node:path';
 import { after, before, describe, it } from 'node:test';
 import {
@@ -18,11 +17,12 @@ import {
   resolvePlanContextPath,
 } from '../../../.agents/scripts/lib/orchestration/plan-persist/plan-context-source.js';
 import { resolveSourceTicketIds } from '../../../.agents/scripts/lib/orchestration/plan-persist/supersede-ops.js';
+import { makeTempDir } from '../../../.agents/scripts/lib/test-temp.js';
 
 let planDir;
 
 before(async () => {
-  planDir = await mkdtemp(path.join(tmpdir(), 'plan-context-source-'));
+  planDir = await makeTempDir('plan-context-source-');
 });
 
 after(async () => {
@@ -60,7 +60,7 @@ describe('resolvePlanContextPath', () => {
 
 describe('loadPlanContextEnvelope', () => {
   it('reads an envelope written to the conventional --plan-dir path', async () => {
-    const dir = await mkdtemp(path.join(tmpdir(), 'plan-ctx-ok-'));
+    const dir = await makeTempDir('plan-ctx-ok-');
     const file = path.join(dir, PLAN_CONTEXT_FILENAME);
     await writeFile(file, JSON.stringify(TICKETS_ENVELOPE), 'utf8');
 
@@ -81,7 +81,7 @@ describe('loadPlanContextEnvelope', () => {
   });
 
   it('degrades to null when an auto-discovered envelope is simply absent', async () => {
-    const dir = await mkdtemp(path.join(tmpdir(), 'plan-ctx-absent-'));
+    const dir = await makeTempDir('plan-ctx-absent-');
     assert.equal(
       await loadPlanContextEnvelope(resolvePlanContextPath(null, dir)),
       null,
@@ -100,7 +100,7 @@ describe('loadPlanContextEnvelope', () => {
   // A corrupt envelope must never read as "no source tickets" — that is the
   // vacuous pass this Story closes.
   it('throws on a present-but-unparseable envelope rather than reading it as empty', async () => {
-    const dir = await mkdtemp(path.join(tmpdir(), 'plan-ctx-corrupt-'));
+    const dir = await makeTempDir('plan-ctx-corrupt-');
     const file = path.join(dir, PLAN_CONTEXT_FILENAME);
     await writeFile(file, '{ truncated', 'utf8');
 

@@ -1,17 +1,17 @@
 import assert from 'node:assert/strict';
 import fs from 'node:fs';
-import os from 'node:os';
 import path from 'node:path';
 import { afterEach, beforeEach, describe, it } from 'node:test';
 import { loadEnv } from '../../.agents/scripts/lib/env-loader.js';
 import { Logger } from '../../.agents/scripts/lib/Logger.js';
+import { makeTempDir } from '../../.agents/scripts/lib/test-temp.js';
 
 describe('loadEnv', () => {
   let tmpDir;
   const testKeys = [];
 
   beforeEach(() => {
-    tmpDir = fs.mkdtempSync(path.join(os.tmpdir(), 'env-loader-test-'));
+    tmpDir = makeTempDir('env-loader-test-');
   });
 
   afterEach(() => {

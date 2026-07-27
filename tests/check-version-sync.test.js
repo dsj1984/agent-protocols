@@ -1,9 +1,8 @@
 import assert from 'node:assert/strict';
-import { mkdtempSync, rmSync, writeFileSync } from 'node:fs';
-import { tmpdir } from 'node:os';
+import { rmSync, writeFileSync } from 'node:fs';
 import { join } from 'node:path';
 import { test } from 'node:test';
-
+import { makeTempDir } from '../.agents/scripts/lib/test-temp.js';
 import { checkVersionSync } from '../scripts/check-version-sync.js';
 
 function makeFixture({
@@ -11,7 +10,7 @@ function makeFixture({
   manifestVersion = '1.2.3',
   manifestEntries,
 } = {}) {
-  const root = mkdtempSync(join(tmpdir(), 'version-sync-'));
+  const root = makeTempDir('version-sync-');
   writeFileSync(
     join(root, 'package.json'),
     JSON.stringify({ name: 'x', version: pkgVersion }),

@@ -17,10 +17,10 @@
 
 import assert from 'node:assert/strict';
 import fs from 'node:fs';
-import os from 'node:os';
 import path from 'node:path';
 import { afterEach, beforeEach, describe, it } from 'node:test';
 import { fileURLToPath, pathToFileURL } from 'node:url';
+import { makeTempDir } from '../../.agents/scripts/lib/test-temp.js';
 
 const __dirname = path.dirname(fileURLToPath(import.meta.url));
 const REPO_ROOT = path.resolve(__dirname, '..', '..');
@@ -42,7 +42,7 @@ const { STUB_MARKER } = await import(
 
 /** Create a temp project root with a minimal .agentrc.json. */
 function makeProject(docsContextFiles = []) {
-  const root = fs.mkdtempSync(path.join(os.tmpdir(), 'init-tail-'));
+  const root = makeTempDir('init-tail-');
   fs.writeFileSync(
     path.join(root, '.agentrc.json'),
     JSON.stringify({
