@@ -283,12 +283,25 @@ const collect = () => {
 };
 
 describe('check-test-temp-hygiene — runHygiene', () => {
+  /**
+   * An isolated OS temp root. The suite-root dimension added in #4808 reads
+   * the real one, so without this a sibling test process minting its own
+   * suite root between this test's snapshot and assert flips the exit code
+   * these assertions pin — an intermittent failure, not a real regression.
+   */
+  let fakeTmp;
+
+  beforeEach(() => {
+    fakeTmp = makeTempDir('fake-os-tmp-run-');
+  });
+
   it('snapshot mode records the baseline and returns 0', () => {
     writeStream('run-1/lifecycle.ndjson', 'a\n');
     const { lines, log } = collect();
     const code = runHygiene(
       { mode: 'snapshot', apply: false, ids: null, repoRoot },
       log,
+      { tmpDir: fakeTmp },
     );
     assert.equal(code, 0);
     assert.ok(readSnapshot(repoRoot) !== null);
@@ -301,6 +314,7 @@ describe('check-test-temp-hygiene — runHygiene', () => {
     const code = runHygiene(
       { mode: 'assert', apply: false, ids: null, repoRoot },
       log,
+      { tmpDir: fakeTmp },
     );
     assert.equal(code, 1);
     const out = lines.join('\n');
@@ -311,12 +325,15 @@ describe('check-test-temp-hygiene — runHygiene', () => {
 
   it('assert fails closed after the baseline is deleted (wiped-temp scenario, AC-1)', () => {
     writeStream('run-1/lifecycle.ndjson', 'a\n');
-    const { snapshotPath } = writeSnapshot(repoRoot);
+    const { snapshotPath } = writeSnapshot(repoRoot, undefined, {
+      tmpDir: fakeTmp,
+    });
     rmSync(snapshotPath, { force: true });
     const { lines, log } = collect();
     const code = runHygiene(
       { mode: 'assert', apply: false, ids: null, repoRoot },
       log,
+      { tmpDir: fakeTmp },
     );
     assert.equal(code, 1);
     const out = lines.join('\n');
@@ -329,12 +346,13 @@ describe('check-test-temp-hygiene — runHygiene', () => {
   it('assert honours an explicit --baseline path end-to-end', () => {
     writeStream('run-1/lifecycle.ndjson', 'a\n');
     const custom = path.join(repoRoot, 'ci-scratch', 'hygiene.json');
-    writeSnapshot(repoRoot, custom);
+    writeSnapshot(repoRoot, custom, { tmpDir: fakeTmp });
     writeStream('run-2/stories/story-9/signals.ndjson', 'polluted\n');
     const { lines, log } = collect();
     const code = runHygiene(
       { mode: 'assert', apply: false, ids: null, repoRoot, baseline: custom },
       log,
+      { tmpDir: fakeTmp },
     );
     assert.equal(code, 1);
     assert.ok(lines.join('\n').includes('polluted the real temp/ tree'));
@@ -342,22 +360,24 @@ describe('check-test-temp-hygiene — runHygiene', () => {
 
   it('assert returns 0 when the tree is unchanged since snapshot', () => {
     writeStream('run-1/lifecycle.ndjson', 'a\n');
-    writeSnapshot(repoRoot);
+    writeSnapshot(repoRoot, undefined, { tmpDir: fakeTmp });
     const code = runHygiene(
       { mode: 'assert', apply: false, ids: null, repoRoot },
       () => {},
+      { tmpDir: fakeTmp },
     );
     assert.equal(code, 0);
   });
 
   it('assert returns 1 when a new stream file appeared', () => {
     writeStream('run-1/lifecycle.ndjson', 'a\n');
-    writeSnapshot(repoRoot);
+    writeSnapshot(repoRoot, undefined, { tmpDir: fakeTmp });
     writeStream('run-2/stories/story-9/signals.ndjson', 'polluted\n');
     const { lines, log } = collect();
     const code = runHygiene(
       { mode: 'assert', apply: false, ids: null, repoRoot },
       log,
+      { tmpDir: fakeTmp },
     );
     assert.equal(code, 1);
     assert.ok(lines.join('\n').includes('polluted the real temp/ tree'));
@@ -369,6 +389,7 @@ describe('check-test-temp-hygiene — runHygiene', () => {
     const code = runHygiene(
       { mode: 'clean', apply: false, ids: null, repoRoot },
       log,
+      { tmpDir: fakeTmp },
     );
     assert.equal(code, 0);
     assert.ok(lines.join('\n').includes('run-4428'));
@@ -380,6 +401,7 @@ describe('check-test-temp-hygiene — runHygiene', () => {
     const code = runHygiene(
       { mode: 'clean', apply: false, ids: null, repoRoot },
       log,
+      { tmpDir: fakeTmp },
     );
     assert.equal(code, 0);
     assert.ok(lines.join('\n').includes('no fixture-id stream directories'));
