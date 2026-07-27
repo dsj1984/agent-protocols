@@ -90,10 +90,13 @@ export function resolveCrapEnvOverrides(crapConfig, env) {
  * Story #4731) are exactly what this rule produces, so generalizing kept
  * both working unchanged.
  *
+ * Module-local: `resolveKindRefreshOverrides` is the public surface, and the
+ * naming rule is pinned through it rather than exported for its own sake.
+ *
  * @param {string} kind
  * @returns {string|null} null when `kind` is not a usable kind name
  */
-export function kindRefreshEnvVar(kind) {
+function kindRefreshEnvVar(kind) {
   if (typeof kind !== 'string' || kind.length === 0) return null;
   return `${kind.toUpperCase().replace(/-/g, '_')}_REFRESH`;
 }

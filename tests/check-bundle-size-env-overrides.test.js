@@ -1,9 +1,6 @@
 import assert from 'node:assert';
 import { test } from 'node:test';
-import {
-  kindRefreshEnvVar,
-  resolveKindRefreshOverrides,
-} from '../.agents/scripts/lib/baselines/env-overrides.js';
+import { resolveKindRefreshOverrides } from '../.agents/scripts/lib/baselines/env-overrides.js';
 
 // Story #4802 generalized the per-kind resolvers into one kind-keyed helper.
 // This shim keeps every original bundle-size assertion below byte-identical
@@ -107,22 +104,35 @@ test('resolveBundleSizeEnvOverrides — other env vars present do not interfere'
 
 // --- Kind-generic surface (Story #4802) ------------------------------------
 
-test('kindRefreshEnvVar — upper-snakes the kind, reproducing both legacy names', () => {
-  assert.strictEqual(kindRefreshEnvVar('bundle-size'), 'BUNDLE_SIZE_REFRESH');
-  assert.strictEqual(
-    kindRefreshEnvVar('maintainability'),
-    'MAINTAINABILITY_REFRESH',
-  );
-  assert.strictEqual(kindRefreshEnvVar('coverage'), 'COVERAGE_REFRESH');
-  assert.strictEqual(kindRefreshEnvVar('crap'), 'CRAP_REFRESH');
-  assert.strictEqual(kindRefreshEnvVar('duplication'), 'DUPLICATION_REFRESH');
+// The env-var naming rule is pinned through the public resolver: each kind is
+// acknowledged by its upper-snaked name and by nothing else. That is a
+// stronger assertion than reading the name back, since it also proves the
+// resolver actually reads that variable.
+test('env-var naming — each kind is acknowledged by its upper-snaked name, incl. both legacy names', () => {
+  const cases = [
+    ['bundle-size', 'BUNDLE_SIZE_REFRESH'],
+    ['maintainability', 'MAINTAINABILITY_REFRESH'],
+    ['coverage', 'COVERAGE_REFRESH'],
+    ['crap', 'CRAP_REFRESH'],
+    ['duplication', 'DUPLICATION_REFRESH'],
+  ];
+  for (const [kind, varName] of cases) {
+    const result = resolveKindRefreshOverrides(kind, { [varName]: '1' });
+    assert.strictEqual(result.acknowledged, true, `${kind} via ${varName}`);
+    assert.ok(result.overrides[0].includes(`${varName}=1`));
+  }
 });
 
-test('kindRefreshEnvVar — a non-usable kind yields null rather than a bogus var name', () => {
-  assert.strictEqual(kindRefreshEnvVar(''), null);
-  assert.strictEqual(kindRefreshEnvVar(undefined), null);
-  assert.strictEqual(kindRefreshEnvVar(null), null);
-  assert.strictEqual(kindRefreshEnvVar(42), null);
+test('env-var naming — a non-usable kind is a no-op rather than reading a bogus var', () => {
+  for (const kind of ['', undefined, null, 42]) {
+    const result = resolveKindRefreshOverrides(kind, {
+      _REFRESH: '1',
+      REFRESH: '1',
+      '42_REFRESH': '1',
+    });
+    assert.strictEqual(result.acknowledged, false, `kind=${String(kind)}`);
+    assert.deepStrictEqual(result.overrides, []);
+  }
 });
 
 test('resolveKindRefreshOverrides — COVERAGE_REFRESH=1 acknowledges the coverage kind (the #4802 gap)', () => {
