@@ -14,15 +14,12 @@ import {
   verifyBddRunnerPendingTag,
 } from '../../bdd-runner-detect.js';
 import { scanBddScenarios } from '../../bdd-scenario-scanner.js';
-import { buildCodebaseSnapshot } from '../../codebase-snapshot.js';
 import { getPaths, PROJECT_ROOT } from '../../config-resolver.js';
 import { scanMemoryFreshness } from '../../feedback-loop/memory-freshness.js';
 import { fetchPriorFeedback } from '../../feedback-loop/prior-feedback-fetcher.js';
 import { Logger } from '../../Logger.js';
 import { hasTicketSection } from '../../ticket-body-sections.js';
 import { ensureDocsDigest } from '../docs-digest.js';
-import { collectReferences, hasNewFileCue } from '../spec-freshness.js';
-import { buildAuthoringGrounding } from './spec-authoring-grounding.js';
 
 /**
  * Resolve the per-project memory directory used by the memory-freshness
@@ -179,68 +176,18 @@ export async function buildAuthoringContext(
     repo: githubCfg?.repo,
   });
 
-  // Story #2634 — codebase snapshot. Generates a bounded structural view
-  // of the consumer repo (file tree + package surface + recent activity
-  // + optional export signatures at the `medium` tier) so the Architect
-  // can prefer real module names over doc-only ones. The check is
-  // best-effort: any git/filesystem error degrades to an empty snapshot
-  // so Phase 7 stays non-blocking.
-  let codebaseSnapshot = null;
-  try {
-    codebaseSnapshot = buildCodebaseSnapshot({
-      cwd: PROJECT_ROOT,
-      tier: settings?.planning?.codebaseSnapshot?.tier,
-      include: settings?.planning?.codebaseSnapshot?.include,
-      exclude: settings?.planning?.codebaseSnapshot?.exclude,
-      recentCommitWindow:
-        settings?.planning?.codebaseSnapshot?.recentCommitWindow,
-    });
-    // Story #4139 (F10) — ground the spec author in the files it will cite.
-    // Two signals are attached to the snapshot envelope so the author (which
-    // consumes the JSON, not stderr) cannot miss them:
-    //   1. `grounding.truncation` — the structured, in-envelope form of the
-    //      Story #3959 dropped-file warning. The skinny-tier cap used to drop
-    //      the majority of matched files with only a stderr `Logger.warn` and
-    //      a bare `truncated: true` flag; the author never learned the
-    //      snapshot was partial (a real run dropped "377 of 627 files").
-    //   2. `grounding.citedButAbsent` — path-shaped references in the Epic
-    //      body (the prose the author grounds *from*) that are absent from
-    //      the snapshot's file set and not phrased as net-new, so cited-but-
-    //      absent surfaces are visible *during* authoring rather than only
-    //      after the post-author freshness gate (Story #2635).
-    // The grounding consults only the snapshot's file set and the Epic body —
-    // no new filesystem or git probes — so the context stays bounded for cost.
-    if (codebaseSnapshot) {
-      const grounding = buildAuthoringGrounding({
-        snapshot: codebaseSnapshot,
-        prose: epic.body ?? '',
-        collectReferences,
-        hasNewFileCue,
-      });
-      codebaseSnapshot.grounding = grounding;
-      if (grounding.truncation) {
-        const { dropped, matched, tier } = grounding.truncation;
-        Logger.warn(
-          `[plan-context] codebase snapshot truncated: ${dropped} of ` +
-            `${matched} matched file(s) dropped from the ${tier}-tier view. ` +
-            `The /plan authoring context is partial. To restore full ` +
-            `grounding, ` +
-            `set planning.codebaseSnapshot.tier: "medium" and/or narrow ` +
-            `planning.codebaseSnapshot.include in .agentrc.json.`,
-        );
-      }
-      if (grounding.citedButAbsent.length > 0) {
-        Logger.warn(
-          `[plan-context] ${grounding.citedButAbsent.length} path(s) cited ` +
-            `in the authored Spec are absent from the codebase snapshot: ` +
-            `${grounding.citedButAbsent.join(', ')}. /plan will flag these ` +
-            `as drift unless they are net-new.`,
-        );
-      }
-    }
-  } catch (err) {
-    Logger.warn(`[plan-context] codebase snapshot skipped: ${err.message}`);
-  }
+  // Story #4811 — the codebase snapshot (#2634), its authoring grounding
+  // (#4139 F10) and the spec-freshness helpers behind it are retired. The
+  // pre-computed structural view grounded nothing it promised: the default
+  // include globs missed the standard monorepo layout outright, its remedies
+  // pointed at knobs that re-filtered the same set, and its cited-but-absent
+  // signal inverted into noise whenever the snapshot was the thing that was
+  // wrong. Grounding now rests on the two mechanisms that read the real tree:
+  // the authoring model's own targeted retrieval (the digest-first precedent
+  // of Story #4433) and the Phase 8 `validateStoryFileAssumptions` gate, which
+  // probes every authored `{path, assumption}` against the working tree as a
+  // hard error. Nothing pre-computed replaces it — a stale inventory is the
+  // failure mode, not the fix.
 
   // Story #4542 — planning authors no risk artifact at all. Review depth and
   // the acceptance-critic mode are derived from the diff at close time
@@ -262,7 +209,6 @@ export async function buildAuthoringContext(
       },
     },
     docsContext,
-    codebaseSnapshot,
     bddRunner,
     bddScenarios,
     memoryFreshness,

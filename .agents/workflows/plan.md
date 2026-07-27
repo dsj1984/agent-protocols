@@ -64,7 +64,7 @@ node .agents/scripts/plan-context.js --seed "<seed>" \
 and derives source ids from its `sourceTickets[]`; the CLI also writes
 **`stories.template.json`**, the skeleton step 2 starts from.
 
-The envelope carries docs context, the codebase snapshot, the story-author
+The envelope carries docs context, the story-author
 prompt, `sourceTickets[]`, `duplicates[]` (open **Stories**, never Epics), and
 advisory `complexitySignals` (**no routing authority**). A trivial scope earns
 `--route-downgrade-reason "<why>"` at persist — shape-validated, failing closed
@@ -93,11 +93,12 @@ valid. `body` is a markdown string **or** a structured object; persist parses
 either, serializes the canonical markdown, and syncs top-level `acceptance[]` /
 `verify[]` into it — never dual-author those lists.
 
-Each entry (the `stories.template.json` shape): `slug`
-(`^[a-z0-9][a-z0-9-]*$`), `type: "story"`, `title`, `body` (`goal`, optional
-`spec`, `changes[{path, assumption}]` — `creates|refactors-existing|deletes`,
-`non_goals`, `reason_to_exist`), top-level `acceptance[]`, `verify[]` (`…
-(unit|contract|e2e|validate)`), `depends_on[]` (N>1 only).
+**Grounding = your reads + Phase 8.** Nothing inventories the repo for you:
+read each file you cite, then persist's file-assumption gate hard-errors on
+every `{path, assumption}` that misses the real tree.
+
+Entry fields (the `stories.template.json` shape):
+[reference](helpers/plan-reference.md).
 
 Artifacts under `temp/plan-<slug>/`: `stories.json` (**length 1 by default**;
 over-budget Specs fail closed — split or tighten, never under `docs/`);

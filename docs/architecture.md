@@ -219,7 +219,7 @@ graph TB
 
 | Script                           | Responsibility                                                                                                                                                                              |
 | -------------------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
-| `plan-context.js`                | Single authoring-envelope emitter for `/plan`: Story brief + docs digest + `codebaseSnapshot` + duplicate search + clarity + rendered system prompts. |
+| `plan-context.js`                | Single authoring-envelope emitter for `/plan`: Story brief + docs digest + duplicate search + clarity + rendered system prompts. |
 | `plan-critics.js`                | Single critic-dispatch evaluation point for `/plan`, run between Author and Persist: prints the consolidation + pre-mortem verdict as JSON (advisory — exits 0 on any verdict) and ledgers every skip. Exits 1 on a usage/IO error, where no critic ran and no skip was ledgered: do not proceed to Persist. |
 | `plan-persist.js`                | Single GitHub-write surface for `/plan`: section gate, ticket validator + file-assumption + DAG + budget gates, Story creation, terminal `agent::ready` flip, `plan-summary` comment. |
 | `single-story-init.js`           | Validates a standalone Story, branches from `main`, creates the worktree, flips `agent::executing`. |
@@ -266,29 +266,33 @@ Story progress surfaces via lifecycle ledger events and structured comments
 (`story-init`, `friction`, `verification-results`, `follow-ups`) posted by the
 single-story init/close path.
 
-#### Codebase snapshot (Phase 7)
+#### Spec grounding (no codebase snapshot)
 
-`lib/codebase-snapshot.js` emits a structural view of the consumer repo
-that Phase 7 spec authoring threads into the `planner-context.json`
-envelope under `codebaseSnapshot`. The snapshot is bounded — file tree
-(filtered by the configured include/exclude globs), `package.json`
-exports + scripts, recently-touched directories from `git log`, and the
-detected test/BDD surface. Tier is controlled by
-`planning.codebaseSnapshot.tier` in `.agentrc.json`:
+There is **no** pre-computed codebase snapshot. The codebase-snapshot module,
+its authoring-grounding companion, and the spec-freshness helpers behind them
+were deleted in Story #4811, along with the planning config block that tuned
+them — do not reintroduce a manifest-derived replacement.
 
-- **`skinny` (default)** — file paths only. Target: ~2–5k tokens on a
-  mid-size repo.
-- **`medium`** — skinny + a per-file export signature list extracted via
-  a regex pass over each `.js` / `.ts` body. Target: ~15–30k tokens.
+The snapshot grounded nothing it promised. Its default include globs guessed
+`app/**` singular and matched zero product files under the standard `apps/**`
+monorepo layout; its remedies pointed at knobs (`tier: "medium"`, a narrower
+`include`) that re-signatured the same already-filtered set and could not fix
+a missing include; and its cited-but-absent signal inverted into noise
+whenever the snapshot itself was the incomplete artifact.
 
-The `/plan` authoring step (host LLM, per
-[`workflows/plan.md`](../.agents/workflows/plan.md) — v2 has no persona
-packs and no spec-author skill) is instructed to prefer module / file
-names that appear in the snapshot over names that appear only in the
-docs digest (`docsContext.digestPath` — digest-first since Story #4433),
-because the docs may be stale relative to the source tree. Any error in
-the snapshot generation degrades to a `Logger.warn` and an empty
-envelope so Phase 7 stays non-blocking.
+Two mechanisms ground spec authoring instead, both reading the real tree:
+
+- **The author's own targeted retrieval.** The `/plan` authoring step (host
+  LLM, per [`workflows/plan.md`](../.agents/workflows/plan.md)) is a
+  tool-bearing agent that reads the files it intends to cite, at the moment it
+  cites them — the same digest-first reasoning that moved docs context to
+  pull-on-demand in Story #4433. A pre-computed inventory is a second, staler
+  answer to a question the author can ask directly.
+- **The Phase 8 file-assumption gate.** `validateStoryFileAssumptions`
+  (`lib/orchestration/file-assumptions.js`) probes every authored
+  `{path, assumption}` pair against the working tree, wave-aware, as a hard
+  error at persist time. It is ground truth, not a hint, and it is where a
+  wrong path is actually caught.
 
 #### Resilience layers
 

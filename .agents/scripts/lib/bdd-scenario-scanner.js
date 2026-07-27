@@ -1,8 +1,9 @@
 /**
  * bdd-scenario-scanner.js — Gherkin scenario index for /plan Phase 7.
  *
- * Story #2637 (sibling to #2634 codebase-snapshot, #2635 spec-freshness,
- * #2636 file-assumption gate). The Acceptance Engineer step of
+ * Story #2637 (sibling to #2636's file-assumption gate; the #2634 and #2635
+ * planner-grounding siblings were retired in Story #4811). The Acceptance
+ * Engineer step of
  * `epic-plan-spec-author` currently writes ACs from Epic/Tech Spec narrative
  * alone — it never inspects the consumer project's existing `.feature`
  * files. Planned ACs frequently duplicate scenarios that already exist or

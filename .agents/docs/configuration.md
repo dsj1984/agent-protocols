@@ -26,7 +26,7 @@ with the runtime validators.
   "$schema": "./.agents/schemas/agentrc.schema.json",
   "project":  { /* paths, commands, baseBranch, docsContextFiles */ },
   "github":   { /* owner, repo, branchProtection, mergeMethods, notifications */ },
-  "planning": { /* riskHeuristics, conflict gates, codebaseSnapshot, context */ },
+  "planning": { /* riskHeuristics, conflict gates, complexityGate, navigation */ },
   "delivery": { /* execution, quality, worktreeIsolation, deliverRunner, ... */ }
 }
 ```
@@ -38,7 +38,7 @@ top-level keys are validation errors.
 | ------------- | -------- | ---------------------------------------------------------------------------------- |
 | `project`     | **Yes**  | Project-local paths, base branch, validation commands, and context-hydration files. |
 | `github`      | No       | Ticketing provider config: owner/repo, branch protection, merge methods, notifications. |
-| `planning`    | No       | `/plan` tuning: conflict advisories, codebase snapshot, context cap. (Story sizing ceilings are code-absolute — not agentrc.) |
+| `planning`    | No       | `/plan` tuning: conflict advisories, complexity routing, navigability gate. (Story sizing ceilings and the planner-context cap are code-absolute — not agentrc.) |
 | `delivery`    | No       | `/deliver` tuning: quality gates, worktree isolation, runners, CI watch, code-review providers. |
 | `$schema`     | No       | JSON Schema pointer for editor tooling.                                            |
 
@@ -97,11 +97,6 @@ top-level keys are validation errors.
 | Key | Required | Type | Default | Description |
 | --- | --- | --- | --- | --- |
 | `riskHeuristics` | No | `string[]` or `{ append?, prepend? }` | — | — |
-| `codebaseSnapshot` | No | `object` | — | Nested configuration block. |
-| `codebaseSnapshot.tier` | No | `"skinny"` \| `"medium"` | — | — |
-| `codebaseSnapshot.include` | No | `array<string>` | — | — |
-| `codebaseSnapshot.exclude` | No | `array<string>` | — | — |
-| `codebaseSnapshot.recentCommitWindow` | No | `integer` | — | — |
 | `complexityGate` | No | `object` | — | Shape-derived ceremony-lite complexity routing. A lite claim is validated against the authored Story shape at persist and re-derived from the Story body at dispatch; conservative (full on any doubt). Never relaxes the Story-ticket / PR-to-main / repo-gates / security-baseline non-negotiables. |
 | `complexityGate.enabled` | No | `boolean` | — | Master switch. When false, lite routing is disabled everywhere: persist refuses lite claims and dispatch always takes the sub-agent path. Default true. |
 | `complexityGate.maxArtifacts` | No | `integer` | — | Enumerated-artifact threshold reported by the plan-context complexity signals. An input signal for the planner verdict — carries no routing authority. Default 1. |
@@ -352,13 +347,15 @@ Defaults are **advisory, not Story-width ceilings**. Session-mass ceilings live
 as absolute authored-token constants on `DEFAULT_MODEL_CAPACITY` in
 `ticket-validator-sizing.js` (soft 30k / hard 75k); there is no `maxTokenBudget`
 envelope, and cohesion / split policy / conflict advisories are the primary
-sizing signal. The `codebaseSnapshot` `skinny` tier caps at 250 paths using
-**per-top-level-directory proportional budgeting** (round-robin across matched
-trees) so a large dot-prefixed tree like `.agents/scripts/**` cannot monopolise
-the budget and truncate away the consumer's own source; the shipped `include`
-scans `.agents/scripts/**`, `src/**`, `lib/**`, `app/**`, `packages/**` and
-`exclude` drops `node_modules`, build dirs, and test files. Override `include`
-only when the project's source layout differs.
+sizing signal.
+
+There is no snapshot knob to tune: Story #4811 retired the structural-snapshot
+block outright. Spec authoring is grounded by the author's own targeted repo
+retrieval plus the Phase 8 `validateStoryFileAssumptions` gate, which probes
+every authored `{path, assumption}` against the real tree as a hard error — a
+pre-computed inventory added a second, staler answer to the same question.
+A config still carrying the retired key is a hard validation failure; the
+2.20.0 retirement migration strips it on upgrade.
 
 - **`complexityGate`.** Shape-derived ceremony-lite routing (Story #4722,
   superseding the word-count gate of Stories #4683/#4707). The full ceremony
