@@ -2,6 +2,14 @@
 
 All notable changes to this project will be documented in this file.
 
+## [2.21.0](https://github.com/dsj1984/mandrel/compare/mandrel-v2.20.0...mandrel-v2.21.0) (2026-07-28)
+
+
+### Added
+
+* deliver-light: make the gate's `proceed-light` answer representable, attended-only, and auditable ([#4815](https://github.com/dsj1984/mandrel/issues/4815)) ([#4817](https://github.com/dsj1984/mandrel/issues/4817)) ([74aa28e](https://github.com/dsj1984/mandrel/commit/74aa28e57d0192bcad698461d600806a77de092f))
+* persist the close terminal envelope and teach recovery a live-close state (refs [#4816](https://github.com/dsj1984/mandrel/issues/4816)) ([#4819](https://github.com/dsj1984/mandrel/issues/4819)) ([ffa61d8](https://github.com/dsj1984/mandrel/commit/ffa61d8f56f39c33705bfa379cefdcaaeb523115))
+
 ## [2.20.0](https://github.com/dsj1984/mandrel/compare/mandrel-v2.19.0...mandrel-v2.20.0) (2026-07-27)
 
 
