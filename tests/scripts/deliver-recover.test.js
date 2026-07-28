@@ -27,6 +27,7 @@ import { describe, it } from 'node:test';
 import {
   decideRecovery,
   probeBranch,
+  probeCloseArtifacts,
   probePr,
   probeTicket,
   recoverStory,
@@ -552,5 +553,338 @@ describe('deliver-recover — stability re-probe (mid-flight strands)', () => {
     });
     assert.deepEqual(delays, [1234]);
     assert.equal(recovery.stability.delayMs, 1234);
+  });
+});
+
+describe('deliver-recover — a live close is not a dead implementation (#4816)', () => {
+  /**
+   * The one ambiguous row in the whole table: `agent::executing` with no PR
+   * reads identically for an implementation that died and for a close that is
+   * halfway through its gate chain. Everything below is that row.
+   */
+  const EXECUTING_NO_PR = {
+    storyId: STORY_ID,
+    ticket: ticket('agent::executing'),
+    branch: BRANCH_PRESENT,
+    pr: null,
+  };
+
+  const NOW = 1_800_000_000_000;
+
+  /**
+   * A `probeCloseArtifacts` reading, built by hand. `gateLogFresh` is stated
+   * outright rather than recomputed from the window: the table reads the flag,
+   * and the window that produces it is the probe's business (pinned in the
+   * probe suite below).
+   */
+  function artifacts({
+    envelope = null,
+    gateLogAgeMs = null,
+    gateLogFresh = gateLogAgeMs !== null,
+    envelopeAgeMs = 0,
+  }) {
+    return {
+      envelope,
+      envelopePath: '/tmp/orchestration/story-deliver-terminal-4543.json',
+      envelopeMtimeMs: envelope ? NOW - envelopeAgeMs : null,
+      gateLogPath: '/tmp/orchestration/close-gates-4543.log',
+      gateLogAgeMs,
+      gateLogMtimeMs: gateLogAgeMs === null ? null : NOW - gateLogAgeMs,
+      gateLogFresh,
+    };
+  }
+
+  it('reports close-in-flight, not "implementation never finished"', () => {
+    // The observed defect: the probe said "Implementation never finished"
+    // while the gate log had been appended one second earlier.
+    const decision = decideRecovery({
+      ...EXECUTING_NO_PR,
+      closeArtifacts: artifacts({ gateLogAgeMs: 1000 }),
+    });
+    assert.equal(decision.shape, 'close-in-flight');
+    assert.ok(!/never finished/i.test(decision.detail));
+  });
+
+  it('names the re-init hazard rather than leaving it implied', () => {
+    // Acting on the old verdict re-inits a worktree underneath a running
+    // close and risks two closes racing on one PR.
+    const { detail } = decideRecovery({
+      ...EXECUTING_NO_PR,
+      closeArtifacts: artifacts({ gateLogAgeMs: 1000 }),
+    });
+    assert.match(detail, /single-story-init\.js/);
+    assert.match(detail, /Do not run/i);
+  });
+
+  it('routes a live close back to the read-only probe, never to a mutation', () => {
+    const { nextCommand } = decideRecovery({
+      ...EXECUTING_NO_PR,
+      closeArtifacts: artifacts({ gateLogAgeMs: 1000 }),
+    });
+    assert.equal(nextCommand, NEXT_COMMANDS.recover(STORY_ID));
+    assert.notEqual(nextCommand, NEXT_COMMANDS.implement(STORY_ID));
+  });
+
+  it('treats a gate log older than the window as a dead close', () => {
+    const decision = decideRecovery({
+      ...EXECUTING_NO_PR,
+      closeArtifacts: artifacts({
+        gateLogAgeMs: 10 * 60_000,
+        gateLogFresh: false,
+      }),
+    });
+    assert.equal(decision.shape, 'executing-no-pr');
+    assert.equal(decision.nextCommand, NEXT_COMMANDS.implement(STORY_ID));
+  });
+
+  it('answers a finished-but-orphaned close from its persisted envelope', () => {
+    // The handoff gap itself: the close completed and emitted its verdict
+    // into a turn nobody was reading. The verdict is on disk — relay it
+    // rather than re-deriving a status from labels.
+    const decision = decideRecovery({
+      ...EXECUTING_NO_PR,
+      closeArtifacts: artifacts({
+        envelope: {
+          status: 'pending',
+          phase: 'confirm-merge',
+          nextCommand: NEXT_COMMANDS.resumeLand(STORY_ID),
+        },
+      }),
+    });
+    assert.equal(decision.shape, 'close-envelope-on-disk');
+    assert.equal(decision.nextCommand, NEXT_COMMANDS.resumeLand(STORY_ID));
+    assert.match(decision.detail, /story-deliver-terminal-4543\.json/);
+  });
+
+  it('falls back to the idempotent confirm for a landed envelope naming none', () => {
+    const decision = decideRecovery({
+      ...EXECUTING_NO_PR,
+      closeArtifacts: artifacts({
+        envelope: { status: 'landed', phase: 'post-land', nextCommand: null },
+      }),
+    });
+    assert.equal(decision.shape, 'close-envelope-on-disk');
+    assert.equal(decision.nextCommand, NEXT_COMMANDS.confirmMerge(STORY_ID));
+  });
+
+  it('lets a live close outrank a STALE envelope from a previous attempt', () => {
+    // A Story can be closed more than once. An envelope written before the
+    // current attempt started must not out-argue the gate log that attempt is
+    // appending to right now.
+    const decision = decideRecovery({
+      ...EXECUTING_NO_PR,
+      closeArtifacts: artifacts({
+        envelope: { status: 'blocked', phase: 'close-validation' },
+        envelopeAgeMs: 60_000,
+        gateLogAgeMs: 2_000,
+      }),
+    });
+    assert.equal(decision.shape, 'close-in-flight');
+  });
+
+  it('prefers the envelope when it is newer than the gate log', () => {
+    const decision = decideRecovery({
+      ...EXECUTING_NO_PR,
+      closeArtifacts: artifacts({
+        envelope: {
+          status: 'pending',
+          phase: 'confirm-merge',
+          nextCommand: 'x',
+        },
+        envelopeAgeMs: 1_000,
+        gateLogAgeMs: 30_000,
+      }),
+    });
+    assert.equal(decision.shape, 'close-envelope-on-disk');
+  });
+
+  it('preserves the genuinely-stranded verdict when neither artifact exists', () => {
+    const decision = decideRecovery({
+      ...EXECUTING_NO_PR,
+      closeArtifacts: artifacts({}),
+    });
+    assert.equal(decision.shape, 'executing-no-pr');
+    assert.equal(decision.nextCommand, NEXT_COMMANDS.implement(STORY_ID));
+  });
+
+  it('is inert on every other row of the table', () => {
+    // The artifacts get the first word in ONE place. A closing Story with a
+    // healthy PR is unambiguous already, and a fresh gate log must not
+    // reroute it.
+    const decision = decideRecovery({
+      storyId: STORY_ID,
+      ticket: ticket('agent::closing'),
+      branch: BRANCH_PRESENT,
+      pr: { number: 7, state: 'OPEN', checksStatus: 'pending' },
+      closeArtifacts: artifacts({ gateLogAgeMs: 1000 }),
+    });
+    assert.equal(decision.shape, 'closing-pr-pending');
+  });
+
+  it('reports both artifacts as evidence, on every shape', () => {
+    const decision = decideRecovery({
+      ...EXECUTING_NO_PR,
+      closeArtifacts: artifacts({ gateLogAgeMs: 5_000 }),
+    });
+    assert.ok(decision.evidence.includes('closeEnvelope=none'));
+    assert.ok(decision.evidence.includes('gateLogAge=5s'));
+
+    const bare = decideRecovery(EXECUTING_NO_PR);
+    assert.ok(bare.evidence.includes('gateLogAge=none'));
+  });
+});
+
+describe('probeCloseArtifacts — reading the close’s leavings (#4816)', () => {
+  const paths = {
+    envelope: /story-deliver-terminal-4543\.json$/,
+    gateLog: /close-gates-4543\.log$/,
+  };
+
+  it('reads the envelope and both mtimes when the close left them', () => {
+    const NOW = 1_800_000_000_000;
+    const fsImpl = {
+      readFileSync: () => JSON.stringify({ status: 'landed', phase: 'done' }),
+      statSync: (target) => ({
+        mtimeMs: paths.gateLog.test(target) ? NOW - 3_000 : NOW - 1_000,
+      }),
+    };
+    const probed = probeCloseArtifacts({
+      storyId: STORY_ID,
+      fsImpl,
+      nowMs: NOW,
+    });
+    assert.equal(probed.envelope.status, 'landed');
+    assert.match(probed.envelopePath, paths.envelope);
+    assert.match(probed.gateLogPath, paths.gateLog);
+    assert.equal(probed.gateLogAgeMs, 3_000);
+    assert.equal(probed.gateLogFresh, true);
+  });
+
+  it('degrades to a null reading rather than throwing on missing artifacts', () => {
+    // An absent artifact is the common case — most Stories are probed long
+    // after their close. The table must fall back to its label-only verdict,
+    // not crash the read-only CLI.
+    const fsImpl = {
+      readFileSync: () => {
+        throw new Error('ENOENT');
+      },
+      statSync: () => {
+        throw new Error('ENOENT');
+      },
+    };
+    const probed = probeCloseArtifacts({ storyId: STORY_ID, fsImpl });
+    assert.equal(probed.envelope, null);
+    assert.equal(probed.gateLogAgeMs, null);
+    assert.equal(probed.gateLogFresh, false);
+  });
+
+  it('treats an unparseable or non-object envelope as absent', () => {
+    for (const body of ['{not json', '"a string"', '[1,2]']) {
+      const probed = probeCloseArtifacts({
+        storyId: STORY_ID,
+        fsImpl: {
+          readFileSync: () => body,
+          statSync: () => ({ mtimeMs: 0 }),
+        },
+      });
+      assert.equal(probed.envelope, null, `body: ${body}`);
+    }
+  });
+
+  it('flips gateLogFresh across the default two-minute window', () => {
+    // Generous on purpose: gate output arrives in bursts, and reading a
+    // slow-but-healthy close as dead re-opens the exact misdiagnosis this
+    // exists to remove. Being wrong the other way costs one re-probe.
+    const NOW = 1_800_000_000_000;
+    const at = (ageMs) =>
+      probeCloseArtifacts({
+        storyId: STORY_ID,
+        nowMs: NOW,
+        fsImpl: {
+          readFileSync: () => {
+            throw new Error('ENOENT');
+          },
+          statSync: () => ({ mtimeMs: NOW - ageMs }),
+        },
+      }).gateLogFresh;
+    assert.equal(at(119_000), true);
+    assert.equal(at(121_000), false);
+  });
+
+  it('is re-read on every round of the stability pass', async () => {
+    // A second look is exactly how a close that has since written its
+    // envelope gets noticed — so the probe cannot be hoisted out of the loop.
+    let reads = 0;
+    const provider = {
+      getTicket: async () => ({
+        labels: ['agent::executing'],
+        state: 'open',
+        assignees: [],
+      }),
+    };
+    await recoverStory({
+      storyId: STORY_ID,
+      cwd: '/repo',
+      provider,
+      gh: { pr: { list: async () => [] } },
+      gitSpawnFn: () => ({ status: 1, stdout: '' }),
+      fsImpl: {
+        readFileSync: () => {
+          reads += 1;
+          throw new Error('ENOENT');
+        },
+        statSync: () => {
+          throw new Error('ENOENT');
+        },
+      },
+      stabilityDelayMs: 0,
+      sleepFn: async () => {},
+    });
+    assert.equal(reads, 2, 'both probe rounds read the artifacts');
+  });
+});
+
+describe('close-in-flight earns the stability re-probe (#4816)', () => {
+  it('is treated as mid-flight, not as a settled verdict', async () => {
+    // Membership in TRANSIENT_SHAPES is not directly observable, so pin the
+    // behaviour it buys: a shape whose whole definition is "a process is
+    // mutating this Story right now" must get the second look. Here the close
+    // opens its PR between the probes, and the diverging shapes report
+    // `in-transition` — proof the second round ran at all.
+    let round = 0;
+    const provider = {
+      getTicket: async () => ({
+        labels: ['agent::executing'],
+        state: 'open',
+        assignees: [],
+      }),
+    };
+    const recovery = await recoverStory({
+      storyId: STORY_ID,
+      cwd: '/repo',
+      provider,
+      gh: {
+        pr: {
+          list: async () => {
+            round += 1;
+            return round === 1
+              ? []
+              : [{ number: 9, state: 'OPEN', statusCheckRollup: [] }];
+          },
+        },
+      },
+      gitSpawnFn: () => ({ status: 1, stdout: '' }),
+      fsImpl: {
+        readFileSync: () => {
+          throw new Error('ENOENT');
+        },
+        statSync: () => ({ mtimeMs: Date.now() }),
+      },
+      stabilityDelayMs: 0,
+      sleepFn: async () => {},
+    });
+    assert.equal(recovery.stability.reprobed, true);
+    assert.equal(recovery.shape, 'in-transition');
+    assert.match(recovery.detail, /close-in-flight/);
   });
 });

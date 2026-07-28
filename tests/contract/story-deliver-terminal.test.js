@@ -27,6 +27,7 @@
 
 import assert from 'node:assert/strict';
 import fs from 'node:fs';
+import os from 'node:os';
 import path from 'node:path';
 import { describe, it, mock } from 'node:test';
 import { fileURLToPath } from 'node:url';
@@ -38,6 +39,7 @@ import {
   emitTerminalEnvelope,
   exitCodeForTerminal,
   NEXT_COMMANDS,
+  persistTerminalEnvelope,
   TERMINAL_BEGIN_MARKER,
   TERMINAL_END_MARKER,
   TERMINAL_ENVELOPE_KIND,
@@ -45,6 +47,7 @@ import {
   TERMINAL_STATUSES,
   validateTerminalEnvelope,
 } from '../../.agents/scripts/lib/orchestration/story-deliver-terminal.js';
+import { makeTempDir } from '../../.agents/scripts/lib/test-temp.js';
 
 const __dirname = path.dirname(fileURLToPath(import.meta.url));
 const SCHEMA = JSON.parse(
@@ -659,5 +662,183 @@ describe('emitTerminalEnvelope — the contract payload is not level-gated', () 
     } finally {
       setLevel(previous ?? 'info');
     }
+  });
+});
+
+describe('persistTerminalEnvelope — the envelope outlives its turn (#4816)', () => {
+  /**
+   * A config whose tempRoot is an absolute scratch dir, so every assertion
+   * below reads a real file without going anywhere near the repo tree.
+   */
+  function scratchConfig() {
+    const root = makeTempDir('terminal-persist-');
+    return {
+      root,
+      config: { project: { paths: { tempRoot: root } } },
+      envelopePath: (sid) =>
+        path.join(root, 'orchestration', `story-deliver-terminal-${sid}.json`),
+    };
+  }
+
+  const pending = buildTerminalEnvelope({
+    storyId: 4816,
+    status: 'pending',
+    phase: 'confirm-merge',
+    nextCommand: NEXT_COMMANDS.resumeLand(4816),
+    elapsedSeconds: 12,
+  });
+
+  it('writes the same object the stdout markers carry', () => {
+    // The whole point: an orphaned turn costs a file read, not a recovery
+    // round trip. That only holds if the file IS the envelope, byte for byte
+    // in content — not a summary of it.
+    const { config, envelopePath } = scratchConfig();
+    let out = '';
+    emitTerminalEnvelope(pending, { write: (s) => (out += s) });
+    emitTerminalEnvelope(pending, { write: (s) => (out += s), config });
+    const onDisk = JSON.parse(fs.readFileSync(envelopePath(4816), 'utf8'));
+    const onStdout = JSON.parse(
+      out.split(TERMINAL_BEGIN_MARKER).pop().split(TERMINAL_END_MARKER)[0],
+    );
+    assert.deepEqual(onDisk, onStdout);
+    assert.deepEqual(onDisk, pending);
+  });
+
+  it('returns the path it wrote and creates the directory for it', () => {
+    const { config, envelopePath } = scratchConfig();
+    const written = persistTerminalEnvelope(pending, { config });
+    assert.equal(written, envelopePath(4816));
+    assert.ok(fs.existsSync(written));
+  });
+
+  it('overwrites the previous run rather than accumulating copies', () => {
+    // A Story can be closed more than once (a `pending` wait resumed, a red
+    // gate fixed). The reader wants the CURRENT verdict, so last write wins
+    // and the directory holds exactly one file per Story.
+    const { root, config, envelopePath } = scratchConfig();
+    persistTerminalEnvelope(pending, { config });
+    const landed = buildTerminalEnvelope({
+      storyId: 4816,
+      status: 'landed',
+      phase: 'done',
+      nextCommand: null,
+      elapsedSeconds: 30,
+    });
+    persistTerminalEnvelope(landed, { config });
+    assert.equal(
+      JSON.parse(fs.readFileSync(envelopePath(4816), 'utf8')).status,
+      'landed',
+    );
+    assert.deepEqual(fs.readdirSync(path.join(root, 'orchestration')), [
+      'story-deliver-terminal-4816.json',
+    ]);
+  });
+
+  it('renames into place so a reader never parses a partial file', () => {
+    // The reader that matters most is a router polling during a live close.
+    // Handing it a truncated JSON at exactly the moment it is trying to stop
+    // guessing would be worse than handing it nothing.
+    const writes = [];
+    const renames = [];
+    const fsImpl = {
+      mkdirSync: () => {},
+      writeFileSync: (target, body) => writes.push({ target, body }),
+      renameSync: (from, to) => renames.push({ from, to }),
+      rmSync: () => {},
+    };
+    const written = persistTerminalEnvelope(pending, {
+      config: { project: { paths: { tempRoot: path.join(os.tmpdir(), 'x') } } },
+      fsImpl,
+    });
+    assert.equal(writes.length, 1);
+    assert.equal(renames.length, 1);
+    assert.notEqual(
+      writes[0].target,
+      written,
+      'the payload is written to a scratch name, never the final path',
+    );
+    assert.equal(renames[0].from, writes[0].target);
+    assert.equal(renames[0].to, written);
+  });
+
+  it('never costs a close its return when the write fails', () => {
+    // Best-effort is the contract. A landed PR must not become a crash
+    // because a temp directory was unwritable.
+    const fsImpl = {
+      mkdirSync: () => {
+        throw new Error('EACCES: read-only file system');
+      },
+      writeFileSync: () => {},
+      renameSync: () => {},
+      rmSync: () => {},
+    };
+    assert.equal(persistTerminalEnvelope(pending, { fsImpl }), null);
+
+    let out = '';
+    emitTerminalEnvelope(pending, {
+      write: (s) => (out += s),
+      persist: () => {
+        throw new Error('should never propagate');
+      },
+    });
+    assert.ok(out.includes(TERMINAL_BEGIN_MARKER));
+  });
+
+  it('cleans up the scratch file when the rename fails', () => {
+    const removed = [];
+    const fsImpl = {
+      mkdirSync: () => {},
+      writeFileSync: () => {},
+      renameSync: () => {
+        throw new Error('EXDEV');
+      },
+      rmSync: (target) => removed.push(target),
+    };
+    assert.equal(persistTerminalEnvelope(pending, { fsImpl }), null);
+    assert.equal(removed.length, 1);
+    assert.ok(removed[0].endsWith('.tmp'));
+  });
+
+  it('writes nothing for an escalated terminal, which has no Story id', () => {
+    const { root, config } = scratchConfig();
+    const escalated = buildEscalationTerminal({ prompt: 'add a --json flag' });
+    assert.equal(escalated.storyId, null);
+    assert.equal(persistTerminalEnvelope(escalated, { config }), null);
+    assert.equal(fs.existsSync(path.join(root, 'orchestration')), false);
+  });
+
+  it('degrades to the default temp root when the config cannot be read', () => {
+    // An unreadable .agentrc must not cost the run its copy: the fallback
+    // root is still far better than no artifact at all.
+    const seen = [];
+    const fsImpl = {
+      mkdirSync: (dir) => seen.push(dir),
+      writeFileSync: () => {},
+      renameSync: () => {},
+      rmSync: () => {},
+    };
+    const written = persistTerminalEnvelope(pending, {
+      fsImpl,
+      resolveConfigImpl: () => {
+        throw new Error('unparseable .agentrc.json');
+      },
+    });
+    assert.ok(written, 'a broken config still yields a persisted path');
+    assert.equal(seen.length, 1);
+    assert.ok(written.endsWith('story-deliver-terminal-4816.json'));
+  });
+
+  it('is invoked by emitTerminalEnvelope, so no emit site can forget it', () => {
+    // The single-writer property is the design: four emit sites, one place
+    // that persists. A future fifth site inherits it for free.
+    const calls = [];
+    emitTerminalEnvelope(pending, {
+      write: () => {},
+      config: { marker: true },
+      persist: (envelope, opts) => calls.push({ envelope, opts }),
+    });
+    assert.equal(calls.length, 1);
+    assert.deepEqual(calls[0].envelope, pending);
+    assert.deepEqual(calls[0].opts.config, { marker: true });
   });
 });

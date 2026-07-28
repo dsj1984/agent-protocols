@@ -15,12 +15,14 @@ import {
   _clearMainCheckoutRootCache,
   _clearTestContextScratchCache,
   anchorTempRoot,
+  closeGateLogPath,
   mainCheckoutRoot,
   runArtifactPath,
   runTempDir,
   signalsFile,
   storyManifestPath,
   storyTempDir,
+  storyTerminalEnvelopePath,
   TEST_ALLOW_REAL_TEMP_ENV,
   TEST_TEMP_ROOT_ENV,
   tempRootFrom,
@@ -591,6 +593,75 @@ describe('lib/config/temp-paths.js — direct `node --test` appends zero bytes t
       }
     } finally {
       rmSync(fixtureDir, { recursive: true, force: true });
+    }
+  });
+});
+
+describe('storyTerminalEnvelopePath — the persisted terminal envelope (#4816)', () => {
+  it('sits beside the gate log under the configured temp root', () => {
+    const config = { project: { paths: { tempRoot: 'scratch' } } };
+    assert.equal(
+      storyTerminalEnvelopePath(4816, config),
+      anchored('scratch', 'orchestration', 'story-deliver-terminal-4816.json'),
+    );
+  });
+
+  it('falls back to the framework-default temp root with no config', () => {
+    assert.equal(
+      storyTerminalEnvelopePath(4816),
+      anchored('temp', 'orchestration', 'story-deliver-terminal-4816.json'),
+    );
+  });
+
+  it('honours an absolute temp root verbatim', () => {
+    const abs = path.join(os.tmpdir(), 'mandrel-4816-abs');
+    const config = { project: { paths: { tempRoot: abs } } };
+    assert.equal(
+      storyTerminalEnvelopePath(7, config),
+      path.join(abs, 'orchestration', 'story-deliver-terminal-7.json'),
+    );
+  });
+
+  it('anchors to the MAIN checkout, not the caller cwd', () => {
+    // The load-bearing property: the close runs inside `.worktrees/story-<id>/`
+    // while the /deliver host reads from the main checkout. An un-anchored
+    // relative root would file the envelope where the router never looks.
+    const resolved = storyTerminalEnvelopePath(4816, {
+      project: { paths: { tempRoot: 'temp' } },
+    });
+    assert.equal(path.isAbsolute(resolved), Boolean(mainCheckoutRoot()));
+    assert.ok(!resolved.includes(`.worktrees${SEP}`));
+  });
+
+  it('names the basename the retention scanner parses', () => {
+    assert.equal(
+      path.basename(storyTerminalEnvelopePath(4816)),
+      'story-deliver-terminal-4816.json',
+    );
+  });
+
+  it('pairs the envelope with the gate log the recovery probe reads', () => {
+    // Both artifacts of one close, same directory, same Story scope — the
+    // retention purge takes them as a pair and the probe reads them together.
+    const config = { project: { paths: { tempRoot: 'scratch' } } };
+    assert.equal(
+      path.dirname(closeGateLogPath(4816, config)),
+      path.dirname(storyTerminalEnvelopePath(4816, config)),
+    );
+    assert.equal(
+      path.basename(closeGateLogPath(4816, config)),
+      'close-gates-4816.log',
+    );
+    assert.equal(
+      path.basename(closeGateLogPath(null, config)),
+      'close-gates-unknown.log',
+      'the sink\u2019s no-Story sentinel keeps its spelling',
+    );
+  });
+
+  it('rejects a non-positive-integer Story id rather than pathing to junk', () => {
+    for (const bad of [0, -1, 1.5, null, undefined, '4816']) {
+      assert.throws(() => storyTerminalEnvelopePath(bad), /positive integer/);
     }
   });
 });

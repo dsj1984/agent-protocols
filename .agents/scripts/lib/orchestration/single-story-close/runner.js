@@ -71,7 +71,7 @@ async function emitTerminal({ terminal, result, config }) {
       },
     });
   }
-  emitTerminalEnvelope(terminal);
+  emitTerminalEnvelope(terminal, { config });
   await emitTerminalFriction({ envelope: terminal, config });
 }
 

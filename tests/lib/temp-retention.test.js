@@ -452,3 +452,52 @@ describe('formatBytes', () => {
     assert.equal(formatBytes(3 * 1024 * 1024 * 1024), '3.0GB');
   });
 });
+
+describe('the persisted terminal envelope is reapable (#4816)', () => {
+  it('claims story-deliver-terminal-<id>.json for the orchestrationLogs class', async () => {
+    // Before this, the scanner took `*.log` only — so the envelope the close
+    // now persists would have been the one file in `orchestration/` the purge
+    // could never reap, accumulating one per delivered Story forever.
+    const root = makeRoot();
+    writeAged(
+      path.join(root, 'orchestration', 'story-deliver-terminal-4816.json'),
+    );
+
+    const { entries, unrecognized } = await collectTempEntries({
+      tempRoot: root,
+    });
+    const entry = entries.find((e) =>
+      e.path.endsWith('story-deliver-terminal-4816.json'),
+    );
+    assert.ok(entry, 'the envelope is classified, not left unrecognized');
+    assert.equal(entry.className, 'orchestrationLogs');
+    assert.equal(entry.storyId, 4816, 'the Story scope is parsed off the name');
+    assert.equal(unrecognized.length, 0);
+  });
+
+  it('keys the envelope and its gate log to the same Story', async () => {
+    // They are two artifacts of one close, so a Story-scoped purge must take
+    // both or neither.
+    const root = makeRoot();
+    writeAged(path.join(root, 'orchestration', 'close-gates-4816.log'));
+    writeAged(
+      path.join(root, 'orchestration', 'story-deliver-terminal-4816.json'),
+    );
+
+    const { entries } = await collectTempEntries({ tempRoot: root });
+    const scoped = entries.filter((e) => e.className === 'orchestrationLogs');
+    assert.equal(scoped.length, 2);
+    assert.deepEqual([...new Set(scoped.map((e) => e.storyId))], [4816]);
+  });
+
+  it('still ignores a file type the class does not own', async () => {
+    const root = makeRoot();
+    writeAged(path.join(root, 'orchestration', 'notes-4816.txt'));
+
+    const { entries } = await collectTempEntries({ tempRoot: root });
+    assert.equal(
+      entries.filter((e) => e.className === 'orchestrationLogs').length,
+      0,
+    );
+  });
+});

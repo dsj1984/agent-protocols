@@ -27,6 +27,8 @@ import path from 'node:path';
 import { describe, it } from 'node:test';
 import { fileURLToPath } from 'node:url';
 
+import { assertDocMentions } from '../helpers/doc-assert.js';
+
 const __dirname = path.dirname(fileURLToPath(import.meta.url));
 const REPO_ROOT = path.resolve(__dirname, '..', '..');
 const WORKFLOWS = path.join(REPO_ROOT, '.agents', 'workflows');
@@ -93,6 +95,40 @@ describe('helpers/deliver-digest.md — the one bundled deliver read (AC-5)', ()
     assert.ok(
       spine.includes('digest § 5'),
       'deliver-story.md must route Step 3 / Step 7 at the digest, not carry its own copy of the status table',
+    );
+  });
+});
+
+describe('helpers/deliver-story.md — the orphaned-envelope fallback (#4816)', () => {
+  const read = (p) => readFileSync(p, 'utf8');
+  const spine = () => read(path.join(WORKFLOWS, 'helpers', 'deliver-story.md'));
+
+  it('sends an envelope-less child turn to the persisted file first', () => {
+    // Persisting the envelope buys nothing unless the router is told to read
+    // it: the whole cost this removes is the recovery round trip a caller
+    // pays when a worker's turn ended before it could relay.
+    assertDocMentions(
+      spine(),
+      /temp\/orchestration\/story-deliver-terminal-<storyId>\.json/,
+      'deliver-story.md must name the persisted envelope path',
+    );
+    assertDocMentions(
+      spine(),
+      /[Ll]ost envelope first: read it off disk/,
+      'the fallback must come BEFORE the recovery probe, not as a footnote to it',
+    );
+  });
+
+  it('warns that a live close must not be re-initialized underneath', () => {
+    assertDocMentions(
+      spine(),
+      /close-in-flight/,
+      'deliver-story.md must name the shape the probe now returns for a live close',
+    );
+    assertDocMentions(
+      spine(),
+      /never re-init underneath it/i,
+      'the hazard (two closes racing one PR) must be stated where the operator reads it',
     );
   });
 });

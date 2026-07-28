@@ -31,6 +31,7 @@ import { fileURLToPath } from 'node:url';
 import Ajv2020 from 'ajv/dist/2020.js';
 import addFormats from 'ajv-formats';
 import { makeTempDir } from '../../.agents/scripts/lib/test-temp.js';
+import { assertDocMentions } from '../helpers/doc-assert.js';
 
 const __dirname = path.dirname(fileURLToPath(import.meta.url));
 const REPO_ROOT = path.resolve(__dirname, '..', '..');
@@ -178,6 +179,41 @@ describe('story-worker boot context carries every delivery MUST (default-true ga
   test('enforces absolute paths (cwd may reset between calls)', () => {
     const { body } = bootContext('story-worker.md');
     assert.match(body, /[Aa]bsolute path/);
+  });
+
+  test('holds the turn until the terminal envelope arrives (#4816)', () => {
+    // The gap this closes: nothing in the boot context made holding the turn
+    // a requirement, so a worker that reported "close is running" and yielded
+    // was behaving reasonably — and its envelope died with the turn. Observed
+    // four times across three workers in one consumer run, and prompt-level
+    // warnings in the dispatch did not stop it. The rule has to live where the
+    // behaviour is decided.
+    const { body } = bootContext('story-worker.md');
+    assertDocMentions(
+      body,
+      /foreground/i,
+      'story-worker.md must require close to run in the foreground',
+    );
+    assertDocMentions(
+      body,
+      /[Nn]ever background it/,
+      'story-worker.md must forbid backgrounding the close',
+    );
+    assertDocMentions(
+      body,
+      /never delegate it to a child/i,
+      'story-worker.md must forbid delegating the close to a child',
+    );
+    assertDocMentions(
+      body,
+      /never end your turn while it is still running/i,
+      'story-worker.md must forbid returning before the envelope arrives',
+    );
+    assertDocMentions(
+      body,
+      /story-deliver-terminal-<id>\.json/,
+      'story-worker.md must name the persisted fallback the caller reads',
+    );
   });
 });
 
