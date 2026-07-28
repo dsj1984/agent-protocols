@@ -22,7 +22,7 @@ import assert from 'node:assert/strict';
 import nodeFs from 'node:fs';
 import path from 'node:path';
 import { after, before, beforeEach, describe, it } from 'node:test';
-
+import { closeGateLogPath } from '../../../../.agents/scripts/lib/config/temp-paths.js';
 import {
   createGateLogSink,
   REPLAY_TAIL_LINES,
@@ -232,5 +232,29 @@ describe('createGateLogSink — streaming and degradation', () => {
       'one\ntwo\n',
       'a second flush must neither truncate nor duplicate the artifact',
     );
+  });
+});
+
+describe('the sink and the recovery reader agree on the filename (#4816)', () => {
+  it('writes the basename `closeGateLogPath` resolves for the same Story', () => {
+    // The two spell the name independently — the sink needs the basename
+    // alone (it honours a `logDir` override), and making it call the path
+    // helper would drag tempRoot resolution into a filename lookup. This is
+    // the pin that keeps them from drifting: a reader that looks for a name
+    // the writer stopped using would silently see every close as dead.
+    const sink = sinkAt('name-parity');
+    assert.equal(
+      path.basename(sink.logPath),
+      path.basename(closeGateLogPath(4736)),
+    );
+  });
+
+  it('agrees on the no-Story sentinel too', () => {
+    const sink = sinkAt('name-parity-null', { storyId: null });
+    assert.equal(
+      path.basename(sink.logPath),
+      path.basename(closeGateLogPath(null)),
+    );
+    assert.match(path.basename(sink.logPath), /^close-gates-unknown\.log$/);
   });
 });

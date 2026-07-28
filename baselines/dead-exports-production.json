@@ -1414,6 +1414,10 @@
     },
     {
       "file": ".agents/scripts/lib/orchestration/deliver-recover.js",
+      "symbol": "probeCloseArtifacts"
+    },
+    {
+      "file": ".agents/scripts/lib/orchestration/deliver-recover.js",
       "symbol": "probePr"
     },
     {
@@ -2027,6 +2031,10 @@
     {
       "file": ".agents/scripts/lib/orchestration/story-deliver-terminal.js",
       "symbol": "TERMINAL_STATUSES"
+    },
+    {
+      "file": ".agents/scripts/lib/orchestration/story-deliver-terminal.js",
+      "symbol": "persistTerminalEnvelope"
     },
     {
       "file": ".agents/scripts/lib/orchestration/story-deliver-terminal.js",

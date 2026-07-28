@@ -210,28 +210,43 @@ async function makeEntry(fsp, target, className, storyId, keep = false) {
 }
 
 /**
- * Recover the Story id a run-log basename carries. Both writers that land in
- * `orchestration/` end their name with the scope: `close-gates-4794.log` from
- * the gate sink, `sync-result-story-4794.log` from the terse-result dump.
+ * Extensions this class owns inside `orchestration/`. Story #4816 added
+ * `.json`: the persisted terminal envelope lands beside the gate log, and a
+ * `.log`-only scan would have left one immortal file per delivered Story in a
+ * directory the purge otherwise keeps clean.
+ */
+const ORCHESTRATION_EXTENSIONS = Object.freeze(['.log', '.json']);
+
+/**
+ * Recover the Story id a run-artifact basename carries. Every writer that
+ * lands in `orchestration/` ends its name with the scope: `close-gates-4794.log`
+ * from the gate sink, `sync-result-story-4794.log` from the terse-result dump,
+ * `story-deliver-terminal-4794.json` from the terminal-envelope persist.
  *
  * @param {string} name
  * @returns {number|null}
  */
 function storyIdFromLogName(name) {
-  const match = TRAILING_ID_PATTERN.exec(name.replace(/\.log$/, ''));
+  const match = TRAILING_ID_PATTERN.exec(name.replace(/\.(log|json)$/, ''));
   return match ? Number(match[1]) : null;
 }
 
 /**
- * `<tempRoot>/orchestration/*.log` — close gate transcripts and terse-result
- * detail dumps. A log whose name carries no id (there are none today, but the
- * class owns the directory) is age-floored rather than dropped from the class.
+ * `<tempRoot>/orchestration/*.{log,json}` — close gate transcripts,
+ * terse-result detail dumps, and persisted terminal envelopes. An artifact
+ * whose name carries no id (there are none today, but the class owns the
+ * directory) is age-floored rather than dropped from the class.
  */
 async function scanOrchestrationLogs(tempRoot, fsp) {
   const dir = path.join(tempRoot, ORCHESTRATION_DIRNAME);
   const entries = [];
   for (const dirent of await safeReaddir(fsp, dir)) {
-    if (!dirent.isFile() || !dirent.name.endsWith('.log')) continue;
+    if (
+      !dirent.isFile() ||
+      !ORCHESTRATION_EXTENSIONS.some((ext) => dirent.name.endsWith(ext))
+    ) {
+      continue;
+    }
     const entry = await makeEntry(
       fsp,
       path.join(dir, dirent.name),

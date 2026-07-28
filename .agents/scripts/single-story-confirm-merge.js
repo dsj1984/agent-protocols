@@ -204,7 +204,7 @@ async function logConfirmResult(result, terminal, config) {
       status: terminal?.status,
     },
   });
-  emitTerminalEnvelope(terminal);
+  emitTerminalEnvelope(terminal, { config });
   await emitTerminalFriction({ envelope: terminal, config });
   return { success: terminal.status !== 'failed', result, terminal };
 }

@@ -148,10 +148,13 @@ budget is exhausted. Reference § Step 7.
 
 ## Recovering a stranded Story {#recover}
 
-Unclear state (killed run, lost envelope, a re-run refusal — incl.
-merged-but-label-stale)? Do not guess — probe **read-only** with
+**Lost envelope first: read it off disk.** Close persists each to
+`temp/orchestration/story-deliver-terminal-<storyId>.json`; branch on it per
+digest § 5. Otherwise (killed run, re-run refusal, merged-but-label-stale)
+do not guess — probe **read-only** with
 `node .agents/scripts/deliver-recover.js --story <storyId>`; it prints the
-**one** next command with its evidence, never a menu.
+**one** next command with its evidence, never a menu. A live close answers
+`close-in-flight`: wait, never re-init underneath it.
 
 ## Idempotence & constraints
 

@@ -312,6 +312,68 @@ export function orchestrationLogDir(config) {
   return path.join(anchorTempRoot(tempRootFrom(config)), ORCHESTRATION_DIRNAME);
 }
 
+/**
+ * Basename of one Story's close gate log (Story #4816 lifted it here from
+ * `single-story-close/gate-log.js`).
+ *
+ * The writer that appends this file and the reader that uses its **freshness**
+ * to tell a live close from a dead one (`deliver-recover.js`) sit in different
+ * subtrees, and the reader importing the writer is the wrong edge to draw for
+ * a filename. Both take it from the module that already owns every other
+ * tempRoot path instead.
+ *
+ * `null` is the sink's no-Story sentinel and keeps its `unknown` spelling.
+ *
+ * @param {number|null} sid
+ * @returns {string}
+ */
+function closeGateLogName(sid) {
+  return `close-gates-${sid ?? 'unknown'}.log`;
+}
+
+/**
+ * `<tempRoot>/orchestration/close-gates-<sid>.log`.
+ *
+ * @param {number|null} sid
+ * @param {object} [config]
+ * @returns {string}
+ */
+export function closeGateLogPath(sid, config) {
+  return path.join(orchestrationLogDir(config), closeGateLogName(sid));
+}
+
+/**
+ * Basename of the persisted terminal envelope for one Story (Story #4816).
+ *
+ * @param {number} sid
+ * @returns {string}
+ */
+function storyTerminalEnvelopeName(sid) {
+  return `story-deliver-terminal-${storyId(sid)}.json`;
+}
+
+/**
+ * `<tempRoot>/orchestration/story-deliver-terminal-<sid>.json` — the on-disk
+ * copy of the one terminal envelope a Story's close-and-land emits (Story
+ * #4816).
+ *
+ * Deliberately a sibling of the gate log rather than a per-Story temp dir
+ * entry: the envelope is a run artifact of the same close that writes
+ * `close-gates-<sid>.log`, and `deliver-recover.js` reads the pair together to
+ * tell a finished close from a live one. Sharing `orchestrationLogDir` also
+ * means it inherits main-checkout anchoring for free — the close runs inside
+ * `.worktrees/story-<sid>/` while the `/deliver` host reads from the main
+ * checkout, and an un-anchored path would put the envelope somewhere the
+ * router never looks.
+ *
+ * @param {number} sid
+ * @param {object} [config]
+ * @returns {string}
+ */
+export function storyTerminalEnvelopePath(sid, config) {
+  return path.join(orchestrationLogDir(config), storyTerminalEnvelopeName(sid));
+}
+
 const runId = (id) => {
   if (!Number.isInteger(id) || id <= 0) {
     throw new Error(`[temp-paths] runId must be a positive integer; got ${id}`);

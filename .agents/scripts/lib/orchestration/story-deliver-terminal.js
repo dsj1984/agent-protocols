@@ -28,6 +28,10 @@
  * pre-#4543 pipeline collapsed by treating budget exhaustion as a block.
  */
 
+import nodeFs from 'node:fs';
+import path from 'node:path';
+import { storyTerminalEnvelopePath } from '../config/temp-paths.js';
+import { resolveConfig } from '../config-resolver.js';
 import { validateTerminalEnvelope } from './story-deliver-terminal-schema.js';
 
 // Re-exported so the schema split stays an implementation detail: every
@@ -327,7 +331,95 @@ export const TERMINAL_BEGIN_MARKER = '--- STORY DELIVER TERMINAL ---';
 export const TERMINAL_END_MARKER = '--- END TERMINAL ---';
 
 /**
- * Write a terminal envelope to stdout, between its markers.
+ * Resolve the repo config, or `undefined` when it cannot be read.
+ *
+ * An unreadable `.agentrc.json` must not cost the run its envelope copy: the
+ * path helpers fall back to the framework-default temp root, which is still a
+ * far better outcome than no artifact at all.
+ *
+ * @param {typeof resolveConfig} resolveConfigImpl
+ * @returns {object|undefined}
+ */
+function tolerantConfig(resolveConfigImpl) {
+  try {
+    return resolveConfigImpl();
+  } catch {
+    return undefined;
+  }
+}
+
+/**
+ * Persist a terminal envelope beside its Story's gate log (Story #4816).
+ *
+ * Stdout is a channel with exactly one reader — the turn that launched the
+ * close — and that reader is not always still listening. A `story-worker`
+ * that reports progress and ends its turn while the close it started is
+ * mid-gate-chain is behaving reasonably, but the envelope it never relayed is
+ * gone: the router then has to reconstruct the Story's state from labels, and
+ * `deliver-recover.js` used to answer that reconstruction with
+ * "Implementation never finished" — false, and its re-init suggestion can put
+ * a second close on one PR. Observed four times across three workers in one
+ * consumer run. The file is the second channel, and it outlives the turn.
+ *
+ * **Best-effort by construction.** Every failure path returns `null`: a
+ * delivery must never turn a landed PR into a crash because a temp directory
+ * was unwritable. The stdout envelope above is the contract; this is a copy.
+ *
+ * **Atomic by construction.** The payload is written to a pid-scoped
+ * temporary name and renamed into place, because the reader that matters most
+ * is a router polling during a live close — a half-written file would hand it
+ * a parse error at exactly the moment it is trying to avoid guessing.
+ *
+ * A null `storyId` (the `escalated` terminal, which by construction never
+ * authored a Story) has nowhere to be filed and writes nothing.
+ *
+ * `config` is optional and resolved lazily when absent. Two of the emit sites
+ * are `catch` blocks that crashed before any config was resolved, and those
+ * are precisely the runs whose envelope is most worth keeping — so the temp
+ * root is looked up here rather than left at the framework default, which
+ * would file the artifact where a consumer's router never looks (and where
+ * the retention purge would never reap it).
+ *
+ * @param {object} envelope A validated terminal envelope.
+ * @param {{
+ *   config?: object,
+ *   fsImpl?: typeof nodeFs,
+ *   resolveConfigImpl?: typeof resolveConfig,
+ * }} [deps]
+ * @returns {string|null} The path written, or `null` when nothing was.
+ */
+export function persistTerminalEnvelope(
+  envelope,
+  { config, fsImpl = nodeFs, resolveConfigImpl = resolveConfig } = {},
+) {
+  const storyId = envelope?.storyId;
+  if (!Number.isInteger(storyId) || storyId <= 0) return null;
+  let tmpPath = null;
+  try {
+    const resolved = config ?? tolerantConfig(resolveConfigImpl);
+    const target = storyTerminalEnvelopePath(storyId, resolved);
+    fsImpl.mkdirSync(path.dirname(target), { recursive: true });
+    tmpPath = `${target}.${process.pid}.tmp`;
+    fsImpl.writeFileSync(tmpPath, `${JSON.stringify(envelope)}\n`, 'utf8');
+    fsImpl.renameSync(tmpPath, target);
+    return target;
+  } catch {
+    // A rename that never ran leaves the scratch file behind; drop it rather
+    // than accumulating one per failed close.
+    if (tmpPath) {
+      try {
+        fsImpl.rmSync(tmpPath, { force: true });
+      } catch {
+        // Nothing left to try — this whole path is already best-effort.
+      }
+    }
+    return null;
+  }
+}
+
+/**
+ * Write a terminal envelope to stdout, between its markers, and persist a
+ * copy to disk.
  *
  * **Deliberately not `Logger.info`.** The envelope is this CLI's
  * machine-readable contract — every invocation emits exactly ONE, and a
@@ -340,16 +432,37 @@ export const TERMINAL_END_MARKER = '--- END TERMINAL ---';
  *
  * Single home for the marker format so the four emit sites (the runner's
  * terminal, the close CLI's failed-terminal catch, and both confirm-CLI
- * paths) cannot drift apart.
+ * paths) cannot drift apart — and, since Story #4816, the single home for the
+ * on-disk copy too, so no emit path can persist and another forget.
+ * {@link persistTerminalEnvelope} runs **first**: a caller that has read the
+ * markers off stdout can then rely on the file already being there.
  *
  * @param {object} envelope
- * @param {{ write?: (s: string) => void }} [opts] `write` is a test seam.
+ * @param {{
+ *   write?: (s: string) => void,
+ *   config?: object,
+ *   persist?: typeof persistTerminalEnvelope,
+ * }} [opts] `write` and `persist` are test seams; `config` resolves the
+ *   artifact's temp root and is threaded from whichever emit site holds one.
  * @returns {void}
  */
 export function emitTerminalEnvelope(
   envelope,
-  { write = (s) => process.stdout.write(s) } = {},
+  {
+    write = (s) => process.stdout.write(s),
+    config,
+    persist = persistTerminalEnvelope,
+  } = {},
 ) {
+  // Belt and braces around a copy: `persistTerminalEnvelope` already swallows
+  // its own failures, but the stdout envelope is the CONTRACT and the disk
+  // copy is a convenience. Nothing in the secondary path — including a future
+  // injected `persist` — may cost the caller the primary one.
+  try {
+    persist(envelope, { config });
+  } catch {
+    // Intentionally silent: see above.
+  }
   // Story #4685 — compact (not 2-space pretty) JSON. The envelope is a
   // machine contract callers recover with `JSON.parse`, so pretty-printing
   // only adds turn-resident bytes without helping any consumer.

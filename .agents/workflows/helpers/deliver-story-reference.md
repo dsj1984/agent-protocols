@@ -745,6 +745,39 @@ unconfirmed merge is a **contract violation** — the parent cannot distinguish
 "still working" from "done but silent". `pending` is the honest,
 machine-readable alternative: "not finished, here is exactly how to continue."
 
+### The envelope also lands on disk
+
+Stdout has exactly one reader — the turn that launched the close — and that
+reader is not always still listening. A child that reports progress and ends
+its turn while its close is mid-gate-chain is behaving reasonably, but the
+envelope it never relayed is gone, and reconstructing the Story's state from
+labels costs a recovery round trip plus a full resume of the child. Observed
+four times across three workers in a single consumer run, on unrelated
+footprints, and not new to that run.
+
+So `emitTerminalEnvelope` — the one writer behind every emit site — also
+persists the validated envelope to
+`<tempRoot>/orchestration/story-deliver-terminal-<storyId>.json`:
+
+- **It is the same object**, not a summary. Read it and branch exactly as you
+  would on stdout; the copy is written before the markers are, so a caller
+  that saw them can rely on the file.
+- **It is best-effort.** A failed write returns null and changes nothing about
+  the emitted envelope or the exit code — a landed PR must never become a
+  crash because a temp directory was unwritable.
+- **It is a fallback, not a licence.** A worker still holds its turn until the
+  envelope arrives; see [`agents/story-worker.md`](../../agents/story-worker.md).
+
+`deliver-recover.js` reads the same artifact, plus the freshness of
+`close-gates-<storyId>.log`, to split the one genuinely ambiguous row of its
+table. `agent::executing` with no PR used to answer "Implementation never
+finished" — false for the whole duration of a close, whose gates and push
+happen before any PR exists, and actively hazardous, because acting on its
+re-init suggestion can put a second close on one PR. It now answers
+`close-in-flight` (a gate log touched inside the window: wait, then re-probe)
+or `close-envelope-on-disk` (the close already reached a verdict: relay it),
+and falls back to the original verdict only when neither artifact exists.
+
 ### Exit-code compatibility note (`--no-wait-merge`)
 
 Every close flag keeps its meaning, but the **exit code** of a

@@ -35,11 +35,30 @@
  * resumption speak one language instead of two dialects for one state.
  */
 
+import nodeFs from 'node:fs';
+
+import {
+  closeGateLogPath,
+  storyTerminalEnvelopePath,
+} from '../config/temp-paths.js';
 import { gh as defaultGh } from '../gh-exec.js';
 import { gitSpawn as defaultGitSpawn, getStoryBranch } from '../git-utils.js';
 import { deriveChecksStatus } from './merge-poll.js';
 import { NEXT_COMMANDS } from './story-deliver-terminal.js';
 import { STATE_LABELS } from './ticketing.js';
+
+/**
+ * How recently the gate log must have been appended for the close that writes
+ * it to count as live (Story #4816).
+ *
+ * The window is generous on purpose. Gate output arrives in bursts — a single
+ * `npm test` gate can run for a long stretch between lines — so a tight window
+ * would read a slow-but-healthy close as dead and re-open the exact
+ * misdiagnosis this exists to remove. Being wrong in the other direction is
+ * cheap: the verdict for a live close is "re-run this read-only probe", which
+ * costs nothing if the close has in fact already exited.
+ */
+const CLOSE_IN_FLIGHT_WINDOW_MS = 120_000;
 
 /**
  * Probe the ticket: state labels, issue open/closed, and the lease holder.
@@ -132,16 +151,193 @@ export async function probePr({ storyBranch, gh = defaultGh }) {
 }
 
 /**
+ * Probe the two on-disk artifacts a close leaves behind (Story #4816): the
+ * persisted terminal envelope and the gate log.
+ *
+ * These exist because the label-and-PR probes above cannot see the difference
+ * between an implementation that died and a close that is still running —
+ * both read `agent::executing` with no PR for the whole gate chain. The
+ * artifacts can: a persisted envelope means the close already reached a
+ * verdict, and a recently-appended gate log means one is mid-chain right now.
+ * Gate-log freshness is exactly the signal operators were already using by
+ * hand to tell the two apart, which is the argument for reading it here
+ * instead of expecting them to know.
+ *
+ * Never throws: an unreadable or absent artifact is a `null` reading, and the
+ * table falls back to the label-only verdict it always had.
+ *
+ * @param {{
+ *   storyId: number,
+ *   config?: object,
+ *   fsImpl?: typeof nodeFs,
+ *   nowMs?: number,
+ *   windowMs?: number,
+ * }} args
+ * @returns {{
+ *   envelope: object|null,
+ *   envelopePath: string|null,
+ *   envelopeMtimeMs: number|null,
+ *   gateLogPath: string|null,
+ *   gateLogAgeMs: number|null,
+ *   gateLogMtimeMs: number|null,
+ *   gateLogFresh: boolean,
+ * }}
+ */
+export function probeCloseArtifacts({
+  storyId,
+  config,
+  fsImpl = nodeFs,
+  nowMs = Date.now(),
+  windowMs = CLOSE_IN_FLIGHT_WINDOW_MS,
+}) {
+  const empty = {
+    envelope: null,
+    envelopePath: null,
+    envelopeMtimeMs: null,
+    gateLogPath: null,
+    gateLogAgeMs: null,
+    gateLogMtimeMs: null,
+    gateLogFresh: false,
+  };
+  let envelopePath = null;
+  let gateLogPath = null;
+  try {
+    envelopePath = storyTerminalEnvelopePath(storyId, config);
+    gateLogPath = closeGateLogPath(storyId, config);
+  } catch {
+    return empty;
+  }
+
+  let envelope = null;
+  let envelopeMtimeMs = null;
+  try {
+    const parsed = JSON.parse(fsImpl.readFileSync(envelopePath, 'utf8'));
+    // A parsed non-object (or an array) is not an envelope; treat it as
+    // absent rather than handing the table something it cannot read fields
+    // off of.
+    if (parsed && typeof parsed === 'object' && !Array.isArray(parsed)) {
+      envelope = parsed;
+      envelopeMtimeMs = fsImpl.statSync(envelopePath).mtimeMs;
+    }
+  } catch {
+    envelope = null;
+    envelopeMtimeMs = null;
+  }
+
+  let gateLogMtimeMs = null;
+  try {
+    gateLogMtimeMs = fsImpl.statSync(gateLogPath).mtimeMs;
+  } catch {
+    gateLogMtimeMs = null;
+  }
+  const gateLogAgeMs =
+    gateLogMtimeMs === null ? null : Math.max(0, nowMs - gateLogMtimeMs);
+
+  return {
+    envelope,
+    envelopePath,
+    envelopeMtimeMs,
+    gateLogPath,
+    gateLogAgeMs,
+    gateLogMtimeMs,
+    gateLogFresh: gateLogAgeMs !== null && gateLogAgeMs <= windowMs,
+  };
+}
+
+/**
+ * Is a close running right now, outranking whatever a persisted envelope says?
+ *
+ * A persisted envelope is definitive about the close that wrote it — but a
+ * Story can be closed more than once (a `pending` wait resumed, a red gate
+ * fixed and re-run), and a *stale* envelope from the previous attempt must not
+ * out-argue a gate log the current attempt is appending to as we read. So the
+ * live signal wins whenever the gate log is both fresh and fresher than the
+ * envelope.
+ *
+ * @param {object} artifacts A {@link probeCloseArtifacts} reading.
+ * @returns {boolean}
+ */
+function closeLooksLive(artifacts) {
+  if (!artifacts?.gateLogFresh) return false;
+  if (artifacts.envelopeMtimeMs === null) return true;
+  return artifacts.gateLogMtimeMs > artifacts.envelopeMtimeMs;
+}
+
+/**
+ * The verdict for a Story whose close already finished but whose envelope
+ * never reached the caller — the orphaned-turn shape (Story #4816).
+ *
+ * Nothing is re-derived here: the envelope on disk is the same
+ * schema-validated object the close emitted, so its own `status` and
+ * `nextCommand` are relayed rather than a second opinion invented from
+ * labels. A `landed` envelope carries a null next command, and the honest
+ * follow-up for a landed-but-mislabelled Story is the idempotent confirm.
+ */
+function envelopeOnDiskVerdict({ storyId, artifacts, evidence }) {
+  const { envelope, envelopePath } = artifacts;
+  return {
+    shape: 'close-envelope-on-disk',
+    nextCommand: envelope.nextCommand ?? NEXT_COMMANDS.confirmMerge(storyId),
+    detail:
+      `The close for this Story already reached a terminal verdict — \`${envelope.status}\` ` +
+      `at phase \`${envelope.phase}\` — but the label still reads mid-flight, which is the ` +
+      `signature of a worker turn that ended before it could relay the envelope. The close ` +
+      `itself is not in doubt: read the full envelope at \`${envelopePath}\` rather than ` +
+      `re-deriving its state, and run the command below (the envelope's own \`nextCommand\`, ` +
+      `or the idempotent confirm when it landed and named none).`,
+    evidence,
+  };
+}
+
+/**
+ * The verdict for a close that is running as we probe (Story #4816).
+ *
+ * The next command is this probe again. That is not a shrug: there is no
+ * attach-to-a-running-close surface, the close needs nothing from anyone, and
+ * every *other* command an operator might reach for here is actively harmful
+ * — which is why the detail names the re-init hazard explicitly instead of
+ * leaving it implied.
+ */
+function closeInFlightVerdict({ storyId, artifacts, evidence }) {
+  const seconds = Math.round((artifacts.gateLogAgeMs ?? 0) / 1000);
+  return {
+    shape: 'close-in-flight',
+    nextCommand: NEXT_COMMANDS.recover(storyId),
+    detail:
+      `A close is RUNNING for this Story right now: \`${artifacts.gateLogPath}\` was appended ` +
+      `${seconds}s ago. \`agent::executing\` with no PR does NOT mean the work stalled here — ` +
+      `the implementation is done and the close is mid-gate-chain, before its push. ` +
+      `**Do not run \`single-story-init.js\`**: re-initializing the worktree ` +
+      `underneath a live close risks a second close racing the first on one PR (double label ` +
+      `flip, double post-land tail). Let it finish — it emits its own terminal envelope and ` +
+      `persists a copy — then re-run the command below for a settled verdict.`,
+    evidence,
+  };
+}
+
+/**
  * The decision table. Pure: every input is an already-observed probe, so the
  * mapping is testable without git, GitHub, or a clock.
  *
  * Returns exactly one `{ shape, nextCommand, evidence[], detail }` — never a
  * list of candidates.
  *
- * @param {{ storyId: number, ticket: object, branch: object, pr: object|null }} probes
+ * @param {{
+ *   storyId: number,
+ *   ticket: object,
+ *   branch: object,
+ *   pr: object|null,
+ *   closeArtifacts?: object,
+ * }} probes
  * @returns {{ shape: string, nextCommand: string|null, detail: string, evidence: string[] }}
  */
-export function decideRecovery({ storyId, ticket, branch, pr }) {
+export function decideRecovery({
+  storyId,
+  ticket,
+  branch,
+  pr,
+  closeArtifacts,
+}) {
   const evidence = [
     `label=${ticket?.stateLabel ?? 'none'}`,
     `issue=${ticket?.issueState ?? 'unknown'}`,
@@ -151,6 +347,13 @@ export function decideRecovery({ storyId, ticket, branch, pr }) {
     `branch.remote=${branch?.remote ?? false}`,
     `worktree=${branch?.worktreePath ?? 'none'}`,
     `lease=${ticket?.lease ?? 'unclaimed'}`,
+    `closeEnvelope=${closeArtifacts?.envelope ? closeArtifacts.envelope.status : 'none'}`,
+    `gateLogAge=${
+      closeArtifacts?.gateLogAgeMs === null ||
+      closeArtifacts?.gateLogAgeMs === undefined
+        ? 'none'
+        : `${Math.round(closeArtifacts.gateLogAgeMs / 1000)}s`
+    }`,
   ];
 
   const label = ticket?.stateLabel;
@@ -242,12 +445,33 @@ export function decideRecovery({ storyId, ticket, branch, pr }) {
         evidence,
       };
     }
+    // Story #4816 — the close artifacts get the first word here, and ONLY
+    // here. Every other row of this table describes a state whose evidence is
+    // already unambiguous; `executing` + no PR is the one row that reads
+    // identically for a dead implementation and for a close that is halfway
+    // through its gate chain, and answering it from labels alone is what sent
+    // operators to re-init on top of a live close.
+    if (closeLooksLive(closeArtifacts)) {
+      return closeInFlightVerdict({
+        storyId,
+        artifacts: closeArtifacts,
+        evidence,
+      });
+    }
+    if (closeArtifacts?.envelope) {
+      return envelopeOnDiskVerdict({
+        storyId,
+        artifacts: closeArtifacts,
+        evidence,
+      });
+    }
     return {
       shape: 'executing-no-pr',
       nextCommand: NEXT_COMMANDS.implement(storyId),
       detail:
-        `Story is \`agent::executing\` with no PR. Implementation never finished. Re-init ` +
-        `(idempotent — it reuses the existing branch and worktree) and resume in the ` +
+        `Story is \`agent::executing\` with no PR, and no close left an artifact behind (no ` +
+        `persisted terminal envelope, no recent gate log) — implementation never finished. ` +
+        `Re-init (idempotent — it reuses the existing branch and worktree) and resume in the ` +
         `worktree it prints.`,
       evidence,
     };
@@ -280,6 +504,11 @@ const TRANSIENT_SHAPES = new Set([
   'closing-no-pr',
   'closing-pr-pending',
   'closing-pr-red',
+  // Story #4816 — the definition of this shape is "a process is mutating this
+  // Story right now", so it is the most transient row in the table: the second
+  // probe often catches the push and PR landing and returns a settled verdict
+  // instead.
+  'close-in-flight',
 ]);
 
 /**
@@ -330,6 +559,7 @@ async function probeAndDecide({
   config,
   gh,
   gitSpawnFn,
+  fsImpl,
 }) {
   const ticket = await probeTicket({ provider, storyId });
   if (!ticket.ok) {
@@ -339,8 +569,22 @@ async function probeAndDecide({
   }
   const branch = probeBranch({ cwd, storyBranch, config, gitSpawnFn });
   const pr = await probePr({ storyBranch, gh });
-  const decision = decideRecovery({ storyId, ticket, branch, pr });
-  return { probes: { ticket, branch, pr }, decision };
+  // Re-read on every round: the whole point of the stability pass is that a
+  // second look can catch a close that has since flushed a gate line or
+  // written its envelope.
+  const closeArtifacts = probeCloseArtifacts({
+    storyId,
+    config,
+    ...(fsImpl ? { fsImpl } : {}),
+  });
+  const decision = decideRecovery({
+    storyId,
+    ticket,
+    branch,
+    pr,
+    closeArtifacts,
+  });
+  return { probes: { ticket, branch, pr, closeArtifacts }, decision };
 }
 
 /**
@@ -365,6 +609,7 @@ async function probeAndDecide({
  *   settling).
  * @param {number} [args.stabilityDelayMs] Settle window between the probes.
  * @param {Function} [args.sleepFn] Test seam for the settle wait.
+ * @param {typeof nodeFs} [args.fsImpl] Test seam for the close-artifact reads.
  * @returns {Promise<object>}
  */
 export async function recoverStory({
@@ -374,6 +619,7 @@ export async function recoverStory({
   config,
   gh = defaultGh,
   gitSpawnFn,
+  fsImpl,
   reprobe = true,
   stabilityDelayMs = STABILITY_DELAY_MS,
   sleepFn = (ms) => new Promise((resolve) => setTimeout(resolve, ms)),
@@ -387,6 +633,7 @@ export async function recoverStory({
     config,
     gh,
     gitSpawnFn,
+    fsImpl,
   };
 
   const first = await probeAndDecide(probeArgs);

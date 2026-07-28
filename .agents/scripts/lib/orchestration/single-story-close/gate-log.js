@@ -70,7 +70,17 @@ import { Logger, resolveLevel } from '../../Logger.js';
  */
 export const REPLAY_TAIL_LINES = 200;
 
-/** Basename of the per-Story gate log inside the temp directory. */
+/**
+ * Basename of the per-Story gate log inside the temp directory.
+ *
+ * `closeGateLogPath` in `lib/config/temp-paths.js` spells the same name for the
+ * READER — `deliver-recover.js` uses this file's freshness to tell a live close
+ * from a dead one. Deliberately not shared through an import: this sink needs
+ * the basename alone (it honours a `logDir` override the path helper knows
+ * nothing about), and calling that helper for it would drag tempRoot
+ * resolution — a git spawn and scratch-dir creation — into a filename lookup.
+ * The two spellings are pinned equal by test instead.
+ */
 function logNameFor(storyId) {
   return `close-gates-${storyId ?? 'unknown'}.log`;
 }

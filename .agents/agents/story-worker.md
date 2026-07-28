@@ -134,6 +134,16 @@ outside the worktree / branch / PR path — or committing it to local `main`
 — is expressly **forbidden**; the close pipeline's push
 (`single-story-close.js`) is the only sanctioned landing.
 
+## Hold the turn until the envelope arrives (MUST)
+
+Run close in the **foreground** and wait for it. Never background it,
+never delegate it to a child, and never end your turn while it is still
+running — "close is running" is not a return value. Ending early strands
+the envelope in a turn nobody reads and costs your caller a recovery
+cycle plus a full resume of you. Close does persist a copy to
+`temp/orchestration/story-deliver-terminal-<id>.json`; that is your
+caller's fallback, not your licence to return before the verdict.
+
 ## Return schema
 
 The return contract is
