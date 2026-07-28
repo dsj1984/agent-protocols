@@ -1526,7 +1526,15 @@
     },
     {
       "file": ".agents/scripts/lib/orchestration/light-suitability.js",
+      "symbol": "OVERRIDABLE_SHAPE_CODES"
+    },
+    {
+      "file": ".agents/scripts/lib/orchestration/light-suitability.js",
       "symbol": "resolveLedgeredVerdict"
+    },
+    {
+      "file": ".agents/scripts/lib/orchestration/light-suitability.js",
+      "symbol": "resolveOperatorOverride"
     },
     {
       "file": ".agents/scripts/lib/orchestration/merge-block-class.js",

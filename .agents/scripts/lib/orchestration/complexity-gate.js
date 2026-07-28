@@ -260,22 +260,64 @@ function spansMigrationAndConsumers(paths) {
 }
 
 /**
+ * Stable machine-readable identifiers for every reason a shape routes `full` —
+ * the `code` field on a {@link deriveStoryShape} decision (Story #4815).
+ *
+ * The prose in `reasons[]` is written for a human reading a gate envelope and
+ * is free to be re-worded; a caller that must **branch** on *which* rule
+ * objected reads this code instead. That distinction is load-bearing for the
+ * light path's operator override
+ * ({@link module:lib/orchestration/light-suitability.OVERRIDABLE_SHAPE_CODES}),
+ * which may waive a size *prediction* but never a risk rule: keying that
+ * decision off reason text would make a copy-edit a security change.
+ *
+ * Split three ways, and the grouping is the contract:
+ *
+ *   - **Ceiling rules** — `change-kinds`, `magnitude`, `uncertainty`,
+ *     `deployable-span`. Coarse predictions about size, enforced for real
+ *     against ground truth by the diff backstop.
+ *   - **Absolute rules** — `migration-span`, `sensitive-path`. Risk, not size.
+ *   - **Unknown-footprint rejections** — `no-changes`, `unreadable-changes`,
+ *     `glob-footprint`, `no-acceptance`, `classification-unavailable`,
+ *     `unparseable-body`. Nothing was judged, so there is nothing to waive.
+ *
+ * A `lite` route carries `code: null`.
+ */
+export const SHAPE_CODES = Object.freeze({
+  CHANGE_KINDS: 'change-kinds',
+  MAGNITUDE: 'magnitude',
+  UNCERTAINTY: 'uncertainty',
+  DEPLOYABLE_SPAN: 'deployable-span',
+  MIGRATION_SPAN: 'migration-span',
+  SENSITIVE_PATH: 'sensitive-path',
+  NO_CHANGES: 'no-changes',
+  UNREADABLE_CHANGES: 'unreadable-changes',
+  GLOB_FOOTPRINT: 'glob-footprint',
+  NO_ACCEPTANCE: 'no-acceptance',
+  CLASSIFICATION_UNAVAILABLE: 'classification-unavailable',
+  UNPARSEABLE_BODY: 'unparseable-body',
+});
+
+/**
  * Ordered effort/risk rules, evaluated in order; the first hit is the recorded
  * reason for a `full` route. Every rule names an effort, risk, or uncertainty
  * property of the work — none counts artifacts.
  *
  * @type {ReadonlyArray<{
+ *   code: string,
  *   when: (shape: object, ceilings: typeof STORY_SHAPE_CEILINGS) => boolean,
  *   reason: (shape: object, ceilings: typeof STORY_SHAPE_CEILINGS) => string,
  * }>}
  */
 const EFFORT_RULES = Object.freeze([
   {
+    code: SHAPE_CODES.CHANGE_KINDS,
     when: (s, c) => s.kindCount > c.maxChangeKinds,
     reason: (s, c) =>
       `${s.kindCount} distinct change kinds (${s.changeKinds.join(', ')}) > maxChangeKinds ${c.maxChangeKinds} — an explicit multi-capability enumeration, not one capability; full route`,
   },
   {
+    code: SHAPE_CODES.MAGNITUDE,
     when: (s, c) =>
       MAGNITUDE_SCALE.indexOf(s.magnitude) >
       MAGNITUDE_SCALE.indexOf(c.maxMagnitude),
@@ -283,6 +325,7 @@ const EFFORT_RULES = Object.freeze([
       `declared magnitude "${s.magnitude}" > maxMagnitude "${c.maxMagnitude}" — a substantial rewrite is effort a single inline pass should not absorb, however few files it touches; full route`,
   },
   {
+    code: SHAPE_CODES.UNCERTAINTY,
     when: (s, c) =>
       UNCERTAINTY_SCALE.indexOf(s.uncertainty) >
       UNCERTAINTY_SCALE.indexOf(c.maxUncertainty),
@@ -290,16 +333,19 @@ const EFFORT_RULES = Object.freeze([
       `the shape is not determined by the request (uncertainty "${s.uncertainty}") — the design decisions /plan exists to resolve are still open; full route`,
   },
   {
+    code: SHAPE_CODES.DEPLOYABLE_SPAN,
     when: (s, c) => s.deployables.length > c.maxDeployables,
     reason: (s, c) =>
       `footprint spans ${s.deployables.length} deployables (${s.deployables.join(', ')}) > maxDeployables ${c.maxDeployables} — clearly-epic scope; full route`,
   },
   {
+    code: SHAPE_CODES.MIGRATION_SPAN,
     when: (s) => s.migrationSpan,
     reason: () =>
       'footprint pairs a migration with its consumers — clearly-epic scope; full route',
   },
   {
+    code: SHAPE_CODES.SENSITIVE_PATH,
     when: (s) => s.sensitiveClasses.length > 0,
     reason: (s) =>
       `footprint intersects sensitive-path class(es) ${s.sensitiveClasses.join(', ')} — sensitivity wins over a small shape; full route (fresh acceptance critic retained)`,
@@ -307,15 +353,18 @@ const EFFORT_RULES = Object.freeze([
 ]);
 
 /**
- * First effort/risk rule the shape violates, or `null` when it clears them all.
+ * First effort/risk rule the shape violates as a `{ code, reason }` pair, or
+ * `null` when it clears them all.
  *
  * @param {object} shape
  * @param {typeof STORY_SHAPE_CEILINGS} ceilings
- * @returns {string|null}
+ * @returns {{ code: string, reason: string }|null}
  */
 function firstEffortViolation(shape, ceilings) {
   for (const rule of EFFORT_RULES) {
-    if (rule.when(shape, ceilings)) return rule.reason(shape, ceilings);
+    if (rule.when(shape, ceilings)) {
+      return { code: rule.code, reason: rule.reason(shape, ceilings) };
+    }
   }
   return null;
 }
@@ -654,10 +703,13 @@ function buildEffortShape({
  * @returns {{
  *   route: ComplexityRoute,
  *   reasons: string[],
+ *   code: string|null,
  *   shape: ReturnType<typeof buildEffortShape>|null,
  *   ceilings: typeof STORY_SHAPE_CEILINGS,
  *   preserves: typeof LITE_PATH_INVARIANTS,
- * }}
+ * }} `code` is the stable {@link SHAPE_CODES} identifier for the rule that
+ *   rejected the shape (`null` on `lite`) — the field a caller branches on,
+ *   since `reasons[]` is human prose and free to be re-worded.
  */
 export function deriveStoryShape({
   changes,
@@ -670,9 +722,10 @@ export function deriveStoryShape({
 } = {}) {
   const ceilings = STORY_SHAPE_CEILINGS;
   const preserves = LITE_PATH_INVARIANTS;
-  const decide = (route, reason, shape = null) => ({
+  const decide = (route, code, reason, shape = null) => ({
     route,
     reasons: [reason],
+    code,
     shape,
     ceilings,
     preserves,
@@ -681,6 +734,7 @@ export function deriveStoryShape({
   if (!Array.isArray(changes) || changes.length === 0) {
     return decide(
       'full',
+      SHAPE_CODES.NO_CHANGES,
       'no changes[] declared — the footprint is unknown, so the work cannot be judged trivial; conservative full route',
     );
   }
@@ -691,6 +745,7 @@ export function deriveStoryShape({
   } catch (err) {
     return decide(
       'full',
+      SHAPE_CODES.UNREADABLE_CHANGES,
       `changes[] could not be read (${err?.message ?? err}) — unknown footprint; conservative full route`,
     );
   }
@@ -714,6 +769,7 @@ export function deriveStoryShape({
   if (entries.some((e) => e.isGlob)) {
     return decide(
       'full',
+      SHAPE_CODES.GLOB_FOOTPRINT,
       'changes[] contains a glob path — unknown footprint width; conservative full route',
       shape,
     );
@@ -721,13 +777,16 @@ export function deriveStoryShape({
   if (shape.acceptanceCount === 0) {
     return decide(
       'full',
+      SHAPE_CODES.NO_ACCEPTANCE,
       'no acceptance criteria — the contract cannot be judged trivial; conservative full route',
       shape,
     );
   }
 
   const violation = firstEffortViolation(shape, ceilings);
-  if (violation !== null) return decide('full', violation, shape);
+  if (violation !== null) {
+    return decide('full', violation.code, violation.reason, shape);
+  }
 
   if (level !== 'low') {
     // `deriveChangeLevel` degraded to its null fail-safe (unreadable
@@ -735,6 +794,7 @@ export function deriveStoryShape({
     // non-sensitive, and a classification failure must never buy lite.
     return decide(
       'full',
+      SHAPE_CODES.CLASSIFICATION_UNAVAILABLE,
       'sensitive-path classification unavailable — cannot verify the footprint is non-sensitive; conservative full route',
       shape,
     );
@@ -742,6 +802,7 @@ export function deriveStoryShape({
 
   return decide(
     'lite',
+    null,
     `trivial shape: ${shape.kindCount} change kind(s) (${shape.changeKinds.join(', ')}) ≤ ${ceilings.maxChangeKinds} across ${shape.siteCount} site(s), magnitude ${shape.magnitude} ≤ ${ceilings.maxMagnitude}, shape ${shape.uncertainty}, no epic-scope span, no sensitive-path class — inline-eligible; non-negotiables preserved`,
     shape,
   );
@@ -771,6 +832,7 @@ function deriveStoryRouteFromBody(body, opts = {}) {
       reasons: [
         `Story body is unparseable (${err?.message ?? err}) — shape unknown; conservative full route`,
       ],
+      code: SHAPE_CODES.UNPARSEABLE_BODY,
       shape: null,
       ceilings: STORY_SHAPE_CEILINGS,
       preserves: LITE_PATH_INVARIANTS,
