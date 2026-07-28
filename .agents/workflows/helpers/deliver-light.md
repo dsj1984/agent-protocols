@@ -49,7 +49,9 @@ multi-capability enumeration). Size is enforced where ground truth is available:
 the diff backstop in step 4. Do not talk yourself past that one.
 
 Sensitivity is the exception and stays absolute: a footprint touching an auth,
-crypto, billing, or migration class routes `full` however small or mechanical.
+crypto, billing, or migration class routes `full` however small or mechanical —
+and unlike a ceiling, it is **not overridable** (§ Recording a proceed-light
+answer).
 
 ## Four invariants (do not skip one)
 
@@ -58,9 +60,11 @@ crypto, billing, or migration class routes `full` however small or mechanical.
    **and** a ledgered model verdict with a recorded reason. Both must agree on
    `lite`.
 2. **Over-scope stops — it never hard-fails.** An over-ceiling prompt STOPS and
-   asks the operator to escalate to `/plan` or proceed light. Under `--yes` it
-   fails closed to an **`escalated` terminal envelope** that ends the session
-   (§ Escalation is terminal).
+   asks the operator to escalate to `/plan` or proceed light. **Both answers
+   are executable** — `--operator-proceed-light` records the second one
+   (§ Recording a proceed-light answer). Under `--yes` it fails closed to an
+   **`escalated` terminal envelope** that ends the session (§ Escalation is
+   terminal).
 3. **Diff-derived backstop.** After implementation the ACTUAL change set is
    re-checked — the diff is the real scope signal — and an over-ceiling diff is
    blocked rather than landed.
@@ -89,7 +93,10 @@ crypto, billing, or migration class routes `full` however small or mechanical.
      `nextCommands`. Continue to step 2.
    - **`ask-operator`** — predicted scope exceeds the light ceilings. STOP and
      ask the operator to escalate to `/plan` or proceed light. Do not proceed
-     on your own. This is a **question, not a terminal** — wait for the answer.
+     on your own. This is a **question, not a terminal** — wait for the answer,
+     then act on it: *escalate* leaves for `/plan`, *proceed light* re-runs the
+     same command with `--operator-proceed-light "<their reason>"`
+     (§ Recording a proceed-light answer).
    - **over-scope under `--yes`** — no `action` to branch on: the gate emits an
      **`escalated` terminal envelope** instead (exit 2). § Escalation is
      terminal governs; you are finished.
@@ -143,6 +150,39 @@ crypto, billing, or migration class routes `full` however small or mechanical.
    Branch on the terminal envelope's `status` per
    [`deliver-digest.md`](deliver-digest.md) § 5 — every close
    gate runs byte-identical to the full path.
+
+## Recording a proceed-light answer {#recording-a-proceed-light-answer}
+
+The gate offers the operator two options, so **both** have to be executable.
+Re-run the identical gate command with their answer appended:
+
+```bash
+node .agents/scripts/deliver-light.js --prompt "<prompt>" … \
+  --operator-proceed-light "<the operator's reason, in their words>"
+```
+
+The gate then proceeds light, records the decision in the receipt Story, and
+returns it on the envelope's `override`. Do **not** instead re-shape the
+prediction — shrinking `--refactors` until the gate stops objecting is
+under-declaring the footprint, which is the one thing the coarse design must
+not reward.
+
+It is deliberately narrow, and a refusal is printed rather than silent:
+
+- **Only a size prediction is waivable** — change kinds, magnitude,
+  uncertainty, deployable span. A sensitive-path class, a
+  migration-with-consumers span, and an unknown footprint (undeclared, glob,
+  no acceptance, unclassifiable) are refused: those are risk, not size, and
+  § Scope by effort keeps them absolute.
+- **The ledgered verdict still stands on its own.** The override substitutes
+  for the predicted *shape* only; `--route lite --reason "<why>"` is still
+  required.
+- **Attended-only.** With `--yes` it is a usage error, not a quiet no-op —
+  an unattended run has no operator whose answer this could be, and over-scope
+  there still fails closed (§ Escalation is terminal).
+
+What licenses this at all is step 4: the operator waives a *guess*, never the
+diff backstop, which re-checks the actual change set against ground truth.
 
 ## Escalation is terminal {#escalation-is-terminal}
 
