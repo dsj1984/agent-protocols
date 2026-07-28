@@ -30,8 +30,10 @@
  *   2. **Over-scope stops, never silently proceeds ({@link
  *      resolveLightGateOutcome}).** An over-ceiling prompt does **not**
  *      hard-fail — it STOPS and asks the operator to escalate to `/plan` or
- *      proceed light. Under `--yes` (unattended) it fails closed to
- *      recommending `/plan`.
+ *      proceed light. Both answers are executable: `proceed-light` is recorded
+ *      through {@link resolveOperatorOverride}, which waives a *size
+ *      prediction* only, never a risk rule, and only with a human present.
+ *      Under `--yes` (unattended) it fails closed to recommending `/plan`.
  *   3. **Diff-derived backstop ({@link checkLightDiffBackstop}).** After
  *      implementation the **actual** change set is re-checked with
  *      {@link module:lib/orchestration/review-depth.deriveChangeLevel} plus a
@@ -48,8 +50,33 @@
  * @module lib/orchestration/light-suitability
  */
 
-import { deriveStoryShape, STORY_SHAPE_CEILINGS } from './complexity-gate.js';
+import {
+  deriveStoryShape,
+  SHAPE_CODES,
+  STORY_SHAPE_CEILINGS,
+} from './complexity-gate.js';
 import { deriveChangeLevel } from './review-depth.js';
+
+/**
+ * The shape objections an attended operator may waive (Story #4815) — an
+ * **allowlist**, deliberately, so a rule added to
+ * {@link module:lib/orchestration/complexity-gate.SHAPE_CODES} later is
+ * non-negotiable until someone decides otherwise here. A denylist would make
+ * every new rule silently overridable.
+ *
+ * These four are the *size predictions*: coarse by design (§ Scope by effort),
+ * and already bounded for real by {@link checkLightDiffBackstop} against the
+ * landed diff. Everything absent is absent on purpose — `migration-span` and
+ * `sensitive-path` are **risk**, not size, and the unknown-footprint codes
+ * describe a shape that was never judged, so there is no false positive to
+ * appeal.
+ */
+export const OVERRIDABLE_SHAPE_CODES = Object.freeze([
+  SHAPE_CODES.CHANGE_KINDS,
+  SHAPE_CODES.MAGNITUDE,
+  SHAPE_CODES.UNCERTAINTY,
+  SHAPE_CODES.DEPLOYABLE_SPAN,
+]);
 
 /**
  * File-count ceiling for the **actual landed** change set the diff backstop
@@ -193,6 +220,88 @@ export function deriveLightSuitability({
 }
 
 /**
+ * Adjudicate an operator's recorded `proceed-light` answer to the gate's own
+ * question (Story #4815). The gate has always *offered* `proceed-light` as one
+ * of two options; before this there was no input that could carry the answer,
+ * so the only way past a coarse prediction was to re-shape the declaration
+ * until the gate stopped objecting — precisely the under-declaring the coarse
+ * design anticipates.
+ *
+ * Applying it takes **all** of:
+ *
+ *   1. **The gate actually objected.** An override cannot pre-authorize a
+ *      scope nothing rejected.
+ *   2. **The run is attended.** `--yes` means nobody is at the keyboard, so
+ *      there is no operator whose answer this could be (§ Escalation is
+ *      terminal). Checked here as well as at the CLI, so the pure core carries
+ *      the guarantee rather than the shell.
+ *   3. **The objection is a size prediction** — a code in
+ *      {@link OVERRIDABLE_SHAPE_CODES}. Sensitivity and migration span are
+ *      risk and stay absolute however small the change.
+ *   4. **The ledgered verdict is already `lite`.** The override substitutes for
+ *      the *shape* half of the conjunction only; an unaudited "trust me, it's
+ *      small" buys nothing it did not buy before.
+ *
+ * A refusal is reported, never silent — an operator who typed the flag must
+ * learn why it did not take. Pure and total.
+ *
+ * @param {{
+ *   suitability?: object,
+ *   yes?: boolean,
+ *   operatorOverride?: unknown,
+ * }} [args] `operatorOverride` is the operator's recorded reason; blank or
+ *   absent means no override was requested.
+ * @returns {{
+ *   applied: boolean,
+ *   record: { recordedReason: string, overriddenCode: string, overriddenReason: string }|null,
+ *   note: string|null,
+ * }}
+ */
+export function resolveOperatorOverride({
+  suitability,
+  yes = false,
+  operatorOverride,
+} = {}) {
+  const recordedReason =
+    typeof operatorOverride === 'string' ? operatorOverride.trim() : '';
+  const refuse = (note) => ({ applied: false, record: null, note });
+
+  if (recordedReason === '') return refuse(null);
+  if (suitability?.suitable === true) {
+    return refuse(
+      'operator override ignored — the gate raised no objection to override',
+    );
+  }
+  if (yes === true) {
+    return refuse(
+      'operator override refused — it is attended-only, and --yes means nobody is at the keyboard; over-scope still fails closed to /plan',
+    );
+  }
+
+  const code = suitability?.shape?.code ?? null;
+  if (!OVERRIDABLE_SHAPE_CODES.includes(code)) {
+    return refuse(
+      `operator override refused — "${code ?? 'unknown'}" is not an overridable size prediction (overridable: ${OVERRIDABLE_SHAPE_CODES.join(', ')}); risk rules and unknown footprints are non-negotiable`,
+    );
+  }
+  if (suitability?.ledger?.route !== 'lite') {
+    return refuse(
+      'operator override refused — it substitutes for the predicted shape only; the model verdict must still be a ledgered lite with a recorded reason',
+    );
+  }
+
+  return {
+    applied: true,
+    record: {
+      recordedReason,
+      overriddenCode: code,
+      overriddenReason: suitability?.shape?.reasons?.[0] ?? '',
+    },
+    note: `operator override applied — proceeding light despite "${code}"; recorded reason: ${recordedReason}. The diff backstop still bounds the actual change set.`,
+  };
+}
+
+/**
  * Resolve what the light gate does with a suitability decision (Story #4740
  * AC-3). Over-scope never hard-fails: it STOPS and asks the operator to choose,
  * unless the run is unattended (`--yes`), where it fails closed to recommending
@@ -200,17 +309,43 @@ export function deriveLightSuitability({
  *
  *   - suitable          → `proceed-light`
  *   - over-scope + attended (`yes:false`)  → `ask-operator` (escalate | proceed)
+ *   - over-scope + attended + an applied operator override (Story #4815)
+ *                                          → `proceed-light`, carrying the
+ *                                            decision in `override`
  *   - over-scope + unattended (`yes:true`) → `escalate-plan`
+ *
+ * The override is adjudicated by {@link resolveOperatorOverride} and cannot
+ * reach the unattended branch: `escalate-plan` is resolved first and the
+ * override refuses itself under `yes` anyway.
  *
  * Pure and total.
  *
- * @param {{ suitability?: { suitable?: boolean, reasons?: string[] }, yes?: boolean }} [args]
- * @returns {{ action: 'proceed-light'|'ask-operator'|'escalate-plan', options?: string[], reasons: string[] }}
+ * @param {{
+ *   suitability?: { suitable?: boolean, reasons?: string[] },
+ *   yes?: boolean,
+ *   operatorOverride?: unknown,
+ * }} [args]
+ * @returns {{
+ *   action: 'proceed-light'|'ask-operator'|'escalate-plan',
+ *   options?: string[],
+ *   override?: object,
+ *   reasons: string[],
+ * }}
  */
-export function resolveLightGateOutcome({ suitability, yes = false } = {}) {
+export function resolveLightGateOutcome({
+  suitability,
+  yes = false,
+  operatorOverride,
+} = {}) {
+  const override = resolveOperatorOverride({
+    suitability,
+    yes,
+    operatorOverride,
+  });
   const reasons = Array.isArray(suitability?.reasons)
     ? [...suitability.reasons]
     : [];
+  if (override.note !== null) reasons.push(override.note);
 
   if (suitability?.suitable === true) {
     return {
@@ -228,6 +363,17 @@ export function resolveLightGateOutcome({ suitability, yes = false } = {}) {
       reasons: [
         ...reasons,
         '--yes on over-scope fails closed to /plan (never silently proceeds light)',
+      ],
+    };
+  }
+
+  if (override.applied) {
+    return {
+      action: 'proceed-light',
+      override: override.record,
+      reasons: [
+        ...reasons,
+        'predicted scope exceeded a light ceiling and the operator answered proceed-light — proceeding on the recorded override',
       ],
     };
   }
@@ -418,17 +564,52 @@ function toReceiptChanges(changedFiles) {
 }
 
 /**
+ * Render an applied operator override as an audit paragraph for the receipt
+ * body (Story #4815). An override that leaves no trace on the ticket is an
+ * invisible decision: the whole point of routing it through the receipt is
+ * that a later reader can see the gate objected, on what grounds, and who
+ * decided to proceed anyway.
+ *
+ * @param {unknown} override The `record` from {@link resolveOperatorOverride}.
+ * @returns {string} A leading-space-prefixed sentence, or `''` when absent.
+ */
+function renderOverrideNote(override) {
+  if (!override || typeof override !== 'object') return '';
+  const { overriddenCode, overriddenReason, recordedReason } = override;
+  if (typeof recordedReason !== 'string' || recordedReason.trim() === '') {
+    return '';
+  }
+  return (
+    ` OPERATOR SCOPE OVERRIDE: the suitability gate objected on ` +
+    `"${overriddenCode}" (${overriddenReason}) and the operator answered ` +
+    `proceed-light — recorded reason: ${recordedReason.trim()}. The ` +
+    `prediction was waived, not the diff backstop, which still bounds the ` +
+    `landed change set.`
+  );
+}
+
+/**
  * Build the minimal receipt `type::story` ticket for the light path
  * (Story #4740 AC-5) — the input `assemblePlanStories` / `createStoryIssues`
  * consume, so the light path reuses the plan-persist story-creation surface
  * rather than reimplementing issue authoring. The body carries the operator
- * prompt (goal + spec) and the diff-derived footprint (`changes[]`), so history
- * and `refs #<id>` on the commit survive.
+ * prompt (goal + spec), the diff-derived footprint (`changes[]`), and any
+ * operator scope override, so history and `refs #<id>` on the commit survive.
  *
- * @param {{ prompt?: unknown, changedFiles?: unknown, amends?: unknown }} [args]
+ * @param {{
+ *   prompt?: unknown,
+ *   changedFiles?: unknown,
+ *   amends?: unknown,
+ *   override?: unknown,
+ * }} [args]
  * @returns {{ slug: string, title: string, body: object, labels: string[] }}
  */
-export function buildReceiptStoryTicket({ prompt, changedFiles, amends } = {}) {
+export function buildReceiptStoryTicket({
+  prompt,
+  changedFiles,
+  amends,
+  override,
+} = {}) {
   const text = typeof prompt === 'string' ? prompt.trim() : '';
   if (text === '') {
     throw new Error(
@@ -438,6 +619,7 @@ export function buildReceiptStoryTicket({ prompt, changedFiles, amends } = {}) {
   const amendsId = normalizeAmends(amends);
   const amendNote = amendsId !== null ? ` Amends #${amendsId}.` : '';
   const changes = toReceiptChanges(changedFiles);
+  const overrideNote = renderOverrideNote(override);
 
   return {
     slug: slugifyPrompt(text),
@@ -448,7 +630,8 @@ export function buildReceiptStoryTicket({ prompt, changedFiles, amends } = {}) {
       spec:
         `Delivered via /deliver-light as a validated single-session change — ` +
         `the /plan session is removed for genuinely small work while every ` +
-        `single-story-close gate runs byte-identical.${amendNote} ` +
+        `single-story-close gate runs byte-identical.${amendNote}` +
+        `${overrideNote} ` +
         `Operator prompt: ${text}`,
       changes,
       acceptance: [

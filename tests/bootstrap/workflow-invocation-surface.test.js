@@ -174,6 +174,24 @@ describe('derived invocation intent (Story #4760)', () => {
       'without an explicit order a bare notes.md becomes a one-word seed',
     );
   });
+
+  // Story #4815 added --operator-proceed-light to the light gate. It is an
+  // answer the AGENT relays on the operator's behalf inside the helper, not
+  // something an operator types at the door — and a gate flag surfacing on the
+  // invocation surface is how the retired flag table grew the first time.
+  it('keeps the light gate flags off the two operator-facing doors', () => {
+    for (const [label, file] of [
+      ['deliver.md', DELIVER],
+      ['plan.md', PLAN],
+    ]) {
+      assert.doesNotMatch(
+        readFileSync(file, 'utf8'),
+        /--operator-proceed-light/,
+        `${label} names a deliver-light gate flag — the suitability gate's flags ` +
+          "belong to helpers/deliver-light.md and the script's own --help",
+      );
+    }
+  });
 });
 
 describe('the /plan ↔ light asymmetry (Story #4760)', () => {

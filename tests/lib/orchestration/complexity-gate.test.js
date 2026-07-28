@@ -28,6 +28,7 @@ import {
   LITE_ROUTE_LABEL,
   resolvePlannerRouteVerdict,
   resolveStoryDispatchMode,
+  SHAPE_CODES,
 } from '../../../.agents/scripts/lib/orchestration/complexity-gate.js';
 import {
   assemblePlanStories,
@@ -847,4 +848,107 @@ describe('persist ↔ deliver route round-trip — one shape, two read points', 
       assert.equal(deliverSide.mode, expectedMode);
     });
   }
+});
+
+// ---------------------------------------------------------------------------
+// Story #4815 — every decision carries a stable machine-readable `code`
+// ---------------------------------------------------------------------------
+
+describe('deriveStoryShape — a stable code names WHICH rule objected', () => {
+  /** Minimal args that clear every rule, so a fixture varies one thing. */
+  const LITE_ARGS = {
+    changes: [{ path: 'src/one.ts', assumption: 'refactors-existing' }],
+    acceptance: ['it works'],
+    injectedRules: RULES,
+  };
+
+  test('a lite route carries no code — there is nothing to name', () => {
+    const derived = deriveStoryShape(LITE_ARGS);
+    assert.equal(derived.route, 'lite');
+    assert.equal(derived.code, null);
+  });
+
+  const CASES = [
+    [
+      SHAPE_CODES.CHANGE_KINDS,
+      { kinds: ['add-endpoint', 'migrate-schema', 'rewrite-client'] },
+    ],
+    [SHAPE_CODES.MAGNITUDE, { magnitude: 'substantial' }],
+    [SHAPE_CODES.UNCERTAINTY, { uncertainty: 'needs-design' }],
+    [
+      SHAPE_CODES.DEPLOYABLE_SPAN,
+      {
+        changes: [
+          { path: 'apps/web/a.ts', assumption: 'refactors-existing' },
+          { path: 'apps/api/b.ts', assumption: 'refactors-existing' },
+        ],
+      },
+    ],
+    [
+      SHAPE_CODES.MIGRATION_SPAN,
+      {
+        changes: [
+          { path: 'db/migrations/001.sql', assumption: 'creates' },
+          { path: 'src/reader.ts', assumption: 'refactors-existing' },
+        ],
+      },
+    ],
+    [
+      SHAPE_CODES.SENSITIVE_PATH,
+      { changes: [{ path: 'src/auth/session.ts', assumption: 'creates' }] },
+    ],
+    [SHAPE_CODES.NO_CHANGES, { changes: [] }],
+    [
+      SHAPE_CODES.GLOB_FOOTPRINT,
+      { changes: [{ path: 'src/**/*.ts', assumption: 'creates' }] },
+    ],
+    [SHAPE_CODES.NO_ACCEPTANCE, { acceptance: [] }],
+    [
+      SHAPE_CODES.CLASSIFICATION_UNAVAILABLE,
+      {
+        selectSensitivePathClassesFn: () => {
+          throw new Error('unreadable sensitive-path manifest');
+        },
+      },
+    ],
+  ];
+
+  for (const [code, overrides] of CASES) {
+    test(`routes full with code "${code}"`, () => {
+      const derived = deriveStoryShape({ ...LITE_ARGS, ...overrides });
+      assert.equal(derived.route, 'full');
+      assert.equal(derived.code, code);
+    });
+  }
+
+  test('the code is the branch surface, not the prose', () => {
+    // The reason text is written for a human reading a gate envelope and is
+    // free to be re-worded; a caller keying off it would break on a copy-edit.
+    // This is why the light path's operator override reads `code` instead.
+    const derived = deriveStoryShape({
+      ...LITE_ARGS,
+      changes: [
+        { path: 'apps/web/a.ts', assumption: 'refactors-existing' },
+        { path: 'apps/api/b.ts', assumption: 'refactors-existing' },
+      ],
+    });
+    assert.equal(derived.code, SHAPE_CODES.DEPLOYABLE_SPAN);
+    assert.equal(derived.reasons.length, 1);
+    assert.match(derived.reasons[0], /maxDeployables/);
+  });
+
+  test('adding the code left every pre-existing field intact', () => {
+    const derived = deriveStoryShape(LITE_ARGS);
+    assert.deepEqual(Object.keys(derived).sort(), [
+      'ceilings',
+      'code',
+      'preserves',
+      'reasons',
+      'route',
+      'shape',
+    ]);
+    assert.equal(derived.ceilings.maxDeployables, 1);
+    assert.equal(derived.preserves.repoGates, true);
+    assert.equal(derived.shape.siteCount, 1);
+  });
 });
