@@ -22,6 +22,7 @@ import { describe, it } from 'node:test';
 import { resolveConfig } from '../../.agents/scripts/lib/config-resolver.js';
 import { getAgentrcValidator } from '../../.agents/scripts/lib/config-settings-schema.js';
 import {
+  buildContentMarker,
   enrichRoutedProposalsWithFilings,
   fileRetroProposals,
   graduateRetroProposals,
@@ -450,6 +451,154 @@ describe('unit helpers', () => {
       out.consumer[0].filedIssue,
       undefined,
       'an unmatched proposal is left unenriched',
+    );
+  });
+});
+
+/**
+ * Story #4837 — the idempotency key must identify the FINDING, not the run
+ * that happened to observe it.
+ *
+ * The measured defect: `run-epilogue.js` anchors a run-scoped roll-up on
+ * `Number(stories[0])`, the run's first Story, so the old
+ * `epic-<anchorId>-<fp>` marker changed every run and could never match a
+ * prior filing. Closed issues #4833 and #4834 are the artifact — one
+ * `story-blocked` finding filed twice under anchors 101 and 777, sharing the
+ * fingerprint `e59976671e0b848b` and differing only in the anchor.
+ */
+/**
+ * A spawn stub over a MUTABLE issue table: `gh issue list` reports each row's
+ * `state`/`url`, `gh issue edit` rewrites the named row's body in place, and
+ * `gh search` matches the delimiter-free query as a body substring exactly as
+ * the real index does. Modelling the state is the point — the recurrence path
+ * only edits an issue it can prove is open.
+ *
+ * @param {Array<{number:number, body:string, labels:string[], state:string, url:string}>} issues
+ */
+function makeStatefulSpawnStub(issues) {
+  const calls = [];
+  const fn = function spawnImpl(cmd, args) {
+    calls.push({ cmd, args });
+    const child = new EventEmitter();
+    child.stdout = new EventEmitter();
+    child.stderr = new EventEmitter();
+    let result = { stdout: '', code: 0 };
+    if (cmd !== 'gh') {
+      result = { stdout: '', code: 1 };
+    } else if (args[0] === 'label') {
+      result = {
+        stdout: JSON.stringify(
+          [...new Set(issues.flatMap((i) => i.labels))].map((name) => ({
+            name,
+          })),
+        ),
+        code: 0,
+      };
+    } else if (args[0] === 'search') {
+      const hit = issues.find((i) => i.body.includes(args[2]));
+      result = { stdout: hit ? JSON.stringify([hit]) : '[]', code: 0 };
+    } else if (args[0] === 'issue' && args[1] === 'list') {
+      result = { stdout: JSON.stringify(issues), code: 0 };
+    } else if (args[0] === 'issue' && args[1] === 'edit') {
+      const target = issues.find((i) => String(i.number) === args[2]);
+      if (target) target.body = args[args.indexOf('--body') + 1];
+      result = { stdout: target ? target.url : '', code: target ? 0 : 1 };
+    }
+    queueMicrotask(() => {
+      if (result.stdout) child.stdout.emit('data', Buffer.from(result.stdout));
+      child.emit('close', result.code ?? 0);
+    });
+    return child;
+  };
+  fn.calls = calls;
+  return fn;
+}
+
+describe('AC-1/AC-2 — anchor-invariant idempotency identity (Story #4837)', () => {
+  /** The category behind the measured #4833/#4834 collision. */
+  const STORY_BLOCKED = { category: 'story-blocked' };
+
+  it('AC-1: the same finding yields the same marker under two different anchors', () => {
+    // Arrange / Act — two anchors, one finding.
+    const underAnchorA = buildContentMarker(101, STORY_BLOCKED);
+    const underAnchorB = buildContentMarker(777, STORY_BLOCKED);
+
+    // Assert — identity survives the anchor.
+    assert.equal(
+      underAnchorA,
+      underAnchorB,
+      'the anchor must not participate in the idempotency key',
+    );
+    assert.ok(
+      !underAnchorA.includes('101') && !underAnchorA.includes('777'),
+      `the marker must carry no anchor at all: ${underAnchorA}`,
+    );
+  });
+
+  it('AC-2: the measured #4833/#4834 collision resolves to one identity', () => {
+    // Arrange — the two markers those issues actually carry, verbatim.
+    const filedOn4833 =
+      '<!-- retro-proposal-followup: epic-101-e59976671e0b848b -->';
+    const filedOn4834 =
+      '<!-- retro-proposal-followup: epic-777-e59976671e0b848b -->';
+
+    // Act — what this finding is keyed on now.
+    const marker = buildContentMarker(101, STORY_BLOCKED);
+
+    // Assert — one key, and it is the shared fingerprint half.
+    assert.equal(marker, '<!-- retro-proposal-followup: e59976671e0b848b -->');
+    assert.equal(buildContentMarker(777, STORY_BLOCKED), marker);
+
+    // Both pre-cutover bodies share the fingerprint half; only the anchor
+    // differed. That shared half is what the walk below recognizes.
+    for (const legacyBody of [filedOn4833, filedOn4834]) {
+      assert.ok(legacyBody.includes('e59976671e0b848b'));
+    }
+  });
+
+  it('AC-2: a pre-cutover anchored filing is recognized, not duplicated', async () => {
+    // Arrange — the repo already holds an OPEN follow-up whose body carries
+    // the pre-cutover `epic-<anchor>-<fp>` marker (the #4836 shape). Filing
+    // now runs under a DIFFERENT anchor, which is exactly the case the old
+    // key could never match.
+    const existing = {
+      number: 4836,
+      body: '<!-- retro-proposal-followup: epic-777-e59976671e0b848b -->\n\nolder body',
+      labels: ['meta::consumer-improvement', 'friction::story-blocked'],
+      state: 'open',
+      url: 'https://github.com/o/r/issues/4836',
+    };
+    const spawnImpl = makeStatefulSpawnStub([existing]);
+
+    // Act — a fresh run under anchor 101.
+    const res = await graduateRetroProposals({
+      epicId: 101,
+      provider: { getTicketComments: async () => [] },
+      currentRepo: { owner: 'o', repo: 'r' },
+      frameworkRepo: { owner: 'f', repo: 'w' },
+      routedProposals: {
+        consumer: [mkItem('story-blocked', 'consumer')],
+        framework: [],
+      },
+      spawnImpl,
+    });
+
+    // Assert — the existing issue was refreshed, not duplicated.
+    assert.equal(res.filed.length, 1);
+    assert.equal(res.filed[0].action, 'updated');
+    assert.ok(
+      !spawnImpl.calls.some(
+        (c) => c.args[0] === 'issue' && c.args[1] === 'create',
+      ),
+      'the marker-format change must not re-file the backlog it already filed',
+    );
+    assert.equal(existing.body.includes('older body'), false);
+  });
+
+  it('AC-1: two different categories keep two different identities', () => {
+    assert.notEqual(
+      buildContentMarker(101, { category: 'story-blocked' }),
+      buildContentMarker(101, { category: 'tool-degraded' }),
     );
   });
 });

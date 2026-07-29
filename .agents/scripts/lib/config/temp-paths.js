@@ -185,12 +185,22 @@ export function _clearTestContextScratchCache() {
  * process was started with the `--test` flag (a direct `node --test <file>`
  * runner process, or in-process isolation modes).
  *
- * @param {NodeJS.ProcessEnv} env
- * @param {string[]} execArgv
+ * Exported since Story #4837: the feedback loop's issue-filing path guards
+ * live GitHub writes on this same signal, and a second hand-rolled copy of
+ * the detection is exactly how the two would drift apart.
+ *
+ * @param {NodeJS.ProcessEnv} [env=process.env]
+ * @param {string[]} [execArgv=process.execArgv]
  * @returns {boolean}
  */
-function inNodeTestContext(env, execArgv) {
-  return Boolean(env?.NODE_TEST_CONTEXT) || execArgv.includes('--test');
+export function inNodeTestContext(
+  env = process.env,
+  execArgv = process.execArgv,
+) {
+  return (
+    Boolean(env?.NODE_TEST_CONTEXT) ||
+    (Array.isArray(execArgv) && execArgv.includes('--test'))
+  );
 }
 
 /**
