@@ -75,7 +75,7 @@ const MARKDOWN_RUNNERS = Object.freeze([
 ]);
 
 /** Reason codes carried on a degradation record. */
-export const LINT_DEGRADATION_REASONS = Object.freeze({
+const DEGRADATION_REASONS = Object.freeze({
   RUNNER_NOT_INSTALLED: 'runner-not-installed',
   RUNNER_NOT_RESOLVABLE: 'runner-not-resolvable',
   UNPARSEABLE_OUTPUT: 'unparseable-output',
@@ -112,11 +112,14 @@ function spawnLintRunner(bin, args, cwd) {
  * *nameable*: `npx --no <missing-bin>` yields only a generic npm error, which
  * is precisely how the defect hid for months.
  *
+ * Not exported: it is reachable — and asserted — through {@link runScopedLint},
+ * whose `existsFn` seam drives every resolution branch.
+ *
  * @param {string} cwd
  * @param {(p: string) => boolean} [existsFn]  Injected for testing.
  * @returns {{ bin: string, extraArgs: ReadonlyArray<string> }|null}
  */
-export function resolveMarkdownRunner(cwd, existsFn = existsSync) {
+function resolveMarkdownRunner(cwd, existsFn = existsSync) {
   for (const candidate of MARKDOWN_RUNNERS) {
     const base = path.join(cwd, 'node_modules', '.bin', candidate.bin);
     if (existsFn(base)) return candidate;
@@ -187,8 +190,8 @@ export function parseLintOutput(result) {
   const executionFailed = failedExit && !emptyScope;
   const reason = executionFailed
     ? NPX_UNRESOLVABLE.test(combined)
-      ? LINT_DEGRADATION_REASONS.RUNNER_NOT_RESOLVABLE
-      : LINT_DEGRADATION_REASONS.UNPARSEABLE_OUTPUT
+      ? DEGRADATION_REASONS.RUNNER_NOT_RESOLVABLE
+      : DEGRADATION_REASONS.UNPARSEABLE_OUTPUT
     : null;
 
   return { errors, warnings, parsed, executionFailed, emptyScope, reason };
@@ -217,7 +220,7 @@ function mergeSurfaceSummaries(surfaces) {
       executionFailed = true;
       degradations.push({
         surface,
-        reason: summary.reason ?? LINT_DEGRADATION_REASONS.UNPARSEABLE_OUTPUT,
+        reason: summary.reason ?? DEGRADATION_REASONS.UNPARSEABLE_OUTPUT,
       });
     }
   }
@@ -280,7 +283,7 @@ export function runScopedLint(
           parsed: false,
           executionFailed: true,
           emptyScope: false,
-          reason: LINT_DEGRADATION_REASONS.RUNNER_NOT_INSTALLED,
+          reason: DEGRADATION_REASONS.RUNNER_NOT_INSTALLED,
         },
       });
     } else {

@@ -53,22 +53,20 @@ import {
 } from '../../observability/runtime-friction.js';
 import { PROJECT_ROOT } from '../../project-root.js';
 import { transpileIfNeeded } from '../../transpile.js';
-import { runScopedLint as runScopedLintImpl } from './scoped-lint.js';
+import {
+  parseLintOutput,
+  partitionFilesForLint,
+  runScopedLint,
+} from './scoped-lint.js';
 
 /**
  * The scoped-lint surface lives in [`scoped-lint.js`](scoped-lint.js), which
  * owns runner resolution, per-surface classification, and the merge. Story
  * #4839 moved it there while fixing the three invocation defects that made this
  * gate fail open on ~78% of deliveries; the module docstring there carries the
- * diagnosis. Re-exported here because `runScopedLint` (with `parseLintOutput`
- * and `partitionFilesForLint`) is this provider's published lint seam.
+ * diagnosis. The three names stay part of this provider's published lint seam.
  */
-export {
-  parseLintOutput,
-  partitionFilesForLint,
-  resolveMarkdownRunner,
-  runScopedLint,
-} from './scoped-lint.js';
+export { parseLintOutput, partitionFilesForLint, runScopedLint };
 
 /** Worker entry that scores one file into a full maintainability report. */
 const MAINTAINABILITY_REPORT_WORKER_URL = new URL(
@@ -465,7 +463,7 @@ function buildLintDegradations(lintSummary) {
  *
  * @param {{
  *   gitSpawnFn?: typeof gitSpawn,
- *   runScopedLintFn?: typeof runScopedLintImpl,
+ *   runScopedLintFn?: typeof runScopedLint,
  *   analyzeChangedFilesFn?: typeof analyzeChangedFiles,
  *   buildLintFindingsFn?: typeof buildLintFindings,
  *   emitToolDegradationFn?: typeof emitRuntimeFriction,
@@ -477,7 +475,7 @@ function buildLintDegradations(lintSummary) {
 export function createNativeProvider(deps = {}) {
   const {
     gitSpawnFn = gitSpawn,
-    runScopedLintFn = runScopedLintImpl,
+    runScopedLintFn = runScopedLint,
     analyzeChangedFilesFn = analyzeChangedFiles,
     buildLintFindingsFn = buildLintFindings,
     emitToolDegradationFn = emitRuntimeFriction,

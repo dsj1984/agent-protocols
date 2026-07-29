@@ -33,7 +33,6 @@ import {
   parseLintOutput,
   partitionFilesForLint,
   readHeadSource,
-  resolveMarkdownRunner,
   runScopedLint,
   SERIAL_THRESHOLD,
   scoreSourceReport,
@@ -809,18 +808,19 @@ test('parseLintOutput: an unresolvable npx bin is reported as runner-not-resolva
   assert.equal(out.reason, 'runner-not-resolvable');
 });
 
-test('resolveMarkdownRunner: falls back to markdownlint (cli v1) with its own --ignore arg shape', () => {
-  const resolved = resolveMarkdownRunner(
-    '/repo',
-    binsInstalled('markdownlint'),
-  );
+test('runScopedLint: falls back to markdownlint (cli v1) with its own --ignore arg shape', () => {
+  const { calls, runner } = recordingRunner({
+    markdownlint: { status: 0, stdout: 'Summary: 0 error(s)\n', stderr: '' },
+  });
 
-  assert.equal(resolved.bin, 'markdownlint');
-  assert.deepEqual(resolved.extraArgs, ['--ignore', 'node_modules']);
-  assert.equal(
-    resolveMarkdownRunner('/repo', () => false),
-    null,
-  );
+  const out = runScopedLint(['docs/a.md'], '/repo', runner, {
+    existsFn: binsInstalled('markdownlint'),
+  });
+
+  assert.deepEqual(calls, [
+    { bin: 'markdownlint', args: ['docs/a.md', '--ignore', 'node_modules'] },
+  ]);
+  assert.equal(out.executionFailed, false);
 });
 
 test('runReview: a degraded lint gate is visible on the outcome channel while emitting zero findings (Story #4839 AC-2/AC-3/AC-4)', async () => {
