@@ -673,9 +673,17 @@ test('runReview: a lint runner that cannot execute records friction telemetry an
 /* Story #4839 — why the runner could not execute, and why nobody noticed   */
 /* ------------------------------------------------------------------------ */
 
-/** A `node_modules/.bin` probe that reports only the named bins as installed. */
+/**
+ * A `node_modules/.bin` probe that reports only the named bins as installed.
+ *
+ * The comparison is on the path's last segment, split on **either** separator:
+ * `resolveMarkdownRunner` builds its probe path with `path.join`, so on Windows
+ * the double receives `node_modules\.bin\markdownlint-cli2`. A `/`-only match
+ * silently reported every bin as missing there, which made these tests fail on
+ * the Windows leg alone while passing on POSIX.
+ */
 function binsInstalled(...names) {
-  return (probePath) => names.some((n) => probePath.endsWith(`.bin/${n}`));
+  return (probePath) => names.includes(probePath.split(/[\\/]/).pop());
 }
 
 /** Record every `(bin, args)` the scoped-lint gate spawns. */
