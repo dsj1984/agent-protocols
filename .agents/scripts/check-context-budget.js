@@ -25,6 +25,21 @@
  * ratchet — each role def is a standalone system prompt a converted spawn boots
  * on, and adding another role def is legitimate.
  *
+ * The recorded `agentBoot` rows are additionally held **in sync with the tree**
+ * (Story #4830), because those rows are what an author sizes an edit against.
+ * The two drift directions are deliberately asymmetric:
+ *
+ *   - **permissive** (the row understates the file, or no row exists) — the row
+ *     promises headroom that does not exist, the gate stays green, and the
+ *     shortfall only lands as a ceiling failure once the edit is written. This
+ *     fails the gate.
+ *   - **restrictive** (the row overstates the file) — an author under-spends
+ *     and the ceiling is never surprised, so it is self-correcting. Reported as
+ *     a `-` line; exit stays 0.
+ *
+ * Each row also records its `headroomBytes` under the ceiling, so the budget an
+ * author reads is stated rather than re-derived.
+ *
  * A read-tier that resolves **empty** is skipped silently (the `docsContextFiles`
  * half skips when unconfigured / its files are absent), so a repo with no
  * `CLAUDE.md` and no context docs is a clean no-op.
@@ -99,6 +114,100 @@ export function agentBootOverflow(tierMap, ceiling = AGENT_BOOT_CEILING_BYTES) {
 }
 
 /**
+ * Classify one agent-boot file against its recorded baseline row (#4830).
+ * Returns `null` when the row already agrees with the tree.
+ *
+ * `permissive` drift is the failure class this gate exists for: the row
+ * understates the file (or is missing entirely), so the headroom an author
+ * computes from it is larger than the headroom that exists, and the shortfall
+ * only surfaces as a ceiling failure *after* the edit is written.
+ * `restrictive` drift is the benign mirror — the row overstates the file, so an
+ * author under-spends and the ceiling gate is never surprised.
+ *
+ * @param {{ path: string, bytes: number }} file live file measurement
+ * @param {{ bytes?: number, headroomBytes?: number } | undefined} row recorded row
+ * @param {number} ceiling
+ * @returns {{ path: string, recorded: number|null, actual: number, delta: number,
+ *   direction: 'permissive'|'restrictive', recordedHeadroom: number|null,
+ *   headroomBytes: number } | null}
+ */
+function classifyBootRow(file, row, ceiling) {
+  const actual = file.bytes;
+  const headroomBytes = ceiling - actual;
+  const recorded = Number.isFinite(row?.bytes) ? row.bytes : null;
+  const recordedHeadroom = Number.isFinite(row?.headroomBytes)
+    ? row.headroomBytes
+    : recorded === null
+      ? null
+      : ceiling - recorded;
+  // A row is in sync only when both the byte count and the headroom it
+  // advertises match the tree — a stale headroom misleads on its own.
+  if (recorded === actual && recordedHeadroom === headroomBytes) return null;
+  const permissive =
+    recorded === null ||
+    recorded < actual ||
+    (recordedHeadroom !== null && recordedHeadroom > headroomBytes);
+  return {
+    path: file.path,
+    recorded,
+    actual,
+    delta: recorded === null ? actual : actual - recorded,
+    direction: permissive ? 'permissive' : 'restrictive',
+    recordedHeadroom,
+    headroomBytes,
+  };
+}
+
+/**
+ * Compare every recorded `agentBoot` row against the tree it describes.
+ *
+ * @param {{ tiers: Record<string, Array<{ path: string, bytes: number }>> }} tierMap
+ * @param {{ agentBoot?: { ceilingBytes?: number, files?: Array<{ path: string, bytes: number, headroomBytes?: number }> } } | null} baseline
+ * @param {number} [ceiling]
+ * @returns {Array<ReturnType<typeof classifyBootRow>>} drift rows (empty = in sync)
+ */
+export function agentBootDrift(tierMap, baseline, ceiling) {
+  const recordedCeiling = Number.isFinite(baseline?.agentBoot?.ceilingBytes)
+    ? baseline.agentBoot.ceilingBytes
+    : AGENT_BOOT_CEILING_BYTES;
+  const effective = Number.isFinite(ceiling) ? ceiling : recordedCeiling;
+  const rows = new Map(
+    (baseline?.agentBoot?.files ?? []).map((f) => [f.path, f]),
+  );
+  const drift = [];
+  for (const file of tierMap?.tiers?.agentBoot ?? []) {
+    if (!Number.isFinite(file?.bytes)) continue;
+    const row = classifyBootRow(file, rows.get(file.path), effective);
+    if (row) drift.push(row);
+  }
+  return drift;
+}
+
+/**
+ * Render the agent-boot drift lines. `+` lines are permissive drift (gate
+ * fail); `-` lines are restrictive drift (informational). Each line states the
+ * **real** remaining headroom, so the author sizing the next edit reads the
+ * true number rather than re-deriving it from a row that just proved stale.
+ *
+ * @param {Array<ReturnType<typeof classifyBootRow>>} drift
+ * @returns {string[]}
+ */
+export function renderBootDrift(drift) {
+  return drift.map((d) => {
+    const marker = d.direction === 'permissive' ? '+' : '-';
+    const recorded =
+      d.recorded === null
+        ? 'has no recorded row'
+        : `records ${d.recorded} bytes but the file is ${d.actual}`;
+    const note =
+      d.direction === 'permissive'
+        ? 'the row overstates the headroom an author would size an edit against'
+        : 'the row is conservative — refresh at leisure';
+    return `${marker} agentBoot drift: ${d.path} ${recorded} — ${note} (real headroom ${d.headroomBytes})`;
+  });
+}
+
+/**
  * Parse argv for `--baseline <path>`, `--root <path>`, `--update`, `--json`.
  * Exported so unit tests can pin the parser.
  *
@@ -168,7 +277,14 @@ export function buildBaseline(tierMap, toleranceBytes) {
   // The agent-boot tier is recorded top-level (not under `tiers`) because it is
   // gated by a per-file ceiling, not the total-byte ratchet the `tiers` entries
   // use — keeping it out of `tiers` keeps the ratchet diff loop unambiguous.
-  const agentBootFiles = tierMap.tiers.agentBoot ?? [];
+  // Each row carries the headroom it leaves under the ceiling, so an author
+  // sizing an edit reads the remaining budget straight off the row (#4830)
+  // instead of re-deriving it — and `agentBootDrift` keeps both numbers honest.
+  const agentBootFiles = (tierMap.tiers.agentBoot ?? []).map((f) => ({
+    path: f.path,
+    bytes: f.bytes,
+    headroomBytes: AGENT_BOOT_CEILING_BYTES - f.bytes,
+  }));
   return {
     $schema: 'https://mandrel.dev/baselines/context-budget.schema.json',
     generatedAt: new Date().toISOString(),
@@ -353,7 +469,14 @@ export async function runCli({
     ? baseline.agentBoot.ceilingBytes
     : AGENT_BOOT_CEILING_BYTES;
   const bootOverflow = agentBootOverflow(tierMap, ceiling);
-  const exitCode = diff.grown.length > 0 || bootOverflow.length > 0 ? 1 : 0;
+  const bootDrift = agentBootDrift(tierMap, baseline, ceiling);
+  const permissiveDrift = bootDrift.filter((d) => d.direction === 'permissive');
+  const exitCode =
+    diff.grown.length > 0 ||
+    bootOverflow.length > 0 ||
+    permissiveDrift.length > 0
+      ? 1
+      : 0;
 
   if (json) {
     const envelope = {
@@ -370,6 +493,7 @@ export async function runCli({
       skipped: diff.skipped,
       agentBootCeilingBytes: ceiling,
       agentBootOverflow: bootOverflow,
+      agentBootDrift: bootDrift,
       workflowReachableBytes: tierMap.workflowClosure?.reachableTotalBytes ?? 0,
       exitCode,
     };
@@ -384,7 +508,15 @@ export async function runCli({
         `+ agentBoot: ${o.path} is ${o.bytes} bytes, over the ${o.ceiling}-byte per-agent ceiling\n`,
       );
     }
+    for (const line of renderBootDrift(bootDrift)) {
+      stdout.write(`${line}\n`);
+    }
     if (exitCode === 1) {
+      if (permissiveDrift.length > 0) {
+        stderr.write(
+          `[context-budget] ❌ a recorded agentBoot row understates the file it describes, so it overstates the headroom an author would size an edit against — refresh it with \`node .agents/scripts/check-context-budget.js --update\` (the ceiling is unchanged)\n`,
+        );
+      }
       if (bootOverflow.length > 0) {
         stderr.write(
           `[context-budget] ❌ a role-agent boot context exceeds the ${ceiling}-byte per-agent ceiling — trim the role def (the ceiling is a hard cap, not a starve target)\n`,
