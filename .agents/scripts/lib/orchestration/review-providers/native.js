@@ -40,7 +40,6 @@
  * @typedef {import('./types.js').ReviewProvider} ReviewProvider
  */
 
-import { spawnSync } from 'node:child_process';
 import path from 'node:path';
 import { POOL_SERIAL_THRESHOLD, runOnPool } from '../../cpu-pool.js';
 import { gitSpawn } from '../../git-utils.js';
@@ -54,6 +53,22 @@ import {
 } from '../../observability/runtime-friction.js';
 import { PROJECT_ROOT } from '../../project-root.js';
 import { transpileIfNeeded } from '../../transpile.js';
+import { runScopedLint as runScopedLintImpl } from './scoped-lint.js';
+
+/**
+ * The scoped-lint surface lives in [`scoped-lint.js`](scoped-lint.js), which
+ * owns runner resolution, per-surface classification, and the merge. Story
+ * #4839 moved it there while fixing the three invocation defects that made this
+ * gate fail open on ~78% of deliveries; the module docstring there carries the
+ * diagnosis. Re-exported here because `runScopedLint` (with `parseLintOutput`
+ * and `partitionFilesForLint`) is this provider's published lint seam.
+ */
+export {
+  parseLintOutput,
+  partitionFilesForLint,
+  resolveMarkdownRunner,
+  runScopedLint,
+} from './scoped-lint.js';
 
 /** Worker entry that scores one file into a full maintainability report. */
 const MAINTAINABILITY_REPORT_WORKER_URL = new URL(
@@ -73,72 +88,6 @@ const MAINTAINABILITY_REPORT_WORKER_URL = new URL(
 export const SERIAL_THRESHOLD = POOL_SERIAL_THRESHOLD;
 
 const JS_MAINTAINABILITY_EXTS = new Set(['.js', '.mjs', '.cjs']);
-
-/**
- * Parse stdout/stderr from a lint runner to estimate error vs warning counts.
- *
- * Handles the two runners composing `npm run lint` in this project:
- *   - Biome: emits "Found N error(s)." and "Found N warning(s)." lines.
- *   - markdownlint: emits one diagnostic per issue, plus a trailing
- *     "Summary: N error(s)" line.
- *
- * Severity classification: when the runner exits non-zero but its output
- * matches neither known reporter format, the result is "could not classify" —
- * `executionFailed: true` so callers can degrade the gate to a suggestion +
- * skipped marker rather than mislabelling an environment problem as high risk.
- *
- * Exported for testing.
- *
- * @param {{ status: number, stdout: string, stderr: string }} result
- * @returns {{ errors: number, warnings: number, parsed: boolean, executionFailed: boolean }}
- */
-export function parseLintOutput(result) {
-  const combined = `${result.stdout ?? ''}\n${result.stderr ?? ''}`;
-
-  let errors = 0;
-  let warnings = 0;
-  let parsed = false;
-
-  const errMatches = combined.matchAll(/Found\s+(\d+)\s+error/gi);
-  for (const m of errMatches) {
-    errors += Number(m[1]);
-    parsed = true;
-  }
-  const warnMatches = combined.matchAll(/Found\s+(\d+)\s+warning/gi);
-  for (const m of warnMatches) {
-    warnings += Number(m[1]);
-    parsed = true;
-  }
-
-  const mdSummary = combined.match(/Summary:\s+(\d+)\s+error/i);
-  if (mdSummary) {
-    errors += Number(mdSummary[1]);
-    parsed = true;
-  }
-
-  const executionFailed = !parsed && result.status !== 0;
-
-  return { errors, warnings, parsed, executionFailed };
-}
-
-/**
- * Pure: split changed paths into the file lists each lint runner consumes.
- *
- * Exported for testing.
- *
- * @param {string[]} changedFiles
- * @returns {{ code: string[], md: string[] }}
- */
-export function partitionFilesForLint(changedFiles) {
-  const CODE = /\.(js|mjs|cjs|jsx|ts|tsx|json|jsonc)$/i;
-  const code = [];
-  const md = [];
-  for (const f of changedFiles) {
-    if (CODE.test(f)) code.push(f);
-    else if (/\.md$/i.test(f)) md.push(f);
-  }
-  return { code, md };
-}
 
 /**
  * Read a changed file's content as it exists at `headRef` via
@@ -195,61 +144,6 @@ export function scoreSourceReport(source, relPath) {
     };
   }
   return calculateReport(prepared);
-}
-
-function spawnLintRunner(bin, args, cwd) {
-  const result = spawnSync('npx', ['--no', bin, ...args], {
-    cwd,
-    encoding: 'utf-8',
-    shell: process.platform === 'win32',
-  });
-  return {
-    status: result.status ?? 1,
-    stdout: result.stdout ?? '',
-    stderr: result.stderr ?? '',
-  };
-}
-
-/**
- * Run lint scoped to the changed surface only. Returns a normalized summary
- * compatible with `parseLintOutput` plus a `skipped` flag set when there is
- * no JS or markdown file in the changed set (nothing to lint).
- *
- * @param {string[]} changedFiles
- * @param {string} cwd
- * @param {(bin: string, args: string[], cwd: string) => { status: number, stdout: string, stderr: string }} [runnerFn]
- * @returns {{ errors: number, warnings: number, parsed: boolean, skipped: boolean, mode: 'changed-only', executionFailed?: boolean }}
- */
-export function runScopedLint(changedFiles, cwd, runnerFn = spawnLintRunner) {
-  const { code, md } = partitionFilesForLint(changedFiles);
-  if (code.length === 0 && md.length === 0) {
-    return {
-      errors: 0,
-      warnings: 0,
-      parsed: false,
-      skipped: true,
-      mode: 'changed-only',
-    };
-  }
-
-  const runs = [];
-  if (code.length > 0) runs.push(runnerFn('biome', ['lint', ...code], cwd));
-  if (md.length > 0) {
-    runs.push(
-      runnerFn('markdownlint', [...md, '--ignore', 'node_modules'], cwd),
-    );
-  }
-
-  let status = 0;
-  let stdout = '';
-  let stderr = '';
-  for (const r of runs) {
-    if ((r.status ?? 1) > status) status = r.status ?? 1;
-    stdout += r.stdout ?? '';
-    stderr += r.stderr ?? '';
-  }
-  const summary = parseLintOutput({ status, stdout, stderr });
-  return { ...summary, skipped: false, mode: 'changed-only' };
 }
 
 /**
@@ -523,12 +417,43 @@ async function runLintPhase({
       parsed: false,
       skipped: true,
       mode: 'off',
+      executionFailed: false,
+      degradations: [],
     };
   }
   logger?.info?.(
     '[native-review] Linting changed files only (biome + markdownlint, scoped to diff)...',
   );
   return runScopedLintFn(changedFiles, PROJECT_ROOT);
+}
+
+/**
+ * Pure: turn an `executionFailed` lint summary into the degradation records the
+ * review outcome carries beside its findings (Story #4839).
+ *
+ * A summary from `runScopedLint` names each failed surface; an injected or
+ * legacy summary that sets only `executionFailed` degrades to one record for
+ * the gate as a whole, so the outcome is never silent about a gate that did not
+ * run just because the summary predates the per-surface contract.
+ *
+ * @param {{ executionFailed?: boolean, degradations?: Array<{ surface: string, reason: string }> }} lintSummary
+ * @returns {Array<{ tool: string, gate: string, surface: string, reason: string }>}
+ */
+function buildLintDegradations(lintSummary) {
+  if (!lintSummary.executionFailed) return [];
+  const rows = Array.isArray(lintSummary.degradations)
+    ? lintSummary.degradations
+    : [];
+  const surfaces =
+    rows.length > 0
+      ? rows
+      : [{ surface: 'scoped-lint', reason: 'unparseable-output' }];
+  return surfaces.map((row) => ({
+    tool: 'native-review-lint',
+    gate: 'scoped-lint',
+    surface: row.surface,
+    reason: row.reason,
+  }));
 }
 
 /**
@@ -540,7 +465,7 @@ async function runLintPhase({
  *
  * @param {{
  *   gitSpawnFn?: typeof gitSpawn,
- *   runScopedLintFn?: typeof runScopedLint,
+ *   runScopedLintFn?: typeof runScopedLintImpl,
  *   analyzeChangedFilesFn?: typeof analyzeChangedFiles,
  *   buildLintFindingsFn?: typeof buildLintFindings,
  *   emitToolDegradationFn?: typeof emitRuntimeFriction,
@@ -552,7 +477,7 @@ async function runLintPhase({
 export function createNativeProvider(deps = {}) {
   const {
     gitSpawnFn = gitSpawn,
-    runScopedLintFn = runScopedLint,
+    runScopedLintFn = runScopedLintImpl,
     analyzeChangedFilesFn = analyzeChangedFiles,
     buildLintFindingsFn = buildLintFindings,
     emitToolDegradationFn = emitRuntimeFriction,
@@ -560,12 +485,33 @@ export function createNativeProvider(deps = {}) {
     scopeLint = 'changed-only',
   } = deps;
 
+  /**
+   * Degradations recorded by the most recent `runReview`. Read through
+   * `getDegradations()` after the run, mirroring how `getPromptMessages` is
+   * feature-detected by the orchestrator — findings and degradations travel
+   * side by side, so an unexecutable tool never has to become a `Finding` to
+   * be visible (Story #4699's intent; Story #4839's fix).
+   *
+   * @type {Array<{ tool: string, gate: string, surface: string, reason: string }>}
+   */
+  let recordedDegradations = [];
+
   return {
+    /**
+     * Gate degradations from the last `runReview`. Never a `Finding`, so
+     * severity counts stay code-findings-only.
+     *
+     * @returns {Array<{ tool: string, gate: string, surface: string, reason: string }>}
+     */
+    getDegradations() {
+      return recordedDegradations;
+    },
     /**
      * @param {ReviewInput} input
      * @returns {Promise<Finding[]>}
      */
     async runReview(input) {
+      recordedDegradations = [];
       const { scope, ticketId, baseRef, headRef } = input ?? {};
       if (!baseRef || !headRef) {
         throw new TypeError(
@@ -623,8 +569,19 @@ export function createNativeProvider(deps = {}) {
         // Story #4699 — a tool that could not execute is an operational
         // degradation, not a code finding. Route it to friction telemetry
         // (best-effort) so severity counts reflect code findings only.
+        //
+        // Story #4839 — telemetry alone left the review's own verdict unable to
+        // distinguish "lint ran and found nothing" from "lint never ran", so
+        // the same degradation is also recorded on the outcome channel. It is
+        // still never a `Finding`: the friction emission below is unchanged and
+        // severity counts remain code-findings-only.
+        recordedDegradations = buildLintDegradations(lintSummary);
         logger?.warn?.(
-          '[native-review] Lint runner could not execute — recorded as friction telemetry, no finding emitted. Verify with the canonical `npm run lint` before merging.',
+          `[native-review] Lint runner could not execute (${recordedDegradations
+            .map((d) => `${d.surface}: ${d.reason}`)
+            .join(
+              '; ',
+            )}) — reported as a degraded gate on the review outcome and recorded as friction telemetry; no finding emitted. Verify with the canonical \`npm run lint\` before merging.`,
         );
         try {
           await emitToolDegradationFn({
@@ -646,9 +603,10 @@ export function createNativeProvider(deps = {}) {
 
       // Canonical ordering: critical (maintainability) first, then high
       // (lint errors), then medium (size/volume warnings), then suggestion
-      // (lint warnings / executionFailed). The renderer re-bucketizes by
-      // severity tier, so this order only matters for stability of fixture
-      // outputs.
+      // (lint warnings). An execution failure contributes to none of these
+      // tiers — it travels on the degradation channel. The renderer
+      // re-bucketizes by severity tier, so this order only matters for
+      // stability of fixture outputs.
       return [
         ...results.criticalFindings,
         ...lintFindings.filter((f) => f.severity === 'high'),

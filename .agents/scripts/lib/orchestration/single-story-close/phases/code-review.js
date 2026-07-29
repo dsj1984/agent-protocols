@@ -28,8 +28,13 @@
  */
 
 import { parsePrNumberFromUrl } from '../../../github-url.js';
+import { degradationEnvelope } from '../../review-providers/degraded-gates.js';
 import { runStoryReviewCore } from '../../story-close/phases/review-core.js';
 import { postStructuredComment } from '../../ticketing/state.js';
+import {
+  buildOutcomeTally,
+  formatReviewOutcomeLines,
+} from './review-outcome.js';
 
 /**
  * Extract the numeric PR ID from a `gh pr create` URL. The CLI returns a
@@ -62,13 +67,11 @@ export function buildStoryReviewCrossRefBody({
   prNumber,
   commentUrl,
   severity,
+  degradations,
 }) {
-  const tally =
-    `critical:${severity.critical} · high:${severity.high} · ` +
-    `medium:${severity.medium} · suggestion:${severity.suggestion}`;
   return (
     `🔬 Story-scope code review posted on PR [#${prNumber}](${prUrl}): ` +
-    `[view findings](${commentUrl}) — ${tally}.`
+    `[view findings](${commentUrl}) — ${buildOutcomeTally({ severity, degradations })}.`
   );
 }
 
@@ -116,6 +119,7 @@ async function postStoryReviewCrossRef({
       prNumber,
       commentUrl,
       severity,
+      degradations: result.degradations,
     });
     try {
       await postStructuredComment(provider, storyId, 'notification', body);
@@ -174,6 +178,8 @@ async function postStoryReviewCrossRef({
  *   severity?: { critical: number, high: number, medium: number, suggestion: number },
  *   posted?: boolean,
  *   postedCommentId?: number|null,
+ *   degraded?: boolean,
+ *   degradations?: Array<object>,
  *   crossRefPosted?: boolean,
  *   localLensReview?: object,
  * }>}
@@ -222,10 +228,13 @@ export async function runStoryScopeReview({
     medium: 0,
     suggestion: 0,
   };
-  progress(
-    'REVIEW',
-    `Findings — critical:${sev.critical} high:${sev.high} medium:${sev.medium} suggestion:${sev.suggestion}. Posted to PR #${prNumber}: ${result.posted}.`,
-  );
+  const outcome = formatReviewOutcomeLines({
+    severity: sev,
+    degradations: result.degradations,
+    prNumber,
+    posted: result.posted,
+  });
+  for (const line of outcome) progress('REVIEW', line);
 
   const crossRefPosted = await postStoryReviewCrossRef({
     provider,
@@ -242,6 +251,7 @@ export async function runStoryScopeReview({
     severity: sev,
     posted: result.posted,
     postedCommentId: result.postedCommentId ?? null,
+    ...degradationEnvelope(result.degradations),
     crossRefPosted,
     localLensReview: result.localLensReview,
   };

@@ -35,6 +35,7 @@
  */
 
 import { createCodexProviderForRegistry } from './codex.js';
+import { mergeChainDegradations } from './degraded-gates.js';
 import { createNativeProviderForRegistry } from './native.js';
 import { createSecurityReviewProviderForRegistry } from './security-review.js';
 import { createUltrareviewProviderForRegistry } from './ultrareview.js';
@@ -287,6 +288,15 @@ export function createChainProvider(chain, opts = {}) {
         for (const f of findings) merged.push(f);
       }
       return merged;
+    },
+    /**
+     * Degraded gates across the inline chain (Story #4839). Called after
+     * `runReview`.
+     *
+     * @returns {Promise<Array<object>>}
+     */
+    async getDegradations() {
+      return mergeChainDegradations(chain.inline, logger);
     },
     /**
      * @param {ReviewInput} input

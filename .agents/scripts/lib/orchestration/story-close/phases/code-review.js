@@ -38,6 +38,7 @@
 
 import { Logger } from '../../../Logger.js';
 import { runCodeReview } from '../../code-review.js';
+import { summarizeDegradations } from '../../review-providers/degraded-gates.js';
 import { emitBlockedCloseResult } from '../emit-blocked.js';
 import { runLocalLensReview } from './local-lens-review.js';
 import { runStoryReviewCore } from './review-core.js';
@@ -86,7 +87,10 @@ function buildCodeReviewBlockedExtra({ storyId, reviewResult }) {
 function formatReviewSummary(reviewResult) {
   const { high, medium, suggestion } = resolveSeverity(reviewResult);
   const posted = reviewResult?.posted ?? false;
-  return `Review complete — high=${high} medium=${medium} suggestion=${suggestion} (posted=${posted}).`;
+  // Story #4839 — `degraded` is always stated: an absent degradation line must
+  // never be the way an operator concludes that every gate ran.
+  const degraded = summarizeDegradations(reviewResult?.degradations);
+  return `Review complete — high=${high} medium=${medium} suggestion=${suggestion} degraded=${degraded} (posted=${posted}).`;
 }
 
 /**
