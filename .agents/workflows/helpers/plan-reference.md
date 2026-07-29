@@ -120,10 +120,11 @@ decision:
 lite cohort's Stories with **`route::lite`** as a *human-visible hint only* —
 `/deliver` computes the route from each fetched Story body via the same shape
 function at dispatch, so neither a lost label nor an unread marker can
-misroute delivery: a lite-shaped Story executes **inline** (no story-worker
-or acceptance-critic sub-agent boots) even with the label absent, and a
-sensitive-footprint Story routes `full` and keeps its fresh critic even with
-the label present. The `route::*` axis stays runtime-derived: hand-authored
+misroute delivery: a lite-shaped Story derives `lite` even with the label
+absent, and a sensitive-footprint Story routes `full` and keeps its fresh
+critic even with the label present. The derived route sets ceremony, not
+where the engine runs — sub-agent boots are collapsed by a **single-Story
+run**, never by a trivial shape. The `route::*` axis stays runtime-derived: hand-authored
 `route::*` entries in `labels[]` are dropped by persist.
 
 The knobs (`planning.complexityGate.{enabled, maxArtifacts}`) are documented

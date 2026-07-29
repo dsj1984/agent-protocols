@@ -6,6 +6,7 @@ import { test } from 'node:test';
 import { fileURLToPath } from 'node:url';
 import {
   AGENT_BOOT_CEILING_BYTES,
+  agentBootDrift,
   agentBootOverflow,
   buildBaseline,
   diffBudget,
@@ -209,9 +210,124 @@ test('buildBaseline records the agentBoot ceiling + files top-level (not under t
   // agentBoot MUST NOT leak into the ratcheted `tiers` set.
   assert.deepEqual(Object.keys(envelope.tiers).sort(), [...GATED_TIERS].sort());
   assert.equal(envelope.agentBoot.ceilingBytes, 8192);
+  // The recorded row carries the headroom an author sizing an edit needs, so
+  // reading the row does not require re-deriving it against the ceiling.
   assert.deepEqual(envelope.agentBoot.files, [
-    { path: '.agents/agents/retro.md', bytes: 1800 },
+    {
+      path: '.agents/agents/retro.md',
+      bytes: 1800,
+      headroomBytes: AGENT_BOOT_CEILING_BYTES - 1800,
+    },
   ]);
+});
+
+// ---------------------------------------------------------------------------
+// agentBootDrift — a recorded row that disagrees with the tree (Story #4830)
+// ---------------------------------------------------------------------------
+
+/** Build a `{ tierMap, baseline }` pair from `[path, recorded, actual]` rows. */
+function driftFixture(rows) {
+  return {
+    tierMap: {
+      tiers: {
+        agentBoot: rows.map(([p, , actual]) => ({ path: p, bytes: actual })),
+      },
+    },
+    baseline: {
+      agentBoot: {
+        ceilingBytes: AGENT_BOOT_CEILING_BYTES,
+        files: rows
+          .filter(([, recorded]) => recorded !== null)
+          .map(([p, recorded]) => ({
+            path: p,
+            bytes: recorded,
+            headroomBytes: AGENT_BOOT_CEILING_BYTES - recorded,
+          })),
+      },
+    },
+  };
+}
+
+test('agentBootDrift is empty when every recorded row matches the tree', () => {
+  const { tierMap, baseline } = driftFixture([
+    ['.agents/agents/a.md', 4000, 4000],
+    ['.agents/agents/b.md', 1234, 1234],
+  ]);
+  assert.deepEqual(agentBootDrift(tierMap, baseline), []);
+});
+
+test('agentBootDrift calls a row that understates its file permissive and reports the real headroom', () => {
+  const { tierMap, baseline } = driftFixture([
+    ['.agents/agents/story-worker.md', 7317, 8143],
+  ]);
+  const drift = agentBootDrift(tierMap, baseline);
+  assert.equal(drift.length, 1);
+  assert.deepEqual(drift[0], {
+    path: '.agents/agents/story-worker.md',
+    recorded: 7317,
+    actual: 8143,
+    delta: 826,
+    direction: 'permissive',
+    recordedHeadroom: AGENT_BOOT_CEILING_BYTES - 7317,
+    headroomBytes: AGENT_BOOT_CEILING_BYTES - 8143,
+  });
+});
+
+test('agentBootDrift calls a row that overstates its file restrictive — self-correcting, never a gate fail', () => {
+  const { tierMap, baseline } = driftFixture([
+    ['.agents/agents/a.md', 5000, 4000],
+  ]);
+  const drift = agentBootDrift(tierMap, baseline);
+  assert.equal(drift.length, 1);
+  assert.equal(drift[0].direction, 'restrictive');
+  assert.equal(drift[0].delta, -1000);
+});
+
+test('agentBootDrift treats an unrecorded boot context as permissive — no row promises unbounded headroom', () => {
+  const { tierMap, baseline } = driftFixture([
+    ['.agents/agents/new.md', null, 3000],
+  ]);
+  const drift = agentBootDrift(tierMap, baseline);
+  assert.equal(drift.length, 1);
+  assert.equal(drift[0].direction, 'permissive');
+  assert.equal(drift[0].recorded, null);
+  assert.equal(drift[0].recordedHeadroom, null);
+});
+
+test('agentBootDrift catches a stale recorded headroom even when the byte count agrees', () => {
+  const drift = agentBootDrift(
+    { tiers: { agentBoot: [{ path: '.agents/agents/a.md', bytes: 4000 }] } },
+    {
+      agentBoot: {
+        ceilingBytes: AGENT_BOOT_CEILING_BYTES,
+        files: [
+          { path: '.agents/agents/a.md', bytes: 4000, headroomBytes: 9999 },
+        ],
+      },
+    },
+  );
+  assert.equal(drift.length, 1);
+  assert.equal(drift[0].direction, 'permissive');
+  assert.equal(drift[0].headroomBytes, AGENT_BOOT_CEILING_BYTES - 4000);
+});
+
+test('the committed baseline carries no agentBoot drift against this repo tree', () => {
+  const repoRoot = path.resolve(
+    path.dirname(fileURLToPath(import.meta.url)),
+    '..',
+  );
+  const baseline = loadBaseline(
+    path.join(repoRoot, 'baselines', 'context-budget.json'),
+  );
+  const tierMap = {
+    tiers: {
+      agentBoot: (baseline.agentBoot?.files ?? []).map((f) => ({
+        path: f.path,
+        bytes: fs.statSync(path.join(repoRoot, f.path)).size,
+      })),
+    },
+  };
+  assert.deepEqual(agentBootDrift(tierMap, baseline), []);
 });
 
 // ---------------------------------------------------------------------------
@@ -313,6 +429,63 @@ test('runCli passes when role-agent boot contexts are within the ceiling', async
     stderr: makeSink(),
   });
   assert.equal(code, 0);
+});
+
+test('runCli exits 1 when a recorded row understates its boot context, even though the file is under the ceiling', async () => {
+  const { root, config } = makeRepo();
+  const bootFile = path.join(root, '.agents', 'agents', 'ok.md');
+  fs.mkdirSync(path.dirname(bootFile), { recursive: true });
+  fs.writeFileSync(bootFile, 'x'.repeat(4000));
+  await runCli({
+    argv: ['--update'],
+    cwd: root,
+    config,
+    stdout: makeSink(),
+    stderr: makeSink(),
+  });
+
+  // Grow the boot context by 1000 bytes — still far below the 8192 ceiling, so
+  // the overflow gate stays silent and only the drift check can see it.
+  fs.appendFileSync(bootFile, 'y'.repeat(1000));
+
+  const stdout = makeSink();
+  const stderr = makeSink();
+  const code = await runCli({ argv: [], cwd: root, config, stdout, stderr });
+  assert.equal(code, 1);
+  assert.match(stdout.text(), /\+ agentBoot drift: \.agents\/agents\/ok\.md/);
+  assert.match(stdout.text(), /records 4000 bytes but the file is 5000/);
+  // The real remaining headroom is stated, not left to the reader.
+  assert.match(stdout.text(), /real headroom 3192/);
+  assert.match(stderr.text(), /overstates the headroom/);
+});
+
+test('runCli exits 0 with an informational marker when a recorded row overstates its boot context', async () => {
+  const { root, config } = makeRepo();
+  const bootFile = path.join(root, '.agents', 'agents', 'ok.md');
+  fs.mkdirSync(path.dirname(bootFile), { recursive: true });
+  fs.writeFileSync(bootFile, 'x'.repeat(4000));
+  await runCli({
+    argv: ['--update'],
+    cwd: root,
+    config,
+    stdout: makeSink(),
+    stderr: makeSink(),
+  });
+
+  // The file shrank: the row is now conservative, and a conservative row can
+  // only make an author under-spend — it never buys headroom that is not there.
+  fs.writeFileSync(bootFile, 'x'.repeat(3000));
+
+  const stdout = makeSink();
+  const code = await runCli({
+    argv: [],
+    cwd: root,
+    config,
+    stdout,
+    stderr: makeSink(),
+  });
+  assert.equal(code, 0);
+  assert.match(stdout.text(), /- agentBoot drift: \.agents\/agents\/ok\.md/);
 });
 
 // ---------------------------------------------------------------------------
