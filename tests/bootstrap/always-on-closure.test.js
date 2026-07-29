@@ -16,61 +16,73 @@
  */
 
 import assert from 'node:assert/strict';
-import { readFileSync, statSync } from 'node:fs';
+import { readFileSync } from 'node:fs';
 import path from 'node:path';
 import { describe, it } from 'node:test';
 import { fileURLToPath } from 'node:url';
+import { resolveAlwaysLoadedClosure } from '../../.agents/scripts/lib/doc-tiers.js';
 
 const __dirname = path.dirname(fileURLToPath(import.meta.url));
 const REPO_ROOT = path.resolve(__dirname, '..', '..');
 
-/** AC-1: instructions + always-on rules must fit under 16KB. */
-const CLOSURE_BUDGET_BYTES = 16 * 1024;
+/**
+ * AC-1: the whole always-loaded closure must fit under this ceiling.
+ *
+ * Story #4821 widened what this charges. The previous regex matched only
+ * `@.agents/**.md`, so `AGENTS.md` and `.agentrc.json` — both @-imported by
+ * CLAUDE.md and both re-paid on every spawn — were invisible to the ratchet
+ * and could grow for free. The ceiling rose to cover them; it is NOT slack
+ * for the files that were already charged.
+ */
+const CLOSURE_BUDGET_BYTES = 21 * 1024;
 
 /**
- * Extract the `.agents/` @-import targets from CLAUDE.md — the instruction
- * spine plus every always-on rule. Measuring what CLAUDE.md actually imports
- * (rather than a hardcoded list) means promoting a new rule into the
- * always-on core is automatically charged against the budget.
+ * The always-loaded closure, resolved by the same function the CI
+ * context-budget gate uses (`check-context-budget.js` →
+ * `resolveAlwaysLoadedClosure`). Sharing the resolver is the point: two
+ * private definitions of "always loaded" drifted ~5KB apart before #4821,
+ * and a ratchet that disagrees with the gate it backstops reports a number
+ * nobody can act on. Every `@`-import of CLAUDE.md is charged transitively —
+ * promoting a rule into the always-on core is billed automatically.
  */
-function alwaysOnClosureFiles() {
-  const claudeMd = readFileSync(path.join(REPO_ROOT, 'CLAUDE.md'), 'utf8');
-  const files = [];
-  for (const line of claudeMd.split('\n')) {
-    const m = line.match(/^@(\.agents\/\S+\.md)\s*$/);
-    if (m) files.push(m[1]);
-  }
-  return files;
+function alwaysOnClosureEntries() {
+  return resolveAlwaysLoadedClosure(REPO_ROOT);
 }
 
-describe('always-on closure budget (Story #4708, AC-1)', () => {
-  it('CLAUDE.md imports the instruction spine and the always-on rules', () => {
-    const files = alwaysOnClosureFiles();
-    assert.ok(
-      files.includes('.agents/instructions.md'),
-      'CLAUDE.md must @-import .agents/instructions.md',
-    );
+describe('always-on closure budget (Story #4708, AC-1; widened by #4821)', () => {
+  it('charges every CLAUDE.md @-import, not just the .agents/ ones', () => {
+    const files = alwaysOnClosureEntries().map((e) => e.path);
+    for (const required of [
+      'CLAUDE.md',
+      '.agents/instructions.md',
+      '.agents/rules/security-baseline.md',
+      '.agents/rules/git-conventions.md',
+      'AGENTS.md',
+      '.agentrc.json',
+    ]) {
+      assert.ok(
+        files.includes(required),
+        `${required} is @-imported by CLAUDE.md but is not charged against the closure budget — ` +
+          'it would be re-paid every spawn while growing for free',
+      );
+    }
+  });
+
+  it('keeps the security baseline resident', () => {
+    const files = alwaysOnClosureEntries().map((e) => e.path);
     assert.ok(
       files.includes('.agents/rules/security-baseline.md'),
       'CLAUDE.md must @-import the security baseline — it is always-on by contract (AC-2)',
     );
-    assert.ok(
-      files.includes('.agents/rules/git-conventions.md'),
-      'CLAUDE.md must @-import the always-on git core',
-    );
   });
 
-  it(`instructions + always-on rules total ≤ ${CLOSURE_BUDGET_BYTES} bytes`, () => {
-    const files = alwaysOnClosureFiles();
-    const sized = files.map((f) => ({
-      file: f,
-      bytes: statSync(path.join(REPO_ROOT, f)).size,
-    }));
+  it(`the always-loaded closure totals ≤ ${CLOSURE_BUDGET_BYTES} bytes`, () => {
+    const sized = alwaysOnClosureEntries();
     const total = sized.reduce((sum, s) => sum + s.bytes, 0);
     assert.ok(
       total <= CLOSURE_BUDGET_BYTES,
       `always-on closure is ${total} bytes, over the ${CLOSURE_BUDGET_BYTES}-byte budget ` +
-        `(${sized.map((s) => `${s.file}=${s.bytes}`).join(', ')}). ` +
+        `(${sized.map((s) => `${s.path}=${s.bytes}`).join(', ')}). ` +
         'This tax is re-paid every session and every subagent spawn — pay for the growth with an equivalent trim.',
     );
   });

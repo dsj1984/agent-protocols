@@ -19,7 +19,7 @@ commit on that branch only. Close opens a PR against `main` (squash +
 required checks). No `epic/<id>` integration branch, no `--no-ff` wave
 merge, no child tickets: commits land on `story-<storyId>` directly, the
 subject referencing the Story via `(refs #<storyId>)` — see
-[`.agents/instructions.md` § 5.D](../instructions.md).
+[`.agents/instructions.md` § 5.B](../instructions.md).
 
 ## Conventional Commits
 

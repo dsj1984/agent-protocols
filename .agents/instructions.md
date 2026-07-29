@@ -14,10 +14,10 @@ and is read when the task engages it.
 ### A. Role Framing
 
 No persona packs, no `persona::*` labels — constraints come from this
-file, the rules, and skills. Role-scoped spawn contexts live under
+file, the rules, and skills; "act as [role]" means apply the matching
+skill or workflow guidance. Role-scoped spawn contexts live under
 `.agents/agents/` (`delivery.routing.roleScopedAgents`); `qa.personas`
-are a separate fixture concept. "Act as [role]" = apply the matching
-skill / workflow guidance.
+is a separate fixture concept.
 
 ### B. Skill Activation
 
@@ -32,11 +32,11 @@ Unsure? Match against the `description`s in
 
 ### C. Proactive Documentation
 
-For any code involving third-party libraries, fetch the latest official
-docs **before** writing code via the host's best live-documentation
-mechanism (docs MCP server, IDE lookup) — do not ask permission.
-Fallbacks: (1) in-repo docs and the package's bundled README/CHANGELOG,
-(2) web fetch/search. Note the channel you used.
+Before writing against a third-party API you are unsure of — or one
+that moves fast enough that recall may be stale — fetch the current
+official docs via the host's best live-documentation mechanism (docs
+MCP server, IDE lookup); do not ask permission. Fallbacks: (1) in-repo
+docs and the package's bundled README/CHANGELOG, (2) web fetch/search.
 
 ### D. Error Handling & Degradation
 
@@ -138,8 +138,6 @@ sizing) **fail closed** naming what to trim:
 3. **Artifacts over Chat.** Write test/build/debug output to log
    files, not into chat.
 4. **Idempotency.** Scripts must be safe to run repeatedly.
-5. **Security First.** Never hardcode secrets; use environment variables
-   and secret scanning.
 
 ---
 
@@ -151,11 +149,9 @@ sizing) **fail closed** naming what to trim:
   spawn only when the work justifies replicating context. One objective
   per subagent; depth compounds the cost (every nested level re-pays).
 - **Anti-Laziness / No Dead Code.** NEVER use placeholder comments like
-  `// ... existing code ...` — output the ENTIRE file or complete
-  function; remove unused imports, commented-out code, and dead branches
+  `// ... existing code ...`; every edit must leave complete, runnable
+  code. Remove unused imports, commented-out code, and dead branches
   before finalizing.
-- **Lint Compliance.** Adhere strictly to project linters and
-  formatters.
 - **Verification.** Include explicit verification steps in every plan.
 
 ---
@@ -167,7 +163,7 @@ reference: `story-<storyId>` branches seeded by `single-story-init.js`,
 every Story reaching `main` via its own PR
 (`helpers/deliver-story` / `single-story-close.js`).
 
-### B. Status Tracking & Commit Standards
+### A. Status Tracking & Commit Standards
 
 State mutations are GitHub labels (`agent::ready`, `agent::executing`,
 `agent::done`) via
@@ -175,7 +171,7 @@ State mutations are GitHub labels (`agent::ready`, `agent::executing`,
 Do NOT manually update issue descriptions or status fields unless
 prompted.
 
-### D. Ticket hierarchy (Story-only)
+### B. Ticket hierarchy (Story-only)
 
 The v2 ticket model is Story-only: `acceptance[]` / `verify[]` live
 inline plus the folded Tech Spec in `## Spec` (over-budget Specs fail

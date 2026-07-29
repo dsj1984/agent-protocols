@@ -45,8 +45,7 @@ Two orientation pointers are load-bearing often enough to keep here:
   `github`, `planning`, `delivery`). Project-specific technology choices are
   deliberately kept out of it — the Tech Stack inventory lives under the
   **Tech Stack** heading in [`docs/architecture.md`](docs/architecture.md).
-- **Skills and rules are read on demand**, not preloaded. Each `SKILL.md`
-  leads with its Policy Capsule and points at a `reference.md` sibling for the
-  long-form material; the `.agents/rules/` set splits into an always-on core
-  and an on-demand set. See
+- **Skills and rules are read on demand**, not preloaded — each `SKILL.md`
+  leads with its Policy Capsule, and `.agents/rules/` splits into an always-on
+  core and an on-demand set. See
   [`.agents/instructions.md` § 1.B / § 1.F](.agents/instructions.md).
