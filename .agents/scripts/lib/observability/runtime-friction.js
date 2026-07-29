@@ -348,9 +348,16 @@ export async function emitCloseRecoveredFriction({ storyId, config } = {}) {
  * foreign rows attributes each one correctly; the fallback covers records
  * written before the field existed.
  *
+ * `tool` (from `emitter.tool`) joined the shape in Story #4824. `category`
+ * remains the routing and de-duplication unit — it is what titles and
+ * de-duplicates a filed issue — but a roll-up that discards a candidate has
+ * to be able to *name* it, and a bare category cannot distinguish a
+ * `tool-degraded` from the scoped-lint runner from one out of lens
+ * materialization. It is descriptive, never a routing key.
+ *
  * @param {unknown} parsed          One parsed NDJSON row.
  * @param {number}  fallbackStoryId Stream owner, used when the row has none.
- * @returns {{ category: string, source: 'framework'|'consumer', storyId: number, details: object }|null}
+ * @returns {{ category: string, source: 'framework'|'consumer', storyId: number, tool: string, details: object }|null}
  */
 export function normalizeGatheredSignal(parsed, fallbackStoryId) {
   if (!parsed || typeof parsed !== 'object') return null;
@@ -358,10 +365,15 @@ export function normalizeGatheredSignal(parsed, fallbackStoryId) {
     typeof parsed.category === 'string' ? parsed.category.trim() : '';
   if (!category) return null;
   const recordStoryId = Number(parsed.storyId);
+  const emitterTool =
+    parsed.emitter && typeof parsed.emitter === 'object'
+      ? parsed.emitter.tool
+      : undefined;
   return {
     category,
     source: parsed.source === 'framework' ? 'framework' : 'consumer',
     storyId: Number.isInteger(recordStoryId) ? recordStoryId : fallbackStoryId,
+    tool: typeof emitterTool === 'string' ? emitterTool.trim() : '',
     details:
       parsed.details && typeof parsed.details === 'object'
         ? parsed.details

@@ -6,6 +6,10 @@ import assert from 'node:assert/strict';
 import { rmSync } from 'node:fs';
 import { describe, it } from 'node:test';
 import {
+  emitRuntimeFriction,
+  RUNTIME_FRICTION_CATEGORIES,
+} from '../../../.agents/scripts/lib/observability/runtime-friction.js';
+import {
   planRunEpilogue,
   RUN_EPILOGUE_STEP_KINDS,
   resolveRunBaseSha,
@@ -566,6 +570,127 @@ describe('follow-up-rollup — an empty roll-up over N>1 asserts (Story #4578)',
         /nothing to follow up/,
         'the reassuring line is exactly what made the zero-signal retro invisible',
       );
+    } finally {
+      rmSync(tempRoot, { recursive: true, force: true });
+    }
+  });
+
+  /**
+   * Story #4824 — an ALL-DISCARDED roll-up is the other invisible shape.
+   *
+   * Every candidate fell under the ≥2 threshold, so nothing was filed; the
+   * row rendered as a bare `` `category` ×1 `` and the operator had no way to
+   * tell a genuine one-off from a systemic defect whose window was too narrow
+   * to see it recur. The row — and the machine-readable step result — must
+   * name the recurring fingerprint and its cross-Story count instead.
+   */
+  it('names the discarded fingerprint and its cross-run count', async () => {
+    const comments = [];
+    const tempRoot = makeTempDir('rollup-discarded-');
+    const config = {
+      github: { owner: 'o', repo: 'r' },
+      project: { paths: { tempRoot } },
+    };
+    try {
+      // One occurrence, in one Story — below the threshold, so the whole
+      // roll-up discards.
+      await emitRuntimeFriction({
+        storyId: 9101,
+        category: RUNTIME_FRICTION_CATEGORIES.TOOL_DEGRADED,
+        tool: 'native-review-lint',
+        details: {
+          surface: 'scoped-lint',
+          reason: 'lint runner produced no parseable output',
+        },
+        config,
+      });
+
+      const result = await runPlanRunEpilogue({
+        planRunId: 'adhoc-9101-9102',
+        stories: [9101, 9102],
+        provider: rollupProvider(comments),
+        config,
+        cwd: process.cwd(),
+      });
+
+      const rollup = result.results.find((r) => r.kind === 'follow-up-rollup');
+      assert.equal(rollup.filed, 0, 'nothing clears the threshold');
+      assert.equal(rollup.emptyRollupSuspect, false);
+      assert.equal(rollup.discarded.length, 1);
+
+      const [item] = rollup.discarded;
+      assert.equal(item.category, 'tool-degraded');
+      assert.equal(item.occurrences, 1);
+      assert.equal(item.storyCount, 1, 'the cross-run count is named');
+      assert.deepEqual(item.tools, ['native-review-lint']);
+      assert.match(item.fingerprint, /^[0-9a-f]{8}$/);
+      assert.equal(
+        item.source,
+        'framework',
+        'a tool that could not execute is a framework-surface failure',
+      );
+
+      const body = comments.find((c) => /### follow-ups/.test(c.body))?.body;
+      assert.doesNotMatch(
+        body,
+        /nothing to follow up/,
+        'an all-discarded roll-up must not render as a clean run',
+      );
+      assert.match(body, /Below threshold \(not filed\)/);
+      assert.match(body, /`tool-degraded` ×1/);
+      assert.match(body, /across 1 Story/);
+      assert.match(body, /via `native-review-lint`/);
+      assert.match(body, new RegExp(`fingerprint \`${item.fingerprint}\``));
+      assert.match(body, new RegExp(`"fingerprint": "${item.fingerprint}"`));
+    } finally {
+      rmSync(tempRoot, { recursive: true, force: true });
+    }
+  });
+
+  /**
+   * The recurrence window is what turns the row above into a filing: the same
+   * defect firing once in each of two Stories reaches the threshold, where
+   * the pre-#4824 run-scoped gather scored it 1 on each and discarded both.
+   */
+  it('files a defect recurring once per Story across the surviving window', async () => {
+    const comments = [];
+    const tempRoot = makeTempDir('rollup-recurrence-');
+    const config = {
+      github: { owner: 'o', repo: 'r' },
+      project: { paths: { tempRoot } },
+      // The graduator is a no-op, so the assertion reads the composed
+      // proposals rather than a live GitHub filing.
+      delivery: { feedbackLoop: { retroProposals: false } },
+    };
+    try {
+      for (const storyId of [9201, 9202]) {
+        await emitRuntimeFriction({
+          storyId,
+          category: RUNTIME_FRICTION_CATEGORIES.TOOL_DEGRADED,
+          tool: 'native-review-lint',
+          details: {
+            surface: 'scoped-lint',
+            reason: 'lint runner produced no parseable output',
+          },
+          config,
+        });
+      }
+
+      const result = await runPlanRunEpilogue({
+        planRunId: 'adhoc-9201-9202',
+        stories: [9201, 9202],
+        provider: rollupProvider(comments),
+        config,
+        cwd: process.cwd(),
+      });
+
+      const rollup = result.results.find((r) => r.kind === 'follow-up-rollup');
+      assert.equal(rollup.signalCount, 2);
+      assert.deepEqual(rollup.discarded, [], 'no longer below the threshold');
+
+      const body = comments.find((c) => /### follow-ups/.test(c.body))?.body;
+      assert.match(body, /Actionable \(not auto-filed\)/);
+      assert.match(body, /framework: Friction: tool-degraded recurred 2 times/);
     } finally {
       rmSync(tempRoot, { recursive: true, force: true });
     }

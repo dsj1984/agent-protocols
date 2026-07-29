@@ -14,8 +14,10 @@
  */
 
 import assert from 'node:assert/strict';
+import { EventEmitter } from 'node:events';
 import test from 'node:test';
 
+import { graduateRetroProposals } from '../../../.agents/scripts/lib/feedback-loop/retro-proposals-graduator.js';
 import { composeRoutedProposals } from '../../../.agents/scripts/lib/orchestration/retro-proposals.js';
 
 const FRAMEWORK_REPO = 'dsj1984/mandrel';
@@ -422,8 +424,17 @@ test('isActionableFriction: story anchor discards a singleton, same as run', () 
     }),
   );
   assert.deepEqual(out.framework, []);
+  // Story #4824 widened DiscardedItem with the descriptive fields a
+  // below-threshold roll-up needs to name what it discarded.
   assert.deepEqual(out.discarded, [
-    { category: 'lint-loop', occurrences: 1, source: 'framework' },
+    {
+      category: 'lint-loop',
+      occurrences: 1,
+      source: 'framework',
+      tools: [],
+      fingerprint: out.discarded[0].fingerprint,
+      storyCount: 1,
+    },
   ]);
 });
 
@@ -457,4 +468,156 @@ test('anchorKind still selects the wording', () => {
     baseInput({ signals: [closeFailed(42), closeFailed(42)] }),
   );
   assert.match(run.framework[0].title, /in plan-run 2547/);
+});
+
+// --- Story #4824: the framework bucket is reachable end to end -------------
+
+/**
+ * Route `gh` child processes for the graduator walk. Both read probes report
+ * empty (nothing filed yet), and `gh issue create` records the `--repo` it
+ * was invoked with — which is the whole assertion: a framework-sourced
+ * proposal must file against `frameworkRepo`, never `currentRepo`.
+ */
+function makeGhSpawnStub() {
+  const created = [];
+  const fn = function spawnImpl(cmd, args) {
+    const child = new EventEmitter();
+    child.stdout = new EventEmitter();
+    child.stderr = new EventEmitter();
+    let result = { stdout: '', code: 0 };
+    if (cmd !== 'gh') {
+      result = { stdout: '', code: 1 };
+    } else if (args[0] === 'search') {
+      result = { stdout: '[]', code: 0 };
+    } else if (args[0] === 'issue' && args[1] === 'list') {
+      result = { stdout: '[]', code: 0 };
+    } else if (args[0] === 'issue' && args[1] === 'create') {
+      const repoIdx = args.indexOf('--repo');
+      const labels = [];
+      for (let i = 0; i < args.length; i += 1) {
+        if (args[i] === '--label') labels.push(args[i + 1]);
+      }
+      created.push({ repo: repoIdx >= 0 ? args[repoIdx + 1] : null, labels });
+      result = {
+        stdout: `https://github.com/x/y/issues/${created.length}`,
+        code: 0,
+      };
+    }
+    queueMicrotask(() => {
+      if (result.stdout) child.stdout.emit('data', Buffer.from(result.stdout));
+      child.emit('close', result.code);
+    });
+    return child;
+  };
+  fn.created = created;
+  return fn;
+}
+
+const stubProvider = {
+  getTicketComments: async () => [],
+  postComment: async () => ({ commentId: 1 }),
+  deleteComment: async () => {},
+};
+
+test('framework-sourced signals compose a non-empty framework bucket', () => {
+  // Pre-#4824 no production path could produce a framework-tagged signal at
+  // all, so this bucket was permanently empty and everything downstream of it
+  // was dead code.
+  const out = composeRoutedProposals(
+    baseInput({
+      signals: [
+        {
+          category: 'tool-degraded',
+          source: 'framework',
+          storyId: 8601,
+          tool: 'native-review-lint',
+        },
+        {
+          category: 'tool-degraded',
+          source: 'framework',
+          storyId: 8602,
+          tool: 'native-review-lint',
+        },
+      ],
+    }),
+  );
+  assert.equal(out.framework.length, 1);
+  assert.equal(out.consumer.length, 0);
+  assert.equal(out.framework[0].category, 'tool-degraded');
+  assert.match(
+    out.framework[0].command,
+    new RegExp(`--repo ${FRAMEWORK_REPO}`),
+  );
+});
+
+test('graduateRetroProposals files the framework bucket against frameworkRepo', async () => {
+  const spawnImpl = makeGhSpawnStub();
+  const routedProposals = composeRoutedProposals(
+    baseInput({
+      signals: [
+        { category: 'tool-degraded', source: 'framework', storyId: 8701 },
+        { category: 'tool-degraded', source: 'framework', storyId: 8702 },
+      ],
+    }),
+  );
+
+  const [fwOwner, fwRepo] = FRAMEWORK_REPO.split('/');
+  const result = await graduateRetroProposals({
+    epicId: 8701,
+    provider: stubProvider,
+    config: {},
+    // Running inside the framework repo itself — the cross-repo guard lets
+    // the filing through, so the `--repo` argument is observable.
+    currentRepo: { owner: fwOwner, repo: fwRepo },
+    frameworkRepo: { owner: fwOwner, repo: fwRepo },
+    routedProposals,
+    spawnImpl,
+  });
+
+  assert.equal(result.filed.length, 1);
+  assert.equal(result.filed[0].source, 'framework');
+  assert.equal(result.filed[0].repo, FRAMEWORK_REPO);
+  assert.equal(spawnImpl.created.length, 1);
+  assert.equal(spawnImpl.created[0].repo, FRAMEWORK_REPO);
+  assert.ok(spawnImpl.created[0].labels.includes('meta::framework-gap'));
+});
+
+test('a framework proposal routes to frameworkRepo, not the consumer it ran in', async () => {
+  const spawnImpl = makeGhSpawnStub();
+  const routedProposals = composeRoutedProposals(
+    baseInput({
+      signals: [
+        { category: 'tool-degraded', source: 'framework', storyId: 8801 },
+        { category: 'tool-degraded', source: 'framework', storyId: 8802 },
+      ],
+    }),
+  );
+
+  const [cOwner, cRepo] = CONSUMER_REPO.split('/');
+  const [fwOwner, fwRepo] = FRAMEWORK_REPO.split('/');
+  const result = await graduateRetroProposals({
+    epicId: 8801,
+    provider: stubProvider,
+    config: {},
+    currentRepo: { owner: cOwner, repo: cRepo },
+    frameworkRepo: { owner: fwOwner, repo: fwRepo },
+    routedProposals,
+    spawnImpl,
+  });
+
+  // Cross-repo filings are deferred to a durable comment rather than created
+  // blind in someone else's repo — but the routing target is the framework
+  // repo, and nothing is filed in the consumer.
+  assert.equal(
+    spawnImpl.created.length,
+    0,
+    'never files a framework gap into the consumer repo',
+  );
+  const deferred = result.skipped.find((s) =>
+    /cross-repo/.test(s.reason ?? ''),
+  );
+  assert.ok(
+    deferred,
+    `expected a cross-repo skip; got ${JSON.stringify(result.skipped)}`,
+  );
 });

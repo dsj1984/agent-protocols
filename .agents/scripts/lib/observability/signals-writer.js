@@ -36,10 +36,17 @@ import fs from 'node:fs/promises';
 import path from 'node:path';
 import { createInterface } from 'node:readline';
 
-import { signalsFile, storyTempDir } from '../config/temp-paths.js';
+import {
+  resolvedTempRoot,
+  SIGNALS_BASENAME,
+  STANDALONE_DIRNAME,
+  STORIES_DIRNAME,
+  signalsFile,
+  storyTempDir,
+} from '../config/temp-paths.js';
 import { Logger } from '../Logger.js';
 import { recordSignalReject, validateSignal } from './signal-validator.js';
-import { classifyPathSource } from './source-classifier.js';
+import { classifySignalSource } from './source-classifier.js';
 
 const TRACES_BASENAME = 'traces.ndjson';
 
@@ -69,10 +76,14 @@ function tracesFile(eid, sid, config) {
  *     `"consumer"`, preserve it verbatim — some detectors classify
  *     upstream and we MUST NOT overwrite their intentional tag.
  *   - Otherwise (absent, or any other value — defense in depth against a
- *     stray non-canonical `source`), invoke `classifyPathSource` against
- *     the record's `failingPath` / `path` and `command` /
- *     `emitter.command` fields and inject/overwrite `source` with the
- *     result.
+ *     stray non-canonical `source`), invoke `classifySignalSource` against
+ *     the whole record and inject/overwrite `source` with the result.
+ *
+ * Story #4824 moved the field extraction into the classifier. The writer
+ * used to hand it only `failingPath` / `command`, which meant every
+ * runtime-emitted record — which populates neither — took the `consumer`
+ * default and the framework limb of the feedback loop was unreachable. The
+ * classifier now sees the `category` and `details` it needs to resolve those.
  *
  * @param {unknown} signal
  * @returns {unknown}
@@ -86,14 +97,7 @@ function tagSignalSource(signal) {
     return record;
   }
   try {
-    const failingPath = record.failingPath ?? record.path;
-    const emitter =
-      record.emitter && typeof record.emitter === 'object'
-        ? /** @type {Record<string, unknown>} */ (record.emitter)
-        : null;
-    const command = record.command ?? emitter?.command;
-    const source = classifyPathSource(failingPath, command);
-    return { ...record, source };
+    return { ...record, source: classifySignalSource(record) };
   } catch (err) {
     Logger.warn(
       `signals-writer: source classifier failed (${
@@ -320,4 +324,119 @@ export async function forEachLine(epicId, storyId, cb, config) {
   }
 
   return forEachLineIn(target, cb, 'forEachLine');
+}
+
+/** Matches an Epic run directory (`run-<eid>`) directly under `tempRoot`. */
+const RUN_DIR_RE = /^run-\d+$/;
+
+/** Matches a per-Story directory (`story-<sid>`) under a `stories/` parent. */
+const STORY_DIR_RE = /^story-(\d+)$/;
+
+/**
+ * List directory entries, or `[]` when the directory is absent/unreadable.
+ * Absence is the common case (a fresh checkout has no temp tree at all) and
+ * must not throw — the discovery walk feeds a roll-up that may not fail the
+ * land.
+ *
+ * @param {string} dir
+ * @returns {Promise<import('node:fs').Dirent[]>}
+ */
+async function readDirEntries(dir) {
+  try {
+    return await fs.readdir(dir, { withFileTypes: true });
+  } catch {
+    return [];
+  }
+}
+
+/**
+ * Discover every per-Story `signals.ndjson` surviving under the configured
+ * temp root (Story #4824).
+ *
+ * Both canonical layouts are walked — `<tempRoot>/standalone/stories/story-<sid>/`
+ * (v2 standalone Stories, where every close writes) and
+ * `<tempRoot>/run-<eid>/stories/story-<sid>/` (Epic-attached streams). The
+ * walk is the **recurrence window** the follow-up composer reduces over: a
+ * defect that fires exactly once per Story is invisible inside a single
+ * Story's stream and only becomes a recurrence across the surviving ones.
+ *
+ * Sorted by absolute path so a given tree always yields the same order and
+ * the composed proposals stay byte-identical.
+ *
+ * @param {object} [config]
+ * @returns {Promise<Array<{ storyId: number, file: string }>>}
+ */
+async function listStorySignalStreams(config) {
+  let root;
+  try {
+    root = resolvedTempRoot(config);
+  } catch (err) {
+    Logger.warn(
+      `signals-writer: cannot resolve tempRoot for stream discovery: ${
+        err instanceof Error ? err.message : String(err)
+      }`,
+    );
+    return [];
+  }
+
+  const storiesDirs = [];
+  for (const entry of await readDirEntries(root)) {
+    if (!entry.isDirectory()) continue;
+    if (entry.name !== STANDALONE_DIRNAME && !RUN_DIR_RE.test(entry.name)) {
+      continue;
+    }
+    storiesDirs.push(path.join(root, entry.name, STORIES_DIRNAME));
+  }
+
+  const streams = [];
+  for (const storiesDir of storiesDirs) {
+    for (const entry of await readDirEntries(storiesDir)) {
+      if (!entry.isDirectory()) continue;
+      const match = STORY_DIR_RE.exec(entry.name);
+      if (match === null) continue;
+      streams.push({
+        storyId: Number(match[1]),
+        file: path.join(storiesDir, entry.name, SIGNALS_BASENAME),
+      });
+    }
+  }
+  return streams.sort((a, b) => a.file.localeCompare(b.file));
+}
+
+/**
+ * Stream **every** surviving per-Story `signals.ndjson` under the configured
+ * temp root, invoking `cb(parsed, context)` per parsed row (Story #4824).
+ *
+ * `context` carries `{ storyId, file, lineNumber }` — `storyId` is the
+ * **stream owner** (from the directory name), used only as the fallback when
+ * a row carries no `storyId` of its own; `file` + `lineNumber` identify the
+ * physical row, which is what lets a caller de-duplicate a legacy row that
+ * predates `eventId`.
+ *
+ * Same robustness contract as `forEachLine`: a missing tree, an unreadable
+ * directory, a malformed line, or a throwing callback each degrade to a
+ * warning rather than a rejection.
+ *
+ * @param {(parsed: unknown, context: { storyId: number, file: string, lineNumber: number }) => unknown | Promise<unknown>} cb
+ * @param {object} [config]
+ * @returns {Promise<{ streams: number, linesParsed: number }>}
+ */
+export async function forEachSignalStreamLine(cb, config) {
+  if (typeof cb !== 'function') {
+    Logger.warn(
+      'signals-writer: forEachSignalStreamLine called without a callback',
+    );
+    return { streams: 0, linesParsed: 0 };
+  }
+  const streams = await listStorySignalStreams(config);
+  let linesParsed = 0;
+  for (const { storyId, file } of streams) {
+    const result = await forEachLineIn(
+      file,
+      (parsed, lineNumber) => cb(parsed, { storyId, file, lineNumber }),
+      'forEachSignalStreamLine',
+    );
+    linesParsed += result.linesParsed;
+  }
+  return { streams: streams.length, linesParsed };
 }
