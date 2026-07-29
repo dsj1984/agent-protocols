@@ -820,6 +820,23 @@ describe('graduate — live-API guard fails closed (Story #4837)', () => {
     assert.equal(env.skipped[0]?.reason, 'live-api-guard');
   });
 
+  it('refuses a development context that declared itself via NODE_ENV', async () => {
+    const env = await walkWithoutSeam({
+      env: { NODE_ENV: 'development' },
+      execArgv: [],
+    });
+    assert.equal(env.skipped[0]?.reason, 'live-api-guard');
+  });
+
+  it('refuses a suite environment stamped NODE_ENV=test', async () => {
+    // `lib/test-env.js` stamps this on every process the runner spawns.
+    const env = await walkWithoutSeam({
+      env: { NODE_ENV: 'test' },
+      execArgv: [],
+    });
+    assert.equal(env.skipped[0]?.reason, 'live-api-guard');
+  });
+
   it('fails CLOSED on an unreadable env — undecidable is not production', async () => {
     const env = await walkWithoutSeam({ env: null, execArgv: [] });
     assert.equal(env.skipped[0]?.reason, 'live-api-guard');

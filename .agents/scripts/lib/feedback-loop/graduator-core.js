@@ -114,6 +114,9 @@ const ALLOW_LIVE_FILING_ENV = 'MANDREL_ALLOW_LIVE_ISSUE_FILING';
  */
 const LIVE_FILING_BLOCKED_REASON = 'live-api-guard';
 
+/** `NODE_ENV` values that declare this process is not a production run. */
+const NON_PRODUCTION_NODE_ENVS = new Set(['test', 'development']);
+
 /**
  * Decide whether this process may let the graduator walk reach the live
  * GitHub API (Story #4837).
@@ -132,8 +135,10 @@ const LIVE_FILING_BLOCKED_REASON = 'live-api-guard';
  *      no child process reaches `gh` at all. This is the seam
  *      `.agents/rules/test-seams.md` already mandates, so a well-behaved test
  *      is unaffected.
- *   2. The process provably is **not** a node:test context, per the single
- *      shared detector in `config/temp-paths.js#inNodeTestContext`.
+ *   2. The process provably is **not** a test or development context — not a
+ *      node:test run (per the single shared detector in
+ *      `config/temp-paths.js#inNodeTestContext`) and not a run that declared
+ *      itself non-production via `NODE_ENV`.
  *
  * **Fail closed.** Anything else refuses: a test context with the real
  * `spawn` (the #4833/#4834 shape), and — critically — a context that cannot
@@ -164,7 +169,14 @@ function resolveFilingContext({
   }
   try {
     if (env[ALLOW_LIVE_FILING_ENV] === '1') return allow;
-    return inNodeTestContext(env, execArgv) ? refuse : allow;
+    if (inNodeTestContext(env, execArgv)) return refuse;
+    // A declared non-production environment is the other half of "a test or
+    // development context". `lib/test-env.js` stamps `NODE_ENV=test` on the
+    // whole suite environment, and `development` is the universal marker for
+    // a hand-run session; nothing on the close path sets either.
+    return NON_PRODUCTION_NODE_ENVS.has(String(env.NODE_ENV ?? ''))
+      ? refuse
+      : allow;
   } catch {
     // An env we cannot even read is not evidence of production.
     return refuse;
