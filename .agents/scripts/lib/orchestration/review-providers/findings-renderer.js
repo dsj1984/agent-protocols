@@ -15,6 +15,13 @@
  * @typedef {import('./types.js').Severity} Severity
  */
 
+import {
+  normalizeDegradations,
+  renderDegradedGatesSection,
+  renderDegradedHeaderLines,
+  renderNoFindingsBlock,
+} from './degraded-gates.js';
+
 /**
  * Canonical severity ordering. The render output always lists the
  * severity-tier counts in this order and emits the per-finding sections
@@ -115,6 +122,12 @@ export function renderManualPromptsSection(messages) {
  * manual-prompt provider output; rendered as a trailing section when
  * non-empty.
  *
+ * Story #4839 — an optional `degradations` field names review gates that could
+ * not execute. They are **not** findings and never enter `countBySeverity`; they
+ * render as their own section and suppress the unqualified "no findings" claim,
+ * because a review that could not run a gate has not established that the
+ * gate's surface is clean.
+ *
  * @param {{
  *   ticketId: number,
  *   baseRef: string,
@@ -122,6 +135,7 @@ export function renderManualPromptsSection(messages) {
  *   findings: ReadonlyArray<Finding>,
  *   provider?: string,
  *   promptMessages?: ReadonlyArray<string>,
+ *   degradations?: ReadonlyArray<object>,
  * }} input
  * @returns {string}
  */
@@ -131,6 +145,7 @@ export function renderFindings(input) {
   const counts = countBySeverity(findings);
   const totalKnown =
     counts.critical + counts.high + counts.medium + counts.suggestion;
+  const degraded = normalizeDegradations(input.degradations);
 
   const providerLine = provider
     ? `**Provider**: \`${provider}\``
@@ -142,6 +157,7 @@ export function renderFindings(input) {
     `**Comparison**: \`${baseRef}\` … \`${headRef}\``,
     providerLine,
     `**Findings**: ${totalKnown}`,
+    ...renderDegradedHeaderLines(degraded),
     '',
     '### 📦 Severity Tier Counts',
     '',
@@ -150,12 +166,11 @@ export function renderFindings(input) {
       return `- ${meta.emoji} ${meta.label}: ${counts[sev]}`;
     }),
     '',
+    ...renderDegradedGatesSection(degraded),
   ];
 
   if (totalKnown === 0) {
-    lines.push('### ✅ No findings');
-    lines.push('');
-    lines.push('No issues surfaced by the review provider.');
+    lines.push(...renderNoFindingsBlock(degraded));
   } else {
     for (const sev of SEVERITY_ORDER) {
       const tierFindings = findings.filter((f) => f && f.severity === sev);

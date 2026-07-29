@@ -174,6 +174,10 @@ test('runCodeReview: derives the sensitive-path level from the enumerated diff',
 // --- Byte-compatible output envelope --------------------------------------
 
 test('runCodeReview: output envelope keys are byte-compatible across depths', async () => {
+  // `degraded` / `degradations` were added deliberately by Story #4839 so the
+  // close pipeline can tell "a gate ran and found nothing" from "a gate never
+  // ran". The invariant this test guards is unchanged: the key set must be
+  // identical across every depth, and `depth` must never leak into it.
   const EXPECTED_KEYS = [
     'status',
     'severity',
@@ -182,6 +186,8 @@ test('runCodeReview: output envelope keys are byte-compatible across depths', as
     'postedCommentId',
     'commentTargetId',
     'halted',
+    'degraded',
+    'degradations',
     'blockerReason',
   ].sort();
 

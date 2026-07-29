@@ -12,11 +12,19 @@
  *     findings, healthy tier is filtered out.
  *   - No GitHub provider methods are called from the adapter.
  *   - Invalid input shapes throw a TypeError.
+ *
+ * Story #4839 — adds the reproduction + regression set for the defect that made
+ * this gate fail open on ~78% of deliveries: the markdown runner was spawned
+ * under a bin name nothing installs, one runner's failure was folded into the
+ * other's verdict, and biome's empty-scope exit was read as a broken runner.
+ * Plus the visibility contract: a degraded gate is reported on the review
+ * outcome (provider channel + rendered comment) while still emitting zero
+ * findings, so #4699's severity-tier intent survives.
  */
 
 import assert from 'node:assert/strict';
 import test from 'node:test';
-
+import { renderFindings } from '../../../../.agents/scripts/lib/orchestration/review-providers/findings-renderer.js';
 import {
   analyzeChangedFiles,
   buildLintFindings,
@@ -63,6 +71,8 @@ test('parseLintOutput: biome error + warning counts captured', () => {
     warnings: 3,
     parsed: true,
     executionFailed: false,
+    emptyScope: false,
+    reason: null,
   });
 });
 
@@ -657,4 +667,378 @@ test('runReview: a lint runner that cannot execute records friction telemetry an
   assert.equal(frictionCalls[0].storyId, 4699);
   assert.equal(frictionCalls[0].category, 'tool-degraded');
   assert.equal(frictionCalls[0].tool, 'native-review-lint');
+});
+
+/* ------------------------------------------------------------------------ */
+/* Story #4839 — why the runner could not execute, and why nobody noticed   */
+/* ------------------------------------------------------------------------ */
+
+/** A `node_modules/.bin` probe that reports only the named bins as installed. */
+function binsInstalled(...names) {
+  return (probePath) => names.some((n) => probePath.endsWith(`.bin/${n}`));
+}
+
+/** Record every `(bin, args)` the scoped-lint gate spawns. */
+function recordingRunner(byBin) {
+  const calls = [];
+  const runner = (bin, args) => {
+    calls.push({ bin, args });
+    return byBin[bin] ?? { status: 0, stdout: '', stderr: '' };
+  };
+  return { calls, runner };
+}
+
+test('runScopedLint: resolves the installed markdownlint-cli2 bin, never the bare `markdownlint` name (Story #4839 root cause)', () => {
+  const { calls, runner } = recordingRunner({
+    'markdownlint-cli2': {
+      status: 0,
+      stdout: 'Finding: README.md\nLinting: 1 file(s)\nSummary: 0 error(s)\n',
+      stderr: '',
+    },
+  });
+
+  const out = runScopedLint(['README.md'], '/repo', runner, {
+    existsFn: binsInstalled('markdownlint-cli2', 'biome'),
+  });
+
+  assert.deepEqual(
+    calls.map((c) => c.bin),
+    ['markdownlint-cli2'],
+    'the gate must spawn the bin that is actually installed',
+  );
+  assert.equal(
+    calls[0].args.includes('--ignore'),
+    false,
+    'markdownlint-cli2 rejects the cli-v1 --ignore flag; it must not be passed',
+  );
+  assert.equal(
+    out.executionFailed,
+    false,
+    'a resolvable runner whose Summary line parses is not a degraded gate',
+  );
+  assert.deepEqual(out.degradations, []);
+});
+
+test('runScopedLint: an unresolvable markdown runner degrades that surface by name instead of failing open', () => {
+  const { calls, runner } = recordingRunner({});
+
+  const out = runScopedLint(['README.md'], '/repo', runner, {
+    existsFn: binsInstalled('biome'),
+  });
+
+  assert.equal(
+    calls.length,
+    0,
+    'no markdown runner is spawned when none exists',
+  );
+  assert.equal(out.executionFailed, true);
+  assert.deepEqual(out.degradations, [
+    { surface: 'markdownlint', reason: 'runner-not-installed' },
+  ]);
+});
+
+test('runScopedLint: a degraded markdown surface no longer poisons the biome verdict (Story #4839)', () => {
+  const { runner } = recordingRunner({
+    biome: { status: 1, stdout: 'Found 3 errors.\n', stderr: '' },
+  });
+
+  const out = runScopedLint(['a.js', 'README.md'], '/repo', runner, {
+    existsFn: binsInstalled('biome'),
+  });
+
+  assert.equal(
+    out.errors,
+    3,
+    "biome's real error count must survive a sibling runner's failure",
+  );
+  assert.deepEqual(
+    out.degradations.map((d) => d.surface),
+    ['markdownlint'],
+    'only the surface that could not run is reported degraded',
+  );
+});
+
+test('runScopedLint: a clean biome run plus a working markdown runner is not degraded (the pre-fix false positive)', () => {
+  const { runner } = recordingRunner({
+    biome: {
+      status: 0,
+      stdout: 'Checked 1 file in 4ms. No fixes applied.\n',
+      stderr: '',
+    },
+    'markdownlint-cli2': {
+      status: 0,
+      stdout: 'Summary: 0 error(s)\n',
+      stderr: '',
+    },
+  });
+
+  const out = runScopedLint(['a.js', 'README.md'], '/repo', runner, {
+    existsFn: binsInstalled('markdownlint-cli2'),
+  });
+
+  assert.equal(out.executionFailed, false);
+  assert.equal(out.errors, 0);
+  assert.deepEqual(out.degradations, []);
+});
+
+test("parseLintOutput: biome's empty-scope exit is not an execution failure (Story #4839)", () => {
+  const out = parseLintOutput({
+    status: 1,
+    stdout: 'Checked 0 files in 484µs. No fixes applied.\n',
+    stderr:
+      '  × No files were processed in the specified paths.\n  i Check your biome.json\n',
+  });
+
+  assert.equal(
+    out.executionFailed,
+    false,
+    'every supplied path being config-ignored is an empty scope, not a broken runner',
+  );
+  assert.equal(out.emptyScope, true);
+});
+
+test('parseLintOutput: an unresolvable npx bin is reported as runner-not-resolvable', () => {
+  const out = parseLintOutput({
+    status: 1,
+    stdout: '',
+    stderr: 'npm error could not determine executable to run\n',
+  });
+
+  assert.equal(out.executionFailed, true);
+  assert.equal(out.reason, 'runner-not-resolvable');
+});
+
+test('runScopedLint: falls back to markdownlint (cli v1) with its own --ignore arg shape', () => {
+  const { calls, runner } = recordingRunner({
+    markdownlint: { status: 0, stdout: 'Summary: 0 error(s)\n', stderr: '' },
+  });
+
+  const out = runScopedLint(['docs/a.md'], '/repo', runner, {
+    existsFn: binsInstalled('markdownlint'),
+  });
+
+  assert.deepEqual(calls, [
+    { bin: 'markdownlint', args: ['docs/a.md', '--ignore', 'node_modules'] },
+  ]);
+  assert.equal(out.executionFailed, false);
+});
+
+test('runReview: a degraded lint gate is visible on the outcome channel while emitting zero findings (Story #4839 AC-2/AC-3/AC-4)', async () => {
+  const frictionCalls = [];
+  const provider = createNativeProvider({
+    gitSpawnFn: fakeDiff('README.md\n'),
+    runScopedLintFn: () => ({
+      errors: 0,
+      warnings: 0,
+      parsed: false,
+      executionFailed: true,
+      skipped: false,
+      mode: 'changed-only',
+      degradations: [
+        { surface: 'markdownlint', reason: 'runner-not-installed' },
+      ],
+    }),
+    analyzeChangedFilesFn: async () => ({
+      totalFiles: 1,
+      jsFiles: 0,
+      maintainability: [],
+      criticalFindings: [],
+      mediumFindings: [],
+    }),
+    emitToolDegradationFn: async (args) => {
+      frictionCalls.push(args);
+      return true;
+    },
+  });
+
+  const findings = await provider.runReview({
+    scope: 'story',
+    ticketId: 4839,
+    baseRef: 'main',
+    headRef: 'story-4839',
+  });
+
+  // AC-3: no severity tier gains a row — the degradation is not a finding.
+  assert.deepEqual(findings, []);
+  // AC-4: the friction emission is unchanged.
+  assert.equal(frictionCalls.length, 1);
+  assert.equal(frictionCalls[0].category, 'tool-degraded');
+  assert.equal(frictionCalls[0].tool, 'native-review-lint');
+  // AC-2: and the outcome now says the gate did not run.
+  assert.deepEqual(provider.getDegradations(), [
+    {
+      tool: 'native-review-lint',
+      gate: 'scoped-lint',
+      surface: 'markdownlint',
+      reason: 'runner-not-installed',
+    },
+  ]);
+});
+
+test('runReview: a legacy summary carrying only executionFailed still degrades the outcome, never silently', async () => {
+  const provider = createNativeProvider({
+    gitSpawnFn: fakeDiff('README.md\n'),
+    runScopedLintFn: () => ({
+      errors: 0,
+      warnings: 0,
+      parsed: false,
+      executionFailed: true,
+      skipped: false,
+      mode: 'changed-only',
+    }),
+    analyzeChangedFilesFn: async () => ({
+      totalFiles: 1,
+      jsFiles: 0,
+      maintainability: [],
+      criticalFindings: [],
+      mediumFindings: [],
+    }),
+    emitToolDegradationFn: async () => true,
+  });
+
+  await provider.runReview({
+    scope: 'story',
+    ticketId: 4839,
+    baseRef: 'main',
+    headRef: 'story-4839',
+  });
+
+  assert.deepEqual(provider.getDegradations(), [
+    {
+      tool: 'native-review-lint',
+      gate: 'scoped-lint',
+      surface: 'scoped-lint',
+      reason: 'unparseable-output',
+    },
+  ]);
+});
+
+test('runReview: a lint gate that executes reports no degradation, and a re-run clears the previous one (AC-5)', async () => {
+  const provider = createNativeProvider({
+    gitSpawnFn: fakeDiff('README.md\n'),
+    runScopedLintFn: () => ({
+      errors: 0,
+      warnings: 0,
+      parsed: true,
+      executionFailed: false,
+      skipped: false,
+      mode: 'changed-only',
+      degradations: [],
+    }),
+    analyzeChangedFilesFn: async () => ({
+      totalFiles: 1,
+      jsFiles: 0,
+      maintainability: [],
+      criticalFindings: [],
+      mediumFindings: [],
+    }),
+    emitToolDegradationFn: async () => {
+      throw new Error('friction must not be emitted for a healthy gate');
+    },
+  });
+
+  const findings = await provider.runReview({
+    scope: 'story',
+    ticketId: 4839,
+    baseRef: 'main',
+    headRef: 'story-4839',
+  });
+
+  assert.deepEqual(findings, []);
+  assert.deepEqual(
+    provider.getDegradations(),
+    [],
+    'a healthy gate must not report a degradation',
+  );
+});
+
+test('runReview: lint errors from an executing runner still surface as a high finding alongside no degradation (AC-5)', async () => {
+  const provider = createNativeProvider({
+    gitSpawnFn: fakeDiff('a.js\n'),
+    runScopedLintFn: () => ({
+      errors: 2,
+      warnings: 1,
+      parsed: true,
+      executionFailed: false,
+      skipped: false,
+      mode: 'changed-only',
+      degradations: [],
+    }),
+    analyzeChangedFilesFn: async () => ({
+      totalFiles: 1,
+      jsFiles: 1,
+      maintainability: [],
+      criticalFindings: [],
+      mediumFindings: [],
+    }),
+  });
+
+  const findings = await provider.runReview({
+    scope: 'story',
+    ticketId: 4839,
+    baseRef: 'main',
+    headRef: 'story-4839',
+  });
+
+  assert.deepEqual(
+    findings.map((f) => f.severity),
+    ['high'],
+    'lint errors collapse into a single high finding (warnings ride in its body)',
+  );
+  assert.match(findings[0].title, /2 error\(s\)/);
+  assert.deepEqual(provider.getDegradations(), []);
+});
+
+test('renderFindings: a degraded gate suppresses the unqualified "No findings" claim (Story #4839 AC-2)', () => {
+  const degradations = [
+    {
+      tool: 'native-review-lint',
+      gate: 'scoped-lint',
+      surface: 'markdownlint',
+      reason: 'runner-not-installed',
+    },
+  ];
+
+  const degradedBody = renderFindings({
+    ticketId: 4839,
+    baseRef: 'main',
+    headRef: 'story-4839',
+    findings: [],
+    provider: 'native',
+    degradations,
+  });
+
+  assert.equal(
+    degradedBody.includes('### ✅ No findings'),
+    false,
+    'a review that could not run a gate must never render an unqualified clean verdict',
+  );
+  assert.match(degradedBody, /Degraded gates\*\*: 1 \(did not run\)/);
+  assert.match(degradedBody, /### ⚠️ Degraded Gates \(1\)/);
+  assert.match(degradedBody, /scoped-lint.+markdownlint.+runner-not-installed/);
+  assert.match(degradedBody, /### ⚠️ No findings — 1 gate\(s\) did not run/);
+
+  // AC-3: the severity tally is untouched — the degradation is not a finding.
+  assert.match(degradedBody, /- 🔴 Critical Blocker: 0/);
+  assert.match(degradedBody, /- 🟠 High Risk: 0/);
+  assert.match(degradedBody, /- 🟡 Medium Risk: 0/);
+  assert.match(degradedBody, /- 🟢 Suggestion: 0/);
+  assert.match(degradedBody, /\*\*Findings\*\*: 0/);
+});
+
+test('renderFindings: a healthy review body is byte-identical with an absent or empty degradation list (AC-5)', () => {
+  const base = {
+    ticketId: 4839,
+    baseRef: 'main',
+    headRef: 'story-4839',
+    findings: [],
+    provider: 'native',
+  };
+
+  const withoutField = renderFindings(base);
+  const withEmpty = renderFindings({ ...base, degradations: [] });
+
+  assert.equal(withEmpty, withoutField);
+  assert.match(withoutField, /### ✅ No findings/);
+  assert.equal(withoutField.includes('Degraded'), false);
 });
