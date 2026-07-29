@@ -47,6 +47,7 @@
 import { spawn as defaultSpawn } from 'node:child_process';
 import { createHash } from 'node:crypto';
 
+import { inNodeTestContext } from '../config/temp-paths.js';
 import { LABEL_COLORS } from '../label-constants.js';
 import { classifyPathSource as defaultClassifier } from '../observability/source-classifier.js';
 import {
@@ -96,6 +97,79 @@ export const DEFAULT_MAX_FILINGS_PER_RUN = 20;
  * findings on the Epic. Registered in `STRUCTURED_COMMENT_TYPES`.
  */
 export const CROSS_REPO_DEFERRED_COMMENT_TYPE = 'cross-repo-deferred';
+
+/**
+ * Explicit, greppable opt-back-in to live issue filing from a context the
+ * guard below refuses (Story #4837). Deliberately shaped like
+ * `MANDREL_TEST_ALLOW_REAL_TEMP` (`config/temp-paths.js`) rather than a new
+ * bespoke flag: same env-var idiom, same "an escape hatch must be visible in
+ * a grep" posture.
+ */
+const ALLOW_LIVE_FILING_ENV = 'MANDREL_ALLOW_LIVE_ISSUE_FILING';
+
+/**
+ * Skip reason recorded for every finding a refused filing context drops.
+ * Module-local: it reaches callers as data on the returned envelope, so
+ * exporting the constant would only add a symbol nothing imports.
+ */
+const LIVE_FILING_BLOCKED_REASON = 'live-api-guard';
+
+/**
+ * Decide whether this process may let the graduator walk reach the live
+ * GitHub API (Story #4837).
+ *
+ * **Why this exists.** Issues #4833 and #4834 were created against the live
+ * `dsj1984/mandrel` tracker — from fixture findings anchored to `epic-101`
+ * and `epic-777` — by a development run of the filing path. Nothing in the
+ * walk distinguished "a real close is filing a real follow-up" from "someone
+ * is exercising this module", so the only thing standing between a test and
+ * the production tracker was the author remembering to stub `spawnImpl`.
+ *
+ * **The seam.** There are exactly two ways to be safe, and this returns
+ * `allowed` only for them:
+ *
+ *   1. `spawnImpl` was injected — the walk then spawns the caller's stub and
+ *      no child process reaches `gh` at all. This is the seam
+ *      `.agents/rules/test-seams.md` already mandates, so a well-behaved test
+ *      is unaffected.
+ *   2. The process provably is **not** a node:test context, per the single
+ *      shared detector in `config/temp-paths.js#inNodeTestContext`.
+ *
+ * **Fail closed.** Anything else refuses: a test context with the real
+ * `spawn` (the #4833/#4834 shape), and — critically — a context that cannot
+ * be *decided*, because an unreadable env is not evidence of production. The
+ * refusal is a skip, not a throw: observability must never fail a close.
+ *
+ * @param {object} opts
+ * @param {Function} [opts.spawnImpl]
+ * @param {NodeJS.ProcessEnv} [opts.env]
+ * @param {string[]} [opts.execArgv]
+ * @returns {{ allowed: boolean, reason: string|null }}
+ */
+function resolveFilingContext({
+  spawnImpl,
+  env = process.env,
+  execArgv = process.execArgv,
+} = {}) {
+  const refuse = { allowed: false, reason: LIVE_FILING_BLOCKED_REASON };
+  const allow = { allowed: true, reason: null };
+
+  // An injected seam cannot reach the live API by construction.
+  if (typeof spawnImpl === 'function') return allow;
+
+  // Undecidable context → refuse. Both inputs must be readable for the
+  // detector's answer to mean anything.
+  if (env === null || typeof env !== 'object' || !Array.isArray(execArgv)) {
+    return refuse;
+  }
+  try {
+    if (env[ALLOW_LIVE_FILING_ENV] === '1') return allow;
+    return inNodeTestContext(env, execArgv) ? refuse : allow;
+  } catch {
+    // An env we cannot even read is not evidence of production.
+    return refuse;
+  }
+}
 
 /**
  * Compute a stable content fingerprint for a finding from its
@@ -282,7 +356,7 @@ export async function probePathStatus({
  * inside an HTML comment, yet a query that carries the `<!--` / `-->`
  * delimiters never matches that indexed text (measured against this repo,
  * Story #4657). Stripping the delimiters and trimming yields the bare marker
- * text — `retro-proposal-followup: epic-1-<fp>` — which the index matches.
+ * text — `retro-proposal-followup: <fp>` — which the index matches.
  * The caller-facing marker is left untouched; normalization is the probe's
  * own concern.
  *
@@ -295,15 +369,38 @@ function normalizeMarkerQuery(marker) {
 }
 
 /**
- * Probe whether a follow-up issue carrying the given idempotency marker
- * already exists in the routed repo. Uses `gh search issues` so we hit
- * the body field directly, querying the delimiter-stripped marker text
- * (see {@link normalizeMarkerQuery}) — the raw `<!-- … -->` form never
- * matches the index. Returns `true` when at least one match is present;
- * degrades to `false` on any spawn/parse error (better to risk a duplicate
- * than swallow the finding entirely).
+ * Normalize one `gh` issue row (from `search issues` or `issue list`) into
+ * the identity the update path needs. `state` is lowercased and defaults to
+ * the empty string — deliberately NOT to `'open'`: an unknown state must
+ * never authorize editing somebody's issue (see
+ * {@link resolveFollowUpRecurrence}).
+ *
+ * @param {object} row
+ * @returns {{ number: number|null, state: string, url: string }}
  */
-export async function probeMarkerExists({
+function toFollowUpRef(row) {
+  const number = Number(row?.number);
+  return {
+    number: Number.isInteger(number) && number > 0 ? number : null,
+    state: String(row?.state ?? '').toLowerCase(),
+    url: typeof row?.url === 'string' ? row.url : '',
+  };
+}
+
+/**
+ * Search the routed repo for a follow-up carrying `marker`, resolving the
+ * matched issue's identity rather than a bare yes/no. Uses `gh search issues`
+ * so we hit the body field directly, querying the delimiter-stripped marker
+ * text (see {@link normalizeMarkerQuery}) — the raw `<!-- … -->` form never
+ * matches the index.
+ *
+ * Returns `null` when nothing matched OR when the probe could not decide
+ * (spawn/parse error): the deliberate degrade-toward-filing posture, better
+ * to risk a duplicate than swallow the finding entirely.
+ *
+ * @returns {Promise<{ number: number|null, state: string, url: string }|null>}
+ */
+async function searchFollowUpByMarker({
   marker,
   owner,
   repo,
@@ -319,40 +416,60 @@ export async function probeMarkerExists({
     '--repo',
     `${owner}/${repo}`,
     '--json',
-    'number',
+    'number,state,url',
     '--limit',
     '1',
   ];
   const res = await runChild({ cmd: ghPath, args, spawnImpl, cwd, timeoutMs });
   if (res.spawnError || (typeof res.code === 'number' && res.code !== 0)) {
-    return false;
+    return null;
   }
   try {
     const parsed = JSON.parse(res.stdout || '[]');
-    return Array.isArray(parsed) && parsed.length > 0;
+    if (!Array.isArray(parsed) || parsed.length === 0) return null;
+    return toFollowUpRef(parsed[0]);
   } catch {
-    return false;
+    return null;
   }
 }
 
 /**
- * Strongly-consistent confirmation that a follow-up carrying `marker`
- * already exists, run ONLY on the would-file path as the last gate before
- * creating. `gh search issues` reads an eventually-consistent index whose
- * catch-up latency (measured under 20s against this repo, Story #4657) is
- * exactly wide enough to miss a byte-identical duplicate filed seconds
- * earlier in the same rollup. A label-scoped `gh issue list … --state all`
- * is strongly consistent, so it closes that window. The list is narrowed by
- * the follow-up's own labels (supplied by the same `spec.buildFollowUp` that
- * writes the marker, so the two agree by construction) to keep the read
- * bounded, and the marker is matched as a substring of each returned body.
+ * Probe whether a follow-up issue carrying the given idempotency marker
+ * already exists in the routed repo. Thin boolean façade over
+ * {@link searchFollowUpByMarker} — kept as the module's exported probe seam
+ * so callers that only need the yes/no do not have to know about the issue
+ * identity the recurrence path resolves.
  *
- * Degrades to `false` (i.e. proceed to file) on any spawn/parse error — the
+ * @returns {Promise<boolean>}
+ */
+export async function probeMarkerExists(opts) {
+  return (await searchFollowUpByMarker(opts)) !== null;
+}
+
+/**
+ * Strongly-consistent lookup of an already-filed follow-up, run ONLY on the
+ * would-file path as the last gate before creating. `gh search issues` reads
+ * an eventually-consistent index whose catch-up latency (measured under 20s
+ * against this repo, Story #4657) is exactly wide enough to miss a
+ * byte-identical duplicate filed seconds earlier in the same rollup. A
+ * label-scoped `gh issue list … --state all` is strongly consistent, so it
+ * closes that window. The list is narrowed by the follow-up's own labels
+ * (supplied by the same `spec.buildFollowUp` that writes the marker, so the
+ * two agree by construction) to keep the read bounded.
+ *
+ * `markers` is a LIST of body substrings, any one of which identifies a prior
+ * filing (Story #4837). One finding can have been filed under more than one
+ * marker shape — the retro graduator's pre-cutover marker embedded the run
+ * anchor, so the same finding sits behind `epic-<anchor>-<fp>` on already-
+ * filed issues and behind the anchor-free `<fp>` on new ones. Matching any of
+ * them is what stops a marker-format change from re-filing the whole backlog.
+ *
+ * Returns `null` when nothing matched, or on any spawn/parse error — the
  * deliberate degrade-toward-filing posture: an undecidable probe risks a
  * duplicate rather than swallowing the finding.
  *
  * @param {object} opts
- * @param {string} opts.marker — the content-hash marker embedded in the body.
+ * @param {string[]} opts.markers — body substrings identifying a prior filing.
  * @param {string} opts.owner
  * @param {string} opts.repo
  * @param {string[]} [opts.labels] — the follow-up's labels; scopes the list.
@@ -360,10 +477,10 @@ export async function probeMarkerExists({
  * @param {Function} [opts.spawnImpl]
  * @param {string} [opts.cwd]
  * @param {number} [opts.timeoutMs]
- * @returns {Promise<boolean>}
+ * @returns {Promise<{ number: number|null, state: string, url: string }|null>}
  */
-async function confirmMarkerFiled({
-  marker,
+async function findExistingFollowUp({
+  markers,
   owner,
   repo,
   labels,
@@ -372,6 +489,10 @@ async function confirmMarkerFiled({
   cwd,
   timeoutMs,
 }) {
+  const tokens = (Array.isArray(markers) ? markers : []).filter(
+    (m) => typeof m === 'string' && m.length > 0,
+  );
+  if (tokens.length === 0) return null;
   const args = [
     'issue',
     'list',
@@ -380,24 +501,82 @@ async function confirmMarkerFiled({
     '--state',
     'all',
     '--json',
-    'number,body',
+    'number,body,state,url',
   ];
   for (const label of Array.isArray(labels) ? labels : []) {
     args.push('--label', label);
   }
   const res = await runChild({ cmd: ghPath, args, spawnImpl, cwd, timeoutMs });
   if (res.spawnError || (typeof res.code === 'number' && res.code !== 0)) {
-    return false;
+    return null;
   }
+  let parsed;
   try {
-    const parsed = JSON.parse(res.stdout || '[]');
-    if (!Array.isArray(parsed)) return false;
-    return parsed.some(
-      (issue) => typeof issue?.body === 'string' && issue.body.includes(marker),
-    );
+    parsed = JSON.parse(res.stdout || '[]');
   } catch {
-    return false;
+    return null;
   }
+  if (!Array.isArray(parsed)) return null;
+  const matches = parsed.filter(
+    (issue) =>
+      typeof issue?.body === 'string' &&
+      tokens.some((token) => issue.body.includes(token)),
+  );
+  if (matches.length === 0) return null;
+  // Prefer an OPEN match: a recurrence updates the live issue, while a closed
+  // one is a decided follow-up. When several match, the open one is the one a
+  // human is still looking at.
+  const open = matches.find(
+    (issue) => String(issue?.state ?? '').toLowerCase() === 'open',
+  );
+  return toFollowUpRef(open ?? matches[0]);
+}
+
+/**
+ * Refresh an existing follow-up's body in place — the recurrence path
+ * (Story #4837). A finding that recurs is the SAME finding: the loop's job is
+ * to keep one issue current, not to mint issue #N+1 whose only new
+ * information is that the count went up.
+ *
+ * Body-only: labels, title, assignees and state are left exactly as a human
+ * may have curated them.
+ *
+ * @returns {Promise<{ url: string|null, error: string|null }>}
+ */
+async function updateFollowUpIssue({
+  owner,
+  repo,
+  number,
+  body,
+  ghPath,
+  spawnImpl,
+  cwd,
+  timeoutMs,
+}) {
+  const res = await runChild({
+    cmd: ghPath,
+    args: [
+      'issue',
+      'edit',
+      String(number),
+      '--repo',
+      `${owner}/${repo}`,
+      '--body',
+      body,
+    ],
+    spawnImpl,
+    cwd,
+    timeoutMs,
+  });
+  if (res.spawnError || (typeof res.code === 'number' && res.code !== 0)) {
+    return {
+      url: null,
+      error: res.spawnError
+        ? `gh issue edit spawn failed: ${res.spawnError.message}`
+        : `gh issue edit exited ${res.code}: ${(res.stderr || '').trim()}`,
+    };
+  }
+  return { url: (res.stdout || '').trim(), error: null };
 }
 
 /** Prefix of the per-category friction axis the feedback loop mints. */
@@ -690,8 +869,12 @@ async function loadGraduateFindings({ epicId, provider, spec }) {
  * content-hash marker AND the legacy `(epicId, parse-index)` marker so
  * findings filed before the fingerprint cutover are not re-filed. The
  * content-hash marker is passed in precomputed so a caller can consult an
- * in-process memo before spending a spawn. Returns the `alreadyFiled`
- * decision.
+ * in-process memo before spending a spawn.
+ *
+ * Resolves `{ alreadyFiled, existing }` — `existing` carries the matched
+ * issue's `{ number, state, url }` when the search index surfaced it, so a
+ * recurrence can update that issue rather than only knowing that one exists.
+ * `existing` is `null` on the not-found path.
  */
 async function resolveAlreadyFiled({
   finding,
@@ -705,7 +888,7 @@ async function resolveAlreadyFiled({
   spec,
 }) {
   const probe = (marker) =>
-    probeMarkerExists({
+    searchFollowUpByMarker({
       marker,
       owner: routedRepo.owner,
       repo: routedRepo.repo,
@@ -715,18 +898,86 @@ async function resolveAlreadyFiled({
       timeoutMs,
     });
 
-  if (await probe(contentMarker)) {
-    return { alreadyFiled: true };
-  }
+  const hit = await probe(contentMarker);
+  if (hit) return { alreadyFiled: true, existing: hit };
   // Legacy recognition — a pre-cutover follow-up carries the ordinal
   // marker, not the content hash. Skip re-filing when it is present.
   if (typeof spec.buildLegacyMarker === 'function') {
     const legacyMarker = spec.buildLegacyMarker(epicId, finding.index);
-    if (legacyMarker && (await probe(legacyMarker))) {
-      return { alreadyFiled: true };
+    if (legacyMarker) {
+      const legacyHit = await probe(legacyMarker);
+      if (legacyHit) return { alreadyFiled: true, existing: legacyHit };
     }
   }
-  return { alreadyFiled: false };
+  return { alreadyFiled: false, existing: null };
+}
+
+/**
+ * Resolve what a recurrence of an already-identified follow-up should do
+ * (Story #4837), and fold the outcome into the running envelope.
+ *
+ * An **open** issue with a resolvable number is refreshed in place and
+ * recorded on `envelope.filed` with `action: 'updated'` — same array as a
+ * creation, because both are live writes this run performed and the roll-up
+ * that reports "filed" must count them alike.
+ *
+ * Anything else records `already-filed` and touches nothing: a closed
+ * follow-up is a decided one (reopening it would relitigate a human's call),
+ * and an unresolvable number or state is not licence to edit an issue we
+ * cannot identify.
+ *
+ * @returns {Promise<boolean>} `true` when the recurrence was handled here.
+ */
+async function resolveFollowUpRecurrence({
+  existing,
+  body,
+  finding,
+  source,
+  routedRepo,
+  envelope,
+  decorate,
+  skip,
+  ghPath,
+  spawnImpl,
+  cwd,
+  timeoutMs,
+}) {
+  if (existing.state !== 'open' || existing.number === null) {
+    skip('already-filed');
+    return true;
+  }
+  const updated = await updateFollowUpIssue({
+    owner: routedRepo.owner,
+    repo: routedRepo.repo,
+    number: existing.number,
+    body,
+    ghPath,
+    spawnImpl,
+    cwd,
+    timeoutMs,
+  });
+  if (updated.error) {
+    envelope.errors.push(
+      `finding ${finding.index} (${finding.path}): ${updated.error}`,
+    );
+    return true;
+  }
+  envelope.filed.push(
+    decorate(
+      {
+        index: finding.index,
+        action: 'updated',
+        issueNumber: existing.number,
+        severity: finding.severity,
+        path: finding.path,
+        source,
+        repo: `${routedRepo.owner}/${routedRepo.repo}`,
+        url: updated.url || existing.url || null,
+      },
+      finding,
+    ),
+  );
+  return true;
 }
 
 /**
@@ -810,7 +1061,7 @@ async function processGraduateFinding({
   // race the eventually-consistent search index cannot.
   if (filedMarkers?.has(contentMarker)) return skip('already-filed');
 
-  const { alreadyFiled } = await resolveAlreadyFiled({
+  const { alreadyFiled, existing } = await resolveAlreadyFiled({
     finding,
     epicId,
     routedRepo,
@@ -821,22 +1072,41 @@ async function processGraduateFinding({
     timeoutMs,
     spec,
   });
-  if (alreadyFiled) return skip('already-filed');
-
-  // Per-run filing cap — count only actual filings (already-filed and
-  // skipped findings do not consume the budget). The excess is surfaced so
-  // a re-run picks it up next time.
-  if (envelope.filed.length >= maxFilingsPerRun) return skip('cap-reached');
 
   // Resolve the follow-up (title/body/labels) BEFORE the dedup decision so
   // the strong read can scope its `gh issue list` by the very labels this
-  // filing would carry (they agree with the marker by construction).
+  // filing would carry (they agree with the marker by construction), and so
+  // the recurrence path has the refreshed body to write.
   const { title, body, labels } = spec.buildFollowUp({
     finding,
     source,
     epicId,
     idMarker: contentMarker,
   });
+
+  if (alreadyFiled) {
+    filedMarkers?.add(contentMarker);
+    await resolveFollowUpRecurrence({
+      existing,
+      body,
+      finding,
+      source,
+      routedRepo,
+      envelope,
+      decorate,
+      skip,
+      ghPath,
+      spawnImpl,
+      cwd,
+      timeoutMs,
+    });
+    return;
+  }
+
+  // Per-run filing cap — bounds the live writes this run performs. Checked
+  // only on the would-file path: an `already-filed` finding resolved above
+  // never reaches here. The excess is surfaced so a re-run picks it up.
+  if (envelope.filed.length >= maxFilingsPerRun) return skip('cap-reached');
 
   // Mint any routing label the repo does not carry yet (Story #4828). This
   // runs BEFORE the strong read as well as before the create: `gh issue list
@@ -865,8 +1135,11 @@ async function processGraduateFinding({
   // label-scoped `gh issue list` before creating. Skipped entirely on the
   // already-filed path above, so it never fires when the search probe
   // already matched.
-  const confirmed = await confirmMarkerFiled({
-    marker: contentMarker,
+  const confirmed = await findExistingFollowUp({
+    markers:
+      typeof spec.buildMatchTokens === 'function'
+        ? spec.buildMatchTokens({ epicId, finding, contentMarker })
+        : [contentMarker],
     owner: routedRepo.owner,
     repo: routedRepo.repo,
     labels,
@@ -877,7 +1150,21 @@ async function processGraduateFinding({
   });
   if (confirmed) {
     filedMarkers?.add(contentMarker);
-    return skip('already-filed');
+    await resolveFollowUpRecurrence({
+      existing: confirmed,
+      body,
+      finding,
+      source,
+      routedRepo,
+      envelope,
+      decorate,
+      skip,
+      ghPath,
+      spawnImpl,
+      cwd,
+      timeoutMs,
+    });
+    return;
   }
 
   const created = await createFollowUpIssue({
@@ -902,6 +1189,7 @@ async function processGraduateFinding({
     decorate(
       {
         index: finding.index,
+        action: 'created',
         severity: finding.severity,
         path: finding.path,
         source,
@@ -982,6 +1270,11 @@ async function persistCrossRepoDeferred({
  *     marker embedded in (and searched for in) follow-up bodies.
  *   - `buildLegacyMarker(epicId, index)` — the pre-cutover ordinal marker,
  *     probed for idempotency so legacy filings are not duplicated.
+ *   - `buildMatchTokens({ epicId, finding, contentMarker })` — optional; the
+ *     body substrings the strong read accepts as proof of a prior filing.
+ *     Defaults to `[contentMarker]`. A graduator whose marker format changed
+ *     returns the old shape here too, so the cutover recognizes the backlog
+ *     it already filed instead of duplicating it.
  *   - `buildFollowUp({ finding, source, epicId, idMarker })` — returns
  *     `{ title, body, labels }` for the issue to file.
  *   - `buildCrossRepoLog({ finding, routedRepo, source })` — returns the
@@ -1017,9 +1310,14 @@ async function persistCrossRepoDeferred({
  *   live label set, so the just-in-time label mint (Story #4828) costs one
  *   `gh label list` per routed repo rather than one per finding. Share it
  *   across the calls of one logical invocation, like `filedMarkers`.
+ * @param {NodeJS.ProcessEnv} [opts.env] — injectable for the blast-radius
+ *   guard's context decision; defaults to `process.env`.
+ * @param {string[]} [opts.execArgv] — ditto; defaults to `process.execArgv`.
  * @param {{info?: Function, warn?: Function, debug?: Function}} [opts.logger]
  * @param {object} opts.spec — the per-graduator behaviour bundle
  * @returns {Promise<{ filed: object[], skipped: object[], errors: string[] }>}
+ *   Each `filed` record carries `action: 'created'|'updated'` — both are live
+ *   writes this run performed, so a roll-up counting "filed" counts both.
  */
 export async function graduate({
   epicId,
@@ -1037,6 +1335,8 @@ export async function graduate({
   findings: preParsedFindings,
   filedMarkers = new Set(),
   labelCache = new Map(),
+  env,
+  execArgv,
   logger,
   spec,
 }) {
@@ -1064,6 +1364,33 @@ export async function graduate({
     const loaded = await loadGraduateFindings({ epicId, provider, spec });
     if (!loaded.findings) return { ...envelope, ...loaded };
     findings = loaded.findings;
+  }
+
+  // Blast-radius guard (Story #4837): decided ONCE per walk, before the
+  // first spawn, so a refused context costs no child process at all.
+  const filing = resolveFilingContext({
+    spawnImpl,
+    ...(env === undefined ? {} : { env }),
+    ...(execArgv === undefined ? {} : { execArgv }),
+  });
+  if (!filing.allowed) {
+    logger?.warn?.(
+      `[${spec.fnName}] refusing to reach the live GitHub API: no injected spawn seam in a test or undecidable context. Set ${ALLOW_LIVE_FILING_ENV}=1 to override deliberately.`,
+    );
+    for (const finding of findings) {
+      envelope.skipped.push(
+        decorate(
+          {
+            index: finding.index,
+            reason: filing.reason,
+            path: finding.path,
+            severity: finding.severity,
+          },
+          finding,
+        ),
+      );
+    }
+    return envelope;
   }
 
   const crossRepoDeferred = [];

@@ -54,6 +54,10 @@ function makeSpawnStub(routes) {
       result = routes.ghCreate
         ? routes.ghCreate(args)
         : { stdout: 'https://github.com/o/r/issues/1', stderr: '', code: 0 };
+    } else if (args[0] === 'issue' && args[1] === 'edit') {
+      result = routes.ghEdit
+        ? routes.ghEdit(args)
+        : { stdout: 'https://github.com/o/r/issues/1', stderr: '', code: 0 };
     } else {
       result = { stdout: '', stderr: '', code: 0 };
     }
@@ -494,7 +498,9 @@ describe('graduate — dedup dispatch (Story #4657)', () => {
     const provider = {
       getTicketComments: async () => [{ body: '<!-- test-marker --> FIND' }],
     };
-    // Search already reports a match → no gh issue list spawn.
+    // Search already reports a match → no gh issue list spawn. The match
+    // carries no `state`, which since Story #4837 is deliberately NOT read as
+    // open: an unknown state never authorizes an edit, so this stays a skip.
     const spawnImpl = makeSpawnStub({
       git: () => ({ code: 0 }),
       ghSearch: () => ({ stdout: '[{"number":1}]', code: 0 }),
@@ -541,5 +547,332 @@ describe('graduate — dedup dispatch (Story #4657)', () => {
     });
     assert.equal(env.filed.length, 1, 'degrade-toward-filing preserved');
     assert.equal(env.filed[0].url, 'https://x/issues/11');
+  });
+});
+
+/**
+ * Story #4837 — a recurrence updates the issue it already filed.
+ *
+ * Dedup used to mean "do not file a second issue this run". With an
+ * anchor-free identity it means one issue per finding over time, so the
+ * loop's job on every subsequent sighting is to keep that issue current
+ * rather than to fall silent (or, before the identity fix, to open issue
+ * N+1 whose only new information was that the count went up).
+ */
+describe('graduate — recurrence updates the open follow-up (Story #4837)', () => {
+  const currentRepo = { owner: 'o', repo: 'r' };
+  const provider = {
+    getTicketComments: async () => [{ body: '<!-- test-marker --> FIND' }],
+  };
+
+  it('edits the existing open issue in place and never creates a second one', async () => {
+    // Arrange — the search index already holds an OPEN follow-up.
+    const spawnImpl = makeSpawnStub({
+      git: () => ({ code: 0 }),
+      ghSearch: () => ({
+        stdout: JSON.stringify([
+          { number: 4836, state: 'open', url: 'https://x/issues/4836' },
+        ]),
+        code: 0,
+      }),
+      // `gh issue edit` echoes the edited issue's URL, as the real CLI does.
+      ghEdit: () => ({ stdout: 'https://x/issues/4836\n', code: 0 }),
+    });
+
+    // Act.
+    const env = await graduate({
+      epicId: 42,
+      provider,
+      currentRepo,
+      classifier: () => 'consumer',
+      spawnImpl,
+      spec: makeSpec(),
+    });
+
+    // Assert — one live write, and it was an edit of #4836.
+    assert.equal(env.filed.length, 1);
+    assert.equal(env.filed[0].action, 'updated');
+    assert.equal(env.filed[0].issueNumber, 4836);
+    assert.equal(env.filed[0].url, 'https://x/issues/4836');
+    assert.ok(
+      !spawnImpl.calls.some(
+        (c) => c.args[0] === 'issue' && c.args[1] === 'create',
+      ),
+      'no second issue was created for a finding already filed',
+    );
+    const editCall = spawnImpl.calls.find(
+      (c) => c.args[0] === 'issue' && c.args[1] === 'edit',
+    );
+    assert.ok(editCall, 'the existing issue was edited');
+    assert.equal(editCall.args[2], '4836');
+    const bodyIdx = editCall.args.indexOf('--body') + 1;
+    assert.match(
+      editCall.args[bodyIdx],
+      /<!-- f-42-0 --> consumer 42/,
+      'the edit writes the freshly rendered body, not the stale one',
+    );
+  });
+
+  it('leaves a CLOSED follow-up alone — decided is not reopened, nor re-filed', async () => {
+    // Arrange — the only match is closed (the #4833/#4834 shape).
+    const spawnImpl = makeSpawnStub({
+      git: () => ({ code: 0 }),
+      ghSearch: () => ({
+        stdout: JSON.stringify([
+          { number: 4834, state: 'closed', url: 'https://x/issues/4834' },
+        ]),
+        code: 0,
+      }),
+    });
+
+    // Act.
+    const env = await graduate({
+      epicId: 42,
+      provider,
+      currentRepo,
+      classifier: () => 'consumer',
+      spawnImpl,
+      spec: makeSpec(),
+    });
+
+    // Assert — nothing was written at all.
+    assert.equal(env.filed.length, 0);
+    assert.equal(env.skipped[0]?.reason, 'already-filed');
+    assert.ok(
+      !spawnImpl.calls.some(
+        (c) =>
+          c.args[0] === 'issue' &&
+          (c.args[1] === 'edit' || c.args[1] === 'create'),
+      ),
+      'a closed follow-up is neither edited nor duplicated',
+    );
+  });
+
+  it('updates a match the eventually-consistent search missed but the strong read found', async () => {
+    // Arrange — search index cold; the strongly-consistent list has it open.
+    const spawnImpl = makeSpawnStub({
+      git: () => ({ code: 0 }),
+      ghSearch: () => ({ stdout: '[]', code: 0 }),
+      ghList: () => ({
+        stdout: JSON.stringify([
+          {
+            number: 51,
+            body: 'preamble <!-- f-42-0 --> tail',
+            state: 'OPEN',
+            url: 'https://x/issues/51',
+          },
+        ]),
+        code: 0,
+      }),
+    });
+
+    // Act.
+    const env = await graduate({
+      epicId: 42,
+      provider,
+      currentRepo,
+      classifier: () => 'consumer',
+      spawnImpl,
+      spec: makeSpec(),
+    });
+
+    // Assert.
+    assert.equal(env.filed.length, 1);
+    assert.equal(env.filed[0].action, 'updated');
+    assert.equal(env.filed[0].issueNumber, 51);
+    assert.ok(
+      !spawnImpl.calls.some(
+        (c) => c.args[0] === 'issue' && c.args[1] === 'create',
+      ),
+    );
+  });
+
+  it('accepts any of the spec-supplied match tokens as proof of a prior filing', async () => {
+    // Arrange — the stored body carries an OLD marker shape only. Without a
+    // match-token seam, a marker-format change re-files the whole backlog.
+    const spawnImpl = makeSpawnStub({
+      git: () => ({ code: 0 }),
+      ghSearch: () => ({ stdout: '[]', code: 0 }),
+      ghList: () => ({
+        stdout: JSON.stringify([
+          {
+            number: 88,
+            body: '<!-- legacy-shape-42-0 -->',
+            state: 'open',
+            url: 'https://x/issues/88',
+          },
+        ]),
+        code: 0,
+      }),
+    });
+
+    // Act.
+    const env = await graduate({
+      epicId: 42,
+      provider,
+      currentRepo,
+      classifier: () => 'consumer',
+      spawnImpl,
+      spec: makeSpec({
+        buildMatchTokens: ({ contentMarker }) => [
+          contentMarker,
+          '<!-- legacy-shape-42-0 -->',
+        ],
+      }),
+    });
+
+    // Assert.
+    assert.equal(env.filed[0]?.issueNumber, 88);
+    assert.ok(
+      !spawnImpl.calls.some(
+        (c) => c.args[0] === 'issue' && c.args[1] === 'create',
+      ),
+      'the pre-cutover filing was recognized, not duplicated',
+    );
+  });
+
+  it('a failed edit lands in errors[] rather than throwing', async () => {
+    const spawnImpl = makeSpawnStub({
+      git: () => ({ code: 0 }),
+      ghSearch: () => ({
+        stdout: JSON.stringify([
+          { number: 9, state: 'open', url: 'https://x/issues/9' },
+        ]),
+        code: 0,
+      }),
+      ghEdit: () => ({ stdout: '', stderr: 'nope', code: 1 }),
+    });
+    const env = await graduate({
+      epicId: 42,
+      provider,
+      currentRepo,
+      classifier: () => 'consumer',
+      spawnImpl,
+      spec: makeSpec(),
+    });
+    assert.equal(env.filed.length, 0);
+    assert.match(env.errors[0], /gh issue edit exited 1: nope/);
+  });
+});
+
+/**
+ * Story #4837 — the blast-radius guard.
+ *
+ * Issues #4833 and #4834 were created against the live `dsj1984/mandrel`
+ * tracker by a development run of this walk, from fixture findings anchored
+ * to `epic-101` / `epic-777`. Nothing distinguished that from a real close,
+ * so the only thing between a test and the production tracker was the author
+ * remembering to stub `spawnImpl`.
+ *
+ * Every case below is a REFUSAL case, deliberately: a test asserting that a
+ * production-shaped context is allowed would, if the guard were wrong, be
+ * the very live call this Story exists to prevent. The allow path is covered
+ * throughout this file instead — every suite above injects `spawnImpl` and
+ * files successfully, which is exactly the sanctioned seam.
+ *
+ * `maxFilingsPerRun: 0` bounds the blast radius further: were the guard to
+ * fail to fire, the cap short-circuits before any label mint or issue create,
+ * so a broken guard surfaces as a `cap-reached` reason (a failing assertion)
+ * rather than as a written issue.
+ */
+describe('graduate — live-API guard fails closed (Story #4837)', () => {
+  const currentRepo = { owner: 'o', repo: 'r' };
+  const provider = {
+    getTicketComments: async () => [{ body: '<!-- test-marker --> FIND' }],
+  };
+
+  /** Run the walk with NO injected spawn seam. */
+  const walkWithoutSeam = (overrides) =>
+    graduate({
+      epicId: 42,
+      provider,
+      currentRepo,
+      classifier: () => 'consumer',
+      maxFilingsPerRun: 0,
+      spec: makeSpec(),
+      ...overrides,
+    });
+
+  it('refuses this very suite: a node:test context with the real spawn files nothing', async () => {
+    const warnings = [];
+    const env = await walkWithoutSeam({
+      logger: { warn: (m) => warnings.push(m) },
+    });
+    assert.equal(env.filed.length, 0);
+    assert.equal(
+      env.skipped[0]?.reason,
+      'live-api-guard',
+      'the guard decides before the walk spends a single child process',
+    );
+    assert.match(warnings[0] ?? '', /live GitHub API/);
+  });
+
+  it('refuses an explicitly test-flagged context', async () => {
+    const env = await walkWithoutSeam({
+      env: { NODE_TEST_CONTEXT: 'child' },
+      execArgv: [],
+    });
+    assert.equal(env.skipped[0]?.reason, 'live-api-guard');
+  });
+
+  it('refuses a --test runner process', async () => {
+    const env = await walkWithoutSeam({ env: {}, execArgv: ['--test'] });
+    assert.equal(env.skipped[0]?.reason, 'live-api-guard');
+  });
+
+  it('fails CLOSED on an unreadable env — undecidable is not production', async () => {
+    const env = await walkWithoutSeam({ env: null, execArgv: [] });
+    assert.equal(env.skipped[0]?.reason, 'live-api-guard');
+  });
+
+  it('fails CLOSED when execArgv cannot be read', async () => {
+    const env = await walkWithoutSeam({ env: {}, execArgv: null });
+    assert.equal(env.skipped[0]?.reason, 'live-api-guard');
+  });
+
+  it('fails CLOSED when reading the env throws', async () => {
+    const hostile = new Proxy(
+      {},
+      {
+        get() {
+          throw new Error('env unreadable');
+        },
+      },
+    );
+    const env = await walkWithoutSeam({ env: hostile, execArgv: [] });
+    assert.equal(env.skipped[0]?.reason, 'live-api-guard');
+  });
+
+  it('an injected spawn seam is always allowed — it cannot reach the API', async () => {
+    const spawnImpl = makeSpawnStub({
+      git: () => ({ code: 0 }),
+      ghSearch: () => ({ stdout: '[]', code: 0 }),
+      ghCreate: () => ({ stdout: 'https://x/issues/2', code: 0 }),
+    });
+    const env = await graduate({
+      epicId: 42,
+      provider,
+      currentRepo,
+      classifier: () => 'consumer',
+      spawnImpl,
+      spec: makeSpec(),
+    });
+    assert.equal(env.filed[0]?.action, 'created');
+  });
+
+  it('the refusal is per-finding and decorated, never a silent empty envelope', async () => {
+    const env = await walkWithoutSeam({
+      spec: makeSpec({
+        parseFindings: () => [
+          { severity: 'low', path: 'src/a.js', summary: 's', index: 0 },
+          { severity: 'low', path: 'src/b.js', summary: 's', index: 1 },
+        ],
+      }),
+    });
+    assert.equal(env.skipped.length, 2);
+    assert.deepEqual(
+      env.skipped.map((s) => s.path),
+      ['src/a.js', 'src/b.js'],
+    );
   });
 });

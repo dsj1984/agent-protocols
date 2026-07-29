@@ -693,6 +693,144 @@ test('the run epilogue input shape routes rather than returning an empty result'
   assert.deepEqual(out.discarded, [], 'nothing sat below the threshold');
 });
 
+/**
+ * Story #4837 — an auto-filed issue must be actionable by someone who was
+ * not in the run.
+ *
+ * Story #4824 put the emitting tools, a details fingerprint and a
+ * distinct-Story span on the aggregate entry, but projected them only onto
+ * the discarded rows. The one bucket that became a real GitHub issue was
+ * still rendered from a category and a count.
+ */
+test('AC-5: a rendered body names the emitter, surface, reason and contributing Stories', () => {
+  // Arrange — one category, two emitters, three Stories.
+  const signals = [
+    {
+      category: 'close-failed',
+      source: 'framework',
+      storyId: 4801,
+      tool: 'single-story-close',
+      details: { surface: 'close-validation', reason: 'coverage gate crashed' },
+    },
+    {
+      category: 'close-failed',
+      source: 'framework',
+      storyId: 4807,
+      tool: 'single-story-close',
+      details: { surface: 'close-validation', reason: 'coverage gate crashed' },
+    },
+    {
+      category: 'close-failed',
+      source: 'framework',
+      storyId: 4828,
+      tool: 'merge-watch',
+      details: {
+        surface: 'auto-merge',
+        reason: 'required check never reported',
+      },
+    },
+  ];
+
+  // Act.
+  const out = composeRoutedProposals(baseInput({ anchorId: 4801, signals }));
+
+  // Assert — every piece of evidence the reader needs is in the body.
+  const { body } = out.framework[0];
+  assert.match(body, /Emitted by: merge-watch, single-story-close/);
+  assert.match(body, /Surface: auto-merge, close-validation/);
+  assert.match(body, /Reason: .*coverage gate crashed/);
+  assert.match(body, /Reason: .*required check never reported/);
+  assert.match(body, /Contributing Stories \(3\): #4801, #4807, #4828/);
+  assert.match(body, /Shape fingerprint: [0-9a-f]{8}/);
+});
+
+test('AC-6: the finding behind issue #4836 names the scoped-lint surface and its emitter', () => {
+  // Arrange — the real shape `native-review-lint` emits when the scoped lint
+  // runner cannot execute and the review gate fails open (Story #4699).
+  const degraded = (storyId) => ({
+    category: 'tool-degraded',
+    source: 'consumer',
+    storyId,
+    tool: 'native-review-lint',
+    details: {
+      surface: 'scoped-lint',
+      reason:
+        'lint runner produced no parseable output (binary missing, parse failure, or environment issue)',
+    },
+  });
+
+  // Act.
+  const out = composeRoutedProposals(
+    baseInput({
+      anchorId: 4828,
+      signals: [degraded(4828), degraded(4829), degraded(4830)],
+    }),
+  );
+
+  // Assert — the body describes the degraded gate, not just "×3".
+  const item = out.consumer[0];
+  assert.equal(item.category, 'tool-degraded');
+  assert.match(item.body, /Emitted by: native-review-lint/);
+  assert.match(item.body, /Surface: scoped-lint/);
+  assert.match(item.body, /lint runner produced no parseable output/);
+  assert.match(item.body, /Contributing Stories \(3\): #4828, #4829, #4830/);
+
+  // Regression pin: the pre-#4837 body was exactly these two lines and
+  // nothing else — that is what made issue #4836 unactionable.
+  assert.match(
+    item.body,
+    /Recurring friction category "tool-degraded" surfaced 3 times/,
+  );
+  assert.ok(
+    item.body.split('\n').filter((l) => l.startsWith('Emitted by:')).length ===
+      1,
+    'the emitter is named exactly once',
+  );
+
+  // The evidence rides into the pre-drafted command stanza too, so a
+  // toggle-OFF run pastes the same actionable body.
+  assert.match(item.command, /Surface: scoped-lint/);
+});
+
+test('AC-5: a bucket with no evidence renders without empty placeholder lines', () => {
+  // A forced-actionable block carries no aggregated signals to describe.
+  const out = composeRoutedProposals(
+    baseInput({
+      unresolvedBlockedEvents: [
+        { ticketId: 4837, source: 'framework', category: 'story-blocked' },
+      ],
+    }),
+  );
+  const { body } = out.framework[0];
+  assert.ok(!body.includes('Emitted by:'), 'no empty emitter line');
+  assert.ok(!body.includes('Surface:'), 'no empty surface line');
+  assert.ok(!body.includes('Contributing Stories'), 'no empty Stories line');
+  assert.match(body, /Source classification: framework\./);
+});
+
+test('AC-5: the rendered body is byte-stable across signal ordering', () => {
+  // The body is rewritten onto a live issue on every recurrence, so an
+  // ordering-dependent render would churn the issue with no change of meaning.
+  const a = {
+    category: 'lint-loop',
+    source: 'consumer',
+    storyId: 12,
+    tool: 'biome',
+    details: { surface: 's1', reason: 'r1' },
+  };
+  const b = {
+    category: 'lint-loop',
+    source: 'consumer',
+    storyId: 7,
+    tool: 'ast-grep',
+    details: { surface: 's2', reason: 'r2' },
+  };
+  const forward = composeRoutedProposals(baseInput({ signals: [a, b] }));
+  const reversed = composeRoutedProposals(baseInput({ signals: [b, a] }));
+  assert.equal(forward.consumer[0].body, reversed.consumer[0].body);
+  assert.match(forward.consumer[0].body, /Contributing Stories \(2\): #7, #12/);
+});
+
 test('emptyResult is reserved for input the composer cannot use at all', () => {
   const empty = { framework: [], consumer: [], discarded: [] };
   const signals = epilogueCorpus();
