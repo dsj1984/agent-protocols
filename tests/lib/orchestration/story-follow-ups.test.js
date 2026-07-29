@@ -14,6 +14,7 @@ import { runPostLandTail } from '../../../.agents/scripts/lib/orchestration/sing
 import {
   buildFollowUpsCommentBody,
   captureStoryFollowUps,
+  gatherRunFrictionSignals,
   gatherStoryFrictionSignals,
   resolveFollowUpRepos,
 } from '../../../.agents/scripts/lib/orchestration/story-follow-ups.js';
@@ -42,9 +43,19 @@ describe('story follow-ups', () => {
     });
     assert.equal(proposals.framework.length, 0);
     assert.equal(proposals.consumer.length, 0);
+    // Story #4824 widened DiscardedItem with the descriptive fields a
+    // below-threshold roll-up needs to name what it discarded.
     assert.deepEqual(proposals.discarded, [
-      { category: 'lint-loop', occurrences: 1, source: 'framework' },
+      {
+        category: 'lint-loop',
+        occurrences: 1,
+        source: 'framework',
+        tools: [],
+        fingerprint: proposals.discarded[0].fingerprint,
+        storyCount: 1,
+      },
     ]);
+    assert.match(proposals.discarded[0].fingerprint, /^[0-9a-f]{8}$/);
   });
 
   it('still files a genuinely recurring Story friction category', () => {
@@ -149,6 +160,142 @@ describe('gatherStoryFrictionSignals field preservation (Story #4649)', () => {
       { framework: [], consumer: [], discarded: [] },
       'a Story that blocked and self-resolved files nothing',
     );
+  });
+});
+
+/**
+ * Story #4824 — the recurrence WINDOW, not the threshold.
+ *
+ * `gatherRunFrictionSignals` used to reduce over the current run's Story ids
+ * only. A defect that fires exactly once per Story — which is what a systemic
+ * framework defect looks like — therefore scored `occurrences: 1` on every
+ * Story and was discarded as a singleton, on every Story, forever. Eighteen
+ * consecutive Stories filed nothing.
+ *
+ * These drive the REAL writer into a real temp tree and the REAL gather back
+ * out, because that is the only place the bug lived: a composer-level test
+ * fed synthetic multi-Story signals no production gather could produce.
+ */
+describe('cross-Story recurrence window (Story #4824)', () => {
+  let tempRoot;
+  let config;
+
+  beforeEach(async () => {
+    tempRoot = await makeTempDir('recurrence-window-');
+    config = { project: { paths: { tempRoot } } };
+  });
+
+  afterEach(async () => {
+    await fs.rm(tempRoot, { recursive: true, force: true });
+  });
+
+  /** Emit the real `tool-degraded` record a lint-runner failure produces. */
+  const degrade = (storyId) =>
+    emitRuntimeFriction({
+      storyId,
+      category: RUNTIME_FRICTION_CATEGORIES.TOOL_DEGRADED,
+      tool: 'native-review-lint',
+      details: {
+        surface: 'scoped-lint',
+        reason: 'lint runner produced no parseable output',
+      },
+      config,
+    });
+
+  it('AC-4: one occurrence in each of two Stories reaches the threshold', async () => {
+    await degrade(8101);
+    await degrade(8102);
+
+    // The run under way is Story #8102 alone — exactly the shape that used to
+    // discard this defect as a singleton.
+    const signals = await gatherRunFrictionSignals([8102], config);
+    assert.equal(signals.length, 2, 'the window spans both surviving streams');
+
+    const proposals = composeRoutedProposals({
+      anchorId: 8102,
+      anchorKind: 'run',
+      frameworkRepo: 'dsj1984/mandrel',
+      consumerRepo: 'acme/app',
+      signals,
+      unresolvedBlockedEvents: deriveUnresolvedBlockedEvents(signals),
+    });
+    assert.equal(proposals.discarded.length, 0, 'no longer discarded');
+    assert.equal(proposals.framework.length, 1);
+    assert.equal(proposals.framework[0].category, 'tool-degraded');
+    assert.equal(proposals.framework[0].occurrences, 2);
+  });
+
+  it('AC-5: five streams carrying one fingerprint produce exactly one proposal', async () => {
+    for (const sid of [8201, 8202, 8203, 8204, 8205]) await degrade(sid);
+
+    const signals = await gatherRunFrictionSignals([8205], config);
+    assert.equal(signals.length, 5);
+
+    const proposals = composeRoutedProposals({
+      anchorId: 8205,
+      anchorKind: 'run',
+      frameworkRepo: 'dsj1984/mandrel',
+      consumerRepo: 'acme/app',
+      signals,
+    });
+    assert.equal(
+      proposals.framework.length + proposals.consumer.length,
+      1,
+      'recurrence files one proposal, never one per occurrence',
+    );
+    assert.equal(proposals.framework[0].occurrences, 5);
+  });
+
+  it('counts an event once even though the run Story is also walked', async () => {
+    // The gather reads the run's own Story explicitly AND rediscovers it in
+    // the temp-tree walk. Without `eventId` de-duplication that inflates a
+    // genuine singleton into a fabricated recurrence.
+    await degrade(8301);
+
+    const signals = await gatherRunFrictionSignals([8301], config);
+    assert.equal(signals.length, 1);
+
+    const proposals = composeRoutedProposals({
+      anchorId: 8301,
+      anchorKind: 'run',
+      frameworkRepo: 'dsj1984/mandrel',
+      consumerRepo: 'acme/app',
+      signals,
+    });
+    assert.equal(proposals.framework.length, 0);
+    assert.equal(proposals.discarded.length, 1);
+    assert.equal(proposals.discarded[0].occurrences, 1);
+  });
+
+  it('walks Epic-attached streams as well as standalone ones', async () => {
+    await emitRuntimeFriction({
+      storyId: 8401,
+      epicId: 9001,
+      category: RUNTIME_FRICTION_CATEGORIES.TOOL_DEGRADED,
+      tool: 'local-lens-review',
+      details: { surface: 'lens-materialization', reason: 'ENOENT' },
+      config,
+    });
+    await degrade(8402);
+
+    const signals = await gatherRunFrictionSignals([8402], config);
+    assert.equal(signals.length, 2, 'run-<eid>/stories/ is in the window too');
+    assert.deepEqual(signals.map((s) => s.storyId).sort(), [8401, 8402]);
+  });
+
+  it('returns no signals when the temp tree does not exist', async () => {
+    const missing = { project: { paths: { tempRoot: `${tempRoot}/absent` } } };
+    assert.deepEqual(await gatherRunFrictionSignals([1, 2], missing), []);
+  });
+
+  it('tags a runtime tool-degradation framework end to end (Story #4824)', async () => {
+    // The classification limb and the window limb meet here: the record is
+    // written by the real writer, so its `source` is whatever
+    // `tagSignalSource` decided — which, pre-#4824, was always `consumer`.
+    await degrade(8501);
+    const signals = await gatherRunFrictionSignals([8501], config);
+    assert.equal(signals[0].source, 'framework');
+    assert.equal(signals[0].tool, 'native-review-lint');
   });
 });
 

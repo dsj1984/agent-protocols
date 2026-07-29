@@ -9,11 +9,15 @@
  * @module lib/orchestration/story-follow-ups
  */
 
+import { signalsFile } from '../config/temp-paths.js';
 import { graduateRetroProposals } from '../feedback-loop/retro-proposals-graduator.js';
 import { DEFAULT_FRAMEWORK_REPO } from '../github/framework-repo.js';
 import { Logger } from '../Logger.js';
 import { normalizeGatheredSignal } from '../observability/runtime-friction.js';
-import { forEachLine } from '../observability/signals-writer.js';
+import {
+  forEachLine,
+  forEachSignalStreamLine,
+} from '../observability/signals-writer.js';
 import {
   composeRoutedProposals,
   deriveUnresolvedBlockedEvents,
@@ -83,8 +87,55 @@ export async function gatherStoryFrictionSignals(storyId, config) {
 }
 
 /**
- * Gather friction signals across every Story in a run, for the run-scoped
- * roll-up.
+ * Identity of one physical signal row, for de-duplication.
+ *
+ * `eventId` is minted by every producer (`diagnose-friction.js` and
+ * `runtime-friction.js` both `crypto.randomUUID()` it), so it is the primary
+ * key. A row predating the field falls back to its physical `file:line`,
+ * which is equally stable — the same row read through two passes over the
+ * same tree yields the same coordinates.
+ *
+ * @param {unknown} parsed
+ * @param {string} file
+ * @param {number} lineNumber
+ * @returns {string}
+ */
+function signalIdentity(parsed, file, lineNumber) {
+  const eventId =
+    parsed !== null &&
+    typeof parsed === 'object' &&
+    typeof (/** @type {Record<string, unknown>} */ (parsed).eventId) ===
+      'string'
+      ? /** @type {string} */ (
+          /** @type {Record<string, unknown>} */ (parsed).eventId
+        ).trim()
+      : '';
+  return eventId.length > 0 ? `event:${eventId}` : `row:${file}:${lineNumber}`;
+}
+
+/**
+ * Gather friction signals for the run-scoped roll-up, over the **whole
+ * surviving recurrence window** rather than the run's own Stories
+ * (Story #4824).
+ *
+ * The recurrence threshold in `retro-proposals.js` is ≥ 2 occurrences, and
+ * the window it was measured over was one run's Story ids. A defect that
+ * fires exactly **once per Story** — which is what a systemic framework
+ * defect looks like — therefore scored 1 on every Story and was discarded as
+ * a singleton, forever. Eighteen consecutive Stories filed nothing.
+ *
+ * So the gather reduces over every `signals.ndjson` still present under the
+ * configured temp root: `<tempRoot>/standalone/stories/story-<sid>/` and
+ * `<tempRoot>/run-<eid>/stories/story-<sid>/`. Temp-tree auto-purge
+ * shortening that window is acceptable — a short window under-counts, and
+ * therefore fails toward *not* filing, which is the safe direction.
+ *
+ * The run's own Stories are still gathered explicitly first. The discovery
+ * walk resolves through the identical path helpers, so it is provably a
+ * superset; the explicit pass makes "never fewer signals than before" a
+ * property of the code rather than of an argument about path resolution.
+ * {@link signalIdentity} de-duplicates the overlap, so one event can never be
+ * counted twice and inflate a singleton into a fabricated recurrence.
  *
  * Homed beside {@link gatherStoryFrictionSignals} on purpose: the two used to
  * be independent copies of the same loop in two modules, and they drifted in
@@ -94,17 +145,39 @@ export async function gatherStoryFrictionSignals(storyId, config) {
  * Unusable ids are skipped rather than throwing — a roll-up must not fail the
  * epilogue over one malformed entry.
  *
- * @param {Array<number|string>} storyIds
+ * @param {Array<number|string>} storyIds The run's own Stories.
  * @param {object} [config]
  * @returns {Promise<Array<{ category: string, source: 'framework'|'consumer', storyId: number, details: object }>>}
  */
 export async function gatherRunFrictionSignals(storyIds, config) {
   const signals = [];
+  const seen = new Set();
+  const take = (parsed, fallbackStoryId, identity) => {
+    if (seen.has(identity)) return;
+    seen.add(identity);
+    const signal = normalizeGatheredSignal(parsed, fallbackStoryId);
+    if (signal) signals.push(signal);
+  };
+
   for (const raw of Array.isArray(storyIds) ? storyIds : []) {
     const sid = Number(raw);
     if (!Number.isInteger(sid) || sid <= 0) continue;
-    signals.push(...(await gatherStoryFrictionSignals(sid, config)));
+    const file = signalsFile(null, sid, config);
+    await forEachLine(
+      null,
+      sid,
+      (parsed, lineNumber) =>
+        take(parsed, sid, signalIdentity(parsed, file, lineNumber)),
+      config,
+    );
   }
+
+  await forEachSignalStreamLine(
+    (parsed, { storyId, file, lineNumber }) =>
+      take(parsed, storyId, signalIdentity(parsed, file, lineNumber)),
+    config,
+  );
+
   return signals;
 }
 
@@ -149,6 +222,38 @@ function renderEmptyRollupLines(storyCount) {
     '> means none of those fired. If the run had friction you can name, that',
     '> gap is itself the follow-up worth filing.',
   ];
+}
+
+/**
+ * Render one discarded (below-threshold) roll-up row (Story #4824).
+ *
+ * The pre-#4824 row was `` `category` ×N `` and nothing else. That is exactly
+ * how a defect firing once per Story stayed invisible for eighteen
+ * consecutive Stories: an operator reading "×1" cannot tell a one-off from a
+ * systemic defect whose window was too narrow to see it recur. The row now
+ * names the emitting tools, the bucket fingerprint, and the number of
+ * distinct Stories it spans — the cross-run count the widened recurrence
+ * window produces.
+ *
+ * Every added field is optional so a caller passing a hand-built proposals
+ * object (or an older persisted one) still renders.
+ *
+ * @param {{ category: string, occurrences: number, tools?: string[], fingerprint?: string, storyCount?: number }} item
+ * @returns {string}
+ */
+function renderDiscardedItem(item) {
+  const parts = [`\`${item.category}\` ×${item.occurrences}`];
+  if (Number.isInteger(item.storyCount) && item.storyCount > 0) {
+    const plural = item.storyCount === 1 ? 'Story' : 'Stories';
+    parts.push(`across ${item.storyCount} ${plural}`);
+  }
+  if (Array.isArray(item.tools) && item.tools.length > 0) {
+    parts.push(`via ${item.tools.map((t) => `\`${t}\``).join(', ')}`);
+  }
+  if (typeof item.fingerprint === 'string' && item.fingerprint.length > 0) {
+    parts.push(`fingerprint \`${item.fingerprint}\``);
+  }
+  return parts.join(' — ');
 }
 
 /**
@@ -198,9 +303,9 @@ export function buildFollowUpsCommentBody({
     lines.push('');
   }
   if (discarded.length > 0) {
-    lines.push('**Single-occurrence (not filed)**');
+    lines.push('**Below threshold (not filed)**');
     for (const item of discarded) {
-      lines.push(`- ${item.source}: \`${item.category}\` ×${item.occurrences}`);
+      lines.push(`- ${item.source}: ${renderDiscardedItem(item)}`);
     }
     lines.push('');
   }
@@ -221,7 +326,16 @@ export function buildFollowUpsCommentBody({
         storyCount,
         framework: framework.map((i) => i.category),
         consumer: consumer.map((i) => i.category),
-        discarded: discarded.map((i) => i.category),
+        // Story #4824 — the machine-readable twin of the row above. A bare
+        // category list could not distinguish a genuine one-off from a
+        // recurrence the window was too narrow to see, so the count, the
+        // cross-Story span, and the shape fingerprint ride along.
+        discarded: discarded.map((i) => ({
+          category: i.category,
+          occurrences: i.occurrences,
+          storyCount: i.storyCount ?? null,
+          fingerprint: i.fingerprint ?? null,
+        })),
         filed: filed.map((i) => ({
           category: i.category,
           url: i.url ?? null,

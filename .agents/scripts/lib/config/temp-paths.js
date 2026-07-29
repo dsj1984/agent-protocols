@@ -457,10 +457,18 @@ export function storyTempDir(eid, sid, config) {
   const checkedEid = storyEpicId(eid);
   const parent =
     checkedEid === null
-      ? path.join(anchorTempRoot(tempRootFrom(config)), 'standalone')
+      ? path.join(anchorTempRoot(tempRootFrom(config)), STANDALONE_DIRNAME)
       : runTempDir(checkedEid, config);
-  return path.join(parent, 'stories', `story-${storyId(sid)}`);
+  return path.join(parent, STORIES_DIRNAME, `story-${storyId(sid)}`);
 }
+
+/**
+ * Basename of a per-Story signal stream. Exported so the reader that
+ * *discovers* streams by walking the temp tree (`signals-writer.js`'s
+ * cross-Story gather, Story #4824) names the same file the writer does,
+ * instead of re-spelling the literal in a second module.
+ */
+export const SIGNALS_BASENAME = 'signals.ndjson';
 
 /**
  * `temp/run-<eid>/stories/story-<sid>/signals.ndjson` — append-only
@@ -472,7 +480,33 @@ export function storyTempDir(eid, sid, config) {
  * @returns {string}
  */
 export function signalsFile(eid, sid, config) {
-  return path.join(storyTempDir(eid, sid, config), 'signals.ndjson');
+  return path.join(storyTempDir(eid, sid, config), SIGNALS_BASENAME);
+}
+
+/**
+ * Directory segment holding the standalone-Story subtree —
+ * `<tempRoot>/standalone/stories/story-<sid>/`. Named here (rather than
+ * inlined in `storyTempDir`) so the cross-Story stream discovery in
+ * `signals-writer.js` can recognise it without re-spelling the literal.
+ */
+export const STANDALONE_DIRNAME = 'standalone';
+
+/**
+ * Directory segment holding the per-Story subtree under either an Epic run
+ * dir or the standalone dir (Story #2940's separator).
+ */
+export const STORIES_DIRNAME = 'stories';
+
+/**
+ * `<tempRoot>` itself, resolved and main-checkout-anchored. The discovery
+ * walk needs the root the named helpers are built from; every other consumer
+ * should keep using a named helper.
+ *
+ * @param {object} [config]
+ * @returns {string}
+ */
+export function resolvedTempRoot(config) {
+  return anchorTempRoot(tempRootFrom(config));
 }
 
 /**

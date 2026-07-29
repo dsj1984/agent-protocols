@@ -602,6 +602,18 @@ async function executeFollowUpRollup({
     signalCount: signals.length,
     storyCount: stories.length,
     filed: graduated.filed?.length ?? 0,
+    // Story #4824 — a roll-up that discards every candidate must still name
+    // what it discarded. Rendering that as "nothing to follow up" is how a
+    // defect recurring once per Story survived eighteen consecutive Stories.
+    // Surfaced on the step result so the CLI need not regex the comment body.
+    discarded: proposals.discarded.map((item) => ({
+      category: item.category,
+      occurrences: item.occurrences,
+      source: item.source,
+      storyCount: item.storyCount ?? null,
+      tools: item.tools ?? [],
+      fingerprint: item.fingerprint ?? null,
+    })),
     // Story #4578 — zero signals across a multi-Story run is a claim, not a
     // clean bill of health. Surfaced on the step result so the CLI can warn
     // the operator without re-deriving it from the comment prose.
