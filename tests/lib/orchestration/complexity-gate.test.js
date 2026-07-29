@@ -193,6 +193,7 @@ describe('deriveStoryShape — the deterministic backstop (AC-1, AC-3)', () => {
         changes: [{ path: 'bin/hello.js', assumption: 'creates' }],
         acceptance: ['prints hello'],
       }),
+      storyCount: 1,
       injectedRules: RULES,
     });
     assert.equal(decision.route.route, 'lite');
@@ -509,15 +510,15 @@ describe('resolveStoryDispatchMode — body-derived dispatch (AC-4, AC-5)', () =
     acceptance: ['both sides agree'],
   });
 
-  test('AC-5: a lite-shaped Story executes inline with the route::lite label ABSENT', () => {
+  test('AC-5: a lite-shaped Story derives lite with the route::lite label ABSENT', () => {
     const decision = resolveStoryDispatchMode({
       body: liteBody,
       labels: ['type::story', 'agent::ready'],
+      storyCount: 1,
       injectedRules: RULES,
     });
     assert.equal(decision.mode, 'inline');
     assert.equal(decision.route.route, 'lite');
-    assert.match(decision.reasons[0], /close gates unchanged/i);
     assert.match(
       decision.reasons.at(-1),
       /hint only/i,
@@ -525,13 +526,19 @@ describe('resolveStoryDispatchMode — body-derived dispatch (AC-4, AC-5)', () =
     );
   });
 
-  test('the label present on a lite-shaped Story is consistent — still inline', () => {
+  test('the label present on a lite-shaped Story is consistent — the derived route is unchanged', () => {
     const decision = resolveStoryDispatchMode({
       body: liteBody,
       labels: ['type::story', LITE_ROUTE_LABEL],
+      storyCount: 2,
       injectedRules: RULES,
     });
-    assert.equal(decision.mode, 'inline');
+    assert.equal(decision.route.route, 'lite');
+    assert.equal(
+      decision.mode,
+      'subagent',
+      'the label cannot buy a session a concurrent sibling also needs',
+    );
   });
 
   test('the label NEVER routes: a full-shaped Story with route::lite dispatches subagent', () => {
@@ -688,7 +695,7 @@ describe('resolveStoryDispatchMode — run topology (Story #4736)', () => {
     );
   });
 
-  test('an unknown or non-single run size falls through to the shape decision', () => {
+  test('an unknown or non-single run size is conservative sub-agent dispatch', () => {
     for (const storyCount of [undefined, null, 0, '1', 1.5, -1]) {
       const decision = resolveStoryDispatchMode({
         body: fullBody,
@@ -701,6 +708,116 @@ describe('resolveStoryDispatchMode — run topology (Story #4736)', () => {
         `storyCount=${String(storyCount)} must never be read as a single-Story run`,
       );
     }
+  });
+});
+
+/**
+ * Story #4829 — an `inline` verdict must mean the engine can actually run
+ * inline.
+ *
+ * `inline` names the router's OWN session (deliver-digest § 1). The shape path
+ * used to return it for any lite-shaped body in a multi-Story run, inheriting
+ * none of the topology guard the one-Story rule states for itself. Measured
+ * twice on 2026-07-29 — `/deliver 4824 4825` and `/deliver 4828 4829 4830` —
+ * every Story came back `inline` while `stories-wave-tick.js` reported the
+ * whole set ready under a concurrency cap of five. A router following both
+ * literally runs two or three engines over one session and one checkout. Both
+ * runs were rescued by an operator serialising by hand, which is the invariant
+ * being held by judgment rather than by code.
+ *
+ * These tests pin the two measured cases and the general law behind them.
+ */
+describe('resolveStoryDispatchMode — inline is one session, so one Story (#4829)', () => {
+  /** The shape that used to buy `inline` unconditionally. */
+  const liteBody = storyBody({
+    changes: [{ path: 'bin/hello.js', assumption: 'creates' }],
+    acceptance: ['prints hello'],
+  });
+  const fullBody = storyBody({
+    changes: [
+      { path: 'apps/api/src/handler.js', assumption: 'refactors-existing' },
+      { path: 'apps/web/src/page.js', assumption: 'refactors-existing' },
+    ],
+    acceptance: ['both sides agree'],
+  });
+
+  test('AC-1: the measured two-Story and three-Story runs no longer claim the session', () => {
+    for (const storyCount of [2, 3]) {
+      const decision = resolveStoryDispatchMode({
+        body: liteBody,
+        labels: ['type::story', LITE_ROUTE_LABEL],
+        storyCount,
+        injectedRules: RULES,
+      });
+      assert.equal(
+        decision.mode,
+        'subagent',
+        `a lite-shaped Story in a ${storyCount}-Story run must not be told to run in the router's own session`,
+      );
+      assert.equal(
+        decision.route.route,
+        'lite',
+        'the derived shape is still reported — only its authority over dispatch is gone',
+      );
+      assert.match(
+        decision.reasons[0],
+        /concurrent sibling/i,
+        'the reason must name the premise, so a reader sees WHY a lite shape did not buy inline',
+      );
+    }
+  });
+
+  test('AC-2: the single-Story inline rule is untouched, whatever the shape', () => {
+    for (const body of [liteBody, fullBody, '   ']) {
+      const decision = resolveStoryDispatchMode({
+        body,
+        labels: ['type::story'],
+        storyCount: 1,
+        injectedRules: RULES,
+      });
+      assert.equal(decision.mode, 'inline');
+      assert.match(decision.reasons[0], /single-Story run/i);
+    }
+  });
+
+  test('AC-3: inline implies a resolved set of exactly one — no input contradicts a ready set', () => {
+    // The law, not an example: across every shape, label, gate setting and run
+    // size, an `inline` verdict can only come back for a one-Story run. A ready
+    // set of N > 1 therefore cannot coexist with a Story owning the session.
+    const bodies = [liteBody, fullBody, '', undefined];
+    const labelSets = [[], [LITE_ROUTE_LABEL], ['type::story']];
+    const configs = [
+      undefined,
+      { planning: { complexityGate: { enabled: false } } },
+    ];
+    let inlineSeen = 0;
+    for (const storyCount of [1, 2, 3, 4, 5]) {
+      for (const body of bodies) {
+        for (const labels of labelSets) {
+          for (const config of configs) {
+            const { mode } = resolveStoryDispatchMode({
+              body,
+              labels,
+              config,
+              storyCount,
+              injectedRules: RULES,
+            });
+            if (mode === 'inline') {
+              inlineSeen += 1;
+              assert.equal(
+                storyCount,
+                1,
+                `inline returned for a ${storyCount}-Story run (body=${String(body).slice(0, 24)}, labels=${labels.join('|')}) — the router cannot give one session to ${storyCount} Stories`,
+              );
+            }
+          }
+        }
+      }
+    }
+    assert.ok(
+      inlineSeen > 0,
+      'no inline verdict was produced at all — the law would hold vacuously and prove nothing',
+    );
   });
 });
 
@@ -787,7 +904,6 @@ describe('persist ↔ deliver route round-trip — one shape, two read points', 
         }),
       },
       expectedRoute: 'lite',
-      expectedMode: 'inline',
     },
     {
       name: 'an epic-scope Story routes full from both representations',
@@ -804,7 +920,6 @@ describe('persist ↔ deliver route round-trip — one shape, two read points', 
         }),
       },
       expectedRoute: 'full',
-      expectedMode: 'subagent',
     },
     {
       name: 'a sensitive-footprint Story routes full from both representations',
@@ -818,11 +933,10 @@ describe('persist ↔ deliver route round-trip — one shape, two read points', 
         }),
       },
       expectedRoute: 'full',
-      expectedMode: 'subagent',
     },
   ];
 
-  for (const { name, ticket, expectedRoute, expectedMode } of cases) {
+  for (const { name, ticket, expectedRoute } of cases) {
     test(name, () => {
       const { stories } = assemblePlanStories([ticket]);
 
@@ -836,6 +950,7 @@ describe('persist ↔ deliver route round-trip — one shape, two read points', 
       const deliverSide = resolveStoryDispatchMode({
         body: stories[0].body,
         labels: [],
+        storyCount: 2,
         injectedRules: RULES,
       });
 
@@ -845,7 +960,10 @@ describe('persist ↔ deliver route round-trip — one shape, two read points', 
         persistSide.route,
         'persist and deliver derived different routes from the same Story',
       );
-      assert.equal(deliverSide.mode, expectedMode);
+      // The ROUTE is what round-trips. The MODE is not a function of shape at
+      // all (Story #4829): in a two-Story run every shape dispatches as a
+      // sub-agent, because the router has one session and two Stories.
+      assert.equal(deliverSide.mode, 'subagent');
     });
   }
 });

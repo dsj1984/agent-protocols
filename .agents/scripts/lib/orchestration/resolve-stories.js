@@ -317,21 +317,24 @@ export function buildStoriesEnvelope({
   const inSetDone = sorted.filter(isSatisfiedBlocker).map((s) => s.id);
   return {
     kind: 'stories',
-    // `dispatchMode` (Story #4722): the resolver derives the per-Story
-    // execution mode from the fetched Story BODY's own shape (the shared
-    // shape function in `complexity-gate.js`) so `/deliver` reads one field —
-    // `inline` (lite-shaped: no story-worker / acceptance-critic sub-agent
-    // boots) or `subagent` (everything else, the conservative default). The
-    // `route::lite` label is a human-visible hint only, never the control
-    // signal: a lost label cannot misroute delivery. Model-side fan-out
-    // only; close gates are untouched.
+    // `dispatchMode` (Story #4722, #4736, #4829): the resolver reports the
+    // per-Story execution mode so `/deliver` reads one field — `inline` (run
+    // deliver-story in the router's own session: no story-worker /
+    // acceptance-critic sub-agent boots) or `subagent` (the conservative
+    // default). Model-side fan-out only; close gates are untouched.
     //
-    // `storyCount` (Story #4736) carries the run's topology into that same
-    // decision: a run resolving exactly ONE Story is inline whatever its
-    // shape, because the isolation a sub-agent buys only matters against a
-    // concurrently-dispatched sibling. It is the resolved set size — not the
-    // undelivered remainder — so the mode a caller reads for a given `--ids`
-    // list never changes as siblings land mid-run.
+    // `storyCount` is the premise that decides it, and it is this call site's
+    // load-bearing argument: `inline` names the router's ONE session, so it is
+    // granted only to a run resolving exactly ONE Story, which has no
+    // concurrent sibling to share that session with. Passing the resolved set
+    // size here is therefore what makes the envelope self-consistent with the
+    // ready set `stories-wave-tick.js` computes from the same `dag`: a set of
+    // more than one can never come back with a Story claiming the session
+    // (Story #4829 — it previously could, whenever the body was lite-shaped).
+    // It is the resolved set size, NOT the undelivered remainder, so the mode
+    // a caller reads for a given `--ids` list never changes as siblings land
+    // mid-run. The `route::lite` label is a human-visible hint only, never the
+    // control signal.
     stories: sorted.map(({ id, title, body, url, labels, state }) => ({
       id,
       title,

@@ -22,8 +22,8 @@ mandatoryReads: [deliver-digest.md]
 
 ## Overview
 
-The **one** delivery engine in v2 — every Story (a lite-**shaped** Story
-runs inline with inline critics; engine, gates, envelope byte-identical):
+The **one** delivery engine in v2 — every Story (a **one-Story** run
+goes inline with inline critics; engine, gates, envelope byte-identical):
 
 ```text
 single-story-init.js → implement + commits → derived-level ceremony

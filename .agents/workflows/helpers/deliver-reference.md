@@ -61,23 +61,26 @@ a cache write at full rate; an inline continuation is a cache read at ~10%).
 retained in full for multi-Story waves, and the rule changes **where** the
 engine runs, never what runs — gates, PR, and terminal envelope are identical.
 
-**Lite-shaped Stories execute inline.** Before spawning anything,
-read the Story's `dispatchMode` from the resolver envelope
-(`stories[].dispatchMode`, derived by `resolveStoryDispatchMode` in
-`lib/orchestration/complexity-gate.js` **from the fetched Story body's own
-shape** — `changes[]` count, acceptance count, creates-vs-refactors mix, and
-sensitive-path classes; the `route::lite` label is a human-visible hint only,
-never the control signal, so a lost or never-written label cannot misroute
-delivery): a Story with `dispatchMode: "inline"` executes
-[`deliver-story.md`](deliver-story.md) **inline in this session** — no
+**Read the mode; never infer it from shape.** Before spawning
+anything, read the Story's `dispatchMode` from the resolver envelope
+(`stories[].dispatchMode`, produced by `resolveStoryDispatchMode` in
+`lib/orchestration/complexity-gate.js`). A Story with `dispatchMode: "inline"`
+executes [`deliver-story.md`](deliver-story.md) **inline in this session** — no
 `story-worker` sub-agent boot and no fresh acceptance-critic sub-agents
 (sub-agent boots are the dominant deliver-phase token cost at trivial scope) —
 threading the same `docsDigestPath` / `checklistPath` / change-set discipline
 as a spawned worker. Inline removes model-side fan-out only: every
 `single-story-close.js` gate, the PR to `main`, and the terminal envelope are
-identical. Everything else — a full-shaped body, a missing/unparseable body,
-or a footprint intersecting a sensitive-path class (sensitivity wins and
-keeps the fresh acceptance critic) — takes the standard sub-agent path.
+identical.
+
+**A trivial shape does not buy that session.** Only the
+one-Story rule above yields `inline`; every Story of a multi-Story run comes
+back `subagent` however lite its body, because the ready set below may offer
+several Stories on one beat and a session cannot be split between them. The
+Story's derived shape is still reported (it sets ceremony, and a sensitive
+footprint keeps the fresh acceptance critic), and the `route::lite` label
+remains a human-visible hint only, never the control signal — a lost or
+never-written label cannot misroute delivery.
 
 **Dispatch each `ready` Story (role-scoped by default).** When
 `delivery.routing.roleScopedAgents` is enabled (the **default**) and the host
