@@ -31,15 +31,16 @@
  *      cardinality is deliberately not an axis (Story #4764).
  *   4. **Deliver re-derives.** `/deliver` computes the route from the fetched
  *      Story body via the **same** shape function at dispatch
- *      ({@link resolveStoryDispatchMode}) and honors it: a lite-shaped Story
- *      executes inline — no story-worker sub-agent boot, no fresh
- *      acceptance-critic dispatch — while every `single-story-close.js` gate
- *      runs unchanged. The `route::lite` label is a **human-visible hint
- *      only**, never the control signal: a lost label or an unread marker can
- *      no longer misroute delivery. Ahead of the shape read sits one
- *      shape-independent rule (Story #4736): a **single-Story run** is inline
- *      whatever its shape, because sub-agent isolation buys nothing when
- *      there is no concurrent sibling to isolate from.
+ *      ({@link resolveStoryDispatchMode}) and **reports** it, while the
+ *      dispatch *mode* answers a different question: may the engine run in the
+ *      router's own session? Only a **single-Story run** may (Story #4736) —
+ *      sub-agent isolation buys nothing when there is no concurrent sibling to
+ *      isolate from. Shape cannot grant that session (Story #4829): a lite body
+ *      makes work cheap, it does not conjure a second session for a sibling to
+ *      run in. The `route::lite` label is a **human-visible hint only**, never
+ *      the control signal: a lost label or an unread marker can no longer
+ *      misroute delivery. Either way every `single-story-close.js` gate runs
+ *      unchanged.
  *
  * The shape taxonomy is deliberately the one `review-depth.js` already
  * applies to the landed diff at close (`deriveChangeLevel` over the
@@ -864,27 +865,34 @@ function routeForReporting(body, opts) {
 /**
  * Decide how `/deliver` executes a Story.
  *
- * Two independent premises, checked in this order:
+ * **`inline` names one indivisible resource: the router's own session.** Two
+ * Stories cannot both own it, so exactly one premise can grant it —
+ * **run topology (Story #4736)**: a run resolving a *single* Story executes
+ * inline whatever its shape, because sub-agent isolation is load-bearing only
+ * for CONCURRENT dispatch (two workers sharing a checkout race on worktrees and
+ * branch refs) and a one-Story run has no sibling to race. It therefore pays
+ * the spawn premium (a boot is a cache WRITE at full rate, where an inline
+ * continuation is a cache read at ~10%; ~$1.43/M vs ~$1.07/M on comparable
+ * bench work) for nothing. That is a fact about the run, not about the work, so
+ * the shape gate's `enabled` switch — which governs *shape derivation* — does
+ * not reach it.
  *
- * 1. **Run topology (Story #4736).** A run delivering a *single* Story
- *    executes **inline**, whatever its shape. Sub-agent isolation is
- *    load-bearing only for CONCURRENT dispatch — two workers sharing a
- *    checkout would race on worktrees and branch refs — and a one-Story run
- *    has no sibling to race. It therefore pays the spawn premium (a boot is
- *    a cache WRITE at full rate, where an inline continuation is a cache read
- *    at ~10%; ~$1.43/M vs ~$1.07/M on comparable bench work) for nothing.
- *    This is a fact about the run, not about the work, so the shape gate's
- *    `enabled` switch — which governs *shape derivation* — does not reach it.
- * 2. **Shape (Story #4722 AC-4/AC-5).** For a multi-Story run, the decision
- *    comes **from the Story body's own shape**, never from the `route::lite`
- *    label: a lite-shaped Story executes inline; everything else — a
- *    full-shaped body, a missing/unparseable body, or the gate disabled via
- *    `planning.complexityGate.enabled=false` — dispatches as a sub-agent,
- *    the conservative default.
+ * **Shape cannot grant it (Story #4829).** The shape read used to return
+ * `inline` for any lite-shaped body in a multi-Story run, inheriting no
+ * topology guard. Measured twice on 2026-07-29: a two-Story and a three-Story
+ * run came back `inline` for *every* Story while `stories-wave-tick.js`
+ * reported the whole set ready under a concurrency cap of five — a router
+ * following both signals literally runs several engines over one session and
+ * one checkout, the precise hazard the sub-agent path exists to prevent. Both
+ * runs were completed only by an operator overriding the verdict by hand, which
+ * is an invariant held by judgment rather than by code. So this function has
+ * exactly **one** `inline` exit, guarded by the topology premise; every path
+ * below it returns `subagent`, and the derived shape is carried on `route` for
+ * reporting only. A lite shape makes the work cheap — it does not conjure a
+ * second session for a sibling to run in.
  *
- * The label is read only to report hint consistency in `reasons`: with the
- * label absent (or its write failed) a lite-shaped Story still runs inline,
- * and with the label present on a full-shaped Story the shape wins.
+ * The label is read only to report hint consistency in `reasons`; it never
+ * routes on either premise (Story #4722 AC-4/AC-5).
  *
  * Inline execution removes model-side fan-out only — it changes **where** the
  * engine runs, never **what** runs. Every deterministic
@@ -901,7 +909,8 @@ function routeForReporting(body, opts) {
  *   selectSensitivePathClassesFn?: Function,
  * }} [args] `storyCount` is the number of Stories the invoking `/deliver` run
  *   resolved. Omitted (or not a positive integer) means "unknown run size",
- *   which falls through to the shape decision — never to an assumed 1.
+ *   which cannot be shown sibling-free and therefore dispatches as a sub-agent
+ *   — never an assumed 1.
  * @returns {{ mode: 'inline'|'subagent', reasons: string[], route: ReturnType<typeof deriveStoryShape>|null }}
  */
 export function resolveStoryDispatchMode({
@@ -920,6 +929,8 @@ export function resolveStoryDispatchMode({
     ? `the ${LITE_ROUTE_LABEL} label is present (hint only — the derived shape is the control signal)`
     : `the ${LITE_ROUTE_LABEL} label is absent (hint only — the derived shape is the control signal)`;
 
+  // The ONLY `inline` exit in this function, and the guard is the whole
+  // contract: an inline verdict must mean the engine can actually run inline.
   if (storyCount === 1) {
     return {
       mode: 'inline',
@@ -956,23 +967,17 @@ export function resolveStoryDispatchMode({
     };
   }
 
+  // Past the topology guard a sibling may be dispatched concurrently, so the
+  // router's session is not available to anyone. The shape is still derived and
+  // returned on `route` — ceremony and reporting read it — but it decides
+  // nothing here: both shapes dispatch as a sub-agent.
   const route = deriveStoryRouteFromBody(body, {
     injectedRules,
     selectSensitivePathClassesFn,
   });
-  if (route.route === 'lite') {
-    return {
-      mode: 'inline',
-      reasons: [
-        `lite-shaped Story — execute deliver-story inline; no story-worker or acceptance-critic sub-agent dispatch (close gates unchanged): ${route.reasons[0]}`,
-        hintNote,
-      ],
-      route,
-    };
-  }
-  return {
-    mode: 'subagent',
-    reasons: [`full-shaped Story — ${route.reasons[0]}`, hintNote],
-    route,
-  };
+  const shapeNote =
+    route.route === 'lite'
+      ? `lite-shaped Story in a multi-Story run — the shape is inline-eligible but the router's session is not: a concurrent sibling would have to share it, racing worktrees and branch refs; sub-agent dispatch (${route.reasons[0]})`
+      : `full-shaped Story — ${route.reasons[0]}`;
+  return { mode: 'subagent', reasons: [shapeNote, hintNote], route };
 }

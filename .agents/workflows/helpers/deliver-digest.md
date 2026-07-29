@@ -20,16 +20,18 @@ description: >-
 
 ## 1. Dispatch — where the engine runs
 
-Read `stories[].dispatchMode` from the `resolve-stories.js` envelope. Two
-rules produce it, in order:
+Read `stories[].dispatchMode` from the `resolve-stories.js` envelope.
+`inline` names one indivisible resource — **the router's own session** — so one
+rule produces it:
 
 1. **Run topology.** A run resolving **one** Story is `inline`
    whatever its shape — sub-agent isolation is load-bearing only against a
    *concurrent* sibling racing the same checkout, and a one-Story run has none.
-2. **Body shape.** In a multi-Story run, a lite-shaped body is
-   `inline`; a full-shaped body, an unparseable one, or a footprint touching a
-   sensitive-path class is `subagent`. The `route::lite` label is a
-   human-visible hint, never the control signal.
+2. **Every other run is `subagent`.** A multi-Story run dispatches every Story
+   as a sub-agent however trivial its shape: a lite body does not conjure a
+   second session for a sibling to run in, and the wave tick may hand you the
+   whole set on one beat. Shape still sets ceremony and is reported alongside;
+   the `route::lite` label is a human-visible hint, never the control signal.
 
 `inline` removes model-side fan-out only — no `story-worker` boot, no fresh
 acceptance-critic spawn. **`subagent` and `inline` run the same engine**: same

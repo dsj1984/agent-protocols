@@ -302,14 +302,17 @@ describe('buildStoriesEnvelope — per-Story dispatchMode (Story #4722)', () => 
       issue({ number: 99, body: storyBody({ changes: ['src/filler.js'] }) }),
     );
 
-  it('AC-5: derives inline from the BODY shape with the route::lite label absent', () => {
+  it('AC-5: a lite-shaped body in a multi-Story set dispatches subagent (#4829)', () => {
     // One refactor + one acceptance criterion, no sensitive path: a
-    // lite-shaped body. No label anywhere — the shape is the control signal.
+    // lite-shaped body — which USED to come back `inline` here. It cannot:
+    // `inline` means the router's own session, and this set has a sibling that
+    // may be dispatched on the same beat. The shape still decides ceremony;
+    // it no longer decides where the engine runs.
     const env = buildStoriesEnvelope({
       stories: [toStoryRecord(issue({ number: 1 })), filler()],
       injectedRules: RULES,
     });
-    assert.equal(env.stories[0].dispatchMode, 'inline');
+    assert.equal(env.stories[0].dispatchMode, 'subagent');
   });
 
   it('AC-4/AC-5: the route::lite label never routes — a full-shaped body dispatches subagent', () => {
@@ -415,6 +418,77 @@ describe('buildStoriesEnvelope — single-Story runs dispatch inline (Story #473
       injectedRules: RULES,
     });
     assert.equal(env.stories[0].dispatchMode, 'subagent');
+  });
+});
+
+/**
+ * Story #4829 — the resolver's dispatch modes and the wave tick's ready set
+ * are two answers to one run, and they must not contradict each other.
+ *
+ * Measured twice on 2026-07-29 (`/deliver 4824 4825`, `/deliver 4828 4829
+ * 4830`): every Story resolved `inline` while the tick reported the whole set
+ * ready under a cap of five. `inline` means the router's own session, so that
+ * pair of answers instructs one session to run two — then three — engines over
+ * one checkout. This asserts them TOGETHER, from one envelope, because
+ * asserting either alone is exactly how the contradiction survived.
+ */
+describe('buildStoriesEnvelope ↔ ready set — one run, one consistent answer', () => {
+  /** A lite-shaped body per Story, with a disjoint footprint so the
+   *  overlap guard never masks the result by serialising the beat itself. */
+  const liteStory = (number) =>
+    toStoryRecord(
+      issue({
+        number,
+        body: storyBody({ changes: [`src/feature-${number}.js`] }),
+      }),
+    );
+
+  for (const ids of [
+    [4824, 4825],
+    [4828, 4829, 4830],
+  ]) {
+    it(`the measured ${ids.length}-Story run: no Story claims the session the tick fans out from`, () => {
+      const stories = ids.map(liteStory);
+      const env = buildStoriesEnvelope({ stories, injectedRules: RULES });
+
+      // The tick's view of the same run: every Story ready, cap 5 — the
+      // reported condition, reproduced rather than assumed.
+      const ready = selectReadySet({
+        stories: stories.map((s) => ({
+          id: s.id,
+          dependsOn: [],
+          files: [`src/feature-${s.id}.js`],
+        })),
+        doneIds: new Set(),
+        inFlight: 0,
+        globalCap: 5,
+      }).map((s) => s.id);
+      assert.deepEqual(ready, ids, 'the measured ready set must reproduce');
+
+      const inline = env.stories.filter((s) => s.dispatchMode === 'inline');
+      assert.deepEqual(
+        inline,
+        [],
+        `${ready.length} Stories are dispatchable on one beat, so none of them may be told to run in the router's single session`,
+      );
+    });
+  }
+
+  it('a one-Story run keeps inline — and its ready set is the one Story', () => {
+    const stories = [liteStory(4829)];
+    const env = buildStoriesEnvelope({ stories, injectedRules: RULES });
+    const ready = selectReadySet({
+      stories: [{ id: 4829, dependsOn: [], files: ['src/feature-4829.js'] }],
+      doneIds: new Set(),
+      inFlight: 0,
+      globalCap: 5,
+    });
+    assert.equal(ready.length, 1);
+    assert.equal(
+      env.stories[0].dispatchMode,
+      'inline',
+      'a ready set of one and an inline verdict agree — that is the rule being preserved, not narrowed',
+    );
   });
 });
 
