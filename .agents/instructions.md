@@ -64,7 +64,8 @@ read **before** the matching work (each opens with a one-line "applies
 when…" scope header): `git-conventions-reference.md`,
 `shell-conventions.md`, `testing-standards.md`,
 `orchestration-error-handling.md` (scripts under `.agents/scripts/**`),
-`ci-remediation.md`, `api-conventions.md`, `gherkin-standards.md`,
+`ci-remediation.md`, `known-tooling-behavior.md`,
+`api-conventions.md`, `gherkin-standards.md`,
 `changelog-style.md`, `test-seams.md`. Read when unsure (on-demand
 loading does not lower a rule's authority — § 1.K).
 

@@ -102,6 +102,11 @@ close pipeline is the authoritative gate. The acceptance self-eval loop may
 share `lint` / `typecheck` evidence with close via `evidence-gate.js`;
 never stamp coverage / CRAP fresh that way.
 
+Before trusting a gate's output — or diagnosing a red one — read
+[`known-tooling-behavior.md`](../rules/known-tooling-behavior.md): measured
+cases where a command prints what it does not mean (lint exits 1 under a
+`0 error(s)` summary; a green `check-baselines.js` is not `baselines`).
+
 ## Acceptance self-eval before close (MUST)
 
 After the implementation commits land and **before** flipping to `closing`,
