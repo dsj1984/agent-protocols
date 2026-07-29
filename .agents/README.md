@@ -325,7 +325,7 @@ persists Stories with inline `acceptance[]` / `verify[]` and a folded
 `main`. There is no `type::epic` / `type::task` label, Epic issue form, or
 `epic/<id>` integration branch; a ticket carrying an `Epic: #N` footer is
 refused by `/deliver`. The execution-model contract is owned by
-[`instructions.md` § 5.D](instructions.md) and [`docs/SDLC.md`](docs/SDLC.md).
+[`instructions.md` § 5.B](instructions.md) and [`docs/SDLC.md`](docs/SDLC.md).
 
 ---
 
