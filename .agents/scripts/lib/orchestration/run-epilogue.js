@@ -21,9 +21,11 @@ import { gitSpawn } from '../git-utils.js';
 import { Logger } from '../Logger.js';
 import { composeRoutedProposals } from './retro-proposals.js';
 import {
+  assessRollupOutcome,
   buildFollowUpsCommentBody,
   gatherRunFrictionSignals,
   resolveFollowUpRepos,
+  summarizeSignalCategories,
 } from './story-follow-ups.js';
 import { upsertStructuredComment } from './ticketing.js';
 
@@ -550,6 +552,7 @@ async function executeFollowUpRollup({
   provider,
   config,
   cwd,
+  graduateFn = graduateRetroProposals,
 }) {
   // Shared with the story-scoped gather (Story #4649): `storyId` + `details`
   // are what the composer's recovery-netting keys on, and two hand-rolled
@@ -570,7 +573,7 @@ async function executeFollowUpRollup({
     item.title = item.title.replace(/plan-run \d+/, `plan-run ${planRunId}`);
     item.body = item.body.replace(/plan-run \d+/g, `plan-run ${planRunId}`);
   }
-  const graduated = await graduateRetroProposals({
+  const graduated = await graduateFn({
     epicId: primaryId,
     provider,
     config,
@@ -582,6 +585,16 @@ async function executeFollowUpRollup({
     routedProposals: proposals,
     cwd,
   });
+  const categories = summarizeSignalCategories(signals);
+  const proposalCount = proposals.framework.length + proposals.consumer.length;
+  const outcome = assessRollupOutcome({
+    signalCount: signals.length,
+    proposalCount,
+    discardedCount: proposals.discarded.length,
+    filedCount: graduated.filed?.length ?? 0,
+    filingErrors: graduated.errors,
+    filingSkipped: graduated.skipped,
+  });
   if (Number.isInteger(primaryId) && primaryId > 0) {
     const body = buildFollowUpsCommentBody({
       storyId: primaryId,
@@ -591,6 +604,10 @@ async function executeFollowUpRollup({
       // render as a flagged claim ("0 signals across N Stories") rather than
       // as "nothing to follow up".
       storyCount: stories.length,
+      // Story #4828 — and the corpus is what lets a zero-proposal or
+      // zero-filed roll-up name what it saw instead of rendering as clean.
+      signalCount: signals.length,
+      categories,
     }).replace(
       `from Story #${primaryId}`,
       `from plan-run \`${planRunId}\` (primary Story #${primaryId})`,
@@ -602,6 +619,22 @@ async function executeFollowUpRollup({
     signalCount: signals.length,
     storyCount: stories.length,
     filed: graduated.filed?.length ?? 0,
+    // Story #4828 — everything below is what the roll-up saw and what became
+    // of it. The pre-#4828 result reported `signalCount` and `filed` and
+    // nothing in between, so nine signals routing into one proposal whose
+    // every filing attempt errored rendered as `{signalCount: 9, filed: 0,
+    // discarded: []}` — arithmetically consistent, and indistinguishable from
+    // a run with nothing to do.
+    proposalCount,
+    // The categories the corpus actually contained, so a zero-proposal
+    // roll-up names its own input rather than asserting emptiness.
+    categories,
+    filingErrors: Array.isArray(graduated.errors) ? graduated.errors : [],
+    filingSkipped: outcome.blockingSkipReasons,
+    // Signals in, nothing out — not even a below-threshold row.
+    zeroProposalSuspect: outcome.zeroProposals,
+    // Proposals cleared the threshold and the filer produced none of them.
+    unfiledProposalSuspect: outcome.unfiledProposals,
     // Story #4824 — a roll-up that discards every candidate must still name
     // what it discarded. Rendering that as "nothing to follow up" is how a
     // defect recurring once per Story survived eighteen consecutive Stories.
@@ -710,6 +743,9 @@ async function executeSiblingCoherence({ planRunId, stories, provider }) {
  * @param {string} [args.cwd]
  * @param {{ gitSpawn: Function }} [args.git] - Injection seam for tests.
  * @param {typeof selectAudits} [args.selectAuditsFn] - Injection seam for tests.
+ * @param {typeof graduateRetroProposals} [args.graduateFn] - Injection seam so
+ *   the roll-up's reporting layer can be asserted against a filer that fails
+ *   (Story #4828) without spawning a real `gh`.
  * @returns {Promise<object>}
  */
 export async function runPlanRunEpilogue({
@@ -720,6 +756,7 @@ export async function runPlanRunEpilogue({
   cwd = process.cwd(),
   git = { gitSpawn },
   selectAuditsFn = selectAudits,
+  graduateFn = graduateRetroProposals,
 } = {}) {
   const plan = planRunEpilogue({ planRunId, stories });
   if (!plan.applicable) {
@@ -753,6 +790,7 @@ export async function runPlanRunEpilogue({
             provider,
             config,
             cwd,
+            graduateFn,
           }),
         );
       } else if (step.kind === 'sibling-coherence') {

@@ -232,6 +232,11 @@ export async function graduateRetroProposals({
   // circuit the repeat with no spawn.
   const filedMarkers = new Set();
 
+  // One live-label-set read per routed repo across both buckets (Story #4828):
+  // the two buckets file into at most two repos, and every finding in a bucket
+  // wants the same `meta::*` name.
+  const labelCache = new Map();
+
   let remaining = maxFilingsPerRun;
   for (const { source, items } of buckets) {
     if (items.length === 0) continue;
@@ -252,6 +257,7 @@ export async function graduateRetroProposals({
       maxFilingsPerRun: Math.max(0, remaining),
       findings,
       filedMarkers,
+      labelCache,
       logger,
       spec: makeSpec(source),
     });

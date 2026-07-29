@@ -281,8 +281,13 @@ describe('graduate (parametrized walk)', () => {
     assert.equal(env.filed.length, 1);
     assert.equal(env.filed[0].path, 'src/x.js');
     assert.equal(env.filed[0].url, 'https://x/issues/1');
-    // The injected builder body must have been threaded through.
-    const createCall = spawnImpl.calls.find((c) => c.args[1] === 'create');
+    // The injected builder body must have been threaded through. Match
+    // `issue create` specifically: since Story #4828 the walk also spawns
+    // `gh label create` for a label the repo does not carry yet, and both
+    // share `create` at args[1].
+    const createCall = spawnImpl.calls.find(
+      (c) => c.args[0] === 'issue' && c.args[1] === 'create',
+    );
     const bodyIdx = createCall.args.indexOf('--body') + 1;
     assert.match(createCall.args[bodyIdx], /<!-- f-42-0 --> consumer 42/);
   });
@@ -466,7 +471,9 @@ describe('graduate — dedup dispatch (Story #4657)', () => {
     assert.equal(env.filed.length, 0, 'the window duplicate is not re-filed');
     assert.equal(env.skipped[0]?.reason, 'already-filed');
     assert.ok(
-      !spawnImpl.calls.some((c) => c.args[1] === 'create'),
+      !spawnImpl.calls.some(
+        (c) => c.args[0] === 'issue' && c.args[1] === 'create',
+      ),
       'createFollowUpIssue was never spawned',
     );
     // The strong read is a strongly-consistent (`--state all`), label-scoped
