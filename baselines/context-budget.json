@@ -172,19 +172,23 @@
     "files": [
       {
         "path": ".agents/agents/acceptance-critic.md",
-        "bytes": 7854
+        "bytes": 7854,
+        "headroomBytes": 338
       },
       {
         "path": ".agents/agents/auditor.md",
-        "bytes": 7945
+        "bytes": 7945,
+        "headroomBytes": 247
       },
       {
         "path": ".agents/agents/plan-critic.md",
-        "bytes": 5158
+        "bytes": 5158,
+        "headroomBytes": 3034
       },
       {
         "path": ".agents/agents/story-worker.md",
-        "bytes": 7317
+        "bytes": 8143,
+        "headroomBytes": 49
       }
     ]
   },
