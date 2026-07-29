@@ -696,3 +696,166 @@ describe('follow-up-rollup — an empty roll-up over N>1 asserts (Story #4578)',
     }
   });
 });
+
+/**
+ * Story #4828 — the reporting layer is where this is asserted, deliberately.
+ *
+ * The measured failure was a roll-up that gathered nine signals, composed one
+ * proposal at threshold, failed every filing attempt, and reported
+ * `{signalCount: 9, storyCount: 2, filed: 0, discarded: []}`. Every number in
+ * that envelope is correct. Nothing in it says the loop broke, because the
+ * step result reported what went in and what came out and nothing about what
+ * happened in between.
+ *
+ * Asserting the fix only at the routing layer would leave the next routing
+ * regression free to render as success again — which is exactly how this
+ * failure mode survived being fixed twice already (#4578 for zero signals,
+ * #4824 for all-discarded). So these tests read the step result and the
+ * rendered comment.
+ */
+describe('follow-up-rollup — zero proposals from N signals (Story #4828)', () => {
+  function rollupProvider(comments) {
+    return {
+      getTicket: async (id) => ({
+        id,
+        title: `Story ${id}`,
+        body: '',
+        labels: ['type::story'],
+      }),
+      getTicketComments: async () => [],
+      postComment: async (ticketId, payload) => {
+        comments.push({ ticketId, body: payload.body });
+        return { commentId: comments.length };
+      },
+      deleteComment: async () => {},
+    };
+  }
+
+  it('flags a corpus that produced no proposal at all, and names its categories', async () => {
+    const comments = [];
+    const tempRoot = makeTempDir('rollup-zero-proposal-');
+    const config = {
+      github: { owner: 'o', repo: 'r' },
+      project: { paths: { tempRoot } },
+    };
+    try {
+      // A close that failed and then landed: the incident and its recovery
+      // marker net each other out, so signals exist and nothing routes.
+      for (const storyId of [9301, 9302]) {
+        await emitRuntimeFriction({
+          storyId,
+          category: RUNTIME_FRICTION_CATEGORIES.CLOSE_FAILED,
+          tool: 'single-story-close',
+          details: { phase: 'push' },
+          config,
+        });
+        await emitRuntimeFriction({
+          storyId,
+          category: RUNTIME_FRICTION_CATEGORIES.CLOSE_FAILED,
+          tool: 'runPostLandTail',
+          details: { recovered: true },
+          config,
+        });
+      }
+
+      const result = await runPlanRunEpilogue({
+        planRunId: 'adhoc-9301-9302',
+        stories: [9301, 9302],
+        provider: rollupProvider(comments),
+        config,
+        cwd: process.cwd(),
+      });
+
+      const rollup = result.results.find((r) => r.kind === 'follow-up-rollup');
+      assert.equal(rollup.signalCount, 4, 'the corpus was not empty');
+      assert.equal(rollup.proposalCount, 0);
+      assert.deepEqual(rollup.discarded, []);
+      assert.equal(rollup.filed, 0);
+      assert.equal(
+        rollup.zeroProposalSuspect,
+        true,
+        'signals in and nothing out is a routing outcome the roll-up must state',
+      );
+      assert.equal(
+        rollup.emptyRollupSuspect,
+        false,
+        'the #4578 flag means zero signals — a non-empty corpus is a different shape',
+      );
+      assert.deepEqual(rollup.categories, [
+        { category: 'close-failed', occurrences: 4 },
+      ]);
+
+      const body = comments.find((c) => /### follow-ups/.test(c.body))?.body;
+      assert.match(body, /4 friction signals gathered, 0 proposals produced/);
+      assert.match(body, /`close-failed` ×4/);
+      assert.doesNotMatch(
+        body,
+        /nothing to follow up/,
+        'the reassuring line is what made this shape invisible',
+      );
+      assert.match(body, /"zeroProposalSuspect": true/);
+    } finally {
+      rmSync(tempRoot, { recursive: true, force: true });
+    }
+  });
+
+  it('flags a proposal at threshold that the filer failed to file', async () => {
+    const comments = [];
+    const tempRoot = makeTempDir('rollup-unfiled-');
+    const config = {
+      github: { owner: 'o', repo: 'r' },
+      project: { paths: { tempRoot } },
+    };
+    try {
+      for (const storyId of [9401, 9402]) {
+        await emitRuntimeFriction({
+          storyId,
+          category: RUNTIME_FRICTION_CATEGORIES.TOOL_DEGRADED,
+          tool: 'native-review-lint',
+          details: { surface: 'scoped-lint', reason: 'no parseable output' },
+          config,
+        });
+      }
+
+      // The filer as it actually behaved: every `gh issue create` rejected
+      // over a label the repo did not carry.
+      const result = await runPlanRunEpilogue({
+        planRunId: 'adhoc-9401-9402',
+        stories: [9401, 9402],
+        provider: rollupProvider(comments),
+        config,
+        cwd: process.cwd(),
+        graduateFn: async () => ({
+          filed: [],
+          skipped: [{ reason: 'label-ensure-failed' }],
+          errors: [
+            'gh label create "friction::tool-degraded" in o/r failed: HTTP 403',
+          ],
+        }),
+      });
+
+      const rollup = result.results.find((r) => r.kind === 'follow-up-rollup');
+      assert.equal(rollup.signalCount, 2);
+      assert.equal(rollup.proposalCount, 1, 'the bucket cleared the threshold');
+      assert.equal(rollup.filed, 0);
+      assert.equal(
+        rollup.unfiledProposalSuspect,
+        true,
+        'a proposal that reached the filer and did not land is a broken loop',
+      );
+      assert.deepEqual(rollup.filingSkipped, ['label-ensure-failed']);
+      assert.equal(rollup.filingErrors.length, 1);
+      assert.match(rollup.filingErrors[0], /gh label create/);
+
+      const body = comments.find((c) => /### follow-ups/.test(c.body))?.body;
+      assert.match(
+        body,
+        /1 actionable proposal\(s\) reached the filer and none were filed/,
+      );
+      assert.match(body, /"unfiledProposalSuspect": true/);
+      assert.match(body, /"signalCount": 2/);
+    } finally {
+      rmSync(tempRoot, { recursive: true, force: true });
+    }
+  });
+});

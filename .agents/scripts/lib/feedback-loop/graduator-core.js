@@ -47,6 +47,7 @@
 import { spawn as defaultSpawn } from 'node:child_process';
 import { createHash } from 'node:crypto';
 
+import { LABEL_COLORS } from '../label-constants.js';
 import { classifyPathSource as defaultClassifier } from '../observability/source-classifier.js';
 import {
   structuredCommentMarker,
@@ -399,6 +400,185 @@ async function confirmMarkerFiled({
   }
 }
 
+/** Prefix of the per-category friction axis the feedback loop mints. */
+const FRICTION_LABEL_PREFIX = 'friction::';
+
+/**
+ * Resolve the color + description for a label the feedback loop is about to
+ * mint. Only two axes reach this path — `meta::*` (routing) and
+ * `friction::<category>` (the telemetry bucket) — so the mapping is a
+ * two-branch lookup rather than a registry.
+ *
+ * @param {string} name
+ * @returns {{ color: string, description: string }}
+ */
+function describeMintedLabel(name) {
+  if (name.startsWith(FRICTION_LABEL_PREFIX)) {
+    return {
+      color: LABEL_COLORS.FRICTION,
+      description: `Recurring friction category "${name.slice(FRICTION_LABEL_PREFIX.length)}" (minted by the feedback loop)`,
+    };
+  }
+  return {
+    color: LABEL_COLORS.META,
+    description: 'Feedback-loop routing axis (minted by the feedback loop)',
+  };
+}
+
+/**
+ * Read the routed repo's live label names once per repo, memoized in
+ * `labelCache`. Returns `null` when the set could not be established —
+ * "verification unavailable", which is deliberately NOT the same as "the repo
+ * has no labels": an unreadable set must not be read as proof that every
+ * label is missing.
+ *
+ * @returns {Promise<{ known: Set<string>|null, error: string|null }>}
+ */
+async function readLiveLabelNames({
+  owner,
+  repo,
+  labelCache,
+  ghPath,
+  spawnImpl,
+  cwd,
+  timeoutMs,
+}) {
+  const key = `${owner}/${repo}`;
+  const cached = labelCache?.get(key);
+  if (cached) return { known: cached, error: null };
+  const res = await runChild({
+    cmd: ghPath,
+    args: ['label', 'list', '--repo', key, '--limit', '500', '--json', 'name'],
+    spawnImpl,
+    cwd,
+    timeoutMs,
+  });
+  if (res.spawnError || (typeof res.code === 'number' && res.code !== 0)) {
+    return {
+      known: null,
+      error: `gh label list ${key} failed: ${res.spawnError?.message ?? (res.stderr || '').trim()}`,
+    };
+  }
+  let parsed;
+  try {
+    parsed = JSON.parse(res.stdout || '[]');
+  } catch {
+    return {
+      known: null,
+      error: `gh label list ${key} returned unparseable JSON`,
+    };
+  }
+  if (!Array.isArray(parsed)) {
+    return { known: null, error: `gh label list ${key} returned a non-array` };
+  }
+  const known = new Set();
+  for (const row of parsed) {
+    if (row && typeof row.name === 'string') known.add(row.name);
+  }
+  labelCache?.set(key, known);
+  return { known, error: null };
+}
+
+/**
+ * Mint any of `labels` the routed repo does not already carry, so
+ * `gh issue create --label …` can attach them (Story #4828).
+ *
+ * **Why this exists.** `gh issue create` resolves every `--label` name against
+ * the repo before it creates anything, and fails the whole call when one is
+ * absent. The feedback loop mints two axes that no bootstrap can enumerate
+ * ahead of time — `meta::consumer-improvement` is absent from `LABEL_TAXONOMY`
+ * outright, and `friction::<category>` names come from live telemetry — so on
+ * a repo that never had them, *every* filing failed. The failure landed in the
+ * graduator's `errors[]`, which the run epilogue did not surface, so a
+ * hard-failing feedback loop rendered as `filed: 0`: indistinguishable from
+ * "nothing was actionable".
+ *
+ * Degrades rather than blocks: when the live set cannot be read, this returns
+ * no `missing` entries so the caller still attempts the filing (the old
+ * behaviour) instead of refusing on an unproven premise.
+ *
+ * @param {object} opts
+ * @param {string} opts.owner
+ * @param {string} opts.repo
+ * @param {string[]} opts.labels
+ * @param {Map<string, Set<string>>} [opts.labelCache] — per-repo live-set memo.
+ * @param {string} [opts.ghPath]
+ * @param {Function} [opts.spawnImpl]
+ * @param {string} [opts.cwd]
+ * @param {number} [opts.timeoutMs]
+ * @returns {Promise<{ created: string[], missing: string[], errors: string[] }>}
+ */
+async function ensureIssueLabels({
+  owner,
+  repo,
+  labels,
+  labelCache,
+  ghPath = 'gh',
+  spawnImpl,
+  cwd,
+  timeoutMs,
+}) {
+  const wanted = (Array.isArray(labels) ? labels : []).filter(
+    (name) => typeof name === 'string' && name.trim().length > 0,
+  );
+  if (wanted.length === 0) return { created: [], missing: [], errors: [] };
+
+  const { known, error } = await readLiveLabelNames({
+    owner,
+    repo,
+    labelCache,
+    ghPath,
+    spawnImpl,
+    cwd,
+    timeoutMs,
+  });
+  // Verification unavailable — attempt the filing anyway rather than refuse.
+  if (!known) return { created: [], missing: [], errors: error ? [error] : [] };
+
+  const created = [];
+  const missing = [];
+  const errors = [];
+  for (const name of wanted) {
+    if (known.has(name)) continue;
+    const { color, description } = describeMintedLabel(name);
+    const res = await runChild({
+      cmd: ghPath,
+      args: [
+        'label',
+        'create',
+        name,
+        '--repo',
+        `${owner}/${repo}`,
+        '--color',
+        color.replace(/^#/, ''),
+        '--description',
+        description,
+      ],
+      spawnImpl,
+      cwd,
+      timeoutMs,
+    });
+    const failed =
+      Boolean(res.spawnError) ||
+      (typeof res.code === 'number' && res.code !== 0);
+    // A concurrent roll-up may have minted it between the list and the create;
+    // that is the idempotent outcome, not a failure.
+    const raced = /label\b[\s\S]*?already exists/i.test(
+      `${res.stderr ?? ''}${res.spawnError?.message ?? ''}`,
+    );
+    if (!failed || raced) {
+      known.add(name);
+      if (!raced) created.push(name);
+      continue;
+    }
+    missing.push(name);
+    errors.push(
+      `gh label create "${name}" in ${owner}/${repo} failed: ${res.spawnError?.message ?? (res.stderr || '').trim()}`,
+    );
+  }
+  return { created, missing, errors };
+}
+
 /**
  * File a new follow-up issue via `gh issue create` and resolve to
  * `{ url, error }`. On success `url` is the trimmed stdout and `error` is
@@ -572,6 +752,7 @@ async function processGraduateFinding({
   maxFilingsPerRun,
   crossRepoDeferred,
   filedMarkers,
+  labelCache,
   logger,
   spec,
 }) {
@@ -656,6 +837,27 @@ async function processGraduateFinding({
     epicId,
     idMarker: contentMarker,
   });
+
+  // Mint any routing label the repo does not carry yet (Story #4828). This
+  // runs BEFORE the strong read as well as before the create: `gh issue list
+  // --label <absent>` exits 0 with `[]`, so an absent label silently degrades
+  // the dedup confirm too, not just the filing.
+  const ensured = await ensureIssueLabels({
+    owner: routedRepo.owner,
+    repo: routedRepo.repo,
+    labels,
+    labelCache,
+    ghPath,
+    spawnImpl,
+    cwd,
+    timeoutMs,
+  });
+  envelope.errors.push(...ensured.errors);
+  if (ensured.missing.length > 0) {
+    // `gh issue create` would reject the whole call on the absent name; say
+    // which label blocked it rather than replaying an opaque CLI failure.
+    return skip('label-ensure-failed');
+  }
 
   // Strong read (would-file path only, Story #4657): the search probe reads
   // an eventually-consistent index that can miss a byte-identical duplicate
@@ -811,6 +1013,10 @@ async function persistCrossRepoDeferred({
  *   calls in one logical invocation (e.g. the retro graduator's two source
  *   buckets) so a marker filed in one call short-circuits a repeat in the
  *   next without a spawn. Defaults to a fresh per-call Set.
+ * @param {Map<string, Set<string>>} [opts.labelCache] — per-repo memo of the
+ *   live label set, so the just-in-time label mint (Story #4828) costs one
+ *   `gh label list` per routed repo rather than one per finding. Share it
+ *   across the calls of one logical invocation, like `filedMarkers`.
  * @param {{info?: Function, warn?: Function, debug?: Function}} [opts.logger]
  * @param {object} opts.spec — the per-graduator behaviour bundle
  * @returns {Promise<{ filed: object[], skipped: object[], errors: string[] }>}
@@ -830,6 +1036,7 @@ export async function graduate({
   maxFilingsPerRun = DEFAULT_MAX_FILINGS_PER_RUN,
   findings: preParsedFindings,
   filedMarkers = new Set(),
+  labelCache = new Map(),
   logger,
   spec,
 }) {
@@ -877,6 +1084,7 @@ export async function graduate({
       maxFilingsPerRun,
       crossRepoDeferred,
       filedMarkers,
+      labelCache,
       logger,
       spec,
     });

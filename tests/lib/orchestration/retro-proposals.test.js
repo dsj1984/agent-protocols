@@ -621,3 +621,104 @@ test('a framework proposal routes to frameworkRepo, not the consumer it ran in',
     `expected a cross-repo skip; got ${JSON.stringify(result.skipped)}`,
   );
 });
+
+/**
+ * Story #4828 — the run epilogue over Stories 4824 + 4825 gathered nine
+ * friction signals and filed nothing, and the leading hypothesis was that
+ * `normaliseInput` had rejected the epilogue's input and short-circuited
+ * `composeRoutedProposals` to `emptyResult()`.
+ *
+ * It had not. Replaying the real corpus proved the composer routes it
+ * correctly, which is what moved the investigation downstream to the filer.
+ * These two tests pin that verdict so the disproven hypothesis stays
+ * disproven: the first fixes the exact shape the epilogue builds, the second
+ * fixes what `emptyResult()` is actually for, so a future regression cannot
+ * quietly re-answer either question.
+ */
+
+/** The exact corpus the run epilogue read: 9 signals across two Stories. */
+function epilogueCorpus() {
+  const toolDegraded = [4825, 4801, 4802, 4808, 4811].map((storyId) => ({
+    category: 'tool-degraded',
+    source: 'consumer',
+    storyId,
+    tool: 'native-review-lint',
+    details: { surface: 'scoped-lint', reason: 'no parseable output' },
+  }));
+  return [
+    ...toolDegraded,
+    // Both of these self-resolved, so each incident carries a recovery marker
+    // and nets out — which is why the real roll-up's `discarded` was empty.
+    { category: 'story-blocked', source: 'framework', storyId: 4824 },
+    {
+      category: 'story-blocked',
+      source: 'framework',
+      storyId: 4824,
+      details: { recovered: true },
+    },
+    { category: 'close-failed', source: 'framework', storyId: 4825 },
+    {
+      category: 'close-failed',
+      source: 'framework',
+      storyId: 4825,
+      details: { recovered: true },
+    },
+  ];
+}
+
+test('the run epilogue input shape routes rather than returning an empty result', () => {
+  const signals = epilogueCorpus();
+  assert.equal(signals.length, 9, 'the pinned corpus is the measured one');
+
+  const out = composeRoutedProposals({
+    anchorId: 4824,
+    anchorKind: 'run',
+    // In a framework-repo run `resolveFollowUpRepos` returns the same slug
+    // for both, which is the shape the epilogue actually passed.
+    frameworkRepo: FRAMEWORK_REPO,
+    consumerRepo: FRAMEWORK_REPO,
+    signals,
+    unresolvedBlockedEvents: [],
+  });
+
+  assert.notDeepEqual(
+    out,
+    { framework: [], consumer: [], discarded: [] },
+    'a 9-signal corpus at threshold must not compose to the empty result',
+  );
+  assert.equal(out.consumer.length, 1);
+  assert.equal(out.consumer[0].category, 'tool-degraded');
+  assert.equal(out.consumer[0].occurrences, 5);
+  assert.deepEqual(out.framework, [], 'both framework categories netted out');
+  assert.deepEqual(out.discarded, [], 'nothing sat below the threshold');
+});
+
+test('emptyResult is reserved for input the composer cannot use at all', () => {
+  const empty = { framework: [], consumer: [], discarded: [] };
+  const signals = epilogueCorpus();
+  // A non-numeric anchor is the rejection `normaliseInput` really implements —
+  // an anchorId the epilogue never passes, because it anchors on the primary
+  // Story id rather than the hex plan-run token.
+  assert.deepEqual(
+    composeRoutedProposals({
+      anchorId: 'e8caf51a',
+      anchorKind: 'run',
+      frameworkRepo: FRAMEWORK_REPO,
+      consumerRepo: FRAMEWORK_REPO,
+      signals,
+      unresolvedBlockedEvents: [],
+    }),
+    empty,
+  );
+  assert.deepEqual(
+    composeRoutedProposals({
+      anchorId: 4824,
+      anchorKind: 'run',
+      frameworkRepo: '',
+      consumerRepo: FRAMEWORK_REPO,
+      signals,
+      unresolvedBlockedEvents: [],
+    }),
+    empty,
+  );
+});

@@ -135,11 +135,22 @@ export const PLANNING_LABELS = {
  */
 export const PLANNING_HEALTHCHECK_WAIVED = 'planning::healthcheck-waived';
 
-/** Palette for the taxonomy; consumed by label-taxonomy.js. */
+/**
+ * Palette for the taxonomy; consumed by label-taxonomy.js and by the
+ * feedback loop's just-in-time label mint (`graduator-core.ensureIssueLabels`).
+ *
+ * `META` and `FRICTION` are not in `LABEL_TAXONOMY`: the bootstrap runs once
+ * at repo setup, but `friction::<category>` names are minted from live
+ * telemetry and cannot be enumerated ahead of time. The graduator mints both
+ * axes on demand instead — Story #4828, where their absence made every
+ * `gh issue create` fail and the whole feedback loop file zero.
+ */
 export const LABEL_COLORS = {
   TYPE: '#7057FF',
   AGENT: '#0E8A16',
   STATUS_BLOCKED: '#D93F0B',
   ACCEPTANCE: '#FBCA04',
   PLANNING: '#FEF2C0',
+  META: '#1D76DB',
+  FRICTION: '#D4C5F9',
 };

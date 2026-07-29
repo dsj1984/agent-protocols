@@ -1,6 +1,8 @@
 import assert from 'node:assert/strict';
+import { EventEmitter } from 'node:events';
 import fs from 'node:fs/promises';
 import { afterEach, beforeEach, describe, it } from 'node:test';
+import { graduateRetroProposals } from '../../../.agents/scripts/lib/feedback-loop/retro-proposals-graduator.js';
 import {
   emitBlockRecoveredFriction,
   emitRuntimeFriction,
@@ -12,11 +14,13 @@ import {
 } from '../../../.agents/scripts/lib/orchestration/retro-proposals.js';
 import { runPostLandTail } from '../../../.agents/scripts/lib/orchestration/single-story-close/phases/post-land.js';
 import {
+  assessRollupOutcome,
   buildFollowUpsCommentBody,
   captureStoryFollowUps,
   gatherRunFrictionSignals,
   gatherStoryFrictionSignals,
   resolveFollowUpRepos,
+  summarizeSignalCategories,
 } from '../../../.agents/scripts/lib/orchestration/story-follow-ups.js';
 import { makeTempDir } from '../../../.agents/scripts/lib/test-temp.js';
 
@@ -539,5 +543,299 @@ describe('empty roll-up assertion (Story #4578)', () => {
     });
     assert.doesNotMatch(body, /telemetry may not|not a clean bill of health/);
     assert.match(body, /"emptyRollupSuspect": false/);
+  });
+});
+
+/**
+ * Story #4828 — the roll-up over Stories 4824 + 4825 composed a routed
+ * proposal at threshold and still filed zero.
+ *
+ * The composer was fine. `gh issue create` resolves every `--label` against
+ * the repo before it creates anything and rejects the whole call when one is
+ * absent, and the two axes the feedback loop stamps —
+ * `meta::consumer-improvement` and `friction::<category>` — were absent:
+ * neither is in `LABEL_TAXONOMY`, and a `friction::` name is minted from live
+ * telemetry, so no bootstrap could have pre-created it. Every filing failed
+ * into the graduator's `errors[]`, which nothing rendered.
+ *
+ * The fake below is the repo as it actually was: no labels, and a create that
+ * rejects a label the repo does not carry.
+ */
+describe('a routed bucket at threshold reaches the filer (Story #4828)', () => {
+  /**
+   * @param {{ labelCreateFails?: boolean }} [opts]
+   */
+  function makeLabelAwareGh({ labelCreateFails = false } = {}) {
+    const live = new Set();
+    const created = [];
+    const fn = function spawnImpl(cmd, args) {
+      const child = new EventEmitter();
+      child.stdout = new EventEmitter();
+      child.stderr = new EventEmitter();
+      let result = { stdout: '', stderr: '', code: 0 };
+      const [a0, a1] = args;
+      if (cmd !== 'gh') {
+        result = { stdout: '', stderr: '', code: 1 };
+      } else if (a0 === 'label' && a1 === 'list') {
+        result = {
+          stdout: JSON.stringify([...live].map((name) => ({ name }))),
+          stderr: '',
+          code: 0,
+        };
+      } else if (a0 === 'label' && a1 === 'create') {
+        if (labelCreateFails) {
+          result = {
+            stdout: '',
+            stderr: 'HTTP 403: Resource not accessible',
+            code: 1,
+          };
+        } else {
+          live.add(args[2]);
+          result = { stdout: '', stderr: '', code: 0 };
+        }
+      } else if (a0 === 'search' || (a0 === 'issue' && a1 === 'list')) {
+        result = { stdout: '[]', stderr: '', code: 0 };
+      } else if (a0 === 'issue' && a1 === 'create') {
+        const labels = [];
+        for (let i = 0; i < args.length; i += 1) {
+          if (args[i] === '--label') labels.push(args[i + 1]);
+        }
+        const absent = labels.filter((label) => !live.has(label));
+        if (absent.length > 0) {
+          result = {
+            stdout: '',
+            stderr: `could not add label: '${absent[0]}' not found`,
+            code: 1,
+          };
+        } else {
+          created.push({ labels });
+          result = {
+            stdout: `https://github.com/acme/app/issues/${created.length}`,
+            stderr: '',
+            code: 0,
+          };
+        }
+      }
+      queueMicrotask(() => {
+        if (result.stdout)
+          child.stdout.emit('data', Buffer.from(result.stdout));
+        if (result.stderr)
+          child.stderr.emit('data', Buffer.from(result.stderr));
+        child.emit('close', result.code);
+      });
+      return child;
+    };
+    fn.created = created;
+    fn.live = live;
+    return fn;
+  }
+
+  const provider = {
+    getTicketComments: async () => [],
+    postComment: async () => ({ commentId: 1 }),
+    deleteComment: async () => {},
+  };
+
+  /** A category at the ≥2 threshold, routed to the repo the roll-up runs in. */
+  function thresholdProposals() {
+    return composeRoutedProposals({
+      anchorId: 4824,
+      anchorKind: 'run',
+      frameworkRepo: 'acme/app',
+      consumerRepo: 'acme/app',
+      signals: [
+        { category: 'tool-degraded', source: 'consumer', storyId: 4824 },
+        { category: 'tool-degraded', source: 'consumer', storyId: 4825 },
+      ],
+      unresolvedBlockedEvents: [],
+    });
+  }
+
+  it('mints the absent routing labels so a proposal at threshold files', async () => {
+    const proposals = thresholdProposals();
+    assert.equal(
+      proposals.consumer.length,
+      1,
+      'arrange: the bucket is non-empty',
+    );
+    const gh = makeLabelAwareGh();
+
+    const result = await graduateRetroProposals({
+      epicId: 4824,
+      provider,
+      config: {},
+      currentRepo: { owner: 'acme', repo: 'app' },
+      frameworkRepo: { owner: 'acme', repo: 'app' },
+      routedProposals: proposals,
+      spawnImpl: gh,
+    });
+
+    assert.equal(
+      result.filed.length,
+      1,
+      `expected one filing; got errors=${JSON.stringify(result.errors)} skipped=${JSON.stringify(result.skipped)}`,
+    );
+    assert.deepEqual(result.errors, []);
+    assert.deepEqual(
+      [...gh.live].sort(),
+      ['friction::tool-degraded', 'meta::consumer-improvement'],
+      'both absent axes are minted before the create',
+    );
+    assert.deepEqual(gh.created[0].labels.sort(), [
+      'friction::tool-degraded',
+      'meta::consumer-improvement',
+    ]);
+  });
+
+  it('reports a filer that could not mint the label instead of returning a bare zero', async () => {
+    const proposals = thresholdProposals();
+    const gh = makeLabelAwareGh({ labelCreateFails: true });
+
+    const result = await graduateRetroProposals({
+      epicId: 4824,
+      provider,
+      config: {},
+      currentRepo: { owner: 'acme', repo: 'app' },
+      frameworkRepo: { owner: 'acme', repo: 'app' },
+      routedProposals: proposals,
+      spawnImpl: gh,
+    });
+
+    assert.equal(result.filed.length, 0);
+    assert.equal(
+      gh.created.length,
+      0,
+      'never attempts a create it knows will fail',
+    );
+    assert.ok(
+      result.errors.some((e) => /gh label create/.test(e)),
+      `expected a label-create error; got ${JSON.stringify(result.errors)}`,
+    );
+    assert.ok(result.skipped.some((s) => s.reason === 'label-ensure-failed'));
+
+    // The reporting layer must call this what it is — a failing loop, not a
+    // loop with nothing to say.
+    const outcome = assessRollupOutcome({
+      signalCount: 2,
+      proposalCount: 1,
+      discardedCount: 0,
+      filedCount: 0,
+      filingErrors: result.errors,
+      filingSkipped: result.skipped,
+    });
+    assert.equal(outcome.unfiledProposals, true);
+    assert.deepEqual(outcome.blockingSkipReasons, ['label-ensure-failed']);
+
+    const body = buildFollowUpsCommentBody({
+      storyId: 4824,
+      proposals,
+      graduated: result,
+      storyCount: 2,
+      signalCount: 2,
+      categories: summarizeSignalCategories([
+        { category: 'tool-degraded' },
+        { category: 'tool-degraded' },
+      ]),
+    });
+    assert.match(
+      body,
+      /1 actionable proposal\(s\) reached the filer and none were filed/,
+    );
+    assert.match(body, /gh label create/);
+    assert.match(body, /"unfiledProposalSuspect": true/);
+  });
+});
+
+/**
+ * Story #4828 — the third instance of a silence this codebase has now fixed
+ * three times: zero signals (#4578), all-discarded (#4824), and here, signals
+ * gathered that produced no proposal at all.
+ */
+describe('zero proposals from a non-empty corpus (Story #4828)', () => {
+  it('summarizes the categories it saw, in a stable order', () => {
+    assert.deepEqual(
+      summarizeSignalCategories([
+        { category: 'tool-degraded' },
+        { category: 'close-failed' },
+        { category: 'tool-degraded' },
+        { category: '  ' },
+        null,
+      ]),
+      [
+        { category: 'close-failed', occurrences: 1 },
+        { category: 'tool-degraded', occurrences: 2 },
+      ],
+    );
+  });
+
+  it('flags signals-in / nothing-out, and does not flag a genuinely empty stream', () => {
+    assert.equal(
+      assessRollupOutcome({
+        signalCount: 9,
+        proposalCount: 0,
+        discardedCount: 0,
+        filedCount: 0,
+      }).zeroProposals,
+      true,
+    );
+    assert.equal(
+      assessRollupOutcome({
+        signalCount: 0,
+        proposalCount: 0,
+        discardedCount: 0,
+        filedCount: 0,
+      }).zeroProposals,
+      false,
+      'zero signals is the #4578 shape, reported by emptyRollupSuspect',
+    );
+    assert.equal(
+      assessRollupOutcome({
+        signalCount: 3,
+        proposalCount: 0,
+        discardedCount: 1,
+        filedCount: 0,
+      }).zeroProposals,
+      false,
+      'a below-threshold row is a rendered outcome, not silence',
+    );
+  });
+
+  it('treats a deliberate skip as a decision, not a failure', () => {
+    const outcome = assessRollupOutcome({
+      signalCount: 4,
+      proposalCount: 2,
+      discardedCount: 0,
+      filedCount: 0,
+      filingSkipped: [
+        { reason: 'already-filed' },
+        { reason: 'toggle-disabled' },
+      ],
+    });
+    assert.equal(outcome.unfiledProposals, false);
+    assert.deepEqual(outcome.blockingSkipReasons, []);
+  });
+
+  it('names the corpus when nothing routed out of it', () => {
+    const body = buildFollowUpsCommentBody({
+      storyId: 4824,
+      proposals: { framework: [], consumer: [], discarded: [] },
+      graduated: { filed: [], skipped: [], errors: [] },
+      storyCount: 2,
+      signalCount: 4,
+      categories: [
+        { category: 'close-failed', occurrences: 2 },
+        { category: 'story-blocked', occurrences: 2 },
+      ],
+    });
+    assert.match(body, /4 friction signals gathered, 0 proposals produced/);
+    assert.match(body, /`close-failed` ×2/);
+    assert.match(body, /`story-blocked` ×2/);
+    assert.doesNotMatch(
+      body,
+      /nothing to follow up/,
+      'a corpus that produced nothing must not read as a clean run',
+    );
+    assert.match(body, /"zeroProposalSuspect": true/);
+    assert.match(body, /"signalCount": 4/);
   });
 });
