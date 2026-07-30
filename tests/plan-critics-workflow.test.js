@@ -227,6 +227,24 @@ describe('story-author prompt — codified text-hygiene conventions (#4599)', ()
       /declarative Key Assumption/i,
       'Key Assumptions are declarative',
     );
+    // Story #4845: the author prompt triages unknowns by resolver — an
+    // AFK-shaped unknown is researched, never assumed; only a HITL-shaped
+    // unknown may be restated as a Key Assumption.
+    assertDocMentions(
+      prompt,
+      /AFK-shaped unknown.+MUST be resolved by your own research/i,
+      'AFK-shaped unknowns are researched, not assumed',
+    );
+    assertDocMentions(
+      prompt,
+      /only a HITL-shaped unknown.+may be restated/i,
+      'only HITL-shaped unknowns may become Key Assumptions',
+    );
+    assertDocMentions(
+      prompt,
+      /decision-made-by-default/i,
+      'defaulted HITL unknowns are marked decisions-made-by-default',
+    );
   });
 });
 

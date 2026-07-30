@@ -36,6 +36,46 @@ whole surface exists to remove.
 Mixed ids and prose in one invocation is a **hard error**: refuse and ask which
 was meant, rather than guessing a mode and doing the wrong work.
 
+## Unknown triage — AFK vs HITL
+
+Every open question interrogation surfaces is triaged by **who can resolve
+it**, not parked in one bucket (a shape borrowed from the Wayfinder skill's
+HITL/AFK ticket typing):
+
+- **AFK** (away from keyboard — the agent resolves it alone): the answer is a
+  fact something already records — third-party docs, a dependency's API
+  surface, observable behavior of this repo. Research it during interrogation
+  (per `.agents/instructions.md` § 1.C) and fold the answer into the plan as a
+  verified claim. An AFK unknown never becomes a Key Assumption — an
+  assumption standing in for a checkable fact is just an unchecked fact.
+- **HITL** (human in the loop — only the operator can resolve it): a genuine
+  product or architecture call — what to support, what to drop, which
+  trade-off to prefer. Nothing the agent reads can answer it; presenting a
+  researched recommendation is fine, deciding is not.
+
+Boundary examples: *"does library X support streaming?"* is AFK (read its
+docs); *"should we drop Node 18 support?"* is HITL (a support-policy call);
+*"does our CLI already validate this flag?"* is AFK (read the code);
+*"which of two valid schema shapes should the new field use?"* is HITL when
+both fit — but first verify it is not settled by an existing convention,
+which would make it AFK.
+
+**Attended runs** present the HITL list at Gate #1 as "needs your decision",
+one line each, alongside the sharpened intent. **Under `--yes`** nobody is at
+the keyboard: AFK unknowns are researched exactly as in an attended run, and
+each HITL unknown degrades to a declarative Key Assumption that names the
+default chosen and marks it a decision-made-by-default, e.g.:
+
+> **Key Assumption (decision-made-by-default):** new-style envelopes only;
+> re-emitting legacy envelopes was ruled out by default, not by the operator.
+
+(Keep the assumption itself declarative — "flag if wrong" phrasing trips the
+open-question hygiene lint, and the deliverer cannot answer it anyway.)
+
+The marker keeps the operator's undelegated decisions findable after the
+fact: reviewing a `--yes` plan means scanning its decisions-made-by-default,
+not re-deriving which assumptions were really the agent's to make.
+
 ## Gate #1 → the light path (in-session handoff)
 
 On a confirmed `deliverLightSuggestion`, `/plan` routes into

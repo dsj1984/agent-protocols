@@ -132,6 +132,37 @@ describe('/plan --yes headless flag — gate #1', () => {
       'unresolved unknowns must land in the one-pager Key Assumptions section',
     );
   });
+
+  // Story #4845: unknowns are triaged by resolver, not pooled — AFK unknowns
+  // get researched even under --yes; only HITL unknowns degrade to Key
+  // Assumptions, and those carry the decision-made-by-default marker.
+  it('triages unknowns by resolver — AFK researched, HITL-only Key Assumptions', () => {
+    assertDocMentions(
+      interrogate,
+      /AFK.+unknown/i,
+      'interrogation must name the AFK unknown class',
+    );
+    assertDocMentions(
+      interrogate,
+      /HITL.+unknown/i,
+      'interrogation must name the HITL unknown class',
+    );
+    assertDocMentions(
+      interrogate,
+      /AFK unknowns are still researched/i,
+      '--yes must not exempt AFK unknowns from research',
+    );
+    assertDocMentions(
+      interrogate,
+      /only HITL unknowns land in\s+Key Assumptions/i,
+      'only HITL unknowns may degrade to Key Assumptions',
+    );
+    assertDocMentions(
+      interrogate,
+      /decision-made-by-default/i,
+      'defaulted HITL unknowns carry the decision-made-by-default marker',
+    );
+  });
 });
 
 describe('/plan --yes headless flag — gate #2', () => {
