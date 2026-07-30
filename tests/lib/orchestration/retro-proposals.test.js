@@ -464,10 +464,143 @@ test('anchorKind still selects the wording', () => {
   );
   assert.match(story.framework[0].title, /in Story #42/);
 
+  // Story #4850 — a run corpus confined to the run's own Stories keeps the
+  // plain wording; `anchorStoryIds` is what says the corpus IS this run.
   const run = composeRoutedProposals(
-    baseInput({ signals: [closeFailed(42), closeFailed(42)] }),
+    baseInput({
+      anchorStoryIds: [42],
+      signals: [closeFailed(42), closeFailed(42)],
+    }),
   );
   assert.match(run.framework[0].title, /in plan-run 2547/);
+});
+
+// --- Story #4850: the title must not misname its own corpus -----------------
+
+/** A dated `tool-degraded` row, the shape a systemic framework defect emits. */
+function dated(storyId, ts) {
+  return {
+    category: 'tool-degraded',
+    source: 'framework',
+    storyId,
+    tool: 'native-review-lint',
+    ts,
+    details: { surface: 'scoped-lint', reason: 'no parseable output' },
+  };
+}
+
+test('AC-1: a corpus spanning foreign Stories is titled by its window, not by the triggering run', () => {
+  const out = composeRoutedProposals(
+    baseInput({
+      anchorId: 4850,
+      runToken: 'adhoc-4850-4851',
+      anchorStoryIds: [4850, 4851],
+      signals: [
+        dated(4820, '2026-07-02T10:00:00.000Z'),
+        dated(4833, '2026-07-11T08:30:00.000Z'),
+        dated(4851, '2026-07-29T22:15:00.000Z'),
+      ],
+    }),
+  );
+
+  const { title } = out.framework[0];
+  // The three facts a triager needs: how often, over how many Stories, when.
+  assert.match(title, /recurred 3 times/);
+  assert.match(title, /across 3 Stories/);
+  assert.match(title, /\(2026-07-02 → 2026-07-29\)/);
+  // And the claim that was false: these occurrences did not happen in the
+  // triggering run, and the title must not say they did.
+  assert.doesNotMatch(title, /in plan-run/);
+  assert.doesNotMatch(title, /adhoc-4850-4851/);
+});
+
+test('AC-2: the body opens on the corpus window and labels the triggering run separately', () => {
+  const out = composeRoutedProposals(
+    baseInput({
+      anchorId: 4850,
+      runToken: 'adhoc-4850-4851',
+      anchorStoryIds: [4850, 4851],
+      signals: [
+        dated(4820, '2026-07-02T10:00:00.000Z'),
+        dated(4833, '2026-07-11T08:30:00.000Z'),
+      ],
+    }),
+  );
+
+  const { body } = out.framework[0];
+  const [opening] = body.split('\n');
+  assert.match(opening, /surfaced 2 times across 2 Stories/);
+  assert.match(opening, /between 2026-07-02 and 2026-07-11/);
+  assert.doesNotMatch(
+    opening,
+    /during /,
+    'the opening line asserted the whole corpus happened in the triggering run',
+  );
+  // The run is still named — as the trigger, alongside the Stories it did NOT
+  // contribute, rather than as the scope of the count.
+  assert.match(body, /Triggering run: plan-run adhoc-4850-4851/);
+  assert.match(body, /Contributing Stories \(2\): #4820, #4833/);
+});
+
+test('AC-8: a corpus confined to the run keeps naming the run in title and body', () => {
+  const out = composeRoutedProposals(
+    baseInput({
+      anchorId: 4850,
+      runToken: 'adhoc-4850-4851',
+      anchorStoryIds: [4850, 4851],
+      signals: [
+        dated(4850, '2026-07-29T10:00:00.000Z'),
+        dated(4851, '2026-07-29T11:00:00.000Z'),
+      ],
+    }),
+  );
+
+  const item = out.framework[0];
+  assert.equal(
+    item.title,
+    'Friction: tool-degraded recurred 2 times in plan-run adhoc-4850-4851',
+    'the common single-run case must not regress into hedged wording',
+  );
+  assert.match(item.body, /Triggering run: plan-run adhoc-4850-4851/);
+  // Same-day corpus → a single date, not a degenerate "X → X" range.
+  assert.match(item.body, /surfaced 2 times across 2 Stories on 2026-07-29\./);
+});
+
+test('AC-1: an undateable corpus omits the range rather than inventing one', () => {
+  const out = composeRoutedProposals(
+    baseInput({
+      anchorId: 4850,
+      anchorStoryIds: [4850],
+      signals: [
+        dated(4820, undefined),
+        dated(4833, 'not-a-timestamp'),
+        dated(4844, ''),
+      ],
+    }),
+  );
+
+  const { title, body } = out.framework[0];
+  assert.equal(
+    title,
+    'Friction: tool-degraded recurred 3 times across 3 Stories',
+  );
+  assert.match(body, /surfaced 3 times across 3 Stories\./);
+});
+
+test('AC-6: the run token reaches the composer as an input, not as a post-hoc patch', () => {
+  // The pre-#4850 epilogue rewrote `plan-run <primary story id>` by regex. The
+  // composer must render the caller's token itself, including a non-numeric
+  // one no `plan-run \d+` pattern could ever have matched.
+  const out = composeRoutedProposals(
+    baseInput({
+      anchorId: 4850,
+      runToken: 'adhoc-4850-4851',
+      anchorStoryIds: [4850],
+      signals: [dated(4850, '2026-07-29T10:00:00.000Z'), dated(4850, null)],
+    }),
+  );
+  assert.match(out.framework[0].title, /in plan-run adhoc-4850-4851$/);
+  assert.doesNotMatch(out.framework[0].title, /plan-run 4850\b/);
 });
 
 // --- Story #4824: the framework bucket is reachable end to end -------------

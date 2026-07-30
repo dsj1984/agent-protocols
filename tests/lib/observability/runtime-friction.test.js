@@ -33,7 +33,10 @@ import {
 } from '../../../.agents/scripts/lib/observability/runtime-friction.js';
 import { forEachLine } from '../../../.agents/scripts/lib/observability/signals-writer.js';
 import { composeRoutedProposals } from '../../../.agents/scripts/lib/orchestration/retro-proposals.js';
-import { gatherStoryFrictionSignals } from '../../../.agents/scripts/lib/orchestration/story-follow-ups.js';
+import {
+  gatherRunFrictionSignals,
+  gatherStoryFrictionSignals,
+} from '../../../.agents/scripts/lib/orchestration/story-follow-ups.js';
 import { makeTempDir } from '../../../.agents/scripts/lib/test-temp.js';
 
 /** An absolute, per-test tempRoot — never the shared main-checkout temp. */
@@ -439,6 +442,85 @@ describe('close-recovery friction (Story #4649)', () => {
     assert.equal(filed.length, 1, 'no land, no netting — it still routes');
     assert.equal(filed[0].category, 'close-failed');
     assert.equal(filed[0].occurrences, 2);
+  });
+});
+
+/**
+ * Story #4850 — the composer had no notion of *when* its corpus happened, so it
+ * borrowed the triggering run as the window and titled every proposal with a
+ * claim its own evidence block contradicted.
+ *
+ * The timestamp is carried in the ONE shared normalizer both gathers call, not
+ * re-read beside either of them. Two independent reads of the same stream is
+ * precisely the drift that made the recovery-netting unreachable on real data
+ * in Story #4649, so these tests assert the property through both gathers.
+ */
+describe('normalizeGatheredSignal carries ts (Story #4850)', () => {
+  it('AC-3: the story-scope gather surfaces the row ts the writer stamped', async () => {
+    const before = Date.now();
+    await emitRuntimeFriction({
+      storyId: 4850,
+      category: RUNTIME_FRICTION_CATEGORIES.TOOL_DEGRADED,
+      tool: 'native-review-lint',
+      details: { surface: 'scoped-lint' },
+      config,
+    });
+
+    const signals = await gatherStoryFrictionSignals(4850, config);
+    assert.equal(signals.length, 1);
+    const ms = Date.parse(signals[0].ts);
+    assert.ok(Number.isFinite(ms), 'the ts must survive normalization');
+    assert.ok(ms >= before - 1000 && ms <= Date.now() + 1000);
+  });
+
+  it('AC-3: the run-scope gather reads the same field through the same normalizer', async () => {
+    await emitRuntimeFriction({
+      storyId: 4851,
+      category: RUNTIME_FRICTION_CATEGORIES.TOOL_DEGRADED,
+      tool: 'native-review-lint',
+      details: { surface: 'scoped-lint' },
+      config,
+    });
+
+    const [story] = await gatherStoryFrictionSignals(4851, config);
+    const { signals } = await gatherRunFrictionSignals([4851], config);
+    assert.equal(signals.length, 1);
+    assert.equal(
+      signals[0].ts,
+      story.ts,
+      'one normalizer, one answer — the two gathers cannot drift',
+    );
+  });
+
+  it('AC-3: resolves to null for an absent or unreadable ts', async () => {
+    // Written straight to the stream: the writer would reject these (`ts` is
+    // required by signal-event.schema.json), and the gathers read whatever
+    // survived on disk — including a row a truncated write left half-formed.
+    const dir = path.join(tempRoot, 'standalone', 'stories', 'story-4852');
+    await fs.mkdir(dir, { recursive: true });
+    await fs.writeFile(
+      path.join(dir, 'signals.ndjson'),
+      `${[
+        JSON.stringify({ kind: 'friction', category: 'no-ts', storyId: 4852 }),
+        JSON.stringify({
+          kind: 'friction',
+          category: 'bad-ts',
+          storyId: 4852,
+          ts: 'yesterday-ish',
+        }),
+      ].join('\n')}\n`,
+      'utf8',
+    );
+
+    const signals = await gatherStoryFrictionSignals(4852, config);
+    assert.deepEqual(
+      signals.map((s) => [s.category, s.ts]),
+      [
+        ['no-ts', null],
+        ['bad-ts', null],
+      ],
+      'an undateable row resolves to null rather than guessing a time',
+    );
   });
 });
 

@@ -698,6 +698,169 @@ describe('follow-up-rollup — an empty roll-up over N>1 asserts (Story #4578)',
 });
 
 /**
+ * Story #4850 — the roll-up's own numbers must say which corpus produced them.
+ *
+ * The gather reduces over the whole surviving recurrence window on purpose, so
+ * the epilogue can no longer claim the occurrences happened in the run it
+ * happens to be closing, and it must report the age bound it applied — a
+ * `signalCount` alone cannot distinguish a 30-day window that aged forty rows
+ * out from a corpus with nothing older in it.
+ */
+describe('follow-up-rollup — the window is reported and the run is an input (Story #4850)', () => {
+  function rollupProvider(comments) {
+    return {
+      getTicket: async (id) => ({
+        id,
+        title: `Story ${id}`,
+        body: '',
+        labels: ['type::story'],
+      }),
+      getTicketComments: async () => [],
+      postComment: async (ticketId, payload) => {
+        comments.push({ ticketId, body: payload.body });
+        return { commentId: comments.length };
+      },
+      deleteComment: async () => {},
+    };
+  }
+
+  it('AC-5: reports the window bound and what it excluded', async () => {
+    const comments = [];
+    const tempRoot = makeTempDir('rollup-window-');
+    const config = {
+      github: { owner: 'o', repo: 'r' },
+      project: { paths: { tempRoot } },
+      delivery: { feedbackLoop: { retroProposals: false } },
+    };
+    try {
+      await emitRuntimeFriction({
+        storyId: 9301,
+        category: RUNTIME_FRICTION_CATEGORIES.TOOL_DEGRADED,
+        tool: 'native-review-lint',
+        details: { surface: 'scoped-lint' },
+        config,
+      });
+
+      const result = await runPlanRunEpilogue({
+        planRunId: 'adhoc-9301-9302',
+        stories: [9301, 9302],
+        provider: rollupProvider(comments),
+        config,
+        cwd: process.cwd(),
+      });
+
+      const rollup = result.results.find((r) => r.kind === 'follow-up-rollup');
+      assert.equal(rollup.frictionWindow.days, 30, 'the default bound applies');
+      assert.ok(
+        Number.isFinite(Date.parse(rollup.frictionWindow.cutoff)),
+        'the cutoff is a readable instant, not prose',
+      );
+      assert.equal(rollup.frictionWindow.excludedStale, 0);
+      assert.equal(rollup.frictionWindow.excludedUnparseable, 0);
+    } finally {
+      rmSync(tempRoot, { recursive: true, force: true });
+    }
+  });
+
+  /**
+   * AC-6 — the epilogue used to compose with the primary Story's numeric id
+   * standing in for the run, then rewrite the rendered title and body by regex
+   * over a `plan-run \d+` substring. The token is an input now: the rendered
+   * text carries the real (non-numeric) run token, which no `\d+` patch could
+   * ever have produced, and the primary Story id never appears as a run id.
+   */
+  it('AC-6: the rendered proposal carries the run token with no regex patch', async () => {
+    const comments = [];
+    const tempRoot = makeTempDir('rollup-run-token-');
+    const config = {
+      github: { owner: 'o', repo: 'r' },
+      project: { paths: { tempRoot } },
+      delivery: { feedbackLoop: { retroProposals: false } },
+    };
+    try {
+      for (const storyId of [9401, 9402]) {
+        await emitRuntimeFriction({
+          storyId,
+          category: RUNTIME_FRICTION_CATEGORIES.TOOL_DEGRADED,
+          tool: 'native-review-lint',
+          details: { surface: 'scoped-lint' },
+          config,
+        });
+      }
+
+      await runPlanRunEpilogue({
+        planRunId: 'adhoc-9401-9402',
+        stories: [9401, 9402],
+        provider: rollupProvider(comments),
+        config,
+        cwd: process.cwd(),
+      });
+
+      const body = comments.find((c) => /### follow-ups/.test(c.body))?.body;
+      assert.match(body, /in plan-run adhoc-9401-9402/);
+      assert.match(body, /Triggering run: plan-run adhoc-9401-9402/);
+      assert.doesNotMatch(
+        body,
+        /plan-run 9401\b/,
+        'the primary Story id must never be rendered as the run id',
+      );
+    } finally {
+      rmSync(tempRoot, { recursive: true, force: true });
+    }
+  });
+
+  /**
+   * The cross-run case is where the pre-#4850 title lied: the corpus spans
+   * Stories the run never delivered, and the body's own evidence block said so
+   * while the title asserted the run as the scope.
+   */
+  it('AC-1: a corpus spanning Stories outside the run is titled by its window', async () => {
+    const comments = [];
+    const tempRoot = makeTempDir('rollup-foreign-');
+    const config = {
+      github: { owner: 'o', repo: 'r' },
+      project: { paths: { tempRoot } },
+      delivery: { feedbackLoop: { retroProposals: false } },
+    };
+    try {
+      // 9501 is foreign — a Story from an earlier run whose stream survives.
+      for (const storyId of [9501, 9502]) {
+        await emitRuntimeFriction({
+          storyId,
+          category: RUNTIME_FRICTION_CATEGORIES.TOOL_DEGRADED,
+          tool: 'native-review-lint',
+          details: { surface: 'scoped-lint' },
+          config,
+        });
+      }
+
+      await runPlanRunEpilogue({
+        planRunId: 'adhoc-9502-9503',
+        stories: [9502, 9503],
+        provider: rollupProvider(comments),
+        config,
+        cwd: process.cwd(),
+      });
+
+      const body = comments.find((c) => /### follow-ups/.test(c.body))?.body;
+      assert.match(
+        body,
+        /recurred 2 times across 2 Stories \(\d{4}-\d\d-\d\d\)/,
+      );
+      assert.doesNotMatch(
+        body,
+        /recurred 2 times in plan-run/,
+        'the count did not happen in the triggering run and must not say so',
+      );
+      // The run is still named — as the trigger, not as the scope.
+      assert.match(body, /Triggering run: plan-run adhoc-9502-9503/);
+    } finally {
+      rmSync(tempRoot, { recursive: true, force: true });
+    }
+  });
+});
+
+/**
  * Story #4828 — the reporting layer is where this is asserted, deliberately.
  *
  * The measured failure was a roll-up that gathered nine signals, composed one

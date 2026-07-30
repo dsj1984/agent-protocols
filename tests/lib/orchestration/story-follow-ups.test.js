@@ -212,7 +212,7 @@ describe('cross-Story recurrence window (Story #4824)', () => {
 
     // The run under way is Story #8102 alone — exactly the shape that used to
     // discard this defect as a singleton.
-    const signals = await gatherRunFrictionSignals([8102], config);
+    const { signals } = await gatherRunFrictionSignals([8102], config);
     assert.equal(signals.length, 2, 'the window spans both surviving streams');
 
     const proposals = composeRoutedProposals({
@@ -232,7 +232,7 @@ describe('cross-Story recurrence window (Story #4824)', () => {
   it('AC-5: five streams carrying one fingerprint produce exactly one proposal', async () => {
     for (const sid of [8201, 8202, 8203, 8204, 8205]) await degrade(sid);
 
-    const signals = await gatherRunFrictionSignals([8205], config);
+    const { signals } = await gatherRunFrictionSignals([8205], config);
     assert.equal(signals.length, 5);
 
     const proposals = composeRoutedProposals({
@@ -256,7 +256,7 @@ describe('cross-Story recurrence window (Story #4824)', () => {
     // genuine singleton into a fabricated recurrence.
     await degrade(8301);
 
-    const signals = await gatherRunFrictionSignals([8301], config);
+    const { signals } = await gatherRunFrictionSignals([8301], config);
     assert.equal(signals.length, 1);
 
     const proposals = composeRoutedProposals({
@@ -282,14 +282,17 @@ describe('cross-Story recurrence window (Story #4824)', () => {
     });
     await degrade(8402);
 
-    const signals = await gatherRunFrictionSignals([8402], config);
+    const { signals } = await gatherRunFrictionSignals([8402], config);
     assert.equal(signals.length, 2, 'run-<eid>/stories/ is in the window too');
     assert.deepEqual(signals.map((s) => s.storyId).sort(), [8401, 8402]);
   });
 
   it('returns no signals when the temp tree does not exist', async () => {
     const missing = { project: { paths: { tempRoot: `${tempRoot}/absent` } } };
-    assert.deepEqual(await gatherRunFrictionSignals([1, 2], missing), []);
+    const { signals, window } = await gatherRunFrictionSignals([1, 2], missing);
+    assert.deepEqual(signals, []);
+    assert.equal(window.excludedStale, 0);
+    assert.equal(window.excludedUnparseable, 0);
   });
 
   it('tags a runtime tool-degradation framework end to end (Story #4824)', async () => {
@@ -297,9 +300,153 @@ describe('cross-Story recurrence window (Story #4824)', () => {
     // written by the real writer, so its `source` is whatever
     // `tagSignalSource` decided — which, pre-#4824, was always `consumer`.
     await degrade(8501);
-    const signals = await gatherRunFrictionSignals([8501], config);
+    const { signals } = await gatherRunFrictionSignals([8501], config);
     assert.equal(signals[0].source, 'framework');
     assert.equal(signals[0].tool, 'native-review-lint');
+  });
+});
+
+/**
+ * Story #4850 — widening the window to the whole surviving temp tree
+ * (Story #4824) also made it unbounded in TIME. A defect fixed weeks ago kept
+ * its occurrences on disk and kept re-routing forever, burying a genuine new
+ * regression under a historical ledger.
+ *
+ * The floor fails toward UNDER-counting: an out-of-window row and an undateable
+ * row are both excluded, because under-counting fails toward not filing, which
+ * is the safe direction. Both exclusions are counted, never silent.
+ */
+describe('friction recurrence window is age-bounded (Story #4850)', () => {
+  let tempRoot;
+  let config;
+
+  beforeEach(async () => {
+    tempRoot = await makeTempDir('friction-window-');
+    config = { project: { paths: { tempRoot } } };
+  });
+
+  afterEach(async () => {
+    await fs.rm(tempRoot, { recursive: true, force: true });
+  });
+
+  /** Write one row directly, so its `ts` can be placed anywhere in time. */
+  async function seedRow(storyId, ts, category = 'tool-degraded') {
+    const dir = `${tempRoot}/standalone/stories/story-${storyId}`;
+    await fs.mkdir(dir, { recursive: true });
+    await fs.appendFile(
+      `${dir}/signals.ndjson`,
+      `${JSON.stringify({
+        kind: 'friction',
+        eventId: `${storyId}-${ts}-${category}`,
+        category,
+        storyId,
+        source: 'framework',
+        emitter: { tool: 'native-review-lint' },
+        details: { surface: 'scoped-lint' },
+        ...(ts === undefined ? {} : { ts }),
+      })}\n`,
+      'utf8',
+    );
+  }
+
+  const daysAgo = (now, days) => new Date(now - days * 86400000).toISOString();
+
+  it('AC-4: excludes rows older than the default 30-day window', async () => {
+    const now = Date.parse('2026-07-30T12:00:00.000Z');
+    await seedRow(8601, daysAgo(now, 2));
+    await seedRow(8602, daysAgo(now, 29));
+    await seedRow(8603, daysAgo(now, 31));
+    await seedRow(8604, daysAgo(now, 400));
+
+    const { signals, window } = await gatherRunFrictionSignals([8601], config, {
+      now,
+    });
+    assert.deepEqual(
+      signals.map((s) => s.storyId).sort(),
+      [8601, 8602],
+      'only the in-window rows reach the composer',
+    );
+    assert.equal(window.days, 30, 'the default bound is 30 days');
+    assert.equal(window.cutoff, daysAgo(now, 30));
+    assert.equal(window.excludedStale, 2);
+    assert.equal(window.excludedUnparseable, 0);
+  });
+
+  it('AC-4: honours delivery.feedbackLoop.frictionWindowDays', async () => {
+    const now = Date.parse('2026-07-30T12:00:00.000Z');
+    await seedRow(8701, daysAgo(now, 3));
+    await seedRow(8702, daysAgo(now, 10));
+
+    const tuned = {
+      ...config,
+      delivery: { feedbackLoop: { frictionWindowDays: 7 } },
+    };
+    const { signals, window } = await gatherRunFrictionSignals([8701], tuned, {
+      now,
+    });
+    assert.deepEqual(
+      signals.map((s) => s.storyId),
+      [8701],
+    );
+    assert.equal(window.days, 7);
+    assert.equal(window.excludedStale, 1);
+  });
+
+  it('AC-4: excludes an undateable row rather than aging it in', async () => {
+    const now = Date.parse('2026-07-30T12:00:00.000Z');
+    await seedRow(8801, undefined);
+    await seedRow(8802, 'the day before yesterday');
+    await seedRow(8803, daysAgo(now, 1));
+
+    const { signals, window } = await gatherRunFrictionSignals([8803], config, {
+      now,
+    });
+    assert.deepEqual(
+      signals.map((s) => s.storyId),
+      [8803],
+      'a row with no readable ts cannot be proven in-window, so it is out',
+    );
+    assert.equal(window.excludedUnparseable, 2);
+    assert.equal(window.excludedStale, 0);
+  });
+
+  it('AC-4: an aged-out incident cannot be resurrected by its recovery marker', async () => {
+    // The netting is per (category, storyId) over the rows in the window. A
+    // marker is written after the incident it cancels, so this asymmetric case
+    // — stale incident, fresh marker — is the only one the floor can produce,
+    // and it must contribute nothing rather than a bare `recovered` row.
+    const now = Date.parse('2026-07-30T12:00:00.000Z');
+    await seedRow(8901, daysAgo(now, 90), 'close-failed');
+    const dir = `${tempRoot}/standalone/stories/story-8901`;
+    await fs.appendFile(
+      `${dir}/signals.ndjson`,
+      `${JSON.stringify({
+        kind: 'friction',
+        eventId: 'marker-8901',
+        category: 'close-failed',
+        storyId: 8901,
+        source: 'framework',
+        ts: daysAgo(now, 1),
+        details: { recovered: true },
+      })}\n`,
+      'utf8',
+    );
+
+    const { signals } = await gatherRunFrictionSignals([8901], config, { now });
+    assert.equal(signals.length, 1, 'only the fresh marker is in the window');
+    const proposals = composeRoutedProposals({
+      anchorId: 8901,
+      anchorKind: 'run',
+      anchorStoryIds: [8901],
+      frameworkRepo: 'a/b',
+      consumerRepo: 'c/d',
+      signals,
+    });
+    assert.deepEqual(proposals, {
+      framework: [],
+      consumer: [],
+      discarded: [],
+    });
   });
 });
 

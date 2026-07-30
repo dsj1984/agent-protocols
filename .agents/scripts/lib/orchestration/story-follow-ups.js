@@ -26,6 +26,33 @@ import { upsertStructuredComment } from './ticketing.js';
 
 export const FOLLOW_UPS_COMMENT_TYPE = 'follow-ups';
 
+/** Milliseconds in one day — the unit `frictionWindowDays` is expressed in. */
+const MS_PER_DAY = 24 * 60 * 60 * 1000;
+
+/** Window bound applied when `frictionWindowDays` is unset. */
+const DEFAULT_FRICTION_WINDOW_DAYS = 30;
+
+/**
+ * How many days back the run-scope recurrence window reaches (Story #4850).
+ *
+ * Defaults to 30 rather than to "unbounded": the widened cross-run window
+ * exists to let a once-per-Story defect reach the ≥ 2 threshold, and 30 days is
+ * long enough for that while short enough that a defect fixed last month stops
+ * re-routing. An absent, non-integer, or sub-1 value takes the default — the
+ * runtime AJV in `config-settings-schema-delivery.js` rejects those at load, so
+ * reaching this fallback means the config never went through the validator.
+ *
+ * @param {object} [config]
+ * @returns {number}
+ */
+function resolveFrictionWindowDays(config) {
+  const raw = config?.delivery?.feedbackLoop?.frictionWindowDays;
+  const days = Number(raw);
+  return Number.isInteger(days) && days >= 1
+    ? days
+    : DEFAULT_FRICTION_WINDOW_DAYS;
+}
+
 /**
  * @param {object} [config]
  * @returns {{ frameworkRepo: string, consumerRepo: string, currentRepo: { owner: string, repo: string } }}
@@ -145,18 +172,55 @@ function signalIdentity(parsed, file, lineNumber) {
  * Unusable ids are skipped rather than throwing — a roll-up must not fail the
  * epilogue over one malformed entry.
  *
+ * **Bounded by age, not by run (Story #4850).** Widening the window to the
+ * whole surviving temp tree also made it unbounded in *time*: a defect fixed
+ * weeks ago kept its occurrences on disk and kept re-routing forever, burying
+ * a genuine new regression underneath a historical ledger. Rows older than
+ * `delivery.feedbackLoop.frictionWindowDays` (default 30) are excluded, as are
+ * rows carrying no `ts` a `Date` can read — excluding an undateable row is the
+ * direction that fails toward under-counting, and under-counting fails toward
+ * not filing. Both exclusions are **counted and reported**, so a caller can
+ * tell a bounded window from an unbounded one without reading prose.
+ *
+ * A recovery marker is written after the incident it cancels, so a marker can
+ * never fall outside a window its incident is inside — the netting cannot be
+ * broken by the age floor.
+ *
  * @param {Array<number|string>} storyIds The run's own Stories.
  * @param {object} [config]
- * @returns {Promise<Array<{ category: string, source: 'framework'|'consumer', storyId: number, details: object }>>}
+ * @param {{ now?: number }} [clock] Injected epoch-ms seam so a test can pin
+ *   the window without touching the system clock.
+ * @returns {Promise<{
+ *   signals: Array<{ category: string, source: 'framework'|'consumer', storyId: number, ts: string|null, details: object }>,
+ *   window: { days: number, cutoff: string, excludedStale: number, excludedUnparseable: number },
+ * }>}
  */
-export async function gatherRunFrictionSignals(storyIds, config) {
+export async function gatherRunFrictionSignals(
+  storyIds,
+  config,
+  { now = Date.now() } = {},
+) {
+  const days = resolveFrictionWindowDays(config);
+  const cutoffMs = now - days * MS_PER_DAY;
   const signals = [];
   const seen = new Set();
+  let excludedStale = 0;
+  let excludedUnparseable = 0;
   const take = (parsed, fallbackStoryId, identity) => {
     if (seen.has(identity)) return;
     seen.add(identity);
     const signal = normalizeGatheredSignal(parsed, fallbackStoryId);
-    if (signal) signals.push(signal);
+    if (!signal) return;
+    const ms = signal.ts === null ? Number.NaN : Date.parse(signal.ts);
+    if (!Number.isFinite(ms)) {
+      excludedUnparseable += 1;
+      return;
+    }
+    if (ms < cutoffMs) {
+      excludedStale += 1;
+      return;
+    }
+    signals.push(signal);
   };
 
   for (const raw of Array.isArray(storyIds) ? storyIds : []) {
@@ -178,7 +242,15 @@ export async function gatherRunFrictionSignals(storyIds, config) {
     config,
   );
 
-  return signals;
+  return {
+    signals,
+    window: {
+      days,
+      cutoff: new Date(cutoffMs).toISOString(),
+      excludedStale,
+      excludedUnparseable,
+    },
+  };
 }
 
 /**
