@@ -2,6 +2,26 @@
 
 All notable changes to this project will be documented in this file.
 
+## [2.22.0](https://github.com/dsj1984/mandrel/compare/mandrel-v2.21.0...mandrel-v2.22.0) (2026-07-30)
+
+
+### Fixed
+
+* **context-budget:** hold agentBoot baseline rows in sync with the tree (refs [#4830](https://github.com/dsj1984/mandrel/issues/4830)) ([#4831](https://github.com/dsj1984/mandrel/issues/4831)) ([8a14f8b](https://github.com/dsj1984/mandrel/commit/8a14f8b85951819ef391382355fa2ba4d7998d43))
+* correct the always-on instruction spine and give its budget one honest definition (refs [#4821](https://github.com/dsj1984/mandrel/issues/4821)) ([#4822](https://github.com/dsj1984/mandrel/issues/4822)) ([436d7f0](https://github.com/dsj1984/mandrel/commit/436d7f05d36bd35a6b1a934f19e9a85b37b69f93))
+* feedback-loop: give an auto-filed issue a stable identity, an actionable body, and no path to the live API from a test ([#4837](https://github.com/dsj1984/mandrel/issues/4837)) ([#4838](https://github.com/dsj1984/mandrel/issues/4838)) ([43bbf57](https://github.com/dsj1984/mandrel/commit/43bbf578fc129c9b15ad068925722732fd264c7f))
+* make an inline dispatch verdict mean the engine can actually run inline (refs [#4829](https://github.com/dsj1984/mandrel/issues/4829)) ([#4832](https://github.com/dsj1984/mandrel/issues/4832)) ([f554830](https://github.com/dsj1984/mandrel/commit/f55483085eb201aa126275bb0ed6250fc5a452a3))
+* make the framework limb of the feedback loop reachable (refs [#4824](https://github.com/dsj1984/mandrel/issues/4824)) ([#4827](https://github.com/dsj1984/mandrel/issues/4827)) ([91816a2](https://github.com/dsj1984/mandrel/commit/91816a2dceda127a0cdf1ad3f48f53d7770cbf0b))
+* make the friction roll-up file its proposals and make an all-empty result legible (refs [#4828](https://github.com/dsj1984/mandrel/issues/4828)) ([#4835](https://github.com/dsj1984/mandrel/issues/4835)) ([c017f9a](https://github.com/dsj1984/mandrel/commit/c017f9a9145122b15e41b55a9126a35171f3f1b9))
+* review: stop the scoped-lint gate failing open silently, and fix why its runner cannot execute ([#4839](https://github.com/dsj1984/mandrel/issues/4839)) ([#4840](https://github.com/dsj1984/mandrel/issues/4840)) ([8f3f007](https://github.com/dsj1984/mandrel/commit/8f3f0072abef020439d555af698829ebfc8900f8))
+* rules: ship a known-tooling-behavior rule so measured gate quirks stop being rediscovered per session ([#4825](https://github.com/dsj1984/mandrel/issues/4825)) ([#4826](https://github.com/dsj1984/mandrel/issues/4826)) ([2c20403](https://github.com/dsj1984/mandrel/commit/2c2040318055026307518de57b1433c11c56efc1))
+* **test:** probe bins on either path separator so [#4839](https://github.com/dsj1984/mandrel/issues/4839)'s tests pass on Windows ([#4841](https://github.com/dsj1984/mandrel/issues/4841)) ([98e6048](https://github.com/dsj1984/mandrel/commit/98e6048774b7483717931d0b4a63179800815941))
+
+
+### Changed
+
+* restore clean-code gate headroom: cover CRAP-capacity shells, flatten selectAudits, table-drive story-body parsing ([#4842](https://github.com/dsj1984/mandrel/issues/4842)) ([#4843](https://github.com/dsj1984/mandrel/issues/4843)) ([cc5dc5e](https://github.com/dsj1984/mandrel/commit/cc5dc5e7eaf423612495441f0f8f9007dbb9b8a4))
+
 ## [2.21.0](https://github.com/dsj1984/mandrel/compare/mandrel-v2.20.0...mandrel-v2.21.0) (2026-07-28)
 
 
