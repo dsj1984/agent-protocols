@@ -355,9 +355,18 @@ export async function emitCloseRecoveredFriction({ storyId, config } = {}) {
  * `tool-degraded` from the scoped-lint runner from one out of lens
  * materialization. It is descriptive, never a routing key.
  *
+ * `ts` joined the shape in Story #4850, and it joined it **here** rather than
+ * in a second read beside the run-scope gather. The composer had no notion of
+ * *when* its corpus happened, so it borrowed the triggering run as the window
+ * and titled every proposal with a claim the evidence block below it already
+ * contradicted. Carrying the timestamp through the one shared normalizer is
+ * what lets the recurrence window be both bounded and describable; re-reading
+ * it beside one of the two gathers is precisely the drift that made the
+ * recovery-netting unreachable in Story #4649.
+ *
  * @param {unknown} parsed          One parsed NDJSON row.
  * @param {number}  fallbackStoryId Stream owner, used when the row has none.
- * @returns {{ category: string, source: 'framework'|'consumer', storyId: number, tool: string, details: object }|null}
+ * @returns {{ category: string, source: 'framework'|'consumer', storyId: number, tool: string, ts: string|null, details: object }|null}
  */
 export function normalizeGatheredSignal(parsed, fallbackStoryId) {
   if (!parsed || typeof parsed !== 'object') return null;
@@ -374,11 +383,30 @@ export function normalizeGatheredSignal(parsed, fallbackStoryId) {
     source: parsed.source === 'framework' ? 'framework' : 'consumer',
     storyId: Number.isInteger(recordStoryId) ? recordStoryId : fallbackStoryId,
     tool: typeof emitterTool === 'string' ? emitterTool.trim() : '',
+    ts: parsableTimestamp(parsed.ts),
     details:
       parsed.details && typeof parsed.details === 'object'
         ? parsed.details
         : {},
   };
+}
+
+/**
+ * The row's `ts` when it is a string a `Date` can read, else `null`.
+ *
+ * `signal-event.schema.json` requires `ts`, and both producers stamp
+ * `new Date().toISOString()` — but the gathers read whatever survives on disk,
+ * including rows a truncated write left half-formed. Resolving to `null`
+ * rather than guessing a time is what lets the recurrence window exclude an
+ * undateable row explicitly instead of aging it in as "recent".
+ *
+ * @param {unknown} value
+ * @returns {string|null}
+ */
+function parsableTimestamp(value) {
+  if (typeof value !== 'string') return null;
+  const trimmed = value.trim();
+  return Number.isFinite(Date.parse(trimmed)) ? trimmed : null;
 }
 
 /**

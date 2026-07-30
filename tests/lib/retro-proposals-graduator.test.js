@@ -328,6 +328,50 @@ describe('AC3 — the config key validates against the runtime AJV schema', () =
   });
 });
 
+/**
+ * Story #4850 AC-7 — the knob has to live in the RUNTIME AJV, not only in the
+ * published mirror. A key added to `.agents/schemas/agentrc.schema.json` alone
+ * is dead on arrival: `resolveConfig` validates against
+ * `config-settings-schema-delivery.js`, so the mirror-only key is rejected as
+ * an additional property and never reaches the reader.
+ */
+describe('AC-7 — frictionWindowDays validates against the runtime AJV', () => {
+  const base = {
+    project: {
+      paths: { agentRoot: '.agents', docsRoot: 'docs', tempRoot: 'temp' },
+    },
+  };
+
+  it('accepts an integer of at least 1', () => {
+    const validate = getAgentrcValidator();
+    for (const frictionWindowDays of [1, 7, 30, 365]) {
+      const ok = validate({
+        ...base,
+        delivery: { feedbackLoop: { frictionWindowDays } },
+      });
+      assert.equal(
+        ok,
+        true,
+        `${frictionWindowDays} rejected: ${JSON.stringify(validate.errors)}`,
+      );
+    }
+  });
+
+  it('rejects zero, a negative, and a non-integer window', () => {
+    const validate = getAgentrcValidator();
+    for (const frictionWindowDays of [0, -1, 1.5, '30', null]) {
+      assert.equal(
+        validate({
+          ...base,
+          delivery: { feedbackLoop: { frictionWindowDays } },
+        }),
+        false,
+        `${JSON.stringify(frictionWindowDays)} must not validate`,
+      );
+    }
+  });
+});
+
 describe('AC4 — rendered body lists filed issue references and the cap is respected', () => {
   it('renders the filed issue number in place of the command stanza', async () => {
     const spawnImpl = makeSpawnStub();

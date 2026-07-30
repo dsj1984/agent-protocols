@@ -557,22 +557,29 @@ async function executeFollowUpRollup({
   // Shared with the story-scoped gather (Story #4649): `storyId` + `details`
   // are what the composer's recovery-netting keys on, and two hand-rolled
   // copies of this loop are how they got dropped in the first place.
-  const signals = await gatherRunFrictionSignals(stories, config);
+  const { signals, window: frictionWindow } = await gatherRunFrictionSignals(
+    stories,
+    config,
+  );
   const repos = resolveFollowUpRepos(config);
   const primaryId = Number(stories[0]);
+  // Story #4850 — `runToken` and `anchorStoryIds` are INPUTS. This used to
+  // compose with the primary Story's numeric id standing in for the run and
+  // then rewrite the rendered title/body by regex over a `plan-run \d+`
+  // substring, which meant the composer's own wording could not be changed
+  // without silently breaking the patch. `anchorStoryIds` is what lets the
+  // composer tell a corpus confined to this run from one spanning the whole
+  // surviving window, so it never titles the latter as if it were the former.
   const proposals = composeRoutedProposals({
     anchorId: Number.isInteger(primaryId) ? primaryId : 1,
     anchorKind: 'run',
+    runToken: String(planRunId ?? ''),
+    anchorStoryIds: stories,
     frameworkRepo: repos.frameworkRepo,
     consumerRepo: repos.consumerRepo,
     signals,
     unresolvedBlockedEvents: [],
   });
-  // Patch titles to mention the plan-run token (anchorKind run uses numeric id).
-  for (const item of [...proposals.framework, ...proposals.consumer]) {
-    item.title = item.title.replace(/plan-run \d+/, `plan-run ${planRunId}`);
-    item.body = item.body.replace(/plan-run \d+/g, `plan-run ${planRunId}`);
-  }
   const graduated = await graduateFn({
     epicId: primaryId,
     provider,
@@ -619,6 +626,11 @@ async function executeFollowUpRollup({
     signalCount: signals.length,
     storyCount: stories.length,
     filed: graduated.filed?.length ?? 0,
+    // Story #4850 — the recurrence window the gather actually applied, and what
+    // it dropped. `signalCount` alone cannot distinguish "the window is bounded
+    // at 30 days and 40 rows aged out" from "nothing older exists", and an
+    // operator triaging a roll-up needs to know which corpus produced it.
+    frictionWindow,
     // Story #4828 — everything below is what the roll-up saw and what became
     // of it. The pre-#4828 result reported `signalCount` and `filed` and
     // nothing in between, so nine signals routing into one proposal whose

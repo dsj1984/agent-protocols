@@ -322,12 +322,20 @@ const REVIEW_SCHEMA = {
  * issues via the graduator pre-parsed-findings seam, and the rendered retro
  * sections list the filed issue numbers instead of paste-ready `gh` command
  * stanzas; set it to `false` to fall back to the command stanzas.
+ *
+ * `frictionWindowDays` (Story #4850) bounds the run-scope friction recurrence
+ * window by row age. The window deliberately spans every surviving signal
+ * stream rather than the triggering run's own Stories — that is what lets a
+ * once-per-Story systemic defect reach the ≥ 2 actionable threshold — which
+ * left it unbounded in time, so a defect fixed weeks ago kept re-routing. An
+ * integer ≥ 1; unset means 30 days.
  */
 const FEEDBACK_LOOP_SCHEMA = {
   type: 'object',
   properties: {
     auditResultsAutoFile: { type: 'boolean' },
     retroProposals: { type: 'boolean' },
+    frictionWindowDays: { type: 'integer', minimum: 1 },
   },
   additionalProperties: false,
 };
