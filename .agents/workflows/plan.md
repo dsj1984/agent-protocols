@@ -14,7 +14,7 @@ description:
 
 Single planning path — there is no Epic/Story router, no scope-triage
 `epic|story` verdict. **Derive the mode from what the operator typed, announce
-it, then act**; there is nothing for them to remember:
+it, then act**:
 
 | Invocation | Mode | Behavior |
 | --- | --- | --- |
@@ -24,11 +24,10 @@ it, then act**; there is nothing for them to remember:
 | `/plan 4712[,4713…]` | tickets | Fetch issue(s), analyze into proper Stories (prefer N=1 rewrite). |
 | `/plan 4712`, already delivered | amends | Amend a shipped Story from a **delta envelope**, not a re-interrogation. |
 
-**Resolving a bare id.** Ids alone are ambiguous between *amend* and *tickets*,
-so read live state rather than asking: `agent::done` can only be amended, an
-open unplanned issue can only be planned. **Announce the derivation** — "4712
-is `agent::done` → amending" — so a wrong read costs one correction, not a
-wasted run. Ask **only** for an open Story already at `agent::ready`.
+**Resolving a bare id.** Read live state rather than asking: `agent::done` can
+only be amended, an open unplanned issue can only be planned. **Announce the
+derivation** — "4712 is `agent::done` → amending" — so a wrong read costs one
+correction. Ask **only** for an open Story already at `agent::ready`.
 
 `--body` is **not** a `/plan` entry; persist goes through `plan-persist.js`.
 
@@ -62,19 +61,26 @@ node .agents/scripts/plan-context.js --seed "<seed>" \
 
 **Always pass `--out`.** Persist auto-discovers the envelope from `--plan-dir`
 and derives source ids from its `sourceTickets[]`; the CLI also writes
-**`stories.template.json`**, the skeleton step 2 starts from.
+**`stories.template.json`**, step 2's skeleton.
 
 The envelope carries docs context, the story-author
 prompt, `sourceTickets[]`, `duplicates[]` (open **Stories**, never Epics), and
 advisory `complexitySignals` (**no routing authority**). A trivial scope earns
 `--route-downgrade-reason "<why>"` at persist — shape-validated, failing closed
-to `full` ([detail](helpers/plan-reference.md)). Under `--yes`, do not ask
-free-form operator questions — unknowns land in Key Assumptions.
+to `full` ([detail](helpers/plan-reference.md)).
+
+**Triage each unknown by resolver**
+([detail](helpers/plan-reference.md)): an **AFK** unknown (research settles
+it) is resolved before authoring, never assumed; a **HITL** unknown (an
+operator call) goes to Gate #1 as "needs your decision". Under `--yes`, do
+not ask free-form operator questions — AFK unknowns are still researched;
+only HITL unknowns land in Key Assumptions, each marked a
+decision-made-by-default.
 
 **Gate #1** — STOP to confirm the sharpened plan intent and any
 duplicate-candidate review. Under `--yes`, auto-proceed.
 
-When `complexitySignals.deliverLightSuggestion.suggested` is `true`, offer —
+On a truthy `deliverLightSuggestion.suggested`, offer —
 **advisory, never an automatic reroute** — to deliver the seed instead of
 planning it. On confirm, route **in this session** into
 [`helpers/deliver-light.md`](helpers/deliver-light.md), filling its gate from
@@ -88,9 +94,9 @@ A truthy `complexitySignals.uiSurface` marks a UI-touching plan: name
 ### 2. Author
 
 **One-shot authoring.** Start from `stories.template.json`; author
-`stories.json` in one pass. Entries are pre-resolved; keep tiers/assumptions
-valid. `body` is a markdown string **or** a structured object; persist parses
-either, serializes the canonical markdown, and syncs top-level `acceptance[]` /
+`stories.json` in one pass. `body` is a markdown string **or** a structured
+object; persist parses either, serializes the canonical markdown, and syncs
+top-level `acceptance[]` /
 `verify[]` into it — never dual-author those lists.
 
 **Grounding = your reads + Phase 8.** Nothing inventories the repo for you:
@@ -149,9 +155,8 @@ node .agents/scripts/plan-persist.js \
   [--source-tickets 123,456]
 ```
 
-At lite shape, `--chain-on-clean` chains that dry-run into the real persist in
-one round-trip **only** when it is clean and `lite`; a full plan keeps its
-review round-trip.
+At lite shape, `--chain-on-clean` chains a clean dry-run into the real persist
+in one round-trip; a full plan keeps its review round-trip.
 
 Persist creates `type::story` issue(s) plus a `plan-run::<id>` grouping label
 (**metadata only**); N>1 `depends_on` edges become `blocked by #<id>` footers.
