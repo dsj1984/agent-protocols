@@ -2,6 +2,20 @@
 
 All notable changes to this project will be documented in this file.
 
+## [2.23.0](https://github.com/dsj1984/mandrel/compare/mandrel-v2.22.0...mandrel-v2.23.0) (2026-07-30)
+
+
+### Added
+
+* **plan:** triage interrogation unknowns by resolver — AFK research vs HITL operator decision (refs [#4845](https://github.com/dsj1984/mandrel/issues/4845)) ([#4846](https://github.com/dsj1984/mandrel/issues/4846)) ([3cfcd00](https://github.com/dsj1984/mandrel/commit/3cfcd00f3885fc588bdf2bb4597118a790f9b270))
+
+
+### Fixed
+
+* **diagnose-friction:** name the signal that killed a child instead of reporting "Unknown exit code null" and exiting 0 ([#4851](https://github.com/dsj1984/mandrel/issues/4851)) ([#4853](https://github.com/dsj1984/mandrel/issues/4853)) ([1985be1](https://github.com/dsj1984/mandrel/commit/1985be1b97d751d094acf7dd371b97124039cc6d))
+* **rollup:** describe the friction corpus by its own window, not the triggering run (refs [#4850](https://github.com/dsj1984/mandrel/issues/4850)) ([#4852](https://github.com/dsj1984/mandrel/issues/4852)) ([d866697](https://github.com/dsj1984/mandrel/commit/d8666976be30d218115b9db32602359d55379f88))
+* **rollup:** track anchorKind in the triggering-anchor label ([#4854](https://github.com/dsj1984/mandrel/issues/4854)) ([b7e4ddf](https://github.com/dsj1984/mandrel/commit/b7e4ddf8c362f7c31c2abd73ee181a94f78f6dd2))
+
 ## [2.22.0](https://github.com/dsj1984/mandrel/compare/mandrel-v2.21.0...mandrel-v2.22.0) (2026-07-30)
 
 
