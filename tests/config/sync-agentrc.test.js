@@ -10,6 +10,7 @@ import {
   syncAgentrc,
 } from '../../.agents/scripts/lib/config/sync-agentrc.js';
 import { makeTempDir } from '../../.agents/scripts/lib/test-temp.js';
+import { main } from '../../.agents/scripts/sync-agentrc.js';
 
 const STARTER_PATH = fileURLToPath(
   new URL('../../.agents/starter-agentrc.json', import.meta.url),
@@ -304,5 +305,39 @@ describe('full-agentrc runtime parity', () => {
     const raw = JSON.parse(readFileSync(FULL_PATH, 'utf8'));
     delete raw.$schema;
     assert.deepEqual(defaults, raw);
+  });
+});
+
+describe('sync-agentrc CLI main — exit codes (Story #4842)', () => {
+  let root;
+  beforeEach(() => {
+    root = makeTmpProject();
+  });
+
+  function writeValidConfig(dir) {
+    const starter = JSON.parse(readFileSync(STARTER_PATH, 'utf8'));
+    starter.github.owner = 'acme';
+    starter.github.repo = 'demo';
+    starter.github.operatorHandle = '@octocat';
+    return writeConfig(dir, starter);
+  }
+
+  it('returns 0 for a valid config named via --cwd', () => {
+    writeValidConfig(root);
+    assert.equal(main(['--cwd', root]), 0);
+  });
+
+  it('returns 0 under --quiet, trimming advisory rows', () => {
+    writeValidConfig(root);
+    assert.equal(main(['--cwd', root, '--quiet']), 0);
+  });
+
+  it('returns 1 for malformed JSON', () => {
+    writeConfig(root, '{ not json');
+    assert.equal(main(['--cwd', root]), 1);
+  });
+
+  it('returns 1 for a missing config, ignoring unknown flags', () => {
+    assert.equal(main(['--cwd', root, '--bogus']), 1);
   });
 });

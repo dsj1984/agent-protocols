@@ -1,11 +1,11 @@
 {
   "$schema": ".agents/schemas/baselines/maintainability.schema.json",
   "kernelVersion": "0.1.0",
-  "generatedAt": "2026-07-26T21:08:58.213Z",
+  "generatedAt": "2026-07-30T02:34:35.132Z",
   "rollup": {
     "*": {
       "min": 74.146,
-      "p50": 98.065,
+      "p50": 98.091,
       "p95": 126.637
     }
   },
@@ -192,7 +192,7 @@
     },
     {
       "path": ".agents/scripts/lib/audit-suite/selector.js",
-      "mi": 96.019
+      "mi": 98.886
     },
     {
       "path": ".agents/scripts/lib/audit-suite/substitutions.js",
@@ -1616,7 +1616,7 @@
     },
     {
       "path": ".agents/scripts/lib/story-body/story-body.js",
-      "mi": 89.915
+      "mi": 94.035
     },
     {
       "path": ".agents/scripts/lib/story-lifecycle.js",

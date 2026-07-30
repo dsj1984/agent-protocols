@@ -158,14 +158,13 @@ function readMaxWaitSecondsFlag() {
  * Resolve the PR number for the Story branch when one was not passed on
  * the CLI. Probes `gh pr list --head <branch> --state all` (the merged PR
  * is no longer `open`, so `--state all` is required). Returns `null` when
- * no PR is found.
+ * no PR is found. Exported for testing.
  *
- * @param {{ cwd: string, storyBranch: string, gh: object }} args
+ * @param {{ storyBranch: string, gh: object }} args
  * @returns {Promise<number|null>}
  */
-async function resolvePrNumber({ cwd, storyBranch, gh }) {
+export async function resolvePrNumber({ storyBranch, gh }) {
   try {
-    void cwd;
     const rows = await gh.pr.list(
       ['--head', storyBranch, '--state', 'all'],
       ['number', 'url'],
@@ -293,11 +292,11 @@ function buildConfirmTerminal({
   });
 }
 
-async function resolveConfirmPrNumber({ prParam, cwd, storyBranch, gh }) {
+async function resolveConfirmPrNumber({ prParam, storyBranch, gh }) {
   const rawPr = prParam ?? readPrFlag();
   let prNumber = Number.parseInt(String(rawPr ?? ''), 10);
   if (!Number.isInteger(prNumber) || prNumber <= 0) {
-    prNumber = await resolvePrNumber({ cwd, storyBranch, gh });
+    prNumber = await resolvePrNumber({ storyBranch, gh });
   }
   return Number.isInteger(prNumber) && prNumber > 0 ? prNumber : null;
 }
@@ -340,7 +339,6 @@ export async function runConfirmMerge({
 
   const prNumber = await resolveConfirmPrNumber({
     prParam,
-    cwd,
     storyBranch,
     gh,
   });
