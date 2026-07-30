@@ -203,66 +203,95 @@ const WIDE_MARKER_LINE_RE = /^>\s*\*\*Wide:\*\*/;
 function parsePathEntry(raw, warnings) {
   // Already a structured object (from a parsed JSON body, not markdown).
   if (raw !== null && typeof raw === 'object') {
-    if (
-      typeof raw.path === 'string' &&
-      raw.path.trim().length > 0 &&
-      FILE_ASSUMPTION_VALUES.includes(raw.assumption)
-    ) {
-      return { path: raw.path.trim(), assumption: raw.assumption };
-    }
-    // Malformed object: fail closed.
-    throw new StoryBodyParseError(
-      `changes/references entry is an object but not a valid PathEntry: ${JSON.stringify(raw)}`,
-      { field: 'changes', raw: JSON.stringify(raw) },
-    );
+    return pathEntryFromObject(raw);
   }
 
   const str = typeof raw === 'string' ? raw.trim() : String(raw).trim();
   if (str.length === 0) return null;
 
-  // Humanized bullet shape (the canonical serialize() output since
-  // Story #4600): `path` — assumption.
-  const humanized = str.match(HUMANIZED_PATH_ENTRY_RE);
-  if (humanized) {
-    const path = humanized[1].trim();
-    if (path.length > 0 && FILE_ASSUMPTION_VALUES.includes(humanized[2])) {
-      return { path, assumption: humanized[2] };
-    }
-    // Recognized the humanized shape but the fields are invalid: fail closed.
-    throw new StoryBodyParseError(
-      `changes/references entry is a humanized bullet but not a valid PathEntry: ${str.slice(0, 120)}${pathEntryFixIt(str)}`,
-      { field: 'changes', raw: str },
-    );
-  }
-
-  // Try to detect inline JSON object shape: `{ "path": "...", "assumption": "..." }`
-  if (str.startsWith('{')) {
-    try {
-      const parsed = JSON.parse(str);
-      // It's a JSON object — treat it as a path entry.
-      // If the path is missing or assumption is invalid, fail closed.
-      if (typeof parsed === 'object' && parsed !== null) {
-        if (
-          typeof parsed.path === 'string' &&
-          FILE_ASSUMPTION_VALUES.includes(parsed.assumption)
-        ) {
-          return { path: parsed.path.trim(), assumption: parsed.assumption };
-        }
-        // Parsed successfully as JSON object but has invalid fields — fail closed.
-        throw new StoryBodyParseError(
-          `changes/references entry is a JSON object but not a valid PathEntry: ${str}`,
-          { field: 'changes', raw: str },
-        );
-      }
-    } catch (err) {
-      // Re-throw StoryBodyParseError so it propagates.
-      if (err instanceof StoryBodyParseError) throw err;
-      // JSON parse failed — fall through to reject plain-string form.
-    }
-  }
+  const entry = pathEntryFromHumanized(str) ?? pathEntryFromInlineJson(str);
+  if (entry) return entry;
 
   throw new StoryBodyParseError(
     `changes/references entry must be a { path, assumption } object; plain string bullets are no longer accepted: ${str.slice(0, 120)}${pathEntryFixIt(str)}`,
+    { field: 'changes', raw: str },
+  );
+}
+
+/**
+ * Validate an already-structured `{ path, assumption }` object. Fails closed
+ * on a malformed object.
+ *
+ * @param {object} raw
+ * @returns {PathEntry}
+ */
+function pathEntryFromObject(raw) {
+  if (
+    typeof raw.path === 'string' &&
+    raw.path.trim().length > 0 &&
+    FILE_ASSUMPTION_VALUES.includes(raw.assumption)
+  ) {
+    return { path: raw.path.trim(), assumption: raw.assumption };
+  }
+  // Malformed object: fail closed.
+  throw new StoryBodyParseError(
+    `changes/references entry is an object but not a valid PathEntry: ${JSON.stringify(raw)}`,
+    { field: 'changes', raw: JSON.stringify(raw) },
+  );
+}
+
+/**
+ * Parse the humanized bullet shape (the canonical serialize() output since
+ * Story #4600): `` `path` — assumption ``. Returns `null` when the line is
+ * not that shape at all; fails closed when the shape is recognized but the
+ * fields are invalid.
+ *
+ * @param {string} str
+ * @returns {PathEntry|null}
+ */
+function pathEntryFromHumanized(str) {
+  const humanized = str.match(HUMANIZED_PATH_ENTRY_RE);
+  if (!humanized) return null;
+  const path = humanized[1].trim();
+  if (path.length > 0 && FILE_ASSUMPTION_VALUES.includes(humanized[2])) {
+    return { path, assumption: humanized[2] };
+  }
+  // Recognized the humanized shape but the fields are invalid: fail closed.
+  throw new StoryBodyParseError(
+    `changes/references entry is a humanized bullet but not a valid PathEntry: ${str.slice(0, 120)}${pathEntryFixIt(str)}`,
+    { field: 'changes', raw: str },
+  );
+}
+
+/**
+ * Parse the legacy inline-JSON object bullet:
+ * `{ "path": "...", "assumption": "..." }`. Returns `null` when the line is
+ * not a JSON object at all (including a JSON parse failure — the caller then
+ * rejects the plain-string form); fails closed when it parses to an object
+ * without valid PathEntry fields.
+ *
+ * @param {string} str
+ * @returns {PathEntry|null}
+ */
+function pathEntryFromInlineJson(str) {
+  if (!str.startsWith('{')) return null;
+  let parsed;
+  try {
+    parsed = JSON.parse(str);
+  } catch {
+    // JSON parse failed — the caller rejects the plain-string form.
+    return null;
+  }
+  if (typeof parsed !== 'object' || parsed === null) return null;
+  if (
+    typeof parsed.path === 'string' &&
+    FILE_ASSUMPTION_VALUES.includes(parsed.assumption)
+  ) {
+    return { path: parsed.path.trim(), assumption: parsed.assumption };
+  }
+  // Parsed successfully as JSON object but has invalid fields — fail closed.
+  throw new StoryBodyParseError(
+    `changes/references entry is a JSON object but not a valid PathEntry: ${str}`,
     { field: 'changes', raw: str },
   );
 }
@@ -420,13 +449,9 @@ function splitSections(markdown) {
   for (let i = 0; i < lines.length; i++) {
     const line = lines[i];
 
-    // Detect footer separator: `---` on its own line
-    if (/^---\s*$/.test(line)) {
-      const remaining = lines.slice(i + 1).join('\n');
-      if (/^(parent:|Epic:|blocked by)/im.test(remaining)) {
-        footerStart = i;
-        break;
-      }
+    if (isFooterSeparator(line, lines, i)) {
+      footerStart = i;
+      break;
     }
 
     // Detect `## Heading` (canonical) or `### Heading` lines. GitHub Issue
@@ -440,7 +465,7 @@ function splitSections(markdown) {
     // `-` folded to `_`) before the HEADING_TO_FIELD lookup, so `Non-Goals`
     // resolves to the `non_goals` field. Multi-word headings that contain a
     // space (`## Out of Scope`, `## Agent Prompts`) still do NOT match this
-    // single-token shape — they fall through to the catch-all heading branch
+    // single-token shape — they fall through to the section-terminator branch
     // below, which closes the open section. The chosen canonical spelling is
     // therefore the hyphenated single token `## Non-Goals`.
     const fieldHeadingMatch = line.match(/^#{2,3}\s+([\w-]+)\s*$/i);
@@ -452,47 +477,12 @@ function splitSections(markdown) {
       continue;
     }
 
-    // Any other markdown heading (`## …` / `### …`, single- or multi-word)
-    // that is NOT a canonical field heading TERMINATES the current structured
-    // section. Trailing extended content a producer appends after the
-    // canonical block — `audit-to-stories`'s `## Agent Prompts` / `## Context`
-    // / `## Sequencing` blocks, for instance — must not bleed into the last
-    // structured section's bullet list (Story #4270). Without this, those
-    // lines were silently absorbed into `verify[]` / `acceptance[]`. The
-    // heading and everything under it is dropped from structured parsing
-    // (it is extended, non-canonical markdown).
-    if (
-      !inPreamble &&
-      /^#{1,6}\s+\S/.test(line) &&
-      !TEXT_BLOCK_FIELDS.has(currentSection)
-    ) {
+    if (isSectionTerminatorHeading(line, inPreamble, currentSection)) {
       currentSection = null;
       continue;
     }
 
-    // The trailing `<!-- meta: {...} -->` block is machine metadata, not
-    // section content. Skip it so a `## References` section immediately
-    // followed by the meta block does not swallow the comment as a
-    // references entry. `extractMeta` reads it separately from the raw body.
-    if (META_BLOCK_RE.test(line)) {
-      continue;
-    }
-
-    // The visible `> 🏷️ Authored with Mandrel …` provenance marker is
-    // machine-managed metadata too (emitted alongside the meta block by the
-    // authoring path). Skip it so it never bleeds into the trailing structured
-    // section (e.g. `## Verify`); the value round-trips via the meta block.
-    if (AUTHORED_MARKER_LINE_RE.test(line)) {
-      continue;
-    }
-
-    // The visible `> **Wide:** <reason>` rationale line is presentation only
-    // (Story #4600): the meta block remains the canonical carrier for
-    // `wide.reason`, so this line must not bleed into the goal (or any other)
-    // section. Skip it wherever it appears.
-    if (WIDE_MARKER_LINE_RE.test(line)) {
-      continue;
-    }
+    if (isMachineMarkerLine(line)) continue;
 
     if (inPreamble) {
       preambleLines.push(line);
@@ -505,6 +495,70 @@ function splitSections(markdown) {
     footerStart >= 0 ? lines.slice(footerStart + 1).join('\n') : '';
   const preamble = preambleLines.join('\n').trim();
   return { sections, footer, preamble };
+}
+
+/**
+ * True when line `index` opens the footer block: a `---` on its own line
+ * whose remaining lines start with a recognised footer key (`parent:`,
+ * `Epic:`, `blocked by`).
+ *
+ * @param {string} line
+ * @param {string[]} lines
+ * @param {number} index
+ * @returns {boolean}
+ */
+function isFooterSeparator(line, lines, index) {
+  if (!/^---\s*$/.test(line)) return false;
+  const remaining = lines.slice(index + 1).join('\n');
+  return /^(parent:|Epic:|blocked by)/im.test(remaining);
+}
+
+/**
+ * True for a non-canonical markdown heading that TERMINATES the current
+ * structured section. Trailing extended content a producer appends after the
+ * canonical block — `audit-to-stories`'s `## Agent Prompts` / `## Context`
+ * / `## Sequencing` blocks, for instance — must not bleed into the last
+ * structured section's bullet list (Story #4270). Without this, those
+ * lines were silently absorbed into `verify[]` / `acceptance[]`. The
+ * heading and everything under it is dropped from structured parsing
+ * (it is extended, non-canonical markdown).
+ *
+ * @param {string} line
+ * @param {boolean} inPreamble
+ * @param {string|null} currentSection
+ * @returns {boolean}
+ */
+function isSectionTerminatorHeading(line, inPreamble, currentSection) {
+  return (
+    !inPreamble &&
+    /^#{1,6}\s+\S/.test(line) &&
+    !TEXT_BLOCK_FIELDS.has(currentSection)
+  );
+}
+
+/**
+ * True for machine-managed marker lines section parsing skips wherever they
+ * appear:
+ *   - the trailing `<!-- meta: {...} -->` block — machine metadata, not
+ *     section content, read separately by `extractMeta`, and skipped so a
+ *     `## References` section immediately followed by it does not swallow
+ *     the comment as a references entry;
+ *   - the visible `> 🏷️ Authored with Mandrel …` provenance marker (emitted
+ *     alongside the meta block by the authoring path; the value round-trips
+ *     via the meta block);
+ *   - the visible `> **Wide:** <reason>` rationale line (Story #4600):
+ *     presentation only — the meta block remains the canonical carrier for
+ *     `wide.reason`.
+ *
+ * @param {string} line
+ * @returns {boolean}
+ */
+function isMachineMarkerLine(line) {
+  return (
+    META_BLOCK_RE.test(line) ||
+    AUTHORED_MARKER_LINE_RE.test(line) ||
+    WIDE_MARKER_LINE_RE.test(line)
+  );
 }
 
 // ---------------------------------------------------------------------------
@@ -771,90 +825,25 @@ export function parse(input) {
 function parseStructuredObject(obj) {
   const warnings = [];
 
-  const goal = typeof obj.goal === 'string' ? obj.goal.trim() : '';
-
-  // slicing — optional v2 intra-Story delivery slice plan (verbatim text).
-  const slicing = typeof obj.slicing === 'string' ? obj.slicing.trim() : '';
-
-  // spec — optional folded Tech Spec (verbatim text).
-  const spec = typeof obj.spec === 'string' ? obj.spec.trim() : '';
-
-  // changes
-  const rawChanges = Array.isArray(obj.changes) ? obj.changes : [];
-  const changes = [];
-  for (const raw of rawChanges) {
-    const entry = parsePathEntry(raw, warnings);
-    if (entry !== null) changes.push(entry);
+  // The declarative half of the normalization: every field whose value is a
+  // pure function of its raw input (plus the shared warnings sink) is one
+  // table row, walked in canonical body-key order. Adding a field of an
+  // existing kind is a one-row change.
+  const body = {};
+  for (const { name, kind } of STRUCTURED_FIELD_SPECS) {
+    body[name] = STRUCTURED_FIELD_NORMALIZERS[kind](obj[name], warnings);
   }
 
-  // acceptance
-  const acceptance = Array.isArray(obj.acceptance)
-    ? obj.acceptance.filter((a) => typeof a === 'string' && a.trim().length > 0)
-    : [];
-
-  // verify
-  const verify = Array.isArray(obj.verify)
-    ? obj.verify.filter((v) => typeof v === 'string' && v.trim().length > 0)
-    : [];
-
-  // references
-  const rawRefs = Array.isArray(obj.references) ? obj.references : [];
-  const references = [];
-  for (const raw of rawRefs) {
-    const entry = parsePathEntry(raw, warnings);
-    if (entry !== null) references.push(entry);
-  }
-
-  // non_goals (advisory negative-scope bullets)
-  const non_goals = Array.isArray(obj.non_goals)
-    ? obj.non_goals.filter((n) => typeof n === 'string' && n.trim().length > 0)
-    : [];
-
-  const wide = normalizeWide(obj.wide);
-  const reason_to_exist = normalizeReasonToExist(obj.reason_to_exist);
-
-  // depends_on: may be at top level or in body
-  const rawDeps = Array.isArray(obj.depends_on) ? obj.depends_on : [];
-  const depends_on = rawDeps.filter(
-    (d) => typeof d === 'string' && d.trim().length > 0,
+  // estimated_test_files is the one warning-coupled scalar: absent (== null)
+  // warns; a non-number, non-null value stays null silently.
+  body.estimated_test_files = normalizeEstimatedTestFiles(
+    obj.estimated_test_files,
+    warnings,
   );
 
-  // estimated_test_files
-  let estimated_test_files = null;
-  if (typeof obj.estimated_test_files === 'number') {
-    estimated_test_files = obj.estimated_test_files;
-  } else if (obj.estimated_test_files == null) {
-    warnings.push(
-      'test-surface-unestimated: estimated_test_files not present.',
-    );
-  }
-
   // Provenance stamp (preserved verbatim; never re-derived here).
-  const mandrel_version =
-    typeof obj.mandrel_version === 'string' && obj.mandrel_version.trim()
-      ? obj.mandrel_version.trim()
-      : null;
-  const authored_at =
-    typeof obj.authored_at === 'string' && obj.authored_at.trim()
-      ? obj.authored_at.trim()
-      : null;
-
-  const body = {
-    goal,
-    slicing,
-    spec,
-    changes,
-    acceptance,
-    verify,
-    references,
-    non_goals,
-    wide,
-    reason_to_exist,
-    depends_on,
-    estimated_test_files,
-    mandrel_version,
-    authored_at,
-  };
+  body.mandrel_version = normalizeProvenanceString(obj.mandrel_version);
+  body.authored_at = normalizeProvenanceString(obj.authored_at);
 
   return {
     body,
@@ -871,6 +860,91 @@ function parseStructuredObject(obj) {
       isUnstructuredBody: false,
     },
   };
+}
+
+/**
+ * The field-spec table driving {@link parseStructuredObject}, in canonical
+ * body-key order. `kind` selects the normalizer from
+ * {@link STRUCTURED_FIELD_NORMALIZERS}:
+ *   - `text`          — trimmed string, or `''` when absent/non-string.
+ *   - `stringList`    — array filtered to non-empty strings, else `[]`.
+ *   - `pathEntryList` — array normalized entry-wise via `parsePathEntry`
+ *                       (fails closed on a malformed entry), else `[]`.
+ *   - `wide` / `reasonToExist` — the dedicated normalizers shared with the
+ *                       markdown parse path's meta-block recovery.
+ *
+ * @type {Array<{ name: string, kind: keyof typeof STRUCTURED_FIELD_NORMALIZERS }>}
+ */
+const STRUCTURED_FIELD_SPECS = [
+  { name: 'goal', kind: 'text' },
+  // slicing — optional v2 intra-Story delivery slice plan (verbatim text).
+  { name: 'slicing', kind: 'text' },
+  // spec — optional folded Tech Spec (verbatim text).
+  { name: 'spec', kind: 'text' },
+  { name: 'changes', kind: 'pathEntryList' },
+  { name: 'acceptance', kind: 'stringList' },
+  { name: 'verify', kind: 'stringList' },
+  { name: 'references', kind: 'pathEntryList' },
+  // non_goals — advisory negative-scope bullets.
+  { name: 'non_goals', kind: 'stringList' },
+  { name: 'wide', kind: 'wide' },
+  { name: 'reason_to_exist', kind: 'reasonToExist' },
+  // depends_on — may be at top level or in body.
+  { name: 'depends_on', kind: 'stringList' },
+];
+
+/**
+ * One normalizer per {@link STRUCTURED_FIELD_SPECS} kind. Each takes the raw
+ * field value plus the shared warnings sink and returns the canonical value.
+ *
+ * @type {Record<string, (raw: unknown, warnings: string[]) => unknown>}
+ */
+const STRUCTURED_FIELD_NORMALIZERS = {
+  text: (raw) => (typeof raw === 'string' ? raw.trim() : ''),
+  stringList: (raw) =>
+    Array.isArray(raw)
+      ? raw.filter((s) => typeof s === 'string' && s.trim().length > 0)
+      : [],
+  pathEntryList: (raw, warnings) => {
+    const entries = [];
+    for (const item of Array.isArray(raw) ? raw : []) {
+      const entry = parsePathEntry(item, warnings);
+      if (entry !== null) entries.push(entry);
+    }
+    return entries;
+  },
+  wide: (raw) => normalizeWide(raw),
+  reasonToExist: (raw) => normalizeReasonToExist(raw),
+};
+
+/**
+ * Normalize `estimated_test_files`: a number passes through; an absent
+ * (`null`/`undefined`) value warns `test-surface-unestimated`; any other
+ * value stays `null` silently.
+ *
+ * @param {unknown} raw
+ * @param {string[]} warnings
+ * @returns {number|null}
+ */
+function normalizeEstimatedTestFiles(raw, warnings) {
+  if (typeof raw === 'number') return raw;
+  if (raw == null) {
+    warnings.push(
+      'test-surface-unestimated: estimated_test_files not present.',
+    );
+  }
+  return null;
+}
+
+/**
+ * Normalize a provenance stamp field (`mandrel_version` / `authored_at`) to
+ * a non-empty trimmed string or `null`.
+ *
+ * @param {unknown} raw
+ * @returns {string|null}
+ */
+function normalizeProvenanceString(raw) {
+  return typeof raw === 'string' && raw.trim() ? raw.trim() : null;
 }
 
 // ---------------------------------------------------------------------------
