@@ -566,6 +566,38 @@ test('AC-8: a corpus confined to the run keeps naming the run in title and body'
   assert.match(item.body, /surfaced 2 times across 2 Stories on 2026-07-29\./);
 });
 
+test('the triggering-anchor label tracks anchorKind on both paths', () => {
+  // Story #4850 introduced the fact with a fixed `Triggering run` label, so the
+  // story-scope path called a Story a run ("Triggering run: Story #7"). The
+  // wording must follow the anchor the way every other label in this file does.
+  const story = composeRoutedProposals(
+    baseInput({
+      anchorKind: 'story',
+      anchorId: 7,
+      signals: [closeFailed(7), closeFailed(7)],
+    }),
+  );
+  assert.match(story.framework[0].body, /Triggering Story: Story #7/);
+  assert.doesNotMatch(
+    story.framework[0].body,
+    /Triggering run/,
+    'the story-scope body labelled its anchoring Story a run',
+  );
+
+  const run = composeRoutedProposals(
+    baseInput({
+      anchorId: 4850,
+      runToken: 'adhoc-4850-4851',
+      signals: [closeFailed(4850), closeFailed(4851)],
+    }),
+  );
+  assert.match(
+    run.framework[0].body,
+    /Triggering run: plan-run adhoc-4850-4851/,
+  );
+  assert.doesNotMatch(run.framework[0].body, /Triggering Story/);
+});
+
 test('AC-1: an undateable corpus omits the range rather than inventing one', () => {
   const out = composeRoutedProposals(
     baseInput({
