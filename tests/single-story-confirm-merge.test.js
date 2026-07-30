@@ -23,7 +23,10 @@ import { describe, it } from 'node:test';
 
 import { resolveMergeWaitConfig } from '../.agents/scripts/lib/orchestration/single-story-close/phases/confirm-merge.js';
 import { confirmStoryMerged } from '../.agents/scripts/lib/single-story/confirm-merge.js';
-import { runConfirmMerge } from '../.agents/scripts/single-story-confirm-merge.js';
+import {
+  resolvePrNumber,
+  runConfirmMerge,
+} from '../.agents/scripts/single-story-confirm-merge.js';
 
 /**
  * Fake ticketing provider. Records every `updateTicket` patch and applies
@@ -365,5 +368,52 @@ describe('single-story-confirm-merge --max-wait-seconds (Story #4710 AC-3)', () 
       calls[0].maxWaitSeconds,
     );
     assert.equal(resolved.maxWaitSeconds, 45);
+  });
+});
+
+describe('resolvePrNumber — the gh pr list probe (Story #4842)', () => {
+  function ghWithRows(rows) {
+    return { pr: { list: async () => rows } };
+  }
+
+  it('returns the first row number when it is a valid PR number', async () => {
+    const n = await resolvePrNumber({
+      storyBranch: 'story-1',
+      gh: ghWithRows([{ number: 77, url: 'https://github.com/o/r/pull/77' }]),
+    });
+    assert.equal(n, 77);
+  });
+
+  it('falls back to parsing the PR url when the number field is unusable', async () => {
+    const n = await resolvePrNumber({
+      storyBranch: 'story-1',
+      gh: ghWithRows([{ url: 'https://github.com/o/r/pull/88' }]),
+    });
+    assert.equal(n, 88);
+  });
+
+  it('returns null when no PR exists for the branch', async () => {
+    assert.equal(
+      await resolvePrNumber({ storyBranch: 'story-1', gh: ghWithRows([]) }),
+      null,
+    );
+    assert.equal(
+      await resolvePrNumber({
+        storyBranch: 'story-1',
+        gh: ghWithRows(undefined),
+      }),
+      null,
+    );
+  });
+
+  it('degrades to null instead of throwing when the probe fails', async () => {
+    const gh = {
+      pr: {
+        list: async () => {
+          throw new Error('gh exploded');
+        },
+      },
+    };
+    assert.equal(await resolvePrNumber({ storyBranch: 'story-1', gh }), null);
   });
 });

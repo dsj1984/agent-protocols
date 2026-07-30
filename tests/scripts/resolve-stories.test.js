@@ -29,6 +29,7 @@ import {
   storyFootprintPaths,
   toStoryRecord,
 } from '../../.agents/scripts/lib/orchestration/resolve-stories.js';
+import { runResolveStories } from '../../.agents/scripts/resolve-stories.js';
 import {
   selectReadySet,
   storiesOverlap,
@@ -602,5 +603,89 @@ describe('storyFootprintPaths — an unreadable footprint fails SAFE, not open',
       '- npm test (unit)',
     ].join('\n');
     assert.deepEqual(storyFootprintPaths(body, 1), []);
+  });
+});
+
+describe('runResolveStories — the injectable CLI flow core (Story #4842)', () => {
+  const CONFIG = { github: { owner: 'dsj1984', repo: 'mandrel' } };
+
+  function makeProvider(byId) {
+    return {
+      getTicket: async (id) => byId[id] ?? null,
+      // readNativeEdges reaches gh through this seam; an empty payload
+      // exercises the native branch without shape assumptions.
+      _gh: { api: async () => ({ stdout: '[]' }) },
+    };
+  }
+
+  function capture() {
+    const chunks = [];
+    return { write: (s) => chunks.push(s), text: () => chunks.join('') };
+  }
+
+  it('writes the compact single-line envelope with a trailing newline', async () => {
+    const provider = makeProvider({
+      101: issue(),
+      102: issue({ number: 102, body: storyBody({ blockedBy: 101 }) }),
+    });
+    const out = capture();
+    const code = await runResolveStories(
+      { ids: '101,102', native: false },
+      { provider, config: CONFIG, stdout: out },
+    );
+    assert.equal(code, 0);
+    const text = out.text();
+    assert.ok(text.endsWith('\n'), 'envelope line is newline-terminated');
+    assert.equal(
+      text.trimEnd().includes('\n'),
+      false,
+      'compact mode emits exactly one stdout line',
+    );
+    const envelope = JSON.parse(text);
+    assert.equal(envelope.kind, 'stories');
+    assert.deepEqual(
+      envelope.stories.map((s) => s.id),
+      [101, 102],
+    );
+    const node = envelope.dag.find((n) => n.id === 102);
+    assert.deepEqual(node.dependsOn, [101]);
+    assert.deepEqual(envelope.done, []);
+  });
+
+  it('pretty-prints the same envelope when asked', async () => {
+    const provider = makeProvider({ 101: issue() });
+    const out = capture();
+    await runResolveStories(
+      { ids: '101', native: false, pretty: true },
+      { provider, config: CONFIG, stdout: out },
+    );
+    const text = out.text();
+    assert.ok(text.includes('\n  '), 'pretty mode indents');
+    assert.equal(JSON.parse(text).kind, 'stories');
+  });
+
+  it('a closed foreign blocker lands in done[]', async () => {
+    const provider = makeProvider({
+      101: issue({ body: storyBody({ blockedBy: 4000 }) }),
+      4000: issue({ number: 4000, state: 'closed' }),
+    });
+    const out = capture();
+    await runResolveStories(
+      { ids: '101', native: false },
+      { provider, config: CONFIG, stdout: out },
+    );
+    const envelope = JSON.parse(out.text());
+    assert.deepEqual(envelope.done, [4000]);
+  });
+
+  it('reads native edges through the injected provider gh seam', async () => {
+    const provider = makeProvider({ 101: issue() });
+    const out = capture();
+    await runResolveStories(
+      { ids: '101' },
+      { provider, config: CONFIG, stdout: out },
+    );
+    const envelope = JSON.parse(out.text());
+    assert.deepEqual(envelope.dag.find((n) => n.id === 101).dependsOn, []);
   });
 });
