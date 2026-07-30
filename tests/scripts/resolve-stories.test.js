@@ -29,11 +29,11 @@ import {
   storyFootprintPaths,
   toStoryRecord,
 } from '../../.agents/scripts/lib/orchestration/resolve-stories.js';
-import { runResolveStories } from '../../.agents/scripts/resolve-stories.js';
 import {
   selectReadySet,
   storiesOverlap,
 } from '../../.agents/scripts/lib/wave-runner/ready-set.js';
+import { runResolveStories } from '../../.agents/scripts/resolve-stories.js';
 import { parseDag } from '../../.agents/scripts/stories-wave-tick.js';
 
 const REPO = { owner: 'dsj1984', repo: 'mandrel', issueNumber: 4534 };
