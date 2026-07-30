@@ -20,6 +20,7 @@
 import assert from 'node:assert/strict';
 import { spawnSync } from 'node:child_process';
 import { readFileSync, rmSync } from 'node:fs';
+import { constants as osConstants } from 'node:os';
 import path from 'node:path';
 import { afterEach, beforeEach, describe, it } from 'node:test';
 import { fileURLToPath } from 'node:url';
@@ -62,6 +63,24 @@ function runScript(extraArgs, extraEnv = {}) {
       ...extraEnv,
     },
   });
+}
+
+/**
+ * Read the single friction record the CLI appended for the story/epic pair the
+ * tests below use, asserting the stream holds exactly one line.
+ */
+function readSignal(epicId = 1030, storyId = 1042) {
+  const ndjsonPath = path.join(
+    tmpRoot,
+    'temp',
+    `run-${epicId}`,
+    'stories',
+    `story-${storyId}`,
+    'signals.ndjson',
+  );
+  const lines = readFileSync(ndjsonPath, 'utf-8').trim().split('\n');
+  assert.equal(lines.length, 1, 'exactly one friction signal is appended');
+  return JSON.parse(lines[0]);
 }
 
 describe('diagnose-friction.js — v5 (CLI contract)', () => {
@@ -235,6 +254,47 @@ describe('diagnose-friction.js — appends friction signal to NDJSON', () => {
     );
   });
 
+  it('records an ordinary non-zero exit exactly as before signal handling (Story #4851 regression pin)', () => {
+    // AC-6: a child that exits normally with a non-zero status must keep its
+    // pre-#4851 category, preview, remediation text and exit code — the signal
+    // branch may not leak into the ordinary failure path.
+    const result = runScript([
+      '--story',
+      '1042',
+      '--epic',
+      '1030',
+      '--cmd',
+      'node',
+      '-e',
+      'process.exit(3)',
+    ]);
+
+    assert.equal(result.status, 3, 'exit code is passed through unchanged');
+
+    const signal = readSignal();
+    assert.equal(
+      signal.category,
+      'Execution Error',
+      'no output + no marker → the generic default category, as before',
+    );
+    assert.equal(
+      signal.details.errorPreview,
+      'Unknown exit code 3',
+      'the numeric-status fallback preview is unchanged',
+    );
+    assert.deepEqual(
+      Object.keys(signal.details),
+      ['errorPreview'],
+      'details carries no termination keys for an ordinary exit',
+    );
+    assert.ok(
+      (result.stderr ?? '').includes(
+        'Generic failure. Review stderr above, refine your approach',
+      ),
+      'the default remediation text is unchanged',
+    );
+  });
+
   it('does not call postStructuredComment / write GitHub friction comments', () => {
     // Smoke check: with NO_NETWORK=1, the v5/Epic#1030 detector path must
     // not attempt any GitHub round-trip. The presence of the NDJSON write
@@ -261,3 +321,142 @@ describe('diagnose-friction.js — appends friction signal to NDJSON', () => {
     );
   });
 });
+
+/**
+ * A child killed by a signal reports `status: null` with the cause in `signal`.
+ * These cases drive that shape end-to-end through the real CLI, so they need a
+ * platform where `process.kill` delivers a POSIX signal — on win32 there is no
+ * signal to name and the OS reports an ordinary exit code instead.
+ */
+const POSIX_ONLY = { skip: process.platform === 'win32' };
+
+/** The interceptor's own `executionTimeoutMs` bound under this repo's config. */
+const EXECUTION_TIMEOUT_MS = 600000;
+
+/** Run the CLI over a child that kills itself with `signalName`. */
+function runSelfKill(signalName) {
+  return runScript([
+    '--story',
+    '1042',
+    '--epic',
+    '1030',
+    '--cmd',
+    'node',
+    '-e',
+    `process.kill(process.pid, '${signalName}')`,
+  ]);
+}
+
+describe(
+  'diagnose-friction.js — signal-terminated child (Story #4851)',
+  POSIX_ONLY,
+  () => {
+    it('records an externally-originated SIGKILL by name, not as Execution Error', () => {
+      // AC-1 + AC-3: the signal is the whole diagnostic payload, and SIGKILL is
+      // not the signal `spawnSync`'s own timeout would have sent.
+      const result = runSelfKill('SIGKILL');
+      assert.equal(
+        result.signal,
+        null,
+        'the interceptor itself exits normally',
+      );
+
+      const signal = readSignal();
+      assert.equal(
+        signal.category,
+        'Execution Killed',
+        'category names the kill instead of the generic Execution Error bucket',
+      );
+      assert.equal(
+        signal.details.killedBySignal,
+        'SIGKILL',
+        'details carries the signal name spawnSync reported',
+      );
+      assert.equal(
+        signal.details.killOrigin,
+        'external',
+        'SIGKILL is not the interceptor timeout signal → externally originated',
+      );
+      assert.equal(
+        signal.details.executionTimeoutMs,
+        EXECUTION_TIMEOUT_MS,
+        'details records the resolved bound in milliseconds',
+      );
+      assert.ok(
+        (result.stderr ?? '').includes('originated outside the interceptor'),
+        'the remediation tells the operator the bound did not fire',
+      );
+    });
+
+    it('attributes a SIGTERM kill to the interceptor own timeout bound', () => {
+      // AC-3: `spawnSync`'s `timeout` option kills with SIGTERM, so SIGTERM is
+      // the interceptor cutting the command off rather than a host-level kill.
+      runSelfKill('SIGTERM');
+      const signal = readSignal();
+      assert.equal(
+        signal.category,
+        'Execution Timeout',
+        'a timeout-shaped kill gets its own category',
+      );
+      assert.equal(signal.details.killedBySignal, 'SIGTERM');
+      assert.equal(
+        signal.details.killOrigin,
+        'interceptor-timeout',
+        'the interceptor timeout signal is attributed to the interceptor',
+      );
+      assert.equal(signal.details.executionTimeoutMs, EXECUTION_TIMEOUT_MS);
+    });
+
+    it('never emits the "Unknown exit code null" preview', () => {
+      // AC-2: both streams are empty on a hard kill, which is precisely how the
+      // pre-#4851 fallback reached a literal that named nothing.
+      const result = runSelfKill('SIGKILL');
+      const combined = (result.stdout ?? '') + (result.stderr ?? '');
+      assert.ok(
+        !combined.includes('Unknown exit code null'),
+        'no printed diagnostic contains "Unknown exit code null"',
+      );
+
+      const signal = readSignal();
+      assert.ok(
+        !JSON.stringify(signal).includes('Unknown exit code null'),
+        'no emitted record contains "Unknown exit code null"',
+      );
+      assert.match(
+        signal.details.errorPreview,
+        /terminated by signal SIGKILL \(external\)/,
+        'with both streams empty the preview names the signal',
+      );
+    });
+
+    it('exits non-zero so the caller cannot read the run as successful', () => {
+      // AC-4: the branch used to end in `process.exit(result.status)`, and
+      // `process.exit(null)` exits 0 — the interceptor reported success for a
+      // command it had just watched get killed.
+      const result = runSelfKill('SIGKILL');
+      assert.notEqual(
+        result.status,
+        0,
+        'a signal-killed child must not surface as a successful run',
+      );
+      assert.equal(
+        result.status,
+        128 + osConstants.signals.SIGKILL,
+        'exit code follows the shell 128 + signum convention',
+      );
+    });
+
+    it('leaves source classification to the existing command scan', () => {
+      // AC-5: naming the signal must not force `source: framework`. The scan in
+      // source-classifier.js stays authoritative, so a consumer command killed
+      // by its own host stays consumer-actionable.
+      runSelfKill('SIGKILL');
+      const signal = readSignal();
+      assert.equal(
+        signal.source,
+        'consumer',
+        'a consumer command killed by a signal stays classified consumer',
+      );
+    });
+  },
+);
