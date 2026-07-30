@@ -324,16 +324,20 @@ export function _resetWebSurfaceCache() {
 }
 
 /**
- * True when the root `package.json` declares a web-framework dependency.
+ * True when the root `package.json` declares a dependency whose name (or a
+ * scope/name segment of it) appears in `packageList`. The shared probe behind
+ * {@link declaresWebFramework} and {@link declaresOrmDependency}.
+ *
  * Returns `null` — *indeterminate* — when the manifest exists but cannot be
- * read or parsed; the caller fails open on that (see {@link hasWebSurface}).
- * A genuinely absent manifest (`ENOENT`) is determinate: there is no
- * declaration, so there is no signal, and the file scan gets its turn.
+ * read or parsed; callers fail open on that. A genuinely absent manifest
+ * (`ENOENT`) is determinate: there is no declaration, so there is no signal,
+ * and the file scan gets its turn.
  *
  * @param {string} root
+ * @param {readonly string[]} packageList
  * @returns {boolean|null}
  */
-function declaresWebFramework(root) {
+function declaresDependencyIn(root, packageList) {
   let raw;
   try {
     raw = readFileSync(path.join(root, 'package.json'), 'utf8');
@@ -355,8 +359,20 @@ function declaresWebFramework(root) {
     name
       .replace(/^@/, '')
       .split('/')
-      .some((segment) => WEB_FRAMEWORK_PACKAGES.includes(segment)),
+      .some((segment) => packageList.includes(segment)),
   );
+}
+
+/**
+ * True when the root `package.json` declares a web-framework dependency.
+ * Tri-state contract per {@link declaresDependencyIn}; the fail-open caller
+ * is {@link hasWebSurface}.
+ *
+ * @param {string} root
+ * @returns {boolean|null}
+ */
+function declaresWebFramework(root) {
+  return declaresDependencyIn(root, WEB_FRAMEWORK_PACKAGES);
 }
 
 /**
@@ -514,38 +530,14 @@ export function _resetPersistenceLayerCache() {
 
 /**
  * True when the root `package.json` declares an ORM / query-builder dependency.
- * Returns `null` — *indeterminate* — when the manifest exists but cannot be
- * read or parsed (the caller fails open on that). A genuinely absent manifest
- * (`ENOENT`) is determinate: there is no declaration, so the file scan gets its
- * turn. Mirrors {@link declaresWebFramework}.
+ * Tri-state contract per {@link declaresDependencyIn}; the fail-open caller
+ * is {@link hasPersistenceLayer}.
  *
  * @param {string} root
  * @returns {boolean|null}
  */
 function declaresOrmDependency(root) {
-  let raw;
-  try {
-    raw = readFileSync(path.join(root, 'package.json'), 'utf8');
-  } catch (err) {
-    if (err?.code === 'ENOENT') return false;
-    return null;
-  }
-  let pkg;
-  try {
-    pkg = JSON.parse(raw);
-  } catch {
-    return null;
-  }
-  const names = [
-    ...Object.keys(pkg?.dependencies ?? {}),
-    ...Object.keys(pkg?.devDependencies ?? {}),
-  ];
-  return names.some((name) =>
-    name
-      .replace(/^@/, '')
-      .split('/')
-      .some((segment) => ORM_PACKAGES.includes(segment)),
-  );
+  return declaresDependencyIn(root, ORM_PACKAGES);
 }
 
 /**
@@ -802,24 +794,10 @@ export async function selectAudits({
 }) {
   const config = resolveConfig();
   const timeoutMs = gitTimeoutMsOverride ?? DEFAULT_GIT_TIMEOUT_MS;
-
-  const rulesPath = path.join(
-    PROJECT_ROOT,
-    getPaths(config).schemasRoot,
-    'audit-rules.json',
-  );
-  let rulesData;
-  try {
-    rulesData = JSON.parse(await fs.readFile(rulesPath, 'utf8'));
-  } catch (err) {
-    throw new Error(
-      `Failed to read audit-rules from ${rulesPath}: ${err.message}`,
-    );
-  }
+  const rulesData = await loadAuditRules(config);
 
   const ticket = await provider.getTicket(ticketId);
-  const contentToSearch =
-    `${ticket.title || ''} ${ticket.body || ''}`.toLowerCase();
+  const contentToSearch = ticketSearchText(ticket);
 
   const runGit = injectedGitSpawn ?? (async (...args) => gitSpawn(...args));
 
@@ -831,141 +809,44 @@ export async function selectAudits({
   // empty by construction.
   const hasInjectedChangedFiles = Array.isArray(injectedChangedFiles);
 
-  // Resolve `headRef` to a commit before diffing. A non-default `headRef`
-  // (Epic-mode callers pass `refs/heads/epic/<id>`) that the repo can't
-  // resolve means the requested Epic's branch is not present in this
-  // checkout — diffing `baseBranch...HEAD` would silently report a
-  // *different* Epic's change set (Story #3362). Surface that as an explicit
-  // degraded signal instead of leaking the wrong scope. `HEAD` is always
-  // resolvable in a valid repo, so the default-path callers skip the probe
-  // cost on the common case.
   if (!hasInjectedChangedFiles && headRef !== 'HEAD') {
-    let resolved;
-    try {
-      resolved = await withTimeout(
-        runGit(process.cwd(), 'rev-parse', '--verify', '--quiet', headRef),
-        timeoutMs,
-        { label: 'select-audits rev-parse headRef' },
-      );
-    } catch (err) {
-      if (err?.code === 'ETIMEDOUT') {
-        return softFailOrThrow(
-          'GIT_DIFF_TIMEOUT',
-          `select-audits: git rev-parse ${headRef} timed out after ${timeoutMs} ms`,
-          gateModeOpts,
-        );
-      }
-      throw err;
-    }
-    if (resolved?.status !== 0 || !resolved.stdout.trim()) {
-      return softFailOrThrow(
-        'HEAD_REF_UNRESOLVED',
-        `select-audits: requested ref '${headRef}' could not be resolved in this checkout; refusing to diff against a phantom change set`,
-        gateModeOpts,
-      );
-    }
+    const degraded = await resolveHeadRefOrDegrade({
+      runGit,
+      headRef,
+      timeoutMs,
+      gateModeOpts,
+    });
+    if (degraded) return degraded;
   }
 
-  let changedFiles = hasInjectedChangedFiles
-    ? injectedChangedFiles.map((f) => String(f).trim()).filter(Boolean)
-    : [];
-  try {
-    const diff = hasInjectedChangedFiles
-      ? null
-      : await withTimeout(
-          runGit(
-            process.cwd(),
-            'diff',
-            '--name-only',
-            `${baseBranch}...${headRef}`,
-          ),
-          timeoutMs,
-          { label: 'select-audits git diff' },
-        );
-    if (diff?.status === 0) {
-      changedFiles = diff.stdout
-        .split('\n')
-        .map((f) => f.trim())
-        .filter(Boolean);
-    }
-  } catch (err) {
-    if (err?.code === 'ETIMEDOUT') {
-      // Soft-fail contract (Tech Spec #819): in default mode, return a
-      // degraded envelope so the caller sees the explicit signal instead of
-      // silently falling through to keyword-only matching. In gate-mode,
-      // hard-fail closed.
-      return softFailOrThrow(
-        'GIT_DIFF_TIMEOUT',
-        `select-audits: git diff against ${baseBranch} timed out after ${timeoutMs} ms`,
-        gateModeOpts,
-      );
-    }
-    throw err;
+  let changedFiles;
+  if (hasInjectedChangedFiles) {
+    changedFiles = injectedChangedFiles
+      .map((f) => String(f).trim())
+      .filter(Boolean);
+  } else {
+    const acquired = await acquireChangedFilesFromDiff({
+      runGit,
+      baseBranch,
+      headRef,
+      timeoutMs,
+      gateModeOpts,
+    });
+    if (acquired.degraded) return acquired.degraded;
+    changedFiles = acquired.files;
   }
 
-  const selectedAudits = [];
-
-  // Applicability probes, resolved at most once per target per call, and only
-  // if a lens declaring that target actually clears its gate — a Node-only
-  // project must not pay a filesystem scan on a roster with no `web` lens in
-  // it, nor a DB-less project pay one for `data-model`.
-  const targetProbes = {
-    web: hasWebSurfaceFn,
-    'data-model': hasPersistenceLayerFn,
-  };
-  const targetApplicabilityMemo = new Map();
-  const projectSupportsTarget = (target) => {
-    if (!targetApplicabilityMemo.has(target)) {
-      const probe = targetProbes[target];
-      targetApplicabilityMemo.set(target, probe ? probe({ config }) : true);
-    }
-    return targetApplicabilityMemo.get(target);
-  };
-
-  for (const [auditName, ruleOpts] of Object.entries(rulesData.audits || {})) {
-    const triggers = ruleOpts.triggers || {};
-
-    const gateMatch = triggers.gates?.includes(gate);
-    if (!gateMatch) continue;
-
-    // Target-applicability gate (#4579, #4633). A lens declaring a `target`
-    // has nothing to read on a project lacking that surface, yet still
-    // whole-word-matches ordinary prose — `audit-seo` fires on the `meta`
-    // inside every Story body's `<!-- meta: {...} -->` machine comment. The
-    // roster's own instruction is that the host MUST walk every listed lens,
-    // so an inapplicable entry is not just wasted spend: it teaches operators
-    // to ignore the MUST. An absent `target` (or `any`) means "always
-    // applicable", so no existing lens changes behaviour.
-    const { target } = ruleOpts;
-    if (target && target !== 'any' && !projectSupportsTarget(target)) continue;
-
-    const keywords = triggers.keywords || [];
-    let keywordMatch = false;
-    for (const kw of keywords) {
-      // Whole-word match: a bare substring test selects lenses on accidental
-      // fragments ("ui" inside "requires", "auth" inside "author" — #4579).
-      const escaped = kw.toLowerCase().replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
-      if (new RegExp(`\\b${escaped}\\b`).test(contentToSearch)) {
-        keywordMatch = true;
-        break;
-      }
-    }
-
-    const fileMatch = matchesAnyFilePattern(
-      triggers.filePatterns || [],
-      changedFiles,
-    );
-
-    // Coverage-gap routing (#4628): a lens declaring `sourceWithoutSiblingTest`
-    // fires when the change set touches source lacking a sibling test.
-    const siblingMatch =
-      triggers.sourceWithoutSiblingTest === true &&
-      changeSetLacksSiblingTest(changedFiles);
-
-    if (keywordMatch || fileMatch || siblingMatch) {
-      selectedAudits.push(auditName);
-    }
-  }
+  const selectedAudits = matchAuditRules({
+    audits: rulesData.audits ?? {},
+    gate,
+    contentToSearch,
+    changedFiles,
+    projectSupportsTarget: makeTargetApplicabilityProbe({
+      config,
+      hasWebSurfaceFn,
+      hasPersistenceLayerFn,
+    }),
+  });
 
   return {
     selectedAudits,
@@ -986,4 +867,236 @@ export async function selectAudits({
       ticketTitle: ticket.title,
     },
   };
+}
+
+/**
+ * Read and parse `audit-rules.json` from the configured schemas root.
+ *
+ * @param {object} config Resolved `.agentrc.json` wrapper.
+ * @returns {Promise<object>}
+ */
+async function loadAuditRules(config) {
+  const rulesPath = path.join(
+    PROJECT_ROOT,
+    getPaths(config).schemasRoot,
+    'audit-rules.json',
+  );
+  try {
+    return JSON.parse(await fs.readFile(rulesPath, 'utf8'));
+  } catch (err) {
+    throw new Error(
+      `Failed to read audit-rules from ${rulesPath}: ${err.message}`,
+    );
+  }
+}
+
+/** Lower-cased ticket text the keyword triggers match against. */
+function ticketSearchText(ticket) {
+  return `${ticket.title || ''} ${ticket.body || ''}`.toLowerCase();
+}
+
+/**
+ * Resolve a non-default `headRef` to a commit before diffing. A ref the repo
+ * cannot resolve means the requested branch is not present in this checkout —
+ * diffing `baseBranch...HEAD` would silently report a *different* change set
+ * (Story #3362) — so that surfaces as an explicit degraded signal instead of
+ * leaking the wrong scope. Returns `null` when the ref resolves; otherwise
+ * the degraded envelope from `softFailOrThrow` (which throws in gate-mode).
+ * A non-timeout spawn failure propagates.
+ *
+ * @param {{ runGit: Function, headRef: string, timeoutMs: number, gateModeOpts?: object }} params
+ * @returns {Promise<object|null>}
+ */
+async function resolveHeadRefOrDegrade({
+  runGit,
+  headRef,
+  timeoutMs,
+  gateModeOpts,
+}) {
+  let resolved;
+  try {
+    resolved = await withTimeout(
+      runGit(process.cwd(), 'rev-parse', '--verify', '--quiet', headRef),
+      timeoutMs,
+      { label: 'select-audits rev-parse headRef' },
+    );
+  } catch (err) {
+    if (err?.code === 'ETIMEDOUT') {
+      return softFailOrThrow(
+        'GIT_DIFF_TIMEOUT',
+        `select-audits: git rev-parse ${headRef} timed out after ${timeoutMs} ms`,
+        gateModeOpts,
+      );
+    }
+    throw err;
+  }
+  if (resolved?.status !== 0 || !resolved.stdout.trim()) {
+    return softFailOrThrow(
+      'HEAD_REF_UNRESOLVED',
+      `select-audits: requested ref '${headRef}' could not be resolved in this checkout; refusing to diff against a phantom change set`,
+      gateModeOpts,
+    );
+  }
+  return null;
+}
+
+/**
+ * Acquire the change set from `git diff --name-only base...head`. Returns
+ * `{ files }` on success — a diff that exits non-zero yields an empty list,
+ * preserving the pre-extraction flow — or `{ degraded }` with the soft-fail
+ * envelope on timeout. A non-timeout spawn failure propagates.
+ *
+ * @param {{ runGit: Function, baseBranch: string, headRef: string, timeoutMs: number, gateModeOpts?: object }} params
+ * @returns {Promise<{ files?: string[], degraded?: object }>}
+ */
+async function acquireChangedFilesFromDiff({
+  runGit,
+  baseBranch,
+  headRef,
+  timeoutMs,
+  gateModeOpts,
+}) {
+  let diff;
+  try {
+    diff = await withTimeout(
+      runGit(
+        process.cwd(),
+        'diff',
+        '--name-only',
+        `${baseBranch}...${headRef}`,
+      ),
+      timeoutMs,
+      { label: 'select-audits git diff' },
+    );
+  } catch (err) {
+    if (err?.code === 'ETIMEDOUT') {
+      // Soft-fail contract (Tech Spec #819): in default mode, return a
+      // degraded envelope so the caller sees the explicit signal instead of
+      // silently falling through to keyword-only matching. In gate-mode,
+      // hard-fail closed.
+      return {
+        degraded: softFailOrThrow(
+          'GIT_DIFF_TIMEOUT',
+          `select-audits: git diff against ${baseBranch} timed out after ${timeoutMs} ms`,
+          gateModeOpts,
+        ),
+      };
+    }
+    throw err;
+  }
+  if (diff?.status !== 0) return { files: [] };
+  return {
+    files: diff.stdout
+      .split('\n')
+      .map((f) => f.trim())
+      .filter(Boolean),
+  };
+}
+
+/**
+ * Whole-word keyword match over the ticket's search text: a bare substring
+ * test selects lenses on accidental fragments ("ui" inside "requires",
+ * "auth" inside "author" — #4579).
+ *
+ * @param {string[]} keywords
+ * @param {string} content Lower-cased ticket text.
+ * @returns {boolean}
+ */
+function matchesAnyKeyword(keywords, content) {
+  return keywords.some((kw) => {
+    const escaped = kw.toLowerCase().replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
+    return new RegExp(`\\b${escaped}\\b`).test(content);
+  });
+}
+
+/**
+ * Build the once-per-call target-applicability probe. Probes resolve at most
+ * once per target, and only if a lens declaring that target actually clears
+ * its gate — a Node-only project must not pay a filesystem scan on a roster
+ * with no `web` lens in it, nor a DB-less project pay one for `data-model`.
+ *
+ * @param {{ config: object, hasWebSurfaceFn: Function, hasPersistenceLayerFn: Function }} params
+ * @returns {(target: string) => boolean}
+ */
+function makeTargetApplicabilityProbe({
+  config,
+  hasWebSurfaceFn,
+  hasPersistenceLayerFn,
+}) {
+  const probes = {
+    web: hasWebSurfaceFn,
+    'data-model': hasPersistenceLayerFn,
+  };
+  const memo = new Map();
+  return (target) => {
+    if (!memo.has(target)) {
+      const probe = probes[target];
+      memo.set(target, probe ? probe({ config }) : true);
+    }
+    return memo.get(target);
+  };
+}
+
+/**
+ * True when any of a lens's content triggers fires against the change set:
+ * whole-word keywords, file-pattern globs, or the coverage-gap
+ * `sourceWithoutSiblingTest` predicate (#4628).
+ *
+ * @param {object} triggers The lens's `triggers` block.
+ * @param {string} contentToSearch Lower-cased ticket text.
+ * @param {string[]} changedFiles
+ * @returns {boolean}
+ */
+function lensTriggerFires(triggers, contentToSearch, changedFiles) {
+  return (
+    matchesAnyKeyword(triggers.keywords || [], contentToSearch) ||
+    matchesAnyFilePattern(triggers.filePatterns || [], changedFiles) ||
+    (triggers.sourceWithoutSiblingTest === true &&
+      changeSetLacksSiblingTest(changedFiles))
+  );
+}
+
+/**
+ * Run the audit-rules matching loop over one gate's roster: a lens is
+ * selected when its gate matches, its `target` applicability gate passes,
+ * and any of its keyword / file-pattern / sibling-test triggers fires.
+ *
+ * @param {{
+ *   audits: Record<string, object>,
+ *   gate: string,
+ *   contentToSearch: string,
+ *   changedFiles: string[],
+ *   projectSupportsTarget: (target: string) => boolean,
+ * }} params
+ * @returns {string[]} Selected lens identifiers, in manifest order.
+ */
+function matchAuditRules({
+  audits,
+  gate,
+  contentToSearch,
+  changedFiles,
+  projectSupportsTarget,
+}) {
+  const selectedAudits = [];
+  for (const [auditName, ruleOpts] of Object.entries(audits)) {
+    const triggers = ruleOpts.triggers || {};
+
+    if (!triggers.gates?.includes(gate)) continue;
+
+    // Target-applicability gate (#4579, #4633). A lens declaring a `target`
+    // has nothing to read on a project lacking that surface, yet still
+    // whole-word-matches ordinary prose — `audit-seo` fires on the `meta`
+    // inside every Story body's `<!-- meta: {...} -->` machine comment. The
+    // roster's own instruction is that the host MUST walk every listed lens,
+    // so an inapplicable entry is not just wasted spend: it teaches operators
+    // to ignore the MUST. An absent `target` (or `any`) means "always
+    // applicable", so no existing lens changes behaviour.
+    const { target } = ruleOpts;
+    if (target && target !== 'any' && !projectSupportsTarget(target)) continue;
+
+    if (lensTriggerFires(triggers, contentToSearch, changedFiles)) {
+      selectedAudits.push(auditName);
+    }
+  }
+  return selectedAudits;
 }
