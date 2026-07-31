@@ -54,24 +54,43 @@ export const COORDINATE_TRANSPILED = 'transpiled';
  *   coordinateSystem: 'original'|'transpiled',
  * }>}
  */
+/**
+ * Resolve one method's line into a coordinate and the provenance of that
+ * coordinate — the single place the rule lives.
+ *
+ * No mapper means the source was never transpiled, so its line already IS an
+ * original-source coordinate. A mapper that resolves yields one. A mapper
+ * that does not leaves the transpiled line, said so.
+ *
+ * @param {number} rawStartLine escomplex's `lineStart`.
+ * @param {((line: number) => number|null)|null} mapLine
+ * @returns {{startLine: number, coordinateSystem: 'original'|'transpiled'}}
+ */
+function resolveCoordinate(rawStartLine, mapLine) {
+  if (typeof mapLine !== 'function') {
+    return { startLine: rawStartLine, coordinateSystem: COORDINATE_ORIGINAL };
+  }
+  const mapped = mapLine(rawStartLine);
+  return typeof mapped === 'number'
+    ? { startLine: mapped, coordinateSystem: COORDINATE_ORIGINAL }
+    : { startLine: rawStartLine, coordinateSystem: COORDINATE_TRANSPILED };
+}
+
 export function methodRowsFromReport(report, coverageForFile, mapLine = null) {
   const methods = report?.methods ?? [];
   const rows = [];
-  const remapping = typeof mapLine === 'function';
   for (const m of methods) {
     const rawStartLine = m?.lineStart;
     if (typeof rawStartLine !== 'number') continue;
-    const mapped = remapping ? mapLine(rawStartLine) : null;
-    const resolved = typeof mapped === 'number';
-    const coordinateSystem =
-      !remapping || resolved ? COORDINATE_ORIGINAL : COORDINATE_TRANSPILED;
-    const startLine = resolved ? mapped : rawStartLine;
+    const { startLine, coordinateSystem } = resolveCoordinate(
+      rawStartLine,
+      mapLine,
+    );
     const cyclomatic = m?.cyclomatic ?? 0;
-    const joinable =
-      Boolean(coverageForFile) && coordinateSystem === COORDINATE_ORIGINAL;
-    const coverage = joinable
-      ? coverageForMethodInEntry(coverageForFile, startLine)
-      : null;
+    const coverage =
+      coverageForFile && coordinateSystem === COORDINATE_ORIGINAL
+        ? coverageForMethodInEntry(coverageForFile, startLine)
+        : null;
     const crap = coverage === null ? null : crapFormula(cyclomatic, coverage);
     rows.push({
       method: m.name,
