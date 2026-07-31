@@ -27,19 +27,41 @@ describe('handleMaintainabilityWorkerMessage — score path', () => {
   it('returns the computed score on success', () => {
     const out = handleMaintainabilityWorkerMessage(
       { item: '/abs/foo.js' },
-      { score: () => 87.5 },
+      { score: () => ({ score: 87.5, unscorable: false, reason: null }) },
     );
     assert.equal(out.message.ok, true);
+    // `unscorable`/`reason` ride along on every reply so the caller can tell a
+    // kernel failure from a genuinely low score instead of inferring it from a
+    // bare `0` — see maintainability-engine's UNSCORABLE.
     assert.deepEqual(out.message.result, {
       filePath: '/abs/foo.js',
       score: 87.5,
+      unscorable: false,
+      reason: null,
     });
+  });
+
+  it('propagates an unscorable outcome with its reason', () => {
+    const out = handleMaintainabilityWorkerMessage(
+      { item: '/abs/foo.js' },
+      {
+        score: () => ({
+          score: 0,
+          unscorable: true,
+          reason:
+            "TypeError: Cannot read properties of undefined (reading 'pattern')",
+        }),
+      },
+    );
+    assert.equal(out.message.ok, true);
+    assert.equal(out.message.result.unscorable, true);
+    assert.match(out.message.result.reason, /reading 'pattern'/);
   });
 
   it('honors null score (file present but escomplex returns null)', () => {
     const out = handleMaintainabilityWorkerMessage(
       { item: '/abs/foo.js' },
-      { score: () => null },
+      { score: () => ({ score: null, unscorable: false, reason: null }) },
     );
     assert.equal(out.message.result.score, null);
     assert.equal('error' in out.message.result, false);

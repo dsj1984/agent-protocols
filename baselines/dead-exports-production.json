@@ -1322,7 +1322,15 @@
     },
     {
       "file": ".agents/scripts/lib/maintainability-engine.js",
+      "symbol": "calculateForFile"
+    },
+    {
+      "file": ".agents/scripts/lib/maintainability-engine.js",
       "symbol": "calculateForSource"
+    },
+    {
+      "file": ".agents/scripts/lib/maintainability-engine.js",
+      "symbol": "scoreSource"
     },
     {
       "file": ".agents/scripts/lib/mandrel-catalog.js",

@@ -1,25 +1,80 @@
 import fs from 'node:fs';
 import escomplex from 'typhonjs-escomplex';
+import { install as installAstCompat } from './escomplex-ast-compat.js';
 import { transpileIfNeeded } from './transpile.js';
 
 /**
  * Calculates the maintainability score of a JavaScript source file or string.
  * Uses `typhonjs-escomplex` internally, which provides a maintainability index
  * based on the Halstead Volume, Cyclomatic Complexity, and Lines of Code.
+ *
+ * The kernel's code generator predates the Babel AST its own parser emits, so
+ * ordinary modern syntax (`?.`, `await` in a loop head, a regex in a loop
+ * head, object spread in a default parameter) aborts the whole analysis.
+ * `escomplex-ast-compat` repairs that before any scoring runs — see that
+ * module for the defect and the upstream status.
  */
+installAstCompat();
+
+/**
+ * Sentinel score for a file the kernel cannot analyse.
+ *
+ * A real maintainability index never reaches 0 for runnable code — the
+ * escomplex floor is ~10–20 — so 0 has long been used as an out-of-band
+ * "unscorable" marker. That overload is the bug: consumers drop `mi === 0`
+ * rows, so an unscorable file silently vanishes from the baseline instead of
+ * being reported, and no amount of re-seeding can ever give it a row.
+ *
+ * Deliberately module-private. The numeric return is kept for backwards
+ * compatibility, but the *value* is not something a caller should branch on —
+ * that is the overload this change exists to stop propagating. Callers that
+ * need to tell "unscorable" from "genuinely terrible" read the `unscorable`
+ * flag from {@link scoreSource} / {@link scoreFile}.
+ */
+const UNSCORABLE = 0;
+
+/**
+ * Score a raw string, distinguishing "the kernel could not analyse this" from
+ * "this scored badly".
+ *
+ * @param {string} sourceCode The JavaScript source code.
+ * @returns {{ score: number, unscorable: boolean, reason: string|null }}
+ *   `score` is {@link UNSCORABLE} when `unscorable` is true; `reason` carries
+ *   the kernel's own error message so a consumer can report *why* rather than
+ *   just omitting the file.
+ */
+export function scoreSource(sourceCode) {
+  try {
+    const score = escomplex.analyzeModule(sourceCode)?.maintainability;
+    return Number.isFinite(score)
+      ? { score, unscorable: false, reason: null }
+      : unscorable(`kernel returned a non-finite index (${String(score)})`);
+  } catch (err) {
+    return unscorable(
+      `${err?.constructor?.name ?? 'Error'}: ${err?.message ?? 'unknown kernel failure'}`,
+    );
+  }
+}
+
+/**
+ * @param {string} reason
+ * @returns {{ score: number, unscorable: boolean, reason: string }}
+ */
+function unscorable(reason) {
+  return { score: UNSCORABLE, unscorable: true, reason };
+}
+
 /**
  * Calculate score for a raw string of source code.
+ *
+ * Returns 0 for unscorable input, which is ambiguous by construction — see
+ * {@link UNSCORABLE}. Prefer {@link scoreSource} in new code.
+ *
  * @param {string} sourceCode The JavaScript source code.
  * @returns {number} Score between 0 and 171. Higher is better.
  */
 export function calculateForSource(sourceCode) {
-  try {
-    const result = escomplex.analyzeModule(sourceCode);
-    return result.maintainability;
-  } catch (_err) {
-    // Return 0 if the parser fails (e.g. invalid syntax)
-    return 0;
-  }
+  return scoreSource(sourceCode).score;
 }
 
 /**
@@ -34,17 +89,34 @@ export function calculateForSource(sourceCode) {
  *   be parsed (escomplex parse error or TS transpile failure).
  */
 export function calculateForFile(filePath) {
+  return scoreFile(filePath).score;
+}
+
+/**
+ * Score a file, distinguishing "unscorable" from "scored badly".
+ *
+ * The transpile-failure and kernel-failure cases are reported separately
+ * because they need different fixes: a transpile failure is usually the
+ * consumer's own syntax or `tsconfig`, whereas a kernel failure is the
+ * upstream generator gap described in `escomplex-ast-compat.js`.
+ *
+ * @param {string} filePath Path to the JS/TS source file.
+ * @returns {{ score: number, unscorable: boolean, reason: string|null }}
+ */
+export function scoreFile(filePath) {
+  let sourceCode;
   try {
-    const sourceCode = fs.readFileSync(filePath, 'utf-8');
-    const prepared = transpileIfNeeded(filePath, sourceCode);
-    if (prepared === null) return 0;
-    return calculateForSource(prepared);
+    sourceCode = fs.readFileSync(filePath, 'utf-8');
   } catch (err) {
     if (err.code === 'ENOENT') {
       throw new Error(`File not found: ${filePath}`);
     }
     throw err;
   }
+
+  const prepared = transpileIfNeeded(filePath, sourceCode);
+  if (prepared === null) return unscorable('TypeScript transpile failed');
+  return scoreSource(prepared);
 }
 
 /**

@@ -30,10 +30,25 @@ export const name = 'maintainability';
 export const keyField = 'path';
 
 /**
- * Files the maintainability scorer cannot measure because `typhonjs-escomplex`
- * (the upstream kernel) parse-fails on syntax the runtime supports but the
- * library has never been updated for. Each entry must carry a one-line reason
- * so a future engine bump can audit the list and drop the exclusion.
+ * Files the maintainability scorer cannot measure because the upstream kernel
+ * throws on them. Each entry must carry a one-line reason so a future engine
+ * bump can audit the list and drop the exclusion.
+ *
+ * **This list is empty, and the goal is to keep it that way.** It previously
+ * held seven paths, all attributed to escomplex "choking on modern
+ * destructuring / regex-property patterns". That diagnosis was wrong. The real
+ * defect is that `typhonjs-escomplex`'s code generator is written against
+ * ESTree while its own parser emits Babel, so a regex literal in a loop head,
+ * an `await` in a loop head, a `?.`, a dynamic `import()`, or an object spread
+ * in a default parameter aborted the whole file's analysis. That is now
+ * repaired at the kernel boundary by `lib/escomplex-ast-compat.js`, which makes
+ * all four surviving entries scorable — and the audit incidentally showed the
+ * other three had been pointing at deleted files, because nothing audits an
+ * allowlist whose only effect is to suppress output.
+ *
+ * Before adding a path here, check whether `escomplex-ast-compat.js` can handle
+ * the construct instead. An entry here is a file nobody measures; a handler
+ * there gets it measured for every consumer.
  *
  * Story #2467 / Task #2494 — the prior behaviour stored these files with
  * `mi: 0` in `baselines/maintainability.json`, which corrupted the global
@@ -44,34 +59,7 @@ export const keyField = 'path';
  *
  * Canonicalised POSIX repo-relative paths.
  */
-export const MAINTAINABILITY_EXCLUSIONS = Object.freeze(
-  new Set([
-    // escomplex: "Cannot read properties of undefined (reading 'pattern')" —
-    // chokes on modern destructuring / regex-property patterns used in the
-    // reconciler's spec walker.
-    '.agents/scripts/acceptance-spec-reconciler.js',
-    // escomplex: same "pattern" parse failure as acceptance-spec-reconciler;
-    // both files share the lifecycle-lint regex-driven scan helpers.
-    '.agents/scripts/check-lifecycle-lint.js',
-    // escomplex: "this[node.callee.type] is not a function" — the cyclomatic
-    // visitor lacks a handler for one of the quality-watch CLI's call shapes.
-    '.agents/scripts/quality-watch.js',
-    // escomplex: "Cannot read properties of undefined (reading 'pattern')" —
-    // the audit-to-stories parser reuses the same regex-property scan
-    // patterns as acceptance-spec-reconciler.
-    '.agents/scripts/lib/audit-to-stories/parse-audit-md.js',
-    // escomplex: same "pattern" parse failure family — the BDD scanner walks
-    // source trees with regex visitors that hit the upstream destructuring
-    // bug.
-    '.agents/scripts/lib/bdd-scenario-scanner.js',
-    // escomplex: same "pattern" parse failure — the wave-runner tick uses
-    // the regex-property destructuring escomplex chokes on.
-    '.agents/scripts/lib/wave-runner/tick.js',
-    // escomplex: same "pattern" parse failure — exercises the same
-    // destructuring shape in a test fixture.
-    'tests/scripts/story-close-merge-subject.test.js',
-  ]),
-);
+export const MAINTAINABILITY_EXCLUSIONS = Object.freeze(new Set());
 
 /**
  * Filter parse-unscorable files out of a rows array. Used by the scorer

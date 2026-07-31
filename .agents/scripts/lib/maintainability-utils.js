@@ -4,7 +4,8 @@ import { minimatch } from 'minimatch';
 import { canonicalise as canonicalisePath } from './baselines/path-canon.js';
 import { POOL_SERIAL_THRESHOLD, runOnPool } from './cpu-pool.js';
 import { Logger } from './Logger.js';
-import { calculateForFile } from './maintainability-engine.js';
+import { scoreFile } from './maintainability-engine.js';
+import { isScored, reportUnscorable } from './maintainability-unscorable.js';
 
 const MAINTAINABILITY_WORKER_URL = new URL(
   './workers/maintainability-worker.js',
@@ -128,6 +129,13 @@ export function scanDirectory(dir, fileList = [], opts = {}) {
  * worker-side per-item failures surface as a `null` score that is
  * filtered out before assembly.
  *
+ * A file the kernel cannot analyse is also dropped — a phantom `mi: 0` row
+ * poisons the rollup — but it is **reported** on the way out, with the
+ * kernel's own error text, and the count is summarised at the end of the run.
+ * Silently omitting these is what let a file sit unmeasured indefinitely: the
+ * scorer emitted no row, so no amount of re-seeding could ever produce one,
+ * and nothing said so.
+ *
  * @param {string[]} paths
  * @returns {Promise<Record<string, number>>}
  */
@@ -142,7 +150,7 @@ export async function calculateAll(paths) {
   if (indexed.length < SERIAL_THRESHOLD) {
     perFile = indexed.map(({ abs, relPath }) => {
       try {
-        return { relPath, score: calculateForFile(abs) };
+        return { relPath, ...scoreFile(abs) };
       } catch (err) {
         Logger.error(
           `[Maintainability] Failed to process ${abs}: ${err.message}`,
@@ -166,7 +174,7 @@ export async function calculateAll(paths) {
       if (r.score === null && r.error) {
         Logger.error(`[Maintainability] Failed to process ${abs}: ${r.error}`);
       }
-      return { relPath, score: r.score };
+      return { relPath, ...r };
     });
   }
 
@@ -174,9 +182,10 @@ export async function calculateAll(paths) {
     a.relPath < b.relPath ? -1 : a.relPath > b.relPath ? 1 : 0,
   );
 
+  reportUnscorable(perFile);
+
   const scores = {};
-  for (const { relPath, score } of perFile) {
-    if (score === null) continue;
+  for (const { relPath, score } of perFile.filter(isScored)) {
     scores[relPath] = score;
   }
   return scores;
