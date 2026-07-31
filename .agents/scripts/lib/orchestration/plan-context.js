@@ -379,14 +379,21 @@ function resolveRiskHeuristics(config = {}) {
  * this one screens a seed, that one decides. Collapsing them would make a
  * confirm a bypass.
  *
- *   - `maxArtifacts`           — enumerated seed items (one artifact each).
+ * **Risk only, never cardinality (Story #4856).** This carried a
+ * `maxArtifacts: 2` ceiling — the second surviving artifact count after Story
+ * #4764 retired the axis from the routing gate, and the more misleading of the
+ * two, because the artifacts it counted were **paths scraped from seed prose**
+ * rather than a measured footprint. Observed on the seed that produced Story
+ * #4856: a change spanning four framework modules was suggested as light off
+ * two scraped paths, one of which did not exist at the scraped location. A count
+ * of guesses is not a size signal, so the screen now keys on risk alone.
+ *
  *   - `maxRiskHeuristicHits`   — any risk-heuristic hit disqualifies: risk
  *                                is exactly what a light path should not carry.
  *   - `maxSensitivePathClasses`— any sensitive-path class disqualifies, the
  *                                same taxonomy close applies to a landed diff.
  */
 const DELIVER_LIGHT_SUGGESTION_CEILINGS = Object.freeze({
-  maxArtifacts: 2,
   maxRiskHeuristicHits: 0,
   maxSensitivePathClasses: 0,
 });
@@ -413,9 +420,6 @@ export function buildDeliverLightSuggestion(complexitySignals) {
   const advisory = /** @type {const} */ (true);
   const automatic = /** @type {const} */ (false);
   const s = complexitySignals ?? {};
-  const artifactCount = Number.isInteger(s.artifactCount)
-    ? s.artifactCount
-    : Number.POSITIVE_INFINITY;
   const riskHits = Array.isArray(s.riskHeuristicHits)
     ? s.riskHeuristicHits.length
     : Number.POSITIVE_INFINITY;
@@ -424,11 +428,6 @@ export function buildDeliverLightSuggestion(complexitySignals) {
     : Number.POSITIVE_INFINITY;
 
   const reasons = [];
-  if (artifactCount > ceilings.maxArtifacts) {
-    reasons.push(
-      `seed enumerates ${artifactCount} artifacts (> ${ceilings.maxArtifacts})`,
-    );
-  }
   if (riskHits > ceilings.maxRiskHeuristicHits) {
     reasons.push(`seed hits ${riskHits} risk-heuristic phrase(s)`);
   }
@@ -446,9 +445,9 @@ export function buildDeliverLightSuggestion(complexitySignals) {
     ceilings,
     reasons: suggested
       ? [
-          `seed fits the light-path ceilings (≤${ceilings.maxArtifacts} artifacts, ` +
-            'no risk-heuristic hits, no sensitive-path classes) — the operator ' +
-            'may prefer /deliver for this scope',
+          'seed carries no risk signal (no risk-heuristic hits, no ' +
+            'sensitive-path classes) — the operator may prefer /deliver for ' +
+            "this scope; the light path's own gate and diff backstop decide size",
         ]
       : reasons,
   };

@@ -28,6 +28,7 @@
  */
 
 import { gitSpawn } from '../git-utils.js';
+import { readNumstatRows } from '../orchestration/diff-magnitude.js';
 import { selectSensitivePathClasses } from './selector.js';
 
 /**
@@ -58,6 +59,12 @@ export function resolveLensDiffFloor(config) {
  * Count the changed lines (additions + deletions) in the
  * `baseRef...headRef` diff via `git diff --numstat`.
  *
+ * The read and the parse are shared with the light path's magnitude backstop
+ * ({@link module:lib/orchestration/diff-magnitude.readNumstatRows}) so the two
+ * cannot disagree about how a diff is measured. This one keeps a whole-diff
+ * total: the lens floor asks "is this diff small", not "is its implementation
+ * half small", so it deliberately does **not** apply the companion exemption.
+ *
  * Total — never throws. Returns `null` (the neutral "count unknown" signal
  * the floor fails open on) for any git failure or unparseable output, and
  * `0` for a genuinely empty diff. Binary rows (`-\t-\tpath`) contribute 0
@@ -77,31 +84,9 @@ export function countChangedLines({
   cwd = process.cwd(),
   gitSpawnFn = gitSpawn,
 } = {}) {
-  if (typeof baseRef !== 'string' || baseRef.length === 0) return null;
-  if (typeof headRef !== 'string' || headRef.length === 0) return null;
-  try {
-    const result = gitSpawnFn(
-      cwd,
-      'diff',
-      '--numstat',
-      `${baseRef}...${headRef}`,
-    );
-    if (!result || result.status !== 0 || typeof result.stdout !== 'string') {
-      return null;
-    }
-    let total = 0;
-    for (const line of result.stdout.split('\n')) {
-      const trimmedEnd = line.replace(/\s+$/, '');
-      if (trimmedEnd.length === 0) continue;
-      const match = /^(\d+|-)\t(\d+|-)\t/.exec(trimmedEnd);
-      if (!match) return null; // Unexpected format — the count is not trustworthy.
-      if (match[1] !== '-') total += Number(match[1]);
-      if (match[2] !== '-') total += Number(match[2]);
-    }
-    return total;
-  } catch {
-    return null;
-  }
+  const rows = readNumstatRows({ baseRef, headRef, cwd, gitSpawnFn });
+  if (rows === null) return null;
+  return rows.reduce((total, row) => total + row.additions + row.deletions, 0);
 }
 
 /**

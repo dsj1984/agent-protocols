@@ -1021,20 +1021,24 @@ describe('plan-context deliverLightSuggestion (Story #4741 AC-6)', () => {
     // The two contract flags: advisory, and NEVER an automatic reroute.
     assert.equal(s.advisory, true);
     assert.equal(s.automatic, false);
-    assert.match(s.reasons[0], /light-path ceilings/);
+    assert.match(s.reasons[0], /no risk signal/);
     // Story #4760 retired the /deliver-light command; the suggestion must
     // name a command the operator can actually type.
     assert.doesNotMatch(s.reasons[0], /\/deliver-light/);
   });
 
-  it('does not suggest when the seed exceeds the artifact ceiling', () => {
+  it('Story #4856: an artifact count no longer disqualifies a risk-free seed', () => {
+    // The second surviving cardinality ceiling, and the more misleading one:
+    // the "artifacts" were paths scraped from seed prose, not a measured
+    // footprint. Six scraped paths with no risk signal is not a size verdict.
     const s = buildDeliverLightSuggestion({
-      artifactCount: 5,
+      artifactCount: 6,
       riskHeuristicHits: [],
       sensitivePathClasses: [],
     });
-    assert.equal(s.suggested, false);
-    assert.match(s.reasons[0], /5 artifacts/);
+    assert.equal(s.suggested, true);
+    assert.equal(s.ceilings.maxArtifacts, undefined);
+    assert.doesNotMatch(s.reasons.join(' '), /artifact/i);
   });
 
   it('does not suggest when a risk heuristic hits — risk is what a light path must not carry', () => {
