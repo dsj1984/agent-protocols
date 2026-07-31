@@ -44,13 +44,17 @@ export function reportUnscorable(perFile) {
  * Whether a per-file entry carries a real maintainability index and so belongs
  * in the baseline.
  *
- * An unscorable entry carries the `UNSCORABLE` sentinel, not an index — letting
- * it through would write an `mi: 0` phantom and drag the rollup floor down with
- * it (Story #2467). `score === null` is the separate I/O-failure case.
+ * An unscorable entry carries the sentinel score, not an index — letting it
+ * through would write an `mi: 0` phantom and drag the rollup floor down with it
+ * (Story #2467). `score === null` is the separate I/O-failure case.
+ *
+ * Tests for a *number* rather than `score !== null`, because the latter passes
+ * anything absent: `undefined !== null` is true, so a missing entry or one with
+ * no `score` key at all would have been treated as scored.
  *
  * @param {{ score?: number|null, unscorable?: boolean }} entry
  * @returns {boolean}
  */
 export function isScored(entry) {
-  return entry?.score !== null && !entry?.unscorable;
+  return typeof entry?.score === 'number' && !entry.unscorable;
 }
