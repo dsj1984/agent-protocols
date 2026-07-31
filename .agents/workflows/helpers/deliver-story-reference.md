@@ -27,7 +27,7 @@ caller: helpers/deliver-story.md
 
 Before any git mutation, init takes an exclusive, time-bounded **lease** on
 the Story ticket via the assignee-as-lease primitive
-(`lib/orchestration/ticket-lease.js`). The single assignee *is* the lease
+(`lib/orchestration/ticket-lease.js`). The single assignee _is_ the lease
 owner (resolved from `github.operatorHandle`). The standalone path has no
 Epic-scoped dispatch manifest to serialise two operators driving the same
 Story, so this lease is the only guard against a concurrent
@@ -38,7 +38,7 @@ has **no Epic-scoped lifecycle ledger** to read a per-owner
 `story.heartbeat` from, so there is no live-heartbeat source to decide
 whether a foreign claim is stale. Rather than silently reclaim every
 foreign assignee (which would leave the guard inert), the standalone lease
-**fails closed**: a foreign assignee is treated as a *live* claim. Outcomes:
+**fails closed**: a foreign assignee is treated as a _live_ claim. Outcomes:
 
 - **Unclaimed / self-held** → init proceeds (a self-held claim is
   re-affirmed without re-writing assignees).
@@ -80,9 +80,9 @@ The sweep applies two hardening layers:
     changes.
   - `ticket-not-done` — the parent Story ticket isn't closed and
     doesn't carry `agent::done`.
-  Protected candidates are skipped, listed in the sweep result envelope
-  under `protected[]`, and named in the `CLEANUP` log line so the
-  operator can see what was preserved.
+    Protected candidates are skipped, listed in the sweep result envelope
+    under `protected[]`, and named in the `CLEANUP` log line so the
+    operator can see what was preserved.
 - **Cross-session lock.** The sweep acquires a process-scoped lockfile
   at `<tempRoot>/single-story-sweep.lock` before planning. On
   contention (another `/deliver-story` already in the sweep
@@ -116,16 +116,16 @@ not a substitute for prefixing paths correctly.
 
 The v2 engine's trait table:
 
-| Trait | v2 `/deliver-story` |
-| --- | --- |
-| Ticket type | `type::story` only |
-| Branch | `story-<id>` seeded from `project.baseBranch` (`main`) |
-| Merge target | `main` via PR (squash + required checks) |
-| Spec / slices | Folded `## Spec` + optional `## Slicing` checkpoints in-session |
-| Ceremony | Per-Story, routed off the derived change level via `ceremony-routing.js` |
+| Trait         | v2 `/deliver-story`                                                      |
+| ------------- | ------------------------------------------------------------------------ |
+| Ticket type   | `type::story` only                                                       |
+| Branch        | `story-<id>` seeded from `project.baseBranch` (`main`)                   |
+| Merge target  | `main` via PR (squash + required checks)                                 |
+| Spec / slices | Folded `## Spec` + optional `## Slicing` checkpoints in-session          |
+| Ceremony      | Per-Story, routed off the derived change level via `ceremony-routing.js` |
 
 **Ceremony-lite Stories still land through this engine unchanged.** A
-lite-routed Story collapses only the *advisory* plan/deliver
+lite-routed Story collapses only the _advisory_ plan/deliver
 ceremony — the fresh-critic / Tech-Spec authoring a one-artifact scope does
 not earn. It does **not** get a cheaper landing: the close-validation gates
 (lint / test / format / coverage / CRAP / maintainability), the PR to `main`,
@@ -135,7 +135,7 @@ record of those non-negotiables; there is no lite-specific gate bypass.
 
 **Deliver derives the route from the Story body's shape — and the
 dispatch mode from the run.** Persist stamps a lite cohort's Stories with the
-`route::lite` label as a *human-visible hint only* (and ledgers the authored
+`route::lite` label as a _human-visible hint only_ (and ledgers the authored
 verdict — recorded reason plus per-Story shape evidence — on the
 `story-plan-state` checkpoint); the label is never the control signal.
 `/deliver` computes the route from the fetched Story body via
@@ -280,7 +280,7 @@ separate (`delivery.mergeWatch.*`):
   it when your host has no such ceiling and you want to land in one block.
 - **`maxBudgetSeconds`** (default 3600) bounds the **cumulative** wait across
   resumes, anchored at the PR's `createdAt` so resuming does not restart the
-  clock. Exhausting *this* is the genuine give-up → `blocked`.
+  clock. Exhausting _this_ is the genuine give-up → `blocked`.
 
 The wait probes the checks every poll: a red required check fails fast as
 `checks-failed` instead of burning the budget, and a PR that falls behind its
@@ -312,7 +312,7 @@ checks pass. Under `"strict"`, the close **does not arm auto-merge** — the
 PR opens and waits for an **operator merge**, exactly as `--no-auto-merge`
 does per-run.
 
-**When to reach for a close flag.** What each one *does* is in
+**When to reach for a close flag.** What each one _does_ is in
 `node .agents/scripts/single-story-close.js --help`; below is only the
 judgment that help text cannot carry.
 
@@ -346,7 +346,7 @@ The `single-story-close.js` script, in order:
    captured tail inline so the evidence is in front of you without opening a
    file. Read the artifact when you need the full text — or re-run under
    `AGENT_LOG_LEVEL=verbose` for live streaming.
-1a. **Syncs the Story branch from `origin/<baseBranch>`** before push.
+   1a. **Syncs the Story branch from `origin/<baseBranch>`** before push.
    Runs `git fetch origin <baseBranch>` followed by
    `git merge --no-edit origin/<baseBranch>` inside the worktree. This
    defends against the parallel-`/deliver-story` race: when
@@ -370,12 +370,13 @@ The `single-story-close.js` script, in order:
    defence against the parallel race. Without merge queue, the sync
    closes the PR-open-time race but a residual race remains between PR
    open and auto-merge fire.
+
 2. Pushes `story-<id>` to `origin`.
 3. Probes for an existing open PR with `head = story-<id>`. If none
    exists, opens one via `gh pr create --base <baseBranch>`. The PR
    body carries `Closes #<storyId>` so the GitHub merge auto-closes the
    issue.
-3a. **Enables GitHub native auto-merge by default** via
+   3a. **Enables GitHub native auto-merge by default** via
    `gh pr merge <prNumber> --auto --squash --delete-branch`. Once CI's
    required checks turn green, GitHub squash-merges the PR and deletes
    the source branch — the operator does not need to babysit the merge
@@ -385,7 +386,7 @@ The `single-story-close.js` script, in order:
    pre-merge eyeball.
 4. Flips the Story to **`agent::closing`** (NOT `agent::done`) and leaves
    the GitHub issue **OPEN**. Auto-merge completes
-   asynchronously *after* this script exits, so closing the issue here
+   asynchronously _after_ this script exits, so closing the issue here
    would strand a CLOSED issue with no merged work if the PR later failed
    CI, went `BEHIND` base, or was closed without merging. The Story rests
    at `agent::closing` while the PR is open with auto-merge armed; the
@@ -430,9 +431,10 @@ close-validation gates pass on the dev host's environment; CI runs on a
 different OS and concurrency, and coverage rounding, platform-conditional
 branches, and timing-sensitive tests routinely drift between the two.
 
-Fix the failure and push a new commit on `story-<storyId>` — auto-merge stays
-armed across retries, so you do not re-arm — then resume the land with the
-envelope's `nextCommand`.
+Fix the failure and push a new commit on `story-<storyId>` — the watcher
+**disarmed native auto-merge on the first red** and re-arms it
+only when the checks go green on a **new head SHA**, so the fix must be a real
+commit — then resume the land with the envelope's `nextCommand`.
 
 To watch the checks on the red path, drive `pr-watch-with-update.js` — the
 **single CI-watch mechanism**. It polls the required checks to a
@@ -444,8 +446,10 @@ node <agentRoot>/scripts/pr-watch-with-update.js --pr <prNumber> --story <storyI
 ```
 
 `--story` is what keys the red-path CI digest
-(`temp/story-<id>-ci-digest.{json,md}` — failing check name, run id, and a
-`gh run view --log-failed` tail). Omit it and a red check writes no digest.
+(`temp/story-<id>-ci-digest.{json,md}` — failing check name, the PR head SHA,
+run id + run link, and a `gh run view --log-failed` tail). Omit it and a red
+check writes no digest — and with no digest the no-rerun guard has nothing to
+adjudicate the next green against, so always pass it.
 Poll cadence and caps come from `delivery.ci.watch.*` (`pollIntervalMs`,
 `maxPolls`, `maxResumes`); pass `--poll-interval-ms`, `--max-polls`, or
 `--max-resumes` to override for one run.
@@ -454,14 +458,19 @@ When the watch exits, branch on the exit code:
 
 - **Exit 0 (all checks ✓)** — auto-merge will fire (or has already). The Story
   is still at `agent::closing` with its issue OPEN. **Proceed to merge
-  confirmation (§ Step 5) within the same turn** — green CI is the *start* of
+  confirmation (§ Step 5) within the same turn** — green CI is the _start_ of
   the merge-confirm sequence, not a terminal state.
-- **Exit 1 (a check genuinely failed)** — diagnose, fix, and push a new commit
-  on `story-<storyId>`, then re-watch. Auto-merge stays enabled across retries;
-  no need to re-arm it. The Story stays at `agent::closing` throughout, so a
-  failed/abandoned PR never strands a CLOSED issue. If the same failure class
-  recurs, hand convergence off to a self-paced host loop (`/loop`) that re-runs
-  the failing check and applies the smallest fix until it exits green.
+- **Exit 1 (a check genuinely failed, or the green was a forbidden re-run)** —
+  diagnose, fix at source, and push a new commit on `story-<storyId>`, then
+  re-watch: the watcher disarmed auto-merge on the red and re-arms it only for
+  a green on a **new head SHA**. The Story stays at `agent::closing`
+  throughout, so a failed/abandoned PR never strands a CLOSED issue. If the
+  same failure class recurs, hand convergence off to a self-paced host loop
+  (`/loop`) that applies the smallest fix and pushes a new commit each pass —
+  **never** a bare re-run of the failed job. A green the guard rejects as a
+  re-run of the same commit flips the Story to `agent::blocked` with a
+  `friction` comment; clear it per
+  [`ci-remediation.md`](../../rules/ci-remediation.md) § Verifier.
 - **Exit 2 (still-running — slow CI, not red)** — the poll cap fired with checks
   still pending and the watcher exhausted its resume budget with nothing red.
   This is **never** a failure. Hand the wait off to the host's interval loop
@@ -485,7 +494,7 @@ then ends its turn with **free-form prose** — e.g. "I'll wait for the
 background watch task to complete" or "the next event will be its completion
 notification" — leaving the merge unconfirmed and the Story stranded at
 `agent::closing`. **Do not do this.**
-`pr-watch-with-update.js --pr <prNumber>` *blocks the current turn* until CI
+`pr-watch-with-update.js --pr <prNumber>` _blocks the current turn_ until CI
 resolves — that is the mechanism by which you wait. You MUST keep your turn alive
 across the wait: watch → (fix + push + re-watch on red) → confirm the merge
 (Step 5) → flip `agent::done` → run the post-merge steps → and only then
@@ -555,8 +564,9 @@ the watch exits clean.
 
 - The PR stays open across retries; `gh pr create` is a one-shot at
   close, the loop only pushes new commits.
-- Auto-merge stays armed across retries — pushing a new commit does
-  not disarm `gh pr merge --auto`.
+- Auto-merge is disarmed by the watcher on the first red and re-armed
+  when the checks go green on a new head SHA; pushing a new commit is
+  what re-opens the merge path.
 - If the operator manually merges or disables auto-merge mid-loop,
   exit the loop and report.
 
@@ -612,7 +622,7 @@ no-op-safe (`no-project` / `not-on-project` exit 0).
 
 The GitHub Projects v2 built-in workflows `Pull request merged` and
 `Pull request linked to issue` are enabled by default on most boards
-and fire ~minutes *after* auto-merge lands. They overwrite the Status
+and fire ~minutes _after_ auto-merge lands. They overwrite the Status
 field as a side-effect, clobbering the `Done` value
 `single-story-confirm-merge.js` set at the `agent::done` flip in Step 5
 and leaving closed Stories stuck at `In Progress` on the board. The
@@ -680,7 +690,7 @@ GitHub deletes the **remote** branch on auto-merge (via the
 `--delete-branch` flag `single-story-close.js` passes to `gh pr merge`).
 The **local** `story-<storyId>` ref, however, lingers in the main
 checkout until something prunes it — `single-story-init.js` runs a
-merged-sweep at the start of every *subsequent* `/deliver-story`
+merged-sweep at the start of every _subsequent_ `/deliver-story`
 invocation, but that's next-run cleanup, not end-of-run cleanup. Stale
 local refs accumulate between sessions, clutter `git branch`, and shadow
 the lessons the sweep is meant to surface.
@@ -724,7 +734,7 @@ The field-level contract is the shipped schema
 — not this file, and not
 [`agents/story-worker.md`](../../agents/story-worker.md). All three used to
 carry their own prose version; the schema is now the only definition. What
-follows is the *judgement* around it, which a schema cannot express.
+follows is the _judgement_ around it, which a schema cannot express.
 
 ### `pending` is a real status — and it is not a park
 

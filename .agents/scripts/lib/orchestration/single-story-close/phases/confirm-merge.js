@@ -363,7 +363,8 @@ function formatUnlandedFriction({
   const remedy =
     blockClass === 'checks-failed'
       ? `A required check is **red**. Fix the failure and push a new commit on \`story-${storyId}\`; ` +
-        `auto-merge stays armed across retries. Watch the checks with:\n\n` +
+        `the red disarms auto-merge, and only a green on a new head SHA re-arms it — ` +
+        `re-running the failed job is forbidden. Watch the checks with:\n\n` +
         `\`\`\`bash\n${NEXT_COMMANDS.watchCi(storyId, prNumber)}\n\`\`\``
       : `Resolve the underlying condition (branch protection, required checks, ` +
         `or a manual merge), then resume the land:\n\n` +

@@ -19,8 +19,10 @@ exactly one of two ways, and no others:
    caused by the diff under review — **verify the same check against an
    unmodified `main` checkout**; if it also fails on `main` the defect is
    pre-existing and belongs in a separate change — then fix it at source,
-   commit on `story-<storyId>`, push, and re-run the watcher. Auto-merge stays
-   armed across retries. Route deterministic per-check failures (lint/format,
+   commit on `story-<storyId>`, push, and re-run the watcher. Auto-merge is
+   **disarmed on the first red** and re-armed only by a green on a **new head
+   SHA**, so the fix must be a new commit. Route deterministic per-check
+   failures (lint/format,
    maintainability/CRAP baseline drift, test failure, coverage threshold)
    through the fix table in
    [`deliver-story-reference.md` § Step 4](../workflows/helpers/deliver-story-reference.md#step-4--ci-watch--fix-recovery);
@@ -47,6 +49,23 @@ deleted or loosened assertion** introduced to reach green. You may **not**
 re-run a failed job to "see if it goes green," and you may **not** skip,
 `.only`, or quarantine a flaky test to get a green bar. Both mask the defect
 and are prohibited by this rule.
+
+**The enforcement point is
+[`pr-watch-with-update.js`](../scripts/pr-watch-with-update.js)**, and it acts
+on the **first red** — GitHub's native auto-merge fires server-side, so it
+races any attempt to detect a rerun-green and block it after the fact. On the
+first red the watcher **disarms native auto-merge** (a disarm failure is a
+blocker, not a warning) and records the PR **head SHA** in the digest
+alongside the failing check-run identity. On green it adjudicates:
+
+- **Same head SHA** → the green came from re-running the failed job. The
+  watcher exits non-zero, flips the Story to `agent::blocked` with a
+  `friction` comment, and requires the `meta::framework-gap` issue (run link +
+  failure signature, both already in the digest) before the delivery proceeds.
+- **New head SHA** → fix at source. The digest is retired, auto-merge is
+  re-armed, and the delivery continues unobstructed.
+
+A delivery that never went red has no digest and is untouched.
 
 ## Escalation
 

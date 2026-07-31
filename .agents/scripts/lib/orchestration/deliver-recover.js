@@ -406,8 +406,8 @@ export function decideRecovery({
         nextCommand: NEXT_COMMANDS.watchCi(storyId, pr.number),
         detail:
           `PR #${pr.number} has a red required check. Waiting cannot help — fix the ` +
-          `failure and push a new commit on \`story-${storyId}\`; auto-merge stays armed ` +
-          `across retries.`,
+          `failure and push a new commit on \`story-${storyId}\`; the red disarmed ` +
+          `auto-merge, and only a green on a new head SHA re-arms it.`,
         evidence,
       };
     }
