@@ -61,10 +61,10 @@ import { parseArgs } from 'node:util';
 import { runAsCli } from './lib/cli-utils.js';
 import { resolveConfig } from './lib/config-resolver.js';
 import { Logger, routeAllOutputToStderr } from './lib/Logger.js';
-import { computeChangeSet } from './lib/orchestration/change-set.js';
+import { resolveBackstopOutcome } from './lib/orchestration/light-backstop.js';
+import { recordGateRefusal } from './lib/orchestration/light-escalation.js';
 import {
   buildReceiptStoryTicket,
-  checkLightDiffBackstop,
   deriveLightSuitability,
   resolveLightGateOutcome,
 } from './lib/orchestration/light-suitability.js';
@@ -121,7 +121,11 @@ Gate options:
                      envelope and ENDS the session (no prompt, no fallback).
 
 Backstop options:
-  --backstop         Re-check the ACTUAL diff after implementation.
+  --backstop         Re-check the ACTUAL diff after implementation. Bounds the
+                     change's IMPLEMENTATION half by magnitude (changed lines +
+                     file sprawl); test/doc/baseline companions are exempt from
+                     the counts but still matched for sensitive paths. A block
+                     emits a nextCommand recycling the receipt through /plan.
   --story <id>       Story issue number whose story-<id> branch to diff.
 
   --pretty           Pretty-print the JSON envelope.
@@ -130,8 +134,6 @@ Backstop options:
 
 /** Exit code when the gate did not resolve to proceed-light. */
 const EXIT_NOT_PROCEED = 2;
-/** Exit code when the diff backstop blocked the land. */
-const EXIT_BACKSTOP_BLOCKED = 3;
 
 /**
  * Split a comma-separated path list into trimmed, non-empty entries.
@@ -293,33 +295,6 @@ export function buildNextCommands(storyId) {
 }
 
 /**
- * Run the diff backstop against a Story branch's actual change set.
- *
- * @param {{
- *   storyId: number,
- *   baseRef?: string,
- *   cwd?: string,
- *   computeFn?: typeof computeChangeSet,
- *   injectedRules?: object,
- * }} args
- * @returns {ReturnType<typeof checkLightDiffBackstop>}
- */
-export function runDiffBackstop({
-  storyId,
-  baseRef = 'main',
-  cwd = process.cwd(),
-  computeFn = computeChangeSet,
-  injectedRules,
-} = {}) {
-  const { files } = computeFn({
-    baseRef,
-    headRef: `story-${storyId}`,
-    cwd,
-  });
-  return checkLightDiffBackstop({ changedFiles: files, injectedRules });
-}
-
-/**
  * Was a non-blank `--operator-proceed-light` supplied? The gate core decides
  * whether it *applies*; this only asks whether the operator typed one, so the
  * attended-only refusal can fire before any adjudication.
@@ -348,27 +323,28 @@ function emit(envelope, pretty) {
 }
 
 /**
- * Backstop mode — re-check the actual diff.
+ * Backstop mode — re-check the actual diff. The decision lives in
+ * {@link module:lib/orchestration/light-backstop}; this branches and prints.
  *
- * @param {{ story?: string, pretty: boolean }} values
+ * @param {object} values Parsed CLI values.
+ * @param {{ resolveFn?: typeof resolveBackstopOutcome }} [deps]
  * @returns {Promise<number>}
  */
-async function runBackstopMode(values) {
+async function runBackstopMode(values, deps = {}) {
+  const { resolveFn = resolveBackstopOutcome } = deps;
   const storyId = Number.parseInt(String(values.story ?? ''), 10);
   if (!Number.isInteger(storyId) || storyId <= 0) {
     process.stderr.write(HELP);
     throw new Error('[deliver-light] --backstop requires --story <id>');
   }
-  const result = runDiffBackstop({ storyId });
-  emit({ mode: 'backstop', storyId, ...result }, values.pretty);
-  if (result.blocked) {
-    Logger.warn(
-      `[deliver-light] diff backstop BLOCKED Story #${storyId}: ${result.reasons.join('; ')}`,
-    );
-    return EXIT_BACKSTOP_BLOCKED;
-  }
-  Logger.info(`[deliver-light] diff backstop clean for Story #${storyId}.`);
-  return 0;
+  const { result, nextCommand, exitCode, message } = await resolveFn({
+    storyId,
+  });
+  const extra = nextCommand === null ? {} : { nextCommand };
+  emit({ mode: 'backstop', storyId, ...result, ...extra }, values.pretty);
+  if (result.blocked) Logger.warn(message);
+  else Logger.info(message);
+  return exitCode;
 }
 
 /**
@@ -407,6 +383,7 @@ export async function runGateMode(values, deps = {}) {
     createReceiptFn = createLightReceipt,
     emitFn = emit,
     emitTerminalFn = emitTerminalEnvelope,
+    recordRefusalFn = recordGateRefusal,
   } = deps;
 
   if (!values.prompt || String(values.prompt).trim() === '') {
@@ -457,6 +434,7 @@ export async function runGateMode(values, deps = {}) {
       { mode: 'gate', action: gate.action, outcome: gate.outcome },
       values.pretty,
     );
+    await recordRefusalFn({ gate, amends: values.amends });
     Logger.warn(
       `[deliver-light] gate did not proceed light (${gate.action}): ${gate.outcome.reasons.join('; ')}`,
     );

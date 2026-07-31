@@ -50,11 +50,15 @@ import {
   buildPredictedChanges,
   createLightReceipt,
   parseCsvPaths,
-  runDiffBackstop,
   runGateMode,
   runLightGate,
   synthesizeAcceptance,
 } from '../../../.agents/scripts/deliver-light.js';
+import { resolveBackstopOutcome } from '../../../.agents/scripts/lib/orchestration/light-backstop.js';
+import {
+  handleBlockedBackstop,
+  recordGateRefusal,
+} from '../../../.agents/scripts/lib/orchestration/light-escalation.js';
 import {
   buildReceiptStoryTicket,
   checkLightDiffBackstop,
@@ -65,6 +69,7 @@ import {
   resolveLightGateOutcome,
   resolveOperatorOverride,
 } from '../../../.agents/scripts/lib/orchestration/light-suitability.js';
+import { DEFAULT_DIFF_WIDTH } from '../../../.agents/scripts/lib/orchestration/review-depth.js';
 import {
   TERMINAL_BEGIN_MARKER,
   TERMINAL_END_MARKER,
@@ -299,10 +304,14 @@ describe('resolveLightGateOutcome — over-scope STOPS and asks (AC-3)', () => {
 // checkLightDiffBackstop (AC-4) — the actual diff is the real scope signal
 // ---------------------------------------------------------------------------
 
-describe('checkLightDiffBackstop — blocks over-ceiling actual diffs (AC-4)', () => {
+/** A measured magnitude summary, the shape summarizeDiffMagnitude returns. */
+const magnitudeOf = (implFiles, implLines) => ({ implFiles, implLines });
+
+describe('checkLightDiffBackstop — blocks over-magnitude actual diffs (AC-4)', () => {
   test('a small non-sensitive diff is not blocked', () => {
     const r = checkLightDiffBackstop({
       changedFiles: ['bin/hello.js', 'tests/hello.test.js'],
+      magnitude: magnitudeOf(1, 40),
       injectedRules: RULES,
     });
     assert.equal(r.blocked, false);
@@ -310,22 +319,65 @@ describe('checkLightDiffBackstop — blocks over-ceiling actual diffs (AC-4)', (
     assert.equal(r.fileCount, 2);
   });
 
-  test('a diff exceeding the file-count ceiling is blocked', () => {
-    const files = Array.from(
-      { length: LIGHT_DIFF_CEILINGS.maxFiles + 1 },
-      (_v, i) => `src/mod${i}.js`,
-    );
+  test('Story #4856: a wide-but-shallow diff lands; a narrow-but-deep one does not', () => {
+    // The inversion the retired maxFiles ceiling produced, both directions.
+    // Twelve implementation files at 900 lines is real work a single session
+    // absorbs; six files at 3712 lines is not, however few files it touches.
+    const wide = checkLightDiffBackstop({
+      changedFiles: Array.from({ length: 12 }, (_v, i) => `src/mod${i}.js`),
+      magnitude: magnitudeOf(12, 900),
+      injectedRules: RULES,
+    });
+    assert.equal(wide.blocked, false);
+
+    const deep = checkLightDiffBackstop({
+      changedFiles: Array.from({ length: 6 }, (_v, i) => `src/mod${i}.js`),
+      magnitude: magnitudeOf(6, 3712),
+      injectedRules: RULES,
+    });
+    assert.equal(deep.blocked, true);
+    assert.match(deep.reasons.join(' '), /maxImplLines/);
+  });
+
+  test('Story #4856: companion churn cannot push a small change over — 40 test files, 8000 lines', () => {
+    // The 190-file merge that measured 47x over the old ceiling: 186 of those
+    // files were tests. Its implementation is one file.
     const r = checkLightDiffBackstop({
-      changedFiles: files,
+      changedFiles: [
+        'src/one.js',
+        ...Array.from({ length: 40 }, (_v, i) => `tests/gen${i}.test.js`),
+      ],
+      magnitude: magnitudeOf(1, 600),
+      injectedRules: RULES,
+    });
+    assert.equal(r.blocked, false);
+    assert.equal(r.fileCount, 41);
+  });
+
+  test('the implementation-file sprawl tripwire blocks genuine sprawl', () => {
+    const r = checkLightDiffBackstop({
+      changedFiles: Array.from({ length: 42 }, (_v, i) => `src/mod${i}.js`),
+      magnitude: magnitudeOf(42, 803),
       injectedRules: RULES,
     });
     assert.equal(r.blocked, true);
-    assert.match(r.reasons.join(' '), /maxFiles/);
+    assert.match(r.reasons.join(' '), /maxImplFiles/);
   });
 
   test('a diff intersecting a sensitive-path class is blocked', () => {
     const r = checkLightDiffBackstop({
       changedFiles: ['src/auth/session.js'],
+      magnitude: magnitudeOf(1, 3),
+      injectedRules: RULES,
+    });
+    assert.equal(r.blocked, true);
+    assert.deepEqual(r.classes, ['security']);
+  });
+
+  test('Story #4856: a COMPANION under a sensitive class still blocks — exemption is from counting, not risk', () => {
+    const r = checkLightDiffBackstop({
+      changedFiles: ['tests/auth/session.test.js', 'src/auth/session.js'],
+      magnitude: magnitudeOf(0, 0),
       injectedRules: RULES,
     });
     assert.equal(r.blocked, true);
@@ -334,8 +386,8 @@ describe('checkLightDiffBackstop — blocks over-ceiling actual diffs (AC-4)', (
 
   test('AC-4 (Story #4764): relaxing the PREDICTION gate cannot land oversized work', () => {
     // The same five same-kind files the prediction gate now admits: the
-    // backstop reads ground truth, so it still refuses to land them. This pair
-    // is the whole trade — coarse prediction, strict diff.
+    // backstop reads ground truth, so it still refuses to land them when their
+    // magnitude is genuinely large. Coarse prediction, measured diff.
     const files = ['a', 'b', 'c', 'd', 'e'].map((p) => `src/widgets/${p}.js`);
     assert.equal(
       deriveLightSuitability({
@@ -351,37 +403,72 @@ describe('checkLightDiffBackstop — blocks over-ceiling actual diffs (AC-4)', (
     );
     const backstop = checkLightDiffBackstop({
       changedFiles: files,
+      magnitude: magnitudeOf(5, 4000),
       injectedRules: RULES,
     });
     assert.equal(backstop.blocked, true);
-    assert.match(backstop.reasons.join(' '), /maxFiles/);
+    assert.match(backstop.reasons.join(' '), /maxImplLines/);
   });
 
   test('an empty or unknown change set is blocked (cannot verify light)', () => {
     for (const changedFiles of [[], null, undefined, 'x']) {
-      const r = checkLightDiffBackstop({ changedFiles });
+      const r = checkLightDiffBackstop({
+        changedFiles,
+        magnitude: magnitudeOf(1, 1),
+      });
       assert.equal(r.blocked, true);
     }
   });
 
+  test('Story #4856: an unmeasurable magnitude blocks — absence of evidence is not evidence of smallness', () => {
+    for (const magnitude of [null, undefined, {}, { implFiles: 1 }, 'x']) {
+      const r = checkLightDiffBackstop({
+        changedFiles: ['src/one.js'],
+        magnitude,
+        injectedRules: RULES,
+      });
+      assert.equal(r.blocked, true);
+      assert.match(r.reasons.join(' '), /could not be measured/);
+    }
+  });
+
   test('honors a caller ceiling but rejects a malformed one', () => {
-    const files = ['a.js', 'b.js', 'c.js'];
     assert.equal(
       checkLightDiffBackstop({
-        changedFiles: files,
-        ceilings: { maxFiles: 2 },
+        changedFiles: ['a.js', 'b.js', 'c.js'],
+        magnitude: magnitudeOf(3, 300),
+        ceilings: { maxImplLines: 200 },
         injectedRules: RULES,
       }).blocked,
       true,
     );
     // A malformed ceiling falls back to the framework default (not 0/∞).
-    assert.equal(
-      checkLightDiffBackstop({
-        changedFiles: files,
-        ceilings: { maxFiles: 0 },
+    for (const bad of [0, -1, Number.NaN, 'four', null]) {
+      const r = checkLightDiffBackstop({
+        changedFiles: ['a.js'],
+        magnitude: magnitudeOf(1, 10),
+        ceilings: { maxImplLines: bad, maxImplFiles: bad },
         injectedRules: RULES,
-      }).ceilings.maxFiles,
-      LIGHT_DIFF_CEILINGS.maxFiles,
+      });
+      assert.deepEqual(r.ceilings, {
+        maxImplLines: LIGHT_DIFF_CEILINGS.maxImplLines,
+        maxImplFiles: LIGHT_DIFF_CEILINGS.maxImplFiles,
+      });
+    }
+  });
+
+  test('Story #4856: cardinality is no longer an axis anywhere in the ceilings', () => {
+    assert.deepEqual(Object.keys(LIGHT_DIFF_CEILINGS).sort(), [
+      'maxImplFiles',
+      'maxImplLines',
+    ]);
+    assert.equal(LIGHT_DIFF_CEILINGS.maxFiles, undefined);
+    assert.equal(LIGHT_DIFF_CEILINGS.maxImplLines, 1000);
+    // Aligned with review-depth's own narrow-diff scale (DEFAULT_DIFF_WIDTH
+    // .softFiles) so the two stop holding different definitions of "narrow".
+    assert.equal(
+      LIGHT_DIFF_CEILINGS.maxImplFiles,
+      DEFAULT_DIFF_WIDTH.softFiles,
     );
   });
 });
@@ -569,36 +656,101 @@ describe('createLightReceipt — authors the receipt via the plan-persist surfac
 });
 
 // ---------------------------------------------------------------------------
-// runDiffBackstop (AC-4) — wraps computeChangeSet over the Story branch
+// runDiffBackstop (AC-4) — joins computeChangeSet with the numstat magnitude
 // ---------------------------------------------------------------------------
 
-describe('runDiffBackstop — re-checks the ACTUAL branch diff (AC-4)', () => {
-  test('a clean small diff is not blocked', () => {
-    const r = runDiffBackstop({
+/** Numstat rows for a list of `[additions, deletions, path]` triples. */
+const rowsOf = (...triples) =>
+  triples.map(([additions, deletions, path]) => ({
+    additions,
+    deletions,
+    path,
+  }));
+
+/**
+ * Drive the backstop pass through its public entry point, which forwards the
+ * git seams to the internal run. Returns the verdict.
+ */
+const backstop = async (args) =>
+  (
+    await resolveBackstopOutcome({
+      handleBlockedFn: async () => '/plan x',
+      ...args,
+    })
+  ).result;
+
+describe('the backstop pass re-checks the ACTUAL branch diff (AC-4)', () => {
+  test('a clean small diff is not blocked', async () => {
+    const r = await backstop({
       storyId: 4741,
       injectedRules: RULES,
       computeFn: () => ({ files: ['bin/hello.js'] }),
+      readRowsFn: () => rowsOf([20, 4, 'bin/hello.js']),
     });
     assert.equal(r.blocked, false);
+    assert.deepEqual(r.magnitude, { implFiles: 1, implLines: 24 });
   });
 
-  test('an over-ceiling diff is blocked', () => {
-    const r = runDiffBackstop({
+  test('an over-magnitude diff is blocked', async () => {
+    const r = await backstop({
       storyId: 4741,
       injectedRules: RULES,
-      computeFn: () => ({
-        files: ['src/auth/a.js', 'b.js', 'c.js', 'd.js', 'e.js'],
-      }),
+      computeFn: () => ({ files: ['a.js', 'b.js'] }),
+      readRowsFn: () => rowsOf([2000, 500, 'a.js'], [10, 2, 'b.js']),
+    });
+    assert.equal(r.blocked, true);
+    assert.match(r.reasons.join(' '), /maxImplLines/);
+  });
+
+  test('a sensitive-path diff is blocked whatever its magnitude', async () => {
+    const r = await backstop({
+      storyId: 4741,
+      injectedRules: RULES,
+      computeFn: () => ({ files: ['src/auth/a.js'] }),
+      readRowsFn: () => rowsOf([1, 0, 'src/auth/a.js']),
     });
     assert.equal(r.blocked, true);
   });
 
-  test('an unenumerable diff (files: null) is blocked', () => {
-    const r = runDiffBackstop({
+  test('an unenumerable diff (files: null) is blocked', async () => {
+    const r = await backstop({
       storyId: 4741,
       computeFn: () => ({ files: null }),
+      readRowsFn: () => rowsOf([1, 1, 'a.js']),
     });
     assert.equal(r.blocked, true);
+  });
+
+  test('Story #4856: an unreadable numstat (rows: null) is blocked', async () => {
+    const r = await backstop({
+      storyId: 4741,
+      injectedRules: RULES,
+      computeFn: () => ({ files: ['bin/hello.js'] }),
+      readRowsFn: () => null,
+    });
+    assert.equal(r.blocked, true);
+    assert.match(r.reasons.join(' '), /could not be measured/);
+  });
+
+  test('Story #4856: both git surfaces are read against the same refs', async () => {
+    const seen = [];
+    await backstop({
+      storyId: 4741,
+      baseRef: 'main',
+      injectedRules: RULES,
+      computeFn: (args) => {
+        seen.push(args);
+        return { files: ['bin/hello.js'] };
+      },
+      readRowsFn: (args) => {
+        seen.push(args);
+        return rowsOf([1, 0, 'bin/hello.js']);
+      },
+    });
+    assert.equal(seen.length, 2);
+    assert.equal(seen[0].headRef, 'story-4741');
+    assert.equal(seen[1].headRef, 'story-4741');
+    assert.equal(seen[0].baseRef, seen[1].baseRef);
   });
 });
 
@@ -1416,5 +1568,179 @@ describe('the workflow tells the agent how to act on the answer (AC-8)', () => {
       /the operator waives a \*guess\*, never the\s*diff backstop/,
       'the backstop is what licenses waiving the prediction at all',
     );
+  });
+});
+
+// ---------------------------------------------------------------------------
+// Story #4856 — a blocked backstop RECYCLES its receipt instead of orphaning it,
+// and both light-path rejections are telemetered
+// ---------------------------------------------------------------------------
+
+describe('a blocked backstop recycles the receipt Story (Story #4856)', () => {
+  test('the recycle command hands the receipt to /plan tickets mode', async () => {
+    // Tickets mode already rewrites a ticket into planned Stories and closes it
+    // as superseded — so the receipt becomes the plan's INPUT rather than an
+    // open issue with no successor.
+    const next = await handleBlockedBackstop({
+      storyId: 4741,
+      result: {
+        reasons: ['too big'],
+        magnitude: { implFiles: 9, implLines: 4000 },
+      },
+      emitFn: async () => true,
+    });
+    assert.equal(next, '/plan 4741');
+  });
+
+  test('the CLI emits the recycle nextCommand on a blocked backstop', () => {
+    const res = spawnSync(
+      process.execPath,
+      [DELIVER_LIGHT_SRC, '--backstop', '--story', '999999'],
+      { encoding: 'utf8', cwd: REPO_ROOT },
+    );
+    // A branch that does not exist yields an unenumerable diff → blocked (3).
+    assert.equal(res.status, 3);
+    const envelope = JSON.parse(res.stdout.trim().split('\n').pop());
+    assert.equal(envelope.blocked, true);
+    assert.equal(envelope.nextCommand, '/plan 999999');
+  });
+
+  test('a clean backstop carries no recycle command', async () => {
+    // Nothing to recycle when nothing was refused.
+    const r = await backstop({
+      storyId: 4741,
+      injectedRules: RULES,
+      computeFn: () => ({ files: ['bin/hello.js'] }),
+      readRowsFn: () => [{ additions: 2, deletions: 0, path: 'bin/hello.js' }],
+    });
+    assert.equal(r.blocked, false);
+    assert.equal(r.nextCommand, undefined);
+  });
+
+  test('the workflow routes the receipt through /plan rather than orphaning it', () => {
+    const doc = readDoc(
+      path.join(
+        REPO_ROOT,
+        '.agents',
+        'workflows',
+        'helpers',
+        'deliver-light.md',
+      ),
+    );
+    for (const pattern of [
+      /recycle the receipt/,
+      /tickets mode/,
+      /no successor/,
+      /implementation half/,
+    ]) {
+      assertDocMentions(
+        doc,
+        pattern,
+        'step 4 must route a blocked backstop through /plan tickets mode rather than leaving the receipt open',
+      );
+    }
+  });
+});
+
+describe('light-path rejections are telemetered (Story #4856)', () => {
+  test('a scope rejection emits one light-scope-rejected friction signal', async () => {
+    const seen = [];
+    const next = await handleBlockedBackstop({
+      storyId: 4741,
+      result: {
+        reasons: ['too big'],
+        fileCount: 20,
+        magnitude: { implFiles: 9, implLines: 4000 },
+        ceilings: { maxImplLines: 1000, maxImplFiles: 15 },
+        classes: [],
+      },
+      emitFn: async (args) => {
+        seen.push(args);
+        return true;
+      },
+    });
+    assert.equal(next, '/plan 4741');
+    assert.equal(seen.length, 1);
+    assert.equal(seen[0].category, 'light-scope-rejected');
+    assert.equal(seen[0].tool, 'deliver-light');
+    assert.equal(seen[0].storyId, 4741);
+    assert.equal(seen[0].details.surface, 'diff-backstop');
+    assert.equal(seen[0].details.implLines, 4000);
+    assert.equal(seen[0].details.implFiles, 9);
+  });
+
+  test('telemetry never changes the verdict — a throwing emitter is swallowed', async () => {
+    const next = await handleBlockedBackstop({
+      storyId: 4741,
+      result: { reasons: ['too big'] },
+      emitFn: async () => {
+        throw new Error('signals unwritable');
+      },
+    });
+    assert.equal(next, '/plan 4741');
+  });
+
+  test('an ask-operator gate hands the refusal to the recorder', async () => {
+    const seen = [];
+    const code = await runGateMode(
+      {
+        prompt: 'rework the whole reporting pipeline end to end',
+        refactors: 'apps/api/x.js,apps/web/y.js',
+        acceptance: '1',
+        route: 'lite',
+        reason: 'claims small but is not',
+        amends: '#4321',
+      },
+      {
+        emitFn: () => {},
+        recordRefusalFn: async (args) => {
+          seen.push(args);
+          return true;
+        },
+      },
+    );
+    assert.equal(code, 2);
+    assert.equal(seen.length, 1);
+    assert.equal(seen[0].gate.action, 'ask-operator');
+    assert.equal(seen[0].amends, '#4321');
+  });
+
+  test('the recorder attributes a gate refusal to the --amends Story', async () => {
+    const seen = [];
+    await recordGateRefusal({
+      gate: {
+        action: 'ask-operator',
+        outcome: { reasons: ['too big'] },
+        suitability: { shape: { code: 'deployable-span' } },
+      },
+      amends: '#4321',
+      recordFrictionFn: async (args) => {
+        seen.push(args);
+        return true;
+      },
+    });
+    assert.equal(seen.length, 1);
+    assert.equal(seen[0].storyId, 4321);
+    assert.equal(seen[0].surface, 'suitability-gate');
+    assert.equal(seen[0].details.action, 'ask-operator');
+    assert.equal(seen[0].details.code, 'deployable-span');
+  });
+
+  test('a bare prompt has no Story context to attribute a signal to', async () => {
+    // Deliberate: the ask-operator path creates no receipt, and the signals
+    // stream is keyed on a Story id. Attributing it to a fabricated id would be
+    // worse than recording nothing.
+    const attributions = [];
+    for (const amends of [undefined, '#12', '12', 'nonsense', '0']) {
+      await recordGateRefusal({
+        gate: { action: 'ask-operator', outcome: { reasons: [] } },
+        amends,
+        emitFn: async (args) => {
+          attributions.push(args.storyId);
+          return true;
+        },
+      });
+    }
+    assert.deepEqual(attributions, [null, 12, 12, null, null]);
   });
 });

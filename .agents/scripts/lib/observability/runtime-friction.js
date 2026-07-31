@@ -75,6 +75,14 @@ export const RUNTIME_FRICTION_CATEGORIES = Object.freeze({
    * reflect code findings only.
    */
   TOOL_DEGRADED: 'tool-degraded',
+  /**
+   * The light delivery path refused a scope — a suitability-gate `ask-operator`
+   * or a blocked diff backstop. Story #4856 added it because neither rejection
+   * emitted anything, so an over-tight ceiling could only reach the framework
+   * as anecdote; the roll-up aggregating these by category is what makes the
+   * ceilings recalibratable from recorded evidence.
+   */
+  LIGHT_SCOPE_REJECTED: 'light-scope-rejected',
 });
 
 /** Cap on free-form reason text copied into a signal's `details`. */
