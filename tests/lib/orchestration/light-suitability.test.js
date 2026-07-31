@@ -50,15 +50,14 @@ import {
   buildPredictedChanges,
   createLightReceipt,
   parseCsvPaths,
-  runDiffBackstop,
   runGateMode,
   runLightGate,
   synthesizeAcceptance,
 } from '../../../.agents/scripts/deliver-light.js';
+import { resolveBackstopOutcome } from '../../../.agents/scripts/lib/orchestration/light-backstop.js';
 import {
-  buildRecycleCommand,
-  normalizeAmendsId,
-  recordScopeFriction,
+  handleBlockedBackstop,
+  recordGateRefusal,
 } from '../../../.agents/scripts/lib/orchestration/light-escalation.js';
 import {
   buildReceiptStoryTicket,
@@ -668,9 +667,21 @@ const rowsOf = (...triples) =>
     path,
   }));
 
-describe('runDiffBackstop — re-checks the ACTUAL branch diff (AC-4)', () => {
-  test('a clean small diff is not blocked', () => {
-    const r = runDiffBackstop({
+/**
+ * Drive the backstop pass through its public entry point, which forwards the
+ * git seams to the internal run. Returns the verdict.
+ */
+const backstop = async (args) =>
+  (
+    await resolveBackstopOutcome({
+      handleBlockedFn: async () => '/plan x',
+      ...args,
+    })
+  ).result;
+
+describe('the backstop pass re-checks the ACTUAL branch diff (AC-4)', () => {
+  test('a clean small diff is not blocked', async () => {
+    const r = await backstop({
       storyId: 4741,
       injectedRules: RULES,
       computeFn: () => ({ files: ['bin/hello.js'] }),
@@ -680,8 +691,8 @@ describe('runDiffBackstop — re-checks the ACTUAL branch diff (AC-4)', () => {
     assert.deepEqual(r.magnitude, { implFiles: 1, implLines: 24 });
   });
 
-  test('an over-magnitude diff is blocked', () => {
-    const r = runDiffBackstop({
+  test('an over-magnitude diff is blocked', async () => {
+    const r = await backstop({
       storyId: 4741,
       injectedRules: RULES,
       computeFn: () => ({ files: ['a.js', 'b.js'] }),
@@ -691,8 +702,8 @@ describe('runDiffBackstop — re-checks the ACTUAL branch diff (AC-4)', () => {
     assert.match(r.reasons.join(' '), /maxImplLines/);
   });
 
-  test('a sensitive-path diff is blocked whatever its magnitude', () => {
-    const r = runDiffBackstop({
+  test('a sensitive-path diff is blocked whatever its magnitude', async () => {
+    const r = await backstop({
       storyId: 4741,
       injectedRules: RULES,
       computeFn: () => ({ files: ['src/auth/a.js'] }),
@@ -701,8 +712,8 @@ describe('runDiffBackstop — re-checks the ACTUAL branch diff (AC-4)', () => {
     assert.equal(r.blocked, true);
   });
 
-  test('an unenumerable diff (files: null) is blocked', () => {
-    const r = runDiffBackstop({
+  test('an unenumerable diff (files: null) is blocked', async () => {
+    const r = await backstop({
       storyId: 4741,
       computeFn: () => ({ files: null }),
       readRowsFn: () => rowsOf([1, 1, 'a.js']),
@@ -710,8 +721,8 @@ describe('runDiffBackstop — re-checks the ACTUAL branch diff (AC-4)', () => {
     assert.equal(r.blocked, true);
   });
 
-  test('Story #4856: an unreadable numstat (rows: null) is blocked', () => {
-    const r = runDiffBackstop({
+  test('Story #4856: an unreadable numstat (rows: null) is blocked', async () => {
+    const r = await backstop({
       storyId: 4741,
       injectedRules: RULES,
       computeFn: () => ({ files: ['bin/hello.js'] }),
@@ -721,9 +732,9 @@ describe('runDiffBackstop — re-checks the ACTUAL branch diff (AC-4)', () => {
     assert.match(r.reasons.join(' '), /could not be measured/);
   });
 
-  test('Story #4856: both git surfaces are read against the same refs', () => {
+  test('Story #4856: both git surfaces are read against the same refs', async () => {
     const seen = [];
-    runDiffBackstop({
+    await backstop({
       storyId: 4741,
       baseRef: 'main',
       injectedRules: RULES,
@@ -1566,11 +1577,19 @@ describe('the workflow tells the agent how to act on the answer (AC-8)', () => {
 // ---------------------------------------------------------------------------
 
 describe('a blocked backstop recycles the receipt Story (Story #4856)', () => {
-  test('the recycle command hands the receipt to /plan tickets mode', () => {
+  test('the recycle command hands the receipt to /plan tickets mode', async () => {
     // Tickets mode already rewrites a ticket into planned Stories and closes it
     // as superseded — so the receipt becomes the plan's INPUT rather than an
     // open issue with no successor.
-    assert.equal(buildRecycleCommand(4741), '/plan 4741');
+    const next = await handleBlockedBackstop({
+      storyId: 4741,
+      result: {
+        reasons: ['too big'],
+        magnitude: { implFiles: 9, implLines: 4000 },
+      },
+      emitFn: async () => true,
+    });
+    assert.equal(next, '/plan 4741');
   });
 
   test('the CLI emits the recycle nextCommand on a blocked backstop', () => {
@@ -1586,9 +1605,9 @@ describe('a blocked backstop recycles the receipt Story (Story #4856)', () => {
     assert.equal(envelope.nextCommand, '/plan 999999');
   });
 
-  test('a clean backstop carries no recycle command', () => {
+  test('a clean backstop carries no recycle command', async () => {
     // Nothing to recycle when nothing was refused.
-    const r = runDiffBackstop({
+    const r = await backstop({
       storyId: 4741,
       injectedRules: RULES,
       computeFn: () => ({ files: ['bin/hello.js'] }),
@@ -1626,67 +1645,102 @@ describe('a blocked backstop recycles the receipt Story (Story #4856)', () => {
 describe('light-path rejections are telemetered (Story #4856)', () => {
   test('a scope rejection emits one light-scope-rejected friction signal', async () => {
     const seen = [];
-    const ok = await recordScopeFriction({
+    const next = await handleBlockedBackstop({
       storyId: 4741,
-      surface: 'diff-backstop',
-      reasons: ['too big'],
-      details: { implLines: 4000 },
+      result: {
+        reasons: ['too big'],
+        fileCount: 20,
+        magnitude: { implFiles: 9, implLines: 4000 },
+        ceilings: { maxImplLines: 1000, maxImplFiles: 15 },
+        classes: [],
+      },
       emitFn: async (args) => {
         seen.push(args);
         return true;
       },
     });
-    assert.equal(ok, true);
+    assert.equal(next, '/plan 4741');
     assert.equal(seen.length, 1);
     assert.equal(seen[0].category, 'light-scope-rejected');
     assert.equal(seen[0].tool, 'deliver-light');
+    assert.equal(seen[0].storyId, 4741);
     assert.equal(seen[0].details.surface, 'diff-backstop');
     assert.equal(seen[0].details.implLines, 4000);
+    assert.equal(seen[0].details.implFiles, 9);
   });
 
   test('telemetry never changes the verdict — a throwing emitter is swallowed', async () => {
-    const ok = await recordScopeFriction({
+    const next = await handleBlockedBackstop({
       storyId: 4741,
-      surface: 'diff-backstop',
+      result: { reasons: ['too big'] },
       emitFn: async () => {
         throw new Error('signals unwritable');
       },
     });
-    assert.equal(ok, false);
+    assert.equal(next, '/plan 4741');
   });
 
-  test('an ask-operator gate records the rejection, attributed to --amends when present', async () => {
+  test('an ask-operator gate hands the refusal to the recorder', async () => {
     const seen = [];
-    const values = {
-      prompt: 'rework the whole reporting pipeline end to end',
-      refactors: 'apps/api/x.js,apps/web/y.js',
-      acceptance: '1',
-      route: 'lite',
-      reason: 'claims small but is not',
+    const code = await runGateMode(
+      {
+        prompt: 'rework the whole reporting pipeline end to end',
+        refactors: 'apps/api/x.js,apps/web/y.js',
+        acceptance: '1',
+        route: 'lite',
+        reason: 'claims small but is not',
+        amends: '#4321',
+      },
+      {
+        emitFn: () => {},
+        recordRefusalFn: async (args) => {
+          seen.push(args);
+          return true;
+        },
+      },
+    );
+    assert.equal(code, 2);
+    assert.equal(seen.length, 1);
+    assert.equal(seen[0].gate.action, 'ask-operator');
+    assert.equal(seen[0].amends, '#4321');
+  });
+
+  test('the recorder attributes a gate refusal to the --amends Story', async () => {
+    const seen = [];
+    await recordGateRefusal({
+      gate: {
+        action: 'ask-operator',
+        outcome: { reasons: ['too big'] },
+        suitability: { shape: { code: 'deployable-span' } },
+      },
       amends: '#4321',
-    };
-    const code = await runGateMode(values, {
-      emitFn: () => {},
       recordFrictionFn: async (args) => {
         seen.push(args);
         return true;
       },
     });
-    assert.equal(code, 2);
     assert.equal(seen.length, 1);
-    assert.equal(seen[0].surface, 'suitability-gate');
     assert.equal(seen[0].storyId, 4321);
+    assert.equal(seen[0].surface, 'suitability-gate');
     assert.equal(seen[0].details.action, 'ask-operator');
+    assert.equal(seen[0].details.code, 'deployable-span');
   });
 
-  test('a bare prompt has no Story context to attribute a signal to', () => {
+  test('a bare prompt has no Story context to attribute a signal to', async () => {
     // Deliberate: the ask-operator path creates no receipt, and the signals
     // stream is keyed on a Story id. Attributing it to a fabricated id would be
     // worse than recording nothing.
-    assert.equal(normalizeAmendsId(undefined), null);
-    assert.equal(normalizeAmendsId('#12'), 12);
-    assert.equal(normalizeAmendsId('12'), 12);
-    assert.equal(normalizeAmendsId('nonsense'), null);
-    assert.equal(normalizeAmendsId('0'), null);
+    const attributions = [];
+    for (const amends of [undefined, '#12', '12', 'nonsense', '0']) {
+      await recordGateRefusal({
+        gate: { action: 'ask-operator', outcome: { reasons: [] } },
+        amends,
+        emitFn: async (args) => {
+          attributions.push(args.storyId);
+          return true;
+        },
+      });
+    }
+    assert.deepEqual(attributions, [null, 12, 12, null, null]);
   });
 });

@@ -42,7 +42,7 @@ import {
  * @param {number} storyId
  * @returns {string}
  */
-export function buildRecycleCommand(storyId) {
+function buildRecycleCommand(storyId) {
   return `/plan ${storyId}`;
 }
 
@@ -60,7 +60,7 @@ export function buildRecycleCommand(storyId) {
  * @param {unknown} amends
  * @returns {number|null}
  */
-export function normalizeAmendsId(amends) {
+function normalizeAmendsId(amends) {
   const match = /^#?(\d+)$/.exec(String(amends ?? '').trim());
   if (!match) return null;
   const n = Number.parseInt(match[1], 10);
@@ -81,9 +81,11 @@ export function normalizeAmendsId(amends) {
 export async function recordGateRefusal({
   gate,
   amends,
+  emitFn,
   recordFrictionFn = recordScopeFriction,
 } = {}) {
   return recordFrictionFn({
+    emitFn,
     storyId: normalizeAmendsId(amends),
     surface: 'suitability-gate',
     reasons: gate?.outcome?.reasons ?? [],
@@ -112,9 +114,11 @@ export async function recordGateRefusal({
 export async function handleBlockedBackstop({
   storyId,
   result,
+  emitFn,
   recordFrictionFn = recordScopeFriction,
 } = {}) {
   await recordFrictionFn({
+    emitFn,
     storyId,
     surface: 'diff-backstop',
     reasons: result?.reasons ?? [],
@@ -144,15 +148,16 @@ export async function handleBlockedBackstop({
  * }} args
  * @returns {Promise<boolean>}
  */
-export async function recordScopeFriction({
+async function recordScopeFriction({
   storyId,
   surface,
   reasons = [],
   details = {},
-  emitFn = emitRuntimeFriction,
+  emitFn,
 } = {}) {
+  const emit = emitFn ?? emitRuntimeFriction;
   try {
-    return await emitFn({
+    return await emit({
       storyId,
       category: RUNTIME_FRICTION_CATEGORIES.LIGHT_SCOPE_REJECTED,
       tool: 'deliver-light',

@@ -27,7 +27,7 @@ import { handleBlockedBackstop } from './light-escalation.js';
 import { checkLightDiffBackstop } from './light-suitability.js';
 
 /** Exit code when the diff backstop blocked the land. */
-export const EXIT_BACKSTOP_BLOCKED = 3;
+const EXIT_BACKSTOP_BLOCKED = 3;
 
 /**
  * Run the diff backstop against a Story branch's actual change set.
@@ -42,7 +42,7 @@ export const EXIT_BACKSTOP_BLOCKED = 3;
  * }} args
  * @returns {ReturnType<typeof checkLightDiffBackstop>}
  */
-export function runDiffBackstop({
+function runDiffBackstop({
   storyId,
   baseRef = 'main',
   cwd = process.cwd(),
@@ -70,7 +70,9 @@ export function runDiffBackstop({
  *   storyId: number,
  *   runFn?: typeof runDiffBackstop,
  *   handleBlockedFn?: typeof handleBlockedBackstop,
- * }} args
+ * }} args Any further keys (`baseRef`, `cwd`, `computeFn`, `readRowsFn`,
+ *   `injectedRules`) forward to the backstop run, so the git-surface join is
+ *   drivable through this one entry point.
  * @returns {Promise<{
  *   result: ReturnType<typeof checkLightDiffBackstop>,
  *   nextCommand: string|null,
@@ -82,8 +84,9 @@ export async function resolveBackstopOutcome({
   storyId,
   runFn = runDiffBackstop,
   handleBlockedFn = handleBlockedBackstop,
+  ...seams
 } = {}) {
-  const result = runFn({ storyId });
+  const result = runFn({ storyId, ...seams });
   if (!result.blocked) {
     return {
       result,
