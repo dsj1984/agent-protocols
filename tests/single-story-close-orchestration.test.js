@@ -69,6 +69,15 @@ function mockCloseValidation(t, { namedExports }) {
 const WORKTREE_MANAGER_URL = pathToFileURL(
   path.resolve(REPO_ROOT, '.agents/scripts/lib/worktree-manager.js'),
 ).href;
+// Story #4860 — the merge wait is not an injection seam on the runner, so the
+// lease-retention tests below stub the phase at its module URL to drive a
+// chosen terminal (landed / blocked) without a live PR.
+const CONFIRM_MERGE_PHASE_URL = pathToFileURL(
+  path.resolve(
+    REPO_ROOT,
+    '.agents/scripts/lib/orchestration/single-story-close/phases/confirm-merge.js',
+  ),
+).href;
 // Story #2990: the close-tail phases reach `gh` through the
 // `lib/gh-exec.js` facade rather than direct `execFileSync('gh', …)`
 // calls. Tests inject a fake `gh` facade via `injectedGh` (or pass it
@@ -1433,6 +1442,192 @@ describe('runSingleStoryClose — lease release on recoverable-blocked exits (St
           },
         }),
       /Story-scope review reported 1 critical blocker/,
+    );
+  });
+});
+
+/**
+ * Story #4860 — the close no longer drops the operator's claim the moment the
+ * PR opens. The clean post-arm release is gone; the only releases left in this
+ * runner are `releaseLeaseOnBlock`'s two throwing exits (pinned by the #4257
+ * suite above), and the post-land tail's own step, which runs on a CONFIRMED
+ * merge only.
+ *
+ * The property under test is a NEGATIVE one — "no release happened" — so each
+ * test injects a release seam that records every call and asserts it stayed
+ * empty. A future re-introduction of an eager release fails here rather than
+ * quietly un-assigning tickets again.
+ */
+describe('runSingleStoryClose — the lease is held until the merge confirms (Story #4860)', () => {
+  /** A `gh` that opens a PR and arms it, refusing anything else. */
+  function ghOpeningPr(prUrl) {
+    return makeFakeGh((args) => {
+      if (args[1] === 'list') return [];
+      if (args[1] === 'create') return `${prUrl}\n`;
+      if (args[1] === 'merge') return 'ok';
+      throw new Error(`unexpected gh: ${args.join(' ')}`);
+    });
+  }
+
+  /** Stub the merge-wait phase to return a chosen outcome verbatim. */
+  function mockConfirmMergePhase(t, outcome) {
+    t.mock.module(CONFIRM_MERGE_PHASE_URL, {
+      namedExports: {
+        runConfirmMergePhase: async () => outcome,
+        // The runner imports only the phase; these are re-exported so any
+        // sibling importing the module URL still resolves.
+        resolveMergeWaitConfig: () => ({ maxWaitSeconds: 1, pollMs: 1 }),
+      },
+    });
+  }
+
+  it('does not release on the no-wait ending: the PR is open and the human owns the merge', async (t) => {
+    t.mock.module(GIT_UTILS_URL, defaultGitUtilsMock());
+    mockCloseValidation(t, defaultCloseValidationMock());
+    t.mock.module(WORKTREE_MANAGER_URL, defaultWorktreeManagerMock());
+
+    const releaseCalls = [];
+    const { runSingleStoryClose } = await import(
+      `${SUT_URL}?t=lease-hold-nowait`
+    );
+    const { result } = await runSingleStoryClose({
+      storyId: 4860,
+      cwd: '/repo',
+      skipValidation: true,
+      skipSync: true,
+      noWaitForMerge: true,
+      injectedProvider: makeFakeProvider({
+        initialStory: {
+          id: 4860,
+          state: 'open',
+          title: 'hold the lease',
+          labels: ['agent::executing'],
+        },
+      }),
+      injectedConfig: fakeConfig(),
+      injectedGh: ghOpeningPr('https://github.com/owner/repo/pull/860'),
+      injectedRunCodeReview: noopReview(),
+      injectedReleaseLease: async ({ storyId }) => {
+        releaseCalls.push(storyId);
+        return { released: true, owner: 'alice', reason: 'released' };
+      },
+    });
+
+    assert.deepEqual(
+      releaseCalls,
+      [],
+      'the PR is open — the Story must stay assigned to its operator',
+    );
+    assert.equal(result.leaseReleased, false);
+    assert.match(
+      result.note,
+      /assigned to the operator/,
+      'the note tells the operator the claim is deliberately retained',
+    );
+  });
+
+  it('does not release on a merge.unlanded blocked terminal', async (t) => {
+    t.mock.module(GIT_UTILS_URL, defaultGitUtilsMock());
+    mockCloseValidation(t, defaultCloseValidationMock());
+    t.mock.module(WORKTREE_MANAGER_URL, defaultWorktreeManagerMock());
+    mockConfirmMergePhase(t, {
+      confirmed: false,
+      terminal: 'blocked',
+      blockClass: 'checks-failed',
+      reason: 'a required check went red',
+      frictionCommentId: 'c-9',
+    });
+
+    const releaseCalls = [];
+    const { runSingleStoryClose } = await import(
+      `${SUT_URL}?t=lease-hold-blocked`
+    );
+    const { terminal } = await runSingleStoryClose({
+      storyId: 4861,
+      cwd: '/repo',
+      skipValidation: true,
+      skipSync: true,
+      injectedProvider: makeFakeProvider({
+        initialStory: {
+          id: 4861,
+          state: 'open',
+          title: 'blocked but still owned',
+          labels: ['agent::executing'],
+        },
+      }),
+      injectedConfig: fakeConfig(),
+      injectedGh: ghOpeningPr('https://github.com/owner/repo/pull/861'),
+      injectedRunCodeReview: noopReview(),
+      injectedReleaseLease: async ({ storyId }) => {
+        releaseCalls.push(storyId);
+        return { released: true, owner: 'alice', reason: 'released' };
+      },
+    });
+
+    assert.equal(terminal.status, 'blocked');
+    assert.deepEqual(
+      releaseCalls,
+      [],
+      'a blocked Story keeps its owner: the PR is open and someone must fix it',
+    );
+  });
+
+  it('reports leaseReleased from the tail on a landed terminal, never from its own call', async (t) => {
+    t.mock.module(GIT_UTILS_URL, defaultGitUtilsMock());
+    mockCloseValidation(t, defaultCloseValidationMock());
+    t.mock.module(WORKTREE_MANAGER_URL, defaultWorktreeManagerMock());
+    mockConfirmMergePhase(t, {
+      confirmed: true,
+      terminal: 'landed',
+      action: 'done',
+      tail: {
+        followUps: true,
+        statusResync: true,
+        refCleanup: true,
+        baseFastForward: true,
+        tempPurge: true,
+        leaseRelease: true,
+        details: {},
+      },
+      prProbe: { checksStatus: 'success' },
+    });
+
+    const releaseCalls = [];
+    const { runSingleStoryClose } = await import(
+      `${SUT_URL}?t=lease-hold-landed`
+    );
+    const { result, terminal } = await runSingleStoryClose({
+      storyId: 4862,
+      cwd: '/repo',
+      skipValidation: true,
+      skipSync: true,
+      injectedProvider: makeFakeProvider({
+        initialStory: {
+          id: 4862,
+          state: 'open',
+          title: 'landed and released',
+          labels: ['agent::executing'],
+        },
+      }),
+      injectedConfig: fakeConfig(),
+      injectedGh: ghOpeningPr('https://github.com/owner/repo/pull/862'),
+      injectedRunCodeReview: noopReview(),
+      injectedReleaseLease: async ({ storyId }) => {
+        releaseCalls.push(storyId);
+        return { released: true, owner: 'alice', reason: 'released' };
+      },
+    });
+
+    assert.equal(terminal.status, 'landed');
+    assert.equal(
+      result.leaseReleased,
+      true,
+      'the tail released it, so the result says so',
+    );
+    assert.deepEqual(
+      releaseCalls,
+      [],
+      'the runner itself never releases on the clean path — the tail owns it',
     );
   });
 });

@@ -70,6 +70,7 @@ const CLEAN_TAIL = {
   refCleanup: true,
   baseFastForward: true,
   tempPurge: true,
+  leaseRelease: true,
 };
 
 describe('story-deliver-terminal — the status contract', () => {
@@ -273,6 +274,7 @@ describe('story-deliver-terminal — landed', () => {
       [
         'baseFastForward',
         'followUps',
+        'leaseRelease',
         'refCleanup',
         'statusResync',
         'tempPurge',
