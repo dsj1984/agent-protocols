@@ -14,6 +14,7 @@ import {
   finalizeMethodRows,
 } from '../../.agents/scripts/lib/crap-engine.js';
 import {
+  analyzeOnce,
   checkResolutionFloor,
   scanAndScore,
 } from '../../.agents/scripts/lib/crap-utils.js';
@@ -695,4 +696,50 @@ describe('projectRow — what reaches disk (AC-1, AC-8)', () => {
       },
     );
   });
+});
+
+test('a REAL TS source whose map resolves one method and not the other never mixes silently (AC-3)', () => {
+  // The closest reproduction of the defect available in-repo: a genuine
+  // TypeScript source, genuinely transpiled, with a genuine sourcemap — but
+  // one method's generated line deliberately fails to resolve, exactly as it
+  // does when the map carries no entry originating on that line.
+  const prepared = transpileIfNeeded('mod.ts', TS_SOURCE, {
+    withLineMap: true,
+  });
+  const generatedRetry =
+    prepared.code.split('\n').findIndex((l) => l.includes('function retry')) +
+    1;
+  assert.notEqual(
+    generatedRetry,
+    RETRY_SOURCE_LINE,
+    'fixture drift: the transpile no longer shifts retry',
+  );
+  // `classify` resolves; `retry` does not.
+  const partialMap = (line) =>
+    line === generatedRetry ? null : prepared.mapLine(line);
+
+  const entry = coverageEntry('/abs/mod.ts')['/abs/mod.ts'];
+  const { crapRows } = analyzeOnce(prepared.code, entry, partialMap);
+  const byMethod = Object.fromEntries(crapRows.map((r) => [r.method, r]));
+
+  // The resolved method reports an ORIGINAL coordinate and joins coverage.
+  assert.equal(byMethod.classify.coordinateSystem, COORDINATE_ORIGINAL);
+  assert.equal(byMethod.classify.startLine, CLASSIFY_SOURCE_LINE);
+  assert.equal(byMethod.classify.coverage, 1);
+
+  // The unresolved one is reported AS unresolved — it keeps the transpiled
+  // line, says so, and joins nothing. Before this Story it carried the same
+  // transpiled line with no marking at all, and that line falls INSIDE
+  // classify's fnMap range: the join would have reported this untested
+  // method as fully covered.
+  assert.equal(byMethod.retry.coordinateSystem, COORDINATE_TRANSPILED);
+  assert.equal(byMethod.retry.startLine, generatedRetry);
+  assert.equal(byMethod.retry.coverage, null);
+  assert.equal(byMethod.retry.crap, null);
+  assert.equal(
+    coverageForMethodInEntry(entry, generatedRetry),
+    1,
+    'fixture guard: the un-remapped line DOES collide with classify, which is ' +
+      'why refusing the join — not falling back to it — is the fix',
+  );
 });
