@@ -48,6 +48,11 @@ Because the predicted footprint is a *declaration* — a guess, and a gameable o
 multi-capability enumeration). Size is enforced where ground truth is available:
 the diff backstop in step 4. Do not talk yourself past that one.
 
+**The backstop counts by the same principle.** It reads magnitude — changed
+lines over implementation files — not artifacts, and exempts the test and doc
+companions the framework itself mandates. A ceiling that punishes a repo for
+obeying its own test-first rule is a ceiling that over-fires.
+
 Sensitivity is the exception and stays absolute: a footprint touching an auth,
 crypto, billing, or migration class routes `full` however small or mechanical —
 and unlike a ceiling, it is **not overridable** (§ Recording a proceed-light
@@ -136,10 +141,22 @@ answer).
    node .agents/scripts/deliver-light.js --backstop --story <storyId>
    ```
 
-   Exit `3` (`blocked: true`) means the landed diff exceeds the light ceilings
-   (file count or a sensitive-path class). STOP, flip `agent::blocked`, and
-   escalate to `/plan` — do not land. This is the pass that actually bounds
-   size, which is why the prediction gate above can afford to be coarse.
+   This is the pass that actually bounds size, which is why the prediction gate
+   above can afford to be coarse. It measures **magnitude on the change's
+   implementation half** — changed lines (additions + deletions) plus a file
+   sprawl tripwire — never raw artifact count. Tests, `docs/**`, `**/*.md`,
+   `baselines/**`, and lockfiles are exempt from the counts, because the
+   framework mandates those companions and obeying it must not inflate the
+   number that then rejects the change. They are **not** exempt from
+   sensitive-path matching, which runs over the full change set.
+
+   Exit `3` (`blocked: true`) means the diff exceeds a light ceiling or touches a
+   sensitive-path class. STOP, flip `agent::blocked`, and **recycle the receipt**
+   through the envelope's `nextCommand` (`/plan <storyId>`) — tickets mode
+   rewrites it into properly-planned Stories and closes it as superseded. Do not
+   land, and do not leave the receipt open with no successor: it already carries
+   the branch, the worktree, and the implementation, all of which are evidence
+   the plan should read.
 
 5. **Close and land (same engine).** Exactly [`/deliver`](../deliver.md)'s close:
 

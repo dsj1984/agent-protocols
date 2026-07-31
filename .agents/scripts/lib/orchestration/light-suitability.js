@@ -36,9 +36,13 @@
  *      Under `--yes` (unattended) it fails closed to recommending `/plan`.
  *   3. **Diff-derived backstop ({@link checkLightDiffBackstop}).** After
  *      implementation the **actual** change set is re-checked with
- *      {@link module:lib/orchestration/review-depth.deriveChangeLevel} plus a
- *      file-count ceiling — the diff is the real scope signal — and an
- *      over-ceiling diff is blocked rather than landed silently.
+ *      {@link module:lib/orchestration/review-depth.deriveChangeLevel} plus the
+ *      implementation-only magnitude ceilings of {@link LIGHT_DIFF_CEILINGS} —
+ *      the diff is the real scope signal — and an over-ceiling diff is blocked
+ *      rather than landed silently. Story #4856 moved this from a `maxFiles: 4`
+ *      cardinality ceiling to changed lines over implementation files, and made
+ *      a block **recycle** its receipt Story through `/plan` tickets mode
+ *      instead of orphaning it.
  *   4. **Minimal receipt Story ({@link buildReceiptStoryTicket}).** A
  *      `type::story` ticket is authored inline so `refs #`, history, telemetry,
  *      and the `agent::executing -> agent::done` state machine survive.
@@ -79,33 +83,67 @@ export const OVERRIDABLE_SHAPE_CODES = Object.freeze([
 ]);
 
 /**
- * File-count ceiling for the **actual landed** change set the diff backstop
- * ({@link checkLightDiffBackstop}) enforces. This is the light path's **only**
- * cardinality ceiling, and deliberately so (Story #4764): the predicted
- * footprint is a declaration — a guess, and a gameable one — so the gate that
- * counts must be the one reading ground truth. A genuinely-light change stays
- * small; conservative by construction, since a ceiling an operator could widen
- * past what a single session safely absorbs is a ceiling that fails silently.
- * A framework constant, not a knob.
+ * Ceilings for the **actual landed** change set the diff backstop
+ * ({@link checkLightDiffBackstop}) enforces, measured on the change's
+ * implementation half (Story #4856 — see
+ * {@link module:lib/orchestration/diff-magnitude} for the measured case and the
+ * companion-class boundary).
+ *
+ * The backstop reads ground truth, so it is where size is genuinely enforced;
+ * the prediction gate above it is a declaration and stays coarse (Story #4764).
+ * What changed is the **axis**: this used to be `maxFiles: 4`, a cardinality
+ * ceiling that rejected 79% of this repository's real merged work while passing
+ * a three-file 323-line rewrite.
+ *
+ *   - `maxImplLines` — additions plus deletions across implementation files.
+ *                      Simulated over 41 merges, 1000 admits 83% of real work
+ *                      and rejects exactly the genuinely large changes.
+ *   - `maxImplFiles` — implementation files touched, a *sprawl* tripwire rather
+ *                      than a size gate. Set to `DEFAULT_DIFF_WIDTH.softFiles`
+ *                      so the light path and `review-depth.js` stop holding two
+ *                      different definitions of a narrow diff.
+ *
+ * Framework constants, not knobs: a ceiling an operator could widen past what a
+ * single session safely absorbs is a ceiling that fails silently.
  */
 export const LIGHT_DIFF_CEILINGS = Object.freeze({
-  maxFiles: 4,
+  maxImplLines: 1000,
+  maxImplFiles: 15,
 });
 
 /**
- * Coerce a candidate `maxFiles` ceiling into a positive integer, falling back
- * to the framework default for anything malformed — a stray `0`, `-1`, or `NaN`
- * must never widen (or zero out) the light diff ceiling.
+ * Coerce a candidate ceiling into a positive integer, falling back to the
+ * framework default for anything malformed — a stray `0`, `-1`, or `NaN` must
+ * never widen (or zero out) a light diff ceiling.
  *
  * @param {unknown} value
  * @param {number} fallback
  * @returns {number}
  */
-function normalizeMaxFiles(value, fallback) {
+function normalizeCeiling(value, fallback) {
   if (typeof value !== 'number' || !Number.isFinite(value) || value < 1) {
     return fallback;
   }
   return Math.floor(value);
+}
+
+/**
+ * Resolve the effective diff ceilings from a caller-supplied partial override.
+ *
+ * @param {{ maxImplLines?: unknown, maxImplFiles?: unknown }} [ceilings]
+ * @returns {{ maxImplLines: number, maxImplFiles: number }}
+ */
+function resolveDiffCeilings(ceilings) {
+  return {
+    maxImplLines: normalizeCeiling(
+      ceilings?.maxImplLines,
+      LIGHT_DIFF_CEILINGS.maxImplLines,
+    ),
+    maxImplFiles: normalizeCeiling(
+      ceilings?.maxImplFiles,
+      LIGHT_DIFF_CEILINGS.maxImplFiles,
+    ),
+  };
 }
 
 /**
@@ -389,11 +427,23 @@ export function resolveLightGateOutcome({
 }
 
 /**
- * Diff-derived backstop (Story #4740 AC-4): re-check the **actual** change set
- * after implementation, because the diff — not the prompt — is the real scope
- * signal. Blocks (rather than landing) when the diff intersects a sensitive-
- * path class, exceeds the file-count ceiling, or cannot be classified. A clean
- * result is the only path that lands light.
+ * Diff-derived backstop (Story #4740 AC-4, re-based on magnitude by Story
+ * #4856): re-check the **actual** change set after implementation, because the
+ * diff — not the prompt — is the real scope signal. Blocks (rather than landing)
+ * when the diff intersects a sensitive-path class, exceeds an implementation
+ * ceiling, or cannot be measured. A clean result is the only path that lands
+ * light.
+ *
+ * Two inputs, two different scopes, and the difference is load-bearing:
+ *
+ *   - `changedFiles` is the **full** change set, companions included, and is
+ *     what sensitive-path derivation reads. Exempting a companion from the
+ *     *count* must never exempt it from *risk* — a test file under a registered
+ *     sensitive class still blocks.
+ *   - `magnitude` is the implementation-only summary from
+ *     {@link module:lib/orchestration/diff-magnitude.summarizeDiffMagnitude}.
+ *     `null` means the magnitude could not be measured, which blocks: absence
+ *     of evidence is not evidence the diff is small.
  *
  * Reuses close's own {@link module:lib/orchestration/review-depth.deriveChangeLevel}
  * — one taxonomy, applied to the predicted shape at the gate and the actual
@@ -403,7 +453,8 @@ export function resolveLightGateOutcome({
  *
  * @param {{
  *   changedFiles?: unknown,
- *   ceilings?: { maxFiles?: number },
+ *   magnitude?: { implFiles?: number, implLines?: number }|null,
+ *   ceilings?: { maxImplLines?: number, maxImplFiles?: number },
  *   injectedRules?: object,
  *   selectSensitivePathClassesFn?: Function,
  * }} [args]
@@ -412,20 +463,19 @@ export function resolveLightGateOutcome({
  *   level: 'low'|'high'|null,
  *   classes: string[],
  *   fileCount: number|null,
- *   ceilings: { maxFiles: number },
+ *   magnitude: { implFiles: number, implLines: number }|null,
+ *   ceilings: { maxImplLines: number, maxImplFiles: number },
  *   reasons: string[],
  * }}
  */
 export function checkLightDiffBackstop({
   changedFiles,
+  magnitude,
   ceilings,
   injectedRules,
   selectSensitivePathClassesFn,
 } = {}) {
-  const maxFiles = normalizeMaxFiles(
-    ceilings?.maxFiles,
-    LIGHT_DIFF_CEILINGS.maxFiles,
-  );
+  const resolved = resolveDiffCeilings(ceilings);
   const files = Array.isArray(changedFiles)
     ? changedFiles.filter((f) => typeof f === 'string' && f.trim() !== '')
     : null;
@@ -436,7 +486,8 @@ export function checkLightDiffBackstop({
       level: null,
       classes: [],
       fileCount: files === null ? null : 0,
-      ceilings: { maxFiles },
+      magnitude: null,
+      ceilings: resolved,
       reasons: [
         'actual change set is unknown or empty — cannot verify the diff is light; escalate to /plan',
       ],
@@ -448,23 +499,12 @@ export function checkLightDiffBackstop({
     injectedRules,
     selectSensitivePathClassesFn,
   });
+  const measured = normalizeMagnitude(magnitude);
 
-  const reasons = [];
-  if (classes.length > 0) {
-    reasons.push(
-      `diff intersects sensitive-path class(es) ${classes.join(', ')} — escalate to /plan (do not land light)`,
-    );
-  }
-  if (files.length > maxFiles) {
-    reasons.push(
-      `diff touches ${files.length} file(s) (> maxFiles ${maxFiles}) — escalate to /plan (do not land light)`,
-    );
-  }
-  if (level !== 'low' && classes.length === 0) {
-    reasons.push(
-      'sensitive-path classification unavailable — cannot verify the diff is non-sensitive; escalate to /plan',
-    );
-  }
+  const reasons = [
+    ...describeSensitivity({ level, classes }),
+    ...describeMagnitude(measured, resolved),
+  ];
 
   const blocked = reasons.length > 0;
   return {
@@ -472,13 +512,78 @@ export function checkLightDiffBackstop({
     level,
     classes,
     fileCount: files.length,
-    ceilings: { maxFiles },
+    magnitude: measured,
+    ceilings: resolved,
     reasons: blocked
       ? reasons
       : [
-          `diff is light: ${files.length} file(s) ≤ ${maxFiles}, no sensitive-path class — safe to land`,
+          `diff is light: ${measured.implLines} implementation line(s) ≤ ${resolved.maxImplLines} ` +
+            `across ${measured.implFiles} implementation file(s) ≤ ${resolved.maxImplFiles} ` +
+            `(${files.length} file(s) total, companions exempt), no sensitive-path class — safe to land`,
         ],
   };
+}
+
+/**
+ * Coerce a magnitude summary into non-negative integer counts, or `null` when
+ * it was not measurable. Pure.
+ *
+ * @param {unknown} magnitude
+ * @returns {{ implFiles: number, implLines: number }|null}
+ */
+function normalizeMagnitude(magnitude) {
+  const implFiles = magnitude?.implFiles;
+  const implLines = magnitude?.implLines;
+  if (!Number.isFinite(implFiles) || !Number.isFinite(implLines)) return null;
+  if (implFiles < 0 || implLines < 0) return null;
+  return { implFiles: Math.floor(implFiles), implLines: Math.floor(implLines) };
+}
+
+/**
+ * Sensitivity objections, over the **full** change set. Pure.
+ *
+ * @param {{ level: 'low'|'high'|null, classes: string[] }} derived
+ * @returns {string[]}
+ */
+function describeSensitivity({ level, classes }) {
+  if (classes.length > 0) {
+    return [
+      `diff intersects sensitive-path class(es) ${classes.join(', ')} — escalate to /plan (do not land light)`,
+    ];
+  }
+  if (level !== 'low') {
+    return [
+      'sensitive-path classification unavailable — cannot verify the diff is non-sensitive; escalate to /plan',
+    ];
+  }
+  return [];
+}
+
+/**
+ * Magnitude objections, over the implementation half only. Pure.
+ *
+ * @param {{ implFiles: number, implLines: number }|null} measured
+ * @param {{ maxImplLines: number, maxImplFiles: number }} ceilings
+ * @returns {string[]}
+ */
+function describeMagnitude(measured, ceilings) {
+  if (measured === null) {
+    return [
+      'change magnitude could not be measured (unreadable or unparseable numstat) — cannot verify the diff is light; escalate to /plan',
+    ];
+  }
+  const reasons = [];
+  if (measured.implLines > ceilings.maxImplLines) {
+    reasons.push(
+      `diff changes ${measured.implLines} implementation line(s) (> maxImplLines ${ceilings.maxImplLines}) — escalate to /plan (do not land light)`,
+    );
+  }
+  if (measured.implFiles > ceilings.maxImplFiles) {
+    reasons.push(
+      `diff spans ${measured.implFiles} implementation file(s) (> maxImplFiles ${ceilings.maxImplFiles}) — escalate to /plan (do not land light)`,
+    );
+  }
+  return reasons;
 }
 
 /** Cap on a receipt slug's length — keep the branch/id readable. */
