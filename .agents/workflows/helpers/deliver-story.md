@@ -111,9 +111,7 @@ node <main-repo>/.agents/scripts/single-story-close.js --story <storyId> --cwd <
 post-land tail in one process. Run it and **branch on the terminal envelope's
 `status`** per the table in **digest § 5** (`landed` → Step 7; `pending` → run
 `nextCommand`; `blocked`/`checks-failed` → Step 4; `failed` → diagnose and
-re-run). Gate output is captured to
-`temp/orchestration/close-gates-<storyId>.log` — a clean run prints a digest
-line, a red gate replays its tail inline.
+re-run). Gate output is captured, not streamed — digest § 5.
 
 Internals (gate order, base-sync, auto-merge arming), the merge-wait
 budgets, the slow-CI **async** confirm mode (launch the `pending`
@@ -126,8 +124,9 @@ poll), the `autoMerge` policy, and every close flag: reference
 A `landed` envelope means everything ran — go straight to Step 7. Enter a
 recovery path **only** when the envelope routes you there:
 
-- **`blocked` / `checks-failed`** → fix, push a new commit (auto-merge stays
-  armed), resume via `nextCommand`; triage per
+- **`blocked` / `checks-failed`** → the red **disarms auto-merge**; fix at
+  source and push a new commit (only a green on a NEW head SHA re-arms — a
+  re-run is refused), resume via `nextCommand`; triage per
   [`rules/ci-remediation.md`](../../rules/ci-remediation.md). The watch is
   internally blocking — never end a turn with prose and an unconfirmed
   merge. Reference § Step 4.

@@ -23,14 +23,13 @@
 
 import assert from 'node:assert/strict';
 import { describe, it } from 'node:test';
-
 import {
-  classifyFailure,
   resolveWatchKnobs,
   runPrWatch,
   STILL_RUNNING_EXIT_CODE,
   WATCH_DEFAULTS,
 } from '../../../../../pr-watch-with-update.js';
+import { classifyFailure } from '../../../ci-rerun-guard.js';
 import {
   hasFailingCheck,
   promotePendingToStillRunning,
@@ -194,6 +193,15 @@ describe('runPrWatch — three-way exit codes (Story #4358)', () => {
         digestArgs = args;
         return { jsonPath: '/tmp/story-4355-ci-digest.json', mdPath: '/x.md' };
       },
+      // Story #4865 — the red path now disarms native auto-merge and reads
+      // the PR head SHA. Both are `gh` calls; stub them so this unit test
+      // never touches the network (or a real PR).
+      headShaFn: () => 'head-sha',
+      disarmAutoMergeFn: () => ({
+        disarmed: true,
+        alreadyUnarmed: false,
+        detail: 'ok',
+      }),
       logger: quietLogger(),
       print,
     });
