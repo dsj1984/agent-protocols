@@ -12,15 +12,16 @@
  * created; this is a direct, synchronous watch with a real exit code.
  *
  * Slow-vs-failed semantics (Story #4358):
- *   - GREEN — every required check terminal + green → exit 0.
+ *   - GREEN — every required check terminal + green → exit 0, unless the
+ *             no-rerun guard says otherwise (below).
  *   - RED   — one or more required checks genuinely failed → exit 1
  *             IMMEDIATELY, consuming no resume budget. On red the CLI
- *             writes `temp/story-<id>-ci-digest.{json,md}` (failing check
- *             name, run id, a `gh run view --log-failed` tail, and a
- *             coarse classification) and prints the red-green
- *             remediation handoff. The digest is scoped by filename, so
- *             it requires `--story` (Story #4539: the digest was
- *             Epic-scoped and therefore never written on the only
+ *             disarms native auto-merge and writes
+ *             `temp/story-<id>-ci-digest.{json,md}` (failing check name,
+ *             head SHA, run id + run link, a `gh run view --log-failed`
+ *             tail, and a coarse classification). The digest is scoped by
+ *             filename, so it requires `--story` (Story #4539: the digest
+ *             was Epic-scoped and therefore never written on the only
  *             delivery path v2 has).
  *   - STILL-RUNNING — the poll cap fired with checks still pending and
  *             none failed; the watcher re-armed up to
@@ -28,6 +29,19 @@
  *             `still-running` verdict → exit 2 (NEVER 1, NEVER
  *             `timed_out`). The CLI prints the `gh pr checks --watch`
  *             handoff so the host can keep polling on its own cadence.
+ *
+ * No-rerun enforcement (Story #4865). `rules/ci-remediation.md` § Verifier
+ * forbids re-running a failed job to reach green; this CLI is the point
+ * that enforces it. Enforcement acts on the **first red** — GitHub's native
+ * auto-merge fires server-side and races any post-green detection, so a
+ * green can already have merged by the time it is observed. On red the
+ * watcher disarms auto-merge and records the head SHA; on green it reads
+ * the digest and adjudicates: a green on the SAME head SHA is a forbidden
+ * re-run (exit 1, `agent::blocked`, `meta::framework-gap` required), while
+ * a green on a NEW head SHA is a fix at source — the digest is retired,
+ * auto-merge is re-armed, and the delivery proceeds. A delivery that never
+ * went red has no digest and is untouched. Mechanism:
+ * `lib/orchestration/ci-rerun-guard.js`.
  *
  * Config (Story #4356 namespace, read via `getCiDelivery`):
  *   - `delivery.ci.watch.pollIntervalMs`
@@ -40,15 +54,25 @@
  *     [--repo owner/repo] [--max-updates N] [--poll-interval-ms MS]
  *     [--max-polls N] [--max-resumes N]
  */
-import { spawnSync } from 'node:child_process';
-import { mkdirSync, writeFileSync } from 'node:fs';
-import path from 'node:path';
 import { parseArgs } from 'node:util';
 import { runAsCli } from './lib/cli-utils.js';
 import { getCiDelivery } from './lib/config/ci.js';
 import { resolveConfig } from './lib/config-resolver.js';
 import { Logger } from './lib/Logger.js';
+import {
+  blockStoryDelivery,
+  classifyFailure,
+  classifyGreenVerdict,
+  disarmAutoMerge,
+  formatRerunViolation,
+  readCiDigest,
+  resolveDigestScope,
+  resolvePrHeadSha,
+  retireCiDigest,
+  writeCiDigest,
+} from './lib/orchestration/ci-rerun-guard.js';
 import { watchPrToTerminal } from './lib/orchestration/lifecycle/listeners/watcher.js';
+import { enableAutoMergeWith } from './lib/orchestration/single-story-close/phases/auto-merge.js';
 
 /** Framework fallbacks when neither a CLI flag nor config supplies a value. */
 export const WATCH_DEFAULTS = Object.freeze({
@@ -99,162 +123,156 @@ export function resolveWatchKnobs({ config, flags = {} } = {}) {
   };
 }
 
+/** Default re-arm: the sanctioned auto-merge enablement path. */
+function defaultReArm({ cwd, prNumber }) {
+  return enableAutoMergeWith({ cwd, prNumber });
+}
+
 /**
- * Coarse failure classification from a failing-check name. Pure —
- * exported for tests. Deliberately shallow: it steers the operator's
- * next move (which `/loop` unit to reach for), not a root-cause verdict.
+ * Red path (Story #4865). Disarm native auto-merge FIRST — that is the
+ * race-free moment, before any green can exist — then record the digest so
+ * the green path can adjudicate against the head SHA the red happened on.
  *
- * @param {string} name  failing required-check name.
- * @returns {'test'|'lint'|'baseline'|'build'|'unknown'}
- */
-export function classifyFailure(name) {
-  const n = String(name ?? '').toLowerCase();
-  if (/lint|format|biome|markdownlint/.test(n)) return 'lint';
-  if (/baseline|coverage|crap|maintainab|duplicat/.test(n)) return 'baseline';
-  if (/build|compile|typecheck|bundle/.test(n)) return 'build';
-  if (/test|spec|validate|ci|check/.test(n)) return 'test';
-  return 'unknown';
-}
-
-/**
- * Default `gh run view --log-failed` spawn — pulls the tail of the failed
- * job log so the digest carries an actionable excerpt. Best-effort:
- * returns an empty tail when the run id is unknown or `gh` errors.
- * Exported indirectly via `writeCiDigest` injection so tests can stub
- * without shelling out.
- */
-function ghRunLogTail({ runId, cwd, spawnFn = spawnSync, maxLines = 40 }) {
-  if (!runId) return '';
-  const result = spawnFn('gh', ['run', 'view', String(runId), '--log-failed'], {
-    cwd,
-    encoding: 'utf-8',
-    shell: false,
-    maxBuffer: 10 * 1024 * 1024,
-  });
-  const out = (result.stdout ?? '').trim();
-  if (out.length === 0) return '';
-  const lines = out.split('\n');
-  return lines.slice(-maxLines).join('\n');
-}
-
-/**
- * Resolve the GitHub Actions run id for a failing check. Best-effort via
- * `gh pr checks --json name,link` — the `link` field carries the run URL
- * whose trailing path segment is the run id. Returns `null` when
- * unresolvable.
- */
-function resolveRunId({ prRef, checkName, cwd, spawnFn = spawnSync }) {
-  const result = spawnFn('gh', ['pr', 'checks', prRef, '--json', 'name,link'], {
-    cwd,
-    encoding: 'utf-8',
-    shell: false,
-  });
-  try {
-    const parsed = JSON.parse((result.stdout ?? '').trim() || '[]');
-    const entry = Array.isArray(parsed)
-      ? parsed.find((e) => e?.name === checkName)
-      : null;
-    const link = entry?.link ?? '';
-    const m = /\/runs\/(\d+)/.exec(String(link));
-    return m ? m[1] : null;
-  } catch {
-    return null;
-  }
-}
-
-/**
- * Resolve which ticket the digest is keyed to. Story #4539: the digest used
- * to be Epic-scoped by filename and returned `null` without an epic id — so
- * on the v2 Story path (which has no Epic and invokes the watch with `--pr`
- * alone) a red check wrote no digest at all, despite the module header
- * advertising one. v2.0.0 removed the Epic tier; Story scope is the only
- * scope.
+ * A disarm failure is a **blocker**, not a warning: an armed PR whose
+ * required check went red can still be merged by GitHub the instant a
+ * re-run turns it green, which is precisely what this guard exists to stop.
  *
- * @param {{ storyId?: number|string|null }} opts
- * @returns {{ kind: 'story', id: number } | null}
+ * @returns {Promise<{ headSha: string|null, disarm: object, digestPaths: object|null, blocked: boolean }>}
  */
-export function resolveDigestScope({ storyId = null } = {}) {
-  if (storyId == null || String(storyId).length === 0) return null;
-  const parsed = Number.parseInt(String(storyId), 10);
-  return Number.isInteger(parsed) && parsed > 0
-    ? { kind: 'story', id: parsed }
-    : null;
-}
-
-/**
- * Write the CI failure digest (`.json` + `.md`) for a red watch. Returns
- * the two paths written, or `null` when no story id was supplied (the
- * digest is scoped by filename and has nothing to key on). Exported for
- * tests.
- *
- * @param {object} opts
- * @param {number|string|null} [opts.storyId] The v2 delivery scope.
- * @param {number} opts.prNumber
- * @param {Array<{name:string, outcome:string}>} opts.failures
- * @param {string} opts.tempRoot
- * @param {string} opts.cwd
- * @param {string} opts.prRef
- * @param {Function} [opts.runIdFn]
- * @param {Function} [opts.logTailFn]
- * @returns {{ jsonPath: string, mdPath: string } | null}
- */
-export function writeCiDigest({
-  storyId = null,
+async function handleRedWatch({
+  storyId,
   prNumber,
+  prRef,
   failures,
   tempRoot,
   cwd,
+  writeDigestFn,
+  headShaFn,
+  disarmFn,
+  blockFn,
+  logger,
+}) {
+  const disarm = disarmFn({ prRef, cwd });
+  const scope = resolveDigestScope({ storyId });
+  const headSha = scope ? headShaFn({ prRef, cwd }) : null;
+  let digestPaths = null;
+  try {
+    digestPaths = writeDigestFn({
+      storyId,
+      prNumber,
+      headSha,
+      failures,
+      tempRoot,
+      cwd,
+      prRef,
+    });
+  } catch (err) {
+    logger.warn?.(
+      `[pr-watch] failed to write CI digest (non-fatal): ${err?.message ?? err}`,
+    );
+  }
+  let blocked = false;
+  if (!disarm.disarmed) {
+    logger.error?.(
+      `[pr-watch] BLOCKER: auto-merge could NOT be disarmed on PR #${prNumber} (${disarm.detail}). ` +
+        'An armed PR can merge the moment a re-run turns it green — the no-rerun rule cannot be enforced.',
+    );
+    const outcome = await blockFn({
+      storyId,
+      body: [
+        '### Auto-merge could not be disarmed after a red check — delivery blocked',
+        '',
+        `A required check went red on PR #${prNumber}, but disarming native auto-merge failed:`,
+        '',
+        `> ${disarm.detail}`,
+        '',
+        'While the PR stays armed, GitHub can merge it server-side the instant the',
+        'checks read green — including a green reached by re-running the failed job,',
+        'which `.agents/rules/ci-remediation.md` § Verifier forbids. Disarm the PR by',
+        'hand (or fix the `gh` fault), then resume the delivery.',
+      ].join('\n'),
+    });
+    blocked = Boolean(outcome?.blocked);
+  } else {
+    logger.error?.(
+      `[pr-watch] native auto-merge ${disarm.alreadyUnarmed ? 'was already un-armed' : 'DISARMED'} on PR #${prNumber} — ` +
+        'it is re-armed only by a green on a NEW head SHA.',
+    );
+  }
+  if (digestPaths) {
+    logger.error?.(`[pr-watch] CI failure digest → ${digestPaths.jsonPath}`);
+  }
+  return { headSha, disarm, digestPaths, blocked };
+}
+
+/**
+ * Green path (Story #4865). Adjudicate the green against any digest the
+ * scope recorded, and return the exit code with the report the caller
+ * prints.
+ *
+ * @returns {Promise<{ verdict: string, reason: string, exitCode: number, headSha: string|null, reArmed?: boolean, blocked?: boolean }>}
+ */
+async function evaluateGreenWatch({
+  storyId,
+  prNumber,
   prRef,
-  runIdFn = resolveRunId,
-  logTailFn = ghRunLogTail,
+  tempRoot,
+  cwd,
+  readDigestFn,
+  retireDigestFn,
+  headShaFn,
+  reArmFn,
+  blockFn,
+  logger,
 }) {
   const scope = resolveDigestScope({ storyId });
-  if (!scope) return null;
-  const primary = failures[0] ?? { name: 'unknown', outcome: 'failure' };
-  const runId = runIdFn({ prRef, checkName: primary.name, cwd });
-  const logTail = logTailFn({ runId, cwd });
-  const classification = classifyFailure(primary.name);
-  const digest = {
-    storyId: scope.id,
-    prNumber,
-    failingCheck: primary.name,
-    failingOutcome: primary.outcome,
-    runId,
-    classification,
-    allFailures: failures,
-    logTail,
-    generatedAt: new Date().toISOString(),
+  if (!scope) {
+    return {
+      verdict: 'clean',
+      reason: 'no --story scope: no digest can be keyed, guard inert',
+      exitCode: 0,
+      headSha: null,
+    };
+  }
+  const digest = readDigestFn({ storyId, tempRoot, cwd });
+  if (!digest) {
+    return {
+      verdict: 'clean',
+      reason: 'no digest for this scope: this delivery never went red',
+      exitCode: 0,
+      headSha: null,
+    };
+  }
+  const headSha = headShaFn({ prRef, cwd });
+  const { verdict, reason } = classifyGreenVerdict({ digest, headSha });
+  if (verdict === 'fix-at-source') {
+    retireDigestFn({ storyId, tempRoot, cwd });
+    const reArm = await reArmFn({ cwd, prNumber });
+    const reArmed = Boolean(reArm?.enabled);
+    logger.info?.(
+      `[pr-watch] green on a NEW head SHA (${reason}) — fix at source; digest retired, ` +
+        `auto-merge ${reArmed ? 're-armed' : `NOT re-armed (${reArm?.reason ?? 'unknown'})`}.`,
+    );
+    return { verdict, reason, exitCode: 0, headSha, reArmed };
+  }
+  const body = formatRerunViolation({ digest, headSha, prNumber, reason });
+  logger.error?.(
+    `[pr-watch] FORBIDDEN CI RE-RUN: ${reason}. Required check \`${digest.failingCheck}\` was red on this exact commit.`,
+  );
+  logger.error?.(
+    `[pr-watch] run link: ${digest.runUrl ?? `run id ${digest.runId ?? 'unresolved'}`} — classification: ${digest.classification ?? 'unknown'}`,
+  );
+  logger.error?.(
+    '[pr-watch] fix the root cause and push a new commit, or file a `meta::framework-gap` issue carrying the run link and failure signature.',
+  );
+  const outcome = await blockFn({ storyId, body });
+  return {
+    verdict,
+    reason,
+    exitCode: 1,
+    headSha,
+    blocked: Boolean(outcome?.blocked),
   };
-  const dir = path.isAbsolute(tempRoot) ? tempRoot : path.join(cwd, tempRoot);
-  mkdirSync(dir, { recursive: true });
-  const base = `${scope.kind}-${scope.id}-ci-digest`;
-  const jsonPath = path.join(dir, `${base}.json`);
-  const mdPath = path.join(dir, `${base}.md`);
-  writeFileSync(jsonPath, `${JSON.stringify(digest, null, 2)}\n`);
-  const md = [
-    `# CI failure digest — Story #${scope.id} (PR #${prNumber})`,
-    '',
-    `- **Failing check:** \`${digest.failingCheck}\` (${digest.failingOutcome})`,
-    `- **Run id:** ${runId ?? 'unresolved'}`,
-    `- **Classification:** ${classification}`,
-    `- **Generated:** ${digest.generatedAt}`,
-    '',
-    failures.length > 1
-      ? `Other non-green checks: ${failures
-          .slice(1)
-          .map((f) => `\`${f.name}\`=${f.outcome}`)
-          .join(', ')}`
-      : '',
-    '',
-    '## `gh run view --log-failed` tail',
-    '',
-    '```text',
-    logTail || '(no failed-log output available)',
-    '```',
-    '',
-  ].join('\n');
-  writeFileSync(mdPath, md);
-  return { jsonPath, mdPath };
 }
 
 /**
@@ -262,8 +280,9 @@ export function writeCiDigest({
  * the green / red / still-running / BEHIND paths can be exercised with
  * injected `gh` spawns and no `process.exit`.
  *
- *   0 → all required checks green.
- *   1 → a required check genuinely failed (red).
+ *   0 → all required checks green (and the no-rerun guard cleared them).
+ *   1 → a required check genuinely failed (red), OR the green was reached
+ *       by a forbidden re-run of the same commit.
  *   2 → still-running (slow CI): cap + resume budget exhausted, none red.
  *
  * @param {object} opts
@@ -280,6 +299,12 @@ export function writeCiDigest({
  * @param {Function} [opts.ghPrUpdateBranchFn] inject for tests
  * @param {Function} [opts.sleepFn]           inject for tests
  * @param {Function} [opts.writeDigestFn]     inject for tests (default writeCiDigest)
+ * @param {Function} [opts.readDigestFn]      inject for tests (default readCiDigest)
+ * @param {Function} [opts.retireDigestFn]    inject for tests (default retireCiDigest)
+ * @param {Function} [opts.headShaFn]         inject for tests (default resolvePrHeadSha)
+ * @param {Function} [opts.disarmAutoMergeFn] inject for tests (default disarmAutoMerge)
+ * @param {Function} [opts.reArmAutoMergeFn]  inject for tests (default enableAutoMergeWith)
+ * @param {Function} [opts.blockDeliveryFn]   inject for tests (default blockStoryDelivery)
  * @param {object} [opts.logger]
  * @param {(line: string) => void} [opts.print] stdout sink (default process.stdout)
  * @returns {Promise<number>} process exit code.
@@ -299,6 +324,12 @@ export async function runPrWatch({
   ghPrUpdateBranchFn,
   sleepFn,
   writeDigestFn = writeCiDigest,
+  readDigestFn = readCiDigest,
+  retireDigestFn = retireCiDigest,
+  headShaFn = resolvePrHeadSha,
+  disarmAutoMergeFn = disarmAutoMerge,
+  reArmAutoMergeFn = defaultReArm,
+  blockDeliveryFn = blockStoryDelivery,
   logger = Logger,
   print = (line) => process.stdout.write(`${line}\n`),
 } = {}) {
@@ -313,6 +344,7 @@ export async function runPrWatch({
   });
   const effectiveTempRoot =
     tempRoot ?? resolvedConfig?.project?.paths?.tempRoot ?? 'temp';
+  const cwd = process.cwd();
 
   // `gh` accepts a bare PR number or a URL; passing `<repo>#<n>` lets
   // `gh` resolve the right repository without a URL. When `--repo` is
@@ -321,7 +353,7 @@ export async function runPrWatch({
 
   const result = await watchPrToTerminal({
     prUrl: prRef,
-    cwd: process.cwd(),
+    cwd,
     maxPolls: knobs.maxPolls,
     maxUpdates: knobs.maxUpdates,
     maxResumes: knobs.maxResumes,
@@ -335,22 +367,21 @@ export async function runPrWatch({
 
   // Always print the final outcomes map so the operator (and the
   // workflow log) can see exactly which check blocked.
-  print(
-    JSON.stringify({
-      prNumber,
-      checkOutcomes: result.outcomes,
-      requiredChecks: result.requiredChecks,
-      polls: result.polls,
-      updatesApplied: result.updatesApplied,
-      resumesApplied: result.resumesApplied,
-      terminal: result.terminal,
-      green: result.green,
-      stillRunning: result.stillRunning,
-      ...(result.error ? { error: result.error } : {}),
-    }),
-  );
+  const envelope = {
+    prNumber,
+    checkOutcomes: result.outcomes,
+    requiredChecks: result.requiredChecks,
+    polls: result.polls,
+    updatesApplied: result.updatesApplied,
+    resumesApplied: result.resumesApplied,
+    terminal: result.terminal,
+    green: result.green,
+    stillRunning: result.stillRunning,
+    ...(result.error ? { error: result.error } : {}),
+  };
 
   if (result.error) {
+    print(JSON.stringify(envelope));
     logger.error?.(
       `[pr-watch] could not resolve required checks: ${result.error}`,
     );
@@ -358,14 +389,31 @@ export async function runPrWatch({
   }
 
   if (result.green) {
-    logger.info?.('[pr-watch] all required checks green.');
-    return 0;
+    const guard = await evaluateGreenWatch({
+      storyId,
+      prNumber,
+      prRef,
+      tempRoot: effectiveTempRoot,
+      cwd,
+      readDigestFn,
+      retireDigestFn,
+      headShaFn,
+      reArmFn: reArmAutoMergeFn,
+      blockFn: blockDeliveryFn,
+      logger,
+    });
+    print(JSON.stringify({ ...envelope, rerunGuard: guard }));
+    if (guard.exitCode === 0) {
+      logger.info?.('[pr-watch] all required checks green.');
+    }
+    return guard.exitCode;
   }
 
   // Slow-but-not-red: the cap AND resume budget are exhausted with checks
   // still pending and none failed. Never exit 1, never `timed_out` — hand
   // off to the host's interval loop and exit 2.
   if (result.stillRunning) {
+    print(JSON.stringify(envelope));
     const stillPending = Object.entries(result.outcomes)
       .filter(([, v]) => v === 'still-running')
       .map(([k]) => k)
@@ -377,8 +425,8 @@ export async function runPrWatch({
     return STILL_RUNNING_EXIT_CODE;
   }
 
-  // Genuine red check — exit 1 immediately, write the digest, and surface
-  // the fix-loop handoff.
+  // Genuine red check — exit 1 immediately, disarm auto-merge, write the
+  // digest, and surface the fix-loop handoff.
   // Exclude 'still-running' as well as the non-failing states: when the cap
   // fires with a mixed failed+pending map, promotePendingToStillRunning has
   // rewritten the pending entries, and a still-running check is slow, not
@@ -395,26 +443,36 @@ export async function runPrWatch({
     .map(([name, outcome]) => ({ name, outcome }));
   const red = failures.map((f) => `${f.name}=${f.outcome}`).join(', ');
   logger.error?.(`[pr-watch] required check(s) not green: ${red}`);
-  let digestPaths = null;
-  try {
-    digestPaths = writeDigestFn({
-      storyId,
-      prNumber,
-      failures,
-      tempRoot: effectiveTempRoot,
-      cwd: process.cwd(),
-      prRef,
-    });
-  } catch (err) {
-    logger.warn?.(
-      `[pr-watch] failed to write CI digest (non-fatal): ${err?.message ?? err}`,
-    );
-  }
-  if (digestPaths) {
-    logger.error?.(`[pr-watch] CI failure digest → ${digestPaths.jsonPath}`);
-  }
+  const redOutcome = await handleRedWatch({
+    storyId,
+    prNumber,
+    prRef,
+    failures,
+    tempRoot: effectiveTempRoot,
+    cwd,
+    writeDigestFn,
+    headShaFn,
+    disarmFn: disarmAutoMergeFn,
+    blockFn: blockDeliveryFn,
+    logger,
+  });
+  print(
+    JSON.stringify({
+      ...envelope,
+      classification: classifyFailure(failures[0]?.name),
+      rerunGuard: {
+        verdict: 'red',
+        headSha: redOutcome.headSha,
+        autoMergeDisarmed: redOutcome.disarm.disarmed,
+        disarmDetail: redOutcome.disarm.detail,
+        digestPath: redOutcome.digestPaths?.jsonPath ?? null,
+        blocked: redOutcome.blocked,
+      },
+    }),
+  );
   logger.error?.(
-    '[pr-watch] a required check failed. Read the digest, apply the smallest fix, and re-run the suite until green.',
+    '[pr-watch] a required check failed. Read the digest, reproduce the failure, and apply the smallest fix at source, ' +
+      'then push a new commit — re-running the failed job is forbidden (`.agents/rules/ci-remediation.md` § Verifier).',
   );
   return 1;
 }

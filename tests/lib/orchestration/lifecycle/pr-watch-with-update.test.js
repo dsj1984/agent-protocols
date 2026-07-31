@@ -102,8 +102,15 @@ describe('runPrWatch — red path', () => {
       pollIntervalMs: 0,
       maxResumes: 0,
       sleepFn: async () => {},
-      // No epicId → no digest is written (Epic-scoped by filename), so
-      // this test never touches the filesystem.
+      // No storyId → no digest is written (scoped by filename), so this
+      // test never touches the filesystem. Story #4865: the red path also
+      // disarms native auto-merge — stub that `gh` call so the unit test
+      // never reaches a real PR.
+      disarmAutoMergeFn: () => ({
+        disarmed: true,
+        alreadyUnarmed: false,
+        detail: 'ok',
+      }),
       ghPrChecksFn: () => ({
         status: 0,
         stdout: JSON.stringify([
