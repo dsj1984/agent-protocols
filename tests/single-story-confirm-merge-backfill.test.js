@@ -34,6 +34,7 @@ const TAIL = Object.freeze({
   refCleanup: true,
   baseFastForward: true,
   tempPurge: true,
+  leaseRelease: true,
   details: {},
 });
 

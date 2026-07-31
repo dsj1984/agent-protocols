@@ -141,6 +141,7 @@ describe('single-story-confirm-merge --wait', () => {
           refCleanup: true,
           baseFastForward: true,
           tempPurge: true,
+          leaseRelease: true,
           details: {},
         },
         prProbe: { state: 'MERGED', checksStatus: 'success' },
