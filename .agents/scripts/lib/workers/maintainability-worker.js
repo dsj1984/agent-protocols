@@ -7,16 +7,20 @@
  * Message contract — see lib/cpu-pool.js:
  *   IN  : { item: string }      — absolute file path to score
  *         { exit: true }        — drain & terminate
- *   OUT : { ok: true, result: { filePath, score: number | null } }
+ *   OUT : { ok: true, result: { filePath, score, unscorable?, reason? } }
  *
  * `score` is `null` only when the file genuinely cannot be read (ENOENT
- * or other I/O error). Parse failures inside escomplex still resolve to
- * `0` to preserve byte-for-byte parity with the pre-pool serial path
- * (calculateForSource swallows parse errors and returns 0).
+ * or other I/O error).
+ *
+ * A file the kernel cannot analyse comes back as `unscorable: true` with the
+ * kernel's own `reason`, rather than as a bare `0`. The `0` is still carried in
+ * `score` for wire compatibility, but it is no longer the only signal — the
+ * point of the flag is that the caller can *report* the file instead of
+ * silently dropping it (see `maintainability-engine.js`'s `UNSCORABLE`).
  */
 
 import { parentPort } from 'node:worker_threads';
-import { calculateForFile } from '../maintainability-engine.js';
+import { scoreFile } from '../maintainability-engine.js';
 
 /**
  * Pure handler for a single inbound worker message. Exported so unit
@@ -24,7 +28,7 @@ import { calculateForFile } from '../maintainability-engine.js';
  * without spawning a real `Worker` thread.
  *
  * @param {unknown} msg
- * @param {{ score?: (filePath: string) => number | null }} [deps]
+ * @param {{ score?: (filePath: string) => { score: number, unscorable: boolean, reason: string|null } }} [deps]
  * @returns {{kind: 'exit'} | {kind: 'reply', message: object}}
  */
 export function handleMaintainabilityWorkerMessage(msg, deps = {}) {
@@ -40,12 +44,13 @@ export function handleMaintainabilityWorkerMessage(msg, deps = {}) {
     };
   }
   const filePath = msg.item;
-  const scoreFn = deps.score ?? calculateForFile;
+  const scoreFn = deps.score ?? scoreFile;
   try {
-    const score = scoreFn(filePath);
+    // `scoreFn` returns `{ score, unscorable, reason }` — spread so the flag
+    // and its reason reach the pool caller intact.
     return {
       kind: 'reply',
-      message: { ok: true, result: { filePath, score } },
+      message: { ok: true, result: { filePath, ...scoreFn(filePath) } },
     };
   } catch (err) {
     // I/O or other unexpected error — surface as a per-item null score
