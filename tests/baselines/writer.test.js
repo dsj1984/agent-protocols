@@ -213,8 +213,10 @@ describe('writeFile()', () => {
         generatedAt: env.generatedAt,
         // Story #4775 — the crap kind stamps its scoring semantics, and the
         // disk projection must carry it through by name or the stamp exists
-        // only in memory.
+        // only in memory. Story #4866 added the transpiler stamp on the same
+        // contract and for the same reason.
         scoringSemantics: env.scoringSemantics,
+        tsTranspilerVersion: env.tsTranspilerVersion,
         rollup: env.rollup,
         rows: env.rows,
       },
@@ -223,6 +225,7 @@ describe('writeFile()', () => {
     )}\n`;
     assert.equal(onDisk, expected);
     assert.equal(typeof env.scoringSemantics, 'string');
+    assert.equal(typeof env.tsTranspilerVersion, 'string');
   });
 
   it('terminates the file with a trailing newline', () => {
