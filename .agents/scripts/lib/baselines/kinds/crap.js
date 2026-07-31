@@ -464,8 +464,13 @@ export function compareCrap({
  * the two sides are not describing the same tree in the same coordinates —
  * the observed failure was 101 of 133 rows drifting after a coordinate mix,
  * every one of them then scored through the nearest-line heuristic.
+ *
+ * Deliberately module-local, like `SCORING_SEMANTICS` above: the three
+ * tuning values below are reachable through `assessComparisonBasis` — which
+ * takes them as overridable options — so exporting the bare constants would
+ * add entry points nothing in production reaches.
  */
-export const UNSOUND_BASIS_DRIFT_RATIO = 0.5;
+const UNSOUND_BASIS_DRIFT_RATIO = 0.5;
 
 /**
  * Minimum scanned rows before the unsound-basis check is allowed to fire.
@@ -473,10 +478,10 @@ export const UNSOUND_BASIS_DRIFT_RATIO = 0.5;
  * moved; that is a normal edit, not a broken basis. Mirrors the
  * minimum-sample discipline the coverage-join resolution floor already uses.
  */
-export const UNSOUND_BASIS_MIN_SAMPLE = 20;
+const UNSOUND_BASIS_MIN_SAMPLE = 20;
 
 /** Diagnostic name for an unsound comparison basis. */
-export const UNSOUND_BASIS_DIAGNOSTIC = 'crap-unsound-comparison-basis';
+const UNSOUND_BASIS_DIAGNOSTIC = 'crap-unsound-comparison-basis';
 
 /** Diagnostic name for a baseline the running scorer refuses to compare. */
 export const INCOMPATIBLE_BASELINE_DIAGNOSTIC = 'crap-baseline-incompatible';
