@@ -27,12 +27,20 @@ function axis(name) {
   return found;
 }
 
+// Story #4866: the ts-transpiler axis is scoped to baselines that actually
+// contain transpiled sources, so the shared fixture carries one TS row. A
+// transpiler change moves TS row coordinates and nothing else.
 const VALID_BASELINE = {
   escomplexVersion: '0.8.0',
   kernelVersion: '0.8.0',
   tsTranspilerVersion: '5.4.0',
   scoringSemantics: SCORING_SEMANTICS,
-  rows: [],
+  rows: [{ path: 'src/a.ts', method: 'run', startLine: 3, crap: 2 }],
+};
+
+const JS_ONLY_BASELINE = {
+  ...VALID_BASELINE,
+  rows: [{ path: 'src/a.js', method: 'run', startLine: 3, crap: 2 }],
 };
 
 const VALID_CTX = {
@@ -92,7 +100,7 @@ describe('CRAP_COMPAT_AXES — per-axis check()', () => {
         ...VALID_CTX,
         runningTsTranspilerVersion: '5.5.0',
       }),
-      /tsTranspilerVersion drift/,
+      /tsTranspilerVersion changed/,
     );
     assert.equal(axis('ts-transpiler-drift').check(VALID_CTX), null);
   });
@@ -104,6 +112,133 @@ describe('CRAP_COMPAT_AXES — per-axis check()', () => {
         runningTsTranspilerVersion: undefined,
       }),
       null,
+    );
+  });
+});
+
+// ---------------------------------------------------------------------------
+// Story #4866 — the transpiler axis stops being advisory, and stops being
+// dead. A TS row's startLine is an original-source coordinate only because
+// the transpiler's sourcemap said so, and that coordinate is half the
+// `path::method@startLine` identity key — so a transpiler change can move
+// every TS row's key while nothing about the code changed.
+// ---------------------------------------------------------------------------
+
+describe('ts-transpiler-drift axis — coordinate-invalidating (AC-7)', () => {
+  it('is fatal, not an advisory warning', () => {
+    assert.equal(axis('ts-transpiler-drift').severity, 'fatal');
+  });
+
+  it('names the coordinate consequence and the re-seed remedy', () => {
+    const message = axis('ts-transpiler-drift').check({
+      ...VALID_CTX,
+      runningTsTranspilerVersion: '5.5.0',
+    });
+    assert.match(message, /baseline=5\.4\.0 running=5\.5\.0/);
+    assert.match(message, /identity key/);
+    assert.match(message, /crap:update -- --full-scope/);
+    assert.match(message, /baseline-refresh:/);
+  });
+
+  it('fails the reduce closed rather than accumulating a warning', () => {
+    const out = evaluateBaselineCompatibility({
+      ...VALID_CTX,
+      runningTsTranspilerVersion: '5.5.0',
+    });
+    assert.equal(out.ok, false);
+    assert.equal(out.exitCode, 1);
+    assert.equal(out.kind, 'ts-transpiler-drift');
+  });
+
+  it('leaves a pure-JavaScript baseline alone — no TS coordinate to move', () => {
+    // The Story's invariant. JavaScript coordinates ARE original-source
+    // coordinates; no sourcemap resolved them, so no transpiler bump can
+    // invalidate them. Failing a JS-only repo's gate on a TS bump would be a
+    // pure false positive.
+    assert.equal(
+      axis('ts-transpiler-drift').check({
+        ...VALID_CTX,
+        baseline: JS_ONLY_BASELINE,
+        runningTsTranspilerVersion: '5.5.0',
+      }),
+      null,
+    );
+  });
+
+  it('skips an UNSTAMPED baseline rather than failing it for want of evidence', () => {
+    // The stamp landed in this Story. Every baseline written before it has no
+    // tsTranspilerVersion at all, and treating that absence as a mismatch
+    // would fail every pre-existing baseline closed on no evidence.
+    assert.equal(
+      axis('ts-transpiler-drift').check({
+        ...VALID_CTX,
+        baseline: { ...VALID_BASELINE, tsTranspilerVersion: undefined },
+        runningTsTranspilerVersion: '5.5.0',
+      }),
+      null,
+    );
+  });
+
+  it("treats the '0.0.0' unknown-environment sentinel as unstamped, not as a version", () => {
+    // '0.0.0' means "typescript was not resolvable here". Comparing it as a
+    // real release would turn a missing dependency into a coordinate change.
+    assert.equal(
+      axis('ts-transpiler-drift').check({
+        ...VALID_CTX,
+        baseline: { ...VALID_BASELINE, tsTranspilerVersion: '0.0.0' },
+        runningTsTranspilerVersion: '5.5.0',
+      }),
+      null,
+    );
+    assert.equal(
+      axis('ts-transpiler-drift').check({
+        ...VALID_CTX,
+        runningTsTranspilerVersion: '0.0.0',
+      }),
+      null,
+    );
+  });
+});
+
+describe('assertBaselineCompatible — the production door (AC-7)', () => {
+  it('reaches the ts-transpiler axis, not the scoring stamp alone', () => {
+    // Before this Story the axis was reachable only from its own unit test:
+    // nothing in production called evaluateBaselineCompatibility, and this
+    // door deliberately checked scoring-semantics-drift only.
+    const message = assertBaselineCompatible(VALID_BASELINE, {
+      runningTsTranspilerVersion: '5.5.0',
+    });
+    assert.match(message, /tsTranspilerVersion changed/);
+  });
+
+  it('passes a matching transpiler', () => {
+    assert.equal(
+      assertBaselineCompatible(VALID_BASELINE, {
+        runningTsTranspilerVersion: '5.4.0',
+      }),
+      null,
+    );
+  });
+
+  it('reports the scoring-semantics stamp first when both axes fire', () => {
+    const legacy = { ...VALID_BASELINE };
+    delete legacy.scoringSemantics;
+    const message = assertBaselineCompatible(legacy, {
+      runningTsTranspilerVersion: '5.5.0',
+    });
+    assert.match(message, /scoring semantics changed/);
+  });
+});
+
+describe('envelopeExtras — what the writer stamps (AC-7)', () => {
+  it('stamps the running transpiler version alongside the scoring semantics', () => {
+    const extras = envelopeExtras();
+    assert.equal(typeof extras.scoringSemantics, 'string');
+    assert.equal(
+      typeof extras.tsTranspilerVersion,
+      'string',
+      'without an on-disk stamp the ts-transpiler axis has nothing to ' +
+        'compare and passes vacuously — which is how it stayed dead',
     );
   });
 });
@@ -139,27 +274,26 @@ describe('evaluateBaselineCompatibility — reduce semantics', () => {
     assert.ok(!('warnings' in out));
   });
 
-  it('accumulates kernel + ts drift as warnings without failing', () => {
+  it('accumulates kernel drift as a warning without failing', () => {
+    const out = evaluateBaselineCompatibility({
+      ...VALID_CTX,
+      runningKernelVersion: '0.9.0',
+    });
+    assert.equal(out.ok, true);
+    assert.equal(out.warnings.length, 1);
+    assert.match(out.warnings[0], /kernelVersion drift/);
+  });
+
+  it('short-circuits on ts-transpiler drift ahead of the kernel warning', () => {
+    // Story #4866 promoted the axis to fatal, so it no longer accumulates
+    // alongside kernel drift — it stops the reduce.
     const out = evaluateBaselineCompatibility({
       ...VALID_CTX,
       runningKernelVersion: '0.9.0',
       runningTsTranspilerVersion: '5.5.0',
     });
-    assert.equal(out.ok, true);
-    assert.equal(out.warnings.length, 2);
-    assert.match(out.warnings[0], /kernelVersion drift/);
-    assert.match(out.warnings[1], /tsTranspilerVersion drift/);
-  });
-
-  it('back-fills missing tsTranspilerVersion to 0.0.0 on the baseline side', () => {
-    const out = evaluateBaselineCompatibility({
-      ...VALID_CTX,
-      baseline: { ...VALID_BASELINE, tsTranspilerVersion: undefined },
-      runningTsTranspilerVersion: '5.4.0',
-    });
-    assert.equal(out.ok, true);
-    assert.equal(out.warnings.length, 1);
-    assert.match(out.warnings[0], /baseline=0\.0\.0 running=5\.4\.0/);
+    assert.equal(out.ok, false);
+    assert.equal(out.kind, 'ts-transpiler-drift');
   });
 });
 
@@ -179,7 +313,12 @@ describe('scoring-semantics-drift axis', () => {
 
   it('passes when the stamp matches the running semantics', () => {
     assert.equal(axis('scoring-semantics-drift').check(VALID_CTX), null);
-    assert.equal(assertBaselineCompatible(VALID_BASELINE), null);
+    assert.equal(
+      assertBaselineCompatible(VALID_BASELINE, {
+        runningTsTranspilerVersion: '5.4.0',
+      }),
+      null,
+    );
   });
 
   it('fires on an UNSTAMPED baseline (written by the previous scorer)', () => {

@@ -192,6 +192,29 @@ export function mergeEnvelopes(miEnvelope, crapEnvelope) {
 }
 
 /**
+ * Render the named diagnostics a gate envelope carries, or `null` when it
+ * carries none (Story #4866).
+ *
+ * A diagnostic is what a gate emits *instead of* per-method verdicts when it
+ * has established that no verdict it could produce would be meaningful — an
+ * incomparable baseline, or a comparison basis whose drifted-row ratio proves
+ * the two sides disagree on line coordinates. It must reach the operator
+ * verbatim: the gate exits 0, so silence would read as a clean run.
+ *
+ * @param {Array<{ envelope: { diagnostics?: Array<{name: string, message: string}> } | null }>} results
+ * @returns {string | null}
+ */
+export function renderDiagnostics(results) {
+  const lines = [];
+  for (const { envelope } of results ?? []) {
+    for (const d of envelope?.diagnostics ?? []) {
+      lines.push(`[${d.name}] ${d.message}`);
+    }
+  }
+  return lines.length === 0 ? null : lines.join('\n');
+}
+
+/**
  * Compute the CLI exit code from a merge result + per-gate exit codes. Pure.
  *
  * The exit code is non-zero (1) whenever:
@@ -320,6 +343,8 @@ export async function runCli({
         : `scope=diff ref=${ref}\n\n`,
     );
     stdout.write(`${renderTable(merged)}\n`);
+    const diagnostics = renderDiagnostics([miResult, crapResult]);
+    if (diagnostics) stdout.write(`\n${diagnostics}\n`);
     if (miExit !== 0 || crapExit !== 0) {
       stderr.write(
         `\n[quality:preview] gate exits: mi=${miExit} crap=${crapExit}\n`,

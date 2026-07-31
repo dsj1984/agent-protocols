@@ -457,7 +457,22 @@ describe('data-dictionary.md — crap.json row mirrors the live schema (Story #4
 
   it('keys rows on `path` — the artefact has no `file` key', () => {
     const rowProps = Object.keys(crapSchema().properties.rows.items.properties);
-    assert.deepEqual(rowProps.sort(), ['crap', 'method', 'path', 'startLine']);
+    // `coordinateSystem` (Story #4866) is optional and written only for a row
+    // that kept transpiled coordinates — the four REQUIRED keys are the
+    // artefact's shape, and `path` is still the key field.
+    assert.deepEqual(crapSchema().properties.rows.items.required.sort(), [
+      'crap',
+      'method',
+      'path',
+      'startLine',
+    ]);
+    assert.deepEqual(rowProps.sort(), [
+      'coordinateSystem',
+      'crap',
+      'method',
+      'path',
+      'startLine',
+    ]);
     assert.equal(
       crapSchema().properties.rows.items.additionalProperties,
       false,

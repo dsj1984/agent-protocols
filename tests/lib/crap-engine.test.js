@@ -1,9 +1,12 @@
 import assert from 'node:assert';
-import { test } from 'node:test';
+import { describe, it, test } from 'node:test';
 import {
+  COORDINATE_ORIGINAL,
+  COORDINATE_TRANSPILED,
   calculateCrapForSource,
   crapFormula,
   deriveFixGuidance,
+  finalizeMethodRows,
 } from '../../.agents/scripts/lib/crap-engine.js';
 
 /**
@@ -210,6 +213,143 @@ test('calculateCrapForSource — fixGuidance round-trip (single-axis fixes pass 
   // For target=30, c=10 → 1 − (20/100)^(1/3) ≈ 0.415
   const minCov = 1 - ((target - c) / (c * c)) ** (1 / 3);
   assert.ok(crapFormula(c, minCov) <= target + 1e-9);
+});
+
+// ---------------------------------------------------------------------------
+// Story #4866 — coordinate provenance. Before this Story, a method whose
+// sourcemap lookup returned null silently kept its TRANSPILED line while its
+// siblings carried remapped ORIGINAL ones: one scan, two coordinate systems,
+// indistinguishable on disk. That mix is what mis-keys rows against the
+// baseline and manufactures a regression no change can satisfy.
+// ---------------------------------------------------------------------------
+
+/** A source whose methods sit at known lines, for provenance assertions. */
+const TWO_METHODS = `
+export function first(x) { if (x) return 1; return 0; }
+
+export function second(x) { if (x) return 2; return 0; }
+`;
+
+describe('methodRowsFromReport — coordinate provenance (AC-1, AC-2)', () => {
+  it('records original coordinates for a JavaScript source (no mapper)', () => {
+    // JS coordinates already ARE original-source coordinates — nothing was
+    // remapped, and nothing needed to be.
+    const rows = calculateCrapForSource(TWO_METHODS, null);
+    assert.equal(rows.length, 2);
+    for (const row of rows) {
+      assert.equal(row.coordinateSystem, COORDINATE_ORIGINAL);
+    }
+  });
+
+  it('records original coordinates when the sourcemap resolves', () => {
+    const rows = calculateCrapForSource(TWO_METHODS, null, (line) => line + 10);
+    for (const row of rows) {
+      assert.equal(row.coordinateSystem, COORDINATE_ORIGINAL);
+    }
+    // And the row reports the remapped line, not the generated one.
+    assert.ok(rows.every((r) => r.startLine > 10));
+  });
+
+  it('flags the row when the sourcemap has no entry for the generated line', () => {
+    const rows = calculateCrapForSource(TWO_METHODS, null, () => null);
+    assert.equal(rows.length, 2);
+    for (const row of rows) {
+      assert.equal(row.coordinateSystem, COORDINATE_TRANSPILED);
+    }
+  });
+
+  it('emits exactly one coordinate system per row in a MIXED scan (AC-3)', () => {
+    // The defect's exact shape: one method resolves, its sibling does not.
+    // Both rows used to be emitted as if they shared a coordinate system.
+    const rows = calculateCrapForSource(TWO_METHODS, null, (line) =>
+      line < 3 ? line + 100 : null,
+    );
+    const byMethod = Object.fromEntries(rows.map((r) => [r.method, r]));
+    assert.equal(byMethod.first.coordinateSystem, COORDINATE_ORIGINAL);
+    assert.equal(byMethod.second.coordinateSystem, COORDINATE_TRANSPILED);
+    assert.equal(
+      new Set(rows.map((r) => r.coordinateSystem)).size,
+      2,
+      'the mix must be VISIBLE on the rows, not silently flattened',
+    );
+  });
+});
+
+describe('methodRowsFromReport — an un-remapped line joins no coverage (AC-2)', () => {
+  it('refuses the coverage join rather than reading the wrong coordinate', () => {
+    // The coverage entry is keyed at line 2 in ORIGINAL coordinates. Without
+    // a resolved remap the row's line is a transpiled coordinate, and reading
+    // istanbul's fnMap with it does not merely miss — it can land inside an
+    // unrelated function's range and report an untested method as covered.
+    const source = `export function simple(x) { return x + 1; }\n`;
+    const cov = coverageEntryFor(1, 1.0);
+
+    const resolved = calculateCrapForSource(source, cov, (line) => line);
+    assert.equal(resolved[0].coverage, 1);
+    assert.equal(resolved[0].crap, 1);
+
+    const unresolved = calculateCrapForSource(source, cov, () => null);
+    assert.equal(unresolved[0].coordinateSystem, COORDINATE_TRANSPILED);
+    assert.equal(
+      unresolved[0].coverage,
+      null,
+      'a transpiled coordinate must not be joined against an original-source fnMap',
+    );
+    assert.equal(unresolved[0].crap, null);
+  });
+});
+
+describe('finalizeMethodRows — provenance survives the policy step', () => {
+  const raw = [
+    {
+      method: 'mapped',
+      startLine: 4,
+      cyclomatic: 2,
+      coverage: 1,
+      crap: 2,
+      coordinateSystem: COORDINATE_ORIGINAL,
+    },
+    {
+      method: 'unmapped',
+      startLine: 9,
+      cyclomatic: 3,
+      coverage: null,
+      crap: null,
+      coordinateSystem: COORDINATE_TRANSPILED,
+    },
+  ];
+
+  it('drops the un-remapped row under requireCoverage: true', () => {
+    // The default policy. An un-remapped row is unresolved, so it never
+    // reaches a baseline at all — which is why a pure-JS baseline is
+    // untouched by this change.
+    const out = finalizeMethodRows(raw, { requireCoverage: true });
+    assert.deepEqual(
+      out.rows.map((r) => r.method),
+      ['mapped'],
+    );
+    assert.equal(out.skippedMethodsNoCoverage, 1);
+  });
+
+  it('keeps the flag on a row scored 0% under requireCoverage: false', () => {
+    // Here the row DOES land in the baseline, so the flag is the only thing
+    // stopping the compare from keying a transpiled line as an original one.
+    const out = finalizeMethodRows(raw, { requireCoverage: false });
+    const unmapped = out.rows.find((r) => r.method === 'unmapped');
+    assert.equal(unmapped.coordinateSystem, COORDINATE_TRANSPILED);
+    assert.equal(unmapped.coverage, 0);
+    assert.equal(unmapped.crap, 3 ** 2 + 3);
+  });
+
+  it('defaults a row with no stamp to original coordinates', () => {
+    // Back-compat: rows built before the stamp existed are original-source
+    // coordinates by construction.
+    const out = finalizeMethodRows(
+      [{ method: 'legacy', startLine: 1, cyclomatic: 1, coverage: 1, crap: 1 }],
+      { requireCoverage: true },
+    );
+    assert.equal(out.rows[0].coordinateSystem, COORDINATE_ORIGINAL);
+  });
 });
 
 test('deriveFixGuidance — regression path (target=baseline, c=10 → both axes achievable)', () => {

@@ -25,6 +25,10 @@
       "type": "string",
       "description": "Optional per-kind stamp identifying the SCORING SEMANTICS that produced these rows — the dimension kernelVersion cannot express, because a kind's own scoring can change while the upstream package it stamps does not. A baseline whose stamp differs from the running scorer's is incomparable and the gate fails closed with re-baseline guidance rather than comparing across the boundary."
     },
+    "tsTranspilerVersion": {
+      "type": "string",
+      "description": "Optional per-kind stamp identifying the TypeScript transpiler that produced the sourcemap these rows' line coordinates were resolved through (Story #4866). Only meaningful for kinds whose rows carry a line coordinate derived from transpiled sources; a transpiler change can move every such coordinate, and for kinds that key rows on a line that coordinate is half the row identity."
+    },
     "rollup": {
       "type": "object",
       "description": "Aggregate metrics keyed by component. The '*' key is reserved for the whole-repo rollup and is REQUIRED; additional keys MAY be present, one per declared component.",

@@ -262,9 +262,10 @@ export function writeFile(absPath, envelope, opts = {}) {
   // declaration order; the row sort is done by `sortRows()`.
   //
   // Story #4775: the projection is deliberately explicit, so any per-kind
-  // envelope stamp (`scoringSemantics`) must be carried through by name or it
-  // is silently dropped on the way to disk — the stamp would then be present
-  // in memory, validated, and absent from the file it exists to protect.
+  // envelope stamp (`scoringSemantics`, and `tsTranspilerVersion` since Story
+  // #4866) must be carried through by name or it is silently dropped on the
+  // way to disk — the stamp would then be present in memory, validated, and
+  // absent from the file it exists to protect.
   const canonical = {
     $schema: envelope.$schema,
     kernelVersion: envelope.kernelVersion,
@@ -272,6 +273,9 @@ export function writeFile(absPath, envelope, opts = {}) {
     ...(envelope.scoringSemantics === undefined
       ? {}
       : { scoringSemantics: envelope.scoringSemantics }),
+    ...(envelope.tsTranspilerVersion === undefined
+      ? {}
+      : { tsTranspilerVersion: envelope.tsTranspilerVersion }),
     rollup: envelope.rollup,
     rows: envelope.rows,
   };
