@@ -2,6 +2,15 @@
 
 All notable changes to this project will be documented in this file.
 
+## [2.24.0](https://github.com/dsj1984/mandrel/compare/mandrel-v2.23.0...mandrel-v2.24.0) (2026-07-31)
+
+
+### Fixed
+
+* **deliver:** hold the Story assignee-lease until the PR is confirmed merged (refs [#4860](https://github.com/dsj1984/mandrel/issues/4860)) ([#4861](https://github.com/dsj1984/mandrel/issues/4861)) ([d722a65](https://github.com/dsj1984/mandrel/commit/d722a6558f2fa1af6aa428d2f8549101c4bedc23))
+* **maintainability:** score the Babel AST the escomplex kernel actually parses ([#4859](https://github.com/dsj1984/mandrel/issues/4859)) ([279b86f](https://github.com/dsj1984/mandrel/commit/279b86fa49c48454b5e8421ca1e0bb01f54a3bba))
+* scope the light diff backstop by change magnitude, and recycle the receipt instead of orphaning it ([#4856](https://github.com/dsj1984/mandrel/issues/4856)) ([#4857](https://github.com/dsj1984/mandrel/issues/4857)) ([114b479](https://github.com/dsj1984/mandrel/commit/114b4797f248bf00064206f32f490413e28276fb))
+
 ## [2.23.0](https://github.com/dsj1984/mandrel/compare/mandrel-v2.22.0...mandrel-v2.23.0) (2026-07-30)
 
 
