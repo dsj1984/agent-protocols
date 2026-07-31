@@ -25,11 +25,13 @@ installAstCompat();
  * rows, so an unscorable file silently vanishes from the baseline instead of
  * being reported, and no amount of re-seeding can ever give it a row.
  *
- * The numeric return is kept for backwards compatibility, but callers that
- * need to tell "unscorable" from "genuinely terrible" should use
- * {@link scoreSource} / {@link scoreFile}, which say so explicitly.
+ * Deliberately module-private. The numeric return is kept for backwards
+ * compatibility, but the *value* is not something a caller should branch on —
+ * that is the overload this change exists to stop propagating. Callers that
+ * need to tell "unscorable" from "genuinely terrible" read the `unscorable`
+ * flag from {@link scoreSource} / {@link scoreFile}.
  */
-export const UNSCORABLE = 0;
+const UNSCORABLE = 0;
 
 /**
  * Score a raw string, distinguishing "the kernel could not analyse this" from

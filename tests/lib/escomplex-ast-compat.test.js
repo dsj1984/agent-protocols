@@ -19,14 +19,16 @@
 
 import assert from 'node:assert/strict';
 import { describe, it } from 'node:test';
-import {
-  __resetForTests,
-  install,
-} from '../../.agents/scripts/lib/escomplex-ast-compat.js';
-import {
-  scoreSource,
-  UNSCORABLE,
-} from '../../.agents/scripts/lib/maintainability-engine.js';
+import { install } from '../../.agents/scripts/lib/escomplex-ast-compat.js';
+import { scoreSource } from '../../.agents/scripts/lib/maintainability-engine.js';
+
+/**
+ * The score an unscorable result carries. Asserted as a literal rather than
+ * imported, because the *value* is deliberately not public API: `unscorable` is
+ * the signal a caller branches on, and overloading a score with out-of-band
+ * meaning is the bug this change exists to stop propagating.
+ */
+const UNSCORABLE_SCORE = 0;
 
 /**
  * Constructs that crashed the kernel before this shim. The comment on each is
@@ -111,10 +113,9 @@ describe('escomplex-ast-compat', () => {
     const second = install();
     assert.deepEqual(second, first);
 
-    // A non-memoised re-run against the already-patched table must find
-    // nothing left to add — proving the patches are self-detecting and a
-    // second install cannot double-wrap a handler.
-    __resetForTests();
+    // A non-memoised re-run bypasses the memo and re-examines the real table,
+    // which must now have nothing left to add — proving the patches are
+    // self-detecting and a second install cannot double-wrap a handler.
     const rerun = install({ memoise: false });
     assert.deepEqual(
       rerun.applied,
@@ -122,8 +123,6 @@ describe('escomplex-ast-compat', () => {
       'a second install re-applied patches — PATCH_MARKER detection is broken, ' +
         'which would stack wrappers and change scores',
     );
-    __resetForTests();
-    install();
   });
 
   for (const [name, source] of Object.entries(RESCUED_CONSTRUCTS)) {
@@ -152,7 +151,7 @@ describe('escomplex-ast-compat', () => {
   it('still reports genuinely invalid syntax as unscorable', () => {
     const result = scoreSource('function ( { ] }');
     assert.equal(result.unscorable, true);
-    assert.equal(result.score, UNSCORABLE);
+    assert.equal(result.score, UNSCORABLE_SCORE);
     assert.match(result.reason, /SyntaxError/);
   });
 
@@ -160,11 +159,11 @@ describe('escomplex-ast-compat', () => {
     const unscorable = scoreSource('function ( { ] }');
     const scored = scoreSource('for (const t of xs) { x(t); }');
 
-    assert.equal(unscorable.score, UNSCORABLE);
+    assert.equal(unscorable.score, UNSCORABLE_SCORE);
     assert.equal(unscorable.unscorable, true);
     assert.notEqual(
       scored.score,
-      UNSCORABLE,
+      UNSCORABLE_SCORE,
       'the control must not collide with the unscorable sentinel',
     );
     assert.equal(scored.unscorable, false);

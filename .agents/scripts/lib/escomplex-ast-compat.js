@@ -354,11 +354,7 @@ function ASTUtil() {
   return mod?.default ?? mod;
 }
 
-/**
- * Test seam: forget the memoised install so a test can re-run `install()`
- * against a fresh table. Not for production use — the patches themselves are
- * idempotent via `PATCH_MARKER`, so production callers just call `install()`.
- */
-export function __resetForTests() {
-  installResult = null;
-}
+// A test that needs to re-run the install against the already-patched table
+// passes `{ memoise: false }` rather than resetting module state — the patches
+// are self-detecting via PATCH_MARKER, so a non-memoised re-run is exactly the
+// idempotency assertion worth making.
