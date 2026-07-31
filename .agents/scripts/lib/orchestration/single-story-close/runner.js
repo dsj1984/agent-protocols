@@ -353,8 +353,8 @@ function closeResult({
     note: waitedForMerge
       ? 'Close-and-land: PR merge confirmed. Story flipped agent::closing → agent::done, the issue closed (confirmStoryMerged), and the post-land tail ran.'
       : autoMergeEnabled
-        ? 'PR open against baseBranch with auto-merge enabled. Story rests at agent::closing (issue stays OPEN). GitHub will squash-merge when required checks pass; run single-story-confirm-merge.js after the merge confirms to flip agent::done and close the issue (the Closes #<id> footer also auto-closes it).'
-        : 'PR open against baseBranch. Story rests at agent::closing (issue stays OPEN). Operator merges via GitHub UI; run single-story-confirm-merge.js after the merge confirms to flip agent::done (the Closes #<id> footer also auto-closes the issue).',
+        ? 'PR open against baseBranch with auto-merge enabled. Story rests at agent::closing (issue stays OPEN and assigned to the operator). GitHub will squash-merge when required checks pass; run single-story-confirm-merge.js after the merge confirms to flip agent::done, release the lease, and close the issue (the Closes #<id> footer also auto-closes it).'
+        : 'PR open against baseBranch. Story rests at agent::closing (issue stays OPEN and assigned to the operator). Operator merges via GitHub UI; run single-story-confirm-merge.js after the merge confirms to flip agent::done and release the lease (the Closes #<id> footer also auto-closes the issue).',
   };
 }
 
@@ -552,7 +552,18 @@ async function runClosePipeline({
     config,
     progress,
   });
-  const leaseReleased = await releaseLease(leaseArgs);
+  // Story #4860 — the clean-path lease release USED to sit here, immediately
+  // after the arm and the `agent::closing` flip. That dropped the operator's
+  // claim the moment the PR opened, so a ticket read unassigned for the whole
+  // time its PR was in flight — and forever on the operator-merge path, where
+  // nothing downstream ever re-claimed it. The release now belongs to the
+  // post-land tail, which runs only on a CONFIRMED merge and which both
+  // landing surfaces reach. Every non-merged ending below — the
+  // `merge.unlanded` block, an exhausted wait budget, `--no-wait-merge`,
+  // `--no-auto-merge` — deliberately RETAINS the claim: the PR is open and the
+  // work still has an owner. The only releases that survive here are
+  // `releaseLeaseOnBlock`'s two throwing exits above, which fire before the PR
+  // is ever armed (Story #4257's hand-off property).
 
   // Close-and-land (Story #4428; default since `delivery.routing.closeAndLand`
   // — Story #4539): poll the just-armed PR to merge confirmation, or block
@@ -625,7 +636,11 @@ async function runClosePipeline({
       autoMergeEnabled,
       autoMergeReason,
       worktreeReaped,
-      leaseReleased,
+      // Story #4860 — the release is a post-land tail step now, so the tail's
+      // own per-step boolean IS the answer. A wait that ended anything other
+      // than landed never ran the tail, and correctly reports `false`: the
+      // claim is still held, by design.
+      leaseReleased: waitOutcome.tail?.leaseRelease === true,
       localCleanupDeferred,
       directMerged,
       waitedForMerge: true,
@@ -663,7 +678,10 @@ async function runClosePipeline({
     autoMergeEnabled,
     autoMergeReason,
     worktreeReaped,
-    leaseReleased,
+    // Story #4860 — this is the no-wait ending: the PR is open and a human
+    // owns the merge, so the Story stays assigned until the confirm-merge
+    // surface lands it and runs the tail.
+    leaseReleased: false,
     localCleanupDeferred,
     directMerged,
   });

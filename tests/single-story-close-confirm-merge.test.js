@@ -144,6 +144,7 @@ function phaseArgs(overrides = {}) {
       refCleanup: true,
       baseFastForward: true,
       tempPurge: true,
+      leaseRelease: true,
       details: {},
     }),
     emitMergeUnlandedFn: () => {},
@@ -176,6 +177,7 @@ describe('merge wait — the confirmed path', () => {
             refCleanup: true,
             baseFastForward: true,
             tempPurge: true,
+            leaseRelease: true,
             details: {},
           };
         },
@@ -1242,6 +1244,7 @@ describe('Story #4681 — local branch-delete failure never blocks a landed merg
             refCleanup: true,
             baseFastForward: true,
             tempPurge: true,
+            leaseRelease: true,
             details: {},
           };
         },

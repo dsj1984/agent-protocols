@@ -71,6 +71,13 @@ function baseSeams(trace) {
       trace?.push('tempPurge');
       return { skipped: null, purged: [], errors: [], bytesReclaimed: 0 };
     },
+    // Stubbed for the same isolation reason (Story #4860): the real release
+    // resolves an operator handle from `config` and PATCHes a live ticket's
+    // assignees, so an unstubbed call would reach GitHub for a real Story id.
+    releaseStoryLeaseFn: async () => {
+      trace?.push('leaseRelease');
+      return { released: true, owner: 'tester', reason: 'released' };
+    },
   };
 }
 
@@ -116,12 +123,14 @@ describe('runPostLandTail — lock scope (Story #4622)', () => {
       refCleanup: true,
       baseFastForward: true,
       tempPurge: true,
+      leaseRelease: true,
       details: {
         followUps: null,
         statusResync: null,
         refCleanup: null,
         baseFastForward: null,
         tempPurge: null,
+        leaseRelease: null,
       },
     });
     assert.ok(released, 'the lock is released');
@@ -129,9 +138,12 @@ describe('runPostLandTail — lock scope (Story #4622)', () => {
     // capture reads the signal stream, so a marker written after it would
     // arrive too late to net the failure it cancels out of this very run.
     // GitHub steps then precede the lock; both mutations are inside it.
-    // The temp purge (Story #4794) is LAST and outside the lock: it touches
-    // only the temp tree, so it contends with nothing, and running it after
-    // every other step means no step can still be reading what it deletes.
+    // The temp purge (Story #4794) is outside the lock: it touches only the
+    // temp tree, so it contends with nothing, and running it after every
+    // other step means no step can still be reading what it deletes. The
+    // lease release (Story #4860) is last and also outside — it is a pure
+    // GitHub write, and running it after every step means the claim outlives
+    // everything that could still fail.
     assert.deepEqual(events, [
       'closeRecovered',
       'followUps',
@@ -141,6 +153,7 @@ describe('runPostLandTail — lock scope (Story #4622)', () => {
       'baseFastForward',
       'release',
       'tempPurge',
+      'leaseRelease',
     ]);
   });
 
@@ -245,6 +258,13 @@ describe('runPostLandTail — real cross-process serialization (Story #4622)', (
         inside -= 1;
         return { applied: true, behind: 1 };
       },
+      // Same isolation contract (Story #4860): the real release would PATCH a
+      // live ticket's assignees for these fixture ids.
+      releaseStoryLeaseFn: async () => ({
+        released: true,
+        owner: 'tester',
+        reason: 'released',
+      }),
     });
 
     const run = (storyId) =>
