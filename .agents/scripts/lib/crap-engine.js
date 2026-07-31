@@ -2,6 +2,24 @@ import escomplex from 'typhonjs-escomplex';
 import { coverageForMethodInEntry } from './coverage-utils.js';
 
 /**
+ * The two line coordinate systems a CRAP row's `startLine` can be expressed
+ * in (Story #4866).
+ *
+ * `original` — the coordinates of the file a reader can open, and the ones
+ * istanbul's `fnMap` is keyed against. A JavaScript source is already in this
+ * system; a TS/TSX source reaches it only through a successful sourcemap
+ * lookup.
+ *
+ * `transpiled` — escomplex's own coordinates over the emitted JavaScript,
+ * kept only when the sourcemap has no entry originating on the method's
+ * generated line. Such a row is NOT an original-source coordinate and must
+ * never be presented as one: it cannot be joined to coverage, and it cannot
+ * be compared against a baseline row carrying the other provenance.
+ */
+export const COORDINATE_ORIGINAL = 'original';
+export const COORDINATE_TRANSPILED = 'transpiled';
+
+/**
  * Derive the raw per-method CRAP rows from an escomplex report.
  *
  * Single-sourced between `calculateCrapForSource` (CRAP-only path) and
@@ -9,15 +27,20 @@ import { coverageForMethodInEntry } from './coverage-utils.js';
  * method's line is remapped or its coverage joined — the parity the
  * combined-parity suite asserts.
  *
- * **Coordinates (Story #4775).** `mapLine` translates escomplex's
- * `lineStart` — which is in *transpiled* coordinates for a TS/TSX source —
- * into the *original source* coordinates istanbul's `fnMap` uses. Without it
- * the join compares two different coordinate systems and either misses or,
- * worse, collides with an unrelated function. A `null` mapper means the two
- * coordinate systems already coincide (plain JavaScript), and a line the map
- * cannot resolve falls back to the un-remapped value rather than dropping the
- * method outright. The remapped line is also what the row reports, so a
- * persisted row points at a line the reader can actually open.
+ * **Coordinates (Story #4775, corrected by Story #4866).** `mapLine`
+ * translates escomplex's `lineStart` — which is in *transpiled* coordinates
+ * for a TS/TSX source — into the *original source* coordinates istanbul's
+ * `fnMap` uses. A `null` mapper means the two coordinate systems already
+ * coincide (plain JavaScript).
+ *
+ * #4775 let an unresolvable line fall back to the un-remapped value, which
+ * made one scan emit rows in two coordinate systems with nothing on the row
+ * saying which. Each row now records its own `coordinateSystem`, and an
+ * un-remapped row joins no coverage at all: joining a transpiled line against
+ * an original-source `fnMap` does not merely miss, it can land inside an
+ * unrelated function's range and mis-attribute that function's coverage. An
+ * honest `coverage: null` lets the scanner's `requireCoverage` policy decide,
+ * exactly as it does for a genuinely uninstrumented method.
  *
  * @param {object|null} report An `escomplex.analyzeModule` report.
  * @param {object|null} coverageForFile Istanbul coverage entry for this file.
@@ -28,22 +51,55 @@ import { coverageForMethodInEntry } from './coverage-utils.js';
  *   cyclomatic: number,
  *   coverage: number|null,
  *   crap: number|null,
+ *   coordinateSystem: 'original'|'transpiled',
  * }>}
  */
+/**
+ * Resolve one method's line into a coordinate and the provenance of that
+ * coordinate — the single place the rule lives.
+ *
+ * No mapper means the source was never transpiled, so its line already IS an
+ * original-source coordinate. A mapper that resolves yields one. A mapper
+ * that does not leaves the transpiled line, said so.
+ *
+ * @param {number} rawStartLine escomplex's `lineStart`.
+ * @param {((line: number) => number|null)|null} mapLine
+ * @returns {{startLine: number, coordinateSystem: 'original'|'transpiled'}}
+ */
+function resolveCoordinate(rawStartLine, mapLine) {
+  if (typeof mapLine !== 'function') {
+    return { startLine: rawStartLine, coordinateSystem: COORDINATE_ORIGINAL };
+  }
+  const mapped = mapLine(rawStartLine);
+  return typeof mapped === 'number'
+    ? { startLine: mapped, coordinateSystem: COORDINATE_ORIGINAL }
+    : { startLine: rawStartLine, coordinateSystem: COORDINATE_TRANSPILED };
+}
+
 export function methodRowsFromReport(report, coverageForFile, mapLine = null) {
   const methods = report?.methods ?? [];
   const rows = [];
   for (const m of methods) {
     const rawStartLine = m?.lineStart;
     if (typeof rawStartLine !== 'number') continue;
-    const mapped = typeof mapLine === 'function' ? mapLine(rawStartLine) : null;
-    const startLine = typeof mapped === 'number' ? mapped : rawStartLine;
+    const { startLine, coordinateSystem } = resolveCoordinate(
+      rawStartLine,
+      mapLine,
+    );
     const cyclomatic = m?.cyclomatic ?? 0;
-    const coverage = coverageForFile
-      ? coverageForMethodInEntry(coverageForFile, startLine)
-      : null;
+    const coverage =
+      coverageForFile && coordinateSystem === COORDINATE_ORIGINAL
+        ? coverageForMethodInEntry(coverageForFile, startLine)
+        : null;
     const crap = coverage === null ? null : crapFormula(cyclomatic, coverage);
-    rows.push({ method: m.name, startLine, cyclomatic, coverage, crap });
+    rows.push({
+      method: m.name,
+      startLine,
+      cyclomatic,
+      coverage,
+      crap,
+      coordinateSystem,
+    });
   }
   return rows;
 }
@@ -98,6 +154,10 @@ export function finalizeMethodRows(rawRows, { requireCoverage = true } = {}) {
       cyclomatic: mr.cyclomatic,
       coverage,
       crap,
+      // Provenance survives the policy step (Story #4866): a row scored 0%
+      // under `requireCoverage: false` may still be carrying a transpiled
+      // coordinate, and the compare needs to know that before it keys on it.
+      coordinateSystem: mr.coordinateSystem ?? COORDINATE_ORIGINAL,
     });
   }
   return { rows, skippedMethodsNoCoverage, resolvedMethods, totalMethods };
@@ -111,7 +171,8 @@ export function finalizeMethodRows(rawRows, { requireCoverage = true } = {}) {
  * Kernel contract:
  *   - Pure (no I/O, no AST parse beyond the one delegated to escomplex via
  *     `analyzeModule`).
- *   - Methods whose coverage cannot be resolved from `coverageForFile`
+ *   - Methods whose coverage cannot be resolved from `coverageForFile` —
+ *     including every method whose line stayed in transpiled coordinates —
  *     produce `coverage: null` and `crap: null`. Callers apply their own
  *     `requireCoverage` policy at the scanner level (`finalizeMethodRows`);
  *     this kernel never decides to skip.
@@ -130,6 +191,7 @@ export function finalizeMethodRows(rawRows, { requireCoverage = true } = {}) {
  *   cyclomatic: number,
  *   coverage: number|null,
  *   crap: number|null,
+ *   coordinateSystem: 'original'|'transpiled',
  * }>}
  */
 export function calculateCrapForSource(

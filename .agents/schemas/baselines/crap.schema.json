@@ -48,7 +48,11 @@
           "path": { "type": "string" },
           "method": { "type": "string" },
           "startLine": { "type": "integer", "minimum": 1 },
-          "crap": { "type": "number", "minimum": 0 }
+          "crap": { "type": "number", "minimum": 0 },
+          "coordinateSystem": {
+            "enum": ["transpiled"],
+            "description": "Coordinate provenance of startLine (Story #4866). Written ONLY when the row kept transpiled coordinates because its sourcemap lookup did not resolve — the absent-means-'original' default keeps a pure-JavaScript baseline byte-identical, since JavaScript coordinates already ARE original-source coordinates. A row carrying this key is not comparable to one without it: the compare refuses to resolve the two through its nearest-line drift heuristic rather than manufacturing a regression from the gap between two coordinate systems."
+          }
         }
       }
     }

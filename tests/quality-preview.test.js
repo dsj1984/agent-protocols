@@ -1,7 +1,10 @@
 import assert from 'node:assert/strict';
 import fs from 'node:fs';
-import { test } from 'node:test';
+import path from 'node:path';
+import { describe, it, test } from 'node:test';
 import { fileURLToPath } from 'node:url';
+import { envelopeExtras } from '../.agents/scripts/lib/baselines/kinds/crap.js';
+import { runCrapPreview } from '../.agents/scripts/lib/baselines/preview-gates.js';
 import { makeTempDir } from '../.agents/scripts/lib/test-temp.js';
 import {
   computeExitCode,
@@ -9,6 +12,7 @@ import {
   parseChangedSinceArg,
   parseJsonFlag,
   parseStagedFlag,
+  renderDiagnostics,
   renderTable,
   runCli,
 } from '../.agents/scripts/quality-preview.js';
@@ -463,4 +467,254 @@ test('runCli — --changed-since without --staged keeps ref-based diff mode', as
   assert.equal(miOpts.staged, false);
   assert.equal(miOpts.changedSinceRef, 'main');
   assert.match(out.lines.join(''), /scope=diff ref=main/);
+});
+
+// ---------------------------------------------------------------------------
+// Story #4866 — the preview gate's unsound-basis backstop.
+//
+// The pre-commit preview is not the authoritative gate; `check-baselines`
+// gates the merge. So when the preview establishes that its own comparison
+// basis cannot produce a meaningful verdict, blocking the commit costs a
+// provably defect-free commit while failing open costs no real coverage. It
+// says so once, by name, and exits 0.
+// ---------------------------------------------------------------------------
+
+/** Build a minimal but real consumer tree the CRAP preview can run against. */
+function makeCrapFixture({ methodCount, baselineRows, scoringSemantics }) {
+  const dir = fs.realpathSync(makeTempDir('crap_preview_'));
+  fs.mkdirSync(path.join(dir, 'src'), { recursive: true });
+  fs.mkdirSync(path.join(dir, 'baselines'), { recursive: true });
+  fs.mkdirSync(path.join(dir, 'coverage'), { recursive: true });
+  fs.writeFileSync(
+    path.join(dir, '.agentrc.json'),
+    JSON.stringify({
+      project: {
+        paths: { agentRoot: '.agents', docsRoot: 'docs', tempRoot: 'temp' },
+      },
+      delivery: { quality: { gates: { crap: { targetDirs: ['src'] } } } },
+    }),
+  );
+
+  // One method per line keeps the fixture's coordinates trivially readable.
+  const lines = [];
+  for (let i = 0; i < methodCount; i += 1) {
+    lines.push(`export function m${i}(x) { return x + ${i}; }`);
+  }
+  const absSrc = path.join(dir, 'src', 'mod.js');
+  fs.writeFileSync(absSrc, `${lines.join('\n')}\n`);
+
+  const fnMap = {};
+  const statementMap = {};
+  const f = {};
+  const s = {};
+  for (let i = 0; i < methodCount; i += 1) {
+    const line = i + 1;
+    fnMap[String(i)] = {
+      name: `m${i}`,
+      decl: { start: { line, column: 0 } },
+      loc: { start: { line, column: 0 }, end: { line, column: 60 } },
+    };
+    f[String(i)] = 1;
+    statementMap[String(i)] = {
+      start: { line, column: 0 },
+      end: { line, column: 60 },
+    };
+    s[String(i)] = 1;
+  }
+  fs.writeFileSync(
+    path.join(dir, 'coverage', 'coverage-final.json'),
+    JSON.stringify({
+      [absSrc]: {
+        path: absSrc,
+        fnMap,
+        f,
+        statementMap,
+        s,
+        branchMap: {},
+        b: {},
+      },
+    }),
+  );
+
+  fs.writeFileSync(
+    path.join(dir, 'baselines', 'crap.json'),
+    JSON.stringify({
+      $schema: '.agents/schemas/baselines/crap.schema.json',
+      kernelVersion: '0.1.0',
+      generatedAt: new Date().toISOString(),
+      scoringSemantics:
+        scoringSemantics === undefined
+          ? envelopeExtras().scoringSemantics
+          : scoringSemantics,
+      rollup: { '*': { p50: 1, p95: 1, max: 1, methodsAbove20: 0 } },
+      rows: baselineRows,
+    }),
+  );
+  return dir;
+}
+
+function rmFixture(dir) {
+  try {
+    fs.rmSync(dir, { recursive: true, force: true });
+  } catch {
+    /* noop */
+  }
+}
+
+/** Baseline rows for `methodCount` methods, each shifted by `lineOffset`. */
+function baselineRowsFor(methodCount, lineOffset, crap = 1) {
+  const rows = [];
+  for (let i = 0; i < methodCount; i += 1) {
+    rows.push({
+      path: 'src/mod.js',
+      method: `m${i}`,
+      startLine: i + 1 + lineOffset,
+      crap,
+    });
+  }
+  return rows;
+}
+
+describe('runCrapPreview — unsound-basis backstop (AC-5)', () => {
+  it('suppresses per-method verdicts and exits 0 above the drift ratio', async () => {
+    // Every baseline row sits 1000 lines away from the scan's, so nothing
+    // keys exactly and everything falls into the drift heuristic — the exact
+    // shape a coordinate-system mismatch produces. The baseline crap of 0
+    // means every drifted pairing would otherwise be scored a regression.
+    const methodCount = 25;
+    const dir = makeCrapFixture({
+      methodCount,
+      baselineRows: baselineRowsFor(methodCount, 1000, 0),
+    });
+    try {
+      const { exitCode, envelope } = await runCrapPreview({ cwd: dir });
+      assert.equal(exitCode, 0, 'the preview gate must fail OPEN');
+      assert.deepEqual(envelope.violations, []);
+      assert.equal(envelope.summary.regressions, 0);
+      assert.equal(envelope.summary.newViolations, 0);
+      assert.equal(envelope.diagnostics.length, 1, 'exactly ONE diagnostic');
+      assert.equal(
+        envelope.diagnostics[0].name,
+        'crap-unsound-comparison-basis',
+      );
+      assert.match(envelope.diagnostics[0].message, /line coordinates/);
+      assert.match(envelope.diagnostics[0].message, /crap:update/);
+      // The evidence stays — only the accusations go.
+      assert.equal(envelope.summary.total, methodCount);
+      assert.equal(envelope.summary.drifted, methodCount);
+    } finally {
+      rmFixture(dir);
+    }
+  });
+
+  it('leaves a sound comparison reporting its regressions normally', async () => {
+    // Same fixture, baseline rows at the SCANNED lines: the basis is sound,
+    // so a real regression must still fail the gate. The backstop must not
+    // become a blanket amnesty.
+    const methodCount = 25;
+    const dir = makeCrapFixture({
+      methodCount,
+      baselineRows: baselineRowsFor(methodCount, 0, 0),
+    });
+    try {
+      const { exitCode, envelope } = await runCrapPreview({ cwd: dir });
+      assert.equal(envelope.summary.drifted, 0);
+      assert.equal(envelope.diagnostics, undefined);
+      // c=1 methods are exempt from the regression arm, so this fixture is
+      // clean — what matters is that no diagnostic replaced the verdicts.
+      assert.equal(exitCode, 0);
+      assert.equal(envelope.summary.total, methodCount);
+    } finally {
+      rmFixture(dir);
+    }
+  });
+});
+
+describe('runCrapPreview — compat check runs BEFORE the compare (AC-6)', () => {
+  it('yields the named diagnostic instead of per-method regressions', async () => {
+    const methodCount = 25;
+    const dir = makeCrapFixture({
+      methodCount,
+      baselineRows: baselineRowsFor(methodCount, 1000, 0),
+      scoringSemantics: 'coverage-join-v1',
+    });
+    try {
+      const { exitCode, envelope } = await runCrapPreview({ cwd: dir });
+      assert.equal(exitCode, 0);
+      assert.deepEqual(envelope.violations, []);
+      assert.equal(envelope.diagnostics[0].name, 'crap-baseline-incompatible');
+      assert.match(
+        envelope.diagnostics[0].message,
+        /scoring semantics changed/,
+      );
+      // Nothing was compared: the incompatible envelope is refused before the
+      // scan's rows ever meet it.
+      assert.equal(envelope.summary.total, 0);
+      assert.equal(envelope.summary.drifted, 0);
+    } finally {
+      rmFixture(dir);
+    }
+  });
+
+  it('lets a compatible baseline through to the compare', async () => {
+    const methodCount = 25;
+    const dir = makeCrapFixture({
+      methodCount,
+      baselineRows: baselineRowsFor(methodCount, 0, 0),
+    });
+    try {
+      const { envelope } = await runCrapPreview({ cwd: dir });
+      assert.equal(envelope.summary.total, methodCount);
+    } finally {
+      rmFixture(dir);
+    }
+  });
+});
+
+test('renderDiagnostics — a suppressed gate is never silent', () => {
+  assert.equal(renderDiagnostics([{ envelope: null }, { envelope: {} }]), null);
+  const rendered = renderDiagnostics([
+    { envelope: null },
+    {
+      envelope: {
+        diagnostics: [
+          { name: 'crap-unsound-comparison-basis', message: 're-seed me' },
+        ],
+      },
+    },
+  ]);
+  assert.match(rendered, /\[crap-unsound-comparison-basis\] re-seed me/);
+});
+
+test('runCli — prints the diagnostic even though the gate exits 0', async () => {
+  // The gate fails open, so without this the operator would see a clean table
+  // and no hint that the verdicts were suppressed.
+  const out = [];
+  const { exitCode } = await runCli({
+    argv: [],
+    cwd: process.cwd(),
+    stdout: { write: (s) => out.push(s) },
+    stderr: { write: () => {} },
+    runMi: async () => ({
+      exitCode: 0,
+      envelope: { violations: [], summary: { regressions: 0 } },
+    }),
+    runCrap: async () => ({
+      exitCode: 0,
+      envelope: {
+        violations: [],
+        summary: { regressions: 0, newViolations: 0 },
+        diagnostics: [
+          {
+            name: 'crap-unsound-comparison-basis',
+            message: 'basis unsound; re-seed the baseline',
+          },
+        ],
+      },
+    }),
+  });
+  assert.equal(exitCode, 0);
+  const printed = out.join('');
+  assert.match(printed, /crap-unsound-comparison-basis/);
+  assert.match(printed, /re-seed the baseline/);
 });

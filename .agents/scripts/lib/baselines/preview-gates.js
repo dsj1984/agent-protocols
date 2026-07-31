@@ -30,10 +30,14 @@ import {
 import { calculateAll, scanDirectory } from '../maintainability-utils.js';
 import { resolveCrapEnvOverrides } from './env-overrides.js';
 import {
+  assertBaselineCompatible,
+  assessComparisonBasis,
   buildCrapReport,
   compareCrap,
   filterRowsByFileScope,
+  INCOMPATIBLE_BASELINE_DIAGNOSTIC,
   loadCrapBaseline,
+  suppressVerdicts,
 } from './kinds/crap.js';
 import {
   buildMaintainabilityReport,
@@ -129,6 +133,32 @@ function resolveBaselineRows(baseline, scopeSet) {
  */
 function hasCrapRegressions(result) {
   return result.regressions > 0 || result.newViolations > 0;
+}
+
+/**
+ * Build the zero-row CRAP envelope the preview returns when it has nothing to
+ * compare against — no baseline, or the gate disabled.
+ *
+ * @param {{scope: string, diffRef: string|null}} scopeInfo
+ * @returns {object}
+ */
+function emptyCrapEnvelope({ scope, diffRef }) {
+  return {
+    kernelVersion: KERNEL_VERSION,
+    escomplexVersion: resolveEscomplexVersion(),
+    summary: {
+      total: 0,
+      regressions: 0,
+      newViolations: 0,
+      drifted: 0,
+      incomparable: 0,
+      removed: 0,
+      skippedNoCoverage: 0,
+      scope,
+      diffRef,
+    },
+    violations: [],
+  };
 }
 
 function applyDiffScopeMi({ files, baseline, scopeSet, cwd }) {
@@ -236,23 +266,24 @@ export async function runCrapPreview({
   const quality = getQuality(config);
   const crap = quality.crap;
   if (!baseline || crap.enabled === false) {
+    return { exitCode: 0, envelope: emptyCrapEnvelope({ scope, diffRef }) };
+  }
+
+  // Story #4866 (AC-6): judge the loaded envelope BEFORE comparing anything
+  // against it. A baseline whose scoring semantics or transpiler coordinates
+  // predate the running scorer cannot yield a meaningful per-method verdict,
+  // and emitting regressions from it asks the operator to fix code that is
+  // not broken. Fail open — the authoritative `check-baselines` gate still
+  // gates the merge, so a permissive pre-commit hook costs no real coverage
+  // while a blocking one costs a provably defect-free commit.
+  const incompatible = assertBaselineCompatible(baseline);
+  if (incompatible) {
     return {
       exitCode: 0,
-      envelope: {
-        kernelVersion: KERNEL_VERSION,
-        escomplexVersion: resolveEscomplexVersion(),
-        summary: {
-          total: 0,
-          regressions: 0,
-          newViolations: 0,
-          drifted: 0,
-          removed: 0,
-          skippedNoCoverage: 0,
-          scope,
-          diffRef,
-        },
-        violations: [],
-      },
+      envelope: suppressVerdicts(emptyCrapEnvelope({ scope, diffRef }), {
+        name: INCOMPATIBLE_BASELINE_DIAGNOSTIC,
+        message: incompatible,
+      }),
     };
   }
 
@@ -298,6 +329,16 @@ export async function runCrapPreview({
       diffRef,
     },
   });
+  // Story #4866 (AC-5): above the drifted-row ratio the basis is self-
+  // evidently unsound and every per-method verdict below it is an artefact of
+  // a mis-keyed join. Say so once, by name, and fail open.
+  const basis = assessComparisonBasis(result);
+  if (!basis.sound) {
+    return {
+      exitCode: 0,
+      envelope: suppressVerdicts(envelope, basis.diagnostic),
+    };
+  }
   const exitCode = hasCrapRegressions(result) ? 1 : 0;
   return { exitCode, envelope };
 }

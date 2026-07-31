@@ -4,7 +4,11 @@ import escomplex from 'typhonjs-escomplex';
 import { canonicalise as canonicalisePath } from './baselines/path-canon.js';
 import { findCoverageEntry } from './coverage-utils.js';
 import { POOL_SERIAL_THRESHOLD, runOnPool } from './cpu-pool.js';
-import { finalizeMethodRows, methodRowsFromReport } from './crap-engine.js';
+import {
+  COORDINATE_ORIGINAL,
+  finalizeMethodRows,
+  methodRowsFromReport,
+} from './crap-engine.js';
 import { Logger } from './Logger.js';
 import { scanDirectory } from './maintainability-utils.js';
 import {
@@ -97,11 +101,19 @@ function resolveBaselinePath({ cwd = process.cwd(), baselinePath } = {}) {
 /**
  * Story #1895: shipped baseline switched to the canonical envelope shape
  * (`$schema`, `kernelVersion`, `generatedAt`, `rollup`, `rows` keyed on
- * `path`). Backfill the legacy `escomplexVersion`/`tsTranspilerVersion`
- * version fields from the running scorer and re-key rows by `file` so
- * existing comparators keep working until Story #1912 lands the unified
- * gate. Detection probes the first row for the new `path` key — the
- * legacy envelope also carries `$schema` but keys rows by `file`.
+ * `path`). Backfill the legacy `escomplexVersion` field from the running
+ * scorer and re-key rows by `file` so existing comparators keep working
+ * until Story #1912 lands the unified gate. Detection probes the first row
+ * for the new `path` key — the legacy envelope also carries `$schema` but
+ * keys rows by `file`.
+ *
+ * **Compat stamps survive the projection (Story #4866).** `scoringSemantics`
+ * and `tsTranspilerVersion` are *baseline* facts, and the projection used to
+ * drop the first and overwrite the second with the RUNNING value — which made
+ * every compat axis reading them either unstamped or vacuously self-equal.
+ * They are carried verbatim now, `null` when the envelope never stamped them,
+ * so an axis can tell "written by a different transpiler" apart from "written
+ * before the stamp existed" instead of guessing.
  */
 function projectCrapEnvelopeToLegacy(parsed) {
   if (
@@ -114,12 +126,19 @@ function projectCrapEnvelopeToLegacy(parsed) {
   return {
     kernelVersion: parsed.kernelVersion,
     escomplexVersion: resolveEscomplexVersion(),
-    tsTranspilerVersion: resolveTsTranspilerVersion(),
+    tsTranspilerVersion:
+      typeof parsed.tsTranspilerVersion === 'string'
+        ? parsed.tsTranspilerVersion
+        : null,
+    scoringSemantics: parsed.scoringSemantics ?? null,
     rows: parsed.rows.map((row) => ({
       crap: row.crap,
       file: row.path,
       method: row.method,
       startLine: row.startLine,
+      ...(row.coordinateSystem === undefined
+        ? {}
+        : { coordinateSystem: row.coordinateSystem }),
     })),
   };
 }
@@ -466,6 +485,7 @@ export async function scanAndScore({
         cyclomatic: mr.cyclomatic,
         coverage: mr.coverage,
         crap: mr.crap,
+        coordinateSystem: mr.coordinateSystem ?? COORDINATE_ORIGINAL,
       });
     }
   }
@@ -789,6 +809,7 @@ export async function scanAndScoreCombined({
         cyclomatic: mr.cyclomatic,
         coverage: mr.coverage,
         crap: mr.crap,
+        coordinateSystem: mr.coordinateSystem ?? COORDINATE_ORIGINAL,
       });
     }
   }

@@ -221,6 +221,11 @@ function readAndShape(kind, absolutePath) {
     // dropping it here would make every baseline look unstamped and fail the
     // whole repo closed on a stamp that is actually present on disk.
     scoringSemantics: parsed.scoringSemantics,
+    // Story #4866 — same contract for the transpiler stamp. Dropping it here
+    // would leave the ts-transpiler compat axis reachable but blind: it would
+    // read `undefined` off every loaded envelope and pass vacuously, which is
+    // the exact deadness this Story exists to end.
+    tsTranspilerVersion: parsed.tsTranspilerVersion,
   };
 }
 
@@ -314,6 +319,11 @@ export function loadFile(absolutePath, opts = {}) {
     // dropping it here would make every baseline look unstamped and fail the
     // whole repo closed on a stamp that is actually present on disk.
     scoringSemantics: parsed.scoringSemantics,
+    // Story #4866 — same contract for the transpiler stamp. Dropping it here
+    // would leave the ts-transpiler compat axis reachable but blind: it would
+    // read `undefined` off every loaded envelope and pass vacuously, which is
+    // the exact deadness this Story exists to end.
+    tsTranspilerVersion: parsed.tsTranspilerVersion,
   };
 }
 
