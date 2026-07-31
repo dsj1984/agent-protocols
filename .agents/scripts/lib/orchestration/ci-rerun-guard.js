@@ -94,10 +94,14 @@ export function classifyFailure(name) {
  * no scope can be keyed (the digest is scoped by filename and has nothing
  * to key on).
  *
+ * Module-private: `writeCiDigest` / `readCiDigest` / `retireCiDigest` are the
+ * only callers and are the surface worth pinning, so the keying is asserted
+ * through them rather than through an export nothing in production reaches.
+ *
  * @param {{ storyId?: number|string|null, tempRoot: string, cwd: string }} opts
  * @returns {{ scope: { kind: 'story', id: number }, jsonPath: string, mdPath: string } | null}
  */
-export function ciDigestPaths({ storyId = null, tempRoot, cwd }) {
+function ciDigestPaths({ storyId = null, tempRoot, cwd }) {
   const scope = resolveDigestScope({ storyId });
   if (!scope) return null;
   const dir = path.isAbsolute(tempRoot) ? tempRoot : path.join(cwd, tempRoot);
