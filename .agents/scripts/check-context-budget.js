@@ -47,9 +47,18 @@
  * Ratchet semantics (mirroring the sibling ratchets):
  *   - A gated tier grows beyond `baseline.tiers.<tier>.totalBytes +
  *     baseline.toleranceBytes` → exit 1, naming the tier and its delta.
- *   - A gated tier shrinks below its baseline total → printed as a `-`
- *     (removal) note, warning the baseline can be refreshed downward.
- *     Shrink-only exits 0.
+ *   - A gated tier shrinks below its baseline total → exit 1 (Story #4872).
+ *     A ratchet that only tightens in one direction lets every measured
+ *     improvement evaporate: the recorded total keeps promising headroom the
+ *     tree no longer spends, so the next growth is absorbed by stale slack
+ *     instead of being reported. Shrinkage is therefore **actionable** —
+ *     refresh the baseline down and the gain is locked in. Unlike growth this
+ *     is deliberately **zero-tolerance**: `toleranceBytes` exists to keep a
+ *     trivial addition from churning the file, and applying it downward would
+ *     silently discard every sub-tolerance gain.
+ *   - A recorded row naming a path the measured tier no longer contains →
+ *     exit 1. The row describes a file that has been deleted or de-listed, so
+ *     the bytes it contributes to the recorded total are fiction.
  *   - Within tolerance / clean → exit 0.
  *   - Baseline file absent → warn + exit 0 (no-op; nothing to ratchet against).
  *
@@ -304,15 +313,44 @@ export function buildBaseline(tierMap, toleranceBytes) {
 }
 
 /**
+ * Collect the recorded rows of one gated tier that name a path the measured
+ * tier no longer contains (Story #4872). A deleted file drops out of the
+ * resolved tier, and so does one that has been de-listed from the read set —
+ * either way the row's bytes are counted into a recorded total that no live
+ * file backs, so the row is drift and not a detail.
+ *
+ * @param {string} tier
+ * @param {Array<{ path: string, bytes: number }>} files live tier measurement
+ * @param {{ files?: Array<{ path: string, bytes?: number }> }} baseTier recorded tier
+ * @returns {Array<{ tier: string, path: string, bytes: number|null }>}
+ */
+function absentRows(tier, files, baseTier) {
+  const live = new Set(files.map((f) => f.path));
+  const out = [];
+  for (const row of baseTier?.files ?? []) {
+    if (typeof row?.path !== 'string' || live.has(row.path)) continue;
+    out.push({
+      tier,
+      path: row.path,
+      bytes: Number.isFinite(row.bytes) ? row.bytes : null,
+    });
+  }
+  return out;
+}
+
+/**
  * Pure diff: compare the current tier map against the committed baseline. A
  * gated tier with no current files is skipped; a tier absent from the baseline
- * is skipped. `grown` entries fail the gate; `shrunk` entries are informational.
+ * is skipped. `grown`, `shrunk` and `absent` entries all fail the gate — see
+ * the ratchet semantics in the module header for why shrinkage is actionable
+ * rather than informational (Story #4872).
  *
  * @param {{ tiers: Record<string, Array<{ path: string, bytes: number }>> }} tierMap
  * @param {{ toleranceBytes?: number, tiers?: Record<string, { totalBytes: number }> }} baseline
  * @returns {{
  *   grown: Array<{ tier: string, current: number, baseline: number, tolerance: number, delta: number }>,
- *   shrunk: Array<{ tier: string, current: number, baseline: number }>,
+ *   shrunk: Array<{ tier: string, current: number, baseline: number, delta: number }>,
+ *   absent: Array<{ tier: string, path: string, bytes: number|null }>,
  *   skipped: string[],
  * }}
  */
@@ -322,6 +360,7 @@ export function diffBudget(tierMap, baseline) {
     : 0;
   const grown = [];
   const shrunk = [];
+  const absent = [];
   const skipped = [];
   for (const tier of GATED_TIERS) {
     const files = tierMap.tiers[tier] ?? [];
@@ -345,16 +384,42 @@ export function diffBudget(tierMap, baseline) {
         delta: current - baselineBytes,
       });
     } else if (current < baselineBytes) {
-      shrunk.push({ tier, current, baseline: baselineBytes });
+      // Deliberately zero-tolerance: `tolerance` guards against churn from a
+      // trivial *addition*; mirroring it downward would discard every gain
+      // smaller than the tolerance, which is the leak this branch closes.
+      shrunk.push({
+        tier,
+        current,
+        baseline: baselineBytes,
+        delta: baselineBytes - current,
+      });
     }
+    absent.push(...absentRows(tier, files, baseTier));
   }
-  return { grown, shrunk, skipped };
+  return { grown, shrunk, absent, skipped };
+}
+
+/**
+ * Count the drift entries that fail the gate. Every direction is actionable
+ * (Story #4872), so this is the one place the failure set is defined and both
+ * the summary tag and the exit code read it.
+ *
+ * @param {ReturnType<typeof diffBudget>} diff
+ * @returns {number}
+ */
+export function budgetFailureCount(diff) {
+  return (
+    (diff?.grown?.length ?? 0) +
+    (diff?.shrunk?.length ?? 0) +
+    (diff?.absent?.length ?? 0)
+  );
 }
 
 /**
  * Render the human-readable diff. `+` lines are tiers that grew beyond
- * tolerance (gate fail); `-` lines are tiers that shrank (refreshable
- * baseline). A one-line summary always follows.
+ * tolerance; `-` lines are tiers that shrank below their recorded total or
+ * rows naming a path the tree no longer carries. All three fail the gate. A
+ * one-line summary always follows.
  *
  * @param {ReturnType<typeof diffBudget>} diff
  * @returns {string}
@@ -368,12 +433,17 @@ export function renderDiff(diff) {
   }
   for (const s of diff.shrunk) {
     lines.push(
-      `- ${s.tier}: ${s.current} bytes below baseline ${s.baseline} — refresh baselines/context-budget.json`,
+      `- ${s.tier}: ${s.current} bytes is under the recorded ${s.baseline} (delta -${s.delta}) — the ratchet is holding slack the tree no longer spends; refresh baselines/context-budget.json`,
     );
   }
-  const tag = diff.grown.length > 0 ? '(gate fail)' : '(ok)';
+  for (const a of diff.absent ?? []) {
+    lines.push(
+      `- ${a.tier}: recorded row ${a.path} names a path the measured tier no longer contains — refresh baselines/context-budget.json`,
+    );
+  }
+  const tag = budgetFailureCount(diff) > 0 ? '(gate fail)' : '(ok)';
   lines.push(
-    `[context-budget] grown=${diff.grown.length} shrunk=${diff.shrunk.length} skipped=${diff.skipped.length} ${tag}`,
+    `[context-budget] grown=${diff.grown.length} shrunk=${diff.shrunk.length} absent=${diff.absent?.length ?? 0} skipped=${diff.skipped.length} ${tag}`,
   );
   return lines.join('\n');
 }
@@ -454,7 +524,7 @@ export async function runCli({
   if (!baseline) {
     if (json) {
       stdout.write(
-        `${JSON.stringify({ kind: 'context-budget-report', baselinePath: resolvedBaselinePath, tiers: tierMap.tiers, grown: [], shrunk: [], skipped: GATED_TIERS, exitCode: 0, noBaseline: true }, null, 2)}\n`,
+        `${JSON.stringify({ kind: 'context-budget-report', baselinePath: resolvedBaselinePath, tiers: tierMap.tiers, grown: [], shrunk: [], absent: [], skipped: GATED_TIERS, exitCode: 0, noBaseline: true }, null, 2)}\n`,
       );
     } else {
       stderr.write(
@@ -472,7 +542,7 @@ export async function runCli({
   const bootDrift = agentBootDrift(tierMap, baseline, ceiling);
   const permissiveDrift = bootDrift.filter((d) => d.direction === 'permissive');
   const exitCode =
-    diff.grown.length > 0 ||
+    budgetFailureCount(diff) > 0 ||
     bootOverflow.length > 0 ||
     permissiveDrift.length > 0
       ? 1
@@ -490,6 +560,7 @@ export async function runCli({
       ),
       grown: diff.grown,
       shrunk: diff.shrunk,
+      absent: diff.absent,
       skipped: diff.skipped,
       agentBootCeilingBytes: ceiling,
       agentBootOverflow: bootOverflow,
@@ -525,6 +596,16 @@ export async function runCli({
       if (diff.grown.length > 0) {
         stderr.write(
           `[context-budget] ❌ a documentation tier grew beyond tolerance — refresh the budget consciously with \`node .agents/scripts/check-context-budget.js --update\` once the growth is intentional\n`,
+        );
+      }
+      if (diff.shrunk.length > 0) {
+        stderr.write(
+          `[context-budget] ❌ a documentation tier came in under its recorded total — the ratchet is holding slack the tree no longer spends, so the next growth would be absorbed silently. Lock the gain in with \`node .agents/scripts/check-context-budget.js --update\`\n`,
+        );
+      }
+      if (diff.absent.length > 0) {
+        stderr.write(
+          `[context-budget] ❌ a recorded row names a path the measured tier no longer contains — its bytes inflate the recorded total against nothing. Refresh with \`node .agents/scripts/check-context-budget.js --update\`\n`,
         );
       }
     }
