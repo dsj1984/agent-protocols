@@ -13,6 +13,13 @@
  * `sleep` is exported as the cancellable delay primitive used internally;
  * callers that already have their own cadence (e.g. a continuous ticker)
  * can import it directly.
+ *
+ * `sleepFn` is the inter-tick delay seam (Story #4873). A caller that already
+ * owns a delay seam of its own — the close-and-land merge wait, whose suite
+ * must never actually sleep out a 30s poll interval — passes it here so
+ * adopting this primitive does not cost it that seam. It is called as
+ * `sleepFn(intervalMs, signal)`; a one-argument stub simply ignores the
+ * signal, and the default is the cancellable {@link sleep} below.
  */
 
 /**
@@ -23,11 +30,20 @@
  *   timeoutMs?: number,
  *   signal?: AbortSignal,
  *   logger?: { warn?: Function },
+ *   sleepFn?: (ms: number, signal?: AbortSignal) => Promise<void>,
  * }} opts
  * @returns {Promise<any | undefined>}
  */
 export async function pollUntil(opts) {
-  const { fn, predicate, intervalMs, timeoutMs, signal, logger } = opts;
+  const {
+    fn,
+    predicate,
+    intervalMs,
+    timeoutMs,
+    signal,
+    logger,
+    sleepFn = sleep,
+  } = opts;
   if (typeof fn !== 'function') throw new TypeError('pollUntil: fn required');
   if (typeof predicate !== 'function') {
     throw new TypeError('pollUntil: predicate required');
@@ -52,7 +68,7 @@ export async function pollUntil(opts) {
     if (deadline !== null && Date.now() >= deadline) {
       throw new Error(`pollUntil: timed out after ${timeoutMs}ms`);
     }
-    await sleep(intervalMs, signal);
+    await sleepFn(intervalMs, signal);
   }
   return undefined;
 }

@@ -210,7 +210,7 @@ async function openAndReviewPr({
   setPhase('push');
   pushStoryBranch({ cwd, storyBranch, gitSync, progress });
   setPhase('pull-request');
-  const prUrl = await ensurePullRequestWith({
+  const { url: prUrl, alreadyMerged } = await ensurePullRequestWith({
     cwd,
     storyId,
     storyTitle: story.title,
@@ -220,6 +220,13 @@ async function openAndReviewPr({
     progress,
   });
   const prNumber = parsePrNumber(prUrl);
+  // Story #4873 — the head's PR already merged (an armed PR that landed while
+  // a previous close invocation was between phases). There is nothing left to
+  // review and nothing left to arm; the confirm phase probes the PR, observes
+  // MERGED, and lands the Story on the merge that actually happened.
+  if (alreadyMerged) {
+    return { prUrl, prNumber, alreadyMerged: true };
+  }
   setPhase('code-review');
   const reviewOutcome = await runStoryScopeReview({
     cwd,
@@ -245,7 +252,7 @@ async function openAndReviewPr({
         'Auto-merge was not enabled. Remediate the findings posted to the PR and re-run `/deliver`.',
     );
   }
-  return { prUrl, prNumber };
+  return { prUrl, prNumber, alreadyMerged: false };
 }
 
 async function releaseLease({
@@ -493,7 +500,7 @@ async function runClosePipeline({
     leaseArgs,
   );
 
-  const { prUrl, prNumber } = await releaseLeaseOnBlock(
+  const { prUrl, prNumber, alreadyMerged } = await releaseLeaseOnBlock(
     () =>
       openAndReviewPr({
         cwd: options.cwd,
@@ -527,20 +534,31 @@ async function runClosePipeline({
     WorktreeManager,
   });
   setPhase('auto-merge');
+  // An already-merged head PR (Story #4873) has nothing to arm — `gh pr merge`
+  // against it fails, which would report the arm as a fault and block a Story
+  // whose work is already on the base branch. Skip the arm and let the confirm
+  // phase observe the merge that happened.
   const {
     autoMergeEnabled,
     autoMergeReason,
     localCleanupDeferred,
     directMerged,
-  } = await runAutoMergePhase({
-    cwd: options.cwd,
-    prNumber,
-    prUrl,
-    noAutoMerge: options.noAutoMerge,
-    autoMergePolicy: getCiDelivery(config).autoMerge,
-    gh: injectedGh,
-    progress,
-  });
+  } = alreadyMerged
+    ? {
+        autoMergeEnabled: true,
+        autoMergeReason: null,
+        localCleanupDeferred: false,
+        directMerged: false,
+      }
+    : await runAutoMergePhase({
+        cwd: options.cwd,
+        prNumber,
+        prUrl,
+        noAutoMerge: options.noAutoMerge,
+        autoMergePolicy: getCiDelivery(config).autoMerge,
+        gh: injectedGh,
+        progress,
+      });
   await flipLabelAndNotify({
     provider,
     notifyFn: injectedNotify,

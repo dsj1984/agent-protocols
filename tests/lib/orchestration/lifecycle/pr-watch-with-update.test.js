@@ -29,7 +29,12 @@ import { chmodSync, rmSync, writeFileSync } from 'node:fs';
 import { join } from 'node:path';
 import { after, before, describe, it } from 'node:test';
 import { makeTempDir } from '../../../../.agents/scripts/lib/test-temp.js';
-import { runPrWatch } from '../../../../.agents/scripts/pr-watch-with-update.js';
+import {
+  REQUIRED_CONTEXT_ATTACH_WINDOW_MS,
+  reconcileGreenVerdict,
+  runPrWatch,
+  STILL_RUNNING_EXIT_CODE,
+} from '../../../../.agents/scripts/pr-watch-with-update.js';
 
 function quietLogger() {
   return { info: () => {}, warn: () => {}, error: () => {}, debug: () => {} };
@@ -305,5 +310,169 @@ describe('runPrWatch — CLI path wiring (no injected gh ports, Story #4144)', (
     assert.deepEqual(out.checkOutcomes, {
       'Validate and Test': 'success',
     });
+  });
+});
+
+/**
+ * Story #4873 — the watcher's two GitHub oracles are no longer trusted on a
+ * single reading.
+ *
+ * Both defects were measured on this repo: a watch launched right after
+ * `gh pr create` failed the delivery because the ruleset had not attached its
+ * required contexts yet, and a watch reported GREEN while GitHub reported the
+ * same PR BLOCKED because the observed required set was smaller than branch
+ * protection's.
+ */
+describe('runPrWatch — required-context attach window (Story #4873 AC-3)', () => {
+  const emptyProbe = { status: 1, stdout: '', stderr: 'no checks reported' };
+
+  it('retries an empty first probe within the window instead of failing on it', async () => {
+    const { print, lines } = collectPrint();
+    let calls = 0;
+    let now = 0;
+    const code = await runPrWatch({
+      prNumber: 42,
+      pollIntervalMs: 0,
+      sleepFn: async () => {
+        now += 10_000;
+      },
+      nowMsFn: () => now,
+      ghPrChecksFn: () => {
+        calls += 1;
+        // The ruleset attaches its contexts on the third probe (~20s in).
+        return calls < 3 ? emptyProbe : greenChecks;
+      },
+      ghPrViewFn: () => ({
+        status: 0,
+        stdout: JSON.stringify({ mergeStateStatus: 'CLEAN' }),
+        stderr: '',
+      }),
+      logger: quietLogger(),
+      print,
+    });
+
+    assert.equal(code, 0, 'a late-attaching required set is not a failure');
+    const out = JSON.parse(lines[0]);
+    assert.equal(out.green, true);
+    assert.equal(out.attachRetries, 2);
+  });
+
+  it('still fails once the 90s window is spent with no required contexts', async () => {
+    const { print, lines } = collectPrint();
+    let now = 0;
+    const code = await runPrWatch({
+      prNumber: 42,
+      pollIntervalMs: 0,
+      sleepFn: async () => {
+        now += 30_000;
+      },
+      nowMsFn: () => now,
+      ghPrChecksFn: () => emptyProbe,
+      logger: quietLogger(),
+      print,
+    });
+
+    assert.equal(code, 1, 'the window is bounded — it does not poll forever');
+    const out = JSON.parse(lines[0]);
+    assert.match(out.error, /gh-checks-failed/);
+    assert.equal(out.attachRetries, 3, '90s of a 30s retry cadence');
+  });
+
+  it('pins the window at 90 seconds', async () => {
+    assert.equal(REQUIRED_CONTEXT_ATTACH_WINDOW_MS, 90_000);
+  });
+});
+
+describe('runPrWatch — green-verdict reconciliation (Story #4873 AC-4)', () => {
+  it('withholds green and reports unresolved when GitHub still reports the PR BLOCKED', async () => {
+    const { print, lines } = collectPrint();
+    const warnings = [];
+    const code = await runPrWatch({
+      prNumber: 42,
+      pollIntervalMs: 0,
+      sleepFn: async () => {},
+      ghPrChecksFn: () => greenChecks,
+      ghPrViewFn: () => ({
+        status: 0,
+        stdout: JSON.stringify({ mergeStateStatus: 'BLOCKED' }),
+        stderr: '',
+      }),
+      logger: { ...quietLogger(), warn: (m) => warnings.push(m) },
+      print,
+    });
+
+    assert.equal(
+      code,
+      STILL_RUNNING_EXIT_CODE,
+      'unresolved is keep-watching, never a green and never a red',
+    );
+    const out = JSON.parse(lines[0]);
+    assert.equal(out.green, true, 'the observed set is reported honestly');
+    assert.equal(out.reconciliation.reconciled, false);
+    assert.equal(out.reconciliation.mergeStateStatus, 'BLOCKED');
+    assert.ok(warnings.some((m) => /withholding the green verdict/.test(m)));
+  });
+
+  it('withholds green when the repository verdict cannot be read at all', async () => {
+    const { print, lines } = collectPrint();
+    const code = await runPrWatch({
+      prNumber: 42,
+      pollIntervalMs: 0,
+      sleepFn: async () => {},
+      ghPrChecksFn: () => greenChecks,
+      ghPrViewFn: () => ({ status: 1, stdout: '', stderr: 'boom' }),
+      logger: quietLogger(),
+      print,
+    });
+
+    assert.equal(code, STILL_RUNNING_EXIT_CODE);
+    const out = JSON.parse(lines[0]);
+    assert.equal(out.reconciliation.reconciled, false);
+    assert.equal(out.reconciliation.mergeStateStatus, null);
+  });
+
+  it('reconciles a green set the repository agrees with, and reports it on the envelope', async () => {
+    const { print, lines } = collectPrint();
+    const code = await runPrWatch({
+      prNumber: 42,
+      pollIntervalMs: 0,
+      sleepFn: async () => {},
+      ghPrChecksFn: () => greenChecks,
+      ghPrViewFn: () => ({
+        status: 0,
+        stdout: JSON.stringify({ mergeStateStatus: 'CLEAN' }),
+        stderr: '',
+      }),
+      logger: quietLogger(),
+      print,
+    });
+
+    assert.equal(code, 0);
+    const out = JSON.parse(lines[0]);
+    assert.equal(out.reconciliation.reconciled, true);
+    assert.equal(out.reconciliation.mergeStateStatus, 'CLEAN');
+  });
+
+  it('reconcileGreenVerdict: only a settled, non-blocking merge state reconciles', () => {
+    for (const state of ['CLEAN', 'UNSTABLE', 'HAS_HOOKS', 'BEHIND']) {
+      assert.equal(
+        reconcileGreenVerdict({
+          observedRequired: ['a'],
+          mergeStateStatus: state,
+        }).reconciled,
+        true,
+        state,
+      );
+    }
+    for (const state of ['BLOCKED', 'UNKNOWN', 'DIRTY', '', null, undefined]) {
+      assert.equal(
+        reconcileGreenVerdict({
+          observedRequired: ['a'],
+          mergeStateStatus: state,
+        }).reconciled,
+        false,
+        String(state),
+      );
+    }
   });
 });

@@ -23,6 +23,7 @@
  */
 
 import assert from 'node:assert/strict';
+import { readFile } from 'node:fs/promises';
 import { describe, it } from 'node:test';
 import {
   enableAutoMergeWith,
@@ -1339,5 +1340,132 @@ describe('Story #4681 — local branch-delete failure never blocks a landed merg
       assert.equal(result.enabled, false, stderr);
       assert.equal(result.localCleanupDeferred, undefined, stderr);
     }
+  });
+});
+
+/**
+ * Story #4873 — one poll primitive, one progress signal.
+ *
+ * The wait's cadence moved onto the shared `pollUntil` primitive, and each
+ * poll now writes a heartbeat through `progress`. Both are observable
+ * properties, not refactoring trivia: the first means there is one place in
+ * the codebase where a wait sleeps, and the second is what lets an
+ * orchestrator watching a backgrounded close's output file tell an in-flight
+ * wait from a stalled process without asking GitHub.
+ */
+describe('Story #4873 — shared poll primitive and progress heartbeat', () => {
+  it('AC-5: the merge-confirm wait drives the shared poll primitive, not its own loop', async () => {
+    const source = await readFile(
+      new URL(
+        '../.agents/scripts/lib/orchestration/single-story-close/phases/confirm-merge.js',
+        import.meta.url,
+      ),
+      'utf-8',
+    );
+    assert.match(
+      source,
+      /import \{ pollUntil \} from '\.\.\/\.\.\/\.\.\/util\/poll-loop\.js';/,
+      'the phase must import the shared poll primitive',
+    );
+    assert.match(source, /await pollUntil\(/, 'and actually drive it');
+    assert.doesNotMatch(
+      source,
+      /while \(true\)/,
+      'the bespoke wait loop must be gone, not merely wrapped',
+    );
+  });
+
+  it('AC-5: the shared primitive honours the phase’s own sleep seam and cadence', async () => {
+    const sleeps = [];
+    const probes = [openProbe(), openProbe(), { state: 'MERGED' }];
+    let i = 0;
+    const outcome = await runConfirmMergePhase({
+      cwd: '/repo',
+      storyId: 4873,
+      prNumber: 21,
+      prUrl: 'https://github.com/o/r/pull/21',
+      autoMergeEnabled: true,
+      provider: makeFakeProvider(),
+      config: { delivery: { mergeWatch: { intervalSeconds: 7 } } },
+      progress: NOOP_PROGRESS,
+      readPrWaitProbeFn: async () => probes[i++] ?? { state: 'MERGED' },
+      confirmStoryMergedFn: async () => ({ merged: true, action: 'flipped' }),
+      runPostLandTailFn: async () => ({}),
+      sleepFn: async (ms) => {
+        sleeps.push(ms);
+      },
+      nowMsFn: makeClock(0),
+    });
+    assert.equal(outcome.confirmed, true);
+    assert.deepEqual(
+      sleeps,
+      [7000, 7000],
+      'one interval sleep between each pair of polls, taken through the injected seam',
+    );
+  });
+
+  it('AC-6: every poll writes a heartbeat naming the PR state and the elapsed budget', async () => {
+    const lines = [];
+    const probes = [
+      openProbe({ mergeStateStatus: 'BLOCKED' }),
+      openProbe({ checksStatus: 'success' }),
+      { state: 'MERGED' },
+    ];
+    let i = 0;
+    await runConfirmMergePhase({
+      cwd: '/repo',
+      storyId: 4873,
+      prNumber: 22,
+      prUrl: 'https://github.com/o/r/pull/22',
+      autoMergeEnabled: true,
+      provider: makeFakeProvider(),
+      config: { delivery: { mergeWatch: { intervalSeconds: 5 } } },
+      progress: (tag, msg) => lines.push(`${tag} ${msg}`),
+      readPrWaitProbeFn: async () => probes[i++] ?? { state: 'MERGED' },
+      confirmStoryMergedFn: async () => ({ merged: true, action: 'flipped' }),
+      runPostLandTailFn: async () => ({}),
+      sleepFn: async () => {},
+      nowMsFn: makeClock(0),
+    });
+    const heartbeats = lines.filter((l) => l.includes('poll '));
+    assert.equal(
+      heartbeats.length,
+      3,
+      'one heartbeat per poll — the file must grow while the wait is healthy',
+    );
+    assert.match(heartbeats[0], /poll 1: PR #22 state=OPEN/);
+    assert.match(heartbeats[0], /checks=pending/);
+    assert.match(heartbeats[0], /mergeState=BLOCKED/);
+    assert.match(heartbeats[0], /cumulative/);
+    assert.match(heartbeats[1], /poll 2: .*checks=success/);
+    assert.match(heartbeats[2], /poll 3: PR #22 state=MERGED/);
+  });
+
+  it('AC-6: a degraded probe says so on the heartbeat rather than looking healthy', async () => {
+    const lines = [];
+    await runConfirmMergePhase({
+      cwd: '/repo',
+      storyId: 4873,
+      prNumber: 23,
+      prUrl: 'https://github.com/o/r/pull/23',
+      autoMergeEnabled: true,
+      provider: makeFakeProvider(),
+      config: {
+        delivery: { mergeWatch: { intervalSeconds: 5, maxWaitSeconds: 5 } },
+      },
+      progress: (tag, msg) => lines.push(`${tag} ${msg}`),
+      readPrWaitProbeFn: async () => ({
+        state: null,
+        mergedAt: null,
+        createdAt: null,
+        checksStatus: 'pending',
+        error: 'PR probe failed: gh exploded',
+      }),
+      sleepFn: async () => {},
+      nowMsFn: makeClock(3000),
+    });
+    const heartbeat = lines.find((l) => l.includes('poll 1'));
+    assert.match(heartbeat, /state=unknown/);
+    assert.match(heartbeat, /probe error: PR probe failed: gh exploded/);
   });
 });

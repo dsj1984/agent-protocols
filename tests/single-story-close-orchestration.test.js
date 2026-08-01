@@ -310,7 +310,11 @@ describe('ensurePullRequest', () => {
       baseBranch: 'main',
       gh,
     });
-    assert.equal(url, 'https://github.com/owner/repo/pull/42');
+    assert.deepEqual(url, {
+      url: 'https://github.com/owner/repo/pull/42',
+      alreadyMerged: false,
+      created: false,
+    });
     assert.equal(calls.length, 1, 'gh pr create must not run when list hits');
     assert.equal(calls[0][1], 'list');
   });
@@ -334,7 +338,9 @@ describe('ensurePullRequest', () => {
       baseBranch: 'main',
       gh,
     });
-    assert.equal(url, 'https://github.com/owner/repo/pull/100');
+    assert.equal(url.url, 'https://github.com/owner/repo/pull/100');
+    assert.equal(url.created, true);
+    assert.equal(url.alreadyMerged, false);
     assert.equal(calls.length, 2);
     const createArgs = calls[1];
     assert.equal(createArgs[1], 'create');
@@ -369,7 +375,7 @@ describe('ensurePullRequest', () => {
       baseBranch: 'main',
       gh,
     });
-    assert.equal(url, 'https://github.com/owner/repo/pull/200');
+    assert.equal(url.url, 'https://github.com/owner/repo/pull/200');
     const createCall = calls[1];
     const titleIdx = createCall.indexOf('--title');
     assert.equal(
@@ -399,6 +405,154 @@ describe('ensurePullRequest', () => {
       }),
       /gh pr create.*failed/i,
     );
+  });
+});
+
+/**
+ * Story #4873 — an already-merged PR is not an absent PR, and an empty diff
+ * is not a pull request.
+ *
+ * Both halves guard the same measured incident: a resumed close pushed the
+ * branch, the push turned the checks green, armed auto-merge landed the
+ * ORIGINAL PR server-side, and the resumed close — probing `--state open`
+ * only — saw no PR, opened a second one against a branch now identical to
+ * base, and squash-merged a zero-file commit onto `main`.
+ */
+describe('ensurePullRequest — duplicate empty PR guards (Story #4873)', () => {
+  it('AC-1: reports an already-merged PR on the head instead of opening a second one', async () => {
+    const calls = [];
+    const { ensurePullRequest } = await import(`${SUT_URL}?t=ensure-merged`);
+    const gh = makeFakeGh((args) => {
+      calls.push(args.slice());
+      if (args[1] === 'list') {
+        return [
+          {
+            url: 'https://github.com/owner/repo/pull/77',
+            state: 'MERGED',
+            mergedAt: '2026-07-31T10:00:00Z',
+          },
+        ];
+      }
+      throw new Error(`unexpected gh call: ${args.join(' ')}`);
+    });
+    const outcome = await ensurePullRequest({
+      cwd: '/repo',
+      storyId: 4873,
+      storyTitle: 'Test story',
+      storyBranch: 'story-4873',
+      baseBranch: 'main',
+      gh,
+    });
+    assert.deepEqual(outcome, {
+      url: 'https://github.com/owner/repo/pull/77',
+      alreadyMerged: true,
+      created: false,
+    });
+    assert.equal(
+      calls.length,
+      1,
+      'gh pr create must NOT run when the head already has a merged PR',
+    );
+    assert.ok(
+      calls[0].includes('all'),
+      'the probe must ask for --state all, not just open',
+    );
+  });
+
+  it('AC-1: a live PR still wins over a merged one on the same head', async () => {
+    const { ensurePullRequest } = await import(`${SUT_URL}?t=ensure-open-wins`);
+    const gh = makeFakeGh((args) => {
+      if (args[1] === 'list') {
+        return [
+          {
+            url: 'https://github.com/owner/repo/pull/70',
+            state: 'MERGED',
+            mergedAt: '2026-07-30T10:00:00Z',
+          },
+          { url: 'https://github.com/owner/repo/pull/78', state: 'OPEN' },
+        ];
+      }
+      throw new Error(`unexpected gh call: ${args.join(' ')}`);
+    });
+    const outcome = await ensurePullRequest({
+      cwd: '/repo',
+      storyId: 4873,
+      storyTitle: 'Test story',
+      storyBranch: 'story-4873',
+      baseBranch: 'main',
+      gh,
+    });
+    assert.equal(outcome.url, 'https://github.com/owner/repo/pull/78');
+    assert.equal(outcome.alreadyMerged, false);
+  });
+
+  it('AC-1: a head whose only PR was CLOSED without merging still opens a new one', async () => {
+    const { ensurePullRequest } = await import(`${SUT_URL}?t=ensure-closed`);
+    const gh = makeFakeGh((args) => {
+      if (args[1] === 'list') {
+        return [
+          { url: 'https://github.com/owner/repo/pull/60', state: 'CLOSED' },
+        ];
+      }
+      if (args[1] === 'create') return 'https://github.com/o/r/pull/61\n';
+      throw new Error(`unexpected gh call: ${args.join(' ')}`);
+    });
+    const outcome = await ensurePullRequest({
+      cwd: '/repo',
+      storyId: 4873,
+      storyTitle: 'Test story',
+      storyBranch: 'story-4873',
+      baseBranch: 'main',
+      gh,
+      computeChangeSetFn: () => ({ files: ['a.js'], enumerated: true }),
+    });
+    assert.equal(outcome.created, true);
+  });
+
+  it('AC-2: refuses to open a PR when the head-versus-base diff is empty, naming the empty diff', async () => {
+    const calls = [];
+    const { ensurePullRequest } = await import(`${SUT_URL}?t=ensure-empty`);
+    const gh = makeFakeGh((args) => {
+      calls.push(args.slice());
+      if (args[1] === 'list') return [];
+      if (args[1] === 'create') return 'https://github.com/o/r/pull/1\n';
+      throw new Error(`unexpected gh call: ${args.join(' ')}`);
+    });
+    await assert.rejects(
+      ensurePullRequest({
+        cwd: '/repo',
+        storyId: 4873,
+        storyTitle: 'Test story',
+        storyBranch: 'story-4873',
+        baseBranch: 'main',
+        gh,
+        computeChangeSetFn: () => ({ files: [], enumerated: true }),
+      }),
+      /diff .* contains no files/,
+    );
+    assert.ok(
+      !calls.some((c) => c[1] === 'create'),
+      'gh pr create must not run on an empty diff',
+    );
+  });
+
+  it('AC-2: an UNENUMERABLE diff is not an empty diff — the PR still opens', async () => {
+    const { ensurePullRequest } = await import(`${SUT_URL}?t=ensure-unknown`);
+    const gh = makeFakeGh((args) => {
+      if (args[1] === 'list') return [];
+      if (args[1] === 'create') return 'https://github.com/o/r/pull/2\n';
+      throw new Error(`unexpected gh call: ${args.join(' ')}`);
+    });
+    const outcome = await ensurePullRequest({
+      cwd: '/repo',
+      storyId: 4873,
+      storyTitle: 'Test story',
+      storyBranch: 'story-4873',
+      baseBranch: 'main',
+      gh,
+      computeChangeSetFn: () => ({ files: null, enumerated: false }),
+    });
+    assert.equal(outcome.created, true);
   });
 });
 
