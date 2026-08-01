@@ -28,7 +28,6 @@ import assert from 'node:assert/strict';
 import { chmodSync, readFileSync, rmSync, writeFileSync } from 'node:fs';
 import { join } from 'node:path';
 import { after, before, describe, it } from 'node:test';
-import { ghRepoFlag } from '../../../../.agents/scripts/lib/orchestration/lifecycle/listeners/watcher.js';
 import { makeTempDir } from '../../../../.agents/scripts/lib/test-temp.js';
 import {
   REQUIRED_CONTEXT_ATTACH_WINDOW_MS,
@@ -564,13 +563,60 @@ describe('runPrWatch — --repo is passed to gh as a real flag (Story #4890)', (
     }
   });
 
-  it('ghRepoFlag builds the flag pair only for a real repository', () => {
-    assert.deepEqual(ghRepoFlag('dsj1984/mandrel'), [
-      '--repo',
-      'dsj1984/mandrel',
-    ]);
-    for (const empty of [null, undefined, '', '   ']) {
-      assert.deepEqual(ghRepoFlag(empty), [], String(empty));
+  it('omits --repo entirely when no repository is given, so gh infers it', async (t) => {
+    if (process.platform === 'win32') {
+      t.skip('POSIX shell shim only');
+      return;
+    }
+    // The flag-building helper is module-private; assert it through the argv
+    // the ports actually spawn. A blank repo must add no argument at all —
+    // an empty `--repo ''` would make gh resolve nothing.
+    const tmpDir = makeTempDir('pr-watch-4890-norepo-');
+    const argvLog = join(tmpDir, 'argv.log');
+    const originalPath = process.env.PATH;
+    try {
+      const ghPath = join(tmpDir, 'gh');
+      writeFileSync(
+        ghPath,
+        [
+          '#!/usr/bin/env bash',
+          `printf '%s\\n' "$*" >> ${JSON.stringify(argvLog)}`,
+          'case "$*" in',
+          '  *"pr checks"*)',
+          '    echo \'[{"name":"baselines","state":"SUCCESS","bucket":"pass"}]\'',
+          '    ;;',
+          '  *"pr view"*)',
+          '    echo \'{"mergeStateStatus":"CLEAN"}\'',
+          '    ;;',
+          'esac',
+          'exit 0',
+          '',
+        ].join('\n'),
+        { mode: 0o755 },
+      );
+      chmodSync(ghPath, 0o755);
+      process.env.PATH = `${tmpDir}${process.platform === 'win32' ? ';' : ':'}${originalPath}`;
+
+      const { print, lines } = collectPrint();
+      const code = await runPrWatch({
+        prNumber: 4890,
+        maxPolls: 2,
+        pollIntervalMs: 0,
+        sleepFn: async () => {},
+        logger: quietLogger(),
+        print,
+      });
+
+      assert.equal(code, 0, 'an inferred-repo invocation still resolves');
+      assert.equal(JSON.parse(lines[0]).green, true);
+      const argv = readFileSync(argvLog, 'utf8');
+      assert.ok(
+        !argv.includes('--repo'),
+        `a nullish repo must contribute no flag, got:\n${argv}`,
+      );
+    } finally {
+      process.env.PATH = originalPath;
+      rmSync(tmpDir, { recursive: true, force: true });
     }
   });
 

@@ -138,15 +138,19 @@ export const extractPrNumber = parsePrNumberFromUrl;
  *
  * `gh` resolves a *cross-repository* PR reference only through this flag — it
  * has no `<owner/repo>#<number>` argument form, and a caller that builds one
- * gets it parsed as a **branch name** instead (Story #4890: every `--repo`
- * invocation of the watch CLI failed on that, reported as a misleading
- * `gh-checks-failed`). Pure — one place builds the fragment so no port can
- * forget it.
+ * gets it parsed as a **branch name** instead (every `--repo` invocation of the
+ * watch CLI failed on that, reported as a misleading `gh-checks-failed`). Pure
+ * — one place builds the fragment so no port can forget it.
+ *
+ * Module-private on purpose: the three ports below are the only callers, and
+ * the flag is asserted through them (a real-spawn argv probe), never by
+ * importing this helper — an export existing solely for a test is dead in the
+ * `--production` reachability ratchet.
  *
  * @param {string|null|undefined} repo `owner/repo`, or nullish to infer.
  * @returns {string[]}
  */
-export function ghRepoFlag(repo) {
+function ghRepoFlag(repo) {
   const trimmed = String(repo ?? '').trim();
   return trimmed.length > 0 ? ['--repo', trimmed] : [];
 }
