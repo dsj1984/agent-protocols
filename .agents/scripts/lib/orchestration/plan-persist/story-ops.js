@@ -17,6 +17,7 @@
 
 import { createHash } from 'node:crypto';
 import { applyBlockedByDependencies } from '../../../providers/github/blocked-by-add.js';
+import { carryProvenanceFooters } from '../../findings/route-finding.js';
 import { Logger } from '../../Logger.js';
 import { AGENT_LABELS, TYPE_LABELS } from '../../label-constants.js';
 import {
@@ -392,7 +393,18 @@ function assembleOnePlanStory(ticket, opts) {
   });
   // Body first: the fingerprint is an identity over the *assembled* content,
   // so it cannot be computed until that content exists.
-  const body = serializeStoryBody({ ...folded, depends_on });
+  const serialized = serializeStoryBody({ ...folded, depends_on });
+  // Carry audit dedup provenance out of the seed this plan was authored from
+  // (Story #4877). The audit sweep's Single-plan path stamps the
+  // `audit-fingerprints` / `audit-semantic-keys` footers into the seed it hands
+  // `/plan`; without this the persisted Story carries no provenance and the
+  // next sweep re-files work it already planned. Mechanical on purpose — the
+  // authoring agent is not asked to notice HTML comments in a one-pager. A
+  // non-audit seed carries no footers, so this is a no-op there.
+  const { body } = carryProvenanceFooters({
+    from: opts.provenanceSource ?? '',
+    into: serialized,
+  });
   const fingerprint = planStoryFingerprint({ slug, title, body });
   return {
     story: {

@@ -7,9 +7,11 @@ import assert from 'node:assert/strict';
 import { test } from 'node:test';
 import {
   DEFAULT_SEVERITY,
+  fingerprintSeverity,
   highestSeverity,
   normalizeSeverity,
   SEVERITIES,
+  SEVERITY_ALIASES,
   SEVERITY_RANK,
 } from '../../../.agents/scripts/lib/findings/severity.js';
 
@@ -75,4 +77,86 @@ test('highestSeverity returns the highest-ranked value in a list', () => {
 test('highestSeverity normalises members and defaults an empty list', () => {
   assert.equal(highestSeverity([]), 'info');
   assert.equal(highestSeverity(['  High ', 'bogus', undefined]), 'high');
+});
+
+// ---------------------------------------------------------------------------
+// Story #4877 — the alias table and the fingerprint projection.
+// ---------------------------------------------------------------------------
+
+test('SEVERITY_ALIASES never shadows a canonical level', () => {
+  for (const alias of Object.keys(SEVERITY_ALIASES)) {
+    assert.ok(
+      !SEVERITIES.includes(alias),
+      `"${alias}" is a canonical level, so it must not also be an alias`,
+    );
+  }
+  for (const target of Object.values(SEVERITY_ALIASES)) {
+    assert.ok(
+      SEVERITIES.includes(target),
+      `alias target "${target}" is not a canonical level`,
+    );
+  }
+});
+
+test('normalizeSeverity resolves the alias spellings lenses actually write', () => {
+  assert.equal(normalizeSeverity('Informational'), 'info');
+  assert.equal(normalizeSeverity('  MODERATE '), 'medium');
+  assert.equal(normalizeSeverity('Blocker'), 'critical');
+  assert.equal(normalizeSeverity('major'), 'high');
+  assert.equal(normalizeSeverity('minor'), 'low');
+  assert.equal(normalizeSeverity('nit'), 'info');
+});
+
+test('normalizeSeverity still honours an explicit fallback for an unknown alias', () => {
+  assert.equal(normalizeSeverity('spicy', null), null);
+});
+
+test('fingerprintSeverity keeps an absent severity as the empty string', () => {
+  // The pipeline normaliser resolves absent → `info`. The identity projection
+  // must NOT: folding `info` in where the previous raw implementation folded
+  // '' would re-mint the fingerprint of every severity-less finding already
+  // filed, silently breaking dedup for all of them.
+  assert.equal(normalizeSeverity(undefined), 'info');
+  for (const absent of [undefined, null, '', '   ', 42, {}]) {
+    assert.equal(
+      fingerprintSeverity(absent),
+      '',
+      `${JSON.stringify(absent)} must project to the empty string`,
+    );
+  }
+});
+
+test('fingerprintSeverity passes an unrecognised value through verbatim', () => {
+  // Collapsing it onto `info` would move the sha of any finding already filed
+  // with an off-vocabulary severity.
+  assert.equal(fingerprintSeverity('spicy'), 'spicy');
+  assert.equal(fingerprintSeverity('  Spicy  '), 'spicy');
+});
+
+test('fingerprintSeverity is idempotent under normalizeSeverity (the invariance the fingerprint needs)', () => {
+  const raws = [
+    'critical',
+    'High',
+    'medium',
+    'LOW',
+    'info',
+    'Informational',
+    'moderate',
+    'blocker',
+    'major',
+    'minor',
+  ];
+  for (const raw of raws) {
+    assert.equal(
+      fingerprintSeverity(raw),
+      fingerprintSeverity(normalizeSeverity(raw)),
+      `"${raw}" must project the same before and after normalisation`,
+    );
+  }
+});
+
+test('fingerprintSeverity returns a canonical level for every canonical input', () => {
+  for (const level of SEVERITIES) {
+    assert.equal(fingerprintSeverity(level), level);
+  }
 });

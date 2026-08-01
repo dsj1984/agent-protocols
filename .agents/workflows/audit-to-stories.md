@@ -143,9 +143,24 @@ Chain into the existing planning entrypoint:
 
 (`/plan --seed "$(cat <path>)"` also works for small seeds). `/plan`
 then runs its author → persist path, as documented in its workflow.
-Each Story it spawns from the seed carries `context::audit:
-<reportLink>` and `audit-fingerprint: <sha>` in its body so future
-Phase 6 idempotency works on the next run.
+
+**Dedup provenance is carried mechanically — do not hand-copy it.** The seed's
+MVP Scope bullets carry each group's `audit-fingerprints` and
+`audit-semantic-keys` footers as HTML comments (invisible in the rendered
+one-pager). `plan-persist` harvests them out of the seed on the
+`plan-context.json` envelope and appends them to **every** Story body it
+persists, via `carryProvenanceFooters`
+([`lib/findings/route-finding.js`](../scripts/lib/findings/route-finding.js)).
+The carry is additive, union-preserving and idempotent, so a resumed persist
+cannot stack footers and a hand-authored fingerprint is never dropped.
+
+This is deliberately not an authoring step. It used to be: the footers reached
+the seed and stopped there, leaving the authoring agent to notice HTML comments
+in a one-pager and copy them forward — a remembered step, which is to say no
+step at all. Stories filed on the recommended path were therefore invisible to
+the next sweep's Phase 6 dedup, which re-filed work it had already planned. If
+you find yourself copying a footer by hand, the carry is broken — fix it there
+rather than papering over it in the body.
 
 ## Phase 5b — Standalone-Stories path
 
@@ -261,7 +276,18 @@ When the single-plan path ran, link the Story (or plan-run) the chained
   dedup/route implementation, shared with `qa-explore`.
 - **Always** stamp the fingerprint footer (via the helper's
   `fingerprintFooter`) in the body of every created Story. Without it,
-  the next run cannot dedupe.
+  the next run cannot dedupe. On the Single-plan path this is mechanical
+  (`carryProvenanceFooters`, Phase 5a) — never an authoring step.
+- **Never** re-mint a finding fingerprint while normalising a finding.
+  `severity` and `labels` are identity fields folded into the sha, so
+  normalising either without holding the hash stable silently breaks
+  dedup for every finding already filed. The projection that keeps the
+  fingerprint invariant under normalisation is
+  `severity.js#fingerprintSeverity`; the contract is pinned by
+  `tests/lib/findings/route-finding.contract.test.js`.
+- **Always** grade findings on the canonical five-level scale
+  (`lib/findings/severity.js`). A level outside it parses as no severity
+  and the finding is dropped by every severity-filtered run.
 - **Always** present the Phase 2, 3, and 4 HITL gates. Do not bypass —
   even when "obvious" — because the severity / grouping / mode picks
   are operator decisions that the workflow's UX contract relies on.

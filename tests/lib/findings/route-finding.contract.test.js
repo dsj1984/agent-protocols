@@ -232,3 +232,178 @@ test('contract: both producers share the closed-Issue regression route', async (
   assert.equal(qaResult.decision, 'regression-of-closed');
   assert.equal(qaResult.matchedIssue.number, 701);
 });
+
+// ---------------------------------------------------------------------------
+// Story #4877 — the fingerprint-stability contract.
+//
+// `severity` and `labels` are `fingerprintFinding` identity fields. Story #4877
+// normalised the severity vocabulary onto the canonical five-level scale and
+// constrained the generated label set; either change, made naively, re-mints the
+// fingerprint of every finding already filed and silently breaks dedup for all
+// of them — the failure would be invisible (every sweep just re-files
+// everything as `new`). These tests are the ratchet against that.
+// ---------------------------------------------------------------------------
+
+/**
+ * Fingerprints captured from the implementation as it stood BEFORE the severity
+ * normalisation landed (`git show main:…/route-finding.js`, Story #4877). Any
+ * future change that moves one of these shas has re-minted a filed finding's
+ * identity, and every Issue whose footer carries the old sha stops matching.
+ *
+ * Do not "update the golden values to match" — that is the bug, not the fix.
+ */
+const GOLDEN_FINGERPRINTS = [
+  {
+    label: 'canonical severity, single label',
+    finding: {
+      title: 'N+1 query in invoice list',
+      area: 'performance',
+      primaryFile: 'src/invoices/list.js',
+      severity: 'medium',
+      labels: ['perf'],
+    },
+    sha: 'f3ec8b6a825f3fb4b03dd6960d8e83f34aee0bf3',
+  },
+  {
+    label: 'critical severity, taxonomy labels',
+    finding: {
+      title: 'Leaked token',
+      area: 'security',
+      primaryFile: 'lib/a.js',
+      severity: 'critical',
+      labels: ['audit::security', 'type::story'],
+    },
+    sha: '041852d359b461a328ea0d7758b5c19574281166',
+  },
+  {
+    label: 'absent severity (the case a naive normalise would re-mint)',
+    finding: {
+      title: 'No severity',
+      area: 'architecture',
+      primaryFile: 'lib/b.js',
+      labels: [],
+    },
+    sha: '91b05a6997825e8c26185a92a2f03184cf7e2d84',
+  },
+  {
+    label: 'mixed-case severity and unsorted mixed-case labels',
+    finding: {
+      title: 'Case',
+      area: 'quality',
+      primaryFile: 't.js',
+      severity: 'High',
+      labels: ['B', 'a'],
+    },
+    sha: 'cc311ee4efc08dcd303813b20dc08f0a0c28e701',
+  },
+];
+
+for (const { label, finding: golden, sha } of GOLDEN_FINGERPRINTS) {
+  test(`fingerprint is unchanged by the severity normalisation — ${label}`, () => {
+    assert.equal(
+      fingerprintFinding(golden).full,
+      sha,
+      'this finding\'s fingerprint moved. Every Issue whose audit-fingerprints ' +
+        'footer carries the old sha has just stopped deduplicating. Hold the ' +
+        'hash stable instead of updating this expectation.',
+    );
+  });
+}
+
+test('fingerprint is invariant under severity normalisation (AC-4)', () => {
+  // The whole point: a finding hashes the same whether it is fingerprinted
+  // with its as-authored severity or after the pipeline has normalised it.
+  const pairs = [
+    ['Informational', 'info'],
+    ['info', 'info'],
+    ['Moderate', 'medium'],
+    ['Blocker', 'critical'],
+    ['HIGH', 'high'],
+    ['  low  ', 'low'],
+  ];
+  for (const [raw, normalized] of pairs) {
+    const base = {
+      title: 'Same finding, two severity spellings',
+      area: 'architecture',
+      primaryFile: 'lib/seam.js',
+      labels: ['audit::architecture'],
+    };
+    assert.equal(
+      fingerprintFinding({ ...base, severity: raw }).full,
+      fingerprintFinding({ ...base, severity: normalized }).full,
+      `"${raw}" and "${normalized}" are the same severity and must fingerprint identically`,
+    );
+  }
+});
+
+test('fingerprint is invariant under label case and ordering (AC-4)', () => {
+  const base = {
+    title: 'Label normalisation must not move the sha',
+    area: 'quality',
+    primaryFile: 'lib/x.js',
+    severity: 'high',
+  };
+  const canonical = fingerprintFinding({
+    ...base,
+    labels: ['audit::quality', 'type::story'],
+  }).full;
+  assert.equal(
+    fingerprintFinding({ ...base, labels: ['type::story', 'audit::quality'] })
+      .full,
+    canonical,
+    'label order must not affect identity',
+  );
+  assert.equal(
+    fingerprintFinding({ ...base, labels: ['AUDIT::Quality', ' type::story '] })
+      .full,
+    canonical,
+    'label case and surrounding whitespace must not affect identity',
+  );
+});
+
+test('fingerprint still discriminates a genuinely different severity', () => {
+  // Stability must not become blindness: two findings that really do differ in
+  // severity are still different findings.
+  const base = {
+    title: 'Same title, different severity',
+    area: 'security',
+    primaryFile: 'lib/y.js',
+    labels: [],
+  };
+  const shas = new Set(
+    ['critical', 'high', 'medium', 'low', 'info'].map(
+      (severity) => fingerprintFinding({ ...base, severity }).full,
+    ),
+  );
+  assert.equal(shas.size, 5, 'each canonical severity must fingerprint distinctly');
+});
+
+test('a normalised finding still routes against the Issue filed from its raw form (AC-4, end to end)', async () => {
+  // The contract that actually matters: an Issue filed BEFORE normalisation —
+  // whose footer carries the sha of the raw finding — must still be found when
+  // the next sweep routes the normalised finding.
+  const rawFinding = {
+    title: 'Writer with no reader',
+    area: 'architecture',
+    primaryFile: 'lib/seam.js',
+    severity: 'Informational',
+    labels: ['audit::architecture'],
+  };
+  const filedSha = fingerprintFinding(rawFinding).full;
+  const store = makeIssueStore([
+    { number: 4321, state: 'open', fingerprint: filedSha },
+  ]);
+
+  const normalisedFinding = { ...rawFinding, severity: 'info' };
+  const result = await routeFinding(normalisedFinding, {
+    searchIssues: store.searchIssues,
+  });
+
+  assert.equal(
+    result.decision,
+    'update-existing',
+    'the normalised finding must recognise the Issue filed from its raw form, not re-file it as new',
+  );
+  assert.equal(result.matchedIssue.number, 4321);
+  assert.equal(result.fingerprint, filedSha);
+});
