@@ -22,14 +22,16 @@
  * structured contract.
  */
 
+import { AGENT_LABELS, RISK_LABELS, TYPE_LABELS } from '../label-constants.js';
 import { serialize } from '../story-body/story-body.js';
+import { definesAuditLabel } from './audit-label-taxonomy.js';
 import { auditLabelsForFindings } from './audit-lenses.js';
 import {
   renderFingerprintFooter,
   renderSemanticKeyFooter,
 } from './finding-adapter.js';
 
-const STATIC_LABELS = Object.freeze(['type::story', 'agent::ready']);
+const STATIC_LABELS = Object.freeze([TYPE_LABELS.STORY, AGENT_LABELS.READY]);
 
 // The verify[] contract every generated audit Story carries. These commands
 // exist in this repo's harness (package.json scripts) so the Story satisfies
@@ -183,8 +185,38 @@ function labelsForGroup(group) {
   const hasCritical = (group.findings ?? []).some(
     (f) => f.severity === 'critical',
   );
-  if (hasCritical) labels.push('risk::high');
-  return uniq(labels);
+  if (hasCritical) labels.push(RISK_LABELS.HIGH);
+  return assertLabelsInTaxonomy(uniq(labels));
+}
+
+/**
+ * Refuse to generate a label the audit bootstrap taxonomy does not define
+ * (Story #4877).
+ *
+ * Story #4195 fixed half of this: `audit::<dimension>` labels minted from
+ * free-form dimension prose ("stale-description", "dry") named labels that did
+ * not exist, so derivation moved to the closed lens list. The other half stayed
+ * open — `risk::high` was a bare string literal here, defined by no taxonomy —
+ * and nothing checked the generated set against anything at all. Throwing is
+ * deliberate: a label the repo has never created is dropped or fails the create
+ * outright, and a filer that silently loses `risk::high` on a Critical merge is
+ * worse than a loud failure at the point of generation.
+ *
+ * @param {string[]} labels
+ * @returns {string[]} the same labels, when every one is defined.
+ * @throws {Error} naming the offending labels.
+ */
+function assertLabelsInTaxonomy(labels) {
+  const undefinedLabels = labels.filter((l) => !definesAuditLabel(l));
+  if (undefinedLabels.length > 0) {
+    throw new Error(
+      `buildStoryBody: generated label(s) ${undefinedLabels.join(', ')} are not ` +
+        'defined by the audit label taxonomy (audit-label-taxonomy.js). Add ' +
+        'them there — or stop generating them — rather than emitting a label ' +
+        'the repository does not have.',
+    );
+  }
+  return labels;
 }
 
 /**

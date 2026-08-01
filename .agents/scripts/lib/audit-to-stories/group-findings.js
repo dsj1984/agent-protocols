@@ -21,7 +21,7 @@
  * Pure: no I/O.
  */
 
-const SEVERITY_RANK = { critical: 3, high: 2, medium: 1, low: 0, null: -1 };
+import { highestSeverity as highestSeverityOf } from '../findings/severity.js';
 
 function dirOf(filePath) {
   if (typeof filePath !== 'string' || filePath.length === 0) return '';
@@ -37,17 +37,26 @@ function pickPrimaryFile(finding) {
   return null;
 }
 
+/**
+ * The highest severity across a group's findings, ranked by the severity SSOT
+ * ({@link highestSeverityOf}) rather than a local copy of the scale.
+ *
+ * The rank map this replaces knew four levels and not `info`, so an Info
+ * finding tied with a finding carrying no severity at all — the same partial
+ * vocabulary this Story removes everywhere else.
+ *
+ * A group whose findings all lack a usable severity still reports `null`, not
+ * the SSOT's `info` floor: absent is not the same claim as "graded lowest",
+ * and the callers that tally and threshold on this value distinguish them.
+ *
+ * @param {Array<{ severity?: string }>} findings
+ * @returns {string|null} a canonical severity, or null when none is stated.
+ */
 function highestSeverity(findings) {
-  let best = null;
-  let bestRank = -2;
-  for (const f of findings) {
-    const r = SEVERITY_RANK[f.severity ?? 'null'] ?? -1;
-    if (r > bestRank) {
-      bestRank = r;
-      best = f.severity ?? null;
-    }
-  }
-  return best;
+  const stated = findings
+    .map((f) => f?.severity)
+    .filter((value) => typeof value === 'string' && value.length > 0);
+  return stated.length === 0 ? null : highestSeverityOf(stated);
 }
 
 /**

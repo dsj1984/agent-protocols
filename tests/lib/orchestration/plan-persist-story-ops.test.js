@@ -611,3 +611,119 @@ describe('createStoryIssues — native blocked_by mirroring (Story #4544)', () =
     assert.equal(dependencyEdges.edgesAdded, 1);
   });
 });
+
+describe('audit dedup provenance carry (Story #4877, AC-5)', () => {
+  const SHA = 'd'.repeat(40);
+  const KEY = 'architecture␟lib/seam.js';
+
+  /** The seed shape `/audit-to-stories --emit-plan-seed` writes. */
+  const auditSeed = [
+    '# Idea Seed: Audit Remediation',
+    '',
+    '## MVP Scope',
+    '',
+    '1. **Remediate the unwired seam** — architecture (`lib/seam.js`)',
+    `   <!-- audit-fingerprints: ${SHA} -->`,
+    `   <!-- audit-semantic-keys: ${KEY} -->`,
+    '',
+  ].join('\n');
+
+  const ticket = {
+    slug: 'wire-the-reader',
+    title: 'Wire the reader',
+    goal: 'Build the reader for the stamped field.',
+    changes: [{ path: 'lib/seam.js', assumption: 'refactors-existing' }],
+    acceptance: ['The reader is wired and a test fails without it.'],
+    verify: ['npm test (unit)'],
+  };
+
+  it('assembly carries the seed footers into the persisted body', () => {
+    // This is the wiring assertion, not a unit test of the helper: it proves the
+    // carry is REACHED on the real assembly path. `carryProvenanceFooters` was
+    // exactly the shape of seam this Story teaches the lenses to hunt — built,
+    // unit-tested, and dead if nothing called it.
+    const { stories } = assemblePlanStories([ticket], {
+      provenanceSource: auditSeed,
+    });
+    assert.equal(stories.length, 1);
+    assert.match(stories[0].body, new RegExp(`audit-fingerprints:\\s*${SHA}`));
+    assert.ok(
+      stories[0].body.includes(`audit-semantic-keys: ${KEY}`),
+      'the semantic-key footer must ride along with the fingerprint footer',
+    );
+  });
+
+  it('the carried body still round-trips through the story-body parser', () => {
+    // The footers are HTML comments appended after the canonical sections, so
+    // they must not disturb the structured contract.
+    const { stories } = assemblePlanStories([ticket], {
+      provenanceSource: auditSeed,
+    });
+    const { body } = parse(stories[0].body);
+    assert.equal(body.goal, ticket.goal);
+    assert.deepEqual(body.acceptance, ticket.acceptance);
+    assert.deepEqual(
+      body.changes.map((c) => c.path),
+      ['lib/seam.js'],
+    );
+  });
+
+  it('every Story in an N>1 plan carries the provenance', () => {
+    // Distinct acceptance per Story — a verbatim-shared criterion is refused as
+    // a coupled split before assembly ever reaches the carry.
+    const second = {
+      ...ticket,
+      slug: 'drop-the-field',
+      title: 'Drop the field',
+      acceptance: ['The unread field is gone and no writer stamps it.'],
+    };
+    const { stories } = assemblePlanStories([ticket, second], {
+      provenanceSource: auditSeed,
+    });
+    assert.equal(stories.length, 2);
+    for (const story of stories) {
+      assert.match(story.body, new RegExp(`audit-fingerprints:\\s*${SHA}`));
+    }
+  });
+
+  it('a plan with no provenance source is byte-identical to before the carry', () => {
+    // A `--tickets` run and a plain `--seed` run must be untouched.
+    const withoutOpt = assemblePlanStories([ticket], {}).stories[0];
+    for (const provenanceSource of [
+      '',
+      null,
+      undefined,
+      '# Seed\n\nNo footers.\n',
+    ]) {
+      const { stories } = assemblePlanStories([ticket], { provenanceSource });
+      assert.equal(
+        stories[0].body,
+        withoutOpt.body,
+        'a non-audit plan body must not change',
+      );
+      assert.equal(
+        stories[0].fingerprint,
+        withoutOpt.fingerprint,
+        'and neither must its plan fingerprint',
+      );
+      assert.ok(!stories[0].body.includes('audit-fingerprints'));
+    }
+  });
+
+  it('re-assembling an already-carried body does not stack footers', () => {
+    // Resumability: persist is idempotent by plan fingerprint, so assembly may
+    // run twice over the same inputs.
+    const first = assemblePlanStories([ticket], {
+      provenanceSource: auditSeed,
+    }).stories[0];
+    const again = assemblePlanStories([ticket], {
+      provenanceSource: auditSeed,
+    }).stories[0];
+    assert.equal(again.body, first.body);
+    assert.equal(
+      (first.body.match(/audit-fingerprints:/g) ?? []).length,
+      1,
+      'exactly one fingerprint footer',
+    );
+  });
+});

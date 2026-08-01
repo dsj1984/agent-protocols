@@ -107,6 +107,32 @@ Evaluate the gathered context against the following test quality dimensions:
    criteria to ensure they have corresponding and complete test coverage.
    Verify that the implementation found in the codebase correctly matches the
    architectural requirements and highlight any inconsistencies or gaps.
+7. **Unwired Seams — Coverage Without a Caller (mandatory).** Report code the
+   suite **covers** but no live production path **calls**. This is the blind spot
+   this dimension exists for, and it is a property of the suite, not of the code:
+   a seam with its own passing unit test reports as covered, contributes to the
+   coverage number, and is never exercised in assembly — so the suite reads green
+   over wiring that has never run once. High coverage is therefore not evidence
+   of a live path; it is what conceals a dead one. Cover at least:
+
+   - **A produced-but-never-consumed artifact** — a field, file, or marker the
+     code writes that no test and no consumer ever reads back. A writer test that
+     asserts on the writer's own output is not a reader.
+     `assert(written === expected)` proves the write, never the round-trip.
+   - **An optional field nothing populates** — a parameter or config key a
+     consumer branches on that only *tests* ever set. The suite covers both
+     branches; production has only ever taken the default.
+
+   For each, name the missing test rather than the missing caller: the gap is
+   that **no test would fail if the wiring were deleted**. That is the assertion
+   to recommend — an integration-tier test that drives the real production entry
+   point and fails when the seam is unwired. Grade a dead guard/gate **High** or
+   **Critical** (the enforcement has never been in force and the bar reads green
+   because it never runs), other dead wiring **Medium**. The core's exclusion
+   list still applies: a sanctioned test seam or a declared entry point is not a
+   finding here. Route the *architectural* framing of the same defect to
+   [`audit-architecture`](audit-architecture.md)'s Shipped-But-Never-Wired
+   dimension; this lens owns the **missing-test** framing.
 
 ## Constraint (lens-specific carve-out)
 

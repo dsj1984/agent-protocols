@@ -37,7 +37,7 @@ description, edit the workflow file’s front-matter and regenerate.
 | Command | Description |
 | --- | --- |
 | `/audit-accessibility` | Audit WCAG accessibility conformance (static-first) with an optional runtime verification pass, and produce a structured findings report |
-| `/audit-architecture` | Audit architectural boundaries, module coupling, and layering violations; emit a structured findings report keyed to High/Medium/Low severity. |
+| `/audit-architecture` | Audit architectural boundaries, module coupling, layering violations, and shipped-but-uncalled seams; emit a structured findings report keyed to the canonical severity scale. |
 | `/audit-clean-code` | Audit code smells, dead code, complexity hotspots, and maintainability-index outliers; emit a structured findings report. |
 | `/audit-data-model` | Audit the persistence layer as a first-class artifact — model↔migration↔seed drift, constraint completeness, migration hygiene, type fidelity, and access-pattern fit; gated by a persistence-layer applicability probe so DB-less repos skip cleanly. |
 | `/audit-dependencies` | Audit `package.json` for unused, outdated, and major-version-stale dependencies; surface Node-engine drift and propose upgrade batches. |

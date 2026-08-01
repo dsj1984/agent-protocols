@@ -17,14 +17,7 @@
 
 import path from 'node:path';
 
-const SEVERITY_ALIASES = Object.freeze({
-  critical: 'critical',
-  high: 'high',
-  medium: 'medium',
-  mod: 'medium',
-  moderate: 'medium',
-  low: 'low',
-});
+import { normalizeSeverity } from '../findings/severity.js';
 
 const KEY_LINE = /^\s*-\s*\*\*([^:*]+):\*\*\s*(.*)$/;
 const HEADING_FINDING = /^###\s+(.+?)\s*$/;
@@ -44,6 +37,27 @@ function unwrapInlineCode(value) {
   return trimmed;
 }
 
+/**
+ * Resolve a raw severity/impact token to a canonical level, or `null` when the
+ * token carries no recognisable severity at all.
+ *
+ * The vocabulary itself is NOT written down here (Story #4877). This module used
+ * to carry its own alias table covering `critical|high|medium|mod|moderate|low`
+ * — four of the canonical five levels, missing `info`. A lens that graded a
+ * finding `Info` or `Informational` (which the shared severity scale now
+ * sanctions) therefore parsed to `null`, tallied as `unknown`, and was dropped
+ * by every severity-filtered run, `--severity low` included. Delegating to the
+ * canonical normaliser in `lib/findings/severity.js` means this parser cannot
+ * know a narrower vocabulary than the rest of the pipeline.
+ *
+ * `null` — rather than the normaliser's `info` fallback — remains the
+ * no-severity answer, because {@link deriveSeverity} walks several candidate
+ * keys and needs to distinguish "this key had no severity" from "this key said
+ * `info`".
+ *
+ * @param {unknown} token
+ * @returns {string|null}
+ */
 function normaliseSeverity(token) {
   if (typeof token !== 'string') return null;
   const cleaned = token
@@ -53,7 +67,7 @@ function normaliseSeverity(token) {
     .trim();
   if (!cleaned) return null;
   for (const word of cleaned.split(/[\s|/,]+/)) {
-    const hit = SEVERITY_ALIASES[word];
+    const hit = normalizeSeverity(word, null);
     if (hit) return hit;
   }
   return null;
