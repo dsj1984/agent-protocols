@@ -64,13 +64,11 @@ import {
   buildReceiptStoryTicket,
   checkLightDiffBackstop,
   deriveLightSuitability,
-  deriveUnwaivableRisk,
   LIGHT_DIFF_CEILINGS,
   OVERRIDABLE_SHAPE_CODES,
   resolveLedgeredVerdict,
   resolveLightGateOutcome,
   resolveOperatorOverride,
-  UNWAIVABLE_SHAPE_CODES,
 } from '../../../.agents/scripts/lib/orchestration/light-suitability.js';
 import { DEFAULT_DIFF_WIDTH } from '../../../.agents/scripts/lib/orchestration/review-depth.js';
 import {
@@ -1163,6 +1161,13 @@ const OPERATOR_REASON = 'approved: one constant, three identical call sites';
 const suitabilityFor = (overrides) =>
   deriveLightSuitability({ ...OVERRIDABLE_SCOPE, ...overrides });
 
+/**
+ * The two absolute risk rules — the complement of OVERRIDABLE_SHAPE_CODES.
+ * Held as a literal here because the module keeps its own copy private: the
+ * contract under test is the observable refusal, not a shared constant.
+ */
+const ABSOLUTE_RISK_CODES = ['sensitive-path', 'migration-span'];
+
 describe('OVERRIDABLE_SHAPE_CODES — an allowlist of size predictions (AC-3)', () => {
   test('is exactly the four ceiling rules, and frozen', () => {
     assert.deepEqual([...OVERRIDABLE_SHAPE_CODES].sort(), [
@@ -1287,7 +1292,7 @@ describe('resolveOperatorOverride — the answer applies only when earned (AC-1.
       // The two absolute risk rules are refused by the un-waivable check
       // (Story #4875), which names the rule and says why no answer helps; the
       // rest are refused by the allowlist. Both refusals name the code.
-      const expected = UNWAIVABLE_SHAPE_CODES.includes(code)
+      const expected = ABSOLUTE_RISK_CODES.includes(code)
         ? new RegExp(`un-waivable "${code}" rule`)
         : new RegExp(`"${code}" is not an overridable`);
       assert.match(o.note, expected);
@@ -1827,13 +1832,8 @@ describe('the prediction gate names the un-waivable class up front (AC-1, AC-2)'
     assert.equal(s.suitable, true);
   });
 
-  test('UNWAIVABLE_SHAPE_CODES is exactly the two absolute risk rules, and frozen', () => {
-    assert.deepEqual([...UNWAIVABLE_SHAPE_CODES].sort(), [
-      'migration-span',
-      'sensitive-path',
-    ]);
-    assert.equal(Object.isFrozen(UNWAIVABLE_SHAPE_CODES), true);
-    for (const code of UNWAIVABLE_SHAPE_CODES) {
+  test('the two absolute risk rules are never also in the waivable allowlist', () => {
+    for (const code of ABSOLUTE_RISK_CODES) {
       assert.ok(
         !OVERRIDABLE_SHAPE_CODES.includes(code),
         `${code} must never be both waivable and un-waivable`,
@@ -1841,21 +1841,29 @@ describe('the prediction gate names the un-waivable class up front (AC-1, AC-2)'
     }
   });
 
-  test('deriveUnwaivableRisk is total — no shape, no throw, no claim', () => {
-    for (const input of [undefined, {}, { shape: null }, { shape: {} }]) {
-      const r = deriveUnwaivableRisk(input);
-      assert.equal(r.present, false);
-      assert.equal(r.reason, null);
-      assert.deepEqual(r.classes, []);
-    }
+  test('a rejection with no judgeable shape claims no un-waivable rule', () => {
+    // `no-changes` never builds an effort shape, so there are no risk facts to
+    // read — and inventing one would be worse than reporting nothing.
+    const s = deriveLightSuitability({
+      ...OVERRIDABLE_SCOPE,
+      predictedChanges: [],
+    });
+    assert.equal(s.shape.shape, null);
+    assert.equal(s.unwaivable.present, false);
+    assert.equal(s.unwaivable.reason, null);
+    assert.deepEqual(s.unwaivable.classes, []);
   });
 
   test('a migration span is reported as un-waivable too', () => {
-    const r = deriveUnwaivableRisk({
-      shape: { sensitiveClasses: [], migrationSpan: true },
+    const s = deriveLightSuitability({
+      ...OVERRIDABLE_SCOPE,
+      predictedChanges: [
+        { path: 'db/migrations/001.sql', assumption: 'creates' },
+        { path: 'src/reader.ts', assumption: 'refactors-existing' },
+      ],
     });
-    assert.equal(r.present, true);
-    assert.equal(r.code, 'migration-span');
+    assert.equal(s.unwaivable.present, true);
+    assert.equal(s.unwaivable.code, 'migration-span');
   });
 });
 

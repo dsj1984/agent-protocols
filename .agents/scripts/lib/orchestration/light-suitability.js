@@ -83,33 +83,25 @@ export const OVERRIDABLE_SHAPE_CODES = Object.freeze([
 ]);
 
 /**
- * The absolute risk rules (Story #4875) — the complement of
- * {@link OVERRIDABLE_SHAPE_CODES} among the rules that judge a *declared*
- * footprint. No re-slicing, shrinking, or operator answer satisfies one: a
- * footprint intersecting a sensitive-path class routes `full` however small the
- * change, and the diff backstop refuses the same footprint again at the end.
+ * Detect the **un-waivable** risk rules a predicted footprint trips —
+ * `sensitive-path` and `migration-span`, the complement of
+ * {@link OVERRIDABLE_SHAPE_CODES} — **independent of which rule the shape
+ * decision happened to record** (Story #4875).
  *
- * They are listed separately because {@link deriveStoryShape} reports only the
- * **first** rule a shape trips, and the ceiling rules are evaluated first. A
- * prompt that trips both `change-kinds` and `sensitive-path` is therefore
- * reported as a size objection — which reads as appealable, is waivable by an
- * attended operator, and sends the work all the way to an implementation the
- * backstop then refuses. Surfacing the un-waivable class at prediction time is
- * the difference between a wasted session and a redirected one.
- */
-export const UNWAIVABLE_SHAPE_CODES = Object.freeze([
-  SHAPE_CODES.SENSITIVE_PATH,
-  SHAPE_CODES.MIGRATION_SPAN,
-]);
-
-/**
- * Detect the un-waivable risk rules a predicted footprint trips, **independent
- * of which rule the shape decision happened to record** (Story #4875).
+ * No re-slicing, shrinking, or operator answer satisfies one: a footprint
+ * intersecting a sensitive-path class routes `full` however small the change,
+ * and the diff backstop refuses the same footprint again at the end. But
+ * {@link deriveStoryShape} reports only the **first** rule a shape trips and
+ * evaluates the ceiling rules first, so a prompt tripping both `change-kinds`
+ * and `sensitive-path` is reported as a size objection — which reads as
+ * appealable, is waivable by an attended operator, and sends the work all the
+ * way to an implementation the backstop then refuses.
  *
- * {@link deriveStoryShape} attaches the built effort shape to every decision it
- * can judge at all, and that shape carries the risk facts (`sensitiveClasses`,
- * `migrationSpan`) whether or not a risk rule was the one that fired. Reading
- * them here recovers the objection the first-hit reporting hides.
+ * The recovery is that the shape decision attaches the built effort shape to
+ * every footprint it can judge at all, and that shape carries the risk facts
+ * (`sensitiveClasses`, `migrationSpan`) whether or not a risk rule fired.
+ * Reading them here surfaces the objection first-hit reporting hides — the
+ * difference between a wasted session and a redirected one.
  *
  * Pure and total.
  *
@@ -122,7 +114,7 @@ export const UNWAIVABLE_SHAPE_CODES = Object.freeze([
  *   reason: string|null,
  * }}
  */
-export function deriveUnwaivableRisk(decision) {
+function deriveUnwaivableRisk(decision) {
   const shape = decision?.shape ?? null;
   const classes = Array.isArray(shape?.sensitiveClasses)
     ? shape.sensitiveClasses.filter(
@@ -361,8 +353,9 @@ export function deriveLightSuitability({
  *      terminal). Checked here as well as at the CLI, so the pure core carries
  *      the guarantee rather than the shell.
  *   3. **The objection is a size prediction** — a code in
- *      {@link OVERRIDABLE_SHAPE_CODES}, **and** the footprint trips none of
- *      {@link UNWAIVABLE_SHAPE_CODES} (Story #4875). Sensitivity and migration
+ *      {@link OVERRIDABLE_SHAPE_CODES}, **and** the footprint trips no
+ *      un-waivable risk rule ({@link deriveUnwaivableRisk}, Story #4875).
+ *      Sensitivity and migration
  *      span are risk and stay absolute however small the change — including
  *      when an earlier ceiling rule is the one the shape recorded.
  *   4. **The ledgered verdict is already `lite`.** The override substitutes for

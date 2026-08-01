@@ -197,7 +197,7 @@ const PROSE_PATH_RE = /(?:[\w.@~-]+\/)+[\w.@-]+\.[A-Za-z0-9]{1,6}/g;
  * @param {StoryRecord} story
  * @returns {Set<string>}
  */
-export function storyEvidencePaths(story) {
+function storyEvidencePaths(story) {
   const out = new Set();
   for (const field of [story?.title, story?.body, story?.spec]) {
     if (typeof field !== 'string' || field === '') continue;
@@ -219,7 +219,7 @@ export function storyEvidencePaths(story) {
  * @param {StoryRecord} story
  * @returns {Set<string>}
  */
-export function storyWidenedFootprint(story) {
+function storyWidenedFootprint(story) {
   const out = storyFootprint(story);
   for (const path of storyEvidencePaths(story)) out.add(path);
   return out;

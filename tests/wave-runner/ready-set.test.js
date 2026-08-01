@@ -6,10 +6,8 @@ import {
   classifyStory,
   selectReadySet,
   storiesOverlap,
-  storyEvidencePaths,
   storyFootprint,
   storyIdOf,
-  storyWidenedFootprint,
 } from '../../.agents/scripts/lib/wave-runner/ready-set.js';
 
 /**
@@ -400,40 +398,56 @@ describe('storiesOverlap — glob footprints fail safe (Story #4540)', () => {
 // Story #4875 — the overlap guard de-conflicts on evidence, not declaration
 // ---------------------------------------------------------------------------
 
-describe('storyEvidencePaths — a declared footprint is a lower bound', () => {
-  it('scrapes repo-relative paths a Story mentions in its own text', () => {
-    const paths = storyEvidencePaths({
+describe('the widened footprint — a declaration is only a lower bound', () => {
+  /** A Story whose only signal is the path its text names. */
+  const mentions = (id, body) => story(id, { body });
+
+  it('picks up repo-relative paths named in the title as well as the body', () => {
+    const titled = {
+      id: 1,
+      labels: [],
+      state: 'open',
       title: 'Fix .agents/scripts/lib/wave-runner/ready-set.js',
-      body: 'The caller in `bin/mandrel.js` must be updated too.\nSee docs/x.md',
+    };
+    const declared = story(2, {
+      files: ['.agents/scripts/lib/wave-runner/ready-set.js'],
     });
-    assert.deepEqual([...paths].sort(), [
-      '.agents/scripts/lib/wave-runner/ready-set.js',
-      'bin/mandrel.js',
-      'docs/x.md',
-    ]);
+    assert.equal(storiesOverlap(titled, declared), true);
+    assert.equal(
+      storiesOverlap(
+        mentions(3, 'the caller in `bin/mandrel.js`'),
+        story(4, { files: ['bin/mandrel.js'] }),
+      ),
+      true,
+      'a backticked path in prose is still a path',
+    );
   });
 
   it('does not mistake prose, bare words, or versions for paths', () => {
-    const paths = storyEvidencePaths({
-      body: 'Bump to 2.24.0 and re-run npm test. See the wave runner. 99.9% done.',
-    });
-    assert.deepEqual([...paths], []);
+    const prose = mentions(
+      1,
+      'Bump to 2.24.0 and re-run npm test. See the wave runner. 99.9% done.',
+    );
+    assert.equal(
+      storiesOverlap(prose, story(2, { files: ['lib/a.js'] })),
+      false,
+    );
+    assert.equal(storiesOverlap(prose, mentions(3, 'also 2.24.0')), false);
   });
 
-  it('is total — absent / non-string text yields nothing', () => {
-    assert.equal(storyEvidencePaths().size, 0);
-    assert.equal(storyEvidencePaths({ body: 42, title: null }).size, 0);
+  it('is total — absent / non-string text is simply no evidence', () => {
+    const junk = { id: 1, labels: [], state: 'open', body: 42, title: null };
+    assert.equal(
+      storiesOverlap(junk, story(2, { files: ['lib/a.js'] })),
+      false,
+    );
   });
 
-  it('widens rather than replaces: the declaration always survives', () => {
-    const widened = storyWidenedFootprint({
-      files: ['lib/declared.js'],
-      body: 'also touches lib/evidence.js',
-    });
-    assert.deepEqual([...widened].sort(), [
-      'lib/declared.js',
-      'lib/evidence.js',
-    ]);
+  it('widens rather than replaces: the declaration still collides on its own', () => {
+    const a = story(1, { files: ['lib/declared.js'], body: 'no paths here' });
+    const b = story(2, { files: ['lib/declared.js'], body: 'nor here' });
+    assert.equal(storiesOverlap(a, b), true);
+    assert.deepEqual([...storyFootprint(a)], ['lib/declared.js']);
   });
 });
 
