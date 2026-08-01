@@ -195,7 +195,7 @@ describe('runAcceptanceEval — decision → exit-code mapping + signal emission
         emitSignal: false,
       },
       {
-        deriveRoundFn: () => 2,
+        resolveRoundFn: () => ({ round: 2, replay: false }),
       },
     );
     assert.equal(envelope.decision, 'block');

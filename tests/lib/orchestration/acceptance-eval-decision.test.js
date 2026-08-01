@@ -11,8 +11,9 @@ import { describe, it } from 'node:test';
 
 import {
   buildAcceptanceEvalSignal,
+  computeVerdictFingerprint,
   decideAcceptanceEval,
-  deriveAcceptanceEvalRound,
+  resolveAcceptanceEvalRound,
 } from '../../../.agents/scripts/lib/orchestration/acceptance-eval-decision.js';
 
 const crit = (index, verdict, evidence = 'ev') => ({
@@ -200,13 +201,13 @@ describe('buildAcceptanceEvalSignal', () => {
   });
 });
 
-describe('deriveAcceptanceEvalRound — ledger-derived round (Story #4019)', () => {
+describe('resolveAcceptanceEvalRound — ledger-derived round (Story #4019)', () => {
   const line = (obj) => `${JSON.stringify(obj)}\n`;
   const resolver = (eid, sid) =>
     `/fake/${eid ?? 'standalone'}/story-${sid}/signals.ndjson`;
 
   it('returns 1 when the signals ledger is missing', () => {
-    const round = deriveAcceptanceEvalRound({
+    const { round } = resolveAcceptanceEvalRound({
       epicId: null,
       storyId: 4019,
       readFile: () => {
@@ -221,7 +222,7 @@ describe('deriveAcceptanceEvalRound — ledger-derived round (Story #4019)', () 
     const text =
       line({ kind: 'acceptance-eval', storyId: 4019, details: { round: 1 } }) +
       line({ kind: 'acceptance-eval', storyId: 4019, details: { round: 2 } });
-    const round = deriveAcceptanceEvalRound({
+    const { round } = resolveAcceptanceEvalRound({
       epicId: 7,
       storyId: 4019,
       readFile: () => text,
@@ -235,7 +236,7 @@ describe('deriveAcceptanceEvalRound — ledger-derived round (Story #4019)', () 
       line({ kind: 'acceptance-eval', storyId: 4019 }) +
       line({ kind: 'acceptance-eval', storyId: 9999 }) +
       line({ kind: 'gate-failure', storyId: 4019 });
-    const round = deriveAcceptanceEvalRound({
+    const { round } = resolveAcceptanceEvalRound({
       epicId: 7,
       storyId: 4019,
       readFile: () => text,
@@ -250,7 +251,7 @@ describe('deriveAcceptanceEvalRound — ledger-derived round (Story #4019)', () 
       'this is not json\n' +
       '\n' +
       line({ kind: 'acceptance-eval', storyId: 4019 });
-    const round = deriveAcceptanceEvalRound({
+    const { round } = resolveAcceptanceEvalRound({
       epicId: null,
       storyId: 4019,
       readFile: () => text,
@@ -261,7 +262,7 @@ describe('deriveAcceptanceEvalRound — ledger-derived round (Story #4019)', () 
 
   it('routes standalone Stories (epicId null) through the resolver with null', () => {
     let seenEid = 'unset';
-    deriveAcceptanceEvalRound({
+    resolveAcceptanceEvalRound({
       epicId: null,
       storyId: 12,
       readFile: () => '',
@@ -271,5 +272,147 @@ describe('deriveAcceptanceEvalRound — ledger-derived round (Story #4019)', () 
       },
     });
     assert.equal(seenEid, null);
+  });
+});
+
+describe('reading a verdict is not a round (Story #4874)', () => {
+  const line = (obj) => `${JSON.stringify(obj)}\n`;
+  const resolver = (eid, sid) =>
+    `/fake/${eid ?? 'standalone'}/story-${sid}/signals.ndjson`;
+
+  const redraftVerdict = {
+    criteria: [
+      { index: 0, criterion: 'AC-1', verdict: 'met', evidence: 'test passes' },
+      { index: 1, criterion: 'AC-2', verdict: 'unmet', evidence: 'no test' },
+    ],
+  };
+
+  it('fingerprints a verdict from its criteria, ignoring its self-reported round', () => {
+    const a = computeVerdictFingerprint({ ...redraftVerdict, round: 1 });
+    const b = computeVerdictFingerprint({ ...redraftVerdict, round: 7 });
+    assert.equal(a, b);
+    assert.match(a, /^[0-9a-f]{16}$/);
+  });
+
+  it('fingerprints differently once a criterion or its evidence changes', () => {
+    const before = computeVerdictFingerprint(redraftVerdict);
+    const after = computeVerdictFingerprint({
+      criteria: [
+        redraftVerdict.criteria[0],
+        {
+          ...redraftVerdict.criteria[1],
+          verdict: 'met',
+          evidence: 'test added',
+        },
+      ],
+    });
+    assert.notEqual(before, after);
+  });
+
+  it('replays the recorded round when the same verdict is read again', () => {
+    const fingerprint = computeVerdictFingerprint(redraftVerdict);
+    const text = line({
+      kind: 'acceptance-eval',
+      storyId: 4874,
+      details: { round: 1, verdictFingerprint: fingerprint },
+    });
+    const resolved = resolveAcceptanceEvalRound({
+      epicId: null,
+      storyId: 4874,
+      verdictFingerprint: fingerprint,
+      readFile: () => text,
+      signalsPathResolver: resolver,
+    });
+    assert.deepEqual(resolved, { round: 1, replay: true });
+  });
+
+  it('advances the round for a genuinely new verdict after the same ledger', () => {
+    const text = line({
+      kind: 'acceptance-eval',
+      storyId: 4874,
+      details: {
+        round: 1,
+        verdictFingerprint: computeVerdictFingerprint(redraftVerdict),
+      },
+    });
+    const resolved = resolveAcceptanceEvalRound({
+      epicId: null,
+      storyId: 4874,
+      verdictFingerprint: computeVerdictFingerprint({
+        criteria: [
+          {
+            index: 0,
+            criterion: 'AC-1',
+            verdict: 'met',
+            evidence: 'now passing',
+          },
+        ],
+      }),
+      readFile: () => text,
+      signalsPathResolver: resolver,
+    });
+    assert.deepEqual(resolved, { round: 2, replay: false });
+  });
+
+  it('keeps count-based behaviour for legacy signals carrying no fingerprint', () => {
+    const text =
+      line({ kind: 'acceptance-eval', storyId: 4874, details: { round: 1 } }) +
+      line({ kind: 'acceptance-eval', storyId: 4874, details: { round: 2 } });
+    const resolved = resolveAcceptanceEvalRound({
+      epicId: null,
+      storyId: 4874,
+      verdictFingerprint: computeVerdictFingerprint(redraftVerdict),
+      readFile: () => text,
+      signalsPathResolver: resolver,
+    });
+    assert.deepEqual(resolved, { round: 3, replay: false });
+  });
+
+  it('falls back to the record ordinal when a matched signal recorded no round', () => {
+    const fingerprint = computeVerdictFingerprint(redraftVerdict);
+    const text =
+      line({ kind: 'acceptance-eval', storyId: 4874, details: { round: 1 } }) +
+      line({
+        kind: 'acceptance-eval',
+        storyId: 4874,
+        details: { verdictFingerprint: fingerprint },
+      });
+    const resolved = resolveAcceptanceEvalRound({
+      epicId: null,
+      storyId: 4874,
+      verdictFingerprint: fingerprint,
+      readFile: () => text,
+      signalsPathResolver: resolver,
+    });
+    assert.deepEqual(resolved, { round: 2, replay: true });
+  });
+
+  it('carries the fingerprint into the emitted signal details', () => {
+    const outcome = decideAcceptanceEval({
+      verdict: redraftVerdict,
+      maxRounds: 2,
+      round: 1,
+    });
+    const signal = buildAcceptanceEvalSignal({
+      storyId: 4874,
+      epicId: null,
+      outcome,
+      verdictFingerprint: 'abc123',
+    });
+    assert.equal(signal.details.verdictFingerprint, 'abc123');
+  });
+
+  it('omits the fingerprint key entirely when none is supplied', () => {
+    const outcome = decideAcceptanceEval({
+      verdict: redraftVerdict,
+      maxRounds: 2,
+      round: 1,
+    });
+    const signal = buildAcceptanceEvalSignal({
+      storyId: 4874,
+      epicId: null,
+      outcome,
+    });
+    assert.equal('verdictFingerprint' in signal.details, false);
   });
 });
