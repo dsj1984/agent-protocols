@@ -1201,6 +1201,10 @@
       "symbol": "buildQuery"
     },
     {
+      "file": ".agents/scripts/lib/findings/severity.js",
+      "symbol": "__testing"
+    },
+    {
       "file": ".agents/scripts/lib/gates/baseline-store.js",
       "symbol": "BaselineWriteError"
     },

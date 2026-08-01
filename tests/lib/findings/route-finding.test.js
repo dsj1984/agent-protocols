@@ -1,14 +1,18 @@
 import assert from 'node:assert/strict';
 import { test } from 'node:test';
 import {
+  __testing,
   carryProvenanceFooters,
   fingerprintFinding,
   fingerprintFooter,
   parseFingerprintFooter,
-  parseSemanticKeyFooter,
   routeFinding,
   semanticKeyFooter,
 } from '../../../.agents/scripts/lib/findings/route-finding.js';
+
+// Internal helper: the module's three call sites reach it directly, so it is
+// exposed through `__testing` rather than widening the public surface.
+const { parseSemanticKeyFooter } = __testing;
 
 const baseFinding = {
   title: 'Unparameterised SQL query in login handler',

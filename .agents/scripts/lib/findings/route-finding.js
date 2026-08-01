@@ -164,7 +164,7 @@ export function semanticKeyFooter(keys) {
  * @param {string} body
  * @returns {string[]}
  */
-export function parseSemanticKeyFooter(body) {
+function parseSemanticKeyFooter(body) {
   return parseAllFooterValues(
     body,
     /<!--\s*audit-semantic-keys:\s*([^>]*?)\s*-->/g,
@@ -483,4 +483,5 @@ export const __testing = {
   confirmCandidates,
   decideFromConfirmed,
   issueCarriesSemanticKey,
+  parseSemanticKeyFooter,
 };

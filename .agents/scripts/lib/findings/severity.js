@@ -40,7 +40,7 @@ export const SEVERITIES = Object.freeze([
  * malformed input — and because both the classify and promote paths share it,
  * malformed input still fingerprints identically across the two paths.
  */
-export const DEFAULT_SEVERITY = 'info';
+const DEFAULT_SEVERITY = 'info';
 
 const SEVERITY_SET = new Set(SEVERITIES);
 
@@ -61,7 +61,7 @@ const SEVERITY_SET = new Set(SEVERITIES);
  *
  * @type {Readonly<Record<string, string>>}
  */
-export const SEVERITY_ALIASES = Object.freeze({
+const SEVERITY_ALIASES = Object.freeze({
   blocker: 'critical',
   major: 'high',
   mod: 'medium',
@@ -164,3 +164,16 @@ export function highestSeverity(values) {
   }
   return best;
 }
+
+/**
+ * Internals reached by the unit tests only. The floor and the alias table are
+ * consumed exclusively by this module's own exported functions, so they are
+ * not public API — but the alias table carries a structural invariant (no
+ * alias shadows a canonical level, every target IS one) that cannot be proven
+ * through `normalizeSeverity` alone, since that function returns a canonical
+ * value by construction.
+ */
+export const __testing = {
+  DEFAULT_SEVERITY,
+  SEVERITY_ALIASES,
+};

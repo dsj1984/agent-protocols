@@ -6,14 +6,17 @@
 import assert from 'node:assert/strict';
 import { test } from 'node:test';
 import {
-  DEFAULT_SEVERITY,
+  __testing,
   fingerprintSeverity,
   highestSeverity,
   normalizeSeverity,
   SEVERITIES,
-  SEVERITY_ALIASES,
   SEVERITY_RANK,
 } from '../../../.agents/scripts/lib/findings/severity.js';
+
+// Module internals: consumed only by this module's own exported functions, so
+// they are reached through `__testing` rather than widening the public surface.
+const { DEFAULT_SEVERITY, SEVERITY_ALIASES } = __testing;
 
 test('SEVERITIES is the canonical schema order, highest → lowest', () => {
   assert.deepEqual(SEVERITIES, ['critical', 'high', 'medium', 'low', 'info']);
