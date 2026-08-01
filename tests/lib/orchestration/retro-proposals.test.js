@@ -1025,3 +1025,101 @@ test('emptyResult is reserved for input the composer cannot use at all', () => {
     empty,
   );
 });
+
+// ---------------------------------------------------------------------------
+// Story #4892 — unresolvable contributing-Story evidence is never published
+// ---------------------------------------------------------------------------
+
+/**
+ * The measured shape behind issue #4870: the light path's diff-backstop
+ * refusal, emitted once by a real Story and once by a `--story 999999` test
+ * fixture that reached the live signals tree.
+ */
+const rejected = (storyId) => ({
+  category: 'light-scope-rejected',
+  source: 'framework',
+  storyId,
+  tool: 'deliver-light',
+  details: { surface: 'diff-backstop', reason: 'actual change set is unknown' },
+});
+
+test('#4892 AC-3: an unresolvable contributing id is withheld from the filed body', () => {
+  const out = composeRoutedProposals(
+    baseInput({
+      anchorId: 4870,
+      signals: [rejected(4856), rejected(999999)],
+    }),
+  );
+
+  const item = out.framework[0];
+  assert.equal(item.category, 'light-scope-rejected');
+  // Both occurrences still count — the bucket recurred twice, and netting the
+  // OCCURRENCE would be a different (and wrong) fix.
+  assert.equal(item.occurrences, 2);
+  // Only the resolvable Story is named, and the count matches what is named.
+  assert.match(item.body, /Contributing Stories \(1\): #4856$/m);
+  assert.ok(
+    !item.body.includes('999999'),
+    'a fixture id must never reach a filed issue body',
+  );
+  assert.ok(
+    !item.command.includes('999999'),
+    'nor the pre-drafted command stanza an operator pastes',
+  );
+});
+
+test('#4892 AC-4: a proposal whose contributing Stories are ALL unresolvable does not auto-file', () => {
+  const out = composeRoutedProposals(
+    baseInput({
+      anchorId: 4870,
+      signals: [rejected(999998), rejected(999999)],
+    }),
+  );
+
+  // Nothing routed → the graduator has nothing to file (it walks
+  // framework/consumer only).
+  assert.deepEqual(out.framework, []);
+  assert.deepEqual(out.consumer, []);
+  // Still recorded, so the noise is visible without becoming a ticket.
+  assert.equal(out.discarded.length, 1);
+  assert.equal(out.discarded[0].category, 'light-scope-rejected');
+  assert.equal(out.discarded[0].occurrences, 2);
+  assert.equal(
+    out.discarded[0].storyCount,
+    0,
+    'an unresolvable id must not be counted as recurrence evidence either',
+  );
+});
+
+test('#4892 AC-4: a forced-actionable block with NO contributing Stories still files', () => {
+  // "No cited Stories" is not "cited Stories that do not resolve" — this is
+  // the unresolved-block path, whose evidence is the block itself.
+  const out = composeRoutedProposals(
+    baseInput({
+      anchorId: 4870,
+      unresolvedBlockedEvents: [
+        { ticketId: 4870, source: 'framework', category: 'story-blocked' },
+      ],
+    }),
+  );
+
+  assert.equal(out.framework.length, 1);
+  assert.equal(out.framework[0].category, 'story-blocked');
+});
+
+test('#4892 AC-5: the cross-run window survives — a real Story outside the run is still published', () => {
+  const out = composeRoutedProposals(
+    baseInput({
+      anchorId: 4870,
+      anchorStoryIds: [4870],
+      signals: [rejected(4856), rejected(4801), rejected(999999)],
+    }),
+  );
+
+  const item = out.framework[0];
+  // #4801 and #4856 are outside the anchor's own Stories and are counted:
+  // withholding is a resolvability bound, never a narrowing of the window.
+  assert.match(item.body, /Contributing Stories \(2\): #4801, #4856$/m);
+  assert.match(item.title, /across 2 Stories/);
+  assert.ok(!item.title.includes('in plan-run'), 'the corpus is not confined');
+});

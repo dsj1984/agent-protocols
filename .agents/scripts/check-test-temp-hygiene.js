@@ -78,6 +78,11 @@ import os from 'node:os';
 import path from 'node:path';
 import { fileURLToPath } from 'node:url';
 import { runAsCli } from './lib/cli-utils.js';
+import { mainCheckoutRoot } from './lib/config/temp-paths.js';
+import {
+  isReservedTestId,
+  RESERVED_TEST_ID_BAND,
+} from './lib/reserved-test-ids.js';
 import {
   findRawTmpdirMkdtemp,
   listSuiteTempRoots,
@@ -367,6 +372,84 @@ export function cleanFixtureDirs({
     }
   }
   return { candidates, removed };
+}
+
+/**
+ * Every Epic / Story id a stream file's own path attributes it to.
+ *
+ * Both canonical layouts are read, and a nested Epic-attached stream yields
+ * both ids (`run-<eid>/stories/story-<sid>/…`): either half being a fixture id
+ * makes the stream fixture-owned, and taking only the outer one is how a
+ * fixture Story under a real run would slip past.
+ *
+ * @param {string} rel POSIX-normalised path relative to `temp/`.
+ * @returns {number[]}
+ */
+function streamOwnerIds(rel) {
+  const ids = [];
+  const run = /^run-(\d+)$/.exec(rel.split('/')[0]);
+  if (run) ids.push(Number(run[1]));
+  const story = /(?:^|\/)story-(\d+)\//.exec(rel);
+  if (story) ids.push(Number(story[1]));
+  return ids;
+}
+
+/**
+ * Stream files under `tempDir` owned by a **reserved test-fixture id**
+ * (Story #4892).
+ *
+ * This is the residual-pollution dimension the snapshot/assert bracket cannot
+ * cover: the bracket only runs in CI, where `temp/` starts empty, so a local
+ * run that appends fixture telemetry to the operator's live ledger was only
+ * ever discovered from the ticket the retro graduator filed off it (issue
+ * #4870 cited `#999999`, a `--story 999999` CLI spawn from the suite).
+ *
+ * Unlike the snapshot diff this needs no baseline and is immune to a
+ * concurrent delivery in another checkout: a reserved id is reserved *from*
+ * real work, so nothing but a test can own one of these files.
+ *
+ * @param {string} tempDir
+ * @returns {string[]} POSIX-normalised paths relative to `tempDir`, sorted.
+ */
+export function findReservedIdStreamFiles(tempDir) {
+  return listStreamFiles(tempDir).filter((rel) =>
+    streamOwnerIds(rel).some(isReservedTestId),
+  );
+}
+
+/**
+ * Post-run guard: fail when a test run left a fixture-id telemetry stream in
+ * the **repository-root** temp tree (Story #4892).
+ *
+ * Resolution matters more than it looks: every writer anchors a relative
+ * `tempRoot` to the *main checkout* (so a Story worktree and its `/deliver`
+ * host converge on one ledger), so a guard that scanned `cwd` would scan an
+ * empty worktree tree and pass vacuously on the very tree it is meant to
+ * protect. `resolveRoot` is the injection seam for tests.
+ *
+ * @param {object} [opts]
+ * @param {string} [opts.cwd=process.cwd()]
+ * @param {(line: string) => void} [opts.log]
+ * @param {(cwd: string) => string|null} [opts.resolveRoot]
+ * @returns {number} exit code (0 clean, 1 polluted).
+ */
+export function assertNoReservedIdStreams({
+  cwd = process.cwd(),
+  log = (l) => process.stderr.write(`${l}\n`),
+  resolveRoot = mainCheckoutRoot,
+} = {}) {
+  const root = resolveRoot(cwd) ?? cwd;
+  const tempDir = tempDirFor(root);
+  const found = findReservedIdStreamFiles(tempDir);
+  if (found.length === 0) return 0;
+  log(
+    `[test-temp-hygiene] FAIL — ${found.length} fixture-id telemetry stream(s) in the real temp tree (${tempDir}):`,
+  );
+  for (const rel of found) log(`  + fixture ${rel}`);
+  log(
+    `[test-temp-hygiene] ids ${RESERVED_TEST_ID_BAND} are reserved for fixtures, so a test wrote to the live ledger — the retro graduator reads these streams and files tickets off them. Inject an absolute per-test tempRoot on the offending spawn, then remove the stream(s) with --clean --ids <id> --yes.`,
+  );
+  return 1;
 }
 
 /**

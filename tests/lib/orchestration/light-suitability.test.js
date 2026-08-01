@@ -41,7 +41,7 @@
 
 import assert from 'node:assert/strict';
 import { spawnSync } from 'node:child_process';
-import { existsSync, readFileSync, writeFileSync } from 'node:fs';
+import { existsSync, readFileSync, statSync, writeFileSync } from 'node:fs';
 import path from 'node:path';
 import test, { describe } from 'node:test';
 import { fileURLToPath } from 'node:url';
@@ -54,6 +54,7 @@ import {
   runLightGate,
   synthesizeAcceptance,
 } from '../../../.agents/scripts/deliver-light.js';
+import { TEST_TEMP_ROOT_ENV } from '../../../.agents/scripts/lib/config/temp-paths.js';
 import { resolveBackstopOutcome } from '../../../.agents/scripts/lib/orchestration/light-backstop.js';
 import {
   handleBlockedBackstop,
@@ -1615,16 +1616,63 @@ describe('a blocked backstop recycles the receipt Story (Story #4856)', () => {
   });
 
   test('the CLI emits the recycle nextCommand on a blocked backstop', () => {
+    // This spawns the REAL CLI at the REAL repository root, so the child
+    // resolves the real `.agentrc` and its refusal telemetry
+    // (`emitRuntimeFriction` → `appendSignal`) resolves the real tempRoot:
+    // without an injected root the fixture Story's friction lands in the
+    // operator's live ledger at `temp/standalone/stories/story-999999/`, the
+    // retro graduator counts it toward the recurrence threshold, and it files
+    // a ticket citing `#999999` as a contributing Story (issue #4870).
+    // Injecting an absolute per-test root makes the isolation a property of
+    // this spawn rather than of whatever the child infers about its context.
+    const scratchRoot = makeTempDir('light-backstop-signals-');
+    const liveStream = path.join(
+      REPO_ROOT,
+      'temp',
+      'standalone',
+      'stories',
+      'story-999999',
+      'signals.ndjson',
+    );
+    const liveSizeBefore = existsSync(liveStream)
+      ? statSync(liveStream).size
+      : null;
     const res = spawnSync(
       process.execPath,
       [DELIVER_LIGHT_SRC, '--backstop', '--story', '999999'],
-      { encoding: 'utf8', cwd: REPO_ROOT },
+      {
+        encoding: 'utf8',
+        cwd: REPO_ROOT,
+        env: { ...process.env, [TEST_TEMP_ROOT_ENV]: scratchRoot },
+      },
     );
     // A branch that does not exist yields an unenumerable diff → blocked (3).
     assert.equal(res.status, 3);
     const envelope = JSON.parse(res.stdout.trim().split('\n').pop());
     assert.equal(envelope.blocked, true);
     assert.equal(envelope.nextCommand, '/plan 999999');
+    // The refusal signal exists — this test would pass vacuously against a
+    // child that emitted nothing at all.
+    assert.equal(
+      existsSync(
+        path.join(
+          scratchRoot,
+          'temp',
+          'standalone',
+          'stories',
+          'story-999999',
+          'signals.ndjson',
+        ),
+      ),
+      true,
+      'the spawned CLI must write its friction signal into the injected root',
+    );
+    // …and the live ledger is untouched by it.
+    assert.equal(
+      existsSync(liveStream) ? statSync(liveStream).size : null,
+      liveSizeBefore,
+      'a fixture Story id must never grow the repository-root signals tree',
+    );
   });
 
   test('a clean backstop carries no recycle command', async () => {
