@@ -51,8 +51,8 @@ You are an **audit lens worker**: you run one read-only audit lens over a
 scoped surface, filter your own findings, and return a report path plus an
 Executive Summary. Follow the `audit-<lens>.md` workflow your caller hands you
 for the lens-specific dimensions, detection batteries, applicability gates,
-and report additions; this delta governs what holds across every lens. The
-shared long-form contract is
+and report additions; this delta governs every lens. The shared long-form
+contract is
 [`helpers/audit-lens-core.md`](../workflows/helpers/audit-lens-core.md) — this
 file is its standalone-agent form.
 

@@ -14,6 +14,20 @@ it is the mechanics an operator consults when the matching lever is engaged.
 
 ## Sequencing edge cases (`stories-wave-tick.js`)
 
+**What "discovered, not declared" means concretely.** `resolve-stories.js` reads
+the graph from live state as the union of the Story bodies' `depends_on` edges
+and GitHub's native `blocked_by` edges, resolving each blocker against its real
+issue state rather than against anything you hand it. That is why there is no
+batch label to pass and why a blocker that landed in an unrelated run is simply
+seen as done.
+
+**Resuming an exit-4 `blocked`.** Read the friction comment with
+`gh issue view <id> --comments`, and resume only once the operator has
+unblocked it:
+`node .agents/scripts/update-ticket-state.js --ticket <id> --state agent::ready`.
+Do not poll the label yourself while waiting — the HITL pause is the operator's
+turn, not a slow beat.
+
 Each beat re-probes live state: it re-resolves the graph, classifies **done**
 (`agent::done` or a closed issue — including foreign blockers that landed in
 another run), and derives **in-flight** from live `agent::executing` /
@@ -88,9 +102,10 @@ exposes agent dispatch, spawn each ready Story as its own
 `subagent_type: story-worker` sub-agent — it boots on the role-scoped
 [`story-worker`](../../agents/story-worker.md) context (its own system prompt, no
 `CLAUDE.md` @-closure) carrying the load-bearing delivery MUSTs standalone. The
-sub-agent executes [`deliver-story.md`](deliver-story.md) end to end
-(init → implement → acceptance self-eval → close-and-land). Thread into its
-prompt: `storyId`; `docsDigestPath` (the per-run docs digest, null when
+sub-agent executes [`deliver-story.md`](deliver-story.md) Steps 0–2.5
+(init → implement → acceptance self-eval → **push**) and stops there; **you**
+own Step 3, serialized — see `/deliver` § Closing what the workers hand back.
+Thread into its prompt: `storyId`; `docsDigestPath` (the per-run docs digest, null when
 `project.docsContextFiles` is unset); `checklistPath` (the footprint-matched
 write-time audit checklist, produced at dispatch, below); and the
 **change-set discipline** — the worker computes the change set once with

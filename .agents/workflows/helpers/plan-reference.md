@@ -98,6 +98,14 @@ Resume `/plan` at step 2 (Author) **in this same session** — the interrogation
 is still valid and re-paying for it buys nothing. This bounce-back is not an
 escalation.
 
+**Under `--yes` the offer is recorded and planning proceeds** — it is *never*
+auto-downgraded to light. An unattended run has nobody to confirm the reroute,
+and a suggestion is not a confirmation. The same rule governs unknown triage
+unattended: AFK unknowns are still researched, but no free-form operator
+question is asked — each HITL unknown lands in Key Assumptions marked a
+decision-made-by-default, so the record shows what was decided for the operator
+rather than pretending it was decided with them.
+
 Escalation in the *other* direction — an over-scope prompt on the light path —
 is terminal and requires a fresh session. The rule that separates the two, and
 why it must not be flattened into symmetry:
@@ -293,6 +301,16 @@ Either way the critic is **maker-blind**: hand it the draft artifacts
 (`stories.json`, and `techspec.md` when present) — never the authoring
 transcript or the reasons the planner believed its own draft is sound. A
 critic that reads the maker's case grades the case, not the draft.
+
+## What `--dry-run` actually gates
+
+`plan-persist.js --dry-run` is the same command with GitHub writes suppressed,
+and every gate runs before the first `createIssue` would fire — the validator,
+the body parse, the DAG, the capacity and Spec-budget ceilings, the
+reachability check, the split and supersede partitions, and the Tech Spec fold.
+That is the whole point of running it first: a dry run that comes back clean
+has already paid for every deterministic refusal, so the real persist has
+nothing left to discover except network failure.
 
 ## Ready means fully persisted
 

@@ -261,6 +261,31 @@ removed. Hard gates are untouched.
 
 ## Step 3 — Merge wait, async mode, and flags
 
+**Step 3 is the orchestrator's, and it is serialized.** A dispatched
+`story-worker` ends its turn at a pushed branch (spine § Step 2.5); the session
+that dispatched it runs close. Two reasons, both measured rather than
+theoretical:
+
+1. **A sub-agent cannot resume itself.** It gets no notification when a
+   backgrounded close finishes, so a worker that backgrounds close and ends its
+   turn strands the envelope in a turn nobody reads — three of five workers in
+   one measured wave did exactly that despite an explicit foreground-close
+   instruction. Moving the seam removes the failure instead of re-wording the
+   prohibition. The parent, by contrast, is still live and _does_ observe and
+   retry its own close.
+2. **Closes contend; implementation does not.** Close syncs from
+   `origin/<baseBranch>`, pushes, opens a PR and arms auto-merge — two of those
+   in flight race on the base branch, the merge queue and the shared checkout.
+   So implementation may fan out across the wave, but the tail runs **one Story
+   at a time**: a worker that hands back while another close is running waits in
+   the orchestrator's queue.
+
+A worker therefore returns a hand-off report, not a terminal envelope, and that
+is the expected shape — only close mints an envelope. Never answer a missing
+envelope with a re-dispatch: `single-story-init.js` re-run under a live branch
+is how one Story ends up with two closes. Close the pushed branch, or probe with
+`deliver-recover.js` and run the one command it prints.
+
 **What close does internally.** The script runs the close-validation gates
 against `baseBranch`, syncs the Story branch from `origin/<baseBranch>`
 (the parallel-race defence), pushes `story-<id>`, opens (or
@@ -560,7 +585,7 @@ the watch exits clean.
   `agent::blocked`, summarize the blocker on the PR, and yield to the
   operator.
 
-### Idempotence of the loop
+### Idempotence of the loop {#idempotence}
 
 - The PR stays open across retries; `gh pr create` is a one-shot at
   close, the loop only pushes new commits.
@@ -727,6 +752,27 @@ up").
 
 ---
 
+## Idempotence and the standing constraints
+
+Every script in the chain no-ops safely on re-run: `single-story-init.js`
+re-prints `workCwd` for an already-initialized Story; `single-story-close.js`
+and `single-story-confirm-merge.js` short-circuit on a closed or `agent::done`
+Story; the PR probe reuses an open PR rather than opening a second one. That is
+what makes the recovery router safe to walk more than once.
+
+The four constraints the spine states without arguing for them:
+
+- **Never push the Story branch directly to `main`.** The PR is the only merge
+  surface — a direct push bypasses required checks and the squash title
+  release-please parses.
+- **Always prefix path-based tools with the absolute `workCwd` root.** `cd`
+  scopes Bash, not Edit/Write/Read; close's wrong-tree guard is a backstop for
+  the mistake, not a licence to make it.
+- **Report state, not process.** Mirror the close envelope's fields; step
+  narration reads as progress while telling the caller nothing it can branch on.
+- **Drive every `agent::*` transition through `update-ticket-state.js`** so the
+  label, the Projects Status column and the lifecycle event stay in one motion.
+
 ## Step 7 — Return-contract detail
 
 The field-level contract is the shipped schema
@@ -777,8 +823,9 @@ persists the validated envelope to
 - **It is best-effort.** A failed write returns null and changes nothing about
   the emitted envelope or the exit code — a landed PR must never become a
   crash because a temp directory was unwritable.
-- **It is a fallback, not a licence.** A worker still holds its turn until the
-  envelope arrives; see [`agents/story-worker.md`](../../agents/story-worker.md).
+- **It is a fallback, not a licence.** The orchestrator running close still
+  holds its turn until the envelope arrives; see § Step 3 above and
+  [`agents/story-worker.md`](../../agents/story-worker.md).
 
 `deliver-recover.js` reads the same artifact, plus the freshness of
 `close-gates-<storyId>.log`, to split the one genuinely ambiguous row of its
