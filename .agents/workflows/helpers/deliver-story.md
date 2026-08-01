@@ -1,8 +1,7 @@
 ---
 description:
-  Execute one Story end-to-end. Creates story-<id> from main, implements in a
-  worktree (optional ## Slicing checkpoints), runs derived-level ceremony,
-  opens a PR against main, and lands.
+  Execute one Story end-to-end: story-<id> from main, implemented in a worktree
+  (optional ## Slicing checkpoints), derived-level ceremony, PR against main.
 mandatoryReads: [deliver-digest.md]
 ---
 
@@ -12,9 +11,7 @@ mandatoryReads: [deliver-digest.md]
 > detail lives in [`deliver-story-reference.md`](deliver-story-reference.md)
 > ("reference" below). Invoked by [`/deliver`](../deliver.md).
 > **Read [`deliver-digest.md`](deliver-digest.md) once, first** — the one
-> bundled read every delivery needs: dispatch, engine invariants, the
-> change-set/ceremony incantation, the acceptance-eval gate and the
-> terminal-envelope contract. Steps cite it as "digest § N".
+> bundled read every delivery needs. Steps cite it as "digest § N".
 
 ## Overview
 
@@ -27,8 +24,7 @@ single-story-init.js → implement + commits → derived-level ceremony → push
 ```
 
 An `Epic: #N` reference marks a v1 ticket — **stop** and re-plan. Engine
-traits: reference § Engine invariants. Prerequisites: a `type::story` issue,
-clean `gh auth status`, `project.baseBranch` local and on `origin`.
+traits and prerequisites: reference § Engine invariants.
 
 ## Who owns which step
 
@@ -45,8 +41,7 @@ that dispatched the work**, never to a spawned worker.
 **A worker returning no terminal envelope is expected, not a failure.** Only
 Step 3 mints one, so a hand-off is the normal sub-agent return. Never
 re-dispatch the Story on it — the branch exists, and re-running Step 0 under
-live work is how one Story gets two closes. Resume instead: close the pushed
-branch yourself, or recover the in-flight worker or close per § Recovery.
+live work is how one Story gets two closes. Resume per § Recovery instead.
 
 ## Step 0 — Initialize (`single-story-init.js`)
 
@@ -68,7 +63,7 @@ or committing to local `main`, is forbidden.
 
 **Step 0.5 — `cd "<workCwd>"`**, and prefix every path-based
 Edit/Write/Read with that absolute worktree root — the `cd` alone does not
-scope those tools (reference § Worktree scope is not just the Bash cwd).
+scope those tools (reference § Worktree scope).
 
 ## Step 1 — Implementation
 
@@ -132,14 +127,13 @@ Relay the validated envelope close emits between its
 `--- STORY DELIVER TERMINAL ---` markers — never free-form prose, never a
 hand-composed object. Statuses, exits and fields: **digest § 5** (SSOT: the
 shipped [schema](../../schemas/story-deliver-terminal.schema.json)).
-`pending` is the only sanctioned no-merge ending. A **worker** returns its
-Step 2.5 hand-off — only the orchestrator relays an envelope.
+`pending` is the only sanctioned no-merge ending.
 
 ## Steps 4–6 — Recovery (**recovery-only**) {#recover}
 
 A `landed` envelope means everything ran — go to Step 7. Enter recovery **only**
-when the envelope routes you there; procedures are reference § Step 4 / § Step 5
-/ § Step 5.5 / § Step 6. Two rules the spine keeps: a red **disarms auto-merge**,
+when the envelope routes you there; procedures are reference §§ Step 4–6.
+Two rules the spine keeps: a red **disarms auto-merge**,
 so only a green on a NEW head SHA re-arms it — a re-run is refused; fix at source
 and push ([`rules/ci-remediation.md`](../../rules/ci-remediation.md)). And a
 `tail.*: false` degrades the report, never the land.
@@ -154,9 +148,8 @@ digest § 5. Otherwise do not guess — probe **read-only** with
 ## Idempotence & constraints
 
 Every script no-ops safely on re-run (reference § Idempotence). **Never** push
-the Story branch to `main` — the PR is the only merge surface. **Always** prefix
-path-based tools with the absolute `workCwd` root (Step 0.5). Report state, not
-process. Drive `agent::*` through
+the Story branch to `main` — the PR is the only merge surface. Report state,
+not process. Drive `agent::*` through
 `update-ticket-state.js --ticket <id> --state <state>`.
 
 ## See also

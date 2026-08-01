@@ -11,8 +11,8 @@ description:
 > intent phrases, ceremony and the epilogue live in on-demand
 > [`helpers/deliver-reference.md`](helpers/deliver-reference.md) ("reference"
 > below); the unplanned path in
-> [`helpers/deliver-light.md`](helpers/deliver-light.md). What every delivery
-> needs is one read: [`helpers/deliver-digest.md`](helpers/deliver-digest.md).
+> [`helpers/deliver-light.md`](helpers/deliver-light.md). Every delivery reads
+> [`helpers/deliver-digest.md`](helpers/deliver-digest.md) once.
 
 ## Role
 
@@ -20,13 +20,10 @@ One delivery door. `/deliver` owns input resolution, sequencing and the
 close-and-land tail; Stories are implemented via
 [`helpers/deliver-story.md`](helpers/deliver-story.md).
 
-Nothing about the route is declared at the invocation; it is **derived, then
-announced, then acted on**. The dependency graph is **discovered, not
-declared** — `resolve-stories.js` reads it from live state, so there is no batch
-label and you can deliver Stories **across plan runs and over time**.
-`plan-run::<id>` is filter metadata, never a resolution input; `route::lite` a
-body-derived hint only. A **single-Story run runs the engine inline** whatever
-the shape — sub-agent isolation only pays against a concurrent sibling.
+The dependency graph is **discovered, not declared** — `resolve-stories.js`
+reads it from live state, so you can deliver Stories **across plan runs and
+over time**. `plan-run::<id>` is filter metadata, never a resolution input;
+`route::lite` a body-derived hint only.
 
 ## Inputs
 
@@ -42,15 +39,14 @@ you read:
 
 **The discriminator is lexical and total.** Every positional argument matching
 `^#?\d+$` means ids; anything else means a prompt. A **mixed** invocation (ids
-*and* prose) is a **hard error** — refuse it and ask which was meant, the way
-resolution refuses a whole set rather than under-delivering. A ticket not
-`type::story`, or carrying an `Epic: #N` footer, is a hard error too.
+*and* prose) is a **hard error** — refuse it and ask which was meant. A ticket
+not `type::story`, or carrying an `Epic: #N` footer, is a hard error too.
 
 ## Saying what you want
 
-No flags to remember: state intent — *"…but I'll merge it myself"*, *"…one at a
-time"* — and announce what you read before acting. Phrasings and the flag each
-fills in: reference § Intent phrases.
+No flags to remember: state intent — *"…but I'll merge it myself"*, *"…one at
+a time"* — and announce what you read. Phrasings and the flags they fill in:
+reference § Intent phrases.
 
 `--yes` is **runner-set, never operator-typed**: cron, `/loop` and headless
 dispatch set it to mean *nobody is at the keyboard*, which fails the unplanned
@@ -63,13 +59,13 @@ it to an operator or add it to an attended run.
    shape. A prompt leaves for
    [`helpers/deliver-light.md`](helpers/deliver-light.md); bare asks; ids go on.
 
-1. **Resolve the set.** One command, for one Story or many:
+1. **Resolve the set.** One command, one Story or many:
    `node .agents/scripts/resolve-stories.js --ids <id,id,...>`. It validates the
-   set and shows what will run: read `stories[]`, `dag[]` and `done[]` to present
-   the order in step 2, but do **not** thread them into step 3 — the tick
-   re-resolves the graph every beat. It hard-errors (exit 1) on an id that is
-   not a Story, carries an `Epic: #N` footer, or whose edges cannot be read: a
-   missing gate would co-dispatch against an unlanded blocker.
+   set and shows what will run: read `stories[]`, `dag[]` and `done[]` to
+   present the order in step 2, but do **not** thread them into step 3 — the
+   tick re-resolves the graph every beat. It hard-errors (exit 1) on an id that
+   is not a Story, carries an `Epic: #N` footer, or whose edges cannot be
+   read — a missing gate would co-dispatch against an unlanded blocker.
 
 2. **Confirm (N>1).** Present the order; wait unless `--yes`.
 
@@ -88,16 +84,15 @@ it to an operator or add it to an attended run.
    Each beat re-probes live state to derive done / in-flight itself; you never
    compute them. `--dispatched` is the one thing you must supply — the
    append-only list of every id you spawned this run. Cross-run de-confliction
-   via the assignee lease is automatic
-   ([`helpers/deliver-reference.md`](helpers/deliver-reference.md) §§ Sequencing
-   edge cases, Dispatch mechanics). Branch on the exit code:
+   via the assignee lease is automatic (reference §§ Sequencing edge cases,
+   Dispatch mechanics). Branch on the exit code:
    - **0** — dispatch each `ready` id (already capped and overlap-free); an
      empty `ready` with work in flight means "waiting", so keep looping;
      `epilogueDue: true` means every Story is done — step 4.
    - **2** — `cycleError`: the graph is self-referential; fix `depends_on`, do
-     not retry. **3** — `wedged`: nothing dispatchable and nothing in flight,
-     the undone Stories and their unmet blockers both named; land the blocker or
-     add it to `--ids`. **4** — `blocked`: a Story carries `agent::blocked` with
+     not retry. **3** — `wedged`: nothing dispatchable, nothing in flight, the
+     undone Stories and their unmet blockers named; land a blocker or add it to
+     `--ids`. **4** — `blocked`: a Story carries `agent::blocked` with
      `blockedReason`, the protocol's HITL pause
      ([`instructions.md` § 1.J](../instructions.md)) — **stop the loop and
      surface it; do not poll**, resuming once the operator unblocks it. Blocked
@@ -105,8 +100,7 @@ it to an operator or add it to an attended run.
 
 4. **Close each hand-off** (§ Closing what the workers hand back), then, with
    every Story landed, run the **per-run epilogue (N>1)**:
-   `node .agents/scripts/plan-run-epilogue.js --stories 101,102` — audit roster,
-   follow-up roll-up, sibling coherence. N=1 skips it
+   `node .agents/scripts/plan-run-epilogue.js --stories 101,102`. N=1 skips it
    ([reference § Per-run epilogue](helpers/deliver-reference.md)).
 
 ## Closing what the workers hand back {#tail}
@@ -117,25 +111,23 @@ it to an operator or add it to an attended run.
 (`single-story-close.js`) for it, foreground, and relay the envelope.
 
 **Serialize the tail.** Implementation runs in parallel; closing does not. Close
-one Story at a time — never two in flight — because closes contend on the base
-branch, the merge queue and the checkout. A worker handing back mid-close waits
-its turn.
+one Story at a time — closes contend on the base branch, the merge queue and
+the checkout. A worker handing back mid-close waits its turn.
 
 **A worker returning no terminal envelope is the expected shape**, not a failure
-to answer with a re-dispatch: only close mints one, and re-running init under a
-live branch is how one Story gets two closes. Close the pushed branch, or probe
-read-only with `node .agents/scripts/deliver-recover.js --story <storyId>` and
-resume the worker or close it names.
+to answer with a re-dispatch: only close mints one. Close the pushed branch, or
+probe read-only with `node .agents/scripts/deliver-recover.js --story <storyId>`
+and resume the worker or close it names.
 
-**Reading the outcome.** Each close ends the Story in exactly one
-schema-validated envelope — `landed` | `pending` | `blocked` | `failed`;
-statuses, exits and fields are digest § 5. `pending` is **not** a failure —
-`nextCommand` resumes it; run that, do not re-dispatch.
+**Reading the outcome.** Each close ends the Story in one schema-validated
+envelope — `landed` | `pending` | `blocked` | `failed`; statuses, exits and
+fields are digest § 5. `pending` is **not** a failure — `nextCommand` resumes
+it; run that, do not re-dispatch.
 
-**Branch model (authoritative).** `story-<id>` → PR → `main` (squash + required
-checks), per digest § 2. Dependent Stories land sequentially so each builds on
-the previous merge. Ceremony depth (profiles + derived level via
-`ceremony-routing.js`, review depth reading it): reference § Ceremony.
+**Branch model (authoritative).** `story-<id>` → PR → `main` (squash +
+required checks), per digest § 2; dependent Stories land sequentially. Ceremony
+depth (profiles + derived level via `ceremony-routing.js`, review depth reading
+it): reference § Ceremony.
 
 ## Constraints
 

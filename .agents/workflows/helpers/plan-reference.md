@@ -36,6 +36,22 @@ whole surface exists to remove.
 Mixed ids and prose in one invocation is a **hard error**: refuse and ask which
 was meant, rather than guessing a mode and doing the wrong work.
 
+## Default-single split policy — what the seam means
+
+The spine's two escape hatches from N=1 are narrow on purpose:
+
+- **Near-zero overlap** — the pieces touch disjoint files and neither's
+  acceptance criteria can be scored without the other having landed.
+- **Architectural seam** — different deployables, or a migration and its
+  consumer: work that cannot share one branch and one PR without one half
+  sitting unverifiable behind the other.
+
+Everything else is one Story with `## Slicing` checkpoints. When N>1 does
+apply, **every acceptance criterion belongs to exactly one Story** —
+`assertAcceptancePartition` refuses a split whose criteria repeat across
+siblings, because a verbatim-shared criterion is the signature of coupled work
+cut in half rather than genuinely separable work.
+
 ## Unknown triage — AFK vs HITL
 
 Every open question interrogation surfaces is triaged by **who can resolve
