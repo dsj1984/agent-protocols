@@ -689,7 +689,12 @@ describe('audit dedup provenance carry (Story #4877, AC-5)', () => {
   it('a plan with no provenance source is byte-identical to before the carry', () => {
     // A `--tickets` run and a plain `--seed` run must be untouched.
     const withoutOpt = assemblePlanStories([ticket], {}).stories[0];
-    for (const provenanceSource of ['', null, undefined, '# Seed\n\nNo footers.\n']) {
+    for (const provenanceSource of [
+      '',
+      null,
+      undefined,
+      '# Seed\n\nNo footers.\n',
+    ]) {
       const { stories } = assemblePlanStories([ticket], { provenanceSource });
       assert.equal(
         stories[0].body,

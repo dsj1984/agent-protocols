@@ -94,7 +94,7 @@ describe('the severity vocabulary is one vocabulary (Story #4877, AC-1)', () => 
     );
     assert.ok(
       !/keyed to High\/Medium\/Low severity/.test(lens),
-      "the lens frontmatter still advertises the truncated scale",
+      'the lens frontmatter still advertises the truncated scale',
     );
   });
 });

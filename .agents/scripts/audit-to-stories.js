@@ -105,7 +105,10 @@ function readReports(paths) {
  * @returns {Record<string, number>}
  */
 function tallyBySeverity(findings) {
-  const t = { ...Object.fromEntries(SEVERITIES.map((s) => [s, 0])), unknown: 0 };
+  const t = {
+    ...Object.fromEntries(SEVERITIES.map((s) => [s, 0])),
+    unknown: 0,
+  };
   for (const f of findings) {
     if (Object.hasOwn(t, f.severity)) t[f.severity] += 1;
     else t.unknown += 1;

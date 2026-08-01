@@ -303,7 +303,7 @@ for (const { label, finding: golden, sha } of GOLDEN_FINGERPRINTS) {
     assert.equal(
       fingerprintFinding(golden).full,
       sha,
-      'this finding\'s fingerprint moved. Every Issue whose audit-fingerprints ' +
+      "this finding's fingerprint moved. Every Issue whose audit-fingerprints " +
         'footer carries the old sha has just stopped deduplicating. Hold the ' +
         'hash stable instead of updating this expectation.',
     );
@@ -375,7 +375,11 @@ test('fingerprint still discriminates a genuinely different severity', () => {
       (severity) => fingerprintFinding({ ...base, severity }).full,
     ),
   );
-  assert.equal(shas.size, 5, 'each canonical severity must fingerprint distinctly');
+  assert.equal(
+    shas.size,
+    5,
+    'each canonical severity must fingerprint distinctly',
+  );
 });
 
 test('a normalised finding still routes against the Issue filed from its raw form (AC-4, end to end)', async () => {

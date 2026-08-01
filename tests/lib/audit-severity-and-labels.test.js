@@ -205,8 +205,13 @@ describe('generated labels name only defined categories (Story #4877, AC-3)', ()
   it('risk::high is generated for a Critical finding AND defined by the taxonomy', () => {
     // It was generated but defined nowhere — neither LABEL_TAXONOMY nor the
     // audit bootstrap created it — so the filer emitted a label the repo lacked.
-    const { labels } = buildStoryBody({ group: group({ severity: 'critical' }) });
-    assert.ok(labels.includes('risk::high'), 'a Critical finding must mark risk');
+    const { labels } = buildStoryBody({
+      group: group({ severity: 'critical' }),
+    });
+    assert.ok(
+      labels.includes('risk::high'),
+      'a Critical finding must mark risk',
+    );
     assert.equal(definesAuditLabel('risk::high'), true);
     assert.ok(
       AUDIT_LABEL_TAXONOMY.some((l) => l.name === 'risk::high'),

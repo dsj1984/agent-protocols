@@ -344,7 +344,11 @@ test('carryProvenanceFooters is idempotent — a resumed persist cannot stack fo
   const twice = carryProvenanceFooters({ from: seed, into: once.body });
 
   assert.equal(twice.carried, false);
-  assert.equal(twice.body, once.body, 're-running must not append a second footer');
+  assert.equal(
+    twice.body,
+    once.body,
+    're-running must not append a second footer',
+  );
   assert.deepEqual(parseFingerprintFooter(twice.body), [SHA_A]);
 });
 
@@ -382,7 +386,10 @@ test('carryProvenanceFooters is a no-op for a seed with no provenance', () => {
 test('carryProvenanceFooters tolerates absent and non-string arguments', () => {
   assert.equal(carryProvenanceFooters().carried, false);
   assert.equal(carryProvenanceFooters({ from: null, into: null }).body, '');
-  assert.equal(carryProvenanceFooters({ from: 42, into: '## Goal\n' }).carried, false);
+  assert.equal(
+    carryProvenanceFooters({ from: 42, into: '## Goal\n' }).carried,
+    false,
+  );
 });
 
 test('a Story carrying carried-through provenance dedupes on the next sweep (AC-6)', async () => {

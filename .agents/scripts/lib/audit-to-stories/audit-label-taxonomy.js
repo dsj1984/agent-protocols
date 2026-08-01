@@ -26,13 +26,13 @@
  * label spelling — so a rename still lands in one place.
  */
 
-import { AUDIT_LENSES } from './audit-lenses.js';
 import {
   AGENT_LABELS,
   LABEL_COLORS,
   RISK_LABELS,
   TYPE_LABELS,
 } from '../label-constants.js';
+import { AUDIT_LENSES } from './audit-lenses.js';
 
 /**
  * Per-lens label presentation, keyed by canonical lens name. A lens absent from

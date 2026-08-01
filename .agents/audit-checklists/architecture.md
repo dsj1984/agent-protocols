@@ -6,7 +6,7 @@
 
 # Architecture & Clean Code Audit — authoring checklist
 
-> Audit architectural boundaries, module coupling, and layering violations; emit a structured findings report keyed to High/Medium/Low severity.
+> Audit architectural boundaries, module coupling, layering violations, and shipped-but-uncalled seams; emit a structured findings report keyed to the canonical severity scale.
 
 Self-check your change against this lens's concerns before you ship:
 
@@ -21,3 +21,7 @@ Self-check your change against this lens's concerns before you ship:
 - [ ] Medium
 - [ ] Low
 - [ ] Automated Architecture Guardrails
+- [ ] Shipped-But-Never-Wired Seams (mandatory).
+- [ ] A produced-but-never-consumed artifact.
+- [ ] An optional field nothing populates.
+- [ ] An exported seam with no in-tree caller

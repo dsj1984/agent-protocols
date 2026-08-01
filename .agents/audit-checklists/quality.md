@@ -18,3 +18,6 @@ Self-check your change against this lens's concerns before you ship:
 - [ ] Test Data Management
 - [ ] Performance & Execution
 - [ ] Requirement Alignment
+- [ ] Unwired Seams — Coverage Without a Caller (mandatory).
+- [ ] A produced-but-never-consumed artifact
+- [ ] An optional field nothing populates
