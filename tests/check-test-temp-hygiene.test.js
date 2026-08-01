@@ -13,11 +13,13 @@ import path from 'node:path';
 import { afterEach, beforeEach, describe, it } from 'node:test';
 
 import {
+  assertNoReservedIdStreams,
   buildManifest,
   cleanFixtureDirs,
   defaultBaselinePath,
   diffAgainstSnapshot,
   findFixtureDirs,
+  findReservedIdStreamFiles,
   isStreamFile,
   KNOWN_FIXTURE_STORY_IDS,
   listStreamFiles,
@@ -583,5 +585,77 @@ describe('check-test-temp-hygiene — raw-tmpdir lint dimension (Story #4808)', 
 
     assert.equal(code, 0);
     assert.ok(lines.join('\n').includes('no test file mints OS temp dirs'));
+  });
+});
+
+// ---------------------------------------------------------------------------
+// Story #4892 — fixture-id streams in the real temp tree fail the run
+// ---------------------------------------------------------------------------
+
+describe('check-test-temp-hygiene — reserved fixture-id streams (Story #4892)', () => {
+  it('finds streams owned by a reserved id in either layout', () => {
+    writeStream('standalone/stories/story-999999/signals.ndjson', '{}\n');
+    writeStream('run-999123/lifecycle.ndjson', '{}\n');
+    writeStream('run-4801/stories/story-999001/signals.ndjson', '{}\n');
+    // Real work, in both layouts — never condemned.
+    writeStream('standalone/stories/story-4856/signals.ndjson', '{}\n');
+    writeStream('run-4801/stories/story-4802/signals.ndjson', '{}\n');
+
+    assert.deepEqual(findReservedIdStreamFiles(tempDirFor(repoRoot)), [
+      'run-4801/stories/story-999001/signals.ndjson',
+      'run-999123/lifecycle.ndjson',
+      'standalone/stories/story-999999/signals.ndjson',
+    ]);
+  });
+
+  it('is clean for a tree with no fixture-id streams at all', () => {
+    writeStream('standalone/stories/story-4856/signals.ndjson', '{}\n');
+    assert.deepEqual(findReservedIdStreamFiles(tempDirFor(repoRoot)), []);
+  });
+
+  it('fails, names the offending stream, and names the remedy', () => {
+    writeStream('standalone/stories/story-999999/signals.ndjson', '{}\n');
+    const lines = [];
+
+    const code = assertNoReservedIdStreams({
+      cwd: repoRoot,
+      log: (l) => lines.push(l),
+      resolveRoot: () => repoRoot,
+    });
+
+    assert.equal(code, 1);
+    const out = lines.join('\n');
+    assert.ok(out.includes('standalone/stories/story-999999/signals.ndjson'));
+    assert.ok(out.includes('999000–999999'));
+    assert.ok(out.includes('--clean --ids'));
+  });
+
+  it('passes on a clean tree', () => {
+    writeStream('standalone/stories/story-4856/signals.ndjson', '{}\n');
+    const lines = [];
+
+    const code = assertNoReservedIdStreams({
+      cwd: repoRoot,
+      log: (l) => lines.push(l),
+      resolveRoot: () => repoRoot,
+    });
+
+    assert.equal(code, 0);
+    assert.deepEqual(lines, []);
+  });
+
+  it('scans the MAIN checkout, not the cwd — a worktree run must not pass vacuously', () => {
+    // Writers anchor a relative tempRoot to the main checkout, so a guard that
+    // scanned `cwd` would audit an empty worktree tree and always pass.
+    const worktree = makeTempDir('temp-hygiene-worktree-');
+    writeStream('standalone/stories/story-999999/signals.ndjson', '{}\n');
+
+    const code = assertNoReservedIdStreams({
+      cwd: worktree,
+      log: () => {},
+      resolveRoot: (cwd) => (cwd === worktree ? repoRoot : null),
+    });
+
+    assert.equal(code, 1);
   });
 });

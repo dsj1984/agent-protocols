@@ -32,6 +32,7 @@ import { spawnSync } from 'node:child_process';
 import os from 'node:os';
 import path from 'node:path';
 import { fileURLToPath } from 'node:url';
+import { assertNoReservedIdStreams } from './check-test-temp-hygiene.js';
 import { cleanupRepoTestTempArtifacts } from './cleanup-repo-test-temp.js';
 import { runAsCli } from './lib/cli-utils.js';
 import { buildWebhookSafeTestEnv } from './lib/test-env.js';
@@ -165,6 +166,7 @@ export function runTestSuite({
   cleanup = cleanupRepoTestTempArtifacts,
   listTargets = listTestFilesForTier,
   maxTargetChars = resolveMaxTargetChars(),
+  fixtureStreamGuard = assertNoReservedIdStreams,
 } = {}) {
   const { tier, rest } = parseTierArgv(argv);
   const targets = listTargets(tier, cwd);
@@ -191,6 +193,14 @@ export function runTestSuite({
   }
 
   cleanup({ repoRoot: cwd });
+
+  // A test that spawns a real CLI at the repository root inherits the real
+  // state directory, so its fixture telemetry can land in the operator's live
+  // signals tree — where the retro graduator counts it as recurrence evidence
+  // and files a ticket citing a fixture Story id. Fail the run that caused it
+  // rather than discovering it from that ticket.
+  const polluted = fixtureStreamGuard({ cwd });
+  if (polluted !== 0 && status === 0) status = polluted;
 
   if (spawnError) {
     throw spawnError;
