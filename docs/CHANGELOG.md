@@ -2,6 +2,35 @@
 
 All notable changes to this project will be documented in this file.
 
+## [2.25.0](https://github.com/dsj1984/mandrel/compare/mandrel-v2.24.0...mandrel-v2.25.0) (2026-08-01)
+
+
+### Added
+
+* enforce the no-rerun verifier: disarm auto-merge on the first red and gate re-arming on the head SHA moving ([#4865](https://github.com/dsj1984/mandrel/issues/4865)) ([#4867](https://github.com/dsj1984/mandrel/issues/4867)) ([b95267f](https://github.com/dsj1984/mandrel/commit/b95267fe49cd27ca7cd42bb3bc7ae0c6ceaa5a3a))
+
+
+### Fixed
+
+* **crap:** measure coordinate mixing, not ordinary drift, in the preview gate (refs [#4871](https://github.com/dsj1984/mandrel/issues/4871)) ([#4881](https://github.com/dsj1984/mandrel/issues/4881)) ([63bcb66](https://github.com/dsj1984/mandrel/commit/63bcb66ab46471cfc1b8ad957d60dd1526d0f679))
+* escape the remaining raw NUL delimiters so these diffs are reviewable ([#4896](https://github.com/dsj1984/mandrel/issues/4896)) ([992fc46](https://github.com/dsj1984/mandrel/commit/992fc46b7675736c8fc7af546600cc59ef5ec96d))
+* make the sanctioned CI watch survive a late-arriving required context, and pass --repo through as a real gh flag ([#4890](https://github.com/dsj1984/mandrel/issues/4890)) ([#4893](https://github.com/dsj1984/mandrel/issues/4893)) ([00c23f4](https://github.com/dsj1984/mandrel/commit/00c23f45f57f6b9d11c7314b92f337a31dda4c2b))
+* normalize audit severity and labels without re-minting fingerprints, carry dedupe provenance, and give the lenses a built-but-not-wired mandate ([#4877](https://github.com/dsj1984/mandrel/issues/4877)) ([#4888](https://github.com/dsj1984/mandrel/issues/4888)) ([04f8937](https://github.com/dsj1984/mandrel/commit/04f89373e4dcaa0a47d5501381fb02b5e29bcef6))
+* pin the run's base branch at init and fail closed when config changed mid-run (refs [#4891](https://github.com/dsj1984/mandrel/issues/4891)) ([#4894](https://github.com/dsj1984/mandrel/issues/4894)) ([8099020](https://github.com/dsj1984/mandrel/commit/8099020a9ea2e662c19a1c8a3d9e32d6269df863))
+* **plan:** reconcile the persist body contract and stop acceptance-eval burning a round on every read (refs [#4874](https://github.com/dsj1984/mandrel/issues/4874)) ([#4882](https://github.com/dsj1984/mandrel/issues/4882)) ([33512b4](https://github.com/dsj1984/mandrel/commit/33512b48702e50d9ebaf98dffc396a9ce0091290))
+* ratchet context-budget shrinkage and stop the baseline updaters writing on --help (refs [#4872](https://github.com/dsj1984/mandrel/issues/4872)) ([#4879](https://github.com/dsj1984/mandrel/issues/4879)) ([8d445a4](https://github.com/dsj1984/mandrel/commit/8d445a45e8a4c57b65573213042fb4aec557af08))
+* stamp the version cache with the real clock and end unquoted env values at an unescaped comment marker (refs [#4878](https://github.com/dsj1984/mandrel/issues/4878)) ([#4883](https://github.com/dsj1984/mandrel/issues/4883)) ([d73ee10](https://github.com/dsj1984/mandrel/commit/d73ee10c2f15c3698705281a5979c7394eb03fa4))
+* stop close-resume opening duplicate empty PRs and stop the PR watcher reporting green on a blocked PR ([#4873](https://github.com/dsj1984/mandrel/issues/4873)) ([#4884](https://github.com/dsj1984/mandrel/issues/4884)) ([9d12f8d](https://github.com/dsj1984/mandrel/commit/9d12f8dcd4badbe3b657f1526c284f7689bf04ee))
+* stop the CRAP row builder silently mixing transpiled and original line coordinates, and refuse to compare on an unsound basis ([#4866](https://github.com/dsj1984/mandrel/issues/4866)) ([#4868](https://github.com/dsj1984/mandrel/issues/4868)) ([a6c8c88](https://github.com/dsj1984/mandrel/commit/a6c8c8866c72b1372eb5fd5b7232fb3833e33f93))
+* stop the test suite writing fixture friction signals into the real ledger, and stop unresolvable Story ids reaching an auto-filed ticket ([#4892](https://github.com/dsj1984/mandrel/issues/4892)) ([#4895](https://github.com/dsj1984/mandrel/issues/4895)) ([a607de4](https://github.com/dsj1984/mandrel/commit/a607de49a09c778c1fbefe68d4c57d6a75f0b648))
+* warn about the un-waivable light-path verdict up front, de-conflict on actual footprints, and reconcile the concurrency override ([#4875](https://github.com/dsj1984/mandrel/issues/4875)) ([#4880](https://github.com/dsj1984/mandrel/issues/4880)) ([16d4958](https://github.com/dsj1984/mandrel/commit/16d49584227d783695bb36043e29c64a58aaab39))
+
+
+### Changed
+
+* reclaim workflow-spine byte headroom and move the close-and-land tail to the orchestrator (refs [#4876](https://github.com/dsj1984/mandrel/issues/4876)) ([#4885](https://github.com/dsj1984/mandrel/issues/4885)) ([7d981cd](https://github.com/dsj1984/mandrel/commit/7d981cde4f8c3d1047a09e64d1f193b85fbfd4b6))
+* widen workflow-spine and agent-boot headroom to a real editing margin (refs [#4876](https://github.com/dsj1984/mandrel/issues/4876)) ([#4889](https://github.com/dsj1984/mandrel/issues/4889)) ([45f5482](https://github.com/dsj1984/mandrel/commit/45f548238c9c82a1e36df11320b73c8f9dea27f5))
+
 ## [2.24.0](https://github.com/dsj1984/mandrel/compare/mandrel-v2.23.0...mandrel-v2.24.0) (2026-07-31)
 
 
