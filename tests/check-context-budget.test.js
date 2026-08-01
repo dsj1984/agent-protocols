@@ -8,6 +8,7 @@ import {
   AGENT_BOOT_CEILING_BYTES,
   agentBootDrift,
   agentBootOverflow,
+  budgetFailureCount,
   buildBaseline,
   diffBudget,
   GATED_TIERS,
@@ -114,7 +115,7 @@ test('diffBudget flags growth beyond tolerance and names the tier', () => {
   assert.ok(diff.skipped.includes('mandatoryRead'));
 });
 
-test('diffBudget treats within-tolerance growth as clean and shrink as informational', () => {
+test('diffBudget treats within-tolerance growth as clean and shrink as actionable drift', () => {
   const baseline = {
     toleranceBytes: 500,
     tiers: { alwaysLoaded: { totalBytes: 4000 } },
@@ -124,6 +125,7 @@ test('diffBudget treats within-tolerance growth as clean and shrink as informati
     baseline,
   );
   assert.deepEqual(within.grown, []);
+  assert.deepEqual(within.shrunk, []);
 
   const shrunk = diffBudget(
     { tiers: { alwaysLoaded: [{ path: 'x', bytes: 3000 }] } },
@@ -132,6 +134,59 @@ test('diffBudget treats within-tolerance growth as clean and shrink as informati
   assert.equal(shrunk.grown.length, 0);
   assert.equal(shrunk.shrunk.length, 1);
   assert.equal(shrunk.shrunk[0].tier, 'alwaysLoaded');
+  assert.equal(shrunk.shrunk[0].delta, 1000);
+  assert.equal(budgetFailureCount(shrunk), 1);
+});
+
+test('diffBudget applies tolerance upward only — a sub-tolerance shrink is still drift', () => {
+  // Story #4872: mirroring the tolerance downward would silently discard every
+  // gain smaller than it, which is precisely the leak the ratchet must close.
+  const diff = diffBudget(
+    { tiers: { alwaysLoaded: [{ path: 'x', bytes: 3999 }] } },
+    { toleranceBytes: 500, tiers: { alwaysLoaded: { totalBytes: 4000 } } },
+  );
+  assert.equal(diff.shrunk.length, 1);
+  assert.equal(diff.shrunk[0].delta, 1);
+  assert.equal(budgetFailureCount(diff), 1);
+});
+
+test('diffBudget reports a recorded row naming a path the tier no longer contains', () => {
+  const diff = diffBudget(
+    { tiers: { workflow: [{ path: 'a.md', bytes: 100 }] } },
+    {
+      toleranceBytes: 0,
+      tiers: {
+        workflow: {
+          totalBytes: 100,
+          files: [
+            { path: 'a.md', bytes: 100 },
+            { path: 'deleted.md', bytes: 0 },
+          ],
+        },
+      },
+    },
+  );
+  // The total still agrees — only the row-level check can see this one.
+  assert.deepEqual(diff.grown, []);
+  assert.deepEqual(diff.shrunk, []);
+  assert.equal(diff.absent.length, 1);
+  assert.equal(diff.absent[0].path, 'deleted.md');
+  assert.equal(diff.absent[0].tier, 'workflow');
+  assert.equal(budgetFailureCount(diff), 1);
+});
+
+test('diffBudget reports no absent rows when every recorded path is still measured', () => {
+  const diff = diffBudget(
+    { tiers: { workflow: [{ path: 'a.md', bytes: 100 }] } },
+    {
+      toleranceBytes: 0,
+      tiers: {
+        workflow: { totalBytes: 100, files: [{ path: 'a.md', bytes: 100 }] },
+      },
+    },
+  );
+  assert.deepEqual(diff.absent, []);
+  assert.equal(budgetFailureCount(diff), 0);
 });
 
 test('buildBaseline records only the gated tiers with totals', () => {
@@ -165,11 +220,36 @@ test('renderDiff tags a gate fail and a clean pass', () => {
         },
       ],
       shrunk: [],
+      absent: [],
       skipped: [],
     }),
     /\(gate fail\)/,
   );
-  assert.match(renderDiff({ grown: [], shrunk: [], skipped: [] }), /\(ok\)/);
+  assert.match(
+    renderDiff({ grown: [], shrunk: [], absent: [], skipped: [] }),
+    /\(ok\)/,
+  );
+});
+
+test('renderDiff tags shrinkage and an absent row as gate failures too', () => {
+  const shrink = renderDiff({
+    grown: [],
+    shrunk: [{ tier: 'workflow', current: 900, baseline: 1000, delta: 100 }],
+    absent: [],
+    skipped: [],
+  });
+  assert.match(shrink, /\(gate fail\)/);
+  assert.match(shrink, /- workflow: 900 bytes is under the recorded 1000/);
+
+  const missing = renderDiff({
+    grown: [],
+    shrunk: [],
+    absent: [{ tier: 'workflow', path: 'gone.md', bytes: 12 }],
+    skipped: [],
+  });
+  assert.match(missing, /\(gate fail\)/);
+  assert.match(missing, /recorded row gone\.md names a path/);
+  assert.match(missing, /absent=1/);
 });
 
 // ---------------------------------------------------------------------------
@@ -613,7 +693,7 @@ test('growth in the reachable-only closure is reported but never gates', async (
   assert.match(stdout.text(), /never gated/);
 });
 
-test('a shrunken workflow closure prints the informational marker and still exits 0', async () => {
+test('a shrunken workflow tier fails the gate instead of passing silently', async () => {
   const { root, config, write } = makeRepo({ withWorkflows: true });
   write('.agents/workflows/helpers/digest.md', `# Digest\n${'q'.repeat(3000)}`);
   await runCli({
@@ -625,15 +705,51 @@ test('a shrunken workflow closure prints the informational marker and still exit
   });
   write('.agents/workflows/helpers/digest.md', '# Digest\n');
   const stdout = makeSink();
-  const code = await runCli({
-    argv: [],
+  const stderr = makeSink();
+  const code = await runCli({ argv: [], cwd: root, config, stdout, stderr });
+  assert.equal(code, 1);
+  assert.match(stdout.text(), /- workflow: \d+ bytes is under the recorded/);
+  assert.match(stderr.text(), /came in under its recorded total/);
+});
+
+test('a recorded row whose file was deleted fails the gate and is named', async () => {
+  const { root, config, write } = makeRepo({ withWorkflows: true });
+  write('.agents/workflows/retired.md', `# Retired\n${'q'.repeat(300)}`);
+  await runCli({
+    argv: ['--update'],
     cwd: root,
     config,
-    stdout,
+    stdout: makeSink(),
     stderr: makeSink(),
   });
-  assert.equal(code, 0);
-  assert.match(stdout.text(), /- workflow: \d+ bytes below baseline/);
+  fs.rmSync(path.join(root, '.agents/workflows/retired.md'));
+  const stdout = makeSink();
+  const stderr = makeSink();
+  const code = await runCli({ argv: [], cwd: root, config, stdout, stderr });
+  assert.equal(code, 1);
+  assert.match(stdout.text(), /recorded row \.agents\/workflows\/retired\.md/);
+  assert.match(stderr.text(), /no longer contains/);
+});
+
+test('the committed context-budget baseline carries no tier drift against this repo tree', () => {
+  // Story #4872: now that shrinkage and a stale row both fail, the committed
+  // baseline must agree with the tree exactly — a later Story that trims a
+  // tracked file refreshes the rows it changed.
+  const repoRoot = path.resolve(
+    path.dirname(fileURLToPath(import.meta.url)),
+    '..',
+  );
+  const result = spawnSync(
+    process.execPath,
+    [path.join(repoRoot, '.agents', 'scripts', 'check-context-budget.js')],
+    { cwd: repoRoot, encoding: 'utf8', timeout: 120_000 },
+  );
+  assert.match(result.stdout ?? '', /grown=0 shrunk=0 absent=0/);
+  assert.equal(
+    result.status,
+    0,
+    `context-budget gate exited ${result.status}:\n${result.stdout}\n${result.stderr}`,
+  );
 });
 
 test('renderReachable is silent without a workflow closure and cites the recorded total with one', () => {
