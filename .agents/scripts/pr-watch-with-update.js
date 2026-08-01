@@ -225,7 +225,9 @@ async function watchWithAttachWindow({
   // sets one) would otherwise spin the window out as a tight loop. Flooring
   // the assumed cadence at 5s bounds the attempts without changing the
   // wall-clock bound that governs a real watch.
-  const maxRetries = Math.ceil(attachWindowMs / Math.max(retryIntervalMs, 5000));
+  const maxRetries = Math.ceil(
+    attachWindowMs / Math.max(retryIntervalMs, 5000),
+  );
   let result = await watchPrToTerminal(watchArgs);
   let retries = 0;
   while (result.error && retries < maxRetries && nowMsFn() < deadline) {
