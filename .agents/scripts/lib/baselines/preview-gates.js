@@ -152,6 +152,8 @@ function emptyCrapEnvelope({ scope, diffRef }) {
       newViolations: 0,
       drifted: 0,
       incomparable: 0,
+      provenanceMismatched: 0,
+      unscorable: 0,
       removed: 0,
       skippedNoCoverage: 0,
       scope,
