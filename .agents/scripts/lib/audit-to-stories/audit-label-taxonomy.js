@@ -114,7 +114,7 @@ function hex(color) {
  * Derived from the same `AUDIT_LENSES` SSOT that `build-story-body.js` derives
  * its labels from, so the creator and the deriver cannot drift (Story #4195).
  */
-export const AUDIT_LENS_LABELS = Object.freeze(
+const AUDIT_LENS_LABELS = Object.freeze(
   AUDIT_LENSES.map((name) => ({
     name: `audit::${name}`,
     ...(LENS_META[name] ?? DEFAULT_LENS_META),
@@ -130,7 +130,7 @@ export const AUDIT_LENS_LABELS = Object.freeze(
  * and means an audit sweep does not silently depend on the repo-wide bootstrap
  * having run first.
  */
-export const AUDIT_STORY_AXIS_LABELS = Object.freeze([
+const AUDIT_STORY_AXIS_LABELS = Object.freeze([
   {
     name: TYPE_LABELS.STORY,
     color: hex(LABEL_COLORS.TYPE),
