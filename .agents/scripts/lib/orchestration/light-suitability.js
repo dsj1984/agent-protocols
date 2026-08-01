@@ -83,6 +83,80 @@ export const OVERRIDABLE_SHAPE_CODES = Object.freeze([
 ]);
 
 /**
+ * The absolute risk rules (Story #4875) — the complement of
+ * {@link OVERRIDABLE_SHAPE_CODES} among the rules that judge a *declared*
+ * footprint. No re-slicing, shrinking, or operator answer satisfies one: a
+ * footprint intersecting a sensitive-path class routes `full` however small the
+ * change, and the diff backstop refuses the same footprint again at the end.
+ *
+ * They are listed separately because {@link deriveStoryShape} reports only the
+ * **first** rule a shape trips, and the ceiling rules are evaluated first. A
+ * prompt that trips both `change-kinds` and `sensitive-path` is therefore
+ * reported as a size objection — which reads as appealable, is waivable by an
+ * attended operator, and sends the work all the way to an implementation the
+ * backstop then refuses. Surfacing the un-waivable class at prediction time is
+ * the difference between a wasted session and a redirected one.
+ */
+export const UNWAIVABLE_SHAPE_CODES = Object.freeze([
+  SHAPE_CODES.SENSITIVE_PATH,
+  SHAPE_CODES.MIGRATION_SPAN,
+]);
+
+/**
+ * Detect the un-waivable risk rules a predicted footprint trips, **independent
+ * of which rule the shape decision happened to record** (Story #4875).
+ *
+ * {@link deriveStoryShape} attaches the built effort shape to every decision it
+ * can judge at all, and that shape carries the risk facts (`sensitiveClasses`,
+ * `migrationSpan`) whether or not a risk rule was the one that fired. Reading
+ * them here recovers the objection the first-hit reporting hides.
+ *
+ * Pure and total.
+ *
+ * @param {{ shape?: { sensitiveClasses?: unknown, migrationSpan?: unknown } }} [decision]
+ *   A {@link deriveStoryShape} return value.
+ * @returns {{
+ *   present: boolean,
+ *   code: string|null,
+ *   classes: string[],
+ *   reason: string|null,
+ * }}
+ */
+export function deriveUnwaivableRisk(decision) {
+  const shape = decision?.shape ?? null;
+  const classes = Array.isArray(shape?.sensitiveClasses)
+    ? shape.sensitiveClasses.filter(
+        (c) => typeof c === 'string' && c.trim() !== '',
+      )
+    : [];
+  if (classes.length > 0) {
+    return {
+      present: true,
+      code: SHAPE_CODES.SENSITIVE_PATH,
+      classes,
+      reason:
+        `un-waivable: the predicted footprint intersects sensitive-path ` +
+        `class(es) ${classes.join(', ')} — this is risk, not size, so no ` +
+        `re-slicing, shrinking, or operator override satisfies it and the ` +
+        `diff backstop would refuse the same footprint after the work is ` +
+        `finished; take this to /plan now`,
+    };
+  }
+  if (shape?.migrationSpan === true) {
+    return {
+      present: true,
+      code: SHAPE_CODES.MIGRATION_SPAN,
+      classes: [],
+      reason:
+        `un-waivable: the predicted footprint pairs a migration with its ` +
+        `consumers — this is risk, not size, so no re-slicing or operator ` +
+        `override satisfies it; take this to /plan now`,
+    };
+  }
+  return { present: false, code: null, classes: [], reason: null };
+}
+
+/**
  * Ceilings for the **actual landed** change set the diff backstop
  * ({@link checkLightDiffBackstop}) enforces, measured on the change's
  * implementation half (Story #4856 — see
@@ -222,9 +296,12 @@ export function resolveLedgeredVerdict({ route, reason } = {}) {
  *   route: 'lite'|'full',
  *   shape: ReturnType<typeof deriveStoryShape>,
  *   ledger: ReturnType<typeof resolveLedgeredVerdict>,
+ *   unwaivable: ReturnType<typeof deriveUnwaivableRisk>,
  *   ceilings: typeof STORY_SHAPE_CEILINGS,
  *   reasons: string[],
- * }}
+ * }} `unwaivable` names an absolute risk rule the predicted footprint trips
+ *   even when the recorded `shape.code` is a size prediction (Story #4875), so
+ *   the operator learns at prediction time that no override can help.
  */
 export function deriveLightSuitability({
   predictedChanges,
@@ -246,14 +323,24 @@ export function deriveLightSuitability({
     injectedRules,
     selectSensitivePathClassesFn,
   });
-  const suitable = shape.route === 'lite' && ledger.route === 'lite';
+  const unwaivable = deriveUnwaivableRisk(shape);
+  // A tripped risk rule is decisive on its own: the shape decision may have
+  // recorded an earlier ceiling rule, but a sensitive footprint can never be
+  // lite, so the conjunction must not be able to read `suitable` from a shape
+  // whose recorded code was waived downstream.
+  const suitable =
+    shape.route === 'lite' && ledger.route === 'lite' && !unwaivable.present;
+  const reasons = [`shape: ${shape.reasons[0]}`];
+  if (unwaivable.present) reasons.push(unwaivable.reason);
+  reasons.push(`verdict: ${ledger.note}`);
   return {
     suitable,
     route: suitable ? 'lite' : 'full',
     shape,
     ledger,
+    unwaivable,
     ceilings: STORY_SHAPE_CEILINGS,
-    reasons: [`shape: ${shape.reasons[0]}`, `verdict: ${ledger.note}`],
+    reasons,
   };
 }
 
@@ -274,8 +361,10 @@ export function deriveLightSuitability({
  *      terminal). Checked here as well as at the CLI, so the pure core carries
  *      the guarantee rather than the shell.
  *   3. **The objection is a size prediction** — a code in
- *      {@link OVERRIDABLE_SHAPE_CODES}. Sensitivity and migration span are
- *      risk and stay absolute however small the change.
+ *      {@link OVERRIDABLE_SHAPE_CODES}, **and** the footprint trips none of
+ *      {@link UNWAIVABLE_SHAPE_CODES} (Story #4875). Sensitivity and migration
+ *      span are risk and stay absolute however small the change — including
+ *      when an earlier ceiling rule is the one the shape recorded.
  *   4. **The ledgered verdict is already `lite`.** The override substitutes for
  *      the *shape* half of the conjunction only; an unaudited "trust me, it's
  *      small" buys nothing it did not buy before.
@@ -317,6 +406,22 @@ export function resolveOperatorOverride({
   }
 
   const code = suitability?.shape?.code ?? null;
+  // Checked BEFORE the overridable-code test on purpose (Story #4875): when a
+  // footprint trips both a ceiling rule and a risk rule, the shape records the
+  // ceiling rule, which IS overridable — so testing the recorded code alone
+  // would apply the override and send un-landable work to the backstop.
+  const unwaivable = suitability?.unwaivable;
+  if (unwaivable?.present === true) {
+    return refuse(
+      `operator override refused — the predicted footprint also trips the ` +
+        `un-waivable "${unwaivable.code}" rule${
+          unwaivable.classes.length > 0
+            ? ` (${unwaivable.classes.join(', ')})`
+            : ''
+        }; waiving the size prediction cannot make this land light, and the ` +
+        `diff backstop would refuse the finished work. Escalate to /plan.`,
+    );
+  }
   if (!OVERRIDABLE_SHAPE_CODES.includes(code)) {
     return refuse(
       `operator override refused — "${code ?? 'unknown'}" is not an overridable size prediction (overridable: ${OVERRIDABLE_SHAPE_CODES.join(', ')}); risk rules and unknown footprints are non-negotiable`,
