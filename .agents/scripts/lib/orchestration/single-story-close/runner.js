@@ -12,6 +12,7 @@ import { createProvider } from '../../provider-factory.js';
 import { flipLabelAndNotify } from '../../single-story/story-merged-notify.js';
 import { WorktreeManager } from '../../worktree-manager.js';
 import { runCodeReview as runCodeReviewDefault } from '../code-review.js';
+import { resolveRunScopedConfig } from '../run-scoped-config.js';
 import { releaseStoryLease } from '../single-story-lease-guard.js';
 import {
   buildTerminalEnvelope,
@@ -144,6 +145,7 @@ async function runPrePushPhases({
   worktreePath,
   config,
   baseBranch,
+  baseConfirmed,
   storyBranch,
   storyId,
   provider,
@@ -185,6 +187,7 @@ async function runPrePushPhases({
       cwd,
       worktreePath,
       baseBranch,
+      baseConfirmed,
       storyBranch,
       storyId,
       provider,
@@ -450,7 +453,6 @@ async function runClosePipeline({
   const startedAtMs = Date.now();
   const config = injectedConfig || resolveConfig({ cwd: options.cwd });
   const provider = injectedProvider || createProvider(config);
-  const baseBranch = config.project?.baseBranch ?? 'main';
   const storyBranch = getStoryBranch(options.storyId);
 
   progress('INIT', `Closing standalone Story #${options.storyId}...`);
@@ -468,6 +470,22 @@ async function runClosePipeline({
       config,
     );
   }
+
+  // Story #4891 — the base branch this run was SEEDED from, read back off the
+  // run's `story-init` receipt rather than re-resolved from a config file that
+  // may have changed during the whole implementation window. Throws (fail
+  // closed, naming both values) when the pin and current config disagree —
+  // deliberately here, before the gate chain, format-autofix and base-sync,
+  // so a wrong base is never merged into the Story branch. `baseConfirmed`
+  // gates the base-merge remediation advice further down.
+  const { values: runScoped, confirmed: baseConfirmed } =
+    await resolveRunScopedConfig({
+      provider,
+      storyId: options.storyId,
+      config,
+      progress,
+    });
+  const baseBranch = runScoped.baseBranch;
 
   const worktreePath = resolveWorktreePath({
     cwd: options.cwd,
@@ -490,6 +508,7 @@ async function runClosePipeline({
         ...options,
         config,
         baseBranch,
+        baseConfirmed,
         storyBranch,
         provider,
         worktreePath,

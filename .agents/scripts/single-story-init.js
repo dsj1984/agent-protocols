@@ -61,6 +61,7 @@ import {
   planFastForward,
 } from './lib/orchestration/git-cleanup/phases/fast-forward.js';
 import { verifyRemote } from './lib/orchestration/remote-verifier.js';
+import { pinRunScopedConfig } from './lib/orchestration/run-scoped-config.js';
 import {
   acquireStoryLease,
   releaseStoryLease,
@@ -735,6 +736,11 @@ export async function runSingleStoryInit({
     standalone: true,
     storyBranch,
     baseBranch,
+    // The write half of the run-scoped config pin. `baseBranch` above is the
+    // legacy field close still reads as a fallback; this block is the
+    // registry-driven form a second run-scoped key joins without a second
+    // mechanism (`lib/orchestration/run-scoped-config.js`).
+    runScopedConfig: pinRunScopedConfig(config),
     storyTitle: story.title,
     worktreeEnabled: runtime.worktreeEnabled,
     workCwd,
@@ -805,6 +811,7 @@ export function renderSingleStoryInitComment(result) {
     standalone: true,
     storyBranch: result.storyBranch,
     baseBranch: result.baseBranch,
+    runScopedConfig: result.runScopedConfig,
     worktreeEnabled: result.worktreeEnabled,
     workCwd: result.workCwd,
     worktreeCreated: result.worktreeCreated,
