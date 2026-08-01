@@ -68,6 +68,56 @@ describe('loadEnv', () => {
     assert.strictEqual(process.env.TEST_AFTER_BLANK, 'yes');
   });
 
+  it('drops a trailing inline comment from an unquoted value', () => {
+    track('TEST_INLINE_COMMENT');
+    fs.writeFileSync(
+      path.join(tmpDir, '.env'),
+      'TEST_INLINE_COMMENT=ghp_realtoken # classic PAT, rotate quarterly\n',
+    );
+    loadEnv(tmpDir);
+    assert.strictEqual(process.env.TEST_INLINE_COMMENT, 'ghp_realtoken');
+  });
+
+  it('keeps a comment marker inside a double-quoted value', () => {
+    track('TEST_DQ_HASH');
+    fs.writeFileSync(
+      path.join(tmpDir, '.env'),
+      'TEST_DQ_HASH="pa#ssword" # trailing note\n',
+    );
+    loadEnv(tmpDir);
+    assert.strictEqual(process.env.TEST_DQ_HASH, 'pa#ssword');
+  });
+
+  it('keeps a comment marker inside a single-quoted value', () => {
+    track('TEST_SQ_HASH');
+    fs.writeFileSync(
+      path.join(tmpDir, '.env'),
+      "TEST_SQ_HASH='chan#nel' # where it posts\n",
+    );
+    loadEnv(tmpDir);
+    assert.strictEqual(process.env.TEST_SQ_HASH, 'chan#nel');
+  });
+
+  it('honours a backslash escape for a literal hash in an unquoted value', () => {
+    track('TEST_ESCAPED_HASH');
+    fs.writeFileSync(
+      path.join(tmpDir, '.env'),
+      'TEST_ESCAPED_HASH=se\\#cret # note\n',
+    );
+    loadEnv(tmpDir);
+    assert.strictEqual(process.env.TEST_ESCAPED_HASH, 'se#cret');
+  });
+
+  it('yields an empty value for a line that is only an inline comment', () => {
+    track('TEST_ONLY_COMMENT');
+    fs.writeFileSync(
+      path.join(tmpDir, '.env'),
+      'TEST_ONLY_COMMENT= # unset for now\n',
+    );
+    loadEnv(tmpDir);
+    assert.strictEqual(process.env.TEST_ONLY_COMMENT, '');
+  });
+
   it('does nothing when .env is missing', () => {
     // No .env file in tmpDir
     assert.doesNotThrow(() => loadEnv(tmpDir));
