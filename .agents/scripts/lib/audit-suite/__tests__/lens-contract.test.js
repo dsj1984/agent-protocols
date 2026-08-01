@@ -164,10 +164,14 @@ describe('audit-lens-core shared contract (Story #4665)', () => {
   });
 
   it('documents the severity scale, self-cross-check, and Acceptance signal + Agent Prompt fields', () => {
+    // Story #4877: all five canonical levels. The four-level list this
+    // replaces omitted `info`, so a lens had no sanctioned way to grade a
+    // below-Low finding and improvised words the parser resolves to no
+    // severity — dropping the finding from every severity-filtered run.
     assert.match(
       coreTemplate,
-      /\*\*Severity:\*\*\s*\[Critical \| High \| Medium \| Low\]/,
-      'core skeleton does not offer the Critical|High|Medium|Low scale',
+      /\*\*Severity:\*\*\s*\[Critical \| High \| Medium \| Low \| Info\]/,
+      'core skeleton does not offer the full canonical Critical|High|Medium|Low|Info scale',
     );
     assert.ok(
       coreTemplate.includes('**Acceptance signal:**'),

@@ -40,9 +40,37 @@ export const SEVERITIES = Object.freeze([
  * malformed input — and because both the classify and promote paths share it,
  * malformed input still fingerprints identically across the two paths.
  */
-export const DEFAULT_SEVERITY = 'info';
+const DEFAULT_SEVERITY = 'info';
 
 const SEVERITY_SET = new Set(SEVERITIES);
+
+/**
+ * Non-canonical spellings that resolve onto a canonical level (Story #4877).
+ *
+ * The vocabulary drifted because four modules each carried their own partial
+ * copy of it: `audit-to-stories/parse-audit-md.js` recognised
+ * `critical|high|medium|mod|moderate|low` and nothing else, `audit-to-stories.js`
+ * ranked `critical|high|medium|low`, and `audit-to-stories/seed-from-findings.js`
+ * ordered the same four. None of them knew `info` — the canonical floor — so an
+ * `Info` / `Informational` finding parsed to `null`, tallied as `unknown`, and
+ * was dropped by EVERY severity-filtered run (including `--severity low`).
+ * Folding the alias table in here makes this module the only place the
+ * vocabulary is written down.
+ *
+ * Keys are already lower-cased and trimmed by {@link normalizeSeverity}.
+ *
+ * @type {Readonly<Record<string, string>>}
+ */
+const SEVERITY_ALIASES = Object.freeze({
+  blocker: 'critical',
+  major: 'high',
+  mod: 'medium',
+  moderate: 'medium',
+  minor: 'low',
+  informational: 'info',
+  nit: 'info',
+  trivial: 'info',
+});
 
 /**
  * Numeric rank for "highest severity wins" comparisons, derived from the
@@ -74,7 +102,44 @@ export const SEVERITY_RANK = Object.freeze(
 export function normalizeSeverity(value, fallback = DEFAULT_SEVERITY) {
   if (typeof value !== 'string') return fallback;
   const normalized = value.trim().toLowerCase();
-  return SEVERITY_SET.has(normalized) ? normalized : fallback;
+  if (SEVERITY_SET.has(normalized)) return normalized;
+  return SEVERITY_ALIASES[normalized] ?? fallback;
+}
+
+/**
+ * The **identity projection** of a severity, for use inside a finding
+ * fingerprint — and nowhere else (Story #4877).
+ *
+ * `severity` is a `fingerprintFinding` identity field
+ * (`route-finding.js`), so whatever this returns is folded into the sha that
+ * deduplicates findings against already-filed Issues. That makes the severity
+ * pipeline and the severity *identity* two different jobs with two different
+ * failure modes:
+ *
+ * - {@link normalizeSeverity} resolves an absent or unrecognised severity to
+ *   `info` so downstream filtering and tallies have a level to work with.
+ * - This function must NOT. Folding `info` in where the previous
+ *   implementation folded the empty string would re-mint the fingerprint of
+ *   every finding that carries no severity, silently breaking dedup for all of
+ *   them. An absent severity therefore stays the empty string, exactly as the
+ *   raw `String(value).toLowerCase().trim()` it replaces produced.
+ *
+ * What it *does* change is alias resolution: `Informational` and `info` project
+ * onto the same `info`, so the fingerprint is **invariant** under the
+ * normalization this Story introduces — a finding hashes the same whether it is
+ * fingerprinted before or after {@link normalizeSeverity} has run over it. An
+ * unrecognised non-empty value is passed through verbatim rather than collapsed,
+ * again so no already-filed fingerprint moves.
+ *
+ * @param {unknown} value — the raw severity field off a finding.
+ * @returns {string} a canonical level, the empty string when absent, or the
+ *   lower-cased raw value when it is neither canonical nor a known alias.
+ */
+export function fingerprintSeverity(value) {
+  if (typeof value !== 'string') return '';
+  const raw = value.trim().toLowerCase();
+  if (raw.length === 0) return '';
+  return normalizeSeverity(raw, raw);
 }
 
 /**
@@ -99,3 +164,16 @@ export function highestSeverity(values) {
   }
   return best;
 }
+
+/**
+ * Internals reached by the unit tests only. The floor and the alias table are
+ * consumed exclusively by this module's own exported functions, so they are
+ * not public API — but the alias table carries a structural invariant (no
+ * alias shadows a canonical level, every target IS one) that cannot be proven
+ * through `normalizeSeverity` alone, since that function returns a canonical
+ * value by construction.
+ */
+export const __testing = {
+  DEFAULT_SEVERITY,
+  SEVERITY_ALIASES,
+};

@@ -1,5 +1,5 @@
 ---
-description: Audit architectural boundaries, module coupling, and layering violations; emit a structured findings report keyed to High/Medium/Low severity.
+description: Audit architectural boundaries, module coupling, layering violations, and shipped-but-uncalled seams; emit a structured findings report keyed to the canonical severity scale.
 ---
 
 # Architecture & Clean Code Audit
@@ -57,9 +57,14 @@ the failure mode this lens exists to prevent.
    node .agents/scripts/check-dead-exports.js
    ```
 
-   Each unreferenced export is a grounded candidate. **Cede it** to
-   audit-clean-code's Dead Code dimension rather than re-deriving it here (see
-   the deferral in Step 2). When the shipped checker is unavailable, fall back
+   Each unreferenced export is a grounded candidate. **Cede the
+   merely-unreferenced ones** to audit-clean-code's Dead Code dimension rather
+   than re-deriving them here (see the deferral in Step 2); keep the ones that
+   are dead *wiring* — a seam a delivery shipped that no live production path
+   reaches — for this lens's Shipped-But-Never-Wired dimension. Note that this
+   checker only sees unreferenced symbols, so it cannot surface the worst shape
+   (a writer with no reader, both fully referenced); that one you must trace by
+   hand. When the shipped checker is unavailable, fall back
    to `npx knip --production` — and heed the `!`-suffix entry-pattern caveat
    that [`audit-clean-code`](audit-clean-code.md) documents, since
    `knip --production` is a silent no-op without it.
@@ -116,21 +121,35 @@ legitimately have no layered architecture to guard.
 
 ## Step 2: Analysis Dimensions
 
-For every finding you surface, grade **Impact** on a High / Medium / Low axis
-reflecting the severity of the architectural risk (how much correctness,
-maintainability, or testability the gap erodes), independent of the
-**Category** effort axis — a Quick Win can still be High Impact, and a
-Structural Change can be Medium. As a loose default, Quick Wins typically land
-High (cheap to fix, real payoff) and Structural Changes Medium/High, but grade
-Impact on the risk itself rather than deriving it mechanically from Category.
+For every finding you surface, grade **Impact** on the **canonical severity
+scale** — `Critical | High | Medium | Low | Info`, defined in the core's
+[Severity scale](helpers/audit-lens-core.md#severity-scale) and owned by
+`lib/findings/severity.js`. This lens relabels the axis `Impact` (it reflects how
+much correctness, maintainability, or testability the gap erodes), but the
+*levels* are the shared five and nothing else: a narrower or invented vocabulary
+resolves to no severity and the finding is dropped from every severity-filtered
+run. In particular an architectural defect that is actively data-losing or
+release-blocking grades **Critical**, and a grounded observation that asks for no
+scheduled work grades **Info** — neither collapses into `High` or `Low`.
+
+Impact is independent of the **Category** effort axis — a Quick Win can still be
+High Impact, and a Structural Change can be Medium. As a loose default, Quick
+Wins typically land High (cheap to fix, real payoff) and Structural Changes
+Medium/High, but grade Impact on the risk itself rather than deriving it
+mechanically from Category.
 
 > **Boundary with `audit-clean-code`.** The clean-code-overlapping smells
 > (over-engineering & abstractions, cognitive load & nesting, dead code &
 > redundancy, naming & self-documentation, coupling & cohesion) are owned by
 > [`audit-clean-code`](audit-clean-code.md); the Step 0 dead-export candidates
 > flow into its Dead Code dimension. Do **not** duplicate them here. This lens
-> keeps only the two structural dimensions no other lens owns — the
-> testable-surface boundary and the automated-guardrail maturity.
+> keeps only the three structural dimensions no other lens owns — the
+> testable-surface boundary, the automated-guardrail maturity, and
+> shipped-but-never-wired seams. The split with clean-code's Dead Code dimension
+> is by *question asked*: clean-code asks whether a symbol is referenced at all,
+> this lens asks whether a **live production path** reaches it. An unreferenced
+> helper is clean-code's; a fully-referenced writer whose reader was never built
+> is this lens's.
 
 Evaluate the gathered context against the following architecture dimensions:
 
@@ -207,6 +226,43 @@ Evaluate the gathered context against the following architecture dimensions:
    `Not Assessed — scoped run` and skip the per-axis evaluation. The
    full maturity assessment runs only in codebase-wide mode (when
    `{{changedFiles}}` renders as the literal substitution token).
+
+3. **Shipped-But-Never-Wired Seams (mandatory).** Report code this repository
+   ships that **no live production caller ever reaches**. This is the failure
+   mode the per-Story suite structurally cannot catch: every piece passes its own
+   unit tests, the diff looks complete, and the assembled path is dead — so it is
+   found only after delivery, if at all. A green suite is not evidence of a live
+   path; only a caller is.
+
+   Walk the seam **from the consumer backwards**, not from the producer forwards.
+   For each candidate, name the production entry point you traced to — or state
+   that you could not reach one, which is the finding. Cover at least:
+
+   - **A produced-but-never-consumed artifact.** Something the code computes,
+     stamps, writes, or returns that nothing downstream ever reads: an envelope
+     field no consumer parses, a file or log written and never opened, a
+     provenance marker stamped by the writer with no reader. Both halves must
+     exist for the feature to work, and shipping only the writer looks exactly
+     like shipping the feature.
+   - **An optional field nothing populates.** The mirror image: a parameter,
+     config key, or schema property a consumer reads and branches on that no
+     caller ever sets. The branch is unreachable, so the behaviour it guards has
+     never once run, and the default silently *is* the behaviour.
+   - **An exported seam with no in-tree caller** that the core's exclusion list
+     does not bless — not a test seam, not a CLI/`exports` entry point, not
+     dynamically reached. Cite the exclusion and drop it when it is one of those;
+     the Step 0 dead-export reading is the grounding instrument here, and the
+     candidates it surfaces that are genuinely dead **internal** wiring belong in
+     this dimension rather than ceded to clean-code's Dead Code dimension.
+
+   Grade Impact by what the dead wiring was supposed to do: a dead *guard, gate,
+   or enforcement path* is **High** or **Critical** — the protection it was
+   shipped to provide has never been in force, and the gate reads green because
+   it never runs. Dead reporting or convenience wiring is **Medium**. Each
+   finding's **Acceptance signal** must be the observable that proves the path is
+   live: a test that fails when the caller is removed, or a trace from the
+   production entry point to the seam. "Added a unit test for the seam" is not
+   that signal — the seam already had one.
 
 ### Maturity Rubric
 

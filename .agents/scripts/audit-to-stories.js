@@ -47,17 +47,34 @@ import { parseAuditReports } from './lib/audit-to-stories/parse-audit-md.js';
 import { buildPlanSeedMarkdown } from './lib/audit-to-stories/seed-from-findings.js';
 import { runAsCli } from './lib/cli-utils.js';
 import { searchSemanticCandidates } from './lib/findings/semantic-issue-search.js';
+import { SEVERITIES, SEVERITY_RANK } from './lib/findings/severity.js';
 import { Logger } from './lib/Logger.js';
 import { parse as parseStoryBody } from './lib/story-body/story-body.js';
 
-const SEVERITY_RANK = { critical: 4, high: 3, medium: 2, low: 1 };
 const DEFAULT_GLOB = 'temp/audits/audit-*-results.md';
 const FAN_OUT_REPORT = 'audit-fan-out-results.md';
 
+/**
+ * Does `finding` clear the `threshold` severity floor?
+ *
+ * `SEVERITY_RANK` is imported from the canonical scale rather than declared
+ * here (Story #4877). The local copy this replaces ranked only four levels
+ * (`critical|high|medium|low`), so `info` — the canonical floor — ranked `0`,
+ * below even `--severity low`, and every informational finding was silently
+ * dropped from every filtered run. Sourcing the ranking from the SSOT means a
+ * level cannot exist in the vocabulary and be invisible to the filter.
+ *
+ * An unrecognised or absent severity still ranks below every real floor: it
+ * failed to parse, so it is not evidence that a threshold was met.
+ *
+ * @param {{ severity?: string }} finding
+ * @param {string} [threshold] — a canonical level, `'all'`, or falsy for no floor.
+ * @returns {boolean}
+ */
 function meetsSeverity(finding, threshold) {
   if (!threshold || threshold === 'all') return true;
   const minRank = SEVERITY_RANK[threshold] ?? 0;
-  const fRank = SEVERITY_RANK[finding.severity] ?? 0;
+  const fRank = SEVERITY_RANK[finding.severity] ?? -1;
   return fRank >= minRank;
 }
 
@@ -77,8 +94,21 @@ function readReports(paths) {
   }));
 }
 
+/**
+ * Count findings per severity bucket. The buckets are the canonical levels plus
+ * `unknown` for a finding whose severity did not parse — kept as a visible
+ * bucket so an unparseable severity is reported rather than absorbed into a
+ * real level. Derived from `SEVERITIES` so a new level appears in the tally
+ * automatically instead of falling into `unknown` (Story #4877).
+ *
+ * @param {Array<{ severity?: string }>} findings
+ * @returns {Record<string, number>}
+ */
 function tallyBySeverity(findings) {
-  const t = { critical: 0, high: 0, medium: 0, low: 0, unknown: 0 };
+  const t = {
+    ...Object.fromEntries(SEVERITIES.map((s) => [s, 0])),
+    unknown: 0,
+  };
   for (const f of findings) {
     if (Object.hasOwn(t, f.severity)) t[f.severity] += 1;
     else t.unknown += 1;

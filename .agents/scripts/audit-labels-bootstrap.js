@@ -1,21 +1,20 @@
 /**
- * audit-labels-bootstrap.js — Idempotently create the `audit::<lens>`
- * label taxonomy in the configured GitHub repo.
+ * audit-labels-bootstrap.js — Idempotently create the audit label taxonomy in
+ * the configured GitHub repo.
  *
  * Run this once per repo before `/audit-to-stories` opens its first
  * Story. Re-runs are safe — existing labels are skipped, only missing
  * ones are created. Story #2583 acceptance criterion #6.
  *
- * The lens list is the shared SSOT `AUDIT_LENSES`
- * (`lib/audit-to-stories/audit-lenses.js`), one per `/audit-<lens>` workflow
- * under `.agents/workflows/`. Sourcing the list from the same module that
- * `build-story-body.js` derives `audit::<lens>` labels from guarantees the
- * label producer (this bootstrap) and the label deriver (story-body) cannot
- * drift — a finding from `audit-documentation-results.md` derives
- * `audit::documentation`, and this bootstrap creates exactly that label
- * (Story #4195). The per-lens colour/description metadata lives in
- * `LENS_META` below; adding a new `audit-*` workflow means adding its lens to
- * `AUDIT_LENSES` and (optionally) a `LENS_META` entry.
+ * This CLI is a thin creator over
+ * [`lib/audit-to-stories/audit-label-taxonomy.js`](lib/audit-to-stories/audit-label-taxonomy.js),
+ * which is the SSOT for **every** label an audit sweep creates or generates:
+ * the `audit::<lens>` set (derived from the shared `AUDIT_LENSES` list, one per
+ * `/audit-<lens>` workflow) plus the story-axis labels the filer applies. The
+ * creator and the generator (`build-story-body.js`) read that one list, so the
+ * bootstrap cannot fall behind the filer — the drift that left `risk::high`
+ * generated but defined nowhere (Story #4877), and that made `audit::<dimension>`
+ * labels mint from free-form prose before Story #4195.
  *
  * Delegates to `gh label create` so the script works without any
  * provider plumbing — `gh auth status` is the only prerequisite. Per
@@ -26,87 +25,10 @@
 import process from 'node:process';
 import { parseArgs } from 'node:util';
 
-import { AUDIT_LENSES } from './lib/audit-to-stories/audit-lenses.js';
+import { AUDIT_LABEL_TAXONOMY } from './lib/audit-to-stories/audit-label-taxonomy.js';
 import { runAsCli } from './lib/cli-utils.js';
 import { resolveConfig } from './lib/config-resolver.js';
 import { gh as defaultGh, GhExecError } from './lib/gh-exec.js';
-
-/**
- * Per-lens label presentation. Keyed by canonical lens name. A lens absent
- * from this map falls back to {@link DEFAULT_LENS_META} so a newly-added
- * `AUDIT_LENSES` entry still gets a label without a hard requirement to
- * register colour/description here first.
- */
-const LENS_META = Object.freeze({
-  accessibility: {
-    color: 'c5def5',
-    description: 'Audit-sourced finding: WCAG accessibility conformance',
-  },
-  architecture: {
-    color: '6f42c1',
-    description: 'Audit-sourced finding: architectural concerns',
-  },
-  'clean-code': {
-    color: '0e8a16',
-    description: 'Audit-sourced finding: clean-code / maintainability',
-  },
-  dependencies: {
-    color: 'd4c5f9',
-    description: 'Audit-sourced finding: dependencies / supply chain',
-  },
-  devops: {
-    color: 'fbca04',
-    description: 'Audit-sourced finding: DevOps / CI / CD',
-  },
-  documentation: {
-    color: '1d76db',
-    description: 'Audit-sourced finding: documentation staleness / gaps',
-  },
-  navigability: {
-    color: 'bfdadc',
-    description: 'Audit-sourced finding: route / nav reachability',
-  },
-  performance: {
-    color: 'b60205',
-    description: 'Audit-sourced finding: performance / latency',
-  },
-  privacy: {
-    color: 'fef2c0',
-    description: 'Audit-sourced finding: privacy / data handling',
-  },
-  quality: {
-    color: '0052cc',
-    description: 'Audit-sourced finding: test quality / coverage gaps',
-  },
-  security: {
-    color: 'b60205',
-    description: 'Audit-sourced finding: security / OWASP',
-  },
-  seo: {
-    color: 'fbca04',
-    description: 'Audit-sourced finding: SEO / discoverability',
-  },
-  sre: {
-    color: '0052cc',
-    description: 'Audit-sourced finding: SRE / observability / reliability',
-  },
-  'ux-ui': {
-    color: 'd4c5f9',
-    description: 'Audit-sourced finding: UX / UI concerns',
-  },
-});
-
-const DEFAULT_LENS_META = Object.freeze({
-  color: 'ededed',
-  description: 'Audit-sourced finding',
-});
-
-const DIMENSIONS = Object.freeze(
-  AUDIT_LENSES.map((name) => ({
-    name,
-    ...(LENS_META[name] ?? DEFAULT_LENS_META),
-  })),
-);
 
 async function labelExists(gh, owner, repo, name) {
   try {
@@ -166,9 +88,8 @@ export async function bootstrapAuditLabels({
   const skipped = [];
   const failed = [];
 
-  for (const dim of DIMENSIONS) {
-    const labelName = `audit::${dim.name}`;
-    const candidate = { ...dim, name: labelName };
+  for (const candidate of AUDIT_LABEL_TAXONOMY) {
+    const labelName = candidate.name;
 
     if (dryRun) {
       created.push(labelName);
@@ -190,7 +111,7 @@ export async function bootstrapAuditLabels({
     }
   }
 
-  return { created, skipped, failed, total: DIMENSIONS.length };
+  return { created, skipped, failed, total: AUDIT_LABEL_TAXONOMY.length };
 }
 
 /**
@@ -241,7 +162,7 @@ export function formatBootstrapReport(result) {
   };
 }
 
-export const __testing = { DIMENSIONS };
+export const __testing = { AUDIT_LABEL_TAXONOMY };
 
 async function main() {
   const { values } = parseArgs({

@@ -17,6 +17,7 @@
  * Pure: returns a string. The caller decides where to persist it.
  */
 
+import { SEVERITIES } from '../findings/severity.js';
 import {
   renderFingerprintFooter,
   renderSemanticKeyFooter,
@@ -37,10 +38,16 @@ const DIMENSION_LABEL = {
   architecture: 'Architecture',
 };
 
-const SEVERITY_ORDER = ['critical', 'high', 'medium', 'low'];
+/**
+ * The severity profile in the seed's Problem Statement is ordered and bucketed
+ * by the canonical scale (Story #4877) rather than by a fourth local copy of
+ * it. The list this replaces omitted `info`, so an informational finding was
+ * absent from the profile the planner reads even when it survived the filter.
+ */
+const SEVERITY_ORDER = SEVERITIES;
 
 function tallySeverities(findings) {
-  const tally = { critical: 0, high: 0, medium: 0, low: 0 };
+  const tally = Object.fromEntries(SEVERITIES.map((s) => [s, 0]));
   for (const f of findings) {
     if (Object.hasOwn(tally, f.severity)) tally[f.severity] += 1;
   }

@@ -41,6 +41,51 @@ through the same two options; bisect environment (runner OS, Node version,
 concurrency, a platform-conditional branch, an external service) vs. code (an
 order-dependent test, a race, a shared-state assumption) to decide which.
 
+## Verdicts
+
+Every red check reaches exactly one verdict, and each verdict routes to one of
+the two options above. Name the verdict you reached in the `friction` comment.
+
+| Verdict | Evidence | Routes to |
+| --- | --- | --- |
+| **defect-in-diff** | The failure reproduces on the branch and not on an unmodified `main` | Option 1 — fix at source |
+| **pre-existing** | The same check fails on an unmodified `main` too | Option 2 — file `meta::framework-gap`; remediate here only if it blocks this delivery |
+| **capacity** | Proven exhaustion of a runner resource, not a property of the diff (see below) | Option 2 — file `meta::framework-gap` **and** escalate to the operator |
+
+### The `capacity` verdict
+
+A job can fail because the runner ran out of something, not because the code is
+wrong: no runner could be provisioned, the disk or memory ceiling was hit, a
+process/PTY/file-descriptor limit was exhausted, the job wall-clock timed out
+with no progress, or a self-hosted pool was saturated. Nothing on the branch
+causes it and nothing on the branch can fix it.
+
+This verdict exists because the rule previously offered no landing for that
+case. The honest reading of "a red check is a defect until proven otherwise" is
+that capacity failures are the *otherwise* — but with no verdict for them the
+only shapes on offer were "fix the diff" (impossible) and "it's flaky, re-run
+it" (forbidden), so the rule got broken rather than followed. Naming the verdict
+removes the incentive to launder a capacity failure as a rerun.
+
+**Capacity must be proven, not inferred.** A green on re-run is the single
+weakest form of evidence for it and never establishes it — that is precisely the
+observation a flaky test produces. Cite the resource and the reading: the log
+line naming the exhausted limit (an OOM kill, `ENOSPC`, `EMFILE`,
+`forkpty/sudo: Device not configured`, a provisioning error, a no-output
+timeout), plus the fact that the failure is not specific to this diff. Absent
+that reading the verdict is **flaky, not capacity**, and it routes to Option 1.
+
+On a `capacity` verdict: file the `meta::framework-gap` issue with the run link,
+the failure signature, and the resource reading; flip the Story to
+`agent::blocked` with a `friction` comment naming the verdict; and hand back to
+the operator, who owns the runner pool. Do not sit in a retry loop waiting for
+capacity to return.
+
+**Rerunning a failed job to reach green stays forbidden under every verdict,
+`capacity` included.** The verdict changes who owns the fix and where it is
+filed; it never licenses a re-run, and it is not a route to a green bar. A
+capacity-blocked delivery ends `agent::blocked` — not merged.
+
 ## Verifier
 
 The check is resolved only when it is **green with zero reruns of the failed
@@ -84,4 +129,5 @@ operator under **any** of:
   registry/network outage, a branch-protection or CI misconfiguration, an
   expired credential) — file the `meta::framework-gap` issue (with run link +
   signature) and escalate on the first encounter rather than burning iterations
-  trying to code around it.
+  trying to code around it. A proven-capacity failure is this case: reach the
+  `capacity` verdict above and escalate on the first encounter.

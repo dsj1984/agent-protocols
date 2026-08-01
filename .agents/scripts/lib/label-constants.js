@@ -112,6 +112,22 @@ export const META_LABELS = {
 };
 
 /**
+ * Risk-axis labels. Planning/audit metadata only — `risk::high` carries no
+ * runtime behaviour (the single runtime pause point is `agent::blocked`, see
+ * `.agents/instructions.md` § 1.J); it marks a ticket a human should look at
+ * first. Applied by the audit filer to a Story whose merge contains a Critical
+ * finding.
+ *
+ * Named here because it was a bare `'risk::high'` string literal in
+ * `audit-to-stories/build-story-body.js` and defined by no taxonomy at all —
+ * neither `LABEL_TAXONOMY` nor the audit bootstrap created it, so the audit
+ * filer generated a label the repo did not have (Story #4877).
+ */
+export const RISK_LABELS = {
+  HIGH: 'risk::high',
+};
+
+/**
  * Planning-axis labels (Epic #2880 F7). Currently scoped to the
  * `planning::healthcheck-waived` operator-applied waiver — a historical
  * escape hatch for the retired post-plan readiness healthcheck. The
@@ -147,6 +163,7 @@ export const PLANNING_HEALTHCHECK_WAIVED = 'planning::healthcheck-waived';
  */
 export const LABEL_COLORS = {
   TYPE: '#7057FF',
+  RISK_HIGH: '#B60205',
   AGENT: '#0E8A16',
   STATUS_BLOCKED: '#D93F0B',
   ACCEPTANCE: '#FBCA04',

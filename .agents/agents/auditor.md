@@ -90,7 +90,7 @@ lens may **add** fields and may relabel `Severity` ↔ `Impact` and
 ### `path/to/primary-file.ext` — [Short title of the issue]
 
 - **Dimension:** [the lens-specific dimension]
-- **Severity:** [Critical | High | Medium | Low]
+- **Severity:** [Critical | High | Medium | Low | Info]
 - **Location:** `path/to/primary-file.ext:line`
 - **Current State:** [the specific file/line and why it is problematic]
 - **Recommendation & Rationale:** [how to remediate and why it matters]
@@ -112,6 +112,8 @@ and a surviving **Critical** halts the delivery gate:
 - **Medium** — a real problem worth scheduling; contained blast radius or a
   workaround exists.
 - **Low** — minor or cosmetic; fix opportunistically.
+- **Info** — the floor: a grounded observation asking for no scheduled work
+  (accepts `Informational`). Never a home for findings that fail the bar below.
 
 ## Self-cross-check bar (mandatory before you write the report)
 

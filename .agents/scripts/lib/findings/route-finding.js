@@ -30,6 +30,8 @@
 
 import crypto from 'node:crypto';
 
+import { fingerprintSeverity } from './severity.js';
+
 const SEP = '␟'; // unit separator — keeps fingerprint fields unambiguous
 const MARKER = 'audit-fingerprints:';
 const SEMANTIC_MARKER = 'audit-semantic-keys:';
@@ -65,6 +67,20 @@ function normaliseLabels(labels) {
 
 /**
  * Compute the stable identity payload for a finding.
+ *
+ * **Severity is projected, not raw (Story #4877).** The severity vocabulary was
+ * normalised onto the canonical five-level scale in the same change that wrote
+ * this comment, and severity is an identity field — so a naive
+ * `normaliseField(finding.severity)` here would have re-minted the fingerprint
+ * of every finding whose spelling the normalisation touched, silently breaking
+ * dedup against every Issue already filed. {@link fingerprintSeverity} is the
+ * projection that makes the hash **invariant** under that normalisation: it
+ * resolves aliases onto their canonical level, keeps an absent severity as the
+ * empty string (what the raw call produced), and passes an unrecognised value
+ * through verbatim. Labels are deliberately left on the raw
+ * lower-case/trim/sort path for the same reason — order- and case-insensitive
+ * already, and any further folding would move existing shas.
+ *
  * @param {object} finding
  * @returns {{ title: string, area: string, primaryFile: string, severity: string, labels: string }}
  */
@@ -73,7 +89,7 @@ function fingerprintComponents(finding) {
     title: normaliseField(finding?.title),
     area: normaliseField(finding?.area),
     primaryFile: normaliseField(finding?.primaryFile),
-    severity: normaliseField(finding?.severity),
+    severity: fingerprintSeverity(finding?.severity),
     labels: normaliseLabels(finding?.labels),
   };
 }
@@ -142,20 +158,18 @@ export function semanticKeyFooter(keys) {
 
 /**
  * Extract semantic keys from an Issue body carrying the semantic-key footer.
- * Internal — the audit filers stamp the footer via {@link semanticKeyFooter};
- * only the confirmation path here reads it back.
+ * The audit filers stamp the footer via {@link semanticKeyFooter}; the
+ * confirmation path here and {@link carryProvenanceFooters} read it back.
  *
  * @param {string} body
  * @returns {string[]}
  */
 function parseSemanticKeyFooter(body) {
-  if (typeof body !== 'string') return [];
-  const match = body.match(/<!--\s*audit-semantic-keys:\s*([^>]*?)\s*-->/);
-  if (!match) return [];
-  return match[1]
-    .split(',')
-    .map((s) => s.trim())
-    .filter((s) => s.length > 0);
+  return parseAllFooterValues(
+    body,
+    /<!--\s*audit-semantic-keys:\s*([^>]*?)\s*-->/g,
+    (s) => s.length > 0,
+  );
 }
 
 /**
@@ -190,13 +204,104 @@ export function fingerprintFooter(shas) {
  * @returns {string[]}
  */
 export function parseFingerprintFooter(body) {
-  if (typeof body !== 'string') return [];
-  const match = body.match(/<!--\s*audit-fingerprints:\s*([^>]+?)\s*-->/);
-  if (!match) return [];
-  return match[1]
-    .split(',')
-    .map((s) => s.trim())
-    .filter((s) => SHA1_RE.test(s));
+  return parseAllFooterValues(
+    body,
+    /<!--\s*audit-fingerprints:\s*([^>]+?)\s*-->/g,
+    (s) => SHA1_RE.test(s),
+  );
+}
+
+/**
+ * Collect the comma-separated values out of **every** occurrence of a footer
+ * marker in `text`, de-duplicated, in first-seen order.
+ *
+ * Scanning every occurrence rather than only the first matters for the
+ * provenance carry (Story #4877): the audit Single-plan seed stamps one footer
+ * pair per MVP Scope bullet, so a multi-group seed carries several. A
+ * first-match-only parse silently dropped every group but the first, which
+ * would have made the carry look wired while leaking most of the provenance.
+ * Reading all footers is also strictly more correct for issue-body confirmation
+ * — a body that accumulated two footer lines confirms against either.
+ *
+ * @param {unknown} text
+ * @param {RegExp} pattern — a global regex whose first capture group is the
+ *   comma-separated value list.
+ * @param {(value: string) => boolean} isValid
+ * @returns {string[]}
+ */
+function parseAllFooterValues(text, pattern, isValid) {
+  if (typeof text !== 'string') return [];
+  const out = [];
+  const seen = new Set();
+  for (const match of text.matchAll(pattern)) {
+    for (const raw of match[1].split(',')) {
+      const value = raw.trim();
+      if (!isValid(value) || seen.has(value)) continue;
+      seen.add(value);
+      out.push(value);
+    }
+  }
+  return out;
+}
+
+/**
+ * Carry audit dedup provenance from a source document into a target body
+ * (Story #4877).
+ *
+ * The audit sweep's Single-plan path emits a `/plan` seed whose MVP Scope
+ * bullets already carry the `audit-fingerprints` / `audit-semantic-keys`
+ * footers (Story #4626). Nothing then copied them into the Story `/plan`
+ * actually persisted, so the recommended path filed Stories that the next
+ * sweep could not recognise and re-filed as new. It was left to the authoring
+ * agent to notice HTML comments in a one-pager and hand-carry them — a
+ * remembered step, which is to say no step at all.
+ *
+ * This is that carry, as a function: harvest both footers out of `from`, and
+ * append whichever provenance `into` is missing. It is deliberately:
+ *
+ * - **Additive.** Shas and keys already present in `into` are never duplicated,
+ *   and a footer `into` already carries is left exactly as authored.
+ * - **Union-preserving.** When both sides carry footers the result carries the
+ *   union, so a hand-authored fingerprint is not dropped in favour of the seed's.
+ * - **Idempotent.** Re-running over its own output is a no-op, so a resumed
+ *   persist cannot stack footers.
+ * - **Silent on nothing-to-do.** No provenance in `from` returns `into`
+ *   unchanged with `carried: false`, so a non-audit plan run is untouched.
+ *
+ * @param {{ from?: string, into?: string }} args — `from` is the provenance
+ *   source (the seed markdown); `into` is the body being persisted.
+ * @returns {{ body: string, carried: boolean, fingerprints: string[], semanticKeys: string[] }}
+ *   `body` is the augmented text; `fingerprints` / `semanticKeys` are the values
+ *   newly carried (empty when there was nothing to carry).
+ */
+export function carryProvenanceFooters({ from = '', into = '' } = {}) {
+  const body = typeof into === 'string' ? into : '';
+  const source = typeof from === 'string' ? from : '';
+
+  const have = new Set(parseFingerprintFooter(body));
+  const haveKeys = new Set(parseSemanticKeyFooter(body));
+  const fingerprints = parseFingerprintFooter(source).filter(
+    (sha) => !have.has(sha),
+  );
+  const semanticKeys = parseSemanticKeyFooter(source).filter(
+    (key) => !haveKeys.has(key),
+  );
+
+  if (fingerprints.length === 0 && semanticKeys.length === 0) {
+    return { body, carried: false, fingerprints: [], semanticKeys: [] };
+  }
+
+  const appended = [];
+  if (fingerprints.length > 0) appended.push(fingerprintFooter(fingerprints));
+  if (semanticKeys.length > 0) appended.push(semanticKeyFooter(semanticKeys));
+
+  const separator = body.length === 0 || body.endsWith('\n') ? '' : '\n';
+  return {
+    body: `${body}${separator}\n${appended.join('\n')}\n`,
+    carried: true,
+    fingerprints,
+    semanticKeys,
+  };
 }
 
 /**
@@ -378,4 +483,5 @@ export const __testing = {
   confirmCandidates,
   decideFromConfirmed,
   issueCarriesSemanticKey,
+  parseSemanticKeyFooter,
 };

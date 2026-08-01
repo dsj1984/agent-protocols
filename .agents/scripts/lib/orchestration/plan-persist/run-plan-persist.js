@@ -451,6 +451,7 @@ export async function runPlanPersist({
     stories: rawStories = null,
     techSpecContent = null,
     planAcceptance = null,
+    planContextEnvelope = null,
   } = artifacts ?? {};
   const {
     forceReview = false,
@@ -538,6 +539,12 @@ export async function runPlanPersist({
     sharedSpec: techSpecContent,
     planAcceptance: planAcceptance ?? undefined,
     sourceTicketIds,
+    // The seed this plan was authored from is the provenance source: an audit
+    // sweep's Single-plan seed carries the `audit-fingerprints` /
+    // `audit-semantic-keys` footers, which assembly copies into every persisted
+    // Story body so the next sweep recognises what it already planned
+    // (Story #4877). Empty for a `--tickets` run, which is a no-op.
+    provenanceSource: planContextEnvelope?.seed?.content ?? '',
   });
 
   // Effective complexity route (Story #4722): the planner's authored lite
