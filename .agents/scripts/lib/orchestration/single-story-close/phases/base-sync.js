@@ -35,6 +35,7 @@ import {
  *   cwd: string,
  *   worktreePath: string|null,
  *   baseBranch: string,
+ *   baseConfirmed?: boolean,
  *   storyBranch: string,
  *   storyId: number,
  *   provider: object,
@@ -46,6 +47,7 @@ export async function runBaseSyncPhase({
   cwd,
   worktreePath,
   baseBranch,
+  baseConfirmed = false,
   storyBranch,
   storyId,
   provider,
@@ -69,6 +71,7 @@ export async function runBaseSyncPhase({
       storyId,
       syncCwd,
       baseBranch,
+      baseConfirmed,
       storyBranch,
       result: syncResult,
       progress,
@@ -95,6 +98,7 @@ export async function runBaseSyncPhase({
  *   storyId: number,
  *   syncCwd: string,
  *   baseBranch: string,
+ *   baseConfirmed?: boolean,
  *   storyBranch: string,
  *   result: { kind: string, conflictFiles?: string[], stderr?: string },
  *   progress: (tag: string, msg: string) => void,
@@ -105,6 +109,7 @@ export async function handleSyncFailure({
   storyId,
   syncCwd,
   baseBranch,
+  baseConfirmed = false,
   storyBranch,
   result,
   progress,
@@ -113,6 +118,7 @@ export async function handleSyncFailure({
     storyId,
     storyBranch,
     baseBranch,
+    baseConfirmed,
     syncCwd,
     result,
   });
@@ -147,13 +153,23 @@ export async function handleSyncFailure({
  * Build the markdown body posted on a base-sync failure. Pure; exported
  * for tests so the operator-recoverable surface stays reviewable.
  *
- * @param {{ storyId: number, storyBranch: string, baseBranch: string, syncCwd: string, result: { kind: string, conflictFiles?: string[], stderr?: string } }} args
+ * Story #4891 — `baseConfirmed` gates the merge-the-base recovery block, and
+ * defaults to `false` so it fails closed. Telling the operator to run
+ * `git merge origin/<baseBranch>` is actively harmful when `<baseBranch>` is
+ * not the base the Story was seeded from: it permanently contaminates the
+ * branch and its PR diff with an unrelated base. Close confirms the base
+ * against the run's `story-init` receipt before that advice is emitted; when
+ * it could not (receipt absent, unreadable, or unpinned), the operator is
+ * told to establish the real base first instead.
+ *
+ * @param {{ storyId: number, storyBranch: string, baseBranch: string, baseConfirmed?: boolean, syncCwd: string, result: { kind: string, conflictFiles?: string[], stderr?: string } }} args
  * @returns {string}
  */
 export function buildSyncFailureCommentBody({
   storyId,
   storyBranch,
   baseBranch,
+  baseConfirmed = false,
   syncCwd,
   result,
 }) {
@@ -170,15 +186,30 @@ export function buildSyncFailureCommentBody({
     `sync against \`origin/${baseBranch}\` could not complete. The Story has`,
     `been transitioned to \`agent::blocked\`. To resume:`,
     '',
-    '```bash',
-    `cd ${syncCwd}`,
-    `git fetch origin ${baseBranch}`,
-    `git merge --no-edit origin/${baseBranch}`,
-    '# resolve any conflicts, then:',
-    `git add -A ; git commit --no-edit`,
-    '# re-run close:',
-    `node .agents/scripts/single-story-close.js --story ${storyId}`,
-    '```',
+    ...(baseConfirmed
+      ? [
+          '```bash',
+          `cd ${syncCwd}`,
+          `git fetch origin ${baseBranch}`,
+          `git merge --no-edit origin/${baseBranch}`,
+          '# resolve any conflicts, then:',
+          `git add -A ; git commit --no-edit`,
+          '# re-run close:',
+          `node .agents/scripts/single-story-close.js --story ${storyId}`,
+          '```',
+        ]
+      : [
+          `⚠️ **No merge advice: \`${baseBranch}\` is unconfirmed.** This close could not`,
+          `read the base branch \`${storyBranch}\` was seeded from off the run's`,
+          '`story-init` receipt, so merging that base in could contaminate the branch',
+          'and its PR diff with an unrelated base. Establish the real base first —',
+          `check the \`story-init\` comment on this issue and \`project.baseBranch\` in`,
+          '`.agentrc.json` / `.agentrc.local.json` — then merge that base and re-run:',
+          '',
+          '```bash',
+          `node .agents/scripts/single-story-close.js --story ${storyId}`,
+          '```',
+        ]),
   ];
   if (kind === 'conflict' && fileList.length > 0) {
     lines.push('', '**Conflicting files:**', '', ...fileList);

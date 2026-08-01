@@ -2069,6 +2069,10 @@
       "symbol": "gatherStoryFrictionSignals"
     },
     {
+      "file": ".agents/scripts/lib/orchestration/structured-comment-parser.js",
+      "symbol": "parseFencedJson"
+    },
+    {
       "file": ".agents/scripts/lib/orchestration/task-body-validator.js",
       "symbol": "VERIFY_TIER_VALUES"
     },

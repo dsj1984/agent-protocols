@@ -90,6 +90,7 @@ import { runAsCli } from './lib/cli-utils.js';
 import { formatCliError } from './lib/error-redactor.js';
 import { Logger } from './lib/Logger.js';
 import { emitTerminalFriction } from './lib/observability/runtime-friction.js';
+import { resolveRunScopedConfig } from './lib/orchestration/run-scoped-config.js';
 import {
   failedTerminalFor,
   gatesForFailedPhase,
@@ -123,12 +124,17 @@ export const enableAutoMerge = enableAutoMergeWith;
 // `gatesForFailedPhase` now lives beside the envelope it feeds
 // (`single-story-close/failed-terminal.js`); it is re-exported here so the
 // CLI's public surface is unchanged by that move.
+// `resolveRunScopedConfig` (Story #4891) is the run-scoped config pin the
+// pipeline reads before its first phase; it is part of this CLI's surface for
+// the same reason the sync helpers are — the runner reaches it only through a
+// dynamic import, so this file is where it is statically visible.
 export {
   buildStoryReviewCrossRefBody,
   buildSyncFailureCommentBody,
   gatesForFailedPhase,
   handleSyncFailure,
   parsePrNumber,
+  resolveRunScopedConfig,
   runStoryScopeReview,
 };
 

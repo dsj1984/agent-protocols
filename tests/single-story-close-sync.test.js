@@ -1,22 +1,25 @@
 /**
  * tests/single-story-close-sync.test.js — coverage for the Story #2580
- * sync-from-base step inside `single-story-close.js`.
+ * sync-from-base step inside `single-story-close.js`, and for the Story #4891
+ * run-scoped config pin that decides WHICH base that step syncs from.
  *
- * The pure helpers (`buildSyncFailureCommentBody`, `handleSyncFailure`)
- * are exercised in isolation. The end-to-end integration through
- * `runSingleStoryClose` is covered with the standard injection seams
- * (`injectedSync`, `injectedProvider`, `injectedConfig`, `injectedNotify`)
- * plus `t.mock.module` for the validation / push / worktree-manager
- * collaborators.
+ * The pure helpers (`buildSyncFailureCommentBody`, `handleSyncFailure`,
+ * `pinRunScopedConfig`, `resolveRunScopedConfig`) are exercised in isolation.
+ * The end-to-end integration through `runSingleStoryClose` is covered with the
+ * standard injection seams (`injectedSync`, `injectedProvider`,
+ * `injectedConfig`, `injectedNotify`) plus `t.mock.module` for the validation /
+ * push / worktree-manager collaborators.
  */
 
 import assert from 'node:assert/strict';
 import path from 'node:path';
 import { describe, it } from 'node:test';
 import { fileURLToPath, pathToFileURL } from 'node:url';
+import { pinRunScopedConfig } from '../.agents/scripts/lib/orchestration/run-scoped-config.js';
 import {
   buildSyncFailureCommentBody,
   handleSyncFailure,
+  resolveRunScopedConfig,
 } from '../.agents/scripts/single-story-close.js';
 
 const REPO_ROOT = path
@@ -54,6 +57,39 @@ function mockCloseValidation(t, { namedExports }) {
 const WORKTREE_MANAGER_URL = pathToFileURL(
   path.resolve(REPO_ROOT, '.agents/scripts/lib/worktree-manager.js'),
 ).href;
+const FORMAT_AUTOFIX_URL = pathToFileURL(
+  path.resolve(
+    REPO_ROOT,
+    '.agents/scripts/lib/orchestration/story-close/format-autofix.js',
+  ),
+).href;
+
+/**
+ * Story #4891 — render a `story-init` receipt comment body the way
+ * `renderSingleStoryInitComment` does: a fenced JSON payload behind the
+ * structured-comment marker. `legacy: true` omits the `runScopedConfig` block
+ * so the top-level-field fallback (receipts written before the block existed)
+ * is exercised too.
+ */
+function storyInitComment({ baseBranch, legacy = false, extra = null }) {
+  const payload = {
+    storyId: 4242,
+    standalone: true,
+    storyBranch: 'story-4242',
+    baseBranch,
+    ...(legacy ? {} : { runScopedConfig: { baseBranch, ...(extra ?? {}) } }),
+  };
+  return [
+    '<!-- ap:structured-comment type="story-init" -->',
+    '',
+    '## Story init (standalone)',
+    '',
+    '```json',
+    JSON.stringify(payload, null, 2),
+    '```',
+    '',
+  ].join('\n');
+}
 
 /**
  * Story #2990: build a fake `lib/gh-exec.js` `gh` facade for direct
@@ -150,7 +186,7 @@ function fakeConfig() {
   };
 }
 
-function fakeProvider({ labels = ['agent::executing'] } = {}) {
+function fakeProvider({ labels = ['agent::executing'], comments } = {}) {
   let story = {
     id: 4242,
     state: 'open',
@@ -158,8 +194,19 @@ function fakeProvider({ labels = ['agent::executing'] } = {}) {
     labels: [...labels],
   };
   const updates = [];
+  const posted = [];
   return {
     getTicket: async () => ({ ...story, labels: [...story.labels] }),
+    // Story #4891 — close reads the run's `story-init` receipt through
+    // `findStructuredComment`, which lists the ticket's comments. Omitting
+    // `comments` models the absent-receipt fallback path.
+    getTicketComments: async () =>
+      (comments ?? []).map((body, i) => ({ id: i + 1, body })),
+    postComment: async (id, { type, body }) => {
+      posted.push({ id, type, body });
+      return { id: 900 + posted.length };
+    },
+    _posted: () => posted,
     updateTicket: async (id, patch) => {
       updates.push({ id, patch });
       if (patch.labels) {
@@ -185,6 +232,7 @@ describe('buildSyncFailureCommentBody', () => {
       storyId: 100,
       storyBranch: 'story-100',
       baseBranch: 'main',
+      baseConfirmed: true,
       syncCwd: '/repo/.worktrees/story-100',
       result: {
         kind: 'conflict',
@@ -206,6 +254,7 @@ describe('buildSyncFailureCommentBody', () => {
       storyId: 7,
       storyBranch: 'story-7',
       baseBranch: 'main',
+      baseConfirmed: true,
       syncCwd: '/repo',
       result: {
         kind: 'fetch-failed',
@@ -217,17 +266,56 @@ describe('buildSyncFailureCommentBody', () => {
     assert.match(body, /unable to access/);
   });
 
-  it('emits a recovery cd / git fetch / merge block', () => {
+  it('emits a recovery cd / git fetch / merge block when the base is confirmed', () => {
     const body = buildSyncFailureCommentBody({
       storyId: 1,
       storyBranch: 'story-1',
       baseBranch: 'main',
+      baseConfirmed: true,
       syncCwd: '/repo',
       result: { kind: 'conflict', conflictFiles: ['a'] },
     });
     assert.match(body, /cd \/repo/);
     assert.match(body, /git fetch origin main/);
     assert.match(body, /git merge --no-edit origin\/main/);
+  });
+
+  // Story #4891 AC-3 — advising `git merge origin/<base>` against a base the
+  // Story was never seeded from permanently contaminates the branch and its
+  // PR diff. The advice is withheld until close has confirmed the base.
+  it('withholds the base-merge advice when the base is unconfirmed', () => {
+    const body = buildSyncFailureCommentBody({
+      storyId: 1,
+      storyBranch: 'story-1',
+      baseBranch: 'develop',
+      baseConfirmed: false,
+      syncCwd: '/repo',
+      result: { kind: 'conflict', conflictFiles: ['a'] },
+    });
+    assert.doesNotMatch(body, /git merge --no-edit origin\/develop/);
+    assert.doesNotMatch(body, /git fetch origin develop/);
+    assert.match(body, /`develop` is unconfirmed/);
+    assert.match(body, /story-init/);
+    // The re-run command still has to be there — the operator is blocked, not
+    // stranded without a next step.
+    assert.match(
+      body,
+      /node \.agents\/scripts\/single-story-close\.js --story 1/,
+    );
+    // The conflicting-file evidence is orthogonal to the advice and stays.
+    assert.match(body, /Conflicting files:/);
+  });
+
+  it('defaults to withholding the base-merge advice (fails closed)', () => {
+    const body = buildSyncFailureCommentBody({
+      storyId: 2,
+      storyBranch: 'story-2',
+      baseBranch: 'main',
+      syncCwd: '/repo',
+      result: { kind: 'conflict', conflictFiles: ['a'] },
+    });
+    assert.doesNotMatch(body, /git merge --no-edit origin\/main/);
+    assert.match(body, /`main` is unconfirmed/);
   });
 });
 
@@ -294,6 +382,237 @@ describe('handleSyncFailure', () => {
         result: { kind: 'fetch-failed', stderr: 'boom' },
         progress: () => {},
       }),
+    );
+  });
+});
+
+describe('pinRunScopedConfig (Story #4891 — the write half)', () => {
+  it('pins project.baseBranch, defaulting to main when unset', () => {
+    assert.deepEqual(pinRunScopedConfig({ project: { baseBranch: 'trunk' } }), {
+      baseBranch: 'trunk',
+    });
+    assert.deepEqual(pinRunScopedConfig({}), { baseBranch: 'main' });
+  });
+
+  // AC-5 — the pin is registry-driven on both halves, so a second run-scoped
+  // key is one registry row and needs no second mechanism.
+  it('enumerates every registry row it is given', () => {
+    const keys = {
+      baseBranch: {
+        read: (c) => c?.project?.baseBranch ?? 'main',
+        label: 'project.baseBranch',
+      },
+      ceremonyProfile: {
+        read: (c) => c?.delivery?.routing?.ceremonyProfile ?? 'standard',
+        label: 'delivery.routing.ceremonyProfile',
+      },
+    };
+    assert.deepEqual(
+      pinRunScopedConfig(
+        { project: { baseBranch: 'trunk' }, delivery: { routing: {} } },
+        keys,
+      ),
+      { baseBranch: 'trunk', ceremonyProfile: 'standard' },
+    );
+  });
+});
+
+describe('resolveRunScopedConfig (Story #4891 — the read half)', () => {
+  const provider = { id: 'unused-by-the-injected-find' };
+  const findReturning = (comment) => {
+    const calls = [];
+    const fn = async (_provider, ticketId, type) => {
+      calls.push({ ticketId, type });
+      return comment;
+    };
+    fn.calls = calls;
+    return fn;
+  };
+
+  // AC-1 — the value comes off the run's receipt, and `confirmed` is a fact
+  // only a receipt read can establish.
+  it('derives the base branch from the story-init receipt', async () => {
+    const findCommentFn = findReturning({
+      id: 1,
+      body: storyInitComment({ baseBranch: 'trunk' }),
+    });
+    const out = await resolveRunScopedConfig({
+      provider,
+      storyId: 4242,
+      config: { project: { baseBranch: 'trunk' } },
+      findCommentFn,
+    });
+    assert.equal(out.values.baseBranch, 'trunk');
+    assert.equal(out.confirmed, true);
+    assert.equal(out.receiptStatus, 'found');
+    assert.equal(out.warning, null);
+    assert.deepEqual(findCommentFn.calls, [
+      { ticketId: 4242, type: 'story-init' },
+    ]);
+  });
+
+  it('reads a legacy receipt that carries the value as a top-level field', async () => {
+    const out = await resolveRunScopedConfig({
+      provider,
+      storyId: 4242,
+      config: { project: { baseBranch: 'main' } },
+      findCommentFn: findReturning({
+        id: 1,
+        body: storyInitComment({ baseBranch: 'main', legacy: true }),
+      }),
+    });
+    assert.equal(out.values.baseBranch, 'main');
+    assert.equal(out.confirmed, true);
+  });
+
+  // AC-2 — fail closed, naming BOTH values. Throwing is what keeps every
+  // downstream phase (gates, format-autofix, base-sync) from running.
+  it('throws naming both values when the pin and current config disagree', async () => {
+    await assert.rejects(
+      () =>
+        resolveRunScopedConfig({
+          provider,
+          storyId: 4242,
+          config: { project: { baseBranch: 'release-3' } },
+          findCommentFn: findReturning({
+            id: 1,
+            body: storyInitComment({ baseBranch: 'main' }),
+          }),
+        }),
+      (err) => {
+        assert.match(err.message, /run-scoped config changed mid-run/);
+        assert.match(err.message, /project\.baseBranch/);
+        assert.match(err.message, /pinned at init = `main`/);
+        assert.match(err.message, /currently resolves to `release-3`/);
+        assert.match(
+          err.message,
+          /No base-sync, format-autofix or gate run was\s+performed/,
+        );
+        return true;
+      },
+    );
+  });
+
+  // AC-4 — a missing receipt is a real state (the upsert is best-effort, and a
+  // recovery path may close a Story whose init predates the receipt). It falls
+  // back, but never silently.
+  it('falls back to config with an explicit warning when the receipt is absent', async () => {
+    const lines = [];
+    const out = await resolveRunScopedConfig({
+      provider,
+      storyId: 4242,
+      config: { project: { baseBranch: 'main' } },
+      findCommentFn: findReturning(null),
+      progress: (tag, msg) => lines.push({ tag, msg }),
+    });
+    assert.equal(out.values.baseBranch, 'main');
+    assert.equal(out.confirmed, false);
+    assert.equal(out.receiptStatus, 'absent');
+    assert.match(out.warning, /no story-init comment on the ticket/);
+    assert.match(out.warning, /falling back to the currently-resolved config/);
+    assert.match(out.warning, /project\.baseBranch=`main`/);
+    assert.ok(
+      lines.some((l) => l.msg.includes('⚠️') && l.msg.includes(out.warning)),
+      'the fallback must be announced through progress, never silent',
+    );
+  });
+
+  it('falls back with a warning when the receipt carries no JSON payload', async () => {
+    const out = await resolveRunScopedConfig({
+      provider,
+      storyId: 4242,
+      config: { project: { baseBranch: 'main' } },
+      findCommentFn: findReturning({
+        id: 1,
+        body: '<!-- ap:structured-comment type="story-init" -->\n\nno fence here',
+      }),
+    });
+    assert.equal(out.confirmed, false);
+    assert.equal(out.receiptStatus, 'unreadable');
+    assert.match(out.warning, /no parseable JSON payload/);
+  });
+
+  it('falls back with a warning (never throws) when the comment read fails', async () => {
+    const out = await resolveRunScopedConfig({
+      provider,
+      storyId: 4242,
+      config: { project: { baseBranch: 'main' } },
+      findCommentFn: async () => {
+        throw new Error('provider down');
+      },
+    });
+    assert.equal(out.confirmed, false);
+    assert.equal(out.receiptStatus, 'provider-error');
+    assert.match(out.warning, /provider down/);
+  });
+
+  it('warns rather than confirms when the receipt pins no value for a key', async () => {
+    const out = await resolveRunScopedConfig({
+      provider,
+      storyId: 4242,
+      config: { project: { baseBranch: 'main' } },
+      findCommentFn: findReturning({
+        id: 1,
+        body: [
+          '<!-- ap:structured-comment type="story-init" -->',
+          '',
+          '```json',
+          JSON.stringify({ storyId: 4242, runScopedConfig: {} }),
+          '```',
+        ].join('\n'),
+      }),
+    });
+    assert.equal(out.values.baseBranch, 'main');
+    assert.equal(out.confirmed, false);
+    assert.match(out.warning, /pins no value for project\.baseBranch/);
+  });
+
+  // AC-5 — the comparison half enumerates the same registry, so an added key
+  // is enforced by the existing mechanism with no reader change.
+  it('compares every registry row it is given', async () => {
+    const keys = {
+      baseBranch: {
+        read: (c) => c?.project?.baseBranch ?? 'main',
+        label: 'project.baseBranch',
+      },
+      ceremonyProfile: {
+        read: (c) => c?.delivery?.routing?.ceremonyProfile ?? 'standard',
+        label: 'delivery.routing.ceremonyProfile',
+      },
+    };
+    const findCommentFn = findReturning({
+      id: 1,
+      body: storyInitComment({
+        baseBranch: 'main',
+        extra: { ceremonyProfile: 'standard' },
+      }),
+    });
+    const ok = await resolveRunScopedConfig({
+      provider,
+      storyId: 4242,
+      config: { project: { baseBranch: 'main' } },
+      keys,
+      findCommentFn,
+    });
+    assert.deepEqual(ok.values, {
+      baseBranch: 'main',
+      ceremonyProfile: 'standard',
+    });
+    assert.equal(ok.confirmed, true);
+
+    await assert.rejects(
+      () =>
+        resolveRunScopedConfig({
+          provider,
+          storyId: 4242,
+          config: {
+            project: { baseBranch: 'main' },
+            delivery: { routing: { ceremonyProfile: 'strict' } },
+          },
+          keys,
+          findCommentFn,
+        }),
+      /delivery\.routing\.ceremonyProfile: pinned at init = `standard`, currently resolves to `strict`/,
     );
   });
 });
@@ -429,5 +748,167 @@ describe('runSingleStoryClose — sync integration', () => {
       false,
       'syncBranchFromBase must not be called when skipSync=true',
     );
+  });
+});
+
+describe('runSingleStoryClose — run-scoped base pin (Story #4891)', () => {
+  /**
+   * `fakeConfig()` resolves `project.baseBranch` to the `main` default (its
+   * legacy `agentSettings` shape carries no `project` block), so a receipt
+   * pinning anything else models "a concurrent session edited `.agentrc`
+   * during the implementation window".
+   */
+  function pinnedConfig(baseBranch) {
+    return { ...fakeConfig(), project: { baseBranch } };
+  }
+
+  // AC-2 — the refusal happens before ANY of the three destructive-adjacent
+  // steps, which is why it is asserted on all three at once.
+  it('refuses with a config-changed error and runs no gates, autofix or sync', async (t) => {
+    let pushAttempted = false;
+    let autofixInvoked = false;
+    let gatesBuilt = false;
+    let validationRun = false;
+    let syncInvoked = false;
+    t.mock.module(GIT_UTILS_URL, {
+      namedExports: {
+        ...gitUtilsMock().namedExports,
+        gitSync: (_cwd, ...args) => {
+          if (args[0] === 'push') pushAttempted = true;
+          return '';
+        },
+      },
+    });
+    mockCloseValidation(t, {
+      namedExports: {
+        buildDefaultGates: () => {
+          gatesBuilt = true;
+          return [];
+        },
+        runCloseValidation: async () => {
+          validationRun = true;
+          return { ok: true, failed: [] };
+        },
+      },
+    });
+    t.mock.module(FORMAT_AUTOFIX_URL, {
+      namedExports: {
+        runScopedFormatAutofix: () => {
+          autofixInvoked = true;
+          return { committed: false, reason: 'clean' };
+        },
+      },
+    });
+    t.mock.module(WORKTREE_MANAGER_URL, worktreeManagerMock());
+
+    const { runSingleStoryClose } = await import(`${SUT_URL}?t=pin-conflict`);
+    const provider = fakeProvider({
+      comments: [storyInitComment({ baseBranch: 'main' })],
+    });
+    await assert.rejects(
+      () =>
+        runSingleStoryClose({
+          storyId: 4242,
+          noWaitForMerge: true,
+          cwd: REPO_ROOT,
+          injectedProvider: provider,
+          injectedConfig: pinnedConfig('release-3'),
+          injectedSync: async () => {
+            syncInvoked = true;
+            return { synced: true, kind: 'fast-forward' };
+          },
+          injectedGh: makeFakeGh(() => {
+            throw new Error('gh must not be invoked on a pin conflict');
+          }),
+        }),
+      (err) => {
+        assert.match(err.message, /run-scoped config changed mid-run/);
+        assert.match(err.message, /pinned at init = `main`/);
+        assert.match(err.message, /currently resolves to `release-3`/);
+        return true;
+      },
+    );
+    assert.equal(syncInvoked, false, 'base-sync must not run');
+    assert.equal(autofixInvoked, false, 'format-autofix must not run');
+    assert.equal(gatesBuilt, false, 'the gate chain must not be built');
+    assert.equal(validationRun, false, 'the gate chain must not run');
+    assert.equal(pushAttempted, false, 'push must not run');
+  });
+
+  // AC-1 — the base handed to base-sync is the receipt's, and AC-3 — with the
+  // base confirmed against the receipt, the merge advice is emitted.
+  it('base-syncs against the receipt base and advises the merge on a conflict', async (t) => {
+    t.mock.module(GIT_UTILS_URL, gitUtilsMock());
+    mockCloseValidation(t, closeValidationMock());
+    t.mock.module(WORKTREE_MANAGER_URL, worktreeManagerMock());
+    const syncedFrom = [];
+
+    const { runSingleStoryClose } = await import(`${SUT_URL}?t=pin-confirmed`);
+    const provider = fakeProvider({
+      comments: [storyInitComment({ baseBranch: 'trunk' })],
+    });
+    await assert.rejects(() =>
+      runSingleStoryClose({
+        storyId: 4242,
+        noWaitForMerge: true,
+        cwd: REPO_ROOT,
+        injectedProvider: provider,
+        injectedConfig: pinnedConfig('trunk'),
+        injectedSync: async ({ baseBranch }) => {
+          syncedFrom.push(baseBranch);
+          return {
+            synced: false,
+            kind: 'conflict',
+            conflictFiles: ['src/x.js'],
+          };
+        },
+        injectedGh: makeFakeGh(() => {
+          throw new Error('gh must not be invoked when sync fails');
+        }),
+      }),
+    );
+    assert.deepEqual(syncedFrom, ['trunk']);
+    const friction = provider._posted().find((c) => c.type === 'friction');
+    assert.ok(friction, 'a friction comment must be posted');
+    assert.match(friction.body, /git merge --no-edit origin\/trunk/);
+  });
+
+  // AC-4 — no receipt: close still runs, but on the announced fallback, and
+  // AC-3 — an unconfirmed base withholds the merge advice.
+  it('falls back with a warning when the receipt is absent and withholds merge advice', async (t) => {
+    t.mock.module(GIT_UTILS_URL, gitUtilsMock());
+    mockCloseValidation(t, closeValidationMock());
+    t.mock.module(WORKTREE_MANAGER_URL, worktreeManagerMock());
+    const syncedFrom = [];
+
+    const { runSingleStoryClose } = await import(`${SUT_URL}?t=pin-absent`);
+    // No `comments` — the best-effort init upsert never landed, or the Story
+    // is being closed from a recovery path.
+    const provider = fakeProvider();
+    await assert.rejects(() =>
+      runSingleStoryClose({
+        storyId: 4242,
+        noWaitForMerge: true,
+        cwd: REPO_ROOT,
+        injectedProvider: provider,
+        injectedConfig: pinnedConfig('main'),
+        injectedSync: async ({ baseBranch }) => {
+          syncedFrom.push(baseBranch);
+          return {
+            synced: false,
+            kind: 'conflict',
+            conflictFiles: ['src/x.js'],
+          };
+        },
+        injectedGh: makeFakeGh(() => {
+          throw new Error('gh must not be invoked when sync fails');
+        }),
+      }),
+    );
+    assert.deepEqual(syncedFrom, ['main'], 'the fallback base is used');
+    const friction = provider._posted().find((c) => c.type === 'friction');
+    assert.ok(friction, 'a friction comment must be posted');
+    assert.doesNotMatch(friction.body, /git merge --no-edit origin\/main/);
+    assert.match(friction.body, /`main` is unconfirmed/);
   });
 });
