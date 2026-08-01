@@ -58,12 +58,15 @@ import { normalizePrTitle } from './normalize-pr-title.js';
  * treated every returned row as a reusable open PR. Guessing "no PR" there is
  * the failure mode with teeth — it opens a duplicate.
  *
- * Pure — exported so the precedence is reviewable as code.
+ * Pure, and module-private on purpose: `ensurePullRequestWith` is the only
+ * caller and the only surface worth pinning, so the precedence is asserted
+ * through it rather than through a test-only export the production
+ * dead-export ratchet would then flag.
  *
  * @param {Array<{url?: string, state?: string, mergedAt?: string}>} rows
  * @returns {{ url: string, state: 'OPEN'|'MERGED' }|null}
  */
-export function pickHeadPullRequest(rows) {
+function pickHeadPullRequest(rows) {
   if (!Array.isArray(rows)) return null;
   let merged = null;
   for (const row of rows) {
