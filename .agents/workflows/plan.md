@@ -20,21 +20,19 @@ it, act**:
 | --- | --- | --- |
 | `/plan` | ask | Ask what to plan; nothing runs first. |
 | `/plan add a --json flag to doctor` | seed | Ideation from prose: interrogate → author **one Story by default** → persist. |
-| `/plan temp/notes/idea.md` | seed-file | Same, from notes. An argument resolving to an existing file is a path, not prose. |
+| `/plan temp/notes/idea.md` | seed-file | Same, from notes. An existing file is a path, not prose. |
 | `/plan 4712[,4713…]` | tickets | Fetch issue(s), analyze into proper Stories (prefer N=1 rewrite). |
 | `/plan 4712`, already delivered | amends | Amend a shipped Story from a **delta envelope**, not a re-interrogation. |
 
 **Resolving a bare id.** Read live state rather than asking: `agent::done` can
 only be amended, an open unplanned issue can only be planned. **Announce the
-derivation** — "4712 is `agent::done` → amending" — so a wrong read costs one
-correction. Ask **only** for an open Story already at `agent::ready`. `--body`
-is not a `/plan` entry; persist goes via `plan-persist.js`.
+derivation** — "4712 is `agent::done` → amending". Ask **only** for an open
+Story already at `agent::ready`.
 
 ## Saying what you want
 
-No flags to remember — state intent and the workflow fills in the CLI
-([reference](helpers/plan-reference.md)). Run any script with `--help` rather
-than copying its surface.
+No flags to remember — state intent; the workflow fills in the CLI
+([reference](helpers/plan-reference.md)). Run scripts with `--help`.
 
 `--yes` is **runner-set, never operator-typed** — cron, `/loop`, and headless
 dispatch set it to mean *nobody is at the keyboard*, which auto-proceeds the
@@ -43,10 +41,9 @@ gates below (#1 and #2). Never offer it to an operator or an attended run.
 ## Default-single split policy
 
 Author **one Story** unless the pieces have **near-zero overlap** or sit across
-an **architectural seam** (different deployables, migration vs consumer).
-Coupled work stays one Story — `## Slicing` checkpoints, not sibling tickets;
-when N>1 every acceptance criterion belongs to exactly one Story
-(`assertAcceptancePartition` refuses coupled splits). **N=1 is lean.**
+an **architectural seam**. Coupled work stays one Story — `## Slicing`
+checkpoints, not sibling tickets
+([detail](helpers/plan-reference.md)). **N=1 is lean.**
 
 ## Procedure
 
@@ -64,9 +61,9 @@ and derives source ids from its `sourceTickets[]`; the CLI also writes
 
 The envelope carries docs context, the story-author prompt, `sourceTickets[]`,
 `duplicates[]` (open **Stories**, never Epics) and advisory `complexitySignals`
-(**no routing authority**). A trivial scope earns
-`--route-downgrade-reason "<why>"` at persist — shape-validated, failing closed
-to `full` ([detail](helpers/plan-reference.md)).
+(**no routing authority**). A trivial scope can claim the lite route at
+persist — shape-validated, failing closed to `full`
+([detail](helpers/plan-reference.md)).
 
 **Triage each unknown by resolver** ([detail](helpers/plan-reference.md)): an
 **AFK** unknown (research settles it) is resolved before authoring, never
@@ -78,14 +75,12 @@ decision-made-by-default.
 **Gate #1** — STOP to confirm the sharpened plan intent and any
 duplicate-candidate review. Under `--yes`, auto-proceed.
 
-On a truthy `deliverLightSuggestion.suggested`, offer — **advisory, never an
-automatic reroute** — to deliver the seed instead of planning it; on confirm,
-route **in this session** into
-[`helpers/deliver-light.md`](helpers/deliver-light.md), filling its gate from
-this envelope, not the raw seed. Under `--yes` it is only recorded. A truthy
-`complexitySignals.uiSurface` marks a UI-touching plan: name
-[`/prototype`](prototype.md) as an operator option, never invoke it here.
-[Both offers](helpers/plan-reference.md).
+On a truthy `deliverLightSuggestion.suggested`, offer — advisory, never an
+automatic reroute — to deliver the seed instead; on confirm, route **in this
+session** into [`helpers/deliver-light.md`](helpers/deliver-light.md), its gate
+filled from this envelope. A truthy `complexitySignals.uiSurface` marks a
+UI-touching plan: name [`/prototype`](prototype.md) as an operator option,
+never invoke it here. [Both offers](helpers/plan-reference.md).
 
 ### 2. Author
 
@@ -94,10 +89,10 @@ this envelope, not the raw seed. Under `--yes` it is only recorded. A truthy
 persist parses either, serializes canonical markdown and syncs top-level
 `acceptance[]` / `verify[]` into it — never dual-author those lists.
 
-**Grounding = your reads + Phase 8.** Nothing inventories the repo for you: read
-each file you cite, then persist's file-assumption gate hard-errors on every
-`{path, assumption}` missing from the real tree. Entry fields (the
-`stories.template.json` shape): [reference](helpers/plan-reference.md).
+**Grounding = your reads + Phase 8.** Nothing inventories the repo: read each
+file you cite; persist's file-assumption gate hard-errors on any
+`{path, assumption}` absent from the tree. Entry fields:
+[reference](helpers/plan-reference.md).
 
 Artifacts under `temp/plan-<slug>/`: `stories.json` (**length 1 by default**;
 over-budget Specs fail closed — split or tighten, never under `docs/`); optional
@@ -127,14 +122,14 @@ proceed to Persist**, fix and re-run.
   authoring transcript), fold findings into Gate #2 or a re-author round, re-run
   this step. Pre-mortem triggers (incl. the external-dependency probe), the
   advisory-only `textHygiene.findings[]` lints and dispatch shape:
-  [`helpers/plan-reference.md` § Critic dispatch detail](helpers/plan-reference.md).
+  [reference § Critic dispatch detail](helpers/plan-reference.md).
 
 ### 3. Persist
 
 **Gate #2** — STOP for approval before persist **only** when the operator asked
 to review (`--force-review`). Under `--yes`, auto-proceed.
 
-Run persist with `--dry-run` **first** — same command, GitHub writes suppressed;
+Run persist with `--dry-run` **first** — same command, writes suppressed;
 every gate runs before the first `createIssue`
 ([the list](helpers/plan-reference.md)):
 
@@ -147,15 +142,14 @@ node .agents/scripts/plan-persist.js \
   [--source-tickets 123,456]
 ```
 
-At lite shape, `--chain-on-clean` chains a clean dry-run into the real persist
-in one round-trip; a full plan keeps its review trip.
+At lite shape, `--chain-on-clean` folds a clean dry-run into the real persist;
+a full plan keeps its review trip.
 
-Persist creates `type::story` issue(s) plus a `plan-run::<id>` grouping label
-(**metadata only**); N>1 `depends_on` edges become `blocked by #<id>` footers.
+Persist creates `type::story` issue(s), a **metadata-only** `plan-run::<id>`
+label, and `blocked by #<id>` footers for N>1 `depends_on` edges.
 `agent::ready` is the **terminal** flip after receipts land; stdout is pure
-JSON. In tickets mode it resolves source ids **envelope-first** and closes each
-as `not_planned` with a comment (default on;
-[detail](helpers/plan-reference.md)).
+JSON. Tickets mode also comments on and closes each source id
+([detail](helpers/plan-reference.md)).
 
 ## Constraints
 
