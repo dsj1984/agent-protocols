@@ -32,6 +32,7 @@ import {
   rankDuplicateCandidates,
   readTechStackSummary,
   shouldRefine,
+  synthesizeContractSections,
   validateStoryBody,
 } from './lib/story-plan.js';
 
@@ -40,7 +41,8 @@ Usage:
   story-plan.js --emit-context (--seed "<seed>" | --seed-file <file>) \\
     [--refine | --no-refine] [--pretty]
 
-  story-plan.js --body <file> [--dry-run]
+  story-plan.js --body <file> [--acceptance <file>] [--verify <file>] \\
+    [--dry-run]
 
   story-plan.js --help
 
@@ -48,9 +50,18 @@ Modes:
   --emit-context   Build the host-LLM authoring envelope and print it as
                    JSON on stdout. Use this first; the host LLM authors a
                    draft body using the envelope and the body template.
-  --body <file>    Persist a pre-authored body. Validates shape (required
-                   sections, no Epic: ref, AC checklist non-empty) and
-                   calls \`gh issue create\` with type::story.
+  --body <file>    Persist a pre-authored body. Validates shape (## Goal
+                   and ## Changes present, no Epic: ref, an acceptance +
+                   verify contract) and calls \`gh issue create\` with
+                   type::story.
+  --acceptance <file>
+                   JSON string[] of the Story's top-level acceptance
+                   criteria. Authored once here — NOT mirrored into the
+                   body by hand; the \`## Acceptance\` section is
+                   synthesized from it, matching the story-author prompt.
+  --verify <file>  JSON string[] of the Story's top-level verify entries,
+                   each ending in a (unit|contract|e2e|validate) tier.
+                   Synthesized into \`## Verify\` the same way.
   --dry-run        With --body: print the body and the gh argv that would
                    be invoked, then exit 0. No GitHub mutations.
 
@@ -101,8 +112,13 @@ async function fetchOpenStories(provider) {
  * array; the caller decides whether to execute it (persist) or print
  * it (--dry-run).
  */
-function renderGhArgv({ title, bodyPath, labels }) {
-  const argv = ['issue', 'create', '--title', title, '--body-file', bodyPath];
+function renderGhArgv({ title, bodyPath, labels, body = null }) {
+  // `--body-file` streams the authored file untouched; an inline `--body` is
+  // used only when persist synthesized sections into it (Story #4874), so the
+  // file on disk is no longer what gets created.
+  const source =
+    typeof body === 'string' ? ['--body', body] : ['--body-file', bodyPath];
+  const argv = ['issue', 'create', '--title', title, ...source];
   for (const label of labels) {
     argv.push('--label', label);
   }
@@ -180,6 +196,31 @@ async function runEmitContext({
   write(`${json}\n`);
 }
 
+/**
+ * Read an optional top-level contract array (`--acceptance` / `--verify`)
+ * from a JSON file. Absent flag → an empty list, so the flags stay optional
+ * for a body that already carries its own sections.
+ *
+ * @param {string|undefined} filePath
+ * @param {'acceptance'|'verify'} label
+ * @returns {Promise<string[]>}
+ */
+async function readContractList(filePath, label) {
+  if (!filePath) return [];
+  let parsed;
+  try {
+    parsed = JSON.parse(await readFile(filePath, 'utf8'));
+  } catch (err) {
+    throw new Error(
+      `Cannot read --${label} file "${filePath}": ${err.message}`,
+    );
+  }
+  if (!Array.isArray(parsed) || parsed.some((v) => typeof v !== 'string')) {
+    throw new Error(`--${label} file "${filePath}" must be a JSON string[].`);
+  }
+  return parsed;
+}
+
 async function runPersist({
   values,
   provider,
@@ -193,17 +234,30 @@ async function runPersist({
   if (!bodyPath) {
     throw new Error('--body <file> is required in persist mode.');
   }
-  const body = await readFile(bodyPath, 'utf8');
-  const validation = validateStoryBody(body);
+  const authored = await readFile(bodyPath, 'utf8');
+  const contract = {
+    acceptance: await readContractList(values.acceptance, 'acceptance'),
+    verify: await readContractList(values.verify, 'verify'),
+  };
+  const validation = validateStoryBody(authored, contract);
   if (!validation.ok) {
     throw new Error(
       `Drafted body failed validation:\n  - ${validation.errors.join('\n  - ')}`,
     );
   }
 
+  // Story #4874: the author writes acceptance[] / verify[] once, at the
+  // ticket's top level, and persist renders their sections — never the
+  // author by hand.
+  const body = synthesizeContractSections(authored, contract);
   const title = extractTitle(body);
   const labels = [TYPE_LABELS.STORY];
-  const argv = renderGhArgv({ title, bodyPath, labels });
+  const argv = renderGhArgv({
+    title,
+    bodyPath,
+    labels,
+    body: body === authored ? null : body,
+  });
 
   if (dryRun) {
     Logger.info('--- DRY RUN ---');
@@ -255,6 +309,8 @@ async function main() {
       seed: { type: 'string' },
       'seed-file': { type: 'string' },
       body: { type: 'string' },
+      acceptance: { type: 'string' },
+      verify: { type: 'string' },
       refine: { type: 'boolean', default: false },
       'no-refine': { type: 'boolean', default: false },
       pretty: { type: 'boolean', default: false },

@@ -48,8 +48,13 @@
  *
  * Stdout: a single JSON envelope
  *   { storyId, epicId, decision, round, cap, capReached, totalCriteria,
- *     metCount, unmetCriteria[], signalEmitted }
+ *     metCount, unmetCriteria[], signalEmitted, replay, verdictFingerprint }
  *   (`epicId` is retained as a always-null field for envelope stability.)
+ *
+ * Reading is free (Story #4874): re-invoking the gate over a verdict the
+ * ledger has already scored replays that round (`replay: true`,
+ * `signalEmitted: false`) instead of consuming one, so an unchanged verdict
+ * can never escalate from `redraft` to `block` by being looked at twice.
  *
  * @see .agents/scripts/lib/orchestration/acceptance-eval-decision.js
  * @see .agents/schemas/acceptance-eval-verdict.schema.json
@@ -69,8 +74,9 @@ import { Logger } from './lib/Logger.js';
 import { appendSignal } from './lib/observability/signals-writer.js';
 import {
   buildAcceptanceEvalSignal,
+  computeVerdictFingerprint,
   decideAcceptanceEval,
-  deriveAcceptanceEvalRound,
+  resolveAcceptanceEvalRound,
 } from './lib/orchestration/acceptance-eval-decision.js';
 
 const __dirname = path.dirname(fileURLToPath(import.meta.url));
@@ -166,7 +172,8 @@ function parseCliArgs(argv) {
  *   self-reported `round` is never load-bearing for the cap.
  * @param {object} [deps]
  * @param {Function} [deps.appendSignalFn]
- * @param {Function} [deps.deriveRoundFn]
+ * @param {Function} [deps.resolveRoundFn]
+ * @param {Function} [deps.fingerprintFn]
  * @returns {Promise<{ envelope: object, exitCode: number }>}
  */
 export async function runAcceptanceEval(
@@ -175,13 +182,23 @@ export async function runAcceptanceEval(
 ) {
   const {
     appendSignalFn = appendSignal,
-    deriveRoundFn = deriveAcceptanceEvalRound,
+    resolveRoundFn = resolveAcceptanceEvalRound,
+    fingerprintFn = computeVerdictFingerprint,
   } = deps;
   const { maxRounds } = getAcceptanceEval(config);
+  const verdictFingerprint = fingerprintFn(verdict);
+  // Story #4874: re-reading an already-scored verdict is a replay — it
+  // reports the round that verdict was scored under and appends nothing, so
+  // observation alone can never advance the counter or escalate a redraft.
+  const resolved = resolveRoundFn({
+    epicId: null,
+    storyId,
+    config,
+    verdictFingerprint,
+  });
+  const replay = resolved.replay === true;
   const resolvedRound =
-    Number.isInteger(round) && round >= 1
-      ? round
-      : deriveRoundFn({ epicId: null, storyId, config });
+    Number.isInteger(round) && round >= 1 ? round : resolved.round;
   const outcome = decideAcceptanceEval({
     verdict,
     maxRounds,
@@ -189,9 +206,14 @@ export async function runAcceptanceEval(
   });
 
   let signalEmitted = false;
-  if (emitSignal) {
+  if (emitSignal && !replay) {
     const signal = {
-      ...buildAcceptanceEvalSignal({ storyId, epicId: null, outcome }),
+      ...buildAcceptanceEvalSignal({
+        storyId,
+        epicId: null,
+        outcome,
+        verdictFingerprint,
+      }),
       ts: new Date().toISOString(),
     };
     try {
@@ -228,6 +250,10 @@ export async function runAcceptanceEval(
       evidence: c.evidence,
     })),
     signalEmitted,
+    // True when this invocation re-read a verdict the ledger had already
+    // scored: the round was replayed, not advanced, and nothing was appended.
+    replay,
+    verdictFingerprint,
   };
 
   // `block` is the only non-zero exit: the loop has exhausted its bounded

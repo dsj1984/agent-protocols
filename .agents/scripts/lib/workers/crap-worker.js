@@ -11,7 +11,7 @@
  *
  * Message contract — see lib/cpu-pool.js:
  *   IN  : { item: { abs: string, relPath: string, requireCoverage: boolean,
- *                   coverageEntry: object | null } }
+ *                   coverageAvailable?: boolean, coverageEntry: object | null } }
  *         { exit: true }
  *   OUT : { ok: true, result: {
  *           relPath,
@@ -80,7 +80,7 @@ export function handleCrapWorkerMessage(msg, _coverage, deps = {}) {
       },
     };
   }
-  const { abs, relPath, requireCoverage } = item;
+  const { abs, relPath, requireCoverage, coverageAvailable = true } = item;
 
   // Coverage entry is pre-resolved on the host and attached to the item.
   // `item.coverageEntry` may be explicitly `null` when the file has no
@@ -143,7 +143,10 @@ export function handleCrapWorkerMessage(msg, _coverage, deps = {}) {
     );
   }
 
-  const finalized = finalizeMethodRows(methodRows, { requireCoverage });
+  const finalized = finalizeMethodRows(methodRows, {
+    requireCoverage,
+    coverageAvailable,
+  });
   return {
     kind: 'reply',
     message: {

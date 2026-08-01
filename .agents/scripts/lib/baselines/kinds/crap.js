@@ -342,6 +342,21 @@ export function checkCrapRegression(row, baseline, tolerance, kind) {
  * whose provenance differs from every candidate's is counted and surfaced,
  * and it does NOT fall through to the new-method arm (it is not new; it is
  * unmeasurable against this baseline).
+ *
+ * **`provenanceMismatched` is captured BEFORE the provenance filter runs**
+ * (Story #4871). `incomparable` only counts rows where *every* candidate
+ * disagreed on coordinates; a row with one agreeing candidate and three
+ * disagreeing ones scores normally and leaves no trace. That made the
+ * evidence of coordinate mixing strictly narrower than the mixing itself —
+ * and the unsound-basis backstop, which needs exactly that evidence, had
+ * nothing sound to read. The counter below is incremented for **any** row
+ * with at least one provenance-mismatched candidate, whichever arm then
+ * resolves it.
+ *
+ * **Unscorable rows never reach an arm.** A row the scan could not score
+ * (`crap: null` / `coverage: null`, or an explicit `unscorable: true`) carries
+ * no measurement to compare. It is bucketed and counted, and it is excluded
+ * from `comparable` so it cannot dilute any ratio derived from this result.
  */
 export function compareCrap({
   currentRows,
@@ -361,14 +376,26 @@ export function compareCrap({
 
   const violations = [];
   const incomparableRows = [];
+  const unscorableRows = [];
   let regressions = 0;
   let newViolations = 0;
   let drifted = 0;
+  let provenanceMismatched = 0;
 
   for (const row of currentRows ?? []) {
+    if (isUnscorableRow(row)) {
+      unscorableRows.push({ ...row, kind: 'unscorable' });
+      continue;
+    }
     const exactKey = `${row.file}::${row.method}@${row.startLine}`;
     const methodKey = `${row.file}::${row.method}`;
     const rowCoords = coordinateSystemOf(row);
+    const candidates = methodIndex.get(methodKey) ?? [];
+    // Evidence first, filtering second — see the block comment above.
+    if (candidates.some((c) => coordinateSystemOf(c) !== rowCoords)) {
+      provenanceMismatched += 1;
+    }
+
     const exact = exactIndex.get(exactKey);
     if (exact && coordinateSystemOf(exact) === rowCoords) {
       seenBaselineKeys.add(exactKey);
@@ -380,8 +407,7 @@ export function compareCrap({
       continue;
     }
 
-    const candidates = methodIndex.get(methodKey);
-    if (Array.isArray(candidates) && candidates.length > 0) {
+    if (candidates.length > 0) {
       // Only rows expressed in the SAME coordinate system are comparable;
       // everything else would be resolved through a line-distance heuristic
       // that cannot mean anything across two coordinate systems.
@@ -400,20 +426,7 @@ export function compareCrap({
         }
         continue;
       }
-      // Pick the closest un-seen candidate by startLine distance; fall back
-      // to the first one if all have been seen (duplicate method names).
-      let pick = null;
-      let bestDist = Number.POSITIVE_INFINITY;
-      for (const c of comparable) {
-        const k = `${c.file}::${c.method}@${c.startLine}`;
-        if (seenBaselineKeys.has(k)) continue;
-        const d = Math.abs(c.startLine - row.startLine);
-        if (d < bestDist) {
-          bestDist = d;
-          pick = c;
-        }
-      }
-      if (!pick) pick = comparable[0];
+      const pick = pickDriftCandidate(comparable, row, seenBaselineKeys);
       seenBaselineKeys.add(`${pick.file}::${pick.method}@${pick.startLine}`);
       drifted += 1;
       const v = checkCrapRegression(row, pick, tolerance, 'drifted-regression');
@@ -441,39 +454,100 @@ export function compareCrap({
     if (!seenBaselineKeys.has(k)) removedRows.push(b);
   }
 
+  const total = currentRows?.length ?? 0;
   return {
-    total: currentRows?.length ?? 0,
+    total,
+    // Rows that carried a measurement and therefore *could* be compared. The
+    // denominator of every ratio derived from this result.
+    comparable: total - unscorableRows.length,
     regressions,
     newViolations,
     drifted,
+    provenanceMismatched,
     incomparable: incomparableRows.length,
+    unscorable: unscorableRows.length,
     removed: removedRows.length,
     violations,
     incomparableRows,
+    unscorableRows,
     removedRows,
   };
 }
 
 /**
- * Fraction of a compare's rows that failed to key exactly against the
- * baseline before the comparison basis is judged self-evidently unsound
- * (Story #4866).
+ * True when a scanned row carries no measurement to compare.
  *
- * A healthy scan keys nearly every row exactly: a Story touching one file
- * drifts the handful of methods below its edit. When *half* the rows miss,
- * the two sides are not describing the same tree in the same coordinates —
- * the observed failure was 101 of 133 rows drifting after a coordinate mix,
- * every one of them then scored through the nearest-line heuristic.
+ * Deliberately strict on `null`: a scan row always sets `crap`, and the
+ * scorer's own contract is that an unresolved method yields `crap: null` /
+ * `coverage: null` rather than an inferred zero. A caller-built row that
+ * simply omits `coverage` is not making that claim and stays scorable.
+ *
+ * @param {{crap?: number|null, coverage?: number|null, unscorable?: boolean}} row
+ * @returns {boolean}
+ */
+function isUnscorableRow(row) {
+  return (
+    row?.unscorable === true || row?.crap === null || row?.coverage === null
+  );
+}
+
+/**
+ * Pick the baseline row a drifted method should be scored against: the
+ * closest un-seen candidate by `startLine` distance, falling back to the
+ * first when every candidate has already been claimed (duplicate method
+ * names in one file).
+ *
+ * @param {Array<{file: string, method: string, startLine: number}>} comparable
+ * @param {{startLine: number}} row
+ * @param {Set<string>} seenBaselineKeys
+ * @returns {object}
+ */
+function pickDriftCandidate(comparable, row, seenBaselineKeys) {
+  let pick = null;
+  let bestDist = Number.POSITIVE_INFINITY;
+  for (const c of comparable) {
+    const k = `${c.file}::${c.method}@${c.startLine}`;
+    if (seenBaselineKeys.has(k)) continue;
+    const d = Math.abs(c.startLine - row.startLine);
+    if (d < bestDist) {
+      bestDist = d;
+      pick = c;
+    }
+  }
+  return pick ?? comparable[0];
+}
+
+/**
+ * Fraction of a compare's comparable rows that hit a coordinate-provenance
+ * mismatch before the comparison basis is judged self-evidently unsound
+ * (Story #4866, numerator corrected in Story #4871).
+ *
+ * **What this ratio must measure.** The backstop exists for one condition: the
+ * scan and the baseline expressing `startLine` in different coordinate
+ * systems, which makes the nearest-line drift heuristic pair rows arbitrarily
+ * and then score the pairing. The only quantity that evidences that condition
+ * is a provenance disagreement between a row and its baseline candidates.
+ *
+ * **Why `drifted` was the wrong numerator.** A row reaches the drift arm only
+ * *after* passing the provenance filter, so every drifted row is one whose
+ * coordinate system **agreed** with its baseline's. Counting agreements as
+ * evidence of disagreement is not a mis-calibration, it is the wrong
+ * measurement: on this pure-JavaScript repository — where a coordinate mix is
+ * structurally impossible — it read 56–68% across every diff scope, which
+ * suppressed the gate's per-method verdicts on every commit while the gate
+ * still reported success. `startLine` is half the row identity key, so any
+ * insertion re-keys every method below it; ordinary drift is the normal
+ * operating state, not an anomaly.
  *
  * Deliberately module-local, like `SCORING_SEMANTICS` above: the three
  * tuning values below are reachable through `assessComparisonBasis` — which
  * takes them as overridable options — so exporting the bare constants would
  * add entry points nothing in production reaches.
  */
-const UNSOUND_BASIS_DRIFT_RATIO = 0.5;
+const UNSOUND_BASIS_MISMATCH_RATIO = 0.5;
 
 /**
- * Minimum scanned rows before the unsound-basis check is allowed to fire.
+ * Minimum comparable rows before the unsound-basis check is allowed to fire.
  * A diff-scoped preview can legitimately score three methods, two of which
  * moved; that is a normal edit, not a broken basis. Mirrors the
  * minimum-sample discipline the coverage-join resolution floor already uses.
@@ -489,39 +563,49 @@ export const INCOMPATIBLE_BASELINE_DIAGNOSTIC = 'crap-baseline-incompatible';
 /**
  * Pure verdict on whether a `compareCrap` result rests on a sound basis.
  *
- * Rows that keyed exactly are evidence the two sides share a coordinate
- * system. Rows that drifted or came back incomparable are evidence they may
- * not. Above the ratio the per-method verdicts are noise derived from a
- * mis-keyed join, and reporting them as regressions asks the operator to fix
- * code that is not broken.
+ * The numerator is `provenanceMismatched` — rows whose baseline candidates
+ * included at least one expressed in a different coordinate system, counted
+ * by `compareCrap` **before** its provenance filter discards that evidence.
+ * The denominator is `comparable`: rows that carried a measurement at all, so
+ * a method the scan could not score cannot dilute the ratio into silence.
+ *
+ * Above the ratio the per-method verdicts are noise derived from a mis-keyed
+ * join, and reporting them as regressions asks the operator to fix code that
+ * is not broken. Below it — including a scan where every row drifted, which
+ * is what an ordinary insertion produces — the verdicts stand.
  *
  * Returns `{ sound: true }` or `{ sound: false, diagnostic: {name, message} }`.
  *
- * @param {{total?: number, drifted?: number, incomparable?: number}} compareResult
+ * @param {{total?: number, comparable?: number, provenanceMismatched?: number,
+ *   incomparable?: number}} compareResult
  * @param {{ratio?: number, minSample?: number}} [opts]
  */
 export function assessComparisonBasis(compareResult, opts = {}) {
   const ratio = Number.isFinite(opts.ratio)
     ? opts.ratio
-    : UNSOUND_BASIS_DRIFT_RATIO;
+    : UNSOUND_BASIS_MISMATCH_RATIO;
   const minSample = Number.isFinite(opts.minSample)
     ? opts.minSample
     : UNSOUND_BASIS_MIN_SAMPLE;
-  const total = compareResult?.total ?? 0;
-  if (total < minSample) return { sound: true };
-  const unkeyed =
-    (compareResult?.drifted ?? 0) + (compareResult?.incomparable ?? 0);
-  const observed = unkeyed / total;
+  const comparable = compareResult?.comparable ?? compareResult?.total ?? 0;
+  if (comparable < minSample) return { sound: true };
+  // `incomparable` is the total-mismatch subset of `provenanceMismatched`, so
+  // it is already counted; the max guards a caller that supplies only one.
+  const mismatched = Math.max(
+    compareResult?.provenanceMismatched ?? 0,
+    compareResult?.incomparable ?? 0,
+  );
+  const observed = mismatched / comparable;
   if (observed <= ratio) return { sound: true };
   return {
     sound: false,
     diagnostic: {
       name: UNSOUND_BASIS_DIAGNOSTIC,
       message:
-        `[CRAP] ⚠ Comparison basis is unsound: ${unkeyed}/${total} ` +
-        `(${(observed * 100).toFixed(1)}%) of scanned methods did not key ` +
-        `exactly against the baseline — above the ` +
-        `${(ratio * 100).toFixed(0)}% threshold.\n` +
+        `[CRAP] ⚠ Comparison basis is unsound: ${mismatched}/${comparable} ` +
+        `(${(observed * 100).toFixed(1)}%) of comparable methods matched a ` +
+        'baseline row expressed in a DIFFERENT line coordinate system — ' +
+        `above the ${(ratio * 100).toFixed(0)}% threshold.\n` +
         '       At this ratio the baseline and the scan are not describing ' +
         'the same line coordinates, so every per-method verdict below would ' +
         'be derived from a mis-keyed join rather than from your change. ' +
@@ -795,6 +879,14 @@ export function buildCrapReport({
       // Story #4866: rows the compare refused to resolve because their
       // coordinate provenance differs from the baseline's.
       incomparable: compareResult.incomparable ?? 0,
+      // Story #4871: rows whose baseline candidates included at least one in a
+      // different coordinate system — the evidence the unsound-basis backstop
+      // reads, captured before the provenance filter discards it.
+      provenanceMismatched: compareResult.provenanceMismatched ?? 0,
+      // Story #4871: methods carrying no measurement to compare — the scan
+      // found no coverage artifact for them. Reported, never scored from an
+      // assumed zero, and never part of a ratio's denominator.
+      unscorable: (compareResult.unscorable ?? 0) + skippedNoCoverage,
       removed: compareResult.removed,
       skippedNoCoverage,
       scope,
@@ -842,6 +934,8 @@ export function printSummaryHeader(result, scanSummary) {
   Logger.info(`Regressions:           ${result.regressions}`);
   Logger.info(`New-method violations: ${result.newViolations}`);
   Logger.info(`Drifted (matched):     ${result.drifted}`);
+  Logger.info(`Provenance mismatched: ${result.provenanceMismatched ?? 0}`);
+  Logger.info(`Unscorable (no cov):   ${result.unscorable ?? 0}`);
   Logger.info(`Removed from baseline: ${result.removed}`);
   if (scanSummary?.skippedFilesNoCoverage) {
     Logger.info(

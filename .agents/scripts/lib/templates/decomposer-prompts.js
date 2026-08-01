@@ -113,9 +113,9 @@ You MUST respond ONLY with a valid JSON array of objects. No prose, no markdown 
 
 The \`acceptance[]\` and \`verify[]\` arrays live at the **top level** of the Story ticket object — that is the machine contract the validator reads. Author each list **once, at top level**, and **omit** the \`## Acceptance\` / \`## Verify\` sections from the authored \`body\` string: persist syncs the top-level arrays into those sections so the GitHub issue stays a complete executable document. The validator resolves both fields from the top level, so an omitted section is the expected shape, not a violation.
 
-If you do write those sections into the \`body\` string anyway, they must mirror the top-level arrays **item for item** — persist fails closed on a disagreement rather than guessing which list is authoritative. Do **not** invent a second criteria list inside \`## Spec\`, and do not author a separate Acceptance Spec / PRD artifact.
+Never hand-mirror either list into the \`body\` — there is no step that asks you to. Persist fails closed on a body section that disagrees with its top-level array rather than guessing which list is authoritative, so writing one anyway only adds a way to be wrong. Do **not** invent a second criteria list inside \`## Spec\`, and do not author a separate Acceptance Spec / PRD artifact.
 
-The serialized \`body\` string renders these markdown sections (in order):
+The **persisted** \`body\` renders these markdown sections (in order) — you author every one of them except \`## Acceptance\` / \`## Verify\`, which persist synthesizes from the top-level arrays:
 
     ## Goal
     <one sentence — why this Story exists>
@@ -130,11 +130,11 @@ The serialized \`body\` string renders these markdown sections (in order):
     - {"path": "<file path>", "assumption": "creates" | "refactors-existing" | "deletes"}
     - ...
 
-    ## Acceptance
+    ## Acceptance          <-- synthesized by persist from acceptance[]; do not author
     - [ ] <testable, observable criterion>
     - ...
 
-    ## Verify
+    ## Verify              <-- synthesized by persist from verify[]; do not author
     - <exact command or test path> (<tier>)
     - ...
 
