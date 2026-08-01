@@ -183,7 +183,7 @@ function tsMillis(ts) {
  * @returns {string}
  */
 function incidentKey(category, storyId) {
-  return `${category} ${storyId}`;
+  return `${category}\u0000${storyId}`;
 }
 
 /**
