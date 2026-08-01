@@ -24,7 +24,7 @@
  *
  * Message contract — see lib/cpu-pool.js:
  *   IN  : { item: { abs: string, relPath: string, requireCoverage: boolean,
- *                   coverageEntry: object | null } }
+ *                   coverageAvailable?: boolean, coverageEntry: object | null } }
  *         { exit: true }
  *   OUT : { ok: true, result: {
  *           relPath,
@@ -88,7 +88,7 @@ export function handleCombinedMiCrapWorkerMessage(msg, deps = {}) {
       },
     };
   }
-  const { abs, relPath, requireCoverage } = item;
+  const { abs, relPath, requireCoverage, coverageAvailable = true } = item;
   const prepare = deps.prepare ?? prepareSourceForScoring;
   const analyze = deps.analyze ?? analyzeOnce;
 
@@ -150,7 +150,10 @@ export function handleCombinedMiCrapWorkerMessage(msg, deps = {}) {
   }
 
   const { rows, skippedMethodsNoCoverage, resolvedMethods, totalMethods } =
-    finalizeMethodRows(rawCrapRows, { requireCoverage });
+    finalizeMethodRows(rawCrapRows, {
+      requireCoverage,
+      coverageAvailable,
+    });
   return reply({
     miScore,
     crapRows: rows,
