@@ -2,9 +2,14 @@ import assert from 'node:assert/strict';
 import { describe, it } from 'node:test';
 
 import {
+  runAcceptanceEval,
   runAcceptanceEvalCli,
   validateVerdict,
 } from '../.agents/scripts/acceptance-eval.js';
+import {
+  computeVerdictFingerprint,
+  resolveAcceptanceEvalRound,
+} from '../.agents/scripts/lib/orchestration/acceptance-eval-decision.js';
 
 /**
  * Story #4780 — `main` scored CRAP 69.1: the gate's whole error table
@@ -223,5 +228,143 @@ describe('runAcceptanceEvalCli', () => {
     // The envelope is still printed before the throw — the loop's record of
     // why it blocked must survive the non-zero exit.
     assert.equal(JSON.parse(h.infos[0]).decision, 'block');
+  });
+});
+
+/**
+ * Story #4874 — reading a verdict is not a round.
+ *
+ * The round is counted off the Story's signal ledger, and every invocation
+ * used to append one, so simply *re-reading* an existing verdict consumed
+ * the cap and could turn a `redraft` into a `block` with no work in
+ * between. These exercise the real ledger resolver (its `readFile` seam
+ * injected) through `runAcceptanceEval`, so the replay guard is tested
+ * end-to-end rather than stubbed away.
+ */
+describe('runAcceptanceEval — replay guard (Story #4874)', () => {
+  const config = { delivery: { acceptanceEval: { maxRounds: 2 } } };
+
+  const redraftVerdict = {
+    storyId: 4874,
+    schemaVersion: 1,
+    round: 1,
+    criteria: [
+      { index: 0, criterion: 'AC-1', verdict: 'met', evidence: 'test passes' },
+      { index: 1, criterion: 'AC-2', verdict: 'unmet', evidence: 'no test' },
+    ],
+  };
+
+  const reworkedVerdict = {
+    ...redraftVerdict,
+    criteria: [
+      redraftVerdict.criteria[0],
+      { index: 1, criterion: 'AC-2', verdict: 'unmet', evidence: 'still red' },
+    ],
+  };
+
+  /** A ledger holding exactly one prior round for `verdict`. */
+  const ledgerFor = (verdict, round = 1) =>
+    `${JSON.stringify({
+      kind: 'acceptance-eval',
+      storyId: 4874,
+      details: {
+        round,
+        verdictFingerprint: computeVerdictFingerprint(verdict),
+      },
+    })}\n`;
+
+  const depsOver = (ledgerText, appended) => ({
+    resolveRoundFn: (args) =>
+      resolveAcceptanceEvalRound({
+        ...args,
+        readFile: () => ledgerText,
+        signalsPathResolver: () => '/fake/signals.ndjson',
+      }),
+    appendSignalFn: async ({ signal }) => {
+      appended.push(signal);
+      return true;
+    },
+  });
+
+  it('does not advance the round when an existing verdict is re-read', async () => {
+    const appended = [];
+    const { envelope } = await runAcceptanceEval(
+      {
+        storyId: 4874,
+        verdict: redraftVerdict,
+        config,
+        emitSignal: true,
+      },
+      depsOver(ledgerFor(redraftVerdict), appended),
+    );
+    assert.equal(envelope.round, 1);
+    assert.equal(envelope.replay, true);
+  });
+
+  it('appends no signal on a replay, so observation is free', async () => {
+    const appended = [];
+    const { envelope } = await runAcceptanceEval(
+      {
+        storyId: 4874,
+        verdict: redraftVerdict,
+        config,
+        emitSignal: true,
+      },
+      depsOver(ledgerFor(redraftVerdict), appended),
+    );
+    assert.deepEqual(appended, []);
+    assert.equal(envelope.signalEmitted, false);
+  });
+
+  it('keeps a redraft a redraft however many times it is read', async () => {
+    const ledger = ledgerFor(redraftVerdict);
+    for (let i = 0; i < 4; i += 1) {
+      const appended = [];
+      const { envelope, exitCode } = await runAcceptanceEval(
+        {
+          storyId: 4874,
+          verdict: redraftVerdict,
+          config,
+          emitSignal: true,
+        },
+        depsOver(ledger, appended),
+      );
+      assert.equal(envelope.decision, 'redraft');
+      assert.equal(envelope.capReached, false);
+      assert.equal(exitCode, 0);
+    }
+  });
+
+  it('advances the round for a genuine re-evaluation after new work', async () => {
+    const appended = [];
+    const { envelope, exitCode } = await runAcceptanceEval(
+      {
+        storyId: 4874,
+        verdict: reworkedVerdict,
+        config,
+        emitSignal: true,
+      },
+      depsOver(ledgerFor(redraftVerdict), appended),
+    );
+    assert.equal(envelope.round, 2);
+    assert.equal(envelope.replay, false);
+    assert.equal(envelope.decision, 'block');
+    assert.equal(exitCode, 1);
+    assert.equal(appended.length, 1);
+    assert.equal(
+      appended[0].details.verdictFingerprint,
+      computeVerdictFingerprint(reworkedVerdict),
+    );
+  });
+
+  it('scores the first evaluation as round 1 against an empty ledger', async () => {
+    const appended = [];
+    const { envelope } = await runAcceptanceEval(
+      { storyId: 4874, verdict: redraftVerdict, config, emitSignal: true },
+      depsOver('', appended),
+    );
+    assert.equal(envelope.round, 1);
+    assert.equal(envelope.replay, false);
+    assert.equal(appended.length, 1);
   });
 });

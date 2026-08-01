@@ -23,7 +23,10 @@
 
 import { computeChangeSet } from './change-set.js';
 import { readNumstatRows, summarizeDiffMagnitude } from './diff-magnitude.js';
-import { handleBlockedBackstop } from './light-escalation.js';
+import {
+  handleBlockedBackstop,
+  preserveRefusedWork,
+} from './light-escalation.js';
 import { checkLightDiffBackstop } from './light-suitability.js';
 
 /** Exit code when the diff backstop blocked the land. */
@@ -66,16 +69,25 @@ function runDiffBackstop({
  * with: the verdict, the recycle command on a refusal (`null` when clean), the
  * exit code, and the log line.
  *
+ * A refusal also **preserves** the work before it reports (Story #4875): the
+ * implementation is finished and the recycle command hands the receipt to
+ * `/plan`, so leaving it on an untracked local branch that routine cleanup may
+ * reap is not an acceptable end state. Preservation is best-effort and its
+ * outcome is reported either way — a failed push degrades the message, never
+ * the verdict or the exit code.
+ *
  * @param {{
  *   storyId: number,
  *   runFn?: typeof runDiffBackstop,
  *   handleBlockedFn?: typeof handleBlockedBackstop,
+ *   preserveFn?: typeof preserveRefusedWork,
  * }} args Any further keys (`baseRef`, `cwd`, `computeFn`, `readRowsFn`,
  *   `injectedRules`) forward to the backstop run, so the git-surface join is
  *   drivable through this one entry point.
  * @returns {Promise<{
  *   result: ReturnType<typeof checkLightDiffBackstop>,
  *   nextCommand: string|null,
+ *   preservation: ReturnType<typeof preserveRefusedWork>|null,
  *   exitCode: number,
  *   message: string,
  * }>}
@@ -84,6 +96,7 @@ export async function resolveBackstopOutcome({
   storyId,
   runFn = runDiffBackstop,
   handleBlockedFn = handleBlockedBackstop,
+  preserveFn = preserveRefusedWork,
   ...seams
 } = {}) {
   const result = runFn({ storyId, ...seams });
@@ -91,17 +104,21 @@ export async function resolveBackstopOutcome({
     return {
       result,
       nextCommand: null,
+      preservation: null,
       exitCode: 0,
       message: `[deliver-light] diff backstop clean for Story #${storyId}.`,
     };
   }
-  const nextCommand = await handleBlockedFn({ storyId, result });
+  const preservation = preserveFn({ storyId, cwd: seams.cwd });
+  const nextCommand = await handleBlockedFn({ storyId, result, preservation });
   return {
     result,
     nextCommand,
+    preservation,
     exitCode: EXIT_BACKSTOP_BLOCKED,
     message:
       `[deliver-light] diff backstop BLOCKED Story #${storyId}: ` +
-      `${result.reasons.join('; ')} — recycle the receipt with "${nextCommand}"`,
+      `${result.reasons.join('; ')} — ${preservation.detail}; ` +
+      `recycle the receipt with "${nextCommand}"`,
   };
 }

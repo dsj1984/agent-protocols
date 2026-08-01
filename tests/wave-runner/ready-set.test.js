@@ -15,10 +15,14 @@ import {
  * dependency-field arm of `buildStoryAdjacency`; `files` feeds the
  * footprint extractor.
  */
-function story(id, { labels = [], state = 'open', dependsOn, files } = {}) {
+function story(
+  id,
+  { labels = [], state = 'open', dependsOn, files, body } = {},
+) {
   const rec = { id, labels, state };
   if (dependsOn !== undefined) rec.dependsOn = dependsOn;
   if (files !== undefined) rec.files = files;
+  if (body !== undefined) rec.body = body;
   return rec;
 }
 
@@ -387,5 +391,113 @@ describe('storiesOverlap — glob footprints fail safe (Story #4540)', () => {
       globalCap: 5,
     }).map((s) => s.id);
     assert.deepEqual(ready, [1], 'the glob Story takes the beat alone');
+  });
+});
+
+// ---------------------------------------------------------------------------
+// Story #4875 — the overlap guard de-conflicts on evidence, not declaration
+// ---------------------------------------------------------------------------
+
+describe('the widened footprint — a declaration is only a lower bound', () => {
+  /** A Story whose only signal is the path its text names. */
+  const mentions = (id, body) => story(id, { body });
+
+  it('picks up repo-relative paths named in the title as well as the body', () => {
+    const titled = {
+      id: 1,
+      labels: [],
+      state: 'open',
+      title: 'Fix .agents/scripts/lib/wave-runner/ready-set.js',
+    };
+    const declared = story(2, {
+      files: ['.agents/scripts/lib/wave-runner/ready-set.js'],
+    });
+    assert.equal(storiesOverlap(titled, declared), true);
+    assert.equal(
+      storiesOverlap(
+        mentions(3, 'the caller in `bin/mandrel.js`'),
+        story(4, { files: ['bin/mandrel.js'] }),
+      ),
+      true,
+      'a backticked path in prose is still a path',
+    );
+  });
+
+  it('does not mistake prose, bare words, or versions for paths', () => {
+    const prose = mentions(
+      1,
+      'Bump to 2.24.0 and re-run npm test. See the wave runner. 99.9% done.',
+    );
+    assert.equal(
+      storiesOverlap(prose, story(2, { files: ['lib/a.js'] })),
+      false,
+    );
+    assert.equal(storiesOverlap(prose, mentions(3, 'also 2.24.0')), false);
+  });
+
+  it('is total — absent / non-string text is simply no evidence', () => {
+    const junk = { id: 1, labels: [], state: 'open', body: 42, title: null };
+    assert.equal(
+      storiesOverlap(junk, story(2, { files: ['lib/a.js'] })),
+      false,
+    );
+  });
+
+  it('widens rather than replaces: the declaration still collides on its own', () => {
+    const a = story(1, { files: ['lib/declared.js'], body: 'no paths here' });
+    const b = story(2, { files: ['lib/declared.js'], body: 'nor here' });
+    assert.equal(storiesOverlap(a, b), true);
+    assert.deepEqual([...storyFootprint(a)], ['lib/declared.js']);
+  });
+});
+
+describe('storiesOverlap — real edits collide even when declarations do not (AC-4, AC-5)', () => {
+  it('withholds two Stories whose declared footprints are disjoint but whose text collides', () => {
+    const a = story(1, { files: ['lib/a.js'] });
+    const b = story(2, {
+      files: ['lib/b.js'],
+      body: 'The fix also has to change lib/a.js to keep the caller honest.',
+    });
+    assert.equal(storiesOverlap(a, b), true);
+    assert.equal(storiesOverlap(b, a), true, 'the guard is symmetric');
+  });
+
+  it('still co-dispatches Stories with no collision in declaration OR evidence', () => {
+    const a = story(1, { files: ['lib/a.js'], body: 'touches lib/a.js only' });
+    const b = story(2, { files: ['lib/b.js'], body: 'touches lib/b.js only' });
+    assert.equal(storiesOverlap(a, b), false);
+  });
+
+  it('a glob in the EVIDENCE is not a path — only declared width fails safe', () => {
+    // Prose globs are narrative ("everything under .agents/**"), so the
+    // scraper never emits one; the declared-glob rule is untouched.
+    const a = story(1, { files: ['lib/a.js'] });
+    const b = story(2, { files: ['lib/b.js'], body: 'sweeps .agents/**' });
+    assert.equal(storiesOverlap(a, b), false);
+    assert.equal(storiesOverlap(story(3, { files: ['lib/**'] }), a), true);
+  });
+
+  it('a Story with no declaration and no path evidence is never withheld', () => {
+    const bare = story(1, { body: 'do the thing' });
+    assert.equal(
+      storiesOverlap(bare, story(2, { files: ['lib/a.js'] })),
+      false,
+    );
+  });
+
+  it('the scheduler withholds the evidence-colliding Story from the same beat', () => {
+    const stories = [
+      story(1, { files: ['lib/a.js'] }),
+      story(2, {
+        files: ['lib/b.js'],
+        body: 'the caller in lib/a.js changes shape',
+      }),
+      story(3, { files: ['lib/c.js'] }),
+    ];
+    assert.deepEqual(
+      ids(selectReadySet({ stories, globalCap: 5 })),
+      [1, 3],
+      '#2 races #1 on lib/a.js despite declaring only lib/b.js',
+    );
   });
 });

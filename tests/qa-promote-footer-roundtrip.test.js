@@ -53,23 +53,30 @@ const { clusterToFinding } = promoteTesting;
  * `createStory` promotion seam stamps in.
  */
 function renderSeedBody(sha) {
+  // The canonical Story-body shape (Story #4874 reconciled the persist body
+  // contract onto it): `## Goal` + `## Changes`, with the acceptance / verify
+  // contract carried inline because this seam has no separate top-level arrays.
   return `# Address qa-coverage findings in feature:login
 
-## Context
+## Goal
 
 A clustered QA finding promoted from a /qa-explore session.
 
-## Acceptance Criteria
+## Changes
+
+- {"path": "tests/feature-login.test.js", "assumption": "refactors-existing"}
+
+## Acceptance
 
 - [ ] Close the coverage gap the finding surfaced.
 
-## Out of Scope
+## Verify
 
-Anything beyond the named surface.
+- npm test -- tests/feature-login.test.js (unit)
 
-## Notes
+## Non-Goals
 
-Promoted via promoteFindings → /plan --from-notes.
+- Anything beyond the named surface.
 
 ${fingerprintFooter(sha)}
 `;
@@ -129,7 +136,11 @@ describe('qa promote → /plan footer round-trip (Story #4115)', () => {
     });
     assert.equal(r.status, 0, `stderr: ${r.stderr}`);
 
-    const parsed = JSON.parse(r.stdout.slice(r.stdout.indexOf('{')));
+    // The rendered body itself contains `{` (the `## Changes` path entry), so
+    // anchor on the summary object's own first key.
+    const parsed = JSON.parse(
+      r.stdout.slice(r.stdout.lastIndexOf('{\n  "dryRun"')),
+    );
     assert.equal(parsed.dryRun, true);
     // The body GitHub receives IS the on-disk seed (which carries the footer);
     // the create path never rewrites it.

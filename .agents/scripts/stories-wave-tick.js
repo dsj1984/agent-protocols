@@ -75,7 +75,9 @@
  * `/deliver` uses — `resolveConfig` + `getRunners` reading
  * `delivery.deliverRunner.concurrencyCap` (default 3) — so a
  * `.agentrc.local.json` override is honored. A `--concurrency <n>` CLI flag
- * overrides the config-resolved value for that run only. This shares one
+ * overrides the config-resolved value for that run only, and the envelope's
+ * `capPrecedence` names which source won so the override is never silent
+ * (Story #4875). This shares one
  * deterministic config source (`delivery.deliverRunner.concurrencyCap`) and
  * one scheduling kernel with every `/deliver` multi-Story invocation.
  *
@@ -167,7 +169,10 @@ Options:
   --concurrency <n>  Override the per-beat concurrency cap for this run only.
                      Must be a positive integer. When omitted, the cap is
                      resolved from delivery.deliverRunner.concurrencyCap in
-                     .agentrc.json / .agentrc.local.json (default 3).
+                     .agentrc.json / .agentrc.local.json (default 3). The flag
+                     WINS over the configured value, and the envelope's
+                     capPrecedence records that it did — including when the
+                     request exceeds the configured cap.
   --done <csv>       Comma-separated Story IDs already completed this run.
                      Their dependents become eligible; they are never
                      re-dispatched. Defaults to empty.
@@ -181,6 +186,14 @@ Output envelope:
     "ready": [101],
     "totalStories": 2,
     "concurrencyCap": 3,
+    "capPrecedence": {
+      "cap": 3,
+      "source": "config",
+      "configuredCap": 3,
+      "requestedCap": null,
+      "exceedsConfigured": false,
+      "note": "..."
+    },
     "inFlight": 0,
     "cycleError": null,
     "wedged": null
@@ -214,6 +227,7 @@ function inputErrorResult(message, concurrencyCap = null, inFlightValue = 0) {
       ready: [],
       totalStories: 0,
       concurrencyCap,
+      capPrecedence: null,
       inFlight: inFlightValue,
       cycleError: null,
       wedged: null,
@@ -394,13 +408,69 @@ export function parseConcurrencyOverride(raw) {
  *                                   `--concurrency`; wins over config.
  * @returns {number} The resolved positive-integer concurrency cap.
  */
-export function resolveConcurrencyCap({ cwd, config, override } = {}) {
-  if (override != null) {
-    return override;
-  }
+export function resolveConcurrencyCap(opts = {}) {
+  return resolveCapPrecedence(opts).cap;
+}
+
+/**
+ * Resolve the per-beat cap **and the precedence that produced it** (Story
+ * #4875).
+ *
+ * `--concurrency` wins over `delivery.deliverRunner.concurrencyCap`, and that
+ * is the intended contract — a flag an operator typed for one run should not be
+ * outranked by a checked-in default. What was wrong is that it won *silently*:
+ * the envelope reported a single `concurrencyCap` number with no record of
+ * which source set it, so a run at 8 when the project configured 3 was
+ * indistinguishable from a project configured at 8. A reader could not tell an
+ * override from a default, and an override that ran the repo above its own
+ * configured ceiling left no trace at all.
+ *
+ * So the flag still wins, but never quietly: the source is named, the
+ * configured value is carried alongside the requested one, and a request that
+ * exceeds the configured cap is called out as such. Reporting rather than
+ * refusing is deliberate — the configured cap is a project default, not a
+ * safety limit, and refusing a deliberate operator escalation would trade a
+ * silent override for a silent stall.
+ *
+ * @param {object} [opts]
+ * @param {string} [opts.cwd]      Repo root for config resolution.
+ * @param {object} [opts.config]   Pre-resolved config (test injection).
+ * @param {number} [opts.override] Validated positive integer from
+ *                                 `--concurrency`.
+ * @returns {{
+ *   cap: number,
+ *   source: 'flag'|'config',
+ *   configuredCap: number,
+ *   requestedCap: number|null,
+ *   exceedsConfigured: boolean,
+ *   note: string,
+ * }}
+ */
+export function resolveCapPrecedence({ cwd, config, override } = {}) {
   const resolved = config ?? resolveConfig({ cwd });
   const { deliverRunner } = getRunners(resolved);
-  return deliverRunner.concurrencyCap;
+  const configuredCap = deliverRunner.concurrencyCap;
+  if (override == null) {
+    return {
+      cap: configuredCap,
+      source: 'config',
+      configuredCap,
+      requestedCap: null,
+      exceedsConfigured: false,
+      note: `cap ${configuredCap} from delivery.deliverRunner.concurrencyCap (no --concurrency given)`,
+    };
+  }
+  const exceedsConfigured = override > configuredCap;
+  return {
+    cap: override,
+    source: 'flag',
+    configuredCap,
+    requestedCap: override,
+    exceedsConfigured,
+    note: exceedsConfigured
+      ? `cap ${override} from --concurrency, which OVERRIDES and EXCEEDS the configured delivery.deliverRunner.concurrencyCap ${configuredCap} — this run is deliberately above the project default`
+      : `cap ${override} from --concurrency, which overrides the configured delivery.deliverRunner.concurrencyCap ${configuredCap}`,
+  };
 }
 
 /**
@@ -418,6 +488,8 @@ export function resolveConcurrencyCap({ cwd, config, override } = {}) {
  * @param {Array<{id: number, dependsOn: number[]}>} nodes
  * @param {object} args
  * @param {number} args.concurrencyCap Resolved per-beat concurrency cap.
+ * @param {object|null} [args.capPrecedence] The {@link resolveCapPrecedence}
+ *   record explaining which source set the cap.
  * @param {Set<number>} [args.doneIds] Story IDs already completed this run.
  * @param {number} [args.inFlight]     Stories already occupying a slot.
  * @returns {{
@@ -434,7 +506,7 @@ export function resolveConcurrencyCap({ cwd, config, override } = {}) {
  */
 export function buildReadySetEnvelope(
   nodes,
-  { concurrencyCap, doneIds = new Set(), inFlight = 0 },
+  { concurrencyCap, capPrecedence = null, doneIds = new Set(), inFlight = 0 },
 ) {
   const totalStories = nodes.length;
 
@@ -443,6 +515,10 @@ export function buildReadySetEnvelope(
     ready: [],
     totalStories,
     concurrencyCap,
+    // Which source set `concurrencyCap`, and whether it outranks the project's
+    // configured value (Story #4875). Never omitted on a resolved beat: a
+    // missing precedence record is what made a silent override possible.
+    capPrecedence,
     inFlight,
     cycleError: null,
     wedged: null,
@@ -484,6 +560,11 @@ export function buildReadySetEnvelope(
       labels: doneIds.has(node.id) ? [AGENT_LABELS.DONE] : (node.labels ?? []),
     };
     if (node.files !== undefined) rec.files = node.files;
+    // Probe-mode nodes carry the Story body so the overlap guard can widen a
+    // declared footprint from the paths the Story's own text names (Story
+    // #4875). Flag-mode nodes carry none — `parseDag` accepts no body — so
+    // this is inert there and the legacy contract is unchanged.
+    if (typeof node.body === 'string') rec.body = node.body;
     return rec;
   });
 
@@ -600,7 +681,8 @@ export function runStoriesWaveTick({
     return inputErrorResult(doneError, null, inFlightValue);
   }
 
-  const concurrencyCap = resolveConcurrencyCap({ cwd, config, override });
+  const capPrecedence = resolveCapPrecedence({ cwd, config, override });
+  const concurrencyCap = capPrecedence.cap;
 
   let rawJson;
 
@@ -642,6 +724,7 @@ export function runStoriesWaveTick({
 
   return buildReadySetEnvelope(nodes, {
     concurrencyCap,
+    capPrecedence,
     doneIds,
     inFlight: inFlightValue,
   });
@@ -705,7 +788,8 @@ export async function runProbedStoriesWaveTick({
     return inputErrorResult(dispatchedError);
   }
 
-  const concurrencyCap = resolveConcurrencyCap({ cwd, config, override });
+  const capPrecedence = resolveCapPrecedence({ cwd, config, override });
+  const concurrencyCap = capPrecedence.cap;
 
   let probed;
   try {
@@ -738,6 +822,7 @@ export async function runProbedStoriesWaveTick({
   } = probed;
   const { envelope, exitCode } = buildReadySetEnvelope(nodes, {
     concurrencyCap,
+    capPrecedence,
     doneIds,
     inFlight,
   });

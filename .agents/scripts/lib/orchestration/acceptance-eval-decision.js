@@ -17,6 +17,20 @@
  * from the cap enforcement path — a critic that always reports `round: 1`
  * can no longer defeat the bounded-loop guarantee.
  *
+ * ## Reading a verdict is not a round (Story #4874)
+ *
+ * Counting signals made *observation* costly: re-running the gate over an
+ * already-scored verdict — a resumed sub-agent re-reading its own verdict,
+ * an operator re-checking why the loop said `redraft` — appended another
+ * signal and advanced the derived round, so a `redraft` could escalate to
+ * `block` with no work in between. Every appended signal therefore carries
+ * a `details.verdictFingerprint` content-addressing the verdict it scored,
+ * and {@link resolveAcceptanceEvalRound} replays the round already recorded
+ * for that fingerprint instead of minting a new one. A replay is observably
+ * free: the round does not advance and no signal is appended. New work
+ * produces different verdict content, hence a new fingerprint, hence a
+ * genuine round.
+ *
  * ## The three terminal actions
  *
  *   - `proceed`  — every criterion is `met`. The Story may flip to
@@ -39,6 +53,7 @@
  * possible action is `block`.
  */
 
+import { createHash } from 'node:crypto';
 import { readFileSync } from 'node:fs';
 
 import { runArtifactPath, signalsFile } from '../config/temp-paths.js';
@@ -112,7 +127,7 @@ function partitionCriteria(criteria) {
  *   The resolved (already-clamped) redraft ceiling from
  *   `getAcceptanceEval(config).maxRounds`.
  * @param {number} [args.round]
- *   The current round number, derived via `deriveAcceptanceEvalRound`.
+ *   The current round number, derived via `resolveAcceptanceEvalRound`.
  *   Defaults to 1 when absent or invalid.
  * @returns {{
  *   decision: 'proceed' | 'redraft' | 'block',
@@ -172,6 +187,7 @@ export function buildAcceptanceEvalSignal({
   outcome,
   phase = 'implement',
   clusterId = null,
+  verdictFingerprint = null,
 }) {
   return {
     kind: 'acceptance-eval',
@@ -186,6 +202,13 @@ export function buildAcceptanceEvalSignal({
     phase,
     emitter: { tool: 'acceptance-eval.js' },
     details: {
+      // Content address of the verdict this signal scored. The replay guard
+      // in `resolveAcceptanceEvalRound` matches on it, so a re-read of an
+      // already-scored verdict reuses its round instead of minting one.
+      ...(typeof verdictFingerprint === 'string' &&
+      verdictFingerprint.length > 0
+        ? { verdictFingerprint }
+        : {}),
       decision: outcome.decision,
       round: outcome.round,
       cap: outcome.cap,
@@ -201,29 +224,29 @@ export function buildAcceptanceEvalSignal({
 }
 
 /**
- * Derive the current acceptance-eval round for a Story by counting the
- * `acceptance-eval` signals already appended to the Story's
- * `signals.ndjson` (Story #4019). Round = prior-signal count + 1, so the
- * first run reports round 1 and each completed round (which appends one
- * signal via `acceptance-eval.js`) advances the derived round by one.
+ * Read the `acceptance-eval` records already appended to the Story's (or AC
+ * cluster's) `signals.ndjson`, in append order — the prior rounds
+ * {@link resolveAcceptanceEvalRound} counts from (Story #4019).
  *
- * The derivation is restart-safe: the ledger lives on disk, so a subagent
- * that dies mid-loop and restarts still observes every prior round. A
- * missing or malformed ledger degrades to round 1 (no prior rounds), and
- * malformed lines are skipped — observability corruption never wedges the
- * gate.
+ * The read is restart-safe: the ledger lives on disk, so a subagent that
+ * dies mid-loop and restarts still observes every prior round. A missing or
+ * unreadable ledger degrades to "no prior rounds" and malformed lines are
+ * skipped — observability corruption never wedges the gate.
  *
  * @param {object} args
  * @param {number|null} args.epicId   Parent Epic ID, or `null` for a
  *   standalone Story (routes to `<tempRoot>/standalone/stories/...`).
  * @param {number} args.storyId
+ * @param {string|null} [args.clusterId] AC-cluster id (Epic #4475 M4-B).
  * @param {object} [args.config]      Resolved config (tempRoot resolution).
  * @param {(p: string) => string} [args.readFile]  Injectable reader (tests).
  * @param {(eid: number|null, sid: number, config?: object) => string} [args.signalsPathResolver]
  *   Injectable path resolver (tests). Defaults to `signalsFile`.
- * @returns {number} The 1-based current round.
+ * @param {(eid: number, config?: object) => string} [args.epicSignalsPathResolver]
+ *   Injectable epic-stream path resolver (tests).
+ * @returns {object[]} The matching records, oldest first.
  */
-export function deriveAcceptanceEvalRound({
+function readPriorAcceptanceEvalRecords({
   epicId,
   storyId,
   clusterId = null,
@@ -249,10 +272,10 @@ export function deriveAcceptanceEvalRound({
       : readFile(signalsPathResolver(epicId ?? null, storyId, config));
   } catch (_err) {
     // No ledger yet → no prior rounds.
-    return 1;
+    return [];
   }
 
-  let priorRounds = 0;
+  const records = [];
   for (const line of String(text).split('\n')) {
     const trimmed = line.trim();
     if (trimmed === '') continue;
@@ -269,7 +292,77 @@ export function deriveAcceptanceEvalRound({
     } else if (record.storyId !== storyId) {
       continue;
     }
-    priorRounds += 1;
+    records.push(record);
   }
-  return priorRounds + 1;
+  return records;
+}
+
+/**
+ * Content-address a verdict so re-scoring the same verdict is recognisable
+ * as a re-read rather than a new round (Story #4874).
+ *
+ * The fingerprint covers exactly what the decision depends on — the ordered
+ * per-criterion `index` / `criterion` / `verdict` / `evidence` tuples — and
+ * deliberately nothing else: the verdict's self-reported `round`, its
+ * timestamp, and any authoring scratch must not make an unchanged
+ * evaluation look like a new one. Conversely, real rework changes at least
+ * one criterion's verdict or its evidence, so a genuine re-evaluation
+ * always fingerprints differently.
+ *
+ * @param {{ criteria?: Array<object> }} verdict
+ * @returns {string} 16 hex chars of a SHA-256 over the canonical form.
+ */
+export function computeVerdictFingerprint(verdict) {
+  const criteria = Array.isArray(verdict?.criteria) ? verdict.criteria : [];
+  const canonical = criteria.map((c) => [
+    Number.isInteger(c?.index) ? c.index : null,
+    typeof c?.criterion === 'string' ? c.criterion : '',
+    typeof c?.verdict === 'string' ? c.verdict : '',
+    typeof c?.evidence === 'string' ? c.evidence : '',
+  ]);
+  return createHash('sha256')
+    .update(JSON.stringify(canonical))
+    .digest('hex')
+    .slice(0, 16);
+}
+
+/**
+ * Resolve the round a verdict should be scored under, distinguishing a
+ * genuine evaluation from a re-read of an already-scored verdict
+ * (Story #4874). A genuine round is `prior-signal count + 1`, so the first
+ * run reports round 1 and each completed round advances it by one.
+ *
+ * When the ledger already carries an `acceptance-eval` signal whose
+ * `details.verdictFingerprint` matches, this invocation is a **replay**: it
+ * reports that signal's round and tells the caller not to append a second
+ * one, so reading is observably free and cannot escalate a `redraft` into a
+ * `block`. Otherwise it is a genuine round and the counter advances exactly
+ * as the pre-#4874 count-based derivation always did.
+ *
+ * Signals written before this field existed carry no fingerprint; they can
+ * never match, so legacy ledgers keep their count-based behaviour.
+ *
+ * @param {object} args — {@link readPriorAcceptanceEvalRecords}'s arguments
+ *   plus:
+ * @param {string} args.verdictFingerprint
+ * @returns {{ round: number, replay: boolean }}
+ */
+export function resolveAcceptanceEvalRound(args) {
+  const { verdictFingerprint } = args;
+  const records = readPriorAcceptanceEvalRecords(args);
+  const priorIndex =
+    typeof verdictFingerprint === 'string' && verdictFingerprint.length > 0
+      ? records.findIndex(
+          (r) => r?.details?.verdictFingerprint === verdictFingerprint,
+        )
+      : -1;
+  if (priorIndex === -1) {
+    return { round: records.length + 1, replay: false };
+  }
+  const recorded = records[priorIndex]?.details?.round;
+  return {
+    round:
+      Number.isInteger(recorded) && recorded >= 1 ? recorded : priorIndex + 1,
+    replay: true,
+  };
 }
