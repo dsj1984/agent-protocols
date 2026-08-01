@@ -57,6 +57,7 @@ import {
 import { resolveBackstopOutcome } from '../../../.agents/scripts/lib/orchestration/light-backstop.js';
 import {
   handleBlockedBackstop,
+  preserveRefusedWork,
   recordGateRefusal,
 } from '../../../.agents/scripts/lib/orchestration/light-escalation.js';
 import {
@@ -675,6 +676,14 @@ const backstop = async (args) =>
   (
     await resolveBackstopOutcome({
       handleBlockedFn: async () => '/plan x',
+      // Never shell out to git from a unit test — the preservation push has
+      // its own coverage below.
+      preserveFn: () => ({
+        preserved: true,
+        branch: 'story-x',
+        remoteRef: 'origin/story-x',
+        detail: 'stub',
+      }),
       ...args,
     })
   ).result;
@@ -1152,6 +1161,13 @@ const OPERATOR_REASON = 'approved: one constant, three identical call sites';
 const suitabilityFor = (overrides) =>
   deriveLightSuitability({ ...OVERRIDABLE_SCOPE, ...overrides });
 
+/**
+ * The two absolute risk rules — the complement of OVERRIDABLE_SHAPE_CODES.
+ * Held as a literal here because the module keeps its own copy private: the
+ * contract under test is the observable refusal, not a shared constant.
+ */
+const ABSOLUTE_RISK_CODES = ['sensitive-path', 'migration-span'];
+
 describe('OVERRIDABLE_SHAPE_CODES — an allowlist of size predictions (AC-3)', () => {
   test('is exactly the four ceiling rules, and frozen', () => {
     assert.deepEqual([...OVERRIDABLE_SHAPE_CODES].sort(), [
@@ -1273,7 +1289,13 @@ describe('resolveOperatorOverride — the answer applies only when earned (AC-1.
       });
       assert.equal(o.applied, false, `${code} must not be overridable`);
       assert.equal(o.record, null);
-      assert.match(o.note, new RegExp(`"${code}" is not an overridable`));
+      // The two absolute risk rules are refused by the un-waivable check
+      // (Story #4875), which names the rule and says why no answer helps; the
+      // rest are refused by the allowlist. Both refusals name the code.
+      const expected = ABSOLUTE_RISK_CODES.includes(code)
+        ? new RegExp(`un-waivable "${code}" rule`)
+        : new RegExp(`"${code}" is not an overridable`);
+      assert.match(o.note, expected);
     }
   });
 
@@ -1371,7 +1393,7 @@ describe('resolveLightGateOutcome — the override changes the ACTION, not the v
     });
     assert.equal(outcome.action, 'ask-operator');
     assert.equal(outcome.override, undefined);
-    assert.match(outcome.reasons.join(' '), /not an overridable/);
+    assert.match(outcome.reasons.join(' '), /un-waivable "sensitive-path"/);
   });
 });
 
@@ -1742,5 +1764,220 @@ describe('light-path rejections are telemetered (Story #4856)', () => {
       });
     }
     assert.deepEqual(attributions, [null, 12, 12, null, null]);
+  });
+});
+
+// ---------------------------------------------------------------------------
+// Story #4875 — the un-waivable verdict is surfaced at PREDICTION time, and a
+// refused run leaves its finished work recoverable
+// ---------------------------------------------------------------------------
+
+/**
+ * A footprint that trips a ceiling rule (`change-kinds`) AND the absolute
+ * `sensitive-path` rule. The shape decision records only the first hit, so
+ * before this Story the operator saw a size objection they could waive, worked
+ * the whole change, and met the un-waivable refusal at the backstop.
+ */
+const DOUBLE_OBJECTION_SCOPE = Object.freeze({
+  predictedChanges: [
+    { path: 'src/auth/session.ts', assumption: 'refactors-existing' },
+    { path: 'src/report.ts', assumption: 'creates' },
+    { path: 'docs/notes.md', assumption: 'documents' },
+  ],
+  predictedAcceptance: ['sessions rotate and the report renders'],
+  predictedKinds: ['schema-change', 'new-endpoint', 'copy-edit'],
+  predictedMagnitude: 'trivial',
+  predictedUncertainty: 'determined',
+  verdict: LITE_VERDICT,
+  injectedRules: RULES,
+});
+
+describe('the prediction gate names the un-waivable class up front (AC-1, AC-2)', () => {
+  test('the recorded objection is a size rule, yet the risk class is still reported', () => {
+    const s = deriveLightSuitability(DOUBLE_OBJECTION_SCOPE);
+    // The shape's own first-hit reporting still says "change-kinds" …
+    assert.equal(s.shape.code, 'change-kinds');
+    // … and the suitability decision names what no re-slicing can fix.
+    assert.equal(s.unwaivable.present, true);
+    assert.equal(s.unwaivable.code, 'sensitive-path');
+    assert.deepEqual(s.unwaivable.classes, ['security']);
+    assert.match(s.reasons.join(' '), /un-waivable/);
+    assert.match(s.reasons.join(' '), /security/);
+  });
+
+  test('a seed that will hit the un-waivable verdict is unsuitable for the light path', () => {
+    const s = deriveLightSuitability(DOUBLE_OBJECTION_SCOPE);
+    assert.equal(s.suitable, false);
+    assert.equal(s.route, 'full');
+  });
+
+  test('the warning is in the same voice as a change-kinds objection — a reason string', () => {
+    const s = deriveLightSuitability(DOUBLE_OBJECTION_SCOPE);
+    assert.ok(
+      s.reasons.every((r) => typeof r === 'string' && r.trim() !== ''),
+      'every objection is prose the gate already prints',
+    );
+    assert.match(s.reasons.join(' '), /take this to \/plan now/);
+  });
+
+  test('a clean footprint reports no un-waivable rule at all', () => {
+    const s = deriveLightSuitability({
+      ...OVERRIDABLE_SCOPE,
+      predictedChanges: [
+        { path: 'apps/web/x.ts', assumption: 'refactors-existing' },
+      ],
+    });
+    assert.equal(s.unwaivable.present, false);
+    assert.equal(s.unwaivable.code, null);
+    assert.equal(s.suitable, true);
+  });
+
+  test('the two absolute risk rules are never also in the waivable allowlist', () => {
+    for (const code of ABSOLUTE_RISK_CODES) {
+      assert.ok(
+        !OVERRIDABLE_SHAPE_CODES.includes(code),
+        `${code} must never be both waivable and un-waivable`,
+      );
+    }
+  });
+
+  test('a rejection with no judgeable shape claims no un-waivable rule', () => {
+    // `no-changes` never builds an effort shape, so there are no risk facts to
+    // read — and inventing one would be worse than reporting nothing.
+    const s = deriveLightSuitability({
+      ...OVERRIDABLE_SCOPE,
+      predictedChanges: [],
+    });
+    assert.equal(s.shape.shape, null);
+    assert.equal(s.unwaivable.present, false);
+    assert.equal(s.unwaivable.reason, null);
+    assert.deepEqual(s.unwaivable.classes, []);
+  });
+
+  test('a migration span is reported as un-waivable too', () => {
+    const s = deriveLightSuitability({
+      ...OVERRIDABLE_SCOPE,
+      predictedChanges: [
+        { path: 'db/migrations/001.sql', assumption: 'creates' },
+        { path: 'src/reader.ts', assumption: 'refactors-existing' },
+      ],
+    });
+    assert.equal(s.unwaivable.present, true);
+    assert.equal(s.unwaivable.code, 'migration-span');
+  });
+});
+
+describe('an override cannot waive a footprint that also trips a risk rule (AC-1)', () => {
+  test('the refusal names the un-waivable rule, not the waivable one it recorded', () => {
+    const suitability = deriveLightSuitability(DOUBLE_OBJECTION_SCOPE);
+    const o = resolveOperatorOverride({
+      suitability,
+      operatorOverride: OPERATOR_REASON,
+    });
+    assert.equal(o.applied, false);
+    assert.equal(o.record, null);
+    assert.match(o.note, /un-waivable "sensitive-path"/);
+    assert.match(o.note, /Escalate to \/plan/);
+  });
+
+  test('the gate still asks, and the operator learns the answer cannot help', () => {
+    const outcome = resolveLightGateOutcome({
+      suitability: deriveLightSuitability(DOUBLE_OBJECTION_SCOPE),
+      operatorOverride: OPERATOR_REASON,
+    });
+    assert.equal(outcome.action, 'ask-operator');
+    assert.equal(outcome.override, undefined);
+    assert.match(outcome.reasons.join(' '), /un-waivable "sensitive-path"/);
+  });
+
+  test('a purely-size objection is still overridable — the rule did not widen', () => {
+    const o = resolveOperatorOverride({
+      suitability: suitabilityFor({}),
+      operatorOverride: OPERATOR_REASON,
+    });
+    assert.equal(o.applied, true);
+    assert.equal(o.record.overriddenCode, 'deployable-span');
+  });
+});
+
+describe('a refused light run leaves its work recoverable (AC-3)', () => {
+  test('the story branch is published to origin, and no PR is opened', () => {
+    const calls = [];
+    const r = preserveRefusedWork({
+      storyId: 4741,
+      cwd: '/repo',
+      gitFn: (cwd, ...args) => {
+        calls.push([cwd, ...args]);
+        return { status: 0, stdout: '', stderr: '' };
+      },
+    });
+    assert.equal(r.preserved, true);
+    assert.equal(r.branch, 'story-4741');
+    assert.equal(r.remoteRef, 'origin/story-4741');
+    assert.deepEqual(calls, [
+      ['/repo', 'push', '--set-upstream', 'origin', 'story-4741'],
+    ]);
+  });
+
+  test('a failed push is REPORTED, never swallowed and never thrown', () => {
+    for (const gitFn of [
+      () => ({ status: 128, stdout: '', stderr: 'no upstream configured' }),
+      () => {
+        throw new Error('git missing');
+      },
+    ]) {
+      const r = preserveRefusedWork({ storyId: 4741, cwd: '/repo', gitFn });
+      assert.equal(r.preserved, false);
+      assert.equal(r.remoteRef, null);
+      assert.match(r.detail, /LOCAL ONLY/);
+    }
+  });
+
+  test('a blocked backstop preserves before it reports, and says so', async () => {
+    const outcome = await resolveBackstopOutcome({
+      storyId: 4741,
+      injectedRules: RULES,
+      computeFn: () => ({ files: ['a.js', 'b.js'] }),
+      readRowsFn: () => rowsOf([2000, 500, 'a.js'], [10, 2, 'b.js']),
+      handleBlockedFn: async () => '/plan 4741',
+      preserveFn: ({ storyId }) => ({
+        preserved: true,
+        branch: `story-${storyId}`,
+        remoteRef: `origin/story-${storyId}`,
+        detail: `refused work preserved on origin/story-${storyId}`,
+      }),
+    });
+    assert.equal(outcome.result.blocked, true);
+    assert.equal(outcome.preservation.preserved, true);
+    assert.match(outcome.message, /origin\/story-4741/);
+    assert.match(outcome.message, /recycle the receipt/);
+  });
+
+  test('a clean backstop preserves nothing — there is nothing to recover', async () => {
+    const outcome = await resolveBackstopOutcome({
+      storyId: 4741,
+      injectedRules: RULES,
+      computeFn: () => ({ files: ['bin/hello.js'] }),
+      readRowsFn: () => rowsOf([2, 0, 'bin/hello.js']),
+      preserveFn: () => {
+        throw new Error('must not preserve on a clean backstop');
+      },
+    });
+    assert.equal(outcome.exitCode, 0);
+    assert.equal(outcome.preservation, null);
+  });
+
+  test('the refusal telemetry records whether the work was preserved', async () => {
+    const seen = [];
+    await handleBlockedBackstop({
+      storyId: 4741,
+      result: { reasons: ['too big'] },
+      preservation: { preserved: false },
+      emitFn: async (args) => {
+        seen.push(args);
+        return true;
+      },
+    });
+    assert.equal(seen[0].details.preserved, false);
   });
 });

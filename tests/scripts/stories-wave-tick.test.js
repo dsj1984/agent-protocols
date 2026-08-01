@@ -35,6 +35,7 @@ import {
   parseDag,
   parseDoneIds,
   parseInFlight,
+  resolveCapPrecedence,
   resolveConcurrencyCap,
   runStoriesWaveTick,
   WEDGED_EXIT_CODE,
@@ -827,5 +828,94 @@ describe('wedge detection (Story #4540)', () => {
       }),
       null,
     );
+  });
+});
+
+// ---------------------------------------------------------------------------
+// Story #4875 — the --concurrency override is reconciled, never silent
+// ---------------------------------------------------------------------------
+
+describe('resolveCapPrecedence — the flag wins, and says that it won (AC-6)', () => {
+  const CONFIG = { delivery: { deliverRunner: { concurrencyCap: 3 } } };
+
+  it('names config as the source when no flag was given', () => {
+    const p = resolveCapPrecedence({ config: CONFIG });
+    assert.strictEqual(p.cap, 3);
+    assert.strictEqual(p.source, 'config');
+    assert.strictEqual(p.configuredCap, 3);
+    assert.strictEqual(p.requestedCap, null);
+    assert.strictEqual(p.exceedsConfigured, false);
+    assert.match(p.note, /concurrencyCap/);
+  });
+
+  it('names the flag as the source, and carries the configured value it outranked', () => {
+    const p = resolveCapPrecedence({ config: CONFIG, override: 2 });
+    assert.strictEqual(p.cap, 2);
+    assert.strictEqual(p.source, 'flag');
+    assert.strictEqual(p.configuredCap, 3);
+    assert.strictEqual(p.requestedCap, 2);
+    assert.strictEqual(p.exceedsConfigured, false);
+    assert.match(p.note, /overrides the configured/);
+  });
+
+  it('flags a request that EXCEEDS the configured cap rather than applying it silently', () => {
+    const p = resolveCapPrecedence({ config: CONFIG, override: 8 });
+    assert.strictEqual(p.cap, 8, 'a deliberate operator escalation still runs');
+    assert.strictEqual(p.exceedsConfigured, true);
+    assert.match(p.note, /EXCEEDS/);
+    assert.match(p.note, /3/);
+  });
+
+  it('resolveConcurrencyCap stays the cap-only view of the same decision', () => {
+    for (const override of [undefined, 2, 8]) {
+      assert.strictEqual(
+        resolveConcurrencyCap({ config: CONFIG, override }),
+        resolveCapPrecedence({ config: CONFIG, override }).cap,
+      );
+    }
+  });
+});
+
+describe('the beat envelope reports the cap precedence (AC-6)', () => {
+  const DAG = JSON.stringify([{ id: 101, dependsOn: [] }]);
+  const CONFIG = { delivery: { deliverRunner: { concurrencyCap: 3 } } };
+
+  it('carries a config-sourced precedence record when no flag was given', () => {
+    const { envelope } = runStoriesWaveTick({ dagJson: DAG, config: CONFIG });
+    assert.strictEqual(envelope.concurrencyCap, 3);
+    assert.strictEqual(envelope.capPrecedence.source, 'config');
+    assert.strictEqual(envelope.capPrecedence.exceedsConfigured, false);
+  });
+
+  it('an override above the configured cap is visible in the envelope', () => {
+    const { envelope } = runStoriesWaveTick({
+      dagJson: DAG,
+      config: CONFIG,
+      concurrency: '8',
+    });
+    assert.strictEqual(envelope.concurrencyCap, 8);
+    assert.strictEqual(envelope.capPrecedence.source, 'flag');
+    assert.strictEqual(envelope.capPrecedence.configuredCap, 3);
+    assert.strictEqual(envelope.capPrecedence.requestedCap, 8);
+    assert.strictEqual(envelope.capPrecedence.exceedsConfigured, true);
+  });
+
+  it('the CLI prints the precedence record alongside the cap', () => {
+    const res = spawnSync(
+      process.execPath,
+      [
+        CLI,
+        '--dag',
+        JSON.stringify([{ id: 101, dependsOn: [] }]),
+        '--concurrency',
+        '8',
+      ],
+      { encoding: 'utf8', cwd: REPO_ROOT },
+    );
+    assert.strictEqual(res.status, 0);
+    const envelope = JSON.parse(res.stdout.trim().split('\n').pop());
+    assert.strictEqual(envelope.concurrencyCap, 8);
+    assert.strictEqual(envelope.capPrecedence.source, 'flag');
+    assert.strictEqual(typeof envelope.capPrecedence.note, 'string');
   });
 });
