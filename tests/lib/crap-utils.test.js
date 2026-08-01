@@ -278,7 +278,10 @@ test('scanAndScore — scores uncovered files when requireCoverage=false', async
     );
     const result = await scanAndScore({
       targetDirs: ['src'],
-      coverage: null,
+      // A real coverage run happened; it simply never reached src/a.js.
+      // That absence IS a measurement (Story #4871), so the 0%-covered arm
+      // below is the honest reading of it.
+      coverage: { [path.join(cwd, 'src', 'other.js')]: { path: 'other.js' } },
       requireCoverage: false,
       cwd,
     });
@@ -295,6 +298,38 @@ test('scanAndScore — scores uncovered files when requireCoverage=false', async
     assert.strictEqual(row.method, 'a');
     assert.strictEqual(row.coverage, 0);
     assert.strictEqual(row.crap, row.cyclomatic ** 2 + row.cyclomatic);
+  } finally {
+    rmTmp(cwd);
+  }
+});
+
+test('scanAndScore — no coverage artifact at all leaves methods unscorable', async () => {
+  // Story #4871: the freshly-initialized-worktree case. `requireCoverage:
+  // false` asks for untested code to be scored, but with no coverage run
+  // behind the verdict there is nothing to read "untested" off — filling the
+  // gap with 0% would drive every method to c² + c and fail the first commit
+  // on files the change never touched.
+  const cwd = mkTmpCwd();
+  try {
+    const srcDir = path.join(cwd, 'src');
+    fs.mkdirSync(srcDir);
+    fs.writeFileSync(
+      path.join(srcDir, 'a.js'),
+      'export function a(x) { return x + 1; }\n',
+    );
+    const result = await scanAndScore({
+      targetDirs: ['src'],
+      coverage: null,
+      requireCoverage: false,
+      cwd,
+    });
+    assert.strictEqual(result.scannedFiles, 1);
+    assert.strictEqual(result.rows.length, 0, 'never scored from a guess');
+    assert.strictEqual(
+      result.skippedMethodsNoCoverage,
+      1,
+      'reported unscorable, not silently absent',
+    );
   } finally {
     rmTmp(cwd);
   }

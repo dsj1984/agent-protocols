@@ -590,20 +590,117 @@ describe('compareCrap — refuses to drift-resolve across coordinate systems (AC
   });
 });
 
-describe('assessComparisonBasis — the unsound-basis backstop (AC-5)', () => {
-  it('accepts a healthy compare where nearly every row keyed exactly', () => {
+describe('compareCrap — provenance evidence survives the filter (#4871 AC-2)', () => {
+  it('counts a mismatched candidate even when another candidate agrees', () => {
+    // Two baseline rows for the same method, one of them in the other
+    // coordinate system. The provenance filter keeps the agreeing one, so the
+    // row scores normally and `incomparable` stays 0 — but the disagreement
+    // happened, and the backstop's numerator is the only place it can be seen.
+    const result = compareCrap({
+      currentRows: [
+        {
+          file: 'src/a.ts',
+          method: 'run',
+          startLine: 8,
+          cyclomatic: 2,
+          coverage: 1,
+          crap: 2,
+          coordinateSystem: COORDINATE_ORIGINAL,
+        },
+      ],
+      baselineRows: [
+        { file: 'src/a.ts', method: 'run', startLine: 8, crap: 2 },
+        {
+          file: 'src/a.ts',
+          method: 'run',
+          startLine: 3,
+          crap: 2,
+          coordinateSystem: COORDINATE_TRANSPILED,
+        },
+      ],
+      newMethodCeiling: 30,
+      tolerance: 0.001,
+    });
+    assert.equal(result.incomparable, 0, 'the filter resolved it');
+    assert.equal(result.provenanceMismatched, 1, 'the evidence survived');
+  });
+
+  it('reports zero mismatch for a uniform pure-JavaScript scan', () => {
+    const result = compareCrap({
+      currentRows: [
+        {
+          file: 'src/a.js',
+          method: 'run',
+          startLine: 40,
+          cyclomatic: 2,
+          coverage: 1,
+          crap: 2,
+        },
+      ],
+      baselineRows: [
+        { file: 'src/a.js', method: 'run', startLine: 8, crap: 2 },
+      ],
+      newMethodCeiling: 30,
+      tolerance: 0.001,
+    });
+    assert.equal(result.drifted, 1, 'an ordinary line shift');
+    assert.equal(result.provenanceMismatched, 0, 'and no coordinate mixing');
+  });
+
+  it('buckets an unscorable row out of the comparable denominator (AC-6)', () => {
+    const result = compareCrap({
+      currentRows: [
+        {
+          file: 'src/a.js',
+          method: 'run',
+          startLine: 8,
+          cyclomatic: 2,
+          coverage: 1,
+          crap: 2,
+        },
+        {
+          file: 'src/a.js',
+          method: 'unmeasured',
+          startLine: 20,
+          cyclomatic: 9,
+          coverage: null,
+          crap: null,
+        },
+      ],
+      baselineRows: [
+        { file: 'src/a.js', method: 'run', startLine: 8, crap: 2 },
+      ],
+      newMethodCeiling: 30,
+      tolerance: 0.001,
+    });
+    assert.equal(result.total, 2);
+    assert.equal(result.unscorable, 1);
+    assert.equal(result.comparable, 1);
+    assert.equal(result.newViolations, 0, 'never charged the ceiling');
+    assert.deepEqual(result.violations, []);
+    assert.equal(result.unscorableRows[0].kind, 'unscorable');
+  });
+});
+
+describe('assessComparisonBasis — the unsound-basis backstop (#4871)', () => {
+  it('accepts a compare where every row drifted but none mismatched (AC-4)', () => {
+    // The regression tell. Ordinary insertions re-key every method below the
+    // edit, so a 100%-drift scan is the normal operating state of a
+    // pure-JavaScript repository — never evidence of coordinate mixing.
     const verdict = assessComparisonBasis({
-      total: 133,
-      drifted: 4,
+      comparable: 133,
+      drifted: 133,
+      provenanceMismatched: 0,
       incomparable: 0,
     });
     assert.equal(verdict.sound, true);
   });
 
-  it('refuses the observed 101-of-133 drift as a basis', () => {
+  it('refuses a basis where most comparable rows hit a provenance mismatch', () => {
     const verdict = assessComparisonBasis({
-      total: 133,
-      drifted: 101,
+      comparable: 133,
+      drifted: 4,
+      provenanceMismatched: 101,
       incomparable: 0,
     });
     assert.equal(verdict.sound, false);
@@ -612,8 +709,8 @@ describe('assessComparisonBasis — the unsound-basis backstop (AC-5)', () => {
 
   it('names the coordinate mismatch and the re-seed remedy exactly once', () => {
     const { diagnostic } = assessComparisonBasis({
-      total: 133,
-      drifted: 101,
+      comparable: 133,
+      provenanceMismatched: 101,
       incomparable: 0,
     });
     assert.match(diagnostic.message, /101\/133/);
@@ -623,31 +720,44 @@ describe('assessComparisonBasis — the unsound-basis backstop (AC-5)', () => {
     assert.match(diagnostic.message, /check-baselines gate still gates/);
   });
 
-  it('counts incomparable rows toward the ratio, not just drifted ones', () => {
+  it('counts incomparable rows even when the caller reports no mismatch', () => {
     const verdict = assessComparisonBasis({
-      total: 40,
+      comparable: 40,
       drifted: 0,
       incomparable: 30,
     });
     assert.equal(verdict.sound, false);
   });
 
+  it('measures against comparable rows, not the unscorable-inflated total (AC-6)', () => {
+    // 21 comparable rows, 20 of them mismatched, plus 100 unscorable ones.
+    // Against `total` the ratio is 17% and the basis passes; against the rows
+    // that could actually be compared it is 95% and must not.
+    const verdict = assessComparisonBasis({
+      total: 121,
+      comparable: 21,
+      unscorable: 100,
+      provenanceMismatched: 20,
+    });
+    assert.equal(verdict.sound, false);
+  });
+
   it('does not fire below the minimum sample — a small diff is not evidence', () => {
-    // Three methods, two of which moved, is an ordinary edit. Enforcing a
-    // ratio there would make every scoped preview a coin flip.
     assert.equal(
-      assessComparisonBasis({ total: 3, drifted: 2, incomparable: 0 }).sound,
+      assessComparisonBasis({ comparable: 3, provenanceMismatched: 2 }).sound,
       true,
     );
   });
 
   it('passes exactly at the threshold — the ratio is a ceiling, not a bound', () => {
     assert.equal(
-      assessComparisonBasis({ total: 100, drifted: 50, incomparable: 0 }).sound,
+      assessComparisonBasis({ comparable: 100, provenanceMismatched: 50 })
+        .sound,
       true,
     );
     assert.equal(
-      assessComparisonBasis({ total: 100, drifted: 51, incomparable: 0 }).sound,
+      assessComparisonBasis({ comparable: 100, provenanceMismatched: 51 })
+        .sound,
       false,
     );
   });

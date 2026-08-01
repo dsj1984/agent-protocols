@@ -196,3 +196,68 @@ describe('workflow-invoked scripts are self-describing', () => {
     );
   });
 });
+
+/**
+ * Story #4872 — the baseline updaters are not referenced from any workflow
+ * document, so the derived adoption set above never covered them, and both
+ * performed a real baseline write when asked for their usage. They are named
+ * explicitly here because for a CLI whose whole job is to mutate, "a usage
+ * probe leaves the artifact byte-identical" is the load-bearing half of the
+ * contract, not an incidental one.
+ */
+const MUTATING_UPDATERS = [
+  'update-crap-baseline.js',
+  'update-maintainability-baseline.js',
+];
+
+/** `{ relPath: sha-ish content }` for every committed baseline file. */
+function snapshotBaselines() {
+  const dir = path.join(REPO_ROOT, 'baselines');
+  const snapshot = {};
+  for (const entry of fs.readdirSync(dir, { withFileTypes: true })) {
+    if (!entry.isFile()) continue;
+    snapshot[entry.name] = fs.readFileSync(path.join(dir, entry.name));
+  }
+  return snapshot;
+}
+
+describe('baseline updaters answer --help without writing a baseline', () => {
+  for (const script of MUTATING_UPDATERS) {
+    it(`${script} --help prints usage, exits 0, and mutates no baseline`, () => {
+      const before = snapshotBaselines();
+      const result = spawnSync(
+        process.execPath,
+        [path.join(SCRIPTS_DIR, script), '--help'],
+        {
+          cwd: REPO_ROOT,
+          encoding: 'utf8',
+          timeout: 120_000,
+          env: { ...process.env, AGENT_LOG_LEVEL: 'silent' },
+        },
+      );
+
+      assert.equal(
+        result.status,
+        0,
+        `${script} --help exited ${result.status}.\nstderr: ${(result.stderr ?? '').slice(0, 800)}`,
+      );
+      assert.ok(
+        (result.stdout ?? '').trim().length > 0,
+        `${script} --help wrote nothing to stdout`,
+      );
+
+      const after = snapshotBaselines();
+      assert.deepEqual(
+        Object.keys(after).sort(),
+        Object.keys(before).sort(),
+        `${script} --help added or removed a baseline file`,
+      );
+      for (const [name, bytes] of Object.entries(before)) {
+        assert.ok(
+          bytes.equals(after[name]),
+          `${script} --help rewrote baselines/${name} — a usage probe must not mutate the artifact it describes`,
+        );
+      }
+    });
+  }
+});
