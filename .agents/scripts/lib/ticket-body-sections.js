@@ -235,7 +235,7 @@ export function sliceTicketBodyForDelivery(body) {
   //    survive verbatim.
   const techLoc = locate(working, 'techSpec');
   let techRegion = null;
-  const PLACEHOLDER = ' MANDREL_TECH_SPEC_PLACEHOLDER ';
+  const PLACEHOLDER = '\u0000MANDREL_TECH_SPEC_PLACEHOLDER\u0000';
   if (techLoc) {
     const { end } = descriptor('techSpec');
     techRegion = working.slice(techLoc.startIdx, techLoc.endIdx + end.length);
