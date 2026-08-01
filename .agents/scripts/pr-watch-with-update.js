@@ -34,13 +34,26 @@
  *             (Story #4873) → exit 2, same "keep watching" semantics as
  *             still-running. Withholding is the point: this watcher has
  *             reported green on a PR GitHub was reporting as BLOCKED.
+ *   - NOT-YET-STARTED — the attach window was spent and NO required context
+ *             ever attached, while the pull request itself kept reading back
+ *             fine (Story #4890) → exit 2, the same "keep watching"
+ *             semantics. This used to map onto the red exit code, which
+ *             misroutes the caller twice over: the module reserves exit 1 for
+ *             a required check that GENUINELY FAILED, and the red path writes
+ *             a CI digest naming the failing check — so a caller routed onto
+ *             it by a set that was merely empty found nothing to read. A
+ *             still-empty required set is a slow condition, and the module
+ *             already models slow as exit 2. A `gh` fault the PR probe cannot
+ *             see past is still exit 1.
  *
  * Two GitHub oracles are deliberately not trusted on a single reading
- * (Story #4873). An EMPTY first `gh pr checks --required` probe is retried
+ * (Story #4873). An EMPTY `gh pr checks --required` probe is re-resolved
  * within {@link REQUIRED_CONTEXT_ATTACH_WINDOW_MS} before it is believed —
- * a ruleset attaches its required contexts tens of seconds after a PR opens,
- * and a watch launched right after `gh pr create` used to fail the delivery
- * on that empty probe. And a GREEN verdict is issued only after
+ * a ruleset attaches its required contexts asynchronously, and a required
+ * context that is an aggregator job gated on every other tier is by
+ * construction the LAST to appear (#4890 measured 16m52s), so a watch launched
+ * right after `gh pr create` used to fail a delivery whose CI had not been
+ * asked to start yet. And a GREEN verdict is issued only after
  * {@link reconcileGreenVerdict} confirms the repository agrees; an
  * unreconcilable set reports unresolved instead of green.
  *
@@ -61,12 +74,13 @@
  *   - `delivery.ci.watch.pollIntervalMs`
  *   - `delivery.ci.watch.maxPolls`
  *   - `delivery.ci.watch.maxResumes`
+ *   - `delivery.ci.watch.attachWindowMs` (Story #4890)
  *   CLI flags override config; config overrides the framework fallback.
  *
  * Usage:
  *   node .agents/scripts/pr-watch-with-update.js --pr <n> --story <id>
  *     [--repo owner/repo] [--max-updates N] [--poll-interval-ms MS]
- *     [--max-polls N] [--max-resumes N]
+ *     [--max-polls N] [--max-resumes N] [--attach-window-ms MS]
  */
 import { parseArgs } from 'node:util';
 import { runAsCli } from './lib/cli-utils.js';
@@ -90,31 +104,38 @@ import { watchPrToTerminal } from './lib/orchestration/lifecycle/listeners/watch
 import { enableAutoMergeWith } from './lib/orchestration/single-story-close/phases/auto-merge.js';
 import { sleep as defaultSleep } from './lib/util/poll-loop.js';
 
+/** Exit code reserved for the slow-but-not-red `still-running` verdict. */
+export const STILL_RUNNING_EXIT_CODE = 2;
+
+/**
+ * How long a probe that resolved NO required contexts keeps being retried
+ * before the watch stops waiting for one (Stories #4873, #4890).
+ *
+ * A repository ruleset attaches its required contexts to a pull request
+ * asynchronously, and the arrival latency is set by the SLOWEST context in the
+ * set. Story #4873 measured tens of seconds on a cold repo and calibrated the
+ * window at 90s; #4890 measured **16m52s** on this repository, because its
+ * required context is an aggregator job gated on every other tier and is
+ * therefore, by construction, the last check to appear. A 90s window still
+ * exhausted, so the watch still aborted on a PR whose CI was working exactly
+ * as designed.
+ *
+ * The default therefore covers a late aggregator with margin rather than a
+ * fast ruleset, and it is operator-tunable on the `delivery.ci.watch.*` ladder
+ * (`attachWindowMs`) for a repository whose contexts arrive on a different
+ * cadence. Spending the window costs nothing but wall-clock on a PR nobody
+ * could merge yet; exhausting it too early costs the whole delivery.
+ */
+export const REQUIRED_CONTEXT_ATTACH_WINDOW_MS = 1_200_000;
+
 /** Framework fallbacks when neither a CLI flag nor config supplies a value. */
 export const WATCH_DEFAULTS = Object.freeze({
   pollIntervalMs: 10_000,
   maxPolls: 180,
   maxUpdates: 3,
   maxResumes: 3,
+  attachWindowMs: REQUIRED_CONTEXT_ATTACH_WINDOW_MS,
 });
-
-/** Exit code reserved for the slow-but-not-red `still-running` verdict. */
-export const STILL_RUNNING_EXIT_CODE = 2;
-
-/**
- * How long a first probe that resolved NO required contexts is retried before
- * it is reported as a failure (Story #4873).
- *
- * A repository ruleset attaches its required contexts to a pull request
- * asynchronously — tens of seconds after the PR opens, on a cold repo. The
- * watcher used to treat that first empty probe as a hard `gh-checks-failed`
- * and exit 1, so a watch launched immediately after `gh pr create` failed a
- * delivery whose CI had not even been asked to start yet. "Not attached yet"
- * and "this repo has no required checks" are indistinguishable in one probe;
- * they are distinguishable across a bounded window, so the window is what we
- * spend before believing the first answer.
- */
-export const REQUIRED_CONTEXT_ATTACH_WINDOW_MS = 90_000;
 
 /**
  * Merge-state values that reconcile an observed all-green required set with
@@ -191,9 +212,9 @@ async function defaultMergeStateProbe({ prRef }) {
  * inject a second for the same `gh` call.
  */
 function mergeStateProbeFromView(ghPrViewFn) {
-  return async ({ prRef, cwd }) => {
+  return async ({ prUrl, repo, cwd }) => {
     try {
-      const view = await ghPrViewFn({ prUrl: prRef, cwd });
+      const view = await ghPrViewFn({ prUrl, repo, cwd });
       if (view?.status !== 0) return null;
       const parsed = JSON.parse(String(view.stdout ?? '').trim());
       return typeof parsed?.mergeStateStatus === 'string'
@@ -206,10 +227,25 @@ function mergeStateProbeFromView(ghPrViewFn) {
 }
 
 /**
- * Run the watch, retrying a first probe that could not resolve any required
- * context until {@link REQUIRED_CONTEXT_ATTACH_WINDOW_MS} elapses (Story
- * #4873 AC-3). Every other terminal — green, red, still-running — returns on
- * the first arm exactly as before.
+ * Run the watch, re-resolving a required-check set that came back EMPTY until
+ * the attach window is spent (Stories #4873 AC-3, #4890 AC-1). Every other
+ * terminal — green, red, still-running — returns on the first arm exactly as
+ * before.
+ *
+ * Re-arming the whole call is what makes convergence possible: the required
+ * check NAMES are resolved once per `watchPrToTerminal` call, so a context that
+ * attaches minutes later is only ever seen by a fresh call.
+ *
+ * `probePrResolvable` is the **structural** classifier, re-read every round: a
+ * required set that is empty while the pull request itself reads back fine is
+ * CI that has not started, so the window is worth spending; a pull request that
+ * does not read back at all is a `gh` fault, so the window is not spent on it
+ * and the caller reports the failure immediately. `gh` overloads its exit code
+ * across both conditions, and this deliberately does not fall back to matching
+ * its stderr prose — a human-readable string is not a classification contract.
+ *
+ * @returns {Promise<object>} the watch result plus `attachRetries`, and
+ *   `prResolvable` whenever the required set stayed empty.
  */
 async function watchWithAttachWindow({
   watchArgs,
@@ -217,6 +253,7 @@ async function watchWithAttachWindow({
   retryIntervalMs,
   sleepFn,
   nowMsFn,
+  probePrResolvable,
   logger,
 }) {
   const deadline = nowMsFn() + attachWindowMs;
@@ -230,17 +267,27 @@ async function watchWithAttachWindow({
   );
   let result = await watchPrToTerminal(watchArgs);
   let retries = 0;
-  while (result.error && retries < maxRetries && nowMsFn() < deadline) {
+  let prResolvable;
+  while (result.requiredChecksEmpty) {
+    prResolvable = await probePrResolvable();
+    if (!prResolvable) break;
+    if (retries >= maxRetries || nowMsFn() >= deadline) break;
     retries += 1;
     logger?.warn?.(
-      `[pr-watch] no required contexts resolved yet (${result.error}) — a ruleset can attach them ` +
-        `tens of seconds after a PR opens; retrying within the ${Math.round(attachWindowMs / 1000)}s ` +
-        `attach window (attempt ${retries}).`,
+      `[pr-watch] no required context has attached yet (${result.error}) — the pull request reads ` +
+        'back fine, so this is CI that has not started; re-resolving the required set within the ' +
+        `${Math.round(attachWindowMs / 1000)}s attach window (attempt ${retries}).`,
     );
     await sleepFn(retryIntervalMs);
     result = await watchPrToTerminal(watchArgs);
   }
-  return { ...result, attachRetries: retries };
+  return {
+    ...result,
+    attachRetries: retries,
+    ...(result.requiredChecksEmpty
+      ? { prResolvable: Boolean(prResolvable) }
+      : {}),
+  };
 }
 
 function parsePositiveInt(raw, fallback) {
@@ -258,8 +305,8 @@ function parsePositiveInt(raw, fallback) {
  *
  * @param {object} opts
  * @param {object|null} [opts.config]  resolved config (or a bare bag).
- * @param {object} [opts.flags]        `{ pollIntervalMs, maxPolls, maxResumes, maxUpdates }`.
- * @returns {{ pollIntervalMs: number, maxPolls: number, maxResumes: number, maxUpdates: number }}
+ * @param {object} [opts.flags]        `{ pollIntervalMs, maxPolls, maxResumes, maxUpdates, attachWindowMs }`.
+ * @returns {{ pollIntervalMs: number, maxPolls: number, maxResumes: number, maxUpdates: number, attachWindowMs: number }}
  */
 export function resolveWatchKnobs({ config, flags = {} } = {}) {
   const watch = getCiDelivery(config).watch ?? {};
@@ -278,6 +325,11 @@ export function resolveWatchKnobs({ config, flags = {} } = {}) {
       WATCH_DEFAULTS.maxResumes,
     ),
     maxUpdates: pick(flags.maxUpdates, undefined, WATCH_DEFAULTS.maxUpdates),
+    attachWindowMs: pick(
+      flags.attachWindowMs,
+      watch.attachWindowMs,
+      WATCH_DEFAULTS.attachWindowMs,
+    ),
   };
 }
 
@@ -440,16 +492,22 @@ async function evaluateGreenWatch({
  *
  *   0 → all required checks green (and the no-rerun guard cleared them).
  *   1 → a required check genuinely failed (red), OR the green was reached
- *       by a forbidden re-run of the same commit.
- *   2 → still-running (slow CI): cap + resume budget exhausted, none red.
+ *       by a forbidden re-run of the same commit, OR the pull request itself
+ *       could not be read (a `gh` / access fault).
+ *   2 → slow-but-not-red: still-running (cap + resume budget exhausted, none
+ *       red), an unreconcilable green, or no required context attached within
+ *       the attach window while the PR kept reading back fine (#4890).
  *
  * @param {object} opts
  * @param {number} opts.prNumber
- * @param {string|null} [opts.repo]
+ * @param {string|null} [opts.repo]           `owner/repo`; passed to `gh` as `--repo`.
  * @param {number|string} [opts.maxUpdates]
  * @param {number|string} [opts.pollIntervalMs]
  * @param {number|string} [opts.maxPolls]
  * @param {number|string} [opts.maxResumes]
+ * @param {number|string} [opts.attachWindowMs] override the required-context
+ *   attach window for one run (flag → `delivery.ci.watch.attachWindowMs` →
+ *   {@link REQUIRED_CONTEXT_ATTACH_WINDOW_MS}).
  * @param {object|null} [opts.config]         resolved config (defaults to resolveConfig()).
  * @param {string} [opts.tempRoot]            digest output dir (default `temp`).
  * @param {Function} [opts.ghPrChecksFn]      inject for tests
@@ -489,7 +547,7 @@ export async function runPrWatch({
   reArmAutoMergeFn = defaultReArm,
   blockDeliveryFn = blockStoryDelivery,
   mergeStateProbeFn,
-  attachWindowMs = REQUIRED_CONTEXT_ATTACH_WINDOW_MS,
+  attachWindowMs,
   nowMsFn = Date.now,
   logger = Logger,
   print = (line) => process.stdout.write(`${line}\n`),
@@ -501,20 +559,44 @@ export async function runPrWatch({
     config !== undefined ? config : safeResolveConfig(logger);
   const knobs = resolveWatchKnobs({
     config: resolvedConfig,
-    flags: { pollIntervalMs, maxPolls, maxResumes, maxUpdates },
+    flags: {
+      pollIntervalMs,
+      maxPolls,
+      maxResumes,
+      maxUpdates,
+      attachWindowMs,
+    },
   });
   const effectiveTempRoot =
     tempRoot ?? resolvedConfig?.project?.paths?.tempRoot ?? 'temp';
   const cwd = process.cwd();
 
-  // `gh` accepts a bare PR number or a URL; passing `<repo>#<n>` lets
-  // `gh` resolve the right repository without a URL. When `--repo` is
-  // omitted, `gh` infers the repo from the cwd's remote.
-  const prRef = repo ? `${repo}#${prNumber}` : String(prNumber);
+  // `gh` has NO `<owner/repo>#<number>` argument form — it parses that string
+  // as a BRANCH NAME, which is why every `--repo` invocation used to fail at
+  // the first probe with a misleading `gh-checks-failed:status=1` (#4890). The
+  // repository therefore travels two sanctioned ways, never as a composed ref:
+  //   - a real `--repo` flag on the watch ports, which build their own argv;
+  //   - a canonical PR URL for the no-rerun-guard helpers, which take a bare
+  //     ref and no repository of their own.
+  // With `--repo` omitted, `gh` infers the repository from the cwd's remote.
+  const prRef = String(prNumber);
+  const guardPrRef = repo
+    ? `https://github.com/${repo}/pull/${prNumber}`
+    : prRef;
+
+  // One merge-state probe, resolved once and used for both readings that need
+  // the repository's own view of the PR: the empty-required-set classification
+  // below, and the green-verdict reconciliation further down.
+  const probeMergeState =
+    mergeStateProbeFn ??
+    (ghPrViewFn ? mergeStateProbeFromView(ghPrViewFn) : defaultMergeStateProbe);
+  const readMergeState = () =>
+    probeMergeState({ prRef: guardPrRef, prUrl: prRef, repo, cwd, prNumber });
 
   const result = await watchWithAttachWindow({
     watchArgs: {
       prUrl: prRef,
+      repo,
       cwd,
       maxPolls: knobs.maxPolls,
       maxUpdates: knobs.maxUpdates,
@@ -526,10 +608,13 @@ export async function runPrWatch({
       ...(sleepFn ? { sleepFn } : {}),
       logger,
     },
-    attachWindowMs,
+    attachWindowMs: knobs.attachWindowMs,
     retryIntervalMs: knobs.pollIntervalMs,
     sleepFn: sleepFn ?? defaultSleep,
     nowMsFn,
+    // Structural, not prose: the PR reads back ⇒ `gh` works and the empty
+    // required set is CI that has not started yet.
+    probePrResolvable: async () => (await readMergeState()) !== null,
     logger,
   });
 
@@ -549,10 +634,32 @@ export async function runPrWatch({
     ...(result.error ? { error: result.error } : {}),
   };
 
-  if (result.error) {
-    print(JSON.stringify(envelope));
+  if (result.requiredChecksEmpty || result.error) {
+    // The attach window is spent and the required set is still empty. Classify
+    // it structurally — never against `gh`'s stderr prose (Story #4890).
+    const notYetStarted = Boolean(
+      result.requiredChecksEmpty && result.prResolvable,
+    );
+    print(
+      JSON.stringify({
+        ...envelope,
+        requiredChecksEmpty: Boolean(result.requiredChecksEmpty),
+        notYetStarted,
+      }),
+    );
+    if (notYetStarted) {
+      logger.warn?.(
+        `[pr-watch] no required check has attached to PR #${prNumber} within the ` +
+          `${Math.round(knobs.attachWindowMs / 1000)}s attach window (${result.attachRetries} re-resolutions), ` +
+          'and the pull request still reads back fine — this is CI that has not started, NOT a red check. ' +
+          'Keep polling natively:',
+      );
+      logger.warn?.('[pr-watch]   gh pr checks <pr> --watch');
+      return STILL_RUNNING_EXIT_CODE;
+    }
     logger.error?.(
-      `[pr-watch] could not resolve required checks: ${result.error}`,
+      `[pr-watch] could not resolve required checks: ${result.error} — the pull request itself could ` +
+        'not be read, so this is a `gh` / access fault rather than CI that has not started.',
     );
     return 1;
   }
@@ -565,14 +672,9 @@ export async function runPrWatch({
     // repository's own verdict before any green is issued — an unreconcilable
     // set reports unresolved (exit 2, keep watching) rather than a false green
     // or a false red.
-    const probeMergeState =
-      mergeStateProbeFn ??
-      (ghPrViewFn
-        ? mergeStateProbeFromView(ghPrViewFn)
-        : defaultMergeStateProbe);
     const reconciliation = reconcileGreenVerdict({
       observedRequired: result.requiredChecks,
-      mergeStateStatus: await probeMergeState({ prRef, cwd, prNumber }),
+      mergeStateStatus: await readMergeState(),
     });
     if (!reconciliation.reconciled) {
       print(JSON.stringify({ ...envelope, reconciliation }));
@@ -585,7 +687,7 @@ export async function runPrWatch({
     const guard = await evaluateGreenWatch({
       storyId,
       prNumber,
-      prRef,
+      prRef: guardPrRef,
       tempRoot: effectiveTempRoot,
       cwd,
       readDigestFn,
@@ -639,7 +741,7 @@ export async function runPrWatch({
   const redOutcome = await handleRedWatch({
     storyId,
     prNumber,
-    prRef,
+    prRef: guardPrRef,
     failures,
     tempRoot: effectiveTempRoot,
     cwd,
@@ -692,6 +794,7 @@ async function main() {
       'poll-interval-ms': { type: 'string' },
       'max-polls': { type: 'string' },
       'max-resumes': { type: 'string' },
+      'attach-window-ms': { type: 'string' },
     },
     strict: false,
   });
@@ -703,6 +806,7 @@ async function main() {
     pollIntervalMs: values['poll-interval-ms'],
     maxPolls: values['max-polls'],
     maxResumes: values['max-resumes'],
+    attachWindowMs: values['attach-window-ms'],
   });
 }
 

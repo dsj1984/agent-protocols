@@ -25,15 +25,17 @@
  */
 
 import assert from 'node:assert/strict';
-import { chmodSync, rmSync, writeFileSync } from 'node:fs';
+import { chmodSync, readFileSync, rmSync, writeFileSync } from 'node:fs';
 import { join } from 'node:path';
 import { after, before, describe, it } from 'node:test';
 import { makeTempDir } from '../../../../.agents/scripts/lib/test-temp.js';
 import {
   REQUIRED_CONTEXT_ATTACH_WINDOW_MS,
   reconcileGreenVerdict,
+  resolveWatchKnobs,
   runPrWatch,
   STILL_RUNNING_EXIT_CODE,
+  WATCH_DEFAULTS,
 } from '../../../../.agents/scripts/pr-watch-with-update.js';
 
 function quietLogger() {
@@ -213,6 +215,14 @@ describe('runPrWatch — unresolvable gh failure', () => {
         stdout: '',
         stderr: 'gh: not authenticated',
       }),
+      // Story #4890: an empty required set is classified against a STRUCTURAL
+      // probe of the pull request itself. `gh` is unauthenticated here, so the
+      // PR does not read back either — a genuine fault, still exit 1.
+      ghPrViewFn: () => ({
+        status: 1,
+        stdout: '',
+        stderr: 'gh: not authenticated',
+      }),
       logger: quietLogger(),
       print,
     });
@@ -221,7 +231,29 @@ describe('runPrWatch — unresolvable gh failure', () => {
     const out = JSON.parse(lines[0]);
     assert.equal(out.green, false);
     assert.ok(out.error, 'error field must be present');
+    assert.equal(out.notYetStarted, false);
     assert.deepEqual(out.checkOutcomes, {});
+  });
+
+  it('does not spend the attach window when the pull request cannot be read', async () => {
+    const { print, lines } = collectPrint();
+    let checksCalls = 0;
+    const code = await runPrWatch({
+      prNumber: 13,
+      pollIntervalMs: 0,
+      sleepFn: async () => {},
+      ghPrChecksFn: () => {
+        checksCalls += 1;
+        return { status: 1, stdout: '', stderr: 'gh: not authenticated' };
+      },
+      ghPrViewFn: () => ({ status: 1, stdout: '', stderr: 'boom' }),
+      logger: quietLogger(),
+      print,
+    });
+
+    assert.equal(code, 1);
+    assert.equal(checksCalls, 1, 'a gh fault is not retried for 20 minutes');
+    assert.equal(JSON.parse(lines[0]).attachRetries, undefined);
   });
 });
 
@@ -323,11 +355,40 @@ describe('runPrWatch — CLI path wiring (no injected gh ports, Story #4144)', (
  * same PR BLOCKED because the observed required set was smaller than branch
  * protection's.
  */
-describe('runPrWatch — required-context attach window (Story #4873 AC-3)', () => {
-  const emptyProbe = { status: 1, stdout: '', stderr: 'no checks reported' };
+/**
+ * Story #4890 — the attach window has to survive the arrival latency of the
+ * SLOWEST required context, and exhausting it is a slow condition, not a red
+ * check.
+ *
+ * #4873 calibrated the window at 90 seconds against a cold ruleset. This
+ * repository's required context is an aggregator job gated on every other
+ * tier, so it is by construction the last check to appear — a measured case
+ * attached 16m52s after the PR opened. The 90s window therefore still
+ * exhausted, and exhaustion mapped onto exit 1 (the code the module reserves
+ * for a check that genuinely failed) with no CI digest for the caller to read.
+ */
+describe('runPrWatch — required-context attach window (Stories #4873, #4890)', () => {
+  // `gh` overloads exit 1 for "no required check is attached right now" and for
+  // a genuine fault, and its stderr is human-readable prose, not a contract —
+  // the classification must never be a match against this string.
+  const emptyProbe = {
+    status: 1,
+    stdout: '',
+    stderr: 'no required checks reported on the story-4890 branch',
+  };
+  const cleanView = () => ({
+    status: 0,
+    stdout: JSON.stringify({ mergeStateStatus: 'CLEAN' }),
+    stderr: '',
+  });
 
-  it('retries an empty first probe within the window instead of failing on it', async () => {
+  it('converges on a required context that attaches ~17 minutes after the PR opens (AC-1)', async () => {
     const { print, lines } = collectPrint();
+    // The measured aggregator attached at 16m52s. 102 empty probes at the 10s
+    // default cadence advances the simulated clock to 17m00s — past the
+    // measured case, and an order of magnitude past the retired 90s window
+    // under which this exact watch aborted.
+    const emptyProbes = 102;
     let calls = 0;
     let now = 0;
     const code = await runPrWatch({
@@ -339,8 +400,148 @@ describe('runPrWatch — required-context attach window (Story #4873 AC-3)', () 
       nowMsFn: () => now,
       ghPrChecksFn: () => {
         calls += 1;
-        // The ruleset attaches its contexts on the third probe (~20s in).
-        return calls < 3 ? emptyProbe : greenChecks;
+        return calls <= emptyProbes ? emptyProbe : greenChecks;
+      },
+      ghPrViewFn: cleanView,
+      logger: quietLogger(),
+      print,
+    });
+
+    assert.equal(code, 0, 'a late-attaching required set is not a failure');
+    const out = JSON.parse(lines[0]);
+    assert.equal(out.green, true);
+    assert.equal(out.attachRetries, emptyProbes);
+    assert.equal(
+      out.requiredChecksEmpty,
+      undefined,
+      'the converged watch reports the real required set, not the empty-set verdict',
+    );
+    assert.deepEqual(out.requiredChecks, ['Validate and Test', 'baselines']);
+    assert.ok(
+      now >= 17 * 60_000,
+      `the context must attach past the measured 16m52s; clock reached ${now}ms`,
+    );
+  });
+
+  it('reports the slow-but-not-red verdict and exits 2 once the window is spent (AC-2)', async () => {
+    const { print, lines } = collectPrint();
+    const warnings = [];
+    let now = 0;
+    const code = await runPrWatch({
+      prNumber: 42,
+      pollIntervalMs: 0,
+      sleepFn: async () => {
+        now += 30_000;
+      },
+      nowMsFn: () => now,
+      ghPrChecksFn: () => emptyProbe,
+      ghPrViewFn: cleanView,
+      logger: { ...quietLogger(), warn: (m) => warnings.push(m) },
+      print,
+    });
+
+    assert.equal(
+      code,
+      STILL_RUNNING_EXIT_CODE,
+      'a still-empty required set is slow, never red',
+    );
+    const out = JSON.parse(lines[0]);
+    assert.equal(out.requiredChecksEmpty, true);
+    assert.equal(out.notYetStarted, true);
+    assert.equal(out.green, false, 'and never a green verdict either');
+    assert.ok(
+      now >= REQUIRED_CONTEXT_ATTACH_WINDOW_MS,
+      'the window is bounded — it does not poll forever',
+    );
+    assert.ok(warnings.some((m) => /has not started/.test(m)));
+  });
+
+  it('honours a caller-supplied window, so the wait is tunable per run', async () => {
+    const { print, lines } = collectPrint();
+    let calls = 0;
+    let now = 0;
+    const code = await runPrWatch({
+      prNumber: 42,
+      pollIntervalMs: 0,
+      attachWindowMs: 0,
+      sleepFn: async () => {
+        now += 10_000;
+      },
+      nowMsFn: () => now,
+      ghPrChecksFn: () => {
+        calls += 1;
+        return emptyProbe;
+      },
+      ghPrViewFn: cleanView,
+      logger: quietLogger(),
+      print,
+    });
+
+    assert.equal(code, STILL_RUNNING_EXIT_CODE);
+    assert.equal(calls, 1, 'a zero window re-resolves nothing');
+    assert.equal(JSON.parse(lines[0]).notYetStarted, true);
+  });
+
+  it('pins the window wide enough for a late aggregator (AC-1)', () => {
+    assert.ok(
+      REQUIRED_CONTEXT_ATTACH_WINDOW_MS >= 17 * 60_000,
+      `the measured attach was 16m52s; window is ${REQUIRED_CONTEXT_ATTACH_WINDOW_MS}ms`,
+    );
+    assert.equal(
+      WATCH_DEFAULTS.attachWindowMs,
+      REQUIRED_CONTEXT_ATTACH_WINDOW_MS,
+    );
+  });
+});
+
+describe('resolveWatchKnobs — attachWindowMs ladder (Story #4890 AC-4)', () => {
+  const withWindow = (attachWindowMs) => ({
+    delivery: { ci: { watch: { attachWindowMs } } },
+  });
+
+  it('falls back to the framework default when neither flag nor config supplies one', () => {
+    assert.equal(
+      resolveWatchKnobs({ config: null }).attachWindowMs,
+      WATCH_DEFAULTS.attachWindowMs,
+    );
+  });
+
+  it('reads delivery.ci.watch.attachWindowMs from config', () => {
+    assert.equal(
+      resolveWatchKnobs({ config: withWindow(300_000) }).attachWindowMs,
+      300_000,
+    );
+  });
+
+  it('lets a CLI flag override config', () => {
+    assert.equal(
+      resolveWatchKnobs({
+        config: withWindow(300_000),
+        flags: { attachWindowMs: '45000' },
+      }).attachWindowMs,
+      45_000,
+    );
+  });
+});
+
+/**
+ * Story #4890 AC-3 — `gh` has no `<owner/repo>#<number>` argument form; it
+ * parses that string as a BRANCH NAME, so every `--repo` invocation failed at
+ * the first probe with a misleading `gh-checks-failed:status=1`. The repository
+ * must reach `gh` as a real flag.
+ */
+describe('runPrWatch — --repo is passed to gh as a real flag (Story #4890)', () => {
+  it('never composes an <owner/repo>#<number> ref, and threads --repo to the checks port', async () => {
+    const { print } = collectPrint();
+    const seen = [];
+    await runPrWatch({
+      prNumber: 4890,
+      repo: 'dsj1984/mandrel',
+      pollIntervalMs: 0,
+      sleepFn: async () => {},
+      ghPrChecksFn: (args) => {
+        seen.push(args);
+        return greenChecks;
       },
       ghPrViewFn: () => ({
         status: 0,
@@ -351,35 +552,136 @@ describe('runPrWatch — required-context attach window (Story #4873 AC-3)', () 
       print,
     });
 
-    assert.equal(code, 0, 'a late-attaching required set is not a failure');
-    const out = JSON.parse(lines[0]);
-    assert.equal(out.green, true);
-    assert.equal(out.attachRetries, 2);
+    assert.ok(seen.length > 0, 'the checks port was invoked');
+    for (const args of seen) {
+      assert.equal(args.repo, 'dsj1984/mandrel', 'repo travels as its own key');
+      assert.equal(args.prUrl, '4890', 'the ref stays a bare PR number');
+      assert.ok(
+        !String(args.prUrl).includes('#'),
+        `no gh argument may carry the composed form: ${args.prUrl}`,
+      );
+    }
   });
 
-  it('still fails once the 90s window is spent with no required contexts', async () => {
-    const { print, lines } = collectPrint();
-    let now = 0;
-    const code = await runPrWatch({
-      prNumber: 42,
-      pollIntervalMs: 0,
-      sleepFn: async () => {
-        now += 30_000;
-      },
-      nowMsFn: () => now,
-      ghPrChecksFn: () => emptyProbe,
-      logger: quietLogger(),
-      print,
-    });
+  it('omits --repo entirely when no repository is given, so gh infers it', async (t) => {
+    if (process.platform === 'win32') {
+      t.skip('POSIX shell shim only');
+      return;
+    }
+    // The flag-building helper is module-private; assert it through the argv
+    // the ports actually spawn. A blank repo must add no argument at all —
+    // an empty `--repo ''` would make gh resolve nothing.
+    const tmpDir = makeTempDir('pr-watch-4890-norepo-');
+    const argvLog = join(tmpDir, 'argv.log');
+    const originalPath = process.env.PATH;
+    try {
+      const ghPath = join(tmpDir, 'gh');
+      writeFileSync(
+        ghPath,
+        [
+          '#!/usr/bin/env bash',
+          `printf '%s\\n' "$*" >> ${JSON.stringify(argvLog)}`,
+          'case "$*" in',
+          '  *"pr checks"*)',
+          '    echo \'[{"name":"baselines","state":"SUCCESS","bucket":"pass"}]\'',
+          '    ;;',
+          '  *"pr view"*)',
+          '    echo \'{"mergeStateStatus":"CLEAN"}\'',
+          '    ;;',
+          'esac',
+          'exit 0',
+          '',
+        ].join('\n'),
+        { mode: 0o755 },
+      );
+      chmodSync(ghPath, 0o755);
+      process.env.PATH = `${tmpDir}${process.platform === 'win32' ? ';' : ':'}${originalPath}`;
 
-    assert.equal(code, 1, 'the window is bounded — it does not poll forever');
-    const out = JSON.parse(lines[0]);
-    assert.match(out.error, /gh-checks-failed/);
-    assert.equal(out.attachRetries, 3, '90s of a 30s retry cadence');
+      const { print, lines } = collectPrint();
+      const code = await runPrWatch({
+        prNumber: 4890,
+        maxPolls: 2,
+        pollIntervalMs: 0,
+        sleepFn: async () => {},
+        logger: quietLogger(),
+        print,
+      });
+
+      assert.equal(code, 0, 'an inferred-repo invocation still resolves');
+      assert.equal(JSON.parse(lines[0]).green, true);
+      const argv = readFileSync(argvLog, 'utf8');
+      assert.ok(
+        !argv.includes('--repo'),
+        `a nullish repo must contribute no flag, got:\n${argv}`,
+      );
+    } finally {
+      process.env.PATH = originalPath;
+      rmSync(tmpDir, { recursive: true, force: true });
+    }
   });
 
-  it('pins the window at 90 seconds', async () => {
-    assert.equal(REQUIRED_CONTEXT_ATTACH_WINDOW_MS, 90_000);
+  it('resolves the pull request through the real spawn, with --repo in the argv', async (t) => {
+    if (process.platform === 'win32') {
+      t.skip('POSIX shell shim only');
+      return;
+    }
+    const tmpDir = makeTempDir('pr-watch-4890-repo-');
+    const argvLog = join(tmpDir, 'argv.log');
+    const originalPath = process.env.PATH;
+    try {
+      const ghPath = join(tmpDir, 'gh');
+      writeFileSync(
+        ghPath,
+        [
+          '#!/usr/bin/env bash',
+          `printf '%s\\n' "$*" >> ${JSON.stringify(argvLog)}`,
+          'case "$*" in',
+          '  *"pr checks"*)',
+          '    echo \'[{"name":"baselines","state":"SUCCESS","bucket":"pass"}]\'',
+          '    ;;',
+          '  *"pr view"*)',
+          '    echo \'{"mergeStateStatus":"CLEAN"}\'',
+          '    ;;',
+          'esac',
+          'exit 0',
+          '',
+        ].join('\n'),
+        { mode: 0o755 },
+      );
+      chmodSync(ghPath, 0o755);
+      process.env.PATH = `${tmpDir}${process.platform === 'win32' ? ';' : ':'}${originalPath}`;
+
+      const { print, lines } = collectPrint();
+      const code = await runPrWatch({
+        prNumber: 4890,
+        repo: 'dsj1984/mandrel',
+        maxPolls: 2,
+        pollIntervalMs: 0,
+        sleepFn: async () => {},
+        logger: quietLogger(),
+        print,
+      });
+
+      assert.equal(
+        code,
+        0,
+        'a --repo invocation resolves the PR and goes green',
+      );
+      assert.equal(JSON.parse(lines[0]).green, true);
+      const argv = readFileSync(argvLog, 'utf8');
+      assert.match(
+        argv,
+        /pr checks 4890 .*--repo dsj1984\/mandrel/,
+        `gh pr checks must carry --repo, got:\n${argv}`,
+      );
+      assert.ok(
+        !argv.includes('dsj1984/mandrel#'),
+        `no gh invocation may build the branch-name-shaped ref:\n${argv}`,
+      );
+    } finally {
+      process.env.PATH = originalPath;
+      rmSync(tmpDir, { recursive: true, force: true });
+    }
   });
 });
 

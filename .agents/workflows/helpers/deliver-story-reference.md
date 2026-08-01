@@ -482,8 +482,16 @@ run id + run link, and a `gh run view --log-failed` tail). Omit it and a red
 check writes no digest — and with no digest the no-rerun guard has nothing to
 adjudicate the next green against, so always pass it.
 Poll cadence and caps come from `delivery.ci.watch.*` (`pollIntervalMs`,
-`maxPolls`, `maxResumes`); pass `--poll-interval-ms`, `--max-polls`, or
-`--max-resumes` to override for one run.
+`maxPolls`, `maxResumes`, `attachWindowMs`); pass `--poll-interval-ms`,
+`--max-polls`, `--max-resumes`, or `--attach-window-ms` to override for one run.
+`attachWindowMs` (default 20 min) is how long the watch keeps re-resolving an
+**empty** required-check set before it stops waiting for a context to attach —
+a required context that is an aggregator job gated on every other tier is the
+last check to appear, measured at 16m52s on this repository.
+
+Add `--repo owner/repo` only when the cwd is not the target repository; it
+reaches `gh` as a real flag. There is no `<owner/repo>#<number>` ref form —
+`gh` parses that as a branch name.
 
 When the watch exits, branch on the exit code:
 
@@ -491,7 +499,8 @@ When the watch exits, branch on the exit code:
   is still at `agent::closing` with its issue OPEN. **Proceed to merge
   confirmation (§ Step 5) within the same turn** — green CI is the _start_ of
   the merge-confirm sequence, not a terminal state.
-- **Exit 1 (a check genuinely failed, or the green was a forbidden re-run)** —
+- **Exit 1 (a check genuinely failed, the green was a forbidden re-run, or the
+  PR itself could not be read)** —
   diagnose, fix at source, and push a new commit on `story-<storyId>`, then
   re-watch: the watcher disarmed auto-merge on the red and re-arms it only for
   a green on a **new head SHA**. The Story stays at `agent::closing`
@@ -502,11 +511,20 @@ When the watch exits, branch on the exit code:
   re-run of the same commit flips the Story to `agent::blocked` with a
   `friction` comment; clear it per
   [`ci-remediation.md`](../../rules/ci-remediation.md) § Verifier.
-- **Exit 2 (still-running — slow CI, not red)** — the poll cap fired with checks
-  still pending and the watcher exhausted its resume budget with nothing red.
-  This is **never** a failure. Hand the wait off to the host's interval loop
+- **Exit 2 (slow, not red)** — one of three slow conditions, **never** a
+  failure and never a green. Hand the wait off to the host's interval loop
   rather than ending your turn: `/loop 5m` polling `gh pr checks` until the
-  checks settle.
+  checks settle. The envelope names which:
+  - **still-running** — the poll cap fired with checks still pending and the
+    watcher exhausted its resume budget with nothing red.
+  - **not-yet-started** (`notYetStarted: true`) — the attach window was spent
+    and **no** required context ever attached, while the PR kept reading back
+    fine. CI has not started; there is no failing check and no CI digest to
+    read. Do **not** treat it as red — nothing needs fixing, and re-watching
+    (or raising `attachWindowMs`) is the whole remediation.
+  - **unresolved** (`reconciliation.reconciled: false`) — every observed
+    required check is green but the repository still refuses the merge, so the
+    green verdict is withheld.
 
 **Triage authority.** How to classify and remediate a red (or repeatedly slow)
 check — the root-cause-only decision tree for infra/transient and flaky failures

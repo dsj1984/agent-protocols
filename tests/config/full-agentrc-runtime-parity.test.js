@@ -147,6 +147,10 @@ describe('full-agentrc-runtime-parity', () => {
     );
     assert.equal(ref.delivery.ci.watch.maxPolls, WATCH_DEFAULTS.maxPolls);
     assert.equal(ref.delivery.ci.watch.maxResumes, WATCH_DEFAULTS.maxResumes);
+    assert.equal(
+      ref.delivery.ci.watch.attachWindowMs,
+      WATCH_DEFAULTS.attachWindowMs,
+    );
   });
 
   it('delivery.worktreeIsolation matches WORKTREE_ISOLATION_DEFAULTS', () => {

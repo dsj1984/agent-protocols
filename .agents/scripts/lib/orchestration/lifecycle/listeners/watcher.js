@@ -133,13 +133,36 @@ export function normalizeCheckState(raw) {
 export const extractPrNumber = parsePrNumberFromUrl;
 
 /**
+ * The `gh --repo` flag pair for an optional `owner/repo` target, or an empty
+ * argv fragment when the repository is inferred from the cwd's remote.
+ *
+ * `gh` resolves a *cross-repository* PR reference only through this flag — it
+ * has no `<owner/repo>#<number>` argument form, and a caller that builds one
+ * gets it parsed as a **branch name** instead (every `--repo` invocation of the
+ * watch CLI failed on that, reported as a misleading `gh-checks-failed`). Pure
+ * — one place builds the fragment so no port can forget it.
+ *
+ * Module-private on purpose: the three ports below are the only callers, and
+ * the flag is asserted through them (a real-spawn argv probe), never by
+ * importing this helper — an export existing solely for a test is dead in the
+ * `--production` reachability ratchet.
+ *
+ * @param {string|null|undefined} repo `owner/repo`, or nullish to infer.
+ * @returns {string[]}
+ */
+function ghRepoFlag(repo) {
+  const trimmed = String(repo ?? '').trim();
+  return trimmed.length > 0 ? ['--repo', trimmed] : [];
+}
+
+/**
  * Default `gh pr checks` spawn. Always invokes with `--required` so the
  * returned set is authoritative for branch-protection gating. The
  * `--json name,state,bucket` projection is stable across `gh` >= 2.30.
  *
  * Exported so tests can stub.
  */
-function ghPrChecks({ prUrl, cwd, spawnFn = spawnSync }) {
+function ghPrChecks({ prUrl, cwd, repo, spawnFn = spawnSync }) {
   const result = spawnFn(
     'gh',
     [
@@ -149,6 +172,7 @@ function ghPrChecks({ prUrl, cwd, spawnFn = spawnSync }) {
       '--required',
       '--json',
       'name,state,bucket,workflow',
+      ...ghRepoFlag(repo),
     ],
     { cwd, encoding: 'utf-8', shell: false },
   );
@@ -164,10 +188,10 @@ function ghPrChecks({ prUrl, cwd, spawnFn = spawnSync }) {
  * can detect the BEHIND condition (PR head is behind its base branch)
  * AFTER every required check is green. Exported so tests can stub.
  */
-function ghPrView({ prUrl, cwd, spawnFn = spawnSync }) {
+function ghPrView({ prUrl, cwd, repo, spawnFn = spawnSync }) {
   const result = spawnFn(
     'gh',
-    ['pr', 'view', prUrl, '--json', 'mergeStateStatus'],
+    ['pr', 'view', prUrl, '--json', 'mergeStateStatus', ...ghRepoFlag(repo)],
     { cwd, encoding: 'utf-8', shell: false },
   );
   return {
@@ -202,12 +226,16 @@ function parseMergeStateStatus(stdout) {
  * loop to fast-forward the PR head with its base branch. Exported so
  * tests can stub and assert call counts.
  */
-function ghPrUpdateBranch({ prUrl, cwd, spawnFn = spawnSync }) {
-  const result = spawnFn('gh', ['pr', 'update-branch', prUrl], {
-    cwd,
-    encoding: 'utf-8',
-    shell: false,
-  });
+function ghPrUpdateBranch({ prUrl, cwd, repo, spawnFn = spawnSync }) {
+  const result = spawnFn(
+    'gh',
+    ['pr', 'update-branch', prUrl, ...ghRepoFlag(repo)],
+    {
+      cwd,
+      encoding: 'utf-8',
+      shell: false,
+    },
+  );
   return {
     status: result.status ?? 1,
     stdout: result.stdout ?? '',
@@ -355,6 +383,7 @@ function defaultSleep(ms) {
  * @param {object} opts
  * @param {string} opts.prUrl
  * @param {string} opts.cwd
+ * @param {string|null} [opts.repo] `owner/repo` passed to `gh` as `--repo`.
  * @param {object} opts.outcomes  Initial `{ checkName: outcome }` map.
  * @param {number} opts.polls     Current poll counter (mutated in-place by caller).
  * @param {number} opts.maxPolls  Hard cap on total poll iterations.
@@ -367,6 +396,7 @@ function defaultSleep(ms) {
 export async function pollUntilTerminal({
   prUrl,
   cwd,
+  repo = null,
   outcomes,
   polls,
   maxPolls,
@@ -380,7 +410,7 @@ export async function pollUntilTerminal({
   while (!allTerminal(currentOutcomes) && currentPolls < maxPolls) {
     await sleepFn(pollIntervalMs);
     currentPolls += 1;
-    const probe = ghPrChecksFn({ prUrl, cwd });
+    const probe = ghPrChecksFn({ prUrl, cwd, repo });
     const entries = parseGhPrChecks(probe.stdout);
     if (entries.length === 0 && probe.status !== 0 && probe.status !== 8) {
       // Transient `gh` failure — log and continue. The outer
@@ -411,6 +441,9 @@ export async function pollUntilTerminal({
  * @param {object} opts
  * @param {string} opts.prUrl              PR URL or number (passed to `gh` verbatim).
  * @param {string} opts.cwd
+ * @param {string|null} [opts.repo]        `owner/repo` target, threaded to every
+ *   `gh` port as a real `--repo` flag (Story #4890). Nullish infers the
+ *   repository from the cwd's remote — the behaviour every in-repo caller wants.
  * @param {number} opts.maxPolls           Hard cap on total poll iterations per arm.
  * @param {number} opts.maxUpdates         Cap on `gh pr update-branch` recovery calls.
  * @param {number} [opts.maxResumes]       Story #4358: after the poll cap fires with
@@ -444,17 +477,19 @@ export async function pollUntilTerminal({
  *   terminal: boolean,
  *   green: boolean,
  *   stillRunning: boolean,
+ *   requiredChecksEmpty?: boolean,
  *   error?: string,
  * }>}
  *   `outcomes` is schema-valid (no `'pending'` — leftover pending is
  *   promoted to `'still-running'` when the cap and resume budget are both
  *   exhausted with no failed check). `stillRunning` is true in exactly
- *   that case (slow CI, not red). `error` is set only when the first
- *   probe could not resolve the required-check set.
+ *   that case (slow CI, not red). `requiredChecksEmpty` / `error` are set
+ *   only when the first probe resolved NO required-check names.
  */
 export async function watchPrToTerminal({
   prUrl,
   cwd,
+  repo = null,
   maxPolls,
   maxUpdates,
   maxResumes = 0,
@@ -469,15 +504,25 @@ export async function watchPrToTerminal({
   // First probe: resolve the required-check name set at runtime. Reuse a
   // caller-supplied probe (the listener already issued one to resolve the
   // required check names) so we never double-spend the first `gh` call.
-  const first = firstProbe ?? ghPrChecksFn({ prUrl, cwd });
+  const first = firstProbe ?? ghPrChecksFn({ prUrl, cwd, repo });
   // `gh` exits 8 when checks are still pending; this is expected and
   // does not indicate failure. Any other non-zero status with no
   // parseable JSON body is a genuine failure.
   const firstEntries = parseGhPrChecks(first.stdout);
-  if (firstEntries.length === 0 && first.status !== 0 && first.status !== 8) {
-    logger.warn?.(
-      `[Watcher] gh pr checks failed (status=${first.status}): ${first.stderr}`,
-    );
+  if (firstEntries.length === 0) {
+    // NO required-check name resolved. Never enter the poll loop on that:
+    // `allTerminal({})` is vacuously true, so the loop would exit on its
+    // first evaluation and report a terminal-but-not-green arm — a red
+    // verdict with no failing check in it (Story #4890). The name set is
+    // resolved exactly once per call, so converging on a context that
+    // attaches later means calling this function again; return the
+    // empty-set signal and let the caller's attach window re-resolve it.
+    const ghFaulted = first.status !== 0 && first.status !== 8;
+    if (ghFaulted) {
+      logger.warn?.(
+        `[Watcher] gh pr checks failed (status=${first.status}): ${first.stderr}`,
+      );
+    }
     return {
       outcomes: {},
       requiredChecks: [],
@@ -487,7 +532,12 @@ export async function watchPrToTerminal({
       terminal: false,
       green: false,
       stillRunning: false,
-      error: `gh-checks-failed:status=${first.status}`,
+      requiredChecksEmpty: true,
+      // `gh` overloads a non-zero exit for "no required check is attached
+      // right now" AND for a genuine fault, and its stderr prose is not a
+      // contract — so the status is reported and the *classification* is the
+      // caller's, made against a structural probe of the PR itself.
+      error: `gh-checks-${ghFaulted ? 'failed' : 'empty'}:status=${first.status}`,
     };
   }
 
@@ -512,6 +562,7 @@ export async function watchPrToTerminal({
       ({ outcomes, polls } = await pollUntilTerminal({
         prUrl,
         cwd,
+        repo,
         outcomes,
         polls,
         maxPolls,
@@ -529,7 +580,7 @@ export async function watchPrToTerminal({
       // indefinitely.
       if (!allTerminal(outcomes) || !allGreen(outcomes)) break;
       if (updatesApplied >= maxUpdates) break;
-      const view = ghPrViewFn({ prUrl, cwd });
+      const view = ghPrViewFn({ prUrl, cwd, repo });
       if (view.status !== 0) {
         logger.warn?.(
           `[Watcher] gh pr view failed (status=${view.status}): ${view.stderr}`,
@@ -538,7 +589,7 @@ export async function watchPrToTerminal({
       }
       const mergeStateStatus = parseMergeStateStatus(view.stdout);
       if (mergeStateStatus !== 'BEHIND') break;
-      const update = ghPrUpdateBranchFn({ prUrl, cwd });
+      const update = ghPrUpdateBranchFn({ prUrl, cwd, repo });
       if (update.status !== 0) {
         logger.warn?.(
           `[Watcher] gh pr update-branch failed (status=${update.status}): ${update.stderr}`,

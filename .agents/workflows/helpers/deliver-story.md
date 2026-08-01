@@ -138,6 +138,12 @@ so only a green on a NEW head SHA re-arms it — a re-run is refused; fix at sou
 and push ([`rules/ci-remediation.md`](../../rules/ci-remediation.md)). And a
 `tail.*: false` degrades the report, never the land.
 
+**Watch exit codes** — `pr-watch-with-update.js` exits 0 green, 1 only when a
+required check genuinely failed (or the PR is unreadable), 2 slow-but-not-red:
+still-running, unresolved, **or** `notYetStarted` — no required context attached
+inside `attachWindowMs`. Never route a 2 onto the red path; nothing is broken
+and no digest exists to read.
+
 **Lost envelope first: read it off disk.** Close persists each to
 `temp/orchestration/story-deliver-terminal-<storyId>.json`; branch on it per
 digest § 5. Otherwise do not guess — probe **read-only** with

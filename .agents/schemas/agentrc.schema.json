@@ -1367,7 +1367,7 @@
           "properties": {
             "watch": {
               "type": "object",
-              "description": "Story #4356 (Epic #4355). Poll-loop tuning for the merge/CI watch. pollIntervalMs is the cadence between check probes; maxPolls caps total probes before the watcher gives up; maxResumes caps how many times the watcher may resume after a transient stall.",
+              "description": "Story #4356 (Epic #4355). Poll-loop tuning for the merge/CI watch. pollIntervalMs is the cadence between check probes; maxPolls caps total probes before the watcher gives up; maxResumes caps how many times the watcher may resume after a transient stall; attachWindowMs bounds the wait for a required context to attach at all.",
               "properties": {
                 "pollIntervalMs": {
                   "type": "integer",
@@ -1380,6 +1380,11 @@
                 "maxResumes": {
                   "type": "integer",
                   "minimum": 0
+                },
+                "attachWindowMs": {
+                  "type": "integer",
+                  "minimum": 1,
+                  "description": "Story #4890. How long (ms) the watch keeps re-resolving an EMPTY `gh pr checks --required` set before it stops waiting for a required context to attach. A ruleset attaches its contexts asynchronously and the arrival latency is set by the slowest one, so a required context that is an aggregator job gated on every other tier is the last to appear — measured at 16m52s on this repository. Default 1200000 (20 minutes). Raise it for a repository whose contexts arrive later still; exhausting the window is never reported as a red check (the watch exits 2, not-yet-started)."
                 }
               },
               "additionalProperties": false

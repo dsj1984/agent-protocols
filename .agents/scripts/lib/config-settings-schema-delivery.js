@@ -214,12 +214,17 @@ const ROUTING_SCHEMA = {
 // the merge/CI watch poll loop; `autoMerge` selects the merge posture.
 // Retired: `earlyPr` (Epic early-PR warmup) and `requireChecks` (no
 // AutomergePredicate reader on v2).
+// Story #4890 added `attachWindowMs`: how long the watch keeps re-resolving an
+// EMPTY required-check set before it stops waiting for one. This block is
+// `additionalProperties: false`, so the knob is inert unless it lands here AND
+// in the `.agents/schemas/agentrc.schema.json` mirror.
 const CI_WATCH_SCHEMA = {
   type: 'object',
   properties: {
     pollIntervalMs: { type: 'integer', minimum: 1 },
     maxPolls: { type: 'integer', minimum: 1 },
     maxResumes: { type: 'integer', minimum: 0 },
+    attachWindowMs: { type: 'integer', minimum: 1 },
   },
   additionalProperties: false,
 };
