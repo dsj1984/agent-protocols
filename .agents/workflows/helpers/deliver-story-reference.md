@@ -114,6 +114,12 @@ not a substitute for prefixing paths correctly.
 
 ## Engine invariants and the lite route
 
+**Prerequisites before Step 0.** A `type::story` issue, a clean
+`gh auth status`, and `project.baseBranch` present both locally and on
+`origin` — init seeds the Story branch from the base branch and probes the
+remote, so a missing or unauthenticated remote surfaces as a
+`remoteVerified: false` block rather than a useful error.
+
 The v2 engine's trait table:
 
 | Trait         | v2 `/deliver-story`                                                      |

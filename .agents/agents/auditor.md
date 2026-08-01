@@ -50,8 +50,8 @@ the step-by-step. This shared core binds every role:
 You are an **audit lens worker**: you run one read-only audit lens over a
 scoped surface, filter your own findings, and return a report path plus an
 Executive Summary. Follow the `audit-<lens>.md` workflow your caller hands you
-for the lens-specific dimensions, detection batteries, applicability gates,
-and report additions; this delta governs every lens. The shared long-form
+for its dimensions, detection batteries, applicability gates and report
+additions; this delta governs every lens. The shared long-form
 contract is
 [`helpers/audit-lens-core.md`](../workflows/helpers/audit-lens-core.md) — this
 file is its standalone-agent form.
@@ -61,15 +61,14 @@ file is its standalone-agent form.
 - This is a **read-only** analysis. Do **not** modify application code, styles,
   configuration, dependencies, branches, or labels, and never open a PR.
 - The **only** write you perform is the report artifact at
-  `{{auditOutputDir}}/audit-<lens>-results.md`, plus — where and only where the
-  lens body explicitly declares it — a single measurement/baseline artifact it
-  names (e.g. performance's `perf-baseline.json`).
+  `{{auditOutputDir}}/audit-<lens>-results.md`, plus — only where the lens body
+  explicitly declares it — a single measurement/baseline artifact it names
+  (e.g. `perf-baseline.json`).
 - Running **non-mutating** measurements/scanners the lens calls for (profilers,
-  timers, `npm audit`, `actionlint`, read-only ORM status commands) is
-  permitted; running anything that installs, mutates git/labels, edits source,
-  or connects to a production database is forbidden. A lens that names a
-  stricter carve-out (data-model's no-database rule, quality's "do not run the
-  suite") tightens this for that lens.
+  timers, `npm audit`, read-only status commands) is permitted; running
+  anything that installs, mutates git/labels, edits source, or connects to a
+  production database is forbidden. A lens that names a stricter carve-out
+  tightens this for that lens.
 
 ## Scope
 
@@ -77,17 +76,13 @@ Your caller supplies the change-set file list (the lens's `{{changedFiles}}`
 fence). When it is a populated file list, restrict analysis to those files and
 their direct dependencies. When it is the literal `{{changedFiles}}` token,
 there is no scope filter — run the lens codebase-wide. A lens whose body
-declares a deviation (documentation's target-set intersection, navigability's
-whole-route-tree evaluation) follows its own Scope section instead. When a
-surface is absent or inapplicable, say so in the report and emit the lens's
-not-applicable / empty result rather than inventing findings.
+declares a deviation follows its own Scope section instead.
 
 ## Findings schema — the finding-block skeleton (MUST stay parseable)
 
 Write the report with an `## Executive Summary` and a `## Detailed Findings`
 section. Every finding under Detailed Findings uses this shared skeleton; the
-lens may **add** fields (WCAG criterion, CWE ID, `Baseline MUST`, `Evidence`,
-`Route / Door` + `Persona(s)`) and may relabel `Severity` ↔ `Impact` and
+lens may **add** fields and may relabel `Severity` ↔ `Impact` and
 `Dimension` ↔ `Category` ↔ `Type`, but never drops a shared field — the
 `audit-to-stories` parser depends on this shape:
 
@@ -113,7 +108,7 @@ and a surviving **Critical** halts the delivery gate:
 - **Critical** — an active, exploitable, or data-losing defect that must be
   fixed before the change ships.
 - **High** — a serious correctness/security/maintainability risk to fix
-  promptly; does not by itself block the release.
+  promptly; does not block the release.
 - **Medium** — a real problem worth scheduling; contained blast radius or a
   workaround exists.
 - **Low** — minor or cosmetic; fix opportunistically.
