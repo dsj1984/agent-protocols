@@ -2,8 +2,8 @@
  * lib/orchestration/light-escalation.js — what the light path does when it
  * refuses a scope (Story #4856).
  *
- * Two behaviors, both previously missing, and both about a refusal rather than
- * a verdict — the verdicts live in
+ * Three behaviors, each previously missing, and each about a refusal rather
+ * than a verdict — the verdicts live in
  * {@link module:lib/orchestration/light-suitability}:
  *
  *   1. **Recycling the receipt.** A blocked diff backstop used to tell the
@@ -25,12 +25,20 @@
  *      roll-up aggregates by category, so recording these makes the ceilings
  *      recalibratable from evidence.
  *
+ *   3. **Preserving the refused work** ({@link preserveRefusedWork}, Story
+ *      #4875). A refusal used to leave a finished implementation on a local
+ *      `story-<id>` branch with no remote ref — the one shape routine branch
+ *      and worktree cleanup is entitled to delete. The branch is published to
+ *      `origin` (no PR, no merge) so the recycle command has something to
+ *      recycle.
+ *
  * Telemetry is best-effort by construction: a signals-write failure must never
  * change a gate's verdict.
  *
  * @module lib/orchestration/light-escalation
  */
 
+import { getStoryBranch, gitSpawn } from '../git-utils.js';
 import {
   emitRuntimeFriction,
   RUNTIME_FRICTION_CATEGORIES,
@@ -106,14 +114,16 @@ export async function recordGateRefusal({
  * @param {{
  *   storyId: number,
  *   result: object,
+ *   preservation?: ReturnType<typeof preserveRefusedWork>,
  *   recordFrictionFn?: typeof recordScopeFriction,
  * }} args `result` is a {@link module:lib/orchestration/light-suitability.checkLightDiffBackstop}
- *   verdict.
+ *   verdict; `preservation` is the {@link preserveRefusedWork} outcome.
  * @returns {Promise<string>} The recycle command.
  */
 export async function handleBlockedBackstop({
   storyId,
   result,
+  preservation,
   emitFn,
   recordFrictionFn = recordScopeFriction,
 } = {}) {
@@ -128,9 +138,78 @@ export async function handleBlockedBackstop({
       implLines: result?.magnitude?.implLines ?? null,
       ceilings: result?.ceilings ?? null,
       classes: result?.classes ?? [],
+      // A refusal whose work was NOT preserved is a different (worse) event
+      // than one whose branch reached origin — the roll-up must be able to
+      // tell them apart.
+      preserved: preservation?.preserved ?? null,
     },
   });
   return buildRecycleCommand(storyId);
+}
+
+/**
+ * Publish a refused light run's branch to `origin` so the finished work is
+ * recoverable (Story #4875).
+ *
+ * A blocked backstop refuses the *land*, not the *work*: the implementation is
+ * complete and the recycle command hands the receipt to `/plan`, which will
+ * want it. Before this, that work existed only as a local `story-<id>` branch
+ * with no remote ref — an untracked branch is exactly what the routine merged-
+ * branch sweeps and worktree reaping treat as disposable, so the only copy of a
+ * finished implementation sat one cleanup away from deletion.
+ *
+ * Pushing is deliberately **not** a landing: the branch gets a remote ref, no
+ * PR is opened, and nothing merges. Total by construction — a push failure
+ * (offline, no write access, no such branch) is reported and never changes the
+ * refusal verdict, because a preservation attempt must not be able to turn a
+ * blocked backstop into a crash.
+ *
+ * Idempotent: re-running against an already-pushed branch is an up-to-date
+ * no-op.
+ *
+ * @param {{
+ *   storyId: number,
+ *   cwd?: string,
+ *   gitFn?: typeof gitSpawn,
+ * }} args
+ * @returns {{
+ *   preserved: boolean,
+ *   branch: string,
+ *   remoteRef: string|null,
+ *   detail: string,
+ * }}
+ */
+export function preserveRefusedWork({
+  storyId,
+  cwd = process.cwd(),
+  gitFn = gitSpawn,
+} = {}) {
+  const branch = getStoryBranch(storyId);
+  const unpreserved = (detail) => ({
+    preserved: false,
+    branch,
+    remoteRef: null,
+    detail,
+  });
+  let result;
+  try {
+    result = gitFn(cwd, 'push', '--set-upstream', 'origin', branch);
+  } catch (err) {
+    return unpreserved(
+      `could not publish ${branch}: ${err?.message ?? err} — the finished work is LOCAL ONLY; push it before any branch cleanup runs`,
+    );
+  }
+  if (result?.status !== 0) {
+    return unpreserved(
+      `could not publish ${branch}: ${result?.stderr || 'git push failed'} — the finished work is LOCAL ONLY; push it before any branch cleanup runs`,
+    );
+  }
+  return {
+    preserved: true,
+    branch,
+    remoteRef: `origin/${branch}`,
+    detail: `refused work preserved on origin/${branch} — the branch is no longer the only copy, and no PR was opened`,
+  };
 }
 
 /**

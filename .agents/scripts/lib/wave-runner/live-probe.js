@@ -246,7 +246,7 @@ export function createProbeContext({
  * caller tracked in-flight itself; probe mode must put them back.
  *
  * @returns {Promise<{
- *   nodes: Array<{id: number, dependsOn: number[], files: string[], labels: string[]}>,
+ *   nodes: Array<{id: number, dependsOn: number[], files: string[], body: string, labels: string[]}>,
  *   doneIds: Set<number>,
  *   inFlight: number,
  *   blockedIds: number[],
@@ -282,6 +282,11 @@ export async function probeLiveState({
   });
 
   const labelsById = new Map(stories.map((s) => [s.id, s.labels ?? []]));
+  // Bodies ride along with the node so the co-dispatch guard can widen a
+  // declared footprint from the paths a Story's own text names (Story #4875).
+  // They are consumed in-process by `selectReadySet` and never serialized into
+  // the beat envelope, which stays a list of ids.
+  const bodyById = new Map(stories.map((s) => [s.id, s.body ?? '']));
   const inFlightIds = deriveInFlightIds(stories, dispatched);
   // A Story another operator's lease holds occupies a (global) dispatch slot
   // just like an in-flight one: fold it into the in-flight set so it is both
@@ -292,6 +297,7 @@ export async function probeLiveState({
   return {
     nodes: envelope.dag.map((node) => ({
       ...node,
+      body: bodyById.get(node.id) ?? '',
       labels: projectInFlightLabels(
         labelsById.get(node.id) ?? [],
         inFlightIds.has(node.id),

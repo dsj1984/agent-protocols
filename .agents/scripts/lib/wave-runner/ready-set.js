@@ -26,10 +26,14 @@
  *     (`agent::done` OR closed issue) so a Story closed manually through
  *     the GitHub UI is recognised as done.
  *   - `storiesOverlap(a, b)` — the file-overlap co-dispatch guard: true
- *     when two Stories' declared file footprints intersect. Two Stories
- *     that would touch the same file MUST NOT be dispatched onto parallel
+ *     when two Stories' file footprints intersect. Two Stories that would
+ *     touch the same file MUST NOT be dispatched onto parallel
  *     `story-<id>` branches in the same beat (they would race the same
- *     path and produce a merge conflict at close).
+ *     path and produce a merge conflict at close). The comparison runs over
+ *     the **widened** footprint (`storyWidenedFootprint`) — a declared
+ *     `changes[]` is treated as a lower bound and widened from the paths the
+ *     Story's own text names, because a guard that trusts a prediction cannot
+ *     prevent the collision nobody predicted (Story #4875).
  *   - `selectReadySet({ stories, doneIds, inFlight, globalCap })` — the
  *     scheduler. Returns the deterministic, overlap-free set of ready
  *     Stories, capped at `globalCap − inFlight`.
@@ -169,18 +173,78 @@ function isGlobPath(path) {
 }
 
 /**
+ * Repo-relative file paths as they appear in Story prose: at least one `/`
+ * separator and a short file extension. Deliberately narrow — a token has to
+ * look like a real path before it can widen a footprint and withhold a Story.
+ */
+const PROSE_PATH_RE = /(?:[\w.@~-]+\/)+[\w.@-]+\.[A-Za-z0-9]{1,6}/g;
+
+/**
+ * Scrape file paths a Story's **text** mentions but its `changes[]` never
+ * declared (Story #4875).
+ *
+ * The declared footprint is a planner's *prediction*, and it is systematically
+ * a lower bound: a Story's `## Spec` names the module it must also touch, its
+ * acceptance criteria name the caller that must be updated, and none of that
+ * reaches `changes[]`. The overlap guard exists to stop two Stories racing the
+ * same file, so trusting the declaration outright means the guard is blind to
+ * precisely the collisions nobody predicted.
+ *
+ * Evidence is only ever **added** — nothing here can shrink a declared
+ * footprint, so widening can withhold a Story for a beat but can never
+ * co-dispatch one the declared comparison would have caught.
+ *
+ * @param {StoryRecord} story
+ * @returns {Set<string>}
+ */
+function storyEvidencePaths(story) {
+  const out = new Set();
+  for (const field of [story?.title, story?.body, story?.spec]) {
+    if (typeof field !== 'string' || field === '') continue;
+    for (const match of field.matchAll(PROSE_PATH_RE)) {
+      const trimmed = match[0].trim();
+      if (trimmed) out.add(trimmed);
+    }
+  }
+  return out;
+}
+
+/**
+ * A Story's footprint **widened from observable evidence** — the set the
+ * co-dispatch guard actually compares (Story #4875).
+ *
+ * `declared ∪ scraped-from-prose`. See {@link storyEvidencePaths} for why the
+ * declaration is treated as a lower bound rather than the answer.
+ *
+ * @param {StoryRecord} story
+ * @returns {Set<string>}
+ */
+function storyWidenedFootprint(story) {
+  const out = storyFootprint(story);
+  for (const path of storyEvidencePaths(story)) out.add(path);
+  return out;
+}
+
+/**
  * File-overlap co-dispatch guard. Returns `true` when two Stories' declared
  * file footprints intersect — meaning they would race the same file if
  * dispatched onto parallel `story-<id>` branches in the same beat. Two
  * Stories that overlap MUST NOT both appear in one dispatch set; one is
  * withheld until the other clears.
  *
+ * Comparison runs over the **widened** footprint
+ * ({@link storyWidenedFootprint}), not the declaration: a declared `changes[]`
+ * is a lower bound on what a Story will touch, and two Stories whose real edits
+ * collide were being co-dispatched whenever the collision was not predicted
+ * (Story #4875).
+ *
  * Two deliberate asymmetries:
  *
- *   - **An empty footprint means "no known overlap"** → `false`. A Story that
- *     declares no files is never withheld. This is permissive by necessity:
- *     an undeclared footprint carries no information, and withholding on
- *     absence would serialize every run.
+ *   - **An empty footprint means "no known overlap"** → `false`. A Story with
+ *     no declared footprint and no path evidence in its text is never
+ *     withheld. This is permissive by necessity: a genuinely unknown footprint
+ *     carries no information, and withholding on absence would serialize every
+ *     run.
  *   - **A glob footprint overlaps EVERYTHING** → `true` (Story #4539/#4540).
  *     Comparison is exact-string, so a Story declaring
  *     `.agents/scripts/lib/**` would not match another declaring
@@ -193,9 +257,9 @@ function isGlobPath(path) {
  * @returns {boolean}
  */
 export function storiesOverlap(a, b) {
-  const fa = storyFootprint(a);
+  const fa = storyWidenedFootprint(a);
   if (fa.size === 0) return false;
-  const fb = storyFootprint(b);
+  const fb = storyWidenedFootprint(b);
   if (fb.size === 0) return false;
   for (const path of fa) {
     if (isGlobPath(path)) return true;

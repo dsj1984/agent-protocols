@@ -119,13 +119,26 @@ export function methodRowsFromReport(report, coverageForFile, mapLine = null) {
  *     dropped, which made it a no-op for baseline population — the caller
  *     asked for "score it anyway" and got silence.
  *
+ * **Absent coverage is not zero coverage (Story #4871).** The 0%-covered
+ * inference above is only defensible when a coverage **artifact** exists and
+ * simply reports nothing for this method — "the tests ran and never reached
+ * it" is a measurement. When no artifact was produced at all — a freshly
+ * initialized story worktree, whose `coverage/` directory does not exist —
+ * nothing was measured, and filling the gap with 0% manufactures a maximal
+ * CRAP out of an absent observation, failing the first commit on files the
+ * change never touched. `coverageAvailable: false` therefore makes such a
+ * method **unscorable** under either policy: skipped and counted, never
+ * filled. It is deliberately keyed on the artifact, not the per-file entry,
+ * so `requireCoverage: false` keeps meaning "score untested code" whenever a
+ * real coverage run stands behind the verdict.
+ *
  * `resolvedMethods` / `totalMethods` count the *join*, not the fill: a
  * method scored 0% because its coverage was unresolved counts as
  * unresolved. That is what makes them usable as a health signal for the
  * updater's fail-closed resolution-rate floor.
  *
  * @param {Array<object>} rawRows Rows from `methodRowsFromReport`.
- * @param {{requireCoverage?: boolean}} [opts]
+ * @param {{requireCoverage?: boolean, coverageAvailable?: boolean}} [opts]
  * @returns {{
  *   rows: Array<object>,
  *   skippedMethodsNoCoverage: number,
@@ -133,7 +146,10 @@ export function methodRowsFromReport(report, coverageForFile, mapLine = null) {
  *   totalMethods: number,
  * }}
  */
-export function finalizeMethodRows(rawRows, { requireCoverage = true } = {}) {
+export function finalizeMethodRows(
+  rawRows,
+  { requireCoverage = true, coverageAvailable = true } = {},
+) {
   const rows = [];
   let skippedMethodsNoCoverage = 0;
   let resolvedMethods = 0;
@@ -142,7 +158,7 @@ export function finalizeMethodRows(rawRows, { requireCoverage = true } = {}) {
     totalMethods += 1;
     const unresolved = mr.crap === null || mr.coverage === null;
     if (!unresolved) resolvedMethods += 1;
-    if (unresolved && requireCoverage) {
+    if (unresolved && (requireCoverage || !coverageAvailable)) {
       skippedMethodsNoCoverage += 1;
       continue;
     }

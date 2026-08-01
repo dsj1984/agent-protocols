@@ -479,8 +479,20 @@ test('runCli — --changed-since without --staged keeps ref-based diff mode', as
 // says so once, by name, and exits 0.
 // ---------------------------------------------------------------------------
 
-/** Build a minimal but real consumer tree the CRAP preview can run against. */
-function makeCrapFixture({ methodCount, baselineRows, scoringSemantics }) {
+/**
+ * Build a minimal but real consumer tree the CRAP preview can run against.
+ *
+ * `withCoverage: false` (Story #4871) omits the coverage artifact entirely —
+ * the shape of a freshly initialized story worktree, whose first commit must
+ * not be failed on files it never touched.
+ */
+function makeCrapFixture({
+  methodCount,
+  baselineRows,
+  scoringSemantics,
+  withCoverage = true,
+  cyclomaticPerMethod = 1,
+}) {
   const dir = fs.realpathSync(makeTempDir('crap_preview_'));
   fs.mkdirSync(path.join(dir, 'src'), { recursive: true });
   fs.mkdirSync(path.join(dir, 'baselines'), { recursive: true });
@@ -496,9 +508,15 @@ function makeCrapFixture({ methodCount, baselineRows, scoringSemantics }) {
   );
 
   // One method per line keeps the fixture's coordinates trivially readable.
+  // `cyclomaticPerMethod: 2` adds a branch so the row clears the c=1
+  // regression exemption and a real CRAP regression can actually be observed.
   const lines = [];
   for (let i = 0; i < methodCount; i += 1) {
-    lines.push(`export function m${i}(x) { return x + ${i}; }`);
+    lines.push(
+      cyclomaticPerMethod > 1
+        ? `export function m${i}(x) { return x ? x + ${i} : ${i}; }`
+        : `export function m${i}(x) { return x + ${i}; }`,
+    );
   }
   const absSrc = path.join(dir, 'src', 'mod.js');
   fs.writeFileSync(absSrc, `${lines.join('\n')}\n`);
@@ -521,20 +539,22 @@ function makeCrapFixture({ methodCount, baselineRows, scoringSemantics }) {
     };
     s[String(i)] = 1;
   }
-  fs.writeFileSync(
-    path.join(dir, 'coverage', 'coverage-final.json'),
-    JSON.stringify({
-      [absSrc]: {
-        path: absSrc,
-        fnMap,
-        f,
-        statementMap,
-        s,
-        branchMap: {},
-        b: {},
-      },
-    }),
-  );
+  if (withCoverage) {
+    fs.writeFileSync(
+      path.join(dir, 'coverage', 'coverage-final.json'),
+      JSON.stringify({
+        [absSrc]: {
+          path: absSrc,
+          fnMap,
+          f,
+          statementMap,
+          s,
+          branchMap: {},
+          b: {},
+        },
+      }),
+    );
+  }
 
   fs.writeFileSync(
     path.join(dir, 'baselines', 'crap.json'),
@@ -562,7 +582,7 @@ function rmFixture(dir) {
 }
 
 /** Baseline rows for `methodCount` methods, each shifted by `lineOffset`. */
-function baselineRowsFor(methodCount, lineOffset, crap = 1) {
+function baselineRowsFor(methodCount, lineOffset, crap = 1, extra = {}) {
   const rows = [];
   for (let i = 0; i < methodCount; i += 1) {
     rows.push({
@@ -570,21 +590,63 @@ function baselineRowsFor(methodCount, lineOffset, crap = 1) {
       method: `m${i}`,
       startLine: i + 1 + lineOffset,
       crap,
+      ...extra,
     });
   }
   return rows;
 }
 
-describe('runCrapPreview — unsound-basis backstop (AC-5)', () => {
-  it('suppresses per-method verdicts and exits 0 above the drift ratio', async () => {
-    // Every baseline row sits 1000 lines away from the scan's, so nothing
-    // keys exactly and everything falls into the drift heuristic — the exact
-    // shape a coordinate-system mismatch produces. The baseline crap of 0
-    // means every drifted pairing would otherwise be scored a regression.
+// ---------------------------------------------------------------------------
+// Story #4871 — the backstop must measure what it claims to measure.
+//
+// #4866's numerator was `drifted + incomparable`, but a row reaches the drift
+// arm only AFTER passing the provenance filter — so `drifted` counts rows
+// whose coordinate systems AGREED and can never evidence a mismatch. On this
+// pure-JavaScript repository the ratio therefore tripped on every diff,
+// suppressing the gate's verdicts while it still reported success.
+// ---------------------------------------------------------------------------
+
+describe('runCrapPreview — the backstop measures coordinate mixing (#4871)', () => {
+  it('reports a per-method regression on a pure-JavaScript diff (AC-1, AC-4)', async () => {
+    // Every baseline row sits 1000 lines away, so EVERY row drifts — the shape
+    // that used to suppress the run. Coordinates are uniform (plain .js), so
+    // the basis is sound and a real regression must surface as a verdict.
     const methodCount = 25;
     const dir = makeCrapFixture({
       methodCount,
+      cyclomaticPerMethod: 2,
       baselineRows: baselineRowsFor(methodCount, 1000, 0),
+    });
+    try {
+      const { exitCode, envelope } = await runCrapPreview({ cwd: dir });
+      assert.equal(envelope.summary.drifted, methodCount, 'all rows drifted');
+      assert.equal(envelope.summary.provenanceMismatched, 0);
+      assert.equal(
+        envelope.diagnostics,
+        undefined,
+        'uniform provenance must never suppress',
+      );
+      assert.ok(
+        envelope.summary.regressions > 0,
+        'the per-method verdict must be reported, not suppressed',
+      );
+      assert.ok(envelope.violations.length > 0);
+      assert.equal(exitCode, 1);
+    } finally {
+      rmFixture(dir);
+    }
+  });
+
+  it('still suppresses, names, and exits 0 on genuine mixing (AC-3, AC-8)', async () => {
+    // Baseline rows stamped `transpiled` against an original-coordinate
+    // JavaScript scan: a real provenance mismatch on every row.
+    const methodCount = 25;
+    const dir = makeCrapFixture({
+      methodCount,
+      cyclomaticPerMethod: 2,
+      baselineRows: baselineRowsFor(methodCount, 1000, 0, {
+        coordinateSystem: 'transpiled',
+      }),
     });
     try {
       const { exitCode, envelope } = await runCrapPreview({ cwd: dir });
@@ -600,17 +662,14 @@ describe('runCrapPreview — unsound-basis backstop (AC-5)', () => {
       assert.match(envelope.diagnostics[0].message, /line coordinates/);
       assert.match(envelope.diagnostics[0].message, /crap:update/);
       // The evidence stays — only the accusations go.
-      assert.equal(envelope.summary.total, methodCount);
-      assert.equal(envelope.summary.drifted, methodCount);
+      assert.equal(envelope.summary.provenanceMismatched, methodCount);
+      assert.equal(envelope.summary.incomparable, methodCount);
     } finally {
       rmFixture(dir);
     }
   });
 
-  it('leaves a sound comparison reporting its regressions normally', async () => {
-    // Same fixture, baseline rows at the SCANNED lines: the basis is sound,
-    // so a real regression must still fail the gate. The backstop must not
-    // become a blanket amnesty.
+  it('leaves an exactly-keyed comparison reporting normally', async () => {
     const methodCount = 25;
     const dir = makeCrapFixture({
       methodCount,
@@ -624,6 +683,51 @@ describe('runCrapPreview — unsound-basis backstop (AC-5)', () => {
       // clean — what matters is that no diagnostic replaced the verdicts.
       assert.equal(exitCode, 0);
       assert.equal(envelope.summary.total, methodCount);
+    } finally {
+      rmFixture(dir);
+    }
+  });
+});
+
+describe('runCrapPreview — absent coverage is not zero coverage (#4871)', () => {
+  it('reports methods unscorable instead of scoring them at 0% (AC-5, AC-7)', async () => {
+    // A freshly initialized story worktree has no coverage directory. Filling
+    // an absent observation with 0% drives CRAP to c²+c and fails the first
+    // commit on files the Story never touched.
+    const methodCount = 25;
+    const dir = makeCrapFixture({
+      methodCount,
+      cyclomaticPerMethod: 2,
+      withCoverage: false,
+      baselineRows: baselineRowsFor(methodCount, 0, 0),
+    });
+    try {
+      const { exitCode, envelope } = await runCrapPreview({ cwd: dir });
+      assert.equal(exitCode, 0, 'a coverage-less worktree must not fail');
+      assert.deepEqual(envelope.violations, []);
+      assert.equal(envelope.summary.regressions, 0);
+      assert.equal(envelope.summary.newViolations, 0);
+      assert.ok(
+        envelope.summary.unscorable > 0,
+        'the unscorable methods must be reported, not silently absent',
+      );
+    } finally {
+      rmFixture(dir);
+    }
+  });
+
+  it('does not let unscorable rows suppress the basis (AC-6)', async () => {
+    // Uniform coordinates plus a pile of unscorable rows must still produce a
+    // sound basis — the unscorable count cannot become a suppression lever.
+    const methodCount = 25;
+    const dir = makeCrapFixture({
+      methodCount,
+      withCoverage: false,
+      baselineRows: baselineRowsFor(methodCount, 1000, 0),
+    });
+    try {
+      const { envelope } = await runCrapPreview({ cwd: dir });
+      assert.equal(envelope.diagnostics, undefined);
     } finally {
       rmFixture(dir);
     }

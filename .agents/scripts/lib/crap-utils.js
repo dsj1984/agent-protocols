@@ -221,6 +221,25 @@ export function buildBaselineEnvelope({
 }
 
 /**
+ * True when a coverage artifact was actually loaded for this scan.
+ *
+ * Story #4871: "the tests ran and never reached this method" is a measurement
+ * and the CRAP formula's 0%-covered arm is the right answer for it. "No
+ * coverage run happened at all" — a freshly initialized story worktree with no
+ * `coverage/` directory — is an *absent* observation, and filling it with 0%
+ * drives every method to `c² + c`, failing the first commit on files the
+ * change never touched. Resolved once per scan and carried on each queue item
+ * so the pool workers, which only ever receive their own file's coverage
+ * entry, can still tell the two apart.
+ *
+ * @param {object|null|undefined} coverage Parsed `coverage-final.json` map.
+ * @returns {boolean}
+ */
+function isCoverageArtifactPresent(coverage) {
+  return coverage !== null && coverage !== undefined;
+}
+
+/**
  * How many files to name when reporting the worst unresolved offenders. Long
  * enough to point at a pattern, short enough to stay a readable CLI message.
  */
@@ -440,12 +459,13 @@ export async function scanAndScore({
   // inside `.worktrees/<workspace>/` (with cwd pointing at the main
   // checkout) cannot leak the worktree prefix into the on-disk baseline's
   // `file` / `path` keys downstream.
+  const coverageAvailable = isCoverageArtifactPresent(coverage);
   const queue = [];
   for (const abs of files) {
     const rawRel = path.relative(cwd, abs).replace(/\\/g, '/');
     const relPath = canonicalisePath(rawRel);
     if (scopeSet && !scopeSet.has(relPath)) continue;
-    queue.push({ abs, relPath, requireCoverage });
+    queue.push({ abs, relPath, requireCoverage, coverageAvailable });
   }
   const scannedFiles = queue.length;
 
@@ -514,7 +534,10 @@ export async function scanAndScore({
  * Uses `analyzeOnce` so the source is parsed a single time and both the
  * CRAP rows and the MI score are derived from the same escomplex report.
  */
-function scoreFileSerial({ abs, relPath, requireCoverage }, coverage) {
+function scoreFileSerial(
+  { abs, relPath, requireCoverage, coverageAvailable = true },
+  coverage,
+) {
   const entry = findCoverageEntry(coverage, relPath);
   if (requireCoverage && entry === null) {
     return {
@@ -542,7 +565,10 @@ function scoreFileSerial({ abs, relPath, requireCoverage }, coverage) {
     prepared.mapLine,
   );
   if (parseError) return dropped;
-  const finalized = finalizeMethodRows(crapRows, { requireCoverage });
+  const finalized = finalizeMethodRows(crapRows, {
+    requireCoverage,
+    coverageAvailable,
+  });
   return {
     skippedFileNoCoverage: false,
     hasCoverageEntry: entry !== null,
@@ -588,7 +614,10 @@ async function scoreFilesViaPool(queue, coverage) {
  *     file), `[]` when coverage-skipped, otherwise the scored method rows.
  *   - `skippedFileNoCoverage` / `skippedMethodsNoCoverage` — CRAP counters.
  */
-function scoreFileCombinedSerial({ abs, relPath, requireCoverage }, coverage) {
+function scoreFileCombinedSerial(
+  { abs, relPath, requireCoverage, coverageAvailable = true },
+  coverage,
+) {
   const entry = findCoverageEntry(coverage, relPath);
   const prepared = prepareSourceForScoring(abs);
   if (prepared.error) {
@@ -633,7 +662,10 @@ function scoreFileCombinedSerial({ abs, relPath, requireCoverage }, coverage) {
     };
   }
   const { rows, skippedMethodsNoCoverage, resolvedMethods, totalMethods } =
-    finalizeMethodRows(rawCrapRows, { requireCoverage });
+    finalizeMethodRows(rawCrapRows, {
+      requireCoverage,
+      coverageAvailable,
+    });
   return {
     relPath,
     miScore,
@@ -750,12 +782,19 @@ export async function scanAndScoreCombined({
   // Build the work queue. Each item carries both the canonicalised relPath
   // (CRAP's key + scope filter, matching scanAndScore) and the raw relPath
   // (MI's key, matching calculateAll's `path.relative(cwd, p)` shape).
+  const coverageAvailable = isCoverageArtifactPresent(coverage);
   const queue = [];
   for (const abs of files) {
     const rawRel = path.relative(cwd, abs).replace(/\\/g, '/');
     const relPath = canonicalisePath(rawRel);
     if (scopeSet && !scopeSet.has(relPath)) continue;
-    queue.push({ abs, relPath, miRel: rawRel, requireCoverage });
+    queue.push({
+      abs,
+      relPath,
+      miRel: rawRel,
+      requireCoverage,
+      coverageAvailable,
+    });
   }
   const scannedFiles = queue.length;
 

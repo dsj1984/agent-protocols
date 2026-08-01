@@ -337,10 +337,9 @@ async function runBackstopMode(values, deps = {}) {
     process.stderr.write(HELP);
     throw new Error('[deliver-light] --backstop requires --story <id>');
   }
-  const { result, nextCommand, exitCode, message } = await resolveFn({
-    storyId,
-  });
-  const extra = nextCommand === null ? {} : { nextCommand };
+  const { result, nextCommand, preservation, exitCode, message } =
+    await resolveFn({ storyId });
+  const extra = nextCommand === null ? {} : { nextCommand, preservation };
   emit({ mode: 'backstop', storyId, ...result, ...extra }, values.pretty);
   if (result.blocked) Logger.warn(message);
   else Logger.info(message);

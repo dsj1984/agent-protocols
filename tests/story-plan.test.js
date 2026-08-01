@@ -4,7 +4,8 @@
  * Covers the pure helpers behind `/plan`:
  *   - rankDuplicateCandidates: Jaccard-overlap ranking + size cap.
  *   - shouldRefine: heuristic + operator override.
- *   - validateStoryBody: required sections, Epic-ref guard, AC checklist.
+ *   - validateStoryBody: required sections, Epic-ref guard, and the
+ *     acceptance/verify contract resolvable from the top level (#4874).
  *   - buildContextEnvelope: shape contract the host LLM consumes.
  *   - extractTitle: H1 → Issue title round-trip.
  *
@@ -13,7 +14,7 @@
  *   (a) Exit code 0.
  *   (b) Required envelope fields present.
  *   (c) No `Epic:` reference in the rendered body.
- *   (d) AC checklist non-empty.
+ *   (d) The synthesized acceptance/verify sections.
  */
 
 import assert from 'node:assert/strict';
@@ -48,23 +49,42 @@ const CLI = path.join(PROJECT_ROOT, '.agents', 'scripts', 'story-plan.js');
 
 const VALID_BODY = `# Test standalone story
 
-## Context
+## Goal
 
 Some context about the work.
 
-## Acceptance Criteria
+## Changes
 
-- [ ] First criterion
-- [ ] Second criterion
+- {"path": "src/app.js", "assumption": "refactors-existing"}
 
-## Out of Scope
+## Non-Goals
 
-Things not in scope.
-
-## Notes
-
-Optional notes.
+- Things not in scope.
 `;
+
+/**
+ * The ticket's top-level contract arrays. Story #4874: these are authored
+ * once, here — never mirrored into VALID_BODY by hand — and persist
+ * synthesizes the `## Acceptance` / `## Verify` sections from them.
+ */
+const CONTRACT = {
+  acceptance: ['First criterion', 'Second criterion'],
+  verify: ['npm run lint (validate)'],
+};
+
+/**
+ * Write the body plus its top-level contract files into `dir` and return the
+ * `--body` / `--acceptance` / `--verify` paths.
+ */
+function writeStoryInputs(dir, body = VALID_BODY) {
+  const bodyPath = path.join(dir, 'draft.md');
+  const acceptancePath = path.join(dir, 'acceptance.json');
+  const verifyPath = path.join(dir, 'verify.json');
+  writeFileSync(bodyPath, body);
+  writeFileSync(acceptancePath, JSON.stringify(CONTRACT.acceptance));
+  writeFileSync(verifyPath, JSON.stringify(CONTRACT.verify));
+  return { bodyPath, acceptancePath, verifyPath };
+}
 
 describe('rankDuplicateCandidates', () => {
   it('returns [] when no candidate clears minScore', () => {
@@ -152,12 +172,37 @@ describe('shouldRefine', () => {
 
 describe('validateStoryBody', () => {
   it('accepts a well-formed body', () => {
-    const r = validateStoryBody(VALID_BODY);
+    const r = validateStoryBody(VALID_BODY, CONTRACT);
     assert.deepEqual(r, { ok: true, errors: [] });
   });
 
+  it('accepts a body with no acceptance/verify sections — the prompt-faithful shape (#4874)', () => {
+    // The story-author prompt says to author acceptance[] / verify[] once at
+    // the ticket's top level and omit the body sections. Demanding those
+    // sections here is what cost every author a re-persist round.
+    assert.ok(!/^##\s+(Acceptance|Verify)\s*$/m.test(VALID_BODY));
+    assert.deepEqual(validateStoryBody(VALID_BODY, CONTRACT), {
+      ok: true,
+      errors: [],
+    });
+  });
+
+  it('reports acceptance and verify when neither the body nor the top level carries them', () => {
+    const r = validateStoryBody(VALID_BODY);
+    assert.equal(r.ok, false);
+    assert.ok(r.errors.some((e) => e.startsWith('acceptance must list')));
+    assert.ok(r.errors.some((e) => e.startsWith('verify must list')));
+  });
+
+  it('fails closed when a body section disagrees with the top-level array', () => {
+    const body = `${VALID_BODY}\n## Verify\n- npm test (unit)\n`;
+    const r = validateStoryBody(body, CONTRACT);
+    assert.equal(r.ok, false);
+    assert.ok(r.errors.some((e) => e.includes('verify disagrees')));
+  });
+
   it('reports every missing required section', () => {
-    const r = validateStoryBody('# Title only');
+    const r = validateStoryBody('# Title only\n\n## Changes\n', CONTRACT);
     assert.equal(r.ok, false);
     for (const section of REQUIRED_SECTIONS) {
       assert.ok(
@@ -168,11 +213,8 @@ describe('validateStoryBody', () => {
   });
 
   it('rejects bodies that contain an Epic: reference', () => {
-    const body = VALID_BODY.replace(
-      '## Context\n',
-      '## Context\n\nEpic: #1234\n',
-    );
-    const r = validateStoryBody(body);
+    const body = VALID_BODY.replace('## Goal\n', '## Goal\n\nEpic: #1234\n');
+    const r = validateStoryBody(body, CONTRACT);
     assert.equal(r.ok, false);
     assert.ok(
       r.errors.some((e) => e.includes('Epic: #N')),
@@ -190,21 +232,8 @@ describe('validateStoryBody', () => {
       'Some context about the work. See Epic #4324 for prior art; ' +
         'Epic #4432 covers the related corpus lookup.',
     );
-    const r = validateStoryBody(body);
+    const r = validateStoryBody(body, CONTRACT);
     assert.deepEqual(r, { ok: true, errors: [] });
-  });
-
-  it('rejects an AC section with no checklist items', () => {
-    const body = VALID_BODY.replace(
-      /## Acceptance Criteria[\s\S]*?(?=##\s+Out of Scope)/,
-      '## Acceptance Criteria\n\nNothing actionable here.\n\n',
-    );
-    const r = validateStoryBody(body);
-    assert.equal(r.ok, false);
-    assert.ok(
-      r.errors.some((e) => e.includes('checklist')),
-      'expected an AC-checklist error',
-    );
   });
 
   it('rejects empty body', () => {
@@ -409,12 +438,21 @@ describe('story-plan.js CLI: --dry-run --body', () => {
   });
 
   it('prints the gh argv it would have run, never touches GitHub', () => {
-    const bodyPath = path.join(tmp, 'draft.md');
-    writeFileSync(bodyPath, VALID_BODY);
-    const r = spawnSync('node', [CLI, '--body', bodyPath, '--dry-run'], {
-      cwd: PROJECT_ROOT,
-      encoding: 'utf8',
-    });
+    const { bodyPath, acceptancePath, verifyPath } = writeStoryInputs(tmp);
+    const r = spawnSync(
+      'node',
+      [
+        CLI,
+        '--body',
+        bodyPath,
+        '--acceptance',
+        acceptancePath,
+        '--verify',
+        verifyPath,
+        '--dry-run',
+      ],
+      { cwd: PROJECT_ROOT, encoding: 'utf8' },
+    );
     assert.equal(r.status, 0, `stderr: ${r.stderr}`);
     // The persist-mode summary lands on stdout as JSON.
     const lines = r.stdout
@@ -423,33 +461,51 @@ describe('story-plan.js CLI: --dry-run --body', () => {
       .filter(Boolean);
     const jsonLine = lines.findLast((l) => l.startsWith('{'));
     assert.ok(jsonLine, `expected a trailing JSON line in stdout: ${r.stdout}`);
-    const parsed = JSON.parse(r.stdout.slice(r.stdout.indexOf('{')));
+    // The rendered body itself contains `{` (the `## Changes` path entries),
+    // so anchor on the summary object's own first key.
+    const parsed = JSON.parse(
+      r.stdout.slice(r.stdout.lastIndexOf('{\n  "dryRun"')),
+    );
     assert.equal(parsed.dryRun, true);
     assert.equal(parsed.title, 'Test standalone story');
     assert.deepEqual(parsed.labels, ['type::story']);
-    // The argv shape must match what gh-exec would receive.
-    assert.deepEqual(parsed.argv, [
+    // The argv shape must match what gh-exec would receive. Persist
+    // synthesized the contract sections, so the created body is passed
+    // inline rather than streamed from the authored file (Story #4874).
+    assert.deepEqual(parsed.argv.slice(0, 4), [
       'issue',
       'create',
       '--title',
       'Test standalone story',
-      '--body-file',
-      bodyPath,
-      '--label',
-      'type::story',
     ]);
+    assert.equal(parsed.argv[4], '--body');
+    assert.match(
+      parsed.argv[5],
+      /## Acceptance\n- \[ \] AC-1: First criterion/,
+    );
+    assert.match(parsed.argv[5], /## Verify\n- npm run lint \(validate\)/);
+    assert.deepEqual(parsed.argv.slice(6), ['--label', 'type::story']);
   });
 
   it('rejects a body that carries an Epic: reference', () => {
-    const bodyPath = path.join(tmp, 'bad.md');
-    writeFileSync(
-      bodyPath,
-      VALID_BODY.replace('## Context\n', '## Context\n\nEpic: #99\n'),
+    const { bodyPath, acceptancePath, verifyPath } = writeStoryInputs(
+      tmp,
+      VALID_BODY.replace('## Goal\n', '## Goal\n\nEpic: #99\n'),
     );
-    const r = spawnSync('node', [CLI, '--body', bodyPath, '--dry-run'], {
-      cwd: PROJECT_ROOT,
-      encoding: 'utf8',
-    });
+    const r = spawnSync(
+      'node',
+      [
+        CLI,
+        '--body',
+        bodyPath,
+        '--acceptance',
+        acceptancePath,
+        '--verify',
+        verifyPath,
+        '--dry-run',
+      ],
+      { cwd: PROJECT_ROOT, encoding: 'utf8' },
+    );
     assert.notEqual(r.status, 0);
     assert.match(r.stderr, /Epic: #N/);
   });
@@ -516,13 +572,16 @@ describe('story-plan.js runPersist: Projects V2 board membership (Story #3822)',
   }
 
   it('adds the created Story to the board with its node_id when a project number is set', async () => {
-    const bodyPath = path.join(tmp, 'draft.md');
-    writeFileSync(bodyPath, VALID_BODY);
+    const { bodyPath, acceptancePath, verifyPath } = writeStoryInputs(tmp);
     const { provider, projectCalls } = makeProvider({ projectNumber: 1 });
     const summaries = [];
 
     await runPersist({
-      values: { body: bodyPath },
+      values: {
+        body: bodyPath,
+        acceptance: acceptancePath,
+        verify: verifyPath,
+      },
       provider,
       dryRun: false,
       // Capture the summary JSON via the injectable stdout port so raw
@@ -536,13 +595,16 @@ describe('story-plan.js runPersist: Projects V2 board membership (Story #3822)',
   });
 
   it('skips the board add cleanly when no project number is configured', async () => {
-    const bodyPath = path.join(tmp, 'draft.md');
-    writeFileSync(bodyPath, VALID_BODY);
+    const { bodyPath, acceptancePath, verifyPath } = writeStoryInputs(tmp);
     const { provider, projectCalls } = makeProvider({ projectNumber: null });
     const summaries = [];
 
     await runPersist({
-      values: { body: bodyPath },
+      values: {
+        body: bodyPath,
+        acceptance: acceptancePath,
+        verify: verifyPath,
+      },
       provider,
       dryRun: false,
       write: (s) => summaries.push(s),
