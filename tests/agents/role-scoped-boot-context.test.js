@@ -152,17 +152,29 @@ describe('story-worker boot context carries every delivery MUST (default-true ga
     assert.match(body, /story-close\.js/); // the only sanctioned landing
   });
 
-  test('references the terminal envelope schema rather than restating its fields', () => {
+  test('returns a hand-off, and never hand-composes a terminal envelope', () => {
     // Story #4543 — this used to assert the boot context declared its OWN
     // `"state"` field. That was the bug: `helpers/deliver-story.md` declared a
-    // different shape, neither was validated, and the two drifted. The
-    // contract now lives in one schema and this file points at it.
+    // different shape, neither was validated, and the two drifted. Story #4876
+    // then moved the close-and-land tail off the worker entirely, so the
+    // envelope contract moved with it (asserted over the orchestrator spines in
+    // the suite below); what the worker still owes is a hand-off it can back.
     const { body } = bootContext('story-worker.md');
-    assert.match(body, /story-deliver-terminal\.schema\.json/);
-    assert.match(body, /landed/);
-    assert.match(body, /pending/);
-    assert.match(body, /blocked/);
-    assert.match(body, /failed/);
+    assertDocMentions(
+      body,
+      /hand-off/i,
+      'story-worker.md must define the hand-off it returns in place of an envelope',
+    );
+    assertDocMentions(
+      body,
+      /[Nn]ever hand-compose a terminal envelope/,
+      'story-worker.md must forbid inventing an envelope it did not receive',
+    );
+    assertDocMentions(
+      body,
+      /pushed head SHA/i,
+      'the hand-off must name the pushed head SHA the orchestrator closes',
+    );
   });
 
   test('does not re-declare the terminal envelope as its own JSON shape', () => {
@@ -181,39 +193,130 @@ describe('story-worker boot context carries every delivery MUST (default-true ga
     assert.match(body, /[Aa]bsolute path/);
   });
 
-  test('holds the turn until the terminal envelope arrives (#4816)', () => {
-    // The gap this closes: nothing in the boot context made holding the turn
-    // a requirement, so a worker that reported "close is running" and yielded
-    // was behaving reasonably — and its envelope died with the turn. Observed
-    // four times across three workers in one consumer run, and prompt-level
-    // warnings in the dispatch did not stop it. The rule has to live where the
-    // behaviour is decided.
+  test('ends its turn at a pushed branch and does not own the tail (#4876)', () => {
+    // #4816 put "hold the turn until the envelope arrives" here, and it did not
+    // hold: three of five workers in one measured wave backgrounded close and
+    // ended the turn anyway, and a sub-agent gets no notification to resume
+    // itself. #4876 moved the seam instead of re-wording the prohibition — the
+    // worker stops at a pushed branch and the orchestrator runs close. The
+    // foreground/never-background wording moved with the responsibility; it is
+    // asserted over the orchestrator spines in the suite below.
     const { body } = bootContext('story-worker.md');
     assertDocMentions(
       body,
-      /foreground/i,
-      'story-worker.md must require close to run in the foreground',
+      /You do \*\*not\*\* run close/,
+      'story-worker.md must say plainly that the worker does not run close',
     );
     assertDocMentions(
       body,
+      /[Pp]ush `story-<storyId>` to `origin`/,
+      'story-worker.md must define the hand-off point as a pushed branch',
+    );
+    assertDocMentions(
+      body,
+      /serialized/i,
+      'story-worker.md must say the orchestrator serializes the tail',
+    );
+    assert.doesNotMatch(
+      body,
+      /never end your turn while it is still running/i,
+      'the close-turn MUST belongs to the orchestrator now, not the worker',
+    );
+  });
+});
+
+describe('the close-and-land tail belongs to the orchestrator (Story #4876)', () => {
+  const spine = (rel) => readFileSync(path.join(REPO_ROOT, rel), 'utf8');
+  const DELIVER = '.agents/workflows/deliver.md';
+  const DELIVER_STORY = '.agents/workflows/helpers/deliver-story.md';
+
+  test(`${DELIVER_STORY} assigns Step 3 to the dispatching orchestrator`, () => {
+    const body = spine(DELIVER_STORY);
+    assertDocMentions(
+      body,
+      /Step 3 belongs to the orchestrator/i,
+      'the engine must name who owns the close step',
+    );
+    assertDocMentions(
+      body,
+      /never to a spawned worker/i,
+      'the engine must exclude the worker from the tail',
+    );
+  });
+
+  test(`${DELIVER_STORY} keeps the foreground-close MUST, relocated (#4816)`, () => {
+    // These phrases were pinned on story-worker.md until #4876. They did not
+    // disappear — they moved to the role that now runs close.
+    const body = spine(DELIVER_STORY);
+    assertDocMentions(body, /foreground/i, 'close must run in the foreground');
+    assertDocMentions(
+      body,
       /[Nn]ever background it/,
-      'story-worker.md must forbid backgrounding the close',
+      'backgrounding the close must stay forbidden',
     );
     assertDocMentions(
       body,
       /never delegate it to a child/i,
-      'story-worker.md must forbid delegating the close to a child',
+      'delegating the close to a child must stay forbidden',
     );
     assertDocMentions(
       body,
       /never end your turn while it is still running/i,
-      'story-worker.md must forbid returning before the envelope arrives',
+      'ending the turn mid-close must stay forbidden',
     );
     assertDocMentions(
       body,
-      /story-deliver-terminal-<id>\.json/,
-      'story-worker.md must name the persisted fallback the caller reads',
+      /story-deliver-terminal-<storyId>\.json/,
+      'the persisted envelope fallback must stay named',
     );
+  });
+
+  test(`${DELIVER_STORY} still points at the terminal-envelope schema`, () => {
+    const body = spine(DELIVER_STORY);
+    assert.match(body, /story-deliver-terminal\.schema\.json/);
+    for (const status of ['landed', 'pending', 'blocked', 'failed']) {
+      assert.match(body, new RegExp(status));
+    }
+  });
+
+  test(`${DELIVER} serializes the tail across concurrently delivered Stories`, () => {
+    const body = spine(DELIVER);
+    assertDocMentions(
+      body,
+      /Serialize the tail/i,
+      '/deliver must state that the tail is serialized',
+    );
+    assertDocMentions(
+      body,
+      /one Story at a time/i,
+      '/deliver must cap the tail at one close',
+    );
+    assertDocMentions(
+      body,
+      /[Ii]mplementation runs in parallel/,
+      '/deliver must contrast parallel implementation with a serial tail',
+    );
+  });
+
+  test('an envelope-less worker return is documented as expected, not a re-dispatch', () => {
+    for (const rel of [DELIVER, DELIVER_STORY]) {
+      const body = spine(rel);
+      assertDocMentions(
+        body,
+        /returning no terminal envelope is (?:the )?expected/i,
+        `${rel} must name the envelope-less return as expected`,
+      );
+      assertDocMentions(
+        body,
+        /deliver-recover\.js/,
+        `${rel} must route recovery through the read-only probe`,
+      );
+      assertDocMentions(
+        body,
+        /(?:[Nn]ever re-dispatch the Story|not a failure to answer with a re-dispatch)/,
+        `${rel} must forbid re-dispatching the Story on a missing envelope`,
+      );
+    }
   });
 });
 

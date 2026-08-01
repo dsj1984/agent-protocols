@@ -8,171 +8,158 @@ mandatoryReads: [deliver-digest.md]
 
 # /deliver-story #[Story ID]
 
-> **Lean spine.** Happy path + gate list; edge-case, recovery, and
-> reference detail lives in
-> [`deliver-story-reference.md`](deliver-story-reference.md) ("reference"
-> below); consult on demand. Invoked by [`/deliver`](../deliver.md).
->
-> **Read [`deliver-digest.md`](deliver-digest.md) once, first.** It is the
-> one bundled read of what every delivery needs — dispatch decision, engine
-> invariants, the change-set/ceremony incantation, the acceptance-eval gate,
-> and the terminal-envelope contract — replacing the per-session re-reads of
-> the helper set and `story-deliver-terminal.schema.json`. The steps below
-> cite it as "digest § N" rather than restating it.
+> **Lean spine.** Happy path + gate list; edge-case, recovery and reference
+> detail lives in [`deliver-story-reference.md`](deliver-story-reference.md)
+> ("reference" below). Invoked by [`/deliver`](../deliver.md).
+> **Read [`deliver-digest.md`](deliver-digest.md) once, first** — the one
+> bundled read every delivery needs: dispatch, engine invariants, the
+> change-set/ceremony incantation, the acceptance-eval gate and the
+> terminal-envelope contract. Steps cite it as "digest § N".
 
 ## Overview
 
-The **one** delivery engine in v2 — every Story (a **one-Story** run
-goes inline with inline critics; engine, gates, envelope byte-identical):
+The **one** delivery engine in v2:
 
 ```text
-single-story-init.js → implement + commits → derived-level ceremony
-  → single-story-close.js (gates, push, PR → main, agent::closing)
+single-story-init.js → implement + commits → derived-level ceremony → push
+  ──hand-off──▶ single-story-close.js (gates, PR → main, agent::closing)
   → CI watch + merge → single-story-confirm-merge.js (agent::done)
 ```
 
-An `Epic: #N` reference marks a v1 ticket — **stop** and re-plan. The
-engine's trait table is reference § Engine invariants. Prerequisites: a
-`type::story` issue, clean `gh auth status`, and `project.baseBranch` on
-local and `origin`.
+An `Epic: #N` reference marks a v1 ticket — **stop** and re-plan. Engine
+traits: reference § Engine invariants. Prerequisites: a `type::story` issue,
+clean `gh auth status`, `project.baseBranch` local and on `origin`.
+
+## Who owns which step
+
+Steps 0–2 belong to whoever implements. **Step 3 belongs to the orchestrator
+that dispatched the work**, never to a spawned worker.
+
+- **Inline dispatch** (a one-Story run — digest § 1): one session is both
+  roles and walks Steps 0→7, no hand-off.
+- **Sub-agent dispatch**: the `story-worker` stops at Step 2.5 with the branch
+  pushed and returns a hand-off; the dispatching `/deliver` session runs Step 3
+  **in its own turn** and **serializes the tail — one close at a time across
+  the run**, even though implementation ran in parallel (reference § Step 3).
+
+**A worker returning no terminal envelope is expected, not a failure.** Only
+Step 3 mints one, so a hand-off is the normal sub-agent return. Never
+re-dispatch the Story on it — the branch exists, and re-running Step 0 under
+live work is how one Story gets two closes. Resume instead: close the pushed
+branch yourself, or recover the in-flight worker or close per § Recovery.
 
 ## Step 0 — Initialize (`single-story-init.js`)
 
-From the **main checkout**, **synchronously** with the maximum Bash
-timeout — the per-tree install can take minutes; never `run_in_background`:
+From the **main checkout**, **synchronously** with the maximum Bash timeout —
+the per-tree install can take minutes; never `run_in_background`:
 
 ```bash
 node .agents/scripts/single-story-init.js --story <storyId>
 ```
 
 Every script below documents its own flags — run it with `--help`.
-It validates `type::story`, **acquires the Story lease**
-(fails closed on a foreign assignee), fetches `origin`, seeds `story-<id>`
-from `baseBranch` (idempotent reuse), materializes a worktree, runs a
-guarded merged-`story-*` sweep, and flips `agent::executing` (reference
-§ Step 0). Capture `workCwd` from the result envelope.
+It validates `type::story`, takes the Story lease, seeds `story-<id>` from
+`baseBranch`, materializes a worktree and flips `agent::executing` (reference
+§ Step 0). Capture `workCwd` from the envelope.
 
-**Land or block.** `remoteVerified: false` → flip
-`agent::blocked` quoting `remoteProbe.detail` and stop. Implementing outside
-the worktree/branch/PR path or committing to local `main` is forbidden —
-close's push is the only sanctioned landing.
+**Land or block.** `remoteVerified: false` → flip `agent::blocked` quoting
+`remoteProbe.detail` and stop. Implementing outside the worktree/branch/PR path,
+or committing to local `main`, is forbidden.
 
 **Step 0.5 — `cd "<workCwd>"`**, and prefix every path-based
-Edit/Write/Read with that absolute root — the `cd` alone does not scope
-those tools (reference § Worktree scope is not just the Bash cwd).
+Edit/Write/Read with that absolute worktree root — the `cd` alone does not
+scope those tools (reference § Worktree scope is not just the Bash cwd).
 
 ## Step 1 — Implementation
 
 One branch, one PR to `main`, commits against the inline `acceptance[]` /
-`verify[]` (and `## Spec`):
+`verify[]` and `## Spec`:
 
-1. Read the Story body; the acceptance criteria are the contract. Docs are
-   digest-first; read a caller-provided `checklistPath` before writing
-   (reference § Step 1).
-2. Implement. Walk any `## Slicing` rows as **intra-session checkpoints**
-   (commit + flip each row) — never sibling tickets.
-3. Commit on the Story branch; iterate with quick advisory gates
-   (`typecheck`, `lint`, scoped tests) — the full close chain runs in
-   Step 3.
-4. Run the **full test command** once in the worktree (`npm test`) **before
-   Step 1a** — repo-invariant guards outside the Story's scoped greps are
-   the failure class that bounces deliveries. Fix and commit first.
-5. Run the self-eval loop (Step 1a).
+1. Read the Story body; its acceptance criteria are the contract. Docs are
+   digest-first; read a caller-provided `checklistPath` first, and walk any
+   `## Slicing` rows as **intra-session checkpoints** (reference § Step 1).
+2. Implement and commit on the Story branch, iterating with quick advisory
+   gates (`typecheck`, `lint`, scoped tests) — the full chain runs in Step 3.
+3. Run `npm test` once in the worktree **before Step 1a**: repo-invariant
+   guards outside the Story's scoped greps are the failure class that bounces
+   deliveries. Fix and commit first, then run the self-eval loop.
 
 ### Step 1a — Bounded acceptance self-eval loop (**required**)
 
 Run the loop and score it with `acceptance-eval.js` — **digest § 4** carries
-the invocation and the proceed / redraft / block contract; per-round critic
-mechanics live in the single-homed include
-[`acceptance-self-eval.md`](acceptance-self-eval.md).
-
-**`proceed`** → Step 2 then Step 3. **`block`** → **do not close**: post a
-`friction` comment and flip `agent::blocked` — commands and the
-`evidence-gate.js --standalone` evidence-share mechanic: reference
-§ Step 1a.
+the invocation and the proceed / redraft / block contract; per-round mechanics
+live in [`acceptance-self-eval.md`](acceptance-self-eval.md). **`proceed`** →
+Step 2. **`block`** → **do not close**: post a `friction` comment and flip
+`agent::blocked` (reference § Step 1a).
 
 ## Step 2 — Ceremony (profile + derived level)
 
-Ceremony is `delivery.routing.ceremonyProfile` × the **derived change
-level** — never a planner-authored verdict. **Digest § 3** is the
-incantation: compute the change set once, derive the level, resolve
-fresh-vs-inline critics with `ceremony-routing.js`; a lite Story runs
-inline regardless (routing edge cases: reference § Step 2). Hard gates always
-run in Step 3 — the derived level never disables them; do **not** pre-run the
-close chain here.
+Ceremony is `delivery.routing.ceremonyProfile` × the **derived change level**,
+never a planner-authored verdict. **Digest § 3** is the incantation (change set
+once, derive the level, resolve critics with `ceremony-routing.js`); edge cases
+are reference § Step 2. Hard gates always run in Step 3 — the derived level
+never disables them; do **not** pre-run the chain here.
+
+### Step 2.5 — Push and hand off (sub-agent dispatch only)
+
+Push `story-<storyId>` to `origin` and confirm the remote ref moved. Return the
+hand-off — Story id, `workCwd`, branch, pushed head SHA, self-eval verdict,
+`verify[]` evidence — then stop. Do not open the PR; do not compose a terminal
+envelope. An inline run skips this.
 
 ## Step 3 — Close and land (`single-story-close.js`)
+
+**The orchestrator's step** (§ Who owns which step), run in the **foreground**,
+serialized against sibling Stories:
 
 ```bash
 node <main-repo>/.agents/scripts/single-story-close.js --story <storyId> --cwd <main-repo>
 ```
 
 **The whole delivery tail** — gates, PR, merge wait, `agent::done` flip,
-post-land tail in one process. Run it and **branch on the terminal envelope's
-`status`** per the table in **digest § 5** (`landed` → Step 7; `pending` → run
-`nextCommand`; `blocked`/`checks-failed` → Step 4; `failed` → diagnose and
-re-run). Gate output is captured, not streamed — digest § 5.
+post-land tail in one process. Never background it, never delegate it to a
+child, and never end your turn while it is still running: "close is running"
+is not a return value. Branch on the envelope's `status` per **digest § 5**
+(`landed` → Step 7; `pending` → run `nextCommand`; `blocked`/`checks-failed`
+→ Step 4; `failed` → diagnose, re-run). Gate output is captured.
 
-Internals (gate order, base-sync, auto-merge arming), the merge-wait
-budgets, the slow-CI **async** confirm mode (launch the `pending`
-envelope's `nextCommand` as **background** Bash, never a foreground
-poll), the `autoMerge` policy, and every close flag: reference
-§ Step 3 — Merge wait, async mode, and flags.
+Internals, merge-wait budgets, the slow-CI **async** confirm mode, the
+`autoMerge` policy and every close flag: reference § Step 3.
 
-## Steps 4–6 — Recovery router (**recovery-only**)
+## Step 7 — Return contract {#return-contract}
 
-A `landed` envelope means everything ran — go straight to Step 7. Enter a
-recovery path **only** when the envelope routes you there:
-
-- **`blocked` / `checks-failed`** → the red **disarms auto-merge**; fix at
-  source and push a new commit (only a green on a NEW head SHA re-arms — a
-  re-run is refused), resume via `nextCommand`; triage per
-  [`rules/ci-remediation.md`](../../rules/ci-remediation.md). The watch is
-  internally blocking — never end a turn with prose and an unconfirmed
-  merge. Reference § Step 4.
-- **`pending`** → run `nextCommand` (`single-story-confirm-merge.js`) until
-  resolved. Reference § Step 5.
-- **`tail.statusResync: false`** → reference § Step 5.5;
-  **`tail.refCleanup` / `tail.baseFastForward: false`** → reference § Step 6.
-
-## Step 7 — Return contract (**required as a sub-agent**) {#return-contract}
-
-End your turn by relaying the validated envelope close emits between its
+Relay the validated envelope close emits between its
 `--- STORY DELIVER TERMINAL ---` markers — never free-form prose, never a
-hand-composed object. Statuses, exits, and required fields: **digest § 5**
-(whose SSOT is the shipped
-[schema](../../schemas/story-deliver-terminal.schema.json)).
-`pending` is the only sanctioned no-merge ending, returned only when your own
-budget is exhausted. Reference § Step 7.
+hand-composed object. Statuses, exits and fields: **digest § 5** (SSOT: the
+shipped [schema](../../schemas/story-deliver-terminal.schema.json)).
+`pending` is the only sanctioned no-merge ending. A **worker** returns its
+Step 2.5 hand-off — only the orchestrator relays an envelope.
 
-## Recovering a stranded Story {#recover}
+## Steps 4–6 — Recovery (**recovery-only**) {#recover}
+
+A `landed` envelope means everything ran — go to Step 7. Enter recovery **only**
+when the envelope routes you there; procedures are reference § Step 4 / § Step 5
+/ § Step 5.5 / § Step 6. Two rules the spine keeps: a red **disarms auto-merge**,
+so only a green on a NEW head SHA re-arms it — a re-run is refused; fix at source
+and push ([`rules/ci-remediation.md`](../../rules/ci-remediation.md)). And a
+`tail.*: false` degrades the report, never the land.
 
 **Lost envelope first: read it off disk.** Close persists each to
 `temp/orchestration/story-deliver-terminal-<storyId>.json`; branch on it per
-digest § 5. Otherwise (killed run, re-run refusal, merged-but-label-stale)
-do not guess — probe **read-only** with
+digest § 5. Otherwise do not guess — probe **read-only** with
 `node .agents/scripts/deliver-recover.js --story <storyId>`; it prints the
 **one** next command with its evidence, never a menu. A live close answers
 `close-in-flight`: wait, never re-init underneath it.
 
 ## Idempotence & constraints
 
-Every script no-ops safely on re-run (init re-prints `workCwd`; close and
-confirm-merge short-circuit on a closed / `agent::done` Story; the PR probe
-reuses an open PR).
-
-- **Never** push the Story branch directly to `main` — the PR is the only
-  merge surface.
-- **Always** prefix path-based tools with the absolute `workCwd` root
-  (Step 0.5); close's wrong-tree guard is a backstop.
-- **Report state, not process** — mirror the close envelope's fields; no
-  step narration.
-- Drive every `agent::*` transition through
-  `update-ticket-state.js --ticket <id> --state <state>`.
+Every script no-ops safely on re-run (reference § Idempotence). **Never** push
+the Story branch to `main` — the PR is the only merge surface. **Always** prefix
+path-based tools with the absolute `workCwd` root (Step 0.5). Report state, not
+process. Drive `agent::*` through
+`update-ticket-state.js --ticket <id> --state <state>`.
 
 ## See also
 
-- [`deliver-digest.md`](deliver-digest.md) — the one bundled framework read.
-- [`/deliver`](../deliver.md) — unified entry point.
-- [`deliver-story-reference.md`](deliver-story-reference.md) — all on-demand
-  detail.
+[`deliver-digest.md`](deliver-digest.md), [`/deliver`](../deliver.md),
+[`deliver-story-reference.md`](deliver-story-reference.md).

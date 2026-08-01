@@ -16,6 +16,14 @@
  * `single-story-init.js` hard-errors on an already-closed Story. Before this
  * surface, that Story had no automated way back.
  *
+ * Every command it prints **resumes** — it re-enters the in-flight worker or
+ * close, or closes the branch that is already pushed. None of them re-dispatch
+ * the Story, and that is deliberate: since Story #4876 the close-and-land tail
+ * belongs to the dispatching orchestrator, so a worker returning without a
+ * terminal envelope is the expected shape rather than evidence the Story never
+ * ran. Answering it with a fresh dispatch re-runs `single-story-init.js`
+ * underneath live work and puts a second close on one PR.
+ *
  * Usage:
  *   node .agents/scripts/deliver-recover.js --story <STORY_ID> [--cwd <main-repo>]
  *                                           [--json]
@@ -45,6 +53,11 @@ const HELP = `Usage: node .agents/scripts/deliver-recover.js --story <id> [--cwd
 Probes a Story's live delivery state — labels, lease, branch, worktree, PR
 state and checks — and prints the single next command that resumes it, with
 the evidence it was derived from. Read-only: mutates nothing.
+
+The command always resumes the existing worker or close (or closes an already
+pushed branch); it never re-dispatches the Story, which would re-run init
+underneath live work. A worker that returned no terminal envelope is expected —
+the orchestrator owns the close-and-land tail.
 
 Mid-flight shapes (executing-*/closing-*) get a stability re-probe after a
 short settle window: matching shapes return the fresher verdict; diverging

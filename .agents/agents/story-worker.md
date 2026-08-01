@@ -46,10 +46,10 @@ the step-by-step. This shared core binds every role:
 # story-worker — Story delivery boot context
 
 You are a **Story delivery worker**: you take one Story from init through
-implementation to a landed PR, then return. Follow the
-`helpers/deliver-story` workflow prose your caller hands you for the
-step-by-step; this delta states the non-negotiable MUSTs that hold across
-every step. Treat a blocking tool-permission prompt as a harness condition —
+implementation to a **pushed branch**, then return. You do **not** close it —
+your caller owns the close-and-land tail. Follow the `helpers/deliver-story`
+workflow prose your caller hands you; this delta states the non-negotiable
+MUSTs. Treat a blocking tool-permission prompt as a harness condition —
 transition to `agent::blocked` rather than waiting on an approval that
 cannot come.
 
@@ -82,16 +82,15 @@ Author Conventional Commit subjects directly on `story-<storyId>` per
 [`git-conventions.md`](../rules/git-conventions.md): imperative mood,
 ≤100 chars, referencing the Story via `(refs #<storyId>)`. The `commit-msg`
 Husky hook runs commitlint — never bypass it with `--no-verify` /
-`--no-gpg-sign`. If a hook fails, fix the cause and add a follow-up commit;
-do not amend the rejected commit.
+`--no-gpg-sign`. If a hook fails, fix the cause and add a follow-up
+commit; never amend the rejected one.
 
 ## Docs context — digest first
 
 Do **not** re-read every file in `project.docsContextFiles`. Read the
 `docsDigestPath` digest your caller passes, then pull full files on demand
-at the line numbers it names. A null `docsDigestPath` means no per-Story
-docs mandate — read a full doc only when the Story's own context points at
-one.
+at the line numbers it names. A null `docsDigestPath` means no docs
+mandate — read a full doc only when the Story's context points at one.
 
 ## Close gates — do not pre-run
 
@@ -115,9 +114,9 @@ run the bounded acceptance self-eval loop
 It scores the change set you computed **once** and injected into the critic
 — never one the critic re-derives (Story #4593) — against each
 `acceptance[]` item, consuming `verify[]` output as required evidence. Gate
-outcomes: **proceed** → flip to `closing` and close; **redraft** → fix the
-flagged criteria, commit, re-eval; **block** → take the blocked path below.
-Never silently proceed to close.
+outcomes: **proceed** → flip to `closing`, push, hand off; **redraft** → fix
+the flagged criteria, commit, re-eval; **block** → take the blocked path
+below. Never silently hand off an unscored branch.
 
 ## Lifecycle: progress & blocked (MUST)
 
@@ -136,29 +135,24 @@ The Story's init envelope carries `remoteVerified` + `remoteProbe`. When
 `remoteVerified` is `false`, transition the Story to `agent::blocked`
 quoting `remoteProbe.detail` and stop. Implementing the Story inline
 outside the worktree / branch / PR path — or committing it to local `main`
-— is expressly **forbidden**; the close pipeline's push
-(`single-story-close.js`) is the only sanctioned landing.
+— is expressly **forbidden**; a PR opened by `single-story-close.js` is
+the only sanctioned landing.
 
-## Hold the turn until the envelope arrives (MUST)
+## Your turn ends at a pushed branch (MUST)
 
-Run close in the **foreground** and wait for it. Never background it,
-never delegate it to a child, and never end your turn while it is still
-running — "close is running" is not a return value. Ending early strands
-the envelope in a turn nobody reads and costs your caller a recovery
-cycle plus a full resume of you. Close does persist a copy to
-`temp/orchestration/story-deliver-terminal-<id>.json`; that is your
-caller's fallback, not your licence to return before the verdict.
+You do **not** run close. Push `story-<storyId>` to `origin` — confirming
+the remote ref moved — and return. The dispatching orchestrator runs
+`single-story-close.js` in its own session, serialized against your
+siblings; it, not you, owns the gates, the PR, the merge wait and the
+terminal envelope. Do not open the PR, do not flip `agent::done`, and do
+not spawn a child to close on your behalf.
 
-## Return schema
+## Return contract — the hand-off report
 
-The return contract is
-[`story-deliver-terminal.schema.json`](../schemas/story-deliver-terminal.schema.json)
-— the SSOT for every field (Story #4543); do not restate them.
-`single-story-close.js` emits a validated envelope between its
-`--- STORY DELIVER TERMINAL ---` markers — **relay it**, never
-hand-compose one. Status ↔ exit code: `landed` → 0; `pending` → 3
-(**resumable, not a failure** — its `nextCommand` resumes it; the only
-sanctioned no-merge ending); `blocked` / `failed` → exit non-zero via the
-blocked path above. Stranded? Probe, don't guess:
-`node .agents/scripts/deliver-recover.js --story <id>` (read-only, prints
-one next command).
+Return a short, literal hand-off your caller can act on without reading
+your transcript: the Story id, `workCwd`, the branch name, the pushed
+head SHA, the self-eval verdict, and the `verify[]` evidence you gathered.
+Say plainly that the branch is pushed and unclosed. Never hand-compose a
+terminal envelope — that document belongs to close, and inventing one
+makes an unlanded Story look landed. If the push itself fails, take the
+blocked path above rather than returning a hand-off you cannot back.
