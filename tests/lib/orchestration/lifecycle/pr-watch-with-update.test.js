@@ -385,9 +385,11 @@ describe('runPrWatch — required-context attach window (Stories #4873, #4890)',
 
   it('converges on a required context that attaches ~17 minutes after the PR opens (AC-1)', async () => {
     const { print, lines } = collectPrint();
-    // 60 empty probes at the 10s default cadence ≈ 10 minutes past the 90s
-    // window #4873 shipped: under that window this watch aborted.
-    const emptyProbes = 60;
+    // The measured aggregator attached at 16m52s. 102 empty probes at the 10s
+    // default cadence advances the simulated clock to 17m00s — past the
+    // measured case, and an order of magnitude past the retired 90s window
+    // under which this exact watch aborted.
+    const emptyProbes = 102;
     let calls = 0;
     let now = 0;
     const code = await runPrWatch({
@@ -417,8 +419,8 @@ describe('runPrWatch — required-context attach window (Stories #4873, #4890)',
     );
     assert.deepEqual(out.requiredChecks, ['Validate and Test', 'baselines']);
     assert.ok(
-      now > 90_000,
-      'the regression only reproduces past the retired 90s window',
+      now >= 17 * 60_000,
+      `the context must attach past the measured 16m52s; clock reached ${now}ms`,
     );
   });
 
