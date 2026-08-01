@@ -100,7 +100,8 @@
       "watch": {
         "pollIntervalMs": 10000,
         "maxPolls": 180,
-        "maxResumes": 3
+        "maxResumes": 3,
+        "attachWindowMs": 1200000
       },
       "autoMerge": "trust-ci"
     },

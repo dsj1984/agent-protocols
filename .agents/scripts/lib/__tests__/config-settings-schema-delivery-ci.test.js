@@ -6,12 +6,34 @@
  */
 
 import assert from 'node:assert/strict';
+import { readFileSync } from 'node:fs';
+import path from 'node:path';
 import { describe, it } from 'node:test';
+import { fileURLToPath } from 'node:url';
+import Ajv2020 from 'ajv/dist/2020.js';
+import addFormats from 'ajv-formats';
 import { CI_DELIVERY_DEFAULTS, getCiDelivery } from '../config/ci.js';
 import { getAgentrcValidator } from '../config-settings-schema.js';
 
 function makeValidator() {
   return getAgentrcValidator();
+}
+
+/**
+ * Compile the shipped `.agentrc` mirror schema. `CI_WATCH_SCHEMA` is
+ * `additionalProperties: false` on BOTH sides, so a knob that lands in only one
+ * of them is inert: the runtime validator rejects a config the mirror blesses
+ * (or the editor's `$schema` flags a key the runtime accepts). Story #4890
+ * pins both directions for `attachWindowMs`.
+ */
+function makeMirrorValidator() {
+  const mirrorPath = path.resolve(
+    path.dirname(fileURLToPath(import.meta.url)),
+    '../../../schemas/agentrc.schema.json',
+  );
+  const ajv = new Ajv2020({ allErrors: true });
+  addFormats(ajv);
+  return ajv.compile(JSON.parse(readFileSync(mirrorPath, 'utf8')));
 }
 
 const PROJECT_SKELETON = {
@@ -97,6 +119,36 @@ describe('delivery.ci.* runtime AJV schema (Story #4356)', () => {
     const validate = makeValidator();
     const ok = validate(withCi({ watch: { pollIntervalMs: 1.5 } }));
     assert.equal(ok, false);
+  });
+});
+
+describe('delivery.ci.watch.attachWindowMs (Story #4890 AC-4)', () => {
+  const runtime = makeValidator();
+  const mirror = makeMirrorValidator();
+
+  it('is accepted by the runtime AJV validator and the .agentrc mirror alike', () => {
+    const config = withCi({ watch: { attachWindowMs: 1_200_000 } });
+    assert.equal(runtime(config), true, JSON.stringify(runtime.errors));
+    assert.equal(mirror(config), true, JSON.stringify(mirror.errors));
+  });
+
+  it('is rejected by both when out of range', () => {
+    for (const attachWindowMs of [0, -1, 90_000.5]) {
+      const config = withCi({ watch: { attachWindowMs } });
+      assert.equal(
+        runtime(config),
+        false,
+        `runtime accepted ${attachWindowMs}`,
+      );
+      assert.equal(mirror(config), false, `mirror accepted ${attachWindowMs}`);
+    }
+  });
+
+  it('getCiDelivery passes the knob through to the watch consumer', () => {
+    const resolved = getCiDelivery({
+      delivery: { ci: { watch: { attachWindowMs: 300_000 } } },
+    });
+    assert.deepEqual(resolved.watch, { attachWindowMs: 300_000 });
   });
 });
 
