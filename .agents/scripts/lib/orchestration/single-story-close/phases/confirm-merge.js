@@ -95,6 +95,7 @@ import {
   confirmStoryMerged as defaultConfirmStoryMerged,
   readPrMergeState as defaultReadPrMergeState,
 } from '../../../single-story/confirm-merge.js';
+import { pollUntil } from '../../../util/poll-loop.js';
 import {
   emitMergeFlipFailed as defaultEmitMergeFlipFailed,
   MERGED_FLIP_FAILED_BLOCK_CLASS,
@@ -852,7 +853,20 @@ export async function runConfirmMergePhase({
       `cumulative budget=${maxBudgetSeconds}s)...`,
   );
 
-  while (true) {
+  /**
+   * One poll iteration. Returns `{ done: false }` to keep polling, or
+   * `{ done: true, outcome }` with the phase's terminal. Story #4873 lifted
+   * this body out of a bespoke unbounded loop so the cadence is owned by the
+   * shared {@link pollUntil} primitive — the loop below sleeps, aborts, and
+   * counts ticks in exactly one place for every wait in the codebase. Every
+   * budget, floor, and classification decision is unchanged; only who owns the
+   * `await sleep(...)` moved.
+   *
+   * A throw from any of the terminal handlers is captured rather than allowed
+   * to escape into `pollUntil` (which treats a throwing `fn` as a non-match
+   * and would spin forever on it); the caller re-throws it after the loop.
+   */
+  async function runMergePoll() {
     const probe = await readPrWaitProbeFn({
       prNumber,
       gh: injectedGh,
@@ -876,26 +890,44 @@ export async function runConfirmMergePhase({
       maxBudgetSeconds,
     };
 
+    // Heartbeat (Story #4873). A backgrounded close writes this phase's
+    // progress to its own output file, and between the opening banner and the
+    // terminal there used to be NOTHING for minutes at a time — so an
+    // orchestrator watching that file could not tell a healthy in-flight wait
+    // from a wedged process without going back to GitHub itself. One line per
+    // poll makes the file's own growth the liveness signal.
+    progress?.(
+      'CONFIRM',
+      `⏱  poll ${polls}: PR #${prNumber} state=${probe.state ?? 'unknown'} ` +
+        `checks=${probe.checksStatus ?? 'unknown'} ` +
+        `mergeState=${probe.mergeStateStatus ?? 'unknown'} ` +
+        `(${waitBudget.waitedSeconds}s of ${maxWaitSeconds}s this invocation; ` +
+        `${waitBudget.cumulativeSeconds}s of ${maxBudgetSeconds}s cumulative)` +
+        (probe.error ? ` — probe error: ${probe.error}` : ''),
+    );
+
     if (probe.state === 'MERGED' || probe.mergedAt) {
-      return onMergeObserved({
-        storyId,
-        storyBranch,
-        baseBranch,
-        prNumber,
-        prUrl,
-        cwd,
-        config,
-        provider,
-        progress,
-        injectedGh,
-        injectedNotify,
-        readPrMergeStateFn,
-        confirmStoryMergedFn,
-        runPostLandTailFn,
-        emitMergeFlipFailedFn,
-        prProbe: probe,
-        elapsedSeconds: Math.round(waitedMs / 1000),
-      });
+      return doneWith(
+        await onMergeObserved({
+          storyId,
+          storyBranch,
+          baseBranch,
+          prNumber,
+          prUrl,
+          cwd,
+          config,
+          provider,
+          progress,
+          injectedGh,
+          injectedNotify,
+          readPrMergeStateFn,
+          confirmStoryMergedFn,
+          runPostLandTailFn,
+          emitMergeFlipFailedFn,
+          prProbe: probe,
+          elapsedSeconds: Math.round(waitedMs / 1000),
+        }),
+      );
     }
 
     // Everything below funnels into ONE terminal exit (Story #4710): each
@@ -988,16 +1020,18 @@ export async function runConfirmMergePhase({
     }
 
     if (unlanded) {
-      return blockOnUnlanded({
-        storyId,
-        prNumber,
-        prUrl,
-        ...unlanded,
-        provider,
-        progress,
-        classifyMergeBlockFn,
-        emitMergeUnlandedFn,
-      });
+      return doneWith(
+        await blockOnUnlanded({
+          storyId,
+          prNumber,
+          prUrl,
+          ...unlanded,
+          provider,
+          progress,
+          classifyMergeBlockFn,
+          emitMergeUnlandedFn,
+        }),
+      );
     }
 
     // This invocation's bound expired → PENDING. Deliberately NOT a block:
@@ -1012,16 +1046,43 @@ export async function runConfirmMergePhase({
           `${waitBudget.cumulativeSeconds}s of ${maxBudgetSeconds}s cumulative). PR #${prNumber} still in flight ` +
           `(checks=${probe.checksStatus ?? 'unknown'}). Story stays at agent::closing — resumable.`,
       );
-      return {
+      return doneWith({
         confirmed: false,
         terminal: 'pending',
         reason: `merge wait bound reached with the PR still in flight (checks=${probe.checksStatus ?? 'unknown'})`,
         prProbe: probe,
         waitBudget,
         elapsedSeconds: waitBudget.waitedSeconds,
-      };
+      });
     }
 
-    await sleepFn(intervalMs);
+    return { done: false };
   }
+
+  const tick = await pollUntil({
+    fn: async () => {
+      try {
+        return await runMergePoll();
+      } catch (err) {
+        // A terminal handler threw. `pollUntil` treats a throwing `fn` as a
+        // non-match and would poll forever on it, so the throw is carried out
+        // as a match and re-raised below.
+        return { done: true, thrown: err };
+      }
+    },
+    predicate: (result) => result?.done === true,
+    intervalMs,
+    // The wait owns its own bounds (`maxWaitSeconds` → `pending`,
+    // `maxBudgetSeconds` → blocked), and both are decided from the probe
+    // inside the tick. A second, cruder wall-clock timeout here would throw
+    // past those classifications.
+    sleepFn: (ms) => sleepFn(ms),
+  });
+  if (tick.thrown) throw tick.thrown;
+  return tick.outcome;
+}
+
+/** Wrap a phase terminal as the poll loop's match. */
+function doneWith(outcome) {
+  return { done: true, outcome };
 }
