@@ -102,13 +102,18 @@ npm run coverage:update # writes baselines/coverage.json from the run
 runners that orchestrate coverage capture separately).
 
 The files-out-of-scope list is declared in [`.c8rc.cjs`](../../.c8rc.cjs) —
-thin CLI shells (e.g. `agents-bootstrap-github.js`, `plan-context.js`,
-`plan-persist.js`) plus the larger Story #1702 carve-out of
-top-level/orchestration/git CLIs and `lib/*` glue, each with a per-entry
-rationale in the `.c8rc.cjs` header comment (the authoritative list). Every
-excluded file also carries `/* node:coverage ignore file */` at the top of its
-source as a second line of defence; the header comment MUST be updated when the
-list changes.
+thin CLI shells plus the larger Story #1702 carve-out of
+top-level/orchestration/git CLIs and `lib/*` glue. The `exclude[]` array is
+the **single** declaration: each entry carries its rationale as an inline
+comment on the line above it. Story #4922 removed the prose inventory the
+header used to duplicate — two copies of one list in one file, 27 files
+apart by the time it was measured. Do not reintroduce one. Every excluded
+file also carries `/* node:coverage ignore file */` at the top of its source
+as a second line of defence.
+
+`.c8rc.cjs`'s `include` globs and `delivery.quality.gates.coverage.targetDirs`
+in [`.agentrc.json`](../../.agentrc.json) MUST name the same roots — the gate
+scores what c8 measures. `tests/c8rc-scope.test.js` asserts both invariants.
 
 ---
 
@@ -123,11 +128,30 @@ touched it:
 
 | Metric | Floor | Scope |
 | --- | --- | --- |
-| Coverage — lines | ≥ 90 % | per file |
-| Coverage — branches | ≥ 85 % | per file |
-| Coverage — functions | ≥ 90 % | per file |
-| Maintainability Index | ≥ 70 | per file |
-| CRAP | ≤ 20 | per method |
+| Coverage — lines | ≥ 94 % | repo rollup |
+| Coverage — branches | ≥ 85 % | repo rollup |
+| Coverage — functions | ≥ 87 % | repo rollup |
+| Maintainability Index | ≥ 70 | repo rollup |
+| CRAP — methods above 20 | ≤ 13 | repo rollup |
+
+Floors are enforced against the baseline's `rollup` components — the
+`applyFloors` phase compares `rollup["*"]` (and any named component), never
+individual rows. Story #4922 corrected this table, which previously read
+"per file" and quoted 90/85/90 for coverage; those numbers came from the
+example in `.agents/docs/agentrc-reference.json`, which is validated only
+against itself, and the coverage gate was not configured at all.
+
+The live coverage floors are derived from the measurement in
+[`baselines/coverage.json`](../../baselines/coverage.json) — a full-tier run
+scored 95.65 / 86.16 / 88.52, and each floor sits ~1–1.7 points under its
+axis. Re-derive them, do not invent them, whenever the baseline is
+regenerated wholesale.
+
+The coverage gate deliberately declares **no `tolerance`**, so its
+head-vs-base ratchet arm reports regressions without failing the build (the
+same shape the `crap` gate uses). Story #4922's scope was making the
+instrument honest; arming the ratchet belongs with the debt burn-down that
+the widened measurement newly exposes.
 
 The floors are declared in [`.agentrc.json`](../../.agentrc.json) under
 `delivery.quality.gates.<gate>.floors.*` (defaults baked into the helper
@@ -173,11 +197,11 @@ The floor gate is only as strict as its scope, so the `exclude` list in
 [`.c8rc.cjs`](../../.c8rc.cjs) carries three hard requirements that are
 enforced by review (and partially by the audit suite):
 
-1. **One-line rationale per entry.** Every file in `exclude[]` MUST have
-   a bulleted justification in the `.c8rc.cjs` header comment naming
-   *why* it is excluded — typically "thin CLI shell, meaningful logic
-   lives in `lib/<X>` and is unit-tested there." A bare path with no
-   rationale is a review-block.
+1. **One-line rationale per entry.** Every file in `exclude[]` MUST carry
+   an inline comment on the line(s) directly above it naming *why* it is
+   excluded — typically "thin CLI shell, meaningful logic lives in
+   `lib/<X>` and is unit-tested there." A bare path with no rationale is a
+   review-block, and `tests/c8rc-scope.test.js` fails on one.
 2. **`/* node:coverage ignore file */` pragma at source.** Every
    excluded file MUST carry the Node coverage pragma at the top of its
    own source. This is the second line of defence: when `c8 report` and
