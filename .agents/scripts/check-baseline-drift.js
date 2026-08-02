@@ -118,21 +118,34 @@ export async function runCheckBaselineDrift({
   return { exitCode: run.ok ? 0 : 1, output };
 }
 
+/**
+ * Run the drift check and *return* its exit code rather than calling
+ * `process.exit()` — this CLI prints one row per drifted baseline entry
+ * full-scope, so its report is exactly the kind of payload that outgrows the
+ * 64 KiB pipe buffer under a `| tee`. `process.exit()` terminates before a
+ * queued async pipe write drains, silently truncating it (Story #4783, the
+ * same defect `check-baselines.js` carried). Handing the code back lets
+ * `runAsCli`'s `propagateExitCode` path settle it through
+ * `settleCli`/`flushStdio` instead. The 0/1/2 contract documented at the top
+ * of this file is unchanged — only *when* the process leaves is.
+ *
+ * @returns {Promise<number>} 0 no drift, 1 drift detected, 2 could not run.
+ */
 async function main() {
   let result;
   try {
     result = await runCheckBaselineDrift({ argv: process.argv.slice(2) });
   } catch (err) {
     process.stdout.write(`${err?.message ?? String(err)}\n`);
-    process.exit(2);
-    return;
+    return 2;
   }
   process.stdout.write(`${result.output}\n`);
-  process.exit(result.exitCode);
+  return result.exitCode;
 }
 
 runAsCli(import.meta.url, main, {
   source: 'check-baseline-drift',
   usage: HELP_TEXT,
   exitCode: 2,
+  propagateExitCode: true,
 });
