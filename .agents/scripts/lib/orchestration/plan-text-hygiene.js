@@ -18,7 +18,9 @@
  *
  *   - **dangling-citation** — a sentence referencing a document section
  *     (`§`, "design note", "review doc") with no repo-relative path and no
- *     `#<digits>` issue anchor in the same sentence.
+ *     `#<digits>` issue anchor in the same sentence. An anchor written
+ *     inside a code span counts — the conventional markdown form (Story
+ *     #4906).
  *   - **open-question** — interrogative-to-operator phrasing ("Flag if",
  *     "TBD", "confirm with the operator", a trailing `?`) in Goal/Spec
  *     prose outside code spans. Bodies record decisions; unresolved
@@ -73,28 +75,55 @@ const OPEN_QUESTION_MARKERS = [
  */
 
 /**
- * Strip fenced code blocks and inline code spans so code content (shell
- * snippets, grep patterns, JSON) never trips a prose heuristic.
+ * Private-use sentinel standing in for one extracted inline code span.
+ * It carries no citation marker, no anchor and no sentence boundary, so it
+ * is inert for every marker heuristic while recording where the span sat.
+ */
+const CODE_SLOT_PATTERN = /\uE000(\d+)\uE001/g;
+
+/**
+ * Replace fenced code blocks with a space and each inline code span with a
+ * positional slot, so code content (shell snippets, grep patterns, JSON)
+ * never trips a prose heuristic yet stays recoverable for the anchor check.
  *
  * @param {string} text
- * @returns {string}
+ * @returns {{ slotted: string, spans: string[] }}
  */
-function stripCodeSpans(text) {
-  return text.replace(/```[\s\S]*?```/g, ' ').replace(/`[^`\n]*`/g, ' ');
+function slotCodeSpans(text) {
+  const spans = [];
+  const slotted = text
+    .replace(/```[\s\S]*?```/g, ' ')
+    .replace(/`[^`\n]*`/g, (span) => {
+      spans.push(span.slice(1, -1));
+      return `\uE000${spans.length - 1}\uE001`;
+    });
+  return { slotted, spans };
 }
 
 /**
  * Split prose into sentence-ish units. Newlines are boundaries too, so a
- * bullet list yields one unit per bullet.
+ * bullet list yields one unit per bullet. Each unit carries two views of
+ * the same sentence: `prose`, with code content removed, which every
+ * marker heuristic reads; and `anchorText`, with inline code content
+ * restored, so a citation anchored inside a code span is still visible to
+ * the anchor check. Restoring only ever adds anchors — markers are matched
+ * against `prose` alone, exactly as before.
  *
  * @param {string} text
- * @returns {string[]}
+ * @returns {Array<{ prose: string, anchorText: string }>}
  */
 function splitSentences(text) {
-  return text
+  const { slotted, spans } = slotCodeSpans(text);
+  return slotted
     .split(/(?<=[.!?])\s+|\n+/)
-    .map((s) => s.trim())
-    .filter(Boolean);
+    .map((unit) => ({
+      prose: unit.replace(CODE_SLOT_PATTERN, ' ').trim(),
+      anchorText: unit.replace(
+        CODE_SLOT_PATTERN,
+        (_slot, index) => ` ${spans[Number(index)]} `,
+      ),
+    }))
+    .filter((unit) => unit.prose.length > 0);
 }
 
 /**
@@ -112,18 +141,21 @@ function excerpt(text) {
 
 /**
  * dangling-citation: a citation-marker sentence with no locating anchor.
+ * The marker is matched against the sentence's code-stripped prose; the
+ * anchor against its code-restored text, so a path or issue reference
+ * written in a code span — the conventional markdown form — counts.
  *
- * @param {string} prose - Code-stripped body prose.
+ * @param {string} prose - Raw body prose.
  * @param {string} slug
  * @returns {TextHygieneFinding[]}
  */
 function findDanglingCitations(prose, slug) {
   const findings = [];
-  for (const sentence of splitSentences(prose)) {
+  for (const { prose: sentence, anchorText } of splitSentences(prose)) {
     const cites = CITATION_MARKERS.some((m) => m.test(sentence));
     if (!cites) continue;
     const anchored =
-      ISSUE_ANCHOR.test(sentence) || REPO_PATH_ANCHOR.test(sentence);
+      ISSUE_ANCHOR.test(anchorText) || REPO_PATH_ANCHOR.test(anchorText);
     if (anchored) continue;
     findings.push({
       kind: 'dangling-citation',
@@ -142,13 +174,13 @@ function findDanglingCitations(prose, slug) {
  * open-question: operator-directed phrasing (or a trailing `?`) in prose a
  * non-interactive sub-agent executes.
  *
- * @param {string} prose - Code-stripped Goal/Spec prose.
+ * @param {string} prose - Raw Goal/Spec prose.
  * @param {string} slug
  * @returns {TextHygieneFinding[]}
  */
 function findOpenQuestions(prose, slug) {
   const findings = [];
-  for (const sentence of splitSentences(prose)) {
+  for (const { prose: sentence } of splitSentences(prose)) {
     const marked =
       OPEN_QUESTION_MARKERS.some((m) => m.test(sentence)) ||
       sentence.endsWith('?');
@@ -217,12 +249,11 @@ export function evaluateTextHygiene({ draftStories = null } = {}) {
     }
     const goal = typeof body.goal === 'string' ? body.goal : '';
     const spec = typeof body.spec === 'string' ? body.spec : '';
-    const bodyProse = stripCodeSpans(
-      typeof story.body === 'string' ? story.body : [goal, spec].join('\n'),
-    );
+    const bodyProse =
+      typeof story.body === 'string' ? story.body : [goal, spec].join('\n');
     findings.push(
       ...findDanglingCitations(bodyProse, slug),
-      ...findOpenQuestions(stripCodeSpans([goal, spec].join('\n')), slug),
+      ...findOpenQuestions([goal, spec].join('\n'), slug),
       ...findSlicingMass(body, slug),
     );
   }

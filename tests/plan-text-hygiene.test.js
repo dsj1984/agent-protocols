@@ -76,6 +76,103 @@ describe('evaluateTextHygiene — dangling-citation', () => {
 
     assert.deepEqual(kinds(result), []);
   });
+
+  it('does not flag a citation anchored by a path written in an inline code span', () => {
+    const result = evaluateTextHygiene({
+      draftStories: [
+        story({
+          spec: 'The design note §4 lives at `docs/architecture.md` today.',
+        }),
+      ],
+    });
+
+    assert.deepEqual(kinds(result), []);
+  });
+
+  it('does not flag a citation anchored by an issue number written in a code span', () => {
+    const result = evaluateTextHygiene({
+      draftStories: [
+        story({
+          spec: 'Per the design note (§4, Q5), see `#4521` for the decision.',
+        }),
+      ],
+    });
+
+    assert.deepEqual(kinds(result), []);
+  });
+
+  it('still flags a citation whose only code span carries no anchor', () => {
+    const result = evaluateTextHygiene({
+      draftStories: [
+        story({
+          spec: 'The design note §4 says to run `npm run lint` first.',
+        }),
+      ],
+    });
+
+    assert.deepEqual(kinds(result), ['dangling-citation']);
+  });
+
+  it('ignores a citation marker that appears only inside an inline code span', () => {
+    const result = evaluateTextHygiene({
+      draftStories: [
+        story({
+          spec: 'Run `grep -n "§4" docs/architecture.md` to list them.',
+        }),
+      ],
+    });
+
+    assert.deepEqual(kinds(result), []);
+  });
+
+  it('ignores a citation marker that appears only inside a fenced code block', () => {
+    const result = evaluateTextHygiene({
+      draftStories: [
+        story({
+          spec: [
+            'The lint is advisory.',
+            '',
+            '```text',
+            'Per the design note §4, the gate is dead today.',
+            '```',
+          ].join('\n'),
+        }),
+      ],
+    });
+
+    assert.deepEqual(kinds(result), []);
+  });
+});
+
+describe('evaluateTextHygiene — motivating citation regressions', () => {
+  /**
+   * Citation sentences from the three Stories that motivated Story #4906.
+   * Each was rewritten to carry a backticked repo-relative path and still
+   * reported as dangling; each cleared only when the identical path was
+   * written as bare text.
+   */
+  const MOTIVATING_CITATIONS = [
+    'Per the review doc, the gates schema in `.agents/schemas/agentrc.schema.json` is a closed set.',
+    'The ratchet contract in `.agents/scripts/check-baselines.js` is stated in the design note §2.',
+    'See `docs/execution-reference.md` §Friction telemetry for the signal schema.',
+  ];
+
+  it('reports zero findings for each citation anchored by a backticked path', () => {
+    for (const spec of MOTIVATING_CITATIONS) {
+      const result = evaluateTextHygiene({ draftStories: [story({ spec })] });
+
+      assert.deepEqual(kinds(result), [], spec);
+    }
+  });
+
+  it('reports zero findings for the pre-fix bare-text form of the same citations', () => {
+    for (const backticked of MOTIVATING_CITATIONS) {
+      const spec = backticked.replaceAll('`', '');
+      const result = evaluateTextHygiene({ draftStories: [story({ spec })] });
+
+      assert.deepEqual(kinds(result), [], spec);
+    }
+  });
 });
 
 describe('evaluateTextHygiene — open-question', () => {
@@ -123,6 +220,24 @@ describe('evaluateTextHygiene — open-question', () => {
     const result = evaluateTextHygiene({
       draftStories: [
         story({ spec: 'Run `grep -c "TBD?" src/x.js` to count markers.' }),
+      ],
+    });
+
+    assert.deepEqual(kinds(result), []);
+  });
+
+  it('ignores operator-directed phrasing inside a fenced code block', () => {
+    const result = evaluateTextHygiene({
+      draftStories: [
+        story({
+          spec: [
+            'The rollout order is recorded below.',
+            '',
+            '```text',
+            'Flag if the intent was to expose them. Should the tags go? TBD',
+            '```',
+          ].join('\n'),
+        }),
       ],
     });
 
