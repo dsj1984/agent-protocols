@@ -132,10 +132,16 @@ export function methodRowsFromReport(report, coverageForFile, mapLine = null) {
  * so `requireCoverage: false` keeps meaning "score untested code" whenever a
  * real coverage run stands behind the verdict.
  *
- * `resolvedMethods` / `totalMethods` count the *join*, not the fill: a
- * method scored 0% because its coverage was unresolved counts as
- * unresolved. That is what makes them usable as a health signal for the
- * updater's fail-closed resolution-rate floor.
+ * **Unjoinable is not untested (Story #4901).** Both policies above are about
+ * a method whose coverage is *absent*; neither is about one whose coverage
+ * could not be **joined**. A transpiled `startLine` is the latter — not in
+ * the coordinate space the `fnMap` or the baseline is keyed against — so 0%
+ * is not a measurement but a number invented for it, and `crapFormula(c, 0)`
+ * is the maximal `c² + c`. Excluded under **either** policy, and counted.
+ *
+ * `resolvedMethods` / `totalMethods` count the *join*, not the fill, which is
+ * what makes them a health signal for the updater's fail-closed
+ * resolution-rate floor — so the exclusion is applied *after* both counters.
  *
  * @param {Array<object>} rawRows Rows from `methodRowsFromReport`.
  * @param {{requireCoverage?: boolean, coverageAvailable?: boolean}} [opts]
@@ -158,7 +164,11 @@ export function finalizeMethodRows(
     totalMethods += 1;
     const unresolved = mr.crap === null || mr.coverage === null;
     if (!unresolved) resolvedMethods += 1;
-    if (unresolved && (requireCoverage || !coverageAvailable)) {
+    // Unjoinable is not untested (Story #4901) — see the block comment above.
+    if (
+      mr.coordinateSystem === COORDINATE_TRANSPILED ||
+      (unresolved && (requireCoverage || !coverageAvailable))
+    ) {
       skippedMethodsNoCoverage += 1;
       continue;
     }

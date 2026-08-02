@@ -116,12 +116,22 @@ const SCORING_SEMANTICS = 'coverage-join-v2';
  * the stamp on disk the `ts-transpiler-drift` axis had nothing to compare and
  * passed vacuously.
  *
- * @returns {{scoringSemantics: string, tsTranspilerVersion: string}}
+ * `provenanceStamped` joined in Story #4901 as a **positive** marker: the
+ * writer asserting it recorded per-row provenance at all. Absence is the only
+ * evidence a pre-#4866 baseline leaves, and no other stamp detects it —
+ * `kernelVersion` / `escomplexVersion` track the escomplex package (unmoved
+ * by the fix), `scoringSemantics` did not change, and `tsTranspilerVersion`
+ * is unreliable in the negative (the `'0.0.0'` sentinel). See the
+ * `provenance-unstamped` axis.
+ *
+ * @returns {{scoringSemantics: string, tsTranspilerVersion: string,
+ *   provenanceStamped: boolean}}
  */
 export function envelopeExtras() {
   return {
     scoringSemantics: SCORING_SEMANTICS,
     tsTranspilerVersion: resolveTsTranspilerVersion(),
+    provenanceStamped: true,
   };
 }
 
@@ -636,6 +646,17 @@ export function assessComparisonBasis(compareResult, opts = {}) {
  * and `tsTranspilerVersion` drift to **warn**, not fail; `escomplexVersion`
  * mismatch continues to fail closed.
  */
+/**
+ * The one re-seed recipe every coordinate-invalidating axis ends on. Three
+ * axes and the unsound-basis diagnostic previously carried their own copy of
+ * this sentence; a single constant keeps them from drifting apart on the
+ * command an operator is told to run.
+ */
+const RESEED_REMEDY =
+  "Re-derive the baseline: run 'npm run test:coverage' then " +
+  "'npm run crap:update -- --full-scope' and commit the result with a " +
+  "'baseline-refresh:' subject.";
+
 export const CRAP_COMPAT_AXES = [
   // Universal axes hoisted into envelope.js (Story #2467, Task #2492). The
   // missing-baseline and kernel-drift checks live in exactly one place;
@@ -661,9 +682,7 @@ export const CRAP_COMPAT_AXES = [
         `[CRAP] scoring semantics changed: baseline=${stamped ?? '<unstamped>'} ` +
         `running=${SCORING_SEMANTICS}. Rows scored by the previous per-method ` +
         'coverage join are not comparable to rows scored by the current one, ' +
-        'so this baseline cannot be compared — it must be re-derived. Run ' +
-        "'npm run test:coverage' then 'npm run crap:update -- --full-scope' " +
-        "and commit the result with a 'baseline-refresh:' subject."
+        `so this baseline cannot be compared. ${RESEED_REMEDY}`
       );
     },
   },
@@ -688,12 +707,33 @@ export const CRAP_COMPAT_AXES = [
         `[CRAP] tsTranspilerVersion changed: baseline=${baselineTs} running=${runningTsTranspilerVersion}. ` +
         "A TS row's startLine is an original-source coordinate only because the transpiler's " +
         'sourcemap said so, and that coordinate is half the row identity key — so rows scored ' +
-        'under the previous transpiler are not comparable to rows scored under this one. ' +
-        "Re-derive the baseline: run 'npm run test:coverage' then " +
-        "'npm run crap:update -- --full-scope' and commit the result with a " +
-        "'baseline-refresh:' subject."
+        `under the previous transpiler are not comparable to rows scored under this one. ${RESEED_REMEDY}`
       );
     },
+  },
+  {
+    // Story #4901. Closes the exemption directly above: `ts-transpiler-drift`
+    // returns null for an unstamped baseline rather than fail every
+    // pre-existing one for want of evidence — and a pre-#4866 baseline is
+    // exactly that shape, so the one door that could catch it lets it through
+    // while it asserts by omission that all its rows are original coordinates.
+    // Keyed on a positive marker because absence alone cannot separate
+    // "written before provenance existed" from "typescript was unresolvable".
+    // Scoped like `ts-transpiler-drift`: a pure-JavaScript baseline's two
+    // coordinate systems coincide, so it was never affected and must not fail.
+    name: 'provenance-unstamped',
+    severity: 'fatal',
+    check: ({ baseline }) =>
+      baseline &&
+      baseline.provenanceStamped !== true &&
+      hasTranspiledRows(baseline)
+        ? '[CRAP] baseline predates coordinate-provenance stamping: it carries ' +
+          'transpiled-source rows but no `provenanceStamped` marker, so it ' +
+          'asserts by omission that every row is an original-source coordinate. ' +
+          '`startLine` is half the row identity key, so the comparator would ' +
+          'key those rows against a coordinate space they are not in and ' +
+          `report regressions no edit can satisfy. ${RESEED_REMEDY}`
+        : null,
   },
 ];
 
@@ -742,15 +782,20 @@ export function evaluateBaselineCompatibility(ctx) {
 
 /**
  * The compat axes a *loaded* envelope can be judged against on its own,
- * without a second baseline to diff. Both are coordinate-invalidating: one
- * names the join that produced the rows, the other names the transpiler whose
- * sourcemap decided what a TS row's `startLine` even means.
+ * without a second baseline to diff. All three are coordinate-invalidating:
+ * one names the join that produced the rows, one names the transpiler whose
+ * sourcemap decided what a TS row's `startLine` even means, and one (Story
+ * #4901) catches a baseline predating both questions.
  *
  * `escomplex-mismatch` and `kernel-drift` stay out — the v2 envelope carries
  * no `escomplexVersion`, so that axis would compare `undefined` to `undefined`
  * and pass vacuously, which is worse than not running it.
  */
-const LOADED_ENVELOPE_AXES = ['scoring-semantics-drift', 'ts-transpiler-drift'];
+const LOADED_ENVELOPE_AXES = [
+  'scoring-semantics-drift',
+  'ts-transpiler-drift',
+  'provenance-unstamped',
+];
 
 /**
  * Kind-module hook (Story #4775, extended by Story #4866): judge a *loaded*
