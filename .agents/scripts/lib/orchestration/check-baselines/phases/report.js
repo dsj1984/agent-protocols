@@ -27,8 +27,15 @@ function formatGateLine(g) {
     ? ''
     : ` [kernel drift ${g.kernelBaseline} → ${g.kernelCurrent}]`;
   const baseRef = g.baseRef ? ` [baseRef=${g.baseRef}]` : '';
+  // Story #4914 — a compare arm that never read its base reports zero
+  // regressions and zero additions, which is indistinguishable from a clean
+  // run unless the text report says so out loud.
+  const baseRead =
+    g.baseRef && g.baseRead === false
+      ? ' [baseRead=false — compare skipped]'
+      : '';
   const ack = g.acknowledged ? ' [ACKNOWLEDGED — this run only]' : '';
-  return `  - ${g.kind}: ${status}${drift}${baseRef}${ack}`;
+  return `  - ${g.kind}: ${status}${drift}${baseRef}${baseRead}${ack}`;
 }
 
 function formatViolationLine(component, v) {

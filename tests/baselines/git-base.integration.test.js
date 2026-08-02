@@ -52,4 +52,42 @@ describe('readBaseFromGit — real git repo (integration)', () => {
       rmSync(dir, { recursive: true, force: true });
     }
   });
+
+  // Story #4914 / AC-9 — the leg that would have caught the defect
+  // originally. Every mock in the unit suite reports whatever shape it is
+  // told to; only a real `git show` through a real pipe exercises the
+  // spawnSync stdout ceiling. Pre-fix this read died with
+  // `status: null / SIGTERM / ENOBUFS` at ~1,064,960 bytes.
+  it('reads a baseline larger than the 1 MB spawnSync default in full', () => {
+    // Comfortably past the 1 MB default, and JSON so the shape matches a
+    // real baseline envelope rather than an opaque blob.
+    const rows = Array.from({ length: 26000 }, (_, i) => ({
+      path: `src/generated/module-${String(i).padStart(6, '0')}.js`,
+      mi: 80,
+    }));
+    const fileContent = JSON.stringify({ kernelVersion: '0.1.0', rows });
+    assert.ok(
+      fileContent.length > 1024 * 1024,
+      `fixture must exceed the 1 MB default to be a witness; got ${fileContent.length}`,
+    );
+
+    const dir = makeGitRepo({
+      prefix: 'git-fixture-oversize-',
+      fileName: 'big-baseline.json',
+      fileContent,
+    });
+    try {
+      __resetForTests(); // restore real spawnSync
+      const got = readBaseFromGit('HEAD', 'big-baseline.json', { cwd: dir });
+      assert.ok(got !== null, 'oversize baseline must not read as absent');
+      assert.equal(
+        got.length,
+        fileContent.length,
+        'the full byte length must come back — a truncated read is the defect',
+      );
+      assert.equal(JSON.parse(got).rows.length, rows.length);
+    } finally {
+      rmSync(dir, { recursive: true, force: true });
+    }
+  });
 });
