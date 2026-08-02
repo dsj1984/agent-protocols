@@ -123,6 +123,12 @@ export async function ensure(ctx, storyId, branch) {
   applyNodeModulesStrategy(ctx, wtPath);
   phase('bootstrap');
   ctx.copyBootstrapFiles(wtPath);
+  // Unconditional, and deliberately not routed through `copyBootstrapFiles`:
+  // that path is driven by `bootstrapFiles` and its provisioner copies single
+  // files, while a hooks directory is a tree. A worktree without hooks accepts
+  // commits no gate ever sees, so this runs for every worktree the manager
+  // creates and throws rather than degrading.
+  ctx.provisionGitHooks(wtPath);
   phase('install');
   const installStatus = installDependencies(ctx, wtPath);
 

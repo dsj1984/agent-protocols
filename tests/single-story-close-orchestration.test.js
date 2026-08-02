@@ -612,13 +612,9 @@ describe('runSingleStoryClose orchestration', () => {
 
     const pushCall = gitCalls.find((c) => c[1] === 'push');
     assert.ok(pushCall, 'gitSync push must be called');
-    assert.deepEqual(pushCall.slice(1), [
-      'push',
-      '--no-verify',
-      '-u',
-      'origin',
-      'story-1234',
-    ]);
+    // No `--no-verify`: this is the `skipValidation=true` path, so close's own
+    // gate chain did not run and `pre-push` is the only backstop left.
+    assert.deepEqual(pushCall.slice(1), ['push', '-u', 'origin', 'story-1234']);
 
     assert.equal(ghCalls.length, 3);
     assert.equal(ghCalls[2][1], 'merge');

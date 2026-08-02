@@ -1,11 +1,11 @@
 {
   "$schema": ".agents/schemas/baselines/maintainability.schema.json",
   "kernelVersion": "0.1.0",
-  "generatedAt": "2026-08-02T18:18:11.432Z",
+  "generatedAt": "2026-08-02T18:56:49.574Z",
   "rollup": {
     "*": {
       "min": 74.146,
-      "p50": 98.143,
+      "p50": 98.173,
       "p95": 126.637
     }
   },
@@ -1927,6 +1927,10 @@
       "mi": 121.595
     },
     {
+      "path": ".agents/scripts/lib/worktree/git-hooks.js",
+      "mi": 100.09
+    },
+    {
       "path": ".agents/scripts/lib/worktree/inspector.js",
       "mi": 92.16
     },
@@ -2109,6 +2113,10 @@
     {
       "path": ".agents/scripts/providers/github/tickets.js",
       "mi": 94.98
+    },
+    {
+      "path": ".agents/scripts/provision-git-hooks.js",
+      "mi": 99.801
     },
     {
       "path": ".agents/scripts/quality-preview.js",

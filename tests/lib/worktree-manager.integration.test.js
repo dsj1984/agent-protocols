@@ -151,3 +151,59 @@ test('integration: reap() tolerates drive-letter-case mismatch on repoRoot (v5.1
     fs.rmSync(tmp, { recursive: true, force: true });
   }
 });
+
+// Story #4943 — hooks must be live in a worktree the manager created, via the
+// real creation path with real git. The unit tests exercise the ctx binding in
+// isolation; this asserts the binding is actually wired into `ensure`, which
+// is the part a refactor can silently drop.
+test('integration: ensure() leaves the resolved hooks dir populated in the worktree', async () => {
+  const tmp = fs.realpathSync.native(makeTempDir('wt-hooks-'));
+  const run = (cwd, ...args) =>
+    execFileSync('git', args, {
+      cwd,
+      encoding: 'utf8',
+      stdio: ['pipe', 'pipe', 'pipe'],
+      env: CLEAN_ENV,
+    });
+  try {
+    run(tmp, 'init', '-b', 'main');
+    run(tmp, 'config', 'user.email', 'test@example.com');
+    run(tmp, 'config', 'user.name', 'Test');
+    fs.writeFileSync(path.join(tmp, 'README.md'), '# test\n');
+    run(tmp, 'add', '.');
+    run(tmp, 'commit', '-m', 'init');
+
+    // A relative hooks path whose directory exists only here — the exact
+    // shape that leaves every linked worktree ungated.
+    fs.mkdirSync(path.join(tmp, '.husky', '_'), { recursive: true });
+    fs.writeFileSync(
+      path.join(tmp, '.husky', '_', 'commit-msg'),
+      '#!/usr/bin/env sh\nexit 0\n',
+      { mode: 0o755 },
+    );
+    run(tmp, 'config', 'core.hooksPath', '.husky/_');
+
+    const wm = new WorktreeManager({
+      repoRoot: tmp,
+      logger: SILENT_LOGGER,
+      platform: process.platform,
+    });
+    const ensured = await wm.ensure(4943, 'story-4943');
+
+    // Ask git, from inside the worktree, where it will look for hooks — then
+    // assert something is actually there. Resolving the path is not the
+    // property that matters; finding a hook at the end of it is.
+    const resolved = execFileSync('git', ['rev-parse', '--git-path', 'hooks'], {
+      cwd: ensured.path,
+      encoding: 'utf8',
+      env: CLEAN_ENV,
+    }).trim();
+    const hookDir = path.resolve(ensured.path, resolved);
+    assert.ok(
+      fs.existsSync(path.join(hookDir, 'commit-msg')),
+      `git resolves hooks to ${hookDir}, which holds no commit-msg — the hook would silently never run`,
+    );
+  } finally {
+    fs.rmSync(tmp, { recursive: true, force: true });
+  }
+});

@@ -1,12 +1,12 @@
 {
   "$schema": ".agents/schemas/baselines/coverage.schema.json",
   "kernelVersion": "1.0.0",
-  "generatedAt": "2026-08-02T18:18:02.692Z",
+  "generatedAt": "2026-08-02T19:07:15.601Z",
   "rollup": {
     "*": {
-      "lines": 95.77,
-      "branches": 86.26,
-      "functions": 88.69
+      "lines": 95.76,
+      "branches": 86.21,
+      "functions": 88.74
     }
   },
   "rows": [
@@ -2862,15 +2862,21 @@
     },
     {
       "path": ".agents/scripts/lib/worktree-manager.js",
-      "lines": 90.95,
-      "branches": 79.31,
-      "functions": 68.42
+      "lines": 91.44,
+      "branches": 81.25,
+      "functions": 70
     },
     {
       "path": ".agents/scripts/lib/worktree/bootstrapper.js",
       "lines": 100,
       "branches": 85.71,
       "functions": 83.33
+    },
+    {
+      "path": ".agents/scripts/lib/worktree/git-hooks.js",
+      "lines": 97.09,
+      "branches": 84.85,
+      "functions": 100
     },
     {
       "path": ".agents/scripts/lib/worktree/inspector.js",
@@ -2886,7 +2892,7 @@
     },
     {
       "path": ".agents/scripts/lib/worktree/lifecycle/creation.js",
-      "lines": 86.76,
+      "lines": 87.32,
       "branches": 80,
       "functions": 100
     },
@@ -3122,6 +3128,12 @@
       "path": ".agents/scripts/providers/github/tickets.js",
       "lines": 99.49,
       "branches": 85.94,
+      "functions": 100
+    },
+    {
+      "path": ".agents/scripts/provision-git-hooks.js",
+      "lines": 88.24,
+      "branches": 60,
       "functions": 100
     },
     {

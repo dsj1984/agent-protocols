@@ -129,6 +129,7 @@ const FRAMEWORK_SCRIPT_BASENAMES = Object.freeze([
   'plan-run-epilogue.js',
   'post-structured-comment.js',
   'pr-watch-with-update.js',
+  'provision-git-hooks.js',
   'quality-preview.js',
   'quality-watch.js',
   'resolve-doc-tiers.js',
