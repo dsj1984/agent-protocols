@@ -17,11 +17,18 @@
  * four scripts: same argv parser, same git invocation, same forward-slash
  * path normalisation. The four CLIs differ only in how they pipe the
  * resolved scope through to their writer.
+ *
+ * Preservation is only as good as the prior it reads, so the prior reader
+ * dispatches on the kind's own row contract (see `PRIOR_ROW_METRIC_FIELDS`)
+ * rather than defaulting every non-`crap` kind to the maintainability row
+ * shape — that default filtered every duplication row out and left the
+ * writer with nothing to preserve (Story #4937).
  */
 
 import { spawnSync } from 'node:child_process';
 import fs from 'node:fs';
 import { parseNameOnlyStdout } from '../changed-files.js';
+import { getKindModule } from './kernel.js';
 
 /**
  * Parse `--diff-scope <ref>` (and the legacy `--diff-scope=<ref>` form)
@@ -101,19 +108,6 @@ export function resolveDiffScope({ argv, cwd, spawnImpl } = {}) {
   return { ref, files, scope: { mode: 'diff', files } };
 }
 
-/**
- * Read + parse the prior baseline at `absBaselinePath` and return the
- * canonical `rows[]` array (per-kind row shape with `path:` keys, as
- * expected by the per-kind `mergeRows` / `applyEpsilon` helpers from
- * Story #1974). Returns `null` when the file is absent, malformed, or
- * missing a `rows[]` envelope; the caller treats `null` as "skip the
- * merge" (regression-fail-safe — equivalent to a fresh write).
- *
- * Pure-by-design (file I/O through the injected `fsImpl` seam).
- *
- * @param {{ kind: 'maintainability' | 'crap', absBaselinePath: string, fsImpl?: typeof fs }} args
- * @returns {Array<object> | null}
- */
 // Read + JSON-parse a baseline file. Returns `null` on any I/O or parse
 // failure (the caller treats "no prior" the same as "unreadable prior").
 function readBaselineJson(absBaselinePath, fsImpl) {
@@ -131,26 +125,92 @@ function readBaselineJson(absBaselinePath, fsImpl) {
   }
 }
 
-// CRAP path: envelope `rows[]` only; rows already carry canonical `path:`.
-function readCrapPriorRows(parsed) {
-  if (!Array.isArray(parsed.rows)) return null;
-  return parsed.rows;
+/**
+ * Numeric metric fields a canonical baseline row carries, per kind.
+ *
+ * The table is closed over the same kind set as the gates schema
+ * (`lib/config/gates/index.js`) and the writer's kernel registry, and it
+ * exists because every kind keys its rows on a *different* metric: only
+ * maintainability rows carry `mi`, only duplication rows carry
+ * `percentage`, only bundle-size rows carry `rawKb`/`gzippedKb`, and so
+ * on. Reading a prior through another kind's field filters every row out
+ * and hands the writer an empty `prior` — which silently disables epsilon
+ * damping and makes a `--diff-scope` write truncate the baseline to the
+ * files in the diff, because preservation has no prior rows to carry
+ * forward (Story #4937).
+ *
+ * Row identity is deliberately NOT duplicated here — it is read from the
+ * kind module's own `keyField` (`path` / `route` / `bundle`), so the
+ * reader and the writer cannot drift apart on what identifies a row.
+ */
+const PRIOR_ROW_METRIC_FIELDS = Object.freeze({
+  'bundle-size': Object.freeze(['rawKb', 'gzippedKb']),
+  coverage: Object.freeze(['lines', 'branches', 'functions']),
+  crap: Object.freeze(['crap']),
+  duplication: Object.freeze(['percentage']),
+  lighthouse: Object.freeze([
+    'performance',
+    'accessibility',
+    'bestPractices',
+    'seo',
+  ]),
+  lint: Object.freeze(['errorCount', 'warningCount']),
+  maintainability: Object.freeze(['mi']),
+  mutation: Object.freeze(['score']),
+});
+
+/**
+ * Build the prior-row predicate for `kind`: a row survives when it carries
+ * a non-empty identity key under the kind's own `keyField` and a finite
+ * number on every metric field the kind's `compare` / `applyEpsilon`
+ * inspect.
+ *
+ * Throws on a kind with no declared row contract. Failing loudly is the
+ * point: the defect this replaces was a `return` fall-through that gave
+ * every unlisted kind the maintainability filter, so an unmodelled kind
+ * read as "prior is empty" instead of "prior is unreadable".
+ *
+ * Pure; no I/O. Module-private: `readPriorBaselineRows` is the only caller
+ * and the only surface tests drive it through, so exporting it would add an
+ * unused export the dead-export ratchet refuses.
+ *
+ * @param {string} kind
+ * @returns {(row: object) => boolean}
+ */
+function priorRowPredicateFor(kind) {
+  const metricFields = PRIOR_ROW_METRIC_FIELDS[kind];
+  if (!metricFields) {
+    throw new Error(
+      `[diff-scope-cli] no prior-row contract registered for kind "${kind}" ` +
+        `(known: ${Object.keys(PRIOR_ROW_METRIC_FIELDS).join(', ')})`,
+    );
+  }
+  const { keyField } = getKindModule(kind);
+  return (row) =>
+    Boolean(row) &&
+    typeof row[keyField] === 'string' &&
+    row[keyField].length > 0 &&
+    metricFields.every((field) => Number.isFinite(row[field]));
 }
 
-// Maintainability path: envelope `rows[]` only; rows already carry
-// canonical `path:` + `mi:`.
-function readMaintainabilityPriorRows(parsed) {
-  if (!Array.isArray(parsed.rows)) return null;
-  return parsed.rows.filter(
-    (r) => r && typeof r.path === 'string' && typeof r.mi === 'number',
-  );
-}
-
+/**
+ * Read + parse the prior baseline at `absBaselinePath` and return its
+ * canonical `rows[]` array, filtered through `kind`'s own row contract (as
+ * expected by the per-kind `mergeRows` / `applyEpsilon` helpers from Story
+ * #1974). Returns `null` when the file is absent, malformed, or missing a
+ * `rows[]` envelope; the caller treats `null` as "skip the merge"
+ * (regression-fail-safe — equivalent to a fresh write).
+ *
+ * Pure-by-design (file I/O through the injected `fsImpl` seam).
+ *
+ * @param {{ kind: string, absBaselinePath: string, fsImpl?: typeof fs }} args
+ * @returns {Array<object> | null}
+ */
 export function readPriorBaselineRows({ kind, absBaselinePath, fsImpl = fs }) {
+  const predicate = priorRowPredicateFor(kind);
   const parsed = readBaselineJson(absBaselinePath, fsImpl);
-  if (!parsed) return null;
-  if (kind === 'crap') return readCrapPriorRows(parsed);
-  return readMaintainabilityPriorRows(parsed);
+  if (!parsed || !Array.isArray(parsed.rows)) return null;
+  return parsed.rows.filter(predicate);
 }
 
 /**
@@ -162,14 +222,19 @@ export function readPriorBaselineRows({ kind, absBaselinePath, fsImpl = fs }) {
  *
  * Returns a flat record so each CLI can spread it into the writer call.
  *
+ * The `fsImpl` / `spawnImpl` seams exist so the composed payload can be
+ * exercised hermetically — production callers omit both.
+ *
  * @param {{
- *   kind: 'maintainability' | 'crap',
+ *   kind: string,
  *   absBaselinePath: string,
  *   epsilon: number,
  *   argv?: string[],
  *   cwd?: string,
  *   logger?: { info?: (msg: string) => void },
  *   logTag: string,
+ *   fsImpl?: typeof fs,
+ *   spawnImpl?: typeof spawnSync,
  * }} args
  * @returns {{
  *   prior: Array<object> | undefined,
@@ -186,9 +251,11 @@ export function buildWriterScopeArgs({
   cwd,
   logger,
   logTag,
+  fsImpl = fs,
+  spawnImpl = spawnSync,
 }) {
-  const prior = readPriorBaselineRows({ kind, absBaselinePath });
-  const diffScope = resolveDiffScope({ argv, cwd });
+  const prior = readPriorBaselineRows({ kind, absBaselinePath, fsImpl });
+  const diffScope = resolveDiffScope({ argv, cwd, spawnImpl });
   if (diffScope && logger?.info) {
     logger.info(
       `${logTag} --diff-scope ${diffScope.ref}: ${diffScope.files.size} file(s) in scope; out-of-scope rows preserved verbatim.`,

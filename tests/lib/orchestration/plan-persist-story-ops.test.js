@@ -4,6 +4,7 @@
 
 import assert from 'node:assert/strict';
 import { describe, it } from 'node:test';
+import { parseFingerprintFooter } from '../../../.agents/scripts/lib/findings/route-finding.js';
 import {
   AGENT_LABELS,
   TYPE_LABELS,
@@ -725,5 +726,106 @@ describe('audit dedup provenance carry (Story #4877, AC-5)', () => {
       1,
       'exactly one fingerprint footer',
     );
+  });
+
+  describe('the dependent path re-carries the provenance (Story #4935)', () => {
+    /**
+     * Persist a two-Story cohort where `consumer` depends on `migration`, and
+     * hand back the bodies actually POSTed.
+     *
+     * This must go through `createStoryIssues`, not `assemblePlanStories`: the
+     * defect lives in `renderStoryBodyForCreate`, which re-serializes the body
+     * from `bodyObject` once a sibling's real issue number is known so it can
+     * write the `blocked by #N` footer — discarding the footers the assembly
+     * appended to the body *string*. Every pre-#4935 carry test stops at
+     * assembly, which is exactly why they stayed green while the two Stories on
+     * `plan-run::6cc05d2b` that carried an edge persisted footerless.
+     */
+    async function persistDependentCohort() {
+      const payloads = [];
+      const provider = {
+        createIssue: async (payload) => {
+          payloads.push(payload);
+          return { id: 300 + payloads.length };
+        },
+      };
+      const { stories } = assemblePlanStories(
+        [
+          storyTicket('consumer', { depends_on: ['migration'] }),
+          storyTicket('migration'),
+        ],
+        { provenanceSource: auditSeed },
+      );
+      const { created } = await createStoryIssues({ provider, stories });
+      const bodyBySlug = new Map(
+        created.map((story, index) => [story.slug, payloads[index].body]),
+      );
+      return { created, bodyBySlug };
+    }
+
+    it('a Story with a non-empty depends_on keeps BOTH carried footers', async () => {
+      const { bodyBySlug } = await persistDependentCohort();
+      const dependent = bodyBySlug.get('consumer');
+
+      assert.match(dependent, new RegExp(`audit-fingerprints:\\s*${SHA}`));
+      assert.ok(
+        dependent.includes(`audit-semantic-keys: ${KEY}`),
+        'the semantic-key footer must survive the dependency re-serialization too',
+      );
+    });
+
+    it('the carried footers coexist with the blocked-by line', async () => {
+      const { created, bodyBySlug } = await persistDependentCohort();
+      const migrationId = created.find((s) => s.slug === 'migration').id;
+      const dependent = bodyBySlug.get('consumer');
+
+      assert.match(
+        dependent,
+        new RegExp(`^blocked by #${migrationId}$`, 'm'),
+        'the dependency footer this re-serialization exists to write is still there',
+      );
+      assert.deepEqual(parse(dependent).body.depends_on, [`#${migrationId}`]);
+      assert.match(dependent, new RegExp(`audit-fingerprints:\\s*${SHA}`));
+    });
+
+    it('the persisted dependent Story satisfies the sweep confirmation predicate', async () => {
+      // Why the defect mattered: `/audit-to-stories` Phase 6 confirms a search
+      // hit by parsing this exact footer out of the issue body. A footerless
+      // Story fails the confirmation, the finding routes `new`, and a duplicate
+      // Story opens.
+      const { bodyBySlug } = await persistDependentCohort();
+      assert.deepEqual(parseFingerprintFooter(bodyBySlug.get('consumer')), [
+        SHA,
+      ]);
+    });
+
+    it('a Story with no depends_on is unaffected', async () => {
+      const { bodyBySlug } = await persistDependentCohort();
+      const independent = bodyBySlug.get('migration');
+
+      assert.deepEqual(parseFingerprintFooter(independent), [SHA]);
+      assert.ok(independent.includes(`audit-semantic-keys: ${KEY}`));
+      assert.ok(
+        !/^blocked by /m.test(independent),
+        'and it carries no dependency footer',
+      );
+    });
+
+    it('does not stack a second footer onto the dependent body', async () => {
+      // The fix re-applies an additive, idempotent carry; it must not double
+      // the union onto a body that already round-tripped through assembly.
+      const { bodyBySlug } = await persistDependentCohort();
+      const dependent = bodyBySlug.get('consumer');
+      assert.equal(
+        (dependent.match(/audit-fingerprints:/g) ?? []).length,
+        1,
+        'exactly one fingerprint footer',
+      );
+      assert.equal(
+        (dependent.match(/audit-semantic-keys:/g) ?? []).length,
+        1,
+        'exactly one semantic-key footer',
+      );
+    });
   });
 });
