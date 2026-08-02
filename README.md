@@ -182,7 +182,9 @@ dimensions, run model, and how to benchmark a new version.
 ## Contributors
 
 The published `mandrel` package ships three directories — `.agents/`, `bin/`,
-and `lib/` (see the `files` array in [`package.json`](package.json)).
+and `lib/` — plus the single file `docs/CHANGELOG.md`, and excludes the
+`__tests__` subtrees under `.agents/` and `lib/` (see the `files` array in
+[`package.json`](package.json)).
 `.agents/` is the payload `mandrel sync` materializes into a consumer's
 `./.agents/` directory; `bin/mandrel.js` and its `lib/` implementation stay
 inside `node_modules/mandrel/` and back the `npx mandrel …` CLI used
@@ -193,8 +195,8 @@ tooling and is not published.
 Common commands while developing the framework itself:
 
 ```bash
-npm run lint           # markdown + biome
-npm run format         # auto-format
+npm run lint           # biome + markdownlint + repo ratchets + generated-doc drift
+npm run format         # biome format — JavaScript/JSON only, not markdown
 npm test               # framework tests
 npm run test:coverage  # tests with coverage gate
 ```
@@ -226,9 +228,14 @@ against malicious lifecycle scripts in compromised transitive packages
 install scripts for a specific install, run
 `npm install --ignore-scripts=false` for that invocation only.
 
-CRAP and Maintainability gates fire at three sites — close-validation
-(story close), `.husky/pre-push`, and CI (`ci.yml`, push + PR) — against
-the same thresholds from `delivery.quality.*` in `.agentrc.json`.
+CRAP and Maintainability gates fire at four sites — `.husky/pre-commit`
+(`quality-preview.js --staged`, scored on the staged index), `.husky/pre-push`
+(diff-scoped against `origin/main`), close-validation (story close), and CI
+(`ci.yml`, push + PR) — against the same thresholds from
+`delivery.quality.*` in `.agentrc.json`. All four are **blocking**: the
+pre-commit hook fires earliest and refuses the commit on a threshold
+violation, and a green `npm run lint` / `npm test` / `check-baselines.js`
+run does not predict it.
 
 ## License
 
