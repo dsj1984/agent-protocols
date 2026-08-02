@@ -1,12 +1,53 @@
+/**
+ * update-duplication-baseline.js — manual refresh CLI for the
+ * code-duplication (DRY) baseline (Story #3664).
+ *
+ * Story #4944: this CLI is now a thin wrapper around
+ * `refreshBaseline({ kind: 'duplication' })` from
+ * `.agents/scripts/lib/baselines/refresh-service.js`, completing the Epic
+ * #2173 migration — duplication was the last kind still assembling its own
+ * writer call via the legacy `buildWriterScopeArgs` path. Scope resolution,
+ * prior-envelope reading, epsilon damping, envelope assembly, and
+ * persistence all flow through the unified service.
+ *
+ * The migration is what makes this CLI's documented surface true. Before it,
+ * `--full-scope` was advertised and parsed by nobody, and the no-flag default
+ * was a full rewrite rather than the diff-scoped refresh the usage text
+ * described.
+ *
+ * Surface:
+ *
+ *   - `--baseline <path>`: write somewhere other than the configured
+ *     `delivery.quality.gates.duplication.baselinePath`.
+ *   - `--diff-scope <ref>`: scope the refresh to files changed between
+ *     `<ref>` and HEAD. Out-of-scope rows are preserved verbatim from the
+ *     prior on-disk baseline.
+ *   - `--full-scope`: regenerate every row (no out-of-scope merge).
+ *   - With no scope flag: scope is derived from `git diff --name-only
+ *     origin/main..HEAD` (the service's default `baseRef..headRef`), matching
+ *     `update-crap-baseline.js` / `update-maintainability-baseline.js` /
+ *     `update-coverage-baseline.js`.
+ *
+ * **Scope is a write-side filter here, not a scan-side one.** jscpd detects
+ * clones pairwise, so the scan always covers the whole target tree even in
+ * diff mode — see `buildDefaultDuplicationScorer` in the refresh service for
+ * why narrowing the scan would drop clones between a changed file and an
+ * unchanged one. What a scope flag narrows is which rows the refresh is
+ * allowed to rewrite.
+ *
+ * Exits non-zero only when the scanner itself crashes. An empty result (no
+ * detected clones) still writes an envelope with `rows: []` so downstream
+ * `check-baselines` can tell "intentional empty baseline" apart from "no
+ * baseline yet".
+ */
+
 // Fail-fast if the framework's runtime deps are not installed — must be the
 // first import so the check runs before any third-party-importing sibling
 // module is evaluated (Story #3432).
 import './lib/runtime-deps/ensure-installed.js';
-import { createRequire } from 'node:module';
 import path from 'node:path';
-import { buildWriterScopeArgs } from './lib/baselines/diff-scope-cli.js';
-import { scanDuplication } from './lib/baselines/duplication-scanner.js';
-import { write, writeFile } from './lib/baselines/writer.js';
+import { parseDiffScopeFlag } from './lib/baselines/diff-scope-cli.js';
+import { refreshBaseline } from './lib/baselines/refresh-service.js';
 import { runAsCli } from './lib/cli-utils.js';
 import { getBaselineEpsilon } from './lib/config/quality.js';
 import { getQuality, resolveConfig } from './lib/config-resolver.js';
@@ -39,50 +80,18 @@ const USAGE = {
   ],
   notes: [
     'Backed by jscpd; the scan reads the working tree and runs no test suite.',
+    'Clone detection is pairwise, so the scan always covers the whole target tree — a scope flag narrows which rows are rewritten, not what is scanned.',
   ],
 };
 
 /**
- * CLI: scan → score → save the code-duplication (DRY) baseline (Story #3664).
+ * Parse `--baseline <path>` — the one flag this CLI does not share with its
+ * siblings. The scope flags are parsed by the shared helpers so their
+ * contract stays identical across the four update CLIs.
  *
- * Writes the canonical duplication baseline at the path resolved from
- * `delivery.quality.gates.duplication.baselinePath` (default
- * `baselines/duplication.json`), or the path supplied via `--baseline <path>`.
- * Output is a deterministic, kernel-stamped envelope produced by the shared
- * writer — every row path is canonicalised, the per-kind rollup math runs,
- * and the envelope is schema-validated before persisting.
- *
- * Mirrors `update-crap-baseline.js`: thin CLI shell + shared writer funnel.
- * The duplication scan delegates to jscpd's `detectClones` (a pure clone
- * detector with no test coupling), wrapped by `scanDuplication` so the
- * parse→envelope path is unit-testable with the scanner mocked.
- *
- * Exits non-zero only when the scanner itself crashes. An empty result (no
- * detected clones) still writes an envelope with `rows: []` so downstream
- * `check-baselines` can tell "intentional empty baseline" apart from "no
- * baseline yet".
+ * @param {string[]} argv
+ * @returns {{ baselinePath: string | undefined }}
  */
-
-const require = createRequire(import.meta.url);
-
-/**
- * Resolve jscpd's `detectClones` lazily. The jscpd ESM entrypoint has a
- * broken transitive `colors/safe` specifier under Node's strict ESM
- * resolver, so we load the CJS build via `createRequire`. Isolated here so
- * the rest of the module stays import-pure and testable.
- *
- * @returns {(opts: object) => Promise<Array<object>>}
- */
-function resolveDetectClones() {
-  const jscpd = require('jscpd');
-  if (typeof jscpd.detectClones !== 'function') {
-    throw new Error(
-      "[Duplication] jscpd.detectClones is not available — run 'npm install'",
-    );
-  }
-  return jscpd.detectClones;
-}
-
 function parseCliArgs(argv = process.argv.slice(2)) {
   const out = { baselinePath: undefined };
   for (let i = 0; i < argv.length; i += 1) {
@@ -92,6 +101,16 @@ function parseCliArgs(argv = process.argv.slice(2)) {
     }
   }
   return out;
+}
+
+/**
+ * Parse `--full-scope` (boolean opt-out flag).
+ *
+ * @param {string[]} argv
+ * @returns {boolean}
+ */
+function parseFullScopeFlag(argv = []) {
+  return argv.includes('--full-scope');
 }
 
 /**
@@ -107,52 +126,125 @@ function resolveDuplicationGate(config) {
   return gates.duplication ?? {};
 }
 
-async function main() {
-  const args = parseCliArgs();
-  const config = resolveConfig();
-  const gate = resolveDuplicationGate(config);
-  const targetDirs = Array.isArray(gate.targetDirs) ? gate.targetDirs : [];
-  const ignoreGlobs = Array.isArray(gate.ignoreGlobs) ? gate.ignoreGlobs : [];
+/**
+ * Resolve the mutually-exclusive scope selection from argv.
+ *
+ * Split out of `main` deliberately: nothing in this file is reachable from a
+ * test (the CLI is only ever spawned with `--help`, which `runAsCli`
+ * short-circuits), so every function here scores CRAP at zero coverage —
+ * `c² + c`. A single `main` carrying all the branching lands at c=8 → 72,
+ * well over the 30 ceiling. Small single-purpose helpers keep each row far
+ * below it without hiding any logic.
+ *
+ * @param {string[]} argv
+ * @returns {{ fullScope: boolean, diffScopeRef: string | null }}
+ * @throws {Error} when both scope flags are supplied.
+ */
+function resolveScopeSelection(argv) {
+  const diffScopeRef = parseDiffScopeFlag(argv);
+  const fullScope = parseFullScopeFlag(argv);
+  if (fullScope && diffScopeRef !== null) {
+    throw new Error(
+      '[Duplication] --full-scope is incompatible with --diff-scope; pick one',
+    );
+  }
+  return { fullScope, diffScopeRef };
+}
+
+/**
+ * Resolve the absolute path the refreshed envelope is written to:
+ * `--baseline <path>` wins, then the configured gate path, then the
+ * framework default.
+ *
+ * @param {string[]} argv
+ * @param {object} gate resolved duplication gate block
+ * @returns {string} absolute path
+ */
+function resolveAbsBaselinePath(argv, gate) {
   const baselinePath =
-    args.baselinePath ?? gate.baselinePath ?? 'baselines/duplication.json';
-
-  Logger.info('[Duplication] Updating baseline...');
-  Logger.info(`[Duplication] Target dirs: ${targetDirs.join(', ')}`);
-
-  const rows = await scanDuplication({
-    targetDirs,
-    cwd: process.cwd(),
-    ignoreGlobs,
-    detect: resolveDetectClones(),
-  });
-
-  const absBaselinePath = path.isAbsolute(baselinePath)
+    parseCliArgs(argv).baselinePath ??
+    gate.baselinePath ??
+    'baselines/duplication.json';
+  return path.isAbsolute(baselinePath)
     ? baselinePath
     : path.resolve(process.cwd(), baselinePath);
+}
 
-  // Route through the shared writer: canonicalise paths, run the per-kind
-  // rollup, stamp `$schema` / `kernelVersion` / `generatedAt`, and validate
-  // against the duplication schema before persisting. Epsilon is applied by
-  // default so unchanged code with stale env produces a zero-row diff.
-  const scopeArgs = buildWriterScopeArgs({
-    kind: 'duplication',
-    absBaselinePath,
-    epsilon: getBaselineEpsilon('duplication', config),
-    logger: Logger,
-    logTag: '[Duplication]',
-  });
-  const envelope = write({
-    kind: 'duplication',
-    rows,
-    ...scopeArgs,
-  });
-  writeFile(absBaselinePath, envelope);
+/**
+ * Announce which scope the refresh resolved to, so an operator reading the
+ * log can tell a narrowed refresh from a full rewrite without re-deriving it.
+ *
+ * @param {{ fullScope: boolean, diffScopeRef: string | null }} selection
+ */
+function logScopeDecision({ fullScope, diffScopeRef }) {
+  if (fullScope) {
+    Logger.info(
+      '[Duplication] --full-scope: regenerating every row (out-of-scope merge disabled).',
+    );
+  } else if (diffScopeRef) {
+    Logger.info(
+      `[Duplication] --diff-scope ${diffScopeRef}: narrowing to changed files; out-of-scope rows preserved verbatim.`,
+    );
+  }
+}
 
-  Logger.info(
-    `[Duplication] Scanned ${rows.length} file(s) with detected duplication; wrote ${envelope.rows.length} row(s).`,
+/**
+ * Assemble the `refreshBaseline` option bag for the resolved selection.
+ *
+ * No `scorer` is injected — the service resolves the canonical default
+ * duplication scorer, which reads `gates.duplication.targetDirs` /
+ * `ignoreGlobs` off the same resolved config this CLI reads.
+ *
+ * @param {{ fullScope: boolean, diffScopeRef: string | null, absBaselinePath: string, epsilon: number }} args
+ * @returns {object} options for `refreshBaseline`
+ */
+function buildRefreshOpts({
+  fullScope,
+  diffScopeRef,
+  absBaselinePath,
+  epsilon,
+}) {
+  const refreshOpts = {
+    kind: 'duplication',
+    writePath: absBaselinePath,
+    epsilon,
+  };
+  if (fullScope) {
+    refreshOpts.fullScope = true;
+  } else if (diffScopeRef) {
+    // The CLI's documented `--diff-scope <ref>` semantics are `<ref>...HEAD`
+    // (three-dot). The service derives via two-dot `baseRef..headRef`; pass
+    // the ref as `baseRef` so the derivation runs through the same execFile
+    // seam the sibling CLIs use.
+    refreshOpts.baseRef = diffScopeRef;
+  }
+  // No flag → scopeFiles=null + fullScope=false → service derives the diff
+  // via `origin/main..HEAD` (its default baseRef/headRef).
+  return refreshOpts;
+}
+
+async function main() {
+  const argv = process.argv.slice(2);
+  const selection = resolveScopeSelection(argv);
+  const config = resolveConfig();
+  const absBaselinePath = resolveAbsBaselinePath(
+    argv,
+    resolveDuplicationGate(config),
   );
+
+  Logger.info('[Duplication] Updating baseline...');
+  logScopeDecision(selection);
+
+  const result = await refreshBaseline(
+    buildRefreshOpts({
+      ...selection,
+      absBaselinePath,
+      epsilon: getBaselineEpsilon('duplication', config),
+    }),
+  );
+
   Logger.info(
-    `[Duplication] ✅ Baseline updated (kernelVersion=${envelope.kernelVersion}). Wrote to ${absBaselinePath}.`,
+    `[Duplication] ✅ Baseline updated (kernelVersion=${result.envelope.kernelVersion}, wrote=${result.wrote}, scope=${result.scope.mode}, rows=${result.envelope.rows.length}). Wrote to ${absBaselinePath}.`,
   );
 }
 

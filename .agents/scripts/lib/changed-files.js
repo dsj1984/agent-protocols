@@ -8,10 +8,17 @@ import { createGitInterface } from './git-utils.js';
  *
  * Pure; no I/O.
  *
+ * Module-private since Story #4944. It was exported for
+ * `diff-scope-cli.js#resolveDiffScopeFiles`, which the duplication-CLI
+ * migration deleted; the three remaining callers all live in this file, so
+ * exporting it now would ship a seam only the tests reach. Its behaviour is
+ * covered through `diffNameOnly`, which returns this function's output
+ * verbatim.
+ *
  * @param {string | null | undefined} stdout
  * @returns {string[]}
  */
-export function parseNameOnlyStdout(stdout) {
+function parseNameOnlyStdout(stdout) {
   if (!stdout) return [];
   return stdout
     .split('\n')

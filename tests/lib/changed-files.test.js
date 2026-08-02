@@ -4,7 +4,6 @@ import {
   diffNameOnly,
   getChangedFiles,
   getStagedFiles,
-  parseNameOnlyStdout,
   resolvePreviewScope,
 } from '../../.agents/scripts/lib/changed-files.js';
 
@@ -173,25 +172,36 @@ describe('resolvePreviewScope', () => {
   });
 });
 
-describe('parseNameOnlyStdout', () => {
+// `parseNameOnlyStdout` went module-private in Story #4944 (its last
+// out-of-file consumer, `diff-scope-cli.js#resolveDiffScopeFiles`, was
+// deleted when the duplication CLI migrated onto `refreshBaseline()`).
+// `diffNameOnly` returns its output verbatim, so driving the same inputs
+// through the exported function keeps the parsing contract pinned without
+// re-exporting a seam only the tests would reach.
+describe('name-only stdout parsing (via diffNameOnly)', () => {
+  function parseVia(stdout) {
+    return diffNameOnly({
+      range: 'main...HEAD',
+      gitSpawn: () => ({ status: 0, stdout, stderr: '' }),
+    });
+  }
+
   it('returns an empty array for null/undefined/empty input', () => {
-    assert.deepEqual(parseNameOnlyStdout(null), []);
-    assert.deepEqual(parseNameOnlyStdout(undefined), []);
-    assert.deepEqual(parseNameOnlyStdout(''), []);
+    assert.deepEqual(parseVia(null), []);
+    assert.deepEqual(parseVia(undefined), []);
+    assert.deepEqual(parseVia(''), []);
   });
 
   it('splits on newlines and trims whitespace', () => {
-    assert.deepEqual(parseNameOnlyStdout('a.js\nb.js\n'), ['a.js', 'b.js']);
+    assert.deepEqual(parseVia('a.js\nb.js\n'), ['a.js', 'b.js']);
   });
 
   it('filters out blank lines', () => {
-    assert.deepEqual(parseNameOnlyStdout('a.js\n\nb.js'), ['a.js', 'b.js']);
+    assert.deepEqual(parseVia('a.js\n\nb.js'), ['a.js', 'b.js']);
   });
 
   it('normalizes Windows backslash separators to forward slashes', () => {
-    assert.deepEqual(parseNameOnlyStdout('lib\\foo\\bar.js\n'), [
-      'lib/foo/bar.js',
-    ]);
+    assert.deepEqual(parseVia('lib\\foo\\bar.js\n'), ['lib/foo/bar.js']);
   });
 });
 

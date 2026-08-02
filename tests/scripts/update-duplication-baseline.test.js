@@ -11,9 +11,15 @@
  *     then projects rows.
  *   - The scanned rows flow through the shared writer (`write({ kind:
  *     'duplication' })`) and produce a schema-valid, kernel-stamped
- *     envelope — the same funnel the CLI uses.
- *   - The CLI source stays a thin wrapper over the scanner + shared writer
- *     (no inline jscpd parsing).
+ *     envelope — the funnel the refresh service drives on the CLI's behalf.
+ *   - The CLI source stays a thin wrapper (no inline jscpd parsing).
+ *
+ * Story #4944 re-pointed the CLI-wrapper block: the CLI no longer calls the
+ * writer itself. It dispatches `refreshBaseline({ kind: 'duplication' })`
+ * like its three siblings, so the invariants asserted here mirror
+ * `update-maintainability-baseline.test.js` — including the negative one
+ * that the CLI must NOT reach for `writer.write` / `writeFile` /
+ * `buildWriterScopeArgs` directly.
  */
 
 import assert from 'node:assert/strict';
@@ -187,19 +193,110 @@ describe('duplication refresh — scanner rows flow through the shared writer', 
   });
 });
 
-describe('update-duplication-baseline — thin CLI wrapper', () => {
+describe('update-duplication-baseline — thin CLI wrapper (Story #4944)', () => {
   const source = readFileSync(CLI_PATH, 'utf8');
 
-  it('imports scanDuplication from the scanner module', () => {
+  it('AC: routes persistence through refreshBaseline()', () => {
     assert.match(
       source,
-      /import\s*\{[^}]*scanDuplication[^}]*\}\s*from\s*['"][^'"]*duplication-scanner\.js['"]/,
+      /import\s*\{[^}]*refreshBaseline[^}]*\}\s*from\s*['"][^'"]*refresh-service\.js['"]/,
+      'CLI must import refreshBaseline from the refresh service',
+    );
+    assert.match(
+      source,
+      /refreshBaseline\(/,
+      'CLI must call refreshBaseline()',
     );
   });
 
-  it('routes persistence through the shared writer', () => {
-    assert.match(source, /from\s*['"][^'"]*baselines\/writer\.js['"]/);
-    assert.match(source, /write\(\{[\s\S]*kind:\s*'duplication'/);
+  it('AC: dispatches the duplication kind to the service', () => {
+    assert.match(
+      source,
+      /kind:\s*['"]duplication['"]/,
+      "CLI must pass kind: 'duplication' to the service",
+    );
+  });
+
+  it('AC: parses --diff-scope via the shared CLI helper', () => {
+    assert.match(
+      source,
+      /parseDiffScopeFlag/,
+      'CLI must parse --diff-scope using the shared diff-scope-cli helper',
+    );
+  });
+
+  it('AC: parses --full-scope explicitly (boolean opt-out flag)', () => {
+    assert.match(
+      source,
+      /argv\.includes\(\s*['"]--full-scope['"]\s*\)/,
+      'CLI must inspect argv for --full-scope',
+    );
+  });
+
+  it('AC: --full-scope branches set fullScope=true on refreshBaseline opts', () => {
+    assert.match(
+      source,
+      /if\s*\(\s*fullScope\s*\)\s*\{\s*refreshOpts\.fullScope\s*=\s*true\s*;/,
+      'CLI must set refreshOpts.fullScope=true only when --full-scope is supplied',
+    );
+  });
+
+  it('AC: no flag → no unconditional fullScope assignment (diff-scoped default)', () => {
+    // The USAGE summary promises a diff-scoped default. An unconditional
+    // `refreshOpts.fullScope = true` would silently restore the pre-#4944
+    // full-rewrite behaviour while the help text kept claiming otherwise —
+    // exactly the doc/behaviour split this Story closed.
+    const fullScopeAssignments = [
+      ...source.matchAll(/refreshOpts\.fullScope\s*=\s*true/g),
+    ];
+    assert.equal(
+      fullScopeAssignments.length,
+      1,
+      `Expected exactly one refreshOpts.fullScope=true assignment (the --full-scope branch), found ${fullScopeAssignments.length}`,
+    );
+  });
+
+  it('AC: --diff-scope <ref> surfaces the ref as baseRef on refreshBaseline opts', () => {
+    assert.match(
+      source,
+      /refreshOpts\.baseRef\s*=\s*diffScopeRef\b/,
+      'CLI must pass the --diff-scope ref through as baseRef',
+    );
+  });
+
+  it('AC: --diff-scope and --full-scope are mutually exclusive (CLI rejects both)', () => {
+    assert.match(
+      source,
+      /fullScope\s*&&\s*diffScopeRef\s*!==\s*null/,
+      'CLI must reject the combination of --diff-scope and --full-scope',
+    );
+  });
+
+  it('AC: retains the --baseline <path> override', () => {
+    assert.match(
+      source,
+      /'--baseline'/,
+      'CLI must still honour --baseline <path> (its one non-shared flag)',
+    );
+  });
+
+  it('AC: does NOT call kind-internal envelope writers directly', () => {
+    // refresh-service is the only legitimate caller of writer.write /
+    // writer.writeFile / the legacy scope-args helper. Story #4944 removed
+    // the last of them from this CLI.
+    const forbidden = [
+      /\bwrite\s*\(\s*\{\s*kind:/, // writer.write({ kind: ... })
+      /\bwriteFile\s*\(/,
+      /\bsaveBaseline\s*\(/,
+      /\bbuildWriterScopeArgs\s*\(/, // legacy scope-args helper
+    ];
+    for (const pattern of forbidden) {
+      assert.doesNotMatch(
+        source,
+        pattern,
+        `CLI must not call ${pattern.source} directly — go through refreshBaseline()`,
+      );
+    }
   });
 
   it('does not re-implement jscpd clone parsing inline', () => {
