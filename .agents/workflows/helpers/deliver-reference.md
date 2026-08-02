@@ -91,6 +91,16 @@ different operator holds, unless you pass `--steal`. Assignee-based withholding
 needs `github.operatorHandle` set (in `.agentrc.local.json`); without it the
 probe logs a warning and leans on init's lease refusal alone.
 
+**Overlapping footprints are reserved across beats, not just within one.** A
+Story whose files a still-implementing Story already touches is withheld and
+named in `inFlightReservation: { available, withheld: [{ id, blockedBy }],
+note }`. Like `foreignHeld` this is neither a failure nor a wedge — the Story
+re-admits automatically once its blocker leaves the in-flight set — and it
+exists so an unfilled slot is explained rather than mysterious. Reservation
+needs the in-flight Stories' footprints, so it is a `--probe-live` capability:
+under `--dag` the report is `available: false` and selection de-conflicts
+within the beat only.
+
 ## Dispatch mechanics (role-scoped by default)
 
 **A single-Story run executes inline.** Sub-agent isolation is

@@ -115,10 +115,13 @@ For each acceptance item in your cluster:
 
 ## Verdict schema (MUST)
 
-Emit a verdict file under `temp/` conforming to
+Write a verdict file under `temp/` at a **cluster-unique path** (e.g.
+`temp/acceptance-verdict-<storyId>-r<round>-c<clusterIndex>.json`) so parallel
+sibling critics cannot overwrite each other, conforming to
 [`acceptance-eval-verdict.schema.json`](../schemas/acceptance-eval-verdict.schema.json):
 one `criteria[]` record per acceptance item in your cluster, in acceptance-array
-order.
+order. Each `index` is the criterion's position in the Story's **full**
+`acceptance[]` array, not within your cluster — the caller merges on it.
 
 ```json
 {
@@ -146,10 +149,11 @@ order.
 - `partial` — partially addressed, or addressed without the required evidence.
 - `unmet` — not addressed, or the evidence contradicts the claim.
 
-Hand the verdict path to the caller's `acceptance-eval.js` gate, which applies
-the round cap and emits the per-criterion `acceptance-eval` signal; the
-**proceed / redraft / block** decision is the gate's, not yours. You score; the
-gate decides.
+**Return the verdict file's absolute path to your caller — never invoke
+`acceptance-eval.js` yourself.** The caller merges every cluster's records into
+one verdict and calls the gate **once** per round; a per-cluster call would burn
+a Story-level round per cluster. The **proceed / redraft / block** decision is
+the gate's, not yours. You score; the gate decides.
 
 ## Boundaries
 

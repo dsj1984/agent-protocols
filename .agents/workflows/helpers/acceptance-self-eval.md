@@ -40,8 +40,8 @@ mid-delivery, and evaluates the actual work product.
    `resolveCeremonyForRisk`). **Never run both**, and never run a
    preliminary self-assessment pass before dispatching the fresh critic —
    the redundant pre-pass buys no measurable quality and roughly triples
-   the acceptance-block cost. Step 2's gate is the deterministic **scorer**
-   of the one authored verdict, not a second (or third) pass over the
+   the acceptance-block cost. Step 3's gate is the deterministic **scorer**
+   of the one merged verdict, not a second (or third) pass over the
    criteria.
 
    > **Sub-agent type + derived-level ceremony.** When
@@ -134,19 +134,55 @@ mid-delivery, and evaluates the actual work product.
      fresh — a false-fresh coverage record without `coverage-final.json`
      silently weakens the floor. Limit the evidence-share to `lint` and
      `typecheck`.
-   - Emits a verdict file under `temp/` conforming to
+   - Emits a **cluster** verdict file under `temp/` conforming to
      [`acceptance-eval-verdict.schema.json`](../../schemas/acceptance-eval-verdict.schema.json):
      one `{ index, criterion, verdict: met|partial|unmet, evidence,
-     verifyEvidence[] }` record per acceptance item.
-2. **Decide.** Run the gate against the verdict (the caller's Step 1a names the
-   exact invocation — omit `--epic`). The gate **scores the single verdict
-   the round's owner authored** — schema validation, round cap, decision —
-   and never re-scores the criteria itself:
+     verifyEvidence[] }` record per acceptance item **in that cluster**, each
+     `index` being the item's position in the Story's full `acceptance[]`
+     array. A fresh critic **returns that path to you** rather than calling the
+     gate itself.
+2. **Dispatch the round's clusters in parallel, then merge into one verdict.**
+   The clusters of a round are independent, so dispatch **all** of the round's
+   fresh critics as N `Agent` calls **in a single assistant turn** —
+   [`parallel-tooling.md`](parallel-tooling.md) **Rule 3** — never serially,
+   and never one round per cluster. Clusters routed `inline` are authored in
+   the same round alongside them.
+
+   Then **merge** the cluster verdicts into **one** verdict file under `temp/`:
+   concatenate every cluster's `criteria[]` records and order the merged array
+   by `index`, so it holds exactly one record per `acceptance[]` item in
+   **acceptance-array order**, under a single top-level `storyId`,
+   `schemaVersion`, `round` and `commitSha`. The verdict schema deliberately
+   carries **no `clusterId`** — the round's artifact is the merged verdict, and
+   which critic scored which record is not part of the contract.
+
+   > **Why one gate call and not N.** The round counter is **Story-scoped** —
+   > derived by counting `acceptance-eval` signals in the Story's
+   > `signals.ndjson` — and each cluster verdict has a distinct fingerprint, so
+   > the replay guard never collapses them. A gate call per cluster would spend
+   > one of the (default 2) rounds *per cluster*, so a Story with more than 8
+   > acceptance criteria would exhaust its redraft budget on cluster arithmetic
+   > alone; N concurrent calls would also race that same ledger. Cluster-scoped
+   > round counting exists in
+   > [`acceptance-eval-decision.js`](../../scripts/lib/orchestration/acceptance-eval-decision.js)
+   > but requires an integer `epicId`, which v2 pins `null` — it is not a way
+   > around the merge.
+3. **Decide — exactly one gate call per round.** Run the gate against the
+   **merged** verdict (the caller's Step 1a names the exact invocation — omit
+   `--epic`). The gate **scores the single verdict the round produced** —
+   schema validation, round cap, decision — and never re-scores the criteria
+   itself:
 
    ```bash
    node <main-repo>/.agents/scripts/acceptance-eval.js \
-     --story <storyId> --verdict <verdict-path>
+     --story <storyId> --verdict <merged-verdict-path> \
+     --expected-criteria <number of acceptance[] items>
    ```
+
+   Pass `--expected-criteria` from the `acceptance[]` count you already read
+   off the Story body: a verdict whose `criteria[]` length differs — a single
+   cluster's verdict handed over unmerged — is rejected **before scoring**,
+   with an error naming the merge contract and consuming **no round**.
 
    The gate validates the verdict against the schema, applies the round cap,
    emits the per-criterion `acceptance-eval` signal into the retro / feedback
@@ -161,4 +197,5 @@ mid-delivery, and evaluates the actual work product.
      (transition to `agent::blocked`) and post a `friction` comment naming the
      unmet criteria and their evidence. Never silently proceed to close.
 
-Write the verdict files under `temp/` only — they are scratch artifacts.
+Write both the per-cluster verdicts and the merged verdict under `temp/` only —
+they are scratch artifacts.

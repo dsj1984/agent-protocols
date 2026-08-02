@@ -37,6 +37,7 @@ import {
   parseInFlight,
   resolveCapPrecedence,
   resolveConcurrencyCap,
+  runProbedStoriesWaveTick,
   runStoriesWaveTick,
   WEDGED_EXIT_CODE,
 } from '../../.agents/scripts/stories-wave-tick.js';
@@ -932,5 +933,180 @@ describe('the beat envelope reports the cap precedence (AC-6)', () => {
     assert.strictEqual(envelope.concurrencyCap, 8);
     assert.strictEqual(envelope.capPrecedence.source, 'flag');
     assert.strictEqual(typeof envelope.capPrecedence.note, 'string');
+  });
+});
+
+// ---------------------------------------------------------------------------
+// Story #4950 — the tick reports the in-flight footprint reservation
+// ---------------------------------------------------------------------------
+
+describe('buildReadySetEnvelope — inFlightReservation (Story #4950)', () => {
+  const held = (id, files) => ({
+    id,
+    dependsOn: [],
+    files,
+    labels: ['agent::executing'],
+  });
+
+  it('withholds a candidate racing an in-flight Story and names the blocker (AC-4)', () => {
+    const { envelope } = buildReadySetEnvelope(
+      [
+        { id: 1, dependsOn: [], files: ['lib/shared.js'] },
+        { id: 2, dependsOn: [], files: ['lib/other.js'] },
+      ],
+      {
+        concurrencyCap: 3,
+        inFlight: 1,
+        inFlightRecords: [held(9, ['lib/shared.js'])],
+      },
+    );
+
+    assert.deepEqual(envelope.ready, [2]);
+    assert.strictEqual(envelope.inFlightReservation.available, true);
+    assert.deepEqual(envelope.inFlightReservation.withheld, [
+      { id: 1, blockedBy: 9 },
+    ]);
+    // The note must name both sides — an unfilled slot with no explanation is
+    // exactly what this report exists to remove.
+    assert.match(envelope.inFlightReservation.note, /#1/);
+    assert.match(envelope.inFlightReservation.note, /#9/);
+    assert.match(envelope.inFlightReservation.note, /in flight/i);
+  });
+
+  it('reports available with no withholdings when nothing collides', () => {
+    const { envelope } = buildReadySetEnvelope(
+      [{ id: 1, dependsOn: [], files: ['lib/a.js'] }],
+      {
+        concurrencyCap: 3,
+        inFlight: 1,
+        inFlightRecords: [held(9, ['lib/held.js'])],
+      },
+    );
+    assert.deepEqual(envelope.ready, [1]);
+    assert.deepEqual(envelope.inFlightReservation, {
+      available: true,
+      withheld: [],
+      note: null,
+    });
+  });
+
+  it('says reservation is UNAVAILABLE in flag mode, and leaves selection unchanged (AC-2)', () => {
+    // Flag mode supplies a graph and an --in-flight count; no node carries a
+    // label, so nothing can classify in-flight and there is no footprint to
+    // reserve against. Reporting that explicitly is the point: a silently
+    // absent guard reads exactly like a guard that found nothing.
+    const nodes = [
+      { id: 1, dependsOn: [], files: ['lib/shared.js'] },
+      { id: 2, dependsOn: [], files: ['lib/other.js'] },
+    ];
+    const { envelope } = buildReadySetEnvelope(nodes, {
+      concurrencyCap: 3,
+      inFlight: 1,
+    });
+
+    assert.deepEqual(envelope.ready, [1, 2], 'selection is unchanged');
+    assert.strictEqual(envelope.inFlightReservation.available, false);
+    assert.deepEqual(envelope.inFlightReservation.withheld, []);
+    assert.match(envelope.inFlightReservation.note, /UNAVAILABLE/);
+    assert.match(envelope.inFlightReservation.note, /--probe-live/);
+  });
+
+  it('reports the reservation on the empty-DAG and cycle short-circuits too', () => {
+    const { envelope: empty } = buildReadySetEnvelope([], {
+      concurrencyCap: 3,
+      inFlightRecords: [],
+    });
+    assert.deepEqual(empty.inFlightReservation, {
+      available: true,
+      withheld: [],
+      note: null,
+    });
+
+    const { envelope: cyclic, exitCode } = buildReadySetEnvelope(
+      [
+        { id: 1, dependsOn: [2] },
+        { id: 2, dependsOn: [1] },
+      ],
+      { concurrencyCap: 3 },
+    );
+    assert.strictEqual(exitCode, 2);
+    assert.strictEqual(cyclic.inFlightReservation.available, false);
+  });
+
+  it('keeps a same-beat withholding out of the reservation report', () => {
+    // Two peers racing each other is the pre-existing guard, not a
+    // reservation — conflating them would misreport why the slot went unused.
+    const { envelope } = buildReadySetEnvelope(
+      [
+        { id: 1, dependsOn: [], files: ['lib/shared.js'] },
+        { id: 2, dependsOn: [], files: ['lib/shared.js'] },
+      ],
+      { concurrencyCap: 3, inFlightRecords: [] },
+    );
+    assert.deepEqual(envelope.ready, [1]);
+    assert.deepEqual(envelope.inFlightReservation.withheld, []);
+  });
+});
+
+describe('runProbedStoriesWaveTick — threads the probed in-flight records (AC-2)', () => {
+  const CONFIG = { delivery: { deliverRunner: { concurrencyCap: 3 } } };
+
+  /** Run a probe-mode tick against an injected probe result. */
+  const tick = (probed) =>
+    runProbedStoriesWaveTick({
+      stories: '1,2,9',
+      config: CONFIG,
+      context: () => ({ provider: {}, owner: 'o', repo: 'r', self: null }),
+      probe: async () => probed,
+    });
+
+  it('reserves the footprints live-probe already fetched', async () => {
+    const inFlightRecord = {
+      id: 9,
+      dependsOn: [],
+      files: ['lib/shared.js'],
+      body: '',
+      labels: ['agent::executing'],
+    };
+    const { envelope, exitCode } = await tick({
+      nodes: [
+        {
+          id: 1,
+          dependsOn: [],
+          files: ['lib/shared.js'],
+          body: '',
+          labels: [],
+        },
+        { id: 2, dependsOn: [], files: ['lib/other.js'], body: '', labels: [] },
+        inFlightRecord,
+      ],
+      inFlightRecords: [inFlightRecord],
+      doneIds: new Set(),
+      inFlight: 1,
+      blockedIds: [],
+      foreignHeld: [],
+    });
+
+    assert.strictEqual(exitCode, 0);
+    assert.deepEqual(envelope.ready, [2], '#1 races the in-flight #9');
+    assert.deepEqual(envelope.inFlightReservation.withheld, [
+      { id: 1, blockedBy: 9 },
+    ]);
+  });
+
+  it('stays available (and empty) when the probe reports nothing in flight', async () => {
+    const { envelope } = await tick({
+      nodes: [
+        { id: 1, dependsOn: [], files: ['lib/a.js'], body: '', labels: [] },
+      ],
+      inFlightRecords: [],
+      doneIds: new Set(),
+      inFlight: 0,
+      blockedIds: [],
+      foreignHeld: [],
+    });
+    assert.deepEqual(envelope.ready, [1]);
+    assert.strictEqual(envelope.inFlightReservation.available, true);
+    assert.deepEqual(envelope.inFlightReservation.withheld, []);
   });
 });

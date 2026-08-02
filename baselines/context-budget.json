@@ -180,8 +180,8 @@
     "files": [
       {
         "path": ".agents/agents/acceptance-critic.md",
-        "bytes": 7440,
-        "headroomBytes": 752
+        "bytes": 7861,
+        "headroomBytes": 331
       },
       {
         "path": ".agents/agents/auditor.md",

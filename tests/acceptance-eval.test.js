@@ -2,6 +2,8 @@ import assert from 'node:assert/strict';
 import { describe, it } from 'node:test';
 
 import {
+  assertCriteriaCoverage,
+  resolveExpectedCriteria,
   runAcceptanceEval,
   runAcceptanceEvalCli,
   validateVerdict,
@@ -228,6 +230,112 @@ describe('runAcceptanceEvalCli', () => {
     // The envelope is still printed before the throw — the loop's record of
     // why it blocked must survive the non-zero exit.
     assert.equal(JSON.parse(h.infos[0]).decision, 'block');
+  });
+});
+
+/**
+ * Story #4951 — one round = N parallel cluster critics → ONE merged verdict →
+ * ONE gate call.
+ *
+ * The round counter is Story-scoped, so a gate call per cluster spends a whole
+ * round per cluster. `--expected-criteria` is the guard: a verdict that does
+ * not cover every `acceptance[]` item is refused before the scoring path is
+ * ever entered, which the `seen` spy makes observable — an empty `seen` means
+ * the round ledger was never read or appended.
+ */
+describe('--expected-criteria — the merge contract (Story #4951)', () => {
+  const clusterVerdict = (count) =>
+    verdictFixture({
+      criteria: Array.from({ length: count }, (_, index) => ({
+        index,
+        criterion: `AC-${index + 1} holds`,
+        verdict: 'met',
+        evidence: 'npm test exits 0',
+      })),
+    });
+
+  it('resolves an absent flag to null so the assertion is opt-in', () => {
+    assert.equal(resolveExpectedCriteria(null), null);
+    assert.equal(resolveExpectedCriteria(undefined), null);
+    assert.equal(resolveExpectedCriteria('4'), 4);
+  });
+
+  it('refuses a non-positive or non-numeric --expected-criteria', () => {
+    for (const raw of ['0', '-2', 'four', '']) {
+      assert.throws(
+        () => resolveExpectedCriteria(raw),
+        /--expected-criteria must be a positive integer/,
+        `--expected-criteria ${raw} should be refused`,
+      );
+    }
+  });
+
+  it('passes a verdict covering exactly the expected criteria', () => {
+    assert.doesNotThrow(() => assertCriteriaCoverage(clusterVerdict(4), 4));
+  });
+
+  it('is a no-op when no expectation was given', () => {
+    assert.doesNotThrow(() => assertCriteriaCoverage(clusterVerdict(1), null));
+  });
+
+  it('scores a merged full-coverage verdict as one round', async () => {
+    const h = harness({ verdict: clusterVerdict(4) });
+    const envelope = await runAcceptanceEvalCli(
+      [
+        '--story',
+        '4780',
+        '--verdict',
+        'merged.json',
+        '--expected-criteria',
+        '4',
+      ],
+      h.deps,
+    );
+    assert.equal(envelope.decision, 'proceed');
+    assert.equal(h.seen.length, 1, 'the gate scores the merged verdict once');
+  });
+
+  it('rejects an unmerged cluster verdict before scoring, consuming no round', async () => {
+    const h = harness({ verdict: clusterVerdict(2) });
+    await assert.rejects(
+      () =>
+        runAcceptanceEvalCli(
+          [
+            '--story',
+            '4780',
+            '--verdict',
+            'cluster-1.json',
+            '--expected-criteria',
+            '4',
+          ],
+          h.deps,
+        ),
+      (err) => {
+        assert.match(
+          err.message,
+          /verdict covers 2 criteria but --expected-criteria is 4/,
+        );
+        assert.match(err.message, /ONE merged verdict -> ONE gate call/);
+        assert.match(err.message, /No round was consumed/);
+        return true;
+      },
+    );
+    assert.deepEqual(h.seen, [], 'the scoring path must never be entered');
+    assert.deepEqual(
+      h.infos,
+      [],
+      'no envelope is printed for a refused verdict',
+    );
+  });
+
+  it('preserves current behaviour exactly when the flag is omitted', async () => {
+    const h = harness({ verdict: clusterVerdict(2) });
+    const envelope = await runAcceptanceEvalCli(
+      ['--story', '4780', '--verdict', 'cluster-1.json'],
+      h.deps,
+    );
+    assert.equal(envelope.decision, 'proceed');
+    assert.equal(h.seen.length, 1);
   });
 });
 
