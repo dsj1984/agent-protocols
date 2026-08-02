@@ -42,11 +42,11 @@ export function pushStoryBranch({
 }) {
   progress('GIT', `Pushing ${storyBranch} to origin...`);
   try {
-    // Deliberately not `--no-verify`. Close runs its own gate chain before
-    // this point, but `--skip-validation` skips that chain, and the bypass
-    // then left nothing running at all. `pre-push` is the backstop, and it
-    // only became reachable once hooks were materialized into worktrees —
-    // which is where every Story branch is built.
+    // No hook-bypass flag here, deliberately. Close runs its own gate chain
+    // before this point, but `--skip-validation` skips that chain, and the
+    // bypass then left nothing running at all. `pre-push` is the backstop,
+    // and it only became reachable once hooks were materialized into
+    // worktrees — which is where every Story branch is built.
     gitSync(cwd, 'push', '-u', 'origin', storyBranch);
     progress('GIT', `✅ Pushed ${storyBranch}.`);
   } catch (err) {

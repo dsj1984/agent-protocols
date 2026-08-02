@@ -1,7 +1,7 @@
 {
   "$schema": ".agents/schemas/baselines/coverage.schema.json",
   "kernelVersion": "1.0.0",
-  "generatedAt": "2026-08-02T19:00:20.263Z",
+  "generatedAt": "2026-08-02T19:07:15.601Z",
   "rollup": {
     "*": {
       "lines": 95.76,
@@ -2874,8 +2874,8 @@
     },
     {
       "path": ".agents/scripts/lib/worktree/git-hooks.js",
-      "lines": 97.01,
-      "branches": 85.29,
+      "lines": 97.09,
+      "branches": 84.85,
       "functions": 100
     },
     {
