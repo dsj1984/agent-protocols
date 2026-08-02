@@ -377,6 +377,7 @@ export async function runSingleStoryClose({
   waitForMerge: waitForMergeParam,
   noWaitForMerge: noWaitForMergeParam,
   maxWaitSeconds: maxWaitSecondsParam,
+  mergeWatchMode: mergeWatchModeParam,
   injectedProvider,
   injectedConfig,
   injectedNotify,
@@ -395,10 +396,11 @@ export async function runSingleStoryClose({
     waitForMergeParam,
     noWaitForMergeParam,
     maxWaitSecondsParam,
+    mergeWatchModeParam,
   });
   if (!options.storyId) {
     throw new Error(
-      'Usage: node single-story-close.js --story <STORY_ID> [--cwd <main-repo>] [--skip-validation] [--skip-sync] [--no-auto-merge] [--wait-merge|--no-wait-merge] [--max-wait-seconds <n>]',
+      'Usage: node single-story-close.js --story <STORY_ID> [--cwd <main-repo>] [--skip-validation] [--skip-sync] [--no-auto-merge] [--wait-merge|--no-wait-merge] [--max-wait-seconds <n>] [--merge-watch-mode <sync|async>]',
     );
   }
 
@@ -509,6 +511,7 @@ async function finishWithMergeWait(prCtx, deps) {
     provider: deps.provider,
     config: prCtx.config,
     maxWaitSeconds: deps.maxWaitSeconds,
+    mergeWatchMode: deps.mergeWatchMode,
     progress,
     injectedGh: deps.injectedGh,
     injectedNotify: deps.injectedNotify,
@@ -843,6 +846,7 @@ async function runClosePipeline({
       cwd: options.cwd,
       provider,
       maxWaitSeconds: options.maxWaitSeconds,
+      mergeWatchMode: options.mergeWatchMode,
       setPhase,
       injectedGh,
       injectedNotify,

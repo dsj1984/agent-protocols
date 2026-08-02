@@ -43,6 +43,16 @@
  *                              [--skip-validation] [--skip-sync]
  *                              [--no-auto-merge]
  *                              [--wait-merge | --no-wait-merge]
+ *                              [--merge-watch-mode <sync|async>]
+ *
+ * `--merge-watch-mode` (Story #4949) overrides `delivery.mergeWatch.mode` for
+ * one invocation, on the same explicit-wins-over-config precedence
+ * `--max-wait-seconds` uses, and the two compose. It exists because run
+ * topology is invisible from inside close: a solo delivery is cheapest waiting
+ * in the foreground, while the Nth close of a wave pays that wait as
+ * serialized dead time. The config default therefore stays `sync` and the
+ * orchestrator — the only party that knows N — passes `async` per close. An
+ * unrecognized value fails during option parsing, before any phase runs.
  *
  * Close-and-land is the DEFAULT for every run (Story #4428 introduced it as
  * `--wait-merge`; `delivery.routing.closeAndLand` — default `true` — made it
@@ -191,6 +201,10 @@ runAsCli(import.meta.url, main, {
       ['--wait-merge', 'Force the in-close merge wait.'],
       ['--no-wait-merge', 'Return as soon as the PR is open; do not wait.'],
       ['--max-wait-seconds <n>', 'Per-invocation merge-wait bound.'],
+      [
+        '--merge-watch-mode <sync|async>',
+        'Override delivery.mergeWatch.mode for this invocation only. `async` caps the merge wait to a short probe window and returns the resumable `pending` terminal instead of holding the foreground slot — pass it on every close of a multi-Story run. An invalid value exits non-zero before any phase runs.',
+      ],
       ['--no-evidence', 'Do not reuse or write gate evidence stamps.'],
       ['--dry-run', 'Report the plan; mutate nothing.'],
     ],

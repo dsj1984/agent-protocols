@@ -1,6 +1,7 @@
 import assert from 'node:assert/strict';
 import { afterEach, describe, it } from 'node:test';
 
+import { runPlanRunEpilogue } from '../.agents/scripts/lib/orchestration/run-epilogue.js';
 import { main } from '../.agents/scripts/plan-run-epilogue.js';
 
 /**
@@ -153,5 +154,92 @@ describe('plan-run-epilogue main', () => {
     await main(['--stories', '1'], h.deps);
     assert.deepEqual(h.warn, []);
     assert.equal(h.info.length, 1);
+  });
+});
+
+/**
+ * Story #4949 — the roster comment names the lenses; before this it said
+ * nothing about how to dispatch them, so a serial walk (or a coordinator
+ * sub-agent that re-dispatched them as grandchildren) was fully compliant
+ * with it. Lenses are read-only and share no write paths — the textbook
+ * independent fan-out — and grandchild routing is measured-lossy, so the shape
+ * is a MUST rather than a suggestion. This pins the wording: the instruction
+ * lives in a GitHub comment body, which has no other gate over it.
+ */
+describe('audit-roster — the emitted dispatch instruction (Story #4949 AC-4)', () => {
+  const US = String.fromCharCode(31);
+
+  /** A run whose two Stories landed as squash-merges on `origin/main`. */
+  const landedRunGit = {
+    gitSpawn: (_cwd, ...args) => {
+      if (args[0] === 'log') {
+        return {
+          status: 0,
+          stdout: [
+            `ccc${US}bbb${US}fix: second (#2)`,
+            `bbb${US}aaa${US}feat: first (#1)`,
+            `aaa${US}${US}chore: pre-run base`,
+          ].join('\n'),
+          stderr: '',
+        };
+      }
+      if (args[0] === 'diff') {
+        return { status: 0, stdout: 'lib/a.js\nlib/b.js\n', stderr: '' };
+      }
+      return { status: 0, stdout: '', stderr: '' };
+    },
+  };
+
+  async function rosterBody(selectedAudits) {
+    const comments = [];
+    await runPlanRunEpilogue({
+      planRunId: 'run-4949',
+      stories: [1, 2],
+      provider: {
+        getTicket: async (id) => ({
+          id,
+          title: `Story ${id}`,
+          body: '',
+          labels: ['type::story'],
+        }),
+        getTicketComments: async () => [],
+        postComment: async (ticketId, payload) => {
+          comments.push({ ticketId, body: payload.body });
+          return { commentId: comments.length };
+        },
+        deleteComment: async () => {},
+      },
+      git: landedRunGit,
+      selectAuditsFn: async () => ({ selectedAudits }),
+    });
+    return comments.find((c) => c.body.includes('plan-run-audit-roster')).body;
+  }
+
+  it('mandates one auditor sub-agent per lens, dispatched flat in a single turn', async () => {
+    const body = await rosterBody(['audit-clean-code', 'audit-performance']);
+    assert.match(
+      body,
+      /\*\*Dispatch shape \(MUST\): flat, parallel, one turn\.\*\*/,
+    );
+    assert.match(body, /one `auditor` sub-agent per lens/);
+    assert.match(body, /in a SINGLE turn/);
+    assert.match(
+      body,
+      /no nested fan-out/,
+      'a coordinator that re-dispatches the lenses as grandchildren loses findings',
+    );
+    assert.match(body, /no serial walk/);
+  });
+
+  it('emits the instruction even when the roster selected no lenses', async () => {
+    // A roster is not always non-empty, and the dispatch contract must not be
+    // conditional on the count — a lens added on the next run would otherwise
+    // inherit an instruction-free comment.
+    const body = await rosterBody([]);
+    assert.match(body, /Dispatch shape \(MUST\)/);
+    assert.match(
+      body,
+      /_\(none — docs-only or no matching change-set lenses\)_/,
+    );
   });
 });

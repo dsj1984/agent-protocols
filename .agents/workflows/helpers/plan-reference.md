@@ -315,6 +315,14 @@ output shape standalone. When the kill-switch is off
 (`roleScopedAgents: false`) or the host cannot spawn at this depth, fall back
 to a generic sub-agent and hand it the same charter (the `consolidation` /
 `pre-mortem` definitions in [`plan-critic.md`](../../agents/plan-critic.md)).
+**When both critics fire, dispatch them in a single turn.** Consolidation and
+pre-mortem read the same immutable draft, share no write path, and neither
+consumes the other's verdict — the textbook independent fan-out of
+[`parallel-tooling.md`](parallel-tooling.md) Rule 3. Issue both `Agent` calls
+together in one assistant turn rather than awaiting the first verdict before
+spawning the second; serialized critics double the round's wall clock and buy
+nothing, because you fold both verdicts into the same re-author round anyway.
+
 Either way the critic is **maker-blind**: hand it the draft artifacts
 (`stories.json`, and `techspec.md` when present) — never the authoring
 transcript or the reasons the planner believed its own draft is sound. A

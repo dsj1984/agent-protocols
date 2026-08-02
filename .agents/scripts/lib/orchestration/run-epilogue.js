@@ -494,6 +494,18 @@ async function executeAuditRoster({
       ? selectedAudits.map((lens) => `- \`${lens}\``)
       : ['- _(none — docs-only or no matching change-set lenses)_']),
     '',
+    // Story #4949 — the roster used to name the lenses and say nothing about
+    // how to dispatch them, which made a serial walk (and a nested
+    // coordinator) fully compliant with it. The lenses are read-only and share
+    // no write paths, so they are the textbook independent fan-out; naming the
+    // shape here is what turns that from an option into the instruction.
+    '**Dispatch shape (MUST): flat, parallel, one turn.** Spawn one ' +
+      '`auditor` sub-agent per lens listed above and issue every one of those ' +
+      'spawns in a SINGLE turn — no nested fan-out, no serial walk. A ' +
+      'coordinator sub-agent that re-dispatches the lenses is the failure ' +
+      'this line exists to prevent: a grandchild routes its findings to the ' +
+      'wrong parent or loses them outright.',
+    '',
     '```json',
     JSON.stringify(
       {

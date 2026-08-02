@@ -282,15 +282,33 @@ export async function readPrWaitProbe({
  * explicit `maxWaitSecondsOverride` still wins over the async cap — a headless
  * caller with no host ceiling opts back into single-block waiting.
  *
+ * `modeOverride` is the per-invocation `--merge-watch-mode` flag (Story #4949)
+ * and wins over `delivery.mergeWatch.mode` on exactly the precedence
+ * `maxWaitSecondsOverride` already uses. It exists because run topology is
+ * knowable only to the orchestrator: close sees one Story and cannot tell a
+ * solo delivery (where a foreground wait is the cheapest ending) from the Nth
+ * close of a wave (where each foreground wait is serialized dead time). The
+ * config default therefore stays `sync`, and the caller that knows better says
+ * so per invocation. The two flags remain composable — `--merge-watch-mode
+ * async --max-wait-seconds 900` selects the async posture and then overrides
+ * its probe cap, because the cap check below keys on the override's presence,
+ * not on where the mode came from.
+ *
  * @param {object} [config]
  * @param {number} [maxWaitSecondsOverride]
+ * @param {'sync'|'async'} [modeOverride]
  * @returns {{ mode: 'sync'|'async', intervalSeconds: number, maxWaitSeconds: number, maxBudgetSeconds: number, updateAttempts: number }}
  */
-export function resolveMergeWaitConfig(config, maxWaitSecondsOverride) {
+export function resolveMergeWaitConfig(
+  config,
+  maxWaitSecondsOverride,
+  modeOverride,
+) {
   const mergeWatch = config?.delivery?.mergeWatch ?? {};
   const int = (value, fallback, min = 1) =>
     Number.isInteger(value) && value >= min ? value : fallback;
-  const mode = mergeWatch.mode === 'async' ? 'async' : 'sync';
+  const requestedMode = modeOverride ?? mergeWatch.mode;
+  const mode = requestedMode === 'async' ? 'async' : 'sync';
   const configuredMaxWait = int(
     maxWaitSecondsOverride,
     int(mergeWatch.maxWaitSeconds, DEFAULT_MAX_WAIT_SECONDS),
@@ -759,6 +777,9 @@ async function onMergeObserved({
  * @param {string|null} args.autoMergeReason
  * @param {object} args.provider
  * @param {object} [args.config]
+ * @param {'sync'|'async'} [args.mergeWatchMode] Per-invocation
+ *   `--merge-watch-mode` override (Story #4949); wins over
+ *   `delivery.mergeWatch.mode`.
  * @param {(tag: string, msg: string) => void} [args.progress]
  * @param {object} [args.injectedGh]
  * @param {Function} [args.injectedNotify]
@@ -791,6 +812,7 @@ export async function runConfirmMergePhase({
   provider,
   config,
   maxWaitSeconds: maxWaitSecondsOverride,
+  mergeWatchMode: mergeWatchModeOverride,
   progress,
   injectedGh,
   injectedNotify,
@@ -833,7 +855,11 @@ export async function runConfirmMergePhase({
     maxWaitSeconds,
     maxBudgetSeconds,
     updateAttempts,
-  } = resolveMergeWaitConfig(config, maxWaitSecondsOverride);
+  } = resolveMergeWaitConfig(
+    config,
+    maxWaitSecondsOverride,
+    mergeWatchModeOverride,
+  );
   const intervalMs = intervalSeconds * 1000;
   const startedAtMs = nowMsFn();
   let anchorMs = startedAtMs;

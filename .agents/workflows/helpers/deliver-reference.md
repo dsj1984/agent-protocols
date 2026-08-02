@@ -124,6 +124,18 @@ footprint keeps the fresh acceptance critic), and the `route::lite` label
 remains a human-visible hint only, never the control signal — a lost or
 never-written label cannot misroute delivery.
 
+**Issue a beat's spawns in one turn.** A wave tick hands you a ready set, not a
+queue: those Stories have no dependency edge between them (the resolver already
+withheld any that do) and no shared write paths (each owns its own worktree and
+branch). Dispatch them the way
+[`parallel-tooling.md`](parallel-tooling.md) Rule 3 prescribes — **N `Agent`
+calls issued together in a single assistant turn**, one per ready Story, not
+`Agent` → wait → `Agent`. Serial dispatch is compliant with every other rule on
+this page and costs the run a full Story's implementation time per sibling for
+nothing; the wave aggregator is built for the parallel shape. Respect
+`delivery.deliverRunner.concurrencyCap`: when the ready set exceeds it, slice
+into batches of `cap` and dispatch each batch in its own turn.
+
 **Dispatch each `ready` Story (role-scoped by default).** When
 `delivery.routing.roleScopedAgents` is enabled (the **default**) and the host
 exposes agent dispatch, spawn each ready Story as its own
@@ -263,8 +275,32 @@ A slow-CI consumer can opt the close into `"async"` mode so the merge wait
 probes once for ~60s (catching an instant merge or an instantly-red required
 check) and then returns `pending` instead of burning ~5 minutes of the host
 tool slot polling a merge that lands after the wait would have expired anyway.
-When a worker returns that `pending` envelope, launch its `nextCommand` as a
+When a close returns that `pending` envelope, launch its `nextCommand` as a
 **background** invocation (host background Bash — its completion re-invokes the
 agent) and move on to the next Story; `single-story-confirm-merge.js` is
 idempotent and owns the whole tail. Do not foreground-poll the merge. The
 default `"sync"` behaviour is unchanged.
+
+**On a multi-Story run, pass `--merge-watch-mode async` on every close.** Close
+sees one Story and cannot see run topology, so it cannot make this call for
+itself — you can. Implementation runs in parallel but the close tail is
+serialized one at a time, and under `sync` each of those closes holds the
+foreground for its full merge wait before the next Story's close may start.
+That is the run's dominant serialized cost, and it is paid per sibling:
+
+```bash
+node <main-repo>/.agents/scripts/single-story-close.js \
+  --story <storyId> --cwd <main-repo> --merge-watch-mode async
+```
+
+The flag overrides `delivery.mergeWatch.mode` for that invocation only — the
+config default stays `"sync"`, which is right for the solo delivery that has no
+sibling waiting behind it. It composes with `--max-wait-seconds`: pass both and
+the explicit bound still wins over the async probe cap. An unrecognized value
+exits non-zero before any phase runs, so a typo cannot silently drop the run
+back onto synchronous waiting. Expect a `pending` envelope from each async
+close — that is the designed ending here, not a failure; background its
+`nextCommand` and move to the next Story's close immediately.
+
+A one-Story run should keep the `sync` default: there is no sibling to unblock,
+and the foreground wait is the cheapest path to `landed`.

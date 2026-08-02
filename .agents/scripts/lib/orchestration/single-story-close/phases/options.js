@@ -9,7 +9,7 @@
  */
 
 import path from 'node:path';
-import { parseSprintArgs } from '../../../cli-args.js';
+import { parseMergeWatchMode, parseSprintArgs } from '../../../cli-args.js';
 import { getDeliveryRouting } from '../../../config/delivery-routing.js';
 import { PROJECT_ROOT } from '../../../project-root.js';
 import { isOperatorMergeReason } from './auto-merge.js';
@@ -21,7 +21,8 @@ import { isOperatorMergeReason } from './auto-merge.js';
  * @template T
  * @param {T|undefined} paramValue
  * @param {T|undefined} parsedValue
- * @param {T} defaultValue
+ * @param {T} [defaultValue] Omitted when "neither supplied" is itself the
+ *   answer — the caller then distinguishes absence from a real value.
  * @returns {T}
  */
 function resolveFlag(paramValue, parsedValue, defaultValue) {
@@ -87,8 +88,8 @@ export function resolveWaitForMerge({
  * (`waitForMergeExplicit` / `noWaitForMerge`) for the runner to resolve once
  * the config and the arm outcome exist.
  *
- * @param {{ storyIdParam, cwdParam, skipValidationParam, skipSyncParam, noAutoMergeParam, waitForMergeParam, noWaitForMergeParam, maxWaitSecondsParam }} raw
- * @returns {{ storyId, cwd, skipValidation, skipSync, noAutoMerge, waitForMergeExplicit, noWaitForMerge, maxWaitSeconds }}
+ * @param {{ storyIdParam, cwdParam, skipValidationParam, skipSyncParam, noAutoMergeParam, waitForMergeParam, noWaitForMergeParam, maxWaitSecondsParam, mergeWatchModeParam }} raw
+ * @returns {{ storyId, cwd, skipValidation, skipSync, noAutoMerge, waitForMergeExplicit, noWaitForMerge, maxWaitSeconds, mergeWatchMode }}
  */
 export function parseCloseOptions({
   storyIdParam,
@@ -99,26 +100,27 @@ export function parseCloseOptions({
   waitForMergeParam,
   noWaitForMergeParam,
   maxWaitSecondsParam,
+  mergeWatchModeParam,
 }) {
-  const parsed =
-    storyIdParam !== undefined
-      ? {
-          storyId: storyIdParam,
-          cwd: cwdParam ?? null,
-          skipValidation: !!skipValidationParam,
-          skipSync: !!skipSyncParam,
-          noAutoMerge: !!noAutoMergeParam,
-          // Preserve undefined so resolveWaitForMerge can apply the
-          // closeAndLand config default when neither flag was injected.
-          waitForMerge: waitForMergeParam,
-          noWaitForMerge: !!noWaitForMergeParam,
-          maxWaitSeconds: maxWaitSecondsParam,
-        }
-      : parseSprintArgs();
-  const waitForMergeExplicit = waitForMergeParam ?? parsed.waitForMerge;
-  const maxWaitSeconds = maxWaitSecondsParam ?? parsed.maxWaitSeconds;
+  // An injecting caller (`storyIdParam` supplied) is not reading argv at all,
+  // so there is nothing to parse and `parsed` stays empty. This used to build a
+  // stand-in object that copied every `*Param` into the slot of the same name —
+  // which is precisely what `resolveFlag` already does below, preferring the
+  // param over the parsed slot. One expression per flag now serves both
+  // callers, so a new flag is added in one place instead of two that can drift.
+  const parsed = storyIdParam === undefined ? parseSprintArgs() : {};
+  // Preserve undefined so resolveWaitForMerge can apply the closeAndLand
+  // config default when neither flag was supplied.
+  const waitForMergeExplicit = resolveFlag(
+    waitForMergeParam,
+    parsed.waitForMerge,
+  );
+  const maxWaitSeconds = resolveFlag(
+    maxWaitSecondsParam,
+    parsed.maxWaitSeconds,
+  );
   return {
-    storyId: parsed.storyId,
+    storyId: resolveFlag(storyIdParam, parsed.storyId),
     cwd: path.resolve(cwdParam ?? parsed.cwd ?? PROJECT_ROOT),
     // `undefined` when unsupplied — the merge wait then reads
     // `delivery.mergeWatch.maxWaitSeconds`. A per-run override exists so a
@@ -128,21 +130,20 @@ export function parseCloseOptions({
       Number.isInteger(maxWaitSeconds) && maxWaitSeconds > 0
         ? maxWaitSeconds
         : undefined,
-    skipValidation: resolveFlag(
-      skipValidationParam,
-      parsed.skipValidation,
-      false,
+    // `undefined` when unsupplied — the merge wait then reads
+    // `delivery.mergeWatch.mode`. The two merge-watch flags stay composable and
+    // mode-agnostic: `--merge-watch-mode async` picks the posture, and an
+    // explicit `--max-wait-seconds` still wins over that posture's probe cap.
+    mergeWatchMode: parseMergeWatchMode(
+      resolveFlag(mergeWatchModeParam, parsed.mergeWatchMode),
     ),
-    skipSync: resolveFlag(skipSyncParam, parsed.skipSync, false),
-    noAutoMerge: resolveFlag(noAutoMergeParam, parsed.noAutoMerge, false),
+    skipValidation: !!resolveFlag(skipValidationParam, parsed.skipValidation),
+    skipSync: !!resolveFlag(skipSyncParam, parsed.skipSync),
+    noAutoMerge: !!resolveFlag(noAutoMergeParam, parsed.noAutoMerge),
     waitForMergeExplicit:
       typeof waitForMergeExplicit === 'boolean'
         ? waitForMergeExplicit
         : undefined,
-    noWaitForMerge: resolveFlag(
-      noWaitForMergeParam,
-      parsed.noWaitForMerge,
-      false,
-    ),
+    noWaitForMerge: !!resolveFlag(noWaitForMergeParam, parsed.noWaitForMerge),
   };
 }
