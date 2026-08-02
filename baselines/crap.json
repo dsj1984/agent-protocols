@@ -4,6 +4,7 @@
   "generatedAt": "2026-07-30T02:34:12.345Z",
   "scoringSemantics": "coverage-join-v2",
   "tsTranspilerVersion": "6.0.3",
+  "provenanceStamped": true,
   "rollup": {
     "*": {
       "p50": 2,

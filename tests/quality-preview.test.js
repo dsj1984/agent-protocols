@@ -775,6 +775,61 @@ describe('runCrapPreview — compat check runs BEFORE the compare (AC-6)', () =>
   });
 });
 
+// ---------------------------------------------------------------------------
+// Story #4901 — the upgrade door. A baseline written before provenance
+// stamping asserts by omission that all its rows are original coordinates.
+// The preview must fail OPEN and say "re-seed", not emit regressions derived
+// from a join it cannot key.
+// ---------------------------------------------------------------------------
+describe('runCrapPreview — a pre-provenance baseline is refused (#4901)', () => {
+  it('exits 0, suppresses verdicts, and names the re-seed remedy', async () => {
+    const methodCount = 25;
+    // A TS row with no `provenanceStamped` marker: the pre-#4866 writer's
+    // exact output shape, and the one the ts-transpiler axis deliberately
+    // exempts.
+    const baselineRows = [
+      ...baselineRowsFor(methodCount, 0, 0),
+      { path: 'src/legacy.tsx', method: 'render', startLine: 458, crap: 2 },
+    ];
+    const dir = makeCrapFixture({ methodCount, baselineRows });
+    try {
+      const { exitCode, envelope } = await runCrapPreview({ cwd: dir });
+      assert.equal(exitCode, 0, 'the preview fails open, never closed');
+      assert.deepEqual(envelope.violations, []);
+      assert.equal(envelope.diagnostics[0].name, 'crap-baseline-incompatible');
+      assert.match(
+        envelope.diagnostics[0].message,
+        /predates coordinate-provenance stamping/,
+      );
+      assert.match(
+        envelope.diagnostics[0].message,
+        /crap:update -- --full-scope/,
+      );
+      // Refused before the scan's rows ever meet it.
+      assert.equal(envelope.summary.total, 0);
+    } finally {
+      rmFixture(dir);
+    }
+  });
+
+  it('leaves a pure-JavaScript baseline alone even without the marker', async () => {
+    // The invariant that keeps every JS consumer (this repo included) off the
+    // re-seed path: no transpiled row means no coordinate that could be wrong.
+    const methodCount = 25;
+    const dir = makeCrapFixture({
+      methodCount,
+      baselineRows: baselineRowsFor(methodCount, 0, 0),
+    });
+    try {
+      const { envelope } = await runCrapPreview({ cwd: dir });
+      assert.deepEqual(envelope.diagnostics ?? [], []);
+      assert.equal(envelope.summary.total, methodCount);
+    } finally {
+      rmFixture(dir);
+    }
+  });
+});
+
 test('renderDiagnostics — a suppressed gate is never silent', () => {
   assert.equal(renderDiagnostics([{ envelope: null }, { envelope: {} }]), null);
   const rendered = renderDiagnostics([

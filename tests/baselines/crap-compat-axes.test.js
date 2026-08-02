@@ -30,11 +30,15 @@ function axis(name) {
 // Story #4866: the ts-transpiler axis is scoped to baselines that actually
 // contain transpiled sources, so the shared fixture carries one TS row. A
 // transpiler change moves TS row coordinates and nothing else.
+// Story #4901: a current writer stamps `provenanceStamped`, so a baseline
+// that is valid in every other respect carries it too — without it the
+// `provenance-unstamped` axis would (correctly) refuse this TS-row fixture.
 const VALID_BASELINE = {
   escomplexVersion: '0.8.0',
   kernelVersion: '0.8.0',
   tsTranspilerVersion: '5.4.0',
   scoringSemantics: SCORING_SEMANTICS,
+  provenanceStamped: true,
   rows: [{ path: 'src/a.ts', method: 'run', startLine: 3, crap: 2 }],
 };
 
@@ -361,5 +365,102 @@ describe('scoring-semantics-drift axis', () => {
 
   it('treats a null baseline as the missing-baseline axis job, not its own', () => {
     assert.equal(assertBaselineCompatible(null), null);
+  });
+});
+
+// ---------------------------------------------------------------------------
+// Story #4901 — the pre-provenance baseline axis.
+//
+// The hole this closes is `ts-transpiler-drift`'s own deliberate exemption:
+// it returns null for an unstamped baseline so that pre-existing baselines
+// are not failed for no evidence. A pre-#4866 baseline is exactly that shape.
+// ---------------------------------------------------------------------------
+describe('provenance-unstamped axis (#4901)', () => {
+  // The real pre-#4866 shape: neither stamp exists, because neither had been
+  // written yet. Keeping `tsTranspilerVersion` here would be unfaithful AND
+  // would let the earlier ts-transpiler axis short-circuit the reduce — the
+  // very exemption that makes this axis necessary is what routes a genuine
+  // pre-provenance baseline through to it.
+  const PRE_PROVENANCE_BASELINE = (() => {
+    const b = { ...VALID_BASELINE };
+    delete b.provenanceStamped;
+    delete b.tsTranspilerVersion;
+    return b;
+  })();
+
+  it('is fatal, not a warning', () => {
+    assert.equal(axis('provenance-unstamped').severity, 'fatal');
+  });
+
+  it('fires on a TS-row baseline with no provenanceStamped marker', () => {
+    const message = axis('provenance-unstamped').check({
+      baseline: PRE_PROVENANCE_BASELINE,
+    });
+    assert.match(message, /predates coordinate-provenance stamping/);
+  });
+
+  it('passes a baseline carrying the marker', () => {
+    assert.equal(
+      axis('provenance-unstamped').check({ baseline: VALID_BASELINE }),
+      null,
+    );
+  });
+
+  it('never fires on a pure-JavaScript baseline, marker or not', () => {
+    // The load-bearing exemption: JS coordinates already ARE original-source
+    // coordinates, so a JS-only baseline was never affected by #4866 and must
+    // not be forced through a re-seed it does not need.
+    const jsLegacy = { ...JS_ONLY_BASELINE };
+    delete jsLegacy.provenanceStamped;
+    assert.equal(
+      axis('provenance-unstamped').check({ baseline: jsLegacy }),
+      null,
+    );
+  });
+
+  it('does not accept a truthy non-true marker', () => {
+    // The marker is an assertion, not a hint — only the writer's literal
+    // `true` counts, so a hand-edited string cannot wave a baseline through.
+    const spoofed = { ...PRE_PROVENANCE_BASELINE, provenanceStamped: 'yes' };
+    assert.match(
+      axis('provenance-unstamped').check({ baseline: spoofed }),
+      /predates coordinate-provenance stamping/,
+    );
+  });
+
+  it('treats a null baseline as the missing-baseline axis job', () => {
+    assert.equal(axis('provenance-unstamped').check({ baseline: null }), null);
+  });
+
+  it('names the exact re-seed command in its guidance', () => {
+    const message = axis('provenance-unstamped').check({
+      baseline: PRE_PROVENANCE_BASELINE,
+    });
+    assert.match(message, /npm run test:coverage/);
+    assert.match(message, /crap:update -- --full-scope/);
+    assert.match(message, /baseline-refresh:/);
+  });
+
+  it('is reachable through assertBaselineCompatible (the loaded-envelope door)', () => {
+    // Without this registration the axis exists but nothing in production
+    // reaches it — the exact shape of the #4866 gap it closes.
+    const message = assertBaselineCompatible(PRE_PROVENANCE_BASELINE);
+    assert.match(message, /predates coordinate-provenance stamping/);
+  });
+
+  it('fails the whole reduce closed', () => {
+    const out = evaluateBaselineCompatibility({
+      ...VALID_CTX,
+      baseline: PRE_PROVENANCE_BASELINE,
+    });
+    assert.equal(out.ok, false);
+    assert.equal(out.exitCode, 1);
+    assert.equal(out.kind, 'provenance-unstamped');
+  });
+});
+
+describe('envelopeExtras — provenance marker (#4901)', () => {
+  it('stamps provenanceStamped: true so new baselines carry the assertion', () => {
+    assert.equal(envelopeExtras().provenanceStamped, true);
   });
 });
