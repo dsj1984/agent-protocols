@@ -26,15 +26,20 @@ import path from 'node:path';
 import * as defaultGit from '../git-utils.js';
 import { assertPathContainment } from '../path-security.js';
 
-/** `core.hooksPath` is unset — git uses the common `hooks` dir, shared already. */
-export const SKIP_UNSET = 'hooks-path-unset';
-/** `core.hooksPath` is absolute — it already resolves alike from every tree. */
-export const SKIP_ABSOLUTE = 'hooks-path-absolute';
-/** The resolved source directory does not exist (no husky in this project). */
-export const SKIP_SOURCE_ABSENT = 'source-absent';
-/** Target and source are the same checkout — nothing to mirror, and copying
- *  onto itself would destroy the only copy. */
-export const SKIP_SAME_CHECKOUT = 'same-checkout';
+// Skip reasons. Deliberately not exported: they are part of the result
+// digest's observable contract, so callers and tests read them as the literal
+// strings they are printed as, not through a symbol that could be renamed
+// without anyone noticing the digest changed.
+//
+//   hooks-path-unset  — git uses the common `hooks` dir, already shared.
+//   hooks-path-absolute — resolves alike from every working tree already.
+//   source-absent     — no hooks directory to mirror (no husky in this project).
+//   same-checkout     — target is the source; copying it onto itself would
+//                       destroy the only copy.
+const SKIP_UNSET = 'hooks-path-unset';
+const SKIP_ABSOLUTE = 'hooks-path-absolute';
+const SKIP_SOURCE_ABSENT = 'source-absent';
+const SKIP_SAME_CHECKOUT = 'same-checkout';
 
 /**
  * Read `core.hooksPath` as configured for `repoRoot`.

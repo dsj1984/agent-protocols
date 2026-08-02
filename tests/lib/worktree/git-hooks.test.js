@@ -11,13 +11,15 @@ import fs from 'node:fs';
 import path from 'node:path';
 import test from 'node:test';
 import { makeTempDir } from '../../../.agents/scripts/lib/test-temp.js';
-import {
-  materializeGitHooks,
-  SKIP_ABSOLUTE,
-  SKIP_SAME_CHECKOUT,
-  SKIP_SOURCE_ABSENT,
-  SKIP_UNSET,
-} from '../../../.agents/scripts/lib/worktree/git-hooks.js';
+import { materializeGitHooks } from '../../../.agents/scripts/lib/worktree/git-hooks.js';
+
+// Asserted as literals, not imported symbols: these strings are the observable
+// digest contract the CLI prints and operators read, so a rename must break a
+// test rather than quietly change what the tool reports.
+const SKIP_UNSET = 'hooks-path-unset';
+const SKIP_ABSOLUTE = 'hooks-path-absolute';
+const SKIP_SOURCE_ABSENT = 'source-absent';
+const SKIP_SAME_CHECKOUT = 'same-checkout';
 
 /** A git seam whose `config --get core.hooksPath` answers `value`. */
 function gitWith(value) {

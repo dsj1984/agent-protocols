@@ -1,11 +1,11 @@
 {
   "$schema": ".agents/schemas/baselines/maintainability.schema.json",
   "kernelVersion": "0.1.0",
-  "generatedAt": "2026-08-02T18:48:27.055Z",
+  "generatedAt": "2026-08-02T18:56:49.574Z",
   "rollup": {
     "*": {
       "min": 74.146,
-      "p50": 98.282,
+      "p50": 98.173,
       "p95": 126.637
     }
   },
@@ -316,7 +316,7 @@
     },
     {
       "path": ".agents/scripts/lib/baselines/diff-scope-cli.js",
-      "mi": 96.654
+      "mi": 101.053
     },
     {
       "path": ".agents/scripts/lib/baselines/drift-detector.js",
@@ -604,7 +604,7 @@
     },
     {
       "path": ".agents/scripts/lib/close-validation/runner.js",
-      "mi": 79.475
+      "mi": 75.55
     },
     {
       "path": ".agents/scripts/lib/close-validation/telemetry.js",
@@ -916,7 +916,7 @@
     },
     {
       "path": ".agents/scripts/lib/git-utils.js",
-      "mi": 112.311
+      "mi": 107.26
     },
     {
       "path": ".agents/scripts/lib/git/cached-fetch.js",
@@ -1312,7 +1312,7 @@
     },
     {
       "path": ".agents/scripts/lib/orchestration/plan-persist/run-plan-persist.js",
-      "mi": 93.731
+      "mi": 90.533
     },
     {
       "path": ".agents/scripts/lib/orchestration/plan-persist/story-ops.js",
@@ -1508,7 +1508,7 @@
     },
     {
       "path": ".agents/scripts/lib/orchestration/single-story-close/runner.js",
-      "mi": 80.77
+      "mi": 76.058
     },
     {
       "path": ".agents/scripts/lib/orchestration/single-story-lease-guard.js",
@@ -1564,7 +1564,7 @@
     },
     {
       "path": ".agents/scripts/lib/orchestration/story-follow-ups.js",
-      "mi": 98.792
+      "mi": 95.541
     },
     {
       "path": ".agents/scripts/lib/orchestration/story-init-remote.js",
@@ -1892,19 +1892,19 @@
     },
     {
       "path": ".agents/scripts/lib/workers/combined-mi-crap-worker.js",
-      "mi": 89.628
+      "mi": 88.102
     },
     {
       "path": ".agents/scripts/lib/workers/crap-worker.js",
-      "mi": 88.469
+      "mi": 87
     },
     {
       "path": ".agents/scripts/lib/workers/maintainability-report-worker.js",
-      "mi": 96.195
+      "mi": 94.191
     },
     {
       "path": ".agents/scripts/lib/workers/maintainability-worker.js",
-      "mi": 99.91
+      "mi": 96.776
     },
     {
       "path": ".agents/scripts/lib/workers/serve-worker-messages.js",

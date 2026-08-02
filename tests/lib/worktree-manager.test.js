@@ -1011,3 +1011,63 @@ test('ensure: never warns on non-win32 even with very long paths', async () => {
     fs.mkdirSync = originalMkdir;
   }
 });
+
+// ── worktree.bootstrap: git-hooks provisioning (Story #4943) ──────────────
+//
+// The ctx binding is what carries hook materialization into every worktree
+// the manager creates, and its two reporting branches are the operator's only
+// evidence of which happened. A silently-skipped provisioning reads exactly
+// like a successful one, which is the failure mode this Story exists to end —
+// so both branches are pinned.
+
+test('provisionGitHooks reports the materialized hooks it placed', () => {
+  const tmp = makeTempDir('wm-hooks-');
+  const repoRoot = path.join(tmp, 'main');
+  const wtPath = path.join(tmp, 'wt');
+  fs.mkdirSync(path.join(repoRoot, '.husky', '_'), { recursive: true });
+  fs.mkdirSync(wtPath, { recursive: true });
+  fs.writeFileSync(
+    path.join(repoRoot, '.husky', '_', 'commit-msg'),
+    '#!/bin/sh\n',
+  );
+
+  const infos = [];
+  const wm = new WorktreeManager({
+    repoRoot,
+    logger: { info: (m) => infos.push(m), warn() {}, error() {} },
+    git: mockGit({
+      config: () => ({ status: 0, stdout: '.husky/_\n', stderr: '' }),
+    }),
+    platform: 'linux',
+  });
+
+  const result = wm._ctx().provisionGitHooks(wtPath);
+  assert.equal(result.action, 'materialized');
+  assert.ok(
+    fs.existsSync(path.join(wtPath, '.husky', '_', 'commit-msg')),
+    'the hook must actually be on disk in the worktree',
+  );
+  assert.equal(infos.length, 1);
+  assert.match(infos[0], /hooks materialized/);
+  assert.match(infos[0], /hooks=1/);
+});
+
+test('provisionGitHooks names the reason when there is nothing to place', () => {
+  const infos = [];
+  const wm = new WorktreeManager({
+    repoRoot: '/repo',
+    logger: { info: (m) => infos.push(m), warn() {}, error() {} },
+    // `git config --get core.hooksPath` exits non-zero when the key is unset.
+    git: mockGit({ config: () => ({ status: 1, stdout: '', stderr: '' }) }),
+    platform: 'linux',
+  });
+
+  const result = wm._ctx().provisionGitHooks('/repo/.worktrees/story-1');
+  assert.equal(result.action, 'skipped');
+  assert.equal(infos.length, 1);
+  assert.match(
+    infos[0],
+    /hooks skipped reason=hooks-path-unset/,
+    'a skip must say which case it took, never pass silently',
+  );
+});
