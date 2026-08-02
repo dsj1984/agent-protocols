@@ -40,6 +40,23 @@ import { execFileSync, spawnSync } from 'node:child_process';
  * @property {string} stderr - Trimmed stderr.
  */
 
+/**
+ * Explicit stdout ceiling for every git invocation in this module.
+ *
+ * Both child-process runners default `maxBuffer` to 1 MB, at which point the
+ * child is killed and the call fails with `ENOBUFS` for a reason unrelated to
+ * git. The push path is the sharp edge: `git push` relays the whole `pre-push`
+ * hook output, which is unbounded by design — this repo's hook emits a full
+ * `check-baselines` envelope, measured at 2,166,643 bytes, so every Story
+ * close failed at `phase: push` once hooks became reachable inside worktrees.
+ *
+ * 64 MB is the bound Story #4914 already set on `baselines/git-base.js` for
+ * the identical failure, matching `run-test-profile.js`,
+ * `audit-baselines/trend.js` and `audit-baselines/weights.js`. This module was
+ * missed by that sweep.
+ */
+const MAX_BUFFER_BYTES = 64 * 1024 * 1024;
+
 let _execFileSync = execFileSync;
 let _spawnSync = spawnSync;
 
@@ -124,6 +141,7 @@ function runGitSync(exec, cwd, args) {
     stdio: ['pipe', 'pipe', 'pipe'],
     shell: false,
     env: cleanGitEnv(),
+    maxBuffer: MAX_BUFFER_BYTES,
   }).trim();
 }
 
@@ -144,6 +162,7 @@ function runGitSpawn(spawn, cwd, args) {
     encoding: 'utf-8',
     shell: false,
     env: cleanGitEnv(),
+    maxBuffer: MAX_BUFFER_BYTES,
   });
   return {
     status: result.status ?? 1,
