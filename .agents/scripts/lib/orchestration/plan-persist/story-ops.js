@@ -24,7 +24,10 @@ import {
   parse as parseStoryBody,
   serialize as serializeStoryBody,
 } from '../../story-body/story-body.js';
-import { concurrentMap } from '../../util/concurrent-map.js';
+import {
+  concurrentMap,
+  FANOUT_CONCURRENCY,
+} from '../../util/concurrent-map.js';
 import { assertSpecWithinBudget } from '../spec-spill.js';
 import { assertAcceptancePartition } from '../split-policy-validator.js';
 import {
@@ -57,15 +60,6 @@ const LITE_ROUTE_LABEL_COLOR = '#D4C5F9';
 
 /** Length of the derived plan-run id (hex chars). */
 const PLAN_RUN_ID_LENGTH = 8;
-
-/**
- * Bounded concurrency for the terminal per-Story `agent::ready` PATCHes
- * (Story #4952). Each flip is an independent single-issue write, so the loop
- * was serial only by construction. Deliberately the same small bound the rest
- * of the `/plan` path uses — this is a latency fix, not a throughput one, and
- * raising it would only push harder on the same GitHub API.
- */
-const READY_FLIP_CONCURRENCY = 4;
 
 /**
  * Normalize a caller-supplied plan-run token. Kept shared so human-readable
@@ -1015,7 +1009,10 @@ export async function markStoriesReady({ provider, created }) {
         };
       }
     },
-    { concurrency: READY_FLIP_CONCURRENCY },
+    // The terminal per-Story `agent::ready` PATCHes (Story #4952): each flip
+    // is an independent single-issue write, so the loop was serial only by
+    // construction. A latency fix, not a throughput one.
+    { concurrency: FANOUT_CONCURRENCY },
   );
   const readied = outcomes
     .filter((outcome) => outcome.failure === null)

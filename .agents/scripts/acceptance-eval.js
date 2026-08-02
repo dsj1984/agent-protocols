@@ -188,7 +188,12 @@ const MERGE_CONTRACT =
  */
 export function resolveExpectedCriteria(raw) {
   if (raw === null || raw === undefined) return null;
-  const expected = Number.parseInt(String(raw), 10);
+  // Digits only. `Number.parseInt` stops at the first non-digit, so `4abc`
+  // resolved to 4 — a guard whose entire job is to reject a wrong-sized
+  // verdict was itself accepting a malformed count, and a typo'd `--expected-
+  // criteria` would then wave through a verdict of the wrong length.
+  const text = String(raw).trim();
+  const expected = /^\d+$/.test(text) ? Number(text) : Number.NaN;
   if (!Number.isInteger(expected) || expected < 1) {
     throw new Error(
       `acceptance-eval: --expected-criteria must be a positive integer (the Story's acceptance[] count). ${MERGE_CONTRACT}`,

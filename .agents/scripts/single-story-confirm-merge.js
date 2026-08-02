@@ -37,7 +37,7 @@
  */
 
 import { parseArgs } from 'node:util';
-import { parseSprintArgs } from './lib/cli-args.js';
+import { parseSprintArgsTolerant } from './lib/cli-args.js';
 import { runAsCli } from './lib/cli-utils.js';
 import { resolveConfig } from './lib/config-resolver.js';
 import { formatCliError } from './lib/error-redactor.js';
@@ -521,14 +521,21 @@ async function main() {
     const outcome = await runConfirmMerge();
     return exitCodeForTerminal(outcome?.terminal ?? { status: 'failed' });
   } catch (err) {
-    const storyId = Number(parseSprintArgs().storyId);
+    // Non-throwing by construction (Story #4959): this used to call
+    // `parseSprintArgs()`, so a rejected `--merge-watch-mode` threw a second
+    // time here and escaped the handler — no envelope, no friction. Close
+    // carries the identical shape; both landing surfaces behave the same.
+    const { args, error: argvError } = parseSprintArgsTolerant();
+    const storyId = Number(args.storyId);
     // No story id → a usage error; there is nothing to report an envelope
     // about, so let runAsCli surface it as a plain fatal.
     if (!Number.isInteger(storyId) || storyId <= 0) throw err;
     const terminal = buildTerminalEnvelope({
       storyId,
       status: 'failed',
-      phase: 'confirm-merge',
+      // An argv rejection happens before any phase runs, so it reports at
+      // `init` rather than claiming a confirm-merge attempt that never began.
+      phase: argvError ? 'init' : 'confirm-merge',
       failure: { reason: String(err?.message ?? err) },
       nextCommand: NEXT_COMMANDS.recover(storyId),
       elapsedSeconds: 0,

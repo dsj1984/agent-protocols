@@ -15,18 +15,21 @@ import { PROJECT_ROOT } from '../../../project-root.js';
 import { isOperatorMergeReason } from './auto-merge.js';
 
 /**
- * Resolve a flag value from an explicit override, a parsed CLI arg, or a
- * hard default.
+ * Resolve a flag value from an explicit override or a parsed CLI arg.
+ *
+ * Returns `undefined` when neither is supplied — that absence is itself the
+ * answer here, letting each caller below apply its own default (a `!!` coerce,
+ * a config lookup, or a deliberate `undefined` passed further down). The
+ * former third `defaultValue` parameter was dropped in Story #4961: no call
+ * site passed it, so it documented a mode nobody used.
  *
  * @template T
  * @param {T|undefined} paramValue
  * @param {T|undefined} parsedValue
- * @param {T} [defaultValue] Omitted when "neither supplied" is itself the
- *   answer — the caller then distinguishes absence from a real value.
- * @returns {T}
+ * @returns {T|undefined}
  */
-function resolveFlag(paramValue, parsedValue, defaultValue) {
-  return paramValue ?? parsedValue ?? defaultValue;
+function resolveFlag(paramValue, parsedValue) {
+  return paramValue ?? parsedValue;
 }
 
 /**
