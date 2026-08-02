@@ -226,10 +226,10 @@ test('the standalone CLI provisions an existing worktree and is idempotent', {
     'provision-git-hooks.js',
   );
 
-  // No --repo-root: the owning checkout is derived from --git-common-dir,
-  // which is what makes this runnable from inside a harness worktree.
-  const first = spawnSync('node', [cli], {
-    cwd: worktree,
+  // Addressed by explicit path from somewhere else entirely — the shape an
+  // operator uses when the worktree is not their shell's cwd.
+  const first = spawnSync('node', [cli, worktree], {
+    cwd: REPO_ROOT,
     encoding: 'utf8',
     env: CLEAN_ENV,
   });
@@ -238,6 +238,9 @@ test('the standalone CLI provisions an existing worktree and is idempotent', {
   assert.equal(digest.action, 'materialized');
   assert.ok(digest.hooks.includes('commit-msg'));
 
+  // And again with no arguments from inside the worktree: the owning checkout
+  // is derived from --git-common-dir, which is what makes this runnable in a
+  // harness worktree the orchestrator never registered.
   const second = spawnSync('node', [cli], {
     cwd: worktree,
     encoding: 'utf8',
