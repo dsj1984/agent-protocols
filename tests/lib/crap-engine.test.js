@@ -299,7 +299,7 @@ describe('methodRowsFromReport — an un-remapped line joins no coverage (AC-2)'
   });
 });
 
-describe('finalizeMethodRows — provenance survives the policy step', () => {
+describe('finalizeMethodRows — provenance gates the fill (#4866, #4901)', () => {
   const raw = [
     {
       method: 'mapped',
@@ -331,14 +331,55 @@ describe('finalizeMethodRows — provenance survives the policy step', () => {
     assert.equal(out.skippedMethodsNoCoverage, 1);
   });
 
-  it('keeps the flag on a row scored 0% under requireCoverage: false', () => {
-    // Here the row DOES land in the baseline, so the flag is the only thing
-    // stopping the compare from keying a transpiled line as an original one.
+  it('drops the un-remapped row under requireCoverage: false too (#4901)', () => {
+    // Story #4901. This row used to be KEPT here and scored 0% — the flag
+    // rode along, but the scoring branch never read it, so `crapFormula(3, 0)`
+    // put a maximal 12 into the baseline for a method whose coverage was
+    // merely unjoinable. Against a baseline row at the other coordinate that
+    // reads as a drifted-regression no edit to the file can satisfy.
     const out = finalizeMethodRows(raw, { requireCoverage: false });
-    const unmapped = out.rows.find((r) => r.method === 'unmapped');
-    assert.equal(unmapped.coordinateSystem, COORDINATE_TRANSPILED);
-    assert.equal(unmapped.coverage, 0);
-    assert.equal(unmapped.crap, 3 ** 2 + 3);
+    assert.deepEqual(
+      out.rows.map((r) => r.method),
+      ['mapped'],
+    );
+    assert.equal(out.skippedMethodsNoCoverage, 1);
+  });
+
+  it('still scores a genuinely uninstrumented ORIGINAL row at 0%', () => {
+    // The `requireCoverage: false` policy itself is untouched: an unresolved
+    // row whose coordinate IS joinable is untested code, and 0% is a real
+    // measurement of it. Only the unjoinable case changed.
+    const out = finalizeMethodRows(
+      [
+        {
+          method: 'untested',
+          startLine: 7,
+          cyclomatic: 3,
+          coverage: null,
+          crap: null,
+          coordinateSystem: COORDINATE_ORIGINAL,
+        },
+      ],
+      { requireCoverage: false, coverageAvailable: true },
+    );
+    assert.equal(out.rows.length, 1);
+    assert.equal(out.rows[0].coverage, 0);
+    assert.equal(out.rows[0].crap, 3 ** 2 + 3);
+  });
+
+  it('leaves the join counters untouched under either policy', () => {
+    // The resolution-rate floor reads the JOIN, not the fill, so excluding a
+    // transpiled row must not move these — otherwise the updater's
+    // fail-closed floor would drift as a side effect of this Story.
+    for (const requireCoverage of [true, false]) {
+      const out = finalizeMethodRows(raw, { requireCoverage });
+      assert.equal(out.totalMethods, 2, `totalMethods @ ${requireCoverage}`);
+      assert.equal(
+        out.resolvedMethods,
+        1,
+        `resolvedMethods @ ${requireCoverage}`,
+      );
+    }
   });
 
   it('defaults a row with no stamp to original coordinates', () => {

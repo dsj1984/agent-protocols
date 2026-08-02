@@ -29,6 +29,10 @@
       "type": "string",
       "description": "Optional per-kind stamp identifying the TypeScript transpiler that produced the sourcemap these rows' line coordinates were resolved through (Story #4866). Only meaningful for kinds whose rows carry a line coordinate derived from transpiled sources; a transpiler change can move every such coordinate, and for kinds that key rows on a line that coordinate is half the row identity."
     },
+    "provenanceStamped": {
+      "type": "boolean",
+      "description": "Optional per-kind POSITIVE assertion that the writer which produced these rows recorded each row's coordinate provenance (Story #4901). Only meaningful for kinds whose rows carry a line coordinate that may be transpiled. Absence is the only evidence a baseline written before provenance existed leaves behind — such a baseline claims by omission that every row is an original-source coordinate — so the kind's compat axis fails it closed with re-seed guidance rather than letting the comparator key rows against a coordinate space they are not in."
+    },
     "rollup": {
       "type": "object",
       "description": "Aggregate metrics keyed by component. The '*' key is reserved for the whole-repo rollup and is REQUIRED; additional keys MAY be present, one per declared component.",
