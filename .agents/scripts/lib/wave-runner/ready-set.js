@@ -28,15 +28,20 @@
  *   - `storiesOverlap(a, b)` — the file-overlap co-dispatch guard: true
  *     when two Stories' file footprints intersect. Two Stories that would
  *     touch the same file MUST NOT be dispatched onto parallel
- *     `story-<id>` branches in the same beat (they would race the same
- *     path and produce a merge conflict at close). The comparison runs over
+ *     `story-<id>` branches **concurrently** — not merely on the same beat
+ *     (they would race the same path and produce a merge conflict at
+ *     close). The comparison runs over
  *     the **widened** footprint (`storyWidenedFootprint`) — a declared
  *     `changes[]` is treated as a lower bound and widened from the paths the
  *     Story's own text names, because a guard that trusts a prediction cannot
  *     prevent the collision nobody predicted (Story #4875).
- *   - `selectReadySet({ stories, doneIds, inFlight, globalCap })` — the
- *     scheduler. Returns the deterministic, overlap-free set of ready
- *     Stories, capped at `globalCap − inFlight`.
+ *   - `planReadySet({ stories, doneIds, inFlight, globalCap,
+ *     inFlightRecords })` — the scheduler. Returns the deterministic,
+ *     overlap-free dispatch set (capped at `globalCap − inFlight`) **and**
+ *     the Stories it withheld because their footprint is reserved by a Story
+ *     still in flight from an earlier beat.
+ *   - `selectReadySet(args)` — `planReadySet(args).selected`, the
+ *     dispatch-set-only view for callers that do not report withholdings.
  *
  * Adjacency is re-derived from the supplied records via the shared
  * `buildStoryAdjacency` builder (`lib/story-adjacency.js`) — the same
@@ -227,10 +232,11 @@ function storyWidenedFootprint(story) {
 
 /**
  * File-overlap co-dispatch guard. Returns `true` when two Stories' declared
- * file footprints intersect — meaning they would race the same file if
- * dispatched onto parallel `story-<id>` branches in the same beat. Two
- * Stories that overlap MUST NOT both appear in one dispatch set; one is
- * withheld until the other clears.
+ * file footprints intersect — meaning they would race the same file if their
+ * `story-<id>` branches were ever live at the same time. Two Stories that
+ * overlap MUST NOT run concurrently: one is withheld until the other clears,
+ * whether the peer was admitted on this beat or dispatched on an earlier one
+ * and is still implementing (Story #4950).
  *
  * Comparison runs over the **widened** footprint
  * ({@link storyWidenedFootprint}), not the declaration: a declared `changes[]`
@@ -304,10 +310,11 @@ export function storiesOverlap(a, b) {
  *      already occupying a slot (executing / closing / dispatched-not-yet-
  *      labelled). When `slots <= 0`, the result is empty.
  *   5. **Overlap guard.** Greedily admit eligible Stories in ascending-id
- *      order, skipping any whose file footprint overlaps an
- *      already-admitted Story (`storiesOverlap`). A withheld Story stays
- *      eligible and is naturally re-considered on the next beat once its
- *      overlapping peer has cleared.
+ *      order, skipping any whose file footprint overlaps either a Story
+ *      **already admitted this beat** or a Story **still in flight from an
+ *      earlier beat** (`inFlightRecords`). A withheld Story stays eligible
+ *      and is naturally re-considered on the next beat once the Story
+ *      reserving its files has cleared.
  *
  * The result is deterministic: eligible Stories are considered in
  * ascending-id order, so the same inputs always yield the same set.
@@ -325,22 +332,36 @@ export function storiesOverlap(a, b) {
  *   step 1 above). `false` keeps a foreign dependency as a gate
  *   (standalone / operator-DAG semantics); `true` prunes foreign edges so
  *   the DAG stays closed over the scheduled set (Epic semantics).
- * @returns {StoryRecord[]} The dispatch set: a subset of `stories`,
- *   ascending by id, overlap-free, length ≤ `globalCap − inFlight`.
+ * @param {StoryRecord[]} [args.inFlightRecords=[]] Records for the Stories
+ *   already in flight, whose footprints this beat must **reserve** rather
+ *   than merely count. `inFlight` is a number and can only shrink capacity;
+ *   without the records a Story admitted now can share files with one
+ *   dispatched on an earlier beat and still implementing — a guaranteed
+ *   merge conflict at close (Story #4950). Callers that hold only ids (the
+ *   `--dag`/`--in-flight` flag mode) pass nothing and get the pre-#4950
+ *   same-beat-only behaviour.
+ * @returns {{ selected: StoryRecord[], withheldByInFlight: Array<{id: number, blockedBy: number}> }}
+ *   `selected` is the dispatch set: a subset of `stories`, ascending by id,
+ *   overlap-free, length ≤ `globalCap − inFlight`. `withheldByInFlight`
+ *   names each eligible Story a reservation held back and the in-flight
+ *   Story that holds it.
  */
-export function selectReadySet({
+export function planReadySet({
   stories,
   doneIds = [],
   inFlight = 0,
   globalCap,
   dropForeign = false,
+  inFlightRecords = [],
 } = {}) {
   const records = Array.isArray(stories) ? stories : [];
   const cap = Number.isInteger(globalCap) ? globalCap : 0;
   const inFlightCount =
     Number.isInteger(inFlight) && inFlight > 0 ? inFlight : 0;
   const slots = Math.max(0, cap - inFlightCount);
-  if (slots <= 0 || records.length === 0) return [];
+  if (slots <= 0 || records.length === 0) {
+    return { selected: [], withheldByInFlight: [] };
+  }
 
   // Step 1 — adjacency keyed by id. The `dropForeign` policy decides whether
   // a dependency on an id outside the supplied set gates the dependent
@@ -373,13 +394,91 @@ export function selectReadySet({
   }
 
   // Steps 4 + 5 — greedily admit up to `slots`, skipping file-overlap
-  // collisions against the already-admitted set.
+  // collisions against the already-admitted set AND against the footprints
+  // reserved by Stories still in flight from an earlier beat.
+  return admitStories({
+    eligibleIds,
+    byId,
+    slots,
+    reserved: Array.isArray(inFlightRecords) ? inFlightRecords : [],
+  });
+}
+
+/**
+ * The dispatch set alone — `planReadySet(args).selected`.
+ *
+ * The scheduling contract every caller has always consumed. Callers that also
+ * report *why* a slot went unfilled (the `stories-wave-tick.js` envelope) use
+ * {@link planReadySet} directly.
+ *
+ * @param {Parameters<typeof planReadySet>[0]} [args]
+ * @returns {StoryRecord[]}
+ */
+export function selectReadySet(args) {
+  return planReadySet(args).selected;
+}
+
+/**
+ * Greedily admit eligible Stories in ascending-id order under two distinct
+ * withholding rules, and report which ones a reservation held back.
+ *
+ * The reservation check runs **first**, so a Story racing both an in-flight
+ * Story and a same-beat peer is reported against the in-flight one: that is
+ * the longer-lived and more informative blocker (a Story that has been
+ * implementing for beats, not one merely admitted a moment ago), and checking
+ * it first is what makes the report complete — every withheld-by-reservation
+ * Story appears in it. Ordering cannot change `selected`: either rule skips
+ * the same candidate.
+ *
+ * @param {object} args
+ * @param {number[]} args.eligibleIds        Ascending eligible Story ids.
+ * @param {Map<number, StoryRecord>} args.byId
+ * @param {number} args.slots                Remaining dispatch capacity.
+ * @param {StoryRecord[]} args.reserved      In-flight Story records.
+ * @returns {{ selected: StoryRecord[], withheldByInFlight: Array<{id: number, blockedBy: number}> }}
+ */
+function admitStories({ eligibleIds, byId, slots, reserved }) {
   const selected = [];
+  const withheldByInFlight = [];
   for (const id of eligibleIds) {
     if (selected.length >= slots) break;
     const rec = byId.get(id);
+    const blockedBy = findInFlightBlocker(rec, id, reserved);
+    if (blockedBy !== null) {
+      withheldByInFlight.push({ id, blockedBy });
+      continue;
+    }
     if (selected.some((picked) => storiesOverlap(picked, rec))) continue;
     selected.push(rec);
   }
-  return selected;
+  return { selected, withheldByInFlight };
+}
+
+/**
+ * The id of the in-flight Story whose widened footprint the candidate would
+ * race, or `null` when none does.
+ *
+ * Two records are skipped rather than treated as blockers:
+ *
+ *   - **The candidate itself.** Probe mode hands the whole record set to both
+ *     arguments, and an in-flight Story classifies `executing` rather than
+ *     `ready`, so a candidate can never legitimately appear here — but a
+ *     caller that double-lists one Story must not have it withhold itself.
+ *   - **An unidentifiable record.** A withholding this function cannot name
+ *     is one the envelope cannot explain, and an unexplained unfilled slot is
+ *     the exact operator-facing failure this reservation exists to remove.
+ *     Probe-mode records always carry an integer id, so this is defensive.
+ *
+ * @param {StoryRecord} candidate
+ * @param {number} candidateId
+ * @param {StoryRecord[]} reserved
+ * @returns {number|null}
+ */
+function findInFlightBlocker(candidate, candidateId, reserved) {
+  for (const held of reserved) {
+    const heldId = storyIdOf(held);
+    if (heldId === null || heldId === candidateId) continue;
+    if (storiesOverlap(held, candidate)) return heldId;
+  }
+  return null;
 }

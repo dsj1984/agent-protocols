@@ -247,6 +247,7 @@ export function createProbeContext({
  *
  * @returns {Promise<{
  *   nodes: Array<{id: number, dependsOn: number[], files: string[], body: string, labels: string[]}>,
+ *   inFlightRecords: Array<{id: number, dependsOn: number[], files: string[], body: string, labels: string[]}>,
  *   doneIds: Set<number>,
  *   inFlight: number,
  *   blockedIds: number[],
@@ -294,15 +295,24 @@ export async function probeLiveState({
   // never dispatched by this run.
   const foreignHeld = deriveForeignHeld(stories, self, warn);
   for (const id of foreignHeld.keys()) inFlightIds.add(id);
+  const nodes = envelope.dag.map((node) => ({
+    ...node,
+    body: bodyById.get(node.id) ?? '',
+    labels: projectInFlightLabels(
+      labelsById.get(node.id) ?? [],
+      inFlightIds.has(node.id),
+    ),
+  }));
   return {
-    nodes: envelope.dag.map((node) => ({
-      ...node,
-      body: bodyById.get(node.id) ?? '',
-      labels: projectInFlightLabels(
-        labelsById.get(node.id) ?? [],
-        inFlightIds.has(node.id),
-      ),
-    })),
+    nodes,
+    // The same nodes, narrowed to the Stories occupying a slot. `inFlight` is
+    // only a count, so it can shrink capacity but can never stop a Story
+    // admitted now from sharing files with one dispatched on an earlier beat
+    // and still implementing. These records carry the `files[]` and `body` the
+    // co-dispatch guard needs, so the kernel can RESERVE those footprints
+    // rather than merely count them (Story #4950). No extra fetch: this is a
+    // projection of what the probe already read.
+    inFlightRecords: nodes.filter((node) => inFlightIds.has(node.id)),
     doneIds: new Set(envelope.done),
     inFlight: inFlightIds.size,
     blockedIds: deriveBlockedIds(stories),

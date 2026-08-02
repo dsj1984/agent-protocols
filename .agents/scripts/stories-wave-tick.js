@@ -54,8 +54,17 @@
  *     concurrencyCap: number,
  *     inFlight: number,
  *     cycleError: string | null,
- *     wedged: { reason, stories: [{ id, unmetBlockers }] } | null
+ *     wedged: { reason, stories: [{ id, unmetBlockers }] } | null,
+ *     inFlightReservation: { available, withheld: [{ id, blockedBy }], note }
  *   }
+ *
+ * `inFlightReservation` reports the cross-beat half of the co-dispatch guard
+ * (Story #4875 widened the footprint; Story #4950 made it reserve). Under
+ * `--probe-live` the in-flight Stories' own records are handed to the kernel,
+ * so a candidate racing a Story dispatched on an EARLIER beat is withheld and
+ * named here with its blocker. Flag mode carries a count and no records, so it
+ * reports `available: false` rather than an empty — and therefore
+ * indistinguishable — result.
  *
  * Probe mode adds fields the caller can no longer compute for itself:
  * `done: number[]` (the resolved done set, in-set ∪ satisfied foreign
@@ -110,7 +119,7 @@ import {
   probeLiveState,
   validateProbeFlags,
 } from './lib/wave-runner/live-probe.js';
-import { selectReadySet } from './lib/wave-runner/ready-set.js';
+import { planReadySet } from './lib/wave-runner/ready-set.js';
 
 /**
  * Exit code for a wedged run — deliberately distinct from the cycle exit (2)
@@ -198,8 +207,19 @@ Output envelope:
     },
     "inFlight": 0,
     "cycleError": null,
-    "wedged": null
+    "wedged": null,
+    "inFlightReservation": {
+      "available": true,
+      "withheld": [{ "id": 4951, "blockedBy": 4949 }],
+      "note": "..."
+    }
   }
+
+inFlightReservation names each Story withheld this beat because its file
+footprint overlaps one still IN FLIGHT from an earlier beat, together with the
+blocking id — so an unfilled slot is explained rather than mysterious. It needs
+the in-flight Stories' footprints, which only --probe-live has: under --dag the
+report is { available: false } and selection de-conflicts within the beat only.
 
 Exit codes:
   0 - Success, ready set emitted
@@ -233,9 +253,60 @@ function inputErrorResult(message, concurrencyCap = null, inFlightValue = 0) {
       inFlight: inFlightValue,
       cycleError: null,
       wedged: null,
+      inFlightReservation: null,
       inputError: message,
     },
     exitCode: 1,
+  };
+}
+
+/**
+ * Describe this beat's in-flight footprint reservation for the envelope
+ * (Story #4950).
+ *
+ * The reservation needs the in-flight Stories' **records** — their footprints
+ * — not just how many there are, so its availability is a property of the
+ * mode rather than of the run:
+ *
+ *   - **Probe mode** hands over the records `live-probe.js` already fetched,
+ *     so `inFlightRecords` is an array (possibly empty) and reservation is
+ *     `available: true`.
+ *   - **Flag mode** (`--dag` + `--in-flight <n>`) supplies a graph and a
+ *     count; no node carries a label, so nothing there can even classify as
+ *     in-flight. There is no footprint to reserve against, and selection is
+ *     unchanged from before #4950. Saying so explicitly is the point: a
+ *     silently-absent guard reads exactly like a guard that found nothing.
+ *
+ * @param {object[]|null|undefined} inFlightRecords
+ * @param {Array<{id: number, blockedBy: number}>} withheld
+ * @returns {{ available: boolean, withheld: Array<{id: number, blockedBy: number}>, note: string|null }}
+ */
+export function buildReservationReport(inFlightRecords, withheld) {
+  if (!Array.isArray(inFlightRecords)) {
+    return {
+      available: false,
+      withheld: [],
+      note:
+        'In-flight footprint reservation is UNAVAILABLE this beat: flag mode ' +
+        'supplies a dependency graph and an --in-flight count, never the ' +
+        'in-flight Stories themselves, so there are no footprints to reserve ' +
+        'against. Selection is unchanged (same-beat de-confliction only). ' +
+        'Use --probe-live to reserve in-flight footprints.',
+    };
+  }
+  if (withheld.length === 0) {
+    return { available: true, withheld: [], note: null };
+  }
+  const detail = withheld.map((w) => `#${w.id} ← #${w.blockedBy}`).join('; ');
+  return {
+    available: true,
+    withheld,
+    note:
+      `${withheld.length} Story(ies) withheld because their file footprint ` +
+      `overlaps a Story still in flight from an earlier beat — ${detail}. ` +
+      `This is not a wedge and not a failure: each re-admits automatically ` +
+      `on a later beat, once the Story reserving its files leaves the ` +
+      `in-flight set.`,
   };
 }
 
@@ -483,6 +554,10 @@ export function resolveCapPrecedence({ cwd, config, override } = {}) {
  *   record explaining which source set the cap.
  * @param {Set<number>} [args.doneIds] Story IDs already completed this run.
  * @param {number} [args.inFlight]     Stories already occupying a slot.
+ * @param {object[]|null} [args.inFlightRecords] Records for the Stories
+ *   already in flight, so the kernel reserves their footprints instead of
+ *   merely counting them (Story #4950). `null` (flag mode) means reservation
+ *   is structurally unavailable — see {@link buildReservationReport}.
  * @returns {{
  *   envelope: {
  *     kind: 'stories-ready-set',
@@ -497,7 +572,13 @@ export function resolveCapPrecedence({ cwd, config, override } = {}) {
  */
 export function buildReadySetEnvelope(
   nodes,
-  { concurrencyCap, capPrecedence = null, doneIds = new Set(), inFlight = 0 },
+  {
+    concurrencyCap,
+    capPrecedence = null,
+    doneIds = new Set(),
+    inFlight = 0,
+    inFlightRecords = null,
+  },
 ) {
   const totalStories = nodes.length;
 
@@ -513,6 +594,10 @@ export function buildReadySetEnvelope(
     inFlight,
     cycleError: null,
     wedged: null,
+    // Whether this beat could reserve the in-flight Stories' footprints, and
+    // which Stories a reservation withheld (Story #4950). Never omitted on a
+    // resolved beat: an absent report reads exactly like an empty one.
+    inFlightReservation: buildReservationReport(inFlightRecords, []),
   };
 
   if (totalStories === 0) {
@@ -559,12 +644,21 @@ export function buildReadySetEnvelope(
     return rec;
   });
 
-  const ready = selectReadySet({
+  const { selected, withheldByInFlight } = planReadySet({
     stories: records,
     doneIds,
     inFlight,
     globalCap: concurrencyCap,
-  }).map((rec) => rec.id);
+    // Flag mode has no in-flight records at all; `?? []` keeps the kernel's
+    // contract (an array) while `base.inFlightReservation` reports that the
+    // reservation itself was unavailable rather than merely empty.
+    inFlightRecords: inFlightRecords ?? [],
+  });
+  const ready = selected.map((rec) => rec.id);
+  const reservation = buildReservationReport(
+    inFlightRecords,
+    withheldByInFlight,
+  );
 
   // Wedge detection (Story #4540). `ready: []` is normal while work is in
   // flight — the loop is simply waiting. But ready-empty AND nothing in
@@ -580,12 +674,25 @@ export function buildReadySetEnvelope(
   const wedge = detectWedge({ nodes, doneIds, ready, inFlight });
   if (wedge) {
     return {
-      envelope: { ...base, ready, wedged: wedge },
+      envelope: {
+        ...base,
+        ready,
+        wedged: wedge,
+        inFlightReservation: reservation,
+      },
       exitCode: WEDGED_EXIT_CODE,
     };
   }
 
-  return { envelope: { ...base, ready, wedged: null }, exitCode: 0 };
+  return {
+    envelope: {
+      ...base,
+      ready,
+      wedged: null,
+      inFlightReservation: reservation,
+    },
+    exitCode: 0,
+  };
 }
 
 /**
@@ -810,12 +917,16 @@ export async function runProbedStoriesWaveTick({
     inFlight,
     blockedIds = [],
     foreignHeld = [],
+    inFlightRecords = [],
   } = probed;
   const { envelope, exitCode } = buildReadySetEnvelope(nodes, {
     concurrencyCap,
     capPrecedence,
     doneIds,
     inFlight,
+    // Probe mode is the only mode that HAS the in-flight Stories' records, so
+    // it is the only mode that can reserve their footprints (Story #4950).
+    inFlightRecords,
   });
 
   const done = [...doneIds].sort((a, b) => a - b);
