@@ -202,6 +202,37 @@ describe('terminal-envelope friction policy', () => {
     );
   });
 
+  it('attributes the record to the CALLER that names itself, not to a fixed CLI', async () => {
+    // `emitter.tool` is what the retro roll-up uses to NAME the surface a
+    // candidate came from (`normalizeGatheredSignal`), and two CLIs emit
+    // terminal envelopes. A hard-coded name sent every confirm-merge record
+    // to a CLI that never ran.
+    await emitTerminalFriction({
+      envelope: {
+        storyId: 15,
+        status: 'failed',
+        phase: 'confirm-merge',
+        failure: { reason: 'gh view flaked' },
+      },
+      tool: 'single-story-confirm-merge',
+      config,
+    });
+    const [row] = await readStorySignals(15);
+    assert.equal(row.emitter.tool, 'single-story-confirm-merge');
+  });
+
+  it('defaults to the close CLI when no caller name is threaded', async () => {
+    // The original callers (close + its runner) pass none and must keep
+    // emitting exactly what they always did.
+    const row = await emitAndRead({
+      storyId: 16,
+      status: 'failed',
+      phase: 'push',
+      failure: { reason: 'boom' },
+    });
+    assert.equal(row.emitter.tool, 'single-story-close');
+  });
+
   it('tolerates a malformed envelope rather than throwing', async () => {
     assert.equal(await emitTerminalFriction({ envelope: null, config }), false);
     assert.equal(

@@ -67,6 +67,15 @@ const progress = Logger.createProgress('single-story-confirm-merge', {
 });
 
 /**
+ * This CLI's own surface name — the `runAsCli` source, and the `emitter.tool`
+ * every friction record it emits carries. Single-homed so the two cannot
+ * drift: `emitTerminalFriction` defaults to the CLOSE CLI's name, so a record
+ * emitted from here without it is attributed to a CLI that never ran, and the
+ * retro roll-up sends the follow-up to the wrong surface.
+ */
+const CLI_SOURCE = 'single-story-confirm-merge';
+
+/**
  * Default `gh` facade for this CLI, bound to the merge wait's spawn-level
  * timeout (Story #4710). This CLI is the resume surface async mode hands the
  * merge wait to — a background invocation with no host tool ceiling — so an
@@ -204,7 +213,7 @@ async function logConfirmResult(result, terminal, config) {
     },
   });
   emitTerminalEnvelope(terminal, { config });
-  await emitTerminalFriction({ envelope: terminal, config });
+  await emitTerminalFriction({ envelope: terminal, tool: CLI_SOURCE, config });
   return { success: terminal.status !== 'failed', result, terminal };
 }
 
@@ -528,13 +537,13 @@ async function main() {
       `[single-story-confirm-merge] Fatal error: ${formatCliError(err)}`,
     );
     emitTerminalEnvelope(terminal);
-    await emitTerminalFriction({ envelope: terminal });
+    await emitTerminalFriction({ envelope: terminal, tool: CLI_SOURCE });
     return exitCodeForTerminal(terminal);
   }
 }
 
 runAsCli(import.meta.url, main, {
-  source: 'single-story-confirm-merge',
+  source: CLI_SOURCE,
   propagateExitCode: true,
   usage: {
     invocation:
