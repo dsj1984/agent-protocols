@@ -465,6 +465,156 @@ function renderDiscardedItem(item) {
 }
 
 /**
+ * Normalize the two loosely-typed inputs into the four buckets every section
+ * renderer reads. Absorbs the optional-chain / nullish-coalesce cluster that
+ * otherwise all lands on `buildFollowUpsCommentBody` (Story #4926).
+ *
+ * @param {object|null|undefined} proposals
+ * @param {object|null|undefined} graduated
+ * @returns {{ filed: object[], framework: object[], consumer: object[],
+ *   discarded: object[], filingErrors: string[] }}
+ */
+function normalizeRollupBuckets(proposals, graduated) {
+  const asArray = (value) => (Array.isArray(value) ? value : []);
+  return {
+    filed: asArray(graduated?.filed),
+    framework: asArray(proposals?.framework),
+    consumer: asArray(proposals?.consumer),
+    discarded: asArray(proposals?.discarded),
+    filingErrors: asArray(graduated?.errors),
+  };
+}
+
+/**
+ * Render the "**Filed**" section, or nothing when no proposal was filed.
+ *
+ * @param {object[]} filed
+ * @returns {string[]}
+ */
+function renderFiledSection(filed) {
+  if (filed.length === 0) return [];
+  return [
+    '**Filed**',
+    ...filed.map(
+      (item) =>
+        `- ${item.source}: ${item.title}${item.url ? ` — ${item.url}` : ''}`,
+    ),
+    '',
+  ];
+}
+
+/**
+ * Render the "**Actionable (not auto-filed)**" fallback — the command stanzas
+ * an operator runs by hand when auto-filing produced nothing.
+ *
+ * @param {object[]} actionable framework + consumer, in that order
+ * @param {object[]} filed
+ * @returns {string[]}
+ */
+function renderActionableSection(actionable, filed) {
+  if (actionable.length === 0 || filed.length > 0) return [];
+  const lines = ['**Actionable (not auto-filed)**'];
+  for (const item of actionable) {
+    lines.push(`- ${item.source}: ${item.title}`, '', '```bash', item.command);
+    lines.push('```');
+  }
+  lines.push('');
+  return lines;
+}
+
+/**
+ * Render the "**Below threshold (not filed)**" section.
+ *
+ * @param {object[]} discarded
+ * @returns {string[]}
+ */
+function renderDiscardedSection(discarded) {
+  if (discarded.length === 0) return [];
+  return [
+    '**Below threshold (not filed)**',
+    ...discarded.map(
+      (item) => `- ${item.source}: ${renderDiscardedItem(item)}`,
+    ),
+    '',
+  ];
+}
+
+/**
+ * Render the all-empty branch. Story #4828 — "no proposals" has two readings,
+ * and only one of them is a quiet run. Signals gathered but nothing routed is
+ * the third instance of the silence Stories #4578 and #4824 each fixed once.
+ *
+ * @param {{ empty: boolean, outcome: {zeroProposals: boolean},
+ *   signalCount: number, categories: object[], storyCount: number }} args
+ * @returns {string[]}
+ */
+function renderEmptySection({
+  empty,
+  outcome,
+  signalCount,
+  categories,
+  storyCount,
+}) {
+  if (!empty) return [];
+  return [
+    ...(outcome.zeroProposals
+      ? renderZeroProposalLines(signalCount, categories)
+      : renderEmptyRollupLines(storyCount)),
+    '',
+  ];
+}
+
+/**
+ * Build the machine-readable twin of the rendered prose. Every suspect flag
+ * above has a field here so a caller never has to regex the body.
+ *
+ * @param {object} args
+ * @returns {object}
+ */
+function buildRollupPayload({
+  storyId,
+  storyCount,
+  signalCount,
+  categories,
+  buckets,
+  empty,
+  outcome,
+}) {
+  const { filed, framework, consumer, discarded, filingErrors } = buckets;
+  return {
+    storyId,
+    storyCount,
+    // Story #4828 — the corpus the roll-up actually read. Without it a
+    // reader cannot tell "0 proposals because nothing recurred" from
+    // "0 proposals because routing broke".
+    signalCount,
+    categories,
+    framework: framework.map((i) => i.category),
+    consumer: consumer.map((i) => i.category),
+    // Story #4824 — the machine-readable twin of the row above. A bare
+    // category list could not distinguish a genuine one-off from a
+    // recurrence the window was too narrow to see, so the count, the
+    // cross-Story span, and the shape fingerprint ride along.
+    discarded: discarded.map((i) => ({
+      category: i.category,
+      occurrences: i.occurrences,
+      storyCount: i.storyCount ?? null,
+      fingerprint: i.fingerprint ?? null,
+    })),
+    filed: filed.map((i) => ({ category: i.category, url: i.url ?? null })),
+    // Story #4578 — an empty roll-up over N>1 Stories is a claim worth
+    // flagging, not a success. Machine-readable twin of the warning
+    // prose so a caller need not regex the body.
+    emptyRollupSuspect: storyCount > 1 && empty && signalCount === 0,
+    // Story #4828 — the two remaining shapes that used to render as
+    // success. Machine-readable twins of the warning prose above.
+    zeroProposalSuspect: outcome.zeroProposals,
+    unfiledProposalSuspect: outcome.unfiledProposals,
+    filingErrors,
+  };
+}
+
+/**
  * @param {{
  *   storyId: number,
  *   proposals: object,
@@ -487,13 +637,14 @@ export function buildFollowUpsCommentBody({
   signalCount = 0,
   categories = [],
 }) {
-  const filed = Array.isArray(graduated?.filed) ? graduated.filed : [];
-  const framework = proposals?.framework ?? [];
-  const consumer = proposals?.consumer ?? [];
-  const discarded = proposals?.discarded ?? [];
+  const buckets = normalizeRollupBuckets(proposals, graduated);
+  const { filed, framework, consumer, discarded } = buckets;
+  const actionable = [...framework, ...consumer];
+  const empty =
+    filed.length === 0 && actionable.length === 0 && discarded.length === 0;
   const outcome = assessRollupOutcome({
     signalCount,
-    proposalCount: framework.length + consumer.length,
+    proposalCount: actionable.length,
     discardedCount: discarded.length,
     filedCount: filed.length,
     filingErrors: graduated?.errors,
@@ -504,103 +655,39 @@ export function buildFollowUpsCommentBody({
     '',
     `Actionable follow-ups captured from Story #${storyId} after merge.`,
     '',
+    ...(outcome.unfiledProposals
+      ? [
+          ...renderUnfiledProposalLines(
+            actionable.length,
+            buckets.filingErrors,
+            outcome.blockingSkipReasons,
+          ),
+          '',
+        ]
+      : []),
+    ...renderFiledSection(filed),
+    ...renderActionableSection(actionable, filed),
+    ...renderDiscardedSection(discarded),
+    ...renderEmptySection({
+      empty,
+      outcome,
+      signalCount,
+      categories,
+      storyCount,
+    }),
+    '```json',
   ];
-  if (outcome.unfiledProposals) {
-    lines.push(
-      ...renderUnfiledProposalLines(
-        framework.length + consumer.length,
-        Array.isArray(graduated?.errors) ? graduated.errors : [],
-        outcome.blockingSkipReasons,
-      ),
-      '',
-    );
-  }
-  if (filed.length > 0) {
-    lines.push('**Filed**');
-    for (const item of filed) {
-      lines.push(
-        `- ${item.source}: ${item.title}${item.url ? ` — ${item.url}` : ''}`,
-      );
-    }
-    lines.push('');
-  }
-  if (framework.length + consumer.length > 0 && filed.length === 0) {
-    lines.push('**Actionable (not auto-filed)**');
-    for (const item of [...framework, ...consumer]) {
-      lines.push(`- ${item.source}: ${item.title}`);
-      lines.push('');
-      lines.push('```bash');
-      lines.push(item.command);
-      lines.push('```');
-    }
-    lines.push('');
-  }
-  if (discarded.length > 0) {
-    lines.push('**Below threshold (not filed)**');
-    for (const item of discarded) {
-      lines.push(`- ${item.source}: ${renderDiscardedItem(item)}`);
-    }
-    lines.push('');
-  }
-  if (
-    filed.length === 0 &&
-    framework.length === 0 &&
-    consumer.length === 0 &&
-    discarded.length === 0
-  ) {
-    // Story #4828 — "no proposals" has two readings, and only one of them is
-    // a quiet run. Signals gathered but nothing routed is the third instance
-    // of the silence Stories #4578 and #4824 each fixed once.
-    lines.push(
-      ...(outcome.zeroProposals
-        ? renderZeroProposalLines(signalCount, categories)
-        : renderEmptyRollupLines(storyCount)),
-    );
-    lines.push('');
-  }
-  lines.push('```json');
   lines.push(
     JSON.stringify(
-      {
+      buildRollupPayload({
         storyId,
         storyCount,
-        // Story #4828 — the corpus the roll-up actually read. Without it a
-        // reader cannot tell "0 proposals because nothing recurred" from
-        // "0 proposals because routing broke".
         signalCount,
         categories,
-        framework: framework.map((i) => i.category),
-        consumer: consumer.map((i) => i.category),
-        // Story #4824 — the machine-readable twin of the row above. A bare
-        // category list could not distinguish a genuine one-off from a
-        // recurrence the window was too narrow to see, so the count, the
-        // cross-Story span, and the shape fingerprint ride along.
-        discarded: discarded.map((i) => ({
-          category: i.category,
-          occurrences: i.occurrences,
-          storyCount: i.storyCount ?? null,
-          fingerprint: i.fingerprint ?? null,
-        })),
-        filed: filed.map((i) => ({
-          category: i.category,
-          url: i.url ?? null,
-        })),
-        // Story #4578 — an empty roll-up over N>1 Stories is a claim worth
-        // flagging, not a success. Machine-readable twin of the warning
-        // prose so a caller need not regex the body.
-        emptyRollupSuspect:
-          storyCount > 1 &&
-          filed.length === 0 &&
-          framework.length === 0 &&
-          consumer.length === 0 &&
-          discarded.length === 0 &&
-          signalCount === 0,
-        // Story #4828 — the two remaining shapes that used to render as
-        // success. Machine-readable twins of the warning prose above.
-        zeroProposalSuspect: outcome.zeroProposals,
-        unfiledProposalSuspect: outcome.unfiledProposals,
-        filingErrors: Array.isArray(graduated?.errors) ? graduated.errors : [],
-      },
+        buckets,
+        empty,
+        outcome,
+      }),
       null,
       2,
     ),
