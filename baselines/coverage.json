@@ -1,12 +1,12 @@
 {
   "$schema": ".agents/schemas/baselines/coverage.schema.json",
   "kernelVersion": "1.0.0",
-  "generatedAt": "2026-08-02T14:28:17.959Z",
+  "generatedAt": "2026-08-02T14:58:31.348Z",
   "rollup": {
     "*": {
-      "lines": 95.65,
-      "branches": 86.16,
-      "functions": 88.52
+      "lines": 95.67,
+      "branches": 86.19,
+      "functions": 88.57
     }
   },
   "rows": [
@@ -229,7 +229,7 @@
     {
       "path": ".agents/scripts/lib/audit-baselines/headroom.js",
       "lines": 100,
-      "branches": 72.22,
+      "branches": 78.95,
       "functions": 100
     },
     {
@@ -1561,19 +1561,19 @@
     {
       "path": ".agents/scripts/lib/orchestration/check-baselines/phases/compare.js",
       "lines": 91.33,
-      "branches": 77.78,
+      "branches": 80.3,
       "functions": 100
     },
     {
       "path": ".agents/scripts/lib/orchestration/check-baselines/phases/evaluate.js",
       "lines": 97.45,
-      "branches": 66.67,
+      "branches": 70.59,
       "functions": 100
     },
     {
       "path": ".agents/scripts/lib/orchestration/check-baselines/phases/floors.js",
       "lines": 100,
-      "branches": 82.54,
+      "branches": 82.26,
       "functions": 100
     },
     {
@@ -1591,7 +1591,7 @@
     {
       "path": ".agents/scripts/lib/orchestration/check-baselines/phases/pipeline.js",
       "lines": 100,
-      "branches": 92.68,
+      "branches": 92.86,
       "functions": 100
     },
     {
@@ -1705,7 +1705,7 @@
     {
       "path": ".agents/scripts/lib/orchestration/git-cleanup/phases/fast-forward.js",
       "lines": 94.27,
-      "branches": 87.5,
+      "branches": 87.88,
       "functions": 100
     },
     {
@@ -1716,9 +1716,9 @@
     },
     {
       "path": ".agents/scripts/lib/orchestration/git-cleanup/phases/git-probes-ff.js",
-      "lines": 68.68,
-      "branches": 75,
-      "functions": 68.75
+      "lines": 81.87,
+      "branches": 65,
+      "functions": 81.25
     },
     {
       "path": ".agents/scripts/lib/orchestration/git-cleanup/phases/git-probes.js",
@@ -2741,6 +2741,12 @@
       "functions": 100
     },
     {
+      "path": ".agents/scripts/lib/util/parse-id-list.js",
+      "lines": 100,
+      "branches": 100,
+      "functions": 100
+    },
+    {
       "path": ".agents/scripts/lib/util/phase-timer-state.js",
       "lines": 100,
       "branches": 90,
@@ -3096,7 +3102,7 @@
     },
     {
       "path": ".agents/scripts/resolve-stories.js",
-      "lines": 81.78,
+      "lines": 81.99,
       "branches": 90.91,
       "functions": 63.64
     },
@@ -3108,7 +3114,7 @@
     },
     {
       "path": ".agents/scripts/run-coverage.js",
-      "lines": 65,
+      "lines": 62.28,
       "branches": 50,
       "functions": 50
     },
@@ -3150,8 +3156,8 @@
     },
     {
       "path": ".agents/scripts/stories-wave-tick.js",
-      "lines": 98.45,
-      "branches": 94.12,
+      "lines": 98.44,
+      "branches": 93.75,
       "functions": 100
     },
     {
