@@ -517,9 +517,14 @@ The `Graph.js` module provides the mathematical foundation for task scheduling:
 That is the complete live export surface — in particular there is **no**
 `autoSerializeOverlaps()`. The focus-area auto-serialization pass it named is
 gone; its job now happens at *selection* time via `storiesOverlap()` in
-`lib/wave-runner/ready-set.js`, where `selectReadySet` skips a Story whose
-**declared** footprint overlaps an already-selected peer — de-conflicting
-within one tick only, reserving nothing against a later one.
+`lib/wave-runner/ready-set.js`, where `planReadySet` skips a Story whose
+**widened** footprint overlaps either an already-selected peer or a Story
+still **in flight** from an earlier beat. The cross-beat half needs the
+in-flight Stories' records, which only probe mode holds: `live-probe.js`
+returns them as `inFlightRecords`, and the tick reports each withholding in
+the envelope's `inFlightReservation` naming the blocking id. Flag mode carries
+a count and no records, so it reports `available: false` rather than an
+indistinguishable empty result.
 
 ---
 

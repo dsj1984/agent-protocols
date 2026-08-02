@@ -715,3 +715,106 @@ describe('probeLiveState — foreign-lease withholding (Story #4620)', () => {
     assert.equal(exitCode, 0);
   });
 });
+
+// ---------------------------------------------------------------------------
+// Story #4950 — the probe surfaces the in-flight Stories' RECORDS, not a count
+// ---------------------------------------------------------------------------
+
+describe('probeLiveState — inFlightRecords feed the footprint reservation', () => {
+  it('returns the full record for every Story occupying a slot', async () => {
+    const provider = stubProvider({
+      101: issue(101, {
+        labels: ['agent::executing'],
+        changes: ['lib/shared.js'],
+      }),
+      102: issue(102, { labels: ['agent::closing'], changes: ['lib/b.js'] }),
+      103: issue(103, { changes: ['lib/c.js'] }),
+    });
+
+    const { inFlightRecords, inFlight } = await probeLiveState({
+      ids: [101, 102, 103],
+      provider,
+      owner: 'dsj1984',
+      repo: 'mandrel',
+    });
+
+    assert.equal(inFlight, 2);
+    assert.deepEqual(
+      inFlightRecords.map((r) => r.id),
+      [101, 102],
+      'executing AND closing both hold a slot',
+    );
+    // The footprint is what makes reservation possible — a count cannot
+    // de-conflict anything.
+    assert.deepEqual(inFlightRecords[0].files, ['lib/shared.js']);
+    assert.equal(typeof inFlightRecords[0].body, 'string');
+  });
+
+  it('includes a dispatched-but-unlabelled Story, so the init window reserves too', async () => {
+    const provider = stubProvider({
+      101: issue(101, { changes: ['lib/shared.js'] }),
+      102: issue(102, { changes: ['lib/b.js'] }),
+    });
+
+    const { inFlightRecords } = await probeLiveState({
+      ids: [101, 102],
+      provider,
+      owner: 'dsj1984',
+      repo: 'mandrel',
+      dispatched: [101],
+    });
+
+    assert.deepEqual(
+      inFlightRecords.map((r) => r.id),
+      [101],
+    );
+  });
+
+  it('excludes done Stories — a landed footprint reserves nothing', async () => {
+    const provider = stubProvider({
+      101: issue(101, { labels: ['agent::done'], changes: ['lib/shared.js'] }),
+      102: issue(102, { changes: ['lib/shared.js'] }),
+    });
+
+    const { inFlightRecords } = await probeLiveState({
+      ids: [101, 102],
+      provider,
+      owner: 'dsj1984',
+      repo: 'mandrel',
+    });
+
+    assert.deepEqual(inFlightRecords, []);
+  });
+
+  it('withholds a ready Story that races an in-flight one, end to end', async () => {
+    // The whole point, through the real probe + kernel path: #102 declares the
+    // same file as the already-executing #101, so it must not be dispatched
+    // onto a parallel branch this beat.
+    const { envelope, exitCode } = await tick({
+      101: issue(101, {
+        labels: ['agent::executing'],
+        changes: ['lib/shared.js'],
+      }),
+      102: issue(102, { changes: ['lib/shared.js'] }),
+      103: issue(103, { changes: ['lib/other.js'] }),
+    });
+
+    assert.equal(exitCode, 0);
+    assert.deepEqual(envelope.ready, [103]);
+    assert.equal(envelope.inFlightReservation.available, true);
+    assert.deepEqual(envelope.inFlightReservation.withheld, [
+      { id: 102, blockedBy: 101 },
+    ]);
+  });
+
+  it('re-admits the withheld Story on the next beat, once its blocker lands', async () => {
+    const { envelope } = await tick({
+      101: issue(101, { labels: ['agent::done'], changes: ['lib/shared.js'] }),
+      102: issue(102, { changes: ['lib/shared.js'] }),
+      103: issue(103, { changes: ['lib/other.js'] }),
+    });
+
+    assert.deepEqual(envelope.ready, [102, 103]);
+    assert.deepEqual(envelope.inFlightReservation.withheld, []);
+  });
+});

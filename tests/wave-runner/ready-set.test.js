@@ -4,6 +4,7 @@ import { describe, it } from 'node:test';
 import { AGENT_LABELS } from '../../.agents/scripts/lib/label-constants.js';
 import {
   classifyStory,
+  planReadySet,
   selectReadySet,
   storiesOverlap,
   storyFootprint,
@@ -499,5 +500,337 @@ describe('storiesOverlap — real edits collide even when declarations do not (A
       [1, 3],
       '#2 races #1 on lib/a.js despite declaring only lib/b.js',
     );
+  });
+});
+
+// ---------------------------------------------------------------------------
+// Story #4950 — the overlap guard RESERVES in-flight footprints
+// ---------------------------------------------------------------------------
+
+describe('planReadySet — in-flight footprints are reserved, not just counted', () => {
+  /** A Story already dispatched on an earlier beat and still implementing. */
+  const inFlight = (id, opts) =>
+    story(id, { ...opts, labels: [AGENT_LABELS.EXECUTING] });
+
+  it('withholds a candidate whose footprint overlaps an in-flight Story (AC-1)', () => {
+    // The cross-beat window: #2 was admitted on an earlier beat and is still
+    // implementing. Before #4950 it only shrank the slot count, so #1 was
+    // admitted onto a branch racing it for lib/shared.js.
+    const held = inFlight(2, { files: ['lib/shared.js'] });
+    const { selected, withheldByInFlight } = planReadySet({
+      stories: [story(1, { files: ['lib/shared.js', 'lib/a.js'] }), held],
+      inFlight: 1,
+      globalCap: 3,
+      inFlightRecords: [held],
+    });
+
+    assert.deepEqual(ids(selected), []);
+    assert.deepEqual(withheldByInFlight, [{ id: 1, blockedBy: 2 }]);
+  });
+
+  it('is not merely the same-beat check: nothing was admitted this beat', () => {
+    // `selected` is empty when the reservation fires, so no already-admitted
+    // peer could explain the withholding — only the in-flight record can.
+    const held = inFlight(9, { files: ['lib/shared.js'] });
+    const { selected } = planReadySet({
+      stories: [story(1, { files: ['lib/shared.js'] }), held],
+      inFlight: 1,
+      globalCap: 5,
+      inFlightRecords: [held],
+    });
+    assert.deepEqual(selected, []);
+  });
+
+  it('reserves the WIDENED footprint, not just the in-flight declaration', () => {
+    // The in-flight Story declared lib/b.js but its own text names lib/a.js —
+    // the same lower-bound problem #4875 fixed for the same-beat comparison.
+    const held = inFlight(2, {
+      files: ['lib/b.js'],
+      body: 'The fix also has to change lib/a.js to keep the caller honest.',
+    });
+    const { withheldByInFlight } = planReadySet({
+      stories: [story(1, { files: ['lib/a.js'] }), held],
+      inFlight: 1,
+      globalCap: 5,
+      inFlightRecords: [held],
+    });
+    assert.deepEqual(withheldByInFlight, [{ id: 1, blockedBy: 2 }]);
+  });
+
+  it('admits a candidate whose footprint is disjoint from every in-flight one', () => {
+    const held = inFlight(9, { files: ['lib/held.js'] });
+    const { selected, withheldByInFlight } = planReadySet({
+      stories: [story(1, { files: ['lib/a.js'] }), held],
+      inFlight: 1,
+      globalCap: 5,
+      inFlightRecords: [held],
+    });
+    assert.deepEqual(ids(selected), [1]);
+    assert.deepEqual(withheldByInFlight, []);
+  });
+
+  it('reports every reservation-withheld Story, each with its blocker (AC-4)', () => {
+    const heldA = inFlight(8, { files: ['lib/a.js'] });
+    const heldB = inFlight(9, { files: ['lib/b.js'] });
+    const { selected, withheldByInFlight } = planReadySet({
+      stories: [
+        story(1, { files: ['lib/a.js'] }),
+        story(2, { files: ['lib/b.js'] }),
+        story(3, { files: ['lib/c.js'] }),
+        heldA,
+        heldB,
+      ],
+      inFlight: 2,
+      globalCap: 5,
+      inFlightRecords: [heldA, heldB],
+    });
+    assert.deepEqual(ids(selected), [3]);
+    assert.deepEqual(withheldByInFlight, [
+      { id: 1, blockedBy: 8 },
+      { id: 2, blockedBy: 9 },
+    ]);
+  });
+
+  it('keeps admission deterministic and ascending-id under reservation (AC-3)', () => {
+    const held = inFlight(7, { files: ['lib/b.js'] });
+    const stories = [
+      story(5, { files: ['lib/e.js'] }),
+      story(2, { files: ['lib/b.js'] }), // reserved by #7
+      story(4, { files: ['lib/d.js'] }),
+      held,
+    ];
+    // Input order is shuffled; the result is not.
+    const first = planReadySet({
+      stories,
+      inFlight: 1,
+      globalCap: 9,
+      inFlightRecords: [held],
+    });
+    const second = planReadySet({
+      stories: [...stories].reverse(),
+      inFlight: 1,
+      globalCap: 9,
+      inFlightRecords: [held],
+    });
+    assert.deepEqual(
+      first.selected.map((r) => r.id),
+      [4, 5],
+      'ascending id, not input order',
+    );
+    assert.deepEqual(
+      first.selected.map((r) => r.id),
+      second.selected.map((r) => r.id),
+    );
+    assert.deepEqual(first.withheldByInFlight, second.withheldByInFlight);
+  });
+
+  it('re-admits a withheld Story once its blocker leaves the in-flight set (AC-3)', () => {
+    const A = story(1, { files: ['lib/shared.js'] });
+
+    // Beat 1: #9 holds lib/shared.js → #1 is withheld and named.
+    const held = inFlight(9, { files: ['lib/shared.js'] });
+    const beat1 = planReadySet({
+      stories: [A, held],
+      inFlight: 1,
+      globalCap: 5,
+      inFlightRecords: [held],
+    });
+    assert.deepEqual(ids(beat1.selected), []);
+    assert.deepEqual(beat1.withheldByInFlight, [{ id: 1, blockedBy: 9 }]);
+
+    // Beat 2: #9 has landed, so it is no longer in flight. Nothing about #1
+    // changed — eligibility was never lost, only deferred.
+    const landed = story(9, {
+      labels: [AGENT_LABELS.DONE],
+      files: ['lib/shared.js'],
+    });
+    const beat2 = planReadySet({
+      stories: [A, landed],
+      inFlight: 0,
+      globalCap: 5,
+      inFlightRecords: [],
+    });
+    assert.deepEqual(ids(beat2.selected), [1]);
+    assert.deepEqual(beat2.withheldByInFlight, []);
+  });
+
+  it('never withholds on an empty footprint, on either side (AC-3)', () => {
+    // Withholding on absence would serialize every run: most Stories declare
+    // nothing, so "unknown" must stay permissive on BOTH sides of the compare.
+    const bareHeld = inFlight(9);
+    const bareCandidate = planReadySet({
+      stories: [story(1), bareHeld],
+      inFlight: 1,
+      globalCap: 5,
+      inFlightRecords: [bareHeld],
+    });
+    assert.deepEqual(ids(bareCandidate.selected), [1]);
+    assert.deepEqual(bareCandidate.withheldByInFlight, []);
+
+    // A footprint-bearing candidate against a footprint-less in-flight Story.
+    const declaredHeld = inFlight(9, { files: ['lib/a.js'] });
+    const noFootprint = planReadySet({
+      stories: [story(1), declaredHeld],
+      inFlight: 1,
+      globalCap: 5,
+      inFlightRecords: [declaredHeld],
+    });
+    assert.deepEqual(ids(noFootprint.selected), [1]);
+
+    // And the mirror: a declared candidate against a bare in-flight Story.
+    const bareBlocker = planReadySet({
+      stories: [story(1, { files: ['lib/a.js'] }), bareHeld],
+      inFlight: 1,
+      globalCap: 5,
+      inFlightRecords: [bareHeld],
+    });
+    assert.deepEqual(ids(bareBlocker.selected), [1]);
+  });
+
+  it('lets an in-flight glob footprint reserve everything (AC-3)', () => {
+    // Unknown width is not no width: an in-flight Story declaring lib/** may
+    // touch any of these files, so exact-string comparison must fail safe.
+    const held = inFlight(9, { files: ['.agents/scripts/lib/**'] });
+    const { selected, withheldByInFlight } = planReadySet({
+      stories: [
+        story(1, { files: ['.agents/scripts/lib/story-adjacency.js'] }),
+        story(2, { files: ['docs/README.md'] }),
+        held,
+      ],
+      inFlight: 1,
+      globalCap: 5,
+      inFlightRecords: [held],
+    });
+    assert.deepEqual(ids(selected), []);
+    assert.deepEqual(withheldByInFlight, [
+      { id: 1, blockedBy: 9 },
+      { id: 2, blockedBy: 9 },
+    ]);
+  });
+
+  it('never lets a Story reserve against itself', () => {
+    // Probe mode passes the whole record set, and a defensive caller may list
+    // a Story in both arguments. A Story overlaps itself trivially, so a naive
+    // comparison would withhold every candidate forever.
+    const A = story(1, { files: ['lib/a.js'] });
+    const { selected, withheldByInFlight } = planReadySet({
+      stories: [A],
+      inFlight: 0,
+      globalCap: 5,
+      inFlightRecords: [A],
+    });
+    assert.deepEqual(ids(selected), [1]);
+    assert.deepEqual(withheldByInFlight, []);
+  });
+
+  it('is total: absent, non-array, or unidentifiable in-flight records', () => {
+    const stories = [story(1, { files: ['lib/a.js'] })];
+    for (const inFlightRecords of [undefined, null, 'nope', 42]) {
+      const { selected, withheldByInFlight } = planReadySet({
+        stories,
+        globalCap: 5,
+        inFlightRecords,
+      });
+      assert.deepEqual(ids(selected), [1]);
+      assert.deepEqual(withheldByInFlight, []);
+    }
+    // A record with no usable id cannot be NAMED as a blocker, so it does not
+    // withhold — an unexplained empty slot is the failure this report exists
+    // to remove.
+    const anonymous = planReadySet({
+      stories,
+      globalCap: 5,
+      inFlightRecords: [{ files: ['lib/a.js'] }],
+    });
+    assert.deepEqual(ids(anonymous.selected), [1]);
+  });
+
+  it('reports an in-flight blocker rather than the same-beat peer', () => {
+    // #2 races BOTH #1 (admitted this beat) and #9 (in flight). It is withheld
+    // either way; naming the longer-lived blocker keeps the report complete.
+    const held = inFlight(9, { files: ['lib/shared.js'] });
+    const { selected, withheldByInFlight } = planReadySet({
+      stories: [
+        story(1, { files: ['lib/shared.js', 'lib/a.js'] }),
+        story(2, { files: ['lib/a.js', 'lib/shared.js'] }),
+        held,
+      ],
+      inFlight: 1,
+      globalCap: 5,
+      inFlightRecords: [held],
+    });
+    assert.deepEqual(ids(selected), []);
+    assert.deepEqual(withheldByInFlight, [
+      { id: 1, blockedBy: 9 },
+      { id: 2, blockedBy: 9 },
+    ]);
+  });
+
+  it('reserves nothing when the caller supplies no records (flag-mode parity)', () => {
+    // Flag mode holds ids and a count, never records. Behaviour there is the
+    // pre-#4950 same-beat-only guard, unchanged.
+    const { selected, withheldByInFlight } = planReadySet({
+      stories: [story(1, { files: ['lib/shared.js'] })],
+      inFlight: 1,
+      globalCap: 3,
+    });
+    assert.deepEqual(ids(selected), [1]);
+    assert.deepEqual(withheldByInFlight, []);
+  });
+
+  it('still withholds a same-beat peer when no reservation applies', () => {
+    const { selected, withheldByInFlight } = planReadySet({
+      stories: [
+        story(1, { files: ['lib/shared.js'] }),
+        story(2, { files: ['lib/shared.js'] }),
+      ],
+      globalCap: 5,
+      inFlightRecords: [],
+    });
+    assert.deepEqual(ids(selected), [1]);
+    assert.deepEqual(
+      withheldByInFlight,
+      [],
+      'a same-beat skip is NOT reported as an in-flight reservation',
+    );
+  });
+
+  it('reports nothing for a Story never considered because the cap ran out', () => {
+    // A Story below the slot line was not withheld by a reservation — it was
+    // simply not reached. Reporting it would misattribute the empty slot.
+    const held = inFlight(9, { files: ['lib/held.js'] });
+    const { selected, withheldByInFlight } = planReadySet({
+      stories: [
+        story(1, { files: ['lib/a.js'] }),
+        story(2, { files: ['lib/held.js'] }),
+        held,
+      ],
+      inFlight: 2,
+      globalCap: 3,
+      inFlightRecords: [held],
+    });
+    assert.deepEqual(ids(selected), [1], '1 slot left, #1 takes it');
+    assert.deepEqual(withheldByInFlight, [], '#2 was never reached');
+  });
+});
+
+describe('selectReadySet — the dispatch-set-only view of planReadySet', () => {
+  it('returns exactly planReadySet(...).selected', () => {
+    const held = story(9, {
+      labels: [AGENT_LABELS.EXECUTING],
+      files: ['lib/shared.js'],
+    });
+    const args = {
+      stories: [
+        story(1, { files: ['lib/shared.js'] }),
+        story(2, { files: ['lib/b.js'] }),
+        held,
+      ],
+      inFlight: 1,
+      globalCap: 5,
+      inFlightRecords: [held],
+    };
+    assert.deepEqual(selectReadySet(args), planReadySet(args).selected);
+    assert.deepEqual(ids(selectReadySet(args)), [2]);
   });
 });
