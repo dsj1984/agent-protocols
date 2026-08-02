@@ -198,15 +198,17 @@ describe('workflow-invoked scripts are self-describing', () => {
 });
 
 /**
- * Story #4872 — the baseline updaters are not referenced from any workflow
- * document, so the derived adoption set above never covered them, and both
- * performed a real baseline write when asked for their usage. They are named
- * explicitly here because for a CLI whose whole job is to mutate, "a usage
- * probe leaves the artifact byte-identical" is the load-bearing half of the
- * contract, not an incidental one.
+ * Story #4872 — the baseline updaters performed a real baseline write when
+ * asked for their usage. They are named explicitly here (rather than left to
+ * the derived adoption set above) because for a CLI whose whole job is to
+ * mutate, "a usage probe leaves the artifact byte-identical" is the
+ * load-bearing half of the contract, not an incidental one — and the derived
+ * set only covers them for as long as some workflow happens to cite them.
  */
 const MUTATING_UPDATERS = [
+  'update-coverage-baseline.js',
   'update-crap-baseline.js',
+  'update-duplication-baseline.js',
   'update-maintainability-baseline.js',
 ];
 
