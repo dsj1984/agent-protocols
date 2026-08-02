@@ -327,6 +327,51 @@ test('renderTable — the header names the flag the count was taken against', ()
   assert.match(renderTable(merged), /new-method count over c=5/);
 });
 
+test('renderTable — a merge result with no flag falls back to the default', () => {
+  assert.match(
+    renderTable({ rows: [], totals: { miRegressions: 0, crapViolations: 0 } }),
+    /new-method count over c=8/,
+  );
+});
+
+test('mergeEnvelopes — a non-numeric flag falls back to the framework default', () => {
+  const crap = makeCrapEnvelope({
+    newViolations: [
+      {
+        file: 'lib/b.js',
+        cyclomatic: 9,
+        crap: 35,
+        baseline: null,
+        ceiling: 30,
+        kind: 'new',
+      },
+    ],
+  });
+  const merged = mergeEnvelopes(makeMiEnvelope([], 0), crap, {
+    cyclomaticFlag: 'not-a-number',
+  });
+  assert.equal(merged.cyclomaticFlag, 8);
+  // c=9 is over the fallback ceiling of 8, so the count still lands.
+  assert.equal(merged.rows[0].newOverCeilingMethods, 1);
+});
+
+test('mergeEnvelopes — an unusable CRAP delta never becomes a worst delta', () => {
+  const crap = makeCrapEnvelope({
+    regressionViolations: [
+      {
+        file: 'lib/b.js',
+        cyclomatic: 3,
+        crap: Number.NaN,
+        baseline: 4,
+        ceiling: 30,
+        kind: 'regression',
+      },
+    ],
+  });
+  const merged = mergeEnvelopes(makeMiEnvelope([], 0), crap);
+  assert.equal(merged.rows[0].worstCrapDelta, 0);
+});
+
 test('runCli — reads the resolved cyclomaticFlag from the project config', async () => {
   const root = makeTempDir('quality-preview-flag-');
   fs.writeFileSync(

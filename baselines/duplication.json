@@ -1,7 +1,7 @@
 {
   "$schema": ".agents/schemas/baselines/duplication.schema.json",
   "kernelVersion": "1.0.0",
-  "generatedAt": "2026-08-02T15:28:13.366Z",
+  "generatedAt": "2026-08-02T15:40:21.518Z",
   "rollup": {
     "*": {
       "percentage": 8.3,

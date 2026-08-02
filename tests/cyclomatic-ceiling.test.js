@@ -21,6 +21,7 @@ import { runCli } from '../.agents/scripts/check-cyclomatic.js';
 import {
   buildCyclomaticEnvelope,
   diffCyclomaticRows,
+  renderCyclomaticDiff,
   resolveCyclomaticPolicy,
   scanCyclomatic,
 } from '../.agents/scripts/lib/cyclomatic-ceiling.js';
@@ -228,6 +229,64 @@ describe('scanCyclomatic scores real source through the escomplex kernel', () =>
     });
     assert.deepEqual(lenient.rows, []);
   });
+
+  test('an unparseable file is counted, never silently scored as clean', () => {
+    const root = fixtureRepo({ files: { 'broken.js': 'export function (' } });
+    const scan = scanCyclomatic({
+      targetDirs: ['src'],
+      ceiling: 1,
+      cwd: root,
+    });
+    assert.equal(scan.parseErrors, 1);
+    assert.deepEqual(scan.rows, []);
+  });
+});
+
+describe('renderCyclomaticDiff', () => {
+  test('names every bucket and marks only added/worsened as a failure', () => {
+    const failing = renderCyclomaticDiff(
+      {
+        added: [
+          {
+            file: 'a.js',
+            methodsAboveCeiling: 2,
+            maxCyclomatic: 14,
+            baselineCount: 1,
+          },
+        ],
+        worsened: [
+          {
+            file: 'b.js',
+            methodsAboveCeiling: 1,
+            maxCyclomatic: 21,
+            baselineMax: 14,
+          },
+        ],
+        improved: [
+          {
+            file: 'c.js',
+            methodsAboveCeiling: 1,
+            maxCyclomatic: 13,
+            baselineCount: 2,
+            baselineMax: 20,
+          },
+        ],
+        removed: [{ file: 'd.js', methodsAboveCeiling: 1, maxCyclomatic: 13 }],
+      },
+      12,
+    );
+    assert.match(failing, /\+ a\.js/);
+    assert.match(failing, /! b\.js/);
+    assert.match(failing, /~ c\.js/);
+    assert.match(failing, /- d\.js/);
+    assert.match(failing, /gate fail/);
+
+    const clean = renderCyclomaticDiff(
+      { added: [], worsened: [], improved: [], removed: [] },
+      12,
+    );
+    assert.match(clean, /\(ok\)/);
+  });
 });
 
 describe('check-cyclomatic.js enforces the resolved cyclomaticMustFix', () => {
@@ -292,6 +351,35 @@ describe('check-cyclomatic.js enforces the resolved cyclomaticMustFix', () => {
     assert.equal(res.exitCode, 1, res.stdout);
     assert.match(res.stdout, /\+ src\/added\.js/);
     assert.doesNotMatch(res.stdout, /\+ src\/branchy\.js/);
+  });
+
+  test('a baseline recorded at another ceiling is called out, not trusted silently', async () => {
+    const root = fixtureRepo({
+      mustFix: 3,
+      files: { 'branchy.js': branchySource('branchy', 3) },
+    });
+    mkdirSync(path.join(root, 'baselines'), { recursive: true });
+    writeFileSync(
+      path.join(root, 'baselines', 'cyclomatic.json'),
+      JSON.stringify({
+        ceiling: 99,
+        rows: [
+          { file: 'src/branchy.js', methodsAboveCeiling: 1, maxCyclomatic: 4 },
+        ],
+      }),
+    );
+    const res = await captureRun(root, []);
+    assert.match(res.stderr, /recorded at ceiling c=99/);
+  });
+
+  test('a missing baseline is announced, then treated as empty', async () => {
+    const root = fixtureRepo({
+      mustFix: 3,
+      files: { 'branchy.js': branchySource('branchy', 3) },
+    });
+    const res = await captureRun(root, []);
+    assert.match(res.stderr, /baseline not found/);
+    assert.equal(res.exitCode, 1);
   });
 
   test('--json reports the resolved ceiling alongside the verdict', async () => {
