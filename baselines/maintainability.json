@@ -1895,6 +1895,10 @@
       "mi": 96.776
     },
     {
+      "path": ".agents/scripts/lib/workers/serve-worker-messages.js",
+      "mi": 128.304
+    },
+    {
       "path": ".agents/scripts/lib/workflow-closure.js",
       "mi": 97.938
     },

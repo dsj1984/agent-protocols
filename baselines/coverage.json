@@ -4,9 +4,9 @@
   "generatedAt": "2026-08-02T15:43:29.034Z",
   "rollup": {
     "*": {
-      "lines": 95.68,
-      "branches": 86.18,
-      "functions": 88.55
+      "lines": 95.69,
+      "branches": 86.2,
+      "functions": 88.57
     }
   },
   "rows": [
@@ -2820,6 +2820,12 @@
     },
     {
       "path": ".agents/scripts/lib/workers/maintainability-worker.js",
+      "lines": 100,
+      "branches": 100,
+      "functions": 100
+    },
+    {
+      "path": ".agents/scripts/lib/workers/serve-worker-messages.js",
       "lines": 100,
       "branches": 100,
       "functions": 100
