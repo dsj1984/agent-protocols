@@ -17,8 +17,16 @@ import { getPaths, PROJECT_ROOT } from '../../config-resolver.js';
 import { fetchPriorFeedback } from '../../feedback-loop/prior-feedback-fetcher.js';
 import { Logger } from '../../Logger.js';
 import { hasTicketSection } from '../../ticket-body-sections.js';
+import { concurrentMap } from '../../util/concurrent-map.js';
 import { ensureDocsDigest } from '../docs-digest.js';
 import { buildMemoryPoolAdvisory } from './memory-pool-advisory.js';
+
+/**
+ * Bounded concurrency for the independent context gathers (Story #4952).
+ * Small on purpose and consistent with the other `/plan`-path fan-outs: these
+ * are a handful of local probes plus one `gh` read, not an API sweep.
+ */
+const CONTEXT_GATHER_CONCURRENCY = 4;
 
 /**
  * Build the digest-first `docsContext` envelope field (Story #4433 — hard
@@ -67,6 +75,24 @@ async function buildPlanningDocsContext({ seedIssueId, settings, cwd }) {
 }
 
 /**
+ * Story #2637 — index existing BDD scenarios so the Acceptance Engineer step
+ * can annotate planned ACs with matches from the project's `.feature` files.
+ * Empty array when the project has not adopted BDD; the scanner is
+ * best-effort and never throws on filesystem errors.
+ *
+ * @returns {Array<object>}
+ */
+function scanBddScenariosBestEffort() {
+  try {
+    const featureRoots = resolveFeatureRoots({ cwd: PROJECT_ROOT });
+    return scanBddScenarios({ featureRoots });
+  } catch (err) {
+    Logger.warn(`[plan-context] BDD scenario scan skipped: ${err.message}`);
+    return [];
+  }
+}
+
+/**
  * Build the authoring context the host LLM (or the
  * `/plan` author step) needs to write the Tech Spec.
  *
@@ -101,49 +127,51 @@ export async function buildAuthoringContext(
 
   const { cwd = PROJECT_ROOT } = opts;
 
-  const docsContext = await buildPlanningDocsContext({
-    seedIssueId: epic.id,
-    settings,
-    cwd,
-  });
-
-  // Story #2094 Task #2103 — verify the project's BDD runner pending-tag
-  // support so the acceptance-spec body can record either the verified tag
-  // (features-first ordering) or "fallback: dependencies-first ordering"
-  // when no supported runner is present.
-  const bddRunner = await verifyBddRunnerPendingTag({ cwd: PROJECT_ROOT });
-
-  // Story #2637 — index existing BDD scenarios so the Acceptance Engineer
-  // step can annotate planned ACs with matches from the project's
-  // `.feature` files. Empty array when the project has not adopted BDD;
-  // the scanner is best-effort and never throws on filesystem errors.
-  let bddScenarios = [];
-  try {
-    const featureRoots = resolveFeatureRoots({ cwd: PROJECT_ROOT });
-    bddScenarios = scanBddScenarios({ featureRoots });
-  } catch (err) {
-    Logger.warn(`[plan-context] BDD scenario scan skipped: ${err.message}`);
-  }
-
-  // Story #4919 — the memory-freshness pre-flight (#2557 / #4414) is retired
-  // and this advisory replaces it in the same slot. The scanner marked an
-  // entry stale when a cited issue was closed, but the memory corpus is
-  // delivery retrospectives whose subject IS a delivered Story — and its
-  // directory (`~/.claude/projects/<repo>/memory/`) never resolved, because
-  // harness project dirs are cwd-slugs. This renders no per-entry verdict at
-  // all: it stats and counts, and the `/plan` spine surfaces `recommend` at
-  // Gate #1. Filesystem-only and total — it never throws.
   const githubCfg = opts.github ?? null;
-  const memoryPoolAdvisory = buildMemoryPoolAdvisory({ cwd: PROJECT_ROOT });
 
-  // Story #2554 — surface open meta feedback issues to the planner so retro
-  // signals are routed into durable substrates rather than lost in chat.
-  // The fetcher is best-effort: missing owner/repo or gh-CLI failures land
-  // in `errors[]` and never throw.
-  const priorFeedback = await fetchPriorFeedback({
-    owner: githubCfg?.owner,
-    repo: githubCfg?.repo,
-  });
+  // Story #4952 — these five gathers share no data, so they run under bounded
+  // concurrency instead of five sequential awaits on the interactive `/plan`
+  // path. `concurrentMap` preserves input order, so the destructuring is
+  // positional and the produced context is identical to the serial build:
+  //
+  //   1. the digest-first `docsContext` pointer (Story #4433);
+  //   2. Story #2094 Task #2103 — the project's BDD runner pending-tag
+  //      support, so the acceptance-spec body records either the verified tag
+  //      (features-first ordering) or "fallback: dependencies-first ordering"
+  //      when no supported runner is present;
+  //   3. the best-effort `.feature` scenario index;
+  //   4. Story #4919 — the memory-pool advisory that replaced the retired
+  //      memory-freshness pre-flight (#2557 / #4414) in the same slot. The
+  //      scanner marked an entry stale when a cited issue was closed, but the
+  //      memory corpus is delivery retrospectives whose subject IS a delivered
+  //      Story — and its directory (`~/.claude/projects/<repo>/memory/`) never
+  //      resolved, because harness project dirs are cwd-slugs. This renders no
+  //      per-entry verdict at all: it stats and counts, and the `/plan` spine
+  //      surfaces `recommend` at Gate #1. Filesystem-only and total;
+  //   5. Story #2554 — open meta feedback issues, so retro signals are routed
+  //      into durable substrates rather than lost in chat. Best-effort:
+  //      missing owner/repo or gh-CLI failures land in `errors[]`, never throw.
+  const [
+    docsContext,
+    bddRunner,
+    bddScenarios,
+    memoryPoolAdvisory,
+    priorFeedback,
+  ] = await concurrentMap(
+    [
+      () => buildPlanningDocsContext({ seedIssueId: epic.id, settings, cwd }),
+      () => verifyBddRunnerPendingTag({ cwd: PROJECT_ROOT }),
+      () => scanBddScenariosBestEffort(),
+      () => buildMemoryPoolAdvisory({ cwd: PROJECT_ROOT }),
+      () =>
+        fetchPriorFeedback({
+          owner: githubCfg?.owner,
+          repo: githubCfg?.repo,
+        }),
+    ],
+    (gather) => gather(),
+    { concurrency: CONTEXT_GATHER_CONCURRENCY },
+  );
 
   // Story #4811 — the codebase snapshot (#2634), its authoring grounding
   // (#4139 F10) and the spec-freshness helpers behind it are retired. The

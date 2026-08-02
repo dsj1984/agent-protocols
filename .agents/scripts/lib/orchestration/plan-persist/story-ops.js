@@ -24,6 +24,7 @@ import {
   parse as parseStoryBody,
   serialize as serializeStoryBody,
 } from '../../story-body/story-body.js';
+import { concurrentMap } from '../../util/concurrent-map.js';
 import { assertSpecWithinBudget } from '../spec-spill.js';
 import { assertAcceptancePartition } from '../split-policy-validator.js';
 import {
@@ -56,6 +57,15 @@ const LITE_ROUTE_LABEL_COLOR = '#D4C5F9';
 
 /** Length of the derived plan-run id (hex chars). */
 const PLAN_RUN_ID_LENGTH = 8;
+
+/**
+ * Bounded concurrency for the terminal per-Story `agent::ready` PATCHes
+ * (Story #4952). Each flip is an independent single-issue write, so the loop
+ * was serial only by construction. Deliberately the same small bound the rest
+ * of the `/plan` path uses — this is a latency fix, not a throughput one, and
+ * raising it would only push harder on the same GitHub API.
+ */
+const READY_FLIP_CONCURRENCY = 4;
 
 /**
  * Normalize a caller-supplied plan-run token. Kept shared so human-readable
@@ -795,6 +805,14 @@ async function ensurePersistLabel({
  * (see `ensureCohortLabel`). `/deliver` never reads it — delivery stays
  * ids-only over live state (Story #4540's actual point).
  *
+ * **The create loop stays serial and dependency-ordered** — deliberately, and
+ * unlike every other per-Story loop on this path (Story #4952). It is not an
+ * independent fan-out: `renderStoryBodyForCreate(story, idBySlug)` resolves a
+ * Story's `depends_on` slugs to the real issue ids its siblings were just
+ * minted with, and `idBySlug` is filled *in loop order* by the POSTs
+ * themselves. Running it concurrently would render `#undefined` dependency
+ * refs for any Story whose dependency had not yet returned an id.
+ *
  * **Sibling order is mirrored into native GitHub `blocked_by` edges** once
  * every id is known (Story #4544), so plan-created order stops depending on
  * prose. That pass is non-fatal — see `mirrorNativeDependencyEdges`.
@@ -960,6 +978,16 @@ export async function createStoryIssues({ provider, stories, opts = {} }) {
  * Fails closed: an un-flipped Story is invisible to `/deliver`, which is the
  * safe direction — the operator is told exactly which ids need the label.
  *
+ * **Collect failures, never fast-fail** (preserved verbatim under the
+ * Story #4952 concurrency conversion). Every Story is attempted even when an
+ * earlier one's PATCH rejects, because the whole value of the closing error is
+ * naming the *complete* set of ids that still need the label by hand. The
+ * mapper below therefore absorbs its own rejection into a per-Story outcome
+ * rather than letting `concurrentMap`'s first-rejection-wins policy abandon
+ * the remaining flips. `concurrentMap` preserves input order, so `readied[]`
+ * and the reported failures come back in `created[]` order exactly as the
+ * serial loop produced them.
+ *
  * @param {object} args
  * @param {object} args.provider
  * @param {Array<{ id: number, slug: string }>} args.created
@@ -972,18 +1000,29 @@ export async function markStoriesReady({ provider, created }) {
         'Stories to agent::ready.',
     );
   }
-  const readied = [];
-  const failed = [];
-  for (const story of created) {
-    try {
-      await provider.updateTicket(story.id, {
-        labels: { add: [AGENT_LABELS.READY] },
-      });
-      readied.push(story.id);
-    } catch (err) {
-      failed.push(`#${story.id} (${story.slug}): ${err.message}`);
-    }
-  }
+  const outcomes = await concurrentMap(
+    created,
+    async (story) => {
+      try {
+        await provider.updateTicket(story.id, {
+          labels: { add: [AGENT_LABELS.READY] },
+        });
+        return { id: story.id, failure: null };
+      } catch (err) {
+        return {
+          id: story.id,
+          failure: `#${story.id} (${story.slug}): ${err.message}`,
+        };
+      }
+    },
+    { concurrency: READY_FLIP_CONCURRENCY },
+  );
+  const readied = outcomes
+    .filter((outcome) => outcome.failure === null)
+    .map((outcome) => outcome.id);
+  const failed = outcomes
+    .filter((outcome) => outcome.failure !== null)
+    .map((outcome) => outcome.failure);
   if (failed.length > 0) {
     throw new Error(
       `[plan-persist] ${failed.length} Story(ies) were created with their ` +

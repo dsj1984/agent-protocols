@@ -38,11 +38,11 @@
  */
 
 import { rm } from 'node:fs/promises';
-import path from 'node:path';
 import { getLimits, PROJECT_ROOT } from '../../config-resolver.js';
 import { gitSpawn } from '../../git-utils.js';
 import { Logger } from '../../Logger.js';
 import { sweepTempRetention } from '../../temp-retention.js';
+import { concurrentMap } from '../../util/concurrent-map.js';
 import {
   deriveStoryShape,
   LITE_ROUTE_LABEL,
@@ -82,6 +82,14 @@ const PLAN_CHECKPOINT_SCHEMA_VERSION_V2 = 2;
 
 /** Structured-comment type for the per-plan Story checkpoint. */
 const STORY_PLAN_STATE_TYPE = 'story-plan-state';
+
+/**
+ * Bounded concurrency for the per-Story checkpoint upserts (Story #4952).
+ * Each upsert targets a different issue and reads nothing another writes, so
+ * the loop was serial only by construction — but see
+ * {@link persistStoryArtifacts} for the ordering that is *not* incidental.
+ */
+const CHECKPOINT_WRITE_CONCURRENCY = 4;
 
 /**
  * Write the `story-plan-state` checkpoint on a Story.
@@ -474,6 +482,15 @@ async function enforceReachability(reachability, config) {
  * `agent::ready` lands last so it can honestly mean "fully persisted"
  * (Story #4541). A dry run performs none of it.
  *
+ * **The checkpoints fan out; the phase boundary does not** (Story #4952). The
+ * per-Story upserts are independent of one another and run under bounded
+ * concurrency, but the `await` on that whole fan-out is what keeps the
+ * Story #4541 invariant intact: *every* checkpoint is on its ticket before the
+ * first `agent::ready` flip is issued, so `ready` still means "fully
+ * persisted" and a `/deliver` that picks a Story up cannot read a null
+ * checkpoint. Concurrency inside the phase is safe; overlapping the phases is
+ * the race this ordering exists to close.
+ *
  * @param {object} args
  * @returns {Promise<void>}
  */
@@ -484,24 +501,28 @@ async function persistStoryArtifacts({
   route,
   summaryBody,
 }) {
-  for (const story of created) {
-    await writeCheckpointV2(provider, story.id, {
-      persist: {
-        completedAt: new Date().toISOString(),
-        storyCount: created.length,
-        primaryStoryId: primary.id,
-        stories: created.map((createdStory) => ({
-          slug: createdStory.slug,
-          id: createdStory.id,
-        })),
-      },
-      // Ledger the authored route verdict — the recorded reason and the
-      // per-Story shape evidence, including a shape-refused claim — on plan
-      // state (Story #4722). No authored verdict writes no block: absence
-      // is the standard full path.
-      ...(route ? { route } : {}),
-    });
-  }
+  const cohort = created.map((createdStory) => ({
+    slug: createdStory.slug,
+    id: createdStory.id,
+  }));
+  await concurrentMap(
+    created,
+    (story) =>
+      writeCheckpointV2(provider, story.id, {
+        persist: {
+          completedAt: new Date().toISOString(),
+          storyCount: created.length,
+          primaryStoryId: primary.id,
+          stories: cohort,
+        },
+        // Ledger the authored route verdict — the recorded reason and the
+        // per-Story shape evidence, including a shape-refused claim — on plan
+        // state (Story #4722). No authored verdict writes no block: absence
+        // is the standard full path.
+        ...(route ? { route } : {}),
+      }),
+    { concurrency: CHECKPOINT_WRITE_CONCURRENCY },
+  );
   await upsertStructuredComment(
     provider,
     primary.id,

@@ -23,6 +23,9 @@ import {
   runPlanPersist,
 } from '../../.agents/scripts/lib/orchestration/plan-persist/run-plan-persist.js';
 import {
+  assemblePlanStories,
+  createStoryIssues,
+  markStoriesReady,
   planStoryFingerprint,
   sanitizeAuthoredLabels,
 } from '../../.agents/scripts/lib/orchestration/plan-persist/story-ops.js';
@@ -1453,5 +1456,302 @@ describe('reapStalePlanDirs (Story #4541)', () => {
       }),
       { reaped: [] },
     );
+  });
+});
+
+// ---------------------------------------------------------------------------
+// Story #4952 — the independent per-Story write loops run under bounded
+// concurrency; the loop that is NOT independent stays serial.
+// ---------------------------------------------------------------------------
+
+/**
+ * Wrap a provider method so the test can observe how many calls are in flight
+ * at once, and hold each call open long enough for overlap to be visible.
+ *
+ * A serial loop can never exceed a peak of 1; a bounded fan-out must exceed 1
+ * and must never exceed its bound.
+ */
+function trackInFlight(target, method, { hold = 5 } = {}) {
+  const original = target[method].bind(target);
+  const state = { peak: 0, inFlight: 0, calls: [] };
+  target[method] = async (...args) => {
+    state.inFlight += 1;
+    state.peak = Math.max(state.peak, state.inFlight);
+    state.calls.push(args[0]);
+    try {
+      await new Promise((resolve) => setTimeout(resolve, hold));
+      return await original(...args);
+    } finally {
+      state.inFlight -= 1;
+    }
+  };
+  return state;
+}
+
+describe('markStoriesReady — bounded concurrency (Story #4952)', () => {
+  it('flips every Story concurrently, under the bound, in created order', async () => {
+    const provider = fakeProvider();
+    const created = Array.from({ length: 9 }, (_, i) => ({
+      id: 7000 + i,
+      slug: `story-${i}`,
+    }));
+    for (const story of created) {
+      provider.issues.set(story.id, { id: story.id, labels: [] });
+    }
+
+    const flips = trackInFlight(provider, 'updateTicket');
+    const { readied } = await markStoriesReady({ provider, created });
+
+    assert.deepEqual(
+      readied,
+      created.map((s) => s.id),
+      'readied[] follows created[] order, as the serial loop produced it',
+    );
+    assert.ok(flips.peak > 1, `expected concurrent flips, peak=${flips.peak}`);
+    assert.ok(
+      flips.peak <= 4,
+      `expected a bounded fan-out, peak=${flips.peak}`,
+    );
+    for (const story of created) {
+      assert.ok(
+        provider.issues.get(story.id).labels.includes(AGENT_LABELS.READY),
+      );
+    }
+  });
+
+  it('collects every failure instead of fast-failing on the first one', async () => {
+    // The contract the conversion must not lose: the closing error names the
+    // COMPLETE set of ids that still need the label by hand, so every Story is
+    // attempted even after an earlier PATCH rejects. concurrentMap's
+    // first-rejection-wins policy would abandon the rest.
+    const provider = fakeProvider();
+    const created = [
+      { id: 7100, slug: 'alpha' },
+      { id: 7101, slug: 'beta' },
+      { id: 7102, slug: 'gamma' },
+      { id: 7103, slug: 'delta' },
+    ];
+    for (const story of created) {
+      provider.issues.set(story.id, { id: story.id, labels: [] });
+    }
+    const attempted = [];
+    provider.updateTicket = async (id) => {
+      attempted.push(id);
+      if (id === 7100 || id === 7102) {
+        throw new Error(`boom ${id}`);
+      }
+      provider.issues.get(id).labels.push(AGENT_LABELS.READY);
+    };
+
+    await assert.rejects(
+      () => markStoriesReady({ provider, created }),
+      (err) => {
+        assert.match(err.message, /#7100 \(alpha\): boom 7100/);
+        assert.match(err.message, /#7102 \(gamma\): boom 7102/);
+        assert.match(err.message, /2 Story\(ies\) were created/);
+        return true;
+      },
+    );
+    assert.deepEqual(
+      attempted.sort(),
+      [7100, 7101, 7102, 7103],
+      'the first failure must not abandon the remaining flips',
+    );
+    // The Stories that could be flipped still were.
+    assert.ok(provider.issues.get(7101).labels.includes(AGENT_LABELS.READY));
+    assert.ok(provider.issues.get(7103).labels.includes(AGENT_LABELS.READY));
+  });
+});
+
+describe('createStoryIssues — deliberately serial (Story #4952 AC-3)', () => {
+  it('creates dependency-ordered Stories one at a time so idBySlug is filled in order', async () => {
+    // NOT an independent fan-out: renderStoryBodyForCreate resolves a Story's
+    // depends_on slugs against ids its siblings were just minted with, and
+    // idBySlug fills in loop order. Concurrent creation would render
+    // `#undefined` dependency refs.
+    const provider = fakeProvider();
+    const creates = trackInFlight(provider, 'createIssue');
+
+    const { stories } = assemblePlanStories([
+      { ...ticket('base'), depends_on: [] },
+      { ...ticket('middle'), depends_on: ['base'] },
+      { ...ticket('leaf'), depends_on: ['middle'] },
+    ]);
+    const { created } = await createStoryIssues({ provider, stories });
+
+    assert.equal(
+      creates.peak,
+      1,
+      `createStoryIssues must stay serial, peak=${creates.peak}`,
+    );
+    assert.deepEqual(
+      created.map((s) => s.slug),
+      ['base', 'middle', 'leaf'],
+      'creation follows the dependency order',
+    );
+
+    const idBySlug = new Map(created.map((s) => [s.slug, s.id]));
+    const middleBody = provider.issues.get(idBySlug.get('middle')).body;
+    const leafBody = provider.issues.get(idBySlug.get('leaf')).body;
+    assert.match(middleBody, new RegExp(`#${idBySlug.get('base')}`));
+    assert.match(leafBody, new RegExp(`#${idBySlug.get('middle')}`));
+    assert.doesNotMatch(middleBody, /#undefined/);
+    assert.doesNotMatch(leafBody, /#undefined/);
+  });
+});
+
+describe('persist write loops — concurrent, ordering preserved (Story #4952)', () => {
+  it('fans the checkpoints out but lands every one before the first ready flip', async () => {
+    // Story #4541's invariant survives the fan-out: agent::ready still means
+    // "fully persisted", so no phase may overlap the next.
+    const provider = fakeProvider();
+    const order = [];
+    let checkpointsInFlight = 0;
+    let checkpointPeak = 0;
+
+    const { postComment } = provider;
+    provider.postComment = async (issueNumber, payload) => {
+      const body = typeof payload === 'string' ? payload : payload.body;
+      if (body.includes('story-plan-state')) {
+        checkpointsInFlight += 1;
+        checkpointPeak = Math.max(checkpointPeak, checkpointsInFlight);
+        await new Promise((resolve) => setTimeout(resolve, 5));
+        checkpointsInFlight -= 1;
+        order.push('checkpoint');
+      }
+      return postComment(issueNumber, payload);
+    };
+    const { updateTicket } = provider;
+    provider.updateTicket = async (id, mutations) => {
+      if (mutations.labels?.add?.includes(AGENT_LABELS.READY)) {
+        order.push('ready');
+      }
+      return updateTicket(id, mutations);
+    };
+
+    const result = await runPlanPersist({
+      provider,
+      artifacts: {
+        stories: [ticket('one'), ticket('two'), ticket('three')],
+      },
+      config: {},
+      opts: { skipCleanup: true },
+    });
+
+    assert.equal(result.stories.length, 3);
+    assert.ok(
+      checkpointPeak > 1,
+      `expected the checkpoint writes to overlap, peak=${checkpointPeak}`,
+    );
+    const lastCheckpoint = order.lastIndexOf('checkpoint');
+    const firstReady = order.indexOf('ready');
+    assert.equal(order.filter((e) => e === 'checkpoint').length, 3);
+    assert.equal(order.filter((e) => e === 'ready').length, 3);
+    assert.ok(
+      lastCheckpoint < firstReady,
+      `every checkpoint must land before the first ready flip (${order.join(',')})`,
+    );
+  });
+});
+
+describe('supersede close — bounded concurrency (Story #4952)', () => {
+  function supersedingTicket(slug, supersedes) {
+    return { ...ticket(slug), supersedes };
+  }
+
+  it('closes distinct tickets concurrently, keeping probe → comment → close per ticket', async () => {
+    const sourceIds = [940, 941, 942, 943, 944];
+    const provider = fakeProvider({
+      sources: sourceIds.map((id) => ({ id, title: `Source ${id}` })),
+    });
+
+    /** Per-ticket call log, plus the cross-ticket overlap peak. */
+    const log = new Map(sourceIds.map((id) => [id, []]));
+    let inFlight = 0;
+    let peak = 0;
+
+    const { getTicket } = provider;
+    provider.getTicket = async (id, opts) => {
+      if (log.has(id)) {
+        inFlight += 1;
+        peak = Math.max(peak, inFlight);
+        log.get(id).push('probe');
+        await new Promise((resolve) => setTimeout(resolve, 5));
+        inFlight -= 1;
+      }
+      return getTicket(id, opts);
+    };
+    const { postComment } = provider;
+    provider.postComment = async (issueNumber, payload) => {
+      if (log.has(issueNumber)) log.get(issueNumber).push('comment');
+      return postComment(issueNumber, payload);
+    };
+    const { updateTicket } = provider;
+    provider.updateTicket = async (id, mutations) => {
+      if (log.has(id) && mutations.state === 'closed') {
+        log.get(id).push('close');
+      }
+      return updateTicket(id, mutations);
+    };
+
+    const result = await runPlanPersist({
+      provider,
+      artifacts: {
+        stories: sourceIds.map((id, i) =>
+          supersedingTicket(`story-${i}`, [id]),
+        ),
+      },
+      opts: { skipCleanup: true, sourceTicketIds: sourceIds },
+    });
+
+    assert.deepEqual(
+      result.supersede.closed,
+      sourceIds,
+      'report order is stable',
+    );
+    assert.deepEqual(result.supersede.failed, []);
+    assert.ok(
+      peak > 1,
+      `expected concurrent probes across tickets, peak=${peak}`,
+    );
+    assert.ok(peak <= 4, `expected a bounded fan-out, peak=${peak}`);
+    for (const id of sourceIds) {
+      assert.deepEqual(
+        log.get(id),
+        ['probe', 'comment', 'close'],
+        `#${id} must stay probe → comment → close`,
+      );
+    }
+  });
+
+  it('keeps per-unit failures per-unit — one bad ticket never abandons the rest', async () => {
+    const sourceIds = [950, 951, 952];
+    const provider = fakeProvider({
+      sources: sourceIds.map((id) => ({ id })),
+    });
+    const { updateTicket } = provider;
+    provider.updateTicket = async (id, mutations) => {
+      if (id === 951 && mutations.state === 'closed') {
+        throw new Error('close refused');
+      }
+      return updateTicket(id, mutations);
+    };
+
+    const result = await runPlanPersist({
+      provider,
+      artifacts: {
+        stories: sourceIds.map((id, i) =>
+          supersedingTicket(`story-${i}`, [id]),
+        ),
+      },
+      opts: { skipCleanup: true, sourceTicketIds: sourceIds },
+    });
+
+    assert.deepEqual(result.supersede.closed, [950, 952]);
+    assert.deepEqual(result.supersede.failed, [
+      { ticket: 951, reason: 'close refused' },
+    ]);
+    assert.equal(provider.issues.get(950).state, 'closed');
+    assert.equal(provider.issues.get(952).state, 'closed');
   });
 });

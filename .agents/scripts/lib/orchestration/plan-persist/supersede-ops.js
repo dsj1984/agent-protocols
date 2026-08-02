@@ -36,10 +36,23 @@
  */
 
 import { Logger } from '../../Logger.js';
+import { concurrentMap } from '../../util/concurrent-map.js';
 import { upsertStructuredComment } from '../ticketing.js';
 
 /** Structured-comment type marking a source issue as superseded. */
 const SUPERSEDED_BY_COMMENT_TYPE = 'superseded-by';
+
+/**
+ * Bounded concurrency for the per-source-ticket close (Story #4952).
+ *
+ * The fan-out is across **distinct** tickets — `assertSupersedePartition` has
+ * already failed the run closed if two Stories claim the same id, so no two
+ * units in flight can touch the same issue. Within one unit the probe →
+ * comment → close sequence stays strictly ordered: commenting on an issue the
+ * probe reported closed, or closing one the comment never landed on, is the
+ * whole failure mode this phase is careful about.
+ */
+const SUPERSEDE_CLOSE_CONCURRENCY = 4;
 
 /**
  * GitHub `state_reason` used when closing a superseded source issue.
@@ -440,39 +453,85 @@ export async function closeSupersededTickets({
   const createdBySlug = new Map(
     (created ?? []).map((story) => [story.slug, story]),
   );
+  const units = collectSupersedeUnits(stories, createdBySlug);
 
-  const report = emptyReport({ enabled: true, dryRun });
-
-  for (const story of stories ?? []) {
-    const createdStory = createdBySlug.get(story.slug);
-    for (const { id, note } of story.supersedes ?? []) {
+  // Story #4952 — one bounded fan-out across distinct source tickets. The
+  // mapper inherits `closeOneSupersededTicket`'s never-throw contract (and
+  // resolves the two pre-write outcomes itself), so `concurrentMap`'s
+  // first-rejection-wins policy can never fire and no unit is abandoned
+  // because a sibling failed. Input order is preserved, so the report arrays
+  // below read exactly as the serial nested loop wrote them.
+  const outcomes = await concurrentMap(
+    units,
+    ({ id, note, createdStory }) => {
       if (!createdStory) {
-        report.skipped.push({ ticket: id, reason: 'story-not-created' });
-        continue;
+        return { outcome: 'skipped', reason: 'story-not-created' };
       }
-      if (dryRun) {
-        report.planned.push({ ticket: id, storySlug: createdStory.slug });
-        continue;
-      }
-      const result = await closeOneSupersededTicket({
+      if (dryRun) return { outcome: 'planned' };
+      return closeOneSupersededTicket({
         provider,
         id,
         note,
         story: createdStory,
         sourceTicketIds: sources,
       });
-      if (result.outcome === 'closed') {
-        report.closed.push(id);
-      } else if (result.outcome === 'skipped') {
-        report.skipped.push({ ticket: id, reason: result.reason });
-      } else {
-        report.failed.push({ ticket: id, reason: result.reason });
-      }
-    }
-  }
+    },
+    { concurrency: SUPERSEDE_CLOSE_CONCURRENCY },
+  );
+
+  const report = emptyReport({ enabled: true, dryRun });
+  outcomes.forEach((result, index) => {
+    recordSupersedeOutcome(report, units[index], result);
+  });
 
   logSupersedeReport(report);
   return report;
+}
+
+/**
+ * Flatten the per-Story `supersedes[]` maps into one list of close units, in
+ * the nested iteration order the report arrays are expected to follow.
+ *
+ * @param {Array<{ slug: string, supersedes?: Array<{ id: number, note: string|null }> }>|undefined} stories
+ * @param {Map<string, { slug: string, id: number, title: string }>} createdBySlug
+ * @returns {Array<{ id: number, note: string|null, createdStory: object|undefined }>}
+ */
+function collectSupersedeUnits(stories, createdBySlug) {
+  const units = [];
+  for (const story of stories ?? []) {
+    const createdStory = createdBySlug.get(story.slug);
+    for (const { id, note } of story.supersedes ?? []) {
+      units.push({ id, note, createdStory });
+    }
+  }
+  return units;
+}
+
+/**
+ * File one unit's outcome onto the report.
+ *
+ * @param {SupersedeReport} report
+ * @param {{ id: number, createdStory: object|undefined }} unit
+ * @param {{ outcome: string, reason?: string }} result
+ * @returns {void}
+ */
+function recordSupersedeOutcome(report, unit, result) {
+  if (result.outcome === 'closed') {
+    report.closed.push(unit.id);
+    return;
+  }
+  if (result.outcome === 'planned') {
+    report.planned.push({
+      ticket: unit.id,
+      storySlug: unit.createdStory.slug,
+    });
+    return;
+  }
+  if (result.outcome === 'skipped') {
+    report.skipped.push({ ticket: unit.id, reason: result.reason });
+    return;
+  }
+  report.failed.push({ ticket: unit.id, reason: result.reason });
 }
 
 /**
