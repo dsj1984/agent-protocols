@@ -31,10 +31,8 @@ export function resolveDispatchScope({ kind, quality, env }) {
     kind,
     configScope: cfg.scope,
     configRef: cfg.diffRef,
-    cliFlags: {
-      envScope: env?.BASELINE_SCOPE,
-      envRef: env?.BASELINE_REF,
-    },
+    envScope: env?.BASELINE_SCOPE,
+    envRef: env?.BASELINE_REF,
   });
 }
 

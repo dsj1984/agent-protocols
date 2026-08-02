@@ -1,10 +1,18 @@
 // tests/baselines/scope.test.js
 //
 // Story #1962 / Task #1970 — Lock the precedence ladder for the unified
-// `resolveScope({kind, configScope, configRef, cliFlags})` helper. Every
-// future per-kind regression CLI in Epic #1943 calls this exactly once
-// per run; the wrong precedence here would silently desync the
-// dispatcher's read scope from the writer's write scope.
+// `resolveScope({kind, configScope, configRef, envScope, envRef})` helper.
+// The check-baselines dispatcher calls it exactly once per gate per run;
+// the wrong precedence here silently changes which ref every gate compares
+// against.
+//
+// Story #4922 — the CLI/operator-override layer (`cliFlags.fullScope`,
+// `cliFlags.changedSinceRef`) and the `cliFlags.changedFiles` → `files`
+// plumbing were removed. Nothing in production ever populated them; only
+// this file did, which is how a shipped `--full-scope` / `--changed-since`
+// contract that `check-baselines.js` never implemented stayed green for
+// nine Stories. The tests below now assert the layer is GONE — a resolver
+// that starts honouring those keys again would break these.
 
 import assert from 'node:assert/strict';
 import { describe, it } from 'node:test';
@@ -12,27 +20,12 @@ import { describe, it } from 'node:test';
 import { resolveScope } from '../../.agents/scripts/lib/baselines/scope.js';
 
 describe('resolveScope — full mode (acceptance)', () => {
-  it("returns mode='full', files=Set(), ref=null when configScope='full'", () => {
+  it("returns mode='full', ref=null when configScope='full'", () => {
     const r = resolveScope({ kind: 'lint', configScope: 'full' });
     assert.equal(r.kind, 'lint');
     assert.equal(r.mode, 'full');
     assert.equal(r.ref, null);
-    assert.ok(r.files instanceof Set);
-    assert.equal(r.files.size, 0);
     assert.equal(r.source, 'config:gateScoping.scope=full');
-  });
-
-  it("CLI --full-scope flag forces mode='full' even when config says diff", () => {
-    const r = resolveScope({
-      kind: 'crap',
-      configScope: 'diff',
-      configRef: 'main',
-      cliFlags: { fullScope: true },
-    });
-    assert.equal(r.mode, 'full');
-    assert.equal(r.ref, null);
-    assert.equal(r.files.size, 0);
-    assert.equal(r.source, 'cli:--full-scope');
   });
 
   it("env BASELINE_SCOPE='full' forces mode='full' over config diff", () => {
@@ -40,7 +33,7 @@ describe('resolveScope — full mode (acceptance)', () => {
       kind: 'coverage',
       configScope: 'diff',
       configRef: 'epic/1943',
-      cliFlags: { envScope: 'full' },
+      envScope: 'full',
     });
     assert.equal(r.mode, 'full');
     assert.equal(r.ref, null);
@@ -54,28 +47,12 @@ describe('resolveScope — full mode (acceptance)', () => {
 });
 
 describe('resolveScope — precedence layers', () => {
-  it('CLI --changed-since beats env, config, and default', () => {
-    const r = resolveScope({
-      kind: 'mutation',
-      configScope: 'diff',
-      configRef: 'main',
-      cliFlags: {
-        changedSinceRef: 'epic/1943',
-        envRef: 'origin/main',
-        envScope: 'diff',
-      },
-    });
-    assert.equal(r.mode, 'diff');
-    assert.equal(r.ref, 'epic/1943');
-    assert.equal(r.source, 'cli:--changed-since');
-  });
-
-  it('env BASELINE_REF beats config when no CLI flag is set', () => {
+  it('env BASELINE_REF beats config', () => {
     const r = resolveScope({
       kind: 'lighthouse',
       configScope: 'diff',
       configRef: 'main',
-      cliFlags: { envRef: 'origin/main' },
+      envRef: 'origin/main',
     });
     assert.equal(r.mode, 'diff');
     assert.equal(r.ref, 'origin/main');
@@ -110,10 +87,7 @@ describe('resolveScope — missing-ref fallback', () => {
   });
 
   it("env scope='diff' with no envRef falls back to ref=main", () => {
-    const r = resolveScope({
-      kind: 'coverage',
-      cliFlags: { envScope: 'diff' },
-    });
+    const r = resolveScope({ kind: 'coverage', envScope: 'diff' });
     assert.equal(r.mode, 'diff');
     assert.equal(r.ref, 'main');
     assert.equal(r.source, 'env:BASELINE_SCOPE=diff');
@@ -124,7 +98,7 @@ describe('resolveScope — missing-ref fallback', () => {
       kind: 'lint',
       configScope: 'diff',
       configRef: '',
-      cliFlags: { changedSinceRef: '', envRef: '' },
+      envRef: '',
     });
     assert.equal(r.mode, 'diff');
     assert.equal(r.ref, 'main');
@@ -132,38 +106,52 @@ describe('resolveScope — missing-ref fallback', () => {
   });
 });
 
-describe('resolveScope — diff-vs-full inputs', () => {
-  it('forwards changedFiles into files Set in diff mode', () => {
-    const r = resolveScope({
-      kind: 'lint',
-      configScope: 'diff',
-      configRef: 'main',
-      cliFlags: {
-        changedFiles: ['src/a.ts', 'src/b.ts', 'src/a.ts'],
-      },
-    });
-    assert.equal(r.mode, 'diff');
-    assert.deepEqual([...r.files].sort(), ['src/a.ts', 'src/b.ts']);
+describe('resolveScope — the operator-override layer is gone (#4922)', () => {
+  it('does not ship a files Set — no consumer ever read one', () => {
+    const r = resolveScope({ kind: 'lint', configScope: 'diff' });
+    assert.equal(
+      Object.hasOwn(r, 'files'),
+      false,
+      'resolveScope must not advertise a `files` set: the only reader of a ' +
+        'scope-scoped file list is mergeRowsByScope, fed by the refresh ' +
+        "service's own resolver",
+    );
   });
 
-  it('drops non-string entries from changedFiles defensively', () => {
+  it('ignores a cliFlags.fullScope override entirely', () => {
     const r = resolveScope({
       kind: 'crap',
       configScope: 'diff',
       configRef: 'main',
-      cliFlags: { changedFiles: ['ok.ts', 42, null, '', 'also-ok.ts'] },
+      cliFlags: { fullScope: true },
     });
-    assert.deepEqual([...r.files].sort(), ['also-ok.ts', 'ok.ts']);
+    assert.equal(r.mode, 'diff');
+    assert.equal(r.ref, 'main');
+    assert.equal(r.source, 'config:gateScoping.diffRef');
   });
 
-  it('ignores changedFiles in full mode (files is always empty)', () => {
+  it('ignores a cliFlags.changedSinceRef override entirely', () => {
+    const r = resolveScope({
+      kind: 'mutation',
+      configScope: 'diff',
+      configRef: 'main',
+      cliFlags: { changedSinceRef: 'epic/1943' },
+    });
+    assert.equal(r.ref, 'main');
+    assert.equal(r.source, 'config:gateScoping.diffRef');
+  });
+
+  it('does not read env values nested under cliFlags', () => {
+    // The dispatcher now passes envScope/envRef at the top level. A caller
+    // still nesting them under cliFlags gets the default, loudly, rather
+    // than a silently half-resolved scope.
     const r = resolveScope({
       kind: 'lint',
-      configScope: 'full',
-      cliFlags: { changedFiles: ['ignored.ts'] },
+      cliFlags: { envScope: 'full', envRef: 'origin/main' },
     });
-    assert.equal(r.mode, 'full');
-    assert.equal(r.files.size, 0);
+    assert.equal(r.mode, 'diff');
+    assert.equal(r.ref, 'main');
+    assert.equal(r.source, 'default');
   });
 });
 
@@ -185,13 +173,10 @@ describe('resolveScope — input hardening', () => {
     assert.equal(r.source, 'config:gateScoping.diffRef');
   });
 
-  it('accepts a Set as changedFiles input', () => {
-    const r = resolveScope({
-      kind: 'lint',
-      configScope: 'diff',
-      configRef: 'main',
-      cliFlags: { changedFiles: new Set(['x.ts']) },
-    });
-    assert.deepEqual([...r.files], ['x.ts']);
+  it('ignores unknown envScope values', () => {
+    const r = resolveScope({ kind: 'lint', envScope: 'partial' });
+    assert.equal(r.mode, 'diff');
+    assert.equal(r.ref, 'main');
+    assert.equal(r.source, 'default');
   });
 });
