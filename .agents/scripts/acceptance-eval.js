@@ -41,10 +41,20 @@
  * tier along with the per-AC-cluster `--epic <id> --cluster <id>` mode that
  * scored an Epic `## Acceptance Table` against a `main..epic/<id>` diff.)
  *
+ * One gate call per round (Story #4951). A round may fan out into N parallel
+ * maker-blind cluster critics, but their per-cluster verdicts are merged by
+ * the caller into ONE verdict — `criteria[]` in acceptance-array order — and
+ * scored here exactly once. Invoking the gate per cluster instead would burn
+ * one Story-level round per cluster (distinct fingerprints defeat the replay
+ * guard) and race the `signals.ndjson` round ledger. `--expected-criteria`
+ * makes that contract enforceable: a partial (single-cluster) verdict is
+ * rejected before scoring, so the mistake costs no round.
+ *
  * CLI:
- *   --story <id>           Story ID (required).
- *   --verdict <path>       Path to the round's verdict JSON (required).
- *   --no-signal            Suppress the signal emit (tests).
+ *   --story <id>              Story ID (required).
+ *   --verdict <path>          Path to the round's verdict JSON (required).
+ *   --expected-criteria <n>   Reject a verdict not covering exactly n criteria.
+ *   --no-signal               Suppress the signal emit (tests).
  *
  * Stdout: a single JSON envelope
  *   { storyId, epicId, decision, round, cap, capReached, totalCriteria,
@@ -143,6 +153,7 @@ function parseCliArgs(argv) {
     options: {
       story: { type: 'string' },
       verdict: { type: 'string' },
+      'expected-criteria': { type: 'string' },
       'no-signal': { type: 'boolean', default: false },
     },
     strict: false,
@@ -151,8 +162,62 @@ function parseCliArgs(argv) {
   return {
     storyId: Number.isInteger(storyId) && storyId > 0 ? storyId : null,
     verdictPath: values.verdict ?? null,
+    expectedCriteria: values['expected-criteria'] ?? null,
     emitSignal: values['no-signal'] !== true,
   };
+}
+
+/**
+ * The merge contract, stated once so both the flag error and the coverage
+ * error name the same shape the caller has to produce.
+ */
+const MERGE_CONTRACT =
+  'One round = N parallel cluster critics -> ONE merged verdict -> ONE gate call: ' +
+  "merge every cluster's records into a single criteria[] in acceptance[] order, " +
+  'one per acceptance item, before scoring.';
+
+/**
+ * Resolve the optional `--expected-criteria` flag to a positive integer, or
+ * `null` when the flag is absent (which preserves the pre-#4951 behaviour
+ * exactly — no coverage assertion is made).
+ *
+ * Exported for tests.
+ *
+ * @param {string|null|undefined} raw
+ * @returns {number|null}
+ */
+export function resolveExpectedCriteria(raw) {
+  if (raw === null || raw === undefined) return null;
+  const expected = Number.parseInt(String(raw), 10);
+  if (!Number.isInteger(expected) || expected < 1) {
+    throw new Error(
+      `acceptance-eval: --expected-criteria must be a positive integer (the Story's acceptance[] count). ${MERGE_CONTRACT}`,
+    );
+  }
+  return expected;
+}
+
+/**
+ * Reject a verdict that does not cover exactly `expectedCriteria` criteria.
+ *
+ * Called **before** `runAcceptanceEval`, which is where the round ledger is
+ * read and appended — so a partial cluster verdict handed to the gate by
+ * mistake costs no round and can never escalate a `redraft` into a `block`.
+ *
+ * Exported for tests.
+ *
+ * @param {object} verdict — schema-validated verdict.
+ * @param {number|null} expectedCriteria — `null` disables the assertion.
+ * @returns {void}
+ */
+export function assertCriteriaCoverage(verdict, expectedCriteria) {
+  if (expectedCriteria === null) return;
+  const actual = Array.isArray(verdict?.criteria) ? verdict.criteria.length : 0;
+  if (actual === expectedCriteria) return;
+  throw new Error(
+    `acceptance-eval: verdict covers ${actual} criteria but --expected-criteria is ${expectedCriteria}. ` +
+      `${MERGE_CONTRACT} No round was consumed.`,
+  );
 }
 
 /**
@@ -294,11 +359,13 @@ export async function runAcceptanceEvalCli(
     runAcceptanceEvalImpl = runAcceptanceEval,
     logger = Logger,
   } = deps;
-  const { storyId, verdictPath, emitSignal } = parseCliArgs(argv);
+  const { storyId, verdictPath, expectedCriteria, emitSignal } =
+    parseCliArgs(argv);
+  const expected = resolveExpectedCriteria(expectedCriteria);
 
   if (!storyId) {
     throw new Error(
-      'Usage: node acceptance-eval.js --story <id> --verdict <path> [--no-signal]',
+      'Usage: node acceptance-eval.js --story <id> --verdict <path> [--expected-criteria <n>] [--no-signal]',
     );
   }
   if (!verdictPath) {
@@ -328,6 +395,11 @@ export async function runAcceptanceEvalCli(
   }
 
   const verdict = validateVerdictImpl(parsed);
+
+  // Story #4951: a merged verdict must cover every acceptance[] item. This
+  // runs before the round ledger is touched, so a partial cluster verdict is
+  // a free mistake.
+  assertCriteriaCoverage(verdict, expected);
 
   // A verdict whose embedded storyId disagrees with the CLI flag is a
   // wiring error worth failing on, not a silent mismatch.
@@ -372,12 +444,18 @@ runAsCli(import.meta.url, main, {
   source: 'acceptance-eval',
   usage: {
     invocation:
-      'node .agents/scripts/acceptance-eval.js --story <id> --verdict <path> [--no-signal]',
+      'node .agents/scripts/acceptance-eval.js --story <id> --verdict <path> [--expected-criteria <n>] [--no-signal]',
     summary:
       "Score an authored acceptance verdict against the Story's acceptance[] criteria and emit the bounded loop's proceed / redraft / block decision.",
     flags: [
       ['--story <id>', 'GitHub issue number of the Story (required).'],
       ['--verdict <path>', 'Path to the authored verdict JSON (required).'],
+      [
+        '--expected-criteria <n>',
+        'Reject — before scoring, consuming no round — a verdict whose criteria[] ' +
+          "length is not n. Pass the Story's acceptance[] count so a partial " +
+          'cluster verdict cannot be scored as the round.',
+      ],
       [
         '--no-signal',
         "Skip appending the per-criterion signal to the Story's signals ledger.",
