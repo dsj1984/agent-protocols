@@ -534,18 +534,33 @@ function frictionForTerminal(envelope) {
  * Emit the friction record (if any) implied by a terminal envelope.
  * Best-effort; never throws.
  *
+ * `tool` is the CALLER's name, threaded in rather than assumed: TWO CLIs emit
+ * terminal envelopes — `single-story-close.js` (plus its runner) and
+ * `single-story-confirm-merge.js` — and `retro-proposals.js` reads
+ * `emitter.tool` (via {@link normalizeGatheredSignal}) to name the surface a
+ * candidate came from, so hard-coding the close name here attributed every
+ * confirm-merge record to a CLI that never ran and misdirected the follow-up.
+ * Both callers already declare their name once via `runAsCli({ source })`;
+ * pass that same string. The default keeps the close paths — the original
+ * callers, which pass none — emitting exactly what they always did.
+ *
  * @param {object} args
  * @param {object} args.envelope
+ * @param {string} [args.tool] Emitting surface (default `single-story-close`).
  * @param {object} [args.config]
  * @returns {Promise<boolean>} true when a record was appended.
  */
-export async function emitTerminalFriction({ envelope, config } = {}) {
+export async function emitTerminalFriction({
+  envelope,
+  tool = 'single-story-close',
+  config,
+} = {}) {
   const verdict = frictionForTerminal(envelope);
   if (!verdict) return false;
   return emitRuntimeFriction({
     storyId: envelope?.storyId,
     category: verdict.category,
-    tool: 'single-story-close',
+    tool,
     details: verdict.details,
     config,
   });

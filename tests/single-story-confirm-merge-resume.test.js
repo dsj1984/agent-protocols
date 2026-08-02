@@ -16,9 +16,12 @@
  */
 
 import assert from 'node:assert/strict';
-import { describe, it } from 'node:test';
+import fs from 'node:fs/promises';
+import { afterEach, beforeEach, describe, it } from 'node:test';
 
+import { forEachLine } from '../.agents/scripts/lib/observability/signals-writer.js';
 import { NEXT_COMMANDS } from '../.agents/scripts/lib/orchestration/story-deliver-terminal.js';
+import { makeTempDir } from '../.agents/scripts/lib/test-temp.js';
 import { runConfirmMerge } from '../.agents/scripts/single-story-confirm-merge.js';
 
 function fakeConfig() {
@@ -181,5 +184,65 @@ describe('single-story-confirm-merge --wait', () => {
 
     assert.equal(entered, false, 'the default path must not wait');
     assert.equal(terminal.status, 'landed');
+  });
+});
+
+/**
+ * `emitTerminalFriction` used to hard-code `emitter.tool: 'single-story-close'`,
+ * so every record this CLI emitted named a CLI that never ran. The roll-up
+ * (`retro-proposals.js`) reads that field to name the surface a candidate came
+ * from, so the misattribution misdirected the follow-up.
+ *
+ * Asserted through the real CLI entry point rather than the emitter's own
+ * signature: what regressed is the CALLER forgetting to name itself, which a
+ * unit test on the emitter cannot see.
+ */
+describe('confirm-merge friction attribution', () => {
+  /** Absolute per-test tempRoot — never the shared main-checkout temp. */
+  let tempRoot;
+  let config;
+
+  beforeEach(async () => {
+    tempRoot = await makeTempDir('confirm-merge-friction-');
+    config = {
+      ...fakeConfig(),
+      project: { baseBranch: 'main', paths: { tempRoot } },
+    };
+  });
+
+  afterEach(async () => {
+    await fs.rm(tempRoot, { recursive: true, force: true });
+  });
+
+  it('records its OWN tool name, not the close CLI that never ran', async () => {
+    // A resumed wait that spends the whole cumulative budget with the PR
+    // still in flight — the one terminal this CLI emits friction for.
+    await runConfirmMerge({
+      storyId: 555,
+      cwd: '/repo',
+      pr: 77,
+      wait: true,
+      injectedProvider: makeProvider(OPEN_STORY),
+      injectedConfig: config,
+      injectedGh: makeGh(),
+      injectedNotify: async () => {},
+      runConfirmMergePhaseFn: async () => ({
+        confirmed: false,
+        terminal: 'pending',
+        waitBudget: {
+          maxWaitSeconds: 300,
+          waitedSeconds: 300,
+          cumulativeSeconds: 3600,
+          maxBudgetSeconds: 3600,
+        },
+        prProbe: { state: 'OPEN', checksStatus: 'still-running' },
+      }),
+    });
+
+    const rows = [];
+    await forEachLine(null, 555, (parsed) => rows.push(parsed), config);
+    assert.equal(rows.length, 1, 'the exhausted budget must be recorded');
+    assert.equal(rows[0].category, 'merge-wait-exhausted');
+    assert.equal(rows[0].emitter.tool, 'single-story-confirm-merge');
   });
 });
