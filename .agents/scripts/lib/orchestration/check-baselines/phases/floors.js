@@ -10,7 +10,18 @@
 
 import { EXIT_CONFIG } from '../../../baselines/exit-codes.js';
 
-function axisDirection(kind, axis) {
+/**
+ * Which way a floor axis is compared: `gte` means the measured value must be
+ * at or above the floor, `lte` at or below it. Exported (Story #4902) so the
+ * baseline hotspot engine reports floor headroom with the same polarity the
+ * gate enforces — a second copy of this table would let the two disagree
+ * about which direction is "better" for a given axis.
+ *
+ * @param {string} kind
+ * @param {string} axis
+ * @returns {'gte' | 'lte'}
+ */
+export function axisDirection(kind, axis) {
   if (kind === 'lint') return 'lte';
   if (kind === 'crap') return 'lte';
   if (kind === 'bundle-size') return 'lte';
