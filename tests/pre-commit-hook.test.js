@@ -66,3 +66,48 @@ test('quality-preview invocation appears AFTER lint-staged so format fixes land 
     'quality:preview must run after lint-staged so format/lint fixes are applied before MI/CRAP scoring',
   );
 });
+
+/**
+ * Hook-body invariants for the other two hooks (Story #4943).
+ *
+ * These hooks spent a long time configured but unreachable — `core.hooksPath`
+ * is relative, so it resolved to a directory absent from every linked
+ * worktree, and nothing ran there. Now that they do run for delivery commits,
+ * the cheapest way to make the newly-enforced gates stop hurting is to hollow
+ * out the hook bodies. That is the change these pin against.
+ */
+
+const OTHER_HOOKS = {
+  'commit-msg': [/commitlint/],
+  'pre-push': [
+    /node \.agents\/scripts\/quality-preview\.js/,
+    /--changed-since origin\/main/,
+    /crap:check/,
+  ],
+};
+
+for (const [hook, patterns] of Object.entries(OTHER_HOOKS)) {
+  test(`.husky/${hook} still invokes its gate`, () => {
+    const hookPath = path.resolve('.husky', hook);
+    assert.ok(fs.existsSync(hookPath), `.husky/${hook} must exist`);
+    const body = fs.readFileSync(hookPath, 'utf-8');
+    for (const pattern of patterns) {
+      assert.match(
+        body,
+        pattern,
+        `.husky/${hook} must keep matching ${pattern} — weakening a hook is not a way to pass its gate`,
+      );
+    }
+  });
+}
+
+test('no hook is disarmed with a bypass flag', () => {
+  for (const hook of ['commit-msg', 'pre-commit', 'pre-push']) {
+    const body = fs.readFileSync(path.resolve('.husky', hook), 'utf-8');
+    assert.doesNotMatch(
+      body,
+      /--no-verify|HUSKY=0/,
+      `.husky/${hook} must not disarm itself`,
+    );
+  }
+});

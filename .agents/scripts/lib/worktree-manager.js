@@ -25,6 +25,7 @@ import {
   DEFAULT_WORKSPACE_FILES,
   provision as provisionWorkspace,
 } from './workspace-provisioner.js';
+import { materializeGitHooks } from './worktree/git-hooks.js';
 import {
   maybeWarnWindowsPath,
   parseWorktreePorcelain,
@@ -160,6 +161,19 @@ export class WorktreeManager {
           files,
           logger: wrapped,
         });
+      },
+      provisionGitHooks: (wtPath) => {
+        const result = materializeGitHooks({
+          repoRoot: this.repoRoot,
+          worktree: wtPath,
+          gitImpl: this.git,
+        });
+        this.logger.info(
+          result.action === 'materialized'
+            ? `worktree.bootstrap hooks materialized path=${result.target} hooks=${result.hooks.length}`
+            : `worktree.bootstrap hooks skipped reason=${result.reason}`,
+        );
+        return result;
       },
     };
   }
