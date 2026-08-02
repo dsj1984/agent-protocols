@@ -224,7 +224,7 @@ graph TB
 | `plan-critics.js`                | Single critic-dispatch evaluation point for `/plan`, run between Author and Persist: prints the consolidation + pre-mortem verdict as JSON (advisory — exits 0 on any verdict) and ledgers every skip. Exits 1 on a usage/IO error, where no critic ran and no skip was ledgered: do not proceed to Persist. |
 | `plan-persist.js`                | Single GitHub-write surface for `/plan`: section gate, ticket validator + file-assumption + DAG + budget gates, Story creation, terminal `agent::ready` flip, `plan-summary` comment. |
 | `single-story-init.js`           | Validates a standalone Story, branches from `main`, creates the worktree, flips `agent::executing`. |
-| `stories-wave-tick.js`           | Ready-set planner for multi-Story `/deliver` (shared `selectReadySet` core; default concurrency 3). |
+| `stories-wave-tick.js`           | Ready-set planner for multi-Story `/deliver` (shared `planReadySet` core; default concurrency 3). |
 | `single-story-close.js`          | Close-validation gate chain, opens PR to `main` with auto-merge armed, rests Story at `agent::closing`. |
 | `single-story-confirm-merge.js`  | Post-merge confirmation: after checks go green and the PR merges, flips `agent::closing → agent::done`. |
 | `update-ticket-state.js`         | Syncs ticket status via GitHub labels (`agent::ready` → `agent::done`). |
@@ -241,14 +241,14 @@ graph TB
 #### Ready-set / DAG helpers
 
 Multi-Story ordering for `/deliver` uses `lib/wave-runner/ready-set.js`
-(`selectReadySet`) driven by `stories-wave-tick.js` — there is no
+(`planReadySet`) driven by `stories-wave-tick.js` — there is no
 `dispatch-engine.js` / `dispatcher.js` entry script. Residual DAG helpers
 under `lib/orchestration/` remain only where live paths still import them.
 
 | Helper                        | Responsibility                                                                            |
 | ----------------------------- | ----------------------------------------------------------------------------------------- |
 | `lib/wave-runner/ready-set.js` | Select the next ready Story set given deps + concurrency. |
-| `lib/wave-runner/live-probe.js` | State-probing adapter feeding the pure `selectReadySet` kernel from live GitHub state (done / in-flight / foreign blockers) instead of caller-transcribed flags. |
+| `lib/wave-runner/live-probe.js` | State-probing adapter feeding the pure `planReadySet` kernel from live GitHub state (done / in-flight / foreign blockers) instead of caller-transcribed flags. |
 | `dependency-parser.js`        | Parse `depends_on` / `blocked by #N` edges from Story bodies. |
 
 #### Failure auditability
@@ -518,13 +518,15 @@ That is the complete live export surface — in particular there is **no**
 `autoSerializeOverlaps()`. The focus-area auto-serialization pass it named is
 gone; its job now happens at *selection* time via `storiesOverlap()` in
 `lib/wave-runner/ready-set.js`, where `planReadySet` skips a Story whose
-**widened** footprint overlaps either an already-selected peer or a Story
-still **in flight** from an earlier beat. The cross-beat half needs the
-in-flight Stories' records, which only probe mode holds: `live-probe.js`
-returns them as `inFlightRecords`, and the tick reports each withholding in
-the envelope's `inFlightReservation` naming the blocking id. Flag mode carries
-a count and no records, so it reports `available: false` rather than an
-indistinguishable empty result.
+**widened** footprint overlaps an already-selected peer, or which shares a
+**concrete** path with a Story still **in flight** from an earlier beat. The
+cross-beat half needs the in-flight Stories' records, which only probe mode
+holds: `live-probe.js` returns them as `inFlightRecords`, and the tick reports
+each withholding in the envelope's `inFlightReservation` naming the blocking
+id and why. Flag mode carries a count and no records, so it reports
+`available: false` rather than an indistinguishable empty result. The two
+halves treat unknown width differently on purpose — § Scheduler safety
+mechanics.
 
 ---
 
@@ -660,7 +662,7 @@ close.
 
 | Module              | Role                                                                                                |
 | ------------------- | --------------------------------------------------------------------------------------------------- |
-| `stories-wave-tick` | Continuous ready-set planner for multi-Story `/deliver` — adapter over `selectReadySet`; emits the per-beat dispatch set (no Epic wave barrier). |
+| `stories-wave-tick` | Continuous ready-set planner for multi-Story `/deliver` — adapter over `planReadySet`; emits the per-beat dispatch set (no Epic wave barrier). |
 | (host fan-out)      | There is no `story-launcher` module: the `/deliver` host session itself fans out up to `concurrencyCap` Story sub-agents per ready-set beat, per [`workflows/deliver.md`](../.agents/workflows/deliver.md). |
 | `notification-hook` | Fire-and-forget webhook; never blocks execution.                                                    |
 | `column-sync`       | Drives the Projects v2 Status column from `agent::` labels (best-effort).                           |
@@ -726,7 +728,7 @@ Story. The script surface is:
 | Script                         | Responsibility                                                                                                   |
 | ------------------------------ | ----------------------------------------------------------------------------------------------------------------- |
 | `single-story-init.js`         | Validates the standalone Story, branches directly from `main` (no `epic/<id>` seed, no dispatch-manifest gate).   |
-| `stories-wave-tick.js`         | Continuous ready-set planner for the standalone fan-out — a thin adapter over the shared `selectReadySet` core; emits the per-beat dispatch set on the `stories-ready-set` envelope and resolves the global `concurrencyCap` (default 3). |
+| `stories-wave-tick.js`         | Continuous ready-set planner for the standalone fan-out — a thin adapter over the shared `planReadySet` core; emits the per-beat dispatch set on the `stories-ready-set` envelope and resolves the global `concurrencyCap` (default 3). |
 | `single-story-close.js`        | Runs the canonical close-validation gate chain against the base branch, opens the PR straight to `main` with auto-merge armed, and rests the Story at `agent::closing`. |
 | `single-story-confirm-merge.js` | Post-merge confirmation: once `gh pr checks --watch` exits green and the PR merges, flips `agent::closing → agent::done` and closes the issue. |
 
@@ -737,17 +739,26 @@ asynchronous auto-merge completes.
 
 ### Scheduler safety mechanics
 
-The per-beat selector (`lib/wave-runner/ready-set.js#selectReadySet`) is
+The per-beat selector (`lib/wave-runner/ready-set.js#planReadySet`) is
 stateless and side-effect-free; these guards make the loop fail safe:
 
-- **File-overlap footprint guard.** Ready candidates are admitted
-  greedily in ascending-id order and skipped when their declared `files`
-  footprint overlaps an already-admitted Story's. An **empty** footprint
-  means "no known overlap" and is never withheld; a **glob** footprint —
-  or the UNKNOWN sentinel `resolve-stories.js` substitutes for an
-  unparseable body — overlaps *everything* and serializes the rest of
-  the beat. Safe by construction, but a broadly-scoped glob footprint
-  silently drops the beat to concurrency 1.
+- **File-overlap footprint guard.** Candidates are admitted greedily in
+  ascending-id order and skipped when their **widened** footprint — the
+  declared `files` plus the paths the Story's own title and body name,
+  a declaration being only a lower bound (#4875) — collides. An
+  **empty** footprint means "no known overlap" and is never withheld.
+- **Beat-local and cross-beat differ.** Against a peer admitted **this
+  beat**, a **glob** — or the UNKNOWN sentinel `resolve-stories.js`
+  substitutes for an unparseable body — overlaps *everything*: unknown
+  width is not no width. Against a Story **in flight from an earlier
+  beat** (or held by a foreign lease) only a shared **concrete** path
+  reserves; the glob class reserves nothing (#4960), because that
+  window spans a whole implementation, so one glob withheld the entire
+  run and one unparseable body made it serial. Reservation needs the
+  in-flight records, so it is `--probe-live`-only; each withholding is
+  named in `inFlightReservation` with its blocker and a `reason`
+  (`in-flight-earlier-beat` / `foreign-lease`), and flag mode reports
+  `available: false` rather than an indistinguishable empty result.
 - **Cycle vs. wedge, distinct exits.** A dependency cycle is detected up
   front (`detectCycle`, exit 2); a wedge — nothing ready, nothing in
   flight, undone work with unmet blockers — exits 3 via `detectWedge`.

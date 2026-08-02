@@ -4,7 +4,7 @@
  * Unit tests for the continuous ready-set adapter in stories-wave-tick.js.
  *
  * The file is now a thin adapter over the path-agnostic scheduling core
- * (`lib/wave-runner/ready-set.js#selectReadySet`): it no longer batches
+ * (`lib/wave-runner/ready-set.js#planReadySet`): it no longer batches
  * Stories into fully-draining waves (the static wave-batch plan built via
  * `Graph.js#assignLayers` is gone). It parses the operator DAG + the live
  * run progress (`--done` / `--in-flight`) and emits the set of Stories safe
@@ -15,7 +15,7 @@
  *   - parseDag: validates the DAG input format
  *   - parseDoneIds / parseInFlight: validate the live-progress flags
  *   - parseConcurrencyOverride / resolveConcurrencyCap: cap resolution
- *   - buildReadySetEnvelope: continuous selection through selectReadySet
+ *   - buildReadySetEnvelope: continuous selection through planReadySet
  *   - runStoriesWaveTick: end-to-end helper (no subprocess)
  *   - CLI via spawnSync: smoke-tests --help, --dag, --dag-file, --done,
  *     cycle detection
@@ -335,7 +335,7 @@ describe('buildReadySetEnvelope', () => {
 
   it('honors the file-overlap guard the Epic path uses (co-dispatch withhold)', () => {
     // Two unblocked roots that declare the same file footprint MUST NOT both
-    // dispatch on one beat — selectReadySet withholds one. The DAG-node
+    // dispatch on one beat — planReadySet withholds one. The DAG-node
     // builder forwards `files` through unchanged.
     const nodes = [
       { id: 1, dependsOn: [], files: ['lib/shared.js'] },
@@ -964,7 +964,7 @@ describe('buildReadySetEnvelope — inFlightReservation (Story #4950)', () => {
     assert.deepEqual(envelope.ready, [2]);
     assert.strictEqual(envelope.inFlightReservation.available, true);
     assert.deepEqual(envelope.inFlightReservation.withheld, [
-      { id: 1, blockedBy: 9 },
+      { id: 1, blockedBy: 9, reason: 'in-flight-earlier-beat' },
     ]);
     // The note must name both sides — an unfilled slot with no explanation is
     // exactly what this report exists to remove.
@@ -1090,7 +1090,7 @@ describe('runProbedStoriesWaveTick — threads the probed in-flight records (AC-
     assert.strictEqual(exitCode, 0);
     assert.deepEqual(envelope.ready, [2], '#1 races the in-flight #9');
     assert.deepEqual(envelope.inFlightReservation.withheld, [
-      { id: 1, blockedBy: 9 },
+      { id: 1, blockedBy: 9, reason: 'in-flight-earlier-beat' },
     ]);
   });
 
