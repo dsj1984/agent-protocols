@@ -47,10 +47,11 @@ the floor-vs-ratchet policy are tooling commitments rather than ADRs and live in
 
 <!-- ADR-INDEX:START -->
 
-**In force (34).** Each governs the surface named beside it.
+**In force (35).** Each governs the surface named beside it.
 
 | Decision | Governs | Surface |
 | --- | --- | --- |
+| [`20260802-4938-schema-compilers`](#adr-20260802-4938-schema-compilers-a-schema-is-compiled-by-code-or-declares-in-file-why-not) | A schema is compiled by code, or declares in-file why not | `.agents/scripts/check-schema-references.js` |
 | [`20260726-v2-story-collapse`](#adr-20260726-v2-story-collapse-story-only-ticket-model-one-plan-one-deliver-one-engine) | Story-only ticket model; one /plan, one /deliver, one engine | `.agents/workflows/deliver.md` |
 | [`20260624-loop-units-division-of-labor`](#adr-20260624-loop-units-division-of-labor-mandrel-owns-content--oracle--contract-the-host-owns-cadence--iteration) | mandrel owns content + oracle + contract; the host owns cadence +… | `.agents/scripts/sync-claude-commands.js` |
 | [`20260610-lifecycle-bus-retained`](#adr-20260610-lifecycle-bus-retained-keep-the-lifecycle-bus-collapse-by-deletion-is-already-done) | Keep the lifecycle bus; collapse-by-deletion is already done | `.agents/scripts/lib/orchestration/lifecycle/bus.js` |
@@ -118,6 +119,65 @@ at the release tag named in the entry.
 - [Earlier ADRs (001 / 002 / 003)](#earlier-adrs-001--002--003)
 
 <!-- ADR-INDEX:END -->
+
+## ADR 20260802-4938-schema-compilers: A schema is compiled by code, or declares in-file why not
+
+**Status:** Accepted
+**Date:** 2026-08-02
+**Surface:** `.agents/scripts/check-schema-references.js`
+
+### Context
+
+`friction-event.schema.json` was superseded by `signal-event.schema.json` in
+the Epic #4406 envelope cutover, and the file was left in `.agents/schemas/`.
+Nothing compiled it. It was still well-formed, still named after a live record
+type, and still sitting in the directory where enforced contracts live.
+
+Every reader that met it concluded it was the contract. An
+`/audit-documentation` lens graded a **High** finding against it on that basis.
+The finding was carried into an acceptance criterion on a delivery Story, and
+the worker had to overrule its own criterion mid-flight: complying literally
+would have written a payload `signal-validator.js` drops, re-creating the
+silent-drop defect that Story existed to fix.
+
+The instructive part is what did not catch it. The lens read the schema; the
+planner read the lens; the criterion read the planner. Each layer verified
+against the one above it, and the file's existence and syntactic validity were
+taken for authority at every step. Only reading the validator disproved it —
+and nothing in the pipeline required anyone to.
+
+### Decision
+
+A schema under `.agents/schemas/` must be compiled by some code path.
+`check-schema-references.js` enforces it, resolving a reference through a
+literal basename in a source, a `$ref` from a referenced schema, or a
+directory loaded by computed path where the schema's stem is the runtime key.
+Comments are stripped before matching: a docblock naming a schema is prose,
+not enforcement, and counting it would let the gate certify itself.
+
+A schema deliberately kept without a compiler declares that **in its own
+body**, in a root `x-mandrel-uncompiled` block carrying a `reason` and the
+`runtimeGate` that actually enforces the shape. Not a side-car allowlist — the
+failure was a reader trusting the schema document, so the correction has to be
+legible in that same document.
+
+The gate has no baseline and no ratchet. The tolerable count is zero, and a
+deliberate exception is a two-line edit to the file in question.
+
+### Consequences
+
+`friction-event.schema.json` is deleted; its retired shape survives as a table
+in `docs/data-dictionary.md`, where nothing can mistake it for a contract.
+
+The first run of the gate found a second instance nobody had flagged:
+`model-attribution.schema.json` is a documented SSOT with a hand-rolled
+validator behind it, by an explicit earlier choice not to pull AJV into the
+structured-comment path. That is legitimate and now says so in-file. It also
+names the real risk the marker accepts — the schema and its hand-rolled mirror
+can drift, and only a reader comparing them will notice.
+
+This gate answers "is anything compiling this?" and not "is what compiles it
+faithful to it?". A schema whose validator has silently diverged still passes.
 
 ## ADR 20260726-v2-story-collapse: Story-only ticket model; one /plan, one /deliver, one engine
 

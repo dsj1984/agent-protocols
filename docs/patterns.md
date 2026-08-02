@@ -548,9 +548,11 @@ must not halt the runner) and are picked up out-of-band by the analyzer
    `details` MUST be an object. `diagnose-friction.js` writes the canonical
    record: `{ kind: 'friction', eventId, ts, epicId, storyId, taskId,
    category, emitter: { tool, command }, details: { errorPreview, ... } }`.
-   The pre-cutover `friction-event.schema.json` is a retained record, not a
-   contract — nothing loads it, and a payload authored from it is dropped for
-   the missing `ts` / `kind`.
+   The pre-cutover `friction-event.schema.json` was deleted in Story #4938 —
+   nothing loaded it, and a payload authored from it is dropped for the
+   missing `ts` / `kind`. Its retired shape survives only as a table in
+   [`data-dictionary.md`](data-dictionary.md), where it cannot be mistaken
+   for an enforced contract.
 2. **Consumers.** `diagnose-friction.js` (per-failure detector) and the
    quality-gate friction path (`lib/gates/friction.js`, fronting the
    unified `check-baselines.js` gate and its per-kind logic under

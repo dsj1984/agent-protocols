@@ -51,18 +51,21 @@ no live vocabulary — are archived verbatim:
 
 ---
 
-## FrictionEvent (legacy schema — not the live `friction` record)
+## FrictionEvent (retired shape — not the live `friction` record)
 
 **A live `friction` record is a `SignalEvent` with `kind: "friction"`** — see
 the table above. `appendSignal` validates against `signal-event.schema.json`
 (the only file `signal-validator.js` compiles), and
 `diagnose-friction.js#buildFrictionSignal` is the producer.
 
-[`friction-event.schema.json`](../.agents/schemas/friction-event.schema.json)
-is the pre-cutover document from Epic #1030, superseded by
-`signal-event.schema.json` in the Epic #4406 envelope cutover. No writer,
-reader, or validator loads it — a retained record, not a contract. Mirrored
-here field for field so the two shapes are not confused:
+`friction-event.schema.json` was the pre-cutover document from Epic #1030,
+superseded by `signal-event.schema.json` in the Epic #4406 envelope cutover.
+**Story #4938 deleted the file**: it had no writer, reader, or validator, and a
+well-formed schema with nothing behind it reads as an enforced contract — an
+`/audit-documentation` lens graded a High finding against it on exactly that
+basis, and the finding reached an acceptance criterion before a delivering
+worker caught it. The table below is now the whole surviving record of the
+retired shape, kept so the two are never confused:
 
 | Field      | Type                | Required | Description                                                            |
 | ---------- | ------------------- | -------- | ---------------------------------------------------------------------- |
@@ -74,11 +77,16 @@ here field for field so the two shapes are not confused:
 | `source`   | `object`            | No       | `{ tool?, command? }` — failed tool / command. The live envelope moved this to `emitter` and reuses `source` for the framework/consumer tag. |
 | `context`  | `object`            | No       | `{ protocolFile?: string }` — relevant protocol file path.              |
 
-`required` is exactly `["eventId", "timestamp", "sprintId", "category",
-"details"]`. **`taskId` is not in it and is not a property of this schema at
-all** — `additionalProperties: false` rejects it outright. (The live
-`SignalEvent` envelope does carry an optional `taskId`, always `null` since
-the 2-tier hierarchy landed.)
+`required` was exactly `["eventId", "timestamp", "sprintId", "category",
+"details"]`. **`taskId` was not in it and was not a property of the retired
+schema at all** — its `additionalProperties: false` rejected it outright. (The
+live `SignalEvent` envelope does carry an optional `taskId`, always `null`
+since the 2-tier hierarchy landed.)
+
+Nothing in `.agents/schemas/` is allowed back into that state:
+`check-schema-references.js` fails on any schema there that no code path
+compiles, unless the schema itself declares the exemption in a root
+`x-mandrel-uncompiled` block.
 
 ---
 
@@ -192,7 +200,7 @@ call site.
 | `follow-ups`                | `lib/orchestration/run-epilogue.js`; `lib/orchestration/story-follow-ups.js` | Actionable follow-ups distilled from friction signals at Story closeout. |
 | `plan-run-audit-roster`     | `lib/orchestration/run-epilogue.js`                                     | Audit lenses selected for the run, grounded in the landed diff.          |
 | `plan-run-sibling-coherence`| `lib/orchestration/run-epilogue.js`                                     | Cross-Story coherence findings for a multi-Story plan run.               |
-| `model-attribution`         | `lib/orchestration/model-attribution.js`                                | Which model executed the work. Schema: `.agents/schemas/model-attribution.schema.json`. |
+| `model-attribution`         | `lib/orchestration/model-attribution.js`                                | Which model executed the work. Shape SSOT: `.agents/schemas/model-attribution.schema.json` — documented, not AJV-compiled; the runtime gate is the hand-rolled `validateModelAttributionPayload` in the same writer. |
 | `cross-repo-deferred`       | `lib/feedback-loop/graduator-core.js`                                   | Findings routed to another repository and therefore not filed here. Discriminated by a `graduator` attr so each graduator upserts independently. |
 
 **Graduation off `verification-results`.**
