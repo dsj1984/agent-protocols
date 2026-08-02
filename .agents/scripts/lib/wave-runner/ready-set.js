@@ -19,18 +19,17 @@
  * `stories-wave-tick.js` adapter wires this core; this module does not
  * modify that CLI surface.
  *
- * Three exports:
+ * The scheduling surface:
  *   - `classifyStory(story)` — live-label classifier mapping a Story
  *     record's labels + issue state to one of `done | blocked | executing |
  *     ready`. Mirrors the done-predicate this module uses
  *     (`agent::done` OR closed issue) so a Story closed manually through
  *     the GitHub UI is recognised as done.
- *   - `storiesOverlap(a, b)` — the file-overlap co-dispatch guard: true
- *     when two Stories' file footprints intersect. Two Stories that would
- *     touch the same file MUST NOT be dispatched onto parallel
- *     `story-<id>` branches **concurrently** — not merely on the same beat
- *     (they would race the same path and produce a merge conflict at
- *     close). The comparison runs over
+ *   - `storiesOverlap(a, b)` — the **beat-local** file-overlap co-dispatch
+ *     guard: true when two Stories' file footprints intersect. Two Stories
+ *     that would touch the same file MUST NOT be admitted onto parallel
+ *     `story-<id>` branches on the same beat (they would race the same path
+ *     and produce a merge conflict at close). The comparison runs over
  *     the **widened** footprint (`storyWidenedFootprint`) — a declared
  *     `changes[]` is treated as a lower bound and widened from the paths the
  *     Story's own text names, because a guard that trusts a prediction cannot
@@ -38,10 +37,18 @@
  *   - `planReadySet({ stories, doneIds, inFlight, globalCap,
  *     inFlightRecords })` — the scheduler. Returns the deterministic,
  *     overlap-free dispatch set (capped at `globalCap − inFlight`) **and**
- *     the Stories it withheld because their footprint is reserved by a Story
- *     still in flight from an earlier beat.
- *   - `selectReadySet(args)` — `planReadySet(args).selected`, the
- *     dispatch-set-only view for callers that do not report withholdings.
+ *     the Stories it withheld because a **concrete** path in their footprint
+ *     is reserved by a Story still in flight from an earlier beat.
+ *
+ * The two guards deliberately draw the glob/UNKNOWN class differently
+ * (Story #4960). Within a beat an unknown-width footprint overlaps
+ * everything, because admitting two Stories whose real widths are unknown is
+ * the collision the guard exists to prevent. Across beats it reserves
+ * nothing: an in-flight Story's window spans its whole implementation, so a
+ * glob that reserved cross-beat would withhold every other Story for
+ * minutes-to-hours — and `resolve-stories.js` substitutes the UNKNOWN
+ * sentinel for any body it cannot parse, so a single malformed Story body
+ * would collapse an N-Story run to fully serial.
  *
  * Adjacency is re-derived from the supplied records via the shared
  * `buildStoryAdjacency` builder (`lib/story-adjacency.js`) — the same
@@ -231,12 +238,29 @@ function storyWidenedFootprint(story) {
 }
 
 /**
- * File-overlap co-dispatch guard. Returns `true` when two Stories' declared
- * file footprints intersect — meaning they would race the same file if their
- * `story-<id>` branches were ever live at the same time. Two Stories that
- * overlap MUST NOT run concurrently: one is withheld until the other clears,
- * whether the peer was admitted on this beat or dispatched on an earlier one
- * and is still implementing (Story #4950).
+ * Both Stories' widened footprints, or `null` when either is empty.
+ *
+ * **An empty footprint means "no known overlap"**, so both guards below
+ * short-circuit to `false` on one. This is permissive by necessity: a Story
+ * with no declared footprint and no path evidence in its text carries no
+ * information, and withholding on absence would serialize every run.
+ *
+ * @param {StoryRecord} a
+ * @param {StoryRecord} b
+ * @returns {[Set<string>, Set<string>]|null}
+ */
+function widenedFootprintPair(a, b) {
+  const fa = storyWidenedFootprint(a);
+  if (fa.size === 0) return null;
+  const fb = storyWidenedFootprint(b);
+  if (fb.size === 0) return null;
+  return [fa, fb];
+}
+
+/**
+ * **Beat-local** file-overlap co-dispatch guard. Returns `true` when two
+ * Stories' file footprints intersect — meaning they would race the same file
+ * if both were admitted onto parallel `story-<id>` branches on this beat.
  *
  * Comparison runs over the **widened** footprint
  * ({@link storyWidenedFootprint}), not the declaration: a declared `changes[]`
@@ -244,35 +268,65 @@ function storyWidenedFootprint(story) {
  * collide were being co-dispatched whenever the collision was not predicted
  * (Story #4875).
  *
- * Two deliberate asymmetries:
+ * **A glob footprint overlaps EVERYTHING** → `true` (Story #4539/#4540).
+ * Comparison is exact-string, so a Story declaring `.agents/scripts/lib/**`
+ * would not match another declaring `.agents/scripts/lib/story-adjacency.js` —
+ * the guard would silently pass two Stories that genuinely race. Unknown width
+ * is not the same as no width: fail safe by serializing the rest of the beat.
  *
- *   - **An empty footprint means "no known overlap"** → `false`. A Story with
- *     no declared footprint and no path evidence in its text is never
- *     withheld. This is permissive by necessity: a genuinely unknown footprint
- *     carries no information, and withholding on absence would serialize every
- *     run.
- *   - **A glob footprint overlaps EVERYTHING** → `true` (Story #4539/#4540).
- *     Comparison is exact-string, so a Story declaring
- *     `.agents/scripts/lib/**` would not match another declaring
- *     `.agents/scripts/lib/story-adjacency.js` — the guard would silently
- *     pass two Stories that genuinely race. Unknown width is not the same as
- *     no width: fail safe by serializing.
+ * That fail-safe is **beat-local and stays that way**. The cross-beat
+ * reservation uses {@link reservesConcretePath} instead, because a beat is a
+ * moment and an in-flight window is an implementation (Story #4960).
  *
  * @param {StoryRecord} a
  * @param {StoryRecord} b
  * @returns {boolean}
  */
 export function storiesOverlap(a, b) {
-  const fa = storyWidenedFootprint(a);
-  if (fa.size === 0) return false;
-  const fb = storyWidenedFootprint(b);
-  if (fb.size === 0) return false;
+  const pair = widenedFootprintPair(a, b);
+  if (pair === null) return false;
+  const [fa, fb] = pair;
   for (const path of fa) {
-    if (isGlobPath(path)) return true;
-    if (fb.has(path)) return true;
+    if (isGlobPath(path) || fb.has(path)) return true;
   }
   for (const path of fb) {
     if (isGlobPath(path)) return true;
+  }
+  return false;
+}
+
+/**
+ * **Cross-beat** reservation guard: `true` only when the two widened
+ * footprints share a **concrete** (non-glob) path.
+ *
+ * A Story dispatched on an earlier beat holds its footprint for its entire
+ * implementation window, not for a moment, so the two guards cannot share a
+ * predicate (Story #4960):
+ *
+ *   - A **concrete** shared path is a real, named collision — two branches
+ *     editing `lib/foo.js` conflict at close whether the peer was admitted
+ *     alongside or hours ago. It reserves, exactly as Story #4950 shipped.
+ *   - A **glob** — or the UNKNOWN sentinel `resolve-stories.js` substitutes
+ *     for an unparseable body — names no file. Reserving on it withheld every
+ *     eligible Story against a single unknown-width blocker for that blocker's
+ *     whole window, which is strictly worse than the serial run the
+ *     reservation was meant to speed up. Glob paths are therefore skipped on
+ *     both sides here; the beat-local {@link storiesOverlap} fail-safe is
+ *     unchanged and still serializes them within a beat.
+ *
+ * Set intersection is symmetric, so scanning the reserving side alone finds
+ * every shared concrete path.
+ *
+ * @param {StoryRecord} held      The in-flight Story holding the reservation.
+ * @param {StoryRecord} candidate The Story being considered for admission.
+ * @returns {boolean}
+ */
+function reservesConcretePath(held, candidate) {
+  const pair = widenedFootprintPair(held, candidate);
+  if (pair === null) return false;
+  const [fa, fb] = pair;
+  for (const path of fa) {
+    if (!isGlobPath(path) && fb.has(path)) return true;
   }
   return false;
 }
@@ -310,11 +364,12 @@ export function storiesOverlap(a, b) {
  *      already occupying a slot (executing / closing / dispatched-not-yet-
  *      labelled). When `slots <= 0`, the result is empty.
  *   5. **Overlap guard.** Greedily admit eligible Stories in ascending-id
- *      order, skipping any whose file footprint overlaps either a Story
- *      **already admitted this beat** or a Story **still in flight from an
- *      earlier beat** (`inFlightRecords`). A withheld Story stays eligible
- *      and is naturally re-considered on the next beat once the Story
- *      reserving its files has cleared.
+ *      order, skipping any whose file footprint overlaps a Story **already
+ *      admitted this beat** ({@link storiesOverlap}) or shares a **concrete**
+ *      path with a Story **still in flight from an earlier beat**
+ *      (`inFlightRecords`, {@link reservesConcretePath}). A withheld Story
+ *      stays eligible and is naturally re-considered on the next beat once
+ *      the Story reserving its files has cleared.
  *
  * The result is deterministic: eligible Stories are considered in
  * ascending-id order, so the same inputs always yield the same set.
@@ -333,11 +388,12 @@ export function storiesOverlap(a, b) {
  *   (standalone / operator-DAG semantics); `true` prunes foreign edges so
  *   the DAG stays closed over the scheduled set (Epic semantics).
  * @param {StoryRecord[]} [args.inFlightRecords=[]] Records for the Stories
- *   already in flight, whose footprints this beat must **reserve** rather
- *   than merely count. `inFlight` is a number and can only shrink capacity;
- *   without the records a Story admitted now can share files with one
- *   dispatched on an earlier beat and still implementing — a guaranteed
- *   merge conflict at close (Story #4950). Callers that hold only ids (the
+ *   already in flight, whose **concrete** footprint paths this beat must
+ *   **reserve** rather than merely count. `inFlight` is a number and can only
+ *   shrink capacity; without the records a Story admitted now can share files
+ *   with one dispatched on an earlier beat and still implementing — a
+ *   guaranteed merge conflict at close (Story #4950). A glob / UNKNOWN
+ *   footprint reserves nothing (Story #4960). Callers that hold only ids (the
  *   `--dag`/`--in-flight` flag mode) pass nothing and get the pre-#4950
  *   same-beat-only behaviour.
  * @returns {{ selected: StoryRecord[], withheldByInFlight: Array<{id: number, blockedBy: number}> }}
@@ -405,30 +461,22 @@ export function planReadySet({
 }
 
 /**
- * The dispatch set alone — `planReadySet(args).selected`.
- *
- * The scheduling contract every caller has always consumed. Callers that also
- * report *why* a slot went unfilled (the `stories-wave-tick.js` envelope) use
- * {@link planReadySet} directly.
- *
- * @param {Parameters<typeof planReadySet>[0]} [args]
- * @returns {StoryRecord[]}
- */
-export function selectReadySet(args) {
-  return planReadySet(args).selected;
-}
-
-/**
  * Greedily admit eligible Stories in ascending-id order under two distinct
  * withholding rules, and report which ones a reservation held back.
+ *
+ * The two rules are distinct predicates, not one applied twice: the
+ * cross-beat reservation matches only a shared **concrete** path
+ * ({@link reservesConcretePath}), while the same-beat guard also serializes
+ * unknown-width footprints ({@link storiesOverlap}). See both for why.
  *
  * The reservation check runs **first**, so a Story racing both an in-flight
  * Story and a same-beat peer is reported against the in-flight one: that is
  * the longer-lived and more informative blocker (a Story that has been
  * implementing for beats, not one merely admitted a moment ago), and checking
  * it first is what makes the report complete — every withheld-by-reservation
- * Story appears in it. Ordering cannot change `selected`: either rule skips
- * the same candidate.
+ * Story appears in it. Ordering cannot change `selected`: a candidate either
+ * rule rejects is skipped whichever runs first; only which list it is
+ * reported in depends on the order.
  *
  * @param {object} args
  * @param {number[]} args.eligibleIds        Ascending eligible Story ids.
@@ -455,8 +503,8 @@ function admitStories({ eligibleIds, byId, slots, reserved }) {
 }
 
 /**
- * The id of the in-flight Story whose widened footprint the candidate would
- * race, or `null` when none does.
+ * The id of the in-flight Story whose widened footprint reserves a concrete
+ * path the candidate would race, or `null` when none does.
  *
  * Two records are skipped rather than treated as blockers:
  *
@@ -478,7 +526,7 @@ function findInFlightBlocker(candidate, candidateId, reserved) {
   for (const held of reserved) {
     const heldId = storyIdOf(held);
     if (heldId === null || heldId === candidateId) continue;
-    if (storiesOverlap(held, candidate)) return heldId;
+    if (reservesConcretePath(held, candidate)) return heldId;
   }
   return null;
 }

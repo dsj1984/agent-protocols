@@ -30,7 +30,7 @@ import {
   toStoryRecord,
 } from '../../.agents/scripts/lib/orchestration/resolve-stories.js';
 import {
-  selectReadySet,
+  planReadySet,
   storiesOverlap,
 } from '../../.agents/scripts/lib/wave-runner/ready-set.js';
 import { runResolveStories } from '../../.agents/scripts/resolve-stories.js';
@@ -454,7 +454,7 @@ describe('buildStoriesEnvelope ↔ ready set — one run, one consistent answer'
 
       // The tick's view of the same run: every Story ready, cap 5 — the
       // reported condition, reproduced rather than assumed.
-      const ready = selectReadySet({
+      const ready = planReadySet({
         stories: stories.map((s) => ({
           id: s.id,
           dependsOn: [],
@@ -463,7 +463,7 @@ describe('buildStoriesEnvelope ↔ ready set — one run, one consistent answer'
         doneIds: new Set(),
         inFlight: 0,
         globalCap: 5,
-      }).map((s) => s.id);
+      }).selected.map((s) => s.id);
       assert.deepEqual(ready, ids, 'the measured ready set must reproduce');
 
       const inline = env.stories.filter((s) => s.dispatchMode === 'inline');
@@ -478,12 +478,12 @@ describe('buildStoriesEnvelope ↔ ready set — one run, one consistent answer'
   it('a one-Story run keeps inline — and its ready set is the one Story', () => {
     const stories = [liteStory(4829)];
     const env = buildStoriesEnvelope({ stories, injectedRules: RULES });
-    const ready = selectReadySet({
+    const ready = planReadySet({
       stories: [{ id: 4829, dependsOn: [], files: ['src/feature-4829.js'] }],
       doneIds: new Set(),
       inFlight: 0,
       globalCap: 5,
-    });
+    }).selected;
     assert.equal(ready.length, 1);
     assert.equal(
       env.stories[0].dispatchMode,
@@ -594,12 +594,12 @@ describe('storyFootprintPaths — an unreadable footprint fails SAFE, not open',
     };
     const other = { id: 2, dependsOn: [], files: ['docs/README.md'] };
     assert.equal(storiesOverlap(unknown, other), true);
-    const ready = selectReadySet({
+    const ready = planReadySet({
       stories: [unknown, other],
       doneIds: new Set(),
       inFlight: 0,
       globalCap: 5,
-    }).map((s) => s.id);
+    }).selected.map((s) => s.id);
     assert.deepEqual(ready, [1], 'the unreadable Story takes the beat alone');
   });
 

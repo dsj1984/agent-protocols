@@ -159,7 +159,7 @@ describe('/deliver takes only Story ids (Story #4540)', () => {
 
   it('drives the beat from live state rather than hand-maintained flags (Story #4594)', () => {
     // Was: "mandates seeding the first beat --done from the resolver
-    // envelope". That prose existed because selectReadySet satisfies a
+    // envelope". That prose existed because planReadySet satisfies a
     // foreign gate only via the done set, so a host that seeded it empty
     // silently discarded the cross-run resolution and wedged the run.
     //
