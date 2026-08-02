@@ -3,9 +3,14 @@
  * (Story #2994 CRAP-30+ refactor).
  *
  * These tests cover every branch of the decision logic without any
- * git, prompt, or filesystem I/O. The companion impure executeXPhase
- * functions are exercised through the existing integration suites
- * (`tests/scripts/git-cleanup*.test.js`).
+ * git, prompt, or filesystem I/O.
+ *
+ * The companion impure `executeXPhase` functions live in
+ * `git-cleanup-phase-drivers-execute.test.js`. This header used to claim
+ * they were "exercised through the existing integration suites
+ * (tests/scripts/git-cleanup*.test.js)" — they were not: those suites
+ * drive `planCleanup` / `executeCleanup` and the CLI pipeline, never the
+ * three phase sequencers. Story #4922 wrote the missing suite.
  */
 
 import assert from 'node:assert/strict';

@@ -1,4 +1,5 @@
 #!/usr/bin/env node
+/* node:coverage ignore file -- top-level docs-freshness gate shell; the tested logic lives in lib/docs-freshness.js */
 
 /**
  * .agents/scripts/validate-docs-freshness.js — Documentation Freshness Gate

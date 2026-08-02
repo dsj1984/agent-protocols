@@ -376,7 +376,11 @@ export async function executeStashPhase(action) {
   );
 }
 
-/* node:coverage ignore next */
+// Story #4922 — the `node:coverage ignore next` directive that used to sit
+// here is gone. It was never justified: `runStashPhase` is drivable end to
+// end (planStashes degrades to an empty list outside a repo, and the
+// decide/execute pair below is pure given an allowlist), so the directive
+// only hid a sequencer nothing exercised.
 export async function runStashPhase(opts, cwd) {
   Logger.info(`${TAG} ── phase: stashes ──`);
   const { stashes } = planStashes({ cwd });

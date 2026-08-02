@@ -47,3 +47,52 @@ test('CI workflow Run Tests with Coverage step preserves stderr-capture regressi
     'Coverage step must still invoke `npm run test:coverage`.',
   );
 });
+
+// ---------------------------------------------------------------------------
+// Story #4922 — the coverage instrument's CI wiring.
+// ---------------------------------------------------------------------------
+
+test('the coverage step runs the pretest preflight explicitly', () => {
+  const source = readFileSync(CI_WORKFLOW, 'utf8');
+  const step = getTestCoverageStep(source);
+  assert.match(
+    step,
+    /npm run pretest:coverage/,
+    "The coverage step must invoke the preflight by name. npm's `pre<script>` " +
+      'hook cannot be relied on here: .npmrc sets ignore-scripts=true, which ' +
+      'suppresses every pre*/post* lifecycle script for `npm run` as well as ' +
+      'for installs, so `pretest:coverage` never fires as a hook.',
+  );
+  assert.ok(
+    step.indexOf('npm run pretest:coverage') <
+      step.indexOf('npm run test:coverage 2>&1'),
+    'the preflight must run BEFORE the measured suite',
+  );
+});
+
+test('the worktree-manager real-git contract executes in a CI job', () => {
+  const source = readFileSync(CI_WORKFLOW, 'utf8');
+  assert.match(
+    source,
+    /tests\/lib\/worktree-manager\.integration\.test\.js/,
+    'tests/lib/worktree-manager.integration.test.js must be invoked by a CI ' +
+      'job. It is integration-tier (so `test:quick` on the Windows leg skips ' +
+      'it) and its drive-letter-case guard is win32-gated, so without an ' +
+      'explicit Windows invocation that assertion runs in no job at all.',
+  );
+});
+
+test('the Windows leg is where the win32-gated guard runs', () => {
+  const source = readFileSync(CI_WORKFLOW, 'utf8');
+  const windowsJob = source.slice(source.indexOf('  windows-smoke:'));
+  assert.ok(
+    windowsJob.length > 0,
+    'windows-smoke job not found in .github/workflows/ci.yml',
+  );
+  assert.match(
+    windowsJob,
+    /tests\/lib\/worktree-manager\.integration\.test\.js/,
+    'the worktree-manager contract must run on the Windows leg — its ' +
+      'drive-letter-case regression only reproduces there',
+  );
+});

@@ -2,8 +2,10 @@ import assert from 'node:assert/strict';
 import fs from 'node:fs';
 import path from 'node:path';
 import { test } from 'node:test';
+import picomatch from 'picomatch';
 import { makeTempDir } from '../../.agents/scripts/lib/test-temp.js';
 import {
+  FULL_TIER_GLOBS,
   INTEGRATION_INCLUDE,
   listTestFilesForTier,
   parseTierArgv,
@@ -136,5 +138,64 @@ test('every curated INTEGRATION_INCLUDE entry resolves to a file on disk', () =>
     missing,
     [],
     `curated integration entries name files that do not exist: ${missing.join(', ')}`,
+  );
+});
+
+// ---------------------------------------------------------------------------
+// Story #4922 — FULL_TIER_GLOBS is the single source of truth for the full
+// tier's file set, and it has two consumers: run-tests.js (via
+// listTestFilesForTier) and run-coverage.js. The coverage runner used to
+// restate `tests/**/*.test.js` on its own, so the colocated __tests__ suites
+// ran under `npm test` but were invisible to every coverage / CRAP reading.
+// ---------------------------------------------------------------------------
+
+test('FULL_TIER_GLOBS names one glob per test walk root', () => {
+  assert.ok(Array.isArray(FULL_TIER_GLOBS));
+  assert.deepEqual(FULL_TIER_GLOBS, [
+    'tests/**/*.test.js',
+    'lib/**/__tests__/**/*.test.js',
+    '.agents/scripts/**/__tests__/**/*.test.js',
+  ]);
+});
+
+test('listTestFilesForTier("full") returns exactly FULL_TIER_GLOBS', () => {
+  const root = makeTempDir('tier-full-');
+  assert.deepEqual(listTestFilesForTier('full', root), [...FULL_TIER_GLOBS]);
+  fs.rmSync(root, { recursive: true, force: true });
+});
+
+test('every FULL_TIER_GLOB matches at least one real test file', () => {
+  const repoRoot = path.resolve(import.meta.dirname, '..', '..');
+  const all = listTestFilesForTier('quick', repoRoot).concat(
+    listTestFilesForTier('integration', repoRoot),
+  );
+  for (const glob of FULL_TIER_GLOBS) {
+    const isMatch = picomatch(glob, { dot: true });
+    assert.ok(
+      all.some((f) => isMatch(f)),
+      `full-tier glob ${glob} matches no file on disk — the tier walks a surface that does not exist`,
+    );
+  }
+});
+
+test('the coverage runner consumes FULL_TIER_GLOBS rather than a literal', () => {
+  const repoRoot = path.resolve(import.meta.dirname, '..', '..');
+  const src = fs.readFileSync(
+    path.join(repoRoot, '.agents', 'scripts', 'run-coverage.js'),
+    'utf8',
+  );
+  assert.ok(
+    /FULL_TIER_GLOBS/.test(src),
+    'run-coverage.js must import FULL_TIER_GLOBS',
+  );
+  // No glob literal of its own: a bare quoted `*.test.js` target in the
+  // executable body is exactly the drift this SSOT exists to prevent.
+  const code = src
+    .replace(/\/\*[\s\S]*?\*\//g, '')
+    .replace(/^\s*\/\/.*$/gm, '');
+  assert.equal(
+    /['"`][^'"`]*\*[^'"`]*\.test\.js['"`]/.test(code),
+    false,
+    'run-coverage.js restates a test glob literal instead of consuming FULL_TIER_GLOBS',
   );
 });

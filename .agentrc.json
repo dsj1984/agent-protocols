@@ -33,6 +33,9 @@
     },
     "quality": {
       "gates": {
+        "coverage": {
+          "floors": { "*": { "lines": 94, "branches": 85, "functions": 87 } }
+        },
         "crap": {
           "floors": { "*": { "methodsAbove20": 13 } },
           "targetDirs": [".agents/scripts", "bin", "lib"],

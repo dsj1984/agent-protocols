@@ -110,8 +110,19 @@ jobs:
         # Capture stderr too — Node's test runner and the coverage-threshold
         # gate both emit failures on stderr, and a stdout-only redirect
         # hides them in the uploaded artifact (see Epic #441 Story 4.1).
+        #
+        # Story #4922: the preflight is invoked EXPLICITLY, not left to npm's
+        # `pre<script>` hook. This repo's `.npmrc` sets `ignore-scripts=true`
+        # (supply-chain defence, CWE-1357), and that config suppresses every
+        # `pre*` / `post*` lifecycle hook for `npm run` as well as for
+        # installs — so `pretest`, `pretest:quick`, `pretest:integration` and
+        # `pretest:coverage` are all inert as hooks. The coverage tier is the
+        # measuring run, so it names its preflight rather than assuming npm
+        # will fire it. `npm run pretest:coverage` is still the single
+        # definition of what that preflight is.
         run: |
           set -o pipefail
+          npm run pretest:coverage
           npm run test:coverage 2>&1 | tee test-output.txt
 
       - name: Assert temp hygiene (post-test)
@@ -246,3 +257,15 @@ jobs:
 
       - name: Fast Test Slice
         run: npm run test:quick
+
+      - name: Worktree Manager Real-Git Contract
+        # Story #4922: this suite is integration-tier, so `test:quick` above
+        # excludes it — and the ubuntu leg is the only job that ran it. Its
+        # drive-letter-case regression guard (v5.11.5) is gated on
+        # `process.platform === 'win32'`, so the one assertion that exists
+        # solely to catch a Windows defect executed in no CI job at all: on
+        # Linux it skipped, on Windows it never ran. Running the file here is
+        # what makes that guard real.
+        run: >-
+          node --experimental-test-module-mocks --test
+          tests/lib/worktree-manager.integration.test.js

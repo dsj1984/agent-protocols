@@ -35,7 +35,9 @@ const matchesIntegration = picomatch(INTEGRATION_INCLUDE, { dot: true });
  * same way (Story #4195). Without each root here, both the quick /
  * integration walk and the full-tier glob set miss the colocated tests,
  * leaving that coverage dark in `npm test`. The matching full-tier globs
- * live in `FULL_TIER_GLOBS`.
+ * live in the exported `FULL_TIER_GLOBS` — every full-tier runner
+ * (`run-tests.js`, `run-coverage.js`) MUST consume that constant rather than
+ * restate a glob literal, or a runner silently walks a narrower surface.
  */
 const TEST_WALK_ROOTS = ['tests', 'lib', '.agents/scripts'];
 
@@ -44,8 +46,15 @@ const TEST_WALK_ROOTS = ['tests', 'lib', '.agents/scripts'];
  * The `tests` glob is a flat recursive sweep; the `lib` and `.agents/scripts`
  * globs are scoped to `__tests__` subtrees so they only match colocated
  * tests, never the shipped source modules themselves.
+ *
+ * Exported because the full tier has two runners, not one: `run-tests.js`
+ * (via `listTestFilesForTier`) and `run-coverage.js`. Story #4922 — the
+ * coverage runner used to restate `tests/**` on its own, so the 47 colocated
+ * `__tests__` files ran under `npm test` but were absent from the measured
+ * surface, leaving the coverage and CRAP numbers computed over code the
+ * measuring run never executed. Consume this constant; never restate a glob.
  */
-const FULL_TIER_GLOBS = [
+export const FULL_TIER_GLOBS = [
   'tests/**/*.test.js',
   'lib/**/__tests__/**/*.test.js',
   '.agents/scripts/**/__tests__/**/*.test.js',
