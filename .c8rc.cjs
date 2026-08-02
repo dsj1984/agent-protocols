@@ -9,56 +9,38 @@
  * [`.agents/docs/quality-gates.md`](./.agents/docs/quality-gates.md) for the full ratchet
  * workflow.
  *
- * The `exclude` list below removes thin CLI shells whose meaningful
- * logic lives in `lib/` (which the per-file baseline still scores).
- * Each excluded file also carries `/* node:coverage ignore file *​/`
- * at the top of its source as a second line of defence; new exclusions
- * MUST add that pragma at the same time as touching this list, or
- * `c8 report` and the baseline checker disagree on what's in scope.
+ * ## One declaration, not two (Story #4922)
  *
- *   - agents-bootstrap-github.js — one-shot bootstrap CLI run once per
- *     consuming repo to seed labels, project fields, and views from
- *     `lib/label-taxonomy.js`. The taxonomy itself is unit-tested; the
- *     CLI shell only argv-parses and calls a single provider method
- *     loop. Real coverage requires hitting a live GitHub repo, which
- *     belongs in integration tests, not the unit-test gate.
+ * This header used to restate the whole `exclude` inventory in prose, so
+ * the scope was declared twice in one file and the two copies drifted.
+ * The arrays below are now the **only** declaration; each entry carries
+ * its rationale inline, where it cannot drift away from the path it
+ * justifies. Do not reintroduce a prose inventory here.
  *
- * --- Story #1702 (Epic #1653) bounded-sweep additions ---
+ * `include` mirrors `delivery.quality.gates.coverage.targetDirs` in
+ * `.agentrc.json` — the gate scores what c8 measures, so the two must name
+ * the same roots. `tests/c8rc-scope.test.js` asserts that correspondence.
  *
- * The block below carves out floor-gap offenders from Story #1702 (see
- * git history under `epic/1653` for the full inventory table; the v2
- * Story-only cutover deleted many of the original entries). Each entry
- * meets one of the operator-approved criteria from Story #1702's body:
- * thin CLI shell, pure I/O glue, deprecation/one-shot script, or
- * unit-mock-only test surface. Per-file rationale lives in the
- * `node:coverage ignore file` pragma at the top of each source file;
- * aggregate categories:
- *
- *   Top-level CLI gates (lint/baselines gate):
- *     lint-baseline.js, validate-docs-freshness.js
- *
- *   Top-level orchestration CLIs (already pragma'd; promoted to the c8
- *   exclude list to keep `c8 report` and the per-file baseline in sync):
- *     single-story-init.js, post-structured-comment.js,
- *     diagnose-friction.js, run-tests.js, test-wrapper.js, notify.js
- *
- *   Git-manipulation CLIs (branch sweepers, integration-shaped):
- *     git-cleanup.js
- *
- *   Long-lived dev tools (one-shot watchers):
- *     quality-watch.js
- *
- *   lib/* carve-outs (data-as-code schemas and orchestration glue over
- *   live git/filesystem state where unit-mocking asserts only the mock
- *   structure):
- *     lib/config-schema.js, lib/config-settings-schema.js,
- *     lib/worktree/node-modules-strategy.js
+ * Every excluded file MUST also carry `/* node:coverage ignore file *​/` at
+ * the top of its own source as a second line of defence; new exclusions add
+ * that pragma at the same time as touching this list, or `c8 report` and the
+ * baseline checker disagree on what is in scope.
  */
 
 module.exports = {
   reporter: ['json', 'text'],
+  // Story #4922 — score EVERY in-scope source file, not only the ones some
+  // test happened to load. Without `all`, a module no test imports is absent
+  // from `coverage-final.json` entirely, so it gets no baseline row, no floor,
+  // and no way to regress: it reads as "not measured" where the honest
+  // reading is 0 %. Four files sat in exactly that hole. This is what makes
+  // "every in-scope source file has a row" a checkable invariant.
+  all: true,
+  // Coverage target roots — keep in lockstep with
+  // `delivery.quality.gates.coverage.targetDirs` in `.agentrc.json`.
   include: ['.agents/scripts/**', 'bin/**', 'lib/**'],
   exclude: [
+    // --- Colocated test sources (test code, not production source) ------
     // Story #4125 — colocated test files under lib/ are test sources, not
     // production sources. Excluding them keeps `c8 report` and the
     // per-file coverage baseline from scoring test code as instrumented
@@ -71,27 +53,48 @@ module.exports = {
     // test code is never scored as instrumented production source.
     '.agents/scripts/**/__tests__/**',
 
-    // Pre-Story-#1702 baseline carve-outs.
+    // --- Thin CLI shells: argv-parse + delegate to a unit-tested lib/ ----
+    // One-shot bootstrap CLI run once per consuming repo to seed labels,
+    // project fields, and views from `lib/label-taxonomy.js`. The taxonomy
+    // itself is unit-tested; the shell only argv-parses and calls a single
+    // provider method loop. Real coverage requires a live GitHub repo,
+    // which belongs in integration tests, not the unit-test gate.
     '.agents/scripts/agents-bootstrap-github.js',
-    // Story #1702 — top-level CLI gates and orchestrators.
+
+    // --- Story #1702 bounded sweep: top-level CLI gates and orchestrators
+    // Each entry below is a thin CLI shell, pure I/O glue, or a one-shot
+    // dev tool whose meaningful logic lives in a unit-tested `lib/` module.
+    // Friction-telemetry CLI: NDJSON append over a spawned child.
     '.agents/scripts/diagnose-friction.js',
+    // Git-manipulation CLI (branch sweeper) — integration-shaped.
     '.agents/scripts/git-cleanup.js',
+    // Lint gate shell over `run-lint.js` / the lint baseline kind.
     '.agents/scripts/lint-baseline.js',
+    // Desktop/terminal notification glue — pure side effect.
     '.agents/scripts/notify.js',
+    // Structured-comment CLI shell over the ticketing provider.
     '.agents/scripts/post-structured-comment.js',
+    // Long-lived dev watcher (one-shot, interactive).
     '.agents/scripts/quality-watch.js',
+    // Test-tier driver: spawns `node --test`; the tier logic it delegates
+    // to lives in `lib/test-tiers.js` and is unit-tested there.
     '.agents/scripts/run-tests.js',
-    // single-story-close.js — Story #1827 brings this file back in scope.
-    // The orchestration body is exercised through `runSingleStoryClose`
-    // with an injected provider, fake gh runner, and in-memory worktree;
-    // `ensurePullRequest` is exercised through `execFileSync` module mocks.
+    // Story #1827 note: `single-story-close.js` is deliberately NOT
+    // excluded — its orchestration body is exercised through
+    // `runSingleStoryClose` with an injected provider, a fake gh runner,
+    // and an in-memory worktree. Only the init shell stays out.
     '.agents/scripts/single-story-init.js',
+    // Test harness wrapper — spawns the runner, no logic of its own.
     '.agents/scripts/test-wrapper.js',
+    // Docs-freshness gate shell over `lib/docs-freshness.js`.
     '.agents/scripts/validate-docs-freshness.js',
 
-    // Story #1702 — lib/* carve-outs (data-as-code + orchestration glue).
+    // --- Story #1702 lib/* carve-outs: data-as-code and process glue ----
+    // Data-as-code JSON Schema literals — no branches to cover.
     '.agents/scripts/lib/config-schema.js',
     '.agents/scripts/lib/config-settings-schema.js',
+    // Orchestration glue over live filesystem/npm state; unit-mocking it
+    // asserts only the mock's structure.
     '.agents/scripts/lib/worktree/node-modules-strategy.js',
   ],
 };

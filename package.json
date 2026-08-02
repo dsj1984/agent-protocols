@@ -25,6 +25,8 @@
     "test:isolate": "node .agents/scripts/test-isolate.js",
     "verify": "node .agents/scripts/run-verify.js",
     "typecheck": "node -e \"process.exit(0)\"",
+    "//pretest-hooks": "The four pretest* entries are named preflight DEFINITIONS, not working npm hooks: .npmrc sets ignore-scripts=true (supply-chain defence), which suppresses every pre*/post* lifecycle script for `npm run` too. Callers that need the preflight invoke it by name — see the `Run Tests with Coverage` step in .github/workflows/ci.yml.",
+    "pretest:coverage": "node .agents/scripts/test-wrapper.js && node .agents/scripts/validate-skills.js",
     "test:coverage": "node .agents/scripts/run-coverage.js",
     "coverage:check": "node .agents/scripts/check-baselines.js --gate coverage",
     "coverage:update": "node .agents/scripts/update-coverage-baseline.js",
