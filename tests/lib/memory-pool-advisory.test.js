@@ -5,27 +5,26 @@
  * memory-freshness scanner: pool resolution (override + cwd-slug), the
  * fail-soft absent path, and each recommend branch.
  *
- * Every case runs against an in-memory `fsImpl` seam and an injected `now` —
- * no child processes, no real home directory, no clock dependence. The
- * advisory spawns nothing by design (the retired scanner's `gh` probes were
- * the reason it could hang), so a test that needed a subprocess would be
- * evidence of a regression.
+ * Everything is reached through `buildMemoryPoolAdvisory`, the module's only
+ * export — the slug rule and the thresholds are asserted by their observable
+ * effect rather than by importing the helpers, because exporting one solely
+ * for a test would add a `dead-exports-production` row.
+ *
+ * Every case runs against an in-memory `fsImpl` seam with an injected `now`
+ * and `homedir` — no child processes, no real home directory, no clock
+ * dependence. The advisory spawns nothing by design (the retired scanner's
+ * `gh` probes were the reason it could hang), so a test that needed a
+ * subprocess would itself be evidence of a regression.
  */
 
 import assert from 'node:assert/strict';
 import * as path from 'node:path';
 import { describe, it } from 'node:test';
-import {
-  buildMemoryPoolAdvisory,
-  ENTRY_COUNT_CEILING,
-  resolveMemoryPoolDir,
-  STALE_AFTER_DAYS,
-  STAMP_FILENAME,
-  slugifyProjectPath,
-} from '../../.agents/scripts/lib/orchestration/planning/memory-pool-advisory.js';
+import { buildMemoryPoolAdvisory } from '../../.agents/scripts/lib/orchestration/planning/memory-pool-advisory.js';
 
 const HOME = '/home/tester';
 const CWD = '/Users/dev/Projects/demo.app';
+/** The slug rule under test: every `/` and `.` in the cwd becomes `-`. */
 const POOL = path.join(
   HOME,
   '.claude',
@@ -34,12 +33,13 @@ const POOL = path.join(
   'memory',
 );
 const NOW = '2026-08-02T12:00:00.000Z';
+const STAMP = '.consolidation-stamp.json';
+const DAY_MS = 86_400_000;
 
 /**
- * Build a minimal node:fs-compatible seam over a `{ path: contents }` map.
- * Directories are the keys of `dirs`; anything else throws ENOENT the way the
- * real `fs` does, so the module's own try/catch paths are exercised rather
- * than bypassed.
+ * Build a minimal node:fs-compatible seam over `{ path: contents }` maps.
+ * Anything absent throws ENOENT the way the real `fs` does, so the module's
+ * own try/catch paths are exercised rather than bypassed.
  */
 function makeFs({ dirs = {}, files = {} } = {}) {
   return {
@@ -63,15 +63,18 @@ function makeFs({ dirs = {}, files = {} } = {}) {
   };
 }
 
-/** A pool of `count` memory entries plus the index, with an optional stamp. */
-function poolWith({ count, stamp }) {
+/** A pool at `dir` holding `count` entries plus the index, optionally stamped. */
+function poolWith({ count, stamp, dir = POOL }) {
   const names = Array.from({ length: count }, (_, i) => `memory-${i}.md`);
   const files = {};
-  if (stamp !== undefined) {
-    files[path.join(POOL, STAMP_FILENAME)] = stamp;
-  }
-  return makeFs({ dirs: { [POOL]: ['MEMORY.md', ...names] }, files });
+  if (stamp !== undefined) files[path.join(dir, STAMP)] = stamp;
+  return makeFs({ dirs: { [dir]: ['MEMORY.md', ...names] }, files });
 }
+
+const stampedAgo = (days) =>
+  JSON.stringify({
+    lastConsolidatedAt: new Date(Date.parse(NOW) - days * DAY_MS).toISOString(),
+  });
 
 const advisory = (opts) =>
   buildMemoryPoolAdvisory({
@@ -82,54 +85,50 @@ const advisory = (opts) =>
     ...opts,
   });
 
-describe('slugifyProjectPath (Story #4919)', () => {
-  it('replaces every / and . with - so a checkout maps to its harness project dir', () => {
-    assert.equal(
-      slugifyProjectPath('/Users/dsj/Development/mandrel'),
-      '-Users-dsj-Development-mandrel',
-    );
+describe('memory pool resolution (Story #4919)', () => {
+  it('finds the pool at the cwd-slug path — every / and . becomes -', () => {
+    // POOL is spelled out from the slug rule; finding entries there proves the
+    // module derived the same path from CWD.
+    const result = advisory({ fsImpl: poolWith({ count: 3 }) });
+    assert.equal(result.present, true);
+    assert.equal(result.entryCount, 3, 'MEMORY.md is the index, not an entry');
   });
 
-  it('collapses a dotted worktree segment the same way the harness does', () => {
-    // Verified against a real ~/.claude/projects entry: the leading `/` and
-    // the `.` of `.claude-worktrees` both become `-`, yielding the `--`.
-    assert.equal(
-      slugifyProjectPath(
-        '/Users/dsj/Development/mandrel/.claude-worktrees/adoring-gould-96bdd9',
-      ),
-      '-Users-dsj-Development-mandrel--claude-worktrees-adoring-gould-96bdd9',
+  it('resolves a dotted worktree segment the way the harness names it', () => {
+    // Verified against a real ~/.claude/projects entry: the `/` before
+    // `.claude-worktrees` and its leading `.` both become `-`, yielding `--`.
+    const cwd =
+      '/Users/dsj/Development/mandrel/.claude-worktrees/gifted-swirles';
+    const dir = path.join(
+      HOME,
+      '.claude',
+      'projects',
+      '-Users-dsj-Development-mandrel--claude-worktrees-gifted-swirles',
+      'memory',
     );
-  });
-});
-
-describe('resolveMemoryPoolDir (Story #4919)', () => {
-  it('lets MANDREL_MEMORY_DIR win outright', () => {
-    assert.equal(
-      resolveMemoryPoolDir({
-        cwd: CWD,
-        env: { MANDREL_MEMORY_DIR: '/tmp/pool' },
-        homedir: HOME,
-      }),
-      '/tmp/pool',
-    );
+    const result = advisory({ cwd, fsImpl: poolWith({ count: 2, dir }) });
+    assert.equal(result.present, true);
+    assert.equal(result.entryCount, 2);
   });
 
-  it('falls back to the cwd-slug path under ~/.claude/projects', () => {
-    assert.equal(
-      resolveMemoryPoolDir({ cwd: CWD, env: {}, homedir: HOME }),
-      POOL,
-    );
+  it('lets MANDREL_MEMORY_DIR win over the cwd-slug path', () => {
+    const dir = '/tmp/override-pool';
+    const result = advisory({
+      env: { MANDREL_MEMORY_DIR: dir },
+      fsImpl: poolWith({ count: 1, dir }),
+    });
+    assert.equal(result.present, true);
+    assert.equal(result.entryCount, 1);
   });
 
-  it('returns null when there is no cwd to slugify', () => {
-    assert.equal(
-      resolveMemoryPoolDir({ cwd: '', env: {}, homedir: HOME }),
-      null,
-    );
+  it('fails soft when there is no cwd to slugify', () => {
+    const result = advisory({ cwd: '', fsImpl: poolWith({ count: 3 }) });
+    assert.equal(result.present, false);
+    assert.equal(result.recommend, false);
   });
 });
 
-describe('buildMemoryPoolAdvisory — absent pool fails soft (Story #4919)', () => {
+describe('memory pool absent — fails soft (Story #4919)', () => {
   it('reports present:false and recommend:false when the directory does not exist', () => {
     const result = advisory({ fsImpl: makeFs() });
     assert.equal(result.present, false);
@@ -149,69 +148,51 @@ describe('buildMemoryPoolAdvisory — absent pool fails soft (Story #4919)', () 
     assert.equal(result.present, false);
     assert.equal(result.recommend, false);
   });
-
-  it('reads the pool named by MANDREL_MEMORY_DIR, not the cwd-slug path', () => {
-    const override = '/tmp/override-pool';
-    const fsImpl = makeFs({ dirs: { [override]: ['MEMORY.md', 'a.md'] } });
-    const result = buildMemoryPoolAdvisory({
-      cwd: CWD,
-      env: { MANDREL_MEMORY_DIR: override },
-      homedir: HOME,
-      now: NOW,
-      fsImpl,
-    });
-    assert.equal(result.present, true);
-    assert.equal(result.entryCount, 1);
-  });
 });
 
-describe('buildMemoryPoolAdvisory — recommend branches (Story #4919)', () => {
+describe('recommend branches (Story #4919)', () => {
   it('recommends when the pool has never been consolidated (no stamp)', () => {
     const result = advisory({ fsImpl: poolWith({ count: 3 }) });
-    assert.equal(result.present, true);
-    assert.equal(result.entryCount, 3, 'MEMORY.md is the index, not an entry');
     assert.equal(result.lastConsolidatedAt, null);
     assert.equal(result.recommend, true);
     assert.match(result.reasons.join(' '), /never been consolidated/);
   });
 
-  it('recommends when the stamp is older than the staleness threshold', () => {
-    const old = new Date(
-      Date.parse(NOW) - (STALE_AFTER_DAYS + 5) * 86_400_000,
-    ).toISOString();
-    const result = advisory({
-      fsImpl: poolWith({
-        count: 3,
-        stamp: JSON.stringify({ lastConsolidatedAt: old }),
-      }),
-    });
+  it('recommends when the stamp is older than the 30-day threshold', () => {
+    const stamp = stampedAgo(35);
+    const result = advisory({ fsImpl: poolWith({ count: 3, stamp }) });
     assert.equal(result.recommend, true);
-    assert.equal(result.lastConsolidatedAt, old);
-    assert.match(result.reasons.join(' '), /days ago/);
+    assert.equal(
+      result.lastConsolidatedAt,
+      JSON.parse(stamp).lastConsolidatedAt,
+    );
+    assert.match(result.reasons.join(' '), /35 days ago/);
   });
 
-  it('recommends when the entry count is over the ceiling despite a fresh stamp', () => {
-    const fresh = new Date(Date.parse(NOW) - 86_400_000).toISOString();
+  it('recommends when the entry count is over 100 despite a fresh stamp', () => {
     const result = advisory({
-      fsImpl: poolWith({
-        count: ENTRY_COUNT_CEILING + 1,
-        stamp: JSON.stringify({ lastConsolidatedAt: fresh }),
-      }),
+      fsImpl: poolWith({ count: 101, stamp: stampedAgo(1) }),
     });
     assert.equal(result.recommend, true);
-    assert.match(result.reasons.join(' '), /entries \(over the/);
+    assert.match(result.reasons.join(' '), /101 entries \(over the 100-entry/);
   });
 
-  it('stays quiet when the stamp is fresh and the pool is under the ceiling', () => {
-    const fresh = new Date(Date.parse(NOW) - 86_400_000).toISOString();
+  it('stays quiet at exactly the thresholds — neither is breached', () => {
     const result = advisory({
-      fsImpl: poolWith({
-        count: 10,
-        stamp: JSON.stringify({ lastConsolidatedAt: fresh }),
-      }),
+      fsImpl: poolWith({ count: 100, stamp: stampedAgo(30) }),
     });
     assert.equal(result.present, true);
     assert.equal(result.recommend, false);
+  });
+
+  it('honours caller-supplied thresholds over the defaults', () => {
+    const result = advisory({
+      fsImpl: poolWith({ count: 5, stamp: stampedAgo(2) }),
+      staleAfterDays: 1,
+      entryCountCeiling: 4,
+    });
+    assert.equal(result.recommend, true);
+    assert.equal(result.reasons.length, 2, 'both thresholds should fire');
   });
 
   it('treats a malformed stamp as never-consolidated rather than throwing', () => {
@@ -223,15 +204,16 @@ describe('buildMemoryPoolAdvisory — recommend branches (Story #4919)', () => {
   });
 
   it('does not recommend consolidating an empty pool', () => {
-    const fsImpl = makeFs({ dirs: { [POOL]: ['MEMORY.md'] } });
-    const result = advisory({ fsImpl });
+    const result = advisory({
+      fsImpl: makeFs({ dirs: { [POOL]: ['MEMORY.md'] } }),
+    });
     assert.equal(result.present, true);
     assert.equal(result.entryCount, 0);
     assert.equal(result.recommend, false);
   });
 });
 
-describe('buildMemoryPoolAdvisory — renders no per-entry verdict (Story #4919)', () => {
+describe('the advisory renders no per-entry verdict (Story #4919)', () => {
   it('exposes only counts and the stamp, never a staleness judgement', () => {
     // The retired scanner's defect was semantic: it marked an entry stale when
     // a cited issue was closed, which is exactly what a delivery retrospective

@@ -25,6 +25,12 @@
  *
  * Test seams: `cwd`, `env`, `fsImpl` (node:fs-compatible `statSync` /
  * `readdirSync` / `readFileSync`), `now`, and the two thresholds.
+ *
+ * `buildMemoryPoolAdvisory` is the **only** export: the helpers below have no
+ * caller outside this module, and exporting one solely for a test would add a
+ * row to the `dead-exports-production` ratchet (the `buildUiSurfaceSignal`
+ * precedent). Tests reach every branch through the seams above — do not
+ * "fix" the missing exports.
  */
 
 import * as defaultFs from 'node:fs';
@@ -32,13 +38,13 @@ import * as os from 'node:os';
 import * as path from 'node:path';
 
 /** Recommend a consolidation pass once the stamp is this old. */
-export const STALE_AFTER_DAYS = 30;
+const STALE_AFTER_DAYS = 30;
 
 /** Recommend a consolidation pass once the pool holds more entries than this. */
-export const ENTRY_COUNT_CEILING = 100;
+const ENTRY_COUNT_CEILING = 100;
 
 /** Stamp file written by `/memory-consolidate` after its operator gate. */
-export const STAMP_FILENAME = '.consolidation-stamp.json';
+const STAMP_FILENAME = '.consolidation-stamp.json';
 
 /** The index file is not itself a memory entry. */
 const INDEX_FILENAME = 'MEMORY.md';
@@ -54,7 +60,7 @@ const MS_PER_DAY = 86_400_000;
  * @param {string} absPath
  * @returns {string}
  */
-export function slugifyProjectPath(absPath) {
+function slugifyProjectPath(absPath) {
   return String(absPath ?? '').replace(/[/.]/g, '-');
 }
 
@@ -67,7 +73,7 @@ export function slugifyProjectPath(absPath) {
  * @param {{ cwd?: string, env?: Record<string,string|undefined>, homedir?: string }} [opts]
  * @returns {string|null} absolute pool path, or `null` when unresolvable
  */
-export function resolveMemoryPoolDir({ cwd, env = process.env, homedir } = {}) {
+function resolveMemoryPoolDir({ cwd, env = process.env, homedir } = {}) {
   const override = env?.MANDREL_MEMORY_DIR;
   if (typeof override === 'string' && override.length > 0) return override;
 
