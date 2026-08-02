@@ -56,11 +56,24 @@ describe('plan-run-epilogue main', () => {
     assert.deepEqual(h.calls[0].stories, [30, 4, 12]);
   });
 
-  it('drops non-integer and non-positive ids', async () => {
+  // Tightened deliberately, not loosened: this used to silently DROP a bad
+  // token, which turned a typo into an epilogue keyed on the wrong id set and
+  // an empty roll-up that reads like a clean run. Every sibling id parser
+  // fails loud, and now so does this one.
+  it('refuses a non-integer or non-positive id rather than dropping it', async () => {
+    for (const bad of ['5, abc , 7', '5,0', '5,-2']) {
+      await assert.rejects(
+        () => main(['--stories', bad], harness().deps),
+        /\[plan-run-epilogue\] --stories/,
+      );
+    }
+  });
+
+  it('expands a dash range into the delivered id set', async () => {
     const h = harness();
-    await main(['--stories', '5, abc ,0,-2, 7 '], h.deps);
-    assert.deepEqual(h.calls[0].stories, [5, 7]);
-    assert.equal(h.calls[0].planRunId, 'adhoc-5-7');
+    await main(['--stories', '12,30-32'], h.deps);
+    assert.deepEqual(h.calls[0].stories, [12, 30, 31, 32]);
+    assert.equal(h.calls[0].planRunId, 'adhoc-12-30-31-32');
   });
 
   it('defaults cwd to the process cwd and threads --cwd when given', async () => {
