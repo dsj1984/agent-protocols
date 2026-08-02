@@ -1,11 +1,11 @@
 {
   "$schema": ".agents/schemas/baselines/maintainability.schema.json",
   "kernelVersion": "0.1.0",
-  "generatedAt": "2026-08-02T18:18:11.432Z",
+  "generatedAt": "2026-08-02T18:48:27.055Z",
   "rollup": {
     "*": {
       "min": 74.146,
-      "p50": 98.143,
+      "p50": 98.282,
       "p95": 126.637
     }
   },
@@ -316,7 +316,7 @@
     },
     {
       "path": ".agents/scripts/lib/baselines/diff-scope-cli.js",
-      "mi": 101.053
+      "mi": 96.654
     },
     {
       "path": ".agents/scripts/lib/baselines/drift-detector.js",
@@ -604,7 +604,7 @@
     },
     {
       "path": ".agents/scripts/lib/close-validation/runner.js",
-      "mi": 75.55
+      "mi": 79.475
     },
     {
       "path": ".agents/scripts/lib/close-validation/telemetry.js",
@@ -916,7 +916,7 @@
     },
     {
       "path": ".agents/scripts/lib/git-utils.js",
-      "mi": 107.26
+      "mi": 112.311
     },
     {
       "path": ".agents/scripts/lib/git/cached-fetch.js",
@@ -1312,7 +1312,7 @@
     },
     {
       "path": ".agents/scripts/lib/orchestration/plan-persist/run-plan-persist.js",
-      "mi": 90.533
+      "mi": 93.731
     },
     {
       "path": ".agents/scripts/lib/orchestration/plan-persist/story-ops.js",
@@ -1508,7 +1508,7 @@
     },
     {
       "path": ".agents/scripts/lib/orchestration/single-story-close/runner.js",
-      "mi": 76.058
+      "mi": 80.77
     },
     {
       "path": ".agents/scripts/lib/orchestration/single-story-lease-guard.js",
@@ -1564,7 +1564,7 @@
     },
     {
       "path": ".agents/scripts/lib/orchestration/story-follow-ups.js",
-      "mi": 95.541
+      "mi": 98.792
     },
     {
       "path": ".agents/scripts/lib/orchestration/story-init-remote.js",
@@ -1892,19 +1892,19 @@
     },
     {
       "path": ".agents/scripts/lib/workers/combined-mi-crap-worker.js",
-      "mi": 88.102
+      "mi": 89.628
     },
     {
       "path": ".agents/scripts/lib/workers/crap-worker.js",
-      "mi": 87
+      "mi": 88.469
     },
     {
       "path": ".agents/scripts/lib/workers/maintainability-report-worker.js",
-      "mi": 94.191
+      "mi": 96.195
     },
     {
       "path": ".agents/scripts/lib/workers/maintainability-worker.js",
-      "mi": 96.776
+      "mi": 99.91
     },
     {
       "path": ".agents/scripts/lib/workers/serve-worker-messages.js",
@@ -1925,6 +1925,10 @@
     {
       "path": ".agents/scripts/lib/worktree/bootstrapper.js",
       "mi": 121.595
+    },
+    {
+      "path": ".agents/scripts/lib/worktree/git-hooks.js",
+      "mi": 100.09
     },
     {
       "path": ".agents/scripts/lib/worktree/inspector.js",
@@ -2109,6 +2113,10 @@
     {
       "path": ".agents/scripts/providers/github/tickets.js",
       "mi": 94.98
+    },
+    {
+      "path": ".agents/scripts/provision-git-hooks.js",
+      "mi": 99.801
     },
     {
       "path": ".agents/scripts/quality-preview.js",
