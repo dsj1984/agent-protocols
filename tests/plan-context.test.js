@@ -147,7 +147,7 @@ const SEED_MODE_KEYS = [
   'docsContext',
   'duplicates',
   'maxTickets',
-  'memoryFreshness',
+  'memoryPoolAdvisory',
   'mode',
   'planProfile',
   'planState',
@@ -165,7 +165,7 @@ const SEED_FILE_MODE_KEYS = [
   'docsContext',
   'duplicates',
   'maxTickets',
-  'memoryFreshness',
+  'memoryPoolAdvisory',
   'mode',
   'planProfile',
   'planState',
@@ -190,6 +190,32 @@ describe('plan-context envelope schema (design §1 step 1)', () => {
     assert.equal(env.mode, 'seed-file');
     assert.equal(env.seed.content, ONE_PAGER);
     assert.equal(env.planState, null);
+  });
+
+  it('emits memoryPoolAdvisory and never the retired memoryFreshness key (#4919)', async () => {
+    const env = await buildPlanContext({
+      mode: 'seed',
+      seedText: ONE_PAGER,
+      provider: buildProvider(),
+      config: { github: { owner: 'o', repo: 'r' } },
+      settings: {},
+    });
+    assert.ok(
+      !('memoryFreshness' in env),
+      'the retired memory-freshness pre-flight must not ride the envelope',
+    );
+    const advisory = env.memoryPoolAdvisory;
+    assert.ok(advisory, 'memoryPoolAdvisory must be present');
+    assert.deepEqual(Object.keys(advisory).sort(), [
+      'entryCount',
+      'lastConsolidatedAt',
+      'present',
+      'reasons',
+      'recommend',
+    ]);
+    assert.equal(typeof advisory.present, 'boolean');
+    assert.equal(typeof advisory.recommend, 'boolean');
+    assert.ok(Array.isArray(advisory.reasons));
   });
 
   it('seed mode emits the seed-mode key set (#4496)', async () => {
@@ -1323,7 +1349,7 @@ describe('plan-context amends mode — delta envelope (Story #4741 AC-4)', () =>
     for (const heavy of [
       'bddRunner',
       'bddScenarios',
-      'memoryFreshness',
+      'memoryPoolAdvisory',
       'priorFeedback',
       'sourceTickets',
     ]) {

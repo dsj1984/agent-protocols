@@ -75,6 +75,9 @@ decision-made-by-default.
 **Gate #1** — STOP to confirm the sharpened plan intent and any
 duplicate-candidate review. Under `--yes`, auto-proceed.
 
+On a truthy `memoryPoolAdvisory.recommend`, name [`/memory-consolidate`](memory-consolidate.md)
+as an operator option, quoting its `reasons[]` — advisory, never invoked here.
+
 On a truthy `deliverLightSuggestion.suggested`, offer — advisory, never an
 automatic reroute — to deliver the seed instead; on confirm, route **in this
 session** into [`helpers/deliver-light.md`](helpers/deliver-light.md), its gate
